@@ -1,7 +1,8 @@
 # fpl-platform · Claude Code Handoff
 
 **Prepared:** 2026-03-14
-**Handing off at:** Phase 3d complete
+**Last updated:** 2026-03-14 (Phase 4c complete)
+**Handing off at:** Phase 4c complete
 **Primary package:** `fpl-grounded-assistant`
 
 ---
@@ -243,22 +244,28 @@ new approved slices:
 These were recorded as "next step" in the phase history.  None are committed —
 they require explicit approval and scoping:
 
-**Phase 4a — Live API integration test**
-Wire `assemble_captain_context()` (from `fpl-pipeline`) through `respond()`
-and verify the full stack with live FPL bootstrap data.  Proves the platform
-works end-to-end before any UI work begins.
+**Phase 4a — Live API integration test** *(complete)*
+Wired `assemble_captain_context()` through `respond()` with live FPL bootstrap.
+82/82 PASS.  Files: `run_phase4a_tests.py`.
 
-**Phase 4b — HTTP endpoint**
-Thin FastAPI (or similar) wrapper around `respond()`.  The `FinalResponse`
-dataclass maps cleanly to a JSON response body.  Keep the business logic
-untouched in the grounded-assistant package.
+**Phase 4b — CLI entrypoint** *(complete)*
+`fpl_cli.py`: `run(question, bootstrap, *, debug) → (exit_code, str)` + `main()`.
+Exit 0 = supported intent answered; exit 1 = unsupported intent.
+119/119 PASS.  Files: `fpl_cli.py`, `run_phase4b_tests.py`.
 
-**Phase 4c — Multi-turn state**
+**Phase 4c — HTTP endpoint** *(complete)*
+`fpl_server.py`: FastAPI app with `POST /ask` and `GET /health`.
+Request: `{"question": str, "debug": bool}`.  Response: FinalResponse-compatible JSON.
+HTTP 200 for all FinalResponse outcomes (inspect `supported`/`outcome` in body).
+HTTP 422 for malformed requests.  Bootstrap injected at startup via lifespan.
+148/148 PASS.  Files: `fpl_server.py`, `run_phase4c_tests.py`.
+
+**Phase 4d — Multi-turn state**
 Introduce a `ConversationState` object that tracks player context across turns
 for pronoun resolution.  Design as a separate module — do not modify
 `dispatcher.py` or `adapter.py` in this slice.
 
-**Phase 4d — LLM-based intent classification (optional)**
+**Phase 4e — LLM-based intent classification (optional)**
 Replace or augment the deterministic keyword router with an LLM classification
 step.  The existing `_OUTCOME_INSTRUCTION` and `INTENT_MANIFEST` provide the
 vocabulary.  The deterministic router should remain as a fallback.
@@ -307,7 +314,7 @@ from fpl_grounded_assistant import STANDARD_BOOTSTRAP, AMBIGUOUS_BOOTSTRAP
 
 ---
 
-## Files Added This Session (Phases 3a–3d)
+## Files Added (Phases 3a–4c)
 
 ```
 packages/fpl-grounded-assistant/
@@ -317,10 +324,15 @@ packages/fpl-grounded-assistant/
 │   ├── final_response.py         # Phase 3c — FinalResponse, respond()
 │   └── final_response_fixtures.py # Phase 3d — FinalResponseFixture, 6 scenarios
 ├── FINAL_RESPONSE_CONTRACT.md    # Phase 3d — stable caller-facing contract doc
+├── fpl_cli.py                    # Phase 4b — CLI: run() + main()
+├── fpl_server.py                 # Phase 4c — HTTP: POST /ask, GET /health
 ├── run_phase3a_tests.py          # 269/269 PASS
 ├── run_phase3b_tests.py          # 355/355 PASS
 ├── run_phase3c_tests.py          # 328/328 PASS
-└── run_phase3d_tests.py          # 248/248 PASS
+├── run_phase3d_tests.py          # 248/248 PASS
+├── run_phase4a_tests.py          # 82/82 PASS  (live + offline)
+├── run_phase4b_tests.py          # 119/119 PASS
+└── run_phase4c_tests.py          # 148/148 PASS
 ```
 
 ---
