@@ -1,7 +1,7 @@
 """
 fpl_api_client.fpl_client
 ==========================
-Bootstrap-only HTTP client for the official FPL API.
+HTTP client for the official FPL API.
 
 Phase 1c surface — bootstrap only:
     fetch_json()             Low-level fetch with retry
@@ -10,8 +10,9 @@ Phase 1c surface — bootstrap only:
     get_teams(bootstrap)     Team list derived from bootstrap
     get_current_gameweek()   Current / next gameweek number
 
-Excluded from this slice (Phase 2+):
-    get_fixtures, get_fixture_difficulty_map, get_player_history
+Phase 4a additions — fixtures:
+    get_fixtures(gameweek)                       GW fixture list (live)
+    get_fixture_difficulty_map(fixtures, bootstrap)  {team_id: fdr} map
 
 Reference: fpl-api-client/python/fpl_client.py (audit copy — do not modify)
 Sources:   fpl-video-repurposer/build_fpl_kb.py (fetch_json, build_master_squad)
@@ -30,6 +31,7 @@ import requests
 # ---------------------------------------------------------------------------
 
 BOOTSTRAP_URL = "https://fantasy.premierleague.com/api/bootstrap-static/"
+FIXTURES_URL  = "https://fantasy.premierleague.com/api/fixtures/?event={gameweek}"
 
 # Default HTTP settings
 _DEFAULT_TIMEOUT: int = 30
@@ -173,5 +175,53 @@ def get_current_gameweek(bootstrap: dict[str, Any] | None = None) -> int | None:
         if event.get("is_next"):
             return int(event["id"])
     return None
+
+
+# ---------------------------------------------------------------------------
+# Fixtures  (Phase 4a)
+# ---------------------------------------------------------------------------
+
+def get_fixtures(gameweek: int) -> list[dict[str, Any]]:
+    """Return the fixture list for *gameweek* from the FPL API.
+
+    Each fixture dict contains at minimum ``team_h`` (home team id),
+    ``team_a`` (away team id), and ``event`` (gameweek number).
+
+    Source: fpl-api-client/python/fpl_client.py::get_fixtures
+    """
+    return fetch_json(FIXTURES_URL.format(gameweek=gameweek))
+
+
+def get_fixture_difficulty_map(
+    fixtures: list[dict[str, Any]],
+    bootstrap: dict[str, Any],
+) -> dict[int, int]:
+    """Return ``{team_id: fdr}`` for every team appearing in *fixtures*.
+
+    FDR (fixture difficulty rating) = opponent team's ``strength`` from the
+    bootstrap teams array (1–5 scale).  Teams absent from *fixtures* (blank
+    gameweek) are absent from the returned dict.
+
+    Parameters
+    ----------
+    fixtures:
+        Fixture list for a single gameweek (e.g. from ``get_fixtures()``).
+    bootstrap:
+        FPL bootstrap dict containing a ``teams`` array with ``strength``
+        values.
+
+    Source: captaincy-showdown/src/services/captaincyDataService.ts::getFixtureDifficulty
+    """
+    strength_by_id: dict[int, int] = {
+        t["id"]: t.get("strength", 3)
+        for t in bootstrap.get("teams", [])
+    }
+    fdr_map: dict[int, int] = {}
+    for fix in fixtures:
+        home_id = fix["team_h"]
+        away_id = fix["team_a"]
+        fdr_map[home_id] = strength_by_id.get(away_id, 3)
+        fdr_map[away_id] = strength_by_id.get(home_id, 3)
+    return fdr_map
 
 
