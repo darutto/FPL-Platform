@@ -1,6 +1,6 @@
 # fpl-platform · Package Status
-**Last updated:** 2026-03-08
-**After:** Phase 0 (TypeScript captain engine) + Phase 1a (Python data-core)
+**Last updated:** 2026-03-14
+**After:** Phase 4a (live API integration — fpl-pipeline → respond() wiring verified)
 
 Status vocabulary:
 - `planned` — described in audit, no platform code written yet
@@ -22,7 +22,22 @@ Status vocabulary:
 | **Source of truth** | `captaincy-showdown/src/engine/captainScore.ts` (verbatim copy) |
 | **Upstream dependency risk** | None — zero external npm or upstream-repo dependencies |
 | **Pilot** | `captaincy-showdown` — import alias active in `captaincyDataService.ts`; 29/29 tests pass |
-| **Next step** | Python parity package (Phase 2) — now unblocked by `analytics.py` |
+| **Next step** | No action — stable |
+
+---
+
+## `fpl-captain-engine` (Python)
+
+| Field | Value |
+|-------|-------|
+| **Tier** | A — Fully Owned Internal |
+| **Status** | `parity-validated` |
+| **Public surface** | `calculate_captain_score(form, fixture_difficulty, xgi_per_90, minutes_risk) → float`<br>`CaptainTier` (enum)<br>`get_captain_tier(score) → CaptainTier`<br>`evaluate_role_signals(element, bootstrap) → dict` |
+| **Platform path** | `packages/fpl-captain-engine/fpl_captain_engine/` |
+| **Source of truth** | `packages/fpl-captain-engine/typescript/src/captainScore.ts` (cross-language parity) |
+| **Upstream dependency risk** | None — pure computation, no external dependencies |
+| **Test coverage** | Phases 2a–2h; 78+112+133+132+160+165 assertions across scoring, ranking, auto-derivation, fixture difficulty, tiers, role signals |
+| **Next step** | No action — consumed by fpl-tool-contract and fpl-grounded-assistant |
 
 ---
 
@@ -36,8 +51,8 @@ Status vocabulary:
 | **Platform path** | `packages/fpl-data-core/fpl_data_core/season_registry.py` |
 | **Source of truth** | `captaincy-ml/ml/data/season_layouts.py` + new `season_registry.yaml` |
 | **Upstream dependency risk** | None — pure Python + YAML, no external repos |
-| **Test coverage** | 19 assertions (A1–A14, B1–B5) across smoke + edge cases; 5 data-conditional tests skip cleanly in CI |
-| **Next step** | Consumer import switch in `captaincy-ml` (Phase 3) |
+| **Test coverage** | 19 assertions (A1–A14, B1–B5) across smoke + edge cases |
+| **Next step** | Consumer import switch in `captaincy-ml` (deferred) |
 
 ---
 
@@ -49,10 +64,10 @@ Status vocabulary:
 | **Status** | `parity-validated` |
 | **Public surface** | `compute_rolling_xgi_per_90(df, player_id, lookback=3) → float` |
 | **Platform path** | `packages/fpl-data-core/fpl_data_core/analytics.py` |
-| **Source of truth** | `captaincy-showdown/src/utils/performanceEnricher.ts::buildAggMap` (Python equivalent)<br>Reference copy in `fpl-data-core/python/stat_calculator.py` |
+| **Source of truth** | `captaincy-showdown/src/utils/performanceEnricher.ts::buildAggMap` (Python equivalent) |
 | **Upstream dependency risk** | None — pure pandas, no upstream-repo dependency |
-| **Test coverage** | 15 assertions (E1–E13, F1–F2) including cross-language parity: `1.74` matches `epicA.test.ts` stdout |
-| **Next step** | Consumed by Python captain engine parity package (Phase 2) |
+| **Test coverage** | 15 assertions including cross-language parity: `1.74` matches `epicA.test.ts` stdout |
+| **Next step** | Consumed by fpl-captain-engine Python — no action |
 
 ---
 
@@ -65,9 +80,9 @@ Status vocabulary:
 | **Public surface** | `CUMULATIVE_COLS` (26 items)<br>`ID_COLS`, `SNAPSHOT_COLS`<br>`TOURNAMENT_NAME_MAP`, `EXCLUDED_TOURNAMENTS`, `EXCLUDED_GAMEWEEKS`<br>`POSITION_MAP`<br>`normalise_position(element_type) → str` |
 | **Platform path** | `packages/fpl-data-core/fpl_data_core/schemas.py` |
 | **Source of truth** | `FPL-Elo-Insights/scripts/export_data.py` (lines 12–43) |
-| **Upstream dependency risk** | **Medium** — if upstream changes its CSV column set (e.g. FPL adds a new stat), `CUMULATIVE_COLS` silently drifts. Detected only by running §1.4 contract test. `# aligned-with: <sha>` comment not yet populated. |
-| **Test coverage** | 13 smoke assertions pass (C1–C9, D×14). §1.4 upstream contract tests written but not yet executed against real GW1 CSV. |
-| **Next step** | **Phase 1b candidate** — run §1.4 against real data; add upstream SHA comment |
+| **Upstream dependency risk** | **Medium** — FPL adds stats silently; `CUMULATIVE_COLS` can drift. `# aligned-with: <sha>` not yet populated. |
+| **Test coverage** | 13 smoke assertions pass. §1.4 upstream contract tests written but not run against real GW CSV. |
+| **Next step** | Run §1.4 against real data; add upstream SHA comment |
 
 ---
 
@@ -77,11 +92,10 @@ Status vocabulary:
 |-------|-------|
 | **Tier** | C — Duplication (retirement candidate) |
 | **Status** | `created` (reference only, in `python/` audit folder) |
-| **Public surface** | `make_discrete()`, `calculate_discrete_gameweek_stats()` — **NOT exported from `fpl_data_core`**<br>`compute_rolling_xgi_per_90()` — **promoted to `analytics.py`; remove from here at retirement** |
-| **Platform path** | `packages/fpl-data-core/python/stat_calculator.py` (reference, not in active package) |
-| **Source of truth** | `FPL-Elo-Insights/scripts/export_data.py` (duplicated upstream logic) |
-| **Upstream dependency risk** | High if kept — dual-maintenance burden with upstream. Retirement eliminates the risk. |
-| **Next step** | Retire `make_discrete` + `calculate_discrete_gameweek_stats` after upstream confirms no callers. `compute_rolling_xgi_per_90` already superseded by `analytics.py`. |
+| **Public surface** | Not exported — reference copy only |
+| **Platform path** | `packages/fpl-data-core/python/stat_calculator.py` |
+| **Upstream dependency risk** | High if kept — dual-maintenance burden. Retirement eliminates the risk. |
+| **Next step** | Retire after upstream confirms no callers. `compute_rolling_xgi_per_90` already superseded by `analytics.py`. |
 
 ---
 
@@ -90,12 +104,13 @@ Status vocabulary:
 | Field | Value |
 |-------|-------|
 | **Tier** | A — Fully Owned Internal |
-| **Status** | `created` (reference files in `python/` audit folder; no active package directory yet) |
-| **Public surface** | `fetch_json(url) → dict`<br>`get_bootstrap() → dict`<br>`get_players(bootstrap) → list`<br>`get_teams(bootstrap) → list`<br>`get_current_gameweek(bootstrap) → int\|None`<br>`get_fixture_difficulty_map(gw, teams) → dict`<br>`FootballDataClient(api_key)` |
-| **Platform path** | `packages/fpl-api-client/python/` (reference copy only) |
-| **Source of truth** | `fpl_client.py` ← `fpl-video-repurposer/build_fpl_kb.py`<br>`football_data_client.py` ← `FPL-team-stats` |
-| **Upstream dependency risk** | Medium — FPL bootstrap API is undocumented and can change shape silently. No official changelog. |
-| **Next step** | **Phase 1b candidate** — bootstrap-only package with HTTP-mock smoke tests |
+| **Status** | `parity-validated` |
+| **Public surface** | `fetch_json(url) → Any`<br>`get_bootstrap() → dict`<br>`get_players(bootstrap) → list`<br>`get_teams(bootstrap) → list`<br>`get_current_gameweek(bootstrap) → int\|None`<br>`get_fixtures(gameweek) → list` *(Phase 4a)*<br>`get_fixture_difficulty_map(fixtures, bootstrap) → dict[int, int]` *(Phase 4a)* |
+| **Platform path** | `packages/fpl-api-client/fpl_api_client/` |
+| **Source of truth** | `packages/fpl-api-client/python/fpl_client.py` (audit copy) |
+| **Upstream dependency risk** | Medium — FPL bootstrap API is undocumented and can change shape silently |
+| **Test coverage** | Phase 1c smoke tests; `get_fixtures` + `get_fixture_difficulty_map` integration-tested live in Phase 4a (E1–E13) |
+| **Next step** | No action — consumed by fpl-pipeline |
 
 ---
 
@@ -104,12 +119,11 @@ Status vocabulary:
 | Field | Value |
 |-------|-------|
 | **Tier** | A — Fully Owned Internal |
-| **Status** | `created` (files in `typescript/src/`) |
-| **Public surface** | `getCsvPath(opts) → string` (csvLoader.ts)<br>`loadCSVData(url) → Promise<Row[]>` (csvLoader.ts)<br>`fetchBootstrap()` (fplClient.ts — placeholder) |
+| **Status** | `created` |
+| **Public surface** | `getCsvPath(opts) → string`<br>`loadCSVData(url) → Promise<Row[]>`<br>`fetchBootstrap()` (placeholder) |
 | **Platform path** | `packages/fpl-api-client/typescript/src/` |
-| **Source of truth** | `captaincy-showdown/src/utils/csvPathConfig.ts` + `src/services/captaincyDataService.ts` |
-| **Upstream dependency risk** | Low — path construction is pure string logic; no external dependency |
-| **Next step** | TypeScript tests from TEST_PLAN §2.1–2.3 (Phase 1b or later) |
+| **Upstream dependency risk** | Low — path construction is pure string logic |
+| **Next step** | TypeScript tests (deferred — not on Python platform critical path) |
 
 ---
 
@@ -118,26 +132,55 @@ Status vocabulary:
 | Field | Value |
 |-------|-------|
 | **Tier** | A — Fully Owned Internal |
-| **Status** | `created` (reference file in `python/` audit folder; no active package directory yet) |
-| **Public surface** | `SeasonIdMapper(workspace_root)`<br>`to_canonical(season, ids[]) → list`<br>`to_season(canonical_ids[], season) → list`<br>`resolve_nickname(name, players[]) → dict\|None`<br>`build_name_lookup(players[]) → dict`<br>`KNOWN_NICKNAMES` |
-| **Platform path** | `packages/fpl-player-registry/python/player_registry.py` (reference copy only) |
-| **Source of truth** | `captaincy-ml/ml/data/season_id_mapper.py` + `fpl-video-repurposer` nickname logic |
-| **Upstream dependency risk** | Low for logic; medium for ID mappings (requires bootstrap data from FPL API) |
-| **Next step** | Phase 1c — depends on `fpl-api-client` bootstrap for full integration tests |
+| **Status** | `parity-validated` |
+| **Public surface** | `resolve_player(query, bootstrap) → dict\|None`<br>`build_name_lookup(bootstrap) → dict`<br>`KNOWN_NICKNAMES`<br>Alias/nickname resolution (KDB, Salah, etc.) |
+| **Platform path** | `packages/fpl-player-registry/fpl_player_registry/` |
+| **Source of truth** | `fpl-video-repurposer` nickname logic + FPL bootstrap element names |
+| **Upstream dependency risk** | Low for logic; medium for player IDs (FPL bootstrap dependent) |
+| **Test coverage** | Phase 1d tests; exercised across all grounded-assistant tool phases |
+| **Next step** | No action — consumed by fpl-tool-contract |
 
 ---
 
-## `fpl-charts` (TypeScript)
+## `fpl-query-tools`
 
 | Field | Value |
 |-------|-------|
 | **Tier** | A — Fully Owned Internal |
-| **Status** | `created` (single `theme.ts` file) |
-| **Public surface** | `COLORS`, `BRAND`, `CHART_COLORS`<br>`RISK`, `getRiskLevel(minutes_risk) → 'low'\|'medium'\|'high'` |
-| **Platform path** | `packages/fpl-charts/src/theme.ts` |
-| **Source of truth** | `captaincy-showdown/src/brand.ts` + `src/components/PlayerCard.tsx` |
-| **Upstream dependency risk** | None — pure constants and pure function |
-| **Next step** | Vitest tests from TEST_PLAN §5.1–5.3 (deferred to Phase 2+; not on critical path) |
+| **Status** | `parity-validated` |
+| **Public surface** | Player lookup composition layer — bridges fpl-player-registry name resolution with bootstrap element lookup |
+| **Platform path** | `packages/fpl-query-tools/fpl_query_tools/` |
+| **Upstream dependency risk** | None — pure composition of fpl-player-registry + bootstrap |
+| **Test coverage** | Phase 1e tests; exercised across all grounded-assistant tool phases |
+| **Next step** | No action — consumed by fpl-tool-contract |
+
+---
+
+## `fpl-tool-contract`
+
+| Field | Value |
+|-------|-------|
+| **Tier** | A — Fully Owned Internal |
+| **Status** | `parity-validated` |
+| **Public surface** | `tool_resolve_player(query, bootstrap) → dict`<br>`tool_get_player_summary(query, bootstrap) → dict`<br>`tool_get_current_gameweek(bootstrap) → dict`<br>`tool_get_captain_score(query, bootstrap, candidate_inputs) → dict`<br>`tool_rank_captain_candidates(candidates, bootstrap) → dict` |
+| **Platform path** | `packages/fpl-tool-contract/fpl_tool_contract/` |
+| **Upstream dependency risk** | None — pure composition of captain engine + player registry |
+| **Test coverage** | Phase 1f tests (run_phase1f_tests.py) |
+| **Next step** | No action — consumed by fpl-tool-runner |
+
+---
+
+## `fpl-tool-runner`
+
+| Field | Value |
+|-------|-------|
+| **Tier** | A — Fully Owned Internal |
+| **Status** | `parity-validated` |
+| **Public surface** | `run_tool(name, args, bootstrap) → dict`<br>`TOOL_REGISTRY` (ToolRegistry)<br>`ToolRegistry`<br>`ToolSpec` |
+| **Platform path** | `packages/fpl-tool-runner/fpl_tool_runner/` |
+| **Upstream dependency risk** | None — pure dispatch layer |
+| **Test coverage** | Phase 1g tests (run_phase1g_tests.py); bug fixed in Phase 4a (`_rank_captain_candidates_handler` was passing full args dict instead of `args["candidates"]`) |
+| **Next step** | No action — consumed by fpl-grounded-assistant |
 
 ---
 
@@ -146,27 +189,62 @@ Status vocabulary:
 | Field | Value |
 |-------|-------|
 | **Tier** | A — Fully Owned Internal |
-| **Status** | `planned` |
-| **Public surface** | None yet |
-| **Source of truth** | N/A — new orchestration layer |
-| **Upstream dependency risk** | None until modules are wired in |
-| **Next step** | Deferred until all Phase 1 packages reach `parity-validated` |
+| **Status** | `parity-validated` |
+| **Public surface** | `assemble_captain_context(gameweek=None, *, bootstrap=None, fixtures=None) → dict`<br>Returns: `bootstrap` (with `fixture_difficulty_map` injected), `gameweek`, `fixtures`, `fixture_difficulty_map`, `meta` |
+| **Platform path** | `packages/fpl-pipeline/fpl_pipeline/` |
+| **Source of truth** | New orchestration layer — no upstream source |
+| **Upstream dependency risk** | None — composes fpl-api-client calls only |
+| **Test coverage** | Phase 2e tests (run_phase2e_tests.py); live integration-tested in Phase 4a (E1–E13) |
+| **Next step** | No action — consumed by fpl-grounded-assistant callers |
+
+---
+
+## `fpl-grounded-assistant`
+
+| Field | Value |
+|-------|-------|
+| **Tier** | A — Fully Owned Internal |
+| **Status** | `pilot-validated` |
+| **Public surface** | `respond(user_message, bootstrap, *, client, model, candidate_inputs, candidates_list, api_key, include_debug) → FinalResponse`<br>`FinalResponse` (frozen dataclass — stable contract)<br>`FinalResponseDebug` (frozen dataclass — debug only)<br>`adapt(...) → AdapterResponse`<br>`dispatch(...) → DispatchResult`<br>`ask(...) → dict`<br>Outcome/intent constants, fixture definitions, `run_all_final_response()` |
+| **Platform path** | `packages/fpl-grounded-assistant/fpl_grounded_assistant/` |
+| **Source of truth** | New — no upstream source; this is the primary platform product |
+| **Upstream dependency risk** | LLM layer: Anthropic API availability (graceful fallback to deterministic path when unavailable) |
+| **Test coverage** | 19 standalone test runners, 3,293 total assertions (Phases 1h–4a); 82 live integration assertions against real FPL API (Phase 4a) |
+| **Pilot** | Phase 4a — `assemble_captain_context() → respond()` wiring verified with live FPL bootstrap; 82/82 PASS |
+| **Contract doc** | `packages/fpl-grounded-assistant/FINAL_RESPONSE_CONTRACT.md` — stable caller-facing surface (Phase 3d) |
+| **Next step** | Phase 4b (HTTP endpoint) or Phase 4c (multi-turn state) — see HANDOFF.md |
+
+---
+
+## `fpl-charts` (TypeScript)
+
+| Field | Value |
+|-------|-------|
+| **Tier** | A — Fully Owned Internal |
+| **Status** | `created` |
+| **Public surface** | `COLORS`, `BRAND`, `CHART_COLORS`<br>`RISK`, `getRiskLevel(minutes_risk) → 'low'\|'medium'\|'high'` |
+| **Platform path** | `packages/fpl-charts/src/theme.ts` |
+| **Upstream dependency risk** | None — pure constants and pure function |
+| **Next step** | Deferred — not on Python platform critical path |
 
 ---
 
 ## Summary table
 
-| Package / Module | Tier | Status | Blocker |
+| Package / Module | Tier | Status | Notes |
 |---|---|---|---|
-| `fpl-captain-engine` TypeScript | A | `pilot-validated` | — |
-| `fpl-data-core/season_registry` | A | `parity-validated` | — |
-| `fpl-data-core/analytics` | A | `parity-validated` | — |
-| `fpl-data-core/schemas` | B | `created` | §1.4 contract test not yet run |
-| `fpl-data-core/stat_calculator` | C | `created` | Retirement pending upstream sign-off |
-| `fpl-api-client` Python | A | `created` | Active package dir not yet built |
-| `fpl-api-client` TypeScript | A | `created` | Tests not yet written |
-| `fpl-player-registry` | A | `created` | Needs `fpl-api-client` for ID tests |
-| `fpl-charts` | A | `created` | Tests not yet written |
-| `fpl-pipeline` | A | `planned` | All others first |
-
-
+| `fpl-captain-engine` TypeScript | A | `pilot-validated` | Stable |
+| `fpl-captain-engine` Python | A | `parity-validated` | Phases 2a–2h |
+| `fpl-data-core/season_registry` | A | `parity-validated` | Stable |
+| `fpl-data-core/analytics` | A | `parity-validated` | Stable |
+| `fpl-data-core/schemas` | B | `created` | §1.4 upstream contract test not yet run |
+| `fpl-data-core/stat_calculator` | C | `created` | Retirement pending |
+| `fpl-api-client` Python | A | `parity-validated` | Phase 1c + 4a fixtures |
+| `fpl-api-client` TypeScript | A | `created` | Not on critical path |
+| `fpl-player-registry` | A | `parity-validated` | Phase 1d |
+| `fpl-query-tools` | A | `parity-validated` | Phase 1e |
+| `fpl-tool-contract` | A | `parity-validated` | Phase 1f |
+| `fpl-tool-runner` | A | `parity-validated` | Phase 1g; bug fixed 4a |
+| `fpl-pipeline` | A | `parity-validated` | Phase 2e; live-tested 4a |
+| `fpl-grounded-assistant` | A | `pilot-validated` | Phases 1h–4a; 3,293 assertions |
+| `fpl-charts` TypeScript | A | `created` | Not on critical path |
