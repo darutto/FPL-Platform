@@ -233,7 +233,7 @@ def _rank_captain_candidates_handler(
     args:      dict[str, Any],
     bootstrap: dict[str, Any],
 ) -> dict[str, Any]:
-    return tool_rank_captain_candidates(args, bootstrap)
+    return tool_rank_captain_candidates(args.get("candidates", []), bootstrap)
 
 
 TOOL_REGISTRY = ToolRegistry()
