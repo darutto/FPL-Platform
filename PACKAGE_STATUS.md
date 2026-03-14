@@ -1,6 +1,6 @@
 # fpl-platform · Package Status
 **Last updated:** 2026-03-14
-**After:** Phase 4a (live API integration — fpl-pipeline → respond() wiring verified)
+**After:** Phase 4b (CLI entrypoint — fpl_cli.py wrapping respond() + 119/119 assertions)
 
 Status vocabulary:
 - `planned` — described in audit, no platform code written yet
@@ -209,10 +209,10 @@ Status vocabulary:
 | **Platform path** | `packages/fpl-grounded-assistant/fpl_grounded_assistant/` |
 | **Source of truth** | New — no upstream source; this is the primary platform product |
 | **Upstream dependency risk** | LLM layer: Anthropic API availability (graceful fallback to deterministic path when unavailable) |
-| **Test coverage** | 19 standalone test runners, 3,293 total assertions (Phases 1h–4a); 82 live integration assertions against real FPL API (Phase 4a) |
+| **Test coverage** | 20 standalone test runners, 3,412 total assertions (Phases 1h–4b); 82 live integration assertions against real FPL API (Phase 4a); 119 CLI assertions (Phase 4b) |
 | **Pilot** | Phase 4a — `assemble_captain_context() → respond()` wiring verified with live FPL bootstrap; 82/82 PASS |
 | **Contract doc** | `packages/fpl-grounded-assistant/FINAL_RESPONSE_CONTRACT.md` — stable caller-facing surface (Phase 3d) |
-| **Next step** | Phase 4b (HTTP endpoint) or Phase 4c (multi-turn state) — see HANDOFF.md |
+| **Next step** | Phase 4c (HTTP endpoint) or Phase 4d (multi-turn state) — see HANDOFF.md |
 
 ---
 
@@ -246,5 +246,6 @@ Status vocabulary:
 | `fpl-tool-contract` | A | `parity-validated` | Phase 1f |
 | `fpl-tool-runner` | A | `parity-validated` | Phase 1g; bug fixed 4a |
 | `fpl-pipeline` | A | `parity-validated` | Phase 2e; live-tested 4a |
-| `fpl-grounded-assistant` | A | `pilot-validated` | Phases 1h–4a; 3,293 assertions |
+| `fpl-grounded-assistant` | A | `pilot-validated` | Phases 1h–4b; 3,412 assertions |
+| `fpl_cli` (CLI entrypoint) | A | `parity-validated` | Phase 4b; 119 assertions |
 | `fpl-charts` TypeScript | A | `created` | Not on critical path |
