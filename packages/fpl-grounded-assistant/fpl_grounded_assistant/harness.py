@@ -1,0 +1,316 @@
+"""
+fpl_grounded_assistant.harness
+================================
+End-to-end grounded-assistant harness.
+
+Ties together the deterministic router, the in-process tool runner,
+and the safe-text renderer into a single ``ask()`` call.
+
+Returned structure
+------------------
+::
+
+    {
+        "selected_tool":  str | None,      # tool name chosen by router
+        "tool_input":     dict,            # args passed to run_tool
+        "raw_output":     dict,            # raw dict from run_tool
+        "answer_text":    str,             # rendered human-readable answer
+        # present only when assembled context was passed:
+        "context_meta":   dict | None,     # from assemble_captain_context()
+    }
+
+No LLM integration, no HTTP server, no live API calls — all data flows
+through the bootstrap dict that the caller supplies.
+
+Phase 2a changes
+----------------
+* ``ask()`` now accepts an optional ``candidate_inputs`` dict.  When the
+  router identifies a ``get_captain_score`` intent, the harness merges
+  ``candidate_inputs`` (form, fixture_difficulty, xgi_per_90, minutes_risk)
+  into ``tool_args`` before calling ``run_tool``.  If ``candidate_inputs``
+  is ``None``, the runner returns a ``missing_argument`` error which the
+  renderer translates into a helpful message.
+
+Phase 2b changes
+----------------
+* ``ask()`` now accepts an optional ``candidates_list`` parameter.  When the
+  router identifies a ``rank_captain_candidates`` intent, the harness sets
+  ``tool_args["candidates"] = candidates_list`` before calling ``run_tool``.
+  If ``candidates_list`` is ``None`` or empty, the runner returns a
+  ``missing_argument`` error which the renderer renders gracefully.
+
+Phase 2c changes
+----------------
+* Auto-derivation of captain scoring inputs is now handled by the tool-contract
+  layer (``tool_get_captain_score`` and ``tool_rank_captain_candidates``).  The
+  harness no longer needs to supply ``form``, ``minutes_risk``, or ``xgi_per_90``
+  explicitly — those are derived from the bootstrap element.
+* ``candidate_inputs`` and ``candidates_list`` remain optional parameters so
+  that callers can still supply explicit overrides.
+
+Phase 2d changes
+----------------
+* ``fixture_difficulty`` is now also auto-derived by the tool-contract layer
+  when the caller has pre-injected ``bootstrap["fixture_difficulty_map"]``
+  (from ``fpl_api_client.get_fixture_difficulty_map``).  FDR = opponent team
+  strength (1–5).
+* When the map is present, neither ``candidate_inputs`` nor any
+  ``fixture_difficulty`` key in ``candidates_list`` entries is required.
+* ``fixture_difficulty`` can still be overridden explicitly via
+  ``candidate_inputs`` (for ``get_captain_score``) or per-candidate dict
+  (for ``rank_captain_candidates``).
+* Teams with a blank gameweek (absent from the map) still require
+  ``fixture_difficulty`` to be provided explicitly.
+* Typical caller setup::
+
+      from fpl_api_client import get_bootstrap, get_fixtures, get_fixture_difficulty_map
+      bootstrap = get_bootstrap()
+      fixtures  = get_fixtures(gameweek=get_current_gameweek(bootstrap))
+      bootstrap["fixture_difficulty_map"] = get_fixture_difficulty_map(fixtures, bootstrap)
+      result = ask("Who should I captain?", bootstrap, candidates_list=[{"query": "Haaland"}])
+
+Phase 2e changes
+----------------
+* Context assembly burden is now owned by ``fpl_pipeline.assemble_captain_context()``.
+  The caller no longer needs to call ``get_bootstrap``, ``get_current_gameweek``,
+  ``get_fixtures``, and ``get_fixture_difficulty_map`` separately.  Typical setup::
+
+      from fpl_pipeline import assemble_captain_context
+      ctx    = assemble_captain_context()
+      result = ask("Who should I captain?", ctx["bootstrap"], candidates_list=[...])
+
+* ``ctx["bootstrap"]`` already has ``fixture_difficulty_map`` injected.
+* ``ctx["meta"]["blank_gw_teams"]`` lists any teams without a fixture this GW.
+* The harness itself is unchanged in Phase 2e — no new parameters.
+
+Phase 2f changes
+----------------
+* ``ask()`` now accepts the **full assembled context dict** directly —
+  not just the extracted ``ctx["bootstrap"]``.  The caller no longer needs
+  to unpack the context::
+
+      # Phase 2f (preferred)
+      ctx    = assemble_captain_context()
+      result = ask("Who should I captain?", ctx)          # pass ctx directly
+
+      # Phase 2e (still works — backwards compatible)
+      result = ask("Who should I captain?", ctx["bootstrap"])
+
+      # Phase 2d (still works — backwards compatible)
+      result = ask("Who should I captain?", bootstrap)
+
+* Detection is automatic: if the first data argument has a nested
+  ``"bootstrap"`` key whose value is a dict, it is treated as an assembled
+  context; otherwise it is treated as a raw bootstrap.
+
+* When assembled context is detected, the return dict gains a
+  ``"context_meta"`` key containing ``ctx["meta"]`` (gameweek, fixture_count,
+  blank_gw_teams, assembled_at, …).  This key is **absent** when a raw
+  bootstrap is passed, preserving full backwards compatibility.
+
+* No assembly logic lives inside the harness.  Context assembly remains
+  entirely in ``fpl_pipeline.assemble_captain_context()``.
+
+Known gaps (remaining before true LLM integration)
+---------------------------------------------------
+1. **Router precision**: purely keyword-based; "Salah is a great player" would
+   not route correctly.  A real dispatcher will use intent classification.
+
+2. **Stateless routing**: no conversation history; "What about his price?"
+   cannot be resolved without pronoun context.
+
+3. **No combined intents**: "Who is Salah and what gameweek is it?" routes only
+   to the first matched intent and ignores the rest.
+
+4. **Context assembly**: the caller must still assemble the bootstrap context
+   (fetch → inject → ask).  Use ``fpl_pipeline.assemble_captain_context()``
+   (Phase 2e) to do this in a single call — it returns a ``ctx`` dict whose
+   ``ctx["bootstrap"]`` (or ``ctx`` itself, Phase 2f) is ready for ``ask()``.
+"""
+from __future__ import annotations
+
+from typing import Any
+
+from fpl_grounded_assistant.renderer import render
+from fpl_grounded_assistant.router import route
+from fpl_tool_runner import run_tool
+
+# ---------------------------------------------------------------------------
+# Unrecognised-query sentinel
+# ---------------------------------------------------------------------------
+
+_UNRECOGNISED = {
+    "status":  "error",
+    "code":    "unrecognised_query",
+    "message": (
+        "The question could not be mapped to a known tool. "
+        "Try asking 'Who is [player]?', 'Give me a summary for [player]', "
+        "or 'What is the current gameweek?'."
+    ),
+}
+
+
+# ---------------------------------------------------------------------------
+# Context detection helper
+# ---------------------------------------------------------------------------
+
+def _is_assembled_context(data: dict[str, Any]) -> bool:
+    """Return True when *data* is an assembled context from ``assemble_captain_context()``.
+
+    Detection rule: the assembled context has a nested ``"bootstrap"`` key
+    whose value is a dict.  A raw FPL bootstrap dict does not contain such a
+    key (the FPL API never nests a ``"bootstrap"`` key inside bootstrap-static).
+
+    This keeps detection O(1) and avoids inspecting every possible key.
+    """
+    return isinstance(data.get("bootstrap"), dict)
+
+
+def _resolve_bootstrap_and_meta(
+    data: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    """Return *(bootstrap, meta)* from either an assembled context or a raw bootstrap.
+
+    When *data* is an assembled context:
+        * ``bootstrap`` = ``data["bootstrap"]`` (has ``fixture_difficulty_map`` injected)
+        * ``meta``      = ``data["meta"]``
+
+    When *data* is a raw bootstrap:
+        * ``bootstrap`` = ``data`` unchanged
+        * ``meta``      = ``None`` (no meta available)
+    """
+    if _is_assembled_context(data):
+        return data["bootstrap"], data.get("meta")
+    return data, None
+
+
+# ---------------------------------------------------------------------------
+# Public harness entry point
+# ---------------------------------------------------------------------------
+
+def ask(
+    question: str,
+    bootstrap: dict[str, Any],
+    candidate_inputs: dict[str, Any] | None = None,
+    candidates_list: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """
+    Route *question*, execute the matched tool, and render a safe answer.
+
+    Parameters
+    ----------
+    question:
+        A user-style natural-language question.
+    bootstrap:
+        Either:
+
+        * A raw FPL bootstrap dict (``"elements"``, ``"teams"``, ``"events"``
+          keys) — as returned by ``fpl_api_client.get_bootstrap()``.  For
+          automatic FDR derivation also inject
+          ``bootstrap["fixture_difficulty_map"]`` first (Phase 2d).
+
+        * A **full assembled context dict** from
+          ``fpl_pipeline.assemble_captain_context()`` — i.e. the entire
+          ``ctx`` dict including ``"bootstrap"``, ``"gameweek"``,
+          ``"fixtures"``, ``"meta"``, … (Phase 2f).  The harness extracts
+          the nested bootstrap automatically.  When this form is used the
+          return dict gains a ``"context_meta"`` key.
+
+    candidate_inputs:
+        Optional scoring inputs for captain score questions.  All four
+        inputs (``form``, ``xgi_per_90``, ``minutes_risk``,
+        ``fixture_difficulty``) are auto-derived from the bootstrap element
+        and the injected ``fixture_difficulty_map`` — supply explicit values
+        here only to override the auto-derived ones.
+
+    candidates_list:
+        Optional list of candidate dicts for ranking questions.  Each dict
+        requires at minimum ``"query"``.  All scoring inputs are
+        auto-derived unless explicitly overridden per-candidate.
+        If omitted entirely, the runner returns a ``missing_argument`` error.
+
+    Returns
+    -------
+    dict with keys:
+
+        ``selected_tool``   — tool name (str) or ``None`` if unrecognised.
+        ``tool_input``      — args dict passed to ``run_tool``.
+        ``raw_output``      — raw response dict from ``run_tool``.
+        ``answer_text``     — safe, human-readable sentence.
+        ``context_meta``    — meta dict from assembled context (Phase 2f);
+                              key is **absent** when raw bootstrap is passed,
+                              preserving backwards compatibility.
+
+    Examples
+    --------
+    Context-native (Phase 2f — recommended)::
+
+        from fpl_pipeline import assemble_captain_context
+        from fpl_grounded_assistant import ask
+
+        ctx    = assemble_captain_context()
+        result = ask("captain score for Haaland", ctx)
+        # result["context_meta"]["blank_gw_teams"] → list of blank-GW team IDs
+
+    Legacy raw-bootstrap (still works unchanged)::
+
+        result = ask("captain score for Haaland", bootstrap)
+        # No "context_meta" key in result
+    """
+    # ------------------------------------------------------------------
+    # 1. Resolve bootstrap + optional meta
+    # ------------------------------------------------------------------
+    actual_bootstrap, context_meta = _resolve_bootstrap_and_meta(bootstrap)
+
+    # ------------------------------------------------------------------
+    # 2. Route question
+    # ------------------------------------------------------------------
+    route_result = route(question)
+
+    if route_result is None:
+        result = {
+            "selected_tool": None,
+            "tool_input":    {},
+            "raw_output":    _UNRECOGNISED,
+            "answer_text":   _UNRECOGNISED["message"],
+        }
+        if context_meta is not None:
+            result["context_meta"] = context_meta
+        return result
+
+    tool_args: dict[str, Any] = dict(route_result.tool_args)
+
+    # ------------------------------------------------------------------
+    # 3. Inject optional caller overrides
+    # ------------------------------------------------------------------
+    # Merge candidate_inputs into tool_args for captain score questions
+    if route_result.tool_name == "get_captain_score" and candidate_inputs:
+        tool_args.update(candidate_inputs)
+
+    # Inject candidates_list for ranking questions
+    if route_result.tool_name == "rank_captain_candidates" and candidates_list is not None:
+        tool_args["candidates"] = candidates_list
+
+    # ------------------------------------------------------------------
+    # 4. Execute tool
+    # ------------------------------------------------------------------
+    raw_output = run_tool(
+        route_result.tool_name,
+        tool_args,
+        actual_bootstrap,
+    )
+
+    answer_text = render(route_result.tool_name, raw_output)
+
+    # ------------------------------------------------------------------
+    # 5. Build return dict
+    # ------------------------------------------------------------------
+    result = {
+        "selected_tool": route_result.tool_name,
+        "tool_input":    tool_args,
+        "raw_output":    raw_output,
+        "answer_text":   answer_text,
+    }
+    if context_meta is not None:
+        result["context_meta"] = context_meta
+    return result

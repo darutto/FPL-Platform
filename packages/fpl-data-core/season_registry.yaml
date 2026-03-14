@@ -1,0 +1,56 @@
+# fpl-data-core · packages/fpl-data-core/season_registry.yaml
+# =============================================================
+# Canonical season layout registry.
+#
+# SOURCE:  Extracted and externalised from:
+#   - captaincy-ml/ml/data/season_layouts.py  (_initialize_registry, lines 135-178)
+#   - captaincy-showdown/src/utils/csvPathConfig.ts  (season-specific path logic)
+#
+# REPLACES (do NOT delete originals until migration is approved):
+#   - captaincy-ml/ml/data/season_layouts.py  hardcoded _initialize_registry block
+#   - captaincy-showdown/src/utils/csvPathConfig.ts  season string comparisons
+#
+# HOW TO ADD A NEW SEASON:
+#   1. Add a new entry in the `seasons` list below.
+#   2. No Python or TypeScript source changes needed.
+# =============================================================
+
+seasons:
+
+  - season: "2024-2025"
+    data_root: "data/2024-2025"
+    has_consolidated_files: true
+    player_id_column: "id"
+    gameweek_column: "event"
+    gameweek_pattern: "GW{gw}"
+    files:
+      players:              "players/players.csv"
+      playerstats:          "playerstats/playerstats.csv"
+      matches:              "matches/matches.csv"
+      teams:                "teams/teams.csv"
+      playermatchstats:     "playermatchstats/playermatchstats.csv"
+      # Per-gameweek patterns — {gw} is replaced with GW{number}
+      matches_gw:           "matches/{gw}/matches.csv"
+      playermatchstats_gw:  "playermatchstats/{gw}/playermatchstats.csv"
+
+  - season: "2025-2026"
+    data_root: "data/2025-2026"
+    has_consolidated_files: false
+    player_id_column: "id"
+    gameweek_column: "gw"
+    gameweek_pattern: "GW{gw}"
+    files:
+      players:              "players.csv"
+      teams:                "teams.csv"
+      gameweek_summaries:   "gameweek_summaries.csv"
+      player_gameweek_stats: "player_gameweek_stats.csv"
+      # Per-gameweek patterns
+      playerstats_gw:       "By Gameweek/{gw}/playerstats.csv"
+      matches_gw:           "By Gameweek/{gw}/matches.csv"
+      fixtures_gw:          "By Gameweek/{gw}/fixtures.csv"
+      playermatchstats_gw:  "By Gameweek/{gw}/playermatchstats.csv"
+      # Per-tournament patterns (also include gameweek nesting)
+      playerstats_tournament: "By Tournament/{tournament}/playerstats.csv"
+      matches_tournament:     "By Tournament/{tournament}/matches.csv"
+
+
