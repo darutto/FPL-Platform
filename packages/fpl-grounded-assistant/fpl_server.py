@@ -1,7 +1,7 @@
 """
 fpl_server -- minimal HTTP entrypoint for the FPL grounded assistant.
 
-Phase 4c: thin HTTP interface.
+Phase 4i: session hygiene and lifecycle hardening.
 
 Exposes one endpoint over HTTP that wraps ``respond()`` and returns a
 ``FinalResponse``-compatible JSON payload.  Bootstrap is assembled once
@@ -37,8 +37,10 @@ HTTP status codes
 """
 from __future__ import annotations
 
+import time
 import uuid
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
@@ -70,17 +72,69 @@ def _init_bootstrap(bs: dict[str, Any]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# In-memory session registry
-#
-# Maps session_id (UUID4 string) → ConversationSession.
-# Session lifetime is bounded to the process; no persistence.
+# _SessionEntry dataclass
 # ---------------------------------------------------------------------------
-_sessions: dict[str, Any] = {}
+
+@dataclass
+class _SessionEntry:
+    """In-memory record for a single conversation session.
+
+    Attributes
+    ----------
+    session:
+        The ``ConversationSession`` instance that holds conversation state.
+    created_at:
+        ``time.time()`` at the moment this session was created.
+    last_used_at:
+        ``time.time()`` updated after every successful turn.  Drives TTL eviction.
+    """
+
+    session: Any       # ConversationSession — lazy-imported to avoid circular dep
+    created_at: float
+    last_used_at: float
+
+
+# ---------------------------------------------------------------------------
+# Session configuration
+# ---------------------------------------------------------------------------
+
+_SESSION_TTL_SECONDS: int = 1800   # idle timeout; 0 = no expiration
+_SESSION_MAX_COUNT:   int = 100    # cap to prevent unbounded growth
+
+
+# ---------------------------------------------------------------------------
+# In-memory session registry
+# ---------------------------------------------------------------------------
+
+_sessions: dict[str, _SessionEntry] = {}
 
 
 def _clear_sessions() -> None:
     """Clear all sessions.  Used by tests to reset state between suites."""
     _sessions.clear()
+
+
+def _prune_expired_sessions() -> int:
+    """Remove sessions idle longer than ``_SESSION_TTL_SECONDS``.
+
+    Called lazily on ``POST /session`` before creating a new entry.
+    A TTL of 0 disables expiration entirely.
+
+    Returns
+    -------
+    int
+        Number of sessions removed.
+    """
+    if _SESSION_TTL_SECONDS <= 0:
+        return 0
+    now = time.time()
+    expired_ids = [
+        sid for sid, entry in list(_sessions.items())
+        if now - entry.last_used_at > _SESSION_TTL_SECONDS
+    ]
+    for sid in expired_ids:
+        del _sessions[sid]
+    return len(expired_ids)
 
 
 # ---------------------------------------------------------------------------
@@ -114,6 +168,8 @@ class CreateSessionResponse(BaseModel):
     """Response from POST /session."""
 
     session_id: str
+    created_at: float
+    expires_after_seconds: int
 
 
 class SessionAskResponse(BaseModel):
@@ -142,6 +198,15 @@ class ClearSessionResponse(BaseModel):
     session_id: str
 
 
+class SessionInfoResponse(BaseModel):
+    """Response from GET /session/{session_id}."""
+
+    session_id: str
+    created_at: float
+    last_used_at: float
+    turn_count: int
+
+
 # ---------------------------------------------------------------------------
 # Application + lifespan
 # ---------------------------------------------------------------------------
@@ -164,7 +229,7 @@ app = FastAPI(
         "Thin HTTP wrapper around respond().  "
         "Routing and scoring are deterministic; LLM presentation is optional."
     ),
-    version="4h",
+    version="4i",
     lifespan=lifespan,
 )
 
@@ -226,13 +291,31 @@ def ask(req: AskRequest) -> AskResponse:
 def create_session() -> CreateSessionResponse:
     """Create a new in-memory conversation session.
 
-    Returns a session_id to use in subsequent /session/{session_id}/ask calls.
-    Sessions are in-memory only; they are lost on server restart.
+    Prunes expired sessions before creating a new entry.
+    Returns HTTP 429 when the session cap (_SESSION_MAX_COUNT) is reached.
+
+    Returns a session_id, creation timestamp, and the configured TTL so
+    callers know when the session will expire if idle.
     """
     from fpl_grounded_assistant import ConversationSession  # noqa: PLC0415
+    _prune_expired_sessions()
+    if len(_sessions) >= _SESSION_MAX_COUNT:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Session cap reached ({_SESSION_MAX_COUNT}). Clear idle sessions and retry.",
+        )
+    now = time.time()
     session_id = str(uuid.uuid4())
-    _sessions[session_id] = ConversationSession()
-    return CreateSessionResponse(session_id=session_id)
+    _sessions[session_id] = _SessionEntry(
+        session=ConversationSession(),
+        created_at=now,
+        last_used_at=now,
+    )
+    return CreateSessionResponse(
+        session_id=session_id,
+        created_at=now,
+        expires_after_seconds=_SESSION_TTL_SECONDS,
+    )
 
 
 @app.post("/session/{session_id}/ask", response_model=SessionAskResponse)
@@ -255,17 +338,24 @@ def session_ask(session_id: str, req: AskRequest) -> SessionAskResponse:
     HTTP status codes
     -----------------
     200   Turn processed.  Inspect supported/outcome in the response body.
-    404   session_id not found — create a session first with POST /session.
+    404   session_id not found or expired.
     422   Malformed request body.
     503   Bootstrap not initialised.
     """
     if _bootstrap is None:
         raise HTTPException(status_code=503, detail="Bootstrap not initialised")
-    if session_id not in _sessions:
+
+    entry = _sessions.get(session_id)
+    if entry is None:
         raise HTTPException(status_code=404, detail=f"Session not found: {session_id}")
 
-    session = _sessions[session_id]
-    r = session.respond(req.question, _bootstrap, include_debug=req.debug)
+    # Lazy TTL check — treat expired session the same as not found
+    if _SESSION_TTL_SECONDS > 0 and time.time() - entry.last_used_at > _SESSION_TTL_SECONDS:
+        del _sessions[session_id]
+        raise HTTPException(status_code=404, detail=f"Session expired: {session_id}")
+
+    r = entry.session.respond(req.question, _bootstrap, include_debug=req.debug)
+    entry.last_used_at = time.time()
 
     debug_bundle: dict[str, Any] | None = None
     rewritten_question: str | None = None
@@ -313,12 +403,40 @@ def clear_session(session_id: str) -> ClearSessionResponse:
     HTTP status codes
     -----------------
     200   Session cleared successfully.
-    404   session_id not found.
+    404   session_id not found (or already expired and cleaned up).
     """
     if session_id not in _sessions:
         raise HTTPException(status_code=404, detail=f"Session not found: {session_id}")
     del _sessions[session_id]
     return ClearSessionResponse(status="cleared", session_id=session_id)
+
+
+@app.get("/session/{session_id}", response_model=SessionInfoResponse)
+def get_session(session_id: str) -> SessionInfoResponse:
+    """Inspect metadata for an existing session.
+
+    Returns creation/last-used timestamps and turn count.  Performs a lazy
+    TTL check — expired sessions are removed and return 404.
+
+    HTTP status codes
+    -----------------
+    200   Session found; metadata returned.
+    404   session_id not found or expired.
+    """
+    entry = _sessions.get(session_id)
+    if entry is None:
+        raise HTTPException(status_code=404, detail=f"Session not found: {session_id}")
+
+    if _SESSION_TTL_SECONDS > 0 and time.time() - entry.last_used_at > _SESSION_TTL_SECONDS:
+        del _sessions[session_id]
+        raise HTTPException(status_code=404, detail=f"Session expired: {session_id}")
+
+    return SessionInfoResponse(
+        session_id=session_id,
+        created_at=entry.created_at,
+        last_used_at=entry.last_used_at,
+        turn_count=entry.session.turn_count,
+    )
 
 
 # ---------------------------------------------------------------------------
