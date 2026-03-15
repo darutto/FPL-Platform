@@ -1,8 +1,8 @@
 # fpl-platform · Claude Code Handoff
 
 **Prepared:** 2026-03-14
-**Last updated:** 2026-03-14 (Phase 4i complete)
-**Handing off at:** Phase 4i complete
+**Last updated:** 2026-03-15 (Phase 4j complete)
+**Handing off at:** Phase 4j complete
 **Primary package:** `fpl-grounded-assistant`
 
 ---
@@ -85,6 +85,7 @@ self-contained (no pytest required, no network, no LLM calls):
 
 | File | Phase | Count |
 |------|-------|-------|
+| `run_phase4j_tests.py` | 4j — session examples and docs | 86 |
 | `run_phase4i_tests.py` | 4i — session hygiene | 149 |
 | `run_phase4h_tests.py` | 4h — HTTP session exposure | 184 |
 | `run_phase4g_tests.py` | 4g — resolver auditability | 161 |
@@ -393,7 +394,15 @@ Lazy TTL check on `session_ask()` and `get_session()` — expired sessions retur
 `CreateSessionResponse` extended with `created_at` and `expires_after_seconds`.
 149/149 PASS.  Files: `fpl_server.py`, `run_phase4i_tests.py`.
 
-**Phase 4j — LLM intent classification (optional)**
+**Phase 4j — Session interaction examples and operational docs** *(complete)*
+`examples/session_examples.py`: `SESSION_FLOWS` (full lifecycle, pronoun follow-up),
+`SESSION_EDGE_CASES` (not_found, clear_missing, ttl_expiry, cap_reached),
+`run_session_flow()`, `run_edge_case()`, `make_session_client()`.
+`SESSION_CONTRACT.md`: operational doc covering TTL, max-count, in-memory nature,
+single-instance assumption, endpoint reference, and deferred capabilities.
+86/86 PASS.  Files: `examples/session_examples.py`, `SESSION_CONTRACT.md`, `run_phase4j_tests.py`.
+
+**Phase 4k — LLM intent classification (optional)**
 Replace or augment the deterministic keyword router with an LLM classification
 step.  The existing `_OUTCOME_INSTRUCTION` and `INTENT_MANIFEST` provide the
 vocabulary.  The deterministic router should remain as a fallback.
@@ -456,8 +465,10 @@ packages/fpl-grounded-assistant/
 ├── examples/
 │   ├── __init__.py               # Phase 4d — makes examples an importable package
 │   ├── cli_examples.py           # Phase 4d — CLI examples, 5 scenarios, runnable
-│   └── http_examples.py          # Phase 4d — HTTP examples, 5 scenarios + 2 edge cases, runnable
+│   ├── http_examples.py          # Phase 4d — HTTP examples, 5 scenarios + 2 edge cases, runnable
+│   └── session_examples.py       # Phase 4j — session lifecycle flows + edge cases, runnable
 ├── FINAL_RESPONSE_CONTRACT.md    # Phase 3d — stable caller-facing contract doc
+├── SESSION_CONTRACT.md           # Phase 4j — operational doc: TTL, cap, in-memory, single-instance
 ├── fpl_cli.py                    # Phase 4b — CLI: run() + main(); run_session() added Phase 4g
 ├── fpl_server.py                 # Phase 4c — HTTP: POST /ask, GET /health; session endpoints Phase 4h; hygiene Phase 4i
 ├── run_phase3a_tests.py          # 269/269 PASS
@@ -472,7 +483,8 @@ packages/fpl-grounded-assistant/
 ├── run_phase4f_tests.py          # 151/151 PASS
 ├── run_phase4g_tests.py          # 161/161 PASS
 ├── run_phase4h_tests.py          # 184/184 PASS
-└── run_phase4i_tests.py          # 149/149 PASS
+├── run_phase4i_tests.py          # 149/149 PASS
+└── run_phase4j_tests.py          # 86/86 PASS
 ```
 
 ---
