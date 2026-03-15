@@ -1,6 +1,6 @@
 # fpl-platform · Package Status
 **Last updated:** 2026-03-14
-**After:** Phase 4c (HTTP endpoint — fpl_server.py POST /ask wrapping respond() + 148/148 assertions)
+**After:** Phase 4d (integration examples — examples/ package + 115/115 assertions)
 
 Status vocabulary:
 - `planned` — described in audit, no platform code written yet
@@ -209,10 +209,11 @@ Status vocabulary:
 | **Platform path** | `packages/fpl-grounded-assistant/fpl_grounded_assistant/` |
 | **Source of truth** | New — no upstream source; this is the primary platform product |
 | **Upstream dependency risk** | LLM layer: Anthropic API availability (graceful fallback to deterministic path when unavailable) |
-| **Test coverage** | 21 standalone test runners, 3,560 total assertions (Phases 1h–4c); 82 live integration assertions against real FPL API (Phase 4a); 119 CLI assertions (Phase 4b); 148 HTTP assertions (Phase 4c) |
+| **Test coverage** | 22 standalone test runners, 3,675 total assertions (Phases 1h–4d); 82 live integration assertions against real FPL API (Phase 4a); 119 CLI assertions (Phase 4b); 148 HTTP assertions (Phase 4c); 115 integration example assertions (Phase 4d) |
 | **Pilot** | Phase 4a — `assemble_captain_context() → respond()` wiring verified with live FPL bootstrap; 82/82 PASS |
 | **Contract doc** | `packages/fpl-grounded-assistant/FINAL_RESPONSE_CONTRACT.md` — stable caller-facing surface (Phase 3d) |
-| **Next step** | Phase 4d (multi-turn state) or Phase 4e (LLM intent classification) — see HANDOFF.md |
+| **Integration examples** | `packages/fpl-grounded-assistant/examples/` — CLI and HTTP examples for all 5 canonical scenarios (Phase 4d) |
+| **Next step** | Phase 4e (multi-turn state) or Phase 4f (LLM intent classification) — see HANDOFF.md |
 
 ---
 
@@ -246,7 +247,8 @@ Status vocabulary:
 | `fpl-tool-contract` | A | `parity-validated` | Phase 1f |
 | `fpl-tool-runner` | A | `parity-validated` | Phase 1g; bug fixed 4a |
 | `fpl-pipeline` | A | `parity-validated` | Phase 2e; live-tested 4a |
-| `fpl-grounded-assistant` | A | `pilot-validated` | Phases 1h–4c; 3,560 assertions |
+| `fpl-grounded-assistant` | A | `pilot-validated` | Phases 1h–4d; 3,675 assertions |
 | `fpl_cli` (CLI entrypoint) | A | `parity-validated` | Phase 4b; 119 assertions |
 | `fpl_server` (HTTP entrypoint) | A | `parity-validated` | Phase 4c; 148 assertions |
+| `examples/` (integration examples) | A | `parity-validated` | Phase 4d; 115 assertions |
 | `fpl-charts` TypeScript | A | `created` | Not on critical path |

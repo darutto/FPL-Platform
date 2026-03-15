@@ -1,8 +1,8 @@
 # fpl-platform · Claude Code Handoff
 
 **Prepared:** 2026-03-14
-**Last updated:** 2026-03-14 (Phase 4c complete)
-**Handing off at:** Phase 4c complete
+**Last updated:** 2026-03-14 (Phase 4d complete)
+**Handing off at:** Phase 4d complete
 **Primary package:** `fpl-grounded-assistant`
 
 ---
@@ -81,6 +81,7 @@ self-contained (no pytest required, no network, no LLM calls):
 
 | File | Phase | Count |
 |------|-------|-------|
+| `run_phase4d_tests.py` | 4d — integration examples | 115 |
 | `run_phase1h_tests.py` | 1h — harness | 47 |
 | `run_phase2a_tests.py` | 2a — captain score tool | 78 |
 | `run_phase2b_tests.py` | 2b — rank candidates | 112 |
@@ -260,12 +261,22 @@ HTTP 200 for all FinalResponse outcomes (inspect `supported`/`outcome` in body).
 HTTP 422 for malformed requests.  Bootstrap injected at startup via lifespan.
 148/148 PASS.  Files: `fpl_server.py`, `run_phase4c_tests.py`.
 
-**Phase 4d — Multi-turn state**
+**Phase 4d — Integration examples and client fixtures** *(complete)*
+`examples/cli_examples.py`: executable CLI examples for all 5 canonical scenarios
+(supported_ok, supported_ambiguous, supported_not_found, supported_missing_arguments,
+unsupported_intent) using `run()` + fixture bootstraps.  Runnable directly.
+`examples/http_examples.py`: executable HTTP examples for the same 5 scenarios plus
+edge cases (malformed_request → 422, service_not_ready → 503) using TestClient.
+Runnable directly.  Both importable by test runners.
+115/115 PASS.  Files: `examples/cli_examples.py`, `examples/http_examples.py`,
+`run_phase4d_tests.py`.
+
+**Phase 4e — Multi-turn state**
 Introduce a `ConversationState` object that tracks player context across turns
 for pronoun resolution.  Design as a separate module — do not modify
 `dispatcher.py` or `adapter.py` in this slice.
 
-**Phase 4e — LLM-based intent classification (optional)**
+**Phase 4f — LLM-based intent classification (optional)**
 Replace or augment the deterministic keyword router with an LLM classification
 step.  The existing `_OUTCOME_INSTRUCTION` and `INTENT_MANIFEST` provide the
 vocabulary.  The deterministic router should remain as a fallback.
@@ -314,7 +325,7 @@ from fpl_grounded_assistant import STANDARD_BOOTSTRAP, AMBIGUOUS_BOOTSTRAP
 
 ---
 
-## Files Added (Phases 3a–4c)
+## Files Added (Phases 3a–4d)
 
 ```
 packages/fpl-grounded-assistant/
@@ -323,6 +334,10 @@ packages/fpl-grounded-assistant/
 │   ├── llm_review.py             # Phase 3b — deterministic violation checks
 │   ├── final_response.py         # Phase 3c — FinalResponse, respond()
 │   └── final_response_fixtures.py # Phase 3d — FinalResponseFixture, 6 scenarios
+├── examples/
+│   ├── __init__.py               # Phase 4d — makes examples an importable package
+│   ├── cli_examples.py           # Phase 4d — CLI examples, 5 scenarios, runnable
+│   └── http_examples.py          # Phase 4d — HTTP examples, 5 scenarios + 2 edge cases, runnable
 ├── FINAL_RESPONSE_CONTRACT.md    # Phase 3d — stable caller-facing contract doc
 ├── fpl_cli.py                    # Phase 4b — CLI: run() + main()
 ├── fpl_server.py                 # Phase 4c — HTTP: POST /ask, GET /health
@@ -332,7 +347,8 @@ packages/fpl-grounded-assistant/
 ├── run_phase3d_tests.py          # 248/248 PASS
 ├── run_phase4a_tests.py          # 82/82 PASS  (live + offline)
 ├── run_phase4b_tests.py          # 119/119 PASS
-└── run_phase4c_tests.py          # 148/148 PASS
+├── run_phase4c_tests.py          # 148/148 PASS
+└── run_phase4d_tests.py          # 115/115 PASS
 ```
 
 ---
