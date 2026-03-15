@@ -73,6 +73,7 @@ INTENT_RANK_CANDIDATES:  str = "rank_candidates"
 INTENT_CURRENT_GAMEWEEK: str = "current_gameweek"
 INTENT_PLAYER_SUMMARY:   str = "player_summary"
 INTENT_PLAYER_RESOLVE:   str = "player_resolve"
+INTENT_COMPARE_PLAYERS:  str = "compare_players"   # Phase 5a
 INTENT_UNSUPPORTED:      str = "unsupported"
 
 SUPPORTED_INTENTS: frozenset[str] = frozenset({
@@ -81,6 +82,7 @@ SUPPORTED_INTENTS: frozenset[str] = frozenset({
     INTENT_CURRENT_GAMEWEEK,
     INTENT_PLAYER_SUMMARY,
     INTENT_PLAYER_RESOLVE,
+    INTENT_COMPARE_PLAYERS,
 })
 
 
@@ -106,6 +108,7 @@ _TOOL_TO_INTENT: dict[str, str] = {
     "get_current_gameweek":    INTENT_CURRENT_GAMEWEEK,
     "get_player_summary":      INTENT_PLAYER_SUMMARY,
     "resolve_player":          INTENT_PLAYER_RESOLVE,
+    "compare_players":         INTENT_COMPARE_PLAYERS,   # Phase 5a
 }
 
 
@@ -176,6 +179,19 @@ INTENT_MANIFEST: dict[str, dict[str, Any]] = {
             "search for Saka",
         ],
     },
+    INTENT_COMPARE_PLAYERS: {
+        "tool":                    "compare_players",
+        "description":             "Compare two players as captain candidates by grounded captain score",
+        "requires_player_query":   False,
+        "requires_candidates_list": False,
+        "example_phrasings": [
+            "compare Haaland and Salah",
+            "Haaland vs Salah",
+            "who is better, Haaland or Salah",
+            "compare Saka vs Salah",
+            "who would you captain between Haaland and Salah",
+        ],
+    },
 }
 
 
@@ -186,7 +202,7 @@ INTENT_MANIFEST: dict[str, dict[str, Any]] = {
 _UNSUPPORTED_ANSWER = (
     "I couldn't match that question to a supported query. "
     "Supported questions include: captain score for a player, captain rankings, "
-    "player summary, player lookup, and current gameweek."
+    "player comparison, player summary, player lookup, and current gameweek."
 )
 
 _MISSING_CANDIDATES_ANSWER = (
@@ -253,6 +269,43 @@ def _compute_outcome(intent: str, raw_output: dict[str, Any]) -> str:
             return OUTCOME_MISSING_ARGUMENTS
         return OUTCOME_ERROR
     return OUTCOME_ERROR
+
+
+# ---------------------------------------------------------------------------
+# Comparison dispatch helper  (Phase 5a)
+# ---------------------------------------------------------------------------
+
+def _dispatch_comparison(
+    route_result: Any,
+    question: str,
+    bootstrap: dict[str, Any],
+) -> "DispatchResult":
+    """Handle a compare_players route without going through the tool runner."""
+    from .comparison import compare_players  # lazy import avoids circular deps
+
+    query_a = route_result.tool_args.get("query_a", "")
+    query_b = route_result.tool_args.get("query_b", "")
+    raw = compare_players(query_a, query_b, bootstrap)
+
+    outcome = _compute_outcome(INTENT_COMPARE_PLAYERS, raw)
+
+    if raw.get("status") == "ok":
+        answer_text = raw.get("recommendation", "")
+    else:
+        answer_text = raw.get("message", "Comparison failed.")
+
+    if not answer_text:
+        answer_text = "Comparison could not be completed."
+
+    return DispatchResult(
+        intent=INTENT_COMPARE_PLAYERS,
+        question=question,
+        selected_tool="compare_players",
+        raw_output=raw,
+        answer_text=answer_text,
+        context_meta=None,
+        outcome=outcome,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -339,6 +392,10 @@ def dispatch(
             context_meta=None,
             outcome=OUTCOME_UNSUPPORTED_INTENT,
         )
+
+    # Comparison intent — handled directly, not via the tool runner.
+    if route_result.tool_name == "compare_players":
+        return _dispatch_comparison(route_result, question, bootstrap)
 
     # Delegate to harness — inherits all context detection (Phase 2f) and
     # auto-derivation (Phase 2c/2d) logic.
