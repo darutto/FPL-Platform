@@ -1,8 +1,8 @@
 # fpl-platform · Claude Code Handoff
 
 **Prepared:** 2026-03-14
-**Last updated:** 2026-03-14 (Phase 4f complete)
-**Handing off at:** Phase 4f complete
+**Last updated:** 2026-03-14 (Phase 4h complete)
+**Handing off at:** Phase 4h complete
 **Primary package:** `fpl-grounded-assistant`
 
 ---
@@ -85,6 +85,8 @@ self-contained (no pytest required, no network, no LLM calls):
 
 | File | Phase | Count |
 |------|-------|-------|
+| `run_phase4h_tests.py` | 4h — HTTP session exposure | 184 |
+| `run_phase4g_tests.py` | 4g — resolver auditability | 161 |
 | `run_phase4f_tests.py` | 4f — LLM reference resolver | 151 |
 | `run_phase4e_tests.py` | 4e — multi-turn state | 120 |
 | `run_phase4d_tests.py` | 4d — integration examples | 115 |
@@ -117,6 +119,7 @@ from fpl_grounded_assistant import (
     respond,
     FinalResponse,
     FinalResponseDebug,
+    ResolverDebug,   # Phase 4g: resolver debug bundle
     FINAL_TEXT_POLICY,
 
     # Adapter layer (Phase 2m)
@@ -176,6 +179,21 @@ r2 = session.respond("¿Y como capitán?", STANDARD_BOOTSTRAP,
 r3 = session.respond("¿Y él?", STANDARD_BOOTSTRAP,
                      resolver_client=client)  # Spanish pronoun resolved
 session.clear()
+```
+
+**Multi-turn session runner** (Phase 4g — batch questions with resolver debug):
+```python
+from fpl_cli import run_session
+from fpl_grounded_assistant import STANDARD_BOOTSTRAP
+
+results = run_session(
+    ["should I captain Haaland", "should I captain him?"],
+    STANDARD_BOOTSTRAP,
+    debug=True,
+)
+# results[1]["rewritten_question"]  # "should I captain Haaland?"
+# results[1]["debug"]["resolver"]["resolver_source"]  # "fallback_regex"
+# results[1]["debug"]["resolver"]["fallback_reason"]  # "llm_unavailable"
 ```
 
 **Inspecting a resolution** (Phase 4f):
@@ -345,12 +363,26 @@ deterministic pronoun resolution when LLM is unavailable or confidence < 0.5.
 `ConversationSession.respond()` accepts `resolver_client` kwarg.
 151/151 PASS.  Files: `fpl_grounded_assistant/reference_resolver.py`, `run_phase4f_tests.py`.
 
-**Phase 4g — HTTP/CLI exposure of ConversationSession (optional)**
-Expose `ConversationSession` over the HTTP and CLI interfaces.  HTTP would require
-session ID management (cookies or headers).  Out of scope until a concrete caller
-needs it.
+**Phase 4g — Resolver auditability and controlled session exposure** *(complete)*
+`ReferenceResolution.fallback_reason` added (`"llm_unavailable"` / `"low_confidence"` / `None`).
+`ResolverDebug` frozen dataclass added to `final_response.py`; `FinalResponseDebug.resolver`
+field added (default `None`).  `ConversationSession.respond()` builds and passes
+`_resolver_debug` when `include_debug=True`.  `run_session()` added to `fpl_cli.py`
+for multi-turn CLI sessions.  161/161 PASS.
+Files: `reference_resolver.py`, `final_response.py`, `conversation_state.py`,
+`fpl_grounded_assistant/__init__.py`, `fpl_cli.py`, `run_phase4g_tests.py`.
 
-**Phase 4h — LLM intent classification (optional)**
+**Phase 4h — HTTP session exposure** *(complete)*
+`fpl_server.py`: three new endpoints for in-memory session lifecycle.
+`POST /session` — create session (returns `{"session_id": "<uuid4>"}`).
+`POST /session/{session_id}/ask` — multi-turn question within a session; pronoun/reference
+follow-ups resolved via `ConversationSession`.  Response: `SessionAskResponse` (extends
+`AskResponse` shape with `session_id` and `rewritten_question`).
+`DELETE /session/{session_id}` — clear and remove a session.
+Sessions are in-memory only; stateless `POST /ask` unchanged.  Resolver metadata
+in debug bundle only.  184/184 PASS.  Files: `fpl_server.py`, `run_phase4h_tests.py`.
+
+**Phase 4i — LLM intent classification (optional)**
 Replace or augment the deterministic keyword router with an LLM classification
 step.  The existing `_OUTCOME_INSTRUCTION` and `INTENT_MANIFEST` provide the
 vocabulary.  The deterministic router should remain as a fallback.
@@ -415,8 +447,8 @@ packages/fpl-grounded-assistant/
 │   ├── cli_examples.py           # Phase 4d — CLI examples, 5 scenarios, runnable
 │   └── http_examples.py          # Phase 4d — HTTP examples, 5 scenarios + 2 edge cases, runnable
 ├── FINAL_RESPONSE_CONTRACT.md    # Phase 3d — stable caller-facing contract doc
-├── fpl_cli.py                    # Phase 4b — CLI: run() + main()
-├── fpl_server.py                 # Phase 4c — HTTP: POST /ask, GET /health
+├── fpl_cli.py                    # Phase 4b — CLI: run() + main(); run_session() added Phase 4g
+├── fpl_server.py                 # Phase 4c — HTTP: POST /ask, GET /health; session endpoints added Phase 4h
 ├── run_phase3a_tests.py          # 269/269 PASS
 ├── run_phase3b_tests.py          # 355/355 PASS
 ├── run_phase3c_tests.py          # 328/328 PASS
@@ -426,7 +458,9 @@ packages/fpl-grounded-assistant/
 ├── run_phase4c_tests.py          # 148/148 PASS
 ├── run_phase4d_tests.py          # 115/115 PASS
 ├── run_phase4e_tests.py          # 120/120 PASS
-└── run_phase4f_tests.py          # 151/151 PASS
+├── run_phase4f_tests.py          # 151/151 PASS
+├── run_phase4g_tests.py          # 161/161 PASS
+└── run_phase4h_tests.py          # 184/184 PASS
 ```
 
 ---
