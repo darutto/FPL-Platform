@@ -1,8 +1,8 @@
 # fpl-platform · Claude Code Handoff
 
 **Prepared:** 2026-03-14
-**Last updated:** 2026-03-14 (Phase 4d complete)
-**Handing off at:** Phase 4d complete
+**Last updated:** 2026-03-14 (Phase 4e complete)
+**Handing off at:** Phase 4e complete
 **Primary package:** `fpl-grounded-assistant`
 
 ---
@@ -81,6 +81,7 @@ self-contained (no pytest required, no network, no LLM calls):
 
 | File | Phase | Count |
 |------|-------|-------|
+| `run_phase4e_tests.py` | 4e — multi-turn state | 120 |
 | `run_phase4d_tests.py` | 4d — integration examples | 115 |
 | `run_phase1h_tests.py` | 1h — harness | 47 |
 | `run_phase2a_tests.py` | 2a — captain score tool | 78 |
@@ -133,7 +134,22 @@ from fpl_grounded_assistant import (
     # Final response fixtures (Phase 3d)
     FINAL_RESPONSE_FIXTURE_DEFINITIONS, run_all_final_response,
     FinalResponseFixture,
+
+    # Multi-turn state (Phase 4e)
+    ConversationSession,
+    ConversationState,
+    resolve_pronouns,
 )
+```
+
+**Multi-turn usage** (Phase 4e — stateful pronoun follow-ups):
+```python
+from fpl_grounded_assistant import ConversationSession, STANDARD_BOOTSTRAP
+
+session = ConversationSession()
+r1 = session.respond("should I captain Haaland", STANDARD_BOOTSTRAP)
+r2 = session.respond("should I captain him?", STANDARD_BOOTSTRAP)  # resolves to Haaland
+session.clear()  # reset for next conversation
 ```
 
 **Simplest working call** (deterministic, no API key needed):
@@ -229,8 +245,8 @@ new approved slices:
 
 | Capability | Last deferred in |
 |------------|-----------------|
-| Multi-turn conversation memory | Phase 3d |
-| Pronoun resolution ("What about his form?") | Phase 3d |
+| Multi-turn conversation memory (persistence beyond session) | Phase 4e |
+| Trailing-clause pronoun handling ("who is better, him or Salah?") | Phase 4e |
 | Combined intents | Phase 3d |
 | UI integration | Phase 3d |
 | Streaming responses | Phase 3d |
@@ -271,10 +287,13 @@ Runnable directly.  Both importable by test runners.
 115/115 PASS.  Files: `examples/cli_examples.py`, `examples/http_examples.py`,
 `run_phase4d_tests.py`.
 
-**Phase 4e — Multi-turn state**
-Introduce a `ConversationState` object that tracks player context across turns
-for pronoun resolution.  Design as a separate module — do not modify
-`dispatcher.py` or `adapter.py` in this slice.
+**Phase 4e — Multi-turn conversation state** *(complete)*
+`conversation_state.py`: `ConversationState` (dataclass), `ConversationSession`
+(stateful wrapper around `respond()`), `resolve_pronouns` (pure helper).
+State tracks `last_player_query` across turns; cleared on `session.clear()`.
+Pronoun follow-ups ("should I captain him?", "tell me about him") resolved via
+word-boundary-safe regex substitution before routing.  Stateless `respond()` unchanged.
+120/120 PASS.  Files: `fpl_grounded_assistant/conversation_state.py`, `run_phase4e_tests.py`.
 
 **Phase 4f — LLM-based intent classification (optional)**
 Replace or augment the deterministic keyword router with an LLM classification
@@ -325,7 +344,7 @@ from fpl_grounded_assistant import STANDARD_BOOTSTRAP, AMBIGUOUS_BOOTSTRAP
 
 ---
 
-## Files Added (Phases 3a–4d)
+## Files Added (Phases 3a–4e)
 
 ```
 packages/fpl-grounded-assistant/
@@ -333,7 +352,8 @@ packages/fpl-grounded-assistant/
 │   ├── llm_layer.py              # Phase 3a — LLM integration (ask_llm, build_user_prompt)
 │   ├── llm_review.py             # Phase 3b — deterministic violation checks
 │   ├── final_response.py         # Phase 3c — FinalResponse, respond()
-│   └── final_response_fixtures.py # Phase 3d — FinalResponseFixture, 6 scenarios
+│   ├── final_response_fixtures.py # Phase 3d — FinalResponseFixture, 6 scenarios
+│   └── conversation_state.py     # Phase 4e — ConversationState, ConversationSession, resolve_pronouns
 ├── examples/
 │   ├── __init__.py               # Phase 4d — makes examples an importable package
 │   ├── cli_examples.py           # Phase 4d — CLI examples, 5 scenarios, runnable
@@ -348,7 +368,8 @@ packages/fpl-grounded-assistant/
 ├── run_phase4a_tests.py          # 82/82 PASS  (live + offline)
 ├── run_phase4b_tests.py          # 119/119 PASS
 ├── run_phase4c_tests.py          # 148/148 PASS
-└── run_phase4d_tests.py          # 115/115 PASS
+├── run_phase4d_tests.py          # 115/115 PASS
+└── run_phase4e_tests.py          # 120/120 PASS
 ```
 
 ---

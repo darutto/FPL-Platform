@@ -146,6 +146,13 @@ from .renderer import (
     _set_piece_suffix,
 )
 from .router import RouteResult, route
+from .conversation_state import (
+    # Phase 4e: minimal multi-turn conversation state
+    ConversationState,
+    ConversationSession,
+    resolve_pronouns,
+    _PRONOUNS,
+)
 
 __all__ = [
     # Phase 2n: contract fixtures
@@ -209,6 +216,11 @@ __all__ = [
     "OUTCOME_MISSING_ARGUMENTS",
     "OUTCOME_ERROR",
     "INTENT_MANIFEST",
+    # Phase 4e: multi-turn state
+    "ConversationState",
+    "ConversationSession",
+    "resolve_pronouns",
+    "_PRONOUNS",
     # core harness
     "ask",
     "route",
