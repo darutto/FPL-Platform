@@ -40,6 +40,10 @@ Supported intents
     "captain rankings", etc.).
     No player extraction — tool receives a candidates list from the caller.
 
+``compare_players``   ← Phase 5a
+    Triggered by comparison keywords ("compare X and Y", "X vs Y",
+    "who is better X or Y").  Both player queries extracted.
+
 ``get_captain_score``   ← Phase 2a
     Triggered by captain-scoring keywords ("should I captain", "captain score
     for", etc.).  Player name extracted from the question.
@@ -90,6 +94,23 @@ class RouteResult:
 # ---------------------------------------------------------------------------
 # Ordered longest-first so greedy prefix stripping removes the most specific
 # phrase before falling back to shorter ones.
+
+_COMPARE_PREFIXES: tuple[str, ...] = (
+    "who would you captain between",
+    "who should i captain between",
+    "which player is better",
+    "which is better",
+    "who is better",
+    "who's better",
+    "compare",
+)
+
+_COMPARE_CONNECTORS: tuple[str, ...] = (
+    " vs ",
+    " versus ",
+    " or ",
+    " and ",
+)
 
 _RANK_PREFIXES: tuple[str, ...] = (
     "give me captain rankings",
@@ -252,6 +273,51 @@ def _extract_player_query(
 
 
 # ---------------------------------------------------------------------------
+# Comparison helper
+# ---------------------------------------------------------------------------
+
+def _try_route_comparison(q_orig: str, q_norm: str) -> RouteResult | None:
+    """Detect a two-player comparison question and extract both player queries.
+
+    Handles:
+    * Prefixed forms — "compare X and Y", "who is better X or Y", etc.
+    * Bare connector forms — "X vs Y", "X versus Y"
+
+    Returns a ``RouteResult`` with ``tool_name="compare_players"`` and
+    ``tool_args={"query_a": ..., "query_b": ...}`` when detected, else ``None``.
+    """
+    # 1. Prefixed forms
+    for prefix in _COMPARE_PREFIXES:
+        if q_norm.startswith(prefix):
+            remainder_norm = q_norm[len(prefix):].strip().lstrip(",: ")
+            remainder_orig = q_orig[len(prefix):].strip().lstrip(",: ")
+            for conn in _COMPARE_CONNECTORS:
+                idx = remainder_norm.find(conn)
+                if idx != -1:
+                    part_a = remainder_orig[:idx].strip().rstrip(",")
+                    part_b = remainder_orig[idx + len(conn):].strip()
+                    if part_a and part_b:
+                        return RouteResult(
+                            tool_name="compare_players",
+                            tool_args={"query_a": part_a, "query_b": part_b},
+                        )
+
+    # 2. Bare "X vs Y" / "X versus Y" (no explicit prefix required)
+    for conn in (" vs ", " versus "):
+        idx = q_norm.find(conn)
+        if idx != -1:
+            part_a = q_orig[:idx].strip()
+            part_b = q_orig[idx + len(conn):].strip()
+            if part_a and part_b:
+                return RouteResult(
+                    tool_name="compare_players",
+                    tool_args={"query_a": part_a, "query_b": part_b},
+                )
+
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -291,6 +357,11 @@ def route(question: str) -> RouteResult | None:
             tool_name="rank_captain_candidates",
             tool_args={},
         )
+
+    # ── Compare players intent (checked before captain-score) ─────────────
+    _compare_result = _try_route_comparison(q_orig, q_norm)
+    if _compare_result is not None:
+        return _compare_result
 
     # ── Captain score intent (checked before summary/resolve) ─────────────
     if any(q_norm.startswith(p) or p in q_norm for p in _CAPTAIN_SCORE_PREFIXES):

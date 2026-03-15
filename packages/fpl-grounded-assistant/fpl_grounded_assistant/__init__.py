@@ -44,6 +44,7 @@ from .dispatcher import (
     INTENT_CURRENT_GAMEWEEK,
     INTENT_PLAYER_SUMMARY,
     INTENT_PLAYER_RESOLVE,
+    INTENT_COMPARE_PLAYERS,   # Phase 5a
     INTENT_UNSUPPORTED,
     SUPPORTED_INTENTS,
     # Phase 2k: tool→intent mapping (exported for test access)
@@ -146,6 +147,7 @@ from .renderer import (
     _set_piece_clause,
     _set_piece_suffix,
 )
+from .comparison import compare_players   # Phase 5a
 from .router import RouteResult, route
 from .conversation_state import (
     # Phase 4e: minimal multi-turn conversation state
@@ -219,9 +221,12 @@ __all__ = [
     "INTENT_CURRENT_GAMEWEEK",
     "INTENT_PLAYER_SUMMARY",
     "INTENT_PLAYER_RESOLVE",
+    "INTENT_COMPARE_PLAYERS",
     "INTENT_UNSUPPORTED",
     "SUPPORTED_INTENTS",
     "_TOOL_TO_INTENT",
+    # Phase 5a: comparison
+    "compare_players",
     # Phase 2l: outcomes + manifest
     "OUTCOME_OK",
     "OUTCOME_UNSUPPORTED_INTENT",
