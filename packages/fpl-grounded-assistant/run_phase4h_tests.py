@@ -203,13 +203,13 @@ ok("C13 third turn intent current_gameweek",
 _sid_fresh = _client.post("/session").json()["session_id"]
 _rc_fresh = _client.post(f"/session/{_sid_fresh}/ask",
                          json={"question": "should I captain him"})
-ok("C14 fresh session pronoun follow-up → 200",   _rc_fresh.status_code == 200)
+ok("C14 fresh session pronoun follow-up -> 200",   _rc_fresh.status_code == 200)
 ok("C15 fresh session final_text non-empty",
    len(_rc_fresh.json().get("final_text", "")) > 0)
 
 _rc4 = _client.post(f"/session/{_sid_c}/ask",
                     json={"question": "should I captain him"})
-ok("C16 fourth turn original session → 200",      _rc4.status_code == 200)
+ok("C16 fourth turn original session -> 200",      _rc4.status_code == 200)
 ok("C17 fourth turn outcome 'ok' (context preserved)",
    _rc4.json().get("outcome") == OUTCOME_OK)
 
@@ -231,7 +231,7 @@ _sid_d = _client.post("/session").json()["session_id"]
 
 _rd1 = _client.post(f"/session/{_sid_d}/ask",
                     json={"question": "should I captain Haaland", "debug": True})
-ok("D1  first turn debug → 200",          _rd1.status_code == 200)
+ok("D1  first turn debug -> 200",          _rd1.status_code == 200)
 _jd1 = _rd1.json()
 ok("D2  debug bundle present",            _jd1.get("debug") is not None)
 
@@ -246,7 +246,7 @@ ok("D8  first turn rewritten_question None (no prev context)",
 
 _rd2 = _client.post(f"/session/{_sid_d}/ask",
                     json={"question": "should I captain him", "debug": True})
-ok("D9  pronoun follow-up debug → 200",   _rd2.status_code == 200)
+ok("D9  pronoun follow-up debug -> 200",   _rd2.status_code == 200)
 _jd2 = _rd2.json()
 ok("D10 debug bundle present on follow-up", _jd2.get("debug") is not None)
 
@@ -274,8 +274,8 @@ ok("D21 top-level rewritten_question contains 'Haaland'",
 _rd_nd = _client.post(f"/session/{_sid_d}/ask",
                       json={"question": "should I captain him"})
 _jd_nd = _rd_nd.json()
-ok("D22 no debug → debug field None",               _jd_nd.get("debug") is None)
-ok("D23 no debug → rewritten_question None",        _jd_nd.get("rewritten_question") is None)
+ok("D22 no debug -> debug field None",               _jd_nd.get("debug") is None)
+ok("D23 no debug -> rewritten_question None",        _jd_nd.get("rewritten_question") is None)
 
 
 # ===========================================================================
@@ -300,16 +300,16 @@ ok("E6  session removed from _sessions",  _sid_e not in fpl_server._sessions)
 
 _re_after = _client.post(f"/session/{_sid_e}/ask",
                          json={"question": "should I captain Haaland"})
-ok("E7  ask on cleared session → 404",    _re_after.status_code == 404)
+ok("E7  ask on cleared session -> 404",    _re_after.status_code == 404)
 
 _re_del2 = _client.delete(f"/session/{_sid_e}")
-ok("E8  double DELETE → 404",             _re_del2.status_code == 404)
+ok("E8  double DELETE -> 404",             _re_del2.status_code == 404)
 
 _sid_e2 = _client.post("/session").json()["session_id"]
 _client.post(f"/session/{_sid_e2}/ask",
              json={"question": "should I captain Salah"})
 _re_del3 = _client.delete(f"/session/{_sid_e2}")
-ok("E9  second lifecycle cycle DELETE → 200", _re_del3.status_code == 200)
+ok("E9  second lifecycle cycle DELETE -> 200", _re_del3.status_code == 200)
 ok("E10 second cycle session removed",         _sid_e2 not in fpl_server._sessions)
 
 
@@ -322,21 +322,21 @@ fpl_server._clear_sessions()
 
 _rf_unk = _client.post("/session/00000000-0000-0000-0000-000000000000/ask",
                        json={"question": "should I captain Haaland"})
-ok("F1  unknown session_id on ask → 404",    _rf_unk.status_code == 404)
+ok("F1  unknown session_id on ask -> 404",    _rf_unk.status_code == 404)
 
 _rf_del = _client.delete("/session/00000000-0000-0000-0000-000000000000")
-ok("F2  unknown session_id on delete → 404", _rf_del.status_code == 404)
+ok("F2  unknown session_id on delete -> 404", _rf_del.status_code == 404)
 
 _sid_f = _client.post("/session").json()["session_id"]
 _rf_miss = _client.post(f"/session/{_sid_f}/ask", json={})
-ok("F3  missing question → 422",             _rf_miss.status_code == 422)
+ok("F3  missing question -> 422",             _rf_miss.status_code == 422)
 
 _rf_type = _client.post(f"/session/{_sid_f}/ask", json={"question": 12345})
-ok("F4  numeric question → 422",             _rf_type.status_code == 422)
+ok("F4  numeric question -> 422",             _rf_type.status_code == 422)
 
 _rf_extra = _client.post(f"/session/{_sid_f}/ask",
                          json={"question": "should I captain Haaland", "unknown": "x"})
-ok("F5  extra fields ignored → 200",         _rf_extra.status_code == 200)
+ok("F5  extra fields ignored -> 200",         _rf_extra.status_code == 200)
 
 ok("F6  session ask content-type is application/json",
    _rf_extra.headers["content-type"].startswith("application/json"))
@@ -347,14 +347,14 @@ ok("F7  GET /session/{id}/ask not valid (404 or 405)",
 
 _rf_ndb = _client.post(f"/session/{_sid_f}/ask",
                        json={"question": "should I captain Haaland", "debug": False})
-ok("F8  debug=False explicit → 200",         _rf_ndb.status_code == 200)
-ok("F9  debug=False → debug field None",     _rf_ndb.json().get("debug") is None)
+ok("F8  debug=False explicit -> 200",         _rf_ndb.status_code == 200)
+ok("F9  debug=False -> debug field None",     _rf_ndb.json().get("debug") is None)
 
 _saved_bs = fpl_server._bootstrap
 fpl_server._bootstrap = None
 _rf_503 = _client.post(f"/session/{_sid_f}/ask",
                        json={"question": "should I captain Haaland"})
-ok("F10 no bootstrap → 503",                 _rf_503.status_code == 503)
+ok("F10 no bootstrap -> 503",                 _rf_503.status_code == 503)
 fpl_server._bootstrap = _saved_bs
 
 _INTENT_CASES_F = [
@@ -367,7 +367,7 @@ _INTENT_CASES_F = [
 for _i, (_q, _exp_intent) in enumerate(_INTENT_CASES_F, 11):
     _rf_i = _client.post(f"/session/{_sid_f}/ask", json={"question": _q})
     _jf_i = _rf_i.json()
-    ok(f"F{_i}a  {_exp_intent} via session → 200",     _rf_i.status_code == 200)
+    ok(f"F{_i}a  {_exp_intent} via session -> 200",     _rf_i.status_code == 200)
     ok(f"F{_i}b  {_exp_intent} intent correct",         _jf_i.get("intent") == _exp_intent)
 
 
@@ -400,11 +400,11 @@ _INTENT_CASES_G = [
 ]
 for _i, (_q, _exp) in enumerate(_INTENT_CASES_G, 1):
     _rg_i = _client.post("/ask", json={"question": _q})
-    ok(f"G{_i + 8}a  {_exp} stateless → 200",         _rg_i.status_code == 200)
+    ok(f"G{_i + 8}a  {_exp} stateless -> 200",         _rg_i.status_code == 200)
     ok(f"G{_i + 8}b  {_exp} intent correct stateless", _rg_i.json().get("intent") == _exp)
 
 _rg_u = _client.post("/ask", json={"question": "what is the weather"})
-ok("G14a stateless unsupported → 200",    _rg_u.status_code == 200)
+ok("G14a stateless unsupported -> 200",    _rg_u.status_code == 200)
 ok("G14b stateless unsupported=False",    _rg_u.json().get("supported") is False)
 
 
@@ -444,7 +444,7 @@ for _j, (_q, _rh) in enumerate(zip(_H_QUERIES, _h_responses), 1):
 
 for _j, (_q, _rh) in enumerate(zip(_H_QUERIES, _h_responses), 1):
     if _rh.get("llm_used"):
-        ok(f"H4.{_j} llm_used=True → review_passed=True: {_q!r:.22}",
+        ok(f"H4.{_j} llm_used=True -> review_passed=True: {_q!r:.22}",
            _rh.get("review_passed"))
     else:
         ok(f"H4.{_j} llm_used=False (deterministic): {_q!r:.24}", True)
@@ -452,7 +452,7 @@ for _j, (_q, _rh) in enumerate(zip(_H_QUERIES, _h_responses), 1):
 for _j, (_q, _rh) in enumerate(zip(_H_QUERIES, _h_responses), 1):
     _bund = _rh.get("debug") or {}
     if not _rh.get("llm_used") and _bund:
-        ok(f"H5.{_j} not llm_used → final_text==response_text: {_q!r:.20}",
+        ok(f"H5.{_j} not llm_used -> final_text==response_text: {_q!r:.20}",
            _rh.get("final_text") == _bund.get("response_text"))
     else:
         ok(f"H5.{_j} llm_used=True (skip check): {_q!r:.22}", True)
@@ -471,17 +471,17 @@ fpl_server._clear_sessions()
 _sid_i = _client.post("/session").json()["session_id"]
 
 _ri_empty = _client.post(f"/session/{_sid_i}/ask", json={"question": ""})
-ok("I1  empty question in session → 200",        _ri_empty.status_code == 200)
+ok("I1  empty question in session -> 200",        _ri_empty.status_code == 200)
 ok("I2  empty question final_text non-empty",
    len(_ri_empty.json().get("final_text", "")) > 0)
 
 _ri_ws = _client.post(f"/session/{_sid_i}/ask", json={"question": "   "})
-ok("I3  whitespace question in session → 200",   _ri_ws.status_code == 200)
+ok("I3  whitespace question in session -> 200",   _ri_ws.status_code == 200)
 ok("I4  whitespace final_text non-empty",
    len(_ri_ws.json().get("final_text", "")) > 0)
 
 _ri_u = _client.post(f"/session/{_sid_i}/ask", json={"question": "tell me a joke"})
-ok("I5  unsupported in session → 200",           _ri_u.status_code == 200)
+ok("I5  unsupported in session -> 200",           _ri_u.status_code == 200)
 ok("I6  unsupported in session supported=False", _ri_u.json().get("supported") is False)
 
 _ri_after_u = _client.post(f"/session/{_sid_i}/ask",
@@ -494,13 +494,13 @@ fpl_server._init_bootstrap(AMBIGUOUS_BOOTSTRAP)
 _sid_amb = _client.post("/session").json()["session_id"]
 _ri_amb = _client.post(f"/session/{_sid_amb}/ask",
                        json={"question": "should I captain Haaland"})
-ok("I9  ambiguous bootstrap in session → 200",   _ri_amb.status_code == 200)
+ok("I9  ambiguous bootstrap in session -> 200",   _ri_amb.status_code == 200)
 ok("I10 ambiguous bootstrap final_text non-empty",
    len(_ri_amb.json().get("final_text", "")) > 0)
 fpl_server._init_bootstrap(STANDARD_BOOTSTRAP)
 
 _ri_sc = _client.post(f"/session/{_sid_i}/ask", json={"question": "?"})
-ok("I11 single-char in session → 200",           _ri_sc.status_code == 200)
+ok("I11 single-char in session -> 200",           _ri_sc.status_code == 200)
 ok("I12 single-char final_text non-empty",
    len(_ri_sc.json().get("final_text", "")) > 0)
 
