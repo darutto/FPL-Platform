@@ -1,6 +1,6 @@
 # fpl-platform · Package Status
 **Last updated:** 2026-03-14
-**After:** Phase 4h (HTTP session exposure — 184/184 assertions)
+**After:** Phase 4i (session hygiene and lifecycle hardening — 149/149 assertions)
 
 Status vocabulary:
 - `planned` — described in audit, no platform code written yet
@@ -209,14 +209,14 @@ Status vocabulary:
 | **Platform path** | `packages/fpl-grounded-assistant/fpl_grounded_assistant/` |
 | **Source of truth** | New — no upstream source; this is the primary platform product |
 | **Upstream dependency risk** | LLM layer: Anthropic API availability (graceful fallback to deterministic path when unavailable) |
-| **Test coverage** | 26 standalone test runners, ~4,291 total assertions (Phases 1h–4h); 82 live integration assertions against real FPL API (Phase 4a); 119 CLI assertions (Phase 4b); 148 HTTP stateless assertions (Phase 4c); 115 integration example assertions (Phase 4d); 120 multi-turn state assertions (Phase 4e); 151 reference resolver assertions (Phase 4f); 161 resolver auditability assertions (Phase 4g); 184 HTTP session assertions (Phase 4h) |
+| **Test coverage** | 27 standalone test runners, ~4,440 total assertions (Phases 1h–4i); 82 live integration assertions against real FPL API (Phase 4a); 119 CLI assertions (Phase 4b); 148 HTTP stateless assertions (Phase 4c); 115 integration example assertions (Phase 4d); 120 multi-turn state assertions (Phase 4e); 151 reference resolver assertions (Phase 4f); 161 resolver auditability assertions (Phase 4g); 184 HTTP session assertions (Phase 4h); 149 session hygiene assertions (Phase 4i) |
 | **Pilot** | Phase 4a — `assemble_captain_context() → respond()` wiring verified with live FPL bootstrap; 82/82 PASS |
 | **Contract doc** | `packages/fpl-grounded-assistant/FINAL_RESPONSE_CONTRACT.md` — stable caller-facing surface (Phase 3d) |
 | **Integration examples** | `packages/fpl-grounded-assistant/examples/` — CLI and HTTP examples for all 5 canonical scenarios (Phase 4d) |
 | **Multi-turn state** | `ConversationSession` / `ConversationState` / `resolve_pronouns` — pronoun follow-up resolution (Phase 4e) |
 | **Reference resolver** | `ReferenceResolution` (with `fallback_reason` field, Phase 4g) / `resolve_reference` / `resolve_reference_llm` / `build_resolver_prompt` — LLM-assisted reference resolution with Phase 4e deterministic fallback; Spanish + English follow-ups (Phase 4f); `ResolverDebug` resolver audit bundle (Phase 4g) |
 | **CLI** | `fpl_cli.py`: `run(question, bootstrap, *, debug)` — single-question CLI; `run_session(questions, bootstrap, *, debug, resolver_client)` — multi-turn session runner (Phase 4g) |
-| **HTTP session** | `fpl_server.py`: `POST /session` (create), `POST /session/{id}/ask` (multi-turn turn), `DELETE /session/{id}` (clear) — in-memory session lifecycle (Phase 4h) |
+| **HTTP session** | `fpl_server.py`: `POST /session` (create), `POST /session/{id}/ask` (multi-turn turn), `DELETE /session/{id}` (clear), `GET /session/{id}` (inspect) — in-memory session lifecycle (Phase 4h); TTL + cap + lazy pruning (Phase 4i) |
 | **Next step** | No approved next phase — see HANDOFF.md for candidates |
 
 ---
@@ -251,12 +251,13 @@ Status vocabulary:
 | `fpl-tool-contract` | A | `parity-validated` | Phase 1f |
 | `fpl-tool-runner` | A | `parity-validated` | Phase 1g; bug fixed 4a |
 | `fpl-pipeline` | A | `parity-validated` | Phase 2e; live-tested 4a |
-| `fpl-grounded-assistant` | A | `pilot-validated` | Phases 1h–4h; ~4,291 assertions |
+| `fpl-grounded-assistant` | A | `pilot-validated` | Phases 1h–4i; ~4,440 assertions |
 | `fpl_cli` (CLI entrypoint) | A | `parity-validated` | Phase 4b; 119 assertions; `run_session()` added Phase 4g |
-| `fpl_server` (HTTP entrypoint) | A | `parity-validated` | Phase 4c 148 + Phase 4h 184 assertions; session endpoints added Phase 4h |
+| `fpl_server` (HTTP entrypoint) | A | `parity-validated` | Phase 4c 148 + Phase 4h 184 + Phase 4i 149 assertions; session lifecycle (4h); hygiene (4i) |
 | `examples/` (integration examples) | A | `parity-validated` | Phase 4d; 115 assertions |
 | `conversation_state` (multi-turn state) | A | `parity-validated` | Phase 4e; 120 assertions |
 | `reference_resolver` (LLM reference resolution) | A | `parity-validated` | Phase 4f; 151 assertions; `fallback_reason` + `ResolverDebug` added Phase 4g |
 | `resolver_auditability` (resolver debug bundle) | A | `parity-validated` | Phase 4g; 161 assertions |
 | `http_session_endpoints` (HTTP session lifecycle) | A | `parity-validated` | Phase 4h; 184 assertions |
+| `session_hygiene` (TTL, cap, pruning, inspection) | A | `parity-validated` | Phase 4i; 149 assertions |
 | `fpl-charts` TypeScript | A | `created` | Not on critical path |

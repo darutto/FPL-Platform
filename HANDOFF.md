@@ -1,8 +1,8 @@
 # fpl-platform · Claude Code Handoff
 
 **Prepared:** 2026-03-14
-**Last updated:** 2026-03-14 (Phase 4h complete)
-**Handing off at:** Phase 4h complete
+**Last updated:** 2026-03-14 (Phase 4i complete)
+**Handing off at:** Phase 4i complete
 **Primary package:** `fpl-grounded-assistant`
 
 ---
@@ -85,6 +85,7 @@ self-contained (no pytest required, no network, no LLM calls):
 
 | File | Phase | Count |
 |------|-------|-------|
+| `run_phase4i_tests.py` | 4i — session hygiene | 149 |
 | `run_phase4h_tests.py` | 4h — HTTP session exposure | 184 |
 | `run_phase4g_tests.py` | 4g — resolver auditability | 161 |
 | `run_phase4f_tests.py` | 4f — LLM reference resolver | 151 |
@@ -382,7 +383,17 @@ follow-ups resolved via `ConversationSession`.  Response: `SessionAskResponse` (
 Sessions are in-memory only; stateless `POST /ask` unchanged.  Resolver metadata
 in debug bundle only.  184/184 PASS.  Files: `fpl_server.py`, `run_phase4h_tests.py`.
 
-**Phase 4i — LLM intent classification (optional)**
+**Phase 4i — Session hygiene and lifecycle hardening** *(complete)*
+`_SessionEntry` dataclass added (`session`, `created_at`, `last_used_at`).
+`_SESSION_TTL_SECONDS` (default 1800s) and `_SESSION_MAX_COUNT` (default 100) config.
+`_prune_expired_sessions()` — lazy cleanup called on `POST /session`.
+Lazy TTL check on `session_ask()` and `get_session()` — expired sessions return 404.
+`last_used_at` updated on every ask; `GET /session/{id}` not count as activity.
+`GET /session/{session_id}` — new inspection endpoint: `created_at`, `last_used_at`, `turn_count`.
+`CreateSessionResponse` extended with `created_at` and `expires_after_seconds`.
+149/149 PASS.  Files: `fpl_server.py`, `run_phase4i_tests.py`.
+
+**Phase 4j — LLM intent classification (optional)**
 Replace or augment the deterministic keyword router with an LLM classification
 step.  The existing `_OUTCOME_INSTRUCTION` and `INTENT_MANIFEST` provide the
 vocabulary.  The deterministic router should remain as a fallback.
@@ -448,7 +459,7 @@ packages/fpl-grounded-assistant/
 │   └── http_examples.py          # Phase 4d — HTTP examples, 5 scenarios + 2 edge cases, runnable
 ├── FINAL_RESPONSE_CONTRACT.md    # Phase 3d — stable caller-facing contract doc
 ├── fpl_cli.py                    # Phase 4b — CLI: run() + main(); run_session() added Phase 4g
-├── fpl_server.py                 # Phase 4c — HTTP: POST /ask, GET /health; session endpoints added Phase 4h
+├── fpl_server.py                 # Phase 4c — HTTP: POST /ask, GET /health; session endpoints Phase 4h; hygiene Phase 4i
 ├── run_phase3a_tests.py          # 269/269 PASS
 ├── run_phase3b_tests.py          # 355/355 PASS
 ├── run_phase3c_tests.py          # 328/328 PASS
@@ -460,7 +471,8 @@ packages/fpl-grounded-assistant/
 ├── run_phase4e_tests.py          # 120/120 PASS
 ├── run_phase4f_tests.py          # 151/151 PASS
 ├── run_phase4g_tests.py          # 161/161 PASS
-└── run_phase4h_tests.py          # 184/184 PASS
+├── run_phase4h_tests.py          # 184/184 PASS
+└── run_phase4i_tests.py          # 149/149 PASS
 ```
 
 ---
