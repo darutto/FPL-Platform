@@ -89,6 +89,7 @@ from .final_response import (
     # Phase 3c: unified final-response policy
     FinalResponse,
     FinalResponseDebug,
+    ResolverDebug,   # Phase 4g: resolver debug bundle
     FINAL_TEXT_POLICY,
     respond,
 )
@@ -180,6 +181,7 @@ __all__ = [
     # Phase 3c: final-response policy
     "FinalResponse",
     "FinalResponseDebug",
+    "ResolverDebug",
     "FINAL_TEXT_POLICY",
     "respond",
     # Phase 3a: LLM layer

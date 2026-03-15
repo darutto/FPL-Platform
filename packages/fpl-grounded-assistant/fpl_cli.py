@@ -86,6 +86,83 @@ def run(
 
 
 # ---------------------------------------------------------------------------
+# Multi-turn session runner
+# ---------------------------------------------------------------------------
+
+def run_session(
+    questions: list[str],
+    bootstrap: dict[str, Any],
+    *,
+    debug: bool = False,
+    resolver_client: Any = None,
+) -> list[dict[str, Any]]:
+    """Run a list of questions through a ConversationSession.
+
+    Uses ``ConversationSession`` internally so pronoun and reference
+    follow-ups are resolved across turns.
+
+    Parameters
+    ----------
+    questions:
+        Ordered list of user questions for this session.
+    bootstrap:
+        FPL bootstrap dict.
+    debug:
+        When ``True``, each result dict includes a ``debug`` key with the
+        full ``FinalResponseDebug`` bundle including resolver metadata.
+    resolver_client:
+        Optional Anthropic client for Phase 4f LLM reference resolution.
+        When absent, Phase 4e deterministic pronoun fallback is used.
+
+    Returns
+    -------
+    list[dict]
+        One dict per question. Each dict always contains:
+        ``question``, ``final_text``, ``outcome``, ``supported``, ``intent``.
+        When ``debug=True`` and a resolver ran, also includes
+        ``rewritten_question`` and a ``debug`` bundle with ``resolver`` metadata.
+    """
+    from fpl_grounded_assistant import ConversationSession
+    session = ConversationSession()
+    results: list[dict[str, Any]] = []
+    for q in questions:
+        r = session.respond(
+            q, bootstrap,
+            include_debug=debug,
+            resolver_client=resolver_client,
+        )
+        turn: dict[str, Any] = {
+            "question":   q,
+            "final_text": r.final_text,
+            "outcome":    r.outcome,
+            "supported":  r.supported,
+            "intent":     r.intent,
+        }
+        if debug and r.debug is not None:
+            debug_bundle: dict[str, Any] = {
+                "response_text": r.debug.response_text,
+                "llm_text":      r.debug.llm_text,
+                "violations":    list(r.debug.violations),
+                "prompt_used":   r.debug.prompt_used,
+                "model":         r.debug.model,
+            }
+            if r.debug.resolver is not None:
+                rdbg = r.debug.resolver
+                debug_bundle["resolver"] = {
+                    "resolver_used":       rdbg.resolver_used,
+                    "resolver_source":     rdbg.resolver_source,
+                    "resolver_confidence": rdbg.resolver_confidence,
+                    "rewritten_question":  rdbg.rewritten_question,
+                    "fallback_reason":     rdbg.fallback_reason,
+                }
+                if rdbg.resolver_used:
+                    turn["rewritten_question"] = rdbg.rewritten_question
+            turn["debug"] = debug_bundle
+        results.append(turn)
+    return results
+
+
+# ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
 
