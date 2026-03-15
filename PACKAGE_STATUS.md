@@ -1,6 +1,6 @@
 # fpl-platform · Package Status
 **Last updated:** 2026-03-14
-**After:** Phase 4e (multi-turn state — ConversationSession + 120/120 assertions)
+**After:** Phase 4f (LLM-assisted reference resolution — 151/151 assertions)
 
 Status vocabulary:
 - `planned` — described in audit, no platform code written yet
@@ -209,12 +209,13 @@ Status vocabulary:
 | **Platform path** | `packages/fpl-grounded-assistant/fpl_grounded_assistant/` |
 | **Source of truth** | New — no upstream source; this is the primary platform product |
 | **Upstream dependency risk** | LLM layer: Anthropic API availability (graceful fallback to deterministic path when unavailable) |
-| **Test coverage** | 23 standalone test runners, 3,795 total assertions (Phases 1h–4e); 82 live integration assertions against real FPL API (Phase 4a); 119 CLI assertions (Phase 4b); 148 HTTP assertions (Phase 4c); 115 integration example assertions (Phase 4d); 120 multi-turn state assertions (Phase 4e) |
+| **Test coverage** | 24 standalone test runners, 3,946 total assertions (Phases 1h–4f); 82 live integration assertions against real FPL API (Phase 4a); 119 CLI assertions (Phase 4b); 148 HTTP assertions (Phase 4c); 115 integration example assertions (Phase 4d); 120 multi-turn state assertions (Phase 4e); 151 reference resolver assertions (Phase 4f) |
 | **Pilot** | Phase 4a — `assemble_captain_context() → respond()` wiring verified with live FPL bootstrap; 82/82 PASS |
 | **Contract doc** | `packages/fpl-grounded-assistant/FINAL_RESPONSE_CONTRACT.md` — stable caller-facing surface (Phase 3d) |
 | **Integration examples** | `packages/fpl-grounded-assistant/examples/` — CLI and HTTP examples for all 5 canonical scenarios (Phase 4d) |
 | **Multi-turn state** | `ConversationSession` / `ConversationState` / `resolve_pronouns` — pronoun follow-up resolution (Phase 4e) |
-| **Next step** | Phase 4f (LLM intent classification) or expose ConversationSession via HTTP/CLI — see HANDOFF.md |
+| **Reference resolver** | `ReferenceResolution` / `resolve_reference` / `resolve_reference_llm` / `build_resolver_prompt` — LLM-assisted reference resolution with Phase 4e deterministic fallback; Spanish + English follow-ups (Phase 4f) |
+| **Next step** | Phase 4g (HTTP/CLI exposure of ConversationSession) or Phase 4h (multi-turn integration examples) — see HANDOFF.md |
 
 ---
 
@@ -253,4 +254,5 @@ Status vocabulary:
 | `fpl_server` (HTTP entrypoint) | A | `parity-validated` | Phase 4c; 148 assertions |
 | `examples/` (integration examples) | A | `parity-validated` | Phase 4d; 115 assertions |
 | `conversation_state` (multi-turn state) | A | `parity-validated` | Phase 4e; 120 assertions |
+| `reference_resolver` (LLM reference resolution) | A | `parity-validated` | Phase 4f; 151 assertions |
 | `fpl-charts` TypeScript | A | `created` | Not on critical path |

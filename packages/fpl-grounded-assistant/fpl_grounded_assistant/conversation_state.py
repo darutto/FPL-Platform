@@ -2,10 +2,12 @@
 fpl_grounded_assistant.conversation_state
 ==========================================
 Phase 4e: minimal multi-turn conversation state.
+Phase 4f: extended with bounded history + LLM-assisted resolver integration.
 
 Provides a lightweight, in-memory state layer on top of the stateless
 ``respond()`` function.  State is explicit, bounded, and restricted to
-player-context tracking for pronoun resolution in follow-up questions.
+player-context tracking for pronoun/reference resolution in follow-up
+questions.
 
 Design principles
 -----------------
@@ -13,40 +15,33 @@ Design principles
 - **Short-lived** — callers control lifetime by constructing a new
   ``ConversationSession`` per conversation and discarding it afterwards.
 - **Narrow** — only the most recently successfully resolved player query
-  is tracked.  No history, no summarisation, no long-term memory.
+  and a bounded history (≤ 3 turns) are tracked.  No long-term memory.
 - **Inspectable** — ``ConversationState`` is a plain dataclass; no hidden
   or encoded state.
 
 Follow-up patterns supported
 -----------------------------
-Pronoun substitution enables follow-up questions that reference the most
-recently resolved player.  The substituted question is then passed to the
-existing deterministic router unchanged — no new routing rules are added.
+Phase 4e: English pronoun substitution via regex.
+Phase 4f: LLM-assisted reference resolution for Spanish/ellipsis follow-ups.
 
-Supported pronouns / references (matched with word-boundary awareness)::
+When ``resolver_client`` is provided to ``ConversationSession.respond()``,
+the LLM resolver handles patterns the Phase 4e regex cannot:
+
+- ``"¿Y él?"``           → resolves to last player via Spanish pronoun
+- ``"¿Y como capitán?"`` → captain_score intent + last player via ellipsis
+- ``"¿Y Salah?"``        → explicit player + intent from context
+- ``"And Salah?"``       → explicit player + intent from context
+
+When no client is available, Phase 4e regex fallback handles English pronouns::
 
     him  his  he  her  hers  she  them  their  they
     the player  this player  that player
 
-Examples::
-
-    # Turn 1 — resolves Haaland, stores last_player_query = "Haaland"
-    r1 = session.respond("should I captain Haaland", bootstrap)
-
-    # Turn 2 — pronoun resolved before routing
-    r2 = session.respond("should I captain him?", bootstrap)
-    # effective question: "should I captain Haaland?"
-
-    # Turn 3 — summary follow-up
-    r3 = session.respond("tell me about him", bootstrap)
-    # effective question: "tell me about Haaland"
-
 Intentionally deferred
 -----------------------
 - Long-term memory or session persistence
-- Multi-player context tracking
-- Comparison intents or new routing rules
-- LLM-based reference resolution
+- Multi-player context tracking ("him or Salah")
+- Comparison intents
 - Trailing-clause pronoun handling (e.g. "who is better, him or Salah?")
 
 Public API
@@ -56,12 +51,18 @@ Public API
     from fpl_grounded_assistant import (
         ConversationSession,   # primary interface
         ConversationState,     # inspectable state object
-        resolve_pronouns,      # pure substitution helper
+        resolve_pronouns,      # pure substitution helper (Phase 4e)
     )
 
     session = ConversationSession()
     r1 = session.respond("should I captain Haaland", bootstrap)
+
+    # Phase 4e — English pronoun fallback (no client needed)
     r2 = session.respond("should I captain him?", bootstrap)
+
+    # Phase 4f — LLM resolver for Spanish/ellipsis (optional)
+    r3 = session.respond("¿Y como capitán?", bootstrap, resolver_client=client)
+
     session.clear()  # reset for next conversation
 """
 from __future__ import annotations
@@ -117,17 +118,23 @@ class ConversationState:
     turn_count:
         Total number of turns processed in this session (includes turns that
         did not update ``last_player_query``).
+    history:
+        Bounded list of recent ``(question_text, intent)`` pairs.  At most
+        3 entries — oldest entry is dropped when the limit is reached.  Used
+        by the Phase 4f LLM reference resolver as conversation context.
 
     Mutated only by ``update_from_response()`` and ``clear()``.
     """
 
     last_player_query: str | None = field(default=None)
     turn_count: int = field(default=0)
+    history: list[tuple[str, str]] = field(default_factory=list)
 
     def update_from_response(
         self,
         response: FinalResponse,
         resolved_query: str | None,
+        question_text: str | None = None,
     ) -> None:
         """Update state after a completed turn.
 
@@ -141,13 +148,19 @@ class ConversationState:
         Always increments ``turn_count`` regardless of whether the player
         context is updated.
 
+        Appends ``(question_text, response.intent)`` to ``history`` when
+        *question_text* is provided.  History is bounded to 3 entries.
+
         Parameters
         ----------
         response:
             The ``FinalResponse`` returned by ``respond()``.
         resolved_query:
             The player query extracted by the router for this turn (after
-            pronoun substitution), or ``None`` if no player was targeted.
+            reference resolution), or ``None`` if no player was targeted.
+        question_text:
+            The canonical question text that was sent to the backend.
+            Used to populate ``history`` for the Phase 4f LLM resolver.
         """
         self.turn_count += 1
         if (
@@ -161,10 +174,16 @@ class ConversationState:
         ):
             self.last_player_query = resolved_query
 
+        if question_text:
+            if len(self.history) >= 3:
+                self.history.pop(0)
+            self.history.append((question_text, response.intent))
+
     def clear(self) -> None:
         """Reset all state.  Call when starting a new conversation."""
         self.last_player_query = None
         self.turn_count = 0
+        self.history.clear()
 
 
 # ---------------------------------------------------------------------------
@@ -268,38 +287,56 @@ class ConversationSession:
 
         Steps:
 
-        1. Substitute pronouns in *question* using ``state.last_player_query``.
-        2. Route the resolved question to extract ``player_query`` (if any).
-        3. Call the stateless ``respond()`` with the resolved question.
+        1. Attempt LLM-assisted reference resolution (Phase 4f) when
+           ``resolver_client`` is present in *kwargs*; fall back to Phase 4e
+           deterministic pronoun substitution otherwise.
+        2. Route the resolved/rewritten question to extract ``player_query``.
+        3. Call the stateless ``respond()`` with the rewritten question.
         4. Update ``state`` based on the response outcome and intent.
 
         Parameters
         ----------
         question:
-            Raw user question.  Pronouns are substituted before routing.
+            Raw user question (any language).  Reference resolution runs
+            before the question reaches the deterministic backend.
         bootstrap:
             FPL bootstrap dict (same as the stateless ``respond()``).
+        resolver_client:
+            Optional Anthropic client for Phase 4f LLM reference resolution.
+            Consumed here — not forwarded to the stateless ``respond()``.
+            When absent (or ``None``), Phase 4e deterministic fallback is used.
         **kwargs:
-            Forwarded to the stateless ``respond()`` unchanged
-            (e.g. ``include_debug=True``, ``client=...``).
+            All other kwargs are forwarded to the stateless ``respond()``
+            unchanged (e.g. ``include_debug=True``, ``client=...``).
 
         Returns
         -------
         FinalResponse
             Identical in shape and invariants to the stateless ``respond()``.
-            ``FinalResponse.intent`` reflects the resolved (post-substitution)
-            question.
+            ``FinalResponse.intent`` reflects the rewritten question.
         """
-        resolved = resolve_pronouns(question, self.state)
+        # Lazy import — avoids circular import between conversation_state ↔ reference_resolver
+        from .reference_resolver import resolve_reference  # noqa: PLC0415
+
+        # Consume resolver_client from kwargs so it is not forwarded to _respond()
+        resolver_client = kwargs.pop("resolver_client", None)
+
+        resolution = resolve_reference(
+            question,
+            self.state,
+            client=resolver_client,
+            history=self.state.history if self.state.history else None,
+        )
+        rewritten = resolution.rewritten_question
 
         # Extract player_query for state tracking — route() is lightweight
-        route_result = route(resolved)
+        route_result = route(rewritten)
         player_query: str | None = None
         if route_result is not None:
             player_query = route_result.tool_args.get("query") or None
 
-        response = _respond(resolved, bootstrap, **kwargs)
-        self.state.update_from_response(response, player_query)
+        response = _respond(rewritten, bootstrap, **kwargs)
+        self.state.update_from_response(response, player_query, question_text=rewritten)
         return response
 
     @property
