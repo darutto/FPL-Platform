@@ -1,8 +1,8 @@
 # fpl-platform · Claude Code Handoff
 
 **Prepared:** 2026-03-14
-**Last updated:** 2026-03-15 (Phase 5a complete)
-**Handing off at:** Phase 5a complete
+**Last updated:** 2026-03-15 (Phase 5b complete)
+**Handing off at:** Phase 5b complete
 **Primary package:** `fpl-grounded-assistant`
 
 ---
@@ -85,6 +85,7 @@ self-contained (no pytest required, no network, no LLM calls):
 
 | File | Phase | Count |
 |------|-------|-------|
+| `run_phase5b_tests.py` | 5b — comparison contract normalization | 61 |
 | `run_phase5a_tests.py` | 5a — two-player captain comparison | 98 |
 | `run_phase4j_tests.py` | 4j — session examples and docs | 86 |
 | `run_phase4i_tests.py` | 4i — session hygiene | 149 |
