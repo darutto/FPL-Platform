@@ -245,6 +245,38 @@ def resolve_pronouns(question: str, state: ConversationState) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Resolver debug helper (Phase 4g)
+# ---------------------------------------------------------------------------
+
+def _make_resolver_debug(resolution, original_question: str, rewritten_question: str):
+    """Build a ResolverDebug from a ReferenceResolution.
+
+    Lazy-imports ResolverDebug to avoid circular imports.
+    """
+    from .final_response import ResolverDebug  # noqa: PLC0415
+
+    src = resolution.reference_source
+    if src == "deterministic":
+        resolver_source = "fallback_regex"
+        resolver_confidence = None
+    elif src == "none" and resolution.confidence == 0.0:
+        resolver_source = "none"
+        resolver_confidence = None
+    else:
+        # LLM path: reference_source is "pronoun", "ellipsis", "explicit", or "none" with confidence > 0
+        resolver_source = "llm"
+        resolver_confidence = resolution.confidence
+
+    return ResolverDebug(
+        resolver_used=(resolver_source != "none"),
+        resolver_source=resolver_source,
+        resolver_confidence=resolver_confidence,
+        rewritten_question=rewritten_question,
+        fallback_reason=resolution.fallback_reason,
+    )
+
+
+# ---------------------------------------------------------------------------
 # ConversationSession
 # ---------------------------------------------------------------------------
 
@@ -321,6 +353,9 @@ class ConversationSession:
         # Consume resolver_client from kwargs so it is not forwarded to _respond()
         resolver_client = kwargs.pop("resolver_client", None)
 
+        # Read include_debug before resolution so we can build resolver debug bundle
+        include_debug = kwargs.get("include_debug", False)
+
         resolution = resolve_reference(
             question,
             self.state,
@@ -329,13 +364,18 @@ class ConversationSession:
         )
         rewritten = resolution.rewritten_question
 
+        # Build resolver debug bundle when debug is requested
+        _resolver_debug = None
+        if include_debug:
+            _resolver_debug = _make_resolver_debug(resolution, question, rewritten)
+
         # Extract player_query for state tracking — route() is lightweight
         route_result = route(rewritten)
         player_query: str | None = None
         if route_result is not None:
             player_query = route_result.tool_args.get("query") or None
 
-        response = _respond(rewritten, bootstrap, **kwargs)
+        response = _respond(rewritten, bootstrap, **kwargs, _resolver_debug=_resolver_debug)
         self.state.update_from_response(response, player_query, question_text=rewritten)
         return response
 

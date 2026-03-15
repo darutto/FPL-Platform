@@ -69,12 +69,53 @@ Intentionally deferred
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from .dispatcher import OUTCOME_OK  # noqa: F401 — re-exported for convenience
 from .llm_layer import DEFAULT_MODEL
 from .llm_review import ask_llm_safe
+
+
+# ---------------------------------------------------------------------------
+# Resolver debug bundle (Phase 4g)
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class ResolverDebug:
+    """Resolver-path metadata for debugging reference resolution.
+
+    Only populated when ``ConversationSession.respond()`` is called with
+    ``include_debug=True``.  Always ``None`` in the debug bundle for direct
+    ``respond()`` calls (no session context available).
+
+    Attributes
+    ----------
+    resolver_used:
+        Whether a resolver (LLM or deterministic) actually changed the question.
+        ``True`` when ``resolver_source`` is ``"llm"`` or ``"fallback_regex"``.
+    resolver_source:
+        Which resolver path was taken:
+        ``"llm"``           — LLM reference resolution succeeded (confidence >= threshold)
+        ``"fallback_regex"`` — Phase 4e deterministic pronoun substitution used
+        ``"none"``          — No resolver ran; original question used unchanged
+    resolver_confidence:
+        LLM-reported confidence (0.0-1.0) when ``resolver_source == "llm"``.
+        ``None`` for non-LLM paths.
+    rewritten_question:
+        The canonical English question sent to the deterministic backend.
+        Equals the original question when ``resolver_used=False``.
+    fallback_reason:
+        Why the LLM resolver was not used (if applicable):
+        ``"llm_unavailable"`` — no client, LLM error, or parse failure
+        ``"low_confidence"``  — LLM returned but confidence < threshold
+        ``None``              — LLM was used (no fallback) or no resolution needed
+    """
+    resolver_used:       bool
+    resolver_source:     str
+    resolver_confidence: float | None
+    rewritten_question:  str
+    fallback_reason:     str | None
 
 
 # ---------------------------------------------------------------------------
@@ -107,12 +148,17 @@ class FinalResponseDebug:
     model:
         The Anthropic model identifier, or ``"none"`` when the deterministic
         fallback was used.
+    resolver:
+        Optional resolver debug bundle (Phase 4g).  Populated only when
+        ``ConversationSession.respond()`` is used with ``include_debug=True``.
+        Always ``None`` for direct stateless ``respond()`` calls.
     """
     llm_text:      str
     response_text: str
     violations:    tuple[str, ...]
     prompt_used:   str
     model:         str
+    resolver:      ResolverDebug | None = field(default=None)
 
 
 # ---------------------------------------------------------------------------
@@ -185,6 +231,7 @@ def respond(
     candidates_list: list[dict[str, Any]] | None = None,
     api_key: str | None = None,
     include_debug: bool = False,
+    _resolver_debug: ResolverDebug | None = None,
 ) -> FinalResponse:
     """Run the full pipeline and return a single caller-facing ``FinalResponse``.
 
@@ -215,6 +262,10 @@ def respond(
         When ``True``, populate ``FinalResponse.debug`` with internal fields
         (``llm_text``, ``response_text``, ``violations``, ``prompt_used``,
         ``model``).  Defaults to ``False``.
+    _resolver_debug:
+        Internal — populated by ``ConversationSession.respond()`` with
+        resolver metadata.  Not part of the public caller contract.
+        External callers should leave this as ``None``.
 
     Returns
     -------
@@ -263,6 +314,7 @@ def respond(
             violations=review.violations,
             prompt_used=lr.prompt_used,
             model=lr.model,
+            resolver=_resolver_debug,
         )
 
     return FinalResponse(

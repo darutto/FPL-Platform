@@ -184,7 +184,7 @@ _assert("reference_source" in field_names, "A3: has reference_source field")
 _assert("confidence" in field_names, "A4: has confidence field")
 _assert("language" in field_names, "A5: has language field")
 _assert("rewritten_question" in field_names, "A6: has rewritten_question field")
-_assert_eq(len(field_names), 6, "A7: exactly 6 fields")
+_assert_eq(len(field_names), 7, "A7: exactly 7 fields (6 original + fallback_reason from Phase 4g)")
 
 # Frozen — should raise on attribute assignment
 try:

@@ -69,6 +69,11 @@ Public API
         RESOLVER_SYSTEM_PROMPT,
         _CONFIDENCE_THRESHOLD,
     )
+
+``ReferenceResolution`` fields include ``fallback_reason`` (Phase 4g):
+``"llm_unavailable"`` when LLM was not used due to missing client/error/parse
+failure; ``"low_confidence"`` when LLM returned but confidence < threshold;
+``None`` when LLM succeeded or no resolution was attempted.
 """
 from __future__ import annotations
 
@@ -198,6 +203,11 @@ class ReferenceResolution:
     rewritten_question:
         Canonical English question ready for the deterministic backend.
         Equals the original question when no rewriting was performed.
+    fallback_reason:
+        Why the LLM resolver was not used (Phase 4g):
+        ``"llm_unavailable"`` — no client, LLM error, or parse failure
+        ``"low_confidence"``  — LLM returned but confidence < threshold
+        ``None``              — LLM was used (no fallback) or no resolution needed
     """
 
     resolved_query:     str | None
@@ -206,6 +216,7 @@ class ReferenceResolution:
     confidence:         float
     language:           str
     rewritten_question: str
+    fallback_reason:    str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -469,7 +480,15 @@ def resolve_reference(
         question, state, client=client, model=model, history=history
     )
     if llm_result is not None and llm_result.confidence >= _CONFIDENCE_THRESHOLD:
+        # LLM succeeded — fallback_reason remains None
         return llm_result
+
+    # Determine why LLM was not used (for audit / debug)
+    if llm_result is None:
+        fallback_reason: str | None = "llm_unavailable"
+    else:
+        # llm_result is not None but confidence < threshold
+        fallback_reason = "low_confidence"
 
     # --- Path 2: Deterministic pronoun resolution (Phase 4e fallback) ---
     resolved = resolve_pronouns(question, state)
@@ -481,6 +500,7 @@ def resolve_reference(
             confidence=1.0,
             language="en",
             rewritten_question=resolved,
+            fallback_reason=fallback_reason,
         )
 
     # --- Path 3: No resolution — original question unchanged ---
@@ -491,4 +511,5 @@ def resolve_reference(
         confidence=0.0,
         language="en",
         rewritten_question=question,
+        fallback_reason=fallback_reason,
     )
