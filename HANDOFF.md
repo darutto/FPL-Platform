@@ -1,8 +1,8 @@
 # fpl-platform · Claude Code Handoff
 
 **Prepared:** 2026-03-14
-**Last updated:** 2026-03-14 (Phase 4e complete)
-**Handing off at:** Phase 4e complete
+**Last updated:** 2026-03-14 (Phase 4f complete)
+**Handing off at:** Phase 4f complete
 **Primary package:** `fpl-grounded-assistant`
 
 ---
@@ -46,14 +46,18 @@ fpl-platform/
 ## fpl-grounded-assistant Stack (innermost → outermost)
 
 ```
-respond(user_message, bootstrap, ...)     → FinalResponse    [Phase 3c/3d]
-  └── ask_llm_safe(...)                   → (LLMResponse, ReviewResult)  [Phase 3b]
-        └── ask_llm(...)                  → LLMResponse       [Phase 3a]
-              └── adapt(...)              → AdapterResponse   [Phase 2m]
-                    └── dispatch(...)     → DispatchResult    [Phase 2k/2l]
-                          └── ask(...)   → dict               [Phase 1h]
-                                └── run_tool(name, args, bootstrap)      [Phase 1g]
-                                      └── tool_contract layer            [Phase 1f]
+ConversationSession.respond(question, bootstrap, ...)  → FinalResponse  [Phase 4e/4f]
+  ├── resolve_reference(question, state, client=...)  → ReferenceResolution  [Phase 4f]
+  │     ├── resolve_reference_llm(...)   ← LLM structured JSON extraction (Phase 4f)
+  │     └── resolve_pronouns(...)        ← Phase 4e regex fallback
+  └── respond(rewritten_question, bootstrap, ...)     → FinalResponse    [Phase 3c/3d]
+        └── ask_llm_safe(...)                   → (LLMResponse, ReviewResult)  [Phase 3b]
+              └── ask_llm(...)                  → LLMResponse       [Phase 3a]
+                    └── adapt(...)              → AdapterResponse   [Phase 2m]
+                          └── dispatch(...)     → DispatchResult    [Phase 2k/2l]
+                                └── ask(...)   → dict               [Phase 1h]
+                                      └── run_tool(name, args, bootstrap)      [Phase 1g]
+                                            └── tool_contract layer            [Phase 1f]
 ```
 
 **Key contract documents:**
@@ -81,6 +85,7 @@ self-contained (no pytest required, no network, no LLM calls):
 
 | File | Phase | Count |
 |------|-------|-------|
+| `run_phase4f_tests.py` | 4f — LLM reference resolver | 151 |
 | `run_phase4e_tests.py` | 4e — multi-turn state | 120 |
 | `run_phase4d_tests.py` | 4d — integration examples | 115 |
 | `run_phase1h_tests.py` | 1h — harness | 47 |
@@ -139,10 +144,16 @@ from fpl_grounded_assistant import (
     ConversationSession,
     ConversationState,
     resolve_pronouns,
+
+    # Reference resolver (Phase 4f)
+    ReferenceResolution,
+    resolve_reference,
+    build_resolver_prompt,
+    RESOLVER_SYSTEM_PROMPT,
 )
 ```
 
-**Multi-turn usage** (Phase 4e — stateful pronoun follow-ups):
+**Multi-turn usage** (Phase 4e — English pronoun follow-ups, no LLM):
 ```python
 from fpl_grounded_assistant import ConversationSession, STANDARD_BOOTSTRAP
 
@@ -150,6 +161,35 @@ session = ConversationSession()
 r1 = session.respond("should I captain Haaland", STANDARD_BOOTSTRAP)
 r2 = session.respond("should I captain him?", STANDARD_BOOTSTRAP)  # resolves to Haaland
 session.clear()  # reset for next conversation
+```
+
+**Multi-turn with LLM resolver** (Phase 4f — Spanish + English follow-ups):
+```python
+import anthropic
+from fpl_grounded_assistant import ConversationSession, STANDARD_BOOTSTRAP
+
+client = anthropic.Anthropic()  # uses ANTHROPIC_API_KEY
+session = ConversationSession()
+r1 = session.respond("should I captain Haaland", STANDARD_BOOTSTRAP)
+r2 = session.respond("¿Y como capitán?", STANDARD_BOOTSTRAP,
+                     resolver_client=client)  # Spanish ellipsis resolved to Haaland
+r3 = session.respond("¿Y él?", STANDARD_BOOTSTRAP,
+                     resolver_client=client)  # Spanish pronoun resolved
+session.clear()
+```
+
+**Inspecting a resolution** (Phase 4f):
+```python
+from fpl_grounded_assistant import resolve_reference, ConversationState
+
+state = ConversationState()
+state.last_player_query = "Haaland"
+resolution = resolve_reference("¿Y como capitán?", state, client=client)
+# ReferenceResolution(
+#   resolved_query="Haaland", intent_guess="captain_score",
+#   reference_source="ellipsis", confidence=0.85, language="es",
+#   rewritten_question="should I captain Haaland"
+# )
 ```
 
 **Simplest working call** (deterministic, no API key needed):
@@ -246,7 +286,7 @@ new approved slices:
 | Capability | Last deferred in |
 |------------|-----------------|
 | Multi-turn conversation memory (persistence beyond session) | Phase 4e |
-| Trailing-clause pronoun handling ("who is better, him or Salah?") | Phase 4e |
+| Trailing-clause pronoun handling ("who is better, him or Salah?") | Phase 4f |
 | Combined intents | Phase 3d |
 | UI integration | Phase 3d |
 | Streaming responses | Phase 3d |
@@ -295,7 +335,22 @@ Pronoun follow-ups ("should I captain him?", "tell me about him") resolved via
 word-boundary-safe regex substitution before routing.  Stateless `respond()` unchanged.
 120/120 PASS.  Files: `fpl_grounded_assistant/conversation_state.py`, `run_phase4e_tests.py`.
 
-**Phase 4f — LLM-based intent classification (optional)**
+**Phase 4f — LLM-assisted reference resolution** *(complete)*
+`reference_resolver.py`: `ReferenceResolution` (frozen dataclass), `resolve_reference()`,
+`resolve_reference_llm()`, `build_resolver_prompt()`.
+LLM extracts structured JSON: `resolved_query`, `intent_guess`, `reference_source`,
+`confidence`, `language` — never answers FPL questions.  Falls back to Phase 4e
+deterministic pronoun resolution when LLM is unavailable or confidence < 0.5.
+`ConversationState.history` added (bounded ≤ 3 turns) for context passing.
+`ConversationSession.respond()` accepts `resolver_client` kwarg.
+151/151 PASS.  Files: `fpl_grounded_assistant/reference_resolver.py`, `run_phase4f_tests.py`.
+
+**Phase 4g — HTTP/CLI exposure of ConversationSession (optional)**
+Expose `ConversationSession` over the HTTP and CLI interfaces.  HTTP would require
+session ID management (cookies or headers).  Out of scope until a concrete caller
+needs it.
+
+**Phase 4h — LLM intent classification (optional)**
 Replace or augment the deterministic keyword router with an LLM classification
 step.  The existing `_OUTCOME_INSTRUCTION` and `INTENT_MANIFEST` provide the
 vocabulary.  The deterministic router should remain as a fallback.
@@ -353,7 +408,8 @@ packages/fpl-grounded-assistant/
 │   ├── llm_review.py             # Phase 3b — deterministic violation checks
 │   ├── final_response.py         # Phase 3c — FinalResponse, respond()
 │   ├── final_response_fixtures.py # Phase 3d — FinalResponseFixture, 6 scenarios
-│   └── conversation_state.py     # Phase 4e — ConversationState, ConversationSession, resolve_pronouns
+│   ├── conversation_state.py     # Phase 4e/4f — ConversationState (+ history), ConversationSession, resolve_pronouns
+│   └── reference_resolver.py     # Phase 4f — ReferenceResolution, resolve_reference, build_resolver_prompt
 ├── examples/
 │   ├── __init__.py               # Phase 4d — makes examples an importable package
 │   ├── cli_examples.py           # Phase 4d — CLI examples, 5 scenarios, runnable
@@ -369,7 +425,8 @@ packages/fpl-grounded-assistant/
 ├── run_phase4b_tests.py          # 119/119 PASS
 ├── run_phase4c_tests.py          # 148/148 PASS
 ├── run_phase4d_tests.py          # 115/115 PASS
-└── run_phase4e_tests.py          # 120/120 PASS
+├── run_phase4e_tests.py          # 120/120 PASS
+└── run_phase4f_tests.py          # 151/151 PASS
 ```
 
 ---

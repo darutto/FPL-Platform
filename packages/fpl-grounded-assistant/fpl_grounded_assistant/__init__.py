@@ -153,6 +153,18 @@ from .conversation_state import (
     resolve_pronouns,
     _PRONOUNS,
 )
+from .reference_resolver import (
+    # Phase 4f: LLM-assisted reference resolution
+    ReferenceResolution,
+    resolve_reference,
+    resolve_reference_llm,
+    build_resolver_prompt,
+    RESOLVER_SYSTEM_PROMPT,
+    _CONFIDENCE_THRESHOLD,
+    _INTENT_TO_CANONICAL,
+    _parse_resolver_response,
+    _build_canonical_question,
+)
 
 __all__ = [
     # Phase 2n: contract fixtures
@@ -221,6 +233,16 @@ __all__ = [
     "ConversationSession",
     "resolve_pronouns",
     "_PRONOUNS",
+    # Phase 4f: LLM-assisted reference resolution
+    "ReferenceResolution",
+    "resolve_reference",
+    "resolve_reference_llm",
+    "build_resolver_prompt",
+    "RESOLVER_SYSTEM_PROMPT",
+    "_CONFIDENCE_THRESHOLD",
+    "_INTENT_TO_CANONICAL",
+    "_parse_resolver_response",
+    "_build_canonical_question",
     # core harness
     "ask",
     "route",
