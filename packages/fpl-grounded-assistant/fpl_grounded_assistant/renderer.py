@@ -130,13 +130,33 @@ def _render_get_current_gameweek(output: dict[str, Any]) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Comparison renderer  (Phase 5b)
+# ---------------------------------------------------------------------------
+
+def _render_compare_players(output: dict[str, Any]) -> str:
+    """Render a compare_players raw_output dict into a human-readable string."""
+    status = output.get("status")
+    if status == "ok":
+        rec = output.get("recommendation", "")
+        return rec if rec else "Comparison completed."
+    if status in ("not_found", "ambiguous"):
+        ep  = output.get("error_player", "")
+        msg = output.get("message", f"Could not resolve player '{ep}'.")
+        return msg
+    code    = output.get("code", "error")
+    message = output.get("message", "An unexpected comparison error occurred.")
+    return f"Error ({code}): {message}"
+
+
+# ---------------------------------------------------------------------------
 # Dispatch table and public API
 # ---------------------------------------------------------------------------
 
 _RENDERERS = {
-    "resolve_player":      _render_resolve_player,
-    "get_player_summary":  _render_get_player_summary,
+    "resolve_player":       _render_resolve_player,
+    "get_player_summary":   _render_get_player_summary,
     "get_current_gameweek": _render_get_current_gameweek,
+    "compare_players":      _render_compare_players,   # Phase 5b
 }
 
 

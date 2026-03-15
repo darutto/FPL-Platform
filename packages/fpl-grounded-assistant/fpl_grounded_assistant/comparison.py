@@ -2,6 +2,7 @@
 fpl_grounded_assistant.comparison
 ==================================
 Phase 5a: deterministic two-player captain comparison.
+Phase 5b: registered as a proper tool in TOOL_REGISTRY.
 
 Compares two players by captain_score using scoring inputs derived directly
 from their bootstrap element data (form, xgi_per_90, minutes_risk,
@@ -50,6 +51,8 @@ from typing import Any
 
 from fpl_tool_contract import tool_resolve_player
 from fpl_captain_engine import calculate_captain_score
+from fpl_tool_runner import TOOL_REGISTRY
+from fpl_tool_runner.specs import ToolSpec
 
 from .explainer import explain_captain
 
@@ -335,3 +338,79 @@ def _build_recommendation(
     if parts:
         return base + "  " + "  ".join(parts) + "."
     return base
+
+
+# ---------------------------------------------------------------------------
+# Tool contract (Phase 5b)
+# ---------------------------------------------------------------------------
+
+COMPARE_PLAYERS_SPEC = ToolSpec(
+    name="compare_players",
+    description=(
+        "Compare two FPL players as captain candidates using grounded scoring. "
+        "Derives form, xgi_per_90, minutes_risk, and fixture difficulty directly "
+        "from bootstrap element data.  Returns a structured comparison with "
+        "captain scores, tiers, reason strings, and a winner recommendation. "
+        "Returns status='not_found' or status='ambiguous' if either player "
+        "cannot be uniquely resolved."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "query_a": {
+                "type":        "string",
+                "description": "First player — name, web_name, alias, or FPL element id.",
+            },
+            "query_b": {
+                "type":        "string",
+                "description": "Second player — name, web_name, alias, or FPL element id.",
+            },
+        },
+        "required": ["query_a", "query_b"],
+    },
+    output_schema={
+        "oneOf": [
+            {
+                "title": "ok",
+                "type": "object",
+                "required": ["status", "query_a", "query_b",
+                             "player_a", "player_b", "winner", "margin", "recommendation"],
+                "properties": {
+                    "status":         {"type": "string", "enum": ["ok"]},
+                    "query_a":        {"type": "string"},
+                    "query_b":        {"type": "string"},
+                    "player_a":       {"type": "object"},
+                    "player_b":       {"type": "object"},
+                    "winner":         {"type": ["string", "null"]},
+                    "margin":         {"type": "number"},
+                    "recommendation": {"type": "string"},
+                },
+            },
+            {
+                "title": "error",
+                "type": "object",
+                "required": ["status", "query_a", "query_b", "error_player", "message"],
+                "properties": {
+                    "status":       {"type": "string",
+                                     "enum": ["not_found", "ambiguous", "error"]},
+                    "query_a":      {"type": "string"},
+                    "query_b":      {"type": "string"},
+                    "error_player": {"type": "string"},
+                    "message":      {"type": "string"},
+                },
+            },
+        ]
+    },
+)
+
+
+def _compare_players_handler(
+    args:      dict[str, Any],
+    bootstrap: dict[str, Any],
+) -> dict[str, Any]:
+    """Tool-runner handler — delegates to ``compare_players()``."""
+    return compare_players(args["query_a"], args["query_b"], bootstrap)
+
+
+# Register with the shared tool registry so run_tool("compare_players", ...) works.
+TOOL_REGISTRY.register(COMPARE_PLAYERS_SPEC, _compare_players_handler)
