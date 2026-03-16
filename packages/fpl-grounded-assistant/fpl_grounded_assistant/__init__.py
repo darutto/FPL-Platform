@@ -182,6 +182,12 @@ from .reference_resolver import (
     _INTENT_TO_CANONICAL,
     _parse_resolver_response,
     _build_canonical_question,
+    # Phase 5f: LLM-assisted comparison follow-up resolution
+    resolve_comparison_followup_llm,
+    build_comp_resolver_prompt,
+    COMP_RESOLVER_SYSTEM_PROMPT,
+    _parse_comp_resolver_response,
+    _COMP_RESOLVER_MAX_TOKENS,
 )
 
 __all__ = [
@@ -277,6 +283,12 @@ __all__ = [
     "_INTENT_TO_CANONICAL",
     "_parse_resolver_response",
     "_build_canonical_question",
+    # Phase 5f: LLM-assisted comparison follow-up resolution
+    "resolve_comparison_followup_llm",
+    "build_comp_resolver_prompt",
+    "COMP_RESOLVER_SYSTEM_PROMPT",
+    "_parse_comp_resolver_response",
+    "_COMP_RESOLVER_MAX_TOKENS",
     # core harness
     "ask",
     "route",
