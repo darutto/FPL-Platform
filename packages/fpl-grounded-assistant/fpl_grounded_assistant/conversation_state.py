@@ -3,6 +3,7 @@ fpl_grounded_assistant.conversation_state
 ==========================================
 Phase 4e: minimal multi-turn conversation state.
 Phase 4f: extended with bounded history + LLM-assisted resolver integration.
+Phase 5c: comparison follow-up support.
 
 Provides a lightweight, in-memory state layer on top of the stateless
 ``respond()`` function.  State is explicit, bounded, and restricted to
@@ -23,6 +24,7 @@ Follow-up patterns supported
 -----------------------------
 Phase 4e: English pronoun substitution via regex.
 Phase 4f: LLM-assisted reference resolution for Spanish/ellipsis follow-ups.
+Phase 5c: deterministic comparison follow-up via ``resolve_comparison_followup()``.
 
 When ``resolver_client`` is provided to ``ConversationSession.respond()``,
 the LLM resolver handles patterns the Phase 4e regex cannot:
@@ -30,7 +32,14 @@ the LLM resolver handles patterns the Phase 4e regex cannot:
 - ``"¿Y él?"``           → resolves to last player via Spanish pronoun
 - ``"¿Y como capitán?"`` → captain_score intent + last player via ellipsis
 - ``"¿Y Salah?"``        → explicit player + intent from context
-- ``"And Salah?"``       → explicit player + intent from context
+
+Phase 5c deterministic comparison follow-ups (no client needed)::
+
+    "And Salah?"               → compare {last_a} and Salah
+    "What about Palmer?"       → compare {last_a} and Palmer
+    "How about Palmer?"        → compare {last_a} and Palmer
+    "What about X instead?"    → compare {last_a} and X
+    "Compare him to Salah"     → compare {last_a} and Salah  (pronoun → last_a)
 
 When no client is available, Phase 4e regex fallback handles English pronouns::
 
@@ -41,7 +50,8 @@ Intentionally deferred
 -----------------------
 - Long-term memory or session persistence
 - Multi-player context tracking ("him or Salah")
-- Comparison intents
+- LLM-assisted comparison follow-up (Spanish, ellipsis)
+- Follow-up targeting player B specifically (always anchors to player A)
 - Trailing-clause pronoun handling (e.g. "who is better, him or Salah?")
 
 Public API
@@ -49,9 +59,10 @@ Public API
 ::
 
     from fpl_grounded_assistant import (
-        ConversationSession,   # primary interface
-        ConversationState,     # inspectable state object
-        resolve_pronouns,      # pure substitution helper (Phase 4e)
+        ConversationSession,          # primary interface
+        ConversationState,            # inspectable state object
+        resolve_pronouns,             # pure substitution helper (Phase 4e)
+        resolve_comparison_followup,  # comparison follow-up rewriter (Phase 5c)
     )
 
     session = ConversationSession()
@@ -76,6 +87,7 @@ from .dispatcher import (
     INTENT_CAPTAIN_SCORE,
     INTENT_PLAYER_SUMMARY,
     INTENT_PLAYER_RESOLVE,
+    INTENT_COMPARE_PLAYERS,   # Phase 5c
 )
 from .router import route
 from .final_response import respond as _respond, FinalResponse
@@ -103,6 +115,29 @@ _PRONOUNS: tuple[str, ...] = (
 
 
 # ---------------------------------------------------------------------------
+# Comparison follow-up patterns  (Phase 5c)
+# ---------------------------------------------------------------------------
+# Prefixes that introduce a new second-player follow-up after a comparison.
+_COMP_FOLLOWUP_PREFIXES: tuple[str, ...] = (
+    "what about ",
+    "how about ",
+    "and ",
+)
+
+# Trailing suffixes to strip from follow-up remainder.
+_COMP_INSTEAD_SUFFIXES: tuple[str, ...] = (
+    " instead",
+)
+
+# Matches "compare <pronoun> to/vs/against/and <player>".
+_COMP_PRONOUN_RE = re.compile(
+    r"^compare\s+(?:him|her|them|the\s+player|this\s+player)\s+"
+    r"(?:to|vs\.?|against|and)\s+(.+)$",
+    re.IGNORECASE,
+)
+
+
+# ---------------------------------------------------------------------------
 # ConversationState
 # ---------------------------------------------------------------------------
 
@@ -122,6 +157,10 @@ class ConversationState:
         Bounded list of recent ``(question_text, intent)`` pairs.  At most
         3 entries — oldest entry is dropped when the limit is reached.  Used
         by the Phase 4f LLM reference resolver as conversation context.
+    last_comparison:
+        The ``(query_a, query_b)`` pair from the most recently completed
+        successful comparison turn.  ``None`` until such a turn completes.
+        Cleared when any successful non-comparison turn completes (Phase 5c).
 
     Mutated only by ``update_from_response()`` and ``clear()``.
     """
@@ -129,12 +168,14 @@ class ConversationState:
     last_player_query: str | None = field(default=None)
     turn_count: int = field(default=0)
     history: list[tuple[str, str]] = field(default_factory=list)
+    last_comparison: tuple[str, str] | None = field(default=None)   # Phase 5c
 
     def update_from_response(
         self,
         response: FinalResponse,
         resolved_query: str | None,
         question_text: str | None = None,
+        comparison_queries: tuple[str, str] | None = None,   # Phase 5c
     ) -> None:
         """Update state after a completed turn.
 
@@ -144,6 +185,14 @@ class ConversationState:
         - ``response.outcome == OUTCOME_OK``
         - ``response.intent`` is one of: captain_score, player_summary,
           player_resolve
+
+        Sets ``last_comparison`` to *comparison_queries* when:
+
+        - *comparison_queries* is non-empty
+        - ``response.outcome == OUTCOME_OK``
+        - ``response.intent == INTENT_COMPARE_PLAYERS``
+
+        Clears ``last_comparison`` after any successful non-comparison turn.
 
         Always increments ``turn_count`` regardless of whether the player
         context is updated.
@@ -161,6 +210,10 @@ class ConversationState:
         question_text:
             The canonical question text that was sent to the backend.
             Used to populate ``history`` for the Phase 4f LLM resolver.
+        comparison_queries:
+            The ``(query_a, query_b)`` extracted from the route result when
+            the intent is ``compare_players``.  Used to update
+            ``last_comparison`` (Phase 5c).
         """
         self.turn_count += 1
         if (
@@ -174,6 +227,17 @@ class ConversationState:
         ):
             self.last_player_query = resolved_query
 
+        # Phase 5c: comparison context tracking
+        if (
+            comparison_queries
+            and response.outcome == OUTCOME_OK
+            and response.intent == INTENT_COMPARE_PLAYERS
+        ):
+            self.last_comparison = comparison_queries
+        elif response.outcome == OUTCOME_OK and response.intent != INTENT_COMPARE_PLAYERS:
+            # Any other successful turn clears comparison context
+            self.last_comparison = None
+
         if question_text:
             if len(self.history) >= 3:
                 self.history.pop(0)
@@ -184,6 +248,7 @@ class ConversationState:
         self.last_player_query = None
         self.turn_count = 0
         self.history.clear()
+        self.last_comparison = None   # Phase 5c
 
 
 # ---------------------------------------------------------------------------
@@ -245,6 +310,72 @@ def resolve_pronouns(question: str, state: ConversationState) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Comparison follow-up resolver  (Phase 5c)
+# ---------------------------------------------------------------------------
+
+def resolve_comparison_followup(question: str, state: ConversationState) -> str | None:
+    """Detect a comparison follow-up and return the rewritten canonical question.
+
+    Requires ``state.last_comparison`` to be set from a prior successful
+    comparison turn.  Returns ``None`` when no follow-up pattern matches or
+    when ``state.last_comparison`` is not set.
+
+    Supported patterns (when ``state.last_comparison == (A, B)``):
+
+    * ``"And Salah?"``              → ``"compare A and Salah"``
+    * ``"What about Palmer?"``      → ``"compare A and Palmer"``
+    * ``"How about Palmer?"``       → ``"compare A and Palmer"``
+    * ``"What about X instead?"``   → ``"compare A and X"``
+    * ``"Compare him to Salah"``    → ``"compare A and Salah"`` (pronoun → A)
+
+    Parameters
+    ----------
+    question:
+        Raw user question.
+    state:
+        Current ``ConversationState``.
+
+    Returns
+    -------
+    str | None
+        Canonical comparison question if a follow-up pattern matched, else ``None``.
+
+    Notes
+    -----
+    Always anchors to player A (``last_comparison[0]``).  Replacing player B
+    specifically, multi-player comparisons, and LLM-assisted follow-ups are
+    intentionally deferred.
+    """
+    if not state.last_comparison:
+        return None
+
+    last_a, _ = state.last_comparison
+    q_stripped = question.strip().rstrip("?!.")
+    q_norm = q_stripped.lower()
+
+    # Pattern: "and <player>" / "what about <player>" / "how about <player>"
+    for prefix in _COMP_FOLLOWUP_PREFIXES:
+        if q_norm.startswith(prefix):
+            remainder_orig = q_stripped[len(prefix):].strip().rstrip("?!.,")
+            remainder_norm = remainder_orig.lower()
+            for suffix in _COMP_INSTEAD_SUFFIXES:
+                if remainder_norm.endswith(suffix):
+                    remainder_orig = remainder_orig[: len(remainder_orig) - len(suffix)].strip()
+                    break
+            if remainder_orig:
+                return f"compare {last_a} and {remainder_orig}"
+
+    # Pattern: "compare <pronoun> to/vs/against/and <player>"
+    m = _COMP_PRONOUN_RE.match(q_stripped)
+    if m:
+        new_player = m.group(1).strip().rstrip("?!.,")
+        if new_player:
+            return f"compare {last_a} and {new_player}"
+
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Resolver debug helper (Phase 4g)
 # ---------------------------------------------------------------------------
 
@@ -256,7 +387,7 @@ def _make_resolver_debug(resolution, original_question: str, rewritten_question:
     from .final_response import ResolverDebug  # noqa: PLC0415
 
     src = resolution.reference_source
-    if src == "deterministic":
+    if src in ("deterministic", "comparison_followup"):   # Phase 5c: add comparison_followup
         resolver_source = "fallback_regex"
         resolver_confidence = None
     elif src == "none" and resolution.confidence == 0.0:
@@ -348,7 +479,7 @@ class ConversationSession:
             ``FinalResponse.intent`` reflects the rewritten question.
         """
         # Lazy import — avoids circular import between conversation_state ↔ reference_resolver
-        from .reference_resolver import resolve_reference  # noqa: PLC0415
+        from .reference_resolver import resolve_reference, ReferenceResolution  # noqa: PLC0415
 
         # Consume resolver_client from kwargs so it is not forwarded to _respond()
         resolver_client = kwargs.pop("resolver_client", None)
@@ -356,27 +487,50 @@ class ConversationSession:
         # Read include_debug before resolution so we can build resolver debug bundle
         include_debug = kwargs.get("include_debug", False)
 
-        resolution = resolve_reference(
-            question,
-            self.state,
-            client=resolver_client,
-            history=self.state.history if self.state.history else None,
-        )
-        rewritten = resolution.rewritten_question
+        # Phase 5c: comparison follow-up detection (before general reference resolution)
+        comp_rewritten = resolve_comparison_followup(question, self.state)
+        if comp_rewritten is not None:
+            rewritten = comp_rewritten
+            resolution = ReferenceResolution(
+                resolved_query=None,
+                intent_guess=INTENT_COMPARE_PLAYERS,
+                reference_source="comparison_followup",
+                confidence=1.0,
+                language="en",
+                rewritten_question=comp_rewritten,
+                fallback_reason=None,
+            )
+        else:
+            resolution = resolve_reference(
+                question,
+                self.state,
+                client=resolver_client,
+                history=self.state.history if self.state.history else None,
+            )
+            rewritten = resolution.rewritten_question
 
         # Build resolver debug bundle when debug is requested
         _resolver_debug = None
         if include_debug:
             _resolver_debug = _make_resolver_debug(resolution, question, rewritten)
 
-        # Extract player_query for state tracking — route() is lightweight
+        # Extract player_query and comparison_queries for state tracking
         route_result = route(rewritten)
         player_query: str | None = None
+        comparison_queries: tuple[str, str] | None = None
         if route_result is not None:
             player_query = route_result.tool_args.get("query") or None
+            if route_result.tool_name == "compare_players":
+                qa = route_result.tool_args.get("query_a", "")
+                qb = route_result.tool_args.get("query_b", "")
+                if qa and qb:
+                    comparison_queries = (qa, qb)
 
         response = _respond(rewritten, bootstrap, **kwargs, _resolver_debug=_resolver_debug)
-        self.state.update_from_response(response, player_query, question_text=rewritten)
+        self.state.update_from_response(
+            response, player_query, question_text=rewritten,
+            comparison_queries=comparison_queries,
+        )
         return response
 
     @property
