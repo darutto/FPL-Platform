@@ -2,6 +2,7 @@
 fpl_grounded_assistant.reference_resolver
 ==========================================
 Phase 4f: LLM-assisted reference resolution.
+Phase 5f: LLM-assisted comparison follow-up resolution.
 
 Provides a minimal LLM-based resolver that interprets follow-up questions —
 including Spanish-language pronouns and elliptical references — and rewrites
@@ -53,9 +54,21 @@ Spanish::
 Intentionally deferred
 -----------------------
 - Multi-player references ("him or Salah")
-- Comparison intents ("who is better?")
 - Long-term memory beyond bounded session history
 - LLM-generated FPL answers (the backend remains authoritative)
+
+Phase 5f comparison resolver
+-----------------------------
+``resolve_comparison_followup_llm()`` handles Spanish and elliptical comparison
+follow-ups that the Phase 5c deterministic resolver cannot catch::
+
+    "¿Y Salah?"        → compare {last_a} and Salah
+    "¿Y Saka?"         → compare {last_a} and Saka
+    "vs Saka"          → compare {last_a} and Saka
+    "Or Saka?"         → compare {last_a} and Saka
+
+The LLM ONLY extracts the new player name.  The comparison anchor (last_a) and
+all FPL scoring always come from the deterministic backend.
 
 Public API
 ----------
@@ -68,6 +81,11 @@ Public API
         build_resolver_prompt,
         RESOLVER_SYSTEM_PROMPT,
         _CONFIDENCE_THRESHOLD,
+        # Phase 5f: comparison follow-up resolver
+        resolve_comparison_followup_llm,
+        build_comp_resolver_prompt,
+        COMP_RESOLVER_SYSTEM_PROMPT,
+        _parse_comp_resolver_response,
     )
 
 ``ReferenceResolution`` fields include ``fallback_reason`` (Phase 4g):
@@ -512,4 +530,199 @@ def resolve_reference(
         language="en",
         rewritten_question=question,
         fallback_reason=fallback_reason,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Comparison follow-up resolver  (Phase 5f)
+# ---------------------------------------------------------------------------
+
+COMP_RESOLVER_SYSTEM_PROMPT: str = (
+    "You are a comparison follow-up resolver for an FPL (Fantasy Premier League) assistant.\n"
+    "Your ONLY task: detect if the question is a comparison follow-up and extract the new player name.\n"
+    "You do NOT answer FPL questions. You ONLY resolve which player is being referenced.\n"
+    "\n"
+    "Context: the user previously compared last_comparison_a vs last_comparison_b.\n"
+    "They may now be asking to compare last_comparison_a with a different player.\n"
+    "\n"
+    "Output format — STRICT JSON only, no markdown, no explanation:\n"
+    "{\n"
+    '  "is_comparison_followup": <true|false>,\n'
+    '  "new_player": "<player name string, or null>",\n'
+    '  "confidence": <float 0.0..1.0>,\n'
+    '  "language": "<en|es|unknown>"\n'
+    "}\n"
+    "\n"
+    "Field rules:\n"
+    "- is_comparison_followup: true only if this is a short follow-up introducing a new player\n"
+    "  to compare against last_comparison_a. False for full questions, unrelated questions, etc.\n"
+    "- new_player: the new player (not last_comparison_a or last_comparison_b). null if none.\n"
+    "- confidence: 0.0=uncertain, 1.0=certain.\n"
+    "- language: en/es/unknown.\n"
+    "\n"
+    "Examples:\n"
+    '  {"current_question":"\\u00bfY Salah?","last_comparison_a":"Haaland","last_comparison_b":"Saka"}\n'
+    '  → {"is_comparison_followup":true,"new_player":"Salah","confidence":0.95,"language":"es"}\n'
+    "\n"
+    '  {"current_question":"vs Saka","last_comparison_a":"Haaland","last_comparison_b":"Salah"}\n'
+    '  → {"is_comparison_followup":true,"new_player":"Saka","confidence":0.9,"language":"en"}\n'
+    "\n"
+    '  {"current_question":"should I captain Haaland","last_comparison_a":"Haaland","last_comparison_b":"Salah"}\n'
+    '  → {"is_comparison_followup":false,"new_player":null,"confidence":0.99,"language":"en"}\n'
+)
+"""System prompt for the Phase 5f LLM comparison follow-up resolver."""
+
+_COMP_RESOLVER_MAX_TOKENS: int = 100
+"""Maximum tokens for the comparison resolver LLM response."""
+
+
+def build_comp_resolver_prompt(
+    question: str,
+    state: "ConversationState",
+) -> str:
+    """Build the JSON user-turn prompt for the LLM comparison follow-up resolver.
+
+    Pure function — no side effects, no network access.
+
+    Parameters
+    ----------
+    question:
+        Raw user question (may be in any language).
+    state:
+        Current ``ConversationState`` — must have ``last_comparison`` set.
+
+    Returns
+    -------
+    str
+        JSON string encoding ``current_question``, ``last_comparison_a``,
+        and ``last_comparison_b``.
+    """
+    last_a, last_b = state.last_comparison if state.last_comparison else ("", "")
+    payload: dict[str, Any] = {
+        "current_question": question,
+        "last_comparison_a": last_a,
+        "last_comparison_b": last_b,
+    }
+    return json.dumps(payload, ensure_ascii=False)
+
+
+def _parse_comp_resolver_response(text: str) -> "dict[str, Any] | None":
+    """Parse and validate JSON from LLM comparison resolver output.
+
+    Returns ``None`` on any parse or validation failure.
+
+    Validates:
+    - Valid JSON object
+    - All four required keys present
+    - ``is_comparison_followup`` is boolean
+    - ``new_player`` is string or null
+    - ``confidence`` is numeric
+    - ``language`` is in ``_VALID_LANGUAGES``
+    """
+    try:
+        data = json.loads(text.strip())
+    except (json.JSONDecodeError, ValueError):
+        return None
+
+    if not isinstance(data, dict):
+        return None
+
+    required = {"is_comparison_followup", "new_player", "confidence", "language"}
+    if not required.issubset(data.keys()):
+        return None
+
+    if not isinstance(data["is_comparison_followup"], bool):
+        return None
+    if data["new_player"] is not None and not isinstance(data["new_player"], str):
+        return None
+    if not isinstance(data["confidence"], (int, float)):
+        return None
+    if data["language"] not in _VALID_LANGUAGES:
+        return None
+
+    return data
+
+
+def resolve_comparison_followup_llm(
+    question: str,
+    state: "ConversationState",
+    *,
+    client: Any = None,
+    model: str = DEFAULT_MODEL,
+) -> "ReferenceResolution | None":
+    """Attempt LLM-based comparison follow-up resolution.
+
+    Handles Spanish and elliptical comparison follow-ups that the Phase 5c
+    deterministic resolver does not cover (e.g. ``"¿Y Salah?"``, ``"vs Saka"``).
+
+    Returns ``None`` when:
+
+    - ``state.last_comparison`` is ``None`` — no comparison context to extend.
+    - No LLM client is available (missing API key or ``anthropic`` package).
+    - The LLM call raises.
+    - The LLM output cannot be parsed or fails validation.
+    - ``is_comparison_followup`` is ``False`` in the LLM response.
+    - ``new_player`` is null in the LLM response.
+
+    Parameters
+    ----------
+    question:
+        Raw user question (may be in any language).
+    state:
+        Current ``ConversationState``.  ``last_comparison`` must be set.
+    client:
+        Optional pre-built Anthropic client.  If ``None``, the function
+        attempts to build one from ``ANTHROPIC_API_KEY``.
+    model:
+        Model identifier.  Defaults to ``DEFAULT_MODEL``.
+
+    Returns
+    -------
+    ReferenceResolution | None
+        On success: ``rewritten_question = "compare {last_a} and {new_player}"``,
+        ``reference_source = "comparison_followup_llm"``.
+        ``None`` on any failure (safe — caller always falls back).
+    """
+    if not state.last_comparison:
+        return None
+
+    resolved_client = client or _get_anthropic_client()
+    if resolved_client is None:
+        return None
+
+    prompt = build_comp_resolver_prompt(question, state)
+    try:
+        message = resolved_client.messages.create(
+            model=model,
+            max_tokens=_COMP_RESOLVER_MAX_TOKENS,
+            system=COMP_RESOLVER_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw_text = message.content[0].text.strip()
+    except Exception:  # noqa: BLE001
+        return None
+
+    parsed = _parse_comp_resolver_response(raw_text)
+    if parsed is None:
+        return None
+
+    if not parsed["is_comparison_followup"]:
+        return None
+
+    new_player: str | None = parsed["new_player"] or None
+    if new_player is None:
+        return None
+
+    confidence: float = float(max(0.0, min(1.0, parsed["confidence"])))
+    language: str = parsed["language"]
+    last_a = state.last_comparison[0]
+    rewritten = f"compare {last_a} and {new_player}"
+
+    return ReferenceResolution(
+        resolved_query=new_player,
+        intent_guess=None,
+        reference_source="comparison_followup_llm",
+        confidence=confidence,
+        language=language,
+        rewritten_question=rewritten,
     )

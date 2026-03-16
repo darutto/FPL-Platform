@@ -25,6 +25,7 @@ Follow-up patterns supported
 Phase 4e: English pronoun substitution via regex.
 Phase 4f: LLM-assisted reference resolution for Spanish/ellipsis follow-ups.
 Phase 5c: deterministic comparison follow-up via ``resolve_comparison_followup()``.
+Phase 5f: LLM-assisted comparison follow-up for Spanish and elliptical patterns.
 
 When ``resolver_client`` is provided to ``ConversationSession.respond()``,
 the LLM resolver handles patterns the Phase 4e regex cannot:
@@ -41,6 +42,13 @@ Phase 5c deterministic comparison follow-ups (no client needed)::
     "What about X instead?"    → compare {last_a} and X
     "Compare him to Salah"     → compare {last_a} and Salah  (pronoun → last_a)
 
+Phase 5f LLM comparison follow-ups (``resolver_client`` required)::
+
+    "¿Y Salah?"                → compare {last_a} and Salah  (Spanish)
+    "¿Y Saka?"                 → compare {last_a} and Saka   (Spanish)
+    "vs Saka"                  → compare {last_a} and Saka   (bare vs)
+    "Or Saka?"                 → compare {last_a} and Saka   (or-prefix)
+
 When no client is available, Phase 4e regex fallback handles English pronouns::
 
     him  his  he  her  hers  she  them  their  they
@@ -50,7 +58,6 @@ Intentionally deferred
 -----------------------
 - Long-term memory or session persistence
 - Multi-player context tracking ("him or Salah")
-- LLM-assisted comparison follow-up (Spanish, ellipsis)
 - Follow-up targeting player B specifically (always anchors to player A)
 - Trailing-clause pronoun handling (e.g. "who is better, him or Salah?")
 
@@ -479,7 +486,12 @@ class ConversationSession:
             ``FinalResponse.intent`` reflects the rewritten question.
         """
         # Lazy import — avoids circular import between conversation_state ↔ reference_resolver
-        from .reference_resolver import resolve_reference, ReferenceResolution  # noqa: PLC0415
+        from .reference_resolver import (  # noqa: PLC0415
+            resolve_reference,
+            resolve_comparison_followup_llm,
+            ReferenceResolution,
+            _CONFIDENCE_THRESHOLD,
+        )
 
         # Consume resolver_client from kwargs so it is not forwarded to _respond()
         resolver_client = kwargs.pop("resolver_client", None)
@@ -487,7 +499,7 @@ class ConversationSession:
         # Read include_debug before resolution so we can build resolver debug bundle
         include_debug = kwargs.get("include_debug", False)
 
-        # Phase 5c: comparison follow-up detection (before general reference resolution)
+        # Phase 5c: deterministic comparison follow-up (highest priority, no client needed)
         comp_rewritten = resolve_comparison_followup(question, self.state)
         if comp_rewritten is not None:
             rewritten = comp_rewritten
@@ -501,13 +513,25 @@ class ConversationSession:
                 fallback_reason=None,
             )
         else:
-            resolution = resolve_reference(
-                question,
-                self.state,
-                client=resolver_client,
-                history=self.state.history if self.state.history else None,
-            )
-            rewritten = resolution.rewritten_question
+            # Phase 5f: LLM comparison follow-up (Spanish/ellipsis, requires client)
+            llm_comp: ReferenceResolution | None = None
+            if self.state.last_comparison and resolver_client is not None:
+                llm_comp = resolve_comparison_followup_llm(
+                    question, self.state, client=resolver_client
+                )
+
+            if llm_comp is not None and llm_comp.confidence >= _CONFIDENCE_THRESHOLD:
+                rewritten = llm_comp.rewritten_question
+                resolution = llm_comp
+            else:
+                # Phase 4f: general reference resolver (single-player / pronoun / Spanish)
+                resolution = resolve_reference(
+                    question,
+                    self.state,
+                    client=resolver_client,
+                    history=self.state.history if self.state.history else None,
+                )
+                rewritten = resolution.rewritten_question
 
         # Build resolver debug bundle when debug is requested
         _resolver_debug = None
