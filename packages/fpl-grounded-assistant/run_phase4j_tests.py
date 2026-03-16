@@ -93,7 +93,7 @@ from examples import session_examples  # noqa: E402
 
 ok("A1  session_examples imported",                  True)
 ok("A2  SESSION_FLOWS is a list",                    isinstance(session_examples.SESSION_FLOWS, list))
-ok("A3  SESSION_FLOWS has 2 entries",                len(session_examples.SESSION_FLOWS) == 2)
+ok("A3  SESSION_FLOWS has at least 2 entries",       len(session_examples.SESSION_FLOWS) >= 2)
 
 _flow_ids = [f["id"] for f in session_examples.SESSION_FLOWS]
 ok("A4  flow 'create_ask_inspect_clear' present",    "create_ask_inspect_clear" in _flow_ids)

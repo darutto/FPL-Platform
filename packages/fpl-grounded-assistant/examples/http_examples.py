@@ -146,6 +146,34 @@ HTTP_SCENARIOS: list[dict[str, Any]] = [
             "Domain outcome is in the body, not the HTTP status code."
         ),
     },
+    # Phase 5e: comparison exposure
+    {
+        "id": "comparison_direct",
+        "payload": {"question": "compare Haaland and Salah"},
+        "bootstrap": STANDARD_BOOTSTRAP,
+        "expected_status": 200,
+        "expected_supported": True,
+        "expected_outcome": "ok",
+        "note": (
+            "Direct player comparison. HTTP 200. "
+            "supported=True, outcome='ok'. "
+            "final_text includes explanation-enriched recommendation: "
+            "winner, margin label, and Advantages clause (Phase 5d)."
+        ),
+    },
+    {
+        "id": "comparison_not_found",
+        "payload": {"question": "compare Haaland and NoSuchPlayer99"},
+        "bootstrap": STANDARD_BOOTSTRAP,
+        "expected_status": 200,
+        "expected_supported": True,
+        "expected_outcome": "not_found",
+        "note": (
+            "Comparison where second player is not in registry. HTTP 200. "
+            "supported=True, outcome='not_found'. "
+            "final_text explains the player was not found."
+        ),
+    },
 ]
 
 HTTP_EDGE_CASES: list[dict[str, Any]] = [
