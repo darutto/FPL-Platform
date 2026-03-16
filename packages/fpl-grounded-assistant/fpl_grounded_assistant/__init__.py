@@ -155,6 +155,10 @@ from .conversation_state import (
     ConversationSession,
     resolve_pronouns,
     _PRONOUNS,
+    # Phase 5c: comparison follow-up support
+    resolve_comparison_followup,
+    _COMP_FOLLOWUP_PREFIXES,
+    _COMP_INSTEAD_SUFFIXES,
 )
 from .reference_resolver import (
     # Phase 4f: LLM-assisted reference resolution
@@ -240,6 +244,10 @@ __all__ = [
     "ConversationSession",
     "resolve_pronouns",
     "_PRONOUNS",
+    # Phase 5c: comparison follow-up
+    "resolve_comparison_followup",
+    "_COMP_FOLLOWUP_PREFIXES",
+    "_COMP_INSTEAD_SUFFIXES",
     # Phase 4f: LLM-assisted reference resolution
     "ReferenceResolution",
     "resolve_reference",
