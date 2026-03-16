@@ -3,6 +3,7 @@ fpl_grounded_assistant.comparison
 ==================================
 Phase 5a: deterministic two-player captain comparison.
 Phase 5b: registered as a proper tool in TOOL_REGISTRY.
+Phase 5d: comparison explainability — comparative reasons and margin label.
 
 Compares two players by captain_score using scoring inputs derived directly
 from their bootstrap element data (form, xgi_per_90, minutes_risk,
@@ -22,20 +23,21 @@ Design rules
 
 Deferred
 --------
-* Follow-up comparison ("and Salah?") via session resolver
 * Combining comparison with other intents
 * Comparing more than two players
 
 Output shape -- status "ok"
 ---------------------------
-    status          "ok"
-    query_a         original query for player A
-    query_b         original query for player B
-    player_a        dict: web_name, captain_score, tier, reasons, score_inputs
-    player_b        dict: web_name, captain_score, tier, reasons, score_inputs
-    winner          web_name of the higher-scoring player, or None on an exact tie
-    margin          round(|score_a - score_b|, 2)
-    recommendation  human-readable comparison sentence (deterministic fallback text)
+    status              "ok"
+    query_a             original query for player A
+    query_b             original query for player B
+    player_a            dict: web_name, captain_score, tier, reasons, score_inputs
+    player_b            dict: web_name, captain_score, tier, reasons, score_inputs
+    winner              web_name of the higher-scoring player, or None on an exact tie
+    margin              round(|score_a - score_b|, 2)
+    margin_label        "narrow" | "moderate" | "clear"  (Phase 5d)
+    comparison_reasons  list[str] — comparative advantage phrases  (Phase 5d)
+    recommendation      human-readable comparison sentence (deterministic)
 
 Output shape -- status "not_found" / "ambiguous"
 -------------------------------------------------
@@ -68,6 +70,29 @@ _STATUS_RISK: dict[str, float] = {
     "s": 100.0,
     "u": 100.0,
 }
+
+
+# ---------------------------------------------------------------------------
+# Phase 5d: comparative explainability thresholds
+# ---------------------------------------------------------------------------
+
+#: Minimum form delta for "stronger form" advantage
+_FORM_ADV_THRESHOLD: float = 1.5
+
+#: Minimum FDR difference for "easier fixture" advantage (lower FDR = better)
+_FDR_ADV_THRESHOLD: int = 1
+
+#: Minimum xGI/90 delta for "higher xGI output" advantage
+_XGI_ADV_THRESHOLD: float = 0.10
+
+#: Minimum minutes_risk delta for "better minutes security" advantage
+_RISK_ADV_THRESHOLD: float = 20.0
+
+#: margin < _MARGIN_NARROW → "narrow" edge
+_MARGIN_NARROW: float = 3.0
+
+#: margin >= _MARGIN_CLEAR → "clear" edge
+_MARGIN_CLEAR: float = 10.0
 
 
 # ---------------------------------------------------------------------------
@@ -264,6 +289,14 @@ def compare_players(
         winner = None
         margin = 0.0
 
+    # Phase 5d: comparative explainability
+    if winner is not None:
+        winner_scored = scored_a if winner == name_a else scored_b
+        loser_scored  = scored_b if winner == name_a else scored_a
+        comparison_reasons = _explain_comparison(winner_scored, loser_scored)
+    else:
+        comparison_reasons = []
+
     return {
         "status":   "ok",
         "query_a":  query_a,
@@ -282,61 +315,128 @@ def compare_players(
             "reasons":       scored_b["reasons"],
             "score_inputs":  scored_b["score_inputs"],
         },
-        "winner":         winner,
-        "margin":         margin,
-        "recommendation": _build_recommendation(
-            name_a, score_a, scored_a["reasons"],
-            name_b, score_b, scored_b["reasons"],
-            winner, margin,
+        "winner":              winner,
+        "margin":              margin,
+        "margin_label":        _margin_label(margin),           # Phase 5d
+        "comparison_reasons":  comparison_reasons,               # Phase 5d
+        "recommendation":      _build_recommendation(
+            name_a, score_a,
+            name_b, score_b,
+            winner, margin, comparison_reasons,
         ),
     }
+
+
+# ---------------------------------------------------------------------------
+# Phase 5d: comparative explainability
+# ---------------------------------------------------------------------------
+
+def _margin_label(margin: float) -> str:
+    """Categorise a comparison margin as 'narrow', 'moderate', or 'clear'."""
+    if margin < _MARGIN_NARROW:
+        return "narrow"
+    if margin >= _MARGIN_CLEAR:
+        return "clear"
+    return "moderate"
+
+
+def _explain_comparison(
+    winner: dict[str, Any],
+    loser: dict[str, Any],
+) -> list[str]:
+    """Derive deterministic comparative advantage phrases for the winner.
+
+    Inspects the ``score_inputs`` and ``role_signals`` of each scored player
+    dict and returns short phrases describing *why* the winner leads.
+    Returns an empty list when no individual signal crosses its threshold
+    (e.g. both players have identical inputs or only marginal differences).
+
+    Parameters
+    ----------
+    winner, loser:
+        Full scored player dicts from ``_score_one()`` — must contain
+        ``score_inputs`` (form, fixture_difficulty, xgi_per_90, minutes_risk)
+        and ``role_signals`` (role_bonus).
+
+    Returns
+    -------
+    list[str]
+        Ordered list of advantage phrases, up to four entries.
+        Never raises.
+    """
+    reasons: list[str] = []
+
+    w_inp  = winner.get("score_inputs", {})
+    l_inp  = loser.get("score_inputs", {})
+    w_role = winner.get("role_signals", {})
+    l_role = loser.get("role_signals", {})
+
+    # 1. Form advantage
+    w_form = float(w_inp.get("form", 0.0))
+    l_form = float(l_inp.get("form", 0.0))
+    if w_form - l_form >= _FORM_ADV_THRESHOLD:
+        reasons.append(f"stronger form ({w_form:.1f} vs {l_form:.1f})")
+
+    # 2. Fixture advantage (lower FDR = better)
+    w_fdr = int(w_inp.get("fixture_difficulty", 3))
+    l_fdr = int(l_inp.get("fixture_difficulty", 3))
+    if l_fdr - w_fdr >= _FDR_ADV_THRESHOLD:
+        reasons.append(f"easier fixture (FDR {w_fdr} vs {l_fdr})")
+
+    # 3. xGI/90 advantage
+    w_xgi = float(w_inp.get("xgi_per_90", 0.0))
+    l_xgi = float(l_inp.get("xgi_per_90", 0.0))
+    if w_xgi - l_xgi >= _XGI_ADV_THRESHOLD:
+        reasons.append("higher xGI output")
+
+    # 4. Minutes security advantage (lower risk = better)
+    w_risk = float(w_inp.get("minutes_risk", 0.0))
+    l_risk = float(l_inp.get("minutes_risk", 0.0))
+    if l_risk - w_risk >= _RISK_ADV_THRESHOLD:
+        reasons.append("better minutes security")
+
+    # 5. Set-piece advantage
+    w_bonus = float(w_role.get("role_bonus", 0.0))
+    l_bonus = float(l_role.get("role_bonus", 0.0))
+    if w_bonus > l_bonus:
+        reasons.append("set-piece advantage")
+
+    return reasons
 
 
 # ---------------------------------------------------------------------------
 # Rendering
 # ---------------------------------------------------------------------------
 
-def _reason_clause(reasons: list[str]) -> str:
-    """Up to 2 reasons joined by '; ', or empty string."""
-    if not reasons:
-        return ""
-    return "; ".join(reasons[:2])
-
-
 def _build_recommendation(
     name_a: str,
     score_a: float,
-    reasons_a: list[str],
     name_b: str,
     score_b: float,
-    reasons_b: list[str],
     winner: str | None,
     margin: float,
+    comparison_reasons: list[str],
 ) -> str:
-    """Concise, grounded comparison sentence."""
+    """Concise, grounded comparison sentence with comparative reasoning."""
     if winner is None:
-        base = (
+        return (
             f"{name_a} ({score_a}) and {name_b} ({score_b})"
             " are tied on captain score."
         )
-    else:
-        loser        = name_b if winner == name_a else name_a
-        winner_score = score_a if winner == name_a else score_b
-        loser_score  = score_b if winner == name_a else score_a
-        base = (
-            f"{winner} ({winner_score}) edges {loser} ({loser_score})"
-            f" — margin {margin}."
-        )
 
-    parts = []
-    clause_a = _reason_clause(reasons_a)
-    clause_b = _reason_clause(reasons_b)
-    if clause_a:
-        parts.append(f"{name_a}: {clause_a}")
-    if clause_b:
-        parts.append(f"{name_b}: {clause_b}")
-    if parts:
-        return base + "  " + "  ".join(parts) + "."
+    loser        = name_b if winner == name_a else name_a
+    winner_score = score_a if winner == name_a else score_b
+    loser_score  = score_b if winner == name_a else score_a
+    label        = _margin_label(margin)
+
+    base = (
+        f"{winner} ({winner_score}) edges {loser} ({loser_score})"
+        f" — {label} margin ({margin})."
+    )
+
+    if comparison_reasons:
+        clause = "; ".join(comparison_reasons[:3])
+        return base + f"  Advantages: {clause}."
     return base
 
 
@@ -376,14 +476,18 @@ COMPARE_PLAYERS_SPEC = ToolSpec(
                 "required": ["status", "query_a", "query_b",
                              "player_a", "player_b", "winner", "margin", "recommendation"],
                 "properties": {
-                    "status":         {"type": "string", "enum": ["ok"]},
-                    "query_a":        {"type": "string"},
-                    "query_b":        {"type": "string"},
-                    "player_a":       {"type": "object"},
-                    "player_b":       {"type": "object"},
-                    "winner":         {"type": ["string", "null"]},
-                    "margin":         {"type": "number"},
-                    "recommendation": {"type": "string"},
+                    "status":             {"type": "string", "enum": ["ok"]},
+                    "query_a":            {"type": "string"},
+                    "query_b":            {"type": "string"},
+                    "player_a":           {"type": "object"},
+                    "player_b":           {"type": "object"},
+                    "winner":             {"type": ["string", "null"]},
+                    "margin":             {"type": "number"},
+                    "margin_label":       {"type": "string",
+                                           "enum": ["narrow", "moderate", "clear"]},
+                    "comparison_reasons": {"type": "array",
+                                           "items": {"type": "string"}},
+                    "recommendation":     {"type": "string"},
                 },
             },
             {
