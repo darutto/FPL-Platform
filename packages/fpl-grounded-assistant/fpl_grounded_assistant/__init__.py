@@ -147,7 +147,18 @@ from .renderer import (
     _set_piece_clause,
     _set_piece_suffix,
 )
-from .comparison import compare_players   # Phase 5a
+from .comparison import (   # Phase 5a/5d
+    compare_players,
+    # Phase 5d: comparative explainability
+    _explain_comparison,
+    _margin_label,
+    _FORM_ADV_THRESHOLD,
+    _FDR_ADV_THRESHOLD,
+    _XGI_ADV_THRESHOLD,
+    _RISK_ADV_THRESHOLD,
+    _MARGIN_NARROW,
+    _MARGIN_CLEAR,
+)
 from .router import RouteResult, route
 from .conversation_state import (
     # Phase 4e: minimal multi-turn conversation state
@@ -229,8 +240,16 @@ __all__ = [
     "INTENT_UNSUPPORTED",
     "SUPPORTED_INTENTS",
     "_TOOL_TO_INTENT",
-    # Phase 5a: comparison
+    # Phase 5a/5d: comparison
     "compare_players",
+    "_explain_comparison",
+    "_margin_label",
+    "_FORM_ADV_THRESHOLD",
+    "_FDR_ADV_THRESHOLD",
+    "_XGI_ADV_THRESHOLD",
+    "_RISK_ADV_THRESHOLD",
+    "_MARGIN_NARROW",
+    "_MARGIN_CLEAR",
     # Phase 2l: outcomes + manifest
     "OUTCOME_OK",
     "OUTCOME_UNSUPPORTED_INTENT",
