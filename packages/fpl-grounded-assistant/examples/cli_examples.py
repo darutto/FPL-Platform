@@ -105,6 +105,30 @@ CLI_SCENARIOS: list[dict[str, Any]] = [
             "final_text still contains a user-facing message."
         ),
     },
+    # Phase 5e: comparison exposure
+    {
+        "id": "comparison_direct",
+        "question": "compare Haaland and Salah",
+        "bootstrap": STANDARD_BOOTSTRAP,
+        "expected_exit": 0,
+        "note": (
+            "Direct player comparison. Both players in STANDARD_BOOTSTRAP. "
+            "exit=0 — comparison is a supported intent. "
+            "final_text includes explanation-enriched recommendation (Phase 5d): "
+            "winner, margin label, and Advantages clause."
+        ),
+    },
+    {
+        "id": "comparison_not_found",
+        "question": "compare Haaland and NoSuchPlayer99",
+        "bootstrap": STANDARD_BOOTSTRAP,
+        "expected_exit": 0,
+        "note": (
+            "Comparison where the second player is not in the registry. "
+            "exit=0 — supported intent even when a player is not found. "
+            "final_text explains the player could not be found."
+        ),
+    },
 ]
 
 

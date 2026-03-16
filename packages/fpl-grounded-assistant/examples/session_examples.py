@@ -116,6 +116,33 @@ SESSION_FLOWS: list[dict[str, Any]] = [
             "Both turns return supported=True, outcome='ok'."
         ),
     },
+    # Phase 5e: comparison session flows
+    {
+        "id": "comparison_direct",
+        "turns": [
+            {"question": "compare Haaland and Salah"},
+        ],
+        "note": (
+            "Single-turn player comparison over HTTP session. "
+            "outcome='ok', intent='compare_players'. "
+            "final_text includes explanation-enriched recommendation with "
+            "winner, margin label, and Advantages clause (Phase 5d)."
+        ),
+    },
+    {
+        "id": "comparison_followup",
+        "turns": [
+            {"question": "compare Haaland and Salah"},
+            {"question": "And Saka?"},
+        ],
+        "note": (
+            "Comparison follow-up resolved via ConversationSession. "
+            "Turn 1: compare Haaland vs Salah, sets last_comparison state. "
+            "Turn 2: 'And Saka?' resolves to 'compare Haaland and Saka' deterministically. "
+            "Both turns return outcome='ok', intent='compare_players'. "
+            "Turn 2 final_text includes both Haaland and Saka."
+        ),
+    },
 ]
 
 

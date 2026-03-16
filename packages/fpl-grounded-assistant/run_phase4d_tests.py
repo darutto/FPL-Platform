@@ -126,9 +126,9 @@ _section("A -- examples package imports and structure")
 
 ok("A1  examples package imports without error", True)
 ok("A2  CLI_SCENARIOS is a list",      isinstance(CLI_SCENARIOS, list))
-ok("A3  CLI_SCENARIOS has 5 entries",  len(CLI_SCENARIOS) == 5)
-ok("A4  HTTP_SCENARIOS is a list",     isinstance(HTTP_SCENARIOS, list))
-ok("A5  HTTP_SCENARIOS has 5 entries", len(HTTP_SCENARIOS) == 5)
+ok("A3  CLI_SCENARIOS has at least 5 entries",  len(CLI_SCENARIOS) >= 5)
+ok("A4  HTTP_SCENARIOS is a list",             isinstance(HTTP_SCENARIOS, list))
+ok("A5  HTTP_SCENARIOS has at least 5 entries", len(HTTP_SCENARIOS) >= 5)
 ok("A6  HTTP_EDGE_CASES is a list",    isinstance(HTTP_EDGE_CASES, list))
 ok("A7  HTTP_EDGE_CASES has 2 entries (malformed + not_ready)",
    len(HTTP_EDGE_CASES) == 2)
@@ -159,8 +159,8 @@ for _expected_id in (
        _expected_id in _cli_ids)
 
 _cli_exits = [s["expected_exit"] for s in CLI_SCENARIOS]
-ok("B.exits  four scenarios expect exit=0", _cli_exits.count(0) == 4)
-ok("B.exits  one scenario expects exit=1",  _cli_exits.count(1) == 1)
+ok("B.exits  at least 4 scenarios expect exit=0", _cli_exits.count(0) >= 4)
+ok("B.exits  one scenario expects exit=1",         _cli_exits.count(1) == 1)
 
 
 # ===========================================================================
@@ -253,8 +253,8 @@ ok("H3  all outputs are non-empty strings",
 ok("H4  exit code matches expected_exit for all scenarios",
    all(code == s["expected_exit"] for s, (code, _) in _all_cli_results))
 
-ok("H5  supported scenarios (exit=0) are the majority (4 of 5)",
-   sum(1 for _, (code, _) in _all_cli_results if code == 0) == 4)
+ok("H5  supported scenarios (exit=0) outnumber unsupported",
+   sum(1 for _, (code, _) in _all_cli_results if code == 0) > 1)
 
 ok("H6  exactly one unsupported scenario (exit=1)",
    sum(1 for _, (code, _) in _all_cli_results if code == 1) == 1)
@@ -448,15 +448,15 @@ ok("Q3  all HTTP final_text fields are non-empty strings",
    all(isinstance(body.get("final_text"), str) and len(body["final_text"]) > 0
        for _, (_, body) in _all_http))
 
-ok("Q4  HTTP supported=True for 4 scenarios, False for 1",
-   sum(1 for _, (_, b) in _all_http if b.get("supported") is True) == 4 and
+ok("Q4  HTTP supported=True for at least 4 scenarios, False for exactly 1",
+   sum(1 for _, (_, b) in _all_http if b.get("supported") is True) >= 4 and
    sum(1 for _, (_, b) in _all_http if b.get("supported") is False) == 1)
 
 ok("Q5  HTTP unsupported_intent is the only scenario with supported=False",
    all((b.get("supported") is False) == (s["id"] == "unsupported_intent")
        for s, (_, b) in _all_http))
 
-ok("Q6  CLI and HTTP scenario lists cover the same 5 scenario IDs",
+ok("Q6  CLI and HTTP scenario lists cover the same scenario IDs",
    {s["id"] for s in CLI_SCENARIOS} == {s["id"] for s in HTTP_SCENARIOS})
 
 # Re-check with explicit per-scenario comparison
@@ -467,15 +467,15 @@ _agreement = all(
     for sid in _cli_by_id
     if sid in _http_by_id
 )
-ok("Q7  CLI exit=0 ↔ HTTP supported=True for all 5 shared scenarios", _agreement)
+ok("Q7  CLI exit=0 ↔ HTTP supported=True for all shared scenarios", _agreement)
 
 ok("Q8  HTTP debug field is None by default for all domain scenarios",
    all(body.get("debug") is None for _, (_, body) in _all_http))
 
-ok("Q9  example files cover all 5 canonical final_response_fixtures scenarios",
-   {s["id"] for s in CLI_SCENARIOS} ==
+ok("Q9  example files include all 5 canonical final_response_fixtures scenarios",
    {"supported_ok", "supported_ambiguous", "supported_not_found",
-    "supported_missing_arguments", "unsupported_intent"})
+    "supported_missing_arguments", "unsupported_intent"}.issubset(
+        {s["id"] for s in CLI_SCENARIOS}))
 
 ok("Q10 HTTP edge cases cover transport errors (422, 503) not domain outcomes",
    set(s["expected_status"] for s in HTTP_EDGE_CASES) == {422, 503})
