@@ -153,6 +153,7 @@ class AskResponse(BaseModel):
 
     Field names and semantics mirror ``FinalResponse`` exactly.
     ``debug`` is only populated when ``AskRequest.debug=True``.
+    ``comparison`` is populated for compare_players OK turns (Phase 5g).
     """
 
     final_text: str
@@ -162,6 +163,7 @@ class AskResponse(BaseModel):
     review_passed: bool
     llm_used: bool
     debug: dict[str, Any] | None = None
+    comparison: dict[str, Any] | None = None  # Phase 5g
 
 
 class CreateSessionResponse(BaseModel):
@@ -178,6 +180,7 @@ class SessionAskResponse(BaseModel):
     Extends AskResponse shape with session_id and optional rewritten_question.
     rewritten_question is only populated when debug=True and the resolver
     actually rewrote the question.
+    comparison is populated for compare_players OK turns (Phase 5g).
     """
 
     session_id: str
@@ -189,6 +192,7 @@ class SessionAskResponse(BaseModel):
     llm_used: bool
     rewritten_question: str | None = None
     debug: dict[str, Any] | None = None
+    comparison: dict[str, Any] | None = None  # Phase 5g
 
 
 class ClearSessionResponse(BaseModel):
@@ -276,6 +280,15 @@ def ask(req: AskRequest) -> AskResponse:
             "model":         r.debug.model,
         }
 
+    comp_bundle: dict[str, Any] | None = None
+    if r.comparison is not None:
+        comp_bundle = {
+            "winner":  r.comparison.winner,
+            "margin":  r.comparison.margin,
+            "label":   r.comparison.label,
+            "reasons": list(r.comparison.reasons),
+        }
+
     return AskResponse(
         final_text=r.final_text,
         outcome=r.outcome,
@@ -284,6 +297,7 @@ def ask(req: AskRequest) -> AskResponse:
         review_passed=r.review_passed,
         llm_used=r.llm_used,
         debug=debug_bundle,
+        comparison=comp_bundle,
     )
 
 
@@ -380,6 +394,15 @@ def session_ask(session_id: str, req: AskRequest) -> SessionAskResponse:
             if rdbg.resolver_used:
                 rewritten_question = rdbg.rewritten_question
 
+    sess_comp_bundle: dict[str, Any] | None = None
+    if r.comparison is not None:
+        sess_comp_bundle = {
+            "winner":  r.comparison.winner,
+            "margin":  r.comparison.margin,
+            "label":   r.comparison.label,
+            "reasons": list(r.comparison.reasons),
+        }
+
     return SessionAskResponse(
         session_id=session_id,
         final_text=r.final_text,
@@ -390,6 +413,7 @@ def session_ask(session_id: str, req: AskRequest) -> SessionAskResponse:
         llm_used=r.llm_used,
         rewritten_question=rewritten_question,
         debug=debug_bundle,
+        comparison=sess_comp_bundle,
     )
 
 

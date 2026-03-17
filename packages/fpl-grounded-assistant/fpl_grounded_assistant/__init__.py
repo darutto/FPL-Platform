@@ -93,6 +93,8 @@ from .final_response import (
     ResolverDebug,   # Phase 4g: resolver debug bundle
     FINAL_TEXT_POLICY,
     respond,
+    # Phase 5g: structured comparison metadata
+    ComparisonMeta,
 )
 from .final_response_fixtures import (
     # Phase 3d: final response contract fixtures
@@ -207,6 +209,7 @@ __all__ = [
     "ResolverDebug",
     "FINAL_TEXT_POLICY",
     "respond",
+    "ComparisonMeta",  # Phase 5g
     # Phase 3a: LLM layer
     "LLMResponse",
     "SYSTEM_PROMPT",

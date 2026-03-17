@@ -72,9 +72,43 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from .dispatcher import OUTCOME_OK  # noqa: F401 — re-exported for convenience
+from .dispatcher import OUTCOME_OK, INTENT_COMPARE_PLAYERS  # noqa: F401 — re-exported
 from .llm_layer import DEFAULT_MODEL
 from .llm_review import ask_llm_safe
+
+
+# ---------------------------------------------------------------------------
+# Comparison metadata bundle  (Phase 5g)
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class ComparisonMeta:
+    """Structured comparison output for programmatic access.
+
+    Populated on ``FinalResponse`` when ``intent == compare_players`` and
+    ``outcome == ok``.  ``None`` for all other turns.
+
+    Attributes
+    ----------
+    winner:
+        Display name of the winning player, or ``None`` when the two players
+        are tied on captain score.
+    margin:
+        Absolute difference between the two captain scores.  Zero on a tie.
+    label:
+        Categorical margin label — one of ``"narrow"``, ``"moderate"``, or
+        ``"clear"`` (Phase 5d thresholds).
+    reasons:
+        Tuple of deterministic advantage phrases explaining why the winner
+        scored higher (e.g. ``"stronger form (9.5 vs 8.0)"``).
+        Empty tuple when no single factor clears the advantage threshold or
+        when the comparison is tied.
+    """
+
+    winner:  str | None
+    margin:  float
+    label:   str
+    reasons: tuple[str, ...]
 
 
 # ---------------------------------------------------------------------------
@@ -195,6 +229,12 @@ class FinalResponse:
     debug:
         Optional internal debug bundle.  ``None`` by default; populated when
         ``respond()`` is called with ``include_debug=True``.
+    comparison:
+        Structured comparison output (Phase 5g).  Populated when
+        ``intent == compare_players`` and ``outcome == ok``; ``None``
+        otherwise.  Provides programmatic access to ``winner``,
+        ``margin``, ``label``, and ``reasons`` without parsing
+        ``final_text``.
     """
     final_text:    str
     outcome:       str
@@ -203,6 +243,7 @@ class FinalResponse:
     review_passed: bool
     llm_used:      bool
     debug:         FinalResponseDebug | None
+    comparison:    ComparisonMeta | None = field(default=None)  # Phase 5g
 
 
 # ---------------------------------------------------------------------------
@@ -317,6 +358,17 @@ def respond(
             resolver=_resolver_debug,
         )
 
+    # Phase 5g: populate structured comparison metadata for OK comparison turns
+    comparison: ComparisonMeta | None = None
+    if dr.intent == INTENT_COMPARE_PLAYERS and dr.outcome == OUTCOME_OK:
+        ro = dr.raw_output
+        comparison = ComparisonMeta(
+            winner  = ro.get("winner"),
+            margin  = float(ro.get("margin", 0.0)),
+            label   = ro.get("margin_label", "narrow"),
+            reasons = tuple(ro.get("comparison_reasons") or []),
+        )
+
     return FinalResponse(
         final_text=final_text,
         outcome=dr.outcome,
@@ -325,4 +377,5 @@ def respond(
         review_passed=review_passed,
         llm_used=llm_used,
         debug=debug,
+        comparison=comparison,
     )

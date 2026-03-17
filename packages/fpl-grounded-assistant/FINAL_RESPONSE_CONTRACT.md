@@ -68,7 +68,7 @@ response: FinalResponse = respond(
 
 ## `FinalResponse` — Stable Caller-Facing Contract
 
-Seven fields.  Frozen dataclass.
+Eight fields.  Frozen dataclass.
 
 ### Stable caller-facing fields
 
@@ -81,13 +81,35 @@ Seven fields.  Frozen dataclass.
 | `review_passed` | `bool` | **Stable** | Whether the LLM text passed deterministic parity checks. `False` → `final_text` is the deterministic fallback. |
 | `llm_used` | `bool` | **Stable** | Whether LLM-generated text appears in `final_text`. `True` iff `llm_called AND review_passed`. |
 | `debug` | `FinalResponseDebug\|None` | **Stable shape; debug-only content** | `None` by default. Opt-in with `include_debug=True`. |
+| `comparison` | `ComparisonMeta\|None` | **Stable (Phase 5g)** | Populated for `compare_players` OK turns. `None` for all other intents and non-OK outcomes. Provides structured access to `winner`, `margin`, `label`, `reasons` without parsing `final_text`. |
 
 ### Field shape stability commitment
 
-The names and types of the six non-debug fields above are considered a
+The names and types of the seven non-debug fields above are considered a
 **stable external contract**.  Any future change to their names, types, or
 semantics is treated as a **breaking change** and must be documented
 explicitly with a phase label.
+
+---
+
+## `ComparisonMeta` — Structured Comparison Bundle (Phase 5g)
+
+Frozen dataclass. Populated on `FinalResponse.comparison` when `intent == "compare_players"` and `outcome == "ok"`. `None` for all other turns.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `winner` | `str\|None` | Winning player display name. `None` when the two players are tied on captain score. |
+| `margin` | `float` | Absolute score difference (winner − loser). Zero on a tie. |
+| `label` | `str` | Categorical margin: `"narrow"` (< 3.0), `"moderate"` (3.0–9.99), `"clear"` (≥ 10.0). |
+| `reasons` | `tuple[str, ...]` | Deterministic advantage phrases (e.g. `"stronger form (9.5 vs 8.0)"`). Empty tuple when no advantage clears the threshold. |
+
+```python
+r = respond("compare Haaland and Salah", bootstrap)
+if r.comparison:
+    print(r.comparison.winner)   # "Salah"
+    print(r.comparison.label)    # "moderate"
+    print(r.comparison.reasons)  # ("stronger form (9.5 vs 8.0)",)
+```
 
 ---
 
