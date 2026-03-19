@@ -95,6 +95,8 @@ from .final_response import (
     respond,
     # Phase 5g: structured comparison metadata
     ComparisonMeta,
+    # Phase 5i: per-player comparison context
+    ComparisonPlayerContext,
 )
 from .final_response_fixtures import (
     # Phase 3d: final response contract fixtures
@@ -211,7 +213,8 @@ __all__ = [
     "ResolverDebug",
     "FINAL_TEXT_POLICY",
     "respond",
-    "ComparisonMeta",  # Phase 5g
+    "ComparisonMeta",           # Phase 5g
+    "ComparisonPlayerContext",  # Phase 5i
     # Phase 3a: LLM layer
     "LLMResponse",
     "SYSTEM_PROMPT",

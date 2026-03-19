@@ -129,7 +129,8 @@ ok("A1  ComparisonMeta has winner field",   "winner"  in _field_names)
 ok("A2  ComparisonMeta has margin field",   "margin"  in _field_names)
 ok("A3  ComparisonMeta has label field",    "label"   in _field_names)
 ok("A4  ComparisonMeta has reasons field",  "reasons" in _field_names)
-eq("A5  exactly 4 fields",                 len(_field_names), 4)
+ok("A5  at least 4 fields (winner/margin/label/reasons; Phase 5i adds player_a/b)",
+   len(_field_names) >= 4)
 
 # Frozen
 _cm = ComparisonMeta(winner="Salah", margin=5.73, label="moderate", reasons=("stronger form",))
