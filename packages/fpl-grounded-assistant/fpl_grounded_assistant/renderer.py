@@ -130,6 +130,90 @@ def _render_get_current_gameweek(output: dict[str, Any]) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Captain score renderer  (Phase 5m)
+# ---------------------------------------------------------------------------
+
+def _render_get_captain_score(output: dict[str, Any]) -> str:
+    """Render a get_captain_score raw_output dict into a human-readable string."""
+    from .explainer import explain_captain  # local import — avoids circular
+
+    status = output.get("status")
+    if status == "ok":
+        web_name   = output.get("web_name", "Unknown")
+        team_short = output.get("team_short", "")
+        score      = output.get("captain_score", 0)
+        tier       = output.get("tier", "")
+
+        tier_label = _tier_display(tier)  # e.g. "Safe", "Upside", "Differential"
+
+        reasons = explain_captain(output)
+        reasons_clause = (" " + "; ".join(reasons) + ".") if reasons else ""
+
+        return f"{web_name} ({team_short}) — {tier_label} [{score}].{reasons_clause}"
+
+    if status == "ambiguous":
+        query = output.get("query", "that name")
+        return (
+            f"Multiple players share the name '{query}'. "
+            f"Please use a full name or player ID to disambiguate."
+        )
+
+    if status == "not_found":
+        query = output.get("query", "that player")
+        return (
+            f"No player found matching '{query}'. "
+            f"Check the spelling or try a full name / player ID."
+        )
+
+    code    = output.get("code", "unknown")
+    message = output.get("message", "An unexpected error occurred.")
+    return f"Error ({code}): {message}"
+
+
+# ---------------------------------------------------------------------------
+# Rank captain candidates renderer  (Phase 5m)
+# ---------------------------------------------------------------------------
+
+def _render_rank_captain_candidates(output: dict[str, Any]) -> str:
+    """Render a rank_captain_candidates raw_output dict into a human-readable string."""
+    from .explainer import explain_captain_compact  # local import
+
+    status = output.get("status")
+    if status == "ok":
+        candidates = output.get("ranked_candidates", [])
+        ok_entries = [c for c in candidates if c.get("status") == "ok"]
+
+        if not ok_entries:
+            return "No captain candidates could be scored."
+
+        lines = []
+        for c in ok_entries:
+            rank      = c.get("rank", "?")
+            name      = c.get("web_name", "?")
+            team_s    = c.get("team_short", "")
+            score     = c.get("captain_score", 0)
+            tier      = c.get("tier", "")
+            role_sigs = c.get("role_signals", {})
+
+            tier_s   = _tier_short(tier)             # e.g. "safe", "up", "diff"
+            sp_sfx   = _set_piece_suffix(role_sigs)  # e.g. "· pen" or ""
+
+            compact_reasons = explain_captain_compact(c)
+            reason_str = "; ".join(compact_reasons) if compact_reasons else ""
+
+            line = f"{rank}. {name} ({team_s}) [{tier_s}] {score}{(' ' + sp_sfx) if sp_sfx else ''}"
+            if reason_str:
+                line += f" — {reason_str}"
+            lines.append(line)
+
+        return "\n".join(lines)
+
+    code    = output.get("code", "error")
+    message = output.get("message", "Could not rank captain candidates.")
+    return f"Error ({code}): {message}"
+
+
+# ---------------------------------------------------------------------------
 # Comparison renderer  (Phase 5b)
 # ---------------------------------------------------------------------------
 
@@ -153,10 +237,12 @@ def _render_compare_players(output: dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 
 _RENDERERS = {
-    "resolve_player":       _render_resolve_player,
-    "get_player_summary":   _render_get_player_summary,
-    "get_current_gameweek": _render_get_current_gameweek,
-    "compare_players":      _render_compare_players,   # Phase 5b
+    "resolve_player":          _render_resolve_player,
+    "get_player_summary":      _render_get_player_summary,
+    "get_current_gameweek":    _render_get_current_gameweek,
+    "get_captain_score":       _render_get_captain_score,       # Phase 5m
+    "rank_captain_candidates": _render_rank_captain_candidates,  # Phase 5m
+    "compare_players":         _render_compare_players,          # Phase 5b
 }
 
 
@@ -193,15 +279,17 @@ def render(tool_name: str, raw_output: dict[str, Any]) -> str:
 
 _TIER_LABEL: dict[str, str] = {
     "safe":               "Safe",
-    "balanced":           "Balanced",
+    "upside":             "Upside",          # Phase 5m: was "balanced"
     "differential":       "Differential",
+    "avoid":              "Avoid",            # Phase 5m: new
     "low_confidence":     "Low-confidence",
 }
 
 _TIER_SHORT: dict[str, str] = {
     "safe":               "safe",
-    "balanced":           "bal",
+    "upside":             "up",              # Phase 5m: was "bal"
     "differential":       "diff",
+    "avoid":              "avoid",           # Phase 5m: new
     "low_confidence":     "low",
 }
 

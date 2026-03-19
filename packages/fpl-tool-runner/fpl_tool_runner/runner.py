@@ -214,19 +214,10 @@ def _get_captain_score_handler(
     bootstrap: dict[str, Any],
 ) -> dict[str, Any]:
     query = args.get("query")
-    candidate_inputs = {k: v for k, v in args.items() if k != "query"}
-
-    # Auto-derive missing scoring inputs from bootstrap
-    if "form" not in candidate_inputs:
-        candidate_inputs["form"] = 5.0
-    if "fixture_difficulty" not in candidate_inputs:
-        candidate_inputs["fixture_difficulty"] = 3
-    if "xgi_per_90" not in candidate_inputs:
-        candidate_inputs["xgi_per_90"] = 0.30
-    if "minutes_risk" not in candidate_inputs:
-        candidate_inputs["minutes_risk"] = 0.0
-
-    return tool_get_captain_score(query, bootstrap, candidate_inputs)
+    # Pass explicit scoring inputs if provided; None causes tool to auto-derive
+    # scoring inputs from the player's bootstrap element (Phase 5m).
+    explicit = {k: v for k, v in args.items() if k != "query"} or None
+    return tool_get_captain_score(query, bootstrap, explicit)
 
 
 def _rank_captain_candidates_handler(

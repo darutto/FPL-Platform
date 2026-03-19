@@ -58,9 +58,60 @@ from __future__ import annotations
 from typing import Any
 
 from fpl_api_client.fpl_client import get_players, get_teams
-from fpl_captain_engine import calculate_captain_score
+from fpl_captain_engine import (
+    calculate_captain_score,
+    classify_captain_tier,   # Phase 5m
+    derive_role_signals,     # Phase 5m
+)
 from fpl_player_registry import build_registry
 from fpl_query_tools import get_current_gameweek_from_bootstrap, get_player_summary
+
+# ---------------------------------------------------------------------------
+# Phase 5m: scoring input derivation helpers
+# ---------------------------------------------------------------------------
+
+_STATUS_RISK: dict[str, float] = {
+    "a": 0.0,
+    "d": 30.0,
+    "i": 100.0,
+    "s": 100.0,
+    "u": 100.0,
+}
+
+
+def _derive_scoring_inputs_from_element(
+    element: dict,
+    bootstrap: dict,
+) -> dict:
+    """Derive captain scoring inputs from a raw FPL bootstrap element.
+
+    Returns a dict with keys: form, xgi_per_90, minutes_risk,
+    fixture_difficulty.  Mirrors the derivation in comparison._score_one().
+    """
+    form = float(element.get("form", "0") or 0)
+
+    minutes = float(element.get("minutes", 0) or 0)
+    xgi_raw = float(element.get("expected_goal_involvements", "0") or 0)
+    xgi_per_90 = (xgi_raw / (minutes / 90.0)) if minutes > 0 else 0.0
+
+    status = element.get("status", "u")
+    chance = element.get("chance_of_playing_this_round")
+    if chance is not None and status == "d":
+        minutes_risk = max(0.0, min(100.0, (1.0 - chance / 100.0) * 100.0))
+    else:
+        minutes_risk = _STATUS_RISK.get(status, 50.0)
+
+    fdr_map = bootstrap.get("fixture_difficulty_map", {})
+    team_id = element.get("team")
+    fixture_difficulty = int(fdr_map.get(team_id, 3))
+
+    return {
+        "form":               form,
+        "xgi_per_90":         round(xgi_per_90, 6),
+        "minutes_risk":       minutes_risk,
+        "fixture_difficulty": fixture_difficulty,
+    }
+
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -289,13 +340,14 @@ def tool_get_player_summary(
 def tool_get_captain_score(
     query: str | int,
     bootstrap: dict[str, Any],
-    candidate_inputs: dict[str, Any],
+    candidate_inputs: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Return a captain score for a resolved player.
 
     Resolves the player identity from *bootstrap*, then computes the captain
-    score from the explicit scoring inputs in *candidate_inputs* using the
-    canonical ``fpl_captain_engine.calculate_captain_score`` formula.
+    score.  When *candidate_inputs* is ``None`` or empty, scoring inputs are
+    auto-derived from the player's bootstrap element (Phase 5m).  Explicit
+    values in *candidate_inputs* take precedence over derived values.
 
     Parameters
     ----------
@@ -304,11 +356,13 @@ def tool_get_captain_score(
     bootstrap:
         Full bootstrap dict from ``fpl_api_client.get_bootstrap()``.
     candidate_inputs:
-        Dict with required scoring inputs:
+        Optional dict with scoring inputs:
         ``form``               — recent form (last 4 GW average points)
         ``fixture_difficulty`` — FDR 1–5 (1 = easiest, 5 = hardest)
         ``xgi_per_90``         — expected goal involvements per 90 minutes
         ``minutes_risk``       — minutes risk 0–100 (0 = guaranteed starter)
+        When ``None`` or ``{}``, all four are derived from the bootstrap
+        element automatically.
 
     Returns — status "ok"
     ----------------------
@@ -320,6 +374,9 @@ def tool_get_captain_score(
     ``team_short``      Three-letter abbreviation
     ``position``        "GKP" / "DEF" / "MID" / "FWD"
     ``captain_score``   Composite score 0–100 (float, 2 d.p.)
+    ``tier``            Captain tier: "safe" / "upside" / "differential" /
+                        "avoid" / "low_confidence"  (Phase 5m)
+    ``role_signals``    Set-piece role signals dict  (Phase 5m)
     ``score_inputs``    Dict of the four inputs used
     ``query``           The original query string
 
@@ -333,10 +390,11 @@ def tool_get_captain_score(
     ``code``    "missing_argument"
     ``message`` Descriptive message listing missing fields
     """
-    # Validate scoring inputs before player resolution (fast-fail on bad inputs)
-    validation_error = _validate_candidate_inputs(candidate_inputs)
-    if validation_error:
-        return validation_error
+    # Validate explicit inputs before player resolution (fast-fail on bad inputs)
+    if candidate_inputs:
+        validation_error = _validate_candidate_inputs(candidate_inputs)
+        if validation_error:
+            return validation_error
 
     status, summary = _resolve_with_status(query, bootstrap)
 
@@ -358,23 +416,44 @@ def tool_get_captain_score(
             "message": f"No player found matching '{query}'.",
         }
 
-    form               = float(candidate_inputs["form"])
-    fixture_difficulty = candidate_inputs["fixture_difficulty"]
-    xgi_per_90         = float(candidate_inputs["xgi_per_90"])
-    minutes_risk       = float(candidate_inputs["minutes_risk"])
+    # Look up bootstrap element for input derivation and role signals (Phase 5m)
+    player_id = summary["id"]
+    element = next(
+        (e for e in bootstrap.get("elements", []) if e.get("id") == player_id),
+        None,
+    )
+
+    # Build final scoring inputs: derived values as base, explicit values override
+    if element is not None:
+        derived = _derive_scoring_inputs_from_element(element, bootstrap)
+    else:
+        derived = {"form": 5.0, "fixture_difficulty": 3, "xgi_per_90": 0.30, "minutes_risk": 0.0}
+
+    ci = {**derived, **(candidate_inputs or {})}
+
+    form               = float(ci["form"])
+    fixture_difficulty = ci["fixture_difficulty"]
+    xgi_per_90         = float(ci["xgi_per_90"])
+    minutes_risk       = float(ci["minutes_risk"])
 
     # Use canonical formula from fpl_captain_engine; round to 2 d.p. for display
     score = round(calculate_captain_score(form, fixture_difficulty, xgi_per_90, minutes_risk), 2)
 
+    # Phase 5m: compute tier and role signals
+    tier         = classify_captain_tier(score, minutes_risk, xgi_per_90)
+    role_signals = derive_role_signals(element) if element is not None else {}
+
     return {
         "status":        "ok",
-        "player_id":     summary["id"],
+        "player_id":     player_id,
         "web_name":      summary["web_name"],
         "name":          summary["name"],
         "team":          summary["team"],
         "team_short":    summary["team_short"],
         "position":      summary["position"],
         "captain_score": score,
+        "tier":          tier,          # Phase 5m
+        "role_signals":  role_signals,  # Phase 5m
         "score_inputs": {
             "form":               form,
             "fixture_difficulty": int(fixture_difficulty),
@@ -455,13 +534,7 @@ def tool_rank_captain_candidates(
             })
             continue
 
-        # Validate scoring inputs per candidate
-        validation_error = _validate_candidate_inputs(c)
-        if validation_error:
-            non_ok_results.append({**validation_error, "query": str(query), "index": i})
-            continue
-
-        # Resolve player identity
+        # Resolve player identity first (needed for element derivation)
         status, summary = _resolve_with_status(query, bootstrap)
         if status != "ok":
             non_ok_results.append({
@@ -476,23 +549,50 @@ def tool_rank_captain_candidates(
             })
             continue
 
-        # Score
-        form = float(c["form"])
-        fdr  = c["fixture_difficulty"]
-        xgi  = float(c["xgi_per_90"])
-        risk = float(c["minutes_risk"])
+        # Look up bootstrap element for derivation and role signals (Phase 5m)
+        player_id = summary["id"]
+        element = next(
+            (e for e in bootstrap.get("elements", []) if e.get("id") == player_id),
+            None,
+        )
+
+        # Build scoring inputs: derived values as base, explicit candidate values override
+        has_all_explicit = all(k in c for k in _REQUIRED_CANDIDATE_KEYS)
+        if has_all_explicit:
+            ci = c
+        elif element is not None:
+            derived = _derive_scoring_inputs_from_element(element, bootstrap)
+            ci = {**derived, **{k: c[k] for k in _REQUIRED_CANDIDATE_KEYS if k in c}}
+        else:
+            # Element not found — require explicit inputs
+            validation_error = _validate_candidate_inputs(c)
+            if validation_error:
+                non_ok_results.append({**validation_error, "query": str(query), "index": i})
+                continue
+            ci = c
+
+        form  = float(ci["form"])
+        fdr   = ci["fixture_difficulty"]
+        xgi   = float(ci["xgi_per_90"])
+        risk  = float(ci["minutes_risk"])
         score = round(calculate_captain_score(form, fdr, xgi, risk), 2)
+
+        # Phase 5m: tier and role signals
+        tier         = classify_captain_tier(score, risk, xgi)
+        role_signals = derive_role_signals(element) if element is not None else {}
 
         ok_results.append({
             "status":        "ok",
             "index":         i,
-            "player_id":     summary["id"],
+            "player_id":     player_id,
             "web_name":      summary["web_name"],
             "name":          summary["name"],
             "team":          summary["team"],
             "team_short":    summary["team_short"],
             "position":      summary["position"],
             "captain_score": score,
+            "tier":          tier,          # Phase 5m
+            "role_signals":  role_signals,  # Phase 5m
             "score_inputs": {
                 "form":               form,
                 "fixture_difficulty": int(fdr),
