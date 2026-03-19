@@ -149,7 +149,7 @@ from .renderer import (
     _set_piece_clause,
     _set_piece_suffix,
 )
-from .comparison import (   # Phase 5a/5d
+from .comparison import (   # Phase 5a/5d/5h
     compare_players,
     # Phase 5d: comparative explainability
     _explain_comparison,
@@ -160,6 +160,8 @@ from .comparison import (   # Phase 5a/5d
     _RISK_ADV_THRESHOLD,
     _MARGIN_NARROW,
     _MARGIN_CLEAR,
+    # Phase 5h: role-aware set-piece phrasing
+    _set_piece_advantage_phrase,
 )
 from .router import RouteResult, route
 from .conversation_state import (
@@ -249,7 +251,7 @@ __all__ = [
     "INTENT_UNSUPPORTED",
     "SUPPORTED_INTENTS",
     "_TOOL_TO_INTENT",
-    # Phase 5a/5d: comparison
+    # Phase 5a/5d/5h: comparison
     "compare_players",
     "_explain_comparison",
     "_margin_label",
@@ -259,6 +261,7 @@ __all__ = [
     "_RISK_ADV_THRESHOLD",
     "_MARGIN_NARROW",
     "_MARGIN_CLEAR",
+    "_set_piece_advantage_phrase",  # Phase 5h
     # Phase 2l: outcomes + manifest
     "OUTCOME_OK",
     "OUTCOME_UNSUPPORTED_INTENT",

@@ -4,6 +4,8 @@ fpl_grounded_assistant.comparison
 Phase 5a: deterministic two-player captain comparison.
 Phase 5b: registered as a proper tool in TOOL_REGISTRY.
 Phase 5d: comparison explainability — comparative reasons and margin label.
+Phase 5h: role-aware comparison context — specific set-piece phrasing,
+    position and role_signals added to player_a/b output dicts.
 
 Compares two players by captain_score using scoring inputs derived directly
 from their bootstrap element data (form, xgi_per_90, minutes_risk,
@@ -36,8 +38,19 @@ Output shape -- status "ok"
     winner              web_name of the higher-scoring player, or None on an exact tie
     margin              round(|score_a - score_b|, 2)
     margin_label        "narrow" | "moderate" | "clear"  (Phase 5d)
-    comparison_reasons  list[str] — comparative advantage phrases  (Phase 5d)
+    comparison_reasons  list[str] — comparative advantage phrases  (Phase 5d/5h)
     recommendation      human-readable comparison sentence (deterministic)
+
+player_a / player_b subdicts
+-----------------------------
+    web_name            display name
+    position            FWD | MID | DEF | GKP  (Phase 5h)
+    captain_score       float
+    tier                captain tier string
+    reasons             per-player reason strings
+    score_inputs        {form, fixture_difficulty, xgi_per_90, minutes_risk}
+    role_signals        {penalties_order, direct_freekicks_order, ...,
+                         set_piece_notes, set_piece_threat, role_bonus}  (Phase 5h)
 
 Output shape -- status "not_found" / "ambiguous"
 -------------------------------------------------
@@ -93,6 +106,73 @@ _MARGIN_NARROW: float = 3.0
 
 #: margin >= _MARGIN_CLEAR → "clear" edge
 _MARGIN_CLEAR: float = 10.0
+
+
+# ---------------------------------------------------------------------------
+# Phase 5h: role-aware set-piece labels
+# ---------------------------------------------------------------------------
+
+#: Short display labels for set-piece role keys — kept local to avoid
+#: coupling with renderer.py which has a parallel mapping.
+_SET_PIECE_SHORT: dict[str, str] = {
+    "penalty_taker_1":  "pen",
+    "penalty_taker_2":  "pen2",
+    "freekick_taker_1": "fk",
+    "freekick_taker_2": "fk2",
+}
+
+
+def _set_piece_advantage_phrase(
+    w_role: dict[str, Any],
+    l_role: dict[str, Any],
+) -> str | None:
+    """Return a specific set-piece advantage phrase, or ``None``.
+
+    Fires when the winner's ``role_bonus`` strictly exceeds the loser's.
+    Uses ``set_piece_notes`` to label the specific roles rather than
+    producing a generic "set-piece advantage" string.
+
+    Parameters
+    ----------
+    w_role, l_role:
+        ``role_signals`` dicts from ``_score_one()`` for the winner and loser.
+
+    Returns
+    -------
+    str | None
+        Phrase such as ``"set-piece advantage (pen vs fk2)"`` or
+        ``"set-piece advantage (pen)"``, or ``None`` when no advantage.
+
+    Examples
+    --------
+    winner=penalty_taker_1, loser=freekick_taker_2
+        → ``"set-piece advantage (pen vs fk2)"``
+    winner=penalty_taker_1, loser=[]
+        → ``"set-piece advantage (pen)"``
+    winner=freekick_taker_1, loser=freekick_taker_2
+        → ``"set-piece advantage (fk vs fk2)"``
+    winner.role_bonus == loser.role_bonus
+        → ``None``
+    """
+    w_bonus = float(w_role.get("role_bonus", 0.0))
+    l_bonus = float(l_role.get("role_bonus", 0.0))
+    if w_bonus <= l_bonus:
+        return None
+
+    w_notes = w_role.get("set_piece_notes", [])
+    l_notes = l_role.get("set_piece_notes", [])
+
+    if not w_notes:
+        # role_bonus set but no notes — generic fallback
+        return "set-piece advantage"
+
+    w_label = _SET_PIECE_SHORT.get(w_notes[0], w_notes[0])
+
+    if l_notes:
+        l_label = _SET_PIECE_SHORT.get(l_notes[0], l_notes[0])
+        return f"set-piece advantage ({w_label} vs {l_label})"
+
+    return f"set-piece advantage ({w_label})"
 
 
 # ---------------------------------------------------------------------------
@@ -303,17 +383,21 @@ def compare_players(
         "query_b":  query_b,
         "player_a": {
             "web_name":      name_a,
+            "position":      scored_a.get("position", ""),    # Phase 5h
             "captain_score": score_a,
             "tier":          scored_a["tier"],
             "reasons":       scored_a["reasons"],
             "score_inputs":  scored_a["score_inputs"],
+            "role_signals":  scored_a.get("role_signals", {}),  # Phase 5h
         },
         "player_b": {
             "web_name":      name_b,
+            "position":      scored_b.get("position", ""),    # Phase 5h
             "captain_score": score_b,
             "tier":          scored_b["tier"],
             "reasons":       scored_b["reasons"],
             "score_inputs":  scored_b["score_inputs"],
+            "role_signals":  scored_b.get("role_signals", {}),  # Phase 5h
         },
         "winner":              winner,
         "margin":              margin,
@@ -395,11 +479,10 @@ def _explain_comparison(
     if l_risk - w_risk >= _RISK_ADV_THRESHOLD:
         reasons.append("better minutes security")
 
-    # 5. Set-piece advantage
-    w_bonus = float(w_role.get("role_bonus", 0.0))
-    l_bonus = float(l_role.get("role_bonus", 0.0))
-    if w_bonus > l_bonus:
-        reasons.append("set-piece advantage")
+    # 5. Set-piece advantage — Phase 5h: specific role labels via _set_piece_advantage_phrase
+    sp_phrase = _set_piece_advantage_phrase(w_role, l_role)
+    if sp_phrase is not None:
+        reasons.append(sp_phrase)
 
     return reasons
 
