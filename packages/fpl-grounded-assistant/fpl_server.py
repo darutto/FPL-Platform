@@ -282,11 +282,23 @@ def ask(req: AskRequest) -> AskResponse:
 
     comp_bundle: dict[str, Any] | None = None
     if r.comparison is not None:
+        def _player_ctx_dict(ctx: Any) -> dict[str, Any] | None:
+            if ctx is None:
+                return None
+            return {
+                "web_name":        ctx.web_name,
+                "position":        ctx.position,
+                "captain_score":   ctx.captain_score,
+                "role_bonus":      ctx.role_bonus,
+                "set_piece_notes": list(ctx.set_piece_notes),
+            }
         comp_bundle = {
-            "winner":  r.comparison.winner,
-            "margin":  r.comparison.margin,
-            "label":   r.comparison.label,
-            "reasons": list(r.comparison.reasons),
+            "winner":   r.comparison.winner,
+            "margin":   r.comparison.margin,
+            "label":    r.comparison.label,
+            "reasons":  list(r.comparison.reasons),
+            "player_a": _player_ctx_dict(r.comparison.player_a),  # Phase 5i
+            "player_b": _player_ctx_dict(r.comparison.player_b),  # Phase 5i
         }
 
     return AskResponse(
@@ -396,11 +408,23 @@ def session_ask(session_id: str, req: AskRequest) -> SessionAskResponse:
 
     sess_comp_bundle: dict[str, Any] | None = None
     if r.comparison is not None:
+        def _sess_player_ctx_dict(ctx: Any) -> dict[str, Any] | None:
+            if ctx is None:
+                return None
+            return {
+                "web_name":        ctx.web_name,
+                "position":        ctx.position,
+                "captain_score":   ctx.captain_score,
+                "role_bonus":      ctx.role_bonus,
+                "set_piece_notes": list(ctx.set_piece_notes),
+            }
         sess_comp_bundle = {
-            "winner":  r.comparison.winner,
-            "margin":  r.comparison.margin,
-            "label":   r.comparison.label,
-            "reasons": list(r.comparison.reasons),
+            "winner":   r.comparison.winner,
+            "margin":   r.comparison.margin,
+            "label":    r.comparison.label,
+            "reasons":  list(r.comparison.reasons),
+            "player_a": _sess_player_ctx_dict(r.comparison.player_a),  # Phase 5i
+            "player_b": _sess_player_ctx_dict(r.comparison.player_b),  # Phase 5i
         }
 
     return SessionAskResponse(

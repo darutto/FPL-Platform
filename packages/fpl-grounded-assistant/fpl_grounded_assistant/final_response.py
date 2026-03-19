@@ -78,7 +78,47 @@ from .llm_review import ask_llm_safe
 
 
 # ---------------------------------------------------------------------------
-# Comparison metadata bundle  (Phase 5g)
+# Per-player context bundle  (Phase 5i)
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class ComparisonPlayerContext:
+    """Bounded per-player context for a comparison turn.
+
+    Exposed on ``ComparisonMeta.player_a`` and ``ComparisonMeta.player_b``
+    when ``intent == compare_players`` and ``outcome == ok``.
+
+    Fields are a strict subset of the deterministic comparison payload —
+    no values are computed here; all come from ``compare_players()`` raw
+    output.
+
+    Attributes
+    ----------
+    web_name:
+        Player display name (e.g. ``"Haaland"``).
+    position:
+        FPL position string: ``"FWD"``, ``"MID"``, ``"DEF"``, or ``"GKP"``.
+    captain_score:
+        Deterministic captain score used for this comparison.
+    role_bonus:
+        Numeric role contribution to captain score from set-piece involvement
+        (e.g. ``5.0`` for penalty taker, ``0.5`` for secondary free-kick
+        taker, ``0.0`` for no set-piece role).
+    set_piece_notes:
+        Tuple of role-key strings that describe the player's set-piece
+        involvement (e.g. ``("penalty_taker_1",)``).  Empty tuple when no
+        set-piece role is recorded.
+    """
+
+    web_name:        str
+    position:        str
+    captain_score:   float
+    role_bonus:      float
+    set_piece_notes: tuple[str, ...]
+
+
+# ---------------------------------------------------------------------------
+# Comparison metadata bundle  (Phase 5g / 5i)
 # ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
@@ -103,12 +143,20 @@ class ComparisonMeta:
         scored higher (e.g. ``"stronger form (9.5 vs 8.0)"``).
         Empty tuple when no single factor clears the advantage threshold or
         when the comparison is tied.
+    player_a:
+        Bounded per-player context for the first comparison player (Phase 5i).
+        ``None`` only on legacy construction without this field.
+    player_b:
+        Bounded per-player context for the second comparison player (Phase 5i).
+        ``None`` only on legacy construction without this field.
     """
 
     winner:  str | None
     margin:  float
     label:   str
     reasons: tuple[str, ...]
+    player_a: "ComparisonPlayerContext | None" = field(default=None)  # Phase 5i
+    player_b: "ComparisonPlayerContext | None" = field(default=None)  # Phase 5i
 
 
 # ---------------------------------------------------------------------------
@@ -358,15 +406,28 @@ def respond(
             resolver=_resolver_debug,
         )
 
-    # Phase 5g: populate structured comparison metadata for OK comparison turns
+    # Phase 5g/5i: populate structured comparison metadata for OK comparison turns
     comparison: ComparisonMeta | None = None
     if dr.intent == INTENT_COMPARE_PLAYERS and dr.outcome == OUTCOME_OK:
         ro = dr.raw_output
+
+        def _make_player_ctx(pd: dict) -> ComparisonPlayerContext:
+            rs = pd.get("role_signals", {})
+            return ComparisonPlayerContext(
+                web_name        = pd.get("web_name", ""),
+                position        = pd.get("position", ""),
+                captain_score   = float(pd.get("captain_score", 0.0)),
+                role_bonus      = float(rs.get("role_bonus", 0.0)),
+                set_piece_notes = tuple(rs.get("set_piece_notes") or []),
+            )
+
         comparison = ComparisonMeta(
-            winner  = ro.get("winner"),
-            margin  = float(ro.get("margin", 0.0)),
-            label   = ro.get("margin_label", "narrow"),
-            reasons = tuple(ro.get("comparison_reasons") or []),
+            winner   = ro.get("winner"),
+            margin   = float(ro.get("margin", 0.0)),
+            label    = ro.get("margin_label", "narrow"),
+            reasons  = tuple(ro.get("comparison_reasons") or []),
+            player_a = _make_player_ctx(ro.get("player_a", {})),  # Phase 5i
+            player_b = _make_player_ctx(ro.get("player_b", {})),  # Phase 5i
         )
 
     return FinalResponse(

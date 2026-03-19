@@ -92,7 +92,7 @@ explicitly with a phase label.
 
 ---
 
-## `ComparisonMeta` — Structured Comparison Bundle (Phase 5g)
+## `ComparisonMeta` — Structured Comparison Bundle (Phase 5g / 5i)
 
 Frozen dataclass. Populated on `FinalResponse.comparison` when `intent == "compare_players"` and `outcome == "ok"`. `None` for all other turns.
 
@@ -102,13 +102,42 @@ Frozen dataclass. Populated on `FinalResponse.comparison` when `intent == "compa
 | `margin` | `float` | Absolute score difference (winner − loser). Zero on a tie. |
 | `label` | `str` | Categorical margin: `"narrow"` (< 3.0), `"moderate"` (3.0–9.99), `"clear"` (≥ 10.0). |
 | `reasons` | `tuple[str, ...]` | Deterministic advantage phrases (e.g. `"stronger form (9.5 vs 8.0)"`). Empty tuple when no advantage clears the threshold. |
+| `player_a` | `ComparisonPlayerContext\|None` | Bounded per-player context for the first comparison player (Phase 5i). |
+| `player_b` | `ComparisonPlayerContext\|None` | Bounded per-player context for the second comparison player (Phase 5i). |
 
 ```python
 r = respond("compare Haaland and Salah", bootstrap)
 if r.comparison:
-    print(r.comparison.winner)   # "Salah"
-    print(r.comparison.label)    # "moderate"
-    print(r.comparison.reasons)  # ("stronger form (9.5 vs 8.0)",)
+    print(r.comparison.winner)             # "Salah"
+    print(r.comparison.label)             # "moderate"
+    print(r.comparison.reasons)           # ("stronger form (9.5 vs 8.0)",)
+    print(r.comparison.player_a.position) # "FWD"
+    print(r.comparison.player_b.role_bonus) # 5.0
+```
+
+---
+
+## `ComparisonPlayerContext` — Per-Player Context (Phase 5i)
+
+Frozen dataclass. Populated on `ComparisonMeta.player_a` and `ComparisonMeta.player_b` for successful comparison turns. Exposes a bounded, deterministic subset of per-player context — no values are recomputed; all come from the `compare_players()` raw output.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `web_name` | `str` | Player display name (e.g. `"Haaland"`). |
+| `position` | `str` | FPL position: `"FWD"`, `"MID"`, `"DEF"`, or `"GKP"`. |
+| `captain_score` | `float` | Deterministic captain score used in this comparison. |
+| `role_bonus` | `float` | Numeric contribution to captain score from set-piece involvement. `5.0` for primary penalty taker, `0.5` for secondary free-kick taker, `0.0` for no role. |
+| `set_piece_notes` | `tuple[str, ...]` | Role-key strings describing set-piece involvement (e.g. `("penalty_taker_1",)`). Empty tuple when no role is recorded. |
+
+```python
+r = respond("compare Haaland and Saka", bootstrap)
+if r.comparison and r.comparison.player_a:
+    ctx = r.comparison.player_a
+    print(ctx.web_name)         # "Haaland"
+    print(ctx.position)         # "FWD"
+    print(ctx.captain_score)    # e.g. 15.5
+    print(ctx.role_bonus)       # 5.0
+    print(ctx.set_piece_notes)  # ("penalty_taker_1",)
 ```
 
 ---
