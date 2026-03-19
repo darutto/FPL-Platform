@@ -2,6 +2,7 @@
 FPL Grounded Assistant — HTTP integration examples.
 ====================================================
 Phase 4d: external integration examples and client fixtures.
+Phase 5j: structured comparison payload exposure in HTTP body.
 
 Shows how to call ``POST /ask`` and ``GET /health`` for each supported scenario.
 Uses FastAPI ``TestClient`` for in-process execution — no running server needed.
@@ -172,6 +173,22 @@ HTTP_SCENARIOS: list[dict[str, Any]] = [
             "Comparison where second player is not in registry. HTTP 200. "
             "supported=True, outcome='not_found'. "
             "final_text explains the player was not found."
+        ),
+    },
+    # Phase 5j: structured comparison player context in HTTP body
+    {
+        "id": "comparison_structured",
+        "payload": {"question": "compare Haaland and Saka"},
+        "bootstrap": STANDARD_BOOTSTRAP,
+        "expected_status": 200,
+        "expected_supported": True,
+        "expected_outcome": "ok",
+        "note": (
+            "Direct comparison exposing structured player context (Phase 5i/5j). "
+            "JSON body includes comparison.player_a and comparison.player_b, each with: "
+            "web_name, position, captain_score, role_bonus, set_piece_notes. "
+            "Haaland: position=FWD, role_bonus=5.0, set_piece_notes=['penalty_taker_1']. "
+            "Saka: position=MID, role_bonus=0.5, set_piece_notes=['freekick_taker_2']."
         ),
     },
 ]

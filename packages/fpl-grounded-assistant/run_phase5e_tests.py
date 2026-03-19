@@ -256,9 +256,17 @@ _e_h_status, _e_h_body = run_http_scenario(_e_http_ok)
 eq("E4  HTTP supported_ok status",           _e_h_status, 200)
 eq("E5  HTTP supported_ok outcome",          _e_h_body.get("outcome"), OUTCOME_OK)
 
-# HTTP: CLI and HTTP share the same scenario IDs (consistency check)
-ok("E6  CLI and HTTP scenario IDs match",
-   {s["id"] for s in CLI_SCENARIOS} == {s["id"] for s in HTTP_SCENARIOS})
+# HTTP: CLI and HTTP share the core scenario IDs (consistency check)
+# Phase 5j adds surface-specific scenarios (comparison_debug for CLI,
+# comparison_structured for HTTP), so exact set equality no longer holds.
+_CORE_SCENARIO_IDS = {
+    "supported_ok", "supported_ambiguous", "supported_not_found",
+    "supported_missing_arguments", "unsupported_intent",
+    "comparison_direct", "comparison_not_found",
+}
+ok("E6  CLI and HTTP both include core scenario IDs",
+   _CORE_SCENARIO_IDS <= {s["id"] for s in CLI_SCENARIOS}
+   and _CORE_SCENARIO_IDS <= {s["id"] for s in HTTP_SCENARIOS})
 
 # Session: pronoun_follow_up flow still works
 fpl_server._clear_sessions()
