@@ -175,12 +175,14 @@ class ResolverDebug:
     ----------
     resolver_used:
         Whether a resolver (LLM or deterministic) actually changed the question.
-        ``True`` when ``resolver_source`` is ``"llm"`` or ``"fallback_regex"``.
+        ``True`` when ``resolver_source`` is not ``"none"``.
     resolver_source:
         Which resolver path was taken:
-        ``"llm"``           — LLM reference resolution succeeded (confidence >= threshold)
-        ``"fallback_regex"`` — Phase 4e deterministic pronoun substitution used
-        ``"none"``          — No resolver ran; original question used unchanged
+        ``"comparison_followup"``     — Phase 5c deterministic comparison follow-up rewrite
+        ``"comparison_followup_llm"`` — Phase 5f LLM comparison follow-up rewrite
+        ``"llm"``                     — Phase 4f LLM reference resolution (confidence >= threshold)
+        ``"fallback_regex"``          — Phase 4e deterministic pronoun substitution used
+        ``"none"``                    — No resolver ran; original question used unchanged
     resolver_confidence:
         LLM-reported confidence (0.0-1.0) when ``resolver_source == "llm"``.
         ``None`` for non-LLM paths.
