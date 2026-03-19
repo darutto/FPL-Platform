@@ -203,12 +203,23 @@ class ClearSessionResponse(BaseModel):
 
 
 class SessionInfoResponse(BaseModel):
-    """Response from GET /session/{session_id}."""
+    """Response from GET /session/{session_id}.
+
+    Phase 5l additions (all optional; None when no turns completed yet):
+    last_intent           -- intent of the most recent turn
+    last_player           -- last successfully resolved single-player query
+    last_comparison       -- {"player_a": ..., "player_b": ...} from last comparison, or None
+    last_resolver_source  -- resolver path from most recent turn (same vocab as ResolverDebug)
+    """
 
     session_id: str
     created_at: float
     last_used_at: float
     turn_count: int
+    last_intent: str | None = None                 # Phase 5l
+    last_player: str | None = None                 # Phase 5l
+    last_comparison: dict[str, Any] | None = None  # Phase 5l
+    last_resolver_source: str | None = None        # Phase 5l
 
 
 # ---------------------------------------------------------------------------
@@ -479,11 +490,26 @@ def get_session(session_id: str) -> SessionInfoResponse:
         del _sessions[session_id]
         raise HTTPException(status_code=404, detail=f"Session expired: {session_id}")
 
+    state = entry.session.state
+
+    # Phase 5l: bounded audit snapshot from ConversationState
+    last_intent: str | None = state.history[-1][1] if state.history else None
+    last_comparison_dict: dict[str, Any] | None = None
+    if state.last_comparison is not None:
+        last_comparison_dict = {
+            "player_a": state.last_comparison[0],
+            "player_b": state.last_comparison[1],
+        }
+
     return SessionInfoResponse(
         session_id=session_id,
         created_at=entry.created_at,
         last_used_at=entry.last_used_at,
         turn_count=entry.session.turn_count,
+        last_intent=last_intent,
+        last_player=state.last_player_query,
+        last_comparison=last_comparison_dict,
+        last_resolver_source=state.last_resolver_source,
     )
 
 

@@ -4,6 +4,7 @@ fpl_grounded_assistant.conversation_state
 Phase 4e: minimal multi-turn conversation state.
 Phase 4f: extended with bounded history + LLM-assisted resolver integration.
 Phase 5c: comparison follow-up support.
+Phase 5l: last_resolver_source tracking for session inspect audit snapshot.
 
 Provides a lightweight, in-memory state layer on top of the stateless
 ``respond()`` function.  State is explicit, bounded, and restricted to
@@ -168,6 +169,10 @@ class ConversationState:
         The ``(query_a, query_b)`` pair from the most recently completed
         successful comparison turn.  ``None`` until such a turn completes.
         Cleared when any successful non-comparison turn completes (Phase 5c).
+    last_resolver_source:
+        The resolver-source string for the most recently completed turn, using
+        the same five-value vocabulary as ``ResolverDebug.resolver_source``
+        (Phase 5l).  ``None`` until the first turn completes.
 
     Mutated only by ``update_from_response()`` and ``clear()``.
     """
@@ -176,6 +181,7 @@ class ConversationState:
     turn_count: int = field(default=0)
     history: list[tuple[str, str]] = field(default_factory=list)
     last_comparison: tuple[str, str] | None = field(default=None)   # Phase 5c
+    last_resolver_source: str | None = field(default=None)           # Phase 5l
 
     def update_from_response(
         self,
@@ -183,6 +189,7 @@ class ConversationState:
         resolved_query: str | None,
         question_text: str | None = None,
         comparison_queries: tuple[str, str] | None = None,   # Phase 5c
+        resolver_source: str | None = None,                  # Phase 5l
     ) -> None:
         """Update state after a completed turn.
 
@@ -221,6 +228,12 @@ class ConversationState:
             The ``(query_a, query_b)`` extracted from the route result when
             the intent is ``compare_players``.  Used to update
             ``last_comparison`` (Phase 5c).
+        resolver_source:
+            The resolver-source string for this turn (Phase 5l).  One of the
+            five values from the ``ResolverDebug.resolver_source`` vocabulary:
+            ``"none"``, ``"comparison_followup"``, ``"comparison_followup_llm"``,
+            ``"fallback_regex"``, ``"llm"``.  ``None`` is stored as-is when not
+            provided (preserves previous value; callers should always supply this).
         """
         self.turn_count += 1
         if (
@@ -245,6 +258,9 @@ class ConversationState:
             # Any other successful turn clears comparison context
             self.last_comparison = None
 
+        if resolver_source is not None:                     # Phase 5l
+            self.last_resolver_source = resolver_source
+
         if question_text:
             if len(self.history) >= 3:
                 self.history.pop(0)
@@ -255,7 +271,8 @@ class ConversationState:
         self.last_player_query = None
         self.turn_count = 0
         self.history.clear()
-        self.last_comparison = None   # Phase 5c
+        self.last_comparison = None         # Phase 5c
+        self.last_resolver_source = None   # Phase 5l
 
 
 # ---------------------------------------------------------------------------
@@ -383,13 +400,11 @@ def resolve_comparison_followup(question: str, state: ConversationState) -> str 
 
 
 # ---------------------------------------------------------------------------
-# Resolver debug helper (Phase 4g)
+# Resolver debug helper (Phase 4g / Phase 5l)
 # ---------------------------------------------------------------------------
 
-def _make_resolver_debug(resolution, original_question: str, rewritten_question: str):
-    """Build a ResolverDebug from a ReferenceResolution.
-
-    Lazy-imports ResolverDebug to avoid circular imports.
+def _map_resolver_source(resolution) -> str:
+    """Map a ReferenceResolution to a resolver_source string.
 
     Resolver source mapping (Phase 5k: comparison-specific values preserved):
     - "comparison_followup"     -> "comparison_followup"      (Phase 5c det. comparison rewrite)
@@ -397,26 +412,34 @@ def _make_resolver_debug(resolution, original_question: str, rewritten_question:
     - "deterministic"           -> "fallback_regex"            (Phase 4e pronoun regex)
     - "none" (confidence 0.0)   -> "none"                     (no resolver ran)
     - any LLM source            -> "llm"                      (Phase 4f LLM resolution)
+
+    Used by ``_make_resolver_debug()`` and ``ConversationSession.respond()``
+    (Phase 5l state tracking).
+    """
+    src = resolution.reference_source
+    if src == "comparison_followup":
+        return "comparison_followup"
+    if src == "comparison_followup_llm":
+        return "comparison_followup_llm"
+    if src == "deterministic":
+        return "fallback_regex"
+    if src == "none" and resolution.confidence == 0.0:
+        return "none"
+    return "llm"
+
+
+def _make_resolver_debug(resolution, original_question: str, rewritten_question: str):
+    """Build a ResolverDebug from a ReferenceResolution.
+
+    Lazy-imports ResolverDebug to avoid circular imports.
+    Source mapping delegated to ``_map_resolver_source()``.
     """
     from .final_response import ResolverDebug  # noqa: PLC0415
 
-    src = resolution.reference_source
-    if src == "comparison_followup":               # Phase 5c: deterministic comparison follow-up
-        resolver_source = "comparison_followup"
-        resolver_confidence = None
-    elif src == "comparison_followup_llm":         # Phase 5f: LLM comparison follow-up
-        resolver_source = "comparison_followup_llm"
-        resolver_confidence = float(resolution.confidence)
-    elif src == "deterministic":                   # Phase 4e: pronoun regex fallback
-        resolver_source = "fallback_regex"
-        resolver_confidence = None
-    elif src == "none" and resolution.confidence == 0.0:
-        resolver_source = "none"
-        resolver_confidence = None
-    else:
-        # LLM path: reference_source is "pronoun", "ellipsis", "explicit", or "none" with confidence > 0
-        resolver_source = "llm"
-        resolver_confidence = resolution.confidence
+    resolver_source = _map_resolver_source(resolution)
+    resolver_confidence = (
+        float(resolution.confidence) if resolver_source in ("llm", "comparison_followup_llm") else None
+    )
 
     return ResolverDebug(
         resolver_used=(resolver_source != "none"),
@@ -546,6 +569,9 @@ class ConversationSession:
                 )
                 rewritten = resolution.rewritten_question
 
+        # Compute resolver_source for state tracking (Phase 5l — always, not debug-only)
+        _resolver_src = _map_resolver_source(resolution)
+
         # Build resolver debug bundle when debug is requested
         _resolver_debug = None
         if include_debug:
@@ -567,6 +593,7 @@ class ConversationSession:
         self.state.update_from_response(
             response, player_query, question_text=rewritten,
             comparison_queries=comparison_queries,
+            resolver_source=_resolver_src,   # Phase 5l
         )
         return response
 
