@@ -30,6 +30,48 @@ from fpl_pipeline import assemble_captain_context
 
 
 # ---------------------------------------------------------------------------
+# Comparison serialisation helper  (Phase 5j)
+# ---------------------------------------------------------------------------
+
+def _serial_comparison(comparison: Any) -> dict[str, Any]:
+    """Serialise a ``ComparisonMeta`` instance to a JSON-safe dict.
+
+    Mirrors the shape used by ``fpl_server.py`` so CLI debug output and
+    HTTP response bodies stay aligned.
+
+    Parameters
+    ----------
+    comparison:
+        A non-None ``ComparisonMeta`` value from ``FinalResponse.comparison``.
+
+    Returns
+    -------
+    dict with keys: winner, margin, label, reasons, player_a, player_b.
+    player_a / player_b are dicts with five keys each, or None when not
+    present (legacy or non-OK paths).
+    """
+    def _player_ctx(ctx: Any) -> dict[str, Any] | None:
+        if ctx is None:
+            return None
+        return {
+            "web_name":        ctx.web_name,
+            "position":        ctx.position,
+            "captain_score":   ctx.captain_score,
+            "role_bonus":      ctx.role_bonus,
+            "set_piece_notes": list(ctx.set_piece_notes),
+        }
+
+    return {
+        "winner":   comparison.winner,
+        "margin":   comparison.margin,
+        "label":    comparison.label,
+        "reasons":  list(comparison.reasons),
+        "player_a": _player_ctx(comparison.player_a),
+        "player_b": _player_ctx(comparison.player_b),
+    }
+
+
+# ---------------------------------------------------------------------------
 # Core logic  (separated from arg parsing for testability)
 # ---------------------------------------------------------------------------
 
@@ -77,6 +119,8 @@ def run(
                 "prompt_used":   r.debug.prompt_used,
                 "model":         r.debug.model,
             }
+        if r.comparison is not None:                       # Phase 5j
+            payload["comparison"] = _serial_comparison(r.comparison)
         output = json.dumps(payload, indent=2, ensure_ascii=False)
     else:
         output = r.final_text
@@ -138,6 +182,8 @@ def run_session(
             "supported":  r.supported,
             "intent":     r.intent,
         }
+        if r.comparison is not None:                       # Phase 5j
+            turn["comparison"] = _serial_comparison(r.comparison)
         if debug and r.debug is not None:
             debug_bundle: dict[str, Any] = {
                 "response_text": r.debug.response_text,

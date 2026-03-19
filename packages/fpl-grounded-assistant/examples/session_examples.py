@@ -2,6 +2,7 @@
 FPL Grounded Assistant -- HTTP session lifecycle examples.
 ==========================================================
 Phase 4j: session interaction examples and operational docs.
+Phase 5j: structured comparison player context in session responses.
 
 Shows how to exercise the full session lifecycle over HTTP.
 Uses FastAPI ``TestClient`` for in-process execution -- no running server needed.
@@ -126,7 +127,10 @@ SESSION_FLOWS: list[dict[str, Any]] = [
             "Single-turn player comparison over HTTP session. "
             "outcome='ok', intent='compare_players'. "
             "final_text includes explanation-enriched recommendation with "
-            "winner, margin label, and Advantages clause (Phase 5d)."
+            "winner, margin label, and Advantages clause (Phase 5d). "
+            "Response body includes comparison.player_a and comparison.player_b "
+            "with web_name, position, captain_score, role_bonus, set_piece_notes "
+            "(Phase 5i/5j)."
         ),
     },
     {
@@ -140,7 +144,23 @@ SESSION_FLOWS: list[dict[str, Any]] = [
             "Turn 1: compare Haaland vs Salah, sets last_comparison state. "
             "Turn 2: 'And Saka?' resolves to 'compare Haaland and Saka' deterministically. "
             "Both turns return outcome='ok', intent='compare_players'. "
-            "Turn 2 final_text includes both Haaland and Saka."
+            "Both turns expose identical comparison structure with player_a/b context "
+            "(Phase 5i/5j parity)."
+        ),
+    },
+    # Phase 5j: structured comparison player context
+    {
+        "id": "comparison_structured",
+        "turns": [
+            {"question": "compare Haaland and Saka"},
+        ],
+        "note": (
+            "Demonstrates structured comparison player context in session response body. "
+            "comparison.player_a: web_name='Haaland', position='FWD', "
+            "role_bonus=5.0, set_piece_notes=['penalty_taker_1']. "
+            "comparison.player_b: web_name='Saka', position='MID', "
+            "role_bonus=0.5, set_piece_notes=['freekick_taker_2']. "
+            "comparison.reasons includes 'set-piece advantage (pen vs fk2)' (Phase 5h)."
         ),
     },
 ]

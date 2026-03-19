@@ -2,6 +2,7 @@
 FPL Grounded Assistant — CLI integration examples.
 ====================================================
 Phase 4d: external integration examples and client fixtures.
+Phase 5j: comparison debug exposure.
 
 Shows how to call ``fpl_cli.run()`` for each supported scenario.
 All examples use the built-in fixture bootstraps — no network or LLM required.
@@ -13,6 +14,10 @@ supported_ambiguous        -- player name matches multiple entries
 supported_not_found        -- supported intent, player not in registry
 supported_missing_arguments -- ranking intent without candidates_list
 unsupported_intent         -- question outside the supported intent set
+comparison_direct          -- direct two-player comparison
+comparison_not_found       -- comparison with one unknown player
+comparison_debug           -- comparison with debug=True; shows structured
+                              comparison payload including player_a/b context
 
 Key exit-code contract
 -----------------------
@@ -129,6 +134,22 @@ CLI_SCENARIOS: list[dict[str, Any]] = [
             "final_text explains the player could not be found."
         ),
     },
+    # Phase 5j: comparison debug exposure
+    {
+        "id": "comparison_debug",
+        "question": "compare Haaland and Saka",
+        "bootstrap": STANDARD_BOOTSTRAP,
+        "expected_exit": 0,
+        "debug": True,
+        "note": (
+            "Direct player comparison with debug=True. "
+            "Output is a JSON object that includes the structured comparison "
+            "payload with winner, margin, label, reasons, and per-player context "
+            "(player_a and player_b each with web_name, position, captain_score, "
+            "role_bonus, set_piece_notes). "
+            "Default CLI output (debug=False) remains plain text only."
+        ),
+    },
 ]
 
 
@@ -142,14 +163,20 @@ def run_cli_scenario(scenario: dict[str, Any]) -> tuple[int, str]:
     Parameters
     ----------
     scenario:
-        One entry from ``CLI_SCENARIOS``.
+        One entry from ``CLI_SCENARIOS``.  An optional ``"debug": True``
+        key causes ``run()`` to be called with ``debug=True``, producing a
+        JSON string instead of plain text (Phase 5j).
 
     Returns
     -------
     tuple[int, str]
-        ``exit_code`` (0 or 1) and plain-text ``output`` string.
+        ``exit_code`` (0 or 1) and output string (plain text or JSON).
     """
-    return run(scenario["question"], scenario["bootstrap"])
+    return run(
+        scenario["question"],
+        scenario["bootstrap"],
+        debug=scenario.get("debug", False),
+    )
 
 
 # ---------------------------------------------------------------------------
