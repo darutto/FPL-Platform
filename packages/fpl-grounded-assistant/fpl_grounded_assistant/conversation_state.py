@@ -390,11 +390,24 @@ def _make_resolver_debug(resolution, original_question: str, rewritten_question:
     """Build a ResolverDebug from a ReferenceResolution.
 
     Lazy-imports ResolverDebug to avoid circular imports.
+
+    Resolver source mapping (Phase 5k: comparison-specific values preserved):
+    - "comparison_followup"     -> "comparison_followup"      (Phase 5c det. comparison rewrite)
+    - "comparison_followup_llm" -> "comparison_followup_llm"  (Phase 5f LLM comparison rewrite)
+    - "deterministic"           -> "fallback_regex"            (Phase 4e pronoun regex)
+    - "none" (confidence 0.0)   -> "none"                     (no resolver ran)
+    - any LLM source            -> "llm"                      (Phase 4f LLM resolution)
     """
     from .final_response import ResolverDebug  # noqa: PLC0415
 
     src = resolution.reference_source
-    if src in ("deterministic", "comparison_followup"):   # Phase 5c: add comparison_followup
+    if src == "comparison_followup":               # Phase 5c: deterministic comparison follow-up
+        resolver_source = "comparison_followup"
+        resolver_confidence = None
+    elif src == "comparison_followup_llm":         # Phase 5f: LLM comparison follow-up
+        resolver_source = "comparison_followup_llm"
+        resolver_confidence = float(resolution.confidence)
+    elif src == "deterministic":                   # Phase 4e: pronoun regex fallback
         resolver_source = "fallback_regex"
         resolver_confidence = None
     elif src == "none" and resolution.confidence == 0.0:
