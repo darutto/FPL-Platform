@@ -1,0 +1,779 @@
+{
+  "run_at": "2026-03-21T04:35:59.215908+00:00",
+  "scenario_count": 13,
+  "pass_count": 13,
+  "fail_count": 0,
+  "scenarios": [
+    {
+      "id": "direct_captain_score",
+      "family": "captain",
+      "description": "Realistic direct captaincy question for a known player.",
+      "question": "should I captain Salah",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "captain_score",
+          "outcome": "ok",
+          "supported": true,
+          "captain": {
+            "web_name": "Salah",
+            "team_short": "LIV",
+            "captain_score": 60.58,
+            "tier": "safe",
+            "role_bonus": 5.0,
+            "set_piece_notes": [
+              "penalty_taker_1"
+            ]
+          },
+          "comparison": null,
+          "captain_ranking": null,
+          "final_text": "Salah (LIV) — Safe [60.58]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes."
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "captain_score",
+          "outcome": "ok",
+          "supported": true,
+          "captain": {
+            "web_name": "Salah",
+            "team_short": "LIV",
+            "captain_score": 60.58,
+            "tier": "safe",
+            "role_bonus": 5.0,
+            "set_piece_notes": [
+              "penalty_taker_1"
+            ]
+          },
+          "comparison": null,
+          "captain_ranking": null,
+          "final_text": "Salah (LIV) — Safe [60.58]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes."
+        }
+      },
+      "expected": {
+        "intent": "captain_score",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Salah: tier='safe', role_bonus=5.0 (penalty taker). captain metadata present; comparison and captain_ranking absent."
+    },
+    {
+      "id": "ranked_captain_candidates",
+      "family": "ranking",
+      "description": "Ranked captain query with three explicitly supplied candidates.",
+      "question": "top captains this week",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "rank_candidates",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": [
+            {
+              "rank": 1,
+              "web_name": "Salah",
+              "team_short": "LIV",
+              "captain_score": 60.58,
+              "tier": "safe",
+              "role_bonus": 5.0,
+              "set_piece_notes": [
+                "penalty_taker_1"
+              ]
+            },
+            {
+              "rank": 2,
+              "web_name": "Haaland",
+              "team_short": "MCI",
+              "captain_score": 54.85,
+              "tier": "upside",
+              "role_bonus": 5.0,
+              "set_piece_notes": [
+                "penalty_taker_1"
+              ]
+            },
+            {
+              "rank": 3,
+              "web_name": "Saka",
+              "team_short": "ARS",
+              "captain_score": 36.35,
+              "tier": "differential",
+              "role_bonus": 0.5,
+              "set_piece_notes": [
+                "freekick_taker_2"
+              ]
+            }
+          ],
+          "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture\n3. Saka (ARS) [diff] 36.35 · 2nd free-kick taker — Tough fixture; Weak attacking process"
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "rank_candidates",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": [
+            {
+              "rank": 1,
+              "web_name": "Salah",
+              "team_short": "LIV",
+              "captain_score": 60.58,
+              "tier": "safe",
+              "role_bonus": 5.0,
+              "set_piece_notes": [
+                "penalty_taker_1"
+              ]
+            },
+            {
+              "rank": 2,
+              "web_name": "Haaland",
+              "team_short": "MCI",
+              "captain_score": 54.85,
+              "tier": "upside",
+              "role_bonus": 5.0,
+              "set_piece_notes": [
+                "penalty_taker_1"
+              ]
+            },
+            {
+              "rank": 3,
+              "web_name": "Saka",
+              "team_short": "ARS",
+              "captain_score": 36.35,
+              "tier": "differential",
+              "role_bonus": 0.5,
+              "set_piece_notes": [
+                "freekick_taker_2"
+              ]
+            }
+          ],
+          "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture\n3. Saka (ARS) [diff] 36.35 · 2nd free-kick taker — Tough fixture; Weak attacking process"
+        }
+      },
+      "expected": {
+        "intent": "rank_candidates",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Three candidates; Salah ranks #1 (safe), Haaland #2 (upside), Saka #3 (differential). captain and comparison absent."
+    },
+    {
+      "id": "player_summary",
+      "family": "summary",
+      "description": "Player stats/summary lookup for a known player.",
+      "question": "tell me about Haaland",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "player_summary",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "final_text": "Haaland (Erling Haaland) | Manchester City (MCI) | FWD | £14.5m | 52.3% ownership | Status: Available."
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "player_summary",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "final_text": "Haaland (Erling Haaland) | Manchester City (MCI) | FWD | £14.5m | 52.3% ownership | Status: Available."
+        }
+      },
+      "expected": {
+        "intent": "player_summary",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "No structured metadata expected (player_summary has no captain/comparison/captain_ranking fields)."
+    },
+    {
+      "id": "player_resolve",
+      "family": "resolve",
+      "description": "Player identity lookup for a known player.",
+      "question": "who is Salah",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "player_resolve",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "final_text": "Salah (Mohamed Salah) plays for Liverpool (LIV) as a MID. Status: Available. [Resolved via: web_name]"
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "player_resolve",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "final_text": "Salah (Mohamed Salah) plays for Liverpool (LIV) as a MID. Status: Available. [Resolved via: web_name]"
+        }
+      },
+      "expected": {
+        "intent": "player_resolve",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "No structured metadata expected."
+    },
+    {
+      "id": "direct_comparison",
+      "family": "comparison",
+      "description": "Direct two-player comparison between two known players.",
+      "question": "Haaland vs Salah",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "compare_players",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": {
+            "winner": "Salah",
+            "margin": 5.73,
+            "label": "moderate",
+            "reasons": [
+              "stronger form (9.5 vs 8.0)"
+            ],
+            "player_a": {
+              "web_name": "Haaland",
+              "position": "FWD",
+              "captain_score": 54.85,
+              "role_bonus": 5.0,
+              "set_piece_notes": [
+                "penalty_taker_1"
+              ]
+            },
+            "player_b": {
+              "web_name": "Salah",
+              "position": "MID",
+              "captain_score": 60.58,
+              "role_bonus": 5.0,
+              "set_piece_notes": [
+                "penalty_taker_1"
+              ]
+            }
+          },
+          "captain_ranking": null,
+          "final_text": "Salah (60.58) edges Haaland (54.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0)."
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "compare_players",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": {
+            "winner": "Salah",
+            "margin": 5.73,
+            "label": "moderate",
+            "reasons": [
+              "stronger form (9.5 vs 8.0)"
+            ],
+            "player_a": {
+              "web_name": "Haaland",
+              "position": "FWD",
+              "captain_score": 54.85,
+              "role_bonus": 5.0,
+              "set_piece_notes": [
+                "penalty_taker_1"
+              ]
+            },
+            "player_b": {
+              "web_name": "Salah",
+              "position": "MID",
+              "captain_score": 60.58,
+              "role_bonus": 5.0,
+              "set_piece_notes": [
+                "penalty_taker_1"
+              ]
+            }
+          },
+          "captain_ranking": null,
+          "final_text": "Salah (60.58) edges Haaland (54.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0)."
+        }
+      },
+      "expected": {
+        "intent": "compare_players",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "comparison metadata present: winner, margin, label, reasons, player_a (Haaland/FWD), player_b (Salah/MID). captain and captain_ranking absent."
+    },
+    {
+      "id": "unsupported_prompt",
+      "family": "failure_modes",
+      "description": "Question outside the supported intent set.",
+      "question": "Is Haaland fit to play?",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 1,
+          "intent": "unsupported",
+          "outcome": "unsupported_intent",
+          "supported": false,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "final_text": "I couldn't match that question to a supported query. Supported questions include: captain score for a player, captain rankings, player comparison, player summary, player lookup, and current gameweek."
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "unsupported",
+          "outcome": "unsupported_intent",
+          "supported": false,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "final_text": "I couldn't match that question to a supported query. Supported questions include: captain score for a player, captain rankings, player comparison, player summary, player lookup, and current gameweek."
+        }
+      },
+      "expected": {
+        "intent": "unsupported",
+        "outcome": "unsupported_intent",
+        "supported": false
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "supported=False; all three structured metadata fields absent. final_text still contains a user-facing message."
+    },
+    {
+      "id": "ambiguous_player",
+      "family": "failure_modes",
+      "description": "Player name matches multiple entries in the registry.",
+      "question": "who is Doe",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "player_resolve",
+          "outcome": "ambiguous",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "final_text": "Multiple players share the name 'Doe'. Please use a full name or player ID to disambiguate (e.g. 'Who is Adam Johnson?' or 'Who is player 6?')."
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "player_resolve",
+          "outcome": "ambiguous",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "final_text": "Multiple players share the name 'Doe'. Please use a full name or player ID to disambiguate (e.g. 'Who is Adam Johnson?' or 'Who is player 6?')."
+        }
+      },
+      "expected": {
+        "intent": "player_resolve",
+        "outcome": "ambiguous",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Uses AMBIGUOUS_BOOTSTRAP with two players sharing web_name 'Doe'. supported=True; outcome=ambiguous; no structured metadata."
+    },
+    {
+      "id": "not_found_player",
+      "family": "failure_modes",
+      "description": "Supported intent but player not in registry.",
+      "question": "should I captain xyznotaplayer999",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "captain_score",
+          "outcome": "not_found",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "final_text": "No player found matching 'xyznotaplayer999'. Check the spelling or try a full name / player ID."
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "captain_score",
+          "outcome": "not_found",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "final_text": "No player found matching 'xyznotaplayer999'. Check the spelling or try a full name / player ID."
+        }
+      },
+      "expected": {
+        "intent": "captain_score",
+        "outcome": "not_found",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "supported=True (intent recognised); outcome=not_found (registry lookup fails). captain absent."
+    },
+    {
+      "id": "no_session_follow_up",
+      "family": "failure_modes",
+      "description": "Pronoun follow-up issued without any session context. The system treats 'him' as a literal player query and returns not_found rather than crashing.",
+      "question": "should I captain him",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "captain_score",
+          "outcome": "not_found",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "final_text": "No player found matching 'him'. Check the spelling or try a full name / player ID."
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "captain_score",
+          "outcome": "not_found",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "final_text": "No player found matching 'him'. Check the spelling or try a full name / player ID."
+        }
+      },
+      "expected": {
+        "intent": "captain_score",
+        "outcome": "not_found",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "No ConversationSession — 'him' is passed as-is to the player registry and not found. Validates graceful failure, not resolution."
+    },
+    {
+      "id": "comparison_followup_det",
+      "family": "comparison_followup_det",
+      "description": "Session comparison follow-up resolved deterministically. Prior turn establishes Haaland vs Salah; follow-up 'And Saka?' is rewritten to 'compare Haaland and Saka'.",
+      "question": "And Saka?",
+      "surfaces_tested": [
+        "session_cli",
+        "session_http"
+      ],
+      "surface_results": {
+        "session_cli": {
+          "surface": "session_cli",
+          "intent": "compare_players",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": {
+            "winner": "Haaland",
+            "margin": 18.5,
+            "label": "clear",
+            "reasons": [
+              "stronger form (8.0 vs 5.5)",
+              "easier fixture (FDR 4 vs 5)",
+              "better minutes security",
+              "set-piece advantage (pen vs fk2)"
+            ],
+            "player_a": {
+              "web_name": "Haaland",
+              "position": "FWD",
+              "captain_score": 54.85,
+              "role_bonus": 5.0,
+              "set_piece_notes": [
+                "penalty_taker_1"
+              ]
+            },
+            "player_b": {
+              "web_name": "Saka",
+              "position": "MID",
+              "captain_score": 36.35,
+              "role_bonus": 0.5,
+              "set_piece_notes": [
+                "freekick_taker_2"
+              ]
+            }
+          },
+          "captain_ranking": null,
+          "final_text": "Haaland (54.85) edges Saka (36.35) — clear margin (18.5).  Advantages: stronger form (8.0 vs 5.5); easier fixture (FDR 4 vs 5); better minutes security.",
+          "resolver_source": "comparison_followup",
+          "rewritten_question": "compare Haaland and Saka"
+        },
+        "session_http": {
+          "surface": "session_http",
+          "intent": "compare_players",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": {
+            "winner": "Haaland",
+            "margin": 18.5,
+            "label": "clear",
+            "reasons": [
+              "stronger form (8.0 vs 5.5)",
+              "easier fixture (FDR 4 vs 5)",
+              "better minutes security",
+              "set-piece advantage (pen vs fk2)"
+            ],
+            "player_a": {
+              "web_name": "Haaland",
+              "position": "FWD",
+              "captain_score": 54.85,
+              "role_bonus": 5.0,
+              "set_piece_notes": [
+                "penalty_taker_1"
+              ]
+            },
+            "player_b": {
+              "web_name": "Saka",
+              "position": "MID",
+              "captain_score": 36.35,
+              "role_bonus": 0.5,
+              "set_piece_notes": [
+                "freekick_taker_2"
+              ]
+            }
+          },
+          "captain_ranking": null,
+          "final_text": "Haaland (54.85) edges Saka (36.35) — clear margin (18.5).  Advantages: stronger form (8.0 vs 5.5); easier fixture (FDR 4 vs 5); better minutes security."
+        }
+      },
+      "expected": {
+        "intent": "compare_players",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Prior turn: compare Haaland and Salah. Follow-up: 'And Saka?' → deterministic rewrite to compare Haaland and Saka. resolver_source == 'comparison_followup' on session_cli. comparison metadata present on both surfaces."
+    },
+    {
+      "id": "comparison_followup_llm",
+      "family": "comparison_followup_llm",
+      "description": "Session comparison follow-up resolved by the LLM resolver stub. Prior turn establishes Haaland vs Salah; Spanish '¿Y Saka?' is rewritten to 'compare Haaland and Saka' via the Phase 5f stub.",
+      "question": "¿Y Saka?",
+      "surfaces_tested": [
+        "session_cli"
+      ],
+      "surface_results": {
+        "session_cli": {
+          "surface": "session_cli",
+          "intent": "compare_players",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": {
+            "winner": "Haaland",
+            "margin": 18.5,
+            "label": "clear",
+            "reasons": [
+              "stronger form (8.0 vs 5.5)",
+              "easier fixture (FDR 4 vs 5)",
+              "better minutes security",
+              "set-piece advantage (pen vs fk2)"
+            ],
+            "player_a": {
+              "web_name": "Haaland",
+              "position": "FWD",
+              "captain_score": 54.85,
+              "role_bonus": 5.0,
+              "set_piece_notes": [
+                "penalty_taker_1"
+              ]
+            },
+            "player_b": {
+              "web_name": "Saka",
+              "position": "MID",
+              "captain_score": 36.35,
+              "role_bonus": 0.5,
+              "set_piece_notes": [
+                "freekick_taker_2"
+              ]
+            }
+          },
+          "captain_ranking": null,
+          "final_text": "Haaland (54.85) edges Saka (36.35) — clear margin (18.5).  Advantages: stronger form (8.0 vs 5.5); easier fixture (FDR 4 vs 5); better minutes security.",
+          "resolver_source": "comparison_followup_llm",
+          "rewritten_question": "compare Haaland and Saka"
+        }
+      },
+      "expected": {
+        "intent": "compare_players",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Surfaces: session_cli only — HTTP session uses deterministic fallback (no resolver_client). This is intentional. Stub returns {is_comparison_followup:true, new_player:'Saka', confidence:0.95}. resolver_source == 'comparison_followup_llm' confirms Phase 5f path."
+    },
+    {
+      "id": "pronoun_det",
+      "family": "pronoun_det",
+      "description": "Session pronoun follow-up resolved by Phase 4e deterministic substitution. Prior turn sets last_player=Salah; 'should I captain him' rewrites to 'should I captain Salah'.",
+      "question": "should I captain him",
+      "surfaces_tested": [
+        "session_cli",
+        "session_http"
+      ],
+      "surface_results": {
+        "session_cli": {
+          "surface": "session_cli",
+          "intent": "captain_score",
+          "outcome": "ok",
+          "supported": true,
+          "captain": {
+            "web_name": "Salah",
+            "team_short": "LIV",
+            "captain_score": 60.58,
+            "tier": "safe",
+            "role_bonus": 5.0,
+            "set_piece_notes": [
+              "penalty_taker_1"
+            ]
+          },
+          "comparison": null,
+          "captain_ranking": null,
+          "final_text": "Salah (LIV) — Safe [60.58]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.",
+          "resolver_source": "fallback_regex",
+          "rewritten_question": "should I captain Salah"
+        },
+        "session_http": {
+          "surface": "session_http",
+          "intent": "captain_score",
+          "outcome": "ok",
+          "supported": true,
+          "captain": {
+            "web_name": "Salah",
+            "team_short": "LIV",
+            "captain_score": 60.58,
+            "tier": "safe",
+            "role_bonus": 5.0,
+            "set_piece_notes": [
+              "penalty_taker_1"
+            ]
+          },
+          "comparison": null,
+          "captain_ranking": null,
+          "final_text": "Salah (LIV) — Safe [60.58]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes."
+        }
+      },
+      "expected": {
+        "intent": "captain_score",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "resolver_source == 'fallback_regex' (Phase 4e deterministic path). captain metadata present; Salah as the resolved player. session_http also resolves correctly via deterministic fallback."
+    },
+    {
+      "id": "pronoun_llm",
+      "family": "pronoun_llm",
+      "description": "Session follow-up resolved by the Phase 4f LLM reference resolver stub. Prior turn sets last_player=Salah; Spanish '¿Y él?' is rewritten to 'should I captain Salah' via the Phase 4f stub.",
+      "question": "¿Y él?",
+      "surfaces_tested": [
+        "session_cli"
+      ],
+      "surface_results": {
+        "session_cli": {
+          "surface": "session_cli",
+          "intent": "captain_score",
+          "outcome": "ok",
+          "supported": true,
+          "captain": {
+            "web_name": "Salah",
+            "team_short": "LIV",
+            "captain_score": 60.58,
+            "tier": "safe",
+            "role_bonus": 5.0,
+            "set_piece_notes": [
+              "penalty_taker_1"
+            ]
+          },
+          "comparison": null,
+          "captain_ranking": null,
+          "final_text": "Salah (LIV) — Safe [60.58]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.",
+          "resolver_source": "llm",
+          "rewritten_question": "should I captain Salah"
+        }
+      },
+      "expected": {
+        "intent": "captain_score",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Surfaces: session_cli only — HTTP session uses deterministic fallback. This is intentional. Stub returns {resolved_query:'Salah', intent_guess:'captain_score', confidence:0.9, language:'es'}. resolver_source == 'llm' confirms Phase 4f path."
+    }
+  ]
+}
