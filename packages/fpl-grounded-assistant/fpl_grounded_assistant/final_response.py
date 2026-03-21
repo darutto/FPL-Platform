@@ -72,9 +72,50 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from .dispatcher import OUTCOME_OK, INTENT_COMPARE_PLAYERS  # noqa: F401 — re-exported
+from .dispatcher import OUTCOME_OK, INTENT_COMPARE_PLAYERS, INTENT_CAPTAIN_SCORE  # noqa: F401 — re-exported
 from .llm_layer import DEFAULT_MODEL
 from .llm_review import ask_llm_safe
+
+
+# ---------------------------------------------------------------------------
+# Captain score metadata bundle  (Phase 5n)
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class CaptainScoreMeta:
+    """Structured captain score output for programmatic access.
+
+    Populated on ``FinalResponse`` when ``intent == captain_score`` and
+    ``outcome == ok``.  ``None`` for all other turns.
+
+    All values are taken directly from the deterministic backend output
+    (``tool_get_captain_score``); nothing is computed in this layer.
+
+    Attributes
+    ----------
+    web_name:
+        Player display name (e.g. ``"Haaland"``).
+    team_short:
+        Short team name (e.g. ``"MCI"``).
+    captain_score:
+        Deterministic captain score (0–100 range, unrounded from engine).
+    tier:
+        Tier classification: ``"safe"``, ``"upside"``, ``"differential"``,
+        ``"avoid"``, or ``"low_confidence"``.
+    role_bonus:
+        Numeric role contribution from set-piece involvement
+        (e.g. ``5.0`` for penalty taker, ``0.0`` for no role).
+    set_piece_notes:
+        Tuple of role-key strings (e.g. ``("penalty_taker_1",)``).
+        Empty tuple when no set-piece role is recorded.
+    """
+
+    web_name:        str
+    team_short:      str
+    captain_score:   float
+    tier:            str
+    role_bonus:      float
+    set_piece_notes: tuple[str, ...]
 
 
 # ---------------------------------------------------------------------------
@@ -285,6 +326,12 @@ class FinalResponse:
         otherwise.  Provides programmatic access to ``winner``,
         ``margin``, ``label``, and ``reasons`` without parsing
         ``final_text``.
+    captain:
+        Structured captain score output (Phase 5n).  Populated when
+        ``intent == captain_score`` and ``outcome == ok``; ``None``
+        otherwise.  Provides programmatic access to ``web_name``,
+        ``team_short``, ``captain_score``, ``tier``, ``role_bonus``,
+        and ``set_piece_notes`` without parsing ``final_text``.
     """
     final_text:    str
     outcome:       str
@@ -293,7 +340,8 @@ class FinalResponse:
     review_passed: bool
     llm_used:      bool
     debug:         FinalResponseDebug | None
-    comparison:    ComparisonMeta | None = field(default=None)  # Phase 5g
+    comparison:    ComparisonMeta | None     = field(default=None)  # Phase 5g
+    captain:       CaptainScoreMeta | None   = field(default=None)  # Phase 5n
 
 
 # ---------------------------------------------------------------------------
@@ -432,6 +480,20 @@ def respond(
             player_b = _make_player_ctx(ro.get("player_b", {})),  # Phase 5i
         )
 
+    # Phase 5n: populate structured captain score metadata for OK captain score turns
+    captain: CaptainScoreMeta | None = None
+    if dr.intent == INTENT_CAPTAIN_SCORE and dr.outcome == OUTCOME_OK:
+        ro = dr.raw_output
+        rs = ro.get("role_signals") or {}
+        captain = CaptainScoreMeta(
+            web_name        = ro.get("web_name", ""),
+            team_short      = ro.get("team_short", ""),
+            captain_score   = float(ro.get("captain_score", 0.0)),
+            tier            = ro.get("tier", ""),
+            role_bonus      = float(rs.get("role_bonus", 0.0)),
+            set_piece_notes = tuple(rs.get("set_piece_notes") or []),
+        )
+
     return FinalResponse(
         final_text=final_text,
         outcome=dr.outcome,
@@ -441,4 +503,5 @@ def respond(
         llm_used=llm_used,
         debug=debug,
         comparison=comparison,
+        captain=captain,
     )

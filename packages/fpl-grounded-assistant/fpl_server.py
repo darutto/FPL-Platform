@@ -154,6 +154,7 @@ class AskResponse(BaseModel):
     Field names and semantics mirror ``FinalResponse`` exactly.
     ``debug`` is only populated when ``AskRequest.debug=True``.
     ``comparison`` is populated for compare_players OK turns (Phase 5g).
+    ``captain`` is populated for captain_score OK turns (Phase 5n).
     """
 
     final_text: str
@@ -164,6 +165,7 @@ class AskResponse(BaseModel):
     llm_used: bool
     debug: dict[str, Any] | None = None
     comparison: dict[str, Any] | None = None  # Phase 5g
+    captain: dict[str, Any] | None = None     # Phase 5n
 
 
 class CreateSessionResponse(BaseModel):
@@ -181,6 +183,7 @@ class SessionAskResponse(BaseModel):
     rewritten_question is only populated when debug=True and the resolver
     actually rewrote the question.
     comparison is populated for compare_players OK turns (Phase 5g).
+    captain is populated for captain_score OK turns (Phase 5n).
     """
 
     session_id: str
@@ -193,6 +196,7 @@ class SessionAskResponse(BaseModel):
     rewritten_question: str | None = None
     debug: dict[str, Any] | None = None
     comparison: dict[str, Any] | None = None  # Phase 5g
+    captain: dict[str, Any] | None = None     # Phase 5n
 
 
 class ClearSessionResponse(BaseModel):
@@ -247,6 +251,22 @@ app = FastAPI(
     version="4i",
     lifespan=lifespan,
 )
+
+
+# ---------------------------------------------------------------------------
+# Serialisation helpers  (Phase 5n)
+# ---------------------------------------------------------------------------
+
+def _captain_meta_dict(captain: Any) -> dict[str, Any]:
+    """Serialise a ``CaptainScoreMeta`` instance to a JSON-safe dict."""
+    return {
+        "web_name":        captain.web_name,
+        "team_short":      captain.team_short,
+        "captain_score":   captain.captain_score,
+        "tier":            captain.tier,
+        "role_bonus":      captain.role_bonus,
+        "set_piece_notes": list(captain.set_piece_notes),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -312,6 +332,10 @@ def ask(req: AskRequest) -> AskResponse:
             "player_b": _player_ctx_dict(r.comparison.player_b),  # Phase 5i
         }
 
+    captain_bundle: dict[str, Any] | None = None
+    if r.captain is not None:
+        captain_bundle = _captain_meta_dict(r.captain)
+
     return AskResponse(
         final_text=r.final_text,
         outcome=r.outcome,
@@ -321,6 +345,7 @@ def ask(req: AskRequest) -> AskResponse:
         llm_used=r.llm_used,
         debug=debug_bundle,
         comparison=comp_bundle,
+        captain=captain_bundle,
     )
 
 
@@ -438,6 +463,10 @@ def session_ask(session_id: str, req: AskRequest) -> SessionAskResponse:
             "player_b": _sess_player_ctx_dict(r.comparison.player_b),  # Phase 5i
         }
 
+    sess_captain_bundle: dict[str, Any] | None = None
+    if r.captain is not None:
+        sess_captain_bundle = _captain_meta_dict(r.captain)
+
     return SessionAskResponse(
         session_id=session_id,
         final_text=r.final_text,
@@ -449,6 +478,7 @@ def session_ask(session_id: str, req: AskRequest) -> SessionAskResponse:
         rewritten_question=rewritten_question,
         debug=debug_bundle,
         comparison=sess_comp_bundle,
+        captain=sess_captain_bundle,
     )
 
 

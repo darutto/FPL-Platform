@@ -72,6 +72,36 @@ def _serial_comparison(comparison: Any) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Captain score metadata serialisation helper  (Phase 5n)
+# ---------------------------------------------------------------------------
+
+def _serial_captain(captain: Any) -> dict[str, Any]:
+    """Serialise a ``CaptainScoreMeta`` instance to a JSON-safe dict.
+
+    Mirrors the shape used by ``fpl_server.py`` so CLI debug output and
+    HTTP response bodies stay aligned.
+
+    Parameters
+    ----------
+    captain:
+        A non-None ``CaptainScoreMeta`` value from ``FinalResponse.captain``.
+
+    Returns
+    -------
+    dict with keys: web_name, team_short, captain_score, tier,
+    role_bonus, set_piece_notes.
+    """
+    return {
+        "web_name":        captain.web_name,
+        "team_short":      captain.team_short,
+        "captain_score":   captain.captain_score,
+        "tier":            captain.tier,
+        "role_bonus":      captain.role_bonus,
+        "set_piece_notes": list(captain.set_piece_notes),
+    }
+
+
+# ---------------------------------------------------------------------------
 # Core logic  (separated from arg parsing for testability)
 # ---------------------------------------------------------------------------
 
@@ -121,6 +151,8 @@ def run(
             }
         if r.comparison is not None:                       # Phase 5j
             payload["comparison"] = _serial_comparison(r.comparison)
+        if r.captain is not None:                          # Phase 5n
+            payload["captain"] = _serial_captain(r.captain)
         output = json.dumps(payload, indent=2, ensure_ascii=False)
     else:
         output = r.final_text
@@ -184,6 +216,8 @@ def run_session(
         }
         if r.comparison is not None:                       # Phase 5j
             turn["comparison"] = _serial_comparison(r.comparison)
+        if r.captain is not None:                          # Phase 5n
+            turn["captain"] = _serial_captain(r.captain)
         if debug and r.debug is not None:
             debug_bundle: dict[str, Any] = {
                 "response_text": r.debug.response_text,
