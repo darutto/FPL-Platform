@@ -4,6 +4,7 @@ FPL Grounded Assistant — HTTP integration examples.
 Phase 4d: external integration examples and client fixtures.
 Phase 5j: structured comparison payload exposure in HTTP body.
 Phase 5o: structured captain payload exposure in HTTP body.
+Phase 5q: structured ranked captain payload exposure in HTTP body.
 
 Shows how to call ``POST /ask`` and ``GET /health`` for each supported scenario.
 Uses FastAPI ``TestClient`` for in-process execution — no running server needed.
@@ -26,8 +27,9 @@ supported_missing_arguments -- ranking intent without candidates_list
 unsupported_intent         -- question outside the supported intent set
 malformed_request          -- missing required 'question' field → HTTP 422
 service_not_ready          -- bootstrap not initialised → HTTP 503
-comparison_structured      -- direct comparison showing player_a/b context (Phase 5i/5j)
-captain_structured         -- direct captain score showing structured captain payload (Phase 5n/5o)
+comparison_structured        -- direct comparison showing player_a/b context (Phase 5i/5j)
+captain_structured           -- direct captain score showing structured captain payload (Phase 5n/5o)
+captain_ranking_structured   -- ranked captain query showing structured captain_ranking payload (Phase 5p/5q)
 
 Key HTTP status contract
 -------------------------
@@ -209,6 +211,32 @@ HTTP_SCENARIOS: list[dict[str, Any]] = [
             "captain.role_bonus=5.0, captain.set_piece_notes=['penalty_taker_1']. "
             "Non-captain turns (e.g. comparison) do not include the captain key. "
             "Shape is identical to CLI debug and session ask captain payloads."
+        ),
+    },
+    # Phase 5q: structured ranked captain candidates in HTTP body
+    {
+        "id": "captain_ranking_structured",
+        "payload": {
+            "question": "top captains this week",
+            "candidates_list": [
+                {"query": "Salah"},
+                {"query": "Haaland"},
+                {"query": "Saka"},
+            ],
+        },
+        "bootstrap": STANDARD_BOOTSTRAP,
+        "expected_status": 200,
+        "expected_supported": True,
+        "expected_outcome": "ok",
+        "note": (
+            "Ranked captain query exposing structured captain_ranking payload (Phase 5p/5q). "
+            "JSON body includes captain_ranking as a list of entries each with: "
+            "rank, web_name, team_short, captain_score, tier, role_bonus, set_piece_notes. "
+            "Salah: rank=1, tier='safe', role_bonus=5.0, set_piece_notes=['penalty_taker_1']. "
+            "Haaland: rank=2, tier='upside', set_piece_notes=['penalty_taker_1']. "
+            "Saka: rank=3, tier='differential', set_piece_notes=['freekick_taker_2']. "
+            "Non-ranking turns have captain_ranking=null in the response body. "
+            "Shape is identical to CLI debug and session ask captain_ranking payloads."
         ),
     },
 ]

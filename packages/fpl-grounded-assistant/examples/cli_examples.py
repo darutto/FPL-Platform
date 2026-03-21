@@ -4,6 +4,7 @@ FPL Grounded Assistant — CLI integration examples.
 Phase 4d: external integration examples and client fixtures.
 Phase 5j: comparison debug exposure.
 Phase 5o: captain debug exposure.
+Phase 5q: ranked captain debug exposure.
 
 Shows how to call ``fpl_cli.run()`` for each supported scenario.
 All examples use the built-in fixture bootstraps — no network or LLM required.
@@ -21,6 +22,9 @@ comparison_debug           -- comparison with debug=True; shows structured
                               comparison payload including player_a/b context
 captain_debug              -- captain score with debug=True; shows structured
                               captain payload (Phase 5n/5o)
+captain_ranking_debug      -- ranked captain query with debug=True and
+                              candidates_list; shows structured captain_ranking
+                              payload (Phase 5p/5q)
 
 Key exit-code contract
 -----------------------
@@ -172,6 +176,30 @@ CLI_SCENARIOS: list[dict[str, Any]] = [
             "the captain key."
         ),
     },
+    # Phase 5q: ranked captain debug exposure
+    {
+        "id": "captain_ranking_debug",
+        "question": "top captains this week",
+        "bootstrap": STANDARD_BOOTSTRAP,
+        "candidates_list": [
+            {"query": "Salah"},
+            {"query": "Haaland"},
+            {"query": "Saka"},
+        ],
+        "expected_exit": 0,
+        "debug": True,
+        "note": (
+            "Ranked captain query with debug=True and candidates_list supplied. "
+            "Output is a JSON object that includes the structured captain_ranking "
+            "payload (Phase 5p): a list of entries each with rank, web_name, "
+            "team_short, captain_score, tier, role_bonus, and set_piece_notes. "
+            "Salah ranks #1 (tier='safe', penalty_taker_1), "
+            "Haaland ranks #2 (tier='upside', penalty_taker_1), "
+            "Saka ranks #3 (tier='differential', freekick_taker_2). "
+            "Default CLI output (debug=False) remains plain text only. "
+            "Non-ranking turns do not include the captain_ranking key."
+        ),
+    },
 ]
 
 
@@ -187,7 +215,9 @@ def run_cli_scenario(scenario: dict[str, Any]) -> tuple[int, str]:
     scenario:
         One entry from ``CLI_SCENARIOS``.  An optional ``"debug": True``
         key causes ``run()`` to be called with ``debug=True``, producing a
-        JSON string instead of plain text (Phase 5j).
+        JSON string instead of plain text (Phase 5j).  An optional
+        ``"candidates_list"`` key is forwarded to ``run()`` for ranked
+        captain scenarios (Phase 5q).
 
     Returns
     -------
@@ -198,6 +228,7 @@ def run_cli_scenario(scenario: dict[str, Any]) -> tuple[int, str]:
         scenario["question"],
         scenario["bootstrap"],
         debug=scenario.get("debug", False),
+        candidates_list=scenario.get("candidates_list"),
     )
 
 

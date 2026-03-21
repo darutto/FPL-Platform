@@ -4,14 +4,15 @@ FPL Grounded Assistant -- HTTP session lifecycle examples.
 Phase 4j: session interaction examples and operational docs.
 Phase 5j: structured comparison player context in session responses.
 Phase 5o: structured captain score metadata in session responses.
+Phase 5q: structured ranked captain metadata in session responses.
 
 Shows how to exercise the full session lifecycle over HTTP.
 Uses FastAPI ``TestClient`` for in-process execution -- no running server needed.
 
 Flows covered
 -------------
-create_ask_inspect_clear  -- full lifecycle: create, 2 turns, inspect, clear
-pronoun_follow_up         -- pronoun reference resolved across turns
+create_ask_inspect_clear     -- full lifecycle: create, 2 turns, inspect, clear
+pronoun_follow_up            -- pronoun reference resolved across turns
 
 Edge cases covered
 ------------------
@@ -178,6 +179,29 @@ SESSION_FLOWS: list[dict[str, Any]] = [
             "Non-captain turns in the same session do not include the captain key."
         ),
     },
+    # Phase 5q: structured ranked captain candidates in session response
+    {
+        "id": "captain_ranking_structured",
+        "turns": [
+            {
+                "question": "top captains this week",
+                "candidates_list": [
+                    {"query": "Salah"},
+                    {"query": "Haaland"},
+                    {"query": "Saka"},
+                ],
+            },
+        ],
+        "note": (
+            "Demonstrates structured captain_ranking in session ask response (Phase 5p/5q). "
+            "captain_ranking is a list of entries each with rank, web_name, team_short, "
+            "captain_score, tier, role_bonus, set_piece_notes. "
+            "Salah: rank=1, tier='safe', set_piece_notes=['penalty_taker_1']. "
+            "Haaland: rank=2, tier='upside'. Saka: rank=3, tier='differential'. "
+            "Shape is identical to /ask response and CLI debug captain_ranking payloads. "
+            "Non-ranking turns in the same session do not include a non-null captain_ranking."
+        ),
+    },
 ]
 
 
@@ -252,9 +276,12 @@ def run_session_flow(flow: dict[str, Any], client: TestClient) -> dict[str, Any]
 
     turn_results: list[dict[str, Any]] = []
     for turn in flow["turns"]:
+        ask_body: dict[str, Any] = {"question": turn["question"]}
+        if "candidates_list" in turn:
+            ask_body["candidates_list"] = turn["candidates_list"]
         r = client.post(
             f"/session/{session_id}/ask",
-            json={"question": turn["question"]},
+            json=ask_body,
         )
         body = r.json() if r.status_code == 200 else {}
         turn_results.append({"status": r.status_code, "body": body})
