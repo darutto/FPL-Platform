@@ -146,6 +146,7 @@ class AskRequest(BaseModel):
 
     question: str
     debug: bool = False
+    candidates_list: list[dict[str, Any]] | None = None  # Phase 5p
 
 
 class AskResponse(BaseModel):
@@ -165,7 +166,8 @@ class AskResponse(BaseModel):
     llm_used: bool
     debug: dict[str, Any] | None = None
     comparison: dict[str, Any] | None = None  # Phase 5g
-    captain: dict[str, Any] | None = None     # Phase 5n
+    captain: dict[str, Any] | None = None               # Phase 5n
+    captain_ranking: list[dict[str, Any]] | None = None  # Phase 5p
 
 
 class CreateSessionResponse(BaseModel):
@@ -196,7 +198,8 @@ class SessionAskResponse(BaseModel):
     rewritten_question: str | None = None
     debug: dict[str, Any] | None = None
     comparison: dict[str, Any] | None = None  # Phase 5g
-    captain: dict[str, Any] | None = None     # Phase 5n
+    captain: dict[str, Any] | None = None               # Phase 5n
+    captain_ranking: list[dict[str, Any]] | None = None  # Phase 5p
 
 
 class ClearSessionResponse(BaseModel):
@@ -269,6 +272,22 @@ def _captain_meta_dict(captain: Any) -> dict[str, Any]:
     }
 
 
+def _captain_ranking_list(captain_ranking: Any) -> list[dict[str, Any]]:
+    """Serialise a ``tuple[RankedCaptainEntry, ...]`` to a JSON-safe list."""
+    return [
+        {
+            "rank":            entry.rank,
+            "web_name":        entry.web_name,
+            "team_short":      entry.team_short,
+            "captain_score":   entry.captain_score,
+            "tier":            entry.tier,
+            "role_bonus":      entry.role_bonus,
+            "set_piece_notes": list(entry.set_piece_notes),
+        }
+        for entry in captain_ranking
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -299,7 +318,7 @@ def ask(req: AskRequest) -> AskResponse:
     if _bootstrap is None:
         raise HTTPException(status_code=503, detail="Bootstrap not initialised")
 
-    r = respond(req.question, _bootstrap, include_debug=req.debug)
+    r = respond(req.question, _bootstrap, include_debug=req.debug, candidates_list=req.candidates_list)
 
     debug_bundle: dict[str, Any] | None = None
     if req.debug and r.debug is not None:
@@ -336,6 +355,10 @@ def ask(req: AskRequest) -> AskResponse:
     if r.captain is not None:
         captain_bundle = _captain_meta_dict(r.captain)
 
+    captain_ranking_list: list[dict[str, Any]] | None = None
+    if r.captain_ranking is not None:
+        captain_ranking_list = _captain_ranking_list(r.captain_ranking)
+
     return AskResponse(
         final_text=r.final_text,
         outcome=r.outcome,
@@ -346,6 +369,7 @@ def ask(req: AskRequest) -> AskResponse:
         debug=debug_bundle,
         comparison=comp_bundle,
         captain=captain_bundle,
+        captain_ranking=captain_ranking_list,
     )
 
 
@@ -416,7 +440,7 @@ def session_ask(session_id: str, req: AskRequest) -> SessionAskResponse:
         del _sessions[session_id]
         raise HTTPException(status_code=404, detail=f"Session expired: {session_id}")
 
-    r = entry.session.respond(req.question, _bootstrap, include_debug=req.debug)
+    r = entry.session.respond(req.question, _bootstrap, include_debug=req.debug, candidates_list=req.candidates_list)
     entry.last_used_at = time.time()
 
     debug_bundle: dict[str, Any] | None = None
@@ -467,6 +491,10 @@ def session_ask(session_id: str, req: AskRequest) -> SessionAskResponse:
     if r.captain is not None:
         sess_captain_bundle = _captain_meta_dict(r.captain)
 
+    sess_captain_ranking_list: list[dict[str, Any]] | None = None
+    if r.captain_ranking is not None:
+        sess_captain_ranking_list = _captain_ranking_list(r.captain_ranking)
+
     return SessionAskResponse(
         session_id=session_id,
         final_text=r.final_text,
@@ -479,6 +507,7 @@ def session_ask(session_id: str, req: AskRequest) -> SessionAskResponse:
         debug=debug_bundle,
         comparison=sess_comp_bundle,
         captain=sess_captain_bundle,
+        captain_ranking=sess_captain_ranking_list,
     )
 
 

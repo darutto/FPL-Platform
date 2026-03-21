@@ -72,7 +72,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from .dispatcher import OUTCOME_OK, INTENT_COMPARE_PLAYERS, INTENT_CAPTAIN_SCORE  # noqa: F401 — re-exported
+from .dispatcher import OUTCOME_OK, INTENT_COMPARE_PLAYERS, INTENT_CAPTAIN_SCORE, INTENT_RANK_CANDIDATES  # noqa: F401 — re-exported
 from .llm_layer import DEFAULT_MODEL
 from .llm_review import ask_llm_safe
 
@@ -110,6 +110,49 @@ class CaptainScoreMeta:
         Empty tuple when no set-piece role is recorded.
     """
 
+    web_name:        str
+    team_short:      str
+    captain_score:   float
+    tier:            str
+    role_bonus:      float
+    set_piece_notes: tuple[str, ...]
+
+
+# ---------------------------------------------------------------------------
+# Ranked captain candidate metadata  (Phase 5p)
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class RankedCaptainEntry:
+    """One entry in a ranked captain candidates list.
+
+    Populated as elements of ``FinalResponse.captain_ranking`` when
+    ``intent == rank_candidates`` and ``outcome == ok``.
+
+    All values come directly from the deterministic ``tool_rank_captain_candidates``
+    output; nothing is computed in this layer.
+
+    Attributes
+    ----------
+    rank:
+        1-based rank position by captain_score descending.
+    web_name:
+        Player display name (e.g. ``"Salah"``).
+    team_short:
+        Short team name (e.g. ``"LIV"``).
+    captain_score:
+        Deterministic captain score for this player.
+    tier:
+        Tier classification: ``"safe"``, ``"upside"``, ``"differential"``,
+        ``"avoid"``, or ``"low_confidence"``.
+    role_bonus:
+        Numeric role contribution from set-piece involvement.
+    set_piece_notes:
+        Tuple of role-key strings (e.g. ``("penalty_taker_1",)``).
+        Empty tuple when no set-piece role is recorded.
+    """
+
+    rank:            int
     web_name:        str
     team_short:      str
     captain_score:   float
@@ -332,16 +375,23 @@ class FinalResponse:
         otherwise.  Provides programmatic access to ``web_name``,
         ``team_short``, ``captain_score``, ``tier``, ``role_bonus``,
         and ``set_piece_notes`` without parsing ``final_text``.
+    captain_ranking:
+        Structured ranked candidates output (Phase 5p).  Populated when
+        ``intent == rank_candidates`` and ``outcome == ok``; ``None``
+        otherwise.  A tuple of :class:`RankedCaptainEntry` objects ordered
+        by ``rank`` (1 = highest captain score).  Contains only successfully
+        scored candidates — failed entries are omitted.
     """
-    final_text:    str
-    outcome:       str
-    supported:     bool
-    intent:        str
-    review_passed: bool
-    llm_used:      bool
-    debug:         FinalResponseDebug | None
-    comparison:    ComparisonMeta | None     = field(default=None)  # Phase 5g
-    captain:       CaptainScoreMeta | None   = field(default=None)  # Phase 5n
+    final_text:      str
+    outcome:         str
+    supported:       bool
+    intent:          str
+    review_passed:   bool
+    llm_used:        bool
+    debug:           FinalResponseDebug | None
+    comparison:      ComparisonMeta | None                 = field(default=None)  # Phase 5g
+    captain:         CaptainScoreMeta | None               = field(default=None)  # Phase 5n
+    captain_ranking: tuple[RankedCaptainEntry, ...] | None = field(default=None)  # Phase 5p
 
 
 # ---------------------------------------------------------------------------
@@ -494,6 +544,26 @@ def respond(
             set_piece_notes = tuple(rs.get("set_piece_notes") or []),
         )
 
+    # Phase 5p: populate structured ranked candidates for OK rank_candidates turns
+    captain_ranking: tuple[RankedCaptainEntry, ...] | None = None
+    if dr.intent == INTENT_RANK_CANDIDATES and dr.outcome == OUTCOME_OK:
+        ro = dr.raw_output
+        entries = []
+        for c in ro.get("ranked_candidates", []):
+            if c.get("status") != "ok":
+                continue
+            rs = c.get("role_signals") or {}
+            entries.append(RankedCaptainEntry(
+                rank            = int(c.get("rank", 0)),
+                web_name        = c.get("web_name", ""),
+                team_short      = c.get("team_short", ""),
+                captain_score   = float(c.get("captain_score", 0.0)),
+                tier            = c.get("tier", ""),
+                role_bonus      = float(rs.get("role_bonus", 0.0)),
+                set_piece_notes = tuple(rs.get("set_piece_notes") or []),
+            ))
+        captain_ranking = tuple(entries)
+
     return FinalResponse(
         final_text=final_text,
         outcome=dr.outcome,
@@ -504,4 +574,5 @@ def respond(
         debug=debug,
         comparison=comparison,
         captain=captain,
+        captain_ranking=captain_ranking,
     )

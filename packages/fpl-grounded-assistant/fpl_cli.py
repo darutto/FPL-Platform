@@ -102,6 +102,41 @@ def _serial_captain(captain: Any) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Ranked captain candidates serialisation helper  (Phase 5p)
+# ---------------------------------------------------------------------------
+
+def _serial_captain_ranking(captain_ranking: Any) -> list[dict[str, Any]]:
+    """Serialise a ``tuple[RankedCaptainEntry, ...]`` to a JSON-safe list.
+
+    Mirrors the shape used by ``fpl_server.py`` so CLI debug output and
+    HTTP response bodies stay aligned.
+
+    Parameters
+    ----------
+    captain_ranking:
+        A non-None ``tuple[RankedCaptainEntry, ...]`` value from
+        ``FinalResponse.captain_ranking``.
+
+    Returns
+    -------
+    list of dicts, each with keys: rank, web_name, team_short,
+    captain_score, tier, role_bonus, set_piece_notes.
+    """
+    return [
+        {
+            "rank":            entry.rank,
+            "web_name":        entry.web_name,
+            "team_short":      entry.team_short,
+            "captain_score":   entry.captain_score,
+            "tier":            entry.tier,
+            "role_bonus":      entry.role_bonus,
+            "set_piece_notes": list(entry.set_piece_notes),
+        }
+        for entry in captain_ranking
+    ]
+
+
+# ---------------------------------------------------------------------------
 # Core logic  (separated from arg parsing for testability)
 # ---------------------------------------------------------------------------
 
@@ -110,6 +145,7 @@ def run(
     bootstrap: dict[str, Any],
     *,
     debug: bool = False,
+    candidates_list: list[dict[str, Any]] | None = None,
 ) -> tuple[int, str]:
     """Run ``respond()`` with an injected bootstrap and return ``(exit_code, output)``.
 
@@ -130,7 +166,7 @@ def run(
         exit_code: 0 if ``supported=True``, 1 if ``supported=False``
         output:    string to print to stdout
     """
-    r: FinalResponse = respond(question, bootstrap, include_debug=debug)
+    r: FinalResponse = respond(question, bootstrap, include_debug=debug, candidates_list=candidates_list)
 
     if debug:
         payload: dict[str, Any] = {
@@ -153,6 +189,8 @@ def run(
             payload["comparison"] = _serial_comparison(r.comparison)
         if r.captain is not None:                          # Phase 5n
             payload["captain"] = _serial_captain(r.captain)
+        if r.captain_ranking is not None:                  # Phase 5p
+            payload["captain_ranking"] = _serial_captain_ranking(r.captain_ranking)
         output = json.dumps(payload, indent=2, ensure_ascii=False)
     else:
         output = r.final_text
@@ -171,6 +209,7 @@ def run_session(
     *,
     debug: bool = False,
     resolver_client: Any = None,
+    candidates_list: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Run a list of questions through a ConversationSession.
 
@@ -206,6 +245,7 @@ def run_session(
             q, bootstrap,
             include_debug=debug,
             resolver_client=resolver_client,
+            candidates_list=candidates_list,
         )
         turn: dict[str, Any] = {
             "question":   q,
@@ -218,6 +258,8 @@ def run_session(
             turn["comparison"] = _serial_comparison(r.comparison)
         if r.captain is not None:                          # Phase 5n
             turn["captain"] = _serial_captain(r.captain)
+        if r.captain_ranking is not None:                  # Phase 5p
+            turn["captain_ranking"] = _serial_captain_ranking(r.captain_ranking)
         if debug and r.debug is not None:
             debug_bundle: dict[str, Any] = {
                 "response_text": r.debug.response_text,
