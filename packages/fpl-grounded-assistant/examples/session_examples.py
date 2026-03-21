@@ -3,6 +3,7 @@ FPL Grounded Assistant -- HTTP session lifecycle examples.
 ==========================================================
 Phase 4j: session interaction examples and operational docs.
 Phase 5j: structured comparison player context in session responses.
+Phase 5o: structured captain score metadata in session responses.
 
 Shows how to exercise the full session lifecycle over HTTP.
 Uses FastAPI ``TestClient`` for in-process execution -- no running server needed.
@@ -161,6 +162,20 @@ SESSION_FLOWS: list[dict[str, Any]] = [
             "comparison.player_b: web_name='Saka', position='MID', "
             "role_bonus=0.5, set_piece_notes=['freekick_taker_2']. "
             "comparison.reasons includes 'set-piece advantage (pen vs fk2)' (Phase 5h)."
+        ),
+    },
+    # Phase 5o: structured captain score metadata
+    {
+        "id": "captain_structured",
+        "turns": [
+            {"question": "should I captain Salah"},
+        ],
+        "note": (
+            "Demonstrates structured captain score metadata in session ask response (Phase 5n/5o). "
+            "captain.web_name='Salah', captain.team_short='LIV', captain.tier='safe', "
+            "captain.role_bonus=5.0, captain.set_piece_notes=['penalty_taker_1']. "
+            "Shape is identical to /ask response and CLI debug captain payloads. "
+            "Non-captain turns in the same session do not include the captain key."
         ),
     },
 ]

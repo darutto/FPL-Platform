@@ -3,6 +3,7 @@ FPL Grounded Assistant — CLI integration examples.
 ====================================================
 Phase 4d: external integration examples and client fixtures.
 Phase 5j: comparison debug exposure.
+Phase 5o: captain debug exposure.
 
 Shows how to call ``fpl_cli.run()`` for each supported scenario.
 All examples use the built-in fixture bootstraps — no network or LLM required.
@@ -18,6 +19,8 @@ comparison_direct          -- direct two-player comparison
 comparison_not_found       -- comparison with one unknown player
 comparison_debug           -- comparison with debug=True; shows structured
                               comparison payload including player_a/b context
+captain_debug              -- captain score with debug=True; shows structured
+                              captain payload (Phase 5n/5o)
 
 Key exit-code contract
 -----------------------
@@ -148,6 +151,25 @@ CLI_SCENARIOS: list[dict[str, Any]] = [
             "(player_a and player_b each with web_name, position, captain_score, "
             "role_bonus, set_piece_notes). "
             "Default CLI output (debug=False) remains plain text only."
+        ),
+    },
+    # Phase 5o: captain debug exposure
+    {
+        "id": "captain_debug",
+        "question": "should I captain Salah",
+        "bootstrap": STANDARD_BOOTSTRAP,
+        "expected_exit": 0,
+        "debug": True,
+        "note": (
+            "Direct captain score query with debug=True. "
+            "Output is a JSON object that includes the structured captain "
+            "payload (Phase 5n): web_name, team_short, captain_score, tier, "
+            "role_bonus, and set_piece_notes. "
+            "Salah: tier='safe', role_bonus=5.0, "
+            "set_piece_notes=['penalty_taker_1']. "
+            "Default CLI output (debug=False) remains plain text only. "
+            "Non-captain turns (e.g. comparison, gameweek) do not include "
+            "the captain key."
         ),
     },
 ]
