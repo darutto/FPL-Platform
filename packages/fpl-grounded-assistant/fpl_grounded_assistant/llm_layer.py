@@ -57,8 +57,8 @@ from typing import Any
 from .adapter import adapt, AdapterResponse
 from .orch_config import get_orch_max_retries, get_orch_timeout
 from .provider_client import (
-    PERR_AUTH,
-    call_provider_request,
+    get_provider,
+    ProviderNotAvailableError,
 )
 from .dispatcher import (
     OUTCOME_OK,
@@ -70,7 +70,8 @@ from .dispatcher import (
 )
 
 # ---------------------------------------------------------------------------
-# Optional anthropic import — gracefully absent
+# Anthropic import — kept for _get_anthropic_client() backwards compat
+# (orchestrator.py and reference_resolver.py import that helper from here)
 # ---------------------------------------------------------------------------
 
 try:
@@ -80,31 +81,17 @@ except ImportError:
     _anthropic_module = None  # type: ignore[assignment]
     _ANTHROPIC_AVAILABLE = False
 
-try:
-    import warnings as _warnings
-    with _warnings.catch_warnings():
-        _warnings.simplefilter("ignore", FutureWarning)
-        import google.generativeai as _genai  # type: ignore[import-untyped]
-    _GEMINI_AVAILABLE = True
-except ImportError:
-    _genai = None  # type: ignore[assignment]
-    _GEMINI_AVAILABLE = False
-
-try:
-    import openai as _openai_module  # type: ignore[import-untyped]
-    _OPENAI_AVAILABLE = True
-except ImportError:
-    _openai_module = None  # type: ignore[assignment]
-    _OPENAI_AVAILABLE = False
-
 
 # ---------------------------------------------------------------------------
-# Provider constants and model defaults
+# Provider constants — canonical definitions live in provider_client; re-export
+# here so existing callers (orchestrator.py, reference_resolver.py) still work.
 # ---------------------------------------------------------------------------
 
-PROVIDER_GEMINI    = "gemini"
-PROVIDER_ANTHROPIC = "anthropic"
-PROVIDER_OPENAI    = "openai"
+from .provider_client import (  # noqa: E402  (import after stdlib block)
+    PROVIDER_ANTHROPIC,
+    PROVIDER_OPENAI,
+    PROVIDER_GEMINI,
+)
 
 # Per-provider default model identifiers.
 _PROVIDER_DEFAULT_MODELS: dict[str, str] = {
@@ -450,186 +437,46 @@ def ask_llm(
     max_retries = get_orch_max_retries()
     system_prompt = build_system_prompt(bootstrap)
 
-    # Step 3: dispatch by provider.
-    # An explicit ``client`` argument always routes to the Anthropic path for
-    # backwards compatibility (test mocks and direct callers pass Anthropic
-    # instances here).  Otherwise the active provider is read from _PROVIDER.
-    if client is not None or _PROVIDER == PROVIDER_ANTHROPIC:
-        resolved_client = client or _get_anthropic_client(api_key=api_key)
-        if resolved_client is None:
-            return _fallback_llm_response(
-                user_message=user_message,
-                adapter_response=adapter_response,
-                prompt_used=prompt_used,
-            )
-
-        call_result = call_provider_request(
-            lambda: resolved_client.messages.create(
-                model=model,
-                max_tokens=256,
-                system=system_prompt,
-                messages=[{"role": "user", "content": prompt_used}],
-                timeout=timeout_s,
-            ),
-            max_retries=max_retries,
+    # Step 3: dispatch through unified provider factory.
+    # An explicit ``client`` argument always routes to AnthropicProvider for
+    # backwards compatibility (test mocks pass Anthropic instances here).
+    # Otherwise the active provider is read from _PROVIDER.
+    try:
+        provider = get_provider(_PROVIDER, client=client, api_key=api_key)
+    except ProviderNotAvailableError:
+        return _fallback_llm_response(
+            user_message=user_message,
+            adapter_response=adapter_response,
+            prompt_used=prompt_used,
         )
-        if not call_result.success:
-            _log_provider_failure(
-                PROVIDER_ANTHROPIC,
-                call_result.error_code,
-                call_result.error_msg,
-                call_result.attempts,
-            )
-            return _fallback_llm_response(
-                user_message=user_message,
-                adapter_response=adapter_response,
-                prompt_used=prompt_used,
-            )
 
-        try:
-            message = call_result.response
-            llm_text = message.content[0].text.strip()
-            return LLMResponse(
-                user_message=user_message,
-                adapter_response=adapter_response,
-                llm_text=llm_text,
-                prompt_used=prompt_used,
-                model=model,
-                llm_called=True,
-            )
-        except Exception:  # noqa: BLE001
-            _log_provider_failure(
-                PROVIDER_ANTHROPIC,
-                PERR_AUTH if call_result.error_code == PERR_AUTH else "provider",
-                "invalid provider response shape",
-                call_result.attempts,
-            )
-            return _fallback_llm_response(
-                user_message=user_message,
-                adapter_response=adapter_response,
-                prompt_used=prompt_used,
-            )
+    result = provider.call(
+        model=model,
+        system_prompt=system_prompt,
+        user_message=prompt_used,
+        max_tokens=256,
+        timeout_s=timeout_s,
+        max_retries=max_retries,
+    )
 
-    if _PROVIDER == PROVIDER_GEMINI:
-        key = os.environ.get("GOOGLE_API_KEY")
-        if not _GEMINI_AVAILABLE or not key:
-            return _fallback_llm_response(
-                user_message=user_message,
-                adapter_response=adapter_response,
-                prompt_used=prompt_used,
-            )
-
-        _genai.configure(api_key=key)
-        gemini_model = _genai.GenerativeModel(
-            model_name=model,
-            system_instruction=system_prompt,
+    if result.error_code is not None:
+        _log_provider_failure(
+            _PROVIDER,
+            result.error_code,
+            result.error_msg,
+            result.attempts,
         )
-        call_result = call_provider_request(
-            lambda: gemini_model.generate_content(
-                prompt_used,
-                request_options={"timeout": timeout_s},
-            ),
-            max_retries=max_retries,
+        return _fallback_llm_response(
+            user_message=user_message,
+            adapter_response=adapter_response,
+            prompt_used=prompt_used,
         )
-        if not call_result.success:
-            _log_provider_failure(
-                PROVIDER_GEMINI,
-                call_result.error_code,
-                call_result.error_msg,
-                call_result.attempts,
-            )
-            return _fallback_llm_response(
-                user_message=user_message,
-                adapter_response=adapter_response,
-                prompt_used=prompt_used,
-            )
 
-        try:
-            response = call_result.response
-            llm_text = response.text.strip()
-            return LLMResponse(
-                user_message=user_message,
-                adapter_response=adapter_response,
-                llm_text=llm_text,
-                prompt_used=prompt_used,
-                model=model,
-                llm_called=True,
-            )
-        except Exception:  # noqa: BLE001
-            _log_provider_failure(
-                PROVIDER_GEMINI,
-                "provider",
-                "invalid provider response shape",
-                call_result.attempts,
-            )
-            return _fallback_llm_response(
-                user_message=user_message,
-                adapter_response=adapter_response,
-                prompt_used=prompt_used,
-            )
-
-    if _PROVIDER == PROVIDER_OPENAI:
-        key = os.environ.get("OPENAI_API_KEY")
-        if not _OPENAI_AVAILABLE or not key:
-            return _fallback_llm_response(
-                user_message=user_message,
-                adapter_response=adapter_response,
-                prompt_used=prompt_used,
-            )
-
-        oai_client = _openai_module.OpenAI(api_key=key)
-        call_result = call_provider_request(
-            lambda: oai_client.chat.completions.create(
-                model=model,
-                max_tokens=256,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt_used},
-                ],
-                timeout=timeout_s,
-            ),
-            max_retries=max_retries,
-        )
-        if not call_result.success:
-            _log_provider_failure(
-                PROVIDER_OPENAI,
-                call_result.error_code,
-                call_result.error_msg,
-                call_result.attempts,
-            )
-            return _fallback_llm_response(
-                user_message=user_message,
-                adapter_response=adapter_response,
-                prompt_used=prompt_used,
-            )
-
-        try:
-            resp = call_result.response
-            llm_text = resp.choices[0].message.content.strip()
-            return LLMResponse(
-                user_message=user_message,
-                adapter_response=adapter_response,
-                llm_text=llm_text,
-                prompt_used=prompt_used,
-                model=model,
-                llm_called=True,
-            )
-        except Exception:  # noqa: BLE001
-            _log_provider_failure(
-                PROVIDER_OPENAI,
-                "provider",
-                "invalid provider response shape",
-                call_result.attempts,
-            )
-            return _fallback_llm_response(
-                user_message=user_message,
-                adapter_response=adapter_response,
-                prompt_used=prompt_used,
-            )
-
-    # Unknown provider — deterministic fallback
-    return _fallback_llm_response(
+    return LLMResponse(
         user_message=user_message,
         adapter_response=adapter_response,
+        llm_text=result.text or "",
         prompt_used=prompt_used,
+        model=result.model,
+        llm_called=True,
     )
