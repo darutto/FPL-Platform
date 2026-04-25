@@ -49,11 +49,17 @@ Intentionally deferred
 """
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass
 from typing import Any
 
 from .adapter import adapt, AdapterResponse
+from .orch_config import get_orch_max_retries, get_orch_timeout
+from .provider_client import (
+    PERR_AUTH,
+    call_provider_request,
+)
 from .dispatcher import (
     OUTCOME_OK,
     OUTCOME_NOT_FOUND,
@@ -74,12 +80,44 @@ except ImportError:
     _anthropic_module = None  # type: ignore[assignment]
     _ANTHROPIC_AVAILABLE = False
 
+try:
+    import warnings as _warnings
+    with _warnings.catch_warnings():
+        _warnings.simplefilter("ignore", FutureWarning)
+        import google.generativeai as _genai  # type: ignore[import-untyped]
+    _GEMINI_AVAILABLE = True
+except ImportError:
+    _genai = None  # type: ignore[assignment]
+    _GEMINI_AVAILABLE = False
+
+try:
+    import openai as _openai_module  # type: ignore[import-untyped]
+    _OPENAI_AVAILABLE = True
+except ImportError:
+    _openai_module = None  # type: ignore[assignment]
+    _OPENAI_AVAILABLE = False
+
 
 # ---------------------------------------------------------------------------
-# Constants
+# Provider constants and model defaults
 # ---------------------------------------------------------------------------
 
-DEFAULT_MODEL: str = "claude-haiku-4-5-20251001"
+PROVIDER_GEMINI    = "gemini"
+PROVIDER_ANTHROPIC = "anthropic"
+PROVIDER_OPENAI    = "openai"
+
+# Per-provider default model identifiers.
+_PROVIDER_DEFAULT_MODELS: dict[str, str] = {
+    PROVIDER_GEMINI:    "gemini-2.5-flash",
+    PROVIDER_ANTHROPIC: "claude-haiku-4-5-20251001",
+    PROVIDER_OPENAI:    "gpt-4o-mini",
+}
+
+# Active provider — read once at module load from DEFAULT_PROVIDER env var.
+# Defaults to Gemini. Falls back to "gemini" for any unrecognised value.
+_PROVIDER: str = os.environ.get("DEFAULT_PROVIDER", PROVIDER_GEMINI).lower()
+
+DEFAULT_MODEL: str = _PROVIDER_DEFAULT_MODELS.get(_PROVIDER, "gemini-1.5-flash")
 
 SYSTEM_PROMPT: str = (
     "You are a Fantasy Premier League (FPL) assistant. "
@@ -97,6 +135,80 @@ SYSTEM_PROMPT: str = (
     "   clearly and politely without guessing at an answer.\n"
     "6. The grounded result is authoritative — trust it completely.\n"
 )
+
+# ---------------------------------------------------------------------------
+# Context injection (Phase 9b)
+# ---------------------------------------------------------------------------
+
+#: Maximum characters of FPL data context to inject into the system prompt.
+#: Content beyond this limit is truncated with an explicit marker so the LLM
+#: knows the data was cut, rather than silently receiving a partial block.
+_MAX_CONTEXT_CHARS: int = 6000
+
+_CONTEXT_SECTION_HEADER: str = (
+    "\n\n"
+    "--- FPL DATA CONTEXT (deterministic, from live bootstrap) ---\n"
+    "The following is real-time FPL data computed from the live API. "
+    "You may reference this data when presenting answers. "
+    "Do NOT invent facts not present here or in the grounded result below.\n"
+)
+
+_CONTEXT_SECTION_FOOTER: str = (
+    "\n--- END FPL DATA CONTEXT ---"
+)
+
+_CONTEXT_TRUNCATION_MARKER: str = (
+    "\n[... context truncated to fit prompt budget ...]"
+)
+
+_LOG = logging.getLogger(__name__)
+
+
+def build_system_prompt(bootstrap: dict) -> str:
+    """Build the LLM system prompt with injected FPL data context.
+
+    Combines the static ``SYSTEM_PROMPT`` with a deterministic FPL data
+    context block produced by ``build_orchestration_context(bootstrap)``.
+    The context is clearly delimited so the LLM knows where live data
+    starts and ends.
+
+    If context generation raises for any reason, the function degrades
+    silently and returns the base ``SYSTEM_PROMPT`` without crashing.
+
+    If the generated context exceeds ``_MAX_CONTEXT_CHARS`` characters, the
+    tail is truncated and a marker is appended so the LLM is aware data was
+    cut, rather than receiving a silently incomplete block.
+
+    Parameters
+    ----------
+    bootstrap:
+        FPL bootstrap dict (with or without fixture fields injected by
+        ``assemble_captain_context()``).  Passed directly to
+        ``build_orchestration_context()``.
+
+    Returns
+    -------
+    str
+        System prompt ready to pass to the LLM API.  Always returns at
+        least ``SYSTEM_PROMPT`` — never raises.
+    """
+    try:
+        from .context_builder import build_orchestration_context  # noqa: PLC0415
+        context_text = build_orchestration_context(bootstrap)
+    except Exception:  # noqa: BLE001
+        # Context unavailable — return base prompt unchanged.
+        return SYSTEM_PROMPT
+
+    # Cap context length to protect against very large bootstraps
+    if len(context_text) > _MAX_CONTEXT_CHARS:
+        context_text = context_text[:_MAX_CONTEXT_CHARS] + _CONTEXT_TRUNCATION_MARKER
+
+    return (
+        SYSTEM_PROMPT
+        + _CONTEXT_SECTION_HEADER
+        + context_text
+        + _CONTEXT_SECTION_FOOTER
+    )
 
 # Per-outcome instruction appended to the user turn so the LLM understands
 # what to do with each result type.
@@ -241,6 +353,34 @@ def _get_anthropic_client(api_key: str | None = None):  # type: ignore[return]
         return None
 
 
+def _fallback_llm_response(
+    *,
+    user_message: str,
+    adapter_response: AdapterResponse,
+    prompt_used: str,
+) -> LLMResponse:
+    """Return deterministic fallback response preserving contract semantics."""
+    return LLMResponse(
+        user_message=user_message,
+        adapter_response=adapter_response,
+        llm_text=adapter_response.response_text,
+        prompt_used=prompt_used,
+        model="none",
+        llm_called=False,
+    )
+
+
+def _log_provider_failure(provider: str, error_code: str | None, error_msg: str | None, attempts: int) -> None:
+    """Emit traceable provider failure logs without exposing credentials."""
+    _LOG.warning(
+        "ask_llm provider failure provider=%s code=%s attempts=%s msg=%s",
+        provider,
+        error_code or "unknown",
+        attempts,
+        error_msg or "",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Public entrypoint
 # ---------------------------------------------------------------------------
@@ -254,6 +394,8 @@ def ask_llm(
     candidate_inputs: dict[str, Any] | None = None,
     candidates_list: list[dict[str, Any]] | None = None,
     api_key: str | None = None,
+    classifier_client: Any = None,
+    intent_hint: str | None = None,
 ) -> LLMResponse:
     """Run the full grounded + LLM pipeline for a user message.
 
@@ -297,49 +439,197 @@ def ask_llm(
         bootstrap,
         candidate_inputs=candidate_inputs,
         candidates_list=candidates_list,
+        classifier_client=classifier_client,
+        intent_hint=intent_hint,
     )
 
     # Step 2: build prompt — always built (for debugging even in fallback mode)
     prompt_used = build_user_prompt(adapter_response)
 
-    # Step 3: resolve client
-    resolved_client = client or _get_anthropic_client(api_key=api_key)
+    timeout_s = get_orch_timeout()
+    max_retries = get_orch_max_retries()
+    system_prompt = build_system_prompt(bootstrap)
 
-    if resolved_client is None:
-        # Deterministic fallback — no LLM available
-        return LLMResponse(
-            user_message=user_message,
-            adapter_response=adapter_response,
-            llm_text=adapter_response.response_text,
-            prompt_used=prompt_used,
-            model="none",
-            llm_called=False,
-        )
+    # Step 3: dispatch by provider.
+    # An explicit ``client`` argument always routes to the Anthropic path for
+    # backwards compatibility (test mocks and direct callers pass Anthropic
+    # instances here).  Otherwise the active provider is read from _PROVIDER.
+    if client is not None or _PROVIDER == PROVIDER_ANTHROPIC:
+        resolved_client = client or _get_anthropic_client(api_key=api_key)
+        if resolved_client is None:
+            return _fallback_llm_response(
+                user_message=user_message,
+                adapter_response=adapter_response,
+                prompt_used=prompt_used,
+            )
 
-    # Step 4: LLM call — wrapped in try/except so errors always fall back
-    try:
-        message = resolved_client.messages.create(
-            model=model,
-            max_tokens=256,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt_used}],
+        call_result = call_provider_request(
+            lambda: resolved_client.messages.create(
+                model=model,
+                max_tokens=256,
+                system=system_prompt,
+                messages=[{"role": "user", "content": prompt_used}],
+                timeout=timeout_s,
+            ),
+            max_retries=max_retries,
         )
-        llm_text = message.content[0].text.strip()
-        return LLMResponse(
-            user_message=user_message,
-            adapter_response=adapter_response,
-            llm_text=llm_text,
-            prompt_used=prompt_used,
-            model=model,
-            llm_called=True,
+        if not call_result.success:
+            _log_provider_failure(
+                PROVIDER_ANTHROPIC,
+                call_result.error_code,
+                call_result.error_msg,
+                call_result.attempts,
+            )
+            return _fallback_llm_response(
+                user_message=user_message,
+                adapter_response=adapter_response,
+                prompt_used=prompt_used,
+            )
+
+        try:
+            message = call_result.response
+            llm_text = message.content[0].text.strip()
+            return LLMResponse(
+                user_message=user_message,
+                adapter_response=adapter_response,
+                llm_text=llm_text,
+                prompt_used=prompt_used,
+                model=model,
+                llm_called=True,
+            )
+        except Exception:  # noqa: BLE001
+            _log_provider_failure(
+                PROVIDER_ANTHROPIC,
+                PERR_AUTH if call_result.error_code == PERR_AUTH else "provider",
+                "invalid provider response shape",
+                call_result.attempts,
+            )
+            return _fallback_llm_response(
+                user_message=user_message,
+                adapter_response=adapter_response,
+                prompt_used=prompt_used,
+            )
+
+    if _PROVIDER == PROVIDER_GEMINI:
+        key = os.environ.get("GOOGLE_API_KEY")
+        if not _GEMINI_AVAILABLE or not key:
+            return _fallback_llm_response(
+                user_message=user_message,
+                adapter_response=adapter_response,
+                prompt_used=prompt_used,
+            )
+
+        _genai.configure(api_key=key)
+        gemini_model = _genai.GenerativeModel(
+            model_name=model,
+            system_instruction=system_prompt,
         )
-    except Exception:  # noqa: BLE001
-        # Any API error → deterministic fallback
-        return LLMResponse(
-            user_message=user_message,
-            adapter_response=adapter_response,
-            llm_text=adapter_response.response_text,
-            prompt_used=prompt_used,
-            model="none",
-            llm_called=False,
+        call_result = call_provider_request(
+            lambda: gemini_model.generate_content(
+                prompt_used,
+                request_options={"timeout": timeout_s},
+            ),
+            max_retries=max_retries,
         )
+        if not call_result.success:
+            _log_provider_failure(
+                PROVIDER_GEMINI,
+                call_result.error_code,
+                call_result.error_msg,
+                call_result.attempts,
+            )
+            return _fallback_llm_response(
+                user_message=user_message,
+                adapter_response=adapter_response,
+                prompt_used=prompt_used,
+            )
+
+        try:
+            response = call_result.response
+            llm_text = response.text.strip()
+            return LLMResponse(
+                user_message=user_message,
+                adapter_response=adapter_response,
+                llm_text=llm_text,
+                prompt_used=prompt_used,
+                model=model,
+                llm_called=True,
+            )
+        except Exception:  # noqa: BLE001
+            _log_provider_failure(
+                PROVIDER_GEMINI,
+                "provider",
+                "invalid provider response shape",
+                call_result.attempts,
+            )
+            return _fallback_llm_response(
+                user_message=user_message,
+                adapter_response=adapter_response,
+                prompt_used=prompt_used,
+            )
+
+    if _PROVIDER == PROVIDER_OPENAI:
+        key = os.environ.get("OPENAI_API_KEY")
+        if not _OPENAI_AVAILABLE or not key:
+            return _fallback_llm_response(
+                user_message=user_message,
+                adapter_response=adapter_response,
+                prompt_used=prompt_used,
+            )
+
+        oai_client = _openai_module.OpenAI(api_key=key)
+        call_result = call_provider_request(
+            lambda: oai_client.chat.completions.create(
+                model=model,
+                max_tokens=256,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt_used},
+                ],
+                timeout=timeout_s,
+            ),
+            max_retries=max_retries,
+        )
+        if not call_result.success:
+            _log_provider_failure(
+                PROVIDER_OPENAI,
+                call_result.error_code,
+                call_result.error_msg,
+                call_result.attempts,
+            )
+            return _fallback_llm_response(
+                user_message=user_message,
+                adapter_response=adapter_response,
+                prompt_used=prompt_used,
+            )
+
+        try:
+            resp = call_result.response
+            llm_text = resp.choices[0].message.content.strip()
+            return LLMResponse(
+                user_message=user_message,
+                adapter_response=adapter_response,
+                llm_text=llm_text,
+                prompt_used=prompt_used,
+                model=model,
+                llm_called=True,
+            )
+        except Exception:  # noqa: BLE001
+            _log_provider_failure(
+                PROVIDER_OPENAI,
+                "provider",
+                "invalid provider response shape",
+                call_result.attempts,
+            )
+            return _fallback_llm_response(
+                user_message=user_message,
+                adapter_response=adapter_response,
+                prompt_used=prompt_used,
+            )
+
+    # Unknown provider — deterministic fallback
+    return _fallback_llm_response(
+        user_message=user_message,
+        adapter_response=adapter_response,
+        prompt_used=prompt_used,
+    )
