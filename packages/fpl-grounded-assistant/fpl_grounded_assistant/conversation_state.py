@@ -5,6 +5,9 @@ Phase 4e: minimal multi-turn conversation state.
 Phase 4f: extended with bounded history + LLM-assisted resolver integration.
 Phase 5c: comparison follow-up support.
 Phase 5l: last_resolver_source tracking for session inspect audit snapshot.
+Phase 7f: transfer follow-up support.
+Phase 8d-i: fixture run follow-up support.
+Phase 8d-ii: differential follow-up support.
 
 Provides a lightweight, in-memory state layer on top of the stateless
 ``respond()`` function.  State is explicit, bounded, and restricted to
@@ -43,6 +46,26 @@ Phase 5c deterministic comparison follow-ups (no client needed)::
     "What about X instead?"    → compare {last_a} and X
     "Compare him to Salah"     → compare {last_a} and Salah  (pronoun → last_a)
 
+Phase 7f deterministic transfer follow-ups (no client needed)::
+
+    "What about Palmer instead?"  → sell {last_out} for Palmer
+    "How about Palmer instead?"   → sell {last_out} for Palmer
+    "What about Palmer?"          → sell {last_out} for Palmer
+    "How about Palmer?"           → sell {last_out} for Palmer
+    "Palmer instead?"             → sell {last_out} for Palmer  (bare name)
+
+Phase 8d-i deterministic fixture run follow-ups (no client needed)::
+
+    "What about Salah?"    → Salah fixtures
+    "How about Salah?"     → Salah fixtures
+    "Salah?"               → Salah fixtures  (bare name, ≤ 3 words, no interrogative start)
+
+Phase 8d-ii deterministic differential follow-ups (no client needed)::
+
+    "What about Mbeumo?"   → should I captain Mbeumo?
+    "How about Palmer?"    → should I captain Palmer?
+    "Mbeumo?"              → should I captain Mbeumo?  (bare name, ≤ 3 words)
+
 Phase 5f LLM comparison follow-ups (``resolver_client`` required)::
 
     "¿Y Salah?"                → compare {last_a} and Salah  (Spanish)
@@ -67,10 +90,12 @@ Public API
 ::
 
     from fpl_grounded_assistant import (
-        ConversationSession,          # primary interface
-        ConversationState,            # inspectable state object
-        resolve_pronouns,             # pure substitution helper (Phase 4e)
-        resolve_comparison_followup,  # comparison follow-up rewriter (Phase 5c)
+        ConversationSession,             # primary interface
+        ConversationState,               # inspectable state object
+        resolve_pronouns,                # pure substitution helper (Phase 4e)
+        resolve_comparison_followup,     # comparison follow-up rewriter (Phase 5c)
+        resolve_transfer_followup,       # transfer follow-up rewriter (Phase 7f)
+        resolve_fixture_run_followup,    # fixture run follow-up rewriter (Phase 8d-i)
     )
 
     session = ConversationSession()
@@ -95,7 +120,10 @@ from .dispatcher import (
     INTENT_CAPTAIN_SCORE,
     INTENT_PLAYER_SUMMARY,
     INTENT_PLAYER_RESOLVE,
-    INTENT_COMPARE_PLAYERS,   # Phase 5c
+    INTENT_COMPARE_PLAYERS,        # Phase 5c
+    INTENT_TRANSFER_ADVICE,        # Phase 7f
+    INTENT_PLAYER_FIXTURE_RUN,     # Phase 8d-i
+    INTENT_DIFFERENTIAL_PICKS,     # Phase 8d-ii
 )
 from .router import route
 from .final_response import respond as _respond, FinalResponse
@@ -137,6 +165,118 @@ _COMP_INSTEAD_SUFFIXES: tuple[str, ...] = (
     " instead",
 )
 
+# ---------------------------------------------------------------------------
+# Transfer follow-up patterns  (Phase 7f)
+# ---------------------------------------------------------------------------
+# Prefixes that introduce a new player_in after a transfer turn.
+_TRANSFER_FOLLOWUP_PREFIXES: tuple[str, ...] = (
+    "what about ",
+    "how about ",
+)
+
+# Trailing suffixes to strip from the follow-up remainder.
+_TRANSFER_INSTEAD_SUFFIXES: tuple[str, ...] = (
+    " instead",
+)
+
+
+# ---------------------------------------------------------------------------
+# Fixture run follow-up patterns  (Phase 8d-i)
+# ---------------------------------------------------------------------------
+# Prefixes that introduce a new player follow-up after a fixture run turn.
+_FIXTURE_FOLLOWUP_PREFIXES: tuple[str, ...] = (
+    "what about ",
+    "how about ",
+)
+
+# Trailing suffixes to strip from the follow-up remainder.
+_FIXTURE_INSTEAD_SUFFIXES: tuple[str, ...] = (
+    " instead",
+)
+
+# First words that disqualify the bare-name pattern (full sentence starters).
+_FIXTURE_INTERROGATIVE_STARTERS: frozenset[str] = frozenset({
+    "what", "how", "who", "why", "when", "where",
+    "should", "can", "could", "is", "are", "was", "were",
+    "does", "do", "did", "will", "would", "have", "has",
+    "compare", "sell", "buy", "get", "show", "tell", "and",
+    "vs", "versus", "or",
+})
+
+# First words of prefix remainders that disqualify a fixture-run rewrite.
+# Articles, determiners, and generic fixture/time nouns are not player names.
+_FIXTURE_REMAINDER_NON_PLAYER_STARTERS: frozenset[str] = frozenset({
+    # Articles and determiners
+    "the", "a", "an", "this", "that", "these", "those",
+    "my", "his", "her", "their", "its", "our", "your",
+    # Generic fixture/game/time nouns
+    "fixtures", "fixture", "games", "game", "week", "gameweek", "gw",
+    "schedule", "next", "upcoming", "last", "previous", "current",
+})
+
+# Content words anywhere in a prefix remainder that disqualify a fixture-run
+# rewrite.  These words cannot appear in a player name and mark the remainder
+# as a generic descriptive phrase rather than a player reference.
+# Checked across all words in the remainder (not just the first word).
+_FIXTURE_REMAINDER_CONTENT_BLOCKLIST: frozenset[str] = frozenset({
+    "fixtures", "fixture", "games", "game", "players", "player",
+})
+
+
+# ---------------------------------------------------------------------------
+# Differential follow-up patterns  (Phase 8d-ii)
+# ---------------------------------------------------------------------------
+# Prefixes that introduce a player follow-up after a differential picks turn.
+_DIFF_FOLLOWUP_PREFIXES: tuple[str, ...] = (
+    "what about ",
+    "how about ",
+)
+
+# Trailing suffixes to strip from the follow-up remainder.
+_DIFF_INSTEAD_SUFFIXES: tuple[str, ...] = (
+    " instead",
+)
+
+# First words that disqualify the bare-name pattern (sentence starters / verbs).
+_DIFF_INTERROGATIVE_STARTERS: frozenset[str] = frozenset({
+    "what", "how", "who", "why", "when", "where",
+    "should", "can", "could", "is", "are", "was", "were",
+    "does", "do", "did", "will", "would", "have", "has",
+    "compare", "sell", "buy", "get", "show", "tell", "and",
+    "vs", "versus", "or",
+})
+
+# Content words anywhere in the prefix remainder that disqualify a differential
+# rewrite.  These signal generic phrases rather than player references.
+_DIFF_REMAINDER_NON_PLAYER_STARTERS: frozenset[str] = frozenset({
+    # Articles and determiners
+    "the", "a", "an", "this", "that", "these", "those",
+    "my", "his", "her", "their", "its", "our", "your",
+    # Object/subject pronouns — never player names
+    "him", "them", "one", "it", "me", "us", "he", "she", "they", "i",
+    "you", "we",
+    # Generic differential/pick/time nouns
+    "differentials", "differential", "picks", "pick", "options", "option",
+    "players", "player", "ones", "week", "gameweek", "gw",
+    "next", "upcoming", "last", "previous", "current",
+})
+
+_DIFF_REMAINDER_CONTENT_BLOCKLIST: frozenset[str] = frozenset({
+    # differential domain nouns
+    "differentials", "differential", "picks", "pick", "options", "option",
+    "players", "player",
+    # object/subject pronouns — never player names
+    "him", "them", "one", "it", "me", "us", "he", "she", "they", "you", "we",
+    # generic pronouns/quantifiers — never player names
+    "ones", "some", "others", "anyone",
+    # FPL domain descriptors — never player names
+    "ownership", "value", "form", "price", "cost", "points", "score", "stats",
+    # generic quality adjectives — never player names in FPL context
+    "good", "bad", "great", "poor", "low", "high", "cheap", "expensive",
+    "popular", "unpopular",
+})
+
+
 # Matches "compare <pronoun> to/vs/against/and <player>".
 _COMP_PRONOUN_RE = re.compile(
     r"^compare\s+(?:him|her|them|the\s+player|this\s+player)\s+"
@@ -169,6 +309,18 @@ class ConversationState:
         The ``(query_a, query_b)`` pair from the most recently completed
         successful comparison turn.  ``None`` until such a turn completes.
         Cleared when any successful non-comparison turn completes (Phase 5c).
+    last_transfer:
+        The ``(query_out, query_in)`` pair from the most recently completed
+        successful transfer turn.  ``None`` until such a turn completes.
+        Cleared when any successful non-transfer turn completes (Phase 7f).
+    last_fixture_run_player:
+        The player query from the most recently completed successful
+        fixture run turn.  ``None`` until such a turn completes.
+        Cleared when any successful non-fixture-run turn completes (Phase 8d-i).
+    last_differential:
+        ``True`` when the most recently completed successful turn was a
+        differential picks turn.  ``False`` otherwise.  Used to gate
+        differential follow-up resolution (Phase 8d-ii).
     last_resolver_source:
         The resolver-source string for the most recently completed turn, using
         the same five-value vocabulary as ``ResolverDebug.resolver_source``
@@ -180,8 +332,11 @@ class ConversationState:
     last_player_query: str | None = field(default=None)
     turn_count: int = field(default=0)
     history: list[tuple[str, str]] = field(default_factory=list)
-    last_comparison: tuple[str, str] | None = field(default=None)   # Phase 5c
-    last_resolver_source: str | None = field(default=None)           # Phase 5l
+    last_comparison: tuple[str, str] | None = field(default=None)       # Phase 5c
+    last_transfer: tuple[str, str] | None = field(default=None)         # Phase 7f
+    last_fixture_run_player: str | None = field(default=None)           # Phase 8d-i
+    last_differential: bool = field(default=False)                      # Phase 8d-ii
+    last_resolver_source: str | None = field(default=None)              # Phase 5l
 
     def update_from_response(
         self,
@@ -189,6 +344,9 @@ class ConversationState:
         resolved_query: str | None,
         question_text: str | None = None,
         comparison_queries: tuple[str, str] | None = None,   # Phase 5c
+        transfer_queries: tuple[str, str] | None = None,     # Phase 7f
+        fixture_run_query: str | None = None,                # Phase 8d-i
+        differential_turn: bool = False,                     # Phase 8d-ii
         resolver_source: str | None = None,                  # Phase 5l
     ) -> None:
         """Update state after a completed turn.
@@ -207,6 +365,14 @@ class ConversationState:
         - ``response.intent == INTENT_COMPARE_PLAYERS``
 
         Clears ``last_comparison`` after any successful non-comparison turn.
+
+        Sets ``last_transfer`` to *transfer_queries* when:
+
+        - *transfer_queries* is non-empty
+        - ``response.outcome == OUTCOME_OK``
+        - ``response.intent == INTENT_TRANSFER_ADVICE``
+
+        Clears ``last_transfer`` after any successful non-transfer turn.
 
         Always increments ``turn_count`` regardless of whether the player
         context is updated.
@@ -228,12 +394,25 @@ class ConversationState:
             The ``(query_a, query_b)`` extracted from the route result when
             the intent is ``compare_players``.  Used to update
             ``last_comparison`` (Phase 5c).
+        transfer_queries:
+            The ``(query_out, query_in)`` extracted from the route result when
+            the intent is ``transfer_advice``.  Used to update
+            ``last_transfer`` (Phase 7f).
+        fixture_run_query:
+            The player query extracted from the route result when the intent is
+            ``player_fixture_run``.  Used to update ``last_fixture_run_player``
+            (Phase 8d-i).
+        differential_turn:
+            ``True`` when the current turn is a successful differential picks
+            turn.  Used to set ``last_differential`` (Phase 8d-ii).
         resolver_source:
             The resolver-source string for this turn (Phase 5l).  One of the
-            five values from the ``ResolverDebug.resolver_source`` vocabulary:
+            values from the ``ResolverDebug.resolver_source`` vocabulary:
             ``"none"``, ``"comparison_followup"``, ``"comparison_followup_llm"``,
-            ``"fallback_regex"``, ``"llm"``.  ``None`` is stored as-is when not
-            provided (preserves previous value; callers should always supply this).
+            ``"transfer_followup"``, ``"fixture_run_followup"``,
+            ``"differential_followup"``, ``"fallback_regex"``, ``"llm"``.
+            ``None`` is stored as-is when not provided (preserves previous
+            value; callers should always supply this).
         """
         self.turn_count += 1
         if (
@@ -258,6 +437,39 @@ class ConversationState:
             # Any other successful turn clears comparison context
             self.last_comparison = None
 
+        # Phase 7f: transfer context tracking
+        if (
+            transfer_queries
+            and response.outcome == OUTCOME_OK
+            and response.intent == INTENT_TRANSFER_ADVICE
+        ):
+            self.last_transfer = transfer_queries
+        elif response.outcome == OUTCOME_OK and response.intent != INTENT_TRANSFER_ADVICE:
+            # Any other successful turn clears transfer context
+            self.last_transfer = None
+
+        # Phase 8d-i: fixture run context tracking
+        if (
+            fixture_run_query
+            and response.outcome == OUTCOME_OK
+            and response.intent == INTENT_PLAYER_FIXTURE_RUN
+        ):
+            self.last_fixture_run_player = fixture_run_query
+        elif response.outcome == OUTCOME_OK and response.intent != INTENT_PLAYER_FIXTURE_RUN:
+            # Any other successful turn clears fixture run context
+            self.last_fixture_run_player = None
+
+        # Phase 8d-ii: differential context tracking
+        if (
+            differential_turn
+            and response.outcome == OUTCOME_OK
+            and response.intent == INTENT_DIFFERENTIAL_PICKS
+        ):
+            self.last_differential = True
+        elif response.outcome == OUTCOME_OK:
+            # Any other successful turn clears differential context
+            self.last_differential = False
+
         if resolver_source is not None:                     # Phase 5l
             self.last_resolver_source = resolver_source
 
@@ -271,8 +483,11 @@ class ConversationState:
         self.last_player_query = None
         self.turn_count = 0
         self.history.clear()
-        self.last_comparison = None         # Phase 5c
-        self.last_resolver_source = None   # Phase 5l
+        self.last_comparison = None           # Phase 5c
+        self.last_transfer = None             # Phase 7f
+        self.last_fixture_run_player = None   # Phase 8d-i
+        self.last_differential = False        # Phase 8d-ii
+        self.last_resolver_source = None      # Phase 5l
 
 
 # ---------------------------------------------------------------------------
@@ -400,15 +615,271 @@ def resolve_comparison_followup(question: str, state: ConversationState) -> str 
 
 
 # ---------------------------------------------------------------------------
+# Transfer follow-up resolver  (Phase 7f)
+# ---------------------------------------------------------------------------
+
+def resolve_transfer_followup(question: str, state: ConversationState) -> str | None:
+    """Detect a transfer follow-up and return the rewritten canonical question.
+
+    Requires ``state.last_transfer`` to be set from a prior successful
+    transfer turn.  Returns ``None`` when no follow-up pattern matches or
+    when ``state.last_transfer`` is not set.
+
+    Supported patterns (when ``state.last_transfer == (out, inn)``):
+
+    * ``"What about Palmer instead?"``  → ``"sell out for Palmer"``
+    * ``"How about Palmer instead?"``   → ``"sell out for Palmer"``
+    * ``"What about Palmer?"``          → ``"sell out for Palmer"``
+    * ``"How about Palmer?"``           → ``"sell out for Palmer"``
+    * ``"Palmer instead?"``             → ``"sell out for Palmer"``  (bare name)
+
+    Parameters
+    ----------
+    question:
+        Raw user question.
+    state:
+        Current ``ConversationState``.
+
+    Returns
+    -------
+    str | None
+        Canonical transfer question if a follow-up pattern matched, else ``None``.
+
+    Notes
+    -----
+    Always anchors to the ``last_transfer[0]`` (player_out) from the prior turn.
+    The rewritten form ``"sell {out} for {new}"`` is recognised by the deterministic
+    ``_try_route_transfer()`` router via the ``"sell"`` prefix and ``" for "`` connector.
+    LLM-assisted transfer follow-up is intentionally deferred.
+    """
+    if not state.last_transfer:
+        return None
+
+    last_out, _ = state.last_transfer
+    q_stripped = question.strip().rstrip("?!.")
+    q_norm = q_stripped.lower()
+
+    # Pattern: "what about {player}" / "how about {player}" [+ optional "instead"]
+    for prefix in _TRANSFER_FOLLOWUP_PREFIXES:
+        if q_norm.startswith(prefix):
+            remainder_orig = q_stripped[len(prefix):].strip().rstrip("?!.,")
+            remainder_norm = remainder_orig.lower()
+            for suffix in _TRANSFER_INSTEAD_SUFFIXES:
+                if remainder_norm.endswith(suffix):
+                    remainder_orig = remainder_orig[: len(remainder_orig) - len(suffix)].strip()
+                    break
+            if remainder_orig:
+                return f"sell {last_out} for {remainder_orig}"
+
+    # Pattern: bare "{player} instead" (no prefix)
+    for suffix in _TRANSFER_INSTEAD_SUFFIXES:
+        if q_norm.endswith(suffix):
+            player = q_stripped[: len(q_stripped) - len(suffix)].strip().rstrip("?!.,")
+            if player:
+                return f"sell {last_out} for {player}"
+
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Fixture run follow-up resolver  (Phase 8d-i)
+# ---------------------------------------------------------------------------
+
+def resolve_fixture_run_followup(question: str, state: ConversationState) -> str | None:
+    """Detect a fixture run follow-up and return the rewritten canonical question.
+
+    Requires ``state.last_fixture_run_player`` to be set from a prior successful
+    fixture run turn.  Returns ``None`` when no follow-up pattern matches or
+    when ``state.last_fixture_run_player`` is not set.
+
+    Supported patterns (when ``state.last_fixture_run_player`` is set):
+
+    * ``"What about Salah?"``    → ``"Salah fixtures"``
+    * ``"How about Salah?"``     → ``"Salah fixtures"``
+    * ``"Salah?"``               → ``"Salah fixtures"``  (bare name, ≤ 3 words,
+                                                          no interrogative start)
+
+    Parameters
+    ----------
+    question:
+        Raw user question.
+    state:
+        Current ``ConversationState``.
+
+    Returns
+    -------
+    str | None
+        Canonical fixture run question if a follow-up pattern matched, else ``None``.
+
+    Notes
+    -----
+    The rewritten form ``"{player} fixtures"`` is recognised by
+    ``_try_route_fixture_run()`` via the ``" fixtures"`` suffix pattern.
+    LLM-assisted fixture run follow-up is intentionally deferred.
+    The bare-name pattern applies only when the stripped question is ≤ 3 words
+    and does not start with a known interrogative or sentence-starting word.
+    The prefix pattern applies two plausibility guards on the remainder:
+    (1) first word must not be an article, determiner, or generic fixture/time
+    noun (``_FIXTURE_REMAINDER_NON_PLAYER_STARTERS``); (2) no word in the
+    remainder may appear in ``_FIXTURE_REMAINDER_CONTENT_BLOCKLIST`` (e.g.
+    ``"fixtures"``, ``"game"``, ``"players"``).  Phrases that contain these
+    content words cannot be player references and are not rewritten.
+    """
+    if not state.last_fixture_run_player:
+        return None
+
+    q_stripped = question.strip().rstrip("?!.")
+    q_norm = q_stripped.lower()
+
+    # Pattern: "what about {player}" / "how about {player}" [+ optional "instead"]
+    # Guards: (1) remainder first word must not be an article, determiner, or
+    # generic fixture/time noun; (2) remainder must not contain any content word
+    # from _FIXTURE_REMAINDER_CONTENT_BLOCKLIST (e.g. "fixtures", "players").
+    for prefix in _FIXTURE_FOLLOWUP_PREFIXES:
+        if q_norm.startswith(prefix):
+            remainder_orig = q_stripped[len(prefix):].strip().rstrip("?!.,")
+            remainder_norm = remainder_orig.lower()
+            for suffix in _FIXTURE_INSTEAD_SUFFIXES:
+                if remainder_norm.endswith(suffix):
+                    remainder_orig = remainder_orig[: len(remainder_orig) - len(suffix)].strip()
+                    remainder_norm = remainder_orig.lower()
+                    break
+            remainder_words = set(remainder_norm.split())
+            first_word = remainder_norm.split()[0] if remainder_norm.split() else ""
+            has_content_block = bool(remainder_words & _FIXTURE_REMAINDER_CONTENT_BLOCKLIST)
+            if (
+                remainder_orig
+                and first_word not in _FIXTURE_REMAINDER_NON_PLAYER_STARTERS
+                and not has_content_block
+            ):
+                return f"{remainder_orig} fixtures"
+
+    # Bare name pattern: ≤ 3 words, doesn't start with an interrogative/verb.
+    # Guard: skip if the question already ends with a fixture-run suffix — it is
+    # a direct fixture run query, not a follow-up reference.
+    _ALREADY_FIXTURE_SUFFIXES = (
+        " fixtures", " fixture run", " next fixtures", " next games",
+        " upcoming fixtures",
+    )
+    already_fixture = any(q_norm.endswith(s) for s in _ALREADY_FIXTURE_SUFFIXES)
+    words = q_stripped.split()
+    if (
+        not already_fixture
+        and words
+        and len(words) <= 3
+        and words[0].lower() not in _FIXTURE_INTERROGATIVE_STARTERS
+    ):
+        player = " ".join(w.rstrip("?!.,") for w in words).strip()
+        if player:
+            return f"{player} fixtures"
+
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Differential follow-up resolver  (Phase 8d-ii)
+# ---------------------------------------------------------------------------
+
+def resolve_differential_followup(question: str, state: ConversationState) -> str | None:
+    """Detect a differential picks follow-up and return the rewritten query.
+
+    Requires ``state.last_differential`` to be ``True`` from a prior successful
+    differential picks turn.  Returns ``None`` when no follow-up pattern matches
+    or when ``state.last_differential`` is ``False``.
+
+    Supported patterns (when ``state.last_differential`` is ``True``):
+
+    * ``"What about Mbeumo?"``   -> ``"should I captain Mbeumo?"``
+    * ``"How about Palmer?"``    -> ``"should I captain Palmer?"``
+    * ``"Mbeumo?"``              -> ``"should I captain Mbeumo?"``  (bare name,
+                                                                     ≤ 3 words,
+                                                                     no interrogative start)
+
+    Parameters
+    ----------
+    question:
+        Raw user question.
+    state:
+        Current ``ConversationState``.
+
+    Returns
+    -------
+    str | None
+        Canonical captain-score question for the referenced player if a follow-up
+        pattern matched, else ``None``.
+
+    Notes
+    -----
+    The rewritten form ``"should I captain {player}?"`` routes to the existing
+    deterministic captain score path (``INTENT_CAPTAIN_SCORE``).
+    LLM-assisted differential follow-up is intentionally deferred.
+    Prefix remainders are validated with the same two-guard approach used by
+    ``resolve_fixture_run_followup``: first word must not be in
+    ``_DIFF_REMAINDER_NON_PLAYER_STARTERS`` and no word may appear in
+    ``_DIFF_REMAINDER_CONTENT_BLOCKLIST``.  The content blocklist covers
+    domain nouns, generic pronouns (``"ones"``, ``"some"``), FPL descriptors
+    (``"ownership"``, ``"value"``) and quality adjectives (``"good"``,
+    ``"low"``) that cannot be player names.  The bare-name path applies the
+    same content blocklist across all words in the phrase.
+    """
+    if not state.last_differential:
+        return None
+
+    q_stripped = question.strip().rstrip("?!.")
+    q_norm = q_stripped.lower()
+
+    # Pattern: "what about {player}" / "how about {player}" [+ optional "instead"]
+    for prefix in _DIFF_FOLLOWUP_PREFIXES:
+        if q_norm.startswith(prefix):
+            remainder_orig = q_stripped[len(prefix):].strip().rstrip("?!.,")
+            remainder_norm = remainder_orig.lower()
+            for suffix in _DIFF_INSTEAD_SUFFIXES:
+                if remainder_norm.endswith(suffix):
+                    remainder_orig = remainder_orig[: len(remainder_orig) - len(suffix)].strip()
+                    remainder_norm = remainder_orig.lower()
+                    break
+            remainder_words = set(remainder_norm.split())
+            first_word = remainder_norm.split()[0] if remainder_norm.split() else ""
+            has_content_block = bool(remainder_words & _DIFF_REMAINDER_CONTENT_BLOCKLIST)
+            if (
+                remainder_orig
+                and first_word not in _DIFF_REMAINDER_NON_PLAYER_STARTERS
+                and not has_content_block
+            ):
+                return f"should I captain {remainder_orig}?"
+
+    # Bare name pattern: ≤ 3 words, doesn't start with an interrogative/verb.
+    words = q_stripped.split()
+    if (
+        words
+        and len(words) <= 3
+        and words[0].lower() not in _DIFF_INTERROGATIVE_STARTERS
+    ):
+        player = " ".join(w.rstrip("?!.,") for w in words).strip()
+        first = player.lower().split()[0] if player.split() else ""
+        player_words = set(player.lower().split())
+        has_content_block = bool(player_words & _DIFF_REMAINDER_CONTENT_BLOCKLIST)
+        if player and first not in _DIFF_REMAINDER_NON_PLAYER_STARTERS and not has_content_block:
+            return f"should I captain {player}?"
+
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Resolver debug helper (Phase 4g / Phase 5l)
 # ---------------------------------------------------------------------------
 
 def _map_resolver_source(resolution) -> str:
     """Map a ReferenceResolution to a resolver_source string.
 
-    Resolver source mapping (Phase 5k: comparison-specific values preserved):
+    Resolver source mapping (Phase 5k: comparison-specific values preserved;
+    Phase 7f: transfer_followup added; Phase 8d-i: fixture_run_followup added;
+    Phase 8d-ii: differential_followup added):
     - "comparison_followup"     -> "comparison_followup"      (Phase 5c det. comparison rewrite)
     - "comparison_followup_llm" -> "comparison_followup_llm"  (Phase 5f LLM comparison rewrite)
+    - "transfer_followup"       -> "transfer_followup"        (Phase 7f det. transfer rewrite)
+    - "fixture_run_followup"    -> "fixture_run_followup"     (Phase 8d-i det. fixture run rewrite)
+    - "differential_followup"   -> "differential_followup"    (Phase 8d-ii det. differential rewrite)
     - "deterministic"           -> "fallback_regex"            (Phase 4e pronoun regex)
     - "none" (confidence 0.0)   -> "none"                     (no resolver ran)
     - any LLM source            -> "llm"                      (Phase 4f LLM resolution)
@@ -421,6 +892,12 @@ def _map_resolver_source(resolution) -> str:
         return "comparison_followup"
     if src == "comparison_followup_llm":
         return "comparison_followup_llm"
+    if src == "transfer_followup":          # Phase 7f
+        return "transfer_followup"
+    if src == "fixture_run_followup":       # Phase 8d-i
+        return "fixture_run_followup"
+    if src == "differential_followup":      # Phase 8d-ii
+        return "differential_followup"
     if src == "deterministic":
         return "fallback_regex"
     if src == "none" and resolution.confidence == 0.0:
@@ -549,25 +1026,67 @@ class ConversationSession:
                 fallback_reason=None,
             )
         else:
-            # Phase 5f: LLM comparison follow-up (Spanish/ellipsis, requires client)
-            llm_comp: ReferenceResolution | None = None
-            if self.state.last_comparison and resolver_client is not None:
-                llm_comp = resolve_comparison_followup_llm(
-                    question, self.state, client=resolver_client
+            # Phase 7f: deterministic transfer follow-up (no client needed)
+            xfer_rewritten = resolve_transfer_followup(question, self.state)
+            if xfer_rewritten is not None:
+                rewritten = xfer_rewritten
+                resolution = ReferenceResolution(
+                    resolved_query=None,
+                    intent_guess=INTENT_TRANSFER_ADVICE,
+                    reference_source="transfer_followup",
+                    confidence=1.0,
+                    language="en",
+                    rewritten_question=xfer_rewritten,
+                    fallback_reason=None,
                 )
-
-            if llm_comp is not None and llm_comp.confidence >= _CONFIDENCE_THRESHOLD:
-                rewritten = llm_comp.rewritten_question
-                resolution = llm_comp
             else:
-                # Phase 4f: general reference resolver (single-player / pronoun / Spanish)
-                resolution = resolve_reference(
-                    question,
-                    self.state,
-                    client=resolver_client,
-                    history=self.state.history if self.state.history else None,
-                )
-                rewritten = resolution.rewritten_question
+                # Phase 8d-i: deterministic fixture run follow-up (no client needed)
+                fixture_rewritten = resolve_fixture_run_followup(question, self.state)
+                if fixture_rewritten is not None:
+                    rewritten = fixture_rewritten
+                    resolution = ReferenceResolution(
+                        resolved_query=None,
+                        intent_guess=INTENT_PLAYER_FIXTURE_RUN,
+                        reference_source="fixture_run_followup",
+                        confidence=1.0,
+                        language="en",
+                        rewritten_question=fixture_rewritten,
+                        fallback_reason=None,
+                    )
+                else:
+                    # Phase 8d-ii: deterministic differential follow-up (no client needed)
+                    diff_rewritten = resolve_differential_followup(question, self.state)
+                    if diff_rewritten is not None:
+                        rewritten = diff_rewritten
+                        resolution = ReferenceResolution(
+                            resolved_query=None,
+                            intent_guess=INTENT_CAPTAIN_SCORE,
+                            reference_source="differential_followup",
+                            confidence=1.0,
+                            language="en",
+                            rewritten_question=diff_rewritten,
+                            fallback_reason=None,
+                        )
+                    else:
+                        # Phase 5f: LLM comparison follow-up (Spanish/ellipsis, requires client)
+                        llm_comp: ReferenceResolution | None = None
+                        if self.state.last_comparison and resolver_client is not None:
+                            llm_comp = resolve_comparison_followup_llm(
+                                question, self.state, client=resolver_client
+                            )
+
+                        if llm_comp is not None and llm_comp.confidence >= _CONFIDENCE_THRESHOLD:
+                            rewritten = llm_comp.rewritten_question
+                            resolution = llm_comp
+                        else:
+                            # Phase 4f: general reference resolver (single-player / pronoun / Spanish)
+                            resolution = resolve_reference(
+                                question,
+                                self.state,
+                                client=resolver_client,
+                                history=self.state.history if self.state.history else None,
+                            )
+                            rewritten = resolution.rewritten_question
 
         # Compute resolver_source for state tracking (Phase 5l — always, not debug-only)
         _resolver_src = _map_resolver_source(resolution)
@@ -577,10 +1096,14 @@ class ConversationSession:
         if include_debug:
             _resolver_debug = _make_resolver_debug(resolution, question, rewritten)
 
-        # Extract player_query and comparison_queries for state tracking
+        # Extract player_query, comparison_queries, transfer_queries, fixture_run_query,
+        # and differential_turn for state tracking
         route_result = route(rewritten)
         player_query: str | None = None
         comparison_queries: tuple[str, str] | None = None
+        transfer_queries: tuple[str, str] | None = None
+        fixture_run_query: str | None = None
+        differential_turn: bool = False
         if route_result is not None:
             player_query = route_result.tool_args.get("query") or None
             if route_result.tool_name == "compare_players":
@@ -588,12 +1111,26 @@ class ConversationSession:
                 qb = route_result.tool_args.get("query_b", "")
                 if qa and qb:
                     comparison_queries = (qa, qb)
+            if route_result.tool_name == "get_transfer_advice":
+                qout = route_result.tool_args.get("query_out", "")
+                qin  = route_result.tool_args.get("query_in", "")
+                if qout and qin:
+                    transfer_queries = (qout, qin)
+            if route_result.tool_name == "get_player_fixture_run":  # Phase 8d-i
+                fq = route_result.tool_args.get("query", "")
+                if fq:
+                    fixture_run_query = fq
+            if route_result.tool_name == "get_differential_picks":  # Phase 8d-ii
+                differential_turn = True
 
         response = _respond(rewritten, bootstrap, **kwargs, _resolver_debug=_resolver_debug)
         self.state.update_from_response(
             response, player_query, question_text=rewritten,
             comparison_queries=comparison_queries,
-            resolver_source=_resolver_src,   # Phase 5l
+            transfer_queries=transfer_queries,    # Phase 7f
+            fixture_run_query=fixture_run_query,  # Phase 8d-i
+            differential_turn=differential_turn,  # Phase 8d-ii
+            resolver_source=_resolver_src,        # Phase 5l
         )
         return response
 

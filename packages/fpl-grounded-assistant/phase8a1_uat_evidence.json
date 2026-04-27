@@ -1,0 +1,291 @@
+{
+  "gameweek": 31,
+  "player_count": 825,
+  "cases": [
+    {
+      "prompt": "compare Raya and B.Fernandes",
+      "outcome": "ok",
+      "intent": "compare_players",
+      "text_snippet": "B.Fernandes (75.15) edges Raya (63.56) \u2014 clear margin (11.59).  Advantages: stronger form (11.0 vs 5.7); higher xGI output; set-piece advantage (pen).",
+      "player_a": {
+        "web_name": "Raya",
+        "position": "GKP",
+        "captain_score": 50.82,
+        "position_score": 63.56,
+        "drift": 12.74,
+        "drift_pct": 25.1
+      },
+      "player_b": {
+        "web_name": "B.Fernandes",
+        "position": "MID",
+        "captain_score": 75.15,
+        "position_score": 75.15,
+        "drift": 0.0,
+        "drift_pct": 0.0
+      },
+      "case": "GKP_comparison",
+      "gkp_drift_assessment": "positive"
+    },
+    {
+      "prompt": "compare Truffert and B.Fernandes",
+      "outcome": "ok",
+      "intent": "compare_players",
+      "text_snippet": "B.Fernandes (75.15) edges Truffert (52.7) \u2014 clear margin (22.45).  Advantages: stronger form (11.0 vs 6.8); easier fixture (FDR 3 vs 4); higher xGI output.",
+      "player_a": {
+        "web_name": "Truffert",
+        "position": "DEF",
+        "captain_score": 50.14,
+        "position_score": 52.7,
+        "drift": 2.56,
+        "drift_pct": 5.1
+      },
+      "player_b": {
+        "web_name": "B.Fernandes",
+        "position": "MID",
+        "captain_score": 75.15,
+        "position_score": 75.15,
+        "drift": 0.0,
+        "drift_pct": 0.0
+      },
+      "case": "DEF_comparison",
+      "def_drift_assessment": "positive"
+    },
+    {
+      "prompt": "should I sell Senesi for Truffert",
+      "outcome": "ok",
+      "intent": "transfer_advice",
+      "text_snippet": "Recommendation: Hold Senesi. Score: 53 vs Truffert's 53 (-0.2).",
+      "transfer": {
+        "player_out": "Senesi",
+        "player_in": "Truffert",
+        "recommendation": "hold",
+        "score_delta": -0.19,
+        "price_delta": -4
+      },
+      "case": "DEF_transfer"
+    },
+    {
+      "prompt": "compare B.Fernandes and J.Gomes",
+      "outcome": "ok",
+      "intent": "compare_players",
+      "text_snippet": "B.Fernandes (75.15) edges J.Gomes (61.18) \u2014 clear margin (13.97).  Advantages: stronger form (11.0 vs 8.0); higher xGI output; set-piece advantage (pen vs fk).",
+      "player_a": {
+        "web_name": "B.Fernandes",
+        "position": "MID",
+        "captain_score": 75.15,
+        "position_score": 75.15,
+        "drift": 0.0,
+        "drift_pct": 0.0
+      },
+      "player_b": {
+        "web_name": "J.Gomes",
+        "position": "MID",
+        "captain_score": 61.18,
+        "position_score": 61.18,
+        "drift": 0.0,
+        "drift_pct": 0.0
+      },
+      "case": "MID_control"
+    },
+    {
+      "prompt": "compare Beto and B.Fernandes",
+      "outcome": "ok",
+      "intent": "compare_players",
+      "text_snippet": "B.Fernandes (75.15) edges Beto (56.35) \u2014 clear margin (18.8).  Advantages: stronger form (11.0 vs 7.2); easier fixture (FDR 3 vs 4); higher xGI output.",
+      "player_a": {
+        "web_name": "Beto",
+        "position": "FWD",
+        "captain_score": 56.35,
+        "position_score": 56.35,
+        "drift": 0.0,
+        "drift_pct": 0.0
+      },
+      "player_b": {
+        "web_name": "B.Fernandes",
+        "position": "MID",
+        "captain_score": 75.15,
+        "position_score": 75.15,
+        "drift": 0.0,
+        "drift_pct": 0.0
+      },
+      "case": "FWD_control"
+    },
+    {
+      "case": "differential_overpromotion",
+      "picks": [
+        {
+          "rank": 1,
+          "web_name": "Ellborg",
+          "position": "GKP",
+          "captain_score": 44.07,
+          "position_score": 64.71,
+          "ownership": 0.1
+        },
+        {
+          "rank": 2,
+          "web_name": "Hermansen",
+          "position": "GKP",
+          "captain_score": 42.01,
+          "position_score": 64.3,
+          "ownership": 0.5
+        },
+        {
+          "rank": 3,
+          "web_name": "Gordon",
+          "position": "MID",
+          "captain_score": 64.29,
+          "position_score": 64.29,
+          "ownership": 7.3
+        },
+        {
+          "rank": 4,
+          "web_name": "Benitez",
+          "position": "GKP",
+          "captain_score": 37.2,
+          "position_score": 62.65,
+          "ownership": 0.3
+        },
+        {
+          "rank": 5,
+          "web_name": "Canvot",
+          "position": "DEF",
+          "captain_score": 50.51,
+          "position_score": 61.88,
+          "ownership": 0.1
+        }
+      ],
+      "position_counts": {
+        "GKP": 3,
+        "DEF": 1,
+        "MID": 1,
+        "FWD": 0
+      },
+      "gkp_def_in_top": 4
+    },
+    {
+      "prompt": "compare Raya and Beto",
+      "outcome": "ok",
+      "intent": "compare_players",
+      "text_snippet": "Raya (63.56) edges Beto (56.35) \u2014 moderate margin (7.21).  Advantages: easier fixture (FDR 3 vs 4).",
+      "player_a": {
+        "web_name": "Raya",
+        "position": "GKP",
+        "captain_score": 50.82,
+        "position_score": 63.56,
+        "drift": 12.74,
+        "drift_pct": 25.1
+      },
+      "player_b": {
+        "web_name": "Beto",
+        "position": "FWD",
+        "captain_score": 56.35,
+        "position_score": 56.35,
+        "drift": 0.0,
+        "drift_pct": 0.0
+      },
+      "case": "GKP_vs_FWD"
+    },
+    {
+      "case": "component_inspection",
+      "player_a": {
+        "web_name": "Raya",
+        "score_inputs": {
+          "form": 5.7,
+          "fixture_difficulty": 3,
+          "xgi_per_90": 0.001935,
+          "minutes_risk": 0.0,
+          "saves_per_90": 1.61,
+          "clean_sheets_per_90": 0.48,
+          "dc_per_90": 0.0,
+          "position_score": 63.56,
+          "position_profile": "GKP",
+          "components": {
+            "form_score": 57.0,
+            "fixture_score": 60.0,
+            "xgi_score": 0.0968,
+            "minutes_score": 100.0,
+            "saves_score": 40.25,
+            "cs_score": 96.0,
+            "dc_score": 0.0
+          },
+          "weights": {
+            "form": 0.3,
+            "fixture": 0.2,
+            "xgi": 0.0,
+            "minutes": 0.1,
+            "saves": 0.25,
+            "clean_sheet": 0.15,
+            "dc": 0.0
+          }
+        }
+      },
+      "player_b": {
+        "web_name": "B.Fernandes",
+        "score_inputs": {
+          "form": 11.0,
+          "fixture_difficulty": 3,
+          "xgi_per_90": 0.715195,
+          "minutes_risk": 0.0,
+          "saves_per_90": 0.0,
+          "clean_sheets_per_90": 0.15,
+          "dc_per_90": 8.94,
+          "position_score": 75.15,
+          "position_profile": "MID",
+          "components": {
+            "form_score": 100.0,
+            "fixture_score": 60.0,
+            "xgi_score": 35.7598,
+            "minutes_score": 100.0,
+            "saves_score": 0.0,
+            "cs_score": 30.0,
+            "dc_score": 74.5
+          },
+          "weights": {
+            "form": 0.4,
+            "fixture": 0.3,
+            "xgi": 0.2,
+            "minutes": 0.1,
+            "saves": 0.0,
+            "clean_sheet": 0.0,
+            "dc": 0.0
+          }
+        }
+      }
+    },
+    {
+      "case": "cross_surface_parity",
+      "prompt": "compare B.Fernandes and Beto",
+      "cli": {
+        "web_name": "B.Fernandes",
+        "position_score": 75.15,
+        "captain_score": 75.15
+      },
+      "http": {
+        "web_name": "B.Fernandes",
+        "position": "MID",
+        "captain_score": 75.15,
+        "position_score": 75.15,
+        "role_bonus": 8.0,
+        "set_piece_notes": [
+          "penalty_taker_1",
+          "freekick_taker_1"
+        ]
+      },
+      "session": {
+        "web_name": "B.Fernandes",
+        "position": "MID",
+        "captain_score": 75.15,
+        "position_score": 75.15,
+        "role_bonus": 8.0,
+        "set_piece_notes": [
+          "penalty_taker_1",
+          "freekick_taker_1"
+        ]
+      },
+      "parity_ok": true
+    }
+  ],
+  "issues": [
+    "differential_overpromotion: 4 GKP/DEF in top differentials"
+  ]
+}

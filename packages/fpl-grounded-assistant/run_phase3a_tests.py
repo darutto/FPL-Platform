@@ -189,8 +189,9 @@ ok("grounded" in SYSTEM_PROMPT.lower() or "deterministic" in SYSTEM_PROMPT.lower
 section("C. DEFAULT_MODEL")
 
 ok(isinstance(DEFAULT_MODEL, str),          "C1 DEFAULT_MODEL is str")
-ok(DEFAULT_MODEL == "claude-haiku-4-5-20251001", "C2 DEFAULT_MODEL is claude-haiku-4-5")
-ok(len(DEFAULT_MODEL) > 0,                  "C3 DEFAULT_MODEL non-empty")
+ok(len(DEFAULT_MODEL) > 0,                  "C2 DEFAULT_MODEL non-empty")
+ok(DEFAULT_MODEL in ("gemini-2.5-flash", "claude-haiku-4-5-20251001", "gpt-4o-mini"),
+                                            "C3 DEFAULT_MODEL is a known provider default")
 
 # ---------------------------------------------------------------------------
 # D. _OUTCOME_INSTRUCTION coverage

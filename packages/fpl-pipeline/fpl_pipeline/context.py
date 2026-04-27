@@ -12,8 +12,9 @@ Design principles
 * Every network-calling step is injectable (``bootstrap`` and ``fixtures``
   parameters) so the function is fully testable without network access.
 * The returned dict is self-documenting via the ``meta`` sub-dict.
-* The returned ``bootstrap`` has ``fixture_difficulty_map`` pre-injected so
-  it can be passed directly to ``harness.ask()`` without further setup.
+* The returned ``bootstrap`` has ``fixture_difficulty_map`` and
+    ``team_fixtures`` pre-injected so it can be passed directly to
+    ``harness.ask()`` without further setup.
 
 Network calls made (when not injected)
 ---------------------------------------
@@ -31,6 +32,13 @@ Teams with no fixture in the resolved GW are absent from ``fixture_difficulty_ma
 They appear in ``meta["blank_gw_teams"]`` as a sorted list of team IDs.
 The tool-contract layer will return a ``missing_argument`` error for these
 teams unless the caller provides an explicit ``fixture_difficulty`` override.
+
+Fixture-run support
+-------------------
+The assembled bootstrap also carries ``team_fixtures`` — per-team upcoming
+fixture schedules built from the live fixtures endpoint from the resolved
+gameweek onward. This supports ``player_fixture_run`` through the same live
+bootstrap path used by CLI, REPL, and HTTP callers.
 """
 
 from __future__ import annotations
@@ -45,6 +53,79 @@ from fpl_api_client import (
     get_fixtures,
     get_teams,
 )
+
+
+def _remaining_gameweeks(bootstrap: dict[str, Any], start_gw: int) -> list[int]:
+    """Return sorted event ids from *start_gw* onward.
+
+    Uses the bootstrap ``events`` list and keeps the current as well as future
+    gameweeks. Finished past gameweeks are excluded.
+    """
+    remaining: list[int] = []
+    for event in bootstrap.get("events", []):
+        event_id = event.get("id")
+        if event_id is None:
+            continue
+        gw = int(event_id)
+        if gw < start_gw:
+            continue
+        if event.get("finished"):
+            continue
+        remaining.append(gw)
+    if start_gw not in remaining:
+        remaining.insert(0, start_gw)
+    return sorted(set(remaining))
+
+
+def _build_team_fixtures(
+    fixture_batches: dict[int, list[dict[str, Any]]],
+    bootstrap: dict[str, Any],
+) -> dict[int, list[dict[str, Any]]]:
+    """Build ``team_fixtures`` from per-GW fixture batches.
+
+    Each team entry contains upcoming fixtures as dicts with keys:
+    ``gameweek``, ``opponent_team``, ``is_home``, ``difficulty``.
+    """
+    strength_by_id: dict[int, int] = {
+        int(team["id"]): int(team.get("strength", 3))
+        for team in bootstrap.get("teams", [])
+    }
+    team_fixtures: dict[int, list[dict[str, Any]]] = {}
+
+    for fallback_gw, fixtures in fixture_batches.items():
+        for fixture in fixtures:
+            home_id = fixture.get("team_h")
+            away_id = fixture.get("team_a")
+            if home_id is None or away_id is None:
+                continue
+
+            gameweek_raw = fixture.get("event", fallback_gw)
+            if gameweek_raw is None:
+                continue
+            gameweek = int(gameweek_raw)
+
+            home_id = int(home_id)
+            away_id = int(away_id)
+            home_diff = int(fixture.get("team_h_difficulty", strength_by_id.get(away_id, 3)))
+            away_diff = int(fixture.get("team_a_difficulty", strength_by_id.get(home_id, 3)))
+
+            team_fixtures.setdefault(home_id, []).append({
+                "gameweek": gameweek,
+                "opponent_team": away_id,
+                "is_home": True,
+                "difficulty": home_diff,
+            })
+            team_fixtures.setdefault(away_id, []).append({
+                "gameweek": gameweek,
+                "opponent_team": home_id,
+                "is_home": False,
+                "difficulty": away_diff,
+            })
+
+    for fixture_list in team_fixtures.values():
+        fixture_list.sort(key=lambda fx: (int(fx["gameweek"]), int(fx["opponent_team"])))
+
+    return team_fixtures
 
 
 def assemble_captain_context(
@@ -77,8 +158,9 @@ def assemble_captain_context(
     dict with the following keys:
 
     ``bootstrap``
-        The FPL bootstrap dict with ``fixture_difficulty_map`` injected.
-        Pass this directly to ``harness.ask()`` — no further setup needed.
+        The FPL bootstrap dict with ``fixture_difficulty_map`` and
+        ``team_fixtures`` injected. Pass this directly to ``harness.ask()``
+        — no further setup needed.
 
     ``gameweek``
         Resolved gameweek number (``int``) or ``None`` if the season has
@@ -150,12 +232,21 @@ def assemble_captain_context(
     # ------------------------------------------------------------------
     # 3. Fixtures
     # ------------------------------------------------------------------
+    fixture_batches: dict[int, list[dict[str, Any]]] = {}
     if fixtures is None:
         fetched_fixtures: list[dict[str, Any]] = []
         if gw is not None:
             fetched_fixtures = get_fixtures(gw)
+            fixture_batches[gw] = fetched_fixtures
+
+            for future_gw in _remaining_gameweeks(bootstrap, gw):
+                if future_gw == gw:
+                    continue
+                fixture_batches[future_gw] = get_fixtures(future_gw)
     else:
         fetched_fixtures = fixtures
+        if gw is not None:
+            fixture_batches[gw] = fetched_fixtures
 
     # ------------------------------------------------------------------
     # 4. Fixture difficulty map  (pure computation — no network)
@@ -176,6 +267,7 @@ def assemble_captain_context(
     # 6. Inject map into bootstrap  (in-place; caller's copy is updated)
     # ------------------------------------------------------------------
     bootstrap["fixture_difficulty_map"] = fdr_map
+    bootstrap["team_fixtures"] = _build_team_fixtures(fixture_batches, bootstrap)
 
     # ------------------------------------------------------------------
     # 7. Build meta

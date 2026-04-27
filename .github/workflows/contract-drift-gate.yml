@@ -1,0 +1,110 @@
+# contract-drift-gate.yml
+# ========================
+# Deterministic contract/fixture drift checker for fpl-grounded-assistant.
+#
+# Runs on every push to main and on every PR targeting main.
+# Fails fast if FINAL_RESPONSE_CONTRACT.md and http_contract_fixtures.json
+# diverge from the invariants enforced by the Orch-4f checker, or if any
+# of the immediate contract regressions (Orch-4e/4d/4c) break.
+#
+# No API key is required. All runners:
+#   - disable orchestration (FPL_ORCH_ENABLED is unset by each runner)
+#   - mock LLM calls where needed
+#   - are deterministic and side-effect-free
+#
+# See packages/fpl-grounded-assistant/CONTRACT_GATE.md for the full
+# maintainer guide: what this catches, how to run locally, and when to
+# update the contract checkers alongside doc/fixture edits.
+
+name: Contract Drift Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  contract-drift-gate:
+    name: Contract and fixture drift check
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: packages/fpl-grounded-assistant
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: "pip"
+          cache-dependency-path: packages/fpl-grounded-assistant/requirements.txt
+
+      - name: Install dependencies
+        run: pip install --no-cache-dir -r requirements.txt
+
+      # -----------------------------------------------------------------------
+      # Step 1: Orch-4i — gate scope parity checker (runs first)
+      # Verifies that this CI workflow and scripts/run_contract_gate.sh
+      # enumerate exactly the same runner files in exactly the same order.
+      # Catches process drift before any semantic runner runs.
+      # -----------------------------------------------------------------------
+      - name: Orch-4i — gate scope parity checker
+        run: python run_phase_orch4i_tests.py
+
+      # -----------------------------------------------------------------------
+      # Step 2: Orch-4f — pure doc/fixture drift checker (no runtime imports)
+      # Verifies cross-file consistency between FINAL_RESPONSE_CONTRACT.md and
+      # http_contract_fixtures.json. Fails if stable field sets, orch_outcome
+      # semantics, override order, independence invariants, or deferred notes
+      # diverge between the two files.
+      # -----------------------------------------------------------------------
+      - name: Orch-4f — contract/fixture drift checker
+        run: python run_phase_orch4f_tests.py
+
+      # -----------------------------------------------------------------------
+      # Step 3: Orch-4e — orch_outcome contract parity at runtime
+      # Validates that FinalResponse.orch_outcome behaves as documented:
+      # None when orch not attempted, "ok" on success, non-OK strings on
+      # fallback. Includes override ordering and depth-bypass proofs.
+      # -----------------------------------------------------------------------
+      - name: Orch-4e — orch_outcome contract parity
+        run: python run_phase_orch4e_tests.py
+
+      # -----------------------------------------------------------------------
+      # Step 4: Orch-4d — squad_context override parity
+      # Verifies that _apply_squad_overrides is the single source of truth for
+      # budget_constraint, hit_warning, and chip_unavailable on both the
+      # deterministic and orch-success paths.
+      # -----------------------------------------------------------------------
+      - name: Orch-4d — squad_context override parity
+        run: python run_phase_orch4d_tests.py
+
+      # -----------------------------------------------------------------------
+      # Step 5: Orch-4c — orchestration audit parity
+      # Verifies that all 6 non-OK orch outcomes are recorded correctly and
+      # serialized consistently across CLI, HTTP, and session surfaces.
+      # -----------------------------------------------------------------------
+      - name: Orch-4c — orchestration audit parity
+        run: python run_phase_orch4c_tests.py
+
+      # -----------------------------------------------------------------------
+      # Step 6: Orch-4a — orchestration enable/disable flag parity
+      # Verifies that FPL_ORCH_ENABLED correctly gates orchestration on/off,
+      # that the deterministic path is unaffected, and that provider/model
+      # constants are stable.
+      # -----------------------------------------------------------------------
+      - name: Orch-4a — orchestration enable/disable flag parity
+        run: python run_phase_orch4a_tests.py
+
+      # -----------------------------------------------------------------------
+      # Step 7: Orch-4b — orch_outcome serialization parity
+      # Verifies that orch_outcome values serialize consistently across CLI,
+      # HTTP, and session surfaces for all supported intents and outcomes.
+      # -----------------------------------------------------------------------
+      - name: Orch-4b — orch_outcome serialization parity
+        run: python run_phase_orch4b_tests.py

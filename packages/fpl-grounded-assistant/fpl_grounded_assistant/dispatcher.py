@@ -57,10 +57,11 @@ changes explicitly in later slices.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from .harness import ask
+from .intent_classifier import classify_intent_llm
 from .router import route
 
 
@@ -73,8 +74,13 @@ INTENT_RANK_CANDIDATES:  str = "rank_candidates"
 INTENT_CURRENT_GAMEWEEK: str = "current_gameweek"
 INTENT_PLAYER_SUMMARY:   str = "player_summary"
 INTENT_PLAYER_RESOLVE:   str = "player_resolve"
-INTENT_COMPARE_PLAYERS:  str = "compare_players"   # Phase 5a
-INTENT_UNSUPPORTED:      str = "unsupported"
+INTENT_COMPARE_PLAYERS:       str = "compare_players"       # Phase 5a
+INTENT_TRANSFER_ADVICE:       str = "transfer_advice"       # Phase 6a
+INTENT_CHIP_ADVICE:           str = "chip_advice"           # Phase 6b
+INTENT_MULTI_INTENT:          str = "multi_intent"          # Phase 6c
+INTENT_PLAYER_FIXTURE_RUN:    str = "player_fixture_run"    # Phase 7h
+INTENT_DIFFERENTIAL_PICKS:    str = "differential_picks"    # Phase 7g
+INTENT_UNSUPPORTED:           str = "unsupported"
 
 SUPPORTED_INTENTS: frozenset[str] = frozenset({
     INTENT_CAPTAIN_SCORE,
@@ -83,7 +89,39 @@ SUPPORTED_INTENTS: frozenset[str] = frozenset({
     INTENT_PLAYER_SUMMARY,
     INTENT_PLAYER_RESOLVE,
     INTENT_COMPARE_PLAYERS,
+    INTENT_TRANSFER_ADVICE,
+    INTENT_CHIP_ADVICE,            # Phase 6b
+    INTENT_PLAYER_FIXTURE_RUN,     # Phase 7h
+    INTENT_DIFFERENTIAL_PICKS,     # Phase 7g
 })
+
+
+# ---------------------------------------------------------------------------
+# Intent hint support  (V2 slash-command routing bias)
+#
+# _HINT_CANONICAL_TEMPLATES maps each hintable intent to a canonical question
+# template.  Templates with ``{question}`` substitute the stripped user
+# question.  Templates without ``{question}`` are fixed (self-contained intents
+# that need no player extraction).
+#
+# The allowlist is intentionally narrower than SUPPORTED_INTENTS: only the
+# six V2 slash-command targets are included.  ``current_gameweek``,
+# ``player_summary``, and ``player_resolve`` are excluded because they are
+# either trivially routable already or not targeted by slash commands.
+# ---------------------------------------------------------------------------
+
+_HINT_CANONICAL_TEMPLATES: dict[str, str] = {
+    INTENT_CAPTAIN_SCORE:      "should I captain {question}",
+    INTENT_RANK_CANDIDATES:    "top captains this week",
+    INTENT_COMPARE_PLAYERS:    "compare {question}",
+    INTENT_TRANSFER_ADVICE:    "sell {question}",
+    INTENT_CHIP_ADVICE:        "should I use {question} this week",
+    INTENT_PLAYER_FIXTURE_RUN: "{question} fixtures",
+    INTENT_DIFFERENTIAL_PICKS: "differentials",
+}
+
+# Derived from template keys — the only values accepted for intent_hint.
+INTENT_HINT_ALLOWLIST: frozenset[str] = frozenset(_HINT_CANONICAL_TEMPLATES)
 
 
 # ---------------------------------------------------------------------------
@@ -103,12 +141,16 @@ OUTCOME_ERROR:              str = "error"
 # ---------------------------------------------------------------------------
 
 _TOOL_TO_INTENT: dict[str, str] = {
-    "get_captain_score":       INTENT_CAPTAIN_SCORE,
-    "rank_captain_candidates": INTENT_RANK_CANDIDATES,
-    "get_current_gameweek":    INTENT_CURRENT_GAMEWEEK,
-    "get_player_summary":      INTENT_PLAYER_SUMMARY,
-    "resolve_player":          INTENT_PLAYER_RESOLVE,
-    "compare_players":         INTENT_COMPARE_PLAYERS,   # Phase 5a
+    "get_captain_score":          INTENT_CAPTAIN_SCORE,
+    "rank_captain_candidates":    INTENT_RANK_CANDIDATES,
+    "get_current_gameweek":       INTENT_CURRENT_GAMEWEEK,
+    "get_player_summary":         INTENT_PLAYER_SUMMARY,
+    "resolve_player":             INTENT_PLAYER_RESOLVE,
+    "compare_players":            INTENT_COMPARE_PLAYERS,         # Phase 5a
+    "get_transfer_advice":        INTENT_TRANSFER_ADVICE,         # Phase 6a
+    "get_chip_advice":            INTENT_CHIP_ADVICE,             # Phase 6b
+    "get_player_fixture_run":     INTENT_PLAYER_FIXTURE_RUN,      # Phase 7h
+    "get_differential_picks":     INTENT_DIFFERENTIAL_PICKS,      # Phase 7g
 }
 
 
@@ -181,7 +223,7 @@ INTENT_MANIFEST: dict[str, dict[str, Any]] = {
     },
     INTENT_COMPARE_PLAYERS: {
         "tool":                    "compare_players",
-        "description":             "Compare two players as captain candidates by grounded captain score",
+        "description":             "Compare two players by position-aware score (captain score + position heuristic)",
         "requires_player_query":   False,
         "requires_candidates_list": False,
         "example_phrasings": [
@@ -190,6 +232,63 @@ INTENT_MANIFEST: dict[str, dict[str, Any]] = {
             "who is better, Haaland or Salah",
             "compare Saka vs Salah",
             "who would you captain between Haaland and Salah",
+        ],
+    },
+    INTENT_TRANSFER_ADVICE: {                                  # Phase 6a
+        "tool":                    "get_transfer_advice",
+        "description":             "Deterministic transfer recommendation for selling one player and buying another",
+        "requires_player_query":   False,
+        "requires_candidates_list": False,
+        "example_phrasings": [
+            "should I sell Saka for Palmer",
+            "should I transfer out Bruno for Foden",
+            "sell Haaland for Salah",
+            "transfer out Saka for Palmer",
+            "swap Saka for Palmer",
+            "replace Bruno with Foden",
+        ],
+    },
+    INTENT_CHIP_ADVICE: {                                      # Phase 6b
+        "tool":                    "get_chip_advice",
+        "description":             "Deterministic chip advice for FPL chips (triple captain, wildcard, bench boost, free hit)",
+        "requires_player_query":   False,
+        "requires_candidates_list": False,
+        "example_phrasings": [
+            "should I use triple captain this week",
+            "should I wildcard this week",
+            "should I bench boost now",
+            "should I free hit this gameweek",
+            "is this a good week for bench boost",
+            "wildcard this week",
+        ],
+    },
+    INTENT_PLAYER_FIXTURE_RUN: {                               # Phase 7h
+        "tool":                    "get_player_fixture_run",
+        "description":             "Retrieve upcoming fixture run for a player (default 5 fixtures)",
+        "requires_player_query":   True,
+        "requires_candidates_list": False,
+        "example_phrasings": [
+            "Haaland fixtures",
+            "Salah next 5 games",
+            "upcoming fixtures for Palmer",
+            "fixtures for Saka",
+            "fixture run for De Bruyne",
+            "Haaland next games",
+        ],
+    },
+    INTENT_DIFFERENTIAL_PICKS: {                               # Phase 7g
+        "tool":                    "get_differential_picks",
+        "description":             "Return top differential FPL picks (ownership < 15%, ranked by position score)",
+        "requires_player_query":   False,
+        "requires_candidates_list": False,
+        "example_phrasings": [
+            "good differentials",
+            "differential options",
+            "low ownership picks",
+            "best differentials this week",
+            "differentials",
+            "show me differentials",
+            "low owned players",
         ],
     },
 }
@@ -202,13 +301,36 @@ INTENT_MANIFEST: dict[str, dict[str, Any]] = {
 _UNSUPPORTED_ANSWER = (
     "I couldn't match that question to a supported query. "
     "Supported questions include: captain score for a player, captain rankings, "
-    "player comparison, player summary, player lookup, and current gameweek."
+    "player comparison, transfer advice, chip advice, player fixture run, "
+    "differential picks, player summary, player lookup, and current gameweek."
 )
 
 _MISSING_CANDIDATES_ANSWER = (
     "Captain rankings require a candidates list. "
     "Please provide players to rank via the candidates_list parameter."
 )
+
+_AUTO_CANDIDATES_TOP_N = 10
+
+
+def _auto_candidates_from_bootstrap(
+    bootstrap: dict[str, Any],
+    top_n: int = _AUTO_CANDIDATES_TOP_N,
+) -> list[dict[str, Any]]:
+    """Return the top-N available players by form as a candidates list.
+
+    Used when ``rank_captain_candidates`` is triggered but no explicit
+    ``candidates_list`` is provided.  Selects available players only
+    (``status == 'a'``), sorted by form descending.  Each entry is a
+    minimal ``{"query": web_name}`` dict — scoring inputs are auto-derived
+    by the tool layer from the bootstrap element.
+    """
+    elements = [
+        e for e in bootstrap.get("elements", [])
+        if e.get("status") == "a" and e.get("web_name")
+    ]
+    elements.sort(key=lambda e: float(e.get("form", "0") or 0), reverse=True)
+    return [{"query": e["web_name"]} for e in elements[:top_n]]
 
 
 @dataclass(frozen=True)
@@ -239,19 +361,81 @@ class DispatchResult:
         Combines ``intent`` and ``raw_output["status"]`` so callers can
         distinguish unsupported intent / missing arguments / ambiguous player
         / not found / ok without inspecting two fields separately.
+    classification_source:
+        How intent was determined (Phase 4k).  ``None`` when deterministic
+        ``route()`` succeeded on the first attempt.  ``"llm_classifier"``
+        when the LLM classifier was used as a fallback and its
+        ``canonical_question`` was successfully re-routed.
     """
-    intent:        str
-    question:      str
-    selected_tool: str | None
-    raw_output:    dict[str, Any]
-    answer_text:   str
-    context_meta:  dict[str, Any] | None
-    outcome:       str  # Phase 2l: OUTCOME_* constant
+    intent:               str
+    question:             str
+    selected_tool:        str | None
+    raw_output:           dict[str, Any]
+    answer_text:          str
+    context_meta:         dict[str, Any] | None
+    outcome:              str   # Phase 2l: OUTCOME_* constant
+    classification_source: str | None = field(default=None)  # Phase 4k
 
 
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
+
+def _try_route_with_hint(
+    question: str,
+    intent_hint: str,
+) -> "tuple[RouteResult, str] | None":
+    """Attempt to route *question* biased toward *intent_hint*.
+
+    Returns ``(RouteResult, canonical_question)`` when the hint produces a
+    valid route, ``None`` otherwise.
+
+    The hint is applied only when:
+
+    * ``intent_hint`` is in ``INTENT_HINT_ALLOWLIST``.
+    * A canonical question can be synthesised (non-empty player for
+      player-requiring intents).
+    * ``route(canonical_question)`` succeeds.
+
+    For self-contained intents (``rank_candidates``, ``differential_picks``)
+    the canonical question is fixed and always routes.  For player-requiring
+    intents, the stripped user question is substituted into a template; if the
+    result is empty the hint is silently ignored.
+
+    Parameters
+    ----------
+    question:
+        The original user question (may be a bare player name, a partial
+        sentence, or a complete question that ``route()`` already handled).
+    intent_hint:
+        Caller-supplied intent label.  Any value outside
+        ``INTENT_HINT_ALLOWLIST`` returns ``None`` immediately.
+
+    Returns
+    -------
+    tuple[RouteResult, str] | None
+        ``(route_result, effective_question)`` on success so that ``dispatch()``
+        can pass the canonical form to ``ask()``.  ``None`` on any failure.
+    """
+    if intent_hint not in INTENT_HINT_ALLOWLIST:
+        return None
+
+    template = _HINT_CANONICAL_TEMPLATES[intent_hint]
+    uses_question = "{question}" in template
+
+    if uses_question:
+        q_strip = question.strip().rstrip("?!.")
+        if not q_strip:
+            return None
+        canonical = template.format(question=q_strip)
+    else:
+        canonical = template
+
+    rr = route(canonical)
+    if rr is None:
+        return None
+    return rr, canonical
+
 
 def _compute_outcome(intent: str, raw_output: dict[str, Any]) -> str:
     """Derive a unified ``OUTCOME_*`` label from ``intent`` + ``raw_output``."""
@@ -280,6 +464,8 @@ def dispatch(
     bootstrap: dict[str, Any],
     candidate_inputs: dict[str, Any] | None = None,
     candidates_list: list[dict[str, Any]] | None = None,
+    classifier_client: Any = None,
+    intent_hint: str | None = None,
 ) -> DispatchResult:
     """
     Model-facing dispatcher.  Accepts a natural-language question, routes it
@@ -340,6 +526,31 @@ def dispatch(
     """
     # Pre-check intent via deterministic router before executing any tool.
     route_result = route(question)
+    classification_source: str | None = None
+    # effective_question is what ask() will use; stays as original unless
+    # hint synthesis or Phase 4k classification rewrites it to a canonical form.
+    effective_question: str = question
+
+    # V2: intent_hint bias — fires ONLY when deterministic route() returns None.
+    # Applies a canonical-question template for the hinted intent; falls back
+    # silently when the hint is invalid, not in allowlist, or produces no route.
+    if route_result is None and intent_hint is not None:
+        _hint_result = _try_route_with_hint(question, intent_hint)
+        if _hint_result is not None:
+            route_result, effective_question = _hint_result
+            classification_source = "intent_hint"
+
+    # Phase 4k: LLM classification fallback — fires ONLY when route() returns None.
+    if route_result is None and classifier_client is not None:
+        classification = classify_intent_llm(question, classifier_client)
+        if classification is not None:
+            # Re-route the canonical question through the deterministic router.
+            # Player extraction still happens inside route() — not in the classifier.
+            route_result = route(classification.canonical_question)
+            if route_result is not None:
+                classification_source = "llm_classifier"
+                # Pass canonical question to ask() so its internal route() also succeeds.
+                effective_question = classification.canonical_question
 
     if route_result is None:
         return DispatchResult(
@@ -358,11 +569,24 @@ def dispatch(
 
     # Delegate to harness — inherits all context detection (Phase 2f) and
     # auto-derivation (Phase 2c/2d) logic.
+    # Use effective_question (canonical form when Phase 4k classification fired)
+    # so harness.ask()'s internal route() call also succeeds.
+
+    # Auto-populate candidates for ranking intent when none are provided.
+    # Users naturally ask "top captains this week" without specifying players;
+    # auto-select the top-N available players by form from the bootstrap.
+    effective_candidates = candidates_list
+    if (
+        route_result.tool_name == "rank_captain_candidates"
+        and not effective_candidates
+    ):
+        effective_candidates = _auto_candidates_from_bootstrap(bootstrap)
+
     result = ask(
-        question,
+        effective_question,
         bootstrap,
         candidate_inputs=candidate_inputs,
-        candidates_list=candidates_list,
+        candidates_list=effective_candidates,
     )
 
     raw_output = result["raw_output"]
@@ -383,4 +607,5 @@ def dispatch(
         answer_text=answer_text,
         context_meta=result.get("context_meta"),
         outcome=outcome,
+        classification_source=classification_source,
     )

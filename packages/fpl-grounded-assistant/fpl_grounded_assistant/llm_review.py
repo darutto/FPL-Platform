@@ -368,6 +368,8 @@ def ask_llm_safe(
     candidate_inputs: dict[str, Any] | None = None,
     candidates_list: list[dict[str, Any]] | None = None,
     api_key: str | None = None,
+    classifier_client: Any = None,
+    intent_hint: str | None = None,
 ) -> tuple["LLMResponse", ReviewResult]:
     """Run ``ask_llm()`` then immediately review the response.
 
@@ -409,6 +411,8 @@ def ask_llm_safe(
         candidate_inputs=candidate_inputs,
         candidates_list=candidates_list,
         api_key=api_key,
+        classifier_client=classifier_client,
+        intent_hint=intent_hint,
     )
     review = review_llm_response(llm_response)
     return llm_response, review

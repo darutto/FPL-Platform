@@ -176,6 +176,11 @@ _FIXTURES_GW28 = [
     {"team_h": 14, "team_a": 8,  "event": 28},   # Liverpool vs Chelsea
 ]
 
+_FIXTURES_GW29 = [
+   {"team_h": 13, "team_a": 14, "event": 29},   # Man City vs Liverpool
+   {"team_h": 11, "team_a": 1,  "event": 29},   # Man Utd vs Arsenal
+]
+
 _EXPECTED_FDR_MAP = {1: 5, 13: 4, 14: 4, 8: 5}
 
 # Bootstrap WITHOUT FDR map (base state before assembly)
@@ -204,11 +209,15 @@ print("Phase 2e — Context Assembly Pipeline")
 print("=" * 50)
 
 try:
-    from fpl_pipeline import assemble_captain_context
-    from fpl_pipeline.context import assemble_captain_context as _ctx_direct
-    from fpl_grounded_assistant import ask
-    from fpl_tool_contract.tools import tool_get_captain_score, tool_rank_captain_candidates
-    _imports_ok = True
+   from fpl_pipeline import assemble_captain_context
+   from fpl_pipeline.context import assemble_captain_context as _ctx_direct
+   import fpl_pipeline.context as _ctx_mod
+   from fpl_grounded_assistant import ask
+   from fpl_tool_contract.tools import (
+      tool_get_captain_score,
+      tool_rank_captain_candidates,
+   )
+   _imports_ok = True
 except Exception as e:
     _imports_ok = False
     print(f"  IMPORT ERROR: {e}")
@@ -333,6 +342,10 @@ ok("E3  bootstrap is same object as ctx['bootstrap']",
    _ctx_e["bootstrap"] is _bs_e)  # in-place mutation confirmed
 ok("E4  bootstrap['fixture_difficulty_map'] is injected after call",
    "fixture_difficulty_map" in _bs_e)
+ok("E5  team_fixtures injected into bootstrap",
+   "team_fixtures" in _ctx_e["bootstrap"])
+ok("E6  team_fixtures includes current-GW Arsenal entry",
+   _ctx_e["bootstrap"]["team_fixtures"][1][0]["opponent_team"] == 13)
 
 
 # ===========================================================================
@@ -399,14 +412,53 @@ ok("H10 assembled_at contains 'T' (ISO separator)",
 
 
 # ===========================================================================
+# Section H2 — team_fixtures: live upcoming schedule assembly
+# ===========================================================================
+_section("H2: team_fixtures assembled across upcoming GWs")
+
+_fixture_calls_h2: list[int] = []
+_orig_get_fixtures_h2 = _ctx_mod.get_fixtures
+
+def _mock_get_fixtures_h2(gw: int):
+    _fixture_calls_h2.append(gw)
+    if gw == 28:
+        return _FIXTURES_GW28
+    if gw == 29:
+        return _FIXTURES_GW29
+    return []
+
+_ctx_mod.get_fixtures = _mock_get_fixtures_h2
+
+_ctx_h2 = assemble_captain_context(
+    bootstrap=copy.deepcopy(_BOOTSTRAP_BASE),
+)
+
+_ctx_mod.get_fixtures = _orig_get_fixtures_h2
+
+_team_fx_h2 = _ctx_h2["bootstrap"].get("team_fixtures", {})
+ok("H2a fetched fixtures for GW28 and GW29",
+   _fixture_calls_h2 == [28, 29])
+ok("H2b team_fixtures is a dict",
+   isinstance(_team_fx_h2, dict))
+ok("H2c Liverpool has upcoming fixtures",
+   14 in _team_fx_h2 and len(_team_fx_h2[14]) >= 2)
+ok("H2d Liverpool GW28 fixture preserved",
+   _team_fx_h2[14][0]["gameweek"] == 28 and _team_fx_h2[14][0]["opponent_team"] == 8)
+ok("H2e Liverpool GW29 fixture added",
+   _team_fx_h2[14][1]["gameweek"] == 29 and _team_fx_h2[14][1]["opponent_team"] == 13)
+ok("H2f Man City home/away flags preserved",
+   _team_fx_h2[13][0]["is_home"] is False and _team_fx_h2[13][1]["is_home"] is True)
+ok("H2g Arsenal picks up future GW29 fixture",
+   any(fx["gameweek"] == 29 and fx["opponent_team"] == 11 for fx in _team_fx_h2[1]))
+
+
+# ===========================================================================
 # Section I — Pre-supplied fixtures (no network call needed)
 # ===========================================================================
 _section("I: Pre-supplied fixtures parameter")
 
 _call_count = {"get_fixtures": 0}
 _original_get_fixtures = None
-
-import fpl_pipeline.context as _ctx_mod
 _original_get_fixtures = _ctx_mod.get_fixtures
 
 def _mock_get_fixtures(gw):

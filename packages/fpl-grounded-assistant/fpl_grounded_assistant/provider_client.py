@@ -45,7 +45,9 @@ Design notes
 """
 from __future__ import annotations
 
+import inspect
 import os
+import threading
 import time
 import warnings
 from abc import ABC, abstractmethod
@@ -123,6 +125,18 @@ except ImportError:
     _genai_sdk = None  # type: ignore[assignment]
     _GEMINI_AVAILABLE = False
 
+# Mutable single-element list used as a module-level cache for the last API key
+# passed to _genai_sdk.configure().  Bounds the global side-effect to once per
+# unique key value.  Protected by _GEMINI_CONFIGURE_LOCK for thread safety.
+_LAST_GEMINI_CONFIGURED_KEY: list[str | None] = [None]
+_GEMINI_CONFIGURE_LOCK: threading.Lock = threading.Lock()
+
+# Process-lifetime cache for OpenAI timeout capability.
+# None = not yet determined; True = create() accepts timeout=; False = does not.
+# Protected by _OAI_TIMEOUT_CACHE_LOCK during the one-time probe.
+_OAI_TIMEOUT_SUPPORTED: list[bool | None] = [None]
+_OAI_TIMEOUT_CACHE_LOCK: threading.Lock = threading.Lock()
+
 
 # ---------------------------------------------------------------------------
 # Result types
@@ -158,7 +172,7 @@ class ProviderResult:
     """Unified result returned by every ``ProviderInterface.call()`` implementation.
 
     Contract: (model_name, system_prompt, user_message, max_tokens, timeout_s)
-    → (text, model, error_code, error_msg, attempts)
+    → (text, model, error_code, error_msg, attempts, latency_ms)
 
     Attributes
     ----------
@@ -172,6 +186,10 @@ class ProviderResult:
         Sanitised error description for logs (no secrets).  ``None`` on success.
     attempts:
         Total HTTP attempts made across all retries.
+    latency_ms:
+        Total wall-clock time for all attempts in milliseconds, measured with
+        ``time.perf_counter()``.  Includes retry wait time when retries occur.
+        Always >= 0.
     """
 
     text:       str | None
@@ -179,6 +197,7 @@ class ProviderResult:
     error_code: str | None
     error_msg:  str | None
     attempts:   int
+    latency_ms: float
 
 
 # ---------------------------------------------------------------------------
@@ -260,6 +279,82 @@ def _sanitize_error(exc: Exception) -> str:
     if len(msg) > 200:
         msg = msg[:200] + "…"
     return f"{exc_type}: {msg}"
+
+
+# ---------------------------------------------------------------------------
+# Provider-specific helpers
+# ---------------------------------------------------------------------------
+
+def _gemini_configure(api_key: str) -> None:
+    """Configure the genai SDK only when the API key has changed.
+
+    ``_genai_sdk.configure()`` mutates module-level state in the
+    ``google.generativeai`` package.  Calling it on every invocation is
+    wasteful and makes side-effects hard to reason about.  This helper
+    keeps a module-level cache of the last configured key and skips
+    ``configure()`` when the key is unchanged.
+
+    Thread safety: the check-and-set is protected by ``_GEMINI_CONFIGURE_LOCK``
+    so concurrent callers with different keys do not race.  The SDK's own
+    ``configure()`` is not thread-safe; this lock ensures we call it at most
+    once per unique key value.
+
+    Safe defaults:
+    * When ``_genai_sdk`` is None (SDK not installed) the call is a no-op.
+    """
+    if not _GEMINI_AVAILABLE or _genai_sdk is None:
+        return
+    with _GEMINI_CONFIGURE_LOCK:
+        if _LAST_GEMINI_CONFIGURED_KEY[0] != api_key:
+            _genai_sdk.configure(api_key=api_key)
+            _LAST_GEMINI_CONFIGURED_KEY[0] = api_key
+
+
+def _probe_oai_timeout_support(create_fn: Any) -> bool:
+    """Determine via signature inspection whether *create_fn* accepts ``timeout=``.
+
+    Uses :func:`inspect.signature` — deterministic, no exception-message
+    inspection, no network calls.
+
+    Returns ``True`` when:
+
+    * ``"timeout"`` is an explicit named parameter in the signature, **or**
+    * the function declares ``**kwargs`` (conservative: assumes it handles
+      any keyword, including ``timeout``).
+
+    Returns ``False`` only when ``"timeout"`` is definitively absent **and**
+    no ``**kwargs`` catch-all exists.  For functions with ``**kwargs`` that
+    actually reject ``timeout`` at runtime, the runtime branch in
+    ``_call_with_oai_compat_timeout`` catches the resulting ``TypeError``
+    and updates the cache to ``False``.
+
+    Falls back to ``True`` on any introspection error (conservative).
+    """
+    try:
+        sig = inspect.signature(create_fn)
+    except (ValueError, TypeError):
+        return True  # conservative: assume supported
+    params = sig.parameters
+    if "timeout" in params:
+        return True
+    return any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values())
+
+
+def _get_oai_timeout_support(create_fn: Any) -> bool:
+    """Return cached OpenAI timeout capability; run probe on first call (thread-safe).
+
+    A single result is cached for the process lifetime.  All OpenAI clients
+    within the same process share the same installed SDK version, so probing
+    once is sufficient.  The cache is protected by ``_OAI_TIMEOUT_CACHE_LOCK``
+    to prevent races on the first call.
+    """
+    # Lock-free fast path — the common case after the first call.
+    if _OAI_TIMEOUT_SUPPORTED[0] is not None:
+        return _OAI_TIMEOUT_SUPPORTED[0]  # type: ignore[return-value]
+    with _OAI_TIMEOUT_CACHE_LOCK:
+        if _OAI_TIMEOUT_SUPPORTED[0] is None:
+            _OAI_TIMEOUT_SUPPORTED[0] = _probe_oai_timeout_support(create_fn)
+        return _OAI_TIMEOUT_SUPPORTED[0]  # type: ignore[return-value]
 
 
 # ---------------------------------------------------------------------------
@@ -438,7 +533,10 @@ class AnthropicProvider(ProviderInterface):
                     timeout=timeout_s,
                 )
 
+        _t0 = time.perf_counter()
         raw = call_provider_request(_request_fn, max_retries=max_retries, _sleep_fn=_sleep_fn)
+        _latency_ms = (time.perf_counter() - _t0) * 1000.0
+
         if not raw.success:
             return ProviderResult(
                 text=None,
@@ -446,6 +544,7 @@ class AnthropicProvider(ProviderInterface):
                 error_code=raw.error_code,
                 error_msg=raw.error_msg,
                 attempts=raw.attempts,
+                latency_ms=_latency_ms,
             )
         try:
             text = raw.response.content[0].text.strip()
@@ -456,6 +555,7 @@ class AnthropicProvider(ProviderInterface):
                 error_code=PERR_PROVIDER,
                 error_msg="invalid Anthropic response shape",
                 attempts=raw.attempts,
+                latency_ms=_latency_ms,
             )
         return ProviderResult(
             text=text,
@@ -463,6 +563,7 @@ class AnthropicProvider(ProviderInterface):
             error_code=None,
             error_msg=None,
             attempts=raw.attempts,
+            latency_ms=_latency_ms,
         )
 
 
@@ -513,7 +614,10 @@ class OpenAIProvider(ProviderInterface):
                     timeout=timeout_s,
                 )
 
+        _t0 = time.perf_counter()
         raw = call_provider_request(_request_fn, max_retries=max_retries, _sleep_fn=_sleep_fn)
+        _latency_ms = (time.perf_counter() - _t0) * 1000.0
+
         if not raw.success:
             return ProviderResult(
                 text=None,
@@ -521,6 +625,7 @@ class OpenAIProvider(ProviderInterface):
                 error_code=raw.error_code,
                 error_msg=raw.error_msg,
                 attempts=raw.attempts,
+                latency_ms=_latency_ms,
             )
         try:
             text = raw.response.choices[0].message.content.strip()
@@ -531,6 +636,7 @@ class OpenAIProvider(ProviderInterface):
                 error_code=PERR_PROVIDER,
                 error_msg="invalid OpenAI response shape",
                 attempts=raw.attempts,
+                latency_ms=_latency_ms,
             )
         return ProviderResult(
             text=text,
@@ -538,6 +644,7 @@ class OpenAIProvider(ProviderInterface):
             error_code=None,
             error_msg=None,
             attempts=raw.attempts,
+            latency_ms=_latency_ms,
         )
 
 
@@ -584,7 +691,10 @@ class GeminiProvider(ProviderInterface):
                     request_options={"timeout": timeout_s},
                 )
 
+        _t0 = time.perf_counter()
         raw = call_provider_request(_request_fn, max_retries=max_retries, _sleep_fn=_sleep_fn)
+        _latency_ms = (time.perf_counter() - _t0) * 1000.0
+
         if not raw.success:
             return ProviderResult(
                 text=None,
@@ -592,6 +702,7 @@ class GeminiProvider(ProviderInterface):
                 error_code=raw.error_code,
                 error_msg=raw.error_msg,
                 attempts=raw.attempts,
+                latency_ms=_latency_ms,
             )
         try:
             text = raw.response.text.strip()
@@ -602,6 +713,7 @@ class GeminiProvider(ProviderInterface):
                 error_code=PERR_PROVIDER,
                 error_msg="invalid Gemini response shape",
                 attempts=raw.attempts,
+                latency_ms=_latency_ms,
             )
         return ProviderResult(
             text=text,
@@ -609,6 +721,7 @@ class GeminiProvider(ProviderInterface):
             error_code=None,
             error_msg=None,
             attempts=raw.attempts,
+            latency_ms=_latency_ms,
         )
 
 
@@ -659,6 +772,328 @@ def get_provider(
     if name == PROVIDER_GEMINI:
         return GeminiProvider(api_key=api_key)
     raise ProviderNotAvailableError(f"unknown provider: {provider_name!r}")
+
+
+# ---------------------------------------------------------------------------
+# Orchestration tool-call surface (Phase 2.5d2)
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class OrchCallResult:
+    """Result of a provider tool-use call made by the orchestrator.
+
+    Unlike ``ProviderResult`` (which extracts text for the presentation layer),
+    ``OrchCallResult`` preserves the raw API response so the orchestrator can
+    parse tool-call blocks directly.
+
+    Attributes
+    ----------
+    response:
+        Raw LLM API response on success; ``None`` on failure or when no API
+        call was attempted (e.g. missing credentials → ``attempts == 0``).
+    error_code:
+        One of the ``PERR_*`` constants on failure; ``None`` on success.
+    error_msg:
+        Sanitised, secret-free error string for logs; ``None`` on success.
+    attempts:
+        Total HTTP attempts made.  ``0`` means the call was never attempted
+        (credentials missing, SDK not installed).
+    latency_ms:
+        Total wall-clock milliseconds from function entry to return, measured
+        via ``time.perf_counter()``.  Includes all retry waits.  Always >= 0.
+    """
+
+    response:   Any
+    error_code: str | None
+    error_msg:  str | None
+    attempts:   int
+    latency_ms: float
+
+
+def _call_with_oai_compat_timeout(
+    create_fn: Any,
+    *,
+    timeout_s: float,
+    **kwargs: Any,
+) -> Any:
+    """Call an OpenAI-style ``create()`` function with SDK-version-compatible timeout.
+
+    The ``timeout`` parameter changed across OpenAI SDK major versions:
+
+    * ``>=1.0`` (current): ``timeout=float`` is accepted natively.
+    * ``<1.0`` (legacy) or custom wrappers: ``timeout`` kwarg is not recognised
+      and raises ``TypeError``.
+
+    Route the call through a cached capability decision:
+
+    1. **Cached True**  — call with ``timeout=``.  No exception handling.
+    2. **Cached False** — call without ``timeout=``.  No exception handling.
+    3. **Cache empty**  — one-time probe under ``_OAI_TIMEOUT_CACHE_LOCK``:
+
+       a. :func:`_probe_oai_timeout_support` inspects the function signature
+          (no exception messages, deterministic).
+
+       b. If signature says ``False``: cache ``False``, call without timeout.
+
+       c. If signature says ``True`` (explicit ``timeout`` param **or**
+          ``**kwargs``): attempt the call with timeout.
+
+          * On success: cache ``True``, return result.
+          * On ``TypeError``: the ``**kwargs`` function does not handle
+            ``timeout`` at runtime.  Cache ``False``, retry without timeout.
+          * On any other exception: cache stays ``True`` (supports timeout —
+            the error is from the API, not the kwarg), re-raise for
+            ``_classify_error`` to handle.
+
+    After the first call per process **all** subsequent calls use the fast,
+    deterministic path — no exception inspection, no message matching.
+
+    Parameters
+    ----------
+    create_fn:
+        Callable accepting keyword arguments; typically
+        ``openai_client.chat.completions.create``.
+    timeout_s:
+        Desired timeout in seconds.
+    **kwargs:
+        All other keyword arguments forwarded verbatim to ``create_fn``.
+    """
+    # Lock-free fast path (all calls after the first)
+    cached = _OAI_TIMEOUT_SUPPORTED[0]
+    if cached is True:
+        return create_fn(timeout=timeout_s, **kwargs)
+    if cached is False:
+        return create_fn(**kwargs)
+
+    # One-time probe under lock
+    with _OAI_TIMEOUT_CACHE_LOCK:
+        cached = _OAI_TIMEOUT_SUPPORTED[0]
+        if cached is None:
+            # Run signature probe
+            _OAI_TIMEOUT_SUPPORTED[0] = _probe_oai_timeout_support(create_fn)
+            if not _OAI_TIMEOUT_SUPPORTED[0]:
+                # Definitively no timeout support
+                return create_fn(**kwargs)
+            # Signature says "may support" — verify with the actual call
+            try:
+                result = create_fn(timeout=timeout_s, **kwargs)
+                # _OAI_TIMEOUT_SUPPORTED[0] already True from probe
+                return result
+            except TypeError:
+                # **kwargs function rejects timeout at runtime — update cache
+                _OAI_TIMEOUT_SUPPORTED[0] = False
+                return create_fn(**kwargs)
+            except Exception:
+                # Non-TypeError error (auth, network, …): cache stays True
+                # (the function does accept timeout= ; the error is API-level)
+                raise
+        # Another thread populated the cache while we waited for the lock
+
+    # Use the freshly-populated cache (outside lock)
+    if _OAI_TIMEOUT_SUPPORTED[0]:
+        return create_fn(timeout=timeout_s, **kwargs)
+    return create_fn(**kwargs)
+
+
+def call_orch_provider(
+    provider_name: str,
+    *,
+    model: str,
+    system: str,
+    tools: list[dict[str, Any]],
+    messages: list[dict[str, Any]],
+    max_tokens: int = 1024,
+    timeout_s: float = 20.0,
+    max_retries: int = 1,
+    client: Any = None,
+    api_key: str | None = None,
+    _sleep_fn: Any = None,
+    _request_fn: Any = None,
+) -> OrchCallResult:
+    """Unified orchestration provider call for tool-use / function-calling.
+
+    Handles provider-specific request construction (Anthropic ``messages.create``
+    with tools, OpenAI ``chat.completions.create`` with function-calling,
+    Gemini ``generate_content`` with function declarations).  Returns the raw
+    API response so the orchestrator can parse tool-call blocks directly.
+
+    Parameters
+    ----------
+    provider_name:
+        One of ``PROVIDER_ANTHROPIC``, ``PROVIDER_OPENAI``, ``PROVIDER_GEMINI``.
+        Unknown values fall back to Anthropic.
+    model:
+        Provider-specific model identifier.
+    system:
+        System prompt text.
+    tools:
+        Tool list in the **provider-appropriate wire format** (caller is
+        responsible for building the right format via ``_build_tools()``).
+    messages:
+        Conversation messages.  For Gemini, only the first message's
+        ``"content"`` value is used (single-turn tool-use).
+    max_tokens:
+        Maximum tokens to generate.
+    timeout_s:
+        Per-attempt timeout in seconds.
+    max_retries:
+        Maximum additional attempts for transient errors (capped at 3).
+    client:
+        Pre-built provider client.  For Anthropic: ``anthropic.Anthropic``
+        instance.  For OpenAI: ``openai.OpenAI`` instance.  For Gemini: a
+        ``GenerativeModel``-compatible object (its ``.generate_content()``
+        method is called directly).  When ``None``, credentials are read
+        from the appropriate env var.
+    api_key:
+        Explicit API key (used when ``client is None``).
+    _sleep_fn:
+        Injected sleep callable for tests (avoids real retry waits).
+    _request_fn:
+        Zero-argument callable override.  When supplied, bypasses all
+        provider-specific client construction and calls this function
+        directly as the HTTP request.  The returned object is used as the
+        raw response.  Use only in tests.
+
+    Returns
+    -------
+    OrchCallResult
+        Always returns — never raises.  ``error_code is None`` on success.
+        ``attempts == 0`` signals the call was never attempted (credentials
+        missing or SDK absent) — map to ``OUTCOME_NO_CLIENT`` at the caller.
+    """
+    _t0 = time.perf_counter()
+
+    # --- Test injection: bypass all provider-specific client construction ---
+    if _request_fn is not None:
+        raw = call_provider_request(_request_fn, max_retries=max_retries, _sleep_fn=_sleep_fn)
+        return OrchCallResult(
+            response=raw.response if raw.success else None,
+            error_code=raw.error_code,
+            error_msg=raw.error_msg,
+            attempts=raw.attempts,
+            latency_ms=(time.perf_counter() - _t0) * 1000.0,
+        )
+
+    name = provider_name.lower().strip() if provider_name else PROVIDER_ANTHROPIC
+
+    # --- OpenAI: Chat Completions with function-calling ---
+    if name == PROVIDER_OPENAI:
+        _key = api_key or os.environ.get("OPENAI_API_KEY")
+        if not _OPENAI_AVAILABLE or not _key:
+            return OrchCallResult(
+                response=None,
+                error_code=PERR_AUTH,
+                error_msg="openai SDK not installed or OPENAI_API_KEY not set",
+                attempts=0,
+                latency_ms=(time.perf_counter() - _t0) * 1000.0,
+            )
+        _oai   = client or _openai_sdk.OpenAI(api_key=_key)
+        _sys   = system
+        _msgs  = messages
+        _tools = tools
+
+        def _oai_request() -> Any:
+            return _call_with_oai_compat_timeout(
+                _oai.chat.completions.create,
+                timeout_s=timeout_s,
+                model=model,
+                max_tokens=max_tokens,
+                messages=[{"role": "system", "content": _sys}, *_msgs],
+                tools=_tools,
+            )
+
+        raw = call_provider_request(_oai_request, max_retries=max_retries, _sleep_fn=_sleep_fn)
+        return OrchCallResult(
+            response=raw.response if raw.success else None,
+            error_code=raw.error_code,
+            error_msg=raw.error_msg,
+            attempts=raw.attempts,
+            latency_ms=(time.perf_counter() - _t0) * 1000.0,
+        )
+
+    # --- Gemini: GenerativeModel with function declarations ---
+    if name == PROVIDER_GEMINI:
+        _key = api_key or os.environ.get("GOOGLE_API_KEY")
+        if not _GEMINI_AVAILABLE or not _key:
+            return OrchCallResult(
+                response=None,
+                error_code=PERR_AUTH,
+                error_msg="google-generativeai not installed or GOOGLE_API_KEY not set",
+                attempts=0,
+                latency_ms=(time.perf_counter() - _t0) * 1000.0,
+            )
+        if client is not None:
+            _gem_model = client   # pre-built model (test mock)
+        else:
+            _gemini_configure(_key)   # bounded configure: skips if key unchanged
+            _gem_model = _genai_sdk.GenerativeModel(
+                model_name=model,
+                system_instruction=system,
+                tools=tools,
+            )
+        _user_content = messages[0]["content"] if messages else ""
+        _gm = _gem_model
+
+        def _gem_request() -> Any:
+            return _gm.generate_content(
+                _user_content,
+                request_options={"timeout": timeout_s},
+            )
+
+        raw = call_provider_request(_gem_request, max_retries=max_retries, _sleep_fn=_sleep_fn)
+        return OrchCallResult(
+            response=raw.response if raw.success else None,
+            error_code=raw.error_code,
+            error_msg=raw.error_msg,
+            attempts=raw.attempts,
+            latency_ms=(time.perf_counter() - _t0) * 1000.0,
+        )
+
+    # --- Anthropic: Messages API with tool schemas (default) ---
+    _ant_client = client
+    if _ant_client is None:
+        _key = api_key or os.environ.get("ANTHROPIC_API_KEY")
+        if not _ANTHROPIC_AVAILABLE or not _key:
+            return OrchCallResult(
+                response=None,
+                error_code=PERR_AUTH,
+                error_msg="anthropic SDK not installed or ANTHROPIC_API_KEY not set",
+                attempts=0,
+                latency_ms=(time.perf_counter() - _t0) * 1000.0,
+            )
+        try:
+            _ant_client = _anthropic_sdk.Anthropic(api_key=_key)
+        except Exception:  # noqa: BLE001
+            return OrchCallResult(
+                response=None,
+                error_code=PERR_AUTH,
+                error_msg="anthropic client init failed",
+                attempts=0,
+                latency_ms=(time.perf_counter() - _t0) * 1000.0,
+            )
+
+    _ac    = _ant_client
+    _msgs  = messages
+    _tools = tools
+
+    def _ant_request() -> Any:
+        return _ac.messages.create(
+            model=model,
+            max_tokens=max_tokens,
+            system=system,
+            tools=_tools,
+            messages=_msgs,
+            timeout=timeout_s,
+        )
+
+    raw = call_provider_request(_ant_request, max_retries=max_retries, _sleep_fn=_sleep_fn)
+    return OrchCallResult(
+        response=raw.response if raw.success else None,
+        error_code=raw.error_code,
+        error_msg=raw.error_msg,
+        attempts=raw.attempts,
+        latency_ms=(time.perf_counter() - _t0) * 1000.0,
+    )
 
 
 # ---------------------------------------------------------------------------

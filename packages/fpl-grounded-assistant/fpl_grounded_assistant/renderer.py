@@ -233,16 +233,126 @@ def _render_compare_players(output: dict[str, Any]) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Transfer advice renderer  (Phase 6a)
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Chip advice renderer  (Phase 6b)
+# ---------------------------------------------------------------------------
+
+def _render_get_chip_advice(output: dict[str, Any]) -> str:
+    """Render a get_chip_advice raw_output dict into a human-readable string."""
+    status = output.get("status")
+    if status == "ok":
+        return output.get("advice_text", "Chip advice computed.")
+    if status == "not_found":
+        chip = output.get("chip", "unknown")
+        return f"'{chip}' is not a recognised FPL chip name."
+    code    = output.get("code", "error")
+    message = output.get("message", "An unexpected chip advice error occurred.")
+    return f"Error ({code}): {message}"
+
+
+def _render_get_transfer_advice(output: dict[str, Any]) -> str:
+    """Render a get_transfer_advice raw_output dict into a human-readable string."""
+    status = output.get("status")
+    if status == "ok":
+        rec_text = output.get("recommendation_text", "")
+        return rec_text if rec_text else "Transfer advice computed."
+    if status in ("not_found", "ambiguous"):
+        ep  = output.get("error_player", "")
+        msg = output.get("message", f"Could not resolve player '{ep}'.")
+        return msg
+    code    = output.get("code", "error")
+    message = output.get("message", "An unexpected transfer advice error occurred.")
+    return f"Error ({code}): {message}"
+
+
+# ---------------------------------------------------------------------------
+# Player fixture run renderer  (Phase 7h)
+# ---------------------------------------------------------------------------
+
+def _render_get_player_fixture_run(output: dict[str, Any]) -> str:
+    """Render a get_player_fixture_run raw_output dict into a human-readable string."""
+    status = output.get("status")
+    if status == "ok":
+        web_name = output.get("web_name", "?")
+        team     = output.get("team_short", "")
+        position = output.get("position", "")
+        horizon  = output.get("horizon", 0)
+        fixtures = output.get("fixtures", [])
+        gw_from  = output.get("current_gameweek")
+
+        header_parts = [web_name]
+        if team or position:
+            inner = ", ".join(filter(None, [team, position]))
+            header_parts.append(f"({inner})")
+        gw_label = f" from GW{gw_from}" if gw_from is not None else ""
+        plural   = "s" if horizon != 1 else ""
+        header   = " ".join(header_parts) + f" – next {horizon} fixture{plural}{gw_label}:"
+
+        parts: list[str] = []
+        for fx in fixtures:
+            venue = "H" if fx.get("is_home") else "A"
+            parts.append(
+                f"GW{fx['gameweek']} {fx['opponent_short']} ({venue}) FDR {fx['difficulty']}"
+            )
+        return header + " " + " · ".join(parts) if parts else header
+
+    if status in ("not_found", "ambiguous"):
+        return output.get("message", "Player not found.")
+
+    if status == "missing_context":
+        return output.get("message", "Fixture schedule not available.")
+
+    code    = output.get("code", "error")
+    message = output.get("message", "An unexpected fixture run error occurred.")
+    return f"Error ({code}): {message}"
+
+
+def _render_get_differential_picks(output: dict[str, Any]) -> str:
+    """Render differential picks output.  Phase 7g."""
+    status = output.get("status")
+    if status == "ok":
+        picks    = output.get("picks", [])
+        threshold = float(output.get("ownership_threshold", 15.0))
+        if not picks:
+            return f"No differential picks found (ownership < {threshold:.0f}%)."
+        lines = [f"Top differentials (ownership < {threshold:.0f}%):"]
+        for p in picks:
+            cost_m = p["now_cost"] / 10.0
+            # Phase 8a1: display position_score (position-aware heuristic)
+            display_score = p.get("position_score", p["captain_score"])
+            lines.append(
+                f"  {p['rank']}. {p['web_name']} ({p['team_short']}, "
+                f"{p['position']}) — score {display_score:.1f}, "
+                f"{p['ownership']:.1f}% owned, £{cost_m:.1f}m"
+            )
+        return "\n".join(lines)
+
+    if status == "empty":
+        return output.get("message", "No differential picks found.")
+
+    code    = output.get("code", "error")
+    message = output.get("message", "An unexpected differential picks error occurred.")
+    return f"Error ({code}): {message}"
+
+
+# ---------------------------------------------------------------------------
 # Dispatch table and public API
 # ---------------------------------------------------------------------------
 
 _RENDERERS = {
-    "resolve_player":          _render_resolve_player,
-    "get_player_summary":      _render_get_player_summary,
-    "get_current_gameweek":    _render_get_current_gameweek,
-    "get_captain_score":       _render_get_captain_score,       # Phase 5m
-    "rank_captain_candidates": _render_rank_captain_candidates,  # Phase 5m
-    "compare_players":         _render_compare_players,          # Phase 5b
+    "resolve_player":            _render_resolve_player,
+    "get_player_summary":        _render_get_player_summary,
+    "get_current_gameweek":      _render_get_current_gameweek,
+    "get_captain_score":         _render_get_captain_score,          # Phase 5m
+    "rank_captain_candidates":   _render_rank_captain_candidates,    # Phase 5m
+    "compare_players":           _render_compare_players,            # Phase 5b
+    "get_transfer_advice":       _render_get_transfer_advice,        # Phase 6a
+    "get_chip_advice":           _render_get_chip_advice,            # Phase 6b
+    "get_player_fixture_run":    _render_get_player_fixture_run,     # Phase 7h
+    "get_differential_picks":    _render_get_differential_picks,     # Phase 7g
 }
 
 

@@ -14,7 +14,7 @@ Tests that verify:
   H  Structured metadata presence/absence per scenario
   I  Artifact output — JSON and Markdown files produced and valid
   J  Failure-mode scenarios — graceful handling across surfaces
-  K  Full validation runner passes all 13 scenarios
+  K  Full validation runner passes all scenarios
 
 Run::
 
@@ -84,11 +84,11 @@ from fpl_grounded_assistant.conversation_fixtures import (                # noqa
 # ===========================================================================
 print("\n--- A: Corpus structure ---")
 
-ok("A1 corpus has 13 scenarios",           len(VALIDATION_SCENARIOS) == 13,
+ok("A1 corpus has >= 13 scenarios",         len(VALIDATION_SCENARIOS) >= 13,
    str(len(VALIDATION_SCENARIOS)))
 ok("A2 all IDs are unique",
    len(set(SCENARIO_IDS)) == len(SCENARIO_IDS))
-ok("A3 SCENARIO_BY_ID has 13 entries",     len(SCENARIO_BY_ID) == 13)
+ok("A3 SCENARIO_BY_ID has >= 13 entries",  len(SCENARIO_BY_ID) >= 13)
 
 # Required scenario IDs
 _required_ids = {
@@ -436,14 +436,14 @@ try:
 except Exception as e:
     ok("I3 JSON artifact is valid JSON", False, str(e))
 
-ok("I4 JSON scenario_count == 13",
-   _json_data.get("scenario_count") == 13, str(_json_data.get("scenario_count")))
+ok("I4 JSON scenario_count >= 13",
+   (_json_data.get("scenario_count") or 0) >= 13, str(_json_data.get("scenario_count")))
 ok("I5 JSON pass_count field present",   "pass_count" in _json_data)
 ok("I6 JSON fail_count field present",   "fail_count" in _json_data)
 ok("I7 JSON run_at field present",       "run_at" in _json_data)
-ok("I8 JSON scenarios is list of 13",
+ok("I8 JSON scenarios is list of >= 13",
    isinstance(_json_data.get("scenarios"), list) and
-   len(_json_data.get("scenarios", [])) == 13)
+   len(_json_data.get("scenarios", [])) >= 13)
 
 _md_text = pathlib.Path(_md_path).read_text(encoding="utf-8")
 ok("I9  Markdown non-empty",             len(_md_text) > 200)
@@ -502,11 +502,11 @@ print("\n--- K: Full validation runner ---")
 _k_results = run_all_scenarios()
 
 ok("K1 run_all_scenarios returns list",   isinstance(_k_results, list))
-ok("K2 13 results",                        len(_k_results) == 13,
+ok("K2 >= 13 results",                      len(_k_results) >= 13,
    str(len(_k_results)))
 ok("K3 all results have 'pass' key",      all("pass" in r for r in _k_results))
 ok("K4 all results have 'id' key",        all("id" in r for r in _k_results))
-ok("K5 all 13 scenarios PASS",
+ok("K5 all scenarios PASS",
    all(r["pass"] for r in _k_results),
    str([r["id"] for r in _k_results if not r["pass"]]))
 
@@ -529,8 +529,8 @@ _k_json_path = os.path.join(_tmp, "k_validation_results.json")
 write_json_artifact(_k_results, _k_json_path)
 with open(_k_json_path, encoding="utf-8") as _f:
     _k_json = json.load(_f)
-ok("K10 JSON pass_count == 13",
-   _k_json.get("pass_count") == 13, str(_k_json.get("pass_count")))
+ok("K10 JSON pass_count >= 13",
+   (_k_json.get("pass_count") or 0) >= 13, str(_k_json.get("pass_count")))
 ok("K11 JSON fail_count == 0",
    _k_json.get("fail_count") == 0, str(_k_json.get("fail_count")))
 

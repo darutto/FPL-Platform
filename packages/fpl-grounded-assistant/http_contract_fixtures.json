@@ -1,0 +1,758 @@
+{
+  "_meta": {
+    "version": "v2",
+    "phase": "V2 Phase 1f",
+    "description": "Machine-readable HTTP contract fixtures for POST /ask and POST /session/{id}/ask. Each fixture specifies the full request shape, the invariants that must hold in the response, and the stability level of each invariant. This file is the canonical source of truth for downstream consumers building against the FPL grounded assistant HTTP API.",
+    "stability_levels": {
+      "stable": "Part of the stable public contract. Changes are breaking and must be documented with a phase label.",
+      "debug_only": "Only present when the request includes 'debug: true'. Not part of the stable response contract for production callers. Do not gate production logic on debug fields.",
+      "conditional": "Present only for specific intent/outcome combinations. Always null otherwise."
+    },
+    "request_schema": {
+      "POST /ask": {
+        "question": {
+          "type": "string",
+          "required": true,
+          "description": "FPL question in natural language"
+        },
+        "debug": {
+          "type": "boolean",
+          "required": false,
+          "default": false,
+          "description": "When true, populates the 'debug' bundle. Not for production use."
+        },
+        "candidates_list": {
+          "type": "array|null",
+          "required": false,
+          "default": null,
+          "description": "Explicit candidate list for rank_candidates intent. Each entry: {query: string}."
+        },
+        "squad_context": {
+          "type": "object|null",
+          "required": false,
+          "default": null,
+          "description": "Per-turn squad state. Used for budget and chip availability context."
+        },
+        "intent_hint": {
+          "type": "string|null",
+          "required": false,
+          "default": null,
+          "description": "Optional pre-classifier routing bias. Allowlisted to 7 values. Fires only on deterministic router miss. Invalid values are silently ignored."
+        }
+      },
+      "POST /session/{session_id}/ask": {
+        "_note": "Same request schema as POST /ask. Additionally accepts the session_id path parameter.",
+        "question": {
+          "type": "string",
+          "required": true
+        },
+        "debug": {
+          "type": "boolean",
+          "required": false,
+          "default": false
+        },
+        "candidates_list": {
+          "type": "array|null",
+          "required": false,
+          "default": null
+        },
+        "squad_context": {
+          "type": "object|null",
+          "required": false,
+          "default": null
+        },
+        "intent_hint": {
+          "type": "string|null",
+          "required": false,
+          "default": null,
+          "description": "Per-turn only. Not stored in session state. Does not affect subsequent turns."
+        }
+      }
+    },
+    "intent_hint_contract": {
+      "allowlist": [
+        "captain_score",
+        "rank_candidates",
+        "compare_players",
+        "transfer_advice",
+        "chip_advice",
+        "player_fixture_run",
+        "differential_picks"
+      ],
+      "invariants": [
+        "deterministic router wins: if route(question) succeeds, intent_hint is completely ignored",
+        "allowlisted only: values outside the allowlist are silently ignored",
+        "safe ignore: invalid hints never raise, never block, never error",
+        "pre-classifier: fires before the LLM classifier, without any LLM call",
+        "provider-neutral: no provider identity in the public contract",
+        "per-turn in sessions: hint is not stored in session state",
+        "classification_source audit: set to 'intent_hint' when hint fires; null for deterministic; 'llm_classifier' for LLM fallback (debug bundle only)"
+      ]
+    },
+    "response_stable_fields": {
+      "POST /ask": [
+        "final_text",
+        "outcome",
+        "supported",
+        "intent",
+        "review_passed",
+        "llm_used",
+        "orch_outcome"
+      ],
+      "POST /session/{session_id}/ask": [
+        "session_id",
+        "final_text",
+        "outcome",
+        "supported",
+        "intent",
+        "review_passed",
+        "llm_used",
+        "orch_outcome"
+      ]
+    },
+    "orch_outcome_contract": {
+      "field": "orch_outcome",
+      "type": "string|null",
+      "stability": "stable",
+      "always_present_in_json": true,
+      "note": "Always present in the HTTP response body. JSON null when orch was not attempted (orch flag OFF). String value otherwise.",
+      "values": {
+        "null": "Orchestration not attempted (no API client, orch disabled, or sub-call inside multi-intent turn)",
+        "ok": "Orchestrator succeeded; its answer was used to build the response",
+        "no_client": "Orch attempted; no Anthropic client available; fell back to deterministic path",
+        "llm_error": "Orch attempted; LLM call raised exception; fell back to deterministic path",
+        "no_tool": "Orchestrator returned no tool call; fell back to deterministic path",
+        "unknown_tool": "Orchestrator called an unregistered tool; fell back to deterministic path",
+        "tool_error": "Registered tool raised exception during execution; fell back to deterministic path",
+        "tool_result_error": "Tool result could not be parsed into a valid FinalResponse; fell back to deterministic path"
+      },
+      "independence_invariant": "orch_outcome is independent of outcome. A non-OK orch_outcome never changes outcome. outcome always reflects the deterministic result and is safe for routing decisions without inspecting orch_outcome.",
+      "override_invariant": "squad_context overrides (budget_constraint, hit_warning, chip_unavailable) are applied identically regardless of orch_outcome. The same _apply_squad_overrides helper is called on both deterministic and orch-success paths."
+    },
+    "response_conditional_fields": {
+      "captain": "populated for captain_score OK turns only; null otherwise",
+      "captain_ranking": "populated for rank_candidates OK turns only; null otherwise",
+      "comparison": "populated for compare_players OK turns only; null otherwise",
+      "transfer": "populated for transfer_advice OK turns only; null otherwise",
+      "chip": "populated for chip_advice OK turns only; null otherwise",
+      "fixture_run": "populated for player_fixture_run OK turns only; null otherwise",
+      "differential": "populated for differential_picks OK turns only; null otherwise",
+      "sub_responses": "populated for multi_intent turns only; null for single-intent turns"
+    },
+    "response_debug_only_fields": {
+      "debug.response_text": "deterministic grounded response text before LLM presentation",
+      "debug.llm_text": "raw LLM output (may equal response_text if LLM not called)",
+      "debug.violations": "list of review violation strings; empty when review passes",
+      "debug.prompt_used": "user-turn prompt sent to the LLM",
+      "debug.model": "model identifier used; 'none' when LLM not called",
+      "debug.classification_source": "how intent was resolved: null=deterministic, 'intent_hint', or 'llm_classifier'"
+    }
+  },
+  "ask_fixtures": [
+    {
+      "id": "ask_captain_ok",
+      "description": "Standard captain score query. Deterministic routing succeeds. No intent_hint needed. orch_outcome is null (no API client in test environment).",
+      "surface": "POST /ask",
+      "request": {
+        "question": "should I captain Haaland",
+        "debug": false
+      },
+      "expected": {
+        "http_status": 200,
+        "body": {
+          "outcome": {
+            "value": "ok",
+            "stability": "stable"
+          },
+          "supported": {
+            "value": true,
+            "stability": "stable"
+          },
+          "intent": {
+            "value": "captain_score",
+            "stability": "stable"
+          },
+          "orch_outcome": {
+            "presence": "always",
+            "value": null,
+            "stability": "stable",
+            "note": "null when orch not attempted (no API client); always present as a key in JSON response"
+          },
+          "captain": {
+            "presence": "non-null",
+            "stability": "conditional",
+            "note": "captain_score OK turn \u00e2\u20ac\u201d captain field must be populated"
+          },
+          "comparison": {
+            "presence": "null",
+            "stability": "conditional"
+          },
+          "transfer": {
+            "presence": "null",
+            "stability": "conditional"
+          },
+          "chip": {
+            "presence": "null",
+            "stability": "conditional"
+          },
+          "fixture_run": {
+            "presence": "null",
+            "stability": "conditional"
+          },
+          "differential": {
+            "presence": "null",
+            "stability": "conditional"
+          },
+          "debug": {
+            "presence": "null",
+            "stability": "debug_only",
+            "note": "debug=false \u00e2\u2020\u2019 null"
+          }
+        }
+      }
+    },
+    {
+      "id": "ask_unsupported",
+      "description": "Out-of-scope question. No route. Falls through to unsupported_intent.",
+      "surface": "POST /ask",
+      "request": {
+        "question": "Is Haaland fit to play?",
+        "debug": false
+      },
+      "expected": {
+        "http_status": 200,
+        "body": {
+          "outcome": {
+            "value": "unsupported_intent",
+            "stability": "stable"
+          },
+          "supported": {
+            "value": false,
+            "stability": "stable"
+          },
+          "captain": {
+            "presence": "null",
+            "stability": "conditional"
+          },
+          "comparison": {
+            "presence": "null",
+            "stability": "conditional"
+          },
+          "transfer": {
+            "presence": "null",
+            "stability": "conditional"
+          },
+          "chip": {
+            "presence": "null",
+            "stability": "conditional"
+          },
+          "fixture_run": {
+            "presence": "null",
+            "stability": "conditional"
+          },
+          "differential": {
+            "presence": "null",
+            "stability": "conditional"
+          }
+        }
+      }
+    },
+    {
+      "id": "ask_intent_hint_valid",
+      "description": "Bare name does not route deterministically. Valid intent_hint fires pre-classifier and routes via canonical synthesis.",
+      "surface": "POST /ask",
+      "request": {
+        "question": "Haaland",
+        "intent_hint": "captain_score",
+        "debug": true
+      },
+      "expected": {
+        "http_status": 200,
+        "body": {
+          "outcome": {
+            "value": "ok",
+            "stability": "stable"
+          },
+          "supported": {
+            "value": true,
+            "stability": "stable"
+          },
+          "intent": {
+            "value": "captain_score",
+            "stability": "stable"
+          },
+          "captain": {
+            "presence": "non-null",
+            "stability": "conditional"
+          },
+          "debug.classification_source": {
+            "value": "intent_hint",
+            "stability": "debug_only",
+            "note": "only observable via debug=true"
+          }
+        }
+      }
+    },
+    {
+      "id": "ask_intent_hint_deterministic_wins",
+      "description": "Routable question with a mismatched hint. Deterministic router succeeds \u00e2\u2020\u2019 hint is completely ignored.",
+      "surface": "POST /ask",
+      "request": {
+        "question": "should I captain Salah",
+        "intent_hint": "compare_players",
+        "debug": true
+      },
+      "expected": {
+        "http_status": 200,
+        "body": {
+          "outcome": {
+            "value": "ok",
+            "stability": "stable"
+          },
+          "supported": {
+            "value": true,
+            "stability": "stable"
+          },
+          "intent": {
+            "value": "captain_score",
+            "stability": "stable",
+            "note": "deterministic routing wins; hint ignored"
+          },
+          "debug.classification_source": {
+            "value": null,
+            "stability": "debug_only",
+            "note": "null = deterministic routing; hint never fired"
+          }
+        }
+      }
+    },
+    {
+      "id": "ask_intent_hint_invalid_safe",
+      "description": "Bare name + invalid hint outside the allowlist. Hint silently ignored. Falls through to unsupported_intent.",
+      "surface": "POST /ask",
+      "request": {
+        "question": "Haaland",
+        "intent_hint": "not_a_valid_intent",
+        "debug": false
+      },
+      "expected": {
+        "http_status": 200,
+        "body": {
+          "outcome": {
+            "value": "unsupported_intent",
+            "stability": "stable"
+          },
+          "supported": {
+            "value": false,
+            "stability": "stable",
+            "note": "invalid hint silently ignored; no error raised"
+          }
+        }
+      }
+    },
+    {
+      "id": "ask_not_found",
+      "description": "Supported intent but player not in registry.",
+      "surface": "POST /ask",
+      "request": {
+        "question": "should I captain xyznotaplayer999",
+        "debug": false
+      },
+      "expected": {
+        "http_status": 200,
+        "body": {
+          "outcome": {
+            "value": "not_found",
+            "stability": "stable"
+          },
+          "supported": {
+            "value": true,
+            "stability": "stable"
+          },
+          "captain": {
+            "presence": "null",
+            "stability": "conditional",
+            "note": "not_found \u00e2\u2020\u2019 captain not populated"
+          }
+        }
+      }
+    },
+    {
+      "id": "ask_ambiguous",
+      "description": "Player name matches multiple entries. supported=True; outcome=ambiguous.",
+      "surface": "POST /ask",
+      "request": {
+        "question": "who is Doe",
+        "debug": false
+      },
+      "expected": {
+        "http_status": 200,
+        "body": {
+          "outcome": {
+            "value": "ambiguous",
+            "stability": "stable"
+          },
+          "supported": {
+            "value": true,
+            "stability": "stable"
+          }
+        }
+      }
+    },
+    {
+      "id": "ask_malformed_no_question",
+      "description": "Missing required 'question' field. HTTP 422 \u00e2\u20ac\u201d request validation error.",
+      "surface": "POST /ask",
+      "request": {},
+      "expected": {
+        "http_status": 422,
+        "note": "HTTP status 422 is the contract signal for malformed requests. Body detail is unspecified."
+      }
+    },
+    {
+      "id": "ask_debug_bundle_shape",
+      "description": "Verify debug bundle populates all documented fields when debug=true.",
+      "surface": "POST /ask",
+      "request": {
+        "question": "should I captain Salah",
+        "debug": true
+      },
+      "expected": {
+        "http_status": 200,
+        "body": {
+          "outcome": {
+            "value": "ok",
+            "stability": "stable"
+          },
+          "debug": {
+            "presence": "non-null",
+            "stability": "debug_only",
+            "required_keys": [
+              "response_text",
+              "llm_text",
+              "violations",
+              "prompt_used",
+              "model",
+              "classification_source"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "ask_orch_outcome_always_present",
+      "description": "orch_outcome is always a key in the JSON response body, even when null. Callers must not treat its absence as null \u00e2\u20ac\u201d they must treat the key as always present.",
+      "surface": "POST /ask",
+      "request": {
+        "question": "should I captain Salah",
+        "debug": false
+      },
+      "expected": {
+        "http_status": 200,
+        "body": {
+          "outcome": {
+            "value": "ok",
+            "stability": "stable"
+          },
+          "orch_outcome": {
+            "presence": "always",
+            "stability": "stable",
+            "note": "Key is always present. Value is null when orch not attempted, string when orch was attempted."
+          }
+        }
+      }
+    },
+    {
+      "id": "ask_orch_outcome_independence",
+      "description": "orch_outcome is independent of outcome. A non-OK orch_outcome (orch fell back) never changes outcome. outcome always reflects the deterministic result.",
+      "surface": "POST /ask",
+      "surface_note": "Non-OK orch outcomes are only observable in environments with an API client where orch fires but fails. In environments without a client, orch_outcome=null and outcome=deterministic.",
+      "request": {
+        "question": "should I captain Haaland",
+        "debug": false
+      },
+      "expected": {
+        "http_status": 200,
+        "body": {
+          "outcome": {
+            "value": "ok",
+            "stability": "stable",
+            "note": "outcome always reflects deterministic result regardless of orch state"
+          },
+          "orch_outcome": {
+            "presence": "always",
+            "stability": "stable",
+            "independence_invariant": "orch_outcome != 'ok' does NOT imply outcome != 'ok'. They are independent. Non-OK orch means orch fell back; outcome still reflects the deterministic answer."
+          }
+        }
+      }
+    },
+    {
+      "id": "ask_orch_outcome_with_budget_constraint",
+      "description": "squad_context overrides (budget_constraint) are applied identically on both deterministic and orch-success paths. orch_outcome is unaffected by override application.",
+      "surface": "POST /ask",
+      "request": {
+        "question": "should I sell Saka for Salah",
+        "squad_context": {
+          "itb": 5
+        },
+        "debug": false
+      },
+      "expected": {
+        "http_status": 200,
+        "body": {
+          "outcome": {
+            "value": "ok",
+            "stability": "stable"
+          },
+          "intent": {
+            "value": "transfer_advice",
+            "stability": "stable"
+          },
+          "transfer": {
+            "presence": "non-null",
+            "stability": "conditional",
+            "budget_constraint": {
+              "value": true,
+              "note": "itb=5 (\u00c2\u00a30.5m) is less than any realistic price_delta \u00e2\u20ac\u201d budget_constraint fires"
+            },
+            "recommendation": {
+              "stability": "stable",
+              "note": "recommendation unchanged by budget_constraint \u00e2\u20ac\u201d always score-based"
+            }
+          },
+          "orch_outcome": {
+            "presence": "always",
+            "stability": "stable",
+            "override_invariant": "orch_outcome value is set before override application and is never modified by _apply_squad_overrides"
+          }
+        }
+      }
+    }
+  ],
+  "session_ask_fixtures": [
+    {
+      "id": "session_ask_captain_ok",
+      "description": "Single-turn session. Captain score for a known player. Standard routed path. orch_outcome always present in session response.",
+      "surface": "POST /session/{session_id}/ask",
+      "request": {
+        "question": "should I captain Haaland",
+        "debug": false
+      },
+      "expected": {
+        "http_status": 200,
+        "body": {
+          "session_id": {
+            "presence": "non-null",
+            "stability": "stable",
+            "note": "same session_id as returned by POST /session"
+          },
+          "outcome": {
+            "value": "ok",
+            "stability": "stable"
+          },
+          "supported": {
+            "value": true,
+            "stability": "stable"
+          },
+          "intent": {
+            "value": "captain_score",
+            "stability": "stable"
+          },
+          "orch_outcome": {
+            "presence": "always",
+            "stability": "stable",
+            "note": "always present in session response; null when orch not attempted"
+          },
+          "captain": {
+            "presence": "non-null",
+            "stability": "conditional"
+          },
+          "rewritten_question": {
+            "presence": "null",
+            "stability": "debug_only",
+            "note": "null when debug=false or no rewrite occurred"
+          }
+        }
+      }
+    },
+    {
+      "id": "session_ask_intent_hint_valid",
+      "description": "Session turn with valid intent_hint. Bare name routed via hint. Hint is per-turn \u00e2\u20ac\u201d not persisted in session state.",
+      "surface": "POST /session/{session_id}/ask",
+      "request": {
+        "question": "Haaland",
+        "intent_hint": "player_fixture_run",
+        "debug": true
+      },
+      "expected": {
+        "http_status": 200,
+        "body": {
+          "outcome": {
+            "value": "ok",
+            "stability": "stable"
+          },
+          "supported": {
+            "value": true,
+            "stability": "stable"
+          },
+          "intent": {
+            "value": "player_fixture_run",
+            "stability": "stable"
+          },
+          "fixture_run": {
+            "presence": "non-null",
+            "stability": "conditional"
+          },
+          "debug.classification_source": {
+            "value": "intent_hint",
+            "stability": "debug_only"
+          }
+        }
+      }
+    },
+    {
+      "id": "session_ask_intent_hint_per_turn_isolation",
+      "description": "Second turn in same session WITHOUT intent_hint after a turn that used one. Hint must not persist. 'Haaland' alone has no deterministic route \u00e2\u2020\u2019 unsupported_intent.",
+      "surface": "POST /session/{session_id}/ask",
+      "request": {
+        "question": "Haaland",
+        "debug": true
+      },
+      "expected": {
+        "http_status": 200,
+        "body": {
+          "outcome": {
+            "value": "unsupported_intent",
+            "stability": "stable"
+          },
+          "supported": {
+            "value": false,
+            "stability": "stable"
+          },
+          "debug.classification_source": {
+            "not_value": "intent_hint",
+            "stability": "debug_only",
+            "note": "hint from prior turn must not carry over"
+          }
+        }
+      }
+    },
+    {
+      "id": "session_ask_pronoun_followup",
+      "description": "Pronoun follow-up resolved via ConversationSession state. 'him' refers to the player from the previous turn.",
+      "surface": "POST /session/{session_id}/ask",
+      "request": {
+        "question": "should I captain him",
+        "debug": false
+      },
+      "setup_turns": [
+        {
+          "question": "should I captain Haaland"
+        }
+      ],
+      "expected": {
+        "http_status": 200,
+        "body": {
+          "outcome": {
+            "value": "ok",
+            "stability": "stable"
+          },
+          "supported": {
+            "value": true,
+            "stability": "stable"
+          },
+          "intent": {
+            "value": "captain_score",
+            "stability": "stable"
+          },
+          "note": "Pronoun resolved deterministically without LLM. Prior turn must establish last_player."
+        }
+      }
+    },
+    {
+      "id": "session_ask_not_found",
+      "description": "Session not found \u00e2\u20ac\u201d POST /session/{id}/ask on an unknown or expired session_id.",
+      "surface": "POST /session/{session_id}/ask",
+      "request": {
+        "question": "should I captain Haaland"
+      },
+      "precondition": "session_id is not in the active session registry",
+      "expected": {
+        "http_status": 404,
+        "note": "HTTP 404 is the contract signal for missing or expired sessions."
+      }
+    }
+  ],
+  "probe_fixtures": [
+    {
+      "id": "health_liveness_bootstrap_loaded",
+      "description": "GET /health returns 200 while the process is running with bootstrap loaded. Liveness-only: does not reflect bootstrap readiness.",
+      "method": "GET",
+      "path": "/health",
+      "precondition": "bootstrap_loaded",
+      "expected": {
+        "http_status": 200,
+        "body": {
+          "status": {
+            "value": "ok",
+            "stability": "stable",
+            "note": "/health is liveness-only. Always 200 while the process runs."
+          }
+        }
+      }
+    },
+    {
+      "id": "health_liveness_bootstrap_not_loaded",
+      "description": "GET /health returns 200 even when bootstrap is not loaded. Confirms liveness-only semantics: the probe passes before data is ready.",
+      "method": "GET",
+      "path": "/health",
+      "precondition": "bootstrap_not_loaded",
+      "expected": {
+        "http_status": 200,
+        "body": {
+          "status": {
+            "value": "ok",
+            "stability": "stable",
+            "note": "/health is liveness-only. Returns 200 even when /ready would return 503."
+          }
+        }
+      }
+    },
+    {
+      "id": "ready_bootstrap_loaded",
+      "description": "GET /ready returns 200 when bootstrap is loaded. Use this endpoint for deployment readiness probes so traffic is only routed after data is available.",
+      "method": "GET",
+      "path": "/ready",
+      "precondition": "bootstrap_loaded",
+      "expected": {
+        "http_status": 200,
+        "body": {
+          "status": {
+            "value": "ready",
+            "stability": "stable",
+            "note": "/ready is the readiness gate. 200 means data is loaded and /ask requests will be served."
+          }
+        }
+      }
+    },
+    {
+      "id": "ready_bootstrap_not_loaded",
+      "description": "GET /ready returns 503 when bootstrap is not loaded (startup failure, data not yet fetched, or all retry attempts exhausted). No body assertions: 503 is the readiness gate signal.",
+      "method": "GET",
+      "path": "/ready",
+      "precondition": "bootstrap_not_loaded",
+      "expected": {
+        "http_status": 503,
+        "note": "503 is the readiness gate. Deployment probes should wait for 200 before routing traffic."
+      }
+    }
+  ],
+  "http_status_contract": {
+    "200": "Request processed. Inspect 'supported' and 'outcome' in the body for the domain result. HTTP 200 does not imply outcome='ok'.",
+    "404": "Session not found or expired. POST /session/{id}/ask and GET /session/{id} only.",
+    "422": "Malformed request body \u00e2\u20ac\u201d missing or invalid 'question' field.",
+    "429": "Session cap reached. POST /session only. Clear idle sessions and retry.",
+    "503": "Bootstrap not initialised or not yet ready. POST /ask and POST /session/{id}/ask return 503 when bootstrap is None. GET /ready returns 503 until bootstrap is loaded."
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(FPL_SKIP_LIVE=1 PYTHONPATH=../fpl-tool-runner:../fpl-player-registry:../fpl-captain-engine:../fpl-data-core:../fpl-tool-contract:../fpl-query-tools:../fpl-api-client:../fpl-pipeline:. python run_phase4a_tests.py)",
+      "Bash(PYTHONPATH=../fpl-tool-runner:../fpl-player-registry:../fpl-captain-engine:../fpl-data-core:../fpl-tool-contract:../fpl-query-tools:../fpl-api-client:../fpl-pipeline:. python run_phase4a_tests.py)",
+      "Bash(FPL_SKIP_LIVE=1 PYTHONPATH=../fpl-tool-runner:../fpl-player-registry:../fpl-captain-engine:../fpl-data-core:../fpl-tool-contract:../fpl-query-tools:../fpl-api-client:../fpl-pipeline:. python run_phase3d_tests.py)",
+      "Bash(PYTHONPATH=../fpl-tool-runner:../fpl-player-registry:../fpl-captain-engine:../fpl-data-core:../fpl-tool-contract:../fpl-query-tools:../fpl-api-client:../fpl-pipeline:. python run_phase3d_tests.py)",
+      "Bash(python -c \"import sys; sys.path.insert\\(0,''../fpl-tool-runner''\\); import fpl_tool_runner; print\\(''ok''\\)\")",
+      "Bash(PYTHONPATH=\"../fpl-tool-runner;../fpl-player-registry;../fpl-captain-engine;../fpl-data-core;../fpl-tool-contract;../fpl-query-tools;../fpl-api-client;../fpl-pipeline;.\" python run_phase3d_tests.py)",
+      "Bash(PYTHONPATH=\"../fpl-tool-runner;../fpl-player-registry;../fpl-captain-engine;../fpl-data-core;../fpl-tool-contract;../fpl-query-tools;../fpl-api-client;../fpl-pipeline;.\" PYTHONUTF8=1 python run_phase3d_tests.py)",
+      "Bash(git checkout:*)",
+      "Bash(PYTHONPATH=\"../fpl-tool-runner;../fpl-player-registry;../fpl-captain-engine;../fpl-data-core;../fpl-tool-contract;../fpl-query-tools;../fpl-api-client;../fpl-pipeline;.\" PYTHONUTF8=1 python run_phase4b_tests.py)",
+      "Bash(PYTHONPATH=\"../fpl-tool-runner;../fpl-player-registry;../fpl-captain-engine;../fpl-data-core;../fpl-tool-contract;../fpl-query-tools;../fpl-api-client;../fpl-pipeline;.\" PYTHONUTF8=1 python -c \"import fastapi; print\\(''fastapi'', fastapi.__version__\\)\")",
+      "Bash(PYTHONPATH=\"../fpl-tool-runner;../fpl-player-registry;../fpl-captain-engine;../fpl-data-core;../fpl-tool-contract;../fpl-query-tools;../fpl-api-client;../fpl-pipeline;.\" PYTHONUTF8=1 python -c \"import httpx; print\\(''httpx'', httpx.__version__\\); from fastapi.testclient import TestClient; print\\(''TestClient ok''\\)\")",
+      "Bash(PYTHONPATH=\"../fpl-tool-runner;../fpl-player-registry;../fpl-captain-engine;../fpl-data-core;../fpl-tool-contract;../fpl-query-tools;../fpl-api-client;../fpl-pipeline;.\" PYTHONUTF8=1 python run_phase4c_tests.py)",
+      "Bash(PYTHONUTF8=1 PYTHONPATH=\"../fpl-tool-runner;../fpl-player-registry;../fpl-captain-engine;../fpl-data-core;../fpl-tool-contract;../fpl-query-tools;../fpl-api-client;../fpl-pipeline;.\" python run_phase4e_tests.py)",
+      "Bash(python -c \":*)",
+      "Bash(PYTHONPATH=../fpl-tool-runner:../fpl-player-registry:../fpl-captain-engine/python:../fpl-captain-engine:../fpl-data-core:../fpl-tool-contract:../fpl-query-tools:../fpl-api-client:../fpl-pipeline:. python run_phase4g_tests.py)",
+      "Bash(PYTHONPATH=\"c:/Users/thera/fpl-platform/packages/fpl-captain-engine/python;c:/Users/thera/fpl-platform/packages/fpl-tool-runner;c:/Users/thera/fpl-platform/packages/fpl-player-registry;c:/Users/thera/fpl-platform/packages/fpl-captain-engine;c:/Users/thera/fpl-platform/packages/fpl-data-core;c:/Users/thera/fpl-platform/packages/fpl-tool-contract;c:/Users/thera/fpl-platform/packages/fpl-query-tools;c:/Users/thera/fpl-platform/packages/fpl-api-client;c:/Users/thera/fpl-platform/packages/fpl-pipeline;.\" python run_phase4f_tests.py)",
+      "Read(//c/Users/thera/.claude/worktrees/agent-a87dc64f/packages/**)",
+      "Read(//c/Users/thera/.claude/worktrees/agent-a87dc64f//**)",
+      "Read(//c/Users/thera/**)",
+      "Bash(PYTHONPATH=../fpl-tool-runner:../fpl-player-registry:../fpl-captain-engine/python:../fpl-captain-engine:../fpl-data-core:../fpl-tool-contract:../fpl-query-tools:../fpl-api-client:../fpl-pipeline:. python run_phase4i_tests.py)",
+      "Bash(PYTHONPATH=../fpl-tool-runner:../fpl-player-registry:../fpl-captain-engine/python:../fpl-captain-engine:../fpl-data-core:../fpl-tool-contract:../fpl-query-tools:../fpl-api-client:../fpl-pipeline:. python run_phase4h_tests.py)",
+      "Bash(PYTHONPATH=../fpl-tool-runner:../fpl-player-registry:../fpl-captain-engine:../fpl-data-core:../fpl-tool-contract:../fpl-query-tools:../fpl-api-client:../fpl-pipeline:. python run_phase4j_tests.py)",
+      "Bash(PYTHONPATH=../fpl-tool-runner:../fpl-player-registry:../fpl-captain-engine:../fpl-data-core:../fpl-tool-contract:../fpl-query-tools:../fpl-api-client:../fpl-pipeline:. python -c \":*)",
+      "Bash(git -C /c/Users/thera/fpl-platform diff packages/fpl-grounded-assistant/fpl_grounded_assistant/harness.py)",
+      "Bash(PYTHONPATH=../fpl-tool-runner:../fpl-player-registry:../fpl-captain-engine:../fpl-data-core:../fpl-tool-contract:../fpl-query-tools:../fpl-api-client:../fpl-pipeline:. python run_phase5c_tests.py)",
+      "Bash(PYTHONPATH=\"../fpl-tool-runner:../fpl-player-registry:../fpl-captain-engine:../fpl-data-core:../fpl-tool-contract:../fpl-query-tools:../fpl-api-client:../fpl-pipeline:.\" python -c \":*)",
+      "Bash(PYTHONPATH=../fpl-api-client:../fpl-data-core:../fpl-player-registry:../fpl-query-tools:../fpl-tool-contract:../fpl-tool-runner:../fpl-captain-engine:../fpl-pipeline:. PYTHONUTF8=1 python run_phase4f_tests.py)",
+      "Bash(PYTHONPATH=../fpl-api-client:../fpl-data-core:../fpl-player-registry:../fpl-query-tools:../fpl-tool-contract:../fpl-tool-runner:../fpl-captain-engine:../fpl-pipeline:. PYTHONUTF8=1 python run_phase4g_tests.py)",
+      "Bash(PYTHONUTF8=1 python run_phase4d_tests.py)",
+      "Bash(ls -la /c/Users/thera/fpl-platform/packages/fpl-grounded-assistant/run_phase5*.py)",
+      "Read(//c/Users/thera/fpl-platform/**)",
+      "Bash(ls -la /c/Users/thera/fpl-platform/packages/fpl-grounded-assistant/fpl_grounded_assistant/*.py)",
+      "Bash(ls /c/Users/thera/fpl-platform/packages/fpl-grounded-assistant/fpl_grounded_assistant/*.py)",
+      "Bash(xargs -n1 basename)",
+      "Bash(grep -n compare /c/Users/thera/fpl-platform/packages/fpl-tool-contract/fpl_tool_contract/*.py)",
+      "Bash(python run_phase5g_tests.py)",
+      "Bash(done)",
+      "Bash(python run_phase5j_tests.py)",
+      "Bash(for f:*)",
+      "Bash(do python:*)",
+      "Bash(python run_phase8a1_tests.py)",
+      "Bash(python run_phase_v1_tests.py)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\thera\\.claude\\projects\\c--Users-thera\\memory"
+    ]
+  }
+}

@@ -22,8 +22,30 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from typing import Any
+
+# ---------------------------------------------------------------------------
+# sys.path setup  (same pattern as fpl_repl.py / fpl_server.py)
+# ---------------------------------------------------------------------------
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_PKGS = os.path.dirname(_HERE)
+_SIB  = lambda name: os.path.join(_PKGS, name)
+for _pkg in [
+    _HERE,
+    _SIB("fpl-api-client"),
+    _SIB("fpl-data-core"),
+    _SIB("fpl-player-registry"),
+    _SIB("fpl-query-tools"),
+    _SIB("fpl-tool-contract"),
+    _SIB("fpl-tool-runner"),
+    _SIB("fpl-captain-engine"),
+    _SIB("fpl-pipeline"),
+]:
+    if _pkg not in sys.path:
+        sys.path.insert(0, _pkg)
 
 from fpl_grounded_assistant import respond, FinalResponse
 from fpl_pipeline import assemble_captain_context
@@ -57,6 +79,9 @@ def _serial_comparison(comparison: Any) -> dict[str, Any]:
             "web_name":        ctx.web_name,
             "position":        ctx.position,
             "captain_score":   ctx.captain_score,
+            "position_score":  ctx.position_score,   # Phase 8a1 Layer 2
+            "is_home":         ctx.is_home,           # Phase 8b
+            "effective_fdr":   ctx.effective_fdr,     # Phase 8b
             "role_bonus":      ctx.role_bonus,
             "set_piece_notes": list(ctx.set_piece_notes),
         }
@@ -137,6 +162,143 @@ def _serial_captain_ranking(captain_ranking: Any) -> list[dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
+# Transfer metadata serialisation helper  (Phase 7a)
+# ---------------------------------------------------------------------------
+
+def _serial_transfer(transfer: Any) -> dict[str, Any]:
+    """Serialise a ``TransferMeta`` instance to a JSON-safe dict.
+
+    Mirrors the shape used by ``fpl_server.py`` so CLI debug output and
+    HTTP response bodies stay aligned.
+
+    Parameters
+    ----------
+    transfer:
+        A non-None ``TransferMeta`` value from ``FinalResponse.transfer``.
+
+    Returns
+    -------
+    dict with keys: player_out, player_in, recommendation, score_delta,
+    price_delta, reasons.
+    """
+    return {
+        "player_out":        transfer.player_out,
+        "player_in":         transfer.player_in,
+        "recommendation":    transfer.recommendation,
+        "score_delta":       transfer.score_delta,
+        "price_delta":       transfer.price_delta,
+        "reasons":           list(transfer.reasons),
+        "budget_constraint": transfer.budget_constraint,  # Phase 8e1
+        "hit_warning":       transfer.hit_warning,        # Phase 8e2
+    }
+
+
+# ---------------------------------------------------------------------------
+# Chip advice metadata serialisation helper  (Phase 7b)
+# ---------------------------------------------------------------------------
+
+def _serial_chip(chip: Any) -> dict[str, Any]:
+    """Serialise a ``ChipAdviceMeta`` instance to a JSON-safe dict.
+
+    Mirrors the shape used by ``fpl_server.py`` so CLI debug output and
+    HTTP response bodies stay aligned.
+
+    Parameters
+    ----------
+    chip:
+        A non-None ``ChipAdviceMeta`` value from ``FinalResponse.chip``.
+
+    Returns
+    -------
+    dict with keys: chip, recommendation, gw, signal_value, signal_label.
+    """
+    return {
+        "chip":             chip.chip,
+        "recommendation":   chip.recommendation,
+        "gw":               chip.gw,
+        "signal_value":     chip.signal_value,
+        "signal_label":     chip.signal_label,
+        "chip_unavailable": chip.chip_unavailable,  # Phase 8e1
+    }
+
+
+# ---------------------------------------------------------------------------
+# Fixture run metadata serialisation helper  (Phase 7h)
+# ---------------------------------------------------------------------------
+
+def _serial_fixture_run(fixture_run: Any) -> dict[str, Any]:
+    """Serialise a ``FixtureRunMeta`` instance to a JSON-safe dict.
+
+    Mirrors the shape used by ``fpl_server.py`` so CLI debug output and
+    HTTP response bodies stay aligned.
+
+    Parameters
+    ----------
+    fixture_run:
+        A non-None ``FixtureRunMeta`` value from ``FinalResponse.fixture_run``.
+
+    Returns
+    -------
+    dict with keys: web_name, team_short, position, horizon,
+    current_gameweek, fixtures.
+    """
+    return {
+        "web_name":         fixture_run.web_name,
+        "team_short":       fixture_run.team_short,
+        "position":         fixture_run.position,
+        "horizon":          fixture_run.horizon,
+        "current_gameweek": fixture_run.current_gameweek,
+        "fixtures": [
+            {
+                "gameweek":       fx.gameweek,
+                "opponent_short": fx.opponent_short,
+                "is_home":        fx.is_home,
+                "difficulty":     fx.difficulty,
+            }
+            for fx in fixture_run.fixtures
+        ],
+    }
+
+
+# ---------------------------------------------------------------------------
+# Differential picks metadata serialisation helper  (Phase 7g)
+# ---------------------------------------------------------------------------
+
+def _serial_differential(differential: Any) -> dict[str, Any]:
+    """Serialise a ``DifferentialPicksMeta`` instance to a JSON-safe dict.
+
+    Mirrors the shape used by ``fpl_server.py`` so CLI debug output and
+    HTTP response bodies stay aligned.
+
+    Parameters
+    ----------
+    differential:
+        A non-None ``DifferentialPicksMeta`` value from
+        ``FinalResponse.differential``.
+
+    Returns
+    -------
+    dict with keys: ownership_threshold, top_n, picks.
+    """
+    return {
+        "ownership_threshold": differential.ownership_threshold,
+        "top_n":               differential.top_n,
+        "picks": [
+            {
+                "rank":          p.rank,
+                "web_name":      p.web_name,
+                "team_short":    p.team_short,
+                "position":      p.position,
+                "captain_score": p.captain_score,
+                "ownership":     p.ownership,
+                "now_cost":      p.now_cost,
+            }
+            for p in differential.picks
+        ],
+    }
+
+
+# ---------------------------------------------------------------------------
 # Core logic  (separated from arg parsing for testability)
 # ---------------------------------------------------------------------------
 
@@ -146,6 +308,8 @@ def run(
     *,
     debug: bool = False,
     candidates_list: list[dict[str, Any]] | None = None,
+    classifier_client: Any = None,
+    squad_context: dict[str, Any] | None = None,  # Phase 8e1
 ) -> tuple[int, str]:
     """Run ``respond()`` with an injected bootstrap and return ``(exit_code, output)``.
 
@@ -166,7 +330,13 @@ def run(
         exit_code: 0 if ``supported=True``, 1 if ``supported=False``
         output:    string to print to stdout
     """
-    r: FinalResponse = respond(question, bootstrap, include_debug=debug, candidates_list=candidates_list)
+    r: FinalResponse = respond(
+        question, bootstrap,
+        include_debug=debug,
+        candidates_list=candidates_list,
+        classifier_client=classifier_client,
+        squad_context=squad_context,        # Phase 8e1
+    )
 
     if debug:
         payload: dict[str, Any] = {
@@ -177,13 +347,16 @@ def run(
             "review_passed": r.review_passed,
             "llm_used":      r.llm_used,
         }
+        if r.orch_outcome is not None:                         # Orch-4c: audit
+            payload["orch_outcome"] = r.orch_outcome
         if r.debug is not None:
             payload["debug"] = {
-                "response_text": r.debug.response_text,
-                "llm_text":      r.debug.llm_text,
-                "violations":    list(r.debug.violations),
-                "prompt_used":   r.debug.prompt_used,
-                "model":         r.debug.model,
+                "response_text":        r.debug.response_text,
+                "llm_text":             r.debug.llm_text,
+                "violations":           list(r.debug.violations),
+                "prompt_used":          r.debug.prompt_used,
+                "model":                r.debug.model,
+                "classification_source": r.debug.classification_source,
             }
         if r.comparison is not None:                       # Phase 5j
             payload["comparison"] = _serial_comparison(r.comparison)
@@ -191,6 +364,39 @@ def run(
             payload["captain"] = _serial_captain(r.captain)
         if r.captain_ranking is not None:                  # Phase 5p
             payload["captain_ranking"] = _serial_captain_ranking(r.captain_ranking)
+        if r.transfer is not None:                         # Phase 7a
+            payload["transfer"] = _serial_transfer(r.transfer)
+        if r.chip is not None:                             # Phase 7b
+            payload["chip"] = _serial_chip(r.chip)
+        if r.fixture_run is not None:                      # Phase 7h
+            payload["fixture_run"] = _serial_fixture_run(r.fixture_run)
+        if r.differential is not None:                     # Phase 7g
+            payload["differential"] = _serial_differential(r.differential)
+        if r.sub_responses is not None:                    # Phase 6c/6d
+            sub_list: list[dict[str, Any]] = []
+            for sr in r.sub_responses:
+                sub_d: dict[str, Any] = {
+                    "final_text": sr.final_text,
+                    "outcome":    sr.outcome,
+                    "supported":  sr.supported,
+                    "intent":     sr.intent,
+                }
+                if sr.comparison is not None:
+                    sub_d["comparison"] = _serial_comparison(sr.comparison)
+                if sr.captain is not None:
+                    sub_d["captain"] = _serial_captain(sr.captain)
+                if sr.captain_ranking is not None:
+                    sub_d["captain_ranking"] = _serial_captain_ranking(sr.captain_ranking)
+                if sr.transfer is not None:                # Phase 7a
+                    sub_d["transfer"] = _serial_transfer(sr.transfer)
+                if sr.chip is not None:                    # Phase 7b
+                    sub_d["chip"] = _serial_chip(sr.chip)
+                if sr.fixture_run is not None:             # Phase 7h
+                    sub_d["fixture_run"] = _serial_fixture_run(sr.fixture_run)
+                if sr.differential is not None:            # Phase 7g
+                    sub_d["differential"] = _serial_differential(sr.differential)
+                sub_list.append(sub_d)
+            payload["sub_responses"] = sub_list
         output = json.dumps(payload, indent=2, ensure_ascii=False)
     else:
         output = r.final_text
@@ -210,6 +416,8 @@ def run_session(
     debug: bool = False,
     resolver_client: Any = None,
     candidates_list: list[dict[str, Any]] | None = None,
+    classifier_client: Any = None,
+    squad_context: dict[str, Any] | None = None,  # Phase 8e1
 ) -> list[dict[str, Any]]:
     """Run a list of questions through a ConversationSession.
 
@@ -246,6 +454,8 @@ def run_session(
             include_debug=debug,
             resolver_client=resolver_client,
             candidates_list=candidates_list,
+            classifier_client=classifier_client,  # Phase 4l
+            squad_context=squad_context,           # Phase 8e1
         )
         turn: dict[str, Any] = {
             "question":   q,
@@ -260,13 +470,47 @@ def run_session(
             turn["captain"] = _serial_captain(r.captain)
         if r.captain_ranking is not None:                  # Phase 5p
             turn["captain_ranking"] = _serial_captain_ranking(r.captain_ranking)
+        if r.transfer is not None:                         # Phase 7a
+            turn["transfer"] = _serial_transfer(r.transfer)
+        if r.chip is not None:                             # Phase 7b
+            turn["chip"] = _serial_chip(r.chip)
+        if r.fixture_run is not None:                      # Phase 7h
+            turn["fixture_run"] = _serial_fixture_run(r.fixture_run)
+        if r.differential is not None:                     # Phase 7g
+            turn["differential"] = _serial_differential(r.differential)
+        if r.sub_responses is not None:                    # Phase 6d
+            sub_list_s: list[dict[str, Any]] = []
+            for sr in r.sub_responses:
+                sub_d_s: dict[str, Any] = {
+                    "final_text": sr.final_text,
+                    "outcome":    sr.outcome,
+                    "supported":  sr.supported,
+                    "intent":     sr.intent,
+                }
+                if sr.comparison is not None:
+                    sub_d_s["comparison"] = _serial_comparison(sr.comparison)
+                if sr.captain is not None:
+                    sub_d_s["captain"] = _serial_captain(sr.captain)
+                if sr.captain_ranking is not None:
+                    sub_d_s["captain_ranking"] = _serial_captain_ranking(sr.captain_ranking)
+                if sr.transfer is not None:                # Phase 7a
+                    sub_d_s["transfer"] = _serial_transfer(sr.transfer)
+                if sr.chip is not None:                    # Phase 7b
+                    sub_d_s["chip"] = _serial_chip(sr.chip)
+                if sr.fixture_run is not None:             # Phase 7h
+                    sub_d_s["fixture_run"] = _serial_fixture_run(sr.fixture_run)
+                if sr.differential is not None:            # Phase 7g
+                    sub_d_s["differential"] = _serial_differential(sr.differential)
+                sub_list_s.append(sub_d_s)
+            turn["sub_responses"] = sub_list_s
         if debug and r.debug is not None:
             debug_bundle: dict[str, Any] = {
-                "response_text": r.debug.response_text,
-                "llm_text":      r.debug.llm_text,
-                "violations":    list(r.debug.violations),
-                "prompt_used":   r.debug.prompt_used,
-                "model":         r.debug.model,
+                "response_text":         r.debug.response_text,
+                "llm_text":              r.debug.llm_text,
+                "violations":            list(r.debug.violations),
+                "prompt_used":           r.debug.prompt_used,
+                "model":                 r.debug.model,
+                "classification_source": r.debug.classification_source,  # Phase 4l
             }
             if r.debug.resolver is not None:
                 rdbg = r.debug.resolver
@@ -313,12 +557,59 @@ def main(argv: list[str] | None = None) -> int:
             "Includes outcome, intent, review_passed, llm_used, and debug bundle."
         ),
     )
+    parser.add_argument(
+        "--itb",
+        type=float,
+        default=None,
+        metavar="POUNDS",
+        help=(
+            "Money in the bank in £m (e.g. --itb 2.5 means £2.5m). "
+            "When set, transfer advice is blocked with budget_constraint if "
+            "the upgrade cost exceeds this amount. (Phase 8e1)"
+        ),
+    )
+    parser.add_argument(
+        "--chips-remaining",
+        type=str,
+        default=None,
+        metavar="CHIPS",
+        help=(
+            "Comma-separated list of chips you still hold "
+            "(e.g. --chips-remaining wildcard,free_hit). "
+            "When set, chip advice is marked chip_unavailable if the requested "
+            "chip is not in this list. (Phase 8e1)"
+        ),
+    )
+    parser.add_argument(
+        "--free-transfers",
+        type=int,
+        default=None,
+        metavar="N",
+        help=(
+            "Number of free transfers available this gameweek (e.g. --free-transfers 1). "
+            "When set to 1 and a marginal_transfer_in is recommended, "
+            "hit_warning=True is set on TransferMeta. (Phase 8e2)"
+        ),
+    )
     args = parser.parse_args(argv)
+
+    # Build squad_context from optional CLI flags (Phase 8e1/8e2)
+    squad_ctx: dict[str, Any] | None = None
+    if args.itb is not None or args.chips_remaining is not None or args.free_transfers is not None:
+        squad_ctx = {}
+        if args.itb is not None:
+            squad_ctx["itb"] = int(round(args.itb * 10))  # convert £m to tenths of £
+        if args.chips_remaining is not None:
+            squad_ctx["chips_remaining"] = [
+                c.strip() for c in args.chips_remaining.split(",") if c.strip()
+            ]
+        if args.free_transfers is not None:
+            squad_ctx["free_transfers"] = args.free_transfers
 
     ctx = assemble_captain_context()
     bootstrap = ctx["bootstrap"]
 
-    code, output = run(args.question, bootstrap, debug=args.debug)
+    code, output = run(args.question, bootstrap, debug=args.debug, squad_context=squad_ctx)
     print(output)
     return code
 

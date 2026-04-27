@@ -69,6 +69,11 @@ CUMULATIVE_COLS: list[str] = [
     "creativity",
     "threat",
     "ict_index",
+    # 2025-26 additions — confirmed present in bootstrap-static elements
+    "defensive_contribution",           # tackles_won + interceptions + blocks + clearances
+    "clearances_blocks_interceptions",  # FPL's broader defensive actions count
+    "tackles",                          # tackles won (season total)
+    "recoveries",                       # ball recoveries (season total)
 ]
 """Columns whose season values are cumulative (not discrete).
 
@@ -76,6 +81,8 @@ To obtain per-gameweek values subtract the previous GW's value from the
 current GW's value. See stat_calculator.py::calculate_discrete_gameweek_stats.
 
 SOURCE: FPL-Elo-Insights/scripts/export_data.py lines 30-37
+Updated: 2026-03-23 — added 2025-26 defensive contribution fields confirmed
+via live bootstrap-static API inspection (105 element keys total).
 """
 
 # ---------------------------------------------------------------------------
@@ -100,6 +107,44 @@ SNAPSHOT_COLS: list[str] = [
 """Columns that are point-in-time snapshots (use as-is, no subtraction needed).
 
 SOURCE: FPL-Elo-Insights/scripts/export_data.py lines 39-43
+"""
+
+# ---------------------------------------------------------------------------
+# Per-90 columns — pre-computed by FPL from season cumulative totals
+# These are ratio snapshots; do NOT subtract to get per-GW values.
+# Confirmed present in bootstrap-static elements (2025-26 season).
+# ---------------------------------------------------------------------------
+
+PER_90_COLS: list[str] = [
+    "defensive_contribution_per_90",      # dc season total / (minutes / 90)
+    "clean_sheets_per_90",                # clean_sheets / (minutes / 90)
+    "goals_conceded_per_90",              # goals_conceded / (minutes / 90)
+    "saves_per_90",                       # saves / (minutes / 90) — GKP only non-zero
+    "expected_goals_conceded_per_90",     # xGC / (minutes / 90)
+    "expected_goals_per_90",              # xG / (minutes / 90)
+    "expected_assists_per_90",            # xA / (minutes / 90)
+    "expected_goal_involvements_per_90",  # xGI / (minutes / 90) — FPL pre-computed
+    "starts_per_90",                      # starts / (minutes / 90)
+]
+"""Pre-computed per-90 ratio fields provided directly by the FPL bootstrap API.
+
+Key scoring observations (live data, GW28 2025-26, players with >450 min):
+    GKP  defensive_contribution_per_90: median=0.0, max=0.0  (always zero — GKPs excluded)
+    DEF  defensive_contribution_per_90: median=7.5, max=13.8
+    MID  defensive_contribution_per_90: median=8.3, max=14.9  (higher than DEF — DMs dominate)
+    FWD  defensive_contribution_per_90: median=4.4, max=7.5
+
+    saves_per_90: GKP range 1.6–3.6, all outfield = 0.0  (GKP-exclusive signal)
+    clean_sheets_per_90: uniform across outfield positions (~0.27–0.34 median)
+                         — useful as player-level history, not position differentiator
+
+These observations inform Phase 8a position-aware scoring:
+    - dc_per_90 is NOT a DEF advantage over MID (MIDs score higher)
+    - dc_per_90 IS a GKP disqualifier (GKPs = 0 always)
+    - saves_per_90 is the primary GKP-specific signal
+    - clean_sheets_per_90 is a player-level historical signal for DEF/GKP bias
+
+Updated: 2026-03-23 via live bootstrap-static API inspection.
 """
 
 # ---------------------------------------------------------------------------

@@ -44,7 +44,12 @@ from .dispatcher import (
     INTENT_CURRENT_GAMEWEEK,
     INTENT_PLAYER_SUMMARY,
     INTENT_PLAYER_RESOLVE,
-    INTENT_COMPARE_PLAYERS,   # Phase 5a
+    INTENT_COMPARE_PLAYERS,         # Phase 5a
+    INTENT_TRANSFER_ADVICE,         # Phase 6a
+    INTENT_CHIP_ADVICE,             # Phase 6b
+    INTENT_MULTI_INTENT,            # Phase 6c
+    INTENT_PLAYER_FIXTURE_RUN,      # Phase 7h
+    INTENT_DIFFERENTIAL_PICKS,      # Phase 7g
     INTENT_UNSUPPORTED,
     SUPPORTED_INTENTS,
     # Phase 2k: tool→intent mapping (exported for test access)
@@ -73,6 +78,9 @@ from .conversation_fixtures import (
     FIXTURE_DEFINITIONS,
     STANDARD_BOOTSTRAP,
     AMBIGUOUS_BOOTSTRAP,
+    DIFFERENTIAL_BOOTSTRAP,   # Phase 7j: low-ownership ok-path bootstrap
+    DGW_BOOTSTRAP,            # Phase 8c: double-gameweek (6 teams × 2 GW28 fixtures)
+    BGW_BOOTSTRAP,            # Phase 8c: blank-gameweek (2 teams with no GW28 fixture)
     run_all,
 )
 from .llm_layer import (
@@ -97,6 +105,16 @@ from .final_response import (
     ComparisonMeta,
     # Phase 5i: per-player comparison context
     ComparisonPlayerContext,
+    # Phase 7a: structured transfer metadata
+    TransferMeta,
+    # Phase 7b: structured chip advice metadata
+    ChipAdviceMeta,
+    # Phase 7h: structured fixture run metadata
+    FixtureEntry,
+    FixtureRunMeta,
+    # Phase 7g: structured differential picks metadata
+    DifferentialEntry,
+    DifferentialPicksMeta,
 )
 from .final_response_fixtures import (
     # Phase 3d: final response contract fixtures
@@ -165,7 +183,44 @@ from .comparison import (   # Phase 5a/5d/5h
     # Phase 5h: role-aware set-piece phrasing
     _set_piece_advantage_phrase,
 )
-from .router import RouteResult, route
+from .transfer_advisor import (   # Phase 6a
+    get_transfer_advice,
+    _TRANSFER_THRESHOLD_STRONG,
+)
+from .player_fixture_run import (  # Phase 7h
+    get_player_fixture_run,
+    DEFAULT_HORIZON as FIXTURE_RUN_DEFAULT_HORIZON,
+)
+from .differential_picks import (  # Phase 7g
+    get_differential_picks,
+    OWNERSHIP_THRESHOLD as DIFFERENTIAL_OWNERSHIP_THRESHOLD,
+    TOP_N as DIFFERENTIAL_TOP_N,
+)
+from .chip_advisor import (       # Phase 6b
+    get_chip_advice,
+    CHIP_TRIPLE_CAPTAIN,
+    CHIP_WILDCARD,
+    CHIP_BENCH_BOOST,
+    CHIP_FREE_HIT,
+    SUPPORTED_CHIPS,
+    _TC_FAVORABLE_THRESHOLD,
+    _TC_MARGINAL_THRESHOLD,
+    _WC_EARLY_CUTOFF,
+    _WC_LATE_CUTOFF,
+    _BB_FAVORABLE_FDR,
+    _BB_MARGINAL_FDR,
+)
+from .router import (
+    RouteResult,
+    route,
+    # Phase 7h: fixture run routing constants
+    _FIXTURE_RUN_PREFIXES,
+    _FIXTURE_RUN_SUFFIXES,
+    _FIXTURE_RUN_GAME_WORDS,
+    # Phase 7g: differential picks routing constants
+    _DIFFERENTIAL_KEYWORDS,
+)
+from .multi_intent import detect_multi_intent  # Phase 6c
 from .conversation_state import (
     # Phase 4e: minimal multi-turn conversation state
     ConversationState,
@@ -176,6 +231,24 @@ from .conversation_state import (
     resolve_comparison_followup,
     _COMP_FOLLOWUP_PREFIXES,
     _COMP_INSTEAD_SUFFIXES,
+    # Phase 7f: transfer follow-up support
+    resolve_transfer_followup,
+    _TRANSFER_FOLLOWUP_PREFIXES,
+    _TRANSFER_INSTEAD_SUFFIXES,
+    # Phase 8d-i: fixture run follow-up support
+    resolve_fixture_run_followup,
+    _FIXTURE_FOLLOWUP_PREFIXES,
+    _FIXTURE_INSTEAD_SUFFIXES,
+    _FIXTURE_INTERROGATIVE_STARTERS,
+    _FIXTURE_REMAINDER_NON_PLAYER_STARTERS,
+    _FIXTURE_REMAINDER_CONTENT_BLOCKLIST,
+    # Phase 8d-ii: differential follow-up support
+    resolve_differential_followup,
+    _DIFF_FOLLOWUP_PREFIXES,
+    _DIFF_INSTEAD_SUFFIXES,
+    _DIFF_INTERROGATIVE_STARTERS,
+    _DIFF_REMAINDER_NON_PLAYER_STARTERS,
+    _DIFF_REMAINDER_CONTENT_BLOCKLIST,
 )
 from .reference_resolver import (
     # Phase 4f: LLM-assisted reference resolution
@@ -202,6 +275,9 @@ __all__ = [
     "FIXTURE_DEFINITIONS",
     "STANDARD_BOOTSTRAP",
     "AMBIGUOUS_BOOTSTRAP",
+    "DIFFERENTIAL_BOOTSTRAP",   # Phase 7j
+    "DGW_BOOTSTRAP",            # Phase 8c
+    "BGW_BOOTSTRAP",            # Phase 8c
     "run_all",
     # Phase 3d: final response contract fixtures
     "FinalResponseFixture",
@@ -215,6 +291,12 @@ __all__ = [
     "respond",
     "ComparisonMeta",           # Phase 5g
     "ComparisonPlayerContext",  # Phase 5i
+    "TransferMeta",             # Phase 7a
+    "ChipAdviceMeta",           # Phase 7b
+    "FixtureEntry",             # Phase 7h
+    "FixtureRunMeta",           # Phase 7h
+    "DifferentialEntry",        # Phase 7g
+    "DifferentialPicksMeta",    # Phase 7g
     # Phase 3a: LLM layer
     "LLMResponse",
     "SYSTEM_PROMPT",
@@ -251,6 +333,11 @@ __all__ = [
     "INTENT_PLAYER_SUMMARY",
     "INTENT_PLAYER_RESOLVE",
     "INTENT_COMPARE_PLAYERS",
+    "INTENT_TRANSFER_ADVICE",      # Phase 6a
+    "INTENT_CHIP_ADVICE",          # Phase 6b
+    "INTENT_MULTI_INTENT",         # Phase 6c
+    "INTENT_PLAYER_FIXTURE_RUN",   # Phase 7h
+    "INTENT_DIFFERENTIAL_PICKS",   # Phase 7g
     "INTENT_UNSUPPORTED",
     "SUPPORTED_INTENTS",
     "_TOOL_TO_INTENT",
@@ -265,6 +352,33 @@ __all__ = [
     "_MARGIN_NARROW",
     "_MARGIN_CLEAR",
     "_set_piece_advantage_phrase",  # Phase 5h
+    # Phase 6a: transfer advice
+    "get_transfer_advice",
+    "_TRANSFER_THRESHOLD_STRONG",
+    # Phase 7h: fixture run
+    "get_player_fixture_run",
+    "FIXTURE_RUN_DEFAULT_HORIZON",
+    "_FIXTURE_RUN_PREFIXES",
+    "_FIXTURE_RUN_SUFFIXES",
+    "_FIXTURE_RUN_GAME_WORDS",
+    # Phase 7g: differential picks
+    "get_differential_picks",
+    "_DIFFERENTIAL_KEYWORDS",
+    "DIFFERENTIAL_OWNERSHIP_THRESHOLD",
+    "DIFFERENTIAL_TOP_N",
+    # Phase 6b: chip advice
+    "get_chip_advice",
+    "CHIP_TRIPLE_CAPTAIN",
+    "CHIP_WILDCARD",
+    "CHIP_BENCH_BOOST",
+    "CHIP_FREE_HIT",
+    "SUPPORTED_CHIPS",
+    "_TC_FAVORABLE_THRESHOLD",
+    "_TC_MARGINAL_THRESHOLD",
+    "_WC_EARLY_CUTOFF",
+    "_WC_LATE_CUTOFF",
+    "_BB_FAVORABLE_FDR",
+    "_BB_MARGINAL_FDR",
     # Phase 2l: outcomes + manifest
     "OUTCOME_OK",
     "OUTCOME_UNSUPPORTED_INTENT",
@@ -282,6 +396,24 @@ __all__ = [
     "resolve_comparison_followup",
     "_COMP_FOLLOWUP_PREFIXES",
     "_COMP_INSTEAD_SUFFIXES",
+    # Phase 7f: transfer follow-up
+    "resolve_transfer_followup",
+    "_TRANSFER_FOLLOWUP_PREFIXES",
+    "_TRANSFER_INSTEAD_SUFFIXES",
+    # Phase 8d-i: fixture run follow-up
+    "resolve_fixture_run_followup",
+    "_FIXTURE_FOLLOWUP_PREFIXES",
+    "_FIXTURE_INSTEAD_SUFFIXES",
+    "_FIXTURE_INTERROGATIVE_STARTERS",
+    "_FIXTURE_REMAINDER_NON_PLAYER_STARTERS",
+    "_FIXTURE_REMAINDER_CONTENT_BLOCKLIST",
+    # Phase 8d-ii: differential follow-up
+    "resolve_differential_followup",
+    "_DIFF_FOLLOWUP_PREFIXES",
+    "_DIFF_INSTEAD_SUFFIXES",
+    "_DIFF_INTERROGATIVE_STARTERS",
+    "_DIFF_REMAINDER_NON_PLAYER_STARTERS",
+    "_DIFF_REMAINDER_CONTENT_BLOCKLIST",
     # Phase 4f: LLM-assisted reference resolution
     "ReferenceResolution",
     "resolve_reference",
@@ -298,6 +430,8 @@ __all__ = [
     "COMP_RESOLVER_SYSTEM_PROMPT",
     "_parse_comp_resolver_response",
     "_COMP_RESOLVER_MAX_TOKENS",
+    # Phase 6c: multi-intent detection
+    "detect_multi_intent",
     # core harness
     "ask",
     "route",

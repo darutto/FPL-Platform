@@ -54,6 +54,11 @@ CUMULATIVE_COLS: list[str] = [
     "creativity",
     "threat",
     "ict_index",
+    # 2025-26 additions — confirmed present in bootstrap-static elements
+    "defensive_contribution",           # tackles_won + interceptions + blocks + clearances
+    "clearances_blocks_interceptions",  # FPL's broader defensive actions count
+    "tackles",                          # tackles won (season total)
+    "recoveries",                       # ball recoveries (season total)
 ]
 
 # ---------------------------------------------------------------------------
@@ -75,6 +80,37 @@ SNAPSHOT_COLS: list[str] = [
     "ep_next",
     "ep_this",
 ]
+
+# ---------------------------------------------------------------------------
+# Per-90 columns — pre-computed by FPL from season cumulative totals.
+# These are ratio snapshots; do NOT subtract to get per-GW values.
+# Confirmed present in bootstrap-static elements (2025-26 season).
+# ---------------------------------------------------------------------------
+
+PER_90_COLS: list[str] = [
+    "defensive_contribution_per_90",      # dc season total / (minutes / 90)
+    "clean_sheets_per_90",                # clean_sheets / (minutes / 90)
+    "goals_conceded_per_90",              # goals_conceded / (minutes / 90)
+    "saves_per_90",                       # saves / (minutes / 90) — GKP only non-zero
+    "expected_goals_conceded_per_90",     # xGC / (minutes / 90)
+    "expected_goals_per_90",              # xG / (minutes / 90)
+    "expected_assists_per_90",            # xA / (minutes / 90)
+    "expected_goal_involvements_per_90",  # xGI / (minutes / 90) — FPL pre-computed
+    "starts_per_90",                      # starts / (minutes / 90)
+]
+"""Pre-computed per-90 ratio fields provided directly by the FPL bootstrap API.
+
+Key scoring observations (live data, GW28 2025-26, players with >450 min):
+    GKP  defensive_contribution_per_90: median=0.0, max=0.0  (always zero)
+    DEF  defensive_contribution_per_90: median=7.5, max=13.8
+    MID  defensive_contribution_per_90: median=8.3, max=14.9  (higher than DEF)
+    FWD  defensive_contribution_per_90: median=4.4, max=7.5
+
+    saves_per_90: GKP range 1.6-3.6; all outfield = 0.0
+    clean_sheets_per_90: uniform across outfield positions (~0.27-0.34 median)
+
+Updated: 2026-03-23 via live bootstrap-static API inspection.
+"""
 
 # ---------------------------------------------------------------------------
 # Tournament name normalisation

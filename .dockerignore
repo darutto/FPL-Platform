@@ -1,0 +1,25 @@
+.venv/
+.git/
+.github/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/.pytest_cache/
+**/*.egg-info/
+
+# Frontend package — not part of the backend container
+packages/fpl-ui/
+
+# Unused package
+packages/fpl-charts/
+
+# Node artifacts that sneak in from other contexts
+**/node_modules/
+
+# Test runners and validation artifacts (not needed at runtime)
+packages/fpl-grounded-assistant/run_phase*.py
+packages/fpl-grounded-assistant/run_validation.py
+packages/fpl-grounded-assistant/run_gkp*.py
+packages/fpl-grounded-assistant/run_blank*.py
+packages/fpl-grounded-assistant/validation_results.json
+packages/fpl-grounded-assistant/validation_report.md

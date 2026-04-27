@@ -94,6 +94,8 @@ def adapt(
     *,
     candidate_inputs: dict[str, Any] | None = None,
     candidates_list: list[dict[str, Any]] | None = None,
+    classifier_client: Any = None,
+    intent_hint: str | None = None,
 ) -> AdapterResponse:
     """Adapt a user message into a safe ``AdapterResponse``.
 
@@ -130,6 +132,8 @@ def adapt(
         bootstrap,
         candidate_inputs=candidate_inputs,
         candidates_list=candidates_list,
+        classifier_client=classifier_client,
+        intent_hint=intent_hint,
     )
     supported = dr.outcome != OUTCOME_UNSUPPORTED_INTENT
     return AdapterResponse(

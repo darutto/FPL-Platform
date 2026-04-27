@@ -70,6 +70,7 @@ from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
 
 from .explainer import explain_captain
+from .position_score import compute_position_score
 
 
 # ---------------------------------------------------------------------------
@@ -120,6 +121,15 @@ _SET_PIECE_SHORT: dict[str, str] = {
     "freekick_taker_1": "fk",
     "freekick_taker_2": "fk2",
 }
+
+
+def _venue_tag(is_home: bool | None) -> str:
+    """Return a short venue suffix for display: 'H', 'A', or ''."""
+    if is_home is True:
+        return "H"
+    if is_home is False:
+        return "A"
+    return ""
 
 
 def _set_piece_advantage_phrase(
@@ -179,9 +189,62 @@ def _set_piece_advantage_phrase(
 # Scoring input derivation
 # ---------------------------------------------------------------------------
 
+
+# ---------------------------------------------------------------------------
+# Phase 8b: home/away fixture awareness
+# ---------------------------------------------------------------------------
+
+#: Home/away FDR adjustment magnitude.
+HOME_FDR_ADJUSTMENT: float = 0.5
+
+
+def _get_current_gw(bootstrap: dict[str, Any]) -> int | None:
+    """Return the current GW id from bootstrap events, or None."""
+    for event in bootstrap.get("events", []):
+        if event.get("is_current"):
+            return event.get("id")
+    return None
+
+
+def _resolve_venue(
+    team_id: int | None,
+    team_fixtures: dict | None,
+    current_gw: int | None,
+) -> bool | None:
+    """Return ``True`` if the team plays at home this GW, ``False`` if away,
+    or ``None`` if venue cannot be determined."""
+    if team_id is None or team_fixtures is None or current_gw is None:
+        return None
+    fixtures = team_fixtures.get(team_id)
+    if not fixtures:
+        return None
+    for fix in fixtures:
+        if fix.get("gameweek") == current_gw:
+            return fix.get("is_home")
+    return None
+
+
+def _compute_effective_fdr(
+    raw_fdr: int,
+    is_home: bool | None,
+) -> float:
+    """Apply home/away adjustment to raw FDR.
+
+    Returns a float FDR clamped to [1.0, 5.0].  When ``is_home`` is
+    ``None`` (venue unknown), returns ``raw_fdr`` unchanged.
+    """
+    if is_home is None:
+        return float(raw_fdr)
+    if is_home:
+        return max(1.0, min(5.0, raw_fdr - HOME_FDR_ADJUSTMENT))
+    return max(1.0, min(5.0, raw_fdr + HOME_FDR_ADJUSTMENT))
+
+
 def _derive_scoring_inputs(
     element: dict[str, Any],
     fdr_map: dict[int, int],
+    team_fixtures: dict | None = None,
+    current_gw: int | None = None,
 ) -> dict[str, Any]:
     """Derive captain scoring inputs from a raw FPL bootstrap element.
 
@@ -192,11 +255,16 @@ def _derive_scoring_inputs(
     fdr_map:
         ``bootstrap.get("fixture_difficulty_map", {})`` — maps team_id to FDR.
         Falls back to FDR=3 when the team is absent from the map.
+    team_fixtures:
+        Optional ``bootstrap.get("team_fixtures", {})`` — per-team fixture
+        schedule with ``is_home`` flag.  Phase 8b.
+    current_gw:
+        Optional current gameweek number.  Phase 8b.
 
     Returns
     -------
     dict with keys: form (float), xgi_per_90 (float), minutes_risk (float),
-    fixture_difficulty (int).
+    fixture_difficulty (int), is_home (bool|None), effective_fdr (float).
     """
     form = float(element.get("form", "0") or 0)
 
@@ -214,11 +282,17 @@ def _derive_scoring_inputs(
     team_id = element.get("team")
     fixture_difficulty = int(fdr_map.get(team_id, 3))
 
+    # Phase 8b: home/away venue resolution and effective FDR
+    is_home = _resolve_venue(team_id, team_fixtures, current_gw)
+    effective_fdr = _compute_effective_fdr(fixture_difficulty, is_home)
+
     return {
         "form":               form,
         "xgi_per_90":         round(xgi_per_90, 6),
         "minutes_risk":       minutes_risk,
         "fixture_difficulty": fixture_difficulty,
+        "is_home":            is_home,
+        "effective_fdr":      round(effective_fdr, 1),
     }
 
 
@@ -253,9 +327,12 @@ def _score_one(query: str, bootstrap: dict[str, Any]) -> dict[str, Any]:
             "message": f"Element not found for player_id {player_id}.",
         }
 
-    fdr_map = bootstrap.get("fixture_difficulty_map", {})
-    inputs  = _derive_scoring_inputs(element, fdr_map)
+    fdr_map        = bootstrap.get("fixture_difficulty_map", {})
+    team_fixtures  = bootstrap.get("team_fixtures")
+    current_gw     = _get_current_gw(bootstrap)
+    inputs  = _derive_scoring_inputs(element, fdr_map, team_fixtures, current_gw)
 
+    # Layer 1: canonical captain_score uses raw fixture_difficulty (int)
     score = round(
         calculate_captain_score(
             inputs["form"],
@@ -266,7 +343,25 @@ def _score_one(query: str, bootstrap: dict[str, Any]) -> dict[str, Any]:
         2,
     )
 
-    tier         = classify_captain_tier(score, inputs["minutes_risk"], inputs["xgi_per_90"])
+    # Phase 8a1/8b: position-aware heuristic evaluation (Layer 2)
+    # Uses effective_fdr (home/away adjusted) for fixture component
+    position_str = resolve["position"]
+    saves_per_90 = float(element.get("saves_per_90", 0) or 0)
+    cs_per_90    = float(element.get("clean_sheets_per_90", 0) or 0)
+    dc_per_90    = float(element.get("defensive_contribution_per_90", 0) or 0)
+
+    ps_result = compute_position_score(
+        position=position_str,
+        form=inputs["form"],
+        fixture_difficulty=inputs["effective_fdr"],
+        xgi_per_90=inputs["xgi_per_90"],
+        minutes_risk=inputs["minutes_risk"],
+        saves_per_90=saves_per_90,
+        clean_sheets_per_90=cs_per_90,
+        dc_per_90=dc_per_90,
+    )
+
+    tier         = classify_captain_tier(ps_result.position_score, inputs["minutes_risk"], inputs["xgi_per_90"])
     role_signals = derive_role_signals(element)
 
     raw_for_explain = {
@@ -282,18 +377,35 @@ def _score_one(query: str, bootstrap: dict[str, Any]) -> dict[str, Any]:
         "role_signals": role_signals,
     }
 
+    full_score_inputs = {
+        "form":               inputs["form"],
+        "fixture_difficulty": inputs["fixture_difficulty"],
+        "xgi_per_90":         inputs["xgi_per_90"],
+        "minutes_risk":       inputs["minutes_risk"],
+        "saves_per_90":       round(saves_per_90, 4),
+        "clean_sheets_per_90": round(cs_per_90, 4),
+        "dc_per_90":          round(dc_per_90, 4),
+        "is_home":            inputs["is_home"],
+        "effective_fdr":      inputs["effective_fdr"],
+        "position_score":     ps_result.position_score,
+        "position_profile":   ps_result.position_profile,
+        "components":         ps_result.components,
+        "weights":            ps_result.weights,
+    }
+
     return {
-        "status":        "ok",
-        "web_name":      resolve["web_name"],
-        "name":          resolve["name"],
-        "team":          resolve["team"],
-        "position":      resolve["position"],
-        "captain_score": score,
-        "tier":          tier,
-        "role_signals":  role_signals,
-        "score_inputs":  raw_for_explain["score_inputs"],
-        "reasons":       explain_captain(raw_for_explain),
-        "query":         str(query),
+        "status":           "ok",
+        "web_name":         resolve["web_name"],
+        "name":             resolve["name"],
+        "team":             resolve["team"],
+        "position":         resolve["position"],
+        "captain_score":    score,
+        "position_score":   ps_result.position_score,
+        "tier":             tier,
+        "role_signals":     role_signals,
+        "score_inputs":     full_score_inputs,
+        "reasons":          explain_captain(raw_for_explain),
+        "query":            str(query),
     }
 
 
@@ -354,8 +466,9 @@ def compare_players(
             "message":      scored_b.get("message", f"Could not score '{query_b}'."),
         }
 
-    score_a = scored_a["captain_score"]
-    score_b = scored_b["captain_score"]
+    # Phase 8a1: rank by position_score (Layer 2 heuristic)
+    score_a = scored_a["position_score"]
+    score_b = scored_b["position_score"]
     name_a  = scored_a["web_name"]
     name_b  = scored_b["web_name"]
 
@@ -382,27 +495,29 @@ def compare_players(
         "query_a":  query_a,
         "query_b":  query_b,
         "player_a": {
-            "web_name":      name_a,
-            "position":      scored_a.get("position", ""),    # Phase 5h
-            "captain_score": score_a,
-            "tier":          scored_a["tier"],
-            "reasons":       scored_a["reasons"],
-            "score_inputs":  scored_a["score_inputs"],
-            "role_signals":  scored_a.get("role_signals", {}),  # Phase 5h
+            "web_name":        name_a,
+            "position":        scored_a.get("position", ""),
+            "captain_score":   scored_a["captain_score"],    # Layer 1 canonical
+            "position_score":  scored_a["position_score"],   # Layer 2 heuristic
+            "tier":            scored_a["tier"],
+            "reasons":         scored_a["reasons"],
+            "score_inputs":    scored_a["score_inputs"],
+            "role_signals":    scored_a.get("role_signals", {}),
         },
         "player_b": {
-            "web_name":      name_b,
-            "position":      scored_b.get("position", ""),    # Phase 5h
-            "captain_score": score_b,
-            "tier":          scored_b["tier"],
-            "reasons":       scored_b["reasons"],
-            "score_inputs":  scored_b["score_inputs"],
-            "role_signals":  scored_b.get("role_signals", {}),  # Phase 5h
+            "web_name":        name_b,
+            "position":        scored_b.get("position", ""),
+            "captain_score":   scored_b["captain_score"],    # Layer 1 canonical
+            "position_score":  scored_b["position_score"],   # Layer 2 heuristic
+            "tier":            scored_b["tier"],
+            "reasons":         scored_b["reasons"],
+            "score_inputs":    scored_b["score_inputs"],
+            "role_signals":    scored_b.get("role_signals", {}),
         },
         "winner":              winner,
         "margin":              margin,
-        "margin_label":        _margin_label(margin),           # Phase 5d
-        "comparison_reasons":  comparison_reasons,               # Phase 5d
+        "margin_label":        _margin_label(margin),
+        "comparison_reasons":  comparison_reasons,
         "recommendation":      _build_recommendation(
             name_a, score_a,
             name_b, score_b,
@@ -462,10 +577,15 @@ def _explain_comparison(
         reasons.append(f"stronger form ({w_form:.1f} vs {l_form:.1f})")
 
     # 2. Fixture advantage (lower FDR = better)
-    w_fdr = int(w_inp.get("fixture_difficulty", 3))
-    l_fdr = int(l_inp.get("fixture_difficulty", 3))
-    if l_fdr - w_fdr >= _FDR_ADV_THRESHOLD:
-        reasons.append(f"easier fixture (FDR {w_fdr} vs {l_fdr})")
+    # Phase 8b: use effective_fdr (home/away adjusted) for threshold check
+    w_efdr = float(w_inp.get("effective_fdr", w_inp.get("fixture_difficulty", 3)))
+    l_efdr = float(l_inp.get("effective_fdr", l_inp.get("fixture_difficulty", 3)))
+    if l_efdr - w_efdr >= _FDR_ADV_THRESHOLD:
+        w_raw = int(w_inp.get("fixture_difficulty", 3))
+        l_raw = int(l_inp.get("fixture_difficulty", 3))
+        w_venue = _venue_tag(w_inp.get("is_home"))
+        l_venue = _venue_tag(l_inp.get("is_home"))
+        reasons.append(f"easier fixture (FDR {w_raw}{w_venue} vs {l_raw}{l_venue})")
 
     # 3. xGI/90 advantage
     w_xgi = float(w_inp.get("xgi_per_90", 0.0))
@@ -504,7 +624,7 @@ def _build_recommendation(
     if winner is None:
         return (
             f"{name_a} ({score_a}) and {name_b} ({score_b})"
-            " are tied on captain score."
+            " are tied on score."
         )
 
     loser        = name_b if winner == name_a else name_a

@@ -1,8 +1,8 @@
 # fpl-platform · Claude Code Handoff
 
 **Prepared:** 2026-03-14
-**Last updated:** 2026-03-15 (Phase 5b complete)
-**Handing off at:** Phase 5b complete
+**Last updated:** 2026-04-01 (V2 Phase 1f complete)
+**Handing off at:** V2 Phase 1f complete — HTTP contract fixtures; backend ready for UI consumption
 **Primary package:** `fpl-grounded-assistant`
 
 ---
@@ -300,6 +300,42 @@ Activity Tracker/update_memory.py
 
 ---
 
+## V2 Backend Status (2026-04-01)
+
+V2 Phase 1 is **complete**. The backend contract is stable and ready for UI consumption.
+
+| Phase | Label | Status |
+|-------|-------|--------|
+| V2 Phase 1a | Container — Dockerfile, .dockerignore, requirements.txt | Complete |
+| V2 Phase 1b | Classifier startup — `_try_init_classifier_from_env()` in lifespan | Complete |
+| V2 Phase 1c | `intent_hint` implementation — full stack threading, 69/69 tests | Complete |
+| V2 Phase 1d | `intent_hint` doc parity — contract docs + examples, 22/22 tests | Complete |
+| V2 Phase 1e | Architecture doc parity — `orchestrator-instructions.md` + `HANDOFF.md`, 44/44 checks | Complete |
+| V2 Phase 1f | HTTP contract fixtures — `http_contract_fixtures.json` + verifier, 126/126 pass | Complete |
+
+`http_contract_fixtures.json` is the canonical machine-readable HTTP contract for downstream consumers.
+It covers `POST /ask` and `POST /session/{id}/ask` request shapes, response invariants annotated with
+`stable` / `conditional` / `debug_only` stability levels, and all `intent_hint` contract invariants in
+one self-contained artifact. The backend is ready for UI slash-command consumption.
+
+### `intent_hint` invariants — do not regress
+
+These invariants are stable contract commitments. Backend behavior changes that violate any of them require an explicit approved phase.
+
+1. **Deterministic router wins** — if `route(question)` succeeds, `intent_hint` is completely ignored
+2. **Allowlisted only** — valid values: `captain_score`, `rank_candidates`, `compare_players`, `transfer_advice`, `chip_advice`, `player_fixture_run`, `differential_picks`
+3. **Safe ignore** — invalid or unrecognised hints are silently ignored; never raise, never block
+4. **Pre-classifier** — fires before the LLM classifier fallback, without any LLM call
+5. **Provider-neutral** — no Anthropic or provider-specific identity in the public contract
+6. **Per-turn in sessions** — hint is not stored in session state; does not affect subsequent turns
+7. **`classification_source` audit field** — `"intent_hint"` when hint fires; `None` for deterministic; `"llm_classifier"` for LLM fallback
+
+### Next consumer
+
+The primary downstream consumer of `intent_hint` is the UI slash-command layer (`fpl-ui`). That work is a separate product concern and does not modify the backend.
+
+---
+
 ## Deferred Work — Explicitly Out of Scope
 
 These were intentionally deferred in every phase and should be introduced as
@@ -309,12 +345,14 @@ new approved slices:
 |------------|-----------------|
 | Multi-turn conversation memory (persistence beyond session) | Phase 4e |
 | Trailing-clause pronoun handling ("who is better, him or Salah?") | Phase 4f |
-| Combined intents | Phase 3d |
-| UI integration | Phase 3d |
+| Combined intents beyond " and "-split | Phase 3d |
+| UI slash-command integration (consumer of `intent_hint`) | V2 Phase 1f — backend + contract fixtures complete, UI deferred |
 | Streaming responses | Phase 3d |
 | Model-based (non-deterministic) review | Phase 3d |
-| LLM-based intent classification | Phase 3d |
 | Live FPL API calls in test fixtures | All phases |
+| DGW/BGW detection for `free_hit` | Phase 7b |
+
+Note: LLM-based intent classification is **implemented** (Phase 4k — fires on deterministic router miss, confidence-gated, allowlisted to supported intents). `intent_hint` pre-classifier routing bias is also **implemented and documented** (V2 Phase 1c/1d). Neither is deferred.
 
 ---
 

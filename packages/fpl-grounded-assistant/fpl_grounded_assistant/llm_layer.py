@@ -49,6 +49,7 @@ Intentionally deferred
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 from dataclasses import dataclass
@@ -59,6 +60,7 @@ from .orch_config import get_orch_max_retries, get_orch_timeout
 from .provider_client import (
     get_provider,
     ProviderNotAvailableError,
+    ProviderResult,
 )
 from .dispatcher import (
     OUTCOME_OK,
@@ -357,15 +359,39 @@ def _fallback_llm_response(
     )
 
 
-def _log_provider_failure(provider: str, error_code: str | None, error_msg: str | None, attempts: int) -> None:
-    """Emit traceable provider failure logs without exposing credentials."""
-    _LOG.warning(
-        "ask_llm provider failure provider=%s code=%s attempts=%s msg=%s",
-        provider,
-        error_code or "unknown",
-        attempts,
-        error_msg or "",
-    )
+def _log_provider_event(provider_name: str, result: ProviderResult) -> None:
+    """Emit a structured log event for a provider call result.
+
+    Logs a JSON-serialisable dict so log processors can parse fields without
+    regex.  The ``fpl_event`` key on the log record carries the same dict for
+    programmatic access (e.g. in tests via a custom ``logging.Handler``).
+
+    Success event fields: event, provider, model, latency_ms, attempts.
+    Failure event fields: event, provider, model, error_code, latency_ms, attempts.
+
+    No API key or secret is ever included — ``error_msg`` is deliberately
+    excluded from the structured event to prevent accidental secret leakage
+    through future refactors.
+    """
+    if result.error_code is None:
+        event: dict[str, Any] = {
+            "event":      "provider_call_success",
+            "provider":   provider_name,
+            "model":      result.model,
+            "latency_ms": round(result.latency_ms, 2),
+            "attempts":   result.attempts,
+        }
+        _LOG.info("fpl_provider_event %s", json.dumps(event), extra={"fpl_event": event})
+    else:
+        event = {
+            "event":      "provider_call_failure",
+            "provider":   provider_name,
+            "model":      result.model,
+            "error_code": result.error_code,
+            "latency_ms": round(result.latency_ms, 2),
+            "attempts":   result.attempts,
+        }
+        _LOG.warning("fpl_provider_event %s", json.dumps(event), extra={"fpl_event": event})
 
 
 # ---------------------------------------------------------------------------
@@ -459,13 +485,9 @@ def ask_llm(
         max_retries=max_retries,
     )
 
+    _log_provider_event(_PROVIDER, result)
+
     if result.error_code is not None:
-        _log_provider_failure(
-            _PROVIDER,
-            result.error_code,
-            result.error_msg,
-            result.attempts,
-        )
         return _fallback_llm_response(
             user_message=user_message,
             adapter_response=adapter_response,

@@ -12,6 +12,10 @@ venv/
 .pytest_cache/
 .mypy_cache/
 .vscode/
+node_modules/
+.next/
+packages/fpl-ui/node_modules/
+packages/fpl-ui/.next/
 
 # Session recovery artifacts
 SESSION_EXTRACTION.txt

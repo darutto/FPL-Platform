@@ -2,6 +2,7 @@
 fpl_server -- minimal HTTP entrypoint for the FPL grounded assistant.
 
 Phase 4i: session hygiene and lifecycle hardening.
+Phase 4l: classifier_client threaded through all endpoints.
 
 Exposes one endpoint over HTTP that wraps ``respond()`` and returns a
 ``FinalResponse``-compatible JSON payload.  Bootstrap is assembled once
@@ -19,11 +20,11 @@ GET  /health
 Start the server
 ----------------
     cd packages/fpl-grounded-assistant
-    PYTHONPATH=... python -m uvicorn fpl_server:app --reload
+    python -m uvicorn fpl_server:app --reload
 
 or for a quick smoke test::
 
-    PYTHONPATH=... python fpl_server.py   (binds 127.0.0.1:8000)
+    python fpl_server.py   (binds 127.0.0.1:8000)
 
 HTTP status codes
 -----------------
@@ -37,17 +38,44 @@ HTTP status codes
 """
 from __future__ import annotations
 
+import json
+import logging
+import os
+import sys
 import time
 import uuid
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
 
+# ---------------------------------------------------------------------------
+# sys.path setup  (same pattern as fpl_repl.py / run_validation.py)
+# ---------------------------------------------------------------------------
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_PKGS = os.path.dirname(_HERE)
+_SIB  = lambda name: os.path.join(_PKGS, name)
+for _pkg in [
+    _HERE,
+    _SIB("fpl-api-client"),
+    _SIB("fpl-data-core"),
+    _SIB("fpl-player-registry"),
+    _SIB("fpl-query-tools"),
+    _SIB("fpl-tool-contract"),
+    _SIB("fpl-tool-runner"),
+    _SIB("fpl-captain-engine"),
+    _SIB("fpl-pipeline"),
+]:
+    if _pkg not in sys.path:
+        sys.path.insert(0, _pkg)
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 from fpl_grounded_assistant import respond
 from fpl_pipeline import assemble_captain_context
+
+_LOG = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -69,6 +97,65 @@ def _init_bootstrap(bs: dict[str, Any]) -> None:
     """
     global _bootstrap
     _bootstrap = bs
+
+
+# ---------------------------------------------------------------------------
+# Module-level classifier client state  (Phase 4l)
+#
+# Parallel to _bootstrap: tests inject a stub via _init_classifier_client().
+# At container startup, _try_init_classifier_from_env() attempts to build
+# a real client from ANTHROPIC_API_KEY.  Falls back to None (deterministic
+# routing) when the key is absent, the anthropic package is not installed,
+# or client construction raises.
+# ---------------------------------------------------------------------------
+
+_classifier_client: Any | None = None
+
+
+def _init_classifier_client(client: Any | None) -> None:
+    """Set the classifier client.  Called by the lifespan and by tests.
+
+    Pass ``None`` to reset to deterministic-routing-only mode.
+    The lifespan calls ``_try_init_classifier_from_env()`` which calls this
+    when ``ANTHROPIC_API_KEY`` is set and the ``anthropic`` package is
+    available.  Tests call this directly to inject a stub.
+    """
+    global _classifier_client
+    _classifier_client = client
+
+
+def _try_init_classifier_from_env() -> None:
+    """Attempt to build a classifier client from environment variables.
+
+    Respects ``DEFAULT_PROVIDER`` (default: ``"gemini"``).  Tries the active
+    provider first; falls back silently when the key or package is absent.
+
+    Deterministic routing remains the safe default when no client is built.
+    """
+    from fpl_grounded_assistant.intent_classifier import GeminiClassifierAdapter  # noqa: PLC0415
+
+    provider = os.environ.get("DEFAULT_PROVIDER", "gemini").lower()
+
+    if provider == "gemini":
+        try:
+            import warnings as _w  # noqa: PLC0415
+            with _w.catch_warnings():
+                _w.simplefilter("ignore")
+                import google.generativeai as _genai  # type: ignore[import-untyped]  # noqa: PLC0415
+            key = os.environ.get("GOOGLE_API_KEY")
+            if key:
+                _init_classifier_client(GeminiClassifierAdapter(_genai, key))
+        except Exception:  # noqa: BLE001
+            pass
+
+    elif provider == "anthropic":
+        try:
+            import anthropic as _ant  # type: ignore[import-untyped]  # noqa: PLC0415
+            key = os.environ.get("ANTHROPIC_API_KEY")
+            if key:
+                _init_classifier_client(_ant.Anthropic(api_key=key))
+        except Exception:  # noqa: BLE001
+            pass
 
 
 # ---------------------------------------------------------------------------
@@ -147,6 +234,8 @@ class AskRequest(BaseModel):
     question: str
     debug: bool = False
     candidates_list: list[dict[str, Any]] | None = None  # Phase 5p
+    squad_context: dict[str, Any] | None = None          # Phase 8e1: optional per-turn squad state
+    intent_hint: str | None = None                       # V2: optional slash-command routing bias
 
 
 class AskResponse(BaseModel):
@@ -156,6 +245,13 @@ class AskResponse(BaseModel):
     ``debug`` is only populated when ``AskRequest.debug=True``.
     ``comparison`` is populated for compare_players OK turns (Phase 5g).
     ``captain`` is populated for captain_score OK turns (Phase 5n).
+    ``sub_responses`` is populated for multi_intent turns (Phase 6c/6d).
+    Each sub-response dict includes structured metadata (captain, comparison,
+    captain_ranking, transfer) when the sub-intent produces it (Phase 6d/7a).
+    ``transfer`` is populated for transfer_advice OK turns (Phase 7a).
+    ``chip`` is populated for chip_advice OK turns (Phase 7b).
+    ``fixture_run`` is populated for player_fixture_run OK turns (Phase 7h).
+    ``differential`` is populated for differential_picks OK turns (Phase 7g).
     """
 
     final_text: str
@@ -165,9 +261,15 @@ class AskResponse(BaseModel):
     review_passed: bool
     llm_used: bool
     debug: dict[str, Any] | None = None
-    comparison: dict[str, Any] | None = None  # Phase 5g
-    captain: dict[str, Any] | None = None               # Phase 5n
-    captain_ranking: list[dict[str, Any]] | None = None  # Phase 5p
+    comparison: dict[str, Any] | None = None              # Phase 5g
+    captain: dict[str, Any] | None = None                 # Phase 5n
+    captain_ranking: list[dict[str, Any]] | None = None   # Phase 5p
+    sub_responses: list[dict[str, Any]] | None = None     # Phase 6c
+    transfer: dict[str, Any] | None = None                # Phase 7a
+    chip: dict[str, Any] | None = None                    # Phase 7b
+    fixture_run: dict[str, Any] | None = None             # Phase 7h
+    differential: dict[str, Any] | None = None            # Phase 7g
+    orch_outcome: str | None = None                        # Orch-4c: audit
 
 
 class CreateSessionResponse(BaseModel):
@@ -186,6 +288,11 @@ class SessionAskResponse(BaseModel):
     actually rewrote the question.
     comparison is populated for compare_players OK turns (Phase 5g).
     captain is populated for captain_score OK turns (Phase 5n).
+    sub_responses is populated for multi_intent turns (Phase 6c).
+    transfer is populated for transfer_advice OK turns (Phase 7a).
+    chip is populated for chip_advice OK turns (Phase 7b).
+    fixture_run is populated for player_fixture_run OK turns (Phase 7h).
+    differential is populated for differential_picks OK turns (Phase 7g).
     """
 
     session_id: str
@@ -197,9 +304,15 @@ class SessionAskResponse(BaseModel):
     llm_used: bool
     rewritten_question: str | None = None
     debug: dict[str, Any] | None = None
-    comparison: dict[str, Any] | None = None  # Phase 5g
-    captain: dict[str, Any] | None = None               # Phase 5n
-    captain_ranking: list[dict[str, Any]] | None = None  # Phase 5p
+    comparison: dict[str, Any] | None = None              # Phase 5g
+    captain: dict[str, Any] | None = None                 # Phase 5n
+    captain_ranking: list[dict[str, Any]] | None = None   # Phase 5p
+    sub_responses: list[dict[str, Any]] | None = None     # Phase 6c
+    transfer: dict[str, Any] | None = None                # Phase 7a
+    chip: dict[str, Any] | None = None                    # Phase 7b
+    fixture_run: dict[str, Any] | None = None             # Phase 7h
+    differential: dict[str, Any] | None = None            # Phase 7g
+    orch_outcome: str | None = None                        # Orch-4c: audit
 
 
 class ClearSessionResponse(BaseModel):
@@ -217,16 +330,99 @@ class SessionInfoResponse(BaseModel):
     last_player           -- last successfully resolved single-player query
     last_comparison       -- {"player_a": ..., "player_b": ...} from last comparison, or None
     last_resolver_source  -- resolver path from most recent turn (same vocab as ResolverDebug)
+    Phase 7f additions:
+    last_transfer         -- {"player_out": ..., "player_in": ...} from last transfer, or None
+    Phase 8d-i additions:
+    last_fixture_run_player -- player query from last fixture run turn, or None
+    Phase 8d-ii additions:
+    last_differential       -- True when last successful turn was differential picks
     """
 
     session_id: str
     created_at: float
     last_used_at: float
     turn_count: int
-    last_intent: str | None = None                 # Phase 5l
-    last_player: str | None = None                 # Phase 5l
-    last_comparison: dict[str, Any] | None = None  # Phase 5l
-    last_resolver_source: str | None = None        # Phase 5l
+    last_intent: str | None = None                      # Phase 5l
+    last_player: str | None = None                      # Phase 5l
+    last_comparison: dict[str, Any] | None = None       # Phase 5l
+    last_resolver_source: str | None = None             # Phase 5l
+    last_transfer: dict[str, Any] | None = None         # Phase 7f
+    last_fixture_run_player: str | None = None          # Phase 8d-i
+    last_differential: bool = False                     # Phase 8d-ii
+
+
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Bootstrap retry policy
+# ---------------------------------------------------------------------------
+
+#: Total attempts for the FPL bootstrap fetch at startup (1 initial + N retries).
+_BOOTSTRAP_MAX_ATTEMPTS: int = 4
+
+#: Seconds to wait between consecutive attempts.
+#: Increasing delays give the FPL API time to recover from a transient outage.
+_BOOTSTRAP_RETRY_DELAYS: tuple[float, ...] = (2.0, 5.0, 10.0)
+
+
+def _fetch_bootstrap_with_retry(
+    _sleep_fn: Any = None,
+) -> "dict[str, Any] | None":
+    """Fetch the FPL bootstrap with bounded retries and structured logging.
+
+    Makes up to ``_BOOTSTRAP_MAX_ATTEMPTS`` calls to
+    ``assemble_captain_context()``.  Between attempts it sleeps for the
+    corresponding delay in ``_BOOTSTRAP_RETRY_DELAYS``.
+
+    Parameters
+    ----------
+    _sleep_fn:
+        Callable used for inter-retry sleep.  Defaults to ``time.sleep``.
+        Inject a no-op (``lambda _: None``) in tests to avoid real waits.
+
+    Returns
+    -------
+    dict[str, Any] | None
+        The raw bootstrap dict (value of ``ctx["bootstrap"]``) on success,
+        or ``None`` if every attempt raises.  Caller is responsible for
+        calling ``_init_bootstrap()`` on a non-None return.
+    """
+    sleep = _sleep_fn if _sleep_fn is not None else time.sleep
+    last_exc: Exception | None = None
+
+    for attempt in range(1, _BOOTSTRAP_MAX_ATTEMPTS + 1):
+        try:
+            ctx = assemble_captain_context()
+            _LOG.info(
+                "fpl_startup %s",
+                json.dumps({
+                    "event":   "bootstrap_success",
+                    "attempt": attempt,
+                }),
+            )
+            return ctx["bootstrap"]
+        except Exception as exc:  # noqa: BLE001
+            last_exc = exc
+            _LOG.warning(
+                "fpl_startup %s",
+                json.dumps({
+                    "event":        "bootstrap_attempt_failed",
+                    "attempt":      attempt,
+                    "max_attempts": _BOOTSTRAP_MAX_ATTEMPTS,
+                    "error":        type(exc).__name__,
+                }),
+            )
+            if attempt < _BOOTSTRAP_MAX_ATTEMPTS:
+                sleep(_BOOTSTRAP_RETRY_DELAYS[attempt - 1])
+
+    _LOG.error(
+        "fpl_startup %s",
+        json.dumps({
+            "event":    "bootstrap_exhausted",
+            "attempts": _BOOTSTRAP_MAX_ATTEMPTS,
+            "error":    type(last_exc).__name__ if last_exc else "unknown",
+        }),
+    )
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -235,13 +431,19 @@ class SessionInfoResponse(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Assemble live bootstrap once at startup.
+    """Assemble live bootstrap and optional classifier client at startup.
 
-    Skipped if ``_bootstrap`` is already set (test injection path).
+    Bootstrap is skipped if already set (test injection path).
+    On a live start the bootstrap is fetched with bounded retries; if all
+    attempts fail the server starts in a degraded state and /ask returns 503
+    until the bootstrap is populated externally (no manual restart required).
     """
     if _bootstrap is None:
-        ctx = assemble_captain_context()
-        _init_bootstrap(ctx["bootstrap"])
+        bs = _fetch_bootstrap_with_retry()
+        if bs is not None:
+            _init_bootstrap(bs)
+    if _classifier_client is None:
+        _try_init_classifier_from_env()
     yield
 
 
@@ -288,14 +490,157 @@ def _captain_ranking_list(captain_ranking: Any) -> list[dict[str, Any]]:
     ]
 
 
+def _player_ctx_dict(ctx: Any) -> dict[str, Any] | None:
+    """Serialise a ``ComparisonPlayerContext`` to a JSON-safe dict, or None."""
+    if ctx is None:
+        return None
+    return {
+        "web_name":        ctx.web_name,
+        "position":        ctx.position,
+        "captain_score":   ctx.captain_score,
+        "position_score":  ctx.position_score,   # Phase 8a1 Layer 2
+        "is_home":         ctx.is_home,           # Phase 8b
+        "effective_fdr":   ctx.effective_fdr,     # Phase 8b
+        "role_bonus":      ctx.role_bonus,
+        "set_piece_notes": list(ctx.set_piece_notes),
+    }
+
+
+def _comparison_dict(comparison: Any) -> dict[str, Any]:
+    """Serialise a ``ComparisonMeta`` instance to a JSON-safe dict."""
+    return {
+        "winner":   comparison.winner,
+        "margin":   comparison.margin,
+        "label":    comparison.label,
+        "reasons":  list(comparison.reasons),
+        "player_a": _player_ctx_dict(comparison.player_a),
+        "player_b": _player_ctx_dict(comparison.player_b),
+    }
+
+
+def _transfer_meta_dict(transfer: Any) -> dict[str, Any]:
+    """Serialise a ``TransferMeta`` instance to a JSON-safe dict."""
+    return {
+        "player_out":        transfer.player_out,
+        "player_in":         transfer.player_in,
+        "recommendation":    transfer.recommendation,
+        "score_delta":       transfer.score_delta,
+        "price_delta":       transfer.price_delta,
+        "reasons":           list(transfer.reasons),
+        "budget_constraint": transfer.budget_constraint,  # Phase 8e1
+        "hit_warning":       transfer.hit_warning,        # Phase 8e2
+    }
+
+
+def _chip_meta_dict(chip: Any) -> dict[str, Any]:
+    """Serialise a ``ChipAdviceMeta`` instance to a JSON-safe dict."""
+    return {
+        "chip":             chip.chip,
+        "recommendation":   chip.recommendation,
+        "gw":               chip.gw,
+        "signal_value":     chip.signal_value,
+        "signal_label":     chip.signal_label,
+        "chip_unavailable": chip.chip_unavailable,  # Phase 8e1
+    }
+
+
+def _differential_meta_dict(differential: Any) -> dict[str, Any]:
+    """Serialise a ``DifferentialPicksMeta`` instance to a JSON-safe dict.  Phase 7g."""
+    return {
+        "ownership_threshold": differential.ownership_threshold,
+        "top_n":               differential.top_n,
+        "picks": [
+            {
+                "rank":          p.rank,
+                "web_name":      p.web_name,
+                "team_short":    p.team_short,
+                "position":      p.position,
+                "captain_score": p.captain_score,
+                "ownership":     p.ownership,
+                "now_cost":      p.now_cost,
+                "is_home":       p.is_home,
+            }
+            for p in differential.picks
+        ],
+    }
+
+
+def _fixture_run_meta_dict(fixture_run: Any) -> dict[str, Any]:
+    """Serialise a ``FixtureRunMeta`` instance to a JSON-safe dict.  Phase 7h."""
+    return {
+        "web_name":         fixture_run.web_name,
+        "team_short":       fixture_run.team_short,
+        "position":         fixture_run.position,
+        "horizon":          fixture_run.horizon,
+        "current_gameweek": fixture_run.current_gameweek,
+        "fixtures": [
+            {
+                "gameweek":       fx.gameweek,
+                "opponent_short": fx.opponent_short,
+                "is_home":        fx.is_home,
+                "difficulty":     fx.difficulty,
+            }
+            for fx in fixture_run.fixtures
+        ],
+    }
+
+
+def _sub_response_dict(sr: Any) -> dict[str, Any]:
+    """Serialise a sub-response ``FinalResponse`` to a bounded JSON-safe dict.
+
+    Includes structured metadata (captain, comparison, captain_ranking,
+    transfer) when present on the sub-response, mirroring top-level response
+    serialisation.  Debug bundles are always excluded from sub-responses.
+
+    Phase 6d addition.  Phase 7a: transfer metadata added.
+    Phase 7b: chip metadata added.
+    """
+    d: dict[str, Any] = {
+        "final_text": sr.final_text,
+        "outcome":    sr.outcome,
+        "supported":  sr.supported,
+        "intent":     sr.intent,
+    }
+    if sr.comparison is not None:
+        d["comparison"] = _comparison_dict(sr.comparison)
+    if sr.captain is not None:
+        d["captain"] = _captain_meta_dict(sr.captain)
+    if sr.captain_ranking is not None:
+        d["captain_ranking"] = _captain_ranking_list(sr.captain_ranking)
+    if sr.transfer is not None:
+        d["transfer"] = _transfer_meta_dict(sr.transfer)
+    if sr.chip is not None:
+        d["chip"] = _chip_meta_dict(sr.chip)
+    if sr.fixture_run is not None:                         # Phase 7h
+        d["fixture_run"] = _fixture_run_meta_dict(sr.fixture_run)
+    if sr.differential is not None:                        # Phase 7g
+        d["differential"] = _differential_meta_dict(sr.differential)
+    return d
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    """Liveness check.  Returns 200 when the server is running."""
+    """Liveness check.  Always returns 200 while the process is running.
+    Does NOT reflect bootstrap readiness — use /ready for that."""
     return {"status": "ok"}
+
+
+@app.get("/ready")
+def ready() -> dict[str, str]:
+    """Readiness check.  Returns 200 only when the bootstrap is loaded.
+
+    Use this endpoint for deployment readiness probes (Kubernetes, Railway,
+    Docker HEALTHCHECK) so traffic is not routed until data is available.
+    Returns 503 while the bootstrap is still loading or if all startup
+    attempts failed.
+    """
+    if _bootstrap is None:
+        raise HTTPException(status_code=503, detail="Bootstrap not ready")
+    return {"status": "ready"}
 
 
 @app.post("/ask", response_model=AskResponse)
@@ -318,38 +663,29 @@ def ask(req: AskRequest) -> AskResponse:
     if _bootstrap is None:
         raise HTTPException(status_code=503, detail="Bootstrap not initialised")
 
-    r = respond(req.question, _bootstrap, include_debug=req.debug, candidates_list=req.candidates_list)
+    r = respond(
+        req.question, _bootstrap,
+        include_debug=req.debug,
+        candidates_list=req.candidates_list,
+        classifier_client=_classifier_client,  # Phase 4l
+        squad_context=req.squad_context,        # Phase 8e1
+        intent_hint=req.intent_hint,            # V2
+    )
 
     debug_bundle: dict[str, Any] | None = None
     if req.debug and r.debug is not None:
         debug_bundle = {
-            "response_text": r.debug.response_text,
-            "llm_text":      r.debug.llm_text,
-            "violations":    list(r.debug.violations),
-            "prompt_used":   r.debug.prompt_used,
-            "model":         r.debug.model,
+            "response_text":         r.debug.response_text,
+            "llm_text":              r.debug.llm_text,
+            "violations":            list(r.debug.violations),
+            "prompt_used":           r.debug.prompt_used,
+            "model":                 r.debug.model,
+            "classification_source": r.debug.classification_source,  # Phase 4l / V2
         }
 
     comp_bundle: dict[str, Any] | None = None
     if r.comparison is not None:
-        def _player_ctx_dict(ctx: Any) -> dict[str, Any] | None:
-            if ctx is None:
-                return None
-            return {
-                "web_name":        ctx.web_name,
-                "position":        ctx.position,
-                "captain_score":   ctx.captain_score,
-                "role_bonus":      ctx.role_bonus,
-                "set_piece_notes": list(ctx.set_piece_notes),
-            }
-        comp_bundle = {
-            "winner":   r.comparison.winner,
-            "margin":   r.comparison.margin,
-            "label":    r.comparison.label,
-            "reasons":  list(r.comparison.reasons),
-            "player_a": _player_ctx_dict(r.comparison.player_a),  # Phase 5i
-            "player_b": _player_ctx_dict(r.comparison.player_b),  # Phase 5i
-        }
+        comp_bundle = _comparison_dict(r.comparison)
 
     captain_bundle: dict[str, Any] | None = None
     if r.captain is not None:
@@ -358,6 +694,26 @@ def ask(req: AskRequest) -> AskResponse:
     captain_ranking_list: list[dict[str, Any]] | None = None
     if r.captain_ranking is not None:
         captain_ranking_list = _captain_ranking_list(r.captain_ranking)
+
+    sub_responses_list: list[dict[str, Any]] | None = None  # Phase 6c/6d
+    if r.sub_responses is not None:
+        sub_responses_list = [_sub_response_dict(sr) for sr in r.sub_responses]
+
+    transfer_bundle: dict[str, Any] | None = None          # Phase 7a
+    if r.transfer is not None:
+        transfer_bundle = _transfer_meta_dict(r.transfer)
+
+    chip_bundle: dict[str, Any] | None = None              # Phase 7b
+    if r.chip is not None:
+        chip_bundle = _chip_meta_dict(r.chip)
+
+    fixture_run_bundle: dict[str, Any] | None = None       # Phase 7h
+    if r.fixture_run is not None:
+        fixture_run_bundle = _fixture_run_meta_dict(r.fixture_run)
+
+    differential_bundle: dict[str, Any] | None = None     # Phase 7g
+    if r.differential is not None:
+        differential_bundle = _differential_meta_dict(r.differential)
 
     return AskResponse(
         final_text=r.final_text,
@@ -370,6 +726,12 @@ def ask(req: AskRequest) -> AskResponse:
         comparison=comp_bundle,
         captain=captain_bundle,
         captain_ranking=captain_ranking_list,
+        sub_responses=sub_responses_list,
+        transfer=transfer_bundle,
+        chip=chip_bundle,
+        fixture_run=fixture_run_bundle,
+        differential=differential_bundle,
+        orch_outcome=r.orch_outcome,   # Orch-4c: audit
     )
 
 
@@ -440,7 +802,14 @@ def session_ask(session_id: str, req: AskRequest) -> SessionAskResponse:
         del _sessions[session_id]
         raise HTTPException(status_code=404, detail=f"Session expired: {session_id}")
 
-    r = entry.session.respond(req.question, _bootstrap, include_debug=req.debug, candidates_list=req.candidates_list)
+    r = entry.session.respond(
+        req.question, _bootstrap,
+        include_debug=req.debug,
+        candidates_list=req.candidates_list,
+        classifier_client=_classifier_client,  # Phase 4l
+        squad_context=req.squad_context,        # Phase 8e1
+        intent_hint=req.intent_hint,            # V2
+    )
     entry.last_used_at = time.time()
 
     debug_bundle: dict[str, Any] | None = None
@@ -448,11 +817,12 @@ def session_ask(session_id: str, req: AskRequest) -> SessionAskResponse:
 
     if req.debug and r.debug is not None:
         debug_bundle = {
-            "response_text": r.debug.response_text,
-            "llm_text":      r.debug.llm_text,
-            "violations":    list(r.debug.violations),
-            "prompt_used":   r.debug.prompt_used,
-            "model":         r.debug.model,
+            "response_text":         r.debug.response_text,
+            "llm_text":              r.debug.llm_text,
+            "violations":            list(r.debug.violations),
+            "prompt_used":           r.debug.prompt_used,
+            "model":                 r.debug.model,
+            "classification_source": r.debug.classification_source,  # Phase 4l
         }
         if r.debug.resolver is not None:
             rdbg = r.debug.resolver
@@ -468,24 +838,7 @@ def session_ask(session_id: str, req: AskRequest) -> SessionAskResponse:
 
     sess_comp_bundle: dict[str, Any] | None = None
     if r.comparison is not None:
-        def _sess_player_ctx_dict(ctx: Any) -> dict[str, Any] | None:
-            if ctx is None:
-                return None
-            return {
-                "web_name":        ctx.web_name,
-                "position":        ctx.position,
-                "captain_score":   ctx.captain_score,
-                "role_bonus":      ctx.role_bonus,
-                "set_piece_notes": list(ctx.set_piece_notes),
-            }
-        sess_comp_bundle = {
-            "winner":   r.comparison.winner,
-            "margin":   r.comparison.margin,
-            "label":    r.comparison.label,
-            "reasons":  list(r.comparison.reasons),
-            "player_a": _sess_player_ctx_dict(r.comparison.player_a),  # Phase 5i
-            "player_b": _sess_player_ctx_dict(r.comparison.player_b),  # Phase 5i
-        }
+        sess_comp_bundle = _comparison_dict(r.comparison)
 
     sess_captain_bundle: dict[str, Any] | None = None
     if r.captain is not None:
@@ -494,6 +847,26 @@ def session_ask(session_id: str, req: AskRequest) -> SessionAskResponse:
     sess_captain_ranking_list: list[dict[str, Any]] | None = None
     if r.captain_ranking is not None:
         sess_captain_ranking_list = _captain_ranking_list(r.captain_ranking)
+
+    sess_sub_responses_list: list[dict[str, Any]] | None = None  # Phase 6c/6d
+    if r.sub_responses is not None:
+        sess_sub_responses_list = [_sub_response_dict(sr) for sr in r.sub_responses]
+
+    sess_transfer_bundle: dict[str, Any] | None = None           # Phase 7a
+    if r.transfer is not None:
+        sess_transfer_bundle = _transfer_meta_dict(r.transfer)
+
+    sess_chip_bundle: dict[str, Any] | None = None               # Phase 7b
+    if r.chip is not None:
+        sess_chip_bundle = _chip_meta_dict(r.chip)
+
+    sess_fixture_run_bundle: dict[str, Any] | None = None        # Phase 7h
+    if r.fixture_run is not None:
+        sess_fixture_run_bundle = _fixture_run_meta_dict(r.fixture_run)
+
+    sess_differential_bundle: dict[str, Any] | None = None      # Phase 7g
+    if r.differential is not None:
+        sess_differential_bundle = _differential_meta_dict(r.differential)
 
     return SessionAskResponse(
         session_id=session_id,
@@ -508,6 +881,12 @@ def session_ask(session_id: str, req: AskRequest) -> SessionAskResponse:
         comparison=sess_comp_bundle,
         captain=sess_captain_bundle,
         captain_ranking=sess_captain_ranking_list,
+        sub_responses=sess_sub_responses_list,
+        transfer=sess_transfer_bundle,
+        chip=sess_chip_bundle,
+        fixture_run=sess_fixture_run_bundle,
+        differential=sess_differential_bundle,
+        orch_outcome=r.orch_outcome,   # Orch-4c: audit
     )
 
 
@@ -559,6 +938,13 @@ def get_session(session_id: str) -> SessionInfoResponse:
             "player_a": state.last_comparison[0],
             "player_b": state.last_comparison[1],
         }
+    # Phase 7f: transfer context snapshot
+    last_transfer_dict: dict[str, Any] | None = None
+    if state.last_transfer is not None:
+        last_transfer_dict = {
+            "player_out": state.last_transfer[0],
+            "player_in":  state.last_transfer[1],
+        }
 
     return SessionInfoResponse(
         session_id=session_id,
@@ -569,6 +955,9 @@ def get_session(session_id: str) -> SessionInfoResponse:
         last_player=state.last_player_query,
         last_comparison=last_comparison_dict,
         last_resolver_source=state.last_resolver_source,
+        last_transfer=last_transfer_dict,
+        last_fixture_run_player=state.last_fixture_run_player,  # Phase 8d-i
+        last_differential=state.last_differential,               # Phase 8d-ii
     )
 
 

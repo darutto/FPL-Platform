@@ -73,6 +73,27 @@ The session store is a plain in-memory dict. This server is designed to run as a
 
 ---
 
+## `intent_hint` in Session Ask Requests (V2 Phase 1c)
+
+`POST /session/{id}/ask` accepts an optional `intent_hint` field in the request body:
+
+```json
+{"question": "Haaland", "intent_hint": "player_fixture_run"}
+```
+
+Semantics are identical to `/ask`:
+- **Deterministic router wins** — if `route(question)` succeeds, `intent_hint` is completely ignored.
+  Fires only when the deterministic router returns no match for `question`.
+- Allowlisted to 7 values (`captain_score`, `rank_candidates`, `compare_players`,
+  `transfer_advice`, `chip_advice`, `player_fixture_run`, `differential_picks`).
+- Invalid or omitted hints fall back silently — never cause errors.
+- The bias is **per-turn** — it is not stored in session state and does not affect
+  subsequent turns.
+
+See `FINAL_RESPONSE_CONTRACT.md` for the full `intent_hint` semantics reference.
+
+---
+
 ## HTTP Status Code Summary
 
 | Status | Meaning |
