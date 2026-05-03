@@ -1,11 +1,11 @@
 # FPL Grounded Assistant — Validation Report
 
-Generated: 2026-05-03 18:05 UTC
+Generated: 2026-05-03 22:16 UTC
 
 ## Summary
 
-- **60 scenarios** tested
-- **60 PASS**, **0 FAIL**
+- **63 scenarios** tested
+- **63 PASS**, **0 FAIL**
 
 ## Scenario Overview
 
@@ -68,6 +68,9 @@ Generated: 2026-05-03 18:05 UTC
 | injury_check_named_player | summary | player_summary | ok | cli, http | ✓ PASS |
 | injury_list_gw_wide | injury_list | injury_list | ok | cli, http | ✓ PASS |
 | price_changes_risers | price_changes | price_changes | ok | cli, http | ✓ PASS |
+| team_calendar_easiest_spanish | team_fixture_calendar | team_fixture_calendar | ok | cli, http | ✓ PASS |
+| team_calendar_hardest_english | team_fixture_calendar | team_fixture_calendar | ok | cli, http | ✓ PASS |
+| team_calendar_easiest_english_n | team_fixture_calendar | team_fixture_calendar | ok | cli, http | ✓ PASS |
 | chip_wildcard_timing_antes_despues | chip | chip_advice | ok | cli, http | ✓ PASS |
 | chip_bench_boost_conditional_tiene_sentido | chip | chip_advice | ok | cli, http | ✓ PASS |
 | chip_wildcard_spent_sequencing | chip | chip_advice | ok | cli, http | ✓ PASS |
@@ -918,6 +921,45 @@ Generated: 2026-05-03 18:05 UTC
 
 - `cli`: intent=`price_changes` outcome=`ok` supported=`True`
 - `http`: intent=`price_changes` outcome=`ok` supported=`True`
+
+### team_calendar_easiest_spanish  (✓ PASS)
+
+**Family:** team_fixture_calendar  
+**Description:** Spanish 'que equipos tienen el mejor calendario las proximas 5 jornadas' routes to team_fixture_calendar with mode='easiest', horizon=5.  
+**Question:** `que equipos tienen el mejor calendario las proximas 5 jornadas`  
+**Expected:** intent=`team_fixture_calendar` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6e: easiest team fixture calendar. STANDARD_BOOTSTRAP has 5 teams with team_fixtures. team_calendar.mode='easiest', horizon=5, teams non-empty. Liverpool (avg 2.8) expected to rank #1. Before fix: unsupported_intent. After: team_fixture_calendar ok.
+
+**Surface results:**
+
+- `cli`: intent=`team_fixture_calendar` outcome=`ok` supported=`True`
+- `http`: intent=`team_fixture_calendar` outcome=`ok` supported=`True`
+
+### team_calendar_hardest_english  (✓ PASS)
+
+**Family:** team_fixture_calendar  
+**Description:** English 'teams with worst upcoming fixtures' routes to team_fixture_calendar with mode='hardest', horizon=5 (default).  
+**Question:** `teams with worst upcoming fixtures`  
+**Expected:** intent=`team_fixture_calendar` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6e: hardest team fixture calendar. team_calendar.mode='hardest'. Man Utd (avg 4.2) expected to rank #1 in hardest. Before fix: unsupported_intent. After: team_fixture_calendar ok.
+
+**Surface results:**
+
+- `cli`: intent=`team_fixture_calendar` outcome=`ok` supported=`True`
+- `http`: intent=`team_fixture_calendar` outcome=`ok` supported=`True`
+
+### team_calendar_easiest_english_n  (✓ PASS)
+
+**Family:** team_fixture_calendar  
+**Description:** English 'best fixtures next 5 gameweeks' routes to team_fixture_calendar with mode='easiest', horizon=5.  
+**Question:** `best fixtures next 5 gameweeks`  
+**Expected:** intent=`team_fixture_calendar` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6e: English 'best fixtures next N gameweeks' routing. Horizon extracted as 5 from 'next 5 gameweeks'. team_calendar.mode='easiest'. Before fix: unsupported_intent. After: team_fixture_calendar ok.
+
+**Surface results:**
+
+- `cli`: intent=`team_fixture_calendar` outcome=`ok` supported=`True`
+- `http`: intent=`team_fixture_calendar` outcome=`ok` supported=`True`
 
 ### chip_wildcard_timing_antes_despues  (✓ PASS)
 

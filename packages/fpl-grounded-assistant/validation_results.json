@@ -1,7 +1,7 @@
 {
-  "run_at": "2026-05-03T18:05:23.498142+00:00",
-  "scenario_count": 60,
-  "pass_count": 60,
+  "run_at": "2026-05-03T22:16:57.161916+00:00",
+  "scenario_count": 63,
+  "pass_count": 63,
   "fail_count": 0,
   "scenarios": [
     {
@@ -39,6 +39,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (LIV) — Safe [60.58]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.",
           "classification_source": null
         },
@@ -67,6 +68,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (LIV) — Safe [60.58]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.",
           "classification_source": null
         }
@@ -140,6 +142,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture\n3. Saka (ARS) [diff] 36.35 · 2nd free-kick taker — Tough fixture; Weak attacking process",
           "classification_source": null
         },
@@ -193,6 +196,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture\n3. Saka (ARS) [diff] 36.35 · 2nd free-kick taker — Tough fixture; Weak attacking process",
           "classification_source": null
         }
@@ -232,6 +236,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Haaland (Erling Haaland) | Manchester City (MCI) | FWD | £14.5m | 52.3% ownership | Status: Available. Form: 8.0 | Mins: 1800.",
           "classification_source": null
         },
@@ -251,6 +256,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Haaland (Erling Haaland) | Manchester City (MCI) | FWD | £14.5m | 52.3% ownership | Status: Available. Form: 8.0 | Mins: 1800.",
           "classification_source": null
         }
@@ -290,6 +296,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (Mohamed Salah) plays for Liverpool (LIV) as a MID. Status: Available. [Resolved via: web_name]",
           "classification_source": null
         },
@@ -309,6 +316,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (Mohamed Salah) plays for Liverpool (LIV) as a MID. Status: Available. [Resolved via: web_name]",
           "classification_source": null
         }
@@ -379,6 +387,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (63.58) edges Haaland (57.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0).",
           "classification_source": null
         },
@@ -429,6 +438,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (63.58) edges Haaland (57.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0).",
           "classification_source": null
         }
@@ -468,6 +478,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "I couldn't match that question to a supported query. Supported questions include: captain score for a player, captain rankings, player comparison, transfer advice, chip advice, player fixture run, differential picks, player summary, player lookup, and current gameweek.",
           "classification_source": null
         },
@@ -487,6 +498,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "I couldn't match that question to a supported query. Supported questions include: captain score for a player, captain rankings, player comparison, transfer advice, chip advice, player fixture run, differential picks, player summary, player lookup, and current gameweek.",
           "classification_source": null
         }
@@ -526,6 +538,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Multiple players share the name 'Doe'. Please use a full name or player ID to disambiguate (e.g. 'Who is Adam Johnson?' or 'Who is player 6?').",
           "classification_source": null
         },
@@ -545,6 +558,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Multiple players share the name 'Doe'. Please use a full name or player ID to disambiguate (e.g. 'Who is Adam Johnson?' or 'Who is player 6?').",
           "classification_source": null
         }
@@ -584,6 +598,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "No player found matching 'xyznotaplayer999'. Check the spelling or try a full name / player ID.",
           "classification_source": null
         },
@@ -603,6 +618,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "No player found matching 'xyznotaplayer999'. Check the spelling or try a full name / player ID.",
           "classification_source": null
         }
@@ -642,6 +658,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "No player found matching 'him'. Check the spelling or try a full name / player ID.",
           "classification_source": null
         },
@@ -661,6 +678,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "No player found matching 'him'. Check the spelling or try a full name / player ID.",
           "classification_source": null
         }
@@ -733,6 +751,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Haaland (57.85) edges Saka (39.35) — clear margin (18.5).  Advantages: stronger form (8.0 vs 5.5); easier fixture (FDR 4H vs 5H); better minutes security.",
           "resolver_source": "comparison_followup",
           "rewritten_question": "compare Haaland and Saka",
@@ -787,6 +806,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Haaland (57.85) edges Saka (39.35) — clear margin (18.5).  Advantages: stronger form (8.0 vs 5.5); easier fixture (FDR 4H vs 5H); better minutes security.",
           "classification_source": null
         }
@@ -858,6 +878,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Haaland (57.85) edges Saka (39.35) — clear margin (18.5).  Advantages: stronger form (8.0 vs 5.5); easier fixture (FDR 4H vs 5H); better minutes security.",
           "resolver_source": "comparison_followup_llm",
           "rewritten_question": "compare Haaland and Saka",
@@ -907,6 +928,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (LIV) — Safe [60.58]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.",
           "resolver_source": "fallback_regex",
           "rewritten_question": "should I captain Salah",
@@ -936,6 +958,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (LIV) — Safe [60.58]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.",
           "classification_source": null
         }
@@ -982,6 +1005,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (LIV) — Safe [60.58]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.",
           "resolver_source": "llm",
           "rewritten_question": "should I captain Salah",
@@ -1034,6 +1058,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Saka (ARS) — Differential [36.35]. 2nd free-kick taker; Tough fixture; Weak attacking process; High-upside differential profile.",
           "classification_source": "llm_classifier"
         },
@@ -1062,6 +1087,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Saka (ARS) — Differential [36.35]. 2nd free-kick taker; Tough fixture; Weak attacking process; High-upside differential profile.",
           "classification_source": "llm_classifier"
         },
@@ -1089,6 +1115,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Saka (ARS) — Differential [36.35]. 2nd free-kick taker; Tough fixture; Weak attacking process; High-upside differential profile.",
           "resolver_source": "none",
           "rewritten_question": "is Saka worth captaining?",
@@ -1118,6 +1145,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Saka (ARS) — Differential [36.35]. 2nd free-kick taker; Tough fixture; Weak attacking process; High-upside differential profile.",
           "classification_source": "llm_classifier"
         }
@@ -1190,6 +1218,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (63.58) edges Haaland (57.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0).",
           "classification_source": "llm_classifier"
         },
@@ -1240,6 +1269,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (63.58) edges Haaland (57.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0).",
           "classification_source": "llm_classifier"
         },
@@ -1289,6 +1319,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (63.58) edges Haaland (57.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0).",
           "resolver_source": "none",
           "rewritten_question": "what's the score differential between Salah and Haaland?",
@@ -1340,6 +1371,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (63.58) edges Haaland (57.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0).",
           "classification_source": "llm_classifier"
         }
@@ -1415,6 +1447,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture\n3. Saka (ARS) [diff] 36.35 · 2nd free-kick taker — Tough fixture; Weak attacking process",
           "classification_source": "llm_classifier"
         },
@@ -1468,6 +1501,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture\n3. Saka (ARS) [diff] 36.35 · 2nd free-kick taker — Tough fixture; Weak attacking process",
           "classification_source": "llm_classifier"
         },
@@ -1520,6 +1554,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture\n3. Saka (ARS) [diff] 36.35 · 2nd free-kick taker — Tough fixture; Weak attacking process",
           "resolver_source": "none",
           "rewritten_question": "who looks best for captain this week?",
@@ -1574,6 +1609,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture\n3. Saka (ARS) [diff] 36.35 · 2nd free-kick taker — Tough fixture; Weak attacking process",
           "classification_source": "llm_classifier"
         }
@@ -1627,6 +1663,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Recommendation: Transfer in Salah. Score: 64 vs Saka's 39 (+24.2).  Advantages: stronger form (9.5 vs 5.5); easier fixture (FDR 4H vs 5H); better minutes security; set-piece advantage (pen vs fk2).  Net cost: +£3.5m.",
           "classification_source": null
         },
@@ -1660,6 +1697,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Recommendation: Transfer in Salah. Score: 64 vs Saka's 39 (+24.2).  Advantages: stronger form (9.5 vs 5.5); easier fixture (FDR 4H vs 5H); better minutes security; set-piece advantage (pen vs fk2).  Net cost: +£3.5m.",
           "classification_source": null
         }
@@ -1699,6 +1737,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "No player found matching 'UnknownPlayerXYZ'.",
           "classification_source": null
         },
@@ -1718,6 +1757,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "No player found matching 'UnknownPlayerXYZ'.",
           "classification_source": null
         }
@@ -1764,6 +1804,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Triple captain conditions: marginal. A decent but not exceptional option exists: Salah (captain score 60.6, tier: safe). Consider whether a stronger option may appear in a later gameweek. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         },
@@ -1790,6 +1831,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Triple captain conditions: marginal. A decent but not exceptional option exists: Salah (captain score 60.6, tier: safe). Consider whether a stronger option may appear in a later gameweek. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         }
@@ -1836,6 +1878,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Wildcard conditions: marginal. You are in a viable wildcard window (GW28). Whether to use it depends on how many squad issues you need to fix and your upcoming fixture outlook. Note: squad composition and which wildcard you still hold are not available to this system.",
           "classification_source": null
         },
@@ -1862,6 +1905,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Wildcard conditions: marginal. You are in a viable wildcard window (GW28). Whether to use it depends on how many squad issues you need to fix and your upcoming fixture outlook. Note: squad composition and which wildcard you still hold are not available to this system.",
           "classification_source": null
         }
@@ -1908,6 +1952,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Free hit conditions: unfavorable (GW28). No blank or double gameweek detected this week. Free hit is most effective in blank or double gameweeks. Consider saving it for a better opportunity. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         },
@@ -1934,6 +1979,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Free hit conditions: unfavorable (GW28). No blank or double gameweek detected this week. Free hit is most effective in blank or double gameweeks. Consider saving it for a better opportunity. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         }
@@ -1973,6 +2019,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (Mohamed Salah) | Liverpool (LIV) | MID | £13.5m | 64.1% ownership | Status: Available. Form: 9.5 | Mins: 2250.\n\nThe current Premier League Fantasy gameweek is GW28.",
           "classification_source": null
         },
@@ -1992,6 +2039,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (Mohamed Salah) | Liverpool (LIV) | MID | £13.5m | 64.1% ownership | Status: Available. Form: 9.5 | Mins: 2250.\n\nThe current Premier League Fantasy gameweek is GW28.",
           "classification_source": null
         }
@@ -2031,6 +2079,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Haaland (MCI) — Upside [54.85]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.\n\nSaka (Bukayo Saka) plays for Arsenal (ARS) as a MID. Status: Doubtful. [Resolved via: web_name]",
           "classification_source": null
         },
@@ -2050,6 +2099,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Haaland (MCI) — Upside [54.85]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.\n\nSaka (Bukayo Saka) plays for Arsenal (ARS) as a MID. Status: Doubtful. [Resolved via: web_name]",
           "classification_source": null
         }
@@ -2089,6 +2139,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Haaland (MCI) — Upside [54.85]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.\n\nSalah (63.58) edges Haaland (57.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0).",
           "classification_source": null
         },
@@ -2108,6 +2159,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Haaland (MCI) — Upside [54.85]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.\n\nSalah (63.58) edges Haaland (57.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0).",
           "classification_source": null
         }
@@ -2154,6 +2206,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Triple captain conditions: marginal. A decent but not exceptional option exists: Salah (captain score 60.6, tier: safe). Consider whether a stronger option may appear in a later gameweek. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         },
@@ -2180,6 +2233,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Triple captain conditions: marginal. A decent but not exceptional option exists: Salah (captain score 60.6, tier: safe). Consider whether a stronger option may appear in a later gameweek. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         }
@@ -2257,6 +2311,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (LIV, MID) – next 5 fixtures from GW28: GW28 MUN (H) FDR 2 · GW29 MCI (H) FDR 3 · GW30 ARS (A) FDR 4 · GW31 CHE (A) FDR 3 · GW32 MUN (H) FDR 2",
           "classification_source": null
         },
@@ -2314,6 +2369,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (LIV, MID) – next 5 fixtures from GW28: GW28 MUN (H) FDR 2 · GW29 MCI (H) FDR 3 · GW30 ARS (A) FDR 4 · GW31 CHE (A) FDR 3 · GW32 MUN (H) FDR 2",
           "classification_source": null
         }
@@ -2353,6 +2409,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "No player found matching 'NonExistentXYZ'.",
           "classification_source": null
         },
@@ -2372,6 +2429,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "No player found matching 'NonExistentXYZ'.",
           "classification_source": null
         }
@@ -2411,6 +2469,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "No available players found with ownership < 15.0% and a positive captain score.",
           "classification_source": null
         },
@@ -2430,6 +2489,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "No available players found with ownership < 15.0% and a positive captain score.",
           "classification_source": null
         }
@@ -2469,6 +2529,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "No available players found with ownership < 15.0% and a positive captain score.",
           "classification_source": null
         },
@@ -2488,6 +2549,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "No available players found with ownership < 15.0% and a positive captain score.",
           "classification_source": null
         }
@@ -2540,6 +2602,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Recommendation: Transfer in Haaland. Score: 58 vs Saka's 39 (+18.5).  Advantages: stronger form (8.0 vs 5.5); easier fixture (FDR 4H vs 5H); better minutes security; set-piece advantage (pen vs fk2).  Net cost: +£4.5m.",
           "resolver_source": "transfer_followup",
           "rewritten_question": "sell Saka for Haaland",
@@ -2574,6 +2637,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Recommendation: Transfer in Haaland. Score: 58 vs Saka's 39 (+18.5).  Advantages: stronger form (8.0 vs 5.5); easier fixture (FDR 4H vs 5H); better minutes security; set-piece advantage (pen vs fk2).  Net cost: +£4.5m.",
           "classification_source": null
         }
@@ -2647,6 +2711,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (63.58) edges Saka (39.35) — clear margin (24.23).  Advantages: stronger form (9.5 vs 5.5); easier fixture (FDR 4H vs 5H); better minutes security.",
           "classification_source": null
         },
@@ -2700,6 +2765,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (63.58) edges Saka (39.35) — clear margin (24.23).  Advantages: stronger form (9.5 vs 5.5); easier fixture (FDR 4H vs 5H); better minutes security.",
           "classification_source": null
         }
@@ -2762,6 +2828,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Top differentials (ownership < 15%):\n  1. Mbeumo (MUN, FWD) — score 51.3, 8.2% owned, £7.5m\n  2. Palmer (CHE, MID) — score 44.5, 3.5% owned, £6.0m",
           "classification_source": null
         },
@@ -2806,6 +2873,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Top differentials (ownership < 15%):\n  1. Mbeumo (MUN, FWD) — score 51.3, 8.2% owned, £7.5m\n  2. Palmer (CHE, MID) — score 44.5, 3.5% owned, £6.0m",
           "classification_source": null
         }
@@ -2852,6 +2920,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Free hit conditions: favorable (GW28). A large double gameweek is detected: 6 team(s) play twice this week (ARS, CHE, LIV, MCI, MUN, TOT). Free hit conditions are strong — use it to field the best available XI for this double gameweek. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         },
@@ -2878,6 +2947,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Free hit conditions: favorable (GW28). A large double gameweek is detected: 6 team(s) play twice this week (ARS, CHE, LIV, MCI, MUN, TOT). Free hit conditions are strong — use it to field the best available XI for this double gameweek. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         }
@@ -2924,6 +2994,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Free hit conditions: marginal (GW28). A blank gameweek is detected: 2 team(s) have no fixture this week (ARS, MCI). Free hit can help cover blanked players, but saving it for an upcoming double gameweek is often the stronger play. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         },
@@ -2950,6 +3021,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Free hit conditions: marginal (GW28). A blank gameweek is detected: 2 team(s) have no fixture this week (ARS, MCI). Free hit can help cover blanked players, but saving it for an upcoming double gameweek is often the stronger play. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         }
@@ -2996,6 +3068,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Free hit conditions: unfavorable (GW28). No blank or double gameweek detected this week. Free hit is most effective in blank or double gameweeks. Consider saving it for a better opportunity. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         },
@@ -3022,6 +3095,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Free hit conditions: unfavorable (GW28). No blank or double gameweek detected this week. Free hit is most effective in blank or double gameweeks. Consider saving it for a better opportunity. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         }
@@ -3098,6 +3172,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (LIV, MID) – next 5 fixtures from GW28: GW28 MUN (H) FDR 2 · GW29 MCI (H) FDR 3 · GW30 ARS (A) FDR 4 · GW31 CHE (A) FDR 3 · GW32 MUN (H) FDR 2",
           "resolver_source": "fixture_run_followup",
           "rewritten_question": "Salah fixtures",
@@ -3156,6 +3231,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (LIV, MID) – next 5 fixtures from GW28: GW28 MUN (H) FDR 2 · GW29 MCI (H) FDR 3 · GW30 ARS (A) FDR 4 · GW31 CHE (A) FDR 3 · GW32 MUN (H) FDR 2",
           "classification_source": null
         }
@@ -3203,6 +3279,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Mbeumo (MUN) — Differential [54.28]. Penalty taker; Favorable fixture; Weak attacking process; Secure minutes; High-upside differential profile.",
           "resolver_source": "differential_followup",
           "rewritten_question": "should I captain Mbeumo?",
@@ -3232,6 +3309,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Mbeumo (MUN) — Differential [54.28]. Penalty taker; Favorable fixture; Weak attacking process; Secure minutes; High-upside differential profile.",
           "classification_source": null
         }
@@ -3285,6 +3363,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Budget constraint: bringing in Salah costs +£3.5m but you have £2.0m in the bank.",
           "classification_source": null
         },
@@ -3318,6 +3397,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Budget constraint: bringing in Salah costs +£3.5m but you have £2.0m in the bank.",
           "classification_source": null
         }
@@ -3366,6 +3446,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Marginal: Consider Salah over Haaland. Score: 64 vs 62 (+1.3).  Net saving: £1.0m.",
           "classification_source": null
         },
@@ -3394,6 +3475,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Marginal: Consider Salah over Haaland. Score: 64 vs 62 (+1.3).  Net saving: £1.0m.",
           "classification_source": null
         }
@@ -3440,6 +3522,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Chip unavailable: triple_captain is not in your chips remaining.",
           "classification_source": null
         },
@@ -3466,6 +3549,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Chip unavailable: triple_captain is not in your chips remaining.",
           "classification_source": null
         }
@@ -3518,6 +3602,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Budget constraint: bringing in Salah costs +£3.5m but you have £2.0m in the bank.",
           "resolver_source": "none",
           "rewritten_question": "should I sell Saka for Salah",
@@ -3552,6 +3637,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Budget constraint: bringing in Salah costs +£3.5m but you have £2.0m in the bank.",
           "classification_source": null
         }
@@ -3597,6 +3683,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Chip unavailable: triple_captain is not in your chips remaining.",
           "resolver_source": "none",
           "rewritten_question": "should I use my triple captain",
@@ -3624,6 +3711,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Chip unavailable: triple_captain is not in your chips remaining.",
           "classification_source": null
         }
@@ -3671,6 +3759,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Marginal: Consider Salah over Haaland. Score: 64 vs 62 (+1.3).  Net saving: £1.0m.",
           "resolver_source": "none",
           "rewritten_question": "should I sell Haaland for Salah",
@@ -3700,6 +3789,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Marginal: Consider Salah over Haaland. Score: 64 vs 62 (+1.3).  Net saving: £1.0m.",
           "classification_source": null
         }
@@ -3751,6 +3841,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Recommendation: Transfer in Salah. Score: 64 vs Saka's 39 (+24.2).  Advantages: stronger form (9.5 vs 5.5); easier fixture (FDR 4H vs 5H); better minutes security; set-piece advantage (pen vs fk2).  Net cost: +£3.5m.",
           "classification_source": null
         }
@@ -3821,6 +3912,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (63.58) edges Haaland (57.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0).",
           "classification_source": null
         },
@@ -3871,6 +3963,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (63.58) edges Haaland (57.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0).",
           "classification_source": null
         }
@@ -3910,6 +4003,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "No player found matching 'rashford en mi equipo, a cuál vendo primero'.",
           "classification_source": null
         },
@@ -3929,6 +4023,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "No player found matching 'rashford en mi equipo, a cuál vendo primero'.",
           "classification_source": null
         }
@@ -3968,6 +4063,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (Mohamed Salah) | Liverpool (LIV) | MID | £13.5m | 64.1% ownership | Status: Available. Form: 9.5 | Mins: 2250.",
           "classification_source": null
         },
@@ -3987,6 +4083,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (Mohamed Salah) | Liverpool (LIV) | MID | £13.5m | 64.1% ownership | Status: Available. Form: 9.5 | Mins: 2250.",
           "classification_source": null
         }
@@ -4049,6 +4146,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture",
           "classification_source": null
         },
@@ -4091,6 +4189,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture",
           "classification_source": null
         }
@@ -4164,6 +4263,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture\n3. Saka (ARS) [diff] 36.35 · 2nd free-kick taker — Tough fixture; Weak attacking process",
           "classification_source": null
         },
@@ -4217,6 +4317,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture\n3. Saka (ARS) [diff] 36.35 · 2nd free-kick taker — Tough fixture; Weak attacking process",
           "classification_source": null
         }
@@ -4265,6 +4366,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Haaland (MCI) — Upside [54.85]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.",
           "classification_source": null
         },
@@ -4293,6 +4395,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Haaland (MCI) — Upside [54.85]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.",
           "classification_source": null
         }
@@ -4341,6 +4444,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (LIV) — Safe [60.58]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.",
           "classification_source": null
         },
@@ -4369,6 +4473,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (LIV) — Safe [60.58]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.",
           "classification_source": null
         }
@@ -4439,6 +4544,7 @@
           },
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (LIV, MID) — last 3 gameweek(s):\n  GW28: 15pts  2g 0a 3bps  90mins\n  GW27: 8pts  0g 2a 1bps  79mins\n  GW26: 10pts  1g 0a 3bps  90mins",
           "classification_source": null
         },
@@ -4489,6 +4595,7 @@
           },
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (LIV, MID) — last 3 gameweek(s):\n  GW28: 15pts  2g 0a 3bps  90mins\n  GW27: 8pts  0g 2a 1bps  79mins\n  GW26: 10pts  1g 0a 3bps  90mins",
           "classification_source": null
         }
@@ -4559,6 +4666,7 @@
           },
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (LIV, MID) — last 3 gameweek(s):\n  GW28: 15pts  2g 0a 3bps  90mins\n  GW27: 8pts  0g 2a 1bps  79mins\n  GW26: 10pts  1g 0a 3bps  90mins",
           "classification_source": null
         },
@@ -4609,6 +4717,7 @@
           },
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (LIV, MID) — last 3 gameweek(s):\n  GW28: 15pts  2g 0a 3bps  90mins\n  GW27: 8pts  0g 2a 1bps  79mins\n  GW26: 10pts  1g 0a 3bps  90mins",
           "classification_source": null
         }
@@ -4648,6 +4757,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (Mohamed Salah) | Liverpool (LIV) | MID | £13.5m | 64.1% ownership | Status: Available. Form: 9.5 | Mins: 2250.",
           "classification_source": null
         },
@@ -4667,6 +4777,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Salah (Mohamed Salah) | Liverpool (LIV) | MID | £13.5m | 64.1% ownership | Status: Available. Form: 9.5 | Mins: 2250.",
           "classification_source": null
         }
@@ -4706,6 +4817,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Saka (Bukayo Saka) | Arsenal (ARS) | MID | £10.0m | 35.0% ownership | Status: Doubtful. Form: 5.5 | Mins: 900.",
           "classification_source": null
         },
@@ -4725,6 +4837,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Saka (Bukayo Saka) | Arsenal (ARS) | MID | £10.0m | 35.0% ownership | Status: Doubtful. Form: 5.5 | Mins: 900.",
           "classification_source": null
         }
@@ -4785,6 +4898,7 @@
             "total": 2
           },
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Injured: De Bruyne (MCI, MID) | Doubtful: Saka (ARS, MID) 75%.",
           "classification_source": null
         },
@@ -4825,6 +4939,7 @@
             "total": 2
           },
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Injured: De Bruyne (MCI, MID) | Doubtful: Saka (ARS, MID) 75%.",
           "classification_source": null
         }
@@ -4887,6 +5002,7 @@
               }
             ]
           },
+          "team_calendar": null,
           "final_text": "Risers: Salah (LIV, MID) +£0.1m | Fallers: De Bruyne (MCI, MID) -£0.1m.",
           "classification_source": null
         },
@@ -4929,6 +5045,7 @@
               }
             ]
           },
+          "team_calendar": null,
           "final_text": "Risers: Salah (LIV, MID) +£0.1m | Fallers: De Bruyne (MCI, MID) -£0.1m.",
           "classification_source": null
         }
@@ -4941,6 +5058,1428 @@
       "failures": [],
       "pass": true,
       "notes": "Phase 2.6d Story 2.4: price_changes routing + deterministic output. PRICE_CHANGES_BOOTSTRAP: Salah cost_change_event=+1 (riser), De Bruyne cost_change_event=-1 (faller). price_changes.risers non-empty, price_changes.fallers non-empty. Before fix: unsupported_intent. After: price_changes ok."
+    },
+    {
+      "id": "team_calendar_easiest_spanish",
+      "family": "team_fixture_calendar",
+      "description": "Spanish 'que equipos tienen el mejor calendario las proximas 5 jornadas' routes to team_fixture_calendar with mode='easiest', horizon=5.",
+      "question": "que equipos tienen el mejor calendario las proximas 5 jornadas",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "team_fixture_calendar",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "team_calendar": {
+            "mode": "easiest",
+            "horizon": 5,
+            "current_gameweek": 28,
+            "top_n": 5,
+            "teams": [
+              {
+                "rank": 1,
+                "team_short": "LIV",
+                "team_name": "Liverpool",
+                "fixture_count": 5,
+                "avg_fdr": 2.8,
+                "total_fdr": 14,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "MCI",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "ARS",
+                    "is_home": false,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 31,
+                    "opponent_short": "CHE",
+                    "is_home": false,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 32,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  }
+                ]
+              },
+              {
+                "rank": 2,
+                "team_short": "MCI",
+                "team_name": "Manchester City",
+                "fixture_count": 5,
+                "avg_fdr": 3.0,
+                "total_fdr": 15,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "ARS",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "LIV",
+                    "is_home": false,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  },
+                  {
+                    "gameweek": 31,
+                    "opponent_short": "ARS",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 32,
+                    "opponent_short": "CHE",
+                    "is_home": false,
+                    "difficulty": 3
+                  }
+                ]
+              },
+              {
+                "rank": 3,
+                "team_short": "ARS",
+                "team_name": "Arsenal",
+                "fixture_count": 5,
+                "avg_fdr": 3.6,
+                "total_fdr": 18,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "CHE",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "MUN",
+                    "is_home": false,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "LIV",
+                    "is_home": true,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 31,
+                    "opponent_short": "MCI",
+                    "is_home": false,
+                    "difficulty": 5
+                  },
+                  {
+                    "gameweek": 32,
+                    "opponent_short": "CHE",
+                    "is_home": false,
+                    "difficulty": 3
+                  }
+                ]
+              },
+              {
+                "rank": 4,
+                "team_short": "CHE",
+                "team_name": "Chelsea",
+                "fixture_count": 5,
+                "avg_fdr": 3.6,
+                "total_fdr": 18,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "ARS",
+                    "is_home": false,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "LIV",
+                    "is_home": true,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 31,
+                    "opponent_short": "MCI",
+                    "is_home": true,
+                    "difficulty": 5
+                  },
+                  {
+                    "gameweek": 32,
+                    "opponent_short": "ARS",
+                    "is_home": true,
+                    "difficulty": 3
+                  }
+                ]
+              },
+              {
+                "rank": 5,
+                "team_short": "MUN",
+                "team_name": "Manchester Utd",
+                "fixture_count": 5,
+                "avg_fdr": 4.2,
+                "total_fdr": 21,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "LIV",
+                    "is_home": false,
+                    "difficulty": 5
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "ARS",
+                    "is_home": true,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "MCI",
+                    "is_home": false,
+                    "difficulty": 5
+                  },
+                  {
+                    "gameweek": 31,
+                    "opponent_short": "CHE",
+                    "is_home": false,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 32,
+                    "opponent_short": "LIV",
+                    "is_home": true,
+                    "difficulty": 4
+                  }
+                ]
+              }
+            ]
+          },
+          "final_text": "Teams ranked by easiest fixtures (next 5 GWs from GW28):\n  1. LIV (Liverpool) avg 2.8 [5 fix] — GW28(MUNH/2) GW29(MCIH/3) GW30(ARSA/4) GW31(CHEA/3) GW32(MUNH/2)\n  2. MCI (Manchester City) avg 3.0 [5 fix] — GW28(ARSH/3) GW29(LIVA/4) GW30(MUNH/2) GW31(ARSH/3) GW32(CHEA/3)\n  3. ARS (Arsenal) avg 3.6 [5 fix] — GW28(CHEH/3) GW29(MUNA/3) GW30(LIVH/4) GW31(MCIA/5) GW32(CHEA/3)\n  4. CHE (Chelsea) avg 3.6 [5 fix] — GW28(ARSA/4) GW29(MUNH/2) GW30(LIVH/4) GW31(MCIH/5) GW32(ARSH/3)\n  5. MUN (Manchester Utd) avg 4.2 [5 fix] — GW28(LIVA/5) GW29(ARSH/4) GW30(MCIA/5) GW31(CHEA/3) GW32(LIVH/4)",
+          "classification_source": null
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "team_fixture_calendar",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "team_calendar": {
+            "mode": "easiest",
+            "horizon": 5,
+            "current_gameweek": 28,
+            "top_n": 5,
+            "teams": [
+              {
+                "rank": 1,
+                "team_short": "LIV",
+                "team_name": "Liverpool",
+                "fixture_count": 5,
+                "avg_fdr": 2.8,
+                "total_fdr": 14,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "MCI",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "ARS",
+                    "is_home": false,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 31,
+                    "opponent_short": "CHE",
+                    "is_home": false,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 32,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  }
+                ]
+              },
+              {
+                "rank": 2,
+                "team_short": "MCI",
+                "team_name": "Manchester City",
+                "fixture_count": 5,
+                "avg_fdr": 3.0,
+                "total_fdr": 15,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "ARS",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "LIV",
+                    "is_home": false,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  },
+                  {
+                    "gameweek": 31,
+                    "opponent_short": "ARS",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 32,
+                    "opponent_short": "CHE",
+                    "is_home": false,
+                    "difficulty": 3
+                  }
+                ]
+              },
+              {
+                "rank": 3,
+                "team_short": "ARS",
+                "team_name": "Arsenal",
+                "fixture_count": 5,
+                "avg_fdr": 3.6,
+                "total_fdr": 18,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "CHE",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "MUN",
+                    "is_home": false,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "LIV",
+                    "is_home": true,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 31,
+                    "opponent_short": "MCI",
+                    "is_home": false,
+                    "difficulty": 5
+                  },
+                  {
+                    "gameweek": 32,
+                    "opponent_short": "CHE",
+                    "is_home": false,
+                    "difficulty": 3
+                  }
+                ]
+              },
+              {
+                "rank": 4,
+                "team_short": "CHE",
+                "team_name": "Chelsea",
+                "fixture_count": 5,
+                "avg_fdr": 3.6,
+                "total_fdr": 18,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "ARS",
+                    "is_home": false,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "LIV",
+                    "is_home": true,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 31,
+                    "opponent_short": "MCI",
+                    "is_home": true,
+                    "difficulty": 5
+                  },
+                  {
+                    "gameweek": 32,
+                    "opponent_short": "ARS",
+                    "is_home": true,
+                    "difficulty": 3
+                  }
+                ]
+              },
+              {
+                "rank": 5,
+                "team_short": "MUN",
+                "team_name": "Manchester Utd",
+                "fixture_count": 5,
+                "avg_fdr": 4.2,
+                "total_fdr": 21,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "LIV",
+                    "is_home": false,
+                    "difficulty": 5
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "ARS",
+                    "is_home": true,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "MCI",
+                    "is_home": false,
+                    "difficulty": 5
+                  },
+                  {
+                    "gameweek": 31,
+                    "opponent_short": "CHE",
+                    "is_home": false,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 32,
+                    "opponent_short": "LIV",
+                    "is_home": true,
+                    "difficulty": 4
+                  }
+                ]
+              }
+            ]
+          },
+          "final_text": "Teams ranked by easiest fixtures (next 5 GWs from GW28):\n  1. LIV (Liverpool) avg 2.8 [5 fix] — GW28(MUNH/2) GW29(MCIH/3) GW30(ARSA/4) GW31(CHEA/3) GW32(MUNH/2)\n  2. MCI (Manchester City) avg 3.0 [5 fix] — GW28(ARSH/3) GW29(LIVA/4) GW30(MUNH/2) GW31(ARSH/3) GW32(CHEA/3)\n  3. ARS (Arsenal) avg 3.6 [5 fix] — GW28(CHEH/3) GW29(MUNA/3) GW30(LIVH/4) GW31(MCIA/5) GW32(CHEA/3)\n  4. CHE (Chelsea) avg 3.6 [5 fix] — GW28(ARSA/4) GW29(MUNH/2) GW30(LIVH/4) GW31(MCIH/5) GW32(ARSH/3)\n  5. MUN (Manchester Utd) avg 4.2 [5 fix] — GW28(LIVA/5) GW29(ARSH/4) GW30(MCIA/5) GW31(CHEA/3) GW32(LIVH/4)",
+          "classification_source": null
+        }
+      },
+      "expected": {
+        "intent": "team_fixture_calendar",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Phase 2.6e: easiest team fixture calendar. STANDARD_BOOTSTRAP has 5 teams with team_fixtures. team_calendar.mode='easiest', horizon=5, teams non-empty. Liverpool (avg 2.8) expected to rank #1. Before fix: unsupported_intent. After: team_fixture_calendar ok."
+    },
+    {
+      "id": "team_calendar_hardest_english",
+      "family": "team_fixture_calendar",
+      "description": "English 'teams with worst upcoming fixtures' routes to team_fixture_calendar with mode='hardest', horizon=5 (default).",
+      "question": "teams with worst upcoming fixtures",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "team_fixture_calendar",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "team_calendar": {
+            "mode": "hardest",
+            "horizon": 5,
+            "current_gameweek": 28,
+            "top_n": 5,
+            "teams": [
+              {
+                "rank": 1,
+                "team_short": "MUN",
+                "team_name": "Manchester Utd",
+                "fixture_count": 5,
+                "avg_fdr": 4.2,
+                "total_fdr": 21,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "LIV",
+                    "is_home": false,
+                    "difficulty": 5
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "ARS",
+                    "is_home": true,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "MCI",
+                    "is_home": false,
+                    "difficulty": 5
+                  },
+                  {
+                    "gameweek": 31,
+                    "opponent_short": "CHE",
+                    "is_home": false,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 32,
+                    "opponent_short": "LIV",
+                    "is_home": true,
+                    "difficulty": 4
+                  }
+                ]
+              },
+              {
+                "rank": 2,
+                "team_short": "CHE",
+                "team_name": "Chelsea",
+                "fixture_count": 5,
+                "avg_fdr": 3.6,
+                "total_fdr": 18,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "ARS",
+                    "is_home": false,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "LIV",
+                    "is_home": true,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 31,
+                    "opponent_short": "MCI",
+                    "is_home": true,
+                    "difficulty": 5
+                  },
+                  {
+                    "gameweek": 32,
+                    "opponent_short": "ARS",
+                    "is_home": true,
+                    "difficulty": 3
+                  }
+                ]
+              },
+              {
+                "rank": 3,
+                "team_short": "ARS",
+                "team_name": "Arsenal",
+                "fixture_count": 5,
+                "avg_fdr": 3.6,
+                "total_fdr": 18,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "CHE",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "MUN",
+                    "is_home": false,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "LIV",
+                    "is_home": true,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 31,
+                    "opponent_short": "MCI",
+                    "is_home": false,
+                    "difficulty": 5
+                  },
+                  {
+                    "gameweek": 32,
+                    "opponent_short": "CHE",
+                    "is_home": false,
+                    "difficulty": 3
+                  }
+                ]
+              },
+              {
+                "rank": 4,
+                "team_short": "MCI",
+                "team_name": "Manchester City",
+                "fixture_count": 5,
+                "avg_fdr": 3.0,
+                "total_fdr": 15,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "ARS",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "LIV",
+                    "is_home": false,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  },
+                  {
+                    "gameweek": 31,
+                    "opponent_short": "ARS",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 32,
+                    "opponent_short": "CHE",
+                    "is_home": false,
+                    "difficulty": 3
+                  }
+                ]
+              },
+              {
+                "rank": 5,
+                "team_short": "LIV",
+                "team_name": "Liverpool",
+                "fixture_count": 5,
+                "avg_fdr": 2.8,
+                "total_fdr": 14,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "MCI",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "ARS",
+                    "is_home": false,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 31,
+                    "opponent_short": "CHE",
+                    "is_home": false,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 32,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  }
+                ]
+              }
+            ]
+          },
+          "final_text": "Teams ranked by hardest fixtures (next 5 GWs from GW28):\n  1. MUN (Manchester Utd) avg 4.2 [5 fix] — GW28(LIVA/5) GW29(ARSH/4) GW30(MCIA/5) GW31(CHEA/3) GW32(LIVH/4)\n  2. CHE (Chelsea) avg 3.6 [5 fix] — GW28(ARSA/4) GW29(MUNH/2) GW30(LIVH/4) GW31(MCIH/5) GW32(ARSH/3)\n  3. ARS (Arsenal) avg 3.6 [5 fix] — GW28(CHEH/3) GW29(MUNA/3) GW30(LIVH/4) GW31(MCIA/5) GW32(CHEA/3)\n  4. MCI (Manchester City) avg 3.0 [5 fix] — GW28(ARSH/3) GW29(LIVA/4) GW30(MUNH/2) GW31(ARSH/3) GW32(CHEA/3)\n  5. LIV (Liverpool) avg 2.8 [5 fix] — GW28(MUNH/2) GW29(MCIH/3) GW30(ARSA/4) GW31(CHEA/3) GW32(MUNH/2)",
+          "classification_source": null
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "team_fixture_calendar",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "team_calendar": {
+            "mode": "hardest",
+            "horizon": 5,
+            "current_gameweek": 28,
+            "top_n": 5,
+            "teams": [
+              {
+                "rank": 1,
+                "team_short": "MUN",
+                "team_name": "Manchester Utd",
+                "fixture_count": 5,
+                "avg_fdr": 4.2,
+                "total_fdr": 21,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "LIV",
+                    "is_home": false,
+                    "difficulty": 5
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "ARS",
+                    "is_home": true,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "MCI",
+                    "is_home": false,
+                    "difficulty": 5
+                  },
+                  {
+                    "gameweek": 31,
+                    "opponent_short": "CHE",
+                    "is_home": false,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 32,
+                    "opponent_short": "LIV",
+                    "is_home": true,
+                    "difficulty": 4
+                  }
+                ]
+              },
+              {
+                "rank": 2,
+                "team_short": "CHE",
+                "team_name": "Chelsea",
+                "fixture_count": 5,
+                "avg_fdr": 3.6,
+                "total_fdr": 18,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "ARS",
+                    "is_home": false,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "LIV",
+                    "is_home": true,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 31,
+                    "opponent_short": "MCI",
+                    "is_home": true,
+                    "difficulty": 5
+                  },
+                  {
+                    "gameweek": 32,
+                    "opponent_short": "ARS",
+                    "is_home": true,
+                    "difficulty": 3
+                  }
+                ]
+              },
+              {
+                "rank": 3,
+                "team_short": "ARS",
+                "team_name": "Arsenal",
+                "fixture_count": 5,
+                "avg_fdr": 3.6,
+                "total_fdr": 18,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "CHE",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "MUN",
+                    "is_home": false,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "LIV",
+                    "is_home": true,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 31,
+                    "opponent_short": "MCI",
+                    "is_home": false,
+                    "difficulty": 5
+                  },
+                  {
+                    "gameweek": 32,
+                    "opponent_short": "CHE",
+                    "is_home": false,
+                    "difficulty": 3
+                  }
+                ]
+              },
+              {
+                "rank": 4,
+                "team_short": "MCI",
+                "team_name": "Manchester City",
+                "fixture_count": 5,
+                "avg_fdr": 3.0,
+                "total_fdr": 15,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "ARS",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "LIV",
+                    "is_home": false,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  },
+                  {
+                    "gameweek": 31,
+                    "opponent_short": "ARS",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 32,
+                    "opponent_short": "CHE",
+                    "is_home": false,
+                    "difficulty": 3
+                  }
+                ]
+              },
+              {
+                "rank": 5,
+                "team_short": "LIV",
+                "team_name": "Liverpool",
+                "fixture_count": 5,
+                "avg_fdr": 2.8,
+                "total_fdr": 14,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "MCI",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "ARS",
+                    "is_home": false,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 31,
+                    "opponent_short": "CHE",
+                    "is_home": false,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 32,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  }
+                ]
+              }
+            ]
+          },
+          "final_text": "Teams ranked by hardest fixtures (next 5 GWs from GW28):\n  1. MUN (Manchester Utd) avg 4.2 [5 fix] — GW28(LIVA/5) GW29(ARSH/4) GW30(MCIA/5) GW31(CHEA/3) GW32(LIVH/4)\n  2. CHE (Chelsea) avg 3.6 [5 fix] — GW28(ARSA/4) GW29(MUNH/2) GW30(LIVH/4) GW31(MCIH/5) GW32(ARSH/3)\n  3. ARS (Arsenal) avg 3.6 [5 fix] — GW28(CHEH/3) GW29(MUNA/3) GW30(LIVH/4) GW31(MCIA/5) GW32(CHEA/3)\n  4. MCI (Manchester City) avg 3.0 [5 fix] — GW28(ARSH/3) GW29(LIVA/4) GW30(MUNH/2) GW31(ARSH/3) GW32(CHEA/3)\n  5. LIV (Liverpool) avg 2.8 [5 fix] — GW28(MUNH/2) GW29(MCIH/3) GW30(ARSA/4) GW31(CHEA/3) GW32(MUNH/2)",
+          "classification_source": null
+        }
+      },
+      "expected": {
+        "intent": "team_fixture_calendar",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Phase 2.6e: hardest team fixture calendar. team_calendar.mode='hardest'. Man Utd (avg 4.2) expected to rank #1 in hardest. Before fix: unsupported_intent. After: team_fixture_calendar ok."
+    },
+    {
+      "id": "team_calendar_easiest_english_n",
+      "family": "team_fixture_calendar",
+      "description": "English 'best fixtures next 5 gameweeks' routes to team_fixture_calendar with mode='easiest', horizon=5.",
+      "question": "best fixtures next 5 gameweeks",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "team_fixture_calendar",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "team_calendar": {
+            "mode": "easiest",
+            "horizon": 5,
+            "current_gameweek": 28,
+            "top_n": 5,
+            "teams": [
+              {
+                "rank": 1,
+                "team_short": "LIV",
+                "team_name": "Liverpool",
+                "fixture_count": 5,
+                "avg_fdr": 2.8,
+                "total_fdr": 14,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "MCI",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "ARS",
+                    "is_home": false,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 31,
+                    "opponent_short": "CHE",
+                    "is_home": false,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 32,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  }
+                ]
+              },
+              {
+                "rank": 2,
+                "team_short": "MCI",
+                "team_name": "Manchester City",
+                "fixture_count": 5,
+                "avg_fdr": 3.0,
+                "total_fdr": 15,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "ARS",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "LIV",
+                    "is_home": false,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  },
+                  {
+                    "gameweek": 31,
+                    "opponent_short": "ARS",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 32,
+                    "opponent_short": "CHE",
+                    "is_home": false,
+                    "difficulty": 3
+                  }
+                ]
+              },
+              {
+                "rank": 3,
+                "team_short": "ARS",
+                "team_name": "Arsenal",
+                "fixture_count": 5,
+                "avg_fdr": 3.6,
+                "total_fdr": 18,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "CHE",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "MUN",
+                    "is_home": false,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "LIV",
+                    "is_home": true,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 31,
+                    "opponent_short": "MCI",
+                    "is_home": false,
+                    "difficulty": 5
+                  },
+                  {
+                    "gameweek": 32,
+                    "opponent_short": "CHE",
+                    "is_home": false,
+                    "difficulty": 3
+                  }
+                ]
+              },
+              {
+                "rank": 4,
+                "team_short": "CHE",
+                "team_name": "Chelsea",
+                "fixture_count": 5,
+                "avg_fdr": 3.6,
+                "total_fdr": 18,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "ARS",
+                    "is_home": false,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "LIV",
+                    "is_home": true,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 31,
+                    "opponent_short": "MCI",
+                    "is_home": true,
+                    "difficulty": 5
+                  },
+                  {
+                    "gameweek": 32,
+                    "opponent_short": "ARS",
+                    "is_home": true,
+                    "difficulty": 3
+                  }
+                ]
+              },
+              {
+                "rank": 5,
+                "team_short": "MUN",
+                "team_name": "Manchester Utd",
+                "fixture_count": 5,
+                "avg_fdr": 4.2,
+                "total_fdr": 21,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "LIV",
+                    "is_home": false,
+                    "difficulty": 5
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "ARS",
+                    "is_home": true,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "MCI",
+                    "is_home": false,
+                    "difficulty": 5
+                  },
+                  {
+                    "gameweek": 31,
+                    "opponent_short": "CHE",
+                    "is_home": false,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 32,
+                    "opponent_short": "LIV",
+                    "is_home": true,
+                    "difficulty": 4
+                  }
+                ]
+              }
+            ]
+          },
+          "final_text": "Teams ranked by easiest fixtures (next 5 GWs from GW28):\n  1. LIV (Liverpool) avg 2.8 [5 fix] — GW28(MUNH/2) GW29(MCIH/3) GW30(ARSA/4) GW31(CHEA/3) GW32(MUNH/2)\n  2. MCI (Manchester City) avg 3.0 [5 fix] — GW28(ARSH/3) GW29(LIVA/4) GW30(MUNH/2) GW31(ARSH/3) GW32(CHEA/3)\n  3. ARS (Arsenal) avg 3.6 [5 fix] — GW28(CHEH/3) GW29(MUNA/3) GW30(LIVH/4) GW31(MCIA/5) GW32(CHEA/3)\n  4. CHE (Chelsea) avg 3.6 [5 fix] — GW28(ARSA/4) GW29(MUNH/2) GW30(LIVH/4) GW31(MCIH/5) GW32(ARSH/3)\n  5. MUN (Manchester Utd) avg 4.2 [5 fix] — GW28(LIVA/5) GW29(ARSH/4) GW30(MCIA/5) GW31(CHEA/3) GW32(LIVH/4)",
+          "classification_source": null
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "team_fixture_calendar",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "team_calendar": {
+            "mode": "easiest",
+            "horizon": 5,
+            "current_gameweek": 28,
+            "top_n": 5,
+            "teams": [
+              {
+                "rank": 1,
+                "team_short": "LIV",
+                "team_name": "Liverpool",
+                "fixture_count": 5,
+                "avg_fdr": 2.8,
+                "total_fdr": 14,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "MCI",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "ARS",
+                    "is_home": false,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 31,
+                    "opponent_short": "CHE",
+                    "is_home": false,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 32,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  }
+                ]
+              },
+              {
+                "rank": 2,
+                "team_short": "MCI",
+                "team_name": "Manchester City",
+                "fixture_count": 5,
+                "avg_fdr": 3.0,
+                "total_fdr": 15,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "ARS",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "LIV",
+                    "is_home": false,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  },
+                  {
+                    "gameweek": 31,
+                    "opponent_short": "ARS",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 32,
+                    "opponent_short": "CHE",
+                    "is_home": false,
+                    "difficulty": 3
+                  }
+                ]
+              },
+              {
+                "rank": 3,
+                "team_short": "ARS",
+                "team_name": "Arsenal",
+                "fixture_count": 5,
+                "avg_fdr": 3.6,
+                "total_fdr": 18,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "CHE",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "MUN",
+                    "is_home": false,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "LIV",
+                    "is_home": true,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 31,
+                    "opponent_short": "MCI",
+                    "is_home": false,
+                    "difficulty": 5
+                  },
+                  {
+                    "gameweek": 32,
+                    "opponent_short": "CHE",
+                    "is_home": false,
+                    "difficulty": 3
+                  }
+                ]
+              },
+              {
+                "rank": 4,
+                "team_short": "CHE",
+                "team_name": "Chelsea",
+                "fixture_count": 5,
+                "avg_fdr": 3.6,
+                "total_fdr": 18,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "ARS",
+                    "is_home": false,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "LIV",
+                    "is_home": true,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 31,
+                    "opponent_short": "MCI",
+                    "is_home": true,
+                    "difficulty": 5
+                  },
+                  {
+                    "gameweek": 32,
+                    "opponent_short": "ARS",
+                    "is_home": true,
+                    "difficulty": 3
+                  }
+                ]
+              },
+              {
+                "rank": 5,
+                "team_short": "MUN",
+                "team_name": "Manchester Utd",
+                "fixture_count": 5,
+                "avg_fdr": 4.2,
+                "total_fdr": 21,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "LIV",
+                    "is_home": false,
+                    "difficulty": 5
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "ARS",
+                    "is_home": true,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "MCI",
+                    "is_home": false,
+                    "difficulty": 5
+                  },
+                  {
+                    "gameweek": 31,
+                    "opponent_short": "CHE",
+                    "is_home": false,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 32,
+                    "opponent_short": "LIV",
+                    "is_home": true,
+                    "difficulty": 4
+                  }
+                ]
+              }
+            ]
+          },
+          "final_text": "Teams ranked by easiest fixtures (next 5 GWs from GW28):\n  1. LIV (Liverpool) avg 2.8 [5 fix] — GW28(MUNH/2) GW29(MCIH/3) GW30(ARSA/4) GW31(CHEA/3) GW32(MUNH/2)\n  2. MCI (Manchester City) avg 3.0 [5 fix] — GW28(ARSH/3) GW29(LIVA/4) GW30(MUNH/2) GW31(ARSH/3) GW32(CHEA/3)\n  3. ARS (Arsenal) avg 3.6 [5 fix] — GW28(CHEH/3) GW29(MUNA/3) GW30(LIVH/4) GW31(MCIA/5) GW32(CHEA/3)\n  4. CHE (Chelsea) avg 3.6 [5 fix] — GW28(ARSA/4) GW29(MUNH/2) GW30(LIVH/4) GW31(MCIH/5) GW32(ARSH/3)\n  5. MUN (Manchester Utd) avg 4.2 [5 fix] — GW28(LIVA/5) GW29(ARSH/4) GW30(MCIA/5) GW31(CHEA/3) GW32(LIVH/4)",
+          "classification_source": null
+        }
+      },
+      "expected": {
+        "intent": "team_fixture_calendar",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Phase 2.6e: English 'best fixtures next N gameweeks' routing. Horizon extracted as 5 from 'next 5 gameweeks'. team_calendar.mode='easiest'. Before fix: unsupported_intent. After: team_fixture_calendar ok."
     },
     {
       "id": "chip_wildcard_timing_antes_despues",
@@ -4975,6 +6514,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Wildcard conditions: marginal. You are in a viable wildcard window (GW28). Whether to use it depends on how many squad issues you need to fix and your upcoming fixture outlook. Note: squad composition and which wildcard you still hold are not available to this system.",
           "classification_source": null
         },
@@ -5001,6 +6541,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Wildcard conditions: marginal. You are in a viable wildcard window (GW28). Whether to use it depends on how many squad issues you need to fix and your upcoming fixture outlook. Note: squad composition and which wildcard you still hold are not available to this system.",
           "classification_source": null
         }
@@ -5047,6 +6588,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Bench boost conditions: unfavorable. Top outfield players face generally difficult fixtures this week (average FDR: 4.33). Fixture conditions do not favour bench boost. This assessment is based on global fixture signals only. Bench depth and whether your bench players have guaranteed game time are not available to this system.",
           "classification_source": null
         },
@@ -5073,6 +6615,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Bench boost conditions: unfavorable. Top outfield players face generally difficult fixtures this week (average FDR: 4.33). Fixture conditions do not favour bench boost. This assessment is based on global fixture signals only. Bench depth and whether your bench players have guaranteed game time are not available to this system.",
           "classification_source": null
         }
@@ -5119,6 +6662,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Wildcard conditions: marginal. You are in a viable wildcard window (GW28). Whether to use it depends on how many squad issues you need to fix and your upcoming fixture outlook. Note: squad composition and which wildcard you still hold are not available to this system.",
           "classification_source": null
         },
@@ -5145,6 +6689,7 @@
           "player_form": null,
           "injury_list": null,
           "price_changes": null,
+          "team_calendar": null,
           "final_text": "Wildcard conditions: marginal. You are in a viable wildcard window (GW28). Whether to use it depends on how many squad issues you need to fix and your upcoming fixture outlook. Note: squad composition and which wildcard you still hold are not available to this system.",
           "classification_source": null
         }
