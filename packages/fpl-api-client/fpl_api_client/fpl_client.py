@@ -30,13 +30,21 @@ import requests
 # Endpoint constants  (bootstrap slice only)
 # ---------------------------------------------------------------------------
 
-BOOTSTRAP_URL = "https://fantasy.premierleague.com/api/bootstrap-static/"
-FIXTURES_URL  = "https://fantasy.premierleague.com/api/fixtures/?event={gameweek}"
+BOOTSTRAP_URL       = "https://fantasy.premierleague.com/api/bootstrap-static/"
+FIXTURES_URL        = "https://fantasy.premierleague.com/api/fixtures/?event={gameweek}"
+ELEMENT_SUMMARY_URL = "https://fantasy.premierleague.com/api/element-summary/{element_id}/"
 
 # Default HTTP settings
 _DEFAULT_TIMEOUT: int = 30
 _RETRY_ATTEMPTS: int = 3
 _RETRY_BACKOFF: float = 2.0  # seconds; multiplied by attempt number
+
+# Per-request timeout for element-summary calls.
+# Tighter than _DEFAULT_TIMEOUT because element-summary is a lightweight
+# per-player endpoint; 4 s is generous for a single JSON payload.
+# The player_form handler enforces a stricter *total* latency budget on top of
+# this via its own ThreadPoolExecutor gate.
+ELEMENT_SUMMARY_TIMEOUT_S: int = 4
 
 
 # ---------------------------------------------------------------------------
@@ -180,6 +188,31 @@ def get_current_gameweek(bootstrap: dict[str, Any] | None = None) -> int | None:
 # ---------------------------------------------------------------------------
 # Fixtures  (Phase 4a)
 # ---------------------------------------------------------------------------
+
+def get_element_summary(element_id: int) -> dict[str, Any]:
+    """Return the per-player element summary from the FPL API.
+
+    The response contains a ``history`` array with one entry per gameweek
+    played, and a ``fixtures`` array with upcoming fixtures.  Each ``history``
+    entry includes: ``round`` (GW number), ``minutes``, ``goals_scored``,
+    ``assists``, ``bonus``, ``total_points``, ``was_home``, etc.
+
+    Uses ``ELEMENT_SUMMARY_TIMEOUT_S`` (4 s) per request, tighter than the
+    default 30 s bootstrap timeout.  The player_form handler wraps this call
+    inside a separate total-latency budget gate.
+
+    Parameters
+    ----------
+    element_id:
+        The FPL element (player) integer id.
+
+    Source: FPL API — element-summary/{id}/ endpoint
+    """
+    return fetch_json(
+        ELEMENT_SUMMARY_URL.format(element_id=element_id),
+        timeout=ELEMENT_SUMMARY_TIMEOUT_S,
+    )
+
 
 def get_fixtures(gameweek: int) -> list[dict[str, Any]]:
     """Return the fixture list for *gameweek* from the FPL API.

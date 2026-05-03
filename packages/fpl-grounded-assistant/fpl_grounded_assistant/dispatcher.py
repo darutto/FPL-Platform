@@ -80,7 +80,11 @@ INTENT_CHIP_ADVICE:           str = "chip_advice"           # Phase 6b
 INTENT_MULTI_INTENT:          str = "multi_intent"          # Phase 6c
 INTENT_PLAYER_FIXTURE_RUN:    str = "player_fixture_run"    # Phase 7h
 INTENT_DIFFERENTIAL_PICKS:    str = "differential_picks"    # Phase 7g
-INTENT_UNSUPPORTED:           str = "unsupported"
+INTENT_PLAYER_FORM:             str = "player_form"             # Phase 2.6d
+INTENT_INJURY_LIST:             str = "injury_list"             # Phase 2.6d
+INTENT_PRICE_CHANGES:           str = "price_changes"           # Phase 2.6d
+INTENT_TEAM_FIXTURE_CALENDAR:   str = "team_fixture_calendar"   # Phase 2.6e
+INTENT_UNSUPPORTED:             str = "unsupported"
 
 SUPPORTED_INTENTS: frozenset[str] = frozenset({
     INTENT_CAPTAIN_SCORE,
@@ -93,6 +97,10 @@ SUPPORTED_INTENTS: frozenset[str] = frozenset({
     INTENT_CHIP_ADVICE,            # Phase 6b
     INTENT_PLAYER_FIXTURE_RUN,     # Phase 7h
     INTENT_DIFFERENTIAL_PICKS,     # Phase 7g
+    INTENT_PLAYER_FORM,              # Phase 2.6d
+    INTENT_INJURY_LIST,              # Phase 2.6d
+    INTENT_PRICE_CHANGES,            # Phase 2.6d
+    INTENT_TEAM_FIXTURE_CALENDAR,    # Phase 2.6e
 })
 
 
@@ -151,6 +159,10 @@ _TOOL_TO_INTENT: dict[str, str] = {
     "get_chip_advice":            INTENT_CHIP_ADVICE,             # Phase 6b
     "get_player_fixture_run":     INTENT_PLAYER_FIXTURE_RUN,      # Phase 7h
     "get_differential_picks":     INTENT_DIFFERENTIAL_PICKS,      # Phase 7g
+    "get_player_form":              INTENT_PLAYER_FORM,             # Phase 2.6d
+    "get_injury_list":              INTENT_INJURY_LIST,             # Phase 2.6d
+    "get_price_changes":            INTENT_PRICE_CHANGES,           # Phase 2.6d
+    "get_team_fixture_calendar":    INTENT_TEAM_FIXTURE_CALENDAR,   # Phase 2.6e
 }
 
 

@@ -73,6 +73,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 from fpl_grounded_assistant import respond
+from fpl_grounded_assistant.player_form import _element_summary_guard  # Phase 2.6d.3 — guard stats
 from fpl_pipeline import assemble_captain_context
 
 _LOG = logging.getLogger(__name__)
@@ -270,6 +271,11 @@ class AskResponse(BaseModel):
     fixture_run: dict[str, Any] | None = None             # Phase 7h
     differential: dict[str, Any] | None = None            # Phase 7g
     orch_outcome: str | None = None                        # Orch-4c: audit
+    degraded: bool = False                                 # Phase 2.6b: provider failed silently
+    player_form: dict[str, Any] | None = None              # Phase 2.6d
+    injury_list: dict[str, Any] | None = None              # Phase 2.6d
+    price_changes: dict[str, Any] | None = None            # Phase 2.6d
+    team_calendar: dict[str, Any] | None = None            # Phase 2.6e
 
 
 class CreateSessionResponse(BaseModel):
@@ -313,6 +319,11 @@ class SessionAskResponse(BaseModel):
     fixture_run: dict[str, Any] | None = None             # Phase 7h
     differential: dict[str, Any] | None = None            # Phase 7g
     orch_outcome: str | None = None                        # Orch-4c: audit
+    degraded: bool = False                                 # Phase 2.6b: provider failed silently
+    player_form: dict[str, Any] | None = None              # Phase 2.6d
+    injury_list: dict[str, Any] | None = None              # Phase 2.6d
+    price_changes: dict[str, Any] | None = None            # Phase 2.6d
+    team_calendar: dict[str, Any] | None = None            # Phase 2.6e
 
 
 class ClearSessionResponse(BaseModel):
@@ -565,6 +576,99 @@ def _differential_meta_dict(differential: Any) -> dict[str, Any]:
     }
 
 
+def _player_form_meta_dict(pf: Any) -> dict[str, Any]:
+    """Serialise a ``PlayerFormMeta`` instance to a JSON-safe dict.  Phase 2.6d."""
+    return {
+        "web_name":   pf.web_name,
+        "team_short": pf.team_short,
+        "position":   pf.position,
+        "n_games":    pf.n_games,
+        "history": [
+            {
+                "gameweek":     e.gameweek,
+                "minutes":      e.minutes,
+                "goals_scored": e.goals_scored,
+                "assists":      e.assists,
+                "bonus":        e.bonus,
+                "total_points": e.total_points,
+            }
+            for e in pf.history
+        ],
+    }
+
+
+def _injury_list_meta_dict(il: Any) -> dict[str, Any]:
+    """Serialise an ``InjuryListMeta`` instance to a JSON-safe dict.  Phase 2.6d."""
+    def _entries(lst: Any) -> list[dict]:
+        return [
+            {
+                "web_name":          e.web_name,
+                "team_short":        e.team_short,
+                "position":          e.position,
+                "status_label":      e.status_label,
+                "chance_of_playing": e.chance_of_playing,
+            }
+            for e in lst
+        ]
+    return {
+        "injured":  _entries(il.injured),
+        "doubtful": _entries(il.doubtful),
+        "other":    _entries(il.other),
+        "total":    il.total,
+    }
+
+
+def _price_changes_meta_dict(pc: Any) -> dict[str, Any]:
+    """Serialise a ``PriceChangesMeta`` instance to a JSON-safe dict.  Phase 2.6d."""
+    def _entries(lst: Any) -> list[dict]:
+        return [
+            {
+                "web_name":          e.web_name,
+                "team_short":        e.team_short,
+                "position":          e.position,
+                "now_cost":          e.now_cost,
+                "now_cost_m":        e.now_cost_m,
+                "cost_change_event": e.cost_change_event,
+                "cost_change_start": e.cost_change_start,
+            }
+            for e in lst
+        ]
+    return {
+        "risers":  _entries(pc.risers),
+        "fallers": _entries(pc.fallers),
+    }
+
+
+def _team_calendar_meta_dict(tc: Any) -> dict[str, Any]:
+    """Serialise a ``TeamFixtureCalendarMeta`` instance.  Phase 2.6e."""
+    return {
+        "mode":             tc.mode,
+        "horizon":          tc.horizon,
+        "current_gameweek": tc.current_gameweek,
+        "top_n":            tc.top_n,
+        "teams": [
+            {
+                "rank":          t.rank,
+                "team_short":    t.team_short,
+                "team_name":     t.team_name,
+                "fixture_count": t.fixture_count,
+                "avg_fdr":       t.avg_fdr,
+                "total_fdr":     t.total_fdr,
+                "fixtures": [
+                    {
+                        "gameweek":       fx.gameweek,
+                        "opponent_short": fx.opponent_short,
+                        "is_home":        fx.is_home,
+                        "difficulty":     fx.difficulty,
+                    }
+                    for fx in t.fixtures
+                ],
+            }
+            for t in tc.teams
+        ],
+    }
+
+
 def _fixture_run_meta_dict(fixture_run: Any) -> dict[str, Any]:
     """Serialise a ``FixtureRunMeta`` instance to a JSON-safe dict.  Phase 7h."""
     return {
@@ -643,6 +747,41 @@ def ready() -> dict[str, str]:
     return {"status": "ready"}
 
 
+@app.get("/metrics")
+def metrics() -> dict[str, Any]:
+    """Internal observability endpoint for operator tooling.
+
+    Returns runtime metrics for the element-summary circuit guard.
+    All values are read-only and thread-safe.
+
+    Response shape
+    --------------
+    ``element_summary_guard.state``
+        ``"open"``   — circuit is open; player-form calls are fast-failing.
+        ``"closed"`` — circuit is closed; calls reach the upstream API.
+    ``element_summary_guard.timeout_open_events``
+        Cumulative count of timeouts that opened the circuit since startup
+        (or last ``_reset()``).
+    ``element_summary_guard.fast_fail_events``
+        Cumulative count of player-form calls that short-circuited without
+        hitting the upstream API.
+    ``element_summary_guard.successful_recoveries``
+        Cumulative count of successful upstream calls that followed a
+        guard-open cycle.
+
+    This endpoint is NOT a stable contract — field names may change across
+    platform versions.  Do not use it for deployment probes; use ``/ready``
+    instead.
+    """
+    stats = _element_summary_guard.get_stats()
+    return {
+        "element_summary_guard": {
+            "state": "open" if _element_summary_guard.is_open() else "closed",
+            **stats,
+        },
+    }
+
+
 @app.post("/ask", response_model=AskResponse)
 def ask(req: AskRequest) -> AskResponse:
     """Ask a FPL captaincy or player question.
@@ -715,6 +854,22 @@ def ask(req: AskRequest) -> AskResponse:
     if r.differential is not None:
         differential_bundle = _differential_meta_dict(r.differential)
 
+    player_form_bundle: dict[str, Any] | None = None
+    if r.player_form is not None:
+        player_form_bundle = _player_form_meta_dict(r.player_form)
+
+    injury_list_bundle: dict[str, Any] | None = None
+    if r.injury_list is not None:
+        injury_list_bundle = _injury_list_meta_dict(r.injury_list)
+
+    price_changes_bundle: dict[str, Any] | None = None
+    if r.price_changes is not None:
+        price_changes_bundle = _price_changes_meta_dict(r.price_changes)
+
+    team_calendar_bundle: dict[str, Any] | None = None
+    if r.team_calendar is not None:
+        team_calendar_bundle = _team_calendar_meta_dict(r.team_calendar)
+
     return AskResponse(
         final_text=r.final_text,
         outcome=r.outcome,
@@ -732,6 +887,11 @@ def ask(req: AskRequest) -> AskResponse:
         fixture_run=fixture_run_bundle,
         differential=differential_bundle,
         orch_outcome=r.orch_outcome,   # Orch-4c: audit
+        degraded=r.degraded,           # Phase 2.6b: provider failed silently
+        player_form=player_form_bundle,
+        injury_list=injury_list_bundle,
+        price_changes=price_changes_bundle,
+        team_calendar=team_calendar_bundle,
     )
 
 
@@ -868,6 +1028,22 @@ def session_ask(session_id: str, req: AskRequest) -> SessionAskResponse:
     if r.differential is not None:
         sess_differential_bundle = _differential_meta_dict(r.differential)
 
+    sess_player_form_bundle: dict[str, Any] | None = None
+    if r.player_form is not None:
+        sess_player_form_bundle = _player_form_meta_dict(r.player_form)
+
+    sess_injury_list_bundle: dict[str, Any] | None = None
+    if r.injury_list is not None:
+        sess_injury_list_bundle = _injury_list_meta_dict(r.injury_list)
+
+    sess_price_changes_bundle: dict[str, Any] | None = None
+    if r.price_changes is not None:
+        sess_price_changes_bundle = _price_changes_meta_dict(r.price_changes)
+
+    sess_team_calendar_bundle: dict[str, Any] | None = None
+    if r.team_calendar is not None:
+        sess_team_calendar_bundle = _team_calendar_meta_dict(r.team_calendar)
+
     return SessionAskResponse(
         session_id=session_id,
         final_text=r.final_text,
@@ -887,6 +1063,11 @@ def session_ask(session_id: str, req: AskRequest) -> SessionAskResponse:
         fixture_run=sess_fixture_run_bundle,
         differential=sess_differential_bundle,
         orch_outcome=r.orch_outcome,   # Orch-4c: audit
+        degraded=r.degraded,           # Phase 2.6b: provider failed silently
+        player_form=sess_player_form_bundle,
+        injury_list=sess_injury_list_bundle,
+        price_changes=sess_price_changes_bundle,
+        team_calendar=sess_team_calendar_bundle,
     )
 
 

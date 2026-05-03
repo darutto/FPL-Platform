@@ -88,10 +88,24 @@ def _render_get_player_summary(output: dict[str, Any]) -> str:
         ownership  = output.get("selected_by_percent", "?")
 
         display = f"{web_name} ({name})" if name != web_name else web_name
-        return (
+        base = (
             f"{display} | {team} ({team_short}) | {position} | "
             f"£{cost_m}m | {ownership}% ownership | Status: {status_lbl}."
         )
+        # Phase 2.6d Story 2.2: append season totals when available
+        extras: list[str] = []
+        total_pts = output.get("total_points")
+        form_val  = output.get("form")
+        minutes   = output.get("minutes")
+        if total_pts is not None:
+            extras.append(f"Total pts: {total_pts}")
+        if form_val is not None:
+            extras.append(f"Form: {form_val}")
+        if minutes is not None:
+            extras.append(f"Mins: {minutes}")
+        if extras:
+            return base + " " + " | ".join(extras) + "."
+        return base
 
     if status == "ambiguous":
         query = output.get("query", "that name")
@@ -339,6 +353,178 @@ def _render_get_differential_picks(output: dict[str, Any]) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Player form renderer  (Phase 2.6d Story 2.1)
+# ---------------------------------------------------------------------------
+
+def _render_get_player_form(output: dict[str, Any]) -> str:
+    """Render get_player_form output."""
+    status = output.get("status")
+    if status == "ok":
+        web_name  = output.get("web_name", "?")
+        team      = output.get("team_short", "")
+        pos       = output.get("position", "")
+        n         = output.get("n_games", 0)
+        history   = output.get("history", [])
+
+        header = f"{web_name} ({team}, {pos}) — last {n} gameweek(s):"
+        if not history:
+            return header + " No history available."
+
+        lines = [header]
+        for entry in history:
+            gw    = entry.get("gameweek", "?")
+            mins  = entry.get("minutes", 0)
+            g     = entry.get("goals_scored", 0)
+            a     = entry.get("assists", 0)
+            bonus = entry.get("bonus", 0)
+            pts   = entry.get("total_points", 0)
+            lines.append(
+                f"  GW{gw}: {pts}pts  {g}g {a}a {bonus}bps  {mins}mins"
+            )
+        return "\n".join(lines)
+
+    if status in ("not_found", "ambiguous"):
+        query = output.get("query", "that player")
+        return f"No player found matching '{query}'."
+
+    if status == "missing_context":
+        return output.get("message", "Player match history unavailable.")
+
+    code    = output.get("code", "error")
+    message = output.get("message", "An unexpected player form error occurred.")
+    return f"Error ({code}): {message}"
+
+
+# ---------------------------------------------------------------------------
+# Injury list renderer  (Phase 2.6d Story 2.3)
+# ---------------------------------------------------------------------------
+
+def _render_get_injury_list(output: dict[str, Any]) -> str:
+    """Render get_injury_list output."""
+    status = output.get("status")
+    if status == "ok":
+        injured  = output.get("injured", [])
+        doubtful = output.get("doubtful", [])
+        other    = output.get("other", [])
+        total    = output.get("total", 0)
+
+        if total == 0:
+            return "No injury concerns in the current bootstrap."
+
+        parts: list[str] = []
+        if injured:
+            names = ", ".join(f"{p['web_name']} ({p['team_short']}, {p['position']})" for p in injured)
+            parts.append(f"Injured: {names}")
+        if doubtful:
+            doubt_strs: list[str] = []
+            for p in doubtful:
+                chance = p.get("chance_of_playing")
+                s = f"{p['web_name']} ({p['team_short']}, {p['position']})"
+                if chance is not None:
+                    s += f" {chance}%"
+                doubt_strs.append(s)
+            parts.append(f"Doubtful: {', '.join(doubt_strs)}")
+        if other:
+            names = ", ".join(f"{p['web_name']} ({p['team_short']})" for p in other)
+            parts.append(f"Suspended/unavailable: {names}")
+
+        return " | ".join(parts) + "."
+
+    code    = output.get("code", "error")
+    message = output.get("message", "An unexpected injury list error occurred.")
+    return f"Error ({code}): {message}"
+
+
+# ---------------------------------------------------------------------------
+# Price changes renderer  (Phase 2.6d Story 2.4)
+# ---------------------------------------------------------------------------
+
+def _render_get_price_changes(output: dict[str, Any]) -> str:
+    """Render get_price_changes output."""
+    status = output.get("status")
+    if status == "ok":
+        risers  = output.get("risers", [])
+        fallers = output.get("fallers", [])
+
+        if not risers and not fallers:
+            return "No price changes in the current gameweek."
+
+        parts: list[str] = []
+        if risers:
+            riser_strs = [
+                f"{p['web_name']} ({p['team_short']}, {p['position']}) +£{abs(p['cost_change_event'] / 10.0):.1f}m"
+                for p in risers
+            ]
+            parts.append("Risers: " + ", ".join(riser_strs))
+        if fallers:
+            faller_strs = [
+                f"{p['web_name']} ({p['team_short']}, {p['position']}) -£{abs(p['cost_change_event'] / 10.0):.1f}m"
+                for p in fallers
+            ]
+            parts.append("Fallers: " + ", ".join(faller_strs))
+
+        return " | ".join(parts) + "."
+
+    if status == "empty":
+        return output.get("message", "No price-change data available.")
+
+    code    = output.get("code", "error")
+    message = output.get("message", "An unexpected price changes error occurred.")
+    return f"Error ({code}): {message}"
+
+
+# ---------------------------------------------------------------------------
+# Team fixture calendar renderer  (Phase 2.6e)
+# ---------------------------------------------------------------------------
+
+def _render_get_team_fixture_calendar(output: dict[str, Any]) -> str:
+    """Render get_team_fixture_calendar output."""
+    status = output.get("status")
+    if status == "ok":
+        mode    = output.get("mode", "easiest")
+        horizon = output.get("horizon", 5)
+        gw      = output.get("current_gameweek")
+        teams   = output.get("teams", [])
+
+        mode_label = "easiest" if mode == "easiest" else "hardest"
+        gw_label   = f" from GW{gw}" if gw is not None else ""
+        header     = (
+            f"Teams ranked by {mode_label} fixtures "
+            f"(next {horizon} GWs{gw_label}):"
+        )
+
+        if not teams:
+            return header + " No data available."
+
+        lines = [header]
+        for t in teams:
+            rank  = t.get("rank", "?")
+            short = t.get("team_short", "?")
+            name  = t.get("team_name", "?")
+            avg   = t.get("avg_fdr", 0.0)
+            count = t.get("fixture_count", 0)
+            # Compact per-fixture summary
+            fxs   = t.get("fixtures", [])
+            fx_str = " ".join(
+                f"GW{f['gameweek']}({f['opponent_short']}{'H' if f['is_home'] else 'A'}"
+                f"/{f['difficulty']})"
+                for f in fxs
+            )
+            lines.append(
+                f"  {rank}. {short} ({name}) avg {avg:.1f} "
+                f"[{count} fix] — {fx_str}"
+            )
+        return "\n".join(lines)
+
+    if status == "missing_context":
+        return output.get("message", "Fixture schedule data not available.")
+
+    code    = output.get("code", "error")
+    message = output.get("message", "An unexpected error occurred.")
+    return f"Error ({code}): {message}"
+
+
+# ---------------------------------------------------------------------------
 # Dispatch table and public API
 # ---------------------------------------------------------------------------
 
@@ -353,6 +539,10 @@ _RENDERERS = {
     "get_chip_advice":           _render_get_chip_advice,            # Phase 6b
     "get_player_fixture_run":    _render_get_player_fixture_run,     # Phase 7h
     "get_differential_picks":    _render_get_differential_picks,     # Phase 7g
+    "get_player_form":              _render_get_player_form,            # Phase 2.6d
+    "get_injury_list":              _render_get_injury_list,            # Phase 2.6d
+    "get_price_changes":            _render_get_price_changes,          # Phase 2.6d
+    "get_team_fixture_calendar":    _render_get_team_fixture_calendar,  # Phase 2.6e
 }
 
 

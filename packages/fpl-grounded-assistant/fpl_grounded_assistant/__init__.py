@@ -50,6 +50,10 @@ from .dispatcher import (
     INTENT_MULTI_INTENT,            # Phase 6c
     INTENT_PLAYER_FIXTURE_RUN,      # Phase 7h
     INTENT_DIFFERENTIAL_PICKS,      # Phase 7g
+    INTENT_PLAYER_FORM,             # Phase 2.6d
+    INTENT_INJURY_LIST,             # Phase 2.6d
+    INTENT_PRICE_CHANGES,           # Phase 2.6d
+    INTENT_TEAM_FIXTURE_CALENDAR,   # Phase 2.6e
     INTENT_UNSUPPORTED,
     SUPPORTED_INTENTS,
     # Phase 2k: tool→intent mapping (exported for test access)
@@ -81,6 +85,8 @@ from .conversation_fixtures import (
     DIFFERENTIAL_BOOTSTRAP,   # Phase 7j: low-ownership ok-path bootstrap
     DGW_BOOTSTRAP,            # Phase 8c: double-gameweek (6 teams × 2 GW28 fixtures)
     BGW_BOOTSTRAP,            # Phase 8c: blank-gameweek (2 teams with no GW28 fixture)
+    PLAYER_FORM_BOOTSTRAP,    # Phase 2.6d: player form test injection
+    PRICE_CHANGES_BOOTSTRAP,  # Phase 2.6d: price changes test fixture
     run_all,
 )
 from .llm_layer import (
@@ -209,6 +215,14 @@ from .chip_advisor import (       # Phase 6b
     _WC_LATE_CUTOFF,
     _BB_FAVORABLE_FDR,
     _BB_MARGINAL_FDR,
+)
+from .player_form import get_player_form              # Phase 2.6d — triggers TOOL_REGISTRY self-registration
+from .injury_list import get_injury_list              # Phase 2.6d
+from .price_changes import get_price_changes          # Phase 2.6d
+from .team_fixture_calendar import (                  # Phase 2.6e
+    get_team_fixture_calendar,
+    DEFAULT_HORIZON as TEAM_CALENDAR_DEFAULT_HORIZON,
+    DEFAULT_TOP_N   as TEAM_CALENDAR_DEFAULT_TOP_N,
 )
 from .router import (
     RouteResult,

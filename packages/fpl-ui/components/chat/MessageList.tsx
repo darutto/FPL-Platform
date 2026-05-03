@@ -20,6 +20,7 @@ export interface Message {
   text: string;
   outcome?: Outcome;
   llmUsed?: boolean;
+  degraded?: boolean;
   isError?: boolean;
   /** Full backend response — populated on successful assistant turns.
    *  Used by IntentRenderer to select and supply the structured component. */
@@ -92,6 +93,12 @@ function MessageBubble({ message }: { message: Message }) {
             >
               {originBadgeLabel}
             </span>
+            {/* Degraded notice — shown when LLM was attempted but provider failed (Phase 2.6b) */}
+            {message.degraded && (
+              <span className="inline-flex items-center rounded-full border border-orange-500/40 bg-orange-500/10 px-2 py-1 text-[11px] font-medium text-orange-300">
+                proveedor no disponible
+              </span>
+            )}
           </div>
         )}
       </div>

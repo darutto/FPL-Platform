@@ -76,6 +76,7 @@ from validation_corpus import VALIDATION_SCENARIOS, ValidationScenario  # noqa: 
 from fpl_grounded_assistant.conversation_fixtures import (               # noqa: E402
     STANDARD_BOOTSTRAP, AMBIGUOUS_BOOTSTRAP, DIFFERENTIAL_BOOTSTRAP,
     DGW_BOOTSTRAP, BGW_BOOTSTRAP, MARGINAL_TRANSFER_BOOTSTRAP,
+    PLAYER_FORM_BOOTSTRAP, PRICE_CHANGES_BOOTSTRAP,               # Phase 2.6d
 )
 from fpl_cli import run as cli_run, run_session as cli_run_session       # noqa: E402
 import fpl_server                                                          # noqa: E402
@@ -170,6 +171,10 @@ def _resolve_bootstrap(name: str) -> dict[str, Any]:
         return BGW_BOOTSTRAP
     if name == "marginal_transfer":  # Phase 8e2: Haaland form raised for marginal delta
         return MARGINAL_TRANSFER_BOOTSTRAP
+    if name == "player_form":        # Phase 2.6d: element_summary injection
+        return PLAYER_FORM_BOOTSTRAP
+    if name == "price_changes":      # Phase 2.6d: cost_change_event populated
+        return PRICE_CHANGES_BOOTSTRAP
     return STANDARD_BOOTSTRAP
 
 
@@ -231,6 +236,10 @@ def run_cli_surface(
         "chip":                   debug_body.get("chip"),              # Phase 7j
         "fixture_run":            debug_body.get("fixture_run"),       # Phase 7j
         "differential":           debug_body.get("differential"),      # Phase 7j
+        "player_form":            debug_body.get("player_form"),       # Phase 2.6d
+        "injury_list":            debug_body.get("injury_list"),       # Phase 2.6d
+        "price_changes":          debug_body.get("price_changes"),     # Phase 2.6d
+        "team_calendar":          debug_body.get("team_calendar"),     # Phase 2.6e
         "final_text":             debug_body.get("final_text", output_text),
         "classification_source":  debug_bundle.get("classification_source"),
     }
@@ -291,6 +300,10 @@ def run_http_surface(
         "chip":                   body.get("chip"),                   # Phase 7j
         "fixture_run":            body.get("fixture_run"),            # Phase 7j
         "differential":           body.get("differential"),           # Phase 7j
+        "player_form":            body.get("player_form"),            # Phase 2.6d
+        "injury_list":            body.get("injury_list"),            # Phase 2.6d
+        "price_changes":          body.get("price_changes"),          # Phase 2.6d
+        "team_calendar":          body.get("team_calendar"),          # Phase 2.6e
         "final_text":             body.get("final_text", ""),
         "classification_source":  debug_bundle.get("classification_source"),
     }
@@ -342,6 +355,10 @@ def run_session_cli_surface(
         "chip":                   last.get("chip"),                   # Phase 7j
         "fixture_run":            last.get("fixture_run"),            # Phase 7j
         "differential":           last.get("differential"),           # Phase 7j
+        "player_form":            last.get("player_form"),            # Phase 2.6d
+        "injury_list":            last.get("injury_list"),            # Phase 2.6d
+        "price_changes":          last.get("price_changes"),          # Phase 2.6d
+        "team_calendar":          last.get("team_calendar"),          # Phase 2.6e
         "final_text":             last.get("final_text", ""),
         "resolver_source":        resolver_dbg.get("resolver_source"),
         "rewritten_question":     resolver_dbg.get("rewritten_question"),
@@ -430,6 +447,10 @@ def run_session_http_surface(
         "chip":                   last_body.get("chip"),              # Phase 7j
         "fixture_run":            last_body.get("fixture_run"),       # Phase 7j
         "differential":           last_body.get("differential"),      # Phase 7j
+        "player_form":            last_body.get("player_form"),       # Phase 2.6d
+        "injury_list":            last_body.get("injury_list"),       # Phase 2.6d
+        "price_changes":          last_body.get("price_changes"),     # Phase 2.6d
+        "team_calendar":          last_body.get("team_calendar"),     # Phase 2.6e
         "final_text":             last_body.get("final_text", ""),
         "classification_source":  debug_bundle.get("classification_source"),
     }
@@ -628,6 +649,58 @@ def _check_scenario_result(
                     f"got={got_sl!r}"
                 )
 
+    # Phase 2.6d: player_form, injury_list, price_changes structured metadata
+    if scenario.expect_player_form:
+        pf = sr.get("player_form")
+        if pf is None:
+            fail("player_form: expected non-None, got None")
+        else:
+            for key in ("web_name", "team_short", "position", "n_games", "history"):
+                if key not in pf:
+                    fail(f"player_form: missing key '{key}'")
+    else:
+        if scenario.expected_intent != "player_form" and sr.get("player_form") is not None:
+            fail("player_form: expected None for non-player-form turn")
+
+    if scenario.expect_injury_list:
+        il = sr.get("injury_list")
+        if il is None:
+            fail("injury_list: expected non-None, got None")
+        else:
+            for key in ("injured", "doubtful", "other", "total"):
+                if key not in il:
+                    fail(f"injury_list: missing key '{key}'")
+    else:
+        if scenario.expected_intent != "injury_list" and sr.get("injury_list") is not None:
+            fail("injury_list: expected None for non-injury-list turn")
+
+    if scenario.expect_price_changes:
+        pc = sr.get("price_changes")
+        if pc is None:
+            fail("price_changes: expected non-None, got None")
+        else:
+            for key in ("risers", "fallers"):
+                if key not in pc:
+                    fail(f"price_changes: missing key '{key}'")
+    else:
+        if scenario.expected_intent != "price_changes" and sr.get("price_changes") is not None:
+            fail("price_changes: expected None for non-price-changes turn")
+
+    # Phase 2.6e: team_fixture_calendar structured metadata
+    if scenario.expect_team_calendar:
+        tc = sr.get("team_calendar")
+        if tc is None:
+            fail("team_calendar: expected non-None, got None")
+        else:
+            for key in ("mode", "horizon", "top_n", "teams"):
+                if key not in tc:
+                    fail(f"team_calendar: missing key '{key}'")
+            if not isinstance(tc.get("teams"), list):
+                fail("team_calendar.teams: expected list")
+    else:
+        if scenario.expected_intent != "team_fixture_calendar" and sr.get("team_calendar") is not None:
+            fail("team_calendar: expected None for non-team-calendar turn")
+
     # Resolver source (session_cli only)
     if surface_name == "session_cli" and scenario.expected_resolver_source is not None:
         got_src = sr.get("resolver_source")
@@ -676,7 +749,9 @@ def _check_cross_surface_parity(
                 )
         # Structured field presence must agree (None vs non-None)
         for field_name in ("captain", "comparison", "captain_ranking",
-                           "transfer", "chip", "fixture_run", "differential"):
+                           "transfer", "chip", "fixture_run", "differential",
+                           "player_form", "injury_list", "price_changes",  # Phase 2.6d
+                           "team_calendar"):                                 # Phase 2.6e
             rv_present = ref.get(field_name) is not None
             ov_present = other.get(field_name) is not None
             if rv_present != ov_present:

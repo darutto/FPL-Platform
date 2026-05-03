@@ -1,11 +1,11 @@
 # FPL Grounded Assistant — Validation Report
 
-Generated: 2026-04-26 16:35 UTC
+Generated: 2026-05-03 18:05 UTC
 
 ## Summary
 
-- **44 scenarios** tested
-- **44 PASS**, **0 FAIL**
+- **60 scenarios** tested
+- **60 PASS**, **0 FAIL**
 
 ## Scenario Overview
 
@@ -55,6 +55,22 @@ Generated: 2026-04-26 16:35 UTC
 | chip_unavailable_session | chip | chip_advice | ok | session_cli, session_http | ✓ PASS |
 | transfer_hit_warning_session | transfer | transfer_advice | ok | session_cli, session_http | ✓ PASS |
 | squad_context_stateless | transfer | transfer_advice | ok | session_http | ✓ PASS |
+| spanish_compare_accusative_a | comparison | compare_players | ok | cli, http | ✓ PASS |
+| spanish_compare_tengo_a | comparison | compare_players | not_found | cli, http | ✓ PASS |
+| spanish_player_summary_resumen | summary | player_summary | ok | cli, http | ✓ PASS |
+| spanish_rank_captain_quien_deberia | ranking | rank_candidates | ok | cli, http | ✓ PASS |
+| spanish_rank_captain_ranking | ranking | rank_candidates | ok | cli, http | ✓ PASS |
+| spanish_captain_score_named | captain | captain_score | ok | cli, http | ✓ PASS |
+| degraded_flag_on_provider_failure | failure_modes | captain_score | ok | cli, http | ✓ PASS |
+| player_form_last_3_salah | player_form | player_form | ok | cli, http | ✓ PASS |
+| player_form_historial_salah | player_form | player_form | ok | cli, http | ✓ PASS |
+| player_summary_with_totals | summary | player_summary | ok | cli, http | ✓ PASS |
+| injury_check_named_player | summary | player_summary | ok | cli, http | ✓ PASS |
+| injury_list_gw_wide | injury_list | injury_list | ok | cli, http | ✓ PASS |
+| price_changes_risers | price_changes | price_changes | ok | cli, http | ✓ PASS |
+| chip_wildcard_timing_antes_despues | chip | chip_advice | ok | cli, http | ✓ PASS |
+| chip_bench_boost_conditional_tiene_sentido | chip | chip_advice | ok | cli, http | ✓ PASS |
+| chip_wildcard_spent_sequencing | chip | chip_advice | ok | cli, http | ✓ PASS |
 
 ## Scenario Details
 
@@ -723,6 +739,230 @@ Generated: 2026-04-26 16:35 UTC
 
 - `session_http`: intent=`transfer_advice` outcome=`ok` supported=`True`
   transfer.player_out=`Saka` transfer.player_in=`Salah` transfer.recommendation=`transfer_in`
+
+### spanish_compare_accusative_a  (✓ PASS)
+
+**Family:** comparison  
+**Description:** Spanish 'compara a Salah y Haaland' — accusative 'a' must be stripped from player tokens before registry lookup.  
+**Question:** `compara a Salah y Haaland`  
+**Expected:** intent=`compare_players` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6b Story 1.1: _strip_spanish_name_prefix removes leading 'a ' so 'a Salah' → 'Salah' before registry lookup. Both Salah and Haaland are in STANDARD_BOOTSTRAP. comparison.winner should be non-null (Salah or Haaland). Before the fix: compare_players intent with 'a Salah' → not_found. After the fix: ok with valid comparison metadata.
+
+**Surface results:**
+
+- `cli`: intent=`compare_players` outcome=`ok` supported=`True`
+  comparison.winner=`Salah` comparison.label=`moderate`
+- `http`: intent=`compare_players` outcome=`ok` supported=`True`
+  comparison.winner=`Salah` comparison.label=`moderate`
+
+### spanish_compare_tengo_a  (✓ PASS)
+
+**Family:** comparison  
+**Description:** Spanish 'tengo a Saka y Haaland' — 'tengo a ' prefix noise must be stripped so 'tengo a Saka' resolves as 'Saka'.  
+**Question:** `tengo a saka y rashford en mi equipo, a cuál vendo primero`  
+**Expected:** intent=`compare_players` outcome=`not_found` supported=`True`  
+**Notes:** Phase 2.6b Story 1.1: bare ' y ' connector routes to compare_players. After _strip_spanish_name_prefix: 'tengo a saka' → 'saka' (resolves OK). 'rashford en mi equipo, a cuál vendo primero' is not in STANDARD_BOOTSTRAP → not_found. intent=compare_players confirms routing success; the name-prefix fix is validated on part_a (saka resolves). Rashford is absent from STANDARD_BOOTSTRAP — not_found is expected.
+
+**Surface results:**
+
+- `cli`: intent=`compare_players` outcome=`not_found` supported=`True`
+- `http`: intent=`compare_players` outcome=`not_found` supported=`True`
+
+### spanish_player_summary_resumen  (✓ PASS)
+
+**Family:** summary  
+**Description:** Spanish 'dame un resumen de Salah' routes to player_summary via the new Spanish _SUMMARY_PREFIXES entries.  
+**Question:** `dame un resumen de Salah`  
+**Expected:** intent=`player_summary` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6b Story 1.4: 'dame un resumen de' added to _SUMMARY_PREFIXES. Prefix stripped → 'Salah' → found in STANDARD_BOOTSTRAP. Before the fix: unsupported_intent. After: player_summary ok.
+
+**Surface results:**
+
+- `cli`: intent=`player_summary` outcome=`ok` supported=`True`
+- `http`: intent=`player_summary` outcome=`ok` supported=`True`
+
+### spanish_rank_captain_quien_deberia  (✓ PASS)
+
+**Family:** ranking  
+**Description:** Spanish 'quién debería capitanear esta semana' routes to rank_candidates via the new Spanish _RANK_PREFIXES entries.  
+**Question:** `quién debería capitanear esta semana`  
+**Expected:** intent=`rank_candidates` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6b Story 1.4: generic Spanish captain ranking. 'quién debería capitanear esta semana' added to _RANK_PREFIXES. Routes to rank_candidates; candidates_list supplied. Before the fix: unsupported_intent. After: rank_candidates ok.
+
+**Surface results:**
+
+- `cli`: intent=`rank_candidates` outcome=`ok` supported=`True`
+  captain_ranking: 2 entries, #1=Salah
+- `http`: intent=`rank_candidates` outcome=`ok` supported=`True`
+  captain_ranking: 2 entries, #1=Salah
+
+### spanish_rank_captain_ranking  (✓ PASS)
+
+**Family:** ranking  
+**Description:** Spanish 'dame el ranking de capitanes' routes to rank_candidates via the new Spanish _RANK_PREFIXES / _RANKING_KEYWORDS entries.  
+**Question:** `dame el ranking de capitanes`  
+**Expected:** intent=`rank_candidates` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6b Story 1.4: 'dame el ranking de capitanes' added to _RANK_PREFIXES. 'ranking de capitanes' added to _RANKING_KEYWORDS for substring matching. Before the fix: unsupported_intent. After: rank_candidates ok.
+
+**Surface results:**
+
+- `cli`: intent=`rank_candidates` outcome=`ok` supported=`True`
+  captain_ranking: 3 entries, #1=Salah
+- `http`: intent=`rank_candidates` outcome=`ok` supported=`True`
+  captain_ranking: 3 entries, #1=Salah
+
+### spanish_captain_score_named  (✓ PASS)
+
+**Family:** captain  
+**Description:** Spanish 'debería capitanear a Haaland' routes to captain_score via the new Spanish _CAPTAIN_SCORE_PREFIXES entries.  
+**Question:** `debería capitanear a Haaland`  
+**Expected:** intent=`captain_score` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6b Story 1.4 + Story 1.1: 'debería capitanear a' added to _CAPTAIN_SCORE_PREFIXES (1.4). _strip_spanish_name_prefix removes leading 'a ' → 'Haaland' (1.1). Haaland in STANDARD_BOOTSTRAP → ok with captain metadata. Before the fix: unsupported_intent. After: captain_score ok.
+
+**Surface results:**
+
+- `cli`: intent=`captain_score` outcome=`ok` supported=`True`
+  captain.tier=`upside` captain.role_bonus=`5.0`
+- `http`: intent=`captain_score` outcome=`ok` supported=`True`
+  captain.tier=`upside` captain.role_bonus=`5.0`
+
+### degraded_flag_on_provider_failure  (✓ PASS)
+
+**Family:** failure_modes  
+**Description:** When the LLM provider call fails, FinalResponse.degraded=True so callers can surface a 'provider unavailable' notice. The deterministic final_text is still returned (outcome=ok).  
+**Question:** `should I captain Salah`  
+**Expected:** intent=`captain_score` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6b Story 1.3: degraded flag. This scenario tests the contract shape only (deterministic path). In CI without an LLM client, provider_failed=False → degraded=False. The live degraded=True path is validated in run_phase26b_tests.py using a stub provider that returns an error_code. Corpus test confirms: degraded field present (bool) on all surfaces.
+
+**Surface results:**
+
+- `cli`: intent=`captain_score` outcome=`ok` supported=`True`
+  captain.tier=`safe` captain.role_bonus=`5.0`
+- `http`: intent=`captain_score` outcome=`ok` supported=`True`
+  captain.tier=`safe` captain.role_bonus=`5.0`
+
+### player_form_last_3_salah  (✓ PASS)
+
+**Family:** player_form  
+**Description:** Spanish 'cómo ha estado Salah en los últimos 3 partidos' routes to player_form and returns 3 GW history entries via bootstrap injection.  
+**Question:** `como ha estado Salah en los ultimos 3 partidos`  
+**Expected:** intent=`player_form` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6d Story 2.1: player form routing + API injection. PLAYER_FORM_BOOTSTRAP injects 3 history entries for Salah (id=2). player_form.web_name='Salah', n_games=3, len(history)==3. Before fix: unsupported_intent. After: player_form ok.
+
+**Surface results:**
+
+- `cli`: intent=`player_form` outcome=`ok` supported=`True`
+- `http`: intent=`player_form` outcome=`ok` supported=`True`
+
+### player_form_historial_salah  (✓ PASS)
+
+**Family:** player_form  
+**Description:** Spanish 'historial de puntos de Salah' routes to player_form with default n_games=5, returns available history.  
+**Question:** `historial de puntos de Salah`  
+**Expected:** intent=`player_form` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6d Story 2.1: 'historial de puntos de' prefix routing. PLAYER_FORM_BOOTSTRAP has 3 history entries; n_games defaults to 5 but only 3 are available → n_games=3 in output.
+
+**Surface results:**
+
+- `cli`: intent=`player_form` outcome=`ok` supported=`True`
+- `http`: intent=`player_form` outcome=`ok` supported=`True`
+
+### player_summary_with_totals  (✓ PASS)
+
+**Family:** summary  
+**Description:** Player summary for Salah includes form and minutes from bootstrap (Story 2.2 enrichment). total_points absent in STANDARD_BOOTSTRAP.  
+**Question:** `tell me about Salah`  
+**Expected:** intent=`player_summary` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6d Story 2.2: form='9.5' and minutes=2250 are present in STANDARD_BOOTSTRAP elements for Salah. total_points=None (not in STANDARD_BOOTSTRAP). Renderer shows Form and Mins extras.
+
+**Surface results:**
+
+- `cli`: intent=`player_summary` outcome=`ok` supported=`True`
+- `http`: intent=`player_summary` outcome=`ok` supported=`True`
+
+### injury_check_named_player  (✓ PASS)
+
+**Family:** summary  
+**Description:** Spanish 'está lesionado Saka' routes to player_summary via new injury-check prefix coverage.  
+**Question:** `esta lesionado Saka`  
+**Expected:** intent=`player_summary` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6d Story 2.3a: 'esta lesionado' added to _SUMMARY_PREFIXES. Saka (status='d') is in STANDARD_BOOTSTRAP → ok with status_label=Doubtful. Before fix: unsupported_intent. After: player_summary ok.
+
+**Surface results:**
+
+- `cli`: intent=`player_summary` outcome=`ok` supported=`True`
+- `http`: intent=`player_summary` outcome=`ok` supported=`True`
+
+### injury_list_gw_wide  (✓ PASS)
+
+**Family:** injury_list  
+**Description:** Spanish 'hay dudas para esta jornada' routes to injury_list and returns doubtful/injured players from bootstrap.  
+**Question:** `hay dudas para esta jornada`  
+**Expected:** intent=`injury_list` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6d Story 2.3b: 'hay dudas para esta jornada' routes to get_injury_list. STANDARD_BOOTSTRAP: Saka (d) + De Bruyne (i) → total=2. injury_list.total=2, doubtful has Saka, injured has De Bruyne. Before fix: unsupported_intent. After: injury_list ok.
+
+**Surface results:**
+
+- `cli`: intent=`injury_list` outcome=`ok` supported=`True`
+- `http`: intent=`injury_list` outcome=`ok` supported=`True`
+
+### price_changes_risers  (✓ PASS)
+
+**Family:** price_changes  
+**Description:** Spanish 'quién está subiendo de precio esta semana' routes to price_changes and returns Salah as riser from PRICE_CHANGES_BOOTSTRAP.  
+**Question:** `quien esta subiendo de precio esta semana`  
+**Expected:** intent=`price_changes` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6d Story 2.4: price_changes routing + deterministic output. PRICE_CHANGES_BOOTSTRAP: Salah cost_change_event=+1 (riser), De Bruyne cost_change_event=-1 (faller). price_changes.risers non-empty, price_changes.fallers non-empty. Before fix: unsupported_intent. After: price_changes ok.
+
+**Surface results:**
+
+- `cli`: intent=`price_changes` outcome=`ok` supported=`True`
+- `http`: intent=`price_changes` outcome=`ok` supported=`True`
+
+### chip_wildcard_timing_antes_despues  (✓ PASS)
+
+**Family:** chip  
+**Description:** Spanish wildcard timing question using 'antes o después' phrase routes to chip_advice via new advisory phrase coverage.  
+**Question:** `debería usar el wildcard antes o después de la doble jornada`  
+**Expected:** intent=`chip_advice` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6c Story 1b.1: wildcard timing phrasing. 'deberia usar' + 'antes o despues' added to _CHIP_ADVISORY_PHRASES. chip='wildcard'; recommendation varies by GW. Before the fix: unsupported_intent. After: chip_advice ok.
+
+**Surface results:**
+
+- `cli`: intent=`chip_advice` outcome=`ok` supported=`True`
+  chip.chip=`wildcard` chip.recommendation=`conditions_marginal` chip.gw=`28` chip.signal_label=`current gameweek`
+- `http`: intent=`chip_advice` outcome=`ok` supported=`True`
+  chip.chip=`wildcard` chip.recommendation=`conditions_marginal` chip.gw=`28` chip.signal_label=`current gameweek`
+
+### chip_bench_boost_conditional_tiene_sentido  (✓ PASS)
+
+**Family:** chip  
+**Description:** Spanish bench boost conditional question using 'tiene sentido' and 'activar' phrases routes to chip_advice.  
+**Question:** `tiene sentido activar el bench boost con 10 jugadores disponibles`  
+**Expected:** intent=`chip_advice` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6c Story 1b.2: bench boost conditional phrasing. 'tiene sentido' and 'activar' added to _CHIP_ADVISORY_PHRASES. chip='bench_boost'; deterministic recommendation from bootstrap. Before the fix: unsupported_intent. After: chip_advice ok.
+
+**Surface results:**
+
+- `cli`: intent=`chip_advice` outcome=`ok` supported=`True`
+  chip.chip=`bench_boost` chip.recommendation=`conditions_unfavorable` chip.gw=`28` chip.signal_label=`average FDR (top 10)`
+- `http`: intent=`chip_advice` outcome=`ok` supported=`True`
+  chip.chip=`bench_boost` chip.recommendation=`conditions_unfavorable` chip.gw=`28` chip.signal_label=`average FDR (top 10)`
+
+### chip_wildcard_spent_sequencing  (✓ PASS)
+
+**Family:** chip  
+**Description:** Spanish spent-chip sequencing question using 'ya usé' phrase routes to chip_advice via new advisory phrase coverage.  
+**Question:** `ya use el wildcard, que chip me queda mas rentable para el final`  
+**Expected:** intent=`chip_advice` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6c Story 1b.3: spent-chip sequencing phrasing. 'ya use' (and accented 'ya usé') added to _CHIP_ADVISORY_PHRASES. chip='wildcard' (keyword extracted from question). Advisor returns recommendation for wildcard this GW. Before the fix: unsupported_intent. After: chip_advice ok.
+
+**Surface results:**
+
+- `cli`: intent=`chip_advice` outcome=`ok` supported=`True`
+  chip.chip=`wildcard` chip.recommendation=`conditions_marginal` chip.gw=`28` chip.signal_label=`current gameweek`
+- `http`: intent=`chip_advice` outcome=`ok` supported=`True`
+  chip.chip=`wildcard` chip.recommendation=`conditions_marginal` chip.gw=`28` chip.signal_label=`current gameweek`
 
 ---
 

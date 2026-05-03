@@ -198,6 +198,14 @@ export interface AskResponse {
   differential: DifferentialPicksMeta | null;
   sub_responses: AskResponse[] | null;
 
+  /**
+   * Provider degradation flag (Phase 2.6b).
+   * true  — LLM call was attempted, failed (provider error), response fell
+   *         back to deterministic text silently. Show a muted notice.
+   * false — deterministic-only by design, successful LLM, or review failure.
+   */
+  degraded: boolean;
+
   // debug_only — null unless request included debug=true.
   // Do not gate production logic on this field.
   debug?: DebugBundle | null;

@@ -261,6 +261,13 @@ class LLMResponse:
     llm_called:
         ``True`` if an actual Anthropic API call was made; ``False`` if
         the deterministic fallback was used (no API key, no client, or error).
+    provider_failed:
+        ``True`` when the provider was reached but returned an error
+        (``result.error_code is not None``).  Distinct from ``llm_called=False``
+        due to absent credentials — this flag signals *active degradation*:
+        an LLM call was attempted, failed, and the response fell back to the
+        deterministic text without the user's knowledge.
+        ``False`` in all other cases (no client / successful call / no LLM needed).
     """
     user_message:     str
     adapter_response: AdapterResponse
@@ -268,6 +275,7 @@ class LLMResponse:
     prompt_used:      str
     model:            str
     llm_called:       bool
+    provider_failed:  bool = False  # Phase 2.6b Story 1.3
 
 
 # ---------------------------------------------------------------------------
@@ -488,10 +496,20 @@ def ask_llm(
     _log_provider_event(_PROVIDER, result)
 
     if result.error_code is not None:
-        return _fallback_llm_response(
+        # Provider was reached but returned an error — signal active degradation.
+        fallback = _fallback_llm_response(
             user_message=user_message,
             adapter_response=adapter_response,
             prompt_used=prompt_used,
+        )
+        return LLMResponse(
+            user_message=fallback.user_message,
+            adapter_response=fallback.adapter_response,
+            llm_text=fallback.llm_text,
+            prompt_used=fallback.prompt_used,
+            model=fallback.model,
+            llm_called=fallback.llm_called,
+            provider_failed=True,   # Phase 2.6b Story 1.3: explicit degradation flag
         )
 
     return LLMResponse(

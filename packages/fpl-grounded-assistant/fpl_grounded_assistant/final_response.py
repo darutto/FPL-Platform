@@ -72,7 +72,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from .dispatcher import OUTCOME_OK, INTENT_COMPARE_PLAYERS, INTENT_CAPTAIN_SCORE, INTENT_RANK_CANDIDATES, INTENT_MULTI_INTENT, INTENT_TRANSFER_ADVICE, INTENT_CHIP_ADVICE, INTENT_PLAYER_FIXTURE_RUN, INTENT_DIFFERENTIAL_PICKS  # noqa: F401 — re-exported
+from .dispatcher import OUTCOME_OK, INTENT_COMPARE_PLAYERS, INTENT_CAPTAIN_SCORE, INTENT_RANK_CANDIDATES, INTENT_MULTI_INTENT, INTENT_TRANSFER_ADVICE, INTENT_CHIP_ADVICE, INTENT_PLAYER_FIXTURE_RUN, INTENT_DIFFERENTIAL_PICKS, INTENT_PLAYER_FORM, INTENT_INJURY_LIST, INTENT_PRICE_CHANGES, INTENT_TEAM_FIXTURE_CALENDAR  # noqa: F401 — re-exported
 from .dispatcher import _TOOL_TO_INTENT, INTENT_UNSUPPORTED  # Orch-4a: tool->intent map
 from .multi_intent import detect_multi_intent
 from .llm_layer import DEFAULT_MODEL
@@ -412,6 +412,128 @@ class DifferentialPicksMeta:
 
 
 # ---------------------------------------------------------------------------
+# Player form metadata  (Phase 2.6d Story 2.1)
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class PlayerFormEntry:
+    """One gameweek row in a player's form history."""
+    gameweek:     int
+    minutes:      int
+    goals_scored: int
+    assists:      int
+    bonus:        int
+    total_points: int
+
+
+@dataclass(frozen=True)
+class PlayerFormMeta:
+    """Structured player form output for programmatic access.
+
+    Populated on ``FinalResponse`` when ``intent == player_form`` and
+    ``outcome == ok``.  ``None`` for all other turns.
+    """
+    web_name:   str
+    team_short: str
+    position:   str
+    n_games:    int
+    history:    tuple[PlayerFormEntry, ...]
+
+
+# ---------------------------------------------------------------------------
+# Injury list metadata  (Phase 2.6d Story 2.3)
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class InjuryEntry:
+    """One player in an injury/doubt list."""
+    web_name:         str
+    team_short:       str
+    position:         str
+    status_label:     str
+    chance_of_playing: "int | None" = field(default=None)  # doubtful only
+
+
+@dataclass(frozen=True)
+class InjuryListMeta:
+    """Structured injury list output for programmatic access.
+
+    Populated on ``FinalResponse`` when ``intent == injury_list`` and
+    ``outcome == ok``.  ``None`` for all other turns.
+    """
+    injured:  tuple[InjuryEntry, ...]
+    doubtful: tuple[InjuryEntry, ...]
+    other:    tuple[InjuryEntry, ...]
+    total:    int
+
+
+# ---------------------------------------------------------------------------
+# Price changes metadata  (Phase 2.6d Story 2.4)
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class PriceChangeEntry:
+    """One player in a price-change list."""
+    web_name:          str
+    team_short:        str
+    position:          str
+    now_cost:          int
+    now_cost_m:        float
+    cost_change_event: int
+    cost_change_start: int
+
+
+@dataclass(frozen=True)
+class PriceChangesMeta:
+    """Structured price changes output for programmatic access.
+
+    Populated on ``FinalResponse`` when ``intent == price_changes`` and
+    ``outcome == ok``.  ``None`` for all other turns.
+    """
+    risers:  tuple[PriceChangeEntry, ...]
+    fallers: tuple[PriceChangeEntry, ...]
+
+
+# ---------------------------------------------------------------------------
+# Team fixture calendar metadata  (Phase 2.6e)
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class TeamCalendarFixture:
+    """One fixture in a team's calendar entry."""
+    gameweek:       int
+    opponent_short: str
+    is_home:        bool
+    difficulty:     int
+
+
+@dataclass(frozen=True)
+class TeamCalendarEntry:
+    """One team in a ranked fixture calendar result."""
+    rank:          int
+    team_short:    str
+    team_name:     str
+    fixture_count: int
+    avg_fdr:       float
+    total_fdr:     int
+    fixtures:      tuple[TeamCalendarFixture, ...]
+
+
+@dataclass(frozen=True)
+class TeamFixtureCalendarMeta:
+    """Structured team fixture calendar output for programmatic access.
+
+    Populated on ``FinalResponse`` when ``intent == team_fixture_calendar``
+    and ``outcome == ok``.  ``None`` for all other turns.
+    """
+    mode:             str   # "easiest" | "hardest"
+    horizon:          int
+    current_gameweek: "int | None"
+    top_n:            int
+    teams:            tuple[TeamCalendarEntry, ...]
+
+
+# ---------------------------------------------------------------------------
 # Per-player context bundle  (Phase 5i)
 # ---------------------------------------------------------------------------
 
@@ -704,6 +826,18 @@ class FinalResponse:
         This field is independent of ``outcome``: ``outcome`` always reflects
         the deterministic dispatcher result; ``orch_outcome`` reflects only
         the orchestrator gate result.
+    degraded:
+        ``True`` when an LLM presentation call was attempted, failed due to
+        a provider error, and the response silently fell back to the
+        deterministic text (Phase 2.6b Story 1.3).  ``False`` when:
+
+        * the deterministic path ran without an LLM attempt (no client),
+        * the LLM call succeeded (``llm_used=True``), or
+        * the LLM review rejected the text (``review_passed=False``).
+
+        Use this to surface a muted "proveedor no disponible" notice in the UI
+        so users know they received a deterministic-only response due to a
+        transient provider outage rather than by design.
     """
     final_text:      str
     outcome:         str
@@ -721,6 +855,11 @@ class FinalResponse:
     fixture_run:     "FixtureRunMeta | None"               = field(default=None)  # Phase 7h
     differential:    "DifferentialPicksMeta | None"        = field(default=None)  # Phase 7g
     orch_outcome:    "str | None"                          = field(default=None)  # Orch-4c
+    degraded:        bool                                  = field(default=False)  # Phase 2.6b Story 1.3
+    player_form:     "PlayerFormMeta | None"               = field(default=None)  # Phase 2.6d
+    injury_list:     "InjuryListMeta | None"               = field(default=None)  # Phase 2.6d
+    price_changes:   "PriceChangesMeta | None"             = field(default=None)  # Phase 2.6d
+    team_calendar:   "TeamFixtureCalendarMeta | None"      = field(default=None)  # Phase 2.6e
 
 
 # ---------------------------------------------------------------------------
@@ -1023,6 +1162,116 @@ def _extract_differential_meta(ro: "dict[str, Any]") -> "DifferentialPicksMeta |
                 )
                 for p in ro.get("picks", [])
             ),
+        )
+    except Exception:  # noqa: BLE001
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Phase 2.6d: extraction helpers for new intents
+# ---------------------------------------------------------------------------
+
+def _extract_player_form_meta(ro: "dict[str, Any]") -> "PlayerFormMeta | None":
+    """Extract PlayerFormMeta from a get_player_form tool_output dict."""
+    try:
+        return PlayerFormMeta(
+            web_name   = ro.get("web_name", ""),
+            team_short = ro.get("team_short", ""),
+            position   = ro.get("position", ""),
+            n_games    = int(ro.get("n_games", 0)),
+            history    = tuple(
+                PlayerFormEntry(
+                    gameweek     = int(e.get("gameweek", 0)),
+                    minutes      = int(e.get("minutes", 0)),
+                    goals_scored = int(e.get("goals_scored", 0)),
+                    assists      = int(e.get("assists", 0)),
+                    bonus        = int(e.get("bonus", 0)),
+                    total_points = int(e.get("total_points", 0)),
+                )
+                for e in ro.get("history", [])
+            ),
+        )
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _extract_injury_list_meta(ro: "dict[str, Any]") -> "InjuryListMeta | None":
+    """Extract InjuryListMeta from a get_injury_list tool_output dict."""
+    try:
+        def _entries(lst: list) -> "tuple[InjuryEntry, ...]":
+            return tuple(
+                InjuryEntry(
+                    web_name          = e.get("web_name", ""),
+                    team_short        = e.get("team_short", ""),
+                    position          = e.get("position", ""),
+                    status_label      = e.get("status_label", ""),
+                    chance_of_playing = e.get("chance_of_playing"),
+                )
+                for e in lst
+            )
+        return InjuryListMeta(
+            injured  = _entries(ro.get("injured", [])),
+            doubtful = _entries(ro.get("doubtful", [])),
+            other    = _entries(ro.get("other", [])),
+            total    = int(ro.get("total", 0)),
+        )
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _extract_price_changes_meta(ro: "dict[str, Any]") -> "PriceChangesMeta | None":
+    """Extract PriceChangesMeta from a get_price_changes tool_output dict."""
+    try:
+        def _entries(lst: list) -> "tuple[PriceChangeEntry, ...]":
+            return tuple(
+                PriceChangeEntry(
+                    web_name          = e.get("web_name", ""),
+                    team_short        = e.get("team_short", ""),
+                    position          = e.get("position", ""),
+                    now_cost          = int(e.get("now_cost", 0)),
+                    now_cost_m        = float(e.get("now_cost_m", 0.0)),
+                    cost_change_event = int(e.get("cost_change_event", 0)),
+                    cost_change_start = int(e.get("cost_change_start", 0)),
+                )
+                for e in lst
+            )
+        return PriceChangesMeta(
+            risers  = _entries(ro.get("risers", [])),
+            fallers = _entries(ro.get("fallers", [])),
+        )
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _extract_team_calendar_meta(ro: "dict[str, Any]") -> "TeamFixtureCalendarMeta | None":
+    """Extract TeamFixtureCalendarMeta from get_team_fixture_calendar output."""
+    try:
+        def _fx(f: dict) -> TeamCalendarFixture:
+            return TeamCalendarFixture(
+                gameweek       = int(f.get("gameweek", 0)),
+                opponent_short = f.get("opponent_short", "?"),
+                is_home        = bool(f.get("is_home", False)),
+                difficulty     = int(f.get("difficulty", 3)),
+            )
+
+        teams = tuple(
+            TeamCalendarEntry(
+                rank          = int(t.get("rank", 0)),
+                team_short    = t.get("team_short", ""),
+                team_name     = t.get("team_name", ""),
+                fixture_count = int(t.get("fixture_count", 0)),
+                avg_fdr       = float(t.get("avg_fdr", 0.0)),
+                total_fdr     = int(t.get("total_fdr", 0)),
+                fixtures      = tuple(_fx(f) for f in t.get("fixtures", [])),
+            )
+            for t in ro.get("teams", [])
+        )
+        return TeamFixtureCalendarMeta(
+            mode             = ro.get("mode", "easiest"),
+            horizon          = int(ro.get("horizon", 5)),
+            current_gameweek = ro.get("current_gameweek"),
+            top_n            = int(ro.get("top_n", 0)),
+            teams            = teams,
         )
     except Exception:  # noqa: BLE001
         return None
@@ -1396,6 +1645,7 @@ def respond(
     final_text    = review.safe_text                   # encodes the full fallback logic
     review_passed = review.passed
     llm_used      = lr.llm_called and review.passed    # LLM text generated AND accepted
+    degraded      = lr.provider_failed                 # Phase 2.6b: provider called but failed
 
     # -----------------------------------------------------------------------
     # Debug bundle (opt-in only)
@@ -1442,6 +1692,22 @@ def respond(
     if dr.intent == INTENT_DIFFERENTIAL_PICKS and dr.outcome == OUTCOME_OK:
         differential = _extract_differential_meta(dr.raw_output)
 
+    player_form_meta: PlayerFormMeta | None = None
+    if dr.intent == INTENT_PLAYER_FORM and dr.outcome == OUTCOME_OK:
+        player_form_meta = _extract_player_form_meta(dr.raw_output)
+
+    injury_list_meta: InjuryListMeta | None = None
+    if dr.intent == INTENT_INJURY_LIST and dr.outcome == OUTCOME_OK:
+        injury_list_meta = _extract_injury_list_meta(dr.raw_output)
+
+    price_changes_meta: PriceChangesMeta | None = None
+    if dr.intent == INTENT_PRICE_CHANGES and dr.outcome == OUTCOME_OK:
+        price_changes_meta = _extract_price_changes_meta(dr.raw_output)
+
+    team_calendar_meta: TeamFixtureCalendarMeta | None = None
+    if dr.intent == INTENT_TEAM_FIXTURE_CALENDAR and dr.outcome == OUTCOME_OK:
+        team_calendar_meta = _extract_team_calendar_meta(dr.raw_output)
+
     # Orch-4d: squad_context overrides via shared helper (Phase 8e1/8e2 semantics).
     # budget_constraint / chip_unavailable replace final_text (hard blocks).
     # hit_warning is advisory — sets flag only, final_text unchanged.
@@ -1467,5 +1733,10 @@ def respond(
         chip=chip,
         fixture_run=fixture_run,
         differential=differential,
-        orch_outcome=_orch_outcome,  # Orch-4c: None=off, non-OK string=fell back
+        orch_outcome=_orch_outcome,   # Orch-4c: None=off, non-OK string=fell back
+        degraded=degraded,                     # Phase 2.6b
+        player_form=player_form_meta,          # Phase 2.6d
+        injury_list=injury_list_meta,          # Phase 2.6d
+        price_changes=price_changes_meta,      # Phase 2.6d
+        team_calendar=team_calendar_meta,      # Phase 2.6e
     )

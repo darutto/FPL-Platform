@@ -321,6 +321,15 @@ def tool_get_player_summary(
             "message": f"No player found matching '{query}'.",
         }
 
+    # Enrich with season totals from the bootstrap element  (Phase 2.6d Story 2.2)
+    element = next(
+        (e for e in bootstrap.get("elements", []) if e.get("id") == summary["id"]),
+        None,
+    )
+    total_points = int(element["total_points"]) if element and element.get("total_points") is not None else None
+    form_val     = element.get("form") if element else None
+    minutes_val  = int(element["minutes"]) if element and element.get("minutes") is not None else None
+
     return {
         "status":               "ok",
         "player_id":            summary["id"],
@@ -334,6 +343,10 @@ def tool_get_player_summary(
         "selected_by_percent":  summary["selected_by_percent"],
         "resolved_via":         summary["query_resolved_via"],
         "query":                str(query),
+        # Phase 2.6d Story 2.2: season totals (None when not in bootstrap)
+        "total_points":         total_points,
+        "form":                 form_val,
+        "minutes":              minutes_val,
     }
 
 

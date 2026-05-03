@@ -1,0 +1,8 @@
+[build]
+dockerfilePath = "packages/fpl-grounded-assistant/Dockerfile"
+
+[deploy]
+healthcheckPath = "/ready"
+healthcheckTimeout = 300
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3

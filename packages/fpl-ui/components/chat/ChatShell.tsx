@@ -99,6 +99,7 @@ export default function ChatShell() {
         text: response.final_text,
         outcome: response.outcome,
         llmUsed: response.llm_used,
+        degraded: response.degraded,
         response,
       };
       setMessages((prev) => [...prev, assistantMessage]);

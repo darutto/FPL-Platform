@@ -104,27 +104,38 @@ Supported intents and their canonical question templates
 captain_score:
   The user wants a captaincy score for a single named player.
   Canonical template: "should I captain {player_name}"
-  Examples: "is Saka worth captaining?", "should Haaland be my captain?",
+  Examples (English): "is Saka worth captaining?", "should Haaland be my captain?",
             "what's the captaincy outlook for De Bruyne?"
+  Examples (Spanish): "¿debería capitar a Haaland?", "¿es buen capitán Salah esta semana?",
+            "debería capitanear a Mbeumo"
 
 rank_candidates:
-  The user wants to rank a list of captaincy candidates (no specific player).
+  The user wants to rank a list of captaincy candidates (no specific player named).
   Canonical template: "top captains this week"
-  Examples: "who looks best for captain?", "rank my captaincy options",
+  Examples (English): "who looks best for captain?", "rank my captaincy options",
             "which of my players should captain this week?"
+  Examples (Spanish): "¿a quién debería capitar esta semana?",
+            "dame el ranking de capitanes para esta jornada",
+            "¿quién debería ser mi capitán?", "¿quién debería capitanear?",
+            "ranking de capitanes"
 
 compare_players:
   The user wants a head-to-head comparison of exactly two named players.
   Canonical template: "compare {player_a} and {player_b}"
-  Examples: "what's the score differential between Salah and Palmer?",
+  Examples (English): "what's the score differential between Salah and Palmer?",
             "who has the better captain outlook, Haaland or Saka?",
             "Haaland or Salah for the armband?"
+  Examples (Spanish): "compara a Haaland con Cherki en capitanía",
+            "compara a Salah y Haaland"
 
 player_summary:
   The user wants stats or an overview for a single named player.
   Canonical template: "tell me about {player_name}"
-  Examples: "what's Palmer's form like?", "give me an overview of Haaland",
+  Examples (English): "what's Palmer's form like?", "give me an overview of Haaland",
             "how is Saka doing this season?"
+  Examples (Spanish): "dame un resumen de Salah", "¿cuántos puntos lleva Isak esta temporada?",
+            "¿cómo está Mbeumo últimamente?", "información sobre Haaland",
+            "precio de Palmer", "cual es el precio de Palmer"
 
 player_resolve:
   The user wants to look up a player by name or alias.
@@ -143,10 +154,19 @@ chip_advice:
   Chips: triple captain, wildcard, bench boost, free hit.
   Canonical template: "should I use {chip_name} this week"
     where chip_name is one of: triple captain, wildcard, bench boost, free hit.
-  Examples: "is this a good week for triple captain?",
+  Examples (English): "is this a good week for triple captain?",
             "would you play the wildcard now?",
             "bench boost worth it this gameweek?",
             "should I activate my free hit?"
+  Examples (Spanish — timing): "¿debería usar el wildcard antes o después de la doble jornada?",
+            "¿cuándo debería usar el wildcard?",
+            "¿cuándo debería activar el triple capitán?"
+  Examples (Spanish — conditional): "¿tiene sentido activar el bench boost con 10 jugadores disponibles?",
+            "¿vale la pena usar el bench boost ahora o guardarlo?",
+            "¿me conviene activar el wildcard esta semana?"
+  Examples (Spanish — spent-chip sequencing): "ya usé el wildcard, ¿qué chip me queda más rentable?",
+            "ya gasté el wildcard, ¿cuándo uso el bench boost?",
+            "no he usado ningún chip todavía, ¿cuál uso primero?"
 
 current_gameweek:
   The user wants to know the current FPL gameweek number.
@@ -159,6 +179,46 @@ player_fixture_run:
   Examples: "what are Haaland's upcoming games?", "how is Salah's schedule?",
             "does Palmer have easy fixtures coming up?",
             "what does De Bruyne's run look like?"
+
+player_form:
+  The user wants a player's recent match history or points over the last N gameweeks.
+  Canonical template: "{player_name} last {N} games" or "historial de {player_name}"
+  Examples (English): "how has Salah been in his last 3 games?",
+            "what are Palmer's last 4 gameweek points?",
+            "show me Haaland's recent stats"
+  Examples (Spanish): "cómo ha estado Salah en los últimos 3 partidos",
+            "cuántos puntos ha sacado Palmer en las últimas 4 jornadas",
+            "dame las stats de los últimos 5 partidos de Cherki",
+            "historial de puntos de Mbeumo"
+
+injury_list:
+  The user wants to know which players are injured or doubtful for the current GW.
+  Canonical template: "injury list this week"
+  Examples (English): "who is injured this week?", "which players are doubtful?",
+            "injury doubts for this gameweek"
+  Examples (Spanish): "hay dudas para esta jornada", "jugadores en duda esta semana",
+            "quién está lesionado esta semana", "lista de bajas"
+
+price_changes:
+  The user wants to know which players' prices have risen or fallen in the current GW.
+  Canonical template: "price risers this week"
+  Examples (English): "who has gone up in price?", "price changes this week",
+            "who has fallen in price?"
+  Examples (Spanish): "quién está subiendo de precio esta semana",
+            "quién ha bajado de precio últimamente",
+            "jugadores que suben de precio"
+
+team_fixture_calendar:
+  The user wants a ranking of teams by upcoming fixture difficulty (easiest or hardest).
+  Not about a single player's schedule — about all teams' schedules.
+  Canonical template (easiest): "teams easiest fixtures next {N} gameweeks"
+  Canonical template (hardest): "teams hardest fixtures next {N} gameweeks"
+  Examples (English): "which teams have the best fixtures next 5 gameweeks?",
+            "worst fixture run for teams this GW", "easiest fixture schedule ranking"
+  Examples (Spanish): "que equipos tienen el mejor calendario las proximas 5 jornadas",
+            "equipos con el peor calendario esta semana",
+            "mejor calendario proximas 4 jornadas",
+            "peores fixtures proximas 3 jornadas"
 
 unsupported:
   The question is outside the supported scope, or confidence in any supported

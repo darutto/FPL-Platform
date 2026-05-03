@@ -190,7 +190,7 @@ Goal: Structured metadata rendered below `final_text`; multi-turn sessions; squa
 - ~~Slash command `SlashMenu` (Spanish-first, keyboard nav, ARIA, `intent_hint` wired)~~ ✅
 - 216 tests passing, clean build
 
-### Phase 2.5 — Integration & Live Engine Connectivity
+### Phase 2.5 — Integration & Live Engine Connectivity ✅ Complete
 Goal: Connect the "beautiful shell" UI to a running Python backend with a live LLM engine. The UI currently has no backend to talk to; this phase is the bridge that makes the product functional end-to-end.
 
 **Backend environment setup:**
@@ -224,12 +224,36 @@ Goal: Patreon-gated access.
 - Paywall page at `/subscribe` with Patreon link
 - Patreon webhook handler to update Clerk user metadata
 
-### Phase 4 — Hardening + Production Deploy
+### Phase 4 — Hardening + Production Deploy (In Progress)
+- ✅ Phase 4.1 backend deployment complete (Railway)
+- ✅ Phase 4.2 frontend deployment complete (Vercel)
 - `Dockerfile` for backend (Railway deploy)
 - Domain + SSL on Vercel
 - Environment variables secured
 - Rate limiting on proxy route
 - Error states for all intent components (`outcome != "ok"`)
+
+## Deployment State Memory (2026-04-30)
+
+**Production URLs**
+- Vercel frontend: https://fpl-rjhsi6f8d-leo-gonzalezs-projects-fe3d4b93.vercel.app
+- Railway backend: https://fpl-backend-production-4151.up.railway.app
+
+**Phase 4.1 verification (Railway backend)**
+- `/ready` returned `200`
+- `outcome=ok`
+- `classification_source=llm_classifier`
+- `llm_used=true`
+- `model=gemini-2.5-flash`
+- Deterministic grounded output verified: Salah (61.85) over Haaland (56.58)
+
+**Phase 4.2 verification (Vercel frontend -> Railway backend)**
+- Vercel build passed on Next.js 15.5.15
+- `POST /api/proxy` returned `200`
+- `classification_source=llm_classifier`
+- `llm_used=true`
+- `model=gemini-2.5-flash`
+- Railway URL not present in browser bundle (server-side proxy boundary preserved)
 
 ---
 

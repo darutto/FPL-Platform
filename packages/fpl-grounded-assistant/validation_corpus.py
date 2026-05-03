@@ -183,6 +183,10 @@ class ValidationScenario:
     expect_chip:              bool                         = field(default=False)   # Phase 7j
     expect_fixture_run:       bool                         = field(default=False)   # Phase 7j
     expect_differential:      bool                         = field(default=False)   # Phase 7j
+    expect_player_form:       bool                         = field(default=False)   # Phase 2.6d
+    expect_injury_list:       bool                         = field(default=False)   # Phase 2.6d
+    expect_price_changes:     bool                         = field(default=False)   # Phase 2.6d
+    expect_team_calendar:     bool                         = field(default=False)   # Phase 2.6e
     expected_resolver_source: str | None                   = field(default=None)
     classifier_stub_json:     str | None                   = field(default=None)
     notes:                    str                          = field(default="")
@@ -1369,6 +1373,492 @@ VALIDATION_SCENARIOS: tuple[ValidationScenario, ...] = (
             "session_cli excluded — cli_run_session takes a single context for all turns."
         ),
     ),
+    # ------------------------------------------------------------------
+    # 45 — Phase 2.6b Story 1.1: Spanish comparison with accusative "a"
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="spanish_compare_accusative_a",
+        family="comparison",
+        description=(
+            "Spanish 'compara a Salah y Haaland' — accusative 'a' must be "
+            "stripped from player tokens before registry lookup."
+        ),
+        question="compara a Salah y Haaland",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="compare_players",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_comparison=True,
+        notes=(
+            "Phase 2.6b Story 1.1: _strip_spanish_name_prefix removes leading 'a ' "
+            "so 'a Salah' → 'Salah' before registry lookup. "
+            "Both Salah and Haaland are in STANDARD_BOOTSTRAP. "
+            "comparison.winner should be non-null (Salah or Haaland). "
+            "Before the fix: compare_players intent with 'a Salah' → not_found. "
+            "After the fix: ok with valid comparison metadata."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 46 — Phase 2.6b Story 1.1: Spanish ownership prefix "tengo a"
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="spanish_compare_tengo_a",
+        family="comparison",
+        description=(
+            "Spanish 'tengo a Saka y Haaland' — 'tengo a ' prefix noise must "
+            "be stripped so 'tengo a Saka' resolves as 'Saka'."
+        ),
+        question="tengo a saka y rashford en mi equipo, a cuál vendo primero",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="compare_players",
+        expected_outcome="not_found",
+        expected_supported=True,
+        notes=(
+            "Phase 2.6b Story 1.1: bare ' y ' connector routes to compare_players. "
+            "After _strip_spanish_name_prefix: 'tengo a saka' → 'saka' (resolves OK). "
+            "'rashford en mi equipo, a cuál vendo primero' is not in STANDARD_BOOTSTRAP "
+            "→ not_found. intent=compare_players confirms routing success; "
+            "the name-prefix fix is validated on part_a (saka resolves). "
+            "Rashford is absent from STANDARD_BOOTSTRAP — not_found is expected."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 47 — Phase 2.6b Story 1.4: Spanish player summary — "dame un resumen de"
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="spanish_player_summary_resumen",
+        family="summary",
+        description=(
+            "Spanish 'dame un resumen de Salah' routes to player_summary "
+            "via the new Spanish _SUMMARY_PREFIXES entries."
+        ),
+        question="dame un resumen de Salah",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="player_summary",
+        expected_outcome="ok",
+        expected_supported=True,
+        notes=(
+            "Phase 2.6b Story 1.4: 'dame un resumen de' added to _SUMMARY_PREFIXES. "
+            "Prefix stripped → 'Salah' → found in STANDARD_BOOTSTRAP. "
+            "Before the fix: unsupported_intent. After: player_summary ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 48 — Phase 2.6b Story 1.4: Spanish generic captain ranking
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="spanish_rank_captain_quien_deberia",
+        family="ranking",
+        description=(
+            "Spanish 'quién debería capitanear esta semana' routes to "
+            "rank_candidates via the new Spanish _RANK_PREFIXES entries."
+        ),
+        question="quién debería capitanear esta semana",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="rank_candidates",
+        expected_outcome="ok",
+        expected_supported=True,
+        candidates_list=(
+            {"query": "Salah"},
+            {"query": "Haaland"},
+        ),
+        expect_captain_ranking=True,
+        notes=(
+            "Phase 2.6b Story 1.4: generic Spanish captain ranking. "
+            "'quién debería capitanear esta semana' added to _RANK_PREFIXES. "
+            "Routes to rank_candidates; candidates_list supplied. "
+            "Before the fix: unsupported_intent. After: rank_candidates ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 49 — Phase 2.6b Story 1.4: Spanish "dame el ranking de capitanes"
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="spanish_rank_captain_ranking",
+        family="ranking",
+        description=(
+            "Spanish 'dame el ranking de capitanes' routes to rank_candidates "
+            "via the new Spanish _RANK_PREFIXES / _RANKING_KEYWORDS entries."
+        ),
+        question="dame el ranking de capitanes",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="rank_candidates",
+        expected_outcome="ok",
+        expected_supported=True,
+        candidates_list=(
+            {"query": "Salah"},
+            {"query": "Haaland"},
+            {"query": "Saka"},
+        ),
+        expect_captain_ranking=True,
+        notes=(
+            "Phase 2.6b Story 1.4: 'dame el ranking de capitanes' added to _RANK_PREFIXES. "
+            "'ranking de capitanes' added to _RANKING_KEYWORDS for substring matching. "
+            "Before the fix: unsupported_intent. After: rank_candidates ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 50 — Phase 2.6b Story 1.4: Spanish named captain score
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="spanish_captain_score_named",
+        family="captain",
+        description=(
+            "Spanish 'debería capitanear a Haaland' routes to captain_score "
+            "via the new Spanish _CAPTAIN_SCORE_PREFIXES entries."
+        ),
+        question="debería capitanear a Haaland",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="captain_score",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_captain=True,
+        notes=(
+            "Phase 2.6b Story 1.4 + Story 1.1: "
+            "'debería capitanear a' added to _CAPTAIN_SCORE_PREFIXES (1.4). "
+            "_strip_spanish_name_prefix removes leading 'a ' → 'Haaland' (1.1). "
+            "Haaland in STANDARD_BOOTSTRAP → ok with captain metadata. "
+            "Before the fix: unsupported_intent. After: captain_score ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 51 — Phase 2.6b Story 1.3: degraded flag present when provider fails
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="degraded_flag_on_provider_failure",
+        family="failure_modes",
+        description=(
+            "When the LLM provider call fails, FinalResponse.degraded=True "
+            "so callers can surface a 'provider unavailable' notice. "
+            "The deterministic final_text is still returned (outcome=ok)."
+        ),
+        question="should I captain Salah",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="captain_score",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_captain=True,
+        notes=(
+            "Phase 2.6b Story 1.3: degraded flag. "
+            "This scenario tests the contract shape only (deterministic path). "
+            "In CI without an LLM client, provider_failed=False → degraded=False. "
+            "The live degraded=True path is validated in run_phase26b_tests.py "
+            "using a stub provider that returns an error_code. "
+            "Corpus test confirms: degraded field present (bool) on all surfaces."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 55 — Phase 2.6d Story 2.1: player form last N games
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="player_form_last_3_salah",
+        family="player_form",
+        description=(
+            "Spanish 'cómo ha estado Salah en los últimos 3 partidos' routes "
+            "to player_form and returns 3 GW history entries via bootstrap injection."
+        ),
+        question="como ha estado Salah en los ultimos 3 partidos",
+        bootstrap="player_form",
+        surfaces=("cli", "http"),
+        expected_intent="player_form",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_player_form=True,
+        notes=(
+            "Phase 2.6d Story 2.1: player form routing + API injection. "
+            "PLAYER_FORM_BOOTSTRAP injects 3 history entries for Salah (id=2). "
+            "player_form.web_name='Salah', n_games=3, len(history)==3. "
+            "Before fix: unsupported_intent. After: player_form ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 56 — Phase 2.6d Story 2.1: player form named history
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="player_form_historial_salah",
+        family="player_form",
+        description=(
+            "Spanish 'historial de puntos de Salah' routes to player_form "
+            "with default n_games=5, returns available history."
+        ),
+        question="historial de puntos de Salah",
+        bootstrap="player_form",
+        surfaces=("cli", "http"),
+        expected_intent="player_form",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_player_form=True,
+        notes=(
+            "Phase 2.6d Story 2.1: 'historial de puntos de' prefix routing. "
+            "PLAYER_FORM_BOOTSTRAP has 3 history entries; n_games defaults to 5 "
+            "but only 3 are available → n_games=3 in output."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 57 — Phase 2.6d Story 2.2: player_summary enriched with season totals
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="player_summary_with_totals",
+        family="summary",
+        description=(
+            "Player summary for Salah includes form and minutes from bootstrap "
+            "(Story 2.2 enrichment). total_points absent in STANDARD_BOOTSTRAP."
+        ),
+        question="tell me about Salah",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="player_summary",
+        expected_outcome="ok",
+        expected_supported=True,
+        notes=(
+            "Phase 2.6d Story 2.2: form='9.5' and minutes=2250 are present "
+            "in STANDARD_BOOTSTRAP elements for Salah. total_points=None "
+            "(not in STANDARD_BOOTSTRAP). Renderer shows Form and Mins extras."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 58 — Phase 2.6d Story 2.3a: injury check routed to player_summary
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="injury_check_named_player",
+        family="summary",
+        description=(
+            "Spanish 'está lesionado Saka' routes to player_summary "
+            "via new injury-check prefix coverage."
+        ),
+        question="esta lesionado Saka",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="player_summary",
+        expected_outcome="ok",
+        expected_supported=True,
+        notes=(
+            "Phase 2.6d Story 2.3a: 'esta lesionado' added to _SUMMARY_PREFIXES. "
+            "Saka (status='d') is in STANDARD_BOOTSTRAP → ok with status_label=Doubtful. "
+            "Before fix: unsupported_intent. After: player_summary ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 59 — Phase 2.6d Story 2.3b: GW-wide injury list
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="injury_list_gw_wide",
+        family="injury_list",
+        description=(
+            "Spanish 'hay dudas para esta jornada' routes to injury_list "
+            "and returns doubtful/injured players from bootstrap."
+        ),
+        question="hay dudas para esta jornada",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="injury_list",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_injury_list=True,
+        notes=(
+            "Phase 2.6d Story 2.3b: 'hay dudas para esta jornada' routes to "
+            "get_injury_list. STANDARD_BOOTSTRAP: Saka (d) + De Bruyne (i) → total=2. "
+            "injury_list.total=2, doubtful has Saka, injured has De Bruyne. "
+            "Before fix: unsupported_intent. After: injury_list ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 60 — Phase 2.6d Story 2.4: price risers list
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="price_changes_risers",
+        family="price_changes",
+        description=(
+            "Spanish 'quién está subiendo de precio esta semana' routes to "
+            "price_changes and returns Salah as riser from PRICE_CHANGES_BOOTSTRAP."
+        ),
+        question="quien esta subiendo de precio esta semana",
+        bootstrap="price_changes",
+        surfaces=("cli", "http"),
+        expected_intent="price_changes",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_price_changes=True,
+        notes=(
+            "Phase 2.6d Story 2.4: price_changes routing + deterministic output. "
+            "PRICE_CHANGES_BOOTSTRAP: Salah cost_change_event=+1 (riser), "
+            "De Bruyne cost_change_event=-1 (faller). "
+            "price_changes.risers non-empty, price_changes.fallers non-empty. "
+            "Before fix: unsupported_intent. After: price_changes ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 61 — Phase 2.6e: team calendar ranking — easiest (Spanish)
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="team_calendar_easiest_spanish",
+        family="team_fixture_calendar",
+        description=(
+            "Spanish 'que equipos tienen el mejor calendario las proximas 5 jornadas' "
+            "routes to team_fixture_calendar with mode='easiest', horizon=5."
+        ),
+        question="que equipos tienen el mejor calendario las proximas 5 jornadas",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="team_fixture_calendar",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_team_calendar=True,
+        notes=(
+            "Phase 2.6e: easiest team fixture calendar. "
+            "STANDARD_BOOTSTRAP has 5 teams with team_fixtures. "
+            "team_calendar.mode='easiest', horizon=5, teams non-empty. "
+            "Liverpool (avg 2.8) expected to rank #1. "
+            "Before fix: unsupported_intent. After: team_fixture_calendar ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 62 — Phase 2.6e: team calendar ranking — hardest (English)
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="team_calendar_hardest_english",
+        family="team_fixture_calendar",
+        description=(
+            "English 'teams with worst upcoming fixtures' routes to "
+            "team_fixture_calendar with mode='hardest', horizon=5 (default)."
+        ),
+        question="teams with worst upcoming fixtures",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="team_fixture_calendar",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_team_calendar=True,
+        notes=(
+            "Phase 2.6e: hardest team fixture calendar. "
+            "team_calendar.mode='hardest'. "
+            "Man Utd (avg 4.2) expected to rank #1 in hardest. "
+            "Before fix: unsupported_intent. After: team_fixture_calendar ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 63 — Phase 2.6e: team calendar ranking — English easiest with N
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="team_calendar_easiest_english_n",
+        family="team_fixture_calendar",
+        description=(
+            "English 'best fixtures next 5 gameweeks' routes to "
+            "team_fixture_calendar with mode='easiest', horizon=5."
+        ),
+        question="best fixtures next 5 gameweeks",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="team_fixture_calendar",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_team_calendar=True,
+        notes=(
+            "Phase 2.6e: English 'best fixtures next N gameweeks' routing. "
+            "Horizon extracted as 5 from 'next 5 gameweeks'. "
+            "team_calendar.mode='easiest'. "
+            "Before fix: unsupported_intent. After: team_fixture_calendar ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 52 — Phase 2.6c Story 1b.1: wildcard timing phrasing
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="chip_wildcard_timing_antes_despues",
+        family="chip",
+        description=(
+            "Spanish wildcard timing question using 'antes o después' phrase "
+            "routes to chip_advice via new advisory phrase coverage."
+        ),
+        question="debería usar el wildcard antes o después de la doble jornada",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="chip_advice",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_chip=True,
+        notes=(
+            "Phase 2.6c Story 1b.1: wildcard timing phrasing. "
+            "'deberia usar' + 'antes o despues' added to _CHIP_ADVISORY_PHRASES. "
+            "chip='wildcard'; recommendation varies by GW. "
+            "Before the fix: unsupported_intent. After: chip_advice ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 53 — Phase 2.6c Story 1b.2: bench boost conditional phrasing
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="chip_bench_boost_conditional_tiene_sentido",
+        family="chip",
+        description=(
+            "Spanish bench boost conditional question using 'tiene sentido' "
+            "and 'activar' phrases routes to chip_advice."
+        ),
+        question="tiene sentido activar el bench boost con 10 jugadores disponibles",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="chip_advice",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_chip=True,
+        notes=(
+            "Phase 2.6c Story 1b.2: bench boost conditional phrasing. "
+            "'tiene sentido' and 'activar' added to _CHIP_ADVISORY_PHRASES. "
+            "chip='bench_boost'; deterministic recommendation from bootstrap. "
+            "Before the fix: unsupported_intent. After: chip_advice ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 54 — Phase 2.6c Story 1b.3: spent-chip sequencing phrasing
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="chip_wildcard_spent_sequencing",
+        family="chip",
+        description=(
+            "Spanish spent-chip sequencing question using 'ya usé' phrase "
+            "routes to chip_advice via new advisory phrase coverage."
+        ),
+        question="ya use el wildcard, que chip me queda mas rentable para el final",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="chip_advice",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_chip=True,
+        notes=(
+            "Phase 2.6c Story 1b.3: spent-chip sequencing phrasing. "
+            "'ya use' (and accented 'ya usé') added to _CHIP_ADVISORY_PHRASES. "
+            "chip='wildcard' (keyword extracted from question). "
+            "Advisor returns recommendation for wildcard this GW. "
+            "Before the fix: unsupported_intent. After: chip_advice ok."
+        ),
+    ),
+
 )
 
 

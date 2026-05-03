@@ -602,6 +602,40 @@ for _e in MARGINAL_TRANSFER_BOOTSTRAP["elements"]:
     if _e["web_name"] == "Haaland":
         _e["form"] = "9.1"
         break
+del _e  # clean up loop variable
+
+# Phase 2.6d: player_form bootstrap — STANDARD + injected element_summaries
+# The handler checks bootstrap["_element_summaries"][str(element_id)] before
+# making a live API call.  Salah (id=2) has 3 GW history entries.
+PLAYER_FORM_BOOTSTRAP: dict[str, Any] = {
+    **STANDARD_BOOTSTRAP,
+    "_element_summaries": {
+        "2": {   # Salah element_id=2
+            "history": [
+                {"round": 26, "minutes": 90, "goals_scored": 1, "assists": 0,
+                 "bonus": 3, "total_points": 10},
+                {"round": 27, "minutes": 79, "goals_scored": 0, "assists": 2,
+                 "bonus": 1, "total_points": 8},
+                {"round": 28, "minutes": 90, "goals_scored": 2, "assists": 0,
+                 "bonus": 3, "total_points": 15},
+            ],
+        },
+    },
+}
+
+# Phase 2.6d: price_changes bootstrap — STANDARD with cost_change_event populated
+# Salah (+1 = +£0.1m riser), De Bruyne (-1 = -£0.1m faller).
+PRICE_CHANGES_BOOTSTRAP: dict[str, Any] = _copy.deepcopy(STANDARD_BOOTSTRAP)
+for _e in PRICE_CHANGES_BOOTSTRAP["elements"]:
+    if _e["web_name"] == "Salah":
+        _e["cost_change_event"] = 1
+        _e["cost_change_start"] = 3
+    elif _e["web_name"] == "De Bruyne":
+        _e["cost_change_event"] = -1
+        _e["cost_change_start"] = -2
+    else:
+        _e["cost_change_event"] = 0
+        _e["cost_change_start"] = 0
 del _copy, _e  # clean up module namespace
 
 

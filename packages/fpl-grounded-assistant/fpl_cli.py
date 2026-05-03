@@ -299,6 +299,103 @@ def _serial_differential(differential: Any) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Phase 2.6d metadata serialisation helpers
+# ---------------------------------------------------------------------------
+
+def _serial_player_form(pf: Any) -> dict[str, Any]:
+    return {
+        "web_name":   pf.web_name,
+        "team_short": pf.team_short,
+        "position":   pf.position,
+        "n_games":    pf.n_games,
+        "history": [
+            {
+                "gameweek":     e.gameweek,
+                "minutes":      e.minutes,
+                "goals_scored": e.goals_scored,
+                "assists":      e.assists,
+                "bonus":        e.bonus,
+                "total_points": e.total_points,
+            }
+            for e in pf.history
+        ],
+    }
+
+
+def _serial_injury_list(il: Any) -> dict[str, Any]:
+    def _entries(lst: Any) -> list[dict]:
+        return [
+            {
+                "web_name":          e.web_name,
+                "team_short":        e.team_short,
+                "position":          e.position,
+                "status_label":      e.status_label,
+                "chance_of_playing": e.chance_of_playing,
+            }
+            for e in lst
+        ]
+    return {
+        "injured":  _entries(il.injured),
+        "doubtful": _entries(il.doubtful),
+        "other":    _entries(il.other),
+        "total":    il.total,
+    }
+
+
+def _serial_price_changes(pc: Any) -> dict[str, Any]:
+    def _entries(lst: Any) -> list[dict]:
+        return [
+            {
+                "web_name":          e.web_name,
+                "team_short":        e.team_short,
+                "position":          e.position,
+                "now_cost":          e.now_cost,
+                "now_cost_m":        e.now_cost_m,
+                "cost_change_event": e.cost_change_event,
+                "cost_change_start": e.cost_change_start,
+            }
+            for e in lst
+        ]
+    return {
+        "risers":  _entries(pc.risers),
+        "fallers": _entries(pc.fallers),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Phase 2.6e metadata serialisation helper
+# ---------------------------------------------------------------------------
+
+def _serial_team_calendar(tc: Any) -> dict[str, Any]:
+    return {
+        "mode":             tc.mode,
+        "horizon":          tc.horizon,
+        "current_gameweek": tc.current_gameweek,
+        "top_n":            tc.top_n,
+        "teams": [
+            {
+                "rank":          t.rank,
+                "team_short":    t.team_short,
+                "team_name":     t.team_name,
+                "fixture_count": t.fixture_count,
+                "avg_fdr":       t.avg_fdr,
+                "total_fdr":     t.total_fdr,
+                "fixtures": [
+                    {
+                        "gameweek":       fx.gameweek,
+                        "opponent_short": fx.opponent_short,
+                        "is_home":        fx.is_home,
+                        "difficulty":     fx.difficulty,
+                    }
+                    for fx in t.fixtures
+                ],
+            }
+            for t in tc.teams
+        ],
+    }
+
+
+# ---------------------------------------------------------------------------
 # Core logic  (separated from arg parsing for testability)
 # ---------------------------------------------------------------------------
 
@@ -372,6 +469,14 @@ def run(
             payload["fixture_run"] = _serial_fixture_run(r.fixture_run)
         if r.differential is not None:                     # Phase 7g
             payload["differential"] = _serial_differential(r.differential)
+        if r.player_form is not None:                      # Phase 2.6d
+            payload["player_form"] = _serial_player_form(r.player_form)
+        if r.injury_list is not None:                      # Phase 2.6d
+            payload["injury_list"] = _serial_injury_list(r.injury_list)
+        if r.price_changes is not None:                    # Phase 2.6d
+            payload["price_changes"] = _serial_price_changes(r.price_changes)
+        if r.team_calendar is not None:                    # Phase 2.6e
+            payload["team_calendar"] = _serial_team_calendar(r.team_calendar)
         if r.sub_responses is not None:                    # Phase 6c/6d
             sub_list: list[dict[str, Any]] = []
             for sr in r.sub_responses:
@@ -478,6 +583,14 @@ def run_session(
             turn["fixture_run"] = _serial_fixture_run(r.fixture_run)
         if r.differential is not None:                     # Phase 7g
             turn["differential"] = _serial_differential(r.differential)
+        if r.player_form is not None:                      # Phase 2.6d
+            turn["player_form"] = _serial_player_form(r.player_form)
+        if r.injury_list is not None:                      # Phase 2.6d
+            turn["injury_list"] = _serial_injury_list(r.injury_list)
+        if r.price_changes is not None:                    # Phase 2.6d
+            turn["price_changes"] = _serial_price_changes(r.price_changes)
+        if r.team_calendar is not None:                    # Phase 2.6e
+            turn["team_calendar"] = _serial_team_calendar(r.team_calendar)
         if r.sub_responses is not None:                    # Phase 6d
             sub_list_s: list[dict[str, Any]] = []
             for sr in r.sub_responses:

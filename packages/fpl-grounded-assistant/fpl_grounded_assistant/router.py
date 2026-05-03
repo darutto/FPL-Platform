@@ -125,6 +125,7 @@ _CHIP_KEYWORDS: tuple[tuple[str, str], ...] = (
 
 # Advisory phrases that signal a chip advice question (not just chip mention).
 _CHIP_ADVISORY_PHRASES: tuple[str, ...] = (
+    # English advisory phrases
     "should i",
     "is this a good",
     "is now a good",
@@ -143,7 +144,57 @@ _CHIP_ADVISORY_PHRASES: tuple[str, ...] = (
     "when to use",
     "when to play",
     "activate",
+    # Spanish advisory phrases  (Phase 2.6c)
+    # Story 1b.1 — wildcard timing phrasing
+    "debería usar",         # "should I use" (with accent)
+    "deberia usar",         # "should I use" (no accent)
+    "antes o después",      # "before or after" (with accent)
+    "antes o despues",      # "before or after" (no accent)
+    "cuándo usar",          # "when to use" (with accent)
+    "cuando usar",          # "when to use" (no accent)
+    # Story 1b.2 — bench boost conditional phrasing
+    "tiene sentido",        # "makes sense"
+    "vale la pena",         # "worth it"
+    "activar",              # Spanish "to activate" (≈ English "activate")
+    "conviene usar",        # "is it worth using"
+    "conviene activar",     # "is it worth activating"
+    # Story 1b.3 — spent-chip sequencing phrasing
+    "ya usé",               # "I already used" (with accent)
+    "ya use",               # "I already used" (no accent)
+    "ya gasté",             # "I already spent" (with accent)
+    "ya gaste",             # "I already spent" (no accent)
+    "ya lo usé",            # "I already used it" (with accent)
+    "ya lo use",            # "I already used it" (no accent)
 )
+
+
+# ---------------------------------------------------------------------------
+# Spanish name-prefix noise  (Phase 2.6b — Story 1.1)
+# ---------------------------------------------------------------------------
+
+# Leading Spanish tokens that prefix player names in natural questions.
+# Strip these from extracted player tokens before passing to the registry.
+# Ordered longest-first so "tengo a " is stripped before "a ".
+_SPANISH_NAME_PREFIXES: tuple[str, ...] = (
+    "tengo a ",    # "I have [player]" — 8 chars
+    "al ",         # "a el" contraction — 3 chars
+    "a ",          # accusative direct-object marker — 2 chars
+)
+
+
+def _strip_spanish_name_prefix(token: str) -> str:
+    """Strip leading Spanish preposition noise from an extracted player token.
+
+    ``"a Salah"`` → ``"Salah"``, ``"al Saka"`` → ``"Saka"``,
+    ``"tengo a Rashford"`` → ``"Rashford"``.
+
+    Comparison is case-insensitive; casing of the remainder is preserved.
+    """
+    token_lower = token.lower()
+    for prefix in _SPANISH_NAME_PREFIXES:
+        if token_lower.startswith(prefix):
+            return token[len(prefix):]
+    return token
 
 
 _TRANSFER_PREFIXES: tuple[str, ...] = (
@@ -212,6 +263,19 @@ _RANK_PREFIXES: tuple[str, ...] = (
     "best captains this week",
     "best captains",
     "captain rankings",
+    # Spanish generic captaincy ranking phrases  (Phase 2.6b)
+    "quién debería capitanear esta semana",
+    "quien deberia capitanear esta semana",
+    "quién debería capitar esta semana",
+    "quien deberia capitar esta semana",
+    "quién debería capitanear",
+    "quien deberia capitanear",
+    "a quién capitaneo esta semana",
+    "a quien capitaneo esta semana",
+    "dame el ranking de capitanes",
+    "ranking de capitanes",
+    "capitán para esta semana",
+    "capitan para esta semana",
 )
 
 _RANKING_KEYWORDS: tuple[str, ...] = (
@@ -220,6 +284,7 @@ _RANKING_KEYWORDS: tuple[str, ...] = (
     "top captains",
     "captain rankings",
     "best captains",
+    "ranking de capitanes",    # Spanish  (Phase 2.6b)
 )
 
 _CAPTAIN_SCORE_PREFIXES: tuple[str, ...] = (
@@ -233,6 +298,14 @@ _CAPTAIN_SCORE_PREFIXES: tuple[str, ...] = (
     "should i captain",
     "should i pick",
     "captain pick",
+    # Spanish single-player captain score phrases  (Phase 2.6b)
+    # (generic "who should I captain" phrases → _RANK_PREFIXES instead)
+    "debería capitanear a",
+    "deberia capitanear a",
+    "debería capitar a",
+    "deberia capitar a",
+    "debería capitanear",
+    "deberia capitanear",
 )
 
 _SUMMARY_PREFIXES: tuple[str, ...] = (
@@ -258,6 +331,31 @@ _SUMMARY_PREFIXES: tuple[str, ...] = (
     "details on",
     "stats for",
     "stats on",
+    # Spanish player summary phrases  (Phase 2.6b)
+    "cuántos puntos lleva",     # "how many points has [player] scored"
+    "cuantos puntos lleva",     # without accent
+    "dame un resumen de",       # "give me a summary of"
+    "dame el resumen de",       # "give me the summary of"
+    "dame las stats de",        # "give me the stats of"
+    "información sobre",        # "information about"
+    "informacion sobre",        # without accent
+    "cómo le va",               # "how is [player] doing"
+    "como le va",               # without accent
+    "resumen de",               # "summary of"
+    "precio de",                # "price of"
+    "stats de",                 # "stats of"
+    # Spanish injury-check phrases routed to player_summary  (Phase 2.6d Story 2.3)
+    "está lesionado",           # "is [player] injured"
+    "esta lesionado",
+    "está disponible",          # "is [player] available"
+    "esta disponible",
+    "tiene lesión",             # "has an injury"
+    "tiene lesion",
+    "puede jugar",              # "can [player] play"
+    "está en duda",             # "is [player] doubtful"
+    "esta en duda",
+    "está descartado",          # "is [player] ruled out"
+    "esta descartado",
 )
 
 _RESOLVE_PREFIXES: tuple[str, ...] = (
@@ -278,6 +376,200 @@ _RESOLVE_PREFIXES: tuple[str, ...] = (
     "info for",
     "resolve",
 )
+
+# ---------------------------------------------------------------------------
+# Player form keyword tables  (Phase 2.6d Story 2.1)
+# ---------------------------------------------------------------------------
+
+import re as _re  # noqa: E402 — placed here for locality
+
+# Regex to extract a small positive integer as n_games from the question.
+# Matches digits 1-38 followed by a games/GW unit word.
+_N_GAMES_RE = _re.compile(
+    r'\b([1-9][0-9]?)\s*'
+    r'(?:jornadas?|partidos?|juegos?|gw|gameweeks?|games?|semanas?)\b',
+    _re.IGNORECASE,
+)
+
+_PLAYER_FORM_DEFAULT_N: int = 5
+
+# Prefix forms where the player name comes AFTER the prefix.
+# E.g. "historial de puntos de Cherki"
+_PLAYER_FORM_PREFIXES: tuple[str, ...] = (
+    "dame el historial de puntos de",
+    "historial de puntos de",
+    "dame el historial de",
+    "historial de",
+)
+
+# Prefix forms where the player name comes between the prefix and a
+# "en los últimos / en las últimas" middle keyword.
+# E.g. "cómo ha estado Salah en los últimos 3 partidos"
+_PLAYER_FORM_PLAYER_FIRST_PREFIXES: tuple[str, ...] = (
+    "cómo ha estado",
+    "como ha estado",
+    "cuántos puntos ha sacado",
+    "cuantos puntos ha sacado",
+    "qué tal ha estado",
+    "que tal ha estado",
+)
+
+# Split keywords: player appears before these, N+context appears after.
+_PLAYER_FORM_MIDDLE_KWS: tuple[str, ...] = (
+    " en los últimos ",
+    " en los ultimos ",
+    " en las últimas ",
+    " en las ultimas ",
+)
+
+# Prefix forms where N comes right after the prefix and player follows "de".
+# E.g. "dame las stats de los últimos 5 partidos de Cherki"
+_PLAYER_FORM_N_FIRST_PREFIXES: tuple[str, ...] = (
+    "dame las stats de los últimos",
+    "dame las stats de los ultimos",
+    "dame las estadísticas de los últimos",
+    "dame las estadisticas de los ultimos",
+)
+
+
+def _extract_n_games(q_norm: str) -> int:
+    """Extract the first valid N from a form-query question string."""
+    m = _N_GAMES_RE.search(q_norm)
+    if m:
+        return min(int(m.group(1)), 38)
+    return _PLAYER_FORM_DEFAULT_N
+
+
+# ---------------------------------------------------------------------------
+# Injury list keyword tables  (Phase 2.6d Story 2.3)
+# ---------------------------------------------------------------------------
+
+_INJURY_LIST_KEYWORDS: tuple[str, ...] = (
+    "hay dudas para esta jornada",
+    "hay dudas para",
+    "jugadores en duda",
+    "jugadores lesionados",
+    "jugadores con dudas",
+    "lesionados esta semana",
+    "lista de bajas",
+    "lista de dudas",
+    "quién está en duda",
+    "quien esta en duda",
+    "hay algún jugador lesionado",
+    "hay algun jugador lesionado",
+    "quiénes están lesionados",
+    "quienes estan lesionados",
+    "bajas para esta semana",
+    "injury list",
+    "doubts this gw",
+    "doubtful players",
+)
+
+
+# ---------------------------------------------------------------------------
+# Price changes keyword tables  (Phase 2.6d Story 2.4)
+# ---------------------------------------------------------------------------
+
+_PRICE_CHANGES_KEYWORDS: tuple[str, ...] = (
+    "quién está subiendo de precio",
+    "quien esta subiendo de precio",
+    "quién sube de precio",
+    "quien sube de precio",
+    "quién ha subido de precio",
+    "quien ha subido de precio",
+    "subiendo de precio esta semana",
+    "quién está bajando de precio",
+    "quien esta bajando de precio",
+    "quién baja de precio",
+    "quien baja de precio",
+    "quién ha bajado de precio",
+    "quien ha bajado de precio",
+    "bajando de precio",
+    "jugadores que suben de precio",
+    "jugadores que bajan de precio",
+    "price risers",
+    "price fallers",
+    "price changes",
+    "cambios de precio",
+    "subidas de precio",
+    "bajadas de precio",
+)
+
+
+# ---------------------------------------------------------------------------
+# Team fixture calendar keyword tables  (Phase 2.6e)
+# ---------------------------------------------------------------------------
+
+# Keywords that signal an EASIEST team calendar query (no named player).
+# Checked before player_fixture_run so bare "best fixtures" patterns don't
+# need a player name to route here.  Player-specific queries ("fixtures for
+# Haaland") are caught earlier by _try_route_fixture_run() in route().
+_TEAM_CALENDAR_EASIEST_KEYWORDS: tuple[str, ...] = (
+    # Spanish
+    "mejor calendario las proximas",
+    "mejor calendario las próximas",
+    "mejor calendario proximas",
+    "mejor calendario próximas",
+    "mejor calendario",
+    "mejores calendarios",
+    "mejores fixtures",
+    "equipos con mejor calendario",
+    "equipos con los mejores",
+    "que equipos tienen el mejor",
+    "que equipos tienen los mejores",
+    # English
+    "teams easiest fixtures",
+    "teams with easiest fixtures",
+    "teams with best fixtures",
+    "best upcoming fixtures",
+    "easiest upcoming fixtures",
+    "easiest fixture run",
+    "best fixture run",
+    "best fixtures next",
+    "easiest fixtures next",
+    "easiest schedule",
+    "best schedule",
+    "teams with easy fixtures",
+    "teams easy fixtures",
+    "best run of fixtures",
+    "easiest run of fixtures",
+    "fixture difficulty ranking",
+    "which teams have best fixtures",
+    "which teams have easiest",
+)
+
+# Keywords that signal a HARDEST team calendar query.
+_TEAM_CALENDAR_HARDEST_KEYWORDS: tuple[str, ...] = (
+    # Spanish
+    "peor calendario las proximas",
+    "peor calendario las próximas",
+    "peor calendario proximas",
+    "peor calendario",
+    "peores calendarios",
+    "peores fixtures",
+    "equipos con peor calendario",
+    "equipos con los peores",
+    "que equipos tienen el peor",
+    "que equipos tienen los peores",
+    # English
+    "teams hardest fixtures",
+    "teams with hardest fixtures",
+    "teams with worst fixtures",
+    "worst upcoming fixtures",
+    "hardest upcoming fixtures",
+    "hardest fixture run",
+    "worst fixture run",
+    "worst fixtures next",
+    "hardest fixtures next",
+    "hardest schedule",
+    "worst schedule",
+    "teams with hard fixtures",
+    "worst run of fixtures",
+    "hardest run of fixtures",
+    "which teams have worst fixtures",
+    "which teams have hardest",
+)
+
 
 # ---------------------------------------------------------------------------
 # Fixture run keyword tables  (Phase 7h)
@@ -411,17 +703,92 @@ def _extract_player_query(
     for prefix in prefixes:
         if q_norm.startswith(prefix):
             remainder = original[len(prefix):].strip().strip("?!.,")
-            return remainder
+            return _strip_spanish_name_prefix(remainder)
 
     # Fallback — prefix anywhere in the string
     for prefix in prefixes:
         idx = q_norm.find(prefix)
         if idx != -1:
             remainder = original[idx + len(prefix):].strip().strip("?!.,")
-            return remainder
+            return _strip_spanish_name_prefix(remainder)
 
     # Last resort: return original stripped as-is
-    return original.strip().strip("?!.,")
+    return _strip_spanish_name_prefix(original.strip().strip("?!.,"))
+
+
+# ---------------------------------------------------------------------------
+# Player form helper  (Phase 2.6d Story 2.1)
+# ---------------------------------------------------------------------------
+
+def _try_route_player_form(q_orig: str, q_norm: str) -> "RouteResult | None":
+    """Detect a player-form / history question and return a RouteResult.
+
+    Handles three surface patterns:
+
+    1. ``"historial de puntos de X"`` — player follows prefix
+    2. ``"cómo ha estado X en los últimos N partidos"`` — player between
+       a recognized prefix and a "en los últimos" split keyword
+    3. ``"dame las stats de los últimos N partidos de X"`` — N follows prefix,
+       player follows "partidos|jornadas de"
+
+    Returns ``RouteResult(tool_name="get_player_form",
+    tool_args={"query": player, "n_games": N})`` or ``None``.
+    """
+    n = _extract_n_games(q_norm)
+
+    # Pattern 1: "historial de X" — player at end
+    for prefix in _PLAYER_FORM_PREFIXES:
+        if q_norm.startswith(prefix):
+            raw = q_orig[len(prefix):].strip().rstrip("?!.,")
+            # Strip trailing "en los últimos..." noise if present
+            for kw in _PLAYER_FORM_MIDDLE_KWS:
+                idx = raw.lower().find(kw.strip())
+                if idx != -1:
+                    raw = raw[:idx].strip()
+                    break
+            player = _strip_spanish_name_prefix(raw)
+            if player:
+                return RouteResult(
+                    tool_name="get_player_form",
+                    tool_args={"query": player, "n_games": n},
+                )
+
+    # Pattern 2: "cómo ha estado X en los últimos N"
+    for prefix in _PLAYER_FORM_PLAYER_FIRST_PREFIXES:
+        if q_norm.startswith(prefix):
+            rem_norm = q_norm[len(prefix):].strip()
+            rem_orig = q_orig[len(prefix):].strip()
+            for kw in _PLAYER_FORM_MIDDLE_KWS:
+                idx = rem_norm.find(kw)
+                if idx != -1:
+                    player = _strip_spanish_name_prefix(
+                        rem_orig[:idx].strip().rstrip(",?")
+                    )
+                    if player:
+                        return RouteResult(
+                            tool_name="get_player_form",
+                            tool_args={"query": player, "n_games": n},
+                        )
+
+    # Pattern 3: "dame las stats de los últimos N partidos de X"
+    for prefix in _PLAYER_FORM_N_FIRST_PREFIXES:
+        if q_norm.startswith(prefix):
+            rem_norm = q_norm[len(prefix):].strip()
+            rem_orig = q_orig[len(prefix):].strip()
+            # Find "de X" after the number + unit phrase
+            for de_kw in (" partidos de ", " jornadas de ", " games de ",
+                          " partidos ", " jornadas "):
+                idx = rem_norm.find(de_kw)
+                if idx != -1:
+                    after = rem_orig[idx + len(de_kw):].strip().rstrip("?!.,")
+                    player = _strip_spanish_name_prefix(after)
+                    if player:
+                        return RouteResult(
+                            tool_name="get_player_form",
+                            tool_args={"query": player, "n_games": n},
+                        )
+            # Fallback: if only a prefix+number is found with no "de", skip
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -481,8 +848,10 @@ def _try_route_transfer(q_orig: str, q_norm: str) -> "RouteResult | None":
             for conn in _TRANSFER_CONNECTORS:
                 idx = remainder_norm.find(conn)
                 if idx != -1:
-                    out_part = remainder_orig[:idx].strip()
-                    in_part  = remainder_orig[idx + len(conn):].strip().rstrip("?!.")
+                    out_part = _strip_spanish_name_prefix(remainder_orig[:idx].strip())
+                    in_part  = _strip_spanish_name_prefix(
+                        remainder_orig[idx + len(conn):].strip().rstrip("?!.")
+                    )
                     if out_part and in_part:
                         return RouteResult(
                             tool_name="get_transfer_advice",
@@ -545,6 +914,33 @@ def _try_route_fixture_run(q_orig: str, q_norm: str) -> "RouteResult | None":
 # Comparison helper
 # ---------------------------------------------------------------------------
 
+def _try_route_team_calendar(q_norm: str) -> RouteResult | None:
+    """Detect a team fixture calendar ranking question.
+
+    Checks for hardest patterns first (more specific), then easiest.
+    Extracts an optional horizon (N gameweeks) from the question.
+    Returns ``RouteResult(tool_name="get_team_fixture_calendar",
+    tool_args={"mode": ..., "horizon": N})`` or ``None``.
+    """
+    n = _extract_n_games(q_norm)   # reuses existing GW-count extractor
+
+    for kw in _TEAM_CALENDAR_HARDEST_KEYWORDS:
+        if kw in q_norm:
+            return RouteResult(
+                tool_name="get_team_fixture_calendar",
+                tool_args={"mode": "hardest", "horizon": n},
+            )
+
+    for kw in _TEAM_CALENDAR_EASIEST_KEYWORDS:
+        if kw in q_norm:
+            return RouteResult(
+                tool_name="get_team_fixture_calendar",
+                tool_args={"mode": "easiest", "horizon": n},
+            )
+
+    return None
+
+
 def _try_route_comparison(q_orig: str, q_norm: str) -> RouteResult | None:
     """Detect a two-player comparison question and extract both player queries.
 
@@ -563,8 +959,12 @@ def _try_route_comparison(q_orig: str, q_norm: str) -> RouteResult | None:
             for conn in _COMPARE_CONNECTORS:
                 idx = remainder_norm.find(conn)
                 if idx != -1:
-                    part_a = remainder_orig[:idx].strip().rstrip(",")
-                    part_b = remainder_orig[idx + len(conn):].strip()
+                    part_a = _strip_spanish_name_prefix(
+                        remainder_orig[:idx].strip().rstrip(",")
+                    )
+                    part_b = _strip_spanish_name_prefix(
+                        remainder_orig[idx + len(conn):].strip()
+                    )
                     if part_a and part_b:
                         return RouteResult(
                             tool_name="compare_players",
@@ -580,13 +980,15 @@ def _try_route_comparison(q_orig: str, q_norm: str) -> RouteResult | None:
     # questions like "quien capito entre Semenyo y Cherki" (4 words before
     # the connector) fall through to the LLM classifier rather than being
     # routed with incorrect player extraction.
+    # Note: "tengo a Saka" counts as 3 words — passes guard, then preposition
+    # stripping normalises it to "Saka" before registry lookup.
     _BARE_CONN_MAX_WORDS = 3
     for conn in _BARE_COMPARE_CONNECTORS:
         idx = q_norm.find(conn)
         if idx != -1:
-            part_a = q_orig[:idx].strip()
-            part_b = q_orig[idx + len(conn):].strip().rstrip("?!.")
-            if part_a and part_b and len(part_a.split()) <= _BARE_CONN_MAX_WORDS:
+            part_a = _strip_spanish_name_prefix(q_orig[:idx].strip())
+            part_b = _strip_spanish_name_prefix(q_orig[idx + len(conn):].strip().rstrip("?!."))
+            if part_a and part_b and len(q_orig[:idx].strip().split()) <= _BARE_CONN_MAX_WORDS:
                 return RouteResult(
                     tool_name="compare_players",
                     tool_args={"query_a": part_a, "query_b": part_b},
@@ -630,6 +1032,15 @@ def route(question: str) -> RouteResult | None:
     if _chip_result is not None:
         return _chip_result
 
+    # ── Team fixture calendar intent (Phase 2.6e; before gameweek + fixture-run)
+    #    Must precede gameweek because phrases like "best fixtures next 5 gameweeks"
+    #    contain the substring "gameweek".  Must precede fixture-run because
+    #    questions ending in " fixtures" (e.g. "teams with worst upcoming fixtures")
+    #    are caught by the fixture-run suffix matcher before reaching team calendar.
+    _calendar_result = _try_route_team_calendar(q_norm)
+    if _calendar_result is not None:
+        return _calendar_result
+
     # ── Gameweek intent ──────────────────────────────────────────────────
     if any(kw in q_norm for kw in _GAMEWEEK_KEYWORDS):
         return RouteResult(tool_name="get_current_gameweek", tool_args={})
@@ -663,6 +1074,19 @@ def route(question: str) -> RouteResult | None:
             tool_name="get_differential_picks",
             tool_args={},
         )
+
+    # ── Price changes intent (Phase 2.6d; before player summary) ────────────
+    if any(kw in q_norm for kw in _PRICE_CHANGES_KEYWORDS):
+        return RouteResult(tool_name="get_price_changes", tool_args={})
+
+    # ── Injury list intent (Phase 2.6d; before player summary) ──────────────
+    if any(kw in q_norm for kw in _INJURY_LIST_KEYWORDS):
+        return RouteResult(tool_name="get_injury_list", tool_args={})
+
+    # ── Player form intent (Phase 2.6d; before player summary) ──────────────
+    _form_result = _try_route_player_form(q_orig, q_norm)
+    if _form_result is not None:
+        return _form_result
 
     # ── Captain score intent (checked before summary/resolve) ─────────────
     if any(q_norm.startswith(p) or p in q_norm for p in _CAPTAIN_SCORE_PREFIXES):

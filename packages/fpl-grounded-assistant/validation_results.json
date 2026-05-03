@@ -1,7 +1,7 @@
 {
-  "run_at": "2026-04-26T16:35:33.830071+00:00",
-  "scenario_count": 44,
-  "pass_count": 44,
+  "run_at": "2026-05-03T18:05:23.498142+00:00",
+  "scenario_count": 60,
+  "pass_count": 60,
   "fail_count": 0,
   "scenarios": [
     {
@@ -36,6 +36,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Salah (LIV) — Safe [60.58]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.",
           "classification_source": null
         },
@@ -61,6 +64,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Salah (LIV) — Safe [60.58]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.",
           "classification_source": null
         }
@@ -131,6 +137,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture\n3. Saka (ARS) [diff] 36.35 · 2nd free-kick taker — Tough fixture; Weak attacking process",
           "classification_source": null
         },
@@ -181,6 +190,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture\n3. Saka (ARS) [diff] 36.35 · 2nd free-kick taker — Tough fixture; Weak attacking process",
           "classification_source": null
         }
@@ -217,7 +229,10 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
-          "final_text": "Haaland (Erling Haaland) | Manchester City (MCI) | FWD | £14.5m | 52.3% ownership | Status: Available.",
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "Haaland (Erling Haaland) | Manchester City (MCI) | FWD | £14.5m | 52.3% ownership | Status: Available. Form: 8.0 | Mins: 1800.",
           "classification_source": null
         },
         "http": {
@@ -233,7 +248,10 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
-          "final_text": "Haaland (Erling Haaland) | Manchester City (MCI) | FWD | £14.5m | 52.3% ownership | Status: Available.",
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "Haaland (Erling Haaland) | Manchester City (MCI) | FWD | £14.5m | 52.3% ownership | Status: Available. Form: 8.0 | Mins: 1800.",
           "classification_source": null
         }
       },
@@ -269,6 +287,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Salah (Mohamed Salah) plays for Liverpool (LIV) as a MID. Status: Available. [Resolved via: web_name]",
           "classification_source": null
         },
@@ -285,6 +306,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Salah (Mohamed Salah) plays for Liverpool (LIV) as a MID. Status: Available. [Resolved via: web_name]",
           "classification_source": null
         }
@@ -352,6 +376,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Salah (63.58) edges Haaland (57.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0).",
           "classification_source": null
         },
@@ -399,6 +426,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Salah (63.58) edges Haaland (57.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0).",
           "classification_source": null
         }
@@ -435,6 +465,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "I couldn't match that question to a supported query. Supported questions include: captain score for a player, captain rankings, player comparison, transfer advice, chip advice, player fixture run, differential picks, player summary, player lookup, and current gameweek.",
           "classification_source": null
         },
@@ -451,6 +484,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "I couldn't match that question to a supported query. Supported questions include: captain score for a player, captain rankings, player comparison, transfer advice, chip advice, player fixture run, differential picks, player summary, player lookup, and current gameweek.",
           "classification_source": null
         }
@@ -487,6 +523,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Multiple players share the name 'Doe'. Please use a full name or player ID to disambiguate (e.g. 'Who is Adam Johnson?' or 'Who is player 6?').",
           "classification_source": null
         },
@@ -503,6 +542,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Multiple players share the name 'Doe'. Please use a full name or player ID to disambiguate (e.g. 'Who is Adam Johnson?' or 'Who is player 6?').",
           "classification_source": null
         }
@@ -539,6 +581,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "No player found matching 'xyznotaplayer999'. Check the spelling or try a full name / player ID.",
           "classification_source": null
         },
@@ -555,6 +600,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "No player found matching 'xyznotaplayer999'. Check the spelling or try a full name / player ID.",
           "classification_source": null
         }
@@ -591,6 +639,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "No player found matching 'him'. Check the spelling or try a full name / player ID.",
           "classification_source": null
         },
@@ -607,6 +658,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "No player found matching 'him'. Check the spelling or try a full name / player ID.",
           "classification_source": null
         }
@@ -676,6 +730,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Haaland (57.85) edges Saka (39.35) — clear margin (18.5).  Advantages: stronger form (8.0 vs 5.5); easier fixture (FDR 4H vs 5H); better minutes security.",
           "resolver_source": "comparison_followup",
           "rewritten_question": "compare Haaland and Saka",
@@ -727,6 +784,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Haaland (57.85) edges Saka (39.35) — clear margin (18.5).  Advantages: stronger form (8.0 vs 5.5); easier fixture (FDR 4H vs 5H); better minutes security.",
           "classification_source": null
         }
@@ -795,6 +855,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Haaland (57.85) edges Saka (39.35) — clear margin (18.5).  Advantages: stronger form (8.0 vs 5.5); easier fixture (FDR 4H vs 5H); better minutes security.",
           "resolver_source": "comparison_followup_llm",
           "rewritten_question": "compare Haaland and Saka",
@@ -841,6 +904,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Salah (LIV) — Safe [60.58]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.",
           "resolver_source": "fallback_regex",
           "rewritten_question": "should I captain Salah",
@@ -867,6 +933,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Salah (LIV) — Safe [60.58]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.",
           "classification_source": null
         }
@@ -910,6 +979,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Salah (LIV) — Safe [60.58]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.",
           "resolver_source": "llm",
           "rewritten_question": "should I captain Salah",
@@ -959,6 +1031,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Saka (ARS) — Differential [36.35]. 2nd free-kick taker; Tough fixture; Weak attacking process; High-upside differential profile.",
           "classification_source": "llm_classifier"
         },
@@ -984,6 +1059,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Saka (ARS) — Differential [36.35]. 2nd free-kick taker; Tough fixture; Weak attacking process; High-upside differential profile.",
           "classification_source": "llm_classifier"
         },
@@ -1008,6 +1086,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Saka (ARS) — Differential [36.35]. 2nd free-kick taker; Tough fixture; Weak attacking process; High-upside differential profile.",
           "resolver_source": "none",
           "rewritten_question": "is Saka worth captaining?",
@@ -1034,6 +1115,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Saka (ARS) — Differential [36.35]. 2nd free-kick taker; Tough fixture; Weak attacking process; High-upside differential profile.",
           "classification_source": "llm_classifier"
         }
@@ -1103,6 +1187,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Salah (63.58) edges Haaland (57.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0).",
           "classification_source": "llm_classifier"
         },
@@ -1150,6 +1237,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Salah (63.58) edges Haaland (57.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0).",
           "classification_source": "llm_classifier"
         },
@@ -1196,6 +1286,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Salah (63.58) edges Haaland (57.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0).",
           "resolver_source": "none",
           "rewritten_question": "what's the score differential between Salah and Haaland?",
@@ -1244,6 +1337,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Salah (63.58) edges Haaland (57.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0).",
           "classification_source": "llm_classifier"
         }
@@ -1316,6 +1412,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture\n3. Saka (ARS) [diff] 36.35 · 2nd free-kick taker — Tough fixture; Weak attacking process",
           "classification_source": "llm_classifier"
         },
@@ -1366,6 +1465,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture\n3. Saka (ARS) [diff] 36.35 · 2nd free-kick taker — Tough fixture; Weak attacking process",
           "classification_source": "llm_classifier"
         },
@@ -1415,6 +1517,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture\n3. Saka (ARS) [diff] 36.35 · 2nd free-kick taker — Tough fixture; Weak attacking process",
           "resolver_source": "none",
           "rewritten_question": "who looks best for captain this week?",
@@ -1466,6 +1571,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture\n3. Saka (ARS) [diff] 36.35 · 2nd free-kick taker — Tough fixture; Weak attacking process",
           "classification_source": "llm_classifier"
         }
@@ -1516,6 +1624,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Recommendation: Transfer in Salah. Score: 64 vs Saka's 39 (+24.2).  Advantages: stronger form (9.5 vs 5.5); easier fixture (FDR 4H vs 5H); better minutes security; set-piece advantage (pen vs fk2).  Net cost: +£3.5m.",
           "classification_source": null
         },
@@ -1546,6 +1657,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Recommendation: Transfer in Salah. Score: 64 vs Saka's 39 (+24.2).  Advantages: stronger form (9.5 vs 5.5); easier fixture (FDR 4H vs 5H); better minutes security; set-piece advantage (pen vs fk2).  Net cost: +£3.5m.",
           "classification_source": null
         }
@@ -1582,6 +1696,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "No player found matching 'UnknownPlayerXYZ'.",
           "classification_source": null
         },
@@ -1598,6 +1715,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "No player found matching 'UnknownPlayerXYZ'.",
           "classification_source": null
         }
@@ -1641,6 +1761,9 @@
           },
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Triple captain conditions: marginal. A decent but not exceptional option exists: Salah (captain score 60.6, tier: safe). Consider whether a stronger option may appear in a later gameweek. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         },
@@ -1664,6 +1787,9 @@
           },
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Triple captain conditions: marginal. A decent but not exceptional option exists: Salah (captain score 60.6, tier: safe). Consider whether a stronger option may appear in a later gameweek. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         }
@@ -1707,6 +1833,9 @@
           },
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Wildcard conditions: marginal. You are in a viable wildcard window (GW28). Whether to use it depends on how many squad issues you need to fix and your upcoming fixture outlook. Note: squad composition and which wildcard you still hold are not available to this system.",
           "classification_source": null
         },
@@ -1730,6 +1859,9 @@
           },
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Wildcard conditions: marginal. You are in a viable wildcard window (GW28). Whether to use it depends on how many squad issues you need to fix and your upcoming fixture outlook. Note: squad composition and which wildcard you still hold are not available to this system.",
           "classification_source": null
         }
@@ -1773,6 +1905,9 @@
           },
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Free hit conditions: unfavorable (GW28). No blank or double gameweek detected this week. Free hit is most effective in blank or double gameweeks. Consider saving it for a better opportunity. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         },
@@ -1796,6 +1931,9 @@
           },
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Free hit conditions: unfavorable (GW28). No blank or double gameweek detected this week. Free hit is most effective in blank or double gameweeks. Consider saving it for a better opportunity. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         }
@@ -1832,7 +1970,10 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
-          "final_text": "Salah (Mohamed Salah) | Liverpool (LIV) | MID | £13.5m | 64.1% ownership | Status: Available.\n\nThe current Premier League Fantasy gameweek is GW28.",
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "Salah (Mohamed Salah) | Liverpool (LIV) | MID | £13.5m | 64.1% ownership | Status: Available. Form: 9.5 | Mins: 2250.\n\nThe current Premier League Fantasy gameweek is GW28.",
           "classification_source": null
         },
         "http": {
@@ -1848,7 +1989,10 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
-          "final_text": "Salah (Mohamed Salah) | Liverpool (LIV) | MID | £13.5m | 64.1% ownership | Status: Available.\n\nThe current Premier League Fantasy gameweek is GW28.",
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "Salah (Mohamed Salah) | Liverpool (LIV) | MID | £13.5m | 64.1% ownership | Status: Available. Form: 9.5 | Mins: 2250.\n\nThe current Premier League Fantasy gameweek is GW28.",
           "classification_source": null
         }
       },
@@ -1884,6 +2028,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Haaland (MCI) — Upside [54.85]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.\n\nSaka (Bukayo Saka) plays for Arsenal (ARS) as a MID. Status: Doubtful. [Resolved via: web_name]",
           "classification_source": null
         },
@@ -1900,6 +2047,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Haaland (MCI) — Upside [54.85]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.\n\nSaka (Bukayo Saka) plays for Arsenal (ARS) as a MID. Status: Doubtful. [Resolved via: web_name]",
           "classification_source": null
         }
@@ -1936,6 +2086,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Haaland (MCI) — Upside [54.85]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.\n\nSalah (63.58) edges Haaland (57.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0).",
           "classification_source": null
         },
@@ -1952,6 +2105,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Haaland (MCI) — Upside [54.85]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.\n\nSalah (63.58) edges Haaland (57.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0).",
           "classification_source": null
         }
@@ -1995,6 +2151,9 @@
           },
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Triple captain conditions: marginal. A decent but not exceptional option exists: Salah (captain score 60.6, tier: safe). Consider whether a stronger option may appear in a later gameweek. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         },
@@ -2018,6 +2177,9 @@
           },
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Triple captain conditions: marginal. A decent but not exceptional option exists: Salah (captain score 60.6, tier: safe). Consider whether a stronger option may appear in a later gameweek. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         }
@@ -2092,6 +2254,9 @@
             ]
           },
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Salah (LIV, MID) – next 5 fixtures from GW28: GW28 MUN (H) FDR 2 · GW29 MCI (H) FDR 3 · GW30 ARS (A) FDR 4 · GW31 CHE (A) FDR 3 · GW32 MUN (H) FDR 2",
           "classification_source": null
         },
@@ -2146,6 +2311,9 @@
             ]
           },
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Salah (LIV, MID) – next 5 fixtures from GW28: GW28 MUN (H) FDR 2 · GW29 MCI (H) FDR 3 · GW30 ARS (A) FDR 4 · GW31 CHE (A) FDR 3 · GW32 MUN (H) FDR 2",
           "classification_source": null
         }
@@ -2182,6 +2350,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "No player found matching 'NonExistentXYZ'.",
           "classification_source": null
         },
@@ -2198,6 +2369,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "No player found matching 'NonExistentXYZ'.",
           "classification_source": null
         }
@@ -2234,6 +2408,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "No available players found with ownership < 15.0% and a positive captain score.",
           "classification_source": null
         },
@@ -2250,6 +2427,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "No available players found with ownership < 15.0% and a positive captain score.",
           "classification_source": null
         }
@@ -2286,6 +2466,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "No available players found with ownership < 15.0% and a positive captain score.",
           "classification_source": null
         },
@@ -2302,6 +2485,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "No available players found with ownership < 15.0% and a positive captain score.",
           "classification_source": null
         }
@@ -2351,6 +2537,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Recommendation: Transfer in Haaland. Score: 58 vs Saka's 39 (+18.5).  Advantages: stronger form (8.0 vs 5.5); easier fixture (FDR 4H vs 5H); better minutes security; set-piece advantage (pen vs fk2).  Net cost: +£4.5m.",
           "resolver_source": "transfer_followup",
           "rewritten_question": "sell Saka for Haaland",
@@ -2382,6 +2571,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Recommendation: Transfer in Haaland. Score: 58 vs Saka's 39 (+18.5).  Advantages: stronger form (8.0 vs 5.5); easier fixture (FDR 4H vs 5H); better minutes security; set-piece advantage (pen vs fk2).  Net cost: +£4.5m.",
           "classification_source": null
         }
@@ -2452,6 +2644,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Salah (63.58) edges Saka (39.35) — clear margin (24.23).  Advantages: stronger form (9.5 vs 5.5); easier fixture (FDR 4H vs 5H); better minutes security.",
           "classification_source": null
         },
@@ -2502,6 +2697,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Salah (63.58) edges Saka (39.35) — clear margin (24.23).  Advantages: stronger form (9.5 vs 5.5); easier fixture (FDR 4H vs 5H); better minutes security.",
           "classification_source": null
         }
@@ -2561,6 +2759,9 @@
               }
             ]
           },
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Top differentials (ownership < 15%):\n  1. Mbeumo (MUN, FWD) — score 51.3, 8.2% owned, £7.5m\n  2. Palmer (CHE, MID) — score 44.5, 3.5% owned, £6.0m",
           "classification_source": null
         },
@@ -2602,6 +2803,9 @@
               }
             ]
           },
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Top differentials (ownership < 15%):\n  1. Mbeumo (MUN, FWD) — score 51.3, 8.2% owned, £7.5m\n  2. Palmer (CHE, MID) — score 44.5, 3.5% owned, £6.0m",
           "classification_source": null
         }
@@ -2645,6 +2849,9 @@
           },
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Free hit conditions: favorable (GW28). A large double gameweek is detected: 6 team(s) play twice this week (ARS, CHE, LIV, MCI, MUN, TOT). Free hit conditions are strong — use it to field the best available XI for this double gameweek. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         },
@@ -2668,6 +2875,9 @@
           },
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Free hit conditions: favorable (GW28). A large double gameweek is detected: 6 team(s) play twice this week (ARS, CHE, LIV, MCI, MUN, TOT). Free hit conditions are strong — use it to field the best available XI for this double gameweek. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         }
@@ -2711,6 +2921,9 @@
           },
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Free hit conditions: marginal (GW28). A blank gameweek is detected: 2 team(s) have no fixture this week (ARS, MCI). Free hit can help cover blanked players, but saving it for an upcoming double gameweek is often the stronger play. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         },
@@ -2734,6 +2947,9 @@
           },
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Free hit conditions: marginal (GW28). A blank gameweek is detected: 2 team(s) have no fixture this week (ARS, MCI). Free hit can help cover blanked players, but saving it for an upcoming double gameweek is often the stronger play. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         }
@@ -2777,6 +2993,9 @@
           },
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Free hit conditions: unfavorable (GW28). No blank or double gameweek detected this week. Free hit is most effective in blank or double gameweeks. Consider saving it for a better opportunity. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         },
@@ -2800,6 +3019,9 @@
           },
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Free hit conditions: unfavorable (GW28). No blank or double gameweek detected this week. Free hit is most effective in blank or double gameweeks. Consider saving it for a better opportunity. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         }
@@ -2873,6 +3095,9 @@
             ]
           },
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Salah (LIV, MID) – next 5 fixtures from GW28: GW28 MUN (H) FDR 2 · GW29 MCI (H) FDR 3 · GW30 ARS (A) FDR 4 · GW31 CHE (A) FDR 3 · GW32 MUN (H) FDR 2",
           "resolver_source": "fixture_run_followup",
           "rewritten_question": "Salah fixtures",
@@ -2928,6 +3153,9 @@
             ]
           },
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Salah (LIV, MID) – next 5 fixtures from GW28: GW28 MUN (H) FDR 2 · GW29 MCI (H) FDR 3 · GW30 ARS (A) FDR 4 · GW31 CHE (A) FDR 3 · GW32 MUN (H) FDR 2",
           "classification_source": null
         }
@@ -2972,6 +3200,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Mbeumo (MUN) — Differential [54.28]. Penalty taker; Favorable fixture; Weak attacking process; Secure minutes; High-upside differential profile.",
           "resolver_source": "differential_followup",
           "rewritten_question": "should I captain Mbeumo?",
@@ -2998,6 +3229,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Mbeumo (MUN) — Differential [54.28]. Penalty taker; Favorable fixture; Weak attacking process; Secure minutes; High-upside differential profile.",
           "classification_source": null
         }
@@ -3048,6 +3282,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Budget constraint: bringing in Salah costs +£3.5m but you have £2.0m in the bank.",
           "classification_source": null
         },
@@ -3078,6 +3315,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Budget constraint: bringing in Salah costs +£3.5m but you have £2.0m in the bank.",
           "classification_source": null
         }
@@ -3123,6 +3363,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Marginal: Consider Salah over Haaland. Score: 64 vs 62 (+1.3).  Net saving: £1.0m.",
           "classification_source": null
         },
@@ -3148,6 +3391,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Marginal: Consider Salah over Haaland. Score: 64 vs 62 (+1.3).  Net saving: £1.0m.",
           "classification_source": null
         }
@@ -3191,6 +3437,9 @@
           },
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Chip unavailable: triple_captain is not in your chips remaining.",
           "classification_source": null
         },
@@ -3214,6 +3463,9 @@
           },
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Chip unavailable: triple_captain is not in your chips remaining.",
           "classification_source": null
         }
@@ -3263,6 +3515,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Budget constraint: bringing in Salah costs +£3.5m but you have £2.0m in the bank.",
           "resolver_source": "none",
           "rewritten_question": "should I sell Saka for Salah",
@@ -3294,6 +3549,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Budget constraint: bringing in Salah costs +£3.5m but you have £2.0m in the bank.",
           "classification_source": null
         }
@@ -3336,6 +3594,9 @@
           },
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Chip unavailable: triple_captain is not in your chips remaining.",
           "resolver_source": "none",
           "rewritten_question": "should I use my triple captain",
@@ -3360,6 +3621,9 @@
           },
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Chip unavailable: triple_captain is not in your chips remaining.",
           "classification_source": null
         }
@@ -3404,6 +3668,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Marginal: Consider Salah over Haaland. Score: 64 vs 62 (+1.3).  Net saving: £1.0m.",
           "resolver_source": "none",
           "rewritten_question": "should I sell Haaland for Salah",
@@ -3430,6 +3697,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Marginal: Consider Salah over Haaland. Score: 64 vs 62 (+1.3).  Net saving: £1.0m.",
           "classification_source": null
         }
@@ -3478,6 +3748,9 @@
           "chip": null,
           "fixture_run": null,
           "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
           "final_text": "Recommendation: Transfer in Salah. Score: 64 vs Saka's 39 (+24.2).  Advantages: stronger form (9.5 vs 5.5); easier fixture (FDR 4H vs 5H); better minutes security; set-piece advantage (pen vs fk2).  Net cost: +£3.5m.",
           "classification_source": null
         }
@@ -3490,6 +3763,1400 @@
       "failures": [],
       "pass": true,
       "notes": "Phase 8f2: squad_context statelessness. Turn 1: budget_constraint fires (itb=20 < price_delta=35). Turn 2 (asserted): same question, no squad_context -> budget_constraint=False. Confirms squad_context is NOT persisted to ConversationState between turns. session_http only: prior-turn squad_context is injected per-payload. session_cli excluded — cli_run_session takes a single context for all turns."
+    },
+    {
+      "id": "spanish_compare_accusative_a",
+      "family": "comparison",
+      "description": "Spanish 'compara a Salah y Haaland' — accusative 'a' must be stripped from player tokens before registry lookup.",
+      "question": "compara a Salah y Haaland",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "compare_players",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": {
+            "winner": "Salah",
+            "margin": 5.73,
+            "label": "moderate",
+            "reasons": [
+              "stronger form (9.5 vs 8.0)"
+            ],
+            "player_a": {
+              "web_name": "Salah",
+              "position": "MID",
+              "captain_score": 60.58,
+              "position_score": 63.58,
+              "is_home": true,
+              "effective_fdr": 3.5,
+              "role_bonus": 5.0,
+              "set_piece_notes": [
+                "penalty_taker_1"
+              ]
+            },
+            "player_b": {
+              "web_name": "Haaland",
+              "position": "FWD",
+              "captain_score": 54.85,
+              "position_score": 57.85,
+              "is_home": true,
+              "effective_fdr": 3.5,
+              "role_bonus": 5.0,
+              "set_piece_notes": [
+                "penalty_taker_1"
+              ]
+            }
+          },
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "Salah (63.58) edges Haaland (57.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0).",
+          "classification_source": null
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "compare_players",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": {
+            "winner": "Salah",
+            "margin": 5.73,
+            "label": "moderate",
+            "reasons": [
+              "stronger form (9.5 vs 8.0)"
+            ],
+            "player_a": {
+              "web_name": "Salah",
+              "position": "MID",
+              "captain_score": 60.58,
+              "position_score": 63.58,
+              "is_home": true,
+              "effective_fdr": 3.5,
+              "role_bonus": 5.0,
+              "set_piece_notes": [
+                "penalty_taker_1"
+              ]
+            },
+            "player_b": {
+              "web_name": "Haaland",
+              "position": "FWD",
+              "captain_score": 54.85,
+              "position_score": 57.85,
+              "is_home": true,
+              "effective_fdr": 3.5,
+              "role_bonus": 5.0,
+              "set_piece_notes": [
+                "penalty_taker_1"
+              ]
+            }
+          },
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "Salah (63.58) edges Haaland (57.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0).",
+          "classification_source": null
+        }
+      },
+      "expected": {
+        "intent": "compare_players",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Phase 2.6b Story 1.1: _strip_spanish_name_prefix removes leading 'a ' so 'a Salah' → 'Salah' before registry lookup. Both Salah and Haaland are in STANDARD_BOOTSTRAP. comparison.winner should be non-null (Salah or Haaland). Before the fix: compare_players intent with 'a Salah' → not_found. After the fix: ok with valid comparison metadata."
+    },
+    {
+      "id": "spanish_compare_tengo_a",
+      "family": "comparison",
+      "description": "Spanish 'tengo a Saka y Haaland' — 'tengo a ' prefix noise must be stripped so 'tengo a Saka' resolves as 'Saka'.",
+      "question": "tengo a saka y rashford en mi equipo, a cuál vendo primero",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "compare_players",
+          "outcome": "not_found",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "No player found matching 'rashford en mi equipo, a cuál vendo primero'.",
+          "classification_source": null
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "compare_players",
+          "outcome": "not_found",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "No player found matching 'rashford en mi equipo, a cuál vendo primero'.",
+          "classification_source": null
+        }
+      },
+      "expected": {
+        "intent": "compare_players",
+        "outcome": "not_found",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Phase 2.6b Story 1.1: bare ' y ' connector routes to compare_players. After _strip_spanish_name_prefix: 'tengo a saka' → 'saka' (resolves OK). 'rashford en mi equipo, a cuál vendo primero' is not in STANDARD_BOOTSTRAP → not_found. intent=compare_players confirms routing success; the name-prefix fix is validated on part_a (saka resolves). Rashford is absent from STANDARD_BOOTSTRAP — not_found is expected."
+    },
+    {
+      "id": "spanish_player_summary_resumen",
+      "family": "summary",
+      "description": "Spanish 'dame un resumen de Salah' routes to player_summary via the new Spanish _SUMMARY_PREFIXES entries.",
+      "question": "dame un resumen de Salah",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "player_summary",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "Salah (Mohamed Salah) | Liverpool (LIV) | MID | £13.5m | 64.1% ownership | Status: Available. Form: 9.5 | Mins: 2250.",
+          "classification_source": null
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "player_summary",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "Salah (Mohamed Salah) | Liverpool (LIV) | MID | £13.5m | 64.1% ownership | Status: Available. Form: 9.5 | Mins: 2250.",
+          "classification_source": null
+        }
+      },
+      "expected": {
+        "intent": "player_summary",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Phase 2.6b Story 1.4: 'dame un resumen de' added to _SUMMARY_PREFIXES. Prefix stripped → 'Salah' → found in STANDARD_BOOTSTRAP. Before the fix: unsupported_intent. After: player_summary ok."
+    },
+    {
+      "id": "spanish_rank_captain_quien_deberia",
+      "family": "ranking",
+      "description": "Spanish 'quién debería capitanear esta semana' routes to rank_candidates via the new Spanish _RANK_PREFIXES entries.",
+      "question": "quién debería capitanear esta semana",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "rank_candidates",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": [
+            {
+              "rank": 1,
+              "web_name": "Salah",
+              "team_short": "LIV",
+              "captain_score": 60.58,
+              "tier": "safe",
+              "role_bonus": 5.0,
+              "set_piece_notes": [
+                "penalty_taker_1"
+              ]
+            },
+            {
+              "rank": 2,
+              "web_name": "Haaland",
+              "team_short": "MCI",
+              "captain_score": 54.85,
+              "tier": "upside",
+              "role_bonus": 5.0,
+              "set_piece_notes": [
+                "penalty_taker_1"
+              ]
+            }
+          ],
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture",
+          "classification_source": null
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "rank_candidates",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": [
+            {
+              "rank": 1,
+              "web_name": "Salah",
+              "team_short": "LIV",
+              "captain_score": 60.58,
+              "tier": "safe",
+              "role_bonus": 5.0,
+              "set_piece_notes": [
+                "penalty_taker_1"
+              ]
+            },
+            {
+              "rank": 2,
+              "web_name": "Haaland",
+              "team_short": "MCI",
+              "captain_score": 54.85,
+              "tier": "upside",
+              "role_bonus": 5.0,
+              "set_piece_notes": [
+                "penalty_taker_1"
+              ]
+            }
+          ],
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture",
+          "classification_source": null
+        }
+      },
+      "expected": {
+        "intent": "rank_candidates",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Phase 2.6b Story 1.4: generic Spanish captain ranking. 'quién debería capitanear esta semana' added to _RANK_PREFIXES. Routes to rank_candidates; candidates_list supplied. Before the fix: unsupported_intent. After: rank_candidates ok."
+    },
+    {
+      "id": "spanish_rank_captain_ranking",
+      "family": "ranking",
+      "description": "Spanish 'dame el ranking de capitanes' routes to rank_candidates via the new Spanish _RANK_PREFIXES / _RANKING_KEYWORDS entries.",
+      "question": "dame el ranking de capitanes",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "rank_candidates",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": [
+            {
+              "rank": 1,
+              "web_name": "Salah",
+              "team_short": "LIV",
+              "captain_score": 60.58,
+              "tier": "safe",
+              "role_bonus": 5.0,
+              "set_piece_notes": [
+                "penalty_taker_1"
+              ]
+            },
+            {
+              "rank": 2,
+              "web_name": "Haaland",
+              "team_short": "MCI",
+              "captain_score": 54.85,
+              "tier": "upside",
+              "role_bonus": 5.0,
+              "set_piece_notes": [
+                "penalty_taker_1"
+              ]
+            },
+            {
+              "rank": 3,
+              "web_name": "Saka",
+              "team_short": "ARS",
+              "captain_score": 36.35,
+              "tier": "differential",
+              "role_bonus": 0.5,
+              "set_piece_notes": [
+                "freekick_taker_2"
+              ]
+            }
+          ],
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture\n3. Saka (ARS) [diff] 36.35 · 2nd free-kick taker — Tough fixture; Weak attacking process",
+          "classification_source": null
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "rank_candidates",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": [
+            {
+              "rank": 1,
+              "web_name": "Salah",
+              "team_short": "LIV",
+              "captain_score": 60.58,
+              "tier": "safe",
+              "role_bonus": 5.0,
+              "set_piece_notes": [
+                "penalty_taker_1"
+              ]
+            },
+            {
+              "rank": 2,
+              "web_name": "Haaland",
+              "team_short": "MCI",
+              "captain_score": 54.85,
+              "tier": "upside",
+              "role_bonus": 5.0,
+              "set_piece_notes": [
+                "penalty_taker_1"
+              ]
+            },
+            {
+              "rank": 3,
+              "web_name": "Saka",
+              "team_short": "ARS",
+              "captain_score": 36.35,
+              "tier": "differential",
+              "role_bonus": 0.5,
+              "set_piece_notes": [
+                "freekick_taker_2"
+              ]
+            }
+          ],
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture\n3. Saka (ARS) [diff] 36.35 · 2nd free-kick taker — Tough fixture; Weak attacking process",
+          "classification_source": null
+        }
+      },
+      "expected": {
+        "intent": "rank_candidates",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Phase 2.6b Story 1.4: 'dame el ranking de capitanes' added to _RANK_PREFIXES. 'ranking de capitanes' added to _RANKING_KEYWORDS for substring matching. Before the fix: unsupported_intent. After: rank_candidates ok."
+    },
+    {
+      "id": "spanish_captain_score_named",
+      "family": "captain",
+      "description": "Spanish 'debería capitanear a Haaland' routes to captain_score via the new Spanish _CAPTAIN_SCORE_PREFIXES entries.",
+      "question": "debería capitanear a Haaland",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "captain_score",
+          "outcome": "ok",
+          "supported": true,
+          "captain": {
+            "web_name": "Haaland",
+            "team_short": "MCI",
+            "captain_score": 54.85,
+            "tier": "upside",
+            "role_bonus": 5.0,
+            "set_piece_notes": [
+              "penalty_taker_1"
+            ]
+          },
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "Haaland (MCI) — Upside [54.85]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.",
+          "classification_source": null
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "captain_score",
+          "outcome": "ok",
+          "supported": true,
+          "captain": {
+            "web_name": "Haaland",
+            "team_short": "MCI",
+            "captain_score": 54.85,
+            "tier": "upside",
+            "role_bonus": 5.0,
+            "set_piece_notes": [
+              "penalty_taker_1"
+            ]
+          },
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "Haaland (MCI) — Upside [54.85]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.",
+          "classification_source": null
+        }
+      },
+      "expected": {
+        "intent": "captain_score",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Phase 2.6b Story 1.4 + Story 1.1: 'debería capitanear a' added to _CAPTAIN_SCORE_PREFIXES (1.4). _strip_spanish_name_prefix removes leading 'a ' → 'Haaland' (1.1). Haaland in STANDARD_BOOTSTRAP → ok with captain metadata. Before the fix: unsupported_intent. After: captain_score ok."
+    },
+    {
+      "id": "degraded_flag_on_provider_failure",
+      "family": "failure_modes",
+      "description": "When the LLM provider call fails, FinalResponse.degraded=True so callers can surface a 'provider unavailable' notice. The deterministic final_text is still returned (outcome=ok).",
+      "question": "should I captain Salah",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "captain_score",
+          "outcome": "ok",
+          "supported": true,
+          "captain": {
+            "web_name": "Salah",
+            "team_short": "LIV",
+            "captain_score": 60.58,
+            "tier": "safe",
+            "role_bonus": 5.0,
+            "set_piece_notes": [
+              "penalty_taker_1"
+            ]
+          },
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "Salah (LIV) — Safe [60.58]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.",
+          "classification_source": null
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "captain_score",
+          "outcome": "ok",
+          "supported": true,
+          "captain": {
+            "web_name": "Salah",
+            "team_short": "LIV",
+            "captain_score": 60.58,
+            "tier": "safe",
+            "role_bonus": 5.0,
+            "set_piece_notes": [
+              "penalty_taker_1"
+            ]
+          },
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "Salah (LIV) — Safe [60.58]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.",
+          "classification_source": null
+        }
+      },
+      "expected": {
+        "intent": "captain_score",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Phase 2.6b Story 1.3: degraded flag. This scenario tests the contract shape only (deterministic path). In CI without an LLM client, provider_failed=False → degraded=False. The live degraded=True path is validated in run_phase26b_tests.py using a stub provider that returns an error_code. Corpus test confirms: degraded field present (bool) on all surfaces."
+    },
+    {
+      "id": "player_form_last_3_salah",
+      "family": "player_form",
+      "description": "Spanish 'cómo ha estado Salah en los últimos 3 partidos' routes to player_form and returns 3 GW history entries via bootstrap injection.",
+      "question": "como ha estado Salah en los ultimos 3 partidos",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "player_form",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": {
+            "web_name": "Salah",
+            "team_short": "LIV",
+            "position": "MID",
+            "n_games": 3,
+            "history": [
+              {
+                "gameweek": 28,
+                "minutes": 90,
+                "goals_scored": 2,
+                "assists": 0,
+                "bonus": 3,
+                "total_points": 15
+              },
+              {
+                "gameweek": 27,
+                "minutes": 79,
+                "goals_scored": 0,
+                "assists": 2,
+                "bonus": 1,
+                "total_points": 8
+              },
+              {
+                "gameweek": 26,
+                "minutes": 90,
+                "goals_scored": 1,
+                "assists": 0,
+                "bonus": 3,
+                "total_points": 10
+              }
+            ]
+          },
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "Salah (LIV, MID) — last 3 gameweek(s):\n  GW28: 15pts  2g 0a 3bps  90mins\n  GW27: 8pts  0g 2a 1bps  79mins\n  GW26: 10pts  1g 0a 3bps  90mins",
+          "classification_source": null
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "player_form",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": {
+            "web_name": "Salah",
+            "team_short": "LIV",
+            "position": "MID",
+            "n_games": 3,
+            "history": [
+              {
+                "gameweek": 28,
+                "minutes": 90,
+                "goals_scored": 2,
+                "assists": 0,
+                "bonus": 3,
+                "total_points": 15
+              },
+              {
+                "gameweek": 27,
+                "minutes": 79,
+                "goals_scored": 0,
+                "assists": 2,
+                "bonus": 1,
+                "total_points": 8
+              },
+              {
+                "gameweek": 26,
+                "minutes": 90,
+                "goals_scored": 1,
+                "assists": 0,
+                "bonus": 3,
+                "total_points": 10
+              }
+            ]
+          },
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "Salah (LIV, MID) — last 3 gameweek(s):\n  GW28: 15pts  2g 0a 3bps  90mins\n  GW27: 8pts  0g 2a 1bps  79mins\n  GW26: 10pts  1g 0a 3bps  90mins",
+          "classification_source": null
+        }
+      },
+      "expected": {
+        "intent": "player_form",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Phase 2.6d Story 2.1: player form routing + API injection. PLAYER_FORM_BOOTSTRAP injects 3 history entries for Salah (id=2). player_form.web_name='Salah', n_games=3, len(history)==3. Before fix: unsupported_intent. After: player_form ok."
+    },
+    {
+      "id": "player_form_historial_salah",
+      "family": "player_form",
+      "description": "Spanish 'historial de puntos de Salah' routes to player_form with default n_games=5, returns available history.",
+      "question": "historial de puntos de Salah",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "player_form",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": {
+            "web_name": "Salah",
+            "team_short": "LIV",
+            "position": "MID",
+            "n_games": 3,
+            "history": [
+              {
+                "gameweek": 28,
+                "minutes": 90,
+                "goals_scored": 2,
+                "assists": 0,
+                "bonus": 3,
+                "total_points": 15
+              },
+              {
+                "gameweek": 27,
+                "minutes": 79,
+                "goals_scored": 0,
+                "assists": 2,
+                "bonus": 1,
+                "total_points": 8
+              },
+              {
+                "gameweek": 26,
+                "minutes": 90,
+                "goals_scored": 1,
+                "assists": 0,
+                "bonus": 3,
+                "total_points": 10
+              }
+            ]
+          },
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "Salah (LIV, MID) — last 3 gameweek(s):\n  GW28: 15pts  2g 0a 3bps  90mins\n  GW27: 8pts  0g 2a 1bps  79mins\n  GW26: 10pts  1g 0a 3bps  90mins",
+          "classification_source": null
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "player_form",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": {
+            "web_name": "Salah",
+            "team_short": "LIV",
+            "position": "MID",
+            "n_games": 3,
+            "history": [
+              {
+                "gameweek": 28,
+                "minutes": 90,
+                "goals_scored": 2,
+                "assists": 0,
+                "bonus": 3,
+                "total_points": 15
+              },
+              {
+                "gameweek": 27,
+                "minutes": 79,
+                "goals_scored": 0,
+                "assists": 2,
+                "bonus": 1,
+                "total_points": 8
+              },
+              {
+                "gameweek": 26,
+                "minutes": 90,
+                "goals_scored": 1,
+                "assists": 0,
+                "bonus": 3,
+                "total_points": 10
+              }
+            ]
+          },
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "Salah (LIV, MID) — last 3 gameweek(s):\n  GW28: 15pts  2g 0a 3bps  90mins\n  GW27: 8pts  0g 2a 1bps  79mins\n  GW26: 10pts  1g 0a 3bps  90mins",
+          "classification_source": null
+        }
+      },
+      "expected": {
+        "intent": "player_form",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Phase 2.6d Story 2.1: 'historial de puntos de' prefix routing. PLAYER_FORM_BOOTSTRAP has 3 history entries; n_games defaults to 5 but only 3 are available → n_games=3 in output."
+    },
+    {
+      "id": "player_summary_with_totals",
+      "family": "summary",
+      "description": "Player summary for Salah includes form and minutes from bootstrap (Story 2.2 enrichment). total_points absent in STANDARD_BOOTSTRAP.",
+      "question": "tell me about Salah",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "player_summary",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "Salah (Mohamed Salah) | Liverpool (LIV) | MID | £13.5m | 64.1% ownership | Status: Available. Form: 9.5 | Mins: 2250.",
+          "classification_source": null
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "player_summary",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "Salah (Mohamed Salah) | Liverpool (LIV) | MID | £13.5m | 64.1% ownership | Status: Available. Form: 9.5 | Mins: 2250.",
+          "classification_source": null
+        }
+      },
+      "expected": {
+        "intent": "player_summary",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Phase 2.6d Story 2.2: form='9.5' and minutes=2250 are present in STANDARD_BOOTSTRAP elements for Salah. total_points=None (not in STANDARD_BOOTSTRAP). Renderer shows Form and Mins extras."
+    },
+    {
+      "id": "injury_check_named_player",
+      "family": "summary",
+      "description": "Spanish 'está lesionado Saka' routes to player_summary via new injury-check prefix coverage.",
+      "question": "esta lesionado Saka",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "player_summary",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "Saka (Bukayo Saka) | Arsenal (ARS) | MID | £10.0m | 35.0% ownership | Status: Doubtful. Form: 5.5 | Mins: 900.",
+          "classification_source": null
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "player_summary",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "Saka (Bukayo Saka) | Arsenal (ARS) | MID | £10.0m | 35.0% ownership | Status: Doubtful. Form: 5.5 | Mins: 900.",
+          "classification_source": null
+        }
+      },
+      "expected": {
+        "intent": "player_summary",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Phase 2.6d Story 2.3a: 'esta lesionado' added to _SUMMARY_PREFIXES. Saka (status='d') is in STANDARD_BOOTSTRAP → ok with status_label=Doubtful. Before fix: unsupported_intent. After: player_summary ok."
+    },
+    {
+      "id": "injury_list_gw_wide",
+      "family": "injury_list",
+      "description": "Spanish 'hay dudas para esta jornada' routes to injury_list and returns doubtful/injured players from bootstrap.",
+      "question": "hay dudas para esta jornada",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "injury_list",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": {
+            "injured": [
+              {
+                "web_name": "De Bruyne",
+                "team_short": "MCI",
+                "position": "MID",
+                "status_label": "Injured",
+                "chance_of_playing": null
+              }
+            ],
+            "doubtful": [
+              {
+                "web_name": "Saka",
+                "team_short": "ARS",
+                "position": "MID",
+                "status_label": "Doubtful",
+                "chance_of_playing": 75
+              }
+            ],
+            "other": [],
+            "total": 2
+          },
+          "price_changes": null,
+          "final_text": "Injured: De Bruyne (MCI, MID) | Doubtful: Saka (ARS, MID) 75%.",
+          "classification_source": null
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "injury_list",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": {
+            "injured": [
+              {
+                "web_name": "De Bruyne",
+                "team_short": "MCI",
+                "position": "MID",
+                "status_label": "Injured",
+                "chance_of_playing": null
+              }
+            ],
+            "doubtful": [
+              {
+                "web_name": "Saka",
+                "team_short": "ARS",
+                "position": "MID",
+                "status_label": "Doubtful",
+                "chance_of_playing": 75
+              }
+            ],
+            "other": [],
+            "total": 2
+          },
+          "price_changes": null,
+          "final_text": "Injured: De Bruyne (MCI, MID) | Doubtful: Saka (ARS, MID) 75%.",
+          "classification_source": null
+        }
+      },
+      "expected": {
+        "intent": "injury_list",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Phase 2.6d Story 2.3b: 'hay dudas para esta jornada' routes to get_injury_list. STANDARD_BOOTSTRAP: Saka (d) + De Bruyne (i) → total=2. injury_list.total=2, doubtful has Saka, injured has De Bruyne. Before fix: unsupported_intent. After: injury_list ok."
+    },
+    {
+      "id": "price_changes_risers",
+      "family": "price_changes",
+      "description": "Spanish 'quién está subiendo de precio esta semana' routes to price_changes and returns Salah as riser from PRICE_CHANGES_BOOTSTRAP.",
+      "question": "quien esta subiendo de precio esta semana",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "price_changes",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": {
+            "risers": [
+              {
+                "web_name": "Salah",
+                "team_short": "LIV",
+                "position": "MID",
+                "now_cost": 135,
+                "now_cost_m": 13.5,
+                "cost_change_event": 1,
+                "cost_change_start": 3
+              }
+            ],
+            "fallers": [
+              {
+                "web_name": "De Bruyne",
+                "team_short": "MCI",
+                "position": "MID",
+                "now_cost": 105,
+                "now_cost_m": 10.5,
+                "cost_change_event": -1,
+                "cost_change_start": -2
+              }
+            ]
+          },
+          "final_text": "Risers: Salah (LIV, MID) +£0.1m | Fallers: De Bruyne (MCI, MID) -£0.1m.",
+          "classification_source": null
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "price_changes",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": {
+            "risers": [
+              {
+                "web_name": "Salah",
+                "team_short": "LIV",
+                "position": "MID",
+                "now_cost": 135,
+                "now_cost_m": 13.5,
+                "cost_change_event": 1,
+                "cost_change_start": 3
+              }
+            ],
+            "fallers": [
+              {
+                "web_name": "De Bruyne",
+                "team_short": "MCI",
+                "position": "MID",
+                "now_cost": 105,
+                "now_cost_m": 10.5,
+                "cost_change_event": -1,
+                "cost_change_start": -2
+              }
+            ]
+          },
+          "final_text": "Risers: Salah (LIV, MID) +£0.1m | Fallers: De Bruyne (MCI, MID) -£0.1m.",
+          "classification_source": null
+        }
+      },
+      "expected": {
+        "intent": "price_changes",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Phase 2.6d Story 2.4: price_changes routing + deterministic output. PRICE_CHANGES_BOOTSTRAP: Salah cost_change_event=+1 (riser), De Bruyne cost_change_event=-1 (faller). price_changes.risers non-empty, price_changes.fallers non-empty. Before fix: unsupported_intent. After: price_changes ok."
+    },
+    {
+      "id": "chip_wildcard_timing_antes_despues",
+      "family": "chip",
+      "description": "Spanish wildcard timing question using 'antes o después' phrase routes to chip_advice via new advisory phrase coverage.",
+      "question": "debería usar el wildcard antes o después de la doble jornada",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "chip_advice",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": {
+            "chip": "wildcard",
+            "recommendation": "conditions_marginal",
+            "gw": 28,
+            "signal_value": 28.0,
+            "signal_label": "current gameweek",
+            "chip_unavailable": false
+          },
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "Wildcard conditions: marginal. You are in a viable wildcard window (GW28). Whether to use it depends on how many squad issues you need to fix and your upcoming fixture outlook. Note: squad composition and which wildcard you still hold are not available to this system.",
+          "classification_source": null
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "chip_advice",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": {
+            "chip": "wildcard",
+            "recommendation": "conditions_marginal",
+            "gw": 28,
+            "signal_value": 28.0,
+            "signal_label": "current gameweek",
+            "chip_unavailable": false
+          },
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "Wildcard conditions: marginal. You are in a viable wildcard window (GW28). Whether to use it depends on how many squad issues you need to fix and your upcoming fixture outlook. Note: squad composition and which wildcard you still hold are not available to this system.",
+          "classification_source": null
+        }
+      },
+      "expected": {
+        "intent": "chip_advice",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Phase 2.6c Story 1b.1: wildcard timing phrasing. 'deberia usar' + 'antes o despues' added to _CHIP_ADVISORY_PHRASES. chip='wildcard'; recommendation varies by GW. Before the fix: unsupported_intent. After: chip_advice ok."
+    },
+    {
+      "id": "chip_bench_boost_conditional_tiene_sentido",
+      "family": "chip",
+      "description": "Spanish bench boost conditional question using 'tiene sentido' and 'activar' phrases routes to chip_advice.",
+      "question": "tiene sentido activar el bench boost con 10 jugadores disponibles",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "chip_advice",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": {
+            "chip": "bench_boost",
+            "recommendation": "conditions_unfavorable",
+            "gw": 28,
+            "signal_value": 4.33,
+            "signal_label": "average FDR (top 10)",
+            "chip_unavailable": false
+          },
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "Bench boost conditions: unfavorable. Top outfield players face generally difficult fixtures this week (average FDR: 4.33). Fixture conditions do not favour bench boost. This assessment is based on global fixture signals only. Bench depth and whether your bench players have guaranteed game time are not available to this system.",
+          "classification_source": null
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "chip_advice",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": {
+            "chip": "bench_boost",
+            "recommendation": "conditions_unfavorable",
+            "gw": 28,
+            "signal_value": 4.33,
+            "signal_label": "average FDR (top 10)",
+            "chip_unavailable": false
+          },
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "Bench boost conditions: unfavorable. Top outfield players face generally difficult fixtures this week (average FDR: 4.33). Fixture conditions do not favour bench boost. This assessment is based on global fixture signals only. Bench depth and whether your bench players have guaranteed game time are not available to this system.",
+          "classification_source": null
+        }
+      },
+      "expected": {
+        "intent": "chip_advice",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Phase 2.6c Story 1b.2: bench boost conditional phrasing. 'tiene sentido' and 'activar' added to _CHIP_ADVISORY_PHRASES. chip='bench_boost'; deterministic recommendation from bootstrap. Before the fix: unsupported_intent. After: chip_advice ok."
+    },
+    {
+      "id": "chip_wildcard_spent_sequencing",
+      "family": "chip",
+      "description": "Spanish spent-chip sequencing question using 'ya usé' phrase routes to chip_advice via new advisory phrase coverage.",
+      "question": "ya use el wildcard, que chip me queda mas rentable para el final",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "chip_advice",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": {
+            "chip": "wildcard",
+            "recommendation": "conditions_marginal",
+            "gw": 28,
+            "signal_value": 28.0,
+            "signal_label": "current gameweek",
+            "chip_unavailable": false
+          },
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "Wildcard conditions: marginal. You are in a viable wildcard window (GW28). Whether to use it depends on how many squad issues you need to fix and your upcoming fixture outlook. Note: squad composition and which wildcard you still hold are not available to this system.",
+          "classification_source": null
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "chip_advice",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": {
+            "chip": "wildcard",
+            "recommendation": "conditions_marginal",
+            "gw": 28,
+            "signal_value": 28.0,
+            "signal_label": "current gameweek",
+            "chip_unavailable": false
+          },
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "final_text": "Wildcard conditions: marginal. You are in a viable wildcard window (GW28). Whether to use it depends on how many squad issues you need to fix and your upcoming fixture outlook. Note: squad composition and which wildcard you still hold are not available to this system.",
+          "classification_source": null
+        }
+      },
+      "expected": {
+        "intent": "chip_advice",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Phase 2.6c Story 1b.3: spent-chip sequencing phrasing. 'ya use' (and accented 'ya usé') added to _CHIP_ADVISORY_PHRASES. chip='wildcard' (keyword extracted from question). Advisor returns recommendation for wildcard this GW. Before the fix: unsupported_intent. After: chip_advice ok."
     }
   ]
 }
