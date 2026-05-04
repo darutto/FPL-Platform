@@ -44,6 +44,8 @@ import os
 import sys
 import subprocess
 
+_PGROUP = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _PKGS = os.path.dirname(_HERE)
 for _pkg in [
@@ -342,6 +344,7 @@ _check(f"L1 validation corpus {passed}/{total} PASS", passed == total,
 result_d4 = subprocess.run(
     [sys.executable, os.path.join(_HERE, "run_phase26d4_tests.py")],
     capture_output=True, text=True, cwd=_HERE,
+    timeout=120, creationflags=_PGROUP,
 )
 d4_line = [l for l in result_d4.stdout.splitlines() if "Phase 2.6d.4:" in l]
 if d4_line:

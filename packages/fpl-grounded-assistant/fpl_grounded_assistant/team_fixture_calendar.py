@@ -2,6 +2,7 @@
 fpl_grounded_assistant.team_fixture_calendar
 ============================================
 Phase 2.6e.1: Deterministic team fixture calendar ranking.
+Phase 2.6e.2: Explicit DGW/BGW labeling per team entry.
 
 Ranks all teams in the bootstrap by upcoming fixture difficulty over a
 bounded GW horizon.  Returns a structured, ordered list sorted either
@@ -42,9 +43,23 @@ Design rules
 * Bounded top-N output (default 5) to keep responses scannable.
 * DGW (two fixtures in one GW) handled naturally: both fixtures counted.
 
+DGW / BGW labeling  (Phase 2.6e.2)
+------------------------------------
+Each team entry now carries four additional fields:
+
+``has_dgw``        True when the team has ≥2 fixtures in any GW in the horizon.
+``has_bgw``        True when the team has 0 fixtures in a GW that other teams play.
+``dgw_gameweeks``  Sorted list of GW numbers where this team has a double fixture.
+``bgw_gameweeks``  Sorted list of GW numbers where this team blanks while others play.
+
+A GW is considered "active" (and therefore a potential BGW) when at least one team
+in ``team_fixtures`` has a fixture in that GW.  If ALL teams are blank in a GW (e.g.
+fixture data simply ends), that GW is not flagged as a BGW for any team.
+
+The scoring formula and sort order are unchanged from Phase 2.6e.1.
+
 Intentionally deferred
 -----------------------
-* DGW / BGW explicit labeling (to 2.6e.2+)
 * Single-team calendar lookup (to 2.6e.3)
 * Position-filtered calendar (to 2.6e.3)
 """
@@ -96,6 +111,77 @@ def _team_name_map(bootstrap: dict[str, Any]) -> dict[int, str]:
         int(t["id"]): str(t.get("name", f"Team {t['id']}"))
         for t in bootstrap.get("teams", [])
     }
+
+
+# ---------------------------------------------------------------------------
+# DGW / BGW classification helpers  (Phase 2.6e.2)
+# ---------------------------------------------------------------------------
+
+def _get_active_gws(
+    team_fixtures: dict,
+    current_gw: int,
+    horizon: int,
+) -> frozenset[int]:
+    """Return the set of GWs in ``[current_gw, current_gw+horizon)`` that have
+    at least one fixture from any team.
+
+    A GW absent from this set means no team data covers it — not treated as a BGW.
+    """
+    gw_end  = current_gw + horizon
+    active: set[int] = set()
+    for raw_fixtures in team_fixtures.values():
+        for f in raw_fixtures:
+            gw = int(f.get("gameweek", 0))
+            if current_gw <= gw < gw_end:
+                active.add(gw)
+    return frozenset(active)
+
+
+def _classify_team_gws(
+    team_id: int,
+    team_fixtures: dict,
+    current_gw: int,
+    horizon: int,
+    active_gws: frozenset[int],
+) -> tuple[list[int], list[int]]:
+    """Return ``(dgw_gameweeks, bgw_gameweeks)`` for *team_id* within the horizon.
+
+    Parameters
+    ----------
+    team_id:      The team's numeric id.
+    team_fixtures: Full team_fixtures dict from bootstrap.
+    current_gw:   First GW of the horizon window.
+    horizon:      Number of GWs to scan.
+    active_gws:   Set of GWs in the window that have ≥1 fixture from any team.
+                  Built once by ``_get_active_gws()`` and shared across all teams.
+
+    Returns
+    -------
+    dgw_gameweeks:
+        Sorted list of GW numbers where this team has ≥2 fixtures (DGW).
+    bgw_gameweeks:
+        Sorted list of GW numbers where this team has 0 fixtures while the GW
+        is active (BGW — other teams play but this team blanks).
+    """
+    gw_end = current_gw + horizon
+    raw    = team_fixtures.get(team_id) or team_fixtures.get(str(team_id)) or []
+
+    gw_count: dict[int, int] = {}
+    for f in raw:
+        gw = int(f.get("gameweek", 0))
+        if current_gw <= gw < gw_end:
+            gw_count[gw] = gw_count.get(gw, 0) + 1
+
+    dgw_gws: list[int] = []
+    bgw_gws: list[int] = []
+    for gw in range(current_gw, gw_end):
+        count = gw_count.get(gw, 0)
+        if count >= 2:
+            dgw_gws.append(gw)
+        elif count == 0 and gw in active_gws:
+            bgw_gws.append(gw)
+
+    return dgw_gws, bgw_gws
 
 
 # ---------------------------------------------------------------------------
@@ -190,13 +276,17 @@ def get_team_fixture_calendar(
     ``teams``            ordered list of team entries (see below)
 
     Each team entry:
-    ``rank``          1-based rank in the sorted output
-    ``team_short``    3-char abbreviation
-    ``team_name``     full team name
-    ``fixture_count`` fixtures in the horizon (> horizon possible for DGWs)
-    ``avg_fdr``       average FDR across all fixtures in horizon (float)
-    ``total_fdr``     sum of FDR values
-    ``fixtures``      per-fixture list (gameweek, opponent_short, is_home, difficulty)
+    ``rank``           1-based rank in the sorted output
+    ``team_short``     3-char abbreviation
+    ``team_name``      full team name
+    ``fixture_count``  fixtures in the horizon (> horizon possible for DGWs)
+    ``avg_fdr``        average FDR across all fixtures in horizon (float)
+    ``total_fdr``      sum of FDR values
+    ``fixtures``       per-fixture list (gameweek, opponent_short, is_home, difficulty)
+    ``has_dgw``        True if the team has ≥2 fixtures in any GW in the horizon
+    ``has_bgw``        True if the team blanks in a GW other teams play
+    ``dgw_gameweeks``  sorted list of GW numbers with double fixtures for this team
+    ``bgw_gameweeks``  sorted list of GW numbers where this team has a blank
 
     Returns — status "missing_context"
     ------------------------------------
@@ -220,21 +310,42 @@ def get_team_fixture_calendar(
     short_map  = _team_short_map(bootstrap)
     name_map   = _team_name_map(bootstrap)
 
-    # Score every team that has fixtures in the window
+    # Pre-compute active GWs once (shared by all per-team BGW checks)
+    active_gws: frozenset[int] = (
+        _get_active_gws(team_fixtures, current_gw, horizon)
+        if current_gw is not None
+        else frozenset()
+    )
+
+    # Score every team that has fixtures in the window; attach DGW/BGW labels
     scored: list[dict[str, Any]] = []
     for raw_key in team_fixtures:
         team_id = int(raw_key)
         entry   = _score_team(team_id, team_fixtures, current_gw, horizon, short_map)
         if entry is None:
             continue
+
+        # DGW/BGW classification  (Phase 2.6e.2)
+        if current_gw is not None:
+            dgw_gws, bgw_gws = _classify_team_gws(
+                team_id, team_fixtures, current_gw, horizon, active_gws
+            )
+        else:
+            dgw_gws, bgw_gws = [], []
+
         scored.append({
-            "team_id":      team_id,
-            "team_short":   short_map.get(team_id, f"T{team_id}"),
-            "team_name":    name_map.get(team_id, f"Team {team_id}"),
+            "team_id":       team_id,
+            "team_short":    short_map.get(team_id, f"T{team_id}"),
+            "team_name":     name_map.get(team_id, f"Team {team_id}"),
             "fixture_count": entry["fixture_count"],
-            "avg_fdr":      entry["avg_fdr"],
-            "total_fdr":    entry["total_fdr"],
-            "fixtures":     entry["fixtures"],
+            "avg_fdr":       entry["avg_fdr"],
+            "total_fdr":     entry["total_fdr"],
+            "fixtures":      entry["fixtures"],
+            # Phase 2.6e.2: explicit DGW/BGW labels
+            "has_dgw":       bool(dgw_gws),
+            "has_bgw":       bool(bgw_gws),
+            "dgw_gameweeks": dgw_gws,
+            "bgw_gameweeks": bgw_gws,
         })
 
     if not scored:
@@ -255,13 +366,18 @@ def get_team_fixture_calendar(
     # Build ranked output (bounded by top_n)
     teams_out = [
         {
-            "rank":          rank,
-            "team_short":    t["team_short"],
-            "team_name":     t["team_name"],
-            "fixture_count": t["fixture_count"],
-            "avg_fdr":       t["avg_fdr"],
-            "total_fdr":     t["total_fdr"],
-            "fixtures":      t["fixtures"],
+            "rank":           rank,
+            "team_short":     t["team_short"],
+            "team_name":      t["team_name"],
+            "fixture_count":  t["fixture_count"],
+            "avg_fdr":        t["avg_fdr"],
+            "total_fdr":      t["total_fdr"],
+            "fixtures":       t["fixtures"],
+            # Phase 2.6e.2: DGW/BGW labels
+            "has_dgw":        t["has_dgw"],
+            "has_bgw":        t["has_bgw"],
+            "dgw_gameweeks":  t["dgw_gameweeks"],
+            "bgw_gameweeks":  t["bgw_gameweeks"],
         }
         for rank, t in enumerate(scored[:top_n], start=1)
     ]

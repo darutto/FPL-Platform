@@ -503,6 +503,17 @@ def _render_get_team_fixture_calendar(output: dict[str, Any]) -> str:
             name  = t.get("team_name", "?")
             avg   = t.get("avg_fdr", 0.0)
             count = t.get("fixture_count", 0)
+
+            # DGW/BGW label  (Phase 2.6e.2)
+            label_parts: list[str] = []
+            dgw_gws = t.get("dgw_gameweeks", [])
+            bgw_gws = t.get("bgw_gameweeks", [])
+            if dgw_gws:
+                label_parts.append("DGW:" + ",".join(f"GW{g}" for g in dgw_gws))
+            if bgw_gws:
+                label_parts.append("BGW:" + ",".join(f"GW{g}" for g in bgw_gws))
+            label_str = (" [" + " ".join(label_parts) + "]") if label_parts else ""
+
             # Compact per-fixture summary
             fxs   = t.get("fixtures", [])
             fx_str = " ".join(
@@ -512,7 +523,7 @@ def _render_get_team_fixture_calendar(output: dict[str, Any]) -> str:
             )
             lines.append(
                 f"  {rank}. {short} ({name}) avg {avg:.1f} "
-                f"[{count} fix] — {fx_str}"
+                f"[{count} fix]{label_str} — {fx_str}"
             )
         return "\n".join(lines)
 

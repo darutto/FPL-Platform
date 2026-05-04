@@ -1,7 +1,7 @@
 {
-  "run_at": "2026-05-03T22:16:57.161916+00:00",
-  "scenario_count": 63,
-  "pass_count": 63,
+  "run_at": "2026-05-04T13:13:46.506344+00:00",
+  "scenario_count": 65,
+  "pass_count": 65,
   "fail_count": 0,
   "scenarios": [
     {
@@ -5129,7 +5129,11 @@
                     "is_home": true,
                     "difficulty": 2
                   }
-                ]
+                ],
+                "has_dgw": false,
+                "has_bgw": false,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": []
               },
               {
                 "rank": 2,
@@ -5169,7 +5173,11 @@
                     "is_home": false,
                     "difficulty": 3
                   }
-                ]
+                ],
+                "has_dgw": false,
+                "has_bgw": false,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": []
               },
               {
                 "rank": 3,
@@ -5209,7 +5217,11 @@
                     "is_home": false,
                     "difficulty": 3
                   }
-                ]
+                ],
+                "has_dgw": false,
+                "has_bgw": false,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": []
               },
               {
                 "rank": 4,
@@ -5249,7 +5261,11 @@
                     "is_home": true,
                     "difficulty": 3
                   }
-                ]
+                ],
+                "has_dgw": false,
+                "has_bgw": false,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": []
               },
               {
                 "rank": 5,
@@ -5289,7 +5305,11 @@
                     "is_home": true,
                     "difficulty": 4
                   }
-                ]
+                ],
+                "has_dgw": false,
+                "has_bgw": false,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": []
               }
             ]
           },
@@ -5356,7 +5376,11 @@
                     "is_home": true,
                     "difficulty": 2
                   }
-                ]
+                ],
+                "has_dgw": false,
+                "has_bgw": false,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": []
               },
               {
                 "rank": 2,
@@ -5396,7 +5420,11 @@
                     "is_home": false,
                     "difficulty": 3
                   }
-                ]
+                ],
+                "has_dgw": false,
+                "has_bgw": false,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": []
               },
               {
                 "rank": 3,
@@ -5436,7 +5464,11 @@
                     "is_home": false,
                     "difficulty": 3
                   }
-                ]
+                ],
+                "has_dgw": false,
+                "has_bgw": false,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": []
               },
               {
                 "rank": 4,
@@ -5476,7 +5508,11 @@
                     "is_home": true,
                     "difficulty": 3
                   }
-                ]
+                ],
+                "has_dgw": false,
+                "has_bgw": false,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": []
               },
               {
                 "rank": 5,
@@ -5516,7 +5552,11 @@
                     "is_home": true,
                     "difficulty": 4
                   }
-                ]
+                ],
+                "has_dgw": false,
+                "has_bgw": false,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": []
               }
             ]
           },
@@ -5603,7 +5643,11 @@
                     "is_home": true,
                     "difficulty": 4
                   }
-                ]
+                ],
+                "has_dgw": false,
+                "has_bgw": false,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": []
               },
               {
                 "rank": 2,
@@ -5643,7 +5687,11 @@
                     "is_home": true,
                     "difficulty": 3
                   }
-                ]
+                ],
+                "has_dgw": false,
+                "has_bgw": false,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": []
               },
               {
                 "rank": 3,
@@ -5683,7 +5731,11 @@
                     "is_home": false,
                     "difficulty": 3
                   }
-                ]
+                ],
+                "has_dgw": false,
+                "has_bgw": false,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": []
               },
               {
                 "rank": 4,
@@ -5723,7 +5775,11 @@
                     "is_home": false,
                     "difficulty": 3
                   }
-                ]
+                ],
+                "has_dgw": false,
+                "has_bgw": false,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": []
               },
               {
                 "rank": 5,
@@ -5763,7 +5819,11 @@
                     "is_home": true,
                     "difficulty": 2
                   }
-                ]
+                ],
+                "has_dgw": false,
+                "has_bgw": false,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": []
               }
             ]
           },
@@ -5830,7 +5890,11 @@
                     "is_home": true,
                     "difficulty": 4
                   }
-                ]
+                ],
+                "has_dgw": false,
+                "has_bgw": false,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": []
               },
               {
                 "rank": 2,
@@ -5870,7 +5934,11 @@
                     "is_home": true,
                     "difficulty": 3
                   }
-                ]
+                ],
+                "has_dgw": false,
+                "has_bgw": false,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": []
               },
               {
                 "rank": 3,
@@ -5910,7 +5978,11 @@
                     "is_home": false,
                     "difficulty": 3
                   }
-                ]
+                ],
+                "has_dgw": false,
+                "has_bgw": false,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": []
               },
               {
                 "rank": 4,
@@ -5950,7 +6022,11 @@
                     "is_home": false,
                     "difficulty": 3
                   }
-                ]
+                ],
+                "has_dgw": false,
+                "has_bgw": false,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": []
               },
               {
                 "rank": 5,
@@ -5990,7 +6066,11 @@
                     "is_home": true,
                     "difficulty": 2
                   }
-                ]
+                ],
+                "has_dgw": false,
+                "has_bgw": false,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": []
               }
             ]
           },
@@ -6077,7 +6157,11 @@
                     "is_home": true,
                     "difficulty": 2
                   }
-                ]
+                ],
+                "has_dgw": false,
+                "has_bgw": false,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": []
               },
               {
                 "rank": 2,
@@ -6117,7 +6201,11 @@
                     "is_home": false,
                     "difficulty": 3
                   }
-                ]
+                ],
+                "has_dgw": false,
+                "has_bgw": false,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": []
               },
               {
                 "rank": 3,
@@ -6157,7 +6245,11 @@
                     "is_home": false,
                     "difficulty": 3
                   }
-                ]
+                ],
+                "has_dgw": false,
+                "has_bgw": false,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": []
               },
               {
                 "rank": 4,
@@ -6197,7 +6289,11 @@
                     "is_home": true,
                     "difficulty": 3
                   }
-                ]
+                ],
+                "has_dgw": false,
+                "has_bgw": false,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": []
               },
               {
                 "rank": 5,
@@ -6237,7 +6333,11 @@
                     "is_home": true,
                     "difficulty": 4
                   }
-                ]
+                ],
+                "has_dgw": false,
+                "has_bgw": false,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": []
               }
             ]
           },
@@ -6304,7 +6404,11 @@
                     "is_home": true,
                     "difficulty": 2
                   }
-                ]
+                ],
+                "has_dgw": false,
+                "has_bgw": false,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": []
               },
               {
                 "rank": 2,
@@ -6344,7 +6448,11 @@
                     "is_home": false,
                     "difficulty": 3
                   }
-                ]
+                ],
+                "has_dgw": false,
+                "has_bgw": false,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": []
               },
               {
                 "rank": 3,
@@ -6384,7 +6492,11 @@
                     "is_home": false,
                     "difficulty": 3
                   }
-                ]
+                ],
+                "has_dgw": false,
+                "has_bgw": false,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": []
               },
               {
                 "rank": 4,
@@ -6424,7 +6536,11 @@
                     "is_home": true,
                     "difficulty": 3
                   }
-                ]
+                ],
+                "has_dgw": false,
+                "has_bgw": false,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": []
               },
               {
                 "rank": 5,
@@ -6464,7 +6580,11 @@
                     "is_home": true,
                     "difficulty": 4
                   }
-                ]
+                ],
+                "has_dgw": false,
+                "has_bgw": false,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": []
               }
             ]
           },
@@ -6480,6 +6600,774 @@
       "failures": [],
       "pass": true,
       "notes": "Phase 2.6e: English 'best fixtures next N gameweeks' routing. Horizon extracted as 5 from 'next 5 gameweeks'. team_calendar.mode='easiest'. Before fix: unsupported_intent. After: team_fixture_calendar ok."
+    },
+    {
+      "id": "team_calendar_dgw_labeled",
+      "family": "team_fixture_calendar",
+      "description": "DGW_BOOTSTRAP (horizon=1): all 6 teams have 2 GW28 fixtures. Every team entry must carry has_dgw=True, dgw_gameweeks=[28].",
+      "question": "mejor calendario",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "team_fixture_calendar",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "team_calendar": {
+            "mode": "easiest",
+            "horizon": 5,
+            "current_gameweek": 28,
+            "top_n": 5,
+            "teams": [
+              {
+                "rank": 1,
+                "team_short": "ARS",
+                "team_name": "Arsenal",
+                "fixture_count": 3,
+                "avg_fdr": 2.67,
+                "total_fdr": 8,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "CHE",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "TOT",
+                    "is_home": false,
+                    "difficulty": 3
+                  }
+                ],
+                "has_dgw": true,
+                "has_bgw": false,
+                "dgw_gameweeks": [
+                  28
+                ],
+                "bgw_gameweeks": []
+              },
+              {
+                "rank": 2,
+                "team_short": "LIV",
+                "team_name": "Liverpool",
+                "fixture_count": 3,
+                "avg_fdr": 2.67,
+                "total_fdr": 8,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  },
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "CHE",
+                    "is_home": false,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "MCI",
+                    "is_home": true,
+                    "difficulty": 3
+                  }
+                ],
+                "has_dgw": true,
+                "has_bgw": false,
+                "dgw_gameweeks": [
+                  28
+                ],
+                "bgw_gameweeks": []
+              },
+              {
+                "rank": 3,
+                "team_short": "CHE",
+                "team_name": "Chelsea",
+                "fixture_count": 3,
+                "avg_fdr": 3.0,
+                "total_fdr": 9,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "ARS",
+                    "is_home": false,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "LIV",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  }
+                ],
+                "has_dgw": true,
+                "has_bgw": false,
+                "dgw_gameweeks": [
+                  28
+                ],
+                "bgw_gameweeks": []
+              },
+              {
+                "rank": 4,
+                "team_short": "MCI",
+                "team_name": "Manchester City",
+                "fixture_count": 3,
+                "avg_fdr": 3.0,
+                "total_fdr": 9,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "LIV",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "TOT",
+                    "is_home": true,
+                    "difficulty": 2
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "LIV",
+                    "is_home": false,
+                    "difficulty": 4
+                  }
+                ],
+                "has_dgw": true,
+                "has_bgw": false,
+                "dgw_gameweeks": [
+                  28
+                ],
+                "bgw_gameweeks": []
+              },
+              {
+                "rank": 5,
+                "team_short": "TOT",
+                "team_name": "Tottenham Hotspur",
+                "fixture_count": 3,
+                "avg_fdr": 3.33,
+                "total_fdr": 10,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "MCI",
+                    "is_home": false,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "MUN",
+                    "is_home": false,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "CHE",
+                    "is_home": true,
+                    "difficulty": 3
+                  }
+                ],
+                "has_dgw": true,
+                "has_bgw": false,
+                "dgw_gameweeks": [
+                  28
+                ],
+                "bgw_gameweeks": []
+              }
+            ]
+          },
+          "final_text": "Teams ranked by easiest fixtures (next 5 GWs from GW28):\n  1. ARS (Arsenal) avg 2.7 [3 fix] [DGW:GW28] — GW28(CHEH/3) GW28(MUNH/2) GW29(TOTA/3)\n  2. LIV (Liverpool) avg 2.7 [3 fix] [DGW:GW28] — GW28(MUNH/2) GW28(CHEA/3) GW29(MCIH/3)\n  3. CHE (Chelsea) avg 3.0 [3 fix] [DGW:GW28] — GW28(ARSA/4) GW28(LIVH/3) GW29(MUNH/2)\n  4. MCI (Manchester City) avg 3.0 [3 fix] [DGW:GW28] — GW28(LIVH/3) GW28(TOTH/2) GW29(LIVA/4)\n  5. TOT (Tottenham Hotspur) avg 3.3 [3 fix] [DGW:GW28] — GW28(MCIA/4) GW28(MUNA/3) GW29(CHEH/3)",
+          "classification_source": null
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "team_fixture_calendar",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "team_calendar": {
+            "mode": "easiest",
+            "horizon": 5,
+            "current_gameweek": 28,
+            "top_n": 5,
+            "teams": [
+              {
+                "rank": 1,
+                "team_short": "ARS",
+                "team_name": "Arsenal",
+                "fixture_count": 3,
+                "avg_fdr": 2.67,
+                "total_fdr": 8,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "CHE",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "TOT",
+                    "is_home": false,
+                    "difficulty": 3
+                  }
+                ],
+                "has_dgw": true,
+                "has_bgw": false,
+                "dgw_gameweeks": [
+                  28
+                ],
+                "bgw_gameweeks": []
+              },
+              {
+                "rank": 2,
+                "team_short": "LIV",
+                "team_name": "Liverpool",
+                "fixture_count": 3,
+                "avg_fdr": 2.67,
+                "total_fdr": 8,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  },
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "CHE",
+                    "is_home": false,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "MCI",
+                    "is_home": true,
+                    "difficulty": 3
+                  }
+                ],
+                "has_dgw": true,
+                "has_bgw": false,
+                "dgw_gameweeks": [
+                  28
+                ],
+                "bgw_gameweeks": []
+              },
+              {
+                "rank": 3,
+                "team_short": "CHE",
+                "team_name": "Chelsea",
+                "fixture_count": 3,
+                "avg_fdr": 3.0,
+                "total_fdr": 9,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "ARS",
+                    "is_home": false,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "LIV",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  }
+                ],
+                "has_dgw": true,
+                "has_bgw": false,
+                "dgw_gameweeks": [
+                  28
+                ],
+                "bgw_gameweeks": []
+              },
+              {
+                "rank": 4,
+                "team_short": "MCI",
+                "team_name": "Manchester City",
+                "fixture_count": 3,
+                "avg_fdr": 3.0,
+                "total_fdr": 9,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "LIV",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "TOT",
+                    "is_home": true,
+                    "difficulty": 2
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "LIV",
+                    "is_home": false,
+                    "difficulty": 4
+                  }
+                ],
+                "has_dgw": true,
+                "has_bgw": false,
+                "dgw_gameweeks": [
+                  28
+                ],
+                "bgw_gameweeks": []
+              },
+              {
+                "rank": 5,
+                "team_short": "TOT",
+                "team_name": "Tottenham Hotspur",
+                "fixture_count": 3,
+                "avg_fdr": 3.33,
+                "total_fdr": 10,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "MCI",
+                    "is_home": false,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "MUN",
+                    "is_home": false,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "CHE",
+                    "is_home": true,
+                    "difficulty": 3
+                  }
+                ],
+                "has_dgw": true,
+                "has_bgw": false,
+                "dgw_gameweeks": [
+                  28
+                ],
+                "bgw_gameweeks": []
+              }
+            ]
+          },
+          "final_text": "Teams ranked by easiest fixtures (next 5 GWs from GW28):\n  1. ARS (Arsenal) avg 2.7 [3 fix] [DGW:GW28] — GW28(CHEH/3) GW28(MUNH/2) GW29(TOTA/3)\n  2. LIV (Liverpool) avg 2.7 [3 fix] [DGW:GW28] — GW28(MUNH/2) GW28(CHEA/3) GW29(MCIH/3)\n  3. CHE (Chelsea) avg 3.0 [3 fix] [DGW:GW28] — GW28(ARSA/4) GW28(LIVH/3) GW29(MUNH/2)\n  4. MCI (Manchester City) avg 3.0 [3 fix] [DGW:GW28] — GW28(LIVH/3) GW28(TOTH/2) GW29(LIVA/4)\n  5. TOT (Tottenham Hotspur) avg 3.3 [3 fix] [DGW:GW28] — GW28(MCIA/4) GW28(MUNA/3) GW29(CHEH/3)",
+          "classification_source": null
+        }
+      },
+      "expected": {
+        "intent": "team_fixture_calendar",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Phase 2.6e.2: DGW labeling. DGW_BOOTSTRAP: all teams have 2 GW28 fixtures. All teams in result must have has_dgw=True and dgw_gameweeks=[28]. Exact label values verified in run_phase26e2_tests.py."
+    },
+    {
+      "id": "team_calendar_bgw_labeled",
+      "family": "team_fixture_calendar",
+      "description": "BGW_BOOTSTRAP (horizon=2): ARS and MCI have no GW28 fixture. ARS and MCI entries must carry has_bgw=True, bgw_gameweeks=[28].",
+      "question": "mejor calendario",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "team_fixture_calendar",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "team_calendar": {
+            "mode": "easiest",
+            "horizon": 5,
+            "current_gameweek": 28,
+            "top_n": 5,
+            "teams": [
+              {
+                "rank": 1,
+                "team_short": "CHE",
+                "team_name": "Chelsea",
+                "fixture_count": 2,
+                "avg_fdr": 2.5,
+                "total_fdr": 5,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "LIV",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  }
+                ],
+                "has_dgw": false,
+                "has_bgw": true,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": [
+                  30
+                ]
+              },
+              {
+                "rank": 2,
+                "team_short": "LIV",
+                "team_name": "Liverpool",
+                "fixture_count": 2,
+                "avg_fdr": 2.5,
+                "total_fdr": 5,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "MCI",
+                    "is_home": true,
+                    "difficulty": 3
+                  }
+                ],
+                "has_dgw": false,
+                "has_bgw": true,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": [
+                  30
+                ]
+              },
+              {
+                "rank": 3,
+                "team_short": "MCI",
+                "team_name": "Manchester City",
+                "fixture_count": 2,
+                "avg_fdr": 3.0,
+                "total_fdr": 6,
+                "fixtures": [
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "LIV",
+                    "is_home": false,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  }
+                ],
+                "has_dgw": false,
+                "has_bgw": true,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": [
+                  28
+                ]
+              },
+              {
+                "rank": 4,
+                "team_short": "ARS",
+                "team_name": "Arsenal",
+                "fixture_count": 2,
+                "avg_fdr": 3.5,
+                "total_fdr": 7,
+                "fixtures": [
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "MUN",
+                    "is_home": false,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "LIV",
+                    "is_home": true,
+                    "difficulty": 4
+                  }
+                ],
+                "has_dgw": false,
+                "has_bgw": true,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": [
+                  28
+                ]
+              },
+              {
+                "rank": 5,
+                "team_short": "MUN",
+                "team_name": "Manchester Utd",
+                "fixture_count": 2,
+                "avg_fdr": 4.5,
+                "total_fdr": 9,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "LIV",
+                    "is_home": false,
+                    "difficulty": 5
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "ARS",
+                    "is_home": true,
+                    "difficulty": 4
+                  }
+                ],
+                "has_dgw": false,
+                "has_bgw": true,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": [
+                  30
+                ]
+              }
+            ]
+          },
+          "final_text": "Teams ranked by easiest fixtures (next 5 GWs from GW28):\n  1. CHE (Chelsea) avg 2.5 [2 fix] [BGW:GW30] — GW28(LIVH/3) GW29(MUNH/2)\n  2. LIV (Liverpool) avg 2.5 [2 fix] [BGW:GW30] — GW28(MUNH/2) GW29(MCIH/3)\n  3. MCI (Manchester City) avg 3.0 [2 fix] [BGW:GW28] — GW29(LIVA/4) GW30(MUNH/2)\n  4. ARS (Arsenal) avg 3.5 [2 fix] [BGW:GW28] — GW29(MUNA/3) GW30(LIVH/4)\n  5. MUN (Manchester Utd) avg 4.5 [2 fix] [BGW:GW30] — GW28(LIVA/5) GW29(ARSH/4)",
+          "classification_source": null
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "team_fixture_calendar",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "team_calendar": {
+            "mode": "easiest",
+            "horizon": 5,
+            "current_gameweek": 28,
+            "top_n": 5,
+            "teams": [
+              {
+                "rank": 1,
+                "team_short": "CHE",
+                "team_name": "Chelsea",
+                "fixture_count": 2,
+                "avg_fdr": 2.5,
+                "total_fdr": 5,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "LIV",
+                    "is_home": true,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  }
+                ],
+                "has_dgw": false,
+                "has_bgw": true,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": [
+                  30
+                ]
+              },
+              {
+                "rank": 2,
+                "team_short": "LIV",
+                "team_name": "Liverpool",
+                "fixture_count": 2,
+                "avg_fdr": 2.5,
+                "total_fdr": 5,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "MCI",
+                    "is_home": true,
+                    "difficulty": 3
+                  }
+                ],
+                "has_dgw": false,
+                "has_bgw": true,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": [
+                  30
+                ]
+              },
+              {
+                "rank": 3,
+                "team_short": "MCI",
+                "team_name": "Manchester City",
+                "fixture_count": 2,
+                "avg_fdr": 3.0,
+                "total_fdr": 6,
+                "fixtures": [
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "LIV",
+                    "is_home": false,
+                    "difficulty": 4
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "MUN",
+                    "is_home": true,
+                    "difficulty": 2
+                  }
+                ],
+                "has_dgw": false,
+                "has_bgw": true,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": [
+                  28
+                ]
+              },
+              {
+                "rank": 4,
+                "team_short": "ARS",
+                "team_name": "Arsenal",
+                "fixture_count": 2,
+                "avg_fdr": 3.5,
+                "total_fdr": 7,
+                "fixtures": [
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "MUN",
+                    "is_home": false,
+                    "difficulty": 3
+                  },
+                  {
+                    "gameweek": 30,
+                    "opponent_short": "LIV",
+                    "is_home": true,
+                    "difficulty": 4
+                  }
+                ],
+                "has_dgw": false,
+                "has_bgw": true,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": [
+                  28
+                ]
+              },
+              {
+                "rank": 5,
+                "team_short": "MUN",
+                "team_name": "Manchester Utd",
+                "fixture_count": 2,
+                "avg_fdr": 4.5,
+                "total_fdr": 9,
+                "fixtures": [
+                  {
+                    "gameweek": 28,
+                    "opponent_short": "LIV",
+                    "is_home": false,
+                    "difficulty": 5
+                  },
+                  {
+                    "gameweek": 29,
+                    "opponent_short": "ARS",
+                    "is_home": true,
+                    "difficulty": 4
+                  }
+                ],
+                "has_dgw": false,
+                "has_bgw": true,
+                "dgw_gameweeks": [],
+                "bgw_gameweeks": [
+                  30
+                ]
+              }
+            ]
+          },
+          "final_text": "Teams ranked by easiest fixtures (next 5 GWs from GW28):\n  1. CHE (Chelsea) avg 2.5 [2 fix] [BGW:GW30] — GW28(LIVH/3) GW29(MUNH/2)\n  2. LIV (Liverpool) avg 2.5 [2 fix] [BGW:GW30] — GW28(MUNH/2) GW29(MCIH/3)\n  3. MCI (Manchester City) avg 3.0 [2 fix] [BGW:GW28] — GW29(LIVA/4) GW30(MUNH/2)\n  4. ARS (Arsenal) avg 3.5 [2 fix] [BGW:GW28] — GW29(MUNA/3) GW30(LIVH/4)\n  5. MUN (Manchester Utd) avg 4.5 [2 fix] [BGW:GW30] — GW28(LIVA/5) GW29(ARSH/4)",
+          "classification_source": null
+        }
+      },
+      "expected": {
+        "intent": "team_fixture_calendar",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Phase 2.6e.2: BGW labeling. BGW_BOOTSTRAP: ARS and MCI blank GW28 while LIV/CHE/MUN play. ARS/MCI must have has_bgw=True and bgw_gameweeks containing 28. LIV/CHE/MUN must have has_bgw=False (they play GW28). Exact label values verified in run_phase26e2_tests.py."
     },
     {
       "id": "chip_wildcard_timing_antes_despues",

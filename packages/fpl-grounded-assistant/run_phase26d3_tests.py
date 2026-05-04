@@ -42,6 +42,8 @@ import subprocess
 import threading
 import time
 
+_PGROUP = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _PKGS = os.path.dirname(_HERE)
 for _pkg in [
@@ -360,6 +362,7 @@ for suite, label, pattern in [
     proc = subprocess.run(
         [sys.executable, os.path.join(_HERE, suite)],
         capture_output=True, text=True, cwd=_HERE,
+        timeout=120, creationflags=_PGROUP,
     )
     key = suite.replace("run_", "Phase ").replace("_tests.py", ":")
     match = [l for l in proc.stdout.splitlines() if key.split("/")[0].lower() in l.lower() and ":" in l]

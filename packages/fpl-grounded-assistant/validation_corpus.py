@@ -1784,6 +1784,57 @@ VALIDATION_SCENARIOS: tuple[ValidationScenario, ...] = (
     ),
 
     # ------------------------------------------------------------------
+    # 64 — Phase 2.6e.2: DGW label present when all teams have DGW:28
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="team_calendar_dgw_labeled",
+        family="team_fixture_calendar",
+        description=(
+            "DGW_BOOTSTRAP (horizon=1): all 6 teams have 2 GW28 fixtures. "
+            "Every team entry must carry has_dgw=True, dgw_gameweeks=[28]."
+        ),
+        question="mejor calendario",
+        bootstrap="dgw",
+        surfaces=("cli", "http"),
+        expected_intent="team_fixture_calendar",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_team_calendar=True,
+        notes=(
+            "Phase 2.6e.2: DGW labeling. "
+            "DGW_BOOTSTRAP: all teams have 2 GW28 fixtures. "
+            "All teams in result must have has_dgw=True and dgw_gameweeks=[28]. "
+            "Exact label values verified in run_phase26e2_tests.py."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 65 — Phase 2.6e.2: BGW label present when ARS/MCI blank GW28
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="team_calendar_bgw_labeled",
+        family="team_fixture_calendar",
+        description=(
+            "BGW_BOOTSTRAP (horizon=2): ARS and MCI have no GW28 fixture. "
+            "ARS and MCI entries must carry has_bgw=True, bgw_gameweeks=[28]."
+        ),
+        question="mejor calendario",
+        bootstrap="bgw",
+        surfaces=("cli", "http"),
+        expected_intent="team_fixture_calendar",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_team_calendar=True,
+        notes=(
+            "Phase 2.6e.2: BGW labeling. "
+            "BGW_BOOTSTRAP: ARS and MCI blank GW28 while LIV/CHE/MUN play. "
+            "ARS/MCI must have has_bgw=True and bgw_gameweeks containing 28. "
+            "LIV/CHE/MUN must have has_bgw=False (they play GW28). "
+            "Exact label values verified in run_phase26e2_tests.py."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
     # 52 — Phase 2.6c Story 1b.1: wildcard timing phrasing
     # ------------------------------------------------------------------
     ValidationScenario(

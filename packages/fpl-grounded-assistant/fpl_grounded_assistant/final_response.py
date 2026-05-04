@@ -517,6 +517,11 @@ class TeamCalendarEntry:
     avg_fdr:       float
     total_fdr:     int
     fixtures:      tuple[TeamCalendarFixture, ...]
+    # Phase 2.6e.2: DGW/BGW labels
+    has_dgw:       bool                  = field(default=False)
+    has_bgw:       bool                  = field(default=False)
+    dgw_gameweeks: tuple[int, ...]       = field(default=())
+    bgw_gameweeks: tuple[int, ...]       = field(default=())
 
 
 @dataclass(frozen=True)
@@ -1263,6 +1268,11 @@ def _extract_team_calendar_meta(ro: "dict[str, Any]") -> "TeamFixtureCalendarMet
                 avg_fdr       = float(t.get("avg_fdr", 0.0)),
                 total_fdr     = int(t.get("total_fdr", 0)),
                 fixtures      = tuple(_fx(f) for f in t.get("fixtures", [])),
+                # Phase 2.6e.2
+                has_dgw       = bool(t.get("has_dgw", False)),
+                has_bgw       = bool(t.get("has_bgw", False)),
+                dgw_gameweeks = tuple(int(g) for g in t.get("dgw_gameweeks", [])),
+                bgw_gameweeks = tuple(int(g) for g in t.get("bgw_gameweeks", [])),
             )
             for t in ro.get("teams", [])
         )

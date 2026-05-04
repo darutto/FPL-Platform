@@ -39,6 +39,8 @@ import sys
 import subprocess
 import time
 
+_PGROUP = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _PKGS = os.path.dirname(_HERE)
 for _pkg in [
@@ -229,6 +231,7 @@ for suite, label, pattern in [
     proc = subprocess.run(
         [sys.executable, os.path.join(_HERE, suite)],
         capture_output=True, text=True, cwd=_HERE,
+        timeout=120, creationflags=_PGROUP,
     )
     count_line = [l for l in proc.stdout.splitlines() if pattern in l]
     if count_line:

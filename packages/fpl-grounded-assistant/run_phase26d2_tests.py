@@ -34,6 +34,11 @@ import subprocess
 import threading
 import time
 
+# On Windows, CREATE_NEW_PROCESS_GROUP detaches child processes from the
+# parent console's Ctrl+C signal group, preventing KeyboardInterrupt from
+# propagating through nested subprocess chains (pipe-captured output).
+_PGROUP = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _PKGS = os.path.dirname(_HERE)
 for _pkg in [
@@ -404,6 +409,7 @@ _check(f"J1 validation corpus {passed}/{total} PASS", passed == total)
 result_d1 = subprocess.run(
     [sys.executable, os.path.join(_HERE, "run_phase26d1_tests.py")],
     capture_output=True, text=True, cwd=_HERE,
+    timeout=120, creationflags=_PGROUP,
 )
 last_d1 = [l for l in result_d1.stdout.splitlines() if "Phase 2.6d.1:" in l]
 if last_d1:
@@ -414,6 +420,7 @@ else:
 result_d = subprocess.run(
     [sys.executable, os.path.join(_HERE, "run_phase26d_tests.py")],
     capture_output=True, text=True, cwd=_HERE,
+    timeout=120, creationflags=_PGROUP,
 )
 last_d = [l for l in result_d.stdout.splitlines() if "Phase 2.6d:" in l]
 if last_d:

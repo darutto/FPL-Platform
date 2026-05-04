@@ -1,11 +1,11 @@
 # FPL Grounded Assistant — Validation Report
 
-Generated: 2026-05-03 22:16 UTC
+Generated: 2026-05-04 13:13 UTC
 
 ## Summary
 
-- **63 scenarios** tested
-- **63 PASS**, **0 FAIL**
+- **65 scenarios** tested
+- **65 PASS**, **0 FAIL**
 
 ## Scenario Overview
 
@@ -71,6 +71,8 @@ Generated: 2026-05-03 22:16 UTC
 | team_calendar_easiest_spanish | team_fixture_calendar | team_fixture_calendar | ok | cli, http | ✓ PASS |
 | team_calendar_hardest_english | team_fixture_calendar | team_fixture_calendar | ok | cli, http | ✓ PASS |
 | team_calendar_easiest_english_n | team_fixture_calendar | team_fixture_calendar | ok | cli, http | ✓ PASS |
+| team_calendar_dgw_labeled | team_fixture_calendar | team_fixture_calendar | ok | cli, http | ✓ PASS |
+| team_calendar_bgw_labeled | team_fixture_calendar | team_fixture_calendar | ok | cli, http | ✓ PASS |
 | chip_wildcard_timing_antes_despues | chip | chip_advice | ok | cli, http | ✓ PASS |
 | chip_bench_boost_conditional_tiene_sentido | chip | chip_advice | ok | cli, http | ✓ PASS |
 | chip_wildcard_spent_sequencing | chip | chip_advice | ok | cli, http | ✓ PASS |
@@ -955,6 +957,32 @@ Generated: 2026-05-03 22:16 UTC
 **Question:** `best fixtures next 5 gameweeks`  
 **Expected:** intent=`team_fixture_calendar` outcome=`ok` supported=`True`  
 **Notes:** Phase 2.6e: English 'best fixtures next N gameweeks' routing. Horizon extracted as 5 from 'next 5 gameweeks'. team_calendar.mode='easiest'. Before fix: unsupported_intent. After: team_fixture_calendar ok.
+
+**Surface results:**
+
+- `cli`: intent=`team_fixture_calendar` outcome=`ok` supported=`True`
+- `http`: intent=`team_fixture_calendar` outcome=`ok` supported=`True`
+
+### team_calendar_dgw_labeled  (✓ PASS)
+
+**Family:** team_fixture_calendar  
+**Description:** DGW_BOOTSTRAP (horizon=1): all 6 teams have 2 GW28 fixtures. Every team entry must carry has_dgw=True, dgw_gameweeks=[28].  
+**Question:** `mejor calendario`  
+**Expected:** intent=`team_fixture_calendar` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6e.2: DGW labeling. DGW_BOOTSTRAP: all teams have 2 GW28 fixtures. All teams in result must have has_dgw=True and dgw_gameweeks=[28]. Exact label values verified in run_phase26e2_tests.py.
+
+**Surface results:**
+
+- `cli`: intent=`team_fixture_calendar` outcome=`ok` supported=`True`
+- `http`: intent=`team_fixture_calendar` outcome=`ok` supported=`True`
+
+### team_calendar_bgw_labeled  (✓ PASS)
+
+**Family:** team_fixture_calendar  
+**Description:** BGW_BOOTSTRAP (horizon=2): ARS and MCI have no GW28 fixture. ARS and MCI entries must carry has_bgw=True, bgw_gameweeks=[28].  
+**Question:** `mejor calendario`  
+**Expected:** intent=`team_fixture_calendar` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6e.2: BGW labeling. BGW_BOOTSTRAP: ARS and MCI blank GW28 while LIV/CHE/MUN play. ARS/MCI must have has_bgw=True and bgw_gameweeks containing 28. LIV/CHE/MUN must have has_bgw=False (they play GW28). Exact label values verified in run_phase26e2_tests.py.
 
 **Surface results:**
 

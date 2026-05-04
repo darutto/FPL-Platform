@@ -648,12 +648,12 @@ def _team_calendar_meta_dict(tc: Any) -> dict[str, Any]:
         "top_n":            tc.top_n,
         "teams": [
             {
-                "rank":          t.rank,
-                "team_short":    t.team_short,
-                "team_name":     t.team_name,
-                "fixture_count": t.fixture_count,
-                "avg_fdr":       t.avg_fdr,
-                "total_fdr":     t.total_fdr,
+                "rank":           t.rank,
+                "team_short":     t.team_short,
+                "team_name":      t.team_name,
+                "fixture_count":  t.fixture_count,
+                "avg_fdr":        t.avg_fdr,
+                "total_fdr":      t.total_fdr,
                 "fixtures": [
                     {
                         "gameweek":       fx.gameweek,
@@ -663,6 +663,11 @@ def _team_calendar_meta_dict(tc: Any) -> dict[str, Any]:
                     }
                     for fx in t.fixtures
                 ],
+                # Phase 2.6e.2: DGW/BGW labels
+                "has_dgw":        t.has_dgw,
+                "has_bgw":        t.has_bgw,
+                "dgw_gameweeks":  list(t.dgw_gameweeks),
+                "bgw_gameweeks":  list(t.bgw_gameweeks),
             }
             for t in tc.teams
         ],
