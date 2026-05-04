@@ -276,6 +276,7 @@ class AskResponse(BaseModel):
     injury_list: dict[str, Any] | None = None              # Phase 2.6d
     price_changes: dict[str, Any] | None = None            # Phase 2.6d
     team_calendar: dict[str, Any] | None = None            # Phase 2.6e
+    team_schedule: dict[str, Any] | None = None            # Phase 2.6e.3
 
 
 class CreateSessionResponse(BaseModel):
@@ -324,6 +325,7 @@ class SessionAskResponse(BaseModel):
     injury_list: dict[str, Any] | None = None              # Phase 2.6d
     price_changes: dict[str, Any] | None = None            # Phase 2.6d
     team_calendar: dict[str, Any] | None = None            # Phase 2.6e
+    team_schedule: dict[str, Any] | None = None            # Phase 2.6e.3
 
 
 class ClearSessionResponse(BaseModel):
@@ -674,6 +676,32 @@ def _team_calendar_meta_dict(tc: Any) -> dict[str, Any]:
     }
 
 
+def _team_schedule_meta_dict(ts: Any) -> dict[str, Any]:
+    """Serialise a ``TeamScheduleMeta`` instance.  Phase 2.6e.3."""
+    return {
+        "team_short":       ts.team_short,
+        "team_name":        ts.team_name,
+        "horizon":          ts.horizon,
+        "current_gameweek": ts.current_gameweek,
+        "fixture_count":    ts.fixture_count,
+        "avg_fdr":          ts.avg_fdr,
+        "total_fdr":        ts.total_fdr,
+        "fixtures": [
+            {
+                "gameweek":       fx.gameweek,
+                "opponent_short": fx.opponent_short,
+                "is_home":        fx.is_home,
+                "difficulty":     fx.difficulty,
+            }
+            for fx in ts.fixtures
+        ],
+        "has_dgw":       ts.has_dgw,
+        "has_bgw":       ts.has_bgw,
+        "dgw_gameweeks": list(ts.dgw_gameweeks),
+        "bgw_gameweeks": list(ts.bgw_gameweeks),
+    }
+
+
 def _fixture_run_meta_dict(fixture_run: Any) -> dict[str, Any]:
     """Serialise a ``FixtureRunMeta`` instance to a JSON-safe dict.  Phase 7h."""
     return {
@@ -875,6 +903,10 @@ def ask(req: AskRequest) -> AskResponse:
     if r.team_calendar is not None:
         team_calendar_bundle = _team_calendar_meta_dict(r.team_calendar)
 
+    team_schedule_bundle: dict[str, Any] | None = None
+    if r.team_schedule is not None:
+        team_schedule_bundle = _team_schedule_meta_dict(r.team_schedule)
+
     return AskResponse(
         final_text=r.final_text,
         outcome=r.outcome,
@@ -897,6 +929,7 @@ def ask(req: AskRequest) -> AskResponse:
         injury_list=injury_list_bundle,
         price_changes=price_changes_bundle,
         team_calendar=team_calendar_bundle,
+        team_schedule=team_schedule_bundle,
     )
 
 
@@ -1049,6 +1082,10 @@ def session_ask(session_id: str, req: AskRequest) -> SessionAskResponse:
     if r.team_calendar is not None:
         sess_team_calendar_bundle = _team_calendar_meta_dict(r.team_calendar)
 
+    sess_team_schedule_bundle: dict[str, Any] | None = None
+    if r.team_schedule is not None:
+        sess_team_schedule_bundle = _team_schedule_meta_dict(r.team_schedule)
+
     return SessionAskResponse(
         session_id=session_id,
         final_text=r.final_text,
@@ -1073,6 +1110,7 @@ def session_ask(session_id: str, req: AskRequest) -> SessionAskResponse:
         injury_list=sess_injury_list_bundle,
         price_changes=sess_price_changes_bundle,
         team_calendar=sess_team_calendar_bundle,
+        team_schedule=sess_team_schedule_bundle,
     )
 
 

@@ -58,10 +58,15 @@ fixture data simply ends), that GW is not flagged as a BGW for any team.
 
 The scoring formula and sort order are unchanged from Phase 2.6e.1.
 
+Phase 2.6e.3: Single-team calendar lookup
+------------------------------------------
+Intent ``team_schedule`` returns one club's next N fixtures + DGW/BGW labels.
+The team is resolved from bootstrap by name / short_name / common alias.
+Uses the same scoring helpers and DGW/BGW classification logic as Phase 2.6e.1.
+
 Intentionally deferred
 -----------------------
-* Single-team calendar lookup (to 2.6e.3)
-* Position-filtered calendar (to 2.6e.3)
+* Position-filtered calendar
 """
 from __future__ import annotations
 
@@ -448,3 +453,199 @@ def _get_team_fixture_calendar_handler(
 
 
 TOOL_REGISTRY.register(TEAM_FIXTURE_CALENDAR_SPEC, _get_team_fixture_calendar_handler)
+
+
+# ===========================================================================
+# Phase 2.6e.3 — Single-team fixture schedule
+# ===========================================================================
+
+# Common team-name aliases not captured by bootstrap name / short_name alone.
+# Maps lowercase variant → lowercase target that matches a bootstrap team name
+# or short_name substring.
+_TEAM_RESOLVE_ALIASES: dict[str, str] = {
+    "spurs":                "tottenham",
+    "man city":             "manchester city",
+    "man utd":              "manchester utd",
+    "man united":           "manchester utd",
+    "manchester united":    "manchester utd",
+    "wolves":               "wolverhampton",
+    "palace":               "crystal palace",
+    "villa":                "aston villa",
+    "forest":               "nottingham",
+    "saints":               "southampton",
+    "toffees":              "everton",
+    "hammers":              "west ham",
+}
+
+
+def _resolve_team(team_query: str, bootstrap: "dict[str, Any]") -> "dict | None":
+    """Resolve a free-text team name to a bootstrap team dict.
+
+    Resolution order:
+    1. Static alias map (common nicknames / abbreviations).
+    2. Exact match on ``short_name`` (case-insensitive).
+    3. Exact match on ``name`` (case-insensitive).
+    4. Substring match on ``name`` (returns first match).
+
+    Returns the first matching bootstrap team dict, or ``None``.
+    """
+    q = team_query.lower().strip()
+    # Apply alias map before any bootstrap lookup
+    q = _TEAM_RESOLVE_ALIASES.get(q, q)
+
+    teams = bootstrap.get("teams", [])
+    # 1. Exact short_name
+    for t in teams:
+        if t.get("short_name", "").lower() == q:
+            return t
+    # 2. Exact name
+    for t in teams:
+        if t.get("name", "").lower() == q:
+            return t
+    # 3. Substring on name
+    for t in teams:
+        if q in t.get("name", "").lower():
+            return t
+    return None
+
+
+def get_team_schedule(
+    args:      "dict[str, Any]",
+    bootstrap: "dict[str, Any]",
+) -> "dict[str, Any]":
+    """Return one team's upcoming fixtures with DGW/BGW labels.
+
+    Parameters
+    ----------
+    args:
+        ``team_query`` (str)  — team name / short_name / common alias.
+        ``horizon``    (int)  — GW lookahead window (default 5, clamped 1–10).
+    bootstrap:
+        FPL bootstrap dict with ``team_fixtures`` and ``teams`` keys.
+
+    Returns — status "ok"
+    ----------------------
+    ``team_short``        3-char abbreviation
+    ``team_name``         full team name
+    ``horizon``           GW window used
+    ``current_gameweek``  current GW (None if not determinable)
+    ``fixture_count``     fixtures in window
+    ``avg_fdr``           average FDR across fixtures (2 d.p.)
+    ``total_fdr``         sum of FDR values
+    ``fixtures``          per-fixture list (gameweek, opponent_short, is_home, difficulty)
+    ``has_dgw``           True when team has ≥2 fixtures in any GW in horizon
+    ``has_bgw``           True when team blanks in a GW other teams play
+    ``dgw_gameweeks``     sorted GW numbers with double fixtures
+    ``bgw_gameweeks``     sorted GW numbers where this team has a blank
+
+    Returns — status "not_found"
+    ----------------------------
+    When no team matches ``team_query`` in bootstrap.
+
+    Returns — status "missing_context"
+    ------------------------------------
+    When ``team_fixtures`` is absent, or the matched team has no fixtures.
+    """
+    team_query = str(args.get("team_query", "")).strip()
+    horizon    = max(1, min(int(args.get("horizon", DEFAULT_HORIZON)), _MAX_HORIZON))
+
+    team_fixtures: dict = bootstrap.get("team_fixtures", {})
+    if not team_fixtures:
+        return {
+            "status":  "missing_context",
+            "message": "No team fixture schedule available (team_fixtures not in bootstrap).",
+        }
+
+    team = _resolve_team(team_query, bootstrap)
+    if team is None:
+        return {
+            "status":     "not_found",
+            "team_query": team_query,
+            "message":    f"No team found matching '{team_query}'.",
+        }
+
+    team_id   = int(team["id"])
+    short     = team.get("short_name", f"T{team_id}")
+    name      = team.get("name",       f"Team {team_id}")
+    current_gw = _get_current_gameweek(bootstrap)
+    short_map  = _team_short_map(bootstrap)
+
+    entry = _score_team(team_id, team_fixtures, current_gw, horizon, short_map)
+    if entry is None:
+        return {
+            "status":     "missing_context",
+            "team_short": short,
+            "team_name":  name,
+            "message":    (
+                f"No upcoming fixtures for {name} "
+                f"in the next {horizon} GWs."
+            ),
+        }
+
+    if current_gw is not None:
+        active_gws          = _get_active_gws(team_fixtures, current_gw, horizon)
+        dgw_gws, bgw_gws    = _classify_team_gws(
+            team_id, team_fixtures, current_gw, horizon, active_gws
+        )
+    else:
+        dgw_gws = bgw_gws = []
+
+    return {
+        "status":           "ok",
+        "team_short":       short,
+        "team_name":        name,
+        "horizon":          horizon,
+        "current_gameweek": current_gw,
+        "fixture_count":    entry["fixture_count"],
+        "avg_fdr":          entry["avg_fdr"],
+        "total_fdr":        entry["total_fdr"],
+        "fixtures":         entry["fixtures"],
+        "has_dgw":          bool(dgw_gws),
+        "has_bgw":          bool(bgw_gws),
+        "dgw_gameweeks":    dgw_gws,
+        "bgw_gameweeks":    bgw_gws,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Tool contract
+# ---------------------------------------------------------------------------
+
+TEAM_SCHEDULE_SPEC = ToolSpec(
+    name="get_team_schedule",
+    description=(
+        "Return one club's upcoming fixtures with DGW/BGW labels. "
+        "Resolves the team by name, short_name, or common alias from bootstrap. "
+        "Returns status='not_found' when no team matches the query, "
+        "status='missing_context' when fixture data is absent."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "team_query": {
+                "type":        "string",
+                "description": "Team name, short_name (e.g. 'ARS'), or alias (e.g. 'Spurs').",
+            },
+            "horizon": {
+                "type":        "integer",
+                "description": "GW lookahead window (default 5, max 10).",
+            },
+        },
+        "required": ["team_query"],
+    },
+    output_schema={
+        "type": "object",
+        "properties": {
+            "status":           {"type": "string"},
+            "team_short":       {"type": "string"},
+            "team_name":        {"type": "string"},
+            "horizon":          {"type": "integer"},
+            "current_gameweek": {"type": ["integer", "null"]},
+            "fixture_count":    {"type": "integer"},
+            "avg_fdr":          {"type": "number"},
+            "fixtures":         {"type": "array"},
+        },
+    },
+)
+
+TOOL_REGISTRY.register(TEAM_SCHEDULE_SPEC, get_team_schedule)

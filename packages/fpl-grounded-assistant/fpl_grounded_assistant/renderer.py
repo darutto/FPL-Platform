@@ -536,6 +536,59 @@ def _render_get_team_fixture_calendar(output: dict[str, Any]) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Single-team fixture schedule renderer  (Phase 2.6e.3)
+# ---------------------------------------------------------------------------
+
+def _render_get_team_schedule(output: dict[str, Any]) -> str:
+    """Render get_team_schedule output."""
+    status = output.get("status")
+    if status == "ok":
+        short   = output.get("team_short", "?")
+        name    = output.get("team_name", "?")
+        horizon = output.get("horizon", 5)
+        gw      = output.get("current_gameweek")
+        count   = output.get("fixture_count", 0)
+        avg     = output.get("avg_fdr", 0.0)
+
+        gw_label = f" from GW{gw}" if gw is not None else ""
+        header   = f"{name} ({short}) fixtures (next {horizon} GWs{gw_label}):"
+
+        label_parts: list[str] = []
+        dgw_gws = output.get("dgw_gameweeks", [])
+        bgw_gws = output.get("bgw_gameweeks", [])
+        if dgw_gws:
+            label_parts.append("DGW:" + ",".join(f"GW{g}" for g in dgw_gws))
+        if bgw_gws:
+            label_parts.append("BGW:" + ",".join(f"GW{g}" for g in bgw_gws))
+        label_str = (" [" + " ".join(label_parts) + "]") if label_parts else ""
+
+        fxs = output.get("fixtures", [])
+        if not fxs:
+            return header + " No upcoming fixtures."
+
+        fx_str = " ".join(
+            f"GW{f['gameweek']}({f['opponent_short']}{'H' if f['is_home'] else 'A'}"
+            f"/{f['difficulty']})"
+            for f in fxs
+        )
+        return (
+            f"{header}\n"
+            f"  avg FDR {avg:.1f} [{count} fixtures]{label_str}\n"
+            f"  {fx_str}"
+        )
+
+    if status == "not_found":
+        return output.get("message", "Team not found.")
+
+    if status == "missing_context":
+        return output.get("message", "Fixture schedule data not available.")
+
+    code    = output.get("code", "error")
+    message = output.get("message", "An unexpected error occurred.")
+    return f"Error ({code}): {message}"
+
+
+# ---------------------------------------------------------------------------
 # Dispatch table and public API
 # ---------------------------------------------------------------------------
 
@@ -554,6 +607,7 @@ _RENDERERS = {
     "get_injury_list":              _render_get_injury_list,            # Phase 2.6d
     "get_price_changes":            _render_get_price_changes,          # Phase 2.6d
     "get_team_fixture_calendar":    _render_get_team_fixture_calendar,  # Phase 2.6e
+    "get_team_schedule":            _render_get_team_schedule,           # Phase 2.6e.3
 }
 
 

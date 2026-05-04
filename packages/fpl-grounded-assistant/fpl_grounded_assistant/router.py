@@ -572,6 +572,60 @@ _TEAM_CALENDAR_HARDEST_KEYWORDS: tuple[str, ...] = (
 
 
 # ---------------------------------------------------------------------------
+# Single-team schedule keyword tables  (Phase 2.6e.3)
+# ---------------------------------------------------------------------------
+
+# Spanish prefix forms: "calendario del {team} ..."
+_TEAM_SCHEDULE_SPANISH_PREFIXES: tuple[str, ...] = (
+    "proximos partidos del ",
+    "proximas jornadas del ",
+    "calendario del ",
+    "partidos del ",
+    "fixtures del ",
+)
+
+# Known PL team name tokens (lowercase) for disambiguating
+# "{team} fixtures [next N]" from "{player} fixtures [next N]".
+# The value is the team_query string passed to the handler.
+# Sorted longest-first to prevent "man" matching before "man city".
+_TEAM_SCHEDULE_KNOWN_NAMES: tuple[tuple[str, str], ...] = tuple(sorted(
+    [
+        ("manchester city",    "Manchester City"),
+        ("manchester utd",     "Manchester Utd"),
+        ("manchester united",  "Manchester United"),
+        ("crystal palace",     "Crystal Palace"),
+        ("aston villa",        "Aston Villa"),
+        ("west ham",           "West Ham"),
+        ("nottingham forest",  "Nottingham Forest"),
+        ("nottm forest",       "Nottm Forest"),
+        ("man city",           "Man City"),
+        ("man united",         "Man United"),
+        ("man utd",            "Man Utd"),
+        ("arsenal",            "Arsenal"),
+        ("bournemouth",        "Bournemouth"),
+        ("brentford",          "Brentford"),
+        ("brighton",           "Brighton"),
+        ("chelsea",            "Chelsea"),
+        ("everton",            "Everton"),
+        ("fulham",             "Fulham"),
+        ("ipswich",            "Ipswich"),
+        ("leicester",          "Leicester"),
+        ("liverpool",          "Liverpool"),
+        ("newcastle",          "Newcastle"),
+        ("southampton",        "Southampton"),
+        ("tottenham",          "Tottenham"),
+        ("spurs",              "Spurs"),
+        ("wolves",             "Wolves"),
+        ("wolverhampton",      "Wolverhampton"),
+        ("forest",             "Forest"),
+        ("palace",             "Crystal Palace"),
+        ("villa",              "Aston Villa"),
+    ],
+    key=lambda x: -len(x[0]),   # longest alias checked first
+))
+
+
+# ---------------------------------------------------------------------------
 # Fixture run keyword tables  (Phase 7h)
 # ---------------------------------------------------------------------------
 
@@ -941,6 +995,71 @@ def _try_route_team_calendar(q_norm: str) -> RouteResult | None:
     return None
 
 
+def _try_route_team_schedule(q_orig: str, q_norm: str) -> "RouteResult | None":
+    """Detect a single-team fixture schedule question.
+
+    Handles three forms:
+    1. Spanish prefix: "calendario del {team} [proximas N jornadas]"
+    2. Schedule suffix/phrase: "{team} schedule [next N]"
+    3. Known-team fixtures: "{known_team} fixtures [next N]"
+       (alias dict guards against routing player-name fixture queries here)
+
+    Returns ``RouteResult(tool_name="get_team_schedule",
+    tool_args={"team_query": ..., "horizon": N})`` or ``None``.
+
+    Must be called AFTER ``_try_route_team_calendar()`` so all-team ranking
+    queries (which also contain team-related words) are not intercepted.
+    Must be called BEFORE ``_try_route_fixture_run()`` so known team names
+    like "Arsenal fixtures" are not misrouted to the player fixture tool.
+    """
+    n = _extract_n_games(q_norm)
+
+    # 1. Spanish prefix "calendario del {team} ..."
+    for prefix in _TEAM_SCHEDULE_SPANISH_PREFIXES:
+        if q_norm.startswith(prefix):
+            remainder = q_orig[len(prefix):].strip()
+            # Trim at common Spanish continuation words
+            for stop in ("próximas", "proximas", "jornadas", "semanas",
+                         "siguiente", "las ", "los "):
+                idx = remainder.lower().find(stop)
+                if idx > 0:
+                    remainder = remainder[:idx].strip().rstrip(",")
+                    break
+            if remainder:
+                return RouteResult(
+                    tool_name="get_team_schedule",
+                    tool_args={"team_query": remainder, "horizon": n},
+                )
+
+    # 2. "schedule" keyword — unambiguous team intent marker.
+    #    Match "{team} schedule [next N]" or "{team} upcoming schedule".
+    #    Use endswith or " schedule next " to avoid matching
+    #    "fixture schedule for X" (which starts with "fixture schedule").
+    if q_norm.endswith(" schedule") or " schedule next " in q_norm:
+        # Extract team as everything before " schedule"
+        idx = q_norm.find(" schedule")
+        team_part = q_orig[:idx].strip().rstrip(",") if idx > 0 else ""
+        if team_part:
+            return RouteResult(
+                tool_name="get_team_schedule",
+                tool_args={"team_query": team_part, "horizon": n},
+            )
+
+    # 3. "{known_team} fixtures [next N]" or "{known_team} upcoming [fixtures]"
+    for alias_norm, team_query in _TEAM_SCHEDULE_KNOWN_NAMES:
+        if (
+            q_norm.startswith(alias_norm + " fixture")
+            or q_norm.startswith(alias_norm + " upcoming")
+            or q_norm == alias_norm
+        ):
+            return RouteResult(
+                tool_name="get_team_schedule",
+                tool_args={"team_query": team_query, "horizon": n},
+            )
+
+    return None
+
+
 def _try_route_comparison(q_orig: str, q_norm: str) -> RouteResult | None:
     """Detect a two-player comparison question and extract both player queries.
 
@@ -1040,6 +1159,12 @@ def route(question: str) -> RouteResult | None:
     _calendar_result = _try_route_team_calendar(q_norm)
     if _calendar_result is not None:
         return _calendar_result
+
+    # ── Single-team schedule intent (Phase 2.6e.3; after team-calendar ranking,
+    #    before fixture-run — known team names are caught here, not misrouted)
+    _schedule_result = _try_route_team_schedule(q_orig, q_norm)
+    if _schedule_result is not None:
+        return _schedule_result
 
     # ── Gameweek intent ──────────────────────────────────────────────────
     if any(kw in q_norm for kw in _GAMEWEEK_KEYWORDS):

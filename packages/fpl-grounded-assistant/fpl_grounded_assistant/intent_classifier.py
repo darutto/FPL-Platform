@@ -220,6 +220,16 @@ team_fixture_calendar:
             "mejor calendario proximas 4 jornadas",
             "peores fixtures proximas 3 jornadas"
 
+team_schedule:
+  The user wants the upcoming fixtures for ONE specific club (not a ranking of all teams).
+  Canonical template: "{team_name} fixtures next {N} gameweeks"
+  Examples (English): "Arsenal fixtures next 5", "Liverpool schedule",
+            "Chelsea upcoming fixtures next 3 gameweeks",
+            "Spurs schedule next 3 gameweeks"
+  Examples (Spanish): "calendario del Arsenal proximas 4 jornadas",
+            "partidos del Liverpool proximas 5 jornadas",
+            "fixtures del Chelsea proximas 3 jornadas"
+
 unsupported:
   The question is outside the supported scope, or confidence in any supported
   intent is below 0.7.

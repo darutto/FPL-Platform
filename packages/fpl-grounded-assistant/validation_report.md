@@ -1,11 +1,11 @@
 # FPL Grounded Assistant — Validation Report
 
-Generated: 2026-05-04 13:13 UTC
+Generated: 2026-05-04 19:19 UTC
 
 ## Summary
 
-- **65 scenarios** tested
-- **65 PASS**, **0 FAIL**
+- **68 scenarios** tested
+- **68 PASS**, **0 FAIL**
 
 ## Scenario Overview
 
@@ -76,6 +76,9 @@ Generated: 2026-05-04 13:13 UTC
 | chip_wildcard_timing_antes_despues | chip | chip_advice | ok | cli, http | ✓ PASS |
 | chip_bench_boost_conditional_tiene_sentido | chip | chip_advice | ok | cli, http | ✓ PASS |
 | chip_wildcard_spent_sequencing | chip | chip_advice | ok | cli, http | ✓ PASS |
+| team_schedule_arsenal_english | team_schedule | team_schedule | ok | cli, http | ✓ PASS |
+| team_schedule_liverpool_schedule | team_schedule | team_schedule | ok | cli, http | ✓ PASS |
+| team_schedule_arsenal_spanish | team_schedule | team_schedule | ok | cli, http | ✓ PASS |
 
 ## Scenario Details
 
@@ -1033,6 +1036,45 @@ Generated: 2026-05-04 13:13 UTC
   chip.chip=`wildcard` chip.recommendation=`conditions_marginal` chip.gw=`28` chip.signal_label=`current gameweek`
 - `http`: intent=`chip_advice` outcome=`ok` supported=`True`
   chip.chip=`wildcard` chip.recommendation=`conditions_marginal` chip.gw=`28` chip.signal_label=`current gameweek`
+
+### team_schedule_arsenal_english  (✓ PASS)
+
+**Family:** team_schedule  
+**Description:** English 'Arsenal fixtures next 5' routes to team_schedule intent with team_query='Arsenal', horizon=5.  
+**Question:** `Arsenal fixtures next 5`  
+**Expected:** intent=`team_schedule` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6e.3: single-team calendar lookup. STANDARD_BOOTSTRAP team Arsenal (id=1) has 5 GW28-32 fixtures. team_schedule.team_short='ARS', fixture_count=5, avg_fdr=3.6. Before: unsupported_intent (routed to fixture_run). After: team_schedule ok.
+
+**Surface results:**
+
+- `cli`: intent=`team_schedule` outcome=`ok` supported=`True`
+- `http`: intent=`team_schedule` outcome=`ok` supported=`True`
+
+### team_schedule_liverpool_schedule  (✓ PASS)
+
+**Family:** team_schedule  
+**Description:** English 'Liverpool schedule' routes to team_schedule intent via 'schedule' keyword sentinel.  
+**Question:** `Liverpool schedule`  
+**Expected:** intent=`team_schedule` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6e.3: 'schedule' keyword is an unambiguous team-intent marker. Liverpool (id=14) has avg_fdr=2.8 over GW28-32. team_schedule.team_short='LIV', fixture_count=5. Before: unsupported_intent. After: team_schedule ok.
+
+**Surface results:**
+
+- `cli`: intent=`team_schedule` outcome=`ok` supported=`True`
+- `http`: intent=`team_schedule` outcome=`ok` supported=`True`
+
+### team_schedule_arsenal_spanish  (✓ PASS)
+
+**Family:** team_schedule  
+**Description:** Spanish 'calendario del Arsenal proximas 4 jornadas' routes to team_schedule intent with team_query='Arsenal', horizon=4.  
+**Question:** `calendario del Arsenal proximas 4 jornadas`  
+**Expected:** intent=`team_schedule` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6e.3: Spanish 'calendario del {team}' prefix pattern. Arsenal fixtures GW28-31 (horizon=4): FDR 3,3,4,5 -> avg 3.75. team_schedule.team_short='ARS', fixture_count=4, horizon=4. Before: unsupported_intent. After: team_schedule ok.
+
+**Surface results:**
+
+- `cli`: intent=`team_schedule` outcome=`ok` supported=`True`
+- `http`: intent=`team_schedule` outcome=`ok` supported=`True`
 
 ---
 

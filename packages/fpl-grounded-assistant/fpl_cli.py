@@ -400,6 +400,31 @@ def _serial_team_calendar(tc: Any) -> dict[str, Any]:
     }
 
 
+def _serial_team_schedule(ts: Any) -> dict[str, Any]:
+    return {
+        "team_short":       ts.team_short,
+        "team_name":        ts.team_name,
+        "horizon":          ts.horizon,
+        "current_gameweek": ts.current_gameweek,
+        "fixture_count":    ts.fixture_count,
+        "avg_fdr":          ts.avg_fdr,
+        "total_fdr":        ts.total_fdr,
+        "fixtures": [
+            {
+                "gameweek":       fx.gameweek,
+                "opponent_short": fx.opponent_short,
+                "is_home":        fx.is_home,
+                "difficulty":     fx.difficulty,
+            }
+            for fx in ts.fixtures
+        ],
+        "has_dgw":       ts.has_dgw,
+        "has_bgw":       ts.has_bgw,
+        "dgw_gameweeks": list(ts.dgw_gameweeks),
+        "bgw_gameweeks": list(ts.bgw_gameweeks),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Core logic  (separated from arg parsing for testability)
 # ---------------------------------------------------------------------------
@@ -482,6 +507,8 @@ def run(
             payload["price_changes"] = _serial_price_changes(r.price_changes)
         if r.team_calendar is not None:                    # Phase 2.6e
             payload["team_calendar"] = _serial_team_calendar(r.team_calendar)
+        if r.team_schedule is not None:                    # Phase 2.6e.3
+            payload["team_schedule"] = _serial_team_schedule(r.team_schedule)
         if r.sub_responses is not None:                    # Phase 6c/6d
             sub_list: list[dict[str, Any]] = []
             for sr in r.sub_responses:
@@ -596,6 +623,8 @@ def run_session(
             turn["price_changes"] = _serial_price_changes(r.price_changes)
         if r.team_calendar is not None:                    # Phase 2.6e
             turn["team_calendar"] = _serial_team_calendar(r.team_calendar)
+        if r.team_schedule is not None:                    # Phase 2.6e.3
+            turn["team_schedule"] = _serial_team_schedule(r.team_schedule)
         if r.sub_responses is not None:                    # Phase 6d
             sub_list_s: list[dict[str, Any]] = []
             for sr in r.sub_responses:

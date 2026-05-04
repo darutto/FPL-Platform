@@ -240,6 +240,7 @@ def run_cli_surface(
         "injury_list":            debug_body.get("injury_list"),       # Phase 2.6d
         "price_changes":          debug_body.get("price_changes"),     # Phase 2.6d
         "team_calendar":          debug_body.get("team_calendar"),     # Phase 2.6e
+        "team_schedule":          debug_body.get("team_schedule"),     # Phase 2.6e.3
         "final_text":             debug_body.get("final_text", output_text),
         "classification_source":  debug_bundle.get("classification_source"),
     }
@@ -304,6 +305,7 @@ def run_http_surface(
         "injury_list":            body.get("injury_list"),            # Phase 2.6d
         "price_changes":          body.get("price_changes"),          # Phase 2.6d
         "team_calendar":          body.get("team_calendar"),          # Phase 2.6e
+        "team_schedule":          body.get("team_schedule"),          # Phase 2.6e.3
         "final_text":             body.get("final_text", ""),
         "classification_source":  debug_bundle.get("classification_source"),
     }
@@ -359,6 +361,7 @@ def run_session_cli_surface(
         "injury_list":            last.get("injury_list"),            # Phase 2.6d
         "price_changes":          last.get("price_changes"),          # Phase 2.6d
         "team_calendar":          last.get("team_calendar"),          # Phase 2.6e
+        "team_schedule":          last.get("team_schedule"),          # Phase 2.6e.3
         "final_text":             last.get("final_text", ""),
         "resolver_source":        resolver_dbg.get("resolver_source"),
         "rewritten_question":     resolver_dbg.get("rewritten_question"),
@@ -451,6 +454,7 @@ def run_session_http_surface(
         "injury_list":            last_body.get("injury_list"),       # Phase 2.6d
         "price_changes":          last_body.get("price_changes"),     # Phase 2.6d
         "team_calendar":          last_body.get("team_calendar"),     # Phase 2.6e
+        "team_schedule":          last_body.get("team_schedule"),     # Phase 2.6e.3
         "final_text":             last_body.get("final_text", ""),
         "classification_source":  debug_bundle.get("classification_source"),
     }
@@ -701,6 +705,21 @@ def _check_scenario_result(
         if scenario.expected_intent != "team_fixture_calendar" and sr.get("team_calendar") is not None:
             fail("team_calendar: expected None for non-team-calendar turn")
 
+    # Phase 2.6e.3: team_schedule structured metadata
+    if scenario.expect_team_schedule:
+        ts = sr.get("team_schedule")
+        if ts is None:
+            fail("team_schedule: expected non-None, got None")
+        else:
+            for key in ("team_short", "team_name", "horizon", "fixture_count", "fixtures"):
+                if key not in ts:
+                    fail(f"team_schedule: missing key '{key}'")
+            if not isinstance(ts.get("fixtures"), list):
+                fail("team_schedule.fixtures: expected list")
+    else:
+        if scenario.expected_intent != "team_schedule" and sr.get("team_schedule") is not None:
+            fail("team_schedule: expected None for non-team-schedule turn")
+
     # Resolver source (session_cli only)
     if surface_name == "session_cli" and scenario.expected_resolver_source is not None:
         got_src = sr.get("resolver_source")
@@ -751,7 +770,8 @@ def _check_cross_surface_parity(
         for field_name in ("captain", "comparison", "captain_ranking",
                            "transfer", "chip", "fixture_run", "differential",
                            "player_form", "injury_list", "price_changes",  # Phase 2.6d
-                           "team_calendar"):                                 # Phase 2.6e
+                           "team_calendar",                                  # Phase 2.6e
+                           "team_schedule"):                                 # Phase 2.6e.3
             rv_present = ref.get(field_name) is not None
             ov_present = other.get(field_name) is not None
             if rv_present != ov_present:

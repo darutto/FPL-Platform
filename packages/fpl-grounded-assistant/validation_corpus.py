@@ -187,6 +187,7 @@ class ValidationScenario:
     expect_injury_list:       bool                         = field(default=False)   # Phase 2.6d
     expect_price_changes:     bool                         = field(default=False)   # Phase 2.6d
     expect_team_calendar:     bool                         = field(default=False)   # Phase 2.6e
+    expect_team_schedule:     bool                         = field(default=False)   # Phase 2.6e.3
     expected_resolver_source: str | None                   = field(default=None)
     classifier_stub_json:     str | None                   = field(default=None)
     notes:                    str                          = field(default="")
@@ -1907,6 +1908,82 @@ VALIDATION_SCENARIOS: tuple[ValidationScenario, ...] = (
             "chip='wildcard' (keyword extracted from question). "
             "Advisor returns recommendation for wildcard this GW. "
             "Before the fix: unsupported_intent. After: chip_advice ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 66 — Phase 2.6e.3: single-team schedule — English "fixtures next N"
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="team_schedule_arsenal_english",
+        family="team_schedule",
+        description=(
+            "English 'Arsenal fixtures next 5' routes to team_schedule "
+            "intent with team_query='Arsenal', horizon=5."
+        ),
+        question="Arsenal fixtures next 5",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="team_schedule",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_team_schedule=True,
+        notes=(
+            "Phase 2.6e.3: single-team calendar lookup. "
+            "STANDARD_BOOTSTRAP team Arsenal (id=1) has 5 GW28-32 fixtures. "
+            "team_schedule.team_short='ARS', fixture_count=5, avg_fdr=3.6. "
+            "Before: unsupported_intent (routed to fixture_run). "
+            "After: team_schedule ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 67 — Phase 2.6e.3: single-team schedule — English "schedule" keyword
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="team_schedule_liverpool_schedule",
+        family="team_schedule",
+        description=(
+            "English 'Liverpool schedule' routes to team_schedule intent "
+            "via 'schedule' keyword sentinel."
+        ),
+        question="Liverpool schedule",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="team_schedule",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_team_schedule=True,
+        notes=(
+            "Phase 2.6e.3: 'schedule' keyword is an unambiguous team-intent marker. "
+            "Liverpool (id=14) has avg_fdr=2.8 over GW28-32. "
+            "team_schedule.team_short='LIV', fixture_count=5. "
+            "Before: unsupported_intent. After: team_schedule ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 68 — Phase 2.6e.3: single-team schedule — Spanish "calendario del"
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="team_schedule_arsenal_spanish",
+        family="team_schedule",
+        description=(
+            "Spanish 'calendario del Arsenal proximas 4 jornadas' routes to "
+            "team_schedule intent with team_query='Arsenal', horizon=4."
+        ),
+        question="calendario del Arsenal proximas 4 jornadas",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="team_schedule",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_team_schedule=True,
+        notes=(
+            "Phase 2.6e.3: Spanish 'calendario del {team}' prefix pattern. "
+            "Arsenal fixtures GW28-31 (horizon=4): FDR 3,3,4,5 -> avg 3.75. "
+            "team_schedule.team_short='ARS', fixture_count=4, horizon=4. "
+            "Before: unsupported_intent. After: team_schedule ok."
         ),
     ),
 
