@@ -311,7 +311,21 @@ def _render_get_player_fixture_run(output: dict[str, Any]) -> str:
             parts.append(
                 f"GW{fx['gameweek']} {fx['opponent_short']} ({venue}) FDR {fx['difficulty']}"
             )
-        return header + " " + " · ".join(parts) if parts else header
+        result = header + " " + " · ".join(parts) if parts else header
+
+        # Phase 2.6f: append team FDR context line when available
+        ctx = output.get("team_fdr_context")
+        if ctx and parts:
+            avg   = ctx.get("avg_fdr", 0.0)
+            label = ctx.get("difficulty_label", "")
+            g_from = ctx.get("gw_from")
+            g_to   = ctx.get("gw_to")
+            gw_range = f"GW{g_from}-GW{g_to}" if g_from and g_to else ""
+            gw_clause = f" over {gw_range}" if gw_range else ""
+            article   = "an" if label[0] in "aeiou" else "a"
+            result += f" | {team} have {article} {label} run{gw_clause}, avg FDR {avg:.1f}."
+
+        return result
 
     if status in ("not_found", "ambiguous"):
         return output.get("message", "Player not found.")

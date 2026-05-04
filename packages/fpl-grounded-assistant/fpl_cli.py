@@ -242,6 +242,7 @@ def _serial_fixture_run(fixture_run: Any) -> dict[str, Any]:
     dict with keys: web_name, team_short, position, horizon,
     current_gameweek, fixtures.
     """
+    ctx = fixture_run.team_fdr_context
     return {
         "web_name":         fixture_run.web_name,
         "team_short":       fixture_run.team_short,
@@ -257,6 +258,13 @@ def _serial_fixture_run(fixture_run: Any) -> dict[str, Any]:
             }
             for fx in fixture_run.fixtures
         ],
+        # Phase 2.6f: team FDR context enrichment
+        "team_fdr_context": {
+            "avg_fdr":          ctx.avg_fdr,
+            "difficulty_label": ctx.difficulty_label,
+            "gw_from":          ctx.gw_from,
+            "gw_to":            ctx.gw_to,
+        } if ctx is not None else None,
     }
 
 

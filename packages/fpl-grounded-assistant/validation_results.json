@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-05-04T19:57:45.761354+00:00",
+  "run_at": "2026-05-04T22:13:43.439718+00:00",
   "scenario_count": 71,
   "pass_count": 71,
   "fail_count": 0,
@@ -2413,7 +2413,13 @@
                 "is_home": true,
                 "difficulty": 2
               }
-            ]
+            ],
+            "team_fdr_context": {
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "gw_from": 28,
+              "gw_to": 32
+            }
           },
           "differential": null,
           "player_form": null,
@@ -2422,7 +2428,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
-          "final_text": "Salah (LIV, MID) – next 5 fixtures from GW28: GW28 MUN (H) FDR 2 · GW29 MCI (H) FDR 3 · GW30 ARS (A) FDR 4 · GW31 CHE (A) FDR 3 · GW32 MUN (H) FDR 2",
+          "final_text": "Salah (LIV, MID) – next 5 fixtures from GW28: GW28 MUN (H) FDR 2 · GW29 MCI (H) FDR 3 · GW30 ARS (A) FDR 4 · GW31 CHE (A) FDR 3 · GW32 MUN (H) FDR 2 | LIV have an easy run over GW28-GW32, avg FDR 2.8.",
           "classification_source": null
         },
         "http": {
@@ -2473,7 +2479,13 @@
                 "is_home": true,
                 "difficulty": 2
               }
-            ]
+            ],
+            "team_fdr_context": {
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "gw_from": 28,
+              "gw_to": 32
+            }
           },
           "differential": null,
           "player_form": null,
@@ -2482,7 +2494,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
-          "final_text": "Salah (LIV, MID) – next 5 fixtures from GW28: GW28 MUN (H) FDR 2 · GW29 MCI (H) FDR 3 · GW30 ARS (A) FDR 4 · GW31 CHE (A) FDR 3 · GW32 MUN (H) FDR 2",
+          "final_text": "Salah (LIV, MID) – next 5 fixtures from GW28: GW28 MUN (H) FDR 2 · GW29 MCI (H) FDR 3 · GW30 ARS (A) FDR 4 · GW31 CHE (A) FDR 3 · GW32 MUN (H) FDR 2 | LIV have an easy run over GW28-GW32, avg FDR 2.8.",
           "classification_source": null
         }
       },
@@ -3314,7 +3326,13 @@
                 "is_home": true,
                 "difficulty": 2
               }
-            ]
+            ],
+            "team_fdr_context": {
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "gw_from": 28,
+              "gw_to": 32
+            }
           },
           "differential": null,
           "player_form": null,
@@ -3323,7 +3341,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
-          "final_text": "Salah (LIV, MID) – next 5 fixtures from GW28: GW28 MUN (H) FDR 2 · GW29 MCI (H) FDR 3 · GW30 ARS (A) FDR 4 · GW31 CHE (A) FDR 3 · GW32 MUN (H) FDR 2",
+          "final_text": "Salah (LIV, MID) – next 5 fixtures from GW28: GW28 MUN (H) FDR 2 · GW29 MCI (H) FDR 3 · GW30 ARS (A) FDR 4 · GW31 CHE (A) FDR 3 · GW32 MUN (H) FDR 2 | LIV have an easy run over GW28-GW32, avg FDR 2.8.",
           "resolver_source": "fixture_run_followup",
           "rewritten_question": "Salah fixtures",
           "classification_source": null
@@ -3375,7 +3393,13 @@
                 "is_home": true,
                 "difficulty": 2
               }
-            ]
+            ],
+            "team_fdr_context": {
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "gw_from": 28,
+              "gw_to": 32
+            }
           },
           "differential": null,
           "player_form": null,
@@ -3384,7 +3408,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
-          "final_text": "Salah (LIV, MID) – next 5 fixtures from GW28: GW28 MUN (H) FDR 2 · GW29 MCI (H) FDR 3 · GW30 ARS (A) FDR 4 · GW31 CHE (A) FDR 3 · GW32 MUN (H) FDR 2",
+          "final_text": "Salah (LIV, MID) – next 5 fixtures from GW28: GW28 MUN (H) FDR 2 · GW29 MCI (H) FDR 3 · GW30 ARS (A) FDR 4 · GW31 CHE (A) FDR 3 · GW32 MUN (H) FDR 2 | LIV have an easy run over GW28-GW32, avg FDR 2.8.",
           "classification_source": null
         }
       },

@@ -738,6 +738,7 @@ def _team_schedule_meta_dict(ts: Any) -> dict[str, Any]:
 
 def _fixture_run_meta_dict(fixture_run: Any) -> dict[str, Any]:
     """Serialise a ``FixtureRunMeta`` instance to a JSON-safe dict.  Phase 7h."""
+    ctx = fixture_run.team_fdr_context
     return {
         "web_name":         fixture_run.web_name,
         "team_short":       fixture_run.team_short,
@@ -753,6 +754,13 @@ def _fixture_run_meta_dict(fixture_run: Any) -> dict[str, Any]:
             }
             for fx in fixture_run.fixtures
         ],
+        # Phase 2.6f: team FDR context enrichment
+        "team_fdr_context": {
+            "avg_fdr":          ctx.avg_fdr,
+            "difficulty_label": ctx.difficulty_label,
+            "gw_from":          ctx.gw_from,
+            "gw_to":            ctx.gw_to,
+        } if ctx is not None else None,
     }
 
 

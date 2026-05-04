@@ -308,6 +308,19 @@ class FixtureEntry:
 
 
 @dataclass(frozen=True)
+class TeamFDRContext:
+    """Team FDR summary for a player fixture run.  Phase 2.6f.
+
+    Nested inside ``FixtureRunMeta`` when the player's team fixture data is
+    available.  ``None`` when fixtures is empty or data is absent.
+    """
+    avg_fdr:          float
+    difficulty_label: str   # "easy" | "moderate" | "hard"
+    gw_from:          int
+    gw_to:            int
+
+
+@dataclass(frozen=True)
 class FixtureRunMeta:
     """Structured fixture run output for programmatic access.
 
@@ -340,6 +353,8 @@ class FixtureRunMeta:
     horizon:          int
     current_gameweek: "int | None"
     fixtures:         tuple[FixtureEntry, ...]
+    # Phase 2.6f: team FDR enrichment (None when fixture list is empty)
+    team_fdr_context: "TeamFDRContext | None" = field(default=None)
 
 
 # ---------------------------------------------------------------------------
@@ -1166,6 +1181,15 @@ def _extract_chip_meta(ro: "dict[str, Any]") -> "ChipAdviceMeta | None":
 def _extract_fixture_run_meta(ro: "dict[str, Any]") -> "FixtureRunMeta | None":
     """Extract FixtureRunMeta from a get_player_fixture_run tool_output dict."""
     try:
+        ctx_raw = ro.get("team_fdr_context")
+        team_fdr_context: TeamFDRContext | None = None
+        if ctx_raw is not None:
+            team_fdr_context = TeamFDRContext(
+                avg_fdr          = float(ctx_raw["avg_fdr"]),
+                difficulty_label = str(ctx_raw["difficulty_label"]),
+                gw_from          = int(ctx_raw["gw_from"]),
+                gw_to            = int(ctx_raw["gw_to"]),
+            )
         return FixtureRunMeta(
             web_name         = ro.get("web_name", ""),
             team_short       = ro.get("team_short", ""),
@@ -1181,6 +1205,7 @@ def _extract_fixture_run_meta(ro: "dict[str, Any]") -> "FixtureRunMeta | None":
                 )
                 for fx in ro.get("fixtures", [])
             ),
+            team_fdr_context = team_fdr_context,
         )
     except Exception:  # noqa: BLE001
         return None

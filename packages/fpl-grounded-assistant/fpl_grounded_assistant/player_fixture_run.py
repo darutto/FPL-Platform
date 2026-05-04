@@ -95,6 +95,13 @@ from fpl_tool_runner.specs import ToolSpec
 #: Default number of upcoming fixtures to return.
 DEFAULT_HORIZON: int = 5
 
+# FDR thresholds for difficulty_label in team_fdr_context.
+# avg_fdr < _EASY_THRESHOLD  → "easy"
+# avg_fdr < _HARD_THRESHOLD  → "moderate"
+# otherwise                  → "hard"
+_EASY_THRESHOLD: float = 3.0
+_HARD_THRESHOLD: float = 3.5
+
 #: Maximum allowed horizon (bounds the output list).
 _MAX_HORIZON: int = 10
 
@@ -116,6 +123,42 @@ def _team_short_map(bootstrap: dict[str, Any]) -> dict[int, str]:
     return {
         int(t["id"]): str(t.get("short_name", f"T{t['id']}"))
         for t in bootstrap.get("teams", [])
+    }
+
+
+def _compute_team_fdr_context(
+    fixtures_out: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    """Compute avg FDR and difficulty label from a fixture list.
+
+    Returns a ``team_fdr_context`` dict or ``None`` when ``fixtures_out`` is
+    empty.  The context is independent of player position — it describes the
+    team's schedule difficulty over the returned horizon.
+
+    difficulty_label thresholds
+    ---------------------------
+    avg_fdr < 3.0  → "easy"
+    avg_fdr < 3.5  → "moderate"
+    otherwise      → "hard"
+    """
+    if not fixtures_out:
+        return None
+
+    total = sum(int(f["difficulty"]) for f in fixtures_out)
+    avg   = round(total / len(fixtures_out), 2)
+
+    if avg < _EASY_THRESHOLD:
+        label = "easy"
+    elif avg < _HARD_THRESHOLD:
+        label = "moderate"
+    else:
+        label = "hard"
+
+    return {
+        "avg_fdr":          avg,
+        "difficulty_label": label,
+        "gw_from":          int(fixtures_out[0]["gameweek"]),
+        "gw_to":            int(fixtures_out[-1]["gameweek"]),
     }
 
 
@@ -251,14 +294,15 @@ def get_player_fixture_run(
         })
 
     return {
-        "status":           "ok",
-        "query":            query,
-        "web_name":         web_name,
-        "team_short":       team_short,
-        "position":         position,
-        "horizon":          len(fixtures_out),
-        "current_gameweek": current_gw,
-        "fixtures":         fixtures_out,
+        "status":            "ok",
+        "query":             query,
+        "web_name":          web_name,
+        "team_short":        team_short,
+        "position":          position,
+        "horizon":           len(fixtures_out),
+        "current_gameweek":  current_gw,
+        "fixtures":          fixtures_out,
+        "team_fdr_context":  _compute_team_fdr_context(fixtures_out),
     }
 
 
