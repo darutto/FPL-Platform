@@ -277,6 +277,7 @@ class AskResponse(BaseModel):
     price_changes: dict[str, Any] | None = None            # Phase 2.6d
     team_calendar: dict[str, Any] | None = None            # Phase 2.6e
     team_schedule: dict[str, Any] | None = None            # Phase 2.6e.3
+    position_fixture_run: dict[str, Any] | None = None    # Phase 2.6e.4
 
 
 class CreateSessionResponse(BaseModel):
@@ -326,6 +327,7 @@ class SessionAskResponse(BaseModel):
     price_changes: dict[str, Any] | None = None            # Phase 2.6d
     team_calendar: dict[str, Any] | None = None            # Phase 2.6e
     team_schedule: dict[str, Any] | None = None            # Phase 2.6e.3
+    position_fixture_run: dict[str, Any] | None = None    # Phase 2.6e.4
 
 
 class ClearSessionResponse(BaseModel):
@@ -676,6 +678,38 @@ def _team_calendar_meta_dict(tc: Any) -> dict[str, Any]:
     }
 
 
+def _position_fixture_run_meta_dict(pf: Any) -> dict[str, Any]:
+    """Serialise a PositionFixtureRunMeta instance.  Phase 2.6e.4."""
+    return {
+        "position":         pf.position,
+        "position_label":   pf.position_label,
+        "mode":             pf.mode,
+        "horizon":          pf.horizon,
+        "current_gameweek": pf.current_gameweek,
+        "top_n":            pf.top_n,
+        "teams": [
+            {
+                "rank":           t.rank,
+                "team_short":     t.team_short,
+                "team_name":      t.team_name,
+                "fixture_count":  t.fixture_count,
+                "avg_fdr":        t.avg_fdr,
+                "total_fdr":      t.total_fdr,
+                "fixtures": [
+                    {"gameweek": fx.gameweek, "opponent_short": fx.opponent_short,
+                     "is_home": fx.is_home, "difficulty": fx.difficulty}
+                    for fx in t.fixtures
+                ],
+                "has_dgw":       t.has_dgw,
+                "has_bgw":       t.has_bgw,
+                "dgw_gameweeks": list(t.dgw_gameweeks),
+                "bgw_gameweeks": list(t.bgw_gameweeks),
+            }
+            for t in pf.teams
+        ],
+    }
+
+
 def _team_schedule_meta_dict(ts: Any) -> dict[str, Any]:
     """Serialise a ``TeamScheduleMeta`` instance.  Phase 2.6e.3."""
     return {
@@ -907,6 +941,10 @@ def ask(req: AskRequest) -> AskResponse:
     if r.team_schedule is not None:
         team_schedule_bundle = _team_schedule_meta_dict(r.team_schedule)
 
+    pos_fixture_run_bundle: dict[str, Any] | None = None
+    if r.position_fixture_run is not None:
+        pos_fixture_run_bundle = _position_fixture_run_meta_dict(r.position_fixture_run)
+
     return AskResponse(
         final_text=r.final_text,
         outcome=r.outcome,
@@ -930,6 +968,7 @@ def ask(req: AskRequest) -> AskResponse:
         price_changes=price_changes_bundle,
         team_calendar=team_calendar_bundle,
         team_schedule=team_schedule_bundle,
+        position_fixture_run=pos_fixture_run_bundle,
     )
 
 
@@ -1086,6 +1125,10 @@ def session_ask(session_id: str, req: AskRequest) -> SessionAskResponse:
     if r.team_schedule is not None:
         sess_team_schedule_bundle = _team_schedule_meta_dict(r.team_schedule)
 
+    sess_pos_fixture_run_bundle: dict[str, Any] | None = None
+    if r.position_fixture_run is not None:
+        sess_pos_fixture_run_bundle = _position_fixture_run_meta_dict(r.position_fixture_run)
+
     return SessionAskResponse(
         session_id=session_id,
         final_text=r.final_text,
@@ -1111,6 +1154,7 @@ def session_ask(session_id: str, req: AskRequest) -> SessionAskResponse:
         price_changes=sess_price_changes_bundle,
         team_calendar=sess_team_calendar_bundle,
         team_schedule=sess_team_schedule_bundle,
+        position_fixture_run=sess_pos_fixture_run_bundle,
     )
 
 

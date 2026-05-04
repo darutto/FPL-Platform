@@ -219,6 +219,7 @@ from .chip_advisor import (       # Phase 6b
 from .player_form import get_player_form              # Phase 2.6d — triggers TOOL_REGISTRY self-registration
 from .injury_list import get_injury_list              # Phase 2.6d
 from .price_changes import get_price_changes          # Phase 2.6d
+from .position_fixture_run import get_position_fixture_run  # Phase 2.6e.4 — triggers TOOL_REGISTRY self-registration
 from .team_fixture_calendar import (                  # Phase 2.6e
     get_team_fixture_calendar,
     DEFAULT_HORIZON as TEAM_CALENDAR_DEFAULT_HORIZON,

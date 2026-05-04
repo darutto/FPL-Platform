@@ -400,6 +400,35 @@ def _serial_team_calendar(tc: Any) -> dict[str, Any]:
     }
 
 
+def _serial_position_fixture_run(pf: Any) -> dict[str, Any]:
+    return {
+        "position":         pf.position,
+        "position_label":   pf.position_label,
+        "mode":             pf.mode,
+        "horizon":          pf.horizon,
+        "current_gameweek": pf.current_gameweek,
+        "top_n":            pf.top_n,
+        "teams": [
+            {
+                "rank":           t.rank,
+                "team_short":     t.team_short,
+                "team_name":      t.team_name,
+                "fixture_count":  t.fixture_count,
+                "avg_fdr":        t.avg_fdr,
+                "total_fdr":      t.total_fdr,
+                "fixtures": [{"gameweek": fx.gameweek, "opponent_short": fx.opponent_short,
+                               "is_home": fx.is_home, "difficulty": fx.difficulty}
+                              for fx in t.fixtures],
+                "has_dgw":       t.has_dgw,
+                "has_bgw":       t.has_bgw,
+                "dgw_gameweeks": list(t.dgw_gameweeks),
+                "bgw_gameweeks": list(t.bgw_gameweeks),
+            }
+            for t in pf.teams
+        ],
+    }
+
+
 def _serial_team_schedule(ts: Any) -> dict[str, Any]:
     return {
         "team_short":       ts.team_short,
@@ -509,6 +538,8 @@ def run(
             payload["team_calendar"] = _serial_team_calendar(r.team_calendar)
         if r.team_schedule is not None:                    # Phase 2.6e.3
             payload["team_schedule"] = _serial_team_schedule(r.team_schedule)
+        if r.position_fixture_run is not None:             # Phase 2.6e.4
+            payload["position_fixture_run"] = _serial_position_fixture_run(r.position_fixture_run)
         if r.sub_responses is not None:                    # Phase 6c/6d
             sub_list: list[dict[str, Any]] = []
             for sr in r.sub_responses:
@@ -625,6 +656,8 @@ def run_session(
             turn["team_calendar"] = _serial_team_calendar(r.team_calendar)
         if r.team_schedule is not None:                    # Phase 2.6e.3
             turn["team_schedule"] = _serial_team_schedule(r.team_schedule)
+        if r.position_fixture_run is not None:             # Phase 2.6e.4
+            turn["position_fixture_run"] = _serial_position_fixture_run(r.position_fixture_run)
         if r.sub_responses is not None:                    # Phase 6d
             sub_list_s: list[dict[str, Any]] = []
             for sr in r.sub_responses:

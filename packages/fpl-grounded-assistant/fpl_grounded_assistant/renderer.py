@@ -536,6 +536,62 @@ def _render_get_team_fixture_calendar(output: dict[str, Any]) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Position fixture run renderer  (Phase 2.6e.4)
+# ---------------------------------------------------------------------------
+
+def _render_get_position_fixture_run(output: dict[str, Any]) -> str:
+    """Render get_position_fixture_run output."""
+    status = output.get("status")
+    if status == "ok":
+        pos_label = output.get("position_label", output.get("position", "?"))
+        mode      = output.get("mode", "easiest")
+        horizon   = output.get("horizon", 5)
+        gw        = output.get("current_gameweek")
+        teams     = output.get("teams", [])
+        mode_word = "easiest" if mode == "easiest" else "hardest"
+        gw_label  = f" from GW{gw}" if gw is not None else ""
+        header    = (
+            f"Teams ranked by {mode_word} fixtures for {pos_label} "
+            f"(next {horizon} GWs{gw_label}):"
+        )
+        if not teams:
+            return header + " No data available."
+        lines = [header]
+        for t in teams:
+            rank  = t.get("rank", "?")
+            short = t.get("team_short", "?")
+            name  = t.get("team_name", "?")
+            avg   = t.get("avg_fdr", 0.0)
+            count = t.get("fixture_count", 0)
+            label_parts: list[str] = []
+            dgw_gws = t.get("dgw_gameweeks", [])
+            bgw_gws = t.get("bgw_gameweeks", [])
+            if dgw_gws:
+                label_parts.append("DGW:" + ",".join(f"GW{g}" for g in dgw_gws))
+            if bgw_gws:
+                label_parts.append("BGW:" + ",".join(f"GW{g}" for g in bgw_gws))
+            label_str = (" [" + " ".join(label_parts) + "]") if label_parts else ""
+            fxs    = t.get("fixtures", [])
+            fx_str = " ".join(
+                f"GW{f['gameweek']}({f['opponent_short']}{'H' if f['is_home'] else 'A'}"
+                f"/{f['difficulty']})"
+                for f in fxs
+            )
+            lines.append(
+                f"  {rank}. {short} ({name}) avg {avg:.1f} "
+                f"[{count} fix]{label_str} — {fx_str}"
+            )
+        return "\n".join(lines)
+    if status == "invalid_position":
+        return output.get("message", "Unknown position.")
+    if status == "missing_context":
+        return output.get("message", "Fixture schedule data not available.")
+    code    = output.get("code", "error")
+    message = output.get("message", "An unexpected error occurred.")
+    return f"Error ({code}): {message}"
+
+
+# ---------------------------------------------------------------------------
 # Single-team fixture schedule renderer  (Phase 2.6e.3)
 # ---------------------------------------------------------------------------
 
@@ -608,6 +664,7 @@ _RENDERERS = {
     "get_price_changes":            _render_get_price_changes,          # Phase 2.6d
     "get_team_fixture_calendar":    _render_get_team_fixture_calendar,  # Phase 2.6e
     "get_team_schedule":            _render_get_team_schedule,           # Phase 2.6e.3
+    "get_position_fixture_run":     _render_get_position_fixture_run,    # Phase 2.6e.4
 }
 
 

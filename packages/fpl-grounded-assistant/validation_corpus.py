@@ -187,7 +187,8 @@ class ValidationScenario:
     expect_injury_list:       bool                         = field(default=False)   # Phase 2.6d
     expect_price_changes:     bool                         = field(default=False)   # Phase 2.6d
     expect_team_calendar:     bool                         = field(default=False)   # Phase 2.6e
-    expect_team_schedule:     bool                         = field(default=False)   # Phase 2.6e.3
+    expect_team_schedule:          bool                    = field(default=False)   # Phase 2.6e.3
+    expect_position_fixture_run:   bool                    = field(default=False)   # Phase 2.6e.4
     expected_resolver_source: str | None                   = field(default=None)
     classifier_stub_json:     str | None                   = field(default=None)
     notes:                    str                          = field(default="")
@@ -1984,6 +1985,80 @@ VALIDATION_SCENARIOS: tuple[ValidationScenario, ...] = (
             "Arsenal fixtures GW28-31 (horizon=4): FDR 3,3,4,5 -> avg 3.75. "
             "team_schedule.team_short='ARS', fixture_count=4, horizon=4. "
             "Before: unsupported_intent. After: team_schedule ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 69 — Phase 2.6e.4: position-filtered calendar — English inline
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="position_fixture_run_defenders_english",
+        family="position_fixture_run",
+        description=(
+            "English 'defenders with best fixtures next 5 gameweeks' routes to "
+            "position_fixture_run with position='DEF', mode='easiest', horizon=5."
+        ),
+        question="defenders with best fixtures next 5 gameweeks",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="position_fixture_run",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_position_fixture_run=True,
+        notes=(
+            "Phase 2.6e.4: position-filtered calendar. "
+            "STANDARD_BOOTSTRAP: 5 teams, GW28-32. "
+            "position='DEF', position_label='defenders', mode='easiest'. "
+            "Same ranking as team_fixture_calendar easiest (Liverpool #1 avg 2.8). "
+            "Before: unsupported_intent. After: position_fixture_run ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 70 — Phase 2.6e.4: position-filtered calendar — English prefix
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="position_fixture_run_midfielders_english",
+        family="position_fixture_run",
+        description=(
+            "English 'best teams for midfielders' routes to "
+            "position_fixture_run with position='MID', mode='easiest'."
+        ),
+        question="best teams for midfielders",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="position_fixture_run",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_position_fixture_run=True,
+        notes=(
+            "Phase 2.6e.4: English prefix pattern 'best teams for {position}'. "
+            "position='MID', position_label='midfielders', mode='easiest'. "
+            "Before: unsupported_intent. After: position_fixture_run ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 71 — Phase 2.6e.4: position-filtered calendar — Spanish
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="position_fixture_run_forwards_spanish",
+        family="position_fixture_run",
+        description=(
+            "Spanish 'mejores equipos para delanteros proximas 4 jornadas' routes to "
+            "position_fixture_run with position='FWD', mode='easiest', horizon=4."
+        ),
+        question="mejores equipos para delanteros proximas 4 jornadas",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="position_fixture_run",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_position_fixture_run=True,
+        notes=(
+            "Phase 2.6e.4: Spanish 'mejores equipos para {position}' pattern. "
+            "position='FWD', position_label='forwards', mode='easiest', horizon=4. "
+            "Before: unsupported_intent. After: position_fixture_run ok."
         ),
     ),
 

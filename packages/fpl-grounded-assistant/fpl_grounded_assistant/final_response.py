@@ -72,7 +72,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from .dispatcher import OUTCOME_OK, INTENT_COMPARE_PLAYERS, INTENT_CAPTAIN_SCORE, INTENT_RANK_CANDIDATES, INTENT_MULTI_INTENT, INTENT_TRANSFER_ADVICE, INTENT_CHIP_ADVICE, INTENT_PLAYER_FIXTURE_RUN, INTENT_DIFFERENTIAL_PICKS, INTENT_PLAYER_FORM, INTENT_INJURY_LIST, INTENT_PRICE_CHANGES, INTENT_TEAM_FIXTURE_CALENDAR, INTENT_TEAM_SCHEDULE  # noqa: F401 — re-exported
+from .dispatcher import OUTCOME_OK, INTENT_COMPARE_PLAYERS, INTENT_CAPTAIN_SCORE, INTENT_RANK_CANDIDATES, INTENT_MULTI_INTENT, INTENT_TRANSFER_ADVICE, INTENT_CHIP_ADVICE, INTENT_PLAYER_FIXTURE_RUN, INTENT_DIFFERENTIAL_PICKS, INTENT_PLAYER_FORM, INTENT_INJURY_LIST, INTENT_PRICE_CHANGES, INTENT_TEAM_FIXTURE_CALENDAR, INTENT_TEAM_SCHEDULE, INTENT_POSITION_FIXTURE_RUN  # noqa: F401 — re-exported
 from .dispatcher import _TOOL_TO_INTENT, INTENT_UNSUPPORTED  # Orch-4a: tool->intent map
 from .multi_intent import detect_multi_intent
 from .llm_layer import DEFAULT_MODEL
@@ -559,6 +559,22 @@ class TeamScheduleMeta:
     bgw_gameweeks:    tuple[int, ...]    = field(default=())
 
 
+@dataclass(frozen=True)
+class PositionFixtureRunMeta:
+    """Structured position-filtered fixture calendar output.  Phase 2.6e.4.
+
+    Populated on ``FinalResponse`` when ``intent == position_fixture_run``
+    and ``outcome == ok``.  ``None`` for all other turns.
+    """
+    position:         str
+    position_label:   str
+    mode:             str
+    horizon:          int
+    current_gameweek: "int | None"
+    top_n:            int
+    teams:            tuple[TeamCalendarEntry, ...]
+
+
 # ---------------------------------------------------------------------------
 # Per-player context bundle  (Phase 5i)
 # ---------------------------------------------------------------------------
@@ -887,6 +903,7 @@ class FinalResponse:
     price_changes:   "PriceChangesMeta | None"             = field(default=None)  # Phase 2.6d
     team_calendar:   "TeamFixtureCalendarMeta | None"      = field(default=None)  # Phase 2.6e
     team_schedule:   "TeamScheduleMeta | None"             = field(default=None)  # Phase 2.6e.3
+    position_fixture_run: "PositionFixtureRunMeta | None"  = field(default=None)  # Phase 2.6e.4
 
 
 # ---------------------------------------------------------------------------
@@ -1299,6 +1316,46 @@ def _extract_team_calendar_meta(ro: "dict[str, Any]") -> "TeamFixtureCalendarMet
             for t in ro.get("teams", [])
         )
         return TeamFixtureCalendarMeta(
+            mode             = ro.get("mode", "easiest"),
+            horizon          = int(ro.get("horizon", 5)),
+            current_gameweek = ro.get("current_gameweek"),
+            top_n            = int(ro.get("top_n", 0)),
+            teams            = teams,
+        )
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _extract_position_fixture_run_meta(ro: "dict[str, Any]") -> "PositionFixtureRunMeta | None":
+    """Extract PositionFixtureRunMeta from get_position_fixture_run output.  Phase 2.6e.4."""
+    try:
+        def _fx(f: dict) -> TeamCalendarFixture:
+            return TeamCalendarFixture(
+                gameweek       = int(f.get("gameweek", 0)),
+                opponent_short = f.get("opponent_short", "?"),
+                is_home        = bool(f.get("is_home", False)),
+                difficulty     = int(f.get("difficulty", 3)),
+            )
+
+        teams = tuple(
+            TeamCalendarEntry(
+                rank          = int(t.get("rank", 0)),
+                team_short    = t.get("team_short", ""),
+                team_name     = t.get("team_name", ""),
+                fixture_count = int(t.get("fixture_count", 0)),
+                avg_fdr       = float(t.get("avg_fdr", 0.0)),
+                total_fdr     = int(t.get("total_fdr", 0)),
+                fixtures      = tuple(_fx(f) for f in t.get("fixtures", [])),
+                has_dgw       = bool(t.get("has_dgw", False)),
+                has_bgw       = bool(t.get("has_bgw", False)),
+                dgw_gameweeks = tuple(int(g) for g in t.get("dgw_gameweeks", [])),
+                bgw_gameweeks = tuple(int(g) for g in t.get("bgw_gameweeks", [])),
+            )
+            for t in ro.get("teams", [])
+        )
+        return PositionFixtureRunMeta(
+            position         = ro.get("position", ""),
+            position_label   = ro.get("position_label", ""),
             mode             = ro.get("mode", "easiest"),
             horizon          = int(ro.get("horizon", 5)),
             current_gameweek = ro.get("current_gameweek"),
@@ -1773,6 +1830,10 @@ def respond(
     if dr.intent == INTENT_TEAM_SCHEDULE and dr.outcome == OUTCOME_OK:
         team_schedule_meta = _extract_team_schedule_meta(dr.raw_output)
 
+    position_fixture_run_meta: PositionFixtureRunMeta | None = None
+    if dr.intent == INTENT_POSITION_FIXTURE_RUN and dr.outcome == OUTCOME_OK:
+        position_fixture_run_meta = _extract_position_fixture_run_meta(dr.raw_output)
+
     # Orch-4d: squad_context overrides via shared helper (Phase 8e1/8e2 semantics).
     # budget_constraint / chip_unavailable replace final_text (hard blocks).
     # hit_warning is advisory — sets flag only, final_text unchanged.
@@ -1805,4 +1866,5 @@ def respond(
         price_changes=price_changes_meta,      # Phase 2.6d
         team_calendar=team_calendar_meta,      # Phase 2.6e
         team_schedule=team_schedule_meta,      # Phase 2.6e.3
+        position_fixture_run=position_fixture_run_meta,  # Phase 2.6e.4
     )

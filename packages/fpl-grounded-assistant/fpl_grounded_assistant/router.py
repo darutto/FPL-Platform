@@ -572,6 +572,84 @@ _TEAM_CALENDAR_HARDEST_KEYWORDS: tuple[str, ...] = (
 
 
 # ---------------------------------------------------------------------------
+# Position-filtered fixture calendar tables  (Phase 2.6e.4)
+# ---------------------------------------------------------------------------
+
+# Maps lowercase position words to canonical query strings for the handler.
+_POSITION_WORDS: dict[str, str] = {
+    "goalkeeper":      "goalkeeper",  "goalkeepers":     "goalkeeper",
+    "gkp":             "goalkeeper",
+    "defender":        "defender",    "defenders":       "defender",
+    "def":             "defender",
+    "midfielder":      "midfielder",  "midfielders":     "midfielder",
+    "mid":             "midfielder",
+    "forward":         "forward",     "forwards":        "forward",
+    "striker":         "forward",     "strikers":        "forward",
+    "fwd":             "forward",
+    # Spanish
+    "portero":         "portero",     "porteros":        "portero",
+    "defensa":         "defensa",     "defensas":        "defensa",
+    "defensor":        "defensa",     "defensores":      "defensa",
+    "centrocampista":  "centrocampista", "centrocampistas": "centrocampista",
+    "mediocampista":   "centrocampista", "mediocampistas":  "centrocampista",
+    "medio":           "centrocampista", "medios":          "centrocampista",
+    "delantero":       "delantero",   "delanteros":      "delantero",
+    "atacante":        "delantero",   "atacantes":       "delantero",
+    "punta":           "delantero",   "puntas":          "delantero",
+}
+
+# Prefix patterns: "best teams for {position}", "mejores equipos para {position}"
+# Each entry is (lowercase_prefix, mode).  Sorted longest-first.
+_POSITION_CALENDAR_PREFIXES: tuple[tuple[str, str], ...] = tuple(sorted(
+    [
+        ("which teams have easiest fixtures for",  "easiest"),
+        ("which teams have best fixtures for",     "easiest"),
+        ("teams with best fixtures for",           "easiest"),
+        ("which teams have hardest fixtures for",  "hardest"),
+        ("which teams have worst fixtures for",    "hardest"),
+        ("teams with worst fixtures for",          "hardest"),
+        ("equipos con mejor calendario para",      "easiest"),
+        ("equipos con peor calendario para",       "hardest"),
+        ("easiest fixtures for",                   "easiest"),
+        ("hardest fixtures for",                   "hardest"),
+        ("best fixture run for",                   "easiest"),
+        ("worst fixture run for",                  "hardest"),
+        ("best fixtures for",                      "easiest"),
+        ("worst fixtures for",                     "hardest"),
+        ("mejor calendario para",                  "easiest"),
+        ("peor calendario para",                   "hardest"),
+        ("mejores equipos para",                   "easiest"),
+        ("peores equipos para",                    "hardest"),
+        ("mejores fixtures para",                  "easiest"),
+        ("peores fixtures para",                   "hardest"),
+        ("best teams for",                         "easiest"),
+        ("worst teams for",                        "hardest"),
+    ],
+    key=lambda x: -len(x[0]),
+))
+
+# Inline markers: "{position} with best/worst fixtures"
+_POSITION_INLINE_EASIEST: frozenset[str] = frozenset({
+    " with best fixtures",
+    " with easiest fixtures",
+    " with best upcoming fixtures",
+    " with best fixture run",
+    " con mejor calendario",
+    " con mejores fixtures",
+    " con los mejores fixtures",
+})
+_POSITION_INLINE_HARDEST: frozenset[str] = frozenset({
+    " with worst fixtures",
+    " with hardest fixtures",
+    " with worst upcoming fixtures",
+    " with worst fixture run",
+    " con peor calendario",
+    " con peores fixtures",
+    " con los peores fixtures",
+})
+
+
+# ---------------------------------------------------------------------------
 # Single-team schedule keyword tables  (Phase 2.6e.3)
 # ---------------------------------------------------------------------------
 
@@ -995,6 +1073,65 @@ def _try_route_team_calendar(q_norm: str) -> RouteResult | None:
     return None
 
 
+def _try_route_position_fixture_run(q_orig: str, q_norm: str) -> "RouteResult | None":
+    """Detect a position-filtered fixture calendar query.
+
+    Handles two forms:
+    1. Prefix: "best teams for defenders [next N]"
+    2. Inline: "defenders with best fixtures [next N]"
+
+    Returns ``RouteResult(tool_name="get_position_fixture_run", ...)`` or ``None``.
+    Must be called BEFORE ``_try_route_team_schedule`` and ``_try_route_fixture_run``.
+    """
+    n = _extract_n_games(q_norm)
+
+    # 1. Prefix patterns (longest-first due to tuple sort order)
+    for prefix_norm, mode in _POSITION_CALENDAR_PREFIXES:
+        if q_norm.startswith(prefix_norm + " ") or q_norm == prefix_norm:
+            remainder = q_norm[len(prefix_norm):].strip()
+            if not remainder:
+                continue
+            pos_token = remainder.split()[0].rstrip(".,")
+            if pos_token in _POSITION_WORDS:
+                return RouteResult(
+                    tool_name="get_position_fixture_run",
+                    tool_args={
+                        "position_query": _POSITION_WORDS[pos_token],
+                        "mode":           mode,
+                        "horizon":        n,
+                    },
+                )
+
+    # 2. Inline: "{position} with best/worst fixtures [next N]"
+    tokens = q_norm.split()
+    if tokens:
+        first = tokens[0]
+        if first in _POSITION_WORDS:
+            rest = q_norm[len(first):]
+            for marker in _POSITION_INLINE_EASIEST:
+                if rest.startswith(marker) or marker in rest:
+                    return RouteResult(
+                        tool_name="get_position_fixture_run",
+                        tool_args={
+                            "position_query": _POSITION_WORDS[first],
+                            "mode":           "easiest",
+                            "horizon":        n,
+                        },
+                    )
+            for marker in _POSITION_INLINE_HARDEST:
+                if rest.startswith(marker) or marker in rest:
+                    return RouteResult(
+                        tool_name="get_position_fixture_run",
+                        tool_args={
+                            "position_query": _POSITION_WORDS[first],
+                            "mode":           "hardest",
+                            "horizon":        n,
+                        },
+                    )
+
+    return None
+
+
 def _try_route_team_schedule(q_orig: str, q_norm: str) -> "RouteResult | None":
     """Detect a single-team fixture schedule question.
 
@@ -1150,6 +1287,13 @@ def route(question: str) -> RouteResult | None:
     _chip_result = _try_route_chip(q_norm)
     if _chip_result is not None:
         return _chip_result
+
+    # ── Position-filtered calendar intent (Phase 2.6e.4; BEFORE team-calendar so
+    #    "{position} with best fixtures next N" is not swallowed by the team-calendar
+    #    substring match "best fixtures next" which lives inside these queries)
+    _pos_result = _try_route_position_fixture_run(q_orig, q_norm)
+    if _pos_result is not None:
+        return _pos_result
 
     # ── Team fixture calendar intent (Phase 2.6e; before gameweek + fixture-run)
     #    Must precede gameweek because phrases like "best fixtures next 5 gameweeks"

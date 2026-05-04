@@ -1,11 +1,11 @@
 # FPL Grounded Assistant — Validation Report
 
-Generated: 2026-05-04 19:19 UTC
+Generated: 2026-05-04 19:57 UTC
 
 ## Summary
 
-- **68 scenarios** tested
-- **68 PASS**, **0 FAIL**
+- **71 scenarios** tested
+- **71 PASS**, **0 FAIL**
 
 ## Scenario Overview
 
@@ -79,6 +79,9 @@ Generated: 2026-05-04 19:19 UTC
 | team_schedule_arsenal_english | team_schedule | team_schedule | ok | cli, http | ✓ PASS |
 | team_schedule_liverpool_schedule | team_schedule | team_schedule | ok | cli, http | ✓ PASS |
 | team_schedule_arsenal_spanish | team_schedule | team_schedule | ok | cli, http | ✓ PASS |
+| position_fixture_run_defenders_english | position_fixture_run | position_fixture_run | ok | cli, http | ✓ PASS |
+| position_fixture_run_midfielders_english | position_fixture_run | position_fixture_run | ok | cli, http | ✓ PASS |
+| position_fixture_run_forwards_spanish | position_fixture_run | position_fixture_run | ok | cli, http | ✓ PASS |
 
 ## Scenario Details
 
@@ -1075,6 +1078,45 @@ Generated: 2026-05-04 19:19 UTC
 
 - `cli`: intent=`team_schedule` outcome=`ok` supported=`True`
 - `http`: intent=`team_schedule` outcome=`ok` supported=`True`
+
+### position_fixture_run_defenders_english  (✓ PASS)
+
+**Family:** position_fixture_run  
+**Description:** English 'defenders with best fixtures next 5 gameweeks' routes to position_fixture_run with position='DEF', mode='easiest', horizon=5.  
+**Question:** `defenders with best fixtures next 5 gameweeks`  
+**Expected:** intent=`position_fixture_run` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6e.4: position-filtered calendar. STANDARD_BOOTSTRAP: 5 teams, GW28-32. position='DEF', position_label='defenders', mode='easiest'. Same ranking as team_fixture_calendar easiest (Liverpool #1 avg 2.8). Before: unsupported_intent. After: position_fixture_run ok.
+
+**Surface results:**
+
+- `cli`: intent=`position_fixture_run` outcome=`ok` supported=`True`
+- `http`: intent=`position_fixture_run` outcome=`ok` supported=`True`
+
+### position_fixture_run_midfielders_english  (✓ PASS)
+
+**Family:** position_fixture_run  
+**Description:** English 'best teams for midfielders' routes to position_fixture_run with position='MID', mode='easiest'.  
+**Question:** `best teams for midfielders`  
+**Expected:** intent=`position_fixture_run` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6e.4: English prefix pattern 'best teams for {position}'. position='MID', position_label='midfielders', mode='easiest'. Before: unsupported_intent. After: position_fixture_run ok.
+
+**Surface results:**
+
+- `cli`: intent=`position_fixture_run` outcome=`ok` supported=`True`
+- `http`: intent=`position_fixture_run` outcome=`ok` supported=`True`
+
+### position_fixture_run_forwards_spanish  (✓ PASS)
+
+**Family:** position_fixture_run  
+**Description:** Spanish 'mejores equipos para delanteros proximas 4 jornadas' routes to position_fixture_run with position='FWD', mode='easiest', horizon=4.  
+**Question:** `mejores equipos para delanteros proximas 4 jornadas`  
+**Expected:** intent=`position_fixture_run` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6e.4: Spanish 'mejores equipos para {position}' pattern. position='FWD', position_label='forwards', mode='easiest', horizon=4. Before: unsupported_intent. After: position_fixture_run ok.
+
+**Surface results:**
+
+- `cli`: intent=`position_fixture_run` outcome=`ok` supported=`True`
+- `http`: intent=`position_fixture_run` outcome=`ok` supported=`True`
 
 ---
 

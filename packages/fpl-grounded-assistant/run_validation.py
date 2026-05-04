@@ -240,7 +240,8 @@ def run_cli_surface(
         "injury_list":            debug_body.get("injury_list"),       # Phase 2.6d
         "price_changes":          debug_body.get("price_changes"),     # Phase 2.6d
         "team_calendar":          debug_body.get("team_calendar"),     # Phase 2.6e
-        "team_schedule":          debug_body.get("team_schedule"),     # Phase 2.6e.3
+        "team_schedule":          debug_body.get("team_schedule"),          # Phase 2.6e.3
+        "position_fixture_run":   debug_body.get("position_fixture_run"),   # Phase 2.6e.4
         "final_text":             debug_body.get("final_text", output_text),
         "classification_source":  debug_bundle.get("classification_source"),
     }
@@ -305,7 +306,8 @@ def run_http_surface(
         "injury_list":            body.get("injury_list"),            # Phase 2.6d
         "price_changes":          body.get("price_changes"),          # Phase 2.6d
         "team_calendar":          body.get("team_calendar"),          # Phase 2.6e
-        "team_schedule":          body.get("team_schedule"),          # Phase 2.6e.3
+        "team_schedule":          body.get("team_schedule"),              # Phase 2.6e.3
+        "position_fixture_run":   body.get("position_fixture_run"),     # Phase 2.6e.4
         "final_text":             body.get("final_text", ""),
         "classification_source":  debug_bundle.get("classification_source"),
     }
@@ -361,7 +363,8 @@ def run_session_cli_surface(
         "injury_list":            last.get("injury_list"),            # Phase 2.6d
         "price_changes":          last.get("price_changes"),          # Phase 2.6d
         "team_calendar":          last.get("team_calendar"),          # Phase 2.6e
-        "team_schedule":          last.get("team_schedule"),          # Phase 2.6e.3
+        "team_schedule":          last.get("team_schedule"),              # Phase 2.6e.3
+        "position_fixture_run":   last.get("position_fixture_run"),     # Phase 2.6e.4
         "final_text":             last.get("final_text", ""),
         "resolver_source":        resolver_dbg.get("resolver_source"),
         "rewritten_question":     resolver_dbg.get("rewritten_question"),
@@ -454,7 +457,8 @@ def run_session_http_surface(
         "injury_list":            last_body.get("injury_list"),       # Phase 2.6d
         "price_changes":          last_body.get("price_changes"),     # Phase 2.6d
         "team_calendar":          last_body.get("team_calendar"),     # Phase 2.6e
-        "team_schedule":          last_body.get("team_schedule"),     # Phase 2.6e.3
+        "team_schedule":          last_body.get("team_schedule"),          # Phase 2.6e.3
+        "position_fixture_run":   last_body.get("position_fixture_run"), # Phase 2.6e.4
         "final_text":             last_body.get("final_text", ""),
         "classification_source":  debug_bundle.get("classification_source"),
     }
@@ -720,6 +724,21 @@ def _check_scenario_result(
         if scenario.expected_intent != "team_schedule" and sr.get("team_schedule") is not None:
             fail("team_schedule: expected None for non-team-schedule turn")
 
+    # Phase 2.6e.4: position_fixture_run structured metadata
+    if scenario.expect_position_fixture_run:
+        pf = sr.get("position_fixture_run")
+        if pf is None:
+            fail("position_fixture_run: expected non-None, got None")
+        else:
+            for key in ("position", "position_label", "mode", "horizon", "top_n", "teams"):
+                if key not in pf:
+                    fail(f"position_fixture_run: missing key '{key}'")
+            if not isinstance(pf.get("teams"), list):
+                fail("position_fixture_run.teams: expected list")
+    else:
+        if scenario.expected_intent != "position_fixture_run" and sr.get("position_fixture_run") is not None:
+            fail("position_fixture_run: expected None for non-position-fixture-run turn")
+
     # Resolver source (session_cli only)
     if surface_name == "session_cli" and scenario.expected_resolver_source is not None:
         got_src = sr.get("resolver_source")
@@ -771,7 +790,8 @@ def _check_cross_surface_parity(
                            "transfer", "chip", "fixture_run", "differential",
                            "player_form", "injury_list", "price_changes",  # Phase 2.6d
                            "team_calendar",                                  # Phase 2.6e
-                           "team_schedule"):                                 # Phase 2.6e.3
+                           "team_schedule",                                  # Phase 2.6e.3
+                           "position_fixture_run"):                          # Phase 2.6e.4
             rv_present = ref.get(field_name) is not None
             ov_present = other.get(field_name) is not None
             if rv_present != ov_present:

@@ -85,6 +85,7 @@ INTENT_INJURY_LIST:             str = "injury_list"             # Phase 2.6d
 INTENT_PRICE_CHANGES:           str = "price_changes"           # Phase 2.6d
 INTENT_TEAM_FIXTURE_CALENDAR:   str = "team_fixture_calendar"   # Phase 2.6e
 INTENT_TEAM_SCHEDULE:           str = "team_schedule"            # Phase 2.6e.3
+INTENT_POSITION_FIXTURE_RUN:    str = "position_fixture_run"     # Phase 2.6e.4
 INTENT_UNSUPPORTED:             str = "unsupported"
 
 SUPPORTED_INTENTS: frozenset[str] = frozenset({
@@ -103,6 +104,7 @@ SUPPORTED_INTENTS: frozenset[str] = frozenset({
     INTENT_PRICE_CHANGES,            # Phase 2.6d
     INTENT_TEAM_FIXTURE_CALENDAR,    # Phase 2.6e
     INTENT_TEAM_SCHEDULE,            # Phase 2.6e.3
+    INTENT_POSITION_FIXTURE_RUN,     # Phase 2.6e.4
 })
 
 
@@ -166,6 +168,7 @@ _TOOL_TO_INTENT: dict[str, str] = {
     "get_price_changes":            INTENT_PRICE_CHANGES,           # Phase 2.6d
     "get_team_fixture_calendar":    INTENT_TEAM_FIXTURE_CALENDAR,   # Phase 2.6e
     "get_team_schedule":            INTENT_TEAM_SCHEDULE,            # Phase 2.6e.3
+    "get_position_fixture_run":     INTENT_POSITION_FIXTURE_RUN,     # Phase 2.6e.4
 }
 
 
