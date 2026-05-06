@@ -1,11 +1,11 @@
 # FPL Grounded Assistant — Validation Report
 
-Generated: 2026-05-06 01:59 UTC
+Generated: 2026-05-06 22:13 UTC
 
 ## Summary
 
-- **77 scenarios** tested
-- **77 PASS**, **0 FAIL**
+- **80 scenarios** tested
+- **80 PASS**, **0 FAIL**
 
 ## Scenario Overview
 
@@ -88,6 +88,9 @@ Generated: 2026-05-06 01:59 UTC
 | transfer_suggestion_liverpool_mid | transfer_suggestion | transfer_suggestion | ok | cli, http | ✓ PASS |
 | transfer_suggestion_chelsea_mid_price | transfer_suggestion | transfer_suggestion | ok | cli, http | ✓ PASS |
 | transfer_suggestion_liverpool_mid_spanish | transfer_suggestion | transfer_suggestion | ok | cli, http | ✓ PASS |
+| transfer_suggestion_nopos_liverpool | transfer_suggestion | transfer_suggestion | ok | cli, http | ✓ PASS |
+| transfer_suggestion_nopos_arsenal_price | transfer_suggestion | transfer_suggestion | ok | cli, http | ✓ PASS |
+| transfer_suggestion_nopos_arsenal_spanish | transfer_suggestion | transfer_suggestion | ok | cli, http | ✓ PASS |
 
 ## Scenario Details
 
@@ -1196,6 +1199,45 @@ Generated: 2026-05-06 01:59 UTC
 **Question:** `centrocampistas del Liverpool para comprar`  
 **Expected:** intent=`transfer_suggestion` outcome=`ok` supported=`True`  
 **Notes:** Phase 2.6i: Spanish club-filtered transfer suggestion. 'para comprar' is a buy-intent suffix; 'del Liverpool' provides club context. Liverpool MID: Salah. transfer_suggestion.team_short='LIV'. Before: unsupported_intent. After: transfer_suggestion ok.
+
+**Surface results:**
+
+- `cli`: intent=`transfer_suggestion` outcome=`ok` supported=`True`
+- `http`: intent=`transfer_suggestion` outcome=`ok` supported=`True`
+
+### transfer_suggestion_nopos_liverpool  (✓ PASS)
+
+**Family:** transfer_suggestion  
+**Description:** English 'best Liverpool players to buy' routes to transfer_suggestion with position='ALL', team_short='LIV' (no position word in query).  
+**Question:** `best Liverpool players to buy`  
+**Expected:** intent=`transfer_suggestion` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6j: no-position club filter. Form 4: lead word 'best' + buy suffix 'to buy' + team 'Liverpool'. DIFFERENTIAL_BOOTSTRAP LIV available: Salah (MID, form 9.5). transfer_suggestion.position='ALL', team_short='LIV', picks[0]='Salah'. Before: unsupported_intent (no position word). After: transfer_suggestion ok.
+
+**Surface results:**
+
+- `cli`: intent=`transfer_suggestion` outcome=`ok` supported=`True`
+- `http`: intent=`transfer_suggestion` outcome=`ok` supported=`True`
+
+### transfer_suggestion_nopos_arsenal_price  (✓ PASS)
+
+**Family:** transfer_suggestion  
+**Description:** English 'best Arsenal players under 8' routes to transfer_suggestion with position='ALL', team_short='ARS', max_price=8.0.  
+**Question:** `best Arsenal players under 8`  
+**Expected:** intent=`transfer_suggestion` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6j: no-position club + price filter. Form 4 (C): lead word 'best' + price ceiling 8.0 + team 'Arsenal'. DIFFERENTIAL_BOOTSTRAP ARS available: Raya (GKP, 5.5m, form 6.0). transfer_suggestion.position='ALL', team_short='ARS', max_price=8.0. Before: unsupported_intent. After: transfer_suggestion ok.
+
+**Surface results:**
+
+- `cli`: intent=`transfer_suggestion` outcome=`ok` supported=`True`
+- `http`: intent=`transfer_suggestion` outcome=`ok` supported=`True`
+
+### transfer_suggestion_nopos_arsenal_spanish  (✓ PASS)
+
+**Family:** transfer_suggestion  
+**Description:** Spanish 'jugadores del Arsenal para fichar' routes to transfer_suggestion with position='ALL', team_short='ARS' (Spanish buy suffix, no position).  
+**Question:** `jugadores del Arsenal para fichar`  
+**Expected:** intent=`transfer_suggestion` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6j: Spanish no-position club filter. Form 4 (A): buy suffix 'para fichar' + team 'Arsenal'. transfer_suggestion.position='ALL', team_short='ARS', picks[0]='Raya'. Before: unsupported_intent. After: transfer_suggestion ok.
 
 **Surface results:**
 

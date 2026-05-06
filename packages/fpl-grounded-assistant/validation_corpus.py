@@ -2217,6 +2217,83 @@ VALIDATION_SCENARIOS: tuple[ValidationScenario, ...] = (
         ),
     ),
 
+    # ------------------------------------------------------------------
+    # 78 — Phase 2.6j: no-position club buy — English
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="transfer_suggestion_nopos_liverpool",
+        family="transfer_suggestion",
+        description=(
+            "English 'best Liverpool players to buy' routes to transfer_suggestion "
+            "with position='ALL', team_short='LIV' (no position word in query)."
+        ),
+        question="best Liverpool players to buy",
+        bootstrap="differential",
+        surfaces=("cli", "http"),
+        expected_intent="transfer_suggestion",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_transfer_suggestion=True,
+        notes=(
+            "Phase 2.6j: no-position club filter. "
+            "Form 4: lead word 'best' + buy suffix 'to buy' + team 'Liverpool'. "
+            "DIFFERENTIAL_BOOTSTRAP LIV available: Salah (MID, form 9.5). "
+            "transfer_suggestion.position='ALL', team_short='LIV', picks[0]='Salah'. "
+            "Before: unsupported_intent (no position word). After: transfer_suggestion ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 79 — Phase 2.6j: no-position club buy + price ceiling — English
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="transfer_suggestion_nopos_arsenal_price",
+        family="transfer_suggestion",
+        description=(
+            "English 'best Arsenal players under 8' routes to transfer_suggestion "
+            "with position='ALL', team_short='ARS', max_price=8.0."
+        ),
+        question="best Arsenal players under 8",
+        bootstrap="differential",
+        surfaces=("cli", "http"),
+        expected_intent="transfer_suggestion",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_transfer_suggestion=True,
+        notes=(
+            "Phase 2.6j: no-position club + price filter. "
+            "Form 4 (C): lead word 'best' + price ceiling 8.0 + team 'Arsenal'. "
+            "DIFFERENTIAL_BOOTSTRAP ARS available: Raya (GKP, 5.5m, form 6.0). "
+            "transfer_suggestion.position='ALL', team_short='ARS', max_price=8.0. "
+            "Before: unsupported_intent. After: transfer_suggestion ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 80 — Phase 2.6j: no-position club buy — Spanish
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="transfer_suggestion_nopos_arsenal_spanish",
+        family="transfer_suggestion",
+        description=(
+            "Spanish 'jugadores del Arsenal para fichar' routes to transfer_suggestion "
+            "with position='ALL', team_short='ARS' (Spanish buy suffix, no position)."
+        ),
+        question="jugadores del Arsenal para fichar",
+        bootstrap="differential",
+        surfaces=("cli", "http"),
+        expected_intent="transfer_suggestion",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_transfer_suggestion=True,
+        notes=(
+            "Phase 2.6j: Spanish no-position club filter. "
+            "Form 4 (A): buy suffix 'para fichar' + team 'Arsenal'. "
+            "transfer_suggestion.position='ALL', team_short='ARS', picks[0]='Raya'. "
+            "Before: unsupported_intent. After: transfer_suggestion ok."
+        ),
+    ),
+
 )
 
 

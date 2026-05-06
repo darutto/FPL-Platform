@@ -1,7 +1,7 @@
 {
-  "run_at": "2026-05-06T01:59:55.272643+00:00",
-  "scenario_count": 77,
-  "pass_count": 77,
+  "run_at": "2026-05-06T22:13:13.958237+00:00",
+  "scenario_count": 80,
+  "pass_count": 80,
   "fail_count": 0,
   "scenarios": [
     {
@@ -10699,6 +10699,342 @@
       "failures": [],
       "pass": true,
       "notes": "Phase 2.6i: Spanish club-filtered transfer suggestion. 'para comprar' is a buy-intent suffix; 'del Liverpool' provides club context. Liverpool MID: Salah. transfer_suggestion.team_short='LIV'. Before: unsupported_intent. After: transfer_suggestion ok."
+    },
+    {
+      "id": "transfer_suggestion_nopos_liverpool",
+      "family": "transfer_suggestion",
+      "description": "English 'best Liverpool players to buy' routes to transfer_suggestion with position='ALL', team_short='LIV' (no position word in query).",
+      "question": "best Liverpool players to buy",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "transfer_suggestion",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "team_calendar": null,
+          "team_schedule": null,
+          "position_fixture_run": null,
+          "transfer_suggestion": {
+            "position": "ALL",
+            "position_label": "all positions",
+            "team_short": "LIV",
+            "team_name": "Liverpool",
+            "max_price": null,
+            "horizon": 5,
+            "top_n": 1,
+            "picks": [
+              {
+                "rank": 1,
+                "web_name": "Salah",
+                "team_short": "LIV",
+                "position": "MID",
+                "now_cost": 135,
+                "now_cost_m": 13.5,
+                "form": 9.5,
+                "avg_fdr": 2.8,
+                "difficulty_label": "easy",
+                "composite_score": 3.3929,
+                "ownership": 64.1
+              }
+            ]
+          },
+          "final_text": "Top transfer targets — LIV all positions (next 5 GWs):\n  1. Salah (LIV, MID) £13.5m | form 9.5 | avg FDR 2.8 (easy) | 64.1% owned",
+          "classification_source": null
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "transfer_suggestion",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "team_calendar": null,
+          "team_schedule": null,
+          "position_fixture_run": null,
+          "transfer_suggestion": {
+            "position": "ALL",
+            "position_label": "all positions",
+            "team_short": "LIV",
+            "team_name": "Liverpool",
+            "max_price": null,
+            "horizon": 5,
+            "top_n": 1,
+            "picks": [
+              {
+                "rank": 1,
+                "web_name": "Salah",
+                "team_short": "LIV",
+                "position": "MID",
+                "now_cost": 135,
+                "now_cost_m": 13.5,
+                "form": 9.5,
+                "avg_fdr": 2.8,
+                "difficulty_label": "easy",
+                "composite_score": 3.3929,
+                "ownership": 64.1
+              }
+            ]
+          },
+          "final_text": "Top transfer targets — LIV all positions (next 5 GWs):\n  1. Salah (LIV, MID) £13.5m | form 9.5 | avg FDR 2.8 (easy) | 64.1% owned",
+          "classification_source": null
+        }
+      },
+      "expected": {
+        "intent": "transfer_suggestion",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Phase 2.6j: no-position club filter. Form 4: lead word 'best' + buy suffix 'to buy' + team 'Liverpool'. DIFFERENTIAL_BOOTSTRAP LIV available: Salah (MID, form 9.5). transfer_suggestion.position='ALL', team_short='LIV', picks[0]='Salah'. Before: unsupported_intent (no position word). After: transfer_suggestion ok."
+    },
+    {
+      "id": "transfer_suggestion_nopos_arsenal_price",
+      "family": "transfer_suggestion",
+      "description": "English 'best Arsenal players under 8' routes to transfer_suggestion with position='ALL', team_short='ARS', max_price=8.0.",
+      "question": "best Arsenal players under 8",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "transfer_suggestion",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "team_calendar": null,
+          "team_schedule": null,
+          "position_fixture_run": null,
+          "transfer_suggestion": {
+            "position": "ALL",
+            "position_label": "all positions",
+            "team_short": "ARS",
+            "team_name": "Arsenal",
+            "max_price": 8.0,
+            "horizon": 5,
+            "top_n": 1,
+            "picks": [
+              {
+                "rank": 1,
+                "web_name": "Raya",
+                "team_short": "ARS",
+                "position": "GKP",
+                "now_cost": 55,
+                "now_cost_m": 5.5,
+                "form": 6.0,
+                "avg_fdr": 3.6,
+                "difficulty_label": "hard",
+                "composite_score": 1.6667,
+                "ownership": 22.0
+              }
+            ]
+          },
+          "final_text": "Top transfer targets — ARS all positions under £8.0m (next 5 GWs):\n  1. Raya (ARS, GKP) £5.5m | form 6.0 | avg FDR 3.6 (hard) | 22.0% owned",
+          "classification_source": null
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "transfer_suggestion",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "team_calendar": null,
+          "team_schedule": null,
+          "position_fixture_run": null,
+          "transfer_suggestion": {
+            "position": "ALL",
+            "position_label": "all positions",
+            "team_short": "ARS",
+            "team_name": "Arsenal",
+            "max_price": 8.0,
+            "horizon": 5,
+            "top_n": 1,
+            "picks": [
+              {
+                "rank": 1,
+                "web_name": "Raya",
+                "team_short": "ARS",
+                "position": "GKP",
+                "now_cost": 55,
+                "now_cost_m": 5.5,
+                "form": 6.0,
+                "avg_fdr": 3.6,
+                "difficulty_label": "hard",
+                "composite_score": 1.6667,
+                "ownership": 22.0
+              }
+            ]
+          },
+          "final_text": "Top transfer targets — ARS all positions under £8.0m (next 5 GWs):\n  1. Raya (ARS, GKP) £5.5m | form 6.0 | avg FDR 3.6 (hard) | 22.0% owned",
+          "classification_source": null
+        }
+      },
+      "expected": {
+        "intent": "transfer_suggestion",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Phase 2.6j: no-position club + price filter. Form 4 (C): lead word 'best' + price ceiling 8.0 + team 'Arsenal'. DIFFERENTIAL_BOOTSTRAP ARS available: Raya (GKP, 5.5m, form 6.0). transfer_suggestion.position='ALL', team_short='ARS', max_price=8.0. Before: unsupported_intent. After: transfer_suggestion ok."
+    },
+    {
+      "id": "transfer_suggestion_nopos_arsenal_spanish",
+      "family": "transfer_suggestion",
+      "description": "Spanish 'jugadores del Arsenal para fichar' routes to transfer_suggestion with position='ALL', team_short='ARS' (Spanish buy suffix, no position).",
+      "question": "jugadores del Arsenal para fichar",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "transfer_suggestion",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "team_calendar": null,
+          "team_schedule": null,
+          "position_fixture_run": null,
+          "transfer_suggestion": {
+            "position": "ALL",
+            "position_label": "all positions",
+            "team_short": "ARS",
+            "team_name": "Arsenal",
+            "max_price": null,
+            "horizon": 5,
+            "top_n": 1,
+            "picks": [
+              {
+                "rank": 1,
+                "web_name": "Raya",
+                "team_short": "ARS",
+                "position": "GKP",
+                "now_cost": 55,
+                "now_cost_m": 5.5,
+                "form": 6.0,
+                "avg_fdr": 3.6,
+                "difficulty_label": "hard",
+                "composite_score": 1.6667,
+                "ownership": 22.0
+              }
+            ]
+          },
+          "final_text": "Top transfer targets — ARS all positions (next 5 GWs):\n  1. Raya (ARS, GKP) £5.5m | form 6.0 | avg FDR 3.6 (hard) | 22.0% owned",
+          "classification_source": null
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "transfer_suggestion",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "team_calendar": null,
+          "team_schedule": null,
+          "position_fixture_run": null,
+          "transfer_suggestion": {
+            "position": "ALL",
+            "position_label": "all positions",
+            "team_short": "ARS",
+            "team_name": "Arsenal",
+            "max_price": null,
+            "horizon": 5,
+            "top_n": 1,
+            "picks": [
+              {
+                "rank": 1,
+                "web_name": "Raya",
+                "team_short": "ARS",
+                "position": "GKP",
+                "now_cost": 55,
+                "now_cost_m": 5.5,
+                "form": 6.0,
+                "avg_fdr": 3.6,
+                "difficulty_label": "hard",
+                "composite_score": 1.6667,
+                "ownership": 22.0
+              }
+            ]
+          },
+          "final_text": "Top transfer targets — ARS all positions (next 5 GWs):\n  1. Raya (ARS, GKP) £5.5m | form 6.0 | avg FDR 3.6 (hard) | 22.0% owned",
+          "classification_source": null
+        }
+      },
+      "expected": {
+        "intent": "transfer_suggestion",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Phase 2.6j: Spanish no-position club filter. Form 4 (A): buy suffix 'para fichar' + team 'Arsenal'. transfer_suggestion.position='ALL', team_short='ARS', picks[0]='Raya'. Before: unsupported_intent. After: transfer_suggestion ok."
     }
   ]
 }

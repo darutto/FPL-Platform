@@ -1257,6 +1257,39 @@ def _try_route_transfer_suggestion(q_orig: str, q_norm: str) -> "RouteResult | N
                         )
                 break   # position found but no buy suffix — not a buy query
 
+    # 4. No-position club-filtered buy query (Phase 2.6j).
+    #    Fires when a known team token is present and buy intent can be inferred:
+    #      A) explicit buy suffix (e.g. "to buy", "para fichar"), or
+    #      B) explicit buy prefix (e.g. "who should I buy"), or
+    #      C) lead word + price ceiling ("best Arsenal players under 8").
+    #    Forms 1-3 have already exhausted all position-bearing paths, so reaching
+    #    here means no position word was found — position defaults to ALL.
+    #
+    #    Collision-safe:
+    #    * Team schedule fires before this and claims "{team} schedule" phrases.
+    #    * "best teams for {pos}" → position_fixture_run (fired even earlier).
+    #    * No buy suffix/prefix in fixture phrases → condition never met for them.
+    #    * Differential keywords ("differentials") do not contain team tokens.
+    team_token = _extract_team_token(q_norm)
+    if team_token:
+        has_buy_suffix = any(suffix in q_norm for suffix in _BUY_SUFFIXES)
+        has_buy_prefix = any(q_norm.startswith(pfx) for pfx in _TRANSFER_SUGGESTION_PREFIXES)
+        has_lead_price = (
+            bool(tokens)
+            and tokens[0] in _TRANSFER_SUGGESTION_LEAD_WORDS
+            and max_price is not None
+        )
+        if has_buy_suffix or has_buy_prefix or has_lead_price:
+            return RouteResult(
+                tool_name="get_transfer_suggestion",
+                tool_args={
+                    "position_query": None,
+                    "team_query":     team_token,
+                    "max_price":      max_price,
+                    "horizon":        n,
+                },
+            )
+
     return None
 
 
