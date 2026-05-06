@@ -29,6 +29,8 @@ Output shape — status "ok"
   status           "ok"
   position         canonical FPL code or "ALL" when no filter applied
   position_label   human-readable or "all positions"
+  team_short       3-char team abbreviation (e.g. "LIV") — None when no team filter
+  team_name        full team name (e.g. "Liverpool")       — None when no team filter
   max_price        float or None
   horizon          GW lookahead used for FDR
   top_n            number of picks returned
@@ -51,6 +53,12 @@ Output shape — status "empty"
 -------------------------------
   When no players survive the filters.
 
+Output shape — status "not_found"  (Phase 2.6i)
+-------------------------------------------------
+  When team_query is provided but no team matches it in bootstrap.
+  team_query  the unresolved query string
+  message     descriptive message
+
 Output shape — status "missing_context"
 -----------------------------------------
   When no element data is present in bootstrap.
@@ -62,6 +70,8 @@ from typing import Any
 
 from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
+
+from .team_fixture_calendar import _resolve_team  # reuse existing team resolver
 
 
 # ---------------------------------------------------------------------------
@@ -189,12 +199,13 @@ def get_transfer_suggestion(
     args:      dict[str, Any],
     bootstrap: dict[str, Any],
 ) -> dict[str, Any]:
-    """Return ranked transfer targets filtered by position and price ceiling.
+    """Return ranked transfer targets filtered by position, club, and price ceiling.
 
     Parameters
     ----------
     args:
         position_query : str | None   — position alias ("midfielders") or absent
+        team_query     : str | None   — club name/alias ("Arsenal", "liverpool") or absent
         max_price      : float | None — price ceiling in millions (e.g. 8.0)
         horizon        : int          — GW lookahead for FDR (default 5)
         top_n          : int          — max results (default 5)
@@ -202,6 +213,7 @@ def get_transfer_suggestion(
         FPL bootstrap dict.
     """
     position_query = args.get("position_query") or None
+    team_query_raw = args.get("team_query") or None
     max_price_raw  = args.get("max_price")
     horizon        = max(1, min(int(args.get("horizon", DEFAULT_HORIZON)), _MAX_HORIZON))
     top_n          = max(1, min(int(args.get("top_n", DEFAULT_TOP_N)), 20))
@@ -212,6 +224,22 @@ def get_transfer_suggestion(
         resolved = _resolve_position(str(position_query))
         if resolved:
             position_code = resolved
+
+    # Resolve club filter (Phase 2.6i)
+    filter_team_id: int | None = None
+    filter_team_short: str | None = None
+    filter_team_name:  str | None = None
+    if team_query_raw:
+        team_dict = _resolve_team(str(team_query_raw), bootstrap)
+        if team_dict is None:
+            return {
+                "status":     "not_found",
+                "team_query": team_query_raw,
+                "message":    f"No team found matching '{team_query_raw}'.",
+            }
+        filter_team_id    = int(team_dict["id"])
+        filter_team_short = team_dict.get("short_name")
+        filter_team_name  = team_dict.get("name")
 
     # Resolve max price (convert £m to FPL cost units; None = no ceiling)
     max_cost: int | None = None
@@ -244,6 +272,11 @@ def get_transfer_suggestion(
         if position_code != "ALL" and pos_code != position_code:
             continue
 
+        # Club filter (Phase 2.6i)
+        team_id = int(el.get("team", 0))
+        if filter_team_id is not None and team_id != filter_team_id:
+            continue
+
         # Price filter
         now_cost = int(el.get("now_cost", 0))
         if max_cost is not None and now_cost > max_cost:
@@ -255,7 +288,6 @@ def get_transfer_suggestion(
         except (TypeError, ValueError):
             form = 0.0
 
-        team_id  = int(el.get("team", 0))
         avg_fdr  = _team_avg_fdr(team_id, team_fixtures, current_gw, horizon)
         # Guard against division by zero (avg_fdr=0 should not occur in practice)
         denom = avg_fdr if avg_fdr > 0 else 1.0
@@ -284,16 +316,19 @@ def get_transfer_suggestion(
         })
 
     if not scored:
-        pos_label = _POSITION_LABELS.get(position_code, position_code.lower())
+        pos_label    = _POSITION_LABELS.get(position_code, position_code.lower())
         price_clause = f" under £{max_price_raw}m" if max_price_raw is not None else ""
+        team_clause  = f" from {filter_team_short}" if filter_team_short else ""
         return {
-            "status":    "empty",
-            "position":  position_code,
-            "max_price": max_price_raw,
-            "horizon":   horizon,
-            "top_n":     top_n,
+            "status":     "empty",
+            "position":   position_code,
+            "team_short": filter_team_short,
+            "team_name":  filter_team_name,
+            "max_price":  max_price_raw,
+            "horizon":    horizon,
+            "top_n":      top_n,
             "message": (
-                f"No available {pos_label}{price_clause} found "
+                f"No available {pos_label}{team_clause}{price_clause} found "
                 "with positive form in the current bootstrap."
             ),
         }
@@ -323,6 +358,8 @@ def get_transfer_suggestion(
         "status":         "ok",
         "position":       position_code,
         "position_label": _POSITION_LABELS.get(position_code, position_code.lower()),
+        "team_short":     filter_team_short,   # None when no club filter
+        "team_name":      filter_team_name,    # None when no club filter
         "max_price":      max_price_raw,
         "horizon":        horizon,
         "top_n":          len(picks),
@@ -349,6 +386,10 @@ TRANSFER_SUGGESTION_SPEC = ToolSpec(
             "position_query": {
                 "type":        "string",
                 "description": "Position alias e.g. 'midfielders', 'delanteros'. Omit for all positions.",
+            },
+            "team_query": {
+                "type":        "string",
+                "description": "Club name or alias e.g. 'Arsenal', 'Liverpool'. Omit for all clubs.",
             },
             "max_price": {
                 "type":        "number",

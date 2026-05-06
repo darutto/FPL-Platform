@@ -1,11 +1,11 @@
 # FPL Grounded Assistant — Validation Report
 
-Generated: 2026-05-06 01:31 UTC
+Generated: 2026-05-06 01:59 UTC
 
 ## Summary
 
-- **74 scenarios** tested
-- **74 PASS**, **0 FAIL**
+- **77 scenarios** tested
+- **77 PASS**, **0 FAIL**
 
 ## Scenario Overview
 
@@ -85,6 +85,9 @@ Generated: 2026-05-06 01:31 UTC
 | transfer_suggestion_midfielders_english | transfer_suggestion | transfer_suggestion | ok | cli, http | ✓ PASS |
 | transfer_suggestion_midfielders_price | transfer_suggestion | transfer_suggestion | ok | cli, http | ✓ PASS |
 | transfer_suggestion_forwards_spanish | transfer_suggestion | transfer_suggestion | ok | cli, http | ✓ PASS |
+| transfer_suggestion_liverpool_mid | transfer_suggestion | transfer_suggestion | ok | cli, http | ✓ PASS |
+| transfer_suggestion_chelsea_mid_price | transfer_suggestion | transfer_suggestion | ok | cli, http | ✓ PASS |
+| transfer_suggestion_liverpool_mid_spanish | transfer_suggestion | transfer_suggestion | ok | cli, http | ✓ PASS |
 
 ## Scenario Details
 
@@ -1154,6 +1157,45 @@ Generated: 2026-05-06 01:31 UTC
 **Question:** `mejores delanteros para fichar`  
 **Expected:** intent=`transfer_suggestion` outcome=`ok` supported=`True`  
 **Notes:** Phase 2.6h: Spanish forward buy intent. FWD picks: Haaland (form 8.0, MCI avg_fdr=3.0) composite=2.67, Mbeumo (form 5.0, MUN avg_fdr=4.2) composite=1.19. Haaland ranks #1. transfer_suggestion.position='FWD'. Before: unsupported_intent. After: transfer_suggestion ok.
+
+**Surface results:**
+
+- `cli`: intent=`transfer_suggestion` outcome=`ok` supported=`True`
+- `http`: intent=`transfer_suggestion` outcome=`ok` supported=`True`
+
+### transfer_suggestion_liverpool_mid  (✓ PASS)
+
+**Family:** transfer_suggestion  
+**Description:** English 'best Liverpool midfielders to buy' routes to transfer_suggestion with position='MID', team_short='LIV'.  
+**Question:** `best Liverpool midfielders to buy`  
+**Expected:** intent=`transfer_suggestion` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6i: team-filtered transfer suggestion. DIFFERENTIAL_BOOTSTRAP Liverpool MID: Salah (form 9.5, avg_fdr 2.8). transfer_suggestion.team_short='LIV', picks[0].web_name='Salah'. Before: unsupported_intent. After: transfer_suggestion ok.
+
+**Surface results:**
+
+- `cli`: intent=`transfer_suggestion` outcome=`ok` supported=`True`
+- `http`: intent=`transfer_suggestion` outcome=`ok` supported=`True`
+
+### transfer_suggestion_chelsea_mid_price  (✓ PASS)
+
+**Family:** transfer_suggestion  
+**Description:** English 'cheap Chelsea midfielders to buy under 8' routes to transfer_suggestion with position='MID', team_short='CHE', max_price=8.0.  
+**Question:** `cheap Chelsea midfielders to buy under 8`  
+**Expected:** intent=`transfer_suggestion` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6i: team + price filtered. Chelsea MID under £8m: Palmer (6.0m, form 7.0). Salah (13.5m) excluded by price; other teams excluded by club filter. transfer_suggestion.team_short='CHE', max_price=8.0, picks[0]='Palmer'. Before: unsupported_intent. After: transfer_suggestion ok.
+
+**Surface results:**
+
+- `cli`: intent=`transfer_suggestion` outcome=`ok` supported=`True`
+- `http`: intent=`transfer_suggestion` outcome=`ok` supported=`True`
+
+### transfer_suggestion_liverpool_mid_spanish  (✓ PASS)
+
+**Family:** transfer_suggestion  
+**Description:** Spanish 'centrocampistas del Liverpool para comprar' routes to transfer_suggestion with position='MID', team_short='LIV'.  
+**Question:** `centrocampistas del Liverpool para comprar`  
+**Expected:** intent=`transfer_suggestion` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6i: Spanish club-filtered transfer suggestion. 'para comprar' is a buy-intent suffix; 'del Liverpool' provides club context. Liverpool MID: Salah. transfer_suggestion.team_short='LIV'. Before: unsupported_intent. After: transfer_suggestion ok.
 
 **Surface results:**
 

@@ -681,10 +681,12 @@ def _team_calendar_meta_dict(tc: Any) -> dict[str, Any]:
 
 
 def _transfer_suggestion_meta_dict(ts: Any) -> dict[str, Any]:
-    """Serialise a TransferSuggestionMeta instance.  Phase 2.6h."""
+    """Serialise a TransferSuggestionMeta instance.  Phase 2.6h/2.6i."""
     return {
         "position":         ts.position,
         "position_label":   ts.position_label,
+        "team_short":       ts.team_short,    # Phase 2.6i
+        "team_name":        ts.team_name,     # Phase 2.6i
         "max_price":        ts.max_price,
         "horizon":          ts.horizon,
         "top_n":            ts.top_n,

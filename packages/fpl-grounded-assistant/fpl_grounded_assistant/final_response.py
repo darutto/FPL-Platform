@@ -613,13 +613,15 @@ class TransferSuggestionEntry:
 
 @dataclass(frozen=True)
 class TransferSuggestionMeta:
-    """Structured transfer suggestion output.  Phase 2.6h.
+    """Structured transfer suggestion output.  Phase 2.6h/2.6i.
 
     Populated on ``FinalResponse`` when ``intent == transfer_suggestion``
     and ``outcome == ok``.  ``None`` for all other turns.
     """
     position:         str   # canonical FPL code or "ALL"
     position_label:   str
+    team_short:       "str | None"   # Phase 2.6i: None when no club filter
+    team_name:        "str | None"   # Phase 2.6i: None when no club filter
     max_price:        "float | None"
     horizon:          int
     top_n:            int
@@ -1450,6 +1452,8 @@ def _extract_transfer_suggestion_meta(ro: "dict[str, Any]") -> "TransferSuggesti
         return TransferSuggestionMeta(
             position         = ro.get("position", "ALL"),
             position_label   = ro.get("position_label", "all positions"),
+            team_short       = ro.get("team_short"),       # Phase 2.6i
+            team_name        = ro.get("team_name"),        # Phase 2.6i
             max_price        = ro.get("max_price"),
             horizon          = int(ro.get("horizon", 5)),
             top_n            = int(ro.get("top_n", 0)),

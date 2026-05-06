@@ -702,6 +702,39 @@ _TEAM_SCHEDULE_KNOWN_NAMES: tuple[tuple[str, str], ...] = tuple(sorted(
     key=lambda x: -len(x[0]),   # longest alias checked first
 ))
 
+# Flat dict: lowercase single-token alias → team_query string.
+# Used by _extract_team_token for O(1) lookup of individual tokens.
+# Excludes multi-word aliases (those are handled via substring scan).
+_TEAM_NAME_LOOKUP: dict[str, str] = {
+    alias: tq
+    for alias, tq in _TEAM_SCHEDULE_KNOWN_NAMES
+    if " " not in alias
+}
+
+
+def _extract_team_token(q_norm: str) -> str | None:
+    """Return the first known team name found in a normalised query string.
+
+    Checks multi-word aliases first (sorted longest-first so "manchester city"
+    beats "manchester"), then individual tokens.  Returns the ``team_query``
+    string (e.g. ``"Arsenal"``) or ``None`` when no known team is found.
+
+    Used by ``_try_route_transfer_suggestion`` to extract a club filter from
+    phrases like "best Arsenal midfielders to buy" or "delanteros del Liverpool".
+    """
+    # Multi-word check (already sorted longest-first in _TEAM_SCHEDULE_KNOWN_NAMES)
+    for alias_norm, team_query in _TEAM_SCHEDULE_KNOWN_NAMES:
+        if " " in alias_norm:
+            padded = " " + q_norm + " "
+            if (" " + alias_norm + " ") in padded:
+                return team_query
+    # Single-token check
+    for tok in q_norm.split():
+        clean = tok.rstrip(".,")
+        if clean in _TEAM_NAME_LOOKUP:
+            return _TEAM_NAME_LOOKUP[clean]
+    return None
+
 
 # ---------------------------------------------------------------------------
 # Fixture run keyword tables  (Phase 7h)
@@ -765,6 +798,10 @@ def _extract_price_ceiling(q_norm: str) -> float | None:
     except (TypeError, ValueError):
         return None
 
+
+# Flat dict for O(1) single-token team-name lookup (derived from _TEAM_SCHEDULE_KNOWN_NAMES
+# which is defined below — populated lazily after that tuple is constructed).
+# We define it after _TEAM_SCHEDULE_KNOWN_NAMES; see _TEAM_NAME_LOOKUP assignment below.
 
 # Buy-intent suffix markers — appear AFTER the position word in the query.
 # "to buy", "to sign", "para fichar", etc. are unambiguous purchase signals.
@@ -1144,40 +1181,43 @@ def _try_route_transfer_suggestion(q_orig: str, q_norm: str) -> "RouteResult | N
 
     Handles three forms:
     1. General buy prefix: "who should I buy", "a quién fichar"
-    2. "{pos} to buy [under X]": position word followed by a buy-intent suffix
-    3. "best/cheap {pos} to buy [under X]": lead word + position + buy suffix
+    2. "{pos} to buy [under X]": position word at start + buy-intent suffix
+    3. "best/cheap [{team}] {pos} to buy [under X]": lead word, optional team,
+       position, buy suffix — team may precede OR follow the position word
 
-    Returns ``RouteResult(tool_name="get_transfer_suggestion", ...)`` or ``None``.
+    Phase 2.6i: all three forms also extract an optional team name token via
+    ``_extract_team_token()`` and pass it as ``team_query`` in ``tool_args``.
 
-    Collision-safe:
-    * ``_TRANSFER_PREFIXES`` (transfer_advice) only fires on "sell X for Y" —
-      no overlap since we require a buy-suffix or explicit buy prefix here.
-    * ``_DIFFERENTIAL_KEYWORDS`` catches "differentials/low ownership" —
-      we never match those phrases.
+    Routing collision notes:
+    * ``_TRANSFER_PREFIXES`` (transfer_advice) fires first on "sell X for Y" —
+      no overlap because we require a buy-suffix or explicit buy prefix.
+    * ``_DIFFERENTIAL_KEYWORDS`` uses entirely different phrases.
     * ``_POSITION_CALENDAR_PREFIXES`` catches "best teams for {pos}" —
-      we match "{pos} to buy" or "best {pos} to buy", not "best teams for".
+      we only match "{pos} to buy" or "best {pos} to buy", not "best teams for".
+    * Team schedule catches "{team} schedule" — we require a position + buy suffix.
     """
     n         = _extract_n_games(q_norm)
     max_price = _extract_price_ceiling(q_norm)
 
-    # 1. General buy prefix (no required position)
+    # 1. General buy prefix (position and team both optional)
     for prefix in _TRANSFER_SUGGESTION_PREFIXES:
         if q_norm.startswith(prefix):
             remainder = q_norm[len(prefix):].strip()
-            # Try to extract a position from the remainder if present
             pos_token = remainder.split()[0].rstrip(".,") if remainder.split() else ""
             pos_query = _POSITION_WORDS.get(pos_token, None)
             return RouteResult(
                 tool_name="get_transfer_suggestion",
                 tool_args={
                     "position_query": pos_query,
+                    "team_query":     _extract_team_token(q_norm),
                     "max_price":      max_price,
                     "horizon":        n,
                 },
             )
 
-    # 2. "{pos} to buy [under X]" — position word at start, buy suffix in rest
     tokens = q_norm.split()
+
+    # 2. "{pos} to buy [under X]" — position word at start, buy suffix in rest
     if tokens and tokens[0] in _POSITION_WORDS:
         rest = q_norm[len(tokens[0]):]
         for suffix in _BUY_SUFFIXES:
@@ -1186,28 +1226,36 @@ def _try_route_transfer_suggestion(q_orig: str, q_norm: str) -> "RouteResult | N
                     tool_name="get_transfer_suggestion",
                     tool_args={
                         "position_query": _POSITION_WORDS[tokens[0]],
+                        "team_query":     _extract_team_token(q_norm),
                         "max_price":      max_price,
                         "horizon":        n,
                     },
                 )
 
-    # 3. "best/cheap {pos} to buy [under X]" — lead word + position + buy suffix
+    # 3. "best/cheap [{team}] {pos} to buy [under X]"
+    #    Lead word + optional team token(s) + position word + buy suffix.
+    #    Scanning all rem_tokens (not just [0]) lets team names precede position.
     if tokens and tokens[0] in _TRANSFER_SUGGESTION_LEAD_WORDS:
         remainder = q_norm[len(tokens[0]):].strip()
         rem_tokens = remainder.split()
-        if rem_tokens and rem_tokens[0] in _POSITION_WORDS:
-            pos_word = rem_tokens[0]
-            rest = remainder[len(pos_word):]
-            for suffix in _BUY_SUFFIXES:
-                if rest.startswith(suffix) or suffix in rest:
-                    return RouteResult(
-                        tool_name="get_transfer_suggestion",
-                        tool_args={
-                            "position_query": _POSITION_WORDS[pos_word],
-                            "max_price":      max_price,
-                            "horizon":        n,
-                        },
-                    )
+        for i, tok in enumerate(rem_tokens):
+            clean = tok.rstrip(".,")
+            if clean in _POSITION_WORDS:
+                # Found the position word; check for buy suffix in the tail
+                pos_idx = remainder.find(clean)
+                rest    = remainder[pos_idx + len(clean):]
+                for suffix in _BUY_SUFFIXES:
+                    if rest.startswith(suffix) or suffix in rest:
+                        return RouteResult(
+                            tool_name="get_transfer_suggestion",
+                            tool_args={
+                                "position_query": _POSITION_WORDS[clean],
+                                "team_query":     _extract_team_token(q_norm),
+                                "max_price":      max_price,
+                                "horizon":        n,
+                            },
+                        )
+                break   # position found but no buy suffix — not a buy query
 
     return None
 

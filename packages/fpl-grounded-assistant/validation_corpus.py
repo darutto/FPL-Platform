@@ -2141,6 +2141,82 @@ VALIDATION_SCENARIOS: tuple[ValidationScenario, ...] = (
         ),
     ),
 
+    # ------------------------------------------------------------------
+    # 75 — Phase 2.6i: team-filtered transfer suggestion — English
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="transfer_suggestion_liverpool_mid",
+        family="transfer_suggestion",
+        description=(
+            "English 'best Liverpool midfielders to buy' routes to "
+            "transfer_suggestion with position='MID', team_short='LIV'."
+        ),
+        question="best Liverpool midfielders to buy",
+        bootstrap="differential",
+        surfaces=("cli", "http"),
+        expected_intent="transfer_suggestion",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_transfer_suggestion=True,
+        notes=(
+            "Phase 2.6i: team-filtered transfer suggestion. "
+            "DIFFERENTIAL_BOOTSTRAP Liverpool MID: Salah (form 9.5, avg_fdr 2.8). "
+            "transfer_suggestion.team_short='LIV', picks[0].web_name='Salah'. "
+            "Before: unsupported_intent. After: transfer_suggestion ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 76 — Phase 2.6i: team-filtered + price-filtered
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="transfer_suggestion_chelsea_mid_price",
+        family="transfer_suggestion",
+        description=(
+            "English 'cheap Chelsea midfielders to buy under 8' routes to "
+            "transfer_suggestion with position='MID', team_short='CHE', max_price=8.0."
+        ),
+        question="cheap Chelsea midfielders to buy under 8",
+        bootstrap="differential",
+        surfaces=("cli", "http"),
+        expected_intent="transfer_suggestion",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_transfer_suggestion=True,
+        notes=(
+            "Phase 2.6i: team + price filtered. "
+            "Chelsea MID under £8m: Palmer (6.0m, form 7.0). "
+            "Salah (13.5m) excluded by price; other teams excluded by club filter. "
+            "transfer_suggestion.team_short='CHE', max_price=8.0, picks[0]='Palmer'. "
+            "Before: unsupported_intent. After: transfer_suggestion ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 77 — Phase 2.6i: team-filtered — Spanish
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="transfer_suggestion_liverpool_mid_spanish",
+        family="transfer_suggestion",
+        description=(
+            "Spanish 'centrocampistas del Liverpool para comprar' routes to "
+            "transfer_suggestion with position='MID', team_short='LIV'."
+        ),
+        question="centrocampistas del Liverpool para comprar",
+        bootstrap="differential",
+        surfaces=("cli", "http"),
+        expected_intent="transfer_suggestion",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_transfer_suggestion=True,
+        notes=(
+            "Phase 2.6i: Spanish club-filtered transfer suggestion. "
+            "'para comprar' is a buy-intent suffix; 'del Liverpool' provides club context. "
+            "Liverpool MID: Salah. transfer_suggestion.team_short='LIV'. "
+            "Before: unsupported_intent. After: transfer_suggestion ok."
+        ),
+    ),
+
 )
 
 

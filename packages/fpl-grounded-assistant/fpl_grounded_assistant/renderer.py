@@ -558,10 +558,14 @@ def _render_get_transfer_suggestion(output: dict[str, Any]) -> str:
     status = output.get("status")
 
     if status == "ok":
-        pos_label = output.get("position_label", output.get("position", "?"))
-        max_price = output.get("max_price")
-        horizon   = output.get("horizon", 5)
-        picks     = output.get("picks", [])
+        pos_label  = output.get("position_label", output.get("position", "?"))
+        team_short = output.get("team_short")
+        max_price  = output.get("max_price")
+        horizon    = output.get("horizon", 5)
+        picks      = output.get("picks", [])
+
+        # Phase 2.6i: prefix with club name when a team filter was applied
+        team_prefix = f"{team_short} " if team_short else ""
 
         price_clause = ""
         if max_price is not None:
@@ -570,7 +574,7 @@ def _render_get_transfer_suggestion(output: dict[str, Any]) -> str:
             except (TypeError, ValueError):
                 pass
         header = (
-            f"Top transfer targets — {pos_label}{price_clause} "
+            f"Top transfer targets — {team_prefix}{pos_label}{price_clause} "
             f"(next {horizon} GWs):"
         )
         if not picks:

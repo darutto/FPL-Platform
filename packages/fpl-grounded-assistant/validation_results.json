@@ -1,7 +1,7 @@
 {
-  "run_at": "2026-05-06T01:31:07.212641+00:00",
-  "scenario_count": 74,
-  "pass_count": 74,
+  "run_at": "2026-05-06T01:59:55.272643+00:00",
+  "scenario_count": 77,
+  "pass_count": 77,
   "fail_count": 0,
   "scenarios": [
     {
@@ -10008,6 +10008,8 @@
           "transfer_suggestion": {
             "position": "MID",
             "position_label": "midfielders",
+            "team_short": null,
+            "team_name": null,
             "max_price": null,
             "horizon": 5,
             "top_n": 2,
@@ -10065,6 +10067,8 @@
           "transfer_suggestion": {
             "position": "MID",
             "position_label": "midfielders",
+            "team_short": null,
+            "team_name": null,
             "max_price": null,
             "horizon": 5,
             "top_n": 2,
@@ -10142,6 +10146,8 @@
           "transfer_suggestion": {
             "position": "MID",
             "position_label": "midfielders",
+            "team_short": null,
+            "team_name": null,
             "max_price": 8.0,
             "horizon": 5,
             "top_n": 1,
@@ -10186,6 +10192,8 @@
           "transfer_suggestion": {
             "position": "MID",
             "position_label": "midfielders",
+            "team_short": null,
+            "team_name": null,
             "max_price": 8.0,
             "horizon": 5,
             "top_n": 1,
@@ -10250,6 +10258,8 @@
           "transfer_suggestion": {
             "position": "FWD",
             "position_label": "forwards",
+            "team_short": null,
+            "team_name": null,
             "max_price": null,
             "horizon": 5,
             "top_n": 2,
@@ -10307,6 +10317,8 @@
           "transfer_suggestion": {
             "position": "FWD",
             "position_label": "forwards",
+            "team_short": null,
+            "team_name": null,
             "max_price": null,
             "horizon": 5,
             "top_n": 2,
@@ -10351,6 +10363,342 @@
       "failures": [],
       "pass": true,
       "notes": "Phase 2.6h: Spanish forward buy intent. FWD picks: Haaland (form 8.0, MCI avg_fdr=3.0) composite=2.67, Mbeumo (form 5.0, MUN avg_fdr=4.2) composite=1.19. Haaland ranks #1. transfer_suggestion.position='FWD'. Before: unsupported_intent. After: transfer_suggestion ok."
+    },
+    {
+      "id": "transfer_suggestion_liverpool_mid",
+      "family": "transfer_suggestion",
+      "description": "English 'best Liverpool midfielders to buy' routes to transfer_suggestion with position='MID', team_short='LIV'.",
+      "question": "best Liverpool midfielders to buy",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "transfer_suggestion",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "team_calendar": null,
+          "team_schedule": null,
+          "position_fixture_run": null,
+          "transfer_suggestion": {
+            "position": "MID",
+            "position_label": "midfielders",
+            "team_short": "LIV",
+            "team_name": "Liverpool",
+            "max_price": null,
+            "horizon": 5,
+            "top_n": 1,
+            "picks": [
+              {
+                "rank": 1,
+                "web_name": "Salah",
+                "team_short": "LIV",
+                "position": "MID",
+                "now_cost": 135,
+                "now_cost_m": 13.5,
+                "form": 9.5,
+                "avg_fdr": 2.8,
+                "difficulty_label": "easy",
+                "composite_score": 3.3929,
+                "ownership": 64.1
+              }
+            ]
+          },
+          "final_text": "Top transfer targets — LIV midfielders (next 5 GWs):\n  1. Salah (LIV, MID) £13.5m | form 9.5 | avg FDR 2.8 (easy) | 64.1% owned",
+          "classification_source": null
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "transfer_suggestion",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "team_calendar": null,
+          "team_schedule": null,
+          "position_fixture_run": null,
+          "transfer_suggestion": {
+            "position": "MID",
+            "position_label": "midfielders",
+            "team_short": "LIV",
+            "team_name": "Liverpool",
+            "max_price": null,
+            "horizon": 5,
+            "top_n": 1,
+            "picks": [
+              {
+                "rank": 1,
+                "web_name": "Salah",
+                "team_short": "LIV",
+                "position": "MID",
+                "now_cost": 135,
+                "now_cost_m": 13.5,
+                "form": 9.5,
+                "avg_fdr": 2.8,
+                "difficulty_label": "easy",
+                "composite_score": 3.3929,
+                "ownership": 64.1
+              }
+            ]
+          },
+          "final_text": "Top transfer targets — LIV midfielders (next 5 GWs):\n  1. Salah (LIV, MID) £13.5m | form 9.5 | avg FDR 2.8 (easy) | 64.1% owned",
+          "classification_source": null
+        }
+      },
+      "expected": {
+        "intent": "transfer_suggestion",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Phase 2.6i: team-filtered transfer suggestion. DIFFERENTIAL_BOOTSTRAP Liverpool MID: Salah (form 9.5, avg_fdr 2.8). transfer_suggestion.team_short='LIV', picks[0].web_name='Salah'. Before: unsupported_intent. After: transfer_suggestion ok."
+    },
+    {
+      "id": "transfer_suggestion_chelsea_mid_price",
+      "family": "transfer_suggestion",
+      "description": "English 'cheap Chelsea midfielders to buy under 8' routes to transfer_suggestion with position='MID', team_short='CHE', max_price=8.0.",
+      "question": "cheap Chelsea midfielders to buy under 8",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "transfer_suggestion",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "team_calendar": null,
+          "team_schedule": null,
+          "position_fixture_run": null,
+          "transfer_suggestion": {
+            "position": "MID",
+            "position_label": "midfielders",
+            "team_short": "CHE",
+            "team_name": "Chelsea",
+            "max_price": 8.0,
+            "horizon": 5,
+            "top_n": 1,
+            "picks": [
+              {
+                "rank": 1,
+                "web_name": "Palmer",
+                "team_short": "CHE",
+                "position": "MID",
+                "now_cost": 60,
+                "now_cost_m": 6.0,
+                "form": 7.0,
+                "avg_fdr": 3.6,
+                "difficulty_label": "hard",
+                "composite_score": 1.9444,
+                "ownership": 3.5
+              }
+            ]
+          },
+          "final_text": "Top transfer targets — CHE midfielders under £8.0m (next 5 GWs):\n  1. Palmer (CHE, MID) £6.0m | form 7.0 | avg FDR 3.6 (hard) | 3.5% owned",
+          "classification_source": null
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "transfer_suggestion",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "team_calendar": null,
+          "team_schedule": null,
+          "position_fixture_run": null,
+          "transfer_suggestion": {
+            "position": "MID",
+            "position_label": "midfielders",
+            "team_short": "CHE",
+            "team_name": "Chelsea",
+            "max_price": 8.0,
+            "horizon": 5,
+            "top_n": 1,
+            "picks": [
+              {
+                "rank": 1,
+                "web_name": "Palmer",
+                "team_short": "CHE",
+                "position": "MID",
+                "now_cost": 60,
+                "now_cost_m": 6.0,
+                "form": 7.0,
+                "avg_fdr": 3.6,
+                "difficulty_label": "hard",
+                "composite_score": 1.9444,
+                "ownership": 3.5
+              }
+            ]
+          },
+          "final_text": "Top transfer targets — CHE midfielders under £8.0m (next 5 GWs):\n  1. Palmer (CHE, MID) £6.0m | form 7.0 | avg FDR 3.6 (hard) | 3.5% owned",
+          "classification_source": null
+        }
+      },
+      "expected": {
+        "intent": "transfer_suggestion",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Phase 2.6i: team + price filtered. Chelsea MID under £8m: Palmer (6.0m, form 7.0). Salah (13.5m) excluded by price; other teams excluded by club filter. transfer_suggestion.team_short='CHE', max_price=8.0, picks[0]='Palmer'. Before: unsupported_intent. After: transfer_suggestion ok."
+    },
+    {
+      "id": "transfer_suggestion_liverpool_mid_spanish",
+      "family": "transfer_suggestion",
+      "description": "Spanish 'centrocampistas del Liverpool para comprar' routes to transfer_suggestion with position='MID', team_short='LIV'.",
+      "question": "centrocampistas del Liverpool para comprar",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "transfer_suggestion",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "team_calendar": null,
+          "team_schedule": null,
+          "position_fixture_run": null,
+          "transfer_suggestion": {
+            "position": "MID",
+            "position_label": "midfielders",
+            "team_short": "LIV",
+            "team_name": "Liverpool",
+            "max_price": null,
+            "horizon": 5,
+            "top_n": 1,
+            "picks": [
+              {
+                "rank": 1,
+                "web_name": "Salah",
+                "team_short": "LIV",
+                "position": "MID",
+                "now_cost": 135,
+                "now_cost_m": 13.5,
+                "form": 9.5,
+                "avg_fdr": 2.8,
+                "difficulty_label": "easy",
+                "composite_score": 3.3929,
+                "ownership": 64.1
+              }
+            ]
+          },
+          "final_text": "Top transfer targets — LIV midfielders (next 5 GWs):\n  1. Salah (LIV, MID) £13.5m | form 9.5 | avg FDR 2.8 (easy) | 64.1% owned",
+          "classification_source": null
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "transfer_suggestion",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "team_calendar": null,
+          "team_schedule": null,
+          "position_fixture_run": null,
+          "transfer_suggestion": {
+            "position": "MID",
+            "position_label": "midfielders",
+            "team_short": "LIV",
+            "team_name": "Liverpool",
+            "max_price": null,
+            "horizon": 5,
+            "top_n": 1,
+            "picks": [
+              {
+                "rank": 1,
+                "web_name": "Salah",
+                "team_short": "LIV",
+                "position": "MID",
+                "now_cost": 135,
+                "now_cost_m": 13.5,
+                "form": 9.5,
+                "avg_fdr": 2.8,
+                "difficulty_label": "easy",
+                "composite_score": 3.3929,
+                "ownership": 64.1
+              }
+            ]
+          },
+          "final_text": "Top transfer targets — LIV midfielders (next 5 GWs):\n  1. Salah (LIV, MID) £13.5m | form 9.5 | avg FDR 2.8 (easy) | 64.1% owned",
+          "classification_source": null
+        }
+      },
+      "expected": {
+        "intent": "transfer_suggestion",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Phase 2.6i: Spanish club-filtered transfer suggestion. 'para comprar' is a buy-intent suffix; 'del Liverpool' provides club context. Liverpool MID: Salah. transfer_suggestion.team_short='LIV'. Before: unsupported_intent. After: transfer_suggestion ok."
     }
   ]
 }
