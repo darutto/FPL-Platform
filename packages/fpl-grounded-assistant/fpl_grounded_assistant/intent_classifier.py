@@ -220,6 +220,15 @@ team_fixture_calendar:
             "mejor calendario proximas 4 jornadas",
             "peores fixtures proximas 3 jornadas"
 
+transfer_suggestion:
+  The user wants ranked transfer targets for a specific position, optionally with a price ceiling.
+  NOT about selling a player (transfer_advice). NOT about differentials. NOT about fixtures.
+  Canonical template: "best {position} to buy [under {price}m]"
+  Examples (English): "best midfielders to buy", "cheap forwards under 7.5",
+            "who should I buy", "best defenders to transfer in under 6 million"
+  Examples (Spanish): "mejores delanteros para fichar", "a quién fichar para el mediocampo",
+            "mejores centrocampistas para comprar bajo 8 millones"
+
 team_schedule:
   The user wants the upcoming fixtures for ONE specific club (not a ranking of all teams).
   Canonical template: "{team_name} fixtures next {N} gameweeks"

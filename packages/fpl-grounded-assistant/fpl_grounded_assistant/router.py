@@ -741,6 +741,72 @@ _FIXTURE_RUN_GAME_WORDS: frozenset[str] = frozenset(
 
 
 # ---------------------------------------------------------------------------
+# Transfer suggestion keyword tables  (Phase 2.6h)
+# ---------------------------------------------------------------------------
+
+# Price extraction regex: "under 8.0", "below 8", "less than 7.5",
+# "7.5m", "7.5 million", "bajo 7.5", "menos de 8"
+import re as _re_price
+_PRICE_RE = _re_price.compile(
+    r'(?:under|below|less than|bajo|menos de)\s+(\d+\.?\d*)'
+    r'|(\d+\.?\d*)\s*(?:m\b|million\b|millones?\b)',
+    _re_price.IGNORECASE,
+)
+
+
+def _extract_price_ceiling(q_norm: str) -> float | None:
+    """Extract a price ceiling in millions from a normalised query string."""
+    m = _PRICE_RE.search(q_norm)
+    if not m:
+        return None
+    val_str = m.group(1) or m.group(2)
+    try:
+        return float(val_str)
+    except (TypeError, ValueError):
+        return None
+
+
+# Buy-intent suffix markers — appear AFTER the position word in the query.
+# "to buy", "to sign", "para fichar", etc. are unambiguous purchase signals.
+_BUY_SUFFIXES: tuple[str, ...] = (
+    " to buy",
+    " to sign",
+    " to transfer in",
+    " to bring in",
+    " worth buying",
+    " worth signing",
+    " para fichar",
+    " para comprar",
+    " a fichar",
+    " a comprar",
+)
+
+# Prefix forms where position is optional (general buy intent).
+_TRANSFER_SUGGESTION_PREFIXES: tuple[str, ...] = (
+    "who should i buy",
+    "who do you recommend buying",
+    "best players to buy",
+    "cheap players to buy",
+    "who to buy",
+    "who to sign",
+    "players to buy",
+    "players to sign",
+    "a quien fichar",
+    "a quién fichar",
+    "quien fichar",
+    "quién fichar",
+    "quien comprar",
+    "quién comprar",
+)
+
+# Prefix forms where position PRECEDES the keyword: "best {pos} to buy ..."
+# Keys are checked as startswith after stripping "best"/"top"/"cheap" lead-in.
+_TRANSFER_SUGGESTION_LEAD_WORDS: frozenset[str] = frozenset({
+    "best", "top", "cheap", "affordable", "mejores", "baratos",
+})
+
+
+# ---------------------------------------------------------------------------
 # Differential picks keyword tables  (Phase 7g)
 # ---------------------------------------------------------------------------
 
@@ -1073,6 +1139,79 @@ def _try_route_team_calendar(q_norm: str) -> RouteResult | None:
     return None
 
 
+def _try_route_transfer_suggestion(q_orig: str, q_norm: str) -> "RouteResult | None":
+    """Detect a transfer target suggestion query.
+
+    Handles three forms:
+    1. General buy prefix: "who should I buy", "a quién fichar"
+    2. "{pos} to buy [under X]": position word followed by a buy-intent suffix
+    3. "best/cheap {pos} to buy [under X]": lead word + position + buy suffix
+
+    Returns ``RouteResult(tool_name="get_transfer_suggestion", ...)`` or ``None``.
+
+    Collision-safe:
+    * ``_TRANSFER_PREFIXES`` (transfer_advice) only fires on "sell X for Y" —
+      no overlap since we require a buy-suffix or explicit buy prefix here.
+    * ``_DIFFERENTIAL_KEYWORDS`` catches "differentials/low ownership" —
+      we never match those phrases.
+    * ``_POSITION_CALENDAR_PREFIXES`` catches "best teams for {pos}" —
+      we match "{pos} to buy" or "best {pos} to buy", not "best teams for".
+    """
+    n         = _extract_n_games(q_norm)
+    max_price = _extract_price_ceiling(q_norm)
+
+    # 1. General buy prefix (no required position)
+    for prefix in _TRANSFER_SUGGESTION_PREFIXES:
+        if q_norm.startswith(prefix):
+            remainder = q_norm[len(prefix):].strip()
+            # Try to extract a position from the remainder if present
+            pos_token = remainder.split()[0].rstrip(".,") if remainder.split() else ""
+            pos_query = _POSITION_WORDS.get(pos_token, None)
+            return RouteResult(
+                tool_name="get_transfer_suggestion",
+                tool_args={
+                    "position_query": pos_query,
+                    "max_price":      max_price,
+                    "horizon":        n,
+                },
+            )
+
+    # 2. "{pos} to buy [under X]" — position word at start, buy suffix in rest
+    tokens = q_norm.split()
+    if tokens and tokens[0] in _POSITION_WORDS:
+        rest = q_norm[len(tokens[0]):]
+        for suffix in _BUY_SUFFIXES:
+            if rest.startswith(suffix) or suffix in rest:
+                return RouteResult(
+                    tool_name="get_transfer_suggestion",
+                    tool_args={
+                        "position_query": _POSITION_WORDS[tokens[0]],
+                        "max_price":      max_price,
+                        "horizon":        n,
+                    },
+                )
+
+    # 3. "best/cheap {pos} to buy [under X]" — lead word + position + buy suffix
+    if tokens and tokens[0] in _TRANSFER_SUGGESTION_LEAD_WORDS:
+        remainder = q_norm[len(tokens[0]):].strip()
+        rem_tokens = remainder.split()
+        if rem_tokens and rem_tokens[0] in _POSITION_WORDS:
+            pos_word = rem_tokens[0]
+            rest = remainder[len(pos_word):]
+            for suffix in _BUY_SUFFIXES:
+                if rest.startswith(suffix) or suffix in rest:
+                    return RouteResult(
+                        tool_name="get_transfer_suggestion",
+                        tool_args={
+                            "position_query": _POSITION_WORDS[pos_word],
+                            "max_price":      max_price,
+                            "horizon":        n,
+                        },
+                    )
+
+    return None
+
+
 def _try_route_position_fixture_run(q_orig: str, q_norm: str) -> "RouteResult | None":
     """Detect a position-filtered fixture calendar query.
 
@@ -1331,6 +1470,12 @@ def route(question: str) -> RouteResult | None:
     _transfer_result = _try_route_transfer(q_orig, q_norm)
     if _transfer_result is not None:
         return _transfer_result
+
+    # ── Transfer suggestion intent (Phase 2.6h; after transfer_advice, before
+    #    fixture_run — "to buy" suffix guards against player-fixture collisions)
+    _sugg_result = _try_route_transfer_suggestion(q_orig, q_norm)
+    if _sugg_result is not None:
+        return _sugg_result
 
     # ── Fixture run intent (Phase 7h; after transfer, before captain) ──────
     _fixture_result = _try_route_fixture_run(q_orig, q_norm)

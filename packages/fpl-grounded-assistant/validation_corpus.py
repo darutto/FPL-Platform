@@ -189,6 +189,7 @@ class ValidationScenario:
     expect_team_calendar:     bool                         = field(default=False)   # Phase 2.6e
     expect_team_schedule:          bool                    = field(default=False)   # Phase 2.6e.3
     expect_position_fixture_run:   bool                    = field(default=False)   # Phase 2.6e.4
+    expect_transfer_suggestion:    bool                    = field(default=False)   # Phase 2.6h
     expected_resolver_source: str | None                   = field(default=None)
     classifier_stub_json:     str | None                   = field(default=None)
     notes:                    str                          = field(default="")
@@ -2059,6 +2060,84 @@ VALIDATION_SCENARIOS: tuple[ValidationScenario, ...] = (
             "Phase 2.6e.4: Spanish 'mejores equipos para {position}' pattern. "
             "position='FWD', position_label='forwards', mode='easiest', horizon=4. "
             "Before: unsupported_intent. After: position_fixture_run ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 72 — Phase 2.6h: transfer suggestion — English position filter
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="transfer_suggestion_midfielders_english",
+        family="transfer_suggestion",
+        description=(
+            "English 'best midfielders to buy' routes to transfer_suggestion "
+            "with position='MID', no price ceiling."
+        ),
+        question="best midfielders to buy",
+        bootstrap="differential",
+        surfaces=("cli", "http"),
+        expected_intent="transfer_suggestion",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_transfer_suggestion=True,
+        notes=(
+            "Phase 2.6h: transfer suggestion by position. "
+            "DIFFERENTIAL_BOOTSTRAP: Salah (MID, 13.5m, form 9.5, LIV avg_fdr=2.8) "
+            "and Palmer (MID, 6.0m, form 7.0, CHE avg_fdr=3.6). "
+            "Composite: Salah=3.39, Palmer=1.94. Salah ranks #1. "
+            "transfer_suggestion.position='MID'. "
+            "Before: unsupported_intent. After: transfer_suggestion ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 73 — Phase 2.6h: transfer suggestion — price-filtered
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="transfer_suggestion_midfielders_price",
+        family="transfer_suggestion",
+        description=(
+            "English 'best midfielders to buy under 8' routes to transfer_suggestion "
+            "with position='MID', max_price=8.0."
+        ),
+        question="best midfielders to buy under 8",
+        bootstrap="differential",
+        surfaces=("cli", "http"),
+        expected_intent="transfer_suggestion",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_transfer_suggestion=True,
+        notes=(
+            "Phase 2.6h: price-filtered. max_price=8.0 -> now_cost <= 80. "
+            "Salah (135) excluded; Palmer (60) passes. "
+            "transfer_suggestion.max_price=8.0, picks[0].web_name='Palmer'. "
+            "Before: unsupported_intent. After: transfer_suggestion ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 74 — Phase 2.6h: transfer suggestion — Spanish
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="transfer_suggestion_forwards_spanish",
+        family="transfer_suggestion",
+        description=(
+            "Spanish 'mejores delanteros para fichar' routes to transfer_suggestion "
+            "with position='FWD'."
+        ),
+        question="mejores delanteros para fichar",
+        bootstrap="differential",
+        surfaces=("cli", "http"),
+        expected_intent="transfer_suggestion",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_transfer_suggestion=True,
+        notes=(
+            "Phase 2.6h: Spanish forward buy intent. "
+            "FWD picks: Haaland (form 8.0, MCI avg_fdr=3.0) composite=2.67, "
+            "Mbeumo (form 5.0, MUN avg_fdr=4.2) composite=1.19. "
+            "Haaland ranks #1. transfer_suggestion.position='FWD'. "
+            "Before: unsupported_intent. After: transfer_suggestion ok."
         ),
     ),
 

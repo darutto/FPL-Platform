@@ -1,7 +1,7 @@
 {
-  "run_at": "2026-05-04T22:13:43.439718+00:00",
-  "scenario_count": 71,
-  "pass_count": 71,
+  "run_at": "2026-05-06T01:31:07.212641+00:00",
+  "scenario_count": 74,
+  "pass_count": 74,
   "fail_count": 0,
   "scenarios": [
     {
@@ -42,6 +42,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (LIV) — Safe [60.58]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.",
           "classification_source": null
         },
@@ -73,6 +74,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (LIV) — Safe [60.58]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.",
           "classification_source": null
         }
@@ -149,6 +151,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture\n3. Saka (ARS) [diff] 36.35 · 2nd free-kick taker — Tough fixture; Weak attacking process",
           "classification_source": null
         },
@@ -205,6 +208,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture\n3. Saka (ARS) [diff] 36.35 · 2nd free-kick taker — Tough fixture; Weak attacking process",
           "classification_source": null
         }
@@ -247,6 +251,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Haaland (Erling Haaland) | Manchester City (MCI) | FWD | £14.5m | 52.3% ownership | Status: Available. Form: 8.0 | Mins: 1800.",
           "classification_source": null
         },
@@ -269,6 +274,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Haaland (Erling Haaland) | Manchester City (MCI) | FWD | £14.5m | 52.3% ownership | Status: Available. Form: 8.0 | Mins: 1800.",
           "classification_source": null
         }
@@ -311,6 +317,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (Mohamed Salah) plays for Liverpool (LIV) as a MID. Status: Available. [Resolved via: web_name]",
           "classification_source": null
         },
@@ -333,6 +340,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (Mohamed Salah) plays for Liverpool (LIV) as a MID. Status: Available. [Resolved via: web_name]",
           "classification_source": null
         }
@@ -406,6 +414,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (63.58) edges Haaland (57.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0).",
           "classification_source": null
         },
@@ -459,6 +468,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (63.58) edges Haaland (57.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0).",
           "classification_source": null
         }
@@ -501,6 +511,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "I couldn't match that question to a supported query. Supported questions include: captain score for a player, captain rankings, player comparison, transfer advice, chip advice, player fixture run, differential picks, player summary, player lookup, and current gameweek.",
           "classification_source": null
         },
@@ -523,6 +534,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "I couldn't match that question to a supported query. Supported questions include: captain score for a player, captain rankings, player comparison, transfer advice, chip advice, player fixture run, differential picks, player summary, player lookup, and current gameweek.",
           "classification_source": null
         }
@@ -565,6 +577,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Multiple players share the name 'Doe'. Please use a full name or player ID to disambiguate (e.g. 'Who is Adam Johnson?' or 'Who is player 6?').",
           "classification_source": null
         },
@@ -587,6 +600,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Multiple players share the name 'Doe'. Please use a full name or player ID to disambiguate (e.g. 'Who is Adam Johnson?' or 'Who is player 6?').",
           "classification_source": null
         }
@@ -629,6 +643,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "No player found matching 'xyznotaplayer999'. Check the spelling or try a full name / player ID.",
           "classification_source": null
         },
@@ -651,6 +666,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "No player found matching 'xyznotaplayer999'. Check the spelling or try a full name / player ID.",
           "classification_source": null
         }
@@ -693,6 +709,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "No player found matching 'him'. Check the spelling or try a full name / player ID.",
           "classification_source": null
         },
@@ -715,6 +732,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "No player found matching 'him'. Check the spelling or try a full name / player ID.",
           "classification_source": null
         }
@@ -790,6 +808,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Haaland (57.85) edges Saka (39.35) — clear margin (18.5).  Advantages: stronger form (8.0 vs 5.5); easier fixture (FDR 4H vs 5H); better minutes security.",
           "resolver_source": "comparison_followup",
           "rewritten_question": "compare Haaland and Saka",
@@ -847,6 +866,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Haaland (57.85) edges Saka (39.35) — clear margin (18.5).  Advantages: stronger form (8.0 vs 5.5); easier fixture (FDR 4H vs 5H); better minutes security.",
           "classification_source": null
         }
@@ -921,6 +941,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Haaland (57.85) edges Saka (39.35) — clear margin (18.5).  Advantages: stronger form (8.0 vs 5.5); easier fixture (FDR 4H vs 5H); better minutes security.",
           "resolver_source": "comparison_followup_llm",
           "rewritten_question": "compare Haaland and Saka",
@@ -973,6 +994,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (LIV) — Safe [60.58]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.",
           "resolver_source": "fallback_regex",
           "rewritten_question": "should I captain Salah",
@@ -1005,6 +1027,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (LIV) — Safe [60.58]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.",
           "classification_source": null
         }
@@ -1054,6 +1077,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (LIV) — Safe [60.58]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.",
           "resolver_source": "llm",
           "rewritten_question": "should I captain Salah",
@@ -1109,6 +1133,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Saka (ARS) — Differential [36.35]. 2nd free-kick taker; Tough fixture; Weak attacking process; High-upside differential profile.",
           "classification_source": "llm_classifier"
         },
@@ -1140,6 +1165,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Saka (ARS) — Differential [36.35]. 2nd free-kick taker; Tough fixture; Weak attacking process; High-upside differential profile.",
           "classification_source": "llm_classifier"
         },
@@ -1170,6 +1196,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Saka (ARS) — Differential [36.35]. 2nd free-kick taker; Tough fixture; Weak attacking process; High-upside differential profile.",
           "resolver_source": "none",
           "rewritten_question": "is Saka worth captaining?",
@@ -1202,6 +1229,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Saka (ARS) — Differential [36.35]. 2nd free-kick taker; Tough fixture; Weak attacking process; High-upside differential profile.",
           "classification_source": "llm_classifier"
         }
@@ -1277,6 +1305,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (63.58) edges Haaland (57.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0).",
           "classification_source": "llm_classifier"
         },
@@ -1330,6 +1359,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (63.58) edges Haaland (57.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0).",
           "classification_source": "llm_classifier"
         },
@@ -1382,6 +1412,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (63.58) edges Haaland (57.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0).",
           "resolver_source": "none",
           "rewritten_question": "what's the score differential between Salah and Haaland?",
@@ -1436,6 +1467,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (63.58) edges Haaland (57.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0).",
           "classification_source": "llm_classifier"
         }
@@ -1514,6 +1546,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture\n3. Saka (ARS) [diff] 36.35 · 2nd free-kick taker — Tough fixture; Weak attacking process",
           "classification_source": "llm_classifier"
         },
@@ -1570,6 +1603,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture\n3. Saka (ARS) [diff] 36.35 · 2nd free-kick taker — Tough fixture; Weak attacking process",
           "classification_source": "llm_classifier"
         },
@@ -1625,6 +1659,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture\n3. Saka (ARS) [diff] 36.35 · 2nd free-kick taker — Tough fixture; Weak attacking process",
           "resolver_source": "none",
           "rewritten_question": "who looks best for captain this week?",
@@ -1682,6 +1717,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture\n3. Saka (ARS) [diff] 36.35 · 2nd free-kick taker — Tough fixture; Weak attacking process",
           "classification_source": "llm_classifier"
         }
@@ -1738,6 +1774,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Recommendation: Transfer in Salah. Score: 64 vs Saka's 39 (+24.2).  Advantages: stronger form (9.5 vs 5.5); easier fixture (FDR 4H vs 5H); better minutes security; set-piece advantage (pen vs fk2).  Net cost: +£3.5m.",
           "classification_source": null
         },
@@ -1774,6 +1811,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Recommendation: Transfer in Salah. Score: 64 vs Saka's 39 (+24.2).  Advantages: stronger form (9.5 vs 5.5); easier fixture (FDR 4H vs 5H); better minutes security; set-piece advantage (pen vs fk2).  Net cost: +£3.5m.",
           "classification_source": null
         }
@@ -1816,6 +1854,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "No player found matching 'UnknownPlayerXYZ'.",
           "classification_source": null
         },
@@ -1838,6 +1877,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "No player found matching 'UnknownPlayerXYZ'.",
           "classification_source": null
         }
@@ -1887,6 +1927,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Triple captain conditions: marginal. A decent but not exceptional option exists: Salah (captain score 60.6, tier: safe). Consider whether a stronger option may appear in a later gameweek. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         },
@@ -1916,6 +1957,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Triple captain conditions: marginal. A decent but not exceptional option exists: Salah (captain score 60.6, tier: safe). Consider whether a stronger option may appear in a later gameweek. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         }
@@ -1965,6 +2007,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Wildcard conditions: marginal. You are in a viable wildcard window (GW28). Whether to use it depends on how many squad issues you need to fix and your upcoming fixture outlook. Note: squad composition and which wildcard you still hold are not available to this system.",
           "classification_source": null
         },
@@ -1994,6 +2037,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Wildcard conditions: marginal. You are in a viable wildcard window (GW28). Whether to use it depends on how many squad issues you need to fix and your upcoming fixture outlook. Note: squad composition and which wildcard you still hold are not available to this system.",
           "classification_source": null
         }
@@ -2043,6 +2087,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Free hit conditions: unfavorable (GW28). No blank or double gameweek detected this week. Free hit is most effective in blank or double gameweeks. Consider saving it for a better opportunity. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         },
@@ -2072,6 +2117,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Free hit conditions: unfavorable (GW28). No blank or double gameweek detected this week. Free hit is most effective in blank or double gameweeks. Consider saving it for a better opportunity. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         }
@@ -2114,6 +2160,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (Mohamed Salah) | Liverpool (LIV) | MID | £13.5m | 64.1% ownership | Status: Available. Form: 9.5 | Mins: 2250.\n\nThe current Premier League Fantasy gameweek is GW28.",
           "classification_source": null
         },
@@ -2136,6 +2183,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (Mohamed Salah) | Liverpool (LIV) | MID | £13.5m | 64.1% ownership | Status: Available. Form: 9.5 | Mins: 2250.\n\nThe current Premier League Fantasy gameweek is GW28.",
           "classification_source": null
         }
@@ -2178,6 +2226,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Haaland (MCI) — Upside [54.85]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.\n\nSaka (Bukayo Saka) plays for Arsenal (ARS) as a MID. Status: Doubtful. [Resolved via: web_name]",
           "classification_source": null
         },
@@ -2200,6 +2249,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Haaland (MCI) — Upside [54.85]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.\n\nSaka (Bukayo Saka) plays for Arsenal (ARS) as a MID. Status: Doubtful. [Resolved via: web_name]",
           "classification_source": null
         }
@@ -2242,6 +2292,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Haaland (MCI) — Upside [54.85]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.\n\nSalah (63.58) edges Haaland (57.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0).",
           "classification_source": null
         },
@@ -2264,6 +2315,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Haaland (MCI) — Upside [54.85]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.\n\nSalah (63.58) edges Haaland (57.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0).",
           "classification_source": null
         }
@@ -2313,6 +2365,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Triple captain conditions: marginal. A decent but not exceptional option exists: Salah (captain score 60.6, tier: safe). Consider whether a stronger option may appear in a later gameweek. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         },
@@ -2342,6 +2395,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Triple captain conditions: marginal. A decent but not exceptional option exists: Salah (captain score 60.6, tier: safe). Consider whether a stronger option may appear in a later gameweek. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         }
@@ -2428,6 +2482,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (LIV, MID) – next 5 fixtures from GW28: GW28 MUN (H) FDR 2 · GW29 MCI (H) FDR 3 · GW30 ARS (A) FDR 4 · GW31 CHE (A) FDR 3 · GW32 MUN (H) FDR 2 | LIV have an easy run over GW28-GW32, avg FDR 2.8.",
           "classification_source": null
         },
@@ -2494,6 +2549,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (LIV, MID) – next 5 fixtures from GW28: GW28 MUN (H) FDR 2 · GW29 MCI (H) FDR 3 · GW30 ARS (A) FDR 4 · GW31 CHE (A) FDR 3 · GW32 MUN (H) FDR 2 | LIV have an easy run over GW28-GW32, avg FDR 2.8.",
           "classification_source": null
         }
@@ -2536,6 +2592,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "No player found matching 'NonExistentXYZ'.",
           "classification_source": null
         },
@@ -2558,6 +2615,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "No player found matching 'NonExistentXYZ'.",
           "classification_source": null
         }
@@ -2600,6 +2658,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "No available players found with ownership < 15.0% and a positive captain score.",
           "classification_source": null
         },
@@ -2622,6 +2681,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "No available players found with ownership < 15.0% and a positive captain score.",
           "classification_source": null
         }
@@ -2664,6 +2724,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "No available players found with ownership < 15.0% and a positive captain score.",
           "classification_source": null
         },
@@ -2686,6 +2747,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "No available players found with ownership < 15.0% and a positive captain score.",
           "classification_source": null
         }
@@ -2741,6 +2803,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Recommendation: Transfer in Haaland. Score: 58 vs Saka's 39 (+18.5).  Advantages: stronger form (8.0 vs 5.5); easier fixture (FDR 4H vs 5H); better minutes security; set-piece advantage (pen vs fk2).  Net cost: +£4.5m.",
           "resolver_source": "transfer_followup",
           "rewritten_question": "sell Saka for Haaland",
@@ -2778,6 +2841,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Recommendation: Transfer in Haaland. Score: 58 vs Saka's 39 (+18.5).  Advantages: stronger form (8.0 vs 5.5); easier fixture (FDR 4H vs 5H); better minutes security; set-piece advantage (pen vs fk2).  Net cost: +£4.5m.",
           "classification_source": null
         }
@@ -2854,6 +2918,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (63.58) edges Saka (39.35) — clear margin (24.23).  Advantages: stronger form (9.5 vs 5.5); easier fixture (FDR 4H vs 5H); better minutes security.",
           "classification_source": null
         },
@@ -2910,6 +2975,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (63.58) edges Saka (39.35) — clear margin (24.23).  Advantages: stronger form (9.5 vs 5.5); easier fixture (FDR 4H vs 5H); better minutes security.",
           "classification_source": null
         }
@@ -2975,6 +3041,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Top differentials (ownership < 15%):\n  1. Mbeumo (MUN, FWD) — score 51.3, 8.2% owned, £7.5m\n  2. Palmer (CHE, MID) — score 44.5, 3.5% owned, £6.0m",
           "classification_source": null
         },
@@ -3022,6 +3089,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Top differentials (ownership < 15%):\n  1. Mbeumo (MUN, FWD) — score 51.3, 8.2% owned, £7.5m\n  2. Palmer (CHE, MID) — score 44.5, 3.5% owned, £6.0m",
           "classification_source": null
         }
@@ -3071,6 +3139,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Free hit conditions: favorable (GW28). A large double gameweek is detected: 6 team(s) play twice this week (ARS, CHE, LIV, MCI, MUN, TOT). Free hit conditions are strong — use it to field the best available XI for this double gameweek. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         },
@@ -3100,6 +3169,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Free hit conditions: favorable (GW28). A large double gameweek is detected: 6 team(s) play twice this week (ARS, CHE, LIV, MCI, MUN, TOT). Free hit conditions are strong — use it to field the best available XI for this double gameweek. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         }
@@ -3149,6 +3219,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Free hit conditions: marginal (GW28). A blank gameweek is detected: 2 team(s) have no fixture this week (ARS, MCI). Free hit can help cover blanked players, but saving it for an upcoming double gameweek is often the stronger play. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         },
@@ -3178,6 +3249,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Free hit conditions: marginal (GW28). A blank gameweek is detected: 2 team(s) have no fixture this week (ARS, MCI). Free hit can help cover blanked players, but saving it for an upcoming double gameweek is often the stronger play. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         }
@@ -3227,6 +3299,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Free hit conditions: unfavorable (GW28). No blank or double gameweek detected this week. Free hit is most effective in blank or double gameweeks. Consider saving it for a better opportunity. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         },
@@ -3256,6 +3329,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Free hit conditions: unfavorable (GW28). No blank or double gameweek detected this week. Free hit is most effective in blank or double gameweeks. Consider saving it for a better opportunity. Note: whether you still have this chip available is not known to this system.",
           "classification_source": null
         }
@@ -3341,6 +3415,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (LIV, MID) – next 5 fixtures from GW28: GW28 MUN (H) FDR 2 · GW29 MCI (H) FDR 3 · GW30 ARS (A) FDR 4 · GW31 CHE (A) FDR 3 · GW32 MUN (H) FDR 2 | LIV have an easy run over GW28-GW32, avg FDR 2.8.",
           "resolver_source": "fixture_run_followup",
           "rewritten_question": "Salah fixtures",
@@ -3408,6 +3483,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (LIV, MID) – next 5 fixtures from GW28: GW28 MUN (H) FDR 2 · GW29 MCI (H) FDR 3 · GW30 ARS (A) FDR 4 · GW31 CHE (A) FDR 3 · GW32 MUN (H) FDR 2 | LIV have an easy run over GW28-GW32, avg FDR 2.8.",
           "classification_source": null
         }
@@ -3458,6 +3534,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Mbeumo (MUN) — Differential [54.28]. Penalty taker; Favorable fixture; Weak attacking process; Secure minutes; High-upside differential profile.",
           "resolver_source": "differential_followup",
           "rewritten_question": "should I captain Mbeumo?",
@@ -3490,6 +3567,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Mbeumo (MUN) — Differential [54.28]. Penalty taker; Favorable fixture; Weak attacking process; Secure minutes; High-upside differential profile.",
           "classification_source": null
         }
@@ -3546,6 +3624,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Budget constraint: bringing in Salah costs +£3.5m but you have £2.0m in the bank.",
           "classification_source": null
         },
@@ -3582,6 +3661,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Budget constraint: bringing in Salah costs +£3.5m but you have £2.0m in the bank.",
           "classification_source": null
         }
@@ -3633,6 +3713,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Marginal: Consider Salah over Haaland. Score: 64 vs 62 (+1.3).  Net saving: £1.0m.",
           "classification_source": null
         },
@@ -3664,6 +3745,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Marginal: Consider Salah over Haaland. Score: 64 vs 62 (+1.3).  Net saving: £1.0m.",
           "classification_source": null
         }
@@ -3713,6 +3795,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Chip unavailable: triple_captain is not in your chips remaining.",
           "classification_source": null
         },
@@ -3742,6 +3825,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Chip unavailable: triple_captain is not in your chips remaining.",
           "classification_source": null
         }
@@ -3797,6 +3881,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Budget constraint: bringing in Salah costs +£3.5m but you have £2.0m in the bank.",
           "resolver_source": "none",
           "rewritten_question": "should I sell Saka for Salah",
@@ -3834,6 +3919,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Budget constraint: bringing in Salah costs +£3.5m but you have £2.0m in the bank.",
           "classification_source": null
         }
@@ -3882,6 +3968,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Chip unavailable: triple_captain is not in your chips remaining.",
           "resolver_source": "none",
           "rewritten_question": "should I use my triple captain",
@@ -3912,6 +3999,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Chip unavailable: triple_captain is not in your chips remaining.",
           "classification_source": null
         }
@@ -3962,6 +4050,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Marginal: Consider Salah over Haaland. Score: 64 vs 62 (+1.3).  Net saving: £1.0m.",
           "resolver_source": "none",
           "rewritten_question": "should I sell Haaland for Salah",
@@ -3994,6 +4083,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Marginal: Consider Salah over Haaland. Score: 64 vs 62 (+1.3).  Net saving: £1.0m.",
           "classification_source": null
         }
@@ -4048,6 +4138,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Recommendation: Transfer in Salah. Score: 64 vs Saka's 39 (+24.2).  Advantages: stronger form (9.5 vs 5.5); easier fixture (FDR 4H vs 5H); better minutes security; set-piece advantage (pen vs fk2).  Net cost: +£3.5m.",
           "classification_source": null
         }
@@ -4121,6 +4212,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (63.58) edges Haaland (57.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0).",
           "classification_source": null
         },
@@ -4174,6 +4266,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (63.58) edges Haaland (57.85) — moderate margin (5.73).  Advantages: stronger form (9.5 vs 8.0).",
           "classification_source": null
         }
@@ -4216,6 +4309,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "No player found matching 'rashford en mi equipo, a cuál vendo primero'.",
           "classification_source": null
         },
@@ -4238,6 +4332,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "No player found matching 'rashford en mi equipo, a cuál vendo primero'.",
           "classification_source": null
         }
@@ -4280,6 +4375,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (Mohamed Salah) | Liverpool (LIV) | MID | £13.5m | 64.1% ownership | Status: Available. Form: 9.5 | Mins: 2250.",
           "classification_source": null
         },
@@ -4302,6 +4398,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (Mohamed Salah) | Liverpool (LIV) | MID | £13.5m | 64.1% ownership | Status: Available. Form: 9.5 | Mins: 2250.",
           "classification_source": null
         }
@@ -4367,6 +4464,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture",
           "classification_source": null
         },
@@ -4412,6 +4510,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture",
           "classification_source": null
         }
@@ -4488,6 +4587,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture\n3. Saka (ARS) [diff] 36.35 · 2nd free-kick taker — Tough fixture; Weak attacking process",
           "classification_source": null
         },
@@ -4544,6 +4644,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "1. Salah (LIV) [safe] 60.58 · penalty taker — Strong recent form; Tough fixture\n2. Haaland (MCI) [up] 54.85 · penalty taker — Strong recent form; Tough fixture\n3. Saka (ARS) [diff] 36.35 · 2nd free-kick taker — Tough fixture; Weak attacking process",
           "classification_source": null
         }
@@ -4595,6 +4696,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Haaland (MCI) — Upside [54.85]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.",
           "classification_source": null
         },
@@ -4626,6 +4728,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Haaland (MCI) — Upside [54.85]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.",
           "classification_source": null
         }
@@ -4677,6 +4780,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (LIV) — Safe [60.58]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.",
           "classification_source": null
         },
@@ -4708,6 +4812,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (LIV) — Safe [60.58]. Penalty taker; Strong recent form; Tough fixture; Weak attacking process; Secure minutes.",
           "classification_source": null
         }
@@ -4781,6 +4886,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (LIV, MID) — last 3 gameweek(s):\n  GW28: 15pts  2g 0a 3bps  90mins\n  GW27: 8pts  0g 2a 1bps  79mins\n  GW26: 10pts  1g 0a 3bps  90mins",
           "classification_source": null
         },
@@ -4834,6 +4940,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (LIV, MID) — last 3 gameweek(s):\n  GW28: 15pts  2g 0a 3bps  90mins\n  GW27: 8pts  0g 2a 1bps  79mins\n  GW26: 10pts  1g 0a 3bps  90mins",
           "classification_source": null
         }
@@ -4907,6 +5014,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (LIV, MID) — last 3 gameweek(s):\n  GW28: 15pts  2g 0a 3bps  90mins\n  GW27: 8pts  0g 2a 1bps  79mins\n  GW26: 10pts  1g 0a 3bps  90mins",
           "classification_source": null
         },
@@ -4960,6 +5068,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (LIV, MID) — last 3 gameweek(s):\n  GW28: 15pts  2g 0a 3bps  90mins\n  GW27: 8pts  0g 2a 1bps  79mins\n  GW26: 10pts  1g 0a 3bps  90mins",
           "classification_source": null
         }
@@ -5002,6 +5111,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (Mohamed Salah) | Liverpool (LIV) | MID | £13.5m | 64.1% ownership | Status: Available. Form: 9.5 | Mins: 2250.",
           "classification_source": null
         },
@@ -5024,6 +5134,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Salah (Mohamed Salah) | Liverpool (LIV) | MID | £13.5m | 64.1% ownership | Status: Available. Form: 9.5 | Mins: 2250.",
           "classification_source": null
         }
@@ -5066,6 +5177,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Saka (Bukayo Saka) | Arsenal (ARS) | MID | £10.0m | 35.0% ownership | Status: Doubtful. Form: 5.5 | Mins: 900.",
           "classification_source": null
         },
@@ -5088,6 +5200,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Saka (Bukayo Saka) | Arsenal (ARS) | MID | £10.0m | 35.0% ownership | Status: Doubtful. Form: 5.5 | Mins: 900.",
           "classification_source": null
         }
@@ -5151,6 +5264,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Injured: De Bruyne (MCI, MID) | Doubtful: Saka (ARS, MID) 75%.",
           "classification_source": null
         },
@@ -5194,6 +5308,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Injured: De Bruyne (MCI, MID) | Doubtful: Saka (ARS, MID) 75%.",
           "classification_source": null
         }
@@ -5259,6 +5374,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Risers: Salah (LIV, MID) +£0.1m | Fallers: De Bruyne (MCI, MID) -£0.1m.",
           "classification_source": null
         },
@@ -5304,6 +5420,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Risers: Salah (LIV, MID) +£0.1m | Fallers: De Bruyne (MCI, MID) -£0.1m.",
           "classification_source": null
         }
@@ -5573,6 +5690,7 @@
           },
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Teams ranked by easiest fixtures (next 5 GWs from GW28):\n  1. LIV (Liverpool) avg 2.8 [5 fix] — GW28(MUNH/2) GW29(MCIH/3) GW30(ARSA/4) GW31(CHEA/3) GW32(MUNH/2)\n  2. MCI (Manchester City) avg 3.0 [5 fix] — GW28(ARSH/3) GW29(LIVA/4) GW30(MUNH/2) GW31(ARSH/3) GW32(CHEA/3)\n  3. ARS (Arsenal) avg 3.6 [5 fix] — GW28(CHEH/3) GW29(MUNA/3) GW30(LIVH/4) GW31(MCIA/5) GW32(CHEA/3)\n  4. CHE (Chelsea) avg 3.6 [5 fix] — GW28(ARSA/4) GW29(MUNH/2) GW30(LIVH/4) GW31(MCIH/5) GW32(ARSH/3)\n  5. MUN (Manchester Utd) avg 4.2 [5 fix] — GW28(LIVA/5) GW29(ARSH/4) GW30(MCIA/5) GW31(CHEA/3) GW32(LIVH/4)",
           "classification_source": null
         },
@@ -5822,6 +5940,7 @@
           },
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Teams ranked by easiest fixtures (next 5 GWs from GW28):\n  1. LIV (Liverpool) avg 2.8 [5 fix] — GW28(MUNH/2) GW29(MCIH/3) GW30(ARSA/4) GW31(CHEA/3) GW32(MUNH/2)\n  2. MCI (Manchester City) avg 3.0 [5 fix] — GW28(ARSH/3) GW29(LIVA/4) GW30(MUNH/2) GW31(ARSH/3) GW32(CHEA/3)\n  3. ARS (Arsenal) avg 3.6 [5 fix] — GW28(CHEH/3) GW29(MUNA/3) GW30(LIVH/4) GW31(MCIA/5) GW32(CHEA/3)\n  4. CHE (Chelsea) avg 3.6 [5 fix] — GW28(ARSA/4) GW29(MUNH/2) GW30(LIVH/4) GW31(MCIH/5) GW32(ARSH/3)\n  5. MUN (Manchester Utd) avg 4.2 [5 fix] — GW28(LIVA/5) GW29(ARSH/4) GW30(MCIA/5) GW31(CHEA/3) GW32(LIVH/4)",
           "classification_source": null
         }
@@ -6091,6 +6210,7 @@
           },
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Teams ranked by hardest fixtures (next 5 GWs from GW28):\n  1. MUN (Manchester Utd) avg 4.2 [5 fix] — GW28(LIVA/5) GW29(ARSH/4) GW30(MCIA/5) GW31(CHEA/3) GW32(LIVH/4)\n  2. CHE (Chelsea) avg 3.6 [5 fix] — GW28(ARSA/4) GW29(MUNH/2) GW30(LIVH/4) GW31(MCIH/5) GW32(ARSH/3)\n  3. ARS (Arsenal) avg 3.6 [5 fix] — GW28(CHEH/3) GW29(MUNA/3) GW30(LIVH/4) GW31(MCIA/5) GW32(CHEA/3)\n  4. MCI (Manchester City) avg 3.0 [5 fix] — GW28(ARSH/3) GW29(LIVA/4) GW30(MUNH/2) GW31(ARSH/3) GW32(CHEA/3)\n  5. LIV (Liverpool) avg 2.8 [5 fix] — GW28(MUNH/2) GW29(MCIH/3) GW30(ARSA/4) GW31(CHEA/3) GW32(MUNH/2)",
           "classification_source": null
         },
@@ -6340,6 +6460,7 @@
           },
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Teams ranked by hardest fixtures (next 5 GWs from GW28):\n  1. MUN (Manchester Utd) avg 4.2 [5 fix] — GW28(LIVA/5) GW29(ARSH/4) GW30(MCIA/5) GW31(CHEA/3) GW32(LIVH/4)\n  2. CHE (Chelsea) avg 3.6 [5 fix] — GW28(ARSA/4) GW29(MUNH/2) GW30(LIVH/4) GW31(MCIH/5) GW32(ARSH/3)\n  3. ARS (Arsenal) avg 3.6 [5 fix] — GW28(CHEH/3) GW29(MUNA/3) GW30(LIVH/4) GW31(MCIA/5) GW32(CHEA/3)\n  4. MCI (Manchester City) avg 3.0 [5 fix] — GW28(ARSH/3) GW29(LIVA/4) GW30(MUNH/2) GW31(ARSH/3) GW32(CHEA/3)\n  5. LIV (Liverpool) avg 2.8 [5 fix] — GW28(MUNH/2) GW29(MCIH/3) GW30(ARSA/4) GW31(CHEA/3) GW32(MUNH/2)",
           "classification_source": null
         }
@@ -6609,6 +6730,7 @@
           },
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Teams ranked by easiest fixtures (next 5 GWs from GW28):\n  1. LIV (Liverpool) avg 2.8 [5 fix] — GW28(MUNH/2) GW29(MCIH/3) GW30(ARSA/4) GW31(CHEA/3) GW32(MUNH/2)\n  2. MCI (Manchester City) avg 3.0 [5 fix] — GW28(ARSH/3) GW29(LIVA/4) GW30(MUNH/2) GW31(ARSH/3) GW32(CHEA/3)\n  3. ARS (Arsenal) avg 3.6 [5 fix] — GW28(CHEH/3) GW29(MUNA/3) GW30(LIVH/4) GW31(MCIA/5) GW32(CHEA/3)\n  4. CHE (Chelsea) avg 3.6 [5 fix] — GW28(ARSA/4) GW29(MUNH/2) GW30(LIVH/4) GW31(MCIH/5) GW32(ARSH/3)\n  5. MUN (Manchester Utd) avg 4.2 [5 fix] — GW28(LIVA/5) GW29(ARSH/4) GW30(MCIA/5) GW31(CHEA/3) GW32(LIVH/4)",
           "classification_source": null
         },
@@ -6858,6 +6980,7 @@
           },
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Teams ranked by easiest fixtures (next 5 GWs from GW28):\n  1. LIV (Liverpool) avg 2.8 [5 fix] — GW28(MUNH/2) GW29(MCIH/3) GW30(ARSA/4) GW31(CHEA/3) GW32(MUNH/2)\n  2. MCI (Manchester City) avg 3.0 [5 fix] — GW28(ARSH/3) GW29(LIVA/4) GW30(MUNH/2) GW31(ARSH/3) GW32(CHEA/3)\n  3. ARS (Arsenal) avg 3.6 [5 fix] — GW28(CHEH/3) GW29(MUNA/3) GW30(LIVH/4) GW31(MCIA/5) GW32(CHEA/3)\n  4. CHE (Chelsea) avg 3.6 [5 fix] — GW28(ARSA/4) GW29(MUNH/2) GW30(LIVH/4) GW31(MCIH/5) GW32(ARSH/3)\n  5. MUN (Manchester Utd) avg 4.2 [5 fix] — GW28(LIVA/5) GW29(ARSH/4) GW30(MCIA/5) GW31(CHEA/3) GW32(LIVH/4)",
           "classification_source": null
         }
@@ -7077,6 +7200,7 @@
           },
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Teams ranked by easiest fixtures (next 5 GWs from GW28):\n  1. ARS (Arsenal) avg 2.7 [3 fix] [DGW:GW28] — GW28(CHEH/3) GW28(MUNH/2) GW29(TOTA/3)\n  2. LIV (Liverpool) avg 2.7 [3 fix] [DGW:GW28] — GW28(MUNH/2) GW28(CHEA/3) GW29(MCIH/3)\n  3. CHE (Chelsea) avg 3.0 [3 fix] [DGW:GW28] — GW28(ARSA/4) GW28(LIVH/3) GW29(MUNH/2)\n  4. MCI (Manchester City) avg 3.0 [3 fix] [DGW:GW28] — GW28(LIVH/3) GW28(TOTH/2) GW29(LIVA/4)\n  5. TOT (Tottenham Hotspur) avg 3.3 [3 fix] [DGW:GW28] — GW28(MCIA/4) GW28(MUNA/3) GW29(CHEH/3)",
           "classification_source": null
         },
@@ -7276,6 +7400,7 @@
           },
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Teams ranked by easiest fixtures (next 5 GWs from GW28):\n  1. ARS (Arsenal) avg 2.7 [3 fix] [DGW:GW28] — GW28(CHEH/3) GW28(MUNH/2) GW29(TOTA/3)\n  2. LIV (Liverpool) avg 2.7 [3 fix] [DGW:GW28] — GW28(MUNH/2) GW28(CHEA/3) GW29(MCIH/3)\n  3. CHE (Chelsea) avg 3.0 [3 fix] [DGW:GW28] — GW28(ARSA/4) GW28(LIVH/3) GW29(MUNH/2)\n  4. MCI (Manchester City) avg 3.0 [3 fix] [DGW:GW28] — GW28(LIVH/3) GW28(TOTH/2) GW29(LIVA/4)\n  5. TOT (Tottenham Hotspur) avg 3.3 [3 fix] [DGW:GW28] — GW28(MCIA/4) GW28(MUNA/3) GW29(CHEH/3)",
           "classification_source": null
         }
@@ -7465,6 +7590,7 @@
           },
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Teams ranked by easiest fixtures (next 5 GWs from GW28):\n  1. CHE (Chelsea) avg 2.5 [2 fix] [BGW:GW30] — GW28(LIVH/3) GW29(MUNH/2)\n  2. LIV (Liverpool) avg 2.5 [2 fix] [BGW:GW30] — GW28(MUNH/2) GW29(MCIH/3)\n  3. MCI (Manchester City) avg 3.0 [2 fix] [BGW:GW28] — GW29(LIVA/4) GW30(MUNH/2)\n  4. ARS (Arsenal) avg 3.5 [2 fix] [BGW:GW28] — GW29(MUNA/3) GW30(LIVH/4)\n  5. MUN (Manchester Utd) avg 4.5 [2 fix] [BGW:GW30] — GW28(LIVA/5) GW29(ARSH/4)",
           "classification_source": null
         },
@@ -7634,6 +7760,7 @@
           },
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Teams ranked by easiest fixtures (next 5 GWs from GW28):\n  1. CHE (Chelsea) avg 2.5 [2 fix] [BGW:GW30] — GW28(LIVH/3) GW29(MUNH/2)\n  2. LIV (Liverpool) avg 2.5 [2 fix] [BGW:GW30] — GW28(MUNH/2) GW29(MCIH/3)\n  3. MCI (Manchester City) avg 3.0 [2 fix] [BGW:GW28] — GW29(LIVA/4) GW30(MUNH/2)\n  4. ARS (Arsenal) avg 3.5 [2 fix] [BGW:GW28] — GW29(MUNA/3) GW30(LIVH/4)\n  5. MUN (Manchester Utd) avg 4.5 [2 fix] [BGW:GW30] — GW28(LIVA/5) GW29(ARSH/4)",
           "classification_source": null
         }
@@ -7683,6 +7810,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Wildcard conditions: marginal. You are in a viable wildcard window (GW28). Whether to use it depends on how many squad issues you need to fix and your upcoming fixture outlook. Note: squad composition and which wildcard you still hold are not available to this system.",
           "classification_source": null
         },
@@ -7712,6 +7840,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Wildcard conditions: marginal. You are in a viable wildcard window (GW28). Whether to use it depends on how many squad issues you need to fix and your upcoming fixture outlook. Note: squad composition and which wildcard you still hold are not available to this system.",
           "classification_source": null
         }
@@ -7761,6 +7890,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Bench boost conditions: unfavorable. Top outfield players face generally difficult fixtures this week (average FDR: 4.33). Fixture conditions do not favour bench boost. This assessment is based on global fixture signals only. Bench depth and whether your bench players have guaranteed game time are not available to this system.",
           "classification_source": null
         },
@@ -7790,6 +7920,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Bench boost conditions: unfavorable. Top outfield players face generally difficult fixtures this week (average FDR: 4.33). Fixture conditions do not favour bench boost. This assessment is based on global fixture signals only. Bench depth and whether your bench players have guaranteed game time are not available to this system.",
           "classification_source": null
         }
@@ -7839,6 +7970,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Wildcard conditions: marginal. You are in a viable wildcard window (GW28). Whether to use it depends on how many squad issues you need to fix and your upcoming fixture outlook. Note: squad composition and which wildcard you still hold are not available to this system.",
           "classification_source": null
         },
@@ -7868,6 +8000,7 @@
           "team_calendar": null,
           "team_schedule": null,
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Wildcard conditions: marginal. You are in a viable wildcard window (GW28). Whether to use it depends on how many squad issues you need to fix and your upcoming fixture outlook. Note: squad composition and which wildcard you still hold are not available to this system.",
           "classification_source": null
         }
@@ -7954,6 +8087,7 @@
             "bgw_gameweeks": []
           },
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Arsenal (ARS) fixtures (next 5 GWs from GW28):\n  avg FDR 3.6 [5 fixtures]\n  GW28(CHEH/3) GW29(MUNA/3) GW30(LIVH/4) GW31(MCIA/5) GW32(CHEA/3)",
           "classification_source": null
         },
@@ -8020,6 +8154,7 @@
             "bgw_gameweeks": []
           },
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Arsenal (ARS) fixtures (next 5 GWs from GW28):\n  avg FDR 3.6 [5 fixtures]\n  GW28(CHEH/3) GW29(MUNA/3) GW30(LIVH/4) GW31(MCIA/5) GW32(CHEA/3)",
           "classification_source": null
         }
@@ -8106,6 +8241,7 @@
             "bgw_gameweeks": []
           },
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Liverpool (LIV) fixtures (next 5 GWs from GW28):\n  avg FDR 2.8 [5 fixtures]\n  GW28(MUNH/2) GW29(MCIH/3) GW30(ARSA/4) GW31(CHEA/3) GW32(MUNH/2)",
           "classification_source": null
         },
@@ -8172,6 +8308,7 @@
             "bgw_gameweeks": []
           },
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Liverpool (LIV) fixtures (next 5 GWs from GW28):\n  avg FDR 2.8 [5 fixtures]\n  GW28(MUNH/2) GW29(MCIH/3) GW30(ARSA/4) GW31(CHEA/3) GW32(MUNH/2)",
           "classification_source": null
         }
@@ -8252,6 +8389,7 @@
             "bgw_gameweeks": []
           },
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Arsenal (ARS) fixtures (next 4 GWs from GW28):\n  avg FDR 3.8 [4 fixtures]\n  GW28(CHEH/3) GW29(MUNA/3) GW30(LIVH/4) GW31(MCIA/5)",
           "classification_source": null
         },
@@ -8312,6 +8450,7 @@
             "bgw_gameweeks": []
           },
           "position_fixture_run": null,
+          "transfer_suggestion": null,
           "final_text": "Arsenal (ARS) fixtures (next 4 GWs from GW28):\n  avg FDR 3.8 [4 fixtures]\n  GW28(CHEH/3) GW29(MUNA/3) GW30(LIVH/4) GW31(MCIA/5)",
           "classification_source": null
         }
@@ -8583,6 +8722,7 @@
               }
             ]
           },
+          "transfer_suggestion": null,
           "final_text": "Teams ranked by easiest fixtures for defenders (next 5 GWs from GW28):\n  1. LIV (Liverpool) avg 2.8 [5 fix] — GW28(MUNH/2) GW29(MCIH/3) GW30(ARSA/4) GW31(CHEA/3) GW32(MUNH/2)\n  2. MCI (Manchester City) avg 3.0 [5 fix] — GW28(ARSH/3) GW29(LIVA/4) GW30(MUNH/2) GW31(ARSH/3) GW32(CHEA/3)\n  3. ARS (Arsenal) avg 3.6 [5 fix] — GW28(CHEH/3) GW29(MUNA/3) GW30(LIVH/4) GW31(MCIA/5) GW32(CHEA/3)\n  4. CHE (Chelsea) avg 3.6 [5 fix] — GW28(ARSA/4) GW29(MUNH/2) GW30(LIVH/4) GW31(MCIH/5) GW32(ARSH/3)\n  5. MUN (Manchester Utd) avg 4.2 [5 fix] — GW28(LIVA/5) GW29(ARSH/4) GW30(MCIA/5) GW31(CHEA/3) GW32(LIVH/4)",
           "classification_source": null
         },
@@ -8834,6 +8974,7 @@
               }
             ]
           },
+          "transfer_suggestion": null,
           "final_text": "Teams ranked by easiest fixtures for defenders (next 5 GWs from GW28):\n  1. LIV (Liverpool) avg 2.8 [5 fix] — GW28(MUNH/2) GW29(MCIH/3) GW30(ARSA/4) GW31(CHEA/3) GW32(MUNH/2)\n  2. MCI (Manchester City) avg 3.0 [5 fix] — GW28(ARSH/3) GW29(LIVA/4) GW30(MUNH/2) GW31(ARSH/3) GW32(CHEA/3)\n  3. ARS (Arsenal) avg 3.6 [5 fix] — GW28(CHEH/3) GW29(MUNA/3) GW30(LIVH/4) GW31(MCIA/5) GW32(CHEA/3)\n  4. CHE (Chelsea) avg 3.6 [5 fix] — GW28(ARSA/4) GW29(MUNH/2) GW30(LIVH/4) GW31(MCIH/5) GW32(ARSH/3)\n  5. MUN (Manchester Utd) avg 4.2 [5 fix] — GW28(LIVA/5) GW29(ARSH/4) GW30(MCIA/5) GW31(CHEA/3) GW32(LIVH/4)",
           "classification_source": null
         }
@@ -9105,6 +9246,7 @@
               }
             ]
           },
+          "transfer_suggestion": null,
           "final_text": "Teams ranked by easiest fixtures for midfielders (next 5 GWs from GW28):\n  1. LIV (Liverpool) avg 2.8 [5 fix] — GW28(MUNH/2) GW29(MCIH/3) GW30(ARSA/4) GW31(CHEA/3) GW32(MUNH/2)\n  2. MCI (Manchester City) avg 3.0 [5 fix] — GW28(ARSH/3) GW29(LIVA/4) GW30(MUNH/2) GW31(ARSH/3) GW32(CHEA/3)\n  3. ARS (Arsenal) avg 3.6 [5 fix] — GW28(CHEH/3) GW29(MUNA/3) GW30(LIVH/4) GW31(MCIA/5) GW32(CHEA/3)\n  4. CHE (Chelsea) avg 3.6 [5 fix] — GW28(ARSA/4) GW29(MUNH/2) GW30(LIVH/4) GW31(MCIH/5) GW32(ARSH/3)\n  5. MUN (Manchester Utd) avg 4.2 [5 fix] — GW28(LIVA/5) GW29(ARSH/4) GW30(MCIA/5) GW31(CHEA/3) GW32(LIVH/4)",
           "classification_source": null
         },
@@ -9356,6 +9498,7 @@
               }
             ]
           },
+          "transfer_suggestion": null,
           "final_text": "Teams ranked by easiest fixtures for midfielders (next 5 GWs from GW28):\n  1. LIV (Liverpool) avg 2.8 [5 fix] — GW28(MUNH/2) GW29(MCIH/3) GW30(ARSA/4) GW31(CHEA/3) GW32(MUNH/2)\n  2. MCI (Manchester City) avg 3.0 [5 fix] — GW28(ARSH/3) GW29(LIVA/4) GW30(MUNH/2) GW31(ARSH/3) GW32(CHEA/3)\n  3. ARS (Arsenal) avg 3.6 [5 fix] — GW28(CHEH/3) GW29(MUNA/3) GW30(LIVH/4) GW31(MCIA/5) GW32(CHEA/3)\n  4. CHE (Chelsea) avg 3.6 [5 fix] — GW28(ARSA/4) GW29(MUNH/2) GW30(LIVH/4) GW31(MCIH/5) GW32(ARSH/3)\n  5. MUN (Manchester Utd) avg 4.2 [5 fix] — GW28(LIVA/5) GW29(ARSH/4) GW30(MCIA/5) GW31(CHEA/3) GW32(LIVH/4)",
           "classification_source": null
         }
@@ -9597,6 +9740,7 @@
               }
             ]
           },
+          "transfer_suggestion": null,
           "final_text": "Teams ranked by easiest fixtures for forwards (next 4 GWs from GW28):\n  1. LIV (Liverpool) avg 3.0 [4 fix] — GW28(MUNH/2) GW29(MCIH/3) GW30(ARSA/4) GW31(CHEA/3)\n  2. MCI (Manchester City) avg 3.0 [4 fix] — GW28(ARSH/3) GW29(LIVA/4) GW30(MUNH/2) GW31(ARSH/3)\n  3. ARS (Arsenal) avg 3.8 [4 fix] — GW28(CHEH/3) GW29(MUNA/3) GW30(LIVH/4) GW31(MCIA/5)\n  4. CHE (Chelsea) avg 3.8 [4 fix] — GW28(ARSA/4) GW29(MUNH/2) GW30(LIVH/4) GW31(MCIH/5)\n  5. MUN (Manchester Utd) avg 4.2 [4 fix] — GW28(LIVA/5) GW29(ARSH/4) GW30(MCIA/5) GW31(CHEA/3)",
           "classification_source": null
         },
@@ -9818,6 +9962,7 @@
               }
             ]
           },
+          "transfer_suggestion": null,
           "final_text": "Teams ranked by easiest fixtures for forwards (next 4 GWs from GW28):\n  1. LIV (Liverpool) avg 3.0 [4 fix] — GW28(MUNH/2) GW29(MCIH/3) GW30(ARSA/4) GW31(CHEA/3)\n  2. MCI (Manchester City) avg 3.0 [4 fix] — GW28(ARSH/3) GW29(LIVA/4) GW30(MUNH/2) GW31(ARSH/3)\n  3. ARS (Arsenal) avg 3.8 [4 fix] — GW28(CHEH/3) GW29(MUNA/3) GW30(LIVH/4) GW31(MCIA/5)\n  4. CHE (Chelsea) avg 3.8 [4 fix] — GW28(ARSA/4) GW29(MUNH/2) GW30(LIVH/4) GW31(MCIH/5)\n  5. MUN (Manchester Utd) avg 4.2 [4 fix] — GW28(LIVA/5) GW29(ARSH/4) GW30(MCIA/5) GW31(CHEA/3)",
           "classification_source": null
         }
@@ -9830,6 +9975,382 @@
       "failures": [],
       "pass": true,
       "notes": "Phase 2.6e.4: Spanish 'mejores equipos para {position}' pattern. position='FWD', position_label='forwards', mode='easiest', horizon=4. Before: unsupported_intent. After: position_fixture_run ok."
+    },
+    {
+      "id": "transfer_suggestion_midfielders_english",
+      "family": "transfer_suggestion",
+      "description": "English 'best midfielders to buy' routes to transfer_suggestion with position='MID', no price ceiling.",
+      "question": "best midfielders to buy",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "transfer_suggestion",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "team_calendar": null,
+          "team_schedule": null,
+          "position_fixture_run": null,
+          "transfer_suggestion": {
+            "position": "MID",
+            "position_label": "midfielders",
+            "max_price": null,
+            "horizon": 5,
+            "top_n": 2,
+            "picks": [
+              {
+                "rank": 1,
+                "web_name": "Salah",
+                "team_short": "LIV",
+                "position": "MID",
+                "now_cost": 135,
+                "now_cost_m": 13.5,
+                "form": 9.5,
+                "avg_fdr": 2.8,
+                "difficulty_label": "easy",
+                "composite_score": 3.3929,
+                "ownership": 64.1
+              },
+              {
+                "rank": 2,
+                "web_name": "Palmer",
+                "team_short": "CHE",
+                "position": "MID",
+                "now_cost": 60,
+                "now_cost_m": 6.0,
+                "form": 7.0,
+                "avg_fdr": 3.6,
+                "difficulty_label": "hard",
+                "composite_score": 1.9444,
+                "ownership": 3.5
+              }
+            ]
+          },
+          "final_text": "Top transfer targets — midfielders (next 5 GWs):\n  1. Salah (LIV, MID) £13.5m | form 9.5 | avg FDR 2.8 (easy) | 64.1% owned\n  2. Palmer (CHE, MID) £6.0m | form 7.0 | avg FDR 3.6 (hard) | 3.5% owned",
+          "classification_source": null
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "transfer_suggestion",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "team_calendar": null,
+          "team_schedule": null,
+          "position_fixture_run": null,
+          "transfer_suggestion": {
+            "position": "MID",
+            "position_label": "midfielders",
+            "max_price": null,
+            "horizon": 5,
+            "top_n": 2,
+            "picks": [
+              {
+                "rank": 1,
+                "web_name": "Salah",
+                "team_short": "LIV",
+                "position": "MID",
+                "now_cost": 135,
+                "now_cost_m": 13.5,
+                "form": 9.5,
+                "avg_fdr": 2.8,
+                "difficulty_label": "easy",
+                "composite_score": 3.3929,
+                "ownership": 64.1
+              },
+              {
+                "rank": 2,
+                "web_name": "Palmer",
+                "team_short": "CHE",
+                "position": "MID",
+                "now_cost": 60,
+                "now_cost_m": 6.0,
+                "form": 7.0,
+                "avg_fdr": 3.6,
+                "difficulty_label": "hard",
+                "composite_score": 1.9444,
+                "ownership": 3.5
+              }
+            ]
+          },
+          "final_text": "Top transfer targets — midfielders (next 5 GWs):\n  1. Salah (LIV, MID) £13.5m | form 9.5 | avg FDR 2.8 (easy) | 64.1% owned\n  2. Palmer (CHE, MID) £6.0m | form 7.0 | avg FDR 3.6 (hard) | 3.5% owned",
+          "classification_source": null
+        }
+      },
+      "expected": {
+        "intent": "transfer_suggestion",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Phase 2.6h: transfer suggestion by position. DIFFERENTIAL_BOOTSTRAP: Salah (MID, 13.5m, form 9.5, LIV avg_fdr=2.8) and Palmer (MID, 6.0m, form 7.0, CHE avg_fdr=3.6). Composite: Salah=3.39, Palmer=1.94. Salah ranks #1. transfer_suggestion.position='MID'. Before: unsupported_intent. After: transfer_suggestion ok."
+    },
+    {
+      "id": "transfer_suggestion_midfielders_price",
+      "family": "transfer_suggestion",
+      "description": "English 'best midfielders to buy under 8' routes to transfer_suggestion with position='MID', max_price=8.0.",
+      "question": "best midfielders to buy under 8",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "transfer_suggestion",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "team_calendar": null,
+          "team_schedule": null,
+          "position_fixture_run": null,
+          "transfer_suggestion": {
+            "position": "MID",
+            "position_label": "midfielders",
+            "max_price": 8.0,
+            "horizon": 5,
+            "top_n": 1,
+            "picks": [
+              {
+                "rank": 1,
+                "web_name": "Palmer",
+                "team_short": "CHE",
+                "position": "MID",
+                "now_cost": 60,
+                "now_cost_m": 6.0,
+                "form": 7.0,
+                "avg_fdr": 3.6,
+                "difficulty_label": "hard",
+                "composite_score": 1.9444,
+                "ownership": 3.5
+              }
+            ]
+          },
+          "final_text": "Top transfer targets — midfielders under £8.0m (next 5 GWs):\n  1. Palmer (CHE, MID) £6.0m | form 7.0 | avg FDR 3.6 (hard) | 3.5% owned",
+          "classification_source": null
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "transfer_suggestion",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "team_calendar": null,
+          "team_schedule": null,
+          "position_fixture_run": null,
+          "transfer_suggestion": {
+            "position": "MID",
+            "position_label": "midfielders",
+            "max_price": 8.0,
+            "horizon": 5,
+            "top_n": 1,
+            "picks": [
+              {
+                "rank": 1,
+                "web_name": "Palmer",
+                "team_short": "CHE",
+                "position": "MID",
+                "now_cost": 60,
+                "now_cost_m": 6.0,
+                "form": 7.0,
+                "avg_fdr": 3.6,
+                "difficulty_label": "hard",
+                "composite_score": 1.9444,
+                "ownership": 3.5
+              }
+            ]
+          },
+          "final_text": "Top transfer targets — midfielders under £8.0m (next 5 GWs):\n  1. Palmer (CHE, MID) £6.0m | form 7.0 | avg FDR 3.6 (hard) | 3.5% owned",
+          "classification_source": null
+        }
+      },
+      "expected": {
+        "intent": "transfer_suggestion",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Phase 2.6h: price-filtered. max_price=8.0 -> now_cost <= 80. Salah (135) excluded; Palmer (60) passes. transfer_suggestion.max_price=8.0, picks[0].web_name='Palmer'. Before: unsupported_intent. After: transfer_suggestion ok."
+    },
+    {
+      "id": "transfer_suggestion_forwards_spanish",
+      "family": "transfer_suggestion",
+      "description": "Spanish 'mejores delanteros para fichar' routes to transfer_suggestion with position='FWD'.",
+      "question": "mejores delanteros para fichar",
+      "surfaces_tested": [
+        "cli",
+        "http"
+      ],
+      "surface_results": {
+        "cli": {
+          "surface": "cli",
+          "exit_code": 0,
+          "intent": "transfer_suggestion",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "team_calendar": null,
+          "team_schedule": null,
+          "position_fixture_run": null,
+          "transfer_suggestion": {
+            "position": "FWD",
+            "position_label": "forwards",
+            "max_price": null,
+            "horizon": 5,
+            "top_n": 2,
+            "picks": [
+              {
+                "rank": 1,
+                "web_name": "Haaland",
+                "team_short": "MCI",
+                "position": "FWD",
+                "now_cost": 145,
+                "now_cost_m": 14.5,
+                "form": 8.0,
+                "avg_fdr": 3.0,
+                "difficulty_label": "moderate",
+                "composite_score": 2.6667,
+                "ownership": 52.3
+              },
+              {
+                "rank": 2,
+                "web_name": "Mbeumo",
+                "team_short": "MUN",
+                "position": "FWD",
+                "now_cost": 75,
+                "now_cost_m": 7.5,
+                "form": 5.0,
+                "avg_fdr": 4.2,
+                "difficulty_label": "hard",
+                "composite_score": 1.1905,
+                "ownership": 8.2
+              }
+            ]
+          },
+          "final_text": "Top transfer targets — forwards (next 5 GWs):\n  1. Haaland (MCI, FWD) £14.5m | form 8.0 | avg FDR 3.0 (moderate) | 52.3% owned\n  2. Mbeumo (MUN, FWD) £7.5m | form 5.0 | avg FDR 4.2 (hard) | 8.2% owned",
+          "classification_source": null
+        },
+        "http": {
+          "surface": "http",
+          "http_status": 200,
+          "intent": "transfer_suggestion",
+          "outcome": "ok",
+          "supported": true,
+          "captain": null,
+          "comparison": null,
+          "captain_ranking": null,
+          "transfer": null,
+          "chip": null,
+          "fixture_run": null,
+          "differential": null,
+          "player_form": null,
+          "injury_list": null,
+          "price_changes": null,
+          "team_calendar": null,
+          "team_schedule": null,
+          "position_fixture_run": null,
+          "transfer_suggestion": {
+            "position": "FWD",
+            "position_label": "forwards",
+            "max_price": null,
+            "horizon": 5,
+            "top_n": 2,
+            "picks": [
+              {
+                "rank": 1,
+                "web_name": "Haaland",
+                "team_short": "MCI",
+                "position": "FWD",
+                "now_cost": 145,
+                "now_cost_m": 14.5,
+                "form": 8.0,
+                "avg_fdr": 3.0,
+                "difficulty_label": "moderate",
+                "composite_score": 2.6667,
+                "ownership": 52.3
+              },
+              {
+                "rank": 2,
+                "web_name": "Mbeumo",
+                "team_short": "MUN",
+                "position": "FWD",
+                "now_cost": 75,
+                "now_cost_m": 7.5,
+                "form": 5.0,
+                "avg_fdr": 4.2,
+                "difficulty_label": "hard",
+                "composite_score": 1.1905,
+                "ownership": 8.2
+              }
+            ]
+          },
+          "final_text": "Top transfer targets — forwards (next 5 GWs):\n  1. Haaland (MCI, FWD) £14.5m | form 8.0 | avg FDR 3.0 (moderate) | 52.3% owned\n  2. Mbeumo (MUN, FWD) £7.5m | form 5.0 | avg FDR 4.2 (hard) | 8.2% owned",
+          "classification_source": null
+        }
+      },
+      "expected": {
+        "intent": "transfer_suggestion",
+        "outcome": "ok",
+        "supported": true
+      },
+      "failures": [],
+      "pass": true,
+      "notes": "Phase 2.6h: Spanish forward buy intent. FWD picks: Haaland (form 8.0, MCI avg_fdr=3.0) composite=2.67, Mbeumo (form 5.0, MUN avg_fdr=4.2) composite=1.19. Haaland ranks #1. transfer_suggestion.position='FWD'. Before: unsupported_intent. After: transfer_suggestion ok."
     }
   ]
 }

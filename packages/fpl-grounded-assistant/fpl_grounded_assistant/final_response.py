@@ -72,7 +72,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from .dispatcher import OUTCOME_OK, INTENT_COMPARE_PLAYERS, INTENT_CAPTAIN_SCORE, INTENT_RANK_CANDIDATES, INTENT_MULTI_INTENT, INTENT_TRANSFER_ADVICE, INTENT_CHIP_ADVICE, INTENT_PLAYER_FIXTURE_RUN, INTENT_DIFFERENTIAL_PICKS, INTENT_PLAYER_FORM, INTENT_INJURY_LIST, INTENT_PRICE_CHANGES, INTENT_TEAM_FIXTURE_CALENDAR, INTENT_TEAM_SCHEDULE, INTENT_POSITION_FIXTURE_RUN  # noqa: F401 — re-exported
+from .dispatcher import OUTCOME_OK, INTENT_COMPARE_PLAYERS, INTENT_CAPTAIN_SCORE, INTENT_RANK_CANDIDATES, INTENT_MULTI_INTENT, INTENT_TRANSFER_ADVICE, INTENT_CHIP_ADVICE, INTENT_PLAYER_FIXTURE_RUN, INTENT_DIFFERENTIAL_PICKS, INTENT_PLAYER_FORM, INTENT_INJURY_LIST, INTENT_PRICE_CHANGES, INTENT_TEAM_FIXTURE_CALENDAR, INTENT_TEAM_SCHEDULE, INTENT_POSITION_FIXTURE_RUN, INTENT_TRANSFER_SUGGESTION  # noqa: F401 — re-exported
 from .dispatcher import _TOOL_TO_INTENT, INTENT_UNSUPPORTED  # Orch-4a: tool->intent map
 from .multi_intent import detect_multi_intent
 from .llm_layer import DEFAULT_MODEL
@@ -591,6 +591,42 @@ class PositionFixtureRunMeta:
 
 
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Transfer suggestion metadata  (Phase 2.6h)
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class TransferSuggestionEntry:
+    """One pick in a transfer suggestion result."""
+    rank:             int
+    web_name:         str
+    team_short:       str
+    position:         str
+    now_cost:         int
+    now_cost_m:       float
+    form:             float
+    avg_fdr:          float
+    difficulty_label: str
+    composite_score:  float
+    ownership:        float
+
+
+@dataclass(frozen=True)
+class TransferSuggestionMeta:
+    """Structured transfer suggestion output.  Phase 2.6h.
+
+    Populated on ``FinalResponse`` when ``intent == transfer_suggestion``
+    and ``outcome == ok``.  ``None`` for all other turns.
+    """
+    position:         str   # canonical FPL code or "ALL"
+    position_label:   str
+    max_price:        "float | None"
+    horizon:          int
+    top_n:            int
+    picks:            tuple[TransferSuggestionEntry, ...]
+
+
+# ---------------------------------------------------------------------------
 # Per-player context bundle  (Phase 5i)
 # ---------------------------------------------------------------------------
 
@@ -919,6 +955,7 @@ class FinalResponse:
     team_calendar:   "TeamFixtureCalendarMeta | None"      = field(default=None)  # Phase 2.6e
     team_schedule:   "TeamScheduleMeta | None"             = field(default=None)  # Phase 2.6e.3
     position_fixture_run: "PositionFixtureRunMeta | None"  = field(default=None)  # Phase 2.6e.4
+    transfer_suggestion:  "TransferSuggestionMeta | None"  = field(default=None)  # Phase 2.6h
 
 
 # ---------------------------------------------------------------------------
@@ -1386,6 +1423,37 @@ def _extract_position_fixture_run_meta(ro: "dict[str, Any]") -> "PositionFixture
             current_gameweek = ro.get("current_gameweek"),
             top_n            = int(ro.get("top_n", 0)),
             teams            = teams,
+        )
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _extract_transfer_suggestion_meta(ro: "dict[str, Any]") -> "TransferSuggestionMeta | None":
+    """Extract TransferSuggestionMeta from get_transfer_suggestion output.  Phase 2.6h."""
+    try:
+        picks = tuple(
+            TransferSuggestionEntry(
+                rank             = int(p.get("rank", 0)),
+                web_name         = p.get("web_name", ""),
+                team_short       = p.get("team_short", ""),
+                position         = p.get("position", ""),
+                now_cost         = int(p.get("now_cost", 0)),
+                now_cost_m       = float(p.get("now_cost_m", 0.0)),
+                form             = float(p.get("form", 0.0)),
+                avg_fdr          = float(p.get("avg_fdr", 0.0)),
+                difficulty_label = p.get("difficulty_label", ""),
+                composite_score  = float(p.get("composite_score", 0.0)),
+                ownership        = float(p.get("ownership", 0.0)),
+            )
+            for p in ro.get("picks", [])
+        )
+        return TransferSuggestionMeta(
+            position         = ro.get("position", "ALL"),
+            position_label   = ro.get("position_label", "all positions"),
+            max_price        = ro.get("max_price"),
+            horizon          = int(ro.get("horizon", 5)),
+            top_n            = int(ro.get("top_n", 0)),
+            picks            = picks,
         )
     except Exception:  # noqa: BLE001
         return None
@@ -1892,4 +1960,5 @@ def respond(
         team_calendar=team_calendar_meta,      # Phase 2.6e
         team_schedule=team_schedule_meta,      # Phase 2.6e.3
         position_fixture_run=position_fixture_run_meta,  # Phase 2.6e.4
+        transfer_suggestion=_extract_transfer_suggestion_meta(dr.raw_output) if dr.intent == INTENT_TRANSFER_SUGGESTION and dr.outcome == OUTCOME_OK else None,  # Phase 2.6h
     )

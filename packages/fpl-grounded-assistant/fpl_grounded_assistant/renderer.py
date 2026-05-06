@@ -553,6 +553,57 @@ def _render_get_team_fixture_calendar(output: dict[str, Any]) -> str:
 # Position fixture run renderer  (Phase 2.6e.4)
 # ---------------------------------------------------------------------------
 
+def _render_get_transfer_suggestion(output: dict[str, Any]) -> str:
+    """Render get_transfer_suggestion output.  Phase 2.6h."""
+    status = output.get("status")
+
+    if status == "ok":
+        pos_label = output.get("position_label", output.get("position", "?"))
+        max_price = output.get("max_price")
+        horizon   = output.get("horizon", 5)
+        picks     = output.get("picks", [])
+
+        price_clause = ""
+        if max_price is not None:
+            try:
+                price_clause = f" under £{float(max_price):.1f}m"
+            except (TypeError, ValueError):
+                pass
+        header = (
+            f"Top transfer targets — {pos_label}{price_clause} "
+            f"(next {horizon} GWs):"
+        )
+        if not picks:
+            return header + " None found."
+
+        lines = [header]
+        for p in picks:
+            rank   = p.get("rank", "?")
+            name   = p.get("web_name", "?")
+            team   = p.get("team_short", "?")
+            pos    = p.get("position", "?")
+            cost_m = p.get("now_cost_m", 0.0)
+            form   = p.get("form", 0.0)
+            avg    = p.get("avg_fdr", 0.0)
+            label  = p.get("difficulty_label", "")
+            own    = p.get("ownership", 0.0)
+            lines.append(
+                f"  {rank}. {name} ({team}, {pos}) "
+                f"£{cost_m:.1f}m | form {form:.1f} | avg FDR {avg:.1f} ({label}) | {own:.1f}% owned"
+            )
+        return "\n".join(lines)
+
+    if status == "empty":
+        return output.get("message", "No transfer targets found matching the criteria.")
+
+    if status == "missing_context":
+        return output.get("message", "Player data not available.")
+
+    code    = output.get("code", "error")
+    message = output.get("message", "An unexpected error occurred.")
+    return f"Error ({code}): {message}"
+
+
 def _render_get_position_fixture_run(output: dict[str, Any]) -> str:
     """Render get_position_fixture_run output."""
     status = output.get("status")
@@ -679,6 +730,7 @@ _RENDERERS = {
     "get_team_fixture_calendar":    _render_get_team_fixture_calendar,  # Phase 2.6e
     "get_team_schedule":            _render_get_team_schedule,           # Phase 2.6e.3
     "get_position_fixture_run":     _render_get_position_fixture_run,    # Phase 2.6e.4
+    "get_transfer_suggestion":      _render_get_transfer_suggestion,     # Phase 2.6h
 }
 
 

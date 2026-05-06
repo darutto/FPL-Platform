@@ -408,6 +408,32 @@ def _serial_team_calendar(tc: Any) -> dict[str, Any]:
     }
 
 
+def _serial_transfer_suggestion(ts: Any) -> dict[str, Any]:
+    return {
+        "position":         ts.position,
+        "position_label":   ts.position_label,
+        "max_price":        ts.max_price,
+        "horizon":          ts.horizon,
+        "top_n":            ts.top_n,
+        "picks": [
+            {
+                "rank":             p.rank,
+                "web_name":         p.web_name,
+                "team_short":       p.team_short,
+                "position":         p.position,
+                "now_cost":         p.now_cost,
+                "now_cost_m":       p.now_cost_m,
+                "form":             p.form,
+                "avg_fdr":          p.avg_fdr,
+                "difficulty_label": p.difficulty_label,
+                "composite_score":  p.composite_score,
+                "ownership":        p.ownership,
+            }
+            for p in ts.picks
+        ],
+    }
+
+
 def _serial_position_fixture_run(pf: Any) -> dict[str, Any]:
     return {
         "position":         pf.position,
@@ -548,6 +574,8 @@ def run(
             payload["team_schedule"] = _serial_team_schedule(r.team_schedule)
         if r.position_fixture_run is not None:             # Phase 2.6e.4
             payload["position_fixture_run"] = _serial_position_fixture_run(r.position_fixture_run)
+        if r.transfer_suggestion is not None:              # Phase 2.6h
+            payload["transfer_suggestion"] = _serial_transfer_suggestion(r.transfer_suggestion)
         if r.sub_responses is not None:                    # Phase 6c/6d
             sub_list: list[dict[str, Any]] = []
             for sr in r.sub_responses:
@@ -666,6 +694,8 @@ def run_session(
             turn["team_schedule"] = _serial_team_schedule(r.team_schedule)
         if r.position_fixture_run is not None:             # Phase 2.6e.4
             turn["position_fixture_run"] = _serial_position_fixture_run(r.position_fixture_run)
+        if r.transfer_suggestion is not None:              # Phase 2.6h
+            turn["transfer_suggestion"] = _serial_transfer_suggestion(r.transfer_suggestion)
         if r.sub_responses is not None:                    # Phase 6d
             sub_list_s: list[dict[str, Any]] = []
             for sr in r.sub_responses:

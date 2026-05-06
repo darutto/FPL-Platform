@@ -242,6 +242,7 @@ def run_cli_surface(
         "team_calendar":          debug_body.get("team_calendar"),     # Phase 2.6e
         "team_schedule":          debug_body.get("team_schedule"),          # Phase 2.6e.3
         "position_fixture_run":   debug_body.get("position_fixture_run"),   # Phase 2.6e.4
+        "transfer_suggestion":    debug_body.get("transfer_suggestion"),    # Phase 2.6h
         "final_text":             debug_body.get("final_text", output_text),
         "classification_source":  debug_bundle.get("classification_source"),
     }
@@ -308,6 +309,7 @@ def run_http_surface(
         "team_calendar":          body.get("team_calendar"),          # Phase 2.6e
         "team_schedule":          body.get("team_schedule"),              # Phase 2.6e.3
         "position_fixture_run":   body.get("position_fixture_run"),     # Phase 2.6e.4
+        "transfer_suggestion":    body.get("transfer_suggestion"),      # Phase 2.6h
         "final_text":             body.get("final_text", ""),
         "classification_source":  debug_bundle.get("classification_source"),
     }
@@ -365,6 +367,7 @@ def run_session_cli_surface(
         "team_calendar":          last.get("team_calendar"),          # Phase 2.6e
         "team_schedule":          last.get("team_schedule"),              # Phase 2.6e.3
         "position_fixture_run":   last.get("position_fixture_run"),     # Phase 2.6e.4
+        "transfer_suggestion":    last.get("transfer_suggestion"),      # Phase 2.6h
         "final_text":             last.get("final_text", ""),
         "resolver_source":        resolver_dbg.get("resolver_source"),
         "rewritten_question":     resolver_dbg.get("rewritten_question"),
@@ -459,6 +462,7 @@ def run_session_http_surface(
         "team_calendar":          last_body.get("team_calendar"),     # Phase 2.6e
         "team_schedule":          last_body.get("team_schedule"),          # Phase 2.6e.3
         "position_fixture_run":   last_body.get("position_fixture_run"), # Phase 2.6e.4
+        "transfer_suggestion":    last_body.get("transfer_suggestion"),  # Phase 2.6h
         "final_text":             last_body.get("final_text", ""),
         "classification_source":  debug_bundle.get("classification_source"),
     }
@@ -739,6 +743,21 @@ def _check_scenario_result(
         if scenario.expected_intent != "position_fixture_run" and sr.get("position_fixture_run") is not None:
             fail("position_fixture_run: expected None for non-position-fixture-run turn")
 
+    # Phase 2.6h: transfer_suggestion structured metadata
+    if scenario.expect_transfer_suggestion:
+        ts = sr.get("transfer_suggestion")
+        if ts is None:
+            fail("transfer_suggestion: expected non-None, got None")
+        else:
+            for key in ("position", "position_label", "horizon", "top_n", "picks"):
+                if key not in ts:
+                    fail(f"transfer_suggestion: missing key '{key}'")
+            if not isinstance(ts.get("picks"), list):
+                fail("transfer_suggestion.picks: expected list")
+    else:
+        if scenario.expected_intent != "transfer_suggestion" and sr.get("transfer_suggestion") is not None:
+            fail("transfer_suggestion: expected None for non-transfer-suggestion turn")
+
     # Resolver source (session_cli only)
     if surface_name == "session_cli" and scenario.expected_resolver_source is not None:
         got_src = sr.get("resolver_source")
@@ -791,7 +810,8 @@ def _check_cross_surface_parity(
                            "player_form", "injury_list", "price_changes",  # Phase 2.6d
                            "team_calendar",                                  # Phase 2.6e
                            "team_schedule",                                  # Phase 2.6e.3
-                           "position_fixture_run"):                          # Phase 2.6e.4
+                           "position_fixture_run",                           # Phase 2.6e.4
+                           "transfer_suggestion"):                           # Phase 2.6h
             rv_present = ref.get(field_name) is not None
             ov_present = other.get(field_name) is not None
             if rv_present != ov_present:

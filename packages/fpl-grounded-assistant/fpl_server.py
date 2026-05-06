@@ -278,6 +278,7 @@ class AskResponse(BaseModel):
     team_calendar: dict[str, Any] | None = None            # Phase 2.6e
     team_schedule: dict[str, Any] | None = None            # Phase 2.6e.3
     position_fixture_run: dict[str, Any] | None = None    # Phase 2.6e.4
+    transfer_suggestion:  dict[str, Any] | None = None    # Phase 2.6h
 
 
 class CreateSessionResponse(BaseModel):
@@ -328,6 +329,7 @@ class SessionAskResponse(BaseModel):
     team_calendar: dict[str, Any] | None = None            # Phase 2.6e
     team_schedule: dict[str, Any] | None = None            # Phase 2.6e.3
     position_fixture_run: dict[str, Any] | None = None    # Phase 2.6e.4
+    transfer_suggestion:  dict[str, Any] | None = None    # Phase 2.6h
 
 
 class ClearSessionResponse(BaseModel):
@@ -678,6 +680,33 @@ def _team_calendar_meta_dict(tc: Any) -> dict[str, Any]:
     }
 
 
+def _transfer_suggestion_meta_dict(ts: Any) -> dict[str, Any]:
+    """Serialise a TransferSuggestionMeta instance.  Phase 2.6h."""
+    return {
+        "position":         ts.position,
+        "position_label":   ts.position_label,
+        "max_price":        ts.max_price,
+        "horizon":          ts.horizon,
+        "top_n":            ts.top_n,
+        "picks": [
+            {
+                "rank":             p.rank,
+                "web_name":         p.web_name,
+                "team_short":       p.team_short,
+                "position":         p.position,
+                "now_cost":         p.now_cost,
+                "now_cost_m":       p.now_cost_m,
+                "form":             p.form,
+                "avg_fdr":          p.avg_fdr,
+                "difficulty_label": p.difficulty_label,
+                "composite_score":  p.composite_score,
+                "ownership":        p.ownership,
+            }
+            for p in ts.picks
+        ],
+    }
+
+
 def _position_fixture_run_meta_dict(pf: Any) -> dict[str, Any]:
     """Serialise a PositionFixtureRunMeta instance.  Phase 2.6e.4."""
     return {
@@ -977,6 +1006,7 @@ def ask(req: AskRequest) -> AskResponse:
         team_calendar=team_calendar_bundle,
         team_schedule=team_schedule_bundle,
         position_fixture_run=pos_fixture_run_bundle,
+        transfer_suggestion=_transfer_suggestion_meta_dict(r.transfer_suggestion) if r.transfer_suggestion is not None else None,
     )
 
 
@@ -1163,6 +1193,7 @@ def session_ask(session_id: str, req: AskRequest) -> SessionAskResponse:
         team_calendar=sess_team_calendar_bundle,
         team_schedule=sess_team_schedule_bundle,
         position_fixture_run=sess_pos_fixture_run_bundle,
+        transfer_suggestion=_transfer_suggestion_meta_dict(r.transfer_suggestion) if r.transfer_suggestion is not None else None,
     )
 
 

@@ -1,11 +1,11 @@
 # FPL Grounded Assistant — Validation Report
 
-Generated: 2026-05-04 22:13 UTC
+Generated: 2026-05-06 01:31 UTC
 
 ## Summary
 
-- **71 scenarios** tested
-- **71 PASS**, **0 FAIL**
+- **74 scenarios** tested
+- **74 PASS**, **0 FAIL**
 
 ## Scenario Overview
 
@@ -82,6 +82,9 @@ Generated: 2026-05-04 22:13 UTC
 | position_fixture_run_defenders_english | position_fixture_run | position_fixture_run | ok | cli, http | ✓ PASS |
 | position_fixture_run_midfielders_english | position_fixture_run | position_fixture_run | ok | cli, http | ✓ PASS |
 | position_fixture_run_forwards_spanish | position_fixture_run | position_fixture_run | ok | cli, http | ✓ PASS |
+| transfer_suggestion_midfielders_english | transfer_suggestion | transfer_suggestion | ok | cli, http | ✓ PASS |
+| transfer_suggestion_midfielders_price | transfer_suggestion | transfer_suggestion | ok | cli, http | ✓ PASS |
+| transfer_suggestion_forwards_spanish | transfer_suggestion | transfer_suggestion | ok | cli, http | ✓ PASS |
 
 ## Scenario Details
 
@@ -1117,6 +1120,45 @@ Generated: 2026-05-04 22:13 UTC
 
 - `cli`: intent=`position_fixture_run` outcome=`ok` supported=`True`
 - `http`: intent=`position_fixture_run` outcome=`ok` supported=`True`
+
+### transfer_suggestion_midfielders_english  (✓ PASS)
+
+**Family:** transfer_suggestion  
+**Description:** English 'best midfielders to buy' routes to transfer_suggestion with position='MID', no price ceiling.  
+**Question:** `best midfielders to buy`  
+**Expected:** intent=`transfer_suggestion` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6h: transfer suggestion by position. DIFFERENTIAL_BOOTSTRAP: Salah (MID, 13.5m, form 9.5, LIV avg_fdr=2.8) and Palmer (MID, 6.0m, form 7.0, CHE avg_fdr=3.6). Composite: Salah=3.39, Palmer=1.94. Salah ranks #1. transfer_suggestion.position='MID'. Before: unsupported_intent. After: transfer_suggestion ok.
+
+**Surface results:**
+
+- `cli`: intent=`transfer_suggestion` outcome=`ok` supported=`True`
+- `http`: intent=`transfer_suggestion` outcome=`ok` supported=`True`
+
+### transfer_suggestion_midfielders_price  (✓ PASS)
+
+**Family:** transfer_suggestion  
+**Description:** English 'best midfielders to buy under 8' routes to transfer_suggestion with position='MID', max_price=8.0.  
+**Question:** `best midfielders to buy under 8`  
+**Expected:** intent=`transfer_suggestion` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6h: price-filtered. max_price=8.0 -> now_cost <= 80. Salah (135) excluded; Palmer (60) passes. transfer_suggestion.max_price=8.0, picks[0].web_name='Palmer'. Before: unsupported_intent. After: transfer_suggestion ok.
+
+**Surface results:**
+
+- `cli`: intent=`transfer_suggestion` outcome=`ok` supported=`True`
+- `http`: intent=`transfer_suggestion` outcome=`ok` supported=`True`
+
+### transfer_suggestion_forwards_spanish  (✓ PASS)
+
+**Family:** transfer_suggestion  
+**Description:** Spanish 'mejores delanteros para fichar' routes to transfer_suggestion with position='FWD'.  
+**Question:** `mejores delanteros para fichar`  
+**Expected:** intent=`transfer_suggestion` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.6h: Spanish forward buy intent. FWD picks: Haaland (form 8.0, MCI avg_fdr=3.0) composite=2.67, Mbeumo (form 5.0, MUN avg_fdr=4.2) composite=1.19. Haaland ranks #1. transfer_suggestion.position='FWD'. Before: unsupported_intent. After: transfer_suggestion ok.
+
+**Surface results:**
+
+- `cli`: intent=`transfer_suggestion` outcome=`ok` supported=`True`
+- `http`: intent=`transfer_suggestion` outcome=`ok` supported=`True`
 
 ---
 
