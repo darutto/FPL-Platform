@@ -600,6 +600,13 @@ def _render_get_transfer_suggestion(output: dict[str, Any]) -> str:
     if status == "empty":
         return output.get("message", "No transfer targets found matching the criteria.")
 
+    if status == "not_found":
+        team_query = output.get("team_query", "that team")
+        return (
+            f"No club matching '{team_query}' was found in the current fixture data. "
+            "Check the spelling or try a common abbreviation (e.g. 'Liverpool', 'LIV', 'Spurs')."
+        )
+
     if status == "missing_context":
         return output.get("message", "Player data not available.")
 
