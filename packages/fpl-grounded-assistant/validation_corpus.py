@@ -2294,6 +2294,442 @@ VALIDATION_SCENARIOS: tuple[ValidationScenario, ...] = (
         ),
     ),
 
+    # ------------------------------------------------------------------
+    # 81 — Phase 2.7a Story 1.1: Spanish no-position price phrase (variant A)
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="transfer_suggestion_nopos_arsenal_precio_menor",
+        family="transfer_suggestion",
+        description=(
+            "Spanish 'mejores jugadores de arsenal con precio menor a 8' routes to "
+            "transfer_suggestion with position='ALL', team_short='ARS', max_price=8.0."
+        ),
+        question="mejores jugadores de arsenal con precio menor a 8",
+        bootstrap="differential",
+        surfaces=("cli", "http"),
+        expected_intent="transfer_suggestion",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_transfer_suggestion=True,
+        notes=(
+            "Phase 2.7a Story 1.1: Spanish no-position price phrase. "
+            "Lead word 'mejores' + price regex extended to capture 'precio menor a 8'. "
+            "Form 4 (C): has_lead_price=True, team='Arsenal', max_price=8.0. "
+            "DIFFERENTIAL_BOOTSTRAP ARS available: Raya (GKP, 5.5m). "
+            "transfer_suggestion.position='ALL', team_short='ARS', max_price=8.0. "
+            "Before fix: unsupported_intent. After: transfer_suggestion ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 82 — Phase 2.7a Story 1.1: Spanish no-position price phrase (variant B)
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="transfer_suggestion_nopos_arsenal_jugadores_del",
+        family="transfer_suggestion",
+        description=(
+            "Spanish 'jugadores del arsenal por menos de 8 millones' routes to "
+            "transfer_suggestion with position='ALL', team_short='ARS', max_price=8.0."
+        ),
+        question="jugadores del arsenal por menos de 8 millones",
+        bootstrap="differential",
+        surfaces=("cli", "http"),
+        expected_intent="transfer_suggestion",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_transfer_suggestion=True,
+        notes=(
+            "Phase 2.7a Story 1.1: Spanish 'jugadores del {team}' prefix. "
+            "Form 1: prefix 'jugadores del ' matches; 'arsenal' not a position word. "
+            "max_price=8.0 (millones suffix captured). "
+            "transfer_suggestion.position='ALL', team_short='ARS', max_price=8.0. "
+            "Before fix: unsupported_intent. After: transfer_suggestion ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 83 — Phase 2.7a Story 1.2: Spanish position + price phrase (imperative form)
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="transfer_suggestion_mid_chelsea_baratos_dame",
+        family="transfer_suggestion",
+        description=(
+            "Spanish 'dame mediocampistas de chelsea baratos, de no mas de 8 millones' "
+            "routes to transfer_suggestion with position='MID', team_short='CHE', max_price=8.0."
+        ),
+        question="dame mediocampistas de chelsea baratos, de no mas de 8 millones",
+        bootstrap="differential",
+        surfaces=("cli", "http"),
+        expected_intent="transfer_suggestion",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_transfer_suggestion=True,
+        notes=(
+            "Phase 2.7a Story 1.2: Spanish imperative 'dame {pos}' + team + price. "
+            "Form 3b: 'dame' in imperative leads; 'mediocampistas' → position='centrocampista'. "
+            "Price regex extended to capture 'de no mas de 8'. "
+            "DIFFERENTIAL_BOOTSTRAP Chelsea MID: Palmer (6.0m, form 7.0). "
+            "transfer_suggestion.position='MID', team_short='CHE', max_price=8.0. "
+            "Before fix: unsupported_intent. After: transfer_suggestion ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 84 — Phase 2.7a Story 1.2: Spanish position + price phrase (pos-first form)
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="transfer_suggestion_fwd_mancity_baratos",
+        family="transfer_suggestion",
+        description=(
+            "Spanish 'delanteros baratos del manchester city' routes to "
+            "transfer_suggestion with position='FWD', team_short='MCI'."
+        ),
+        question="delanteros baratos del manchester city",
+        bootstrap="differential",
+        surfaces=("cli", "http"),
+        expected_intent="transfer_suggestion",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_transfer_suggestion=True,
+        notes=(
+            "Phase 2.7a Story 1.2: Spanish pos-first + 'baratos' buy suffix. "
+            "Form 2: 'delanteros' is pos-word; ' baratos' added to _BUY_SUFFIXES. "
+            "team='Manchester City', no price constraint. "
+            "DIFFERENTIAL_BOOTSTRAP MCI FWD: Haaland (status='a', form=8.0). "
+            "transfer_suggestion.position='FWD', team_short='MCI', picks[0]='Haaland'. "
+            "Before fix: unsupported_intent. After: transfer_suggestion ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 85 — Phase 2.7a Story 1.3: generic Spanish price-change phrasing
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="price_changes_generic_cambiado",
+        family="price_changes",
+        description=(
+            "Spanish 'que jugadores han cambiado de precio esta semana' routes to "
+            "price_changes intent via extended _PRICE_CHANGES_KEYWORDS."
+        ),
+        question="que jugadores han cambiado de precio esta semana",
+        bootstrap="price_changes",
+        surfaces=("cli", "http"),
+        expected_intent="price_changes",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_price_changes=True,
+        notes=(
+            "Phase 2.7a Story 1.3: generic changed-price phrasing. "
+            "'han cambiado de precio' added to _PRICE_CHANGES_KEYWORDS. "
+            "PRICE_CHANGES_BOOTSTRAP: Salah cost_change_event=+1 (riser). "
+            "price_changes.risers non-empty. "
+            "Before fix: unsupported_intent. After: price_changes ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 86 — Phase 2.7a Story 1.4: Spanish triple captain timing (no accent)
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="chip_triple_capitan_es_buen_momento",
+        family="chip",
+        description=(
+            "Spanish 'es buen momento para usar mi triple capitan' routes to "
+            "chip_advice with chip='triple_captain' via new keyword + advisory phrase."
+        ),
+        question="es buen momento para usar mi triple capitan",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="chip_advice",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_chip=True,
+        notes=(
+            "Phase 2.7a Story 1.4: Spanish triple captain timing phrasing. "
+            "'triple capitan' (no accent) added to _CHIP_KEYWORDS. "
+            "'es buen momento' + 'usar mi' added to _CHIP_ADVISORY_PHRASES. "
+            "chip='triple_captain'. "
+            "Before fix: unsupported_intent. After: chip_advice ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 87 — Phase 2.7a Story 1.4: Spanish triple captain timing (with accent)
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="chip_triple_capitan_usar_mi_accented",
+        family="chip",
+        description=(
+            "Spanish 'es buen momento para usar mi triple capitán' routes to "
+            "chip_advice with chip='triple_captain' via accented keyword."
+        ),
+        question="es buen momento para usar mi triple capitán",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="chip_advice",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_chip=True,
+        notes=(
+            "Phase 2.7a Story 1.4: Spanish triple capitán (with accent). "
+            "'triple capitán' added to _CHIP_KEYWORDS. "
+            "chip='triple_captain'. "
+            "Before fix: unsupported_intent. After: chip_advice ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 88 — Phase 2.7c Story 3.1: player summary → player form follow-up
+    #       (Spanish, main story pattern)
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="player_form_followup_spanish",
+        family="player_form",
+        description=(
+            "Session follow-up: after 'stats de Salah' (player_summary), "
+            "'y en los ultimos 5 partidos?' is rewritten to "
+            "'historial de Salah en los ultimos 5 partidos' → player_form."
+        ),
+        question="y en los ultimos 5 partidos?",
+        bootstrap="player_form",
+        surfaces=("session_cli", "session_http"),
+        session_prior_turns=("stats de Salah",),
+        expected_intent="player_form",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_player_form=True,
+        expected_resolver_source="player_form_followup",
+        notes=(
+            "Phase 2.7c Story 3.1: deterministic player form follow-up rewrite. "
+            "Prior turn: 'stats de Salah' routes to player_summary "
+            "(sets last_player_query='Salah'). "
+            "Follow-up: 'y en los ultimos 5 partidos?' "
+            "-> 'historial de Salah en los ultimos 5 partidos'. "
+            "resolver_source='player_form_followup'. "
+            "player_form.web_name should be 'Salah' (resolved from PLAYER_FORM_BOOTSTRAP). "
+            "No LLM call required for the rewrite."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 89 — Phase 2.7c Story 3.1: captain score → player form follow-up
+    #       (English 'recent form', secondary positive pattern)
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="player_form_followup_english",
+        family="player_form",
+        description=(
+            "Session follow-up: after 'should I captain Salah' (captain_score), "
+            "'recent form?' is rewritten to 'historial de Salah' → player_form."
+        ),
+        question="recent form?",
+        bootstrap="player_form",
+        surfaces=("session_cli", "session_http"),
+        session_prior_turns=("should I captain Salah",),
+        expected_intent="player_form",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_player_form=True,
+        expected_resolver_source="player_form_followup",
+        notes=(
+            "Phase 2.7c Story 3.1: deterministic player form follow-up — English pattern. "
+            "Prior turn: 'should I captain Salah' (sets last_player_query='Salah'). "
+            "Follow-up: 'recent form?' -> 'historial de Salah'. "
+            "resolver_source='player_form_followup'. "
+            "player_form.web_name should be 'Salah'."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 90 — Phase 2.7c Story 3.2: safety guard — no prior player turn
+    #       (form-like follow-up with no last_player_query set)
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="player_form_followup_no_prior_player",
+        family="failure_modes",
+        description=(
+            "Safety guard: 'y en los ultimos 5 partidos?' with no prior player turn "
+            "must NOT rewrite — falls through to unsupported (no player context)."
+        ),
+        question="y en los ultimos 5 partidos?",
+        bootstrap="player_form",
+        surfaces=("session_cli", "session_http"),
+        session_prior_turns=(),
+        expected_intent="unsupported",
+        expected_outcome="unsupported_intent",
+        expected_supported=False,
+        notes=(
+            "Phase 2.7c Story 3.2: safety guard — no last_player_query set. "
+            "resolve_player_form_followup() returns None (primary guard fires). "
+            "Question has no player name → unsupported_intent. "
+            "Must NOT produce a player_form rewrite or error."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 91 — Phase 2.7c Story 3.2: safety guard — prior non-player turn
+    #       (differential picks → form follow-up, last_player_query still None)
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="player_form_followup_after_differential",
+        family="failure_modes",
+        description=(
+            "Safety guard: after 'good differentials' (differential_picks), "
+            "'y en los ultimos 5 partidos?' must NOT rewrite to player_form "
+            "— last_player_query is not set by differential turns."
+        ),
+        question="y en los ultimos 5 partidos?",
+        bootstrap="differential",
+        surfaces=("session_cli", "session_http"),
+        session_prior_turns=("good differentials",),
+        expected_intent="unsupported",
+        expected_outcome="unsupported_intent",
+        expected_supported=False,
+        notes=(
+            "Phase 2.7c Story 3.2: safety guard — prior turn was differential_picks "
+            "which does NOT set last_player_query. "
+            "resolve_player_form_followup() returns None (primary guard fires). "
+            "No player name in follow-up → unsupported_intent. "
+            "Must NOT produce a player_form rewrite or error."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 92 — Phase 2.7b Story 2.1: player-first compact stats ("los" variant)
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="player_form_dame_los_stats_player_first",
+        family="player_form",
+        description=(
+            "'dame los stats de Salah en los ultimos 5' routes to player_form "
+            "via new player-first prefix with middle-keyword split."
+        ),
+        question="dame los stats de Salah en los ultimos 5",
+        bootstrap="player_form",
+        surfaces=("cli", "http"),
+        expected_intent="player_form",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_player_form=True,
+        notes=(
+            "Phase 2.7b Story 2.1: 'dame los stats de {player} en los ultimos N' "
+            "routed via new 'dame los stats de' entry in "
+            "_PLAYER_FORM_PLAYER_FIRST_PREFIXES. "
+            "'5' at end with no unit word → n=5 (default). "
+            "PLAYER_FORM_BOOTSTRAP: Salah (id=2), 3 history entries. "
+            "player_form.web_name='Salah', n_games=5, len(history)<=5. "
+            "Before fix: unsupported_intent or routed to summary. "
+            "After fix: player_form ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 93 — Phase 2.7b Story 2.1: player-first compact stats (comma separator)
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="player_form_dame_los_stats_comma_count",
+        family="player_form",
+        description=(
+            "'dame los stats de Salah, en 3 partidos' routes to player_form "
+            "via Story 2.1 compact sub-case (comma-separated count phrase)."
+        ),
+        question="dame los stats de Salah, en 3 partidos",
+        bootstrap="player_form",
+        surfaces=("cli", "http"),
+        expected_intent="player_form",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_player_form=True,
+        notes=(
+            "Phase 2.7b Story 2.1: 'dame los stats de {player}, en N partidos'. "
+            "N_GAMES_RE locates '3 partidos'; everything before the match (stripped "
+            "of trailing ', en') = 'Salah'. n_games=3. "
+            "PLAYER_FORM_BOOTSTRAP has 3 entries → history len=3. "
+            "Before fix: unsupported_intent or summary. After fix: player_form ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 94 — Phase 2.7b Story 2.2: accent-insensitive N-first (fully accented)
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="player_form_estadisticas_ultimos_accented",
+        family="player_form",
+        description=(
+            "'dame las estadísticas de los últimos 5 partidos de Salah' "
+            "(both accents) routes to player_form via _deaccent() prefix match."
+        ),
+        question="dame las estadísticas de los últimos 5 partidos de Salah",
+        bootstrap="player_form",
+        surfaces=("cli", "http"),
+        expected_intent="player_form",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_player_form=True,
+        notes=(
+            "Phase 2.7b Story 2.2: fully-accented N-first prefix. "
+            "'dame las estadísticas de los últimos' deaccents to known prefix entry. "
+            "n_games=5, player='Salah', PLAYER_FORM_BOOTSTRAP 3 entries. "
+            "Before fix: unsupported_intent (accent mismatch). "
+            "After fix: player_form ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 95 — Phase 2.7b Story 2.2: accent-insensitive N-first (mixed accent)
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="player_form_estadisticas_mixed_accent",
+        family="player_form",
+        description=(
+            "'dame las estadísticas de los ultimos 5 partidos de Salah' "
+            "(estadísticas accented, ultimos unaccented) routes to player_form."
+        ),
+        question="dame las estadísticas de los ultimos 5 partidos de Salah",
+        bootstrap="player_form",
+        surfaces=("cli", "http"),
+        expected_intent="player_form",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_player_form=True,
+        notes=(
+            "Phase 2.7b Story 2.2: mixed-accent variant. "
+            "'estadísticas' (accented) + 'ultimos' (unaccented) both deaccent to "
+            "the same key 'estadisticas'/'ultimos'. "
+            "n_games=5, player='Salah'. "
+            "Before fix: unsupported_intent (partial accent miss). "
+            "After fix: player_form ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 96 — Phase 2.7b Story 2.3: extraction clean — no count fragment leak
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="player_form_extraction_no_count_leak",
+        family="player_form",
+        description=(
+            "'dame las stats de los ultimos 5 partidos de Salah' routes to "
+            "player_form with query='Salah' only (no count/unit fragment)."
+        ),
+        question="dame las stats de los ultimos 5 partidos de Salah",
+        bootstrap="player_form",
+        surfaces=("cli", "http"),
+        expected_intent="player_form",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_player_form=True,
+        notes=(
+            "Phase 2.7b Story 2.3: extraction cleanup guard. "
+            "Pattern 3 extracts player after ' partidos de ' separator — "
+            "'Salah' only, no count/unit fragment in the query field. "
+            "_COUNT_UNIT_NOISE_RE strips any trailing residue. "
+            "n_games=5, player_form.web_name='Salah'. "
+            "Regression guard: same phrase already worked; this verifies "
+            "extraction quality is maintained."
+        ),
+    ),
+
 )
 
 

@@ -265,6 +265,11 @@ from .conversation_state import (
     _DIFF_INTERROGATIVE_STARTERS,
     _DIFF_REMAINDER_NON_PLAYER_STARTERS,
     _DIFF_REMAINDER_CONTENT_BLOCKLIST,
+    # Phase 2.7c: player form follow-up support
+    resolve_player_form_followup,
+    _FORM_EXACT_PHRASES,
+    _FORM_FRAGMENT_PHRASES,
+    _FORM_N_GAMES_RE,
 )
 from .reference_resolver import (
     # Phase 4f: LLM-assisted reference resolution
@@ -430,6 +435,11 @@ __all__ = [
     "_DIFF_INTERROGATIVE_STARTERS",
     "_DIFF_REMAINDER_NON_PLAYER_STARTERS",
     "_DIFF_REMAINDER_CONTENT_BLOCKLIST",
+    # Phase 2.7c: player form follow-up
+    "resolve_player_form_followup",
+    "_FORM_EXACT_PHRASES",
+    "_FORM_FRAGMENT_PHRASES",
+    "_FORM_N_GAMES_RE",
     # Phase 4f: LLM-assisted reference resolution
     "ReferenceResolution",
     "resolve_reference",

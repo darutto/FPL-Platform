@@ -8,6 +8,7 @@ Phase 5l: last_resolver_source tracking for session inspect audit snapshot.
 Phase 7f: transfer follow-up support.
 Phase 8d-i: fixture run follow-up support.
 Phase 8d-ii: differential follow-up support.
+Phase 2.7c: player form follow-up support.
 
 Provides a lightweight, in-memory state layer on top of the stateless
 ``respond()`` function.  State is explicit, bounded, and restricted to
@@ -30,6 +31,7 @@ Phase 4e: English pronoun substitution via regex.
 Phase 4f: LLM-assisted reference resolution for Spanish/ellipsis follow-ups.
 Phase 5c: deterministic comparison follow-up via ``resolve_comparison_followup()``.
 Phase 5f: LLM-assisted comparison follow-up for Spanish and elliptical patterns.
+Phase 2.7c: deterministic player form follow-up via ``resolve_player_form_followup()``.
 
 When ``resolver_client`` is provided to ``ConversationSession.respond()``,
 the LLM resolver handles patterns the Phase 4e regex cannot:
@@ -59,6 +61,22 @@ Phase 8d-i deterministic fixture run follow-ups (no client needed)::
     "What about Salah?"    → Salah fixtures
     "How about Salah?"     → Salah fixtures
     "Salah?"               → Salah fixtures  (bare name, ≤ 3 words, no interrogative start)
+
+Phase 8d-ii deterministic differential follow-ups (no client needed)::
+
+    "What about Mbeumo?"   → should I captain Mbeumo?
+    "How about Palmer?"    → should I captain Palmer?
+    "Mbeumo?"              → should I captain Mbeumo?  (bare name, ≤ 3 words)
+
+Phase 2.7c deterministic player form follow-ups (no client needed)::
+
+    "y en los ultimos 5 partidos?"      → historial de {last_player} en los últimos 5 partidos
+    "en los últimos 3 partidos?"        → historial de {last_player} en los últimos 3 partidos
+    "últimos partidos?"                 → historial de {last_player}
+    "recent form?"                      → historial de {last_player}
+    "last 5 games?"                     → historial de {last_player}
+    "y su forma?"                       → historial de {last_player}
+    "forma reciente?"                   → historial de {last_player}
 
 Phase 8d-ii deterministic differential follow-ups (no client needed)::
 
@@ -96,6 +114,7 @@ Public API
         resolve_comparison_followup,     # comparison follow-up rewriter (Phase 5c)
         resolve_transfer_followup,       # transfer follow-up rewriter (Phase 7f)
         resolve_fixture_run_followup,    # fixture run follow-up rewriter (Phase 8d-i)
+        resolve_player_form_followup,    # player form follow-up rewriter (Phase 2.7c)
     )
 
     session = ConversationSession()
@@ -124,6 +143,7 @@ from .dispatcher import (
     INTENT_TRANSFER_ADVICE,        # Phase 7f
     INTENT_PLAYER_FIXTURE_RUN,     # Phase 8d-i
     INTENT_DIFFERENTIAL_PICKS,     # Phase 8d-ii
+    INTENT_PLAYER_FORM,            # Phase 2.7c
 )
 from .router import route
 from .final_response import respond as _respond, FinalResponse
@@ -277,6 +297,76 @@ _DIFF_REMAINDER_CONTENT_BLOCKLIST: frozenset[str] = frozenset({
 })
 
 
+# ---------------------------------------------------------------------------
+# Player form follow-up patterns  (Phase 2.7c)
+# ---------------------------------------------------------------------------
+# Unambiguous signals that the follow-up is asking about recent-game form for
+# the player established in the previous turn (last_player_query).
+#
+# Safety guard: ALL patterns require last_player_query to be set.  If it is
+# not set, resolve_player_form_followup() returns None immediately.
+#
+# Pattern vocabulary:
+#   _FORM_EXACT_PHRASES   — exact (normalised) strings that unambiguously mean
+#                           "recent form / last N games", matched as full question
+#   _FORM_FRAGMENT_PHRASES — substrings that, when present in the stripped question,
+#                            unambiguously indicate a form follow-up
+#   _FORM_N_GAMES_RE       — regex for "last N games/matches/partidos" etc.
+
+# Exact-match phrases (after strip + lower + rstrip "?!.").
+# These must be unambiguous on their own and require no player reference in the
+# question (the player comes from state.last_player_query).
+_FORM_EXACT_PHRASES: frozenset[str] = frozenset({
+    # Spanish
+    "y en los ultimos 5 partidos",
+    "y en los últimos 5 partidos",
+    "y en los ultimos partidos",
+    "y en los últimos partidos",
+    "en los ultimos partidos",
+    "en los últimos partidos",
+    "en los ultimas jornadas",
+    "en las ultimas jornadas",
+    "en las últimas jornadas",
+    "ultimos partidos",
+    "últimos partidos",
+    "ultimas jornadas",
+    "últimas jornadas",
+    "su forma reciente",
+    "y su forma",
+    "forma reciente",
+    "su forma",
+    # English
+    "recent form",
+    "recent games",
+    "recent matches",
+    "last few games",
+    "last few matches",
+})
+
+# Fragment substrings that unambiguously mark a form follow-up regardless of
+# surrounding context.  Checked as lowercased substrings.
+_FORM_FRAGMENT_PHRASES: tuple[str, ...] = (
+    # Spanish N-game patterns
+    "en los ultimos ",
+    "en los últimos ",
+    "en las ultimas ",
+    "en las últimas ",
+    # English N-game patterns
+    "last ",     # "last 5 games", "last 3 matches" — validated further by N-games regex
+    "past ",     # "past 5 games"
+)
+
+# Regex for "last/past N games/matches/partidos/jornadas" in the question.
+# Used together with _FORM_FRAGMENT_PHRASES to validate "last ..." cases.
+_FORM_N_GAMES_RE = re.compile(
+    r'\b(?:last|past|ultimos?|últimos?|ultimas?|últimas?)\s+'
+    r'([1-9][0-9]?)\s*'
+    r'(?:jornadas?|partidos?|juegos?|gw|gameweeks?|games?|matches?|semanas?)\b',
+    re.IGNORECASE,
+)
+
+
+
 # Matches "compare <pronoun> to/vs/against/and <player>".
 _COMP_PRONOUN_RE = re.compile(
     r"^compare\s+(?:him|her|them|the\s+player|this\s+player)\s+"
@@ -356,7 +446,7 @@ class ConversationState:
         - *resolved_query* is non-empty
         - ``response.outcome == OUTCOME_OK``
         - ``response.intent`` is one of: captain_score, player_summary,
-          player_resolve
+          player_resolve, player_form (Phase 2.7c)
 
         Sets ``last_comparison`` to *comparison_queries* when:
 
@@ -422,6 +512,7 @@ class ConversationState:
                 INTENT_CAPTAIN_SCORE,
                 INTENT_PLAYER_SUMMARY,
                 INTENT_PLAYER_RESOLVE,
+                INTENT_PLAYER_FORM,   # Phase 2.7c: form turns also anchor player context
             )
         ):
             self.last_player_query = resolved_query
@@ -866,6 +957,96 @@ def resolve_differential_followup(question: str, state: ConversationState) -> st
 
 
 # ---------------------------------------------------------------------------
+# Player form follow-up resolver  (Phase 2.7c)
+# ---------------------------------------------------------------------------
+
+def resolve_player_form_followup(question: str, state: ConversationState) -> str | None:
+    """Detect a player-form follow-up and return the rewritten canonical question.
+
+    Requires ``state.last_player_query`` to be set from a prior successful
+    player-related turn (player_summary, captain_score, or player_resolve).
+    Returns ``None`` when no form follow-up pattern matches or when
+    ``state.last_player_query`` is not set.
+
+    Safety guards
+    -------------
+    1. Primary guard: ``state.last_player_query`` must be non-None.
+    2. Pattern guard: the follow-up must unambiguously refer to recent-game
+       form — either an exact phrase match or an N-game fragment with a
+       numeric count.  Weak or generic questions fall through.
+
+    Supported patterns (when ``state.last_player_query == player``)::
+
+        "y en los ultimos 5 partidos?"   → "historial de {player} en los ultimos 5 partidos"
+        "en los últimos 3 partidos?"     → "historial de {player} en los últimos 3 partidos"
+        "últimos partidos?"              → "historial de {player}"
+        "recent form?"                   → "historial de {player}"
+        "last 5 games?"                  → "historial de {player} en los ultimos 5 partidos"
+        "y su forma?"                    → "historial de {player}"
+
+    Parameters
+    ----------
+    question:
+        Raw user question.
+    state:
+        Current ``ConversationState``.
+
+    Returns
+    -------
+    str | None
+        Canonical player-form question if a follow-up pattern matched, else ``None``.
+
+    Notes
+    -----
+    The rewritten form ``"historial de {player}"`` (or with N-games suffix) is
+    recognised by ``_try_route_player_form()`` via the ``"historial de"`` prefix.
+    LLM-assisted player-form follow-up is intentionally deferred.
+    Ambiguous questions (no form signal, or question too long to be a mere
+    follow-up phrase) fall through to existing behavior without error.
+    """
+    # Safety guard 1: must have a previously resolved player
+    if not state.last_player_query:
+        return None
+
+    player = state.last_player_query
+    q_stripped = question.strip().rstrip("?!.")
+    q_norm = q_stripped.lower()
+
+    # Strip optional leading "y " (Spanish "and") connector
+    q_core = q_norm
+    if q_core.startswith("y "):
+        q_core = q_core[2:].strip()
+
+    # Guard: reject overly long questions (> 8 words) — they likely contain a
+    # new player name or an intent of their own and should not be hijacked.
+    if len(q_stripped.split()) > 8:
+        return None
+
+    # Check exact phrases first (unambiguous form signals)
+    if q_core in _FORM_EXACT_PHRASES or q_norm in _FORM_EXACT_PHRASES:
+        # Try to extract N from the question; if found, include it in the rewrite
+        n_match = _FORM_N_GAMES_RE.search(q_norm)
+        if n_match:
+            n = int(n_match.group(1))
+            return f"historial de {player} en los ultimos {n} partidos"
+        return f"historial de {player}"
+
+    # Check N-game fragment patterns ("en los ultimos N ...", "last N games", etc.)
+    for frag in _FORM_FRAGMENT_PHRASES:
+        if frag in q_norm:
+            n_match = _FORM_N_GAMES_RE.search(q_norm)
+            if n_match:
+                n = int(n_match.group(1))
+                return f"historial de {player} en los ultimos {n} partidos"
+            # Fragment present but no N found — only rewrite if fragment is
+            # one of the unambiguous Spanish patterns (not the weak "last "/"past ")
+            if frag not in ("last ", "past "):
+                return f"historial de {player}"
+
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Resolver debug helper (Phase 4g / Phase 5l)
 # ---------------------------------------------------------------------------
 
@@ -874,12 +1055,14 @@ def _map_resolver_source(resolution) -> str:
 
     Resolver source mapping (Phase 5k: comparison-specific values preserved;
     Phase 7f: transfer_followup added; Phase 8d-i: fixture_run_followup added;
-    Phase 8d-ii: differential_followup added):
+    Phase 8d-ii: differential_followup added;
+    Phase 2.7c: player_form_followup added):
     - "comparison_followup"     -> "comparison_followup"      (Phase 5c det. comparison rewrite)
     - "comparison_followup_llm" -> "comparison_followup_llm"  (Phase 5f LLM comparison rewrite)
     - "transfer_followup"       -> "transfer_followup"        (Phase 7f det. transfer rewrite)
     - "fixture_run_followup"    -> "fixture_run_followup"     (Phase 8d-i det. fixture run rewrite)
     - "differential_followup"   -> "differential_followup"    (Phase 8d-ii det. differential rewrite)
+    - "player_form_followup"    -> "player_form_followup"     (Phase 2.7c det. form rewrite)
     - "deterministic"           -> "fallback_regex"            (Phase 4e pronoun regex)
     - "none" (confidence 0.0)   -> "none"                     (no resolver ran)
     - any LLM source            -> "llm"                      (Phase 4f LLM resolution)
@@ -898,6 +1081,8 @@ def _map_resolver_source(resolution) -> str:
         return "fixture_run_followup"
     if src == "differential_followup":      # Phase 8d-ii
         return "differential_followup"
+    if src == "player_form_followup":       # Phase 2.7c
+        return "player_form_followup"
     if src == "deterministic":
         return "fallback_regex"
     if src == "none" and resolution.confidence == 0.0:
@@ -1068,25 +1253,39 @@ class ConversationSession:
                             fallback_reason=None,
                         )
                     else:
-                        # Phase 5f: LLM comparison follow-up (Spanish/ellipsis, requires client)
-                        llm_comp: ReferenceResolution | None = None
-                        if self.state.last_comparison and resolver_client is not None:
-                            llm_comp = resolve_comparison_followup_llm(
-                                question, self.state, client=resolver_client
+                        # Phase 2.7c: deterministic player form follow-up (no client needed)
+                        form_rewritten = resolve_player_form_followup(question, self.state)
+                        if form_rewritten is not None:
+                            rewritten = form_rewritten
+                            resolution = ReferenceResolution(
+                                resolved_query=None,
+                                intent_guess=INTENT_PLAYER_FORM,
+                                reference_source="player_form_followup",
+                                confidence=1.0,
+                                language="en",
+                                rewritten_question=form_rewritten,
+                                fallback_reason=None,
                             )
-
-                        if llm_comp is not None and llm_comp.confidence >= _CONFIDENCE_THRESHOLD:
-                            rewritten = llm_comp.rewritten_question
-                            resolution = llm_comp
                         else:
-                            # Phase 4f: general reference resolver (single-player / pronoun / Spanish)
-                            resolution = resolve_reference(
-                                question,
-                                self.state,
-                                client=resolver_client,
-                                history=self.state.history if self.state.history else None,
-                            )
-                            rewritten = resolution.rewritten_question
+                            # Phase 5f: LLM comparison follow-up (Spanish/ellipsis, requires client)
+                            llm_comp: ReferenceResolution | None = None
+                            if self.state.last_comparison and resolver_client is not None:
+                                llm_comp = resolve_comparison_followup_llm(
+                                    question, self.state, client=resolver_client
+                                )
+
+                            if llm_comp is not None and llm_comp.confidence >= _CONFIDENCE_THRESHOLD:
+                                rewritten = llm_comp.rewritten_question
+                                resolution = llm_comp
+                            else:
+                                # Phase 4f: general reference resolver (single-player / pronoun / Spanish)
+                                resolution = resolve_reference(
+                                    question,
+                                    self.state,
+                                    client=resolver_client,
+                                    history=self.state.history if self.state.history else None,
+                                )
+                                rewritten = resolution.rewritten_question
 
         # Compute resolver_source for state tracking (Phase 5l — always, not debug-only)
         _resolver_src = _map_resolver_source(resolution)
