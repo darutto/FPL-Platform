@@ -502,6 +502,7 @@ def run(
     candidates_list: list[dict[str, Any]] | None = None,
     classifier_client: Any = None,
     squad_context: dict[str, Any] | None = None,  # Phase 8e1
+    intent_hint: str | None = None,               # Phase 2.7d: routing bias for audit scenarios
 ) -> tuple[int, str]:
     """Run ``respond()`` with an injected bootstrap and return ``(exit_code, output)``.
 
@@ -528,6 +529,7 @@ def run(
         candidates_list=candidates_list,
         classifier_client=classifier_client,
         squad_context=squad_context,        # Phase 8e1
+        intent_hint=intent_hint,            # Phase 2.7d: routing bias
     )
 
     if debug:
@@ -541,6 +543,12 @@ def run(
         }
         if r.orch_outcome is not None:                         # Orch-4c: audit
             payload["orch_outcome"] = r.orch_outcome
+        # Phase 2.7d: routing audit fields (always included in debug output)
+        payload["route_source"] = r.route_source
+        if r.classifier_confidence is not None:
+            payload["classifier_confidence"] = r.classifier_confidence
+        if r.route_conflict:
+            payload["route_conflict"] = r.route_conflict
         if r.debug is not None:
             payload["debug"] = {
                 "response_text":        r.debug.response_text,
@@ -669,6 +677,10 @@ def run_session(
             "outcome":    r.outcome,
             "supported":  r.supported,
             "intent":     r.intent,
+            # Phase 2.7d: routing audit fields
+            "route_source":          r.route_source,
+            "classifier_confidence": r.classifier_confidence,
+            "route_conflict":        r.route_conflict,
         }
         if r.comparison is not None:                       # Phase 5j
             turn["comparison"] = _serial_comparison(r.comparison)

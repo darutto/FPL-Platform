@@ -206,6 +206,7 @@ def run_cli_surface(
         candidates_list=candidates,
         classifier_client=classifier_stub,
         squad_context=scenario.squad_context,  # Phase 8e1
+        intent_hint=scenario.intent_hint,       # Phase 2.7d: routing bias
     )
     # Also run with debug=True to access structured fields and classification_source
     _, debug_output = cli_run(
@@ -215,6 +216,7 @@ def run_cli_surface(
         candidates_list=candidates,
         classifier_client=classifier_stub,
         squad_context=scenario.squad_context,  # Phase 8e1
+        intent_hint=scenario.intent_hint,       # Phase 2.7d: routing bias
     )
     debug_body: dict[str, Any] = {}
     try:
@@ -245,6 +247,10 @@ def run_cli_surface(
         "transfer_suggestion":    debug_body.get("transfer_suggestion"),    # Phase 2.6h
         "final_text":             debug_body.get("final_text", output_text),
         "classification_source":  debug_bundle.get("classification_source"),
+        # Phase 2.7d: routing audit fields
+        "route_source":           debug_body.get("route_source"),
+        "classifier_confidence":  debug_body.get("classifier_confidence"),
+        "route_conflict":         debug_body.get("route_conflict", False),
     }
 
 
@@ -278,6 +284,8 @@ def run_http_surface(
         payload["candidates_list"] = list(scenario.candidates_list)
     if scenario.squad_context is not None:  # Phase 8e1
         payload["squad_context"] = scenario.squad_context
+    if scenario.intent_hint is not None:    # Phase 2.7d: routing bias
+        payload["intent_hint"] = scenario.intent_hint
 
     resp = client.post("/ask", json=payload)
     body: dict[str, Any] = {}
@@ -312,6 +320,10 @@ def run_http_surface(
         "transfer_suggestion":    body.get("transfer_suggestion"),      # Phase 2.6h
         "final_text":             body.get("final_text", ""),
         "classification_source":  debug_bundle.get("classification_source"),
+        # Phase 2.7d: routing audit fields
+        "route_source":           body.get("route_source"),
+        "classifier_confidence":  body.get("classifier_confidence"),
+        "route_conflict":         body.get("route_conflict", False),
     }
 
 
@@ -372,6 +384,10 @@ def run_session_cli_surface(
         "resolver_source":        resolver_dbg.get("resolver_source"),
         "rewritten_question":     resolver_dbg.get("rewritten_question"),
         "classification_source":  debug_bundle.get("classification_source"),
+        # Phase 2.7d: routing audit fields (available directly on the turn dict)
+        "route_source":           last.get("route_source"),
+        "classifier_confidence":  last.get("classifier_confidence"),
+        "route_conflict":         last.get("route_conflict", False),
     }
 
 
@@ -434,6 +450,9 @@ def run_session_http_surface(
             )
         if turn_ctx is not None:
             ask_payload["squad_context"] = turn_ctx
+        # Phase 2.7d: inject intent_hint on final turn only
+        if is_final and scenario.intent_hint is not None:
+            ask_payload["intent_hint"] = scenario.intent_hint
         r = client.post(f"/session/{session_id}/ask", json=ask_payload)
         if r.status_code == 200:
             last_body = r.json()
@@ -465,6 +484,10 @@ def run_session_http_surface(
         "transfer_suggestion":    last_body.get("transfer_suggestion"),  # Phase 2.6h
         "final_text":             last_body.get("final_text", ""),
         "classification_source":  debug_bundle.get("classification_source"),
+        # Phase 2.7d: routing audit fields
+        "route_source":           last_body.get("route_source"),
+        "classifier_confidence":  last_body.get("classifier_confidence"),
+        "route_conflict":         last_body.get("route_conflict", False),
     }
 
 
@@ -770,6 +793,20 @@ def _check_scenario_result(
         if got_cls != "llm_classifier":
             fail(f"classification_source: expected='llm_classifier', got={got_cls!r}")
 
+    # Phase 2.7d: routing audit contract assertions
+    if scenario.expected_route_source is not None:
+        got_rs = sr.get("route_source")
+        if got_rs != scenario.expected_route_source:
+            fail(
+                f"route_source: expected={scenario.expected_route_source!r}, "
+                f"got={got_rs!r}"
+            )
+
+    if scenario.expect_classifier_confidence_present:
+        got_cc = sr.get("classifier_confidence")
+        if got_cc is None:
+            fail("classifier_confidence: expected non-None, got None")
+
     return failures
 
 
@@ -797,6 +834,15 @@ def _check_cross_surface_parity(
         other = results_by_surface[other_name]
         # Core contract fields must match exactly
         for field_name in ("intent", "outcome", "supported"):
+            rv = ref.get(field_name)
+            ov = other.get(field_name)
+            if rv != ov:
+                failures.append(
+                    f"parity [{ref_name} vs {other_name}] {field_name}: "
+                    f"{rv!r} != {ov!r}"
+                )
+        # Phase 2.7d: route_source must agree across surfaces (exact value match)
+        for field_name in ("route_source",):
             rv = ref.get(field_name)
             ov = other.get(field_name)
             if rv != ov:

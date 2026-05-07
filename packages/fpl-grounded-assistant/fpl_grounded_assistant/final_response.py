@@ -958,6 +958,10 @@ class FinalResponse:
     team_schedule:   "TeamScheduleMeta | None"             = field(default=None)  # Phase 2.6e.3
     position_fixture_run: "PositionFixtureRunMeta | None"  = field(default=None)  # Phase 2.6e.4
     transfer_suggestion:  "TransferSuggestionMeta | None"  = field(default=None)  # Phase 2.6h
+    # Phase 2.7d: routing audit fields (additive, safe defaults)
+    route_source:          "str | None"                    = field(default=None)   # which routing stage decided
+    classifier_confidence: "float | None"                  = field(default=None)   # LLM classifier confidence when attempted
+    route_conflict:        bool                            = field(default=False)  # True when deterministic and LLM disagree
 
 
 # ---------------------------------------------------------------------------
@@ -1965,4 +1969,8 @@ def respond(
         team_schedule=team_schedule_meta,      # Phase 2.6e.3
         position_fixture_run=position_fixture_run_meta,  # Phase 2.6e.4
         transfer_suggestion=_extract_transfer_suggestion_meta(dr.raw_output) if dr.intent == INTENT_TRANSFER_SUGGESTION and dr.outcome == OUTCOME_OK else None,  # Phase 2.6h
+        # Phase 2.7d: routing audit fields threaded from DispatchResult
+        route_source=dr.route_source,
+        classifier_confidence=dr.classifier_confidence,
+        route_conflict=dr.route_conflict,
     )

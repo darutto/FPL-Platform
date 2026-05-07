@@ -279,6 +279,10 @@ class AskResponse(BaseModel):
     team_schedule: dict[str, Any] | None = None            # Phase 2.6e.3
     position_fixture_run: dict[str, Any] | None = None    # Phase 2.6e.4
     transfer_suggestion:  dict[str, Any] | None = None    # Phase 2.6h
+    # Phase 2.7d: routing audit fields
+    route_source:          str | None   = None             # which routing stage decided
+    classifier_confidence: float | None = None             # LLM classifier confidence when attempted
+    route_conflict:        bool         = False            # True when deterministic and LLM disagree
 
 
 class CreateSessionResponse(BaseModel):
@@ -330,6 +334,10 @@ class SessionAskResponse(BaseModel):
     team_schedule: dict[str, Any] | None = None            # Phase 2.6e.3
     position_fixture_run: dict[str, Any] | None = None    # Phase 2.6e.4
     transfer_suggestion:  dict[str, Any] | None = None    # Phase 2.6h
+    # Phase 2.7d: routing audit fields
+    route_source:          str | None   = None             # which routing stage decided
+    classifier_confidence: float | None = None             # LLM classifier confidence when attempted
+    route_conflict:        bool         = False            # True when deterministic and LLM disagree
 
 
 class ClearSessionResponse(BaseModel):
@@ -1009,6 +1017,10 @@ def ask(req: AskRequest) -> AskResponse:
         team_schedule=team_schedule_bundle,
         position_fixture_run=pos_fixture_run_bundle,
         transfer_suggestion=_transfer_suggestion_meta_dict(r.transfer_suggestion) if r.transfer_suggestion is not None else None,
+        # Phase 2.7d: routing audit fields
+        route_source=r.route_source,
+        classifier_confidence=r.classifier_confidence,
+        route_conflict=r.route_conflict,
     )
 
 
@@ -1196,6 +1208,10 @@ def session_ask(session_id: str, req: AskRequest) -> SessionAskResponse:
         team_schedule=sess_team_schedule_bundle,
         position_fixture_run=sess_pos_fixture_run_bundle,
         transfer_suggestion=_transfer_suggestion_meta_dict(r.transfer_suggestion) if r.transfer_suggestion is not None else None,
+        # Phase 2.7d: routing audit fields
+        route_source=r.route_source,
+        classifier_confidence=r.classifier_confidence,
+        route_conflict=r.route_conflict,
     )
 
 

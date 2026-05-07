@@ -201,6 +201,10 @@ class ValidationScenario:
     expect_chip_signal_label: "str | None"                 = field(default=None)  # assert chip.signal_label exact match
     # Phase 8f2: per-turn squad_context for session statelessness scenarios
     squad_context_prior_turns: "dict | None"               = field(default=None)  # applied to prior turns; final turn uses squad_context
+    # Phase 2.7d: routing audit contract assertions
+    expected_route_source:     "str | None"                = field(default=None)  # assert FinalResponse.route_source exact match
+    expect_classifier_confidence_present: bool             = field(default=False)  # assert classifier_confidence is non-None
+    intent_hint:               "str | None"                = field(default=None)  # V2 slash-command routing bias (forwarded to respond())
 
 
 # ---------------------------------------------------------------------------
@@ -2727,6 +2731,137 @@ VALIDATION_SCENARIOS: tuple[ValidationScenario, ...] = (
             "n_games=5, player_form.web_name='Salah'. "
             "Regression guard: same phrase already worked; this verifies "
             "extraction quality is maintained."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 97 — Phase 2.7d: route_source = deterministic (canonical routing)
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="route_audit_deterministic",
+        family="captain",
+        description=(
+            "Phase 2.7d: 'should I captain Salah' routes deterministically. "
+            "route_source must be 'deterministic'. No classifier attempted."
+        ),
+        question="should I captain Salah",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="captain_score",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_captain=True,
+        expected_route_source="deterministic",
+        notes=(
+            "Phase 2.7d: routing audit contract. "
+            "Canonical English question routes via route() on first attempt. "
+            "route_source='deterministic'. classifier_confidence=None (not attempted). "
+            "route_conflict=False (default). "
+            "No classifier_client is passed → classifier is never called. "
+            "Validates that deterministic path is correctly labelled."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 98 — Phase 2.7d: route_source = intent_hint (slash-command routing)
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="route_audit_intent_hint",
+        family="captain",
+        description=(
+            "Phase 2.7d: bare player name 'Haaland' with intent_hint='captain_score' "
+            "routes via hint path. route_source must be 'intent_hint'."
+        ),
+        question="Haaland",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="captain_score",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_captain=True,
+        expected_route_source="intent_hint",
+        intent_hint="captain_score",
+        notes=(
+            "Phase 2.7d: routing audit for intent_hint path. "
+            "Bare name 'Haaland' does not route deterministically. "
+            "With intent_hint='captain_score', canonical template "
+            "'should I captain Haaland' is constructed and routed. "
+            "route_source='intent_hint'. classifier_confidence=None. "
+            "Validates intent_hint label in routing audit."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 99 — Phase 2.7d: route_source = llm_classifier_high (stub at high confidence)
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="route_audit_classifier_high",
+        family="captain",
+        description=(
+            "Phase 2.7d: unroutable Spanish question with classifier stub "
+            "returning confidence=0.95 → route_source='llm_classifier_high'. "
+            "classifier_confidence must be present (non-None)."
+        ),
+        question="vale la pena capitar a Salah",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="captain_score",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_captain=True,
+        requires_stub="classifier",
+        classifier_stub_json=(
+            '{"intent": "captain_score", '
+            '"canonical_question": "should I captain Salah", '
+            '"confidence": 0.95, "language": "es"}'
+        ),
+        expected_route_source="llm_classifier_high",
+        expect_classifier_confidence_present=True,
+        notes=(
+            "Phase 2.7d: routing audit for LLM classifier high-confidence path. "
+            "Spanish question does not route deterministically. "
+            "Classifier stub returns confidence=0.95 >= 0.9 threshold. "
+            "route_source='llm_classifier_high'. "
+            "classifier_confidence is non-None (= 0.95 from stub). "
+            "Validates high-confidence classifier label in routing audit."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 100 — Phase 2.7d: route_source = llm_classifier_medium (stub at medium confidence)
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="route_audit_classifier_medium",
+        family="captain",
+        description=(
+            "Phase 2.7d: unroutable question with classifier stub "
+            "returning confidence=0.75 → route_source='llm_classifier_medium'. "
+            "classifier_confidence must be present (non-None)."
+        ),
+        question="es buena opcion capitar a Salah hoy",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="captain_score",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_captain=True,
+        requires_stub="classifier",
+        classifier_stub_json=(
+            '{"intent": "captain_score", '
+            '"canonical_question": "should I captain Salah", '
+            '"confidence": 0.75, "language": "es"}'
+        ),
+        expected_route_source="llm_classifier_medium",
+        expect_classifier_confidence_present=True,
+        notes=(
+            "Phase 2.7d: routing audit for LLM classifier medium-confidence path. "
+            "Question does not route deterministically. "
+            "Classifier stub returns confidence=0.75: >= 0.7 threshold but < 0.9. "
+            "route_source='llm_classifier_medium'. "
+            "classifier_confidence is non-None (= 0.75 from stub). "
+            "Validates medium-confidence classifier label in routing audit. "
+            "2.7e will add a gate that rejects medium-confidence results; "
+            "in 2.7d this path still succeeds."
         ),
     ),
 

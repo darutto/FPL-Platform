@@ -319,6 +319,32 @@ INTENT_MANIFEST: dict[str, dict[str, Any]] = {
 # DispatchResult
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Phase 2.7d: Routing audit — conflict detection flag
+#
+# When True, after a deterministic route succeeds, the LLM classifier is also
+# run as an audit step.  If the classifier's canonical_question routes to a
+# different intent, route_conflict=True is set on DispatchResult.
+#
+# This flag is False by default so that production latency is unaffected.
+# Enable only for debugging / regression analysis.
+# ---------------------------------------------------------------------------
+
+ROUTE_AUDIT_CONFLICT_CHECK: bool = False
+"""Gate for Phase 2.7d conflict detection audit.
+
+When True, the LLM classifier is run after a deterministic route succeeds
+(audit-only: the deterministic result still wins).  If the classifier returns
+a different intent, DispatchResult.route_conflict is set to True.
+
+Production default: False.  Enabling this adds an LLM call to every
+deterministic route — only enable for intentional audit runs.
+"""
+
+# Confidence threshold for high vs medium LLM classifier buckets.
+_CLASSIFIER_HIGH_CONFIDENCE: float = 0.9
+
+
 _UNSUPPORTED_ANSWER = (
     "I couldn't match that question to a supported query. "
     "Supported questions include: captain score for a player, captain rankings, "
@@ -387,6 +413,32 @@ class DispatchResult:
         ``route()`` succeeded on the first attempt.  ``"llm_classifier"``
         when the LLM classifier was used as a fallback and its
         ``canonical_question`` was successfully re-routed.
+    route_source:
+        Phase 2.7d routing audit field.  Identifies which routing stage made
+        the final routing decision:
+
+        ``"deterministic"``           — ``route()`` succeeded directly.
+        ``"intent_hint"``             — deterministic failed; a valid
+                                        ``intent_hint`` was used.
+        ``"llm_classifier_high"``     — classifier returned high-confidence
+                                        result (confidence >= 0.9) and was used.
+        ``"llm_classifier_medium"``   — classifier returned medium-confidence
+                                        result (0.7 <= confidence < 0.9) and was
+                                        used (2.7e will gate this).
+        ``"llm_classifier_rejected"`` — classifier returned low-confidence or
+                                        invalid output and was rejected; fell
+                                        back to unsupported.
+        ``None``                      — routing was not completed (unexpected).
+    classifier_confidence:
+        Phase 2.7d routing audit field.  The float confidence returned by the
+        LLM classifier when classification was attempted.  ``None`` when
+        classification was never attempted (deterministic or hint paths).
+    route_conflict:
+        Phase 2.7d routing audit field.  ``True`` when deterministic routing
+        returned a result AND the LLM classifier was also run in audit mode AND
+        the classifier disagrees on intent.  ``False`` by default.  Gated by
+        ``ROUTE_AUDIT_CONFLICT_CHECK`` module-level flag; never ``True`` in
+        production unless the flag is enabled.
     """
     intent:               str
     question:             str
@@ -396,6 +448,10 @@ class DispatchResult:
     context_meta:         dict[str, Any] | None
     outcome:              str   # Phase 2l: OUTCOME_* constant
     classification_source: str | None = field(default=None)  # Phase 4k
+    # Phase 2.7d: routing audit fields (additive, safe defaults)
+    route_source:         str | None  = field(default=None)   # which stage decided
+    classifier_confidence: float | None = field(default=None)  # set when LLM classifier was attempted
+    route_conflict:       bool        = field(default=False)   # True when deterministic and LLM disagree
 
 
 # ---------------------------------------------------------------------------
@@ -552,6 +608,11 @@ def dispatch(
     # hint synthesis or Phase 4k classification rewrites it to a canonical form.
     effective_question: str = question
 
+    # Phase 2.7d: routing audit fields
+    route_source: str | None = None
+    classifier_confidence: float | None = None
+    route_conflict: bool = False
+
     # V2: intent_hint bias — fires ONLY when deterministic route() returns None.
     # Applies a canonical-question template for the hinted intent; falls back
     # silently when the hint is invalid, not in allowlist, or produces no route.
@@ -560,18 +621,60 @@ def dispatch(
         if _hint_result is not None:
             route_result, effective_question = _hint_result
             classification_source = "intent_hint"
+            route_source = "intent_hint"
 
     # Phase 4k: LLM classification fallback — fires ONLY when route() returns None.
     if route_result is None and classifier_client is not None:
         classification = classify_intent_llm(question, classifier_client)
         if classification is not None:
+            # Capture confidence regardless of whether result is used.
+            classifier_confidence = classification.confidence
             # Re-route the canonical question through the deterministic router.
             # Player extraction still happens inside route() — not in the classifier.
-            route_result = route(classification.canonical_question)
-            if route_result is not None:
+            _cls_route = route(classification.canonical_question)
+            if _cls_route is not None:
+                route_result = _cls_route
                 classification_source = "llm_classifier"
                 # Pass canonical question to ask() so its internal route() also succeeds.
                 effective_question = classification.canonical_question
+                # Phase 2.7d: distinguish high vs medium confidence
+                if classification.confidence >= _CLASSIFIER_HIGH_CONFIDENCE:
+                    route_source = "llm_classifier_high"
+                else:
+                    route_source = "llm_classifier_medium"
+            else:
+                # Classifier returned a result but its canonical_question didn't route.
+                # Still capture confidence but mark as rejected.
+                route_source = "llm_classifier_rejected"
+        else:
+            # classify_intent_llm returned None (low confidence or parse error).
+            # classifier_client was present but classification was rejected.
+            # Note: classifier_confidence stays None when the function returned None.
+            route_source = "llm_classifier_rejected"
+
+    # Phase 2.7d: conflict detection audit (off by default; gated by flag).
+    # Run classifier as audit step even when deterministic routing succeeded.
+    # The deterministic result always wins; this only sets route_conflict flag.
+    if (
+        route_result is not None
+        and route_source is None          # deterministic path (not hint, not classifier)
+        and classifier_client is not None
+        and ROUTE_AUDIT_CONFLICT_CHECK
+    ):
+        _audit_cls = classify_intent_llm(question, classifier_client)
+        if _audit_cls is not None:
+            classifier_confidence = _audit_cls.confidence
+            # Check whether classifier routes to a different intent.
+            _audit_route = route(_audit_cls.canonical_question)
+            if _audit_route is not None:
+                det_intent = _TOOL_TO_INTENT.get(route_result.tool_name, INTENT_UNSUPPORTED)
+                cls_intent = _TOOL_TO_INTENT.get(_audit_route.tool_name, INTENT_UNSUPPORTED)
+                if det_intent != cls_intent:
+                    route_conflict = True
+
+    # Set deterministic route_source if it wasn't set by hint/classifier paths.
+    if route_result is not None and route_source is None:
+        route_source = "deterministic"
 
     if route_result is None:
         return DispatchResult(
@@ -586,6 +689,9 @@ def dispatch(
             answer_text=_UNSUPPORTED_ANSWER,
             context_meta=None,
             outcome=OUTCOME_UNSUPPORTED_INTENT,
+            route_source=route_source,
+            classifier_confidence=classifier_confidence,
+            route_conflict=route_conflict,
         )
 
     # Delegate to harness — inherits all context detection (Phase 2f) and
@@ -629,4 +735,7 @@ def dispatch(
         context_meta=result.get("context_meta"),
         outcome=outcome,
         classification_source=classification_source,
+        route_source=route_source,
+        classifier_confidence=classifier_confidence,
+        route_conflict=route_conflict,
     )
