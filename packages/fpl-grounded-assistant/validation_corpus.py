@@ -539,32 +539,37 @@ VALIDATION_SCENARIOS: tuple[ValidationScenario, ...] = (
     ),
 
     # ------------------------------------------------------------------
-    # 15 — Phase 4k: natural comparison phrasing (LLM classifier stub)
+    # 15 — Phase 4k/2.7e: natural comparison phrasing (LLM classifier stub, medium confidence)
     # ------------------------------------------------------------------
     ValidationScenario(
         id="natural_comparison_phrasing",
         family="llm_classify",
         description=(
             "Natural comparison question that deterministic route() cannot handle. "
-            "LLM classifier rewrites to canonical form; route() extracts both players."
+            "LLM classifier returns confidence=0.88 (medium bucket); "
+            "Phase 2.7e gate blocks execution → needs_clarification."
         ),
         question="what's the score differential between Salah and Haaland?",
         bootstrap="standard",
         surfaces=("cli", "http", "session_cli", "session_http"),
         expected_intent="compare_players",
-        expected_outcome="ok",
-        expected_supported=True,
+        expected_outcome="needs_clarification",
+        expected_supported=False,
         requires_stub="classifier",
         classifier_stub_json=(
             '{"intent": "compare_players", '
             '"canonical_question": "compare Salah and Haaland", '
             '"confidence": 0.88, "language": "en"}'
         ),
-        expect_comparison=True,
+        expect_comparison=False,
+        expected_route_source="llm_classifier_medium",
+        expect_classifier_confidence_present=True,
         notes=(
-            "Phase 4l: all 4 surfaces. "
-            "Stub returns canonical 'compare Salah and Haaland'; route() extracts both. "
-            "classification_source == 'llm_classifier'. comparison metadata present."
+            "Phase 2.7e: confidence=0.88 is in medium bucket (0.7 <= conf < 0.9). "
+            "Gate blocks execution; outcome='needs_clarification', supported=False. "
+            "comparison metadata absent (tool not executed). "
+            "route_source='llm_classifier_medium'. "
+            "2.7f will replace placeholder final_text with clarification UX."
         ),
     ),
 
@@ -2828,23 +2833,23 @@ VALIDATION_SCENARIOS: tuple[ValidationScenario, ...] = (
     ),
 
     # ------------------------------------------------------------------
-    # 100 — Phase 2.7d: route_source = llm_classifier_medium (stub at medium confidence)
+    # 100 — Phase 2.7e: route_source = llm_classifier_medium → needs_clarification
     # ------------------------------------------------------------------
     ValidationScenario(
         id="route_audit_classifier_medium",
-        family="captain",
+        family="llm_classify",
         description=(
-            "Phase 2.7d: unroutable question with classifier stub "
-            "returning confidence=0.75 → route_source='llm_classifier_medium'. "
-            "classifier_confidence must be present (non-None)."
+            "Phase 2.7e: medium-confidence classifier result is gated. "
+            "Stub returns confidence=0.75 → OUTCOME_NEEDS_CLARIFICATION, supported=False. "
+            "No tool executes; captain metadata absent."
         ),
         question="es buena opcion capitar a Salah hoy",
         bootstrap="standard",
         surfaces=("cli", "http"),
         expected_intent="captain_score",
-        expected_outcome="ok",
-        expected_supported=True,
-        expect_captain=True,
+        expected_outcome="needs_clarification",
+        expected_supported=False,
+        expect_captain=False,
         requires_stub="classifier",
         classifier_stub_json=(
             '{"intent": "captain_score", '
@@ -2854,14 +2859,70 @@ VALIDATION_SCENARIOS: tuple[ValidationScenario, ...] = (
         expected_route_source="llm_classifier_medium",
         expect_classifier_confidence_present=True,
         notes=(
-            "Phase 2.7d: routing audit for LLM classifier medium-confidence path. "
-            "Question does not route deterministically. "
-            "Classifier stub returns confidence=0.75: >= 0.7 threshold but < 0.9. "
-            "route_source='llm_classifier_medium'. "
-            "classifier_confidence is non-None (= 0.75 from stub). "
-            "Validates medium-confidence classifier label in routing audit. "
-            "2.7e will add a gate that rejects medium-confidence results; "
-            "in 2.7d this path still succeeds."
+            "Phase 2.7e: medium-confidence gate active (CLASSIFIER_MEDIUM_GATE_ENABLED=True). "
+            "Classifier stub confidence=0.75: >= 0.7 but < 0.9 → medium bucket. "
+            "Gate returns OUTCOME_NEEDS_CLARIFICATION with supported=False. "
+            "Tool NOT executed; captain metadata absent. "
+            "route_source='llm_classifier_medium'. classifier_confidence non-None (=0.75). "
+            "2.7f will replace the placeholder final_text with clarification UX."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 101 — Phase 2.7e: deterministic path unaffected by gate
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="medium_gate_deterministic_unaffected",
+        family="captain",
+        description=(
+            "Phase 2.7e: deterministic path executes normally even when "
+            "CLASSIFIER_MEDIUM_GATE_ENABLED=True. Gate only applies to "
+            "the llm_classifier_medium route_source."
+        ),
+        question="should I captain Salah",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="captain_score",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_captain=True,
+        expected_route_source="deterministic",
+        notes=(
+            "Phase 2.7e: gate sanity check — deterministic route succeeds normally. "
+            "No classifier involved; route_source='deterministic'. "
+            "captain metadata present; outcome='ok'."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 102 — Phase 2.7e: high-confidence classifier path unaffected by gate
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="medium_gate_high_confidence_unaffected",
+        family="llm_classify",
+        description=(
+            "Phase 2.7e: high-confidence classifier (confidence=0.95) still "
+            "executes normally. Gate only blocks the medium-confidence bucket."
+        ),
+        question="vale la pena capitar a Saka",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="captain_score",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_captain=True,
+        requires_stub="classifier",
+        classifier_stub_json=(
+            '{"intent": "captain_score", '
+            '"canonical_question": "should I captain Saka", '
+            '"confidence": 0.95, "language": "es"}'
+        ),
+        expected_route_source="llm_classifier_high",
+        expect_classifier_confidence_present=True,
+        notes=(
+            "Phase 2.7e: gate sanity check — high-confidence (0.95 >= 0.9 threshold) "
+            "is NOT gated. route_source='llm_classifier_high'. "
+            "captain metadata present; outcome='ok'."
         ),
     ),
 

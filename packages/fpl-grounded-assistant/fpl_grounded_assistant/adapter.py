@@ -50,6 +50,7 @@ from .dispatcher import (
     dispatch,
     DispatchResult,
     OUTCOME_UNSUPPORTED_INTENT,
+    OUTCOME_NEEDS_CLARIFICATION,  # Phase 2.7e: medium-confidence gate
 )
 
 
@@ -135,7 +136,11 @@ def adapt(
         classifier_client=classifier_client,
         intent_hint=intent_hint,
     )
-    supported = dr.outcome != OUTCOME_UNSUPPORTED_INTENT
+    # Phase 2.7e: OUTCOME_NEEDS_CLARIFICATION also maps to supported=False.
+    # The system understood the intent but medium classifier confidence prevents
+    # silent execution.  Semantically distinct from OUTCOME_UNSUPPORTED_INTENT
+    # ("I don't understand") — 2.7f will provide clarification UX for this case.
+    supported = dr.outcome not in (OUTCOME_UNSUPPORTED_INTENT, OUTCOME_NEEDS_CLARIFICATION)
     return AdapterResponse(
         user_message=user_message,
         dispatch_result=dr,

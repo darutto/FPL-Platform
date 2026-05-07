@@ -142,12 +142,13 @@ INTENT_HINT_ALLOWLIST: frozenset[str] = frozenset(_HINT_CANONICAL_TEMPLATES)
 # Outcome constants  (Phase 2l)
 # ---------------------------------------------------------------------------
 
-OUTCOME_OK:                 str = "ok"
-OUTCOME_UNSUPPORTED_INTENT: str = "unsupported_intent"
-OUTCOME_NOT_FOUND:          str = "not_found"
-OUTCOME_AMBIGUOUS:          str = "ambiguous"
-OUTCOME_MISSING_ARGUMENTS:  str = "missing_arguments"
-OUTCOME_ERROR:              str = "error"
+OUTCOME_OK:                   str = "ok"
+OUTCOME_UNSUPPORTED_INTENT:   str = "unsupported_intent"
+OUTCOME_NOT_FOUND:            str = "not_found"
+OUTCOME_AMBIGUOUS:            str = "ambiguous"
+OUTCOME_MISSING_ARGUMENTS:    str = "missing_arguments"
+OUTCOME_ERROR:                str = "error"
+OUTCOME_NEEDS_CLARIFICATION:  str = "needs_clarification"  # Phase 2.7e: medium-confidence gate
 
 
 # ---------------------------------------------------------------------------
@@ -340,6 +341,16 @@ a different intent, DispatchResult.route_conflict is set to True.
 Production default: False.  Enabling this adds an LLM call to every
 deterministic route — only enable for intentional audit runs.
 """
+
+# Phase 2.7e: Medium-confidence routing gate.
+#
+# When True (default), medium-confidence LLM classifier results (0.7 <= confidence < 0.9)
+# are blocked from executing as a normal grounded success path.  Instead they return
+# OUTCOME_NEEDS_CLARIFICATION so 2.7f can provide clarification UX.
+#
+# Set to False to restore pre-2.7e behaviour (medium-confidence falls through to
+# grounded execution).  Only use False for testing / emergency rollback.
+CLASSIFIER_MEDIUM_GATE_ENABLED: bool = True
 
 # Confidence threshold for high vs medium LLM classifier buckets.
 _CLASSIFIER_HIGH_CONFIDENCE: float = 0.9
@@ -642,6 +653,29 @@ def dispatch(
                     route_source = "llm_classifier_high"
                 else:
                     route_source = "llm_classifier_medium"
+                    # Phase 2.7e: gate medium-confidence path.
+                    # When the gate is enabled, do NOT execute the tool.
+                    # Return OUTCOME_NEEDS_CLARIFICATION so 2.7f can provide UX.
+                    if CLASSIFIER_MEDIUM_GATE_ENABLED:
+                        return DispatchResult(
+                            intent=_TOOL_TO_INTENT.get(
+                                route_result.tool_name, INTENT_UNSUPPORTED
+                            ),
+                            question=question,
+                            selected_tool=None,
+                            raw_output={
+                                "status":   "needs_clarification",
+                                "code":     "medium_confidence",
+                                "question": question,
+                            },
+                            answer_text="I need more information to answer that.",
+                            context_meta=None,
+                            outcome=OUTCOME_NEEDS_CLARIFICATION,
+                            classification_source="llm_classifier",
+                            route_source=route_source,
+                            classifier_confidence=classifier_confidence,
+                            route_conflict=route_conflict,
+                        )
             else:
                 # Classifier returned a result but its canonical_question didn't route.
                 # Still capture confidence but mark as rejected.

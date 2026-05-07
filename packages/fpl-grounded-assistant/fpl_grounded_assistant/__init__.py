@@ -68,6 +68,7 @@ from .dispatcher import (
     OUTCOME_AMBIGUOUS,
     OUTCOME_MISSING_ARGUMENTS,
     OUTCOME_ERROR,
+    OUTCOME_NEEDS_CLARIFICATION,  # Phase 2.7e
     # Phase 2l: intent manifest
     INTENT_MANIFEST,
 )
@@ -407,6 +408,7 @@ __all__ = [
     "OUTCOME_AMBIGUOUS",
     "OUTCOME_MISSING_ARGUMENTS",
     "OUTCOME_ERROR",
+    "OUTCOME_NEEDS_CLARIFICATION",  # Phase 2.7e
     "INTENT_MANIFEST",
     # Phase 4e: multi-turn state
     "ConversationState",
