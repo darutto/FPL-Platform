@@ -251,6 +251,8 @@ def run_cli_surface(
         "route_source":           debug_body.get("route_source"),
         "classifier_confidence":  debug_body.get("classifier_confidence"),
         "route_conflict":         debug_body.get("route_conflict", False),
+        # Phase 2.7f: clarification policy layer
+        "clarification_asked":    debug_body.get("clarification_asked", False),
     }
 
 
@@ -324,6 +326,8 @@ def run_http_surface(
         "route_source":           body.get("route_source"),
         "classifier_confidence":  body.get("classifier_confidence"),
         "route_conflict":         body.get("route_conflict", False),
+        # Phase 2.7f: clarification policy layer
+        "clarification_asked":    body.get("clarification_asked", False),
     }
 
 
@@ -388,6 +392,8 @@ def run_session_cli_surface(
         "route_source":           last.get("route_source"),
         "classifier_confidence":  last.get("classifier_confidence"),
         "route_conflict":         last.get("route_conflict", False),
+        # Phase 2.7f: clarification policy layer
+        "clarification_asked":    last.get("clarification_asked", False),
     }
 
 
@@ -488,6 +494,8 @@ def run_session_http_surface(
         "route_source":           last_body.get("route_source"),
         "classifier_confidence":  last_body.get("classifier_confidence"),
         "route_conflict":         last_body.get("route_conflict", False),
+        # Phase 2.7f: clarification policy layer
+        "clarification_asked":    last_body.get("clarification_asked", False),
     }
 
 
@@ -806,6 +814,24 @@ def _check_scenario_result(
         got_cc = sr.get("classifier_confidence")
         if got_cc is None:
             fail("classifier_confidence: expected non-None, got None")
+
+    # Phase 2.7f: clarification policy assertions
+    if scenario.expect_clarification_asked is not None:
+        got_ca = sr.get("clarification_asked", False)
+        if got_ca != scenario.expect_clarification_asked:
+            fail(
+                f"clarification_asked: expected={scenario.expect_clarification_asked}, "
+                f"got={got_ca!r}"
+            )
+
+    if scenario.expect_clarification_text_contains is not None:
+        got_ft = sr.get("final_text", "")
+        if scenario.expect_clarification_text_contains not in (got_ft or ""):
+            fail(
+                f"clarification_text_contains: "
+                f"expected substring {scenario.expect_clarification_text_contains!r} "
+                f"not found in final_text={got_ft!r}"
+            )
 
     return failures
 

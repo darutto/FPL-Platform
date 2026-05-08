@@ -283,6 +283,8 @@ class AskResponse(BaseModel):
     route_source:          str | None   = None             # which routing stage decided
     classifier_confidence: float | None = None             # LLM classifier confidence when attempted
     route_conflict:        bool         = False            # True when deterministic and LLM disagree
+    # Phase 2.7f: clarification policy layer
+    clarification_asked:   bool         = False            # True when outcome==needs_clarification
 
 
 class CreateSessionResponse(BaseModel):
@@ -338,6 +340,8 @@ class SessionAskResponse(BaseModel):
     route_source:          str | None   = None             # which routing stage decided
     classifier_confidence: float | None = None             # LLM classifier confidence when attempted
     route_conflict:        bool         = False            # True when deterministic and LLM disagree
+    # Phase 2.7f: clarification policy layer
+    clarification_asked:   bool         = False            # True when outcome==needs_clarification
 
 
 class ClearSessionResponse(BaseModel):
@@ -1021,6 +1025,8 @@ def ask(req: AskRequest) -> AskResponse:
         route_source=r.route_source,
         classifier_confidence=r.classifier_confidence,
         route_conflict=r.route_conflict,
+        # Phase 2.7f: clarification policy layer
+        clarification_asked=r.clarification_asked,
     )
 
 
@@ -1212,6 +1218,8 @@ def session_ask(session_id: str, req: AskRequest) -> SessionAskResponse:
         route_source=r.route_source,
         classifier_confidence=r.classifier_confidence,
         route_conflict=r.route_conflict,
+        # Phase 2.7f: clarification policy layer
+        clarification_asked=r.clarification_asked,
     )
 
 

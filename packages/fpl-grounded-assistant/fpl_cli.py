@@ -549,6 +549,9 @@ def run(
             payload["classifier_confidence"] = r.classifier_confidence
         if r.route_conflict:
             payload["route_conflict"] = r.route_conflict
+        # Phase 2.7f: clarification policy layer
+        if r.clarification_asked:
+            payload["clarification_asked"] = r.clarification_asked
         if r.debug is not None:
             payload["debug"] = {
                 "response_text":        r.debug.response_text,
@@ -681,6 +684,8 @@ def run_session(
             "route_source":          r.route_source,
             "classifier_confidence": r.classifier_confidence,
             "route_conflict":        r.route_conflict,
+            # Phase 2.7f: clarification policy layer
+            "clarification_asked":   r.clarification_asked,
         }
         if r.comparison is not None:                       # Phase 5j
             turn["comparison"] = _serial_comparison(r.comparison)

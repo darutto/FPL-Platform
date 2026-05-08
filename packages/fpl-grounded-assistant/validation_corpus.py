@@ -205,6 +205,9 @@ class ValidationScenario:
     expected_route_source:     "str | None"                = field(default=None)  # assert FinalResponse.route_source exact match
     expect_classifier_confidence_present: bool             = field(default=False)  # assert classifier_confidence is non-None
     intent_hint:               "str | None"                = field(default=None)  # V2 slash-command routing bias (forwarded to respond())
+    # Phase 2.7f: clarification policy layer assertions (additive, safe defaults)
+    expect_clarification_asked:          "bool | None"     = field(default=None)  # assert FinalResponse.clarification_asked
+    expect_clarification_text_contains:  "str | None"      = field(default=None)  # assert substring in FinalResponse.final_text
 
 
 # ---------------------------------------------------------------------------
@@ -564,12 +567,14 @@ VALIDATION_SCENARIOS: tuple[ValidationScenario, ...] = (
         expect_comparison=False,
         expected_route_source="llm_classifier_medium",
         expect_classifier_confidence_present=True,
+        expect_clarification_asked=True,
+        expect_clarification_text_contains="comparing",
         notes=(
-            "Phase 2.7e: confidence=0.88 is in medium bucket (0.7 <= conf < 0.9). "
+            "Phase 2.7e/2.7f: confidence=0.88 is in medium bucket (0.7 <= conf < 0.9). "
             "Gate blocks execution; outcome='needs_clarification', supported=False. "
             "comparison metadata absent (tool not executed). "
             "route_source='llm_classifier_medium'. "
-            "2.7f will replace placeholder final_text with clarification UX."
+            "2.7f: clarification_asked=True, final_text contains 'comparing'."
         ),
     ),
 
@@ -2858,13 +2863,15 @@ VALIDATION_SCENARIOS: tuple[ValidationScenario, ...] = (
         ),
         expected_route_source="llm_classifier_medium",
         expect_classifier_confidence_present=True,
+        expect_clarification_asked=True,
+        expect_clarification_text_contains="captaincy",
         notes=(
-            "Phase 2.7e: medium-confidence gate active (CLASSIFIER_MEDIUM_GATE_ENABLED=True). "
+            "Phase 2.7e/2.7f: medium-confidence gate active (CLASSIFIER_MEDIUM_GATE_ENABLED=True). "
             "Classifier stub confidence=0.75: >= 0.7 but < 0.9 → medium bucket. "
             "Gate returns OUTCOME_NEEDS_CLARIFICATION with supported=False. "
             "Tool NOT executed; captain metadata absent. "
             "route_source='llm_classifier_medium'. classifier_confidence non-None (=0.75). "
-            "2.7f will replace the placeholder final_text with clarification UX."
+            "2.7f: clarification_asked=True, final_text contains 'captaincy'."
         ),
     ),
 
@@ -2923,6 +2930,130 @@ VALIDATION_SCENARIOS: tuple[ValidationScenario, ...] = (
             "Phase 2.7e: gate sanity check — high-confidence (0.95 >= 0.9 threshold) "
             "is NOT gated. route_source='llm_classifier_high'. "
             "captain metadata present; outcome='ok'."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 103 — Phase 2.7f: regression guard — deterministic ok path has clarification_asked=False
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="clarification_not_asked_on_ok_path",
+        family="captain",
+        description=(
+            "Phase 2.7f regression guard: a deterministic ok-path response "
+            "must have clarification_asked=False."
+        ),
+        question="should I captain Haaland",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="captain_score",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_captain=True,
+        expected_route_source="deterministic",
+        expect_clarification_asked=False,
+        notes=(
+            "Phase 2.7f: clarification_asked must be False for ok-path turns. "
+            "Ensures the clarification gate does not fire on normal execution."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 104 — Phase 2.7f: clarification text for captain_score intent
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="clarification_captain_score_medium",
+        family="llm_classify",
+        description=(
+            "Phase 2.7f: medium-confidence captain_score classification produces "
+            "captaincy-shaped clarification text with clarification_asked=True."
+        ),
+        question="capitan bueno para esta semana",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="captain_score",
+        expected_outcome="needs_clarification",
+        expected_supported=False,
+        expect_captain=False,
+        requires_stub="classifier",
+        classifier_stub_json=(
+            '{"intent": "captain_score", '
+            '"canonical_question": "should I captain Haaland", '
+            '"confidence": 0.78, "language": "es"}'
+        ),
+        expected_route_source="llm_classifier_medium",
+        expect_classifier_confidence_present=True,
+        expect_clarification_asked=True,
+        expect_clarification_text_contains="captaincy",
+        notes=(
+            "Phase 2.7f: captain_score intent → clarification prompt mentions 'captaincy'. "
+            "clarification_asked=True. outcome='needs_clarification', supported=False."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 105 — Phase 2.7f: clarification text for compare_players intent
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="clarification_compare_players_medium",
+        family="llm_classify",
+        description=(
+            "Phase 2.7f: medium-confidence compare_players classification produces "
+            "comparison-shaped clarification text with clarification_asked=True."
+        ),
+        question="cual es mejor Salah o Haaland",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="compare_players",
+        expected_outcome="needs_clarification",
+        expected_supported=False,
+        expect_comparison=False,
+        requires_stub="classifier",
+        classifier_stub_json=(
+            '{"intent": "compare_players", '
+            '"canonical_question": "compare Salah and Haaland", '
+            '"confidence": 0.82, "language": "es"}'
+        ),
+        expected_route_source="llm_classifier_medium",
+        expect_classifier_confidence_present=True,
+        expect_clarification_asked=True,
+        expect_clarification_text_contains="comparing",
+        notes=(
+            "Phase 2.7f: compare_players intent → clarification prompt mentions 'comparing'. "
+            "clarification_asked=True. outcome='needs_clarification', supported=False."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 106 — Phase 2.7f: clarification text for transfer_advice intent
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="clarification_transfer_advice_medium",
+        family="llm_classify",
+        description=(
+            "Phase 2.7f: medium-confidence transfer_advice classification produces "
+            "transfer-shaped clarification text with clarification_asked=True."
+        ),
+        question="deberia cambiar a Saka",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="transfer_advice",
+        expected_outcome="needs_clarification",
+        expected_supported=False,
+        expect_transfer=False,
+        requires_stub="classifier",
+        classifier_stub_json=(
+            '{"intent": "transfer_advice", '
+            '"canonical_question": "should I sell Saka for Salah", '
+            '"confidence": 0.76, "language": "es"}'
+        ),
+        expected_route_source="llm_classifier_medium",
+        expect_classifier_confidence_present=True,
+        expect_clarification_asked=True,
+        expect_clarification_text_contains="transfer",
+        notes=(
+            "Phase 2.7f: transfer_advice intent → clarification prompt mentions 'transfer'. "
+            "clarification_asked=True. outcome='needs_clarification', supported=False."
         ),
     ),
 

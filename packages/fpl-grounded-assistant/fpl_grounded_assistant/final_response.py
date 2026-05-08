@@ -72,7 +72,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from .dispatcher import OUTCOME_OK, INTENT_COMPARE_PLAYERS, INTENT_CAPTAIN_SCORE, INTENT_RANK_CANDIDATES, INTENT_MULTI_INTENT, INTENT_TRANSFER_ADVICE, INTENT_CHIP_ADVICE, INTENT_PLAYER_FIXTURE_RUN, INTENT_DIFFERENTIAL_PICKS, INTENT_PLAYER_FORM, INTENT_INJURY_LIST, INTENT_PRICE_CHANGES, INTENT_TEAM_FIXTURE_CALENDAR, INTENT_TEAM_SCHEDULE, INTENT_POSITION_FIXTURE_RUN, INTENT_TRANSFER_SUGGESTION  # noqa: F401 — re-exported
+from .dispatcher import OUTCOME_OK, OUTCOME_NEEDS_CLARIFICATION, INTENT_COMPARE_PLAYERS, INTENT_CAPTAIN_SCORE, INTENT_RANK_CANDIDATES, INTENT_MULTI_INTENT, INTENT_TRANSFER_ADVICE, INTENT_CHIP_ADVICE, INTENT_PLAYER_FIXTURE_RUN, INTENT_DIFFERENTIAL_PICKS, INTENT_PLAYER_FORM, INTENT_INJURY_LIST, INTENT_PRICE_CHANGES, INTENT_TEAM_FIXTURE_CALENDAR, INTENT_TEAM_SCHEDULE, INTENT_POSITION_FIXTURE_RUN, INTENT_TRANSFER_SUGGESTION  # noqa: F401 — re-exported
 from .dispatcher import _TOOL_TO_INTENT, INTENT_UNSUPPORTED  # Orch-4a: tool->intent map
 from .multi_intent import detect_multi_intent
 from .llm_layer import DEFAULT_MODEL
@@ -962,6 +962,102 @@ class FinalResponse:
     route_source:          "str | None"                    = field(default=None)   # which routing stage decided
     classifier_confidence: "float | None"                  = field(default=None)   # LLM classifier confidence when attempted
     route_conflict:        bool                            = field(default=False)  # True when deterministic and LLM disagree
+    # Phase 2.7f: clarification policy layer (additive, safe default)
+    clarification_asked:   bool                            = field(default=False)  # True when outcome==needs_clarification
+
+
+# ---------------------------------------------------------------------------
+# Phase 2.7f: Clarification text generator
+#
+# Produces a deterministic, intent-shaped clarification question for the
+# needs_clarification outcome.  Pure Python — no LLM calls, no imports of
+# LLM modules.  Same intent always returns the same prompt family.
+#
+# Core rule (preserved throughout):
+#   Classifier can suggest intent. Clarification can ask.
+#   Only deterministic grounded execution can answer.
+# ---------------------------------------------------------------------------
+
+_CLARIFICATION_PROMPTS: dict[str, str] = {
+    # captain-family intents share the same clarification
+    INTENT_CAPTAIN_SCORE:    (
+        "Are you looking for captaincy advice or player rankings for this gameweek? "
+        "Try asking 'who should I captain?' or 'best captain options'."
+    ),
+    INTENT_RANK_CANDIDATES:  (
+        "Are you looking for captaincy advice or player rankings for this gameweek? "
+        "Try asking 'who should I captain?' or 'best captain options'."
+    ),
+    "captain_advice":        (
+        "Are you looking for captaincy advice or player rankings for this gameweek? "
+        "Try asking 'who should I captain?' or 'best captain options'."
+    ),
+    INTENT_COMPARE_PLAYERS:  (
+        "Are you comparing two players? "
+        "Try asking 'compare [Player A] vs [Player B]'."
+    ),
+    INTENT_TRANSFER_ADVICE:  (
+        "Are you looking for transfer suggestions? "
+        "Try asking 'who should I transfer in?' or 'best players to buy under £8m'."
+    ),
+    INTENT_PLAYER_FORM:      (
+        "Are you asking about a player's recent form? "
+        "Try asking 'how has [player] been playing?' or 'stats for [player] last 5 games'."
+    ),
+    INTENT_PLAYER_FIXTURE_RUN: (
+        "Are you asking about a player's upcoming fixtures? "
+        "Try 'upcoming fixtures for [player]'."
+    ),
+    INTENT_INJURY_LIST:      (
+        "Are you asking about injuries or availability? "
+        "Try 'who is injured this gameweek?'."
+    ),
+    INTENT_PRICE_CHANGES:    (
+        "Are you asking about price changes? "
+        "Try 'who has gone up in price?' or 'recent price risers'."
+    ),
+    INTENT_CHIP_ADVICE:      (
+        "Are you asking about when to use a chip? "
+        "Try 'should I use my wildcard?' or 'when should I use my bench boost?'."
+    ),
+    INTENT_DIFFERENTIAL_PICKS: (
+        "Are you looking for differential picks? "
+        "Try 'low-ownership players worth picking'."
+    ),
+    INTENT_TEAM_FIXTURE_CALENDAR: (
+        "Are you looking at fixture difficulty? "
+        "Try 'which teams have the best fixtures coming up?'."
+    ),
+    INTENT_TRANSFER_SUGGESTION: (
+        "Are you looking for specific player recommendations? "
+        "Try 'best midfielders under £7m' or 'top Arsenal players to buy'."
+    ),
+}
+
+_CLARIFICATION_FALLBACK: str = (
+    "I'm not sure what you're looking for. "
+    "Try rephrasing — for example, 'who should I captain?' or 'compare Salah vs Haaland'."
+)
+
+
+def _clarification_text_for_intent(intent: "str | None") -> str:
+    """Return a deterministic clarification prompt shaped by the classified intent.
+
+    Parameters
+    ----------
+    intent:
+        The classified intent string from the DispatchResult (e.g. ``"captain_score"``).
+        ``None`` or any unrecognised intent falls through to the generic fallback.
+
+    Returns
+    -------
+    str
+        A short (1-2 sentence) clarification question.  Same intent always
+        produces the same prompt.  No LLM calls, no external dependencies.
+    """
+    if intent is None:
+        return _CLARIFICATION_FALLBACK
+    return _CLARIFICATION_PROMPTS.get(intent, _CLARIFICATION_FALLBACK)
 
 
 # ---------------------------------------------------------------------------
@@ -1866,6 +1962,13 @@ def respond(
     llm_used      = lr.llm_called and review.passed    # LLM text generated AND accepted
     degraded      = lr.provider_failed                 # Phase 2.6b: provider called but failed
 
+    # Phase 2.7f: clarification policy — replace generic placeholder with
+    # intent-shaped prompt when the medium-confidence gate fires.
+    clarification_asked: bool = False
+    if dr.outcome == OUTCOME_NEEDS_CLARIFICATION:
+        clarification_asked = True
+        final_text = _clarification_text_for_intent(dr.intent)
+
     # -----------------------------------------------------------------------
     # Debug bundle (opt-in only)
     # -----------------------------------------------------------------------
@@ -1973,4 +2076,6 @@ def respond(
         route_source=dr.route_source,
         classifier_confidence=dr.classifier_confidence,
         route_conflict=dr.route_conflict,
+        # Phase 2.7f: clarification policy layer
+        clarification_asked=clarification_asked,
     )
