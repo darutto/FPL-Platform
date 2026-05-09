@@ -22,6 +22,13 @@ P7  CLI contract — run() returns (exit_code, str) with outcome != error when n
 L1  Live provider reachable — check_provider_health() returns {"available": True}
 L2  Live classification — classify_intent_llm() returns IntentClassification with intent+confidence
 L3  Live dispatch — real question routes through full stack and returns FinalResponse with ok outcome
+L4  Live CLI surface — fpl_cli.run() returns valid routing fields for a live captain question
+L5  Live HTTP surface — POST /ask returns valid routing fields for a live captain question
+L6  Surface parity — CLI and HTTP return identical outcome/route_source/clarification_asked
+L7  Live session creation — POST /session returns session_id (HTTP 200)
+L8  Live session turn 1 — POST /session/{id}/ask returns valid response for captain question
+L9  Live session turn 2 — POST /session/{id}/ask reuses session for follow-up question
+L10 Session contract shape — both turns include required fields and neither outcome == "error"
 
 Usage (deterministic, no credentials required)::
 
@@ -427,13 +434,17 @@ _EVIDENCE_PATH = os.path.join(_HERE, "phase25_live_evidence.json")
 _LIVE_QUESTION = "who should I captain this week?"
 
 if not PROVIDER_SMOKE_ENABLED:
-    _live_skip_count = 6  # L1, L2, L3, L4, L5, L6
+    _live_skip_count = 10  # L1, L2, L3, L4, L5, L6, L7, L8, L9, L10
     _skip("L1", "FPL_PROVIDER_SMOKE=1 required")
     _skip("L2", "FPL_PROVIDER_SMOKE=1 required")
     _skip("L3", "FPL_PROVIDER_SMOKE=1 required")
     _skip("L4", "FPL_PROVIDER_SMOKE=1 required")
     _skip("L5", "FPL_PROVIDER_SMOKE=1 required")
     _skip("L6", "FPL_PROVIDER_SMOKE=1 required")
+    _skip("L7", "FPL_PROVIDER_SMOKE=1 required")
+    _skip("L8", "FPL_PROVIDER_SMOKE=1 required")
+    _skip("L9", "FPL_PROVIDER_SMOKE=1 required")
+    _skip("L10", "FPL_PROVIDER_SMOKE=1 required")
     print("  (Set FPL_PROVIDER_SMOKE=1 and ensure provider credentials are present to run live tests)")
 
     _evidence = {
@@ -852,6 +863,309 @@ else:
             "skipped": False,
         })
 
+    # -----------------------------------------------------------------------
+    # L7 — Live session creation
+    # -----------------------------------------------------------------------
+    print("\n--- L7: Live session creation ---")
+
+    _l7_session_id: str | None = None
+    _l7_evidence: dict = {
+        "session_id": None,
+        "created_at": None,
+        "expires_after_seconds": None,
+        "skipped": _live_classifier is None,
+    }
+
+    if _live_classifier is None:
+        _skip("L7a")
+        _skip("L7b")
+    else:
+        try:
+            from fastapi.testclient import TestClient as _TestClientL7  # noqa: PLC0415
+            import fpl_server as _fpl_server_l7  # noqa: PLC0415
+
+            # Inject live bootstrap and classifier client; clear any stale sessions
+            _fpl_server_l7._init_bootstrap(STANDARD_BOOTSTRAP)
+            _fpl_server_l7._init_classifier_client(_live_classifier)
+            _fpl_server_l7._clear_sessions()
+
+            _http_sess_client = _TestClientL7(_fpl_server_l7.app, raise_server_exceptions=True)
+
+            _l7_resp = _http_sess_client.post("/session")
+            _live_check(
+                "L7a POST /session returns 200",
+                _l7_resp.status_code == 200,
+                detail=f"status={_l7_resp.status_code}",
+            )
+
+            if _l7_resp.status_code == 200:
+                _l7_json = _l7_resp.json()
+                _l7_session_id = _l7_json.get("session_id")
+                _live_check(
+                    "L7b response contains session_id",
+                    isinstance(_l7_session_id, str) and len(_l7_session_id) > 0,
+                    detail=f"session_id={_l7_session_id!r}",
+                )
+                print(f"  INFO  session_id={_l7_session_id!r}")
+                _l7_evidence.update({
+                    "session_id": _l7_session_id,
+                    "created_at": _l7_json.get("created_at"),
+                    "expires_after_seconds": _l7_json.get("expires_after_seconds"),
+                    "skipped": False,
+                })
+            else:
+                _live_check("L7b response contains session_id", False, detail="HTTP request failed")
+
+        except Exception as exc_l7:
+            _live_check("L7a POST /session returns 200", False, detail=str(exc_l7))
+            _live_check("L7b response contains session_id", False, detail="L7a failed")
+
+    # -----------------------------------------------------------------------
+    # L8 — Live session turn 1
+    # -----------------------------------------------------------------------
+    print("\n--- L8: Live session turn 1 ---")
+
+    _L8_QUESTION = "who should I captain this week?"
+    _l8_evidence: dict = {
+        "question": _L8_QUESTION,
+        "outcome": None,
+        "route_source": None,
+        "clarification_asked": None,
+        "llm_used": None,
+        "final_text_preview": None,
+        "skipped": _live_classifier is None or _l7_session_id is None,
+    }
+
+    if _live_classifier is None or _l7_session_id is None:
+        _skip("L8a")
+        _skip("L8b")
+        _skip("L8c")
+        _skip("L8d")
+    else:
+        try:
+            _l8_resp = _http_sess_client.post(
+                f"/session/{_l7_session_id}/ask",
+                json={"question": _L8_QUESTION},
+            )
+            _live_check(
+                "L8a POST /session/{id}/ask returns 200",
+                _l8_resp.status_code == 200,
+                detail=f"status={_l8_resp.status_code}",
+            )
+
+            if _l8_resp.status_code == 200:
+                _l8_json = _l8_resp.json()
+                _l8_outcome = _l8_json.get("outcome")
+                _l8_route_source = _l8_json.get("route_source")
+                _l8_final_text = _l8_json.get("final_text", "")
+                _l8_clarification = _l8_json.get("clarification_asked", False)
+                _l8_llm_used = _l8_json.get("llm_used")
+
+                _live_check(
+                    "L8b outcome in (ok, needs_clarification, not_found)",
+                    _l8_outcome in ("ok", "needs_clarification", "not_found"),
+                    detail=f"outcome={_l8_outcome!r}",
+                )
+                _live_check(
+                    "L8c route_source is not None",
+                    _l8_route_source is not None,
+                    detail=f"route_source={_l8_route_source!r}",
+                )
+                _live_check(
+                    "L8d final_text is non-empty string",
+                    isinstance(_l8_final_text, str) and len(_l8_final_text) > 0,
+                )
+                print(f"  INFO  turn1 outcome={_l8_outcome!r}  route_source={_l8_route_source!r}")
+
+                _l8_evidence.update({
+                    "outcome": _l8_outcome,
+                    "route_source": _l8_route_source,
+                    "clarification_asked": _l8_clarification,
+                    "llm_used": _l8_llm_used,
+                    "final_text_preview": _l8_final_text[:120],
+                    "skipped": False,
+                })
+            else:
+                _live_check("L8b outcome in (ok, needs_clarification, not_found)", False, detail="HTTP request failed")
+                _skip("L8c")
+                _skip("L8d")
+        except Exception as exc_l8:
+            _live_check("L8a POST /session/{id}/ask returns 200", False, detail=str(exc_l8))
+            _skip("L8b")
+            _skip("L8c")
+            _skip("L8d")
+
+    # -----------------------------------------------------------------------
+    # L9 — Live session turn 2
+    # -----------------------------------------------------------------------
+    print("\n--- L9: Live session turn 2 ---")
+
+    _L9_QUESTION = "what about Salah specifically?"
+    _l9_evidence: dict = {
+        "question": _L9_QUESTION,
+        "outcome": None,
+        "route_source": None,
+        "clarification_asked": None,
+        "llm_used": None,
+        "final_text_preview": None,
+        "session_id_reused": None,
+        "skipped": _live_classifier is None or _l7_session_id is None,
+    }
+
+    if _live_classifier is None or _l7_session_id is None:
+        _skip("L9a")
+        _skip("L9b")
+        _skip("L9c")
+        _skip("L9d")
+        _skip("L9e")
+    else:
+        try:
+            _l9_resp = _http_sess_client.post(
+                f"/session/{_l7_session_id}/ask",
+                json={"question": _L9_QUESTION},
+            )
+            _live_check(
+                "L9a POST /session/{id}/ask turn 2 returns 200",
+                _l9_resp.status_code == 200,
+                detail=f"status={_l9_resp.status_code}",
+            )
+
+            if _l9_resp.status_code == 200:
+                _l9_json = _l9_resp.json()
+                _l9_outcome = _l9_json.get("outcome")
+                _l9_route_source = _l9_json.get("route_source")
+                _l9_final_text = _l9_json.get("final_text", "")
+                _l9_clarification = _l9_json.get("clarification_asked", False)
+                _l9_llm_used = _l9_json.get("llm_used")
+                _l9_returned_session_id = _l9_json.get("session_id")
+
+                _live_check(
+                    "L9b outcome in (ok, needs_clarification, not_found)",
+                    _l9_outcome in ("ok", "needs_clarification", "not_found"),
+                    detail=f"outcome={_l9_outcome!r}",
+                )
+                _live_check(
+                    "L9c route_source is not None",
+                    _l9_route_source is not None,
+                    detail=f"route_source={_l9_route_source!r}",
+                )
+                _live_check(
+                    "L9d final_text is non-empty string",
+                    isinstance(_l9_final_text, str) and len(_l9_final_text) > 0,
+                )
+                _session_reused = _l9_returned_session_id == _l7_session_id
+                _live_check(
+                    "L9e session_id matches turn 1 (session reused)",
+                    _session_reused,
+                    detail=f"turn1={_l7_session_id!r}  turn2={_l9_returned_session_id!r}",
+                )
+                print(f"  INFO  turn2 outcome={_l9_outcome!r}  route_source={_l9_route_source!r}")
+
+                _l9_evidence.update({
+                    "outcome": _l9_outcome,
+                    "route_source": _l9_route_source,
+                    "clarification_asked": _l9_clarification,
+                    "llm_used": _l9_llm_used,
+                    "final_text_preview": _l9_final_text[:120],
+                    "session_id_reused": _session_reused,
+                    "skipped": False,
+                })
+            else:
+                _live_check("L9b outcome in (ok, needs_clarification, not_found)", False, detail="HTTP request failed")
+                _skip("L9c")
+                _skip("L9d")
+                _skip("L9e")
+        except Exception as exc_l9:
+            _live_check("L9a POST /session/{id}/ask turn 2 returns 200", False, detail=str(exc_l9))
+            _skip("L9b")
+            _skip("L9c")
+            _skip("L9d")
+            _skip("L9e")
+
+    # Tear down: reset classifier client after session tests
+    try:
+        _fpl_server_l7._init_classifier_client(None)
+        _fpl_server_l7._clear_sessions()
+    except Exception:
+        pass
+
+    # -----------------------------------------------------------------------
+    # L10 — Session contract shape check
+    # -----------------------------------------------------------------------
+    print("\n--- L10: Session contract shape ---")
+
+    _REQUIRED_SESSION_FIELDS = ("outcome", "route_source", "final_text", "clarification_asked")
+
+    _l10_t1_fields_ok: bool = False
+    _l10_t2_fields_ok: bool = False
+    _l10_t1_not_error: bool = False
+    _l10_t2_not_error: bool = False
+    _l10_contract_passed: bool = False
+
+    _l10_evidence: dict = {
+        "contract_passed": None,
+        "turn1_required_fields_present": None,
+        "turn2_required_fields_present": None,
+        "turn1_outcome_not_error": None,
+        "turn2_outcome_not_error": None,
+        "skipped": _live_classifier is None or _l7_session_id is None,
+    }
+
+    if _live_classifier is None or _l7_session_id is None:
+        _skip("L10a")
+        _skip("L10b")
+        _skip("L10c")
+    elif _l8_evidence.get("skipped") or _l9_evidence.get("skipped"):
+        _skip("L10a")
+        _skip("L10b")
+        _skip("L10c")
+    else:
+        # Reconstitute response dicts from evidence (fields captured above)
+        _t1_fields_present = all(
+            _l8_evidence.get(f) is not None or f == "clarification_asked"
+            for f in _REQUIRED_SESSION_FIELDS
+        )
+        _t2_fields_present = all(
+            _l9_evidence.get(f) is not None or f == "clarification_asked"
+            for f in _REQUIRED_SESSION_FIELDS
+        )
+        # Also verify clarification_asked key was explicitly recorded (not missing)
+        _t1_has_clar = "clarification_asked" in _l8_evidence
+        _t2_has_clar = "clarification_asked" in _l9_evidence
+        _l10_t1_fields_ok = _t1_fields_present and _t1_has_clar
+        _l10_t2_fields_ok = _t2_fields_present and _t2_has_clar
+        _l10_t1_not_error = _l8_evidence.get("outcome") != "error"
+        _l10_t2_not_error = _l9_evidence.get("outcome") != "error"
+        _l10_contract_passed = (
+            _l10_t1_fields_ok and _l10_t2_fields_ok
+            and _l10_t1_not_error and _l10_t2_not_error
+        )
+
+        _live_check(
+            "L10a both turns include required fields (outcome, route_source, final_text, clarification_asked)",
+            _l10_t1_fields_ok and _l10_t2_fields_ok,
+            detail=f"turn1_ok={_l10_t1_fields_ok}  turn2_ok={_l10_t2_fields_ok}",
+        )
+        _live_check(
+            "L10b neither turn has outcome == 'error'",
+            _l10_t1_not_error and _l10_t2_not_error,
+            detail=f"turn1_outcome={_l8_evidence.get('outcome')!r}  turn2_outcome={_l9_evidence.get('outcome')!r}",
+        )
+        _live_check(
+            "L10c session contract_passed",
+            _l10_contract_passed,
+        )
+        print(f"  INFO  contract_passed={_l10_contract_passed}")
+
+        _l10_evidence.update({
+            "contract_passed": _l10_contract_passed,
+            "turn1_required_fields_present": _l10_t1_fields_ok,
+            "turn2_required_fields_present": _l10_t2_fields_ok,
+            "turn1_outcome_not_error": _l10_t1_not_error,
+            "turn2_outcome_not_error": _l10_t2_not_error,
+            "skipped": False,
+        })
+
     # Build full live evidence artifact
     _evidence = {
         "timestamp": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -865,6 +1179,26 @@ else:
         "l4_cli_surface": _l4_evidence,
         "l5_http_surface": _l5_evidence,
         "surface_parity": _parity_evidence,
+        "l7_l10_session_surface": {
+            "session_id": _l7_session_id,
+            "turn_1": {
+                "question": _L8_QUESTION,
+                "outcome": _l8_evidence.get("outcome"),
+                "route_source": _l8_evidence.get("route_source"),
+                "clarification_asked": _l8_evidence.get("clarification_asked"),
+                "llm_used": _l8_evidence.get("llm_used"),
+                "final_text_preview": _l8_evidence.get("final_text_preview"),
+            },
+            "turn_2": {
+                "question": _L9_QUESTION,
+                "outcome": _l9_evidence.get("outcome"),
+                "route_source": _l9_evidence.get("route_source"),
+                "clarification_asked": _l9_evidence.get("clarification_asked"),
+                "llm_used": _l9_evidence.get("llm_used"),
+                "final_text_preview": _l9_evidence.get("final_text_preview"),
+            },
+            "contract_passed": _l10_evidence.get("contract_passed"),
+        },
         "fallback_needed": _live_classifier is None,
     }
 
