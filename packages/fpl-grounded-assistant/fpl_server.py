@@ -910,6 +910,7 @@ def metrics() -> dict[str, Any]:
     instead.
     """
     from fpl_grounded_assistant.telemetry import get_snapshot as _get_telemetry_snapshot  # noqa: PLC0415
+    from fpl_grounded_assistant.provider_client import check_provider_health  # noqa: PLC0415
     stats = _element_summary_guard.get_stats()
     return {
         "element_summary_guard": {
@@ -917,6 +918,8 @@ def metrics() -> dict[str, Any]:
             **stats,
         },
         "routing": _get_telemetry_snapshot(),
+        # Phase 2.5-smoke: provider availability (credential+SDK check, no network I/O)
+        "provider": check_provider_health(),
     }
 
 

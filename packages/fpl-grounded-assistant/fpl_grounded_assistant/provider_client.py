@@ -310,6 +310,25 @@ def _gemini_configure(api_key: str) -> None:
             _LAST_GEMINI_CONFIGURED_KEY[0] = api_key
 
 
+def _strip_gemini_unsupported_schema_fields(value: Any) -> Any:
+    """Recursively drop JSON-schema keys unsupported by Gemini SDK.
+
+    ``google-generativeai`` rejects ``additionalProperties`` in function
+    declaration schemas and raises ``ValueError`` during model construction.
+    Removing this key preserves required/typed fields while preventing a hard
+    server error in the orchestration path.
+    """
+    if isinstance(value, dict):
+        return {
+            k: _strip_gemini_unsupported_schema_fields(v)
+            for k, v in value.items()
+            if k != "additionalProperties"
+        }
+    if isinstance(value, list):
+        return [_strip_gemini_unsupported_schema_fields(v) for v in value]
+    return value
+
+
 def _probe_oai_timeout_support(create_fn: Any) -> bool:
     """Determine via signature inspection whether *create_fn* accepts ``timeout=``.
 
@@ -1022,15 +1041,25 @@ def call_orch_provider(
                 attempts=0,
                 latency_ms=(time.perf_counter() - _t0) * 1000.0,
             )
+        _tools = _strip_gemini_unsupported_schema_fields(tools)
         if client is not None:
             _gem_model = client   # pre-built model (test mock)
         else:
-            _gemini_configure(_key)   # bounded configure: skips if key unchanged
-            _gem_model = _genai_sdk.GenerativeModel(
-                model_name=model,
-                system_instruction=system,
-                tools=tools,
-            )
+            try:
+                _gemini_configure(_key)   # bounded configure: skips if key unchanged
+                _gem_model = _genai_sdk.GenerativeModel(
+                    model_name=model,
+                    system_instruction=system,
+                    tools=_tools,
+                )
+            except Exception as exc:  # noqa: BLE001
+                return OrchCallResult(
+                    response=None,
+                    error_code=PERR_PROVIDER,
+                    error_msg=_sanitize_error(exc),
+                    attempts=1,
+                    latency_ms=(time.perf_counter() - _t0) * 1000.0,
+                )
         _user_content = messages[0]["content"] if messages else ""
         _gm = _gem_model
 
@@ -1094,6 +1123,75 @@ def call_orch_provider(
         attempts=raw.attempts,
         latency_ms=(time.perf_counter() - _t0) * 1000.0,
     )
+
+
+# ---------------------------------------------------------------------------
+# Provider health check  (Phase 2.5-smoke)
+# ---------------------------------------------------------------------------
+
+def check_provider_health(
+    provider_name: str | None = None,
+    *,
+    api_key: str | None = None,
+) -> dict:
+    """Return ``{"available": bool, "error": str | None}`` without raising.
+
+    Performs a lightweight credential-and-SDK check (no live API call).
+    Reads ``DEFAULT_PROVIDER`` env var when ``provider_name`` is ``None``;
+    falls back to ``"gemini"`` when the env var is also absent.
+
+    This function is safe to call at startup or inside a health endpoint:
+    it never raises, performs no network I/O, and completes in microseconds.
+
+    Parameters
+    ----------
+    provider_name:
+        One of ``PROVIDER_ANTHROPIC``, ``PROVIDER_OPENAI``, ``PROVIDER_GEMINI``.
+        When ``None``, the active provider is read from ``DEFAULT_PROVIDER``
+        env var (default ``"gemini"``).
+    api_key:
+        Explicit API key to check.  When ``None``, the provider-appropriate
+        env var is inspected.
+
+    Returns
+    -------
+    dict
+        ``{"available": True, "error": None}``   — credentials present + SDK installed.
+        ``{"available": False, "error": "<msg>"}`` — credentials absent or SDK missing.
+    """
+    import os as _os  # noqa: PLC0415 — local import avoids shadowing module-level `os`
+    try:
+        name = (
+            provider_name
+            or _os.environ.get("DEFAULT_PROVIDER", "gemini")
+        ).lower().strip()
+
+        if name == PROVIDER_GEMINI:
+            if not _GEMINI_AVAILABLE:
+                return {"available": False, "error": "google-generativeai SDK not installed"}
+            key = api_key or _os.environ.get("GOOGLE_API_KEY")
+            if not key:
+                return {"available": False, "error": "GOOGLE_API_KEY not set"}
+            return {"available": True, "error": None}
+
+        if name == PROVIDER_OPENAI:
+            if not _OPENAI_AVAILABLE:
+                return {"available": False, "error": "openai SDK not installed"}
+            key = api_key or _os.environ.get("OPENAI_API_KEY")
+            if not key:
+                return {"available": False, "error": "OPENAI_API_KEY not set"}
+            return {"available": True, "error": None}
+
+        # Default: PROVIDER_ANTHROPIC
+        if not _ANTHROPIC_AVAILABLE:
+            return {"available": False, "error": "anthropic SDK not installed"}
+        key = api_key or _os.environ.get("ANTHROPIC_API_KEY")
+        if not key:
+            return {"available": False, "error": "ANTHROPIC_API_KEY not set"}
+        return {"available": True, "error": None}
+
+    except Exception as exc:  # noqa: BLE001
+        return {"available": False, "error": f"health check error: {type(exc).__name__}"}
 
 
 # ---------------------------------------------------------------------------
