@@ -38,6 +38,8 @@ Exit codes
 """
 from __future__ import annotations
 
+import datetime
+import json
 import os
 import sys
 
@@ -70,6 +72,11 @@ PROVIDER_SMOKE_ENABLED: bool = os.getenv("FPL_PROVIDER_SMOKE", "0") == "1"
 _pass: list[str] = []
 _fail: list[str] = []
 
+# Separate tracking for live (L-section) tests
+_live_pass: list[str] = []
+_live_fail: list[str] = []
+_live_skip_count: int = 0
+
 
 def _check(label: str, cond: bool, detail: str = "") -> None:
     if cond:
@@ -77,6 +84,19 @@ def _check(label: str, cond: bool, detail: str = "") -> None:
         print(f"  PASS  {label}")
     else:
         _fail.append(label)
+        msg = f"  FAIL  {label}"
+        if detail:
+            msg += f" ({detail})"
+        print(msg)
+
+
+def _live_check(label: str, cond: bool, detail: str = "") -> None:
+    """Like _check but counts toward the live totals, not the deterministic totals."""
+    if cond:
+        _live_pass.append(label)
+        print(f"  PASS  {label}")
+    else:
+        _live_fail.append(label)
         msg = f"  FAIL  {label}"
         if detail:
             msg += f" ({detail})"
@@ -401,33 +421,52 @@ except Exception as exc:
 
 print("\n=== L: Live provider tests ===")
 
+# Evidence artifact state — populated by live path or skipped path below
+_evidence: dict = {}
+_EVIDENCE_PATH = os.path.join(_HERE, "phase25_live_evidence.json")
+_LIVE_QUESTION = "who should I captain this week?"
+
 if not PROVIDER_SMOKE_ENABLED:
+    _live_skip_count = 3  # L1, L2, L3
     _skip("L1", "FPL_PROVIDER_SMOKE=1 required")
     _skip("L2", "FPL_PROVIDER_SMOKE=1 required")
     _skip("L3", "FPL_PROVIDER_SMOKE=1 required")
     print("  (Set FPL_PROVIDER_SMOKE=1 and ensure provider credentials are present to run live tests)")
+
+    _evidence = {
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "provider": None,
+        "live_smoke_skipped": True,
+        "reason": "FPL_PROVIDER_SMOKE not set or credentials absent",
+    }
 else:
     print("  FPL_PROVIDER_SMOKE=1 — running live provider tests")
 
+    # -----------------------------------------------------------------------
     # L1 — Live provider reachable
+    # -----------------------------------------------------------------------
     print("\n--- L1: Live provider reachable ---")
     _live_health = check_provider_health()
-    _check(
+    _active_provider = os.environ.get("DEFAULT_PROVIDER", "gemini").lower()
+
+    _live_check(
         "L1a check_provider_health() available=True",
         _live_health.get("available") is True,
         detail=f"health={_live_health}",
     )
-    _check(
+    _live_check(
         "L1b check_provider_health() error=None",
         _live_health.get("error") is None,
         detail=f"error={_live_health.get('error')!r}",
     )
 
+    # -----------------------------------------------------------------------
     # L2 — Live classification
+    # -----------------------------------------------------------------------
     print("\n--- L2: Live classification ---")
-    _active_provider = os.environ.get("DEFAULT_PROVIDER", "gemini").lower()
 
     _live_classifier = None
+    _classifier_build_error: str | None = None
     try:
         if _active_provider == "gemini":
             import warnings as _w  # noqa: PLC0415
@@ -438,72 +477,118 @@ else:
             if _google_key:
                 from fpl_grounded_assistant.intent_classifier import GeminiClassifierAdapter  # noqa: PLC0415
                 _live_classifier = GeminiClassifierAdapter(_genai, _google_key)
+            else:
+                _classifier_build_error = "GOOGLE_API_KEY not set"
         elif _active_provider == "anthropic":
             import anthropic as _ant  # type: ignore[import-untyped]  # noqa: PLC0415
             _ant_key = os.environ.get("ANTHROPIC_API_KEY")
             if _ant_key:
                 _live_classifier = _ant.Anthropic(api_key=_ant_key)
+            else:
+                _classifier_build_error = "ANTHROPIC_API_KEY not set"
+        else:
+            _classifier_build_error = f"unknown provider: {_active_provider!r}"
     except Exception as exc_build:
+        _classifier_build_error = f"{type(exc_build).__name__}: {exc_build}"
         print(f"  WARN  Live classifier build failed: {exc_build}")
 
+    # L2 evidence defaults
+    _l2_evidence: dict = {
+        "question": _LIVE_QUESTION,
+        "intent": None,
+        "confidence": None,
+        "confidence_bucket": None,
+        "build_error": _classifier_build_error,
+    }
+
     if _live_classifier is None:
-        _check("L2a classifier built", False, detail="no credentials or SDK for active provider")
+        _live_check(
+            "L2a classifier built",
+            False,
+            detail=_classifier_build_error or "no credentials or SDK for active provider",
+        )
         _skip("L2b")
         _skip("L2c")
     else:
         from fpl_grounded_assistant.intent_classifier import IntentClassification  # noqa: PLC0415
-        _live_cls = classify_intent_llm("should I captain Haaland this week", _live_classifier)
-        _check(
+        _live_cls = classify_intent_llm(_LIVE_QUESTION, _live_classifier)
+        _live_check(
             "L2a classify_intent_llm returns IntentClassification",
             isinstance(_live_cls, IntentClassification),
             detail=f"got {type(_live_cls).__name__}: {_live_cls!r}",
         )
         if isinstance(_live_cls, IntentClassification):
-            _check(
+            _live_check(
                 "L2b intent is non-empty str",
                 isinstance(_live_cls.intent, str) and len(_live_cls.intent) > 0,
             )
-            _check(
+            _live_check(
                 "L2c confidence is float in [0,1]",
                 isinstance(_live_cls.confidence, float) and 0.0 <= _live_cls.confidence <= 1.0,
                 detail=f"confidence={_live_cls.confidence}",
             )
-            _check(
+            _live_check(
                 "L2d canonical_question is non-empty str",
                 isinstance(_live_cls.canonical_question, str) and len(_live_cls.canonical_question) > 0,
             )
-            _check(
+            _live_check(
                 "L2e language is non-empty str",
                 isinstance(_live_cls.language, str) and len(_live_cls.language) > 0,
             )
+            # Populate L2 evidence
+            _conf_bucket = (
+                "high" if _live_cls.confidence >= 0.9
+                else "medium" if _live_cls.confidence >= 0.7
+                else "low"
+            )
+            _l2_evidence.update({
+                "intent": _live_cls.intent,
+                "confidence": _live_cls.confidence,
+                "confidence_bucket": _conf_bucket,
+                "build_error": None,
+            })
 
+    # -----------------------------------------------------------------------
     # L3 — Live dispatch: full stack with real question
+    # -----------------------------------------------------------------------
     print("\n--- L3: Live dispatch ---")
+
+    # L3 evidence defaults
+    _l3_evidence: dict = {
+        "question": _LIVE_QUESTION,
+        "outcome": None,
+        "route_source": None,
+        "clarification_asked": None,
+        "final_text_preview": None,
+        "skipped": _live_classifier is None,
+    }
+
     if _live_classifier is None:
         _skip("L3a")
         _skip("L3b")
         _skip("L3c")
+        _skip("L3d")
     else:
         _live_fr = respond(
-            "should I captain Haaland this week",
+            _LIVE_QUESTION,
             STANDARD_BOOTSTRAP,
             classifier_client=_live_classifier,
             include_debug=False,
         )
-        _check(
+        _live_check(
             "L3a respond returns FinalResponse",
             isinstance(_live_fr, FinalResponse),
         )
-        _check(
-            "L3b outcome is ok or needs_clarification (not error)",
+        _live_check(
+            "L3b outcome is ok, needs_clarification or not_found (not error)",
             _live_fr.outcome not in ("error",),
             detail=f"outcome={_live_fr.outcome!r}",
         )
-        _check(
+        _live_check(
             "L3c final_text is non-empty",
             isinstance(_live_fr.final_text, str) and len(_live_fr.final_text) > 0,
         )
-        _check(
+        _live_check(
             "L3d route_source is set",
             _live_fr.route_source is not None,
             detail=f"route_source={_live_fr.route_source!r}",
@@ -512,17 +597,59 @@ else:
         if _live_fr.classifier_confidence is not None:
             print(f"  INFO  classifier_confidence={_live_fr.classifier_confidence:.3f}")
 
+        _l3_evidence.update({
+            "outcome": _live_fr.outcome,
+            "route_source": _live_fr.route_source,
+            "clarification_asked": getattr(_live_fr, "clarification_asked", None),
+            "final_text_preview": (_live_fr.final_text or "")[:120],
+            "skipped": False,
+        })
+
+    # Build full live evidence artifact
+    _evidence = {
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "provider": _active_provider,
+        "l1_health": {
+            "available": _live_health.get("available"),
+            "error": _live_health.get("error"),
+        },
+        "l2_classification": _l2_evidence,
+        "l3_dispatch": _l3_evidence,
+        "fallback_needed": _live_classifier is None,
+    }
+
+# ---------------------------------------------------------------------------
+# Write evidence artifact (always — skipped variant is also useful)
+# ---------------------------------------------------------------------------
+
+try:
+    with open(_EVIDENCE_PATH, "w", encoding="utf-8") as _ef:
+        json.dump(_evidence, _ef, indent=2)
+    print(f"\n  INFO  Evidence artifact written: {_EVIDENCE_PATH}")
+except Exception as exc_ev:
+    print(f"\n  WARN  Could not write evidence artifact: {exc_ev}")
+
 
 # ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 
 print(f"\n{'='*50}")
-print(f"PASSED: {len(_pass)}")
-print(f"FAILED: {len(_fail)}")
+print(f"PASSED (deterministic): {len(_pass)}")
+if PROVIDER_SMOKE_ENABLED:
+    print(f"LIVE PASSED: {len(_live_pass)}")
+    if _live_fail:
+        print(f"LIVE FAILED: {len(_live_fail)}")
+else:
+    print(f"LIVE SKIPPED: {_live_skip_count}   (set FPL_PROVIDER_SMOKE=1 to run)")
+print(f"FAILED: {len(_fail) + len(_live_fail)}")
 if _fail:
-    print("\nFailed tests:")
+    print("\nFailed deterministic tests:")
     for f in _fail:
         print(f"  {f}")
+if _live_fail:
+    print("\nFailed live tests:")
+    for f in _live_fail:
+        print(f"  {f}")
 
-sys.exit(0 if not _fail else 1)
+sys.exit(0 if not (_fail or _live_fail) else 1)
