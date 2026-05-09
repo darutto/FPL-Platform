@@ -72,6 +72,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from . import telemetry as _telemetry  # Phase 2.7g: in-process telemetry (never raises)
 from .dispatcher import OUTCOME_OK, OUTCOME_NEEDS_CLARIFICATION, INTENT_COMPARE_PLAYERS, INTENT_CAPTAIN_SCORE, INTENT_RANK_CANDIDATES, INTENT_MULTI_INTENT, INTENT_TRANSFER_ADVICE, INTENT_CHIP_ADVICE, INTENT_PLAYER_FIXTURE_RUN, INTENT_DIFFERENTIAL_PICKS, INTENT_PLAYER_FORM, INTENT_INJURY_LIST, INTENT_PRICE_CHANGES, INTENT_TEAM_FIXTURE_CALENDAR, INTENT_TEAM_SCHEDULE, INTENT_POSITION_FIXTURE_RUN, INTENT_TRANSFER_SUGGESTION  # noqa: F401 — re-exported
 from .dispatcher import _TOOL_TO_INTENT, INTENT_UNSUPPORTED  # Orch-4a: tool->intent map
 from .multi_intent import detect_multi_intent
@@ -2048,7 +2049,7 @@ def respond(
         squad_context=squad_context,
     )
 
-    return FinalResponse(
+    _result = FinalResponse(
         final_text=final_text,
         outcome=dr.outcome,
         supported=ar.supported,
@@ -2079,3 +2080,16 @@ def respond(
         # Phase 2.7f: clarification policy layer
         clarification_asked=clarification_asked,
     )
+    # Phase 2.7g: in-process telemetry — record after result is built, never raises
+    try:
+        _telemetry.record_response(
+            intent=_result.intent,
+            outcome=_result.outcome,
+            route_source=_result.route_source,
+            classifier_confidence=_result.classifier_confidence,
+            supported=_result.supported,
+            clarification_asked=_result.clarification_asked,
+        )
+    except Exception:  # noqa: BLE001 — telemetry must never raise into caller
+        pass
+    return _result

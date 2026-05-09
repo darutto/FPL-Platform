@@ -290,6 +290,11 @@ from .reference_resolver import (
     _parse_comp_resolver_response,
     _COMP_RESOLVER_MAX_TOKENS,
 )
+from .telemetry import (                    # Phase 2.7g: in-process telemetry
+    record_response as record_response,
+    get_snapshot as get_snapshot,
+    reset as reset_telemetry,
+)
 
 __all__ = [
     # Phase 2n: contract fixtures
@@ -460,6 +465,10 @@ __all__ = [
     "_COMP_RESOLVER_MAX_TOKENS",
     # Phase 6c: multi-intent detection
     "detect_multi_intent",
+    # Phase 2.7g: in-process telemetry
+    "record_response",
+    "get_snapshot",
+    "reset_telemetry",
     # core harness
     "ask",
     "route",

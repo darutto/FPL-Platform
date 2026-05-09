@@ -869,11 +869,12 @@ def ready() -> dict[str, str]:
 def metrics() -> dict[str, Any]:
     """Internal observability endpoint for operator tooling.
 
-    Returns runtime metrics for the element-summary circuit guard.
-    All values are read-only and thread-safe.
+    Returns runtime metrics for the element-summary circuit guard and
+    Phase 2.7g routing telemetry counters.  All values are read-only and
+    thread-safe.
 
-    Response shape
-    --------------
+    Response shape — circuit guard
+    --------------------------------
     ``element_summary_guard.state``
         ``"open"``   — circuit is open; player-form calls are fast-failing.
         ``"closed"`` — circuit is closed; calls reach the upstream API.
@@ -887,16 +888,35 @@ def metrics() -> dict[str, Any]:
         Cumulative count of successful upstream calls that followed a
         guard-open cycle.
 
+    Response shape — routing telemetry  (Phase 2.7g)
+    --------------------------------------------------
+    ``routing.route_source_counts``
+        Counts per routing stage (``"deterministic"``, ``"llm_classifier_high"``,
+        ``"llm_classifier_medium"``, ``"none"``, etc.).
+    ``routing.outcome_counts``
+        Counts per OUTCOME_* constant (``"ok"``, ``"needs_clarification"``,
+        ``"unsupported_intent"``, etc.).
+    ``routing.classifier_confidence_bucket_counts``
+        Counts per confidence bucket (``"high"``, ``"medium"``, ``"low"``,
+        ``"none"``).
+    ``routing.clarification_asked_total``
+        Cumulative count of turns where the medium-confidence gate fired and
+        a clarification prompt was returned.
+    ``routing.intent_route_counts``
+        Counts keyed by ``"intent|route_source"`` composite string.
+
     This endpoint is NOT a stable contract — field names may change across
     platform versions.  Do not use it for deployment probes; use ``/ready``
     instead.
     """
+    from fpl_grounded_assistant.telemetry import get_snapshot as _get_telemetry_snapshot  # noqa: PLC0415
     stats = _element_summary_guard.get_stats()
     return {
         "element_summary_guard": {
             "state": "open" if _element_summary_guard.is_open() else "closed",
             **stats,
         },
+        "routing": _get_telemetry_snapshot(),
     }
 
 
