@@ -427,17 +427,20 @@ _EVIDENCE_PATH = os.path.join(_HERE, "phase25_live_evidence.json")
 _LIVE_QUESTION = "who should I captain this week?"
 
 if not PROVIDER_SMOKE_ENABLED:
-    _live_skip_count = 3  # L1, L2, L3
+    _live_skip_count = 6  # L1, L2, L3, L4, L5, L6
     _skip("L1", "FPL_PROVIDER_SMOKE=1 required")
     _skip("L2", "FPL_PROVIDER_SMOKE=1 required")
     _skip("L3", "FPL_PROVIDER_SMOKE=1 required")
+    _skip("L4", "FPL_PROVIDER_SMOKE=1 required")
+    _skip("L5", "FPL_PROVIDER_SMOKE=1 required")
+    _skip("L6", "FPL_PROVIDER_SMOKE=1 required")
     print("  (Set FPL_PROVIDER_SMOKE=1 and ensure provider credentials are present to run live tests)")
 
     _evidence = {
         "timestamp": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "provider": None,
         "live_smoke_skipped": True,
-        "reason": "FPL_PROVIDER_SMOKE not set or credentials absent",
+        "reason": "FPL_PROVIDER_SMOKE=1 not set",
     }
 else:
     print("  FPL_PROVIDER_SMOKE=1 — running live provider tests")
@@ -605,6 +608,250 @@ else:
             "skipped": False,
         })
 
+    # -----------------------------------------------------------------------
+    # L4 — Live CLI surface
+    # -----------------------------------------------------------------------
+    print("\n--- L4: Live CLI surface ---")
+
+    # L4 evidence defaults
+    _l4_evidence: dict = {
+        "question": _LIVE_QUESTION,
+        "outcome": None,
+        "route_source": None,
+        "clarification_asked": None,
+        "llm_used": None,
+        "final_text_preview": None,
+        "skipped": _live_classifier is None,
+    }
+
+    if _live_classifier is None:
+        _skip("L4a")
+        _skip("L4b")
+        _skip("L4c")
+        _skip("L4d")
+    else:
+        try:
+            import fpl_cli as _fpl_cli  # noqa: PLC0415
+
+            # Call run() in debug mode so we can parse routing fields from JSON output
+            _l4_code, _l4_output = _fpl_cli.run(
+                _LIVE_QUESTION,
+                STANDARD_BOOTSTRAP,
+                debug=True,
+                classifier_client=_live_classifier,
+            )
+            _live_check(
+                "L4a fpl_cli.run() returns 2-tuple",
+                isinstance(_l4_output, str) and isinstance(_l4_code, int),
+                detail=f"got ({type(_l4_code).__name__}, {type(_l4_output).__name__})",
+            )
+
+            # Parse debug JSON to extract routing fields
+            import json as _json_l4  # noqa: PLC0415
+            try:
+                _l4_json = _json_l4.loads(_l4_output)
+                _l4_outcome = _l4_json.get("outcome")
+                _l4_route_source = _l4_json.get("route_source")
+                _l4_clarification = _l4_json.get("clarification_asked", False)
+                _l4_llm_used = _l4_json.get("llm_used")
+                _l4_final_text = _l4_json.get("final_text", "")
+
+                _live_check(
+                    "L4b outcome in (ok, needs_clarification, not_found)",
+                    _l4_outcome in ("ok", "needs_clarification", "not_found"),
+                    detail=f"outcome={_l4_outcome!r}",
+                )
+                _live_check(
+                    "L4c route_source is not None",
+                    _l4_route_source is not None,
+                    detail=f"route_source={_l4_route_source!r}",
+                )
+                _live_check(
+                    "L4d final_text is non-empty string",
+                    isinstance(_l4_final_text, str) and len(_l4_final_text) > 0,
+                )
+                print(f"  INFO  CLI outcome={_l4_outcome!r}  route_source={_l4_route_source!r}")
+
+                _l4_evidence.update({
+                    "outcome": _l4_outcome,
+                    "route_source": _l4_route_source,
+                    "clarification_asked": _l4_clarification,
+                    "llm_used": _l4_llm_used,
+                    "final_text_preview": _l4_final_text[:120],
+                    "skipped": False,
+                })
+            except Exception as exc_l4_parse:
+                _live_check("L4b outcome in (ok, needs_clarification, not_found)", False, detail=f"JSON parse error: {exc_l4_parse}")
+                _skip("L4c")
+                _skip("L4d")
+                _l4_outcome = None
+                _l4_route_source = None
+                _l4_clarification = None
+                _l4_llm_used = None
+        except Exception as exc_l4:
+            _live_check("L4a fpl_cli.run() returns 2-tuple", False, detail=str(exc_l4))
+            _skip("L4b")
+            _skip("L4c")
+            _skip("L4d")
+            _l4_outcome = None
+            _l4_route_source = None
+            _l4_clarification = None
+            _l4_llm_used = None
+
+    # -----------------------------------------------------------------------
+    # L5 — Live HTTP surface
+    # -----------------------------------------------------------------------
+    print("\n--- L5: Live HTTP surface ---")
+
+    # L5 evidence defaults
+    _l5_evidence: dict = {
+        "question": _LIVE_QUESTION,
+        "outcome": None,
+        "route_source": None,
+        "clarification_asked": None,
+        "llm_used": None,
+        "final_text_preview": None,
+        "skipped": _live_classifier is None,
+    }
+
+    if _live_classifier is None:
+        _skip("L5a")
+        _skip("L5b")
+        _skip("L5c")
+        _skip("L5d")
+    else:
+        try:
+            from fastapi.testclient import TestClient as _TestClient  # noqa: PLC0415
+            import fpl_server as _fpl_server  # noqa: PLC0415
+
+            # Inject live bootstrap and live classifier client
+            _fpl_server._init_bootstrap(STANDARD_BOOTSTRAP)
+            _fpl_server._init_classifier_client(_live_classifier)
+
+            _http_live_client = _TestClient(_fpl_server.app, raise_server_exceptions=True)
+            _l5_resp = _http_live_client.post(
+                "/ask",
+                json={"question": _LIVE_QUESTION},
+            )
+            _live_check(
+                "L5a HTTP /ask returns 200",
+                _l5_resp.status_code == 200,
+                detail=f"status={_l5_resp.status_code}",
+            )
+
+            if _l5_resp.status_code == 200:
+                _l5_json = _l5_resp.json()
+                _l5_outcome = _l5_json.get("outcome")
+                _l5_route_source = _l5_json.get("route_source")
+                _l5_clarification = _l5_json.get("clarification_asked", False)
+                _l5_llm_used = _l5_json.get("llm_used")
+                _l5_final_text = _l5_json.get("final_text", "")
+
+                _live_check(
+                    "L5b outcome in (ok, needs_clarification, not_found)",
+                    _l5_outcome in ("ok", "needs_clarification", "not_found"),
+                    detail=f"outcome={_l5_outcome!r}",
+                )
+                _live_check(
+                    "L5c route_source is not None",
+                    _l5_route_source is not None,
+                    detail=f"route_source={_l5_route_source!r}",
+                )
+                _live_check(
+                    "L5d final_text is non-empty string",
+                    isinstance(_l5_final_text, str) and len(_l5_final_text) > 0,
+                )
+                print(f"  INFO  HTTP outcome={_l5_outcome!r}  route_source={_l5_route_source!r}")
+
+                _l5_evidence.update({
+                    "outcome": _l5_outcome,
+                    "route_source": _l5_route_source,
+                    "clarification_asked": _l5_clarification,
+                    "llm_used": _l5_llm_used,
+                    "final_text_preview": _l5_final_text[:120],
+                    "skipped": False,
+                })
+            else:
+                _live_check("L5b outcome in (ok, needs_clarification, not_found)", False, detail="HTTP request failed")
+                _skip("L5c")
+                _skip("L5d")
+                _l5_outcome = None
+                _l5_route_source = None
+                _l5_clarification = None
+        except Exception as exc_l5:
+            _live_check("L5a HTTP /ask returns 200", False, detail=str(exc_l5))
+            _skip("L5b")
+            _skip("L5c")
+            _skip("L5d")
+            _l5_outcome = None
+            _l5_route_source = None
+            _l5_clarification = None
+
+        # Reset the server's classifier client back to None after live test
+        try:
+            _fpl_server._init_classifier_client(None)
+        except Exception:
+            pass
+
+    # -----------------------------------------------------------------------
+    # L6 — Surface parity check
+    # -----------------------------------------------------------------------
+    print("\n--- L6: Surface parity ---")
+
+    _parity_evidence: dict = {
+        "outcome_match": None,
+        "route_source_match": None,
+        "clarification_asked_match": None,
+        "parity_passed": None,
+        "skipped": _live_classifier is None,
+    }
+
+    if _live_classifier is None:
+        _skip("L6a")
+        _skip("L6b")
+        _skip("L6c")
+    elif _l4_evidence.get("skipped") or _l5_evidence.get("skipped"):
+        _skip("L6a")
+        _skip("L6b")
+        _skip("L6c")
+    else:
+        _l6_l4_outcome = _l4_evidence.get("outcome")
+        _l6_l5_outcome = _l5_evidence.get("outcome")
+        _l6_l4_route = _l4_evidence.get("route_source")
+        _l6_l5_route = _l5_evidence.get("route_source")
+        _l6_l4_clar = _l4_evidence.get("clarification_asked")
+        _l6_l5_clar = _l5_evidence.get("clarification_asked")
+
+        _outcome_match = _l6_l4_outcome == _l6_l5_outcome
+        _route_match = _l6_l4_route == _l6_l5_route
+        _clar_match = _l6_l4_clar == _l6_l5_clar
+        _parity_all = _outcome_match and _route_match and _clar_match
+
+        _live_check(
+            "L6a CLI outcome == HTTP outcome",
+            _outcome_match,
+            detail=f"cli={_l6_l4_outcome!r}  http={_l6_l5_outcome!r}",
+        )
+        _live_check(
+            "L6b CLI route_source == HTTP route_source",
+            _route_match,
+            detail=f"cli={_l6_l4_route!r}  http={_l6_l5_route!r}",
+        )
+        _live_check(
+            "L6c CLI clarification_asked == HTTP clarification_asked",
+            _clar_match,
+            detail=f"cli={_l6_l4_clar!r}  http={_l6_l5_clar!r}",
+        )
+        print(f"  INFO  parity_passed={_parity_all}")
+
+        _parity_evidence.update({
+            "outcome_match": _outcome_match,
+            "route_source_match": _route_match,
+            "clarification_asked_match": _clar_match,
+            "parity_passed": _parity_all,
+            "skipped": False,
+        })
+
     # Build full live evidence artifact
     _evidence = {
         "timestamp": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -615,6 +862,9 @@ else:
         },
         "l2_classification": _l2_evidence,
         "l3_dispatch": _l3_evidence,
+        "l4_cli_surface": _l4_evidence,
+        "l5_http_surface": _l5_evidence,
+        "surface_parity": _parity_evidence,
         "fallback_needed": _live_classifier is None,
     }
 
