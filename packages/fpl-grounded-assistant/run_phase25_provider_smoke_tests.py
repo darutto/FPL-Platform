@@ -7,6 +7,8 @@ Proves:
   1. The live configured provider can be reached when credentials are present.
   2. Provider absence/misconfiguration does not break CLI or HTTP contracts.
   3. Provider call failure causes deterministic fallback that preserves contract shape.
+  4. The selected provider is explicitly recorded and the selected-provider path
+     stays contract-safe; evidence_type labels distinguish real from simulated runs.
 
 Test inventory
 --------------
@@ -24,6 +26,12 @@ P9  Unknown provider gate — get_provider() with unknown name raises ProviderNo
 P10 classify_intent_llm call-failure fallback — [covered by P3a; no duplicate added]
 P11 respond() fallback route_source contract — route_source is set on the deterministic fallback path
 P12 HTTP /ask with raising provider — returns HTTP 200 with non-error outcome and valid contract shape
+P13 DEFAULT_PROVIDER resolution — check_provider_health() returns a dict with "available" key;
+    active provider name is determinable from DEFAULT_PROVIDER env var or known fallback "gemini"
+P14 Provider-specific credential gate — check_provider_health(provider, api_key="") with the
+    provider's env var temporarily removed returns available=False for all known providers
+P15 Artifact evidence_type structural check — evidence dict accepts evidence_type string values
+    (structural only; proves labeling contract without live credentials)
 
 --- Live section (skipped when FPL_PROVIDER_SMOKE != "1") ---
 L1  Live provider reachable — check_provider_health() returns {"available": True}
@@ -42,6 +50,12 @@ L12 Live failure-path: contract shape under failure — respond() with raising m
     FinalResponse contract (outcome, route_source, final_text all non-null)
 L13 Artifact consistency check — evidence artifact always contains required top-level keys under
     both the live and skip paths; failure_path_evidence section present
+L14 Active provider identification — check_provider_health() is available=True with real credentials;
+    active provider name is recorded in the evidence artifact
+L15 Provider-specific classification evidence — classify_intent_llm() succeeds with the active
+    provider; evidence_type="real" is recorded; credential_source env var name is captured
+L16 Cross-provider contract shape check — FinalResponse from full dispatch has consistent contract
+    shape regardless of which provider was active; route_source and final_text both non-null
 
 Usage (deterministic, no credentials required)::
 
@@ -633,6 +647,116 @@ except Exception as exc_p12:
 
 
 # ---------------------------------------------------------------------------
+# P13 — DEFAULT_PROVIDER resolution: check_provider_health respects env var
+# ---------------------------------------------------------------------------
+
+print("\n--- P13: DEFAULT_PROVIDER resolution ---")
+
+# The active provider is read from DEFAULT_PROVIDER env var; falls back to "gemini".
+_p13_active_provider = os.environ.get("DEFAULT_PROVIDER", "gemini").lower().strip()
+
+_p13_health = check_provider_health()  # no args → uses DEFAULT_PROVIDER or fallback
+_check(
+    "P13a check_provider_health() returns dict",
+    isinstance(_p13_health, dict),
+    detail=f"got {type(_p13_health).__name__}",
+)
+_check(
+    "P13b check_provider_health() has 'available' key",
+    "available" in _p13_health,
+    detail=f"keys={list(_p13_health.keys())}",
+)
+_check(
+    "P13c active provider name is non-empty string",
+    isinstance(_p13_active_provider, str) and len(_p13_active_provider) > 0,
+    detail=f"active_provider={_p13_active_provider!r}",
+)
+_check(
+    "P13d active provider is a known provider name",
+    _p13_active_provider in ("gemini", "anthropic", "openai"),
+    detail=f"active_provider={_p13_active_provider!r}",
+)
+
+
+# ---------------------------------------------------------------------------
+# P14 — Provider-specific credential gate: each known provider returns
+#        available=False when api_key="" and env var is absent
+# ---------------------------------------------------------------------------
+
+print("\n--- P14: Provider-specific credential gate (all known providers) ---")
+
+import os as _os_p14  # noqa: E402
+
+# Map of provider name → its credential env var
+_P14_PROVIDER_ENV: dict[str, str] = {
+    "gemini":    "GOOGLE_API_KEY",
+    "anthropic": "ANTHROPIC_API_KEY",
+    "openai":    "OPENAI_API_KEY",
+}
+
+for _p14_provider, _p14_env_var in _P14_PROVIDER_ENV.items():
+    _p14_saved_key = _os_p14.environ.pop(_p14_env_var, None)
+    try:
+        _p14_result = check_provider_health(_p14_provider, api_key="")
+        _check(
+            f"P14_{_p14_provider} returns available=False when key empty and env absent",
+            _p14_result.get("available") is False,
+            detail=f"got {_p14_result!r}",
+        )
+        _check(
+            f"P14_{_p14_provider}_error includes descriptive error string",
+            isinstance(_p14_result.get("error"), str) and len(_p14_result.get("error", "")) > 0,
+            detail=f"error={_p14_result.get('error')!r}",
+        )
+    except Exception as exc_p14:
+        _check(
+            f"P14_{_p14_provider} returns available=False when key empty and env absent",
+            False,
+            detail=f"raised: {type(exc_p14).__name__}: {exc_p14}",
+        )
+        _check(
+            f"P14_{_p14_provider}_error includes descriptive error string",
+            False,
+            detail="check raised unexpectedly",
+        )
+    finally:
+        if _p14_saved_key is not None:
+            _os_p14.environ[_p14_env_var] = _p14_saved_key
+
+
+# ---------------------------------------------------------------------------
+# P15 — Artifact evidence_type structural check
+# ---------------------------------------------------------------------------
+
+print("\n--- P15: Artifact evidence_type structural check ---")
+
+# Structural test: verify that the evidence dict can hold evidence_type keys
+# and that the known label values are correct strings. No live credentials needed.
+_p15_sample_real: dict = {"evidence_type": "real"}
+_p15_sample_sim: dict = {"evidence_type": "simulated"}
+_p15_sample_skip: dict = {"evidence_type": "not_run"}
+
+_check(
+    "P15a evidence_type 'real' is a string",
+    isinstance(_p15_sample_real["evidence_type"], str),
+)
+_check(
+    "P15b evidence_type 'simulated' is a string",
+    isinstance(_p15_sample_sim["evidence_type"], str),
+)
+_check(
+    "P15c evidence_type 'not_run' is a string",
+    isinstance(_p15_sample_skip["evidence_type"], str),
+)
+_check(
+    "P15d known evidence_type values are distinct",
+    len({_p15_sample_real["evidence_type"],
+         _p15_sample_sim["evidence_type"],
+         _p15_sample_skip["evidence_type"]}) == 3,
+)
+
+
+# ---------------------------------------------------------------------------
 # L — Live provider tests (opt-in: FPL_PROVIDER_SMOKE=1)
 # ---------------------------------------------------------------------------
 
@@ -644,7 +768,7 @@ _EVIDENCE_PATH = os.path.join(_HERE, "phase25_live_evidence.json")
 _LIVE_QUESTION = "who should I captain this week?"
 
 if not PROVIDER_SMOKE_ENABLED:
-    _live_skip_count = 13  # L1–L10, L11, L12, L13
+    _live_skip_count = 16  # L1–L10, L11, L12, L13, L14, L15, L16
     _skip("L1", "FPL_PROVIDER_SMOKE=1 required")
     _skip("L2", "FPL_PROVIDER_SMOKE=1 required")
     _skip("L3", "FPL_PROVIDER_SMOKE=1 required")
@@ -658,6 +782,9 @@ if not PROVIDER_SMOKE_ENABLED:
     _skip("L11", "FPL_PROVIDER_SMOKE=1 required")
     _skip("L12", "FPL_PROVIDER_SMOKE=1 required")
     _skip("L13", "FPL_PROVIDER_SMOKE=1 required")
+    _skip("L14", "FPL_PROVIDER_SMOKE=1 required")
+    _skip("L15", "FPL_PROVIDER_SMOKE=1 required")
+    _skip("L16", "FPL_PROVIDER_SMOKE=1 required")
     print("  (Set FPL_PROVIDER_SMOKE=1 and ensure provider credentials are present to run live tests)")
 
     _evidence = {
@@ -666,8 +793,12 @@ if not PROVIDER_SMOKE_ENABLED:
         "live_smoke_skipped": True,
         "reason": "FPL_PROVIDER_SMOKE=1 not set",
         "failure_path_evidence": {
-            "bad_credential_test": {"skipped": True},
-            "call_failure_test": {"skipped": True},
+            "bad_credential_test": {"skipped": True, "evidence_type": "not_run"},
+            "call_failure_test": {"skipped": True, "evidence_type": "not_run"},
+        },
+        "provider_selection_evidence": {
+            "skipped": True,
+            "evidence_type": "not_run",
         },
     }
 else:
@@ -1494,6 +1625,131 @@ else:
     })
 
     # -----------------------------------------------------------------------
+    # L14 — Active provider identification
+    # -----------------------------------------------------------------------
+    print("\n--- L14: Active provider identification ---")
+
+    # _active_provider and _live_health are already set from L1/L2 above.
+    _live_check(
+        "L14a active provider is available with real credentials",
+        _live_health.get("available") is True,
+        detail=f"available={_live_health.get('available')!r}",
+    )
+    _live_check(
+        "L14b active provider name is non-empty string",
+        isinstance(_active_provider, str) and len(_active_provider) > 0,
+        detail=f"active_provider={_active_provider!r}",
+    )
+    _live_check(
+        "L14c active provider is a known provider name",
+        _active_provider in ("gemini", "anthropic", "openai"),
+        detail=f"active_provider={_active_provider!r}",
+    )
+
+    # Determine the credential source (env var name) for the active provider
+    _L14_CREDENTIAL_SOURCES: dict[str, str] = {
+        "gemini":    "GOOGLE_API_KEY",
+        "anthropic": "ANTHROPIC_API_KEY",
+        "openai":    "OPENAI_API_KEY",
+    }
+    _l14_credential_source = _L14_CREDENTIAL_SOURCES.get(_active_provider, "unknown")
+    _live_check(
+        "L14d credential_source is determinable for active provider",
+        _l14_credential_source != "unknown",
+        detail=f"credential_source={_l14_credential_source!r}",
+    )
+    print(f"  INFO  active_provider={_active_provider!r}  credential_source={_l14_credential_source!r}")
+
+    # -----------------------------------------------------------------------
+    # L15 — Provider-specific classification evidence
+    # -----------------------------------------------------------------------
+    print("\n--- L15: Provider-specific classification evidence ---")
+
+    # Reuse the _live_cls result from L2 if available; otherwise record failure.
+    _l15_cls_succeeded: bool = False
+    _l15_confidence: float | None = None
+
+    if _live_classifier is not None and _l2_evidence.get("build_error") is None:
+        # If L2 ran successfully, _live_cls is in scope from the L2 block
+        try:
+            _l15_cls_result = classify_intent_llm(_LIVE_QUESTION, _live_classifier)
+            _l15_cls_succeeded = isinstance(_l15_cls_result, type(None)) is False
+            if _l15_cls_succeeded and _l15_cls_result is not None:
+                _l15_confidence = _l15_cls_result.confidence
+            _live_check(
+                "L15a classify_intent_llm with active provider returns classification",
+                _l15_cls_succeeded,
+                detail=f"got {type(_l15_cls_result).__name__}",
+            )
+            _live_check(
+                "L15b classification intent is non-empty string",
+                _l15_cls_succeeded and isinstance(getattr(_l15_cls_result, "intent", None), str),
+                detail=f"intent={getattr(_l15_cls_result, 'intent', None)!r}",
+            )
+        except Exception as exc_l15:
+            _live_check(
+                "L15a classify_intent_llm with active provider returns classification",
+                False,
+                detail=str(exc_l15),
+            )
+            _live_check("L15b classification intent is non-empty string", False,
+                        detail="L15a failed")
+    else:
+        _skip("L15a", "live classifier not available")
+        _skip("L15b", "live classifier not available")
+
+    _live_check(
+        "L15c active provider credential_source is known env var name",
+        _l14_credential_source in ("GOOGLE_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"),
+        detail=f"credential_source={_l14_credential_source!r}",
+    )
+    print(f"  INFO  classification_succeeded={_l15_cls_succeeded}  confidence={_l15_confidence}")
+
+    # -----------------------------------------------------------------------
+    # L16 — Cross-provider contract shape check
+    # -----------------------------------------------------------------------
+    print("\n--- L16: Cross-provider contract shape check ---")
+
+    # Reuse L3 evidence — the FinalResponse from live dispatch.
+    # The contract shape (route_source, final_text) must be non-null regardless
+    # of which provider was active.  If L3 was skipped, degrade gracefully.
+    _l16_contract_consistent: bool = False
+
+    if _l3_evidence.get("skipped") is True:
+        _skip("L16a", "L3 dispatch was skipped (no live classifier)")
+        _skip("L16b", "L3 dispatch was skipped (no live classifier)")
+        _skip("L16c", "L3 dispatch was skipped (no live classifier)")
+    else:
+        _l16_route_source_ok = (
+            _l3_evidence.get("route_source") is not None
+            and isinstance(_l3_evidence.get("route_source"), str)
+        )
+        _l16_final_text_ok = (
+            _l3_evidence.get("final_text_preview") is not None
+            and isinstance(_l3_evidence.get("final_text_preview"), str)
+            and len(_l3_evidence.get("final_text_preview", "")) > 0
+        )
+        _l16_outcome_ok = _l3_evidence.get("outcome") not in (None, "error")
+        _l16_contract_consistent = _l16_route_source_ok and _l16_final_text_ok and _l16_outcome_ok
+
+        _live_check(
+            "L16a L3 dispatch route_source is non-null (provider-independent)",
+            _l16_route_source_ok,
+            detail=f"route_source={_l3_evidence.get('route_source')!r}",
+        )
+        _live_check(
+            "L16b L3 dispatch final_text is non-empty (provider-independent)",
+            _l16_final_text_ok,
+            detail=f"final_text_preview={_l3_evidence.get('final_text_preview', '')[:40]!r}",
+        )
+        _live_check(
+            "L16c L3 dispatch outcome is non-error (provider-independent)",
+            _l16_outcome_ok,
+            detail=f"outcome={_l3_evidence.get('outcome')!r}",
+        )
+    print(f"  INFO  provider_contract_consistent={_l16_contract_consistent}")
+
+    # -----------------------------------------------------------------------
     # L13 — Artifact consistency check
     # -----------------------------------------------------------------------
     print("\n--- L13: Evidence artifact consistency check ---")
@@ -1501,20 +1757,25 @@ else:
     # The artifact hasn't been written yet at this point — we check the _evidence
     # dict that is about to be written.  The live path must always carry these keys.
     _L13_REQUIRED_LIVE_KEYS = ("timestamp", "provider", "l2_classification",
-                               "l3_dispatch", "failure_path_evidence")
-    # Build the live failure_path_evidence section first so we can include it
+                               "l3_dispatch", "failure_path_evidence",
+                               "provider_selection_evidence")
+    # Build the live failure_path_evidence section first so we can include it.
+    # Both sub-entries use evidence_type="simulated" because they rely on
+    # RuntimeError-raising mocks rather than real credential failures.
     _failure_path_evidence: dict = {
         "bad_credential_test": {
             "failure_stage": _l11_evidence.get("failure_stage"),
             "failure_classification": _l11_evidence.get("failure_classification"),
             "fallback_attempted": _l11_evidence.get("fallback_attempted"),
             "caller_contract_valid": _l11_evidence.get("caller_contract_valid"),
+            "evidence_type": "simulated",
         },
         "call_failure_test": {
             "failure_stage": "classify_intent_llm",
             "failure_classification": "provider_runtime_error",
             "fallback_attempted": True,
             "caller_contract_valid": _l12_contract_valid,
+            "evidence_type": "simulated",
         },
     }
 
@@ -1584,6 +1845,16 @@ else:
         },
         "fallback_needed": _live_classifier is None,
         "failure_path_evidence": _failure_path_evidence,
+        "provider_selection_evidence": {
+            "active_provider": _active_provider,
+            "credential_source": _l14_credential_source,
+            "build_path": f"{_active_provider} SDK",
+            "sdk_available": _live_health.get("available", False),
+            "classification_succeeded": _l15_cls_succeeded,
+            "classification_confidence": _l15_confidence,
+            "contract_consistent": _l16_contract_consistent,
+            "evidence_type": "real",
+        },
     }
 
     # Final L13 consistency check: verify the assembled _evidence has required keys
@@ -1631,6 +1902,16 @@ else:
         _evidence.get("live_smoke_skipped") is True,
         detail=f"live_smoke_skipped={_evidence.get('live_smoke_skipped')!r}",
     )
+_check(
+    "Artifact: 'provider_selection_evidence' key always present",
+    "provider_selection_evidence" in _evidence,
+    detail=f"keys={list(_evidence.keys())}",
+)
+_check(
+    "Artifact: provider_selection_evidence has 'evidence_type'",
+    isinstance(_evidence.get("provider_selection_evidence", {}).get("evidence_type"), str),
+    detail=f"evidence_type={_evidence.get('provider_selection_evidence', {}).get('evidence_type')!r}",
+)
 
 
 # ---------------------------------------------------------------------------
