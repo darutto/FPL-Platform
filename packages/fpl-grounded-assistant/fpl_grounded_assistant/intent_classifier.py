@@ -69,8 +69,9 @@ class IntentClassification:
     Attributes
     ----------
     intent:
-        Predicted intent label — one of the six supported INTENT_* constants
-        or ``"unsupported"`` when confidence is below threshold.
+        Predicted intent label — one of the supported INTENT_* constants
+        enumerated in the classifier system prompt, or ``"unsupported"``
+        when confidence is below threshold.
     canonical_question:
         A rephrased version of the original question in canonical English
         that ``route()`` can deterministically parse.  For example:
