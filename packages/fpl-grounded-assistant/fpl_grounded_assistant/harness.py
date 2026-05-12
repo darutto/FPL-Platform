@@ -314,3 +314,92 @@ def ask(
     if context_meta is not None:
         result["context_meta"] = context_meta
     return result
+
+
+# ---------------------------------------------------------------------------
+# Phase M1 (MCP_architecture): ask_v2 — outer decision-router entrypoint
+# ---------------------------------------------------------------------------
+
+def ask_v2(
+    question: str,
+    bootstrap: dict[str, Any],
+    candidate_inputs: dict[str, Any] | None = None,
+    candidates_list: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Phase M1 entrypoint composing `decision_router` + existing `ask()`.
+
+    Behavior summary:
+
+    * `@<resource>`  -> resource path; result dict carries `outcome="ok"`,
+                        `resource_rows={...}`, and `routing_trace`.
+    * `@<unknown>`   -> `outcome="unsupported"`, `suggestions=[...]`.
+    * `/<prompt>`    -> M1 returns `outcome="unsupported"` (M2 owns this).
+    * plain text     -> falls through to existing `ask()`; the returned
+                        dict is identical to today's `ask()` output plus
+                        an additive `routing_trace` key.
+
+    The existing `ask()` is **not modified**. This is purely additive and
+    does not affect any caller of `ask()`.
+    """
+    # Import here to avoid circulars at module-load time.
+    from .decision_router import (
+        decide, OUTCOME_OK_RESOURCE, OUTCOME_UNSUPPORTED, OUTCOME_FALLTHROUGH,
+    )
+
+    # Resolve bootstrap up-front so both branches operate on the same data
+    actual_bootstrap, context_meta = _resolve_bootstrap_and_meta(bootstrap)
+
+    decision = decide(question, actual_bootstrap)
+    kind = decision["kind"]
+    outcome = decision["outcome"]
+
+    routing_trace = {
+        "decision_kind": kind,
+        "decision_outcome": outcome,
+    }
+
+    if outcome == OUTCOME_OK_RESOURCE and kind == "resource":
+        result: dict[str, Any] = {
+            "selected_tool": None,
+            "tool_input":    {},
+            "raw_output":    {"status": "ok"},
+            "answer_text":   decision.get("message", ""),
+            "outcome":       "ok",
+            "kind":          "resource",
+            "resource":      decision.get("resource"),
+            "resource_rows": decision.get("resource_rows"),
+            "routing_trace": routing_trace,
+        }
+        if context_meta is not None:
+            result["context_meta"] = context_meta
+        return result
+
+    if outcome == OUTCOME_UNSUPPORTED:
+        result = {
+            "selected_tool": None,
+            "tool_input":    {},
+            "raw_output":    {"status": "unsupported"},
+            "answer_text":   decision.get("message", ""),
+            "outcome":       "unsupported",
+            "kind":          kind,
+            "suggestions":   decision.get("suggestions", []),
+            "routing_trace": routing_trace,
+        }
+        if context_meta is not None:
+            result["context_meta"] = context_meta
+        return result
+
+    # Fallthrough (plain text) — delegate to existing ask()
+    assert outcome == OUTCOME_FALLTHROUGH
+    # Use the cleaned text (post-honorific-strip / NFC) for routing.
+    cleaned_text = decision.get("text", question)
+    result = ask(
+        cleaned_text,
+        bootstrap,
+        candidate_inputs=candidate_inputs,
+        candidates_list=candidates_list,
+    )
+    result["outcome"] = "ok" if result.get("selected_tool") else "unsupported"
+    result["kind"] = "text"
+    result["routing_trace"] = routing_trace
+    return result

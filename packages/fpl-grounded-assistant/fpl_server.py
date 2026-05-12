@@ -923,6 +923,30 @@ def metrics() -> dict[str, Any]:
     }
 
 
+@app.get("/resources")
+def list_resources() -> dict[str, Any]:
+    """Phase M1 (MCP_architecture): list registered @resources.
+
+    Returns introspection metadata for the six M1 resources. The endpoint
+    is read-only, argument-free, and does not consult the bootstrap —
+    it reports the static registry only.
+    """
+    from fpl_grounded_assistant.resource_registry import list_resource_specs  # noqa: PLC0415
+    specs = list_resource_specs()
+    return {
+        "resources": [
+            {
+                "name":        s.name,
+                "title":       s.title,
+                "description": s.description,
+                "columns":     list(s.columns),
+            }
+            for s in specs
+        ],
+        "count": len(specs),
+    }
+
+
 @app.post("/ask", response_model=AskResponse)
 def ask(req: AskRequest) -> AskResponse:
     """Ask a FPL captaincy or player question.

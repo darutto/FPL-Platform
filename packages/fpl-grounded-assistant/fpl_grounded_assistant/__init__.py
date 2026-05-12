@@ -163,7 +163,11 @@ from .explainer import (
     explain_captain,
     explain_captain_compact,
 )
-from .harness import ask
+from .harness import ask, ask_v2  # ask_v2: Phase M1 (MCP_architecture)
+from . import intent_aliases as intent_aliases  # noqa: F401 (Phase M1)
+from . import input_normalizer as input_normalizer  # noqa: F401 (Phase M1)
+from . import resource_registry as resource_registry  # noqa: F401 (Phase M1)
+from . import decision_router as decision_router  # noqa: F401 (Phase M1)
 from .renderer import (
     render,
     # Phase 2i: tier + set-piece display helpers (exported for test access)
@@ -471,6 +475,7 @@ __all__ = [
     "reset_telemetry",
     # core harness
     "ask",
+    "ask_v2",
     "route",
     "render",
     "RouteResult",
