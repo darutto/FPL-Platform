@@ -26,6 +26,12 @@ This file is the single source of truth for M3 pre-requisites. The Lead Orchestr
 
 **Resolution required before M3 begins:** Extend `tool_schema_registry._ALL_SCHEMAS` with JSON schemas for all 7 Phase-2.6 tools, including `to_openai()` / `to_anthropic()` parity. Add a parity test that asserts `len(_ALL_SCHEMAS) == 17` and that each `INTENT_*` constant in `SUPPORTED_INTENTS` has at least one tool whose schema is in the registry.
 
+**Evidence of resolution (M3 preflight, pending Lead + Independent Verifier confirmation):**
+`packages/fpl-grounded-assistant/fpl_grounded_assistant/tool_schema_registry.py` now registers all 17 tools (GET_PLAYER_FORM_SCHEMA, GET_INJURY_LIST_SCHEMA, GET_PRICE_CHANGES_SCHEMA, GET_TEAM_FIXTURE_CALENDAR_SCHEMA, GET_TEAM_SCHEDULE_SCHEMA, GET_POSITION_FIXTURE_RUN_SCHEMA, GET_TRANSFER_SUGGESTION_SCHEMA added).
+`packages/fpl-grounded-assistant/run_phase_m3_preflight_tests.py` asserts `len(_ALL_SCHEMAS) == 17`, OpenAI/Anthropic/Gemini serialisation shape for each, and full SUPPORTED_INTENTS coverage via `_TOOL_TO_INTENT`.
+
+Verified by: M3 preflight runner — `run_phase_m3_preflight_tests.py` (B1.* assertions PASS). Lead Orchestrator + Independent Verifier confirm.
+
 ---
 
 ## Blocker B2 — `intent_classifier.CLASSIFIER_SYSTEM_PROMPT` omits 3 supported intents
@@ -42,13 +48,27 @@ This file is the single source of truth for M3 pre-requisites. The Lead Orchestr
 
 **Resolution required before M3 begins:** Extend the classifier system prompt to enumerate all 17 supported intents, with canonical-question examples in both English and Spanish for the three missing intents. Add a test that asserts the prompt string contains each `INTENT_*` constant name.
 
+**Evidence of resolution (M3 preflight, pending Lead + Independent Verifier confirmation):**
+`packages/fpl-grounded-assistant/fpl_grounded_assistant/intent_classifier.py` extends `CLASSIFIER_SYSTEM_PROMPT` with three new labelled sections (`differential_picks:`, `position_fixture_run:`, `multi_intent:`) each carrying English AND Spanish canonical-question examples. `_CONFIDENCE_THRESHOLD` remains `0.7` and `IntentClassification` is untouched.
+`run_phase_m3_preflight_tests.py` asserts every member of `SUPPORTED_INTENTS` (17) plus `multi_intent` appears in the prompt and that the three previously-missing intents have their own labelled sections with Spanish phrasings.
+
+Verified by: M3 preflight runner — `run_phase_m3_preflight_tests.py` (B2.* assertions PASS). Lead Orchestrator + Independent Verifier confirm.
+
 ---
 
 ## Status table
 
 | ID | Blocker | Owner | Status |
 |---|---|---|---|
-| B1 | `tool_schema_registry` missing 7 of 17 tools | M3 Orchestrator Wiring Agent | OPEN |
-| B2 | `classifier system prompt` missing 3 of 18 intents | M3 Orchestrator Wiring Agent | OPEN |
+| B1 | `tool_schema_registry` missing 7 of 17 tools | M3 Orchestrator Wiring Agent | CLOSED (pending Lead confirm) |
+| B2 | `classifier system prompt` missing 3 of 18 intents | M3 Orchestrator Wiring Agent | CLOSED (pending Lead confirm) |
+
+**Count semantics (Lead-approved 2026-05-14):** "17+1" — `SUPPORTED_INTENTS` (frozenset in `dispatcher.py`) holds the 17 deterministic intents; `multi_intent` is a classifier-recognised meta-intent that composes sub-intents and lives outside the frozenset. The classifier-visible universe is therefore 17 + 1 = 18. Tests and the prompt enumerate all 18; tool schemas cover only the 17 deterministic ones (multi_intent is composition, not a tool).
 
 The Lead Orchestrator will close items here only after they are verified in-code with passing tests. M3 phase kick-off is gated on `OPEN → CLOSED` for every row.
+
+**Preflight regression status (recorded by M3 preflight agent):**
+- `run_phase_m1_tests.py`: 49/49 PASS (unchanged).
+- `run_phase_m2_tests.py`: 58/58 PASS (unchanged).
+- `run_validation.py`: 106/106 scenarios PASS (unchanged).
+- `run_phase_m3_preflight_tests.py`: 130/130 PASS.
