@@ -140,3 +140,30 @@ def list_resources() -> tuple[str, ...]:
 def all_aliases_for(canonical: str) -> Iterable[str]:
     """Return all accepted aliases (folded) for *canonical*."""
     return tuple(a for a, c in RESOURCE_ALIASES.items() if c == canonical)
+
+
+# ---------------------------------------------------------------------------
+# Prompt name aliases (M2)
+# ---------------------------------------------------------------------------
+# Centralized prompt-name aliases. Authoritative table lives in
+# prompt_registry.py (alongside the PromptSpec definitions); we re-export
+# resolve_prompt() and list_prompts() here so external callers (UI, server,
+# verifier scripts) have a single ``intent_aliases`` import for both
+# resources and prompts. Argument-name aliases stay per-ArgSpec in
+# prompt_registry.py — they are tied to the schema, not the prompt name.
+
+def resolve_prompt(name: str) -> str | None:
+    """Return the canonical prompt name for *name*, or None.
+
+    Thin re-export of ``prompt_registry.resolve_prompt`` so callers can
+    treat ``intent_aliases`` as the single alias entry point.
+    """
+    # Local import avoids a circular at module load (prompt_registry imports
+    # from dispatcher, which imports harness, which imports nothing here).
+    from .prompt_registry import resolve_prompt as _rp
+    return _rp(name)
+
+
+def list_prompt_names() -> tuple[str, ...]:
+    from .prompt_registry import list_prompts as _lp
+    return _lp()

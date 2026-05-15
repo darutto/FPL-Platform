@@ -317,6 +317,45 @@ def ask(
 
 
 # ---------------------------------------------------------------------------
+# Phase M2 (MCP_architecture): prompt dispatch helper
+# ---------------------------------------------------------------------------
+
+def _dispatch_prompt(
+    prompt_name: str,
+    args: dict[str, Any],
+    bootstrap: dict[str, Any],
+) -> tuple[str | None, dict[str, Any], dict[str, Any]]:
+    """Call the underlying deterministic helper for a MODE_DISPATCH prompt.
+
+    Returns ``(tool_name, raw_output, tool_input)``.
+
+    The registered tool handlers in ``TOOL_REGISTRY`` ignore the optional
+    typed kwargs that prompts carry (``horizon``, ``ownership_threshold``,
+    ``top_n``). We invoke the deterministic helpers directly so the typed
+    arguments are honored — that is the whole point of dispatch mode.
+    """
+    if prompt_name == "calendarios":
+        from .player_fixture_run import get_player_fixture_run
+        query   = args["player"]
+        horizon = int(args.get("horizon", 5))
+        tool_input = {"query": query, "horizon": horizon}
+        raw = get_player_fixture_run(query, bootstrap, horizon=horizon)
+        return "get_player_fixture_run", raw, tool_input
+
+    if prompt_name == "diferenciales":
+        from .differential_picks import get_differential_picks
+        threshold = float(args.get("threshold", 15.0))
+        top_n     = int(args.get("top_n", 5))
+        tool_input = {"ownership_threshold": threshold, "top_n": top_n}
+        raw = get_differential_picks(
+            bootstrap, ownership_threshold=threshold, top_n=top_n,
+        )
+        return "get_differential_picks", raw, tool_input
+
+    return None, {"status": "error", "code": "unknown_dispatch_prompt"}, {}
+
+
+# ---------------------------------------------------------------------------
 # Phase M1 (MCP_architecture): ask_v2 — outer decision-router entrypoint
 # ---------------------------------------------------------------------------
 
@@ -343,8 +382,17 @@ def ask_v2(
     """
     # Import here to avoid circulars at module-load time.
     from .decision_router import (
-        decide, OUTCOME_OK_RESOURCE, OUTCOME_UNSUPPORTED, OUTCOME_FALLTHROUGH,
+        decide,
+        OUTCOME_OK_RESOURCE,
+        OUTCOME_OK_PROMPT_DISPATCH,
+        OUTCOME_OK_PROMPT_EXPANSION,
+        OUTCOME_UNSUPPORTED,
+        OUTCOME_NEEDS_CLARIFICATION,
+        OUTCOME_FALLTHROUGH,
     )
+    from fpl_tool_runner import run_tool as _run_tool
+    from .renderer import render as _render
+    from .dispatcher import _auto_candidates_from_bootstrap
 
     # Resolve bootstrap up-front so both branches operate on the same data
     actual_bootstrap, context_meta = _resolve_bootstrap_and_meta(bootstrap)
@@ -369,6 +417,75 @@ def ask_v2(
             "resource":      decision.get("resource"),
             "resource_rows": decision.get("resource_rows"),
             "routing_trace": routing_trace,
+        }
+        if context_meta is not None:
+            result["context_meta"] = context_meta
+        return result
+
+    if outcome == OUTCOME_NEEDS_CLARIFICATION:
+        result = {
+            "selected_tool":  None,
+            "tool_input":     {},
+            "raw_output":     {"status": "needs_clarification"},
+            "answer_text":    decision.get("message", ""),
+            "outcome":        "needs_clarification",
+            "kind":           "prompt",
+            "prompt_name":    decision.get("prompt_name"),
+            "missing_fields": decision.get("missing_fields", []),
+            "errors":         decision.get("errors", []),
+            "routing_trace":  routing_trace,
+        }
+        if context_meta is not None:
+            result["context_meta"] = context_meta
+        return result
+
+    if outcome == OUTCOME_OK_PROMPT_EXPANSION:
+        canonical_text = decision.get("canonical_text", "")
+        prompt_name    = decision.get("prompt_name")
+        workflow_intent = decision.get("workflow_intent")
+        # For /clasificacion the canonical text routes to rank_captain_candidates
+        # which requires candidates_list. Honor the optional `n` arg by
+        # auto-populating top-N candidates from bootstrap.
+        eff_candidates = candidates_list
+        if prompt_name == "clasificacion" and not eff_candidates:
+            n = decision.get("args", {}).get("n", 5)
+            eff_candidates = _auto_candidates_from_bootstrap(actual_bootstrap, top_n=int(n))
+        result = ask(
+            canonical_text,
+            bootstrap,
+            candidate_inputs=candidate_inputs,
+            candidates_list=eff_candidates,
+        )
+        result["outcome"] = "ok" if result.get("selected_tool") else "unsupported"
+        result["kind"] = "prompt"
+        result["prompt_name"] = prompt_name
+        result["workflow_intent"] = workflow_intent
+        result["canonical_text"] = canonical_text
+        routing_trace["expansion_text"] = canonical_text
+        routing_trace["workflow_intent"] = workflow_intent
+        result["routing_trace"] = routing_trace
+        return result
+
+    if outcome == OUTCOME_OK_PROMPT_DISPATCH:
+        prompt_name     = decision.get("prompt_name")
+        workflow_intent = decision.get("workflow_intent")
+        args            = decision.get("args", {})
+        tool_name, raw_output, tool_input = _dispatch_prompt(
+            prompt_name, args, actual_bootstrap,
+        )
+        answer_text = _render(tool_name, raw_output) if tool_name else ""
+        routing_trace["dispatched_tool"] = tool_name
+        routing_trace["workflow_intent"] = workflow_intent
+        result = {
+            "selected_tool":   tool_name,
+            "tool_input":      tool_input,
+            "raw_output":      raw_output,
+            "answer_text":     answer_text,
+            "outcome":         "ok" if raw_output.get("status") == "ok" else "error",
+            "kind":            "prompt",
+            "prompt_name":     prompt_name,
+            "workflow_intent": workflow_intent,
+            "routing_trace":   routing_trace,
         }
         if context_meta is not None:
             result["context_meta"] = context_meta

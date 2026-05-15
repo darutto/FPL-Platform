@@ -27,12 +27,23 @@ from .input_normalizer import (
 )
 from .intent_aliases import list_resources
 from .resource_registry import has_resource, run_resource
+from .prompt_registry import (
+    get_prompt_spec,
+    validate_and_parse,
+    build_expansion,
+    list_prompts,
+    MODE_EXPANSION,
+    MODE_DISPATCH,
+)
 
 
 # Outcome constants used by ask_v2()
-OUTCOME_OK_RESOURCE   = "ok"
-OUTCOME_UNSUPPORTED   = "unsupported"
-OUTCOME_FALLTHROUGH   = "fallthrough"  # plain text — caller dispatches to route()
+OUTCOME_OK_RESOURCE         = "ok"
+OUTCOME_OK_PROMPT_DISPATCH  = "ok_prompt_dispatch"
+OUTCOME_OK_PROMPT_EXPANSION = "ok_prompt_expansion"
+OUTCOME_UNSUPPORTED         = "unsupported"
+OUTCOME_NEEDS_CLARIFICATION = "needs_clarification"
+OUTCOME_FALLTHROUGH         = "fallthrough"  # plain text — caller dispatches to route()
 
 
 def _suggestions() -> list[str]:
@@ -87,18 +98,55 @@ def decide(question: str, bootstrap: dict[str, Any]) -> dict[str, Any]:
         }
 
     if isinstance(norm, PromptInput):
-        # M2 will own this branch. For M1 we surface a clear unsupported
-        # message so callers learn the slash surface is coming.
+        spec = get_prompt_spec(norm.name)
+        if spec is None:
+            return {
+                "kind":         "prompt",
+                "outcome":      OUTCOME_UNSUPPORTED,
+                "prompt_name":  norm.name,
+                "args_text":    norm.args_text,
+                "suggestions":  [f"/{p}" for p in list_prompts()],
+                "message": (
+                    f"Prompt '/{norm.name}' is not registered. "
+                    f"Available prompts: {', '.join('/' + p for p in list_prompts())}."
+                ),
+            }
+
+        parsed = validate_and_parse(spec, norm.args_text)
+        if not parsed["ok"]:
+            return {
+                "kind":           "prompt",
+                "outcome":        OUTCOME_NEEDS_CLARIFICATION,
+                "prompt_name":    spec.name,
+                "args_text":      norm.args_text,
+                "missing_fields": parsed["missing_fields"],
+                "errors":         parsed["errors"],
+                "message": (
+                    f"Prompt '/{spec.name}' needs more information: "
+                    f"{'; '.join(parsed['errors']) or 'missing fields'}."
+                ),
+            }
+
+        if spec.mode == MODE_EXPANSION:
+            canonical_text = build_expansion(spec, parsed["args"])
+            return {
+                "kind":           "prompt",
+                "outcome":        OUTCOME_OK_PROMPT_EXPANSION,
+                "prompt_name":    spec.name,
+                "workflow_intent": spec.workflow_intent,
+                "args":           parsed["args"],
+                "canonical_text": canonical_text,
+                "message":        canonical_text,
+            }
+
+        # MODE_DISPATCH — caller (ask_v2) invokes run_tool directly.
         return {
-            "kind":         "prompt",
-            "outcome":      OUTCOME_UNSUPPORTED,
-            "prompt_name":  norm.name,
-            "args_text":    norm.args_text,
-            "suggestions":  _suggestions(),
-            "message": (
-                f"Prompt '/{norm.name}' is not registered in M1. "
-                "Slash-prompts arrive in M2; for now use bare text or @resources."
-            ),
+            "kind":           "prompt",
+            "outcome":        OUTCOME_OK_PROMPT_DISPATCH,
+            "prompt_name":    spec.name,
+            "workflow_intent": spec.workflow_intent,
+            "args":           parsed["args"],
+            "message":        f"dispatch prompt /{spec.name}",
         }
 
     # TextInput — caller dispatches to existing route()

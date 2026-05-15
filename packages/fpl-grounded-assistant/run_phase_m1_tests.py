@@ -206,8 +206,10 @@ check(d3["kind"] == "text" and d3["outcome"] == "fallthrough",
       "D3: plain text -> fallthrough")
 
 d4 = decide("/capitan Haaland", BOOTSTRAP)
-check(d4["kind"] == "prompt" and d4["outcome"] == "unsupported",
-      "D4: '/capitan ...' -> prompt/unsupported in M1 (M2 owns prompts)")
+# M1 stub returned 'unsupported' here; M2 wired prompts so the decision
+# now resolves to an expansion-mode prompt. The kind stays "prompt".
+check(d4["kind"] == "prompt" and d4["outcome"].startswith("ok"),
+      "D4: '/capitan Haaland' -> prompt/ok_* once M2 wires the registry")
 
 
 # ===========================================================================
