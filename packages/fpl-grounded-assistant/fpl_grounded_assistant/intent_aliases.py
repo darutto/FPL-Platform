@@ -143,6 +143,108 @@ def all_aliases_for(canonical: str) -> Iterable[str]:
 
 
 # ---------------------------------------------------------------------------
+# Router-intent aliases (M4 — Spanish Hardening)
+# ---------------------------------------------------------------------------
+# These are keyword/synonym tables that belong to the "alias" category:
+# they are synonyms/paraphrases of a fixed concept used for keyword matching.
+# They are imported by router.py so router.py can eliminate its local copies.
+#
+# Tables that are GRAMMATICAL SCAFFOLDING (prefix/suffix/connector patterns
+# for sentence parsing) stay in router.py — see audit table in M4 report.
+#
+# Section 1: Transfer-advice Spanish extensions (M0 §7.1)
+# --------------------------------------------------------
+
+TRANSFER_SPANISH_PREFIXES: tuple[str, ...] = (
+    # Spanish imperative / verb forms for selling / swapping out a player.
+    # Added M4.  Router extends _TRANSFER_PREFIXES with these.
+    "vendo",          # "I sell" — compact Spanish verb
+    "saco a",         # "I take out [player]"
+    "doy de baja a",  # "I unregister / remove [player]"
+    "doy de baja",    # without accusative "a" stripped separately
+    "cambio",         # "I swap/exchange"
+    "véndele",        # "sell him [player]" — regional imperative (Spain/LatAm)
+    "vendele",        # no accent variant
+)
+
+TRANSFER_SPANISH_CONNECTORS: tuple[str, ...] = (
+    # Spanish connectors separating player_out from player_in.
+    # Added M4.  Router extends _TRANSFER_CONNECTORS with these.
+    # Ordered longest-first (per existing convention).
+    " por el ",  # "for the" — e.g. "vendo Salah por el Palmer"
+    " por ",     # "for" — e.g. "vendo Salah por Palmer"
+)
+
+# Section 2: Player-fixture-run Spanish extensions (M0 §7.2)
+# -----------------------------------------------------------
+
+FIXTURE_RUN_SPANISH_PREFIXES: tuple[str, ...] = (
+    # Spanish prefix forms for player fixture-run queries.
+    # Added M4.  Router extends _FIXTURE_RUN_PREFIXES with these.
+    # NOTE: "calendario de " is deliberately excluded here because it is
+    # ambiguous: "calendario de Arsenal" → team_schedule, "calendario de
+    # Haaland" → player_fixture_run.  The disambiguation is handled in
+    # _try_route_team_schedule / _try_route_fixture_run via _extract_team_token.
+    # See Section 3 below and _try_route_fixture_run_spanish() in router.py.
+    "próximos partidos de",    # "upcoming matches of"
+    "proximos partidos de",    # no accent
+    "siguientes partidos de",  # "following matches of"
+    "próximas jornadas de",    # "upcoming gameweeks of"
+    "proximas jornadas de",    # no accent
+    "partidos de",             # "matches of" — shorter form
+)
+
+FIXTURE_RUN_SPANISH_SUFFIXES: tuple[str, ...] = (
+    # Spanish suffix forms for player fixture-run queries.
+    # Added M4.  Router extends _FIXTURE_RUN_SUFFIXES with these.
+    # INTENTIONALLY EMPTY: " partidos" is too ambiguous as a suffix —
+    # "en los últimos 3 partidos" ends with " partidos" but signals player_form.
+    # " fixtures" is already in the English table.
+    # Spanish player fixture-run coverage is handled via prefix forms only.
+)
+
+# Section 3: "calendario de X" disambiguation trigger prefix (M0 §7.3)
+# ----------------------------------------------------------------------
+# The prefix "calendario de " (without "del") is ambiguous:
+#   "calendario de Arsenal" → team_schedule  (team name token found)
+#   "calendario de Haaland" → player_fixture_run  (no team name token)
+# This constant is used by _try_route_team_schedule (which runs before
+# _try_route_fixture_run) and by _try_route_fixture_run as a prefix check,
+# guarded by _extract_team_token.
+
+CALENDARIO_DE_PREFIX: str = "calendario de "
+
+# Section 4: Differential-picks Spanish synonyms (M0 §7.6)
+# ----------------------------------------------------------
+
+DIFFERENTIAL_SPANISH_KEYWORDS: tuple[str, ...] = (
+    # Spanish synonyms for differential picks.  Added M4.
+    # Router extends _DIFFERENTIAL_KEYWORDS with these.
+    "diferenciales esta semana",  # longest first per convention
+    "diferenciales para",
+    "diferenciales",
+)
+
+# Section 5: Current-gameweek Spanish synonyms (M0 §7.5)
+# -------------------------------------------------------
+
+GAMEWEEK_SPANISH_KEYWORDS: tuple[str, ...] = (
+    # Spanish phrasings for current gameweek queries.  Added M4.
+    # Router extends _GAMEWEEK_KEYWORDS with these.
+    "qué jornada es",    # "what gameweek is it"
+    "que jornada es",    # no accent
+    "en qué jornada estamos",  # "what gameweek are we on"
+    "en que jornada estamos",  # no accent
+    "en qué gw estamos",       # "what gw are we on"
+    "en que gw estamos",       # no accent
+    "qué jornada estamos",     # short form
+    "que jornada estamos",     # no accent
+    "jornada actual",          # "current gameweek"
+    "jornada en curso",        # "gameweek in progress"
+)
+
+
+# ---------------------------------------------------------------------------
 # Prompt name aliases (M2)
 # ---------------------------------------------------------------------------
 # Centralized prompt-name aliases. Authoritative table lives in

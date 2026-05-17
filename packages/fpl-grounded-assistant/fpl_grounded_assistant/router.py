@@ -86,6 +86,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+# M4: import Spanish alias tables from intent_aliases (single source of truth)
+from .intent_aliases import (
+    TRANSFER_SPANISH_PREFIXES,
+    TRANSFER_SPANISH_CONNECTORS,
+    FIXTURE_RUN_SPANISH_PREFIXES,
+    FIXTURE_RUN_SPANISH_SUFFIXES,
+    DIFFERENTIAL_SPANISH_KEYWORDS,
+    GAMEWEEK_SPANISH_KEYWORDS,
+    CALENDARIO_DE_PREFIX,
+)
+
 
 # ---------------------------------------------------------------------------
 # Data structures
@@ -212,10 +223,14 @@ _TRANSFER_PREFIXES: tuple[str, ...] = (
     "transfer out",
     "swap",
     "replace",
+    # Spanish transfer prefixes (M4 — imported from intent_aliases)
+    *TRANSFER_SPANISH_PREFIXES,
 )
 
 _TRANSFER_CONNECTORS: tuple[str, ...] = (
     " and bring in ",   # longest first to avoid partial match
+    # Spanish connectors (M4 — imported from intent_aliases; longest first)
+    *TRANSFER_SPANISH_CONNECTORS,
     " for ",
     " with ",
 )
@@ -802,6 +817,11 @@ _FIXTURE_RUN_PREFIXES: tuple[str, ...] = (
     "fixture schedule for",
     "fixture run for",
     "fixtures for",
+    # Spanish fixture-run prefixes (M4 — imported from intent_aliases).
+    # NOTE: "calendario de " is NOT listed here — it is handled separately
+    # in _try_route_fixture_run() via the CALENDARIO_DE_PREFIX disambiguation
+    # guard (team token check first, then falls here if no team found).
+    *FIXTURE_RUN_SPANISH_PREFIXES,
 )
 
 # Suffix forms: "X fixtures", "X fixture run", "X's fixtures", etc.
@@ -815,6 +835,8 @@ _FIXTURE_RUN_SUFFIXES: tuple[str, ...] = (
     " fixture schedule",
     "'s fixtures",
     " fixtures",
+    # Spanish suffix forms (M4 — imported from intent_aliases)
+    *FIXTURE_RUN_SPANISH_SUFFIXES,
 )
 
 # Terminal words that signal an "X next [N] games/fixtures" pattern
@@ -934,6 +956,8 @@ _DIFFERENTIAL_KEYWORDS: tuple[str, ...] = (
     "differential options",
     "differential candidates",
     "differentials",
+    # Spanish synonyms (M4 — imported from intent_aliases; longest first)
+    *DIFFERENTIAL_SPANISH_KEYWORDS,
 )
 
 
@@ -949,6 +973,8 @@ _GAMEWEEK_KEYWORDS: tuple[str, ...] = (
     "gameweek number",
     "gameweek?",
     "gameweek",
+    # Spanish synonyms (M4 — imported from intent_aliases)
+    *GAMEWEEK_SPANISH_KEYWORDS,
 )
 
 
@@ -1235,6 +1261,18 @@ def _try_route_fixture_run(q_orig: str, q_norm: str) -> "RouteResult | None":
                     tool_name="get_player_fixture_run",
                     tool_args={"query": player},
                 )
+
+    # 1b. "calendario de {player}" (M4 §7.3 disambiguation).
+    #     _try_route_team_schedule already claimed "calendario de {known_team}".
+    #     If we reach here with this prefix, the remainder is a player name.
+    if q_norm.startswith(CALENDARIO_DE_PREFIX):
+        remainder_orig = q_orig[len(CALENDARIO_DE_PREFIX):].strip().rstrip("?!.,")
+        player = _strip_spanish_name_prefix(remainder_orig)
+        if player:
+            return RouteResult(
+                tool_name="get_player_fixture_run",
+                tool_args={"query": player},
+            )
 
     # 2. Suffix forms: "X fixtures", "X fixture run", etc.
     for suffix in _FIXTURE_RUN_SUFFIXES:
@@ -1530,6 +1568,49 @@ def _try_route_team_schedule(q_orig: str, q_norm: str) -> "RouteResult | None":
                     tool_name="get_team_schedule",
                     tool_args={"team_query": remainder, "horizon": n},
                 )
+
+    # 1b. "calendario de {team}" (M4 §7.3 disambiguation).
+    #     "calendario de " (without "del") is ambiguous: may be a team or a player.
+    #     Strategy:
+    #       a) If remainder contains " del " (e.g. "los proximos 5 del City"),
+    #          extract what follows "del " and treat as the team query — this
+    #          mirrors how _TEAM_SCHEDULE_SPANISH_PREFIXES handles "calendario del ".
+    #       b) Otherwise search the full remainder for a known team token.
+    #          If found → team_schedule.  If not → fall through to fixture_run.
+    #     Examples:
+    #       "calendario de Arsenal"               → team_schedule (Arsenal is a team)
+    #       "calendario de los proximos 5 del City" → team_schedule (del → City)
+    #       "calendario de Haaland"               → player_fixture_run (no team)
+    if q_norm.startswith(CALENDARIO_DE_PREFIX):
+        remainder_norm = q_norm[len(CALENDARIO_DE_PREFIX):].strip()
+        remainder_orig = q_orig[len(CALENDARIO_DE_PREFIX):].strip()
+        # Path a: "... del {team}" — peel off the "del " segment and extract team.
+        _del_marker = " del "
+        del_idx = remainder_norm.find(_del_marker)
+        if del_idx != -1:
+            after_del_norm = remainder_norm[del_idx + len(_del_marker):].strip()
+            after_del_orig = remainder_orig[del_idx + len(_del_marker):].strip()
+            # Trim at common continuation words.
+            for stop in ("próximas", "proximas", "próximos", "proximos",
+                         "jornadas", "semanas", "partidos", "siguientes"):
+                idx2 = after_del_norm.find(stop)
+                if idx2 > 0:
+                    after_del_orig = after_del_orig[:idx2].strip().rstrip(",")
+                    break
+            if after_del_orig:
+                return RouteResult(
+                    tool_name="get_team_schedule",
+                    tool_args={"team_query": after_del_orig, "horizon": n},
+                )
+        # Path b: search the full remainder for a known registered team token.
+        team_tok = _extract_team_token(remainder_norm)
+        if team_tok:
+            return RouteResult(
+                tool_name="get_team_schedule",
+                tool_args={"team_query": team_tok, "horizon": n},
+            )
+        # No known team → fall through; _try_route_fixture_run will handle
+        # "calendario de {player}" using CALENDARIO_DE_PREFIX as a prefix.
 
     # 2. "schedule" keyword — unambiguous team intent marker.
     #    Match "{team} schedule [next N]" or "{team} upcoming schedule".

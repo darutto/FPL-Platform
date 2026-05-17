@@ -3057,7 +3057,467 @@ VALIDATION_SCENARIOS: tuple[ValidationScenario, ...] = (
         ),
     ),
 
+    # ==================================================================
+    # M4 Spanish Hardening — paraphrase tier
+    # Scenarios 107–126: 20 new Spanish paraphrase scenarios covering the
+    # four §7 named gaps and regression guards.
+    # ==================================================================
+
+    # ------------------------------------------------------------------
+    # 107 — M4 §7.1: Spanish transfer — "véndele" imperative
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="m4_transfer_vendele",
+        family="transfer",
+        description=(
+            "M4 §7.1: Spanish 'vendele Salah por Haaland' routes to transfer_advice "
+            "via new TRANSFER_SPANISH_PREFIXES ('véndele'/'vendele') and "
+            "TRANSFER_SPANISH_CONNECTORS (' por ')."
+        ),
+        question="vendele Salah por Haaland",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="transfer_advice",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_transfer=True,
+        notes=(
+            "M4 §7.1: 'vendele' (no-accent) prefix + ' por ' connector. "
+            "player_out='Salah', player_in='Haaland'. Both in STANDARD_BOOTSTRAP. "
+            "Before M4: unsupported_intent (no Spanish prefix). "
+            "After M4: transfer_advice ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 108 — M4 §7.1: Spanish transfer — "vendo" + "por"
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="m4_transfer_vendo_por",
+        family="transfer",
+        description=(
+            "M4 §7.1: Spanish 'vendo Saka por Haaland' routes to transfer_advice "
+            "via 'vendo' prefix and ' por ' connector."
+        ),
+        question="vendo Saka por Haaland",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="transfer_advice",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_transfer=True,
+        notes=(
+            "M4 §7.1: 'vendo' prefix + ' por ' connector. "
+            "player_out='Saka', player_in='Haaland'. Both in STANDARD_BOOTSTRAP."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 109 — M4 §7.1: Spanish transfer — "cambio" + "por"
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="m4_transfer_cambio_por",
+        family="transfer",
+        description=(
+            "M4 §7.1: Spanish 'cambio Saka por Salah' routes to transfer_advice "
+            "via 'cambio' prefix and ' por ' connector."
+        ),
+        question="cambio Saka por Salah",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="transfer_advice",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_transfer=True,
+        notes=(
+            "M4 §7.1: 'cambio' prefix + ' por ' connector. "
+            "player_out='Saka', player_in='Salah'. Both in STANDARD_BOOTSTRAP. "
+            "Regression check: 'cambios de precio' must still route to price_changes "
+            "(tested separately in m4_regression_cambios_precio)."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 110 — M4 §7.1: Spanish transfer — "doy de baja a" + "por"
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="m4_transfer_doy_de_baja",
+        family="transfer",
+        description=(
+            "M4 §7.1: Spanish 'doy de baja a Saka por Haaland' routes to transfer_advice "
+            "via 'doy de baja a' prefix and ' por ' connector."
+        ),
+        question="doy de baja a Saka por Haaland",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="transfer_advice",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_transfer=True,
+        notes=(
+            "M4 §7.1: 'doy de baja a' prefix + ' por ' connector. "
+            "player_out='Saka', player_in='Haaland'. Both in STANDARD_BOOTSTRAP."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 111 — M4 §7.1: Spanish transfer — "saco a" + "por"
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="m4_transfer_saco_a_por",
+        family="transfer",
+        description=(
+            "M4 §7.1: Spanish 'saco a Saka por Salah' routes to transfer_advice "
+            "via 'saco a' prefix and ' por ' connector."
+        ),
+        question="saco a Saka por Salah",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="transfer_advice",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_transfer=True,
+        notes=(
+            "M4 §7.1: 'saco a' prefix + ' por ' connector. "
+            "player_out='Saka', player_in='Salah'. Accusative 'a' stripped. "
+            "Both players in STANDARD_BOOTSTRAP."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 112 — M4 §7.1 regression: English transfer still routes
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="m4_regression_transfer_english",
+        family="transfer",
+        description=(
+            "M4 regression guard: English 'sell Haaland for Salah' must still "
+            "route to transfer_advice after M4 changes."
+        ),
+        question="sell Haaland for Salah",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="transfer_advice",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_transfer=True,
+        notes="M4 regression: English transfer prefix + connector untouched.",
+    ),
+
+    # ------------------------------------------------------------------
+    # 113 — M4 §7.2: Spanish player fixture run — "próximos partidos de"
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="m4_fixture_run_proximos_partidos",
+        family="player_fixture_run",
+        description=(
+            "M4 §7.2: Spanish 'próximos partidos de Saka' routes to player_fixture_run "
+            "via new FIXTURE_RUN_SPANISH_PREFIXES."
+        ),
+        question="proximos partidos de Saka",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="player_fixture_run",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_fixture_run=True,
+        notes=(
+            "M4 §7.2: 'proximos partidos de' prefix added to fixture-run routing. "
+            "player='Saka'. Before M4: unsupported_intent. After M4: player_fixture_run ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 114 — M4 §7.2: Spanish player fixture run — "siguientes partidos de"
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="m4_fixture_run_siguientes",
+        family="player_fixture_run",
+        description=(
+            "M4 §7.2: Spanish 'siguientes partidos de Salah' routes to "
+            "player_fixture_run via new Spanish prefix."
+        ),
+        question="siguientes partidos de Salah",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="player_fixture_run",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_fixture_run=True,
+        notes="M4 §7.2: 'siguientes partidos de' prefix. player='Salah'.",
+    ),
+
+    # ------------------------------------------------------------------
+    # 115 — M4 §7.3: "calendario de {team}" → team_schedule
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="m4_calendario_de_team",
+        family="team_schedule",
+        description=(
+            "M4 §7.3: Spanish 'calendario de Arsenal' routes to team_schedule "
+            "via the §7.3 disambiguation: team token found → team_schedule."
+        ),
+        question="calendario de Arsenal",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="team_schedule",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_team_schedule=True,
+        notes=(
+            "M4 §7.3 disambiguation: 'calendario de ' + known team token → team_schedule. "
+            "Before M4: miss (no 'del' contraction). After M4: team_schedule ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 116 — M4 §7.3: "calendario de {player}" → player_fixture_run
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="m4_calendario_de_player",
+        family="player_fixture_run",
+        description=(
+            "M4 §7.3: Spanish 'calendario de Haaland' routes to player_fixture_run "
+            "via §7.3 disambiguation: no team token → player_fixture_run."
+        ),
+        question="calendario de Haaland",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="player_fixture_run",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_fixture_run=True,
+        notes=(
+            "M4 §7.3 disambiguation: 'calendario de ' + non-team remainder → player_fixture_run. "
+            "Before M4: miss. After M4: player_fixture_run ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 117 — M4 §7.3: "calendario de los próximos 5 del City" → team_schedule
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="m4_calendario_de_del_city",
+        family="team_schedule",
+        description=(
+            "M4 §7.3: 'calendario de los proximos 5 del City' routes to team_schedule "
+            "via 'del' segment extraction in §7.3 disambiguator."
+        ),
+        question="calendario de los proximos 5 del City",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="team_schedule",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_team_schedule=True,
+        notes=(
+            "M4 §7.3: 'del ' marker → team_query='City'. "
+            "Plan example phrase. After M4: team_schedule ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 118 — M4 §7.3 regression: "calendario del Arsenal" still routes
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="m4_regression_calendario_del",
+        family="team_schedule",
+        description=(
+            "M4 §7.3 regression guard: existing 'calendario del Arsenal' "
+            "(with 'del' contraction) must still route to team_schedule."
+        ),
+        question="calendario del Arsenal",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="team_schedule",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_team_schedule=True,
+        notes="M4 regression: existing 'calendario del ' prefix still works.",
+    ),
+
+    # ------------------------------------------------------------------
+    # 119 — M4 §7.6: Spanish differential — "diferenciales esta semana"
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="m4_differential_spanish_esta_semana",
+        family="differential_picks",
+        description=(
+            "M4 §7.6: Spanish 'diferenciales esta semana' routes to "
+            "differential_picks via new DIFFERENTIAL_SPANISH_KEYWORDS."
+        ),
+        question="diferenciales esta semana",
+        bootstrap="differential",
+        surfaces=("cli", "http"),
+        expected_intent="differential_picks",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_differential=True,
+        notes=(
+            "M4 §7.6: 'diferenciales esta semana' added to differential keywords. "
+            "DIFFERENTIAL_BOOTSTRAP has Palmer (3.5%) and Mbeumo (8.2%) available. "
+            "Before M4: unsupported_intent. After M4: differential_picks ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 120 — M4 §7.6: Spanish differential — "diferenciales" bare word
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="m4_differential_spanish_bare",
+        family="differential_picks",
+        description=(
+            "M4 §7.6: Bare 'diferenciales' routes to differential_picks "
+            "via new Spanish keyword synonym."
+        ),
+        question="diferenciales",
+        bootstrap="differential",
+        surfaces=("cli", "http"),
+        expected_intent="differential_picks",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_differential=True,
+        notes=(
+            "M4 §7.6: 'diferenciales' (bare) → differential_picks. "
+            "Before M4: unsupported_intent (slash command was only path). "
+            "After M4: deterministic routing ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 121 — M4 §7.6 regression: English differential still routes
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="m4_regression_differentials_english",
+        family="differential_picks",
+        description=(
+            "M4 regression guard: English 'differentials this week' must still "
+            "route to differential_picks after M4 changes."
+        ),
+        question="differentials this week",
+        bootstrap="differential",
+        surfaces=("cli", "http"),
+        expected_intent="differential_picks",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_differential=True,
+        notes="M4 regression: English differential keywords untouched.",
+    ),
+
+    # ------------------------------------------------------------------
+    # 122 — M4 §7.5: Spanish gameweek — "qué jornada es"
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="m4_gameweek_spanish",
+        family="captain",
+        description=(
+            "M4 §7.5: Spanish 'qué jornada es' routes to current_gameweek "
+            "via new GAMEWEEK_SPANISH_KEYWORDS."
+        ),
+        question="que jornada es",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="current_gameweek",
+        expected_outcome="ok",
+        expected_supported=True,
+        notes=(
+            "M4 §7.5: 'que jornada es' added to gameweek keywords. "
+            "Before M4: depended on classifier rewrite. "
+            "After M4: deterministic routing ok."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 123 — M4 §7.5: Spanish gameweek — "jornada actual"
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="m4_gameweek_jornada_actual",
+        family="captain",
+        description=(
+            "M4 §7.5: Spanish 'jornada actual' routes to current_gameweek "
+            "via new Spanish gameweek keyword."
+        ),
+        question="jornada actual",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="current_gameweek",
+        expected_outcome="ok",
+        expected_supported=True,
+        notes="M4 §7.5: 'jornada actual' → current_gameweek.",
+    ),
+
+    # ------------------------------------------------------------------
+    # 124 — M4 captain regression: "¿conviene capitanear a Haaland?"
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="m4_captain_conviene_capitanear",
+        family="captain",
+        description=(
+            "M4 regression guard: 'deberia capitanear a Haaland' (existing prefix) "
+            "routes to captain_score. Validates existing Spanish captain coverage "
+            "survives M4 alias migration."
+        ),
+        question="deberia capitanear a Haaland",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="captain_score",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_captain=True,
+        notes=(
+            "M4 regression guard: existing Spanish captain prefix 'deberia capitanear a'. "
+            "Verifies _CAPTAIN_SCORE_PREFIXES unchanged after M4 migration."
+        ),
+    ),
+
+    # ------------------------------------------------------------------
+    # 125 — M4 compare regression: "compara Salah y Haaland"
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="m4_compare_spanish_regression",
+        family="comparison",
+        description=(
+            "M4 regression guard: 'compara Salah y Haaland' (existing Spanish "
+            "compare prefix) must still route to compare_players after M4 changes."
+        ),
+        question="compara Salah y Haaland",
+        bootstrap="standard",
+        surfaces=("cli", "http"),
+        expected_intent="compare_players",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_comparison=True,
+        notes="M4 regression: existing Spanish compare prefix/connector untouched.",
+    ),
+
+    # ------------------------------------------------------------------
+    # 126 — M4 price-changes regression: "cambios de precio" not absorbed
+    # ------------------------------------------------------------------
+    ValidationScenario(
+        id="m4_regression_cambios_precio",
+        family="price_changes",
+        description=(
+            "M4 regression guard: 'cambios de precio esta semana' must route to "
+            "price_changes, NOT transfer_advice, despite new 'cambio' transfer prefix."
+        ),
+        question="cambios de precio esta semana",
+        bootstrap="price_changes",
+        surfaces=("cli", "http"),
+        expected_intent="price_changes",
+        expected_outcome="ok",
+        expected_supported=True,
+        expect_price_changes=True,
+        notes=(
+            "M4 regression: 'cambio' prefix matches 'cambios...' via startswith, "
+            "but no transfer connector found in remainder → falls through to price_changes. "
+            "Confirms the connector guard saves us from the false-positive."
+        ),
+    ),
+
 )
+
+
+
 
 
 # ---------------------------------------------------------------------------
