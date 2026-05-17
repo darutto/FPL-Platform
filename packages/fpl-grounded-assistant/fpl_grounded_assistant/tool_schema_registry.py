@@ -24,7 +24,7 @@ Registry API
 ``get_tool_schema(name)``            → ToolSchema | None
 ``validate_tool_schema_shape(s)``    → bool            — structural check
 
-Registered tools (all 10 grounded intents)
+Registered tools (all 17 grounded intents)
 -------------------------------------------
 +----------------------------+----------------------------------+
 | Tool name                  | Intent label                     |
@@ -39,6 +39,13 @@ Registered tools (all 10 grounded intents)
 | get_chip_advice            | chip_advice                      |
 | get_player_fixture_run     | player_fixture_run               |
 | get_differential_picks     | differential_picks               |
+| get_player_form            | player_form                      |  (Phase 2.6d)
+| get_injury_list            | injury_list                      |  (Phase 2.6d)
+| get_price_changes          | price_changes                    |  (Phase 2.6d)
+| get_team_fixture_calendar  | team_fixture_calendar            |  (Phase 2.6e)
+| get_team_schedule          | team_schedule                    |  (Phase 2.6e.3)
+| get_position_fixture_run   | position_fixture_run             |  (Phase 2.6e.4)
+| get_transfer_suggestion    | transfer_suggestion              |  (Phase 2.6h)
 +----------------------------+----------------------------------+
 
 Schema format
@@ -372,6 +379,243 @@ GET_DIFFERENTIAL_PICKS_SCHEMA = ToolSchema(
     },
 )
 
+# ---------------------------------------------------------------------------
+# Phase 2.6 grounded tools — registered in M3 preflight (B1 closure).
+#
+# Each schema describes the LLM-visible argument surface, mirroring how the
+# dispatcher invokes the underlying handler.  Bootstrap remains an implicit
+# runtime argument and is never listed as a parameter.
+# ---------------------------------------------------------------------------
+
+GET_PLAYER_FORM_SCHEMA = ToolSchema(
+    name="get_player_form",
+    description=(
+        "Return a player's recent FPL gameweek history (minutes, goals, "
+        "assists, bonus, total_points) for the last N gameweeks. "
+        "Use when the user asks about a player's recent form or last games."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "query": _PLAYER_QUERY_PROP,
+            "n_games": {
+                "type":        "integer",
+                "description": (
+                    "Number of most-recent gameweeks to return (default 5, "
+                    "clamped 1–38)."
+                ),
+                "minimum":     1,
+                "maximum":     38,
+            },
+        },
+        "required":             ["query"],
+        "additionalProperties": False,
+    },
+)
+
+#: No required args — bootstrap is implicit runtime context.
+GET_INJURY_LIST_SCHEMA = ToolSchema(
+    name="get_injury_list",
+    description=(
+        "Return the list of currently unavailable or doubtful FPL players "
+        "(status != 'a'), with player name, team, position, status code, "
+        "chance_of_playing_this_round, and news text. "
+        "Use when the user asks who is injured, doubtful, or unavailable."
+    ),
+    parameters={
+        "type":                 "object",
+        "properties":           {},
+        "required":             [],
+        "additionalProperties": False,
+    },
+)
+
+#: No required args — bootstrap is implicit runtime context.
+GET_PRICE_CHANGES_SCHEMA = ToolSchema(
+    name="get_price_changes",
+    description=(
+        "Return players whose FPL price has risen or fallen recently "
+        "(non-zero cost_change_event), grouped into risers and fallers. "
+        "Use when the user asks about price changes, risers, or fallers."
+    ),
+    parameters={
+        "type":                 "object",
+        "properties":           {},
+        "required":             [],
+        "additionalProperties": False,
+    },
+)
+
+GET_TEAM_FIXTURE_CALENDAR_SCHEMA = ToolSchema(
+    name="get_team_fixture_calendar",
+    description=(
+        "Rank Premier League teams by upcoming fixture difficulty over a "
+        "bounded gameweek horizon. Use when the user asks 'which teams have "
+        "the easiest/hardest fixtures' — NOT for a single player or a single "
+        "club's schedule."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "mode": {
+                "type":        "string",
+                "enum":        ["easiest", "hardest"],
+                "description": (
+                    "Sort direction. 'easiest' (default) ranks lowest average "
+                    "FDR first; 'hardest' ranks highest first."
+                ),
+            },
+            "horizon": {
+                "type":        "integer",
+                "description": (
+                    "Number of upcoming gameweeks to include (default 5, "
+                    "clamped 1–10)."
+                ),
+                "minimum":     1,
+                "maximum":     10,
+            },
+            "top_n": {
+                "type":        "integer",
+                "description": (
+                    "Maximum number of teams to return (default 5, clamped "
+                    "1–20)."
+                ),
+                "minimum":     1,
+                "maximum":     20,
+            },
+        },
+        "required":             [],
+        "additionalProperties": False,
+    },
+)
+
+GET_TEAM_SCHEDULE_SCHEMA = ToolSchema(
+    name="get_team_schedule",
+    description=(
+        "Return one specific club's upcoming fixtures with DGW/BGW labels "
+        "over a bounded gameweek horizon. Use when the user asks for a "
+        "single team's schedule (e.g. 'Arsenal fixtures next 5')."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "team_query": {
+                "type":        "string",
+                "description": (
+                    "Team identifier: full name, short_name, or common alias "
+                    "(e.g. 'Arsenal', 'ARS', 'Liverpool')."
+                ),
+            },
+            "horizon": {
+                "type":        "integer",
+                "description": (
+                    "Number of upcoming gameweeks to include (default 5, "
+                    "clamped 1–10)."
+                ),
+                "minimum":     1,
+                "maximum":     10,
+            },
+        },
+        "required":             ["team_query"],
+        "additionalProperties": False,
+    },
+)
+
+GET_POSITION_FIXTURE_RUN_SCHEMA = ToolSchema(
+    name="get_position_fixture_run",
+    description=(
+        "Rank teams by upcoming fixture difficulty for a specific player "
+        "position (e.g. defenders with the best fixtures). Use when the "
+        "user asks 'which defenders/midfielders/forwards have the best "
+        "fixtures'."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "position_query": {
+                "type":        "string",
+                "description": (
+                    "Position name or alias: 'goalkeeper', 'defender', "
+                    "'midfielder', 'forward' (or Spanish equivalents)."
+                ),
+            },
+            "mode": {
+                "type":        "string",
+                "enum":        ["easiest", "hardest"],
+                "description": "Sort direction (default 'easiest').",
+            },
+            "horizon": {
+                "type":        "integer",
+                "description": (
+                    "Number of upcoming gameweeks to include (default 5, "
+                    "clamped 1–10)."
+                ),
+                "minimum":     1,
+                "maximum":     10,
+            },
+        },
+        "required":             ["position_query"],
+        "additionalProperties": False,
+    },
+)
+
+GET_TRANSFER_SUGGESTION_SCHEMA = ToolSchema(
+    name="get_transfer_suggestion",
+    description=(
+        "Return ranked transfer targets filtered by position, club, and "
+        "optional price ceiling. Use when the user asks 'best midfielders "
+        "to buy' or 'cheap forwards under 7.5'. NOT for selling a player "
+        "(see get_transfer_advice) and NOT for differentials."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "position_query": {
+                "type":        "string",
+                "description": (
+                    "Optional position filter: 'goalkeeper', 'defender', "
+                    "'midfielder', 'forward' (or Spanish equivalents). "
+                    "Omit to consider all positions."
+                ),
+            },
+            "team_query": {
+                "type":        "string",
+                "description": (
+                    "Optional club filter: team name, short_name, or alias."
+                ),
+            },
+            "max_price": {
+                "type":        "number",
+                "description": (
+                    "Optional price ceiling in millions (e.g. 8.0 means "
+                    "£8.0m or less)."
+                ),
+                "minimum":     0,
+            },
+            "horizon": {
+                "type":        "integer",
+                "description": (
+                    "Number of upcoming gameweeks used for FDR scoring "
+                    "(default 5, clamped 1–10)."
+                ),
+                "minimum":     1,
+                "maximum":     10,
+            },
+            "top_n": {
+                "type":        "integer",
+                "description": (
+                    "Maximum number of suggestions to return (default 5, "
+                    "clamped 1–20)."
+                ),
+                "minimum":     1,
+                "maximum":     20,
+            },
+        },
+        "required":             [],
+        "additionalProperties": False,
+    },
+)
+
 
 # ---------------------------------------------------------------------------
 # Registry construction
@@ -388,6 +632,14 @@ _ALL_SCHEMAS: tuple[ToolSchema, ...] = (
     GET_CHIP_ADVICE_SCHEMA,
     GET_PLAYER_FIXTURE_RUN_SCHEMA,
     GET_DIFFERENTIAL_PICKS_SCHEMA,
+    # Phase 2.6 tools — registered in M3 preflight (blocker B1).
+    GET_PLAYER_FORM_SCHEMA,
+    GET_INJURY_LIST_SCHEMA,
+    GET_PRICE_CHANGES_SCHEMA,
+    GET_TEAM_FIXTURE_CALENDAR_SCHEMA,
+    GET_TEAM_SCHEDULE_SCHEMA,
+    GET_POSITION_FIXTURE_RUN_SCHEMA,
+    GET_TRANSFER_SUGGESTION_SCHEMA,
 )
 
 #: Immutable dict mapping tool name → ToolSchema.

@@ -165,3 +165,121 @@ These were intentionally excluded and remain out of scope:
 - Authentication or authorisation on session endpoints
 - Automatic background TTL sweeping (TTL is checked lazily only)
 - Per-session resolver client injection over HTTP
+
+---
+
+## Phase M5 — Routing Telemetry and Go/No-Go Counters
+
+Added in M5 (2026-05-17). Operational reference for the `/healthz` endpoint
+and the graduation criteria for merging `MCP_architecture` to `main`.
+
+**Coverage scope (pre-graduation reality).** The M5 counters are populated only by `ask_v2()` and `POST /ask-orchestrated`. `POST /ask` continues to route through `respond()` and the legacy Orch-4a gate at `final_response.py:1926`; its traffic is **NOT** counted in `routing_counters`. The `graduation.ready_to_graduate` flag therefore reflects only shadow / internal / test traffic until the next branch rewires `POST /ask` to call `ask_v2()`. Treat `/healthz` as a *shadow-traffic* dashboard until that rewiring lands.
+
+### Reading the counters: `GET /healthz`
+
+```
+GET /healthz
+```
+
+Returns two sub-dicts: `routing_counters` (raw counts) and `graduation`
+(derived metrics and boolean criteria).  Counters are process-global and
+cumulative since last process restart.
+
+**Counter key meanings**
+
+| Key | What it counts |
+|-----|---------------|
+| `resource` | `@resource` inputs that matched a registered resource and returned grounded rows |
+| `prompt` | `/prompt` inputs (expansion, dispatch, or clarification) |
+| `route` | Plain-text inputs where the deterministic `route()` succeeded on the first try |
+| `classifier_rewrite` | Plain-text inputs where `route()` missed, the LLM classifier rewrote the question, and `route()` succeeded on the rewrite |
+| `orchestrator` | Plain-text inputs where all deterministic paths missed AND the orchestrator returned a grounded tool call |
+| `unsupported` | Inputs where no path produced a grounded answer (the reject bucket) |
+| `orchestrator_attempted` | Every invocation of the orchestrator loop, regardless of grounding outcome |
+| `orchestrator_grounded` | Subset of `orchestrator_attempted` that yielded a usable tool-grounded answer |
+| `total_primary` | Sum of `resource + prompt + route + classifier_rewrite + orchestrator + unsupported` — one per distinct request |
+| `reject_rate` | `unsupported / total_primary` |
+
+**Why `orchestrator_attempted` != `orchestrator_grounded`**
+
+Per Adversarial Review finding R5: the orchestrator can be called but fail to
+ground (e.g. LLM chose no tool, tool errored, or tool result was unparseable).
+The two counters are always distinct and never collapsed.
+
+### Answering the three go/no-go questions
+
+**Q1: Which branch fired?** — `routing_counters.{resource,prompt,route,classifier_rewrite,orchestrator,unsupported}`
+
+**Q2: Why?** — The `graduation` sub-dict computes `deterministic_share`
+(the fraction of inputs grounded by deterministic paths) and `reject_rate`
+(the fraction fully rejected).  High `reject_rate` means deterministic surface
+is missing intents; high `orchestrator_grounded_share` without high
+`deterministic_share` means the LLM is doing too much.
+
+**Q3: How often?** — `graduation.total_observations` is the total request count.
+
+### Graduation criteria (plan §M5, line 322)
+
+| Criterion | Target | Counter |
+|-----------|--------|---------|
+| Deterministic share | >= 80% | `graduation.criteria.deterministic_share_ge_80` |
+| Reject rate | < 5% | `graduation.criteria.reject_rate_lt_5` |
+| Orchestrator long-tail | Informational | `graduation.orchestrator_grounded_share` |
+
+`graduation.ready_to_graduate` is `true` iff all criteria are met AND
+`total_observations > 0`.  The Lead Orchestrator makes the merge decision;
+`ready_to_graduate` is an input to that decision, not the decision itself.
+
+**`classifier_rewrite` counts as deterministic** because the LLM only rewrites
+the question to a canonical form — `route()` then grounds it via a deterministic
+tool.  The LLM does not generate the answer.
+
+### Example snapshot (healthy system)
+
+```json
+GET /healthz
+{
+  "routing_counters": {
+    "resource": 120,
+    "prompt": 85,
+    "route": 640,
+    "classifier_rewrite": 55,
+    "orchestrator": 40,
+    "unsupported": 30,
+    "orchestrator_attempted": 52,
+    "orchestrator_grounded": 40,
+    "total_primary": 970,
+    "reject_rate": 0.031
+  },
+  "graduation": {
+    "deterministic_share": 0.928,
+    "orchestrator_grounded_share": 0.041,
+    "reject_rate": 0.031,
+    "criteria": {
+      "deterministic_share_ge_80": true,
+      "reject_rate_lt_5": true
+    },
+    "ready_to_graduate": true,
+    "total_observations": 970
+  }
+}
+```
+
+This system is ready to graduate: 92.8% deterministic share, 3.1% reject rate,
+orchestrator handles 4.1% of traffic as intended long-tail.
+
+### Schema constants
+
+The `routing_trace` field (present on every `ask_v2()` return and on
+`POST /ask-orchestrated` responses) uses the frozen schema declared in:
+
+The synthetic `decision_kind = decision_outcome = "orchestrator_direct"` value emitted by `POST /ask-orchestrated` is **transitional**. It exists because that endpoint bypasses `decision_router` entirely. The value retires alongside the `/ask-orchestrated` route when the next branch graduates the orchestrator into `POST /ask`. See the plan's §"Risks and Tradeoffs" for the explicit 3-step graduation blueprint for the next branch.
+
+```
+packages/fpl-grounded-assistant/fpl_grounded_assistant/harness.py
+  ROUTING_TRACE_REQUIRED_KEYS  — always-present keys (frozenset, 12 keys)
+  ROUTING_TRACE_OPTIONAL_KEYS  — branch-conditional keys (frozenset, 5 keys)
+```
+
+A frozen-schema test pins `set(trace.keys()) >= ROUTING_TRACE_REQUIRED_KEYS`
+for every branch.  See `run_phase_m5_tests.py` suite A.

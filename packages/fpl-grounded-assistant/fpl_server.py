@@ -923,6 +923,112 @@ def metrics() -> dict[str, Any]:
     }
 
 
+@app.get("/healthz")
+def healthz() -> dict[str, Any]:
+    """Phase M5 (MCP_architecture): decision-tree telemetry and graduation status.
+
+    Returns per-branch routing counters and the graduation-criteria evaluation
+    derived from ask_v2() and POST /ask-orchestrated traffic observed since
+    process startup.  Counters are process-global and cumulative; they reset
+    only on process restart (or via telemetry.reset() in tests).
+
+    This endpoint is the primary operational surface for answering the three
+    go/no-go questions for graduating the MCP_architecture branch to main:
+
+    1. Which branch fired?  — ``routing_counters`` sub-dict, keyed by branch.
+    2. Why?                 — ``graduation.deterministic_share`` vs
+                              ``graduation.orchestrator_grounded_share`` and
+                              ``graduation.reject_rate`` show the split.
+    3. How often?           — ``routing_counters.total_primary`` is the total
+                              number of distinct requests observed.
+
+    Response shape
+    --------------
+    ::
+
+        {
+          "routing_counters": {
+            "resource":               int,   # @resource branch hits
+            "prompt":                 int,   # /prompt branch hits (expansion + dispatch + clarif)
+            "route":                  int,   # deterministic route() hits (plain text)
+            "classifier_rewrite":     int,   # LLM rewrite -> route() hits
+            "orchestrator":           int,   # orchestrator grounded (primary branch)
+            "unsupported":            int,   # inputs with no grounded answer
+            "orchestrator_attempted": int,   # all orchestrator invocations (R5 split)
+            "orchestrator_grounded":  int,   # orch invocations that produced a grounded answer
+            "total_primary":          int,   # resource+prompt+route+classifier_rewrite
+                                            #   +orchestrator+unsupported
+            "reject_rate":            float, # unsupported / total_primary
+          },
+          "graduation": {
+            "deterministic_share":       float,  # (resource+prompt+route+classifier_rewrite)
+                                                 #   / total_primary. Target: >= 0.80
+            "orchestrator_grounded_share": float, # orchestrator_grounded / total_primary.
+                                                  # Informational only — not a gating criterion.
+            "reject_rate":               float,  # unsupported / total_primary. Target: < 0.05
+            "criteria": {
+              "deterministic_share_ge_80": bool,  # deterministic_share >= 0.80
+              "reject_rate_lt_5":          bool,  # reject_rate < 0.05
+            },
+            "ready_to_graduate":         bool,   # all criteria True AND total > 0
+            "total_observations":        int,
+          }
+        }
+
+    Counter semantics
+    -----------------
+    ``orchestrator_attempted`` counts every call to the orchestrator loop
+    regardless of whether it grounded.  ``orchestrator_grounded`` is the
+    subset that produced a usable tool-grounded answer.  The difference
+    ``orchestrator_attempted - orchestrator_grounded`` is the orchestrator
+    fail-to-ground rate (finding R5 from the M3 Adversarial Review).
+
+    ``classifier_rewrite`` counts as deterministic share for graduation
+    purposes: the LLM rewrites the question to a canonical form that
+    re-enters route().  The downstream tool is still a deterministic function.
+
+    Graduation gate
+    ---------------
+    ``ready_to_graduate`` is True iff:
+    - ``deterministic_share`` >= 0.80  (resource+prompt+route+rewrite dominate)
+    - ``reject_rate`` < 0.05           (fewer than 5% of inputs fully unsupported)
+    - ``total_observations`` > 0       (the system has actually been exercised)
+
+    This endpoint is NOT a deployment readiness probe; use ``GET /ready``
+    for that.  These counters are reset on every process restart.
+    """
+    from fpl_grounded_assistant.telemetry import snapshot as _snap, graduation_status as _grad  # noqa: PLC0415
+    snap = _snap()
+    return {
+        "routing_counters": snap,
+        "graduation":       _grad(snap),
+    }
+
+
+@app.get("/resources")
+def list_resources() -> dict[str, Any]:
+    """Phase M1 (MCP_architecture): list registered @resources.
+
+    Returns introspection metadata for the six M1 resources. The endpoint
+    is read-only, argument-free, and does not consult the bootstrap —
+    it reports the static registry only.
+    """
+    from fpl_grounded_assistant.resource_registry import list_resource_specs  # noqa: PLC0415
+    specs = list_resource_specs()
+    return {
+        "resources": [
+            {
+                "name":        s.name,
+                "title":       s.title,
+                "description": s.description,
+                "columns":     list(s.columns),
+            }
+            for s in specs
+        ],
+        "count": len(specs),
+    }
+
+
 @app.post("/ask", response_model=AskResponse)
 def ask(req: AskRequest) -> AskResponse:
     """Ask a FPL captaincy or player question.
@@ -1050,6 +1156,149 @@ def ask(req: AskRequest) -> AskResponse:
         route_conflict=r.route_conflict,
         # Phase 2.7f: clarification policy layer
         clarification_asked=r.clarification_asked,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Phase M3 (MCP_architecture): POST /ask-orchestrated
+#
+# Rollout-isolation endpoint. NOT called by the production UI.
+# Exists exclusively for internal traffic shaping, automated tests, and
+# feature-flag experiments while the LLM-orchestrator path is hardened.
+# Gated by FPL_ORCH_ENABLED (default OFF). When OFF, returns HTTP 503.
+# ---------------------------------------------------------------------------
+
+
+class AskOrchestratedResponse(BaseModel):
+    """Phase M3 (MCP_architecture): response from POST /ask-orchestrated.
+
+    FinalResponse-compatible subset plus the M5-graduated routing_trace bundle.
+    The production UI does NOT consume this endpoint.
+
+    **routing_trace tier: stable (graduated M5, 2026-05-17).** The
+    ``routing_trace`` field is an additive, optional field whose schema is
+    now part of the stable response contract for server-side consumers,
+    automated tests, and traffic shaping.  The schema is pinned by
+    ``ROUTING_TRACE_REQUIRED_KEYS`` and ``ROUTING_TRACE_OPTIONAL_KEYS``
+    in ``fpl_grounded_assistant.harness``.  Changes to those key sets are
+    breaking and must be documented with a phase label.
+
+    For the full key-by-key documentation see the ``ask_v2()`` docstring
+    in ``fpl_grounded_assistant.harness``.
+    """
+
+    final_text:     str
+    outcome:        str
+    supported:      bool
+    grounded:       bool
+    selected_tool:  str | None       = None
+    tool_input:     dict[str, Any]   | None = None
+    raw_output:     dict[str, Any]   | None = None
+    orch_outcome:   str              | None = None
+    orch_model:     str              | None = None
+    routing_trace:  dict[str, Any]   | None = None
+    suggestions:    list[str]        | None = None
+
+
+@app.post("/ask-orchestrated", response_model=AskOrchestratedResponse)
+def ask_orchestrated_route(req: AskRequest) -> AskOrchestratedResponse:
+    """Phase M3 rollout-isolated orchestrator endpoint.
+
+    Unconditionally invokes ``ask_orchestrated()`` (no deterministic router
+    preamble, no classifier rewrite). This endpoint exists ONLY for internal
+    testing and feature-flag rollout. The production UI calls ``POST /ask``.
+
+    Gating
+    ------
+    Requires ``FPL_ORCH_ENABLED`` to be truthy. When the flag is OFF the
+    endpoint returns HTTP 503 — no degradation to deterministic routing —
+    because the only purpose of this route is to exercise the orchestrator.
+    """
+    from fpl_grounded_assistant.orch_config import is_orch_enabled, get_orch_provider  # noqa: PLC0415
+    from fpl_grounded_assistant.orchestrator import (  # noqa: PLC0415
+        ask_orchestrated,
+        OUTCOME_OK as ORCH_OUTCOME_OK,
+    )
+    from fpl_grounded_assistant.intent_aliases import list_resources  # noqa: PLC0415
+
+    if _bootstrap is None:
+        raise HTTPException(status_code=503, detail="Bootstrap not initialised")
+
+    if not is_orch_enabled():
+        # Rollout isolation: when the flag is OFF the orchestrator route is
+        # unreachable. The deterministic surface is POST /ask.
+        raise HTTPException(
+            status_code=503,
+            detail="Orchestrator route disabled (FPL_ORCH_ENABLED is off).",
+        )
+
+    provider = get_orch_provider()
+    orch_result = ask_orchestrated(
+        req.question,
+        _bootstrap,
+        provider=provider,
+    )
+
+    grounded = (
+        orch_result.outcome == ORCH_OUTCOME_OK
+        and bool(orch_result.tool_chosen)
+    )
+
+    tool_calls: list[str] | None = (
+        [orch_result.tool_chosen] if orch_result.tool_chosen else None
+    )
+
+    routing_trace: dict[str, Any] = {
+        "branch":                    "orchestrator" if grounded else "unsupported",
+        "decision_kind":             "orchestrator_direct",   # /ask-orchestrated bypasses decision_router
+        "decision_outcome":          "orchestrator_direct",   # synthetic marker for the direct-invoke path
+        "router_hit":                False,
+        "classifier_called":         False,
+        "classifier_confidence":     None,
+        "classifier_intent":         None,
+        "orchestrator_called":       True,
+        "orchestrator_tool_calls":   tool_calls,
+        "orchestrator_outcome":      orch_result.outcome,
+        "grounded":                  grounded,
+        "feature_flag_orch_enabled": True,
+    }
+
+    # M5 telemetry: record this /ask-orchestrated invocation.
+    # This path bypasses ask_v2()'s ladder, so ask_v2()'s own record() call
+    # does not fire here. We record directly so orchestrator_attempted /
+    # orchestrator_grounded counters stay accurate for /healthz graduation math.
+    from fpl_grounded_assistant import telemetry as _telemetry  # noqa: PLC0415
+    _telemetry.record(routing_trace)
+
+    if grounded:
+        return AskOrchestratedResponse(
+            final_text=orch_result.answer_text,
+            outcome="ok",
+            supported=True,
+            grounded=True,
+            selected_tool=orch_result.tool_chosen,
+            tool_input=dict(orch_result.tool_args),
+            raw_output=dict(orch_result.tool_output),
+            orch_outcome=orch_result.outcome,
+            orch_model=orch_result.model,
+            routing_trace=routing_trace,
+        )
+
+    # Non-grounded: orchestrator returned without a usable tool call OR
+    # the tool errored / no client was available. Per plan §M3, this is
+    # surfaced as unsupported with curated resource suggestions.
+    return AskOrchestratedResponse(
+        final_text=orch_result.answer_text,
+        outcome="unsupported",
+        supported=False,
+        grounded=False,
+        selected_tool=orch_result.tool_chosen,
+        tool_input=dict(orch_result.tool_args) if orch_result.tool_args else None,
+        raw_output=dict(orch_result.tool_output) if orch_result.tool_output else None,
+        orch_outcome=orch_result.outcome,
+        orch_model=orch_result.model if orch_result.llm_used else None,
+        routing_trace=routing_trace,
+        suggestions=[f"@{r}" for r in list_resources()],
     )
 
 

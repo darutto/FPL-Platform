@@ -69,8 +69,9 @@ class IntentClassification:
     Attributes
     ----------
     intent:
-        Predicted intent label — one of the six supported INTENT_* constants
-        or ``"unsupported"`` when confidence is below threshold.
+        Predicted intent label — one of the supported INTENT_* constants
+        enumerated in the classifier system prompt, or ``"unsupported"``
+        when confidence is below threshold.
     canonical_question:
         A rephrased version of the original question in canonical English
         that ``route()`` can deterministically parse.  For example:
@@ -238,6 +239,42 @@ team_schedule:
   Examples (Spanish): "calendario del Arsenal proximas 4 jornadas",
             "partidos del Liverpool proximas 5 jornadas",
             "fixtures del Chelsea proximas 3 jornadas"
+
+differential_picks:
+  The user wants top differential FPL picks — players with low ownership
+  (under ~15%) ranked by captaincy/position-aware score. Not about a single
+  named player; not about transfers; not about fixtures.
+  Canonical template: "differentials"
+  Examples (English): "differential picks this week", "who are the best
+            differentials right now?", "low ownership picks for this gameweek"
+  Examples (Spanish): "diferenciales esta semana", "mejores diferenciales
+            para esta jornada", "picks de baja propiedad esta semana"
+
+position_fixture_run:
+  The user wants a ranking of teams by upcoming fixture difficulty filtered to
+  a specific player position (e.g. which defenders/midfielders/forwards have
+  the best fixtures). Not about a single player and not about all teams in
+  general (that is team_fixture_calendar).
+  Canonical template: "best fixtures for {position} next {N} gameweeks"
+  Examples (English): "which defenders have the best fixtures",
+            "best midfielder fixtures next 4 gameweeks",
+            "forwards with easiest fixtures next 5"
+  Examples (Spanish): "qué defensas tienen mejor calendario",
+            "mejores calendarios para mediocampistas próximas 4 jornadas",
+            "delanteros con calendario más fácil próximas 5 jornadas"
+
+multi_intent:
+  The user is asking two or more independent FPL questions in a single turn
+  (e.g. a gameweek question AND a player summary). Use this ONLY when the
+  question clearly contains two distinct intents, not when one intent has
+  multiple arguments.
+  Canonical template: (use the original question unchanged)
+  Examples (English): "what gameweek is it and how is Salah doing?",
+            "which week are we on and who should I captain?",
+            "tell me about Haaland and is Saka injured?"
+  Examples (Spanish): "qué jornada es y cómo está Salah",
+            "en qué semana estamos y a quién capitaneo",
+            "háblame de Haaland y está lesionado Saka"
 
 unsupported:
   The question is outside the supported scope, or confidence in any supported
