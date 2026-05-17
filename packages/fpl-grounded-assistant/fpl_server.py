@@ -1077,6 +1077,138 @@ def ask(req: AskRequest) -> AskResponse:
     )
 
 
+# ---------------------------------------------------------------------------
+# Phase M3 (MCP_architecture): POST /ask-orchestrated
+#
+# Rollout-isolation endpoint. NOT called by the production UI.
+# Exists exclusively for internal traffic shaping, automated tests, and
+# feature-flag experiments while the LLM-orchestrator path is hardened.
+# Gated by FPL_ORCH_ENABLED (default OFF). When OFF, returns HTTP 503.
+# ---------------------------------------------------------------------------
+
+
+class AskOrchestratedResponse(BaseModel):
+    """Phase M3 (MCP_architecture): response from POST /ask-orchestrated.
+
+    FinalResponse-compatible subset plus the M3 routing_trace bundle.
+    The production UI does NOT consume this endpoint.
+
+    **routing_trace tier (M3–M4): debug-only.** The ``routing_trace`` field
+    here is additive and optional, intended for server-side observability
+    and rollout experimentation while the LLM-orchestrator path is being
+    hardened. It is NOT part of the stable response contract. The schema
+    may change without notice between M3 and M5; UI and external consumers
+    must not depend on it. The Adversarial Architecture Reviewer (end-of-M3,
+    2026-05-17) flagged that promotion to stable-tier is an explicit M5
+    graduation step — do not treat M3-shape as committed.
+    """
+
+    final_text:     str
+    outcome:        str
+    supported:      bool
+    grounded:       bool
+    selected_tool:  str | None       = None
+    tool_input:     dict[str, Any]   | None = None
+    raw_output:     dict[str, Any]   | None = None
+    orch_outcome:   str              | None = None
+    orch_model:     str              | None = None
+    routing_trace:  dict[str, Any]   | None = None
+    suggestions:    list[str]        | None = None
+
+
+@app.post("/ask-orchestrated", response_model=AskOrchestratedResponse)
+def ask_orchestrated_route(req: AskRequest) -> AskOrchestratedResponse:
+    """Phase M3 rollout-isolated orchestrator endpoint.
+
+    Unconditionally invokes ``ask_orchestrated()`` (no deterministic router
+    preamble, no classifier rewrite). This endpoint exists ONLY for internal
+    testing and feature-flag rollout. The production UI calls ``POST /ask``.
+
+    Gating
+    ------
+    Requires ``FPL_ORCH_ENABLED`` to be truthy. When the flag is OFF the
+    endpoint returns HTTP 503 — no degradation to deterministic routing —
+    because the only purpose of this route is to exercise the orchestrator.
+    """
+    from fpl_grounded_assistant.orch_config import is_orch_enabled, get_orch_provider  # noqa: PLC0415
+    from fpl_grounded_assistant.orchestrator import (  # noqa: PLC0415
+        ask_orchestrated,
+        OUTCOME_OK as ORCH_OUTCOME_OK,
+    )
+    from fpl_grounded_assistant.intent_aliases import list_resources  # noqa: PLC0415
+
+    if _bootstrap is None:
+        raise HTTPException(status_code=503, detail="Bootstrap not initialised")
+
+    if not is_orch_enabled():
+        # Rollout isolation: when the flag is OFF the orchestrator route is
+        # unreachable. The deterministic surface is POST /ask.
+        raise HTTPException(
+            status_code=503,
+            detail="Orchestrator route disabled (FPL_ORCH_ENABLED is off).",
+        )
+
+    provider = get_orch_provider()
+    orch_result = ask_orchestrated(
+        req.question,
+        _bootstrap,
+        provider=provider,
+    )
+
+    grounded = (
+        orch_result.outcome == ORCH_OUTCOME_OK
+        and bool(orch_result.tool_chosen)
+    )
+
+    tool_calls: list[str] | None = (
+        [orch_result.tool_chosen] if orch_result.tool_chosen else None
+    )
+
+    routing_trace: dict[str, Any] = {
+        "branch":                    "orchestrator" if grounded else "unsupported",
+        "router_hit":                False,
+        "classifier_called":         False,
+        "classifier_confidence":     None,
+        "classifier_intent":         None,
+        "orchestrator_called":       True,
+        "orchestrator_tool_calls":   tool_calls,
+        "orchestrator_outcome":      orch_result.outcome,
+        "grounded":                  grounded,
+        "feature_flag_orch_enabled": True,
+    }
+
+    if grounded:
+        return AskOrchestratedResponse(
+            final_text=orch_result.answer_text,
+            outcome="ok",
+            supported=True,
+            grounded=True,
+            selected_tool=orch_result.tool_chosen,
+            tool_input=dict(orch_result.tool_args),
+            raw_output=dict(orch_result.tool_output),
+            orch_outcome=orch_result.outcome,
+            orch_model=orch_result.model,
+            routing_trace=routing_trace,
+        )
+
+    # Non-grounded: orchestrator returned without a usable tool call OR
+    # the tool errored / no client was available. Per plan §M3, this is
+    # surfaced as unsupported with curated resource suggestions.
+    return AskOrchestratedResponse(
+        final_text=orch_result.answer_text,
+        outcome="unsupported",
+        supported=False,
+        grounded=False,
+        selected_tool=orch_result.tool_chosen,
+        tool_input=dict(orch_result.tool_args) if orch_result.tool_args else None,
+        raw_output=dict(orch_result.tool_output) if orch_result.tool_output else None,
+        orch_outcome=orch_result.outcome,
+        orch_model=orch_result.model if orch_result.llm_used else None,
+        routing_trace=routing_trace,
+        suggestions=[f"@{r}" for r in list_resources()],
+    )
+
+
 @app.post("/session", response_model=CreateSessionResponse)
 def create_session() -> CreateSessionResponse:
     """Create a new in-memory conversation session.

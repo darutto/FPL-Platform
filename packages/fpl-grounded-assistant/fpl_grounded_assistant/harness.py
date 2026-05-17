@@ -129,6 +129,7 @@ Known gaps (remaining before true LLM integration)
 """
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from fpl_grounded_assistant.renderer import render
@@ -364,21 +365,80 @@ def ask_v2(
     bootstrap: dict[str, Any],
     candidate_inputs: dict[str, Any] | None = None,
     candidates_list: list[dict[str, Any]] | None = None,
+    *,
+    classifier_client: Any | None = None,
+    orch_client: Any | None = None,
+    orch_api_key: str | None = None,
+    orch_provider: str | None = None,
 ) -> dict[str, Any]:
-    """Phase M1 entrypoint composing `decision_router` + existing `ask()`.
+    """Phase M1/M2/M3 entrypoint composing `decision_router` + existing `ask()`.
 
     Behavior summary:
 
     * `@<resource>`  -> resource path; result dict carries `outcome="ok"`,
                         `resource_rows={...}`, and `routing_trace`.
     * `@<unknown>`   -> `outcome="unsupported"`, `suggestions=[...]`.
-    * `/<prompt>`    -> M1 returns `outcome="unsupported"` (M2 owns this).
-    * plain text     -> falls through to existing `ask()`; the returned
-                        dict is identical to today's `ask()` output plus
-                        an additive `routing_trace` key.
+    * `/<prompt>`    -> M2: prompt registry dispatch / expansion.
+    * plain text     -> M3 strict-order fallback ladder:
+                         1. route()                        — deterministic
+                         2. classify_intent_llm() rewrite  — Phase 4k LLM
+                         3. ask_orchestrated()             — Orch-3b loop
+                         4. unsupported + suggestions
 
-    The existing `ask()` is **not modified**. This is purely additive and
-    does not affect any caller of `ask()`.
+    Steps 2 and 3 only fire when their respective client is supplied AND
+    the prior step returned no tool. Step 3 is additionally gated by the
+    ``FPL_ORCH_ENABLED`` environment variable (default OFF).
+
+    A ``routing_trace`` dict is attached to every returned result.
+
+    **Tier: debug-only until M5.** ``routing_trace`` is an additive, optional
+    field intended for server-side observability, automated tests, and
+    traffic shaping during the M3–M4 rollout window. It is NOT part of the
+    stable response contract — UI and external clients must not depend on
+    its schema. The Adversarial Architecture Reviewer flagged at end-of-M3
+    (2026-05-17) that this field's promotion to stable-tier is an explicit
+    M5 graduation step; do not treat M3-shape as committed.
+
+    Schema (M3, debug-tier)::
+
+        {
+          "branch": "resource" | "prompt" | "route" | "classifier_rewrite"
+                    | "orchestrator" | "unsupported",
+          "router_hit": bool,
+          "classifier_called": bool,
+          "classifier_confidence": float | None,
+          "classifier_intent": str | None,
+          "orchestrator_called": bool,
+          "orchestrator_tool_calls": list[str] | None,
+          "orchestrator_outcome": str | None,
+          "grounded": bool,
+          "feature_flag_orch_enabled": bool,
+        }
+
+    ``grounded`` is True iff at least one deterministic tool ran end-to-end
+    via the tool runner. An orchestrator answer with no tool call sets
+    ``grounded=False`` and surfaces the unsupported fallback message
+    (per plan §M3: "orchestrator answer without tool call -> grounded=false").
+
+    The existing ``ask()`` is **not modified**. This is purely additive and
+    does not affect any caller of ``ask()``.
+
+    Parameters
+    ----------
+    classifier_client:
+        Optional Anthropic-compatible client for ``classify_intent_llm``.
+        When ``None``, step 2 is skipped and unrouted text falls straight
+        to step 3 (or to unsupported).
+    orch_client:
+        Optional LLM client passed to ``ask_orchestrated``. Test runners
+        inject mocks here. When ``None`` and no ``orch_api_key`` is given,
+        ``ask_orchestrated`` resolves credentials from the environment.
+    orch_api_key:
+        Optional explicit API key for orchestrator provider resolution.
+    orch_provider:
+        Optional provider override ("anthropic" | "openai" | "gemini").
+        When omitted, ``FPL_ORCH_PROVIDER`` env var is consulted via
+        ``orch_config.get_orch_provider()``.
     """
     # Import here to avoid circulars at module-load time.
     from .decision_router import (
@@ -393,6 +453,7 @@ def ask_v2(
     from fpl_tool_runner import run_tool as _run_tool
     from .renderer import render as _render
     from .dispatcher import _auto_candidates_from_bootstrap
+    from .orch_config import is_orch_enabled, get_orch_provider
 
     # Resolve bootstrap up-front so both branches operate on the same data
     actual_bootstrap, context_meta = _resolve_bootstrap_and_meta(bootstrap)
@@ -401,12 +462,28 @@ def ask_v2(
     kind = decision["kind"]
     outcome = decision["outcome"]
 
-    routing_trace = {
-        "decision_kind": kind,
-        "decision_outcome": outcome,
+    _orch_enabled = is_orch_enabled()
+
+    # M3 routing_trace — additive observability dict attached to every result.
+    # Keys are stable; values are filled in per-branch below.
+    routing_trace: dict[str, Any] = {
+        "branch":                    "unsupported",
+        "decision_kind":             kind,
+        "decision_outcome":          outcome,
+        "router_hit":                False,
+        "classifier_called":         False,
+        "classifier_confidence":     None,
+        "classifier_intent":         None,
+        "orchestrator_called":       False,
+        "orchestrator_tool_calls":   None,
+        "orchestrator_outcome":      None,
+        "grounded":                  False,
+        "feature_flag_orch_enabled": _orch_enabled,
     }
 
     if outcome == OUTCOME_OK_RESOURCE and kind == "resource":
+        routing_trace["branch"]   = "resource"
+        routing_trace["grounded"] = True
         result: dict[str, Any] = {
             "selected_tool": None,
             "tool_input":    {},
@@ -423,6 +500,7 @@ def ask_v2(
         return result
 
     if outcome == OUTCOME_NEEDS_CLARIFICATION:
+        routing_trace["branch"] = "prompt"
         result = {
             "selected_tool":  None,
             "tool_input":     {},
@@ -461,8 +539,11 @@ def ask_v2(
         result["prompt_name"] = prompt_name
         result["workflow_intent"] = workflow_intent
         result["canonical_text"] = canonical_text
-        routing_trace["expansion_text"] = canonical_text
-        routing_trace["workflow_intent"] = workflow_intent
+        routing_trace["branch"]            = "prompt"
+        routing_trace["expansion_text"]    = canonical_text
+        routing_trace["workflow_intent"]   = workflow_intent
+        routing_trace["router_hit"]        = result.get("selected_tool") is not None
+        routing_trace["grounded"]          = result.get("selected_tool") is not None
         result["routing_trace"] = routing_trace
         return result
 
@@ -474,8 +555,10 @@ def ask_v2(
             prompt_name, args, actual_bootstrap,
         )
         answer_text = _render(tool_name, raw_output) if tool_name else ""
+        routing_trace["branch"]          = "prompt"
         routing_trace["dispatched_tool"] = tool_name
         routing_trace["workflow_intent"] = workflow_intent
+        routing_trace["grounded"]        = tool_name is not None and raw_output.get("status") == "ok"
         result = {
             "selected_tool":   tool_name,
             "tool_input":      tool_input,
@@ -492,6 +575,7 @@ def ask_v2(
         return result
 
     if outcome == OUTCOME_UNSUPPORTED:
+        routing_trace["branch"] = "unsupported"
         result = {
             "selected_tool": None,
             "tool_input":    {},
@@ -506,17 +590,174 @@ def ask_v2(
             result["context_meta"] = context_meta
         return result
 
-    # Fallthrough (plain text) — delegate to existing ask()
+    # ------------------------------------------------------------------
+    # M3 text-branch strict-order fallback ladder
+    # ------------------------------------------------------------------
+    # Plain-text questions traverse:
+    #   1. route()                          (inside ask())
+    #   2. classify_intent_llm() rewrite   (if classifier_client supplied)
+    #   3. ask_orchestrated()              (if FPL_ORCH_ENABLED and client/key)
+    #   4. unsupported + suggestions
+    #
+    # A hit at step 1 MUST NOT fall through to step 2 or 3. Likewise a
+    # classifier-rewrite hit at step 2 MUST NOT fall through to step 3.
+    # These short-circuits are asserted by run_phase_m3_tests.py.
     assert outcome == OUTCOME_FALLTHROUGH
-    # Use the cleaned text (post-honorific-strip / NFC) for routing.
     cleaned_text = decision.get("text", question)
+
+    # --- Step 1: deterministic route() via existing ask() ---
     result = ask(
         cleaned_text,
         bootstrap,
         candidate_inputs=candidate_inputs,
         candidates_list=candidates_list,
     )
-    result["outcome"] = "ok" if result.get("selected_tool") else "unsupported"
-    result["kind"] = "text"
-    result["routing_trace"] = routing_trace
+    if result.get("selected_tool") is not None:
+        routing_trace["branch"]     = "route"
+        routing_trace["router_hit"] = True
+        routing_trace["grounded"]   = True
+        result["outcome"] = "ok"
+        result["kind"]    = "text"
+        result["routing_trace"] = routing_trace
+        return result
+
+    # Step 1 missed. Capture trace and try classifier rewrite.
+    routing_trace["router_hit"] = False
+
+    # --- Step 2: classify_intent_llm() rewrite -> re-enter route() ---
+    if classifier_client is not None:
+        from .intent_classifier import classify_intent_llm
+        routing_trace["classifier_called"] = True
+        try:
+            classification = classify_intent_llm(cleaned_text, classifier_client)
+        except Exception:  # noqa: BLE001
+            classification = None
+        if classification is not None:
+            routing_trace["classifier_confidence"] = classification.confidence
+            routing_trace["classifier_intent"]    = classification.intent
+            canonical = classification.canonical_question
+            result = ask(
+                canonical,
+                bootstrap,
+                candidate_inputs=candidate_inputs,
+                candidates_list=candidates_list,
+            )
+            if result.get("selected_tool") is not None:
+                routing_trace["branch"]              = "classifier_rewrite"
+                routing_trace["grounded"]            = True
+                routing_trace["classification_source"] = "llm_classifier"
+                result["outcome"]              = "ok"
+                result["kind"]                 = "text"
+                result["canonical_question"]   = canonical
+                result["routing_trace"]        = routing_trace
+                return result
+
+    # --- Step 3: ask_orchestrated() — last fallback, feature-flag-gated ---
+    # The orchestrator only runs when (a) the feature flag is ON AND (b) a
+    # client/api_key is reachable. Either condition false -> step 4.
+    if _orch_enabled and (orch_client is not None or orch_api_key is not None or
+                          os.environ.get("ANTHROPIC_API_KEY") or
+                          os.environ.get("OPENAI_API_KEY") or
+                          os.environ.get("GOOGLE_API_KEY")):
+        from .orchestrator import (
+            ask_orchestrated,
+            OUTCOME_OK as ORCH_OUTCOME_OK,
+            OUTCOME_NO_TOOL as ORCH_OUTCOME_NO_TOOL,
+        )
+        routing_trace["orchestrator_called"] = True
+        _provider = orch_provider if orch_provider is not None else get_orch_provider()
+        try:
+            orch_result = ask_orchestrated(
+                cleaned_text,
+                actual_bootstrap,
+                client=orch_client,
+                api_key=orch_api_key,
+                provider=_provider,
+            )
+        except Exception as exc:  # noqa: BLE001  — defensive; ask_orchestrated never raises
+            routing_trace["branch"]                  = "unsupported"
+            routing_trace["orchestrator_outcome"]    = "exception"
+            routing_trace["grounded"]                = False
+            result = {
+                "selected_tool": None,
+                "tool_input":    {},
+                "raw_output":    {"status": "unsupported", "code": "orchestrator_exception"},
+                "answer_text":   _UNRECOGNISED["message"],
+                "outcome":       "unsupported",
+                "kind":          "text",
+                "suggestions":   [f"@{r}" for r in _suggestions_for_text()],
+                "orchestrator_error": str(exc),
+                "routing_trace": routing_trace,
+            }
+            if context_meta is not None:
+                result["context_meta"] = context_meta
+            return result
+
+        routing_trace["orchestrator_outcome"] = orch_result.outcome
+
+        if orch_result.outcome == ORCH_OUTCOME_OK and orch_result.tool_chosen:
+            # Successful tool call — grounded answer.
+            routing_trace["branch"]                  = "orchestrator"
+            routing_trace["orchestrator_tool_calls"] = [orch_result.tool_chosen]
+            routing_trace["grounded"]                = True
+            result = {
+                "selected_tool": orch_result.tool_chosen,
+                "tool_input":    dict(orch_result.tool_args),
+                "raw_output":    dict(orch_result.tool_output),
+                "answer_text":   orch_result.answer_text,
+                "outcome":       "ok",
+                "kind":          "text",
+                "orchestrator_model": orch_result.model,
+                "routing_trace": routing_trace,
+            }
+            if context_meta is not None:
+                result["context_meta"] = context_meta
+            return result
+
+        # Orchestrator returned without a usable tool call. Per plan §M3:
+        # "orchestrator answer without tool call -> grounded=false" and the
+        # deterministic fallback (unsupported + suggestions) is shown.
+        routing_trace["branch"]   = "unsupported"
+        routing_trace["grounded"] = False
+        if orch_result.tool_chosen:
+            # Outcomes UNKNOWN_TOOL / TOOL_ERROR / TOOL_RESULT_ERROR — a tool
+            # was named but execution did not yield ok. Record the attempt
+            # for observability even though grounded stays False.
+            routing_trace["orchestrator_tool_calls"] = [orch_result.tool_chosen]
+        result = {
+            "selected_tool": None,
+            "tool_input":    {},
+            "raw_output":    {"status": "unsupported", "code": "orchestrator_no_grounded_tool"},
+            "answer_text":   orch_result.answer_text or _UNRECOGNISED["message"],
+            "outcome":       "unsupported",
+            "kind":          "text",
+            "suggestions":   [f"@{r}" for r in _suggestions_for_text()],
+            "orchestrator_outcome": orch_result.outcome,
+            "routing_trace": routing_trace,
+        }
+        if context_meta is not None:
+            result["context_meta"] = context_meta
+        return result
+
+    # --- Step 4: unsupported (deterministic + classifier both missed,
+    #             AND orchestrator unreachable or disabled). ---
+    routing_trace["branch"] = "unsupported"
+    result = {
+        "selected_tool": None,
+        "tool_input":    {},
+        "raw_output":    {"status": "unsupported", "code": "unrecognised_query"},
+        "answer_text":   _UNRECOGNISED["message"],
+        "outcome":       "unsupported",
+        "kind":          "text",
+        "suggestions":   [f"@{r}" for r in _suggestions_for_text()],
+        "routing_trace": routing_trace,
+    }
+    if context_meta is not None:
+        result["context_meta"] = context_meta
     return result
+
+
+def _suggestions_for_text() -> list[str]:
+    """Return curated resource suggestions for the M3 text-unsupported path."""
+    from .intent_aliases import list_resources
+    return list(list_resources())

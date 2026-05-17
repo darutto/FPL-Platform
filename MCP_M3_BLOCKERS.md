@@ -72,3 +72,41 @@ The Lead Orchestrator will close items here only after they are verified in-code
 - `run_phase_m2_tests.py`: 58/58 PASS (unchanged).
 - `run_validation.py`: 106/106 scenarios PASS (unchanged).
 - `run_phase_m3_preflight_tests.py`: 130/130 PASS.
+
+---
+
+## Downstream contract notes (logged at end of M3, 2026-05-17)
+
+These are not blockers for M3 itself (the slice is approved by the Independent Verifier and conditionally cleared by the Adversarial Architecture Reviewer). They are hand-off contracts the next two phases must honor. They were surfaced by the Adversarial Architecture Reviewer at end-of-M3 and recorded here so they cannot be lost.
+
+### M4 hand-off — D-suite Spanish phrase contract (Adversarial finding F7)
+
+The M3 test runner `run_phase_m3_tests.py` exercises the orchestrator branch using one deliberately-unroutable Spanish phrase:
+
+> `"darme un consejo holistico sobre mi banco esta semana segun el calendario"`
+
+This phrase must remain unroutable for the D-suite to actually exercise step 3 (orchestrator) rather than silently being absorbed by step 1 (deterministic `route()`). M3 added a one-line guard at `run_phase_m3_tests.py:296-300` that fails fast if `route()` ever absorbs the phrase.
+
+**M4 (Spanish Hardening) contract:** before removing any Spanish alias coverage *for `banco` or fixture-related vocabulary that could absorb this phrase*, the M4 agent MUST either:
+
+1. Verify the D-suite guard still passes against the new alias tables, OR
+2. Supply a fresh unroutable Spanish phrase for the M3 runner AND update the `_D_QUESTION` constant + guard message.
+
+Failing to honor this contract means the M3 strict-ordering tests will silently start exercising the wrong code path (step 1 instead of step 3) under future M4 alias expansion. The guard prevents the silent-pass mode, but the M4 agent must take ownership of replacement.
+
+### M5 hand-off — telemetry contract for attempted-vs-grounded tool calls (Adversarial finding R5)
+
+The `routing_trace.orchestrator_tool_calls` field is populated whenever the orchestrator *names* a tool, even when the resulting `grounded` flag is `False` (e.g. tool execution errored, `OUTCOME_NO_TOOL`, or `OUTCOME_TOOL_ERROR`). This means:
+
+> **`orchestrator_tool_calls` records *attempted* tool calls, not *grounded* tool calls.**
+
+**M5 (Telemetry & Rollout) contract:** the per-branch counters added on the health surface MUST distinguish:
+
+- `orchestrator_attempted` — tool was named (`tool_chosen is not None`).
+- `orchestrator_grounded` — tool was named AND `outcome == OUTCOME_OK` AND `grounded == True`.
+
+The two are NOT interchangeable. The graduation criteria in plan §M5 line 321 ("orchestrator handles the long tail") must be evaluated against `orchestrator_grounded`, not `orchestrator_attempted`, otherwise the rollout decision will overstate orchestrator reliability.
+
+### routing_trace tier discipline (Adversarial finding F4)
+
+For the M3–M4 window, `routing_trace` is a **debug-tier** field — additive, optional, observable from server-side tests and traffic shaping, but **not** part of the stable response contract. UI and external consumers must not depend on its schema. Promotion to stable-tier is an explicit M5 graduation step, not a silent relabel. The docstrings on `harness.ask_v2()` and `fpl_server.AskOrchestratedResponse` record this constraint inline.
