@@ -137,6 +137,45 @@ from fpl_grounded_assistant.router import route
 from fpl_tool_runner import run_tool
 
 # ---------------------------------------------------------------------------
+# Phase M5: frozen routing_trace schema constants
+#
+# These constants pin the stable schema for routing_trace (graduated M5,
+# 2026-05-17).  Test suites use them to assert completeness without hard-
+# coding key lists in multiple places.
+#
+# ROUTING_TRACE_REQUIRED_KEYS — keys that MUST appear in every routing_trace
+#   dict returned by ask_v2(), regardless of branch.  A frozen-schema test
+#   should assert set(trace.keys()) >= ROUTING_TRACE_REQUIRED_KEYS.
+#
+# ROUTING_TRACE_OPTIONAL_KEYS — keys that MAY appear on specific branches.
+#   Their presence is branch-conditional; absence on unrelated branches is
+#   correct and expected.
+# ---------------------------------------------------------------------------
+
+ROUTING_TRACE_REQUIRED_KEYS: frozenset[str] = frozenset({
+    "branch",
+    "decision_kind",
+    "decision_outcome",
+    "router_hit",
+    "classifier_called",
+    "classifier_confidence",
+    "classifier_intent",
+    "orchestrator_called",
+    "orchestrator_tool_calls",
+    "orchestrator_outcome",
+    "grounded",
+    "feature_flag_orch_enabled",
+})
+
+ROUTING_TRACE_OPTIONAL_KEYS: frozenset[str] = frozenset({
+    "expansion_text",       # prompt-expansion branch: canonical text produced
+    "workflow_intent",      # prompt branches: prompt_registry workflow intent label
+    "dispatched_tool",      # prompt-dispatch branch: tool name invoked
+    "classification_source",  # classifier_rewrite branch: "llm_classifier"
+    "orchestrator_error",   # orchestrator-exception path: exception message string
+})
+
+# ---------------------------------------------------------------------------
 # Unrecognised-query sentinel
 # ---------------------------------------------------------------------------
 
@@ -391,29 +430,61 @@ def ask_v2(
 
     A ``routing_trace`` dict is attached to every returned result.
 
-    **Tier: debug-only until M5.** ``routing_trace`` is an additive, optional
-    field intended for server-side observability, automated tests, and
-    traffic shaping during the M3–M4 rollout window. It is NOT part of the
-    stable response contract — UI and external clients must not depend on
-    its schema. The Adversarial Architecture Reviewer flagged at end-of-M3
-    (2026-05-17) that this field's promotion to stable-tier is an explicit
-    M5 graduation step; do not treat M3-shape as committed.
+    **Tier: stable (graduated M5, 2026-05-17).** ``routing_trace`` is an
+    additive, optional field that is now part of the stable response contract
+    for server-side consumers, automated tests, and traffic shaping.  The
+    schema is pinned by ``ROUTING_TRACE_REQUIRED_KEYS`` and
+    ``ROUTING_TRACE_OPTIONAL_KEYS`` in this module.  Changes to these key
+    sets are breaking and must be documented with a phase label.
 
-    Schema (M3, debug-tier)::
+    Required keys (always present in every routing_trace)::
 
         {
-          "branch": "resource" | "prompt" | "route" | "classifier_rewrite"
-                    | "orchestrator" | "unsupported",
-          "router_hit": bool,
-          "classifier_called": bool,
-          "classifier_confidence": float | None,
-          "classifier_intent": str | None,
-          "orchestrator_called": bool,
-          "orchestrator_tool_calls": list[str] | None,
-          "orchestrator_outcome": str | None,
-          "grounded": bool,
-          "feature_flag_orch_enabled": bool,
+          "branch":                  str,            # which ladder rung fired
+          "decision_kind":           str,            # from decision_router: "resource"|"prompt"|"text"|...,
+                                                    # OR "orchestrator_direct" on POST /ask-orchestrated (bypasses decision_router)
+          "decision_outcome":        str,            # from decision_router: OUTCOME_* constant,
+                                                    # OR "orchestrator_direct" on POST /ask-orchestrated
+          "router_hit":              bool,           # True iff route() succeeded
+          "classifier_called":       bool,           # True iff classify_intent_llm() was called
+          "classifier_confidence":   float | None,   # LLM confidence, or None
+          "classifier_intent":       str | None,     # LLM intent label, or None
+          "orchestrator_called":     bool,           # True iff ask_orchestrated() was called
+          "orchestrator_tool_calls": list[str] | None, # tools chosen by orchestrator
+          "orchestrator_outcome":    str | None,     # orchestrator OUTCOME_* constant, or None
+          "grounded":                bool,           # True iff a deterministic tool ran end-to-end
+          "feature_flag_orch_enabled": bool,         # snapshot of FPL_ORCH_ENABLED at call time
         }
+
+    Optional keys (present only on specific branches)::
+
+        "expansion_text"       (str)   prompt-expansion branch: canonical text produced
+        "workflow_intent"      (str)   prompt branches: prompt_registry workflow intent
+        "dispatched_tool"      (str)   prompt-dispatch branch: tool name invoked
+        "classification_source" (str)  classifier_rewrite branch: "llm_classifier"
+        "orchestrator_error"   (str)   orchestrator-exception path: exception message
+
+    See ``ROUTING_TRACE_REQUIRED_KEYS`` and ``ROUTING_TRACE_OPTIONAL_KEYS``
+    for the machine-readable frozen-schema constants used by tests.
+
+    ``branch`` values::
+
+        "resource"           — @resource matched and returned grounded rows.
+        "prompt"             — /prompt matched (expansion or dispatch mode).
+        "route"              — plain text; route() succeeded on first try.
+        "classifier_rewrite" — plain text; route() missed, LLM rewrote it,
+                               route() succeeded on rewrite.
+        "orchestrator"       — plain text; all deterministic paths missed,
+                               orchestrator returned a grounded tool call.
+        "unsupported"        — no path produced a grounded answer.
+
+    ``grounded`` is True iff at least one deterministic tool ran end-to-end
+    via the tool runner. An orchestrator answer with no tool call sets
+    ``grounded=False`` and surfaces the unsupported fallback message
+    (per plan §M3: "orchestrator answer without tool call -> grounded=false").
+
+    The existing ``ask()`` is **not modified**. This is purely additive and
+    does not affect any caller of ``ask()``.
 
     ``grounded`` is True iff at least one deterministic tool ran end-to-end
     via the tool runner. An orchestrator answer with no tool call sets
@@ -454,6 +525,7 @@ def ask_v2(
     from .renderer import render as _render
     from .dispatcher import _auto_candidates_from_bootstrap
     from .orch_config import is_orch_enabled, get_orch_provider
+    from . import telemetry as _telemetry
 
     # Resolve bootstrap up-front so both branches operate on the same data
     actual_bootstrap, context_meta = _resolve_bootstrap_and_meta(bootstrap)
@@ -497,6 +569,7 @@ def ask_v2(
         }
         if context_meta is not None:
             result["context_meta"] = context_meta
+        _telemetry.record(routing_trace)  # M5 telemetry
         return result
 
     if outcome == OUTCOME_NEEDS_CLARIFICATION:
@@ -515,6 +588,7 @@ def ask_v2(
         }
         if context_meta is not None:
             result["context_meta"] = context_meta
+        _telemetry.record(routing_trace)  # M5 telemetry
         return result
 
     if outcome == OUTCOME_OK_PROMPT_EXPANSION:
@@ -545,6 +619,7 @@ def ask_v2(
         routing_trace["router_hit"]        = result.get("selected_tool") is not None
         routing_trace["grounded"]          = result.get("selected_tool") is not None
         result["routing_trace"] = routing_trace
+        _telemetry.record(routing_trace)  # M5 telemetry
         return result
 
     if outcome == OUTCOME_OK_PROMPT_DISPATCH:
@@ -572,6 +647,7 @@ def ask_v2(
         }
         if context_meta is not None:
             result["context_meta"] = context_meta
+        _telemetry.record(routing_trace)  # M5 telemetry
         return result
 
     if outcome == OUTCOME_UNSUPPORTED:
@@ -588,6 +664,7 @@ def ask_v2(
         }
         if context_meta is not None:
             result["context_meta"] = context_meta
+        _telemetry.record(routing_trace)  # M5 telemetry
         return result
 
     # ------------------------------------------------------------------
@@ -619,6 +696,7 @@ def ask_v2(
         result["outcome"] = "ok"
         result["kind"]    = "text"
         result["routing_trace"] = routing_trace
+        _telemetry.record(routing_trace)  # M5 telemetry
         return result
 
     # Step 1 missed. Capture trace and try classifier rewrite.
@@ -650,6 +728,7 @@ def ask_v2(
                 result["kind"]                 = "text"
                 result["canonical_question"]   = canonical
                 result["routing_trace"]        = routing_trace
+                _telemetry.record(routing_trace)  # M5 telemetry
                 return result
 
     # --- Step 3: ask_orchestrated() — last fallback, feature-flag-gated ---
@@ -691,6 +770,7 @@ def ask_v2(
             }
             if context_meta is not None:
                 result["context_meta"] = context_meta
+            _telemetry.record(routing_trace)  # M5 telemetry (orchestrator exception -> unsupported)
             return result
 
         routing_trace["orchestrator_outcome"] = orch_result.outcome
@@ -712,6 +792,7 @@ def ask_v2(
             }
             if context_meta is not None:
                 result["context_meta"] = context_meta
+            _telemetry.record(routing_trace)  # M5 telemetry (orchestrator grounded)
             return result
 
         # Orchestrator returned without a usable tool call. Per plan §M3:
@@ -737,6 +818,7 @@ def ask_v2(
         }
         if context_meta is not None:
             result["context_meta"] = context_meta
+        _telemetry.record(routing_trace)  # M5 telemetry (orchestrator no grounded tool -> unsupported)
         return result
 
     # --- Step 4: unsupported (deterministic + classifier both missed,
@@ -754,6 +836,7 @@ def ask_v2(
     }
     if context_meta is not None:
         result["context_meta"] = context_meta
+    _telemetry.record(routing_trace)  # M5 telemetry (step 4: full ladder miss)
     return result
 
 

@@ -146,6 +146,56 @@
       "debug.prompt_used": "user-turn prompt sent to the LLM",
       "debug.model": "model identifier used; 'none' when LLM not called",
       "debug.classification_source": "how intent was resolved: null=deterministic, 'intent_hint', or 'llm_classifier'"
+    },
+    "routing_trace_contract": {
+      "field": "routing_trace",
+      "type": "object|null",
+      "stability": "stable",
+      "graduated": "M5 (2026-05-17)",
+      "surface": "POST /ask-orchestrated and ask_v2() return value (not POST /ask or POST /session/{id}/ask)",
+      "note": "Additive, optional field. Always present in ask_v2() return values and /ask-orchestrated responses. Schema is pinned by ROUTING_TRACE_REQUIRED_KEYS and ROUTING_TRACE_OPTIONAL_KEYS in fpl_grounded_assistant.harness.",
+      "required_keys": {
+        "branch": "str — which ladder rung fired: 'resource'|'prompt'|'route'|'classifier_rewrite'|'orchestrator'|'unsupported'",
+        "decision_kind": "str — from decision_router: 'resource'|'prompt'|'text'|... OR 'orchestrator_direct' (synthetic, POST /ask-orchestrated only)",
+        "decision_outcome": "str — from decision_router: OUTCOME_* constant OR 'orchestrator_direct' (synthetic, POST /ask-orchestrated only)",
+        "router_hit": "bool — True iff route() succeeded",
+        "classifier_called": "bool — True iff classify_intent_llm() was invoked",
+        "classifier_confidence": "float|null — LLM confidence, or null",
+        "classifier_intent": "str|null — LLM intent label, or null",
+        "orchestrator_called": "bool — True iff ask_orchestrated() was invoked",
+        "orchestrator_tool_calls": "list[str]|null — tools chosen by orchestrator, or null",
+        "orchestrator_outcome": "str|null — orchestrator OUTCOME_* constant, or null",
+        "grounded": "bool — True iff a deterministic tool ran end-to-end",
+        "feature_flag_orch_enabled": "bool — snapshot of FPL_ORCH_ENABLED at call time"
+      },
+      "optional_keys": {
+        "expansion_text": "str — prompt-expansion branch: canonical text produced",
+        "workflow_intent": "str — prompt branches: prompt_registry workflow intent label",
+        "dispatched_tool": "str — prompt-dispatch branch: tool name invoked",
+        "classification_source": "str — classifier_rewrite branch: 'llm_classifier'",
+        "orchestrator_error": "str — orchestrator-exception path: exception message"
+      },
+      "branch_values": {
+        "resource": "@resource matched and returned grounded rows",
+        "prompt": "/prompt matched (expansion, dispatch, or clarification mode)",
+        "route": "plain text; route() succeeded on first try (fully deterministic)",
+        "classifier_rewrite": "plain text; route() missed, LLM rewrote, route() succeeded on rewrite",
+        "orchestrator": "plain text; all deterministic paths missed, orchestrator returned grounded tool call",
+        "unsupported": "no path produced a grounded answer"
+      },
+      "pre_M5_note": "For M3-M4 this field was debug-tier. Callers that depended on it during M3-M4 must re-validate against the M5 schema constants."
+    },
+    "healthz_contract": {
+      "path": "GET /healthz",
+      "stability": "stable",
+      "phase": "M5 (2026-05-17)",
+      "note": "Per-branch routing counters and graduation-criteria evaluation. Not a deployment readiness probe (use GET /ready for that). Counters are process-global and reset on restart.",
+      "routing_counters_keys": ["resource", "prompt", "route", "classifier_rewrite", "orchestrator", "unsupported", "orchestrator_attempted", "orchestrator_grounded", "total_primary", "reject_rate"],
+      "graduation_keys": ["deterministic_share", "orchestrator_grounded_share", "reject_rate", "criteria", "ready_to_graduate", "total_observations"],
+      "graduation_criteria": {
+        "deterministic_share_ge_80": "deterministic_share >= 0.80 (resource+prompt+route+classifier_rewrite dominate)",
+        "reject_rate_lt_5": "reject_rate < 0.05 (fewer than 5% of inputs fully unsupported)"
+      }
     }
   },
   "ask_fixtures": [
@@ -685,6 +735,29 @@
     }
   ],
   "probe_fixtures": [
+    {
+      "id": "healthz_routing_counters",
+      "description": "GET /healthz returns routing_counters and graduation sub-dicts. Both keys must be present. routing_counters must have all eight branch keys plus total_primary and reject_rate.",
+      "method": "GET",
+      "path": "/healthz",
+      "phase": "M5",
+      "stability": "stable",
+      "expected": {
+        "http_status": 200,
+        "body": {
+          "routing_counters": {
+            "presence": "non-null",
+            "stability": "stable",
+            "required_keys": ["resource", "prompt", "route", "classifier_rewrite", "orchestrator", "unsupported", "orchestrator_attempted", "orchestrator_grounded", "total_primary", "reject_rate"]
+          },
+          "graduation": {
+            "presence": "non-null",
+            "stability": "stable",
+            "required_keys": ["deterministic_share", "orchestrator_grounded_share", "reject_rate", "criteria", "ready_to_graduate", "total_observations"]
+          }
+        }
+      }
+    },
     {
       "id": "health_liveness_bootstrap_loaded",
       "description": "GET /health returns 200 while the process is running with bootstrap loaded. Liveness-only: does not reflect bootstrap readiness.",

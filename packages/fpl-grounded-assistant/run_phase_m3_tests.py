@@ -66,6 +66,7 @@ for _k in ("FPL_ORCH_ENABLED", "FPL_ORCH_PROVIDER", "ANTHROPIC_API_KEY",
 
 from fpl_grounded_assistant import ask, ask_v2  # noqa: E402
 from fpl_grounded_assistant.conversation_fixtures import STANDARD_BOOTSTRAP  # noqa: E402
+from fpl_grounded_assistant.harness import ROUTING_TRACE_REQUIRED_KEYS  # noqa: E402
 from fpl_grounded_assistant.orch_config import is_orch_enabled  # noqa: E402
 
 _pass = 0
@@ -193,11 +194,7 @@ assert not is_orch_enabled(), "test setup: FPL_ORCH_ENABLED must start OFF"
 # ===========================================================================
 print("\n[A] routing_trace schema")
 
-_required_keys = {
-    "branch", "router_hit", "classifier_called", "classifier_confidence",
-    "classifier_intent", "orchestrator_called", "orchestrator_tool_calls",
-    "orchestrator_outcome", "grounded", "feature_flag_orch_enabled",
-}
+_required_keys = ROUTING_TRACE_REQUIRED_KEYS
 
 # A1: resource branch
 _r = ask_v2("@injuries", BOOTSTRAP)

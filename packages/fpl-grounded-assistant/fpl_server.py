@@ -923,6 +923,88 @@ def metrics() -> dict[str, Any]:
     }
 
 
+@app.get("/healthz")
+def healthz() -> dict[str, Any]:
+    """Phase M5 (MCP_architecture): decision-tree telemetry and graduation status.
+
+    Returns per-branch routing counters and the graduation-criteria evaluation
+    derived from ask_v2() and POST /ask-orchestrated traffic observed since
+    process startup.  Counters are process-global and cumulative; they reset
+    only on process restart (or via telemetry.reset() in tests).
+
+    This endpoint is the primary operational surface for answering the three
+    go/no-go questions for graduating the MCP_architecture branch to main:
+
+    1. Which branch fired?  — ``routing_counters`` sub-dict, keyed by branch.
+    2. Why?                 — ``graduation.deterministic_share`` vs
+                              ``graduation.orchestrator_grounded_share`` and
+                              ``graduation.reject_rate`` show the split.
+    3. How often?           — ``routing_counters.total_primary`` is the total
+                              number of distinct requests observed.
+
+    Response shape
+    --------------
+    ::
+
+        {
+          "routing_counters": {
+            "resource":               int,   # @resource branch hits
+            "prompt":                 int,   # /prompt branch hits (expansion + dispatch + clarif)
+            "route":                  int,   # deterministic route() hits (plain text)
+            "classifier_rewrite":     int,   # LLM rewrite -> route() hits
+            "orchestrator":           int,   # orchestrator grounded (primary branch)
+            "unsupported":            int,   # inputs with no grounded answer
+            "orchestrator_attempted": int,   # all orchestrator invocations (R5 split)
+            "orchestrator_grounded":  int,   # orch invocations that produced a grounded answer
+            "total_primary":          int,   # resource+prompt+route+classifier_rewrite
+                                            #   +orchestrator+unsupported
+            "reject_rate":            float, # unsupported / total_primary
+          },
+          "graduation": {
+            "deterministic_share":       float,  # (resource+prompt+route+classifier_rewrite)
+                                                 #   / total_primary. Target: >= 0.80
+            "orchestrator_grounded_share": float, # orchestrator_grounded / total_primary.
+                                                  # Informational only — not a gating criterion.
+            "reject_rate":               float,  # unsupported / total_primary. Target: < 0.05
+            "criteria": {
+              "deterministic_share_ge_80": bool,  # deterministic_share >= 0.80
+              "reject_rate_lt_5":          bool,  # reject_rate < 0.05
+            },
+            "ready_to_graduate":         bool,   # all criteria True AND total > 0
+            "total_observations":        int,
+          }
+        }
+
+    Counter semantics
+    -----------------
+    ``orchestrator_attempted`` counts every call to the orchestrator loop
+    regardless of whether it grounded.  ``orchestrator_grounded`` is the
+    subset that produced a usable tool-grounded answer.  The difference
+    ``orchestrator_attempted - orchestrator_grounded`` is the orchestrator
+    fail-to-ground rate (finding R5 from the M3 Adversarial Review).
+
+    ``classifier_rewrite`` counts as deterministic share for graduation
+    purposes: the LLM rewrites the question to a canonical form that
+    re-enters route().  The downstream tool is still a deterministic function.
+
+    Graduation gate
+    ---------------
+    ``ready_to_graduate`` is True iff:
+    - ``deterministic_share`` >= 0.80  (resource+prompt+route+rewrite dominate)
+    - ``reject_rate`` < 0.05           (fewer than 5% of inputs fully unsupported)
+    - ``total_observations`` > 0       (the system has actually been exercised)
+
+    This endpoint is NOT a deployment readiness probe; use ``GET /ready``
+    for that.  These counters are reset on every process restart.
+    """
+    from fpl_grounded_assistant.telemetry import snapshot as _snap, graduation_status as _grad  # noqa: PLC0415
+    snap = _snap()
+    return {
+        "routing_counters": snap,
+        "graduation":       _grad(snap),
+    }
+
+
 @app.get("/resources")
 def list_resources() -> dict[str, Any]:
     """Phase M1 (MCP_architecture): list registered @resources.
@@ -1090,17 +1172,19 @@ def ask(req: AskRequest) -> AskResponse:
 class AskOrchestratedResponse(BaseModel):
     """Phase M3 (MCP_architecture): response from POST /ask-orchestrated.
 
-    FinalResponse-compatible subset plus the M3 routing_trace bundle.
+    FinalResponse-compatible subset plus the M5-graduated routing_trace bundle.
     The production UI does NOT consume this endpoint.
 
-    **routing_trace tier (M3–M4): debug-only.** The ``routing_trace`` field
-    here is additive and optional, intended for server-side observability
-    and rollout experimentation while the LLM-orchestrator path is being
-    hardened. It is NOT part of the stable response contract. The schema
-    may change without notice between M3 and M5; UI and external consumers
-    must not depend on it. The Adversarial Architecture Reviewer (end-of-M3,
-    2026-05-17) flagged that promotion to stable-tier is an explicit M5
-    graduation step — do not treat M3-shape as committed.
+    **routing_trace tier: stable (graduated M5, 2026-05-17).** The
+    ``routing_trace`` field is an additive, optional field whose schema is
+    now part of the stable response contract for server-side consumers,
+    automated tests, and traffic shaping.  The schema is pinned by
+    ``ROUTING_TRACE_REQUIRED_KEYS`` and ``ROUTING_TRACE_OPTIONAL_KEYS``
+    in ``fpl_grounded_assistant.harness``.  Changes to those key sets are
+    breaking and must be documented with a phase label.
+
+    For the full key-by-key documentation see the ``ask_v2()`` docstring
+    in ``fpl_grounded_assistant.harness``.
     """
 
     final_text:     str
@@ -1166,6 +1250,8 @@ def ask_orchestrated_route(req: AskRequest) -> AskOrchestratedResponse:
 
     routing_trace: dict[str, Any] = {
         "branch":                    "orchestrator" if grounded else "unsupported",
+        "decision_kind":             "orchestrator_direct",   # /ask-orchestrated bypasses decision_router
+        "decision_outcome":          "orchestrator_direct",   # synthetic marker for the direct-invoke path
         "router_hit":                False,
         "classifier_called":         False,
         "classifier_confidence":     None,
@@ -1176,6 +1262,13 @@ def ask_orchestrated_route(req: AskRequest) -> AskOrchestratedResponse:
         "grounded":                  grounded,
         "feature_flag_orch_enabled": True,
     }
+
+    # M5 telemetry: record this /ask-orchestrated invocation.
+    # This path bypasses ask_v2()'s ladder, so ask_v2()'s own record() call
+    # does not fire here. We record directly so orchestrator_attempted /
+    # orchestrator_grounded counters stay accurate for /healthz graduation math.
+    from fpl_grounded_assistant import telemetry as _telemetry  # noqa: PLC0415
+    _telemetry.record(routing_trace)
 
     if grounded:
         return AskOrchestratedResponse(
