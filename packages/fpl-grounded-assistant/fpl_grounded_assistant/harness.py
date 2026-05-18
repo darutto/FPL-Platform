@@ -467,6 +467,39 @@ def ask_v2(
     See ``ROUTING_TRACE_REQUIRED_KEYS`` and ``ROUTING_TRACE_OPTIONAL_KEYS``
     for the machine-readable frozen-schema constants used by tests.
 
+    **Structured metadata (G1 commit 2 addition):**
+
+    Every returned dict also carries the 14 intent-specific structured-metadata
+    keys produced by ``final_response._extract_structured_meta()``.  These keys
+    are at the **top level** (no sub-key namespace) because none collide with the
+    pre-existing keys in the ask_v2 return dict.  On branches that execute a
+    deterministic tool (``route``, ``classifier_rewrite``, ``prompt`` with
+    dispatch or expansion, ``orchestrator`` with a grounded tool call) the keys
+    are populated from the real raw_output.  On all other branches
+    (``resource``, ``unsupported``, ``needs_clarification``, orchestrator
+    exception/no-grounded) all 14 values are ``None``.
+
+    The 14 keys are::
+
+        "comparison"           — ComparisonMeta | None
+        "captain"              — CaptainScoreMeta | None
+        "captain_ranking"      — tuple[RankedCaptainEntry, ...] | None
+        "transfer"             — TransferMeta | None
+        "chip"                 — ChipAdviceMeta | None
+        "fixture_run"          — FixtureRunMeta | None
+        "differential"         — DifferentialPicksMeta | None
+        "player_form"          — PlayerFormMeta | None
+        "injury_list"          — InjuryListMeta | None
+        "price_changes"        — PriceChangesMeta | None
+        "team_calendar"        — TeamFixtureCalendarMeta | None
+        "team_schedule"        — TeamScheduleMeta | None
+        "position_fixture_run" — PositionFixtureRunMeta | None
+        "transfer_suggestion"  — TransferSuggestionMeta | None
+
+    Note: ``ask_v2()`` does NOT apply squad_context overrides to these values.
+    The adapter (``harness_adapter.py``, commit 3) is responsible for applying
+    ``_apply_squad_overrides`` before projecting into ``AskResponse``.
+
     ``branch`` values::
 
         "resource"           — @resource matched and returned grounded rows.
@@ -523,9 +556,22 @@ def ask_v2(
     )
     from fpl_tool_runner import run_tool as _run_tool
     from .renderer import render as _render
-    from .dispatcher import _auto_candidates_from_bootstrap
+    from .dispatcher import _auto_candidates_from_bootstrap, OUTCOME_OK as _DISP_OUTCOME_OK, _TOOL_TO_INTENT
     from .orch_config import is_orch_enabled, get_orch_provider
     from . import telemetry as _telemetry
+    # G1 commit 2: deferred to avoid circular import (dispatcher imports ask from harness)
+    from .final_response import _extract_structured_meta
+
+    def _meta(tool_name: "str | None", raw_output: dict) -> "dict[str, Any]":
+        """Derive structured metadata for a completed deterministic tool call."""
+        if tool_name is None:
+            return _extract_structured_meta("", {}, "unsupported")
+        intent = _TOOL_TO_INTENT.get(tool_name, "")
+        status = raw_output.get("status", "")
+        outcome = _DISP_OUTCOME_OK if status == "ok" else "unsupported"
+        return _extract_structured_meta(intent, raw_output, outcome)
+
+    _none_meta: "dict[str, Any]" = _extract_structured_meta("", {}, "unsupported")
 
     # Resolve bootstrap up-front so both branches operate on the same data
     actual_bootstrap, context_meta = _resolve_bootstrap_and_meta(bootstrap)
@@ -566,6 +612,7 @@ def ask_v2(
             "resource":      decision.get("resource"),
             "resource_rows": decision.get("resource_rows"),
             "routing_trace": routing_trace,
+            **_none_meta,  # resource branch: no deterministic tool ran → all 14 keys are None
         }
         if context_meta is not None:
             result["context_meta"] = context_meta
@@ -585,6 +632,7 @@ def ask_v2(
             "missing_fields": decision.get("missing_fields", []),
             "errors":         decision.get("errors", []),
             "routing_trace":  routing_trace,
+            **_none_meta,  # needs_clarification: no tool ran → all 14 keys are None
         }
         if context_meta is not None:
             result["context_meta"] = context_meta
@@ -619,6 +667,8 @@ def ask_v2(
         routing_trace["router_hit"]        = result.get("selected_tool") is not None
         routing_trace["grounded"]          = result.get("selected_tool") is not None
         result["routing_trace"] = routing_trace
+        # prompt-expansion branch: extract metadata when tool ran, else all-None
+        result.update(_meta(result.get("selected_tool"), result.get("raw_output", {})))
         _telemetry.record(routing_trace)  # M5 telemetry
         return result
 
@@ -644,6 +694,7 @@ def ask_v2(
             "prompt_name":     prompt_name,
             "workflow_intent": workflow_intent,
             "routing_trace":   routing_trace,
+            **_meta(tool_name, raw_output),  # prompt-dispatch: real tool ran, extract metadata
         }
         if context_meta is not None:
             result["context_meta"] = context_meta
@@ -661,6 +712,7 @@ def ask_v2(
             "kind":          kind,
             "suggestions":   decision.get("suggestions", []),
             "routing_trace": routing_trace,
+            **_none_meta,  # unsupported: no tool ran → all 14 keys are None
         }
         if context_meta is not None:
             result["context_meta"] = context_meta
@@ -696,6 +748,8 @@ def ask_v2(
         result["outcome"] = "ok"
         result["kind"]    = "text"
         result["routing_trace"] = routing_trace
+        # route branch: deterministic tool ran, extract real structured metadata
+        result.update(_meta(result.get("selected_tool"), result.get("raw_output", {})))
         _telemetry.record(routing_trace)  # M5 telemetry
         return result
 
@@ -728,6 +782,8 @@ def ask_v2(
                 result["kind"]                 = "text"
                 result["canonical_question"]   = canonical
                 result["routing_trace"]        = routing_trace
+                # classifier_rewrite branch: deterministic tool ran after LLM rewrite
+                result.update(_meta(result.get("selected_tool"), result.get("raw_output", {})))
                 _telemetry.record(routing_trace)  # M5 telemetry
                 return result
 
@@ -767,6 +823,7 @@ def ask_v2(
                 "suggestions":   [f"@{r}" for r in _suggestions_for_text()],
                 "orchestrator_error": str(exc),
                 "routing_trace": routing_trace,
+                **_none_meta,  # orchestrator exception: no tool ran → all 14 keys are None
             }
             if context_meta is not None:
                 result["context_meta"] = context_meta
@@ -780,15 +837,17 @@ def ask_v2(
             routing_trace["branch"]                  = "orchestrator"
             routing_trace["orchestrator_tool_calls"] = [orch_result.tool_chosen]
             routing_trace["grounded"]                = True
+            _orch_raw = dict(orch_result.tool_output)
             result = {
                 "selected_tool": orch_result.tool_chosen,
                 "tool_input":    dict(orch_result.tool_args),
-                "raw_output":    dict(orch_result.tool_output),
+                "raw_output":    _orch_raw,
                 "answer_text":   orch_result.answer_text,
                 "outcome":       "ok",
                 "kind":          "text",
                 "orchestrator_model": orch_result.model,
                 "routing_trace": routing_trace,
+                **_meta(orch_result.tool_chosen, _orch_raw),  # orchestrator: grounded tool ran
             }
             if context_meta is not None:
                 result["context_meta"] = context_meta
@@ -815,6 +874,7 @@ def ask_v2(
             "suggestions":   [f"@{r}" for r in _suggestions_for_text()],
             "orchestrator_outcome": orch_result.outcome,
             "routing_trace": routing_trace,
+            **_none_meta,  # orchestrator no-grounded-tool: tool execution failed → all 14 keys None
         }
         if context_meta is not None:
             result["context_meta"] = context_meta
@@ -833,6 +893,7 @@ def ask_v2(
         "kind":          "text",
         "suggestions":   [f"@{r}" for r in _suggestions_for_text()],
         "routing_trace": routing_trace,
+        **_none_meta,  # step 4: full ladder miss → all 14 keys are None
     }
     if context_meta is not None:
         result["context_meta"] = context_meta
