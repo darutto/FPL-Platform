@@ -1594,6 +1594,119 @@ def _extract_team_schedule_meta(ro: "dict[str, Any]") -> "TeamScheduleMeta | Non
 
 
 # ---------------------------------------------------------------------------
+# G1: Structured-metadata extraction helper
+#
+# Pure function — no side effects, no LLM calls.  Extracts every
+# intent-specific structured-metadata field from a raw dispatcher output dict,
+# gated on outcome == OUTCOME_OK.  Called from respond() and (from commit 2
+# onward) from the harness_adapter for the ask_v2() path.
+#
+# Intents covered (complete list as of G1):
+#   captain, captain_ranking, comparison, transfer, chip, fixture_run,
+#   differential, player_form, injury_list, price_changes, team_calendar,
+#   team_schedule, position_fixture_run, transfer_suggestion
+# ---------------------------------------------------------------------------
+
+def _extract_structured_meta(
+    intent: str,
+    raw_output: "dict[str, Any]",
+    outcome: str,
+) -> "dict[str, Any]":
+    """Extract intent-specific structured metadata from a raw dispatcher output.
+
+    Pure function — no side effects, no LLM calls, no I/O.  Every extraction
+    sub-call degrades safely to ``None`` on any failure (the per-helper
+    ``try/except`` guarantees this).
+
+    Parameters
+    ----------
+    intent:
+        The ``INTENT_*`` constant for the current turn.
+    raw_output:
+        The raw ``dict`` produced by the grounded dispatcher (``dr.raw_output``
+        on the deterministic path; ``result.tool_output`` on the orch path).
+    outcome:
+        The ``OUTCOME_*`` constant for the current turn.  Extractions only
+        run when ``outcome == OUTCOME_OK``; all fields return ``None``
+        otherwise.
+
+    Returns
+    -------
+    dict[str, Any]
+        Keys match the corresponding ``FinalResponse`` field names:
+        ``"comparison"``, ``"captain"``, ``"captain_ranking"``,
+        ``"transfer"``, ``"chip"``, ``"fixture_run"``, ``"differential"``,
+        ``"player_form"``, ``"injury_list"``, ``"price_changes"``,
+        ``"team_calendar"``, ``"team_schedule"``, ``"position_fixture_run"``,
+        ``"transfer_suggestion"``.  All values are ``None`` for intents /
+        outcomes that do not populate the field.
+    """
+    ok = (outcome == OUTCOME_OK)
+
+    comparison:              "ComparisonMeta | None"              = None
+    captain:                 "CaptainScoreMeta | None"            = None
+    captain_ranking:         "tuple[RankedCaptainEntry, ...] | None" = None
+    transfer:                "TransferMeta | None"                = None
+    chip:                    "ChipAdviceMeta | None"              = None
+    fixture_run:             "FixtureRunMeta | None"              = None
+    differential:            "DifferentialPicksMeta | None"       = None
+    player_form_meta:        "PlayerFormMeta | None"              = None
+    injury_list_meta:        "InjuryListMeta | None"              = None
+    price_changes_meta:      "PriceChangesMeta | None"            = None
+    team_calendar_meta:      "TeamFixtureCalendarMeta | None"     = None
+    team_schedule_meta:      "TeamScheduleMeta | None"            = None
+    position_fixture_run_meta: "PositionFixtureRunMeta | None"    = None
+    transfer_suggestion_meta:  "TransferSuggestionMeta | None"    = None
+
+    if ok:
+        if intent == INTENT_COMPARE_PLAYERS:
+            comparison = _extract_comparison_meta(raw_output)
+        elif intent == INTENT_CAPTAIN_SCORE:
+            captain = _extract_captain_meta(raw_output)
+        elif intent == INTENT_RANK_CANDIDATES:
+            captain_ranking = _extract_captain_ranking_meta(raw_output)
+        elif intent == INTENT_TRANSFER_ADVICE:
+            transfer = _extract_transfer_meta(raw_output)
+        elif intent == INTENT_CHIP_ADVICE:
+            chip = _extract_chip_meta(raw_output)
+        elif intent == INTENT_PLAYER_FIXTURE_RUN:
+            fixture_run = _extract_fixture_run_meta(raw_output)
+        elif intent == INTENT_DIFFERENTIAL_PICKS:
+            differential = _extract_differential_meta(raw_output)
+        elif intent == INTENT_PLAYER_FORM:
+            player_form_meta = _extract_player_form_meta(raw_output)
+        elif intent == INTENT_INJURY_LIST:
+            injury_list_meta = _extract_injury_list_meta(raw_output)
+        elif intent == INTENT_PRICE_CHANGES:
+            price_changes_meta = _extract_price_changes_meta(raw_output)
+        elif intent == INTENT_TEAM_FIXTURE_CALENDAR:
+            team_calendar_meta = _extract_team_calendar_meta(raw_output)
+        elif intent == INTENT_TEAM_SCHEDULE:
+            team_schedule_meta = _extract_team_schedule_meta(raw_output)
+        elif intent == INTENT_POSITION_FIXTURE_RUN:
+            position_fixture_run_meta = _extract_position_fixture_run_meta(raw_output)
+        elif intent == INTENT_TRANSFER_SUGGESTION:
+            transfer_suggestion_meta = _extract_transfer_suggestion_meta(raw_output)
+
+    return {
+        "comparison":           comparison,
+        "captain":              captain,
+        "captain_ranking":      captain_ranking,
+        "transfer":             transfer,
+        "chip":                 chip,
+        "fixture_run":          fixture_run,
+        "differential":         differential,
+        "player_form":          player_form_meta,
+        "injury_list":          injury_list_meta,
+        "price_changes":        price_changes_meta,
+        "team_calendar":        team_calendar_meta,
+        "team_schedule":        team_schedule_meta,
+        "position_fixture_run": position_fixture_run_meta,
+        "transfer_suggestion":  transfer_suggestion_meta,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Orch-4d: shared squad_context override helper
 #
 # Applies budget_constraint, hit_warning, and chip_unavailable post-processing
@@ -1985,66 +2098,16 @@ def respond(
             classification_source=dr.classification_source,
         )
 
-    # Populate structured metadata using shared Orch-4b extraction helpers.
-    # Each call is intent-gated and degrades safely to None on any failure.
-    comparison: ComparisonMeta | None = None
-    if dr.intent == INTENT_COMPARE_PLAYERS and dr.outcome == OUTCOME_OK:
-        comparison = _extract_comparison_meta(dr.raw_output)
-
-    captain: CaptainScoreMeta | None = None
-    if dr.intent == INTENT_CAPTAIN_SCORE and dr.outcome == OUTCOME_OK:
-        captain = _extract_captain_meta(dr.raw_output)
-
-    captain_ranking: "tuple[RankedCaptainEntry, ...] | None" = None
-    if dr.intent == INTENT_RANK_CANDIDATES and dr.outcome == OUTCOME_OK:
-        captain_ranking = _extract_captain_ranking_meta(dr.raw_output)
-
-    transfer: TransferMeta | None = None
-    if dr.intent == INTENT_TRANSFER_ADVICE and dr.outcome == OUTCOME_OK:
-        transfer = _extract_transfer_meta(dr.raw_output)
-
-    chip: ChipAdviceMeta | None = None
-    if dr.intent == INTENT_CHIP_ADVICE and dr.outcome == OUTCOME_OK:
-        chip = _extract_chip_meta(dr.raw_output)
-
-    fixture_run: FixtureRunMeta | None = None
-    if dr.intent == INTENT_PLAYER_FIXTURE_RUN and dr.outcome == OUTCOME_OK:
-        fixture_run = _extract_fixture_run_meta(dr.raw_output)
-
-    differential: DifferentialPicksMeta | None = None
-    if dr.intent == INTENT_DIFFERENTIAL_PICKS and dr.outcome == OUTCOME_OK:
-        differential = _extract_differential_meta(dr.raw_output)
-
-    player_form_meta: PlayerFormMeta | None = None
-    if dr.intent == INTENT_PLAYER_FORM and dr.outcome == OUTCOME_OK:
-        player_form_meta = _extract_player_form_meta(dr.raw_output)
-
-    injury_list_meta: InjuryListMeta | None = None
-    if dr.intent == INTENT_INJURY_LIST and dr.outcome == OUTCOME_OK:
-        injury_list_meta = _extract_injury_list_meta(dr.raw_output)
-
-    price_changes_meta: PriceChangesMeta | None = None
-    if dr.intent == INTENT_PRICE_CHANGES and dr.outcome == OUTCOME_OK:
-        price_changes_meta = _extract_price_changes_meta(dr.raw_output)
-
-    team_calendar_meta: TeamFixtureCalendarMeta | None = None
-    if dr.intent == INTENT_TEAM_FIXTURE_CALENDAR and dr.outcome == OUTCOME_OK:
-        team_calendar_meta = _extract_team_calendar_meta(dr.raw_output)
-
-    team_schedule_meta: TeamScheduleMeta | None = None
-    if dr.intent == INTENT_TEAM_SCHEDULE and dr.outcome == OUTCOME_OK:
-        team_schedule_meta = _extract_team_schedule_meta(dr.raw_output)
-
-    position_fixture_run_meta: PositionFixtureRunMeta | None = None
-    if dr.intent == INTENT_POSITION_FIXTURE_RUN and dr.outcome == OUTCOME_OK:
-        position_fixture_run_meta = _extract_position_fixture_run_meta(dr.raw_output)
+    # Populate structured metadata via shared helper (G1: extracted from inline
+    # ladder).  Pure function — degrades safely to None on any failure.
+    _meta = _extract_structured_meta(dr.intent, dr.raw_output, dr.outcome)
 
     # Orch-4d: squad_context overrides via shared helper (Phase 8e1/8e2 semantics).
     # budget_constraint / chip_unavailable replace final_text (hard blocks).
     # hit_warning is advisory — sets flag only, final_text unchanged.
-    transfer, chip, final_text = _apply_squad_overrides(
-        transfer=transfer,
-        chip=chip,
+    _meta["transfer"], _meta["chip"], final_text = _apply_squad_overrides(
+        transfer=_meta["transfer"],
+        chip=_meta["chip"],
         final_text=final_text,
         squad_context=squad_context,
     )
@@ -2057,22 +2120,22 @@ def respond(
         review_passed=review_passed,
         llm_used=llm_used,
         debug=debug,
-        comparison=comparison,
-        captain=captain,
-        captain_ranking=captain_ranking,
-        transfer=transfer,
-        chip=chip,
-        fixture_run=fixture_run,
-        differential=differential,
+        comparison=_meta["comparison"],
+        captain=_meta["captain"],
+        captain_ranking=_meta["captain_ranking"],
+        transfer=_meta["transfer"],
+        chip=_meta["chip"],
+        fixture_run=_meta["fixture_run"],
+        differential=_meta["differential"],
         orch_outcome=_orch_outcome,   # Orch-4c: None=off, non-OK string=fell back
         degraded=degraded,                     # Phase 2.6b
-        player_form=player_form_meta,          # Phase 2.6d
-        injury_list=injury_list_meta,          # Phase 2.6d
-        price_changes=price_changes_meta,      # Phase 2.6d
-        team_calendar=team_calendar_meta,      # Phase 2.6e
-        team_schedule=team_schedule_meta,      # Phase 2.6e.3
-        position_fixture_run=position_fixture_run_meta,  # Phase 2.6e.4
-        transfer_suggestion=_extract_transfer_suggestion_meta(dr.raw_output) if dr.intent == INTENT_TRANSFER_SUGGESTION and dr.outcome == OUTCOME_OK else None,  # Phase 2.6h
+        player_form=_meta["player_form"],      # Phase 2.6d
+        injury_list=_meta["injury_list"],      # Phase 2.6d
+        price_changes=_meta["price_changes"],  # Phase 2.6d
+        team_calendar=_meta["team_calendar"],  # Phase 2.6e
+        team_schedule=_meta["team_schedule"],  # Phase 2.6e.3
+        position_fixture_run=_meta["position_fixture_run"],  # Phase 2.6e.4
+        transfer_suggestion=_meta["transfer_suggestion"],    # Phase 2.6h
         # Phase 2.7d: routing audit fields threaded from DispatchResult
         route_source=dr.route_source,
         classifier_confidence=dr.classifier_confidence,
