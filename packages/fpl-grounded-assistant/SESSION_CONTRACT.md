@@ -168,6 +168,22 @@ These were intentionally excluded and remain out of scope:
 
 ---
 
+## Graduation Debt — Deferred Items (mcp-graduation branch)
+
+The following items are explicitly out of scope for the `mcp-graduation` branch and are
+deferred to follow-on branches:
+
+- **HTTP sessions** — `POST /session/{id}/ask` continues to call `respond()`. A follow-on
+  branch graduates sessions to `ask_v2()`.
+- **`intent_hint` deprecation** — the parameter remains functional via `dispatcher._try_route_with_hint`
+  pre-processing in `fpl_server.py`; removal is deferred to a follow-on branch.
+- **Multi-intent HTTP-surface dispatch** — `ask_v2()` is a single-tool entrypoint; `respond()`
+  handles multi-intent splits via sub-response composition. Multi-intent HTTP-surface dispatch is
+  deferred to a follow-on graduation branch. The CLI surface continues to test multi-intent via
+  `respond()`.
+
+---
+
 ## Phase M5 — Routing Telemetry and Go/No-Go Counters
 
 Added in M5 (2026-05-17). Operational reference for the `/healthz` endpoint

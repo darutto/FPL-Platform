@@ -573,6 +573,34 @@ def ask_v2(
 
     _none_meta: "dict[str, Any]" = _extract_structured_meta("", {}, "unsupported")
 
+    def _outcome_from_status(raw: dict) -> str:
+        """Map dispatcher raw_output['status'] to AskResponse outcome value.
+
+        Fix B (mcp-graduation G1.4): ask_v2() previously hard-coded
+        result["outcome"] = "ok" on every tool-ran branch, discarding
+        not_found / ambiguous / error / needs_clarification from the tool's
+        actual raw_output["status"].  This helper restores parity with the
+        dispatcher path (respond()) which derives outcome from status.
+
+        Mirrors dispatcher._compute_outcome() semantics:
+          - "ok"       → "ok"
+          - "not_found"→ "not_found"
+          - "ambiguous"→ "ambiguous"
+          - "error"    → "error"
+          - anything else (including "empty") → "error"  (matches _compute_outcome fallthrough)
+          - "needs_clarification" → "needs_clarification"  (medium-confidence gate path)
+        """
+        s = raw.get("status", "")
+        if s == "ok":                  return "ok"
+        if s == "not_found":           return "not_found"
+        if s == "ambiguous":           return "ambiguous"
+        if s == "error":               return "error"
+        if s == "needs_clarification": return "needs_clarification"
+        if not s:                      return "unsupported"
+        # Any unrecognised status (e.g. "empty") maps to "error" to match
+        # dispatcher._compute_outcome() fallthrough logic.
+        return "error"
+
     # Resolve bootstrap up-front so both branches operate on the same data
     actual_bootstrap, context_meta = _resolve_bootstrap_and_meta(bootstrap)
 
@@ -745,7 +773,8 @@ def ask_v2(
         routing_trace["branch"]     = "route"
         routing_trace["router_hit"] = True
         routing_trace["grounded"]   = True
-        result["outcome"] = "ok"
+        # Fix B (mcp-graduation G1.4): derive outcome from tool status, not hard-coded "ok".
+        result["outcome"] = _outcome_from_status(result.get("raw_output") or {})
         result["kind"]    = "text"
         result["routing_trace"] = routing_trace
         # route branch: deterministic tool ran, extract real structured metadata
@@ -768,6 +797,47 @@ def ask_v2(
             routing_trace["classifier_confidence"] = classification.confidence
             routing_trace["classifier_intent"]    = classification.intent
             canonical = classification.canonical_question
+            # Phase 2.7e parity (mcp-graduation G1.4): apply the medium-confidence gate
+            # inside ask_v2() to match dispatcher.dispatch() semantics.
+            # When CLASSIFIER_MEDIUM_GATE_ENABLED and confidence < HIGH threshold,
+            # do NOT execute the tool — return needs_clarification instead.
+            from .dispatcher import (  # noqa: PLC0415
+                CLASSIFIER_MEDIUM_GATE_ENABLED as _MED_GATE,
+                _CLASSIFIER_HIGH_CONFIDENCE as _HIGH_CONF,
+            )
+            _is_medium = classification.confidence < _HIGH_CONF
+            if _is_medium and _MED_GATE:
+                # Phase 2.7e parity: derive intent from the classifier's routing result
+                # so the adapter can report the correct intent (matches dispatcher.py line 660).
+                # _TOOL_TO_INTENT and route() are both available at this point (deferred imports
+                # at ask_v2 entry + module-level import of route from router).
+                _med_route = route(canonical)
+                _med_intent = _TOOL_TO_INTENT.get(_med_route.tool_name, "unsupported") if _med_route else "unsupported"
+                routing_trace["branch"] = "classifier_rewrite"
+                routing_trace["classification_source"] = "llm_classifier"
+                routing_trace["grounded"] = False
+                result = {
+                    "selected_tool": None,
+                    "tool_input":    {},
+                    "raw_output":    {
+                        "status":   "needs_clarification",
+                        "code":     "medium_confidence",
+                        "question": cleaned_text,
+                    },
+                    "answer_text":   "I need more information to answer that.",
+                    "outcome":       "needs_clarification",
+                    "kind":          "text",
+                    "canonical_question": canonical,
+                    "routing_trace": routing_trace,
+                    # surface the classifier-resolved intent so harness_adapter can project it
+                    # (selected_tool is None; adapter falls back to this key when present)
+                    "medium_gate_intent": _med_intent,
+                    **_none_meta,  # medium-gate: tool NOT run → all 14 keys are None
+                }
+                if context_meta is not None:
+                    result["context_meta"] = context_meta
+                _telemetry.record(routing_trace)  # M5 telemetry
+                return result
             result = ask(
                 canonical,
                 bootstrap,
@@ -778,7 +848,8 @@ def ask_v2(
                 routing_trace["branch"]              = "classifier_rewrite"
                 routing_trace["grounded"]            = True
                 routing_trace["classification_source"] = "llm_classifier"
-                result["outcome"]              = "ok"
+                # Fix B (mcp-graduation G1.4): derive outcome from tool status, not hard-coded "ok".
+                result["outcome"]              = _outcome_from_status(result.get("raw_output") or {})
                 result["kind"]                 = "text"
                 result["canonical_question"]   = canonical
                 result["routing_trace"]        = routing_trace
@@ -843,6 +914,7 @@ def ask_v2(
                 "tool_input":    dict(orch_result.tool_args),
                 "raw_output":    _orch_raw,
                 "answer_text":   orch_result.answer_text,
+                # Intentional "ok": this branch only fires when orch_result.outcome == ORCH_OUTCOME_OK.
                 "outcome":       "ok",
                 "kind":          "text",
                 "orchestrator_model": orch_result.model,
@@ -883,6 +955,8 @@ def ask_v2(
 
     # --- Step 4: unsupported (deterministic + classifier both missed,
     #             AND orchestrator unreachable or disabled). ---
+    # ask_v2() uses "unsupported" here; harness_adapter.py maps it to
+    # "unsupported_intent" on the HTTP surface to match dispatcher semantics.
     routing_trace["branch"] = "unsupported"
     result = {
         "selected_tool": None,

@@ -27,8 +27,10 @@ Covers:
        route and resource (4 assertions).
     K  review_passed semantics: True when grounded, False when unsupported
        (2 assertions).
-    L  route_source derivation: "llm_classifier" for classifier_rewrite,
-       "intent_hint" when hint fired, None for plain route (3 assertions).
+    L  route_source derivation: "llm_classifier_high"/"llm_classifier_medium" for
+       classifier_rewrite (band from confidence vs 0.9 threshold), "intent_hint" when
+       hint fired, "deterministic" for plain route branch (3 assertions).
+       [Updated G1.4 fix A to match dispatcher confidence-band semantics.]
 
 Total: >= 41 assertions.  Exit code 0 on success, 1 on any failure.
 
@@ -674,10 +676,12 @@ check(resp.review_passed is False,
 
 print("\n--- L: route_source derivation ---")
 
-# L1: classifier_rewrite → route_source == "llm_classifier"
+# L1: classifier_rewrite with confidence=0.92 (>= 0.9) → route_source == "llm_classifier_high"
+# G1.4 fix A: adapter now derives confidence band from routing_trace.classifier_confidence,
+# matching dispatcher._CLASSIFIER_HIGH_CONFIDENCE = 0.9.  _d_cr has confidence=0.92.
 resp = to_ask_response(_d_cr, _req())
-check(resp.route_source == "llm_classifier",
-      "L1: classifier_rewrite branch → route_source == 'llm_classifier'")
+check(resp.route_source == "llm_classifier_high",
+      "L1: classifier_rewrite branch, confidence=0.92 >= 0.9 → route_source == 'llm_classifier_high'")
 
 # L2: intent_hint routing (classification_source == "intent_hint") → "intent_hint"
 _hint_rt = {
@@ -707,10 +711,11 @@ resp = to_ask_response(_d_hint, _req())
 check(resp.route_source == "intent_hint",
       "L2: classification_source=intent_hint → route_source == 'intent_hint'")
 
-# L3: plain route (no hint, no classifier) → route_source == None
+# L3: plain route (no hint, no classifier) → route_source == "deterministic"
+# G1.4 fix A: branch == "route" maps to "deterministic" to match dispatcher semantics.
 resp = to_ask_response(_d_route, _req())
-check(resp.route_source is None,
-      "L3: plain route branch → route_source == None")
+check(resp.route_source == "deterministic",
+      "L3: plain route branch → route_source == 'deterministic'")
 
 
 # ---------------------------------------------------------------------------

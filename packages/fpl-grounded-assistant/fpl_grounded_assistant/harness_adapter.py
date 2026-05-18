@@ -121,9 +121,13 @@ def to_ask_response(
 
     ``route_source``
         ``"intent_hint"`` when the routing_trace indicates the hint path fired
-        (classification_source == "intent_hint" or decision_kind matches hint
-        detection).  ``"llm_classifier"`` when branch == "classifier_rewrite".
-        ``None`` otherwise.
+        (classification_source == "intent_hint").
+        ``"llm_classifier_high"`` / ``"llm_classifier_medium"`` / ``"llm_classifier"``
+        when branch == "classifier_rewrite" (band derived from classifier_confidence,
+        threshold 0.9 mirrors dispatcher._CLASSIFIER_HIGH_CONFIDENCE — pure numeric
+        mapping, not a routing decision).
+        ``"deterministic"`` when branch == "route" (no LLM involved).
+        ``None`` for all other branches (prompt, resource, orchestrator, unsupported).
 
     ``routing_trace``
         NEVER surfaced as a top-level field.  Only included inside the ``debug``
@@ -133,7 +137,10 @@ def to_ask_response(
     # fpl_grounded_assistant which imports harness_adapter at wire-up time).
     from fpl_server import AskResponse as _AskResponse
     from fpl_grounded_assistant.dispatcher import _TOOL_TO_INTENT, INTENT_UNSUPPORTED
-    from fpl_grounded_assistant.final_response import _apply_squad_overrides
+    from fpl_grounded_assistant.final_response import (
+        _apply_squad_overrides,
+        _clarification_text_for_intent,
+    )
 
     # Work on a shallow copy so we never mutate the caller's dict.
     d: dict[str, Any] = dict(ask_v2_dict)
@@ -166,36 +173,96 @@ def to_ask_response(
     # ------------------------------------------------------------------
     # 2. Derive intent from selected_tool (no top-level "intent" key in
     #    ask_v2 dict).
+    #    Exception: when the medium-confidence gate fires, selected_tool=None
+    #    but ask_v2() injects "medium_gate_intent" with the classifier-resolved
+    #    intent so callers see the correct intent (matching dispatcher.py line 660).
     # ------------------------------------------------------------------
     selected_tool: str | None = d.get("selected_tool")
-    intent: str = _TOOL_TO_INTENT.get(selected_tool or "", INTENT_UNSUPPORTED)
+    if selected_tool is not None:
+        intent: str = _TOOL_TO_INTENT.get(selected_tool, INTENT_UNSUPPORTED)
+    elif d.get("medium_gate_intent") is not None:
+        intent = d["medium_gate_intent"]
+    else:
+        intent = INTENT_UNSUPPORTED
 
     # ------------------------------------------------------------------
     # 3. Outcome and supported.
     # ------------------------------------------------------------------
-    outcome: str = d.get("outcome", "unsupported")
-    supported: bool = outcome != "unsupported"
+    _raw_outcome: str = d.get("outcome", "unsupported")
+    # Parity fix (mcp-graduation G1.4): ask_v2() step 4 (full text-ladder miss)
+    # returns outcome="unsupported" with kind="text" and branch="unsupported".
+    # dispatcher.dispatch() returns OUTCOME_UNSUPPORTED_INTENT ("unsupported_intent")
+    # for the same case.  Map here to preserve parity without altering ask_v2().
+    # Other "unsupported" cases (rejected, resource-miss, prompt-miss) keep "unsupported"
+    # because they have kind != "text".
+    _kind: str = d.get("kind", "")
+    if _raw_outcome == "unsupported" and branch == "unsupported" and _kind == "text":
+        outcome: str = "unsupported_intent"
+    else:
+        outcome = _raw_outcome
+    # supported=False for unsupported_intent AND needs_clarification,
+    # matching adapter.py line 143:
+    #   supported = dr.outcome not in (OUTCOME_UNSUPPORTED_INTENT, OUTCOME_NEEDS_CLARIFICATION)
+    # All other outcomes (ok, not_found, ambiguous, error, missing_arguments) are "supported"
+    # (the intent was within scope; the answer was limited by data or routing state).
+    supported: bool = outcome not in ("unsupported", "unsupported_intent", "needs_clarification")
+
+    # ------------------------------------------------------------------
+    # 3b. Phase 2.7f parity: when outcome == needs_clarification, replace the
+    #     generic harness answer_text with an intent-shaped clarification prompt,
+    #     matching final_response.py line 2084 (_clarification_text_for_intent).
+    # ------------------------------------------------------------------
+    if outcome == "needs_clarification":
+        answer_text = _clarification_text_for_intent(intent)
 
     # ------------------------------------------------------------------
     # 4. Semantic-shift fields (documented in module docstring).
     # ------------------------------------------------------------------
     llm_used: bool = branch in _LLM_BRANCHES
     # review_passed: True whenever the answer is grounded OR the outcome is
-    # not a full ladder miss.  False only on unsupported / no-tool branches.
+    # not a full ladder miss.  False on unsupported / unsupported_intent branches.
+    # "unsupported_intent" is the adapter-mapped value of step-4 "unsupported" text misses.
     review_passed: bool = routing_trace.get("grounded", False) or (
-        outcome not in ("unsupported",)
+        outcome not in ("unsupported", "unsupported_intent")
     )
 
     # ------------------------------------------------------------------
     # 5. Routing audit fields from routing_trace.
     # ------------------------------------------------------------------
-    # route_source: "intent_hint" if hint route fired, "llm_classifier" for
-    # classifier_rewrite branch, else None.
+    # route_source: mirrors dispatcher.py semantics exactly.
+    #
+    #   "intent_hint"          — routing_trace classification_source == "intent_hint"
+    #                            (injected by fpl_server POST /ask pre-processing)
+    #   "llm_classifier_high"  — classifier_rewrite branch, confidence >= 0.9
+    #                            (matches dispatcher._CLASSIFIER_HIGH_CONFIDENCE)
+    #   "llm_classifier_medium"— classifier_rewrite branch, 0 <= confidence < 0.9
+    #   "llm_classifier"       — classifier_rewrite branch, confidence absent
+    #   "deterministic"        — route branch (no LLM involved)
+    #   None                   — all other branches (prompt, resource, orchestrator,
+    #                            unsupported)
+    #
+    # The confidence-band thresholds are read from the same constants used by
+    # dispatcher.py at lines 652-655 (_CLASSIFIER_HIGH_CONFIDENCE = 0.9).
+    # Adapter computes the band from classifier_confidence — pure numeric mapping,
+    # NOT a routing decision (routing decisions live in ask_v2 / dispatcher).
+    _ADAPTER_HIGH_CONFIDENCE: float = 0.9  # mirrors dispatcher._CLASSIFIER_HIGH_CONFIDENCE
     classification_source: str | None = routing_trace.get("classification_source")
     if classification_source == "intent_hint":
         route_source: str | None = "intent_hint"
     elif branch == "classifier_rewrite":
-        route_source = "llm_classifier"
+        # Derive confidence band to match dispatcher semantics (Fix A, G1.4).
+        conf = routing_trace.get("classifier_confidence")
+        if conf is not None and conf >= _ADAPTER_HIGH_CONFIDENCE:
+            route_source = "llm_classifier_high"
+        elif conf is not None:
+            route_source = "llm_classifier_medium"
+        else:
+            # classifier_confidence absent — shouldn't happen on classifier_rewrite branch,
+            # but fall back gracefully.
+            route_source = "llm_classifier"
+    elif branch == "route":
+        # Deterministic path: route() succeeded on the first try, no LLM involved.
+        route_source = "deterministic"
     else:
         route_source = None
 
