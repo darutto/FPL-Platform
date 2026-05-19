@@ -3,23 +3,20 @@ run_phase_orch4b_tests.py
 =========================
 Phase Orch-4b: Structured metadata parity on orchestration success path.
 
+POST-GRADUATION NOTE (G2.c): The Orch-4a gate inside respond() was deleted
+in commit 118d43e (G2.a) as part of the mcp-graduation sprint. respond() is
+now deterministic-only; FPL_ORCH_ENABLED no longer controls respond() routing.
+Sections J through R (respond() flag ON end-to-end tests) have been retired —
+they tested Orch-4a gate behavior removed in commit 118d43e. Section S
+(deterministic path regression) is retained.
+
 Validates that:
 - Extraction helpers are importable and callable.
 - Each extraction helper produces the correct metadata type from real tool_output.
 - Each extraction helper degrades safely to None on empty/malformed input.
 - _orch_result_to_final_response populates metadata for all 7 applicable intents.
-- respond() with flag ON populates captain metadata from real run_tool output.
-- respond() with flag ON populates comparison metadata from real run_tool output.
-- respond() with flag ON populates captain_ranking from real run_tool output.
-- respond() with flag ON populates transfer metadata from real run_tool output.
-- respond() with flag ON populates chip metadata from real run_tool output.
-- respond() with flag ON populates fixture_run metadata from real run_tool output.
-- respond() with flag ON populates differential metadata from real run_tool output.
-- Intents with no metadata (get_current_gameweek, get_player_summary, resolve_player)
-  produce None for all structured metadata fields.
-- Non-OK orch outcomes still fall through silently (unchanged from Orch-4a).
 - Deterministic respond() path (flag OFF) is byte-equivalent before/after refactor.
-- FinalResponse contract shape is unchanged in both modes.
+- FinalResponse contract shape is unchanged in deterministic mode.
 
 Sections
 --------
@@ -32,16 +29,9 @@ F  _extract_chip_meta                -- unit tests
 G  _extract_fixture_run_meta         -- unit tests
 H  _extract_differential_meta        -- unit tests
 I  _orch_result_to_final_response    -- intent dispatch and metadata population
-J  respond() flag ON: captain        -- end-to-end with real run_tool output
-K  respond() flag ON: comparison     -- end-to-end with real run_tool output
-L  respond() flag ON: captain_ranking -- end-to-end with real run_tool output
-M  respond() flag ON: transfer       -- end-to-end with real run_tool output
-N  respond() flag ON: chip           -- end-to-end with real run_tool output
-O  respond() flag ON: fixture_run    -- end-to-end with real run_tool output
-P  respond() flag ON: differential   -- end-to-end with real run_tool output
-Q  No-metadata intents               -- current_gameweek, player_summary, resolve_player
-R  Fallback paths unchanged          -- non-OK orch outcomes still go deterministic
 S  Regression: deterministic path    -- flag OFF produces correct metadata
+
+G2.c: Sections J-R deleted — tested Orch-4a gate behavior removed in commit 118d43e
 
 Run from packages/fpl-grounded-assistant::
 
@@ -651,235 +641,9 @@ for _result, _expected_populated in [
        f"I25-exclusive: only '{_expected_populated}' populated, others None")
 
 
-# ---------------------------------------------------------------------------
-# Section J: respond() flag ON — captain metadata (end-to-end)
-# ---------------------------------------------------------------------------
-
-print("\n=== J: respond() flag ON: captain ===")
-
-_set_flag("1")
-_mock_j = _AnthropicToolClient("get_captain_score", {"query": "Haaland"})
-_r_j = respond("should I captain Haaland", STANDARD_BOOTSTRAP, client=_mock_j)
-_set_flag(None)
-
-ok(_r_j.outcome == DISP_OUTCOME_OK,             "J1: outcome == OUTCOME_OK")
-ok(_r_j.intent == INTENT_CAPTAIN_SCORE,         "J2: intent == captain_score")
-ok(_r_j.captain is not None,                    "J3: captain populated on orch success")
-ok(isinstance(_r_j.captain, CaptainScoreMeta),  "J4: captain is CaptainScoreMeta")
-ok(_r_j.captain.web_name == "Haaland",          "J5: captain.web_name == 'Haaland'")
-ok(_r_j.captain.team_short == "MCI",            "J6: captain.team_short == 'MCI'")
-ok(_r_j.captain.captain_score > 0,              "J7: captain.captain_score > 0")
-ok(_r_j.captain.tier in ("safe","upside","differential","avoid","low_confidence"),
-   "J8: captain.tier is valid tier string")
-ok("penalty_taker_1" in _r_j.captain.set_piece_notes,
-   "J9: set_piece_notes populated")
-ok(_r_j.comparison is None,                     "J10: comparison is None")
-ok(_r_j.captain_ranking is None,                "J11: captain_ranking is None")
-ok(_r_j.transfer is None,                       "J12: transfer is None")
-
-
-# ---------------------------------------------------------------------------
-# Section K: respond() flag ON — comparison metadata (end-to-end)
-# ---------------------------------------------------------------------------
-
-print("\n=== K: respond() flag ON: comparison ===")
-
-_set_flag("1")
-_mock_k = _AnthropicToolClient("compare_players", {"query_a": "Haaland", "query_b": "Salah"})
-_r_k = respond("Haaland or Salah for captain", STANDARD_BOOTSTRAP, client=_mock_k)
-_set_flag(None)
-
-ok(_r_k.outcome == DISP_OUTCOME_OK,             "K1: outcome == OUTCOME_OK")
-ok(_r_k.intent == INTENT_COMPARE_PLAYERS,       "K2: intent == compare_players")
-ok(_r_k.comparison is not None,                 "K3: comparison populated on orch success")
-ok(isinstance(_r_k.comparison, ComparisonMeta), "K4: comparison is ComparisonMeta")
-ok(_r_k.comparison.winner in ("Haaland","Salah",None),
-   "K5: winner is valid player name or None")
-ok(isinstance(_r_k.comparison.reasons, tuple),  "K6: reasons is tuple")
-ok(_r_k.comparison.player_a is not None,        "K7: player_a populated")
-ok(_r_k.comparison.player_b is not None,        "K8: player_b populated")
-ok(_r_k.comparison.player_a.web_name == "Haaland",
-   "K9: player_a.web_name == 'Haaland'")
-ok(_r_k.comparison.player_b.web_name == "Salah",
-   "K10: player_b.web_name == 'Salah'")
-ok(_r_k.captain is None,                        "K11: captain is None")
-ok(_r_k.transfer is None,                       "K12: transfer is None")
-
-
-# ---------------------------------------------------------------------------
-# Section L: respond() flag ON — captain_ranking (end-to-end)
-# ---------------------------------------------------------------------------
-
-print("\n=== L: respond() flag ON: captain_ranking ===")
-
-_set_flag("1")
-_mock_l = _AnthropicToolClient(
-    "rank_captain_candidates",
-    {"candidates": [{"query": "Haaland"}, {"query": "Salah"}]},
-)
-_r_l = respond("rank my captain candidates", STANDARD_BOOTSTRAP, client=_mock_l)
-_set_flag(None)
-
-ok(_r_l.outcome == DISP_OUTCOME_OK,             "L1: outcome == OUTCOME_OK")
-ok(_r_l.intent == INTENT_RANK_CANDIDATES,       "L2: intent == rank_candidates")
-ok(_r_l.captain_ranking is not None,            "L3: captain_ranking populated")
-ok(isinstance(_r_l.captain_ranking, tuple),     "L4: captain_ranking is tuple")
-ok(len(_r_l.captain_ranking) >= 1,              "L5: at least 1 ranked entry")
-ok(isinstance(_r_l.captain_ranking[0], RankedCaptainEntry),
-   "L6: entries are RankedCaptainEntry")
-ok(_r_l.captain_ranking[0].rank == 1,           "L7: first entry rank == 1")
-ok(isinstance(_r_l.captain_ranking[0].captain_score, float),
-   "L8: captain_score is float")
-ok(_r_l.captain is None,                        "L9: captain is None")
-
-
-# ---------------------------------------------------------------------------
-# Section M: respond() flag ON — transfer metadata (end-to-end)
-# ---------------------------------------------------------------------------
-
-print("\n=== M: respond() flag ON: transfer ===")
-
-_set_flag("1")
-_mock_m = _AnthropicToolClient(
-    "get_transfer_advice", {"query_out": "Saka", "query_in": "Salah"}
-)
-_r_m = respond("should I sell Saka for Salah", STANDARD_BOOTSTRAP, client=_mock_m)
-_set_flag(None)
-
-ok(_r_m.outcome == DISP_OUTCOME_OK,             "M1: outcome == OUTCOME_OK")
-ok(_r_m.intent == INTENT_TRANSFER_ADVICE,       "M2: intent == transfer_advice")
-ok(_r_m.transfer is not None,                   "M3: transfer populated on orch success")
-ok(isinstance(_r_m.transfer, TransferMeta),     "M4: transfer is TransferMeta")
-ok(_r_m.transfer.player_out == "Saka",          "M5: player_out == 'Saka'")
-ok(_r_m.transfer.player_in == "Salah",          "M6: player_in == 'Salah'")
-ok(_r_m.transfer.recommendation in (
-    "transfer_in","marginal_transfer_in","hold"),
-   "M7: recommendation is valid string")
-ok(isinstance(_r_m.transfer.score_delta, float),"M8: score_delta is float")
-ok(isinstance(_r_m.transfer.reasons, tuple),    "M9: reasons is tuple")
-ok(_r_m.captain is None,                        "M10: captain is None")
-
-
-# ---------------------------------------------------------------------------
-# Section N: respond() flag ON — chip metadata (end-to-end)
-# ---------------------------------------------------------------------------
-
-print("\n=== N: respond() flag ON: chip ===")
-
-_set_flag("1")
-_mock_n = _AnthropicToolClient("get_chip_advice", {"chip": "bench_boost"})
-_r_n = respond("should I bench boost this week", STANDARD_BOOTSTRAP, client=_mock_n)
-_set_flag(None)
-
-ok(_r_n.outcome == DISP_OUTCOME_OK,             "N1: outcome == OUTCOME_OK")
-ok(_r_n.intent == INTENT_CHIP_ADVICE,           "N2: intent == chip_advice")
-ok(_r_n.chip is not None,                       "N3: chip populated on orch success")
-ok(isinstance(_r_n.chip, ChipAdviceMeta),       "N4: chip is ChipAdviceMeta")
-ok(_r_n.chip.chip == "bench_boost",             "N5: chip.chip == 'bench_boost'")
-ok(_r_n.chip.recommendation in (
-    "conditions_favorable","conditions_marginal","conditions_unfavorable","missing_context"),
-   "N6: recommendation is valid string")
-ok(_r_n.chip.gw is not None,                    "N7: chip.gw is populated")
-ok(_r_n.chip.signal_label == "average FDR (top 10)",
-   "N8: bench_boost signal_label correct")
-ok(_r_n.captain is None,                        "N9: captain is None")
-
-
-# ---------------------------------------------------------------------------
-# Section O: respond() flag ON — fixture_run metadata (end-to-end)
-# ---------------------------------------------------------------------------
-
-print("\n=== O: respond() flag ON: fixture_run ===")
-
-_set_flag("1")
-_mock_o = _AnthropicToolClient("get_player_fixture_run", {"query": "Haaland"})
-_r_o = respond("what is Haaland's fixture run", STANDARD_BOOTSTRAP, client=_mock_o)
-_set_flag(None)
-
-ok(_r_o.outcome == DISP_OUTCOME_OK,             "O1: outcome == OUTCOME_OK")
-ok(_r_o.intent == INTENT_PLAYER_FIXTURE_RUN,    "O2: intent == player_fixture_run")
-ok(_r_o.fixture_run is not None,                "O3: fixture_run populated on orch success")
-ok(isinstance(_r_o.fixture_run, FixtureRunMeta),"O4: fixture_run is FixtureRunMeta")
-ok(_r_o.fixture_run.web_name == "Haaland",      "O5: fixture_run.web_name == 'Haaland'")
-ok(_r_o.fixture_run.position == "FWD",          "O6: fixture_run.position == 'FWD'")
-ok(_r_o.fixture_run.horizon > 0,                "O7: horizon > 0")
-ok(len(_r_o.fixture_run.fixtures) > 0,          "O8: fixtures tuple non-empty")
-ok(isinstance(_r_o.fixture_run.fixtures[0], FixtureEntry),
-   "O9: fixture entries are FixtureEntry")
-ok(_r_o.captain is None,                        "O10: captain is None")
-
-
-# ---------------------------------------------------------------------------
-# Section P: respond() flag ON — differential metadata (end-to-end)
-# ---------------------------------------------------------------------------
-
-print("\n=== P: respond() flag ON: differential ===")
-
-_set_flag("1")
-_mock_p = _AnthropicToolClient("get_differential_picks", {})
-_r_p = respond("good differentials this week", DIFFERENTIAL_BOOTSTRAP, client=_mock_p)
-_set_flag(None)
-
-ok(_r_p.outcome == DISP_OUTCOME_OK,             "P1: outcome == OUTCOME_OK")
-ok(_r_p.intent == INTENT_DIFFERENTIAL_PICKS,    "P2: intent == differential_picks")
-ok(_r_p.differential is not None,               "P3: differential populated on orch success")
-ok(isinstance(_r_p.differential, DifferentialPicksMeta),
-   "P4: differential is DifferentialPicksMeta")
-ok(_r_p.differential.top_n >= 0,               "P5: top_n >= 0")
-ok(isinstance(_r_p.differential.picks, tuple),  "P6: picks is tuple")
-ok(_r_p.captain is None,                        "P7: captain is None")
-
-
-# ---------------------------------------------------------------------------
-# Section Q: No-metadata intents
-# ---------------------------------------------------------------------------
-
-print("\n=== Q: no-metadata intents ===")
-
-# get_current_gameweek, get_player_summary, resolve_player produce no structured metadata
-_no_meta_tools = [
-    ("get_current_gameweek", {}, "what gameweek"),
-    ("get_player_summary",   {"query": "Salah"}, "tell me about Salah"),
-    ("resolve_player",       {"query": "Salah"}, "who is Salah"),
-]
-for _tool, _input, _q in _no_meta_tools:
-    _set_flag("1")
-    _mc = _AnthropicToolClient(_tool, _input)
-    _rq = respond(_q, STANDARD_BOOTSTRAP, client=_mc)
-    _set_flag(None)
-    ok(_rq.outcome == DISP_OUTCOME_OK,
-       f"Q1-ok: '{_tool}' orch -> OUTCOME_OK")
-    ok(_rq.captain is None and _rq.comparison is None and _rq.transfer is None
-       and _rq.chip is None and _rq.fixture_run is None and _rq.differential is None
-       and _rq.captain_ranking is None,
-       f"Q2-none: '{_tool}' all metadata fields None")
-
-
-# ---------------------------------------------------------------------------
-# Section R: Fallback paths unchanged (non-OK orch outcomes)
-# ---------------------------------------------------------------------------
-
-print("\n=== R: fallback paths unchanged ===")
-
-class _NoToolClient:
-    def __init__(self): self.messages = self
-    def create(self, *, model, max_tokens, system, tools, messages, **kwargs):
-        class _T:
-            type = "text"; text = "nope"
-        class _R:
-            content = [_T()]; stop_reason = "end_turn"
-        return _R()
-
-# flag ON but orch returns no_tool -> deterministic path runs
-_set_flag("1")
-_r_r1 = respond("should I captain Haaland", STANDARD_BOOTSTRAP, client=_NoToolClient())
-_set_flag(None)
-
-ok(isinstance(_r_r1, FinalResponse),            "R1: no-tool orch -> FinalResponse (no crash)")
-ok(_r_r1.intent == INTENT_CAPTAIN_SCORE,        "R2: no-tool fallback -> deterministic intent")
-ok(isinstance(_r_r1.final_text, str) and _r_r1.final_text,
-   "R3: no-tool fallback -> final_text non-empty")
-
+# G2.c: Sections J through R deleted — tested Orch-4a gate behavior removed in commit 118d43e.
+# All sections J-R called respond() with FPL_ORCH_ENABLED=1 and asserted orchestrator-shaped
+# output. The gate inside respond() was deleted in G2.a; respond() is now deterministic-only.
 
 # ---------------------------------------------------------------------------
 # Section S: Regression — deterministic path produces correct metadata
