@@ -441,10 +441,8 @@ def ask_v2(
 
         {
           "branch":                  str,            # which ladder rung fired
-          "decision_kind":           str,            # from decision_router: "resource"|"prompt"|"text"|...,
-                                                    # OR "orchestrator_direct" on POST /ask-orchestrated (bypasses decision_router)
-          "decision_outcome":        str,            # from decision_router: OUTCOME_* constant,
-                                                    # OR "orchestrator_direct" on POST /ask-orchestrated
+          "decision_kind":           str,            # from decision_router: "resource"|"prompt"|"text"|...
+          "decision_outcome":        str,            # from decision_router: OUTCOME_* constant
           "router_hit":              bool,           # True iff route() succeeded
           "classifier_called":       bool,           # True iff classify_intent_llm() was called
           "classifier_confidence":   float | None,   # LLM confidence, or None
