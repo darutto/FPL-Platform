@@ -3,8 +3,7 @@ run_phase_m3_tests.py
 ======================
 Phase M3 (MCP_architecture): Orchestrator Wiring tests.
 
-Covers ``ask_v2()`` strict-order text-branch ladder and the rollout-isolated
-``POST /ask-orchestrated`` endpoint.
+Covers ``ask_v2()`` strict-order text-branch ladder.
 
 Strict ordering (plan §M3):
     1. route()                  -- deterministic
@@ -22,16 +21,16 @@ D  Step 3 reachability:
      D-success: orchestrator chooses a tool -> grounded=true
      D-no-tool: orchestrator returns no tool call -> grounded=false (plan rule)
      D-no-client: orchestrator unreachable (no client) -> graceful unsupported
-E  POST /ask-orchestrated route:
-     flag OFF -> HTTP 503
-     flag ON + tool_use mock -> 200, grounded=true, branch=orchestrator
-     flag ON + no_tool mock  -> 200, grounded=false, branch=unsupported
+
+Note: E-section (POST /ask-orchestrated route tests) removed in G2 — the
+rollout-isolation endpoint was deleted when production traffic was routed
+through ask_v2() in G1.
 
 Run from packages/fpl-grounded-assistant::
 
     python run_phase_m3_tests.py
 
-Exit 0 on success, 1 on failure.  Target: >= 30 assertions, all PASS.
+Exit 0 on success, 1 on failure.  Target: 49 assertions, all PASS.
 """
 from __future__ import annotations
 
@@ -367,87 +366,6 @@ _t = _r["routing_trace"]
 check(_t["branch"] == "unsupported",        "D-nc-1: no client -> branch=='unsupported'")
 check(_t["orchestrator_called"] is False,   "D-nc-2: orchestrator_called=False (no client to call)")
 check(_r.get("outcome") == "unsupported",   "D-nc-3: outcome=='unsupported' degrades gracefully")
-
-
-# ===========================================================================
-# E — POST /ask-orchestrated endpoint
-# ===========================================================================
-print("\n[E] POST /ask-orchestrated route")
-
-# Lazy import via TestClient
-from fastapi.testclient import TestClient  # noqa: E402
-
-# Spin up the server module with bootstrap injected.
-import fpl_server as _srv  # noqa: E402
-_srv._init_bootstrap(BOOTSTRAP)
-_srv._init_classifier_client(None)
-_client = TestClient(_srv.app)
-
-# E1: flag OFF -> 503
-os.environ.pop("FPL_ORCH_ENABLED", None)
-_resp = _client.post("/ask-orchestrated", json={"question": "any question"})
-check(_resp.status_code == 503,
-      "E1: flag OFF -> HTTP 503 from /ask-orchestrated")
-
-# E2: flag ON, no provider client => orchestrator path runs but returns no_client outcome.
-# Patch ask_orchestrated to use our mock client by monkey-patching the module's symbol.
-os.environ["FPL_ORCH_ENABLED"] = "1"
-try:
-    import fpl_grounded_assistant.orchestrator as _orch_mod  # noqa: E402
-    _orig_ask_orchestrated = _orch_mod.ask_orchestrated
-
-    # Wrap to inject mock client because the production route does not accept
-    # a client argument (by design).  This simulates a working provider.
-    _mock_tool_client = _MockOrchToolUseClient("get_current_gameweek", {})
-
-    def _wrapped_ok(question, bootstrap, **kwargs):
-        kwargs.pop("client", None)
-        return _orig_ask_orchestrated(question, bootstrap, client=_mock_tool_client, **kwargs)
-
-    _srv_orch_module = sys.modules.get("fpl_server")
-    # The /ask-orchestrated route imports ask_orchestrated locally inside the
-    # function, so we monkey-patch the orchestrator module symbol.
-    _orch_mod.ask_orchestrated = _wrapped_ok
-
-    _resp = _client.post("/ask-orchestrated", json={"question": "anything goes"})
-    check(_resp.status_code == 200, "E2: flag ON + mock tool_use -> HTTP 200")
-    _body = _resp.json()
-    check(_body.get("grounded") is True,                "E3: response grounded=True")
-    check(_body.get("outcome") == "ok",                 "E4: response outcome=='ok'")
-    check(_body.get("selected_tool") == "get_current_gameweek",
-          "E5: response selected_tool names the tool")
-    check(_body.get("routing_trace", {}).get("branch") == "orchestrator",
-          "E6: routing_trace.branch=='orchestrator' on grounded success")
-    check(_body.get("routing_trace", {}).get("orchestrator_tool_calls") == ["get_current_gameweek"],
-          "E7: routing_trace.orchestrator_tool_calls populated")
-
-    # E8-E12: no-tool path
-    _mock_nt_client = _MockOrchNoToolClient()
-
-    def _wrapped_nt(question, bootstrap, **kwargs):
-        kwargs.pop("client", None)
-        return _orig_ask_orchestrated(question, bootstrap, client=_mock_nt_client, **kwargs)
-
-    _orch_mod.ask_orchestrated = _wrapped_nt
-
-    _resp = _client.post("/ask-orchestrated", json={"question": "anything goes"})
-    check(_resp.status_code == 200, "E8: no-tool case still HTTP 200")
-    _body = _resp.json()
-    check(_body.get("grounded") is False,                "E9: response grounded=False on no-tool")
-    check(_body.get("outcome") == "unsupported",         "E10: outcome=='unsupported' on no-tool")
-    check(_body.get("routing_trace", {}).get("branch") == "unsupported",
-          "E11: routing_trace.branch=='unsupported' on no-tool")
-    check(isinstance(_body.get("suggestions"), list) and len(_body["suggestions"]) >= 6,
-          "E12: response carries >=6 @resource suggestions on no-tool")
-
-    # E13: routing_trace contract on /ask-orchestrated mirrors ask_v2()'s schema.
-    _required_route_keys = _required_keys
-    check(_required_route_keys.issubset(_body.get("routing_trace", {}).keys()),
-          "E13: /ask-orchestrated routing_trace has the full schema")
-
-finally:
-    _orch_mod.ask_orchestrated = _orig_ask_orchestrated
-    os.environ.pop("FPL_ORCH_ENABLED", None)
 
 
 # ===========================================================================

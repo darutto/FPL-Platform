@@ -928,8 +928,7 @@ def healthz() -> dict[str, Any]:
     """Phase M5 (MCP_architecture): decision-tree telemetry and graduation status.
 
     Returns per-branch routing counters and the graduation-criteria evaluation
-    derived from ask_v2() and POST /ask-orchestrated traffic observed since
-    process startup.  Counters are process-global and cumulative; they reset
+    derived from ask_v2() traffic observed since process startup.  Counters are process-global and cumulative; they reset
     only on process restart (or via telemetry.reset() in tests).
 
     This endpoint is the primary operational surface for answering the three
@@ -1042,264 +1041,72 @@ def ask(req: AskRequest) -> AskResponse:
     question : str
         Your FPL question (e.g. ``"should I captain Haaland this week?"``).
     debug : bool, optional
-        When ``True``, populate the ``debug`` bundle with internal fields
-        (``response_text``, ``llm_text``, ``violations``, ``prompt_used``,
-        ``model``).  Defaults to ``False``.
+        When ``True``, populate the ``debug`` blob with the routing_trace.
+        Defaults to ``False``.
+
+    Routing
+    -------
+    G1 (mcp-graduation): rewired through ``harness.ask_v2()`` and
+    ``harness_adapter.to_ask_response()``.  ``AskResponse`` shape unchanged.
+    ``POST /session/{id}/ask`` still calls ``respond()`` (sessions out of scope).
+
+    intent_hint (deferred deprecation)
+    -----------------------------------
+    ``intent_hint`` is NOT accepted by ``ask_v2()``; its deprecation is deferred
+    to a follow-on branch.  To preserve backward-compatible routing today we
+    pre-apply the hint via ``dispatcher._try_route_with_hint``: if the hint
+    produces a canonical question, we pass that rewritten text to ``ask_v2()``
+    and inject ``classification_source="intent_hint"`` into the routing_trace so
+    the adapter correctly sets ``route_source="intent_hint"``.  When the hint
+    does not fire (invalid hint, unknown player), ``ask_v2()`` receives the
+    original question unchanged.
     """
+    # Deferred imports — avoid circulars at module load time.
+    from fpl_grounded_assistant.harness import ask_v2 as _ask_v2  # noqa: PLC0415
+    from fpl_grounded_assistant.harness_adapter import to_ask_response as _to_ask_response  # noqa: PLC0415
+
     if _bootstrap is None:
         raise HTTPException(status_code=503, detail="Bootstrap not initialised")
 
-    r = respond(
-        req.question, _bootstrap,
-        include_debug=req.debug,
+    # ------------------------------------------------------------------
+    # intent_hint pre-processing (deferred deprecation — V2 contract).
+    # ask_v2() has no intent_hint parameter; we resolve the canonical
+    # question here so the routing ladder sees the right text, then
+    # inject classification_source into the routing_trace post-call so
+    # the adapter can set route_source correctly.
+    # ------------------------------------------------------------------
+    effective_question = req.question
+    _hint_fired = False
+    if req.intent_hint is not None:
+        from fpl_grounded_assistant.dispatcher import _try_route_with_hint  # noqa: PLC0415
+        _hint_result = _try_route_with_hint(req.question, req.intent_hint)
+        if _hint_result is not None:
+            _route_result, effective_question = _hint_result
+            _hint_fired = True
+
+    # ------------------------------------------------------------------
+    # Core routing: ask_v2() → harness_adapter.to_ask_response()
+    # squad_context goes to the adapter only (not to ask_v2).
+    # ------------------------------------------------------------------
+    ask_v2_dict: dict[str, Any] = _ask_v2(
+        effective_question,
+        _bootstrap,
         candidates_list=req.candidates_list,
         classifier_client=_classifier_client,  # Phase 4l
-        squad_context=req.squad_context,        # Phase 8e1
-        intent_hint=req.intent_hint,            # V2
     )
 
-    debug_bundle: dict[str, Any] | None = None
-    if req.debug and r.debug is not None:
-        debug_bundle = {
-            "response_text":         r.debug.response_text,
-            "llm_text":              r.debug.llm_text,
-            "violations":            list(r.debug.violations),
-            "prompt_used":           r.debug.prompt_used,
-            "model":                 r.debug.model,
-            "classification_source": r.debug.classification_source,  # Phase 4l / V2
-        }
+    # ------------------------------------------------------------------
+    # intent_hint post-processing: inject classification_source into the
+    # routing_trace so the adapter maps it to route_source="intent_hint".
+    # We shallow-copy the dict so we never mutate harness internals.
+    # ------------------------------------------------------------------
+    if _hint_fired:
+        routing_trace: dict[str, Any] = dict(ask_v2_dict.get("routing_trace") or {})
+        routing_trace["classification_source"] = "intent_hint"
+        ask_v2_dict = dict(ask_v2_dict)
+        ask_v2_dict["routing_trace"] = routing_trace
 
-    comp_bundle: dict[str, Any] | None = None
-    if r.comparison is not None:
-        comp_bundle = _comparison_dict(r.comparison)
-
-    captain_bundle: dict[str, Any] | None = None
-    if r.captain is not None:
-        captain_bundle = _captain_meta_dict(r.captain)
-
-    captain_ranking_list: list[dict[str, Any]] | None = None
-    if r.captain_ranking is not None:
-        captain_ranking_list = _captain_ranking_list(r.captain_ranking)
-
-    sub_responses_list: list[dict[str, Any]] | None = None  # Phase 6c/6d
-    if r.sub_responses is not None:
-        sub_responses_list = [_sub_response_dict(sr) for sr in r.sub_responses]
-
-    transfer_bundle: dict[str, Any] | None = None          # Phase 7a
-    if r.transfer is not None:
-        transfer_bundle = _transfer_meta_dict(r.transfer)
-
-    chip_bundle: dict[str, Any] | None = None              # Phase 7b
-    if r.chip is not None:
-        chip_bundle = _chip_meta_dict(r.chip)
-
-    fixture_run_bundle: dict[str, Any] | None = None       # Phase 7h
-    if r.fixture_run is not None:
-        fixture_run_bundle = _fixture_run_meta_dict(r.fixture_run)
-
-    differential_bundle: dict[str, Any] | None = None     # Phase 7g
-    if r.differential is not None:
-        differential_bundle = _differential_meta_dict(r.differential)
-
-    player_form_bundle: dict[str, Any] | None = None
-    if r.player_form is not None:
-        player_form_bundle = _player_form_meta_dict(r.player_form)
-
-    injury_list_bundle: dict[str, Any] | None = None
-    if r.injury_list is not None:
-        injury_list_bundle = _injury_list_meta_dict(r.injury_list)
-
-    price_changes_bundle: dict[str, Any] | None = None
-    if r.price_changes is not None:
-        price_changes_bundle = _price_changes_meta_dict(r.price_changes)
-
-    team_calendar_bundle: dict[str, Any] | None = None
-    if r.team_calendar is not None:
-        team_calendar_bundle = _team_calendar_meta_dict(r.team_calendar)
-
-    team_schedule_bundle: dict[str, Any] | None = None
-    if r.team_schedule is not None:
-        team_schedule_bundle = _team_schedule_meta_dict(r.team_schedule)
-
-    pos_fixture_run_bundle: dict[str, Any] | None = None
-    if r.position_fixture_run is not None:
-        pos_fixture_run_bundle = _position_fixture_run_meta_dict(r.position_fixture_run)
-
-    return AskResponse(
-        final_text=r.final_text,
-        outcome=r.outcome,
-        supported=r.supported,
-        intent=r.intent,
-        review_passed=r.review_passed,
-        llm_used=r.llm_used,
-        debug=debug_bundle,
-        comparison=comp_bundle,
-        captain=captain_bundle,
-        captain_ranking=captain_ranking_list,
-        sub_responses=sub_responses_list,
-        transfer=transfer_bundle,
-        chip=chip_bundle,
-        fixture_run=fixture_run_bundle,
-        differential=differential_bundle,
-        orch_outcome=r.orch_outcome,   # Orch-4c: audit
-        degraded=r.degraded,           # Phase 2.6b: provider failed silently
-        player_form=player_form_bundle,
-        injury_list=injury_list_bundle,
-        price_changes=price_changes_bundle,
-        team_calendar=team_calendar_bundle,
-        team_schedule=team_schedule_bundle,
-        position_fixture_run=pos_fixture_run_bundle,
-        transfer_suggestion=_transfer_suggestion_meta_dict(r.transfer_suggestion) if r.transfer_suggestion is not None else None,
-        # Phase 2.7d: routing audit fields
-        route_source=r.route_source,
-        classifier_confidence=r.classifier_confidence,
-        route_conflict=r.route_conflict,
-        # Phase 2.7f: clarification policy layer
-        clarification_asked=r.clarification_asked,
-    )
-
-
-# ---------------------------------------------------------------------------
-# Phase M3 (MCP_architecture): POST /ask-orchestrated
-#
-# Rollout-isolation endpoint. NOT called by the production UI.
-# Exists exclusively for internal traffic shaping, automated tests, and
-# feature-flag experiments while the LLM-orchestrator path is hardened.
-# Gated by FPL_ORCH_ENABLED (default OFF). When OFF, returns HTTP 503.
-# ---------------------------------------------------------------------------
-
-
-class AskOrchestratedResponse(BaseModel):
-    """Phase M3 (MCP_architecture): response from POST /ask-orchestrated.
-
-    FinalResponse-compatible subset plus the M5-graduated routing_trace bundle.
-    The production UI does NOT consume this endpoint.
-
-    **routing_trace tier: stable (graduated M5, 2026-05-17).** The
-    ``routing_trace`` field is an additive, optional field whose schema is
-    now part of the stable response contract for server-side consumers,
-    automated tests, and traffic shaping.  The schema is pinned by
-    ``ROUTING_TRACE_REQUIRED_KEYS`` and ``ROUTING_TRACE_OPTIONAL_KEYS``
-    in ``fpl_grounded_assistant.harness``.  Changes to those key sets are
-    breaking and must be documented with a phase label.
-
-    For the full key-by-key documentation see the ``ask_v2()`` docstring
-    in ``fpl_grounded_assistant.harness``.
-    """
-
-    final_text:     str
-    outcome:        str
-    supported:      bool
-    grounded:       bool
-    selected_tool:  str | None       = None
-    tool_input:     dict[str, Any]   | None = None
-    raw_output:     dict[str, Any]   | None = None
-    orch_outcome:   str              | None = None
-    orch_model:     str              | None = None
-    routing_trace:  dict[str, Any]   | None = None
-    suggestions:    list[str]        | None = None
-
-
-@app.post("/ask-orchestrated", response_model=AskOrchestratedResponse)
-def ask_orchestrated_route(req: AskRequest) -> AskOrchestratedResponse:
-    """Phase M3 rollout-isolated orchestrator endpoint.
-
-    Unconditionally invokes ``ask_orchestrated()`` (no deterministic router
-    preamble, no classifier rewrite). This endpoint exists ONLY for internal
-    testing and feature-flag rollout. The production UI calls ``POST /ask``.
-
-    Gating
-    ------
-    Requires ``FPL_ORCH_ENABLED`` to be truthy. When the flag is OFF the
-    endpoint returns HTTP 503 — no degradation to deterministic routing —
-    because the only purpose of this route is to exercise the orchestrator.
-    """
-    from fpl_grounded_assistant.orch_config import is_orch_enabled, get_orch_provider  # noqa: PLC0415
-    from fpl_grounded_assistant.orchestrator import (  # noqa: PLC0415
-        ask_orchestrated,
-        OUTCOME_OK as ORCH_OUTCOME_OK,
-    )
-    from fpl_grounded_assistant.intent_aliases import list_resources  # noqa: PLC0415
-
-    if _bootstrap is None:
-        raise HTTPException(status_code=503, detail="Bootstrap not initialised")
-
-    if not is_orch_enabled():
-        # Rollout isolation: when the flag is OFF the orchestrator route is
-        # unreachable. The deterministic surface is POST /ask.
-        raise HTTPException(
-            status_code=503,
-            detail="Orchestrator route disabled (FPL_ORCH_ENABLED is off).",
-        )
-
-    provider = get_orch_provider()
-    orch_result = ask_orchestrated(
-        req.question,
-        _bootstrap,
-        provider=provider,
-    )
-
-    grounded = (
-        orch_result.outcome == ORCH_OUTCOME_OK
-        and bool(orch_result.tool_chosen)
-    )
-
-    tool_calls: list[str] | None = (
-        [orch_result.tool_chosen] if orch_result.tool_chosen else None
-    )
-
-    routing_trace: dict[str, Any] = {
-        "branch":                    "orchestrator" if grounded else "unsupported",
-        "decision_kind":             "orchestrator_direct",   # /ask-orchestrated bypasses decision_router
-        "decision_outcome":          "orchestrator_direct",   # synthetic marker for the direct-invoke path
-        "router_hit":                False,
-        "classifier_called":         False,
-        "classifier_confidence":     None,
-        "classifier_intent":         None,
-        "orchestrator_called":       True,
-        "orchestrator_tool_calls":   tool_calls,
-        "orchestrator_outcome":      orch_result.outcome,
-        "grounded":                  grounded,
-        "feature_flag_orch_enabled": True,
-    }
-
-    # M5 telemetry: record this /ask-orchestrated invocation.
-    # This path bypasses ask_v2()'s ladder, so ask_v2()'s own record() call
-    # does not fire here. We record directly so orchestrator_attempted /
-    # orchestrator_grounded counters stay accurate for /healthz graduation math.
-    from fpl_grounded_assistant import telemetry as _telemetry  # noqa: PLC0415
-    _telemetry.record(routing_trace)
-
-    if grounded:
-        return AskOrchestratedResponse(
-            final_text=orch_result.answer_text,
-            outcome="ok",
-            supported=True,
-            grounded=True,
-            selected_tool=orch_result.tool_chosen,
-            tool_input=dict(orch_result.tool_args),
-            raw_output=dict(orch_result.tool_output),
-            orch_outcome=orch_result.outcome,
-            orch_model=orch_result.model,
-            routing_trace=routing_trace,
-        )
-
-    # Non-grounded: orchestrator returned without a usable tool call OR
-    # the tool errored / no client was available. Per plan §M3, this is
-    # surfaced as unsupported with curated resource suggestions.
-    return AskOrchestratedResponse(
-        final_text=orch_result.answer_text,
-        outcome="unsupported",
-        supported=False,
-        grounded=False,
-        selected_tool=orch_result.tool_chosen,
-        tool_input=dict(orch_result.tool_args) if orch_result.tool_args else None,
-        raw_output=dict(orch_result.tool_output) if orch_result.tool_output else None,
-        orch_outcome=orch_result.outcome,
-        orch_model=orch_result.model if orch_result.llm_used else None,
-        routing_trace=routing_trace,
-        suggestions=[f"@{r}" for r in list_resources()],
-    )
+    return _to_ask_response(ask_v2_dict, req)
 
 
 @app.post("/session", response_model=CreateSessionResponse)

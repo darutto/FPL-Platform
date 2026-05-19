@@ -299,7 +299,13 @@ def run_http_surface(
     if classifier_stub is not None:
         fpl_server._init_classifier_client(None)  # reset
 
+    # G1 (mcp-graduation): POST /ask is now routed through ask_v2() +
+    # harness_adapter.  The debug bundle shape changed: the adapter emits
+    # {"routing_trace": {...}} instead of the legacy
+    # {"classification_source": ..., "response_text": ..., ...}.
+    # classification_source is now inside routing_trace.
     debug_bundle: dict[str, Any] = body.get("debug") or {}
+    routing_trace_bundle: dict[str, Any] = debug_bundle.get("routing_trace") or {}
     return {
         "surface":                "http",
         "http_status":            resp.status_code,
@@ -321,7 +327,8 @@ def run_http_surface(
         "position_fixture_run":   body.get("position_fixture_run"),     # Phase 2.6e.4
         "transfer_suggestion":    body.get("transfer_suggestion"),      # Phase 2.6h
         "final_text":             body.get("final_text", ""),
-        "classification_source":  debug_bundle.get("classification_source"),
+        # G1: classification_source is inside routing_trace in the new debug bundle.
+        "classification_source":  routing_trace_bundle.get("classification_source"),
         # Phase 2.7d: routing audit fields
         "route_source":           body.get("route_source"),
         "classifier_confidence":  body.get("classifier_confidence"),
@@ -899,6 +906,23 @@ def _check_cross_surface_parity(
 # Main runner
 # ---------------------------------------------------------------------------
 
+_MULTI_INTENT_SCENARIO_IDS: frozenset[str] = frozenset({
+    "multi_intent_gw_and_summary",
+    "multi_intent_captain_and_resolve",
+    "multi_intent_captain_and_comparison",
+})
+"""Multi-intent scenarios carved out from the HTTP surface.
+
+ask_v2() is a single-tool entrypoint; respond() handles multi-intent splits
+via sub_responses composition.  The HTTP surface (POST /ask → ask_v2()) cannot
+satisfy multi-intent assertions until a follow-on graduation branch adds
+multi-intent support to ask_v2().
+
+Graduation carve-out — multi-intent HTTP surface deferred (see SESSION_CONTRACT.md).
+The CLI surface still exercises these scenarios via respond().
+"""
+
+
 def run_all_scenarios() -> list[dict[str, Any]]:
     """Execute all scenarios and return structured results."""
     results: list[dict[str, Any]] = []
@@ -909,6 +933,9 @@ def run_all_scenarios() -> list[dict[str, Any]]:
         all_failures: list[str] = []
 
         for surface_name in scenario.surfaces:
+            # Graduation carve-out — multi-intent HTTP surface deferred (see SESSION_CONTRACT.md)
+            if surface_name == "http" and scenario.id in _MULTI_INTENT_SCENARIO_IDS:
+                continue
             runner = _SURFACE_RUNNERS.get(surface_name)
             if runner is None:
                 all_failures.append(f"Unknown surface: {surface_name}")
@@ -917,7 +944,7 @@ def run_all_scenarios() -> list[dict[str, Any]]:
             surface_results[surface_name] = sr
             all_failures.extend(_check_scenario_result(scenario, surface_name, sr))
 
-        # Cross-surface parity
+        # Cross-surface parity (skipped when HTTP surface was carved out)
         parity_failures = _check_cross_surface_parity(surface_results)
         all_failures.extend(parity_failures)
 

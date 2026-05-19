@@ -74,21 +74,13 @@ from typing import Any
 
 from . import telemetry as _telemetry  # Phase 2.7g: in-process telemetry (never raises)
 from .dispatcher import OUTCOME_OK, OUTCOME_NEEDS_CLARIFICATION, INTENT_COMPARE_PLAYERS, INTENT_CAPTAIN_SCORE, INTENT_RANK_CANDIDATES, INTENT_MULTI_INTENT, INTENT_TRANSFER_ADVICE, INTENT_CHIP_ADVICE, INTENT_PLAYER_FIXTURE_RUN, INTENT_DIFFERENTIAL_PICKS, INTENT_PLAYER_FORM, INTENT_INJURY_LIST, INTENT_PRICE_CHANGES, INTENT_TEAM_FIXTURE_CALENDAR, INTENT_TEAM_SCHEDULE, INTENT_POSITION_FIXTURE_RUN, INTENT_TRANSFER_SUGGESTION  # noqa: F401 — re-exported
-from .dispatcher import _TOOL_TO_INTENT, INTENT_UNSUPPORTED  # Orch-4a: tool->intent map
+from .dispatcher import _TOOL_TO_INTENT, INTENT_UNSUPPORTED  # _orch_result_to_final_response: tool->intent map
 from .multi_intent import detect_multi_intent
 from .llm_layer import DEFAULT_MODEL
 from .llm_review import ask_llm_safe
-from .orch_config import is_orch_enabled, get_orch_provider  # Orch-4a: feature flag
-from .orchestrator import (  # Orch-4a/4c: orchestration entrypoint and audit constants
-    ask_orchestrated,
+from .orchestrator import (  # _orch_result_to_final_response: result type + OK constant
     OrchestratorResult,
-    OUTCOME_OK          as ORCH_OUTCOME_OK,
-    OUTCOME_NO_CLIENT   as ORCH_OUTCOME_NO_CLIENT,        # Orch-4c re-export
-    OUTCOME_LLM_ERROR   as ORCH_OUTCOME_LLM_ERROR,        # Orch-4c re-export
-    OUTCOME_NO_TOOL     as ORCH_OUTCOME_NO_TOOL,          # Orch-4c re-export
-    OUTCOME_UNKNOWN_TOOL as ORCH_OUTCOME_UNKNOWN_TOOL,    # Orch-4c re-export
-    OUTCOME_TOOL_ERROR  as ORCH_OUTCOME_TOOL_ERROR,       # Orch-4c re-export
-    OUTCOME_TOOL_RESULT_ERROR as ORCH_OUTCOME_TOOL_RESULT_ERROR,  # Orch-4c re-export
+    OUTCOME_OK as ORCH_OUTCOME_OK,
 )
 
 
@@ -1171,7 +1163,6 @@ def _respond_multi(
 #
 # These helpers are shared by:
 #   * respond()              — deterministic path (refactored from inline code)
-#   * _orch_result_to_final_response() — orchestration success path
 # ---------------------------------------------------------------------------
 
 def _extract_comparison_player_ctx(pd: dict) -> "ComparisonPlayerContext":
@@ -1594,6 +1585,119 @@ def _extract_team_schedule_meta(ro: "dict[str, Any]") -> "TeamScheduleMeta | Non
 
 
 # ---------------------------------------------------------------------------
+# G1: Structured-metadata extraction helper
+#
+# Pure function — no side effects, no LLM calls.  Extracts every
+# intent-specific structured-metadata field from a raw dispatcher output dict,
+# gated on outcome == OUTCOME_OK.  Called from respond() and (from commit 2
+# onward) from the harness_adapter for the ask_v2() path.
+#
+# Intents covered (complete list as of G1):
+#   captain, captain_ranking, comparison, transfer, chip, fixture_run,
+#   differential, player_form, injury_list, price_changes, team_calendar,
+#   team_schedule, position_fixture_run, transfer_suggestion
+# ---------------------------------------------------------------------------
+
+def _extract_structured_meta(
+    intent: str,
+    raw_output: "dict[str, Any]",
+    outcome: str,
+) -> "dict[str, Any]":
+    """Extract intent-specific structured metadata from a raw dispatcher output.
+
+    Pure function — no side effects, no LLM calls, no I/O.  Every extraction
+    sub-call degrades safely to ``None`` on any failure (the per-helper
+    ``try/except`` guarantees this).
+
+    Parameters
+    ----------
+    intent:
+        The ``INTENT_*`` constant for the current turn.
+    raw_output:
+        The raw ``dict`` produced by the grounded dispatcher (``dr.raw_output``
+        on the deterministic path; ``result.tool_output`` on the orch path).
+    outcome:
+        The ``OUTCOME_*`` constant for the current turn.  Extractions only
+        run when ``outcome == OUTCOME_OK``; all fields return ``None``
+        otherwise.
+
+    Returns
+    -------
+    dict[str, Any]
+        Keys match the corresponding ``FinalResponse`` field names:
+        ``"comparison"``, ``"captain"``, ``"captain_ranking"``,
+        ``"transfer"``, ``"chip"``, ``"fixture_run"``, ``"differential"``,
+        ``"player_form"``, ``"injury_list"``, ``"price_changes"``,
+        ``"team_calendar"``, ``"team_schedule"``, ``"position_fixture_run"``,
+        ``"transfer_suggestion"``.  All values are ``None`` for intents /
+        outcomes that do not populate the field.
+    """
+    ok = (outcome == OUTCOME_OK)
+
+    comparison:              "ComparisonMeta | None"              = None
+    captain:                 "CaptainScoreMeta | None"            = None
+    captain_ranking:         "tuple[RankedCaptainEntry, ...] | None" = None
+    transfer:                "TransferMeta | None"                = None
+    chip:                    "ChipAdviceMeta | None"              = None
+    fixture_run:             "FixtureRunMeta | None"              = None
+    differential:            "DifferentialPicksMeta | None"       = None
+    player_form_meta:        "PlayerFormMeta | None"              = None
+    injury_list_meta:        "InjuryListMeta | None"              = None
+    price_changes_meta:      "PriceChangesMeta | None"            = None
+    team_calendar_meta:      "TeamFixtureCalendarMeta | None"     = None
+    team_schedule_meta:      "TeamScheduleMeta | None"            = None
+    position_fixture_run_meta: "PositionFixtureRunMeta | None"    = None
+    transfer_suggestion_meta:  "TransferSuggestionMeta | None"    = None
+
+    if ok:
+        if intent == INTENT_COMPARE_PLAYERS:
+            comparison = _extract_comparison_meta(raw_output)
+        elif intent == INTENT_CAPTAIN_SCORE:
+            captain = _extract_captain_meta(raw_output)
+        elif intent == INTENT_RANK_CANDIDATES:
+            captain_ranking = _extract_captain_ranking_meta(raw_output)
+        elif intent == INTENT_TRANSFER_ADVICE:
+            transfer = _extract_transfer_meta(raw_output)
+        elif intent == INTENT_CHIP_ADVICE:
+            chip = _extract_chip_meta(raw_output)
+        elif intent == INTENT_PLAYER_FIXTURE_RUN:
+            fixture_run = _extract_fixture_run_meta(raw_output)
+        elif intent == INTENT_DIFFERENTIAL_PICKS:
+            differential = _extract_differential_meta(raw_output)
+        elif intent == INTENT_PLAYER_FORM:
+            player_form_meta = _extract_player_form_meta(raw_output)
+        elif intent == INTENT_INJURY_LIST:
+            injury_list_meta = _extract_injury_list_meta(raw_output)
+        elif intent == INTENT_PRICE_CHANGES:
+            price_changes_meta = _extract_price_changes_meta(raw_output)
+        elif intent == INTENT_TEAM_FIXTURE_CALENDAR:
+            team_calendar_meta = _extract_team_calendar_meta(raw_output)
+        elif intent == INTENT_TEAM_SCHEDULE:
+            team_schedule_meta = _extract_team_schedule_meta(raw_output)
+        elif intent == INTENT_POSITION_FIXTURE_RUN:
+            position_fixture_run_meta = _extract_position_fixture_run_meta(raw_output)
+        elif intent == INTENT_TRANSFER_SUGGESTION:
+            transfer_suggestion_meta = _extract_transfer_suggestion_meta(raw_output)
+
+    return {
+        "comparison":           comparison,
+        "captain":              captain,
+        "captain_ranking":      captain_ranking,
+        "transfer":             transfer,
+        "chip":                 chip,
+        "fixture_run":          fixture_run,
+        "differential":         differential,
+        "player_form":          player_form_meta,
+        "injury_list":          injury_list_meta,
+        "price_changes":        price_changes_meta,
+        "team_calendar":        team_calendar_meta,
+        "team_schedule":        team_schedule_meta,
+        "position_fixture_run": position_fixture_run_meta,
+        "transfer_suggestion":  transfer_suggestion_meta,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Orch-4d: shared squad_context override helper
 #
 # Applies budget_constraint, hit_warning, and chip_unavailable post-processing
@@ -1615,9 +1719,8 @@ def _apply_squad_overrides(
 ) -> "tuple[TransferMeta | None, ChipAdviceMeta | None, str]":
     """Apply squad_context hard-block and advisory overrides post-metadata-build.
 
-    Shared by ``respond()`` (deterministic path) and
-    ``_orch_result_to_final_response()`` (orch-success path) so that override
-    semantics are identical regardless of which path ran.
+    Shared by ``respond()`` (deterministic path) so that override
+    semantics are consistent across all session and direct-call paths.
 
     Parameters
     ----------
@@ -1697,8 +1800,16 @@ def _apply_squad_overrides(
     return transfer, chip, final_text
 
 
+
 # ---------------------------------------------------------------------------
 # Orch-4a/4b/4d: orchestration result -> FinalResponse mapper
+#
+# NOTE (G2): The Orch-4a gate in respond() was removed in mcp-graduation G2.
+# This function is retained because run_phase_orch4a_tests.py and
+# run_phase_orch4b_tests.py import and call it directly.  It is dead from
+# the respond() perspective (respond() no longer calls it) but alive as a
+# tested public interface of this module.  Removal is deferred to a follow-on
+# branch that retires those test suites.
 # ---------------------------------------------------------------------------
 
 def _orch_result_to_final_response(
@@ -1877,13 +1988,6 @@ def respond(
     ``llm_used`` captures whether LLM text is actually in ``final_text``:
     ``llm_used = lr.llm_called and review.passed``.
     """
-    # Orch-4c: tracks whether orchestration was attempted and what outcome it
-    # returned.  None = orch OFF (not attempted); non-None = attempted but
-    # non-OK (fallback to deterministic).  Set to ORCH_OUTCOME_OK on early
-    # return from _orch_result_to_final_response, so this variable is only
-    # read when the deterministic path runs.
-    _orch_outcome: str | None = None
-
     # -----------------------------------------------------------------------
     # Phase 6c: multi-intent detection (only at depth 0 to prevent recursion)
     # -----------------------------------------------------------------------
@@ -1901,44 +2005,6 @@ def respond(
                 classifier_client=classifier_client,
                 squad_context=squad_context,  # Phase 8e1: forward per-turn constraint state
             )
-
-        # -------------------------------------------------------------------
-        # Orch-4a/4c: orchestration gate (single-intent, depth-0 only)
-        #
-        # When FPL_ORCH_ENABLED is truthy, attempt ask_orchestrated().
-        # On ORCH_OUTCOME_OK, map result to FinalResponse and return early.
-        # On any non-OK outcome (NO_CLIENT, LLM_ERROR, NO_TOOL, UNKNOWN_TOOL,
-        # TOOL_ERROR, TOOL_RESULT_ERROR), fall through to the deterministic
-        # path — grounded behavior is always preserved.
-        #
-        # Orch-4c: the non-OK outcome is captured in _orch_outcome and
-        # forwarded to FinalResponse.orch_outcome for operator audit.
-        # Non-OK outcome policy:
-        #   no_client         → no LLM client; deterministic runs without LLM
-        #   llm_error         → API exception; deterministic runs without LLM
-        #   no_tool           → LLM gave text not tool; deterministic runs normally
-        #   unknown_tool      → unregistered tool; deterministic runs normally
-        #   tool_error        → run_tool() raised; deterministic runs normally
-        #   tool_result_error → tool status != ok; deterministic runs normally
-        # In all cases: final_text = deterministic; outcome = deterministic;
-        # orch_outcome = the non-OK string for audit.
-        # -------------------------------------------------------------------
-        if is_orch_enabled():
-            _orch = ask_orchestrated(
-                user_message,
-                bootstrap,
-                client=client,
-                model=model,
-                api_key=api_key,
-                provider=get_orch_provider(),
-            )
-            if _orch.outcome == ORCH_OUTCOME_OK:
-                return _orch_result_to_final_response(
-                    _orch,
-                    include_debug=include_debug,
-                    squad_context=squad_context,   # Orch-4d: override parity
-                )
-            _orch_outcome = _orch.outcome  # Orch-4c: capture non-OK for audit
 
     lr, review = ask_llm_safe(
         user_message,
@@ -1985,66 +2051,16 @@ def respond(
             classification_source=dr.classification_source,
         )
 
-    # Populate structured metadata using shared Orch-4b extraction helpers.
-    # Each call is intent-gated and degrades safely to None on any failure.
-    comparison: ComparisonMeta | None = None
-    if dr.intent == INTENT_COMPARE_PLAYERS and dr.outcome == OUTCOME_OK:
-        comparison = _extract_comparison_meta(dr.raw_output)
-
-    captain: CaptainScoreMeta | None = None
-    if dr.intent == INTENT_CAPTAIN_SCORE and dr.outcome == OUTCOME_OK:
-        captain = _extract_captain_meta(dr.raw_output)
-
-    captain_ranking: "tuple[RankedCaptainEntry, ...] | None" = None
-    if dr.intent == INTENT_RANK_CANDIDATES and dr.outcome == OUTCOME_OK:
-        captain_ranking = _extract_captain_ranking_meta(dr.raw_output)
-
-    transfer: TransferMeta | None = None
-    if dr.intent == INTENT_TRANSFER_ADVICE and dr.outcome == OUTCOME_OK:
-        transfer = _extract_transfer_meta(dr.raw_output)
-
-    chip: ChipAdviceMeta | None = None
-    if dr.intent == INTENT_CHIP_ADVICE and dr.outcome == OUTCOME_OK:
-        chip = _extract_chip_meta(dr.raw_output)
-
-    fixture_run: FixtureRunMeta | None = None
-    if dr.intent == INTENT_PLAYER_FIXTURE_RUN and dr.outcome == OUTCOME_OK:
-        fixture_run = _extract_fixture_run_meta(dr.raw_output)
-
-    differential: DifferentialPicksMeta | None = None
-    if dr.intent == INTENT_DIFFERENTIAL_PICKS and dr.outcome == OUTCOME_OK:
-        differential = _extract_differential_meta(dr.raw_output)
-
-    player_form_meta: PlayerFormMeta | None = None
-    if dr.intent == INTENT_PLAYER_FORM and dr.outcome == OUTCOME_OK:
-        player_form_meta = _extract_player_form_meta(dr.raw_output)
-
-    injury_list_meta: InjuryListMeta | None = None
-    if dr.intent == INTENT_INJURY_LIST and dr.outcome == OUTCOME_OK:
-        injury_list_meta = _extract_injury_list_meta(dr.raw_output)
-
-    price_changes_meta: PriceChangesMeta | None = None
-    if dr.intent == INTENT_PRICE_CHANGES and dr.outcome == OUTCOME_OK:
-        price_changes_meta = _extract_price_changes_meta(dr.raw_output)
-
-    team_calendar_meta: TeamFixtureCalendarMeta | None = None
-    if dr.intent == INTENT_TEAM_FIXTURE_CALENDAR and dr.outcome == OUTCOME_OK:
-        team_calendar_meta = _extract_team_calendar_meta(dr.raw_output)
-
-    team_schedule_meta: TeamScheduleMeta | None = None
-    if dr.intent == INTENT_TEAM_SCHEDULE and dr.outcome == OUTCOME_OK:
-        team_schedule_meta = _extract_team_schedule_meta(dr.raw_output)
-
-    position_fixture_run_meta: PositionFixtureRunMeta | None = None
-    if dr.intent == INTENT_POSITION_FIXTURE_RUN and dr.outcome == OUTCOME_OK:
-        position_fixture_run_meta = _extract_position_fixture_run_meta(dr.raw_output)
+    # Populate structured metadata via shared helper (G1: extracted from inline
+    # ladder).  Pure function — degrades safely to None on any failure.
+    _meta = _extract_structured_meta(dr.intent, dr.raw_output, dr.outcome)
 
     # Orch-4d: squad_context overrides via shared helper (Phase 8e1/8e2 semantics).
     # budget_constraint / chip_unavailable replace final_text (hard blocks).
     # hit_warning is advisory — sets flag only, final_text unchanged.
-    transfer, chip, final_text = _apply_squad_overrides(
-        transfer=transfer,
-        chip=chip,
+    _meta["transfer"], _meta["chip"], final_text = _apply_squad_overrides(
+        transfer=_meta["transfer"],
+        chip=_meta["chip"],
         final_text=final_text,
         squad_context=squad_context,
     )
@@ -2057,22 +2073,22 @@ def respond(
         review_passed=review_passed,
         llm_used=llm_used,
         debug=debug,
-        comparison=comparison,
-        captain=captain,
-        captain_ranking=captain_ranking,
-        transfer=transfer,
-        chip=chip,
-        fixture_run=fixture_run,
-        differential=differential,
-        orch_outcome=_orch_outcome,   # Orch-4c: None=off, non-OK string=fell back
+        comparison=_meta["comparison"],
+        captain=_meta["captain"],
+        captain_ranking=_meta["captain_ranking"],
+        transfer=_meta["transfer"],
+        chip=_meta["chip"],
+        fixture_run=_meta["fixture_run"],
+        differential=_meta["differential"],
+        orch_outcome=None,            # G2: Orch-4a gate removed; respond() is deterministic-only
         degraded=degraded,                     # Phase 2.6b
-        player_form=player_form_meta,          # Phase 2.6d
-        injury_list=injury_list_meta,          # Phase 2.6d
-        price_changes=price_changes_meta,      # Phase 2.6d
-        team_calendar=team_calendar_meta,      # Phase 2.6e
-        team_schedule=team_schedule_meta,      # Phase 2.6e.3
-        position_fixture_run=position_fixture_run_meta,  # Phase 2.6e.4
-        transfer_suggestion=_extract_transfer_suggestion_meta(dr.raw_output) if dr.intent == INTENT_TRANSFER_SUGGESTION and dr.outcome == OUTCOME_OK else None,  # Phase 2.6h
+        player_form=_meta["player_form"],      # Phase 2.6d
+        injury_list=_meta["injury_list"],      # Phase 2.6d
+        price_changes=_meta["price_changes"],  # Phase 2.6d
+        team_calendar=_meta["team_calendar"],  # Phase 2.6e
+        team_schedule=_meta["team_schedule"],  # Phase 2.6e.3
+        position_fixture_run=_meta["position_fixture_run"],  # Phase 2.6e.4
+        transfer_suggestion=_meta["transfer_suggestion"],    # Phase 2.6h
         # Phase 2.7d: routing audit fields threaded from DispatchResult
         route_source=dr.route_source,
         classifier_confidence=dr.classifier_confidence,

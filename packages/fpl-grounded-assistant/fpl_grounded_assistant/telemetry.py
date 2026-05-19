@@ -41,7 +41,7 @@ Phase M5 routing-branch counter vocabulary
 ------------------------------------------
 M5 counters track which branch of the ask_v2() decision ladder fired.
 They are populated by ``record(routing_trace)`` called from ``ask_v2()``
-and from ``POST /ask-orchestrated`` after each response is built.
+after each response is built.
 
 routing_branch_counts["resource"]
     Inputs matched a registered @resource.  These are fully deterministic.
@@ -260,8 +260,7 @@ def record(routing_trace: "dict[str, Any]") -> None:
     can never surface into the caller.
 
     Designed to be called from ``ask_v2()`` immediately before each return
-    that carries a routing_trace, and from ``POST /ask-orchestrated`` after
-    the orchestrator returns.
+    that carries a routing_trace.
 
     Per-counter semantics
     ---------------------

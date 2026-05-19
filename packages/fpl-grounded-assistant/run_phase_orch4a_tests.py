@@ -3,13 +3,17 @@ run_phase_orch4a_tests.py
 =========================
 Phase Orch-4a: Gated orchestration wiring.
 
+POST-GRADUATION NOTE (G2.c): The Orch-4a gate inside respond() was deleted
+in commit 118d43e (G2.a) as part of the mcp-graduation sprint. respond() is
+now deterministic-only; FPL_ORCH_ENABLED no longer controls respond() routing.
+Assertions that tested respond() routing through the orchestrator when the flag
+was ON have been retired (see G2.c notes inline).
+
 Validates that:
 - orch_config module is importable and provides correct public surface.
 - is_orch_enabled() reads FPL_ORCH_ENABLED env var correctly.
 - get_orch_provider() reads FPL_ORCH_PROVIDER env var correctly.
 - Feature flag OFF: respond() is indistinguishable from pre-Orch-4a baseline.
-- Feature flag ON: respond() routes through ask_orchestrated() on success.
-- Feature flag ON: ORCH_OUTCOME_OK produces contract-compliant FinalResponse.
 - Feature flag ON: non-OK orch outcomes fall back to deterministic path.
 - Safe fallback for OUTCOME_NO_CLIENT, OUTCOME_LLM_ERROR, OUTCOME_NO_TOOL.
 - Safe fallback for OUTCOME_TOOL_RESULT_ERROR (non-ok tool status).
@@ -25,7 +29,7 @@ A  orch_config module              -- importability, public surface
 B  is_orch_enabled()               -- env var reading
 C  get_orch_provider()             -- env var reading
 D  Flag OFF baseline parity        -- respond() unchanged when OFF
-E  Flag ON happy path              -- orchestrated FinalResponse on OUTCOME_OK
+E  Flag ON happy path              -- respond() + FinalResponse shape (orch-routing assertions retired)
 F  Flag ON fallback paths          -- non-OK outcomes fall back to deterministic
 G  _orch_result_to_final_response  -- mapping shape and intent coverage
 H  FinalResponse shape invariants  -- no contract drift in either mode
@@ -357,7 +361,7 @@ ok(_r_e1.outcome == DISP_OUTCOME_OK,            "E2: orchestrated outcome == OUT
 ok(_r_e1.supported is True,                     "E3: orchestrated supported == True")
 ok(_r_e1.intent == INTENT_CURRENT_GAMEWEEK,     "E4: intent mapped from tool_chosen")
 ok(_r_e1.review_passed is True,                 "E5: review_passed == True (grounded orch output)")
-ok(_r_e1.llm_used is True,                      "E6: llm_used == True (LLM was called)")
+# G2.c: E6 deleted — tested Orch-4a gate behavior removed in commit 118d43e
 ok(isinstance(_r_e1.final_text, str) and _r_e1.final_text,
    "E7: final_text is non-empty str")
 ok(_r_e1.debug is None,                         "E8: debug is None by default")
@@ -370,7 +374,7 @@ ok(_r_e2.outcome == DISP_OUTCOME_OK,            "E9: captain_score orch -> OUTCO
 ok(_r_e2.intent == INTENT_CAPTAIN_SCORE,        "E10: captain_score intent mapped correctly")
 ok(isinstance(_r_e2.final_text, str) and _r_e2.final_text,
    "E11: captain_score final_text non-empty")
-ok(_mock_e2.call_count >= 1,                    "E12: mock client was called (orch path taken)")
+# G2.c: E12 deleted — tested Orch-4a gate behavior removed in commit 118d43e
 
 # E13-E14: resolve_player intent mapping
 _mock_e3 = _AnthropicToolClient("resolve_player", {"query": "Salah"})
@@ -383,8 +387,7 @@ _mock_e4 = _AnthropicToolClient("get_current_gameweek", {})
 _r_e4 = respond("what gw", STANDARD_BOOTSTRAP, client=_mock_e4, include_debug=True)
 ok(_r_e4.debug is not None,                     "E15: debug populated when include_debug=True")
 ok(isinstance(_r_e4.debug, FinalResponseDebug), "E16: debug is FinalResponseDebug instance")
-ok(_r_e4.debug.classification_source == "orchestrator",
-   "E17: debug.classification_source == 'orchestrator'")
+# G2.c: E17 deleted — tested Orch-4a gate behavior removed in commit 118d43e
 ok(isinstance(_r_e4.debug.model, str),          "E18: debug.model is str")
 
 # Restore
@@ -624,7 +627,7 @@ _r_session = _session.respond(
 ok(isinstance(_r_session, FinalResponse),       "I6: ConversationSession.respond returns FinalResponse")
 ok(_r_session.outcome == DISP_OUTCOME_OK,       "I7: session.respond orch path -> OUTCOME_OK")
 ok(_r_session.intent == INTENT_CAPTAIN_SCORE,   "I8: session.respond orch -> correct intent")
-ok(_mock_i.call_count >= 1,                     "I9: orch client was called via session path")
+# G2.c: I9 deleted — tested Orch-4a gate behavior removed in commit 118d43e
 _set_flag(None)
 
 

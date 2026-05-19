@@ -441,10 +441,8 @@ def ask_v2(
 
         {
           "branch":                  str,            # which ladder rung fired
-          "decision_kind":           str,            # from decision_router: "resource"|"prompt"|"text"|...,
-                                                    # OR "orchestrator_direct" on POST /ask-orchestrated (bypasses decision_router)
-          "decision_outcome":        str,            # from decision_router: OUTCOME_* constant,
-                                                    # OR "orchestrator_direct" on POST /ask-orchestrated
+          "decision_kind":           str,            # from decision_router: "resource"|"prompt"|"text"|...
+          "decision_outcome":        str,            # from decision_router: OUTCOME_* constant
           "router_hit":              bool,           # True iff route() succeeded
           "classifier_called":       bool,           # True iff classify_intent_llm() was called
           "classifier_confidence":   float | None,   # LLM confidence, or None
@@ -466,6 +464,39 @@ def ask_v2(
 
     See ``ROUTING_TRACE_REQUIRED_KEYS`` and ``ROUTING_TRACE_OPTIONAL_KEYS``
     for the machine-readable frozen-schema constants used by tests.
+
+    **Structured metadata (G1 commit 2 addition):**
+
+    Every returned dict also carries the 14 intent-specific structured-metadata
+    keys produced by ``final_response._extract_structured_meta()``.  These keys
+    are at the **top level** (no sub-key namespace) because none collide with the
+    pre-existing keys in the ask_v2 return dict.  On branches that execute a
+    deterministic tool (``route``, ``classifier_rewrite``, ``prompt`` with
+    dispatch or expansion, ``orchestrator`` with a grounded tool call) the keys
+    are populated from the real raw_output.  On all other branches
+    (``resource``, ``unsupported``, ``needs_clarification``, orchestrator
+    exception/no-grounded) all 14 values are ``None``.
+
+    The 14 keys are::
+
+        "comparison"           — ComparisonMeta | None
+        "captain"              — CaptainScoreMeta | None
+        "captain_ranking"      — tuple[RankedCaptainEntry, ...] | None
+        "transfer"             — TransferMeta | None
+        "chip"                 — ChipAdviceMeta | None
+        "fixture_run"          — FixtureRunMeta | None
+        "differential"         — DifferentialPicksMeta | None
+        "player_form"          — PlayerFormMeta | None
+        "injury_list"          — InjuryListMeta | None
+        "price_changes"        — PriceChangesMeta | None
+        "team_calendar"        — TeamFixtureCalendarMeta | None
+        "team_schedule"        — TeamScheduleMeta | None
+        "position_fixture_run" — PositionFixtureRunMeta | None
+        "transfer_suggestion"  — TransferSuggestionMeta | None
+
+    Note: ``ask_v2()`` does NOT apply squad_context overrides to these values.
+    The adapter (``harness_adapter.py``, commit 3) is responsible for applying
+    ``_apply_squad_overrides`` before projecting into ``AskResponse``.
 
     ``branch`` values::
 
@@ -523,9 +554,50 @@ def ask_v2(
     )
     from fpl_tool_runner import run_tool as _run_tool
     from .renderer import render as _render
-    from .dispatcher import _auto_candidates_from_bootstrap
+    from .dispatcher import _auto_candidates_from_bootstrap, OUTCOME_OK as _DISP_OUTCOME_OK, _TOOL_TO_INTENT
     from .orch_config import is_orch_enabled, get_orch_provider
     from . import telemetry as _telemetry
+    # G1 commit 2: deferred to avoid circular import (dispatcher imports ask from harness)
+    from .final_response import _extract_structured_meta
+
+    def _meta(tool_name: "str | None", raw_output: dict) -> "dict[str, Any]":
+        """Derive structured metadata for a completed deterministic tool call."""
+        if tool_name is None:
+            return _extract_structured_meta("", {}, "unsupported")
+        intent = _TOOL_TO_INTENT.get(tool_name, "")
+        status = raw_output.get("status", "")
+        outcome = _DISP_OUTCOME_OK if status == "ok" else "unsupported"
+        return _extract_structured_meta(intent, raw_output, outcome)
+
+    _none_meta: "dict[str, Any]" = _extract_structured_meta("", {}, "unsupported")
+
+    def _outcome_from_status(raw: dict) -> str:
+        """Map dispatcher raw_output['status'] to AskResponse outcome value.
+
+        Fix B (mcp-graduation G1.4): ask_v2() previously hard-coded
+        result["outcome"] = "ok" on every tool-ran branch, discarding
+        not_found / ambiguous / error / needs_clarification from the tool's
+        actual raw_output["status"].  This helper restores parity with the
+        dispatcher path (respond()) which derives outcome from status.
+
+        Mirrors dispatcher._compute_outcome() semantics:
+          - "ok"       → "ok"
+          - "not_found"→ "not_found"
+          - "ambiguous"→ "ambiguous"
+          - "error"    → "error"
+          - anything else (including "empty") → "error"  (matches _compute_outcome fallthrough)
+          - "needs_clarification" → "needs_clarification"  (medium-confidence gate path)
+        """
+        s = raw.get("status", "")
+        if s == "ok":                  return "ok"
+        if s == "not_found":           return "not_found"
+        if s == "ambiguous":           return "ambiguous"
+        if s == "error":               return "error"
+        if s == "needs_clarification": return "needs_clarification"
+        if not s:                      return "unsupported"
+        # Any unrecognised status (e.g. "empty") maps to "error" to match
+        # dispatcher._compute_outcome() fallthrough logic.
+        return "error"
 
     # Resolve bootstrap up-front so both branches operate on the same data
     actual_bootstrap, context_meta = _resolve_bootstrap_and_meta(bootstrap)
@@ -566,6 +638,7 @@ def ask_v2(
             "resource":      decision.get("resource"),
             "resource_rows": decision.get("resource_rows"),
             "routing_trace": routing_trace,
+            **_none_meta,  # resource branch: no deterministic tool ran → all 14 keys are None
         }
         if context_meta is not None:
             result["context_meta"] = context_meta
@@ -585,6 +658,7 @@ def ask_v2(
             "missing_fields": decision.get("missing_fields", []),
             "errors":         decision.get("errors", []),
             "routing_trace":  routing_trace,
+            **_none_meta,  # needs_clarification: no tool ran → all 14 keys are None
         }
         if context_meta is not None:
             result["context_meta"] = context_meta
@@ -619,6 +693,8 @@ def ask_v2(
         routing_trace["router_hit"]        = result.get("selected_tool") is not None
         routing_trace["grounded"]          = result.get("selected_tool") is not None
         result["routing_trace"] = routing_trace
+        # prompt-expansion branch: extract metadata when tool ran, else all-None
+        result.update(_meta(result.get("selected_tool"), result.get("raw_output", {})))
         _telemetry.record(routing_trace)  # M5 telemetry
         return result
 
@@ -644,6 +720,7 @@ def ask_v2(
             "prompt_name":     prompt_name,
             "workflow_intent": workflow_intent,
             "routing_trace":   routing_trace,
+            **_meta(tool_name, raw_output),  # prompt-dispatch: real tool ran, extract metadata
         }
         if context_meta is not None:
             result["context_meta"] = context_meta
@@ -661,6 +738,7 @@ def ask_v2(
             "kind":          kind,
             "suggestions":   decision.get("suggestions", []),
             "routing_trace": routing_trace,
+            **_none_meta,  # unsupported: no tool ran → all 14 keys are None
         }
         if context_meta is not None:
             result["context_meta"] = context_meta
@@ -693,9 +771,12 @@ def ask_v2(
         routing_trace["branch"]     = "route"
         routing_trace["router_hit"] = True
         routing_trace["grounded"]   = True
-        result["outcome"] = "ok"
+        # Fix B (mcp-graduation G1.4): derive outcome from tool status, not hard-coded "ok".
+        result["outcome"] = _outcome_from_status(result.get("raw_output") or {})
         result["kind"]    = "text"
         result["routing_trace"] = routing_trace
+        # route branch: deterministic tool ran, extract real structured metadata
+        result.update(_meta(result.get("selected_tool"), result.get("raw_output", {})))
         _telemetry.record(routing_trace)  # M5 telemetry
         return result
 
@@ -714,6 +795,47 @@ def ask_v2(
             routing_trace["classifier_confidence"] = classification.confidence
             routing_trace["classifier_intent"]    = classification.intent
             canonical = classification.canonical_question
+            # Phase 2.7e parity (mcp-graduation G1.4): apply the medium-confidence gate
+            # inside ask_v2() to match dispatcher.dispatch() semantics.
+            # When CLASSIFIER_MEDIUM_GATE_ENABLED and confidence < HIGH threshold,
+            # do NOT execute the tool — return needs_clarification instead.
+            from .dispatcher import (  # noqa: PLC0415
+                CLASSIFIER_MEDIUM_GATE_ENABLED as _MED_GATE,
+                _CLASSIFIER_HIGH_CONFIDENCE as _HIGH_CONF,
+            )
+            _is_medium = classification.confidence < _HIGH_CONF
+            if _is_medium and _MED_GATE:
+                # Phase 2.7e parity: derive intent from the classifier's routing result
+                # so the adapter can report the correct intent (matches dispatcher.py line 660).
+                # _TOOL_TO_INTENT and route() are both available at this point (deferred imports
+                # at ask_v2 entry + module-level import of route from router).
+                _med_route = route(canonical)
+                _med_intent = _TOOL_TO_INTENT.get(_med_route.tool_name, "unsupported") if _med_route else "unsupported"
+                routing_trace["branch"] = "classifier_rewrite"
+                routing_trace["classification_source"] = "llm_classifier"
+                routing_trace["grounded"] = False
+                result = {
+                    "selected_tool": None,
+                    "tool_input":    {},
+                    "raw_output":    {
+                        "status":   "needs_clarification",
+                        "code":     "medium_confidence",
+                        "question": cleaned_text,
+                    },
+                    "answer_text":   "I need more information to answer that.",
+                    "outcome":       "needs_clarification",
+                    "kind":          "text",
+                    "canonical_question": canonical,
+                    "routing_trace": routing_trace,
+                    # surface the classifier-resolved intent so harness_adapter can project it
+                    # (selected_tool is None; adapter falls back to this key when present)
+                    "medium_gate_intent": _med_intent,
+                    **_none_meta,  # medium-gate: tool NOT run → all 14 keys are None
+                }
+                if context_meta is not None:
+                    result["context_meta"] = context_meta
+                _telemetry.record(routing_trace)  # M5 telemetry
+                return result
             result = ask(
                 canonical,
                 bootstrap,
@@ -724,10 +846,13 @@ def ask_v2(
                 routing_trace["branch"]              = "classifier_rewrite"
                 routing_trace["grounded"]            = True
                 routing_trace["classification_source"] = "llm_classifier"
-                result["outcome"]              = "ok"
+                # Fix B (mcp-graduation G1.4): derive outcome from tool status, not hard-coded "ok".
+                result["outcome"]              = _outcome_from_status(result.get("raw_output") or {})
                 result["kind"]                 = "text"
                 result["canonical_question"]   = canonical
                 result["routing_trace"]        = routing_trace
+                # classifier_rewrite branch: deterministic tool ran after LLM rewrite
+                result.update(_meta(result.get("selected_tool"), result.get("raw_output", {})))
                 _telemetry.record(routing_trace)  # M5 telemetry
                 return result
 
@@ -767,6 +892,7 @@ def ask_v2(
                 "suggestions":   [f"@{r}" for r in _suggestions_for_text()],
                 "orchestrator_error": str(exc),
                 "routing_trace": routing_trace,
+                **_none_meta,  # orchestrator exception: no tool ran → all 14 keys are None
             }
             if context_meta is not None:
                 result["context_meta"] = context_meta
@@ -780,15 +906,18 @@ def ask_v2(
             routing_trace["branch"]                  = "orchestrator"
             routing_trace["orchestrator_tool_calls"] = [orch_result.tool_chosen]
             routing_trace["grounded"]                = True
+            _orch_raw = dict(orch_result.tool_output)
             result = {
                 "selected_tool": orch_result.tool_chosen,
                 "tool_input":    dict(orch_result.tool_args),
-                "raw_output":    dict(orch_result.tool_output),
+                "raw_output":    _orch_raw,
                 "answer_text":   orch_result.answer_text,
+                # Intentional "ok": this branch only fires when orch_result.outcome == ORCH_OUTCOME_OK.
                 "outcome":       "ok",
                 "kind":          "text",
                 "orchestrator_model": orch_result.model,
                 "routing_trace": routing_trace,
+                **_meta(orch_result.tool_chosen, _orch_raw),  # orchestrator: grounded tool ran
             }
             if context_meta is not None:
                 result["context_meta"] = context_meta
@@ -815,6 +944,7 @@ def ask_v2(
             "suggestions":   [f"@{r}" for r in _suggestions_for_text()],
             "orchestrator_outcome": orch_result.outcome,
             "routing_trace": routing_trace,
+            **_none_meta,  # orchestrator no-grounded-tool: tool execution failed → all 14 keys None
         }
         if context_meta is not None:
             result["context_meta"] = context_meta
@@ -823,6 +953,8 @@ def ask_v2(
 
     # --- Step 4: unsupported (deterministic + classifier both missed,
     #             AND orchestrator unreachable or disabled). ---
+    # ask_v2() uses "unsupported" here; harness_adapter.py maps it to
+    # "unsupported_intent" on the HTTP surface to match dispatcher semantics.
     routing_trace["branch"] = "unsupported"
     result = {
         "selected_tool": None,
@@ -833,6 +965,7 @@ def ask_v2(
         "kind":          "text",
         "suggestions":   [f"@{r}" for r in _suggestions_for_text()],
         "routing_trace": routing_trace,
+        **_none_meta,  # step 4: full ladder miss → all 14 keys are None
     }
     if context_meta is not None:
         result["context_meta"] = context_meta
