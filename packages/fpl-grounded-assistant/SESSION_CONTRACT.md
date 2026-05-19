@@ -189,7 +189,7 @@ deferred to follow-on branches:
 Added in M5 (2026-05-17). Operational reference for the `/healthz` endpoint
 and the graduation criteria for merging `MCP_architecture` to `main`.
 
-**Coverage scope (pre-graduation reality).** The M5 counters are populated only by `ask_v2()` and `POST /ask-orchestrated`. `POST /ask` continues to route through `respond()` and the legacy Orch-4a gate at `final_response.py:1926`; its traffic is **NOT** counted in `routing_counters`. The `graduation.ready_to_graduate` flag therefore reflects only shadow / internal / test traffic until the next branch rewires `POST /ask` to call `ask_v2()`. Treat `/healthz` as a *shadow-traffic* dashboard until that rewiring lands.
+**Production scope**: `/healthz` counters reflect all `POST /ask` traffic post-graduation.
 
 ### Reading the counters: `GET /healthz`
 
@@ -286,10 +286,7 @@ orchestrator handles 4.1% of traffic as intended long-tail.
 
 ### Schema constants
 
-The `routing_trace` field (present on every `ask_v2()` return and on
-`POST /ask-orchestrated` responses) uses the frozen schema declared in:
-
-The synthetic `decision_kind = decision_outcome = "orchestrator_direct"` value emitted by `POST /ask-orchestrated` is **transitional**. It exists because that endpoint bypasses `decision_router` entirely. The value retires alongside the `/ask-orchestrated` route when the next branch graduates the orchestrator into `POST /ask`. See the plan's §"Risks and Tradeoffs" for the explicit 3-step graduation blueprint for the next branch.
+The `routing_trace` field (present on every `ask_v2()` return) uses the frozen schema declared in:
 
 ```
 packages/fpl-grounded-assistant/fpl_grounded_assistant/harness.py
