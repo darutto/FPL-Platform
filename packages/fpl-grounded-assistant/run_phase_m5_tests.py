@@ -17,7 +17,11 @@ Covers:
     F  No execution-path change: route-hit question produces byte-equal
        answer_text and selected_tool before and after telemetry.
 
-Target: >= 25 assertions.  Exit code 0 on success, 1 on failure.
+Note: G-section (POST /ask-orchestrated schema completeness) removed in G2 —
+the rollout-isolation endpoint was deleted when production traffic was routed
+through ask_v2() in G1.
+
+Target: 54 assertions.  Exit code 0 on success, 1 on failure.
 
 Run from packages/fpl-grounded-assistant::
 
@@ -555,62 +559,6 @@ check(
 # ask() does not touch telemetry; route counter must stay at 1 (only the ask_v2 call)
 snap = snapshot()
 check(snap["route"] == 1, "F4: counter incremented exactly once (only ask_v2 call)")
-
-# ---------------------------------------------------------------------------
-# Section G: /ask-orchestrated routing_trace schema completeness (M5 defect fix)
-# ---------------------------------------------------------------------------
-
-print("\n--- G: /ask-orchestrated routing_trace schema completeness ---")
-
-try:
-    from fastapi.testclient import TestClient as _TestClient  # noqa: E402
-    import fpl_server as _fpl_srv  # noqa: E402
-    import fpl_grounded_assistant.orchestrator as _orch_mod_g  # noqa: E402
-
-    _fpl_srv._init_bootstrap(BOOTSTRAP)
-    _fpl_srv._clear_sessions()
-    _client_g = _TestClient(_fpl_srv.app)
-
-    # Capture original ask_orchestrated so we can restore it.
-    _orig_ask_orchestrated_g = _orch_mod_g.ask_orchestrated
-
-    # Inject a mock tool-use client (same pattern as M3 E-suite).
-    _mock_tool_g = _MockOrchToolUseClient("get_current_gameweek", {})
-
-    def _wrapped_g(question, bootstrap, **kwargs):
-        kwargs.pop("client", None)
-        return _orig_ask_orchestrated_g(question, bootstrap, client=_mock_tool_g, **kwargs)
-
-    os.environ["FPL_ORCH_ENABLED"] = "1"
-    _orch_mod_g.ask_orchestrated = _wrapped_g
-    telemetry.reset()
-
-    try:
-        _resp_g = _client_g.post("/ask-orchestrated", json={"question": "who should I captain"})
-        check(_resp_g.status_code == 200, "G1: POST /ask-orchestrated returns HTTP 200")
-        _body_g = _resp_g.json()
-        _trace_g = _body_g.get("routing_trace", {})
-
-        # G2: all 12 required keys must be present (catches the defect: decision_kind,
-        # decision_outcome were missing before Edit 1).
-        check(
-            ROUTING_TRACE_REQUIRED_KEYS <= set(_trace_g.keys()),
-            "G2: /ask-orchestrated routing_trace contains all 12 ROUTING_TRACE_REQUIRED_KEYS",
-        )
-
-        # G3: pin the specific decision_kind value chosen in Edit 1 so future
-        # renames are caught immediately.
-        check(
-            _trace_g.get("decision_kind") == "orchestrator_direct",
-            "G3: routing_trace.decision_kind == 'orchestrator_direct' on /ask-orchestrated",
-        )
-    finally:
-        _orch_mod_g.ask_orchestrated = _orig_ask_orchestrated_g
-        os.environ.pop("FPL_ORCH_ENABLED", None)
-        telemetry.reset()
-
-except ImportError as _e_g:
-    print(f"  SKIP  G-suite: fastapi.testclient not available ({_e_g})")
 
 # ---------------------------------------------------------------------------
 # Summary
