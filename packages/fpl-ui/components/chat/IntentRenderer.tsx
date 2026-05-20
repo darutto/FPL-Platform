@@ -15,6 +15,8 @@
  *   player_fixture_run → FixtureRunTable
  *   differential_picks → DifferentialTable
  *   multi_intent       → MultiIntentView (bounded to one nesting level)
+ *   @resource (metric) → ResourceRankingTable  (A2 post-graduation)
+ *   @injuries          → InjuriesTable         (A2 post-graduation)
  *
  * TEXT-ONLY (Phase 2d — structured rendering deferred):
  *   current_gameweek, player_summary, player_resolve
@@ -29,6 +31,8 @@ import ChipCard from '@/components/intents/ChipCard';
 import FixtureRunTable from '@/components/intents/FixtureRunTable';
 import DifferentialTable from '@/components/intents/DifferentialTable';
 import MultiIntentView from '@/components/intents/MultiIntentView';
+import ResourceRankingTable from '@/components/intents/ResourceRankingTable';
+import InjuriesTable from '@/components/intents/InjuriesTable';
 
 interface Props {
   response: AskResponse;
@@ -60,6 +64,12 @@ export default function IntentRenderer({ response }: Props) {
   }
   if (view === 'multi_intent' && response.sub_responses != null) {
     return <MultiIntentView sub_responses={response.sub_responses} />;
+  }
+  if (view === 'resource_ranking' && response.resource_rows != null) {
+    return <ResourceRankingTable data={response.resource_rows} />;
+  }
+  if (view === 'resource_injuries' && response.resource_rows != null) {
+    return <InjuriesTable data={response.resource_rows} />;
   }
   return null;
 }

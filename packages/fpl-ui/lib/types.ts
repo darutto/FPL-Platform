@@ -206,6 +206,9 @@ export interface AskResponse {
    */
   degraded: boolean;
 
+  /** Resource payload — non-null for @resource turns, null otherwise. (A1 post-graduation) */
+  resource_rows: ResourceRows | null;
+
   // debug_only — null unless request included debug=true.
   // Do not gate production logic on this field.
   debug?: DebugBundle | null;
@@ -325,7 +328,7 @@ export interface DifferentialEntry {
   team_short: string;
   position: FplPosition;
   captain_score: number;
-  position_score: number;
+  position_score?: number | null;
   ownership: number;
   now_cost: number;
   is_home: boolean | null;
@@ -336,6 +339,47 @@ export interface DifferentialPicksMeta {
   ownership_threshold: number;
   top_n: number;
   picks: DifferentialEntry[];
+}
+
+// ---------------------------------------------------------------------------
+// Resource rows types (A2 post-graduation — @resource rendering)
+// ---------------------------------------------------------------------------
+
+/** One row in a metric-ranked resource (top_form/top_xg/top_points/top_minutes/popular). */
+export interface ResourceRankingRow {
+  web_name: string;
+  team_short: string;
+  position: FplPosition;
+  value: number;
+}
+
+/** One row in @injuries. */
+export interface InjuryRow {
+  web_name: string;
+  team_short: string;
+  position: FplPosition;
+  status_label: string;
+  chance_of_playing: number | null;
+  news: string;
+  news_added: string | null;
+}
+
+/** Identifier for the 6 supported resources. */
+export type ResourceKind =
+  | 'top_form'
+  | 'top_xg'
+  | 'top_points'
+  | 'top_minutes'
+  | 'popular'
+  | 'injuries';
+
+/** Full resource_rows payload, populated for @resource turns. */
+export interface ResourceRows {
+  resource: ResourceKind;
+  title: string;
+  columns: string[];
+  rows: ResourceRankingRow[] | InjuryRow[];
+  data_age?: Record<string, unknown> | null;
 }
 
 // ---------------------------------------------------------------------------
