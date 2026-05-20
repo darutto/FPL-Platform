@@ -31,8 +31,11 @@ Covers:
        classifier_rewrite (band from confidence vs 0.9 threshold), "intent_hint" when
        hint fired, "deterministic" for plain route branch (3 assertions).
        [Updated G1.4 fix A to match dispatcher confidence-band semantics.]
+    M  resource_rows projection: @injuries and @top_form resource branches yield
+       non-None resource_rows with expected shape keys; captain query yields None
+       (3 assertions, added in A1 post-graduation).
 
-Total: >= 41 assertions.  Exit code 0 on success, 1 on any failure.
+Total: >= 44 assertions.  Exit code 0 on success, 1 on any failure.
 
 Run from packages/fpl-grounded-assistant::
 
@@ -632,7 +635,7 @@ check(resp.llm_used is False,
 _d_res = {
     "selected_tool": None, "tool_input": {}, "raw_output": {"status": "ok"},
     "answer_text": "Resource data here.", "outcome": "ok", "kind": "resource",
-    "resource": "injuries", "resource_rows": [],
+    "resource": "injuries", "resource_rows": None,
     "routing_trace": {
         "branch": "resource", "decision_kind": "resource", "decision_outcome": "ok",
         "router_hit": False, "classifier_called": False, "classifier_confidence": None,
@@ -716,6 +719,87 @@ check(resp.route_source == "intent_hint",
 resp = to_ask_response(_d_route, _req())
 check(resp.route_source == "deterministic",
       "L3: plain route branch → route_source == 'deterministic'")
+
+
+# ---------------------------------------------------------------------------
+# --- SECTION M: resource_rows projection (3 assertions) ---
+# ---------------------------------------------------------------------------
+
+print("\n--- M: resource_rows projection for @resource turns ---")
+
+_RESOURCE_RT = {
+    "branch": "resource", "decision_kind": "resource", "decision_outcome": "ok",
+    "router_hit": False, "classifier_called": False, "classifier_confidence": None,
+    "classifier_intent": None, "orchestrator_called": False,
+    "orchestrator_tool_calls": None, "orchestrator_outcome": None,
+    "grounded": True, "feature_flag_orch_enabled": False,
+}
+
+# M1: @injuries resource branch → resource_rows non-None with expected shape
+_injuries_rows = {
+    "resource": "injuries",
+    "title": "Current Injuries & Doubts",
+    "columns": ["web_name", "team_short", "position", "status_label",
+                "chance_of_playing", "news", "news_added"],
+    "rows": [
+        {"web_name": "Jones", "team_short": "EVE", "position": "MID",
+         "status_label": "Doubtful", "chance_of_playing": 25,
+         "news": "Hamstring", "news_added": "2026-05-15"},
+    ],
+    "data_age": "live",
+}
+_d_injuries = {
+    "selected_tool": None, "tool_input": {}, "raw_output": {"status": "ok"},
+    "answer_text": "Here are the current injuries.", "outcome": "ok",
+    "kind": "resource", "resource": "injuries",
+    "resource_rows": _injuries_rows,
+    "routing_trace": _RESOURCE_RT,
+    **_none_meta(),
+}
+resp = to_ask_response(_d_injuries, _req())
+check(
+    resp.resource_rows is not None
+    and all(k in resp.resource_rows for k in ("resource", "title", "columns", "rows")),
+    "M1: @injuries resource branch → resource_rows non-None with expected shape",
+)
+
+# M2: @top_form resource branch → resource_rows non-None with expected shape
+_top_form_rows = {
+    "resource": "top_form",
+    "title": "Top Form Players",
+    "columns": ["rank", "web_name", "team_short", "position", "value"],
+    "rows": [
+        {"rank": 1, "web_name": "Salah", "team_short": "LIV",
+         "position": "MID", "value": 13.2},
+    ],
+    "data_age": "live",
+}
+_d_top_form = {
+    "selected_tool": None, "tool_input": {}, "raw_output": {"status": "ok"},
+    "answer_text": "Here are the top form players.", "outcome": "ok",
+    "kind": "resource", "resource": "top_form",
+    "resource_rows": _top_form_rows,
+    "routing_trace": _RESOURCE_RT,
+    **_none_meta(),
+}
+resp = to_ask_response(_d_top_form, _req())
+check(
+    resp.resource_rows is not None
+    and all(k in resp.resource_rows for k in ("resource", "title", "columns", "rows")),
+    "M2: @top_form resource branch → resource_rows non-None with expected shape",
+)
+
+# M3: captain query (intent_score path, no resource) → resource_rows is None
+_d_captain = _base_ask_v2(
+    "get_captain_score", "ok", "route", True,
+    captain={"web_name": "Salah", "captain_score": 8.5, "tier": "elite",
+             "team_short": "LIV", "role_bonus": 1.0, "set_piece_notes": ""},
+)
+resp = to_ask_response(_d_captain, _req())
+check(
+    resp.resource_rows is None,
+    "M3: captain query (non-resource path) → resource_rows is None",
+)
 
 
 # ---------------------------------------------------------------------------

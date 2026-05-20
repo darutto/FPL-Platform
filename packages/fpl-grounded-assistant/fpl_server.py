@@ -279,6 +279,8 @@ class AskResponse(BaseModel):
     team_schedule: dict[str, Any] | None = None            # Phase 2.6e.3
     position_fixture_run: dict[str, Any] | None = None    # Phase 2.6e.4
     transfer_suggestion:  dict[str, Any] | None = None    # Phase 2.6h
+    # Phase A1 (post-graduation): full ResourceListResult dict for @resource turns; null for all other intents.
+    resource_rows:        dict[str, Any] | None = None
     # Phase 2.7d: routing audit fields
     route_source:          str | None   = None             # which routing stage decided
     classifier_confidence: float | None = None             # LLM classifier confidence when attempted
@@ -336,6 +338,8 @@ class SessionAskResponse(BaseModel):
     team_schedule: dict[str, Any] | None = None            # Phase 2.6e.3
     position_fixture_run: dict[str, Any] | None = None    # Phase 2.6e.4
     transfer_suggestion:  dict[str, Any] | None = None    # Phase 2.6h
+    # Phase A1 (post-graduation): full ResourceListResult dict for @resource turns; null for all other intents.
+    resource_rows:        dict[str, Any] | None = None
     # Phase 2.7d: routing audit fields
     route_source:          str | None   = None             # which routing stage decided
     classifier_confidence: float | None = None             # LLM classifier confidence when attempted

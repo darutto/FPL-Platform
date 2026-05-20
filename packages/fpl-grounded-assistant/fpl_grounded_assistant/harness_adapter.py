@@ -11,6 +11,7 @@ the module contract.
 Routing concerns (which ladder rung fires, which tool runs) live in
 ``harness.ask_v2()``.  UI-contract concerns (squad_context overrides,
 AskResponse field projection, debug-only routing_trace surfacing) live here.
+- resource_rows passthrough for @resource turns (added in A1 post-graduation).
 
 The two Adversarial-Reviewer-blessed semantic shifts (documented below):
 
@@ -334,6 +335,8 @@ def to_ask_response(
         team_schedule=_to_dict(d.get("team_schedule")),
         position_fixture_run=_to_dict(d.get("position_fixture_run")),
         transfer_suggestion=_to_dict(d.get("transfer_suggestion")),
+        # A1 (post-graduation): pure passthrough — adapter is still pure mapping; no transformation, no LLM.
+        resource_rows=d.get("resource_rows"),
         # routing audit
         orch_outcome=orch_outcome,
         degraded=degraded,
