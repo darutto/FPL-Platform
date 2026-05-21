@@ -99,6 +99,7 @@ from .provider_client import (
     ProviderResult,
     call_orch_provider,
 )
+from .evaluator import EvaluatorVerdict, evaluate_response
 from .renderer import render
 from .tool_schema_registry import _ALL_SCHEMAS, TOOL_NAMES
 
@@ -252,6 +253,11 @@ _GATE: _FailureGate = _load_gate()
 #: than a generic ``FPL_ORCH_TEST_INJECTION`` flag.  Must NOT be set in production.
 _ORCH_TEST_INJECTION_ENV: str = "FPL_ORCH_TEST_INJECTION"
 
+#: Env var that disables the second-layer evaluator entirely.
+#: When set to a truthy value (1, true, yes, on), the evaluator is skipped.
+#: Useful for cost-sensitive testing.
+_EVAL_DISABLED_ENV: str = "FPL_EVAL_DISABLED"
+
 _TEST_MODE_TRUTHY: frozenset[str] = frozenset({"1", "true", "yes", "on"})
 
 
@@ -262,6 +268,15 @@ def _test_mode_active() -> bool:
     without restarting the process.
     """
     return os.environ.get(_ORCH_TEST_INJECTION_ENV, "").strip().lower() in _TEST_MODE_TRUTHY
+
+
+def _eval_disabled() -> bool:
+    """Return ``True`` when ``FPL_EVAL_DISABLED`` is set to a truthy value.
+
+    Read fresh on each call so test runners can toggle the flag without
+    restarting the process.
+    """
+    return os.environ.get(_EVAL_DISABLED_ENV, "").strip().lower() in _TEST_MODE_TRUTHY
 
 
 def _log_orch_provider_event(provider_name: str, result: ProviderResult) -> None:
@@ -381,6 +396,9 @@ class OrchestratorResult:
     model:       str
     outcome:     str
     error:       str | None = None
+    # P1.d: evaluator fields (additive, None/False defaults)
+    evaluator_verdict: EvaluatorVerdict | None = None
+    retry_attempted:   bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -659,6 +677,223 @@ def _parse_tool_call(
 
 
 # ---------------------------------------------------------------------------
+# Evaluator integration helper (P1.d)
+# ---------------------------------------------------------------------------
+
+def _apply_evaluator(
+    *,
+    question: str,
+    answer_text: str,
+    tool_chosen: str | None,
+    tool_args: dict[str, Any],
+    tool_output: dict[str, Any],
+    tool_calls_trace: list[dict[str, Any]],
+    outcome: str,
+    model: str,
+    provider: str,
+    eval_client: Any,
+    # kwargs needed for optional retry
+    resolved_client: Any,
+    api_key: str | None,
+    system: str,
+    tools: list[dict[str, Any]],
+    _provider_label: str,
+    _timeout_s: float,
+    _max_retries: int,
+    _orch_request_fn: Any,
+    actual_bootstrap: dict[str, Any],
+) -> OrchestratorResult:
+    """Apply the second-layer evaluator to a primary answer.
+
+    If FPL_EVAL_DISABLED is set, or eval_client is None, returns the primary
+    result unchanged (fail-open, no evaluator verdict attached).
+
+    If the evaluator approves, returns primary result with verdict attached.
+    If the evaluator rejects, retries the primary LLM ONCE with feedback
+    prepended. Delivers the retry result unconditionally (hard cap = 1 retry).
+    """
+    # ------------------------------------------------------------------
+    # E0. Skip evaluator if disabled via env flag
+    # ------------------------------------------------------------------
+    if _eval_disabled() or eval_client is None:
+        return OrchestratorResult(
+            question=question,
+            tool_chosen=tool_chosen,
+            tool_args=tool_args,
+            tool_output=tool_output,
+            answer_text=answer_text,
+            llm_used=True,
+            model=model,
+            outcome=outcome,
+            error=None if outcome == OUTCOME_OK else f"tool returned status={tool_output.get('status')!r}",
+            evaluator_verdict=None,
+            retry_attempted=False,
+        )
+
+    # ------------------------------------------------------------------
+    # E1. Call the evaluator (cheap model, same provider)
+    # ------------------------------------------------------------------
+    verdict: EvaluatorVerdict = evaluate_response(
+        question=question,
+        primary_response=answer_text,
+        tool_calls=tool_calls_trace,
+        provider=provider,
+        client=eval_client,
+    )
+
+    # ------------------------------------------------------------------
+    # E2. Evaluator approved → return primary result unchanged + verdict
+    # ------------------------------------------------------------------
+    if verdict.approved:
+        return OrchestratorResult(
+            question=question,
+            tool_chosen=tool_chosen,
+            tool_args=tool_args,
+            tool_output=tool_output,
+            answer_text=answer_text,
+            llm_used=True,
+            model=model,
+            outcome=outcome,
+            error=None if outcome == OUTCOME_OK else f"tool returned status={tool_output.get('status')!r}",
+            evaluator_verdict=verdict,
+            retry_attempted=False,
+        )
+
+    # ------------------------------------------------------------------
+    # E3. Evaluator rejected → retry primary LLM ONCE with feedback.
+    #     Hard cap: 1 retry.  No second evaluation.
+    # ------------------------------------------------------------------
+    feedback = verdict.retry_feedback or "Improve grounding, completeness, and safety."
+    retry_question = f"Previous attempt feedback: {feedback}\n\nOriginal question: {question}"
+
+    _retry_call: OrchCallResult = call_orch_provider(
+        _provider_label,
+        model=model,
+        system=system,
+        tools=tools,
+        messages=[{"role": "user", "content": retry_question}],
+        timeout_s=_timeout_s,
+        max_retries=_max_retries,
+        client=resolved_client,
+        api_key=api_key,
+        _request_fn=_orch_request_fn,
+    )
+
+    # ------------------------------------------------------------------
+    # E3a. Retry call failed → deliver primary result (fail-open)
+    # ------------------------------------------------------------------
+    if _retry_call.error_code is not None:
+        _LOG.warning(
+            "evaluator retry LLM call failed: [%s] %s; delivering primary response",
+            _retry_call.error_code, _retry_call.error_msg,
+        )
+        return OrchestratorResult(
+            question=question,
+            tool_chosen=tool_chosen,
+            tool_args=tool_args,
+            tool_output=tool_output,
+            answer_text=answer_text,
+            llm_used=True,
+            model=model,
+            outcome=outcome,
+            error=None if outcome == OUTCOME_OK else f"tool returned status={tool_output.get('status')!r}",
+            evaluator_verdict=verdict,
+            retry_attempted=True,
+        )
+
+    # ------------------------------------------------------------------
+    # E3b. Parse retry response tool calls and execute them
+    # ------------------------------------------------------------------
+    _retry_response = _retry_call.response
+    _retry_tool_calls: list[tuple[str, str | None, dict[str, Any]]] = (
+        _parse_all_tool_calls(_retry_response, _provider_label)
+    )
+
+    if not _retry_tool_calls:
+        # No tool call in retry — check if there's plain text
+        _retry_text: str | None = None
+        for _block in getattr(_retry_response, "content", []):
+            if getattr(_block, "type", None) == "text":
+                _retry_text = getattr(_block, "text", None)
+                break
+        _retry_answer = _retry_text or answer_text
+        return OrchestratorResult(
+            question=question,
+            tool_chosen=tool_chosen,
+            tool_args=tool_args,
+            tool_output=tool_output,
+            answer_text=_retry_answer,
+            llm_used=True,
+            model=model,
+            outcome=OUTCOME_NO_TOOL if not _retry_text else outcome,
+            error=None,
+            evaluator_verdict=verdict,
+            retry_attempted=True,
+        )
+
+    # Execute retry tool calls
+    _retry_executed: list[tuple[str, str | None, dict[str, Any], dict[str, Any]]] = []
+    for _rtid, _rtname, _rtargs in _retry_tool_calls:
+        if not _rtname or _rtname not in TOOL_NAMES:
+            # Unknown tool in retry — deliver primary
+            return OrchestratorResult(
+                question=question,
+                tool_chosen=tool_chosen,
+                tool_args=tool_args,
+                tool_output=tool_output,
+                answer_text=answer_text,
+                llm_used=True,
+                model=model,
+                outcome=outcome,
+                error=None if outcome == OUTCOME_OK else f"tool returned status={tool_output.get('status')!r}",
+                evaluator_verdict=verdict,
+                retry_attempted=True,
+            )
+        try:
+            _retry_raw: dict[str, Any] = run_tool(_rtname, _rtargs, actual_bootstrap)
+        except Exception as exc:  # noqa: BLE001
+            return OrchestratorResult(
+                question=question,
+                tool_chosen=_rtname,
+                tool_args=_rtargs,
+                tool_output={},
+                answer_text=f"Tool execution raised an error for {_rtname!r}.",
+                llm_used=True,
+                model=model,
+                outcome=OUTCOME_TOOL_ERROR,
+                error=str(exc),
+                evaluator_verdict=verdict,
+                retry_attempted=True,
+            )
+        _retry_executed.append((_rtid, _rtname, _rtargs, _retry_raw))
+
+    # Render the retry result from the first tool
+    _r_tool_id, _r_tool_name, _r_tool_args, _r_raw_output = _retry_executed[0]
+    assert _r_tool_name is not None
+    _r_tool_status = _r_raw_output.get("status")
+    _r_outcome = OUTCOME_OK if _r_tool_status == "ok" else OUTCOME_TOOL_RESULT_ERROR
+    try:
+        _r_answer_text: str = render(_r_tool_name, _r_raw_output)
+    except Exception:  # noqa: BLE001
+        _r_answer_text = f"[{_r_tool_status or 'unknown'}]"
+
+    # UNCONDITIONAL delivery of retry result (hard cap = 1 retry, no second evaluation)
+    return OrchestratorResult(
+        question=question,
+        tool_chosen=_r_tool_name,
+        tool_args=_r_tool_args,
+        tool_output=_r_raw_output,
+        answer_text=_r_answer_text,
+        llm_used=True,
+        model=model,
+        outcome=_r_outcome,
+        error=None if _r_outcome == OUTCOME_OK else f"tool returned status={_r_tool_status!r}",
+        evaluator_verdict=verdict,
+        retry_attempted=True,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Public entrypoint
 # ---------------------------------------------------------------------------
 
@@ -672,6 +907,7 @@ def ask_orchestrated(
     provider: str | None = None,
     _gate: _FailureGate | None = None,
     _orch_request_fn: Any = None,
+    _eval_client: Any = None,
 ) -> OrchestratorResult:
     """Run a single LLM tool-use cycle and return a grounded result.
 
@@ -1031,16 +1267,31 @@ def ask_orchestrated(
             if _second_text:
                 tool_status = raw_output.get("status")
                 outcome = OUTCOME_OK if tool_status == "ok" else OUTCOME_TOOL_RESULT_ERROR
-                return OrchestratorResult(
+                _tool_calls_trace_mt: list[dict[str, Any]] = [
+                    {"name": _tname or "", "args": _targs, "output": _rout}
+                    for _, _tname, _targs, _rout in executed
+                ]
+                return _apply_evaluator(
                     question=question,
+                    answer_text=_second_text,
                     tool_chosen=tool_name,
                     tool_args=tool_args,
                     tool_output=raw_output,
-                    answer_text=_second_text,
-                    llm_used=True,
-                    model=model,
+                    tool_calls_trace=_tool_calls_trace_mt,
                     outcome=outcome,
-                    error=None if outcome == OUTCOME_OK else f"tool returned status={tool_status!r}",
+                    model=model,
+                    provider=_provider_label,
+                    eval_client=_eval_client,
+                    # retry kwargs for primary re-call
+                    resolved_client=resolved_client,
+                    api_key=api_key,
+                    system=system,
+                    tools=tools,
+                    _provider_label=_provider_label,
+                    _timeout_s=_timeout_s,
+                    _max_retries=_max_retries,
+                    _orch_request_fn=_orch_request_fn,
+                    actual_bootstrap=actual_bootstrap,
                 )
 
     # ------------------------------------------------------------------
@@ -1056,14 +1307,29 @@ def ask_orchestrated(
         # Renderer failed; surface status as minimal fallback
         answer_text = f"[{tool_status or 'unknown'}]"
 
-    return OrchestratorResult(
+    _tool_calls_trace: list[dict[str, Any]] = [
+        {"name": _tname or "", "args": _targs, "output": _rout}
+        for _, _tname, _targs, _rout in executed
+    ]
+    return _apply_evaluator(
         question=question,
+        answer_text=answer_text,
         tool_chosen=tool_name,
         tool_args=tool_args,
         tool_output=raw_output,
-        answer_text=answer_text,
-        llm_used=True,
-        model=model,
+        tool_calls_trace=_tool_calls_trace,
         outcome=outcome,
-        error=None if outcome == OUTCOME_OK else f"tool returned status={tool_status!r}",
+        model=model,
+        provider=_provider_label,
+        eval_client=_eval_client,
+        # retry kwargs for primary re-call
+        resolved_client=resolved_client,
+        api_key=api_key,
+        system=system,
+        tools=tools,
+        _provider_label=_provider_label,
+        _timeout_s=_timeout_s,
+        _max_retries=_max_retries,
+        _orch_request_fn=_orch_request_fn,
+        actual_bootstrap=actual_bootstrap,
     )

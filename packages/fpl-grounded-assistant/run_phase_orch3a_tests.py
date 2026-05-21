@@ -684,6 +684,420 @@ ok(_parsed_all[0][0] == "toolu_A" and _parsed_all[1][0] == "toolu_B",
 
 
 # ---------------------------------------------------------------------------
+# Section N: Second-layer evaluator (P1.d)
+# ---------------------------------------------------------------------------
+# Tests lock the evaluator contract:
+#   N1: no eval client → ask_orchestrated returns approved=True (fail-open)
+#   N2: evaluator approves → primary response returned unchanged
+#   N3: evaluator rejects → retry invoked exactly once
+#   N4: retry user message contains the feedback string
+#   N5: after 1 retry, result delivered regardless of hypothetical second round
+#   N6: evaluator tokens_used surfaces in OrchestratorResult.evaluator_verdict
+#   N7: FPL_EVAL_DISABLED=1 skips evaluator entirely (no second LLM call)
+#   N8: invalid JSON from evaluator → fail-open (no crash)
+# ---------------------------------------------------------------------------
+
+print("\n=== N: second-layer evaluator (P1.d) ===")
+
+from fpl_grounded_assistant.evaluator import (
+    EvaluatorVerdict,
+    evaluate_response,
+    _EVALUATOR_MODELS,
+    _FAIL_OPEN,
+)
+
+
+# ---------------------------------------------------------------------------
+# N-section mock infrastructure
+# ---------------------------------------------------------------------------
+
+class _MockEvalApproveClient:
+    """Evaluator mock that always returns an approved JSON verdict."""
+
+    def __init__(self) -> None:
+        self.messages = self
+        self.call_count = 0
+
+    def create(self, *, model, max_tokens, system, messages, **kwargs):
+        self.call_count += 1
+
+        class _TextBlock:
+            type = "text"
+            text = '{"grounded": true, "complete": true, "safe": true, "retry_feedback": null}'
+
+        class _Usage:
+            input_tokens = 100
+            output_tokens = 20
+
+        class _Response:
+            content = [_TextBlock()]
+            usage   = _Usage()
+
+        return _Response()
+
+
+class _MockEvalRejectClient:
+    """Evaluator mock that always returns a rejected JSON verdict."""
+
+    def __init__(self, feedback: str = "Add tool-sourced minutes_played_season for all players.") -> None:
+        self.messages = self
+        self.call_count = 0
+        self._feedback = feedback
+
+    def create(self, *, model, max_tokens, system, messages, **kwargs):
+        self.call_count += 1
+        _fb = self._feedback
+
+        class _TextBlock:
+            type = "text"
+            @property
+            def text(self):
+                import json as _json
+                return _json.dumps({
+                    "grounded": False,
+                    "complete": True,
+                    "safe": False,
+                    "retry_feedback": _fb,
+                })
+
+        class _Usage:
+            input_tokens = 80
+            output_tokens = 30
+
+        class _Response:
+            content = [_TextBlock()]
+            usage   = _Usage()
+
+        return _Response()
+
+
+class _MockEvalInvalidJsonClient:
+    """Evaluator mock that returns invalid JSON (fail-open scenario)."""
+
+    def __init__(self) -> None:
+        self.messages = self
+        self.call_count = 0
+
+    def create(self, *, model, max_tokens, system, messages, **kwargs):
+        self.call_count += 1
+
+        class _TextBlock:
+            type = "text"
+            text = "NOT_VALID_JSON { missing quote"
+
+        class _Usage:
+            input_tokens = 50
+            output_tokens = 10
+
+        class _Response:
+            content = [_TextBlock()]
+            usage   = _Usage()
+
+        return _Response()
+
+
+class _MockPrimaryClientTracking:
+    """Primary LLM mock that tracks all calls; can be configured per-call via a list."""
+
+    def __init__(self, responses: list) -> None:
+        """responses: list of callables returning a mock response object."""
+        self.messages = self
+        self.call_count = 0
+        self.captured_messages: list[list] = []
+        self._responses = responses
+
+    def create(self, *, model, max_tokens, system, tools, messages, **kwargs):
+        idx = min(self.call_count, len(self._responses) - 1)
+        self.captured_messages.append(list(messages))
+        self.call_count += 1
+        return self._responses[idx]()
+
+
+def _make_tool_resp(tool_name: str, tool_input: dict, tool_id: str = "toolu_n_001"):
+    """Build a mock Anthropic tool-use response."""
+    _name  = tool_name
+    _input = dict(tool_input)
+    _tid   = tool_id
+
+    class _TB:
+        type  = "tool_use"
+        id    = _tid
+        name  = _name
+        input = _input
+
+    class _R:
+        content     = [_TB()]
+        stop_reason = "tool_use"
+
+    return _R()
+
+
+def _make_text_resp(text: str):
+    """Build a mock text-only response."""
+    class _TB:
+        type = "text"
+
+    class _TBInstance(_TB):
+        pass
+
+    tb = _TBInstance()
+    tb.text = text
+
+    class _R:
+        stop_reason = "end_turn"
+
+    r = _R()
+    r.content = [tb]
+    return r
+
+
+# ---------------------------------------------------------------------------
+# N1: no eval client → fail-open, evaluator_verdict is None
+# ---------------------------------------------------------------------------
+
+_n1_client = _MockToolUseClient("get_current_gameweek", {})
+_r_n1 = ask_orchestrated(
+    "what gameweek is it",
+    STANDARD_BOOTSTRAP,
+    client=_n1_client,
+    # _eval_client not passed → defaults to None
+)
+
+ok(hasattr(_r_n1, "evaluator_verdict"),
+   "N1a: OrchestratorResult has evaluator_verdict field")
+ok(_r_n1.evaluator_verdict is None,
+   "N1b: evaluator_verdict is None when no eval client provided (fail-open)")
+ok(hasattr(_r_n1, "retry_attempted"),
+   "N1c: OrchestratorResult has retry_attempted field")
+ok(_r_n1.retry_attempted is False,
+   "N1d: retry_attempted is False when no eval client provided")
+ok(_r_n1.outcome == OUTCOME_OK,
+   "N1e: outcome is still OUTCOME_OK (evaluator absence does not break primary)")
+
+
+# ---------------------------------------------------------------------------
+# N2: evaluator approves → primary response returned unchanged
+# ---------------------------------------------------------------------------
+
+_n2_eval_client = _MockEvalApproveClient()
+_n2_primary_client = _MockToolUseClient("get_current_gameweek", {})
+
+_r_n2 = ask_orchestrated(
+    "what gameweek is it",
+    STANDARD_BOOTSTRAP,
+    client=_n2_primary_client,
+    _eval_client=_n2_eval_client,
+)
+
+ok(_n2_eval_client.call_count == 1,
+   "N2a: evaluator was called exactly once (approval path)")
+ok(_r_n2.evaluator_verdict is not None,
+   "N2b: evaluator_verdict is populated when evaluator was called")
+ok(_r_n2.evaluator_verdict.approved is True,
+   "N2c: evaluator_verdict.approved is True")
+ok(_r_n2.retry_attempted is False,
+   "N2d: retry_attempted is False when evaluator approves")
+ok(_r_n2.outcome == OUTCOME_OK,
+   "N2e: outcome == OUTCOME_OK on approved path")
+# Primary made exactly 1 call (no retry)
+ok(len(_n2_primary_client.captured) == 1,
+   "N2f: primary LLM called exactly once when evaluator approves")
+
+
+# ---------------------------------------------------------------------------
+# N3: evaluator rejects → retry invoked exactly once
+# ---------------------------------------------------------------------------
+
+_FEEDBACK_N3 = "Add tool-sourced minutes_played_season for all player recommendations."
+
+_n3_eval_client  = _MockEvalRejectClient(feedback=_FEEDBACK_N3)
+_n3_primary_resp_1 = lambda: _make_tool_resp("get_current_gameweek", {}, "toolu_n3_001")
+_n3_primary_resp_2 = lambda: _make_tool_resp("get_current_gameweek", {}, "toolu_n3_002")
+_n3_primary_client = _MockPrimaryClientTracking([_n3_primary_resp_1, _n3_primary_resp_2])
+
+import os as _os_n
+_saved_injection_n = _os_n.environ.get("FPL_ORCH_TEST_INJECTION")
+_os_n.environ["FPL_ORCH_TEST_INJECTION"] = "1"
+
+try:
+    # We use a real client via _MockPrimaryClientTracking, so injection env not needed.
+    # But we set it anyway so _orch_request_fn=None path is used.
+    _r_n3 = ask_orchestrated(
+        "who should I captain",
+        STANDARD_BOOTSTRAP,
+        client=_n3_primary_client,
+        _eval_client=_n3_eval_client,
+    )
+    ok(_n3_primary_client.call_count == 2,
+       "N3a: primary LLM called exactly twice (original + 1 retry)")
+    ok(_n3_eval_client.call_count == 1,
+       "N3b: evaluator called exactly once (no second evaluation after retry)")
+    ok(_r_n3.retry_attempted is True,
+       "N3c: retry_attempted is True after evaluator rejection")
+    ok(_r_n3.evaluator_verdict is not None and _r_n3.evaluator_verdict.approved is False,
+       "N3d: evaluator_verdict.approved is False on rejection path")
+except Exception as _exc_n3:
+    ok(False, f"N3: ask_orchestrated raised unexpectedly: {_exc_n3}")
+    for _i in ("a", "b", "c", "d"):
+        ok(False, f"N3{_i}: (skipped)")
+finally:
+    if _saved_injection_n is None:
+        _os_n.environ.pop("FPL_ORCH_TEST_INJECTION", None)
+    else:
+        _os_n.environ["FPL_ORCH_TEST_INJECTION"] = _saved_injection_n
+
+
+# ---------------------------------------------------------------------------
+# N4: retry user message contains the feedback string
+# ---------------------------------------------------------------------------
+
+_FEEDBACK_N4 = "Cite fixture difficulty ratings from a tool call for each player."
+
+_n4_eval_client  = _MockEvalRejectClient(feedback=_FEEDBACK_N4)
+_n4_primary_resp_1 = lambda: _make_tool_resp("get_current_gameweek", {}, "toolu_n4_001")
+_n4_primary_resp_2 = lambda: _make_tool_resp("get_current_gameweek", {}, "toolu_n4_002")
+_n4_primary_client = _MockPrimaryClientTracking([_n4_primary_resp_1, _n4_primary_resp_2])
+
+_r_n4 = ask_orchestrated(
+    "who should I transfer in",
+    STANDARD_BOOTSTRAP,
+    client=_n4_primary_client,
+    _eval_client=_n4_eval_client,
+)
+
+# The retry call's user message must contain the feedback string
+_retry_messages_n4 = _n4_primary_client.captured_messages[1] if len(_n4_primary_client.captured_messages) > 1 else []
+_retry_user_content_n4 = ""
+for _m in _retry_messages_n4:
+    if _m.get("role") == "user":
+        _retry_user_content_n4 = str(_m.get("content", ""))
+        break
+
+ok(_FEEDBACK_N4 in _retry_user_content_n4,
+   "N4a: retry user message contains the evaluator feedback string")
+ok("Original question" in _retry_user_content_n4 or "original question" in _retry_user_content_n4.lower() or "who should I transfer in" in _retry_user_content_n4,
+   "N4b: retry user message contains the original question")
+
+
+# ---------------------------------------------------------------------------
+# N5: after 1 retry, result is delivered unconditionally (hard cap = 1)
+#
+# Validate that after retry, the result is delivered regardless — i.e., there
+# is NO third LLM call (which would imply a second evaluation round).
+# ---------------------------------------------------------------------------
+
+_FEEDBACK_N5 = "Always include minutes_played_season from a live tool call."
+
+_n5_eval_client  = _MockEvalRejectClient(feedback=_FEEDBACK_N5)
+_n5_primary_resp_1 = lambda: _make_tool_resp("get_current_gameweek", {}, "toolu_n5_001")
+_n5_primary_resp_2 = lambda: _make_tool_resp("get_current_gameweek", {}, "toolu_n5_002")
+# A 3rd response would be called if hard-cap violated
+_n5_primary_resp_3 = lambda: _make_tool_resp("get_current_gameweek", {}, "toolu_n5_003")
+_n5_primary_client = _MockPrimaryClientTracking([_n5_primary_resp_1, _n5_primary_resp_2, _n5_primary_resp_3])
+
+_r_n5 = ask_orchestrated(
+    "who is the best captain pick",
+    STANDARD_BOOTSTRAP,
+    client=_n5_primary_client,
+    _eval_client=_n5_eval_client,
+)
+
+ok(_n5_primary_client.call_count <= 2,
+   "N5a: primary LLM called at most 2 times (hard cap = 1 retry; no third call)")
+ok(_r_n5.retry_attempted is True,
+   "N5b: retry_attempted is True confirming one retry occurred")
+ok(_n5_eval_client.call_count == 1,
+   "N5c: evaluator called exactly once (no second evaluation after retry)")
+
+
+# ---------------------------------------------------------------------------
+# N6: evaluator tokens_used surfaces in OrchestratorResult.evaluator_verdict
+# ---------------------------------------------------------------------------
+
+_n6_eval_client  = _MockEvalApproveClient()
+_n6_primary_client = _MockToolUseClient("get_current_gameweek", {})
+
+_r_n6 = ask_orchestrated(
+    "what gameweek is it",
+    STANDARD_BOOTSTRAP,
+    client=_n6_primary_client,
+    _eval_client=_n6_eval_client,
+)
+
+ok(_r_n6.evaluator_verdict is not None,
+   "N6a: evaluator_verdict present")
+ok(isinstance(_r_n6.evaluator_verdict.tokens_used, int),
+   "N6b: evaluator_verdict.tokens_used is an int")
+ok(_r_n6.evaluator_verdict.tokens_used > 0,
+   "N6c: evaluator_verdict.tokens_used > 0 (mock returns 120 total tokens)")
+
+
+# ---------------------------------------------------------------------------
+# N7: FPL_EVAL_DISABLED=1 skips evaluator entirely (no second LLM call)
+# ---------------------------------------------------------------------------
+
+_saved_eval_disabled = _os_n.environ.get("FPL_EVAL_DISABLED")
+_os_n.environ["FPL_EVAL_DISABLED"] = "1"
+
+try:
+    _n7_eval_client  = _MockEvalApproveClient()
+    _n7_primary_client = _MockToolUseClient("get_current_gameweek", {})
+
+    _r_n7 = ask_orchestrated(
+        "what gameweek is it",
+        STANDARD_BOOTSTRAP,
+        client=_n7_primary_client,
+        _eval_client=_n7_eval_client,  # client provided, but should be skipped
+    )
+
+    ok(_n7_eval_client.call_count == 0,
+       "N7a: evaluator not called when FPL_EVAL_DISABLED=1")
+    ok(_r_n7.evaluator_verdict is None,
+       "N7b: evaluator_verdict is None when FPL_EVAL_DISABLED=1")
+    ok(_r_n7.retry_attempted is False,
+       "N7c: retry_attempted is False when FPL_EVAL_DISABLED=1")
+    ok(_r_n7.outcome == OUTCOME_OK,
+       "N7d: outcome is still OUTCOME_OK when evaluator disabled")
+    ok(len(_n7_primary_client.captured) == 1,
+       "N7e: primary LLM called exactly once when evaluator disabled")
+finally:
+    if _saved_eval_disabled is None:
+        _os_n.environ.pop("FPL_EVAL_DISABLED", None)
+    else:
+        _os_n.environ["FPL_EVAL_DISABLED"] = _saved_eval_disabled
+
+
+# ---------------------------------------------------------------------------
+# N8: invalid JSON from evaluator → fail-open (no crash)
+# ---------------------------------------------------------------------------
+
+_n8_eval_client  = _MockEvalInvalidJsonClient()
+_n8_primary_client = _MockToolUseClient("get_current_gameweek", {})
+
+try:
+    _r_n8 = ask_orchestrated(
+        "what gameweek is it",
+        STANDARD_BOOTSTRAP,
+        client=_n8_primary_client,
+        _eval_client=_n8_eval_client,
+    )
+    ok(_n8_eval_client.call_count == 1,
+       "N8a: evaluator was called (invalid JSON path)")
+    ok(_r_n8.outcome == OUTCOME_OK,
+       "N8b: outcome is OUTCOME_OK on fail-open from invalid JSON")
+    ok(_r_n8.evaluator_verdict is None or _r_n8.evaluator_verdict.approved is True,
+       "N8c: fail-open: verdict is None or approved=True (no false block)")
+    ok(_r_n8.retry_attempted is False,
+       "N8d: no retry triggered on fail-open from invalid evaluator JSON")
+    ok(isinstance(_r_n8.answer_text, str) and _r_n8.answer_text,
+       "N8e: answer_text is non-empty str on fail-open path")
+except Exception as _exc_n8:
+    ok(False, f"N8: ask_orchestrated raised on invalid evaluator JSON: {_exc_n8}")
+    for _i in ("a", "b", "c", "d", "e"):
+        ok(False, f"N8{_i}: (skipped)")
+
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 
