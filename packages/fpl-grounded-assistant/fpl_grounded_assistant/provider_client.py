@@ -928,6 +928,10 @@ def call_orch_provider(
     api_key: str | None = None,
     _sleep_fn: Any = None,
     _request_fn: Any = None,
+    # P1.e Lever 2: optional pre-built system blocks (list) for Anthropic prompt caching.
+    # When supplied for an Anthropic call, used in place of the plain `system` string so
+    # that cache_control markers are preserved.  Ignored for OpenAI / Gemini.
+    _system_blocks: list[dict[str, Any]] | None = None,
 ) -> OrchCallResult:
     """Unified orchestration provider call for tool-use / function-calling.
 
@@ -1104,12 +1108,19 @@ def call_orch_provider(
     _ac    = _ant_client
     _msgs  = messages
     _tools = tools
+    # P1.e Lever 2: use pre-built system blocks (with cache_control) when available.
+    # OpenAI prompt caching is automatic — no opt-in needed (system + tools are
+    # first in the request payload, which is already the case here).
+    # DeepSeek uses the OpenAI-compatible API; same automatic caching applies.
+    # Gemini: TODO — caching via genai.Client.caches.create() with TTL requires
+    # the google-genai >=0.8 SDK; not yet integrated. Add when SDK version is locked.
+    _system_arg: Any = _system_blocks if _system_blocks is not None else system
 
     def _ant_request() -> Any:
         return _ac.messages.create(
             model=model,
             max_tokens=max_tokens,
-            system=system,
+            system=_system_arg,
             tools=_tools,
             messages=_msgs,
             timeout=timeout_s,

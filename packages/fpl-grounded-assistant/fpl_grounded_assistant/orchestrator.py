@@ -402,6 +402,166 @@ class OrchestratorResult:
 
 
 # ---------------------------------------------------------------------------
+# P1.e Lever 4: Tool-output truncation
+# ---------------------------------------------------------------------------
+
+#: Maximum number of items to include in any list-valued field of a tool output
+#: before sending to the LLM.  Prevents 3KB+ payloads from tools like
+#: get_injury_list or rank_captain_candidates from inflating every LLM turn.
+#: Callers exceeding the cap see a ``_truncation_note`` field in the result.
+_TOOL_OUTPUT_MAX_LIST_ITEMS: int = 10
+
+#: List-valued field names in tool outputs that are subject to truncation.
+#: Keys not in this set are forwarded unchanged (safe, additive invariant).
+_TRUNCATABLE_FIELDS: frozenset[str] = frozenset({
+    "players",      # get_injury_list
+    "risers",       # get_price_changes
+    "fallers",      # get_price_changes
+    "candidates",   # rank_captain_candidates
+    "picks",        # get_differential_picks, get_transfer_suggestion
+    "fixtures",     # future tools
+    "history",      # get_player_form / future player_history tools
+})
+
+
+def _truncate_tool_output(
+    raw_output: dict[str, Any],
+    max_items: int = _TOOL_OUTPUT_MAX_LIST_ITEMS,
+) -> dict[str, Any]:
+    """Cap list-valued fields in *raw_output* to *max_items* before LLM serialization.
+
+    ADDITIVE INVARIANT: callers that already return ≤ max_items items are
+    unaffected.  Only fields whose list length exceeds *max_items* are capped.
+    Non-list fields and fields not in ``_TRUNCATABLE_FIELDS`` are forwarded
+    unchanged.
+
+    When truncation fires, a ``_truncation_note`` key is added to the result
+    describing how many items were omitted.  The original ``raw_output`` dict
+    is NOT mutated — a shallow copy with modified fields is returned.
+
+    Parameters
+    ----------
+    raw_output:
+        Raw dict returned by ``run_tool()``.
+    max_items:
+        Maximum list length before truncation.  Default: 10.
+
+    Returns
+    -------
+    dict[str, Any]
+        Shallow copy of *raw_output* with capped list fields (+ truncation note
+        when applicable).  Identical to *raw_output* when no field exceeds the
+        cap (zero overhead).
+
+    Examples
+    --------
+    >>> out = {"status": "ok", "players": list(range(25))}
+    >>> t = _truncate_tool_output(out, max_items=10)
+    >>> len(t["players"])
+    10
+    >>> "_truncation_note" in t
+    True
+    """
+    truncated_fields: list[str] = []
+    modified: dict[str, Any] = {}
+
+    for key, value in raw_output.items():
+        if key in _TRUNCATABLE_FIELDS and isinstance(value, list) and len(value) > max_items:
+            modified[key] = value[:max_items]
+            truncated_fields.append(f"{key}: showing top {max_items} of {len(value)} total")
+        else:
+            modified[key] = value
+
+    if truncated_fields:
+        modified["_truncation_note"] = (
+            "showing top " + str(max_items) + " of available results; "
+            "ask for more if needed. Truncated: " + "; ".join(truncated_fields) + "."
+        )
+
+    return modified
+
+
+# ---------------------------------------------------------------------------
+# P1.e Lever 2: Prompt caching helpers
+# ---------------------------------------------------------------------------
+
+def _build_anthropic_system_blocks(system_text: str) -> list[dict[str, Any]]:
+    """Wrap the system prompt string in an Anthropic content-block list with
+    cache_control applied to the final block.
+
+    Anthropic's ephemeral prompt caching is opt-in: the API caches the prefix
+    up to and including the LAST content block that carries
+    ``cache_control: {"type": "ephemeral"}``.  A 5-minute TTL is applied
+    automatically by the API.  Cache hits reduce input-token cost to ~10%.
+
+    This function is called for BOTH the primary orchestrator call AND the
+    evaluator retry call so that cache hits apply across both within a session
+    window.
+
+    OpenAI / DeepSeek: prompt caching is automatic (no opt-in).  The system
+    prompt + tools arrive first in the payload, which satisfies the caching
+    contract.  No code change needed.
+
+    Gemini: TODO — caching via genai.Client.caches.create() with an explicit
+    TTL requires the google-genai >= 0.8 SDK (context caching API).  Defer
+    until the SDK version is locked in requirements.txt.
+
+    Parameters
+    ----------
+    system_text:
+        The plain system prompt string to wrap.
+
+    Returns
+    -------
+    list[dict[str, Any]]
+        Single-element list with the text block + cache_control marker.
+    """
+    return [
+        {
+            "type": "text",
+            "text": system_text,
+            "cache_control": {"type": "ephemeral"},
+        }
+    ]
+
+
+def _apply_tools_cache_control(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return a copy of *tools* with cache_control on the LAST tool entry.
+
+    Anthropic caches the prefix up to and including the last block with
+    cache_control.  Adding it to the last tool schema means the entire tools
+    list is cached as a single cacheable unit.
+
+    Only modifies the Anthropic wire format (dicts with 'name'/'description'/
+    'input_schema').  OpenAI / Gemini tool lists are returned unchanged.
+
+    Parameters
+    ----------
+    tools:
+        Tool list in any provider wire format.
+
+    Returns
+    -------
+    list[dict[str, Any]]
+        Shallow copy with cache_control added to the last tool (if applicable).
+    """
+    if not tools:
+        return tools
+    # Check if this looks like an Anthropic tool list (each entry has 'input_schema').
+    # OpenAI entries have 'type'/'function'; Gemini entries have 'function_declarations'.
+    last = tools[-1]
+    if "input_schema" not in last:
+        # Not Anthropic format — return unchanged.
+        return tools
+    # Shallow-copy the list; deep-copy only the last entry.
+    result = list(tools)
+    last_with_cache = dict(last)
+    last_with_cache["cache_control"] = {"type": "ephemeral"}
+    result[-1] = last_with_cache
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Provider-aware tool list builder
 # ---------------------------------------------------------------------------
 
@@ -702,6 +862,8 @@ def _apply_evaluator(
     _max_retries: int,
     _orch_request_fn: Any,
     actual_bootstrap: dict[str, Any],
+    # P1.e Lever 2: cached system blocks for Anthropic retry call
+    _system_blocks: list[dict[str, Any]] | None = None,
 ) -> OrchestratorResult:
     """Apply the second-layer evaluator to a primary answer.
 
@@ -777,6 +939,7 @@ def _apply_evaluator(
         client=resolved_client,
         api_key=api_key,
         _request_fn=_orch_request_fn,
+        _system_blocks=_system_blocks,  # P1.e: cache_control preserved on retry
     )
 
     # ------------------------------------------------------------------
@@ -1041,11 +1204,19 @@ def ask_orchestrated(
 
     # ------------------------------------------------------------------
     # 3. Build tool list from schema registry (provider-appropriate format)
+    # P1.e Lever 2: apply cache_control to Anthropic tools list last entry
+    # so the entire tools block is cached. OpenAI/DeepSeek: automatic.
+    # Gemini: TODO (see _apply_tools_cache_control docstring).
     # ------------------------------------------------------------------
     tools: list[dict[str, Any]] = _build_tools(provider)
+    _provider_for_cache = provider if provider in _ALL_PROVIDERS else PROVIDER_ANTHROPIC
+    if _provider_for_cache == PROVIDER_ANTHROPIC:
+        tools = _apply_tools_cache_control(tools)
 
     # ------------------------------------------------------------------
     # 4. Build system prompt (P1.b source-discipline prompt + bootstrap context)
+    # P1.e Lever 2: for Anthropic, also build system_blocks with cache_control
+    # applied to the last block so the system prompt prefix is cached.
     # ------------------------------------------------------------------
     try:
         from .context_builder import build_orchestration_context  # noqa: PLC0415
@@ -1060,6 +1231,12 @@ def ask_orchestrated(
         )
     except Exception:  # noqa: BLE001
         system = _SYSTEM_PROMPT
+    # Build cached system blocks for Anthropic (ignored by OpenAI/Gemini paths).
+    _system_blocks: list[dict[str, Any]] | None = (
+        _build_anthropic_system_blocks(system)
+        if _provider_for_cache == PROVIDER_ANTHROPIC
+        else None
+    )
 
     # ------------------------------------------------------------------
     # 5. Call LLM — ProviderResult envelope + degradation gate
@@ -1095,6 +1272,7 @@ def ask_orchestrated(
         client=resolved_client,
         api_key=api_key,
         _request_fn=_orch_request_fn,
+        _system_blocks=_system_blocks,
     )
 
     # 5c: ProviderResult envelope for structured event emission
@@ -1214,11 +1392,12 @@ def ask_orchestrated(
     if len(executed) > 1:
         # Build a single role=user message containing ALL tool_result blocks.
         # tool_use_id MUST match the block's id from the model's prior response.
+        # P1.e Lever 4: truncate large list payloads before JSON serialization.
         tool_result_blocks: list[dict[str, Any]] = [
             {
                 "type": "tool_result",
                 "tool_use_id": _tid if _tid is not None else f"synthetic_{_idx}",
-                "content": json.dumps(_rout),
+                "content": json.dumps(_truncate_tool_output(_rout)),
             }
             for _idx, (_tid, _tname, _targs, _rout) in enumerate(executed)
         ]
@@ -1248,6 +1427,7 @@ def ask_orchestrated(
             client=resolved_client,
             api_key=api_key,
             _request_fn=_orch_request_fn,
+            _system_blocks=_system_blocks,  # P1.e: cache_control preserved
         )
         if _second_call.error_code is not None:
             # Second call failed — fall through to render the first tool's
@@ -1292,6 +1472,7 @@ def ask_orchestrated(
                     _max_retries=_max_retries,
                     _orch_request_fn=_orch_request_fn,
                     actual_bootstrap=actual_bootstrap,
+                    _system_blocks=_system_blocks,  # P1.e: cache_control preserved
                 )
 
     # ------------------------------------------------------------------
@@ -1332,4 +1513,5 @@ def ask_orchestrated(
         _max_retries=_max_retries,
         _orch_request_fn=_orch_request_fn,
         actual_bootstrap=actual_bootstrap,
+        _system_blocks=_system_blocks,  # P1.e: cache_control preserved
     )

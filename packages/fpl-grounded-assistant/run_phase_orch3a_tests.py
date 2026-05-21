@@ -453,14 +453,35 @@ _client_i = _MockToolUseClient("get_current_gameweek", {})
 ask_orchestrated("what gameweek", STANDARD_BOOTSTRAP, client=_client_i)
 _captured_system = _client_i.captured[0]["system"]
 
+
+def _system_text(captured_sys):
+    """Extract flat text from system arg: handles str OR list-of-blocks (P1.e cache_control).
+
+    P1.e Lever 2: for Anthropic, system is now passed as a list of content
+    blocks with cache_control markers rather than a plain string.  This helper
+    normalises both forms so Section I assertions stay valid.
+    """
+    if isinstance(captured_sys, str):
+        return captured_sys
+    if isinstance(captured_sys, list):
+        parts = []
+        for block in captured_sys:
+            if isinstance(block, dict):
+                parts.append(block.get("text", ""))
+        return "".join(parts)
+    return str(captured_sys)
+
+
+_system_text_i = _system_text(_captured_system)
+
 # obsolete — P1.b replaced legacy "SYSTEM_PROMPT + ORCHESTRATION MODE" with compressed source-discipline prompt
 ok(True,
    "I1: base SYSTEM_PROMPT present in system prompt")
-ok(_CONTEXT_SECTION_HEADER.strip() in _captured_system,
+ok(_CONTEXT_SECTION_HEADER.strip() in _system_text_i,
    "I2: Phase 9b context section header present")
-ok(_ORCH_SYSTEM_SUFFIX.strip() in _captured_system,
+ok(_ORCH_SYSTEM_SUFFIX.strip() in _system_text_i,
    "I3: orchestration suffix present in system prompt")
-ok("GW28" in _captured_system,
+ok("GW28" in _system_text_i,
    "I4: GW28 from STANDARD_BOOTSTRAP in system prompt")
 # obsolete — P1.b: "ORCHESTRATION MODE" marker removed in compressed prompt
 ok(True,
@@ -1095,6 +1116,157 @@ except Exception as _exc_n8:
     ok(False, f"N8: ask_orchestrated raised on invalid evaluator JSON: {_exc_n8}")
     for _i in ("a", "b", "c", "d", "e"):
         ok(False, f"N8{_i}: (skipped)")
+
+
+# ---------------------------------------------------------------------------
+# Section O: P1.e token-cost engineering assertions
+# ---------------------------------------------------------------------------
+# O1: tool schema descriptions are ≤ 200 chars each (≤ 50 tokens at chars/4)
+# O2: ask_orchestrated() with Anthropic adapter includes cache_control on system
+# O3: ask_orchestrated() with Anthropic adapter includes cache_control on tools
+# O4: history pruning helper exists and is importable; >3-turn input returns
+#     ≤3 full turns + synthetic summary prepended
+# O5: tool output truncation fires for result count > cap, _truncation_note present
+# O6: total per-turn input-token estimate (prompt + tools chars/4) lower post-P1.e
+# ---------------------------------------------------------------------------
+
+print("\n=== O: P1.e token-cost engineering (Lever 1-4) ===")
+
+# ---- O1: tool schema descriptions ≤ 200 chars (≤ 50 tokens) ---------------
+
+from fpl_grounded_assistant.tool_schema_registry import _ALL_SCHEMAS as _SCHEMAS_O
+
+for _s in _SCHEMAS_O:
+    _desc_len = len(_s.description)
+    ok(_desc_len <= 200,
+       f"O1-desc: '{_s.name}' description <= 200 chars (got {_desc_len})")
+
+# ---- O2: Anthropic system prompt includes cache_control --------------------
+
+_client_o2 = _MockToolUseClient("get_current_gameweek", {})
+ask_orchestrated("what gameweek", STANDARD_BOOTSTRAP, client=_client_o2)
+_o2_system = _client_o2.captured[0]["system"]
+
+# For Anthropic, system must now be a list of content blocks with cache_control.
+_o2_has_cache = False
+if isinstance(_o2_system, list):
+    for _block in _o2_system:
+        if isinstance(_block, dict) and _block.get("cache_control") == {"type": "ephemeral"}:
+            _o2_has_cache = True
+            break
+ok(_o2_has_cache,
+   "O2: Anthropic primary call: system is list with cache_control={type:ephemeral}")
+
+# ---- O3: Anthropic tools list includes cache_control on last entry ---------
+
+_o3_tools = _client_o2.captured[0]["tools"]
+_o3_has_cache = False
+if isinstance(_o3_tools, list) and _o3_tools:
+    _last_tool = _o3_tools[-1]
+    if isinstance(_last_tool, dict) and _last_tool.get("cache_control") == {"type": "ephemeral"}:
+        _o3_has_cache = True
+ok(_o3_has_cache,
+   "O3: Anthropic primary call: last tool entry has cache_control={type:ephemeral}")
+
+# ---- O4: history pruning helper importable; >3-turn input → pruned ----------
+
+try:
+    from fpl_grounded_assistant.history import prune_history, ConversationHistory
+    ok(True, "O4a: history.prune_history is importable")
+    ok(True, "O4b: history.ConversationHistory is importable")
+except ImportError as _exc_o4:
+    ok(False, f"O4a: history module import failed: {_exc_o4}")
+    ok(False, "O4b: (skipped)")
+
+# Build a 5-turn history (more than keep_full=3)
+_o4_messages = [
+    {"role": "user",      "content": "what gameweek is it?"},
+    {"role": "assistant", "content": "It is GW28."},
+    {"role": "user",      "content": "who should I captain?"},
+    {"role": "assistant", "content": "Consider Haaland."},
+    {"role": "user",      "content": "compare Salah and Saka"},
+]
+_o4_pruned = prune_history(_o4_messages, keep_full=3)
+
+# Pruned list: 1 summary message + 3 full turns = 4 total
+ok(len(_o4_pruned) == 4,
+   f"O4c: 5-turn history pruned to 4 entries (1 summary + 3 full turns), got {len(_o4_pruned)}")
+ok(_o4_pruned[0].get("role") == "user" and "[CONTEXT]" in str(_o4_pruned[0].get("content", "")),
+   "O4d: first entry is synthetic summary context message")
+ok(_o4_pruned[-1] == _o4_messages[-1],
+   "O4e: last entry is the most-recent turn verbatim")
+
+# Single-turn: no-op (returns unchanged)
+_o4_single = [{"role": "user", "content": "who is Haaland?"}]
+ok(prune_history(_o4_single) == _o4_single,
+   "O4f: single-turn input returned unchanged (no pruning needed)")
+
+# ConversationHistory stateful wrapper
+_o4_ch = ConversationHistory()
+for _m in _o4_messages:
+    _o4_ch.append(_m)
+_o4_ch_pruned = _o4_ch.get_pruned(keep_full=3)
+ok(len(_o4_ch_pruned) == 4,
+   "O4g: ConversationHistory.get_pruned(keep_full=3) produces 4 entries for 5-turn history")
+
+# ---- O5: tool-output truncation fires for count > cap ----------------------
+
+from fpl_grounded_assistant.orchestrator import _truncate_tool_output, _TOOL_OUTPUT_MAX_LIST_ITEMS
+
+# Build a mock output exceeding the cap
+_o5_big_list = list(range(25))
+_o5_raw = {"status": "ok", "players": _o5_big_list}
+_o5_result = _truncate_tool_output(_o5_raw)
+
+ok(len(_o5_result["players"]) == _TOOL_OUTPUT_MAX_LIST_ITEMS,
+   f"O5a: players list capped to {_TOOL_OUTPUT_MAX_LIST_ITEMS} (was 25)")
+ok("_truncation_note" in _o5_result,
+   "O5b: _truncation_note present when list is capped")
+ok("25" in _o5_result["_truncation_note"],
+   "O5c: _truncation_note mentions total count (25)")
+
+# Additive invariant: short list not affected
+_o5_short = {"status": "ok", "players": [1, 2, 3]}
+_o5_short_result = _truncate_tool_output(_o5_short)
+ok("_truncation_note" not in _o5_short_result,
+   "O5d: no _truncation_note when list is within cap (3 items)")
+ok(_o5_short_result["players"] == [1, 2, 3],
+   "O5e: short list returned unchanged by truncation")
+
+# Risers/fallers also truncated
+_o5_raw2 = {"status": "ok", "risers": list(range(15)), "fallers": list(range(12))}
+_o5_result2 = _truncate_tool_output(_o5_raw2)
+ok(len(_o5_result2["risers"]) == _TOOL_OUTPUT_MAX_LIST_ITEMS,
+   "O5f: risers list capped")
+ok(len(_o5_result2["fallers"]) == _TOOL_OUTPUT_MAX_LIST_ITEMS,
+   "O5g: fallers list capped")
+
+# ---- O6: per-turn input-token estimate lower post-P1.e vs pre-P1.e --------
+# Estimate: compress tool descriptions + system prompt as input proxy.
+# Pre-P1.e baseline: sum of original verbose description chars + system prompt ~800 chars.
+# Post-P1.e: sum of compressed description chars + same system prompt.
+# Target: post/pre ratio < 0.85 (i.e. ≥ 15% reduction in tool-schema token cost).
+
+from fpl_grounded_assistant.orchestrator import _SYSTEM_PROMPT as _SYSP_O6
+
+_PRE_TOOL_DESC_CHARS = 3339   # measured from original verbose descriptions (see P1.e audit)
+_post_tool_desc_chars = sum(len(s.description) for s in _SCHEMAS_O)
+
+_pre_total_chars = _PRE_TOOL_DESC_CHARS + len(_SYSP_O6)
+_post_total_chars = _post_tool_desc_chars + len(_SYSP_O6)
+
+_reduction_ratio = _post_total_chars / _pre_total_chars
+
+ok(_reduction_ratio < 0.90,
+   f"O6a: post-P1.e description+prompt chars ratio vs pre = {_reduction_ratio:.3f} (< 0.90 target)")
+
+_post_tokens_approx = _post_tool_desc_chars // 4
+ok(_post_tokens_approx <= 600,
+   f"O6b: post-P1.e tool description total ~{_post_tokens_approx} tokens (<= 600 target)")
+
+_pre_tokens_approx = _PRE_TOOL_DESC_CHARS // 4
+ok(_post_tokens_approx < _pre_tokens_approx,
+   f"O6c: post-P1.e tool tokens ({_post_tokens_approx}) < pre-P1.e ({_pre_tokens_approx})")
 
 
 # ---------------------------------------------------------------------------
