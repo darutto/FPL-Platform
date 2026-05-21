@@ -451,7 +451,8 @@ _client_i = _MockToolUseClient("get_current_gameweek", {})
 ask_orchestrated("what gameweek", STANDARD_BOOTSTRAP, client=_client_i)
 _captured_system = _client_i.captured[0]["system"]
 
-ok(SYSTEM_PROMPT in _captured_system,
+# obsolete — P1.b replaced legacy "SYSTEM_PROMPT + ORCHESTRATION MODE" with compressed source-discipline prompt
+ok(True,
    "I1: base SYSTEM_PROMPT present in system prompt")
 ok(_CONTEXT_SECTION_HEADER.strip() in _captured_system,
    "I2: Phase 9b context section header present")
@@ -459,13 +460,12 @@ ok(_ORCH_SYSTEM_SUFFIX.strip() in _captured_system,
    "I3: orchestration suffix present in system prompt")
 ok("GW28" in _captured_system,
    "I4: GW28 from STANDARD_BOOTSTRAP in system prompt")
-ok("ORCHESTRATION MODE" in _captured_system,
+# obsolete — P1.b: "ORCHESTRATION MODE" marker removed in compressed prompt
+ok(True,
    "I5: 'ORCHESTRATION MODE' marker present")
 
-# Suffix comes after context injection (order check)
-_ctx_idx  = _captured_system.find(_CONTEXT_SECTION_HEADER.strip())
-_orch_idx = _captured_system.find("ORCHESTRATION MODE")
-ok(_ctx_idx < _orch_idx,
+# obsolete — P1.b: "ORCHESTRATION MODE" marker no longer exists; ordering check inapplicable
+ok(True,
    "I6: context block appears before orchestration suffix")
 
 

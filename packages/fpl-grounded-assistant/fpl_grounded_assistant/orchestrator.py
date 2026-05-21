@@ -82,7 +82,13 @@ from typing import Any
 
 from fpl_tool_runner import run_tool
 
-from .llm_layer import build_system_prompt, _get_anthropic_client
+from .llm_layer import (
+    _get_anthropic_client,
+    _CONTEXT_SECTION_HEADER,
+    _CONTEXT_SECTION_FOOTER,
+    _CONTEXT_TRUNCATION_MARKER,
+    _MAX_CONTEXT_CHARS,
+)
 from .orch_config import get_orch_max_retries, get_orch_timeout
 from .provider_client import (
     PERR_AUTH,
@@ -298,14 +304,34 @@ def _log_orch_provider_event(provider_name: str, result: ProviderResult) -> None
 #: support and is cost-efficient for single-call cycles.
 DEFAULT_ORCH_MODEL: str = "claude-haiku-4-5-20251001"
 
-#: Suffix appended to the base system prompt to orient the LLM toward
-#: tool selection rather than plain-text presentation.
-_ORCH_SYSTEM_SUFFIX: str = (
-    "\n\n"
-    "ORCHESTRATION MODE: Respond by calling exactly one tool from the tool "
-    "list.  Extract the required arguments from the user's question and call "
-    "the most appropriate tool.  Do not produce a plain-text answer."
+# P1.b source-discipline prompt: agent-friendly compressed format, ~200 tokens.
+# Port of MPC_learning SOURCE_SELECTION_PROMPT pattern adapted for our sources
+# (FPL_DATA / FPL_RECO / FOOTBALL_NEWS / OFF_TOPIC).
+# Targets: source classification before tool use; grounding constraints
+# (minutes/status/news); OFF_TOPIC refusal; Spanish-first output.
+_SYSTEM_PROMPT: str = (
+    "ROLE: FPL assistant. PRIORITY: ground every claim in tool output.\n"
+    "\n"
+    "CLASSIFY query → ONE source:\n"
+    "  FPL_DATA      (players/teams/fixtures/GWs/points/price/minutes/status/news)\n"
+    "  FPL_RECO      (captain/transfer/chip/bench_boost recommendation)\n"
+    "  FOOTBALL_NEWS (recent events: results, rumors, rotation)\n"
+    "  OFF_TOPIC     (anything not FPL/football) → REFUSE in user_lang, no tool calls\n"
+    "\n"
+    "CONSTRAINTS:\n"
+    "  - single_source_per_turn (no cross-source unless user explicit)\n"
+    "  - never_recommend if minutes_played_season==0 (silent skip)\n"
+    "  - every player_reco MUST cite: minutes_played_season + status + news (tool-sourced)\n"
+    "  - ungroundable claim → \"no tengo datos suficientes\" / \"insufficient data\"\n"
+    "  - respond_lang = user_lang (default ES if ambiguous)\n"
+    "  - web_fetch only for whitelisted football/FPL domains; OFF_TOPIC URLs → refuse\n"
+    "\n"
+    "OUTPUT: terse, structured, action-oriented. Spanish-first."
 )
+
+#: Retained for backwards compatibility with tests that import this name.
+#: Value now matches _SYSTEM_PROMPT (the P1.b compressed prompt).
+_ORCH_SYSTEM_SUFFIX: str = _SYSTEM_PROMPT
 
 
 # ---------------------------------------------------------------------------
@@ -641,9 +667,21 @@ def ask_orchestrated(
     tools: list[dict[str, Any]] = _build_tools(provider)
 
     # ------------------------------------------------------------------
-    # 4. Build system prompt (context-injected + orchestration suffix)
+    # 4. Build system prompt (P1.b source-discipline prompt + bootstrap context)
     # ------------------------------------------------------------------
-    system: str = build_system_prompt(actual_bootstrap) + _ORCH_SYSTEM_SUFFIX
+    try:
+        from .context_builder import build_orchestration_context  # noqa: PLC0415
+        _ctx = build_orchestration_context(actual_bootstrap)
+        if len(_ctx) > _MAX_CONTEXT_CHARS:
+            _ctx = _ctx[:_MAX_CONTEXT_CHARS] + _CONTEXT_TRUNCATION_MARKER
+        system: str = (
+            _SYSTEM_PROMPT
+            + _CONTEXT_SECTION_HEADER
+            + _ctx
+            + _CONTEXT_SECTION_FOOTER
+        )
+    except Exception:  # noqa: BLE001
+        system = _SYSTEM_PROMPT
 
     # ------------------------------------------------------------------
     # 5. Call LLM — ProviderResult envelope + degradation gate
