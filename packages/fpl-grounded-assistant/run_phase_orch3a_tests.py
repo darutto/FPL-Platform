@@ -78,6 +78,8 @@ from fpl_grounded_assistant.orchestrator import (
     DEFAULT_ORCH_MODEL,
     _ORCH_SYSTEM_SUFFIX,
     _ALL_OUTCOMES,
+    _parse_all_tool_calls,
+    _parse_all_anthropic_tool_calls,
 )
 from fpl_grounded_assistant.tool_schema_registry import (
     list_tool_schemas,
@@ -554,6 +556,131 @@ for _s in _ALL_SCHEMAS:
 
 ok(get_tool_schema("get_captain_score") is not None, "L4: get_captain_score lookup ok")
 ok(get_tool_schema("nonexistent") is None,           "L5: unknown name returns None")
+
+
+# ---------------------------------------------------------------------------
+# Section M: Multi-tool batching invariant (P1.c)
+# ---------------------------------------------------------------------------
+# Tests lock the contract: when the LLM returns 2+ tool_use blocks in one
+# response, ask_orchestrated() MUST:
+#   1. Call ALL tools (not just the first).
+#   2. Send ALL tool_result blocks in a SINGLE role=user follow-up message.
+#   3. Preserve tool_use_id ↔ tool_result_id pairing exactly.
+# ---------------------------------------------------------------------------
+
+print("\n=== M: multi-tool batching invariant (P1.c) ===")
+
+
+def _make_tool_block(tid, tname, tinput):
+    """Build a simple namespace object that looks like an Anthropic tool_use block."""
+    class _TB:
+        pass
+    tb = _TB()
+    tb.type  = "tool_use"
+    tb.id    = tid
+    tb.name  = tname
+    tb.input = tinput
+    return tb
+
+
+class _MultiToolClient:
+    """Mock Anthropic-shaped client that returns 2 tool_use blocks on the first
+    call and a plain-text synthesis answer on the second call.
+
+    Captures the full ``messages`` list for each call so tests can inspect the
+    tool_result batching structure sent to the model.
+    """
+
+    def __init__(self) -> None:
+        self.messages = self   # Anthropic: client.messages.create(...)
+        self.call_count = 0
+        self.captured_calls: list[dict] = []
+
+    def create(self, *, model, max_tokens, system, tools, messages, **kwargs):
+        self.call_count += 1
+        self.captured_calls.append({
+            "messages": list(messages),
+        })
+
+        if self.call_count == 1:
+            # First call: return 2-tool response.
+            class _Resp:
+                content     = [
+                    _make_tool_block("toolu_001", "get_current_gameweek", {}),
+                    _make_tool_block("toolu_002", "resolve_player", {"query": "Salah"}),
+                ]
+                stop_reason = "tool_use"
+            return _Resp()
+
+        else:
+            # Second call: return plain-text synthesis answer.
+            class _TextBlock:
+                type = "text"
+                text = "Synthesised answer from multi-tool results."
+
+            class _TextResp:
+                content     = [_TextBlock()]
+                stop_reason = "end_turn"
+
+            return _TextResp()
+
+
+_multi_client = _MultiToolClient()
+
+_r_m = ask_orchestrated(
+    "what gameweek and who is Salah",
+    STANDARD_BOOTSTRAP,
+    client=_multi_client,
+)
+
+# M1: The orchestrator made exactly 2 LLM calls (tool call + synthesis).
+ok(_multi_client.call_count == 2,
+   "M1: exactly 2 LLM calls made for 2-tool response (tool call + synthesis)")
+
+# M2: The second call's messages include a role=user message with 2 tool_result blocks.
+_second_call_msgs = _multi_client.captured_calls[1]["messages"]
+_user_msgs_call2  = [m for m in _second_call_msgs if m.get("role") == "user"]
+# The last user-role message must contain the batched tool_result blocks.
+_last_user_content = _user_msgs_call2[-1].get("content", []) if _user_msgs_call2 else []
+_tool_result_blocks_m = [
+    b for b in _last_user_content
+    if isinstance(b, dict) and b.get("type") == "tool_result"
+] if isinstance(_last_user_content, list) else []
+ok(len(_tool_result_blocks_m) == 2,
+   "M2: second LLM call receives exactly 2 tool_result blocks in one user-role message")
+
+# M3: tool_use_id ↔ tool_result_id pairing preserved (toolu_001 and toolu_002).
+_result_ids_m = {b.get("tool_use_id") for b in _tool_result_blocks_m}
+ok("toolu_001" in _result_ids_m,
+   "M3a: tool_use_id 'toolu_001' preserved in tool_result pairing")
+ok("toolu_002" in _result_ids_m,
+   "M3b: tool_use_id 'toolu_002' preserved in tool_result pairing")
+
+# M4: The final answer is the synthesised text from the second LLM call.
+ok(_r_m.answer_text == "Synthesised answer from multi-tool results.",
+   "M4: answer_text comes from second LLM synthesis call")
+
+# M5-M6 (regression): single-tool path still works — only 1 LLM call, no follow-up.
+_single_client = _MockToolUseClient("get_current_gameweek", {})
+_r_m5 = ask_orchestrated("what gameweek", STANDARD_BOOTSTRAP, client=_single_client)
+ok(len(_single_client.captured) == 1,
+   "M5: single-tool path makes exactly 1 LLM call (no second-call regression)")
+ok(_r_m5.outcome == OUTCOME_OK,
+   "M6: single-tool path outcome is still OUTCOME_OK (no regression)")
+
+# M7-M8: _parse_all_anthropic_tool_calls returns all blocks with correct IDs.
+class _TwoBlockResp:
+    content = [
+        _make_tool_block("toolu_A", "get_current_gameweek", {}),
+        _make_tool_block("toolu_B", "resolve_player",       {"query": "Salah"}),
+    ]
+    stop_reason = "tool_use"
+
+_parsed_all = _parse_all_anthropic_tool_calls(_TwoBlockResp())
+ok(len(_parsed_all) == 2,
+   "M7: _parse_all_anthropic_tool_calls returns 2 entries for 2-tool response")
+ok(_parsed_all[0][0] == "toolu_A" and _parsed_all[1][0] == "toolu_B",
+   "M8: _parse_all_anthropic_tool_calls preserves tool_use_ids in order")
 
 
 # ---------------------------------------------------------------------------

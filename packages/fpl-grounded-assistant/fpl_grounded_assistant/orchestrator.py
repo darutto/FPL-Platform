@@ -421,6 +421,9 @@ def _parse_anthropic_tool_call(
 
     Returns ``(tool_name, tool_args)`` on success, or ``None`` when the
     response does not contain a tool_use block.
+
+    Note: returns the FIRST tool_use block only.  Use ``_parse_all_anthropic_tool_calls``
+    when the response may contain multiple tool_use blocks (multi-tool batching).
     """
     for block in getattr(response, "content", []):
         if getattr(block, "type", None) == "tool_use":
@@ -429,6 +432,135 @@ def _parse_anthropic_tool_call(
             args = raw_input if isinstance(raw_input, dict) else {}
             return name, args
     return None
+
+
+def _parse_all_anthropic_tool_calls(
+    response: Any,
+) -> list[tuple[str, str | None, dict[str, Any]]]:
+    """Parse ALL Anthropic tool_use blocks from a single response.
+
+    Multi-tool batching: the Anthropic API may return multiple ``tool_use``
+    blocks in a single response content list.  Each block MUST be executed and
+    ALL results MUST be returned in a single ``role=user`` message before the
+    next model invocation.  Dropping any block breaks the tool_use_id
+    correspondence and triggers a 400-error or silent result loss.
+
+    Returns
+    -------
+    list of ``(tool_use_id, tool_name, tool_args)`` — one entry per tool_use
+    block in the response, preserving original order.  Empty list when no
+    tool_use blocks are present.
+    """
+    results = []
+    for block in getattr(response, "content", []):
+        if getattr(block, "type", None) == "tool_use":
+            tool_id = getattr(block, "id", None)
+            name = getattr(block, "name", None)
+            raw_input = getattr(block, "input", None)
+            args = raw_input if isinstance(raw_input, dict) else {}
+            results.append((tool_id, name, args))
+    return results
+
+
+def _parse_all_openai_tool_calls(
+    response: Any,
+) -> list[tuple[str, str | None, dict[str, Any]]]:
+    """Parse ALL OpenAI tool_calls from a single chat-completions response.
+
+    Returns list of ``(tool_call_id, function_name, function_args)`` tuples.
+    Empty list when no tool calls are present or parsing fails.
+    """
+    try:
+        choices = getattr(response, "choices", None) or []
+        message = choices[0].message
+        tool_calls = getattr(message, "tool_calls", None) or []
+        results = []
+        for tc in tool_calls:
+            tc_id = getattr(tc, "id", None)
+            func = tc.function
+            name = getattr(func, "name", None)
+            raw_args = getattr(func, "arguments", "{}")
+            if isinstance(raw_args, str):
+                args = json.loads(raw_args)
+            elif isinstance(raw_args, dict):
+                args = raw_args
+            else:
+                args = {}
+            if not isinstance(args, dict):
+                args = {}
+            results.append((tc_id, name, args))
+        return results
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def _parse_all_gemini_tool_calls(
+    response: Any,
+) -> list[tuple[str, str | None, dict[str, Any]]]:
+    """Parse ALL Gemini function_call parts from a single response.
+
+    Returns list of ``(call_id, function_name, function_args)`` tuples.
+    Gemini does not use explicit call IDs, so ``call_id`` is a synthetic
+    positional identifier (``"gemini_call_0"``, ``"gemini_call_1"``, …) to
+    satisfy the tool_use_id pairing contract.
+    Empty list when no function calls are present or parsing fails.
+    """
+    try:
+        candidates = getattr(response, "candidates", None) or []
+        content = candidates[0].content
+        parts = getattr(content, "parts", None) or []
+        results = []
+        for idx, part in enumerate(parts):
+            fc = getattr(part, "function_call", None)
+            if fc is None:
+                continue
+            name = getattr(fc, "name", None)
+            raw_args = getattr(fc, "args", None)
+            args = dict(raw_args) if raw_args is not None else {}
+            call_id = f"gemini_call_{idx}"
+            results.append((call_id, name, args))
+        return results
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def _parse_all_tool_calls(
+    response: Any,
+    provider: str | None,
+) -> list[tuple[str, str | None, dict[str, Any]]]:
+    """Parse ALL tool-call blocks from *response*, returning one entry per block.
+
+    Multi-tool batching invariant: when the LLM returns N tool_use blocks in a
+    single response, this function returns ALL N entries.  The caller MUST
+    execute every entry and send ALL results back in a single ``role=user``
+    message before the next model invocation.
+
+    Parameters
+    ----------
+    response:
+        Raw LLM response object.
+    provider:
+        Explicit provider string or ``None`` for auto-detection (Anthropic-first).
+
+    Returns
+    -------
+    list of ``(tool_use_id, tool_name, tool_args)`` — empty list means no tool
+    calls were present (equivalent to ``OUTCOME_NO_TOOL``).
+    """
+    if provider == PROVIDER_OPENAI:
+        return _parse_all_openai_tool_calls(response)
+    if provider == PROVIDER_GEMINI:
+        return _parse_all_gemini_tool_calls(response)
+    if provider == PROVIDER_ANTHROPIC:
+        return _parse_all_anthropic_tool_calls(response)
+    # Auto-detection: try Anthropic first (most common), then OpenAI, then Gemini
+    anthropic_calls = _parse_all_anthropic_tool_calls(response)
+    if anthropic_calls:
+        return anthropic_calls
+    openai_calls = _parse_all_openai_tool_calls(response)
+    if openai_calls:
+        return openai_calls
+    return _parse_all_gemini_tool_calls(response)
 
 
 def _parse_openai_tool_call(
@@ -441,6 +573,9 @@ def _parse_openai_tool_call(
 
     Returns ``(tool_name, tool_args)`` on success, or ``None`` when no
     tool call is present or parsing fails.
+
+    Note: returns the FIRST tool_call only.  Use ``_parse_all_openai_tool_calls``
+    for multi-tool responses.
     """
     try:
         choices = getattr(response, "choices", None) or []
@@ -471,6 +606,9 @@ def _parse_gemini_tool_call(
 
     Returns ``(tool_name, tool_args)`` on success, or ``None`` when no
     function call is present or parsing fails.
+
+    Note: returns the FIRST function_call only.  Use ``_parse_all_gemini_tool_calls``
+    for multi-tool responses.
     """
     try:
         candidates = getattr(response, "candidates", None) or []
@@ -501,6 +639,10 @@ def _parse_tool_call(
     Returns
     -------
     ``(tool_name, tool_args)`` tuple, or ``None`` when no tool call was found.
+
+    Note: returns FIRST tool call only (single-tool path, preserved for
+    backward compatibility).  The multi-tool batching path uses
+    ``_parse_all_tool_calls`` instead.
     """
     if provider == PROVIDER_OPENAI:
         return _parse_openai_tool_call(response)
@@ -751,11 +893,23 @@ def ask_orchestrated(
     response = orch_call.response
 
     # ------------------------------------------------------------------
-    # 6. Parse tool-call block from response (provider-aware)
+    # 6. Parse ALL tool-call blocks from response (multi-tool batching, P1.c).
+    #
+    # INVARIANT: when the LLM returns N >= 2 tool_use blocks in a single
+    # response, ALL N must be executed and ALL results sent back in a single
+    # role=user message before the next model invocation.  Executing only the
+    # first block (the pre-P1.c behaviour) loses subsequent tool_use blocks,
+    # breaking the tool_use_id correspondence and causing silent result loss or
+    # 400-errors on the follow-up call.
+    #
+    # Single-tool path (N == 1): the logic below is byte-equivalent to the
+    # prior implementation — no behavioural change for the common case.
     # ------------------------------------------------------------------
-    parsed = _parse_tool_call(response, provider)
+    all_tool_calls: list[tuple[str, str | None, dict[str, Any]]] = (
+        _parse_all_tool_calls(response, provider)
+    )
 
-    if parsed is None:
+    if not all_tool_calls:
         return OrchestratorResult(
             question=question,
             tool_chosen=None,
@@ -768,44 +922,130 @@ def ask_orchestrated(
             error="no tool-call block in response",
         )
 
-    tool_name, tool_args = parsed
+    # ------------------------------------------------------------------
+    # 7. Validate ALL tool names against registry before executing any.
+    # ------------------------------------------------------------------
+    for _tool_id, _tool_name, _tool_args in all_tool_calls:
+        if not _tool_name or _tool_name not in TOOL_NAMES:
+            return OrchestratorResult(
+                question=question,
+                tool_chosen=_tool_name,
+                tool_args={},
+                tool_output={},
+                answer_text=f"Model selected an unknown tool: {_tool_name!r}.",
+                llm_used=True,
+                model=model,
+                outcome=OUTCOME_UNKNOWN_TOOL,
+                error=f"unknown tool: {_tool_name!r}",
+            )
 
     # ------------------------------------------------------------------
-    # 7. Validate tool name against registry
+    # 8. Execute ALL tools deterministically; collect (tool_use_id, result)
+    #    pairs for the follow-up message.
     # ------------------------------------------------------------------
-    if not tool_name or tool_name not in TOOL_NAMES:
-        return OrchestratorResult(
-            question=question,
-            tool_chosen=tool_name,
-            tool_args={},
-            tool_output={},
-            answer_text=f"Model selected an unknown tool: {tool_name!r}.",
-            llm_used=True,
+    executed: list[tuple[str, str | None, dict[str, Any], dict[str, Any]]] = []
+    # Each entry: (tool_use_id, tool_name, tool_args, raw_output)
+
+    for _tool_id, _tool_name, _tool_args in all_tool_calls:
+        assert _tool_name is not None  # validated above
+        try:
+            _raw_output: dict[str, Any] = run_tool(_tool_name, _tool_args, actual_bootstrap)
+        except Exception as exc:  # noqa: BLE001
+            return OrchestratorResult(
+                question=question,
+                tool_chosen=_tool_name,
+                tool_args=_tool_args,
+                tool_output={},
+                answer_text=f"Tool execution raised an error for {_tool_name!r}.",
+                llm_used=True,
+                model=model,
+                outcome=OUTCOME_TOOL_ERROR,
+                error=str(exc),
+            )
+        executed.append((_tool_id, _tool_name, _tool_args, _raw_output))
+
+    # ------------------------------------------------------------------
+    # 8b. Multi-tool batching: if the LLM issued 2+ tool_use blocks, send
+    #     ALL tool_result blocks in a SINGLE role=user message and make a
+    #     second model invocation to get the synthesised answer.
+    #
+    #     Single-tool path (N == 1): skip the second LLM call entirely —
+    #     behaviour is identical to the pre-P1.c implementation.
+    # ------------------------------------------------------------------
+    # Unpack the first (and for single-tool path: only) result for use below.
+    first_tool_id, tool_name, tool_args, raw_output = executed[0]
+
+    if len(executed) > 1:
+        # Build a single role=user message containing ALL tool_result blocks.
+        # tool_use_id MUST match the block's id from the model's prior response.
+        tool_result_blocks: list[dict[str, Any]] = [
+            {
+                "type": "tool_result",
+                "tool_use_id": _tid if _tid is not None else f"synthetic_{_idx}",
+                "content": json.dumps(_rout),
+            }
+            for _idx, (_tid, _tname, _targs, _rout) in enumerate(executed)
+        ]
+        # The assistant turn that triggered the tool calls must also be echoed
+        # back in the conversation so the second call has full context.
+        assistant_content: list[dict[str, Any]] = []
+        for _tid, _tname, _targs, _rout in executed:
+            assistant_content.append({
+                "type": "tool_use",
+                "id": _tid if _tid is not None else f"synthetic_0",
+                "name": _tname,
+                "input": _targs,
+            })
+        follow_up_messages: list[dict[str, Any]] = [
+            {"role": "user", "content": question},
+            {"role": "assistant", "content": assistant_content},
+            {"role": "user", "content": tool_result_blocks},
+        ]
+        _second_call: OrchCallResult = call_orch_provider(
+            _provider_label,
             model=model,
-            outcome=OUTCOME_UNKNOWN_TOOL,
-            error=f"unknown tool: {tool_name!r}",
+            system=system,
+            tools=tools,
+            messages=follow_up_messages,
+            timeout_s=_timeout_s,
+            max_retries=_max_retries,
+            client=resolved_client,
+            api_key=api_key,
+            _request_fn=_orch_request_fn,
         )
+        if _second_call.error_code is not None:
+            # Second call failed — fall through to render the first tool's
+            # output as a graceful degradation rather than returning an error.
+            _LOG.warning(
+                "multi-tool second LLM call failed: [%s] %s; rendering first tool only",
+                _second_call.error_code, _second_call.error_msg,
+            )
+        else:
+            # Second call succeeded; surface its synthesised answer text.
+            _second_response = _second_call.response
+            _second_text: str | None = None
+            for _block in getattr(_second_response, "content", []):
+                if getattr(_block, "type", None) == "text":
+                    _second_text = getattr(_block, "text", None)
+                    break
+            if _second_text:
+                tool_status = raw_output.get("status")
+                outcome = OUTCOME_OK if tool_status == "ok" else OUTCOME_TOOL_RESULT_ERROR
+                return OrchestratorResult(
+                    question=question,
+                    tool_chosen=tool_name,
+                    tool_args=tool_args,
+                    tool_output=raw_output,
+                    answer_text=_second_text,
+                    llm_used=True,
+                    model=model,
+                    outcome=outcome,
+                    error=None if outcome == OUTCOME_OK else f"tool returned status={tool_status!r}",
+                )
 
     # ------------------------------------------------------------------
-    # 8. Execute tool deterministically
-    # ------------------------------------------------------------------
-    try:
-        raw_output: dict[str, Any] = run_tool(tool_name, tool_args, actual_bootstrap)
-    except Exception as exc:  # noqa: BLE001
-        return OrchestratorResult(
-            question=question,
-            tool_chosen=tool_name,
-            tool_args=tool_args,
-            tool_output={},
-            answer_text=f"Tool execution raised an error for {tool_name!r}.",
-            llm_used=True,
-            model=model,
-            outcome=OUTCOME_TOOL_ERROR,
-            error=str(exc),
-        )
-
-    # ------------------------------------------------------------------
-    # 9. Render answer; determine outcome from tool status
+    # 9. Render answer; determine outcome from first tool's status.
+    #    (Single-tool path, or multi-tool fallback when second call failed.)
     # ------------------------------------------------------------------
     tool_status = raw_output.get("status")
     outcome = OUTCOME_OK if tool_status == "ok" else OUTCOME_TOOL_RESULT_ERROR
