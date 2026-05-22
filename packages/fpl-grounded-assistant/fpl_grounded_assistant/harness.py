@@ -191,6 +191,79 @@ _UNRECOGNISED = {
 
 
 # ---------------------------------------------------------------------------
+# F1: Evaluator-client singleton for production wiring
+# ---------------------------------------------------------------------------
+# Constructed once on first use (per provider); cached for the lifetime of
+# the process.  Uses the same API key as the primary orchestrator but passes
+# the cheapest model variant (evaluated per-call inside evaluator.py).
+#
+# Hard rules:
+#   - If FPL_EVAL_DISABLED=1, returns None (orchestrator fail-open path).
+#   - If client construction fails for any reason, returns None (fail-open).
+#   - For Anthropic: the provider client is stateless w.r.t. model — the
+#     same client object is passed and evaluator.py picks the haiku model
+#     per-call. We reuse the same client construction as the primary.
+#   - For OpenAI/Gemini: same pattern — provider client is model-agnostic.
+
+_EVAL_DISABLED_ENV: str = "FPL_EVAL_DISABLED"
+_TEST_MODE_TRUTHY_H: frozenset[str] = frozenset({"1", "true", "yes", "on"})
+
+# Cache: (provider_str, api_key_str) → client or None
+_eval_client_cache: dict[tuple[str, str | None], Any] = {}
+_eval_client_cache_lock = __import__("threading").Lock()
+
+
+def _build_eval_client(provider: str, api_key: str | None = None) -> Any | None:
+    """Return a provider client suitable for the evaluator, or None on failure.
+
+    This is the production-path singleton builder (F1 fix).  Called from
+    ask_v2() just before invoking ask_orchestrated().  Returns cached client
+    on subsequent calls for the same (provider, api_key) combination.
+
+    Fail-open: any exception → return None.  Never raises.
+    """
+    # Honour the eval-disabled flag first
+    if os.environ.get(_EVAL_DISABLED_ENV, "").strip().lower() in _TEST_MODE_TRUTHY_H:
+        return None
+
+    _key = (provider, api_key)
+    with _eval_client_cache_lock:
+        if _key in _eval_client_cache:
+            return _eval_client_cache[_key]
+
+    try:
+        from .provider_client import PROVIDER_ANTHROPIC, PROVIDER_OPENAI, PROVIDER_GEMINI  # noqa: PLC0415
+        if provider == PROVIDER_ANTHROPIC:
+            from .llm_layer import _get_anthropic_client  # noqa: PLC0415
+            client = _get_anthropic_client(api_key=api_key)
+        elif provider == PROVIDER_OPENAI:
+            # OpenAI: client built inline (mirrors orchestrator.py pattern)
+            _oai_key = api_key or os.environ.get("OPENAI_API_KEY", "")
+            if not _oai_key:
+                client = None
+            else:
+                import openai as _openai  # type: ignore[import-untyped]  # noqa: PLC0415
+                client = _openai.OpenAI(api_key=_oai_key)
+        elif provider == PROVIDER_GEMINI:
+            _gem_key = api_key or os.environ.get("GOOGLE_API_KEY", "")
+            if not _gem_key:
+                client = None
+            else:
+                import google.generativeai as _genai  # type: ignore[import-untyped]  # noqa: PLC0415
+                _genai.configure(api_key=_gem_key)
+                client = _genai
+        else:
+            # Unknown provider → fail-open
+            client = None
+    except Exception:  # noqa: BLE001
+        client = None
+
+    with _eval_client_cache_lock:
+        _eval_client_cache[_key] = client
+    return client
+
+
+# ---------------------------------------------------------------------------
 # Context detection helper
 # ---------------------------------------------------------------------------
 
@@ -778,6 +851,10 @@ def ask_v2(
         )
         routing_trace["orchestrator_called"] = True
         _provider = orch_provider if orch_provider is not None else get_orch_provider()
+        # F1: construct evaluator client on the production path (singleton, cached).
+        # Fail-open: if disabled or construction fails, _eval_client is None and
+        # the orchestrator's fail-open path (_apply_evaluator) is a no-op.
+        _eval_client = _build_eval_client(_provider, api_key=orch_api_key)
         try:
             orch_result = ask_orchestrated(
                 cleaned_text,
@@ -785,6 +862,7 @@ def ask_v2(
                 client=orch_client,
                 api_key=orch_api_key,
                 provider=_provider,
+                _eval_client=_eval_client,
             )
         except Exception as exc:  # noqa: BLE001  — defensive; ask_orchestrated never raises
             routing_trace["branch"]                  = "unsupported"
