@@ -1420,6 +1420,241 @@ finally:
 
 
 # ---------------------------------------------------------------------------
+# Section R: F3 — token usage observability
+# ---------------------------------------------------------------------------
+# R1: OrchCallResult has the three new token fields.
+# R2: OrchestratorResult has all token aggregation fields.
+# R3: missing response.usage does not crash; fields stay None/0.
+# R4: Anthropic cache_read_input_tokens populated when present in mock.
+# R5: total_tokens == sum of components.
+# ---------------------------------------------------------------------------
+
+print("\n=== R: F3 — token usage observability ===")
+
+from fpl_grounded_assistant.provider_client import (
+    OrchCallResult as _OrchCallResult,
+    _extract_anthropic_usage,
+    _extract_openai_usage,
+    _extract_gemini_usage,
+)
+
+
+# R1: OrchCallResult has the three new token fields with correct defaults.
+_r1_sample = _OrchCallResult(
+    response=None,
+    error_code=None,
+    error_msg=None,
+    attempts=1,
+    latency_ms=10.0,
+)
+ok(hasattr(_r1_sample, "input_tokens"),      "R1a: OrchCallResult has input_tokens field")
+ok(hasattr(_r1_sample, "output_tokens"),     "R1b: OrchCallResult has output_tokens field")
+ok(hasattr(_r1_sample, "cache_read_tokens"), "R1c: OrchCallResult has cache_read_tokens field")
+ok(_r1_sample.input_tokens is None,          "R1d: input_tokens default is None")
+ok(_r1_sample.output_tokens is None,         "R1e: output_tokens default is None")
+ok(_r1_sample.cache_read_tokens is None,     "R1f: cache_read_tokens default is None")
+
+
+# R2: OrchestratorResult has all F3 token aggregation fields summing correctly
+#     across a mocked multi-LLM-call turn (primary + evaluator + retry).
+
+from fpl_grounded_assistant.orchestrator import (
+    OrchestratorResult as _OrchestratorResult,
+    OUTCOME_OK as _OUTCOME_OK_R,
+)
+
+_expected_token_fields = [
+    "primary_input_tokens",
+    "primary_output_tokens",
+    "primary_cache_read_tokens",
+    "evaluator_input_tokens",
+    "evaluator_output_tokens",
+    "retry_input_tokens",
+    "retry_output_tokens",
+    "total_tokens",
+]
+_r2_result = _OrchestratorResult(
+    question="test",
+    tool_chosen="get_current_gameweek",
+    tool_args={},
+    tool_output={"status": "ok"},
+    answer_text="GW28",
+    llm_used=True,
+    model="claude-haiku",
+    outcome=_OUTCOME_OK_R,
+    primary_input_tokens=500,
+    primary_output_tokens=100,
+    primary_cache_read_tokens=50,
+    evaluator_input_tokens=120,
+    retry_input_tokens=400,
+    retry_output_tokens=80,
+    total_tokens=1250,
+)
+for _tf in _expected_token_fields:
+    ok(hasattr(_r2_result, _tf), f"R2-field: OrchestratorResult has '{_tf}'")
+
+# Verify aggregation: total_tokens == sum of components we set
+_expected_total = 500 + 100 + 50 + 120 + 400 + 80
+ok(_r2_result.total_tokens == _expected_total,
+   f"R2-sum: total_tokens={_r2_result.total_tokens} == expected {_expected_total}")
+
+# Default values are 0 (not None), so summation is safe.
+_r2_default = _OrchestratorResult(
+    question="test",
+    tool_chosen=None,
+    tool_args={},
+    tool_output={},
+    answer_text="fallback",
+    llm_used=False,
+    model="none",
+    outcome="no_client",
+)
+ok(_r2_default.total_tokens == 0, "R2-default: total_tokens defaults to 0")
+ok(_r2_default.primary_input_tokens == 0, "R2-default: primary_input_tokens defaults to 0")
+
+
+# R3: missing response.usage does not crash; fields stay None.
+
+class _NoUsageResponse:
+    """Mock response with no usage attribute at all."""
+    content = []
+    stop_reason = "end_turn"
+
+class _NoneUsageResponse:
+    """Mock response where usage is explicitly None."""
+    content = []
+    stop_reason = "end_turn"
+    usage = None
+
+_r3a = _extract_anthropic_usage(_NoUsageResponse())
+ok(_r3a == (None, None, None),
+   f"R3a: _extract_anthropic_usage with no usage attr -> (None, None, None), got {_r3a}")
+
+_r3b = _extract_anthropic_usage(_NoneUsageResponse())
+ok(_r3b == (None, None, None),
+   f"R3b: _extract_anthropic_usage with usage=None -> (None, None, None), got {_r3b}")
+
+_r3c = _extract_openai_usage(_NoUsageResponse())
+ok(_r3c == (None, None, None),
+   f"R3c: _extract_openai_usage with no usage attr -> (None, None, None), got {_r3c}")
+
+_r3d = _extract_gemini_usage(_NoUsageResponse())
+ok(_r3d == (None, None, None),
+   f"R3d: _extract_gemini_usage with no usage_metadata attr -> (None, None, None), got {_r3d}")
+
+# Verify ask_orchestrated with no usage mock doesn't crash.
+_r3_client = _MockToolUseClient("get_current_gameweek", {})
+try:
+    _r3_result = ask_orchestrated("what gameweek", STANDARD_BOOTSTRAP, client=_r3_client)
+    ok(True, "R3e: ask_orchestrated with no usage mock does not crash")
+    ok(_r3_result.total_tokens == 0,
+       f"R3f: total_tokens is 0 when mock has no usage (got {_r3_result.total_tokens})")
+except Exception as _exc_r3:
+    ok(False, f"R3e: ask_orchestrated raised: {_exc_r3}")
+    ok(False, "R3f: (skipped)")
+
+
+# R4: Anthropic cache_read_input_tokens is populated when present in mock response.
+
+class _UsageWithCache:
+    input_tokens = 300
+    output_tokens = 60
+    cache_read_input_tokens = 1500
+
+class _ResponseWithCache:
+    content = []
+    usage = _UsageWithCache()
+
+_r4 = _extract_anthropic_usage(_ResponseWithCache())
+ok(_r4[0] == 300, f"R4a: input_tokens extracted correctly (got {_r4[0]})")
+ok(_r4[1] == 60,  f"R4b: output_tokens extracted correctly (got {_r4[1]})")
+ok(_r4[2] == 1500, f"R4c: cache_read_tokens extracted correctly (got {_r4[2]})")
+
+
+# R5: total_tokens equals the sum of all component fields.
+# Test via the evaluator-enabled path using mocked approve client.
+_r5_eval_client = _MockEvalApproveClient()  # returns 100 input + 20 output = 120 combined
+_r5_primary_client = _MockToolUseClient("get_current_gameweek", {})
+
+_r5_result = ask_orchestrated(
+    "what gameweek is it",
+    STANDARD_BOOTSTRAP,
+    client=_r5_primary_client,
+    _eval_client=_r5_eval_client,
+)
+
+_r5_sum = (
+    _r5_result.primary_input_tokens
+    + _r5_result.primary_output_tokens
+    + _r5_result.primary_cache_read_tokens
+    + _r5_result.evaluator_input_tokens
+    + _r5_result.evaluator_output_tokens
+    + _r5_result.retry_input_tokens
+    + _r5_result.retry_output_tokens
+)
+ok(_r5_result.total_tokens == _r5_sum,
+   f"R5: total_tokens ({_r5_result.total_tokens}) == sum of components ({_r5_sum})")
+
+# Evaluator tokens are non-zero when evaluator ran (mock returns 120 combined).
+ok(_r5_result.evaluator_input_tokens == 120,
+   f"R5b: evaluator_input_tokens == 120 from mock (got {_r5_result.evaluator_input_tokens})")
+
+
+# ---------------------------------------------------------------------------
+# Section S: F4 — cache prefix split (static/dynamic system blocks)
+# ---------------------------------------------------------------------------
+# S1: Anthropic primary call system is a list of 2 blocks (static + dynamic).
+# S2: First block has cache_control={"type":"ephemeral"}; text == _SYSTEM_PROMPT.
+# S3: Second block has NO cache_control; text contains _CONTEXT_SECTION_HEADER.
+# ---------------------------------------------------------------------------
+
+print("\n=== S: F4 — Anthropic cache prefix split ===")
+
+from fpl_grounded_assistant.orchestrator import (
+    _SYSTEM_PROMPT as _SYSP_S,
+    _build_anthropic_system_blocks as _basm,
+)
+from fpl_grounded_assistant.llm_layer import _CONTEXT_SECTION_HEADER as _CSH_S
+
+_s_client = _MockToolUseClient("get_current_gameweek", {})
+ask_orchestrated("what gameweek", STANDARD_BOOTSTRAP, client=_s_client)
+_s_system = _s_client.captured[0]["system"]
+
+# S1: system is a list (not a string) with 2 blocks.
+ok(isinstance(_s_system, list), "S1a: Anthropic system is a list (not plain string)")
+ok(len(_s_system) == 2,
+   f"S1b: system list has exactly 2 blocks (got {len(_s_system) if isinstance(_s_system, list) else 'N/A'})")
+
+# S2: first block has cache_control={type:ephemeral} and text == _SYSTEM_PROMPT.
+_s_block0 = _s_system[0] if isinstance(_s_system, list) and len(_s_system) > 0 else {}
+ok(_s_block0.get("cache_control") == {"type": "ephemeral"},
+   f"S2a: first block has cache_control={{type:ephemeral}} (got {_s_block0.get('cache_control')!r})")
+ok(_s_block0.get("text") == _SYSP_S,
+   "S2b: first block text == _SYSTEM_PROMPT (static content only)")
+
+# S3: second block has NO cache_control; text contains _CONTEXT_SECTION_HEADER.
+_s_block1 = _s_system[1] if isinstance(_s_system, list) and len(_s_system) > 1 else {}
+ok("cache_control" not in _s_block1,
+   f"S3a: second block has NO cache_control (got keys: {list(_s_block1.keys())})")
+ok(_CSH_S.strip() in _s_block1.get("text", ""),
+   f"S3b: second block text contains _CONTEXT_SECTION_HEADER")
+
+# S4 (unit test): _build_anthropic_system_blocks with empty dynamic_suffix → 1 block.
+_s4_single = _basm(_SYSP_S)
+ok(len(_s4_single) == 1,
+   f"S4: empty dynamic_suffix -> single block (evaluator path) (got {len(_s4_single)})")
+ok(_s4_single[0].get("cache_control") == {"type": "ephemeral"},
+   "S4b: single-block variant still has cache_control")
+
+# S5 (unit test): _build_anthropic_system_blocks with dynamic_suffix → 2 blocks.
+_s5_double = _basm(_SYSP_S, dynamic_suffix="=== CONTEXT ===\nGW28 data here\n=== /CONTEXT ===")
+ok(len(_s5_double) == 2,
+   f"S5: non-empty dynamic_suffix -> two blocks (got {len(_s5_double)})")
+ok("cache_control" not in _s5_double[1],
+   "S5b: second block (dynamic) has no cache_control")
+
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 

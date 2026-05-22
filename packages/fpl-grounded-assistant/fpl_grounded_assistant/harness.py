@@ -903,6 +903,16 @@ def ask_v2(
                 "kind":          "text",
                 "orchestrator_model": orch_result.model,
                 "routing_trace": routing_trace,
+                # F3: expose token observability so P3 quota meter can read them.
+                "tokens": {
+                    "primary_input":    orch_result.primary_input_tokens,
+                    "primary_output":   orch_result.primary_output_tokens,
+                    "primary_cache_read": orch_result.primary_cache_read_tokens,
+                    "evaluator":        orch_result.evaluator_input_tokens,
+                    "retry_input":      orch_result.retry_input_tokens,
+                    "retry_output":     orch_result.retry_output_tokens,
+                    "total":            orch_result.total_tokens,
+                },
                 **_meta(orch_result.tool_chosen, _orch_raw),  # orchestrator: grounded tool ran
             }
             if context_meta is not None:

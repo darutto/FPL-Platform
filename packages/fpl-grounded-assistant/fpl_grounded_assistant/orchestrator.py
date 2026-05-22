@@ -400,6 +400,15 @@ class OrchestratorResult:
     # P1.d: evaluator fields (additive, None/False defaults)
     evaluator_verdict: EvaluatorVerdict | None = None
     retry_attempted:   bool = False
+    # F3: token observability fields (additive, all 0-default for safe aggregation)
+    primary_input_tokens:    int = 0
+    primary_output_tokens:   int = 0
+    primary_cache_read_tokens: int = 0
+    evaluator_input_tokens:  int = 0
+    evaluator_output_tokens: int = 0
+    retry_input_tokens:      int = 0
+    retry_output_tokens:     int = 0
+    total_tokens:            int = 0
 
 
 # ---------------------------------------------------------------------------
@@ -486,18 +495,27 @@ def _truncate_tool_output(
 # P1.e Lever 2: Prompt caching helpers
 # ---------------------------------------------------------------------------
 
-def _build_anthropic_system_blocks(system_text: str) -> list[dict[str, Any]]:
-    """Wrap the system prompt string in an Anthropic content-block list with
-    cache_control applied to the final block.
+def _build_anthropic_system_blocks(
+    system_text: str,
+    *,
+    dynamic_suffix: str = "",
+) -> list[dict[str, Any]]:
+    """Build an Anthropic content-block list with cache_control on the STATIC prefix only.
 
-    Anthropic's ephemeral prompt caching is opt-in: the API caches the prefix
-    up to and including the LAST content block that carries
-    ``cache_control: {"type": "ephemeral"}``.  A 5-minute TTL is applied
-    automatically by the API.  Cache hits reduce input-token cost to ~10%.
+    F4 fix: previously this function wrapped the ENTIRE system string (static prompt
+    + dynamic context) in a single block with cache_control.  Because the dynamic
+    context (current GW, fixtures, bootstrap) varies per request, the cache prefix
+    was invalidated on every call — defeating ephemeral caching entirely.
 
-    This function is called for BOTH the primary orchestrator call AND the
-    evaluator retry call so that cache hits apply across both within a session
-    window.
+    Correct approach: split into TWO blocks —
+    1. Static block: ``_SYSTEM_PROMPT`` only, with ``cache_control: ephemeral``.
+       Anthropic caches the prefix up to the LAST cache_control marker.  Placing
+       it on the static-only block means ONLY the static prompt is cached; the
+       dynamic context section (block 2) is NOT part of the cached prefix.
+    2. Dynamic block: context section (HEADER + ctx + FOOTER), NO cache_control.
+
+    For the evaluator (fully static prompt): the caller passes only the static
+    text and no dynamic_suffix → single block with cache_control (correct).
 
     OpenAI / DeepSeek: prompt caching is automatic (no opt-in).  The system
     prompt + tools arrive first in the payload, which satisfies the caching
@@ -510,20 +528,37 @@ def _build_anthropic_system_blocks(system_text: str) -> list[dict[str, Any]]:
     Parameters
     ----------
     system_text:
-        The plain system prompt string to wrap.
+        The STATIC system prompt text (e.g. ``_SYSTEM_PROMPT``).
+        cache_control is placed on this block.
+    dynamic_suffix:
+        The dynamic context string (HEADER + ctx + FOOTER).  When non-empty,
+        appended as a SECOND block with NO cache_control so that context
+        changes do not invalidate the cached static prefix.  When empty,
+        returns a single-block list (evaluator path, fully static).
 
     Returns
     -------
     list[dict[str, Any]]
-        Single-element list with the text block + cache_control marker.
+        One block (evaluator) or two blocks (orchestrator primary/retry).
     """
-    return [
+    blocks: list[dict[str, Any]] = [
         {
             "type": "text",
             "text": system_text,
             "cache_control": {"type": "ephemeral"},
         }
     ]
+    if dynamic_suffix:
+        blocks.append(
+            {
+                "type": "text",
+                "text": dynamic_suffix,
+                # No cache_control: Anthropic caches up to the LAST
+                # cache_control block; omitting it here keeps the dynamic
+                # context outside the cached prefix.
+            }
+        )
+    return blocks
 
 
 def _apply_tools_cache_control(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -920,6 +955,10 @@ def _apply_evaluator(
     actual_bootstrap: dict[str, Any],
     # P1.e Lever 2: cached system blocks for Anthropic retry call
     _system_blocks: list[dict[str, Any]] | None = None,
+    # F3: token counts from the primary (and optional multi-tool 2nd) call
+    _primary_input_tokens: int = 0,
+    _primary_output_tokens: int = 0,
+    _primary_cache_read_tokens: int = 0,
 ) -> OrchestratorResult:
     """Apply the second-layer evaluator to a primary answer.
 
@@ -934,6 +973,7 @@ def _apply_evaluator(
     # E0. Skip evaluator if disabled via env flag
     # ------------------------------------------------------------------
     if _eval_disabled() or eval_client is None:
+        _total = _primary_input_tokens + _primary_output_tokens + _primary_cache_read_tokens
         return OrchestratorResult(
             question=question,
             tool_chosen=tool_chosen,
@@ -946,6 +986,10 @@ def _apply_evaluator(
             error=None if outcome == OUTCOME_OK else f"tool returned status={tool_output.get('status')!r}",
             evaluator_verdict=None,
             retry_attempted=False,
+            primary_input_tokens=_primary_input_tokens,
+            primary_output_tokens=_primary_output_tokens,
+            primary_cache_read_tokens=_primary_cache_read_tokens,
+            total_tokens=_total,
         )
 
     # ------------------------------------------------------------------
@@ -959,10 +1003,17 @@ def _apply_evaluator(
         client=eval_client,
     )
 
+    # F3: evaluator tokens — stored combined in tokens_used; surface as evaluator_input_tokens.
+    _eval_combined = verdict.tokens_used if verdict is not None else 0
+
     # ------------------------------------------------------------------
     # E2. Evaluator approved → return primary result unchanged + verdict
     # ------------------------------------------------------------------
     if verdict.approved:
+        _total = (
+            _primary_input_tokens + _primary_output_tokens + _primary_cache_read_tokens
+            + _eval_combined
+        )
         return OrchestratorResult(
             question=question,
             tool_chosen=tool_chosen,
@@ -975,6 +1026,11 @@ def _apply_evaluator(
             error=None if outcome == OUTCOME_OK else f"tool returned status={tool_output.get('status')!r}",
             evaluator_verdict=verdict,
             retry_attempted=False,
+            primary_input_tokens=_primary_input_tokens,
+            primary_output_tokens=_primary_output_tokens,
+            primary_cache_read_tokens=_primary_cache_read_tokens,
+            evaluator_input_tokens=_eval_combined,
+            total_tokens=_total,
         )
 
     # ------------------------------------------------------------------
@@ -998,6 +1054,10 @@ def _apply_evaluator(
         _system_blocks=_system_blocks,  # P1.e: cache_control preserved on retry
     )
 
+    # F3: extract retry call tokens.
+    _retry_in = _retry_call.input_tokens or 0
+    _retry_out = _retry_call.output_tokens or 0
+
     # ------------------------------------------------------------------
     # E3a. Retry call failed → deliver primary result (fail-open)
     # ------------------------------------------------------------------
@@ -1005,6 +1065,10 @@ def _apply_evaluator(
         _LOG.warning(
             "evaluator retry LLM call failed: [%s] %s; delivering primary response",
             _retry_call.error_code, _retry_call.error_msg,
+        )
+        _total = (
+            _primary_input_tokens + _primary_output_tokens + _primary_cache_read_tokens
+            + _eval_combined + _retry_in + _retry_out
         )
         return OrchestratorResult(
             question=question,
@@ -1018,6 +1082,13 @@ def _apply_evaluator(
             error=None if outcome == OUTCOME_OK else f"tool returned status={tool_output.get('status')!r}",
             evaluator_verdict=verdict,
             retry_attempted=True,
+            primary_input_tokens=_primary_input_tokens,
+            primary_output_tokens=_primary_output_tokens,
+            primary_cache_read_tokens=_primary_cache_read_tokens,
+            evaluator_input_tokens=_eval_combined,
+            retry_input_tokens=_retry_in,
+            retry_output_tokens=_retry_out,
+            total_tokens=_total,
         )
 
     # ------------------------------------------------------------------
@@ -1036,6 +1107,10 @@ def _apply_evaluator(
                 _retry_text = getattr(_block, "text", None)
                 break
         _retry_answer = _retry_text or answer_text
+        _total = (
+            _primary_input_tokens + _primary_output_tokens + _primary_cache_read_tokens
+            + _eval_combined + _retry_in + _retry_out
+        )
         return OrchestratorResult(
             question=question,
             tool_chosen=tool_chosen,
@@ -1048,6 +1123,13 @@ def _apply_evaluator(
             error=None,
             evaluator_verdict=verdict,
             retry_attempted=True,
+            primary_input_tokens=_primary_input_tokens,
+            primary_output_tokens=_primary_output_tokens,
+            primary_cache_read_tokens=_primary_cache_read_tokens,
+            evaluator_input_tokens=_eval_combined,
+            retry_input_tokens=_retry_in,
+            retry_output_tokens=_retry_out,
+            total_tokens=_total,
         )
 
     # Execute retry tool calls
@@ -1055,6 +1137,10 @@ def _apply_evaluator(
     for _rtid, _rtname, _rtargs in _retry_tool_calls:
         if not _rtname or _rtname not in TOOL_NAMES:
             # Unknown tool in retry — deliver primary
+            _total = (
+                _primary_input_tokens + _primary_output_tokens + _primary_cache_read_tokens
+                + _eval_combined + _retry_in + _retry_out
+            )
             return OrchestratorResult(
                 question=question,
                 tool_chosen=tool_chosen,
@@ -1067,10 +1153,21 @@ def _apply_evaluator(
                 error=None if outcome == OUTCOME_OK else f"tool returned status={tool_output.get('status')!r}",
                 evaluator_verdict=verdict,
                 retry_attempted=True,
+                primary_input_tokens=_primary_input_tokens,
+                primary_output_tokens=_primary_output_tokens,
+                primary_cache_read_tokens=_primary_cache_read_tokens,
+                evaluator_input_tokens=_eval_combined,
+                retry_input_tokens=_retry_in,
+                retry_output_tokens=_retry_out,
+                total_tokens=_total,
             )
         try:
             _retry_raw: dict[str, Any] = run_tool(_rtname, _rtargs, actual_bootstrap)
         except Exception as exc:  # noqa: BLE001
+            _total = (
+                _primary_input_tokens + _primary_output_tokens + _primary_cache_read_tokens
+                + _eval_combined + _retry_in + _retry_out
+            )
             return OrchestratorResult(
                 question=question,
                 tool_chosen=_rtname,
@@ -1083,6 +1180,13 @@ def _apply_evaluator(
                 error=str(exc),
                 evaluator_verdict=verdict,
                 retry_attempted=True,
+                primary_input_tokens=_primary_input_tokens,
+                primary_output_tokens=_primary_output_tokens,
+                primary_cache_read_tokens=_primary_cache_read_tokens,
+                evaluator_input_tokens=_eval_combined,
+                retry_input_tokens=_retry_in,
+                retry_output_tokens=_retry_out,
+                total_tokens=_total,
             )
         _retry_executed.append((_rtid, _rtname, _rtargs, _retry_raw))
 
@@ -1096,6 +1200,10 @@ def _apply_evaluator(
     except Exception:  # noqa: BLE001
         _r_answer_text = f"[{_r_tool_status or 'unknown'}]"
 
+    _total = (
+        _primary_input_tokens + _primary_output_tokens + _primary_cache_read_tokens
+        + _eval_combined + _retry_in + _retry_out
+    )
     # UNCONDITIONAL delivery of retry result (hard cap = 1 retry, no second evaluation)
     return OrchestratorResult(
         question=question,
@@ -1109,6 +1217,13 @@ def _apply_evaluator(
         error=None if _r_outcome == OUTCOME_OK else f"tool returned status={_r_tool_status!r}",
         evaluator_verdict=verdict,
         retry_attempted=True,
+        primary_input_tokens=_primary_input_tokens,
+        primary_output_tokens=_primary_output_tokens,
+        primary_cache_read_tokens=_primary_cache_read_tokens,
+        evaluator_input_tokens=_eval_combined,
+        retry_input_tokens=_retry_in,
+        retry_output_tokens=_retry_out,
+        total_tokens=_total,
     )
 
 
@@ -1279,17 +1394,17 @@ def ask_orchestrated(
         _ctx = build_orchestration_context(actual_bootstrap)
         if len(_ctx) > _MAX_CONTEXT_CHARS:
             _ctx = _ctx[:_MAX_CONTEXT_CHARS] + _CONTEXT_TRUNCATION_MARKER
-        system: str = (
-            _SYSTEM_PROMPT
-            + _CONTEXT_SECTION_HEADER
-            + _ctx
-            + _CONTEXT_SECTION_FOOTER
-        )
+        _dynamic_ctx_section: str = _CONTEXT_SECTION_HEADER + _ctx + _CONTEXT_SECTION_FOOTER
+        system: str = _SYSTEM_PROMPT + _dynamic_ctx_section
     except Exception:  # noqa: BLE001
+        _dynamic_ctx_section = ""
         system = _SYSTEM_PROMPT
-    # Build cached system blocks for Anthropic (ignored by OpenAI/Gemini paths).
+    # F4 fix: build Anthropic system blocks with cache_control ONLY on the static
+    # _SYSTEM_PROMPT block.  The dynamic context section is a second block with NO
+    # cache_control, so context changes do NOT invalidate the cached static prefix.
+    # (Previously: one combined block → any context change broke caching.)
     _system_blocks: list[dict[str, Any]] | None = (
-        _build_anthropic_system_blocks(system)
+        _build_anthropic_system_blocks(_SYSTEM_PROMPT, dynamic_suffix=_dynamic_ctx_section)
         if _provider_for_cache == PROVIDER_ANTHROPIC
         else None
     )
@@ -1361,6 +1476,11 @@ def ask_orchestrated(
 
     _active_gate.reset_on_success()
     response = orch_call.response
+
+    # F3: capture primary call token counts for aggregation downstream.
+    _prim_in    = orch_call.input_tokens or 0
+    _prim_out   = orch_call.output_tokens or 0
+    _prim_cache = orch_call.cache_read_tokens or 0
 
     # ------------------------------------------------------------------
     # 6. Parse ALL tool-call blocks from response (multi-tool batching, P1.c).
@@ -1516,6 +1636,11 @@ def ask_orchestrated(
                     {"name": _tname or "", "args": _targs, "output": _rout}
                     for _, _tname, _targs, _rout in executed
                 ]
+                # F3: accumulate second-call tokens into "primary" bucket
+                # (primary + multi-tool 2nd call are both part of the primary turn).
+                _prim_in_mt    = _prim_in    + (_second_call.input_tokens or 0)
+                _prim_out_mt   = _prim_out   + (_second_call.output_tokens or 0)
+                _prim_cache_mt = _prim_cache + (_second_call.cache_read_tokens or 0)
                 return _apply_evaluator(
                     question=question,
                     answer_text=_second_text,
@@ -1538,6 +1663,9 @@ def ask_orchestrated(
                     _orch_request_fn=_orch_request_fn,
                     actual_bootstrap=actual_bootstrap,
                     _system_blocks=_system_blocks,  # P1.e: cache_control preserved
+                    _primary_input_tokens=_prim_in_mt,
+                    _primary_output_tokens=_prim_out_mt,
+                    _primary_cache_read_tokens=_prim_cache_mt,
                 )
 
     # ------------------------------------------------------------------
@@ -1579,4 +1707,8 @@ def ask_orchestrated(
         _orch_request_fn=_orch_request_fn,
         actual_bootstrap=actual_bootstrap,
         _system_blocks=_system_blocks,  # P1.e: cache_control preserved
+        # F3: pass primary token counts for aggregation in _apply_evaluator.
+        _primary_input_tokens=_prim_in,
+        _primary_output_tokens=_prim_out,
+        _primary_cache_read_tokens=_prim_cache,
     )
