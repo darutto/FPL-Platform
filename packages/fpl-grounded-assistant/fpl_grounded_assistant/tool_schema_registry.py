@@ -4,7 +4,7 @@ fpl_grounded_assistant.tool_schema_registry
 Phase Orch-2a: Deterministic tool schema registry for grounded tools.
 
 Provides a read-only registry of JSON-schema-like function specs for all
-ten grounded tools exposed by the dispatcher.  Schemas are static, additive,
+grounded tools exposed by the dispatcher.  Schemas are static, additive,
 and test-validated.  No runtime wiring or orchestration logic lives here.
 
 This module is a **pure data layer** — no imports from the live FPL stack are
@@ -24,8 +24,8 @@ Registry API
 ``get_tool_schema(name)``            → ToolSchema | None
 ``validate_tool_schema_shape(s)``    → bool            — structural check
 
-Registered tools (all 17 grounded intents)
--------------------------------------------
+Registered tools (18 grounded tools, including P2.1 atomic tool)
+-----------------------------------------------------------------
 +----------------------------+----------------------------------+
 | Tool name                  | Intent label                     |
 +============================+==================================+
@@ -46,6 +46,7 @@ Registered tools (all 17 grounded intents)
 | get_team_schedule          | team_schedule                    |  (Phase 2.6e.3)
 | get_position_fixture_run   | position_fixture_run             |  (Phase 2.6e.4)
 | get_transfer_suggestion    | transfer_suggestion              |  (Phase 2.6h)
+| find_players               | atomic: fuzzy name search        |  (P2.1)
 +----------------------------+----------------------------------+
 
 Schema format
@@ -591,6 +592,36 @@ GET_TRANSFER_SUGGESTION_SCHEMA = ToolSchema(
     },
 )
 
+# ---------------------------------------------------------------------------
+# P2.1 atomic tool — find_players fuzzy name search
+# ---------------------------------------------------------------------------
+
+FIND_PLAYERS_SCHEMA = ToolSchema(
+    name="find_players",
+    description=(
+        "Fuzzy player name search (accent+case insensitive). Returns candidates with "
+        "full grounding payload: id, availability, form, cost, ownership, match_rank. "
+        "not_found when no match."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "name_query": {
+                "type":        "string",
+                "description": "Player name substring (case-insensitive, accent-insensitive)",
+            },
+            "limit": {
+                "type":        "integer",
+                "description": "Max results (1-10, default 5)",
+                "minimum":     1,
+                "maximum":     10,
+            },
+        },
+        "required":             ["name_query"],
+        "additionalProperties": False,
+    },
+)
+
 
 # ---------------------------------------------------------------------------
 # Registry construction
@@ -615,6 +646,8 @@ _ALL_SCHEMAS: tuple[ToolSchema, ...] = (
     GET_TEAM_SCHEDULE_SCHEMA,
     GET_POSITION_FIXTURE_RUN_SCHEMA,
     GET_TRANSFER_SUGGESTION_SCHEMA,
+    # P2.1 atomic tool
+    FIND_PLAYERS_SCHEMA,
 )
 
 #: Immutable dict mapping tool name → ToolSchema.
