@@ -85,6 +85,10 @@ from fpl_grounded_assistant.get_player_history import (
     get_player_history,
     HISTORY_ENTRY_REQUIRED_FIELDS,
 )
+from fpl_grounded_assistant.get_fixtures_for_gw import (
+    get_fixtures_for_gw,
+    _clear_fixture_cache,
+)
 from fpl_grounded_assistant.tool_schema_registry import (
     list_tool_schemas,
     get_tool_schema,
@@ -324,7 +328,7 @@ print("\n=== T9: schema registry ===")
 _all_schemas = list_tool_schemas()
 ok("find_players" in TOOL_NAMES,             "T9.1: find_players in TOOL_NAMES frozenset")
 ok("find_players" in _all_schemas,           "T9.2: find_players in list_tool_schemas()")
-ok(len(_all_schemas) == 20,                  "T9.3: registry has exactly 20 tools (after P2.3)")
+ok(len(_all_schemas) == 21,                  "T9.3: registry has exactly 21 tools (after P2.4)")
 
 _fp_schema = get_tool_schema("find_players")
 ok(_fp_schema is not None,                   "T9.4: get_tool_schema('find_players') returns non-None")
@@ -452,7 +456,7 @@ print("\n=== U7: registered in TOOL_NAMES (registry grows 18->19) ===")
 ok("get_player_snapshot" in TOOL_NAMES,                    "U7.1: get_player_snapshot in TOOL_NAMES frozenset")
 _all_schemas_u = list_tool_schemas()
 ok("get_player_snapshot" in _all_schemas_u,                "U7.2: get_player_snapshot in list_tool_schemas()")
-ok(len(_all_schemas_u) == 20,                              "U7.3: registry has exactly 20 tools (after P2.3)")
+ok(len(_all_schemas_u) == 21,                              "U7.3: registry has exactly 21 tools (after P2.4)")
 
 print("\n=== U8: schema validates ===")
 
@@ -661,7 +665,7 @@ print("\n=== V10: tool registered in TOOL_NAMES; registry now has 20 tools ===")
 ok("get_player_history" in TOOL_NAMES,                         "V10.1: get_player_history in TOOL_NAMES frozenset")
 _all_schemas_v = list_tool_schemas()
 ok("get_player_history" in _all_schemas_v,                     "V10.2: get_player_history in list_tool_schemas()")
-ok(len(_all_schemas_v) == 20,                                  "V10.3: registry has exactly 20 tools (19 -> 20)")
+ok(len(_all_schemas_v) == 21,                                  "V10.3: registry has exactly 21 tools (20 -> 21)")
 
 print("\n=== V11: schema validates ===")
 
@@ -721,6 +725,235 @@ ok(_v12.tool_output.get("status") in ("ok", "not_found", "ambiguous", "error"),
 
 os.environ.pop("FPL_ORCH_TEST_INJECTION", None)
 os.environ.pop("FPL_EVAL_DISABLED", None)
+
+# ---------------------------------------------------------------------------
+# Section W: get_fixtures_for_gw atomic tool (P2.4)
+# ---------------------------------------------------------------------------
+
+# ---- Injected fixture data for test bootstraps ----
+# Two fixtures for GW 38 (a normal GW with 10 fixtures; we inject 2 for brevity).
+_GW38_FIXTURES_INJECTED = [
+    {
+        "id": 380,
+        "team_h": 1,          # ARS (home)
+        "team_a": 2,          # CHE (away)
+        "team_h_difficulty": 3,
+        "team_a_difficulty": 4,
+        "finished": True,
+        "team_h_score": 2,
+        "team_a_score": 1,
+        "minutes": 90,
+        "kickoff_time": "2026-05-17T15:00:00Z",
+    },
+    {
+        "id": 381,
+        "team_h": 3,          # LIV (home)
+        "team_a": 4,          # MCI (away)
+        "team_h_difficulty": 5,
+        "team_a_difficulty": 2,
+        "finished": False,
+        "team_h_score": None,
+        "team_a_score": None,
+        "minutes": None,
+        "kickoff_time": "2026-05-17T17:30:00Z",
+    },
+]
+
+# Bootstrap with enough teams for blank_gw_teams computation.
+# Teams 1-4 play; teams 5-6 are absent (blank GW teams).
+_GW38_BOOTSTRAP = _copy.deepcopy(STANDARD_BOOTSTRAP)
+_GW38_BOOTSTRAP["teams"] = [
+    {"id": 1, "name": "Arsenal",          "short_name": "ARS"},
+    {"id": 2, "name": "Chelsea",          "short_name": "CHE"},
+    {"id": 3, "name": "Liverpool",        "short_name": "LIV"},
+    {"id": 4, "name": "Man City",         "short_name": "MCI"},
+    {"id": 5, "name": "Tottenham",        "short_name": "TOT"},
+    {"id": 6, "name": "Manchester Utd",   "short_name": "MUN"},
+]
+# Inject the raw fixtures via bootstrap key
+_GW38_BOOTSTRAP["_gw_fixtures"] = {"38": _GW38_FIXTURES_INJECTED}
+
+# ---- Blank GW bootstrap: team plays 0 fixtures in GW5 ----
+_BLANK_BOOTSTRAP = _copy.deepcopy(_GW38_BOOTSTRAP)
+_BLANK_BOOTSTRAP["_gw_fixtures"] = {"5": []}   # GW5 has no fixtures
+
+# ---- Double GW bootstrap: one team (LIV, id=3) plays twice in GW DGW ----
+_DGW_FIXTURES_INJECTED = [
+    {
+        "id": 101,
+        "team_h": 3,          # LIV home
+        "team_a": 1,          # ARS away
+        "team_h_difficulty": 3,
+        "team_a_difficulty": 4,
+        "finished": False,
+        "team_h_score": None,
+        "team_a_score": None,
+        "minutes": None,
+        "kickoff_time": "2026-03-10T15:00:00Z",
+    },
+    {
+        "id": 102,
+        "team_h": 2,          # CHE home
+        "team_a": 3,          # LIV away — LIV appears twice!
+        "team_h_difficulty": 2,
+        "team_a_difficulty": 5,
+        "finished": False,
+        "team_h_score": None,
+        "team_a_score": None,
+        "minutes": None,
+        "kickoff_time": "2026-03-13T19:45:00Z",
+    },
+]
+_DGW_BOOTSTRAP = _copy.deepcopy(_GW38_BOOTSTRAP)
+_DGW_BOOTSTRAP["_gw_fixtures"] = {"29": _DGW_FIXTURES_INJECTED}
+
+# Always clear cache before W-section tests to avoid cross-test contamination.
+_clear_fixture_cache()
+
+# Required fixture fields (all 9).
+_FIXTURE_REQUIRED_FIELDS = [
+    "id", "kickoff_time", "home_team_short", "away_team_short",
+    "home_fdr", "away_fdr", "finished", "home_score", "away_score", "minutes",
+]
+
+# Required summary keys (all 5).
+_SUMMARY_REQUIRED_KEYS = [
+    "total_fixtures", "easiest_for_home_team", "hardest_for_home_team",
+    "double_gw_teams", "blank_gw_teams",
+]
+
+
+print("\n=== W1: basic call returns status=ok with non-empty fixtures ===")
+
+_w1 = get_fixtures_for_gw(38, bootstrap=_GW38_BOOTSTRAP)
+ok(_w1["status"] == "ok",                                        "W1.1: status=ok for injected GW 38")
+ok(isinstance(_w1.get("fixtures"), list) and len(_w1["fixtures"]) > 0,
+   "W1.2: fixtures is non-empty list")
+ok(_w1["gw"] == 38,                                              "W1.3: gw field == 38")
+
+print("\n=== W2: each fixture has all required fields ===")
+
+_w2 = get_fixtures_for_gw(38, bootstrap=_GW38_BOOTSTRAP)
+ok(_w2["status"] == "ok",                                        "W2.0: status=ok (precondition)")
+_w2_first = _w2["fixtures"][0]
+for _wfield in _FIXTURE_REQUIRED_FIELDS:
+    ok(_wfield in _w2_first, f"W2: field '{_wfield}' present in fixture entry")
+
+print("\n=== W3: gw_number=0 -> invalid_argument ===")
+
+_w3 = get_fixtures_for_gw(0, bootstrap=_GW38_BOOTSTRAP)
+ok(_w3["status"] == "invalid_argument",                          "W3.1: gw=0 returns invalid_argument")
+ok(_w3.get("code") == "out_of_range",                            "W3.2: code=out_of_range")
+
+print("\n=== W4: gw_number=99 -> invalid_argument ===")
+
+_w4 = get_fixtures_for_gw(99, bootstrap=_GW38_BOOTSTRAP)
+ok(_w4["status"] == "invalid_argument",                          "W4.1: gw=99 returns invalid_argument")
+ok(_w4.get("code") == "out_of_range",                            "W4.2: code=out_of_range")
+
+print("\n=== W5: summary has all 5 expected keys ===")
+
+_w5 = get_fixtures_for_gw(38, bootstrap=_GW38_BOOTSTRAP)
+ok(_w5["status"] == "ok",                                        "W5.0: status=ok (precondition)")
+_w5_summary = _w5.get("summary", {})
+for _skey in _SUMMARY_REQUIRED_KEYS:
+    ok(_skey in _w5_summary, f"W5: summary key '{_skey}' present")
+
+print("\n=== W6: summary.total_fixtures == len(fixtures) ===")
+
+_w6 = get_fixtures_for_gw(38, bootstrap=_GW38_BOOTSTRAP)
+ok(_w6["status"] == "ok",                                        "W6.0: status=ok (precondition)")
+ok(_w6["summary"]["total_fixtures"] == len(_w6["fixtures"]),     "W6.1: summary.total_fixtures == len(fixtures)")
+
+print("\n=== W7: is_blank=True when fixtures list is empty ===")
+
+_w7 = get_fixtures_for_gw(5, bootstrap=_BLANK_BOOTSTRAP)
+ok(_w7["status"] == "ok",                                        "W7.1: status=ok for blank GW")
+ok(_w7["is_blank"] is True,                                      "W7.2: is_blank=True when no fixtures")
+ok(_w7["fixtures"] == [],                                        "W7.3: fixtures list is empty")
+ok(_w7["summary"]["total_fixtures"] == 0,                        "W7.4: summary.total_fixtures==0 for blank GW")
+
+print("\n=== W8: is_double=True when a team appears twice ===")
+
+_w8 = get_fixtures_for_gw(29, bootstrap=_DGW_BOOTSTRAP)
+ok(_w8["status"] == "ok",                                        "W8.1: status=ok for DGW")
+ok(_w8["is_double"] is True,                                     "W8.2: is_double=True when team plays twice")
+ok("LIV" in _w8["summary"]["double_gw_teams"],                   "W8.3: LIV appears in double_gw_teams")
+
+print("\n=== W9: blank_gw_teams includes teams not in GW ===")
+
+_w9 = get_fixtures_for_gw(38, bootstrap=_GW38_BOOTSTRAP)
+ok(_w9["status"] == "ok",                                        "W9.0: status=ok (precondition)")
+_blank_teams = _w9["summary"]["blank_gw_teams"]
+# Bootstrap has 6 teams; only 4 play in GW38 (ARS, CHE, LIV, MCI); TOT, MUN sit out.
+ok("TOT" in _blank_teams,                                        "W9.1: TOT (non-playing) in blank_gw_teams")
+ok("MUN" in _blank_teams,                                        "W9.2: MUN (non-playing) in blank_gw_teams")
+ok("ARS" not in _blank_teams,                                    "W9.3: ARS (playing) not in blank_gw_teams")
+
+print("\n=== W10: tool registered in TOOL_NAMES; registry now has 21 tools ===")
+
+ok("get_fixtures_for_gw" in TOOL_NAMES,                          "W10.1: get_fixtures_for_gw in TOOL_NAMES frozenset")
+_all_schemas_w = list_tool_schemas()
+ok("get_fixtures_for_gw" in _all_schemas_w,                      "W10.2: get_fixtures_for_gw in list_tool_schemas()")
+ok(len(_all_schemas_w) == 21,                                    "W10.3: registry has exactly 21 tools (20 -> 21)")
+
+print("\n=== W11: schema validates ===")
+
+_gfw_schema = get_tool_schema("get_fixtures_for_gw")
+ok(_gfw_schema is not None,                                      "W11.1: get_tool_schema('get_fixtures_for_gw') returns non-None")
+ok(_gfw_schema.name == "get_fixtures_for_gw",                    "W11.2: schema.name == 'get_fixtures_for_gw'")
+ok("gw_number" in _gfw_schema.parameters.get("properties", {}),
+   "W11.3: gw_number in schema properties")
+ok("gw_number" in _gfw_schema.parameters.get("required", []),
+   "W11.4: gw_number is required")
+ok(validate_tool_schema_shape(_gfw_schema),                      "W11.5: validate_tool_schema_shape passes")
+
+print("\n=== W12: orchestrator dispatches get_fixtures_for_gw via mock LLM ===")
+
+os.environ["FPL_ORCH_TEST_INJECTION"] = "1"
+os.environ["FPL_EVAL_DISABLED"] = "1"
+
+
+class _MockFixturesClient:
+    """Returns a get_fixtures_for_gw tool_use call for GW 38."""
+
+    def __init__(self) -> None:
+        self.messages = self
+
+    def create(self, *, model, max_tokens, system, tools, messages, **kwargs):
+        class _ToolBlock:
+            type  = "tool_use"
+            id    = "toolu_gfw_001"
+            name  = "get_fixtures_for_gw"
+            input = {"gw_number": 38}
+
+        class _Response:
+            content     = [_ToolBlock()]
+            stop_reason = "tool_use"
+            usage       = type("U", (), {"input_tokens": 100, "output_tokens": 50,
+                                         "cache_read_input_tokens": 0})()
+
+        return _Response()
+
+
+_mock_fixtures = _MockFixturesClient()
+_w12 = ask_orchestrated(
+    "dame el calendario de partidos para la fecha 38",
+    _GW38_BOOTSTRAP,
+    client=_mock_fixtures,
+    provider="anthropic",
+)
+
+ok(_w12.outcome in (OUTCOME_OK, OUTCOME_TOOL_RESULT_ERROR),
+   "W12.1: outcome is ok or tool_result_error (not llm_error/no_tool)")
+ok(_w12.tool_chosen == "get_fixtures_for_gw",                    "W12.2: orchestrator dispatched get_fixtures_for_gw tool")
+ok(isinstance(_w12.tool_output, dict),                           "W12.3: tool_output is a dict")
+ok(_w12.tool_output.get("status") in ("ok", "error", "invalid_argument"),
+   "W12.4: tool_output.status is one of the valid statuses")
+
+os.environ.pop("FPL_ORCH_TEST_INJECTION", None)
+os.environ.pop("FPL_EVAL_DISABLED", None)
+
 
 # ---------------------------------------------------------------------------
 # Summary

@@ -24,7 +24,7 @@ Registry API
 ``get_tool_schema(name)``            → ToolSchema | None
 ``validate_tool_schema_shape(s)``    → bool            — structural check
 
-Registered tools (20 grounded tools, including P2.1+P2.2+P2.3 atomic tools)
+Registered tools (21 grounded tools, including P2.1+P2.2+P2.3+P2.4 atomic tools)
 ----------------------------------------------------------------------
 +----------------------------+----------------------------------+
 | Tool name                  | Intent label                     |
@@ -49,6 +49,7 @@ Registered tools (20 grounded tools, including P2.1+P2.2+P2.3 atomic tools)
 | find_players               | atomic: fuzzy name search        |  (P2.1)
 | get_player_snapshot        | atomic: single-player snapshot   |  (P2.2)
 | get_player_history         | atomic: per-GW history           |  (P2.3)
+| get_fixtures_for_gw        | atomic: GW fixture list+FDR      |  (P2.4)
 +----------------------------+----------------------------------+
 
 Schema format
@@ -681,6 +682,33 @@ GET_PLAYER_HISTORY_SCHEMA = ToolSchema(
 
 
 # ---------------------------------------------------------------------------
+# P2.4 atomic tool — get_fixtures_for_gw GW fixture list with FDR
+# ---------------------------------------------------------------------------
+
+GET_FIXTURES_FOR_GW_SCHEMA = ToolSchema(
+    name="get_fixtures_for_gw",
+    description=(
+        "All fixtures for a GW with FDR per team. Returns fixture list (kickoff, teams, FDR, "
+        "scores) + summary (totals, easiest/hardest, DGW+BGW teams). "
+        "status=invalid_argument on out-of-range gw_number."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "gw_number": {
+                "type":        "integer",
+                "description": "Gameweek number (1-38)",
+                "minimum":     1,
+                "maximum":     38,
+            },
+        },
+        "required":             ["gw_number"],
+        "additionalProperties": False,
+    },
+)
+
+
+# ---------------------------------------------------------------------------
 # Registry construction
 # ---------------------------------------------------------------------------
 
@@ -709,6 +737,8 @@ _ALL_SCHEMAS: tuple[ToolSchema, ...] = (
     GET_PLAYER_SNAPSHOT_SCHEMA,
     # P2.3 atomic tool
     GET_PLAYER_HISTORY_SCHEMA,
+    # P2.4 atomic tool
+    GET_FIXTURES_FOR_GW_SCHEMA,
 )
 
 #: Immutable dict mapping tool name → ToolSchema.

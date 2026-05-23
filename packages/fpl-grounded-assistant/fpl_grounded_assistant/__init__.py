@@ -229,6 +229,7 @@ from .transfer_suggestion import get_transfer_suggestion    # Phase 2.6h — tri
 from .find_players import find_players                      # P2.1 — triggers TOOL_REGISTRY self-registration
 from .get_player_snapshot import get_player_snapshot        # P2.2 — triggers TOOL_REGISTRY self-registration
 from .get_player_history import get_player_history          # P2.3 — triggers TOOL_REGISTRY self-registration
+from .get_fixtures_for_gw import get_fixtures_for_gw        # P2.4 — triggers TOOL_REGISTRY self-registration
 from .team_fixture_calendar import (                  # Phase 2.6e
     get_team_fixture_calendar,
     DEFAULT_HORIZON as TEAM_CALENDAR_DEFAULT_HORIZON,
@@ -482,6 +483,8 @@ __all__ = [
     "get_player_snapshot",
     # P2.3: atomic get_player_history tool
     "get_player_history",
+    # P2.4: atomic get_fixtures_for_gw tool
+    "get_fixtures_for_gw",
     # core harness
     "ask",
     "ask_v2",
