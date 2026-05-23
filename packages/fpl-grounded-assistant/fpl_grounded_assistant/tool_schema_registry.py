@@ -52,6 +52,7 @@ Registered tools (23 grounded tools, including P2.1–P2.6 atomic tools)
 | get_fixtures_for_gw        | atomic: GW fixture list+FDR      |  (P2.4)
 | get_gameweek_context       | atomic: temporal GW context      |  (P2.5)
 | get_team_snapshot          | atomic: single-team overview     |  (P2.6)
+| web_fetch                  | atomic: allowlisted URL fetch    |  (P2.7)
 +----------------------------+----------------------------------+
 
 Schema format
@@ -771,6 +772,33 @@ GET_TEAM_SNAPSHOT_SCHEMA = ToolSchema(
 
 
 # ---------------------------------------------------------------------------
+# P2.7 atomic tool — web_fetch (allowlisted football/FPL URL fetch)
+# ---------------------------------------------------------------------------
+
+WEB_FETCH_SCHEMA = ToolSchema(
+    name="web_fetch",
+    description=(
+        "Fetch news from allowlisted football/FPL domains (BBC sport, Athletic, PL, FPL, "
+        "FBref, Transfermarkt). status=refused for off-topic URLs or SSRF. No cache."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "url": {
+                "type":        "string",
+                "description": (
+                    "Full URL to fetch. Must be on an allowlisted football/FPL domain. "
+                    "status=refused returned for any non-allowlisted domain or private IP."
+                ),
+            },
+        },
+        "required":             ["url"],
+        "additionalProperties": False,
+    },
+)
+
+
+# ---------------------------------------------------------------------------
 # Registry construction
 # ---------------------------------------------------------------------------
 
@@ -805,6 +833,8 @@ _ALL_SCHEMAS: tuple[ToolSchema, ...] = (
     GET_GAMEWEEK_CONTEXT_SCHEMA,
     # P2.6 atomic tool
     GET_TEAM_SNAPSHOT_SCHEMA,
+    # P2.7 atomic tool
+    WEB_FETCH_SCHEMA,
 )
 
 #: Immutable dict mapping tool name → ToolSchema.

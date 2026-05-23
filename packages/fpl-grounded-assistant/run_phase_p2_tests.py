@@ -13,7 +13,7 @@ Validates that:
 - limit>10 is silently capped to 10.
 - match_rank ordering: exact < prefix < substring.
 - find_players is registered in tool_schema_registry (19 tools after P2.2).
-- Status codes map correctly (injured player → "Injured").
+- Status codes map correctly (injured player -> "Injured").
 - Orchestrator can invoke find_players via ask_orchestrated() with a mock LLM.
 - get_player_snapshot() returns status="ok" for unique match (Haaland).
 - get_player_snapshot() returns 20 grounding fields (21 minus match_rank).
@@ -24,21 +24,21 @@ Validates that:
 
 Sections
 --------
-T1  Basic match               -- haaland → status=ok, >=1 match
+T1  Basic match               -- haaland -> status=ok, >=1 match
 T2  Full grounding payload    -- all 21 required fields present on every match
 T3  Unicode normalization     -- Núñez-style accents stripped for matching
 T4  Case-insensitive          -- hAaLaNd matches Haaland
-T5  Not found                 -- xx_no_such_player → not_found, 0 matches
+T5  Not found                 -- xx_no_such_player -> not_found, 0 matches
 T6  Limit cap                 -- limit=2 returns <=2 matches
 T7  Limit>10 silent cap       -- limit=99 returns <=10 matches
 T8  match_rank ordering       -- exact before prefix before substring
 T9  Schema registry           -- 19 tools, find_players+get_player_snapshot included
-T10 Status code mapping       -- injured player → "Injured"
+T10 Status code mapping       -- injured player -> "Injured"
 T11 Orchestrator integration  -- ask_orchestrated() with mock LLM returns find_players output
-U1  Snapshot basic match      -- haaland → status=ok, player.web_name=Haaland
+U1  Snapshot basic match      -- haaland -> status=ok, player.web_name=Haaland
 U2  Snapshot payload          -- 20 fields present (21 minus match_rank)
-U3  Snapshot not_found        -- unknown name → not_found, non-empty message
-U4  Snapshot ambiguous        -- multi-prefix "sa" → ambiguous, candidates with match_rank
+U3  Snapshot not_found        -- unknown name -> not_found, non-empty message
+U4  Snapshot ambiguous        -- multi-prefix "sa" -> ambiguous, candidates with match_rank
 U5  Snapshot accent/case      -- Núñez ≡ Nunez
 U6  Snapshot candidates cap   -- ambiguous candidates ≤ 5
 U7  Snapshot registry         -- get_player_snapshot in TOOL_NAMES (19 tools)
@@ -229,7 +229,7 @@ for _field in _REQUIRED_MATCH_FIELDS:
 ok(len(_REQUIRED_MATCH_FIELDS) == 21, "T2: contract has exactly 21 required fields")
 
 # ---------------------------------------------------------------------------
-# Section T3: Unicode normalization (Núñez → Nunez)
+# Section T3: Unicode normalization (Núñez -> Nunez)
 # ---------------------------------------------------------------------------
 
 print("\n=== T3: unicode normalization ===")
@@ -258,7 +258,7 @@ ok(_r4["match_count"] == _r4_lower["match_count"],
    "T4.2: mixed-case and lower-case return same match count")
 
 # ---------------------------------------------------------------------------
-# Section T5: No match → not_found
+# Section T5: No match -> not_found
 # ---------------------------------------------------------------------------
 
 print("\n=== T5: not_found ===")
@@ -303,9 +303,9 @@ print("\n=== T8: match_rank ordering ===")
 import copy as _copy2
 _rank_bootstrap = _copy2.deepcopy(STANDARD_BOOTSTRAP)
 
-# Query "Salah" → rank 0 (exact on web_name)
-# Query "sa" → rank 1 for Salah (prefix), rank 1 for Saka (prefix)
-# Let's query "al" → substring in Salah (rank 2) and in Haaland (rank 2)
+# Query "Salah" -> rank 0 (exact on web_name)
+# Query "sa" -> rank 1 for Salah (prefix), rank 1 for Saka (prefix)
+# Let's query "al" -> substring in Salah (rank 2) and in Haaland (rank 2)
 # Better: use exact name "Salah" against a bootstrap where only Salah, Saka, Raya exist
 # and verify Salah is rank 0 (exact match)
 _r8_exact = find_players("Salah", bootstrap=STANDARD_BOOTSTRAP)
@@ -332,7 +332,7 @@ print("\n=== T9: schema registry ===")
 _all_schemas = list_tool_schemas()
 ok("find_players" in TOOL_NAMES,             "T9.1: find_players in TOOL_NAMES frozenset")
 ok("find_players" in _all_schemas,           "T9.2: find_players in list_tool_schemas()")
-ok(len(_all_schemas) == 23,                  "T9.3: registry has exactly 23 tools (after P2.6)")
+ok(len(_all_schemas) == 24,                  "T9.3: registry has exactly 24 tools (after P2.6)")
 
 _fp_schema = get_tool_schema("find_players")
 ok(_fp_schema is not None,                   "T9.4: get_tool_schema('find_players') returns non-None")
@@ -460,7 +460,7 @@ print("\n=== U7: registered in TOOL_NAMES (registry grows 18->19) ===")
 ok("get_player_snapshot" in TOOL_NAMES,                    "U7.1: get_player_snapshot in TOOL_NAMES frozenset")
 _all_schemas_u = list_tool_schemas()
 ok("get_player_snapshot" in _all_schemas_u,                "U7.2: get_player_snapshot in list_tool_schemas()")
-ok(len(_all_schemas_u) == 23,                              "U7.3: registry has exactly 23 tools (after P2.6)")
+ok(len(_all_schemas_u) == 24,                              "U7.3: registry has exactly 24 tools (after P2.6)")
 
 print("\n=== U8: schema validates ===")
 
@@ -669,7 +669,7 @@ print("\n=== V10: tool registered in TOOL_NAMES; registry now has 20 tools ===")
 ok("get_player_history" in TOOL_NAMES,                         "V10.1: get_player_history in TOOL_NAMES frozenset")
 _all_schemas_v = list_tool_schemas()
 ok("get_player_history" in _all_schemas_v,                     "V10.2: get_player_history in list_tool_schemas()")
-ok(len(_all_schemas_v) == 23,                                  "V10.3: registry has exactly 23 tools (22 -> 23)")
+ok(len(_all_schemas_v) == 24,                                  "V10.3: registry has exactly 24 tools (22 -> 23)")
 
 print("\n=== V11: schema validates ===")
 
@@ -899,7 +899,7 @@ print("\n=== W10: tool registered in TOOL_NAMES; registry now has 21 tools ===")
 ok("get_fixtures_for_gw" in TOOL_NAMES,                          "W10.1: get_fixtures_for_gw in TOOL_NAMES frozenset")
 _all_schemas_w = list_tool_schemas()
 ok("get_fixtures_for_gw" in _all_schemas_w,                      "W10.2: get_fixtures_for_gw in list_tool_schemas()")
-ok(len(_all_schemas_w) == 23,                                    "W10.3: registry has exactly 23 tools (22 -> 23)")
+ok(len(_all_schemas_w) == 24,                                    "W10.3: registry has exactly 24 tools (22 -> 23)")
 
 print("\n=== W11: schema validates ===")
 
@@ -986,8 +986,8 @@ _CTX_BOOTSTRAP["teams"] = [
     {"id": 6, "name": "Manchester Utd",   "short_name": "MUN"},
 ]
 
-# Inject blank fixtures for GW28 (TOT + MUN missing → blank)
-# and double fixtures for GW29 (LIV appears twice → double).
+# Inject blank fixtures for GW28 (TOT + MUN missing -> blank)
+# and double fixtures for GW29 (LIV appears twice -> double).
 _CTX_BLANK_FIXTURES_GW28 = [
     {
         "id": 2801, "team_h": 1, "team_a": 2,
@@ -1001,7 +1001,7 @@ _CTX_BLANK_FIXTURES_GW28 = [
         "finished": False, "team_h_score": None, "team_a_score": None,
         "minutes": None, "kickoff_time": "2026-02-01T17:30:00Z",
     },
-    # TOT (id=5) and MUN (id=6) don't appear → blank teams.
+    # TOT (id=5) and MUN (id=6) don't appear -> blank teams.
 ]
 
 _CTX_DGW_FIXTURES_GW29 = [
@@ -1130,7 +1130,7 @@ print("\n=== X10: tool registered in TOOL_NAMES; registry now has 22 tools ===")
 ok("get_gameweek_context" in TOOL_NAMES,               "X10.1: get_gameweek_context in TOOL_NAMES frozenset")
 _all_schemas_x = list_tool_schemas()
 ok("get_gameweek_context" in _all_schemas_x,           "X10.2: get_gameweek_context in list_tool_schemas()")
-ok(len(_all_schemas_x) == 23,                          "X10.3: registry has exactly 23 tools (22 -> 23)")
+ok(len(_all_schemas_x) == 24,                          "X10.3: registry has exactly 24 tools (22 -> 23)")
 
 print("\n=== X11: schema validates ===")
 
@@ -1433,7 +1433,7 @@ print("\n=== Y13: registered in TOOL_NAMES; registry now 23 ===")
 ok("get_team_snapshot" in TOOL_NAMES,                           "Y13.1: get_team_snapshot in TOOL_NAMES frozenset")
 _all_schemas_y = list_tool_schemas()
 ok("get_team_snapshot" in _all_schemas_y,                       "Y13.2: get_team_snapshot in list_tool_schemas()")
-ok(len(_all_schemas_y) == 23,                                   "Y13.3: registry has exactly 23 tools (22 -> 23)")
+ok(len(_all_schemas_y) == 24,                                   "Y13.3: registry has exactly 24 tools (22 -> 23)")
 
 print("\n=== Y14: schema validates ===")
 
@@ -1488,6 +1488,194 @@ ok(_y15.tool_chosen == "get_team_snapshot",                     "Y15.2: orchestr
 ok(isinstance(_y15.tool_output, dict),                          "Y15.3: tool_output is a dict")
 ok(_y15.tool_output.get("status") in ("ok", "not_found", "ambiguous", "error"),
    "Y15.4: tool_output.status is one of the valid statuses")
+
+os.environ.pop("FPL_ORCH_TEST_INJECTION", None)
+os.environ.pop("FPL_EVAL_DISABLED", None)
+
+
+# ---------------------------------------------------------------------------
+# Section Z: P2.7 web_fetch — allowlist + SSRF + truncation + dispatcher
+# ---------------------------------------------------------------------------
+
+from fpl_grounded_assistant.web_fetch import web_fetch as _web_fetch
+
+print("\n=== Z: web_fetch allowlist + SSRF + truncation ===")
+
+# ---- Z1-Z6: Allowlist coverage (path-prefix filters enforced) -------------
+_z_fetch_ok = lambda url: "<html><body>football news</body></html>"
+
+print("\n=== Z1: allowlisted BBC sport/football URL ===")
+_z1 = _web_fetch("https://www.bbc.com/sport/football/12345", fetch_fn=_z_fetch_ok)
+ok(_z1["status"] == "ok", "Z1.1: bbc.com/sport/football -> status=ok")
+ok(_z1["domain"] == "www.bbc.com", "Z1.2: domain extracted correctly")
+
+print("\n=== Z2: BBC /weather/today -> refused (wrong path) ===")
+_z2 = _web_fetch("https://www.bbc.com/weather/today", fetch_fn=_z_fetch_ok)
+ok(_z2["status"] == "refused", "Z2.1: bbc.com/weather -> status=refused")
+ok(_z2.get("code") == "url_not_allowlisted",
+      "Z2.2: code=url_not_allowlisted (path filter caught it)")
+
+print("\n=== Z3: example.com -> refused (not allowlisted) ===")
+_z3 = _web_fetch("https://example.com/anything", fetch_fn=_z_fetch_ok)
+ok(_z3["status"] == "refused", "Z3.1: example.com -> status=refused")
+ok(_z3.get("code") == "url_not_allowlisted", "Z3.2: code=url_not_allowlisted")
+ok("allowed_domains" in _z3 and isinstance(_z3["allowed_domains"], list),
+      "Z3.3: allowed_domains list returned for refused result")
+
+print("\n=== Z4: fantasy.premierleague.com (any path) -> ok ===")
+_z4 = _web_fetch("https://fantasy.premierleague.com/api/bootstrap-static/", fetch_fn=_z_fetch_ok)
+ok(_z4["status"] == "ok", "Z4: fantasy.premierleague.com -> ok (no path filter)")
+
+print("\n=== Z5: Athletic /football/<id> -> ok ===")
+_z5 = _web_fetch("https://www.theathletic.com/football/12345", fetch_fn=_z_fetch_ok)
+ok(_z5["status"] == "ok", "Z5: theathletic.com/football -> ok")
+
+print("\n=== Z6: Athletic /news/<id> -> refused (wrong path) ===")
+_z6 = _web_fetch("https://www.theathletic.com/news/12345", fetch_fn=_z_fetch_ok)
+ok(_z6["status"] == "refused", "Z6.1: theathletic.com/news -> refused")
+ok(_z6.get("code") == "url_not_allowlisted", "Z6.2: code=url_not_allowlisted (path)")
+
+# ---- Z7-Z9: URL parsing edge cases ----------------------------------------
+print("\n=== Z7: malformed url -> refused ===")
+_z7 = _web_fetch("not a url", fetch_fn=_z_fetch_ok)
+ok(_z7["status"] == "refused", "Z7.1: malformed -> refused")
+# Either url_invalid (no scheme) or url_not_allowlisted; both acceptable
+ok(_z7.get("code") in ("url_invalid", "url_not_allowlisted"),
+      "Z7.2: code is url_invalid or url_not_allowlisted")
+
+print("\n=== Z8: ftp:// scheme -> refused ===")
+_z8 = _web_fetch("ftp://example.com/foo", fetch_fn=_z_fetch_ok)
+ok(_z8["status"] == "refused", "Z8.1: ftp:// -> refused")
+ok(_z8.get("code") == "url_invalid", "Z8.2: code=url_invalid (non-http scheme)")
+
+print("\n=== Z9: empty url -> refused ===")
+_z9 = _web_fetch("", fetch_fn=_z_fetch_ok)
+ok(_z9["status"] == "refused", "Z9.1: empty -> refused")
+ok(_z9.get("code") == "url_invalid", "Z9.2: code=url_invalid")
+
+# ---- Z10-Z13: SSRF guards -------------------------------------------------
+print("\n=== Z10: 127.0.0.1 -> refused (SSRF or allowlist) ===")
+_z10 = _web_fetch("http://127.0.0.1/admin", fetch_fn=_z_fetch_ok)
+ok(_z10["status"] == "refused", "Z10.1: 127.0.0.1 -> refused")
+# SSRF fires before allowlist for IP literals
+ok(_z10.get("code") in ("private_address_blocked", "url_not_allowlisted"),
+      "Z10.2: code is SSRF or allowlist refusal")
+
+print("\n=== Z11: 169.254.169.254 (AWS metadata) -> refused ===")
+_z11 = _web_fetch("http://169.254.169.254/latest/meta-data/", fetch_fn=_z_fetch_ok)
+ok(_z11["status"] == "refused", "Z11.1: 169.254 -> refused (link-local SSRF)")
+ok(_z11.get("code") in ("private_address_blocked", "url_not_allowlisted"),
+      "Z11.2: code is SSRF or allowlist refusal")
+
+print("\n=== Z12: 192.168.1.1 -> refused ===")
+_z12 = _web_fetch("http://192.168.1.1/", fetch_fn=_z_fetch_ok)
+ok(_z12["status"] == "refused", "Z12.1: 192.168.1.1 -> refused (RFC1918 SSRF)")
+ok(_z12.get("code") in ("private_address_blocked", "url_not_allowlisted"),
+      "Z12.2: code is SSRF or allowlist refusal")
+
+print("\n=== Z13: DNS rebinding (allowlisted host resolves to private IP) -> refused ===")
+# Monkey-patch socket.gethostbyname to return private IP for an allowlisted host.
+import socket as _socket
+_orig_gethostbyname = _socket.gethostbyname
+def _dns_rebind(host):
+    if host == "fantasy.premierleague.com":
+        return "127.0.0.1"
+    return _orig_gethostbyname(host)
+_socket.gethostbyname = _dns_rebind
+try:
+    _z13 = _web_fetch("https://fantasy.premierleague.com/api/bootstrap-static/",
+                       fetch_fn=_z_fetch_ok)
+    ok(_z13["status"] == "refused",
+          "Z13.1: allowlisted-host-but-private-IP -> refused (DNS rebinding caught)")
+    ok(_z13.get("code") == "private_address_blocked",
+          "Z13.2: code=private_address_blocked")
+finally:
+    _socket.gethostbyname = _orig_gethostbyname
+
+# ---- Z14-Z16: Response handling -------------------------------------------
+print("\n=== Z14: long body -> truncated=True, excerpt 4000 chars ===")
+_long_body = "x" * 10000
+_z14 = _web_fetch("https://fantasy.premierleague.com/x",
+                   fetch_fn=lambda url: _long_body)
+ok(_z14["status"] == "ok", "Z14.1: long body fetch ok")
+ok(_z14["truncated"] is True, "Z14.2: truncated=True")
+ok(len(_z14["text_excerpt"]) == 4000, "Z14.3: text_excerpt is 4000 chars")
+
+print("\n=== Z15: short body -> truncated=False, full content ===")
+_z15 = _web_fetch("https://fantasy.premierleague.com/y",
+                   fetch_fn=lambda url: "short")
+ok(_z15["status"] == "ok", "Z15.1: short body fetch ok")
+ok(_z15["truncated"] is False, "Z15.2: truncated=False")
+ok(_z15["text_excerpt"] == "short", "Z15.3: full body returned")
+
+print("\n=== Z16: fetch_fn raises -> status=error ===")
+def _z16_raise(url):
+    raise RuntimeError("simulated network failure")
+_z16 = _web_fetch("https://fantasy.premierleague.com/z",
+                   fetch_fn=_z16_raise)
+ok(_z16["status"] == "error", "Z16.1: fetch exception -> status=error")
+ok(_z16.get("code") == "fetch_failed", "Z16.2: code=fetch_failed")
+
+# ---- Z17-Z20: Schema registration + dispatcher ----------------------------
+print("\n=== Z17: web_fetch registered in TOOL_NAMES; registry=24 ===")
+from fpl_grounded_assistant.tool_schema_registry import (
+    TOOL_NAMES as _Z_TOOL_NAMES,
+    _ALL_SCHEMAS as _Z_ALL_SCHEMAS,
+    get_tool_schema as _Z_get_tool_schema,
+)
+ok("web_fetch" in _Z_TOOL_NAMES, "Z17.1: web_fetch in TOOL_NAMES")
+ok(len(_Z_ALL_SCHEMAS) == 24, "Z17.2: registry has exactly 24 tools (P2.7 +1)")
+
+print("\n=== Z18: schema validates ===")
+_z18_schema = _Z_get_tool_schema("web_fetch")
+ok(_z18_schema is not None, "Z18.1: schema retrievable")
+ok(_z18_schema.name == "web_fetch", "Z18.2: schema.name == 'web_fetch'")
+ok("url" in _z18_schema.parameters.get("properties", {}),
+      "Z18.3: url in properties")
+ok("url" in _z18_schema.parameters.get("required", []),
+      "Z18.4: url in required")
+ok(validate_tool_schema_shape(_z18_schema),
+      "Z18.5: validate_tool_schema_shape passes")
+
+print("\n=== Z19: schema description advertises allowlist restriction ===")
+ok("allowlisted" in _z18_schema.description.lower(),
+      "Z19.1: description contains 'allowlisted'")
+
+print("\n=== Z20: orchestrator dispatches web_fetch via mock LLM ===")
+os.environ["FPL_ORCH_TEST_INJECTION"] = "1"
+os.environ["FPL_EVAL_DISABLED"] = "1"
+
+class _Z20MockClient:
+    def __init__(self) -> None:
+        self.messages = self
+    def create(self, *, model, max_tokens, system, tools, messages, **kwargs):
+        class _ToolBlock:
+            type  = "tool_use"
+            id    = "toolu_z20_001"
+            name  = "web_fetch"
+            input = {"url": "https://fantasy.premierleague.com/api/bootstrap-static/"}
+        class _R:
+            content     = [_ToolBlock()]
+            stop_reason = "tool_use"
+        return _R()
+
+from fpl_grounded_assistant.orchestrator import (
+    ask_orchestrated as _Z_ask, OUTCOME_OK as _Z_OK,
+    OUTCOME_TOOL_RESULT_ERROR as _Z_TRE,
+)
+_z20_result = _Z_ask("get me the bootstrap",
+                       STANDARD_BOOTSTRAP,
+                       client=_Z20MockClient())
+# Two acceptable outcomes: ok (real fetch succeeded) or tool_result_error (real
+# fetch hit the network and failed/timed-out, which is fine in CI without network)
+ok(_z20_result.outcome in (_Z_OK, _Z_TRE),
+      f"Z20.1: orchestrator dispatched web_fetch (outcome={_z20_result.outcome})")
+ok(_z20_result.tool_chosen == "web_fetch",
+      "Z20.2: orchestrator chose web_fetch")
+ok(isinstance(_z20_result.tool_output, dict),
+      "Z20.3: tool_output is a dict")
+ok("status" in _z20_result.tool_output,
+      "Z20.4: tool_output has 'status' key")
 
 os.environ.pop("FPL_ORCH_TEST_INJECTION", None)
 os.environ.pop("FPL_EVAL_DISABLED", None)
