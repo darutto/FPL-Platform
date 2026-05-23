@@ -125,9 +125,62 @@ attribute correctly per LLM involvement.
 
 No action needed.
 
+### F8 — GW phrasing imperfect (present tense should use next_gw)
+
+**Severity:** low (cosmetic but confusing).
+
+**Symptom:** Query "quienes son los principales blancos de rotación para
+arsenal en el siguiente partido ahora que ya ganaron la premier?" Response
+said "Estamos en **GW37** (la jornada ya terminó) y queda **solo GW38**".
+The user expected "Estamos en GW38" since GW37 is over.
+
+**Fix landed in P2.10** (this branch): tightened GW_AWARENESS constraint
+to explicitly say "when current_gw_status==finished, refer to next_gw in
+PRESENT TENSE ('estamos en GW<next>' / 'we are in GW<next>'), not to the
+finished GW. The finished GW is the past; next_gw IS the now."
+
+### F9 — Counter-assertion from training data; web_fetch not triggered
+
+**Severity:** medium — undermines reliability on football-news queries.
+
+**Symptom:** Same Arsenal-rotation query. User asserted "ahora que ya
+ganaron la premier" (now that they've won the league). System response:
+"Basándome en los datos, debo aclarar un punto importante: **Arsenal no
+ha ganado la Premier League aún**." This is the LLM contradicting the
+user with prior-knowledge inference, when it should:
+1. Acknowledge it lacks current league standings locally.
+2. USE web_fetch to verify the user's claim.
+3. Adjust its rotation analysis based on confirmed reality.
+
+The system also didn't call web_fetch despite FOOTBALL_NEWS classification
+fitting the query (rotation policy in context of league position).
+
+**Root cause:** prompt said "web_fetch only for whitelisted football/FPL
+domains" — that's a CONSTRAINT (restrictive). It didn't say "USE web_fetch
+when FOOTBALL_NEWS classification fires" (a DIRECTIVE). LLM read it as
+"be careful with web_fetch" → never used it.
+
+**Fix landed in P2.10** (this branch):
+- New `SOURCE → TOOL MAPPING` section in `_SYSTEM_PROMPT` explicitly mapping
+  FOOTBALL_NEWS → "USE web_fetch (do not infer from prior knowledge)".
+- New language: "When the user asserts external facts (championship
+  clinched, manager change, rotation policy, transfer news), web_fetch a
+  relevant page (premierleague.com/news, bbc.com/sport/football,
+  theathletic.com/football). NEVER assert counter-claims from training
+  data; if unsure, fetch."
+- Tweaked ungroundable-claim fallback: "Then offer to web_fetch."
+
+**Follow-on (deferred):** the LLM still needs to construct a fetch URL.
+For "Arsenal won the league?" it might fetch
+`https://www.bbc.com/sport/football` (homepage) or
+`https://www.premierleague.com/news`. If the LLM's URL doesn't match the
+allowlist, it gets refused. A future tool `search_football_news(query)`
+that returns ranked candidate URLs from allowlisted domains would make
+this more robust. Logged as a future capability.
+
 ## Summary
 
-- 3 findings (F1/F2/F3) fixed inline in P2.9.
+- 5 findings (F1/F2/F3/F8/F9) fixed inline (P2.9 then P2.10).
 - 2 findings (F4/F5) confirm architecture working as designed.
 - 1 finding (F6) logged as future capability gap with proposed remediation
   path.
