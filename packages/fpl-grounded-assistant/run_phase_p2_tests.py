@@ -332,7 +332,7 @@ print("\n=== T9: schema registry ===")
 _all_schemas = list_tool_schemas()
 ok("find_players" in TOOL_NAMES,             "T9.1: find_players in TOOL_NAMES frozenset")
 ok("find_players" in _all_schemas,           "T9.2: find_players in list_tool_schemas()")
-ok(len(_all_schemas) == 24,                  "T9.3: registry has exactly 24 tools (after P2.6)")
+ok(len(_all_schemas) == 25,                  "T9.3: registry has exactly 25 tools (after P2.8)")
 
 _fp_schema = get_tool_schema("find_players")
 ok(_fp_schema is not None,                   "T9.4: get_tool_schema('find_players') returns non-None")
@@ -460,7 +460,7 @@ print("\n=== U7: registered in TOOL_NAMES (registry grows 18->19) ===")
 ok("get_player_snapshot" in TOOL_NAMES,                    "U7.1: get_player_snapshot in TOOL_NAMES frozenset")
 _all_schemas_u = list_tool_schemas()
 ok("get_player_snapshot" in _all_schemas_u,                "U7.2: get_player_snapshot in list_tool_schemas()")
-ok(len(_all_schemas_u) == 24,                              "U7.3: registry has exactly 24 tools (after P2.6)")
+ok(len(_all_schemas_u) == 25,                              "U7.3: registry has exactly 25 tools (after P2.8)")
 
 print("\n=== U8: schema validates ===")
 
@@ -669,7 +669,7 @@ print("\n=== V10: tool registered in TOOL_NAMES; registry now has 20 tools ===")
 ok("get_player_history" in TOOL_NAMES,                         "V10.1: get_player_history in TOOL_NAMES frozenset")
 _all_schemas_v = list_tool_schemas()
 ok("get_player_history" in _all_schemas_v,                     "V10.2: get_player_history in list_tool_schemas()")
-ok(len(_all_schemas_v) == 24,                                  "V10.3: registry has exactly 24 tools (22 -> 23)")
+ok(len(_all_schemas_v) == 25,                                  "V10.3: registry has exactly 25 tools (after P2.8)")
 
 print("\n=== V11: schema validates ===")
 
@@ -899,7 +899,7 @@ print("\n=== W10: tool registered in TOOL_NAMES; registry now has 21 tools ===")
 ok("get_fixtures_for_gw" in TOOL_NAMES,                          "W10.1: get_fixtures_for_gw in TOOL_NAMES frozenset")
 _all_schemas_w = list_tool_schemas()
 ok("get_fixtures_for_gw" in _all_schemas_w,                      "W10.2: get_fixtures_for_gw in list_tool_schemas()")
-ok(len(_all_schemas_w) == 24,                                    "W10.3: registry has exactly 24 tools (22 -> 23)")
+ok(len(_all_schemas_w) == 25,                                    "W10.3: registry has exactly 25 tools (after P2.8)")
 
 print("\n=== W11: schema validates ===")
 
@@ -1130,7 +1130,7 @@ print("\n=== X10: tool registered in TOOL_NAMES; registry now has 22 tools ===")
 ok("get_gameweek_context" in TOOL_NAMES,               "X10.1: get_gameweek_context in TOOL_NAMES frozenset")
 _all_schemas_x = list_tool_schemas()
 ok("get_gameweek_context" in _all_schemas_x,           "X10.2: get_gameweek_context in list_tool_schemas()")
-ok(len(_all_schemas_x) == 24,                          "X10.3: registry has exactly 24 tools (22 -> 23)")
+ok(len(_all_schemas_x) == 25,                          "X10.3: registry has exactly 25 tools (after P2.8)")
 
 print("\n=== X11: schema validates ===")
 
@@ -1433,7 +1433,7 @@ print("\n=== Y13: registered in TOOL_NAMES; registry now 23 ===")
 ok("get_team_snapshot" in TOOL_NAMES,                           "Y13.1: get_team_snapshot in TOOL_NAMES frozenset")
 _all_schemas_y = list_tool_schemas()
 ok("get_team_snapshot" in _all_schemas_y,                       "Y13.2: get_team_snapshot in list_tool_schemas()")
-ok(len(_all_schemas_y) == 24,                                   "Y13.3: registry has exactly 24 tools (22 -> 23)")
+ok(len(_all_schemas_y) == 25,                                   "Y13.3: registry has exactly 25 tools (after P2.8)")
 
 print("\n=== Y14: schema validates ===")
 
@@ -1624,7 +1624,7 @@ from fpl_grounded_assistant.tool_schema_registry import (
     get_tool_schema as _Z_get_tool_schema,
 )
 ok("web_fetch" in _Z_TOOL_NAMES, "Z17.1: web_fetch in TOOL_NAMES")
-ok(len(_Z_ALL_SCHEMAS) == 24, "Z17.2: registry has exactly 24 tools (P2.7 +1)")
+ok(len(_Z_ALL_SCHEMAS) == 25, "Z17.2: registry has exactly 25 tools (after P2.8)")
 
 print("\n=== Z18: schema validates ===")
 _z18_schema = _Z_get_tool_schema("web_fetch")
@@ -1679,6 +1679,271 @@ ok("status" in _z20_result.tool_output,
 
 os.environ.pop("FPL_ORCH_TEST_INJECTION", None)
 os.environ.pop("FPL_EVAL_DISABLED", None)
+
+
+# ---------------------------------------------------------------------------
+# Section AA: P2.8 renderers + rank_players_by_metric (Gap A + Gap B)
+# ---------------------------------------------------------------------------
+
+from fpl_grounded_assistant.renderer import render as _render
+from fpl_grounded_assistant.rank_players_by_metric import rank_players_by_metric as _rank
+
+print("\n=== AA1-AA7: P2 tool renderers return non-empty string (no unknown_tool) ===")
+
+# AA1: find_players ok output
+_aa1_out = {"status": "ok", "query": "haaland", "match_count": 1,
+            "matches": [{"web_name": "Haaland", "team_short": "MCI", "position": "FWD",
+                         "now_cost": 145, "form": 8.0, "total_points": 200,
+                         "minutes_played_season": 1800}]}
+_aa1_rendered = _render("find_players", _aa1_out)
+ok(isinstance(_aa1_rendered, str) and len(_aa1_rendered) > 0, "AA1.1: find_players renderer returns non-empty string")
+ok("unknown_tool" not in _aa1_rendered, "AA1.2: no 'unknown_tool' in find_players rendered output")
+
+# AA2: get_player_snapshot ok output
+_aa2_out = {"status": "ok", "player": {
+    "web_name": "Haaland", "team_short": "MCI", "position": "FWD",
+    "now_cost": 145, "selected_by_percent": 52.3, "status": "Available",
+    "form": 8.0, "total_points": 200, "points_per_game": 7.0,
+    "expected_goals": 1.5, "expected_assists": 0.2,
+    "expected_goal_involvements": 1.7, "ict_index": 60.0,
+    "minutes_played_season": 1800, "news": "", "chance_of_playing_this_round": None,
+    "news_added": None, "transfers_in_event": 5000, "transfers_out_event": 1000,
+}}
+_aa2_rendered = _render("get_player_snapshot", _aa2_out)
+ok(isinstance(_aa2_rendered, str) and len(_aa2_rendered) > 0, "AA2.1: get_player_snapshot renderer returns non-empty string")
+ok("unknown_tool" not in _aa2_rendered, "AA2.2: no 'unknown_tool' in get_player_snapshot rendered output")
+ok("Haaland" in _aa2_rendered, "AA2.3: player name appears in rendered output")
+
+# AA3: get_player_history ok output
+_aa3_out = {"status": "ok",
+            "player": {"web_name": "Haaland", "team_short": "MCI", "position": "FWD"},
+            "last_n_gws": 2,
+            "history": [
+                {"round": 27, "opponent_team_short": "MUN", "minutes": 90,
+                 "total_points": 8, "goals_scored": 1, "assists": 0,
+                 "expected_goals": 0.85, "expected_assists": 0.10, "was_home": True},
+            ],
+            "summary": {"total_points": 8, "avg_form": 8.0, "total_xgi": 0.95}}
+_aa3_rendered = _render("get_player_history", _aa3_out)
+ok(isinstance(_aa3_rendered, str) and len(_aa3_rendered) > 0, "AA3.1: get_player_history renderer returns non-empty string")
+ok("unknown_tool" not in _aa3_rendered, "AA3.2: no 'unknown_tool' in get_player_history rendered output")
+
+# AA4: get_fixtures_for_gw ok output
+_aa4_out = {"status": "ok", "gw": 38, "is_blank": False, "is_double": False,
+            "finished": False,
+            "fixtures": [{"id": 1, "kickoff_time": "2026-05-17T15:00:00Z",
+                          "home_team_short": "ARS", "away_team_short": "CHE",
+                          "home_fdr": 3, "away_fdr": 4,
+                          "finished": False, "home_score": None, "away_score": None}],
+            "summary": {"total_fixtures": 1, "easiest_for_home_team": "ARS",
+                        "hardest_for_home_team": "ARS",
+                        "double_gw_teams": [], "blank_gw_teams": []}}
+_aa4_rendered = _render("get_fixtures_for_gw", _aa4_out)
+ok(isinstance(_aa4_rendered, str) and len(_aa4_rendered) > 0, "AA4.1: get_fixtures_for_gw renderer returns non-empty string")
+ok("unknown_tool" not in _aa4_rendered, "AA4.2: no 'unknown_tool' in get_fixtures_for_gw rendered output")
+ok("GW38" in _aa4_rendered, "AA4.3: GW number appears in rendered output")
+
+# AA5: get_gameweek_context ok output
+_aa5_out = {"status": "ok", "current_gw": 28, "next_gw": 29,
+            "current_gw_deadline": "2026-02-21T11:30:00Z",
+            "next_gw_deadline": "2026-02-28T11:30:00Z",
+            "season_total_gws": 38, "is_season_over": False,
+            "is_pre_season": False, "current_gw_status": "in_progress",
+            "blank_gw_alerts": [], "double_gw_alerts": []}
+_aa5_rendered = _render("get_gameweek_context", _aa5_out)
+ok(isinstance(_aa5_rendered, str) and len(_aa5_rendered) > 0, "AA5.1: get_gameweek_context renderer returns non-empty string")
+ok("unknown_tool" not in _aa5_rendered, "AA5.2: no 'unknown_tool' in get_gameweek_context rendered output")
+ok("GW28" in _aa5_rendered, "AA5.3: current GW number appears in rendered output")
+
+# AA6: get_team_snapshot ok output
+_aa6_out = {"status": "ok",
+            "team": {"id": 40, "short_name": "WOL", "name": "Wolves", "strength": 3,
+                     "strength_overall_home": 1150, "strength_overall_away": 1100,
+                     "form": None, "position": None, "played": None,
+                     "win": None, "draw": None, "loss": None, "points": None},
+            "upcoming_fixtures": [
+                {"gw": 29, "opponent_short": "ARS", "opponent_name": "Arsenal",
+                 "is_home": True, "fdr": 4, "kickoff_time": "2026-03-01T15:00:00Z"},
+            ],
+            "top_players": [
+                {"web_name": "Cunha", "position": "FWD", "total_points": 130,
+                 "form": 9.0, "now_cost": 75, "team_short": "WOL",
+                 "selected_by_percent": 18.0},
+            ],
+            "summary": {"avg_fdr_next_5": 4.0, "is_easy_run": False,
+                        "is_hard_run": True, "top_scorer_web_name": "Cunha",
+                        "top_form_web_name": "Cunha"}}
+_aa6_rendered = _render("get_team_snapshot", _aa6_out)
+ok(isinstance(_aa6_rendered, str) and len(_aa6_rendered) > 0, "AA6.1: get_team_snapshot renderer returns non-empty string")
+ok("unknown_tool" not in _aa6_rendered, "AA6.2: no 'unknown_tool' in get_team_snapshot rendered output")
+ok("Wolves" in _aa6_rendered or "WOL" in _aa6_rendered, "AA6.3: team name/short appears in rendered output")
+
+# AA7: web_fetch ok output
+_aa7_out = {"status": "ok", "url": "https://fantasy.premierleague.com/api/bootstrap-static/",
+            "domain": "fantasy.premierleague.com", "content_type": "application/json",
+            "content_length": 5000, "text_excerpt": "football data here", "truncated": False}
+_aa7_rendered = _render("web_fetch", _aa7_out)
+ok(isinstance(_aa7_rendered, str) and len(_aa7_rendered) > 0, "AA7.1: web_fetch renderer returns non-empty string")
+ok("unknown_tool" not in _aa7_rendered, "AA7.2: no 'unknown_tool' in web_fetch rendered output")
+ok("5000" in _aa7_rendered, "AA7.3: content_length appears in rendered output")
+
+print("\n=== AA8-AA10: renderers handle non-ok statuses ===")
+
+# AA8: find_players not_found
+_aa8_out = {"status": "not_found", "query": "xyz_fake"}
+_aa8_rendered = _render("find_players", _aa8_out)
+ok(isinstance(_aa8_rendered, str) and len(_aa8_rendered) > 0, "AA8.1: find_players not_found returns non-empty string")
+ok("unknown_tool" not in _aa8_rendered, "AA8.2: no unknown_tool in find_players not_found")
+
+# AA9: get_player_snapshot ambiguous
+_aa9_out = {"status": "ambiguous", "query": "sa",
+            "candidates": [
+                {"web_name": "Salah", "team_short": "LIV", "position": "MID", "match_rank": 1},
+                {"web_name": "Saka",  "team_short": "ARS", "position": "MID", "match_rank": 1},
+            ],
+            "message": "Multiple players match 'sa'. Please specify."}
+_aa9_rendered = _render("get_player_snapshot", _aa9_out)
+ok(isinstance(_aa9_rendered, str) and len(_aa9_rendered) > 0, "AA9.1: get_player_snapshot ambiguous returns non-empty string")
+ok("unknown_tool" not in _aa9_rendered, "AA9.2: no unknown_tool in ambiguous output")
+ok("Salah" in _aa9_rendered or "Saka" in _aa9_rendered, "AA9.3: candidate names appear in ambiguous output")
+
+# AA10: web_fetch refused
+_aa10_out = {"status": "refused", "url": "https://example.com/x",
+             "code": "url_not_allowlisted",
+             "message": "URL domain 'example.com' is not in the allowlist.",
+             "allowed_domains": ["fantasy.premierleague.com"]}
+_aa10_rendered = _render("web_fetch", _aa10_out)
+ok(isinstance(_aa10_rendered, str) and len(_aa10_rendered) > 0, "AA10.1: web_fetch refused returns non-empty string")
+ok("unknown_tool" not in _aa10_rendered, "AA10.2: no unknown_tool in web_fetch refused")
+
+print("\n=== AA11-AA18: rank_players_by_metric unit tests ===")
+
+# AA11: basic xgi top-5 call
+_aa11 = _rank("expected_goal_involvements", top_n=5, bootstrap=STANDARD_BOOTSTRAP)
+ok(_aa11["status"] == "ok", "AA11.1: rank by expected_goal_involvements -> status=ok")
+ok(len(_aa11["ranked"]) == 5, "AA11.2: returned 5 ranked entries")
+
+# AA12: ranked entries sorted descending
+_aa12 = _rank("expected_goal_involvements", top_n=10, bootstrap=STANDARD_BOOTSTRAP)
+ok(_aa12["status"] == "ok", "AA12.0: precondition status=ok")
+_aa12_vals = [e["metric_value"] for e in _aa12["ranked"]]
+ok(_aa12_vals == sorted(_aa12_vals, reverse=True), "AA12.1: ranked entries sorted by metric_value descending")
+
+# AA13: each entry has full 21 grounding fields + metric_value + rank
+_aa13 = _rank("form", top_n=3, bootstrap=STANDARD_BOOTSTRAP)
+ok(_aa13["status"] == "ok", "AA13.0: precondition status=ok")
+_aa13_entry = _aa13["ranked"][0]
+for _field in _REQUIRED_MATCH_FIELDS:
+    ok(_field in _aa13_entry, f"AA13: grounding field '{_field}' present in ranked entry")
+ok("metric_value" in _aa13_entry, "AA13: metric_value present in ranked entry")
+ok("rank" in _aa13_entry, "AA13: rank present in ranked entry")
+ok(_aa13_entry["rank"] == 1, "AA13: first entry has rank=1")
+
+# AA14: alias "xgi" maps to expected_goal_involvements
+_aa14a = _rank("xgi", top_n=5, bootstrap=STANDARD_BOOTSTRAP)
+_aa14b = _rank("expected_goal_involvements", top_n=5, bootstrap=STANDARD_BOOTSTRAP)
+ok(_aa14a["status"] == "ok", "AA14.1: 'xgi' alias returns status=ok")
+ok(_aa14a["metric"] == _aa14b["metric"], "AA14.2: 'xgi' resolves to same field as expected_goal_involvements")
+ok([e["metric_value"] for e in _aa14a["ranked"]] == [e["metric_value"] for e in _aa14b["ranked"]],
+   "AA14.3: 'xgi' and 'expected_goal_involvements' return same values")
+
+# AA15: invalid metric returns invalid_argument
+_aa15 = _rank("not_a_real_metric_xyz", bootstrap=STANDARD_BOOTSTRAP)
+ok(_aa15["status"] == "invalid_argument", "AA15.1: unknown metric -> status=invalid_argument")
+ok(_aa15.get("code") == "unknown_metric", "AA15.2: code=unknown_metric")
+ok("valid_metrics" in _aa15 and isinstance(_aa15["valid_metrics"], list) and len(_aa15["valid_metrics"]) > 0,
+   "AA15.3: valid_metrics list returned")
+
+# AA16: position filter — only midfielders (MID)
+_aa16 = _rank("form", top_n=10, position="MID", bootstrap=STANDARD_BOOTSTRAP)
+ok(_aa16["status"] == "ok", "AA16.1: position='MID' filter -> status=ok")
+ok(_aa16["position_filter"] == "MID", "AA16.2: position_filter='MID' in response")
+ok(all(e["position"] == "MID" for e in _aa16["ranked"]), "AA16.3: all ranked entries have position=MID")
+
+# AA17: min_minutes filter excludes low-minute players
+# De Bruyne has only 270 minutes in STANDARD_BOOTSTRAP; min_minutes=500 should exclude him
+_aa17 = _rank("total_points", top_n=10, min_minutes=500, bootstrap=STANDARD_BOOTSTRAP)
+ok(_aa17["status"] == "ok", "AA17.1: min_minutes=500 filter -> status=ok")
+ok(_aa17["min_minutes_filter"] == 500, "AA17.2: min_minutes_filter=500 in response")
+ok(all(e.get("minutes_played_season", 0) >= 500 for e in _aa17["ranked"]),
+   "AA17.3: all ranked entries have minutes_played_season >= 500")
+
+# AA18: top_n=99 silently capped to 50
+_aa18 = _rank("form", top_n=99, bootstrap=STANDARD_BOOTSTRAP)
+ok(_aa18["status"] == "ok", "AA18.1: top_n=99 -> status=ok")
+ok(_aa18["top_n"] <= 50, "AA18.2: top_n=99 silently capped at 50 (top_n field <= 50)")
+ok(len(_aa18["ranked"]) <= 50, "AA18.3: len(ranked) <= 50")
+
+print("\n=== AA19: rank_players_by_metric registered in TOOL_NAMES; registry == 25 ===")
+
+ok("rank_players_by_metric" in TOOL_NAMES, "AA19.1: rank_players_by_metric in TOOL_NAMES frozenset")
+_all_schemas_aa = list_tool_schemas()
+ok("rank_players_by_metric" in _all_schemas_aa, "AA19.2: rank_players_by_metric in list_tool_schemas()")
+ok(len(_all_schemas_aa) == 25, "AA19.3: registry has exactly 25 tools")
+_rpm_schema = get_tool_schema("rank_players_by_metric")
+ok(_rpm_schema is not None, "AA19.4: get_tool_schema('rank_players_by_metric') returns non-None")
+ok(validate_tool_schema_shape(_rpm_schema), "AA19.5: schema passes validate_tool_schema_shape")
+
+print("\n=== AA20: orchestrator dispatches rank_players_by_metric via mock LLM ===")
+
+os.environ["FPL_ORCH_TEST_INJECTION"] = "1"
+os.environ["FPL_EVAL_DISABLED"] = "1"
+
+
+class _MockRankMetricClient:
+    """Returns a rank_players_by_metric tool_use call for xgi."""
+
+    def __init__(self) -> None:
+        self.messages = self
+
+    def create(self, *, model, max_tokens, system, tools, messages, **kwargs):
+        class _ToolBlock:
+            type  = "tool_use"
+            id    = "toolu_rpm_001"
+            name  = "rank_players_by_metric"
+            input = {"metric": "expected_goal_involvements", "top_n": 10}
+
+        class _Response:
+            content     = [_ToolBlock()]
+            stop_reason = "tool_use"
+            usage       = type("U", (), {"input_tokens": 100, "output_tokens": 50,
+                                         "cache_read_input_tokens": 0})()
+
+        return _Response()
+
+
+_mock_rank = _MockRankMetricClient()
+_aa20 = ask_orchestrated(
+    "dame el top 10 de jugadores por xgi",
+    STANDARD_BOOTSTRAP,
+    client=_mock_rank,
+    provider="anthropic",
+)
+
+ok(_aa20.outcome in (OUTCOME_OK, OUTCOME_TOOL_RESULT_ERROR),
+   "AA20.1: outcome is ok or tool_result_error (not llm_error/no_tool)")
+ok(_aa20.tool_chosen == "rank_players_by_metric",
+   "AA20.2: orchestrator dispatched rank_players_by_metric tool")
+ok(isinstance(_aa20.tool_output, dict),
+   "AA20.3: tool_output is a dict")
+ok(_aa20.tool_output.get("status") in ("ok", "invalid_argument", "error"),
+   "AA20.4: tool_output.status is one of the valid statuses")
+
+os.environ.pop("FPL_ORCH_TEST_INJECTION", None)
+os.environ.pop("FPL_EVAL_DISABLED", None)
+
+print("\n=== AA21: rank_players_by_metric renderer (via render()) ===")
+
+_aa21_out = _rank("expected_goal_involvements", top_n=5, bootstrap=STANDARD_BOOTSTRAP)
+ok(_aa21_out["status"] == "ok", "AA21.0: precondition")
+_aa21_rendered = _render("rank_players_by_metric", _aa21_out)
+ok(isinstance(_aa21_rendered, str) and len(_aa21_rendered) > 0,
+   "AA21.1: rank_players_by_metric renderer returns non-empty string")
+ok("unknown_tool" not in _aa21_rendered,
+   "AA21.2: no 'unknown_tool' in rank_players_by_metric rendered output")
+ok("expected_goal_involvements" in _aa21_rendered or "xgi" in _aa21_rendered.lower() or
+   "expected_goal" in _aa21_rendered,
+   "AA21.3: metric name appears in rendered output")
 
 
 # ---------------------------------------------------------------------------

@@ -24,7 +24,7 @@ Registry API
 ``get_tool_schema(name)``            → ToolSchema | None
 ``validate_tool_schema_shape(s)``    → bool            — structural check
 
-Registered tools (23 grounded tools, including P2.1–P2.6 atomic tools)
+Registered tools (25 grounded tools, including P2.1–P2.8 atomic tools)
 ----------------------------------------------------------------------
 +----------------------------+----------------------------------+
 | Tool name                  | Intent label                     |
@@ -53,6 +53,7 @@ Registered tools (23 grounded tools, including P2.1–P2.6 atomic tools)
 | get_gameweek_context       | atomic: temporal GW context      |  (P2.5)
 | get_team_snapshot          | atomic: single-team overview     |  (P2.6)
 | web_fetch                  | atomic: allowlisted URL fetch    |  (P2.7)
+| rank_players_by_metric     | atomic: ranked player list       |  (P2.8)
 +----------------------------+----------------------------------+
 
 Schema format
@@ -799,6 +800,52 @@ WEB_FETCH_SCHEMA = ToolSchema(
 
 
 # ---------------------------------------------------------------------------
+# P2.8 atomic tool — rank_players_by_metric ranked player list
+# ---------------------------------------------------------------------------
+
+RANK_PLAYERS_BY_METRIC_SCHEMA = ToolSchema(
+    name="rank_players_by_metric",
+    description=(
+        "Top N players by metric (xGI, form, points, xG, xA, ICT, ownership, minutes, etc.). "
+        "Filter by position/min_minutes. Returns ranked list with grounding payload + metric_value. "
+        "Use for top-N queries."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "metric": {
+                "type":        "string",
+                "description": (
+                    "Metric to rank by. Aliases: xgi, xg, xa, ict, popularity, ppg. "
+                    "Full names: expected_goal_involvements, form, total_points, etc."
+                ),
+            },
+            "top_n": {
+                "type":        "integer",
+                "description": "Max players to return (1-50, default 10)",
+                "minimum":     1,
+                "maximum":     50,
+            },
+            "position": {
+                "type":        "string",
+                "description": (
+                    "Optional position filter: GKP/DEF/MID/FWD (case-insensitive). "
+                    "Spanish: portero/defensa/centrocampista/delantero."
+                ),
+            },
+            "min_minutes": {
+                "type":        "integer",
+                "description": "Exclude players with fewer minutes (default 0)",
+                "minimum":     0,
+            },
+        },
+        "required":             ["metric"],
+        "additionalProperties": False,
+    },
+)
+
+
+# ---------------------------------------------------------------------------
 # Registry construction
 # ---------------------------------------------------------------------------
 
@@ -835,6 +882,8 @@ _ALL_SCHEMAS: tuple[ToolSchema, ...] = (
     GET_TEAM_SNAPSHOT_SCHEMA,
     # P2.7 atomic tool
     WEB_FETCH_SCHEMA,
+    # P2.8 atomic tool
+    RANK_PLAYERS_BY_METRIC_SCHEMA,
 )
 
 #: Immutable dict mapping tool name → ToolSchema.
