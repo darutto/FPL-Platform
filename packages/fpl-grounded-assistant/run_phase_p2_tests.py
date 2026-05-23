@@ -332,7 +332,7 @@ print("\n=== T9: schema registry ===")
 _all_schemas = list_tool_schemas()
 ok("find_players" in TOOL_NAMES,             "T9.1: find_players in TOOL_NAMES frozenset")
 ok("find_players" in _all_schemas,           "T9.2: find_players in list_tool_schemas()")
-ok(len(_all_schemas) == 22,                  "T9.3: registry has exactly 22 tools (after P2.5)")
+ok(len(_all_schemas) == 23,                  "T9.3: registry has exactly 23 tools (after P2.6)")
 
 _fp_schema = get_tool_schema("find_players")
 ok(_fp_schema is not None,                   "T9.4: get_tool_schema('find_players') returns non-None")
@@ -460,7 +460,7 @@ print("\n=== U7: registered in TOOL_NAMES (registry grows 18->19) ===")
 ok("get_player_snapshot" in TOOL_NAMES,                    "U7.1: get_player_snapshot in TOOL_NAMES frozenset")
 _all_schemas_u = list_tool_schemas()
 ok("get_player_snapshot" in _all_schemas_u,                "U7.2: get_player_snapshot in list_tool_schemas()")
-ok(len(_all_schemas_u) == 22,                              "U7.3: registry has exactly 22 tools (after P2.5)")
+ok(len(_all_schemas_u) == 23,                              "U7.3: registry has exactly 23 tools (after P2.6)")
 
 print("\n=== U8: schema validates ===")
 
@@ -669,7 +669,7 @@ print("\n=== V10: tool registered in TOOL_NAMES; registry now has 20 tools ===")
 ok("get_player_history" in TOOL_NAMES,                         "V10.1: get_player_history in TOOL_NAMES frozenset")
 _all_schemas_v = list_tool_schemas()
 ok("get_player_history" in _all_schemas_v,                     "V10.2: get_player_history in list_tool_schemas()")
-ok(len(_all_schemas_v) == 22,                                  "V10.3: registry has exactly 22 tools (21 -> 22)")
+ok(len(_all_schemas_v) == 23,                                  "V10.3: registry has exactly 23 tools (22 -> 23)")
 
 print("\n=== V11: schema validates ===")
 
@@ -899,7 +899,7 @@ print("\n=== W10: tool registered in TOOL_NAMES; registry now has 21 tools ===")
 ok("get_fixtures_for_gw" in TOOL_NAMES,                          "W10.1: get_fixtures_for_gw in TOOL_NAMES frozenset")
 _all_schemas_w = list_tool_schemas()
 ok("get_fixtures_for_gw" in _all_schemas_w,                      "W10.2: get_fixtures_for_gw in list_tool_schemas()")
-ok(len(_all_schemas_w) == 22,                                    "W10.3: registry has exactly 22 tools (21 -> 22)")
+ok(len(_all_schemas_w) == 23,                                    "W10.3: registry has exactly 23 tools (22 -> 23)")
 
 print("\n=== W11: schema validates ===")
 
@@ -1130,7 +1130,7 @@ print("\n=== X10: tool registered in TOOL_NAMES; registry now has 22 tools ===")
 ok("get_gameweek_context" in TOOL_NAMES,               "X10.1: get_gameweek_context in TOOL_NAMES frozenset")
 _all_schemas_x = list_tool_schemas()
 ok("get_gameweek_context" in _all_schemas_x,           "X10.2: get_gameweek_context in list_tool_schemas()")
-ok(len(_all_schemas_x) == 22,                          "X10.3: registry has exactly 22 tools (21 -> 22)")
+ok(len(_all_schemas_x) == 23,                          "X10.3: registry has exactly 23 tools (22 -> 23)")
 
 print("\n=== X11: schema validates ===")
 
@@ -1184,6 +1184,310 @@ ok(isinstance(_x12.tool_output, dict),                 "X12.3: tool_output is a 
 ok(_x12.tool_output.get("status") in ("ok", "error"), "X12.4: tool_output.status is ok or error")
 ok("current_gw" in _x12.tool_output or "code" in _x12.tool_output,
    "X12.5: tool_output has current_gw (ok) or code (error)")
+
+os.environ.pop("FPL_ORCH_TEST_INJECTION", None)
+os.environ.pop("FPL_EVAL_DISABLED", None)
+
+
+# ---------------------------------------------------------------------------
+# Section Y: get_team_snapshot atomic tool (P2.6)
+# ---------------------------------------------------------------------------
+
+from fpl_grounded_assistant.get_team_snapshot import (
+    get_team_snapshot,
+    _clear_snapshot_cache,
+)
+
+# ---- Minimal bootstrap for team-snapshot tests ----
+# Teams: WOL (id=40), MUN (id=11), MCI (id=13), plus ARS+LIV for opponents.
+# WOL players: 6 players (so we can test top_n_players cap).
+# Events: GW27 current (finished), GW28 next.
+# _gw_fixtures: GW28 and GW29 both have WOL fixtures.
+
+_WOL_BOOTSTRAP: dict = _copy.deepcopy(STANDARD_BOOTSTRAP)
+_WOL_BOOTSTRAP["teams"] = [
+    # FPL common name "Wolves" so substring "wolves" matches exact on name after normalize
+    {"id": 40, "name": "Wolves",          "short_name": "WOL", "code": 39, "strength": 3,
+     "strength_overall_home": 1150, "strength_overall_away": 1100},
+    {"id": 11, "name": "Manchester Utd",  "short_name": "MUN", "code": 12, "strength": 3},
+    {"id": 13, "name": "Manchester City", "short_name": "MCI", "code": 43, "strength": 5},
+    {"id": 1,  "name": "Arsenal",         "short_name": "ARS", "code": 3,  "strength": 4},
+    {"id": 14, "name": "Liverpool",       "short_name": "LIV", "code": 1,  "strength": 5},
+]
+_WOL_BOOTSTRAP["elements"] = [
+    # WOL players (team=40): 6 players with different total_points and form
+    {"id": 101, "first_name": "Rui",     "second_name": "Patricio",  "web_name": "Patricio",
+     "team": 40, "team_code": 39, "element_type": 1, "status": "a",
+     "now_cost": 45, "selected_by_percent": "5.0", "form": "4.0",
+     "expected_goals": "0.00", "expected_assists": "0.00",
+     "expected_goal_involvements": "0.00", "minutes": 2250,
+     "total_points": 70, "points_per_game": "4.0", "ict_index": "20.0",
+     "transfers_in_event": 100, "transfers_out_event": 50},
+    {"id": 102, "first_name": "Max",     "second_name": "Kilman",    "web_name": "Kilman",
+     "team": 40, "team_code": 39, "element_type": 2, "status": "a",
+     "now_cost": 50, "selected_by_percent": "8.0", "form": "5.0",
+     "expected_goals": "0.05", "expected_assists": "0.10",
+     "expected_goal_involvements": "0.15", "minutes": 2160,
+     "total_points": 85, "points_per_game": "5.0", "ict_index": "30.0",
+     "transfers_in_event": 200, "transfers_out_event": 80},
+    {"id": 103, "first_name": "Joao",    "second_name": "Gomes",     "web_name": "J.Gomes",
+     "team": 40, "team_code": 39, "element_type": 3, "status": "a",
+     "now_cost": 55, "selected_by_percent": "10.0", "form": "6.0",
+     "expected_goals": "0.15", "expected_assists": "0.25",
+     "expected_goal_involvements": "0.40", "minutes": 1980,
+     "total_points": 90, "points_per_game": "5.5", "ict_index": "40.0",
+     "transfers_in_event": 500, "transfers_out_event": 100},
+    {"id": 104, "first_name": "Pedro",   "second_name": "Neto",      "web_name": "P.Neto",
+     "team": 40, "team_code": 39, "element_type": 3, "status": "a",
+     "now_cost": 60, "selected_by_percent": "12.0", "form": "7.0",
+     "expected_goals": "0.30", "expected_assists": "0.35",
+     "expected_goal_involvements": "0.65", "minutes": 1800,
+     "total_points": 95, "points_per_game": "5.8", "ict_index": "50.0",
+     "transfers_in_event": 700, "transfers_out_event": 120},
+    {"id": 105, "first_name": "Hwang",   "second_name": "Hee-chan",  "web_name": "Hwang",
+     "team": 40, "team_code": 39, "element_type": 4, "status": "a",
+     "now_cost": 65, "selected_by_percent": "15.0", "form": "8.0",
+     "expected_goals": "0.45", "expected_assists": "0.20",
+     "expected_goal_involvements": "0.65", "minutes": 1620,
+     "total_points": 110, "points_per_game": "6.5", "ict_index": "65.0",
+     "transfers_in_event": 1200, "transfers_out_event": 200},
+    {"id": 106, "first_name": "Matheus", "second_name": "Cunha",     "web_name": "Cunha",
+     "team": 40, "team_code": 39, "element_type": 4, "status": "a",
+     "now_cost": 75, "selected_by_percent": "18.0", "form": "9.0",
+     "expected_goals": "0.60", "expected_assists": "0.30",
+     "expected_goal_involvements": "0.90", "minutes": 1800,
+     "total_points": 130, "points_per_game": "7.0", "ict_index": "80.0",
+     "transfers_in_event": 2000, "transfers_out_event": 300},
+    # ARS player (team=1): for completeness
+    {"id": 3,  "first_name": "Bukayo",  "second_name": "Saka",
+     "web_name": "Saka", "team": 1, "team_code": 3, "element_type": 3,
+     "status": "a", "now_cost": 100, "selected_by_percent": "35.0",
+     "form": "5.5", "expected_goals": "0.45", "expected_assists": "0.40",
+     "expected_goal_involvements": "0.85", "minutes": 900,
+     "total_points": 75, "points_per_game": "5.0", "ict_index": "45.0",
+     "transfers_in_event": 300, "transfers_out_event": 100},
+]
+_WOL_BOOTSTRAP["events"] = [
+    {"id": 27, "name": "Gameweek 27", "deadline_time": "2026-02-21T11:30:00Z",
+     "finished": True,  "is_current": False, "is_next": False, "is_previous": True},
+    {"id": 28, "name": "Gameweek 28", "deadline_time": "2026-02-28T11:30:00Z",
+     "finished": False, "is_current": True,  "is_next": False, "is_previous": False},
+    {"id": 29, "name": "Gameweek 29", "deadline_time": "2026-03-07T11:30:00Z",
+     "finished": False, "is_current": False, "is_next": True,  "is_previous": False},
+    {"id": 30, "name": "Gameweek 30", "deadline_time": "2026-03-14T11:30:00Z",
+     "finished": False, "is_current": False, "is_next": False, "is_previous": False},
+    {"id": 31, "name": "Gameweek 31", "deadline_time": "2026-03-21T11:30:00Z",
+     "finished": False, "is_current": False, "is_next": False, "is_previous": False},
+    {"id": 32, "name": "Gameweek 32", "deadline_time": "2026-03-28T11:30:00Z",
+     "finished": False, "is_current": False, "is_next": False, "is_previous": False},
+    {"id": 38, "name": "Gameweek 38", "deadline_time": "2026-05-17T11:30:00Z",
+     "finished": False, "is_current": False, "is_next": False, "is_previous": False},
+]
+# Inject WOL fixtures for GW29–GW33 (current GW=28 so we start from 29)
+_WOL_BOOTSTRAP["_gw_fixtures"] = {
+    "29": [
+        {"id": 2901, "team_h": 40, "team_a": 1,
+         "team_h_difficulty": 4, "team_a_difficulty": 3,
+         "finished": False, "team_h_score": None, "team_a_score": None,
+         "minutes": None, "kickoff_time": "2026-03-01T15:00:00Z"},
+    ],
+    "30": [
+        {"id": 3001, "team_h": 14, "team_a": 40,
+         "team_h_difficulty": 2, "team_a_difficulty": 5,
+         "finished": False, "team_h_score": None, "team_a_score": None,
+         "minutes": None, "kickoff_time": "2026-03-08T15:00:00Z"},
+    ],
+    "31": [
+        {"id": 3101, "team_h": 40, "team_a": 11,
+         "team_h_difficulty": 2, "team_a_difficulty": 3,
+         "finished": False, "team_h_score": None, "team_a_score": None,
+         "minutes": None, "kickoff_time": "2026-03-15T15:00:00Z"},
+    ],
+    "32": [
+        {"id": 3201, "team_h": 13, "team_a": 40,
+         "team_h_difficulty": 3, "team_a_difficulty": 5,
+         "finished": False, "team_h_score": None, "team_a_score": None,
+         "minutes": None, "kickoff_time": "2026-03-22T15:00:00Z"},
+    ],
+    "33": [
+        {"id": 3301, "team_h": 40, "team_a": 14,
+         "team_h_difficulty": 5, "team_a_difficulty": 2,
+         "finished": False, "team_h_score": None, "team_a_score": None,
+         "minutes": None, "kickoff_time": "2026-03-29T15:00:00Z"},
+    ],
+}
+
+# Required fixture fields for the upcoming_fixtures list
+_UPCOMING_FIXTURE_REQUIRED_FIELDS = [
+    "gw", "opponent_short", "opponent_name", "is_home", "fdr", "kickoff_time",
+]
+
+# Required summary keys
+_SNAPSHOT_SUMMARY_KEYS = [
+    "avg_fdr_next_5", "is_easy_run", "is_hard_run",
+    "top_scorer_web_name", "top_form_web_name",
+]
+
+_clear_snapshot_cache()
+
+print("\n=== Y1: get_team_snapshot('wolves') -> status=ok, team.short_name=='WOL' ===")
+
+_y1 = get_team_snapshot("wolves", bootstrap=_WOL_BOOTSTRAP)
+ok(_y1["status"] == "ok",                                       "Y1.1: status=ok for 'wolves'")
+ok("team" in _y1,                                               "Y1.2: 'team' key present in ok response")
+ok(_y1["team"]["short_name"] == "WOL",                          "Y1.3: team.short_name=='WOL'")
+ok(_y1["team"]["name"] == "Wolves",                             "Y1.4: team.name=='Wolves'")
+
+print("\n=== Y2: top_players has 5 entries (default), each with full 20-field grounding payload ===")
+
+_y2 = _y1
+ok("top_players" in _y2 and isinstance(_y2["top_players"], list),
+   "Y2.1: top_players is a list")
+ok(len(_y2["top_players"]) == 5,                                "Y2.2: top_players has 5 entries by default")
+_SNAPSHOT_REQUIRED_FIELDS_NO_RANK = [f for f in _REQUIRED_MATCH_FIELDS if f != "match_rank"]
+for _yfield in _SNAPSHOT_REQUIRED_FIELDS_NO_RANK:
+    ok(_yfield in _y2["top_players"][0], f"Y2: field '{_yfield}' present in top_player entry")
+
+print("\n=== Y3: top_players sorted by total_points desc ===")
+
+_y3 = _y1
+_tp_pts = [p["total_points"] for p in _y3["top_players"]]
+ok(_tp_pts == sorted(_tp_pts, reverse=True),                    "Y3.1: top_players sorted by total_points desc")
+ok(_y3["top_players"][0]["web_name"] == "Cunha",                "Y3.2: top player (130 pts) is Cunha")
+
+print("\n=== Y4: upcoming_fixtures has 5 entries (default), each with required fields ===")
+
+_y4 = _y1
+ok("upcoming_fixtures" in _y4 and isinstance(_y4["upcoming_fixtures"], list),
+   "Y4.1: upcoming_fixtures is a list")
+ok(len(_y4["upcoming_fixtures"]) == 5,                          "Y4.2: upcoming_fixtures has 5 entries by default")
+for _ufield in _UPCOMING_FIXTURE_REQUIRED_FIELDS:
+    ok(_ufield in _y4["upcoming_fixtures"][0], f"Y4: field '{_ufield}' present in fixture entry")
+
+print("\n=== Y5: summary has all 5 expected keys ===")
+
+_y5 = _y1
+ok("summary" in _y5,                                            "Y5.1: summary key present")
+for _skey in _SNAPSHOT_SUMMARY_KEYS:
+    ok(_skey in _y5["summary"], f"Y5: summary key '{_skey}' present")
+
+print("\n=== Y6: summary.avg_fdr_next_5 matches mean of first 5 FDRs ===")
+
+_y6 = _y1
+_fdrs = [f["fdr"] for f in _y6["upcoming_fixtures"][:5]]
+_expected_avg = round(sum(_fdrs) / len(_fdrs), 2) if _fdrs else 0.0
+ok(abs(_y6["summary"]["avg_fdr_next_5"] - _expected_avg) < 0.01,
+   f"Y6.1: avg_fdr_next_5={_y6['summary']['avg_fdr_next_5']} matches computed mean={_expected_avg}")
+
+print("\n=== Y7: get_team_snapshot('WOL') (exact short) returns same result as 'wolves' ===")
+
+_clear_snapshot_cache()
+_y7 = get_team_snapshot("WOL", bootstrap=_WOL_BOOTSTRAP)
+ok(_y7["status"] == "ok",                                       "Y7.1: 'WOL' exact short code -> status=ok")
+ok(_y7["team"]["short_name"] == "WOL",                          "Y7.2: team.short_name=='WOL' for 'WOL' query")
+ok(_y7["team"]["id"] == _y1["team"]["id"],                      "Y7.3: same team.id as 'wolves' query")
+
+print("\n=== Y8: 'manchester' -> ambiguous (MUN + MCI) ===")
+
+_clear_snapshot_cache()
+_y8 = get_team_snapshot("manchester", bootstrap=_WOL_BOOTSTRAP)
+ok(_y8["status"] == "ambiguous",                                "Y8.1: 'manchester' -> ambiguous")
+ok("candidates" in _y8 and isinstance(_y8["candidates"], list), "Y8.2: candidates list present")
+_y8_shorts = [c["short_name"] for c in _y8["candidates"]]
+ok("MUN" in _y8_shorts,                                         "Y8.3: MUN in ambiguous candidates")
+ok("MCI" in _y8_shorts,                                         "Y8.4: MCI in ambiguous candidates")
+ok("query" in _y8,                                              "Y8.5: query field present in ambiguous response")
+ok(bool(_y8.get("message")),                                    "Y8.6: message field is non-empty")
+
+print("\n=== Y9: unknown query -> status=not_found ===")
+
+_clear_snapshot_cache()
+_y9 = get_team_snapshot("xx_no_such_team_xyz", bootstrap=_WOL_BOOTSTRAP)
+ok(_y9["status"] == "not_found",                                "Y9.1: unknown team -> not_found")
+ok("query" in _y9,                                              "Y9.2: query field present in not_found")
+ok(bool(_y9.get("message")),                                    "Y9.3: message non-empty in not_found")
+
+print("\n=== Y10: top_n_players=2 returns 2 players ===")
+
+_clear_snapshot_cache()
+_y10 = get_team_snapshot("WOL", top_n_players=2, bootstrap=_WOL_BOOTSTRAP)
+ok(_y10["status"] == "ok",                                      "Y10.1: status=ok for top_n_players=2")
+ok(len(_y10["top_players"]) == 2,                               "Y10.2: top_players has exactly 2 entries")
+
+print("\n=== Y11: top_n_players=99 capped at 10 ===")
+
+_clear_snapshot_cache()
+_y11 = get_team_snapshot("WOL", top_n_players=99, bootstrap=_WOL_BOOTSTRAP)
+ok(_y11["status"] == "ok",                                      "Y11.1: status=ok for top_n_players=99")
+ok(len(_y11["top_players"]) <= 10,                              "Y11.2: top_players capped at 10 (silent cap)")
+
+print("\n=== Y12: fixture_horizon=2 returns 2 fixtures ===")
+
+_clear_snapshot_cache()
+_y12 = get_team_snapshot("WOL", fixture_horizon=2, bootstrap=_WOL_BOOTSTRAP)
+ok(_y12["status"] == "ok",                                      "Y12.1: status=ok for fixture_horizon=2")
+ok(len(_y12["upcoming_fixtures"]) == 2,                         "Y12.2: upcoming_fixtures has 2 entries")
+
+print("\n=== Y13: registered in TOOL_NAMES; registry now 23 ===")
+
+ok("get_team_snapshot" in TOOL_NAMES,                           "Y13.1: get_team_snapshot in TOOL_NAMES frozenset")
+_all_schemas_y = list_tool_schemas()
+ok("get_team_snapshot" in _all_schemas_y,                       "Y13.2: get_team_snapshot in list_tool_schemas()")
+ok(len(_all_schemas_y) == 23,                                   "Y13.3: registry has exactly 23 tools (22 -> 23)")
+
+print("\n=== Y14: schema validates ===")
+
+_gts_schema = get_tool_schema("get_team_snapshot")
+ok(_gts_schema is not None,                                     "Y14.1: get_tool_schema('get_team_snapshot') returns non-None")
+ok(_gts_schema.name == "get_team_snapshot",                     "Y14.2: schema.name == 'get_team_snapshot'")
+ok("team_name" in _gts_schema.parameters.get("properties", {}),
+   "Y14.3: team_name in schema properties")
+ok("team_name" in _gts_schema.parameters.get("required", []),  "Y14.4: team_name is required")
+ok(validate_tool_schema_shape(_gts_schema),                     "Y14.5: validate_tool_schema_shape passes")
+
+print("\n=== Y15: orchestrator dispatches get_team_snapshot via mock LLM ===")
+
+os.environ["FPL_ORCH_TEST_INJECTION"] = "1"
+os.environ["FPL_EVAL_DISABLED"] = "1"
+
+
+class _MockTeamSnapshotClient:
+    """Returns a get_team_snapshot tool_use call for 'wolves'."""
+
+    def __init__(self) -> None:
+        self.messages = self
+
+    def create(self, *, model, max_tokens, system, tools, messages, **kwargs):
+        class _ToolBlock:
+            type  = "tool_use"
+            id    = "toolu_gts_001"
+            name  = "get_team_snapshot"
+            input = {"team_name": "wolves"}
+
+        class _Response:
+            content     = [_ToolBlock()]
+            stop_reason = "tool_use"
+            usage       = type("U", (), {"input_tokens": 100, "output_tokens": 50,
+                                         "cache_read_input_tokens": 0})()
+
+        return _Response()
+
+
+_clear_snapshot_cache()
+_mock_team = _MockTeamSnapshotClient()
+_y15 = ask_orchestrated(
+    "quien es el mejor jugador de wolves",
+    _WOL_BOOTSTRAP,
+    client=_mock_team,
+    provider="anthropic",
+)
+
+ok(_y15.outcome in (OUTCOME_OK, OUTCOME_TOOL_RESULT_ERROR),
+   "Y15.1: outcome is ok or tool_result_error (not llm_error/no_tool)")
+ok(_y15.tool_chosen == "get_team_snapshot",                     "Y15.2: orchestrator dispatched get_team_snapshot")
+ok(isinstance(_y15.tool_output, dict),                          "Y15.3: tool_output is a dict")
+ok(_y15.tool_output.get("status") in ("ok", "not_found", "ambiguous", "error"),
+   "Y15.4: tool_output.status is one of the valid statuses")
 
 os.environ.pop("FPL_ORCH_TEST_INJECTION", None)
 os.environ.pop("FPL_EVAL_DISABLED", None)

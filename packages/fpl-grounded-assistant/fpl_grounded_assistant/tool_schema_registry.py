@@ -24,7 +24,7 @@ Registry API
 ``get_tool_schema(name)``            → ToolSchema | None
 ``validate_tool_schema_shape(s)``    → bool            — structural check
 
-Registered tools (22 grounded tools, including P2.1+P2.2+P2.3+P2.4+P2.5 atomic tools)
+Registered tools (23 grounded tools, including P2.1–P2.6 atomic tools)
 ----------------------------------------------------------------------
 +----------------------------+----------------------------------+
 | Tool name                  | Intent label                     |
@@ -51,6 +51,7 @@ Registered tools (22 grounded tools, including P2.1+P2.2+P2.3+P2.4+P2.5 atomic t
 | get_player_history         | atomic: per-GW history           |  (P2.3)
 | get_fixtures_for_gw        | atomic: GW fixture list+FDR      |  (P2.4)
 | get_gameweek_context       | atomic: temporal GW context      |  (P2.5)
+| get_team_snapshot          | atomic: single-team overview     |  (P2.6)
 +----------------------------+----------------------------------+
 
 Schema format
@@ -730,6 +731,46 @@ GET_GAMEWEEK_CONTEXT_SCHEMA = ToolSchema(
 
 
 # ---------------------------------------------------------------------------
+# P2.6 atomic tool — get_team_snapshot single-team overview
+# ---------------------------------------------------------------------------
+
+GET_TEAM_SNAPSHOT_SCHEMA = ToolSchema(
+    name="get_team_snapshot",
+    description=(
+        "Single team snapshot: form, next N fixtures+FDR, top N players (full grounding payload), "
+        "summary (avg FDR, easy/hard run, top scorer). "
+        "status=ambiguous on multi-match (e.g. 'manchester')."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "team_name": {
+                "type":        "string",
+                "description": (
+                    "Team name, short code, or substring (case+accent insensitive). "
+                    "E.g. 'wolves', 'WOL', 'Wolverhampton', 'aston villa', 'AVL'."
+                ),
+            },
+            "top_n_players": {
+                "type":        "integer",
+                "description": "Max top players to return (1-10, default 5)",
+                "minimum":     1,
+                "maximum":     10,
+            },
+            "fixture_horizon": {
+                "type":        "integer",
+                "description": "Number of upcoming fixtures to include (1-10, default 5)",
+                "minimum":     1,
+                "maximum":     10,
+            },
+        },
+        "required":             ["team_name"],
+        "additionalProperties": False,
+    },
+)
+
+
+# ---------------------------------------------------------------------------
 # Registry construction
 # ---------------------------------------------------------------------------
 
@@ -762,6 +803,8 @@ _ALL_SCHEMAS: tuple[ToolSchema, ...] = (
     GET_FIXTURES_FOR_GW_SCHEMA,
     # P2.5 atomic tool
     GET_GAMEWEEK_CONTEXT_SCHEMA,
+    # P2.6 atomic tool
+    GET_TEAM_SNAPSHOT_SCHEMA,
 )
 
 #: Immutable dict mapping tool name → ToolSchema.
