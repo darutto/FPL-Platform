@@ -149,6 +149,8 @@ _ALL_OUTCOMES: frozenset[str] = frozenset({
     OUTCOME_OK, OUTCOME_NO_CLIENT, OUTCOME_COOLDOWN, OUTCOME_LLM_ERROR,
     OUTCOME_NO_TOOL, OUTCOME_UNKNOWN_TOOL, OUTCOME_TOOL_ERROR,
     OUTCOME_TOOL_RESULT_ERROR,
+    # Phase P3.1: quota-exceeded pseudo-outcome (set by fpl_server, not by orchestrator)
+    "quota_exceeded",
 })
 
 

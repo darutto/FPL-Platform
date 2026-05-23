@@ -69,6 +69,7 @@ from .dispatcher import (
     OUTCOME_MISSING_ARGUMENTS,
     OUTCOME_ERROR,
     OUTCOME_NEEDS_CLARIFICATION,  # Phase 2.7e
+    OUTCOME_QUOTA_EXCEEDED,       # Phase P3.1
     # Phase 2l: intent manifest
     INTENT_MANIFEST,
 )

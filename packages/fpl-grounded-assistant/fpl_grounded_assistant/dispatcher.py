@@ -149,6 +149,7 @@ OUTCOME_AMBIGUOUS:            str = "ambiguous"
 OUTCOME_MISSING_ARGUMENTS:    str = "missing_arguments"
 OUTCOME_ERROR:                str = "error"
 OUTCOME_NEEDS_CLARIFICATION:  str = "needs_clarification"  # Phase 2.7e: medium-confidence gate
+OUTCOME_QUOTA_EXCEEDED:       str = "quota_exceeded"        # Phase P3.1: per-user quota gate
 
 
 # ---------------------------------------------------------------------------
