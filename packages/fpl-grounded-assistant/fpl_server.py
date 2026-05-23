@@ -89,6 +89,7 @@ from fpl_grounded_assistant.audit import (  # noqa: E402
     write_audit_entry,
     make_audit_entry,
     estimate_usd_cost,
+    hash_user_id,
 )
 from fpl_grounded_assistant.dispatcher import OUTCOME_QUOTA_EXCEEDED  # noqa: E402
 
@@ -1090,8 +1091,14 @@ def _extract_user_context(request: Request) -> tuple[str, str]:
     Phase P3.1 stub: reads ``X-User-Id`` header (default ``"anonymous"``) and
     ``X-User-Tier`` header (default ``"free"``).  Future Patreon integration
     will populate these headers via the auth middleware.
+
+    P3.f (F5 remediation): the raw X-User-Id header value is hashed via
+    ``hash_user_id()`` (SHA-256 first 16 hex chars) before being used as the
+    quota key and stored in the audit log.  The raw value never leaves this
+    function.
     """
-    user_id = request.headers.get("X-User-Id", "anonymous") or "anonymous"
+    raw_user_id = request.headers.get("X-User-Id", "anonymous") or "anonymous"
+    user_id = hash_user_id(raw_user_id)
     tier    = request.headers.get("X-User-Tier", "free") or "free"
     return user_id, tier
 
@@ -1160,6 +1167,18 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
     user_id, tier = _extract_user_context(request)
 
     # ------------------------------------------------------------------
+    # P3.f (F2 remediation): deterministic-prefix early-exit.
+    # Questions starting with '@' (resource) or '/' (prompt) are
+    # deterministic — they burn zero LLM tokens and are FREE per plan.
+    # We detect this at the server boundary BEFORE calling check_quota
+    # so quota-exhausted users can still use @resource and /prompt.
+    # record_turn (tokens=0) and write_audit_entry still fire so usage
+    # is observable, but we never block these turns.
+    # ------------------------------------------------------------------
+    _question_stripped = req.question.lstrip()
+    _is_deterministic_prefix = _question_stripped.startswith("@") or _question_stripped.startswith("/")
+
+    # ------------------------------------------------------------------
     # Phase P3.1: pre-call quota gate.
     # Deterministic (@resource, /prompt) branches are checked AFTER the
     # ask_v2() call (we need the branch label).  For plain-text / unknown
@@ -1168,7 +1187,7 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
     # lightweight pre-check here and skip gating if the turn turns out
     # to be deterministic (audited anyway with zero tokens).
     # ------------------------------------------------------------------
-    _quota_check = check_quota(user_id, tier)
+    _quota_check = check_quota(user_id, tier) if not _is_deterministic_prefix else None
 
     # ------------------------------------------------------------------
     # intent_hint pre-processing (deferred deprecation — V2 contract).
@@ -1193,7 +1212,7 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
     # LLM tokens), record_turn is still called (with tokens=0) and the
     # audit entry captures the zero-cost turn.
     # ------------------------------------------------------------------
-    if not _quota_check.allowed:
+    if _quota_check is not None and not _quota_check.allowed:
         # Soft-fail: return a polite upgrade message.
         _lang = "en"   # TODO: detect from Accept-Language header (P4 scope)
         _upgrade_text = (
@@ -1215,8 +1234,8 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
         )
         try:
             write_audit_entry(_quota_exceeded_entry)
-        except Exception:  # noqa: BLE001
-            pass  # Audit write must never crash the endpoint.
+        except Exception as _exc:  # noqa: BLE001
+            _LOG.exception("audit write failed: %s", _exc)  # P3.f F8: observable signal
         return AskResponse(
             final_text=_upgrade_text,
             outcome=OUTCOME_QUOTA_EXCEEDED,
@@ -1294,8 +1313,8 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
     )
     try:
         write_audit_entry(_audit_entry)
-    except Exception:  # noqa: BLE001
-        pass  # Audit write must never crash the endpoint.
+    except Exception as _exc:  # noqa: BLE001
+        _LOG.exception("audit write failed: %s", _exc)  # P3.f F8: observable signal
 
     return _to_ask_response(ask_v2_dict, req)
 
@@ -1306,10 +1325,19 @@ def create_session() -> CreateSessionResponse:
 
     Prunes expired sessions before creating a new entry.
     Returns HTTP 429 when the session cap (_SESSION_MAX_COUNT) is reached.
+    Returns HTTP 503 when ``FPL_SESSION_ENABLED=false`` (operator kill-switch).
 
     Returns a session_id, creation timestamp, and the configured TTL so
     callers know when the session will expire if idle.
+
+    P3.f (F1 remediation): set ``FPL_SESSION_ENABLED=false`` to disable all
+    session endpoints.  Default is ``true`` for backwards compatibility.
     """
+    if os.environ.get("FPL_SESSION_ENABLED", "true").lower() in ("false", "0", "no"):
+        raise HTTPException(
+            status_code=503,
+            detail="Session endpoints are disabled (FPL_SESSION_ENABLED=false). Use /ask instead.",
+        )
     from fpl_grounded_assistant import ConversationSession  # noqa: PLC0415
     _prune_expired_sessions()
     if len(_sessions) >= _SESSION_MAX_COUNT:
@@ -1353,7 +1381,7 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
     200   Turn processed.  Inspect supported/outcome in the response body.
     404   session_id not found or expired.
     422   Malformed request body.
-    503   Bootstrap not initialised.
+    503   Bootstrap not initialised or sessions disabled (FPL_SESSION_ENABLED=false).
 
     Phase P3.1 additions
     --------------------
@@ -1362,7 +1390,22 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
     * Token observability is limited for session turns: ConversationSession.respond()
       does not currently surface token counts.  Tokens are recorded as 0 for session
       turns; cost estimate will under-report until session path gains token observability.
+
+    P3.f remediation
+    ----------------
+    F1: Session turns record tokens=0 (graduation debt — ConversationSession.respond()
+        does not surface token counts).  A logger.warning fires per turn so production
+        has an observable signal.  Set FPL_SESSION_ENABLED=false to disable sessions
+        entirely (operator kill-switch) until tokens are properly surfaced.
+    F2: @resource and /prompt prefixes bypass check_quota (deterministic = free).
+    F8: Audit write failures are logged via logger.exception instead of silently swallowed.
     """
+    if os.environ.get("FPL_SESSION_ENABLED", "true").lower() in ("false", "0", "no"):
+        raise HTTPException(
+            status_code=503,
+            detail="Session endpoints are disabled (FPL_SESSION_ENABLED=false). Use /ask instead.",
+        )
+
     if _bootstrap is None:
         raise HTTPException(status_code=503, detail="Bootstrap not initialised")
 
@@ -1377,8 +1420,14 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
 
     # Phase P3.1: extract user context + apply quota gate (same enforcement as /ask).
     _sess_user_id, _sess_tier = _extract_user_context(request)
-    _sess_quota = check_quota(_sess_user_id, _sess_tier)
-    if not _sess_quota.allowed:
+
+    # P3.f (F2 remediation): deterministic-prefix bypass (same as /ask boundary).
+    _sess_question_stripped = req.question.lstrip()
+    _sess_is_deterministic = (
+        _sess_question_stripped.startswith("@") or _sess_question_stripped.startswith("/")
+    )
+    _sess_quota = check_quota(_sess_user_id, _sess_tier) if not _sess_is_deterministic else None
+    if _sess_quota is not None and not _sess_quota.allowed:
         _sess_upgrade_text = (
             _sess_quota.upgrade_prompt_es
             or "Has alcanzado tu límite de uso. Por favor actualiza tu plan."
@@ -1397,8 +1446,8 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         )
         try:
             write_audit_entry(_sess_quota_entry)
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as _exc:  # noqa: BLE001
+            _LOG.exception("audit write failed: %s", _exc)  # P3.f F8: observable signal
         return SessionAskResponse(
             session_id=session_id,
             final_text=_sess_upgrade_text,
@@ -1419,10 +1468,18 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
     )
     entry.last_used_at = time.time()
 
-    # Phase P3.1: post-call quota accounting + audit for session turns.
+    # Phase P3.1 / P3.f (F1 remediation): post-call quota accounting + audit for session turns.
     # NOTE: ConversationSession.respond() does not currently surface token counts.
     # Tokens are recorded as 0 for session turns; cost estimate will under-report
     # until the session path gains token observability (P3 graduation debt).
+    # F1: logger.warning fires per session turn so production has an observable signal
+    # that session turns are recorded as 0 tokens (potential cost blind-spot).
+    _LOG.warning(
+        "session turn recorded with tokens=0 for user=%s tier=%s (graduation debt: "
+        "ConversationSession.respond() does not surface token counts). "
+        "Set FPL_SESSION_ENABLED=false to disable sessions until tokens are surfaced.",
+        _sess_user_id, _sess_tier,
+    )
     try:
         _record_turn(_sess_user_id, 0, _sess_tier)
     except Exception:  # noqa: BLE001
@@ -1440,8 +1497,8 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
     )
     try:
         write_audit_entry(_sess_audit_entry)
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _exc:  # noqa: BLE001
+        _LOG.exception("audit write failed: %s", _exc)  # P3.f F8: observable signal
 
     debug_bundle: dict[str, Any] | None = None
     rewritten_question: str | None = None

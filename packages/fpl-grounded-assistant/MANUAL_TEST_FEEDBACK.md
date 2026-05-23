@@ -207,3 +207,77 @@ decision tied to the quota meter.
   rejects on completeness): middle ground, ~1.3x cost.
 - Mechanical render + preamble defense (current P2.9 state): cheapest,
   fragile to LLM behavior quirks.
+
+---
+
+## Adversarial Remediation Notes (P3.f — 2026-05-23)
+
+Implemented in response to P3 Adversarial Architecture Reviewer CONDITIONAL verdict.
+Four mandatory findings addressed in `fpl_server.py` and `audit.py`.
+
+### F1 — Session path is cost-blind (HIGH)
+
+**Decision: option (b) + (c).**
+
+`ConversationSession.respond()` does not surface token counts (graduation debt).
+Session turns are recorded as `tokens=0`, which means cost estimates for session
+turns will always be 0 in the audit log — a real blind-spot for Patreon Basic
+users (30 msgs/day × complex orchestrator turn could be 600K tokens vs the nominal
+500K daily cap).
+
+Two mitigations applied:
+
+1. **`logger.warning` per session turn** (`fpl_server.py`, inside `session_ask`
+   after `entry.session.respond()` returns). Production observability: the warning
+   fires on every session turn and includes user_id and tier. Operators can grep
+   for `"session turn recorded with tokens=0"` to estimate blast radius.
+
+2. **`FPL_SESSION_ENABLED` env flag** (default `"true"` for backwards compat).
+   Set `FPL_SESSION_ENABLED=false` to disable both `POST /session` and
+   `POST /session/{id}/ask`; both return HTTP 503 with a descriptive message.
+   This gives operators a kill-switch without breaking existing callers by default.
+
+### F2 — Deterministic surface gated by quota (HIGH)
+
+Questions starting with `@` (resource branch) or `/` (prompt branch) are
+deterministic — they burn zero LLM tokens and should never be blocked by quota.
+
+**Fix:** at the server boundary in both `POST /ask` and `POST /session/{id}/ask`,
+`check_quota()` is skipped entirely when the question (after lstrip) starts with
+`@` or `/`. `record_turn(tokens=0)` and `write_audit_entry` still fire, so usage
+is observable, but quota-exhausted users can always access `@resource` and
+`/prompt` turns.
+
+Implementation: `_is_deterministic_prefix` flag computed before `check_quota`;
+`_quota_check = check_quota(...) if not _is_deterministic_prefix else None`;
+gate condition changed to `if _quota_check is not None and not _quota_check.allowed`.
+
+### F5 — `audit.py` comment misleading (MEDIUM)
+
+The `AuditEntry.user_id` field was documented as "anonymized" but stored raw header
+values verbatim.
+
+**Fix:** added `hash_user_id(raw_id: str) -> str` in `audit.py`:
+- SHA-256 of the raw id, truncated to 16 hex chars (8 bytes entropy).
+- `"anonymous"` and empty string return `"anonymous"` unchanged.
+- Wired into `_extract_user_context()` in `fpl_server.py`: raw `X-User-Id` header
+  is hashed once at intake; the hashed value is used as the quota counter key AND
+  stored in the audit log. Raw value never persists.
+- `AuditEntry.user_id` field comment updated to: `# hashed (sha256 first 16 hex
+  chars), or "anonymous"`.
+
+**Privacy vs anti-abuse tradeoff (documented):** the quota counter keys by
+hashed user_id. If a user changes their `X-User-Id` (e.g. logs out/in with a
+different value), the hashed id changes and they get a fresh quota bucket. This
+is intentional: privacy (raw PII never stored) takes priority over perfect
+anti-abuse (id pinning). Document if this becomes a concern as the platform scales.
+
+### F8 — Silent audit write failures (LOW)
+
+Four `except Exception: pass` sites in `fpl_server.py` swallowed audit write
+failures silently.
+
+**Fix:** changed all four sites to `except Exception as _exc:` with
+`_LOG.exception("audit write failed: %s", _exc)`. The `except` still continues
+(audit failure must never crash the endpoint), but production now has an observable
+signal via the ERROR log level.

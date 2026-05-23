@@ -61,6 +61,7 @@ from fpl_grounded_assistant.audit import (
     estimate_usd_cost,
     make_audit_entry,
     PROVIDER_PRICING_PER_1M,
+    hash_user_id,
 )
 from fpl_grounded_assistant.dispatcher import OUTCOME_QUOTA_EXCEEDED
 from fpl_grounded_assistant.conversation_fixtures import STANDARD_BOOTSTRAP
@@ -287,6 +288,8 @@ def _make_http_client() -> TestClient:
 
 # H1: POST /ask with X-User-Id header records turn + writes audit entry.
 # We verify indirectly: after one ask, quota status shows a consumed message.
+# P3.f (F5): the server hashes X-User-Id before keying quota, so we must look
+# up the hashed id.
 reset_quota()
 _client_h1 = _make_http_client()
 _resp_h1 = _client_h1.post(
@@ -295,15 +298,16 @@ _resp_h1 = _client_h1.post(
     headers={"X-User-Id": "http_user_h1"},
 )
 ok(_resp_h1.status_code == 200, "H1: POST /ask returns 200")
-_qs_h1 = get_quota_status("http_user_h1", "free")
+_qs_h1 = get_quota_status(hash_user_id("http_user_h1"), "free")
 ok(_qs_h1.daily_message_count == 1, "H1b: record_turn fired — daily_message_count == 1")
 
 # H2: Quota-exceeded returns 200 with outcome="quota_exceeded" (soft-fail, not 4xx).
+# P3.f (F5): the server hashes X-User-Id, so we exhaust the cap under the HASHED id.
 reset_quota()
-# Exhaust the daily message cap for a specific user.
 _test_uid_h2 = "http_user_h2"
+_test_uid_h2_hashed = hash_user_id(_test_uid_h2)
 for _ in range(_free_tier.daily_message_cap):
-    record_turn(_test_uid_h2, 0, "free")
+    record_turn(_test_uid_h2_hashed, 0, "free")
 
 _client_h2 = _make_http_client()
 _resp_h2 = _client_h2.post(
@@ -329,10 +333,12 @@ ok(_body_h3.get("daily_tokens_used") == 1000,
 ok("daily_message_cap" in _body_h3, "H3c: GET /quota response includes daily_message_cap")
 
 # H4: Session ask honors quota same as /ask.
+# P3.f (F5): exhaust cap under the HASHED id (server hashes X-User-Id at intake).
 reset_quota()
 _test_uid_h4 = "http_user_h4"
+_test_uid_h4_hashed = hash_user_id(_test_uid_h4)
 for _ in range(_free_tier.daily_message_cap):
-    record_turn(_test_uid_h4, 0, "free")
+    record_turn(_test_uid_h4_hashed, 0, "free")
 
 _client_h4 = _make_http_client()
 # Create a session first.
@@ -350,6 +356,163 @@ ok(_resp_h4.status_code == 200, "H4b: session ask quota-exceeded returns HTTP 20
 _body_h4 = _resp_h4.json()
 ok(_body_h4.get("outcome") == OUTCOME_QUOTA_EXCEEDED,
    f"H4c: session ask outcome == 'quota_exceeded' (got {_body_h4.get('outcome')})")
+
+
+# ---------------------------------------------------------------------------
+# R: P3.f Adversarial Remediation assertions (F1, F2, F5, F8)
+# ---------------------------------------------------------------------------
+
+print("\n=== R: P3.f Adversarial Remediation (F1/F2/F5/F8) ===")
+
+import logging as _logging
+import unittest.mock as _mock
+
+# R1: hash_user_id("alice") returns a 16-hex-char string, NOT "alice".
+_r1_hash = hash_user_id("alice")
+ok(len(_r1_hash) == 16, "R1: hash_user_id returns 16-char string")
+ok(_r1_hash != "alice", "R1b: hash_user_id does not return raw value")
+ok(all(c in "0123456789abcdef" for c in _r1_hash), "R1c: hash_user_id returns hex string")
+
+# R2: hash_user_id("anonymous") returns "anonymous" unchanged.
+ok(hash_user_id("anonymous") == "anonymous", "R2: hash_user_id('anonymous') preserved")
+
+# R3: hash_user_id("") returns "anonymous".
+ok(hash_user_id("") == "anonymous", "R3: hash_user_id('') returns 'anonymous'")
+
+# R4: Same input -> same hash (deterministic).
+ok(hash_user_id("alice") == hash_user_id("alice"), "R4: hash_user_id is deterministic")
+
+# R5: Different inputs -> different hashes.
+ok(hash_user_id("alice") != hash_user_id("bob"), "R5: different inputs produce different hashes")
+
+# R6: POST /ask with X-User-Id: alice -> audit log user_id is the hash, not "alice".
+reset_quota()
+_r6_tmpdir = tempfile.mkdtemp()
+_r6_orig_log_dir = None
+
+# Patch write_audit_entry to capture the entry passed to it.
+_r6_captured: list = []
+import fpl_grounded_assistant.audit as _audit_mod
+
+_r6_orig_write = _audit_mod.write_audit_entry
+
+def _r6_capture(entry, log_dir=None):
+    _r6_captured.append(entry)
+    _r6_orig_write(entry, log_dir=_r6_tmpdir)
+
+with _mock.patch.object(_audit_mod, "write_audit_entry", side_effect=_r6_capture):
+    # Also patch in fpl_server namespace since it imported the function.
+    import fpl_server as _fpl_server
+    with _mock.patch.object(_fpl_server, "write_audit_entry", side_effect=_r6_capture):
+        _r6_client = _make_http_client()
+        _r6_resp = _r6_client.post(
+            "/ask",
+            json={"question": "what is the current gameweek"},
+            headers={"X-User-Id": "alice"},
+        )
+
+_r6_alice_hash = hash_user_id("alice")
+_r6_audit_user_ids = [e.user_id for e in _r6_captured]
+ok(
+    any(uid == _r6_alice_hash for uid in _r6_audit_user_ids),
+    f"R6: audit entry user_id is hash ({_r6_alice_hash}), not 'alice' (got {_r6_audit_user_ids})",
+)
+ok(
+    not any(uid == "alice" for uid in _r6_audit_user_ids),
+    "R6b: raw 'alice' never appears in audit user_id field",
+)
+import shutil as _shutil
+_shutil.rmtree(_r6_tmpdir, ignore_errors=True)
+
+# R7: @resource query -> no quota_exceeded even when daily cap hit; tokens=0 in quota.
+reset_quota()
+_r7_uid_raw = "r7_user"
+_r7_uid_hashed = hash_user_id(_r7_uid_raw)
+# Exhaust cap.
+for _ in range(_free_tier.daily_message_cap):
+    record_turn(_r7_uid_hashed, 0, "free")
+_r7_client = _make_http_client()
+_r7_resp = _r7_client.post(
+    "/ask",
+    json={"question": "@captain Haaland"},
+    headers={"X-User-Id": _r7_uid_raw},
+)
+ok(_r7_resp.status_code == 200, "R7: @resource query returns 200 even at cap")
+_r7_body = _r7_resp.json()
+ok(
+    _r7_body.get("outcome") != OUTCOME_QUOTA_EXCEEDED,
+    f"R7b: @resource outcome != quota_exceeded (got {_r7_body.get('outcome')})",
+)
+
+# R8: /prompt query -> same exemption as @resource.
+reset_quota()
+_r8_uid_raw = "r8_user"
+_r8_uid_hashed = hash_user_id(_r8_uid_raw)
+for _ in range(_free_tier.daily_message_cap):
+    record_turn(_r8_uid_hashed, 0, "free")
+_r8_client = _make_http_client()
+_r8_resp = _r8_client.post(
+    "/ask",
+    json={"question": "/captain"},
+    headers={"X-User-Id": _r8_uid_raw},
+)
+ok(_r8_resp.status_code == 200, "R8: /prompt query returns 200 even at cap")
+_r8_body = _r8_resp.json()
+ok(
+    _r8_body.get("outcome") != OUTCOME_QUOTA_EXCEEDED,
+    f"R8b: /prompt outcome != quota_exceeded (got {_r8_body.get('outcome')})",
+)
+
+# R9: FPL_SESSION_ENABLED=false -> POST /session returns 503 (operator kill-switch).
+import os as _os
+_r9_orig = _os.environ.get("FPL_SESSION_ENABLED")
+_os.environ["FPL_SESSION_ENABLED"] = "false"
+_r9_client = _make_http_client()
+_r9_resp = _r9_client.post("/session")
+ok(_r9_resp.status_code == 503, "R9: FPL_SESSION_ENABLED=false -> POST /session returns 503")
+# Also check /session/{id}/ask is blocked.
+_r9_ask_resp = _r9_client.post("/session/fake-id/ask", json={"question": "who should I captain"})
+ok(_r9_ask_resp.status_code == 503, "R9b: FPL_SESSION_ENABLED=false -> session ask returns 503")
+# Restore.
+if _r9_orig is None:
+    _os.environ.pop("FPL_SESSION_ENABLED", None)
+else:
+    _os.environ["FPL_SESSION_ENABLED"] = _r9_orig
+
+# R10-R12: audit write failure -> logger.exception fires (observable signal, no crash).
+reset_quota()
+_r10_log_records: list = []
+
+class _CapturingHandler(_logging.Handler):
+    def emit(self, record):
+        _r10_log_records.append(record)
+
+_r10_handler = _CapturingHandler()
+_r10_logger = _logging.getLogger("fpl_server")
+_r10_logger.addHandler(_r10_handler)
+_r10_logger.setLevel(_logging.WARNING)
+
+# Make write_audit_entry raise so the except-block fires.
+def _r10_failing_write(entry, log_dir=None):
+    raise OSError("simulated disk full")
+
+with _mock.patch.object(_fpl_server, "write_audit_entry", side_effect=_r10_failing_write):
+    _r10_client = _make_http_client()
+    _r10_resp = _r10_client.post(
+        "/ask",
+        json={"question": "what is the current gameweek"},
+        headers={"X-User-Id": "r10_user"},
+    )
+
+_r10_logger.removeHandler(_r10_handler)
+
+ok(_r10_resp.status_code == 200, "R10: endpoint returns 200 even when audit write fails")
+_r10_exc_records = [r for r in _r10_log_records if r.levelno >= _logging.ERROR]
+ok(len(_r10_exc_records) >= 1, f"R11: logger.exception fired on audit write failure (got {len(_r10_exc_records)} error records)")
+ok(
+    any("audit write failed" in (r.getMessage() if callable(r.getMessage) else str(r.msg)) for r in _r10_exc_records),
+    "R12: logger.exception message contains 'audit write failed'",
+)
 
 
 # ---------------------------------------------------------------------------

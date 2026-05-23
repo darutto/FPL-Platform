@@ -29,6 +29,7 @@ rounding errors should over-estimate, not under-estimate.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import threading
@@ -78,6 +79,28 @@ _write_lock = threading.Lock()
 
 
 # ---------------------------------------------------------------------------
+# User-ID hashing (F5 remediation)
+# ---------------------------------------------------------------------------
+
+def hash_user_id(raw_id: str) -> str:
+    """Hash a raw user_id for storage. Returns 'anonymous' unchanged.
+
+    Uses SHA-256 truncated to 16 hex chars (8 bytes of entropy) — enough
+    for uniqueness across plausible user populations, while preventing
+    direct PII leakage if logs are exposed.
+
+    Privacy vs anti-abuse tradeoff note: the quota counter also keys by user_id.
+    If a user changes their X-User-Id (e.g. logs out), their hashed id changes
+    and they get a fresh quota bucket.  This is a known trade-off: privacy
+    (raw id never stored) vs perfect anti-abuse (id pinning).  Document if
+    this becomes a concern.
+    """
+    if not raw_id or raw_id == "anonymous":
+        return "anonymous"
+    return hashlib.sha256(raw_id.encode("utf-8")).hexdigest()[:16]
+
+
+# ---------------------------------------------------------------------------
 # AuditEntry
 # ---------------------------------------------------------------------------
 
@@ -86,7 +109,7 @@ class AuditEntry:
     """One turn's audit record."""
 
     timestamp: str                   # ISO 8601 UTC, e.g. "2026-05-23T14:31:00.123456Z"
-    user_id: str                     # anonymized; "anonymous" when no header present
+    user_id: str                     # hashed (sha256 first 16 hex chars), or "anonymous"
     tier: str                        # quota tier at time of turn
     question: str
     branch: str                      # "resource" / "prompt" / "orchestrator" / "unsupported"
