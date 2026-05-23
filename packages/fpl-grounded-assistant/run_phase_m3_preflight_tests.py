@@ -79,7 +79,7 @@ def check(cond: bool, label: str) -> None:
 # ===========================================================================
 # B1 — tool_schema_registry coverage and serialisation
 # ===========================================================================
-print("\n[B1] tool_schema_registry extension to 21 tools (P2.1 find_players, P2.2 get_player_snapshot, P2.3 get_player_history, P2.4 get_fixtures_for_gw)")
+print("\n[B1] tool_schema_registry extension to 22 tools (P2.1 find_players, P2.2 get_player_snapshot, P2.3 get_player_history, P2.4 get_fixtures_for_gw, P2.5 get_gameweek_context)")
 
 NEW_TOOLS = (
     "get_player_form",
@@ -91,10 +91,10 @@ NEW_TOOLS = (
     "get_transfer_suggestion",
 )
 
-check(len(_ALL_SCHEMAS) == 21, "B1.1: _ALL_SCHEMAS has exactly 21 entries")
-check(len(_REGISTRY) == 21, "B1.2: _REGISTRY dict has 21 entries (no name collisions)")
-check(len(TOOL_NAMES) == 21, "B1.3: TOOL_NAMES frozenset has 21 entries")
-check(len(list_tool_schemas()) == 21, "B1.4: list_tool_schemas() returns 21 names")
+check(len(_ALL_SCHEMAS) == 22, "B1.1: _ALL_SCHEMAS has exactly 22 entries")
+check(len(_REGISTRY) == 22, "B1.2: _REGISTRY dict has 22 entries (no name collisions)")
+check(len(TOOL_NAMES) == 22, "B1.3: TOOL_NAMES frozenset has 22 entries")
+check(len(list_tool_schemas()) == 22, "B1.4: list_tool_schemas() returns 22 names")
 
 for name in NEW_TOOLS:
     check(name in TOOL_NAMES, f"B1.5/{name}: {name} is in TOOL_NAMES")

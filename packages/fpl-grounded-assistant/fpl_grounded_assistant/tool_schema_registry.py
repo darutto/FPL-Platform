@@ -24,7 +24,7 @@ Registry API
 ``get_tool_schema(name)``            → ToolSchema | None
 ``validate_tool_schema_shape(s)``    → bool            — structural check
 
-Registered tools (21 grounded tools, including P2.1+P2.2+P2.3+P2.4 atomic tools)
+Registered tools (22 grounded tools, including P2.1+P2.2+P2.3+P2.4+P2.5 atomic tools)
 ----------------------------------------------------------------------
 +----------------------------+----------------------------------+
 | Tool name                  | Intent label                     |
@@ -50,6 +50,7 @@ Registered tools (21 grounded tools, including P2.1+P2.2+P2.3+P2.4 atomic tools)
 | get_player_snapshot        | atomic: single-player snapshot   |  (P2.2)
 | get_player_history         | atomic: per-GW history           |  (P2.3)
 | get_fixtures_for_gw        | atomic: GW fixture list+FDR      |  (P2.4)
+| get_gameweek_context       | atomic: temporal GW context      |  (P2.5)
 +----------------------------+----------------------------------+
 
 Schema format
@@ -709,6 +710,26 @@ GET_FIXTURES_FOR_GW_SCHEMA = ToolSchema(
 
 
 # ---------------------------------------------------------------------------
+# P2.5 atomic tool — get_gameweek_context temporal GW grounding
+# ---------------------------------------------------------------------------
+
+GET_GAMEWEEK_CONTEXT_SCHEMA = ToolSchema(
+    name="get_gameweek_context",
+    description=(
+        "Current/next GW with deadlines + blank/double alerts for next 5 GWs. "
+        "Returns current_gw, next_gw, season status, blank_gw_alerts, "
+        "double_gw_alerts. No args. Use before reasoning about next GW."
+    ),
+    parameters={
+        "type":                 "object",
+        "properties":           {},
+        "required":             [],
+        "additionalProperties": False,
+    },
+)
+
+
+# ---------------------------------------------------------------------------
 # Registry construction
 # ---------------------------------------------------------------------------
 
@@ -739,6 +760,8 @@ _ALL_SCHEMAS: tuple[ToolSchema, ...] = (
     GET_PLAYER_HISTORY_SCHEMA,
     # P2.4 atomic tool
     GET_FIXTURES_FOR_GW_SCHEMA,
+    # P2.5 atomic tool
+    GET_GAMEWEEK_CONTEXT_SCHEMA,
 )
 
 #: Immutable dict mapping tool name → ToolSchema.

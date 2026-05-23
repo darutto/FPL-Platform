@@ -89,6 +89,10 @@ from fpl_grounded_assistant.get_fixtures_for_gw import (
     get_fixtures_for_gw,
     _clear_fixture_cache,
 )
+from fpl_grounded_assistant.get_gameweek_context import (
+    get_gameweek_context,
+    _clear_context_cache,
+)
 from fpl_grounded_assistant.tool_schema_registry import (
     list_tool_schemas,
     get_tool_schema,
@@ -328,7 +332,7 @@ print("\n=== T9: schema registry ===")
 _all_schemas = list_tool_schemas()
 ok("find_players" in TOOL_NAMES,             "T9.1: find_players in TOOL_NAMES frozenset")
 ok("find_players" in _all_schemas,           "T9.2: find_players in list_tool_schemas()")
-ok(len(_all_schemas) == 21,                  "T9.3: registry has exactly 21 tools (after P2.4)")
+ok(len(_all_schemas) == 22,                  "T9.3: registry has exactly 22 tools (after P2.5)")
 
 _fp_schema = get_tool_schema("find_players")
 ok(_fp_schema is not None,                   "T9.4: get_tool_schema('find_players') returns non-None")
@@ -456,7 +460,7 @@ print("\n=== U7: registered in TOOL_NAMES (registry grows 18->19) ===")
 ok("get_player_snapshot" in TOOL_NAMES,                    "U7.1: get_player_snapshot in TOOL_NAMES frozenset")
 _all_schemas_u = list_tool_schemas()
 ok("get_player_snapshot" in _all_schemas_u,                "U7.2: get_player_snapshot in list_tool_schemas()")
-ok(len(_all_schemas_u) == 21,                              "U7.3: registry has exactly 21 tools (after P2.4)")
+ok(len(_all_schemas_u) == 22,                              "U7.3: registry has exactly 22 tools (after P2.5)")
 
 print("\n=== U8: schema validates ===")
 
@@ -665,7 +669,7 @@ print("\n=== V10: tool registered in TOOL_NAMES; registry now has 20 tools ===")
 ok("get_player_history" in TOOL_NAMES,                         "V10.1: get_player_history in TOOL_NAMES frozenset")
 _all_schemas_v = list_tool_schemas()
 ok("get_player_history" in _all_schemas_v,                     "V10.2: get_player_history in list_tool_schemas()")
-ok(len(_all_schemas_v) == 21,                                  "V10.3: registry has exactly 21 tools (20 -> 21)")
+ok(len(_all_schemas_v) == 22,                                  "V10.3: registry has exactly 22 tools (21 -> 22)")
 
 print("\n=== V11: schema validates ===")
 
@@ -895,7 +899,7 @@ print("\n=== W10: tool registered in TOOL_NAMES; registry now has 21 tools ===")
 ok("get_fixtures_for_gw" in TOOL_NAMES,                          "W10.1: get_fixtures_for_gw in TOOL_NAMES frozenset")
 _all_schemas_w = list_tool_schemas()
 ok("get_fixtures_for_gw" in _all_schemas_w,                      "W10.2: get_fixtures_for_gw in list_tool_schemas()")
-ok(len(_all_schemas_w) == 21,                                    "W10.3: registry has exactly 21 tools (20 -> 21)")
+ok(len(_all_schemas_w) == 22,                                    "W10.3: registry has exactly 22 tools (21 -> 22)")
 
 print("\n=== W11: schema validates ===")
 
@@ -950,6 +954,236 @@ ok(_w12.tool_chosen == "get_fixtures_for_gw",                    "W12.2: orchest
 ok(isinstance(_w12.tool_output, dict),                           "W12.3: tool_output is a dict")
 ok(_w12.tool_output.get("status") in ("ok", "error", "invalid_argument"),
    "W12.4: tool_output.status is one of the valid statuses")
+
+os.environ.pop("FPL_ORCH_TEST_INJECTION", None)
+os.environ.pop("FPL_EVAL_DISABLED", None)
+
+
+# ---------------------------------------------------------------------------
+# Section X: get_gameweek_context atomic tool (P2.5)
+# ---------------------------------------------------------------------------
+
+# ---- Build a minimal event list bootstrap for testing ----
+
+_clear_context_cache()
+
+# Normal mid-season bootstrap: GW27 current (in progress), GW28 next.
+_GW_EVENTS = [
+    {"id": i, "name": f"Gameweek {i}", "deadline_time": f"2026-01-{i:02d}T11:30:00Z",
+     "finished": i < 27, "is_current": i == 27, "is_next": i == 28, "is_previous": i == 26}
+    for i in range(1, 39)
+]
+
+_CTX_BOOTSTRAP = _copy.deepcopy(STANDARD_BOOTSTRAP)
+_CTX_BOOTSTRAP["events"] = _GW_EVENTS
+# Reuse _GW38_BOOTSTRAP teams (id 1-6, ARS CHE LIV MCI TOT MUN)
+_CTX_BOOTSTRAP["teams"] = [
+    {"id": 1, "name": "Arsenal",          "short_name": "ARS"},
+    {"id": 2, "name": "Chelsea",          "short_name": "CHE"},
+    {"id": 3, "name": "Liverpool",        "short_name": "LIV"},
+    {"id": 4, "name": "Man City",         "short_name": "MCI"},
+    {"id": 5, "name": "Tottenham",        "short_name": "TOT"},
+    {"id": 6, "name": "Manchester Utd",   "short_name": "MUN"},
+]
+
+# Inject blank fixtures for GW28 (TOT + MUN missing → blank)
+# and double fixtures for GW29 (LIV appears twice → double).
+_CTX_BLANK_FIXTURES_GW28 = [
+    {
+        "id": 2801, "team_h": 1, "team_a": 2,
+        "team_h_difficulty": 3, "team_a_difficulty": 4,
+        "finished": False, "team_h_score": None, "team_a_score": None,
+        "minutes": None, "kickoff_time": "2026-02-01T15:00:00Z",
+    },
+    {
+        "id": 2802, "team_h": 3, "team_a": 4,
+        "team_h_difficulty": 2, "team_a_difficulty": 3,
+        "finished": False, "team_h_score": None, "team_a_score": None,
+        "minutes": None, "kickoff_time": "2026-02-01T17:30:00Z",
+    },
+    # TOT (id=5) and MUN (id=6) don't appear → blank teams.
+]
+
+_CTX_DGW_FIXTURES_GW29 = [
+    {
+        "id": 2901, "team_h": 3, "team_a": 1,
+        "team_h_difficulty": 3, "team_a_difficulty": 4,
+        "finished": False, "team_h_score": None, "team_a_score": None,
+        "minutes": None, "kickoff_time": "2026-02-08T15:00:00Z",
+    },
+    {
+        "id": 2902, "team_h": 2, "team_a": 3,  # LIV (id=3) appears twice
+        "team_h_difficulty": 2, "team_a_difficulty": 5,
+        "finished": False, "team_h_score": None, "team_a_score": None,
+        "minutes": None, "kickoff_time": "2026-02-11T19:45:00Z",
+    },
+]
+
+# Normal GW fixtures for GW30-32 (all 6 teams play exactly once)
+def _normal_gw_fixtures(gw: int) -> list:
+    return [
+        {"id": gw * 100 + 1, "team_h": 1, "team_a": 2,
+         "team_h_difficulty": 3, "team_a_difficulty": 3,
+         "finished": False, "team_h_score": None, "team_a_score": None,
+         "minutes": None, "kickoff_time": f"2026-02-{gw:02d}T15:00:00Z"},
+        {"id": gw * 100 + 2, "team_h": 3, "team_a": 4,
+         "team_h_difficulty": 2, "team_a_difficulty": 4,
+         "finished": False, "team_h_score": None, "team_a_score": None,
+         "minutes": None, "kickoff_time": f"2026-02-{gw:02d}T17:30:00Z"},
+        {"id": gw * 100 + 3, "team_h": 5, "team_a": 6,
+         "team_h_difficulty": 3, "team_a_difficulty": 3,
+         "finished": False, "team_h_score": None, "team_a_score": None,
+         "minutes": None, "kickoff_time": f"2026-02-{gw:02d}T20:00:00Z"},
+    ]
+
+# Fixture override map for X8/X9 (inject alert data for GW28-32)
+_X_FIXTURES_OVERRIDE = {
+    28: _CTX_BLANK_FIXTURES_GW28,
+    29: _CTX_DGW_FIXTURES_GW29,
+    30: _normal_gw_fixtures(30),
+    31: _normal_gw_fixtures(31),
+    32: _normal_gw_fixtures(32),
+}
+
+print("\n=== X1: basic call returns status=ok with all top-level keys ===")
+
+_clear_context_cache()
+_x1 = get_gameweek_context(bootstrap=_CTX_BOOTSTRAP, fixtures=_X_FIXTURES_OVERRIDE)
+_X1_REQUIRED_KEYS = [
+    "status", "current_gw", "next_gw", "current_gw_deadline", "next_gw_deadline",
+    "season_total_gws", "is_season_over", "is_pre_season", "current_gw_status",
+    "blank_gw_alerts", "double_gw_alerts",
+]
+ok(_x1["status"] == "ok",                             "X1.1: status=ok")
+for _xk in _X1_REQUIRED_KEYS:
+    ok(_xk in _x1,                                    f"X1.2: key '{_xk}' present in response")
+
+print("\n=== X2: current_gw is an int ===")
+
+_x2 = get_gameweek_context(bootstrap=_CTX_BOOTSTRAP, fixtures=_X_FIXTURES_OVERRIDE)
+ok(isinstance(_x2["current_gw"], int),                 "X2.1: current_gw is int")
+ok(_x2["current_gw"] == 27,                            "X2.2: current_gw == 27 (is_current=True in events)")
+
+print("\n=== X3: next_gw is an int ===")
+
+_clear_context_cache()
+_x3 = get_gameweek_context(bootstrap=_CTX_BOOTSTRAP, fixtures=_X_FIXTURES_OVERRIDE)
+ok(_x3["next_gw"] is None or isinstance(_x3["next_gw"], int),
+   "X3.1: next_gw is int or None")
+ok(_x3["next_gw"] == 28,                               "X3.2: next_gw == 28 (is_next=True in events)")
+
+print("\n=== X4: current_gw_status is one of {pending, in_progress, finished} ===")
+
+_clear_context_cache()
+_x4 = get_gameweek_context(bootstrap=_CTX_BOOTSTRAP, fixtures=_X_FIXTURES_OVERRIDE)
+ok(_x4["current_gw_status"] in {"pending", "in_progress", "finished"},
+   "X4.1: current_gw_status is a valid status string")
+ok(_x4["current_gw_status"] == "in_progress",          "X4.2: GW27 (is_current + not finished) = in_progress")
+
+print("\n=== X5: is_season_over and is_pre_season are bools ===")
+
+_clear_context_cache()
+_x5 = get_gameweek_context(bootstrap=_CTX_BOOTSTRAP, fixtures=_X_FIXTURES_OVERRIDE)
+ok(isinstance(_x5["is_season_over"], bool),            "X5.1: is_season_over is bool")
+ok(isinstance(_x5["is_pre_season"], bool),             "X5.2: is_pre_season is bool")
+ok(_x5["is_season_over"] is False,                     "X5.3: mid-season, is_season_over=False")
+ok(_x5["is_pre_season"] is False,                      "X5.4: GW27 in progress, is_pre_season=False")
+
+print("\n=== X6: blank_gw_alerts is a list ===")
+
+_clear_context_cache()
+_x6 = get_gameweek_context(bootstrap=_CTX_BOOTSTRAP, fixtures=_X_FIXTURES_OVERRIDE)
+ok(isinstance(_x6["blank_gw_alerts"], list),           "X6.1: blank_gw_alerts is a list")
+
+print("\n=== X7: double_gw_alerts is a list ===")
+
+_clear_context_cache()
+_x7 = get_gameweek_context(bootstrap=_CTX_BOOTSTRAP, fixtures=_X_FIXTURES_OVERRIDE)
+ok(isinstance(_x7["double_gw_alerts"], list),          "X7.1: double_gw_alerts is a list")
+
+print("\n=== X8: blank GW injection, blank_gw_alerts contains TOT + MUN for GW28 ===")
+
+_clear_context_cache()
+_x8 = get_gameweek_context(bootstrap=_CTX_BOOTSTRAP, fixtures=_X_FIXTURES_OVERRIDE)
+_x8_blank_gws = [a["gw"] for a in _x8["blank_gw_alerts"]]
+ok(28 in _x8_blank_gws,                                "X8.1: GW28 appears in blank_gw_alerts")
+_x8_gw28 = next((a for a in _x8["blank_gw_alerts"] if a["gw"] == 28), None)
+ok(_x8_gw28 is not None,                               "X8.2: GW28 alert dict found")
+ok("TOT" in _x8_gw28["blank_teams"],                   "X8.3: TOT in blank_teams for GW28")
+ok("MUN" in _x8_gw28["blank_teams"],                   "X8.4: MUN in blank_teams for GW28")
+ok("ARS" not in _x8_gw28["blank_teams"],               "X8.5: ARS (playing) not in blank_teams for GW28")
+ok(_x8_gw28["count"] == 2,                             "X8.6: count=2 (TOT + MUN blank in GW28)")
+
+print("\n=== X9: double GW injection, double_gw_alerts contains LIV for GW29 ===")
+
+_clear_context_cache()
+_x9 = get_gameweek_context(bootstrap=_CTX_BOOTSTRAP, fixtures=_X_FIXTURES_OVERRIDE)
+_x9_double_gws = [a["gw"] for a in _x9["double_gw_alerts"]]
+ok(29 in _x9_double_gws,                               "X9.1: GW29 appears in double_gw_alerts")
+_x9_gw29 = next((a for a in _x9["double_gw_alerts"] if a["gw"] == 29), None)
+ok(_x9_gw29 is not None,                               "X9.2: GW29 alert dict found")
+ok("LIV" in _x9_gw29["double_teams"],                  "X9.3: LIV in double_teams for GW29")
+ok(_x9_gw29["count"] == 1,                             "X9.4: count=1 (only LIV doubles in GW29)")
+
+print("\n=== X10: tool registered in TOOL_NAMES; registry now has 22 tools ===")
+
+ok("get_gameweek_context" in TOOL_NAMES,               "X10.1: get_gameweek_context in TOOL_NAMES frozenset")
+_all_schemas_x = list_tool_schemas()
+ok("get_gameweek_context" in _all_schemas_x,           "X10.2: get_gameweek_context in list_tool_schemas()")
+ok(len(_all_schemas_x) == 22,                          "X10.3: registry has exactly 22 tools (21 -> 22)")
+
+print("\n=== X11: schema validates ===")
+
+_gc_schema = get_tool_schema("get_gameweek_context")
+ok(_gc_schema is not None,                             "X11.1: get_tool_schema('get_gameweek_context') returns non-None")
+ok(_gc_schema.name == "get_gameweek_context",          "X11.2: schema.name == 'get_gameweek_context'")
+ok(_gc_schema.parameters.get("properties") == {},      "X11.3: schema.parameters.properties == {} (no-arg tool)")
+ok(_gc_schema.parameters.get("required") == [],        "X11.4: schema.parameters.required == []")
+ok(validate_tool_schema_shape(_gc_schema),             "X11.5: validate_tool_schema_shape passes")
+
+print("\n=== X12: orchestrator dispatches get_gameweek_context via mock LLM ===")
+
+os.environ["FPL_ORCH_TEST_INJECTION"] = "1"
+os.environ["FPL_EVAL_DISABLED"] = "1"
+
+
+class _MockGWContextClient:
+    """Returns a get_gameweek_context tool_use call with no args."""
+
+    def __init__(self) -> None:
+        self.messages = self
+
+    def create(self, *, model, max_tokens, system, tools, messages, **kwargs):
+        class _ToolBlock:
+            type  = "tool_use"
+            id    = "toolu_gwc_001"
+            name  = "get_gameweek_context"
+            input = {}
+
+        class _Response:
+            content     = [_ToolBlock()]
+            stop_reason = "tool_use"
+            usage       = type("U", (), {"input_tokens": 100, "output_tokens": 50,
+                                         "cache_read_input_tokens": 0})()
+
+        return _Response()
+
+
+_mock_gwc = _MockGWContextClient()
+_x12 = ask_orchestrated(
+    "qué jornada es la que viene",
+    _CTX_BOOTSTRAP,
+    client=_mock_gwc,
+    provider="anthropic",
+)
+
+ok(_x12.outcome in (OUTCOME_OK, OUTCOME_TOOL_RESULT_ERROR),
+   "X12.1: outcome is ok or tool_result_error (not llm_error/no_tool)")
+ok(_x12.tool_chosen == "get_gameweek_context",         "X12.2: orchestrator dispatched get_gameweek_context tool")
+ok(isinstance(_x12.tool_output, dict),                 "X12.3: tool_output is a dict")
+ok(_x12.tool_output.get("status") in ("ok", "error"), "X12.4: tool_output.status is ok or error")
+ok("current_gw" in _x12.tool_output or "code" in _x12.tool_output,
+   "X12.5: tool_output has current_gw (ok) or code (error)")
 
 os.environ.pop("FPL_ORCH_TEST_INJECTION", None)
 os.environ.pop("FPL_EVAL_DISABLED", None)
