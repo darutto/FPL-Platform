@@ -24,7 +24,7 @@ Registry API
 ``get_tool_schema(name)``            → ToolSchema | None
 ``validate_tool_schema_shape(s)``    → bool            — structural check
 
-Registered tools (19 grounded tools, including P2.1+P2.2 atomic tools)
+Registered tools (20 grounded tools, including P2.1+P2.2+P2.3 atomic tools)
 ----------------------------------------------------------------------
 +----------------------------+----------------------------------+
 | Tool name                  | Intent label                     |
@@ -48,6 +48,7 @@ Registered tools (19 grounded tools, including P2.1+P2.2 atomic tools)
 | get_transfer_suggestion    | transfer_suggestion              |  (Phase 2.6h)
 | find_players               | atomic: fuzzy name search        |  (P2.1)
 | get_player_snapshot        | atomic: single-player snapshot   |  (P2.2)
+| get_player_history         | atomic: per-GW history           |  (P2.3)
 +----------------------------+----------------------------------+
 
 Schema format
@@ -649,6 +650,37 @@ GET_PLAYER_SNAPSHOT_SCHEMA = ToolSchema(
 
 
 # ---------------------------------------------------------------------------
+# P2.3 atomic tool — get_player_history per-GW temporal window
+# ---------------------------------------------------------------------------
+
+GET_PLAYER_HISTORY_SCHEMA = ToolSchema(
+    name="get_player_history",
+    description=(
+        "Per-GW history for one player over last N gameweeks. Returns history list "
+        "(minutes, points, goals, assists, xG, xA, BPS) + summary. "
+        "status=ambiguous on multi-match; not_found / error otherwise."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "player_name": {
+                "type":        "string",
+                "description": "Player name (case-insensitive, accent-insensitive)",
+            },
+            "last_n_gws": {
+                "type":        "integer",
+                "description": "Number of recent gameweeks to return (1-38, default 5)",
+                "minimum":     1,
+                "maximum":     38,
+            },
+        },
+        "required":             ["player_name"],
+        "additionalProperties": False,
+    },
+)
+
+
+# ---------------------------------------------------------------------------
 # Registry construction
 # ---------------------------------------------------------------------------
 
@@ -675,6 +707,8 @@ _ALL_SCHEMAS: tuple[ToolSchema, ...] = (
     FIND_PLAYERS_SCHEMA,
     # P2.2 atomic tool
     GET_PLAYER_SNAPSHOT_SCHEMA,
+    # P2.3 atomic tool
+    GET_PLAYER_HISTORY_SCHEMA,
 )
 
 #: Immutable dict mapping tool name → ToolSchema.

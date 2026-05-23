@@ -81,6 +81,10 @@ for _pkg in [
 
 from fpl_grounded_assistant.find_players import find_players
 from fpl_grounded_assistant.get_player_snapshot import get_player_snapshot
+from fpl_grounded_assistant.get_player_history import (
+    get_player_history,
+    HISTORY_ENTRY_REQUIRED_FIELDS,
+)
 from fpl_grounded_assistant.tool_schema_registry import (
     list_tool_schemas,
     get_tool_schema,
@@ -320,7 +324,7 @@ print("\n=== T9: schema registry ===")
 _all_schemas = list_tool_schemas()
 ok("find_players" in TOOL_NAMES,             "T9.1: find_players in TOOL_NAMES frozenset")
 ok("find_players" in _all_schemas,           "T9.2: find_players in list_tool_schemas()")
-ok(len(_all_schemas) == 19,                  "T9.3: registry has exactly 19 tools")
+ok(len(_all_schemas) == 20,                  "T9.3: registry has exactly 20 tools (after P2.3)")
 
 _fp_schema = get_tool_schema("find_players")
 ok(_fp_schema is not None,                   "T9.4: get_tool_schema('find_players') returns non-None")
@@ -448,7 +452,7 @@ print("\n=== U7: registered in TOOL_NAMES (registry grows 18->19) ===")
 ok("get_player_snapshot" in TOOL_NAMES,                    "U7.1: get_player_snapshot in TOOL_NAMES frozenset")
 _all_schemas_u = list_tool_schemas()
 ok("get_player_snapshot" in _all_schemas_u,                "U7.2: get_player_snapshot in list_tool_schemas()")
-ok(len(_all_schemas_u) == 19,                              "U7.3: registry has exactly 19 tools")
+ok(len(_all_schemas_u) == 20,                              "U7.3: registry has exactly 20 tools (after P2.3)")
 
 print("\n=== U8: schema validates ===")
 
@@ -513,6 +517,210 @@ _u10 = get_player_snapshot("sa", bootstrap=STANDARD_BOOTSTRAP)
 ok(_u10["status"] == "ambiguous",                          "U10.1: 'sa' still returns ambiguous")
 ok("query" in _u10,                                        "U10.2: ambiguous response has query field")
 ok(_u10["query"] == "sa",                                  "U10.3: query field contains normalized query")
+
+
+# ---------------------------------------------------------------------------
+# Section V: get_player_history atomic tool (P2.3)
+# ---------------------------------------------------------------------------
+
+# Build a bootstrap with injected element summaries so no real HTTP call is made.
+# Haaland (id=1): 7 completed GW entries, most-recent last (FPL API ordering).
+_HAALAND_HISTORY = [
+    {"round": 21, "opponent_team_short": "MUN", "was_home": True,  "minutes": 90,
+     "total_points": 8, "goals_scored": 1, "assists": 0, "clean_sheets": 0,
+     "yellow_cards": 0, "red_cards": 0, "saves": 0, "bonus": 3, "bps": 35,
+     "expected_goals": "0.85", "expected_assists": "0.10",
+     "expected_goal_involvements": "0.95", "expected_goals_conceded": "0.50",
+     "value": 145, "transfers_in": 5000, "transfers_out": 2000, "selected": 5200000,
+     "kickoff_time": "2026-01-10T15:00:00Z"},
+    {"round": 22, "opponent_team_short": "CHE", "was_home": False, "minutes": 90,
+     "total_points": 13, "goals_scored": 2, "assists": 0, "clean_sheets": 0,
+     "yellow_cards": 0, "red_cards": 0, "saves": 0, "bonus": 3, "bps": 48,
+     "expected_goals": "1.10", "expected_assists": "0.15",
+     "expected_goal_involvements": "1.25", "expected_goals_conceded": "0.80",
+     "value": 145, "transfers_in": 8000, "transfers_out": 1500, "selected": 5300000,
+     "kickoff_time": "2026-01-18T17:30:00Z"},
+    {"round": 23, "opponent_team_short": "LIV", "was_home": True,  "minutes": 0,
+     "total_points": 1, "goals_scored": 0, "assists": 0, "clean_sheets": 0,
+     "yellow_cards": 0, "red_cards": 0, "saves": 0, "bonus": 0, "bps": 2,
+     "expected_goals": "0.00", "expected_assists": "0.00",
+     "expected_goal_involvements": "0.00", "expected_goals_conceded": "0.00",
+     "value": 145, "transfers_in": 1000, "transfers_out": 12000, "selected": 5100000,
+     "kickoff_time": "2026-01-25T15:00:00Z"},
+    {"round": 24, "opponent_team_short": "ARS", "was_home": False, "minutes": 90,
+     "total_points": 6, "goals_scored": 1, "assists": 0, "clean_sheets": 0,
+     "yellow_cards": 1, "red_cards": 0, "saves": 0, "bonus": 1, "bps": 30,
+     "expected_goals": "0.75", "expected_assists": "0.05",
+     "expected_goal_involvements": "0.80", "expected_goals_conceded": "1.20",
+     "value": 145, "transfers_in": 6000, "transfers_out": 3000, "selected": 5050000,
+     "kickoff_time": "2026-02-01T15:00:00Z"},
+    {"round": 25, "opponent_team_short": "CHE", "was_home": True,  "minutes": 90,
+     "total_points": 12, "goals_scored": 2, "assists": 1, "clean_sheets": 0,
+     "yellow_cards": 0, "red_cards": 0, "saves": 0, "bonus": 3, "bps": 52,
+     "expected_goals": "1.30", "expected_assists": "0.45",
+     "expected_goal_involvements": "1.75", "expected_goals_conceded": "0.60",
+     "value": 145, "transfers_in": 15000, "transfers_out": 1000, "selected": 5400000,
+     "kickoff_time": "2026-02-08T15:00:00Z"},
+    {"round": 26, "opponent_team_short": "MUN", "was_home": False, "minutes": 90,
+     "total_points": 7, "goals_scored": 1, "assists": 0, "clean_sheets": 0,
+     "yellow_cards": 0, "red_cards": 0, "saves": 0, "bonus": 2, "bps": 38,
+     "expected_goals": "0.90", "expected_assists": "0.20",
+     "expected_goal_involvements": "1.10", "expected_goals_conceded": "0.40",
+     "value": 145, "transfers_in": 7000, "transfers_out": 2500, "selected": 5420000,
+     "kickoff_time": "2026-02-15T15:00:00Z"},
+    {"round": 27, "opponent_team_short": "LIV", "was_home": True,  "minutes": 90,
+     "total_points": 9, "goals_scored": 1, "assists": 1, "clean_sheets": 0,
+     "yellow_cards": 0, "red_cards": 0, "saves": 0, "bonus": 3, "bps": 44,
+     "expected_goals": "0.95", "expected_assists": "0.50",
+     "expected_goal_involvements": "1.45", "expected_goals_conceded": "0.90",
+     "value": 145, "transfers_in": 10000, "transfers_out": 1200, "selected": 5500000,
+     "kickoff_time": "2026-02-22T15:00:00Z"},
+]
+
+_HISTORY_BOOTSTRAP = _copy.deepcopy(STANDARD_BOOTSTRAP)
+_HISTORY_BOOTSTRAP["_element_summaries"] = {
+    "1": {"history": _HAALAND_HISTORY},   # Haaland's element_id is 1
+}
+
+print("\n=== V1: basic call returns status=ok with non-empty history ===")
+
+_v1 = get_player_history("Haaland", bootstrap=_HISTORY_BOOTSTRAP)
+ok(_v1["status"] == "ok",                                      "V1.1: status=ok for known player")
+ok("history" in _v1 and len(_v1["history"]) > 0,               "V1.2: history is non-empty list")
+ok("player" in _v1,                                             "V1.3: player block present")
+ok(_v1["player"]["web_name"] == "Haaland",                     "V1.4: player.web_name == 'Haaland'")
+
+print("\n=== V2: history ordered most-recent-first ===")
+
+_v2 = get_player_history("Haaland", bootstrap=_HISTORY_BOOTSTRAP)
+ok(_v2["status"] == "ok",                                      "V2.0: status=ok (precondition)")
+_h = _v2["history"]
+ok(len(_h) > 1 and _h[0]["round"] > _h[-1]["round"],          "V2.1: history[0].round > history[-1].round (most-recent first)")
+
+print("\n=== V3: each history entry has all 22 required fields ===")
+
+_v3 = get_player_history("Haaland", bootstrap=_HISTORY_BOOTSTRAP)
+ok(_v3["status"] == "ok",                                      "V3.0: status=ok (precondition)")
+_first_entry = _v3["history"][0]
+for _hfield in HISTORY_ENTRY_REQUIRED_FIELDS:
+    ok(_hfield in _first_entry, f"V3: field '{_hfield}' present in history entry")
+ok(len(HISTORY_ENTRY_REQUIRED_FIELDS) == 22,                   "V3: contract has exactly 22 required history fields")
+
+print("\n=== V4: last_n_gws=3 returns at most 3 entries ===")
+
+_v4 = get_player_history("Haaland", last_n_gws=3, bootstrap=_HISTORY_BOOTSTRAP)
+ok(_v4["status"] == "ok",                                      "V4.0: status=ok (precondition)")
+ok(len(_v4["history"]) <= 3,                                   "V4.1: last_n_gws=3 returns <=3 entries")
+ok(_v4["last_n_gws"] <= 3,                                     "V4.2: last_n_gws response field reflects actual count")
+
+print("\n=== V5: last_n_gws=99 silently capped at 38 ===")
+
+_v5 = get_player_history("Haaland", last_n_gws=99, bootstrap=_HISTORY_BOOTSTRAP)
+ok(_v5["status"] == "ok",                                      "V5.0: status=ok (precondition)")
+# last_n_gws=99 is capped to 38; the fixture only has 7 entries so we get 7
+ok(_v5["last_n_gws"] <= 38,                                    "V5.1: last_n_gws capped at 38 max (silent cap)")
+
+print("\n=== V6: summary block present with required keys ===")
+
+_v6 = get_player_history("Haaland", bootstrap=_HISTORY_BOOTSTRAP)
+ok(_v6["status"] == "ok",                                      "V6.0: status=ok (precondition)")
+_summary = _v6.get("summary", {})
+ok("gws_played" in _summary,                                   "V6.1: summary.gws_played present")
+ok("total_points" in _summary,                                 "V6.2: summary.total_points present")
+ok("total_minutes" in _summary,                                "V6.3: summary.total_minutes present")
+ok("total_goals" in _summary,                                  "V6.4: summary.total_goals present")
+ok("total_assists" in _summary,                                "V6.5: summary.total_assists present")
+ok("avg_form" in _summary,                                     "V6.6: summary.avg_form present")
+ok("total_xgi" in _summary,                                    "V6.7: summary.total_xgi present")
+
+print("\n=== V7: summary.total_points == sum of history total_points ===")
+
+_v7 = get_player_history("Haaland", bootstrap=_HISTORY_BOOTSTRAP)
+ok(_v7["status"] == "ok",                                      "V7.0: status=ok (precondition)")
+_computed_total = sum(h["total_points"] for h in _v7["history"])
+ok(_v7["summary"]["total_points"] == _computed_total,          "V7.1: summary.total_points == sum(h.total_points for h in history)")
+
+print("\n=== V8: ambiguous name returns status=ambiguous with candidates ===")
+
+# "sa" is a prefix of both Salah and Saka in STANDARD_BOOTSTRAP -> ambiguous
+_v8 = get_player_history("sa", bootstrap=_HISTORY_BOOTSTRAP)
+ok(_v8["status"] == "ambiguous",                               "V8.1: ambiguous name returns status=ambiguous")
+ok(isinstance(_v8.get("candidates"), list) and len(_v8["candidates"]) > 0,
+   "V8.2: ambiguous response has non-empty candidates list")
+ok("query" in _v8,                                             "V8.3: ambiguous response has query field")
+
+print("\n=== V9: unknown name returns status=not_found ===")
+
+_v9 = get_player_history("xx_no_such_player_xyz", bootstrap=_HISTORY_BOOTSTRAP)
+ok(_v9["status"] == "not_found",                               "V9.1: unknown name returns not_found")
+ok("query" in _v9,                                             "V9.2: not_found response has query field")
+ok(bool(_v9.get("message")),                                   "V9.3: not_found response has non-empty message")
+
+print("\n=== V10: tool registered in TOOL_NAMES; registry now has 20 tools ===")
+
+ok("get_player_history" in TOOL_NAMES,                         "V10.1: get_player_history in TOOL_NAMES frozenset")
+_all_schemas_v = list_tool_schemas()
+ok("get_player_history" in _all_schemas_v,                     "V10.2: get_player_history in list_tool_schemas()")
+ok(len(_all_schemas_v) == 20,                                  "V10.3: registry has exactly 20 tools (19 -> 20)")
+
+print("\n=== V11: schema validates ===")
+
+_gph_schema = get_tool_schema("get_player_history")
+ok(_gph_schema is not None,                                    "V11.1: get_tool_schema('get_player_history') returns non-None")
+ok(_gph_schema.name == "get_player_history",                   "V11.2: schema.name == 'get_player_history'")
+ok("player_name" in _gph_schema.parameters.get("properties", {}),
+   "V11.3: player_name in schema properties")
+ok("last_n_gws" in _gph_schema.parameters.get("properties", {}),
+   "V11.4: last_n_gws in schema properties")
+ok("player_name" in _gph_schema.parameters.get("required", []),
+   "V11.5: player_name is required")
+ok(validate_tool_schema_shape(_gph_schema),                    "V11.6: validate_tool_schema_shape passes")
+
+print("\n=== V12: orchestrator dispatches get_player_history via mock LLM ===")
+
+os.environ["FPL_ORCH_TEST_INJECTION"] = "1"
+os.environ["FPL_EVAL_DISABLED"] = "1"
+
+
+class _MockHistoryClient:
+    """Returns a get_player_history tool_use call for 'Haaland'."""
+
+    def __init__(self) -> None:
+        self.messages = self
+
+    def create(self, *, model, max_tokens, system, tools, messages, **kwargs):
+        class _ToolBlock:
+            type  = "tool_use"
+            id    = "toolu_gph_001"
+            name  = "get_player_history"
+            input = {"player_name": "Haaland", "last_n_gws": 5}
+
+        class _Response:
+            content     = [_ToolBlock()]
+            stop_reason = "tool_use"
+            usage       = type("U", (), {"input_tokens": 100, "output_tokens": 50,
+                                         "cache_read_input_tokens": 0})()
+
+        return _Response()
+
+
+_mock_hist = _MockHistoryClient()
+_v12 = ask_orchestrated(
+    "show me Haaland history last 5 gameweeks",
+    _HISTORY_BOOTSTRAP,
+    client=_mock_hist,
+    provider="anthropic",
+)
+
+ok(_v12.outcome in (OUTCOME_OK, OUTCOME_TOOL_RESULT_ERROR),
+   "V12.1: outcome is ok or tool_result_error (not llm_error/no_tool)")
+ok(_v12.tool_chosen == "get_player_history",                   "V12.2: orchestrator dispatched get_player_history tool")
+ok(isinstance(_v12.tool_output, dict),                         "V12.3: tool_output is a dict")
+ok(_v12.tool_output.get("status") in ("ok", "not_found", "ambiguous", "error"),
+   "V12.4: tool_output.status is one of the valid statuses")
+
+os.environ.pop("FPL_ORCH_TEST_INJECTION", None)
+os.environ.pop("FPL_EVAL_DISABLED", None)
 
 # ---------------------------------------------------------------------------
 # Summary
