@@ -31,7 +31,8 @@ export type Outcome =
   | 'not_found'
   | 'ambiguous'
   | 'missing_arguments'
-  | 'error';
+  | 'error'
+  | 'quota_exceeded';
 
 /**
  * Intent resolved by the backend. null on unsupported_intent turns.
@@ -396,4 +397,32 @@ export interface DebugBundle {
   model: string;
   /** null=deterministic routing, 'intent_hint'=hint fired, 'llm_classifier'=LLM used */
   classification_source: 'intent_hint' | 'llm_classifier' | null;
+}
+
+// ---------------------------------------------------------------------------
+// Quota types (P3 — visual quota indicator)
+// Mirrors fpl_grounded_assistant.quota.QuotaCheck dataclass.
+// ---------------------------------------------------------------------------
+
+/**
+ * Response shape for GET /quota (forwarded via GET /api/quota).
+ * Used by QuotaIndicator to display daily/monthly remaining counts.
+ */
+export interface QuotaStatus {
+  allowed: boolean;
+  tier: string;
+  daily_tokens_used: number;
+  daily_message_count: number;
+  monthly_tokens_used: number;
+  monthly_message_count: number;
+  daily_token_cap: number;
+  monthly_token_cap: number;
+  daily_message_cap: number;
+  monthly_message_cap: number;
+  /** Non-null when allowed=false — machine-readable reason code. */
+  reason: string | null;
+  /** Spanish upgrade prompt — non-null when allowed=false. */
+  upgrade_prompt_es: string | null;
+  /** English upgrade prompt — non-null when allowed=false. */
+  upgrade_prompt_en: string | null;
 }

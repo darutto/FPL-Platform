@@ -22,6 +22,7 @@ import MessageList, { type Message } from './MessageList';
 import InputBar from './InputBar';
 import StarterPrompts from './StarterPrompts';
 import SquadContextPanel from './SquadContextPanel';
+import QuotaIndicator from './QuotaIndicator';
 
 export default function ChatShell() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -29,6 +30,8 @@ export default function ChatShell() {
   const [sessionMode, setSessionMode] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [squadContext, setSquadContext] = useState<SquadContext | null>(null);
+  // Incremented after each completed turn so QuotaIndicator re-fetches quota
+  const [quotaRefreshTrigger, setQuotaRefreshTrigger] = useState(0);
 
   const handleClearSession = useCallback(async () => {
     if (sessionId) {
@@ -103,6 +106,8 @@ export default function ChatShell() {
         response,
       };
       setMessages((prev) => [...prev, assistantMessage]);
+      // Refresh quota indicator after every completed turn
+      setQuotaRefreshTrigger((n) => n + 1);
     } catch (err) {
       const errorText =
         err instanceof FplApiError
@@ -172,8 +177,11 @@ export default function ChatShell() {
         )}
       </div>
 
-      <div className="flex-shrink-0 py-4">
+      <div className="flex-shrink-0 py-4 space-y-2">
         <InputBar onSubmit={sendMessage} disabled={loading} />
+        <div className="flex justify-end">
+          <QuotaIndicator refreshTrigger={quotaRefreshTrigger} />
+        </div>
       </div>
     </div>
   );

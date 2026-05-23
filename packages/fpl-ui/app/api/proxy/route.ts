@@ -1,8 +1,12 @@
 /**
- * Server-side proxy → FPL Grounded Assistant backend (POST /ask).
+ * Server-side proxy → FPL Grounded Assistant backend.
  *
- * Forwards the request body from the browser to the backend, keeping the
+ * Forwards requests from the browser to the backend, keeping the
  * backend URL server-side only (not exposed in the browser bundle).
+ *
+ * Supported routes:
+ *   POST /api/proxy          → POST  {backend}/ask
+ *   GET  /api/quota          → GET   {backend}/quota?user_id=<id>&tier=<tier>
  *
  * Environment:
  *   FPL_BACKEND_URL  — backend base URL (default: http://localhost:8000)
@@ -11,8 +15,6 @@
  *   200  — processed; inspect outcome/supported in body
  *   422  — malformed request body
  *   503  — backend not initialised
- *
- * Deferred: session mode (POST /session/{id}/ask) — Phase 2.
  */
 import { NextRequest, NextResponse } from 'next/server';
 
