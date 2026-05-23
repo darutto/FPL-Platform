@@ -227,6 +227,7 @@ from .price_changes import get_price_changes          # Phase 2.6d
 from .position_fixture_run import get_position_fixture_run  # Phase 2.6e.4 — triggers TOOL_REGISTRY self-registration
 from .transfer_suggestion import get_transfer_suggestion    # Phase 2.6h — triggers TOOL_REGISTRY self-registration
 from .find_players import find_players                      # P2.1 — triggers TOOL_REGISTRY self-registration
+from .get_player_snapshot import get_player_snapshot        # P2.2 — triggers TOOL_REGISTRY self-registration
 from .team_fixture_calendar import (                  # Phase 2.6e
     get_team_fixture_calendar,
     DEFAULT_HORIZON as TEAM_CALENDAR_DEFAULT_HORIZON,
@@ -476,6 +477,8 @@ __all__ = [
     "reset_telemetry",
     # P2.1: atomic find_players tool
     "find_players",
+    # P2.2: atomic get_player_snapshot tool
+    "get_player_snapshot",
     # core harness
     "ask",
     "ask_v2",

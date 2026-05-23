@@ -1,7 +1,7 @@
 """
 run_phase_p2_tests.py
 =====================
-Phase P2.1: find_players atomic tool.
+Phase P2.1+P2.2: find_players + get_player_snapshot atomic tools.
 
 Validates that:
 - find_players() returns status="ok" with at least 1 match for a known player.
@@ -12,9 +12,15 @@ Validates that:
 - limit parameter caps results correctly.
 - limit>10 is silently capped to 10.
 - match_rank ordering: exact < prefix < substring.
-- find_players is registered in tool_schema_registry (18 tools).
+- find_players is registered in tool_schema_registry (19 tools after P2.2).
 - Status codes map correctly (injured player → "Injured").
 - Orchestrator can invoke find_players via ask_orchestrated() with a mock LLM.
+- get_player_snapshot() returns status="ok" for unique match (Haaland).
+- get_player_snapshot() returns 20 grounding fields (21 minus match_rank).
+- get_player_snapshot() returns status="not_found" for unknown names.
+- get_player_snapshot() returns status="ambiguous" for multi-match prefix queries.
+- get_player_snapshot() registered in TOOL_NAMES (registry = 19 tools).
+- Orchestrator can dispatch get_player_snapshot via ask_orchestrated().
 
 Sections
 --------
@@ -26,9 +32,19 @@ T5  Not found                 -- xx_no_such_player → not_found, 0 matches
 T6  Limit cap                 -- limit=2 returns <=2 matches
 T7  Limit>10 silent cap       -- limit=99 returns <=10 matches
 T8  match_rank ordering       -- exact before prefix before substring
-T9  Schema registry           -- 18 tools, find_players included
+T9  Schema registry           -- 19 tools, find_players+get_player_snapshot included
 T10 Status code mapping       -- injured player → "Injured"
 T11 Orchestrator integration  -- ask_orchestrated() with mock LLM returns find_players output
+U1  Snapshot basic match      -- haaland → status=ok, player.web_name=Haaland
+U2  Snapshot payload          -- 20 fields present (21 minus match_rank)
+U3  Snapshot not_found        -- unknown name → not_found, non-empty message
+U4  Snapshot ambiguous        -- multi-prefix "sa" → ambiguous, candidates with match_rank
+U5  Snapshot accent/case      -- Núñez ≡ Nunez
+U6  Snapshot candidates cap   -- ambiguous candidates ≤ 5
+U7  Snapshot registry         -- get_player_snapshot in TOOL_NAMES (19 tools)
+U8  Snapshot schema           -- validate_tool_schema_shape passes
+U9  Snapshot orchestrator     -- ask_orchestrated() dispatches get_player_snapshot
+U10 Ambiguous query field     -- ambiguous response preserves query for LLM
 
 Run from packages/fpl-grounded-assistant::
 
@@ -64,10 +80,12 @@ for _pkg in [
 # ---------------------------------------------------------------------------
 
 from fpl_grounded_assistant.find_players import find_players
+from fpl_grounded_assistant.get_player_snapshot import get_player_snapshot
 from fpl_grounded_assistant.tool_schema_registry import (
     list_tool_schemas,
     get_tool_schema,
     TOOL_NAMES,
+    validate_tool_schema_shape,
 )
 from fpl_grounded_assistant.conversation_fixtures import STANDARD_BOOTSTRAP
 from fpl_grounded_assistant.orchestrator import (
@@ -302,7 +320,7 @@ print("\n=== T9: schema registry ===")
 _all_schemas = list_tool_schemas()
 ok("find_players" in TOOL_NAMES,             "T9.1: find_players in TOOL_NAMES frozenset")
 ok("find_players" in _all_schemas,           "T9.2: find_players in list_tool_schemas()")
-ok(len(_all_schemas) == 18,                  "T9.3: registry has exactly 18 tools")
+ok(len(_all_schemas) == 19,                  "T9.3: registry has exactly 19 tools")
 
 _fp_schema = get_tool_schema("find_players")
 ok(_fp_schema is not None,                   "T9.4: get_tool_schema('find_players') returns non-None")
@@ -362,6 +380,139 @@ ok("matches" in _r11.tool_output,
 # Clean up env vars
 os.environ.pop("FPL_ORCH_TEST_INJECTION", None)
 os.environ.pop("FPL_EVAL_DISABLED", None)
+
+
+# ---------------------------------------------------------------------------
+# Section U: get_player_snapshot atomic tool (P2.2)
+# ---------------------------------------------------------------------------
+
+print("\n=== U1: basic ok match ===")
+
+_u1 = get_player_snapshot("haaland", bootstrap=STANDARD_BOOTSTRAP)
+ok(_u1["status"] == "ok",                                  "U1.1: status=ok for known player")
+ok("player" in _u1,                                        "U1.2: 'player' key present in ok response")
+ok(_u1["player"]["web_name"] == "Haaland",                 "U1.3: player.web_name == 'Haaland'")
+
+print("\n=== U2: full grounding payload (20 fields, no match_rank) ===")
+
+# Single-answer omits match_rank; 21 required fields minus match_rank = 20.
+_SNAPSHOT_REQUIRED_FIELDS = [
+    f for f in _REQUIRED_MATCH_FIELDS if f != "match_rank"
+]
+_u2 = get_player_snapshot("Haaland", bootstrap=STANDARD_BOOTSTRAP)
+ok(_u2["status"] == "ok",                                  "U2.0: Haaland snapshot ok")
+for _field in _SNAPSHOT_REQUIRED_FIELDS:
+    ok(_field in _u2["player"], f"U2: field '{_field}' present in player dict")
+ok(len(_SNAPSHOT_REQUIRED_FIELDS) == 20,                   "U2: snapshot contract has exactly 20 required fields")
+ok("match_rank" not in _u2["player"],                      "U2: match_rank absent from single-answer player")
+
+print("\n=== U3: not_found ===")
+
+_u3 = get_player_snapshot("xx_no_such_player_xyz", bootstrap=STANDARD_BOOTSTRAP)
+ok(_u3["status"] == "not_found",                           "U3.1: unknown name returns not_found")
+ok(bool(_u3.get("message")),                               "U3.2: not_found has non-empty message")
+ok("query" in _u3,                                         "U3.3: not_found has query field")
+
+print("\n=== U4: ambiguous - multiple prefix matches ===")
+
+# "sa" is a prefix of both "Salah" and "Saka" in STANDARD_BOOTSTRAP -> ambiguous
+_u4 = get_player_snapshot("sa", bootstrap=STANDARD_BOOTSTRAP)
+ok(_u4["status"] == "ambiguous",                           "U4.1: 'sa' prefix matches multiple players: ambiguous")
+ok(isinstance(_u4.get("candidates"), list) and len(_u4["candidates"]) > 0,
+   "U4.2: ambiguous response has non-empty candidates list")
+ok(all("match_rank" in c for c in _u4["candidates"]),      "U4.3: each candidate has match_rank field")
+ok("query" in _u4,                                         "U4.4: ambiguous response keeps query field for LLM")
+ok(bool(_u4.get("message")),                               "U4.5: ambiguous has non-empty message")
+
+print("\n=== U5: case + accent insensitivity ===")
+
+_u5_accent = get_player_snapshot("Núñez", bootstrap=_ACCENTED_BOOTSTRAP)
+_u5_plain  = get_player_snapshot("Nunez",  bootstrap=_ACCENTED_BOOTSTRAP)
+ok(_u5_accent["status"] == "ok",                           "U5.1: accented query resolves to ok")
+ok(_u5_plain["status"] == "ok",                            "U5.2: Nunez (plain) resolves to ok")
+ok(_u5_accent["player"]["web_name"] == _u5_plain["player"]["web_name"],
+   "U5.3: accented and plain resolve to same player")
+
+print("\n=== U6: ambiguous candidates <= 5 ===")
+
+# Use a broad substring query that matches many players
+_u6 = get_player_snapshot("a", bootstrap=STANDARD_BOOTSTRAP)
+ok(_u6["status"] in ("ok", "ambiguous"),                   "U6.1: query 'a' returns ok or ambiguous (not error)")
+if _u6["status"] == "ambiguous":
+    ok(len(_u6["candidates"]) <= 5,                        "U6.2: candidates capped at 5")
+else:
+    ok(True,                                               "U6.2: single match - candidates cap not exercised")
+
+print("\n=== U7: registered in TOOL_NAMES (registry grows 18->19) ===")
+
+ok("get_player_snapshot" in TOOL_NAMES,                    "U7.1: get_player_snapshot in TOOL_NAMES frozenset")
+_all_schemas_u = list_tool_schemas()
+ok("get_player_snapshot" in _all_schemas_u,                "U7.2: get_player_snapshot in list_tool_schemas()")
+ok(len(_all_schemas_u) == 19,                              "U7.3: registry has exactly 19 tools")
+
+print("\n=== U8: schema validates ===")
+
+_gps_schema = get_tool_schema("get_player_snapshot")
+ok(_gps_schema is not None,                                "U8.1: get_tool_schema('get_player_snapshot') returns non-None")
+ok(_gps_schema.name == "get_player_snapshot",              "U8.2: schema.name == 'get_player_snapshot'")
+ok("player_name" in _gps_schema.parameters.get("properties", {}),
+   "U8.3: player_name in schema properties")
+ok("player_name" in _gps_schema.parameters.get("required", []),
+   "U8.4: player_name is required")
+ok(validate_tool_schema_shape(_gps_schema),                "U8.5: validate_tool_schema_shape passes")
+
+print("\n=== U9: orchestrator dispatch via ask_orchestrated ===")
+
+os.environ["FPL_ORCH_TEST_INJECTION"] = "1"
+os.environ["FPL_EVAL_DISABLED"] = "1"
+
+
+class _MockSnapshotClient:
+    """Returns a get_player_snapshot tool_use call for 'Haaland'."""
+
+    def __init__(self) -> None:
+        self.messages = self
+
+    def create(self, *, model, max_tokens, system, tools, messages, **kwargs):
+        class _ToolBlock:
+            type  = "tool_use"
+            id    = "toolu_gps_001"
+            name  = "get_player_snapshot"
+            input = {"player_name": "Haaland"}
+
+        class _Response:
+            content     = [_ToolBlock()]
+            stop_reason = "tool_use"
+            usage       = type("U", (), {"input_tokens": 100, "output_tokens": 50,
+                                         "cache_read_input_tokens": 0})()
+
+        return _Response()
+
+
+_mock_snap = _MockSnapshotClient()
+_u9 = ask_orchestrated(
+    "get snapshot for Haaland",
+    STANDARD_BOOTSTRAP,
+    client=_mock_snap,
+    provider="anthropic",
+)
+
+ok(_u9.outcome in (OUTCOME_OK, OUTCOME_TOOL_RESULT_ERROR),
+   "U9.1: outcome is ok or tool_result_error (not llm_error/no_tool)")
+ok(_u9.tool_chosen == "get_player_snapshot",               "U9.2: orchestrator dispatched get_player_snapshot")
+ok(isinstance(_u9.tool_output, dict),                      "U9.3: tool_output is a dict")
+ok(_u9.tool_output.get("status") in ("ok", "not_found", "ambiguous"),
+   "U9.4: tool_output.status is one of the 3 valid statuses")
+
+os.environ.pop("FPL_ORCH_TEST_INJECTION", None)
+os.environ.pop("FPL_EVAL_DISABLED", None)
+
+print("\n=== U10: ambiguous response keeps query for LLM ===")
+
+_u10 = get_player_snapshot("sa", bootstrap=STANDARD_BOOTSTRAP)
+ok(_u10["status"] == "ambiguous",                          "U10.1: 'sa' still returns ambiguous")
+ok("query" in _u10,                                        "U10.2: ambiguous response has query field")
+ok(_u10["query"] == "sa",                                  "U10.3: query field contains normalized query")
 
 # ---------------------------------------------------------------------------
 # Summary

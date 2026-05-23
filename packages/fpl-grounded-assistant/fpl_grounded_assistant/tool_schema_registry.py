@@ -24,8 +24,8 @@ Registry API
 ``get_tool_schema(name)``            → ToolSchema | None
 ``validate_tool_schema_shape(s)``    → bool            — structural check
 
-Registered tools (18 grounded tools, including P2.1 atomic tool)
------------------------------------------------------------------
+Registered tools (19 grounded tools, including P2.1+P2.2 atomic tools)
+----------------------------------------------------------------------
 +----------------------------+----------------------------------+
 | Tool name                  | Intent label                     |
 +============================+==================================+
@@ -47,6 +47,7 @@ Registered tools (18 grounded tools, including P2.1 atomic tool)
 | get_position_fixture_run   | position_fixture_run             |  (Phase 2.6e.4)
 | get_transfer_suggestion    | transfer_suggestion              |  (Phase 2.6h)
 | find_players               | atomic: fuzzy name search        |  (P2.1)
+| get_player_snapshot        | atomic: single-player snapshot   |  (P2.2)
 +----------------------------+----------------------------------+
 
 Schema format
@@ -622,6 +623,30 @@ FIND_PLAYERS_SCHEMA = ToolSchema(
     },
 )
 
+# ---------------------------------------------------------------------------
+# P2.2 atomic tool — get_player_snapshot single-player lookup
+# ---------------------------------------------------------------------------
+
+GET_PLAYER_SNAPSHOT_SCHEMA = ToolSchema(
+    name="get_player_snapshot",
+    description=(
+        "Single player full grounding payload by name. Returns status=ok+player "
+        "(1 match), ambiguous+candidates (multi-match), or not_found. "
+        "For candidate lists use find_players instead."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "player_name": {
+                "type":        "string",
+                "description": "Player name (case-insensitive, accent-insensitive)",
+            },
+        },
+        "required":             ["player_name"],
+        "additionalProperties": False,
+    },
+)
+
 
 # ---------------------------------------------------------------------------
 # Registry construction
@@ -648,6 +673,8 @@ _ALL_SCHEMAS: tuple[ToolSchema, ...] = (
     GET_TRANSFER_SUGGESTION_SCHEMA,
     # P2.1 atomic tool
     FIND_PLAYERS_SCHEMA,
+    # P2.2 atomic tool
+    GET_PLAYER_SNAPSHOT_SCHEMA,
 )
 
 #: Immutable dict mapping tool name → ToolSchema.
