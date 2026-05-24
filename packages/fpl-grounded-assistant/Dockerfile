@@ -90,4 +90,4 @@ ENV FPL_SESSION_ENABLED=false
 
 # Railway injects PORT; default 8000 for local runs.
 # Using sh -c so ${PORT} shell expansion works.
-CMD ["sh", "-c", "uvicorn fpl_server:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh", "-c", "uvicorn fpl_server:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]
