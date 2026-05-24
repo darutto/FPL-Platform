@@ -56,7 +56,14 @@ export type Intent =
   | 'chip_advice'
   | 'player_fixture_run'
   | 'differential_picks'
-  | 'multi_intent';
+  | 'multi_intent'
+  | 'player_form'
+  | 'injury_list'
+  | 'price_changes'
+  | 'team_fixture_calendar'
+  | 'team_schedule'
+  | 'position_fixture_run'
+  | 'transfer_suggestion';
 
 /**
  * Runtime-accessible list of all backend-supported intent values.
@@ -75,6 +82,13 @@ export const SUPPORTED_INTENT_VALUES = [
   'player_fixture_run',
   'differential_picks',
   'multi_intent',
+  'player_form',
+  'injury_list',
+  'price_changes',
+  'team_fixture_calendar',
+  'team_schedule',
+  'position_fixture_run',
+  'transfer_suggestion',
 ] as const satisfies readonly Intent[];
 
 export type FplPosition = 'FWD' | 'MID' | 'DEF' | 'GKP';

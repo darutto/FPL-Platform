@@ -38,6 +38,7 @@ HTTP status codes
 """
 from __future__ import annotations
 
+import hmac
 import json
 import logging
 import os
@@ -92,6 +93,7 @@ from fpl_grounded_assistant.audit import (  # noqa: E402
     hash_user_id,
 )
 from fpl_grounded_assistant.dispatcher import OUTCOME_QUOTA_EXCEEDED  # noqa: E402
+from fpl_grounded_assistant.orch_config import is_orch_enabled  # noqa: E402
 
 _LOG = logging.getLogger(__name__)
 
@@ -494,6 +496,11 @@ async def lifespan(app: FastAPI):
             _init_bootstrap(bs)
     if _classifier_client is None:
         _try_init_classifier_from_env()
+    if not os.environ.get("FPL_INTERNAL_TOKEN", "").strip():
+        _LOG.warning(
+            "FPL_INTERNAL_TOKEN not set — GET /quota is open to unauthenticated callers. "
+            "Set this in production to restrict quota probing."
+        )
     yield
 
 
@@ -1050,7 +1057,11 @@ def list_resources() -> dict[str, Any]:
 
 
 @app.get("/quota")
-def quota_status(user_id: str = "anonymous", tier: str = "free") -> dict[str, Any]:
+def quota_status(
+    request: Request,
+    user_id: str = "anonymous",
+    tier: str = "free",
+) -> dict[str, Any]:
     """Phase P3.1: Return current quota status for a user.
 
     Used by the UI quota indicator (P3.2) and for operator inspection.
@@ -1067,6 +1078,12 @@ def quota_status(user_id: str = "anonymous", tier: str = "free") -> dict[str, An
     --------------
     JSON object mirroring the ``QuotaCheck`` dataclass fields.
     """
+    _internal_token = os.environ.get("FPL_INTERNAL_TOKEN", "").strip()
+    if _internal_token:
+        _provided = request.headers.get("X-Internal-Token", "")
+        if not hmac.compare_digest(_provided, _internal_token):
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
     # P6.2.f F-B fix: hash the query-param user_id the same way _extract_user_context
     # hashes the X-User-Id header. Without this, the UI quota indicator calls
     # GET /quota with the raw userId and gets a bucket that never matches the
@@ -1288,8 +1305,8 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
     # Quota accounting: deterministic turns count as 1 message but 0 tokens.
     try:
         _record_turn(user_id, _total_tokens, tier)
-    except Exception:  # noqa: BLE001
-        pass  # Quota record must never crash the endpoint.
+    except Exception as exc:  # noqa: BLE001
+        _LOG.exception("quota record_turn failed for user=%s: %s", user_id, exc)
 
     # Build audit entry from ask_v2 output.
     _routing_trace = ask_v2_dict.get("routing_trace") or {}
@@ -1474,21 +1491,17 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
     entry.last_used_at = time.time()
 
     # Phase P3.1 / P3.f (F1 remediation): post-call quota accounting + audit for session turns.
-    # NOTE: ConversationSession.respond() does not currently surface token counts.
-    # Tokens are recorded as 0 for session turns; cost estimate will under-report
-    # until the session path gains token observability (P3 graduation debt).
-    # F1: logger.warning fires per session turn so production has an observable signal
-    # that session turns are recorded as 0 tokens (potential cost blind-spot).
-    _LOG.warning(
-        "session turn recorded with tokens=0 for user=%s tier=%s (graduation debt: "
-        "ConversationSession.respond() does not surface token counts). "
-        "Set FPL_SESSION_ENABLED=false to disable sessions until tokens are surfaced.",
-        _sess_user_id, _sess_tier,
-    )
+    # Grad-D D3-B: token count now surfaced via entry.session.last_tokens.
+    if entry.session.last_tokens == 0 and is_orch_enabled():
+        _LOG.warning(
+            "session turn recorded with tokens=0 despite orch enabled — "
+            "possible token surfacing failure for user=%s tier=%s",
+            _sess_user_id, _sess_tier,
+        )
     try:
-        _record_turn(_sess_user_id, 0, _sess_tier)
-    except Exception:  # noqa: BLE001
-        pass
+        _record_turn(_sess_user_id, entry.session.last_tokens, _sess_tier)
+    except Exception as exc:  # noqa: BLE001
+        _LOG.exception("quota record_turn failed for session user=%s: %s", _sess_user_id, exc)
     _sess_audit_entry = make_audit_entry(
         user_id=_sess_user_id,
         tier=_sess_tier,
