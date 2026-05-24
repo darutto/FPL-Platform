@@ -1144,6 +1144,7 @@ class ConversationSession:
         self.state: ConversationState = (
             state if state is not None else ConversationState()
         )
+        self.last_tokens: int = 0
 
     def respond(
         self,
@@ -1323,6 +1324,7 @@ class ConversationSession:
                 differential_turn = True
 
         response = _respond(rewritten, bootstrap, **kwargs, _resolver_debug=_resolver_debug)
+        self.last_tokens = response.total_tokens
         self.state.update_from_response(
             response, player_query, question_text=rewritten,
             comparison_queries=comparison_queries,

@@ -957,6 +957,7 @@ class FinalResponse:
     route_conflict:        bool                            = field(default=False)  # True when deterministic and LLM disagree
     # Phase 2.7f: clarification policy layer (additive, safe default)
     clarification_asked:   bool                            = field(default=False)  # True when outcome==needs_clarification
+    total_tokens:           int                             = field(default=0)        # Grad-D
 
 
 # ---------------------------------------------------------------------------
@@ -1915,6 +1916,7 @@ def _orch_result_to_final_response(
         fixture_run=fixture_run,
         differential=differential,
         orch_outcome=ORCH_OUTCOME_OK,  # Orch-4c: audit — orch path was used
+        total_tokens=result.total_tokens,
     )
 
 
