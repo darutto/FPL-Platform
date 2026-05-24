@@ -104,6 +104,19 @@ ok(_t2_flag, "T2: pure recipe text IS off-topic")
 ok(_t2_score >= 0.5, f"T2b: recipe score >= 0.5 (got {_t2_score:.3f})")
 ok(_t2_diag["off_topic_hits"] > 0, f"T2c: off-topic hits > 0 (got {_t2_diag['off_topic_hits']})")
 
+# T2-ES: Spanish recipe text -> IS off-topic (P4.f verifier remediation).
+# Original P4 keyword set was English-only on cooking terms; Spanish flan
+# recipe slipped through. Now caught.
+_recipe_text_es = (
+    "Receta para flan: necesitas 3 huevos, 1 taza de azúcar, leche, y "
+    "hornearlo al horno por 45 minutos. Sirve frío."
+)
+_t2es_flag, _t2es_score, _t2es_diag = is_off_topic_response(_recipe_text_es)
+ok(_t2es_flag, "T2-ES: Spanish flan recipe IS off-topic")
+ok(_t2es_score >= 0.5, f"T2-ES-b: Spanish recipe score >= 0.5 (got {_t2es_score:.3f})")
+ok(_t2es_diag["off_topic_hits"] > 0,
+   f"T2-ES-c: Spanish recipe off-topic hits > 0 (got {_t2es_diag['off_topic_hits']})")
+
 # T3: Mixed text — FPL query with off-topic detour — depends on ratio.
 # This text deliberately has more FPL signal than off-topic to stay on-topic.
 _mixed_fpl_heavy = (

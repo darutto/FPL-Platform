@@ -30,13 +30,23 @@ _FPL_TOPIC_KEYWORDS: frozenset[str] = frozenset({
 
 # Hard-negative signals — strong indication of off-topic content.
 _OFF_TOPIC_KEYWORDS: frozenset[str] = frozenset({
-    "recipe", "recipes", "cake", "cooking", "ingredients",
+    # Cooking / recipes (EN)
+    "recipe", "recipes", "cake", "cooking", "ingredients", "oven", "bake", "bakery",
+    # Cooking / recipes (ES) — added in P4.f verifier remediation
+    "receta", "recetas", "ingredientes", "cocinar", "cocina", "hornear", "horno",
+    "azúcar", "azucar", "harina", "huevos", "leche", "flan", "tortilla",
+    # Weather
     "weather", "temperature", "forecast",
+    "tiempo atmosférico", "clima", "lluvia",
+    # Math / homework
     "math", "matemática", "matematica", "calcula", "raíz cuadrada", "raiz cuadrada",
-    "tarea", "homework",
-    "election", "elección", "eleccion", "vote", "voto",
-    "stock", "stocks", "crypto", "bitcoin",
-    "movie", "película", "pelicula", "music", "música", "musica",
+    "tarea", "homework", "deber escolar",
+    # Politics / voting
+    "election", "elección", "eleccion", "vote", "voto", "política",
+    # Finance / crypto
+    "stock", "stocks", "crypto", "bitcoin", "acciones bursátiles", "cripto",
+    # Entertainment
+    "movie", "película", "pelicula", "music", "música", "musica", "serie de tv",
 })
 
 # Refusal signal phrases — indicate the response is refusing something.
