@@ -274,6 +274,7 @@ anti-abuse (id pinning). Document if this becomes a concern as the platform scal
 
 ### F8 — Silent audit write failures (LOW)
 
+
 Four `except Exception: pass` sites in `fpl_server.py` swallowed audit write
 failures silently.
 
@@ -281,3 +282,67 @@ failures silently.
 `_LOG.exception("audit write failed: %s", _exc)`. The `except` still continues
 (audit failure must never crash the endpoint), but production now has an observable
 signal via the ERROR log level.
+
+---
+
+## Off-topic Defense Layers (P4)
+
+Implemented in `architectural-pivot` branch, P4 sprint. Adds Layer D to the
+existing three-layer off-topic stack and tightens the evaluator SAFE axis.
+
+### Four-layer stack
+
+| Layer | What it does | Where it lives |
+|-------|-------------|----------------|
+| A | `web_fetch` URL allowlist (11 domains) + SSRF guard | `fpl_grounded_assistant/web_fetch.py` (P2.7, commit `1044c58`) |
+| B | `SOURCE_SELECTION_PROMPT` classifies queries as `OFF_TOPIC` and refuses | `fpl_grounded_assistant/llm_layer.py`, `_SYSTEM_PROMPT` (P1.b, commit `5f3dd13`) |
+| C | `TOOL_OUTPUT_TRUST` defensive framing in `_SYSTEM_PROMPT` | `fpl_grounded_assistant/llm_layer.py` (P1.f.1, commit `00a1607`) |
+| D | Heuristic keyword-ratio detector + evaluator SAFE-axis tightening | `fpl_grounded_assistant/off_topic.py` + `evaluator.py` (P4, this sprint) |
+
+### Layer D: off_topic.py
+
+`packages/fpl-grounded-assistant/fpl_grounded_assistant/off_topic.py`
+
+Two pure functions, no LLM call, no I/O:
+
+- `is_off_topic_response(text, *, threshold=0.5) → (bool, float, dict)`:
+  Counts keyword hits from two disjoint sets (_FPL_TOPIC_KEYWORDS and
+  _OFF_TOPIC_KEYWORDS). Score = off_topic_hits / (off_topic_hits + fpl_hits + 1).
+  If score >= threshold → flagged. Returns (is_off_topic, score, diagnostic_counts).
+
+- `contains_off_topic_solution(text) → bool`:
+  Stricter check for the "refuse-but-answer" failure mode: True only when
+  the response contains a refusal phrase AND an off-topic keyword AND an
+  answer pattern (e.g. "the answer is", "= "). Catches LLM slip where it
+  correctly refuses but also provides the answer anyway.
+
+### Layer D: evaluator SAFE-axis tightening
+
+`packages/fpl-grounded-assistant/fpl_grounded_assistant/evaluator.py`
+
+Three changes:
+
+1. `_EVALUATOR_SYSTEM_PROMPT` SAFE axis now explicitly documents the OFF-TOPIC
+   rule with examples (recipes, math, weather, programming help, politics, etc.)
+   and instructs the judge to flag SAFE=false with a specific refusal-redirect
+   feedback message.
+
+2. `EvaluatorVerdict` gains an additive `off_topic_score: float = 0.0` field.
+   No existing field changed. Frozen dataclass — always reconstructed.
+
+3. `evaluate_response()` runs `is_off_topic_response(primary_response)` AFTER
+   the LLM verdict. If LLM judged SAFE=true BUT heuristic score > 0.7
+   (high confidence), the verdict is overridden to SAFE=false with feedback:
+   "Heuristic flagged off-topic content. Refuse off-topic; stay within FPL/football."
+   The heuristic is a SAFETY NET only — the LLM's SOURCE_SELECTION (Layer B)
+   is the primary classifier.
+
+### Design constraints
+
+- No false positives on legitimate FPL terms ("captain", "bench boost",
+  "differential", etc. are all in `_FPL_TOPIC_KEYWORDS` — they increase the
+  on-topic signal, never the off-topic signal).
+- No new dependencies — stdlib only.
+- Heuristic does NOT affect the fail-open path (client=None returns
+  `_FAIL_OPEN` before any heuristic call).
+- `EvaluatorVerdict` change is strictly additive.

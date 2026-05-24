@@ -12,6 +12,8 @@ import sys
 from dataclasses import dataclass, field
 from typing import Any
 
+from fpl_grounded_assistant.off_topic import is_off_topic_response
+
 _LOG = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -45,6 +47,10 @@ class EvaluatorVerdict:
     safe:
         No off-topic content; player recommendations include status checks.
         None when fail-open.
+    off_topic_score:
+        Heuristic off-topic score from Layer D (0.0–1.0). 0.0 = fully on-topic;
+        1.0 = fully off-topic. Populated even on fail-open (always 0.0 by default).
+        The LLM SAFE axis is primary; this is the fail-safe tie-breaker.
     retry_feedback:
         One-sentence guidance for the primary LLM to fix the response.
         Populated only when approved=False.
@@ -59,6 +65,7 @@ class EvaluatorVerdict:
     safe:            bool | None = None
     retry_feedback:  str | None  = None
     tokens_used:     int         = 0
+    off_topic_score: float       = 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -86,6 +93,16 @@ _EVALUATOR_SYSTEM_PROMPT: str = (
     "  GROUNDED  every factual claim cites a tool result (player stats, fixtures, news, etc.)\n"
     "  COMPLETE  answer addresses what the user asked (no missing parts)\n"
     "  SAFE      no off-topic content; no player recommendations missing minutes_played_season + status check; no OFF_TOPIC info\n"
+    "            *** OFF-TOPIC RULE (strict): if the primary response contains content unrelated to\n"
+    "            Fantasy Premier League or English football — recipes, math problems, weather,\n"
+    "            general knowledge, programming help, politics, crypto, movies, music, homework —\n"
+    "            flag SAFE=false with retry_feedback='Response strayed off-topic. Refuse politely\n"
+    "            in user_lang and offer to help with FPL.' ***\n"
+    "            Examples of off-topic content to flag: recipes (ingredients, cooking steps),\n"
+    "            math problems (calculations, square roots, equations), weather forecasts,\n"
+    "            general knowledge questions (history, science, geography), programming help,\n"
+    "            anything not directly about FPL / English football / players / fixtures / chips /\n"
+    "            transfers / gameweeks / team management.\n"
     "\n"
     "OUTPUT FORMAT (JSON, no prose):\n"
     '  {"grounded": true|false, "complete": true|false, "safe": true|false,\n'
@@ -96,6 +113,7 @@ _EVALUATOR_SYSTEM_PROMPT: str = (
     "  - If any axis fails → retry_feedback = ONE sentence telling primary what to fix\n"
     "  - Be strict on GROUNDED: claims like \"player X has good form\" without a tool call citing form data → not grounded\n"
     "  - Be strict on SAFE: a player recommendation without verified minutes_played_season > 0 → not safe\n"
+    "  - Be strict on SAFE (off-topic): any response that answers or partially answers a non-FPL question → not safe\n"
     "  - Don't rewrite the answer. Only judge + feedback."
 )
 
@@ -306,6 +324,7 @@ def _parse_verdict(raw_text: str | None, tokens_used: int) -> EvaluatorVerdict |
         safe=s,
         retry_feedback=retry_feedback,
         tokens_used=tokens_used,
+        off_topic_score=0.0,  # populated by evaluate_response after heuristic check
     )
 
 
@@ -373,5 +392,48 @@ def evaluate_response(
         if raw_text is not None:
             print(f"[evaluator] could not parse JSON verdict from: {raw_text!r}", file=sys.stderr)
         return _FAIL_OPEN
+
+    # ------------------------------------------------------------------
+    # Layer D: heuristic off-topic tie-breaker (safety net only).
+    # The LLM SAFE axis is primary. The heuristic fires only when the LLM
+    # approved the response (SAFE=true) but the keyword ratio strongly
+    # signals off-topic content (score > 0.7).
+    # ------------------------------------------------------------------
+    try:
+        ot_flagged, ot_score, _ot_diag = is_off_topic_response(primary_response)
+    except Exception as exc:  # noqa: BLE001
+        _LOG.warning("[evaluator] heuristic off-topic check failed: %s", exc)
+        ot_flagged, ot_score = False, 0.0
+
+    _HIGH_CONFIDENCE_THRESHOLD = 0.7
+
+    if verdict.safe is True and ot_score > _HIGH_CONFIDENCE_THRESHOLD:
+        # LLM said safe but heuristic strongly disagrees — override.
+        _LOG.debug(
+            "[evaluator] heuristic overrides SAFE=true → SAFE=false (off_topic_score=%.2f)",
+            ot_score,
+        )
+        verdict = EvaluatorVerdict(
+            approved=False,
+            grounded=verdict.grounded,
+            complete=verdict.complete,
+            safe=False,
+            retry_feedback=(
+                "Heuristic flagged off-topic content. Refuse off-topic; stay within FPL/football."
+            ),
+            tokens_used=verdict.tokens_used,
+            off_topic_score=ot_score,
+        )
+    else:
+        # No override — just populate off_topic_score.
+        verdict = EvaluatorVerdict(
+            approved=verdict.approved,
+            grounded=verdict.grounded,
+            complete=verdict.complete,
+            safe=verdict.safe,
+            retry_feedback=verdict.retry_feedback,
+            tokens_used=verdict.tokens_used,
+            off_topic_score=ot_score,
+        )
 
     return verdict
