@@ -1067,6 +1067,11 @@ def quota_status(user_id: str = "anonymous", tier: str = "free") -> dict[str, An
     --------------
     JSON object mirroring the ``QuotaCheck`` dataclass fields.
     """
+    # P6.2.f F-B fix: hash the query-param user_id the same way _extract_user_context
+    # hashes the X-User-Id header. Without this, the UI quota indicator calls
+    # GET /quota with the raw userId and gets a bucket that never matches the
+    # hashed key used by record_turn() — indicator shows perpetually empty quota.
+    user_id = hash_user_id(user_id)
     qc = get_quota_status(user_id, tier)
     return {
         "allowed":               qc.allowed,

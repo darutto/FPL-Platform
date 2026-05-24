@@ -322,8 +322,10 @@ ok(_body_h2.get("outcome") == OUTCOME_QUOTA_EXCEEDED,
 ok(_body_h2.get("supported") is False, "H2c: supported=False on quota exceeded")
 
 # H3: GET /quota returns current status JSON.
+# P6.2.f: record_turn uses the hash (server hashes at intake via _extract_user_context);
+# GET /quota also hashes the query param now. Both must use the same hash.
 reset_quota()
-record_turn("http_user_h3", 1000, "free")
+record_turn(hash_user_id("http_user_h3"), 1000, "free")
 _client_h3 = _make_http_client()
 _resp_h3 = _client_h3.get("/quota", params={"user_id": "http_user_h3", "tier": "free"})
 ok(_resp_h3.status_code == 200, "H3: GET /quota returns 200")

@@ -159,7 +159,31 @@ UI: `npm run build` clean; 12 quota-indicator tests + existing tests pass
 Phase verifiers + adversarial reviewers all APPROVE / CLEAR with documented
 remediations applied.
 
+## Deployment constraints
+
+These invariants must be maintained for correct behavior in production:
+
+1. **`--workers 1`** (or shared-store quota): the in-memory quota counter in
+   `quota.py` is per-process. With `uvicorn --workers N`, each worker has its
+   own counter; users effectively get N× their stated quota cap. Until quota
+   moves to a shared store (Redis, DB), the server MUST run single-worker.
+   Add `--workers 1` to your Railway/Dockerfile start command.
+
+2. **Set `FPL_SESSION_ENABLED=false`** for the initial Patreon launch unless
+   you have monitored that session traffic is within budget. Sessions record
+   `tokens=0` (graduation debt); only the message cap applies. Heavy session
+   users can exhaust tokens without being billed properly.
+
+3. **Set `FPL_ORCH_ENABLED=1`** to enable the orchestrator (plain text routes
+   to LLM). Without this, all plain-text queries return deterministic "unsupported"
+   — the whole architectural pivot is dormant.
+
+4. **Source `.env` before starting the backend**: `set -a && source .env && set +a && python fpl_server.py`.
+   Without `GOOGLE_API_KEY` (or `ANTHROPIC_API_KEY` if `DEFAULT_PROVIDER=anthropic`),
+   the LLM client is None and all orchestrator turns return unsupported.
+
 ## Next step
 
 Pre-merge **Adversarial Architecture Reviewer** (mandatory per plan §"Governance
-gates"). After CLEAR verdict → merge to main + push.
+gates") completed — verdict CONDITIONAL; P6.2.f remediation applied. After
+final re-check → merge to main + push.
