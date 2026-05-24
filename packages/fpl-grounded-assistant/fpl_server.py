@@ -1288,8 +1288,8 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
     # Quota accounting: deterministic turns count as 1 message but 0 tokens.
     try:
         _record_turn(user_id, _total_tokens, tier)
-    except Exception:  # noqa: BLE001
-        pass  # Quota record must never crash the endpoint.
+    except Exception as exc:  # noqa: BLE001
+        _LOG.exception("quota record_turn failed for user=%s: %s", user_id, exc)
 
     # Build audit entry from ask_v2 output.
     _routing_trace = ask_v2_dict.get("routing_trace") or {}
@@ -1487,8 +1487,8 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
     )
     try:
         _record_turn(_sess_user_id, 0, _sess_tier)
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as exc:  # noqa: BLE001
+        _LOG.exception("quota record_turn failed for session user=%s: %s", _sess_user_id, exc)
     _sess_audit_entry = make_audit_entry(
         user_id=_sess_user_id,
         tier=_sess_tier,
