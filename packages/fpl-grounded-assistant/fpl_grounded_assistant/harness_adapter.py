@@ -11,6 +11,7 @@ the module contract.
 Routing concerns (which ladder rung fires, which tool runs) live in
 ``harness.ask_v2()``.  UI-contract concerns (squad_context overrides,
 AskResponse field projection, debug-only routing_trace surfacing) live here.
+- resource_rows passthrough for @resource turns (added in A1 post-graduation).
 
 The two Adversarial-Reviewer-blessed semantic shifts (documented below):
 
@@ -68,9 +69,17 @@ def _to_dict(value: Any) -> Any:
 # ---------------------------------------------------------------------------
 
 # Branches where an LLM ran somewhere in the pipeline.
+# P1.a note: "classifier_rewrite" no longer fires from ask_v2() plain-text
+# path post-P1.a.  Kept here (legacy, defensive) because:
+#   (a) unit tests validate the adapter's projection contract with synthetic dicts,
+#   (b) session paths (ConversationSession.respond()) are out of P1.a scope
+#       and may still produce this branch via the old dispatcher ladder.
 _LLM_BRANCHES: frozenset[str] = frozenset({"orchestrator", "classifier_rewrite"})
 
 # Branches where the question was grounded (a deterministic tool ran end-to-end).
+# P1.a note: "route" and "classifier_rewrite" no longer fire for plain text
+# from ask_v2() post-P1.a.  Kept here (legacy, defensive) for the same reasons
+# as _LLM_BRANCHES above.
 _GROUNDED_BRANCHES: frozenset[str] = frozenset(
     {"route", "classifier_rewrite", "orchestrator", "prompt"}
 )
@@ -250,6 +259,9 @@ def to_ask_response(
     if classification_source == "intent_hint":
         route_source: str | None = "intent_hint"
     elif branch == "classifier_rewrite":
+        # P1.a legacy: "classifier_rewrite" no longer fires from ask_v2() plain-text
+        # path post-P1.a.  Logic kept for synthetic unit tests (G1 section J/L) and
+        # session paths that may still traverse the old dispatcher ladder.
         # Derive confidence band to match dispatcher semantics (Fix A, G1.4).
         conf = routing_trace.get("classifier_confidence")
         if conf is not None and conf >= _ADAPTER_HIGH_CONFIDENCE:
@@ -261,6 +273,8 @@ def to_ask_response(
             # but fall back gracefully.
             route_source = "llm_classifier"
     elif branch == "route":
+        # P1.a legacy: "route" branch no longer fires for plain text from ask_v2()
+        # post-P1.a.  Kept defensive for synthetic unit tests and session paths.
         # Deterministic path: route() succeeded on the first try, no LLM involved.
         route_source = "deterministic"
     else:
@@ -334,6 +348,8 @@ def to_ask_response(
         team_schedule=_to_dict(d.get("team_schedule")),
         position_fixture_run=_to_dict(d.get("position_fixture_run")),
         transfer_suggestion=_to_dict(d.get("transfer_suggestion")),
+        # A1 (post-graduation): pure passthrough — adapter is still pure mapping; no transformation, no LLM.
+        resource_rows=d.get("resource_rows"),
         # routing audit
         orch_outcome=orch_outcome,
         degraded=degraded,

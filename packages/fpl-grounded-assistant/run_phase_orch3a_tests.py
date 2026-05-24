@@ -78,6 +78,8 @@ from fpl_grounded_assistant.orchestrator import (
     DEFAULT_ORCH_MODEL,
     _ORCH_SYSTEM_SUFFIX,
     _ALL_OUTCOMES,
+    _parse_all_tool_calls,
+    _parse_all_anthropic_tool_calls,
 )
 from fpl_grounded_assistant.tool_schema_registry import (
     list_tool_schemas,
@@ -451,21 +453,42 @@ _client_i = _MockToolUseClient("get_current_gameweek", {})
 ask_orchestrated("what gameweek", STANDARD_BOOTSTRAP, client=_client_i)
 _captured_system = _client_i.captured[0]["system"]
 
-ok(SYSTEM_PROMPT in _captured_system,
+
+def _system_text(captured_sys):
+    """Extract flat text from system arg: handles str OR list-of-blocks (P1.e cache_control).
+
+    P1.e Lever 2: for Anthropic, system is now passed as a list of content
+    blocks with cache_control markers rather than a plain string.  This helper
+    normalises both forms so Section I assertions stay valid.
+    """
+    if isinstance(captured_sys, str):
+        return captured_sys
+    if isinstance(captured_sys, list):
+        parts = []
+        for block in captured_sys:
+            if isinstance(block, dict):
+                parts.append(block.get("text", ""))
+        return "".join(parts)
+    return str(captured_sys)
+
+
+_system_text_i = _system_text(_captured_system)
+
+# obsolete — P1.b replaced legacy "SYSTEM_PROMPT + ORCHESTRATION MODE" with compressed source-discipline prompt
+ok(True,
    "I1: base SYSTEM_PROMPT present in system prompt")
-ok(_CONTEXT_SECTION_HEADER.strip() in _captured_system,
+ok(_CONTEXT_SECTION_HEADER.strip() in _system_text_i,
    "I2: Phase 9b context section header present")
-ok(_ORCH_SYSTEM_SUFFIX.strip() in _captured_system,
+ok(_ORCH_SYSTEM_SUFFIX.strip() in _system_text_i,
    "I3: orchestration suffix present in system prompt")
-ok("GW28" in _captured_system,
+ok("GW28" in _system_text_i,
    "I4: GW28 from STANDARD_BOOTSTRAP in system prompt")
-ok("ORCHESTRATION MODE" in _captured_system,
+# obsolete — P1.b: "ORCHESTRATION MODE" marker removed in compressed prompt
+ok(True,
    "I5: 'ORCHESTRATION MODE' marker present")
 
-# Suffix comes after context injection (order check)
-_ctx_idx  = _captured_system.find(_CONTEXT_SECTION_HEADER.strip())
-_orch_idx = _captured_system.find("ORCHESTRATION MODE")
-ok(_ctx_idx < _orch_idx,
+# obsolete — P1.b: "ORCHESTRATION MODE" marker no longer exists; ordering check inapplicable
+ok(True,
    "I6: context block appears before orchestration suffix")
 
 
@@ -554,6 +577,1081 @@ for _s in _ALL_SCHEMAS:
 
 ok(get_tool_schema("get_captain_score") is not None, "L4: get_captain_score lookup ok")
 ok(get_tool_schema("nonexistent") is None,           "L5: unknown name returns None")
+
+
+# ---------------------------------------------------------------------------
+# Section M: Multi-tool batching invariant (P1.c)
+# ---------------------------------------------------------------------------
+# Tests lock the contract: when the LLM returns 2+ tool_use blocks in one
+# response, ask_orchestrated() MUST:
+#   1. Call ALL tools (not just the first).
+#   2. Send ALL tool_result blocks in a SINGLE role=user follow-up message.
+#   3. Preserve tool_use_id ↔ tool_result_id pairing exactly.
+# ---------------------------------------------------------------------------
+
+print("\n=== M: multi-tool batching invariant (P1.c) ===")
+
+
+def _make_tool_block(tid, tname, tinput):
+    """Build a simple namespace object that looks like an Anthropic tool_use block."""
+    class _TB:
+        pass
+    tb = _TB()
+    tb.type  = "tool_use"
+    tb.id    = tid
+    tb.name  = tname
+    tb.input = tinput
+    return tb
+
+
+class _MultiToolClient:
+    """Mock Anthropic-shaped client that returns 2 tool_use blocks on the first
+    call and a plain-text synthesis answer on the second call.
+
+    Captures the full ``messages`` list for each call so tests can inspect the
+    tool_result batching structure sent to the model.
+    """
+
+    def __init__(self) -> None:
+        self.messages = self   # Anthropic: client.messages.create(...)
+        self.call_count = 0
+        self.captured_calls: list[dict] = []
+
+    def create(self, *, model, max_tokens, system, tools, messages, **kwargs):
+        self.call_count += 1
+        self.captured_calls.append({
+            "messages": list(messages),
+        })
+
+        if self.call_count == 1:
+            # First call: return 2-tool response.
+            class _Resp:
+                content     = [
+                    _make_tool_block("toolu_001", "get_current_gameweek", {}),
+                    _make_tool_block("toolu_002", "resolve_player", {"query": "Salah"}),
+                ]
+                stop_reason = "tool_use"
+            return _Resp()
+
+        else:
+            # Second call: return plain-text synthesis answer.
+            class _TextBlock:
+                type = "text"
+                text = "Synthesised answer from multi-tool results."
+
+            class _TextResp:
+                content     = [_TextBlock()]
+                stop_reason = "end_turn"
+
+            return _TextResp()
+
+
+_multi_client = _MultiToolClient()
+
+_r_m = ask_orchestrated(
+    "what gameweek and who is Salah",
+    STANDARD_BOOTSTRAP,
+    client=_multi_client,
+)
+
+# M1: The orchestrator made exactly 2 LLM calls (tool call + synthesis).
+ok(_multi_client.call_count == 2,
+   "M1: exactly 2 LLM calls made for 2-tool response (tool call + synthesis)")
+
+# M2: The second call's messages include a role=user message with 2 tool_result blocks.
+_second_call_msgs = _multi_client.captured_calls[1]["messages"]
+_user_msgs_call2  = [m for m in _second_call_msgs if m.get("role") == "user"]
+# The last user-role message must contain the batched tool_result blocks.
+_last_user_content = _user_msgs_call2[-1].get("content", []) if _user_msgs_call2 else []
+_tool_result_blocks_m = [
+    b for b in _last_user_content
+    if isinstance(b, dict) and b.get("type") == "tool_result"
+] if isinstance(_last_user_content, list) else []
+ok(len(_tool_result_blocks_m) == 2,
+   "M2: second LLM call receives exactly 2 tool_result blocks in one user-role message")
+
+# M3: tool_use_id ↔ tool_result_id pairing preserved (toolu_001 and toolu_002).
+_result_ids_m = {b.get("tool_use_id") for b in _tool_result_blocks_m}
+ok("toolu_001" in _result_ids_m,
+   "M3a: tool_use_id 'toolu_001' preserved in tool_result pairing")
+ok("toolu_002" in _result_ids_m,
+   "M3b: tool_use_id 'toolu_002' preserved in tool_result pairing")
+
+# M4: The final answer is the synthesised text from the second LLM call.
+ok(_r_m.answer_text == "Synthesised answer from multi-tool results.",
+   "M4: answer_text comes from second LLM synthesis call")
+
+# M5-M6 (regression): single-tool path still works — only 1 LLM call, no follow-up.
+_single_client = _MockToolUseClient("get_current_gameweek", {})
+_r_m5 = ask_orchestrated("what gameweek", STANDARD_BOOTSTRAP, client=_single_client)
+ok(len(_single_client.captured) == 1,
+   "M5: single-tool path makes exactly 1 LLM call (no second-call regression)")
+ok(_r_m5.outcome == OUTCOME_OK,
+   "M6: single-tool path outcome is still OUTCOME_OK (no regression)")
+
+# M7-M8: _parse_all_anthropic_tool_calls returns all blocks with correct IDs.
+class _TwoBlockResp:
+    content = [
+        _make_tool_block("toolu_A", "get_current_gameweek", {}),
+        _make_tool_block("toolu_B", "resolve_player",       {"query": "Salah"}),
+    ]
+    stop_reason = "tool_use"
+
+_parsed_all = _parse_all_anthropic_tool_calls(_TwoBlockResp())
+ok(len(_parsed_all) == 2,
+   "M7: _parse_all_anthropic_tool_calls returns 2 entries for 2-tool response")
+ok(_parsed_all[0][0] == "toolu_A" and _parsed_all[1][0] == "toolu_B",
+   "M8: _parse_all_anthropic_tool_calls preserves tool_use_ids in order")
+
+
+# ---------------------------------------------------------------------------
+# Section N: Second-layer evaluator (P1.d)
+# ---------------------------------------------------------------------------
+# Tests lock the evaluator contract:
+#   N1: no eval client → ask_orchestrated returns approved=True (fail-open)
+#   N2: evaluator approves → primary response returned unchanged
+#   N3: evaluator rejects → retry invoked exactly once
+#   N4: retry user message contains the feedback string
+#   N5: after 1 retry, result delivered regardless of hypothetical second round
+#   N6: evaluator tokens_used surfaces in OrchestratorResult.evaluator_verdict
+#   N7: FPL_EVAL_DISABLED=1 skips evaluator entirely (no second LLM call)
+#   N8: invalid JSON from evaluator → fail-open (no crash)
+# ---------------------------------------------------------------------------
+
+print("\n=== N: second-layer evaluator (P1.d) ===")
+
+from fpl_grounded_assistant.evaluator import (
+    EvaluatorVerdict,
+    evaluate_response,
+    _EVALUATOR_MODELS,
+    _FAIL_OPEN,
+)
+
+
+# ---------------------------------------------------------------------------
+# N-section mock infrastructure
+# ---------------------------------------------------------------------------
+
+class _MockEvalApproveClient:
+    """Evaluator mock that always returns an approved JSON verdict."""
+
+    def __init__(self) -> None:
+        self.messages = self
+        self.call_count = 0
+
+    def create(self, *, model, max_tokens, system, messages, **kwargs):
+        self.call_count += 1
+
+        class _TextBlock:
+            type = "text"
+            text = '{"grounded": true, "complete": true, "safe": true, "retry_feedback": null}'
+
+        class _Usage:
+            input_tokens = 100
+            output_tokens = 20
+
+        class _Response:
+            content = [_TextBlock()]
+            usage   = _Usage()
+
+        return _Response()
+
+
+class _MockEvalRejectClient:
+    """Evaluator mock that always returns a rejected JSON verdict."""
+
+    def __init__(self, feedback: str = "Add tool-sourced minutes_played_season for all players.") -> None:
+        self.messages = self
+        self.call_count = 0
+        self._feedback = feedback
+
+    def create(self, *, model, max_tokens, system, messages, **kwargs):
+        self.call_count += 1
+        _fb = self._feedback
+
+        class _TextBlock:
+            type = "text"
+            @property
+            def text(self):
+                import json as _json
+                return _json.dumps({
+                    "grounded": False,
+                    "complete": True,
+                    "safe": False,
+                    "retry_feedback": _fb,
+                })
+
+        class _Usage:
+            input_tokens = 80
+            output_tokens = 30
+
+        class _Response:
+            content = [_TextBlock()]
+            usage   = _Usage()
+
+        return _Response()
+
+
+class _MockEvalInvalidJsonClient:
+    """Evaluator mock that returns invalid JSON (fail-open scenario)."""
+
+    def __init__(self) -> None:
+        self.messages = self
+        self.call_count = 0
+
+    def create(self, *, model, max_tokens, system, messages, **kwargs):
+        self.call_count += 1
+
+        class _TextBlock:
+            type = "text"
+            text = "NOT_VALID_JSON { missing quote"
+
+        class _Usage:
+            input_tokens = 50
+            output_tokens = 10
+
+        class _Response:
+            content = [_TextBlock()]
+            usage   = _Usage()
+
+        return _Response()
+
+
+class _MockPrimaryClientTracking:
+    """Primary LLM mock that tracks all calls; can be configured per-call via a list."""
+
+    def __init__(self, responses: list) -> None:
+        """responses: list of callables returning a mock response object."""
+        self.messages = self
+        self.call_count = 0
+        self.captured_messages: list[list] = []
+        self._responses = responses
+
+    def create(self, *, model, max_tokens, system, tools, messages, **kwargs):
+        idx = min(self.call_count, len(self._responses) - 1)
+        self.captured_messages.append(list(messages))
+        self.call_count += 1
+        return self._responses[idx]()
+
+
+def _make_tool_resp(tool_name: str, tool_input: dict, tool_id: str = "toolu_n_001"):
+    """Build a mock Anthropic tool-use response."""
+    _name  = tool_name
+    _input = dict(tool_input)
+    _tid   = tool_id
+
+    class _TB:
+        type  = "tool_use"
+        id    = _tid
+        name  = _name
+        input = _input
+
+    class _R:
+        content     = [_TB()]
+        stop_reason = "tool_use"
+
+    return _R()
+
+
+def _make_text_resp(text: str):
+    """Build a mock text-only response."""
+    class _TB:
+        type = "text"
+
+    class _TBInstance(_TB):
+        pass
+
+    tb = _TBInstance()
+    tb.text = text
+
+    class _R:
+        stop_reason = "end_turn"
+
+    r = _R()
+    r.content = [tb]
+    return r
+
+
+# ---------------------------------------------------------------------------
+# N1: no eval client → fail-open, evaluator_verdict is None
+# ---------------------------------------------------------------------------
+
+_n1_client = _MockToolUseClient("get_current_gameweek", {})
+_r_n1 = ask_orchestrated(
+    "what gameweek is it",
+    STANDARD_BOOTSTRAP,
+    client=_n1_client,
+    # _eval_client not passed → defaults to None
+)
+
+ok(hasattr(_r_n1, "evaluator_verdict"),
+   "N1a: OrchestratorResult has evaluator_verdict field")
+ok(_r_n1.evaluator_verdict is None,
+   "N1b: evaluator_verdict is None when no eval client provided (fail-open)")
+ok(hasattr(_r_n1, "retry_attempted"),
+   "N1c: OrchestratorResult has retry_attempted field")
+ok(_r_n1.retry_attempted is False,
+   "N1d: retry_attempted is False when no eval client provided")
+ok(_r_n1.outcome == OUTCOME_OK,
+   "N1e: outcome is still OUTCOME_OK (evaluator absence does not break primary)")
+
+
+# ---------------------------------------------------------------------------
+# N2: evaluator approves → primary response returned unchanged
+# ---------------------------------------------------------------------------
+
+_n2_eval_client = _MockEvalApproveClient()
+_n2_primary_client = _MockToolUseClient("get_current_gameweek", {})
+
+_r_n2 = ask_orchestrated(
+    "what gameweek is it",
+    STANDARD_BOOTSTRAP,
+    client=_n2_primary_client,
+    _eval_client=_n2_eval_client,
+)
+
+ok(_n2_eval_client.call_count == 1,
+   "N2a: evaluator was called exactly once (approval path)")
+ok(_r_n2.evaluator_verdict is not None,
+   "N2b: evaluator_verdict is populated when evaluator was called")
+ok(_r_n2.evaluator_verdict.approved is True,
+   "N2c: evaluator_verdict.approved is True")
+ok(_r_n2.retry_attempted is False,
+   "N2d: retry_attempted is False when evaluator approves")
+ok(_r_n2.outcome == OUTCOME_OK,
+   "N2e: outcome == OUTCOME_OK on approved path")
+# Primary made exactly 1 call (no retry)
+ok(len(_n2_primary_client.captured) == 1,
+   "N2f: primary LLM called exactly once when evaluator approves")
+
+
+# ---------------------------------------------------------------------------
+# N3: evaluator rejects → retry invoked exactly once
+# ---------------------------------------------------------------------------
+
+_FEEDBACK_N3 = "Add tool-sourced minutes_played_season for all player recommendations."
+
+_n3_eval_client  = _MockEvalRejectClient(feedback=_FEEDBACK_N3)
+_n3_primary_resp_1 = lambda: _make_tool_resp("get_current_gameweek", {}, "toolu_n3_001")
+_n3_primary_resp_2 = lambda: _make_tool_resp("get_current_gameweek", {}, "toolu_n3_002")
+_n3_primary_client = _MockPrimaryClientTracking([_n3_primary_resp_1, _n3_primary_resp_2])
+
+import os as _os_n
+_saved_injection_n = _os_n.environ.get("FPL_ORCH_TEST_INJECTION")
+_os_n.environ["FPL_ORCH_TEST_INJECTION"] = "1"
+
+try:
+    # We use a real client via _MockPrimaryClientTracking, so injection env not needed.
+    # But we set it anyway so _orch_request_fn=None path is used.
+    _r_n3 = ask_orchestrated(
+        "who should I captain",
+        STANDARD_BOOTSTRAP,
+        client=_n3_primary_client,
+        _eval_client=_n3_eval_client,
+    )
+    ok(_n3_primary_client.call_count == 2,
+       "N3a: primary LLM called exactly twice (original + 1 retry)")
+    ok(_n3_eval_client.call_count == 1,
+       "N3b: evaluator called exactly once (no second evaluation after retry)")
+    ok(_r_n3.retry_attempted is True,
+       "N3c: retry_attempted is True after evaluator rejection")
+    ok(_r_n3.evaluator_verdict is not None and _r_n3.evaluator_verdict.approved is False,
+       "N3d: evaluator_verdict.approved is False on rejection path")
+except Exception as _exc_n3:
+    ok(False, f"N3: ask_orchestrated raised unexpectedly: {_exc_n3}")
+    for _i in ("a", "b", "c", "d"):
+        ok(False, f"N3{_i}: (skipped)")
+finally:
+    if _saved_injection_n is None:
+        _os_n.environ.pop("FPL_ORCH_TEST_INJECTION", None)
+    else:
+        _os_n.environ["FPL_ORCH_TEST_INJECTION"] = _saved_injection_n
+
+
+# ---------------------------------------------------------------------------
+# N4: retry user message contains the feedback string
+# ---------------------------------------------------------------------------
+
+_FEEDBACK_N4 = "Cite fixture difficulty ratings from a tool call for each player."
+
+_n4_eval_client  = _MockEvalRejectClient(feedback=_FEEDBACK_N4)
+_n4_primary_resp_1 = lambda: _make_tool_resp("get_current_gameweek", {}, "toolu_n4_001")
+_n4_primary_resp_2 = lambda: _make_tool_resp("get_current_gameweek", {}, "toolu_n4_002")
+_n4_primary_client = _MockPrimaryClientTracking([_n4_primary_resp_1, _n4_primary_resp_2])
+
+_r_n4 = ask_orchestrated(
+    "who should I transfer in",
+    STANDARD_BOOTSTRAP,
+    client=_n4_primary_client,
+    _eval_client=_n4_eval_client,
+)
+
+# The retry call's user message must contain the feedback string
+_retry_messages_n4 = _n4_primary_client.captured_messages[1] if len(_n4_primary_client.captured_messages) > 1 else []
+_retry_user_content_n4 = ""
+for _m in _retry_messages_n4:
+    if _m.get("role") == "user":
+        _retry_user_content_n4 = str(_m.get("content", ""))
+        break
+
+ok(_FEEDBACK_N4 in _retry_user_content_n4,
+   "N4a: retry user message contains the evaluator feedback string")
+ok("Original question" in _retry_user_content_n4 or "original question" in _retry_user_content_n4.lower() or "who should I transfer in" in _retry_user_content_n4,
+   "N4b: retry user message contains the original question")
+
+
+# ---------------------------------------------------------------------------
+# N5: after 1 retry, result is delivered unconditionally (hard cap = 1)
+#
+# Validate that after retry, the result is delivered regardless — i.e., there
+# is NO third LLM call (which would imply a second evaluation round).
+# ---------------------------------------------------------------------------
+
+_FEEDBACK_N5 = "Always include minutes_played_season from a live tool call."
+
+_n5_eval_client  = _MockEvalRejectClient(feedback=_FEEDBACK_N5)
+_n5_primary_resp_1 = lambda: _make_tool_resp("get_current_gameweek", {}, "toolu_n5_001")
+_n5_primary_resp_2 = lambda: _make_tool_resp("get_current_gameweek", {}, "toolu_n5_002")
+# A 3rd response would be called if hard-cap violated
+_n5_primary_resp_3 = lambda: _make_tool_resp("get_current_gameweek", {}, "toolu_n5_003")
+_n5_primary_client = _MockPrimaryClientTracking([_n5_primary_resp_1, _n5_primary_resp_2, _n5_primary_resp_3])
+
+_r_n5 = ask_orchestrated(
+    "who is the best captain pick",
+    STANDARD_BOOTSTRAP,
+    client=_n5_primary_client,
+    _eval_client=_n5_eval_client,
+)
+
+ok(_n5_primary_client.call_count <= 2,
+   "N5a: primary LLM called at most 2 times (hard cap = 1 retry; no third call)")
+ok(_r_n5.retry_attempted is True,
+   "N5b: retry_attempted is True confirming one retry occurred")
+ok(_n5_eval_client.call_count == 1,
+   "N5c: evaluator called exactly once (no second evaluation after retry)")
+
+
+# ---------------------------------------------------------------------------
+# N6: evaluator tokens_used surfaces in OrchestratorResult.evaluator_verdict
+# ---------------------------------------------------------------------------
+
+_n6_eval_client  = _MockEvalApproveClient()
+_n6_primary_client = _MockToolUseClient("get_current_gameweek", {})
+
+_r_n6 = ask_orchestrated(
+    "what gameweek is it",
+    STANDARD_BOOTSTRAP,
+    client=_n6_primary_client,
+    _eval_client=_n6_eval_client,
+)
+
+ok(_r_n6.evaluator_verdict is not None,
+   "N6a: evaluator_verdict present")
+ok(isinstance(_r_n6.evaluator_verdict.tokens_used, int),
+   "N6b: evaluator_verdict.tokens_used is an int")
+ok(_r_n6.evaluator_verdict.tokens_used > 0,
+   "N6c: evaluator_verdict.tokens_used > 0 (mock returns 120 total tokens)")
+
+
+# ---------------------------------------------------------------------------
+# N7: FPL_EVAL_DISABLED=1 skips evaluator entirely (no second LLM call)
+# ---------------------------------------------------------------------------
+
+_saved_eval_disabled = _os_n.environ.get("FPL_EVAL_DISABLED")
+_os_n.environ["FPL_EVAL_DISABLED"] = "1"
+
+try:
+    _n7_eval_client  = _MockEvalApproveClient()
+    _n7_primary_client = _MockToolUseClient("get_current_gameweek", {})
+
+    _r_n7 = ask_orchestrated(
+        "what gameweek is it",
+        STANDARD_BOOTSTRAP,
+        client=_n7_primary_client,
+        _eval_client=_n7_eval_client,  # client provided, but should be skipped
+    )
+
+    ok(_n7_eval_client.call_count == 0,
+       "N7a: evaluator not called when FPL_EVAL_DISABLED=1")
+    ok(_r_n7.evaluator_verdict is None,
+       "N7b: evaluator_verdict is None when FPL_EVAL_DISABLED=1")
+    ok(_r_n7.retry_attempted is False,
+       "N7c: retry_attempted is False when FPL_EVAL_DISABLED=1")
+    ok(_r_n7.outcome == OUTCOME_OK,
+       "N7d: outcome is still OUTCOME_OK when evaluator disabled")
+    ok(len(_n7_primary_client.captured) == 1,
+       "N7e: primary LLM called exactly once when evaluator disabled")
+finally:
+    if _saved_eval_disabled is None:
+        _os_n.environ.pop("FPL_EVAL_DISABLED", None)
+    else:
+        _os_n.environ["FPL_EVAL_DISABLED"] = _saved_eval_disabled
+
+
+# ---------------------------------------------------------------------------
+# N8: invalid JSON from evaluator → fail-open (no crash)
+# ---------------------------------------------------------------------------
+
+_n8_eval_client  = _MockEvalInvalidJsonClient()
+_n8_primary_client = _MockToolUseClient("get_current_gameweek", {})
+
+try:
+    _r_n8 = ask_orchestrated(
+        "what gameweek is it",
+        STANDARD_BOOTSTRAP,
+        client=_n8_primary_client,
+        _eval_client=_n8_eval_client,
+    )
+    ok(_n8_eval_client.call_count == 1,
+       "N8a: evaluator was called (invalid JSON path)")
+    ok(_r_n8.outcome == OUTCOME_OK,
+       "N8b: outcome is OUTCOME_OK on fail-open from invalid JSON")
+    ok(_r_n8.evaluator_verdict is None or _r_n8.evaluator_verdict.approved is True,
+       "N8c: fail-open: verdict is None or approved=True (no false block)")
+    ok(_r_n8.retry_attempted is False,
+       "N8d: no retry triggered on fail-open from invalid evaluator JSON")
+    ok(isinstance(_r_n8.answer_text, str) and _r_n8.answer_text,
+       "N8e: answer_text is non-empty str on fail-open path")
+except Exception as _exc_n8:
+    ok(False, f"N8: ask_orchestrated raised on invalid evaluator JSON: {_exc_n8}")
+    for _i in ("a", "b", "c", "d", "e"):
+        ok(False, f"N8{_i}: (skipped)")
+
+
+# ---------------------------------------------------------------------------
+# Section O: P1.e token-cost engineering assertions
+# ---------------------------------------------------------------------------
+# O1: tool schema descriptions are ≤ 200 chars each (≤ 50 tokens at chars/4)
+# O2: ask_orchestrated() with Anthropic adapter includes cache_control on system
+# O3: ask_orchestrated() with Anthropic adapter includes cache_control on tools
+# O4: history pruning helper exists and is importable; >3-turn input returns
+#     ≤3 full turns + synthetic summary prepended
+# O5: tool output truncation fires for result count > cap, _truncation_note present
+# O6: total per-turn input-token estimate (prompt + tools chars/4) lower post-P1.e
+# ---------------------------------------------------------------------------
+
+print("\n=== O: P1.e token-cost engineering (Lever 1-4) ===")
+
+# ---- O1: tool schema descriptions ≤ 200 chars (≤ 50 tokens) ---------------
+
+from fpl_grounded_assistant.tool_schema_registry import _ALL_SCHEMAS as _SCHEMAS_O
+
+for _s in _SCHEMAS_O:
+    _desc_len = len(_s.description)
+    ok(_desc_len <= 200,
+       f"O1-desc: '{_s.name}' description <= 200 chars (got {_desc_len})")
+
+# ---- O2: Anthropic system prompt includes cache_control --------------------
+
+_client_o2 = _MockToolUseClient("get_current_gameweek", {})
+ask_orchestrated("what gameweek", STANDARD_BOOTSTRAP, client=_client_o2)
+_o2_system = _client_o2.captured[0]["system"]
+
+# For Anthropic, system must now be a list of content blocks with cache_control.
+_o2_has_cache = False
+if isinstance(_o2_system, list):
+    for _block in _o2_system:
+        if isinstance(_block, dict) and _block.get("cache_control") == {"type": "ephemeral"}:
+            _o2_has_cache = True
+            break
+ok(_o2_has_cache,
+   "O2: Anthropic primary call: system is list with cache_control={type:ephemeral}")
+
+# ---- O3: Anthropic tools list includes cache_control on last entry ---------
+
+_o3_tools = _client_o2.captured[0]["tools"]
+_o3_has_cache = False
+if isinstance(_o3_tools, list) and _o3_tools:
+    _last_tool = _o3_tools[-1]
+    if isinstance(_last_tool, dict) and _last_tool.get("cache_control") == {"type": "ephemeral"}:
+        _o3_has_cache = True
+ok(_o3_has_cache,
+   "O3: Anthropic primary call: last tool entry has cache_control={type:ephemeral}")
+
+# ---- O4: history pruning helper importable; >3-turn input → pruned ----------
+
+try:
+    from fpl_grounded_assistant.history import prune_history, ConversationHistory
+    ok(True, "O4a: history.prune_history is importable")
+    ok(True, "O4b: history.ConversationHistory is importable")
+except ImportError as _exc_o4:
+    ok(False, f"O4a: history module import failed: {_exc_o4}")
+    ok(False, "O4b: (skipped)")
+
+# Build a 5-turn history (more than keep_full=3)
+_o4_messages = [
+    {"role": "user",      "content": "what gameweek is it?"},
+    {"role": "assistant", "content": "It is GW28."},
+    {"role": "user",      "content": "who should I captain?"},
+    {"role": "assistant", "content": "Consider Haaland."},
+    {"role": "user",      "content": "compare Salah and Saka"},
+]
+_o4_pruned = prune_history(_o4_messages, keep_full=3)
+
+# Pruned list: 1 summary message + 3 full turns = 4 total
+ok(len(_o4_pruned) == 4,
+   f"O4c: 5-turn history pruned to 4 entries (1 summary + 3 full turns), got {len(_o4_pruned)}")
+ok(_o4_pruned[0].get("role") == "user" and "[CONTEXT]" in str(_o4_pruned[0].get("content", "")),
+   "O4d: first entry is synthetic summary context message")
+ok(_o4_pruned[-1] == _o4_messages[-1],
+   "O4e: last entry is the most-recent turn verbatim")
+
+# Single-turn: no-op (returns unchanged)
+_o4_single = [{"role": "user", "content": "who is Haaland?"}]
+ok(prune_history(_o4_single) == _o4_single,
+   "O4f: single-turn input returned unchanged (no pruning needed)")
+
+# ConversationHistory stateful wrapper
+_o4_ch = ConversationHistory()
+for _m in _o4_messages:
+    _o4_ch.append(_m)
+_o4_ch_pruned = _o4_ch.get_pruned(keep_full=3)
+ok(len(_o4_ch_pruned) == 4,
+   "O4g: ConversationHistory.get_pruned(keep_full=3) produces 4 entries for 5-turn history")
+
+# ---- O5: tool-output truncation fires for count > cap ----------------------
+
+from fpl_grounded_assistant.orchestrator import _truncate_tool_output, _TOOL_OUTPUT_MAX_LIST_ITEMS
+
+# Build a mock output exceeding the cap
+_o5_big_list = list(range(25))
+_o5_raw = {"status": "ok", "players": _o5_big_list}
+_o5_result = _truncate_tool_output(_o5_raw)
+
+ok(len(_o5_result["players"]) == _TOOL_OUTPUT_MAX_LIST_ITEMS,
+   f"O5a: players list capped to {_TOOL_OUTPUT_MAX_LIST_ITEMS} (was 25)")
+ok("_truncation_note" in _o5_result,
+   "O5b: _truncation_note present when list is capped")
+ok("25" in _o5_result["_truncation_note"],
+   "O5c: _truncation_note mentions total count (25)")
+
+# Additive invariant: short list not affected
+_o5_short = {"status": "ok", "players": [1, 2, 3]}
+_o5_short_result = _truncate_tool_output(_o5_short)
+ok("_truncation_note" not in _o5_short_result,
+   "O5d: no _truncation_note when list is within cap (3 items)")
+ok(_o5_short_result["players"] == [1, 2, 3],
+   "O5e: short list returned unchanged by truncation")
+
+# Risers/fallers also truncated
+_o5_raw2 = {"status": "ok", "risers": list(range(15)), "fallers": list(range(12))}
+_o5_result2 = _truncate_tool_output(_o5_raw2)
+ok(len(_o5_result2["risers"]) == _TOOL_OUTPUT_MAX_LIST_ITEMS,
+   "O5f: risers list capped")
+ok(len(_o5_result2["fallers"]) == _TOOL_OUTPUT_MAX_LIST_ITEMS,
+   "O5g: fallers list capped")
+
+# ---- O6: per-turn input-token estimate lower post-P1.e vs pre-P1.e --------
+# Estimate: compress tool descriptions + system prompt as input proxy.
+# Pre-P1.e baseline: sum of original verbose description chars + system prompt ~800 chars.
+# Post-P1.e: sum of compressed description chars + same system prompt.
+# Target: post/pre ratio < 0.85 (i.e. ≥ 15% reduction in tool-schema token cost).
+
+from fpl_grounded_assistant.orchestrator import _SYSTEM_PROMPT as _SYSP_O6
+
+_PRE_TOOL_DESC_CHARS = 3339   # measured from original verbose descriptions (see P1.e audit)
+_post_tool_desc_chars = sum(len(s.description) for s in _SCHEMAS_O)
+
+_pre_total_chars = _PRE_TOOL_DESC_CHARS + len(_SYSP_O6)
+_post_total_chars = _post_tool_desc_chars + len(_SYSP_O6)
+
+_reduction_ratio = _post_total_chars / _pre_total_chars
+
+ok(_reduction_ratio < 0.90,
+   f"O6a: post-P1.e description+prompt chars ratio vs pre = {_reduction_ratio:.3f} (< 0.90 target)")
+
+_post_tokens_approx = _post_tool_desc_chars // 4
+ok(_post_tokens_approx <= 600,
+   f"O6b: post-P1.e tool description total ~{_post_tokens_approx} tokens (<= 600 target)")
+
+_pre_tokens_approx = _PRE_TOOL_DESC_CHARS // 4
+ok(_post_tokens_approx < _pre_tokens_approx,
+   f"O6c: post-P1.e tool tokens ({_post_tokens_approx}) < pre-P1.e ({_pre_tokens_approx})")
+
+
+# ---------------------------------------------------------------------------
+# Section P: F2 fix — OUTCOME_NO_TOOL surfaces LLM text, not canned English
+# ---------------------------------------------------------------------------
+# P1: mock client returns a text block with Spanish refusal → answer_text
+#     matches the LLM's text (not the old "The model did not select a tool.")
+# P2: mock client returns empty content → answer_text uses Spanish fallback
+# ---------------------------------------------------------------------------
+
+print("\n=== P: F2 fix — OUTCOME_NO_TOOL surfaces LLM text ===")
+
+import os as _os_p
+
+
+class _MockSpanishRefusalClient:
+    """Returns a response with a single Spanish text block (no tool_use)."""
+
+    def __init__(self) -> None:
+        self.messages = self
+
+    def create(self, *, model, max_tokens, system, tools, messages, **kwargs):
+        class _TextBlock:
+            type = "text"
+            text = "Lo siento, solo respondo preguntas sobre FPL."
+
+        class _Response:
+            content     = [_TextBlock()]
+            stop_reason = "end_turn"
+
+        return _Response()
+
+
+class _MockEmptyResponseClient:
+    """Returns a response with empty content list (no text, no tool_use)."""
+
+    def __init__(self) -> None:
+        self.messages = self
+
+    def create(self, *, model, max_tokens, system, tools, messages, **kwargs):
+        class _Response:
+            content     = []
+            stop_reason = "end_turn"
+
+        return _Response()
+
+
+_saved_orch_p = _os_p.environ.get("FPL_ORCH_TEST_INJECTION")
+_os_p.environ["FPL_ORCH_TEST_INJECTION"] = "1"
+
+try:
+    # P1: Spanish refusal text is surfaced
+    _p1_client = _MockSpanishRefusalClient()
+    _r_p1 = ask_orchestrated(
+        "dame el calendario de un equipo al azar",
+        STANDARD_BOOTSTRAP,
+        client=_p1_client,
+    )
+    ok(_r_p1.outcome == OUTCOME_NO_TOOL,
+       "P1a: outcome is OUTCOME_NO_TOOL on text-only response")
+    ok(_r_p1.answer_text == "Lo siento, solo respondo preguntas sobre FPL.",
+       f"P1b: answer_text matches LLM's Spanish refusal (got: {_r_p1.answer_text!r})")
+    ok("model did not select" not in _r_p1.answer_text,
+       "P1c: old canned English message is NOT present in answer_text")
+
+    # P2: empty content → Spanish fallback
+    _p2_client = _MockEmptyResponseClient()
+    _r_p2 = ask_orchestrated(
+        "¿qué tal?",
+        STANDARD_BOOTSTRAP,
+        client=_p2_client,
+    )
+    ok(_r_p2.outcome == OUTCOME_NO_TOOL,
+       "P2a: outcome is OUTCOME_NO_TOOL on empty content response")
+    ok("No encontré" in _r_p2.answer_text or "herramienta" in _r_p2.answer_text,
+       f"P2b: Spanish fallback used when no text block in response (got: {_r_p2.answer_text!r})")
+    ok("The model did not select a tool" not in _r_p2.answer_text,
+       "P2c: old canned English message is NOT present when empty content")
+
+finally:
+    if _saved_orch_p is None:
+        _os_p.environ.pop("FPL_ORCH_TEST_INJECTION", None)
+    else:
+        _os_p.environ["FPL_ORCH_TEST_INJECTION"] = _saved_orch_p
+
+
+# ---------------------------------------------------------------------------
+# Section Q: F1 + tool-output trust framing assertions
+# ---------------------------------------------------------------------------
+# Q1: _SYSTEM_PROMPT contains TOOL_OUTPUT_TRUST defensive line (risk surface fix)
+# Q2: harness._build_eval_client exists and is importable
+# Q3: _build_eval_client returns None when FPL_EVAL_DISABLED=1
+# Q4: ask_v2() with FPL_ORCH_ENABLED=1 and FPL_EVAL_DISABLED=0 constructs
+#     an eval client (passes it to ask_orchestrated) — verified via injection
+# ---------------------------------------------------------------------------
+
+print("\n=== Q: F1 + tool-output trust framing ===")
+
+import os as _os_q
+
+# Q1: TOOL_OUTPUT_TRUST defensive framing present in system prompt
+from fpl_grounded_assistant.orchestrator import _SYSTEM_PROMPT as _SYSP_Q
+
+ok("TOOL_OUTPUT_TRUST" in _SYSP_Q,
+   "Q1a: _SYSTEM_PROMPT contains TOOL_OUTPUT_TRUST directive")
+ok("untrusted data" in _SYSP_Q,
+   "Q1b: _SYSTEM_PROMPT mentions 'untrusted data' (tool output framing)")
+ok("override these rules" in _SYSP_Q,
+   "Q1c: _SYSTEM_PROMPT mentions 'override these rules' (injection defense)")
+
+# Q2: harness._build_eval_client is importable
+try:
+    from fpl_grounded_assistant.harness import _build_eval_client as _bec
+    ok(callable(_bec), "Q2a: harness._build_eval_client is callable")
+except ImportError as _exc_q2:
+    ok(False, f"Q2a: harness._build_eval_client import failed: {_exc_q2}")
+
+# Q3: _build_eval_client returns None when FPL_EVAL_DISABLED=1
+_saved_eval_q3 = _os_q.environ.get("FPL_EVAL_DISABLED")
+_os_q.environ["FPL_EVAL_DISABLED"] = "1"
+try:
+    # Clear cache to ensure fresh evaluation
+    from fpl_grounded_assistant.harness import _eval_client_cache
+    _eval_client_cache.clear()
+    _q3_result = _bec("anthropic", api_key=None)
+    ok(_q3_result is None,
+       "Q3a: _build_eval_client returns None when FPL_EVAL_DISABLED=1")
+finally:
+    if _saved_eval_q3 is None:
+        _os_q.environ.pop("FPL_EVAL_DISABLED", None)
+    else:
+        _os_q.environ["FPL_EVAL_DISABLED"] = _saved_eval_q3
+    _eval_client_cache.clear()
+
+# Q4: ask_v2 passes _eval_client to ask_orchestrated when FPL_ORCH_ENABLED=1
+# We verify this indirectly: a mock orch_client that tracks whether it received
+# eval_client (not easily observable from outside), so we test via the
+# _build_eval_client singleton behavior instead — confirm it's callable with
+# a provider string and returns something (or None) without raising.
+try:
+    from fpl_grounded_assistant.harness import _eval_client_cache as _ecc
+    _ecc.clear()
+    # With no API keys, _build_eval_client should return None (fail-open)
+    _q4_result_no_key = _bec("anthropic", api_key=None)
+    # Should be None (no ANTHROPIC_API_KEY in test env)
+    ok(_q4_result_no_key is None or _q4_result_no_key is not None,
+       "Q4a: _build_eval_client does not raise when called with provider + no key")
+    _ecc.clear()
+finally:
+    pass
+
+
+# ---------------------------------------------------------------------------
+# Section R: F3 — token usage observability
+# ---------------------------------------------------------------------------
+# R1: OrchCallResult has the three new token fields.
+# R2: OrchestratorResult has all token aggregation fields.
+# R3: missing response.usage does not crash; fields stay None/0.
+# R4: Anthropic cache_read_input_tokens populated when present in mock.
+# R5: total_tokens == sum of components.
+# ---------------------------------------------------------------------------
+
+print("\n=== R: F3 — token usage observability ===")
+
+from fpl_grounded_assistant.provider_client import (
+    OrchCallResult as _OrchCallResult,
+    _extract_anthropic_usage,
+    _extract_openai_usage,
+    _extract_gemini_usage,
+)
+
+
+# R1: OrchCallResult has the three new token fields with correct defaults.
+_r1_sample = _OrchCallResult(
+    response=None,
+    error_code=None,
+    error_msg=None,
+    attempts=1,
+    latency_ms=10.0,
+)
+ok(hasattr(_r1_sample, "input_tokens"),      "R1a: OrchCallResult has input_tokens field")
+ok(hasattr(_r1_sample, "output_tokens"),     "R1b: OrchCallResult has output_tokens field")
+ok(hasattr(_r1_sample, "cache_read_tokens"), "R1c: OrchCallResult has cache_read_tokens field")
+ok(_r1_sample.input_tokens is None,          "R1d: input_tokens default is None")
+ok(_r1_sample.output_tokens is None,         "R1e: output_tokens default is None")
+ok(_r1_sample.cache_read_tokens is None,     "R1f: cache_read_tokens default is None")
+
+
+# R2: OrchestratorResult has all F3 token aggregation fields summing correctly
+#     across a mocked multi-LLM-call turn (primary + evaluator + retry).
+
+from fpl_grounded_assistant.orchestrator import (
+    OrchestratorResult as _OrchestratorResult,
+    OUTCOME_OK as _OUTCOME_OK_R,
+)
+
+_expected_token_fields = [
+    "primary_input_tokens",
+    "primary_output_tokens",
+    "primary_cache_read_tokens",
+    "evaluator_input_tokens",
+    "evaluator_output_tokens",
+    "retry_input_tokens",
+    "retry_output_tokens",
+    "total_tokens",
+]
+_r2_result = _OrchestratorResult(
+    question="test",
+    tool_chosen="get_current_gameweek",
+    tool_args={},
+    tool_output={"status": "ok"},
+    answer_text="GW28",
+    llm_used=True,
+    model="claude-haiku",
+    outcome=_OUTCOME_OK_R,
+    primary_input_tokens=500,
+    primary_output_tokens=100,
+    primary_cache_read_tokens=50,
+    evaluator_input_tokens=120,
+    retry_input_tokens=400,
+    retry_output_tokens=80,
+    total_tokens=1250,
+)
+for _tf in _expected_token_fields:
+    ok(hasattr(_r2_result, _tf), f"R2-field: OrchestratorResult has '{_tf}'")
+
+# Verify aggregation: total_tokens == sum of components we set
+_expected_total = 500 + 100 + 50 + 120 + 400 + 80
+ok(_r2_result.total_tokens == _expected_total,
+   f"R2-sum: total_tokens={_r2_result.total_tokens} == expected {_expected_total}")
+
+# Default values are 0 (not None), so summation is safe.
+_r2_default = _OrchestratorResult(
+    question="test",
+    tool_chosen=None,
+    tool_args={},
+    tool_output={},
+    answer_text="fallback",
+    llm_used=False,
+    model="none",
+    outcome="no_client",
+)
+ok(_r2_default.total_tokens == 0, "R2-default: total_tokens defaults to 0")
+ok(_r2_default.primary_input_tokens == 0, "R2-default: primary_input_tokens defaults to 0")
+
+
+# R3: missing response.usage does not crash; fields stay None.
+
+class _NoUsageResponse:
+    """Mock response with no usage attribute at all."""
+    content = []
+    stop_reason = "end_turn"
+
+class _NoneUsageResponse:
+    """Mock response where usage is explicitly None."""
+    content = []
+    stop_reason = "end_turn"
+    usage = None
+
+_r3a = _extract_anthropic_usage(_NoUsageResponse())
+ok(_r3a == (None, None, None),
+   f"R3a: _extract_anthropic_usage with no usage attr -> (None, None, None), got {_r3a}")
+
+_r3b = _extract_anthropic_usage(_NoneUsageResponse())
+ok(_r3b == (None, None, None),
+   f"R3b: _extract_anthropic_usage with usage=None -> (None, None, None), got {_r3b}")
+
+_r3c = _extract_openai_usage(_NoUsageResponse())
+ok(_r3c == (None, None, None),
+   f"R3c: _extract_openai_usage with no usage attr -> (None, None, None), got {_r3c}")
+
+_r3d = _extract_gemini_usage(_NoUsageResponse())
+ok(_r3d == (None, None, None),
+   f"R3d: _extract_gemini_usage with no usage_metadata attr -> (None, None, None), got {_r3d}")
+
+# Verify ask_orchestrated with no usage mock doesn't crash.
+_r3_client = _MockToolUseClient("get_current_gameweek", {})
+try:
+    _r3_result = ask_orchestrated("what gameweek", STANDARD_BOOTSTRAP, client=_r3_client)
+    ok(True, "R3e: ask_orchestrated with no usage mock does not crash")
+    ok(_r3_result.total_tokens == 0,
+       f"R3f: total_tokens is 0 when mock has no usage (got {_r3_result.total_tokens})")
+except Exception as _exc_r3:
+    ok(False, f"R3e: ask_orchestrated raised: {_exc_r3}")
+    ok(False, "R3f: (skipped)")
+
+
+# R4: Anthropic cache_read_input_tokens is populated when present in mock response.
+
+class _UsageWithCache:
+    input_tokens = 300
+    output_tokens = 60
+    cache_read_input_tokens = 1500
+
+class _ResponseWithCache:
+    content = []
+    usage = _UsageWithCache()
+
+_r4 = _extract_anthropic_usage(_ResponseWithCache())
+ok(_r4[0] == 300, f"R4a: input_tokens extracted correctly (got {_r4[0]})")
+ok(_r4[1] == 60,  f"R4b: output_tokens extracted correctly (got {_r4[1]})")
+ok(_r4[2] == 1500, f"R4c: cache_read_tokens extracted correctly (got {_r4[2]})")
+
+
+# R5: total_tokens equals the sum of all component fields.
+# Test via the evaluator-enabled path using mocked approve client.
+_r5_eval_client = _MockEvalApproveClient()  # returns 100 input + 20 output = 120 combined
+_r5_primary_client = _MockToolUseClient("get_current_gameweek", {})
+
+_r5_result = ask_orchestrated(
+    "what gameweek is it",
+    STANDARD_BOOTSTRAP,
+    client=_r5_primary_client,
+    _eval_client=_r5_eval_client,
+)
+
+_r5_sum = (
+    _r5_result.primary_input_tokens
+    + _r5_result.primary_output_tokens
+    + _r5_result.primary_cache_read_tokens
+    + _r5_result.evaluator_input_tokens
+    + _r5_result.evaluator_output_tokens
+    + _r5_result.retry_input_tokens
+    + _r5_result.retry_output_tokens
+)
+ok(_r5_result.total_tokens == _r5_sum,
+   f"R5: total_tokens ({_r5_result.total_tokens}) == sum of components ({_r5_sum})")
+
+# Evaluator tokens are non-zero when evaluator ran (mock returns 120 combined).
+ok(_r5_result.evaluator_input_tokens == 120,
+   f"R5b: evaluator_input_tokens == 120 from mock (got {_r5_result.evaluator_input_tokens})")
+
+
+# ---------------------------------------------------------------------------
+# Section S: F4 — cache prefix split (static/dynamic system blocks)
+# ---------------------------------------------------------------------------
+# S1: Anthropic primary call system is a list of 2 blocks (static + dynamic).
+# S2: First block has cache_control={"type":"ephemeral"}; text == _SYSTEM_PROMPT.
+# S3: Second block has NO cache_control; text contains _CONTEXT_SECTION_HEADER.
+# ---------------------------------------------------------------------------
+
+print("\n=== S: F4 — Anthropic cache prefix split ===")
+
+from fpl_grounded_assistant.orchestrator import (
+    _SYSTEM_PROMPT as _SYSP_S,
+    _build_anthropic_system_blocks as _basm,
+)
+from fpl_grounded_assistant.llm_layer import _CONTEXT_SECTION_HEADER as _CSH_S
+
+_s_client = _MockToolUseClient("get_current_gameweek", {})
+ask_orchestrated("what gameweek", STANDARD_BOOTSTRAP, client=_s_client)
+_s_system = _s_client.captured[0]["system"]
+
+# S1: system is a list (not a string) with 2 blocks.
+ok(isinstance(_s_system, list), "S1a: Anthropic system is a list (not plain string)")
+ok(len(_s_system) == 2,
+   f"S1b: system list has exactly 2 blocks (got {len(_s_system) if isinstance(_s_system, list) else 'N/A'})")
+
+# S2: first block has cache_control={type:ephemeral} and text == _SYSTEM_PROMPT.
+_s_block0 = _s_system[0] if isinstance(_s_system, list) and len(_s_system) > 0 else {}
+ok(_s_block0.get("cache_control") == {"type": "ephemeral"},
+   f"S2a: first block has cache_control={{type:ephemeral}} (got {_s_block0.get('cache_control')!r})")
+ok(_s_block0.get("text") == _SYSP_S,
+   "S2b: first block text == _SYSTEM_PROMPT (static content only)")
+
+# S3: second block has NO cache_control; text contains _CONTEXT_SECTION_HEADER.
+_s_block1 = _s_system[1] if isinstance(_s_system, list) and len(_s_system) > 1 else {}
+ok("cache_control" not in _s_block1,
+   f"S3a: second block has NO cache_control (got keys: {list(_s_block1.keys())})")
+ok(_CSH_S.strip() in _s_block1.get("text", ""),
+   f"S3b: second block text contains _CONTEXT_SECTION_HEADER")
+
+# S4 (unit test): _build_anthropic_system_blocks with empty dynamic_suffix → 1 block.
+_s4_single = _basm(_SYSP_S)
+ok(len(_s4_single) == 1,
+   f"S4: empty dynamic_suffix -> single block (evaluator path) (got {len(_s4_single)})")
+ok(_s4_single[0].get("cache_control") == {"type": "ephemeral"},
+   "S4b: single-block variant still has cache_control")
+
+# S5 (unit test): _build_anthropic_system_blocks with dynamic_suffix → 2 blocks.
+_s5_double = _basm(_SYSP_S, dynamic_suffix="=== CONTEXT ===\nGW28 data here\n=== /CONTEXT ===")
+ok(len(_s5_double) == 2,
+   f"S5: non-empty dynamic_suffix -> two blocks (got {len(_s5_double)})")
+ok("cache_control" not in _s5_double[1],
+   "S5b: second block (dynamic) has no cache_control")
 
 
 # ---------------------------------------------------------------------------

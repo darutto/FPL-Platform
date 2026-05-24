@@ -31,7 +31,8 @@ export type Outcome =
   | 'not_found'
   | 'ambiguous'
   | 'missing_arguments'
-  | 'error';
+  | 'error'
+  | 'quota_exceeded';
 
 /**
  * Intent resolved by the backend. null on unsupported_intent turns.
@@ -206,6 +207,9 @@ export interface AskResponse {
    */
   degraded: boolean;
 
+  /** Resource payload — non-null for @resource turns, null otherwise. (A1 post-graduation) */
+  resource_rows: ResourceRows | null;
+
   // debug_only — null unless request included debug=true.
   // Do not gate production logic on this field.
   debug?: DebugBundle | null;
@@ -325,7 +329,7 @@ export interface DifferentialEntry {
   team_short: string;
   position: FplPosition;
   captain_score: number;
-  position_score: number;
+  position_score?: number | null;
   ownership: number;
   now_cost: number;
   is_home: boolean | null;
@@ -336,6 +340,47 @@ export interface DifferentialPicksMeta {
   ownership_threshold: number;
   top_n: number;
   picks: DifferentialEntry[];
+}
+
+// ---------------------------------------------------------------------------
+// Resource rows types (A2 post-graduation — @resource rendering)
+// ---------------------------------------------------------------------------
+
+/** One row in a metric-ranked resource (top_form/top_xg/top_points/top_minutes/popular). */
+export interface ResourceRankingRow {
+  web_name: string;
+  team_short: string;
+  position: FplPosition;
+  value: number;
+}
+
+/** One row in @injuries. */
+export interface InjuryRow {
+  web_name: string;
+  team_short: string;
+  position: FplPosition;
+  status_label: string;
+  chance_of_playing: number | null;
+  news: string;
+  news_added: string | null;
+}
+
+/** Identifier for the 6 supported resources. */
+export type ResourceKind =
+  | 'top_form'
+  | 'top_xg'
+  | 'top_points'
+  | 'top_minutes'
+  | 'popular'
+  | 'injuries';
+
+/** Full resource_rows payload, populated for @resource turns. */
+export interface ResourceRows {
+  resource: ResourceKind;
+  title: string;
+  columns: string[];
+  rows: ResourceRankingRow[] | InjuryRow[];
+  data_age?: Record<string, unknown> | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -352,4 +397,32 @@ export interface DebugBundle {
   model: string;
   /** null=deterministic routing, 'intent_hint'=hint fired, 'llm_classifier'=LLM used */
   classification_source: 'intent_hint' | 'llm_classifier' | null;
+}
+
+// ---------------------------------------------------------------------------
+// Quota types (P3 — visual quota indicator)
+// Mirrors fpl_grounded_assistant.quota.QuotaCheck dataclass.
+// ---------------------------------------------------------------------------
+
+/**
+ * Response shape for GET /quota (forwarded via GET /api/quota).
+ * Used by QuotaIndicator to display daily/monthly remaining counts.
+ */
+export interface QuotaStatus {
+  allowed: boolean;
+  tier: string;
+  daily_tokens_used: number;
+  daily_message_count: number;
+  monthly_tokens_used: number;
+  monthly_message_count: number;
+  daily_token_cap: number;
+  monthly_token_cap: number;
+  daily_message_cap: number;
+  monthly_message_cap: number;
+  /** Non-null when allowed=false — machine-readable reason code. */
+  reason: string | null;
+  /** Spanish upgrade prompt — non-null when allowed=false. */
+  upgrade_prompt_es: string | null;
+  /** English upgrade prompt — non-null when allowed=false. */
+  upgrade_prompt_en: string | null;
 }

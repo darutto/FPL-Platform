@@ -69,12 +69,29 @@ for _pkg in [
     if _pkg not in sys.path:
         sys.path.insert(0, _pkg)
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 
 from fpl_grounded_assistant import respond
 from fpl_grounded_assistant.player_form import _element_summary_guard  # Phase 2.6d.3 — guard stats
 from fpl_pipeline import assemble_captain_context
+
+# Phase P3.1: quota meter + audit log
+from fpl_grounded_assistant.quota import (  # noqa: E402
+    QuotaCheck,
+    check_quota,
+    record_turn as _record_turn,
+    get_quota_status,
+    reset_quota,
+)
+from fpl_grounded_assistant.audit import (  # noqa: E402
+    AuditEntry,
+    write_audit_entry,
+    make_audit_entry,
+    estimate_usd_cost,
+    hash_user_id,
+)
+from fpl_grounded_assistant.dispatcher import OUTCOME_QUOTA_EXCEEDED  # noqa: E402
 
 _LOG = logging.getLogger(__name__)
 
@@ -279,6 +296,8 @@ class AskResponse(BaseModel):
     team_schedule: dict[str, Any] | None = None            # Phase 2.6e.3
     position_fixture_run: dict[str, Any] | None = None    # Phase 2.6e.4
     transfer_suggestion:  dict[str, Any] | None = None    # Phase 2.6h
+    # Phase A1 (post-graduation): full ResourceListResult dict for @resource turns; null for all other intents.
+    resource_rows:        dict[str, Any] | None = None
     # Phase 2.7d: routing audit fields
     route_source:          str | None   = None             # which routing stage decided
     classifier_confidence: float | None = None             # LLM classifier confidence when attempted
@@ -336,6 +355,8 @@ class SessionAskResponse(BaseModel):
     team_schedule: dict[str, Any] | None = None            # Phase 2.6e.3
     position_fixture_run: dict[str, Any] | None = None    # Phase 2.6e.4
     transfer_suggestion:  dict[str, Any] | None = None    # Phase 2.6h
+    # Phase A1 (post-graduation): full ResourceListResult dict for @resource turns; null for all other intents.
+    resource_rows:        dict[str, Any] | None = None
     # Phase 2.7d: routing audit fields
     route_source:          str | None   = None             # which routing stage decided
     classifier_confidence: float | None = None             # LLM classifier confidence when attempted
@@ -1028,8 +1049,77 @@ def list_resources() -> dict[str, Any]:
     }
 
 
+@app.get("/quota")
+def quota_status(user_id: str = "anonymous", tier: str = "free") -> dict[str, Any]:
+    """Phase P3.1: Return current quota status for a user.
+
+    Used by the UI quota indicator (P3.2) and for operator inspection.
+
+    Query parameters
+    ----------------
+    user_id : str, optional
+        Opaque user identifier.  Defaults to ``"anonymous"``.
+    tier : str, optional
+        Quota tier name (``"free"``, ``"patreon_basic"``, ``"patreon_premium"``).
+        Defaults to ``"free"``.
+
+    Response shape
+    --------------
+    JSON object mirroring the ``QuotaCheck`` dataclass fields.
+    """
+    # P6.2.f F-B fix: hash the query-param user_id the same way _extract_user_context
+    # hashes the X-User-Id header. Without this, the UI quota indicator calls
+    # GET /quota with the raw userId and gets a bucket that never matches the
+    # hashed key used by record_turn() — indicator shows perpetually empty quota.
+    user_id = hash_user_id(user_id)
+    qc = get_quota_status(user_id, tier)
+    return {
+        "allowed":               qc.allowed,
+        "tier":                  qc.tier,
+        "daily_tokens_used":     qc.daily_tokens_used,
+        "daily_message_count":   qc.daily_message_count,
+        "monthly_tokens_used":   qc.monthly_tokens_used,
+        "monthly_message_count": qc.monthly_message_count,
+        "daily_token_cap":       qc.daily_token_cap,
+        "monthly_token_cap":     qc.monthly_token_cap,
+        "daily_message_cap":     qc.daily_message_cap,
+        "monthly_message_cap":   qc.monthly_message_cap,
+        "reason":                qc.reason,
+        "upgrade_prompt_es":     qc.upgrade_prompt_es,
+        "upgrade_prompt_en":     qc.upgrade_prompt_en,
+    }
+
+
+def _extract_user_context(request: Request) -> tuple[str, str]:
+    """Extract (user_id, tier) from request headers.
+
+    Phase P3.1 stub: reads ``X-User-Id`` header (default ``"anonymous"``) and
+    ``X-User-Tier`` header (default ``"free"``).  Future Patreon integration
+    will populate these headers via the auth middleware.
+
+    P3.f (F5 remediation): the raw X-User-Id header value is hashed via
+    ``hash_user_id()`` (SHA-256 first 16 hex chars) before being used as the
+    quota key and stored in the audit log.  The raw value never leaves this
+    function.
+    """
+    raw_user_id = request.headers.get("X-User-Id", "anonymous") or "anonymous"
+    user_id = hash_user_id(raw_user_id)
+    tier    = request.headers.get("X-User-Tier", "free") or "free"
+    return user_id, tier
+
+
+def _is_deterministic_branch(ask_v2_dict: dict[str, Any]) -> bool:
+    """Return True when the branch is a deterministic (LLM-free) turn.
+
+    @resource and /prompt turns go through ask_v2() but burn zero LLM tokens.
+    They are audited but NOT quota-gated (deterministic = free per plan).
+    """
+    branch = (ask_v2_dict.get("routing_trace") or {}).get("branch", "")
+    return branch in ("resource", "prompt")
+
+
 @app.post("/ask", response_model=AskResponse)
-def ask(req: AskRequest) -> AskResponse:
+def ask(req: AskRequest, request: Request) -> AskResponse:
     """Ask a FPL captaincy or player question.
 
     Always returns HTTP 200 with a ``FinalResponse``-compatible payload.
@@ -1060,6 +1150,16 @@ def ask(req: AskRequest) -> AskResponse:
     the adapter correctly sets ``route_source="intent_hint"``.  When the hint
     does not fire (invalid hint, unknown player), ``ask_v2()`` receives the
     original question unchanged.
+
+    Phase P3.1 additions
+    --------------------
+    * Reads ``X-User-Id`` and ``X-User-Tier`` headers (defaults: ``"anonymous"``
+      / ``"free"``).
+    * Calls ``check_quota()`` before the LLM.  Deterministic (@resource, /prompt)
+      turns bypass the gate and are never blocked.
+    * Returns ``outcome="quota_exceeded"`` with a localized upgrade message when
+      the gate fires (HTTP 200 — soft-fail, not a 4xx).
+    * Calls ``record_turn()`` and ``write_audit_entry()`` after every turn.
     """
     # Deferred imports — avoid circulars at module load time.
     from fpl_grounded_assistant.harness import ask_v2 as _ask_v2  # noqa: PLC0415
@@ -1067,6 +1167,32 @@ def ask(req: AskRequest) -> AskResponse:
 
     if _bootstrap is None:
         raise HTTPException(status_code=503, detail="Bootstrap not initialised")
+
+    # Phase P3.1: extract user context from headers.
+    user_id, tier = _extract_user_context(request)
+
+    # ------------------------------------------------------------------
+    # P3.f (F2 remediation): deterministic-prefix early-exit.
+    # Questions starting with '@' (resource) or '/' (prompt) are
+    # deterministic — they burn zero LLM tokens and are FREE per plan.
+    # We detect this at the server boundary BEFORE calling check_quota
+    # so quota-exhausted users can still use @resource and /prompt.
+    # record_turn (tokens=0) and write_audit_entry still fire so usage
+    # is observable, but we never block these turns.
+    # ------------------------------------------------------------------
+    _question_stripped = req.question.lstrip()
+    _is_deterministic_prefix = _question_stripped.startswith("@") or _question_stripped.startswith("/")
+
+    # ------------------------------------------------------------------
+    # Phase P3.1: pre-call quota gate.
+    # Deterministic (@resource, /prompt) branches are checked AFTER the
+    # ask_v2() call (we need the branch label).  For plain-text / unknown
+    # routes we call check_quota BEFORE ask_v2 to avoid wasted LLM calls.
+    # However, we can't know the branch before routing, so we do a
+    # lightweight pre-check here and skip gating if the turn turns out
+    # to be deterministic (audited anyway with zero tokens).
+    # ------------------------------------------------------------------
+    _quota_check = check_quota(user_id, tier) if not _is_deterministic_prefix else None
 
     # ------------------------------------------------------------------
     # intent_hint pre-processing (deferred deprecation — V2 contract).
@@ -1083,6 +1209,46 @@ def ask(req: AskRequest) -> AskResponse:
         if _hint_result is not None:
             _route_result, effective_question = _hint_result
             _hint_fired = True
+
+    # ------------------------------------------------------------------
+    # Phase P3.1: quota-exceeded soft-fail for non-deterministic turns.
+    # We cannot tell the branch before calling ask_v2, so we apply the
+    # quota gate speculatively here.  If the turn IS deterministic (zero
+    # LLM tokens), record_turn is still called (with tokens=0) and the
+    # audit entry captures the zero-cost turn.
+    # ------------------------------------------------------------------
+    if _quota_check is not None and not _quota_check.allowed:
+        # Soft-fail: return a polite upgrade message.
+        _lang = "en"   # TODO: detect from Accept-Language header (P4 scope)
+        _upgrade_text = (
+            _quota_check.upgrade_prompt_es
+            or "Has alcanzado tu límite de uso. Por favor actualiza tu plan."
+        )
+        # Audit the quota-exceeded turn (no LLM was called).
+        _quota_exceeded_entry = make_audit_entry(
+            user_id=user_id,
+            tier=tier,
+            question=req.question,
+            branch="quota_exceeded",
+            outcome=OUTCOME_QUOTA_EXCEEDED,
+            intent=None,
+            tokens={},
+            provider=os.environ.get("DEFAULT_PROVIDER", "gemini"),
+            error_code="quota_exceeded",
+            final_text=_upgrade_text,
+        )
+        try:
+            write_audit_entry(_quota_exceeded_entry)
+        except Exception as _exc:  # noqa: BLE001
+            _LOG.exception("audit write failed: %s", _exc)  # P3.f F8: observable signal
+        return AskResponse(
+            final_text=_upgrade_text,
+            outcome=OUTCOME_QUOTA_EXCEEDED,
+            supported=False,
+            intent="unsupported",
+            review_passed=False,
+            llm_used=False,
+        )
 
     # ------------------------------------------------------------------
     # Core routing: ask_v2() → harness_adapter.to_ask_response()
@@ -1106,6 +1272,55 @@ def ask(req: AskRequest) -> AskResponse:
         ask_v2_dict = dict(ask_v2_dict)
         ask_v2_dict["routing_trace"] = routing_trace
 
+    # ------------------------------------------------------------------
+    # Phase P3.1: post-call accounting + audit.
+    # record_turn() fires for ALL turns including deterministic ones
+    # (tokens=0 for @resource / /prompt — they don't burn LLM quota).
+    # ------------------------------------------------------------------
+    _tokens: dict[str, int] = ask_v2_dict.get("tokens") or {}  # type: ignore[assignment]
+    _total_tokens = _tokens.get("total", 0)
+    _branch = (ask_v2_dict.get("routing_trace") or {}).get("branch", "unknown")
+    _outcome = ask_v2_dict.get("outcome", "unknown")
+    _intent  = ask_v2_dict.get("intent")
+    _provider = os.environ.get("DEFAULT_PROVIDER", "gemini")
+    _final_text = ask_v2_dict.get("answer_text", "")
+
+    # Quota accounting: deterministic turns count as 1 message but 0 tokens.
+    try:
+        _record_turn(user_id, _total_tokens, tier)
+    except Exception:  # noqa: BLE001
+        pass  # Quota record must never crash the endpoint.
+
+    # Build audit entry from ask_v2 output.
+    _routing_trace = ask_v2_dict.get("routing_trace") or {}
+    _tool_calls: list[dict] = []
+    if ask_v2_dict.get("selected_tool"):
+        _tool_calls = [{
+            "name":          ask_v2_dict.get("selected_tool", ""),
+            "args":          ask_v2_dict.get("tool_input") or {},
+            "output_status": (ask_v2_dict.get("raw_output") or {}).get("status", "unknown"),
+        }]
+
+    _audit_entry = make_audit_entry(
+        user_id=user_id,
+        tier=tier,
+        question=req.question,
+        branch=_branch,
+        outcome=_outcome,
+        intent=_intent,
+        tool_calls=_tool_calls,
+        evaluator_verdict=None,  # evaluator verdict not yet surfaced in ask_v2 dict (P3.2)
+        retry_attempted=False,
+        final_text=_final_text,
+        tokens=_tokens,
+        provider=_provider,
+        error_code=None,
+    )
+    try:
+        write_audit_entry(_audit_entry)
+    except Exception as _exc:  # noqa: BLE001
+        _LOG.exception("audit write failed: %s", _exc)  # P3.f F8: observable signal
+
     return _to_ask_response(ask_v2_dict, req)
 
 
@@ -1115,10 +1330,19 @@ def create_session() -> CreateSessionResponse:
 
     Prunes expired sessions before creating a new entry.
     Returns HTTP 429 when the session cap (_SESSION_MAX_COUNT) is reached.
+    Returns HTTP 503 when ``FPL_SESSION_ENABLED=false`` (operator kill-switch).
 
     Returns a session_id, creation timestamp, and the configured TTL so
     callers know when the session will expire if idle.
+
+    P3.f (F1 remediation): set ``FPL_SESSION_ENABLED=false`` to disable all
+    session endpoints.  Default is ``true`` for backwards compatibility.
     """
+    if os.environ.get("FPL_SESSION_ENABLED", "true").lower() in ("false", "0", "no"):
+        raise HTTPException(
+            status_code=503,
+            detail="Session endpoints are disabled (FPL_SESSION_ENABLED=false). Use /ask instead.",
+        )
     from fpl_grounded_assistant import ConversationSession  # noqa: PLC0415
     _prune_expired_sessions()
     if len(_sessions) >= _SESSION_MAX_COUNT:
@@ -1141,7 +1365,7 @@ def create_session() -> CreateSessionResponse:
 
 
 @app.post("/session/{session_id}/ask", response_model=SessionAskResponse)
-def session_ask(session_id: str, req: AskRequest) -> SessionAskResponse:
+def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAskResponse:
     """Ask a question within a conversation session.
 
     Pronoun and reference follow-ups are resolved against previous turns
@@ -1162,8 +1386,31 @@ def session_ask(session_id: str, req: AskRequest) -> SessionAskResponse:
     200   Turn processed.  Inspect supported/outcome in the response body.
     404   session_id not found or expired.
     422   Malformed request body.
-    503   Bootstrap not initialised.
+    503   Bootstrap not initialised or sessions disabled (FPL_SESSION_ENABLED=false).
+
+    Phase P3.1 additions
+    --------------------
+    * Reads ``X-User-Id`` and ``X-User-Tier`` headers (same as /ask).
+    * Applies quota gate before session.respond().
+    * Token observability is limited for session turns: ConversationSession.respond()
+      does not currently surface token counts.  Tokens are recorded as 0 for session
+      turns; cost estimate will under-report until session path gains token observability.
+
+    P3.f remediation
+    ----------------
+    F1: Session turns record tokens=0 (graduation debt — ConversationSession.respond()
+        does not surface token counts).  A logger.warning fires per turn so production
+        has an observable signal.  Set FPL_SESSION_ENABLED=false to disable sessions
+        entirely (operator kill-switch) until tokens are properly surfaced.
+    F2: @resource and /prompt prefixes bypass check_quota (deterministic = free).
+    F8: Audit write failures are logged via logger.exception instead of silently swallowed.
     """
+    if os.environ.get("FPL_SESSION_ENABLED", "true").lower() in ("false", "0", "no"):
+        raise HTTPException(
+            status_code=503,
+            detail="Session endpoints are disabled (FPL_SESSION_ENABLED=false). Use /ask instead.",
+        )
+
     if _bootstrap is None:
         raise HTTPException(status_code=503, detail="Bootstrap not initialised")
 
@@ -1176,6 +1423,46 @@ def session_ask(session_id: str, req: AskRequest) -> SessionAskResponse:
         del _sessions[session_id]
         raise HTTPException(status_code=404, detail=f"Session expired: {session_id}")
 
+    # Phase P3.1: extract user context + apply quota gate (same enforcement as /ask).
+    _sess_user_id, _sess_tier = _extract_user_context(request)
+
+    # P3.f (F2 remediation): deterministic-prefix bypass (same as /ask boundary).
+    _sess_question_stripped = req.question.lstrip()
+    _sess_is_deterministic = (
+        _sess_question_stripped.startswith("@") or _sess_question_stripped.startswith("/")
+    )
+    _sess_quota = check_quota(_sess_user_id, _sess_tier) if not _sess_is_deterministic else None
+    if _sess_quota is not None and not _sess_quota.allowed:
+        _sess_upgrade_text = (
+            _sess_quota.upgrade_prompt_es
+            or "Has alcanzado tu límite de uso. Por favor actualiza tu plan."
+        )
+        _sess_quota_entry = make_audit_entry(
+            user_id=_sess_user_id,
+            tier=_sess_tier,
+            question=req.question,
+            branch="quota_exceeded",
+            outcome=OUTCOME_QUOTA_EXCEEDED,
+            intent=None,
+            tokens={},
+            provider=os.environ.get("DEFAULT_PROVIDER", "gemini"),
+            error_code="quota_exceeded",
+            final_text=_sess_upgrade_text,
+        )
+        try:
+            write_audit_entry(_sess_quota_entry)
+        except Exception as _exc:  # noqa: BLE001
+            _LOG.exception("audit write failed: %s", _exc)  # P3.f F8: observable signal
+        return SessionAskResponse(
+            session_id=session_id,
+            final_text=_sess_upgrade_text,
+            outcome=OUTCOME_QUOTA_EXCEEDED,
+            supported=False,
+            intent="unsupported",
+            review_passed=False,
+            llm_used=False,
+        )
+
     r = entry.session.respond(
         req.question, _bootstrap,
         include_debug=req.debug,
@@ -1185,6 +1472,38 @@ def session_ask(session_id: str, req: AskRequest) -> SessionAskResponse:
         intent_hint=req.intent_hint,            # V2
     )
     entry.last_used_at = time.time()
+
+    # Phase P3.1 / P3.f (F1 remediation): post-call quota accounting + audit for session turns.
+    # NOTE: ConversationSession.respond() does not currently surface token counts.
+    # Tokens are recorded as 0 for session turns; cost estimate will under-report
+    # until the session path gains token observability (P3 graduation debt).
+    # F1: logger.warning fires per session turn so production has an observable signal
+    # that session turns are recorded as 0 tokens (potential cost blind-spot).
+    _LOG.warning(
+        "session turn recorded with tokens=0 for user=%s tier=%s (graduation debt: "
+        "ConversationSession.respond() does not surface token counts). "
+        "Set FPL_SESSION_ENABLED=false to disable sessions until tokens are surfaced.",
+        _sess_user_id, _sess_tier,
+    )
+    try:
+        _record_turn(_sess_user_id, 0, _sess_tier)
+    except Exception:  # noqa: BLE001
+        pass
+    _sess_audit_entry = make_audit_entry(
+        user_id=_sess_user_id,
+        tier=_sess_tier,
+        question=req.question,
+        branch="session",
+        outcome=r.outcome,
+        intent=r.intent,
+        tokens={},
+        provider=os.environ.get("DEFAULT_PROVIDER", "gemini"),
+        final_text=r.final_text,
+    )
+    try:
+        write_audit_entry(_sess_audit_entry)
+    except Exception as _exc:  # noqa: BLE001
+        _LOG.exception("audit write failed: %s", _exc)  # P3.f F8: observable signal
 
     debug_bundle: dict[str, Any] | None = None
     rewritten_question: str | None = None

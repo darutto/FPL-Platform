@@ -721,6 +721,381 @@ def _render_get_team_schedule(output: dict[str, Any]) -> str:
 
 
 # ---------------------------------------------------------------------------
+# P2 atomic tool renderers  (P2.8 Gap B fix)
+# ---------------------------------------------------------------------------
+
+def _render_find_players(output: dict[str, Any]) -> str:
+    """Render find_players raw_output.  P2.1."""
+    status = output.get("status")
+    if status == "ok":
+        matches = output.get("matches", [])
+        query   = output.get("query", "")
+        if not matches:
+            return f"No players found matching '{query}'."
+
+        header = f"Jugadores encontrados para '{query}':"
+        lines = [header]
+        for m in matches:
+            name      = m.get("web_name", "?")
+            team      = m.get("team_short", "?")
+            pos       = m.get("position", "?")
+            cost      = m.get("now_cost", 0) / 10.0
+            form      = m.get("form", 0.0)
+            pts       = m.get("total_points", 0)
+            mins      = m.get("minutes_played_season", 0)
+            lines.append(
+                f"  - {name} ({team}, {pos}) — £{cost:.1f}m | "
+                f"Forma {form} | {pts}pts | Mins {mins}"
+            )
+        return "\n".join(lines)
+
+    if status == "not_found":
+        query = output.get("query", "")
+        return f"No se encontró ningún jugador que coincida con '{query}'."
+
+    code    = output.get("code", "error")
+    message = output.get("message", "Error inesperado.")
+    return f"Error ({code}): {message}"
+
+
+def _render_get_player_snapshot(output: dict[str, Any]) -> str:
+    """Render get_player_snapshot raw_output.  P2.2."""
+    status = output.get("status")
+    if status == "ok":
+        p = output.get("player", {})
+        name      = p.get("web_name", "?")
+        team      = p.get("team_short", "?")
+        pos       = p.get("position", "?")
+        cost      = p.get("now_cost", 0) / 10.0
+        own       = p.get("selected_by_percent", 0.0)
+        status_lbl = p.get("status", "?")
+        form      = p.get("form", 0.0)
+        pts       = p.get("total_points", 0)
+        ppg       = p.get("points_per_game", 0.0)
+        xg        = p.get("expected_goals", 0.0)
+        xa        = p.get("expected_assists", 0.0)
+        xgi       = p.get("expected_goal_involvements", 0.0)
+        ict       = p.get("ict_index", 0.0)
+        mins      = p.get("minutes_played_season", 0)
+        news      = p.get("news", "") or ""
+        chance    = p.get("chance_of_playing_this_round")
+
+        lines = [
+            f"**{name}** ({team}, {pos})",
+            f"  Precio: £{cost:.1f}m | Propiedad: {own:.1f}% | Estado: {status_lbl}",
+            f"  Pts totales: {pts} | PPG: {ppg:.1f} | Forma: {form}",
+            f"  xG: {xg:.2f} | xA: {xa:.2f} | xGI: {xgi:.2f} | ICT: {ict:.1f}",
+            f"  Minutos: {mins}",
+        ]
+        if chance is not None:
+            lines.append(f"  Prob. de jugar: {chance}%")
+        if news:
+            lines.append(f"  Noticias: {news}")
+        return "\n".join(lines)
+
+    if status == "ambiguous":
+        query      = output.get("query", "")
+        candidates = output.get("candidates", [])
+        lines = [f"Múltiples jugadores coinciden con '{query}' — por favor especifica:"]
+        for c in candidates:
+            name  = c.get("web_name", "?")
+            team  = c.get("team_short", "?")
+            pos   = c.get("position", "?")
+            rank  = c.get("match_rank", "?")
+            lines.append(f"  - {name} ({team}, {pos}) [rank {rank}]")
+        return "\n".join(lines)
+
+    if status == "not_found":
+        return output.get("message", "Jugador no encontrado.")
+
+    code    = output.get("code", "error")
+    message = output.get("message", "Error inesperado.")
+    return f"Error ({code}): {message}"
+
+
+def _render_get_player_history(output: dict[str, Any]) -> str:
+    """Render get_player_history raw_output.  P2.3."""
+    status = output.get("status")
+    if status == "ok":
+        p       = output.get("player", {})
+        name    = p.get("web_name", "?")
+        team    = p.get("team_short", "?")
+        pos     = p.get("position", "?")
+        n       = output.get("last_n_gws", 0)
+        history = output.get("history", [])
+        summary = output.get("summary", {})
+
+        header = f"{name} ({team}, {pos}) — últimas {n} jornada(s):"
+        if not history:
+            return header + " Sin historial disponible."
+
+        lines = [header]
+        # Table header
+        lines.append("  GW  | Rival | Mins | Pts | G | A  | xG   | xA")
+        lines.append("  ----|-------|------|-----|---|----|----- |-----")
+        for h in history:
+            gw   = h.get("round", "?")
+            opp  = h.get("opponent_team_short", "?")
+            mins = h.get("minutes", 0)
+            pts  = h.get("total_points", 0)
+            g    = h.get("goals_scored", 0)
+            a    = h.get("assists", 0)
+            xg   = h.get("expected_goals", 0.0)
+            xa   = h.get("expected_assists", 0.0)
+            lines.append(
+                f"  {str(gw).rjust(3)} | {opp.ljust(5)} | {str(mins).rjust(4)} | "
+                f"{str(pts).rjust(3)} | {g} | {str(a).rjust(2)} | "
+                f"{xg:.2f} | {xa:.2f}"
+            )
+        # Summary line
+        tot_pts = summary.get("total_points", 0)
+        avg_frm = summary.get("avg_form", 0.0)
+        tot_xgi = summary.get("total_xgi", 0.0)
+        lines.append(
+            f"\n  Resumen: {tot_pts}pts totales | Forma media: {avg_frm:.1f} | xGI total: {tot_xgi:.2f}"
+        )
+        return "\n".join(lines)
+
+    if status == "ambiguous":
+        return output.get("message", "Múltiples jugadores coinciden — especifica el nombre.")
+
+    if status == "not_found":
+        return output.get("message", "Jugador no encontrado.")
+
+    code    = output.get("code", "error")
+    message = output.get("message", "Error inesperado.")
+    return f"Error ({code}): {message}"
+
+
+def _render_get_fixtures_for_gw(output: dict[str, Any]) -> str:
+    """Render get_fixtures_for_gw raw_output.  P2.4."""
+    status = output.get("status")
+    if status == "ok":
+        gw        = output.get("gw", "?")
+        is_blank  = output.get("is_blank", False)
+        is_double = output.get("is_double", False)
+        fixtures  = output.get("fixtures", [])
+        summary   = output.get("summary", {})
+
+        alerts: list[str] = []
+        if is_blank:
+            alerts.append("⚠ Jornada en blanco (algún equipo sin partido)")
+        if is_double:
+            dgw_teams = summary.get("double_gw_teams", [])
+            alerts.append(
+                "⚠ Jornada doble — equipos con 2 partidos: " + ", ".join(dgw_teams)
+            )
+
+        lines = [f"Partidos GW{gw}:"]
+        if alerts:
+            lines += ["  " + a for a in alerts]
+
+        for fx in fixtures:
+            home   = fx.get("home_team_short", "?")
+            away   = fx.get("away_team_short", "?")
+            ko     = fx.get("kickoff_time") or "TBC"
+            h_fdr  = fx.get("home_fdr", "?")
+            a_fdr  = fx.get("away_fdr", "?")
+            lines.append(
+                f"  GW{gw}: {home} vs {away} (kickoff: {ko}) | "
+                f"FDR local {h_fdr}, FDR visit {a_fdr}"
+            )
+
+        if not fixtures:
+            lines.append("  Sin partidos para esta jornada.")
+
+        bgw = summary.get("blank_gw_teams", [])
+        if bgw:
+            lines.append(f"  Equipos sin partido (BGW): {', '.join(bgw)}")
+
+        return "\n".join(lines)
+
+    if status == "invalid_argument":
+        return output.get("message", "Número de jornada fuera de rango (1-38).")
+
+    code    = output.get("code", "error")
+    message = output.get("message", "Error inesperado.")
+    return f"Error ({code}): {message}"
+
+
+def _render_get_gameweek_context(output: dict[str, Any]) -> str:
+    """Render get_gameweek_context raw_output.  P2.5."""
+    status = output.get("status")
+    if status == "ok":
+        curr_gw    = output.get("current_gw", "?")
+        curr_st    = output.get("current_gw_status", "?")
+        next_gw    = output.get("next_gw")
+        next_dl    = output.get("next_gw_deadline")
+        is_over    = output.get("is_season_over", False)
+        blank_al   = output.get("blank_gw_alerts", [])
+        double_al  = output.get("double_gw_alerts", [])
+
+        if is_over:
+            return "La temporada ha finalizado."
+
+        next_str = "N/A"
+        if next_gw is not None:
+            next_str = f"GW{next_gw}"
+            if next_dl:
+                next_str += f" (deadline: {next_dl})"
+
+        lines = [
+            f"Jornada actual: GW{curr_gw} ({curr_st}). Próxima jornada: {next_str}."
+        ]
+
+        for alert in blank_al:
+            gw    = alert.get("gw", "?")
+            teams = ", ".join(alert.get("blank_teams", []))
+            lines.append(f"  • BGW{gw}: equipos sin partido — {teams}")
+
+        for alert in double_al:
+            gw    = alert.get("gw", "?")
+            teams = ", ".join(alert.get("double_teams", []))
+            lines.append(f"  • DGW{gw}: equipos con doble partido — {teams}")
+
+        return "\n".join(lines)
+
+    code    = output.get("code", "error")
+    message = output.get("message", "Error obteniendo contexto de jornada.")
+    return f"Error ({code}): {message}"
+
+
+def _render_get_team_snapshot(output: dict[str, Any]) -> str:
+    """Render get_team_snapshot raw_output.  P2.6."""
+    status = output.get("status")
+    if status == "ok":
+        team      = output.get("team", {})
+        short     = team.get("short_name", "?")
+        name      = team.get("name", "?")
+        fixtures  = output.get("upcoming_fixtures", [])
+        players   = output.get("top_players", [])
+        summary   = output.get("summary", {})
+
+        avg_fdr   = summary.get("avg_fdr_next_5", 0.0)
+        easy_run  = summary.get("is_easy_run", False)
+        top_sc    = summary.get("top_scorer_web_name", "?")
+        top_frm   = summary.get("top_form_web_name", "?")
+
+        run_label = "fácil" if easy_run else ("dura" if summary.get("is_hard_run") else "media")
+
+        lines = [f"**{name} ({short})** — racha {run_label} (FDR medio: {avg_fdr:.1f})"]
+
+        # Upcoming fixtures table
+        if fixtures:
+            lines.append("  Próximos partidos:")
+            for fx in fixtures:
+                gw       = fx.get("gw", "?")
+                opp      = fx.get("opponent_short", "?")
+                is_home  = fx.get("is_home", True)
+                fdr      = fx.get("fdr", "?")
+                venue    = "L" if is_home else "V"
+                lines.append(f"    GW{gw}: {opp} ({venue}) FDR {fdr}")
+
+        # Top players table
+        if players:
+            lines.append("  Mejores jugadores (por puntos):")
+            for p in players:
+                pname = p.get("web_name", "?")
+                pos   = p.get("position", "?")
+                pts   = p.get("total_points", 0)
+                form  = p.get("form", 0.0)
+                cost  = p.get("now_cost", 0) / 10.0
+                lines.append(f"    {pname} ({pos}) — {pts}pts | forma {form} | £{cost:.1f}m")
+
+        lines.append(
+            f"  Máximo goleador: {top_sc} | Mejor forma: {top_frm}"
+        )
+        return "\n".join(lines)
+
+    if status == "ambiguous":
+        query      = output.get("query", "")
+        candidates = output.get("candidates", [])
+        shorts     = [c.get("short_name", "?") for c in candidates]
+        return (
+            f"Múltiples equipos coinciden con '{query}': {', '.join(shorts)}. "
+            "Por favor especifica."
+        )
+
+    if status == "not_found":
+        return output.get("message", "Equipo no encontrado.")
+
+    code    = output.get("code", "error")
+    message = output.get("message", "Error inesperado.")
+    return f"Error ({code}): {message}"
+
+
+def _render_web_fetch(output: dict[str, Any]) -> str:
+    """Render web_fetch raw_output.  P2.7."""
+    status = output.get("status")
+    if status == "ok":
+        url      = output.get("url", "?")
+        length   = output.get("content_length", 0)
+        excerpt  = output.get("text_excerpt", "")
+        trunc    = output.get("truncated", False)
+        trunc_note = " (truncado)" if trunc else ""
+        return (
+            f"Obtenido {url} ({length} bytes{trunc_note}).\n{excerpt}"
+        )
+
+    if status == "refused":
+        return output.get("message", "URL rechazada por la lista de dominios permitidos.")
+
+    code    = output.get("code", "error")
+    message = output.get("message", "Error al obtener la URL.")
+    http_st = output.get("http_status")
+    suffix  = f" (HTTP {http_st})" if http_st else ""
+    return f"Error ({code}): {message}{suffix}"
+
+
+def _render_rank_players_by_metric(output: dict[str, Any]) -> str:
+    """Render rank_players_by_metric raw_output.  P2.8."""
+    status = output.get("status")
+    if status == "ok":
+        metric    = output.get("metric", "?")
+        ranked    = output.get("ranked", [])
+        pos_flt   = output.get("position_filter")
+        min_mins  = output.get("min_minutes_filter", 0)
+
+        filter_parts: list[str] = []
+        if pos_flt:
+            filter_parts.append(f"posición: {pos_flt}")
+        if min_mins > 0:
+            filter_parts.append(f"min. minutos: {min_mins}")
+        filter_str = f" [{', '.join(filter_parts)}]" if filter_parts else ""
+
+        if not ranked:
+            return f"Sin jugadores para la métrica '{metric}'{filter_str}."
+
+        header = f"Top {len(ranked)} jugadores por {metric}{filter_str}:"
+        lines = [header]
+        # Table header
+        lines.append("  #  | Jugador       | Equipo | Pos | Valor métrica")
+        lines.append("  ---|---------------|--------|-----|---------------")
+        for entry in ranked:
+            rank  = entry.get("rank", "?")
+            name  = entry.get("web_name", "?")
+            team  = entry.get("team_short", "?")
+            pos   = entry.get("position", "?")
+            val   = entry.get("metric_value", 0.0)
+            # Format float sensibly
+            if isinstance(val, float) and val == int(val) and abs(val) < 1e6:
+                val_str = str(int(val))
+            else:
+                val_str = f"{val:.2f}"
+            lines.append(
+                f"  {str(rank).rjust(3)} | {name.ljust(13)} | {team.ljust(6)} | {pos.ljust(3)} | {val_str}"
+            )
+        return "\n".join(lines)
+
+    if status == "invalid_argument":
+        return output.get("message", "Métrica no reconocida.")
+
+    code    = output.get("code", "error")
+    message = output.get("message", "Error inesperado.")
+    return f"Error ({code}): {message}"
+
+
+# ---------------------------------------------------------------------------
 # Dispatch table and public API
 # ---------------------------------------------------------------------------
 
@@ -742,6 +1117,15 @@ _RENDERERS = {
     "get_team_schedule":            _render_get_team_schedule,           # Phase 2.6e.3
     "get_position_fixture_run":     _render_get_position_fixture_run,    # Phase 2.6e.4
     "get_transfer_suggestion":      _render_get_transfer_suggestion,     # Phase 2.6h
+    # P2 atomic tools (P2.8 Gap B fix)
+    "find_players":             _render_find_players,            # P2.1
+    "get_player_snapshot":      _render_get_player_snapshot,     # P2.2
+    "get_player_history":       _render_get_player_history,      # P2.3
+    "get_fixtures_for_gw":      _render_get_fixtures_for_gw,     # P2.4
+    "get_gameweek_context":     _render_get_gameweek_context,    # P2.5
+    "get_team_snapshot":        _render_get_team_snapshot,       # P2.6
+    "web_fetch":                _render_web_fetch,               # P2.7
+    "rank_players_by_metric":   _render_rank_players_by_metric,  # P2.8
 }
 
 

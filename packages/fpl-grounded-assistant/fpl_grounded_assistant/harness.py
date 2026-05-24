@@ -191,6 +191,79 @@ _UNRECOGNISED = {
 
 
 # ---------------------------------------------------------------------------
+# F1: Evaluator-client singleton for production wiring
+# ---------------------------------------------------------------------------
+# Constructed once on first use (per provider); cached for the lifetime of
+# the process.  Uses the same API key as the primary orchestrator but passes
+# the cheapest model variant (evaluated per-call inside evaluator.py).
+#
+# Hard rules:
+#   - If FPL_EVAL_DISABLED=1, returns None (orchestrator fail-open path).
+#   - If client construction fails for any reason, returns None (fail-open).
+#   - For Anthropic: the provider client is stateless w.r.t. model — the
+#     same client object is passed and evaluator.py picks the haiku model
+#     per-call. We reuse the same client construction as the primary.
+#   - For OpenAI/Gemini: same pattern — provider client is model-agnostic.
+
+_EVAL_DISABLED_ENV: str = "FPL_EVAL_DISABLED"
+_TEST_MODE_TRUTHY_H: frozenset[str] = frozenset({"1", "true", "yes", "on"})
+
+# Cache: (provider_str, api_key_str) → client or None
+_eval_client_cache: dict[tuple[str, str | None], Any] = {}
+_eval_client_cache_lock = __import__("threading").Lock()
+
+
+def _build_eval_client(provider: str, api_key: str | None = None) -> Any | None:
+    """Return a provider client suitable for the evaluator, or None on failure.
+
+    This is the production-path singleton builder (F1 fix).  Called from
+    ask_v2() just before invoking ask_orchestrated().  Returns cached client
+    on subsequent calls for the same (provider, api_key) combination.
+
+    Fail-open: any exception → return None.  Never raises.
+    """
+    # Honour the eval-disabled flag first
+    if os.environ.get(_EVAL_DISABLED_ENV, "").strip().lower() in _TEST_MODE_TRUTHY_H:
+        return None
+
+    _key = (provider, api_key)
+    with _eval_client_cache_lock:
+        if _key in _eval_client_cache:
+            return _eval_client_cache[_key]
+
+    try:
+        from .provider_client import PROVIDER_ANTHROPIC, PROVIDER_OPENAI, PROVIDER_GEMINI  # noqa: PLC0415
+        if provider == PROVIDER_ANTHROPIC:
+            from .llm_layer import _get_anthropic_client  # noqa: PLC0415
+            client = _get_anthropic_client(api_key=api_key)
+        elif provider == PROVIDER_OPENAI:
+            # OpenAI: client built inline (mirrors orchestrator.py pattern)
+            _oai_key = api_key or os.environ.get("OPENAI_API_KEY", "")
+            if not _oai_key:
+                client = None
+            else:
+                import openai as _openai  # type: ignore[import-untyped]  # noqa: PLC0415
+                client = _openai.OpenAI(api_key=_oai_key)
+        elif provider == PROVIDER_GEMINI:
+            _gem_key = api_key or os.environ.get("GOOGLE_API_KEY", "")
+            if not _gem_key:
+                client = None
+            else:
+                import google.generativeai as _genai  # type: ignore[import-untyped]  # noqa: PLC0415
+                _genai.configure(api_key=_gem_key)
+                client = _genai
+        else:
+            # Unknown provider → fail-open
+            client = None
+    except Exception:  # noqa: BLE001
+        client = None
+
+    with _eval_client_cache_lock:
+        _eval_client_cache[_key] = client
+    return client
+
+
+# ---------------------------------------------------------------------------
 # Context detection helper
 # ---------------------------------------------------------------------------
 
@@ -418,15 +491,14 @@ def ask_v2(
                         `resource_rows={...}`, and `routing_trace`.
     * `@<unknown>`   -> `outcome="unsupported"`, `suggestions=[...]`.
     * `/<prompt>`    -> M2: prompt registry dispatch / expansion.
-    * plain text     -> M3 strict-order fallback ladder:
-                         1. route()                        — deterministic
-                         2. classify_intent_llm() rewrite  — Phase 4k LLM
-                         3. ask_orchestrated()             — Orch-3b loop
-                         4. unsupported + suggestions
+    * plain text     -> P1.a orchestrator-primary routing:
+                         1. ask_orchestrated()             — LLM-primary (P1.a)
+                         2. unsupported + suggestions
 
-    Steps 2 and 3 only fire when their respective client is supplied AND
-    the prior step returned no tool. Step 3 is additionally gated by the
-    ``FPL_ORCH_ENABLED`` environment variable (default OFF).
+    Step 1 is gated by the ``FPL_ORCH_ENABLED`` environment variable (default
+    OFF).  The ``classifier_client`` kwarg is accepted for backwards
+    compatibility but has NO effect on the plain-text path post-P1.a.
+    The orchestrator may call ``route()`` internally as a deterministic tool.
 
     A ``routing_trace`` dict is attached to every returned result.
 
@@ -502,12 +574,13 @@ def ask_v2(
 
         "resource"           — @resource matched and returned grounded rows.
         "prompt"             — /prompt matched (expansion or dispatch mode).
-        "route"              — plain text; route() succeeded on first try.
-        "classifier_rewrite" — plain text; route() missed, LLM rewrote it,
-                               route() succeeded on rewrite.
-        "orchestrator"       — plain text; all deterministic paths missed,
-                               orchestrator returned a grounded tool call.
+        "orchestrator"       — plain text; orchestrator returned a grounded
+                               tool call (P1.a primary path).
         "unsupported"        — no path produced a grounded answer.
+
+        [P1.a: "route" and "classifier_rewrite" no longer fire for plain text
+        from ask_v2().  They remain in harness_adapter.py as legacy branches
+        (defensive) in case synthetic dicts or session paths produce them.]
 
     ``grounded`` is True iff at least one deterministic tool ran end-to-end
     via the tool runner. An orchestrator answer with no tool call sets
@@ -746,119 +819,27 @@ def ask_v2(
         return result
 
     # ------------------------------------------------------------------
-    # M3 text-branch strict-order fallback ladder
+    # P1.a text-branch: orchestrator-primary routing
     # ------------------------------------------------------------------
-    # Plain-text questions traverse:
-    #   1. route()                          (inside ask())
-    #   2. classify_intent_llm() rewrite   (if classifier_client supplied)
-    #   3. ask_orchestrated()              (if FPL_ORCH_ENABLED and client/key)
-    #   4. unsupported + suggestions
+    # Post-P1.a, plain-text questions go DIRECTLY to ask_orchestrated().
+    # Steps 1 (route() first-try) and 2 (classifier_rewrite) have been
+    # REMOVED from the plain-text path.  The orchestrator MAY call route()
+    # internally as one of its tools (it is a fine deterministic resolver),
+    # but route() is no longer the gatekeeper.
     #
-    # A hit at step 1 MUST NOT fall through to step 2 or 3. Likewise a
-    # classifier-rewrite hit at step 2 MUST NOT fall through to step 3.
-    # These short-circuits are asserted by run_phase_m3_tests.py.
+    # Ladder summary (P1.a):
+    #   1. ask_orchestrated()  — LLM-primary; gated by FPL_ORCH_ENABLED
+    #   2. unsupported + suggestions  — when orchestrator disabled/unavailable
+    #
+    # Legacy: classifier_client kwarg is no longer consulted for plain-text
+    # routing.  The parameter is kept for backwards-compat call-sites but
+    # has NO effect on the plain-text path post-P1.a.
     assert outcome == OUTCOME_FALLTHROUGH
     cleaned_text = decision.get("text", question)
 
-    # --- Step 1: deterministic route() via existing ask() ---
-    result = ask(
-        cleaned_text,
-        bootstrap,
-        candidate_inputs=candidate_inputs,
-        candidates_list=candidates_list,
-    )
-    if result.get("selected_tool") is not None:
-        routing_trace["branch"]     = "route"
-        routing_trace["router_hit"] = True
-        routing_trace["grounded"]   = True
-        # Fix B (mcp-graduation G1.4): derive outcome from tool status, not hard-coded "ok".
-        result["outcome"] = _outcome_from_status(result.get("raw_output") or {})
-        result["kind"]    = "text"
-        result["routing_trace"] = routing_trace
-        # route branch: deterministic tool ran, extract real structured metadata
-        result.update(_meta(result.get("selected_tool"), result.get("raw_output", {})))
-        _telemetry.record(routing_trace)  # M5 telemetry
-        return result
-
-    # Step 1 missed. Capture trace and try classifier rewrite.
-    routing_trace["router_hit"] = False
-
-    # --- Step 2: classify_intent_llm() rewrite -> re-enter route() ---
-    if classifier_client is not None:
-        from .intent_classifier import classify_intent_llm
-        routing_trace["classifier_called"] = True
-        try:
-            classification = classify_intent_llm(cleaned_text, classifier_client)
-        except Exception:  # noqa: BLE001
-            classification = None
-        if classification is not None:
-            routing_trace["classifier_confidence"] = classification.confidence
-            routing_trace["classifier_intent"]    = classification.intent
-            canonical = classification.canonical_question
-            # Phase 2.7e parity (mcp-graduation G1.4): apply the medium-confidence gate
-            # inside ask_v2() to match dispatcher.dispatch() semantics.
-            # When CLASSIFIER_MEDIUM_GATE_ENABLED and confidence < HIGH threshold,
-            # do NOT execute the tool — return needs_clarification instead.
-            from .dispatcher import (  # noqa: PLC0415
-                CLASSIFIER_MEDIUM_GATE_ENABLED as _MED_GATE,
-                _CLASSIFIER_HIGH_CONFIDENCE as _HIGH_CONF,
-            )
-            _is_medium = classification.confidence < _HIGH_CONF
-            if _is_medium and _MED_GATE:
-                # Phase 2.7e parity: derive intent from the classifier's routing result
-                # so the adapter can report the correct intent (matches dispatcher.py line 660).
-                # _TOOL_TO_INTENT and route() are both available at this point (deferred imports
-                # at ask_v2 entry + module-level import of route from router).
-                _med_route = route(canonical)
-                _med_intent = _TOOL_TO_INTENT.get(_med_route.tool_name, "unsupported") if _med_route else "unsupported"
-                routing_trace["branch"] = "classifier_rewrite"
-                routing_trace["classification_source"] = "llm_classifier"
-                routing_trace["grounded"] = False
-                result = {
-                    "selected_tool": None,
-                    "tool_input":    {},
-                    "raw_output":    {
-                        "status":   "needs_clarification",
-                        "code":     "medium_confidence",
-                        "question": cleaned_text,
-                    },
-                    "answer_text":   "I need more information to answer that.",
-                    "outcome":       "needs_clarification",
-                    "kind":          "text",
-                    "canonical_question": canonical,
-                    "routing_trace": routing_trace,
-                    # surface the classifier-resolved intent so harness_adapter can project it
-                    # (selected_tool is None; adapter falls back to this key when present)
-                    "medium_gate_intent": _med_intent,
-                    **_none_meta,  # medium-gate: tool NOT run → all 14 keys are None
-                }
-                if context_meta is not None:
-                    result["context_meta"] = context_meta
-                _telemetry.record(routing_trace)  # M5 telemetry
-                return result
-            result = ask(
-                canonical,
-                bootstrap,
-                candidate_inputs=candidate_inputs,
-                candidates_list=candidates_list,
-            )
-            if result.get("selected_tool") is not None:
-                routing_trace["branch"]              = "classifier_rewrite"
-                routing_trace["grounded"]            = True
-                routing_trace["classification_source"] = "llm_classifier"
-                # Fix B (mcp-graduation G1.4): derive outcome from tool status, not hard-coded "ok".
-                result["outcome"]              = _outcome_from_status(result.get("raw_output") or {})
-                result["kind"]                 = "text"
-                result["canonical_question"]   = canonical
-                result["routing_trace"]        = routing_trace
-                # classifier_rewrite branch: deterministic tool ran after LLM rewrite
-                result.update(_meta(result.get("selected_tool"), result.get("raw_output", {})))
-                _telemetry.record(routing_trace)  # M5 telemetry
-                return result
-
-    # --- Step 3: ask_orchestrated() — last fallback, feature-flag-gated ---
-    # The orchestrator only runs when (a) the feature flag is ON AND (b) a
-    # client/api_key is reachable. Either condition false -> step 4.
+    # --- Step 1 (P1.a): ask_orchestrated() — PRIMARY for plain text ---
+    # The orchestrator runs when (a) the feature flag is ON AND (b) a
+    # client/api_key is reachable. Either condition false -> step 2 (unsupported).
     if _orch_enabled and (orch_client is not None or orch_api_key is not None or
                           os.environ.get("ANTHROPIC_API_KEY") or
                           os.environ.get("OPENAI_API_KEY") or
@@ -870,6 +851,10 @@ def ask_v2(
         )
         routing_trace["orchestrator_called"] = True
         _provider = orch_provider if orch_provider is not None else get_orch_provider()
+        # F1: construct evaluator client on the production path (singleton, cached).
+        # Fail-open: if disabled or construction fails, _eval_client is None and
+        # the orchestrator's fail-open path (_apply_evaluator) is a no-op.
+        _eval_client = _build_eval_client(_provider, api_key=orch_api_key)
         try:
             orch_result = ask_orchestrated(
                 cleaned_text,
@@ -877,6 +862,7 @@ def ask_v2(
                 client=orch_client,
                 api_key=orch_api_key,
                 provider=_provider,
+                _eval_client=_eval_client,
             )
         except Exception as exc:  # noqa: BLE001  — defensive; ask_orchestrated never raises
             routing_trace["branch"]                  = "unsupported"
@@ -917,6 +903,16 @@ def ask_v2(
                 "kind":          "text",
                 "orchestrator_model": orch_result.model,
                 "routing_trace": routing_trace,
+                # F3: expose token observability so P3 quota meter can read them.
+                "tokens": {
+                    "primary_input":    orch_result.primary_input_tokens,
+                    "primary_output":   orch_result.primary_output_tokens,
+                    "primary_cache_read": orch_result.primary_cache_read_tokens,
+                    "evaluator":        orch_result.evaluator_input_tokens,
+                    "retry_input":      orch_result.retry_input_tokens,
+                    "retry_output":     orch_result.retry_output_tokens,
+                    "total":            orch_result.total_tokens,
+                },
                 **_meta(orch_result.tool_chosen, _orch_raw),  # orchestrator: grounded tool ran
             }
             if context_meta is not None:
@@ -951,8 +947,7 @@ def ask_v2(
         _telemetry.record(routing_trace)  # M5 telemetry (orchestrator no grounded tool -> unsupported)
         return result
 
-    # --- Step 4: unsupported (deterministic + classifier both missed,
-    #             AND orchestrator unreachable or disabled). ---
+    # --- Step 2 (P1.a): unsupported (orchestrator unreachable or disabled). ---
     # ask_v2() uses "unsupported" here; harness_adapter.py maps it to
     # "unsupported_intent" on the HTTP surface to match dispatcher semantics.
     routing_trace["branch"] = "unsupported"
@@ -969,7 +964,7 @@ def ask_v2(
     }
     if context_meta is not None:
         result["context_meta"] = context_meta
-    _telemetry.record(routing_trace)  # M5 telemetry (step 4: full ladder miss)
+    _telemetry.record(routing_trace)  # M5 telemetry (step 2 P1.a: orchestrator disabled / unreachable)
     return result
 
 

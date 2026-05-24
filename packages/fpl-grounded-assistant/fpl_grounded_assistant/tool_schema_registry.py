@@ -4,7 +4,7 @@ fpl_grounded_assistant.tool_schema_registry
 Phase Orch-2a: Deterministic tool schema registry for grounded tools.
 
 Provides a read-only registry of JSON-schema-like function specs for all
-ten grounded tools exposed by the dispatcher.  Schemas are static, additive,
+grounded tools exposed by the dispatcher.  Schemas are static, additive,
 and test-validated.  No runtime wiring or orchestration logic lives here.
 
 This module is a **pure data layer** — no imports from the live FPL stack are
@@ -24,8 +24,8 @@ Registry API
 ``get_tool_schema(name)``            → ToolSchema | None
 ``validate_tool_schema_shape(s)``    → bool            — structural check
 
-Registered tools (all 17 grounded intents)
--------------------------------------------
+Registered tools (25 grounded tools, including P2.1–P2.8 atomic tools)
+----------------------------------------------------------------------
 +----------------------------+----------------------------------+
 | Tool name                  | Intent label                     |
 +============================+==================================+
@@ -46,6 +46,14 @@ Registered tools (all 17 grounded intents)
 | get_team_schedule          | team_schedule                    |  (Phase 2.6e.3)
 | get_position_fixture_run   | position_fixture_run             |  (Phase 2.6e.4)
 | get_transfer_suggestion    | transfer_suggestion              |  (Phase 2.6h)
+| find_players               | atomic: fuzzy name search        |  (P2.1)
+| get_player_snapshot        | atomic: single-player snapshot   |  (P2.2)
+| get_player_history         | atomic: per-GW history           |  (P2.3)
+| get_fixtures_for_gw        | atomic: GW fixture list+FDR      |  (P2.4)
+| get_gameweek_context       | atomic: temporal GW context      |  (P2.5)
+| get_team_snapshot          | atomic: single-team overview     |  (P2.6)
+| web_fetch                  | atomic: allowlisted URL fetch    |  (P2.7)
+| rank_players_by_metric     | atomic: ranked player list       |  (P2.8)
 +----------------------------+----------------------------------+
 
 Schema format
@@ -173,9 +181,7 @@ _SCORE_INPUT_PROPS: dict[str, Any] = {
 GET_CURRENT_GAMEWEEK_SCHEMA = ToolSchema(
     name="get_current_gameweek",
     description=(
-        "Return the current (or next upcoming) FPL gameweek number. "
-        "Returns status='ok' with the gameweek integer, "
-        "or status='not_found' if the season has not started or has ended."
+        "Current/next FPL GW number. Returns: {status:'ok', gameweek:int} | {status:'not_found'}."
     ),
     parameters={
         "type":                 "object",
@@ -188,9 +194,8 @@ GET_CURRENT_GAMEWEEK_SCHEMA = ToolSchema(
 GET_PLAYER_SUMMARY_SCHEMA = ToolSchema(
     name="get_player_summary",
     description=(
-        "Return a full summary for a specific FPL player: "
-        "position, cost (£m), ownership, and availability status. "
-        "Use when the user asks about a player's price, stats, or availability."
+        "Full summary for one FPL player: position, cost(£m), ownership, availability. "
+        "Use for price/stats/availability queries."
     ),
     parameters={
         "type": "object",
@@ -205,10 +210,8 @@ GET_PLAYER_SUMMARY_SCHEMA = ToolSchema(
 RESOLVE_PLAYER_SCHEMA = ToolSchema(
     name="resolve_player",
     description=(
-        "Resolve a player query to a canonical FPL identity record. "
-        "Returns status='ok' with identity fields (name, team, position), "
-        "status='ambiguous' when multiple players match (ask for clarification), "
-        "or status='not_found' when no player matches."
+        "Resolve query → canonical FPL identity (name/team/position). "
+        "Returns: {status:'ok',...} | {status:'ambiguous',...} | {status:'not_found'}."
     ),
     parameters={
         "type": "object",
@@ -223,10 +226,8 @@ RESOLVE_PLAYER_SCHEMA = ToolSchema(
 GET_CAPTAIN_SCORE_SCHEMA = ToolSchema(
     name="get_captain_score",
     description=(
-        "Score a single player as a captain candidate. "
-        "Returns captain tier, confidence, and explanatory signals. "
-        "All scoring inputs (form, fixture_difficulty, xgi_per_90, minutes_risk) "
-        "are auto-derived from the bootstrap; supply them only to override."
+        "Score one player as captain candidate. Returns: tier, confidence, signals. "
+        "Inputs (form/fdr/xgi_per_90/minutes_risk) auto-derived; override optional."
     ),
     parameters={
         "type": "object",
@@ -245,10 +246,8 @@ GET_CAPTAIN_SCORE_SCHEMA = ToolSchema(
 RANK_CAPTAIN_CANDIDATES_SCHEMA = ToolSchema(
     name="rank_captain_candidates",
     description=(
-        "Rank a list of captain candidates by captain score in descending order. "
-        "All scoring inputs are auto-derived from the bootstrap unless overridden "
-        "per candidate. When no candidates list is supplied the dispatcher "
-        "auto-selects the top-10 available players by form."
+        "Rank captain candidates by score (desc). Inputs auto-derived; override per candidate. "
+        "Omit candidates → auto top-10 by form."
     ),
     parameters={
         "type": "object",
@@ -277,9 +276,8 @@ RANK_CAPTAIN_CANDIDATES_SCHEMA = ToolSchema(
 COMPARE_PLAYERS_SCHEMA = ToolSchema(
     name="compare_players",
     description=(
-        "Compare two players by position-aware captain score and return a "
-        "grounded recommendation. Use when the user asks 'X vs Y' or "
-        "'should I captain X or Y'."
+        "Compare two players by position-aware captain score; returns grounded recommendation. "
+        "Use for 'X vs Y' or 'captain X or Y' queries."
     ),
     parameters={
         "type": "object",
@@ -301,9 +299,8 @@ COMPARE_PLAYERS_SCHEMA = ToolSchema(
 GET_TRANSFER_ADVICE_SCHEMA = ToolSchema(
     name="get_transfer_advice",
     description=(
-        "Recommend whether to sell one player and buy another. "
-        "Computes a captain-score differential and returns a deterministic "
-        "verdict. Use when the user says 'should I sell X for Y'."
+        "Sell/buy decision: captain-score diff → deterministic verdict. "
+        "Use for 'should I sell X for Y' queries."
     ),
     parameters={
         "type": "object",
@@ -325,9 +322,8 @@ GET_TRANSFER_ADVICE_SCHEMA = ToolSchema(
 GET_CHIP_ADVICE_SCHEMA = ToolSchema(
     name="get_chip_advice",
     description=(
-        "Return deterministic advice on whether to use an FPL chip this gameweek. "
-        "Evaluates gameweek type (normal / double / blank), fixture difficulty, "
-        "and captain score signals."
+        "Chip usage advice (triple_captain/wildcard/bench_boost/free_hit). "
+        "Evaluates GW type (normal/double/blank), FDR, captain signals."
     ),
     parameters={
         "type": "object",
@@ -346,9 +342,8 @@ GET_CHIP_ADVICE_SCHEMA = ToolSchema(
 GET_PLAYER_FIXTURE_RUN_SCHEMA = ToolSchema(
     name="get_player_fixture_run",
     description=(
-        "Return the upcoming fixture run for a player (default 5 fixtures). "
-        "Includes opponent, home/away flag, and fixture difficulty rating for "
-        "each upcoming gameweek."
+        "Upcoming fixture run for a player (default 5 GWs). "
+        "Returns: opponent, home/away, FDR per GW."
     ),
     parameters={
         "type": "object",
@@ -367,9 +362,8 @@ GET_PLAYER_FIXTURE_RUN_SCHEMA = ToolSchema(
 GET_DIFFERENTIAL_PICKS_SCHEMA = ToolSchema(
     name="get_differential_picks",
     description=(
-        "Return top differential FPL picks: players owned by fewer than 15% of "
-        "managers, ranked by position-aware score. Use when the user asks about "
-        "low-ownership options or differentials."
+        "Top differential FPL picks: ownership <15%, ranked by position-aware score. "
+        "Use for low-ownership/differential queries."
     ),
     parameters={
         "type":                 "object",
@@ -390,9 +384,8 @@ GET_DIFFERENTIAL_PICKS_SCHEMA = ToolSchema(
 GET_PLAYER_FORM_SCHEMA = ToolSchema(
     name="get_player_form",
     description=(
-        "Return a player's recent FPL gameweek history (minutes, goals, "
-        "assists, bonus, total_points) for the last N gameweeks. "
-        "Use when the user asks about a player's recent form or last games."
+        "Player GW history: minutes/goals/assists/bonus/points for last N GWs. "
+        "Use for recent-form or last-games queries."
     ),
     parameters={
         "type": "object",
@@ -417,10 +410,8 @@ GET_PLAYER_FORM_SCHEMA = ToolSchema(
 GET_INJURY_LIST_SCHEMA = ToolSchema(
     name="get_injury_list",
     description=(
-        "Return the list of currently unavailable or doubtful FPL players "
-        "(status != 'a'), with player name, team, position, status code, "
-        "chance_of_playing_this_round, and news text. "
-        "Use when the user asks who is injured, doubtful, or unavailable."
+        "Unavailable/doubtful FPL players (status!='a'): name, team, position, "
+        "status, chance_of_playing, news. Use for injury/doubt/unavailable queries."
     ),
     parameters={
         "type":                 "object",
@@ -434,9 +425,8 @@ GET_INJURY_LIST_SCHEMA = ToolSchema(
 GET_PRICE_CHANGES_SCHEMA = ToolSchema(
     name="get_price_changes",
     description=(
-        "Return players whose FPL price has risen or fallen recently "
-        "(non-zero cost_change_event), grouped into risers and fallers. "
-        "Use when the user asks about price changes, risers, or fallers."
+        "Players with recent price change (non-zero cost_change_event), grouped: risers/fallers. "
+        "Use for price-change/riser/faller queries."
     ),
     parameters={
         "type":                 "object",
@@ -449,10 +439,8 @@ GET_PRICE_CHANGES_SCHEMA = ToolSchema(
 GET_TEAM_FIXTURE_CALENDAR_SCHEMA = ToolSchema(
     name="get_team_fixture_calendar",
     description=(
-        "Rank Premier League teams by upcoming fixture difficulty over a "
-        "bounded gameweek horizon. Use when the user asks 'which teams have "
-        "the easiest/hardest fixtures' — NOT for a single player or a single "
-        "club's schedule."
+        "Rank ALL PL teams by upcoming FDR (easiest/hardest) over N GWs. "
+        "NOT for single-team schedule (use get_team_schedule) or single-player."
     ),
     parameters={
         "type": "object",
@@ -492,9 +480,8 @@ GET_TEAM_FIXTURE_CALENDAR_SCHEMA = ToolSchema(
 GET_TEAM_SCHEDULE_SCHEMA = ToolSchema(
     name="get_team_schedule",
     description=(
-        "Return one specific club's upcoming fixtures with DGW/BGW labels "
-        "over a bounded gameweek horizon. Use when the user asks for a "
-        "single team's schedule (e.g. 'Arsenal fixtures next 5')."
+        "One club's upcoming fixtures with DGW/BGW labels over N GWs. "
+        "Use for single-team schedule queries (e.g. 'Arsenal fixtures next 5')."
     ),
     parameters={
         "type": "object",
@@ -524,10 +511,8 @@ GET_TEAM_SCHEDULE_SCHEMA = ToolSchema(
 GET_POSITION_FIXTURE_RUN_SCHEMA = ToolSchema(
     name="get_position_fixture_run",
     description=(
-        "Rank teams by upcoming fixture difficulty for a specific player "
-        "position (e.g. defenders with the best fixtures). Use when the "
-        "user asks 'which defenders/midfielders/forwards have the best "
-        "fixtures'."
+        "Rank teams by FDR for a specific position (GKP/DEF/MID/FWD). "
+        "Use for 'best fixtures for defenders/midfielders/forwards' queries."
     ),
     parameters={
         "type": "object",
@@ -562,10 +547,8 @@ GET_POSITION_FIXTURE_RUN_SCHEMA = ToolSchema(
 GET_TRANSFER_SUGGESTION_SCHEMA = ToolSchema(
     name="get_transfer_suggestion",
     description=(
-        "Return ranked transfer targets filtered by position, club, and "
-        "optional price ceiling. Use when the user asks 'best midfielders "
-        "to buy' or 'cheap forwards under 7.5'. NOT for selling a player "
-        "(see get_transfer_advice) and NOT for differentials."
+        "Ranked transfer targets filtered by position/club/price ceiling. "
+        "Use for 'best X to buy' or 'cheap forwards under Y'. NOT for sell decisions or differentials."
     ),
     parameters={
         "type": "object",
@@ -616,6 +599,251 @@ GET_TRANSFER_SUGGESTION_SCHEMA = ToolSchema(
     },
 )
 
+# ---------------------------------------------------------------------------
+# P2.1 atomic tool — find_players fuzzy name search
+# ---------------------------------------------------------------------------
+
+FIND_PLAYERS_SCHEMA = ToolSchema(
+    name="find_players",
+    description=(
+        "Fuzzy player name search (accent+case insensitive). Returns candidates with "
+        "full grounding payload: id, availability, form, cost, ownership, match_rank. "
+        "not_found when no match."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "name_query": {
+                "type":        "string",
+                "description": "Player name substring (case-insensitive, accent-insensitive)",
+            },
+            "limit": {
+                "type":        "integer",
+                "description": "Max results (1-10, default 5)",
+                "minimum":     1,
+                "maximum":     10,
+            },
+        },
+        "required":             ["name_query"],
+        "additionalProperties": False,
+    },
+)
+
+# ---------------------------------------------------------------------------
+# P2.2 atomic tool — get_player_snapshot single-player lookup
+# ---------------------------------------------------------------------------
+
+GET_PLAYER_SNAPSHOT_SCHEMA = ToolSchema(
+    name="get_player_snapshot",
+    description=(
+        "Single player full grounding payload by name. Returns status=ok+player "
+        "(1 match), ambiguous+candidates (multi-match), or not_found. "
+        "For candidate lists use find_players instead."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "player_name": {
+                "type":        "string",
+                "description": "Player name (case-insensitive, accent-insensitive)",
+            },
+        },
+        "required":             ["player_name"],
+        "additionalProperties": False,
+    },
+)
+
+
+# ---------------------------------------------------------------------------
+# P2.3 atomic tool — get_player_history per-GW temporal window
+# ---------------------------------------------------------------------------
+
+GET_PLAYER_HISTORY_SCHEMA = ToolSchema(
+    name="get_player_history",
+    description=(
+        "Per-GW history for one player over last N gameweeks. Returns history list "
+        "(minutes, points, goals, assists, xG, xA, BPS) + summary. "
+        "status=ambiguous on multi-match; not_found / error otherwise."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "player_name": {
+                "type":        "string",
+                "description": "Player name (case-insensitive, accent-insensitive)",
+            },
+            "last_n_gws": {
+                "type":        "integer",
+                "description": "Number of recent gameweeks to return (1-38, default 5)",
+                "minimum":     1,
+                "maximum":     38,
+            },
+        },
+        "required":             ["player_name"],
+        "additionalProperties": False,
+    },
+)
+
+
+# ---------------------------------------------------------------------------
+# P2.4 atomic tool — get_fixtures_for_gw GW fixture list with FDR
+# ---------------------------------------------------------------------------
+
+GET_FIXTURES_FOR_GW_SCHEMA = ToolSchema(
+    name="get_fixtures_for_gw",
+    description=(
+        "All fixtures for a GW with FDR per team. Returns fixture list (kickoff, teams, FDR, "
+        "scores) + summary (totals, easiest/hardest, DGW+BGW teams). "
+        "status=invalid_argument on out-of-range gw_number."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "gw_number": {
+                "type":        "integer",
+                "description": "Gameweek number (1-38)",
+                "minimum":     1,
+                "maximum":     38,
+            },
+        },
+        "required":             ["gw_number"],
+        "additionalProperties": False,
+    },
+)
+
+
+# ---------------------------------------------------------------------------
+# P2.5 atomic tool — get_gameweek_context temporal GW grounding
+# ---------------------------------------------------------------------------
+
+GET_GAMEWEEK_CONTEXT_SCHEMA = ToolSchema(
+    name="get_gameweek_context",
+    description=(
+        "Current/next GW with deadlines + blank/double alerts for next 5 GWs. "
+        "Returns current_gw, next_gw, season status, blank_gw_alerts, "
+        "double_gw_alerts. No args. Use before reasoning about next GW."
+    ),
+    parameters={
+        "type":                 "object",
+        "properties":           {},
+        "required":             [],
+        "additionalProperties": False,
+    },
+)
+
+
+# ---------------------------------------------------------------------------
+# P2.6 atomic tool — get_team_snapshot single-team overview
+# ---------------------------------------------------------------------------
+
+GET_TEAM_SNAPSHOT_SCHEMA = ToolSchema(
+    name="get_team_snapshot",
+    description=(
+        "Single team snapshot: form, next N fixtures+FDR, top N players (full grounding payload), "
+        "summary (avg FDR, easy/hard run, top scorer). "
+        "status=ambiguous on multi-match (e.g. 'manchester')."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "team_name": {
+                "type":        "string",
+                "description": (
+                    "Team name, short code, or substring (case+accent insensitive). "
+                    "E.g. 'wolves', 'WOL', 'Wolverhampton', 'aston villa', 'AVL'."
+                ),
+            },
+            "top_n_players": {
+                "type":        "integer",
+                "description": "Max top players to return (1-10, default 5)",
+                "minimum":     1,
+                "maximum":     10,
+            },
+            "fixture_horizon": {
+                "type":        "integer",
+                "description": "Number of upcoming fixtures to include (1-10, default 5)",
+                "minimum":     1,
+                "maximum":     10,
+            },
+        },
+        "required":             ["team_name"],
+        "additionalProperties": False,
+    },
+)
+
+
+# ---------------------------------------------------------------------------
+# P2.7 atomic tool — web_fetch (allowlisted football/FPL URL fetch)
+# ---------------------------------------------------------------------------
+
+WEB_FETCH_SCHEMA = ToolSchema(
+    name="web_fetch",
+    description=(
+        "Fetch news from allowlisted football/FPL domains (BBC sport, Athletic, PL, FPL, "
+        "FBref, Transfermarkt). status=refused for off-topic URLs or SSRF. No cache."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "url": {
+                "type":        "string",
+                "description": (
+                    "Full URL to fetch. Must be on an allowlisted football/FPL domain. "
+                    "status=refused returned for any non-allowlisted domain or private IP."
+                ),
+            },
+        },
+        "required":             ["url"],
+        "additionalProperties": False,
+    },
+)
+
+
+# ---------------------------------------------------------------------------
+# P2.8 atomic tool — rank_players_by_metric ranked player list
+# ---------------------------------------------------------------------------
+
+RANK_PLAYERS_BY_METRIC_SCHEMA = ToolSchema(
+    name="rank_players_by_metric",
+    description=(
+        "Top N players by metric (xGI, form, points, xG, xA, ICT, ownership, minutes, etc.). "
+        "Filter by position/min_minutes. Returns ranked list with grounding payload + metric_value. "
+        "Use for top-N queries."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "metric": {
+                "type":        "string",
+                "description": (
+                    "Metric to rank by. Aliases: xgi, xg, xa, ict, popularity, ppg. "
+                    "Full names: expected_goal_involvements, form, total_points, etc."
+                ),
+            },
+            "top_n": {
+                "type":        "integer",
+                "description": "Max players to return (1-50, default 10)",
+                "minimum":     1,
+                "maximum":     50,
+            },
+            "position": {
+                "type":        "string",
+                "description": (
+                    "Optional position filter: GKP/DEF/MID/FWD (case-insensitive). "
+                    "Spanish: portero/defensa/centrocampista/delantero."
+                ),
+            },
+            "min_minutes": {
+                "type":        "integer",
+                "description": "Exclude players with fewer minutes (default 0)",
+                "minimum":     0,
+            },
+        },
+        "required":             ["metric"],
+        "additionalProperties": False,
+    },
+)
+
 
 # ---------------------------------------------------------------------------
 # Registry construction
@@ -640,6 +868,22 @@ _ALL_SCHEMAS: tuple[ToolSchema, ...] = (
     GET_TEAM_SCHEDULE_SCHEMA,
     GET_POSITION_FIXTURE_RUN_SCHEMA,
     GET_TRANSFER_SUGGESTION_SCHEMA,
+    # P2.1 atomic tool
+    FIND_PLAYERS_SCHEMA,
+    # P2.2 atomic tool
+    GET_PLAYER_SNAPSHOT_SCHEMA,
+    # P2.3 atomic tool
+    GET_PLAYER_HISTORY_SCHEMA,
+    # P2.4 atomic tool
+    GET_FIXTURES_FOR_GW_SCHEMA,
+    # P2.5 atomic tool
+    GET_GAMEWEEK_CONTEXT_SCHEMA,
+    # P2.6 atomic tool
+    GET_TEAM_SNAPSHOT_SCHEMA,
+    # P2.7 atomic tool
+    WEB_FETCH_SCHEMA,
+    # P2.8 atomic tool
+    RANK_PLAYERS_BY_METRIC_SCHEMA,
 )
 
 #: Immutable dict mapping tool name → ToolSchema.

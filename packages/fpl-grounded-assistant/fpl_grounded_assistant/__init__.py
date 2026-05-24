@@ -69,6 +69,7 @@ from .dispatcher import (
     OUTCOME_MISSING_ARGUMENTS,
     OUTCOME_ERROR,
     OUTCOME_NEEDS_CLARIFICATION,  # Phase 2.7e
+    OUTCOME_QUOTA_EXCEEDED,       # Phase P3.1
     # Phase 2l: intent manifest
     INTENT_MANIFEST,
 )
@@ -226,6 +227,14 @@ from .injury_list import get_injury_list              # Phase 2.6d
 from .price_changes import get_price_changes          # Phase 2.6d
 from .position_fixture_run import get_position_fixture_run  # Phase 2.6e.4 — triggers TOOL_REGISTRY self-registration
 from .transfer_suggestion import get_transfer_suggestion    # Phase 2.6h — triggers TOOL_REGISTRY self-registration
+from .find_players import find_players                      # P2.1 — triggers TOOL_REGISTRY self-registration
+from .get_player_snapshot import get_player_snapshot        # P2.2 — triggers TOOL_REGISTRY self-registration
+from .get_player_history import get_player_history          # P2.3 — triggers TOOL_REGISTRY self-registration
+from .get_fixtures_for_gw import get_fixtures_for_gw        # P2.4 — triggers TOOL_REGISTRY self-registration
+from .get_gameweek_context import get_gameweek_context      # P2.5 — triggers TOOL_REGISTRY self-registration
+from .get_team_snapshot import get_team_snapshot            # P2.6 — triggers TOOL_REGISTRY self-registration
+from .web_fetch import web_fetch                            # P2.7 — triggers TOOL_REGISTRY self-registration
+from .rank_players_by_metric import rank_players_by_metric  # P2.8 — triggers TOOL_REGISTRY self-registration
 from .team_fixture_calendar import (                  # Phase 2.6e
     get_team_fixture_calendar,
     DEFAULT_HORIZON as TEAM_CALENDAR_DEFAULT_HORIZON,
@@ -473,6 +482,22 @@ __all__ = [
     "record_response",
     "get_snapshot",
     "reset_telemetry",
+    # P2.1: atomic find_players tool
+    "find_players",
+    # P2.2: atomic get_player_snapshot tool
+    "get_player_snapshot",
+    # P2.3: atomic get_player_history tool
+    "get_player_history",
+    # P2.4: atomic get_fixtures_for_gw tool
+    "get_fixtures_for_gw",
+    # P2.5: atomic get_gameweek_context tool
+    "get_gameweek_context",
+    # P2.6: atomic get_team_snapshot tool
+    "get_team_snapshot",
+    # P2.7: atomic web_fetch tool (allowlisted football/FPL URLs)
+    "web_fetch",
+    # P2.8: atomic rank_players_by_metric tool
+    "rank_players_by_metric",
     # core harness
     "ask",
     "ask_v2",

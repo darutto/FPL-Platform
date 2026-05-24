@@ -12,13 +12,15 @@
  *   - Do not gate any rendering logic on debug-only fields.
  *
  * RENDERED (Phase 2c):
- *   captain_score      → 'captain'     (captain field non-null)
- *   compare_players    → 'comparison'  (comparison field non-null)
- *   rank_candidates    → 'ranking'     (captain_ranking non-null, length > 0)
- *   transfer_advice    → 'transfer'    (transfer field non-null)
- *   chip_advice        → 'chip'        (chip field non-null)
- *   player_fixture_run → 'fixture_run' (fixture_run non-null, fixtures.length > 0)
- *   differential_picks → 'differential' (differential non-null, picks.length > 0)
+ *   captain_score      → 'captain'            (captain field non-null)
+ *   compare_players    → 'comparison'         (comparison field non-null)
+ *   rank_candidates    → 'ranking'            (captain_ranking non-null, length > 0)
+ *   transfer_advice    → 'transfer'           (transfer field non-null)
+ *   chip_advice        → 'chip'               (chip field non-null)
+ *   player_fixture_run → 'fixture_run'        (fixture_run non-null, fixtures.length > 0)
+ *   differential_picks → 'differential'       (differential non-null, picks.length > 0)
+ *   @top_form/xg/etc.  → 'resource_ranking'  (resource_rows non-null, resource != 'injuries')
+ *   @injuries          → 'resource_injuries'  (resource_rows non-null, resource === 'injuries')
  *
  * TEXT-ONLY (Phase 2c, structured rendering deferred):
  *   multi_intent, current_gameweek, player_summary, player_resolve
@@ -33,7 +35,9 @@ export type IntentView =
   | 'chip'
   | 'fixture_run'
   | 'differential'
-  | 'multi_intent';
+  | 'multi_intent'
+  | 'resource_ranking'
+  | 'resource_injuries';
 
 /**
  * Given a backend response, returns which structured intent component to
@@ -43,6 +47,14 @@ export type IntentView =
  */
 export function selectIntentView(response: AskResponse): IntentView | null {
   if (response.outcome !== 'ok') return null;
+
+  // Resource rows — most specific signal: if present, render the resource view
+  // regardless of intent. (A2 post-graduation)
+  if (response.resource_rows != null) {
+    return response.resource_rows.resource === 'injuries'
+      ? 'resource_injuries'
+      : 'resource_ranking';
+  }
 
   if (response.intent === 'captain_score' && response.captain != null) {
     return 'captain';
