@@ -80,6 +80,14 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready', timeout=5)" \
     || exit 1
 
+# Production invariants (Railway env vars override these baked-in defaults)
+# FPL_ORCH_ENABLED=1      — enables LLM orchestration (plain text → ask_orchestrated)
+# FPL_SESSION_ENABLED=false — disables session endpoints until tokens=0 debt resolved
+# --workers 1             — in-memory quota store is per-process; must stay single-worker
+#                           until quota moves to Redis (graduation debt)
+ENV FPL_ORCH_ENABLED=1
+ENV FPL_SESSION_ENABLED=false
+
 # Railway injects PORT; default 8000 for local runs.
 # Using sh -c so ${PORT} shell expansion works.
 CMD ["sh", "-c", "uvicorn fpl_server:app --host 0.0.0.0 --port ${PORT:-8000}"]
