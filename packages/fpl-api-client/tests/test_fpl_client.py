@@ -327,6 +327,108 @@ class TestGetCurrentGameweek:
 
 
 # ---------------------------------------------------------------------------
+# I. get_all_fixtures
+# ---------------------------------------------------------------------------
+
+class TestGetAllFixtures:
+    def test_calls_all_fixtures_url_without_event_param(self):
+        """get_all_fixtures fetches ALL_FIXTURES_URL with no ?event= query param."""
+        from fpl_api_client.fpl_client import get_all_fixtures, ALL_FIXTURES_URL
+        payload = [{"id": 1, "team_h": 13, "team_a": 1, "event": 1}]
+        with patch(_PATCH_TARGET, return_value=_make_mock_response(payload)) as mock_get:
+            get_all_fixtures()
+        mock_get.assert_called_once()
+        called_url = mock_get.call_args[0][0]
+        assert called_url == ALL_FIXTURES_URL
+        assert "?event=" not in called_url
+
+    def test_returns_parsed_fixture_list(self):
+        """get_all_fixtures returns the parsed JSON list of fixtures."""
+        from fpl_api_client.fpl_client import get_all_fixtures
+        payload = [
+            {"id": 1, "team_h": 13, "team_a": 1, "event": 1},
+            {"id": 2, "team_h": 6,  "team_a": 7, "event": 1},
+        ]
+        with patch(_PATCH_TARGET, return_value=_make_mock_response(payload)):
+            result = get_all_fixtures()
+        assert result == payload
+        assert isinstance(result, list)
+
+
+# ---------------------------------------------------------------------------
+# J. get_event_live
+# ---------------------------------------------------------------------------
+
+_MINIMAL_EVENT_LIVE = {
+    "elements": [
+        {
+            "id": 1,
+            "stats": {
+                "minutes": 90,
+                "goals_scored": 2,
+                "assists": 0,
+                "clean_sheets": 0,
+                "goals_conceded": 1,
+                "bonus": 3,
+                "total_points": 15,
+            },
+            "explain": [
+                {
+                    "fixture": 301,
+                    "stats": [
+                        {"identifier": "goals_scored", "points": 12, "value": 2},
+                        {"identifier": "bonus",        "points": 3,  "value": 3},
+                    ],
+                }
+            ],
+            "modified": False,
+        }
+    ]
+}
+
+
+class TestGetEventLive:
+    def test_url_format(self):
+        """EVENT_LIVE_URL.format(gameweek=38) produces the expected URL."""
+        from fpl_api_client.fpl_client import EVENT_LIVE_URL
+        url = EVENT_LIVE_URL.format(gameweek=38)
+        assert url == "https://fantasy.premierleague.com/api/event/38/live/"
+
+    def test_url_format_gw1(self):
+        """EVENT_LIVE_URL.format works for gameweek=1."""
+        from fpl_api_client.fpl_client import EVENT_LIVE_URL
+        assert EVENT_LIVE_URL.format(gameweek=1) == "https://fantasy.premierleague.com/api/event/1/live/"
+
+    def test_round_trips_payload(self):
+        """get_event_live returns the parsed dict from fetch_json."""
+        from fpl_api_client.fpl_client import get_event_live
+        with patch(_PATCH_TARGET, return_value=_make_mock_response(_MINIMAL_EVENT_LIVE)):
+            result = get_event_live(38)
+        assert result == _MINIMAL_EVENT_LIVE
+        assert "elements" in result
+        assert isinstance(result["elements"], list)
+
+    def test_calls_event_live_url(self):
+        """get_event_live fetches the correct EVENT_LIVE_URL for the given GW."""
+        from fpl_api_client.fpl_client import get_event_live, EVENT_LIVE_URL
+        with patch(_PATCH_TARGET, return_value=_make_mock_response(_MINIMAL_EVENT_LIVE)) as mock_get:
+            get_event_live(38)
+        called_url = mock_get.call_args[0][0]
+        assert called_url == EVENT_LIVE_URL.format(gameweek=38)
+
+    def test_elements_entry_shape(self):
+        """Each elements entry in the response has id, stats, explain, modified."""
+        from fpl_api_client.fpl_client import get_event_live
+        with patch(_PATCH_TARGET, return_value=_make_mock_response(_MINIMAL_EVENT_LIVE)):
+            result = get_event_live(38)
+        entry = result["elements"][0]
+        assert "id" in entry
+        assert "stats" in entry
+        assert "explain" in entry
+        assert "modified" in entry
+
+
+# ---------------------------------------------------------------------------
 # H. Public surface guard
 # ---------------------------------------------------------------------------
 

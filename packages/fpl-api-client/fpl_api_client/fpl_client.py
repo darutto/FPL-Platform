@@ -32,7 +32,9 @@ import requests
 
 BOOTSTRAP_URL       = "https://fantasy.premierleague.com/api/bootstrap-static/"
 FIXTURES_URL        = "https://fantasy.premierleague.com/api/fixtures/?event={gameweek}"
+ALL_FIXTURES_URL    = "https://fantasy.premierleague.com/api/fixtures/"
 ELEMENT_SUMMARY_URL = "https://fantasy.premierleague.com/api/element-summary/{element_id}/"
+EVENT_LIVE_URL      = "https://fantasy.premierleague.com/api/event/{gameweek}/live/"
 
 # Default HTTP settings
 _DEFAULT_TIMEOUT: int = 30
@@ -223,6 +225,44 @@ def get_fixtures(gameweek: int) -> list[dict[str, Any]]:
     Source: fpl-api-client/python/fpl_client.py::get_fixtures
     """
     return fetch_json(FIXTURES_URL.format(gameweek=gameweek))
+
+
+def get_all_fixtures() -> list[dict[str, Any]]:
+    """Return all fixtures for the current season from the FPL API.
+
+    Unlike ``get_fixtures(gameweek)``, this call fetches every fixture
+    across all gameweeks in one request (no ``?event=`` filter applied).
+    Each fixture dict contains at minimum ``id``, ``team_h`` (home team
+    id), ``team_a`` (away team id), and ``event`` (gameweek number).
+
+    Source: fpl-api-client — ALL_FIXTURES_URL (Track A H1 historical pipeline)
+    """
+    return fetch_json(ALL_FIXTURES_URL)
+
+
+def get_event_live(gameweek: int) -> dict[str, Any]:
+    """Return the live event data for *gameweek* from the FPL API.
+
+    The response is a JSON object with a top-level ``elements`` key
+    containing a list of per-player entries for the given gameweek.
+    Each entry has the following shape::
+
+        {
+            "id":       <int>,          # FPL element (player) id
+            "stats":    { ... },        # live cumulative stats for the GW
+            "explain":  [ ... ],        # bonus point breakdown per fixture
+            "modified": <bool>          # True when stats were last updated live
+        }
+
+    Parameters
+    ----------
+    gameweek:
+        The gameweek number (1–38).
+
+    Source: FPL API — event/{gameweek}/live/ endpoint
+            (Track A H2a incremental GW puller)
+    """
+    return fetch_json(EVENT_LIVE_URL.format(gameweek=gameweek))
 
 
 def get_fixture_difficulty_map(
