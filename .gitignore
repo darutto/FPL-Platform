@@ -25,3 +25,6 @@ EXTRACTION_VERIFICATION.txt
 # Phase P3.1: audit logs (append-only NDJSON, not for version control)
 audit_logs/
 packages/fpl-grounded-assistant/audit_logs/
+
+# fpl-historical raw capture data (large, not for version control)
+packages/fpl-historical/data/
