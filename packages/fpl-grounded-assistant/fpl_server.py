@@ -404,6 +404,23 @@ class SessionInfoResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Owned-store fallback imports (deferred-safe per CONTRACT §11.3)
+# If Agent A's module is not yet present, the names resolve to None and the
+# fallback is simply disabled — no import-time failure.
+# ---------------------------------------------------------------------------
+try:
+    from fpl_grounded_assistant.owned_store_fallback import (  # noqa: E402
+        load_bootstrap_from_owned_store,
+        OwnedStoreUnavailable,
+        OwnedStoreProvenance,
+    )
+except ImportError:  # fallback module unavailable — owned-store fallback disabled
+    load_bootstrap_from_owned_store = None  # type: ignore[assignment]
+    OwnedStoreUnavailable = None            # type: ignore[assignment,misc]
+    OwnedStoreProvenance = None             # type: ignore[assignment,misc]
+
+
+# ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 # Bootstrap retry policy
 # ---------------------------------------------------------------------------
@@ -415,6 +432,11 @@ _BOOTSTRAP_MAX_ATTEMPTS: int = 4
 #: Increasing delays give the FPL API time to recover from a transient outage.
 _BOOTSTRAP_RETRY_DELAYS: tuple[float, ...] = (2.0, 5.0, 10.0)
 
+#: Records the OwnedStoreProvenance from the most recent fallback-served bootstrap,
+#: or None when the last successful fetch came from the live FPL API.
+#: Read by /healthz; mutated only inside _fetch_bootstrap_with_retry().
+_LAST_BOOTSTRAP_PROVENANCE: "OwnedStoreProvenance | None" = None
+
 
 def _fetch_bootstrap_with_retry(
     _sleep_fn: Any = None,
@@ -424,6 +446,13 @@ def _fetch_bootstrap_with_retry(
     Makes up to ``_BOOTSTRAP_MAX_ATTEMPTS`` calls to
     ``assemble_captain_context()``.  Between attempts it sleeps for the
     corresponding delay in ``_BOOTSTRAP_RETRY_DELAYS``.
+
+    After all live retries exhaust, attempts the owned-store fallback exactly
+    once (CONTRACT §11.3).  On fallback success the module-level
+    ``_LAST_BOOTSTRAP_PROVENANCE`` is set and a WARNING is emitted.  On
+    ``OwnedStoreUnavailable`` the original live-fetch exception is re-raised
+    (CONTRACT §11.3 resolution #2).  When a subsequent live fetch succeeds
+    ``_LAST_BOOTSTRAP_PROVENANCE`` is cleared to None (CONTRACT §11.3.5).
 
     Parameters
     ----------
@@ -438,6 +467,8 @@ def _fetch_bootstrap_with_retry(
         or ``None`` if every attempt raises.  Caller is responsible for
         calling ``_init_bootstrap()`` on a non-None return.
     """
+    global _LAST_BOOTSTRAP_PROVENANCE
+
     sleep = _sleep_fn if _sleep_fn is not None else time.sleep
     last_exc: Exception | None = None
 
@@ -451,6 +482,9 @@ def _fetch_bootstrap_with_retry(
                     "attempt": attempt,
                 }),
             )
+            # Live fetch succeeded — clear any stale fallback provenance
+            # (CONTRACT §11.3.5: slot must not lie about staleness).
+            _LAST_BOOTSTRAP_PROVENANCE = None
             return ctx["bootstrap"]
         except Exception as exc:  # noqa: BLE001
             last_exc = exc
@@ -474,6 +508,52 @@ def _fetch_bootstrap_with_retry(
             "error":    type(last_exc).__name__ if last_exc else "unknown",
         }),
     )
+
+    # ------------------------------------------------------------------
+    # Owned-store fallback (CONTRACT §11.3): attempted exactly once after
+    # all live retries have exhausted.  Disabled when the module is absent.
+    # ------------------------------------------------------------------
+    if load_bootstrap_from_owned_store is not None:
+        try:
+            bs_fallback, provenance = load_bootstrap_from_owned_store()
+            _LAST_BOOTSTRAP_PROVENANCE = provenance
+            _LOG.warning(
+                "fpl_startup %s",
+                json.dumps({
+                    "event":             "bootstrap_owned_store_fallback",
+                    "season":            provenance.merged_at.split("T")[0] if provenance.merged_at else None,
+                    "merged_at":         provenance.merged_at,
+                    "staleness_hours":   provenance.staleness_hours,
+                    "incremental_count": provenance.incremental_count,
+                }),
+            )
+            return bs_fallback
+        except Exception as fallback_exc:  # noqa: BLE001
+            # Distinguish OwnedStoreUnavailable from unexpected errors;
+            # either way we log at ERROR and re-raise the original live exc
+            # (CONTRACT §11.3 resolution #2: live failure is the root cause).
+            if OwnedStoreUnavailable is not None and isinstance(fallback_exc, OwnedStoreUnavailable):
+                _LOG.error(
+                    "fpl_startup %s",
+                    json.dumps({
+                        "event": "bootstrap_owned_store_unavailable",
+                        "error": str(fallback_exc),
+                    }),
+                )
+            else:
+                _LOG.error(
+                    "fpl_startup %s",
+                    json.dumps({
+                        "event": "bootstrap_owned_store_error",
+                        "error": str(fallback_exc),
+                    }),
+                )
+            # Re-raise the LIVE failure, not the fallback exception
+            # (CONTRACT §11.3 resolution #2).
+            if last_exc is not None:
+                raise last_exc  # noqa: TRY301
+            return None
+
     return None
 
 
@@ -1026,9 +1106,25 @@ def healthz() -> dict[str, Any]:
     """
     from fpl_grounded_assistant.telemetry import snapshot as _snap, graduation_status as _grad  # noqa: PLC0415
     snap = _snap()
+
+    # CONTRACT §11.4: expose owned-store fallback provenance; exclude pointer_path
+    # (lead resolution #4 — don't leak filesystem layout to external consumers).
+    if _LAST_BOOTSTRAP_PROVENANCE is None:
+        owned_store_fallback_info = None
+    else:
+        _prov = _LAST_BOOTSTRAP_PROVENANCE
+        owned_store_fallback_info = {
+            "merged_at":             _prov.merged_at,
+            "baseline_captured_at":  _prov.baseline_captured_at,
+            "incremental_count":     _prov.incremental_count,
+            "staleness_hours":       _prov.staleness_hours,
+            "row_counts":            _prov.row_counts,
+        }
+
     return {
-        "routing_counters": snap,
-        "graduation":       _grad(snap),
+        "routing_counters":    snap,
+        "graduation":          _grad(snap),
+        "owned_store_fallback": owned_store_fallback_info,
     }
 
 
