@@ -6,10 +6,12 @@ Command-line interface for the fpl-historical capture pipeline.
 Subcommands:
     capture     Full-season baseline capture (CONTRACT §4)
     capture-gw  Per-gameweek incremental capture (CONTRACT §9)
+    merge       Fuse baseline + incrementals into parquet_merged/ (CONTRACT §10)
 
 Usage:
     python -m fpl_historical.cli capture [flags]
     python -m fpl_historical.cli capture-gw (--gw N | --current | --auto) [--force] [--season S]
+    python -m fpl_historical.cli merge --season SEASON
 
 capture flags (CONTRACT §4):
     --season SEASON             Season key (default: 2025-2026)
@@ -23,6 +25,9 @@ capture-gw flags (CONTRACT §9.5):
     --current       Pull the gameweek where is_current==True (fallback: most recent finished)
     --auto          Iterate all finished+data_checked events; skip rule applies
     --force         Override the §9.3 skip rule; always write a new snapshot
+    --season SEASON Season key (default: 2025-2026)
+
+merge flags (CONTRACT §10):
     --season SEASON Season key (default: 2025-2026)
 
 Exit codes (CONTRACT §4 for capture, §9.4 for capture-gw):
@@ -43,6 +48,7 @@ from fpl_historical.capture import capture_season
 from fpl_historical.incremental import capture_gameweek
 from fpl_historical._io import _fetch_raw
 from fpl_historical.manifest import read_manifest
+from fpl_historical.merge import build_merged_parquet
 from fpl_historical.paths import (
     CURRENT_SEASON,
     list_raw_dirs,
@@ -127,6 +133,19 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Override the §9.3 skip rule; always write a new snapshot",
     )
     cgw_cmd.add_argument(
+        "--season",
+        default=CURRENT_SEASON,
+        help="Season key (default: %(default)s)",
+    )
+
+    # ------------------------------------------------------------------
+    # merge subcommand (CONTRACT §10)
+    # ------------------------------------------------------------------
+    merge_cmd = sub.add_parser(
+        "merge",
+        help="Fuse baseline + incrementals into parquet_merged/ (CONTRACT §10)",
+    )
+    merge_cmd.add_argument(
         "--season",
         default=CURRENT_SEASON,
         help="Season key (default: %(default)s)",
@@ -333,12 +352,33 @@ def cmd_capture_gw(args: argparse.Namespace) -> int:
         return 1 if any_failed else 0
 
 
+def cmd_merge(args: argparse.Namespace) -> int:
+    """Run the merge sub-command. Returns exit code."""
+    season: str = args.season
+    try:
+        pointer = build_merged_parquet(season)
+    except Exception as exc:
+        print(f"[fpl-historical] merge {season}: ERROR — {exc}", file=sys.stderr)
+        return 1
+
+    baseline_str = pointer["baseline"]["raw_dir"] if pointer["baseline"] else "none"
+    n_incrementals = len(pointer["incrementals"])
+    n_rows = pointer["row_counts"]["player_gw_stats"]
+    print(
+        f"[fpl-historical] merge {season}: baseline={baseline_str} "
+        f"incrementals={n_incrementals} rows={n_rows}"
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> None:
     args = _parse_args(argv)
     if args.command == "capture":
         sys.exit(cmd_capture(args))
     elif args.command == "capture-gw":
         sys.exit(cmd_capture_gw(args))
+    elif args.command == "merge":
+        sys.exit(cmd_merge(args))
     else:
         print(f"Unknown command: {args.command}", file=sys.stderr)
         sys.exit(1)

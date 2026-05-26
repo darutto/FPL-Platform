@@ -138,3 +138,17 @@ def list_incremental_dirs(season: str, gw: int) -> list[Path]:
         return []
     dirs = [d for d in parent.iterdir() if d.is_dir()]
     return sorted(dirs, key=lambda d: d.name)
+
+
+# ---------------------------------------------------------------------------
+# Merge output helpers (CONTRACT §10.1)
+# ---------------------------------------------------------------------------
+
+def merged_parquet_dir(season: str) -> Path:
+    """Return ``.../seasons/<season>/parquet_merged``."""
+    return season_dir(season) / "parquet_merged"
+
+
+def owned_latest_pointer_path(season: str) -> Path:
+    """Return ``.../seasons/<season>/_owned_latest.json``."""
+    return season_dir(season) / "_owned_latest.json"

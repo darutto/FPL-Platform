@@ -8,6 +8,7 @@ Owned historical FPL data capture. Fetches `bootstrap-static`, all-season fixtur
 |---|---|---|
 | `capture` | Full-season baseline: bootstrap + all-fixtures + N element-summaries | ~11 min |
 | `capture-gw` | Per-gameweek anchor: bootstrap + all-fixtures + event-live (3 calls) | ~5 s |
+| `merge` | Fuse baseline + complete incrementals into `parquet_merged/` (CONTRACT §10) | ~1 s |
 
 ## Running the capture
 
@@ -112,6 +113,34 @@ powershell.exe
 |---|---|
 | 0 | `complete` or skip (skip rule fired — existing snapshot is final) |
 | 1 | `failed` — any endpoint failed, or `--gw N` not in `bootstrap.events[]` |
+
+## `merge` — owned merge projection (CONTRACT §10)
+
+Fuses the H1 baseline parquet build (`parquet/`) with all H2a complete per-GW
+incremental snapshots into a new owned output at `parquet_merged/`, plus a
+machine-readable pointer at `_owned_latest.json`.  The baseline `parquet/` and
+`_latest.json` are **never mutated**.
+
+**Invoke via the wrapper script:**
+
+```powershell
+packages\fpl-historical\capture.ps1 merge --season 2025-2026
+```
+
+**Dedup rule (one-liner):** most-recent `captured_at` wins; ties go to incremental.
+
+Full semantics — including which GW snapshots qualify, null fields for
+incremental-only rows, and atomicity guarantees — are in [CONTRACT.md §10](CONTRACT.md).
+
+**Output layout (additive):**
+
+```
+data/historical/seasons/{season}/
+├── parquet/               ← baseline (read-only, untouched by merge)
+├── _latest.json           ← baseline pointer (read-only, untouched by merge)
+├── parquet_merged/        ← NEW: merged output (5 parquet files)
+└── _owned_latest.json     ← NEW: merge pointer with row_counts and provenance
+```
 
 ## Convention note
 

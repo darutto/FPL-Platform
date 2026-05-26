@@ -280,3 +280,217 @@ Incremental captures **never**:
 - update `_latest.json`.
 
 Parquet integration of incremental snapshots (dedup semantics on `(player_id, event_id, captured_at)`, versioned `_latest.json`) is deferred to H2b.
+
+---
+
+## 10. Owned Merge Projection (H2b)
+
+Overlay layer that fuses the H1 baseline parquet build with the H2a per-GW incremental snapshots into a new, owned parquet output. Strictly additive over §1–§9: the H1 baseline tree (`raw/`, `parquet/`, `_latest.json`) and the H2a incremental tree are **read-only inputs** to the merge. `projections.py`'s baseline behavior is unchanged. `fpl_server.py` is not touched. H4 (read-path fallback) will consume the artifacts defined here.
+
+### 10.1 Output layout (additive, never overwrites baseline)
+
+```
+data/historical/seasons/{season}/
+├── raw/                                     ← H1 baseline (read-only input)
+├── parquet/                                 ← H1 projection (read-only input)
+├── _latest.json                             ← H1 pointer (read-only input)
+├── incremental/                             ← H2a snapshots (read-only input)
+├── parquet_merged/                          ← NEW (H2b)
+│   ├── players.parquet
+│   ├── teams.parquet
+│   ├── events.parquet
+│   ├── fixtures.parquet
+│   └── player_gw_stats.parquet
+└── _owned_latest.json                       ← NEW (H2b) pointer for the merged build
+```
+
+Rules:
+- `parquet_merged/` carries the same 5 tables as §3's `parquet/`, with the additional columns on `player_gw_stats` defined in §10.4.
+- Baseline `parquet/` and `_latest.json` are **never mutated** by the merge.
+- Incremental `incremental/gw{NN}/...` snapshots are **never mutated** by the merge.
+
+### 10.2 Status gating
+
+Inputs to the merge are selected as follows:
+
+- **Baseline contribution**: the raw dir referenced by `_latest.json` (which is itself only updated by `complete` baseline runs per §3 — `complete_with_gaps` only contributes if it was promoted via `--promote-with-gaps`). If `_latest.json` is missing, the baseline contribution is empty.
+- **Incremental contribution**: for each gameweek `N` in `1..38`, the most recent snapshot under `incremental/gw{NN}/` whose manifest has `status == "complete"`. Snapshots with `status == "failed"` are silently ignored. Older `complete` snapshots within the same GW are also ignored — only the most recent timestamped sibling contributes.
+- If both the baseline and all incrementals are missing, the merge writes empty tables (zero rows, schema preserved) but `_owned_latest.json` is still updated — the empty state is explicit and discoverable.
+
+`list_incremental_dirs(season, gw)` (sorted oldest→newest) is the canonical iterator; the merge reads the manifest of each candidate and keeps the newest `complete` one.
+
+### 10.3 Per-table merge semantics
+
+- `players`, `teams`, `events`, `fixtures`: sourced from the **latest `captured_at`** snapshot across `{baseline} ∪ {chosen incrementals}`. These are season-state tables — there is no row-level merge, only "newest wins as a whole table." Provenance is preserved by the existing `captured_at` column on every row (§5), which tells the operator which snapshot contributed.
+- `player_gw_stats`: the merge target. Dedup key is the composite `(player_id, event_id)`. See §10.4.
+
+### 10.4 `player_gw_stats` dedup rule (canonical)
+
+For each `(player_id, event_id)` pair across baseline rows (from `element-summary[*].history[]`) and incremental rows (from each chosen `complete` incremental's `event-live.elements[*].stats`, with `player_id` taken from `elements[*].id` and `event_id` from the snapshot's `gameweek`), exactly one row survives:
+
+> **Winner is the row with the most recent `captured_at` value.** ISO-8601 lexicographic comparison is well-defined for the `%Y-%m-%dT%H-%M-%SZ` format both layers use (§3 and §9.1). Ties (identical `captured_at` to the second) are broken by preferring the **incremental** row — incremental captures are GW-targeted and run after `data_checked`, so they are the more authoritative source for that single GW.
+
+Two new columns are added to `player_gw_stats` (and only this table) for inspectability:
+
+- `source: str` — one of `"baseline"` or `"incremental"`.
+- `source_captured_at: str` — the `captured_at_utc` of the snapshot whose row won. (This is identical to the existing `captured_at` column on the winning row, but is named explicitly so consumers don't have to guess.)
+
+Other columns are passthrough from the winning source. Where field names differ between baseline and incremental — e.g. `event-live.stats` may lack `value`, `was_home`, `opponent_team` — those columns are populated only when the baseline row wins. When the incremental row wins and the field is absent from `event-live.stats`, the value is `null` and that is **contractual**: H2b does not invent values, does not back-fill from baseline, and does not cross-merge fields across sources within a single `(player_id, event_id)` row.
+
+### 10.5 Idempotency
+
+Re-running the merge with no new snapshots produces **byte-identical parquet files** and an updated `merged_at` timestamp in `_owned_latest.json`. Re-running after a new incremental snapshot lands updates only the rows whose `(player_id, event_id)` is now backed by a fresher source — all other rows are byte-identical to the previous merge.
+
+### 10.6 `_owned_latest.json` schema (v1)
+
+```json
+{
+  "schema_version": 1,
+  "season": "2025-2026",
+  "merged_at": "2026-05-26T08-15-00Z",
+  "baseline": {
+    "raw_dir": "raw/2026-05-25T14-22-03Z",
+    "captured_at_utc": "2026-05-25T14-22-03Z",
+    "manifest_status": "complete"
+  },
+  "incrementals": [
+    {
+      "gameweek": 1,
+      "raw_dir": "incremental/gw01/2026-05-25T18-22-03Z",
+      "captured_at_utc": "2026-05-25T18-22-03Z"
+    }
+  ],
+  "row_counts": {
+    "players": 712,
+    "teams": 20,
+    "events": 38,
+    "fixtures": 380,
+    "player_gw_stats": 27056
+  }
+}
+```
+
+Rules:
+- `baseline` is `null` if no baseline contributed (i.e. `_latest.json` was missing at merge time).
+- `incrementals` is a list (possibly empty), sorted by `gameweek` ascending.
+- All `raw_dir` paths inside `_owned_latest.json` are **relative to** `data/historical/seasons/{season}/` so the pointer is portable across hosts.
+- `merged_at` uses the same `%Y-%m-%dT%H-%M-%SZ` filesystem-safe ISO8601 convention as §3 and §9.1.
+- `row_counts` reflects the rows actually written to `parquet_merged/`; consumers may use it as a cheap sanity check without reading the parquet files.
+
+### 10.7 Atomicity
+
+Same pattern as §3:
+- Each parquet file in `parquet_merged/` is written to a `.parquet.tmp` sibling and promoted via `os.replace` (atomic on POSIX and Windows).
+- `_owned_latest.json` is written to `_owned_latest.json.tmp` and promoted via `os.replace`.
+- `_owned_latest.json` is updated **last**, after all 5 parquet files are in place — so a consumer reading the pointer never observes a partially-written merge.
+
+### 10.8 Boundaries
+
+H2b does **not**:
+- modify `projections.py`'s baseline behavior,
+- write to or mutate `parquet/`,
+- write to or mutate `_latest.json`,
+- write to or mutate `raw/` or `incremental/`,
+- touch `fpl_server.py`,
+- add cron or scheduling (invocation cadence is an operational concern, deferred).
+
+H4 (read-path fallback) will consume `_owned_latest.json`; its consumption contract is defined when H4 lands, not here.
+
+## 11. Owned-Store Fallback Reader (H4a)
+
+This section freezes the read contract between the owned-store layer (§10) and its first consumer: the `fpl-grounded-assistant` backend. It is the counterpart to §10 from the consumer side.
+
+### 11.1 Scope
+
+H4a wires owned-store fallback for the **bootstrap fetch only**, at exactly one seam: `_fetch_bootstrap_with_retry()` in `packages/fpl-grounded-assistant/fpl_server.py` (line ~419). Per-tool fallback for `player_form.py`, `get_fixtures_for_gw.py`, `element-summary`, and other live-API call sites is explicitly deferred to **H4b**. The live FPL API remains the primary data source; the owned store is engaged **only** after all existing live-retry attempts in `_fetch_bootstrap_with_retry()` have failed.
+
+H4a is narrow and additive: it does not add new product capabilities, new HTTP routes, auth, or per-tool fallbacks.
+
+### 11.2 New loader module
+
+A new module `packages/fpl-grounded-assistant/fpl_grounded_assistant/owned_store_fallback.py` exposes a single public function and supporting types:
+
+```python
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class OwnedStoreProvenance:
+    pointer_path: str
+    merged_at: str
+    baseline_captured_at: str | None
+    incremental_count: int
+    staleness_hours: float
+    row_counts: dict
+
+class OwnedStoreUnavailable(Exception):
+    """Raised when the owned store cannot satisfy a bootstrap read."""
+
+def load_bootstrap_from_owned_store(
+    season: str = CURRENT_SEASON,
+) -> tuple[dict, OwnedStoreProvenance]:
+    """Return (bootstrap_dict, provenance). Raises OwnedStoreUnavailable on any failure.
+
+    bootstrap_dict matches the shape returned by fpl_api_client.get_bootstrap():
+    keys 'elements', 'teams', 'events', 'element_types' at minimum.
+    """
+```
+
+Behavior:
+
+- Reads `data/historical/seasons/{season}/_owned_latest.json` first. If the pointer file is missing, raises `OwnedStoreUnavailable("no pointer")`.
+- If `baseline` is `null` **and** `incrementals` is empty, raises `OwnedStoreUnavailable("empty store")`.
+- Loads `players.parquet`, `teams.parquet`, and `events.parquet` from `parquet_merged/` and reconstructs the bootstrap shape via `df.to_dict(orient="records")` per table, mapping the renamed projection columns back to raw FPL field names so downstream code that expects the live API shape keeps working:
+  - `players`: `player_id` → `id`
+  - `teams`: `team_id` → `id`
+  - `events`: `event_id` → `id`
+- `element_types` is reconstructed from a **hardcoded** 4-element list (Goalkeeper, Defender, Midfielder, Forward with `id` 1–4 and the standard FPL `singular_name` / `plural_name` / `singular_name_short` fields). The owned store does not capture `element_types` per §10.2 (only the 5 merged tables exist). This is intentional: FPL's position taxonomy is static and has not changed in the lifetime of the game. The hardcode lives inside `owned_store_fallback.py` and is documented in this contract.
+- Returns an `OwnedStoreProvenance` whose `staleness_hours` is computed as `(now_utc - merged_at)` in fractional hours, using the `%Y-%m-%dT%H-%M-%SZ` parse from §10.6.
+
+### 11.3 Integration seam
+
+`_fetch_bootstrap_with_retry()` in `fpl_server.py` is extended as follows:
+
+1. The existing live-retry loop is preserved unchanged. Owned-store fallback is attempted **only after** all live retry attempts have exhausted.
+2. After exhaustion, `load_bootstrap_from_owned_store()` is invoked **exactly once** (no retry — owned-store reads are local disk).
+3. On success:
+   - The returned bootstrap dict is used as if it came from the live API.
+   - The `OwnedStoreProvenance` is recorded in a module-level slot `_LAST_BOOTSTRAP_PROVENANCE` in `fpl_server.py` for `/healthz` (and optionally `respond()`) to inspect.
+   - A `WARNING` log line is emitted with at least: `season`, `merged_at`, `staleness_hours`, `incremental_count`. This is the operator-visible signal that fallback was engaged.
+4. On `OwnedStoreUnavailable`, the current failure behavior is preserved: the existing 503 / startup-degraded path runs unchanged. The `OwnedStoreUnavailable` exception is **not** swallowed silently — it is logged at `ERROR` and the original live-fetch exception is re-raised (or surfaced via the existing 503 path).
+5. When a **subsequent** live fetch succeeds (e.g., on a later call after the FPL API recovers), `_LAST_BOOTSTRAP_PROVENANCE` must be cleared to `None`. The slot must never lie about staleness — if the last successful bootstrap came from live, the slot is `None`.
+
+### 11.4 Provenance surface
+
+Two read-only surfaces expose fallback state:
+
+1. **`/healthz`** (existing route at `fpl_server.py:954`) gains an additive JSON key `owned_store_fallback`:
+   - `null` when the last bootstrap fetch was served from the live FPL API.
+   - Otherwise an object: `{merged_at, baseline_captured_at, incremental_count, staleness_hours, row_counts}` mirroring the `OwnedStoreProvenance` dataclass minus `pointer_path`.
+2. **`FinalResponse`** is **not** modified in H4a. Adding a new metadata field would ripple through 14+ existing metadata fields, intent serializers, and snapshot tests for no H4a-required reason. Fallback state remains observable via `/healthz` and the `WARNING` log. H4b may additively thread `data_source: Literal["live", "owned_store"]` into `FinalResponse` if downstream UX needs it.
+
+### 11.5 Tolerated nulls
+
+Per §10.4 (whole-row replacement on incremental merge), any row in `players.parquet` whose canonical key won a whole-row replacement from an incremental snapshot may carry `null` values for fields not present in that snapshot (e.g. `value`, `was_home`, `opponent_team`). The owned-store loader returns these as Python `None` in the reconstructed `bootstrap['elements'][i]` dicts; it does **not** synthesize, backfill, or coalesce values.
+
+Consumers of `bootstrap['elements']` must tolerate `None` for any field not explicitly listed as required by the live FPL API contract. If a downstream call relies on a field that is `None` in fallback mode, that call may degrade — H4a does **not** synthesize values to mask the null. Degradation is preferable to silent fabrication.
+
+### 11.6 Boundaries
+
+H4a does **not**:
+
+- modify `projections.py`, `merge.py`, `paths.py`, or any part of the §1–§10 owned-store write path,
+- modify the baseline `parquet/` tree or `_latest.json`,
+- modify per-tool data fetches (`player_form.py`, `get_fixtures_for_gw.py`, `element-summary`, etc.) — deferred to H4b,
+- modify the `FinalResponse` schema, intent metadata, orchestrator tools, or the LLM router,
+- add new HTTP routes (`/healthz` is extended in place, additively),
+- add cron, scheduler, auth, infra, or deployment changes,
+- change `pyproject.toml` for either package.
+
+### 11.7 Cross-package import
+
+`fpl-grounded-assistant` does not currently import `fpl_historical`. Wiring is done at **runtime via `sys.path` insertion**, mirroring the existing sibling-resolver pattern (`_SIB()`) already used in `fpl_server.py` to consume `fpl-api-client`. Two equivalent placements are acceptable; the implementer picks:
+
+- extend `sys.path` once in `fpl_server.py` startup (alongside the existing `_SIB()` calls), or
+- extend `sys.path` locally inside `owned_store_fallback.py` before its `from fpl_historical...` imports.
+
+There are **no changes to `pyproject.toml`**, no new installed package boundaries, and no changes to the existing `fpl-api-client` consumption pattern. This is a path-based dev-time concern, identical to the current sibling-package wiring.
