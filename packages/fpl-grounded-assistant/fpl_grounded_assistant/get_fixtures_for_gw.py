@@ -45,11 +45,25 @@ import.  ``__init__.py`` imports this module so
 """
 from __future__ import annotations
 
+import json
+import logging
 from typing import Any
 
 from fpl_api_client.fpl_client import get_fixtures
 from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
+
+# Owned-store fallback (deferred-safe per CONTRACT §11.3 — mirrors fpl_server.py)
+try:
+    from fpl_grounded_assistant.owned_store_fallback import (  # noqa: E402
+        load_fixtures_for_gw_from_owned_store,
+        OwnedStoreUnavailable,
+    )
+except ImportError:
+    load_fixtures_for_gw_from_owned_store = None  # type: ignore[assignment]
+    OwnedStoreUnavailable = None                  # type: ignore[assignment,misc]
+
+_LOG = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -101,15 +115,56 @@ def _fetch_fixtures_for_gw(
         return list(_fixture_cache[gw_number])
 
     # 4. Live API.
+    live_ok = False
+    raw_live: "list[dict[str, Any]] | None" = None
     try:
         raw = get_fixtures(gw_number)
-        if not isinstance(raw, list):
-            return None
-        # Cache before returning (read-only copy stored).
-        _fixture_cache[gw_number] = list(raw)
-        return list(raw)
+        if isinstance(raw, list):
+            raw_live = list(raw)
+            live_ok = True
     except Exception:  # noqa: BLE001
+        live_ok = False
+
+    if live_ok and raw_live is not None:
+        # Cache before returning (read-only copy stored).
+        _fixture_cache[gw_number] = list(raw_live)
+        return list(raw_live)
+
+    # 5. Owned-store fallback (CONTRACT §11.3 — H4b Seam 2).
+    # Skip entirely if the helper failed to import.
+    if load_fixtures_for_gw_from_owned_store is None:
         return None
+
+    try:
+        fb_fixtures, provenance = load_fixtures_for_gw_from_owned_store(gw_number)
+    except Exception as fallback_exc:  # noqa: BLE001
+        if OwnedStoreUnavailable is not None and isinstance(
+            fallback_exc, OwnedStoreUnavailable
+        ):
+            return None
+        # Unexpected fallback error — log and return None (live already failed).
+        _LOG.error(
+            "fixtures_fallback %s",
+            json.dumps({
+                "event":     "fixtures_owned_store_error",
+                "gw_number": gw_number,
+                "error":     str(fallback_exc),
+            }),
+        )
+        return None
+
+    _LOG.warning(
+        "fixtures_fallback %s",
+        json.dumps({
+            "event":             "fixtures_owned_store_fallback",
+            "gw_number":         gw_number,
+            "merged_at":         provenance.merged_at,
+            "staleness_hours":   provenance.staleness_hours,
+            "incremental_count": provenance.incremental_count,
+        }),
+    )
+    # NOTE: do NOT cache fallback results — they may be stale and live may recover.
+    return list(fb_fixtures)
 
 
 # ---------------------------------------------------------------------------

@@ -26,6 +26,8 @@ Design rules
 """
 from __future__ import annotations
 
+import json
+import logging
 import re
 import threading
 import time
@@ -34,6 +36,22 @@ from typing import Any
 from fpl_api_client.fpl_client import get_element_summary
 from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
+
+# ---------------------------------------------------------------------------
+# Owned-store fallback import (deferred-safe per CONTRACT §11.3 / H4b).
+# If the module is not present the name resolves to None and the per-tool
+# fallback is silently disabled — no import-time failure.
+# ---------------------------------------------------------------------------
+try:
+    from fpl_grounded_assistant.owned_store_fallback import (  # noqa: E402
+        load_element_summary_from_owned_store,
+        OwnedStoreUnavailable,
+    )
+except ImportError:  # fallback module unavailable
+    load_element_summary_from_owned_store = None  # type: ignore[assignment]
+    OwnedStoreUnavailable = None                  # type: ignore[assignment,misc]
+
+_LOG = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -286,15 +304,64 @@ def _fetch_element_summary(
     thread.start()
     thread.join(timeout=_budget_s)
 
+    live_result: dict | None
     if thread.is_alive():
         _element_summary_guard.record_timeout()   # open circuit for cooldown period
-        return None
-    if _exc[0] is not None:
+        live_result = None
+    elif _exc[0] is not None:
         # Network/HTTP error — thread terminated normally, no thread accumulation;
         # do NOT open the circuit (guard protects against *timeout* accumulation only).
+        live_result = None
+    else:
+        _element_summary_guard.record_success()   # close circuit
+        live_result = _result[0]
+
+    if live_result is not None:
+        return live_result
+
+    # ------------------------------------------------------------------
+    # H4b Seam 1: owned-store fallback (per-tool).
+    # Fires only when the live path would have returned None (timeout,
+    # exception, or live returned None). Disabled when the loader is None
+    # (import failed).
+    # ------------------------------------------------------------------
+    if load_element_summary_from_owned_store is None:
         return None
-    _element_summary_guard.record_success()       # close circuit
-    return _result[0]
+
+    try:
+        summary, provenance = load_element_summary_from_owned_store(element_id)
+    except Exception as fb_exc:  # noqa: BLE001
+        if OwnedStoreUnavailable is not None and isinstance(fb_exc, OwnedStoreUnavailable):
+            _LOG.info(
+                "player_form %s",
+                json.dumps({
+                    "event":      "element_summary_owned_store_unavailable",
+                    "element_id": element_id,
+                    "error":      str(fb_exc),
+                }),
+            )
+        else:
+            _LOG.info(
+                "player_form %s",
+                json.dumps({
+                    "event":      "element_summary_owned_store_error",
+                    "element_id": element_id,
+                    "error":      str(fb_exc),
+                }),
+            )
+        return None
+
+    _LOG.warning(
+        "player_form %s",
+        json.dumps({
+            "event":             "element_summary_owned_store_fallback",
+            "element_id":        element_id,
+            "merged_at":         provenance.merged_at,
+            "staleness_hours":   provenance.staleness_hours,
+            "incremental_count": provenance.incremental_count,
+        }),
+    )
+    return summary
 
 
 def _position_label(element_type: int) -> str:
