@@ -269,3 +269,245 @@ class TestFallbackModuleAbsent:
         assert len(fallback_records) == 0, (
             "No fallback log should appear when load_bootstrap_from_owned_store is None"
         )
+
+
+# ---------------------------------------------------------------------------
+# H4c: team_fixtures reconstruction inside load_bootstrap_from_owned_store
+# ---------------------------------------------------------------------------
+
+class TestTeamFixturesReconstruction:
+    """Unit tests for _build_team_fixtures_from_owned_store."""
+
+    def _teams(self):
+        return [
+            {"id": 1, "strength": 4},
+            {"id": 2, "strength": 2},
+            {"id": 3, "strength": 5},
+            {"id": 4},  # missing strength -> defaults to 3
+        ]
+
+    def test_a_shape_and_required_keys(self):
+        import pandas as pd
+        from fpl_grounded_assistant.owned_store_fallback import (
+            _build_team_fixtures_from_owned_store,
+        )
+
+        fixtures_df = pd.DataFrame([
+            {"event_id": 5, "team_h": 1, "team_a": 2,
+             "team_h_difficulty": 3, "team_a_difficulty": 4},
+            {"event_id": 5, "team_h": 3, "team_a": 4,
+             "team_h_difficulty": 2, "team_a_difficulty": 5},
+        ])
+        out = _build_team_fixtures_from_owned_store(fixtures_df, self._teams())
+
+        assert isinstance(out, dict) and len(out) > 0
+        assert set(out.keys()) == {1, 2, 3, 4}
+        for team_id, fixtures in out.items():
+            for fx in fixtures:
+                assert set(fx.keys()) == {
+                    "gameweek", "opponent_team", "is_home", "difficulty"
+                }
+                assert isinstance(fx["gameweek"], int)
+                assert isinstance(fx["opponent_team"], int)
+                assert isinstance(fx["is_home"], bool)
+                assert isinstance(fx["difficulty"], int)
+
+    def test_b_sort_order(self):
+        import pandas as pd
+        from fpl_grounded_assistant.owned_store_fallback import (
+            _build_team_fixtures_from_owned_store,
+        )
+
+        # Team 1 plays multiple gameweeks against different opponents, out of order
+        fixtures_df = pd.DataFrame([
+            {"event_id": 7, "team_h": 1, "team_a": 3,
+             "team_h_difficulty": 2, "team_a_difficulty": 4},
+            {"event_id": 6, "team_h": 1, "team_a": 4,
+             "team_h_difficulty": 2, "team_a_difficulty": 4},
+            {"event_id": 6, "team_h": 2, "team_a": 1,   # team 1 away vs 2 in GW6
+             "team_h_difficulty": 3, "team_a_difficulty": 3},
+        ])
+        out = _build_team_fixtures_from_owned_store(fixtures_df, self._teams())
+        team1 = out[1]
+        keys = [(fx["gameweek"], fx["opponent_team"]) for fx in team1]
+        assert keys == sorted(keys)
+
+    def test_c_difficulty_fallback_chain(self):
+        import pandas as pd
+        from fpl_grounded_assistant.owned_store_fallback import (
+            _build_team_fixtures_from_owned_store,
+        )
+
+        # Row 1: null team_h_difficulty -> should fall back to team_a strength (2)
+        # Row 2: null both, opponent (team 4) has no strength -> default 3
+        fixtures_df = pd.DataFrame([
+            {"event_id": 1, "team_h": 1, "team_a": 2,
+             "team_h_difficulty": None, "team_a_difficulty": None},
+            {"event_id": 2, "team_h": 1, "team_a": 4,
+             "team_h_difficulty": None, "team_a_difficulty": None},
+        ])
+        out = _build_team_fixtures_from_owned_store(fixtures_df, self._teams())
+
+        # Team 1 home vs team 2: fallback to team_a strength = 2
+        fx_gw1 = [fx for fx in out[1] if fx["gameweek"] == 1][0]
+        assert fx_gw1["difficulty"] == 2
+
+        # Team 1 home vs team 4 (no strength): default 3
+        fx_gw2 = [fx for fx in out[1] if fx["gameweek"] == 2][0]
+        assert fx_gw2["difficulty"] == 3
+
+        # Team 2 away vs team 1 (null away_difficulty -> team 1 strength = 4)
+        fx_team2 = [fx for fx in out[2] if fx["gameweek"] == 1][0]
+        assert fx_team2["difficulty"] == 4
+
+    def test_d_empty_fixtures_df(self):
+        import pandas as pd
+        from fpl_grounded_assistant.owned_store_fallback import (
+            _build_team_fixtures_from_owned_store,
+        )
+        out = _build_team_fixtures_from_owned_store(
+            pd.DataFrame(columns=["event_id", "team_h", "team_a",
+                                  "team_h_difficulty", "team_a_difficulty"]),
+            self._teams(),
+        )
+        assert out == {}
+
+    def test_f_null_event_id_skipped(self):
+        import pandas as pd
+        from fpl_grounded_assistant.owned_store_fallback import (
+            _build_team_fixtures_from_owned_store,
+        )
+        fixtures_df = pd.DataFrame([
+            {"event_id": None, "team_h": 1, "team_a": 2,
+             "team_h_difficulty": 3, "team_a_difficulty": 4},
+            {"event_id": 5, "team_h": 1, "team_a": 2,
+             "team_h_difficulty": 3, "team_a_difficulty": 4},
+        ])
+        out = _build_team_fixtures_from_owned_store(fixtures_df, self._teams())
+        assert len(out[1]) == 1
+        assert out[1][0]["gameweek"] == 5
+
+
+class TestLoadBootstrapTeamFixturesIntegration:
+    """Integration: load_bootstrap_from_owned_store wires team_fixtures
+    and tolerates missing fixtures.parquet."""
+
+    def _patch_preamble(self, monkeypatch, request, tmp_path):
+        """Make _read_pointer_and_build_provenance return a tmp dir + minimal provenance.
+
+        Patches via load_bootstrap_from_owned_store.__globals__ (the module dict
+        actually consulted at runtime). test_fixtures_fallback.py uses a custom
+        loader that can desync sys.modules vs the package attribute, so we
+        target the function's own globals to be unambiguous.
+        """
+        from fpl_grounded_assistant.owned_store_fallback import (
+            load_bootstrap_from_owned_store as _load,
+        )
+        osf_globals = _load.__globals__
+        OwnedStoreProvenance = osf_globals["OwnedStoreProvenance"]
+
+        prov = OwnedStoreProvenance(
+            pointer_path=str(tmp_path / "_owned_latest.json"),
+            merged_at="2026-05-27T10-00-00Z",
+            baseline_captured_at="2026-05-27T08-00-00Z",
+            incremental_count=1,
+            staleness_hours=1.0,
+            row_counts={"players": 700, "teams": 20, "events": 38},
+        )
+
+        sentinel = object()
+        original = osf_globals.get("_read_pointer_and_build_provenance", sentinel)
+        osf_globals["_read_pointer_and_build_provenance"] = (
+            lambda season: (tmp_path, prov)
+        )
+
+        def _restore():
+            if original is sentinel:
+                osf_globals.pop("_read_pointer_and_build_provenance", None)
+            else:
+                osf_globals["_read_pointer_and_build_provenance"] = original
+
+        request.addfinalizer(_restore)
+        return prov
+
+    def _write_core_parquets(self, tmp_path):
+        import pandas as pd
+        pd.DataFrame([
+            {"player_id": 1, "team_id": 1, "web_name": "A"},
+        ]).to_parquet(tmp_path / "players.parquet")
+        pd.DataFrame([
+            {"team_id": 1, "name": "Team1", "strength": 4},
+            {"team_id": 2, "name": "Team2", "strength": 2},
+        ]).to_parquet(tmp_path / "teams.parquet")
+        pd.DataFrame([
+            {"event_id": 1, "finished": False, "is_current": True},
+        ]).to_parquet(tmp_path / "events.parquet")
+
+    def test_a_team_fixtures_present_when_parquet_exists(self, monkeypatch, request, tmp_path):
+        import sys
+        import pandas as pd
+        from fpl_grounded_assistant.owned_store_fallback import (
+            load_bootstrap_from_owned_store as _load,
+        )
+        load_bootstrap_from_owned_store = sys.modules[_load.__module__].load_bootstrap_from_owned_store
+
+        self._patch_preamble(monkeypatch, request, tmp_path)
+        self._write_core_parquets(tmp_path)
+        pd.DataFrame([
+            {"event_id": 1, "team_h": 1, "team_a": 2,
+             "team_h_difficulty": 3, "team_a_difficulty": 4},
+        ]).to_parquet(tmp_path / "fixtures.parquet")
+
+        bootstrap, prov = load_bootstrap_from_owned_store(season="2025-2026")
+        assert "team_fixtures" in bootstrap
+        assert 1 in bootstrap["team_fixtures"] and 2 in bootstrap["team_fixtures"]
+        fx = bootstrap["team_fixtures"][1][0]
+        assert fx == {"gameweek": 1, "opponent_team": 2,
+                      "is_home": True, "difficulty": 3}
+        assert prov.row_counts.get("fixtures") == 1
+        # Existing keys preserved
+        assert "players" in prov.row_counts
+
+    def test_e_missing_fixtures_parquet_tolerated(self, monkeypatch, request, tmp_path, caplog):
+        import sys
+        from fpl_grounded_assistant.owned_store_fallback import (
+            load_bootstrap_from_owned_store as _load,
+        )
+        load_bootstrap_from_owned_store = sys.modules[_load.__module__].load_bootstrap_from_owned_store
+
+        self._patch_preamble(monkeypatch, request, tmp_path)
+        self._write_core_parquets(tmp_path)
+        # NOTE: no fixtures.parquet written
+
+        with caplog.at_level(logging.DEBUG,
+                             logger="fpl_grounded_assistant.owned_store_fallback"):
+            bootstrap, prov = load_bootstrap_from_owned_store(season="2025-2026")
+
+        assert bootstrap["team_fixtures"] == {}
+        assert prov.row_counts.get("fixtures") == 0
+        # DEBUG log emitted
+        debug_msgs = [r.getMessage() for r in caplog.records
+                      if "owned_store_team_fixtures_skipped" in r.getMessage()]
+        assert len(debug_msgs) >= 1
+
+    def test_d_empty_fixtures_parquet_tolerated(self, monkeypatch, request, tmp_path):
+        import sys
+        import pandas as pd
+        from fpl_grounded_assistant.owned_store_fallback import (
+            load_bootstrap_from_owned_store as _load,
+        )
+        load_bootstrap_from_owned_store = sys.modules[_load.__module__].load_bootstrap_from_owned_store
+
+        self._patch_preamble(monkeypatch, request, tmp_path)
+        self._write_core_parquets(tmp_path)
+        pd.DataFrame(
+            columns=["event_id", "team_h", "team_a",
+                     "team_h_difficulty", "team_a_difficulty"]
+        ).astype({
+            "event_id": "Int64", "team_h": "Int64", "team_a": "Int64",
+            "team_h_difficulty": "Int64", "team_a_difficulty": "Int64",
+        }).to_parquet(tmp_path / "fixtures.parquet")
+
+        bootstrap, prov = load_bootstrap_from_owned_store(season="2025-2026")
+        assert bootstrap["team_fixtures"] == {}
+        assert prov.row_counts.get("fixtures") == 0

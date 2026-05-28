@@ -14,11 +14,14 @@ Cross-package import is done via sys.path insertion, mirroring the
 from __future__ import annotations
 
 import json
+import logging
 import sys
 import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+
+_LOGGER = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # sys.path shim — mirror fpl_server.py's _SIB() pattern
@@ -110,6 +113,122 @@ def _nan_to_none(records: list[dict]) -> list[dict]:
             }
         )
     return cleaned
+
+
+def _coerce_native(v):
+    """Coerce numpy / pandas scalars to native Python types.
+
+    - Pandas NA / NaN → None
+    - numpy.bool_ → bool
+    - numpy.integer → int
+    - numpy.floating → float (NaN → None)
+    - pandas.Timestamp → ISO 8601 string
+    - Everything else passed through unchanged.
+
+    Safe to call on None, str, int, bool, float, etc.
+    """
+    if v is None:
+        return None
+    # Fast path: native types
+    if isinstance(v, (bool, int, str)):
+        return v
+    if isinstance(v, float):
+        # math.isnan only works on floats; treat NaN as None
+        import math
+        return None if math.isnan(v) else v
+    # numpy / pandas types — import lazily to keep module import cheap
+    try:
+        import numpy as np
+        if isinstance(v, np.bool_):
+            return bool(v)
+        if isinstance(v, np.integer):
+            return int(v)
+        if isinstance(v, np.floating):
+            f = float(v)
+            import math
+            return None if math.isnan(f) else f
+    except ImportError:
+        pass
+    try:
+        import pandas as pd
+        if v is pd.NaT or (hasattr(pd, "isna") and not isinstance(v, (list, dict, tuple)) and pd.isna(v)):
+            return None
+        if isinstance(v, pd.Timestamp):
+            return v.isoformat()
+    except (ImportError, TypeError, ValueError):
+        pass
+    return v
+
+
+def _build_team_fixtures_from_owned_store(
+    fixtures_df,            # pandas.DataFrame from fixtures.parquet
+    bootstrap_teams: list,  # list of bootstrap team dicts (from teams.parquet projection)
+) -> dict:
+    """Reconstruct the ``team_fixtures`` map from owned-store fixtures parquet.
+
+    Mirrors the semantics of
+    ``fpl_pipeline.context._build_team_fixtures``: each team_id key maps to
+    a list of upcoming/past fixture entries with keys
+    ``gameweek``, ``opponent_team``, ``is_home``, ``difficulty``.
+
+    Difficulty fallback chain:
+        fixture difficulty → opponent team strength → 3
+
+    Rows with null ``event_id`` (unscheduled) are skipped. Empty input → ``{}``.
+    Re-implemented locally to keep owned_store_fallback.py free of
+    ``fpl_pipeline`` imports (CONTRACT §11.7 isolation pattern).
+    """
+    strength_by_id: dict = {}
+    for team in (bootstrap_teams or []):
+        tid_raw = team.get("id")
+        if tid_raw is None:
+            continue
+        tid = int(tid_raw)
+        s_raw = team.get("strength")
+        s = int(s_raw) if s_raw is not None else 3
+        strength_by_id[tid] = s
+
+    team_fixtures: dict = {}
+
+    if fixtures_df is None or len(fixtures_df) == 0:
+        return team_fixtures
+
+    for rec in fixtures_df.to_dict(orient="records"):
+        event_id = _coerce_native(rec.get("event_id"))
+        if event_id is None:
+            continue
+        team_h = _coerce_native(rec.get("team_h"))
+        team_a = _coerce_native(rec.get("team_a"))
+        if team_h is None or team_a is None:
+            continue
+
+        gameweek = int(event_id)
+        home_id = int(team_h)
+        away_id = int(team_a)
+
+        h_diff_raw = _coerce_native(rec.get("team_h_difficulty"))
+        a_diff_raw = _coerce_native(rec.get("team_a_difficulty"))
+
+        home_diff = int(h_diff_raw) if h_diff_raw is not None else int(strength_by_id.get(away_id, 3))
+        away_diff = int(a_diff_raw) if a_diff_raw is not None else int(strength_by_id.get(home_id, 3))
+
+        team_fixtures.setdefault(home_id, []).append({
+            "gameweek":      gameweek,
+            "opponent_team": away_id,
+            "is_home":       True,
+            "difficulty":    home_diff,
+        })
+        team_fixtures.setdefault(away_id, []).append({
+            "gameweek":      gameweek,
+            "opponent_team": home_id,
+            "is_home":       False,
+            "difficulty":    away_diff,
+        })
+
+    for fixture_list in team_fixtures.values():
+        fixture_list.sort(key=lambda fx: (int(fx["gameweek"]), int(fx["opponent_team"])))
+
+    return team_fixtures
 
 
 # ---------------------------------------------------------------------------
@@ -211,6 +330,50 @@ def load_bootstrap_from_owned_store(
         "events":        events,
         "element_types": element_types,
     }
+
+    # ------------------------------------------------------------------
+    # H4c: reconstruct team_fixtures from fixtures.parquet (if available)
+    # so consumers of bootstrap["team_fixtures"] (player_fixture_run + 13
+    # others) gain owned-store transparency. Missing fixtures.parquet is
+    # tolerated — bootstrap remains usable for non-fixture queries.
+    # ------------------------------------------------------------------
+    fixtures_row_count: int = 0
+    try:
+        fixtures_df = pd.read_parquet(merged_dir / "fixtures.parquet")
+        fixtures_row_count = int(len(fixtures_df))
+        bootstrap_dict["team_fixtures"] = _build_team_fixtures_from_owned_store(
+            fixtures_df, bootstrap_dict["teams"]
+        )
+    except FileNotFoundError:
+        _LOGGER.debug(
+            "owned_store_team_fixtures_skipped reason=fixtures_parquet_missing "
+            "merged_dir=%s",
+            merged_dir,
+        )
+        bootstrap_dict["team_fixtures"] = {}
+    except Exception as exc:
+        # Treat any read/parse failure as "no team_fixtures available" rather
+        # than aborting the whole bootstrap fallback. Consumers degrade to
+        # missing_context exactly as they would today.
+        _LOGGER.debug(
+            "owned_store_team_fixtures_skipped reason=parquet_error err=%s",
+            exc,
+        )
+        bootstrap_dict["team_fixtures"] = {}
+
+    # Augment provenance with fixtures row count (additive — existing keys
+    # untouched). Dataclass is frozen, so rebuild with merged row_counts.
+    if fixtures_row_count > 0 or "fixtures" not in provenance.row_counts:
+        merged_row_counts = dict(provenance.row_counts)
+        merged_row_counts["fixtures"] = fixtures_row_count
+        provenance = OwnedStoreProvenance(
+            pointer_path=provenance.pointer_path,
+            merged_at=provenance.merged_at,
+            baseline_captured_at=provenance.baseline_captured_at,
+            incremental_count=provenance.incremental_count,
+            staleness_hours=provenance.staleness_hours,
+            row_counts=merged_row_counts,
+        )
 
     return (bootstrap_dict, provenance)
 
