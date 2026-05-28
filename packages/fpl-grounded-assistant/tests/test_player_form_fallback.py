@@ -222,3 +222,48 @@ class TestFallbackModuleAbsent:
         assert len(fallback_records) == 0, (
             "No fallback log should appear when loader is None"
         )
+
+
+# ---------------------------------------------------------------------------
+# (f) H4d: FPL_FORCE_FALLBACK_TOOLS env flag — operator force-fallback path
+# ---------------------------------------------------------------------------
+
+class TestForceFallbackToolsFlag:
+    def test_truthy_flag_bypasses_live_and_calls_fallback(self, monkeypatch, caplog):
+        monkeypatch.setenv("FPL_FORCE_FALLBACK_TOOLS", "1")
+
+        mock_live = MagicMock(return_value=_sample_summary(351))
+        monkeypatch.setattr(pf, "get_element_summary", mock_live)
+
+        fb_summary = _sample_summary(351)
+        mock_fb = MagicMock(return_value=(fb_summary, _make_provenance()))
+        monkeypatch.setattr(pf, "load_element_summary_from_owned_store", mock_fb)
+
+        with caplog.at_level(logging.WARNING, logger=pf.__name__):
+            result = pf._fetch_element_summary(351, BOOTSTRAP)
+
+        assert result is fb_summary
+        mock_live.assert_not_called(), "live get_element_summary must NOT be called"
+        mock_fb.assert_called_once_with(351)
+
+        forced_records = [
+            r for r in caplog.records
+            if "element_summary_forced_fallback" in r.getMessage()
+            and "FPL_FORCE_FALLBACK_TOOLS" in r.getMessage()
+        ]
+        assert len(forced_records) >= 1
+
+    def test_flag_unset_uses_live_first_semantics(self, monkeypatch):
+        """Regression guard: with the flag unset, the live path is used."""
+        monkeypatch.delenv("FPL_FORCE_FALLBACK_TOOLS", raising=False)
+
+        live_summary = _sample_summary(351)
+        mock_live = MagicMock(return_value=live_summary)
+        monkeypatch.setattr(pf, "get_element_summary", mock_live)
+
+        mock_fb = MagicMock()
+        monkeypatch.setattr(pf, "load_element_summary_from_owned_store", mock_fb)
+
+        result = pf._fetch_element_summary(351, BOOTSTRAP)
+        assert result is live_summary
+        mock_fb.assert_not_called()

@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import threading
 import time
@@ -279,6 +280,34 @@ def _fetch_element_summary(
         Total latency budget in seconds.  For test injection only —
         production code always uses the module-level ``FORM_API_BUDGET_S``.
     """
+    # 0. H4d: operator-only force-fallback switch.  When
+    # FPL_FORCE_FALLBACK_TOOLS is truthy (1/true/yes) we skip the live
+    # daemon-thread block (and the bootstrap-injection short-circuit) and
+    # jump straight to the owned-store fallback.  Intended for smoke-testing
+    # the fallback path; never set in prod outside a controlled drill.
+    _force_flag = os.environ.get("FPL_FORCE_FALLBACK_TOOLS", "").strip().lower()
+    if _force_flag in {"1", "true", "yes"}:
+        if load_element_summary_from_owned_store is None:
+            return None
+        try:
+            summary, provenance = load_element_summary_from_owned_store(element_id)
+        except Exception:  # noqa: BLE001
+            # OwnedStoreUnavailable or any other failure: operator asked
+            # for forced fallback; do NOT silently fall back to live.
+            return None
+        _LOG.warning(
+            "player_form %s",
+            json.dumps({
+                "event":             "element_summary_forced_fallback",
+                "env_var":           "FPL_FORCE_FALLBACK_TOOLS",
+                "element_id":        element_id,
+                "merged_at":         provenance.merged_at,
+                "staleness_hours":   provenance.staleness_hours,
+                "incremental_count": provenance.incremental_count,
+            }),
+        )
+        return summary
+
     # 1. Bootstrap injection path — always instant; bypasses guard.
     injected = bootstrap.get("_element_summaries", {})
     if str(element_id) in injected:

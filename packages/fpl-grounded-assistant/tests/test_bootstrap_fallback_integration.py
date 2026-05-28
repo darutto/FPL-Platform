@@ -272,6 +272,81 @@ class TestFallbackModuleAbsent:
 
 
 # ---------------------------------------------------------------------------
+# H4d: FPL_FORCE_FALLBACK_BOOTSTRAP env flag — operator force-fallback path
+# ---------------------------------------------------------------------------
+
+class TestForceFallbackBootstrapFlag:
+    """When FPL_FORCE_FALLBACK_BOOTSTRAP=1, live is bypassed entirely
+    and the owned-store loader is invoked directly.
+    """
+
+    def test_truthy_flag_bypasses_live_and_calls_fallback(self, monkeypatch, caplog):
+        monkeypatch.setattr(fpl_server, "_LAST_BOOTSTRAP_PROVENANCE", None)
+        monkeypatch.setenv("FPL_FORCE_FALLBACK_BOOTSTRAP", "1")
+
+        mock_live = MagicMock(return_value={"bootstrap": FAKE_BOOTSTRAP})
+        monkeypatch.setattr(fpl_server, "assemble_captain_context", mock_live)
+
+        fake_prov = _make_provenance()
+        mock_fb = MagicMock(return_value=(FAKE_BOOTSTRAP, fake_prov))
+        monkeypatch.setattr(fpl_server, "load_bootstrap_from_owned_store", mock_fb)
+
+        with caplog.at_level(logging.WARNING, logger="fpl_server"):
+            result = fpl_server._fetch_bootstrap_with_retry(_sleep_fn=_no_sleep)
+
+        assert result is FAKE_BOOTSTRAP
+        mock_live.assert_not_called(), "live assemble_captain_context must NOT be called"
+        mock_fb.assert_called_once()
+        assert fpl_server._LAST_BOOTSTRAP_PROVENANCE == fake_prov
+
+        # Distinct event for forced-fallback log
+        forced_records = [
+            r for r in caplog.records
+            if "bootstrap_forced_fallback" in r.getMessage()
+            and "FPL_FORCE_FALLBACK_BOOTSTRAP" in r.getMessage()
+        ]
+        assert len(forced_records) >= 1, (
+            "Expected WARNING with event=bootstrap_forced_fallback + env_var"
+        )
+
+    def test_truthy_flag_but_loader_is_none_returns_none(self, monkeypatch, caplog):
+        monkeypatch.setenv("FPL_FORCE_FALLBACK_BOOTSTRAP", "yes")
+        monkeypatch.setattr(fpl_server, "load_bootstrap_from_owned_store", None)
+
+        mock_live = MagicMock()
+        monkeypatch.setattr(fpl_server, "assemble_captain_context", mock_live)
+
+        with caplog.at_level(logging.ERROR, logger="fpl_server"):
+            result = fpl_server._fetch_bootstrap_with_retry(_sleep_fn=_no_sleep)
+
+        assert result is None
+        mock_live.assert_not_called()
+        unavail_records = [
+            r for r in caplog.records
+            if "bootstrap_forced_fallback_unavailable" in r.getMessage()
+        ]
+        assert len(unavail_records) >= 1
+
+    def test_flag_unset_uses_live_first_semantics(self, monkeypatch):
+        """Regression guard: when the env flag is unset, behaviour is
+        exactly the same as the existing live-first path.
+        """
+        monkeypatch.delenv("FPL_FORCE_FALLBACK_BOOTSTRAP", raising=False)
+        monkeypatch.setattr(fpl_server, "_LAST_BOOTSTRAP_PROVENANCE", None)
+
+        mock_live = MagicMock(return_value={"bootstrap": FAKE_BOOTSTRAP})
+        monkeypatch.setattr(fpl_server, "assemble_captain_context", mock_live)
+        mock_fb = MagicMock()
+        monkeypatch.setattr(fpl_server, "load_bootstrap_from_owned_store", mock_fb)
+
+        result = fpl_server._fetch_bootstrap_with_retry(_sleep_fn=_no_sleep)
+
+        assert result is FAKE_BOOTSTRAP
+        mock_live.assert_called_once()
+        mock_fb.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
 # H4c: team_fixtures reconstruction inside load_bootstrap_from_owned_store
 # ---------------------------------------------------------------------------
 

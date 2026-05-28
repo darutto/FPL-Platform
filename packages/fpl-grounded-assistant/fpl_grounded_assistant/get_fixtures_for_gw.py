@@ -47,6 +47,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from typing import Any
 
 from fpl_api_client.fpl_client import get_fixtures
@@ -99,6 +100,33 @@ def _fetch_fixtures_for_gw(
 
     Returns ``None`` on fetch failure.
     """
+    # 0. H4d: operator-only force-fallback switch.  Shared flag with the
+    # element-summary tool: when FPL_FORCE_FALLBACK_TOOLS is truthy
+    # (1/true/yes) we skip the live get_fixtures() call (and the override
+    # / bootstrap / cache short-circuits) and jump straight to the
+    # owned-store fallback.  Intended for smoke-testing only.
+    _force_flag = os.environ.get("FPL_FORCE_FALLBACK_TOOLS", "").strip().lower()
+    if _force_flag in {"1", "true", "yes"}:
+        if load_fixtures_for_gw_from_owned_store is None:
+            return None
+        try:
+            fb_fixtures, provenance = load_fixtures_for_gw_from_owned_store(gw_number)
+        except Exception:  # noqa: BLE001
+            return None
+        _LOG.warning(
+            "fixtures_fallback %s",
+            json.dumps({
+                "event":             "fixtures_forced_fallback",
+                "env_var":           "FPL_FORCE_FALLBACK_TOOLS",
+                "gw_number":         gw_number,
+                "merged_at":         provenance.merged_at,
+                "staleness_hours":   provenance.staleness_hours,
+                "incremental_count": provenance.incremental_count,
+            }),
+        )
+        # NOTE: do NOT cache forced-fallback results (mirrors non-forced path).
+        return list(fb_fixtures)
+
     # 1. Direct override (test injection via function param).
     if fixtures_override is not None:
         return list(fixtures_override)

@@ -66,6 +66,7 @@ for _pkg in [
     _SIB("fpl-tool-runner"),
     _SIB("fpl-captain-engine"),
     _SIB("fpl-pipeline"),
+    _SIB("fpl-historical"),  # H4d: explicit; owned_store_fallback shim also inserts this — defensive symmetry
 ]:
     if _pkg not in sys.path:
         sys.path.insert(0, _pkg)
@@ -468,6 +469,51 @@ def _fetch_bootstrap_with_retry(
         calling ``_init_bootstrap()`` on a non-None return.
     """
     global _LAST_BOOTSTRAP_PROVENANCE
+
+    # ------------------------------------------------------------------
+    # H4d: operator-only force-fallback switch.  When
+    # FPL_FORCE_FALLBACK_BOOTSTRAP is truthy (1/true/yes) we skip the live
+    # retry loop entirely and go straight to the owned-store fallback.
+    # Intended for smoke-testing the fallback path; never set in prod
+    # except during a controlled drill.
+    # ------------------------------------------------------------------
+    _force_flag = os.environ.get("FPL_FORCE_FALLBACK_BOOTSTRAP", "").strip().lower()
+    if _force_flag in {"1", "true", "yes"}:
+        if load_bootstrap_from_owned_store is None:
+            _LOG.error(
+                "fpl_startup %s",
+                json.dumps({
+                    "event":   "bootstrap_forced_fallback_unavailable",
+                    "env_var": "FPL_FORCE_FALLBACK_BOOTSTRAP",
+                    "reason":  "load_bootstrap_from_owned_store is None (import failed)",
+                }),
+            )
+            return None
+        try:
+            bs_fallback, provenance = load_bootstrap_from_owned_store()
+            _LAST_BOOTSTRAP_PROVENANCE = provenance
+            _LOG.warning(
+                "fpl_startup %s",
+                json.dumps({
+                    "event":             "bootstrap_forced_fallback",
+                    "env_var":           "FPL_FORCE_FALLBACK_BOOTSTRAP",
+                    "merged_at":         provenance.merged_at,
+                    "staleness_hours":   provenance.staleness_hours,
+                    "incremental_count": provenance.incremental_count,
+                }),
+            )
+            return bs_fallback
+        except Exception as forced_exc:  # noqa: BLE001
+            _LOG.error(
+                "fpl_startup %s",
+                json.dumps({
+                    "event":   "bootstrap_forced_fallback_failed",
+                    "env_var": "FPL_FORCE_FALLBACK_BOOTSTRAP",
+                    "error":   type(forced_exc).__name__,
+                    "message": str(forced_exc),
+                }),
+            )
+            return None
 
     sleep = _sleep_fn if _sleep_fn is not None else time.sleep
     last_exc: Exception | None = None

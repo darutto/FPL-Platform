@@ -3,8 +3,12 @@
 # =============================================================================
 #
 # Build context must be the repository root so sibling packages are reachable.
-# fpl_server.py inserts eight sibling packages into sys.path at startup; they
-# must all be physically present in the container.
+# fpl_server.py inserts nine sibling packages into sys.path at startup; they
+# must all be physically present in the container.  The ninth, fpl-historical,
+# is read-only (parquet readers only) and is used by the owned-store fallback
+# path (CONTRACT §11.3).  Note: fpl-historical/data/ is gitignored and NOT
+# bundled — operators must mount or otherwise deliver parquet data separately
+# for the fallback to actually serve rows.
 #
 # BUILD (from repo root):
 #   docker build -t fpl-backend:local \
@@ -53,6 +57,8 @@ ENV PATH="/venv/bin:$PATH" \
 COPY --from=builder /venv /venv
 
 # Copy only the nine packages fpl_server.py inserts into sys.path at startup.
+# (fpl-grounded-assistant + 8 siblings explicit in _SIB() list, plus fpl-historical
+# which is read-only and used by the owned-store fallback.)
 # Layout mirrors the monorepo so the existing path logic works unchanged:
 #   _HERE  = /app/packages/fpl-grounded-assistant
 #   _PKGS  = /app/packages
@@ -66,6 +72,7 @@ COPY packages/fpl-tool-contract/      /app/packages/fpl-tool-contract/
 COPY packages/fpl-tool-runner/        /app/packages/fpl-tool-runner/
 COPY packages/fpl-captain-engine/     /app/packages/fpl-captain-engine/
 COPY packages/fpl-pipeline/           /app/packages/fpl-pipeline/
+COPY packages/fpl-historical/         /app/packages/fpl-historical/
 
 WORKDIR /app/packages/fpl-grounded-assistant
 

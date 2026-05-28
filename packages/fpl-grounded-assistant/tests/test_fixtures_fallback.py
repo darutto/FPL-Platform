@@ -266,3 +266,52 @@ def test_loader_is_none_skips_fallback(monkeypatch):
     result = gff._fetch_fixtures_for_gw(10, bootstrap=None, fixtures_override=None)
     assert result is None
     assert 10 not in gff._fixture_cache
+
+
+# ---------------------------------------------------------------------------
+# (g) H4d: FPL_FORCE_FALLBACK_TOOLS env flag — operator force-fallback path
+# ---------------------------------------------------------------------------
+
+def test_force_flag_bypasses_live_and_calls_fallback(monkeypatch, caplog):
+    monkeypatch.setenv("FPL_FORCE_FALLBACK_TOOLS", "1")
+
+    mock_live = MagicMock(return_value=[_sample_fixture(101, 12)])
+    monkeypatch.setattr(gff, "get_fixtures", mock_live)
+
+    fb_fixtures = [_sample_fixture(201, 12)]
+    mock_fb = MagicMock(return_value=(fb_fixtures, _make_provenance()))
+    monkeypatch.setattr(gff, "load_fixtures_for_gw_from_owned_store", mock_fb)
+
+    with caplog.at_level(logging.WARNING, logger=gff.__name__):
+        result = gff._fetch_fixtures_for_gw(12, bootstrap=None, fixtures_override=None)
+
+    assert result == fb_fixtures
+    mock_live.assert_not_called(), "live get_fixtures must NOT be called"
+    mock_fb.assert_called_once_with(12)
+    # Forced fallback results MUST NOT be cached
+    assert 12 not in gff._fixture_cache
+
+    forced_records = [
+        r for r in caplog.records
+        if "fixtures_forced_fallback" in r.getMessage()
+        and "FPL_FORCE_FALLBACK_TOOLS" in r.getMessage()
+    ]
+    assert len(forced_records) >= 1
+
+
+def test_force_flag_unset_uses_live_first_semantics(monkeypatch):
+    """Regression guard: with FPL_FORCE_FALLBACK_TOOLS unset, the live
+    path runs (live-first semantics preserved).
+    """
+    monkeypatch.delenv("FPL_FORCE_FALLBACK_TOOLS", raising=False)
+
+    live_fixtures = [_sample_fixture(101, 12)]
+    mock_live = MagicMock(return_value=live_fixtures)
+    monkeypatch.setattr(gff, "get_fixtures", mock_live)
+    mock_fb = MagicMock()
+    monkeypatch.setattr(gff, "load_fixtures_for_gw_from_owned_store", mock_fb)
+
+    result = gff._fetch_fixtures_for_gw(12, bootstrap=None, fixtures_override=None)
+    assert result == live_fixtures
+    mock_live.assert_called_once()
+    mock_fb.assert_not_called()
