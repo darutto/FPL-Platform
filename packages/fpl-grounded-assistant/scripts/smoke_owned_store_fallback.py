@@ -52,6 +52,13 @@ if _PKG_ROOT not in sys.path:
 
 import fpl_server  # noqa: E402
 from fpl_grounded_assistant import player_form  # noqa: E402
+# Optional R2 sync (H5). Imported via importlib-free path; the module only
+# touches the network when OWNED_STORE_SYNC_ENABLED is truthy AND R2 env is
+# present, so importing it here is cheap and side-effect free.
+try:
+    from fpl_grounded_assistant import owned_store_sync  # noqa: E402
+except Exception:  # noqa: BLE001 - module may be absent in some checkouts
+    owned_store_sync = None  # type: ignore[assignment]
 # NOTE: `fpl_grounded_assistant.get_fixtures_for_gw` resolves to the
 # re-exported *function* (see __init__.py), shadowing the submodule.
 # Grab the actual submodule out of sys.modules to reach the private
@@ -72,6 +79,38 @@ def _step(label: str, fn):
         print(f"[FAIL] {label}: unexpected exception {type(exc).__name__}: {exc}")
         traceback.print_exc()
         return False
+
+
+_R2_ENV_VARS = (
+    "OWNED_STORE_R2_ENDPOINT",
+    "OWNED_STORE_R2_BUCKET",
+    "OWNED_STORE_R2_ACCESS_KEY_ID",
+    "OWNED_STORE_R2_SECRET_ACCESS_KEY",
+)
+
+
+def _r2_sync_configured() -> bool:
+    """True iff the R2 sync is opted-in AND the required env is present."""
+    if owned_store_sync is None:
+        return False
+    if not owned_store_sync.sync_enabled():
+        return False
+    return all(os.environ.get(v) for v in _R2_ENV_VARS)
+
+
+def step_sync():
+    """Optional leading step: sync owned parquet from R2 before the local
+    fallback steps. Returns (ok, detail). Only invoked when configured.
+    """
+    result = owned_store_sync.sync_owned_store_from_r2()
+    detail = (
+        f"ok={result.ok} files={result.files_synced} "
+        f"merged_at={result.merged_at} "
+        f"staleness_hours={result.staleness_hours}"
+    )
+    if result.error:
+        detail += f" error={result.error}"
+    return bool(result.ok), detail
 
 
 def step_a():
@@ -141,12 +180,23 @@ def main() -> int:
             f"({len(tf)} teams, {len(bs.get('elements', []))} elements)"
         )
 
-    results = [
+    results = []
+
+    # Optional leading step: R2 sync. Only counts toward the summary when it
+    # actually runs (i.e. opted-in AND R2 env present). Otherwise we print a
+    # one-line skip and proceed with the local-parquet steps unchanged.
+    if _r2_sync_configured():
+        results.append(_step("(0) R2 owned-store sync", step_sync))
+    else:
+        print("[SKIP] (0) R2 owned-store sync: "
+              "R2 sync not configured, using local parquet")
+
+    results.extend([
         _step("(a) forced bootstrap fallback",        _step_a_capture),
         _step("(b) forced element_summary fallback",  step_b),
         _step("(c) forced fixtures fallback",         step_c),
         _step("(d) end-to-end player_fixture_run",    lambda: step_d(bootstrap_for_d)),
-    ]
+    ])
 
     passes = sum(1 for r in results if r)
     total = len(results)

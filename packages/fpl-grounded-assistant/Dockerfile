@@ -23,6 +23,18 @@
 # RAILWAY: set Dockerfile Path = packages/fpl-grounded-assistant/Dockerfile
 #          and leave Root Directory as the repository root (default).
 #          Railway injects PORT automatically; CMD uses ${PORT:-8000}.
+#
+# OWNED-STORE R2 SYNC (H5): the server can sync the owned parquet store from
+# Cloudflare R2 at startup so the owned-store fallback can serve rows. Sync is
+# OFF unless OWNED_STORE_SYNC_ENABLED is truthy. Set these in the Railway
+# dashboard (real values live in dashboard/secrets, NOT in this image):
+#   OWNED_STORE_SYNC_ENABLED        truthy ("1"/"true"/"yes") to enable sync
+#   OWNED_STORE_R2_ENDPOINT         https://<accountid>.r2.cloudflarestorage.com
+#   OWNED_STORE_R2_BUCKET           R2 bucket name
+#   OWNED_STORE_R2_ACCESS_KEY_ID    R2 access key id
+#   OWNED_STORE_R2_SECRET_ACCESS_KEY  R2 secret access key
+#   OWNED_STORE_R2_PREFIX           optional key prefix (default "")
+# No data directory is COPYed into the image — data arrives via the R2 sync.
 # =============================================================================
 
 # ---------------------------------------------------------------------------
@@ -94,6 +106,12 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 #                           until quota moves to Redis (graduation debt)
 ENV FPL_ORCH_ENABLED=1
 ENV FPL_SESSION_ENABLED=false
+
+# Writable home for the synced owned parquet store. The owned-store fallback
+# readers and the R2 sync both honour FPL_HISTORICAL_ROOT, keeping them
+# consistent. Data is NOT baked into the image; it arrives via the R2 sync
+# (see header comment) when OWNED_STORE_SYNC_ENABLED is truthy.
+ENV FPL_HISTORICAL_ROOT=/app/owned-data
 
 # Railway injects PORT; default 8000 for local runs.
 # Using sh -c so ${PORT} shell expansion works.

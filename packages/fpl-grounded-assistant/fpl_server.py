@@ -420,6 +420,22 @@ except ImportError:  # fallback module unavailable — owned-store fallback disa
     OwnedStoreUnavailable = None            # type: ignore[assignment,misc]
     OwnedStoreProvenance = None             # type: ignore[assignment,misc]
 
+# ---------------------------------------------------------------------------
+# Owned-store sync imports (H5 — startup R2 sync, default-off, fail-soft).
+# If the sync module is absent the names resolve to None and the startup sync
+# is simply skipped — no import-time failure, live-primary behaviour unchanged.
+# ---------------------------------------------------------------------------
+try:
+    from fpl_grounded_assistant.owned_store_sync import (  # noqa: E402
+        sync_owned_store_from_r2,
+        sync_enabled,
+        get_last_sync_result,
+    )
+except ImportError:  # sync module unavailable — startup R2 sync disabled
+    sync_owned_store_from_r2 = None  # type: ignore[assignment]
+    sync_enabled = None              # type: ignore[assignment]
+    get_last_sync_result = None      # type: ignore[assignment]
+
 
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
@@ -616,6 +632,15 @@ async def lifespan(app: FastAPI):
     attempts fail the server starts in a degraded state and /ask returns 503
     until the bootstrap is populated externally (no manual restart required).
     """
+    # H5: optional startup sync of the owned store from R2. Runs BEFORE the
+    # bootstrap fetch so the bootstrap (and per-tool) fallbacks can read the
+    # synced data. Gated by sync_enabled() — default-off preserves current
+    # behaviour exactly. Fail-soft: sync_owned_store_from_r2() never raises.
+    if sync_owned_store_from_r2 is not None and sync_enabled():
+        _sync_res = sync_owned_store_from_r2()
+        # fail-soft: sync_owned_store_from_r2 never raises; result logged inside.
+        if not _sync_res.ok:
+            _LOG.error("fpl_startup owned_store_sync_incomplete err=%s", _sync_res.error)
     if _bootstrap is None:
         bs = _fetch_bootstrap_with_retry()
         if bs is not None:
@@ -1167,10 +1192,28 @@ def healthz() -> dict[str, Any]:
             "row_counts":            _prov.row_counts,
         }
 
+    # H5: expose owned-store sync freshness for operators. Additive; never
+    # exposes R2 creds or endpoint. None until a sync has run (default-off).
+    if get_last_sync_result is None:
+        owned_store_sync_info = None
+    else:
+        _sync = get_last_sync_result()
+        if _sync is None:
+            owned_store_sync_info = None
+        else:
+            owned_store_sync_info = {
+                "ok":              _sync.ok,
+                "files_synced":    _sync.files_synced,
+                "merged_at":       _sync.merged_at,
+                "staleness_hours": _sync.staleness_hours,
+                "error":           _sync.error,
+            }
+
     return {
         "routing_counters":    snap,
         "graduation":          _grad(snap),
         "owned_store_fallback": owned_store_fallback_info,
+        "owned_store_sync":     owned_store_sync_info,
     }
 
 
