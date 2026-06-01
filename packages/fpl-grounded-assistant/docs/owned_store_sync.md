@@ -114,6 +114,105 @@ sync, which is fail-soft.
 Set `OWNED_STORE_SYNC_ENABLED=1` (plus the R2 env vars) on the Railway
 service and deploy/restart.
 
+## Refresh runbook (recurring)
+
+End-to-end loop for refreshing the deployed owned-store snapshot. Run
+this whenever you want the deployed fallback updated (e.g., weekly
+during the season, or when FPL data has materially changed).
+
+All commands assume PowerShell from the repo root (`C:\Users\thera\fpl-platform`).
+
+### 1. Capture a fresh baseline (~10 min)
+
+Pulls bootstrap + all fixtures + every player's element-summary from the
+live FPL API. Writes a new timestamped dir under
+`packages/fpl-historical/data/historical/seasons/2025-2026/raw/`.
+
+```powershell
+.\packages\fpl-historical\capture.ps1 capture --season 2025-2026
+```
+
+Look for `status=complete` and `failures=0` at the end. If status is
+`complete_with_gaps` or `failed`, stop — the merge needs a `complete`
+baseline.
+
+### 2. (Optional) Capture incremental gameweeks
+
+Cheap per-GW snapshots (~3 API calls each). `--auto` only writes for
+finished+data_checked GWs that don't already have a snapshot — safe to
+re-run; no-op when nothing new is finished.
+
+```powershell
+.\packages\fpl-historical\capture.ps1 capture-gw --auto
+```
+
+Skip this step during the off-season — there are no new finished GWs to
+capture and it will no-op anyway.
+
+### 3. Merge baseline + incrementals into parquet (seconds)
+
+Fuses the latest baseline + all incrementals into
+`parquet_merged/{players,teams,events,fixtures,player_gw_stats}.parquet`
+and updates the `_owned_latest.json` pointer.
+
+```powershell
+.\packages\fpl-historical\capture.ps1 merge --season 2025-2026
+```
+
+Look for the `rows=` line — should be ~29k+ rows for a full season.
+
+### 4. Publish to R2 (seconds)
+
+Uploads the pointer + 5 parquet files to the configured R2 bucket. The
+four `OWNED_STORE_R2_*` env vars must be set in the current PowerShell
+session — they don't persist across windows.
+
+If you opened a new PowerShell window, re-set them (substituting your
+real values; **never commit secrets to the repo**):
+
+```powershell
+$env:OWNED_STORE_R2_ENDPOINT          = "https://<your-account-id>.r2.cloudflarestorage.com"
+$env:OWNED_STORE_R2_BUCKET            = "fpl-owned"
+$env:OWNED_STORE_R2_ACCESS_KEY_ID     = "<32-char access key id>"
+$env:OWNED_STORE_R2_SECRET_ACCESS_KEY = "<64-char secret access key>"
+```
+
+Sanity-check (prints lengths, not values):
+
+```powershell
+echo "endpoint=$env:OWNED_STORE_R2_ENDPOINT bucket=$env:OWNED_STORE_R2_BUCKET akid_len=$($env:OWNED_STORE_R2_ACCESS_KEY_ID.Length) secret_len=$($env:OWNED_STORE_R2_SECRET_ACCESS_KEY.Length)"
+```
+
+Then publish:
+
+```powershell
+cd packages\fpl-grounded-assistant
+python fpl_grounded_assistant\owned_store_sync.py publish
+```
+
+Expected: `SyncResult(ok=True, files_synced=6, merged_at=..., staleness_hours=<small>, error=None)`.
+
+### 5. Redeploy / restart Railway
+
+Railway needs to re-run the container's startup so the sync re-pulls the
+new files. Either:
+
+- **Redeploy**: Railway → `fpl-grounded-assistant` service → **Deployments**
+  tab → **⋮** on latest → **Redeploy**.
+- **Restart**: same place, **Restart** option (faster — no rebuild).
+
+Wait until the deployment status is **Active** (green).
+
+### 6. Verify deployed `/healthz`
+
+```powershell
+$URL = "https://fpl-backend-production-4151.up.railway.app/healthz"
+Invoke-RestMethod $URL | ConvertTo-Json -Depth 5
+```
+
+Look for the `owned_store_sync` block — `ok: true`, `merged_at` matches
+what you just published, `staleness_hours` < 1.
+
 ## Verifying the deployed path
 
 1. Set the env vars (enabled flag + endpoint + bucket + access key/secret,
