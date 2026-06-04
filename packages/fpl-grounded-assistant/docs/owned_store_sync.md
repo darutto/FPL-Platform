@@ -213,6 +213,62 @@ Invoke-RestMethod $URL | ConvertTo-Json -Depth 5
 Look for the `owned_store_sync` block — `ok: true`, `merged_at` matches
 what you just published, `staleness_hours` < 1.
 
+## Automated refresh (H5b)
+
+The manual runbook above is also driven on a schedule by a GitHub Actions
+workflow so the deployed fallback stays fresh without operator memory. The
+runbook remains the canonical recovery path when automation breaks.
+
+**Workflow file:** `.github/workflows/owned-store-refresh.yml`
+
+**Cadence:** weekly on Mondays at 06:00 UTC (cron expression `0 6 * * 1`).
+The workflow also exposes `workflow_dispatch` so it can be triggered on
+demand:
+
+```
+gh workflow run owned-store-refresh.yml
+```
+
+The `gh` CLI must be authenticated against this repo (`gh auth status`)
+before manual dispatch will work.
+
+### Required GitHub Actions secrets
+
+These are stored under repo **Settings → Secrets and variables → Actions**.
+They are independent from the Railway service env vars even when the values
+are identical.
+
+| Secret | Source |
+|---|---|
+| `OWNED_STORE_R2_ENDPOINT` | Same value as Railway env var. |
+| `OWNED_STORE_R2_BUCKET` | Same value as Railway env var. |
+| `OWNED_STORE_R2_ACCESS_KEY_ID` | Same R2 API token credentials. |
+| `OWNED_STORE_R2_SECRET_ACCESS_KEY` | Same R2 API token credentials. |
+| `RAILWAY_API_TOKEN` | Railway dashboard → Account Settings → Tokens. **Project-scoped, not account-scoped** if Railway offers the choice. |
+| `RAILWAY_SERVICE_ID` | Railway → service → Settings → copy from URL or service info. |
+| `RAILWAY_ENVIRONMENT_ID` | Railway → project → environment → copy id. |
+| `RAILWAY_HEALTHZ_URL` | `https://fpl-backend-production-4151.up.railway.app/healthz`. |
+
+### Failure handling
+
+GitHub Actions sends an email-on-failure to the repository owner by default
+whenever a scheduled run exits non-zero; that email is the operator's signal
+to investigate. The recovery path is the manual **Refresh runbook
+(recurring)** section above — run it end-to-end to land a fresh snapshot
+out-of-band, then diagnose the workflow at leisure. Common failure modes:
+(a) **FPL API outage** — capture fails; the next scheduled run typically
+recovers on its own once the upstream API is healthy; (b) **Railway API
+token expired** — the redeploy step fails with 401; rotate `RAILWAY_API_TOKEN`
+in GH Actions secrets; (c) **`/healthz` verify times out** — the Railway
+build may have failed on an unrelated commit, or startup sync env vars are
+unset on the service; check the Railway deployment logs first.
+
+### Secret rotation
+
+If you rotate the R2 token, you MUST update both the Railway service env
+vars AND the GH Actions secrets — they are stored independently and neither
+side will notice the other is stale.
+
 ## Verifying the deployed path
 
 1. Set the env vars (enabled flag + endpoint + bucket + access key/secret,
