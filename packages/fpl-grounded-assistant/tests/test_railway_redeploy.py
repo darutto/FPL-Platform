@@ -90,18 +90,16 @@ _TOKEN = "tok-abc"
 _DEP_ID = "dep-abc123"
 
 
-def _make_ok_response(deployment_id: str = _DEP_ID) -> MagicMock:
-    """Return a mock requests.Response with 200 and a happy GraphQL body."""
+def _make_ok_response(ok: bool = True) -> MagicMock:
+    """Return a mock requests.Response with 200 and a happy GraphQL body.
+
+    Railway's ``serviceInstanceRedeploy`` mutation returns ``Boolean!`` —
+    not an object — so the response body is just ``{"data": {"serviceInstanceRedeploy": true}}``.
+    """
     resp = MagicMock()
     resp.ok = True
     resp.status_code = 200
-    resp.json.return_value = {
-        "data": {
-            _MUTATION_NAME: {
-                "latestDeployment": {"id": deployment_id}
-            }
-        }
-    }
+    resp.json.return_value = {"data": {_MUTATION_NAME: ok}}
     return resp
 
 
@@ -138,14 +136,24 @@ def _fake_requests(post_return_value: MagicMock) -> MagicMock:
 # ---------------------------------------------------------------------------
 # Test 1 — Happy path
 # ---------------------------------------------------------------------------
-def test_happy_path_returns_deployment_id(monkeypatch):
-    """redeploy_service returns the deployment id from the GraphQL response."""
-    fake = _fake_requests(_make_ok_response("abc123"))
+def test_happy_path_returns_ok(monkeypatch):
+    """redeploy_service returns the literal "ok" when Railway responds true."""
+    fake = _fake_requests(_make_ok_response(True))
     monkeypatch.setattr(_mod, "requests", fake)
 
     result = redeploy_service(_SERVICE_ID, _ENV_ID, _TOKEN)
 
-    assert result == "abc123"
+    assert result == "ok"
+
+
+def test_returns_false_raises(monkeypatch):
+    """A false response from Railway is a failure, not a silent success."""
+    import pytest as _pt
+    fake = _fake_requests(_make_ok_response(False))
+    monkeypatch.setattr(_mod, "requests", fake)
+
+    with _pt.raises(_mod.RailwayRedeployError, match="non-true"):
+        redeploy_service(_SERVICE_ID, _ENV_ID, _TOKEN)
 
 
 # ---------------------------------------------------------------------------

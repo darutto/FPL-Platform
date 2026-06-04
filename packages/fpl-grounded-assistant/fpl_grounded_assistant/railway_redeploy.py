@@ -39,15 +39,11 @@ import requests
 
 RAILWAY_GRAPHQL_URL = "https://backboard.railway.app/graphql/v2"
 
-# Mutation: serviceInstanceRedeploy
-# Returns ServiceInstance with latestDeployment.id on success.
+# Mutation: serviceInstanceRedeploy returns Boolean! — no field selection allowed.
+# Railway does not echo a deployment id from this mutation; success is just `true`.
 _MUTATION = """
 mutation ServiceInstanceRedeploy($serviceId: String!, $environmentId: String!) {
-  serviceInstanceRedeploy(serviceId: $serviceId, environmentId: $environmentId) {
-    latestDeployment {
-      id
-    }
-  }
+  serviceInstanceRedeploy(serviceId: $serviceId, environmentId: $environmentId)
 }
 """
 
@@ -86,7 +82,9 @@ def redeploy_service(
     Returns
     -------
     str
-        The new deployment id returned by Railway.
+        The literal string ``"ok"`` on success. Railway's
+        ``serviceInstanceRedeploy`` returns ``Boolean!`` (not a deployment
+        object), so no deployment id is available here.
     """
     headers = {
         "Authorization": f"Bearer {api_token}",
@@ -126,15 +124,18 @@ def redeploy_service(
         raise RailwayRedeployError(f"GraphQL errors: {messages}")
 
     try:
-        deployment_id: str = (
-            body["data"]["serviceInstanceRedeploy"]["latestDeployment"]["id"]
-        )
+        ok: bool = body["data"]["serviceInstanceRedeploy"]
     except (KeyError, TypeError) as e:
         raise RailwayRedeployError(
             f"Unexpected Railway GraphQL response shape: {body}"
         ) from e
 
-    return deployment_id
+    if ok is not True:
+        raise RailwayRedeployError(
+            f"Railway returned non-true for serviceInstanceRedeploy: {ok!r}"
+        )
+
+    return "ok"
 
 
 if __name__ == "__main__":
@@ -145,12 +146,12 @@ if __name__ == "__main__":
         print(f"error: missing required env vars: {', '.join(missing)}", file=sys.stderr)
         sys.exit(1)
     try:
-        dep_id = redeploy_service(
+        result = redeploy_service(
             service_id=os.environ["RAILWAY_SERVICE_ID"],
             environment_id=os.environ["RAILWAY_ENVIRONMENT_ID"],
             api_token=os.environ["RAILWAY_API_TOKEN"],
         )
-        print(dep_id)
+        print(f"redeploy: {result}")
     except RailwayRedeployError as e:
         print(f"error: {e}", file=sys.stderr)
         sys.exit(1)
