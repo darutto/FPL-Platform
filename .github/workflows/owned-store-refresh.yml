@@ -1,0 +1,78 @@
+name: Owned-Store Refresh
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"   # Mondays 06:00 UTC, weekly
+  workflow_dispatch:        # manual trigger via `gh workflow run owned-store-refresh.yml`
+
+concurrency:
+  group: owned-store-refresh
+  cancel-in-progress: false  # never cancel an in-flight refresh; let it finish
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          pip install \
+            -r packages/fpl-grounded-assistant/requirements.txt \
+            pyarrow \
+            pandas
+
+      # Decision 2 (§4): no --skip-if-fresh flag.
+      # The GHA runner is ephemeral — its local disk is always empty, so the
+      # local-freshness check would never fire. Passing the flag would be
+      # misleading. Always run a full capture.
+      - name: Capture FPL data (full baseline)
+        run: bash packages/fpl-historical/capture.sh capture --season 2025-2026
+
+      - name: Merge owned store
+        run: bash packages/fpl-historical/capture.sh merge --season 2025-2026
+
+      - name: Extract merged_at from pointer file
+        id: extract
+        run: |
+          echo "merged_at=$(jq -r .merged_at packages/fpl-historical/data/historical/seasons/2025-2026/_owned_latest.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to R2
+        env:
+          OWNED_STORE_R2_ENDPOINT: ${{ secrets.OWNED_STORE_R2_ENDPOINT }}
+          OWNED_STORE_R2_BUCKET: ${{ secrets.OWNED_STORE_R2_BUCKET }}
+          OWNED_STORE_R2_ACCESS_KEY_ID: ${{ secrets.OWNED_STORE_R2_ACCESS_KEY_ID }}
+          OWNED_STORE_R2_SECRET_ACCESS_KEY: ${{ secrets.OWNED_STORE_R2_SECRET_ACCESS_KEY }}
+        run: |
+          python packages/fpl-grounded-assistant/fpl_grounded_assistant/owned_store_sync.py publish
+
+      - name: Redeploy Railway service
+        env:
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+          RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_ENVIRONMENT_ID }}
+        run: |
+          python packages/fpl-grounded-assistant/fpl_grounded_assistant/railway_redeploy.py
+
+      # Decision 3 (§4): if: always() so this step runs even when the redeploy
+      # step failed. A Railway redeploy call can time out or return a transient
+      # 502 while the deployment actually proceeds; the /healthz poll is the
+      # authoritative source of truth for whether the snapshot landed. The
+      # overall workflow still exits non-zero if any earlier required step
+      # failed; this step's result is informational on the redeploy-failure path.
+      - name: Verify /healthz reports updated merged_at
+        if: always()
+        run: |
+          python packages/fpl-grounded-assistant/scripts/verify_healthz_merged_at.py \
+            --url "${{ secrets.RAILWAY_HEALTHZ_URL }}" \
+            --expected-merged-at "${{ steps.extract.outputs.merged_at }}" \
+            --timeout 900 \
+            --interval 30
