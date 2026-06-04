@@ -37,7 +37,7 @@ from __future__ import annotations
 
 import requests
 
-RAILWAY_GRAPHQL_URL = "https://backboard.railway.com/graphql"
+RAILWAY_GRAPHQL_URL = "https://backboard.railway.app/graphql/v2"
 
 # Mutation: serviceInstanceRedeploy
 # Returns ServiceInstance with latestDeployment.id on success.
