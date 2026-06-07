@@ -269,6 +269,74 @@ If you rotate the R2 token, you MUST update both the Railway service env
 vars AND the GH Actions secrets — they are stored independently and neither
 side will notice the other is stale.
 
+## Multi-season seed import (H6)
+
+A **one-shot, operator-driven** import of prior FPL seasons from the
+[vaastav/Fantasy-Premier-League](https://github.com/vaastav/Fantasy-Premier-League)
+community dataset. This is **not automated**, **not run in CI**, and **not a
+runtime dependency** of the deployed service — the operator runs it locally
+when historical seasons need to be seeded.
+
+**Why a community dataset?** The live FPL API only serves the *current*
+season; it has no `?season=` parameter and no prior-season endpoints. Once a
+season rolls over, that data is gone from the live source. So multi-season
+historical data must come from a community snapshot. This seed data feeds
+future ML / analytics work — it does **not** affect the live single-season
+owned-store fallback.
+
+### 1. Clone vaastav at the pinned SHA (one-time)
+
+The import pins a specific vaastav commit so reruns are deterministic. The
+actual SHA is defined as the `VAASTAV_PINNED_SHA` constant in
+`packages/fpl-historical/fpl_historical/vaastav_import.py` — use that value
+(do not invent one here):
+
+```powershell
+git clone --depth=1 https://github.com/vaastav/Fantasy-Premier-League.git .\_vaastav-cache
+cd .\_vaastav-cache; git checkout <VAASTAV_PINNED_SHA>; cd ..
+```
+
+### 2. Run the importer
+
+From the repo root. Transforms vaastav's CSVs into our parquet schema and
+writes each season into the local historical store
+(`seasons/{season}/parquet_merged/` plus a per-season `_owned_latest.json`):
+
+```powershell
+.\packages\fpl-historical\capture.ps1 import-vaastav `
+    --source .\_vaastav-cache `
+    --seasons 2020-2021,2021-2022,2022-2023,2023-2024,2024-2025
+```
+
+The importer is idempotent per season — re-running overwrites that season's
+`parquet_merged/` and pointer (no concatenation, no duplicates).
+
+### 3. Publish each imported season to R2
+
+Publish each season you want shipped (the operator decides which). Note:
+`owned_store_sync.py publish` currently defaults to `CURRENT_SEASON`; a
+`--season` flag may be required to target an imported year (confirm the flag
+exists before running):
+
+```powershell
+cd packages\fpl-grounded-assistant
+foreach ($s in @("2020-2021","2021-2022","2022-2023","2023-2024","2024-2025")) {
+    python fpl_grounded_assistant\owned_store_sync.py publish --season $s
+}
+```
+
+The R2 layout already supports multiple seasons (`seasons/{season}/...`), so
+no R2 or deployed-runtime changes are needed.
+
+### Caveats
+
+Imported data uses **vaastav-local player ids**, which are *not* stable
+across seasons (FPL renumbers players each year), so the ids are scoped to
+their season and cross-season joins must go by name + position. Older seasons
+may lack newer columns (e.g. xG / xA), which import as **null**. This is seed
+data for analytics only — the live single-season owned-store fallback is
+unaffected by what is or isn't imported here.
+
 ## Verifying the deployed path
 
 1. Set the env vars (enabled flag + endpoint + bucket + access key/secret,

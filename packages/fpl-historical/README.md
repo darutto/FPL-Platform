@@ -9,6 +9,7 @@ Owned historical FPL data capture. Fetches `bootstrap-static`, all-season fixtur
 | `capture` | Full-season baseline: bootstrap + all-fixtures + N element-summaries | ~11 min |
 | `capture-gw` | Per-gameweek anchor: bootstrap + all-fixtures + event-live (3 calls) | ~5 s |
 | `merge` | Fuse baseline + complete incrementals into `parquet_merged/` (CONTRACT §10) | ~1 s |
+| `import-vaastav` | One-shot seed import of prior seasons from the vaastav community dataset (H6) | varies |
 
 ## Running the capture
 
@@ -141,6 +142,20 @@ data/historical/seasons/{season}/
 ├── parquet_merged/        ← NEW: merged output (5 parquet files)
 └── _owned_latest.json     ← NEW: merge pointer with row_counts and provenance
 ```
+
+## `import-vaastav` — multi-season seed import (H6)
+
+One-shot, operator-driven import of prior FPL seasons from the
+[vaastav/Fantasy-Premier-League](https://github.com/vaastav/Fantasy-Premier-League)
+community dataset (the live API only serves the current season). Transforms
+vaastav's CSVs into our parquet schema and writes each season into
+`seasons/{season}/parquet_merged/`. Not automated, not in CI, not a runtime
+dependency.
+
+The full operator runbook — cloning vaastav at the pinned SHA, running the
+importer, and publishing each season to R2 — lives in
+[`packages/fpl-grounded-assistant/docs/owned_store_sync.md`](../fpl-grounded-assistant/docs/owned_store_sync.md)
+under **Multi-season seed import (H6)**.
 
 ## Convention note
 
