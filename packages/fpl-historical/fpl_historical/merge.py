@@ -16,6 +16,7 @@ from __future__ import annotations
 import gzip
 import json
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -35,6 +36,43 @@ from fpl_historical.paths import (
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+# Matches a season directory segment, e.g. "seasons/2024-2025/" — used to
+# backfill the `season` column from the directory path when reading a
+# pre-H6 parquet that predates the `season` column (Decision 2 transition).
+_SEASON_DIR_RE = re.compile(r"seasons[\\/](\d{4}-\d{4})[\\/]")
+
+
+def _season_from_path(path: Path) -> str | None:
+    """Extract a season key (e.g. ``"2024-2025"``) from a path via regex.
+
+    Returns ``None`` if no ``seasons/{season}/`` segment is found.
+    """
+    match = _SEASON_DIR_RE.search(str(path))
+    if match:
+        return match.group(1)
+    return None
+
+
+def _ensure_season_column(df: pd.DataFrame, season: str, source_path: Path | None = None) -> pd.DataFrame:
+    """Ensure *df* carries a ``season`` column with the expected value.
+
+    Backward-compatibility (Decision 2): if *df* was loaded from a pre-H6
+    parquet that lacks the ``season`` column, fill it from *source_path* by
+    regexing out the ``seasons/{season}/`` directory segment. Falls back to
+    the explicitly-provided *season* if the column is absent and the path
+    can't be parsed (or no path is given).
+    """
+    if "season" not in df.columns:
+        value = season
+        if source_path is not None:
+            from_path = _season_from_path(source_path)
+            if from_path is not None:
+                value = from_path
+        df = df.copy()
+        df["season"] = value
+    return df
+
 
 def _utcnow_iso_safe() -> str:
     """Return UTC now in the filesystem-safe ISO 8601 format used by §3/§9."""
@@ -64,26 +102,32 @@ def _build_season_state_tables(
     bootstrap: dict,
     fixtures_list: list,
     captured_at: str,
+    *,
+    season: str,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Build players/teams/events/fixtures DataFrames from raw JSON."""
     # players
     players_df = pd.json_normalize(bootstrap.get("elements", []))
     players_df = players_df.rename(columns={"id": "player_id", "team": "team_id"})
+    players_df["season"] = season
     players_df["captured_at"] = captured_at
 
     # teams
     teams_df = pd.json_normalize(bootstrap.get("teams", []))
     teams_df = teams_df.rename(columns={"id": "team_id"})
+    teams_df["season"] = season
     teams_df["captured_at"] = captured_at
 
     # events
     events_df = pd.json_normalize(bootstrap.get("events", []))
     events_df = events_df.rename(columns={"id": "event_id"})
+    events_df["season"] = season
     events_df["captured_at"] = captured_at
 
     # fixtures
     fixtures_df = pd.json_normalize(fixtures_list)
     fixtures_df = fixtures_df.rename(columns={"id": "fixture_id", "event": "event_id"})
+    fixtures_df["season"] = season
     fixtures_df["captured_at"] = captured_at
 
     return players_df, teams_df, events_df, fixtures_df
@@ -92,6 +136,8 @@ def _build_season_state_tables(
 def _build_baseline_gw_stats(
     raw_dir: Path,
     captured_at: str,
+    *,
+    season: str,
 ) -> pd.DataFrame:
     """Load element-summary history rows from a baseline raw dir.
 
@@ -122,6 +168,7 @@ def _build_baseline_gw_stats(
             rename_map["round"] = "event_id"
         if rename_map:
             gw_df = gw_df.rename(columns=rename_map)
+        gw_df["season"] = season
         gw_df["captured_at"] = captured_at
         gw_df["source"] = "baseline"
         gw_df["source_captured_at"] = captured_at
@@ -131,7 +178,7 @@ def _build_baseline_gw_stats(
             "goals_scored", "assists", "clean_sheets", "goals_conceded",
             "bonus", "bps", "expected_goals", "expected_assists",
             "expected_goal_involvements", "value", "was_home",
-            "opponent_team", "captured_at", "source", "source_captured_at",
+            "opponent_team", "season", "captured_at", "source", "source_captured_at",
         ])
 
     return gw_df
@@ -141,6 +188,8 @@ def _build_incremental_gw_stats(
     inc_dir: Path,
     gameweek: int,
     captured_at: str,
+    *,
+    season: str,
 ) -> pd.DataFrame:
     """Load event-live rows from an incremental snapshot directory.
 
@@ -152,6 +201,7 @@ def _build_incremental_gw_stats(
         row: dict = {"player_id": element["id"], "event_id": gameweek}
         stats = element.get("stats", {})
         row.update(stats)
+        row["season"] = season
         row["captured_at"] = captured_at
         row["source"] = "incremental"
         row["source_captured_at"] = captured_at
@@ -161,7 +211,7 @@ def _build_incremental_gw_stats(
         return pd.json_normalize(rows)
     else:
         return pd.DataFrame(columns=[
-            "player_id", "event_id", "captured_at", "source", "source_captured_at",
+            "player_id", "event_id", "season", "captured_at", "source", "source_captured_at",
         ])
 
 
@@ -213,7 +263,7 @@ def build_merged_parquet(season: str) -> dict:
 
         baseline_bootstrap = _load_gz_json(baseline_raw_dir / "bootstrap-static.json.gz")
         baseline_fixtures = _load_gz_json(baseline_raw_dir / "fixtures.json.gz")
-        baseline_gw_df = _build_baseline_gw_stats(baseline_raw_dir, baseline_captured_at)
+        baseline_gw_df = _build_baseline_gw_stats(baseline_raw_dir, baseline_captured_at, season=season)
 
         baseline_info = {
             "raw_dir": _rel(baseline_raw_dir, season),
@@ -258,7 +308,7 @@ def build_merged_parquet(season: str) -> dict:
         })
 
         # Load incremental gw stats
-        inc_gw_df = _build_incremental_gw_stats(chosen_dir, gw, inc_captured_at)
+        inc_gw_df = _build_incremental_gw_stats(chosen_dir, gw, inc_captured_at, season=season)
         incremental_gw_dfs.append(inc_gw_df)
 
         # Update best season-state source (§10.3: newest captured_at wins)
@@ -277,13 +327,14 @@ def build_merged_parquet(season: str) -> dict:
             best_state_bootstrap,
             best_state_fixtures or [],
             best_state_captured_at,
+            season=season,
         )
     else:
         # No baseline, no incrementals — write empty schema-preserved tables
-        players_df = pd.DataFrame(columns=["player_id", "team_id", "captured_at"])
-        teams_df = pd.DataFrame(columns=["team_id", "captured_at"])
-        events_df = pd.DataFrame(columns=["event_id", "captured_at"])
-        fixtures_df = pd.DataFrame(columns=["fixture_id", "event_id", "captured_at"])
+        players_df = pd.DataFrame(columns=["player_id", "team_id", "season", "captured_at"])
+        teams_df = pd.DataFrame(columns=["team_id", "season", "captured_at"])
+        events_df = pd.DataFrame(columns=["event_id", "season", "captured_at"])
+        fixtures_df = pd.DataFrame(columns=["fixture_id", "event_id", "season", "captured_at"])
 
     # ------------------------------------------------------------------
     # §10.4 — Build player_gw_stats with dedup
@@ -312,7 +363,7 @@ def build_merged_parquet(season: str) -> dict:
             "goals_scored", "assists", "clean_sheets", "goals_conceded",
             "bonus", "bps", "expected_goals", "expected_assists",
             "expected_goal_involvements", "value", "was_home",
-            "opponent_team", "captured_at", "source", "source_captured_at",
+            "opponent_team", "season", "captured_at", "source", "source_captured_at",
         ])
 
     # ------------------------------------------------------------------
@@ -326,6 +377,10 @@ def build_merged_parquet(season: str) -> dict:
         "player_gw_stats": combined,
     }
     for name, df in tables.items():
+        # Decision 2 backward-compat: guarantee the `season` column is present
+        # (e.g. if a future source DataFrame predates this change), filling
+        # from the season directory path when it can't be sourced otherwise.
+        df = _ensure_season_column(df, season, source_path=out_dir)
         _write_parquet_atomic(df, out_dir / f"{name}.parquet")
 
     # ------------------------------------------------------------------

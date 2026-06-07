@@ -88,6 +88,7 @@ def build_parquet_from_raw(
     # ------------------------------------------------------------------
     players_df = pd.json_normalize(bootstrap.get("elements", []))
     players_df = players_df.rename(columns={"id": "player_id", "team": "team_id"})
+    players_df["season"] = season
     players_df["captured_at"] = captured_at
 
     # ------------------------------------------------------------------
@@ -95,6 +96,7 @@ def build_parquet_from_raw(
     # ------------------------------------------------------------------
     teams_df = pd.json_normalize(bootstrap.get("teams", []))
     teams_df = teams_df.rename(columns={"id": "team_id"})
+    teams_df["season"] = season
     teams_df["captured_at"] = captured_at
 
     # ------------------------------------------------------------------
@@ -102,6 +104,7 @@ def build_parquet_from_raw(
     # ------------------------------------------------------------------
     events_df = pd.json_normalize(bootstrap.get("events", []))
     events_df = events_df.rename(columns={"id": "event_id"})
+    events_df["season"] = season
     events_df["captured_at"] = captured_at
 
     # ------------------------------------------------------------------
@@ -109,6 +112,7 @@ def build_parquet_from_raw(
     # ------------------------------------------------------------------
     fixtures_df = pd.json_normalize(fixtures_list)
     fixtures_df = fixtures_df.rename(columns={"id": "fixture_id", "event": "event_id"})
+    fixtures_df["season"] = season
     fixtures_df["captured_at"] = captured_at
 
     # ------------------------------------------------------------------
@@ -143,6 +147,7 @@ def build_parquet_from_raw(
             rename_map["round"] = "event_id"
         if rename_map:
             gw_df = gw_df.rename(columns=rename_map)
+        gw_df["season"] = season
         gw_df["captured_at"] = captured_at
     else:
         # Produce an empty but correctly typed DataFrame
@@ -151,7 +156,7 @@ def build_parquet_from_raw(
             "goals_scored", "assists", "clean_sheets", "goals_conceded",
             "bonus", "bps", "expected_goals", "expected_assists",
             "expected_goal_involvements", "value", "was_home",
-            "opponent_team", "captured_at",
+            "opponent_team", "season", "captured_at",
         ])
 
     # ------------------------------------------------------------------

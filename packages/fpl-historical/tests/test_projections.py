@@ -151,6 +151,19 @@ class TestCompleteSnapshot:
             assert "captured_at" in df.columns, f"captured_at missing from {name}"
             assert (df["captured_at"] == "2026-05-25T14:22:03Z").all()
 
+    def test_season_column_on_all_tables(self, tmp_historical_root):
+        """H6: every table carries a `season` column matching the manifest season."""
+        raw_dir = _write_raw_dir(tmp_historical_root, status="complete")
+        p_dir = parquet_dir("2025-2026")
+
+        from fpl_historical.projections import build_parquet_from_raw
+        build_parquet_from_raw(raw_dir, p_dir)
+
+        for name in ("players", "teams", "events", "fixtures", "player_gw_stats"):
+            df = pd.read_parquet(p_dir / f"{name}.parquet")
+            assert "season" in df.columns, f"season missing from {name}"
+            assert (df["season"] == "2025-2026").all(), f"season value mismatch in {name}"
+
     def test_latest_json_updated_on_success(self, tmp_historical_root):
         raw_dir = _write_raw_dir(tmp_historical_root, status="complete")
         p_dir = parquet_dir("2025-2026")
