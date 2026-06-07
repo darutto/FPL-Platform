@@ -1,0 +1,4 @@
+name,position,team,assists,bonus,bps,clean_sheets,element,fixture,goals_conceded,goals_scored,kickoff_time,minutes,opponent_team,round,saves,total_points,value,was_home,yellow_cards
+Erling Haaland,FWD,Manchester City,1,2,40,0,1,3,1,1,2024-08-24T14:00:00Z,90,1,2,0,10,151,False,0
+Mohamed Salah,MID,Liverpool,0,0,22,1,2,3,0,0,2024-08-24T14:00:00Z,90,1,2,0,6,131,True,0
+Bukayo Saka,MID,Arsenal,0,1,28,0,3,3,1,0,2024-08-24T14:00:00Z,75,11,2,0,5,90,False,0

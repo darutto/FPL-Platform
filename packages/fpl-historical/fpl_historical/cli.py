@@ -4,14 +4,16 @@ fpl_historical.cli
 Command-line interface for the fpl-historical capture pipeline.
 
 Subcommands:
-    capture     Full-season baseline capture (CONTRACT §4)
-    capture-gw  Per-gameweek incremental capture (CONTRACT §9)
-    merge       Fuse baseline + incrementals into parquet_merged/ (CONTRACT §10)
+    capture        Full-season baseline capture (CONTRACT §4)
+    capture-gw     Per-gameweek incremental capture (CONTRACT §9)
+    merge          Fuse baseline + incrementals into parquet_merged/ (CONTRACT §10)
+    import-vaastav One-shot seed import from vaastav community CSVs (H6)
 
 Usage:
     python -m fpl_historical.cli capture [flags]
     python -m fpl_historical.cli capture-gw (--gw N | --current | --auto) [--force] [--season S]
     python -m fpl_historical.cli merge --season SEASON
+    python -m fpl_historical.cli import-vaastav --source PATH --seasons LIST [--target-root PATH]
 
 capture flags (CONTRACT §4):
     --season SEASON             Season key (default: 2025-2026)
@@ -29,6 +31,11 @@ capture-gw flags (CONTRACT §9.5):
 
 merge flags (CONTRACT §10):
     --season SEASON Season key (default: 2025-2026)
+
+import-vaastav flags (H6 §7 operator runbook):
+    --source PATH       Path to a local clone of the vaastav repo (required)
+    --seasons LIST      Comma-separated season keys, e.g. 2023-2024,2024-2025 (required)
+    --target-root PATH  Override the historical store root (default: historical_root())
 
 Exit codes (CONTRACT §4 for capture, §9.4 for capture-gw):
     0  complete  (or complete_with_gaps + --promote-with-gaps, or skip)
@@ -56,6 +63,7 @@ from fpl_historical.paths import (
     parquet_dir,
 )
 from fpl_historical.projections import build_parquet_from_raw
+from fpl_historical.vaastav_import import import_season
 from fpl_api_client.fpl_client import BOOTSTRAP_URL
 
 
@@ -149,6 +157,29 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--season",
         default=CURRENT_SEASON,
         help="Season key (default: %(default)s)",
+    )
+
+    # ------------------------------------------------------------------
+    # import-vaastav subcommand (H6 §7)
+    # ------------------------------------------------------------------
+    import_vaastav_cmd = sub.add_parser(
+        "import-vaastav",
+        help="One-shot seed import from a local vaastav repo clone (H6)",
+    )
+    import_vaastav_cmd.add_argument(
+        "--source",
+        required=True,
+        help="Path to a local clone of the vaastav repo (containing data/)",
+    )
+    import_vaastav_cmd.add_argument(
+        "--seasons",
+        required=True,
+        help="Comma-separated season keys, e.g. 2023-2024,2024-2025",
+    )
+    import_vaastav_cmd.add_argument(
+        "--target-root",
+        default=None,
+        help="Override the historical store root (default: historical_root())",
     )
 
     return parser.parse_args(argv)
@@ -371,6 +402,41 @@ def cmd_merge(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_import_vaastav(args: argparse.Namespace) -> int:
+    """Run the import-vaastav sub-command. Returns exit code.
+
+    Iterates `import_season` per requested season; prints a per-season
+    result line; exits 0 if all seasons import cleanly, 1 if any fail.
+    """
+    source_path = Path(args.source)
+    target_root = Path(args.target_root) if args.target_root else None
+    seasons = [s.strip() for s in args.seasons.split(",") if s.strip()]
+
+    if not seasons:
+        print("[fpl-historical] import-vaastav: no seasons given", file=sys.stderr)
+        return 1
+
+    any_failed = False
+    for season in seasons:
+        result = import_season(season, source_path, target_root=target_root)
+        if result.ok:
+            counts_str = " ".join(f"{k}={v}" for k, v in result.row_counts.items())
+            drift_str = ""
+            if result.missing_columns:
+                drift_str = f" missing_columns={result.missing_columns}"
+            print(
+                f"[fpl-historical] import-vaastav {season}: ok {counts_str}{drift_str}"
+            )
+        else:
+            print(
+                f"[fpl-historical] import-vaastav {season}: FAILED — {result.error}",
+                file=sys.stderr,
+            )
+            any_failed = True
+
+    return 1 if any_failed else 0
+
+
 def main(argv: list[str] | None = None) -> None:
     args = _parse_args(argv)
     if args.command == "capture":
@@ -379,6 +445,8 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(cmd_capture_gw(args))
     elif args.command == "merge":
         sys.exit(cmd_merge(args))
+    elif args.command == "import-vaastav":
+        sys.exit(cmd_import_vaastav(args))
     else:
         print(f"Unknown command: {args.command}", file=sys.stderr)
         sys.exit(1)

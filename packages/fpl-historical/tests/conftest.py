@@ -6,7 +6,23 @@ Shared fixtures for fpl-historical tests.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
+
+# ---------------------------------------------------------------------------
+# H6 — vaastav importer fixture directory
+# ---------------------------------------------------------------------------
+
+# Root of hand-crafted vaastav-shaped CSV fixtures, e.g.
+# VAASTAV_FIXTURE_DIR / "2024-2025" / "players_raw.csv". A season's directory
+# under here mirrors a local vaastav repo clone's "data/<vaastav-dir>/" shape
+# (caller-provided as `source_path` to `import_season`, with the season's
+# data placed directly under `<source_path>/data/<vaastav_dir_name>/`, OR
+# tests may point `source_path` at the fixture root's parent so the
+# `data/<season>` lookup resolves — see test_vaastav_import.py for the exact
+# layout each test uses).
+VAASTAV_FIXTURE_DIR: Path = Path(__file__).parent / "fixtures" / "vaastav"
 
 # ---------------------------------------------------------------------------
 # Inline fixture data

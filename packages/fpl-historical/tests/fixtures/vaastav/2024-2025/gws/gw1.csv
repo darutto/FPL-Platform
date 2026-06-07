@@ -1,0 +1,4 @@
+name,position,team,xP,assists,bonus,bps,clean_sheets,element,expected_assists,expected_goal_involvements,expected_goals,expected_goals_conceded,fixture,goals_conceded,goals_scored,kickoff_time,minutes,opponent_team,round,saves,total_points,value,was_home,yellow_cards
+Erling Haaland,FWD,Manchester City,8.2,0,3,45,1,1,0.05,1.10,1.05,0.80,1,0,2,2024-08-17T14:00:00Z,90,11,1,0,15,150,True,0
+Mohamed Salah,MID,Liverpool,6.5,1,2,38,0,2,0.30,0.55,0.25,1.10,1,1,1,2024-08-17T14:00:00Z,90,13,1,0,9,130,False,0
+Bukayo Saka,MID,Arsenal,5.1,1,0,30,0,3,0.20,0.45,0.25,1.40,2,3,1,2024-08-17T16:30:00Z,90,13,1,0,8,90,True,1

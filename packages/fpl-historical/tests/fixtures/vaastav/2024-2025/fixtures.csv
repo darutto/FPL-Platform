@@ -1,0 +1,4 @@
+id,event,team_h,team_a,team_h_score,team_a_score,kickoff_time,finished
+1,1,13,11,2,1,2024-08-17T14:00:00Z,True
+2,1,1,13,0,3,2024-08-17T16:30:00Z,True
+3,2,11,1,4,2,2024-08-24T14:00:00Z,True
