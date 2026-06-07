@@ -183,7 +183,11 @@ class ImportResult:
 # ---------------------------------------------------------------------------
 
 def _utcnow_iso() -> str:
-    return datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # Windows-safe dash format, matching the rest of the store's convention
+    # (merge.py:_utcnow_iso_safe and owned_store_sync._MERGED_AT_FORMAT).
+    # Using colons here makes the pointer's merged_at unparseable by the
+    # sync layer (-> merged_at/staleness None on publish).
+    return datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
 
 
 def _vaastav_dir_name(season: str) -> str:

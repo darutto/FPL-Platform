@@ -248,6 +248,10 @@ def test_pointer_file_shape(tmp_historical_root, tmp_path):
 
     assert pointer["season"] == SEASON
     assert "merged_at" in pointer and pointer["merged_at"]
+    # merged_at must use the store's canonical Windows-safe dash format
+    # (%Y-%m-%dT%H-%M-%SZ) so the sync layer can parse it for staleness.
+    from datetime import datetime
+    datetime.strptime(pointer["merged_at"], "%Y-%m-%dT%H-%M-%SZ")
     # The staged source is a plain directory (not a git clone), so the
     # provenance label falls back to the pinned SHA flagged -unverified.
     assert pointer["source"] == f"vaastav@{VAASTAV_PINNED_SHA}-unverified"
