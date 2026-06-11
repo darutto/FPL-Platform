@@ -9,7 +9,11 @@
  *   - DifferentialTable: formatOwnership, formatCost
  */
 import { fdrColor, formatVenue, fixtureKey } from '../components/intents/FixtureRunTable';
-import { formatOwnership, formatCost } from '../components/intents/DifferentialTable';
+import {
+  formatOwnership,
+  formatCost,
+  formatPositionScore,
+} from '../components/intents/DifferentialTable';
 import { fixtureRunDgwResponse } from './fixtures/sample-responses';
 
 // ---------------------------------------------------------------------------
@@ -110,6 +114,24 @@ describe('formatCost — now_cost (tenths of £) to price string', () => {
 
   test('50 → "£5.0m" (no trailing zero lost)', () => {
     expect(formatCost(50)).toBe('£5.0m');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DifferentialTable — formatPositionScore
+// ---------------------------------------------------------------------------
+
+describe('formatPositionScore — score formatting with missing-value fallback', () => {
+  test('72.45 rounds to one decimal → "72.5"', () => {
+    expect(formatPositionScore(72.45)).toBe('72.5');
+  });
+
+  test('undefined → "--"', () => {
+    expect(formatPositionScore(undefined)).toBe('--');
+  });
+
+  test('null → "--"', () => {
+    expect(formatPositionScore(null)).toBe('--');
   });
 });
 

@@ -88,7 +88,7 @@ function DiffRow({ entry }: { entry: DifferentialEntry }) {
 
       {/* Score */}
       <span className="text-xs font-mono text-white tabular-nums">
-        {position_score.toFixed(1)}
+        {formatPositionScore(position_score)}
       </span>
     </div>
   );
@@ -106,4 +106,9 @@ export function formatOwnership(ownership: number): string {
 /** Format now_cost (tenths of £) as price string: 75 → "£7.5m" */
 export function formatCost(now_cost: number): string {
   return `£${(now_cost / 10).toFixed(1)}m`;
+}
+
+/** Format position score when present, otherwise show a stable placeholder. */
+export function formatPositionScore(position_score?: number | null): string {
+  return typeof position_score === 'number' ? position_score.toFixed(1) : '--';
 }
