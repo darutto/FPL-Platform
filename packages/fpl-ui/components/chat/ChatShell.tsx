@@ -129,58 +129,64 @@ export default function ChatShell() {
   const isEmpty = messages.length === 0;
 
   return (
-    <div className="flex flex-col h-screen max-w-2xl mx-auto px-4">
-      <header className="py-3 border-b border-gray-800 flex-shrink-0 space-y-2">
-        <div className="flex items-center justify-between">
-          <h1 className="text-lg font-semibold text-white">FPL Asistente</h1>
+    <div className="flex flex-col h-screen max-w-2xl mx-auto px-4 py-3">
+      {/* Contained panel — DS surface card framing the whole chat */}
+      <div className="flex flex-col flex-1 min-h-0 rounded-card border border-white/10 bg-bf-surface overflow-hidden">
+        <header className="px-4 py-3 border-b border-white/10 flex-shrink-0 space-y-2 bg-black/25">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <h1 className="text-base font-extrabold text-white leading-none">FPL Asistente</h1>
+              <span className="w-1.5 h-1.5 rounded-full bg-bf-turquoise" />
+            </div>
 
-          <div className="flex items-center gap-3">
-            {sessionMode && sessionId && (
+            <div className="flex items-center gap-3">
+              {sessionMode && sessionId && (
+                <button
+                  onClick={handleClearSession}
+                  disabled={loading}
+                  className="text-xs text-bf-gray hover:text-bf-text transition-colors disabled:opacity-40"
+                >
+                  Limpiar sesión
+                </button>
+              )}
+
               <button
-                onClick={handleClearSession}
+                onClick={toggleSessionMode}
                 disabled={loading}
-                className="text-xs text-gray-500 hover:text-gray-300 transition-colors disabled:opacity-40"
+                className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border transition-colors disabled:opacity-40 ${
+                  sessionMode
+                    ? 'border-bf-turquoise/60 text-bf-turquoise bg-bf-turquoise/10'
+                    : 'border-white/10 text-bf-gray hover:text-bf-text hover:border-white/20'
+                }`}
               >
-                Limpiar sesión
+                <span className={`w-1.5 h-1.5 rounded-full ${sessionMode ? 'bg-bf-turquoise' : 'bg-bf-gray/60'}`} />
+                {sessionMode ? 'Conversación' : 'Directo'}
               </button>
-            )}
-
-            <button
-              onClick={toggleSessionMode}
-              disabled={loading}
-              className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-colors disabled:opacity-40 ${
-                sessionMode
-                  ? 'border-indigo-500 text-indigo-400 bg-indigo-500/10'
-                  : 'border-gray-700 text-gray-500 hover:text-gray-300 hover:border-gray-600'
-              }`}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${sessionMode ? 'bg-indigo-400' : 'bg-gray-600'}`} />
-              {sessionMode ? 'Conversación' : 'Directo'}
-            </button>
+            </div>
           </div>
+
+          {/* Squad context row */}
+          <SquadContextPanel onContextChange={setSquadContext} />
+        </header>
+
+        <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+          {isEmpty ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-6 px-4">
+              <p className="text-bf-gray text-sm">
+                Haz una pregunta sobre tu equipo de Fantasy Premier League.
+              </p>
+              <StarterPrompts onSelect={sendMessage} />
+            </div>
+          ) : (
+            <MessageList messages={messages} loading={loading} />
+          )}
         </div>
 
-        {/* Squad context row */}
-        <SquadContextPanel onContextChange={setSquadContext} />
-      </header>
-
-      <div className="flex-1 overflow-hidden flex flex-col min-h-0">
-        {isEmpty ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-6">
-            <p className="text-gray-400 text-sm">
-              Haz una pregunta sobre tu equipo de Fantasy Premier League.
-            </p>
-            <StarterPrompts onSelect={sendMessage} />
+        <div className="flex-shrink-0 px-3 pb-3 pt-2 space-y-2 border-t border-white/5">
+          <InputBar onSubmit={sendMessage} disabled={loading} />
+          <div className="flex justify-end">
+            <QuotaIndicator refreshTrigger={quotaRefreshTrigger} />
           </div>
-        ) : (
-          <MessageList messages={messages} loading={loading} />
-        )}
-      </div>
-
-      <div className="flex-shrink-0 py-4 space-y-2">
-        <InputBar onSubmit={sendMessage} disabled={loading} />
-        <div className="flex justify-end">
-          <QuotaIndicator refreshTrigger={quotaRefreshTrigger} />
         </div>
       </div>
     </div>

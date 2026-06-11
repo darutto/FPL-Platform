@@ -33,7 +33,7 @@ export default function SlashMenu({ commands, activeIndex, onSelect, id }: Props
       id={id}
       role="listbox"
       aria-label="Comandos de barra"
-      className="absolute bottom-full mb-1 left-0 right-0 bg-gray-800 rounded-xl border border-gray-700 overflow-hidden z-10"
+      className="absolute bottom-full mb-1.5 left-0 right-0 bg-bf-surface rounded-card border border-bf-turquoise/25 overflow-hidden z-10 shadow-menu"
     >
       {commands.map((sc, idx) => (
         <button
@@ -46,14 +46,14 @@ export default function SlashMenu({ commands, activeIndex, onSelect, id }: Props
             e.preventDefault();
             onSelect(sc);
           }}
-          className={`w-full text-left px-4 py-2 text-sm flex gap-3 transition-colors ${
+          className={`w-full text-left px-4 py-2 text-sm flex gap-3 transition-colors border-b border-white/5 last:border-b-0 ${
             idx === activeIndex
-              ? 'bg-gray-700 text-gray-100'
-              : 'hover:bg-gray-700/60 text-gray-200'
+              ? 'bg-bf-turquoise/10 text-bf-text'
+              : 'hover:bg-white/5 text-bf-text/80'
           }`}
         >
-          <span className="text-indigo-400 font-mono w-28 flex-shrink-0">{sc.command}</span>
-          <span className="text-gray-400">{sc.label}</span>
+          <span className="text-bf-turquoise font-mono font-bold w-28 flex-shrink-0">{sc.command}</span>
+          <span className="text-bf-gray">{sc.label}</span>
         </button>
       ))}
     </div>

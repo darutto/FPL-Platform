@@ -31,7 +31,7 @@ export default function StarterPrompts({ onSelect }: Props) {
         <button
           key={prompt}
           onClick={() => onSelect(prompt)}
-          className="text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-gray-600 text-gray-300 rounded-full px-3 py-1.5 transition-colors"
+          className="text-xs font-bold bg-bf-turquoise/10 hover:bg-bf-turquoise/20 border border-bf-turquoise/40 text-bf-turquoise rounded-full px-3 py-1.5 transition-colors"
         >
           {prompt}
         </button>

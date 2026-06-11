@@ -107,10 +107,10 @@ export default function InputBar({ onSubmit, disabled = false }: Props) {
         onSelect={handleSelect}
       />
 
-      <div className="flex items-end gap-2 bg-gray-800 rounded-2xl px-4 py-3 border border-gray-700 focus-within:border-indigo-500 transition-colors">
+      <div className="flex items-end gap-2 bg-white/5 rounded-[14px] px-4 py-3 border border-white/10 focus-within:border-bf-turquoise/40 transition-colors">
         <textarea
           ref={textareaRef}
-          className="flex-1 bg-transparent resize-none text-sm text-gray-100 placeholder-gray-500 outline-none max-h-32"
+          className="flex-1 bg-transparent resize-none text-sm text-bf-text placeholder-bf-gray/60 outline-none max-h-32"
           rows={1}
           placeholder={placeholder}
           value={value}
@@ -126,7 +126,7 @@ export default function InputBar({ onSubmit, disabled = false }: Props) {
         <button
           onClick={submit}
           disabled={disabled || !value.trim()}
-          className="flex-shrink-0 bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 disabled:text-gray-500 text-white text-sm font-medium rounded-xl px-3 py-1.5 transition-colors"
+          className="flex-shrink-0 bg-bf-coral hover:bg-bf-coral/90 disabled:bg-white/10 disabled:text-bf-gray text-white text-sm font-bold rounded-[10px] px-3.5 py-1.5 transition-colors"
           aria-label="Enviar"
         >
           Enviar

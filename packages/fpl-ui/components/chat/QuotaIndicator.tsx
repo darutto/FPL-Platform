@@ -16,31 +16,12 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import type { QuotaStatus } from '@/lib/types';
+import { quotaTone, QUOTA_TONE_CLASSES } from '@/lib/theme';
 
 interface Props {
   userId?: string;       // defaults to 'anonymous'
   tier?: string;         // defaults to 'free'
   refreshTrigger?: number; // increment to force re-fetch after a turn
-}
-
-// ---------------------------------------------------------------------------
-// Color helpers
-// ---------------------------------------------------------------------------
-
-function pctColor(remaining: number, cap: number): string {
-  if (cap <= 0) return 'text-red-400 border-red-500/40 bg-red-500/10';
-  const pct = remaining / cap;
-  if (pct > 0.5) return 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10';
-  if (pct > 0.2) return 'text-amber-300 border-amber-500/40 bg-amber-500/10';
-  return 'text-red-400 border-red-500/40 bg-red-500/10';
-}
-
-function dotColor(remaining: number, cap: number): string {
-  if (cap <= 0) return 'bg-red-400';
-  const pct = remaining / cap;
-  if (pct > 0.5) return 'bg-emerald-400';
-  if (pct > 0.2) return 'bg-amber-400';
-  return 'bg-red-400';
 }
 
 // ---------------------------------------------------------------------------
@@ -105,11 +86,10 @@ export default function QuotaIndicator({
     ? monthlyRemaining / status.monthly_message_cap
     : 0;
   const constrainingPct = Math.min(dailyPct, monthlyPct);
-  const pillColor = constrainingPct > 0.5
-    ? 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10'
-    : constrainingPct > 0.2
-      ? 'text-amber-300 border-amber-500/40 bg-amber-500/10'
-      : 'text-red-400 border-red-500/40 bg-red-500/10';
+  const constrainingTone = constrainingPct > 0.5 ? 'ok' : constrainingPct > 0.2 ? 'warn' : 'danger';
+  const pillColor = QUOTA_TONE_CLASSES[constrainingTone].pill;
+  const dailyTone = quotaTone(dailyRemaining, status.daily_message_cap);
+  const monthlyTone = quotaTone(monthlyRemaining, status.monthly_message_cap);
 
   return (
     <>
@@ -117,9 +97,9 @@ export default function QuotaIndicator({
       <button
         onClick={() => setModalOpen(true)}
         title={`Cuota diaria: ${dailyRemaining}/${status.daily_message_cap} msgs · Mensual: ${monthlyRemaining}/${status.monthly_message_cap} msgs\nTokens diarios: ${status.daily_token_cap - status.daily_tokens_used}/${status.daily_token_cap} · Mensuales: ${status.monthly_token_cap - status.monthly_tokens_used}/${status.monthly_token_cap}`}
-        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors hover:opacity-80 ${pillColor}`}
+        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold transition-colors hover:opacity-80 ${pillColor}`}
       >
-        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dotColor(dailyRemaining, status.daily_message_cap)}`} />
+        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${QUOTA_TONE_CLASSES[dailyTone].dot}`} />
         <span>
           Día {dailyRemaining}/{status.daily_message_cap}
         </span>
@@ -136,15 +116,15 @@ export default function QuotaIndicator({
           onClick={() => setModalOpen(false)}
         >
           <div
-            className="relative w-full max-w-sm mx-4 rounded-2xl border border-gray-700 bg-gray-900 p-5 shadow-2xl"
+            className="relative w-full max-w-sm mx-4 rounded-card border border-white/10 bg-bf-surface p-5 shadow-menu"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-white">Cuota de mensajes</h2>
+              <h2 className="text-sm font-extrabold text-white">Cuota de mensajes</h2>
               <button
                 onClick={() => setModalOpen(false)}
-                className="text-gray-500 hover:text-gray-300 text-lg leading-none"
+                className="text-bf-gray hover:text-bf-text text-lg leading-none"
                 aria-label="Cerrar"
               >
                 ✕
@@ -152,60 +132,56 @@ export default function QuotaIndicator({
             </div>
 
             {/* Current usage summary */}
-            <div className="mb-4 rounded-xl border border-gray-700 bg-gray-800 p-3 space-y-2">
+            <div className="mb-4 rounded-card border border-white/10 bg-white/5 p-3 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] text-gray-400">Hoy</span>
-                <span className={`text-[11px] font-medium ${pctColor(dailyRemaining, status.daily_message_cap)}`}>
+                <span className="text-[11px] text-bf-gray">Hoy</span>
+                <span className={`text-[11px] font-bold ${QUOTA_TONE_CLASSES[dailyTone].text}`}>
                   {dailyRemaining} msgs restantes
                 </span>
               </div>
               {/* Daily bar */}
-              <div className="h-1.5 w-full rounded-full bg-gray-700 overflow-hidden">
+              <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
                 <div
-                  className={`h-full rounded-full transition-all ${
-                    dailyPct > 0.5 ? 'bg-emerald-400' : dailyPct > 0.2 ? 'bg-amber-400' : 'bg-red-400'
-                  }`}
+                  className={`h-full rounded-full transition-all ${QUOTA_TONE_CLASSES[dailyTone].bar}`}
                   style={{ width: `${Math.max(0, Math.min(100, dailyPct * 100)).toFixed(1)}%` }}
                 />
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[11px] text-gray-400">Este mes</span>
-                <span className={`text-[11px] font-medium ${pctColor(monthlyRemaining, status.monthly_message_cap)}`}>
+                <span className="text-[11px] text-bf-gray">Este mes</span>
+                <span className={`text-[11px] font-bold ${QUOTA_TONE_CLASSES[monthlyTone].text}`}>
                   {monthlyRemaining} msgs restantes
                 </span>
               </div>
               {/* Monthly bar */}
-              <div className="h-1.5 w-full rounded-full bg-gray-700 overflow-hidden">
+              <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
                 <div
-                  className={`h-full rounded-full transition-all ${
-                    monthlyPct > 0.5 ? 'bg-emerald-400' : monthlyPct > 0.2 ? 'bg-amber-400' : 'bg-red-400'
-                  }`}
+                  className={`h-full rounded-full transition-all ${QUOTA_TONE_CLASSES[monthlyTone].bar}`}
                   style={{ width: `${Math.max(0, Math.min(100, monthlyPct * 100)).toFixed(1)}%` }}
                 />
               </div>
-              <p className="text-[10px] text-gray-500 pt-1">
-                Tier actual: <span className="font-medium text-gray-400">{status.tier}</span>
+              <p className="text-[10px] text-bf-gray/70 pt-1">
+                Tier actual: <span className="font-medium text-bf-gray">{status.tier}</span>
               </p>
             </div>
 
             {/* Tier comparison table */}
             <table className="w-full text-[11px] mb-4">
               <thead>
-                <tr className="border-b border-gray-700">
-                  <th className="text-left text-gray-400 font-medium pb-1.5">Plan</th>
-                  <th className="text-right text-gray-400 font-medium pb-1.5">Día</th>
-                  <th className="text-right text-gray-400 font-medium pb-1.5">Mes</th>
+                <tr className="border-b border-white/10">
+                  <th className="text-left text-bf-gray font-bold uppercase tracking-wide pb-1.5">Plan</th>
+                  <th className="text-right text-bf-gray font-bold uppercase tracking-wide pb-1.5">Día</th>
+                  <th className="text-right text-bf-gray font-bold uppercase tracking-wide pb-1.5">Mes</th>
                 </tr>
               </thead>
               <tbody>
-                {TIER_TABLE.map((row) => (
+                {TIER_TABLE.map((row, idx) => (
                   <tr
                     key={row.tier}
-                    className={`border-b border-gray-800 ${row.tier.toLowerCase().startsWith(status.tier) ? 'text-white font-medium' : 'text-gray-400'}`}
+                    className={`${idx % 2 === 0 ? 'bg-white/[0.035]' : ''} ${row.tier.toLowerCase().startsWith(status.tier) ? 'text-white font-bold' : 'text-bf-gray'}`}
                   >
-                    <td className="py-1.5">{row.tier}</td>
-                    <td className="text-right py-1.5">{row.daily}</td>
-                    <td className="text-right py-1.5">{row.monthly}</td>
+                    <td className="py-1.5 px-1">{row.tier}</td>
+                    <td className="text-right py-1.5 px-1">{row.daily}</td>
+                    <td className="text-right py-1.5 px-1">{row.monthly}</td>
                   </tr>
                 ))}
               </tbody>
@@ -216,7 +192,7 @@ export default function QuotaIndicator({
               href={PATREON_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="block w-full rounded-xl bg-orange-500 hover:bg-orange-400 text-white text-center text-xs font-semibold py-2.5 transition-colors"
+              className="block w-full rounded-[10px] bg-bf-coral hover:bg-bf-coral/90 text-white text-center text-xs font-bold py-2.5 transition-colors"
             >
               Mejorar en Patreon
             </a>

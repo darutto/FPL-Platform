@@ -110,22 +110,22 @@ export default function SquadContextPanel({ onContextChange }: Props) {
     <div className="flex items-center gap-2 text-xs">
       {panel.status === 'connected' ? (
         <>
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
-          <span className="text-gray-400 truncate max-w-[140px]">
+          <span className="w-1.5 h-1.5 rounded-full bg-bf-turquoise flex-shrink-0" />
+          <span className="text-bf-gray truncate max-w-[140px]">
             {squadContextSummary(panel.entry)}
           </span>
 
           {/* Free-transfer selector — user must set this; API cannot derive it. */}
-          <span className="text-gray-600 flex-shrink-0">TL:</span>
+          <span className="text-bf-gray/60 flex-shrink-0">TL:</span>
           <div className="flex items-center gap-0.5 flex-shrink-0">
             {FT_OPTIONS.map((opt) => (
               <button
                 key={opt ?? 'null'}
                 onClick={() => handleFtSelect(opt)}
-                className={`w-6 h-5 rounded text-[10px] transition-colors ${
+                className={`w-6 h-5 rounded text-[10px] font-bold transition-colors ${
                   freeTransfers === opt
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-800 text-gray-500 hover:text-gray-300'
+                    ? 'bg-bf-turquoise text-bf-ink'
+                    : 'bg-white/5 text-bf-gray hover:text-bf-text'
                 }`}
               >
                 {opt ?? '—'}
@@ -135,7 +135,7 @@ export default function SquadContextPanel({ onContextChange }: Props) {
 
           <button
             onClick={handleDisconnect}
-            className="text-gray-600 hover:text-gray-400 transition-colors flex-shrink-0"
+            className="text-bf-gray/60 hover:text-bf-gray transition-colors flex-shrink-0"
           >
             Desconectar
           </button>
@@ -153,19 +153,19 @@ export default function SquadContextPanel({ onContextChange }: Props) {
             onKeyDown={(e) => { if (e.key === 'Enter') handleConnect(); }}
             placeholder="ID de equipo FPL"
             disabled={panel.status === 'loading'}
-            className={`w-36 bg-gray-900 border rounded px-2 py-1 text-gray-300 placeholder-gray-600
-              focus:outline-none focus:border-indigo-500 transition-colors disabled:opacity-50
-              ${panel.status === 'error' ? 'border-red-600' : 'border-gray-700'}`}
+            className={`w-36 bg-bf-bg border rounded px-2 py-1 text-bf-text placeholder-bf-gray/50
+              focus:outline-none focus:border-bf-turquoise/60 transition-colors disabled:opacity-50
+              ${panel.status === 'error' ? 'border-bf-coral/60' : 'border-white/10'}`}
           />
           <button
             onClick={handleConnect}
             disabled={panel.status === 'loading' || teamIdInput.trim() === ''}
-            className="text-indigo-400 hover:text-indigo-300 transition-colors disabled:opacity-40 flex-shrink-0"
+            className="text-bf-turquoise font-bold hover:text-bf-turquoise/80 transition-colors disabled:opacity-40 flex-shrink-0"
           >
             {panel.status === 'loading' ? 'Conectando…' : 'Conectar'}
           </button>
           {panel.status === 'error' && (
-            <span className="text-red-400 truncate max-w-[160px]">{panel.message}</span>
+            <span className="text-bf-coral truncate max-w-[160px]">{panel.message}</span>
           )}
         </>
       )}

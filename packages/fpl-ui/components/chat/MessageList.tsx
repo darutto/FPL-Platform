@@ -40,14 +40,14 @@ export default function MessageList({ messages, loading }: Props) {
   }, [messages, loading]);
 
   return (
-    <div className="flex-1 overflow-y-auto py-4 space-y-4">
+    <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
       {messages.map((msg) => (
         <MessageBubble key={msg.id} message={msg} />
       ))}
       {loading && (
         <div className="flex justify-start">
-          <div className="bg-gray-800 rounded-2xl px-4 py-3 max-w-prose">
-            <span className="text-gray-400 text-sm animate-pulse">
+          <div className="bg-white/5 border border-white/10 rounded-[14px] rounded-tl px-4 py-3 max-w-prose">
+            <span className="text-bf-turquoise text-sm animate-pulse">
               Pensando…
             </span>
           </div>
@@ -65,18 +65,18 @@ function MessageBubble({ message }: { message: Message }) {
     ? 'IA activa'
     : 'Determinístico';
   const originBadgeClassName = message.llmUsed
-    ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
-    : 'border-amber-500/40 bg-amber-500/10 text-amber-300';
+    ? 'border-bf-turquoise/40 bg-bf-turquoise/10 text-bf-turquoise'
+    : 'border-bf-gold/40 bg-bf-gold/10 text-bf-gold';
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div
-        className={`max-w-prose rounded-2xl px-4 py-3 ${
+        className={`max-w-prose px-4 py-3 ${
           isUser
-            ? 'bg-indigo-600 text-white'
+            ? 'bg-bf-coral text-white rounded-[14px] rounded-br'
             : message.isError
-              ? 'bg-red-900/60 text-red-200'
-              : 'bg-gray-800 text-gray-100'
+              ? 'bg-bf-coral/10 border border-bf-coral/40 text-bf-coral rounded-[14px] rounded-tl'
+              : 'bg-white/5 border border-white/10 text-bf-text rounded-[14px] rounded-tl'
         }`}
       >
         <p className="text-sm whitespace-pre-wrap">{message.text}</p>
@@ -95,7 +95,7 @@ function MessageBubble({ message }: { message: Message }) {
             </span>
             {/* Degraded notice — shown when LLM was attempted but provider failed (Phase 2.6b) */}
             {message.degraded && (
-              <span className="inline-flex items-center rounded-full border border-orange-500/40 bg-orange-500/10 px-2 py-1 text-[11px] font-medium text-orange-300">
+              <span className="inline-flex items-center rounded-full border border-bf-coral-soft/40 bg-bf-coral-soft/10 px-2 py-1 text-[11px] font-medium text-bf-coral-soft">
                 proveedor no disponible
               </span>
             )}
