@@ -8,6 +8,8 @@
  * chance_of_playing %, news (clamped to ~2 lines), news_added (relative).
  */
 import type { ResourceRows, InjuryRow } from '@/lib/types';
+import { CARD_BASE, CARD_ACCENT, ACCENT_HEX, PILL_BASE, STATUS_TONE_CLASSES } from '@/lib/theme';
+import { TriangleField } from './CardOrnaments';
 
 interface Props {
   data: ResourceRows;
@@ -17,21 +19,22 @@ export default function InjuriesTable({ data }: Props) {
   const rows = data.rows as InjuryRow[];
 
   return (
-    <div className="mt-3 rounded-xl border border-gray-700 bg-gray-900/60 overflow-hidden text-sm">
-      {/* Header */}
-      <div className="px-4 py-2.5 border-b border-gray-700">
-        <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">
+    <div className={`mt-3 text-sm ${CARD_BASE} ${CARD_ACCENT.coralSoft.border}`}>
+      {/* Header — corner triangle ornament */}
+      <div className="relative overflow-hidden px-4 py-2.5 border-b border-bf-coral-soft/20">
+        <TriangleField color={ACCENT_HEX.coralSoft} corner="tr" />
+        <span className="relative z-10 text-xs font-extrabold text-white uppercase tracking-wide">
           {data.title}
         </span>
       </div>
 
       {/* Rows or empty state */}
       {rows.length === 0 ? (
-        <p className="px-4 py-3 text-xs text-gray-500">Sin lesiones reportadas</p>
+        <p className="px-4 py-3 text-xs text-bf-gray">Sin lesiones reportadas</p>
       ) : (
-        <div className="divide-y divide-gray-800">
+        <div>
           {rows.map((row, idx) => (
-            <InjuryRow key={`${row.web_name}-${idx}`} row={row} />
+            <InjuryRow key={`${row.web_name}-${idx}`} row={row} banded={idx % 2 === 0} />
           ))}
         </div>
       )}
@@ -39,39 +42,37 @@ export default function InjuriesTable({ data }: Props) {
   );
 }
 
-function InjuryRow({ row }: { row: InjuryRow }) {
+function InjuryRow({ row, banded }: { row: InjuryRow; banded: boolean }) {
   const { web_name, team_short, position, status_label, chance_of_playing, news, news_added } = row;
   const { className: badgeClass, label: badgeLabel } = resolveStatusBadge(status_label);
   const chanceText = chance_of_playing != null ? `${chance_of_playing}%` : '—';
   const dateText = news_added != null ? formatRelativeDate(news_added) : '—';
 
   return (
-    <div className="flex items-start gap-3 px-4 py-2.5">
+    <div className={`flex items-start gap-3 px-4 py-2.5 ${banded ? 'bg-white/[0.035]' : ''}`}>
       {/* Player info */}
       <div className="flex-shrink-0 w-36 min-w-0">
-        <span className="font-medium text-white truncate block">{web_name}</span>
-        <span className="text-xs text-gray-500">
+        <span className="font-bold text-white truncate block">{web_name}</span>
+        <span className="text-xs text-bf-gray">
           {team_short} · {position}
         </span>
       </div>
 
       {/* Status badge */}
-      <span
-        className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 mt-0.5 ${badgeClass}`}
-      >
+      <span className={`flex-shrink-0 mt-0.5 ${PILL_BASE} ${badgeClass}`}>
         {badgeLabel}
       </span>
 
       {/* Chance */}
-      <span className="text-xs text-gray-400 flex-shrink-0 w-8 text-center mt-0.5">
+      <span className="text-xs text-bf-gray flex-shrink-0 w-8 text-center mt-0.5">
         {chanceText}
       </span>
 
       {/* News + date */}
       <div className="flex-1 min-w-0">
-        <p className="text-xs text-gray-300 line-clamp-2">{news}</p>
+        <p className="text-xs text-bf-text/80 line-clamp-2">{news}</p>
         {dateText !== '—' && (
-          <p className="text-[10px] text-gray-600 mt-0.5">{dateText}</p>
+          <p className="text-[10px] text-bf-gray/70 mt-0.5">{dateText}</p>
         )}
       </div>
     </div>
@@ -85,16 +86,16 @@ function InjuryRow({ row }: { row: InjuryRow }) {
 function resolveStatusBadge(statusLabel: string): { className: string; label: string } {
   const lower = statusLabel.toLowerCase();
   if (lower.includes('injur') || lower.includes('suspend') || lower.includes('unavailable')) {
-    return { className: 'bg-red-900/60 text-red-300', label: statusLabel };
+    return { className: STATUS_TONE_CLASSES.bad, label: statusLabel };
   }
   if (lower.includes('doubt') || lower.includes('75') || lower.includes('50') || lower.includes('25')) {
-    return { className: 'bg-amber-900/60 text-amber-300', label: statusLabel };
+    return { className: STATUS_TONE_CLASSES.warn, label: statusLabel };
   }
   if (lower === 'available' || lower === 'fit') {
-    return { className: 'bg-emerald-900/60 text-emerald-300', label: statusLabel };
+    return { className: STATUS_TONE_CLASSES.good, label: statusLabel };
   }
-  // Default — amber for anything uncertain
-  return { className: 'bg-amber-900/60 text-amber-300', label: statusLabel };
+  // Default — warn tone for anything uncertain
+  return { className: STATUS_TONE_CLASSES.warn, label: statusLabel };
 }
 
 /**

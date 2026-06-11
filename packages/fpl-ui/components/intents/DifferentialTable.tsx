@@ -19,6 +19,8 @@
  * ownership is a float percentage (e.g. 1.0 → "1.0%").
  */
 import type { DifferentialPicksMeta, DifferentialEntry } from '@/lib/types';
+import { CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
+import { TriangleField } from './CardOrnaments';
 
 interface Props {
   data: DifferentialPicksMeta;
@@ -29,19 +31,20 @@ export default function DifferentialTable({ data }: Props) {
   if (picks.length === 0) return null;
 
   return (
-    <div className="mt-3 rounded-xl border border-gray-700 bg-gray-900/60 overflow-hidden text-sm">
-      {/* Header */}
-      <div className="px-4 py-2.5 border-b border-gray-700 flex items-center justify-between">
-        <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">
+    <div className={`mt-3 text-sm ${CARD_BASE} ${CARD_ACCENT.coralSoft.border}`}>
+      {/* Header — corner triangle ornament, accent title */}
+      <div className="relative overflow-hidden px-4 py-2.5 border-b border-bf-coral-soft/20 flex items-center justify-between">
+        <TriangleField color={ACCENT_HEX.coralSoft} corner="tr" />
+        <span className="relative z-10 text-xs font-extrabold text-white uppercase tracking-wide">
           Diferenciales
         </span>
-        <span className="text-xs text-gray-500">
+        <span className="relative z-10 text-xs text-bf-gray">
           &lt;{ownership_threshold.toFixed(1)}% de propietarios
         </span>
       </div>
 
       {/* Column labels */}
-      <div className="grid grid-cols-[1.5rem_1fr_auto_auto_auto] gap-x-3 px-4 py-1.5 border-b border-gray-800 text-[10px] text-gray-600 uppercase tracking-wide">
+      <div className="grid grid-cols-[1.5rem_1fr_auto_auto_auto] gap-x-3 px-4 py-1.5 border-b border-white/10 text-[10px] font-bold text-bf-gray uppercase tracking-wide bg-white/[0.025]">
         <span>#</span>
         <span>Jugador</span>
         <span className="text-right">Prop</span>
@@ -49,45 +52,52 @@ export default function DifferentialTable({ data }: Props) {
         <span className="text-right">Pts</span>
       </div>
 
-      {/* Rows */}
-      <div className="divide-y divide-gray-800">
-        {picks.map((entry) => (
-          <DiffRow key={entry.rank} entry={entry} />
+      {/* Rows — banded (DS zebra) */}
+      <div>
+        {picks.map((entry, idx) => (
+          <DiffRow key={entry.rank} entry={entry} banded={idx % 2 === 0} />
         ))}
       </div>
     </div>
   );
 }
 
-function DiffRow({ entry }: { entry: DifferentialEntry }) {
+function DiffRow({ entry, banded }: { entry: DifferentialEntry; banded: boolean }) {
   const { rank, web_name, team_short, position, ownership, now_cost, position_score } =
     entry;
 
   return (
-    <div className="grid grid-cols-[1.5rem_1fr_auto_auto_auto] gap-x-3 items-center px-4 py-2.5">
-      {/* Rank */}
-      <span className="text-xs font-mono text-gray-500">{rank}</span>
+    <div
+      className={`grid grid-cols-[1.5rem_1fr_auto_auto_auto] gap-x-3 items-center px-4 py-2.5 ${banded ? 'bg-white/[0.035]' : ''}`}
+    >
+      {/* Rank — display numeral, fading down the list */}
+      <span
+        className="text-base font-display tracking-tighter text-bf-coral-soft leading-none"
+        style={{ opacity: Math.max(0.4, 1 - (rank - 1) * 0.12) }}
+      >
+        {rank}
+      </span>
 
       {/* Player */}
       <div className="min-w-0">
-        <span className="font-medium text-white truncate">{web_name}</span>
-        <span className="ml-1.5 text-[11px] text-gray-500">
+        <span className="font-bold text-white truncate">{web_name}</span>
+        <span className="ml-1.5 text-[11px] text-bf-gray">
           {team_short} · {position}
         </span>
       </div>
 
       {/* Ownership */}
-      <span className="text-xs text-gray-400 tabular-nums">
+      <span className="text-xs text-bf-gray tabular-nums">
         {formatOwnership(ownership)}
       </span>
 
       {/* Price */}
-      <span className="text-xs text-gray-300 tabular-nums">
+      <span className="text-xs text-bf-text/80 tabular-nums">
         {formatCost(now_cost)}
       </span>
 
-      {/* Score */}
-      <span className="text-xs font-mono text-white tabular-nums">
+      {/* Score — hero metric in display face */}
+      <span className="font-display text-base tracking-tighter text-bf-coral-soft tabular-nums text-right leading-none">
         {formatPositionScore(position_score)}
       </span>
     </div>

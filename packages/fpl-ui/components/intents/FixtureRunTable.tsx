@@ -18,6 +18,8 @@
  * Venue labels are Spanish (L=local / V=visitante).
  */
 import type { FixtureRunMeta, FixtureEntry } from '@/lib/types';
+import { CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
+import { TriangleField } from './CardOrnaments';
 
 interface Props {
   data: FixtureRunMeta;
@@ -28,25 +30,29 @@ export default function FixtureRunTable({ data }: Props) {
   if (fixtures.length === 0) return null;
 
   return (
-    <div className="mt-3 rounded-xl border border-gray-700 bg-gray-900/60 p-4 space-y-3">
-      {/* Header */}
-      <div className="flex items-center gap-2 text-sm">
-        <span className="font-semibold text-white">{web_name}</span>
-        <span className="text-gray-500">·</span>
-        <span className="text-gray-400 text-xs">{team_short}</span>
-        <span className="text-gray-500">·</span>
-        <span className="text-gray-400 text-xs">{position}</span>
-      </div>
+    <div className={`mt-3 ${CARD_BASE} ${CARD_ACCENT.gold.border}`}>
+      <TriangleField color={ACCENT_HEX.gold} corner="br" />
+      <div className="relative z-10 p-4 space-y-3">
+        {/* Header */}
+        <div className="flex items-center gap-2 text-sm">
+          <span className="font-extrabold text-white">{web_name}</span>
+          <span className="text-bf-gray/60">·</span>
+          <span className="text-bf-gray text-xs font-bold tracking-wide">{team_short}</span>
+          <span className="text-bf-gray/60">·</span>
+          <span className="text-bf-gray text-xs">{position}</span>
+        </div>
 
-      {/* Fixture chips */}
-      <div className="flex flex-wrap gap-2">
-        {fixtures.map((f) => (
-          <FixtureChip key={fixtureKey(f)} entry={f} />
-        ))}
-      </div>
+        {/* Fixture chips — DS .scout-fdr stack: GW strip on top, FDR pill below.
+            Ramp colors come from fdrColor (V2 spec) — deliberately inline. */}
+        <div className="flex flex-wrap gap-1.5">
+          {fixtures.map((f) => (
+            <FixtureChip key={fixtureKey(f)} entry={f} />
+          ))}
+        </div>
 
-      {/* Legend */}
-      <FdrLegend />
+        {/* Legend */}
+        <FdrLegend />
+      </div>
     </div>
   );
 }
@@ -57,18 +63,16 @@ function FixtureChip({ entry }: { entry: FixtureEntry }) {
   const venue = formatVenue(is_home);
 
   return (
-    <div
-      className="flex flex-col items-center rounded-lg px-2.5 py-1.5 min-w-[52px]"
-      style={{ backgroundColor: `${color}20`, borderColor: `${color}60`, borderWidth: 1 }}
-    >
-      <span className="text-[10px] text-gray-500">GW{gameweek}</span>
-      <span
-        className="text-xs font-semibold"
-        style={{ color }}
-      >
-        {opponent_short}
+    <div className="flex flex-col items-stretch rounded-md overflow-hidden min-w-[60px] bg-white/[0.04] border border-white/10">
+      <span className="px-1.5 py-0.5 text-center text-[9px] font-bold uppercase tracking-wider text-bf-gray bg-white/[0.04] border-b border-white/5">
+        GW{gameweek}
       </span>
-      <span className="text-[10px] text-gray-500">{venue}</span>
+      <span
+        className="px-1.5 py-1 text-center text-xs font-extrabold tracking-tight"
+        style={{ backgroundColor: `${color}33`, color }}
+      >
+        {opponent_short} ({venue}) · {difficulty}
+      </span>
     </div>
   );
 }
@@ -77,11 +81,11 @@ function FdrLegend() {
   const levels = [1, 2, 3, 4, 5] as const;
   return (
     <div className="flex items-center gap-2 pt-1">
-      <span className="text-[10px] text-gray-600">FDR:</span>
+      <span className="text-[10px] font-bold uppercase tracking-wider text-bf-gray/70">FDR:</span>
       {levels.map((d) => (
         <span
           key={d}
-          className="text-[10px] rounded px-1"
+          className="text-[10px] font-bold rounded px-1.5 py-0.5"
           style={{ backgroundColor: `${fdrColor(d)}30`, color: fdrColor(d) }}
         >
           {d}

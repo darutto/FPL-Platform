@@ -13,7 +13,9 @@
  * price_delta is in tenths of £ (e.g. 10 = +£1.0m).
  * Informational only — does not affect the recommendation badge.
  */
-import type { TransferMeta, TransferRecommendation } from '@/lib/types';
+import type { TransferMeta } from '@/lib/types';
+import { RECOMMENDATION_CONFIG, PILL_BASE, CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
+import { TriangleField } from './CardOrnaments';
 
 interface Props {
   data: TransferMeta;
@@ -31,65 +33,71 @@ export default function TransferCard({ data }: Props) {
     hit_warning,
   } = data;
 
-  const { label, className } = RECOMMENDATION_CONFIG[recommendation];
+  const { label, pillClass } = RECOMMENDATION_CONFIG[recommendation];
   const priceDeltaStr = formatPriceDelta(price_delta);
 
   return (
-    <div className="mt-3 rounded-xl border border-gray-700 bg-gray-900/60 p-4 text-sm space-y-3">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">
-          Transferencia
-        </span>
-        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${className}`}>
-          {label}
-        </span>
-      </div>
+    <div className={`mt-3 text-sm ${CARD_BASE} ${CARD_ACCENT.coral.border}`}>
+      <TriangleField color={ACCENT_HEX.coral} corner="tr" />
+      <div className="relative z-10 p-4 space-y-3">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs font-extrabold text-bf-coral uppercase tracking-wide">
+            Transferencia
+          </span>
+          <span className={`${PILL_BASE} ${pillClass}`}>
+            {label}
+          </span>
+        </div>
 
-      {/* Player arrow */}
-      <div className="flex items-center gap-3">
-        <span className="text-gray-400 font-medium line-through">{player_out}</span>
-        <span className="text-gray-500 text-xs">→</span>
-        <span className="text-white font-semibold">{player_in}</span>
-      </div>
+        {/* Player swap — OUT pill + IN, no strikethrough (DS: pills carry semantics) */}
+        <div className="flex items-center gap-2.5">
+          <span className="inline-flex items-center rounded-full bg-bf-coral/15 border border-bf-coral/40 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-bf-coral">
+            ←
+          </span>
+          <span className="text-bf-gray font-medium">{player_out}</span>
+          <span className="text-bf-gray/60 text-xs">→</span>
+          <span className="text-white font-extrabold">{player_in}</span>
+        </div>
 
-      {/* Delta row */}
-      <div className="flex items-center gap-4 text-xs">
-        <DeltaChip
-          value={score_delta}
-          label="pts capitán"
-          format={(v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}`}
-          positive={score_delta > 0}
-        />
-        {price_delta !== 0 && (
+        {/* Delta row */}
+        <div className="flex items-center gap-4 text-xs">
           <DeltaChip
-            value={price_delta}
-            label="precio"
-            format={() => priceDeltaStr}
-            positive={price_delta <= 0}
+            value={score_delta}
+            label="pts capitán"
+            format={(v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}`}
+            positive={score_delta > 0}
           />
+          {price_delta !== 0 && (
+            <DeltaChip
+              value={price_delta}
+              label="precio"
+              format={() => priceDeltaStr}
+              positive={price_delta <= 0}
+            />
+          )}
+        </div>
+
+        {/* Reasons */}
+        {reasons.length > 0 && (
+          <ul className="space-y-0.5">
+            {reasons.map((reason, i) => (
+              <li key={i} className="text-xs text-bf-text/80 flex items-center gap-1.5">
+                <span aria-hidden="true" className="inline-block w-0 h-0 border-l-[4px] border-r-[4px] border-b-[7px] border-l-transparent border-r-transparent border-b-bf-coral" />
+                {reason}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {/* Warning banners */}
+        {budget_constraint && (
+          <Banner type="warning">Supera tu presupuesto disponible</Banner>
+        )}
+        {hit_warning && (
+          <Banner type="caution">Usar una transferencia adicional costará −4 puntos</Banner>
         )}
       </div>
-
-      {/* Reasons */}
-      {reasons.length > 0 && (
-        <ul className="space-y-0.5">
-          {reasons.map((reason, i) => (
-            <li key={i} className="text-xs text-gray-300 flex gap-1.5">
-              <span className="text-indigo-400">•</span>
-              {reason}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {/* Warning banners */}
-      {budget_constraint && (
-        <Banner type="warning">Supera tu presupuesto disponible</Banner>
-      )}
-      {hit_warning && (
-        <Banner type="caution">Usar una transferencia adicional costará −4 puntos</Banner>
-      )}
     </div>
   );
 }
@@ -106,9 +114,9 @@ function DeltaChip({
   positive: boolean;
 }) {
   return (
-    <span className={`font-mono ${positive ? 'text-emerald-400' : 'text-red-400'}`}>
+    <span className={`font-mono font-bold ${positive ? 'text-bf-turquoise' : 'text-bf-coral'}`}>
       {format(value)}{' '}
-      <span className="text-gray-500 font-sans">{label}</span>
+      <span className="text-bf-gray font-sans font-normal">{label}</span>
     </span>
   );
 }
@@ -122,36 +130,14 @@ function Banner({
 }) {
   const cls =
     type === 'warning'
-      ? 'bg-red-900/40 border-red-700/60 text-red-300'
-      : 'bg-amber-900/40 border-amber-700/60 text-amber-300';
+      ? 'bg-bf-coral/10 border-bf-coral/40 text-bf-coral'
+      : 'bg-bf-gold/10 border-bf-gold/40 text-bf-gold';
   return (
     <div className={`rounded-lg border px-3 py-1.5 text-xs ${cls}`}>
       {children}
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Recommendation config
-// ---------------------------------------------------------------------------
-
-const RECOMMENDATION_CONFIG: Record<
-  TransferRecommendation,
-  { label: string; className: string }
-> = {
-  transfer_in: {
-    label: 'Fichar',
-    className: 'bg-emerald-900/60 text-emerald-300',
-  },
-  marginal_transfer_in: {
-    label: 'Considerar',
-    className: 'bg-amber-900/60 text-amber-300',
-  },
-  hold: {
-    label: 'Conservar',
-    className: 'bg-slate-700/60 text-slate-300',
-  },
-};
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -13,7 +13,9 @@
  * missing_context: neutral state (no strong signal available, e.g. free_hit
  *   without DGW/BGW data).
  */
-import type { ChipAdviceMeta, ChipRecommendation } from '@/lib/types';
+import type { ChipAdviceMeta } from '@/lib/types';
+import { CHIP_RECOMMENDATION_CONFIG, PILL_BASE, CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
+import { TriangleField } from './CardOrnaments';
 
 interface Props {
   data: ChipAdviceMeta;
@@ -22,41 +24,42 @@ interface Props {
 export default function ChipCard({ data }: Props) {
   const { chip, recommendation, gw, signal_value, signal_label, chip_unavailable } = data;
   const chipLabel = CHIP_LABELS[chip] ?? chip;
-  const { label, className } = RECOMMENDATION_CONFIG[recommendation];
+  const { label, pillClass } = CHIP_RECOMMENDATION_CONFIG[recommendation];
 
   return (
     <div
-      className={`mt-3 rounded-xl border p-4 text-sm space-y-3 ${
-        chip_unavailable
-          ? 'border-gray-700/50 bg-gray-900/30 opacity-60'
-          : 'border-gray-700 bg-gray-900/60'
+      className={`mt-3 text-sm ${CARD_BASE} ${CARD_ACCENT.purple.border} ${
+        chip_unavailable ? 'opacity-60' : ''
       }`}
     >
-      {/* Header row */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-white">{chipLabel}</span>
-          {gw != null && (
-            <span className="text-xs text-gray-500">GW{gw}</span>
-          )}
+      <TriangleField color={ACCENT_HEX.purple} corner="tr" />
+      <div className="relative z-10 p-4 space-y-3">
+        {/* Header row */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="font-extrabold text-white">{chipLabel}</span>
+            {gw != null && (
+              <span className="inline-flex items-center rounded-full bg-bf-purple/10 border border-bf-purple/40 px-2 py-0.5 text-[10px] font-bold text-bf-purple">GW{gw}</span>
+            )}
+          </div>
+          <span className={`${PILL_BASE} ${pillClass}`}>
+            {label}
+          </span>
         </div>
-        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${className}`}>
-          {label}
-        </span>
+
+        {/* Signal row */}
+        {signal_value != null && signal_label != null && (
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-bf-gray">{signal_label}</span>
+            <span className="font-display tracking-tighter text-bf-purple text-base leading-none">{signal_value.toFixed(1)}</span>
+          </div>
+        )}
+
+        {/* Unavailable note */}
+        {chip_unavailable && (
+          <p className="text-xs text-bf-gray">Chip no disponible en tu equipo</p>
+        )}
       </div>
-
-      {/* Signal row */}
-      {signal_value != null && signal_label != null && (
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-gray-400">{signal_label}</span>
-          <span className="font-mono text-white">{signal_value.toFixed(1)}</span>
-        </div>
-      )}
-
-      {/* Unavailable note */}
-      {chip_unavailable && (
-        <p className="text-xs text-gray-500">Chip no disponible en tu equipo</p>
-      )}
     </div>
   );
 }
@@ -70,30 +73,4 @@ const CHIP_LABELS: Record<string, string> = {
   wildcard: 'Comodín',
   bench_boost: 'Impulso de Banca',
   free_hit: 'Ficha Libre',
-};
-
-// ---------------------------------------------------------------------------
-// Recommendation config
-// ---------------------------------------------------------------------------
-
-const RECOMMENDATION_CONFIG: Record<
-  ChipRecommendation,
-  { label: string; className: string }
-> = {
-  conditions_favorable: {
-    label: 'Condiciones favorables',
-    className: 'bg-emerald-900/60 text-emerald-300',
-  },
-  conditions_marginal: {
-    label: 'Condiciones marginales',
-    className: 'bg-amber-900/60 text-amber-300',
-  },
-  conditions_unfavorable: {
-    label: 'Condiciones desfavorables',
-    className: 'bg-red-900/60 text-red-300',
-  },
-  missing_context: {
-    label: 'Datos insuficientes',
-    className: 'bg-slate-700/60 text-slate-300',
-  },
 };
