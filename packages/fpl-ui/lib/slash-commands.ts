@@ -69,6 +69,12 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     intent_hint: 'chip_advice',
     placeholder: 'p.ej. triple capitán',
   },
+  {
+    command: '/clasificacion',
+    label: 'Top capitanes de la semana',
+    intent_hint: 'rank_candidates',
+    placeholder: 'p.ej. Haaland, Salah, Palmer',
+  },
 ];
 
 // Validate at module load: all registered commands use allowlisted hints.

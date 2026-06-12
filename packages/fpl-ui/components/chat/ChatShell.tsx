@@ -1,9 +1,11 @@
 'use client';
 
 /**
- * ChatShell — chat UI container (V2 Phase 2g).
+ * ChatShell — three-screen swipe shell (V2 Phase 2g + U2 pager).
  *
- * Supports:
+ * Screens (SwipePager): Squad pitch · Chat (home) · Quick commands.
+ *
+ * Chat supports:
  *   - Stateless mode (default): POST /ask
  *   - Session mode: POST /session/{id}/ask with pronoun resolution
  *   - Squad context: optional FPL team ID attached to every ask (Phase 2f)
@@ -12,6 +14,9 @@
  * squad_context passes through both ask paths unchanged.
  * The renderer path (IntentRenderer) is identical in all modes.
  *
+ * Command-panel clicks and pitch "Ask AI" insert text into the InputBar
+ * (no auto-send) and snap back to the chat screen.
+ *
  * Auth gating deferred to Phase 3.
  */
 import { useState, useCallback } from 'react';
@@ -19,10 +24,14 @@ import { ask, sessionAsk, createSession, clearSession, FplApiError } from '@/lib
 import { parseSlashCommand } from '@/lib/slash-commands';
 import type { AskResponse, SquadContext } from '@/lib/types';
 import MessageList, { type Message } from './MessageList';
-import InputBar from './InputBar';
+import InputBar, { type InsertRequest } from './InputBar';
 import StarterPrompts from './StarterPrompts';
 import SquadContextPanel from './SquadContextPanel';
 import QuotaIndicator from './QuotaIndicator';
+import SwipePager, { PagerScreen } from './SwipePager';
+import CommandPanel from './CommandPanel';
+import TopBar from './TopBar';
+import SquadPitch from '@/components/squad/SquadPitch';
 
 export default function ChatShell() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -32,6 +41,24 @@ export default function ChatShell() {
   const [squadContext, setSquadContext] = useState<SquadContext | null>(null);
   // Incremented after each completed turn so QuotaIndicator re-fetches quota
   const [quotaRefreshTrigger, setQuotaRefreshTrigger] = useState(0);
+  // U2 pager state: 0 = squad, 1 = chat (home), 2 = commands
+  const [screen, setScreen] = useState(1);
+  const [insert, setInsert] = useState<InsertRequest | null>(null);
+  const [teamId, setTeamId] = useState<number | null>(null);
+  const [teamName, setTeamName] = useState<string | null>(null);
+  const [gw, setGw] = useState<number | null>(null);
+
+  const handleTeamIdChange = useCallback((id: number | null, name: string | null) => {
+    setTeamId(id);
+    setTeamName(name);
+    if (id == null) setGw(null);
+  }, []);
+
+  // Drop text into the chat input and snap back to the chat screen.
+  const handleInsert = useCallback((text: string) => {
+    setInsert({ text, nonce: Date.now() });
+    setScreen(1);
+  }, []);
 
   const handleClearSession = useCallback(async () => {
     if (sessionId) {
@@ -129,66 +156,86 @@ export default function ChatShell() {
   const isEmpty = messages.length === 0;
 
   return (
-    <div className="flex flex-col h-screen max-w-2xl mx-auto px-4 py-3">
-      {/* Contained panel — DS surface card framing the whole chat */}
-      <div className="flex flex-col flex-1 min-h-0 rounded-card border border-white/10 bg-bf-surface overflow-hidden">
-        <header className="px-4 py-3 border-b border-white/10 flex-shrink-0 space-y-2 bg-black/25">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <h1 className="text-base font-extrabold text-white leading-none">FPL Asistente</h1>
-              <span className="w-1.5 h-1.5 rounded-full bg-bf-turquoise" />
-            </div>
+    <div className="flex flex-col h-screen">
+      <TopBar teamName={teamName} gw={gw} />
 
-            <div className="flex items-center gap-3">
-              {sessionMode && sessionId && (
-                <button
-                  onClick={handleClearSession}
-                  disabled={loading}
-                  className="text-xs text-bf-gray hover:text-bf-text transition-colors disabled:opacity-40"
-                >
-                  Limpiar sesión
-                </button>
+      <SwipePager screen={screen} onScreenChange={setScreen}>
+        {/* SCREEN 0 — Squad pitch */}
+        <PagerScreen>
+          <div className="h-full max-w-2xl mx-auto">
+            <SquadPitch teamId={teamId} onAskPlayer={handleInsert} onGw={setGw} />
+          </div>
+        </PagerScreen>
+
+        {/* SCREEN 1 — Chat (home) */}
+        <PagerScreen>
+          <div className="h-full max-w-2xl mx-auto flex flex-col rounded-card border border-white/10 bg-bf-surface overflow-hidden">
+            <header className="px-4 py-3 border-b border-white/10 flex-shrink-0 space-y-2 bg-black/25">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <h1 className="text-[10px] font-bold uppercase tracking-widest text-bf-text/50 leading-none">Chat</h1>
+                  <span className="w-1.5 h-1.5 rounded-full bg-bf-turquoise" />
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {sessionMode && sessionId && (
+                    <button
+                      onClick={handleClearSession}
+                      disabled={loading}
+                      className="text-xs text-bf-gray hover:text-bf-text transition-colors disabled:opacity-40"
+                    >
+                      Limpiar sesión
+                    </button>
+                  )}
+
+                  <button
+                    onClick={toggleSessionMode}
+                    disabled={loading}
+                    className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border transition-colors disabled:opacity-40 ${
+                      sessionMode
+                        ? 'border-bf-turquoise/60 text-bf-turquoise bg-bf-turquoise/10'
+                        : 'border-white/10 text-bf-gray hover:text-bf-text hover:border-white/20'
+                    }`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${sessionMode ? 'bg-bf-turquoise' : 'bg-bf-gray/60'}`} />
+                    {sessionMode ? 'Conversación' : 'Directo'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Squad context row */}
+              <SquadContextPanel onContextChange={setSquadContext} onTeamIdChange={handleTeamIdChange} />
+            </header>
+
+            <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+              {isEmpty ? (
+                <div className="flex-1 flex flex-col items-center justify-center gap-6 px-4">
+                  <p className="text-bf-gray text-sm">
+                    Haz una pregunta sobre tu equipo de Fantasy Premier League.
+                  </p>
+                  <StarterPrompts onSelect={sendMessage} />
+                </div>
+              ) : (
+                <MessageList messages={messages} loading={loading} />
               )}
+            </div>
 
-              <button
-                onClick={toggleSessionMode}
-                disabled={loading}
-                className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border transition-colors disabled:opacity-40 ${
-                  sessionMode
-                    ? 'border-bf-turquoise/60 text-bf-turquoise bg-bf-turquoise/10'
-                    : 'border-white/10 text-bf-gray hover:text-bf-text hover:border-white/20'
-                }`}
-              >
-                <span className={`w-1.5 h-1.5 rounded-full ${sessionMode ? 'bg-bf-turquoise' : 'bg-bf-gray/60'}`} />
-                {sessionMode ? 'Conversación' : 'Directo'}
-              </button>
+            <div className="flex-shrink-0 px-3 pb-3 pt-2 space-y-2 border-t border-white/5">
+              <InputBar onSubmit={sendMessage} disabled={loading} insert={insert} />
+              <div className="flex justify-end">
+                <QuotaIndicator refreshTrigger={quotaRefreshTrigger} />
+              </div>
             </div>
           </div>
+        </PagerScreen>
 
-          {/* Squad context row */}
-          <SquadContextPanel onContextChange={setSquadContext} />
-        </header>
-
-        <div className="flex-1 overflow-hidden flex flex-col min-h-0">
-          {isEmpty ? (
-            <div className="flex-1 flex flex-col items-center justify-center gap-6 px-4">
-              <p className="text-bf-gray text-sm">
-                Haz una pregunta sobre tu equipo de Fantasy Premier League.
-              </p>
-              <StarterPrompts onSelect={sendMessage} />
-            </div>
-          ) : (
-            <MessageList messages={messages} loading={loading} />
-          )}
-        </div>
-
-        <div className="flex-shrink-0 px-3 pb-3 pt-2 space-y-2 border-t border-white/5">
-          <InputBar onSubmit={sendMessage} disabled={loading} />
-          <div className="flex justify-end">
-            <QuotaIndicator refreshTrigger={quotaRefreshTrigger} />
+        {/* SCREEN 2 — Quick commands */}
+        <PagerScreen>
+          <div className="h-full max-w-2xl mx-auto rounded-card border border-white/10 bg-bf-surface overflow-hidden">
+            <CommandPanel onInsert={handleInsert} />
           </div>
-        </div>
-      </div>
+        </PagerScreen>
+      </SwipePager>
     </div>
   );
 }

@@ -14,24 +14,42 @@
  *
  * Plain text submission is unchanged — no slash prefix = no menu, no hint.
  */
-import { useState, useRef, type KeyboardEvent } from 'react';
+import { useState, useRef, useEffect, type KeyboardEvent } from 'react';
 import { matchSlashCommands, type SlashCommand } from '@/lib/slash-commands';
 import SlashMenu, { optionId } from './SlashMenu';
 
 const SLASH_MENU_ID = 'slash-command-listbox';
 
+/** External text insertion (command panel / pitch "Ask AI"). The nonce lets
+ *  the same text be re-inserted on consecutive clicks. */
+export interface InsertRequest {
+  text: string;
+  nonce: number;
+}
+
 interface Props {
   onSubmit: (value: string) => void;
   disabled?: boolean;
+  /** When set/changed, replaces the input value and focuses the textarea. */
+  insert?: InsertRequest | null;
 }
 
 const DEFAULT_PLACEHOLDER = 'Escribe tu pregunta o usa /capitan, /comparar…';
 
-export default function InputBar({ onSubmit, disabled = false }: Props) {
+export default function InputBar({ onSubmit, disabled = false, insert = null }: Props) {
   const [value, setValue] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   const [cmdPlaceholder, setCmdPlaceholder] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // External insertion from the command panel / squad pitch.
+  useEffect(() => {
+    if (insert == null) return;
+    setValue(insert.text);
+    setActiveIndex(0);
+    setCmdPlaceholder(null);
+    textareaRef.current?.focus();
+  }, [insert]);
 
   const menuCommands: SlashCommand[] = matchSlashCommands(value);
   const menuOpen = menuCommands.length > 0;
@@ -126,7 +144,7 @@ export default function InputBar({ onSubmit, disabled = false }: Props) {
         <button
           onClick={submit}
           disabled={disabled || !value.trim()}
-          className="flex-shrink-0 bg-bf-coral hover:bg-bf-coral/90 disabled:bg-white/10 disabled:text-bf-gray text-white text-sm font-bold rounded-[10px] px-3.5 py-1.5 transition-colors"
+          className="flex-shrink-0 bg-bf-coral hover:bg-bf-coral/90 disabled:bg-white/10 disabled:text-bf-gray text-white hc:text-bf-ink text-sm font-bold rounded-[10px] px-3.5 py-1.5 transition-colors"
           aria-label="Enviar"
         >
           Enviar

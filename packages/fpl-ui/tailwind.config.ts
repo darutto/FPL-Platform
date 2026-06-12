@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss';
+import plugin from 'tailwindcss/plugin';
 
 /**
  * Bendito Fantasy design tokens — extracted from the Stitch/Claude Design
@@ -48,7 +49,14 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // High-contrast accessibility mode: `hc:` utilities apply when the user
+    // enables the contrast switch (html[data-contrast="high"]). Default stays
+    // brand-faithful (e.g. white on coral); hc: swaps to AA-compliant pairs.
+    plugin(({ addVariant }) => {
+      addVariant('hc', 'html[data-contrast="high"] &');
+    }),
+  ],
 };
 
 export default config;

@@ -31,6 +31,9 @@ const LS_KEY = 'fpl_team_id';
 
 interface Props {
   onContextChange: (ctx: SquadContext | null) => void;
+  /** Reports the connected team ID + display name upward (nulls on
+   *  disconnect). Used by the squad pitch screen and the top bar. */
+  onTeamIdChange?: (teamId: number | null, teamName: string | null) => void;
 }
 
 type PanelState =
@@ -39,7 +42,7 @@ type PanelState =
   | { status: 'connected'; entry: FplEntryRaw; ctx: SquadContext }
   | { status: 'error'; message: string };
 
-export default function SquadContextPanel({ onContextChange }: Props) {
+export default function SquadContextPanel({ onContextChange, onTeamIdChange }: Props) {
   const [teamIdInput, setTeamIdInput] = useState('');
   const [panel, setPanel] = useState<PanelState>({ status: 'idle' });
   // Free transfers: not derivable from the FPL API. User selects explicitly.
@@ -86,10 +89,11 @@ export default function SquadContextPanel({ onContextChange }: Props) {
     const ctx = normalizeSquadContext(data.entry, data.history);
     setPanel({ status: 'connected', entry: data.entry, ctx });
     onContextChange(ctx);
+    onTeamIdChange?.(teamId, squadContextSummary(data.entry));
 
     // Persist team ID (not context — context is re-fetched each time)
     try { localStorage.setItem(LS_KEY, String(teamId)); } catch { /* ignore */ }
-  }, [teamIdInput, onContextChange]);
+  }, [teamIdInput, onContextChange, onTeamIdChange]);
 
   const handleFtSelect = useCallback((ft: number | null) => {
     setFreeTransfers(ft);
@@ -102,9 +106,10 @@ export default function SquadContextPanel({ onContextChange }: Props) {
     setPanel({ status: 'idle' });
     setFreeTransfers(null);
     onContextChange(null);
+    onTeamIdChange?.(null, null);
     try { localStorage.removeItem(LS_KEY); } catch { /* ignore */ }
     setTeamIdInput('');
-  }, [onContextChange]);
+  }, [onContextChange, onTeamIdChange]);
 
   return (
     <div className="flex items-center gap-2 text-xs">

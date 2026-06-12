@@ -73,7 +73,7 @@ function MessageBubble({ message }: { message: Message }) {
       <div
         className={`max-w-prose px-4 py-3 ${
           isUser
-            ? 'bg-bf-coral text-white rounded-[14px] rounded-br'
+            ? 'bg-bf-coral text-white hc:text-bf-ink rounded-[14px] rounded-br'
             : message.isError
               ? 'bg-bf-coral/10 border border-bf-coral/40 text-bf-coral rounded-[14px] rounded-tl'
               : 'bg-white/5 border border-white/10 text-bf-text rounded-[14px] rounded-tl'

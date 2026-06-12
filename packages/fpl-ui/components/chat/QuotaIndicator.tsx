@@ -192,7 +192,7 @@ export default function QuotaIndicator({
               href={PATREON_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="block w-full rounded-[10px] bg-bf-coral hover:bg-bf-coral/90 text-white text-center text-xs font-bold py-2.5 transition-colors"
+              className="block w-full rounded-[10px] bg-bf-coral hover:bg-bf-coral/90 text-white hc:text-bf-ink text-center text-xs font-bold py-2.5 transition-colors"
             >
               Mejorar en Patreon
             </a>
