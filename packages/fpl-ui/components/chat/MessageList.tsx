@@ -3,15 +3,17 @@
 /**
  * MessageList — renders the conversation history.
  *
- * Rendering rules (from FINAL_RESPONSE_CONTRACT.md):
- *   - Always render final_text — it is always non-empty.
- *   - Show a visible origin badge for assistant turns.
- *   - Render structured intent component beneath final_text when
- *     outcome=ok and the matching conditional field is non-null.
- *   - Non-ok outcomes and text-only intents render final_text only.
+ * Rendering rules (FINAL_RESPONSE_CONTRACT.md + U2 design update):
+ *   - Structured turns (outcome=ok with a matching conditional field) render
+ *     the intent card ALONE — no text bubble. The backend's final_text
+ *     duplicates the card content, and bubble-wrapping the card produced a
+ *     double box (user feedback 2026-06-12: "it should be only the table").
+ *   - Text-only turns render final_text in a bubble as before.
+ *   - Show a visible origin badge for assistant turns in both shapes.
  */
 import { useEffect, useRef } from 'react';
 import type { AskResponse, Outcome } from '@/lib/types';
+import { selectIntentView } from '@/lib/intent-renderer';
 import IntentRenderer from './IntentRenderer';
 
 export interface Message {
@@ -61,12 +63,24 @@ export default function MessageList({ messages, loading }: Props) {
 function MessageBubble({ message }: { message: Message }) {
   const isUser = message.role === 'user';
   const showOriginBadge = !isUser && !message.isError && message.response;
-  const originBadgeLabel = message.llmUsed
-    ? 'IA activa'
-    : 'Determinístico';
-  const originBadgeClassName = message.llmUsed
-    ? 'border-bf-turquoise/40 bg-bf-turquoise/10 text-bf-turquoise'
-    : 'border-bf-gold/40 bg-bf-gold/10 text-bf-gold';
+  // Structured turn → render the card alone, like /preview (no text bubble,
+  // no bubble-around-card double box).
+  const hasCard =
+    !isUser &&
+    !message.isError &&
+    message.response != null &&
+    selectIntentView(message.response) != null;
+
+  if (hasCard) {
+    return (
+      <div className="flex justify-start">
+        <div className="max-w-prose w-full [&>:first-child]:mt-0">
+          <IntentRenderer response={message.response!} />
+          {showOriginBadge && <OriginBadges message={message} />}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
@@ -81,27 +95,31 @@ function MessageBubble({ message }: { message: Message }) {
       >
         <p className="text-sm whitespace-pre-wrap">{message.text}</p>
 
-        {/* Structured intent component — additive beneath final_text */}
-        {!isUser && !message.isError && message.response && (
-          <IntentRenderer response={message.response} />
-        )}
-
-        {showOriginBadge && (
-          <div className="mt-3 flex items-center gap-2">
-            <span
-              className={`inline-flex items-center rounded-full border px-2 py-1 text-[11px] font-medium uppercase tracking-[0.12em] ${originBadgeClassName}`}
-            >
-              {originBadgeLabel}
-            </span>
-            {/* Degraded notice — shown when LLM was attempted but provider failed (Phase 2.6b) */}
-            {message.degraded && (
-              <span className="inline-flex items-center rounded-full border border-bf-coral-soft/40 bg-bf-coral-soft/10 px-2 py-1 text-[11px] font-medium text-bf-coral-soft">
-                proveedor no disponible
-              </span>
-            )}
-          </div>
-        )}
+        {showOriginBadge && <OriginBadges message={message} />}
       </div>
+    </div>
+  );
+}
+
+function OriginBadges({ message }: { message: Message }) {
+  const originBadgeLabel = message.llmUsed ? 'IA activa' : 'Determinístico';
+  const originBadgeClassName = message.llmUsed
+    ? 'border-bf-turquoise/40 bg-bf-turquoise/10 text-bf-turquoise'
+    : 'border-bf-gold/40 bg-bf-gold/10 text-bf-gold';
+
+  return (
+    <div className="mt-3 flex items-center gap-2">
+      <span
+        className={`inline-flex items-center rounded-full border px-2 py-1 text-[11px] font-medium uppercase tracking-[0.12em] ${originBadgeClassName}`}
+      >
+        {originBadgeLabel}
+      </span>
+      {/* Degraded notice — shown when LLM was attempted but provider failed (Phase 2.6b) */}
+      {message.degraded && (
+        <span className="inline-flex items-center rounded-full border border-bf-coral-soft/40 bg-bf-coral-soft/10 px-2 py-1 text-[11px] font-medium text-bf-coral-soft">
+          proveedor no disponible
+        </span>
+      )}
     </div>
   );
 }

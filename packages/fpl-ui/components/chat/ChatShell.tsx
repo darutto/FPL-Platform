@@ -161,15 +161,13 @@ export default function ChatShell() {
 
       <SwipePager screen={screen} onScreenChange={setScreen}>
         {/* SCREEN 0 — Squad pitch */}
-        <PagerScreen>
-          <div className="h-full max-w-2xl mx-auto">
-            <SquadPitch teamId={teamId} onAskPlayer={handleInsert} onGw={setGw} />
-          </div>
+        <PagerScreen maxWidth={460}>
+          <SquadPitch teamId={teamId} onAskPlayer={handleInsert} onGw={setGw} />
         </PagerScreen>
 
         {/* SCREEN 1 — Chat (home) */}
-        <PagerScreen>
-          <div className="h-full max-w-2xl mx-auto flex flex-col rounded-card border border-white/10 bg-bf-surface overflow-hidden">
+        <PagerScreen maxWidth={672}>
+          <div className="h-full flex flex-col rounded-card border border-white/10 bg-bf-surface overflow-hidden">
             <header className="px-4 py-3 border-b border-white/10 flex-shrink-0 space-y-2 bg-black/25">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -230,8 +228,8 @@ export default function ChatShell() {
         </PagerScreen>
 
         {/* SCREEN 2 — Quick commands */}
-        <PagerScreen>
-          <div className="h-full max-w-2xl mx-auto rounded-card border border-white/10 bg-bf-surface overflow-hidden">
+        <PagerScreen maxWidth={520}>
+          <div className="h-full rounded-card border border-white/10 bg-bf-surface overflow-hidden">
             <CommandPanel onInsert={handleInsert} />
           </div>
         </PagerScreen>

@@ -34,6 +34,8 @@ const config: Config = {
           gray: '#ABA9AC',
           ink: '#0E0D12',
           text: '#f0f0f0',
+          pitch: '#0f3320',
+          'pitch-dark': '#0d2e1c',
         },
       },
       fontFamily: {

@@ -10,9 +10,9 @@
  *   4. onContextChange(ctx) propagates the context up to ChatShell.
  *   5. ChatShell passes squad_context on every subsequent ask.
  *
- * Persistence: team ID only is stored in localStorage so it pre-fills on
- * next visit. The context itself is re-fetched on mount/reconnect — the FPL
- * API data is live and should not be cached client-side.
+ * Persistence: team ID only is stored in localStorage and auto-reconnects
+ * on next visit. The context itself is re-fetched on mount/reconnect — the
+ * FPL API data is live and should not be cached client-side.
  *
  * No auth. No server-side persistence. Public FPL API only.
  */
@@ -49,19 +49,8 @@ export default function SquadContextPanel({ onContextChange, onTeamIdChange }: P
   // null = not set; backend will omit hit_warning signal when unknown.
   const [freeTransfers, setFreeTransfers] = useState<number | null>(null);
 
-  // Pre-fill team ID from localStorage on mount, but do not auto-fetch
-  // (user must confirm; data should be fresh when explicitly requested).
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(LS_KEY);
-      if (stored) setTeamIdInput(stored);
-    } catch {
-      // localStorage unavailable (SSR guard)
-    }
-  }, []);
-
-  const handleConnect = useCallback(async () => {
-    const teamId = validateTeamId(teamIdInput);
+  const connect = useCallback(async (rawId: string) => {
+    const teamId = validateTeamId(rawId);
     if (teamId === null) {
       setPanel({ status: 'error', message: 'ID de equipo no válido — debe ser un número positivo.' });
       return;
@@ -93,7 +82,27 @@ export default function SquadContextPanel({ onContextChange, onTeamIdChange }: P
 
     // Persist team ID (not context — context is re-fetched each time)
     try { localStorage.setItem(LS_KEY, String(teamId)); } catch { /* ignore */ }
-  }, [teamIdInput, onContextChange, onTeamIdChange]);
+  }, [onContextChange, onTeamIdChange]);
+
+  const handleConnect = useCallback(() => connect(teamIdInput), [connect, teamIdInput]);
+
+  // Auto-reconnect on mount when a team ID was stored: the squad pitch and
+  // squad_context should survive a refresh. Data is still fetched fresh —
+  // only the ID is persisted.
+  useEffect(() => {
+    let stored: string | null = null;
+    try {
+      stored = localStorage.getItem(LS_KEY);
+    } catch {
+      // localStorage unavailable (SSR guard)
+    }
+    if (stored) {
+      setTeamIdInput(stored);
+      connect(stored);
+    }
+    // Run once on mount only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleFtSelect = useCallback((ft: number | null) => {
     setFreeTransfers(ft);

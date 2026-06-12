@@ -31,10 +31,19 @@ interface Props {
   children: ReactNode; // exactly three PagerScreen children
 }
 
-export function PagerScreen({ children }: { children: ReactNode }) {
+export function PagerScreen({
+  children,
+  maxWidth,
+}: {
+  children: ReactNode;
+  /** Optional content width cap in px (design: squad 460, commands 520). */
+  maxWidth?: number;
+}) {
   return (
-    <div className="h-full w-full flex-shrink-0 basis-full min-w-0 p-2 box-border">
-      {children}
+    <div className="h-full w-full flex-shrink-0 basis-full min-w-0 p-2 box-border flex justify-center">
+      <div className="w-full h-full min-w-0" style={maxWidth ? { maxWidth } : undefined}>
+        {children}
+      </div>
     </div>
   );
 }

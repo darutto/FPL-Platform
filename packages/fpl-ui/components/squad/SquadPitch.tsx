@@ -10,10 +10,11 @@
  *   - player detail card on tap, with an "Ask AI" shortcut that drops a
  *     question about the player into the chat input.
  *
- * Pitch sizing: the pitch box keeps a fixed 2:3 aspect ratio (vertical
- * pitch) and scales with available width up to a cap — the SVG markings use
- * `preserveAspectRatio="xMidYMid meet"` so they NEVER stretch or deform,
- * unlike the prototype's `none` mode.
+ * Pitch sizing: the pitch box keeps a fixed 5:3 aspect ratio and fills the
+ * panel width (panel itself capped at 460px by the pager). The markings are
+ * drawn natively in a matching 400×240 viewBox with
+ * `preserveAspectRatio="xMidYMid meet"`, so they NEVER stretch or deform at
+ * any screen size — unlike the prototype's `none` mode.
  *
  * Data: GET /api/fpl-squad/{teamId} (server proxy; live FPL API).
  */
@@ -210,22 +211,23 @@ function SquadBody({
         <Stat label="Banco" value={`£${(data.summary.bank / 10).toFixed(1)}m`} valueClass="text-bf-gold" />
       </div>
 
-      {/* Pitch — fixed 2:3 aspect, scales without deforming */}
-      <div className="px-3 py-3 flex-shrink-0">
-        <div className="relative mx-auto w-full max-w-[340px] aspect-[2/3] max-h-[420px] rounded-lg overflow-hidden bg-gradient-to-b from-[#0f3320] to-[#0d2e1c]">
+      {/* Pitch — fixed 5:3 aspect, fills the panel, never deforms */}
+      <div className="flex-shrink-0">
+        <div className="relative w-full aspect-[5/3] overflow-hidden bg-gradient-to-b from-bf-pitch to-bf-pitch-dark">
+          {/* Markings drawn natively at 400×240 (same 5:3 aspect as the box) */}
           <svg
             aria-hidden="true"
             className="absolute inset-0 w-full h-full opacity-20"
-            viewBox="0 0 200 300"
+            viewBox="0 0 400 240"
             preserveAspectRatio="xMidYMid meet"
           >
-            <rect x="8" y="8" width="184" height="284" fill="none" stroke="white" strokeWidth="2" />
-            <line x1="8" y1="150" x2="192" y2="150" stroke="white" strokeWidth="1.5" />
-            <circle cx="100" cy="150" r="28" fill="none" stroke="white" strokeWidth="1.5" />
-            <rect x="58" y="8" width="84" height="40" fill="none" stroke="white" strokeWidth="1.5" />
-            <rect x="58" y="252" width="84" height="40" fill="none" stroke="white" strokeWidth="1.5" />
-            <rect x="80" y="8" width="40" height="18" fill="none" stroke="white" strokeWidth="1.5" />
-            <rect x="80" y="274" width="40" height="18" fill="none" stroke="white" strokeWidth="1.5" />
+            <rect x="8" y="8" width="384" height="224" fill="none" stroke="white" strokeWidth="2" />
+            <line x1="8" y1="120" x2="392" y2="120" stroke="white" strokeWidth="1.5" />
+            <circle cx="200" cy="120" r="34" fill="none" stroke="white" strokeWidth="1.5" />
+            <rect x="130" y="8" width="140" height="36" fill="none" stroke="white" strokeWidth="1.5" />
+            <rect x="130" y="196" width="140" height="36" fill="none" stroke="white" strokeWidth="1.5" />
+            <rect x="162" y="8" width="76" height="15" fill="none" stroke="white" strokeWidth="1.5" />
+            <rect x="162" y="217" width="76" height="15" fill="none" stroke="white" strokeWidth="1.5" />
           </svg>
 
           <div className="relative z-10 h-full flex flex-col justify-around py-2 px-1">
