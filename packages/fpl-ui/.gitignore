@@ -2,3 +2,6 @@
 .env*.local
 
 .vercel
+
+# build artifacts
+*.tsbuildinfo
