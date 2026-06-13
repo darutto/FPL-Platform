@@ -40,6 +40,9 @@ interface PanelCommand {
   desc: string;
   Icon: IconComponent;
   accent: Accent;
+  /** Argument hint (e.g. "p.ej. Haaland") shown as the input placeholder
+   *  after insertion — / commands need an argument before sending. */
+  placeholder?: string;
 }
 
 // @ vistas rápidas — Spanish aliases supported by the backend resource router.
@@ -71,12 +74,14 @@ const SLASH_PANEL_COMMANDS: PanelCommand[] = SLASH_COMMANDS.map((sc) => {
     desc: p?.desc ?? sc.placeholder,
     Icon: p?.Icon ?? IconCaptain,
     accent: p?.accent ?? 'turquoise',
+    placeholder: sc.placeholder,
   };
 });
 
 interface Props {
-  /** Called with the text to drop into the chat input. */
-  onInsert: (text: string) => void;
+  /** Called with the text to drop into the chat input, plus an optional
+   *  argument-hint placeholder for bare slash commands. */
+  onInsert: (text: string, placeholder?: string) => void;
 }
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
@@ -90,10 +95,10 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
-function CommandRow({ cmd, onInsert }: { cmd: PanelCommand; onInsert: (text: string) => void }) {
+function CommandRow({ cmd, onInsert }: { cmd: PanelCommand; onInsert: (text: string, placeholder?: string) => void }) {
   return (
     <button
-      onClick={() => onInsert(cmd.insert)}
+      onClick={() => onInsert(cmd.insert, cmd.placeholder)}
       className="group w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left border border-transparent hover:border-white/15 hover:bg-white/5 transition-colors"
     >
       <span className="flex items-center justify-center w-7 h-7 rounded-md bg-white/5 border border-white/10 flex-shrink-0">

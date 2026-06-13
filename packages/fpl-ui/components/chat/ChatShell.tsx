@@ -55,8 +55,10 @@ export default function ChatShell() {
   }, []);
 
   // Drop text into the chat input and snap back to the chat screen.
-  const handleInsert = useCallback((text: string) => {
-    setInsert({ text, nonce: Date.now() });
+  // `placeholder` (e.g. "p.ej. Haaland") hints the required argument when
+  // inserting a bare slash command from the command panel.
+  const handleInsert = useCallback((text: string, placeholder?: string) => {
+    setInsert({ text, nonce: Date.now(), placeholder });
     setScreen(1);
   }, []);
 

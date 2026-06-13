@@ -25,6 +25,9 @@ const SLASH_MENU_ID = 'slash-command-listbox';
 export interface InsertRequest {
   text: string;
   nonce: number;
+  /** Command hint shown as the placeholder (e.g. "p.ej. Haaland") so the
+   *  user knows to type an argument before sending. */
+  placeholder?: string;
 }
 
 interface Props {
@@ -47,7 +50,7 @@ export default function InputBar({ onSubmit, disabled = false, insert = null }: 
     if (insert == null) return;
     setValue(insert.text);
     setActiveIndex(0);
-    setCmdPlaceholder(null);
+    setCmdPlaceholder(insert.placeholder ?? null);
     textareaRef.current?.focus();
   }, [insert]);
 
