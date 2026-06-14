@@ -71,14 +71,14 @@ check("locale: unmapped value passes through",
       locale_es.localize_country("Atlantis") == "Atlantis")
 
 # --- 4. Tool registry shape ---------------------------------------------------
-check("tools: 9 specs registered", len(WC_TOOL_SPECS) == 9, str(sorted(WC_TOOL_NAMES)))
+check("tools: 13 specs registered", len(WC_TOOL_SPECS) == 13, str(sorted(WC_TOOL_NAMES)))
 anthropic_tools = core.build_tools("anthropic", WC_TOOL_SPECS)
 openai_tools = core.build_tools("openai", WC_TOOL_SPECS)
 gemini_tools = core.build_tools("gemini", WC_TOOL_SPECS)
 check("tools: anthropic wire format", all("input_schema" in t for t in anthropic_tools))
 check("tools: openai wire format", all(t.get("type") == "function" for t in openai_tools))
 check("tools: gemini wire format",
-      len(gemini_tools) == 1 and len(gemini_tools[0]["function_declarations"]) == 9)
+      len(gemini_tools) == 1 and len(gemini_tools[0]["function_declarations"]) == 13)
 
 # --- 5. Executor error envelopes (no network) ---------------------------------
 r = execute_wc_tool("get_squad", {})

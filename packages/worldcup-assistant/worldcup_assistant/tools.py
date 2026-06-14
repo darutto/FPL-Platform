@@ -29,9 +29,13 @@ from worldcup_api_client import (
     get_lineup,
     get_live_scores,
     get_match_stats,
+    get_player_info,
+    get_player_wc2022_summary,
     get_squad,
     get_standings,
+    get_top_assists,
     get_top_scorers,
+    get_wc2022_results,
 )
 
 from .locale_es import localize_payload
@@ -143,6 +147,16 @@ WC_TOOL_SPECS: list[ToolSpec] = [
         parameters={"type": "object", "properties": {}, "additionalProperties": False},
     ),
     ToolSpec(
+        name="get_top_assists",
+        description=(
+            "Tournament top ASSIST providers ranking (assists + goals from "
+            "match results). Use for 'asistencias' / 'asistidores' / who has "
+            "set up the most goals. Sibling of get_top_scorers, sorted by "
+            "assists first."
+        ),
+        parameters={"type": "object", "properties": {}, "additionalProperties": False},
+    ),
+    ToolSpec(
         name="get_fantasy_top_players",
         description=(
             "FIFA Fantasy points leaderboard: players ranked by total FANTASY "
@@ -167,6 +181,82 @@ WC_TOOL_SPECS: list[ToolSpec] = [
                 "limit": {
                     "type": "integer",
                     "description": "Max number of players to return (default 10, max 50).",
+                },
+            },
+            "additionalProperties": False,
+        },
+    ),
+    ToolSpec(
+        name="get_player_info",
+        description=(
+            "Single-player profile: team, position, price, FIFA Fantasy stats "
+            "(total/avg points, form) and tournament goals/assists. Use for "
+            "'/jugador' and player-info questions. For comparisons ('Mbappé vs "
+            "Haaland', '/comparar'), call this once per player (one call each)."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Player name as written by the user (any spelling/accents).",
+                },
+            },
+            "required": ["name"],
+            "additionalProperties": False,
+        },
+    ),
+    ToolSpec(
+        name="get_player_wc2022_stats",
+        description=(
+            "WC2022 (Qatar) tournament stats for a player who also played in "
+            "that World Cup: appearances, minutes, goals, assists, yellow/red "
+            "cards, GK saves, key passes, average match rating. This is a "
+            "fast local lookup (no live API call). Call this alongside "
+            "get_player_info for '/jugador' and '/comparar' to add historical "
+            "depth — most players won't have WC2022 data (only ~590 of the "
+            "2026 squads also played in 2022), which is expected, not an error."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Player name as written by the user (any spelling/accents).",
+                },
+            },
+            "required": ["name"],
+            "additionalProperties": False,
+        },
+    ),
+    ToolSpec(
+        name="get_wc2022_results",
+        description=(
+            "Match results from the WC2022 (Qatar) tournament: final scores "
+            "(incl. penalty shootouts), venue, date, stage. This is a fast "
+            "local lookup (no live API call). Use for questions about the "
+            "previous World Cup ('Mundial pasado/2022'), e.g. 'cómo le fue a "
+            "Argentina en 2022', 'quién ganó el mundial pasado', 'resultados "
+            "de octavos de final 2022'. Optionally filter by team and/or "
+            "stage; omit both for all 64 matches."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "team": {
+                    "type": "string",
+                    "description": (
+                        "Team name in ENGLISH as used by the data API (e.g. "
+                        "'Argentina', 'Netherlands'). Omit for all teams."
+                    ),
+                },
+                "stage": {
+                    "type": "string",
+                    "description": (
+                        "Filter by stage enum: group_stage, round_of_16, "
+                        "quarter_final, semi_final, third_place, final. "
+                        "Omit for all stages."
+                    ),
                 },
             },
             "additionalProperties": False,
@@ -204,8 +294,12 @@ WC_TOOL_NAMES: frozenset[str] = frozenset(s.name for s in WC_TOOL_SPECS)
 
 #: List-valued tool-output fields subject to token-budget truncation
 #: (mirrors the FPL orchestrator's _TRUNCATABLE_FIELDS lever).
+#: "players" is deliberately excluded: get_squad's full roster (~50-55
+#: entries pre-cut) backs the squad card and should render in full, and
+#: get_fantasy_top_players already self-limits via its own `limit` arg
+#: (default 10, max 50).
 WC_TRUNCATABLE_FIELDS: frozenset[str] = frozenset({
-    "matches", "fixtures", "players", "scorers", "events", "results",
+    "matches", "fixtures", "scorers", "assisters", "events", "results",
 })
 
 
@@ -222,10 +316,14 @@ _CLIENT_DISPATCH: dict[str, Callable[..., Any]] = {
     "get_lineup":       lambda args: get_lineup(args["match_id"]),
     "get_standings":    lambda args: get_standings(group=args.get("group")),
     "get_top_scorers":  lambda args: get_top_scorers(),
+    "get_top_assists":  lambda args: get_top_assists(),
     "get_fantasy_top_players": lambda args: get_fantasy_top_players(
         position=args.get("position"), team=args.get("team"), limit=args.get("limit"),
     ),
     "get_head_to_head": lambda args: get_head_to_head(args["team_a"], args["team_b"]),
+    "get_player_info":  lambda args: get_player_info(args["name"]),
+    "get_player_wc2022_stats": lambda args: get_player_wc2022_summary(args["name"]),
+    "get_wc2022_results": lambda args: get_wc2022_results(team=args.get("team"), stage=args.get("stage")),
     "get_match_stats":  lambda args: get_match_stats(args["match_id"]),
 }
 
@@ -233,6 +331,8 @@ _REQUIRED_ARGS: dict[str, tuple[str, ...]] = {
     "get_squad":        ("team",),
     "get_lineup":       ("match_id",),
     "get_head_to_head": ("team_a", "team_b"),
+    "get_player_info":  ("name",),
+    "get_player_wc2022_stats": ("name",),
     "get_match_stats":  ("match_id",),
 }
 

@@ -144,10 +144,21 @@ class AskRequest(BaseModel):
 class AskResponse(BaseModel):
     """AskResponse-compatible JSON (FPL ``FinalResponse`` field contract).
 
-    Iteration 1 is text-first: ``final_text`` is the primary field and the
-    structured card fields stay ``None`` until Iteration 3.  ``intent`` is
-    ``"wc_info"`` for every grounded turn (the WC domain has no deterministic
-    intent router — the orchestrator IS the router).
+    ``final_text`` is always the primary field. The structured card fields
+    (``standings``, ``top_scorers``, ``fantasy_top_players``, ``fixtures``,
+    ``squad``, ``head_to_head``, ``players_info`` — Iteration 3) are
+    additive: populated when the matching tool was the most recent of its
+    kind in the tool loop on an ``ok`` turn, ``None`` otherwise.
+    ``players_info`` is a list (one entry per distinct ``get_player_info``
+    call — '/jugador' yields 1, '/comparar' yields up to 2+). ``intent`` is
+    ``"wc_info"`` for every grounded turn (the WC domain has no
+    deterministic intent router — the orchestrator IS the router).
+
+    ``grounded`` is true iff at least one tool call this turn returned
+    ``status: "ok"`` — i.e. the answer is backed by real tournament data,
+    not just LLM prose. In this domain ``llm_used`` is true on almost every
+    turn (the LLM always phrases ``final_text``), so the UI uses
+    ``grounded`` rather than ``llm_used`` for its origin badge.
     """
 
     final_text: str
@@ -161,6 +172,17 @@ class AskResponse(BaseModel):
     orch_outcome: str | None = None
     degraded: bool = False
     session_id: str | None = None
+    standings: dict[str, Any] | None = None
+    top_scorers: list[dict[str, Any]] | None = None
+    top_assists: list[dict[str, Any]] | None = None
+    fantasy_top_players: list[dict[str, Any]] | None = None
+    fixtures: list[dict[str, Any]] | None = None
+    squad: dict[str, Any] | None = None
+    head_to_head: dict[str, Any] | None = None
+    players_info: list[dict[str, Any]] | None = None
+    wc2022_stats: list[dict[str, Any]] | None = None
+    wc2022_results: list[dict[str, Any]] | None = None
+    grounded: bool = False
 
 
 class CreateSessionResponse(BaseModel):
@@ -286,6 +308,17 @@ def ask(req: AskRequest) -> AskResponse:
         orch_outcome=result.outcome,
         degraded=not ok,
         session_id=session_id,
+        standings=result.standings if ok else None,
+        top_scorers=result.top_scorers if ok else None,
+        top_assists=result.top_assists if ok else None,
+        fantasy_top_players=result.fantasy_top_players if ok else None,
+        fixtures=result.fixtures if ok else None,
+        squad=result.squad if ok else None,
+        head_to_head=result.head_to_head if ok else None,
+        players_info=result.players_info if ok else None,
+        wc2022_stats=result.wc2022_stats if ok else None,
+        wc2022_results=result.wc2022_results if ok else None,
+        grounded=result.grounded if ok else False,
     )
 
 
