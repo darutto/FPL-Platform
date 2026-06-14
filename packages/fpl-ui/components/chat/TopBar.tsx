@@ -17,9 +17,13 @@ const CONTRAST_LS_KEY = 'bf_contrast';
 interface Props {
   teamName?: string | null;
   gw?: number | null;
+  /** Brand title shown next to the logo. Defaults to the FPL title. */
+  title?: string;
+  /** Brand subtitle shown beneath the title. Defaults to "Bendito Fantasy". */
+  subtitle?: string;
 }
 
-export default function TopBar({ teamName, gw }: Props) {
+export default function TopBar({ teamName, gw, title = 'FPL Asistente', subtitle = 'Bendito Fantasy' }: Props) {
   const [highContrast, setHighContrast] = useState(false);
 
   // Restore persisted preference on mount.
@@ -49,8 +53,8 @@ export default function TopBar({ teamName, gw }: Props) {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/logo-icon.png" alt="Bendito Fantasy" className="h-7 w-7 rounded flex-shrink-0" />
       <div className="flex flex-col leading-none">
-        <span className="text-[13px] font-extrabold text-white">FPL Asistente</span>
-        <span className="text-[10px] text-bf-gray mt-0.5">Bendito Fantasy</span>
+        <span className="text-[13px] font-extrabold text-white">{title}</span>
+        <span className="text-[10px] text-bf-gray mt-0.5">{subtitle}</span>
       </div>
 
       <div className="ml-auto flex items-center gap-2.5">

@@ -4,11 +4,11 @@
  * CommandPanel — quick-commands screen (U2, Stitch Hi-Fi "Commands").
  *
  * Two stacked sections:
- *   - Vistas rápidas (@resources): click inserts the @command text into the
- *     chat input so the user can edit before sending (design decision from
- *     the handoff transcripts — no auto-send).
+ *   - Vistas rápidas (@resources): complete queries with no argument —
+ *     clicking sends immediately and jumps to the chat screen.
  *   - Acciones (/commands): click inserts "/comando " into the input; the
- *     existing SlashMenu/parseSlashCommand machinery takes over from there.
+ *     existing SlashMenu/parseSlashCommand machinery takes over from there
+ *     (these need an argument before sending, so no auto-send).
  *
  * Slash entries come from the lib/slash-commands registry (single source);
  * this panel only adds the friendly label/description/icon presentation.
@@ -43,16 +43,18 @@ interface PanelCommand {
   /** Argument hint (e.g. "p.ej. Haaland") shown as the input placeholder
    *  after insertion — / commands need an argument before sending. */
   placeholder?: string;
+  /** Complete query, no argument needed — send immediately on click. */
+  autoSend?: boolean;
 }
 
 // @ vistas rápidas — Spanish aliases supported by the backend resource router.
 const AT_COMMANDS: PanelCommand[] = [
-  { insert: '@lesionados', label: 'Lesionados', desc: 'Lista actualizada', Icon: IconInjury, accent: 'coralSoft' },
-  { insert: '@forma', label: 'En racha', desc: 'Mejor forma reciente', Icon: IconForm, accent: 'gold' },
-  { insert: '@xg', label: 'Peligro de gol', desc: 'Líderes xG + xA por 90', Icon: IconXG, accent: 'coral' },
-  { insert: '@puntos', label: 'Más puntos', desc: 'Acumulados temporada', Icon: IconPoints, accent: 'turquoise' },
-  { insert: '@minutos', label: 'Los infaltables', desc: 'Más minutos jugados', Icon: IconMinutes, accent: 'cyan' },
-  { insert: '@populares', label: 'Más comprados', desc: 'Mayor ownership', Icon: IconPopular, accent: 'purple' },
+  { insert: '@lesionados', label: 'Lesionados', desc: 'Lista actualizada', Icon: IconInjury, accent: 'coralSoft', autoSend: true },
+  { insert: '@forma', label: 'En racha', desc: 'Mejor forma reciente', Icon: IconForm, accent: 'gold', autoSend: true },
+  { insert: '@xg', label: 'Peligro de gol', desc: 'Líderes xG + xA por 90', Icon: IconXG, accent: 'coral', autoSend: true },
+  { insert: '@puntos', label: 'Más puntos', desc: 'Acumulados temporada', Icon: IconPoints, accent: 'turquoise', autoSend: true },
+  { insert: '@minutos', label: 'Los infaltables', desc: 'Más minutos jugados', Icon: IconMinutes, accent: 'cyan', autoSend: true },
+  { insert: '@populares', label: 'Más comprados', desc: 'Mayor ownership', Icon: IconPopular, accent: 'purple', autoSend: true },
 ];
 
 // Presentation for each registry command (friendly question as the label).
@@ -82,6 +84,8 @@ interface Props {
   /** Called with the text to drop into the chat input, plus an optional
    *  argument-hint placeholder for bare slash commands. */
   onInsert: (text: string, placeholder?: string) => void;
+  /** Called for autoSend commands — sends immediately, no editing step. */
+  onSend: (text: string) => void;
 }
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
@@ -95,10 +99,10 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
-function CommandRow({ cmd, onInsert }: { cmd: PanelCommand; onInsert: (text: string, placeholder?: string) => void }) {
+function CommandRow({ cmd, onInsert, onSend }: { cmd: PanelCommand; onInsert: (text: string, placeholder?: string) => void; onSend: (text: string) => void }) {
   return (
     <button
-      onClick={() => onInsert(cmd.insert, cmd.placeholder)}
+      onClick={() => (cmd.autoSend ? onSend(cmd.insert) : onInsert(cmd.insert, cmd.placeholder))}
       className="group w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left border border-transparent hover:border-white/15 hover:bg-white/5 transition-colors"
     >
       <span className="flex items-center justify-center w-7 h-7 rounded-md bg-white/5 border border-white/10 flex-shrink-0">
@@ -119,7 +123,7 @@ function CommandRow({ cmd, onInsert }: { cmd: PanelCommand; onInsert: (text: str
   );
 }
 
-export default function CommandPanel({ onInsert }: Props) {
+export default function CommandPanel({ onInsert, onSend }: Props) {
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className="px-4 py-3 border-b border-white/10 flex-shrink-0 bg-black/25">
@@ -132,14 +136,14 @@ export default function CommandPanel({ onInsert }: Props) {
         <SectionHeading>Vistas rápidas</SectionHeading>
         <div className="flex flex-col gap-0.5 mb-3">
           {AT_COMMANDS.map((cmd) => (
-            <CommandRow key={cmd.insert} cmd={cmd} onInsert={onInsert} />
+            <CommandRow key={cmd.insert} cmd={cmd} onInsert={onInsert} onSend={onSend} />
           ))}
         </div>
 
         <SectionHeading>Acciones</SectionHeading>
         <div className="flex flex-col gap-0.5">
           {SLASH_PANEL_COMMANDS.map((cmd) => (
-            <CommandRow key={cmd.insert} cmd={cmd} onInsert={onInsert} />
+            <CommandRow key={cmd.insert} cmd={cmd} onInsert={onInsert} onSend={onSend} />
           ))}
         </div>
       </div>

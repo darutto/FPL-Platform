@@ -11,12 +11,12 @@
  * Keyboard navigation (ArrowUp/ArrowDown/Enter/Escape) is handled by InputBar
  * so the textarea never loses focus while the menu is open.
  */
-import type { SlashCommand } from '@/lib/slash-commands';
+import type { SlashCommandLike } from '@/lib/slash-commands';
 
-interface Props {
-  commands: SlashCommand[];
+interface Props<T extends SlashCommandLike> {
+  commands: T[];
   activeIndex: number;
-  onSelect: (command: SlashCommand) => void;
+  onSelect: (command: T) => void;
   id?: string;
 }
 
@@ -25,7 +25,7 @@ export function optionId(command: string): string {
   return `slash-option-${command.slice(1)}`;
 }
 
-export default function SlashMenu({ commands, activeIndex, onSelect, id }: Props) {
+export default function SlashMenu<T extends SlashCommandLike>({ commands, activeIndex, onSelect, id }: Props<T>) {
   if (commands.length === 0) return null;
 
   return (

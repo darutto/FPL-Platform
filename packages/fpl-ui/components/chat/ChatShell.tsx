@@ -6,8 +6,13 @@
  * Screens (SwipePager): Squad pitch · Chat (home) · Quick commands.
  *
  * Chat supports:
- *   - Stateless mode (default): POST /ask
- *   - Session mode: POST /session/{id}/ask with pronoun resolution
+ *   - Stateless mode (default): every question goes through POST /ask on its
+ *     own, with no memory of prior turns.
+ *   - Follow-up mode: tapping "Seguir conversación" on the last reply arms
+ *     the NEXT message to go through POST /session/{id}/ask (creating a
+ *     session on first use), so it can use pronoun resolution against that
+ *     reply. Sending without arming follow-up clears any active session —
+ *     each unarmed question is treated as a brand-new conversation.
  *   - Squad context: optional FPL team ID attached to every ask (Phase 2f)
  *   - SlashMenu dropdown via InputBar + SlashMenu (Phase 2g)
  *
@@ -36,8 +41,10 @@ import SquadPitch from '@/components/squad/SquadPitch';
 export default function ChatShell() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
-  const [sessionMode, setSessionMode] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  // Message id whose "Seguir conversación" button was tapped — arms the
+  // NEXT send to use the session path. Reset after every send.
+  const [followUpArmedFor, setFollowUpArmedFor] = useState<string | null>(null);
   const [squadContext, setSquadContext] = useState<SquadContext | null>(null);
   // Incremented after each completed turn so QuotaIndicator re-fetches quota
   const [quotaRefreshTrigger, setQuotaRefreshTrigger] = useState(0);
@@ -62,22 +69,14 @@ export default function ChatShell() {
     setScreen(1);
   }, []);
 
-  const handleClearSession = useCallback(async () => {
-    if (sessionId) {
-      try { await clearSession(sessionId); } catch { /* ignore — may already be expired */ }
-      setSessionId(null);
-    }
-    setMessages([]);
-  }, [sessionId]);
+  // Arm follow-up mode for the next message, anchored to this reply.
+  const handleFollowUp = useCallback((messageId: string) => {
+    setFollowUpArmedFor(messageId);
+  }, []);
 
-  const toggleSessionMode = useCallback(async () => {
-    if (sessionMode && sessionId) {
-      try { await clearSession(sessionId); } catch { /* ignore */ }
-      setSessionId(null);
-    }
-    setSessionMode((prev) => !prev);
-    setMessages([]);
-  }, [sessionMode, sessionId]);
+  const cancelFollowUp = useCallback(() => {
+    setFollowUpArmedFor(null);
+  }, []);
 
   const sendMessage = useCallback(async (rawInput: string) => {
     const input = rawInput.trim();
@@ -93,8 +92,15 @@ export default function ChatShell() {
       text: input,
     };
 
+    // @resource queries (@puntos, @lesionados, ...) are stateless lookups
+    // only supported on the /ask (ask_v2) path — /session/{id}/ask still
+    // runs the legacy respond() pipeline, which doesn't recognize them.
+    const isResourceQuery = effectiveQuestion.trim().startsWith('@');
+    const isFollowUp = followUpArmedFor != null && !isResourceQuery;
+
     setMessages((prev) => [...prev, userMessage]);
     setLoading(true);
+    setFollowUpArmedFor(null);
 
     try {
       let response: AskResponse;
@@ -106,9 +112,7 @@ export default function ChatShell() {
         squad_context: squadContext ?? null,
       };
 
-      if (!sessionMode) {
-        response = await ask(requestBody);
-      } else {
+      if (isFollowUp) {
         let activeId = sessionId;
         if (activeId === null) {
           const created = await createSession();
@@ -123,6 +127,14 @@ export default function ChatShell() {
           }
           throw err;
         }
+      } else {
+        // Not a follow-up: this is a brand-new conversation. Drop any
+        // active session so prior context doesn't leak into resolution.
+        if (sessionId) {
+          clearSession(sessionId).catch(() => { /* ignore — may already be expired */ });
+          setSessionId(null);
+        }
+        response = await ask(requestBody);
       }
 
       const assistantMessage: Message = {
@@ -153,7 +165,14 @@ export default function ChatShell() {
     } finally {
       setLoading(false);
     }
-  }, [loading, sessionMode, sessionId, squadContext]);
+  }, [loading, followUpArmedFor, sessionId, squadContext]);
+
+  // Quick commands ("Vistas rápidas") are complete queries — send immediately
+  // and jump to the chat screen, skipping the edit step.
+  const handleSend = useCallback((text: string) => {
+    setScreen(1);
+    sendMessage(text);
+  }, [sendMessage]);
 
   const isEmpty = messages.length === 0;
 
@@ -171,36 +190,9 @@ export default function ChatShell() {
         <PagerScreen maxWidth={672}>
           <div className="h-full flex flex-col rounded-card border border-white/10 bg-bf-surface overflow-hidden">
             <header className="px-4 py-3 border-b border-white/10 flex-shrink-0 space-y-2 bg-black/25">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <h1 className="text-[10px] font-bold uppercase tracking-widest text-bf-text/50 leading-none">Chat</h1>
-                  <span className="w-1.5 h-1.5 rounded-full bg-bf-turquoise" />
-                </div>
-
-                <div className="flex items-center gap-3">
-                  {sessionMode && sessionId && (
-                    <button
-                      onClick={handleClearSession}
-                      disabled={loading}
-                      className="text-xs text-bf-gray hover:text-bf-text transition-colors disabled:opacity-40"
-                    >
-                      Limpiar sesión
-                    </button>
-                  )}
-
-                  <button
-                    onClick={toggleSessionMode}
-                    disabled={loading}
-                    className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border transition-colors disabled:opacity-40 ${
-                      sessionMode
-                        ? 'border-bf-turquoise/60 text-bf-turquoise bg-bf-turquoise/10'
-                        : 'border-white/10 text-bf-gray hover:text-bf-text hover:border-white/20'
-                    }`}
-                  >
-                    <span className={`w-1.5 h-1.5 rounded-full ${sessionMode ? 'bg-bf-turquoise' : 'bg-bf-gray/60'}`} />
-                    {sessionMode ? 'Conversación' : 'Directo'}
-                  </button>
-                </div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-[10px] font-bold uppercase tracking-widest text-bf-text/50 leading-none">Chat</h1>
+                <span className="w-1.5 h-1.5 rounded-full bg-bf-turquoise" />
               </div>
 
               {/* Squad context row */}
@@ -216,11 +208,25 @@ export default function ChatShell() {
                   <StarterPrompts onSelect={sendMessage} />
                 </div>
               ) : (
-                <MessageList messages={messages} loading={loading} />
+                <MessageList
+                  messages={messages}
+                  loading={loading}
+                  onFollowUp={handleFollowUp}
+                  followUpArmedFor={followUpArmedFor}
+                />
               )}
             </div>
 
             <div className="flex-shrink-0 px-3 pb-3 pt-2 space-y-2 border-t border-white/5">
+              {followUpArmedFor && (
+                <button
+                  onClick={cancelFollowUp}
+                  className="flex items-center gap-1.5 text-[11px] font-medium text-bf-turquoise bg-bf-turquoise/10 border border-bf-turquoise/40 rounded-full px-2.5 py-1"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-bf-turquoise" />
+                  Respondiendo a esto · toca para cancelar
+                </button>
+              )}
               <InputBar onSubmit={sendMessage} disabled={loading} insert={insert} />
               <div className="flex justify-end">
                 <QuotaIndicator refreshTrigger={quotaRefreshTrigger} />
@@ -232,7 +238,7 @@ export default function ChatShell() {
         {/* SCREEN 2 — Quick commands */}
         <PagerScreen maxWidth={520}>
           <div className="h-full rounded-card border border-white/10 bg-bf-surface overflow-hidden">
-            <CommandPanel onInsert={handleInsert} />
+            <CommandPanel onInsert={handleInsert} onSend={handleSend} />
           </div>
         </PagerScreen>
       </SwipePager>

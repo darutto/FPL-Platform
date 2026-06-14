@@ -15,7 +15,7 @@
  * Plain text submission is unchanged — no slash prefix = no menu, no hint.
  */
 import { useState, useRef, useEffect, type KeyboardEvent } from 'react';
-import { matchSlashCommands, type SlashCommand } from '@/lib/slash-commands';
+import { SLASH_COMMANDS, matchCommands, type SlashCommandLike } from '@/lib/slash-commands';
 import SlashMenu, { optionId } from './SlashMenu';
 
 const SLASH_MENU_ID = 'slash-command-listbox';
@@ -35,11 +35,21 @@ interface Props {
   disabled?: boolean;
   /** When set/changed, replaces the input value and focuses the textarea. */
   insert?: InsertRequest | null;
+  /** Slash-command registry for the menu. Defaults to the FPL registry. */
+  commands?: SlashCommandLike[];
+  /** Placeholder shown when no slash command is active. */
+  defaultPlaceholder?: string;
 }
 
 const DEFAULT_PLACEHOLDER = 'Escribe tu pregunta o usa /capitan, /comparar…';
 
-export default function InputBar({ onSubmit, disabled = false, insert = null }: Props) {
+export default function InputBar({
+  onSubmit,
+  disabled = false,
+  insert = null,
+  commands = SLASH_COMMANDS,
+  defaultPlaceholder = DEFAULT_PLACEHOLDER,
+}: Props) {
   const [value, setValue] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   const [cmdPlaceholder, setCmdPlaceholder] = useState<string | null>(null);
@@ -54,13 +64,13 @@ export default function InputBar({ onSubmit, disabled = false, insert = null }: 
     textareaRef.current?.focus();
   }, [insert]);
 
-  const menuCommands: SlashCommand[] = matchSlashCommands(value);
+  const menuCommands: SlashCommandLike[] = matchCommands(value, commands);
   const menuOpen = menuCommands.length > 0;
   const activeOptionId = menuOpen ? optionId(menuCommands[activeIndex].command) : undefined;
 
-  const handleSelect = (sc: SlashCommand) => {
+  const handleSelect = (sc: SlashCommandLike) => {
     setValue(sc.command + ' ');
-    setCmdPlaceholder(sc.placeholder);
+    setCmdPlaceholder(sc.placeholder ?? null);
     setActiveIndex(0);
     // Return focus to the textarea so the user can type the argument
     textareaRef.current?.focus();
@@ -117,7 +127,7 @@ export default function InputBar({ onSubmit, disabled = false, insert = null }: 
     }
   };
 
-  const placeholder = cmdPlaceholder ?? DEFAULT_PLACEHOLDER;
+  const placeholder = cmdPlaceholder ?? defaultPlaceholder;
 
   return (
     <div className="relative">

@@ -17,15 +17,35 @@
  */
 import { INTENT_HINT_ALLOWLIST, type IntentHint } from './types';
 
-export interface SlashCommand {
+/**
+ * Minimal shape needed by SlashMenu/InputBar — domain-agnostic.
+ * FPL's SlashCommand (with intent_hint) and WC's WcSlashCommand both
+ * satisfy this structurally, so the input/menu components can be shared.
+ */
+export interface SlashCommandLike {
   /** The slash prefix, e.g. "/capitan" */
   command: string;
   /** Display label shown in the slash menu */
   label: string;
+  /** Input placeholder shown after selecting the command */
+  placeholder?: string;
+}
+
+export interface SlashCommand extends SlashCommandLike {
   /** intent_hint value sent to the backend */
   intent_hint: IntentHint;
-  /** Input placeholder shown after selecting the command */
   placeholder: string;
+}
+
+/**
+ * Return commands whose prefix matches the current input.
+ * Generic over any SlashCommandLike[] so WC's registry can reuse this.
+ * Returns [] when input doesn't start with '/'.
+ */
+export function matchCommands<T extends SlashCommandLike>(input: string, commands: readonly T[]): T[] {
+  if (!input.startsWith('/')) return [];
+  const query = input.toLowerCase();
+  return commands.filter((sc) => sc.command.startsWith(query));
 }
 
 /**
@@ -93,9 +113,7 @@ for (const sc of SLASH_COMMANDS) {
  * Returns [] when input doesn't start with '/'.
  */
 export function matchSlashCommands(input: string): SlashCommand[] {
-  if (!input.startsWith('/')) return [];
-  const query = input.toLowerCase();
-  return SLASH_COMMANDS.filter((sc) => sc.command.startsWith(query));
+  return matchCommands(input, SLASH_COMMANDS);
 }
 
 /**
