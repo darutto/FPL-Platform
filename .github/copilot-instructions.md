@@ -64,6 +64,7 @@ You are an expert coding agent working inside VS Code on this workspace.
   3. Claude Code Prompt
   4. Optional Review Note
 - When evaluating a completed slice, inspect the actual changed files and run the relevant tests before accepting it.
+- When a feature or phase is accepted, immediately create a commit for the accepted work and provide the commit hash/details in the same chat response.
 - For next-slice prompts, include:
   - objective
   - scope
