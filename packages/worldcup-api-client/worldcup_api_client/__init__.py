@@ -18,7 +18,9 @@ feed; ``standings``, ``top_scorers``, ``head_to_head`` are computed from it.
 since this feed has no lineup/match-stats data.
 """
 
+from .player_ids import UnknownPlayerError  # noqa: F401
 from .team_ids import UnknownTeamError  # noqa: F401
+from .wc2022_data import WC2022DataError, get_player_wc2022_summary, get_wc2022_results  # noqa: F401
 from .wc_client import (  # noqa: F401
     WorldCupAPIError,
     TTL_STATIC_S,
@@ -32,7 +34,9 @@ from .wc_client import (  # noqa: F401
     get_lineup,
     get_standings,
     get_top_scorers,
+    get_top_assists,
     get_fantasy_top_players,
     get_head_to_head,
+    get_player_info,
     get_match_stats,
 )

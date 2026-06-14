@@ -59,6 +59,7 @@ from typing import Any
 
 import httpx
 
+from .player_ids import UnknownPlayerError, resolve_player
 from .team_ids import UnknownTeamError, resolve_squad_id
 
 # ---------------------------------------------------------------------------
@@ -281,14 +282,20 @@ def get_fixtures(team: str | None = None, date: str | None = None, stage: str | 
 
 
 def get_squad(team: str) -> Any:
-    """Full tournament roster for *team* (English FIFA name)."""
+    """Official 26-man tournament roster for *team* (English FIFA name).
+
+    ``players.json`` carries every player ever shortlisted for a squad
+    (26-55 entries), tagged ``status: "playing"`` for the confirmed 26 and
+    ``"transferred"`` for those cut before the final squad. Only "playing"
+    players are returned so the roster matches the real squad size.
+    """
     squads = _get_squads()
     squad_id = resolve_squad_id(team, squads)
     squad = next(s for s in squads if s["id"] == squad_id)
     roster = [
         {"name": _player_name(p), "position": p.get("position"), "price": p.get("price")}
         for p in _get_players()
-        if p.get("squadId") == squad_id
+        if p.get("squadId") == squad_id and p.get("status") == "playing"
     ]
     return {"team": squad["name"], "group": squad["group"].upper(), "players": roster}
 
@@ -362,14 +369,12 @@ def get_standings(group: str | None = None) -> Any:
     return {"groups": {g.upper(): _finalize(rows) for g, rows in groups.items()}}
 
 
-def get_top_scorers() -> Any:
-    """Tournament top goalscorers, computed from completed matches'
-    goal/assist records."""
-    players_by_id = {p["id"]: p for p in _get_players()}
-    squads_by_id = {s["id"]: s for s in _get_squads()}
+def _compute_goals_assists(rounds: list[dict[str, Any]]) -> tuple[dict[int, int], dict[int, int]]:
+    """Goal/assist counts per ``playerId``, from completed matches'
+    goal/assist records. Shared by ``get_top_scorers`` and ``get_player_info``."""
     goals: dict[int, int] = {}
     assists: dict[int, int] = {}
-    for _, t in _iter_tournaments(_get_rounds()):
+    for _, t in _iter_tournaments(rounds):
         for side in ("home", "away"):
             for entry in (t.get(f"{side}GoalScorersAssists") or []):
                 pid, aid = entry.get("playerId"), entry.get("assistId")
@@ -377,6 +382,15 @@ def get_top_scorers() -> Any:
                     goals[pid] = goals.get(pid, 0) + 1
                 if aid:
                     assists[aid] = assists.get(aid, 0) + 1
+    return goals, assists
+
+
+def get_top_scorers() -> Any:
+    """Tournament top goalscorers, computed from completed matches'
+    goal/assist records."""
+    players_by_id = {p["id"]: p for p in _get_players()}
+    squads_by_id = {s["id"]: s for s in _get_squads()}
+    goals, assists = _compute_goals_assists(_get_rounds())
 
     scorers = []
     for pid, g in goals.items():
@@ -392,6 +406,30 @@ def get_top_scorers() -> Any:
         })
     scorers.sort(key=lambda r: (-r["goals"], -r["assists"], r["player"]))
     return {"scorers": scorers}
+
+
+def get_top_assists() -> Any:
+    """Tournament top ASSIST providers, computed from completed matches'
+    goal/assist records (sibling of ``get_top_scorers``, sorted by assists
+    first)."""
+    players_by_id = {p["id"]: p for p in _get_players()}
+    squads_by_id = {s["id"]: s for s in _get_squads()}
+    goals, assists = _compute_goals_assists(_get_rounds())
+
+    assisters = []
+    for pid, a in assists.items():
+        player = players_by_id.get(pid)
+        if not player:
+            continue
+        squad = squads_by_id.get(player.get("squadId"))
+        assisters.append({
+            "player": _player_name(player),
+            "team": squad["name"] if squad else None,
+            "goals": goals.get(pid, 0),
+            "assists": a,
+        })
+    assisters.sort(key=lambda r: (-r["assists"], -r["goals"], r["player"]))
+    return {"assisters": assisters}
 
 
 def get_fantasy_top_players(position: str | None = None, team: str | None = None,
@@ -443,6 +481,31 @@ def get_head_to_head(team_a: str, team_b: str) -> Any:
     }
 
 
+def get_player_info(name: str) -> Any:
+    """Single-player profile: team, position, price, fantasy stats (total/avg
+    points, form) and tournament goals/assists. ``name`` is matched against
+    ``players.json`` via ``resolve_player`` (accent-insensitive, exact then
+    substring). Raises ``UnknownPlayerError`` for unmatched names."""
+    players = _get_players()
+    squads_by_id = {s["id"]: s for s in _get_squads()}
+    player = resolve_player(name, players)
+    squad = squads_by_id.get(player.get("squadId"))
+    stats = player.get("stats") or {}
+    goals, assists = _compute_goals_assists(_get_rounds())
+    pid = player["id"]
+    return {
+        "player": _player_name(player),
+        "team": squad["name"] if squad else None,
+        "position": player.get("position"),
+        "price": player.get("price"),
+        "total_points": stats.get("totalPoints", 0),
+        "avg_points": stats.get("avgPoints", 0),
+        "form": stats.get("form", 0),
+        "goals": goals.get(pid, 0),
+        "assists": assists.get(pid, 0),
+    }
+
+
 def get_match_stats(match_id: str | int) -> Any:
     """Not available from this data source — see module docstring."""
     return {
@@ -455,6 +518,7 @@ def get_match_stats(match_id: str | int) -> Any:
 __all__ = [
     "WorldCupAPIError",
     "UnknownTeamError",
+    "UnknownPlayerError",
     "TTL_STATIC_S",
     "TTL_SEMI_STATIC_S",
     "TTL_LIVE_S",
@@ -466,7 +530,9 @@ __all__ = [
     "get_lineup",
     "get_standings",
     "get_top_scorers",
+    "get_top_assists",
     "get_fantasy_top_players",
     "get_head_to_head",
+    "get_player_info",
     "get_match_stats",
 ]
