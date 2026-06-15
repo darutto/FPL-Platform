@@ -11,6 +11,7 @@
  * on swaps coral surfaces to dark ink text via the `hc:` Tailwind variant.
  */
 import { useEffect, useState } from 'react';
+import { UserButton } from '@clerk/nextjs';
 
 const CONTRAST_LS_KEY = 'bf_contrast';
 
@@ -83,6 +84,26 @@ export default function TopBar({ teamName, gw, title = 'FPL Asistente', subtitle
         >
           Aa
         </button>
+        <UserButton
+          appearance={{
+            elements: {
+              avatarBox: 'h-7 w-7',
+              userButtonPopoverActionButton: '!opacity-100',
+              userButtonPopoverActionButtonText: '!text-[#f0f0f0] !opacity-100',
+              userButtonPopoverActionButtonIcon: '!text-[#f0f0f0] !opacity-100',
+              userButtonPopoverFooter: 'hidden',
+            },
+            variables: {
+              colorPrimary: '#FF6A4D',
+              colorBackground: '#211F29',
+              colorForeground: '#f0f0f0',
+              colorMuted: '#33303f',
+              colorMutedForeground: '#cfcdd9',
+              colorInput: '#1c1a26',
+              colorInputForeground: '#f0f0f0',
+            },
+          }}
+        />
       </div>
     </div>
   );

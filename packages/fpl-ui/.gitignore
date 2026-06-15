@@ -5,3 +5,6 @@
 
 # build artifacts
 *.tsbuildinfo
+
+# clerk configuration (can include secrets)
+/.clerk/

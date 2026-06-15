@@ -13,3 +13,15 @@
   background: rgba(255, 255, 255, 0.15);
   border-radius: 4px;
 }
+
+/* Clerk UserButton popover: the appearance-prop overrides for
+   userButtonPopoverActionButtonText/Icon don't win on the "Manage account"
+   row (Clerk ships a more specific internal rule for it), so override by
+   class name directly with extra specificity. */
+.cl-userButtonPopoverActionButton__manageAccount .cl-userButtonPopoverActionButtonText,
+.cl-userButtonPopoverActionButton__manageAccount .cl-userButtonPopoverActionButtonIcon,
+.cl-userButtonPopoverActionButton .cl-userButtonPopoverActionButtonText,
+.cl-userButtonPopoverActionButton .cl-userButtonPopoverActionButtonIcon {
+  color: #f0f0f0 !important;
+  opacity: 1 !important;
+}

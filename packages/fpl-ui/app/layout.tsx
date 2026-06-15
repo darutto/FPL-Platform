@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Barlow, Archivo_Black } from 'next/font/google';
+import { ClerkProvider } from '@clerk/nextjs';
 import './globals.css';
 
 // Brand typography (Stitch FPL Chat Hi-Fi): Barlow for UI text,
@@ -29,8 +30,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es" className={`${barlow.variable} ${archivoBlack.variable}`}>
-      <body className="bg-bf-bg text-bf-text antialiased font-sans">{children}</body>
-    </html>
+    <ClerkProvider afterSignOutUrl="/login">
+      <html lang="es" className={`${barlow.variable} ${archivoBlack.variable}`}>
+        {/* suppressHydrationWarning: browser extensions (Grammarly, etc.) inject
+            data-* attributes on <body> before hydration — harmless false positive. */}
+        <body className="bg-bf-bg text-bf-text antialiased font-sans" suppressHydrationWarning>{children}</body>
+      </html>
+    </ClerkProvider>
   );
 }
