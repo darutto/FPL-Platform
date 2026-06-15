@@ -158,7 +158,12 @@ function OriginBadges({ message }: { message: Message }) {
   // ("Sin datos del torneo", e.g. a "no tengo datos" refusal).
   let originBadgeLabel: string;
   let originBadgeClassName: string;
-  if (message.wcResponse != null) {
+  if (message.wcResponse?.source === 'web_search') {
+    // Unverified external synthesis — NEVER "Datos verificados". Cyan matches
+    // the WcWebSearchCard accent (the system's web/search color).
+    originBadgeLabel = 'Búsqueda web + IA';
+    originBadgeClassName = 'border-bf-cyan/40 bg-bf-cyan/10 text-bf-cyan';
+  } else if (message.wcResponse != null) {
     const grounded = message.wcResponse.grounded ?? false;
     originBadgeLabel = grounded ? 'Datos verificados' : 'Sin datos del torneo';
     originBadgeClassName = grounded

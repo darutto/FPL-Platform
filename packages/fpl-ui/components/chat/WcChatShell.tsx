@@ -61,6 +61,14 @@ export default function WcChatShell() {
   // 0 = chat (home), 1 = quick commands
   const [screen, setScreen] = useState(0);
   const [insert, setInsert] = useState<InsertRequest | null>(null);
+  // Premium web-search opt-in (sticky globe toggle). The backend enforces the
+  // tier gate; `webSearchAvailable` only governs the toggle's UI affordance.
+  // TODO(clerk): derive availability from the live Patreon tier once Clerk
+  // supplies X-User-Tier. Until then the backend returns feature_gated for
+  // ineligible users, which renders as a Spanish upgrade prompt.
+  const [webSearchOn, setWebSearchOn] = useState(false);
+  const webSearchAvailable = true;
+  const [lastQuery, setLastQuery] = useState('');
 
   const handleInsert = useCallback((text: string, placeholder?: string) => {
     setInsert({ text, nonce: Date.now(), placeholder });
@@ -80,12 +88,19 @@ export default function WcChatShell() {
     setMessages([]);
   }, []);
 
-  const sendMessage = useCallback(async (rawInput: string) => {
+  const sendMessage = useCallback(async (
+    rawInput: string,
+    opts?: { forceWebSearch?: boolean },
+  ) => {
     const input = rawInput.trim();
     if (!input || loading) return;
 
     const parsed = parseWcSlashCommand(input);
     const effectiveQuestion = parsed?.question ?? input;
+    // Explicit opt-in only: the sticky globe toggle, or the one-tap "Buscar en
+    // la web" escalation chip (forceWebSearch). Never silent.
+    const webSearchRequested = opts?.forceWebSearch ?? webSearchOn;
+    setLastQuery(input);
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
@@ -107,6 +122,7 @@ export default function WcChatShell() {
       const response = await wcAsk({
         question: effectiveQuestion,
         session_id: sessionMode ? activeSessionId : null,
+        web_search_requested: webSearchRequested,
       });
 
       const assistantMessage: Message = {
@@ -135,7 +151,27 @@ export default function WcChatShell() {
     } finally {
       setLoading(false);
     }
-  }, [loading, sessionMode, sessionId]);
+  }, [loading, sessionMode, sessionId, webSearchOn]);
+
+  // One-tap "Buscar en la web" escalation: re-run the last query with web
+  // search forced on (shown when an answer had no tournament data).
+  const handleWebSearchEscalation = useCallback(() => {
+    if (!lastQuery || loading) return;
+    setWebSearchOn(true);
+    sendMessage(lastQuery, { forceWebSearch: true });
+  }, [lastQuery, loading, sendMessage]);
+
+  // Offer the escalation chip when the most recent assistant turn produced no
+  // grounded tournament data and wasn't itself a web-search answer.
+  const lastMessage = messages[messages.length - 1];
+  const showWebSearchChip =
+    webSearchAvailable &&
+    !loading &&
+    lastMessage?.role === 'assistant' &&
+    !lastMessage.isError &&
+    lastMessage.wcResponse != null &&
+    lastMessage.wcResponse.source !== 'web_search' &&
+    !(lastMessage.wcResponse.grounded ?? false);
 
   const isEmpty = messages.length === 0;
 
@@ -195,12 +231,28 @@ export default function WcChatShell() {
             </div>
 
             <div className="flex-shrink-0 px-3 pb-3 pt-2 space-y-2 border-t border-white/5">
+              {showWebSearchChip && (
+                <div className="flex justify-center">
+                  <button
+                    onClick={handleWebSearchEscalation}
+                    disabled={loading}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold bg-bf-cyan/10 hover:bg-bf-cyan/20 border border-bf-cyan/40 text-bf-cyan rounded-full px-3 py-1.5 transition-colors disabled:opacity-40"
+                  >
+                    🌐 Buscar en la web
+                  </button>
+                </div>
+              )}
               <InputBar
                 onSubmit={sendMessage}
                 disabled={loading}
                 insert={insert}
                 commands={WC_SLASH_COMMANDS}
                 defaultPlaceholder="Escribe tu pregunta o usa /partidos, /clasificacion…"
+                webSearch={{
+                  enabled: webSearchOn,
+                  onToggle: () => setWebSearchOn((v) => !v),
+                  available: webSearchAvailable,
+                }}
               />
             </div>
           </div>

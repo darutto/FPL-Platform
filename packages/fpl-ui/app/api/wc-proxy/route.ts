@@ -32,11 +32,20 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Forward identity/tier headers (set by Clerk middleware) so the WC backend
+  // can enforce the premium web-search tier gate. Absent in dev until Clerk is
+  // wired — the backend falls back to WC_DEV_TIER / "free".
+  const forwardHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+  const xUserId = request.headers.get('x-user-id');
+  const xUserTier = request.headers.get('x-user-tier');
+  if (xUserId) forwardHeaders['x-user-id'] = xUserId;
+  if (xUserTier) forwardHeaders['x-user-tier'] = xUserTier;
+
   let backendResponse: Response;
   try {
     backendResponse = await fetch(`${BACKEND_URL}/ask`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: forwardHeaders,
       body: JSON.stringify(body),
     });
   } catch (err) {

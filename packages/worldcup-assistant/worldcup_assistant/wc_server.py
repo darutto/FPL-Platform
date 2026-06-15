@@ -55,7 +55,7 @@ for _pkg in [
     if _pkg not in sys.path:
         sys.path.insert(0, _pkg)
 
-from fastapi import FastAPI, HTTPException  # noqa: E402
+from fastapi import FastAPI, HTTPException, Request  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
 from llm_orchestrator_core import LOOP_OK, check_provider_health  # noqa: E402
@@ -66,6 +66,39 @@ _LOG = logging.getLogger(__name__)
 
 #: Domain namespace prefix for all session keys (end-to-end isolation rule).
 _WC_SESSION_PREFIX: str = "wc:"
+
+# ---------------------------------------------------------------------------
+# Premium web-search gating (tier names mirror fpl_grounded_assistant.quota)
+# ---------------------------------------------------------------------------
+#: Patreon tiers entitled to the paid, per-query web-search feature. Free tier
+#: is excluded. Usage limits / token quotas for WC are a later phase; for now
+#: this is a pure tier allowlist plus an explicit per-request opt-in.
+WEB_SEARCH_TIERS: frozenset[str] = frozenset({"patreon_basic", "patreon_premium"})
+
+#: Default tier when no auth header is present (Clerk middleware sets the real
+#: ``X-User-Tier``; ``WC_DEV_TIER`` lets local dev exercise a paid tier).
+_DEFAULT_TIER: str = os.environ.get("WC_DEV_TIER", "free").strip() or "free"
+
+_PATREON_URL: str = "https://www.patreon.com/fpl_asistente"
+
+#: Spanish response when a free-tier user requests web search.
+_FEATURE_GATED_ES: str = (
+    "La búsqueda web es una función premium para mecenas de Patreon (nivel "
+    "Básico o superior). Con ella puedo buscar noticias, lesiones y rumores en "
+    "vivo cuando no tengo datos del torneo. Hazte mecenas para activarla: "
+    f"{_PATREON_URL}"
+)
+
+
+def _extract_tier(request: Request) -> str:
+    """Tier for this request from the ``X-User-Tier`` header (Clerk-supplied).
+
+    Falls back to ``_DEFAULT_TIER`` (``WC_DEV_TIER`` env, default ``"free"``)
+    when the header is absent — e.g. before Clerk is wired or in local dev.
+    Unknown/blank values normalise to ``"free"`` (fail-closed for a paid gate).
+    """
+    raw = (request.headers.get("x-user-tier") or "").strip().lower()
+    return raw or _DEFAULT_TIER
 
 _SESSION_TTL_SECONDS: int = 1800   # idle timeout; parity with fpl_server
 _SESSION_MAX_COUNT:   int = 100
@@ -139,6 +172,10 @@ class AskRequest(BaseModel):
     squad_context: dict[str, Any] | None = None
     intent_hint: str | None = None
     session_id: str | None = None
+    #: Explicit per-request opt-in for the premium web-search path (set by the
+    #: globe toggle / "Buscar en la web" chip). The tool is only added to the
+    #: loop when this is True AND the caller's tier is in WEB_SEARCH_TIERS.
+    web_search_requested: bool = False
 
 
 class AskResponse(BaseModel):
@@ -182,6 +219,13 @@ class AskResponse(BaseModel):
     players_info: list[dict[str, Any]] | None = None
     wc2022_stats: list[dict[str, Any]] | None = None
     wc2022_results: list[dict[str, Any]] | None = None
+    #: Unverified web-search payload (results + timestamp + injected Spanish
+    #: ``summary``/``topic``). Present only when web_search ran on an ok turn.
+    web_search: dict[str, Any] | None = None
+    #: Answer provenance: ``"web_search"`` (unverified external synthesis),
+    #: ``"tool"`` (grounded tournament data), or ``None`` (text-only/refusal).
+    #: Drives the UI origin badge + card selection (see MessageList.tsx).
+    source: str | None = None
     grounded: bool = False
 
 
@@ -258,10 +302,28 @@ def create_session() -> CreateSessionResponse:
 
 
 @app.post("/ask", response_model=AskResponse)
-def ask(req: AskRequest) -> AskResponse:
+def ask(req: AskRequest, request: Request) -> AskResponse:
     question = (req.question or "").strip()
     if not question:
         raise HTTPException(status_code=422, detail="question must be non-empty")
+
+    # --- Premium web-search gate (tier allowlist + explicit opt-in) -------
+    # Resolve eligibility BEFORE any LLM/search work so a free-tier request can
+    # never incur paid-search spend. When the user opted in but is not entitled,
+    # short-circuit with a Spanish upgrade prompt and zero model calls.
+    tier = _extract_tier(request)
+    if req.web_search_requested and tier not in WEB_SEARCH_TIERS:
+        return AskResponse(
+            final_text=_FEATURE_GATED_ES,
+            outcome="feature_gated",
+            supported=False,
+            intent="wc_info",
+            review_passed=False,
+            llm_used=False,
+            degraded=False,
+            source=None,
+        )
+    web_search_enabled = req.web_search_requested and tier in WEB_SEARCH_TIERS
 
     # --- Session history (wc:-namespaced, optional) -----------------------
     session_id: str | None = None
@@ -275,6 +337,7 @@ def ask(req: AskRequest) -> AskResponse:
         question,
         dynamic_context=_state.get("context", ""),
         history=history,
+        web_search_enabled=web_search_enabled,
     )
 
     # --- Persist the turn (plain-text turns only: provider-portable and
@@ -318,6 +381,8 @@ def ask(req: AskRequest) -> AskResponse:
         players_info=result.players_info if ok else None,
         wc2022_stats=result.wc2022_stats if ok else None,
         wc2022_results=result.wc2022_results if ok else None,
+        web_search=result.web_search if ok else None,
+        source=("web_search" if (ok and result.web_search) else None),
         grounded=result.grounded if ok else False,
     )
 

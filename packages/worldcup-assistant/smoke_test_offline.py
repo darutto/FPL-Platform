@@ -37,7 +37,13 @@ def check(label: str, cond: bool, detail: str = "") -> None:
 import llm_orchestrator_core as core  # noqa: E402
 import worldcup_api_client as wcapi  # noqa: E402
 from worldcup_assistant import ask_wc, locale_es  # noqa: E402
-from worldcup_assistant.tools import WC_TOOL_NAMES, WC_TOOL_SPECS, execute_wc_tool  # noqa: E402
+from worldcup_assistant.tools import (  # noqa: E402
+    WC_TOOL_NAMES,
+    WC_TOOL_SPECS,
+    build_wc_tool_specs,
+    execute_wc_tool,
+)
+import worldcup_assistant.tools as _wctools  # noqa: E402
 from worldcup_assistant.context_builder import WC_SYSTEM_PROMPT  # noqa: E402
 
 check("imports: llm_orchestrator_core / worldcup_api_client / worldcup_assistant", True)
@@ -71,7 +77,14 @@ check("locale: unmapped value passes through",
       locale_es.localize_country("Atlantis") == "Atlantis")
 
 # --- 4. Tool registry shape ---------------------------------------------------
-check("tools: 13 specs registered", len(WC_TOOL_SPECS) == 13, str(sorted(WC_TOOL_NAMES)))
+check("tools: 13 base specs registered", len(WC_TOOL_SPECS) == 13,
+      str(sorted(s.name for s in WC_TOOL_SPECS)))
+check("tools: 14 specs with web_search enabled",
+      len(build_wc_tool_specs(web_search_enabled=True)) == 14
+      and any(s.name == "web_search" for s in build_wc_tool_specs(web_search_enabled=True)),
+      str(sorted(WC_TOOL_NAMES)))
+check("tools: web_search absent when disabled",
+      all(s.name != "web_search" for s in build_wc_tool_specs(web_search_enabled=False)))
 anthropic_tools = core.build_tools("anthropic", WC_TOOL_SPECS)
 openai_tools = core.build_tools("openai", WC_TOOL_SPECS)
 gemini_tools = core.build_tools("gemini", WC_TOOL_SPECS)
@@ -156,12 +169,66 @@ check("loop: no-client failure is safe + Spanish fallback",
       f"{result2.outcome} / {result2.final_text}")
 
 # --- 8. ask_wc wrapper with injection ------------------------------------------
+# The injected _request_fn returns Anthropic-shaped responses, so pin the
+# provider to anthropic for these mechanics tests (production defaults to the
+# Gemini Pro gatekeeper — verified separately, not via the offline fake).
+os.environ["WC_PROVIDER"] = "anthropic"
 _calls["n"] = 0
 wc_result = ask_wc("¿Cómo va el grupo A?", _request_fn=_fake_request)
 check("ask_wc: returns WCAskResult ok",
       wc_result.outcome == core.LOOP_OK and wc_result.llm_used, wc_result.outcome)
 check("ask_wc: system prompt enforces Spanish",
       "Responde SIEMPRE en español" in WC_SYSTEM_PROMPT)
+check("ask_wc: system prompt has web_search routing guardrail",
+      "BÚSQUEDA WEB" in WC_SYSTEM_PROMPT and "ÚLTIMO RECURSO" in WC_SYSTEM_PROMPT)
+
+# --- 8b. web_search tool path (stubbed search_web, no network) -----------------
+def _fake_search_web(query):  # noqa: ANN001, ANN202
+    check("web_search: query is keyword-optimized (no raw sentence)",
+          "?" not in query and len(query) < 60, repr(query))
+    return {
+        "results": [
+            {"title": "Francia: duda de Mbappé", "snippet": "Reportes encontrados.",
+             "url": "https://www.bbc.com/sport/abc123", "source": "bbc.com",
+             "published": "2026-06-14"},
+        ],
+        "answer": "English quick-take that must never reach the UI.",
+        "timestamp": "2026-06-14T00:00:00+00:00",
+    }
+
+
+def _fake_ws_request():  # noqa: ANN202
+    _calls["n"] += 1
+    usage = SimpleNamespace(input_tokens=10, output_tokens=5, cache_read_input_tokens=0)
+    if _calls["n"] == 1:
+        block = SimpleNamespace(
+            type="tool_use", id="tu_ws", name="web_search",
+            input={"query": "Mbappé lesión estado Francia"},
+        )
+        return SimpleNamespace(content=[block], usage=usage)
+    block = SimpleNamespace(
+        type="text", text="Según la prensa, Mbappé es duda; la información no está confirmada.")
+    return SimpleNamespace(content=[block], usage=usage)
+
+
+_orig_search = _wctools.search_web
+_wctools.search_web = _fake_search_web
+try:
+    _calls["n"] = 0
+    ws = ask_wc("¿está lesionado Mbappé?", web_search_enabled=True, _request_fn=_fake_ws_request)
+    check("web_search: payload populated", ws.web_search is not None, str(ws.web_search))
+    check("web_search: summary == orchestrator final_text",
+          bool(ws.web_search) and ws.web_search.get("summary") == ws.final_text,
+          str(ws.web_search))
+    check("web_search: source url preserved through truncation",
+          bool(ws.web_search) and ws.web_search["results"][0]["url"]
+          == "https://www.bbc.com/sport/abc123")
+    check("web_search: raw Tavily answer dropped from payload",
+          bool(ws.web_search) and "answer" not in ws.web_search)
+    check("web_search: NOT counted as grounded (unverified)",
+          ws.grounded is False, str(ws.grounded))
+finally:
+    _wctools.search_web = _orig_search
 
 # --- 9. Server schemas + session namespacing -----------------------------------
 from worldcup_assistant import wc_server  # noqa: E402

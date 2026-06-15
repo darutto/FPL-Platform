@@ -30,6 +30,21 @@ export interface InsertRequest {
   placeholder?: string;
 }
 
+/** Premium web-search toggle (WC chat). When provided, a globe button sits to
+ *  the left of the textarea. Opt-in per shell — FPL doesn't pass it yet. */
+export interface WebSearchToggle {
+  /** Whether web search is armed for the next send. */
+  enabled: boolean;
+  /** Flip the armed state. */
+  onToggle: () => void;
+  /** Whether the user's tier may use web search. When false, the globe is a
+   *  disabled tap-to-upgrade affordance (no request is sent). Defaults true
+   *  until Clerk supplies the real tier; the backend enforces the gate. */
+  available?: boolean;
+  /** Upgrade URL opened when an ineligible user taps the disabled globe. */
+  upgradeUrl?: string;
+}
+
 interface Props {
   onSubmit: (value: string) => void;
   disabled?: boolean;
@@ -39,9 +54,13 @@ interface Props {
   commands?: SlashCommandLike[];
   /** Placeholder shown when no slash command is active. */
   defaultPlaceholder?: string;
+  /** Optional premium web-search toggle (WC only). */
+  webSearch?: WebSearchToggle;
 }
 
 const DEFAULT_PLACEHOLDER = 'Escribe tu pregunta o usa /capitan, /comparar…';
+const WEB_SEARCH_PLACEHOLDER =
+  'Pregunta lo que sea — buscaré en noticias y fuentes en vivo…';
 
 export default function InputBar({
   onSubmit,
@@ -49,6 +68,7 @@ export default function InputBar({
   insert = null,
   commands = SLASH_COMMANDS,
   defaultPlaceholder = DEFAULT_PLACEHOLDER,
+  webSearch,
 }: Props) {
   const [value, setValue] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
@@ -127,7 +147,24 @@ export default function InputBar({
     }
   };
 
-  const placeholder = cmdPlaceholder ?? defaultPlaceholder;
+  const webOn = webSearch?.enabled ?? false;
+  const webAvailable = webSearch?.available ?? true;
+  const placeholder =
+    cmdPlaceholder ?? (webOn ? WEB_SEARCH_PLACEHOLDER : defaultPlaceholder);
+
+  const handleGlobe = () => {
+    if (!webSearch || disabled) return;
+    if (webAvailable) {
+      webSearch.onToggle();
+      textareaRef.current?.focus();
+    } else if (typeof window !== 'undefined') {
+      window.open(
+        webSearch.upgradeUrl ?? 'https://www.patreon.com/fpl_asistente',
+        '_blank',
+        'noopener,noreferrer',
+      );
+    }
+  };
 
   return (
     <div className="relative">
@@ -138,7 +175,49 @@ export default function InputBar({
         onSelect={handleSelect}
       />
 
-      <div className="flex items-end gap-2 bg-white/5 rounded-[14px] px-4 py-3 border border-white/10 focus-within:border-bf-turquoise/40 transition-colors">
+      {webOn && (
+        <div className="mb-1.5 flex items-center gap-1.5 px-1 text-[11px] font-medium text-bf-cyan">
+          <GlobeIcon className="opacity-90" />
+          Búsqueda web activa · esta consulta usará tu cuota premium
+        </div>
+      )}
+
+      <div
+        className={`flex items-end gap-2 rounded-[14px] px-4 py-3 border transition-colors ${
+          webOn
+            ? 'bg-bf-cyan/5 border-bf-cyan/50'
+            : 'bg-white/5 border-white/10 focus-within:border-bf-turquoise/40'
+        }`}
+      >
+        {webSearch && (
+          <button
+            type="button"
+            onClick={handleGlobe}
+            disabled={disabled}
+            aria-pressed={webOn}
+            aria-label={
+              webAvailable
+                ? webOn
+                  ? 'Desactivar búsqueda web'
+                  : 'Activar búsqueda web'
+                : 'Búsqueda web (función premium)'
+            }
+            title={
+              webAvailable
+                ? 'Buscar en la web (premium)'
+                : 'Función premium — hazte mecenas para activarla'
+            }
+            className={`flex-shrink-0 self-center rounded-[10px] p-1.5 border transition-colors disabled:opacity-40 ${
+              webOn
+                ? 'border-bf-cyan/50 bg-bf-cyan/10 text-bf-cyan'
+                : webAvailable
+                  ? 'border-white/10 text-bf-gray hover:text-bf-cyan hover:border-bf-cyan/30'
+                  : 'border-white/10 text-bf-gray/50'
+            }`}
+          >
+            <GlobeIcon />
+          </button>
+        )}
         <textarea
           ref={textareaRef}
           className="flex-1 bg-transparent resize-none text-sm text-bf-text placeholder-bf-gray/60 outline-none max-h-32"
@@ -164,5 +243,25 @@ export default function InputBar({
         </button>
       </div>
     </div>
+  );
+}
+
+function GlobeIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      width={16}
+      height={16}
+      viewBox="0 0 22 22"
+      fill="none"
+      className={className}
+      aria-hidden="true"
+    >
+      <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.6" />
+      <path
+        d="M3 11h16M11 3c2.5 2.5 4 5.5 4 8s-1.5 5.5-4 8c-2.5-2.5-4-5.5-4-8s1.5-5.5 4-8z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+      />
+    </svg>
   );
 }

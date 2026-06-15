@@ -25,7 +25,8 @@ export type WcIntentView =
   | 'squad'
   | 'head_to_head'
   | 'wc2022_results'
-  | 'fixtures';
+  | 'fixtures'
+  | 'web_search';
 
 /**
  * Given a WC backend response, returns which structured card to render
@@ -60,6 +61,12 @@ export function selectWcIntentView(response: WcAskResponse): WcIntentView | null
   }
   if (response.fixtures != null && response.fixtures.length > 0) {
     return 'fixtures';
+  }
+  // Lowest precedence: a deterministic tool answer always wins over web search.
+  // Rendering this view makes MessageList show the card alone (no duplicate
+  // text bubble) — the card's `summary` already carries the Spanish synthesis.
+  if (response.web_search != null) {
+    return 'web_search';
   }
 
   return null;

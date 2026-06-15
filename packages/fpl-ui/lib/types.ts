@@ -32,7 +32,9 @@ export type Outcome =
   | 'ambiguous'
   | 'missing_arguments'
   | 'error'
-  | 'quota_exceeded';
+  | 'quota_exceeded'
+  // WC-only: a premium feature (web search) was requested by a free-tier user.
+  | 'feature_gated';
 
 /**
  * Intent resolved by the backend. null on unsupported_intent turns.

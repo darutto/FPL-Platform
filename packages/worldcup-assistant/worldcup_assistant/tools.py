@@ -39,6 +39,7 @@ from worldcup_api_client import (
 )
 
 from .locale_es import localize_payload
+from .web_search import search_web
 
 # ---------------------------------------------------------------------------
 # Provider tool specs (JSON Schema draft-07 parameter objects)
@@ -290,7 +291,64 @@ WC_TOOL_SPECS: list[ToolSpec] = [
     ),
 ]
 
-WC_TOOL_NAMES: frozenset[str] = frozenset(s.name for s in WC_TOOL_SPECS)
+# ---------------------------------------------------------------------------
+# Web search — last-resort, premium-gated tool (kept OUT of the base registry)
+# ---------------------------------------------------------------------------
+# This spec is appended to the per-request tool list ONLY when web search is
+# both toggled on by the user AND their tier is eligible (see ask_wc /
+# wc_server). Keeping it separate from WC_TOOL_SPECS guarantees the base
+# deterministic registry is unchanged and the model cannot reach for web
+# search unless it was explicitly enabled for that turn.
+
+WEB_SEARCH_TOOL_SPEC: ToolSpec = ToolSpec(
+    name="web_search",
+    description=(
+        "LAST RESORT. Live web search for World Cup information that NO other "
+        "tool can provide: breaking news, injuries/dudas, suspensions, "
+        "press-conference quotes, transfer/lineup rumours, or opinion/"
+        "prediction questions. NEVER use it for scores, fixtures, standings, "
+        "squads, goalscorers, assists, fantasy points or any stat — those have "
+        "dedicated tools and are always more reliable. "
+        "QUERY CONSTRUCTION: the `query` must be concise, keyword-heavy, and "
+        "stripped of conversational filler. Never pass the user's raw "
+        "conversational sentence directly. Example — user 'oye, ¿sabes si "
+        "Mbappé está lesionado para el partido de mañana?' → "
+        "query: 'Mbappé lesión estado Francia'."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": (
+                    "Concise, keyword-heavy search query (no conversational "
+                    "filler). Player/team/topic keywords only."
+                ),
+            },
+        },
+        "required": ["query"],
+        "additionalProperties": False,
+    },
+)
+
+#: Full tool set (base + web search). Used for name validation / introspection;
+#: the actual per-request list is built by ``build_wc_tool_specs``.
+ALL_WC_TOOL_SPECS: list[ToolSpec] = [*WC_TOOL_SPECS, WEB_SEARCH_TOOL_SPEC]
+
+WC_TOOL_NAMES: frozenset[str] = frozenset(s.name for s in ALL_WC_TOOL_SPECS)
+
+
+def build_wc_tool_specs(*, web_search_enabled: bool = False) -> list[ToolSpec]:
+    """Per-request tool list.
+
+    Returns the base deterministic registry, plus ``web_search`` only when it
+    was explicitly enabled for this turn (toggle on AND tier eligible). When
+    disabled the tool is simply absent, so the model cannot call it — zero risk
+    of silent paid-search spend.
+    """
+    if web_search_enabled:
+        return ALL_WC_TOOL_SPECS
+    return WC_TOOL_SPECS
 
 #: List-valued tool-output fields subject to token-budget truncation
 #: (mirrors the FPL orchestrator's _TRUNCATABLE_FIELDS lever).
@@ -325,6 +383,7 @@ _CLIENT_DISPATCH: dict[str, Callable[..., Any]] = {
     "get_player_wc2022_stats": lambda args: get_player_wc2022_summary(args["name"]),
     "get_wc2022_results": lambda args: get_wc2022_results(team=args.get("team"), stage=args.get("stage")),
     "get_match_stats":  lambda args: get_match_stats(args["match_id"]),
+    "web_search":       lambda args: search_web(args["query"]),
 }
 
 _REQUIRED_ARGS: dict[str, tuple[str, ...]] = {
@@ -334,6 +393,7 @@ _REQUIRED_ARGS: dict[str, tuple[str, ...]] = {
     "get_player_info":  ("name",),
     "get_player_wc2022_stats": ("name",),
     "get_match_stats":  ("match_id",),
+    "web_search":       ("query",),
 }
 
 

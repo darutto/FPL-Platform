@@ -17,6 +17,7 @@
  *   head_to_head        → WcHeadToHeadTable
  *   wc2022_results      → WcFixturesTable (title="Mundial 2022")
  *   fixtures            → WcFixturesTable
+ *   web_search          → WcWebSearchCard (unverified · "Búsqueda web + IA")
  */
 import type { WcAskResponse } from '@/lib/wc-types';
 import { selectWcIntentView } from '@/lib/wc-intent-renderer';
@@ -28,6 +29,7 @@ import WcPlayerInfoCard from './WcPlayerInfoCard';
 import WcSquadTable from './WcSquadTable';
 import WcHeadToHeadTable from './WcHeadToHeadTable';
 import WcFixturesTable from './WcFixturesTable';
+import WcWebSearchCard from './WcWebSearchCard';
 
 interface Props {
   response: WcAskResponse;
@@ -62,6 +64,9 @@ export default function WcIntentRenderer({ response }: Props) {
   }
   if (view === 'fixtures' && response.fixtures != null) {
     return <WcFixturesTable data={response.fixtures} />;
+  }
+  if (view === 'web_search' && response.web_search != null) {
+    return <WcWebSearchCard data={response.web_search} />;
   }
   return null;
 }

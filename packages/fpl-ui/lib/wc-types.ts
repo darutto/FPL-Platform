@@ -121,6 +121,33 @@ export interface WcHeadToHeadPayload {
   note: string;
 }
 
+/** One web-search result (from Tavily, via the web_search tool). */
+export interface WcWebSearchResult {
+  title: string;
+  snippet: string;
+  url: string;
+  /** Outlet/domain (e.g. "bbc.com"), derived from the URL. */
+  source: string;
+  /** ISO date string when the source was published, or null. */
+  published: string | null;
+}
+
+/** Unverified web-search payload (web_search tool, premium path).
+ *
+ *  IMPORTANT: `summary` is the orchestrator's Spanish synthesis (injected from
+ *  final_text by the backend), NOT a Tavily field — Tavily's raw `answer` is
+ *  dropped server-side and never reaches the UI. `topic` is the model's
+ *  keyword-optimized query, used as the card header. */
+export interface WcWebSearchPayload {
+  /** The model's optimized search query (card header). */
+  topic?: string | null;
+  /** Spanish synthesis of the findings (== final_text). */
+  summary: string;
+  results: WcWebSearchResult[];
+  /** ISO timestamp of when the search ran. */
+  timestamp: string;
+}
+
 /** Request body for POST /ask (WC backend, via /api/wc-proxy). */
 export interface WcAskRequest {
   /** Required. World Cup question in natural language or slash command text. */
@@ -129,6 +156,9 @@ export interface WcAskRequest {
   session_id?: string | null;
   /** DO NOT set to true in production — populates the debug bundle. */
   debug?: boolean;
+  /** Explicit opt-in for the premium web-search path (globe toggle / "Buscar
+   *  en la web" chip). Backend only honours it for eligible Patreon tiers. */
+  web_search_requested?: boolean;
 }
 
 /** Response shape for POST /ask (WC backend). */
@@ -165,9 +195,16 @@ export interface WcAskResponse {
   wc2022_stats?: WcPlayer2022Stats[] | null;
   /** WC2022 (Qatar) match results, non-null when get_wc2022_results was the last matching tool call. */
   wc2022_results?: WcMatchRow[] | null;
+  /** Unverified web-search payload, non-null when the web_search tool ran on an
+   *  ok turn. Its `summary` is the Spanish synthesis; render via WcWebSearchCard. */
+  web_search?: WcWebSearchPayload | null;
+  /** Answer provenance: "web_search" (unverified external synthesis) vs "tool"
+   *  (grounded tournament data) vs null. Drives the origin badge + card choice. */
+  source?: 'tool' | 'web_search' | null;
   /** True iff at least one tool call this turn returned grounded data (status "ok").
    *  Drives the UI origin badge ("Datos verificados" vs "Sin datos del torneo") —
-   *  llm_used is true on nearly every WC turn so it isn't a useful signal here. */
+   *  llm_used is true on nearly every WC turn so it isn't a useful signal here.
+   *  NOTE: web_search is deliberately excluded from `grounded` (it is unverified). */
   grounded?: boolean;
 }
 
