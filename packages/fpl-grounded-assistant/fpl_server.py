@@ -1306,7 +1306,8 @@ def _extract_user_context(request: Request) -> tuple[str, str]:
     """
     raw_user_id = request.headers.get("X-User-Id", "anonymous") or "anonymous"
     user_id = hash_user_id(raw_user_id)
-    tier    = request.headers.get("X-User-Tier", "free") or "free"
+    _default_tier = os.environ.get("FPL_DEV_TIER", "free")
+    tier    = request.headers.get("X-User-Tier", _default_tier) or _default_tier
     return user_id, tier
 
 

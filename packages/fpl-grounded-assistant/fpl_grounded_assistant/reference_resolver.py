@@ -107,7 +107,8 @@ from .dispatcher import (
     INTENT_PLAYER_SUMMARY,
     INTENT_RANK_CANDIDATES,
 )
-from .llm_layer import DEFAULT_MODEL, _get_anthropic_client
+from .llm_layer import DEFAULT_MODEL, _PROVIDER
+from .provider_client import ProviderNotAvailableError, get_provider
 
 
 # ---------------------------------------------------------------------------
@@ -284,6 +285,16 @@ def build_resolver_prompt(
     return json.dumps(payload, ensure_ascii=False)
 
 
+def _strip_markdown_fences(text: str) -> str:
+    """Strip markdown code fences that Gemini sometimes wraps JSON in."""
+    stripped = text.strip()
+    if stripped.startswith("```"):
+        lines = stripped.splitlines()
+        inner = [l for l in lines[1:] if not l.strip().startswith("```")]
+        stripped = "\n".join(inner).strip()
+    return stripped
+
+
 def _parse_resolver_response(text: str) -> dict[str, Any] | None:
     """Parse and validate JSON from LLM resolver output.
 
@@ -298,7 +309,7 @@ def _parse_resolver_response(text: str) -> dict[str, Any] | None:
     - ``language`` is within ``_VALID_LANGUAGES``
     """
     try:
-        data = json.loads(text.strip())
+        data = json.loads(_strip_markdown_fences(text))
     except (json.JSONDecodeError, ValueError):
         return None
 
@@ -413,23 +424,22 @@ def resolve_reference_llm(
     ReferenceResolution | None
         ``None`` on any failure (safe — caller always falls back).
     """
-    resolved_client = client or _get_anthropic_client()
-    if resolved_client is None:
+    try:
+        provider = get_provider(_PROVIDER, client=client)
+    except ProviderNotAvailableError:
         return None
 
     prompt = build_resolver_prompt(question, state, history=history)
-    try:
-        message = resolved_client.messages.create(
-            model=model,
-            max_tokens=_RESOLVER_MAX_TOKENS,
-            system=RESOLVER_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        raw_text = message.content[0].text.strip()
-    except Exception:  # noqa: BLE001
+    result = provider.call(
+        model=model,
+        system_prompt=RESOLVER_SYSTEM_PROMPT,
+        user_message=prompt,
+        max_tokens=_RESOLVER_MAX_TOKENS,
+    )
+    if result.error_code is not None or result.text is None:
         return None
 
-    parsed = _parse_resolver_response(raw_text)
+    parsed = _parse_resolver_response(result.text)
     if parsed is None:
         return None
 
@@ -620,7 +630,7 @@ def _parse_comp_resolver_response(text: str) -> "dict[str, Any] | None":
     - ``language`` is in ``_VALID_LANGUAGES``
     """
     try:
-        data = json.loads(text.strip())
+        data = json.loads(_strip_markdown_fences(text))
     except (json.JSONDecodeError, ValueError):
         return None
 
@@ -686,23 +696,22 @@ def resolve_comparison_followup_llm(
     if not state.last_comparison:
         return None
 
-    resolved_client = client or _get_anthropic_client()
-    if resolved_client is None:
+    try:
+        provider = get_provider(_PROVIDER, client=client)
+    except ProviderNotAvailableError:
         return None
 
     prompt = build_comp_resolver_prompt(question, state)
-    try:
-        message = resolved_client.messages.create(
-            model=model,
-            max_tokens=_COMP_RESOLVER_MAX_TOKENS,
-            system=COMP_RESOLVER_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        raw_text = message.content[0].text.strip()
-    except Exception:  # noqa: BLE001
+    result = provider.call(
+        model=model,
+        system_prompt=COMP_RESOLVER_SYSTEM_PROMPT,
+        user_message=prompt,
+        max_tokens=_COMP_RESOLVER_MAX_TOKENS,
+    )
+    if result.error_code is not None or result.text is None:
         return None
 
-    parsed = _parse_comp_resolver_response(raw_text)
+    parsed = _parse_comp_resolver_response(result.text)
     if parsed is None:
         return None
 
