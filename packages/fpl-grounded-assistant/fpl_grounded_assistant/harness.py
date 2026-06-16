@@ -628,7 +628,7 @@ def ask_v2(
     from fpl_tool_runner import run_tool as _run_tool
     from .renderer import render as _render
     from .dispatcher import _auto_candidates_from_bootstrap, OUTCOME_OK as _DISP_OUTCOME_OK, _TOOL_TO_INTENT
-    from .orch_config import is_orch_enabled, get_orch_provider
+    from .orch_config import is_orch_enabled, get_orch_provider, get_orch_model
     from . import telemetry as _telemetry
     # G1 commit 2: deferred to avoid circular import (dispatcher imports ask from harness)
     from .final_response import _extract_structured_meta
@@ -851,6 +851,7 @@ def ask_v2(
         )
         routing_trace["orchestrator_called"] = True
         _provider = orch_provider if orch_provider is not None else get_orch_provider()
+        _model = get_orch_model(_provider)
         # F1: construct evaluator client on the production path (singleton, cached).
         # Fail-open: if disabled or construction fails, _eval_client is None and
         # the orchestrator's fail-open path (_apply_evaluator) is a no-op.
@@ -862,6 +863,7 @@ def ask_v2(
                 client=orch_client,
                 api_key=orch_api_key,
                 provider=_provider,
+                model=_model,
                 _eval_client=_eval_client,
             )
         except Exception as exc:  # noqa: BLE001  — defensive; ask_orchestrated never raises

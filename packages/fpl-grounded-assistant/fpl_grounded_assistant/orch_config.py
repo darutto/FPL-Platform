@@ -54,6 +54,9 @@ ORCH_TIMEOUT_ENV: str = "FPL_ORCH_TIMEOUT_S"
 #: Environment variable for the maximum number of retry attempts (int, 0–3).
 ORCH_MAX_RETRIES_ENV: str = "FPL_ORCH_MAX_RETRIES"
 
+#: Environment variable for explicit model override (any provider).
+ORCH_MODEL_ENV: str = "FPL_ORCH_MODEL"
+
 
 # ---------------------------------------------------------------------------
 # Internal defaults
@@ -61,6 +64,13 @@ ORCH_MAX_RETRIES_ENV: str = "FPL_ORCH_MAX_RETRIES"
 
 #: Default call timeout used when ``FPL_ORCH_TIMEOUT_S`` is absent or invalid.
 DEFAULT_TIMEOUT_S: float = 20.0
+
+#: Default model identifiers per provider (used by get_orch_model).
+_PROVIDER_DEFAULT_MODELS: dict[str, str] = {
+    "gemini":    "gemini-2.0-flash",
+    "openai":    "gpt-4o-mini",
+    "anthropic": "claude-haiku-4-5-20251001",
+}
 
 #: Default max retries used when ``FPL_ORCH_MAX_RETRIES`` is absent or invalid.
 DEFAULT_MAX_RETRIES: int = 1
@@ -183,3 +193,27 @@ def get_orch_max_retries() -> int:
         return max(0, min(val, 3))
     except (ValueError, TypeError):
         return DEFAULT_MAX_RETRIES
+
+
+def get_orch_model(provider: str | None = None) -> str:
+    """Return the model identifier to use for orchestration.
+
+    Reads ``FPL_ORCH_MODEL`` first (explicit override for any provider).
+    Falls back to per-provider defaults in ``_PROVIDER_DEFAULT_MODELS``.
+
+    Parameters
+    ----------
+    provider:
+        Provider string (``"gemini"``, ``"openai"``, ``"anthropic"``, or
+        ``None``).  ``None`` resolves to the Anthropic default.
+
+    Returns
+    -------
+    str
+        Model identifier ready to pass to ``ask_orchestrated(model=...)``.
+    """
+    explicit = os.environ.get(ORCH_MODEL_ENV, "").strip()
+    if explicit:
+        return explicit
+    p = (provider or "anthropic").lower()
+    return _PROVIDER_DEFAULT_MODELS.get(p, _PROVIDER_DEFAULT_MODELS["anthropic"])
