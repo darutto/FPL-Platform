@@ -310,27 +310,70 @@ def _gemini_configure(api_key: str) -> None:
             _LAST_GEMINI_CONFIGURED_KEY[0] = api_key
 
 
-def _strip_gemini_unsupported_schema_fields(value: Any) -> Any:
-    """Recursively drop JSON-schema keys unsupported by Gemini SDK.
+# JSON-Schema keywords the deprecated ``google-generativeai`` Schema proto
+# accepts.  ANY other keyword in a function-declaration schema (notably
+# ``minimum``/``maximum``, ``additionalProperties``, ``default``, ``$schema``,
+# ``title``, ``examples``, ``pattern``) makes ``GenerativeModel()`` raise
+# ``ValueError`` during construction.  This is an allowlist, not a denylist,
+# so newly-introduced unsupported keywords are dropped automatically rather
+# than crashing the orchestration path.  (Authoritative field list:
+# google-gemini/deprecated-generative-ai-python protos/Schema.md.)
+_GEMINI_SCHEMA_KEYS: frozenset[str] = frozenset({
+    "type", "format", "description", "nullable",
+    "enum", "items", "properties", "required",
+})
 
-    ``google-generativeai`` rejects ``additionalProperties`` in function
-    declaration schemas and raises ``ValueError`` during model construction.
-    It also rejects union ``"type"`` arrays (e.g. ``["string", "integer"]``)
-    — those are collapsed to the first element.
+
+def _sanitize_gemini_schema(node: Any) -> Any:
+    """Coerce one JSON-Schema node into the subset the Gemini proto accepts.
+
+    Keeps only :data:`_GEMINI_SCHEMA_KEYS`, collapses union ``"type"`` arrays
+    (e.g. ``["string", "integer"]``) to their first member, and recurses into
+    ``properties`` values (preserving the arbitrary property names) and
+    ``items`` schemas.
     """
-    if isinstance(value, dict):
-        result = {}
-        for k, v in value.items():
-            if k == "additionalProperties":
-                continue
-            if k == "type" and isinstance(v, list):
-                result[k] = v[0] if v else "string"
-            else:
-                result[k] = _strip_gemini_unsupported_schema_fields(v)
-        return result
-    if isinstance(value, list):
-        return [_strip_gemini_unsupported_schema_fields(v) for v in value]
-    return value
+    if not isinstance(node, dict):
+        return node
+    out: dict[str, Any] = {}
+    for k, v in node.items():
+        if k not in _GEMINI_SCHEMA_KEYS:
+            continue
+        if k == "type":
+            out[k] = (v[0] if v else "string") if isinstance(v, list) else v
+        elif k == "properties" and isinstance(v, dict):
+            # values are schemas keyed by arbitrary property names — keep the
+            # names, sanitize each schema value.
+            out[k] = {pk: _sanitize_gemini_schema(pv) for pk, pv in v.items()}
+        elif k == "items":
+            out[k] = _sanitize_gemini_schema(v)
+        else:
+            out[k] = v
+    return out
+
+
+def _strip_gemini_unsupported_schema_fields(tools: Any) -> Any:
+    """Sanitize a Gemini tools list so ``GenerativeModel()`` accepts it.
+
+    ``tools`` shape:
+    ``[{"function_declarations": [{"name", "description", "parameters"}, ...]}]``.
+    Only the ``parameters`` schema subtree needs coercion — the
+    ``function_declarations`` / ``name`` / ``description`` wrapper keys are
+    preserved untouched.  Non-conforming inputs are returned unchanged.
+    """
+    if not isinstance(tools, list):
+        return tools
+    sanitized: list[Any] = []
+    for entry in tools:
+        if isinstance(entry, dict) and isinstance(entry.get("function_declarations"), list):
+            decls = []
+            for decl in entry["function_declarations"]:
+                if isinstance(decl, dict) and "parameters" in decl:
+                    decl = {**decl, "parameters": _sanitize_gemini_schema(decl["parameters"])}
+                decls.append(decl)
+            sanitized.append({**entry, "function_declarations": decls})
+        else:
+            sanitized.append(entry)
+    return sanitized
 
 
 def _probe_oai_timeout_support(create_fn: Any) -> bool:
