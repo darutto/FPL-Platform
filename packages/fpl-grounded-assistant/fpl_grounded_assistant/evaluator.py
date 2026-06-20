@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sys
 from dataclasses import dataclass, field
 from typing import Any
@@ -23,9 +24,13 @@ _LOG = logging.getLogger(__name__)
 _EVALUATOR_MODELS: dict[str, str] = {
     "anthropic": "claude-haiku-4-5-20251001",
     "openai":    "gpt-4o-mini",
-    "gemini":    "gemini-flash-latest",
+    "gemini":    "gemini-3.5-flash",
     "deepseek":  "deepseek-chat",
 }
+
+#: Env var to override the evaluator model for ANY provider (e.g. when a model
+#: is deprecated).  Empty/absent → per-provider default in _EVALUATOR_MODELS.
+_EVAL_MODEL_ENV: str = "FPL_EVAL_MODEL"
 
 
 # ---------------------------------------------------------------------------
@@ -223,13 +228,17 @@ def _call_evaluator_gemini(
     model: str,
     user_message: str,
 ) -> tuple[str | None, int]:
-    """Call Gemini client.models.generate_content() and return (raw_text, tokens_used)."""
+    """Call the deprecated google-generativeai SDK and return (raw_text, tokens_used).
+
+    ``client`` is the ``google.generativeai`` module (see harness._build_eval_client),
+    so the call goes through ``GenerativeModel(...).generate_content(...)`` — NOT
+    the unified ``google-genai`` ``client.models.generate_content`` interface, which
+    this SDK does not expose.
+    """
     try:
         full_prompt = _EVALUATOR_SYSTEM_PROMPT + "\n\n" + user_message
-        response = client.models.generate_content(
-            model=model,
-            contents=full_prompt,
-        )
+        gen_model = client.GenerativeModel(model_name=model)
+        response = gen_model.generate_content(full_prompt)
         raw_text: str | None = None
         candidates = getattr(response, "candidates", []) or []
         if candidates:
@@ -370,7 +379,7 @@ def evaluate_response(
     if client is None:
         return _FAIL_OPEN
 
-    model = _EVALUATOR_MODELS.get(provider, "claude-haiku-4-5-20251001")
+    model = os.environ.get(_EVAL_MODEL_ENV, "").strip() or _EVALUATOR_MODELS.get(provider, "claude-haiku-4-5-20251001")
     user_message = _build_evaluator_user_message(question, primary_response, tool_calls)
 
     try:
