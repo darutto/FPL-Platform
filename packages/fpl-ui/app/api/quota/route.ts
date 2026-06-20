@@ -7,7 +7,11 @@
  * if present.
  *
  * Environment:
- *   FPL_BACKEND_URL  — backend base URL (default: http://localhost:8000)
+ *   FPL_BACKEND_URL    — backend base URL (default: http://localhost:8000)
+ *   FPL_INTERNAL_TOKEN — server-to-server secret. When the backend has this
+ *                        set, GET /quota is gated on a matching
+ *                        X-Internal-Token header. We attach it here (server
+ *                        side) so the browser never sees the secret.
  *
  * HTTP status contract:
  *   200  — QuotaStatus JSON body
@@ -17,6 +21,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const BACKEND_URL =
   process.env.FPL_BACKEND_URL?.replace(/\/$/, '') ?? 'http://localhost:8000';
+
+const INTERNAL_TOKEN = process.env.FPL_INTERNAL_TOKEN?.trim();
 
 export async function GET(request: NextRequest) {
   // Forward all query params (user_id, tier) to the backend
@@ -34,6 +40,9 @@ export async function GET(request: NextRequest) {
   const xUserTier = request.headers.get('x-user-tier');
   if (xUserId) forwardHeaders['x-user-id'] = xUserId;
   if (xUserTier) forwardHeaders['x-user-tier'] = xUserTier;
+
+  // Attach the server-to-server token so the backend's quota gate accepts us.
+  if (INTERNAL_TOKEN) forwardHeaders['x-internal-token'] = INTERNAL_TOKEN;
 
   const queryString = backendParams.toString();
   const backendUrl = `${BACKEND_URL}/quota${queryString ? `?${queryString}` : ''}`;
