@@ -1044,6 +1044,77 @@ def ready() -> dict[str, str]:
     return {"status": "ready"}
 
 
+# ---------------------------------------------------------------------------
+# LLM canary  — detects a retired/deprecated orchestrator model quickly.
+# ---------------------------------------------------------------------------
+# Gemini model ids deprecate on a weeks-long cadence; when the configured
+# FPL_ORCH_MODEL is retired, /chat silently fails open to the deterministic
+# path (HTTP 200) and nothing pages anyone.  This endpoint makes one cheap live
+# call to the configured model and returns 503 when it's dead, so an external
+# uptime monitor (UptimeRobot / Better Stack) trips on the non-200.
+#
+# The live call is TTL-cached so a monitor polling every 60 s does NOT generate
+# 60 LLM calls/min — the model is only really probed once per FPL_LLM_CANARY_TTL_S.
+_LLM_CANARY_TTL_S: float = float(os.environ.get("FPL_LLM_CANARY_TTL_S", "600") or "600")
+# {"ts": <monotonic at probe>, "result": <probe dict>}; None until first probe.
+_LLM_CANARY_CACHE: dict[str, Any] = {"ts": 0.0, "result": None}
+
+
+@app.get("/health/llm")
+def health_llm(force: bool = False) -> Any:
+    """Live canary for the configured orchestrator model.
+
+    Makes one cheap (1-token, tool-less) call to ``get_orch_model()`` on the
+    ``get_orch_provider()`` provider and reports whether it still works.
+
+    Status codes
+    ------------
+    200  — model answered.  Body ``{"ok": true, ...}``.
+    503  — model failed.  Body ``{"ok": false, "error_code": "...", ...}``.
+           ``error_code == "model_not_found"`` means the provider retired the
+           model — change ``FPL_ORCH_MODEL`` (+ optionally ``FPL_EVAL_MODEL``)
+           in the Railway dashboard; no code change needed.
+
+    Caching
+    -------
+    The live call is cached for ``FPL_LLM_CANARY_TTL_S`` seconds (default 600).
+    Pass ``?force=true`` to bypass the cache for an on-demand manual check.
+    The response always includes ``cached`` and ``age_s`` so you can tell a
+    fresh probe from a served-from-cache one.
+    """
+    from fastapi.responses import JSONResponse  # noqa: PLC0415
+    from fpl_grounded_assistant.orch_config import (  # noqa: PLC0415
+        get_orch_provider, get_orch_model, is_orch_enabled,
+    )
+    from fpl_grounded_assistant.provider_client import probe_orch_model  # noqa: PLC0415
+
+    now = time.monotonic()
+    cached = _LLM_CANARY_CACHE["result"]
+    age = now - _LLM_CANARY_CACHE["ts"]
+    is_cached = False
+
+    if cached is not None and not force and age < _LLM_CANARY_TTL_S:
+        result = cached
+        is_cached = True
+    else:
+        provider = get_orch_provider()
+        model = get_orch_model(provider)
+        result = probe_orch_model(provider, model)
+        _LLM_CANARY_CACHE["result"] = result
+        _LLM_CANARY_CACHE["ts"] = now
+        age = 0.0
+
+    body = {
+        **result,
+        "orch_enabled": is_orch_enabled(),
+        "cached":       is_cached,
+        "age_s":        round(age, 1),
+        "ttl_s":        _LLM_CANARY_TTL_S,
+    }
+    status = 200 if result.get("ok") else 503
+    return JSONResponse(content=body, status_code=status)
+
+
 @app.get("/metrics")
 def metrics() -> dict[str, Any]:
     """Internal observability endpoint for operator tooling.

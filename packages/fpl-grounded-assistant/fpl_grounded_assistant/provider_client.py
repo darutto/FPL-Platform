@@ -80,11 +80,16 @@ PERR_AUTH: str = "auth_error"
 PERR_TIMEOUT: str = "timeout"
 #: Transport / connection failure.
 PERR_NETWORK: str = "network"
+#: HTTP 404 / model not found, removed, deprecated, or unsupported for the
+#: requested operation.  Distinct from PERR_PROVIDER so operators can detect a
+#: model that Google/Anthropic/OpenAI has retired (frequent with Gemini) — the
+#: GET /health/llm canary surfaces this code as a 503 for uptime monitors.
+PERR_MODEL: str = "model_not_found"
 #: Any other API-level error.
 PERR_PROVIDER: str = "provider"
 
 _ALL_PERR: frozenset[str] = frozenset({
-    PERR_RATE_LIMIT, PERR_AUTH, PERR_TIMEOUT, PERR_NETWORK, PERR_PROVIDER,
+    PERR_RATE_LIMIT, PERR_AUTH, PERR_TIMEOUT, PERR_NETWORK, PERR_MODEL, PERR_PROVIDER,
 })
 
 # Errors worth retrying (transient; a second attempt may succeed).
@@ -240,17 +245,24 @@ def _classify_error(exc: Exception) -> str:
                 return PERR_RATE_LIMIT
             if status in (401, 403):
                 return PERR_AUTH
+            if status == 404:
+                return PERR_MODEL
             return PERR_PROVIDER
 
     # -- Attribute-based fallback (test mocks; future SDKs) ----------------
+    # NOTE: covers google.api_core.exceptions.NotFound (Gemini, status_code=404)
+    # and any SDK that exposes a numeric ``status_code`` attribute.
     status = getattr(exc, "status_code", None)
     if status == 429:
         return PERR_RATE_LIMIT
     if status in (401, 403):
         return PERR_AUTH
+    if status == 404:
+        return PERR_MODEL
 
     exc_name = type(exc).__name__.lower()
-    if "timeout" in exc_name or "timed out" in str(exc).lower():
+    exc_text = str(exc).lower()
+    if "timeout" in exc_name or "timed out" in exc_text:
         return PERR_TIMEOUT
     if "connection" in exc_name or "network" in exc_name:
         return PERR_NETWORK
@@ -258,6 +270,24 @@ def _classify_error(exc: Exception) -> str:
         return PERR_RATE_LIMIT
     if "authentication" in exc_name or "auth" in exc_name:
         return PERR_AUTH
+    # Model retired / renamed / unsupported.  Gemini raises NotFound with a
+    # message like "models/<id> is not found ... or is not supported for
+    # generateContent"; this is the canonical "Google killed the model" signal.
+    if "notfound" in exc_name or any(
+        phrase in exc_text
+        for phrase in (
+            "is not found",
+            "not supported for",
+            "is not supported",
+            "no longer available",
+            "has been deprecated",
+            "is deprecated",
+            "does not exist",
+            "unknown model",
+            "invalid model",
+        )
+    ):
+        return PERR_MODEL
 
     return PERR_PROVIDER
 
@@ -1398,6 +1428,71 @@ def check_provider_health(
 
     except Exception as exc:  # noqa: BLE001
         return {"available": False, "error": f"health check error: {type(exc).__name__}"}
+
+
+def probe_orch_model(
+    provider_name: str | None,
+    model: str,
+    *,
+    api_key: str | None = None,
+    timeout_s: float = 10.0,
+) -> dict:
+    """Live canary: make the cheapest possible real call to *model* and report.
+
+    Unlike :func:`check_provider_health` (which only verifies that an SDK and a
+    key are present), this performs an actual network round-trip to the
+    provider using a 1-token, tool-less prompt.  Its purpose is to detect a
+    model that the provider has **retired** — the dominant failure mode for
+    Gemini, whose model ids deprecate on a weeks-long cadence.  When that
+    happens the call returns ``error_code == PERR_MODEL`` and ``ok == False``.
+
+    This is intentionally side-effect free apart from the single API call and
+    never raises.  Callers (the ``GET /health/llm`` endpoint) are responsible
+    for rate-limiting / caching so an uptime monitor cannot turn it into a cost
+    amplifier.
+
+    Parameters
+    ----------
+    provider_name:
+        ``"gemini"`` / ``"openai"`` / ``"anthropic"`` (or ``None`` → Anthropic).
+        Pass the *orchestrator* provider, i.e. ``get_orch_provider()``.
+    model:
+        The model id actually used in production, i.e. ``get_orch_model(...)``.
+    api_key:
+        Optional explicit key; falls back to the provider's env var.
+    timeout_s:
+        Per-call timeout.  Kept short — a healthy model answers in well under
+        a second for a 1-token reply.
+
+    Returns
+    -------
+    dict
+        ``{"ok": bool, "provider": str, "model": str, "error_code": str | None,
+        "error": str | None, "latency_ms": float, "attempts": int}``.
+        ``error_code == "model_not_found"`` is the "Google killed the model"
+        signal.  ``attempts == 0`` means the call was never made (missing SDK
+        or key) — surfaced as ``error_code == "auth_error"``.
+    """
+    res = call_orch_provider(
+        provider_name=provider_name,
+        model=model,
+        system="Health probe. Reply with the single token: ok",
+        messages=[{"role": "user", "content": "ping"}],
+        tools=[],
+        max_tokens=1,
+        timeout_s=timeout_s,
+        max_retries=0,
+        api_key=api_key,
+    )
+    return {
+        "ok":         res.error_code is None,
+        "provider":   (provider_name or PROVIDER_ANTHROPIC).lower(),
+        "model":      model,
+        "error_code": res.error_code,
+        "error":      res.error_msg,
+        "latency_ms": round(res.latency_ms, 2),
+        "attempts":   res.attempts,
+    }
 
 
 # ---------------------------------------------------------------------------
