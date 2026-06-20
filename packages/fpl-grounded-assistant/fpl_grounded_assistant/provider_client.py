@@ -315,15 +315,19 @@ def _strip_gemini_unsupported_schema_fields(value: Any) -> Any:
 
     ``google-generativeai`` rejects ``additionalProperties`` in function
     declaration schemas and raises ``ValueError`` during model construction.
-    Removing this key preserves required/typed fields while preventing a hard
-    server error in the orchestration path.
+    It also rejects union ``"type"`` arrays (e.g. ``["string", "integer"]``)
+    — those are collapsed to the first element.
     """
     if isinstance(value, dict):
-        return {
-            k: _strip_gemini_unsupported_schema_fields(v)
-            for k, v in value.items()
-            if k != "additionalProperties"
-        }
+        result = {}
+        for k, v in value.items():
+            if k == "additionalProperties":
+                continue
+            if k == "type" and isinstance(v, list):
+                result[k] = v[0] if v else "string"
+            else:
+                result[k] = _strip_gemini_unsupported_schema_fields(v)
+        return result
     if isinstance(value, list):
         return [_strip_gemini_unsupported_schema_fields(v) for v in value]
     return value
