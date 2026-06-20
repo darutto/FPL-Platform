@@ -207,7 +207,7 @@ export default function InputBar({
                 ? 'Buscar en la web (premium)'
                 : 'Función premium — hazte mecenas para activarla'
             }
-            className={`flex-shrink-0 self-center rounded-[10px] p-1.5 border transition-colors disabled:opacity-40 ${
+            className={`relative flex-shrink-0 self-center rounded-[10px] p-1.5 border transition-colors disabled:opacity-40 ${
               webOn
                 ? 'border-bf-cyan/50 bg-bf-cyan/10 text-bf-cyan'
                 : webAvailable
@@ -216,6 +216,13 @@ export default function InputBar({
             }`}
           >
             <GlobeIcon />
+            {!webAvailable && (
+              // Locked badge — premium feature, not available on this tier.
+              // Visible without hover (mobile has no tooltip); tap → upgrade.
+              <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-bf-coral text-bf-ink">
+                <LockIcon />
+              </span>
+            )}
           </button>
         )}
         <textarea
@@ -261,6 +268,20 @@ function GlobeIcon({ className }: { className?: string }) {
         d="M3 11h16M11 3c2.5 2.5 4 5.5 4 8s-1.5 5.5-4 8c-2.5-2.5-4-5.5-4-8s1.5-5.5 4-8z"
         stroke="currentColor"
         strokeWidth="1.4"
+      />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg width={8} height={8} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="5" y="11" width="14" height="9" rx="2" fill="currentColor" />
+      <path
+        d="M8 11V8a4 4 0 0 1 8 0v3"
+        stroke="currentColor"
+        strokeWidth="2.4"
+        fill="none"
       />
     </svg>
   );
