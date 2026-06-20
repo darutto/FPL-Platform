@@ -26,6 +26,37 @@ function tierFromCents(
   return 'free';
 }
 
+type Tier = ReturnType<typeof tierFromCents>;
+
+const BACKEND_URL =
+  process.env.FPL_BACKEND_URL?.replace(/\/$/, '') ?? 'http://localhost:8000';
+const INTERNAL_TOKEN = process.env.FPL_INTERNAL_TOKEN?.trim();
+
+/**
+ * Record a tier change in the backend audit log so free→paid conversions are
+ * queryable even when the user never chats again (chat-turn rows only capture
+ * users who keep using the assistant). Best-effort: a no-op when the tier is
+ * unchanged, and never throws — a telemetry failure must not break sign-in.
+ */
+async function recordTierSync(
+  userId: string,
+  tier: Tier,
+  previousTier: string | undefined,
+): Promise<void> {
+  if (tier === previousTier) return;
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (INTERNAL_TOKEN) headers['x-internal-token'] = INTERNAL_TOKEN;
+    await fetch(`${BACKEND_URL}/events/tier-sync`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ user_id: userId, tier, previous_tier: previousTier ?? null }),
+    });
+  } catch {
+    // best-effort telemetry — ignore transport errors
+  }
+}
+
 /**
  * Called once after a Patreon OAuth sign-in completes (see /post-login).
  * Looks up the user's Patreon membership status via the OAuth token Clerk
@@ -44,14 +75,16 @@ export async function POST() {
   }
 
   const client = await clerkClient();
+  const user = await client.users.getUser(userId);
+  const previousTier = (user.publicMetadata as { tier?: string }).tier;
 
   if (ADMIN_EMAILS.length > 0) {
-    const user = await client.users.getUser(userId);
     const emails = user.emailAddresses.map((e) => e.emailAddress.toLowerCase());
     if (emails.some((e) => ADMIN_EMAILS.includes(e))) {
       await client.users.updateUserMetadata(userId, {
         publicMetadata: { tier: 'patreon_premium', role: 'admin' },
       });
+      await recordTierSync(userId, 'patreon_premium', previousTier);
       return NextResponse.json({ tier: 'patreon_premium' });
     }
   }
@@ -84,6 +117,7 @@ export async function POST() {
   await client.users.updateUserMetadata(userId, {
     publicMetadata: { tier },
   });
+  await recordTierSync(userId, tier, previousTier);
 
   return NextResponse.json({ tier });
 }

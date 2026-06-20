@@ -81,6 +81,7 @@ from fpl_pipeline import assemble_captain_context
 # Phase P3.1: quota meter + audit log
 from fpl_grounded_assistant.quota import (  # noqa: E402
     QuotaCheck,
+    TIERS,
     check_quota,
     record_turn as _record_turn,
     get_quota_status,
@@ -1361,6 +1362,56 @@ def quota_status(
         "upgrade_prompt_es":     qc.upgrade_prompt_es,
         "upgrade_prompt_en":     qc.upgrade_prompt_en,
     }
+
+
+class TierSyncRequest(BaseModel):
+    """Body for POST /events/tier-sync — a non-chat tier-change audit event."""
+
+    user_id: str
+    tier: str
+    previous_tier: str | None = None
+
+
+@app.post("/events/tier-sync")
+def tier_sync_event(req: TierSyncRequest, request: Request) -> dict[str, Any]:
+    """Audit a membership tier change (e.g. Patreon free → paid).
+
+    Chat-turn audit rows only capture users who keep chatting, so a user who
+    upgrades and never asks again would be invisible as a conversion. The
+    frontend's Patreon sync (app/api/auth/sync-patreon) calls this right after
+    it assigns a bucket, so every tier change lands in the same NDJSON audit
+    log keyed by the (hashed) user_id — making free→paid conversions queryable.
+
+    Internal-only: guarded by X-Internal-Token (same scheme as GET /quota).
+    """
+    _internal_token = os.environ.get("FPL_INTERNAL_TOKEN", "").strip()
+    if _internal_token:
+        _provided = request.headers.get("X-Internal-Token", "")
+        if not hmac.compare_digest(_provided, _internal_token):
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+    if req.tier not in TIERS:
+        raise HTTPException(status_code=400, detail=f"unknown tier: {req.tier!r}")
+
+    hashed = hash_user_id(req.user_id)
+    prev = req.previous_tier or "unknown"
+    entry = make_audit_entry(
+        user_id=hashed,
+        tier=req.tier,                       # the newly-assigned bucket
+        question="",                         # not a chat turn
+        branch="tier_sync",
+        outcome="tier_sync",
+        final_text=f"{prev} -> {req.tier}",  # transition, for conversion replay
+        provider="system",
+        error_code=None,
+    )
+    try:
+        write_audit_entry(entry)
+    except Exception as _exc:  # noqa: BLE001
+        _LOG.exception("tier-sync audit write failed: %s", _exc)
+        raise HTTPException(status_code=500, detail="audit write failed") from _exc
+
+    return {"recorded": True, "tier": req.tier, "previous_tier": prev}
 
 
 def _extract_user_context(request: Request) -> tuple[str, str]:
