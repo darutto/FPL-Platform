@@ -32,11 +32,20 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Forward identity + quota tier injected by middleware (Clerk session →
+  // x-user-id / x-user-tier) so the backend keys per-user quota and enforces
+  // the right tier caps. Absent for anonymous traffic → backend defaults free.
+  const forwardHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+  const xUserId = request.headers.get('x-user-id');
+  const xUserTier = request.headers.get('x-user-tier');
+  if (xUserId) forwardHeaders['x-user-id'] = xUserId;
+  if (xUserTier) forwardHeaders['x-user-tier'] = xUserTier;
+
   let backendResponse: Response;
   try {
     backendResponse = await fetch(`${BACKEND_URL}/ask`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: forwardHeaders,
       body: JSON.stringify(body),
     });
   } catch (err) {

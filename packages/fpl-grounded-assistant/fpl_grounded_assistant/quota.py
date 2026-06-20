@@ -45,24 +45,31 @@ class QuotaTier:
 
 
 TIERS: dict[str, QuotaTier] = {
+    # Cap design: the message cap is the binding limit for normal use; the
+    # token cap is a generous abuse ceiling sized to the measured heavy turn
+    # (~23K tokens p95 under the LLM-primary orchestrator, incl. evaluator +
+    # retry), i.e. daily_token_cap ≈ daily_message_cap × ~23K. This lets a user
+    # spend all their messages even on complex turns, while only pathological
+    # turns trip the token wall. Revisit once more orchestrator token data
+    # accrues (v1 sized off n=14 audited turns).
     "free": QuotaTier(
         name="free",
-        daily_token_cap=50_000,
-        monthly_token_cap=500_000,
+        daily_token_cap=75_000,
+        monthly_token_cap=600_000,
         daily_message_cap=5,
         monthly_message_cap=30,
     ),
     "patreon_basic": QuotaTier(
         name="patreon_basic",
-        daily_token_cap=500_000,
-        monthly_token_cap=5_000_000,
+        daily_token_cap=700_000,
+        monthly_token_cap=7_000_000,
         daily_message_cap=30,
         monthly_message_cap=600,
     ),
     "patreon_premium": QuotaTier(
         name="patreon_premium",
-        daily_token_cap=2_000_000,
-        monthly_token_cap=20_000_000,
+        daily_token_cap=3_500_000,
+        monthly_token_cap=35_000_000,
         daily_message_cap=150,
         monthly_message_cap=3_000,
     ),
