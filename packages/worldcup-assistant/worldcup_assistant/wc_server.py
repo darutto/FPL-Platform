@@ -70,10 +70,14 @@ _WC_SESSION_PREFIX: str = "wc:"
 # ---------------------------------------------------------------------------
 # Premium web-search gating (tier names mirror fpl_grounded_assistant.quota)
 # ---------------------------------------------------------------------------
-#: Patreon tiers entitled to the paid, per-query web-search feature. Free tier
-#: is excluded. Usage limits / token quotas for WC are a later phase; for now
-#: this is a pure tier allowlist plus an explicit per-request opt-in.
-WEB_SEARCH_TIERS: frozenset[str] = frozenset({"patreon_basic", "patreon_premium"})
+#: Patreon tiers entitled to the paid, per-query web-search feature. Web search
+#: is the headline upgrade at Socio Junior ($10 → patreon_plus): the $5 basic
+#: tier gets assistant access + more messages but NOT web search, so the gate
+#: starts at plus. (Web search is also the most expensive feature — Tavily call
+#: + extra tokens — so gating it higher also bounds cost exposure.) Usage limits
+#: / token quotas for WC are a later phase; for now this is a pure tier allowlist
+#: plus an explicit per-request opt-in.
+WEB_SEARCH_TIERS: frozenset[str] = frozenset({"patreon_plus", "patreon_premium"})
 
 #: Default tier when no auth header is present (Clerk middleware sets the real
 #: ``X-User-Tier``; ``WC_DEV_TIER`` lets local dev exercise a paid tier).

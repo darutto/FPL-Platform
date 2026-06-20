@@ -1,18 +1,22 @@
 /**
  * Subscription tiers — single source of truth for the UI.
  *
- * The Patreon ladder has 5 paid steps ($1/$5/$10/$15/$50) that collapse onto
- * 3 backend quota buckets (see app/api/auth/sync-patreon/route.ts and the
- * backend quota.py TIERS table). Higher Patreon tiers earn community/content
- * perks, NOT bigger compute allowances — so Gafete & Socio Jr share the basic
- * bucket, and Plata & Oro share premium.
+ * The Patreon ladder ($1/$5/$10/$15/$50) collapses onto 4 backend quota
+ * buckets (see app/api/auth/sync-patreon/route.ts and the backend quota.py
+ * TIERS table). Each paid rung adds a distinct kind of value: $5 = assistant
+ * access, $10 = web search + 2× messages, $15 = far more messages. Plata & Oro
+ * share the premium bucket (Oro differentiates on perks, not caps).
  *
  * ⚠️ The compute fields below (msgsPerDay, webSearch) MUST stay in sync with
  *    the backend: quota.py `daily_message_cap` and the web-search tier gate
- *    (WEB_SEARCH_TIERS = {patreon_basic, patreon_premium}). If you retune caps
+ *    (WEB_SEARCH_TIERS = {patreon_plus, patreon_premium}). If you retune caps
  *    in quota.py, update QUOTA_BUCKETS here too.
  */
-export type QuotaBucket = 'free' | 'patreon_basic' | 'patreon_premium';
+export type QuotaBucket =
+  | 'free'
+  | 'patreon_basic'
+  | 'patreon_plus'
+  | 'patreon_premium';
 
 export interface QuotaBucketInfo {
   /** Daily message cap — the limit that binds for normal use. */
@@ -31,8 +35,13 @@ export const QUOTA_BUCKETS: Record<QuotaBucket, QuotaBucketInfo> = {
   },
   patreon_basic: {
     msgsPerDay: 30,
+    webSearch: false,
+    allowance: '30 mensajes al día',
+  },
+  patreon_plus: {
+    msgsPerDay: 60,
     webSearch: true,
-    allowance: '30 mensajes al día · búsqueda web',
+    allowance: '60 mensajes al día · búsqueda web',
   },
   patreon_premium: {
     msgsPerDay: 150,
@@ -69,7 +78,6 @@ export const SUBSCRIPTION_TIERS: SubscriptionTier[] = [
     name: 'Gafete de cancha',
     priceUsd: 5,
     bucket: 'patreon_basic',
-    highlighted: true,
     perks: [
       'Todos los beneficios de Tribuna',
       'Premios mensuales en la miniliga (mín. 5 miembros)',
@@ -79,7 +87,8 @@ export const SUBSCRIPTION_TIERS: SubscriptionTier[] = [
   {
     name: 'Socio Junior',
     priceUsd: 10,
-    bucket: 'patreon_basic',
+    bucket: 'patreon_plus',
+    highlighted: true,
     perks: [
       'Todos los beneficios de Gafete de cancha',
       'Ruedas de prensa y conferencias del club',

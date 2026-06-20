@@ -8,16 +8,20 @@ const PATREON_IDENTITY_URL =
 
 /**
  * Map a patron's entitled pledge (cents) onto a backend quota bucket. The
- * Patreon ladder has more steps ($1/$5/$10/$15/$50) than we differentiate on
- * app compute — higher tiers earn community perks, not bigger token caps — so
- * 5 Patreon tiers collapse onto 3 quota buckets here:
- *   $0–$1   (Tribuna)          -> free
- *   $5–$10  (Gafete, Socio Jr) -> patreon_basic   (web search unlocks at $5)
- *   $15+    (Plata, Oro)       -> patreon_premium
+ * Patreon ladder ($1/$5/$10/$15/$50) collapses onto 4 quota buckets — each
+ * paid rung adds a distinct kind of value:
+ *   $0–$1   (Tribuna)    -> free            (no assistant access)
+ *   $5      (Gafete)     -> patreon_basic   (30 msgs/day, NO web search)
+ *   $10     (Socio Jr)   -> patreon_plus    (60 msgs/day + web search)
+ *   $15+    (Plata, Oro) -> patreon_premium (150 msgs/day + web search)
+ * Plata & Oro share compute; Oro differentiates on perks, not caps.
  * Bucket names MUST match the keys in the backend quota TIERS table.
  */
-function tierFromCents(cents: number): 'free' | 'patreon_basic' | 'patreon_premium' {
+function tierFromCents(
+  cents: number,
+): 'free' | 'patreon_basic' | 'patreon_plus' | 'patreon_premium' {
   if (cents >= 1500) return 'patreon_premium';
+  if (cents >= 1000) return 'patreon_plus';
   if (cents >= 500) return 'patreon_basic';
   return 'free';
 }

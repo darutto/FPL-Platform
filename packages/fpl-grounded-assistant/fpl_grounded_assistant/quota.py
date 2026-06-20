@@ -66,6 +66,13 @@ TIERS: dict[str, QuotaTier] = {
         daily_message_cap=30,
         monthly_message_cap=600,
     ),
+    "patreon_plus": QuotaTier(
+        name="patreon_plus",
+        daily_token_cap=1_400_000,
+        monthly_token_cap=14_000_000,
+        daily_message_cap=60,
+        monthly_message_cap=1_200,
+    ),
     "patreon_premium": QuotaTier(
         name="patreon_premium",
         daily_token_cap=3_500_000,
@@ -159,14 +166,25 @@ def _upgrade_prompts(tier_name: str) -> tuple[str, str]:
         )
     elif tier_name == "patreon_basic":
         es = (
-            "Has alcanzado tu límite diario de Patreon Basic. "
+            "Has alcanzado tu límite diario de Gafete de cancha. "
             "Tu cuota diaria se renueva en 24 horas. "
-            "Actualiza a Patreon Premium para un límite mayor."
+            "Sube a Socio Junior para búsqueda web y el doble de mensajes."
         )
         en = (
-            "You've reached your Patreon Basic daily limit. "
+            "You've reached your Gafete de cancha daily limit. "
             "Your daily quota resets in 24 hours. "
-            "Upgrade to Patreon Premium for a higher limit."
+            "Upgrade to Socio Junior for web search and double the messages."
+        )
+    elif tier_name == "patreon_plus":
+        es = (
+            "Has alcanzado tu límite diario de Socio Junior. "
+            "Tu cuota diaria se renueva en 24 horas. "
+            "Sube a Ejecutivo para un límite mucho mayor."
+        )
+        en = (
+            "You've reached your Socio Junior daily limit. "
+            "Your daily quota resets in 24 hours. "
+            "Upgrade to Ejecutivo for a much higher limit."
         )
     else:
         es = (
