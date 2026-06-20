@@ -10,14 +10,13 @@ export default clerkMiddleware(async (auth, req) => {
   const tier =
     (sessionClaims?.metadata as { tier?: string } | undefined)?.tier ?? 'free';
 
-  // Gate /chat: must be signed in AND on a paid bucket (anything above free).
-  if (isProtectedRoute(req)) {
-    if (!userId) {
-      return NextResponse.redirect(new URL('/login', req.url));
-    }
-    if (tier === 'free') {
-      return NextResponse.redirect(new URL('/subscribe', req.url));
-    }
+  // Gate /chat: must be signed in, but ALL tiers (including free) get in.
+  // Free is a deliberately limited taste of the assistant (5 msgs/day, enforced
+  // by the backend quota) — a funnel meant to drive subscriptions, not a wall.
+  // Sign-in is still required so each free user gets their own per-user quota
+  // bucket rather than sharing one anonymous bucket.
+  if (isProtectedRoute(req) && !userId) {
+    return NextResponse.redirect(new URL('/login', req.url));
   }
 
   // Forward identity + tier to the backend quota system. The API proxy routes

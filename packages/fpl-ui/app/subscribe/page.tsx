@@ -24,27 +24,15 @@ function TierCard({ tier }: { tier: SubscriptionTier }) {
         </span>
       </div>
 
-      {/* Usage descriptor — the compute allowance, distinct from perks.
-          The free bucket (Tribuna) does NOT unlock the assistant: middleware
-          gates /chat to paid buckets, so its card says where access begins
-          instead of showing a misleading message allowance. */}
-      {tier.bucket === 'free' ? (
-        <div className="mt-3 rounded-card border border-white/10 bg-bf-bg px-3 py-2">
-          <div className="text-[10px] font-bold uppercase tracking-widest text-bf-gray">
-            Uso del asistente
-          </div>
-          <div className="mt-0.5 text-sm font-semibold text-bf-gray">
-            Se desbloquea desde Gafete de cancha
-          </div>
+      {/* Usage descriptor — the assistant-usage allowance, distinct from the
+          community perks below. Every tier (incl. free/Tribuna at 5 msgs/day)
+          gets some assistant access; the cap grows with the membership. */}
+      <div className="mt-3 rounded-card border border-bf-cyan/30 bg-bf-cyan/10 px-3 py-2">
+        <div className="text-[10px] font-bold uppercase tracking-widest text-bf-cyan/80">
+          Uso del asistente
         </div>
-      ) : (
-        <div className="mt-3 rounded-card border border-bf-cyan/30 bg-bf-cyan/10 px-3 py-2">
-          <div className="text-[10px] font-bold uppercase tracking-widest text-bf-cyan/80">
-            Uso del asistente
-          </div>
-          <div className="mt-0.5 text-sm font-semibold text-bf-text">{usage.allowance}</div>
-        </div>
-      )}
+        <div className="mt-0.5 text-sm font-semibold text-bf-text">{usage.allowance}</div>
+      </div>
 
       {/* Community / content perks */}
       <ul className="mt-4 flex-1 space-y-1.5 text-sm text-bf-gray">
@@ -79,9 +67,8 @@ export default function SubscribePage() {
         <header className="text-center">
           <h1 className="font-display text-3xl text-bf-text">Elige tu membresía</h1>
           <p className="mx-auto mt-2 max-w-xl text-sm text-bf-gray">
-            FPL Asistente se desbloquea con cualquier nivel de Gafete de cancha en
-            adelante. Cada nivel suma beneficios del club; el uso del asistente
-            crece según tu membresía.
+            Prueba FPL Asistente gratis con 5 mensajes al día. Cada nivel de
+            membresía suma más uso del asistente y beneficios del club.
           </p>
         </header>
 
