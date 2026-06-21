@@ -1,0 +1,16 @@
+# =============================================================================
+# World Cup assistant backend — Railway service config.
+# This file is only picked up if the Railway service's "Config Path" is set to
+# packages/worldcup-assistant/railway.toml (Settings -> Config as code).
+# Secrets (GOOGLE_API_KEY, TAVILY_API_KEY, FPL_INTERNAL_TOKEN, etc.) are set in
+# the Railway dashboard, never here. Do NOT set WC_DEV_TIER in this service.
+# =============================================================================
+
+[build]
+dockerfilePath = "packages/worldcup-assistant/Dockerfile"
+
+[deploy]
+healthcheckPath = "/ready"
+healthcheckTimeout = 300
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
