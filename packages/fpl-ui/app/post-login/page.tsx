@@ -10,15 +10,21 @@ export default function PostLoginPage() {
     let cancelled = false;
     fetch('/api/auth/sync-patreon', { method: 'POST' })
       .then((res) => res.json())
-      .then(async (data) => {
+      .then(async () => {
         if (cancelled) return;
         // updateUserMetadata doesn't refresh the active session token, so
-        // middleware would still see the pre-sync tier without this.
+        // refresh it before navigating so middleware/quota see the freshly
+        // synced tier.
         await getToken({ skipCache: true });
-        window.location.href = data.tier === 'subscriber' ? '/chat' : '/subscribe';
+        // Everyone lands in the chat: free gets a limited taste (5 msgs/day),
+        // paid tiers get more. /subscribe is reached via in-app upgrade prompts
+        // (e.g. the quota wall), never forced here.
+        window.location.href = '/chat';
       })
       .catch(() => {
-        if (!cancelled) window.location.href = '/subscribe';
+        // Sync failed — still let them in; middleware admits any signed-in user
+        // and the backend defaults to the free quota bucket.
+        if (!cancelled) window.location.href = '/chat';
       });
     return () => {
       cancelled = true;

@@ -81,6 +81,7 @@ from fpl_pipeline import assemble_captain_context
 # Phase P3.1: quota meter + audit log
 from fpl_grounded_assistant.quota import (  # noqa: E402
     QuotaCheck,
+    TIERS,
     check_quota,
     record_turn as _record_turn,
     get_quota_status,
@@ -1044,6 +1045,77 @@ def ready() -> dict[str, str]:
     return {"status": "ready"}
 
 
+# ---------------------------------------------------------------------------
+# LLM canary  — detects a retired/deprecated orchestrator model quickly.
+# ---------------------------------------------------------------------------
+# Gemini model ids deprecate on a weeks-long cadence; when the configured
+# FPL_ORCH_MODEL is retired, /chat silently fails open to the deterministic
+# path (HTTP 200) and nothing pages anyone.  This endpoint makes one cheap live
+# call to the configured model and returns 503 when it's dead, so an external
+# uptime monitor (UptimeRobot / Better Stack) trips on the non-200.
+#
+# The live call is TTL-cached so a monitor polling every 60 s does NOT generate
+# 60 LLM calls/min — the model is only really probed once per FPL_LLM_CANARY_TTL_S.
+_LLM_CANARY_TTL_S: float = float(os.environ.get("FPL_LLM_CANARY_TTL_S", "600") or "600")
+# {"ts": <monotonic at probe>, "result": <probe dict>}; None until first probe.
+_LLM_CANARY_CACHE: dict[str, Any] = {"ts": 0.0, "result": None}
+
+
+@app.get("/health/llm")
+def health_llm(force: bool = False) -> Any:
+    """Live canary for the configured orchestrator model.
+
+    Makes one cheap (1-token, tool-less) call to ``get_orch_model()`` on the
+    ``get_orch_provider()`` provider and reports whether it still works.
+
+    Status codes
+    ------------
+    200  — model answered.  Body ``{"ok": true, ...}``.
+    503  — model failed.  Body ``{"ok": false, "error_code": "...", ...}``.
+           ``error_code == "model_not_found"`` means the provider retired the
+           model — change ``FPL_ORCH_MODEL`` (+ optionally ``FPL_EVAL_MODEL``)
+           in the Railway dashboard; no code change needed.
+
+    Caching
+    -------
+    The live call is cached for ``FPL_LLM_CANARY_TTL_S`` seconds (default 600).
+    Pass ``?force=true`` to bypass the cache for an on-demand manual check.
+    The response always includes ``cached`` and ``age_s`` so you can tell a
+    fresh probe from a served-from-cache one.
+    """
+    from fastapi.responses import JSONResponse  # noqa: PLC0415
+    from fpl_grounded_assistant.orch_config import (  # noqa: PLC0415
+        get_orch_provider, get_orch_model, is_orch_enabled,
+    )
+    from fpl_grounded_assistant.provider_client import probe_orch_model  # noqa: PLC0415
+
+    now = time.monotonic()
+    cached = _LLM_CANARY_CACHE["result"]
+    age = now - _LLM_CANARY_CACHE["ts"]
+    is_cached = False
+
+    if cached is not None and not force and age < _LLM_CANARY_TTL_S:
+        result = cached
+        is_cached = True
+    else:
+        provider = get_orch_provider()
+        model = get_orch_model(provider)
+        result = probe_orch_model(provider, model)
+        _LLM_CANARY_CACHE["result"] = result
+        _LLM_CANARY_CACHE["ts"] = now
+        age = 0.0
+
+    body = {
+        **result,
+        "orch_enabled": is_orch_enabled(),
+        "cached":       is_cached,
+        "age_s":        round(age, 1),
+        "ttl_s":        _LLM_CANARY_TTL_S,
+    }
+    status = 200 if result.get("ok") else 503
+    return JSONResponse(content=body, status_code=status)
+
+
 @app.get("/metrics")
 def metrics() -> dict[str, Any]:
     """Internal observability endpoint for operator tooling.
@@ -1290,6 +1362,56 @@ def quota_status(
         "upgrade_prompt_es":     qc.upgrade_prompt_es,
         "upgrade_prompt_en":     qc.upgrade_prompt_en,
     }
+
+
+class TierSyncRequest(BaseModel):
+    """Body for POST /events/tier-sync — a non-chat tier-change audit event."""
+
+    user_id: str
+    tier: str
+    previous_tier: str | None = None
+
+
+@app.post("/events/tier-sync")
+def tier_sync_event(req: TierSyncRequest, request: Request) -> dict[str, Any]:
+    """Audit a membership tier change (e.g. Patreon free → paid).
+
+    Chat-turn audit rows only capture users who keep chatting, so a user who
+    upgrades and never asks again would be invisible as a conversion. The
+    frontend's Patreon sync (app/api/auth/sync-patreon) calls this right after
+    it assigns a bucket, so every tier change lands in the same NDJSON audit
+    log keyed by the (hashed) user_id — making free→paid conversions queryable.
+
+    Internal-only: guarded by X-Internal-Token (same scheme as GET /quota).
+    """
+    _internal_token = os.environ.get("FPL_INTERNAL_TOKEN", "").strip()
+    if _internal_token:
+        _provided = request.headers.get("X-Internal-Token", "")
+        if not hmac.compare_digest(_provided, _internal_token):
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+    if req.tier not in TIERS:
+        raise HTTPException(status_code=400, detail=f"unknown tier: {req.tier!r}")
+
+    hashed = hash_user_id(req.user_id)
+    prev = req.previous_tier or "unknown"
+    entry = make_audit_entry(
+        user_id=hashed,
+        tier=req.tier,                       # the newly-assigned bucket
+        question="",                         # not a chat turn
+        branch="tier_sync",
+        outcome="tier_sync",
+        final_text=f"{prev} -> {req.tier}",  # transition, for conversion replay
+        provider="system",
+        error_code=None,
+    )
+    try:
+        write_audit_entry(entry)
+    except Exception as _exc:  # noqa: BLE001
+        _LOG.exception("tier-sync audit write failed: %s", _exc)
+        raise HTTPException(status_code=500, detail="audit write failed") from _exc
+
+    return {"recorded": True, "tier": req.tier, "previous_tier": prev}
 
 
 def _extract_user_context(request: Request) -> tuple[str, str]:

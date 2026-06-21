@@ -18,9 +18,13 @@
  * (wc:-prefixed) and live only in this component's React state — never
  * shared with FPL's ChatShell, which has its own independent state tree.
  */
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useUser } from '@clerk/nextjs';
 import { wcAsk, wcCreateSession } from '@/lib/wc-api';
 import { WcApiError } from '@/lib/wc-types';
+import { QUOTA_BUCKETS, type QuotaBucket } from '@/lib/tiers';
+import { readDevTier } from '@/lib/dev-tier';
+import DevTierSwitcher from '@/components/dev/DevTierSwitcher';
 import { parseWcSlashCommand, WC_SLASH_COMMANDS } from '@/lib/wc-slash-commands';
 import MessageList, { type Message } from './MessageList';
 import InputBar, { type InsertRequest } from './InputBar';
@@ -61,13 +65,23 @@ export default function WcChatShell() {
   // 0 = chat (home), 1 = quick commands
   const [screen, setScreen] = useState(0);
   const [insert, setInsert] = useState<InsertRequest | null>(null);
-  // Premium web-search opt-in (sticky globe toggle). The backend enforces the
-  // tier gate; `webSearchAvailable` only governs the toggle's UI affordance.
-  // TODO(clerk): derive availability from the live Patreon tier once Clerk
-  // supplies X-User-Tier. Until then the backend returns feature_gated for
-  // ineligible users, which renders as a Spanish upgrade prompt.
+  // Premium web-search opt-in (sticky globe toggle). The backend is still the
+  // source of truth for the gate (WEB_SEARCH_TIERS); this only governs the
+  // toggle's UI affordance — eligible users get a working toggle, ineligible
+  // ones get a locked, tap-to-upgrade globe instead of a submit-time refusal.
+  // Eligibility is read from the live Clerk tier via the shared QUOTA_BUCKETS
+  // map (single source of truth with the backend). Anonymous → free → locked.
+  const { user } = useUser();
+  const clerkTier = (user?.publicMetadata?.tier as QuotaBucket | undefined) ?? 'free';
+  // Dev-only impersonation (read after mount to avoid a hydration mismatch on
+  // the cookie). In production readDevTier() is always undefined → real tier.
+  const [devTier, setDevTier] = useState<QuotaBucket | undefined>(undefined);
+  useEffect(() => {
+    setDevTier(readDevTier());
+  }, []);
+  const tier = devTier ?? clerkTier;
+  const webSearchAvailable = QUOTA_BUCKETS[tier]?.webSearch ?? false;
   const [webSearchOn, setWebSearchOn] = useState(false);
-  const webSearchAvailable = true;
   const [lastQuery, setLastQuery] = useState('');
 
   const handleInsert = useCallback((text: string, placeholder?: string) => {
@@ -98,8 +112,11 @@ export default function WcChatShell() {
     const parsed = parseWcSlashCommand(input);
     const effectiveQuestion = parsed?.question ?? input;
     // Explicit opt-in only: the sticky globe toggle, or the one-tap "Buscar en
-    // la web" escalation chip (forceWebSearch). Never silent.
-    const webSearchRequested = opts?.forceWebSearch ?? webSearchOn;
+    // la web" escalation chip (forceWebSearch). Never silent. Gated by tier
+    // eligibility so an ineligible user can't spend a request on a feature the
+    // backend would reject (defense-in-depth; the UI already locks the toggle).
+    const webSearchRequested =
+      (opts?.forceWebSearch ?? webSearchOn) && webSearchAvailable;
     setLastQuery(input);
 
     const userMessage: Message = {
@@ -151,7 +168,7 @@ export default function WcChatShell() {
     } finally {
       setLoading(false);
     }
-  }, [loading, sessionMode, sessionId, webSearchOn]);
+  }, [loading, sessionMode, sessionId, webSearchOn, webSearchAvailable]);
 
   // One-tap "Buscar en la web" escalation: re-run the last query with web
   // search forced on (shown when an answer had no tournament data).
@@ -177,6 +194,7 @@ export default function WcChatShell() {
 
   return (
     <div className="flex flex-col h-screen">
+      <DevTierSwitcher />
       <TopBar title="Mundial 2026" subtitle="Bendito Fantasy" />
 
       <WcPager screen={screen} onScreenChange={setScreen}>
@@ -252,6 +270,7 @@ export default function WcChatShell() {
                   enabled: webSearchOn,
                   onToggle: () => setWebSearchOn((v) => !v),
                   available: webSearchAvailable,
+                  upgradeUrl: '/subscribe',
                 }}
               />
             </div>
