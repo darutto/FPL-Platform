@@ -1,7 +1,9 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 
-const isProtectedRoute = createRouteMatcher(['/chat(.*)']);
+// Both assistant shells require sign-in: the FPL chat (/chat) and the World
+// Cup chat (/wc/chat). Free tier is admitted (limited taste); anonymous is not.
+const isProtectedRoute = createRouteMatcher(['/chat(.*)', '/wc(.*)']);
 
 export default clerkMiddleware(async (auth, req) => {
   const { userId, sessionClaims } = await auth();
