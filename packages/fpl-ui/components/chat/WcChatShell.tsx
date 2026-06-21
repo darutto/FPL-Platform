@@ -18,11 +18,13 @@
  * (wc:-prefixed) and live only in this component's React state — never
  * shared with FPL's ChatShell, which has its own independent state tree.
  */
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { wcAsk, wcCreateSession } from '@/lib/wc-api';
 import { WcApiError } from '@/lib/wc-types';
 import { QUOTA_BUCKETS, type QuotaBucket } from '@/lib/tiers';
+import { readDevTier } from '@/lib/dev-tier';
+import DevTierSwitcher from '@/components/dev/DevTierSwitcher';
 import { parseWcSlashCommand, WC_SLASH_COMMANDS } from '@/lib/wc-slash-commands';
 import MessageList, { type Message } from './MessageList';
 import InputBar, { type InsertRequest } from './InputBar';
@@ -70,7 +72,14 @@ export default function WcChatShell() {
   // Eligibility is read from the live Clerk tier via the shared QUOTA_BUCKETS
   // map (single source of truth with the backend). Anonymous → free → locked.
   const { user } = useUser();
-  const tier = (user?.publicMetadata?.tier as QuotaBucket | undefined) ?? 'free';
+  const clerkTier = (user?.publicMetadata?.tier as QuotaBucket | undefined) ?? 'free';
+  // Dev-only impersonation (read after mount to avoid a hydration mismatch on
+  // the cookie). In production readDevTier() is always undefined → real tier.
+  const [devTier, setDevTier] = useState<QuotaBucket | undefined>(undefined);
+  useEffect(() => {
+    setDevTier(readDevTier());
+  }, []);
+  const tier = devTier ?? clerkTier;
   const webSearchAvailable = QUOTA_BUCKETS[tier]?.webSearch ?? false;
   const [webSearchOn, setWebSearchOn] = useState(false);
   const [lastQuery, setLastQuery] = useState('');
@@ -185,6 +194,7 @@ export default function WcChatShell() {
 
   return (
     <div className="flex flex-col h-screen">
+      <DevTierSwitcher />
       <TopBar title="Mundial 2026" subtitle="Bendito Fantasy" />
 
       <WcPager screen={screen} onScreenChange={setScreen}>

@@ -18,6 +18,15 @@ export type QuotaBucket =
   | 'patreon_plus'
   | 'patreon_premium';
 
+/** Dev-only tier override cookie (see lib/dev-tier.ts + DevTierSwitcher).
+ *  Honored by middleware and the WC shell ONLY when NODE_ENV !== 'production'. */
+export const DEV_TIER_COOKIE = 'dev_tier';
+
+/** Type guard: is `v` one of the known quota buckets? */
+export function isQuotaBucket(v: unknown): v is QuotaBucket {
+  return typeof v === 'string' && v in QUOTA_BUCKETS;
+}
+
 export interface QuotaBucketInfo {
   /** Daily message cap — the limit that binds for normal use. */
   msgsPerDay: number;

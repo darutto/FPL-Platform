@@ -1,5 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
+import { DEV_TIER_COOKIE, isQuotaBucket } from '@/lib/tiers';
 
 // Both assistant shells require sign-in: the FPL chat (/chat) and the World
 // Cup chat (/wc/chat). Free tier is admitted (limited taste); anonymous is not.
@@ -9,8 +10,16 @@ export default clerkMiddleware(async (auth, req) => {
   const { userId, sessionClaims } = await auth();
   // Quota bucket mirrored onto the Clerk session by /api/auth/sync-patreon.
   // One of "free" | "patreon_basic" | "patreon_premium"; absent → "free".
-  const tier =
+  let tier =
     (sessionClaims?.metadata as { tier?: string } | undefined)?.tier ?? 'free';
+
+  // Dev-only tier impersonation: when NODE_ENV !== 'production' a developer can
+  // set the `dev_tier` cookie (see DevTierSwitcher) to test any tier's behaviour
+  // locally. Ignored in production so it can never override a real membership.
+  if (process.env.NODE_ENV !== 'production') {
+    const devTier = req.cookies.get(DEV_TIER_COOKIE)?.value;
+    if (isQuotaBucket(devTier)) tier = devTier;
+  }
 
   // Gate /chat: must be signed in, but ALL tiers (including free) get in.
   // Free is a deliberately limited taste of the assistant (5 msgs/day, enforced
