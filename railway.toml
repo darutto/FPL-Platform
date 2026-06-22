@@ -12,7 +12,7 @@
 # =============================================================================
 
 [build]
-dockerfilePath = "packages/worldcup-assistant/Dockerfile"
+dockerfilePath = "packages/fpl-grounded-assistant/Dockerfile"
 
 [deploy]
 healthcheckPath = "/ready"
