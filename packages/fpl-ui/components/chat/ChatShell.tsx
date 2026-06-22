@@ -24,10 +24,13 @@
  *
  * Auth gating deferred to Phase 3.
  */
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useUser } from '@clerk/nextjs';
 import { ask, sessionAsk, createSession, clearSession, FplApiError } from '@/lib/api';
 import { parseSlashCommand } from '@/lib/slash-commands';
 import type { AskResponse, SquadContext } from '@/lib/types';
+import { type QuotaBucket } from '@/lib/tiers';
+import { readDevTier } from '@/lib/dev-tier';
 import MessageList, { type Message } from './MessageList';
 import InputBar, { type InsertRequest } from './InputBar';
 import StarterPrompts from './StarterPrompts';
@@ -39,6 +42,15 @@ import TopBar from './TopBar';
 import SquadPitch from '@/components/squad/SquadPitch';
 
 export default function ChatShell() {
+  const { user } = useUser();
+  const clerkTier = (user?.publicMetadata?.tier as QuotaBucket | undefined) ?? 'free';
+  // Dev-only impersonation, mirrors WcChatShell — read after mount to avoid a
+  // hydration mismatch on the cookie. Always undefined in production.
+  const [devTier, setDevTier] = useState<QuotaBucket | undefined>(undefined);
+  useEffect(() => {
+    setDevTier(readDevTier());
+  }, []);
+  const tier = devTier ?? clerkTier;
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -229,7 +241,7 @@ export default function ChatShell() {
               )}
               <InputBar onSubmit={sendMessage} disabled={loading} insert={insert} />
               <div className="flex justify-end">
-                <QuotaIndicator refreshTrigger={quotaRefreshTrigger} />
+                <QuotaIndicator userId={user?.id} tier={tier} refreshTrigger={quotaRefreshTrigger} />
               </div>
             </div>
           </div>
