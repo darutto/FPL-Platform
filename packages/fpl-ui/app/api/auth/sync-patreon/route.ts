@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 const PATREON_STRATEGY = (process.env.NEXT_PUBLIC_CLERK_PATREON_STRATEGY ||
   'oauth_custom_patreon') as `oauth_custom_${string}`;
 const PATREON_IDENTITY_URL =
-  'https://www.patreon.com/api/oauth2/v2/identity?include=memberships&fields[member]=patron_status,currently_entitled_amount_cents';
+  'https://www.patreon.com/api/oauth2/v2/identity?include=memberships&fields[member]=patron_status,currently_entitled_amount_cents&fields[user]=email';
 
 /**
  * Map a patron's entitled pledge (cents) onto a backend quota bucket. The
@@ -78,17 +78,6 @@ export async function POST() {
   const user = await client.users.getUser(userId);
   const previousTier = (user.publicMetadata as { tier?: string }).tier;
 
-  if (ADMIN_EMAILS.length > 0) {
-    const emails = user.emailAddresses.map((e) => e.emailAddress.toLowerCase());
-    if (emails.some((e) => ADMIN_EMAILS.includes(e))) {
-      await client.users.updateUserMetadata(userId, {
-        publicMetadata: { tier: 'patreon_premium', role: 'admin' },
-      });
-      await recordTierSync(userId, 'patreon_premium', previousTier);
-      return NextResponse.json({ tier: 'patreon_premium' });
-    }
-  }
-
   const tokens = await client.users.getUserOauthAccessToken(userId, PATREON_STRATEGY);
   const accessToken = tokens.data[0]?.token;
   if (!accessToken) {
@@ -103,6 +92,20 @@ export async function POST() {
   }
 
   const identity = await identityRes.json();
+
+  // Clerk's custom-OAuth field mapper can't parse Patreon's JSON:API response
+  // shape (data.attributes.*), so the Clerk user record never gets an email.
+  // Read it straight from this same identity call instead of user.emailAddresses.
+  const patreonEmail: string | undefined = identity.data?.attributes?.email;
+
+  if (ADMIN_EMAILS.length > 0 && patreonEmail && ADMIN_EMAILS.includes(patreonEmail.toLowerCase())) {
+    await client.users.updateUserMetadata(userId, {
+      publicMetadata: { tier: 'patreon_premium', role: 'admin' },
+    });
+    await recordTierSync(userId, 'patreon_premium', previousTier);
+    return NextResponse.json({ tier: 'patreon_premium' });
+  }
+
   const members: Array<{
     type: string;
     attributes?: { patron_status?: string; currently_entitled_amount_cents?: number };
