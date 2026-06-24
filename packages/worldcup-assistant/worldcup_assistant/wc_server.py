@@ -31,6 +31,8 @@ or for a quick smoke test::
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
 import logging
 import os
 import sys
@@ -61,6 +63,11 @@ from pydantic import BaseModel  # noqa: E402
 from llm_orchestrator_core import LOOP_OK, check_provider_health  # noqa: E402
 from worldcup_assistant.ask import WCAskResult, ask_wc  # noqa: E402
 from worldcup_assistant.context_builder import build_wc_context_dict  # noqa: E402
+from worldcup_assistant.quota import (  # noqa: E402
+    check_quota,
+    get_quota_status,
+    record_turn,
+)
 
 _LOG = logging.getLogger(__name__)
 
@@ -103,6 +110,28 @@ def _extract_tier(request: Request) -> str:
     """
     raw = (request.headers.get("x-user-tier") or "").strip().lower()
     return raw or _DEFAULT_TIER
+
+
+def _hash_user_id(raw_id: str) -> str:
+    """Hash a raw ``X-User-Id`` for use as the quota store key.
+
+    SHA-256 truncated to 16 hex chars — same scheme as
+    ``fpl_grounded_assistant.audit.hash_user_id`` — so the raw Clerk user id
+    never leaves this function and the two services' quota keys can't be
+    correlated even if both backends were ever inspected side by side.
+    """
+    return hashlib.sha256(raw_id.encode("utf-8")).hexdigest()[:16]
+
+
+def _extract_user_id(request: Request) -> str:
+    """Hashed quota key for this request from the ``X-User-Id`` header."""
+    raw_user_id = request.headers.get("x-user-id") or "anonymous"
+    return _hash_user_id(raw_user_id)
+
+
+#: Server-to-server secret gating GET /quota (same scheme as the FPL backend's
+#: GET /quota). Optional: when unset, the endpoint is open (matches dev/local).
+_INTERNAL_TOKEN: str = os.environ.get("FPL_INTERNAL_TOKEN", "").strip()
 
 _SESSION_TTL_SECONDS: int = 1800   # idle timeout; parity with fpl_server
 _SESSION_MAX_COUNT:   int = 100
@@ -294,6 +323,42 @@ def ready() -> dict[str, Any]:
     }
 
 
+@app.get("/quota")
+def quota_status(
+    request: Request,
+    user_id: str = "anonymous",
+    tier: str = "free",
+) -> dict[str, Any]:
+    """Return current quota status for a user (UI quota indicator).
+
+    Mirrors the FPL backend's ``GET /quota`` shape/contract exactly, including
+    the ``X-Internal-Token`` gate, so ``QuotaIndicator.tsx`` works unchanged
+    against either backend. ``user_id`` is hashed the same way the ``/ask``
+    gate hashes ``X-User-Id`` so the two keys always agree.
+    """
+    if _INTERNAL_TOKEN:
+        provided = request.headers.get("X-Internal-Token", "")
+        if not hmac.compare_digest(provided, _INTERNAL_TOKEN):
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+    qc = get_quota_status(_hash_user_id(user_id), tier)
+    return {
+        "allowed":               qc.allowed,
+        "tier":                  qc.tier,
+        "daily_tokens_used":     qc.daily_tokens_used,
+        "daily_message_count":   qc.daily_message_count,
+        "monthly_tokens_used":   qc.monthly_tokens_used,
+        "monthly_message_count": qc.monthly_message_count,
+        "daily_token_cap":       qc.daily_token_cap,
+        "monthly_token_cap":     qc.monthly_token_cap,
+        "daily_message_cap":     qc.daily_message_cap,
+        "monthly_message_cap":   qc.monthly_message_cap,
+        "reason":                qc.reason,
+        "upgrade_prompt_es":     qc.upgrade_prompt_es,
+        "upgrade_prompt_en":     qc.upgrade_prompt_en,
+    }
+
+
 @app.post("/session", response_model=CreateSessionResponse)
 def create_session() -> CreateSessionResponse:
     """Mint a new wc:-namespaced session id."""
@@ -329,6 +394,29 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
         )
     web_search_enabled = req.web_search_requested and tier in WEB_SEARCH_TIERS
 
+    # --- Message-cap quota gate -------------------------------------------
+    # Every WC turn goes through the orchestrator (no deterministic/free
+    # carve-out like FPL's @resource / /prompt prefixes — the WC domain has
+    # no deterministic router), so the gate applies unconditionally and runs
+    # BEFORE the tool loop to avoid spending tokens on a blocked turn.
+    user_id = _extract_user_id(request)
+    quota_check = check_quota(user_id, tier)
+    if not quota_check.allowed:
+        upgrade_text = (
+            quota_check.upgrade_prompt_es
+            or "Has alcanzado tu límite de uso. Por favor actualiza tu plan."
+        )
+        return AskResponse(
+            final_text=upgrade_text,
+            outcome="quota_exceeded",
+            supported=False,
+            intent="wc_info",
+            review_passed=False,
+            llm_used=False,
+            degraded=False,
+            source=None,
+        )
+
     # --- Session history (wc:-namespaced, optional) -----------------------
     session_id: str | None = None
     history: list[dict[str, Any]] | None = None
@@ -352,6 +440,13 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
         max_msgs = _SESSION_MAX_TURNS * 2
         if len(entry.history) > max_msgs:
             entry.history = entry.history[-max_msgs:]
+
+    # Quota accounting: counts toward both daily/monthly message + token caps
+    # regardless of outcome (a failed/degraded turn still cost a turn).
+    try:
+        record_turn(user_id, result.total_tokens, tier)
+    except Exception:  # noqa: BLE001 — accounting must never break the response
+        _LOG.exception("quota record_turn failed for user=%s", user_id)
 
     ok = result.outcome == LOOP_OK
     debug_payload: dict[str, Any] | None = None

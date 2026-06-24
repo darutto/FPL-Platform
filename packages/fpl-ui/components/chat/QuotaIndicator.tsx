@@ -22,6 +22,7 @@ interface Props {
   userId?: string;       // defaults to 'anonymous'
   tier?: string;         // defaults to 'free'
   refreshTrigger?: number; // increment to force re-fetch after a turn
+  endpoint?: string;     // quota proxy route; defaults to the FPL backend's
 }
 
 // ---------------------------------------------------------------------------
@@ -45,6 +46,7 @@ export default function QuotaIndicator({
   userId = 'anonymous',
   tier = 'free',
   refreshTrigger = 0,
+  endpoint = '/api/quota',
 }: Props) {
   const [status, setStatus] = useState<QuotaStatus | null>(null);
   const [fetchError, setFetchError] = useState(false);
@@ -53,7 +55,7 @@ export default function QuotaIndicator({
   const fetchQuota = useCallback(async () => {
     try {
       const params = new URLSearchParams({ user_id: userId, tier });
-      const res = await fetch(`/api/quota?${params.toString()}`);
+      const res = await fetch(`${endpoint}?${params.toString()}`);
       if (!res.ok) {
         setFetchError(true);
         return;
@@ -64,7 +66,7 @@ export default function QuotaIndicator({
     } catch {
       setFetchError(true);
     }
-  }, [userId, tier]);
+  }, [userId, tier, endpoint]);
 
   useEffect(() => {
     fetchQuota();

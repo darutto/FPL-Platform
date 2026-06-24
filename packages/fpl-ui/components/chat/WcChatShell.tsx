@@ -6,9 +6,10 @@
  * Sibling of ChatShell (FPL) for the isolated World Cup domain — same
  * presentational building blocks (MessageList, InputBar, SlashMenu,
  * TopBar, theme) but talks to the WC backend via /api/wc-proxy and uses
- * the WC slash-command registry. No squad context, no quota indicator
- * (the WC backend has neither), and only 2 screens (Chat / Comandos)
- * via WcPager instead of FPL's 3-screen SwipePager.
+ * the WC slash-command registry. No squad context, and only 2 screens
+ * (Chat / Comandos) via WcPager instead of FPL's 3-screen SwipePager.
+ * QuotaIndicator hits /api/wc-quota — the WC backend's own quota store,
+ * separate from the FPL backend's (see worldcup_assistant/quota.py).
  *
  * Renders final_text plus, when present, a structured WC card
  * (standings/top-scorers/fantasy/fixtures — Iteration 3) via
@@ -30,6 +31,7 @@ import MessageList, { type Message } from './MessageList';
 import InputBar, { type InsertRequest } from './InputBar';
 import WcPager, { WcPagerScreen } from './WcPager';
 import WcCommandPanel from './WcCommandPanel';
+import QuotaIndicator from './QuotaIndicator';
 import TopBar from './TopBar';
 
 const WC_STARTER_PROMPTS = [
@@ -83,6 +85,8 @@ export default function WcChatShell() {
   const webSearchAvailable = QUOTA_BUCKETS[tier]?.webSearch ?? false;
   const [webSearchOn, setWebSearchOn] = useState(false);
   const [lastQuery, setLastQuery] = useState('');
+  // Incremented after each completed turn so QuotaIndicator re-fetches quota.
+  const [quotaRefreshTrigger, setQuotaRefreshTrigger] = useState(0);
 
   const handleInsert = useCallback((text: string, placeholder?: string) => {
     setInsert({ text, nonce: Date.now(), placeholder });
@@ -152,6 +156,8 @@ export default function WcChatShell() {
         wcResponse: response,
       };
       setMessages((prev) => [...prev, assistantMessage]);
+      // Refresh quota indicator after every completed turn
+      setQuotaRefreshTrigger((n) => n + 1);
     } catch (err) {
       const errorText =
         err instanceof WcApiError
@@ -273,6 +279,14 @@ export default function WcChatShell() {
                   upgradeUrl: '/subscribe',
                 }}
               />
+              <div className="flex justify-end">
+                <QuotaIndicator
+                  userId={user?.id}
+                  tier={tier}
+                  refreshTrigger={quotaRefreshTrigger}
+                  endpoint="/api/wc-quota"
+                />
+              </div>
             </div>
           </div>
         </WcPagerScreen>
