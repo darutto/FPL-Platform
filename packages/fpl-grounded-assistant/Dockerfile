@@ -102,8 +102,12 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 # Production invariants (Railway env vars override these baked-in defaults)
 # FPL_ORCH_ENABLED=1      — enables LLM orchestration (plain text → ask_orchestrated)
 # FPL_SESSION_ENABLED=false — disables session endpoints until tokens=0 debt resolved
-# --workers 1             — in-memory quota store is per-process; must stay single-worker
-#                           until quota moves to Redis (graduation debt)
+# --workers 1             — quota persists to Redis (REDIS_URL) when set, but other
+#                           per-process state (session dict) still isn't shared across
+#                           workers; keep single-worker until that's addressed too.
+#                           REDIS_URL must be set in the Railway dashboard or quota
+#                           silently falls back to an in-memory store that resets on
+#                           every redeploy.
 ENV FPL_ORCH_ENABLED=1
 ENV FPL_SESSION_ENABLED=false
 

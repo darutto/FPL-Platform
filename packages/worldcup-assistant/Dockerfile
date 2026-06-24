@@ -89,7 +89,9 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     "import urllib.request; urllib.request.urlopen('http://localhost:8100/ready', timeout=5)" \
     || exit 1
 
-# Web search / sessions hold per-process state; keep a single worker until any
-# of it moves to a shared store. Railway injects PORT; default 8100 for local.
-# sh -c so ${PORT} expands.
+# Quota persists to Redis (REDIS_URL) when set — must be configured in the
+# Railway dashboard, or it silently falls back to an in-memory store that
+# resets on every redeploy. Sessions still hold per-process state, so keep a
+# single worker until that moves to a shared store too. Railway injects
+# PORT; default 8100 for local. sh -c so ${PORT} expands.
 CMD ["sh", "-c", "uvicorn worldcup_assistant.wc_server:app --host 0.0.0.0 --port ${PORT:-8100} --workers 1"]

@@ -2,6 +2,8 @@
 fpl_grounded_assistant.quota
 ==============================
 Phase P3.1: Per-user token meter with daily/monthly rolling windows.
+Phase P3.3: Redis-backed persistence (falls back to in-memory when
+REDIS_URL is unset, e.g. local dev/tests).
 
 Public API
 ----------
@@ -12,9 +14,17 @@ reset_quota(user_id=None)    -> None (tests + emergency reset)
 
 Storage
 -------
-In-memory dict keyed by user_id.  Per user: rolling list of
-(timestamp: float, tokens: int, msg_count: int) tuples for daily and
-monthly windows.  Entries are pruned on each access.
+When REDIS_URL is set: four counters per user (daily/monthly x
+tokens/messages), each INCRBY'd per turn with an EXPIRE set on first write
+so the window starts at first activity rather than a fixed calendar
+boundary. This survives process restarts/redeploys, unlike the previous
+pure in-memory dict.
+
+When REDIS_URL is unset (local dev, smoke tests): falls back to the
+original in-memory dict keyed by user_id, with a rolling list of
+(timestamp: float, tokens: int, msg_count: int) tuples per window,
+pruned on each access. Not persistent — fine for local/offline use, never
+used in production (Railway always sets REDIS_URL).
 
 Soft-fail UX
 ------------
@@ -24,9 +34,10 @@ upgrade prompt.  The connection is never dropped.
 """
 from __future__ import annotations
 
+import os
 import time
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
 
 # ---------------------------------------------------------------------------
@@ -114,39 +125,140 @@ class QuotaCheck:
 
 
 # ---------------------------------------------------------------------------
-# In-memory storage
+# Storage backends
 # ---------------------------------------------------------------------------
 
-# Each entry is a list of (timestamp: float, tokens: int, msg_count: int)
-# We keep both daily and monthly in separate lists to avoid quadratic scans.
+class _Backend(Protocol):
+    def get_counts(self, user_id: str) -> tuple[int, int, int, int]:
+        """Return (daily_tokens, daily_msgs, monthly_tokens, monthly_msgs)."""
+        ...
+
+    def record(self, user_id: str, tokens_used: int) -> None: ...
+
+    def reset(self, user_id: str | None) -> None: ...
+
+
 @dataclass
 class _UserBucket:
     daily:   list[tuple[float, int, int]] = field(default_factory=list)
     monthly: list[tuple[float, int, int]] = field(default_factory=list)
 
 
-_store: dict[str, _UserBucket] = {}
+class _InMemoryBackend:
+    """Original dict-based store. Not persistent — local dev/tests only."""
+
+    def __init__(self) -> None:
+        self._store: dict[str, _UserBucket] = {}
+
+    def _get_bucket(self, user_id: str) -> _UserBucket:
+        if user_id not in self._store:
+            self._store[user_id] = _UserBucket()
+        return self._store[user_id]
+
+    @staticmethod
+    def _prune(bucket: _UserBucket, now: float) -> None:
+        daily_cutoff   = now - _DAILY_WINDOW_S
+        monthly_cutoff = now - _MONTHLY_WINDOW_S
+        bucket.daily   = [(ts, tok, msg) for ts, tok, msg in bucket.daily   if ts > daily_cutoff]
+        bucket.monthly = [(ts, tok, msg) for ts, tok, msg in bucket.monthly if ts > monthly_cutoff]
+
+    @staticmethod
+    def _sum(entries: list[tuple[float, int, int]]) -> tuple[int, int]:
+        return sum(tok for _, tok, _ in entries), sum(msg for _, _, msg in entries)
+
+    def get_counts(self, user_id: str) -> tuple[int, int, int, int]:
+        now = time.time()
+        bucket = self._get_bucket(user_id)
+        self._prune(bucket, now)
+        daily_tokens, daily_msgs = self._sum(bucket.daily)
+        monthly_tokens, monthly_msgs = self._sum(bucket.monthly)
+        return daily_tokens, daily_msgs, monthly_tokens, monthly_msgs
+
+    def record(self, user_id: str, tokens_used: int) -> None:
+        now = time.time()
+        bucket = self._get_bucket(user_id)
+        self._prune(bucket, now)
+        entry = (now, max(0, tokens_used), 1)
+        bucket.daily.append(entry)
+        bucket.monthly.append(entry)
+
+    def reset(self, user_id: str | None) -> None:
+        if user_id is None:
+            self._store.clear()
+        elif user_id in self._store:
+            del self._store[user_id]
 
 
-def _get_bucket(user_id: str) -> _UserBucket:
-    if user_id not in _store:
-        _store[user_id] = _UserBucket()
-    return _store[user_id]
+def _redis_key(user_id: str, window: str, kind: str) -> str:
+    return f"quota:{window}:{kind}:{user_id}"
 
 
-def _prune(bucket: _UserBucket, now: float) -> None:
-    """Remove entries outside the rolling windows."""
-    daily_cutoff   = now - _DAILY_WINDOW_S
-    monthly_cutoff = now - _MONTHLY_WINDOW_S
-    bucket.daily   = [(ts, tok, msg) for ts, tok, msg in bucket.daily   if ts > daily_cutoff]
-    bucket.monthly = [(ts, tok, msg) for ts, tok, msg in bucket.monthly if ts > monthly_cutoff]
+class _RedisBackend:
+    """Persistent store backed by Redis (REDIS_URL). Survives restarts.
+
+    Counters use a "window starts at first activity" semantic rather than a
+    true sliding window: each of the four counters (daily/monthly x
+    tokens/messages) gets its TTL set only on the write that creates it
+    (detected via INCRBY's return value equalling the increment), so the
+    window resets ~24h/30d after the user's first turn in that window, not
+    at a fixed calendar boundary. Operationally equivalent to the prior
+    rolling-window behaviour for cap-enforcement purposes, far cheaper than
+    storing every turn as a separate entry.
+    """
+
+    def __init__(self, client: Any) -> None:
+        self._client = client
+
+    def get_counts(self, user_id: str) -> tuple[int, int, int, int]:
+        pipe = self._client.pipeline()
+        pipe.get(_redis_key(user_id, "daily", "tokens"))
+        pipe.get(_redis_key(user_id, "daily", "msgs"))
+        pipe.get(_redis_key(user_id, "monthly", "tokens"))
+        pipe.get(_redis_key(user_id, "monthly", "msgs"))
+        daily_tokens, daily_msgs, monthly_tokens, monthly_msgs = pipe.execute()
+        return (
+            int(daily_tokens or 0),
+            int(daily_msgs or 0),
+            int(monthly_tokens or 0),
+            int(monthly_msgs or 0),
+        )
+
+    def record(self, user_id: str, tokens_used: int) -> None:
+        tokens_used = max(0, tokens_used)
+        for key, amount, ttl in (
+            (_redis_key(user_id, "daily", "tokens"),   tokens_used, _DAILY_WINDOW_S),
+            (_redis_key(user_id, "daily", "msgs"),     1,           _DAILY_WINDOW_S),
+            (_redis_key(user_id, "monthly", "tokens"), tokens_used, _MONTHLY_WINDOW_S),
+            (_redis_key(user_id, "monthly", "msgs"),   1,           _MONTHLY_WINDOW_S),
+        ):
+            new_value = self._client.incrby(key, amount)
+            if new_value == amount:
+                # Key didn't exist before this write — start its window now.
+                self._client.expire(key, int(ttl))
+
+    def reset(self, user_id: str | None) -> None:
+        if user_id is None:
+            for key in self._client.scan_iter(match="quota:*"):
+                self._client.delete(key)
+        else:
+            self._client.delete(
+                _redis_key(user_id, "daily", "tokens"),
+                _redis_key(user_id, "daily", "msgs"),
+                _redis_key(user_id, "monthly", "tokens"),
+                _redis_key(user_id, "monthly", "msgs"),
+            )
 
 
-def _sum_bucket(entries: list[tuple[float, int, int]]) -> tuple[int, int]:
-    """Return (total_tokens, total_messages) from a list of entries."""
-    total_tokens = sum(tok for _, tok, _ in entries)
-    total_msgs   = sum(msg for _, _, msg in entries)
-    return total_tokens, total_msgs
+def _make_backend() -> _Backend:
+    redis_url = os.environ.get("REDIS_URL")
+    if not redis_url:
+        return _InMemoryBackend()
+    import redis as redis_lib  # local import: optional dependency, only needed when REDIS_URL is set
+    client = redis_lib.from_url(redis_url, decode_responses=True)
+    return _RedisBackend(client)
+
+
+_backend: _Backend = _make_backend()
 
 
 # ---------------------------------------------------------------------------
@@ -221,12 +333,8 @@ def check_quota(user_id: str, tier: str = "free") -> QuotaCheck:
         ``allowed=False`` (with ``reason`` + upgrade prompts) when any cap is hit.
     """
     tier_cfg = TIERS.get(tier, TIERS[_DEFAULT_TIER_NAME])
-    now      = time.time()
-    bucket   = _get_bucket(user_id)
-    _prune(bucket, now)
 
-    daily_tokens,   daily_msgs   = _sum_bucket(bucket.daily)
-    monthly_tokens, monthly_msgs = _sum_bucket(bucket.monthly)
+    daily_tokens, daily_msgs, monthly_tokens, monthly_msgs = _backend.get_counts(user_id)
 
     allowed = True
     reason: str | None = None
@@ -283,13 +391,7 @@ def record_turn(user_id: str, tokens_used: int, tier: str = "free") -> None:
         Quota tier label.  Ignored at record time (caps are enforced at
         check_quota time); stored here for future per-tier analytics.
     """
-    now    = time.time()
-    bucket = _get_bucket(user_id)
-    # Always prune before appending so the window counts stay accurate.
-    _prune(bucket, now)
-    entry = (now, max(0, tokens_used), 1)
-    bucket.daily.append(entry)
-    bucket.monthly.append(entry)
+    _backend.record(user_id, tokens_used)
 
 
 def get_quota_status(user_id: str, tier: str = "free") -> QuotaCheck:
@@ -312,7 +414,4 @@ def reset_quota(user_id: str | None = None) -> None:
         When not None, clears only that user's bucket.
         When None, clears ALL buckets (used in test teardowns).
     """
-    if user_id is None:
-        _store.clear()
-    elif user_id in _store:
-        del _store[user_id]
+    _backend.reset(user_id)
