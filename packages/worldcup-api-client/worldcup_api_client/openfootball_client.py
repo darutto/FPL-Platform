@@ -52,6 +52,7 @@ import os
 import re
 import threading
 import time
+import unicodedata
 from typing import Any
 
 import httpx
@@ -250,6 +251,67 @@ def _compute_group_standings(matches: list[dict[str, Any]]) -> dict[str, dict[st
 # Slot (placeholder code) resolution
 # ---------------------------------------------------------------------------
 
+#: English (openfootball) team name → FIFA 3-letter code, for the bracket-card
+#: abbreviation chips. Keyed on the names openfootball uses (with a few
+#: spelling variants). Unmapped names fall back to an accent-stripped
+#: first-three-letters code via ``_abbr``.
+_TEAM_ABBR: dict[str, str] = {
+    # CONMEBOL
+    "argentina": "ARG", "brazil": "BRA", "uruguay": "URU", "colombia": "COL",
+    "ecuador": "ECU", "paraguay": "PAR", "peru": "PER", "chile": "CHI",
+    "bolivia": "BOL", "venezuela": "VEN",
+    # UEFA
+    "spain": "ESP", "england": "ENG", "france": "FRA", "germany": "GER",
+    "netherlands": "NED", "belgium": "BEL", "croatia": "CRO", "switzerland": "SUI",
+    "denmark": "DEN", "sweden": "SWE", "norway": "NOR", "poland": "POL",
+    "portugal": "POR", "italy": "ITA", "austria": "AUT", "scotland": "SCO",
+    "wales": "WAL", "turkey": "TUR", "turkiye": "TUR", "ukraine": "UKR",
+    "serbia": "SRB", "czechia": "CZE", "czech republic": "CZE", "slovakia": "SVK",
+    "slovenia": "SVN", "romania": "ROU", "hungary": "HUN", "greece": "GRE",
+    "finland": "FIN", "republic of ireland": "IRL", "ireland": "IRL",
+    "iceland": "ISL", "albania": "ALB", "north macedonia": "MKD",
+    "bosnia and herzegovina": "BIH", "montenegro": "MNE", "kosovo": "KVX",
+    "georgia": "GEO",
+    # CAF
+    "morocco": "MAR", "senegal": "SEN", "tunisia": "TUN", "algeria": "ALG",
+    "egypt": "EGY", "nigeria": "NGA", "ghana": "GHA", "cameroon": "CMR",
+    "ivory coast": "CIV", "cote d'ivoire": "CIV", "côte d'ivoire": "CIV",
+    "south africa": "RSA", "cape verde": "CPV", "cabo verde": "CPV",
+    "dr congo": "COD", "congo dr": "COD", "mali": "MLI", "burkina faso": "BFA",
+    "guinea": "GUI", "gabon": "GAB", "benin": "BEN", "zambia": "ZAM",
+    "kenya": "KEN", "mozambique": "MOZ", "angola": "ANG",
+    # AFC
+    "japan": "JPN", "south korea": "KOR", "korea republic": "KOR",
+    "saudi arabia": "KSA", "iran": "IRN", "ir iran": "IRN", "qatar": "QAT",
+    "iraq": "IRQ", "jordan": "JOR", "uzbekistan": "UZB",
+    "united arab emirates": "UAE", "china": "CHN", "china pr": "CHN",
+    "australia": "AUS",
+    # OFC
+    "new zealand": "NZL",
+    # CONCACAF
+    "united states": "USA", "usa": "USA", "mexico": "MEX", "canada": "CAN",
+    "panama": "PAN", "costa rica": "CRC", "honduras": "HON", "jamaica": "JAM",
+    "haiti": "HAI", "curacao": "CUW", "curaçao": "CUW",
+    "trinidad and tobago": "TRI", "el salvador": "SLV", "guatemala": "GUA",
+    "suriname": "SUR",
+}
+
+
+def _abbr(name: str | None) -> str | None:
+    """FIFA-style 3-letter code for a resolved (English) team name. Falls back
+    to the accent-stripped, uppercased first three letters when unmapped."""
+    if not name:
+        return None
+    code = _TEAM_ABBR.get(name.strip().lower())
+    if code:
+        return code
+    stripped = "".join(
+        c for c in unicodedata.normalize("NFKD", name)
+        if not unicodedata.combining(c) and c.isalpha()
+    )
+    return stripped[:3].upper() if stripped else None
+
+
 _POS_GROUP = re.compile(r"^([12])([A-L])$")
 _THIRD = re.compile(r"^3([A-L](?:/[A-L])*)$")
 _WINNER = re.compile(r"^W(\d+)$")
@@ -304,6 +366,37 @@ def _resolve_slot(
     return code, None
 
 
+def _score_and_winner(
+    match: dict[str, Any], home_team: str | None, away_team: str | None
+) -> tuple[int | None, int | None, str | None]:
+    """Full-time score + advancing side for a knockout tie, once played.
+
+    Returns ``(home_score, away_score, winner_side)`` where ``winner_side`` is
+    ``"home"``/``"away"``/``None``. A draw is broken by the penalty shootout
+    score if openfootball recorded one (``score.p``/``pen``/``penalties``).
+    Only reported when both sides are confirmed teams — a score against a
+    placeholder slot would be meaningless.
+    """
+    if not (home_team and away_team):
+        return None, None, None
+    score = match.get("score") or {}
+    ft = score.get("ft")
+    if not (isinstance(ft, list) and len(ft) == 2):
+        return None, None, None
+    hs, as_ = ft[0], ft[1]
+    if hs > as_:
+        return hs, as_, "home"
+    if as_ > hs:
+        return hs, as_, "away"
+    pens = score.get("p") or score.get("pen") or score.get("penalties")
+    if isinstance(pens, list) and len(pens) == 2:
+        if pens[0] > pens[1]:
+            return hs, as_, "home"
+        if pens[1] > pens[0]:
+            return hs, as_, "away"
+    return hs, as_, None
+
+
 # ---------------------------------------------------------------------------
 # Public endpoint
 # ---------------------------------------------------------------------------
@@ -341,6 +434,7 @@ def get_bracket(stage: str | None = None) -> dict[str, Any]:
 
         home_team, home_source = _resolve_slot(mt.get("team1"), standings)
         away_team, away_source = _resolve_slot(mt.get("team2"), standings)
+        home_score, away_score, winner_side = _score_and_winner(mt, home_team, away_team)
         out.append({
             "match_num": mt.get("num"),
             "stage": match_stage,
@@ -349,8 +443,15 @@ def get_bracket(stage: str | None = None) -> dict[str, Any]:
             "venue_city": mt.get("ground"),
             "home_team": home_team,
             "away_team": away_team,
+            "home_abbr": _abbr(home_team),
+            "away_abbr": _abbr(away_team),
             "home_source": home_source,
             "away_source": away_source,
+            "home_score": home_score,
+            "away_score": away_score,
+            #: Which side advanced ("home"/"away"), once the tie is played;
+            #: None while pending. Drives the winner highlight in the card.
+            "winner_side": winner_side,
             "resolved": home_team is not None and away_team is not None,
         })
 

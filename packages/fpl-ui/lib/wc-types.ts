@@ -134,8 +134,16 @@ export interface WcBracketMatch {
   venue_city: string | null;
   home_team: string | null;
   away_team: string | null;
+  /** FIFA 3-letter code for the abbreviation chip (null while pending). */
+  home_abbr: string | null;
+  away_abbr: string | null;
   home_source: string | null;
   away_source: string | null;
+  /** Full-time score once the tie is played; null while pending. */
+  home_score: number | null;
+  away_score: number | null;
+  /** Which side advanced ("home"/"away"), or null while pending. */
+  winner_side: 'home' | 'away' | null;
   /** True when both sides are confirmed teams. */
   resolved: boolean;
 }
