@@ -29,6 +29,7 @@ import WcPlayerInfoCard from './WcPlayerInfoCard';
 import WcSquadTable from './WcSquadTable';
 import WcHeadToHeadTable from './WcHeadToHeadTable';
 import WcFixturesTable from './WcFixturesTable';
+import WcBracketTable from './WcBracketTable';
 import WcWebSearchCard from './WcWebSearchCard';
 
 interface Props {
@@ -38,6 +39,9 @@ interface Props {
 export default function WcIntentRenderer({ response }: Props) {
   const view = selectWcIntentView(response);
 
+  if (view === 'bracket' && response.bracket != null) {
+    return <WcBracketTable data={response.bracket} />;
+  }
   if (view === 'standings' && response.standings != null) {
     return <WcStandingsTable data={response.standings} />;
   }

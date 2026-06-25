@@ -28,6 +28,7 @@ const PRESENTATION: Record<string, { Icon: IconComponent; accent: Accent }> = {
   '/comparar': { Icon: IconCompare, accent: 'cyan' },
   '/partidos': { Icon: IconFixtures, accent: 'turquoise' },
   '/clasificacion': { Icon: IconRanking, accent: 'gold' },
+  '/brackets': { Icon: IconDiff, accent: 'cyan' },
   '/goleadores': { Icon: IconPoints, accent: 'coral' },
   '/fantasy': { Icon: IconXG, accent: 'purple' },
   '/plantilla': { Icon: IconMinutes, accent: 'coralSoft' },

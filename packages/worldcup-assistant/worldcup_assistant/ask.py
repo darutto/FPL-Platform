@@ -45,6 +45,9 @@ _STRUCTURED_TOOL_FIELDS: dict[str, tuple[str, str | None]] = {
     "get_fantasy_top_players": ("fantasy_top_players", "players"),
     "get_fixtures": ("fixtures", "matches"),
     "get_live_scores": ("fixtures", "matches"),
+    # Whole tool output (minus status) → WCAskResult.bracket. Carries
+    # {matches, count, bracket_complete, stage?} for the knockout-bracket card.
+    "get_bracket": ("bracket", None),
     "get_squad": ("squad", None),
     "get_head_to_head": ("head_to_head", None),
     "get_wc2022_results": ("wc2022_results", "matches"),
@@ -121,6 +124,7 @@ class WCAskResult:
     top_assists: list[dict[str, Any]] | None = None
     fantasy_top_players: list[dict[str, Any]] | None = None
     fixtures:    list[dict[str, Any]] | None = None
+    bracket:     dict[str, Any] | None = None
     squad:       dict[str, Any] | None = None
     head_to_head: dict[str, Any] | None = None
     players_info: list[dict[str, Any]] | None = None
@@ -254,6 +258,7 @@ def ask_wc(
         top_assists=structured.get("top_assists"),
         fantasy_top_players=structured.get("fantasy_top_players"),
         fixtures=structured.get("fixtures"),
+        bracket=structured.get("bracket"),
         squad=structured.get("squad"),
         head_to_head=structured.get("head_to_head"),
         players_info=players_info or None,

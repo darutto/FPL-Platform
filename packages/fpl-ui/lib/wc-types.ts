@@ -121,6 +121,44 @@ export interface WcHeadToHeadPayload {
   note: string;
 }
 
+/** One knockout-bracket match (get_bracket). Each side is either a resolved
+ *  team name (home_team/away_team non-null, already locale_es-localized) or a
+ *  pending slot whose Spanish origin is in home_source/away_source (e.g.
+ *  "2.º del Grupo A", "Ganador del partido 74"). */
+export interface WcBracketMatch {
+  match_num: number;
+  /** Localized stage label, e.g. "Dieciseisavos de final", "Final". */
+  stage: string;
+  date: string | null;
+  time: string | null;
+  venue_city: string | null;
+  home_team: string | null;
+  away_team: string | null;
+  /** FIFA 3-letter code for the abbreviation chip (null while pending). */
+  home_abbr: string | null;
+  away_abbr: string | null;
+  home_source: string | null;
+  away_source: string | null;
+  /** Full-time score once the tie is played; null while pending. */
+  home_score: number | null;
+  away_score: number | null;
+  /** Which side advanced ("home"/"away"), or null while pending. */
+  winner_side: 'home' | 'away' | null;
+  /** True when both sides are confirmed teams. */
+  resolved: boolean;
+}
+
+/** Knockout bracket payload (get_bracket). The list key is `ties` (not
+ *  `matches`) to keep it out of the backend's token-budget truncation. */
+export interface WcBracketPayload {
+  ties: WcBracketMatch[];
+  count: number;
+  /** True only when every returned slot is a confirmed team. */
+  bracket_complete: boolean;
+  /** Echoed stage enum when the query was filtered to one round. */
+  stage?: string;
+}
+
 /** One web-search result (from Tavily, via the web_search tool). */
 export interface WcWebSearchResult {
   title: string;
@@ -185,6 +223,8 @@ export interface WcAskResponse {
   fantasy_top_players?: WcFantasyPlayerRow[] | null;
   /** Fixtures/results/live matches, non-null when get_fixtures or get_live_scores was the last matching tool call. */
   fixtures?: WcMatchRow[] | null;
+  /** Knockout bracket, non-null when get_bracket was the last matching tool call. */
+  bracket?: WcBracketPayload | null;
   /** Full tournament squad, non-null when get_squad was the last matching tool call. */
   squad?: WcSquadPayload | null;
   /** Head-to-head record, non-null when get_head_to_head was the last matching tool call. */

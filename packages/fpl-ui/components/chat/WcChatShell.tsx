@@ -36,10 +36,10 @@ import TopBar from './TopBar';
 
 const WC_STARTER_PROMPTS = [
   '¿Cómo va el grupo A?',
+  '/brackets',
   '/comparar Mbappé vs Haaland',
   '¿Quiénes son los máximos goleadores?',
   '/clasificacion grupo B',
-  '¿Qué partidos hay hoy?',
   '/fantasy delanteros',
 ] as const;
 

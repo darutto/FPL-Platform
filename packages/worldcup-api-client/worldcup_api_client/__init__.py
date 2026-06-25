@@ -18,6 +18,11 @@ feed; ``standings``, ``top_scorers``, ``head_to_head`` are computed from it.
 since this feed has no lineup/match-stats data.
 """
 
+from .openfootball_client import (  # noqa: F401
+    TTL_BRACKET_S,
+    clear_bracket_cache,
+    get_bracket,
+)
 from .player_ids import UnknownPlayerError  # noqa: F401
 from .team_ids import UnknownTeamError  # noqa: F401
 from .wc2022_data import WC2022DataError, get_player_wc2022_summary, get_wc2022_results  # noqa: F401

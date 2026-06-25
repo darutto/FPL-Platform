@@ -62,6 +62,14 @@ export const WC_SLASH_COMMANDS: WcSlashCommand[] = [
       : '¿Cómo está la clasificación general por grupos?',
   },
   {
+    command: '/brackets',
+    label: 'Cuadro de eliminatorias',
+    placeholder: 'p.ej. octavos (opcional)',
+    buildQuestion: (arg) => arg
+      ? `Muéstrame el cuadro de ${arg} del Mundial.`
+      : 'Muéstrame el cuadro completo de eliminatorias del Mundial.',
+  },
+  {
     command: '/goleadores',
     label: 'Máximos goleadores',
     placeholder: '(sin argumento)',

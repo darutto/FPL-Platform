@@ -247,6 +247,9 @@ class AskResponse(BaseModel):
     top_assists: list[dict[str, Any]] | None = None
     fantasy_top_players: list[dict[str, Any]] | None = None
     fixtures: list[dict[str, Any]] | None = None
+    #: Knockout bracket payload ({matches, count, bracket_complete}), present
+    #: when get_bracket was the most recent matching tool call on an ok turn.
+    bracket: dict[str, Any] | None = None
     squad: dict[str, Any] | None = None
     head_to_head: dict[str, Any] | None = None
     players_info: list[dict[str, Any]] | None = None
@@ -475,6 +478,7 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
         top_assists=result.top_assists if ok else None,
         fantasy_top_players=result.fantasy_top_players if ok else None,
         fixtures=result.fixtures if ok else None,
+        bracket=result.bracket if ok else None,
         squad=result.squad if ok else None,
         head_to_head=result.head_to_head if ok else None,
         players_info=result.players_info if ok else None,
