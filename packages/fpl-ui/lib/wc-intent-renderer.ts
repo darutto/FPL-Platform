@@ -17,6 +17,7 @@
 import type { WcAskResponse } from './wc-types';
 
 export type WcIntentView =
+  | 'bracket'
   | 'standings'
   | 'top_scorers'
   | 'top_assists'
@@ -35,6 +36,9 @@ export type WcIntentView =
 export function selectWcIntentView(response: WcAskResponse): WcIntentView | null {
   if (response.outcome !== 'ok') return null;
 
+  if (response.bracket != null && response.bracket.ties.length > 0) {
+    return 'bracket';
+  }
   if (response.standings != null && Object.keys(response.standings).length > 0) {
     return 'standings';
   }

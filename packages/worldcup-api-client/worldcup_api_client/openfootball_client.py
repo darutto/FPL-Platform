@@ -317,9 +317,13 @@ def get_bracket(stage: str | None = None) -> dict[str, Any]:
     ``quarter_final``, ``semi_final``, ``third_place``, ``final``); omit for
     the whole bracket.
 
-    Returns ``{"matches": [...], "count": n, "bracket_complete": bool}``
-    (plus ``"stage"`` echoed when a filter was applied). ``bracket_complete``
-    is True only when every returned slot is resolved to a real team.
+    Returns ``{"ties": [...], "count": n, "bracket_complete": bool}`` (plus
+    ``"stage"`` echoed when a filter was applied). ``bracket_complete`` is True
+    only when every returned slot is resolved to a real team.
+
+    The list key is ``"ties"`` (not ``"matches"``) on purpose: ``"matches"`` is
+    a token-budget-truncatable field in the WC tool loop, and the bracket is a
+    fixed 32-tie structure that must never be capped to 10 in the card.
     """
     doc = _fetch_bracket_doc()
     all_matches = doc.get("matches") or []
@@ -353,7 +357,7 @@ def get_bracket(stage: str | None = None) -> dict[str, Any]:
     out.sort(key=lambda m: (_STAGE_ORDER.get(m["stage"], 99), m["match_num"] or 0))
 
     result: dict[str, Any] = {
-        "matches": out,
+        "ties": out,
         "count": len(out),
         "bracket_complete": bool(out) and all(m["resolved"] for m in out),
     }
