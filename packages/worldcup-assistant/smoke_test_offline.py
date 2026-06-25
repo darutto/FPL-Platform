@@ -77,10 +77,11 @@ check("locale: unmapped value passes through",
       locale_es.localize_country("Atlantis") == "Atlantis")
 
 # --- 4. Tool registry shape ---------------------------------------------------
-check("tools: 13 base specs registered", len(WC_TOOL_SPECS) == 13,
+check("tools: 14 base specs registered", len(WC_TOOL_SPECS) == 14,
       str(sorted(s.name for s in WC_TOOL_SPECS)))
-check("tools: 14 specs with web_search enabled",
-      len(build_wc_tool_specs(web_search_enabled=True)) == 14
+check("tools: get_bracket registered", "get_bracket" in WC_TOOL_NAMES)
+check("tools: 15 specs with web_search enabled",
+      len(build_wc_tool_specs(web_search_enabled=True)) == 15
       and any(s.name == "web_search" for s in build_wc_tool_specs(web_search_enabled=True)),
       str(sorted(WC_TOOL_NAMES)))
 check("tools: web_search absent when disabled",
@@ -91,7 +92,7 @@ gemini_tools = core.build_tools("gemini", WC_TOOL_SPECS)
 check("tools: anthropic wire format", all("input_schema" in t for t in anthropic_tools))
 check("tools: openai wire format", all(t.get("type") == "function" for t in openai_tools))
 check("tools: gemini wire format",
-      len(gemini_tools) == 1 and len(gemini_tools[0]["function_declarations"]) == 13)
+      len(gemini_tools) == 1 and len(gemini_tools[0]["function_declarations"]) == 14)
 
 # --- 5. Executor error envelopes (no network) ---------------------------------
 r = execute_wc_tool("get_squad", {})

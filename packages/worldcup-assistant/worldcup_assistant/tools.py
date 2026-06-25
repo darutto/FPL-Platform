@@ -23,6 +23,7 @@ from typing import Any, Callable
 from llm_orchestrator_core import ToolSpec
 from worldcup_api_client import (
     WorldCupAPIError,
+    get_bracket,
     get_fantasy_top_players,
     get_fixtures,
     get_head_to_head,
@@ -132,6 +133,34 @@ WC_TOOL_SPECS: list[ToolSpec] = [
                 "group": {
                     "type": "string",
                     "description": "Single group letter A–L. Omit for all groups.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    ),
+    ToolSpec(
+        name="get_bracket",
+        description=(
+            "Knockout-stage bracket (Dieciseisavos/Round of 32 → Final). Each "
+            "match gives both sides as either a confirmed team or a pending "
+            "slot described in Spanish (e.g. '2.º del Grupo A', 'Ganador del "
+            "partido 74', 'Mejor 3.º (Grupos A/B/C/D/F)'). Use for "
+            "'¿cómo queda(n) los cruces/octavos/llave/bracket?', 'a quién "
+            "enfrenta el ganador del Grupo X', and any knockout-pairing "
+            "question. Confirmed pairings appear as groups finish; before that "
+            "the slot descriptions explain who will play whom. Optionally "
+            "filter by stage."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "stage": {
+                    "type": "string",
+                    "description": (
+                        "Filter to one knockout round: round_of_32, "
+                        "round_of_16, quarter_final, semi_final, third_place, "
+                        "final. Omit for the full bracket."
+                    ),
                 },
             },
             "additionalProperties": False,
@@ -373,6 +402,7 @@ _CLIENT_DISPATCH: dict[str, Callable[..., Any]] = {
     "get_squad":        lambda args: get_squad(args["team"]),
     "get_lineup":       lambda args: get_lineup(args["match_id"]),
     "get_standings":    lambda args: get_standings(group=args.get("group")),
+    "get_bracket":      lambda args: get_bracket(stage=args.get("stage")),
     "get_top_scorers":  lambda args: get_top_scorers(),
     "get_top_assists":  lambda args: get_top_assists(),
     "get_fantasy_top_players": lambda args: get_fantasy_top_players(
