@@ -12,6 +12,7 @@
  */
 import { useEffect, useState } from 'react';
 import { UserButton } from '@clerk/nextjs';
+import SectionSwitcher from './SectionSwitcher';
 
 const CONTRAST_LS_KEY = 'bf_contrast';
 
@@ -53,12 +54,17 @@ export default function TopBar({ teamName, gw, title = 'FPL Asistente', subtitle
     <div className="h-12 flex items-center gap-2.5 px-3.5 border-b border-white/10 bg-black/25 flex-shrink-0">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/logo-icon.png" alt="Bendito Fantasy" className="h-7 w-7 rounded flex-shrink-0" />
-      <div className="flex flex-col leading-none">
+      <div className="flex-col leading-none hidden md:flex">
         <span className="text-[13px] font-extrabold text-white">{title}</span>
         <span className="text-[10px] text-bf-gray mt-0.5">{subtitle}</span>
       </div>
 
-      <div className="ml-auto flex items-center gap-2.5">
+      {/* Spotify-style FPL ↔ Mundial section switcher (shared by both shells). */}
+      <div className="mx-auto">
+        <SectionSwitcher />
+      </div>
+
+      <div className="flex items-center gap-2.5">
         {teamName && (
           <div className="text-right leading-none hidden sm:block">
             <span className="block text-[9px] font-bold text-bf-text/40 uppercase tracking-widest">Team</span>
