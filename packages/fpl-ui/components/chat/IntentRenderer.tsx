@@ -29,6 +29,7 @@ import RankingTable from '@/components/intents/RankingTable';
 import TransferCard from '@/components/intents/TransferCard';
 import ChipCard from '@/components/intents/ChipCard';
 import FixtureRunTable from '@/components/intents/FixtureRunTable';
+import FixtureOutlookCard from '@/components/intents/FixtureOutlookCard';
 import DifferentialTable from '@/components/intents/DifferentialTable';
 import MultiIntentView from '@/components/intents/MultiIntentView';
 import ResourceRankingTable from '@/components/intents/ResourceRankingTable';
@@ -59,6 +60,9 @@ export default function IntentRenderer({ response }: Props) {
   }
   if (view === 'fixture_run' && response.fixture_run != null) {
     return <FixtureRunTable data={response.fixture_run} />;
+  }
+  if (view === 'fixture_outlook' && response.fixture_outlook != null) {
+    return <FixtureOutlookCard data={response.fixture_outlook} />;
   }
   if (view === 'differential' && response.differential != null) {
     return <DifferentialTable data={response.differential} />;

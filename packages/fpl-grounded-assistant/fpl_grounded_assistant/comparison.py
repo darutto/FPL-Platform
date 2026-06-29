@@ -70,6 +70,7 @@ from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
 
 from .explainer import explain_captain
+from .fixture_context import build_fixture_context, fixture_tiebreaker_line  # FI3a
 from .position_score import compute_position_score
 
 
@@ -398,6 +399,7 @@ def _score_one(query: str, bootstrap: dict[str, Any]) -> dict[str, Any]:
         "web_name":         resolve["web_name"],
         "name":             resolve["name"],
         "team":             resolve["team"],
+        "team_id":          element.get("team"),   # FI3a: for fixture context
         "position":         resolve["position"],
         "captain_score":    score,
         "position_score":   ps_result.position_score,
@@ -490,6 +492,23 @@ def compare_players(
     else:
         comparison_reasons = []
 
+    # FI3a: additive fixture context — never changes score/winner/margin.
+    # Axis is auto-picked from each player's position (attacker→attack,
+    # DEF/GKP→defence). Surfaced as supporting info; elevated to an explicit
+    # tiebreaker line only when the captain scores are narrow.
+    fc_a = build_fixture_context(
+        bootstrap, team_id=scored_a.get("team_id"), position=scored_a.get("position"),
+        dc_per_90=scored_a.get("score_inputs", {}).get("dc_per_90"),
+    )
+    fc_b = build_fixture_context(
+        bootstrap, team_id=scored_b.get("team_id"), position=scored_b.get("position"),
+        dc_per_90=scored_b.get("score_inputs", {}).get("dc_per_90"),
+    )
+    fixture_tiebreaker = fixture_tiebreaker_line(
+        [(name_a, fc_a), (name_b, fc_b)],
+        emit=(_margin_label(margin) == "narrow"),
+    )
+
     return {
         "status":   "ok",
         "query_a":  query_a,
@@ -503,6 +522,7 @@ def compare_players(
             "reasons":         scored_a["reasons"],
             "score_inputs":    scored_a["score_inputs"],
             "role_signals":    scored_a.get("role_signals", {}),
+            "fixture_context": fc_a,                         # FI3a (additive)
         },
         "player_b": {
             "web_name":        name_b,
@@ -513,11 +533,13 @@ def compare_players(
             "reasons":         scored_b["reasons"],
             "score_inputs":    scored_b["score_inputs"],
             "role_signals":    scored_b.get("role_signals", {}),
+            "fixture_context": fc_b,                         # FI3a (additive)
         },
         "winner":              winner,
         "margin":              margin,
         "margin_label":        _margin_label(margin),
         "comparison_reasons":  comparison_reasons,
+        "fixture_tiebreaker":  fixture_tiebreaker,           # FI3a (additive, may be None)
         "recommendation":      _build_recommendation(
             name_a, score_a,
             name_b, score_b,

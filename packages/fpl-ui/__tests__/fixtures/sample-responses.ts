@@ -33,6 +33,7 @@ export const captainOkResponse: AskResponse = {
   chip: null,
   fixture_run: null,
   differential: null,
+  fixture_outlook: null,
   sub_responses: null,
 };
 
@@ -89,6 +90,7 @@ export const comparisonOkResponse: AskResponse = {
   chip: null,
   fixture_run: null,
   differential: null,
+  fixture_outlook: null,
   sub_responses: null,
 };
 
@@ -133,6 +135,7 @@ export const unsupportedResponse: AskResponse = {
   chip: null,
   fixture_run: null,
   differential: null,
+  fixture_outlook: null,
   sub_responses: null,
 };
 
@@ -151,6 +154,7 @@ export const notFoundResponse: AskResponse = {
   chip: null,
   fixture_run: null,
   differential: null,
+  fixture_outlook: null,
   sub_responses: null,
 };
 
@@ -197,6 +201,7 @@ export const rankingOkResponse: AskResponse = {
   chip: null,
   fixture_run: null,
   differential: null,
+  fixture_outlook: null,
   sub_responses: null,
 };
 
@@ -230,6 +235,7 @@ export const transferOkResponse: AskResponse = {
   chip: null,
   fixture_run: null,
   differential: null,
+  fixture_outlook: null,
   sub_responses: null,
 };
 
@@ -270,6 +276,7 @@ export const chipOkResponse: AskResponse = {
   },
   fixture_run: null,
   differential: null,
+  fixture_outlook: null,
   sub_responses: null,
 };
 
@@ -336,6 +343,7 @@ export const fixtureRunOkResponse: AskResponse = {
     ],
   },
   differential: null,
+  fixture_outlook: null,
   sub_responses: null,
 };
 
@@ -430,6 +438,7 @@ export const differentialOkResponse: AskResponse = {
       },
     ],
   },
+  fixture_outlook: null,
   sub_responses: null,
 };
 
@@ -461,6 +470,7 @@ export const multiIntentOkResponse: AskResponse = {
   chip: null,
   fixture_run: null,
   differential: null,
+  fixture_outlook: null,
   sub_responses: [
     {
       ...captainOkResponse,

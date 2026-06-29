@@ -71,6 +71,7 @@ from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
 
 from .explainer import explain_captain
+from .fixture_context import build_fixture_context, fixture_tiebreaker_line  # FI3a
 from .position_score import compute_position_score
 
 
@@ -364,6 +365,7 @@ def _score_one(query: str, bootstrap: dict[str, Any]) -> dict[str, Any]:
         "web_name":         resolve["web_name"],
         "name":             resolve["name"],
         "team":             resolve["team"],
+        "team_id":          element.get("team"),   # FI3a: for fixture context
         "position":         resolve["position"],
         "captain_score":    score,
         "position_score":   ps_result.position_score,
@@ -614,6 +616,22 @@ def get_transfer_advice(
         recommendation, display_reasons,
     )
 
+    # FI3a: additive fixture context — never changes score/delta/recommendation.
+    # Axis auto-picked per position (incl. dynamic defensive-mid detection).
+    # The tiebreaker line surfaces only on close calls (not a strong upgrade).
+    fc_out = build_fixture_context(
+        bootstrap, team_id=scored_out.get("team_id"), position=scored_out.get("position"),
+        dc_per_90=scored_out.get("score_inputs", {}).get("dc_per_90"),
+    )
+    fc_in = build_fixture_context(
+        bootstrap, team_id=scored_in.get("team_id"), position=scored_in.get("position"),
+        dc_per_90=scored_in.get("score_inputs", {}).get("dc_per_90"),
+    )
+    fixture_tiebreaker = fixture_tiebreaker_line(
+        [(name_in, fc_in), (name_out, fc_out)],
+        emit=(recommendation in ("marginal_transfer_in", "hold")),
+    )
+
     return {
         "status":    "ok",
         "query_out": query_out,
@@ -628,6 +646,7 @@ def get_transfer_advice(
             "role_signals":    scored_out.get("role_signals", {}),
             "now_cost":        scored_out["now_cost"],
             "cost_m":          scored_out["cost_m"],
+            "fixture_context": fc_out,                         # FI3a (additive)
         },
         "player_in": {
             "web_name":        name_in,
@@ -639,12 +658,14 @@ def get_transfer_advice(
             "role_signals":    scored_in.get("role_signals", {}),
             "now_cost":        scored_in["now_cost"],
             "cost_m":          scored_in["cost_m"],
+            "fixture_context": fc_in,                          # FI3a (additive)
         },
         "score_delta":          score_delta,
         "price_delta":          price_delta,
         "recommendation":       recommendation,
         "transfer_reasons":     transfer_reasons,
         "recommendation_text":  recommendation_text,
+        "fixture_tiebreaker":   fixture_tiebreaker,            # FI3a (additive, may be None)
     }
 
 

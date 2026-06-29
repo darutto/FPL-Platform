@@ -66,6 +66,7 @@ from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
 
 from .transfer_advisor import _derive_scoring_inputs
+from .fixture_context import build_fixture_context  # FI3a: additive fixture context
 
 
 # ---------------------------------------------------------------------------
@@ -240,6 +241,10 @@ def _score_outfield_players(bootstrap: dict[str, Any]) -> list[dict[str, Any]]:
                 "captain_score": score,
                 "tier":          tier,
                 "fdr":           int(fdr_map.get(el.get("team"), 3)),
+                # FI3a: carry the bits the fixture bridge needs for the top pick.
+                "team_id":       el.get("team"),
+                "position":      {3: "MID", 4: "FWD"}.get(el.get("element_type"), ""),
+                "dc_per_90":     float(el.get("defensive_contribution_per_90", 0) or 0),
             })
         except Exception:   # noqa: BLE001
             continue
@@ -294,6 +299,13 @@ def _advise_triple_captain(bootstrap: dict[str, Any]) -> dict[str, Any]:
             f"It may be worth saving the triple captain chip."
         )
 
+    # FI3a: additive attack-axis outlook for the standout captain (defensive-mid
+    # detection applies). Never changes the recommendation — context only.
+    fixture_context = build_fixture_context(
+        bootstrap, team_id=top.get("team_id"), position=top.get("position"),
+        dc_per_90=top.get("dc_per_90"),
+    )
+
     return {
         "recommendation": recommendation,
         "signals": {
@@ -305,6 +317,7 @@ def _advise_triple_captain(bootstrap: dict[str, Any]) -> dict[str, Any]:
             f"Triple captain conditions: {label}. {phrase} "
             f"Note: whether you still have this chip available is not known to this system."
         ),
+        "fixture_context": fixture_context,   # FI3a (additive; TC only)
     }
 
 
@@ -602,6 +615,9 @@ def get_chip_advice(chip: str, bootstrap: dict[str, Any]) -> dict[str, Any]:
         "recommendation":   result["recommendation"],
         "signals":          result["signals"],
         "advice_text":      result["advice_text"],
+        # FI3a: additive — populated only for triple_captain (top captain's
+        # attack-axis outlook); None for the other chips.
+        "fixture_context":  result.get("fixture_context"),
     }
 
 

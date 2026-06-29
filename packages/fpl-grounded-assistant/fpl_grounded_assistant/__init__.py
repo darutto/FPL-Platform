@@ -123,6 +123,12 @@ from .final_response import (
     # Phase 7g: structured differential picks metadata
     DifferentialEntry,
     DifferentialPicksMeta,
+    # Track D / FI4: structured fixture outlook metadata (ticker card)
+    FixtureOutlookMeta,
+    TeamOutlook,
+    FixtureOutlookGW,
+    FixtureOutlookCell,
+    FixtureOutlookRun,
 )
 from .final_response_fixtures import (
     # Phase 3d: final response contract fixtures
@@ -241,6 +247,7 @@ from .team_fixture_calendar import (                  # Phase 2.6e
     DEFAULT_HORIZON as TEAM_CALENDAR_DEFAULT_HORIZON,
     DEFAULT_TOP_N   as TEAM_CALENDAR_DEFAULT_TOP_N,
 )
+from . import fixture_outlook_tool as fixture_outlook_tool  # Track D / FI2 — triggers TOOL_REGISTRY self-registration
 from .router import (
     RouteResult,
     route,

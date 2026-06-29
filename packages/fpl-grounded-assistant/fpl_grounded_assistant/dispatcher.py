@@ -87,6 +87,7 @@ INTENT_TEAM_FIXTURE_CALENDAR:   str = "team_fixture_calendar"   # Phase 2.6e
 INTENT_TEAM_SCHEDULE:           str = "team_schedule"            # Phase 2.6e.3
 INTENT_POSITION_FIXTURE_RUN:    str = "position_fixture_run"     # Phase 2.6e.4
 INTENT_TRANSFER_SUGGESTION:     str = "transfer_suggestion"       # Phase 2.6h
+INTENT_FIXTURE_OUTLOOK:         str = "fixture_outlook"           # Track D / FI4
 INTENT_UNSUPPORTED:             str = "unsupported"
 
 SUPPORTED_INTENTS: frozenset[str] = frozenset({
@@ -174,6 +175,12 @@ _TOOL_TO_INTENT: dict[str, str] = {
     "get_team_schedule":            INTENT_TEAM_SCHEDULE,            # Phase 2.6e.3
     "get_position_fixture_run":     INTENT_POSITION_FIXTURE_RUN,     # Phase 2.6e.4
     "get_transfer_suggestion":      INTENT_TRANSFER_SUGGESTION,       # Phase 2.6h
+    # Track D/FI4: get_fixture_outlook maps to a renderable intent (the ticker
+    # card). It is intentionally NOT in SUPPORTED_INTENTS / the classifier yet —
+    # it is reached via the orchestrator (which passes the required `axis`).
+    # Deterministic classifier routing + /calendario (needing axis extraction)
+    # land in FI4-3.
+    "get_fixture_outlook":          INTENT_FIXTURE_OUTLOOK,           # Track D / FI4
 }
 
 

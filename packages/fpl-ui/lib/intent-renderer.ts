@@ -35,6 +35,7 @@ export type IntentView =
   | 'transfer'
   | 'chip'
   | 'fixture_run'
+  | 'fixture_outlook'
   | 'differential'
   | 'multi_intent'
   | 'resource_ranking'
@@ -90,6 +91,13 @@ export function selectIntentView(response: AskResponse): IntentView | null {
     response.differential.picks.length > 0
   ) {
     return 'differential';
+  }
+  if (
+    response.intent === 'fixture_outlook' &&
+    response.fixture_outlook != null &&
+    response.fixture_outlook.teams.length > 0
+  ) {
+    return 'fixture_outlook';
   }
   if (
     response.intent === 'multi_intent' &&

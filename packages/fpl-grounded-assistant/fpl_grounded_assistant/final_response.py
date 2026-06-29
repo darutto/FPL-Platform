@@ -73,7 +73,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from . import telemetry as _telemetry  # Phase 2.7g: in-process telemetry (never raises)
-from .dispatcher import OUTCOME_OK, OUTCOME_NEEDS_CLARIFICATION, INTENT_COMPARE_PLAYERS, INTENT_CAPTAIN_SCORE, INTENT_RANK_CANDIDATES, INTENT_MULTI_INTENT, INTENT_TRANSFER_ADVICE, INTENT_CHIP_ADVICE, INTENT_PLAYER_FIXTURE_RUN, INTENT_DIFFERENTIAL_PICKS, INTENT_PLAYER_FORM, INTENT_INJURY_LIST, INTENT_PRICE_CHANGES, INTENT_TEAM_FIXTURE_CALENDAR, INTENT_TEAM_SCHEDULE, INTENT_POSITION_FIXTURE_RUN, INTENT_TRANSFER_SUGGESTION  # noqa: F401 — re-exported
+from .dispatcher import OUTCOME_OK, OUTCOME_NEEDS_CLARIFICATION, INTENT_COMPARE_PLAYERS, INTENT_CAPTAIN_SCORE, INTENT_RANK_CANDIDATES, INTENT_MULTI_INTENT, INTENT_TRANSFER_ADVICE, INTENT_CHIP_ADVICE, INTENT_PLAYER_FIXTURE_RUN, INTENT_DIFFERENTIAL_PICKS, INTENT_PLAYER_FORM, INTENT_INJURY_LIST, INTENT_PRICE_CHANGES, INTENT_TEAM_FIXTURE_CALENDAR, INTENT_TEAM_SCHEDULE, INTENT_POSITION_FIXTURE_RUN, INTENT_TRANSFER_SUGGESTION, INTENT_FIXTURE_OUTLOOK  # noqa: F401 — re-exported
 from .dispatcher import _TOOL_TO_INTENT, INTENT_UNSUPPORTED  # _orch_result_to_final_response: tool->intent map
 from .multi_intent import detect_multi_intent
 from .llm_layer import DEFAULT_MODEL
@@ -348,6 +348,66 @@ class FixtureRunMeta:
     fixtures:         tuple[FixtureEntry, ...]
     # Phase 2.6f: team FDR enrichment (None when fixture list is empty)
     team_fdr_context: "TeamFDRContext | None" = field(default=None)
+
+
+# ---------------------------------------------------------------------------
+# Fixture outlook metadata  (Track D / FI4 — two-axis ticker + run detection)
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class FixtureOutlookCell:
+    """One fixture within a gameweek (two in a DGW)."""
+    opponent_short: str
+    is_home:        bool
+    band:           int     # 1=easiest … 5=hardest, on the meta's axis
+
+
+@dataclass(frozen=True)
+class FixtureOutlookGW:
+    """One gameweek column for a team in the ticker."""
+    gameweek: int
+    band:     "int | None"  # None = blank GW
+    klass:    str           # good | bad | neutral | blank
+    is_dgw:   bool
+    is_bgw:   bool
+    fixtures: tuple[FixtureOutlookCell, ...]
+
+
+@dataclass(frozen=True)
+class FixtureOutlookRun:
+    """A detected good/bad run (≥3 consecutive GWs)."""
+    type:      str          # good | bad
+    start_gw:  int
+    end_gw:    int
+    length:    int
+    intensity: str          # strong | mild
+
+
+@dataclass(frozen=True)
+class TeamOutlook:
+    """One team's row in the ticker: per-GW series + runs + verdict."""
+    team_short: str
+    team_name:  str
+    axis:       str         # attack | defence
+    avg_band:   "float | None"
+    verdict:    str
+    series:     tuple[FixtureOutlookGW, ...]
+    runs:       tuple[FixtureOutlookRun, ...]
+
+
+@dataclass(frozen=True)
+class FixtureOutlookMeta:
+    """Structured two-axis fixture outlook for the ticker card.
+
+    Populated on ``FinalResponse`` when ``intent == fixture_outlook`` and
+    ``outcome == ok``.  Normalises both tool shapes (all-teams grid and
+    single-team) into a ``teams`` tuple.  All values come straight from
+    ``get_fixture_outlook``; nothing is computed in this layer.
+    """
+    axis:             str          # attack | defence
+    horizon:          int
+    current_gameweek: "int | None"
+    teams:            tuple[TeamOutlook, ...]
 
 
 # ---------------------------------------------------------------------------
@@ -951,6 +1011,7 @@ class FinalResponse:
     team_schedule:   "TeamScheduleMeta | None"             = field(default=None)  # Phase 2.6e.3
     position_fixture_run: "PositionFixtureRunMeta | None"  = field(default=None)  # Phase 2.6e.4
     transfer_suggestion:  "TransferSuggestionMeta | None"  = field(default=None)  # Phase 2.6h
+    fixture_outlook:      "FixtureOutlookMeta | None"      = field(default=None)  # Track D / FI4
     # Phase 2.7d: routing audit fields (additive, safe defaults)
     route_source:          "str | None"                    = field(default=None)   # which routing stage decided
     classifier_confidence: "float | None"                  = field(default=None)   # LLM classifier confidence when attempted
@@ -1523,6 +1584,68 @@ def _extract_position_fixture_run_meta(ro: "dict[str, Any]") -> "PositionFixture
         return None
 
 
+def _extract_fixture_outlook_meta(ro: "dict[str, Any]") -> "FixtureOutlookMeta | None":
+    """Extract FixtureOutlookMeta from a get_fixture_outlook tool_output dict.
+
+    Normalises both shapes: all-teams (``ro['teams']`` is a list) and
+    single-team (``ro`` itself carries ``series``/``runs``/``verdict``).
+    """
+    try:
+        raw_teams = ro.get("teams")
+        if not isinstance(raw_teams, list):
+            # Single-team shape → wrap into a one-element list.
+            raw_teams = [ro] if ro.get("series") is not None else []
+
+        def _team(t: dict) -> TeamOutlook:
+            series = tuple(
+                FixtureOutlookGW(
+                    gameweek = int(gw.get("gameweek", 0)),
+                    band     = (None if gw.get("band") is None else int(gw["band"])),
+                    klass    = str(gw.get("klass", "")),
+                    is_dgw   = bool(gw.get("is_dgw", False)),
+                    is_bgw   = bool(gw.get("is_bgw", False)),
+                    fixtures = tuple(
+                        FixtureOutlookCell(
+                            opponent_short = str(c.get("opponent_short", "?")),
+                            is_home        = bool(c.get("is_home", False)),
+                            band           = int(c.get("band", 3)),
+                        )
+                        for c in gw.get("fixtures", [])
+                    ),
+                )
+                for gw in t.get("series", [])
+            )
+            runs = tuple(
+                FixtureOutlookRun(
+                    type      = str(r.get("type", "")),
+                    start_gw  = int(r.get("start_gw", 0)),
+                    end_gw    = int(r.get("end_gw", 0)),
+                    length    = int(r.get("length", 0)),
+                    intensity = str(r.get("intensity", "")),
+                )
+                for r in t.get("runs", [])
+            )
+            avg = t.get("avg_band")
+            return TeamOutlook(
+                team_short = str(t.get("team_short", "")),
+                team_name  = str(t.get("team_name", "")),
+                axis       = str(t.get("axis", ro.get("axis", "attack"))),
+                avg_band   = (None if avg is None else float(avg)),
+                verdict    = str(t.get("verdict", "")),
+                series     = series,
+                runs       = runs,
+            )
+
+        return FixtureOutlookMeta(
+            axis             = str(ro.get("axis", "attack")),
+            horizon          = int(ro.get("horizon", 0)),
+            current_gameweek = ro.get("current_gameweek"),
+            teams            = tuple(_team(t) for t in raw_teams),
+        )
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def _extract_transfer_suggestion_meta(ro: "dict[str, Any]") -> "TransferSuggestionMeta | None":
     """Extract TransferSuggestionMeta from get_transfer_suggestion output.  Phase 2.6h."""
     try:
@@ -1649,6 +1772,7 @@ def _extract_structured_meta(
     team_schedule_meta:      "TeamScheduleMeta | None"            = None
     position_fixture_run_meta: "PositionFixtureRunMeta | None"    = None
     transfer_suggestion_meta:  "TransferSuggestionMeta | None"    = None
+    fixture_outlook_meta:      "FixtureOutlookMeta | None"        = None
 
     if ok:
         if intent == INTENT_COMPARE_PLAYERS:
@@ -1679,6 +1803,8 @@ def _extract_structured_meta(
             position_fixture_run_meta = _extract_position_fixture_run_meta(raw_output)
         elif intent == INTENT_TRANSFER_SUGGESTION:
             transfer_suggestion_meta = _extract_transfer_suggestion_meta(raw_output)
+        elif intent == INTENT_FIXTURE_OUTLOOK:
+            fixture_outlook_meta = _extract_fixture_outlook_meta(raw_output)
 
     return {
         "comparison":           comparison,
@@ -1695,6 +1821,7 @@ def _extract_structured_meta(
         "team_schedule":        team_schedule_meta,
         "position_fixture_run": position_fixture_run_meta,
         "transfer_suggestion":  transfer_suggestion_meta,
+        "fixture_outlook":      fixture_outlook_meta,
     }
 
 
@@ -1863,6 +1990,7 @@ def _orch_result_to_final_response(
     chip:            "ChipAdviceMeta | None"                 = None
     fixture_run:     "FixtureRunMeta | None"                 = None
     differential:    "DifferentialPicksMeta | None"          = None
+    fixture_outlook: "FixtureOutlookMeta | None"             = None
 
     if intent == INTENT_CAPTAIN_SCORE:
         captain = _extract_captain_meta(ro)
@@ -1878,6 +2006,8 @@ def _orch_result_to_final_response(
         fixture_run = _extract_fixture_run_meta(ro)
     elif intent == INTENT_DIFFERENTIAL_PICKS:
         differential = _extract_differential_meta(ro)
+    elif intent == INTENT_FIXTURE_OUTLOOK:
+        fixture_outlook = _extract_fixture_outlook_meta(ro)
 
     # Orch-4d: apply squad_context overrides (budget, hit_warning, chip_unavail)
     # using the same shared helper as the deterministic path for parity.
@@ -1915,6 +2045,7 @@ def _orch_result_to_final_response(
         chip=chip,
         fixture_run=fixture_run,
         differential=differential,
+        fixture_outlook=fixture_outlook,   # Track D / FI4
         orch_outcome=ORCH_OUTCOME_OK,  # Orch-4c: audit — orch path was used
         total_tokens=result.total_tokens,
     )
@@ -2091,6 +2222,7 @@ def respond(
         team_schedule=_meta["team_schedule"],  # Phase 2.6e.3
         position_fixture_run=_meta["position_fixture_run"],  # Phase 2.6e.4
         transfer_suggestion=_meta["transfer_suggestion"],    # Phase 2.6h
+        fixture_outlook=_meta["fixture_outlook"],            # Track D / FI4
         # Phase 2.7d: routing audit fields threaded from DispatchResult
         route_source=dr.route_source,
         classifier_confidence=dr.classifier_confidence,

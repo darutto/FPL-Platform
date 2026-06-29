@@ -71,6 +71,7 @@ from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
 
 from .transfer_advisor import _derive_scoring_inputs
+from .fixture_context import build_fixture_context  # FI3a: additive fixture context
 from .position_score import compute_position_score
 
 
@@ -246,8 +247,10 @@ def get_differential_picks(
 
         scored.append({
             "web_name":        str(element.get("web_name", "")),
+            "team_id":         team_id,                       # FI3a
             "team_short":      short_map.get(team_id, f"T{team_id}"),
             "position":        position,
+            "dc_per_90":       dc_per_90,                     # FI3a
             "captain_score":   round(score, 2),
             "position_score":  ps_result.position_score,
             "ownership":       round(ownership, 1),
@@ -281,6 +284,12 @@ def get_differential_picks(
             "ownership":      p["ownership"],
             "now_cost":       p["now_cost"],
             "is_home":        p.get("is_home"),
+            # FI3a: additive fixture context (axis auto-picked per position,
+            # incl. dynamic defensive-mid detection). Never affects ranking.
+            "fixture_context": build_fixture_context(
+                bootstrap, team_id=p.get("team_id"), position=p.get("position"),
+                dc_per_90=p.get("dc_per_90"),
+            ),
         }
         for i, p in enumerate(top)
     ]

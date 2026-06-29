@@ -24,7 +24,7 @@ Registry API
 ``get_tool_schema(name)``            → ToolSchema | None
 ``validate_tool_schema_shape(s)``    → bool            — structural check
 
-Registered tools (25 grounded tools, including P2.1–P2.8 atomic tools)
+Registered tools (26 grounded tools, including P2.1–P2.8 atomic tools)
 ----------------------------------------------------------------------
 +----------------------------+----------------------------------+
 | Tool name                  | Intent label                     |
@@ -46,6 +46,7 @@ Registered tools (25 grounded tools, including P2.1–P2.8 atomic tools)
 | get_team_schedule          | team_schedule                    |  (Phase 2.6e.3)
 | get_position_fixture_run   | position_fixture_run             |  (Phase 2.6e.4)
 | get_transfer_suggestion    | transfer_suggestion              |  (Phase 2.6h)
+| get_fixture_outlook        | orchestrator-only: 2-axis outlook|  (Track D/FI2)
 | find_players               | atomic: fuzzy name search        |  (P2.1)
 | get_player_snapshot        | atomic: single-player snapshot   |  (P2.2)
 | get_player_history         | atomic: per-GW history           |  (P2.3)
@@ -600,6 +601,55 @@ GET_TRANSFER_SUGGESTION_SCHEMA = ToolSchema(
 )
 
 # ---------------------------------------------------------------------------
+# Track D / FI2 — get_fixture_outlook (two-axis difficulty + run detection)
+# ---------------------------------------------------------------------------
+
+GET_FIXTURE_OUTLOOK_SCHEMA = ToolSchema(
+    name="get_fixture_outlook",
+    description=(
+        "Two-axis fixture outlook over N GWs (default 10). axis='attack' = how "
+        "easy it is to SCORE (use for attackers/captaincy); axis='defence' = how "
+        "easy it is to keep a CLEAN SHEET (use for defenders/goalkeepers). "
+        "Returns per-GW difficulty bands (1=easiest…5=hardest), detected good/bad "
+        "RUNS (≥3 consecutive GWs), and a Spanish schedule-only verdict. "
+        "Omit team_query for ALL teams ranked easiest-first (the grid). For a "
+        "player, resolve their club first, then pass that club as team_query."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "axis": {
+                "type":        "string",
+                "enum":        ["attack", "defence"],
+                "description": (
+                    "Which difficulty axis to read. 'attack' for goal-scoring "
+                    "(attackers/captaincy); 'defence' for clean sheets "
+                    "(defenders/GKP)."
+                ),
+            },
+            "team_query": {
+                "type":        "string",
+                "description": (
+                    "Optional team name, short_name, or alias (e.g. 'Arsenal', "
+                    "'ARS', 'Spurs'). Omit to get every team ranked easiest-first."
+                ),
+            },
+            "horizon": {
+                "type":        "integer",
+                "description": "Upcoming GWs to analyse (default 10, clamped 1–15).",
+                "minimum":     1,
+                "maximum":     15,
+            },
+        },
+        # axis is required so the runner dispatches handler(args, bootstrap) and
+        # the model consciously picks the position-relevant axis.
+        "required":             ["axis"],
+        "additionalProperties": False,
+    },
+)
+
+
+# ---------------------------------------------------------------------------
 # P2.1 atomic tool — find_players fuzzy name search
 # ---------------------------------------------------------------------------
 
@@ -907,6 +957,8 @@ _ALL_SCHEMAS: tuple[ToolSchema, ...] = (
     GET_TEAM_SCHEDULE_SCHEMA,
     GET_POSITION_FIXTURE_RUN_SCHEMA,
     GET_TRANSFER_SUGGESTION_SCHEMA,
+    # Track D / FI2 — two-axis fixture outlook + run detection
+    GET_FIXTURE_OUTLOOK_SCHEMA,
     # P2.1 atomic tool
     FIND_PLAYERS_SCHEMA,
     # P2.2 atomic tool

@@ -65,12 +65,20 @@ export type Intent =
   | 'team_fixture_calendar'
   | 'team_schedule'
   | 'position_fixture_run'
-  | 'transfer_suggestion';
+  | 'transfer_suggestion'
+  // Track D / FI4: renderable orchestrator-routed intent (the ticker card).
+  // Intentionally NOT in SUPPORTED_INTENT_VALUES — it is reached via the
+  // orchestrator, not the deterministic classifier (keeps backend parity).
+  | 'fixture_outlook';
 
 /**
- * Runtime-accessible list of all backend-supported intent values.
- * Used by contract tests to guard against future intent drift.
- * Must stay in sync with dispatcher.py → SUPPORTED_INTENTS frozenset.
+ * Runtime-accessible list of every intent value that can appear in
+ * `response.intent`. Used by contract tests to guard against intent drift.
+ * Tracks the dispatcher.py INTENT_* constants (minus the "unsupported"
+ * sentinel) — this is a superset of the backend SUPPORTED_INTENTS frozenset:
+ * `multi_intent` (synthesised by the orchestration layer) and `fixture_outlook`
+ * (a renderable orchestrator-routed intent, Track D/FI4) appear in responses
+ * but are not deterministic classifier targets.
  */
 export const SUPPORTED_INTENT_VALUES = [
   'captain_score',
@@ -91,6 +99,7 @@ export const SUPPORTED_INTENT_VALUES = [
   'team_schedule',
   'position_fixture_run',
   'transfer_suggestion',
+  'fixture_outlook',   // Track D/FI4 — renderable orchestrator-routed intent
 ] as const satisfies readonly Intent[];
 
 export type FplPosition = 'FWD' | 'MID' | 'DEF' | 'GKP';
@@ -219,6 +228,8 @@ export interface AskResponse {
   chip: ChipAdviceMeta | null;
   fixture_run: FixtureRunMeta | null;
   differential: DifferentialPicksMeta | null;
+  /** fixture_outlook field — non-null when intent=fixture_outlook AND outcome=ok (Track D/FI4) */
+  fixture_outlook: FixtureOutlookMeta | null;
   sub_responses: AskResponse[] | null;
 
   /**
@@ -370,6 +381,60 @@ export interface DifferentialPicksMeta {
   ownership_threshold: number;
   top_n: number;
   picks: DifferentialEntry[];
+}
+
+// ---------------------------------------------------------------------------
+// Fixture outlook types (Track D / FI4 — two-axis ticker + run detection)
+// ---------------------------------------------------------------------------
+
+export type FixtureAxis = 'attack' | 'defence';
+export type OutlookClass = 'good' | 'bad' | 'neutral' | 'blank';
+
+/** One fixture within a gameweek (two in a DGW). */
+export interface FixtureOutlookCell {
+  opponent_short: string;
+  is_home: boolean;
+  /** 1=easiest … 5=hardest, on the meta's axis. */
+  band: number;
+}
+
+/** One gameweek column for a team in the ticker. */
+export interface FixtureOutlookGW {
+  gameweek: number;
+  /** null = blank GW. */
+  band: number | null;
+  klass: OutlookClass;
+  is_dgw: boolean;
+  is_bgw: boolean;
+  fixtures: FixtureOutlookCell[];
+}
+
+/** A detected good/bad run (≥3 consecutive GWs). */
+export interface FixtureOutlookRun {
+  type: 'good' | 'bad';
+  start_gw: number;
+  end_gw: number;
+  length: number;
+  intensity: 'strong' | 'mild';
+}
+
+/** One team's row in the ticker. */
+export interface TeamOutlook {
+  team_short: string;
+  team_name: string;
+  axis: FixtureAxis;
+  avg_band: number | null;
+  verdict: string;
+  series: FixtureOutlookGW[];
+  runs: FixtureOutlookRun[];
+}
+
+/** fixture_outlook field — non-null when intent=fixture_outlook AND outcome=ok */
+export interface FixtureOutlookMeta {
+  axis: FixtureAxis;
+  horizon: number;
+  current_gameweek: number | null;
+  teams: TeamOutlook[];
 }
 
 // ---------------------------------------------------------------------------
