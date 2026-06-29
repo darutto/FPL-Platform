@@ -1,11 +1,11 @@
 # FPL Grounded Assistant — Validation Report
 
-Generated: 2026-05-06 22:25 UTC
+Generated: 2026-05-20 01:18 UTC
 
 ## Summary
 
-- **80 scenarios** tested
-- **80 PASS**, **0 FAIL**
+- **126 scenarios** tested
+- **126 PASS**, **0 FAIL**
 
 ## Scenario Overview
 
@@ -25,7 +25,7 @@ Generated: 2026-05-06 22:25 UTC
 | pronoun_det | pronoun_det | captain_score | ok | session_cli, session_http | ✓ PASS |
 | pronoun_llm | pronoun_llm | captain_score | ok | session_cli | ✓ PASS |
 | natural_captain_phrasing | llm_classify | captain_score | ok | cli, http, session_cli, session_http | ✓ PASS |
-| natural_comparison_phrasing | llm_classify | compare_players | ok | cli, http, session_cli, session_http | ✓ PASS |
+| natural_comparison_phrasing | llm_classify | compare_players | needs_clarification | cli, http, session_cli, session_http | ✓ PASS |
 | natural_ranking_phrasing | llm_classify | rank_candidates | ok | cli, http, session_cli, session_http | ✓ PASS |
 | transfer_advice_direct | transfer | transfer_advice | ok | cli, http | ✓ PASS |
 | transfer_advice_not_found | transfer | transfer_advice | not_found | cli, http | ✓ PASS |
@@ -91,6 +91,52 @@ Generated: 2026-05-06 22:25 UTC
 | transfer_suggestion_nopos_liverpool | transfer_suggestion | transfer_suggestion | ok | cli, http | ✓ PASS |
 | transfer_suggestion_nopos_arsenal_price | transfer_suggestion | transfer_suggestion | ok | cli, http | ✓ PASS |
 | transfer_suggestion_nopos_arsenal_spanish | transfer_suggestion | transfer_suggestion | ok | cli, http | ✓ PASS |
+| transfer_suggestion_nopos_arsenal_precio_menor | transfer_suggestion | transfer_suggestion | ok | cli, http | ✓ PASS |
+| transfer_suggestion_nopos_arsenal_jugadores_del | transfer_suggestion | transfer_suggestion | ok | cli, http | ✓ PASS |
+| transfer_suggestion_mid_chelsea_baratos_dame | transfer_suggestion | transfer_suggestion | ok | cli, http | ✓ PASS |
+| transfer_suggestion_fwd_mancity_baratos | transfer_suggestion | transfer_suggestion | ok | cli, http | ✓ PASS |
+| price_changes_generic_cambiado | price_changes | price_changes | ok | cli, http | ✓ PASS |
+| chip_triple_capitan_es_buen_momento | chip | chip_advice | ok | cli, http | ✓ PASS |
+| chip_triple_capitan_usar_mi_accented | chip | chip_advice | ok | cli, http | ✓ PASS |
+| player_form_followup_spanish | player_form | player_form | ok | session_cli, session_http | ✓ PASS |
+| player_form_followup_english | player_form | player_form | ok | session_cli, session_http | ✓ PASS |
+| player_form_followup_no_prior_player | failure_modes | unsupported | unsupported_intent | session_cli, session_http | ✓ PASS |
+| player_form_followup_after_differential | failure_modes | unsupported | unsupported_intent | session_cli, session_http | ✓ PASS |
+| player_form_dame_los_stats_player_first | player_form | player_form | ok | cli, http | ✓ PASS |
+| player_form_dame_los_stats_comma_count | player_form | player_form | ok | cli, http | ✓ PASS |
+| player_form_estadisticas_ultimos_accented | player_form | player_form | ok | cli, http | ✓ PASS |
+| player_form_estadisticas_mixed_accent | player_form | player_form | ok | cli, http | ✓ PASS |
+| player_form_extraction_no_count_leak | player_form | player_form | ok | cli, http | ✓ PASS |
+| route_audit_deterministic | captain | captain_score | ok | cli, http | ✓ PASS |
+| route_audit_intent_hint | captain | captain_score | ok | cli, http | ✓ PASS |
+| route_audit_classifier_high | captain | captain_score | ok | cli, http | ✓ PASS |
+| route_audit_classifier_medium | llm_classify | captain_score | needs_clarification | cli, http | ✓ PASS |
+| medium_gate_deterministic_unaffected | captain | captain_score | ok | cli, http | ✓ PASS |
+| medium_gate_high_confidence_unaffected | llm_classify | captain_score | ok | cli, http | ✓ PASS |
+| clarification_not_asked_on_ok_path | captain | captain_score | ok | cli, http | ✓ PASS |
+| clarification_captain_score_medium | llm_classify | captain_score | needs_clarification | cli, http | ✓ PASS |
+| clarification_compare_players_medium | llm_classify | compare_players | needs_clarification | cli, http | ✓ PASS |
+| clarification_transfer_advice_medium | llm_classify | transfer_advice | needs_clarification | cli, http | ✓ PASS |
+| m4_transfer_vendele | transfer | transfer_advice | ok | cli, http | ✓ PASS |
+| m4_transfer_vendo_por | transfer | transfer_advice | ok | cli, http | ✓ PASS |
+| m4_transfer_cambio_por | transfer | transfer_advice | ok | cli, http | ✓ PASS |
+| m4_transfer_doy_de_baja | transfer | transfer_advice | ok | cli, http | ✓ PASS |
+| m4_transfer_saco_a_por | transfer | transfer_advice | ok | cli, http | ✓ PASS |
+| m4_regression_transfer_english | transfer | transfer_advice | ok | cli, http | ✓ PASS |
+| m4_fixture_run_proximos_partidos | player_fixture_run | player_fixture_run | ok | cli, http | ✓ PASS |
+| m4_fixture_run_siguientes | player_fixture_run | player_fixture_run | ok | cli, http | ✓ PASS |
+| m4_calendario_de_team | team_schedule | team_schedule | ok | cli, http | ✓ PASS |
+| m4_calendario_de_player | player_fixture_run | player_fixture_run | ok | cli, http | ✓ PASS |
+| m4_calendario_de_del_city | team_schedule | team_schedule | ok | cli, http | ✓ PASS |
+| m4_regression_calendario_del | team_schedule | team_schedule | ok | cli, http | ✓ PASS |
+| m4_differential_spanish_esta_semana | differential_picks | differential_picks | ok | cli, http | ✓ PASS |
+| m4_differential_spanish_bare | differential_picks | differential_picks | ok | cli, http | ✓ PASS |
+| m4_regression_differentials_english | differential_picks | differential_picks | ok | cli, http | ✓ PASS |
+| m4_gameweek_spanish | captain | current_gameweek | ok | cli, http | ✓ PASS |
+| m4_gameweek_jornada_actual | captain | current_gameweek | ok | cli, http | ✓ PASS |
+| m4_captain_conviene_capitanear | captain | captain_score | ok | cli, http | ✓ PASS |
+| m4_compare_spanish_regression | comparison | compare_players | ok | cli, http | ✓ PASS |
+| m4_regression_cambios_precio | price_changes | price_changes | ok | cli, http | ✓ PASS |
 
 ## Scenario Details
 
@@ -305,23 +351,19 @@ Generated: 2026-05-06 22:25 UTC
 ### natural_comparison_phrasing  (✓ PASS)
 
 **Family:** llm_classify  
-**Description:** Natural comparison question that deterministic route() cannot handle. LLM classifier rewrites to canonical form; route() extracts both players.  
+**Description:** Natural comparison question that deterministic route() cannot handle. LLM classifier returns confidence=0.88 (medium bucket); Phase 2.7e gate blocks execution → needs_clarification.  
 **Question:** `what's the score differential between Salah and Haaland?`  
-**Expected:** intent=`compare_players` outcome=`ok` supported=`True`  
-**Notes:** Phase 4l: all 4 surfaces. Stub returns canonical 'compare Salah and Haaland'; route() extracts both. classification_source == 'llm_classifier'. comparison metadata present.
+**Expected:** intent=`compare_players` outcome=`needs_clarification` supported=`False`  
+**Notes:** Phase 2.7e/2.7f: confidence=0.88 is in medium bucket (0.7 <= conf < 0.9). Gate blocks execution; outcome='needs_clarification', supported=False. comparison metadata absent (tool not executed). route_source='llm_classifier_medium'. 2.7f: clarification_asked=True, final_text contains 'comparing'.
 
 **Surface results:**
 
-- `cli`: intent=`compare_players` outcome=`ok` supported=`True`
-  comparison.winner=`Salah` comparison.label=`moderate`
-- `http`: intent=`compare_players` outcome=`ok` supported=`True`
-  comparison.winner=`Salah` comparison.label=`moderate`
-- `session_cli`: intent=`compare_players` outcome=`ok` supported=`True`
+- `cli`: intent=`compare_players` outcome=`needs_clarification` supported=`False`
+- `http`: intent=`compare_players` outcome=`needs_clarification` supported=`False`
+- `session_cli`: intent=`compare_players` outcome=`needs_clarification` supported=`False`
   resolver_source=`none`
   rewritten=`what's the score differential between Salah and Haaland?`
-  comparison.winner=`Salah` comparison.label=`moderate`
-- `session_http`: intent=`compare_players` outcome=`ok` supported=`True`
-  comparison.winner=`Salah` comparison.label=`moderate`
+- `session_http`: intent=`compare_players` outcome=`needs_clarification` supported=`False`
 
 ### natural_ranking_phrasing  (✓ PASS)
 
@@ -428,7 +470,6 @@ Generated: 2026-05-06 22:25 UTC
 **Surface results:**
 
 - `cli`: intent=`multi_intent` outcome=`ok` supported=`True`
-- `http`: intent=`multi_intent` outcome=`ok` supported=`True`
 
 ### multi_intent_captain_and_resolve  (✓ PASS)
 
@@ -441,7 +482,6 @@ Generated: 2026-05-06 22:25 UTC
 **Surface results:**
 
 - `cli`: intent=`multi_intent` outcome=`ok` supported=`True`
-- `http`: intent=`multi_intent` outcome=`ok` supported=`True`
 
 ### multi_intent_captain_and_comparison  (✓ PASS)
 
@@ -454,7 +494,6 @@ Generated: 2026-05-06 22:25 UTC
 **Surface results:**
 
 - `cli`: intent=`multi_intent` outcome=`ok` supported=`True`
-- `http`: intent=`multi_intent` outcome=`ok` supported=`True`
 
 ### chip_advice_triple_captain_structured  (✓ PASS)
 
@@ -1243,6 +1282,656 @@ Generated: 2026-05-06 22:25 UTC
 
 - `cli`: intent=`transfer_suggestion` outcome=`ok` supported=`True`
 - `http`: intent=`transfer_suggestion` outcome=`ok` supported=`True`
+
+### transfer_suggestion_nopos_arsenal_precio_menor  (✓ PASS)
+
+**Family:** transfer_suggestion  
+**Description:** Spanish 'mejores jugadores de arsenal con precio menor a 8' routes to transfer_suggestion with position='ALL', team_short='ARS', max_price=8.0.  
+**Question:** `mejores jugadores de arsenal con precio menor a 8`  
+**Expected:** intent=`transfer_suggestion` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.7a Story 1.1: Spanish no-position price phrase. Lead word 'mejores' + price regex extended to capture 'precio menor a 8'. Form 4 (C): has_lead_price=True, team='Arsenal', max_price=8.0. DIFFERENTIAL_BOOTSTRAP ARS available: Raya (GKP, 5.5m). transfer_suggestion.position='ALL', team_short='ARS', max_price=8.0. Before fix: unsupported_intent. After: transfer_suggestion ok.
+
+**Surface results:**
+
+- `cli`: intent=`transfer_suggestion` outcome=`ok` supported=`True`
+- `http`: intent=`transfer_suggestion` outcome=`ok` supported=`True`
+
+### transfer_suggestion_nopos_arsenal_jugadores_del  (✓ PASS)
+
+**Family:** transfer_suggestion  
+**Description:** Spanish 'jugadores del arsenal por menos de 8 millones' routes to transfer_suggestion with position='ALL', team_short='ARS', max_price=8.0.  
+**Question:** `jugadores del arsenal por menos de 8 millones`  
+**Expected:** intent=`transfer_suggestion` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.7a Story 1.1: Spanish 'jugadores del {team}' prefix. Form 1: prefix 'jugadores del ' matches; 'arsenal' not a position word. max_price=8.0 (millones suffix captured). transfer_suggestion.position='ALL', team_short='ARS', max_price=8.0. Before fix: unsupported_intent. After: transfer_suggestion ok.
+
+**Surface results:**
+
+- `cli`: intent=`transfer_suggestion` outcome=`ok` supported=`True`
+- `http`: intent=`transfer_suggestion` outcome=`ok` supported=`True`
+
+### transfer_suggestion_mid_chelsea_baratos_dame  (✓ PASS)
+
+**Family:** transfer_suggestion  
+**Description:** Spanish 'dame mediocampistas de chelsea baratos, de no mas de 8 millones' routes to transfer_suggestion with position='MID', team_short='CHE', max_price=8.0.  
+**Question:** `dame mediocampistas de chelsea baratos, de no mas de 8 millones`  
+**Expected:** intent=`transfer_suggestion` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.7a Story 1.2: Spanish imperative 'dame {pos}' + team + price. Form 3b: 'dame' in imperative leads; 'mediocampistas' → position='centrocampista'. Price regex extended to capture 'de no mas de 8'. DIFFERENTIAL_BOOTSTRAP Chelsea MID: Palmer (6.0m, form 7.0). transfer_suggestion.position='MID', team_short='CHE', max_price=8.0. Before fix: unsupported_intent. After: transfer_suggestion ok.
+
+**Surface results:**
+
+- `cli`: intent=`transfer_suggestion` outcome=`ok` supported=`True`
+- `http`: intent=`transfer_suggestion` outcome=`ok` supported=`True`
+
+### transfer_suggestion_fwd_mancity_baratos  (✓ PASS)
+
+**Family:** transfer_suggestion  
+**Description:** Spanish 'delanteros baratos del manchester city' routes to transfer_suggestion with position='FWD', team_short='MCI'.  
+**Question:** `delanteros baratos del manchester city`  
+**Expected:** intent=`transfer_suggestion` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.7a Story 1.2: Spanish pos-first + 'baratos' buy suffix. Form 2: 'delanteros' is pos-word; ' baratos' added to _BUY_SUFFIXES. team='Manchester City', no price constraint. DIFFERENTIAL_BOOTSTRAP MCI FWD: Haaland (status='a', form=8.0). transfer_suggestion.position='FWD', team_short='MCI', picks[0]='Haaland'. Before fix: unsupported_intent. After: transfer_suggestion ok.
+
+**Surface results:**
+
+- `cli`: intent=`transfer_suggestion` outcome=`ok` supported=`True`
+- `http`: intent=`transfer_suggestion` outcome=`ok` supported=`True`
+
+### price_changes_generic_cambiado  (✓ PASS)
+
+**Family:** price_changes  
+**Description:** Spanish 'que jugadores han cambiado de precio esta semana' routes to price_changes intent via extended _PRICE_CHANGES_KEYWORDS.  
+**Question:** `que jugadores han cambiado de precio esta semana`  
+**Expected:** intent=`price_changes` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.7a Story 1.3: generic changed-price phrasing. 'han cambiado de precio' added to _PRICE_CHANGES_KEYWORDS. PRICE_CHANGES_BOOTSTRAP: Salah cost_change_event=+1 (riser). price_changes.risers non-empty. Before fix: unsupported_intent. After: price_changes ok.
+
+**Surface results:**
+
+- `cli`: intent=`price_changes` outcome=`ok` supported=`True`
+- `http`: intent=`price_changes` outcome=`ok` supported=`True`
+
+### chip_triple_capitan_es_buen_momento  (✓ PASS)
+
+**Family:** chip  
+**Description:** Spanish 'es buen momento para usar mi triple capitan' routes to chip_advice with chip='triple_captain' via new keyword + advisory phrase.  
+**Question:** `es buen momento para usar mi triple capitan`  
+**Expected:** intent=`chip_advice` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.7a Story 1.4: Spanish triple captain timing phrasing. 'triple capitan' (no accent) added to _CHIP_KEYWORDS. 'es buen momento' + 'usar mi' added to _CHIP_ADVISORY_PHRASES. chip='triple_captain'. Before fix: unsupported_intent. After: chip_advice ok.
+
+**Surface results:**
+
+- `cli`: intent=`chip_advice` outcome=`ok` supported=`True`
+  chip.chip=`triple_captain` chip.recommendation=`conditions_marginal` chip.gw=`28` chip.signal_label=`top captain score`
+- `http`: intent=`chip_advice` outcome=`ok` supported=`True`
+  chip.chip=`triple_captain` chip.recommendation=`conditions_marginal` chip.gw=`28` chip.signal_label=`top captain score`
+
+### chip_triple_capitan_usar_mi_accented  (✓ PASS)
+
+**Family:** chip  
+**Description:** Spanish 'es buen momento para usar mi triple capitán' routes to chip_advice with chip='triple_captain' via accented keyword.  
+**Question:** `es buen momento para usar mi triple capitán`  
+**Expected:** intent=`chip_advice` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.7a Story 1.4: Spanish triple capitán (with accent). 'triple capitán' added to _CHIP_KEYWORDS. chip='triple_captain'. Before fix: unsupported_intent. After: chip_advice ok.
+
+**Surface results:**
+
+- `cli`: intent=`chip_advice` outcome=`ok` supported=`True`
+  chip.chip=`triple_captain` chip.recommendation=`conditions_marginal` chip.gw=`28` chip.signal_label=`top captain score`
+- `http`: intent=`chip_advice` outcome=`ok` supported=`True`
+  chip.chip=`triple_captain` chip.recommendation=`conditions_marginal` chip.gw=`28` chip.signal_label=`top captain score`
+
+### player_form_followup_spanish  (✓ PASS)
+
+**Family:** player_form  
+**Description:** Session follow-up: after 'stats de Salah' (player_summary), 'y en los ultimos 5 partidos?' is rewritten to 'historial de Salah en los ultimos 5 partidos' → player_form.  
+**Question:** `y en los ultimos 5 partidos?`  
+**Expected:** intent=`player_form` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.7c Story 3.1: deterministic player form follow-up rewrite. Prior turn: 'stats de Salah' routes to player_summary (sets last_player_query='Salah'). Follow-up: 'y en los ultimos 5 partidos?' -> 'historial de Salah en los ultimos 5 partidos'. resolver_source='player_form_followup'. player_form.web_name should be 'Salah' (resolved from PLAYER_FORM_BOOTSTRAP). No LLM call required for the rewrite.
+
+**Surface results:**
+
+- `session_cli`: intent=`player_form` outcome=`ok` supported=`True`
+  resolver_source=`player_form_followup`
+  rewritten=`historial de Salah en los ultimos 5 partidos`
+- `session_http`: intent=`player_form` outcome=`ok` supported=`True`
+
+### player_form_followup_english  (✓ PASS)
+
+**Family:** player_form  
+**Description:** Session follow-up: after 'should I captain Salah' (captain_score), 'recent form?' is rewritten to 'historial de Salah' → player_form.  
+**Question:** `recent form?`  
+**Expected:** intent=`player_form` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.7c Story 3.1: deterministic player form follow-up — English pattern. Prior turn: 'should I captain Salah' (sets last_player_query='Salah'). Follow-up: 'recent form?' -> 'historial de Salah'. resolver_source='player_form_followup'. player_form.web_name should be 'Salah'.
+
+**Surface results:**
+
+- `session_cli`: intent=`player_form` outcome=`ok` supported=`True`
+  resolver_source=`player_form_followup`
+  rewritten=`historial de Salah`
+- `session_http`: intent=`player_form` outcome=`ok` supported=`True`
+
+### player_form_followup_no_prior_player  (✓ PASS)
+
+**Family:** failure_modes  
+**Description:** Safety guard: 'y en los ultimos 5 partidos?' with no prior player turn must NOT rewrite — falls through to unsupported (no player context).  
+**Question:** `y en los ultimos 5 partidos?`  
+**Expected:** intent=`unsupported` outcome=`unsupported_intent` supported=`False`  
+**Notes:** Phase 2.7c Story 3.2: safety guard — no last_player_query set. resolve_player_form_followup() returns None (primary guard fires). Question has no player name → unsupported_intent. Must NOT produce a player_form rewrite or error.
+
+**Surface results:**
+
+- `session_cli`: intent=`unsupported` outcome=`unsupported_intent` supported=`False`
+  resolver_source=`none`
+  rewritten=`y en los ultimos 5 partidos?`
+- `session_http`: intent=`unsupported` outcome=`unsupported_intent` supported=`False`
+
+### player_form_followup_after_differential  (✓ PASS)
+
+**Family:** failure_modes  
+**Description:** Safety guard: after 'good differentials' (differential_picks), 'y en los ultimos 5 partidos?' must NOT rewrite to player_form — last_player_query is not set by differential turns.  
+**Question:** `y en los ultimos 5 partidos?`  
+**Expected:** intent=`unsupported` outcome=`unsupported_intent` supported=`False`  
+**Notes:** Phase 2.7c Story 3.2: safety guard — prior turn was differential_picks which does NOT set last_player_query. resolve_player_form_followup() returns None (primary guard fires). No player name in follow-up → unsupported_intent. Must NOT produce a player_form rewrite or error.
+
+**Surface results:**
+
+- `session_cli`: intent=`unsupported` outcome=`unsupported_intent` supported=`False`
+  resolver_source=`none`
+  rewritten=`y en los ultimos 5 partidos?`
+- `session_http`: intent=`unsupported` outcome=`unsupported_intent` supported=`False`
+
+### player_form_dame_los_stats_player_first  (✓ PASS)
+
+**Family:** player_form  
+**Description:** 'dame los stats de Salah en los ultimos 5' routes to player_form via new player-first prefix with middle-keyword split.  
+**Question:** `dame los stats de Salah en los ultimos 5`  
+**Expected:** intent=`player_form` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.7b Story 2.1: 'dame los stats de {player} en los ultimos N' routed via new 'dame los stats de' entry in _PLAYER_FORM_PLAYER_FIRST_PREFIXES. '5' at end with no unit word → n=5 (default). PLAYER_FORM_BOOTSTRAP: Salah (id=2), 3 history entries. player_form.web_name='Salah', n_games=5, len(history)<=5. Before fix: unsupported_intent or routed to summary. After fix: player_form ok.
+
+**Surface results:**
+
+- `cli`: intent=`player_form` outcome=`ok` supported=`True`
+- `http`: intent=`player_form` outcome=`ok` supported=`True`
+
+### player_form_dame_los_stats_comma_count  (✓ PASS)
+
+**Family:** player_form  
+**Description:** 'dame los stats de Salah, en 3 partidos' routes to player_form via Story 2.1 compact sub-case (comma-separated count phrase).  
+**Question:** `dame los stats de Salah, en 3 partidos`  
+**Expected:** intent=`player_form` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.7b Story 2.1: 'dame los stats de {player}, en N partidos'. N_GAMES_RE locates '3 partidos'; everything before the match (stripped of trailing ', en') = 'Salah'. n_games=3. PLAYER_FORM_BOOTSTRAP has 3 entries → history len=3. Before fix: unsupported_intent or summary. After fix: player_form ok.
+
+**Surface results:**
+
+- `cli`: intent=`player_form` outcome=`ok` supported=`True`
+- `http`: intent=`player_form` outcome=`ok` supported=`True`
+
+### player_form_estadisticas_ultimos_accented  (✓ PASS)
+
+**Family:** player_form  
+**Description:** 'dame las estadísticas de los últimos 5 partidos de Salah' (both accents) routes to player_form via _deaccent() prefix match.  
+**Question:** `dame las estadísticas de los últimos 5 partidos de Salah`  
+**Expected:** intent=`player_form` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.7b Story 2.2: fully-accented N-first prefix. 'dame las estadísticas de los últimos' deaccents to known prefix entry. n_games=5, player='Salah', PLAYER_FORM_BOOTSTRAP 3 entries. Before fix: unsupported_intent (accent mismatch). After fix: player_form ok.
+
+**Surface results:**
+
+- `cli`: intent=`player_form` outcome=`ok` supported=`True`
+- `http`: intent=`player_form` outcome=`ok` supported=`True`
+
+### player_form_estadisticas_mixed_accent  (✓ PASS)
+
+**Family:** player_form  
+**Description:** 'dame las estadísticas de los ultimos 5 partidos de Salah' (estadísticas accented, ultimos unaccented) routes to player_form.  
+**Question:** `dame las estadísticas de los ultimos 5 partidos de Salah`  
+**Expected:** intent=`player_form` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.7b Story 2.2: mixed-accent variant. 'estadísticas' (accented) + 'ultimos' (unaccented) both deaccent to the same key 'estadisticas'/'ultimos'. n_games=5, player='Salah'. Before fix: unsupported_intent (partial accent miss). After fix: player_form ok.
+
+**Surface results:**
+
+- `cli`: intent=`player_form` outcome=`ok` supported=`True`
+- `http`: intent=`player_form` outcome=`ok` supported=`True`
+
+### player_form_extraction_no_count_leak  (✓ PASS)
+
+**Family:** player_form  
+**Description:** 'dame las stats de los ultimos 5 partidos de Salah' routes to player_form with query='Salah' only (no count/unit fragment).  
+**Question:** `dame las stats de los ultimos 5 partidos de Salah`  
+**Expected:** intent=`player_form` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.7b Story 2.3: extraction cleanup guard. Pattern 3 extracts player after ' partidos de ' separator — 'Salah' only, no count/unit fragment in the query field. _COUNT_UNIT_NOISE_RE strips any trailing residue. n_games=5, player_form.web_name='Salah'. Regression guard: same phrase already worked; this verifies extraction quality is maintained.
+
+**Surface results:**
+
+- `cli`: intent=`player_form` outcome=`ok` supported=`True`
+- `http`: intent=`player_form` outcome=`ok` supported=`True`
+
+### route_audit_deterministic  (✓ PASS)
+
+**Family:** captain  
+**Description:** Phase 2.7d: 'should I captain Salah' routes deterministically. route_source must be 'deterministic'. No classifier attempted.  
+**Question:** `should I captain Salah`  
+**Expected:** intent=`captain_score` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.7d: routing audit contract. Canonical English question routes via route() on first attempt. route_source='deterministic'. classifier_confidence=None (not attempted). route_conflict=False (default). No classifier_client is passed → classifier is never called. Validates that deterministic path is correctly labelled.
+
+**Surface results:**
+
+- `cli`: intent=`captain_score` outcome=`ok` supported=`True`
+  captain.tier=`safe` captain.role_bonus=`5.0`
+- `http`: intent=`captain_score` outcome=`ok` supported=`True`
+  captain.tier=`safe` captain.role_bonus=`5.0`
+
+### route_audit_intent_hint  (✓ PASS)
+
+**Family:** captain  
+**Description:** Phase 2.7d: bare player name 'Haaland' with intent_hint='captain_score' routes via hint path. route_source must be 'intent_hint'.  
+**Question:** `Haaland`  
+**Expected:** intent=`captain_score` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.7d: routing audit for intent_hint path. Bare name 'Haaland' does not route deterministically. With intent_hint='captain_score', canonical template 'should I captain Haaland' is constructed and routed. route_source='intent_hint'. classifier_confidence=None. Validates intent_hint label in routing audit.
+
+**Surface results:**
+
+- `cli`: intent=`captain_score` outcome=`ok` supported=`True`
+  captain.tier=`upside` captain.role_bonus=`5.0`
+- `http`: intent=`captain_score` outcome=`ok` supported=`True`
+  captain.tier=`upside` captain.role_bonus=`5.0`
+
+### route_audit_classifier_high  (✓ PASS)
+
+**Family:** captain  
+**Description:** Phase 2.7d: unroutable Spanish question with classifier stub returning confidence=0.95 → route_source='llm_classifier_high'. classifier_confidence must be present (non-None).  
+**Question:** `vale la pena capitar a Salah`  
+**Expected:** intent=`captain_score` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.7d: routing audit for LLM classifier high-confidence path. Spanish question does not route deterministically. Classifier stub returns confidence=0.95 >= 0.9 threshold. route_source='llm_classifier_high'. classifier_confidence is non-None (= 0.95 from stub). Validates high-confidence classifier label in routing audit.
+
+**Surface results:**
+
+- `cli`: intent=`captain_score` outcome=`ok` supported=`True`
+  captain.tier=`safe` captain.role_bonus=`5.0`
+- `http`: intent=`captain_score` outcome=`ok` supported=`True`
+  captain.tier=`safe` captain.role_bonus=`5.0`
+
+### route_audit_classifier_medium  (✓ PASS)
+
+**Family:** llm_classify  
+**Description:** Phase 2.7e: medium-confidence classifier result is gated. Stub returns confidence=0.75 → OUTCOME_NEEDS_CLARIFICATION, supported=False. No tool executes; captain metadata absent.  
+**Question:** `es buena opcion capitar a Salah hoy`  
+**Expected:** intent=`captain_score` outcome=`needs_clarification` supported=`False`  
+**Notes:** Phase 2.7e/2.7f: medium-confidence gate active (CLASSIFIER_MEDIUM_GATE_ENABLED=True). Classifier stub confidence=0.75: >= 0.7 but < 0.9 → medium bucket. Gate returns OUTCOME_NEEDS_CLARIFICATION with supported=False. Tool NOT executed; captain metadata absent. route_source='llm_classifier_medium'. classifier_confidence non-None (=0.75). 2.7f: clarification_asked=True, final_text contains 'captaincy'.
+
+**Surface results:**
+
+- `cli`: intent=`captain_score` outcome=`needs_clarification` supported=`False`
+- `http`: intent=`captain_score` outcome=`needs_clarification` supported=`False`
+
+### medium_gate_deterministic_unaffected  (✓ PASS)
+
+**Family:** captain  
+**Description:** Phase 2.7e: deterministic path executes normally even when CLASSIFIER_MEDIUM_GATE_ENABLED=True. Gate only applies to the llm_classifier_medium route_source.  
+**Question:** `should I captain Salah`  
+**Expected:** intent=`captain_score` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.7e: gate sanity check — deterministic route succeeds normally. No classifier involved; route_source='deterministic'. captain metadata present; outcome='ok'.
+
+**Surface results:**
+
+- `cli`: intent=`captain_score` outcome=`ok` supported=`True`
+  captain.tier=`safe` captain.role_bonus=`5.0`
+- `http`: intent=`captain_score` outcome=`ok` supported=`True`
+  captain.tier=`safe` captain.role_bonus=`5.0`
+
+### medium_gate_high_confidence_unaffected  (✓ PASS)
+
+**Family:** llm_classify  
+**Description:** Phase 2.7e: high-confidence classifier (confidence=0.95) still executes normally. Gate only blocks the medium-confidence bucket.  
+**Question:** `vale la pena capitar a Saka`  
+**Expected:** intent=`captain_score` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.7e: gate sanity check — high-confidence (0.95 >= 0.9 threshold) is NOT gated. route_source='llm_classifier_high'. captain metadata present; outcome='ok'.
+
+**Surface results:**
+
+- `cli`: intent=`captain_score` outcome=`ok` supported=`True`
+  captain.tier=`differential` captain.role_bonus=`0.5`
+- `http`: intent=`captain_score` outcome=`ok` supported=`True`
+  captain.tier=`differential` captain.role_bonus=`0.5`
+
+### clarification_not_asked_on_ok_path  (✓ PASS)
+
+**Family:** captain  
+**Description:** Phase 2.7f regression guard: a deterministic ok-path response must have clarification_asked=False.  
+**Question:** `should I captain Haaland`  
+**Expected:** intent=`captain_score` outcome=`ok` supported=`True`  
+**Notes:** Phase 2.7f: clarification_asked must be False for ok-path turns. Ensures the clarification gate does not fire on normal execution.
+
+**Surface results:**
+
+- `cli`: intent=`captain_score` outcome=`ok` supported=`True`
+  captain.tier=`upside` captain.role_bonus=`5.0`
+- `http`: intent=`captain_score` outcome=`ok` supported=`True`
+  captain.tier=`upside` captain.role_bonus=`5.0`
+
+### clarification_captain_score_medium  (✓ PASS)
+
+**Family:** llm_classify  
+**Description:** Phase 2.7f: medium-confidence captain_score classification produces captaincy-shaped clarification text with clarification_asked=True.  
+**Question:** `capitan bueno para esta semana`  
+**Expected:** intent=`captain_score` outcome=`needs_clarification` supported=`False`  
+**Notes:** Phase 2.7f: captain_score intent → clarification prompt mentions 'captaincy'. clarification_asked=True. outcome='needs_clarification', supported=False.
+
+**Surface results:**
+
+- `cli`: intent=`captain_score` outcome=`needs_clarification` supported=`False`
+- `http`: intent=`captain_score` outcome=`needs_clarification` supported=`False`
+
+### clarification_compare_players_medium  (✓ PASS)
+
+**Family:** llm_classify  
+**Description:** Phase 2.7f: medium-confidence compare_players classification produces comparison-shaped clarification text with clarification_asked=True.  
+**Question:** `cual es mejor Salah o Haaland`  
+**Expected:** intent=`compare_players` outcome=`needs_clarification` supported=`False`  
+**Notes:** Phase 2.7f: compare_players intent → clarification prompt mentions 'comparing'. clarification_asked=True. outcome='needs_clarification', supported=False.
+
+**Surface results:**
+
+- `cli`: intent=`compare_players` outcome=`needs_clarification` supported=`False`
+- `http`: intent=`compare_players` outcome=`needs_clarification` supported=`False`
+
+### clarification_transfer_advice_medium  (✓ PASS)
+
+**Family:** llm_classify  
+**Description:** Phase 2.7f: medium-confidence transfer_advice classification produces transfer-shaped clarification text with clarification_asked=True.  
+**Question:** `deberia cambiar a Saka`  
+**Expected:** intent=`transfer_advice` outcome=`needs_clarification` supported=`False`  
+**Notes:** Phase 2.7f: transfer_advice intent → clarification prompt mentions 'transfer'. clarification_asked=True. outcome='needs_clarification', supported=False.
+
+**Surface results:**
+
+- `cli`: intent=`transfer_advice` outcome=`needs_clarification` supported=`False`
+- `http`: intent=`transfer_advice` outcome=`needs_clarification` supported=`False`
+
+### m4_transfer_vendele  (✓ PASS)
+
+**Family:** transfer  
+**Description:** M4 §7.1: Spanish 'vendele Salah por Haaland' routes to transfer_advice via new TRANSFER_SPANISH_PREFIXES ('véndele'/'vendele') and TRANSFER_SPANISH_CONNECTORS (' por ').  
+**Question:** `vendele Salah por Haaland`  
+**Expected:** intent=`transfer_advice` outcome=`ok` supported=`True`  
+**Notes:** M4 §7.1: 'vendele' (no-accent) prefix + ' por ' connector. player_out='Salah', player_in='Haaland'. Both in STANDARD_BOOTSTRAP. Before M4: unsupported_intent (no Spanish prefix). After M4: transfer_advice ok.
+
+**Surface results:**
+
+- `cli`: intent=`transfer_advice` outcome=`ok` supported=`True`
+  transfer.player_out=`Salah` transfer.player_in=`Haaland` transfer.recommendation=`hold`
+- `http`: intent=`transfer_advice` outcome=`ok` supported=`True`
+  transfer.player_out=`Salah` transfer.player_in=`Haaland` transfer.recommendation=`hold`
+
+### m4_transfer_vendo_por  (✓ PASS)
+
+**Family:** transfer  
+**Description:** M4 §7.1: Spanish 'vendo Saka por Haaland' routes to transfer_advice via 'vendo' prefix and ' por ' connector.  
+**Question:** `vendo Saka por Haaland`  
+**Expected:** intent=`transfer_advice` outcome=`ok` supported=`True`  
+**Notes:** M4 §7.1: 'vendo' prefix + ' por ' connector. player_out='Saka', player_in='Haaland'. Both in STANDARD_BOOTSTRAP.
+
+**Surface results:**
+
+- `cli`: intent=`transfer_advice` outcome=`ok` supported=`True`
+  transfer.player_out=`Saka` transfer.player_in=`Haaland` transfer.recommendation=`transfer_in`
+- `http`: intent=`transfer_advice` outcome=`ok` supported=`True`
+  transfer.player_out=`Saka` transfer.player_in=`Haaland` transfer.recommendation=`transfer_in`
+
+### m4_transfer_cambio_por  (✓ PASS)
+
+**Family:** transfer  
+**Description:** M4 §7.1: Spanish 'cambio Saka por Salah' routes to transfer_advice via 'cambio' prefix and ' por ' connector.  
+**Question:** `cambio Saka por Salah`  
+**Expected:** intent=`transfer_advice` outcome=`ok` supported=`True`  
+**Notes:** M4 §7.1: 'cambio' prefix + ' por ' connector. player_out='Saka', player_in='Salah'. Both in STANDARD_BOOTSTRAP. Regression check: 'cambios de precio' must still route to price_changes (tested separately in m4_regression_cambios_precio).
+
+**Surface results:**
+
+- `cli`: intent=`transfer_advice` outcome=`ok` supported=`True`
+  transfer.player_out=`Saka` transfer.player_in=`Salah` transfer.recommendation=`transfer_in`
+- `http`: intent=`transfer_advice` outcome=`ok` supported=`True`
+  transfer.player_out=`Saka` transfer.player_in=`Salah` transfer.recommendation=`transfer_in`
+
+### m4_transfer_doy_de_baja  (✓ PASS)
+
+**Family:** transfer  
+**Description:** M4 §7.1: Spanish 'doy de baja a Saka por Haaland' routes to transfer_advice via 'doy de baja a' prefix and ' por ' connector.  
+**Question:** `doy de baja a Saka por Haaland`  
+**Expected:** intent=`transfer_advice` outcome=`ok` supported=`True`  
+**Notes:** M4 §7.1: 'doy de baja a' prefix + ' por ' connector. player_out='Saka', player_in='Haaland'. Both in STANDARD_BOOTSTRAP.
+
+**Surface results:**
+
+- `cli`: intent=`transfer_advice` outcome=`ok` supported=`True`
+  transfer.player_out=`Saka` transfer.player_in=`Haaland` transfer.recommendation=`transfer_in`
+- `http`: intent=`transfer_advice` outcome=`ok` supported=`True`
+  transfer.player_out=`Saka` transfer.player_in=`Haaland` transfer.recommendation=`transfer_in`
+
+### m4_transfer_saco_a_por  (✓ PASS)
+
+**Family:** transfer  
+**Description:** M4 §7.1: Spanish 'saco a Saka por Salah' routes to transfer_advice via 'saco a' prefix and ' por ' connector.  
+**Question:** `saco a Saka por Salah`  
+**Expected:** intent=`transfer_advice` outcome=`ok` supported=`True`  
+**Notes:** M4 §7.1: 'saco a' prefix + ' por ' connector. player_out='Saka', player_in='Salah'. Accusative 'a' stripped. Both players in STANDARD_BOOTSTRAP.
+
+**Surface results:**
+
+- `cli`: intent=`transfer_advice` outcome=`ok` supported=`True`
+  transfer.player_out=`Saka` transfer.player_in=`Salah` transfer.recommendation=`transfer_in`
+- `http`: intent=`transfer_advice` outcome=`ok` supported=`True`
+  transfer.player_out=`Saka` transfer.player_in=`Salah` transfer.recommendation=`transfer_in`
+
+### m4_regression_transfer_english  (✓ PASS)
+
+**Family:** transfer  
+**Description:** M4 regression guard: English 'sell Haaland for Salah' must still route to transfer_advice after M4 changes.  
+**Question:** `sell Haaland for Salah`  
+**Expected:** intent=`transfer_advice` outcome=`ok` supported=`True`  
+**Notes:** M4 regression: English transfer prefix + connector untouched.
+
+**Surface results:**
+
+- `cli`: intent=`transfer_advice` outcome=`ok` supported=`True`
+  transfer.player_out=`Haaland` transfer.player_in=`Salah` transfer.recommendation=`transfer_in`
+- `http`: intent=`transfer_advice` outcome=`ok` supported=`True`
+  transfer.player_out=`Haaland` transfer.player_in=`Salah` transfer.recommendation=`transfer_in`
+
+### m4_fixture_run_proximos_partidos  (✓ PASS)
+
+**Family:** player_fixture_run  
+**Description:** M4 §7.2: Spanish 'próximos partidos de Saka' routes to player_fixture_run via new FIXTURE_RUN_SPANISH_PREFIXES.  
+**Question:** `proximos partidos de Saka`  
+**Expected:** intent=`player_fixture_run` outcome=`ok` supported=`True`  
+**Notes:** M4 §7.2: 'proximos partidos de' prefix added to fixture-run routing. player='Saka'. Before M4: unsupported_intent. After M4: player_fixture_run ok.
+
+**Surface results:**
+
+- `cli`: intent=`player_fixture_run` outcome=`ok` supported=`True`
+  fixture_run.web_name=`Saka` fixture_run.team_short=`ARS` fixture_run.horizon=`5` fixtures=5
+- `http`: intent=`player_fixture_run` outcome=`ok` supported=`True`
+  fixture_run.web_name=`Saka` fixture_run.team_short=`ARS` fixture_run.horizon=`5` fixtures=5
+
+### m4_fixture_run_siguientes  (✓ PASS)
+
+**Family:** player_fixture_run  
+**Description:** M4 §7.2: Spanish 'siguientes partidos de Salah' routes to player_fixture_run via new Spanish prefix.  
+**Question:** `siguientes partidos de Salah`  
+**Expected:** intent=`player_fixture_run` outcome=`ok` supported=`True`  
+**Notes:** M4 §7.2: 'siguientes partidos de' prefix. player='Salah'.
+
+**Surface results:**
+
+- `cli`: intent=`player_fixture_run` outcome=`ok` supported=`True`
+  fixture_run.web_name=`Salah` fixture_run.team_short=`LIV` fixture_run.horizon=`5` fixtures=5
+- `http`: intent=`player_fixture_run` outcome=`ok` supported=`True`
+  fixture_run.web_name=`Salah` fixture_run.team_short=`LIV` fixture_run.horizon=`5` fixtures=5
+
+### m4_calendario_de_team  (✓ PASS)
+
+**Family:** team_schedule  
+**Description:** M4 §7.3: Spanish 'calendario de Arsenal' routes to team_schedule via the §7.3 disambiguation: team token found → team_schedule.  
+**Question:** `calendario de Arsenal`  
+**Expected:** intent=`team_schedule` outcome=`ok` supported=`True`  
+**Notes:** M4 §7.3 disambiguation: 'calendario de ' + known team token → team_schedule. Before M4: miss (no 'del' contraction). After M4: team_schedule ok.
+
+**Surface results:**
+
+- `cli`: intent=`team_schedule` outcome=`ok` supported=`True`
+- `http`: intent=`team_schedule` outcome=`ok` supported=`True`
+
+### m4_calendario_de_player  (✓ PASS)
+
+**Family:** player_fixture_run  
+**Description:** M4 §7.3: Spanish 'calendario de Haaland' routes to player_fixture_run via §7.3 disambiguation: no team token → player_fixture_run.  
+**Question:** `calendario de Haaland`  
+**Expected:** intent=`player_fixture_run` outcome=`ok` supported=`True`  
+**Notes:** M4 §7.3 disambiguation: 'calendario de ' + non-team remainder → player_fixture_run. Before M4: miss. After M4: player_fixture_run ok.
+
+**Surface results:**
+
+- `cli`: intent=`player_fixture_run` outcome=`ok` supported=`True`
+  fixture_run.web_name=`Haaland` fixture_run.team_short=`MCI` fixture_run.horizon=`5` fixtures=5
+- `http`: intent=`player_fixture_run` outcome=`ok` supported=`True`
+  fixture_run.web_name=`Haaland` fixture_run.team_short=`MCI` fixture_run.horizon=`5` fixtures=5
+
+### m4_calendario_de_del_city  (✓ PASS)
+
+**Family:** team_schedule  
+**Description:** M4 §7.3: 'calendario de los proximos 5 del City' routes to team_schedule via 'del' segment extraction in §7.3 disambiguator.  
+**Question:** `calendario de los proximos 5 del City`  
+**Expected:** intent=`team_schedule` outcome=`ok` supported=`True`  
+**Notes:** M4 §7.3: 'del ' marker → team_query='City'. Plan example phrase. After M4: team_schedule ok.
+
+**Surface results:**
+
+- `cli`: intent=`team_schedule` outcome=`ok` supported=`True`
+- `http`: intent=`team_schedule` outcome=`ok` supported=`True`
+
+### m4_regression_calendario_del  (✓ PASS)
+
+**Family:** team_schedule  
+**Description:** M4 §7.3 regression guard: existing 'calendario del Arsenal' (with 'del' contraction) must still route to team_schedule.  
+**Question:** `calendario del Arsenal`  
+**Expected:** intent=`team_schedule` outcome=`ok` supported=`True`  
+**Notes:** M4 regression: existing 'calendario del ' prefix still works.
+
+**Surface results:**
+
+- `cli`: intent=`team_schedule` outcome=`ok` supported=`True`
+- `http`: intent=`team_schedule` outcome=`ok` supported=`True`
+
+### m4_differential_spanish_esta_semana  (✓ PASS)
+
+**Family:** differential_picks  
+**Description:** M4 §7.6: Spanish 'diferenciales esta semana' routes to differential_picks via new DIFFERENTIAL_SPANISH_KEYWORDS.  
+**Question:** `diferenciales esta semana`  
+**Expected:** intent=`differential_picks` outcome=`ok` supported=`True`  
+**Notes:** M4 §7.6: 'diferenciales esta semana' added to differential keywords. DIFFERENTIAL_BOOTSTRAP has Palmer (3.5%) and Mbeumo (8.2%) available. Before M4: unsupported_intent. After M4: differential_picks ok.
+
+**Surface results:**
+
+- `cli`: intent=`differential_picks` outcome=`ok` supported=`True`
+  differential.ownership_threshold=`15.0` picks=2 top=`Mbeumo`
+- `http`: intent=`differential_picks` outcome=`ok` supported=`True`
+  differential.ownership_threshold=`15.0` picks=2 top=`Mbeumo`
+
+### m4_differential_spanish_bare  (✓ PASS)
+
+**Family:** differential_picks  
+**Description:** M4 §7.6: Bare 'diferenciales' routes to differential_picks via new Spanish keyword synonym.  
+**Question:** `diferenciales`  
+**Expected:** intent=`differential_picks` outcome=`ok` supported=`True`  
+**Notes:** M4 §7.6: 'diferenciales' (bare) → differential_picks. Before M4: unsupported_intent (slash command was only path). After M4: deterministic routing ok.
+
+**Surface results:**
+
+- `cli`: intent=`differential_picks` outcome=`ok` supported=`True`
+  differential.ownership_threshold=`15.0` picks=2 top=`Mbeumo`
+- `http`: intent=`differential_picks` outcome=`ok` supported=`True`
+  differential.ownership_threshold=`15.0` picks=2 top=`Mbeumo`
+
+### m4_regression_differentials_english  (✓ PASS)
+
+**Family:** differential_picks  
+**Description:** M4 regression guard: English 'differentials this week' must still route to differential_picks after M4 changes.  
+**Question:** `differentials this week`  
+**Expected:** intent=`differential_picks` outcome=`ok` supported=`True`  
+**Notes:** M4 regression: English differential keywords untouched.
+
+**Surface results:**
+
+- `cli`: intent=`differential_picks` outcome=`ok` supported=`True`
+  differential.ownership_threshold=`15.0` picks=2 top=`Mbeumo`
+- `http`: intent=`differential_picks` outcome=`ok` supported=`True`
+  differential.ownership_threshold=`15.0` picks=2 top=`Mbeumo`
+
+### m4_gameweek_spanish  (✓ PASS)
+
+**Family:** captain  
+**Description:** M4 §7.5: Spanish 'qué jornada es' routes to current_gameweek via new GAMEWEEK_SPANISH_KEYWORDS.  
+**Question:** `que jornada es`  
+**Expected:** intent=`current_gameweek` outcome=`ok` supported=`True`  
+**Notes:** M4 §7.5: 'que jornada es' added to gameweek keywords. Before M4: depended on classifier rewrite. After M4: deterministic routing ok.
+
+**Surface results:**
+
+- `cli`: intent=`current_gameweek` outcome=`ok` supported=`True`
+- `http`: intent=`current_gameweek` outcome=`ok` supported=`True`
+
+### m4_gameweek_jornada_actual  (✓ PASS)
+
+**Family:** captain  
+**Description:** M4 §7.5: Spanish 'jornada actual' routes to current_gameweek via new Spanish gameweek keyword.  
+**Question:** `jornada actual`  
+**Expected:** intent=`current_gameweek` outcome=`ok` supported=`True`  
+**Notes:** M4 §7.5: 'jornada actual' → current_gameweek.
+
+**Surface results:**
+
+- `cli`: intent=`current_gameweek` outcome=`ok` supported=`True`
+- `http`: intent=`current_gameweek` outcome=`ok` supported=`True`
+
+### m4_captain_conviene_capitanear  (✓ PASS)
+
+**Family:** captain  
+**Description:** M4 regression guard: 'deberia capitanear a Haaland' (existing prefix) routes to captain_score. Validates existing Spanish captain coverage survives M4 alias migration.  
+**Question:** `deberia capitanear a Haaland`  
+**Expected:** intent=`captain_score` outcome=`ok` supported=`True`  
+**Notes:** M4 regression guard: existing Spanish captain prefix 'deberia capitanear a'. Verifies _CAPTAIN_SCORE_PREFIXES unchanged after M4 migration.
+
+**Surface results:**
+
+- `cli`: intent=`captain_score` outcome=`ok` supported=`True`
+  captain.tier=`upside` captain.role_bonus=`5.0`
+- `http`: intent=`captain_score` outcome=`ok` supported=`True`
+  captain.tier=`upside` captain.role_bonus=`5.0`
+
+### m4_compare_spanish_regression  (✓ PASS)
+
+**Family:** comparison  
+**Description:** M4 regression guard: 'compara Salah y Haaland' (existing Spanish compare prefix) must still route to compare_players after M4 changes.  
+**Question:** `compara Salah y Haaland`  
+**Expected:** intent=`compare_players` outcome=`ok` supported=`True`  
+**Notes:** M4 regression: existing Spanish compare prefix/connector untouched.
+
+**Surface results:**
+
+- `cli`: intent=`compare_players` outcome=`ok` supported=`True`
+  comparison.winner=`Salah` comparison.label=`moderate`
+- `http`: intent=`compare_players` outcome=`ok` supported=`True`
+  comparison.winner=`Salah` comparison.label=`moderate`
+
+### m4_regression_cambios_precio  (✓ PASS)
+
+**Family:** price_changes  
+**Description:** M4 regression guard: 'cambios de precio esta semana' must route to price_changes, NOT transfer_advice, despite new 'cambio' transfer prefix.  
+**Question:** `cambios de precio esta semana`  
+**Expected:** intent=`price_changes` outcome=`ok` supported=`True`  
+**Notes:** M4 regression: 'cambio' prefix matches 'cambios...' via startswith, but no transfer connector found in remainder → falls through to price_changes. Confirms the connector guard saves us from the false-positive.
+
+**Surface results:**
+
+- `cli`: intent=`price_changes` outcome=`ok` supported=`True`
+- `http`: intent=`price_changes` outcome=`ok` supported=`True`
 
 ---
 

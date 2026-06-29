@@ -846,6 +846,45 @@ RANK_PLAYERS_BY_METRIC_SCHEMA = ToolSchema(
 
 
 # ---------------------------------------------------------------------------
+# Web search — last-resort, premium-gated tool (kept OUT of _ALL_SCHEMAS)
+# ---------------------------------------------------------------------------
+# This schema is appended to the per-request tool list ONLY when web search is
+# both toggled on by the user AND their tier is eligible (see
+# orchestrator._build_tools(web_search_enabled=...) and fpl_server.py's
+# WEB_SEARCH_TIERS gate). Keeping it separate from _ALL_SCHEMAS guarantees the
+# base deterministic registry is unchanged and the model cannot reach for web
+# search unless it was explicitly enabled for that turn.
+
+SEARCH_WEB_SCHEMA = ToolSchema(
+    name="search_web",
+    description=(
+        "LAST RESORT. Live web search for FPL/football information that NO other "
+        "tool can provide: breaking news, injuries/doubts, suspensions, "
+        "press-conference quotes, transfer/lineup rumours, or opinion/prediction "
+        "questions. NEVER use it for player stats, prices, fixtures, or form — "
+        "those have dedicated tools and are always more reliable. "
+        "QUERY CONSTRUCTION: `query` must be concise, keyword-heavy, and "
+        "stripped of conversational filler (e.g. 'Salah lesion estado Liverpool', "
+        "not the user's raw sentence)."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "query": {
+                "type":        "string",
+                "description": (
+                    "Concise, keyword-heavy search query (no conversational "
+                    "filler). Player/team/topic keywords only."
+                ),
+            },
+        },
+        "required":             ["query"],
+        "additionalProperties": False,
+    },
+)
+
+
+# ---------------------------------------------------------------------------
 # Registry construction
 # ---------------------------------------------------------------------------
 
@@ -892,6 +931,13 @@ _REGISTRY: dict[str, ToolSchema] = {s.name: s for s in _ALL_SCHEMAS}
 #: Frozenset of all registered tool names.  Stable across imports.
 TOOL_NAMES: frozenset[str] = frozenset(_REGISTRY)
 
+#: search_web is intentionally excluded from _ALL_SCHEMAS / TOOL_NAMES (it is
+#: premium-gated and opt-in per request — see SEARCH_WEB_SCHEMA docstring
+#: above). This separate registry/name-set is consulted ONLY when the caller
+#: explicitly enables web search for the turn (orchestrator.py).
+_REGISTRY_WITH_SEARCH: dict[str, ToolSchema] = {**_REGISTRY, SEARCH_WEB_SCHEMA.name: SEARCH_WEB_SCHEMA}
+TOOL_NAMES_WITH_SEARCH: frozenset[str] = frozenset(_REGISTRY_WITH_SEARCH)
+
 
 # ---------------------------------------------------------------------------
 # Public API
@@ -937,7 +983,7 @@ def get_tool_schema(name: str) -> ToolSchema | None:
     >>> get_tool_schema("nonexistent") is None
     True
     """
-    return _REGISTRY.get(name)
+    return _REGISTRY_WITH_SEARCH.get(name)
 
 
 def validate_tool_schema_shape(schema: Any) -> bool:

@@ -33,7 +33,7 @@ export type Outcome =
   | 'missing_arguments'
   | 'error'
   | 'quota_exceeded'
-  // WC-only: a premium feature (web search) was requested by a free-tier user.
+  // A premium feature (web search) was requested by an ineligible tier.
   | 'feature_gated';
 
 /**
@@ -161,6 +161,12 @@ export interface AskRequest {
    * the stable production contract.
    */
   debug?: boolean;
+  /**
+   * Explicit per-turn opt-in for the premium web-search tool (globe toggle).
+   * Only takes effect when the caller's tier is in the backend's
+   * WEB_SEARCH_TIERS allowlist — see lib/tiers.ts QUOTA_BUCKETS.webSearch.
+   */
+  web_search_requested?: boolean;
 }
 
 /** Optional squad state included on every /ask request once the user
@@ -225,6 +231,14 @@ export interface AskResponse {
 
   /** Resource payload — non-null for @resource turns, null otherwise. (A1 post-graduation) */
   resource_rows: ResourceRows | null;
+
+  /**
+   * Web search payload — non-null when the premium search_web tool ran
+   * end-to-end (outcome='ok'). Unverified AI synthesis over live web
+   * sources — never implies "grounded" data. Parity with the WC chat's
+   * web_search field.
+   */
+  web_search: WebSearchPayload | null;
 
   // debug_only — null unless request included debug=true.
   // Do not gate production logic on this field.
@@ -356,6 +370,27 @@ export interface DifferentialPicksMeta {
   ownership_threshold: number;
   top_n: number;
   picks: DifferentialEntry[];
+}
+
+// ---------------------------------------------------------------------------
+// Web search types (premium, opt-in — parity with WcWebSearchPayload)
+// ---------------------------------------------------------------------------
+
+/** One cited source in a web_search turn. */
+export interface WebSearchResult {
+  title: string;
+  snippet: string;
+  url: string;
+  source: string;
+  published: string | null;
+}
+
+/** web_search field — non-null when the search_web tool ran end-to-end. */
+export interface WebSearchPayload {
+  topic: string | null;
+  summary: string;
+  results: WebSearchResult[];
+  timestamp: string;
 }
 
 // ---------------------------------------------------------------------------

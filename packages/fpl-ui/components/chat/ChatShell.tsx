@@ -29,7 +29,7 @@ import { useUser } from '@clerk/nextjs';
 import { ask, sessionAsk, createSession, clearSession, FplApiError } from '@/lib/api';
 import { parseSlashCommand } from '@/lib/slash-commands';
 import type { AskResponse, SquadContext } from '@/lib/types';
-import { type QuotaBucket } from '@/lib/tiers';
+import { QUOTA_BUCKETS, type QuotaBucket } from '@/lib/tiers';
 import { readDevTier } from '@/lib/dev-tier';
 import MessageList, { type Message } from './MessageList';
 import InputBar, { type InsertRequest } from './InputBar';
@@ -51,6 +51,11 @@ export default function ChatShell() {
     setDevTier(readDevTier());
   }, []);
   const tier = devTier ?? clerkTier;
+  // Premium web-search opt-in (sticky globe toggle). Mirrors WcChatShell: the
+  // backend (WEB_SEARCH_TIERS) is still the source of truth for the gate —
+  // this only governs the toggle's UI affordance.
+  const webSearchAvailable = QUOTA_BUCKETS[tier]?.webSearch ?? false;
+  const [webSearchOn, setWebSearchOn] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -122,6 +127,11 @@ export default function ChatShell() {
         intent_hint: intentHint,
         // squad_context is passed on every turn; null when no team connected
         squad_context: squadContext ?? null,
+        // Explicit opt-in only — never silent. Gated by tier eligibility so
+        // an ineligible user can't spend a request on a feature the backend
+        // would reject anyway (defense-in-depth; the UI already locks the
+        // toggle).
+        web_search_requested: webSearchOn && webSearchAvailable,
       };
 
       if (isFollowUp) {
@@ -177,7 +187,7 @@ export default function ChatShell() {
     } finally {
       setLoading(false);
     }
-  }, [loading, followUpArmedFor, sessionId, squadContext]);
+  }, [loading, followUpArmedFor, sessionId, squadContext, webSearchOn, webSearchAvailable]);
 
   // Quick commands ("Vistas rápidas") are complete queries — send immediately
   // and jump to the chat screen, skipping the edit step.
@@ -239,7 +249,17 @@ export default function ChatShell() {
                   Respondiendo a esto · toca para cancelar
                 </button>
               )}
-              <InputBar onSubmit={sendMessage} disabled={loading} insert={insert} />
+              <InputBar
+                onSubmit={sendMessage}
+                disabled={loading}
+                insert={insert}
+                webSearch={{
+                  enabled: webSearchOn,
+                  onToggle: () => setWebSearchOn((v) => !v),
+                  available: webSearchAvailable,
+                  upgradeUrl: '/subscribe',
+                }}
+              />
               <div className="flex justify-end">
                 <QuotaIndicator userId={user?.id} tier={tier} refreshTrigger={quotaRefreshTrigger} />
               </div>

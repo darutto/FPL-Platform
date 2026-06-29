@@ -1024,6 +1024,36 @@ def _render_get_team_snapshot(output: dict[str, Any]) -> str:
     return f"Error ({code}): {message}"
 
 
+def _render_search_web(output: dict[str, Any]) -> str:
+    """Render search_web raw_output as a Spanish prose summary.
+
+    Unlike worldcup_assistant's web_search, FPL's single-tool orchestrator
+    path renders deterministically without a second LLM round-trip to phrase
+    the answer (only the multi-tool batching path gets a second call). So
+    this builds a templated summary from the result snippets rather than
+    LLM-synthesized prose. The WebSearchCard still renders each cited result
+    individually, so the real content is always visible regardless of how
+    this summary reads.
+    """
+    status = output.get("status")
+    if status != "ok":
+        code    = output.get("code", "error")
+        message = output.get("message", "No se pudo completar la búsqueda web.")
+        return f"Error ({code}): {message}"
+
+    results = output.get("results") or []
+    if not results:
+        return "No encontré resultados relevantes para esa búsqueda."
+
+    lines = ["Esto encontré en la web:"]
+    for r in results[:3]:
+        title = r.get("title", "")
+        snippet = r.get("snippet", "")
+        source = r.get("source", "")
+        lines.append(f"- {title}: {snippet} ({source})".strip())
+    return "\n".join(lines)
+
+
 def _render_web_fetch(output: dict[str, Any]) -> str:
     """Render web_fetch raw_output.  P2.7."""
     status = output.get("status")
@@ -1126,6 +1156,7 @@ _RENDERERS = {
     "get_team_snapshot":        _render_get_team_snapshot,       # P2.6
     "web_fetch":                _render_web_fetch,               # P2.7
     "rank_players_by_metric":   _render_rank_players_by_metric,  # P2.8
+    "search_web":               _render_search_web,              # web search parity
 }
 
 

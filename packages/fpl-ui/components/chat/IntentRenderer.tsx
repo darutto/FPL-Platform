@@ -33,6 +33,7 @@ import DifferentialTable from '@/components/intents/DifferentialTable';
 import MultiIntentView from '@/components/intents/MultiIntentView';
 import ResourceRankingTable from '@/components/intents/ResourceRankingTable';
 import InjuriesTable from '@/components/intents/InjuriesTable';
+import WebSearchCard from '@/components/intents/WebSearchCard';
 
 interface Props {
   response: AskResponse;
@@ -70,6 +71,9 @@ export default function IntentRenderer({ response }: Props) {
   }
   if (view === 'resource_injuries' && response.resource_rows != null) {
     return <InjuriesTable data={response.resource_rows} />;
+  }
+  if (view === 'web_search' && response.web_search != null) {
+    return <WebSearchCard data={response.web_search} />;
   }
   return null;
 }

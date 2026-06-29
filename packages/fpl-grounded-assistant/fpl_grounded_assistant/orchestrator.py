@@ -101,7 +101,12 @@ from .provider_client import (
 )
 from .evaluator import EvaluatorVerdict, evaluate_response
 from .renderer import render
-from .tool_schema_registry import _ALL_SCHEMAS, TOOL_NAMES
+from .tool_schema_registry import (
+    _ALL_SCHEMAS,
+    SEARCH_WEB_SCHEMA,
+    TOOL_NAMES,
+    TOOL_NAMES_WITH_SEARCH,
+)
 
 _LOG = logging.getLogger(__name__)
 
@@ -615,7 +620,11 @@ def _apply_tools_cache_control(tools: list[dict[str, Any]]) -> list[dict[str, An
 # Provider-aware tool list builder
 # ---------------------------------------------------------------------------
 
-def _build_tools(provider: str | None) -> list[dict[str, Any]]:
+def _build_tools(
+    provider: str | None,
+    *,
+    web_search_enabled: bool = False,
+) -> list[dict[str, Any]]:
     """Return a tool list in the appropriate wire format for *provider*.
 
     Parameters
@@ -624,18 +633,24 @@ def _build_tools(provider: str | None) -> list[dict[str, Any]]:
         One of ``PROVIDER_ANTHROPIC``, ``PROVIDER_OPENAI``, ``PROVIDER_GEMINI``,
         or ``None``.  When ``None``, defaults to Anthropic format (Orch-3a
         backward compatibility).
+    web_search_enabled:
+        When ``True``, appends ``SEARCH_WEB_SCHEMA`` to the per-request tool
+        list (premium-gated, opt-in — see ``tool_schema_registry`` docstring).
+        When ``False`` (default), the base deterministic registry is returned
+        unchanged and the model cannot reach for web search at all.
 
     Returns
     -------
     list[dict[str, Any]]
         Tool list ready to be passed to the LLM API's ``tools=`` parameter.
     """
+    schemas = (*_ALL_SCHEMAS, SEARCH_WEB_SCHEMA) if web_search_enabled else _ALL_SCHEMAS
     if provider == PROVIDER_OPENAI:
-        return [s.to_openai() for s in _ALL_SCHEMAS]
+        return [s.to_openai() for s in schemas]
     if provider == PROVIDER_GEMINI:
-        return [{"function_declarations": [s.to_gemini() for s in _ALL_SCHEMAS]}]
+        return [{"function_declarations": [s.to_gemini() for s in schemas]}]
     # Anthropic (default) and None
-    return [s.to_anthropic() for s in _ALL_SCHEMAS]
+    return [s.to_anthropic() for s in schemas]
 
 
 # ---------------------------------------------------------------------------
@@ -967,6 +982,7 @@ def _apply_evaluator(
     _max_retries: int,
     _orch_request_fn: Any,
     actual_bootstrap: dict[str, Any],
+    _valid_tool_names: frozenset[str] = TOOL_NAMES,
     # P1.e Lever 2: cached system blocks for Anthropic retry call
     _system_blocks: list[dict[str, Any]] | None = None,
     # F3: token counts from the primary (and optional multi-tool 2nd) call
@@ -1163,7 +1179,7 @@ def _apply_evaluator(
     # Execute retry tool calls
     _retry_executed: list[tuple[str, str | None, dict[str, Any], dict[str, Any]]] = []
     for _rtid, _rtname, _rtargs in _retry_tool_calls:
-        if not _rtname or _rtname not in TOOL_NAMES:
+        if not _rtname or _rtname not in _valid_tool_names:
             # Unknown tool in retry — deliver primary
             _total = (
                 _primary_input_tokens + _primary_output_tokens + _primary_cache_read_tokens
@@ -1267,6 +1283,7 @@ def ask_orchestrated(
     model: str = DEFAULT_ORCH_MODEL,
     api_key: str | None = None,
     provider: str | None = None,
+    web_search_enabled: bool = False,
     _gate: _FailureGate | None = None,
     _orch_request_fn: Any = None,
     _eval_client: Any = None,
@@ -1305,6 +1322,11 @@ def ask_orchestrated(
         Explicit provider for response parsing and tool-list format.
         One of ``PROVIDER_ANTHROPIC``, ``PROVIDER_OPENAI``, ``PROVIDER_GEMINI``,
         or ``None`` (auto-detect; defaults to Anthropic-first for Orch-3a compat).
+    web_search_enabled:
+        When ``True``, the premium ``search_web`` tool is added to this turn's
+        tool list (see ``_build_tools``). Callers (``harness.ask_v2()``) must
+        only set this after verifying tier eligibility + explicit opt-in —
+        the orchestrator itself performs no gating.
 
     Returns
     -------
@@ -1407,7 +1429,8 @@ def ask_orchestrated(
     # so the entire tools block is cached. OpenAI/DeepSeek: automatic.
     # Gemini: TODO (see _apply_tools_cache_control docstring).
     # ------------------------------------------------------------------
-    tools: list[dict[str, Any]] = _build_tools(provider)
+    tools: list[dict[str, Any]] = _build_tools(provider, web_search_enabled=web_search_enabled)
+    _valid_tool_names: frozenset[str] = TOOL_NAMES_WITH_SEARCH if web_search_enabled else TOOL_NAMES
     _provider_for_cache = provider if provider in _ALL_PROVIDERS else PROVIDER_ANTHROPIC
     if _provider_for_cache == PROVIDER_ANTHROPIC:
         tools = _apply_tools_cache_control(tools)
@@ -1553,7 +1576,7 @@ def ask_orchestrated(
     # 7. Validate ALL tool names against registry before executing any.
     # ------------------------------------------------------------------
     for _tool_id, _tool_name, _tool_args in all_tool_calls:
-        if not _tool_name or _tool_name not in TOOL_NAMES:
+        if not _tool_name or _tool_name not in _valid_tool_names:
             return OrchestratorResult(
                 question=question,
                 tool_chosen=_tool_name,
@@ -1690,6 +1713,7 @@ def ask_orchestrated(
                     _max_retries=_max_retries,
                     _orch_request_fn=_orch_request_fn,
                     actual_bootstrap=actual_bootstrap,
+                    _valid_tool_names=_valid_tool_names,
                     _system_blocks=_system_blocks,  # P1.e: cache_control preserved
                     _primary_input_tokens=_prim_in_mt,
                     _primary_output_tokens=_prim_out_mt,
@@ -1734,6 +1758,7 @@ def ask_orchestrated(
         _max_retries=_max_retries,
         _orch_request_fn=_orch_request_fn,
         actual_bootstrap=actual_bootstrap,
+        _valid_tool_names=_valid_tool_names,
         _system_blocks=_system_blocks,  # P1.e: cache_control preserved
         # F3: pass primary token counts for aggregation in _apply_evaluator.
         _primary_input_tokens=_prim_in,

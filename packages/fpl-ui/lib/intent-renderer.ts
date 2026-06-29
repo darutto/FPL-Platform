@@ -21,6 +21,7 @@
  *   differential_picks → 'differential'       (differential non-null, picks.length > 0)
  *   @top_form/xg/etc.  → 'resource_ranking'  (resource_rows non-null, resource != 'injuries')
  *   @injuries          → 'resource_injuries'  (resource_rows non-null, resource === 'injuries')
+ *   search_web (premium) → 'web_search'      (web_search non-null; lowest precedence)
  *
  * TEXT-ONLY (Phase 2c, structured rendering deferred):
  *   multi_intent, current_gameweek, player_summary, player_resolve
@@ -37,7 +38,8 @@ export type IntentView =
   | 'differential'
   | 'multi_intent'
   | 'resource_ranking'
-  | 'resource_injuries';
+  | 'resource_injuries'
+  | 'web_search';
 
 /**
  * Given a backend response, returns which structured intent component to
@@ -95,6 +97,11 @@ export function selectIntentView(response: AskResponse): IntentView | null {
     response.sub_responses.length > 0
   ) {
     return 'multi_intent';
+  }
+
+  // Lowest precedence: web search is a premium fallback, not a routed intent.
+  if (response.web_search != null) {
+    return 'web_search';
   }
 
   return null;

@@ -180,6 +180,26 @@ def to_ask_response(
         d["answer_text"]  = answer_text
 
     # ------------------------------------------------------------------
+    # 1b. Web search exception (parity with WC's web_search field).
+    #     search_web is intentionally absent from _TOOL_TO_INTENT (it's
+    #     premium/opt-in, not a routable intent), so it needs its own small
+    #     conditional here rather than flowing through the generic
+    #     structured-metadata projection below. Non-null only when the tool
+    #     ran end-to-end (outcome == "ok"); the raw_output's own "answer"
+    #     field is model input only and is never surfaced (answer_text/
+    #     summary is the rendered, displayed text instead).
+    # ------------------------------------------------------------------
+    web_search: dict[str, Any] | None = None
+    if d.get("selected_tool") == "search_web" and d.get("outcome") == "ok":
+        _raw = d.get("raw_output") or {}
+        web_search = {
+            "topic": (d.get("tool_input") or {}).get("query"),
+            "summary": answer_text,
+            "results": _raw.get("results") or [],
+            "timestamp": _raw.get("timestamp"),
+        }
+
+    # ------------------------------------------------------------------
     # 2. Derive intent from selected_tool (no top-level "intent" key in
     #    ask_v2 dict).
     #    Exception: when the medium-confidence gate fires, selected_tool=None
@@ -350,6 +370,8 @@ def to_ask_response(
         transfer_suggestion=_to_dict(d.get("transfer_suggestion")),
         # A1 (post-graduation): pure passthrough — adapter is still pure mapping; no transformation, no LLM.
         resource_rows=d.get("resource_rows"),
+        # Web search parity (premium, opt-in) — see step 1b above.
+        web_search=web_search,
         # routing audit
         orch_outcome=orch_outcome,
         degraded=degraded,

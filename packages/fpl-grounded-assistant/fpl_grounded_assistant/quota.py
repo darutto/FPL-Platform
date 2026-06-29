@@ -96,6 +96,14 @@ TIERS: dict[str, QuotaTier] = {
 # Fallback tier used when an unknown tier name is supplied.
 _DEFAULT_TIER_NAME: str = "free"
 
+#: Tiers eligible for the premium web-search tool (search_web). Mirrors the
+#: World Cup assistant's WEB_SEARCH_TIERS gate. The $5 basic tier gets
+#: assistant access + more messages but NOT web search; the gate starts at
+#: patreon_plus (also the most expensive feature — Tavily call + extra
+#: tokens — so gating it higher bounds cost exposure). lib/tiers.ts'
+#: QUOTA_BUCKETS.webSearch field must stay in sync with this set.
+WEB_SEARCH_TIERS: frozenset[str] = frozenset({"patreon_plus", "patreon_premium"})
+
 # Window sizes in seconds.
 _DAILY_WINDOW_S:   float = 86_400.0   # 24 hours
 _MONTHLY_WINDOW_S: float = 2_592_000.0  # 30 days

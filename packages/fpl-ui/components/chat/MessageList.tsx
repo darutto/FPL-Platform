@@ -169,6 +169,10 @@ function OriginBadges({ message }: { message: Message }) {
     originBadgeClassName = grounded
       ? 'border-bf-turquoise/40 bg-bf-turquoise/10 text-bf-turquoise'
       : 'border-bf-gold/40 bg-bf-gold/10 text-bf-gold';
+  } else if (message.response?.web_search != null) {
+    // Unverified external synthesis — same cyan accent as WebSearchCard.
+    originBadgeLabel = 'Búsqueda web + IA';
+    originBadgeClassName = 'border-bf-cyan/40 bg-bf-cyan/10 text-bf-cyan';
   } else {
     originBadgeLabel = message.llmUsed ? 'IA activa' : 'Determinístico';
     originBadgeClassName = message.llmUsed

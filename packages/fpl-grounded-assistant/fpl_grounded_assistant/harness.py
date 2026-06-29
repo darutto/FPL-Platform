@@ -482,6 +482,7 @@ def ask_v2(
     orch_client: Any | None = None,
     orch_api_key: str | None = None,
     orch_provider: str | None = None,
+    web_search_enabled: bool = False,
 ) -> dict[str, Any]:
     """Phase M1/M2/M3 entrypoint composing `decision_router` + existing `ask()`.
 
@@ -614,6 +615,10 @@ def ask_v2(
         Optional provider override ("anthropic" | "openai" | "gemini").
         When omitted, ``FPL_ORCH_PROVIDER`` env var is consulted via
         ``orch_config.get_orch_provider()``.
+    web_search_enabled:
+        Passed straight through to ``ask_orchestrated()``. Callers
+        (``fpl_server.py``) must resolve tier eligibility + explicit opt-in
+        BEFORE setting this to ``True`` — ``ask_v2()`` performs no gating.
     """
     # Import here to avoid circulars at module-load time.
     from .decision_router import (
@@ -864,6 +869,7 @@ def ask_v2(
                 api_key=orch_api_key,
                 provider=_provider,
                 model=_model,
+                web_search_enabled=web_search_enabled,
                 _eval_client=_eval_client,
             )
         except Exception as exc:  # noqa: BLE001  — defensive; ask_orchestrated never raises

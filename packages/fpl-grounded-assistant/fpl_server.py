@@ -82,6 +82,7 @@ from fpl_pipeline import assemble_captain_context
 from fpl_grounded_assistant.quota import (  # noqa: E402
     QuotaCheck,
     TIERS,
+    WEB_SEARCH_TIERS,
     check_quota,
     record_turn as _record_turn,
     get_quota_status,
@@ -258,6 +259,11 @@ class AskRequest(BaseModel):
     candidates_list: list[dict[str, Any]] | None = None  # Phase 5p
     squad_context: dict[str, Any] | None = None          # Phase 8e1: optional per-turn squad state
     intent_hint: str | None = None                       # V2: optional slash-command routing bias
+    #: Explicit per-request opt-in for the premium web-search tool (globe
+    #: toggle). Only takes effect when the caller's tier is in
+    #: WEB_SEARCH_TIERS — see the gate in POST /ask. Parity with WC's
+    #: AskRequest.web_search_requested.
+    web_search_requested: bool = False
 
 
 class AskResponse(BaseModel):
@@ -308,6 +314,10 @@ class AskResponse(BaseModel):
     route_conflict:        bool         = False            # True when deterministic and LLM disagree
     # Phase 2.7f: clarification policy layer
     clarification_asked:   bool         = False            # True when outcome==needs_clarification
+    # Web search parity (premium, opt-in): non-null when the search_web tool
+    # ran end-to-end. Shape: {topic, summary, results, timestamp}. Unverified
+    # AI synthesis over live web sources — never implies "grounded" data.
+    web_search:             dict[str, Any] | None = None
 
 
 class CreateSessionResponse(BaseModel):
@@ -1497,6 +1507,27 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
     user_id, tier = _extract_user_context(request)
 
     # ------------------------------------------------------------------
+    # Premium web-search gate (tier allowlist + explicit opt-in).
+    # Resolve eligibility BEFORE any LLM/tool work so a free-tier request can
+    # never incur paid-search spend. When the user opted in but is not
+    # entitled, short-circuit with a Spanish upgrade prompt and zero model
+    # calls — mirrors the World Cup assistant's wc_server.py gate.
+    # ------------------------------------------------------------------
+    if req.web_search_requested and tier not in WEB_SEARCH_TIERS:
+        return AskResponse(
+            final_text=(
+                "La búsqueda web es una función premium. "
+                "Sube a Socio Junior o superior en Patreon para activarla."
+            ),
+            outcome="feature_gated",
+            supported=False,
+            intent="unsupported",
+            review_passed=False,
+            llm_used=False,
+        )
+    web_search_enabled = req.web_search_requested and tier in WEB_SEARCH_TIERS
+
+    # ------------------------------------------------------------------
     # P3.f (F2 remediation): deterministic-prefix early-exit.
     # Questions starting with '@' (resource) or '/' (prompt) are
     # deterministic — they burn zero LLM tokens and are FREE per plan.
@@ -1584,6 +1615,7 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
         _bootstrap,
         candidates_list=req.candidates_list,
         classifier_client=_classifier_client,  # Phase 4l
+        web_search_enabled=web_search_enabled,
     )
 
     # ------------------------------------------------------------------
