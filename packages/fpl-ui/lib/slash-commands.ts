@@ -95,6 +95,12 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     intent_hint: 'rank_candidates',
     placeholder: 'p.ej. Haaland, Salah, Palmer',
   },
+  {
+    command: '/calendario',
+    label: 'Ticker de calendario',
+    intent_hint: 'fixture_outlook',
+    placeholder: 'ataque (por defecto) o escribe "portería" para defensa',
+  },
 ];
 
 // Validate at module load: all registered commands use allowlisted hints.

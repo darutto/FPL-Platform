@@ -135,6 +135,7 @@ export const INTENT_HINT_ALLOWLIST = [
   'chip_advice',
   'player_fixture_run',
   'differential_picks',
+  'fixture_outlook', // Track D/FI4-3 — /calendario ticker
 ] as const;
 
 export type IntentHint = (typeof INTENT_HINT_ALLOWLIST)[number];

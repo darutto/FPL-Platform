@@ -101,11 +101,11 @@ describe('InputBar + SlashMenu — filtering', () => {
     expect(items[0].textContent).toContain('/transferencia');
   });
 
-  test('typing "/c" shows five commands (/capitan, /comparar, /calendarios, /chips, /clasificacion)', async () => {
+  test('typing "/c" shows six commands (/capitan, /comparar, /calendarios, /calendario, /chips, /clasificacion)', async () => {
     const { user, textarea } = setup();
     await user.click(textarea);
     await user.type(textarea, '/c');
-    expect(getMenuItems()).toHaveLength(5);
+    expect(getMenuItems()).toHaveLength(6);
   });
 
   test('typing "/xyz" shows no commands', async () => {

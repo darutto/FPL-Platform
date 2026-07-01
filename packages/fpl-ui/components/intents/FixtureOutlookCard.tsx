@@ -22,7 +22,7 @@ import type {
 } from '@/lib/types';
 import { CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
 import { bandColor, axisLabel } from '@/lib/fixture-outlook-format';
-import { TriangleField } from './CardOrnaments';
+import { FingerprintWaves } from './CardOrnaments';
 
 interface Props {
   data: FixtureOutlookMeta;
@@ -34,7 +34,8 @@ export default function FixtureOutlookCard({ data }: Props) {
 
   return (
     <div className={`mt-3 ${CARD_BASE} ${CARD_ACCENT.turquoise.border}`}>
-      <TriangleField color={ACCENT_HEX.turquoise} corner="br" />
+      {/* Analytical card → fingerprint waves (design-system semantics). */}
+      <FingerprintWaves color={ACCENT_HEX.turquoise} corner="br" />
       <div className="relative z-10 p-4 space-y-3">
         {/* Header */}
         <div className="flex items-center gap-2 text-sm">
@@ -64,6 +65,23 @@ export default function FixtureOutlookCard({ data }: Props) {
 
 function TeamRow({ team }: { team: TeamOutlook }) {
   const { team_short, verdict, series, runs } = team;
+
+  // Map each GW to the run it belongs to (runs are contiguous, non-overlapping).
+  const runByGw = new Map<number, FixtureOutlookRun>();
+  for (const r of runs) {
+    for (let g = r.start_gw; g <= r.end_gw; g++) runByGw.set(g, r);
+  }
+  // Slice the series into consecutive segments that share the same run (or none),
+  // so a detected run renders as ONE grouped block rather than loose cells.
+  type Segment = { run: FixtureOutlookRun | null; cells: FixtureOutlookGW[] };
+  const segments: Segment[] = [];
+  for (const gw of series) {
+    const run = runByGw.get(gw.gameweek) ?? null;
+    const last = segments[segments.length - 1];
+    if (last && last.run === run) last.cells.push(gw);
+    else segments.push({ run, cells: [gw] });
+  }
+
   return (
     <div className="space-y-1.5">
       {/* Verdict line — the narrative leads. */}
@@ -72,21 +90,17 @@ function TeamRow({ team }: { team: TeamOutlook }) {
         {verdict && <span className="text-[11px] leading-snug text-bf-gray">{verdict}</span>}
       </div>
 
-      {/* GW colour strip (scrolls horizontally on narrow screens). */}
-      <div className="flex gap-1 overflow-x-auto pb-0.5">
-        {series.map((gw) => (
-          <GwCell key={gw.gameweek} gw={gw} />
-        ))}
+      {/* GW strip: good/bad runs are grouped with a tinted ring (scrolls on
+          narrow screens). The grouping IS the tendency callout. */}
+      <div className="flex items-stretch gap-1 overflow-x-auto px-0.5 py-1">
+        {segments.map((seg, i) =>
+          seg.run ? (
+            <RunGroup key={`run-${i}`} run={seg.run} cells={seg.cells} />
+          ) : (
+            seg.cells.map((gw) => <GwCell key={gw.gameweek} gw={gw} />)
+          ),
+        )}
       </div>
-
-      {/* Run pills — the good/bad tendency callouts. */}
-      {runs.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {runs.map((r) => (
-            <RunPill key={`${r.type}-${r.start_gw}`} run={r} />
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -116,18 +130,38 @@ function GwCell({ gw }: { gw: FixtureOutlookGW }) {
   );
 }
 
-function RunPill({ run }: { run: FixtureOutlookRun }) {
+/**
+ * RunGroup — wraps the consecutive cells of a detected run in a tinted ring so
+ * the run reads as one connected block (NextXI's grouping idea, in BF tokens).
+ * good → turquoise, bad → coral; strong runs get a heavier ring + a ★ marker.
+ */
+function RunGroup({ run, cells }: { run: FixtureOutlookRun; cells: FixtureOutlookGW[] }) {
   const good = run.type === 'good';
-  const color = good ? '#2ecc71' : '#e74c3c';
-  const dot = run.intensity === 'strong' ? '●' : '○';
+  const strong = run.intensity === 'strong';
+
+  // Static class strings only (Tailwind JIT can't see interpolated names).
+  const ringClass = good
+    ? strong
+      ? 'ring-2 ring-bf-turquoise/70 bg-bf-turquoise/[0.07]'
+      : 'ring-1 ring-bf-turquoise/45 bg-bf-turquoise/[0.04]'
+    : strong
+      ? 'ring-2 ring-bf-coral/70 bg-bf-coral/[0.07]'
+      : 'ring-1 ring-bf-coral/45 bg-bf-coral/[0.04]';
+  const starClass = good ? 'text-bf-turquoise' : 'text-bf-coral';
+
   return (
-    <span
-      className="inline-flex items-center gap-1 text-[10px] font-bold rounded px-1.5 py-0.5"
-      style={{ backgroundColor: `${color}1f`, color }}
+    <div
+      className={`flex items-center gap-1 rounded-lg px-1 py-0.5 ${ringClass}`}
+      title={`${good ? 'Buena' : 'Mala'} racha J${run.start_gw}–J${run.end_gw} (${run.length} jornadas)`}
     >
-      <span aria-hidden>{dot}</span>
-      J{run.start_gw}–J{run.end_gw}
-    </span>
+      {/* Strong runs get a ★ (NextXI's marker); mild runs rely on the ring. */}
+      {strong && (
+        <span className={`shrink-0 text-[11px] leading-none ${starClass}`} aria-hidden>★</span>
+      )}
+      {cells.map((gw) => (
+        <GwCell key={gw.gameweek} gw={gw} />
+      ))}
+    </div>
   );
 }
 

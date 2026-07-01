@@ -133,6 +133,11 @@ _HINT_CANONICAL_TEMPLATES: dict[str, str] = {
     INTENT_CHIP_ADVICE:        "should I use {question} this week",
     INTENT_PLAYER_FIXTURE_RUN: "{question} fixtures",
     INTENT_DIFFERENTIAL_PICKS: "differentials",
+    # Track D / FI4-3: /calendario → the two-axis fixture ticker card. Fixed
+    # template ("fixture ticker") is caught by the deterministic router's
+    # _try_route_fixture_outlook. A defence-axis variant is available by typing
+    # a clean-sheet phrasing; the slash command defaults to the attack ticker.
+    INTENT_FIXTURE_OUTLOOK: "fixture ticker {question}",
 }
 
 # Derived from template keys — the only values accepted for intent_hint.

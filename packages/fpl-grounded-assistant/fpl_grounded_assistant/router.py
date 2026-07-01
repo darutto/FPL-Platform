@@ -1330,6 +1330,38 @@ def _try_route_team_calendar(q_norm: str) -> RouteResult | None:
     return None
 
 
+# ---------------------------------------------------------------------------
+# Fixture outlook (Track D / FI4-3) — the two-axis ticker card
+# ---------------------------------------------------------------------------
+# Distinct 'ticker' trigger so this never competes with the team-calendar
+# ranking routes. Axis defaults to attack; clean-sheet / defensive phrasing
+# flips it to defence. This is the deterministic entry point for the
+# /calendario slash command (via its intent-hint canonical template).
+_FIXTURE_TICKER_KEYWORDS: tuple[str, ...] = (
+    "ticker", "fixture outlook", "fixture-outlook",
+)
+#: Accent-robust stems ("porter" is a substring of portería/porteria/portero).
+_FIXTURE_DEFENCE_KEYWORDS: tuple[str, ...] = (
+    "defens", "porter", "clean sheet", "defence",
+)
+
+
+def _try_route_fixture_outlook(q_norm: str) -> "RouteResult | None":
+    """Detect a fixture-ticker request → get_fixture_outlook (two-axis card).
+
+    Picks the defence axis when the phrasing is clean-sheet / defensive,
+    otherwise attack.  Horizon is left to the tool default (10 GWs).
+    """
+    if not any(kw in q_norm for kw in _FIXTURE_TICKER_KEYWORDS):
+        return None
+    axis = (
+        "defence"
+        if any(k in q_norm for k in _FIXTURE_DEFENCE_KEYWORDS)
+        else "attack"
+    )
+    return RouteResult(tool_name="get_fixture_outlook", tool_args={"axis": axis})
+
+
 def _try_route_transfer_suggestion(q_orig: str, q_norm: str) -> "RouteResult | None":
     """Detect a transfer target suggestion query.
 
@@ -1738,6 +1770,13 @@ def route(question: str) -> RouteResult | None:
     _pos_result = _try_route_position_fixture_run(q_orig, q_norm)
     if _pos_result is not None:
         return _pos_result
+
+    # ── Fixture ticker intent (Track D / FI4-3; distinct 'ticker' trigger, so it
+    #    never competes with the team-calendar ranking routes below). Deterministic
+    #    entry point for the /calendario slash command.
+    _ticker_result = _try_route_fixture_outlook(q_norm)
+    if _ticker_result is not None:
+        return _ticker_result
 
     # ── Team fixture calendar intent (Phase 2.6e; before gameweek + fixture-run)
     #    Must precede gameweek because phrases like "best fixtures next 5 gameweeks"
