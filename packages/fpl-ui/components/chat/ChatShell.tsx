@@ -3,7 +3,7 @@
 /**
  * ChatShell — three-screen swipe shell (V2 Phase 2g + U2 pager).
  *
- * Screens (SwipePager): Squad pitch · Chat (home) · Quick commands.
+ * Screens (SwipePager): Calendario · Squad pitch · Chat (home) · Quick commands.
  *
  * Chat supports:
  *   - Stateless mode (default): every question goes through POST /ask on its
@@ -40,6 +40,11 @@ import SwipePager, { PagerScreen } from './SwipePager';
 import CommandPanel from './CommandPanel';
 import TopBar from './TopBar';
 import SquadPitch from '@/components/squad/SquadPitch';
+import { FixturesBoard } from '@/components/intents/FixturesBoard';
+
+// Pager screen order: 0 Calendario · 1 Squad · 2 Chat (home) · 3 Commands.
+const PAGER_LABELS = ['Calendario', 'Squad', 'Chat', 'Commands'] as const;
+const CHAT_SCREEN = 2;
 
 export default function ChatShell() {
   const { user } = useUser();
@@ -65,8 +70,8 @@ export default function ChatShell() {
   const [squadContext, setSquadContext] = useState<SquadContext | null>(null);
   // Incremented after each completed turn so QuotaIndicator re-fetches quota
   const [quotaRefreshTrigger, setQuotaRefreshTrigger] = useState(0);
-  // U2 pager state: 0 = squad, 1 = chat (home), 2 = commands
-  const [screen, setScreen] = useState(1);
+  // U2 pager state — see PAGER_LABELS (Calendario · Squad · Chat · Commands)
+  const [screen, setScreen] = useState(CHAT_SCREEN);
   const [insert, setInsert] = useState<InsertRequest | null>(null);
   const [teamId, setTeamId] = useState<number | null>(null);
   const [teamName, setTeamName] = useState<string | null>(null);
@@ -83,8 +88,19 @@ export default function ChatShell() {
   // inserting a bare slash command from the command panel.
   const handleInsert = useCallback((text: string, placeholder?: string) => {
     setInsert({ text, nonce: Date.now(), placeholder });
-    setScreen(1);
+    setScreen(CHAT_SCREEN);
   }, []);
+
+  // Deep-link seed: /chat?q=... (e.g. from the /fixtures page) prefills the
+  // composer (no auto-send, matching command-panel/pitch inserts). Cleared from
+  // the URL so a refresh doesn't re-seed.
+  useEffect(() => {
+    const seed = new URLSearchParams(window.location.search).get('q');
+    if (seed) {
+      handleInsert(seed);
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, [handleInsert]);
 
   // Arm follow-up mode for the next message, anchored to this reply.
   const handleFollowUp = useCallback((messageId: string) => {
@@ -192,7 +208,7 @@ export default function ChatShell() {
   // Quick commands ("Vistas rápidas") are complete queries — send immediately
   // and jump to the chat screen, skipping the edit step.
   const handleSend = useCallback((text: string) => {
-    setScreen(1);
+    setScreen(CHAT_SCREEN);
     sendMessage(text);
   }, [sendMessage]);
 
@@ -202,13 +218,20 @@ export default function ChatShell() {
     <div className="flex flex-col h-screen">
       <TopBar teamName={teamName} gw={gw} />
 
-      <SwipePager screen={screen} onScreenChange={setScreen}>
-        {/* SCREEN 0 — Squad pitch */}
+      <SwipePager screen={screen} onScreenChange={setScreen} labels={PAGER_LABELS}>
+        {/* SCREEN 0 — Calendario (fixture ticker, deep-links into chat) */}
+        <PagerScreen maxWidth={720}>
+          <div className="h-full overflow-y-auto rounded-card border border-white/10 bg-bf-surface p-3">
+            <FixturesBoard onAsk={handleInsert} />
+          </div>
+        </PagerScreen>
+
+        {/* SCREEN 1 — Squad pitch */}
         <PagerScreen maxWidth={460}>
           <SquadPitch teamId={teamId} onAskPlayer={handleInsert} onGw={setGw} />
         </PagerScreen>
 
-        {/* SCREEN 1 — Chat (home) */}
+        {/* SCREEN 2 — Chat (home) */}
         <PagerScreen maxWidth={672}>
           <div className="h-full flex flex-col rounded-card border border-white/10 bg-bf-surface overflow-hidden">
             <header className="px-4 py-3 border-b border-white/10 flex-shrink-0 space-y-2 bg-black/25">
@@ -267,7 +290,7 @@ export default function ChatShell() {
           </div>
         </PagerScreen>
 
-        {/* SCREEN 2 — Quick commands */}
+        {/* SCREEN 3 — Quick commands */}
         <PagerScreen maxWidth={520}>
           <div className="h-full rounded-card border border-white/10 bg-bf-surface overflow-hidden">
             <CommandPanel onInsert={handleInsert} onSend={handleSend} />

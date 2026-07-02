@@ -75,13 +75,18 @@ export default function InputBar({
   const [cmdPlaceholder, setCmdPlaceholder] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // External insertion from the command panel / squad pitch.
+  // External insertion from the command panel / squad pitch / fixture ticker.
+  // preventScroll matters here: ChatShell's pager slides screens via CSS
+  // transform, so a plain .focus() call — issued the instant the pager also
+  // switches to the Chat screen — makes the browser's native scroll-into-view
+  // measure the textarea's untransformed layout position and yank the whole
+  // page one panel-width further, landing on Commands instead of Chat.
   useEffect(() => {
     if (insert == null) return;
     setValue(insert.text);
     setActiveIndex(0);
     setCmdPlaceholder(insert.placeholder ?? null);
-    textareaRef.current?.focus();
+    textareaRef.current?.focus({ preventScroll: true });
   }, [insert]);
 
   const menuCommands: SlashCommandLike[] = matchCommands(value, commands);
@@ -93,7 +98,7 @@ export default function InputBar({
     setCmdPlaceholder(sc.placeholder ?? null);
     setActiveIndex(0);
     // Return focus to the textarea so the user can type the argument
-    textareaRef.current?.focus();
+    textareaRef.current?.focus({ preventScroll: true });
   };
 
   const handleChange = (next: string) => {
@@ -156,7 +161,7 @@ export default function InputBar({
     if (!webSearch || disabled) return;
     if (webAvailable) {
       webSearch.onToggle();
-      textareaRef.current?.focus();
+      textareaRef.current?.focus({ preventScroll: true });
     } else if (typeof window !== 'undefined') {
       window.open(
         webSearch.upgradeUrl ?? 'https://www.patreon.com/fpl_asistente',

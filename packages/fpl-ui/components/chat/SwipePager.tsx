@@ -1,19 +1,18 @@
 'use client';
 
 /**
- * SwipePager — 3-screen horizontal pager (U2, Stitch Hi-Fi).
+ * SwipePager — N-screen horizontal pager (U2, Stitch Hi-Fi).
  *
- * Screens: 0 = Squad · 1 = Chat (home) · 2 = Commands.
- * Navigation: pointer drag/swipe (with vertical-scroll axis lock and edge
- * resistance), top dot pager, edge ribbon hints, and ←/→ arrow keys when
- * focus is not in a form field.
+ * Screen labels/count are driven by the `labels` prop (FPL uses
+ * Calendario · Squad · Chat · Commands). Navigation: pointer drag/swipe (with
+ * vertical-scroll axis lock and edge resistance), top dot pager, edge ribbon
+ * hints, and ←/→ arrow keys when focus is not in a form field.
  *
  * Ported from the design prototype; drag state lives in a ref so pointer
  * moves don't re-render until the offset actually changes.
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 
-const LABELS = ['Squad', 'Chat', 'Commands'] as const;
 const SWIPE_THRESHOLD = 60; // px past which we commit to next/prev screen
 const LOCK_THRESHOLD = 8; // px before we decide horizontal vs vertical
 
@@ -28,7 +27,9 @@ interface DragState {
 interface Props {
   screen: number;
   onScreenChange: (screen: number) => void;
-  children: ReactNode; // exactly three PagerScreen children
+  /** One label per screen; length drives the screen count. */
+  labels: readonly string[];
+  children: ReactNode; // one PagerScreen child per label
 }
 
 export function PagerScreen({
@@ -48,13 +49,14 @@ export function PagerScreen({
   );
 }
 
-export default function SwipePager({ screen, onScreenChange, children }: Props) {
+export default function SwipePager({ screen, onScreenChange, labels, children }: Props) {
   const dragRef = useRef<DragState>({ active: false, startX: 0, startY: 0, dx: 0, locked: null });
   const [dragDx, setDragDx] = useState(0);
+  const lastScreen = labels.length - 1;
 
   const goTo = useCallback(
-    (i: number) => onScreenChange(Math.max(0, Math.min(2, i))),
-    [onScreenChange],
+    (i: number) => onScreenChange(Math.max(0, Math.min(lastScreen, i))),
+    [onScreenChange, lastScreen],
   );
 
   // Keyboard nav — ←/→ between screens, unless typing in a field.
@@ -89,7 +91,7 @@ export default function SwipePager({ screen, onScreenChange, children }: Props) 
     }
     // Resistance at the outer edges.
     let clamped = dx;
-    if ((screen === 0 && dx > 0) || (screen === 2 && dx < 0)) clamped = dx * 0.25;
+    if ((screen === 0 && dx > 0) || (screen === lastScreen && dx < 0)) clamped = dx * 0.25;
     d.dx = clamped;
     setDragDx(clamped);
   };
@@ -110,7 +112,7 @@ export default function SwipePager({ screen, onScreenChange, children }: Props) 
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
       {/* Dot pager */}
       <div className="flex items-center justify-center gap-2 py-1.5 flex-shrink-0">
-        {LABELS.map((lbl, i) => (
+        {labels.map((lbl, i) => (
           <button
             key={lbl}
             onClick={() => goTo(i)}
@@ -152,18 +154,22 @@ export default function SwipePager({ screen, onScreenChange, children }: Props) 
           {children}
         </div>
 
-        {/* Edge ribbon hints */}
-        {screen === 1 && (
-          <>
-            <EdgeHint side="left" label="Squad" onClick={() => goTo(0)} accentClass="text-bf-turquoise" />
-            <EdgeHint side="right" label="Commands" onClick={() => goTo(2)} accentClass="text-bf-coral" />
-          </>
+        {/* Edge ribbon hints — the adjacent screen on each side. */}
+        {screen > 0 && (
+          <EdgeHint
+            side="left"
+            label={labels[screen - 1]}
+            onClick={() => goTo(screen - 1)}
+            accentClass="text-bf-turquoise"
+          />
         )}
-        {screen === 0 && (
-          <EdgeHint side="right" label="Chat" onClick={() => goTo(1)} accentClass="text-bf-turquoise" />
-        )}
-        {screen === 2 && (
-          <EdgeHint side="left" label="Chat" onClick={() => goTo(1)} accentClass="text-bf-coral" />
+        {screen < lastScreen && (
+          <EdgeHint
+            side="right"
+            label={labels[screen + 1]}
+            onClick={() => goTo(screen + 1)}
+            accentClass="text-bf-coral"
+          />
         )}
       </div>
     </div>
