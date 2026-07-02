@@ -11,6 +11,7 @@
  * rings as visual support (shared FixtureTickerRow — same rows as the /fixtures
  * page). The axis (attack / clean-sheet) is whatever the backend resolved for
  * the turn; the interactive toggle lives on the standalone Fixtures page (FI7).
+ * FI5 adds a per-team tendency sparkline (tap to expand) below the strip.
  *
  * Analytical card → FingerprintWaves ornament (design-system semantics).
  */
@@ -18,6 +19,7 @@ import type { FixtureOutlookMeta } from '@/lib/types';
 import { CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
 import { axisLabel } from '@/lib/fixture-outlook-format';
 import { FixtureTickerRow, BandLegend } from './FixtureTickerRow';
+import { FixtureTendencyChart } from './FixtureTendencyChart';
 import { FingerprintWaves } from './CardOrnaments';
 
 interface Props {
@@ -48,7 +50,10 @@ export default function FixtureOutlookCard({ data }: Props) {
         {/* Team rows */}
         <div className="space-y-3">
           {teams.map((t) => (
-            <FixtureTickerRow key={t.team_short} team={t} />
+            <div key={t.team_short} className="space-y-1.5">
+              <FixtureTickerRow team={t} />
+              <FixtureTendencyChart team={t} />
+            </div>
           ))}
         </div>
 

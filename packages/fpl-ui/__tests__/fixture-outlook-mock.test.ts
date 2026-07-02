@@ -49,4 +49,21 @@ describe('buildLeagueOutlook', () => {
     const d1 = buildLeagueOutlook('defence', 8);
     expect(JSON.stringify(a1)).not.toBe(JSON.stringify(d1)); // axis changes seed
   });
+
+  test('double-gameweek invariants: 2 fixtures, no self-fixture, combined band is the easier of the two', () => {
+    const meta = buildLeagueOutlook('attack', 10);
+    let sawDgw = false;
+    for (const t of meta.teams) {
+      for (const gw of t.series) {
+        if (!gw.is_dgw) continue;
+        sawDgw = true;
+        expect(gw.fixtures).toHaveLength(2);
+        for (const f of gw.fixtures) {
+          expect(f.opponent_short).not.toBe(t.team_short);
+        }
+        expect(gw.band).toBe(Math.min(gw.fixtures[0].band, gw.fixtures[1].band));
+      }
+    }
+    expect(sawDgw).toBe(true); // sanity: the ~12% chance actually fires across 20 teams x 10 GWs
+  });
 });

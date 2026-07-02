@@ -16,19 +16,20 @@ export function teamOutlookQuestion(teamName: string, axis: FixtureAxis): string
     : `¿Qué tan bueno es el calendario del ${teamName} para portería a cero próximamente?`;
 }
 
-/** Single-fixture question (one GW cell tap). */
+/** Single-fixture question (one GW cell tap). Mentions both matches on a DGW. */
 export function fixtureCellQuestion(
   teamName: string,
   gw: FixtureOutlookGW,
   axis: FixtureAxis,
 ): string {
-  const f = gw.fixtures[0];
-  if (!f) {
+  if (gw.fixtures.length === 0) {
     return `¿Qué tiene el ${teamName} en la J${gw.gameweek}?`;
   }
-  const venue = f.is_home ? 'en casa' : 'a domicilio';
-  const matchup = `${teamName} vs ${f.opponent_short} (J${gw.gameweek}, ${venue})`;
+  const matchup = gw.fixtures
+    .map((f) => `${teamName} vs ${f.opponent_short} (${f.is_home ? 'en casa' : 'a domicilio'})`)
+    .join(' y ');
+  const jornada = gw.is_dgw ? `J${gw.gameweek} (doble jornada)` : `J${gw.gameweek}`;
   return axis === 'attack'
-    ? `${matchup}: ¿qué tal pinta ofensivamente para el ${teamName}?`
-    : `${matchup}: ¿buen partido para que el ${teamName} deje la portería a cero?`;
+    ? `${matchup}, ${jornada}: ¿qué tal pinta ofensivamente para el ${teamName}?`
+    : `${matchup}, ${jornada}: ¿buen partido para que el ${teamName} deje la portería a cero?`;
 }

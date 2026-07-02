@@ -139,20 +139,37 @@ export function buildLeagueOutlook(axis: FixtureAxis, horizon: number): FixtureO
     // so similar bands cluster into runs, like a real fixture run.
     const centre = 1.6 + rng() * 3.0; // 1.6 … 4.6
     let cur = centre;
+    const teamIdx = TEAMS.findIndex((t) => t.short === short);
+    const pickOpponent = () => {
+      let o = TEAMS[Math.floor(rng() * TEAMS.length)].short;
+      if (o === short) o = TEAMS[(teamIdx + 3) % TEAMS.length].short;
+      return o;
+    };
     const series: FixtureOutlookGW[] = [];
     for (let gw = 1; gw <= horizon; gw++) {
       cur = cur * 0.65 + (centre + (rng() - 0.5) * 2.6) * 0.35;
       const band = clamp(Math.round(cur), 1, 5);
-      let opp = TEAMS[Math.floor(rng() * TEAMS.length)].short;
-      if (opp === short) opp = TEAMS[(TEAMS.findIndex((t) => t.short === short) + 3) % TEAMS.length].short;
       const home = rng() > 0.5;
+      const fixtures = [{ opponent_short: pickOpponent(), is_home: home, band }];
+
+      // Occasional double gameweek (~12%): a second fixture, band possibly
+      // different. Combined difficulty takes the easier of the two — two
+      // chances at goals/clean sheets is a schedule upside, not a wash.
+      const isDgw = rng() < 0.12;
+      let combinedBand = band;
+      if (isDgw) {
+        const band2 = clamp(band + Math.round((rng() - 0.5) * 2), 1, 5);
+        fixtures.push({ opponent_short: pickOpponent(), is_home: rng() > 0.5, band: band2 });
+        combinedBand = Math.min(band, band2);
+      }
+
       series.push({
         gameweek: gw,
-        band,
-        klass: classOf(band),
-        is_dgw: false,
+        band: combinedBand,
+        klass: classOf(combinedBand),
+        is_dgw: isDgw,
         is_bgw: false,
-        fixtures: [{ opponent_short: opp, is_home: home, band }],
+        fixtures,
       });
     }
     const runs = detectRuns(series);

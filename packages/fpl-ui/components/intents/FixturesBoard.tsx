@@ -4,11 +4,12 @@
  * FixturesBoard — the reusable fixture-ticker board (Track D / FI7).
  *
  * Shared by the standalone public /fixtures page and the in-app Calendario
- * pager tab. Owns the three controls (attack⇄defence axis, 5/8/10 horizon,
- * detailed⇄compact view) and renders the league outlook from the off-season
- * data seam (buildLeagueOutlook — swap for a live fetch once the API rolls
- * over). Every team/cell deep-links via `onAsk`, which each surface fulfils
- * differently: the page routes to /chat?q=…, the pager prefills the composer.
+ * pager tab. Owns the four controls (attack⇄defence axis, 5/8/10 horizon,
+ * detailed⇄compact⇄tendency view) and renders the league outlook from the
+ * off-season data seam (buildLeagueOutlook — swap for a live fetch once the
+ * API rolls over). Every team/cell deep-links via `onAsk`, which each surface
+ * fulfils differently: the page routes to /chat?q=…, the pager prefills the
+ * composer.
  */
 import { useMemo, useState } from 'react';
 import { buildLeagueOutlook } from '@/lib/fixture-outlook-mock';
@@ -16,16 +17,18 @@ import { axisLabel } from '@/lib/fixture-outlook-format';
 import { teamOutlookQuestion, fixtureCellQuestion } from '@/lib/fixture-chat-links';
 import { FixtureTickerRow, BandLegend } from './FixtureTickerRow';
 import { FixtureCompactGrid } from './FixtureCompactGrid';
+import { FixtureTendencyChart } from './FixtureTendencyChart';
 import { FingerprintWaves } from './CardOrnaments';
 import { CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
 import type { FixtureAxis } from '@/lib/types';
 
 const HORIZONS = [5, 8, 10] as const;
-type ViewMode = 'detailed' | 'compact';
+type ViewMode = 'detailed' | 'compact' | 'tendency';
 
 const VIEWS: Array<{ id: ViewMode; label: string }> = [
   { id: 'detailed', label: 'Detallado' },
   { id: 'compact', label: 'Compacto' },
+  { id: 'tendency', label: 'Tendencia' },
 ];
 
 export function FixturesBoard({
@@ -118,7 +121,7 @@ export function FixturesBoard({
             </span>
           </div>
 
-          {view === 'detailed' ? (
+          {view === 'detailed' && (
             <div className="divide-y divide-white/5">
               {data.teams.map((t) => (
                 <div key={t.team_short} className="py-2 first:pt-0">
@@ -130,8 +133,23 @@ export function FixturesBoard({
                 </div>
               ))}
             </div>
-          ) : (
-            <FixtureCompactGrid data={data} onAsk={onAsk} />
+          )}
+          {view === 'compact' && <FixtureCompactGrid data={data} onAsk={onAsk} />}
+          {view === 'tendency' && (
+            <div className="divide-y divide-white/5">
+              {data.teams.map((t) => (
+                <div key={t.team_short} className="py-2.5 first:pt-0 space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => onAsk(teamOutlookQuestion(t.team_name, axis))}
+                    className="text-xs font-bold tracking-wide text-white hover:text-bf-turquoise transition-colors"
+                  >
+                    {t.team_short}
+                  </button>
+                  <FixtureTendencyChart team={t} onAsk={onAsk} />
+                </div>
+              ))}
+            </div>
           )}
 
           <BandLegend />
