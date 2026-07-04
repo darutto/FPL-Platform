@@ -1,29 +1,36 @@
 #!/usr/bin/env python3
-"""Export a real-season FixtureOutlookMeta bundle for the /fixtures UI.
+"""Export the real-season FixtureOutlookMeta bundle for the /fixtures UI.
 
-Track D interim step (off-season, before the new FPL season's fixtures are
-live): runs the SAME fixture_outlook.py engine the live tool uses, fed with
-real captured team strengths + real finished fixtures from fpl-historical,
-instead of the frontend's synthetic RNG mock. Real opponents, real venues,
-real gameweek order — same predictive band/run logic, zero duplication of
-the algorithm (it's the actual engine module, loaded directly).
+Track D interim surface (off-season, before the new FPL season's fixtures are
+live): renders the real, finished 2025-26 fixtures through the same run/verdict
+machinery the live tool uses, feeding lib/data/fixture-outlook-2025-26.json →
+lib/fixture-outlook-real.ts → FixturesBoard.
 
-Output feeds packages/fpl-ui/lib/fixture-outlook-real.ts, which the
-FixturesBoard component reads in place of the old fixture-outlook-mock.ts.
+Difficulty signal — the ASYMMETRIC RECIPE (default), chosen by the ML0
+evaluation harness (backtest_fixture_difficulty.py) as the best-validated
+signal across all ~760 team-fixtures vs xG:
+  * attack axis  = FPL's own FDR. Nothing we derived beats it, and adding form
+    only dilutes it (harness: fdr +0.281 vs fdr+form +0.236).
+  * defence axis = FDR anchored + refined by the opponent's WALK-FORWARD rolling
+    attacking form (compute_rolling_strength as of each fixture's GW), blended
+    0.6 FDR / 0.4 form in rank space, quantile-bucketed to 1-5. This is the
+    first signal to BEAT FDR on any axis (harness: +0.316 vs +0.307).
 
-Track D Step 2 (validate-only): with --as-of-gw N, team strength comes from
-fpl_historical.rolling_strength.compute_rolling_strength() instead of the
-raw single end-of-season snapshot — a walk-forward, decaying estimate using
-only matches before GW N, for comparing against the same real outcomes
-already logged in project_track_d_backtest_findings. This mode requires
---out (it never overwrites the committed baseline JSON that /fixtures
-reads) and projects the horizon forward from GW N rather than from GW1.
+Implementation reuses the engine wholesale rather than reimplementing runs /
+verdicts / DGW handling / sorting: fixture_outlook._fixture_band already falls
+back to a fixture's `difficulty` field when strength thresholds are absent, so
+we strip strength and inject the recipe band as `difficulty`. get_all_team_
+outlooks then produces a fully recipe-banded outlook for free.
+
+Legacy analysis mode: --as-of-gw N instead uses the raw walk-forward rolling
+STRENGTH snapshot through the engine's quintile bucketing (the Step-2
+comparison path); requires --out and never overwrites the shipped JSON.
 
 Usage:
-    # Default (unchanged behavior) — the committed /fixtures baseline:
+    # Default — regenerate the shipped /fixtures bundle (asymmetric recipe):
     python export_real_season_fixture_outlook.py
 
-    # Step 2 validation — walk-forward strength as of GW4, written elsewhere:
+    # Legacy Step-2 comparison — rolling strength as of GW4, elsewhere:
     python export_real_season_fixture_outlook.py --as-of-gw 4 --out /tmp/asof-gw4.json
 """
 from __future__ import annotations
@@ -41,7 +48,6 @@ _PACKAGES = os.path.dirname(os.path.dirname(_HERE))
 
 # Load fixture_outlook.py directly from its file, bypassing
 # fpl_grounded_assistant/__init__.py (heavy dispatcher/harness import chain).
-# Mirrors tests/test_fixture_outlook.py's import pattern.
 _ENGINE_PATH = os.path.join(
     _PACKAGES, "fpl-grounded-assistant", "fpl_grounded_assistant", "fixture_outlook.py"
 )
@@ -49,9 +55,7 @@ _spec = _ilu.spec_from_file_location("fixture_outlook", _ENGINE_PATH)
 fixture_outlook = _ilu.module_from_spec(_spec)
 _spec.loader.exec_module(fixture_outlook)
 
-# fpl-historical is a sibling package (not pip-installed) — add it to
-# sys.path so rolling_strength can be imported normally, mirroring how the
-# repo's other cross-package scripts/tests resolve siblings.
+# fpl-historical is a sibling package (not pip-installed).
 sys.path.insert(0, os.path.join(_PACKAGES, "fpl-historical"))
 from fpl_historical.rolling_strength import compute_rolling_strength  # noqa: E402
 
@@ -63,79 +67,120 @@ _OUT_PATH = os.path.join(
     _PACKAGES, "fpl-ui", "lib", "data", "fixture-outlook-2025-26.json"
 )
 
-# Mirrors FixturesBoard's HORIZONS selector — precomputed per-horizon so each
-# window is a genuine independent run() + run-detection pass, not a client-side
-# slice of a longer series (which would desync avg_band/runs from a true
-# "recompute for exactly N GWs" result).
 HORIZONS = (5, 8, 10)
 AXES = ("attack", "defence")
 
+# Overlay blend weights (rank space) — must match the validated harness values.
+_W_FDR = 0.6
+_W_FORM = 0.4
 
-def build_bootstrap(as_of_gw: int | None) -> dict:
-    """Reshape the captured parquet tables into the dict shape
-    fixture_outlook.py expects (the same shape as a live FPL bootstrap).
 
-    as_of_gw=None (default): raw single end-of-season strength snapshot,
-    current_gw stays unset so the horizon walks from each team's GW1 — the
-    committed /fixtures baseline, byte-identical to Step 1.
-
-    as_of_gw=N: strength comes from the walk-forward rolling model (only
-    matches before GW N), and "events" marks GW N as current so the horizon
-    projects forward from there instead of from GW1.
-    """
+def _load_frames() -> tuple[pd.DataFrame, pd.DataFrame]:
     teams_df = pd.read_parquet(os.path.join(_DATA_ROOT, "teams.parquet"))
     fixtures_df = pd.read_parquet(os.path.join(_DATA_ROOT, "fixtures.parquet"))
+    return teams_df, fixtures_df
 
-    rolling = compute_rolling_strength(SEASON, as_of_gw) if as_of_gw is not None else None
 
-    teams: list[dict] = []
-    for _, row in teams_df.iterrows():
-        team_id = int(row["team_id"])
-        strengths = rolling[team_id] if rolling is not None else {
-            "strength_attack_home": int(row["strength_attack_home"]),
-            "strength_attack_away": int(row["strength_attack_away"]),
-            "strength_defence_home": int(row["strength_defence_home"]),
-            "strength_defence_away": int(row["strength_defence_away"]),
-        }
-        teams.append({
-            "id": team_id,
-            "short_name": row["short_name"],
-            "name": row["name"],
-            **strengths,
-        })
+def _teams_min(teams_df: pd.DataFrame) -> list[dict]:
+    """Teams WITHOUT strength fields — this forces the engine's thresholds to
+    None so _fixture_band reads each fixture's injected `difficulty` band."""
+    return [
+        {"id": int(r["team_id"]), "short_name": r["short_name"], "name": r["name"]}
+        for _, r in teams_df.iterrows()
+    ]
 
-    team_fixtures: dict[int, list[dict]] = {int(t["id"]): [] for t in teams}
+
+def _base_team_fixtures(fixtures_df: pd.DataFrame) -> dict[int, list[dict]]:
+    """Per-team fixture list with `difficulty` = FPL FDR (the attack recipe)."""
+    tf: dict[int, list[dict]] = {}
     for _, row in fixtures_df.sort_values("event_id").iterrows():
         gw = int(row["event_id"])
         home_id, away_id = int(row["team_h"]), int(row["team_a"])
-        team_fixtures[home_id].append({
-            "gameweek": gw,
-            "opponent_team": away_id,
-            "is_home": True,
+        tf.setdefault(home_id, []).append({
+            "gameweek": gw, "opponent_team": away_id, "is_home": True,
             "difficulty": int(row["team_h_difficulty"]),
         })
-        team_fixtures[away_id].append({
-            "gameweek": gw,
-            "opponent_team": home_id,
-            "is_home": False,
+        tf.setdefault(away_id, []).append({
+            "gameweek": gw, "opponent_team": home_id, "is_home": False,
             "difficulty": int(row["team_a_difficulty"]),
         })
+    return tf
 
-    events = [{"id": as_of_gw, "is_current": True}] if as_of_gw is not None else []
-    return {"teams": teams, "team_fixtures": team_fixtures, "events": events}
+
+def _defence_overlay_bands(fixtures_df: pd.DataFrame) -> dict[tuple[int, int, bool], int]:
+    """Walk-forward FDR+form overlay band (1-5) per (gw, team_id, is_home) for
+    the defence axis. FDR anchored, refined by the opponent's rolling attacking
+    strength as of the fixture's GW, blended in rank space and quantile-bucketed
+    over the whole season (population-relative, mirroring the harness)."""
+    gws = sorted(int(g) for g in fixtures_df["event_id"].unique())
+    rolling_by_gw = {g: compute_rolling_strength(SEASON, g) for g in gws}
+
+    rows = []
+    for _, r in fixtures_df.iterrows():
+        gw = int(r["event_id"])
+        h, a = int(r["team_h"]), int(r["team_a"])
+        for team_id, opp, is_home, fdr in (
+            (h, a, True, int(r["team_h_difficulty"])),
+            (a, h, False, int(r["team_a_difficulty"])),
+        ):
+            # defence difficulty reads the opponent's ATTACK strength at the
+            # opponent's venue (opp plays the opposite venue to this team).
+            field = fixture_outlook._STRENGTH_FIELDS[("defence", not is_home)]
+            form = rolling_by_gw.get(gw, {}).get(opp, {}).get(field, 1200.0)
+            rows.append((gw, team_id, is_home, fdr, form))
+
+    df = pd.DataFrame(rows, columns=["gw", "team_id", "is_home", "fdr", "form"])
+    score = _W_FDR * df["fdr"].rank(pct=True) + _W_FORM * df["form"].rank(pct=True)
+    df["band"] = pd.qcut(score, 5, labels=[1, 2, 3, 4, 5], duplicates="drop").astype(int)
+    return {(int(t.gw), int(t.team_id), bool(t.is_home)): int(t.band) for t in df.itertuples()}
+
+
+def build_recipe_bootstraps(teams_df: pd.DataFrame, fixtures_df: pd.DataFrame) -> tuple[dict, dict]:
+    """(attack_boot, defence_boot) — strength stripped, `difficulty` carrying
+    the recipe band so the engine bands each fixture from it."""
+    teams_min = _teams_min(teams_df)
+    base_tf = _base_team_fixtures(fixtures_df)  # difficulty = FDR (attack recipe)
+    overlay = _defence_overlay_bands(fixtures_df)
+
+    attack_boot = {"teams": teams_min, "team_fixtures": base_tf, "events": []}
+
+    def_tf: dict[int, list[dict]] = {}
+    for tid, fixtures in base_tf.items():
+        def_tf[tid] = [
+            {**f, "difficulty": overlay.get((f["gameweek"], tid, f["is_home"]), f["difficulty"])}
+            for f in fixtures
+        ]
+    defence_boot = {"teams": teams_min, "team_fixtures": def_tf, "events": []}
+    return attack_boot, defence_boot
+
+
+def build_rolling_bootstrap(as_of_gw: int) -> dict:
+    """Legacy Step-2 comparison: raw walk-forward rolling STRENGTH snapshot fed
+    through the engine's quintile bucketing, horizon projected from GW N."""
+    teams_df, fixtures_df = _load_frames()
+    rolling = compute_rolling_strength(SEASON, as_of_gw)
+    teams = [
+        {"id": int(r["team_id"]), "short_name": r["short_name"], "name": r["name"], **rolling[int(r["team_id"])]}
+        for _, r in teams_df.iterrows()
+    ]
+    return {
+        "teams": teams,
+        "team_fixtures": _base_team_fixtures(fixtures_df),
+        "events": [{"id": as_of_gw, "is_current": True}],
+    }
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--as-of-gw", type=int, default=None,
-        help="Use walk-forward rolling strength computed from matches before this GW, "
-             "and project the horizon forward from it. Omit for the committed baseline.",
+        help="Legacy analysis: rolling STRENGTH snapshot before this GW through the "
+             "engine's quintile bucketing (not the recipe). Omit for the shipped recipe.",
     )
     parser.add_argument(
         "--out", type=str, default=None,
-        help="Output path. Required with --as-of-gw (never overwrites the committed "
-             "baseline JSON that /fixtures reads). Defaults to the committed path otherwise.",
+        help="Output path. Required with --as-of-gw (never overwrites the shipped JSON). "
+             "Defaults to the committed /fixtures path otherwise.",
     )
     args = parser.parse_args()
     if args.as_of_gw is not None and args.out is None:
@@ -147,13 +192,20 @@ def main() -> None:
     args = parse_args()
     out_path = args.out or _OUT_PATH
 
-    bootstrap = build_bootstrap(args.as_of_gw)
+    if args.as_of_gw is not None:
+        boot = build_rolling_bootstrap(args.as_of_gw)
+        boots = {"attack": boot, "defence": boot}
+    else:
+        teams_df, fixtures_df = _load_frames()
+        attack_boot, defence_boot = build_recipe_bootstraps(teams_df, fixtures_df)
+        boots = {"attack": attack_boot, "defence": defence_boot}
+
     out: dict = {}
     for axis in AXES:
         out[axis] = {}
         for horizon in HORIZONS:
             out[axis][str(horizon)] = fixture_outlook.get_all_team_outlooks(
-                bootstrap, axis=axis, horizon=horizon
+                boots[axis], axis=axis, horizon=horizon
             )
 
     os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)

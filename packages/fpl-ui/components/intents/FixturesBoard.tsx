@@ -158,9 +158,11 @@ export function FixturesBoard({
           <BandLegend />
 
           <p className="text-[10px] leading-snug text-bf-gray/50 pt-1 border-t border-white/5">
-            Calendario real de la temporada 2025–26 (finalizada) — mismo motor de
-            dificultad, sin datos inventados. Se reemplazará por el calendario
-            real de la nueva temporada en cuanto la API de FPL lo publique.
+            Calendario real de la temporada 2025–26 (finalizada), sin datos
+            inventados. Ataque: dificultad FDR de FPL. Portería a cero: FDR
+            ajustado por la forma atacante reciente del rival. Se reemplazará
+            por el calendario real de la nueva temporada cuando la API de FPL
+            lo publique.
           </p>
         </div>
       </div>

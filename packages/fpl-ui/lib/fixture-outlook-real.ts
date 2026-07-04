@@ -2,13 +2,16 @@
  * fixture-outlook-real — the interim /fixtures data seam (Track D).
  *
  * Real 2025–26 season fixtures + results (via fpl-historical), run through
- * the SAME band/run-detection engine the live tool uses (see
+ * the SAME run-detection / verdict engine the live tool uses (see
  * packages/fpl-grounded-assistant/scripts/export_real_season_fixture_outlook.py
  * — it loads fixture_outlook.py directly, no reimplementation). Real
- * opponents, real venues, real gameweek order; only the *strength inputs*
- * are a single end-of-capture snapshot rather than week-by-week evolving
- * values, so treat the season as if strength were constant throughout —
- * a known simplification, not fabricated data.
+ * opponents, real venues, real gameweek order.
+ *
+ * Difficulty is the ASYMMETRIC RECIPE the ML0 evaluation harness picked as
+ * best-validated across ~760 team-fixtures vs xG: the attack axis is FPL's
+ * own FDR; the defence axis is FDR refined by the opponent's walk-forward
+ * rolling attacking form. Not fabricated data — a difficulty *signal*
+ * chosen by measured skill, not a guess.
  *
  * Manual backtesting: since the season is finished, real results (scores)
  * exist in fpl-historical's fixtures.parquet — ask directly ("how did
