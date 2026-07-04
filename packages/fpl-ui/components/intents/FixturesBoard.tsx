@@ -6,13 +6,16 @@
  * Shared by the standalone public /fixtures page and the in-app Calendario
  * pager tab. Owns the four controls (attack⇄defence axis, 5/8/10 horizon,
  * detailed⇄compact⇄tendency view) and renders the league outlook from the
- * off-season data seam (buildLeagueOutlook — swap for a live fetch once the
- * API rolls over). Every team/cell deep-links via `onAsk`, which each surface
+ * interim data seam — real, finished 2025–26 fixtures run through the same
+ * band/run engine the live tool uses (buildRealSeasonOutlook; see
+ * lib/fixture-outlook-real.ts). Swap for a live fetch once the new season's
+ * fixtures roll over — identical FixtureOutlookMeta shape, so nothing else
+ * changes. Every team/cell deep-links via `onAsk`, which each surface
  * fulfils differently: the page routes to /chat?q=…, the pager prefills the
  * composer.
  */
 import { useMemo, useState } from 'react';
-import { buildLeagueOutlook } from '@/lib/fixture-outlook-mock';
+import { buildRealSeasonOutlook } from '@/lib/fixture-outlook-real';
 import { axisLabel } from '@/lib/fixture-outlook-format';
 import { teamOutlookQuestion, fixtureCellQuestion } from '@/lib/fixture-chat-links';
 import { FixtureTickerRow, BandLegend } from './FixtureTickerRow';
@@ -42,7 +45,7 @@ export function FixturesBoard({
   const [horizon, setHorizon] = useState<number>(8);
   const [view, setView] = useState<ViewMode>(initialView);
 
-  const data = useMemo(() => buildLeagueOutlook(axis, horizon), [axis, horizon]);
+  const data = useMemo(() => buildRealSeasonOutlook(axis, horizon), [axis, horizon]);
 
   return (
     <div className="space-y-4">
@@ -153,6 +156,12 @@ export function FixturesBoard({
           )}
 
           <BandLegend />
+
+          <p className="text-[10px] leading-snug text-bf-gray/50 pt-1 border-t border-white/5">
+            Calendario real de la temporada 2025–26 (finalizada) — mismo motor de
+            dificultad, sin datos inventados. Se reemplazará por el calendario
+            real de la nueva temporada en cuanto la API de FPL lo publique.
+          </p>
         </div>
       </div>
     </div>
