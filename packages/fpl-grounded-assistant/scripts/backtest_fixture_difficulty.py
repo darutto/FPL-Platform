@@ -255,21 +255,64 @@ def predict_bands(
         m["defence_band"] = _band_all(m, boot_static, "defence", bucketing)
         models[label] = m
 
+    # Walk-forward rolling strengths, computed once per GW and shared by the
+    # rolling models AND the FDR+form overlay below.
+    gws = sorted(outcomes["event_id"].unique())
+    rolling_by_gw = {int(g): compute_rolling_strength(season, int(g)) for g in gws}
+
     # rolling — walk-forward, per GW, only prior matches; both bucketings
     for bucketing, label in (("quintile", "rolling"), ("absolute", "rolling_abs")):
         m = outcomes.copy()
         m["attack_band"] = 3
         m["defence_band"] = 3
-        for gw in sorted(m["event_id"].unique()):
-            strengths = compute_rolling_strength(season, int(gw))
-            boot = _bootstrap_from_strengths(teams, strengths)
+        for gw in gws:
+            boot = _bootstrap_from_strengths(teams, rolling_by_gw[int(gw)])
             mask = m["event_id"] == gw
             sub = m[mask]
             m.loc[mask, "attack_band"] = _band_all(sub, boot, "attack", bucketing)
             m.loc[mask, "defence_band"] = _band_all(sub, boot, "defence", bucketing)
         models[label] = m
 
+    # fdr_form — the overlay: anchor on FPL's FDR (the strongest base signal),
+    # refine it within-band with the opponent's WALK-FORWARD rolling form on the
+    # relevant side. Both signals oriented "high = harder", blended in rank
+    # space (FDR is discrete 1-5; form breaks its ties). Continuous score drives
+    # skill; a quantile bucketing gives comparable 1-5 bands for calibration.
+    models["fdr_form"] = _overlay_model(outcomes, fdr_vals, teams, rolling_by_gw)
+
     return models
+
+
+# Overlay blend weights (rank space). FDR is the strong base; form refines.
+_W_FDR = 0.6
+_W_FORM = 0.4
+
+
+def _overlay_model(
+    outcomes: pd.DataFrame,
+    fdr_vals: pd.Series,
+    teams: pd.DataFrame,
+    rolling_by_gw: dict[int, dict],
+) -> pd.DataFrame:
+    m = outcomes.copy()
+    fdr_rank = fdr_vals.rank(pct=True).to_numpy()
+
+    for axis in ("attack", "defence"):
+        # Opponent's rolling strength on the side that governs this axis, as of
+        # each fixture's own GW (walk-forward). attack difficulty reads opp
+        # DEFENCE quality; defence difficulty reads opp ATTACK quality.
+        form = []
+        for _, r in m.iterrows():
+            field = fixture_outlook._STRENGTH_FIELDS[(axis, not bool(r["was_home"]))]
+            opp = int(r["opponent_team"])
+            strengths = rolling_by_gw.get(int(r["event_id"]), {})
+            form.append(strengths.get(opp, {}).get(field, 1200.0))
+        form_rank = pd.Series(form, index=m.index).rank(pct=True).to_numpy()
+
+        score = _W_FDR * fdr_rank + _W_FORM * form_rank
+        m[f"{axis}_score"] = score
+        m[f"{axis}_band"] = pd.qcut(score, 5, labels=[1, 2, 3, 4, 5], duplicates="drop").astype(int)
+    return m
 
 
 # ---------------------------------------------------------------------------
@@ -312,10 +355,18 @@ def skill_correlation(df: pd.DataFrame, axis: str) -> float:
 
     attack: easy(low band) should give high xg_for  -> flip sign of corr
     defence: easy(low band) should give low xg_against -> keep sign
+
+    Band-based for a uniform, apples-to-apples leaderboard (all models scored
+    on their 1-5 output — also what a 5-band ticker would ship). Pass
+    use_score=True to score a model's continuous `{axis}_score` instead (the
+    overlay's signal ceiling, reported separately).
     """
-    band = df[f"{axis}_band"].tolist()
-    target = df[_AXIS_TARGET[axis]].tolist()
-    corr = spearman(band, target)
+    return _skill(df, axis, use_score=False)
+
+
+def _skill(df: pd.DataFrame, axis: str, *, use_score: bool) -> float:
+    col = f"{axis}_score" if (use_score and f"{axis}_score" in df.columns) else f"{axis}_band"
+    corr = spearman(df[col].tolist(), df[_AXIS_TARGET[axis]].tolist())
     return -corr if axis == "attack" else corr
 
 
@@ -393,6 +444,16 @@ def build_report(season: str, outcomes: pd.DataFrame, models: dict[str, pd.DataF
         d_sp = band_spread(df, "defence")
         lines.append(f"| {name} | {a_sk:+.3f} | {d_sk:+.3f} | {a_sp:+.2f} | {d_sp:+.2f} |")
     lines.append("")
+
+    # Overlay's continuous-score skill — its refinement ceiling before the
+    # 5-band quantization the leaderboard above applies uniformly.
+    if "fdr_form" in models:
+        ov = models["fdr_form"]
+        lines.append(
+            "_fdr_form continuous-score skill (pre-banding): "
+            f"attack {_skill(ov, 'attack', use_score=True):+.3f}, "
+            f"defence {_skill(ov, 'defence', use_score=True):+.3f}_\n"
+        )
 
     # Calibration tables per model per axis
     for name, df in models.items():

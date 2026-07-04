@@ -141,6 +141,35 @@ class TestConvergence:
         assert gw6[1]["strength_attack_home"] > gw1[1]["strength_attack_home"]
 
 
+class TestDefenceSign:
+    def test_fewer_conceded_gives_higher_strength_defence(self):
+        """strength_defence must follow FPL's convention: high = GOOD defence
+        (concedes FEW). Regression guard for the sign bug where the own signal
+        (rank by goals conceded) fought the FPL fallback and blended to noise.
+
+        Team 1 keeps clean sheets at home; team 3 ships 3 at home — and team 1
+        has the WEAKER fallback (harder test: the correctly-signed own signal
+        must overcome the fallback). Venues rotate so all 6 teams clear
+        _MIN_TEAMS_FOR_OWN_RANK; a low prior_weight lets own data dominate.
+        """
+        teams = _synthetic_teams(6)  # team 1 has the weakest fallback defence
+        rows = []
+        for gw in range(1, 11):
+            if gw % 2 == 1:
+                rows.append(_fixture_row(gw, 1, 2, 1, 0))  # team 1 home clean sheet
+                rows.append(_fixture_row(gw, 3, 4, 1, 3))  # team 3 home ships 3
+                rows.append(_fixture_row(gw, 5, 6, 1, 1))
+            else:
+                rows.append(_fixture_row(gw, 2, 1, 1, 1))
+                rows.append(_fixture_row(gw, 4, 3, 1, 1))
+                rows.append(_fixture_row(gw, 6, 5, 1, 1))
+        fixtures = pd.DataFrame(rows)
+        res = compute_rolling_strength(
+            "synthetic", 11, prior_weight=0.5, _teams_df=teams, _fixtures_df=fixtures
+        )
+        assert res[1]["strength_defence_home"] > res[3]["strength_defence_home"]
+
+
 class TestRealSeasonSanity:
     def test_real_2025_26_gw1_preserves_fpl_fallback_rank_order(self):
         """No lookahead + no matches played yet at GW1 => the model's output

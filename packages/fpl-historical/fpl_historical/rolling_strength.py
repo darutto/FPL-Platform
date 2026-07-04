@@ -161,7 +161,14 @@ def compute_rolling_strength(
 
             fallback_rank = _percentile_rank({tid: fallback[tid][field] for tid in team_ids})
             use_own_rank = len(own_avg) >= _MIN_TEAMS_FOR_OWN_RANK
-            own_rank = _percentile_rank(own_avg) if use_own_rank else {}
+            # Defence quality is the INVERSE of goals conceded: a team that
+            # concedes FEW must rank HIGH on strength_defence to match FPL's
+            # convention (high = good defence). Without this negation the own
+            # signal (rank by conceded, high = bad) and the FPL fallback (high
+            # = good) carry opposite signs and blend to near-noise. Attack is
+            # already aligned: more goals scored = higher strength.
+            rank_input = own_avg if axis_name == "attack" else {tid: -v for tid, v in own_avg.items()}
+            own_rank = _percentile_rank(rank_input) if use_own_rank else {}
 
             for tid in team_ids:
                 weight = own_weight[tid]
