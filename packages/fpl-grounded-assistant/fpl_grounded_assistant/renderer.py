@@ -1095,6 +1095,95 @@ def _render_rank_players_by_metric(output: dict[str, Any]) -> str:
     return f"Error ({code}): {message}"
 
 
+def _render_get_zonal_weakness(output: dict[str, Any]) -> str:
+    """Render get_zonal_weakness raw_output.  T-zonal.
+
+    Weakness/opportunity read only — the verdict comes from the engine and
+    is already Spanish and buy/sell-free; this renderer only formats it.
+    """
+    status = output.get("status")
+    if status == "ok":
+        team    = output.get("team", "?")
+        verdict = output.get("verdict", "")
+        weakest = output.get("weakest_zones", [])
+        pen     = output.get("penalty_context", {})
+
+        lines = [verdict or f"Lectura zonal de {team}:"]
+        if weakest:
+            lines.append("Zonas más débiles (xGA/partido vs media de la liga):")
+            for z in weakest:
+                zone  = z.get("zone", "?")
+                xga   = z.get("xga_per_game", 0.0)
+                avg   = z.get("league_avg", 0.0)
+                delta = z.get("delta_vs_avg", 0.0)
+                rank  = z.get("rank")
+                rank_str = f" | nº{rank} de la liga" if rank else ""
+                lines.append(
+                    f"  {zone}: {xga:.3f} (media {avg:.3f}, {delta:+.3f}{rank_str})"
+                )
+        pen_pg = pen.get("penalty_xga_per_game")
+        if pen_pg is not None:
+            lines.append(
+                f"Contexto penaltis (excluidos de las zonas): {pen_pg:.3f} xGA/partido."
+            )
+        return "\n".join(lines)
+
+    if status == "not_found":
+        team = output.get("team", "?")
+        return output.get(
+            "message", f"Sin datos zonales para '{team}' en el almacén táctico."
+        )
+
+    if status == "missing_context":
+        return output.get(
+            "message", "Datos tácticos (zonales) no disponibles en este despliegue."
+        )
+
+    code    = output.get("code", "error")
+    message = output.get("message", "Error inesperado.")
+    return f"Error ({code}): {message}"
+
+
+def _render_get_zonal_opportunity(output: dict[str, Any]) -> str:
+    """Render get_zonal_opportunity raw_output.  T-zonal.
+
+    Opportunity signal only — lists players whose shot profile concentrates
+    in the opponent's above-average weak zones. Never buy/sell framing.
+    """
+    status = output.get("status")
+    if status == "ok":
+        opponent      = output.get("opponent", "?")
+        opportunities = output.get("opportunities", [])
+        if not opportunities:
+            return (
+                f"{opponent} no concede por encima de la media de la liga en "
+                f"ninguna zona del área — sin oportunidad zonal destacada."
+            )
+        lines = [f"Oportunidad zonal contra {opponent}:"]
+        for opp in opportunities:
+            zone    = opp.get("zone", "?")
+            delta   = opp.get("delta_vs_avg", 0.0)
+            players = opp.get("players", [])
+            players_str = ", ".join(players) if players else "sin jugadores destacados"
+            lines.append(f"  {zone} ({delta:+.3f} vs media): {players_str}")
+        return "\n".join(lines)
+
+    if status == "not_found":
+        opponent = output.get("opponent", "?")
+        return output.get(
+            "message", f"Sin datos zonales para '{opponent}' en el almacén táctico."
+        )
+
+    if status == "missing_context":
+        return output.get(
+            "message", "Datos tácticos (zonales) no disponibles en este despliegue."
+        )
+
+    code    = output.get("code", "error")
+    message = output.get("message", "Error inesperado.")
+    return f"Error ({code}): {message}"
+
+
 # ---------------------------------------------------------------------------
 # Dispatch table and public API
 # ---------------------------------------------------------------------------
@@ -1126,6 +1215,9 @@ _RENDERERS = {
     "get_team_snapshot":        _render_get_team_snapshot,       # P2.6
     "web_fetch":                _render_web_fetch,               # P2.7
     "rank_players_by_metric":   _render_rank_players_by_metric,  # P2.8
+    # T-zonal atomic tools
+    "get_zonal_weakness":       _render_get_zonal_weakness,      # T-zonal
+    "get_zonal_opportunity":    _render_get_zonal_opportunity,   # T-zonal
 }
 
 
