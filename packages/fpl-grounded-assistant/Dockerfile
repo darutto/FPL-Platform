@@ -34,6 +34,9 @@
 #   OWNED_STORE_R2_ACCESS_KEY_ID    R2 access key id
 #   OWNED_STORE_R2_SECRET_ACCESS_KEY  R2 secret access key
 #   OWNED_STORE_R2_PREFIX           optional key prefix (default "")
+# TACTICAL-STORE R2 SYNC (T-zonal go-live): same credentials, separate gate —
+# set TACTICAL_STORE_SYNC_ENABLED truthy to sync the tactical (zonal) store
+# at startup so get_zonal_weakness/get_zonal_opportunity can serve rows.
 # No data directory is COPYed into the image — data arrives via the R2 sync.
 # =============================================================================
 
