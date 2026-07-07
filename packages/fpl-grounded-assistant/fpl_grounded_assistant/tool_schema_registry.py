@@ -846,6 +846,54 @@ RANK_PLAYERS_BY_METRIC_SCHEMA = ToolSchema(
 
 
 # ---------------------------------------------------------------------------
+# T-zonal atomic tools — tactical zonal-weakness intelligence (owned
+# Understat store). Orchestrator-callable only: deliberately NOT in
+# _TOOL_TO_INTENT / SUPPORTED_INTENTS / the classifier (narrated as text).
+# ---------------------------------------------------------------------------
+
+GET_ZONAL_WEAKNESS_SCHEMA = ToolSchema(
+    name="get_zonal_weakness",
+    description=(
+        "Zonal defensive weakness for one team from owned Understat shot data: "
+        "xGA/game per pitch zone vs league baseline (delta_vs_avg is the signal; "
+        "penalties excluded, reported separately). Weakness/opportunity read only "
+        "— schedule/matchup context, never buy/sell advice."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "team": {
+                "type":        "string",
+                "description": "Team name / short_name / alias (e.g. 'Crystal Palace', 'CRY').",
+            },
+        },
+        "required":             ["team"],
+        "additionalProperties": False,
+    },
+)
+
+GET_ZONAL_OPPORTUNITY_SCHEMA = ToolSchema(
+    name="get_zonal_opportunity",
+    description=(
+        "Players whose own shot profile concentrates in an opponent's weak "
+        "defensive zones (relative to league baseline, owned Understat data). "
+        "Opportunity signal only — never buy/sell advice."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "opponent": {
+                "type":        "string",
+                "description": "Opposing team name / short_name / alias whose defence to probe.",
+            },
+        },
+        "required":             ["opponent"],
+        "additionalProperties": False,
+    },
+)
+
+
+# ---------------------------------------------------------------------------
 # Registry construction
 # ---------------------------------------------------------------------------
 
@@ -884,6 +932,9 @@ _ALL_SCHEMAS: tuple[ToolSchema, ...] = (
     WEB_FETCH_SCHEMA,
     # P2.8 atomic tool
     RANK_PLAYERS_BY_METRIC_SCHEMA,
+    # T-zonal atomic tools (orchestrator-only; no intent, no card)
+    GET_ZONAL_WEAKNESS_SCHEMA,
+    GET_ZONAL_OPPORTUNITY_SCHEMA,
 )
 
 #: Immutable dict mapping tool name → ToolSchema.
