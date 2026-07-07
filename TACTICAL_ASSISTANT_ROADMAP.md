@@ -59,7 +59,7 @@ A stdlib-only pull of **live 2025/26 Understat shot data** (all 380 matches) pro
 | **T2c** ✅ `68ecf19` | Player shooting profile | Per player, bucket **own** shots by zone → where he generates xG. Tier-1 proxy for "where he operates." (`compute_player_zone_shares`, xG-share ≥ 0.25, ≥ 10 shots.) |
 | **T2d** ✅ `68ecf19` | Opportunity matcher | Join: attacker whose finish-zone overlaps an opponent's above-baseline weak zone → structured `zonal_opportunity` signal (team, zone, delta-vs-avg, matching players). **Schedule/opportunity language only — no buy/sell** (mirrors the Track D invariant). |
 
-**Outputs:** `get_zonal_weakness(team)` and `get_zonal_opportunity(opponent, position?)` — surfaced as orchestrator tools (LLM-callable, zero recalibration risk, exactly like Track D's `get_fixture_outlook`).
+**Outputs:** `get_zonal_weakness(team)` and `get_zonal_opportunity(opponent)` — surfaced as orchestrator tools (LLM-callable, zero recalibration risk, exactly like Track D's `get_fixture_outlook`). The engine signature reserves a `position` kwarg, but position filtering needs an FPL-bootstrap join (Understat rows carry no positions) — deferred to T3/T4; the tool schema deliberately does not expose it yet.
 
 ---
 
