@@ -40,9 +40,9 @@ A stdlib-only pull of **live 2025/26 Understat shot data** (all 380 matches) pro
 
 | Slice | Title | Description |
 | :--- | :--- | :--- |
-| **T1a** | soccerdata ingest | Wrap `soccerdata`'s Understat reader; pull season shot events (x/y, xG, `situation`, `result`, player, team, h/a). Idempotent per-match. |
-| **T1b** | Owned-store landing | Persist to parquet + publish to R2 (`fpl-owned` bucket), mirroring Track A's `player_gw_stats` pattern. Provenance-stamped, `season` column. |
-| **T1c** | Weekly refresh | GitHub Actions cron (align with Track A's `0 6 * * 1`): pull → merge → publish. Degrades gracefully if the source shape changes. |
+| **T1a** ✅ `b819b38` | soccerdata ingest | Wrap `soccerdata`'s Understat reader; pull season shot events (x/y, xG, `situation`, `result`, player, team, h/a). Idempotent per-match. Spike verified soccerdata 1.9.0 reads 2025/26 (9,524 shots); decision + caveats in `packages/fpl-tactical/DECISIONS.md`. |
+| **T1b** ✅ `f37ce23` | Owned-store landing | Persist to parquet + publish to R2, mirroring Track A's pattern. Provenance-stamped (`_tactical_latest.json`), `season` column. `packages/fpl-tactical/` with penalty re-label guard; 19 offline tests. |
+| **T1c** ✅ `38431a8` | Weekly refresh | GitHub Actions cron `30 6 * * 1` (offset from Track A): pull → verify → publish to R2 under a distinct `tactical/` prefix. Live-bucket run still pending (R2 secrets not local — TODO in DECISIONS.md). |
 
 **Outputs:** `understat_shots` owned table; a `TacticalStore` reader used by everything below.
 
@@ -54,10 +54,10 @@ A stdlib-only pull of **live 2025/26 Understat shot data** (all 380 matches) pro
 
 | Slice | Title | Description |
 | :--- | :--- | :--- |
-| **T2a** | Zonal concession model | Per team, bucket **conceded** shots into a pitch grid (depth × lateral; in-box / edge, left / central / right), sum xGA per zone per game. |
-| **T2b** | Relative baseline | Compute league mean per zone; a team's weakness in a zone = its xGA/game **minus** league mean. This is the signal (per the PoC finding). Exclude penalties. |
-| **T2c** | Player shooting profile | Per player, bucket **own** shots by zone → where he generates xG. Tier-1 proxy for "where he operates." |
-| **T2d** | Opportunity matcher | Join: attacker whose finish-zone overlaps an opponent's above-baseline weak zone → structured `zonal_opportunity` signal (team, zone, delta-vs-avg, matching players). **Schedule/opportunity language only — no buy/sell** (mirrors the Track D invariant). |
+| **T2a** ✅ `68ecf19` | Zonal concession model | Per team, bucket **conceded** shots into a pitch grid (depth × lateral; in-box / edge, left / central / right), sum xGA per zone per game. `zonal_weakness.py` pure engine, 26 tests. |
+| **T2b** ✅ `68ecf19` | Relative baseline | Compute league mean per zone; a team's weakness in a zone = its xGA/game **minus** league mean. This is the signal (per the PoC finding). Exclude penalties. |
+| **T2c** ✅ `68ecf19` | Player shooting profile | Per player, bucket **own** shots by zone → where he generates xG. Tier-1 proxy for "where he operates." (`compute_player_zone_shares`, xG-share ≥ 0.25, ≥ 10 shots.) |
+| **T2d** ✅ `68ecf19` | Opportunity matcher | Join: attacker whose finish-zone overlaps an opponent's above-baseline weak zone → structured `zonal_opportunity` signal (team, zone, delta-vs-avg, matching players). **Schedule/opportunity language only — no buy/sell** (mirrors the Track D invariant). |
 
 **Outputs:** `get_zonal_weakness(team)` and `get_zonal_opportunity(opponent, position?)` — surfaced as orchestrator tools (LLM-callable, zero recalibration risk, exactly like Track D's `get_fixture_outlook`).
 
@@ -81,7 +81,7 @@ A stdlib-only pull of **live 2025/26 Understat shot data** (all 380 matches) pro
 
 | Slice | Title | Description |
 | :--- | :--- | :--- |
-| **T4a** | Tool reach | Register T2/T3 tools in `tool_schema_registry` so any "who should I target against X" question reaches them via the orchestrator. |
+| **T4a** ✅ `5ec4059` | Tool reach | Register T2/T3 tools in `tool_schema_registry` so any "who should I target against X" question reaches them via the orchestrator. `get_zonal_weakness` + `get_zonal_opportunity` as atomic tools (no intent/card); preflight tool count 25→27. |
 | **T4b** | Zonal card | A `zonal_weakness` intent + card: pitch-grid heat overlay (weak zones vs baseline) + matched attacker chips. Bendito Fantasy design, mobile-first. |
 | **T4c** | Track D tie-in | Feed the opportunity signal into the fixture engine as a **matchup modifier** — this is the old "Tactical FDR" (former 13a), now folded into Track D / FI6 rather than a separate track. Additive tiebreaker first; scoring-input replacement gated on Track B, same as FI3b. |
 
