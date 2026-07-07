@@ -1,0 +1,57 @@
+name: Tactical-Store Refresh
+
+on:
+  schedule:
+    - cron: "30 6 * * 1"   # Mondays 06:30 UTC — offset from owned-store-refresh (06:00)
+  workflow_dispatch:        # manual trigger via `gh workflow run tactical-store-refresh.yml`
+
+concurrency:
+  group: tactical-store-refresh
+  cancel-in-progress: false  # never cancel an in-flight refresh; let it finish
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      # soccerdata is a weekly-workflow dependency ONLY — it never ships to
+      # the serving deployment, which reads the R2 parquet via
+      # `python -m fpl_tactical.publish sync`. boto3 is for the publish step.
+      # soccerdata's first run downloads a tls-client binary and caches raw
+      # pulls under ~/soccerdata/data — both fine on an ephemeral runner
+      # (each run does one full league pass, ~380 polite requests).
+      - name: Install dependencies
+        run: |
+          pip install -r packages/fpl-tactical/requirements.txt boto3
+
+      - name: Ingest Understat shots (full season)
+        env:
+          PYTHONPATH: packages/fpl-tactical
+        run: |
+          python -m fpl_tactical.cli ingest --season 2025-2026
+
+      - name: Verify store
+        env:
+          PYTHONPATH: packages/fpl-tactical
+        run: |
+          python -m fpl_tactical.cli verify --season 2025-2026
+
+      - name: Publish to R2
+        env:
+          PYTHONPATH: packages/fpl-tactical
+          OWNED_STORE_R2_ENDPOINT: ${{ secrets.OWNED_STORE_R2_ENDPOINT }}
+          OWNED_STORE_R2_BUCKET: ${{ secrets.OWNED_STORE_R2_BUCKET }}
+          OWNED_STORE_R2_ACCESS_KEY_ID: ${{ secrets.OWNED_STORE_R2_ACCESS_KEY_ID }}
+          OWNED_STORE_R2_SECRET_ACCESS_KEY: ${{ secrets.OWNED_STORE_R2_SECRET_ACCESS_KEY }}
+          OWNED_STORE_R2_PREFIX: ${{ secrets.OWNED_STORE_R2_PREFIX }}
+        run: |
+          python -m fpl_tactical.publish publish --season 2025-2026
