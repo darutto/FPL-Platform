@@ -41,6 +41,11 @@ from fpl_tactical.paths import (
 
 _LOGGER = logging.getLogger(__name__)
 
+#: Startup-sync gate — tactical analogue of owned_store_sync's
+#: OWNED_STORE_SYNC_ENABLED so the two syncs toggle independently.
+#: Truthy = "1"/"true"/"yes" (case-insensitive, stripped). Default OFF.
+ENV_TACTICAL_SYNC_ENABLED = "TACTICAL_STORE_SYNC_ENABLED"
+
 # Same env var names as owned_store_sync — one set of R2 credentials.
 ENV_R2_ENDPOINT          = "OWNED_STORE_R2_ENDPOINT"
 ENV_R2_BUCKET            = "OWNED_STORE_R2_BUCKET"
@@ -59,6 +64,26 @@ class TacticalSyncResult:
     season: str
     files_synced: int
     error: str | None
+
+
+#: Records the most recent sync/publish result, read by /healthz.
+#: None until a sync runs (default-off).
+_LAST_TACTICAL_SYNC_RESULT: "TacticalSyncResult | None" = None
+
+
+def tactical_sync_enabled() -> bool:
+    """Return True iff ``TACTICAL_STORE_SYNC_ENABLED`` is truthy.
+
+    Truthy = "1"/"true"/"yes" (case-insensitive, stripped). Default OFF —
+    mirrors ``owned_store_sync.sync_enabled()``.
+    """
+    raw = os.environ.get(ENV_TACTICAL_SYNC_ENABLED, "")
+    return raw.strip().lower() in ("1", "true", "yes")
+
+
+def get_last_tactical_sync_result() -> "TacticalSyncResult | None":
+    """Return the most recent TacticalSyncResult, or None if no sync has run."""
+    return _LAST_TACTICAL_SYNC_RESULT
 
 
 def _r2_prefix() -> str:
@@ -133,7 +158,10 @@ def publish_tactical_store_to_r2(season: str = CURRENT_SEASON) -> TacticalSyncRe
         _LOGGER.warning(
             "tactical_publish event=upload_ok season=%s key=%s", season, r2_key
         )
-    return TacticalSyncResult(ok=True, season=season, files_synced=len(plan), error=None)
+    global _LAST_TACTICAL_SYNC_RESULT
+    result = TacticalSyncResult(ok=True, season=season, files_synced=len(plan), error=None)
+    _LAST_TACTICAL_SYNC_RESULT = result
+    return result
 
 
 def sync_tactical_store_from_r2(season: str = CURRENT_SEASON) -> TacticalSyncResult:
@@ -167,6 +195,8 @@ def sync_tactical_store_from_r2(season: str = CURRENT_SEASON) -> TacticalSyncRes
         )
     except Exception as exc:  # noqa: BLE001 — FAIL-SOFT: never raise
         result = TacticalSyncResult(ok=False, season=season, files_synced=0, error=str(exc))
+    global _LAST_TACTICAL_SYNC_RESULT
+    _LAST_TACTICAL_SYNC_RESULT = result
     if result.ok:
         _LOGGER.warning(
             "tactical_sync event=sync_ok season=%s files=%d",

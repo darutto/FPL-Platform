@@ -25,7 +25,34 @@ ships to the server.
 
 **TODO (flagged):** R2 secrets were not available in this environment, so the
 publish step is untested against a live bucket. Local parquet + pointer are in
-place; a `workflow_dispatch` run of `tactical-store-refresh.yml` (secrets
-already wired for owned-store-refresh) is the remaining verification. Also
-wire `python -m fpl_tactical.publish sync` into the server's startup (mirror
-`OWNED_STORE_SYNC_ENABLED` gating) when a consumer needs the store in prod.
+place; run the go-live runbook below to verify.
+
+## Go-live (2026-07-07) — startup sync wiring + operator runbook
+
+The server-side sync is wired (branch `feat/tactical-zonal-golive`), gated by
+**`TACTICAL_STORE_SYNC_ENABLED`** (default OFF; truthy = `1`/`true`/`yes`),
+independent of `OWNED_STORE_SYNC_ENABLED`. `/healthz` gains a
+`tactical_store_sync` block (`ok`/`season`/`files_synced`/`error`) once a
+sync has run; with the flag off the payload is unchanged.
+
+**Operator runbook — first live publish + enable (R2 secrets required):**
+
+1. Publish the store (either path):
+   - GitHub UI/CLI: run `tactical-store-refresh.yml` via `workflow_dispatch`
+     (`gh workflow run tactical-store-refresh.yml`), or
+   - locally, with `OWNED_STORE_R2_ENDPOINT/BUCKET/ACCESS_KEY_ID/SECRET_ACCESS_KEY[/PREFIX]`
+     exported:
+     ```
+     pip install -r packages/fpl-tactical/requirements.txt boto3
+     set PYTHONPATH=packages/fpl-tactical
+     python -m fpl_tactical.cli ingest  --season 2025-2026
+     python -m fpl_tactical.publish publish --season 2025-2026
+     ```
+2. Expected objects (verify in the R2 dashboard or `aws s3 ls --endpoint-url ...`):
+   - `r2://<bucket>/<OWNED_STORE_R2_PREFIX>tactical/2025-2026/understat_shots.parquet`
+   - `r2://<bucket>/<OWNED_STORE_R2_PREFIX>tactical/2025-2026/_tactical_latest.json`
+3. In Railway, set `TACTICAL_STORE_SYNC_ENABLED=1` (R2 vars are already set
+   for the owned store) and redeploy.
+4. Verify: `GET /healthz` → `tactical_store_sync.ok == true`, then ask the
+   assistant a zonal question (e.g. "¿por dónde concede el Crystal Palace?")
+   → tools return `ok`, not `missing_context`.

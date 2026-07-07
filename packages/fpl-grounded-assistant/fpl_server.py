@@ -67,6 +67,7 @@ for _pkg in [
     _SIB("fpl-captain-engine"),
     _SIB("fpl-pipeline"),
     _SIB("fpl-historical"),  # H4d: explicit; owned_store_fallback shim also inserts this — defensive symmetry
+    _SIB("fpl-tactical"),    # T-zonal: tactical store sync + shared constants (zonal_weakness shim also inserts this)
 ]:
     if _pkg not in sys.path:
         sys.path.insert(0, _pkg)
@@ -437,6 +438,22 @@ except ImportError:  # sync module unavailable — startup R2 sync disabled
     sync_enabled = None              # type: ignore[assignment]
     get_last_sync_result = None      # type: ignore[assignment]
 
+# ---------------------------------------------------------------------------
+# Tactical-store sync imports (T-zonal go-live — startup R2 sync, default-off,
+# fail-soft). Mirrors the owned-store block above: if fpl-tactical is absent
+# the names resolve to None and the startup sync is simply skipped.
+# ---------------------------------------------------------------------------
+try:
+    from fpl_tactical.publish import (  # noqa: E402
+        sync_tactical_store_from_r2,
+        tactical_sync_enabled,
+        get_last_tactical_sync_result,
+    )
+except ImportError:  # tactical package unavailable — startup R2 sync disabled
+    sync_tactical_store_from_r2 = None    # type: ignore[assignment]
+    tactical_sync_enabled = None          # type: ignore[assignment]
+    get_last_tactical_sync_result = None  # type: ignore[assignment]
+
 
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
@@ -642,6 +659,14 @@ async def lifespan(app: FastAPI):
         # fail-soft: sync_owned_store_from_r2 never raises; result logged inside.
         if not _sync_res.ok:
             _LOG.error("fpl_startup owned_store_sync_incomplete err=%s", _sync_res.error)
+    # T-zonal go-live: optional startup sync of the tactical store from R2 so
+    # the zonal tools can read parquet. Gated by tactical_sync_enabled() —
+    # default-off preserves current behaviour exactly. Fail-soft: never raises.
+    if sync_tactical_store_from_r2 is not None and tactical_sync_enabled():
+        _tac_res = sync_tactical_store_from_r2()
+        # fail-soft: sync_tactical_store_from_r2 never raises; logged inside.
+        if not _tac_res.ok:
+            _LOG.error("fpl_startup tactical_store_sync_incomplete err=%s", _tac_res.error)
     if _bootstrap is None:
         bs = _fetch_bootstrap_with_retry()
         if bs is not None:
@@ -1281,12 +1306,33 @@ def healthz() -> dict[str, Any]:
                 "error":           _sync.error,
             }
 
-    return {
+    # T-zonal go-live: expose tactical-store sync freshness for operators.
+    # Additive; never exposes R2 creds. None until a sync has run (default-off).
+    if get_last_tactical_sync_result is None:
+        tactical_store_sync_info = None
+    else:
+        _tac = get_last_tactical_sync_result()
+        if _tac is None:
+            tactical_store_sync_info = None
+        else:
+            tactical_store_sync_info = {
+                "ok":           _tac.ok,
+                "season":       _tac.season,
+                "files_synced": _tac.files_synced,
+                "error":        _tac.error,
+            }
+
+    payload: dict[str, Any] = {
         "routing_counters":    snap,
         "graduation":          _grad(snap),
         "owned_store_fallback": owned_store_fallback_info,
         "owned_store_sync":     owned_store_sync_info,
     }
+    # Key is added only once a tactical sync has run: with the flag off the
+    # /healthz payload stays byte-for-byte identical to pre-go-live responses.
+    if tactical_store_sync_info is not None:
+        payload["tactical_store_sync"] = tactical_store_sync_info
+    return payload
 
 
 @app.get("/resources")
