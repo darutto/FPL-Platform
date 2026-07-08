@@ -854,10 +854,12 @@ RANK_PLAYERS_BY_METRIC_SCHEMA = ToolSchema(
 GET_ZONAL_WEAKNESS_SCHEMA = ToolSchema(
     name="get_zonal_weakness",
     description=(
-        "Zonal defensive weakness for one team from owned Understat shot data: "
-        "xGA/game per pitch zone vs league baseline (delta_vs_avg is the signal; "
-        "penalties excluded, reported separately). Weakness/opportunity read only "
-        "— schedule/matchup context, never buy/sell advice."
+        "Use when the user asks WHERE or HOW a team concedes (por dónde/en qué "
+        "zonas concede, weak zones, defensive weakness of a team). Returns "
+        "zones ONLY — no player names (for players use get_zonal_opportunity). "
+        "xGA/game per pitch zone vs league baseline from owned Understat shot "
+        "data (delta_vs_avg is the signal; penalties excluded, reported "
+        "separately). Weakness read only — never buy/sell advice."
     ),
     parameters={
         "type": "object",
@@ -875,9 +877,13 @@ GET_ZONAL_WEAKNESS_SCHEMA = ToolSchema(
 GET_ZONAL_OPPORTUNITY_SCHEMA = ToolSchema(
     name="get_zonal_opportunity",
     description=(
-        "Players whose own shot profile concentrates in an opponent's weak "
-        "defensive zones (relative to league baseline, owned Understat data). "
-        "Opportunity signal only — never buy/sell advice."
+        "Use when the user asks WHICH PLAYERS can exploit, attack, fit or "
+        "match a team's weak defensive zones (qué/cuáles jugadores pueden "
+        "explotar/encajar/aprovechar las debilidades de un equipo). Returns "
+        "the opponent's weak zones WITH matched player names — prefer this "
+        "over get_zonal_weakness whenever the user wants players. Shot "
+        "profiles vs league-baseline zones, owned Understat data. Opportunity "
+        "signal only — never buy/sell advice."
     ),
     parameters={
         "type": "object",

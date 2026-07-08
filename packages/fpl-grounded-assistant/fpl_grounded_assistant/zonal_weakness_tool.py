@@ -131,10 +131,10 @@ def _get_zonal_opportunity_handler(
 GET_ZONAL_WEAKNESS_SPEC = ToolSpec(
     name="get_zonal_weakness",
     description=(
-        "Zonal defensive weakness for one team from owned Understat shot data: "
-        "xGA/game per pitch zone vs the league baseline (delta_vs_avg is the "
-        "signal, penalties excluded and reported separately). Weakness/opportunity "
-        "read only — no buy/sell advice."
+        "Use when the user asks WHERE or HOW a team concedes (weak zones). "
+        "Returns zones only — no player names (players → get_zonal_opportunity). "
+        "xGA/game per zone vs league baseline, owned Understat data; penalties "
+        "excluded and reported separately. Weakness read only — no buy/sell advice."
     ),
     parameters={
         "type": "object",
@@ -163,9 +163,10 @@ GET_ZONAL_WEAKNESS_SPEC = ToolSpec(
 GET_ZONAL_OPPORTUNITY_SPEC = ToolSpec(
     name="get_zonal_opportunity",
     description=(
-        "Players whose own shot profile concentrates in an opponent's weak "
-        "defensive zones (relative to league baseline, from owned Understat "
-        "data). Opportunity signal only — no buy/sell advice."
+        "Use when the user asks WHICH PLAYERS can exploit/fit/attack a team's "
+        "weak defensive zones. Returns the opponent's weak zones WITH matched "
+        "player names (prefer over get_zonal_weakness when players are wanted). "
+        "Opportunity signal only — no buy/sell advice."
     ),
     parameters={
         "type": "object",
