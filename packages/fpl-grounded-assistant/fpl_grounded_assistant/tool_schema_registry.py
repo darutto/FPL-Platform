@@ -899,6 +899,35 @@ GET_ZONAL_OPPORTUNITY_SCHEMA = ToolSchema(
 )
 
 
+GET_PLAYER_ZONAL_OUTLOOK_SCHEMA = ToolSchema(
+    name="get_player_zonal_outlook",
+    description=(
+        "Use when the user asks whether a PLAYER's upcoming fixtures suit them "
+        "zonally — do the next opponents' weak defensive zones match where the "
+        "player generates xG (¿le vienen bien los próximos rivales a X?, "
+        "¿contra quién juega X y le favorece el cruce?). Per-GW "
+        "favorable/neutral matchup read over the next 1-5 fixtures (default 3), "
+        "from owned Understat shot data + the fixture calendar. Opportunity "
+        "signal only — never buy/sell advice."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "player": {
+                "type":        "string",
+                "description": "Player name as known (e.g. 'Saka', 'Bukayo Saka').",
+            },
+            "horizon": {
+                "type":        "integer",
+                "description": "Upcoming GWs to analyse (1-5, default 3).",
+            },
+        },
+        "required":             ["player"],
+        "additionalProperties": False,
+    },
+)
+
+
 # ---------------------------------------------------------------------------
 # Registry construction
 # ---------------------------------------------------------------------------
@@ -941,6 +970,7 @@ _ALL_SCHEMAS: tuple[ToolSchema, ...] = (
     # T-zonal atomic tools (orchestrator-only; no intent, no card)
     GET_ZONAL_WEAKNESS_SCHEMA,
     GET_ZONAL_OPPORTUNITY_SCHEMA,
+    GET_PLAYER_ZONAL_OUTLOOK_SCHEMA,
 )
 
 #: Immutable dict mapping tool name → ToolSchema.

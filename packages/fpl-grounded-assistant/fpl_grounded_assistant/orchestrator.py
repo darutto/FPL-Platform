@@ -347,6 +347,8 @@ _SYSTEM_PROMPT: str = (
     "                  (quién/qué jugadores) → get_zonal_opportunity(opponent) — it\n"
     "                  already returns matched player names; do NOT answer players\n"
     "                  from get_zonal_weakness output (it has zones only, no players).\n"
+    "                  asks if a PLAYER's next fixtures suit them zonally (¿le vienen\n"
+    "                  bien los próximos rivales a X?) → get_player_zonal_outlook(player).\n"
     "  FOOTBALL_NEWS → USE web_fetch (do not infer from prior knowledge). When the user\n"
     "                  asserts external facts (championship clinched, manager change,\n"
     "                  rotation policy, transfer news), web_fetch a relevant page\n"

@@ -177,3 +177,72 @@ def test_run_tool_blank_team_is_not_found(tactical_store):
     # before the handler runs — still a structured status, never a raise
     out2 = run_tool("get_zonal_opportunity", {}, _bootstrap())
     assert out2["status"] == "error"
+
+
+# ---------------------------------------------------------------------------
+# get_player_zonal_outlook (T-player)
+# ---------------------------------------------------------------------------
+
+def _bootstrap_with_fixtures() -> dict:
+    """Bootstrap with a current GW and team_fixtures: Burnley (id 3, home of
+    'Left Poacher' in the fixture store) faces Crystal Palace in GW1 and
+    Sunderland in GW2."""
+    bs = _bootstrap()
+    bs["events"] = [{"id": 1, "is_current": True}]
+    bs["team_fixtures"] = {
+        3: [
+            {"gameweek": 1, "opponent_team": 1, "is_home": True},
+            {"gameweek": 2, "opponent_team": 4, "is_home": False},
+            {"gameweek": 9, "opponent_team": 2, "is_home": True},  # outside horizon
+        ],
+    }
+    return bs
+
+
+class TestPlayerZonalOutlook:
+    def test_run_tool_outlook_ok_shape(self, tactical_store):
+        out = run_tool(
+            "get_player_zonal_outlook",
+            {"player": "Left Poacher", "horizon": 2},
+            _bootstrap_with_fixtures(),
+        )
+        assert out["status"] == "ok"
+        assert out["player"] == "Left Poacher"
+        assert out["team"] == "Burnley"
+        gws = [e["gameweek"] for e in out["outlook"]]
+        assert gws == [1, 2]  # GW9 fixture is outside the horizon
+        by_gw = {e["gameweek"]: e for e in out["outlook"]}
+        assert by_gw[1]["opponent"] == "Crystal Palace"
+        assert by_gw[1]["status"] == "favorable"
+        assert by_gw[1]["matches"][0]["zone"] == "in-box / left"
+        assert isinstance(out["verdict"], str) and out["verdict"]
+
+    def test_run_tool_outlook_horizon_clamped(self, tactical_store):
+        out = run_tool(
+            "get_player_zonal_outlook",
+            {"player": "Left Poacher", "horizon": 99},
+            _bootstrap_with_fixtures(),
+        )
+        assert out["status"] == "ok"  # clamped to MAX, not an error
+
+    def test_run_tool_outlook_player_not_found(self, tactical_store):
+        out = run_tool(
+            "get_player_zonal_outlook", {"player": "Nobody"}, _bootstrap_with_fixtures()
+        )
+        assert out["status"] == "not_found"
+        assert "message" in out
+
+    def test_run_tool_outlook_missing_fixtures(self, tactical_store):
+        out = run_tool(
+            "get_player_zonal_outlook", {"player": "Left Poacher"}, _bootstrap()
+        )
+        assert out["status"] == "missing_context"
+        assert "message" in out
+
+    def test_run_tool_outlook_missing_store(self, empty_store):
+        out = run_tool(
+            "get_player_zonal_outlook",
+            {"player": "Left Poacher"},
+            _bootstrap_with_fixtures(),
+        )
+        assert out["status"] == "missing_context"

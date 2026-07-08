@@ -91,10 +91,10 @@ NEW_TOOLS = (
     "get_transfer_suggestion",
 )
 
-check(len(_ALL_SCHEMAS) == 27, "B1.1: _ALL_SCHEMAS has exactly 27 entries")
-check(len(_REGISTRY) == 27, "B1.2: _REGISTRY dict has 27 entries (no name collisions)")
-check(len(TOOL_NAMES) == 27, "B1.3: TOOL_NAMES frozenset has 27 entries")
-check(len(list_tool_schemas()) == 27, "B1.4: list_tool_schemas() returns 27 names")
+check(len(_ALL_SCHEMAS) == 28, "B1.1: _ALL_SCHEMAS has exactly 28 entries")
+check(len(_REGISTRY) == 28, "B1.2: _REGISTRY dict has 28 entries (no name collisions)")
+check(len(TOOL_NAMES) == 28, "B1.3: TOOL_NAMES frozenset has 28 entries")
+check(len(list_tool_schemas()) == 28, "B1.4: list_tool_schemas() returns 28 names")
 
 for name in NEW_TOOLS:
     check(name in TOOL_NAMES, f"B1.5/{name}: {name} is in TOOL_NAMES")
