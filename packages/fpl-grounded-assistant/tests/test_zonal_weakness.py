@@ -287,6 +287,99 @@ def test_opportunity_statuses_propagate():
 
 
 # ---------------------------------------------------------------------------
+# Player zonal outlook (T-player)
+# ---------------------------------------------------------------------------
+
+get_player_zonal_outlook = zonal_weakness.get_player_zonal_outlook
+
+
+def test_outlook_favorable_when_zones_intersect():
+    # Left Poacher (Wolves) concentrates 100% of xG in in-box/left; Palace
+    # concedes above average exactly there → favorable.
+    out = get_player_zonal_outlook(
+        "Left Poacher",
+        fixtures_for_team=lambda t: [
+            {"gameweek": 24, "opponent": "Palace", "is_home": True},
+        ],
+        store=opportunity_store(),
+    )
+    assert out["status"] == "ok"
+    assert out["team"] == "Wolves"
+    entry = out["outlook"][0]
+    assert entry["opponent"] == "Palace"
+    assert entry["status"] == "favorable"
+    match = entry["matches"][0]
+    assert match["zone"] == "in-box / left"
+    assert match["delta_vs_avg"] > 0
+    assert match["player_share"] == pytest_approx(1.0)
+    assert "J24 (Palace)" in out["verdict"]
+
+
+def test_outlook_neutral_and_no_data_entries():
+    out = get_player_zonal_outlook(
+        "Left Poacher",
+        fixtures_for_team=lambda t: [
+            {"gameweek": 25, "opponent": "Boro", "is_home": False},
+            {"gameweek": 26, "opponent": "Ghost Town FC", "is_home": True},
+        ],
+        store=opportunity_store(),
+    )
+    assert out["status"] == "ok"
+    statuses = {e["gameweek"]: e["status"] for e in out["outlook"]}
+    assert statuses[25] == "neutral"   # Boro concedes below avg in the player's zone
+    assert statuses[26] == "no_data"   # unknown team in the store
+    assert "Sin cruce zonal destacado" in out["verdict"]
+
+
+def test_outlook_player_zones_reported():
+    out = get_player_zonal_outlook(
+        "Left Poacher",
+        fixtures_for_team=lambda t: [{"gameweek": 1, "opponent": "Palace", "is_home": True}],
+        store=opportunity_store(),
+    )
+    assert out["player_zones"][0]["zone"] == "in-box / left"
+    assert out["player_zones"][0]["share"] == pytest_approx(1.0)
+
+
+def test_outlook_player_not_found():
+    out = get_player_zonal_outlook(
+        "Nobody", fixtures_for_team=lambda t: [], store=opportunity_store()
+    )
+    assert out["status"] == "not_found"
+
+
+def test_outlook_player_ambiguous():
+    # "o" substring-matches several profiled players
+    out = get_player_zonal_outlook(
+        "o", fixtures_for_team=lambda t: [], store=opportunity_store()
+    )
+    assert out["status"] == "ambiguous"
+    assert 2 <= len(out["candidates"]) <= 5
+
+
+def test_outlook_missing_context_paths():
+    out = get_player_zonal_outlook(
+        "Left Poacher", fixtures_for_team=lambda t: [], store=pd.DataFrame()
+    )
+    assert out["status"] == "missing_context"
+    out2 = get_player_zonal_outlook(
+        "Left Poacher", fixtures_for_team=lambda t: [], store=opportunity_store()
+    )
+    assert out2["status"] == "missing_context"  # no upcoming fixtures
+
+
+def test_outlook_verdict_no_buy_sell():
+    out = get_player_zonal_outlook(
+        "Left Poacher",
+        fixtures_for_team=lambda t: [{"gameweek": 1, "opponent": "Palace", "is_home": True}],
+        store=opportunity_store(),
+    )
+    verdict = out["verdict"].lower()
+    for banned in ("ficha", "vende", "compra", "transfer", "capitán"):
+        assert banned not in verdict
+
+
+# ---------------------------------------------------------------------------
 # Shared-constant contract
 # ---------------------------------------------------------------------------
 

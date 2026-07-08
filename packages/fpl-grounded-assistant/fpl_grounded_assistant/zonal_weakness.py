@@ -400,3 +400,147 @@ def get_zonal_opportunity(
             }
         )
     return {"status": "ok", "opponent": matched, "opportunities": opportunities}
+
+
+# ---------------------------------------------------------------------------
+# Player-centric outlook (T-player: /player Saka → next fixtures matchup read)
+# ---------------------------------------------------------------------------
+
+def _find_store_player(
+    player_query: str, shares: dict[str, dict[str, Any]]
+) -> tuple[str | None, list[str]]:
+    """Match *player_query* against store player names.
+
+    Case-insensitive exact match wins; otherwise substring. Returns
+    ``(match, candidates)`` — a unique match, or None with the (possibly
+    empty / multiple) candidate list for not_found / ambiguous handling.
+    """
+    q = player_query.strip().lower()
+    exact = [p for p in shares if p.lower() == q]
+    candidates = exact or [p for p in shares if q in p.lower()]
+    if len(candidates) == 1:
+        return candidates[0], candidates
+    return None, sorted(candidates)
+
+
+def get_player_zonal_outlook(
+    player_query: str,
+    *,
+    fixtures_for_team: Any,
+    store: Any = None,
+) -> dict[str, Any]:
+    """Per-fixture zonal matchup read for one player's upcoming opponents.
+
+    *fixtures_for_team* is a callable ``(store_team_name) -> list[fixture]``
+    injected by the tool wrapper (fixtures live in the FPL bootstrap, not in
+    the tactical store — the engine stays bootstrap-agnostic). Each fixture
+    dict: ``{"gameweek": int, "opponent": <store team name>, "is_home": bool}``.
+
+    A fixture is ``favorable`` when the opponent concedes above the league
+    baseline in a zone (their top-``TOP_WEAK_ZONES``, positive delta only)
+    where the player concentrates ≥ ``PLAYER_ZONE_XG_SHARE_THRESHOLD`` of
+    their own non-penalty xG; ``neutral`` otherwise; ``no_data`` when the
+    opponent is absent from the store (e.g. newly promoted side).
+
+    Returns ``status ∈ {ok, not_found, ambiguous, missing_context}``; on ok:
+    ``player``, ``team``, ``player_zones`` (zones the player operates in,
+    share-sorted), ``outlook`` (per-fixture entries with ``matches`` carrying
+    ``zone`` / ``delta_vs_avg`` / ``player_share``), and a Spanish,
+    opportunity-framed ``verdict`` (never buy/sell).
+    """
+    shots = _load_shots(store)
+    if shots is None:
+        return {"status": "missing_context", "player": player_query}
+
+    shares = compute_player_zone_shares(shots)
+    player, candidates = _find_store_player(player_query, shares)
+    if player is None:
+        if candidates:
+            return {
+                "status": "ambiguous",
+                "player": player_query,
+                "candidates": candidates[:5],
+            }
+        return {"status": "not_found", "player": player_query}
+
+    info = shares[player]
+    player_zones = sorted(
+        (
+            {"zone": zone, "share": round(share, 4)}
+            for zone, share in info["zone_share"].items()
+            if share >= PLAYER_ZONE_XG_SHARE_THRESHOLD
+        ),
+        key=lambda z: -z["share"],
+    )
+
+    fixtures = fixtures_for_team(info["team"]) or []
+    if not fixtures:
+        return {"status": "missing_context", "player": player, "team": info["team"]}
+
+    profiles = compute_team_zone_profiles(shots)
+    baseline = compute_league_baseline(profiles)
+
+    outlook: list[dict[str, Any]] = []
+    for fx in fixtures:
+        opponent_raw = str(fx.get("opponent", ""))
+        entry: dict[str, Any] = {
+            "gameweek": int(fx.get("gameweek", 0)),
+            "opponent": opponent_raw,
+            "is_home": bool(fx.get("is_home", False)),
+            "matches": [],
+        }
+        matched = _match_team(opponent_raw, list(profiles))
+        if matched is None:
+            entry["status"] = "no_data"
+            outlook.append(entry)
+            continue
+        entry["opponent"] = matched
+        deltas = sorted(
+            (
+                (
+                    (profiles[matched][zone]["xga"] / profiles[matched][zone]["games"]
+                     if profiles[matched][zone]["games"] else 0.0) - baseline[zone],
+                    zone,
+                )
+                for zone in ZONES
+            ),
+            reverse=True,
+        )[:TOP_WEAK_ZONES]
+        for delta, zone in deltas:
+            if delta <= 0:
+                continue
+            share = info["zone_share"][zone]
+            if share >= PLAYER_ZONE_XG_SHARE_THRESHOLD:
+                entry["matches"].append(
+                    {
+                        "zone": zone,
+                        "delta_vs_avg": round(delta, 4),
+                        "player_share": round(share, 4),
+                    }
+                )
+        entry["status"] = "favorable" if entry["matches"] else "neutral"
+        outlook.append(entry)
+
+    favorable = [e for e in outlook if e["status"] == "favorable"]
+    if favorable:
+        gws = " y ".join(
+            f"J{e['gameweek']} ({e['opponent']})" for e in favorable
+        )
+        verdict = (
+            f"{player} genera su xG justo en zonas donde el rival concede por "
+            f"encima de la media — cruce favorable en {gws}."
+        )
+    else:
+        verdict = (
+            f"Sin cruce zonal destacado para {player} en las próximas "
+            f"{len(outlook)} jornadas."
+        )
+
+    return {
+        "status": "ok",
+        "player": player,
+        "team": info["team"],
+        "player_zones": player_zones,
+        "outlook": outlook,
+        "verdict": verdict,
+    }

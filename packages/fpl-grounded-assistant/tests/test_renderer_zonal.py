@@ -139,6 +139,60 @@ class TestRenderZonalOpportunity:
         assert text == "Error (boom): kaput"
 
 
+OUTLOOK_OK = {
+    "status": "ok",
+    "player": "Bukayo Saka",
+    "team": "Arsenal",
+    "player_zones": [{"zone": "in-box / left", "share": 0.62}],
+    "outlook": [
+        {"gameweek": 24, "opponent": "Sunderland", "is_home": False,
+         "status": "favorable",
+         "matches": [{"zone": "in-box / left", "delta_vs_avg": 0.044,
+                      "player_share": 0.62}]},
+        {"gameweek": 25, "opponent": "Chelsea", "is_home": True,
+         "status": "neutral", "matches": []},
+        {"gameweek": 26, "opponent": "Promoted FC", "is_home": True,
+         "status": "no_data", "matches": []},
+    ],
+    "verdict": (
+        "Bukayo Saka genera su xG justo en zonas donde el rival concede por "
+        "encima de la media — cruce favorable en J24 (Sunderland)."
+    ),
+}
+
+
+class TestRenderPlayerZonalOutlook:
+    def test_ok_full_report(self):
+        text = render("get_player_zonal_outlook", OUTLOOK_OK)
+        assert text.startswith(OUTLOOK_OK["verdict"])
+        assert "in-box / left (62% de su xG)" in text
+        assert "J24 vs Sunderland (fuera): favorable" in text
+        assert "+0.044" in text and "62% del xG de Bukayo Saka" in text
+        assert "J25 vs Chelsea (casa): sin cruce destacado" in text
+        assert "J26 vs Promoted FC (casa): sin datos zonales del rival" in text
+        assert "No renderer" not in text
+
+    def test_not_found(self):
+        out = {"status": "not_found", "player": "Nobody", "message": "No shot profile for 'Nobody'."}
+        assert render("get_player_zonal_outlook", out) == out["message"]
+
+    def test_ambiguous_lists_candidates(self):
+        out = {"status": "ambiguous", "player": "Silva",
+               "candidates": ["Bernardo Silva", "Fábio Silva"]}
+        text = render("get_player_zonal_outlook", out)
+        assert "Bernardo Silva" in text and "Fábio Silva" in text
+        assert "especifica" in text
+
+    def test_missing_context_default(self):
+        text = render("get_player_zonal_outlook", {"status": "missing_context"})
+        assert "no disponibles" in text
+
+    def test_generic_error_fallback(self):
+        text = render("get_player_zonal_outlook",
+                      {"status": "error", "code": "boom", "message": "kaput"})
+        assert text == "Error (boom): kaput"
+
+
 # ---------------------------------------------------------------------------
 # Coverage guard — every orchestrator-callable tool must have a renderer
 # ---------------------------------------------------------------------------
