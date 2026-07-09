@@ -117,8 +117,12 @@ def test_both_tools_have_registry_schemas():
 
 
 def test_atomic_pattern_no_intent_no_classifier():
+    # weakness + outlook stay atomic (text-narrated, no intent mapping)
     assert "get_zonal_weakness" not in _TOOL_TO_INTENT
-    assert "get_zonal_opportunity" not in _TOOL_TO_INTENT
+    assert "get_player_zonal_outlook" not in _TOOL_TO_INTENT
+    # T4b partial promotion: opportunity is renderable (card) but stays out
+    # of the deterministic classifier universe
+    assert _TOOL_TO_INTENT["get_zonal_opportunity"] == "zonal_opportunity"
     joined = " ".join(SUPPORTED_INTENTS)
     assert "zonal" not in joined
 
@@ -150,6 +154,63 @@ def test_run_tool_opportunity_ok_shape(tactical_store):
     zones = {o["zone"]: o for o in out["opportunities"]}
     assert "in-box / left" in zones
     assert "Left Poacher" in zones["in-box / left"]["players"]
+
+
+# ---------------------------------------------------------------------------
+# T4b — wrapper enrichment of the exploiter table (team_short / position)
+# ---------------------------------------------------------------------------
+
+def _bootstrap_with_elements() -> dict:
+    """Bootstrap whose elements match 'Left Poacher' by full name."""
+    bs = _bootstrap()
+    bs["elements"] = [
+        {"first_name": "Left", "second_name": "Poacher",
+         "web_name": "Poacher", "element_type": 3},
+    ]
+    return bs
+
+
+def test_run_tool_opportunity_exploiters_enriched_matched_player(tactical_store):
+    out = run_tool(
+        "get_zonal_opportunity", {"opponent": "Crystal Palace"},
+        _bootstrap_with_elements(),
+    )
+    assert out["status"] == "ok"
+    exploiters = out["exploiters"]
+    assert exploiters, "fixture store should yield at least one exploiter"
+    top = exploiters[0]
+    assert top["rank"] == 1
+    assert top["player"] == "Left Poacher"
+    assert top["web_name"] == "Poacher"          # FPL join hit
+    assert top["position"] == "MID"
+    assert top["team_short"] == "BUR"            # inverted Understat bridge
+    assert top["fit_score"] == 10.0              # best cross of this answer
+
+
+def test_run_tool_opportunity_exploiters_unmatched_player_degrades(tactical_store):
+    # No elements in bootstrap → the fragile name join misses; the player is
+    # kept with the store name and an empty position, never dropped.
+    out = run_tool("get_zonal_opportunity", {"opponent": "Crystal Palace"}, _bootstrap())
+    assert out["status"] == "ok"
+    top = out["exploiters"][0]
+    assert top["player"] == "Left Poacher"
+    assert top["web_name"] == "Left Poacher"
+    assert top["position"] == ""
+    assert top["team_short"] == "BUR"
+
+
+def test_run_tool_opportunity_card_fields_present(tactical_store):
+    out = run_tool("get_zonal_opportunity", {"opponent": "Crystal Palace"}, _bootstrap())
+    assert out["status"] == "ok"
+    assert [z["lateral"] for z in out["zones"]] == ["left", "central", "right"]
+    for z in out["zones"]:
+        assert z["opportunity_level"] in ("opp", "warm", "cool")
+    assert out["weakness_label"] == "Débil dentro del área"
+    assert "penalty_xga_per_game" in out["penalty_context"]
+    assert isinstance(out["verdict"], str) and out["verdict"]
+    # language discipline: opportunity framing only
+    for banned in ("ficha", "vende", "compra"):
+        assert banned not in out["verdict"].lower()
 
 
 # ---------------------------------------------------------------------------
@@ -246,3 +307,71 @@ class TestPlayerZonalOutlook:
             _bootstrap_with_fixtures(),
         )
         assert out["status"] == "missing_context"
+
+
+# ---------------------------------------------------------------------------
+# T4b — DefensiveZonesMeta extraction (zonal_opportunity renderable intent)
+# ---------------------------------------------------------------------------
+
+class TestDefensiveZonesMeta:
+    def _ok_output(self, tactical_store) -> dict:
+        return run_tool(
+            "get_zonal_opportunity", {"opponent": "Crystal Palace"},
+            _bootstrap_with_elements(),
+        )
+
+    def test_meta_extracted_on_ok(self, tactical_store):
+        from fpl_grounded_assistant.final_response import _extract_structured_meta
+
+        meta = _extract_structured_meta(
+            "zonal_opportunity", self._ok_output(tactical_store), "ok"
+        )
+        zo = meta["zonal_opportunity"]
+        assert zo is not None
+        assert zo.opponent == "Crystal Palace"
+        assert zo.weakness_label == "Débil dentro del área"
+        assert len(zo.zones) == 3
+        assert [z.lateral for z in zo.zones] == ["left", "central", "right"]
+        assert all(z.opportunity_level in ("opp", "warm", "cool") for z in zo.zones)
+        assert zo.exploiters and zo.exploiters[0].rank == 1
+        assert zo.exploiters[0].web_name == "Poacher"
+        assert zo.exploiters[0].team_short == "BUR"
+        assert zo.exploiters[0].position == "MID"
+        assert zo.exploiters[0].fit_score == 10.0
+        assert zo.ai_active is True
+        # every other structured field stays None on this intent
+        assert meta["differential"] is None and meta["comparison"] is None
+
+    def test_meta_none_on_non_ok_outcome(self, tactical_store):
+        from fpl_grounded_assistant.final_response import _extract_structured_meta
+
+        out = run_tool("get_zonal_opportunity", {"opponent": "Real Madrid"}, _bootstrap())
+        assert out["status"] == "not_found"
+        meta = _extract_structured_meta("zonal_opportunity", out, "not_found")
+        assert meta["zonal_opportunity"] is None
+
+    def test_meta_none_on_missing_context(self, empty_store):
+        from fpl_grounded_assistant.final_response import _extract_structured_meta
+
+        out = run_tool("get_zonal_opportunity", {"opponent": "Crystal Palace"}, _bootstrap())
+        assert out["status"] == "missing_context"
+        meta = _extract_structured_meta("zonal_opportunity", out, "missing_context")
+        assert meta["zonal_opportunity"] is None
+
+    def test_meta_none_on_pre_enrichment_payload(self):
+        # A stale payload without the T4b "zones" field must not render a
+        # half-empty card.
+        from fpl_grounded_assistant.final_response import (
+            _extract_zonal_opportunity_meta,
+        )
+
+        legacy = {"status": "ok", "opponent": "Crystal Palace", "opportunities": []}
+        assert _extract_zonal_opportunity_meta(legacy) is None
+
+    def test_finalresponse_has_zonal_opportunity_field(self):
+        import dataclasses
+
+        from fpl_grounded_assistant.final_response import FinalResponse
+
+        names = {f.name for f in dataclasses.fields(FinalResponse)}
+        assert "zonal_opportunity" in names

@@ -73,7 +73,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from . import telemetry as _telemetry  # Phase 2.7g: in-process telemetry (never raises)
-from .dispatcher import OUTCOME_OK, OUTCOME_NEEDS_CLARIFICATION, INTENT_COMPARE_PLAYERS, INTENT_CAPTAIN_SCORE, INTENT_RANK_CANDIDATES, INTENT_MULTI_INTENT, INTENT_TRANSFER_ADVICE, INTENT_CHIP_ADVICE, INTENT_PLAYER_FIXTURE_RUN, INTENT_DIFFERENTIAL_PICKS, INTENT_PLAYER_FORM, INTENT_INJURY_LIST, INTENT_PRICE_CHANGES, INTENT_TEAM_FIXTURE_CALENDAR, INTENT_TEAM_SCHEDULE, INTENT_POSITION_FIXTURE_RUN, INTENT_TRANSFER_SUGGESTION  # noqa: F401 — re-exported
+from .dispatcher import OUTCOME_OK, OUTCOME_NEEDS_CLARIFICATION, INTENT_COMPARE_PLAYERS, INTENT_CAPTAIN_SCORE, INTENT_RANK_CANDIDATES, INTENT_MULTI_INTENT, INTENT_TRANSFER_ADVICE, INTENT_CHIP_ADVICE, INTENT_PLAYER_FIXTURE_RUN, INTENT_DIFFERENTIAL_PICKS, INTENT_PLAYER_FORM, INTENT_INJURY_LIST, INTENT_PRICE_CHANGES, INTENT_TEAM_FIXTURE_CALENDAR, INTENT_TEAM_SCHEDULE, INTENT_POSITION_FIXTURE_RUN, INTENT_TRANSFER_SUGGESTION, INTENT_ZONAL_OPPORTUNITY  # noqa: F401 — re-exported
 from .dispatcher import _TOOL_TO_INTENT, INTENT_UNSUPPORTED  # _orch_result_to_final_response: tool->intent map
 from .multi_intent import detect_multi_intent
 from .llm_layer import DEFAULT_MODEL
@@ -417,6 +417,61 @@ class DifferentialPicksMeta:
     ownership_threshold: float
     top_n:               int
     picks:               tuple[DifferentialEntry, ...]
+
+
+# ---------------------------------------------------------------------------
+# Defensive zones metadata  (T4b — zonal-opportunity card)
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class ZoneCell:
+    """One in-box lateral cell of the Defensive Zones pitch view.
+
+    ``lateral`` is attacker-frame (``left`` / ``central`` / ``right`` — the
+    engine's orientation caveat applies; verdict text already flips into the
+    defender frame). ``opportunity_level`` ∈ ``opp`` / ``warm`` / ``cool``
+    drives the card's turquoise/amber/grey coding.
+    """
+    lateral:           str
+    pct_over_avg:      float
+    opportunity_level: str
+
+
+@dataclass(frozen=True)
+class Exploiter:
+    """One row of the card's "Quién lo explota" zone-fit table.
+
+    ``position`` is ``""`` when the best-effort FPL name-join missed
+    (fragile — same family as the _resolve_team alias bug); the player is
+    still listed. ``fit_score`` is the engine's 0–10 zone-fit heuristic,
+    relative within this answer only.
+    """
+    rank:       int
+    web_name:   str
+    team_short: str
+    position:   str
+    zone:       str
+    fit_score:  float
+
+
+@dataclass(frozen=True)
+class DefensiveZonesMeta:
+    """Structured zonal-opportunity output for the Defensive Zones card (T4b).
+
+    Populated on ``FinalResponse`` when ``intent == zonal_opportunity`` and
+    ``outcome == ok``.  ``None`` for all other turns.  All values come from
+    the ``get_zonal_opportunity`` tool output (engine + wrapper enrichment);
+    ``ai_active`` is fixed ``True`` because this intent only arrives via the
+    LLM-orchestrated path. Opportunity/suitability signal only — never
+    buy/sell.
+    """
+    opponent:             str
+    weakness_label:       str
+    verdict:              str
+    zones:                tuple[ZoneCell, ...]      # exactly the 3 in-box laterals
+    exploiters:           tuple[Exploiter, ...]
+    penalty_xga_per_game: float
+    ai_active:            bool
 
 
 # ---------------------------------------------------------------------------
@@ -951,6 +1006,7 @@ class FinalResponse:
     team_schedule:   "TeamScheduleMeta | None"             = field(default=None)  # Phase 2.6e.3
     position_fixture_run: "PositionFixtureRunMeta | None"  = field(default=None)  # Phase 2.6e.4
     transfer_suggestion:  "TransferSuggestionMeta | None"  = field(default=None)  # Phase 2.6h
+    zonal_opportunity:    "DefensiveZonesMeta | None"      = field(default=None)  # T4b
     # Phase 2.7d: routing audit fields (additive, safe defaults)
     route_source:          "str | None"                    = field(default=None)   # which routing stage decided
     classifier_confidence: "float | None"                  = field(default=None)   # LLM classifier confidence when attempted
@@ -1368,6 +1424,47 @@ def _extract_differential_meta(ro: "dict[str, Any]") -> "DifferentialPicksMeta |
         return None
 
 
+def _extract_zonal_opportunity_meta(ro: "dict[str, Any]") -> "DefensiveZonesMeta | None":
+    """Extract DefensiveZonesMeta from a get_zonal_opportunity tool_output dict.
+
+    Requires the T4b-enriched payload (``zones`` present) — pre-enrichment
+    payloads degrade to ``None`` so the card never renders half-empty.
+    """
+    try:
+        if not ro.get("zones"):
+            return None
+        return DefensiveZonesMeta(
+            opponent       = ro.get("opponent", ""),
+            weakness_label = ro.get("weakness_label", ""),
+            verdict        = ro.get("verdict", ""),
+            zones          = tuple(
+                ZoneCell(
+                    lateral           = z["lateral"],
+                    pct_over_avg      = float(z["pct_over_avg"]),
+                    opportunity_level = z["opportunity_level"],
+                )
+                for z in ro.get("zones", [])
+            ),
+            exploiters     = tuple(
+                Exploiter(
+                    rank       = int(e["rank"]),
+                    web_name   = e.get("web_name") or e.get("player", ""),
+                    team_short = e.get("team_short", ""),
+                    position   = e.get("position", ""),
+                    zone       = e["zone"],
+                    fit_score  = float(e["fit_score"]),
+                )
+                for e in ro.get("exploiters", [])
+            ),
+            penalty_xga_per_game = float(
+                (ro.get("penalty_context") or {}).get("penalty_xga_per_game", 0.0)
+            ),
+            ai_active      = True,  # zonal_opportunity only arrives via the orch path
+        )
+    except Exception:  # noqa: BLE001
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Phase 2.6d: extraction helpers for new intents
 # ---------------------------------------------------------------------------
@@ -1630,8 +1727,8 @@ def _extract_structured_meta(
         ``"transfer"``, ``"chip"``, ``"fixture_run"``, ``"differential"``,
         ``"player_form"``, ``"injury_list"``, ``"price_changes"``,
         ``"team_calendar"``, ``"team_schedule"``, ``"position_fixture_run"``,
-        ``"transfer_suggestion"``.  All values are ``None`` for intents /
-        outcomes that do not populate the field.
+        ``"transfer_suggestion"``, ``"zonal_opportunity"``.  All values are
+        ``None`` for intents / outcomes that do not populate the field.
     """
     ok = (outcome == OUTCOME_OK)
 
@@ -1649,6 +1746,7 @@ def _extract_structured_meta(
     team_schedule_meta:      "TeamScheduleMeta | None"            = None
     position_fixture_run_meta: "PositionFixtureRunMeta | None"    = None
     transfer_suggestion_meta:  "TransferSuggestionMeta | None"    = None
+    zonal_opportunity_meta:    "DefensiveZonesMeta | None"        = None
 
     if ok:
         if intent == INTENT_COMPARE_PLAYERS:
@@ -1679,6 +1777,8 @@ def _extract_structured_meta(
             position_fixture_run_meta = _extract_position_fixture_run_meta(raw_output)
         elif intent == INTENT_TRANSFER_SUGGESTION:
             transfer_suggestion_meta = _extract_transfer_suggestion_meta(raw_output)
+        elif intent == INTENT_ZONAL_OPPORTUNITY:
+            zonal_opportunity_meta = _extract_zonal_opportunity_meta(raw_output)
 
     return {
         "comparison":           comparison,
@@ -1695,6 +1795,7 @@ def _extract_structured_meta(
         "team_schedule":        team_schedule_meta,
         "position_fixture_run": position_fixture_run_meta,
         "transfer_suggestion":  transfer_suggestion_meta,
+        "zonal_opportunity":    zonal_opportunity_meta,
     }
 
 
@@ -1863,6 +1964,7 @@ def _orch_result_to_final_response(
     chip:            "ChipAdviceMeta | None"                 = None
     fixture_run:     "FixtureRunMeta | None"                 = None
     differential:    "DifferentialPicksMeta | None"          = None
+    zonal_opportunity: "DefensiveZonesMeta | None"           = None
 
     if intent == INTENT_CAPTAIN_SCORE:
         captain = _extract_captain_meta(ro)
@@ -1878,6 +1980,8 @@ def _orch_result_to_final_response(
         fixture_run = _extract_fixture_run_meta(ro)
     elif intent == INTENT_DIFFERENTIAL_PICKS:
         differential = _extract_differential_meta(ro)
+    elif intent == INTENT_ZONAL_OPPORTUNITY:
+        zonal_opportunity = _extract_zonal_opportunity_meta(ro)
 
     # Orch-4d: apply squad_context overrides (budget, hit_warning, chip_unavail)
     # using the same shared helper as the deterministic path for parity.
@@ -1915,6 +2019,7 @@ def _orch_result_to_final_response(
         chip=chip,
         fixture_run=fixture_run,
         differential=differential,
+        zonal_opportunity=zonal_opportunity,  # T4b
         orch_outcome=ORCH_OUTCOME_OK,  # Orch-4c: audit — orch path was used
         total_tokens=result.total_tokens,
     )
@@ -2091,6 +2196,7 @@ def respond(
         team_schedule=_meta["team_schedule"],  # Phase 2.6e.3
         position_fixture_run=_meta["position_fixture_run"],  # Phase 2.6e.4
         transfer_suggestion=_meta["transfer_suggestion"],    # Phase 2.6h
+        zonal_opportunity=_meta["zonal_opportunity"],        # T4b
         # Phase 2.7d: routing audit fields threaded from DispatchResult
         route_source=dr.route_source,
         classifier_confidence=dr.classifier_confidence,

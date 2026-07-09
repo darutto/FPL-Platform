@@ -301,6 +301,7 @@ class AskResponse(BaseModel):
     team_schedule: dict[str, Any] | None = None            # Phase 2.6e.3
     position_fixture_run: dict[str, Any] | None = None    # Phase 2.6e.4
     transfer_suggestion:  dict[str, Any] | None = None    # Phase 2.6h
+    zonal_opportunity:    dict[str, Any] | None = None    # T4b: defensive zones card
     # Phase A1 (post-graduation): full ResourceListResult dict for @resource turns; null for all other intents.
     resource_rows:        dict[str, Any] | None = None
     # Phase 2.7d: routing audit fields
@@ -360,6 +361,7 @@ class SessionAskResponse(BaseModel):
     team_schedule: dict[str, Any] | None = None            # Phase 2.6e.3
     position_fixture_run: dict[str, Any] | None = None    # Phase 2.6e.4
     transfer_suggestion:  dict[str, Any] | None = None    # Phase 2.6h
+    zonal_opportunity:    dict[str, Any] | None = None    # T4b: defensive zones card
     # Phase A1 (post-graduation): full ResourceListResult dict for @resource turns; null for all other intents.
     resource_rows:        dict[str, Any] | None = None
     # Phase 2.7d: routing audit fields
@@ -923,6 +925,36 @@ def _transfer_suggestion_meta_dict(ts: Any) -> dict[str, Any]:
             }
             for p in ts.picks
         ],
+    }
+
+
+def _zonal_opportunity_meta_dict(zo: Any) -> dict[str, Any]:
+    """Serialise a DefensiveZonesMeta instance.  T4b."""
+    return {
+        "opponent":       zo.opponent,
+        "weakness_label": zo.weakness_label,
+        "verdict":        zo.verdict,
+        "zones": [
+            {
+                "lateral":           z.lateral,
+                "pct_over_avg":      z.pct_over_avg,
+                "opportunity_level": z.opportunity_level,
+            }
+            for z in zo.zones
+        ],
+        "exploiters": [
+            {
+                "rank":       e.rank,
+                "web_name":   e.web_name,
+                "team_short": e.team_short,
+                "position":   e.position,
+                "zone":       e.zone,
+                "fit_score":  e.fit_score,
+            }
+            for e in zo.exploiters
+        ],
+        "penalty_xga_per_game": zo.penalty_xga_per_game,
+        "ai_active":            zo.ai_active,
     }
 
 
@@ -1979,6 +2011,7 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         team_schedule=sess_team_schedule_bundle,
         position_fixture_run=sess_pos_fixture_run_bundle,
         transfer_suggestion=_transfer_suggestion_meta_dict(r.transfer_suggestion) if r.transfer_suggestion is not None else None,
+        zonal_opportunity=_zonal_opportunity_meta_dict(r.zonal_opportunity) if r.zonal_opportunity is not None else None,  # T4b
         # Phase 2.7d: routing audit fields
         route_source=r.route_source,
         classifier_confidence=r.classifier_confidence,

@@ -13,10 +13,13 @@ works and the orchestrator can reach them from plain-text questions.
 
 Atomic-tool pattern: the LLM-facing schemas live in
 ``tool_schema_registry`` (``GET_ZONAL_WEAKNESS_SCHEMA`` /
-``GET_ZONAL_OPPORTUNITY_SCHEMA``, members of ``_ALL_SCHEMAS``) but the tools
-are deliberately kept OUT of ``_TOOL_TO_INTENT`` / ``SUPPORTED_INTENTS`` /
-the classifier — the orchestrator narrates their payloads as text; no
-dedicated card in this slice.
+``GET_ZONAL_OPPORTUNITY_SCHEMA``, members of ``_ALL_SCHEMAS``) and the tools
+are deliberately kept OUT of ``SUPPORTED_INTENTS`` / the classifier.
+T4b partial promotion: ``get_zonal_opportunity`` alone is additionally
+mapped in ``_TOOL_TO_INTENT`` (intent ``zonal_opportunity``) so its payload
+projects to ``DefensiveZonesMeta`` and the UI renders the Defensive Zones
+card; ``get_zonal_weakness`` / ``get_player_zonal_outlook`` stay
+text-narrated by the orchestrator.
 
 Handlers return ``status ∈ {ok, not_found, missing_context}`` and never
 raise into the orchestrator: an absent tactical store (or any unexpected
@@ -66,6 +69,56 @@ _SHORT_TO_UNDERSTAT: dict[str, str] = {
     "WHU": "West Ham",
     "WOL": "Wolverhampton Wanderers",
 }
+
+
+# Inverted bridge for the T4b card: store (Understat) team name → FPL short.
+_UNDERSTAT_TO_SHORT: dict[str, str] = {
+    v.lower(): k for k, v in _SHORT_TO_UNDERSTAT.items()
+}
+
+_POSITION_SHORT: dict[int, str] = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
+
+
+def _enrich_exploiters(
+    exploiters: list[dict[str, Any]], bootstrap: dict[str, Any]
+) -> list[dict[str, Any]]:
+    """Best-effort FPL enrichment of engine exploiter rows (T4b card).
+
+    Adds ``team_short`` (store team name → FPL short via the inverted
+    ``_SHORT_TO_UNDERSTAT`` bridge) and ``web_name`` / ``position`` (join
+    the Understat player name against the FPL bootstrap by full
+    ``first_name second_name``, fallback ``web_name``).
+
+    FRAGILE name join — same family as the open ``_resolve_team``
+    display-name alias bug: Understat full names don't always equal FPL
+    names (accents, shortened first names). Degrade gracefully: unmatched
+    players keep the store name as ``web_name`` and get ``position: ""``;
+    a player is never dropped.
+    """
+    elements = (bootstrap or {}).get("elements") or []
+    by_full: dict[str, dict[str, Any]] = {}
+    by_web: dict[str, dict[str, Any]] = {}
+    for el in elements:
+        full = f"{el.get('first_name', '')} {el.get('second_name', '')}".strip().lower()
+        if full and full not in by_full:
+            by_full[full] = el
+        web = str(el.get("web_name", "") or "").strip().lower()
+        if web and web not in by_web:
+            by_web[web] = el
+    out: list[dict[str, Any]] = []
+    for entry in exploiters:
+        e = dict(entry)
+        e["team_short"] = _UNDERSTAT_TO_SHORT.get(str(e.get("team", "")).lower(), "")
+        name = str(e.get("player", "")).strip().lower()
+        el = by_full.get(name) or by_web.get(name)
+        if el is not None:
+            e["web_name"] = str(el.get("web_name") or e.get("player", ""))
+            e["position"] = _POSITION_SHORT.get(el.get("element_type"), "")
+        else:
+            e["web_name"] = str(e.get("player", ""))
+            e["position"] = ""
+        out.append(e)
+    return out
 
 
 def _to_store_team(team_query: str, bootstrap: dict[str, Any]) -> str:
@@ -130,6 +183,8 @@ def _get_zonal_opportunity_handler(
         result["message"] = (
             "Tactical (Understat zonal) store not available on this deployment."
         )
+    elif result["status"] == "ok" and result.get("exploiters"):
+        result["exploiters"] = _enrich_exploiters(result["exploiters"], bootstrap)
     return result
 
 
@@ -187,9 +242,14 @@ GET_ZONAL_OPPORTUNITY_SPEC = ToolSpec(
     output_schema={
         "type": "object",
         "properties": {
-            "status":        {"type": "string"},
-            "opponent":      {"type": "string"},
-            "opportunities": {"type": "array"},
+            "status":          {"type": "string"},
+            "opponent":        {"type": "string"},
+            "opportunities":   {"type": "array"},
+            "zones":           {"type": "array"},   # T4b: 3 in-box lateral cells
+            "exploiters":      {"type": "array"},   # T4b: ranked zone-fit table
+            "weakness_label":  {"type": "string"},  # T4b
+            "verdict":         {"type": "string"},  # T4b
+            "penalty_context": {"type": "object"},  # T4b
         },
     },
 )

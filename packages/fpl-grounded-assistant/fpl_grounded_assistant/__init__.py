@@ -123,6 +123,10 @@ from .final_response import (
     # Phase 7g: structured differential picks metadata
     DifferentialEntry,
     DifferentialPicksMeta,
+    # T4b: structured defensive-zones (zonal opportunity) card metadata
+    ZoneCell,
+    Exploiter,
+    DefensiveZonesMeta,
 )
 from .final_response_fixtures import (
     # Phase 3d: final response contract fixtures
@@ -338,6 +342,9 @@ __all__ = [
     "FixtureRunMeta",           # Phase 7h
     "DifferentialEntry",        # Phase 7g
     "DifferentialPicksMeta",    # Phase 7g
+    "ZoneCell",                 # T4b
+    "Exploiter",                # T4b
+    "DefensiveZonesMeta",       # T4b
     # Phase 3a: LLM layer
     "LLMResponse",
     "SYSTEM_PROMPT",
