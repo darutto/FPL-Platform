@@ -65,12 +65,17 @@ export type Intent =
   | 'team_fixture_calendar'
   | 'team_schedule'
   | 'position_fixture_run'
-  | 'transfer_suggestion';
+  | 'transfer_suggestion'
+  // T4b: orchestrator-only renderable intent (in dispatcher._TOOL_TO_INTENT
+  // but deliberately NOT in SUPPORTED_INTENTS/the classifier).
+  | 'zonal_opportunity';
 
 /**
  * Runtime-accessible list of all backend-supported intent values.
  * Used by contract tests to guard against future intent drift.
- * Must stay in sync with dispatcher.py → SUPPORTED_INTENTS frozenset.
+ * Must stay in sync with dispatcher.py → SUPPORTED_INTENTS frozenset, plus
+ * the orchestrator-only renderable intents mapped in _TOOL_TO_INTENT
+ * (multi_intent, zonal_opportunity).
  */
 export const SUPPORTED_INTENT_VALUES = [
   'captain_score',
@@ -91,6 +96,7 @@ export const SUPPORTED_INTENT_VALUES = [
   'team_schedule',
   'position_fixture_run',
   'transfer_suggestion',
+  'zonal_opportunity',
 ] as const satisfies readonly Intent[];
 
 export type FplPosition = 'FWD' | 'MID' | 'DEF' | 'GKP';
@@ -214,6 +220,11 @@ export interface AskResponse {
   fixture_run: FixtureRunMeta | null;
   differential: DifferentialPicksMeta | null;
   sub_responses: AskResponse[] | null;
+  /**
+   * Defensive zones payload (T4b) — non-null when intent=zonal_opportunity
+   * AND outcome=ok. Optional because pre-T4b fixtures/serialisers omit it.
+   */
+  zonal_opportunity?: DefensiveZonesMeta | null;
 
   /**
    * Provider degradation flag (Phase 2.6b).
@@ -356,6 +367,57 @@ export interface DifferentialPicksMeta {
   ownership_threshold: number;
   top_n: number;
   picks: DifferentialEntry[];
+}
+
+// ---------------------------------------------------------------------------
+// Defensive zones types (T4b — zonal_opportunity card)
+// Source: fpl_grounded_assistant/final_response.py → DefensiveZonesMeta
+// ---------------------------------------------------------------------------
+
+/**
+ * Attacker-frame lateral band of the penalty box (backend invariant).
+ * The verdict string already flips into the defender frame; the pitch view
+ * renders left→'Izquierda' etc. as drawn (goal at the top).
+ */
+export type ZoneLateral = 'left' | 'central' | 'right';
+
+/**
+ * Opportunity coding for a zone — encodes YOUR attacking advantage:
+ * 'opp' = clearly above league average (turquoise), 'warm' = slightly above
+ * (amber/gold), 'cool' = at/below (grey). Never coral/red for a strong zone.
+ */
+export type OpportunityLevel = 'opp' | 'warm' | 'cool';
+
+/** One in-box lateral cell of the pitch view (always exactly 3, in order). */
+export interface DefensiveZoneCell {
+  lateral: ZoneLateral;
+  /** (xGA/game ÷ league avg − 1) × 100 — deviation from an average team. */
+  pct_over_avg: number;
+  opportunity_level: OpportunityLevel;
+}
+
+/** One row of the "Quién lo explota" zone-fit table. */
+export interface ZonalExploiter {
+  rank: number;
+  web_name: string;
+  team_short: string;
+  /** '' when the backend's best-effort FPL name join missed. */
+  position: string;
+  /** Engine zone key, e.g. 'in-box / left' (attacker frame). */
+  zone: string;
+  /** 0–10 zone-fit heuristic — relative within this answer only. */
+  fit_score: number;
+}
+
+/** zonal_opportunity field — non-null when intent=zonal_opportunity AND outcome=ok */
+export interface DefensiveZonesMeta {
+  opponent: string;
+  weakness_label: string;
+  verdict: string;
+  zones: DefensiveZoneCell[];
+  exploiters: ZonalExploiter[];
+  penalty_xga_per_game: number;
+  ai_active: boolean;
 }
 
 // ---------------------------------------------------------------------------
