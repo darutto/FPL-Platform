@@ -191,10 +191,11 @@ def _get_zonal_opportunity_handler(
 GET_ZONAL_WEAKNESS_SPEC = ToolSpec(
     name="get_zonal_weakness",
     description=(
-        "Use when the user asks WHERE or HOW a team concedes (weak zones). "
-        "Returns zones only — no player names (players → get_zonal_opportunity). "
-        "xGA/game per zone vs league baseline, owned Understat data; penalties "
-        "excluded and reported separately. Weakness read only — no buy/sell advice."
+        "Use only when the user asks purely which zones a team concedes in, "
+        "with no mention of players or exploiting (those → "
+        "get_zonal_opportunity). Where the attacking opportunity is per zone: "
+        "xGA/game vs league baseline, owned Understat data; penalties "
+        "excluded and reported separately. Opportunity read only — no buy/sell advice."
     ),
     parameters={
         "type": "object",
@@ -223,9 +224,10 @@ GET_ZONAL_WEAKNESS_SPEC = ToolSpec(
 GET_ZONAL_OPPORTUNITY_SPEC = ToolSpec(
     name="get_zonal_opportunity",
     description=(
-        "Use when the user asks WHICH PLAYERS can exploit/fit/attack a team's "
-        "weak defensive zones. Returns the opponent's weak zones WITH matched "
-        "player names (prefer over get_zonal_weakness when players are wanted). "
+        "Use whenever the user asks who/which players can exploit or attack "
+        "an opponent's weak zones — even if the question also asks which "
+        "zones they concede. Primary tool for any 'zones + players' question: "
+        "where to attack WITH the matched players to exploit each zone. "
         "Opportunity signal only — no buy/sell advice."
     ),
     parameters={
@@ -360,10 +362,11 @@ def _get_player_zonal_outlook_handler(
 GET_PLAYER_ZONAL_OUTLOOK_SPEC = ToolSpec(
     name="get_player_zonal_outlook",
     description=(
-        "Use when the user asks whether a PLAYER's upcoming fixtures suit them "
-        "zonally (do the next opponents' weak zones fit the player's shot "
-        "profile). Per-GW favorable/neutral matchup read over the next 1-5 "
-        "fixtures. Opportunity signal only — no buy/sell advice."
+        "Use when the subject is a specific named player and whether their "
+        "upcoming fixtures suit them zonally (do the next opponents' weak "
+        "zones fit the player's shot profile). Per-GW favorable/neutral "
+        "matchup read over the next 1-5 fixtures. Opportunity signal only — "
+        "no buy/sell advice."
     ),
     parameters={
         "type": "object",
