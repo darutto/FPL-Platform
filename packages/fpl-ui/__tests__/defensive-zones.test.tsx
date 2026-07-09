@@ -17,7 +17,10 @@ import '@testing-library/jest-dom';
 import {
   LEVEL_PILL_LABEL,
   LEVEL_TEXT_CLASS,
-  LEVEL_BAR_HEIGHT_PCT,
+  ZONE_SHADE_HEX,
+  zoneShadeOpacity,
+  isAverageZone,
+  formatDeltaFine,
   formatPct,
   formatFit,
   formatPenalty,
@@ -163,14 +166,60 @@ describe('level maps encode opportunity, never coral', () => {
     });
   });
 
-  test('bar heights are level-keyed (opp tallest)', () => {
-    const toNum = (pct: string) => parseFloat(pct);
-    expect(toNum(LEVEL_BAR_HEIGHT_PCT.opp)).toBeGreaterThan(
-      toNum(LEVEL_BAR_HEIGHT_PCT.warm),
+  test('shade hexes stay on the existing palette, never coral', () => {
+    expect(ZONE_SHADE_HEX.opp).toBe('#02EBAE');
+    expect(ZONE_SHADE_HEX.warm).toBe('#F2C572');
+    expect(ZONE_SHADE_HEX.cool).toBe('#6b6975');
+    for (const hex of Object.values(ZONE_SHADE_HEX)) {
+      expect(hex.toLowerCase()).not.toBe('#ff6a4d');
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Helpers — zone shading
+// ---------------------------------------------------------------------------
+
+describe('zoneShadeOpacity', () => {
+  test('scales with strength: stronger zone reads more saturated', () => {
+    expect(zoneShadeOpacity('opp', 69.8)).toBeGreaterThan(
+      zoneShadeOpacity('opp', 20),
     );
-    expect(toNum(LEVEL_BAR_HEIGHT_PCT.warm)).toBeGreaterThan(
-      toNum(LEVEL_BAR_HEIGHT_PCT.cool),
+    expect(zoneShadeOpacity('opp', 20)).toBeGreaterThan(
+      zoneShadeOpacity('warm', 1.5),
     );
+    expect(zoneShadeOpacity('warm', 1.5)).toBeGreaterThan(
+      zoneShadeOpacity('cool', -31.7),
+    );
+  });
+
+  test('caps so an outlier never becomes a solid block', () => {
+    expect(zoneShadeOpacity('opp', 400)).toBe(0.55);
+  });
+
+  test('cool zones are a flat faint wash regardless of pct', () => {
+    expect(zoneShadeOpacity('cool', -31.7)).toBe(zoneShadeOpacity('cool', 0));
+    expect(zoneShadeOpacity('cool', 0)).toBeLessThan(0.1);
+  });
+
+  test('negative pct never dims below the level floor', () => {
+    expect(zoneShadeOpacity('warm', -5)).toBe(zoneShadeOpacity('warm', 0));
+  });
+});
+
+describe('isAverageZone / formatDeltaFine', () => {
+  test('below +0.5% (incl. negatives) is an average zone', () => {
+    expect(isAverageZone(0.4)).toBe(true);
+    expect(isAverageZone(-31.7)).toBe(true);
+    expect(isAverageZone(0.5)).toBe(false);
+    expect(isAverageZone(69.8)).toBe(false);
+  });
+
+  test('fine delta keeps one decimal, always signed', () => {
+    expect(formatDeltaFine(69.8)).toBe('+69.8%');
+    expect(formatDeltaFine(1.5)).toBe('+1.5%');
+    expect(formatDeltaFine(-31.7)).toBe('−31.7%');
+    expect(formatDeltaFine(0)).toBe('+0.0%');
   });
 });
 
@@ -253,31 +302,48 @@ describe('DefensiveZonesCard', () => {
     expect(screen.getByText('Débil dentro del área')).toBeInTheDocument();
   });
 
-  test('renders 3 zone readings with correct values, labels and pills', () => {
+  test('renders in-box readings: big pct + fine delta, ≈ media for average', () => {
     render(<DefensiveZonesCard data={palaceMeta} />);
-    // +70% appears twice: bolded in the verdict AND as the left reading
+    // +70% appears twice: bolded in the verdict AND inside the left region
     expect(screen.getAllByText('+70%').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('+69.8%')).toBeInTheDocument();
     expect(screen.getByText('+2%')).toBeInTheDocument();
-    expect(screen.getByText('≈ 0%')).toBeInTheDocument();
+    expect(screen.getByText('+1.5%')).toBeInTheDocument();
+    // average (right) zone: muted '≈ media', no numbers at all
+    expect(screen.getByText('≈ media')).toBeInTheDocument();
+    expect(screen.queryByText('≈ 0%')).not.toBeInTheDocument();
+    expect(screen.queryByText('−31.7%')).not.toBeInTheDocument();
+  });
+
+  test('readings row keeps labels + pills but no duplicated numbers', () => {
+    render(<DefensiveZonesCard data={palaceMeta} />);
     expect(screen.getByText('Izquierda')).toBeInTheDocument();
     expect(screen.getByText('Centro')).toBeInTheDocument();
     expect(screen.getByText('Derecha')).toBeInTheDocument();
     expect(screen.getByText('tu mejor zona')).toBeInTheDocument();
     expect(screen.getByText('ventaja leve')).toBeInTheDocument();
     expect(screen.getByText('sin ventaja')).toBeInTheDocument();
+    // each in-box number renders exactly once (the row no longer repeats it)
+    expect(screen.getAllByText('+2%')).toHaveLength(1);
   });
 
-  test('pitch bars carry level-coded heights', () => {
+  test('zone thirds are shaded with level color + strength-scaled opacity', () => {
     render(<DefensiveZonesCard data={palaceMeta} />);
-    expect(screen.getByTestId('zone-bar-left')).toHaveStyle({
-      height: LEVEL_BAR_HEIGHT_PCT.opp,
-    });
-    expect(screen.getByTestId('zone-bar-central')).toHaveStyle({
-      height: LEVEL_BAR_HEIGHT_PCT.warm,
-    });
-    expect(screen.getByTestId('zone-bar-right')).toHaveStyle({
-      height: LEVEL_BAR_HEIGHT_PCT.cool,
-    });
+    const left = screen.getByTestId('zone-shade-left');
+    const central = screen.getByTestId('zone-shade-central');
+    const right = screen.getByTestId('zone-shade-right');
+    expect(left).toHaveAttribute('fill', ZONE_SHADE_HEX.opp);
+    expect(central).toHaveAttribute('fill', ZONE_SHADE_HEX.warm);
+    expect(right).toHaveAttribute('fill', ZONE_SHADE_HEX.cool);
+    const opacity = (el: HTMLElement) =>
+      parseFloat(el.getAttribute('fill-opacity') ?? '0');
+    expect(opacity(left)).toBeCloseTo(zoneShadeOpacity('opp', 69.8), 5);
+    expect(opacity(left)).toBeGreaterThan(opacity(central));
+    expect(opacity(central)).toBeGreaterThan(opacity(right));
+    // regions tile the full penalty box (x 30..330 in thirds)
+    expect(left).toHaveAttribute('x', '30');
+    expect(central).toHaveAttribute('x', '130');
+    expect(right).toHaveAttribute('x', '230');
   });
 
   test('renders exploiter table with rank, name, team·pos, zone pill, fit', () => {
