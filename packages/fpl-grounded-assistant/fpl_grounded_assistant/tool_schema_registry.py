@@ -854,12 +854,14 @@ RANK_PLAYERS_BY_METRIC_SCHEMA = ToolSchema(
 GET_ZONAL_WEAKNESS_SCHEMA = ToolSchema(
     name="get_zonal_weakness",
     description=(
-        "Use when the user asks WHERE or HOW a team concedes (por dónde/en qué "
-        "zonas concede, weak zones, defensive weakness of a team). Returns "
-        "zones ONLY — no player names (for players use get_zonal_opportunity). "
-        "xGA/game per pitch zone vs league baseline from owned Understat shot "
-        "data (delta_vs_avg is the signal; penalties excluded, reported "
-        "separately). Weakness read only — never buy/sell advice."
+        "Use ONLY when the user asks purely which zones a team concedes in "
+        "(por dónde/en qué zonas concede), with NO mention of players or "
+        "exploiting. If they mention who can exploit/attack it, use "
+        "get_zonal_opportunity instead. Shows where the attacking opportunity "
+        "is per pitch zone — xGA/game vs league baseline (delta_vs_avg is the "
+        "signal; penalties excluded, reported separately), owned Understat "
+        "data. Zones ONLY, no player names. Opportunity read only — never "
+        "buy/sell advice."
     ),
     parameters={
         "type": "object",
@@ -877,12 +879,13 @@ GET_ZONAL_WEAKNESS_SCHEMA = ToolSchema(
 GET_ZONAL_OPPORTUNITY_SCHEMA = ToolSchema(
     name="get_zonal_opportunity",
     description=(
-        "Use when the user asks WHICH PLAYERS can exploit, attack, fit or "
-        "match a team's weak defensive zones (qué/cuáles jugadores pueden "
-        "explotar/encajar/aprovechar las debilidades de un equipo). Returns "
-        "the opponent's weak zones WITH matched player names — prefer this "
-        "over get_zonal_weakness whenever the user wants players. Shot "
-        "profiles vs league-baseline zones, owned Understat data. Opportunity "
+        "Use whenever the user asks WHO / WHICH PLAYERS can exploit, attack "
+        "or take advantage of an opponent's weak zones (quién puede "
+        "explotarlo/atacarlo, qué jugadores lo aprovechan) — EVEN IF the "
+        "question also asks which zones they concede. This is the PRIMARY "
+        "tool for any 'zones + players' question about an opponent: it shows "
+        "where to attack (weak zones vs league baseline) WITH the matched "
+        "players to exploit each zone, from owned Understat data. Opportunity "
         "signal only — never buy/sell advice."
     ),
     parameters={
@@ -902,13 +905,13 @@ GET_ZONAL_OPPORTUNITY_SCHEMA = ToolSchema(
 GET_PLAYER_ZONAL_OUTLOOK_SCHEMA = ToolSchema(
     name="get_player_zonal_outlook",
     description=(
-        "Use when the user asks whether a PLAYER's upcoming fixtures suit them "
-        "zonally — do the next opponents' weak defensive zones match where the "
-        "player generates xG (¿le vienen bien los próximos rivales a X?, "
-        "¿contra quién juega X y le favorece el cruce?). Per-GW "
-        "favorable/neutral matchup read over the next 1-5 fixtures (default 3), "
-        "from owned Understat shot data + the fixture calendar. Opportunity "
-        "signal only — never buy/sell advice."
+        "Use when the SUBJECT is a specific NAMED PLAYER and the question is "
+        "whether their upcoming fixtures suit them zonally — do the next "
+        "opponents' weak zones match where the player generates xG (¿le "
+        "vienen bien los próximos rivales a X?, ¿contra quién juega X y le "
+        "favorece el cruce?). Per-GW favorable/neutral matchup read over the "
+        "next 1-5 fixtures (default 3), from owned Understat shot data + the "
+        "fixture calendar. Opportunity signal only — never buy/sell advice."
     ),
     parameters={
         "type": "object",

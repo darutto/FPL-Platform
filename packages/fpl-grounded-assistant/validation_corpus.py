@@ -3521,6 +3521,48 @@ VALIDATION_SCENARIOS: tuple[ValidationScenario, ...] = (
 
 
 # ---------------------------------------------------------------------------
+# Zonal routing phrasings (Part C — LLM tool disambiguation)
+#
+# The three zonal tools are orchestrator-selected (LLM tool choice), so their
+# routing cannot be asserted by the deterministic stub runner above. This
+# block is the phrasing corpus for LIVE routing probes: run each question
+# through ask_v2() against a live orchestrator and assert selected_tool.
+#
+# Rule under test (tool_schema_registry.py + orchestrator._SYSTEM_PROMPT):
+#   get_zonal_opportunity is the PRIMARY tool whenever the question touches
+#   who/which players can exploit or attack — even if it also asks which
+#   zones a team concedes. get_zonal_weakness only for purely-zones
+#   questions. get_player_zonal_outlook when the subject is a named player's
+#   upcoming fixtures.
+#
+# Verified 2026-07-09 (Gemini, 2 runs each): 8/8 after sharpening; before,
+# v1 misrouted to get_zonal_weakness and the player control misrouted to
+# get_player_summary / get_player_snapshot.
+# ---------------------------------------------------------------------------
+
+ZONAL_ROUTING_PHRASINGS: tuple[tuple[str, str], ...] = (
+    # (question, expected selected_tool)
+    ("¿En qué zonas concede el Crystal Palace y quién puede explotarlo?",
+     "get_zonal_opportunity"),   # canonical handoff question
+    ("¿Dónde concede el Crystal Palace y qué jugadores pueden aprovecharlo?",
+     "get_zonal_opportunity"),
+    ("¿Qué zonas concede el Burnley y quién lo puede atacar?",
+     "get_zonal_opportunity"),
+    ("Where does Sunderland concede and who can exploit it?",
+     "get_zonal_opportunity"),
+    ("¿Quién puede explotar las debilidades defensivas del Crystal Palace?",
+     "get_zonal_opportunity"),
+    ("¿Cuáles son los puntos débiles del Palace y con qué jugadores los ataco?",
+     "get_zonal_opportunity"),
+    # controls — must NOT collapse into the primary tool
+    ("¿En qué zonas concede el Crystal Palace?",
+     "get_zonal_weakness"),      # purely zones, no players mentioned
+    ("¿Le vienen bien los próximos rivales a Saka?",
+     "get_player_zonal_outlook"),  # named-player fixture suitability
+)
+
+
+# ---------------------------------------------------------------------------
 # Helpers for consumers
 # ---------------------------------------------------------------------------
 
