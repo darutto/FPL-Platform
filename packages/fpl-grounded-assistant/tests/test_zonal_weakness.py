@@ -287,6 +287,72 @@ def test_opportunity_statuses_propagate():
 
 
 # ---------------------------------------------------------------------------
+# T4b card enrichment — pct_over_avg / opportunity_level / fit_score
+# ---------------------------------------------------------------------------
+
+def test_card_pct_over_avg_hand_computed():
+    # weakness_store: Palace in-box/left 0.25 vs baseline 0.1375
+    # → (0.25 / 0.1375 − 1) × 100 = +81.8%; central all-equal → 0.0.
+    out = get_zonal_opportunity("Palace", store=weakness_store())
+    assert out["status"] == "ok"
+    cells = {z["lateral"]: z for z in out["zones"]}
+    assert list(cells) == ["left", "central", "right"]
+    assert cells["left"]["pct_over_avg"] == pytest_approx(81.8, abs_=0.05)
+    assert cells["central"]["pct_over_avg"] == pytest_approx(0.0)
+    assert cells["right"]["pct_over_avg"] == pytest_approx(0.0)  # 0-vs-0 baseline
+
+
+def test_card_opportunity_levels():
+    out = get_zonal_opportunity("Palace", store=weakness_store())
+    cells = {z["lateral"]: z for z in out["zones"]}
+    assert cells["left"]["opportunity_level"] == "opp"        # ≥ +15%
+    assert cells["central"]["opportunity_level"] == "cool"    # ≈ 0
+    assert cells["right"]["opportunity_level"] == "cool"
+
+
+def test_card_weakness_label_and_verdict():
+    out = get_zonal_opportunity("Palace", store=weakness_store())
+    assert out["weakness_label"] == "Débil dentro del área"
+    # verdict flips into the defending frame (attacker left → su costado
+    # derecho) and carries the headline pct; opportunity framing only.
+    assert "dentro del área" in out["verdict"]
+    assert "su costado derecho" in out["verdict"]
+    assert "+82%" in out["verdict"]
+    for banned in ("compra", "vende", "ficha", "buy", "sell"):
+        assert banned not in out["verdict"].lower()
+    assert out["penalty_context"]["penalty_xga_per_game"] == pytest_approx(0.7611 / 2, abs_=1e-4)
+
+
+def test_card_fit_score_ordering_and_normalisation():
+    # Heavy Hitter (Villa): 10 in-box/left shots × 0.30 xG → share 1.0,
+    # total 3.0 → raw 3.0. Left Poacher: share 1.0 × total 1.0 → raw 1.0.
+    # Same zone weight for both → Heavy Hitter ranks first, fit 10.0;
+    # Poacher fit = 10 × (1/3) = 3.3.
+    df = opportunity_store()
+    extra = [_row("Boro", "Villa", 0.90, 0.20, 0.30,
+                  match_id=107, player="Heavy Hitter") for _ in range(10)]
+    df = pd.concat([df, pd.DataFrame(extra)], ignore_index=True)
+    out = get_zonal_opportunity("Palace", store=df)
+    assert out["status"] == "ok"
+    exploiters = out["exploiters"]
+    assert [e["player"] for e in exploiters[:2]] == ["Heavy Hitter", "Left Poacher"]
+    assert exploiters[0]["rank"] == 1 and exploiters[0]["fit_score"] == 10.0
+    assert exploiters[1]["fit_score"] == pytest_approx(3.3, abs_=0.05)
+    assert exploiters[0]["zone"] == "in-box / left"
+    assert exploiters[0]["team"] == "Villa"
+
+
+def test_card_exploiters_exclude_own_team_and_carry_identity():
+    out = get_zonal_opportunity("Palace", store=opportunity_store())
+    names = [e["player"] for e in out["exploiters"]]
+    assert "Palace Own" not in names
+    assert "Left Poacher" in names
+    for e in out["exploiters"]:
+        assert {"rank", "player", "team", "zone", "fit_score"} <= set(e)
+        assert 0.0 <= e["fit_score"] <= 10.0
+
+
+# ---------------------------------------------------------------------------
 # Player zonal outlook (T-player)
 # ---------------------------------------------------------------------------
 

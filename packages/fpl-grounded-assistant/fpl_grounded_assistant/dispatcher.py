@@ -87,6 +87,11 @@ INTENT_TEAM_FIXTURE_CALENDAR:   str = "team_fixture_calendar"   # Phase 2.6e
 INTENT_TEAM_SCHEDULE:           str = "team_schedule"            # Phase 2.6e.3
 INTENT_POSITION_FIXTURE_RUN:    str = "position_fixture_run"     # Phase 2.6e.4
 INTENT_TRANSFER_SUGGESTION:     str = "transfer_suggestion"       # Phase 2.6h
+# T4b: renderable card intent for the orchestrator-routed zonal-opportunity
+# tool. Deliberately NOT in SUPPORTED_INTENTS / the classifier — only the
+# orchestrator selects the tool; the mapping below labels its turns so the
+# meta extraction and the UI card fire.
+INTENT_ZONAL_OPPORTUNITY:       str = "zonal_opportunity"          # T4b
 INTENT_UNSUPPORTED:             str = "unsupported"
 
 SUPPORTED_INTENTS: frozenset[str] = frozenset({
@@ -174,6 +179,7 @@ _TOOL_TO_INTENT: dict[str, str] = {
     "get_team_schedule":            INTENT_TEAM_SCHEDULE,            # Phase 2.6e.3
     "get_position_fixture_run":     INTENT_POSITION_FIXTURE_RUN,     # Phase 2.6e.4
     "get_transfer_suggestion":      INTENT_TRANSFER_SUGGESTION,       # Phase 2.6h
+    "get_zonal_opportunity":        INTENT_ZONAL_OPPORTUNITY,          # T4b (orchestrator-only)
 }
 
 
