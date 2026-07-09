@@ -42,37 +42,46 @@ export const LEVEL_PILL_CLASS: Record<OpportunityLevel, string> = {
 };
 
 /**
- * Intensity-bar visuals per level — inline styles for the SVG overlay
- * (gradients can't come from utility classes). Hex values are the handoff's
- * §Design Tokens: bf-turquoise, bf-gold, and the handoff's muted bar grey
- * #6b6975 (dimmer than bf-gray so an empty zone recedes).
+ * Zone-shade fill per level — the same palette the card already uses
+ * everywhere else (bf-turquoise, bf-gold, and the muted grey from the
+ * original handoff bars). SVG fills can't come from utility classes.
  */
-export const LEVEL_BAR_STYLE: Record<
-  OpportunityLevel,
-  { background: string; boxShadow?: string }
-> = {
-  opp: {
-    background: 'linear-gradient(180deg,#02EBAE,rgba(2,235,174,.24))',
-    boxShadow: '0 0 22px rgba(2,235,174,.4)',
-  },
-  warm: {
-    background: 'linear-gradient(180deg,#F2C572,rgba(242,197,114,.25))',
-  },
-  cool: {
-    background: 'linear-gradient(180deg,#6b6975,rgba(107,105,117,.2))',
-  },
+export const ZONE_SHADE_HEX: Record<OpportunityLevel, string> = {
+  opp: '#02EBAE',
+  warm: '#F2C572',
+  cool: '#6b6975',
 };
 
-/**
- * Intensity-bar height per level, as % of the pitch container so the bars
- * scale with it. Derived from the handoff's px heights at 420px width
- * (container height 245px): opp 150px, warm 52px, cool 20px.
- */
-export const LEVEL_BAR_HEIGHT_PCT: Record<OpportunityLevel, string> = {
-  opp: '61.2%',
-  warm: '21.2%',
-  cool: '8.2%',
+/** Base wash opacity per level — the floor before pct scaling. */
+const ZONE_SHADE_FLOOR: Record<OpportunityLevel, number> = {
+  opp: 0.28,
+  warm: 0.16,
+  cool: 0.07,
 };
+
+/** Ceiling so an extreme outlier zone never becomes a solid block. */
+const ZONE_SHADE_MAX_OPACITY = 0.55;
+
+/** Extra opacity gained per +100% over the league average. */
+const ZONE_SHADE_PCT_GAIN = 0.35;
+
+/**
+ * Shade opacity for a zone region: a level-keyed floor plus a component
+ * that scales with the zone's strength, so the strongest zone reads as the
+ * most saturated (e.g. opp at +70% → ≈0.52). Cool zones stay a flat faint
+ * wash — "below average" carries no intensity to encode.
+ */
+export function zoneShadeOpacity(
+  level: OpportunityLevel,
+  pctOverAvg: number,
+): number {
+  const base = ZONE_SHADE_FLOOR[level];
+  if (level === 'cool') return base;
+  return Math.min(
+    ZONE_SHADE_MAX_OPACITY,
+    base + (Math.max(pctOverAvg, 0) / 100) * ZONE_SHADE_PCT_GAIN,
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Formatting
@@ -86,6 +95,24 @@ export const LEVEL_BAR_HEIGHT_PCT: Record<OpportunityLevel, string> = {
 export function formatPct(pct: number): string {
   if (pct >= 0.5) return `+${Math.round(pct)}%`;
   return '≈ 0%';
+}
+
+/**
+ * True when a zone has no real edge (below +0.5% over average, incl.
+ * negatives) — the in-box reading then shows a muted '≈ media' instead of
+ * numbers. Mirrors formatPct's rounding cutoff.
+ */
+export function isAverageZone(pctOverAvg: number): boolean {
+  return pctOverAvg < 0.5;
+}
+
+/**
+ * Small precise delta under the big in-box reading: one decimal, always
+ * signed, typographic minus (e.g. '+69.8%', '−31.7%').
+ */
+export function formatDeltaFine(pctOverAvg: number): string {
+  const sign = pctOverAvg >= 0 ? '+' : '−';
+  return `${sign}${Math.abs(pctOverAvg).toFixed(1)}%`;
 }
 
 /** Ajuste column: one decimal, e.g. '8.7'. */

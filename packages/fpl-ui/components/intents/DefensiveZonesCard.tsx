@@ -8,8 +8,10 @@
  *
  * Recreates the "Defensive Zones Card" design handoff with DS tokens:
  * header (kicker + team + coral weakness pill), verdict with turquoise pct,
- * inline-SVG penalty-box pitch with three opportunity-coded intensity bars,
- * per-zone readings, the "Quién lo explota" zone-fit table, and the footer
+ * inline-SVG penalty-box pitch with the three zone thirds shaded by
+ * opportunity (saturation scales with the zone's strength; the % reading
+ * lives inside its region, average zones read '≈ media'), per-zone
+ * labels + pills, the "Quién lo explota" zone-fit table, and the footer
  * (penalty xGA + IA ACTIVA badge).
  *
  * Color semantics (do not invert): turquoise = your best zone, gold = slight
@@ -25,8 +27,10 @@ import {
   LEVEL_PILL_LABEL,
   LEVEL_TEXT_CLASS,
   LEVEL_PILL_CLASS,
-  LEVEL_BAR_STYLE,
-  LEVEL_BAR_HEIGHT_PCT,
+  ZONE_SHADE_HEX,
+  zoneShadeOpacity,
+  isAverageZone,
+  formatDeltaFine,
   LATERAL_LABEL,
   formatPct,
   formatFit,
@@ -42,8 +46,10 @@ interface Props {
   data: DefensiveZonesMeta;
 }
 
-/** Bar x-centers per column (handoff: 22.2% / 50% / 77.8%). */
-const BAR_LEFT = ['22.2%', '50%', '77.8%'];
+/** Penalty-box thirds in SVG units: x origin per zone, region width/bounds. */
+const ZONE_X = [30, 130, 230];
+const ZONE_WIDTH = 100;
+const ZONE_CENTER_X = [80, 180, 280];
 
 export default function DefensiveZonesCard({ data }: Props) {
   const { opponent, weakness_label, verdict, zones, exploiters } = data;
@@ -84,13 +90,40 @@ export default function DefensiveZonesCard({ data }: Props) {
           </span>
         </p>
 
-        {/* Pitch view — penalty box SVG + three intensity bars */}
+        {/* Pitch view — penalty box with the three zone thirds shaded by
+            opportunity; each zone's reading lives inside its region */}
         <div className="relative mx-auto w-full max-w-[420px]">
           <svg
             viewBox="0 0 360 210"
             className="block h-auto w-full"
-            aria-hidden="true"
+            role="img"
+            aria-label={zones
+              .map(
+                (z) =>
+                  `${LATERAL_LABEL[z.lateral]}: ${
+                    isAverageZone(z.pct_over_avg)
+                      ? '≈ media'
+                      : formatPct(z.pct_over_avg)
+                  }`,
+              )
+              .join(' · ')}
           >
+            {/* shaded thirds first, pitch lines on top */}
+            {zones.map((zone, i) => (
+              <rect
+                key={zone.lateral}
+                data-testid={`zone-shade-${zone.lateral}`}
+                x={ZONE_X[i]}
+                y={26}
+                width={ZONE_WIDTH}
+                height={150}
+                fill={ZONE_SHADE_HEX[zone.opportunity_level]}
+                fillOpacity={zoneShadeOpacity(
+                  zone.opportunity_level,
+                  zone.pct_over_avg,
+                )}
+              />
+            ))}
             <rect x="30" y="26" width="300" height="150" fill="none" stroke="rgba(255,255,255,.18)" strokeWidth="1.5" />
             <rect x="110" y="26" width="140" height="46" fill="none" stroke="rgba(255,255,255,.14)" strokeWidth="1.5" />
             <rect x="150" y="20" width="60" height="6" fill="rgba(255,255,255,.85)" />
@@ -98,34 +131,58 @@ export default function DefensiveZonesCard({ data }: Props) {
             <line x1="230" y1="26" x2="230" y2="176" stroke="rgba(255,255,255,.08)" strokeWidth="1" strokeDasharray="4 5" />
             <circle cx="180" cy="112" r="3" fill="rgba(255,255,255,.4)" />
             <path d="M 140 176 A 45 45 0 0 0 220 176" fill="none" stroke="rgba(255,255,255,.12)" strokeWidth="1.5" />
+            {/* per-zone reading inside its shaded region */}
+            {zones.map((zone, i) =>
+              isAverageZone(zone.pct_over_avg) ? (
+                <text
+                  key={zone.lateral}
+                  x={ZONE_CENTER_X[i]}
+                  y={132}
+                  textAnchor="middle"
+                  fill="#ABA9AC"
+                  fillOpacity={0.55}
+                  style={{ fontSize: 12, fontWeight: 700 }}
+                >
+                  ≈ media
+                </text>
+              ) : (
+                <g key={zone.lateral}>
+                  <text
+                    x={ZONE_CENTER_X[i]}
+                    y={128}
+                    textAnchor="middle"
+                    fill={ZONE_SHADE_HEX[zone.opportunity_level]}
+                    style={{
+                      fontSize: 23,
+                      fontWeight: 900,
+                      letterSpacing: '-1px',
+                    }}
+                  >
+                    {formatPct(zone.pct_over_avg)}
+                  </text>
+                  <text
+                    x={ZONE_CENTER_X[i]}
+                    y={146}
+                    textAnchor="middle"
+                    fill={ZONE_SHADE_HEX[zone.opportunity_level]}
+                    fillOpacity={0.75}
+                    style={{ fontSize: 10.5, fontWeight: 600 }}
+                  >
+                    {formatDeltaFine(zone.pct_over_avg)}
+                  </text>
+                </g>
+              ),
+            )}
           </svg>
-          {zones.map((zone, i) => (
-            <div
-              key={zone.lateral}
-              data-testid={`zone-bar-${zone.lateral}`}
-              className="absolute w-[13.3%] -translate-x-1/2 rounded-[3px_3px_9px_9px]"
-              style={{
-                left: BAR_LEFT[i],
-                top: '15.7%',
-                height: LEVEL_BAR_HEIGHT_PCT[zone.opportunity_level],
-                ...LEVEL_BAR_STYLE[zone.opportunity_level],
-              }}
-            />
-          ))}
         </div>
 
-        {/* Per-zone readings — % + label + opportunity pill */}
+        {/* Per-zone labels + opportunity pills (the % lives in the box now) */}
         <div className="mb-1.5 mt-2 grid grid-cols-3 gap-2">
           {zones.map((zone) => (
             <div
               key={zone.lateral}
               className="flex flex-col items-center gap-1.5 text-center"
             >
-              <span
-                className={`text-2xl font-black leading-none tracking-[-1px] whitespace-nowrap ${LEVEL_TEXT_CLASS[zone.opportunity_level]}`}
-              >
-                {formatPct(zone.pct_over_avg)}
-              </span>
               <span
                 className={`text-[10.5px] font-extrabold uppercase tracking-[0.08em] ${LEVEL_TEXT_CLASS[zone.opportunity_level]}`}
               >
