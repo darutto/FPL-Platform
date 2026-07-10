@@ -39,6 +39,7 @@ from .zonal_weakness import (
 )
 # Reuse the proven team-name resolver (name / short_name / alias) and the
 # current-GW helper (fixtures come from bootstrap["team_fixtures"]).
+from .player_matching import resolve_fpl_player
 from .team_fixture_calendar import _get_current_gameweek, _resolve_team
 
 # ---------------------------------------------------------------------------
@@ -85,32 +86,18 @@ def _enrich_exploiters(
     """Best-effort FPL enrichment of engine exploiter rows (T4b card).
 
     Adds ``team_short`` (store team name → FPL short via the inverted
-    ``_SHORT_TO_UNDERSTAT`` bridge) and ``web_name`` / ``position`` (join
-    the Understat player name against the FPL bootstrap by full
-    ``first_name second_name``, fallback ``web_name``).
+    ``_SHORT_TO_UNDERSTAT`` bridge) and ``web_name`` / ``position`` via the
+    shared accent-robust matcher (``player_matching.resolve_fpl_player``:
+    full name → web_name → second_name, ambiguous surnames never guessed).
 
-    FRAGILE name join — same family as the open ``_resolve_team``
-    display-name alias bug: Understat full names don't always equal FPL
-    names (accents, shortened first names). Degrade gracefully: unmatched
-    players keep the store name as ``web_name`` and get ``position: ""``;
-    a player is never dropped.
+    Degrade gracefully: unmatched players keep the store name as
+    ``web_name`` and get ``position: ""``; a player is never dropped.
     """
-    elements = (bootstrap or {}).get("elements") or []
-    by_full: dict[str, dict[str, Any]] = {}
-    by_web: dict[str, dict[str, Any]] = {}
-    for el in elements:
-        full = f"{el.get('first_name', '')} {el.get('second_name', '')}".strip().lower()
-        if full and full not in by_full:
-            by_full[full] = el
-        web = str(el.get("web_name", "") or "").strip().lower()
-        if web and web not in by_web:
-            by_web[web] = el
     out: list[dict[str, Any]] = []
     for entry in exploiters:
         e = dict(entry)
         e["team_short"] = _UNDERSTAT_TO_SHORT.get(str(e.get("team", "")).lower(), "")
-        name = str(e.get("player", "")).strip().lower()
-        el = by_full.get(name) or by_web.get(name)
+        el = resolve_fpl_player(str(e.get("player", "")), bootstrap)
         if el is not None:
             e["web_name"] = str(el.get("web_name") or e.get("player", ""))
             e["position"] = _POSITION_SHORT.get(el.get("element_type"), "")
