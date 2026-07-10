@@ -18,6 +18,7 @@ import { selectIntentView } from '@/lib/intent-renderer';
 import { selectWcIntentView } from '@/lib/wc-intent-renderer';
 import IntentRenderer from './IntentRenderer';
 import WcIntentRenderer from '@/components/wc/WcIntentRenderer';
+import ShareActions from '@/components/share/ShareActions';
 
 export interface Message {
   id: string;
@@ -46,6 +47,7 @@ interface Props {
 
 export default function MessageList({ messages, loading, onFollowUp, followUpArmedFor }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const shareQuestionByAssistantId = assistantShareQuestionMap(messages);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -59,6 +61,7 @@ export default function MessageList({ messages, loading, onFollowUp, followUpArm
         <MessageBubble
           key={msg.id}
           message={msg}
+          shareQuestion={shareQuestionByAssistantId[msg.id] ?? null}
           isLast={msg.id === lastId}
           armed={followUpArmedFor === msg.id}
           onFollowUp={onFollowUp}
@@ -80,12 +83,13 @@ export default function MessageList({ messages, loading, onFollowUp, followUpArm
 
 interface MessageBubbleProps {
   message: Message;
+  shareQuestion: string | null;
   isLast: boolean;
   armed: boolean;
   onFollowUp?: (messageId: string) => void;
 }
 
-function MessageBubble({ message, isLast, armed, onFollowUp }: MessageBubbleProps) {
+function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const showOriginBadge = !isUser && !message.isError && (message.response != null || message.wcResponse != null);
   const showFollowUp = !isUser && !message.isError && isLast && onFollowUp != null;
@@ -107,6 +111,9 @@ function MessageBubble({ message, isLast, armed, onFollowUp }: MessageBubbleProp
       <div className="flex justify-start">
         <div className="max-w-prose w-full [&>:first-child]:mt-0">
           {hasFplCard && <IntentRenderer response={message.response!} />}
+          {hasFplCard && shareQuestion && (
+            <ShareActions question={shareQuestion} response={message.response!} />
+          )}
           {hasWcCard && <WcIntentRenderer response={message.wcResponse!} />}
           {showOriginBadge && <OriginBadges message={message} />}
           {showFollowUp && <FollowUpButton armed={armed} onClick={() => onFollowUp!(message.id)} />}
@@ -133,6 +140,23 @@ function MessageBubble({ message, isLast, armed, onFollowUp }: MessageBubbleProp
       </div>
     </div>
   );
+}
+
+function assistantShareQuestionMap(messages: Message[]): Record<string, string> {
+  const map: Record<string, string> = {};
+  let latestUserQuestion = '';
+
+  for (const msg of messages) {
+    if (msg.role === 'user') {
+      latestUserQuestion = msg.text.trim();
+      continue;
+    }
+    if (latestUserQuestion) {
+      map[msg.id] = latestUserQuestion;
+    }
+  }
+
+  return map;
 }
 
 function FollowUpButton({ armed, onClick }: { armed: boolean; onClick: () => void }) {
