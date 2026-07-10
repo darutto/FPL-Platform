@@ -18,6 +18,7 @@ import {
   LEVEL_PILL_LABEL,
   LEVEL_TEXT_CLASS,
   ZONE_SHADE_HEX,
+  ZONE_SHADE_MAX_OPACITY,
   zoneShadeOpacity,
   isAverageZone,
   formatDeltaFine,
@@ -36,24 +37,27 @@ import DefensiveZonesCard from '../components/intents/DefensiveZonesCard';
 import type { AskResponse, DefensiveZonesMeta } from '../lib/types';
 
 // ---------------------------------------------------------------------------
-// Fixture — mirrors the real Crystal Palace payload (checkpoint 1)
+// Fixture — mirrors the real Crystal Palace payload with the corrected
+// flank handedness (2026-07-09): Palace's weak band is the attacker's
+// RIGHT flank — where Saka/Bowen actually attack — and the verdict speaks
+// the same attacker/opportunity frame.
 // ---------------------------------------------------------------------------
 
 const palaceMeta: DefensiveZonesMeta = {
   opponent: 'Crystal Palace',
   weakness_label: 'Débil dentro del área',
   verdict:
-    'Crystal Palace concede más de lo normal dentro del área, sobre todo por ' +
-    'su costado derecho — un +70% sobre un equipo medio.',
+    'Ataca a Crystal Palace por la derecha dentro del área — concede un ' +
+    '+70% sobre un equipo medio ahí.',
   zones: [
-    { lateral: 'left', pct_over_avg: 69.8, opportunity_level: 'opp' },
+    { lateral: 'left', pct_over_avg: -31.7, opportunity_level: 'cool' },
     { lateral: 'central', pct_over_avg: 1.5, opportunity_level: 'warm' },
-    { lateral: 'right', pct_over_avg: -31.7, opportunity_level: 'cool' },
+    { lateral: 'right', pct_over_avg: 69.8, opportunity_level: 'opp' },
   ],
   exploiters: [
-    { rank: 1, web_name: 'Saka', team_short: 'ARS', position: 'MID', zone: 'in-box / left', fit_score: 10.0 },
-    { rank: 2, web_name: 'Bowen', team_short: 'WHU', position: 'FWD', zone: 'in-box / left', fit_score: 9.5 },
-    { rank: 3, web_name: 'Alejandro Jiménez', team_short: 'BOU', position: '', zone: 'in-box / left', fit_score: 3.2 },
+    { rank: 1, web_name: 'Saka', team_short: 'ARS', position: 'MID', zone: 'in-box / right', fit_score: 10.0 },
+    { rank: 2, web_name: 'Bowen', team_short: 'WHU', position: 'FWD', zone: 'in-box / right', fit_score: 9.5 },
+    { rank: 3, web_name: 'Alejandro Jiménez', team_short: 'BOU', position: '', zone: 'in-box / right', fit_score: 3.2 },
   ],
   penalty_xga_per_game: 0.1402,
   ai_active: true,
@@ -138,9 +142,9 @@ describe('zonePillLabel', () => {
 
 describe('levelForZone', () => {
   test('in-box zones read the matching cell level', () => {
-    expect(levelForZone('in-box / left', palaceMeta.zones)).toBe('opp');
+    expect(levelForZone('in-box / right', palaceMeta.zones)).toBe('opp');
     expect(levelForZone('in-box / central', palaceMeta.zones)).toBe('warm');
-    expect(levelForZone('in-box / right', palaceMeta.zones)).toBe('cool');
+    expect(levelForZone('in-box / left', palaceMeta.zones)).toBe('cool');
   });
 
   test('edge-of-box weak zones default to warm (not on the pitch view)', () => {
@@ -194,7 +198,10 @@ describe('zoneShadeOpacity', () => {
   });
 
   test('caps so an outlier never becomes a solid block', () => {
-    expect(zoneShadeOpacity('opp', 400)).toBe(0.55);
+    expect(zoneShadeOpacity('opp', 400)).toBe(ZONE_SHADE_MAX_OPACITY);
+    // light-tint tune (2026-07-09): the wash must stay well under half
+    // opacity even at the cap
+    expect(ZONE_SHADE_MAX_OPACITY).toBeLessThan(0.4);
   });
 
   test('cool zones are a flat faint wash regardless of pct', () => {
@@ -304,12 +311,12 @@ describe('DefensiveZonesCard', () => {
 
   test('renders in-box readings: big pct + fine delta, ≈ media for average', () => {
     render(<DefensiveZonesCard data={palaceMeta} />);
-    // +70% appears twice: bolded in the verdict AND inside the left region
+    // +70% appears twice: bolded in the verdict AND inside the right region
     expect(screen.getAllByText('+70%').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('+69.8%')).toBeInTheDocument();
     expect(screen.getByText('+2%')).toBeInTheDocument();
     expect(screen.getByText('+1.5%')).toBeInTheDocument();
-    // average (right) zone: muted '≈ media', no numbers at all
+    // average (left) zone: muted '≈ media', no numbers at all
     expect(screen.getByText('≈ media')).toBeInTheDocument();
     expect(screen.queryByText('≈ 0%')).not.toBeInTheDocument();
     expect(screen.queryByText('−31.7%')).not.toBeInTheDocument();
@@ -332,14 +339,14 @@ describe('DefensiveZonesCard', () => {
     const left = screen.getByTestId('zone-shade-left');
     const central = screen.getByTestId('zone-shade-central');
     const right = screen.getByTestId('zone-shade-right');
-    expect(left).toHaveAttribute('fill', ZONE_SHADE_HEX.opp);
+    expect(right).toHaveAttribute('fill', ZONE_SHADE_HEX.opp);
     expect(central).toHaveAttribute('fill', ZONE_SHADE_HEX.warm);
-    expect(right).toHaveAttribute('fill', ZONE_SHADE_HEX.cool);
+    expect(left).toHaveAttribute('fill', ZONE_SHADE_HEX.cool);
     const opacity = (el: HTMLElement) =>
       parseFloat(el.getAttribute('fill-opacity') ?? '0');
-    expect(opacity(left)).toBeCloseTo(zoneShadeOpacity('opp', 69.8), 5);
-    expect(opacity(left)).toBeGreaterThan(opacity(central));
-    expect(opacity(central)).toBeGreaterThan(opacity(right));
+    expect(opacity(right)).toBeCloseTo(zoneShadeOpacity('opp', 69.8), 5);
+    expect(opacity(right)).toBeGreaterThan(opacity(central));
+    expect(opacity(central)).toBeGreaterThan(opacity(left));
     // regions tile the full penalty box (x 30..330 in thirds)
     expect(left).toHaveAttribute('x', '30');
     expect(central).toHaveAttribute('x', '130');
@@ -352,7 +359,8 @@ describe('DefensiveZonesCard', () => {
     expect(screen.getByText('Saka')).toBeInTheDocument();
     expect(screen.getByText('ARS · MED')).toBeInTheDocument();
     expect(screen.getByText('10.0')).toBeInTheDocument();
-    expect(screen.getAllByText('Izq')).toHaveLength(3);
+    // corrected handedness: the right-siders' zone pill reads 'Der'
+    expect(screen.getAllByText('Der')).toHaveLength(3);
     // join-miss degrade: player still listed, no dangling separator
     expect(screen.getByText('Alejandro Jiménez')).toBeInTheDocument();
     expect(screen.getByText('BOU')).toBeInTheDocument();

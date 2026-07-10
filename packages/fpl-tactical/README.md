@@ -42,8 +42,11 @@ guard — see DECISIONS.md) and reported separately as context.
 ## Finish-zone vs buildup-flank caveat
 
 Understat coordinates give the **zone of finish** — where conceded chances
-are struck from — with lateral labels in the *attacker's* frame (a defence
-leaking in the attacker's-left band is weak down *its own right*). This is
+are struck from — with lateral labels in the *attacker's* frame: "right"
+means the flank you attack down (flank-mirror fix 2026-07-09: Understat `y`
+grows toward the attacker's LEFT, so the low band y < 0.36 is the RIGHT
+flank — pinned by known-flank players Saka/Salah/Bowen vs Mitoma). All
+copy speaks this one frame ("ataca por la derecha"). This is
 not buildup-flank attribution ("plays the right channel"); that needs
 event/heatmap data — Tier-2 FotMob/Sofascore, tracked as Phase T3 in
 `TACTICAL_ASSISTANT_ROADMAP.md`.

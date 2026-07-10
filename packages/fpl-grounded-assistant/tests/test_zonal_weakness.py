@@ -3,7 +3,7 @@ Tests for T2a — zonal_weakness engine.
 
 Covers the locked zone grid boundaries, penalty exclusion via the shared
 fpl_tactical constant, relative-to-baseline math against hand-computed
-deltas, the attacker-frame → defender-frame orientation flip in the Spanish
+deltas, the unified attacker/opportunity frame in the Spanish
 verdict, not_found / missing_context statuses, and the opportunity matcher.
 """
 from __future__ import annotations
@@ -12,6 +12,7 @@ import importlib.util as _ilu
 import os as _os
 
 import pandas as pd
+import pytest
 
 # Load zonal_weakness directly from its file, bypassing
 # fpl_grounded_assistant/__init__.py (which pulls the dispatcher/harness graph
@@ -54,7 +55,7 @@ def _row(
 def weakness_store() -> pd.DataFrame:
     """4 teams, hand-computed profile.
 
-    in-box/left xGA per game:  Palace 0.50/2 games = 0.25 · Villa 0.10 ·
+    in-box/right xGA per game:  Palace 0.50/2 games = 0.25 · Villa 0.10 ·
     Boro 0.10 · Wolves 0.10  → baseline 0.1375, Palace delta +0.1125.
     in-box/central: 1.00/game for everyone → baseline 1.0, all deltas 0.
     edge-of-box/right: Villa 0.20, rest 0 → baseline 0.05, Villa +0.15.
@@ -67,37 +68,37 @@ def weakness_store() -> pd.DataFrame:
         _row("Palace", "Villa", 0.90, 0.50, 1.00, match_id=1),           # central
         _row("Palace", "Villa", 0.885, 0.50, 0.7611, match_id=1,
              situation=PENALTY_SITUATION, result="Goal"),                # penalty
-        _row("Villa", "Palace", 0.86, 0.10, 0.10, match_id=1),           # in-box/left
+        _row("Villa", "Palace", 0.86, 0.10, 0.10, match_id=1),           # in-box/right
         _row("Villa", "Palace", 0.90, 0.50, 1.00, match_id=1),           # central
         _row("Villa", "Palace", 0.75, 0.70, 0.20, match_id=1),           # edge/right
         # --- match 2: Palace concedes again (Boro shoots) + Boro concedes
         _row("Palace", "Boro", 0.90, 0.50, 1.00, match_id=2),            # central
-        _row("Boro", "Palace", 0.90, 0.35, 0.10, match_id=2),            # in-box/left
+        _row("Boro", "Palace", 0.90, 0.35, 0.10, match_id=2),            # in-box/right
         _row("Boro", "Palace", 0.90, 0.50, 1.00, match_id=2),            # central
         _row("Boro", "Palace", 0.50, 0.50, 0.30, match_id=2),            # long-range
         # --- match 3: Wolves concede
-        _row("Wolves", "Boro", 0.88, 0.20, 0.10, match_id=3),            # in-box/left
+        _row("Wolves", "Boro", 0.88, 0.20, 0.10, match_id=3),            # in-box/right
         _row("Wolves", "Boro", 0.90, 0.50, 1.00, match_id=3),            # central
     ]
     return pd.DataFrame(rows)
 
 
 def opportunity_store() -> pd.DataFrame:
-    """Palace made very weak in in-box/left; three profiled players.
+    """Palace made very weak in in-box/right; three profiled players.
 
-    - "Left Poacher" (Wolves): 10 in-box/left shots → operates there.
-    - "Palace Own" (Palace): 10 in-box/left shots → own team, excluded.
+    - "Right Poacher" (Wolves): 10 in-box/right shots → operates there.
+    - "Palace Own" (Palace): 10 in-box/right shots → own team, excluded.
     - "Long Ranger" (Boro): 10 long-range shots → no zone share.
     """
     rows = []
     for i in range(10):
         rows.append(_row("Palace", "Wolves", 0.90, 0.20, 0.10,
-                         match_id=101, player="Left Poacher"))
+                         match_id=101, player="Right Poacher"))
         rows.append(_row("Villa", "Palace", 0.90, 0.20, 0.10,
                          match_id=102, player="Palace Own"))
         rows.append(_row("Boro", "Wolves", 0.50, 0.50, 0.05,
                          match_id=103, player="Long Ranger"))
-    # one light in-box/left concession each for the other three teams
+    # one light in-box/right concession each for the other three teams
     rows.append(_row("Villa", "Boro", 0.90, 0.20, 0.10, match_id=104))
     rows.append(_row("Boro", "Villa", 0.90, 0.20, 0.10, match_id=105))
     rows.append(_row("Wolves", "Villa", 0.90, 0.20, 0.10, match_id=106))
@@ -124,10 +125,64 @@ def test_zone_long_range_ignored():
 
 
 def test_zone_lateral_boundaries():
-    assert zone_of(0.90, 0.359) == "in-box / left"
+    assert zone_of(0.90, 0.359) == "in-box / right"
     assert zone_of(0.90, 0.36) == "in-box / central"   # boundary is central
     assert zone_of(0.90, 0.64) == "in-box / central"   # boundary is central
-    assert zone_of(0.90, 0.641) == "in-box / right"
+    assert zone_of(0.90, 0.641) == "in-box / left"
+
+
+# ---------------------------------------------------------------------------
+# Flank-mirror regression (THE orientation guard — do not weaken)
+#
+# Understat's y axis grows toward the attacker's LEFT: the low band
+# (y < 0.36) is the attacker's RIGHT flank. The original T2a code had this
+# mirrored, which surfaced right-wingers under "left" zones on the card.
+# These tests pin the corrected handedness so it cannot silently re-invert.
+# ---------------------------------------------------------------------------
+
+def test_flank_handedness_synthetic():
+    # low y = attacker's RIGHT flank; high y = attacker's LEFT.
+    assert zone_of(0.90, 0.20) == "in-box / right"
+    assert zone_of(0.90, 0.80) == "in-box / left"
+    assert zone_of(0.75, 0.10) == "edge-of-box / right"
+    assert zone_of(0.75, 0.90) == "edge-of-box / left"
+
+
+_REAL_STORE = (
+    zonal_weakness.shots_parquet_path(zonal_weakness.CURRENT_SEASON)
+    if getattr(zonal_weakness, "_FPL_TACTICAL_AVAILABLE", False)
+    else None
+)
+
+
+@pytest.mark.skipif(
+    _REAL_STORE is None or not _REAL_STORE.exists(),
+    reason="owned tactical store not present on this machine",
+)
+def test_known_flank_players_land_on_their_real_side():
+    """Known-flank players from the REAL store pin the orientation.
+
+    Right-siders (Saka, Salah, Bowen) must concentrate their in-box lateral
+    xG on the RIGHT band; left-winger Mitoma on the LEFT. Verified
+    2026-07-09: R≈0.25–0.28 vs L≤0.08 for the right-siders; Mitoma
+    L=0.31 vs R=0.00. If zone_of re-inverts, this fails loudly.
+    """
+    shares = compute_player_zone_shares(pd.read_parquet(_REAL_STORE))
+
+    def zone_share(fragment: str) -> dict:
+        matches = [p for p in shares if fragment.lower() in p.lower()]
+        assert matches, f"player {fragment!r} not found in the tactical store"
+        return shares[matches[0]]["zone_share"]
+
+    for right_sider in ("Bukayo Saka", "Mohamed Salah", "Jarrod Bowen"):
+        zs = zone_share(right_sider)
+        assert zs["in-box / right"] > zs["in-box / left"], (
+            f"{right_sider} should shoot from the RIGHT band — orientation inverted?"
+        )
+    zs = zone_share("Mitoma")
+    assert zs["in-box / left"] > zs["in-box / right"], (
+        "Mitoma should shoot from the LEFT band — orientation inverted?"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -136,16 +191,16 @@ def test_zone_lateral_boundaries():
 
 def test_profiles_count_games_per_team():
     profiles = compute_team_zone_profiles(weakness_store())
-    assert profiles["Palace"]["in-box / left"]["games"] == 2
-    assert profiles["Villa"]["in-box / left"]["games"] == 1
+    assert profiles["Palace"]["in-box / right"]["games"] == 2
+    assert profiles["Villa"]["in-box / right"]["games"] == 1
 
 
 def test_profiles_hand_computed_xga():
     profiles = compute_team_zone_profiles(weakness_store())
-    assert profiles["Palace"]["in-box / left"]["xga"] == pytest_approx(0.5)
-    assert profiles["Palace"]["in-box / left"]["shots"] == 2
-    assert profiles["Palace"]["in-box / left"]["goals"] == 1
-    assert profiles["Villa"]["edge-of-box / right"]["xga"] == pytest_approx(0.2)
+    assert profiles["Palace"]["in-box / right"]["xga"] == pytest_approx(0.5)
+    assert profiles["Palace"]["in-box / right"]["shots"] == 2
+    assert profiles["Palace"]["in-box / right"]["goals"] == 1
+    assert profiles["Villa"]["edge-of-box / left"]["xga"] == pytest_approx(0.2)
 
 
 def test_profiles_exclude_penalties_from_zones():
@@ -163,9 +218,9 @@ def test_profiles_ignore_long_range():
 def test_league_baseline_hand_computed():
     profiles = compute_team_zone_profiles(weakness_store())
     baseline = compute_league_baseline(profiles)
-    assert baseline["in-box / left"] == pytest_approx(0.1375)
+    assert baseline["in-box / right"] == pytest_approx(0.1375)
     assert baseline["in-box / central"] == pytest_approx(1.0)
-    assert baseline["edge-of-box / right"] == pytest_approx(0.05)
+    assert baseline["edge-of-box / left"] == pytest_approx(0.05)
 
 
 # ---------------------------------------------------------------------------
@@ -175,18 +230,18 @@ def test_league_baseline_hand_computed():
 def test_weakness_delta_and_rank():
     out = get_zonal_weakness("Palace", store=weakness_store())
     assert out["status"] == "ok"
-    left = next(z for z in out["zones"] if z["zone"] == "in-box / left")
-    assert left["xga_per_game"] == pytest_approx(0.25)
-    assert left["league_avg"] == pytest_approx(0.1375)
-    assert left["delta_vs_avg"] == pytest_approx(0.1125)
-    assert left["rank"] == 1
+    right = next(z for z in out["zones"] if z["zone"] == "in-box / right")
+    assert right["xga_per_game"] == pytest_approx(0.25)
+    assert right["league_avg"] == pytest_approx(0.1375)
+    assert right["delta_vs_avg"] == pytest_approx(0.1125)
+    assert right["rank"] == 1
 
 
 def test_weakness_relative_signal_beats_raw_totals():
     # Central dominates Palace's RAW xGA (1.0/game vs 0.25/game) but its
-    # delta is 0 — the relative signal must rank in-box/left first.
+    # delta is 0 — the relative signal must rank in-box/right first.
     out = get_zonal_weakness("Palace", store=weakness_store())
-    assert out["weakest_zones"][0]["zone"] == "in-box / left"
+    assert out["weakest_zones"][0]["zone"] == "in-box / right"
     assert out["weakest_zones"][0]["delta_vs_avg"] > 0
 
 
@@ -197,13 +252,17 @@ def test_weakness_penalty_context_reported_separately():
     assert out["penalty_context"]["penalty_xga_per_game"] == pytest_approx(0.7611 / 2, abs_=1e-4)
 
 
-def test_weakness_verdict_orientation_flip():
-    # Palace leaks in the attacker's-LEFT band → that is Palace's own RIGHT
-    # side, and the Spanish verdict must say so.
+def test_weakness_verdict_attacker_frame():
+    # Flank-mirror fix: Palace leaks in the LOW y band (y < 0.36), which is
+    # the attacker's RIGHT flank. The verdict speaks the attacker frame —
+    # "ataca por la derecha" — with no defender-side flip anywhere.
     out = get_zonal_weakness("Palace", store=weakness_store())
-    assert "su costado derecho" in out["verdict"]
+    assert out["verdict"].startswith("Ataca a Palace")
+    assert "por la derecha" in out["verdict"]
     assert "dentro del área" in out["verdict"]
-    assert "izquierdo" not in out["verdict"]
+    assert "izquierda" not in out["verdict"]
+    assert "costado" not in out["verdict"]  # old defender-frame copy is gone
+    assert "débil" not in out["verdict"].lower()  # opportunity-positive
 
 
 def test_weakness_verdict_no_buy_sell_language():
@@ -246,7 +305,7 @@ def test_weakness_reads_parquet_from_injected_path(tmp_path):
     weakness_store().to_parquet(path, index=False)
     out = get_zonal_weakness("Palace", store=path)
     assert out["status"] == "ok"
-    assert out["weakest_zones"][0]["zone"] == "in-box / left"
+    assert out["weakest_zones"][0]["zone"] == "in-box / right"
 
 
 # ---------------------------------------------------------------------------
@@ -255,7 +314,7 @@ def test_weakness_reads_parquet_from_injected_path(tmp_path):
 
 def test_player_zone_shares_thresholds():
     shares = compute_player_zone_shares(opportunity_store())
-    assert shares["Left Poacher"]["zone_share"]["in-box / left"] == pytest_approx(1.0)
+    assert shares["Right Poacher"]["zone_share"]["in-box / right"] == pytest_approx(1.0)
     # Long Ranger has 10 shots but zero zoned xG → all shares 0
     assert all(v == 0 for v in shares["Long Ranger"]["zone_share"].values())
 
@@ -264,9 +323,9 @@ def test_opportunity_returns_matching_player():
     out = get_zonal_opportunity("Palace", store=opportunity_store())
     assert out["status"] == "ok"
     zones = {o["zone"]: o for o in out["opportunities"]}
-    assert "in-box / left" in zones
-    assert "Left Poacher" in zones["in-box / left"]["players"]
-    assert zones["in-box / left"]["delta_vs_avg"] > 0
+    assert "in-box / right" in zones
+    assert "Right Poacher" in zones["in-box / right"]["players"]
+    assert zones["in-box / right"]["delta_vs_avg"] > 0
 
 
 def test_opportunity_excludes_own_team_and_unmatched_players():
@@ -291,32 +350,35 @@ def test_opportunity_statuses_propagate():
 # ---------------------------------------------------------------------------
 
 def test_card_pct_over_avg_hand_computed():
-    # weakness_store: Palace in-box/left 0.25 vs baseline 0.1375
+    # weakness_store: Palace in-box/right 0.25 vs baseline 0.1375
     # → (0.25 / 0.1375 − 1) × 100 = +81.8%; central all-equal → 0.0.
     out = get_zonal_opportunity("Palace", store=weakness_store())
     assert out["status"] == "ok"
     cells = {z["lateral"]: z for z in out["zones"]}
     assert list(cells) == ["left", "central", "right"]
-    assert cells["left"]["pct_over_avg"] == pytest_approx(81.8, abs_=0.05)
+    assert cells["right"]["pct_over_avg"] == pytest_approx(81.8, abs_=0.05)
     assert cells["central"]["pct_over_avg"] == pytest_approx(0.0)
-    assert cells["right"]["pct_over_avg"] == pytest_approx(0.0)  # 0-vs-0 baseline
+    assert cells["left"]["pct_over_avg"] == pytest_approx(0.0)  # 0-vs-0 baseline
 
 
 def test_card_opportunity_levels():
     out = get_zonal_opportunity("Palace", store=weakness_store())
     cells = {z["lateral"]: z for z in out["zones"]}
-    assert cells["left"]["opportunity_level"] == "opp"        # ≥ +15%
+    assert cells["right"]["opportunity_level"] == "opp"        # ≥ +15%
     assert cells["central"]["opportunity_level"] == "cool"    # ≈ 0
-    assert cells["right"]["opportunity_level"] == "cool"
+    assert cells["left"]["opportunity_level"] == "cool"
 
 
 def test_card_weakness_label_and_verdict():
     out = get_zonal_opportunity("Palace", store=weakness_store())
     assert out["weakness_label"] == "Débil dentro del área"
-    # verdict flips into the defending frame (attacker left → su costado
-    # derecho) and carries the headline pct; opportunity framing only.
+    # unified attacker/opportunity frame: the low-band weak zone is the
+    # attacker's RIGHT flank and the verdict says "ataca por la derecha"
+    # with the headline pct; opportunity framing only.
+    assert out["verdict"].startswith("Ataca a Palace")
     assert "dentro del área" in out["verdict"]
-    assert "su costado derecho" in out["verdict"]
+    assert "por la derecha" in out["verdict"]
+    assert "costado" not in out["verdict"]
     assert "+82%" in out["verdict"]
     for banned in ("compra", "vende", "ficha", "buy", "sell"):
         assert banned not in out["verdict"].lower()
@@ -324,8 +386,8 @@ def test_card_weakness_label_and_verdict():
 
 
 def test_card_fit_score_ordering_and_normalisation():
-    # Heavy Hitter (Villa): 10 in-box/left shots × 0.30 xG → share 1.0,
-    # total 3.0 → raw 3.0. Left Poacher: share 1.0 × total 1.0 → raw 1.0.
+    # Heavy Hitter (Villa): 10 in-box/right shots × 0.30 xG → share 1.0,
+    # total 3.0 → raw 3.0. Right Poacher: share 1.0 × total 1.0 → raw 1.0.
     # Same zone weight for both → Heavy Hitter ranks first, fit 10.0;
     # Poacher fit = 10 × (1/3) = 3.3.
     df = opportunity_store()
@@ -335,10 +397,10 @@ def test_card_fit_score_ordering_and_normalisation():
     out = get_zonal_opportunity("Palace", store=df)
     assert out["status"] == "ok"
     exploiters = out["exploiters"]
-    assert [e["player"] for e in exploiters[:2]] == ["Heavy Hitter", "Left Poacher"]
+    assert [e["player"] for e in exploiters[:2]] == ["Heavy Hitter", "Right Poacher"]
     assert exploiters[0]["rank"] == 1 and exploiters[0]["fit_score"] == 10.0
     assert exploiters[1]["fit_score"] == pytest_approx(3.3, abs_=0.05)
-    assert exploiters[0]["zone"] == "in-box / left"
+    assert exploiters[0]["zone"] == "in-box / right"
     assert exploiters[0]["team"] == "Villa"
 
 
@@ -346,7 +408,7 @@ def test_card_exploiters_exclude_own_team_and_carry_identity():
     out = get_zonal_opportunity("Palace", store=opportunity_store())
     names = [e["player"] for e in out["exploiters"]]
     assert "Palace Own" not in names
-    assert "Left Poacher" in names
+    assert "Right Poacher" in names
     for e in out["exploiters"]:
         assert {"rank", "player", "team", "zone", "fit_score"} <= set(e)
         assert 0.0 <= e["fit_score"] <= 10.0
@@ -360,10 +422,10 @@ get_player_zonal_outlook = zonal_weakness.get_player_zonal_outlook
 
 
 def test_outlook_favorable_when_zones_intersect():
-    # Left Poacher (Wolves) concentrates 100% of xG in in-box/left; Palace
+    # Right Poacher (Wolves) concentrates 100% of xG in in-box/right; Palace
     # concedes above average exactly there → favorable.
     out = get_player_zonal_outlook(
-        "Left Poacher",
+        "Right Poacher",
         fixtures_for_team=lambda t: [
             {"gameweek": 24, "opponent": "Palace", "is_home": True},
         ],
@@ -375,7 +437,7 @@ def test_outlook_favorable_when_zones_intersect():
     assert entry["opponent"] == "Palace"
     assert entry["status"] == "favorable"
     match = entry["matches"][0]
-    assert match["zone"] == "in-box / left"
+    assert match["zone"] == "in-box / right"
     assert match["delta_vs_avg"] > 0
     assert match["player_share"] == pytest_approx(1.0)
     assert "J24 (Palace)" in out["verdict"]
@@ -383,7 +445,7 @@ def test_outlook_favorable_when_zones_intersect():
 
 def test_outlook_neutral_and_no_data_entries():
     out = get_player_zonal_outlook(
-        "Left Poacher",
+        "Right Poacher",
         fixtures_for_team=lambda t: [
             {"gameweek": 25, "opponent": "Boro", "is_home": False},
             {"gameweek": 26, "opponent": "Ghost Town FC", "is_home": True},
@@ -399,11 +461,11 @@ def test_outlook_neutral_and_no_data_entries():
 
 def test_outlook_player_zones_reported():
     out = get_player_zonal_outlook(
-        "Left Poacher",
+        "Right Poacher",
         fixtures_for_team=lambda t: [{"gameweek": 1, "opponent": "Palace", "is_home": True}],
         store=opportunity_store(),
     )
-    assert out["player_zones"][0]["zone"] == "in-box / left"
+    assert out["player_zones"][0]["zone"] == "in-box / right"
     assert out["player_zones"][0]["share"] == pytest_approx(1.0)
 
 
@@ -425,18 +487,18 @@ def test_outlook_player_ambiguous():
 
 def test_outlook_missing_context_paths():
     out = get_player_zonal_outlook(
-        "Left Poacher", fixtures_for_team=lambda t: [], store=pd.DataFrame()
+        "Right Poacher", fixtures_for_team=lambda t: [], store=pd.DataFrame()
     )
     assert out["status"] == "missing_context"
     out2 = get_player_zonal_outlook(
-        "Left Poacher", fixtures_for_team=lambda t: [], store=opportunity_store()
+        "Right Poacher", fixtures_for_team=lambda t: [], store=opportunity_store()
     )
     assert out2["status"] == "missing_context"  # no upcoming fixtures
 
 
 def test_outlook_verdict_no_buy_sell():
     out = get_player_zonal_outlook(
-        "Left Poacher",
+        "Right Poacher",
         fixtures_for_team=lambda t: [{"gameweek": 1, "opponent": "Palace", "is_home": True}],
         store=opportunity_store(),
     )

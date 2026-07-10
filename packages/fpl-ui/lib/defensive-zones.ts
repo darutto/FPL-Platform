@@ -52,24 +52,27 @@ export const ZONE_SHADE_HEX: Record<OpportunityLevel, string> = {
   cool: '#6b6975',
 };
 
-/** Base wash opacity per level — the floor before pct scaling. */
+/** Base wash opacity per level — the floor before pct scaling.
+ *  Tuned down 2026-07-09: the first pass read too dark; the wash should be
+ *  a light tint the pct text sits on, not a saturated block. */
 const ZONE_SHADE_FLOOR: Record<OpportunityLevel, number> = {
-  opp: 0.28,
-  warm: 0.16,
-  cool: 0.07,
+  opp: 0.16,
+  warm: 0.09,
+  cool: 0.05,
 };
 
 /** Ceiling so an extreme outlier zone never becomes a solid block. */
-const ZONE_SHADE_MAX_OPACITY = 0.55;
+export const ZONE_SHADE_MAX_OPACITY = 0.34;
 
 /** Extra opacity gained per +100% over the league average. */
-const ZONE_SHADE_PCT_GAIN = 0.35;
+const ZONE_SHADE_PCT_GAIN = 0.22;
 
 /**
  * Shade opacity for a zone region: a level-keyed floor plus a component
  * that scales with the zone's strength, so the strongest zone reads as the
- * most saturated (e.g. opp at +70% → ≈0.52). Cool zones stay a flat faint
- * wash — "below average" carries no intensity to encode.
+ * most saturated (e.g. opp at +70% → ≈0.31 — a light tint, not a block).
+ * Cool zones stay a flat faint wash — "below average" carries no intensity
+ * to encode.
  */
 export function zoneShadeOpacity(
   level: OpportunityLevel,
@@ -139,7 +142,8 @@ export function rankOpacity(rank: number): number {
 // Zone naming (attacker frame → display Spanish)
 // ---------------------------------------------------------------------------
 
-/** Column headings under the pitch, as drawn (goal at the top). */
+/** Column headings under the pitch — the flank you attack down, as drawn
+ *  (attacker faces the goal at the top; attacker's left = viewer's left). */
 export const LATERAL_LABEL: Record<ZoneLateral, string> = {
   left: 'Izquierda',
   central: 'Centro',

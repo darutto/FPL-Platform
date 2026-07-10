@@ -375,9 +375,11 @@ export interface DifferentialPicksMeta {
 // ---------------------------------------------------------------------------
 
 /**
- * Attacker-frame lateral band of the penalty box (backend invariant).
- * The verdict string already flips into the defender frame; the pitch view
- * renders left→'Izquierda' etc. as drawn (goal at the top).
+ * Lateral band of the penalty box in the attacker/opportunity frame — "the
+ * flank you attack down" (flank-mirror fix 2026-07-09: verdict, zones and
+ * pitch all speak this one frame; no defender flip anywhere). The pitch view
+ * renders left→'Izquierda' etc. as the attacker faces the goal (goal at the
+ * top, attacker's left = viewer's left).
  */
 export type ZoneLateral = 'left' | 'central' | 'right';
 
