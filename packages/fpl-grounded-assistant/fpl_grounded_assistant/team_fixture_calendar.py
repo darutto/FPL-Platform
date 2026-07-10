@@ -460,21 +460,48 @@ TOOL_REGISTRY.register(TEAM_FIXTURE_CALENDAR_SPEC, _get_team_fixture_calendar_ha
 # ===========================================================================
 
 # Common team-name aliases not captured by bootstrap name / short_name alone.
-# Maps lowercase variant → lowercase target that matches a bootstrap team name
-# or short_name substring.
+# Maps lowercase variant → the team's lowercase ``short_name`` CODE, never a
+# long name: the FPL bootstrap uses display names ("Man City", "Spurs",
+# "Nott'm Forest"), so long-name targets like "manchester city" match nothing
+# and dead-end the resolver. Codes are stable across seasons and hit the
+# resolver's exact short_name pass directly.
 _TEAM_RESOLVE_ALIASES: dict[str, str] = {
-    "spurs":                "tottenham",
-    "man city":             "manchester city",
-    "man utd":              "manchester utd",
-    "man united":           "manchester utd",
-    "manchester united":    "manchester utd",
-    "wolves":               "wolverhampton",
-    "palace":               "crystal palace",
-    "villa":                "aston villa",
-    "forest":               "nottingham",
-    "saints":               "southampton",
-    "toffees":              "everton",
-    "hammers":              "west ham",
+    # Nicknames
+    "spurs":                    "tot",
+    "gunners":                  "ars",
+    "toffees":                  "eve",
+    "hammers":                  "whu",
+    "saints":                   "sou",
+    "villa":                    "avl",
+    "palace":                   "cry",
+    "wolves":                   "wol",
+    "forest":                   "nfo",
+    "cherries":                 "bou",
+    "magpies":                  "new",
+    # Abbreviations
+    "man city":                 "mci",
+    "man utd":                  "mun",
+    "man united":               "mun",
+    "nottm forest":             "nfo",
+    # Full / formal names (English and the Spanish-usage variants, which are
+    # the same strings for PL clubs) absent from the FPL display names
+    "tottenham":                "tot",
+    "tottenham hotspur":        "tot",
+    "manchester city":          "mci",
+    "manchester united":        "mun",
+    "manchester utd":           "mun",
+    "wolverhampton":            "wol",
+    "wolverhampton wanderers":  "wol",
+    "nottingham":               "nfo",
+    "nottingham forest":        "nfo",
+    "nott'm forest":            "nfo",
+    "newcastle":                "new",
+    "newcastle united":         "new",
+    "west ham united":          "whu",
+    "brighton & hove albion":   "bha",
+    "brighton and hove albion": "bha",
+    "leeds united":             "lee",
+    "aston villa fc":           "avl",
 }
 
 
@@ -482,30 +509,46 @@ def _resolve_team(team_query: str, bootstrap: "dict[str, Any]") -> "dict | None"
     """Resolve a free-text team name to a bootstrap team dict.
 
     Resolution order:
-    1. Static alias map (common nicknames / abbreviations).
-    2. Exact match on ``short_name`` (case-insensitive).
-    3. Exact match on ``name`` (case-insensitive).
-    4. Substring match on ``name`` (returns first match).
+    1. Exact match on ``short_name`` (case-insensitive) — raw query first,
+       so bootstrap truth always beats the static alias map.
+    2. Exact match on ``name`` (case-insensitive).
+    3. Alias map (nicknames / abbreviations / formal names → short_name
+       code), then exact short_name/name on the alias target. An alias
+       whose code is absent from the bootstrap (e.g. a relegated club)
+       cleanly returns ``None``.
+    4. Substring match on ``name`` — only if the substring is unambiguous.
+       A query matching more than one team (e.g. "man" → Man City AND
+       Man Utd) returns ``None`` instead of silently picking the first.
 
-    Returns the first matching bootstrap team dict, or ``None``.
+    Returns the matching bootstrap team dict, or ``None``.
     """
-    q = team_query.lower().strip()
-    # Apply alias map before any bootstrap lookup
-    q = _TEAM_RESOLVE_ALIASES.get(q, q)
-
     teams = bootstrap.get("teams", [])
-    # 1. Exact short_name
-    for t in teams:
-        if t.get("short_name", "").lower() == q:
-            return t
-    # 2. Exact name
-    for t in teams:
-        if t.get("name", "").lower() == q:
-            return t
-    # 3. Substring on name
-    for t in teams:
-        if q in t.get("name", "").lower():
-            return t
+    q = team_query.lower().strip()
+    if not q:
+        return None
+
+    def _exact(query: str) -> "dict | None":
+        for t in teams:
+            if t.get("short_name", "").lower() == query:
+                return t
+        for t in teams:
+            if t.get("name", "").lower() == query:
+                return t
+        return None
+
+    hit = _exact(q)
+    if hit is not None:
+        return hit
+
+    alias_target = _TEAM_RESOLVE_ALIASES.get(q)
+    if alias_target is not None:
+        # Alias targets are exact codes by construction — no substring
+        # fallback on them (a 3-letter code substring could false-match).
+        return _exact(alias_target)
+
+    matches = [t for t in teams if q in t.get("name", "").lower()]
+    if len(matches) == 1:
+        return matches[0]
     return None
 
 
