@@ -45,15 +45,15 @@ WEAKNESS_OK = {
     "team": "Crystal Palace",
     "zones": [],
     "weakest_zones": [
-        {"zone": "in-box / left", "xga_per_game": 0.134, "league_avg": 0.079,
+        {"zone": "in-box / right", "xga_per_game": 0.134, "league_avg": 0.079,
          "delta_vs_avg": 0.055, "rank": 1},
         {"zone": "in-box / central", "xga_per_game": 1.176, "league_avg": 1.159,
          "delta_vs_avg": 0.018, "rank": 9},
     ],
     "penalty_context": {"penalty_xga": 5.3282, "penalty_xga_per_game": 0.1402},
     "verdict": (
-        "Crystal Palace concede por encima de la media dentro del área "
-        "por su costado derecho."
+        "Ataca a Crystal Palace por la derecha dentro del área — concede "
+        "por encima de la media de la liga ahí."
     ),
 }
 
@@ -61,7 +61,7 @@ OPPORTUNITY_OK = {
     "status": "ok",
     "opponent": "Crystal Palace",
     "opportunities": [
-        {"zone": "in-box / left", "delta_vs_avg": 0.055,
+        {"zone": "in-box / right", "delta_vs_avg": 0.055,
          "players": ["Bukayo Saka", "Jarrod Bowen", "Mohamed Salah"]},
     ],
 }
@@ -75,7 +75,7 @@ class TestRenderZonalWeakness:
     def test_ok_leads_with_verdict_and_lists_zones(self):
         text = render("get_zonal_weakness", WEAKNESS_OK)
         assert text.startswith(WEAKNESS_OK["verdict"])
-        assert "in-box / left" in text
+        assert "in-box / right" in text
         assert "0.134" in text and "0.079" in text and "+0.055" in text
         assert "penaltis" in text and "0.140" in text
         assert "No renderer" not in text
@@ -111,7 +111,7 @@ class TestRenderZonalOpportunity:
     def test_ok_lists_zones_and_players(self):
         text = render("get_zonal_opportunity", OPPORTUNITY_OK)
         assert "Crystal Palace" in text
-        assert "in-box / left" in text
+        assert "in-box / right" in text
         assert "+0.055" in text
         assert "Bukayo Saka" in text and "Mohamed Salah" in text
         assert "No renderer" not in text
@@ -143,11 +143,11 @@ OUTLOOK_OK = {
     "status": "ok",
     "player": "Bukayo Saka",
     "team": "Arsenal",
-    "player_zones": [{"zone": "in-box / left", "share": 0.62}],
+    "player_zones": [{"zone": "in-box / right", "share": 0.62}],
     "outlook": [
         {"gameweek": 24, "opponent": "Sunderland", "is_home": False,
          "status": "favorable",
-         "matches": [{"zone": "in-box / left", "delta_vs_avg": 0.044,
+         "matches": [{"zone": "in-box / right", "delta_vs_avg": 0.044,
                       "player_share": 0.62}]},
         {"gameweek": 25, "opponent": "Chelsea", "is_home": True,
          "status": "neutral", "matches": []},
@@ -165,7 +165,7 @@ class TestRenderPlayerZonalOutlook:
     def test_ok_full_report(self):
         text = render("get_player_zonal_outlook", OUTLOOK_OK)
         assert text.startswith(OUTLOOK_OK["verdict"])
-        assert "in-box / left (62% de su xG)" in text
+        assert "in-box / right (62% de su xG)" in text
         assert "J24 vs Sunderland (fuera): favorable" in text
         assert "+0.044" in text and "62% del xG de Bukayo Saka" in text
         assert "J25 vs Chelsea (casa): sin cruce destacado" in text

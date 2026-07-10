@@ -141,7 +141,7 @@ export default function DefensiveZonesCard({ data }: Props) {
                   textAnchor="middle"
                   fill="#ABA9AC"
                   fillOpacity={0.55}
-                  style={{ fontSize: 12, fontWeight: 700 }}
+                  style={{ fontSize: 13, fontWeight: 700 }}
                 >
                   ≈ media
                 </text>
@@ -153,7 +153,7 @@ export default function DefensiveZonesCard({ data }: Props) {
                     textAnchor="middle"
                     fill={ZONE_SHADE_HEX[zone.opportunity_level]}
                     style={{
-                      fontSize: 23,
+                      fontSize: 28,
                       fontWeight: 900,
                       letterSpacing: '-1px',
                     }}
@@ -166,7 +166,7 @@ export default function DefensiveZonesCard({ data }: Props) {
                     textAnchor="middle"
                     fill={ZONE_SHADE_HEX[zone.opportunity_level]}
                     fillOpacity={0.75}
-                    style={{ fontSize: 10.5, fontWeight: 600 }}
+                    style={{ fontSize: 12, fontWeight: 600 }}
                   >
                     {formatDeltaFine(zone.pct_over_avg)}
                   </text>

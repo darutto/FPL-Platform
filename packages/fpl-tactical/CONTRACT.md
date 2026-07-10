@@ -62,11 +62,15 @@ caches raw pulls under `~/soccerdata/data/Understat`.
 
 1. **Relative-to-baseline only** — consumers report `delta_vs_avg` per zone,
    never raw zone totals as a signal.
-2. **Zone grid is locked** (PoC-validated): in-box x ≥ 0.84; edge-of-box
-   0.70 ≤ x < 0.84; left y < 0.36; right y > 0.64; long-range ignored.
-3. **Attacker-frame laterals** — flip to the defending team's side when
-   phrasing verdicts (finish-zone, not buildup-flank; T3 upgrades this).
-4. **No buy/sell language**; verdicts Spanish, opportunity/weakness-framed.
+2. **Zone grid is locked** (PoC-validated; handedness corrected 2026-07-09):
+   in-box x ≥ 0.84; edge-of-box 0.70 ≤ x < 0.84; **right** y < 0.36;
+   **left** y > 0.64 (Understat y grows toward the attacker's left);
+   long-range ignored.
+3. **One attacker/opportunity frame everywhere** — labels, verdicts and the
+   card all say "the flank you attack down" ("ataca por la derecha"); no
+   defender-side flip (finish-zone, not buildup-flank; T3 upgrades this).
+   Orientation is pinned by the known-flank regression tests.
+4. **No buy/sell language**; verdicts Spanish, opportunity-framed.
 5. Missing store → `status="missing_context"`, never an exception.
 
 ## §9 Dependency boundary

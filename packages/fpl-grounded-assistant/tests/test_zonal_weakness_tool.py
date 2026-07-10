@@ -61,11 +61,11 @@ def _row(conceding, shooting, x, y, xg, *, match_id=1, player="Someone"):
 
 
 def _store_df() -> pd.DataFrame:
-    """Crystal Palace very weak in-box/left; 'Left Poacher' operates there."""
+    """Crystal Palace very weak in-box/right; 'Right Poacher' operates there."""
     rows = []
     for _ in range(10):  # >= MIN_PLAYER_SHOTS for the opportunity matcher
         rows.append(_row("Crystal Palace", "Burnley", 0.90, 0.20, 0.10,
-                         match_id=1, player="Left Poacher"))
+                         match_id=1, player="Right Poacher"))
     rows += [
         _row("Aston Villa", "Crystal Palace", 0.90, 0.20, 0.10, match_id=2),
         _row("Burnley", "Aston Villa", 0.90, 0.20, 0.10, match_id=3),
@@ -136,7 +136,7 @@ def test_run_tool_weakness_ok_shape(tactical_store):
     assert out["status"] == "ok"
     assert out["team"] == "Crystal Palace"
     assert {"zone", "xga_per_game", "league_avg", "delta_vs_avg", "rank"} <= set(out["zones"][0])
-    assert out["weakest_zones"][0]["zone"] == "in-box / left"
+    assert out["weakest_zones"][0]["zone"] == "in-box / right"
     assert out["weakest_zones"][0]["delta_vs_avg"] > 0
     assert isinstance(out["verdict"], str) and out["verdict"]
 
@@ -152,8 +152,8 @@ def test_run_tool_opportunity_ok_shape(tactical_store):
     assert out["status"] == "ok"
     assert out["opponent"] == "Crystal Palace"
     zones = {o["zone"]: o for o in out["opportunities"]}
-    assert "in-box / left" in zones
-    assert "Left Poacher" in zones["in-box / left"]["players"]
+    assert "in-box / right" in zones
+    assert "Right Poacher" in zones["in-box / right"]["players"]
 
 
 # ---------------------------------------------------------------------------
@@ -161,10 +161,10 @@ def test_run_tool_opportunity_ok_shape(tactical_store):
 # ---------------------------------------------------------------------------
 
 def _bootstrap_with_elements() -> dict:
-    """Bootstrap whose elements match 'Left Poacher' by full name."""
+    """Bootstrap whose elements match 'Right Poacher' by full name."""
     bs = _bootstrap()
     bs["elements"] = [
-        {"first_name": "Left", "second_name": "Poacher",
+        {"first_name": "Right", "second_name": "Poacher",
          "web_name": "Poacher", "element_type": 3},
     ]
     return bs
@@ -180,7 +180,7 @@ def test_run_tool_opportunity_exploiters_enriched_matched_player(tactical_store)
     assert exploiters, "fixture store should yield at least one exploiter"
     top = exploiters[0]
     assert top["rank"] == 1
-    assert top["player"] == "Left Poacher"
+    assert top["player"] == "Right Poacher"
     assert top["web_name"] == "Poacher"          # FPL join hit
     assert top["position"] == "MID"
     assert top["team_short"] == "BUR"            # inverted Understat bridge
@@ -193,8 +193,8 @@ def test_run_tool_opportunity_exploiters_unmatched_player_degrades(tactical_stor
     out = run_tool("get_zonal_opportunity", {"opponent": "Crystal Palace"}, _bootstrap())
     assert out["status"] == "ok"
     top = out["exploiters"][0]
-    assert top["player"] == "Left Poacher"
-    assert top["web_name"] == "Left Poacher"
+    assert top["player"] == "Right Poacher"
+    assert top["web_name"] == "Right Poacher"
     assert top["position"] == ""
     assert top["team_short"] == "BUR"
 
@@ -246,7 +246,7 @@ def test_run_tool_blank_team_is_not_found(tactical_store):
 
 def _bootstrap_with_fixtures() -> dict:
     """Bootstrap with a current GW and team_fixtures: Burnley (id 3, home of
-    'Left Poacher' in the fixture store) faces Crystal Palace in GW1 and
+    'Right Poacher' in the fixture store) faces Crystal Palace in GW1 and
     Sunderland in GW2."""
     bs = _bootstrap()
     bs["events"] = [{"id": 1, "is_current": True}]
@@ -264,24 +264,24 @@ class TestPlayerZonalOutlook:
     def test_run_tool_outlook_ok_shape(self, tactical_store):
         out = run_tool(
             "get_player_zonal_outlook",
-            {"player": "Left Poacher", "horizon": 2},
+            {"player": "Right Poacher", "horizon": 2},
             _bootstrap_with_fixtures(),
         )
         assert out["status"] == "ok"
-        assert out["player"] == "Left Poacher"
+        assert out["player"] == "Right Poacher"
         assert out["team"] == "Burnley"
         gws = [e["gameweek"] for e in out["outlook"]]
         assert gws == [1, 2]  # GW9 fixture is outside the horizon
         by_gw = {e["gameweek"]: e for e in out["outlook"]}
         assert by_gw[1]["opponent"] == "Crystal Palace"
         assert by_gw[1]["status"] == "favorable"
-        assert by_gw[1]["matches"][0]["zone"] == "in-box / left"
+        assert by_gw[1]["matches"][0]["zone"] == "in-box / right"
         assert isinstance(out["verdict"], str) and out["verdict"]
 
     def test_run_tool_outlook_horizon_clamped(self, tactical_store):
         out = run_tool(
             "get_player_zonal_outlook",
-            {"player": "Left Poacher", "horizon": 99},
+            {"player": "Right Poacher", "horizon": 99},
             _bootstrap_with_fixtures(),
         )
         assert out["status"] == "ok"  # clamped to MAX, not an error
@@ -295,7 +295,7 @@ class TestPlayerZonalOutlook:
 
     def test_run_tool_outlook_missing_fixtures(self, tactical_store):
         out = run_tool(
-            "get_player_zonal_outlook", {"player": "Left Poacher"}, _bootstrap()
+            "get_player_zonal_outlook", {"player": "Right Poacher"}, _bootstrap()
         )
         assert out["status"] == "missing_context"
         assert "message" in out
@@ -303,7 +303,7 @@ class TestPlayerZonalOutlook:
     def test_run_tool_outlook_missing_store(self, empty_store):
         out = run_tool(
             "get_player_zonal_outlook",
-            {"player": "Left Poacher"},
+            {"player": "Right Poacher"},
             _bootstrap_with_fixtures(),
         )
         assert out["status"] == "missing_context"

@@ -427,10 +427,11 @@ class DifferentialPicksMeta:
 class ZoneCell:
     """One in-box lateral cell of the Defensive Zones pitch view.
 
-    ``lateral`` is attacker-frame (``left`` / ``central`` / ``right`` — the
-    engine's orientation caveat applies; verdict text already flips into the
-    defender frame). ``opportunity_level`` ∈ ``opp`` / ``warm`` / ``cool``
-    drives the card's turquoise/amber/grey coding.
+    ``lateral`` is the attacker/opportunity frame (``left`` / ``central`` /
+    ``right`` = the flank you attack down; flank-mirror fix 2026-07-09 —
+    verdict, zones and card all speak this one frame, no defender flip).
+    ``opportunity_level`` ∈ ``opp`` / ``warm`` / ``cool`` drives the card's
+    turquoise/amber/grey coding.
     """
     lateral:           str
     pct_over_avg:      float

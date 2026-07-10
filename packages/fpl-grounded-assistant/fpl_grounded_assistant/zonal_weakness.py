@@ -19,22 +19,28 @@ zone** (``delta_vs_avg``). Verdicts are Spanish, opportunity/weakness-framed
 only — advice framing (buy/sell/captain) stays owned by the deterministic
 advice engines.
 
-Zone grid (locked from the PoC — do not re-derive)
---------------------------------------------------
+Zone grid (locked from the PoC — do not re-derive; handedness corrected)
+-------------------------------------------------------------------------
 Depth from Understat ``x``: ``in-box`` if x ≥ 0.84; ``edge-of-box`` if
 0.70 ≤ x < 0.84; long-range shots are ignored as noise. Lateral from
-Understat ``y``: ``left`` if y < 0.36; ``right`` if y > 0.64; else
+Understat ``y``: ``right`` if y < 0.36; ``left`` if y > 0.64; else
 ``central``. Penalties are excluded from zonal aggregation (their xGA is
 reported separately as context).
 
-Coordinate orientation caveat
------------------------------
-Understat's ``y`` axis is fixed with the attack always pointing the same
-way, so the lateral labels are from the **attacking team's perspective**:
-a defence that leaks shots in the ``left`` lateral band is weak down *its
-own right side*. Verdicts flip the axis into the defending team's frame
-("por su costado derecho"); the raw ``zone`` labels in the payload keep the
-attacker frame. A test asserts this orientation.
+Coordinate orientation (flank-mirror fix, 2026-07-09)
+-----------------------------------------------------
+Understat's ``y`` axis grows toward the attacker's LEFT: the low band
+(y < 0.36) is the attacker's RIGHT flank, the high band (y > 0.64) the
+attacker's LEFT. The original T2a code had this mirrored ("left" for
+y < 0.36) — proven wrong with known-flank players (right-siders
+Saka/Salah/Bowen cluster in the low band; left-winger Mitoma in the high
+band). The flank regression tests in test_zonal_weakness.py pin the
+corrected orientation so it cannot silently re-invert.
+
+The whole surface speaks ONE frame — the attacker/opportunity frame ("the
+flank you attack down"): zone labels, verdicts ("ataca por la derecha"),
+and the card's pitch view all agree. There is no defender-frame flip
+anywhere anymore.
 
 This is **zone-of-finish**, not buildup-flank: it says where conceded
 chances are struck from, not which flank the attacking moves came down
@@ -85,8 +91,10 @@ except ImportError:
 #: Locked zone grid thresholds (PoC 2026-07-02 — do not re-derive).
 IN_BOX_MIN_X: float = 0.84
 EDGE_MIN_X: float = 0.70
-LEFT_MAX_Y: float = 0.36
-RIGHT_MIN_Y: float = 0.64
+# Lateral bands (attacker frame; Understat y grows toward the attacker's
+# LEFT — flank-mirror fix 2026-07-09): low band = right flank, high = left.
+RIGHT_MAX_Y: float = 0.36
+LEFT_MIN_Y: float = 0.64
 
 #: All zone keys, attacker-perspective lateral labels.
 ZONES: tuple[str, ...] = tuple(
@@ -127,12 +135,12 @@ FIT_SCORE_MAX: float = 10.0
 #: Max exploiters returned for the card table (across all weak zones).
 TOP_EXPLOITERS: int = 5
 
-#: Attacker-frame lateral label → defending team's own side, in Spanish.
-#: (Attacker's left is the defence's right — see orientation caveat above.)
-_DEFENSIVE_SIDE_ES: dict[str, str] = {
-    "left": "su costado derecho",
-    "right": "su costado izquierdo",
-    "central": "el centro",
+#: Attacker-frame lateral label → "the flank you attack down", in Spanish.
+#: One frame everywhere — no defender-side flip (see orientation section).
+_ATTACK_SIDE_ES: dict[str, str] = {
+    "left": "por la izquierda",
+    "right": "por la derecha",
+    "central": "por el centro",
 }
 
 _DEPTH_ES: dict[str, str] = {
@@ -149,10 +157,10 @@ def zone_of(x: float, y: float) -> str | None:
         depth = "edge-of-box"
     else:
         return None
-    if y < LEFT_MAX_Y:
-        lat = "left"
-    elif y > RIGHT_MIN_Y:
+    if y < RIGHT_MAX_Y:
         lat = "right"
+    elif y > LEFT_MIN_Y:
+        lat = "left"
     else:
         lat = "central"
     return f"{depth} / {lat}"
@@ -292,7 +300,8 @@ def _weakness_label(weakest: list[dict[str, Any]]) -> str:
 
 
 def _opportunity_verdict(team: str, weakest: list[dict[str, Any]]) -> str:
-    """Spanish, opportunity-framed card verdict with the headline pct."""
+    """Spanish card verdict — attacker/opportunity frame ("ataca por…"),
+    headline pct included. Never "débil por", never buy/sell."""
     top = next((z for z in weakest if z["delta_vs_avg"] > 0), None)
     if top is None:
         return (
@@ -302,13 +311,14 @@ def _opportunity_verdict(team: str, weakest: list[dict[str, Any]]) -> str:
     depth, lat = _split_zone(top["zone"])
     pct = _pct_over_avg(top["xga_per_game"], top["league_avg"])
     return (
-        f"{team} concede más de lo normal {_DEPTH_ES[depth]}, sobre todo por "
-        f"{_DEFENSIVE_SIDE_ES[lat]} — un {pct:+.0f}% sobre un equipo medio."
+        f"Ataca a {team} {_ATTACK_SIDE_ES[lat]} {_DEPTH_ES[depth]} — "
+        f"concede un {pct:+.0f}% sobre un equipo medio ahí."
     )
 
 
 def _weakness_verdict(team: str, weakest: list[dict[str, Any]]) -> str:
-    """Spanish, weakness/opportunity-framed one-liner. Never buy/sell."""
+    """Spanish one-liner for the text tool — same attacker/opportunity
+    frame as the card ("ataca por…"). Never buy/sell."""
     above = [z for z in weakest if z["delta_vs_avg"] > 0]
     if not above:
         return (
@@ -318,8 +328,11 @@ def _weakness_verdict(team: str, weakest: list[dict[str, Any]]) -> str:
     parts = []
     for z in above:
         depth, lat = _split_zone(z["zone"])
-        parts.append(f"{_DEPTH_ES[depth]} por {_DEFENSIVE_SIDE_ES[lat]}")
-    return f"{team} concede por encima de la media {' y '.join(parts)}."
+        parts.append(f"{_ATTACK_SIDE_ES[lat]} {_DEPTH_ES[depth]}")
+    return (
+        f"Ataca a {team} {' y '.join(parts)} — concede por encima de la "
+        f"media de la liga ahí."
+    )
 
 
 # ---------------------------------------------------------------------------

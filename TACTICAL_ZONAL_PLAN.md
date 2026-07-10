@@ -120,9 +120,9 @@ Exit codes: 0 ok, 1 failed (match `fpl-historical` conventions).
 
 **Zone definition (locked, from the PoC — do not re-derive):**
 - Depth band from Understat `x`: `in-box` if `x ≥ 0.84`; `edge-of-box` if `0.70 ≤ x < 0.84`; else ignore (long-range noise).
-- Lateral band from Understat `y`: `left` if `y < 0.36`; `right` if `y > 0.64`; else `central`.
+- Lateral band from Understat `y`: ~~`left` if `y < 0.36`; `right` if `y > 0.64`~~ **[CORRECTED 2026-07-09, flank-mirror fix]:** `right` if `y < 0.36`; `left` if `y > 0.64`; else `central`. Understat `y` grows toward the attacker's LEFT — pinned by known-flank players (Saka/Salah/Bowen cluster in the low band; Mitoma in the high band). The original spec line encoded the mirror.
 - **Exclude penalties** (`situation == "Penalty"`) from zonal aggregation; report their xGA separately as context.
-- **Coordinate caveat (document in the docstring):** Understat `y` orientation is fixed; "left/right" is from the attacking team's perspective, so a team's weakness "down their right" = shots with the attacker's-left/right label — write the axis label carefully and add a test asserting the orientation. This is *zone-of-finish*, not buildup-flank (that's T3).
+- **Coordinate caveat (document in the docstring):** Understat `y` orientation is fixed; "left/right" is from the attacking team's perspective — this is *zone-of-finish*, not buildup-flank (that's T3). **[CORRECTED 2026-07-09]:** all copy now speaks ONE attacker/opportunity frame ("ataca por la derecha"); the defender-side flip is gone, and the known-flank regression tests pin the orientation.
 
 **Public functions:**
 ```python
@@ -143,7 +143,7 @@ def get_zonal_opportunity(opponent, *, position=None, store) -> {
 }
 ```
 - `get_zonal_opportunity` player matching (T2c in the roadmap): per player, bucket their **own** shots by zone; a player "operates" in a zone if a meaningful share of their non-penalty xG comes from it. Keep the threshold a named constant; document it.
-- Verdict strings: Spanish, opportunity-framed, no buy/sell. E.g. `"Crystal Palace concede por encima de la media dentro del área por su costado derecho."`
+- Verdict strings: Spanish, opportunity-framed, no buy/sell. E.g. `"Ataca a Crystal Palace por la derecha dentro del área — concede por encima de la media de la liga ahí."` *(re-derived 2026-07-09: corrected handedness + unified attacker frame; the original example used a defender-frame flip of mirrored labels.)*
 
 **Acceptance:** `tests/test_zonal_weakness.py` (mirror `test_fixture_outlook.py` style, importlib load) against **canned shot fixtures** with hand-computed expected deltas:
 - baseline math correct; penalties excluded; orientation asserted.
@@ -175,7 +175,7 @@ def get_zonal_opportunity(opponent, *, position=None, store) -> {
 
 ## Slice T2c — End-to-end smoke + docs
 
-1. `packages/fpl-tactical/scripts/smoke_zonal.py`: ingest (or load cached) → `get_zonal_weakness("Crystal Palace")` → print verdict + weak zones. Must reproduce the PoC's qualitative result (Palace weak down their right; Sunderland/Villa down their left).
+1. `packages/fpl-tactical/scripts/smoke_zonal.py`: ingest (or load cached) → `get_zonal_weakness("Crystal Palace")` → print verdict + weak zones. Must reproduce the PoC's qualitative result. *(Re-derived 2026-07-09: the PoC note "Palace weak down their right" was built on the mirrored labels. Correct read: Palace concede in the attacker's RIGHT band — "ataca a Palace por la derecha", i.e. Palace's own left side.)*
 2. `packages/fpl-tactical/README.md` + `CONTRACT.md`: schema, endpoints, refresh cadence, the relative-baseline rule, the finish-vs-buildup caveat, and the T3 follow-up.
 3. Update `TACTICAL_ASSISTANT_ROADMAP.md`: mark T1a–T2b done with commit SHAs.
 
