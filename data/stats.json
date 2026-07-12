@@ -1,0 +1,148 @@
+{
+  "generatedAt": "2026-07-12T00:59:34Z",
+  "season": "2025/26",
+  "seasonStatus": "in_season",
+  "gameweek": 38,
+  "teams": [
+    {
+      "name": "Arsenal",
+      "short": "ARS",
+      "goalsFor": 71,
+      "goalsAgainst": 27,
+      "played": 38
+    },
+    {
+      "name": "Aston Villa",
+      "short": "AVL",
+      "goalsFor": 56,
+      "goalsAgainst": 49,
+      "played": 38
+    },
+    {
+      "name": "Burnley",
+      "short": "BUR",
+      "goalsFor": 38,
+      "goalsAgainst": 75,
+      "played": 38
+    },
+    {
+      "name": "Bournemouth",
+      "short": "BOU",
+      "goalsFor": 58,
+      "goalsAgainst": 54,
+      "played": 38
+    },
+    {
+      "name": "Brentford",
+      "short": "BRE",
+      "goalsFor": 55,
+      "goalsAgainst": 52,
+      "played": 38
+    },
+    {
+      "name": "Brighton",
+      "short": "BHA",
+      "goalsFor": 52,
+      "goalsAgainst": 46,
+      "played": 38
+    },
+    {
+      "name": "Chelsea",
+      "short": "CHE",
+      "goalsFor": 58,
+      "goalsAgainst": 52,
+      "played": 38
+    },
+    {
+      "name": "Crystal Palace",
+      "short": "CRY",
+      "goalsFor": 41,
+      "goalsAgainst": 51,
+      "played": 38
+    },
+    {
+      "name": "Everton",
+      "short": "EVE",
+      "goalsFor": 47,
+      "goalsAgainst": 50,
+      "played": 38
+    },
+    {
+      "name": "Fulham",
+      "short": "FUL",
+      "goalsFor": 47,
+      "goalsAgainst": 51,
+      "played": 38
+    },
+    {
+      "name": "Leeds",
+      "short": "LEE",
+      "goalsFor": 49,
+      "goalsAgainst": 56,
+      "played": 38
+    },
+    {
+      "name": "Liverpool",
+      "short": "LIV",
+      "goalsFor": 63,
+      "goalsAgainst": 53,
+      "played": 38
+    },
+    {
+      "name": "Man City",
+      "short": "MCI",
+      "goalsFor": 77,
+      "goalsAgainst": 35,
+      "played": 38
+    },
+    {
+      "name": "Man Utd",
+      "short": "MUN",
+      "goalsFor": 69,
+      "goalsAgainst": 50,
+      "played": 38
+    },
+    {
+      "name": "Newcastle",
+      "short": "NEW",
+      "goalsFor": 53,
+      "goalsAgainst": 55,
+      "played": 38
+    },
+    {
+      "name": "Nott'm Forest",
+      "short": "NFO",
+      "goalsFor": 48,
+      "goalsAgainst": 51,
+      "played": 38
+    },
+    {
+      "name": "Sunderland",
+      "short": "SUN",
+      "goalsFor": 42,
+      "goalsAgainst": 48,
+      "played": 38
+    },
+    {
+      "name": "Spurs",
+      "short": "TOT",
+      "goalsFor": 48,
+      "goalsAgainst": 57,
+      "played": 38
+    },
+    {
+      "name": "West Ham",
+      "short": "WHU",
+      "goalsFor": 46,
+      "goalsAgainst": 65,
+      "played": 38
+    },
+    {
+      "name": "Wolves",
+      "short": "WOL",
+      "goalsFor": 27,
+      "goalsAgainst": 68,
+      "played": 38
+    }
+  ]
+}

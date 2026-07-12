@@ -1,0 +1,108 @@
+name: Publish FPL stats snapshot
+
+# Aggregates team goals-for/against from the official FPL API and commits a
+# static data/stats.json. The Bendito Fantasy editorial site fetches that file's
+# raw URL and renders it as a chart tile (see benditofantasy-web
+# scripts/sync-fpl-stats.mjs). Deterministic, no secrets, decoupled from the
+# gated Railway assistant service.
+on:
+  schedule:
+    - cron: "0 5 * * 1" # Mondays 05:00 UTC, weekly (after the GW settles)
+  workflow_dispatch: {} # manual trigger from the Actions tab
+
+concurrency:
+  group: publish-stats
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write # so a failed run can open/close the "publish failing" alert issue
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Build stats snapshot
+        run: python scripts/publish_stats.py
+
+      - name: Commit data/stats.json if changed
+        run: |
+          if git diff --quiet -- data/stats.json; then
+            echo "No stats change."
+          else
+            git config user.name "bendito-bot"
+            git config user.email "actions@github.com"
+            git add data/stats.json
+            git commit -m "Publish FPL stats snapshot"
+            git pull --rebase origin "${GITHUB_REF_NAME}"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+
+      - name: Open/update alert issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = "⚠️ FPL stats publish failing";
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              per_page: 100,
+            });
+            const existing = open.find((i) => i.title === title && !i.pull_request);
+            const body = `The scheduled FPL stats publish run failed.\n\nFailed run: ${runUrl}\n\nLikely causes: the FPL API returned no teams / an empty or all-zero table (season rollover or schema change), or a blocked push. This issue auto-closes on the next successful run.`;
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body: `Still failing. ${runUrl}`,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+              });
+            }
+
+      - name: Close alert issue on success
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = "⚠️ FPL stats publish failing";
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              per_page: 100,
+            });
+            const existing = open.find((i) => i.title === title && !i.pull_request);
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body: "Publish succeeded again — closing.",
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                state: "closed",
+              });
+            }
