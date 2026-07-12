@@ -80,9 +80,9 @@ NON_RUNNER_SLICES: list[str] = [
 RUNNER_EXPECTED_COUNTS: dict[str, int] = {
     "run_phase_orch4i_tests.py": 70,   # includes G8 + G9 + G10 + F-G/H/I/J (Orch-4k5)
     "run_phase_orch4f_tests.py": 125,
-    "run_phase_orch4e_tests.py": 122,
-    "run_phase_orch4d_tests.py": 84,
-    "run_phase_orch4c_tests.py": 120,
+    "run_phase_orch4e_tests.py": 81,   # trimmed 2026-07-12 — see CONTRACT_GATE.md retirement note
+    "run_phase_orch4d_tests.py": 17,   # trimmed 2026-07-12 — see CONTRACT_GATE.md retirement note
+    "run_phase_orch4c_tests.py": 21,   # trimmed 2026-07-12 — see CONTRACT_GATE.md retirement note
     "run_phase_orch4a_tests.py": 193,
     "run_phase_orch4b_tests.py": 239,
 }
