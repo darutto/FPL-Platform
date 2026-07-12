@@ -12,11 +12,11 @@ Deliverables validated:
      present in at least one ask fixture and one session fixture, orch-specific fixtures
      present.
   3. Runtime invariants — orch_outcome=None when no client (orch OFF), always present as
-     field on FinalResponse, independent of outcome, unaffected by squad_context overrides.
+     field on FinalResponse, unaffected by squad_context overrides.
   4. Override ordering proof — budget fires before hit_warning; chip fires independently;
      combined budget+hit fires both flags; all via _apply_squad_overrides (same helper
      called by both paths).
-  5. Deferred multi-intent explicit assertion — sub-calls (_multi_intent_depth=1) always
+  5. Deferred multi-intent explicit assertion — sub-calls (_multi_intent_depth>=1) always
      have orch_outcome=None.
   6. Regression — prior orch phases (4a/4b/4c/4d) invariants remain intact.
 
@@ -25,11 +25,22 @@ Sections:
   B  Fixture schema — http_contract_fixtures.json orch_outcome coverage
   C  Runtime: orch_outcome field always present on FinalResponse
   D  Runtime: orch_outcome=None when no client (orch not attempted)
-  E  Runtime: orch_outcome independence from outcome
   F  Override ordering proof via _apply_squad_overrides
-  G  Deferred: sub-calls (depth=1) always have orch_outcome=None
-  H  Non-OK orch_outcome: mock 6 outcomes; outcome still reflects deterministic result
+  G  Deferred: sub-calls (depth>=1) always have orch_outcome=None
   I  Regression stack (4a/4b/4c/4d invariants)
+
+Retired (2026-07-12): sections E and H, and the depth=0 assertion in G,
+exercised the pre-G2.a orchestration gate inside respond() (patching
+`final_response.ask_orchestrated` to inject a mocked OrchestratorResult).
+Commit 118d43e ("G2.a delete rollout-isolation surface") removed that gate —
+respond() is deterministic-only now, and `ask_orchestrated` no longer exists
+as an attribute of final_response — so those sections tested a code path that
+no longer exists. `_orch_result_to_final_response` (the function they
+indirectly exercised via the gate) is still live, but its only direct callers
+are run_phase_orch4a_tests.py and run_phase_orch4b_tests.py — this file never
+called it directly. Section labels (A-D, F, G, I) are kept as-is rather than
+renumbered, to preserve continuity with FINAL_RESPONSE_CONTRACT.md/git history
+references to specific letters.
 """
 from __future__ import annotations
 
@@ -37,7 +48,6 @@ import json
 import os
 import sys
 from typing import Any
-from unittest.mock import patch
 from dataclasses import fields as dc_fields
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -90,23 +100,6 @@ from fpl_grounded_assistant.final_response import (
     ChipAdviceMeta,
     respond,
     _apply_squad_overrides,
-    ORCH_OUTCOME_OK,
-    ORCH_OUTCOME_NO_CLIENT,
-    ORCH_OUTCOME_LLM_ERROR,
-    ORCH_OUTCOME_NO_TOOL,
-    ORCH_OUTCOME_UNKNOWN_TOOL,
-    ORCH_OUTCOME_TOOL_ERROR,
-    ORCH_OUTCOME_TOOL_RESULT_ERROR,
-)
-from fpl_grounded_assistant.orchestrator import (
-    OrchestratorResult,
-    OUTCOME_OK as ORCH_OUTCOME_OK_RAW,
-)
-from fpl_grounded_assistant.dispatcher import (
-    OUTCOME_OK as DISP_OUTCOME_OK,
-    INTENT_TRANSFER_ADVICE,
-    INTENT_CHIP_ADVICE,
-    INTENT_CAPTAIN_SCORE,
 )
 from fpl_grounded_assistant.conversation_fixtures import STANDARD_BOOTSTRAP
 
@@ -122,79 +115,9 @@ def _set_flag(val: str | None) -> None:
         os.environ["FPL_ORCH_ENABLED"] = val
 
 
-_NON_OK_OUTCOMES = [
-    ORCH_OUTCOME_NO_CLIENT,
-    ORCH_OUTCOME_LLM_ERROR,
-    ORCH_OUTCOME_NO_TOOL,
-    ORCH_OUTCOME_UNKNOWN_TOOL,
-    ORCH_OUTCOME_TOOL_ERROR,
-    ORCH_OUTCOME_TOOL_RESULT_ERROR,
-]
-
 _BS = STANDARD_BOOTSTRAP
 _CAPTAIN_Q = "should I captain Haaland"
 _TRANSFER_Q = "should I sell Saka for Salah"
-
-# Tool output for orch-success mocks
-_TRANSFER_RO_CLEAR = {
-    "status":           "ok",
-    "recommendation":   "transfer_in",
-    "score_delta":      24.23,
-    "price_delta":      35,
-    "transfer_reasons": ["stronger form", "easier fixture"],
-    "player_out": {"web_name": "Saka"},
-    "player_in":  {"web_name": "Salah"},
-}
-
-_TRANSFER_RO_MARGINAL = {
-    "status":           "ok",
-    "recommendation":   "marginal_transfer_in",
-    "score_delta":      8.5,
-    "price_delta":      15,
-    "transfer_reasons": ["minor improvement"],
-    "player_out": {"web_name": "Saka"},
-    "player_in":  {"web_name": "Son"},
-}
-
-_CHIP_BB_RO = {
-    "status":           "ok",
-    "chip":             "bench_boost",
-    "recommendation":   "conditions_unfavorable",
-    "current_gameweek": 28,
-    "signals": {
-        "average_fdr_top10": 4.33,
-        "top_player_count":  3,
-    },
-}
-
-
-def _make_orch_ok(tool_name: str, tool_output: dict) -> OrchestratorResult:
-    """Build a successful OrchestratorResult. tool_name must be a key in _TOOL_TO_INTENT."""
-    return OrchestratorResult(
-        question="test question",
-        tool_chosen=tool_name,
-        tool_args={},
-        tool_output=tool_output,
-        answer_text=f"Orch answer for {tool_name}",
-        llm_used=True,
-        model="claude-test",
-        outcome=ORCH_OUTCOME_OK_RAW,
-        error=None,
-    )
-
-
-def _make_orch_non_ok(outcome: str) -> OrchestratorResult:
-    return OrchestratorResult(
-        question="test question",
-        tool_chosen=None,
-        tool_args={},
-        tool_output={},
-        answer_text="",
-        llm_used=False,
-        model="none",
-        outcome=outcome,
-        error="test error",
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -455,39 +378,6 @@ for _intent, _q in _ROUTE_QUERIES:
 
 
 # ===========================================================================
-# Section E — Runtime: orch_outcome independence from outcome
-# ===========================================================================
-
-print("\n--- E: orch_outcome independence from outcome ---")
-
-_set_flag("1")
-
-# Non-OK orch: orch_outcome = non-OK string, outcome = deterministic result
-for _non_ok in _NON_OK_OUTCOMES:
-    with patch(
-        "fpl_grounded_assistant.final_response.ask_orchestrated",
-        return_value=_make_orch_non_ok(_non_ok),
-    ):
-        _r3 = respond(_CAPTAIN_Q, _BS)
-    ok(
-        _r3.orch_outcome == _non_ok,
-        f"E1.{_non_ok}  orch_outcome='{_non_ok}' recorded on fallback",
-        detail=f"got {_r3.orch_outcome!r}",
-    )
-    ok(
-        _r3.outcome in {"ok", "not_found", "ambiguous", "missing_arguments", "error", "unsupported_intent"},
-        f"E2.{_non_ok}  outcome is still a valid deterministic OUTCOME_* constant",
-        detail=f"got {_r3.outcome!r}",
-    )
-    ok(
-        _r3.orch_outcome != _r3.outcome,
-        f"E3.{_non_ok}  orch_outcome != outcome (they are independent fields)",
-    )
-
-_set_flag(None)
-
-
-# ===========================================================================
 # Section F — Override ordering proof via _apply_squad_overrides
 # ===========================================================================
 
@@ -653,83 +543,6 @@ ok(
     _r_depth2.orch_outcome is None,
     "G2 orch_outcome=None when _multi_intent_depth=2 (any depth > 0 bypasses)",
     detail=f"got {_r_depth2.orch_outcome!r}",
-)
-
-# depth=0 (default) IS the orch gate — but without a client, orch still gets
-# OUTCOME_NO_CLIENT (or similar) and orch_outcome will be non-None if the
-# orch flag is enabled. With no env client the actual value may be no_client.
-# We just verify depth=0 is NOT suppressed to None by the depth guard.
-_r_depth0 = respond(_CAPTAIN_Q, _BS, _multi_intent_depth=0)
-# orch_outcome may be no_client or a non-OK string (orch attempted, no client)
-ok(
-    _r_depth0.orch_outcome is not None,
-    "G3 orch_outcome is NOT None at depth=0 when FPL_ORCH_ENABLED=1 (gate fires)",
-    detail=f"got {_r_depth0.orch_outcome!r}",
-)
-
-_set_flag(None)
-
-
-# ===========================================================================
-# Section H — Non-OK orch_outcome: 6 outcomes; outcome reflects deterministic
-# ===========================================================================
-
-print("\n--- H: All 6 non-OK orch outcomes recorded; outcome remains deterministic ---")
-
-_set_flag("1")
-for _non_ok in _NON_OK_OUTCOMES:
-    with patch(
-        "fpl_grounded_assistant.final_response.ask_orchestrated",
-        return_value=_make_orch_non_ok(_non_ok),
-    ):
-        _r_h = respond(_CAPTAIN_Q, _BS)
-    ok(
-        _r_h.orch_outcome == _non_ok,
-        f"H1.{_non_ok}  orch_outcome='{_non_ok}' recorded",
-    )
-    # After fallback, final_text must be non-empty deterministic response
-    ok(
-        len(_r_h.final_text) > 0,
-        f"H2.{_non_ok}  final_text is non-empty (deterministic fallback delivered)",
-    )
-    # outcome is a valid deterministic OUTCOME_* string
-    ok(
-        _r_h.outcome in {"ok", "not_found", "ambiguous", "missing_arguments", "error", "unsupported_intent"},
-        f"H3.{_non_ok}  outcome is valid OUTCOME_* constant after fallback",
-    )
-
-# H4: orch_outcome="ok" on success path
-_ok_result = _make_orch_ok("get_transfer_advice", _TRANSFER_RO_CLEAR)
-with patch(
-    "fpl_grounded_assistant.final_response.ask_orchestrated",
-    return_value=_ok_result,
-):
-    _r_ok = respond(_TRANSFER_Q, _BS)
-ok(
-    _r_ok.orch_outcome == "ok",
-    "H4 orch_outcome='ok' when orchestrator succeeds",
-    detail=f"got {_r_ok.orch_outcome!r}",
-)
-ok(
-    _r_ok.outcome == "ok",
-    "H5 outcome='ok' when orchestrator succeeds with OK result",
-    detail=f"got {_r_ok.outcome!r}",
-)
-
-# H6: orch_outcome unaffected by squad_context override application
-with patch(
-    "fpl_grounded_assistant.final_response.ask_orchestrated",
-    return_value=_make_orch_ok("get_transfer_advice", _TRANSFER_RO_CLEAR),
-):
-    _r_budget = respond(_TRANSFER_Q, _BS, squad_context={"itb": 5})
-ok(
-    _r_budget.orch_outcome == "ok",
-    "H6 orch_outcome='ok' unaffected by budget_constraint override",
-    detail=f"got {_r_budget.orch_outcome!r}",
-)
-ok(
-    _r_budget.transfer is not None and _r_budget.transfer.budget_constraint is True,
-    "H7 budget_constraint still fires on orch-success path",
 )
 
 _set_flag(None)
