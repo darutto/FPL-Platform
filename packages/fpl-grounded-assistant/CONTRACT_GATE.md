@@ -78,11 +78,24 @@ which causes CI to fail immediately.
 |--------|-----------|----------------|
 | `run_phase_orch4i_tests.py` | 70 | Gate scope parity: CI yml and shell script enumerate the same runners in the same order |
 | `run_phase_orch4f_tests.py` | 125 | Cross-file drift: stable field parity, orch_outcome vocabulary parity, HTTP always-present claim, override-order completeness, independence invariants, deferred note parity, conditional field coverage, HTTP status contract |
-| `run_phase_orch4e_tests.py` | 122 | Runtime orch_outcome semantics: field presence, value on all 6 non-OK outcomes, independence from `outcome`, override-ordering proof, depth-bypass deferred invariant |
-| `run_phase_orch4d_tests.py` | 84 | squad_context override parity: `_apply_squad_overrides` is the single source of truth on both deterministic and orch-success paths |
-| `run_phase_orch4c_tests.py` | 120 | Orchestration audit parity: all 6 non-OK outcomes serialized consistently across CLI, HTTP, and session surfaces |
+| `run_phase_orch4e_tests.py` | 81 | Runtime orch_outcome semantics: field presence, always-None invariant with no client, override-ordering proof via `_apply_squad_overrides`, depth-bypass deferred invariant, contract doc/fixture parity |
+| `run_phase_orch4d_tests.py` | 17 | `_apply_squad_overrides` helper contract: budget/hit-warning/chip-unavailable firing rules, no-op when `squad_context=None` |
+| `run_phase_orch4c_tests.py` | 21 | orch_outcome field surface, always-None invariant with no client, depth-bypass, regression stack |
 | `run_phase_orch4a_tests.py` | 193 | Orchestration enable/disable: `FPL_ORCH_ENABLED` gates correctly, deterministic path unaffected, provider/model constants stable |
 | `run_phase_orch4b_tests.py` | 239 | orch_outcome serialization: values serialize consistently across CLI, HTTP, and session surfaces for all supported intents |
+
+**2026-07-12 retirement note:** `orch4c`, `orch4d`, and `orch4e` all had assertion
+counts drop sharply (from 120/84/122 to 21/17/81). Commit 118d43e ("G2.a delete
+rollout-isolation surface", 2026-05-18) removed the orchestration gate inside
+`respond()` that called `ask_orchestrated()`, but a grep-driven dead-consumer
+audit missed that these three runners still imported the pruned
+`ORCH_OUTCOME_*` re-exports and patched `final_response.ask_orchestrated` to
+simulate that gate — so `orch4e` import-errored on every run (blocking this
+CI job at its first step, `orch4d`/`orch4c`/`orch4a`/`orch4b` never even ran),
+and the majority of `orch4c`'s/`orch4d`'s sections tested a code path that no
+longer exists. Each runner was trimmed to only the sections that test live
+behavior (see the retirement note at the top of each file for the exact
+before/after section map).
 
 ### Specific drift Orch-4f catches (by section)
 
