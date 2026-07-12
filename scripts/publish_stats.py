@@ -31,8 +31,12 @@ from fpl_api_client.fpl_client import (  # noqa: E402
     get_all_fixtures,
     get_bootstrap,
     get_current_gameweek,
+    get_players,
     get_teams,
 )
+
+# element_type -> position label (see fpl_client.get_bootstrap docstring).
+POSITION_LABELS = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
 
 
 def derive_season(bootstrap: dict) -> str:
@@ -85,6 +89,51 @@ def aggregate_team_goals(teams: list[dict], fixtures: list[dict]) -> dict[int, d
     return stats
 
 
+def _to_float(value) -> float:
+    """Parse an FPL numeric-as-string field (e.g. ``"26.14"``) safely.
+
+    Missing/``None``/unparsable values become ``0.0`` rather than raising, since
+    these fields are cosmetic (xG/xA leaderboard) and never worth failing the
+    whole publish over.
+    """
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def build_top_players(bootstrap: dict, teams: list[dict]) -> list[dict]:
+    """Top 25 outfield-and-keeper players by xG + xA (xGI) among those with
+    ``minutes > 0``. ``get_players()`` doesn't expose ``minutes``, so it's read
+    directly off the raw bootstrap ``elements`` here and joined in by id."""
+    team_short_by_id = {t["id"]: t["short_name"] for t in teams}
+    minutes_by_id = {e["id"]: e.get("minutes", 0) for e in bootstrap.get("elements", [])}
+
+    rows = []
+    for p in get_players(bootstrap):
+        minutes = minutes_by_id.get(p["id"], 0) or 0
+        if minutes <= 0:
+            continue
+        xg = _to_float(p.get("expected_goals"))
+        xa = _to_float(p.get("expected_assists"))
+        rows.append(
+            {
+                "name": p["web_name"],
+                "team": team_short_by_id.get(p["team_id"], "UNK"),
+                "position": POSITION_LABELS.get(p["element_type"], "UNK"),
+                "xg": round(xg, 2),
+                "xa": round(xa, 2),
+                "minutes": int(minutes),
+                "_xgi": xg + xa,  # sort key only, stripped before returning
+            }
+        )
+
+    rows.sort(key=lambda r: r["_xgi"], reverse=True)
+    for r in rows:
+        del r["_xgi"]
+    return rows[:25]
+
+
 def build_payload() -> dict:
     bootstrap = get_bootstrap()
     teams = get_teams(bootstrap)
@@ -115,6 +164,7 @@ def build_payload() -> dict:
         "seasonStatus": "in_season" if current is not None else "offseason",
         "gameweek": last_finished_gameweek(bootstrap),
         "teams": team_rows,
+        "players": build_top_players(bootstrap, teams),
     }
 
 
@@ -144,7 +194,7 @@ def main() -> int:
     print(
         f"Wrote {out_path} — season {payload['season']} ({payload['seasonStatus']}), "
         f"gw {payload['gameweek']}, {len(payload['teams'])} teams, "
-        f"{total_played} team-fixtures."
+        f"{total_played} team-fixtures, {len(payload['players'])} players."
     )
     return 0
 

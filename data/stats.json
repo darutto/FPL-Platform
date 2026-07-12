@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-12T04:41:19Z",
+  "generatedAt": "2026-07-12T22:04:30Z",
   "season": "2025/26",
   "seasonStatus": "in_season",
   "gameweek": 38,
@@ -143,6 +143,208 @@
       "goalsFor": 27,
       "goalsAgainst": 68,
       "played": 38
+    }
+  ],
+  "players": [
+    {
+      "name": "Haaland",
+      "team": "MCI",
+      "position": "FWD",
+      "xg": 25.5,
+      "xa": 2.67,
+      "minutes": 2953
+    },
+    {
+      "name": "B.Fernandes",
+      "team": "MUN",
+      "position": "MID",
+      "xg": 10.79,
+      "xa": 12.28,
+      "minutes": 3065
+    },
+    {
+      "name": "Thiago",
+      "team": "BRE",
+      "position": "FWD",
+      "xg": 20.6,
+      "xa": 1.83,
+      "minutes": 3282
+    },
+    {
+      "name": "Enzo",
+      "team": "CHE",
+      "position": "MID",
+      "xg": 11.26,
+      "xa": 7.26,
+      "minutes": 3114
+    },
+    {
+      "name": "Mbeumo",
+      "team": "MUN",
+      "position": "MID",
+      "xg": 11.98,
+      "xa": 4.99,
+      "minutes": 2611
+    },
+    {
+      "name": "João Pedro",
+      "team": "CHE",
+      "position": "FWD",
+      "xg": 14.91,
+      "xa": 1.96,
+      "minutes": 2658
+    },
+    {
+      "name": "Calvert-Lewin",
+      "team": "LEE",
+      "position": "FWD",
+      "xg": 15.57,
+      "xa": 1.06,
+      "minutes": 2721
+    },
+    {
+      "name": "Watkins",
+      "team": "AVL",
+      "position": "FWD",
+      "xg": 15.4,
+      "xa": 1.18,
+      "minutes": 2833
+    },
+    {
+      "name": "Mateta",
+      "team": "CRY",
+      "position": "FWD",
+      "xg": 14.42,
+      "xa": 1.32,
+      "minutes": 2210
+    },
+    {
+      "name": "Saka",
+      "team": "ARS",
+      "position": "MID",
+      "xg": 7.57,
+      "xa": 7.16,
+      "minutes": 2218
+    },
+    {
+      "name": "Semenyo",
+      "team": "MCI",
+      "position": "MID",
+      "xg": 11.1,
+      "xa": 3.12,
+      "minutes": 3200
+    },
+    {
+      "name": "Gyökeres",
+      "team": "ARS",
+      "position": "FWD",
+      "xg": 12.26,
+      "xa": 1.94,
+      "minutes": 2217
+    },
+    {
+      "name": "Schade",
+      "team": "BRE",
+      "position": "MID",
+      "xg": 12.08,
+      "xa": 2.05,
+      "minutes": 2744
+    },
+    {
+      "name": "Welbeck",
+      "team": "BHA",
+      "position": "FWD",
+      "xg": 12.36,
+      "xa": 1.4,
+      "minutes": 2249
+    },
+    {
+      "name": "Gibbs-White",
+      "team": "NFO",
+      "position": "MID",
+      "xg": 10.81,
+      "xa": 2.91,
+      "minutes": 3101
+    },
+    {
+      "name": "M.Salah",
+      "team": "LIV",
+      "position": "MID",
+      "xg": 8.23,
+      "xa": 5.44,
+      "minutes": 2144
+    },
+    {
+      "name": "Tavernier",
+      "team": "BOU",
+      "position": "MID",
+      "xg": 9.06,
+      "xa": 4.6,
+      "minutes": 2732
+    },
+    {
+      "name": "Cherki",
+      "team": "MCI",
+      "position": "MID",
+      "xg": 4.28,
+      "xa": 8.87,
+      "minutes": 1772
+    },
+    {
+      "name": "Palmer",
+      "team": "CHE",
+      "position": "MID",
+      "xg": 10.55,
+      "xa": 2.49,
+      "minutes": 1954
+    },
+    {
+      "name": "Gakpo",
+      "team": "LIV",
+      "position": "MID",
+      "xg": 8.35,
+      "xa": 4.67,
+      "minutes": 2736
+    },
+    {
+      "name": "Ekitiké",
+      "team": "LIV",
+      "position": "FWD",
+      "xg": 10.1,
+      "xa": 2.45,
+      "minutes": 1797
+    },
+    {
+      "name": "Raúl",
+      "team": "FUL",
+      "position": "FWD",
+      "xg": 11.58,
+      "xa": 0.9,
+      "minutes": 2183
+    },
+    {
+      "name": "Bowen",
+      "team": "WHU",
+      "position": "FWD",
+      "xg": 7.22,
+      "xa": 5.21,
+      "minutes": 3406
+    },
+    {
+      "name": "Gordon",
+      "team": "NEW",
+      "position": "MID",
+      "xg": 8.77,
+      "xa": 3.38,
+      "minutes": 1798
+    },
+    {
+      "name": "Evanilson",
+      "team": "BOU",
+      "position": "FWD",
+      "xg": 10.64,
+      "xa": 1.48,
+      "minutes": 2741
     }
   ]
 }
