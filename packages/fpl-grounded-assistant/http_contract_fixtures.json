@@ -37,7 +37,7 @@
           "type": "string|null",
           "required": false,
           "default": null,
-          "description": "Optional pre-classifier routing bias. Allowlisted to 7 values. Fires only on deterministic router miss. Invalid values are silently ignored."
+          "description": "Optional pre-classifier routing bias. Allowlisted to 8 values. Fires only on deterministic router miss. Invalid values are silently ignored."
         }
       },
       "POST /session/{session_id}/ask": {
@@ -77,7 +77,8 @@
         "transfer_advice",
         "chip_advice",
         "player_fixture_run",
-        "differential_picks"
+        "differential_picks",
+        "fixture_outlook"
       ],
       "invariants": [
         "deterministic router wins: if route(question) succeeds, intent_hint is completely ignored",

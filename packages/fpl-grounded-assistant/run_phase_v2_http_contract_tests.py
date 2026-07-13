@@ -303,8 +303,8 @@ _assert("fixtures file has http_status_contract", "http_status_contract" in _FIX
 meta = _FIXTURES.get("_meta", {})
 _assert("_meta has intent_hint_contract", "intent_hint_contract" in meta)
 hint_contract = meta.get("intent_hint_contract", {})
-_assert("intent_hint allowlist has 7 values",
-        len(hint_contract.get("allowlist", [])) == 7,
+_assert("intent_hint allowlist has 8 values",  # +fixture_outlook (Track D/FI4-3 /calendario)
+        len(hint_contract.get("allowlist", [])) == 8,
         str(hint_contract.get("allowlist")))
 _assert("intent_hint_contract has 7 invariants",
         len(hint_contract.get("invariants", [])) == 7,

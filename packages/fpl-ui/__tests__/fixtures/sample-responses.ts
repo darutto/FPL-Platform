@@ -35,6 +35,9 @@ export const captainOkResponse: AskResponse = {
   differential: null,
   fixture_outlook: null,
   sub_responses: null,
+  orch_outcome: null,
+  degraded: false,
+  resource_rows: null,
 };
 
 /** captain_score OK — upside tier, no set piece notes */
@@ -92,6 +95,9 @@ export const comparisonOkResponse: AskResponse = {
   differential: null,
   fixture_outlook: null,
   sub_responses: null,
+  orch_outcome: null,
+  degraded: false,
+  resource_rows: null,
 };
 
 /** compare_players OK — tied (winner=null) */
@@ -137,6 +143,9 @@ export const unsupportedResponse: AskResponse = {
   differential: null,
   fixture_outlook: null,
   sub_responses: null,
+  orch_outcome: null,
+  degraded: false,
+  resource_rows: null,
 };
 
 /** not_found — text-only, no structured rendering */
@@ -156,6 +165,9 @@ export const notFoundResponse: AskResponse = {
   differential: null,
   fixture_outlook: null,
   sub_responses: null,
+  orch_outcome: null,
+  degraded: false,
+  resource_rows: null,
 };
 
 /** rank_candidates OK — RankingTable should render */
@@ -203,6 +215,9 @@ export const rankingOkResponse: AskResponse = {
   differential: null,
   fixture_outlook: null,
   sub_responses: null,
+  orch_outcome: null,
+  degraded: false,
+  resource_rows: null,
 };
 
 /** rank_candidates OK — empty list (edge case: should fall through to text-only) */
@@ -237,6 +252,9 @@ export const transferOkResponse: AskResponse = {
   differential: null,
   fixture_outlook: null,
   sub_responses: null,
+  orch_outcome: null,
+  degraded: false,
+  resource_rows: null,
 };
 
 /** transfer_advice OK — hold recommendation, with budget_constraint */
@@ -278,6 +296,9 @@ export const chipOkResponse: AskResponse = {
   differential: null,
   fixture_outlook: null,
   sub_responses: null,
+  orch_outcome: null,
+  degraded: false,
+  resource_rows: null,
 };
 
 /** chip_advice OK — wildcard, conditions_marginal */
@@ -345,6 +366,9 @@ export const fixtureRunOkResponse: AskResponse = {
   differential: null,
   fixture_outlook: null,
   sub_responses: null,
+  orch_outcome: null,
+  degraded: false,
+  resource_rows: null,
 };
 
 /**
@@ -440,6 +464,9 @@ export const differentialOkResponse: AskResponse = {
   },
   fixture_outlook: null,
   sub_responses: null,
+  orch_outcome: null,
+  degraded: false,
+  resource_rows: null,
 };
 
 /** differential_picks OK — empty picks (edge case: should fall through to text-only) */
@@ -481,12 +508,18 @@ export const multiIntentOkResponse: AskResponse = {
       final_text: 'Considera fichar a Salah por Saka.',
     },
   ],
+  orch_outcome: null,
+  degraded: false,
+  resource_rows: null,
 };
 
 /** multi_intent OK — null sub_responses: should fall through to text-only */
 export const multiIntentNullSubsResponse: AskResponse = {
   ...multiIntentOkResponse,
   sub_responses: null,
+  orch_outcome: null,
+  degraded: false,
+  resource_rows: null,
 };
 
 /** multi_intent OK — empty sub_responses: should fall through to text-only */
