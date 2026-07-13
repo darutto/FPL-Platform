@@ -24,24 +24,30 @@ NextXI's ticker splits these with an attack/clean-sheet toggle.  We compute
 **both** and let the caller pick the axis — FI3 maps it from player position
 (attacker → ``attack``, DEF/GKP → ``defence``).
 
-The difficulty model (FI0)
---------------------------
-We derive difficulty from the **opponent's** venue-aware strength ratings that
-ship in the FPL bootstrap (``strength_attack_home/away`` and
-``strength_defence_home/away``, ~1000–1400 scale):
+The difficulty model (FI0, FDR-first)
+-------------------------------------
+Difficulty is **FDR-first**: each fixture's band is FPL's own official FDR
+(``difficulty``, already a 1–5 value). The ML0 evaluation harness
+(``scripts/backtest_fixture_difficulty.py``) scored every 2025-26 team-fixture
+against season xG and found FPL's FDR out-predicts our home-grown
+opponent-strength quintile banding on BOTH axes (attack +0.281 vs +0.087,
+defence +0.307 vs +0.145), so FDR is the primary signal.
+
+The opponent venue-aware **strength** model is retained only as a *fallback*
+for fixtures that carry no usable FDR:
 
 * attack difficulty for our team  = opponent's **defence** strength at the
   venue the opponent is playing (we home → opponent away → ``..._away``).
 * defence difficulty for our team = opponent's **attack** strength at that
   venue.
 
-Each fixture's opponent-strength value is bucketed into **5 bands** (parity
-with the existing FDR scale, 1 = easiest … 5 = hardest) using league-wide
-quintile thresholds for that axis.  When strength data is unavailable we fall
-back to the fixture's official ``difficulty`` (FDR), and finally to band 3.
+bucketed into 5 bands via league-wide quintile thresholds, then finally band 3.
 
-Poisson / expected-goals calibration is intentionally deferred to FI6 (it
-needs Track A historical data to backtest).
+Because FDR is axis-agnostic, attack and defence bands coincide when FDR is
+present; ``axis`` still selects the verdict wording (and, via FI3a, the
+per-player axis). Re-separating the axes with a walk-forward defensive-form
+overlay (the ML0-validated improvement) is a later step, gated on a runtime
+rolling-form pipeline. Poisson / expected-goals calibration remains FI6.
 
 Run / tendency detection (FI1)
 ------------------------------
@@ -224,29 +230,38 @@ def _fixture_band(
 ) -> int:
     """Difficulty band (1–5) for one fixture on *axis*, with graceful fallback.
 
-    Order of preference:
-    1. Opponent venue-aware strength bucketed against league thresholds.
-    2. The fixture's official FDR (``difficulty``) — already a 1–5 value.
+    Order of preference (FDR-first since the ML0 evaluation harness showed
+    FPL's own FDR out-predicts our opponent-strength quintile banding on both
+    axes — attack +0.281 vs +0.087, defence +0.307 vs +0.145 vs season xG):
+    1. The fixture's official FDR (``difficulty``) — already a 1–5 value.
+    2. Opponent venue-aware strength bucketed against league thresholds
+       (fallback only when the fixture carries no usable FDR).
     3. Band 3 (neutral).
+
+    FDR is axis-agnostic, so attack and defence bands are numerically equal
+    when FDR is present; ``axis`` still drives the verdict wording and (via
+    FI3a) the per-player axis choice. The defence-form overlay that would
+    re-separate the axes is a later step, gated on a runtime rolling-form
+    pipeline (see project_track_d_backtest_findings memory).
     """
-    opponent_id = int(fixture.get("opponent_team", 0) or 0)
-    is_home = bool(fixture.get("is_home", False))
-    opponent = teams_by_id.get(opponent_id)
-
-    if thresholds is not None and opponent is not None:
-        # The opponent plays at the *opposite* venue to us.
-        field = _STRENGTH_FIELDS[(axis, not is_home)]
-        val = _strength_value(opponent, field)
-        if val is not None:
-            return _bucket(float(val), thresholds)
-
-    # Fallback to official FDR, then neutral.
     try:
         fdr = int(fixture.get("difficulty"))
         if 1 <= fdr <= _N_BANDS:
             return fdr
     except (TypeError, ValueError):
         pass
+
+    # Fallback: opponent venue-aware strength (opponent plays the opposite
+    # venue to us), then neutral.
+    opponent_id = int(fixture.get("opponent_team", 0) or 0)
+    is_home = bool(fixture.get("is_home", False))
+    opponent = teams_by_id.get(opponent_id)
+    if thresholds is not None and opponent is not None:
+        field = _STRENGTH_FIELDS[(axis, not is_home)]
+        val = _strength_value(opponent, field)
+        if val is not None:
+            return _bucket(float(val), thresholds)
+
     return 3
 
 

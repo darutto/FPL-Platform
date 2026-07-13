@@ -101,6 +101,10 @@ def test_bucket_is_monotonic():
 # FI0 — venue-aware opponent strength selection
 # ---------------------------------------------------------------------------
 
+# Strength is FDR-first's FALLBACK now, so these venue-selection tests pass
+# fixtures with difficulty=None to exercise the strength path (a real FDR
+# would win outright — see test_fixture_band_prefers_fdr_over_strength).
+
 def test_fixture_band_uses_opponent_venue_field_for_attack():
     # Opponent strong-defence at home, weak away.
     opp = _strength_team(2, "Brentford", "BRE",
@@ -109,9 +113,9 @@ def test_fixture_band_uses_opponent_venue_field_for_attack():
     th = [1150, 1200, 1250, 1350]
 
     # We play HOME → opponent AWAY → uses strength_defence_away (1100) → easy.
-    band_home = _fixture_band(_fx(1, 2, True), "attack", teams_by_id, th)
+    band_home = _fixture_band(_fx(1, 2, True, difficulty=None), "attack", teams_by_id, th)
     # We play AWAY → opponent HOME → uses strength_defence_home (1300) → hard.
-    band_away = _fixture_band(_fx(1, 2, False), "attack", teams_by_id, th)
+    band_away = _fixture_band(_fx(1, 2, False, difficulty=None), "attack", teams_by_id, th)
 
     assert band_home == 1
     assert band_away == 4
@@ -124,9 +128,20 @@ def test_fixture_band_defence_axis_reads_opponent_attack():
     teams_by_id = {2: opp}
     th = [1150, 1200, 1250, 1350]
     # We HOME → opponent AWAY → strength_attack_away (1100) → easy clean sheet.
-    assert _fixture_band(_fx(1, 2, True), "defence", teams_by_id, th) == 1
+    assert _fixture_band(_fx(1, 2, True, difficulty=None), "defence", teams_by_id, th) == 1
     # We AWAY → opponent HOME → strength_attack_home (1400) → hard.
-    assert _fixture_band(_fx(1, 2, False), "defence", teams_by_id, th) == 5
+    assert _fixture_band(_fx(1, 2, False, difficulty=None), "defence", teams_by_id, th) == 5
+
+
+def test_fixture_band_prefers_fdr_over_strength():
+    # FDR-first: when a fixture carries a valid FDR, it wins even if opponent
+    # strength would bucket differently (ML0: FDR out-predicts strength).
+    opp = _strength_team(2, "Brentford", "BRE",
+                         atk_h=1400, atk_a=1400, def_h=1400, def_a=1400)  # would be band 5
+    teams_by_id = {2: opp}
+    th = [1150, 1200, 1250, 1350]
+    assert _fixture_band(_fx(1, 2, True, difficulty=2), "attack", teams_by_id, th) == 2
+    assert _fixture_band(_fx(1, 2, True, difficulty=2), "defence", teams_by_id, th) == 2
 
 
 def test_fixture_band_falls_back_to_fdr_without_strength():
