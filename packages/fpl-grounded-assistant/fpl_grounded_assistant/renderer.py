@@ -1125,6 +1125,210 @@ def _render_rank_players_by_metric(output: dict[str, Any]) -> str:
     return f"Error ({code}): {message}"
 
 
+def _render_get_zonal_weakness(output: dict[str, Any]) -> str:
+    """Render get_zonal_weakness raw_output.  T-zonal.
+
+    Weakness/opportunity read only — the verdict comes from the engine and
+    is already Spanish and buy/sell-free; this renderer only formats it.
+    """
+    status = output.get("status")
+    if status == "ok":
+        team    = output.get("team", "?")
+        verdict = output.get("verdict", "")
+        weakest = output.get("weakest_zones", [])
+        pen     = output.get("penalty_context", {})
+
+        lines = [verdict or f"Lectura zonal de {team}:"]
+        if weakest:
+            lines.append("Zonas más débiles (xGA/partido vs media de la liga):")
+            for z in weakest:
+                zone  = z.get("zone", "?")
+                xga   = z.get("xga_per_game", 0.0)
+                avg   = z.get("league_avg", 0.0)
+                delta = z.get("delta_vs_avg", 0.0)
+                rank  = z.get("rank")
+                rank_str = f" | nº{rank} de la liga" if rank else ""
+                lines.append(
+                    f"  {zone}: {xga:.3f} (media {avg:.3f}, {delta:+.3f}{rank_str})"
+                )
+        pen_pg = pen.get("penalty_xga_per_game")
+        if pen_pg is not None:
+            lines.append(
+                f"Contexto penaltis (excluidos de las zonas): {pen_pg:.3f} xGA/partido."
+            )
+        return "\n".join(lines)
+
+    if status == "not_found":
+        team = output.get("team", "?")
+        return output.get(
+            "message", f"Sin datos zonales para '{team}' en el almacén táctico."
+        )
+
+    if status == "missing_context":
+        return output.get(
+            "message", "Datos tácticos (zonales) no disponibles en este despliegue."
+        )
+
+    code    = output.get("code", "error")
+    message = output.get("message", "Error inesperado.")
+    return f"Error ({code}): {message}"
+
+
+def _render_get_zonal_opportunity(output: dict[str, Any]) -> str:
+    """Render get_zonal_opportunity raw_output.  T-zonal.
+
+    Opportunity signal only — lists players whose shot profile concentrates
+    in the opponent's above-average weak zones. Never buy/sell framing.
+    """
+    status = output.get("status")
+    if status == "ok":
+        opponent      = output.get("opponent", "?")
+        opportunities = output.get("opportunities", [])
+        if not opportunities:
+            return (
+                f"{opponent} no concede por encima de la media de la liga en "
+                f"ninguna zona del área — sin oportunidad zonal destacada."
+            )
+        lines = [f"Oportunidad zonal contra {opponent}:"]
+        for opp in opportunities:
+            zone    = opp.get("zone", "?")
+            delta   = opp.get("delta_vs_avg", 0.0)
+            players = opp.get("players", [])
+            players_str = ", ".join(players) if players else "sin jugadores destacados"
+            lines.append(f"  {zone} ({delta:+.3f} vs media): {players_str}")
+        return "\n".join(lines)
+
+    if status == "not_found":
+        opponent = output.get("opponent", "?")
+        return output.get(
+            "message", f"Sin datos zonales para '{opponent}' en el almacén táctico."
+        )
+
+    if status == "missing_context":
+        return output.get(
+            "message", "Datos tácticos (zonales) no disponibles en este despliegue."
+        )
+
+    code    = output.get("code", "error")
+    message = output.get("message", "Error inesperado.")
+    return f"Error ({code}): {message}"
+
+
+def _render_get_player_zonal_outlook(output: dict[str, Any]) -> str:
+    """Render get_player_zonal_outlook raw_output.  T-player.
+
+    Opportunity-framed per-fixture matchup read — never buy/sell framing.
+    """
+    status = output.get("status")
+    if status == "ok":
+        player  = output.get("player", "?")
+        team    = output.get("team", "?")
+        verdict = output.get("verdict", "")
+        zones   = output.get("player_zones", [])
+        outlook = output.get("outlook", [])
+
+        lines = [verdict or f"Cruce zonal de {player} ({team}):"]
+        if zones:
+            zones_str = ", ".join(
+                f"{z.get('zone', '?')} ({z.get('share', 0.0) * 100:.0f}% de su xG)"
+                for z in zones
+            )
+            lines.append(f"Zonas de {player}: {zones_str}.")
+        for e in outlook:
+            gw    = e.get("gameweek", "?")
+            opp   = e.get("opponent", "?")
+            venue = "casa" if e.get("is_home") else "fuera"
+            e_status = e.get("status")
+            if e_status == "favorable":
+                matches_str = "; ".join(
+                    f"{m.get('zone', '?')} (rival {m.get('delta_vs_avg', 0.0):+.3f} "
+                    f"vs media, {m.get('player_share', 0.0) * 100:.0f}% del xG de {player})"
+                    for m in e.get("matches", [])
+                )
+                lines.append(f"  J{gw} vs {opp} ({venue}): favorable — {matches_str}")
+            elif e_status == "no_data":
+                lines.append(f"  J{gw} vs {opp} ({venue}): sin datos zonales del rival")
+            else:
+                lines.append(f"  J{gw} vs {opp} ({venue}): sin cruce destacado")
+        return "\n".join(lines)
+
+    if status == "not_found":
+        player = output.get("player", "?")
+        return output.get(
+            "message",
+            f"Sin perfil de tiro para '{player}' en el almacén táctico.",
+        )
+
+    if status == "ambiguous":
+        player     = output.get("player", "?")
+        candidates = output.get("candidates", [])
+        return (
+            f"Varios jugadores coinciden con '{player}': {', '.join(candidates)}. "
+            "Por favor especifica."
+        )
+
+    if status == "missing_context":
+        return output.get(
+            "message", "Datos tácticos o calendario no disponibles en este despliegue."
+        )
+
+    code    = output.get("code", "error")
+    message = output.get("message", "Error inesperado.")
+    return f"Error ({code}): {message}"
+
+
+def _render_get_fixture_outlook(output: dict[str, Any]) -> str:
+    """Render get_fixture_outlook raw_output.  Track D / FI2.
+
+    Schedule-only read (bands + runs + verdict) — never buy/sell framing.
+    Single team when ``series`` is present; all-teams grid otherwise.
+    """
+    status = output.get("status")
+    axis_label = "ofensivo" if output.get("axis") == "attack" else "de portería a cero"
+
+    if status == "ok":
+        series = output.get("series")
+        if series is not None:
+            # Single-team outlook: verdict + per-GW band line.
+            team_name = output.get("team_name", "?")
+            lines = [output.get("verdict") or f"Calendario {axis_label} del {team_name}:"]
+            for gw in series:
+                fixtures = gw.get("fixtures", [])
+                if not fixtures:
+                    lines.append(f"  J{gw.get('gameweek', '?')}: descansa (sin partido)")
+                    continue
+                matchup = " y ".join(
+                    f"{f.get('opponent_short', '?')} ({'casa' if f.get('is_home') else 'fuera'})"
+                    for f in fixtures
+                )
+                dgw = " — doble jornada" if gw.get("is_dgw") else ""
+                lines.append(
+                    f"  J{gw.get('gameweek', '?')}: {matchup}, dificultad {gw.get('band', '?')}/5{dgw}"
+                )
+            return "\n".join(lines)
+
+        # All teams, easiest-first: compact ranking with average band.
+        teams = output.get("teams", [])
+        horizon = output.get("horizon", "?")
+        lines = [f"Calendario {axis_label} (próximas {horizon} jornadas, más fácil primero):"]
+        for t in teams:
+            avg = t.get("avg_band")
+            avg_str = f"{avg:.2f}" if isinstance(avg, (int, float)) else "?"
+            lines.append(f"  {t.get('team_short', '?')} — dificultad media {avg_str}/5")
+        return "\n".join(lines)
+
+    if status == "not_found":
+        team_query = output.get("team_query", "?")
+        return output.get("message", f"No encontré ningún equipo que coincida con '{team_query}'.")
+
+    if status == "missing_context":
+        return output.get("message", "Calendario de partidos no disponible ahora mismo.")
+
+    code    = output.get("code", "error")
+    message = output.get("message", "Error inesperado.")
+    return f"Error ({code}): {message}"
+
+
 # ---------------------------------------------------------------------------
 # Dispatch table and public API
 # ---------------------------------------------------------------------------
@@ -1157,6 +1361,11 @@ _RENDERERS = {
     "web_fetch":                _render_web_fetch,               # P2.7
     "rank_players_by_metric":   _render_rank_players_by_metric,  # P2.8
     "search_web":               _render_search_web,              # web search parity
+    # T-zonal atomic tools
+    "get_zonal_weakness":       _render_get_zonal_weakness,      # T-zonal
+    "get_zonal_opportunity":    _render_get_zonal_opportunity,   # T-zonal
+    "get_player_zonal_outlook": _render_get_player_zonal_outlook,  # T-player
+    "get_fixture_outlook":      _render_get_fixture_outlook,     # Track D / FI2
 }
 
 

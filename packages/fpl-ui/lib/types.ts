@@ -67,18 +67,21 @@ export type Intent =
   | 'position_fixture_run'
   | 'transfer_suggestion'
   // Track D / FI4: renderable orchestrator-routed intent (the ticker card).
-  // Intentionally NOT in SUPPORTED_INTENT_VALUES — it is reached via the
-  // orchestrator, not the deterministic classifier (keeps backend parity).
-  | 'fixture_outlook';
+  // Intentionally NOT in the deterministic classifier (keeps backend parity).
+  | 'fixture_outlook'
+  // T4b: orchestrator-only renderable intent (in dispatcher._TOOL_TO_INTENT
+  // but deliberately NOT in SUPPORTED_INTENTS/the classifier).
+  | 'zonal_opportunity';
 
 /**
  * Runtime-accessible list of every intent value that can appear in
  * `response.intent`. Used by contract tests to guard against intent drift.
  * Tracks the dispatcher.py INTENT_* constants (minus the "unsupported"
  * sentinel) — this is a superset of the backend SUPPORTED_INTENTS frozenset:
- * `multi_intent` (synthesised by the orchestration layer) and `fixture_outlook`
- * (a renderable orchestrator-routed intent, Track D/FI4) appear in responses
- * but are not deterministic classifier targets.
+ * `multi_intent` (synthesised by the orchestration layer), `fixture_outlook`
+ * (Track D/FI4), and `zonal_opportunity` (T4b) are renderable
+ * orchestrator-routed intents that appear in responses but are not
+ * deterministic classifier targets.
  */
 export const SUPPORTED_INTENT_VALUES = [
   'captain_score',
@@ -100,6 +103,7 @@ export const SUPPORTED_INTENT_VALUES = [
   'position_fixture_run',
   'transfer_suggestion',
   'fixture_outlook',   // Track D/FI4 — renderable orchestrator-routed intent
+  'zonal_opportunity', // T4b — renderable orchestrator-routed intent
 ] as const satisfies readonly Intent[];
 
 export type FplPosition = 'FWD' | 'MID' | 'DEF' | 'GKP';
@@ -229,9 +233,18 @@ export interface AskResponse {
   chip: ChipAdviceMeta | null;
   fixture_run: FixtureRunMeta | null;
   differential: DifferentialPicksMeta | null;
-  /** fixture_outlook field — non-null when intent=fixture_outlook AND outcome=ok (Track D/FI4) */
-  fixture_outlook: FixtureOutlookMeta | null;
+  /**
+   * fixture_outlook field — non-null when intent=fixture_outlook AND
+   * outcome=ok (Track D/FI4). Optional because pre-FI4 fixtures/serialisers
+   * omit it (same convention as zonal_opportunity).
+   */
+  fixture_outlook?: FixtureOutlookMeta | null;
   sub_responses: AskResponse[] | null;
+  /**
+   * Defensive zones payload (T4b) — non-null when intent=zonal_opportunity
+   * AND outcome=ok. Optional because pre-T4b fixtures/serialisers omit it.
+   */
+  zonal_opportunity?: DefensiveZonesMeta | null;
 
   /**
    * Provider degradation flag (Phase 2.6b).
@@ -248,9 +261,10 @@ export interface AskResponse {
    * Web search payload — non-null when the premium search_web tool ran
    * end-to-end (outcome='ok'). Unverified AI synthesis over live web
    * sources — never implies "grounded" data. Parity with the WC chat's
-   * web_search field.
+   * web_search field. Optional because pre-web-search fixtures/serialisers
+   * omit it (same convention as zonal_opportunity).
    */
-  web_search: WebSearchPayload | null;
+  web_search?: WebSearchPayload | null;
 
   // debug_only — null unless request included debug=true.
   // Do not gate production logic on this field.
@@ -457,6 +471,59 @@ export interface WebSearchPayload {
   summary: string;
   results: WebSearchResult[];
   timestamp: string;
+}
+
+// ---------------------------------------------------------------------------
+// Defensive zones types (T4b — zonal_opportunity card)
+// Source: fpl_grounded_assistant/final_response.py → DefensiveZonesMeta
+// ---------------------------------------------------------------------------
+
+/**
+ * Lateral band of the penalty box in the attacker/opportunity frame — "the
+ * flank you attack down" (flank-mirror fix 2026-07-09: verdict, zones and
+ * pitch all speak this one frame; no defender flip anywhere). The pitch view
+ * renders left→'Izquierda' etc. as the attacker faces the goal (goal at the
+ * top, attacker's left = viewer's left).
+ */
+export type ZoneLateral = 'left' | 'central' | 'right';
+
+/**
+ * Opportunity coding for a zone — encodes YOUR attacking advantage:
+ * 'opp' = clearly above league average (turquoise), 'warm' = slightly above
+ * (amber/gold), 'cool' = at/below (grey). Never coral/red for a strong zone.
+ */
+export type OpportunityLevel = 'opp' | 'warm' | 'cool';
+
+/** One in-box lateral cell of the pitch view (always exactly 3, in order). */
+export interface DefensiveZoneCell {
+  lateral: ZoneLateral;
+  /** (xGA/game ÷ league avg − 1) × 100 — deviation from an average team. */
+  pct_over_avg: number;
+  opportunity_level: OpportunityLevel;
+}
+
+/** One row of the "Quién lo explota" zone-fit table. */
+export interface ZonalExploiter {
+  rank: number;
+  web_name: string;
+  team_short: string;
+  /** '' when the backend's best-effort FPL name join missed. */
+  position: string;
+  /** Engine zone key, e.g. 'in-box / left' (attacker frame). */
+  zone: string;
+  /** 0–10 zone-fit heuristic — relative within this answer only. */
+  fit_score: number;
+}
+
+/** zonal_opportunity field — non-null when intent=zonal_opportunity AND outcome=ok */
+export interface DefensiveZonesMeta {
+  opponent: string;
+  weakness_label: string;
+  verdict: string;
+  zones: DefensiveZoneCell[];
+  exploiters: ZonalExploiter[];
+  penalty_xga_per_game: number;
+  ai_active: boolean;
 }
 
 // ---------------------------------------------------------------------------

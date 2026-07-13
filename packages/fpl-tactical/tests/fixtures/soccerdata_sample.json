@@ -1,0 +1,15 @@
+{
+  "comment": "Canned soccerdata-shaped Understat sample: normalized situation/result strings, NA (null) situation for the penalty row, game_id present, no conceding_team/is_home_shot (derived at ingest). Two 2025/26 games.",
+  "schedule": [
+    {"game_id": 1001, "date": "2025-08-16 15:00:00", "home_team": "Alpha FC", "away_team": "Beta United"},
+    {"game_id": 1002, "date": "2025-08-17 14:00:00", "home_team": "Gamma City", "away_team": "Delta Town"}
+  ],
+  "shots": [
+    {"game_id": 1001, "team": "Alpha FC", "player": "Ana Striker", "minute": 5, "location_x": 0.90, "location_y": 0.30, "xg": 0.25, "situation": "Open Play", "body_part": "Right Foot", "result": "Goal"},
+    {"game_id": 1001, "team": "Alpha FC", "player": "Ana Striker", "minute": 33, "location_x": 0.88, "location_y": 0.70, "xg": 0.12, "situation": "From Corner", "body_part": "Head", "result": "Saved Shot"},
+    {"game_id": 1001, "team": "Beta United", "player": "Bruno Wing", "minute": 41, "location_x": 0.76, "location_y": 0.50, "xg": 0.05, "situation": "Open Play", "body_part": "Left Foot", "result": "Missed Shot"},
+    {"game_id": 1001, "team": "Beta United", "player": "Bruno Wing", "minute": 78, "location_x": 0.885, "location_y": 0.5, "xg": 0.7611, "situation": null, "body_part": "Right Foot", "result": "Goal"},
+    {"game_id": 1002, "team": "Gamma City", "player": "Carla Mid", "minute": 12, "location_x": 0.72, "location_y": 0.44, "xg": 0.04, "situation": "Direct Freekick", "body_part": "Left Foot", "result": "Blocked Shot"},
+    {"game_id": 1002, "team": "Delta Town", "player": "Dani Nine", "minute": 88, "location_x": 0.93, "location_y": 0.62, "xg": 0.45, "situation": "Open Play", "body_part": "Right Foot", "result": "Goal"}
+  ]
+}

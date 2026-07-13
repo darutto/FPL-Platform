@@ -368,6 +368,8 @@ def to_ask_response(
         team_schedule=_to_dict(d.get("team_schedule")),
         position_fixture_run=_to_dict(d.get("position_fixture_run")),
         transfer_suggestion=_to_dict(d.get("transfer_suggestion")),
+        zonal_opportunity=_to_dict(d.get("zonal_opportunity")),  # T4b
+
         # A1 (post-graduation): pure passthrough — adapter is still pure mapping; no transformation, no LLM.
         resource_rows=d.get("resource_rows"),
         # Web search parity (premium, opt-in) — see step 1b above.

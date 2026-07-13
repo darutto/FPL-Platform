@@ -67,6 +67,7 @@ for _pkg in [
     _SIB("fpl-captain-engine"),
     _SIB("fpl-pipeline"),
     _SIB("fpl-historical"),  # H4d: explicit; owned_store_fallback shim also inserts this — defensive symmetry
+    _SIB("fpl-tactical"),    # T-zonal: tactical store sync + shared constants (zonal_weakness shim also inserts this)
 ]:
     if _pkg not in sys.path:
         sys.path.insert(0, _pkg)
@@ -306,6 +307,7 @@ class AskResponse(BaseModel):
     team_schedule: dict[str, Any] | None = None            # Phase 2.6e.3
     position_fixture_run: dict[str, Any] | None = None    # Phase 2.6e.4
     transfer_suggestion:  dict[str, Any] | None = None    # Phase 2.6h
+    zonal_opportunity:    dict[str, Any] | None = None    # T4b: defensive zones card
     # Phase A1 (post-graduation): full ResourceListResult dict for @resource turns; null for all other intents.
     resource_rows:        dict[str, Any] | None = None
     # Phase 2.7d: routing audit fields
@@ -369,6 +371,7 @@ class SessionAskResponse(BaseModel):
     team_schedule: dict[str, Any] | None = None            # Phase 2.6e.3
     position_fixture_run: dict[str, Any] | None = None    # Phase 2.6e.4
     transfer_suggestion:  dict[str, Any] | None = None    # Phase 2.6h
+    zonal_opportunity:    dict[str, Any] | None = None    # T4b: defensive zones card
     # Phase A1 (post-graduation): full ResourceListResult dict for @resource turns; null for all other intents.
     resource_rows:        dict[str, Any] | None = None
     # Phase 2.7d: routing audit fields
@@ -446,6 +449,22 @@ except ImportError:  # sync module unavailable — startup R2 sync disabled
     sync_owned_store_from_r2 = None  # type: ignore[assignment]
     sync_enabled = None              # type: ignore[assignment]
     get_last_sync_result = None      # type: ignore[assignment]
+
+# ---------------------------------------------------------------------------
+# Tactical-store sync imports (T-zonal go-live — startup R2 sync, default-off,
+# fail-soft). Mirrors the owned-store block above: if fpl-tactical is absent
+# the names resolve to None and the startup sync is simply skipped.
+# ---------------------------------------------------------------------------
+try:
+    from fpl_tactical.publish import (  # noqa: E402
+        sync_tactical_store_from_r2,
+        tactical_sync_enabled,
+        get_last_tactical_sync_result,
+    )
+except ImportError:  # tactical package unavailable — startup R2 sync disabled
+    sync_tactical_store_from_r2 = None    # type: ignore[assignment]
+    tactical_sync_enabled = None          # type: ignore[assignment]
+    get_last_tactical_sync_result = None  # type: ignore[assignment]
 
 
 # ---------------------------------------------------------------------------
@@ -652,6 +671,14 @@ async def lifespan(app: FastAPI):
         # fail-soft: sync_owned_store_from_r2 never raises; result logged inside.
         if not _sync_res.ok:
             _LOG.error("fpl_startup owned_store_sync_incomplete err=%s", _sync_res.error)
+    # T-zonal go-live: optional startup sync of the tactical store from R2 so
+    # the zonal tools can read parquet. Gated by tactical_sync_enabled() —
+    # default-off preserves current behaviour exactly. Fail-soft: never raises.
+    if sync_tactical_store_from_r2 is not None and tactical_sync_enabled():
+        _tac_res = sync_tactical_store_from_r2()
+        # fail-soft: sync_tactical_store_from_r2 never raises; logged inside.
+        if not _tac_res.ok:
+            _LOG.error("fpl_startup tactical_store_sync_incomplete err=%s", _tac_res.error)
     if _bootstrap is None:
         bs = _fetch_bootstrap_with_retry()
         if bs is not None:
@@ -908,6 +935,36 @@ def _transfer_suggestion_meta_dict(ts: Any) -> dict[str, Any]:
             }
             for p in ts.picks
         ],
+    }
+
+
+def _zonal_opportunity_meta_dict(zo: Any) -> dict[str, Any]:
+    """Serialise a DefensiveZonesMeta instance.  T4b."""
+    return {
+        "opponent":       zo.opponent,
+        "weakness_label": zo.weakness_label,
+        "verdict":        zo.verdict,
+        "zones": [
+            {
+                "lateral":           z.lateral,
+                "pct_over_avg":      z.pct_over_avg,
+                "opportunity_level": z.opportunity_level,
+            }
+            for z in zo.zones
+        ],
+        "exploiters": [
+            {
+                "rank":       e.rank,
+                "web_name":   e.web_name,
+                "team_short": e.team_short,
+                "position":   e.position,
+                "zone":       e.zone,
+                "fit_score":  e.fit_score,
+            }
+            for e in zo.exploiters
+        ],
+        "penalty_xga_per_game": zo.penalty_xga_per_game,
+        "ai_active":            zo.ai_active,
     }
 
 
@@ -1291,12 +1348,33 @@ def healthz() -> dict[str, Any]:
                 "error":           _sync.error,
             }
 
-    return {
+    # T-zonal go-live: expose tactical-store sync freshness for operators.
+    # Additive; never exposes R2 creds. None until a sync has run (default-off).
+    if get_last_tactical_sync_result is None:
+        tactical_store_sync_info = None
+    else:
+        _tac = get_last_tactical_sync_result()
+        if _tac is None:
+            tactical_store_sync_info = None
+        else:
+            tactical_store_sync_info = {
+                "ok":           _tac.ok,
+                "season":       _tac.season,
+                "files_synced": _tac.files_synced,
+                "error":        _tac.error,
+            }
+
+    payload: dict[str, Any] = {
         "routing_counters":    snap,
         "graduation":          _grad(snap),
         "owned_store_fallback": owned_store_fallback_info,
         "owned_store_sync":     owned_store_sync_info,
     }
+    # Key is added only once a tactical sync has run: with the flag off the
+    # /healthz payload stays byte-for-byte identical to pre-go-live responses.
+    if tactical_store_sync_info is not None:
+        payload["tactical_store_sync"] = tactical_store_sync_info
+    return payload
 
 
 @app.get("/resources")
@@ -1965,6 +2043,7 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         team_schedule=sess_team_schedule_bundle,
         position_fixture_run=sess_pos_fixture_run_bundle,
         transfer_suggestion=_transfer_suggestion_meta_dict(r.transfer_suggestion) if r.transfer_suggestion is not None else None,
+        zonal_opportunity=_zonal_opportunity_meta_dict(r.zonal_opportunity) if r.zonal_opportunity is not None else None,  # T4b
         # Phase 2.7d: routing audit fields
         route_source=r.route_source,
         classifier_confidence=r.classifier_confidence,

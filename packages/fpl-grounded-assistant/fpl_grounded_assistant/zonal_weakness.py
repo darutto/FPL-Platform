@@ -1,0 +1,702 @@
+"""
+fpl_grounded_assistant.zonal_weakness
+=====================================
+Tactical track (T2a) — zonal defensive-weakness engine.
+
+Pure and deterministic — no LLM, no tool registry, no network. Reads the
+owned tactical parquet store built by ``packages/fpl-tactical`` (Understat
+shot events) and turns it into a **relative** zonal-weakness signal. The
+tool wrapper (T2b, ``zonal_weakness_tool.py``) is where ``TOOL_REGISTRY``
+is touched — mirroring the ``fixture_outlook`` engine/tool split of Track D.
+
+The signal is relative, never absolute
+--------------------------------------
+Central in-box zones dominate raw xGA for every team in the league (PoC,
+2026-07-02: league avg in-box xGA/game — left 0.079 · central 1.159 ·
+right 0.081), so raw zone totals say nothing about a *particular* defence.
+The only meaningful signal is **deviation from the league baseline per
+zone** (``delta_vs_avg``). Verdicts are Spanish, opportunity/weakness-framed
+only — advice framing (buy/sell/captain) stays owned by the deterministic
+advice engines.
+
+Zone grid (locked from the PoC — do not re-derive; handedness corrected)
+-------------------------------------------------------------------------
+Depth from Understat ``x``: ``in-box`` if x ≥ 0.84; ``edge-of-box`` if
+0.70 ≤ x < 0.84; long-range shots are ignored as noise. Lateral from
+Understat ``y``: ``right`` if y < 0.36; ``left`` if y > 0.64; else
+``central``. Penalties are excluded from zonal aggregation (their xGA is
+reported separately as context).
+
+Coordinate orientation (flank-mirror fix, 2026-07-09)
+-----------------------------------------------------
+Understat's ``y`` axis grows toward the attacker's LEFT: the low band
+(y < 0.36) is the attacker's RIGHT flank, the high band (y > 0.64) the
+attacker's LEFT. The original T2a code had this mirrored ("left" for
+y < 0.36) — proven wrong with known-flank players (right-siders
+Saka/Salah/Bowen cluster in the low band; left-winger Mitoma in the high
+band). The flank regression tests in test_zonal_weakness.py pin the
+corrected orientation so it cannot silently re-invert.
+
+The whole surface speaks ONE frame — the attacker/opportunity frame ("the
+flank you attack down"): zone labels, verdicts ("ataca por la derecha"),
+and the card's pitch view all agree. There is no defender-frame flip
+anywhere anymore.
+
+This is **zone-of-finish**, not buildup-flank: it says where conceded
+chances are struck from, not which flank the attacking moves came down
+(buildup-flank needs event-sequence data — Tier-2 FotMob, T3 follow-up).
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
+
+# ---------------------------------------------------------------------------
+# sys.path shim — mirror owned_store_fallback.py's pattern so the shared
+# fpl_tactical constants/paths are importable without pyproject changes.
+# ---------------------------------------------------------------------------
+_HERE = os.path.dirname(os.path.abspath(__file__))         # fpl_grounded_assistant/
+_PKG  = os.path.dirname(_HERE)                             # fpl-grounded-assistant/
+_PKGS = os.path.dirname(_PKG)                              # packages/
+_FPL_TACTICAL = os.path.join(_PKGS, "fpl-tactical")
+
+if _FPL_TACTICAL not in sys.path:
+    sys.path.insert(0, _FPL_TACTICAL)
+
+# If fpl-tactical is not on disk this module still loads; every public
+# function then degrades to status="missing_context" (the store cannot be
+# located without fpl_tactical.paths either, so the two go together).
+try:
+    from fpl_tactical import PENALTY_SITUATION  # type: ignore[import]
+    from fpl_tactical.paths import (  # type: ignore[import]
+        CURRENT_SEASON,
+        shots_parquet_path,
+    )
+    _FPL_TACTICAL_AVAILABLE = True
+except ImportError:
+    _FPL_TACTICAL_AVAILABLE = False
+    PENALTY_SITUATION = None  # type: ignore[assignment]
+    CURRENT_SEASON = "2025-2026"  # fallback so default args still resolve
+
+
+# ---------------------------------------------------------------------------
+# Public constants
+# ---------------------------------------------------------------------------
+
+#: Locked zone grid thresholds (PoC 2026-07-02 — do not re-derive).
+IN_BOX_MIN_X: float = 0.84
+EDGE_MIN_X: float = 0.70
+# Lateral bands (attacker frame; Understat y grows toward the attacker's
+# LEFT — flank-mirror fix 2026-07-09): low band = right flank, high = left.
+RIGHT_MAX_Y: float = 0.36
+LEFT_MIN_Y: float = 0.64
+
+#: All zone keys, attacker-perspective lateral labels.
+ZONES: tuple[str, ...] = tuple(
+    f"{depth} / {lat}"
+    for depth in ("in-box", "edge-of-box")
+    for lat in ("left", "central", "right")
+)
+
+#: A player "operates" in a zone when at least this share of their own
+#: non-penalty xG comes from it (T2c opportunity matcher).
+PLAYER_ZONE_XG_SHARE_THRESHOLD: float = 0.25
+
+#: Minimum non-penalty shots before a player's zone profile is trusted.
+MIN_PLAYER_SHOTS: int = 10
+
+#: Max players listed per weak zone in get_zonal_opportunity.
+TOP_PLAYERS_PER_ZONE: int = 5
+
+#: Number of weakest zones surfaced (top by delta_vs_avg).
+TOP_WEAK_ZONES: int = 2
+
+#: T4b card — opportunity coding per in-box lateral zone, driven by
+#: ``pct_over_avg = (xga_per_game / league_avg − 1) × 100``. "opp" = clearly
+#: above league average (your best zone), "warm" = slightly above, "cool" =
+#: at/below. Hand-tuned card heuristic, not a scoring-engine signal.
+OPPORTUNITY_OPP_MIN_PCT: float = 15.0
+OPPORTUNITY_WARM_MIN_PCT: float = 1.0
+
+#: T4b zone-fit score scale. ``fit_score`` normalises the ranking value
+#: ``zone_share × total_xg × max(pct_over_avg, 0) / 100`` to 0–10 across the
+#: returned exploiters (10.0 = this answer's best zone/profile cross). The
+#: delta weight is multiplicative so a modest scorer who concentrates xG in
+#: a clearly-weak zone (+70%) outranks a volume scorer in a barely-weak one
+#: (+2%) — the zone edge is the signal, volume only breaks it. Relative
+#: within one answer — never comparable across questions.
+FIT_SCORE_MAX: float = 10.0
+
+#: Max exploiters returned for the card table (across all weak zones).
+TOP_EXPLOITERS: int = 5
+
+#: Attacker-frame lateral label → "the flank you attack down", in Spanish.
+#: One frame everywhere — no defender-side flip (see orientation section).
+_ATTACK_SIDE_ES: dict[str, str] = {
+    "left": "por la izquierda",
+    "right": "por la derecha",
+    "central": "por el centro",
+}
+
+_DEPTH_ES: dict[str, str] = {
+    "in-box": "dentro del área",
+    "edge-of-box": "en la frontal del área",
+}
+
+
+def zone_of(x: float, y: float) -> str | None:
+    """Return the zone key for a shot at Understat (x, y), or None if long-range."""
+    if x >= IN_BOX_MIN_X:
+        depth = "in-box"
+    elif x >= EDGE_MIN_X:
+        depth = "edge-of-box"
+    else:
+        return None
+    if y < RIGHT_MAX_Y:
+        lat = "right"
+    elif y > LEFT_MIN_Y:
+        lat = "left"
+    else:
+        lat = "central"
+    return f"{depth} / {lat}"
+
+
+# ---------------------------------------------------------------------------
+# Store access
+# ---------------------------------------------------------------------------
+
+def _load_shots(store: Any) -> pd.DataFrame | None:
+    """Resolve *store* into the shots DataFrame, or None when unavailable.
+
+    *store* may be a pandas DataFrame (tests), a path to the season parquet,
+    or None → the default owned-store location for CURRENT_SEASON.
+    """
+    if isinstance(store, pd.DataFrame):
+        return store if len(store) else None
+    if store is None:
+        if not _FPL_TACTICAL_AVAILABLE:
+            return None
+        path = shots_parquet_path(CURRENT_SEASON)
+    else:
+        path = Path(store)
+    if not path.exists():
+        return None
+    df = pd.read_parquet(path)
+    return df if len(df) else None
+
+
+def _non_penalty(shots: pd.DataFrame) -> pd.DataFrame:
+    """Drop penalties using the shared fpl_tactical constant."""
+    return shots[shots["situation"] != PENALTY_SITUATION]
+
+
+# ---------------------------------------------------------------------------
+# Aggregation
+# ---------------------------------------------------------------------------
+
+def compute_team_zone_profiles(
+    shots: pd.DataFrame, *, min_x: float = EDGE_MIN_X
+) -> dict[str, dict[str, dict[str, float]]]:
+    """Per-team defensive zone profiles from normalized shot rows.
+
+    Returns ``{team: {zone: {"shots": n, "xga": x, "goals": g, "games": m}}}``
+    with every team carrying all zones (zero-filled) so downstream baselines
+    average correctly. Penalties are excluded; ``games`` counts the team's
+    distinct matches in the store (including matches with no in-zone shots).
+    """
+    games = shots.groupby("conceding_team")["match_id"].nunique()
+    np_shots = _non_penalty(shots)
+
+    profiles: dict[str, dict[str, dict[str, float]]] = {
+        team: {
+            zone: {"shots": 0, "xga": 0.0, "goals": 0, "games": int(n_games)}
+            for zone in ZONES
+        }
+        for team, n_games in games.items()
+    }
+    for row in np_shots.itertuples(index=False):
+        if row.x < min_x:
+            continue
+        zone = zone_of(row.x, row.y)
+        if zone is None:
+            continue
+        cell = profiles[row.conceding_team][zone]
+        cell["shots"] += 1
+        cell["xga"] += float(row.xg)
+        cell["goals"] += 1 if row.result == "Goal" else 0
+    return profiles
+
+
+def compute_league_baseline(
+    profiles: dict[str, dict[str, dict[str, float]]],
+) -> dict[str, float]:
+    """League mean xGA/game per zone across all teams in *profiles*."""
+    if not profiles:
+        return {}
+    baseline: dict[str, float] = {}
+    for zone in ZONES:
+        per_game = [
+            team_zones[zone]["xga"] / team_zones[zone]["games"]
+            for team_zones in profiles.values()
+            if team_zones[zone]["games"] > 0
+        ]
+        baseline[zone] = sum(per_game) / len(per_game) if per_game else 0.0
+    return baseline
+
+
+def _match_team(name: str, teams: list[str]) -> str | None:
+    """Case-insensitive exact match of *name* against stored team names."""
+    lowered = name.strip().lower()
+    for team in teams:
+        if team.lower() == lowered:
+            return team
+    return None
+
+
+def _split_zone(zone: str) -> tuple[str, str]:
+    depth, lat = zone.split(" / ")
+    return depth, lat
+
+
+def _pct_over_avg(per_game: float, league_avg: float) -> float:
+    """Deviation from the league baseline as a percentage (T4b card).
+
+    ``league_avg <= 0`` cannot be divided through: 0 conceded against a 0
+    baseline is no signal (0.0); anything conceded against a 0 baseline is
+    capped at +100.0 rather than exploding.
+    """
+    if league_avg <= 0:
+        return 0.0 if per_game <= 0 else 100.0
+    return round((per_game / league_avg - 1.0) * 100.0, 1)
+
+
+def _opportunity_level(pct_over_avg: float) -> str:
+    """Map a zone's pct_over_avg to the card's opportunity coding."""
+    if pct_over_avg >= OPPORTUNITY_OPP_MIN_PCT:
+        return "opp"
+    if pct_over_avg >= OPPORTUNITY_WARM_MIN_PCT:
+        return "warm"
+    return "cool"
+
+
+_WEAKNESS_LABEL_ES: dict[str, str] = {
+    "in-box": "Débil dentro del área",
+    "edge-of-box": "Débil en la frontal del área",
+}
+
+
+def _weakness_label(weakest: list[dict[str, Any]]) -> str:
+    """Card pill label from the top genuinely-weak zone's depth."""
+    top = next((z for z in weakest if z["delta_vs_avg"] > 0), None)
+    if top is None:
+        return "Sin debilidad clara"
+    depth, _ = _split_zone(top["zone"])
+    return _WEAKNESS_LABEL_ES[depth]
+
+
+def _opportunity_verdict(team: str, weakest: list[dict[str, Any]]) -> str:
+    """Spanish card verdict — attacker/opportunity frame ("ataca por…"),
+    headline pct included. Never "débil por", never buy/sell."""
+    top = next((z for z in weakest if z["delta_vs_avg"] > 0), None)
+    if top is None:
+        return (
+            f"{team} no concede por encima de la media de la liga en "
+            f"ninguna zona del área."
+        )
+    depth, lat = _split_zone(top["zone"])
+    pct = _pct_over_avg(top["xga_per_game"], top["league_avg"])
+    return (
+        f"Ataca a {team} {_ATTACK_SIDE_ES[lat]} {_DEPTH_ES[depth]} — "
+        f"concede un {pct:+.0f}% sobre un equipo medio ahí."
+    )
+
+
+def _weakness_verdict(team: str, weakest: list[dict[str, Any]]) -> str:
+    """Spanish one-liner for the text tool — same attacker/opportunity
+    frame as the card ("ataca por…"). Never buy/sell."""
+    above = [z for z in weakest if z["delta_vs_avg"] > 0]
+    if not above:
+        return (
+            f"{team} no concede por encima de la media de la liga en "
+            f"ninguna zona del área."
+        )
+    parts = []
+    for z in above:
+        depth, lat = _split_zone(z["zone"])
+        parts.append(f"{_ATTACK_SIDE_ES[lat]} {_DEPTH_ES[depth]}")
+    return (
+        f"Ataca a {team} {' y '.join(parts)} — concede por encima de la "
+        f"media de la liga ahí."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Public entry points
+# ---------------------------------------------------------------------------
+
+def get_zonal_weakness(team: str, *, store: Any = None) -> dict[str, Any]:
+    """Relative zonal-weakness read for one team's defence.
+
+    Returns ``status ∈ {ok, not_found, missing_context}``; on ok, each zone
+    row carries ``xga_per_game``, the ``league_avg`` for that zone, the
+    ``delta_vs_avg`` deviation (the signal — positive = leakier than the
+    league), and ``rank`` (1 = league's most vulnerable defence in that
+    zone). ``weakest_zones`` is the top-``TOP_WEAK_ZONES`` by delta;
+    ``penalty_context`` reports penalty xGA separately (excluded from zones).
+    """
+    shots = _load_shots(store)
+    if shots is None:
+        return {"status": "missing_context", "team": team}
+
+    profiles = compute_team_zone_profiles(shots)
+    matched = _match_team(team, list(profiles))
+    if matched is None:
+        return {"status": "not_found", "team": team}
+
+    baseline = compute_league_baseline(profiles)
+
+    # League-wide per-zone deltas → rank of each team within each zone.
+    deltas_by_zone: dict[str, dict[str, float]] = {}
+    for zone in ZONES:
+        deltas_by_zone[zone] = {
+            t: (p[zone]["xga"] / p[zone]["games"] if p[zone]["games"] else 0.0)
+            - baseline[zone]
+            for t, p in profiles.items()
+        }
+
+    zones_out: list[dict[str, Any]] = []
+    for zone in ZONES:
+        cell = profiles[matched][zone]
+        per_game = cell["xga"] / cell["games"] if cell["games"] else 0.0
+        delta = deltas_by_zone[zone][matched]
+        rank = 1 + sum(
+            1 for d in deltas_by_zone[zone].values() if d > delta
+        )
+        zones_out.append(
+            {
+                "zone": zone,
+                "xga_per_game": round(per_game, 4),
+                "league_avg": round(baseline[zone], 4),
+                "delta_vs_avg": round(delta, 4),
+                "rank": rank,
+            }
+        )
+    weakest = sorted(zones_out, key=lambda z: -z["delta_vs_avg"])[:TOP_WEAK_ZONES]
+
+    team_rows = shots[shots["conceding_team"] == matched]
+    pen_rows = team_rows[team_rows["situation"] == PENALTY_SITUATION]
+    n_games = int(team_rows["match_id"].nunique())
+    pen_xga = float(pen_rows["xg"].sum())
+
+    return {
+        "status": "ok",
+        "team": matched,
+        "zones": zones_out,
+        "weakest_zones": weakest,
+        "penalty_context": {
+            "penalty_xga": round(pen_xga, 4),
+            "penalty_xga_per_game": round(pen_xga / n_games, 4) if n_games else 0.0,
+        },
+        "verdict": _weakness_verdict(matched, weakest),
+    }
+
+
+def compute_player_zone_shares(
+    shots: pd.DataFrame,
+) -> dict[str, dict[str, Any]]:
+    """Per-player share of own non-penalty xG per zone.
+
+    Returns ``{player: {"team": str, "total_xg": float, "n_shots": int,
+    "zone_share": {zone: share}}}`` for players with at least
+    ``MIN_PLAYER_SHOTS`` non-penalty shots. Long-range shots count toward
+    the totals but no zone, so shares are conservative.
+    """
+    np_shots = _non_penalty(shots)
+    out: dict[str, dict[str, Any]] = {}
+    for player, rows in np_shots.groupby("player"):
+        if len(rows) < MIN_PLAYER_SHOTS:
+            continue
+        total_xg = float(rows["xg"].sum())
+        if total_xg <= 0:
+            continue
+        zone_xg: dict[str, float] = {zone: 0.0 for zone in ZONES}
+        for row in rows.itertuples(index=False):
+            zone = zone_of(row.x, row.y)
+            if zone is not None:
+                zone_xg[zone] += float(row.xg)
+        out[str(player)] = {
+            # a player's team = the side they shot for most recently
+            "team": str(rows.sort_values("date").iloc[-1]["shooting_team"]),
+            "total_xg": total_xg,
+            "n_shots": int(len(rows)),
+            "zone_share": {z: xg / total_xg for z, xg in zone_xg.items()},
+        }
+    return out
+
+
+def get_zonal_opportunity(
+    opponent: str, *, position: str | None = None, store: Any = None
+) -> dict[str, Any]:
+    """Join *opponent*'s weak zones to players who operate in those zones.
+
+    A player "operates" in a zone when ≥ ``PLAYER_ZONE_XG_SHARE_THRESHOLD``
+    of their own non-penalty xG comes from it (with ≥ ``MIN_PLAYER_SHOTS``
+    shots). Players of *opponent* itself are excluded; the rest are ranked
+    by their xG concentration in the zone, top ``TOP_PLAYERS_PER_ZONE``.
+
+    ``position`` is reserved: the Understat store carries no player
+    positions, so filtering by position needs an FPL-bootstrap join (T4
+    follow-up). It is accepted and ignored for now, and the tool schema
+    does not expose it.
+
+    T4b card enrichment (additive): ``zones`` carries the three in-box
+    lateral cells (attacker-frame ``lateral`` ∈ left/central/right) with
+    ``pct_over_avg`` and ``opportunity_level`` for the pitch view;
+    ``exploiters`` is the flat ranked table — the zone-fit heuristic
+    ``zone_share × total_xg × max(pct_over_avg, 0)/100`` normalised to
+    a 0–10 ``fit_score`` (see ``FIT_SCORE_MAX``), deduped to each player's
+    best zone, opponent's own players excluded; ``weakness_label`` /
+    ``verdict`` / ``penalty_context`` feed the card header and footer.
+    Everything is opportunity/suitability-framed — never buy/sell.
+    """
+    shots = _load_shots(store)
+    if shots is None:
+        return {"status": "missing_context", "opponent": opponent}
+
+    weakness = get_zonal_weakness(opponent, store=shots)
+    if weakness["status"] != "ok":
+        return {"status": weakness["status"], "opponent": opponent}
+    matched = weakness["team"]
+
+    shares = compute_player_zone_shares(shots)
+    opportunities: list[dict[str, Any]] = []
+    for zone_row in weakness["weakest_zones"]:
+        if zone_row["delta_vs_avg"] <= 0:
+            continue  # only zones genuinely above league average
+        zone = zone_row["zone"]
+        candidates = [
+            (info["zone_share"][zone] * info["total_xg"], player)
+            for player, info in shares.items()
+            if info["team"] != matched
+            and info["zone_share"][zone] >= PLAYER_ZONE_XG_SHARE_THRESHOLD
+        ]
+        candidates.sort(key=lambda pair: (-pair[0], pair[1]))
+        opportunities.append(
+            {
+                "zone": zone,
+                "delta_vs_avg": zone_row["delta_vs_avg"],
+                "players": [player for _, player in candidates[:TOP_PLAYERS_PER_ZONE]],
+            }
+        )
+
+    # ------------------------------------------------------------------
+    # T4b card enrichment — pitch cells, ranked exploiters, header/footer.
+    # ------------------------------------------------------------------
+    zone_rows = {z["zone"]: z for z in weakness["zones"]}
+    zones_out: list[dict[str, Any]] = []
+    for lat in ("left", "central", "right"):
+        row = zone_rows[f"in-box / {lat}"]
+        pct = _pct_over_avg(row["xga_per_game"], row["league_avg"])
+        zones_out.append(
+            {
+                "lateral": lat,
+                "zone": row["zone"],
+                "pct_over_avg": pct,
+                "opportunity_level": _opportunity_level(pct),
+            }
+        )
+
+    # Zone-fit ranking across the weak zones; each player keeps their best
+    # zone (raw = zone_share × total_xg × max(pct, 0)/100, see FIT_SCORE_MAX
+    # docs). Ties break alphabetically for determinism.
+    raw_by_player: dict[str, tuple[float, str, str]] = {}
+    for zone_row in weakness["weakest_zones"]:
+        if zone_row["delta_vs_avg"] <= 0:
+            continue
+        zone = zone_row["zone"]
+        pct = _pct_over_avg(zone_row["xga_per_game"], zone_row["league_avg"])
+        weight = max(pct, 0.0) / 100.0
+        for player, info in shares.items():
+            if info["team"] == matched:
+                continue
+            share = info["zone_share"][zone]
+            if share < PLAYER_ZONE_XG_SHARE_THRESHOLD:
+                continue
+            raw = share * info["total_xg"] * weight
+            prev = raw_by_player.get(player)
+            if prev is None or raw > prev[0]:
+                raw_by_player[player] = (raw, zone, info["team"])
+    ranked = sorted(
+        raw_by_player.items(), key=lambda kv: (-kv[1][0], kv[0])
+    )[:TOP_EXPLOITERS]
+    max_raw = ranked[0][1][0] if ranked else 0.0
+    exploiters = [
+        {
+            "rank": i + 1,
+            "player": player,
+            "team": team_name,
+            "zone": zone,
+            "fit_score": round(FIT_SCORE_MAX * raw / max_raw, 1) if max_raw > 0 else 0.0,
+        }
+        for i, (player, (raw, zone, team_name)) in enumerate(ranked)
+    ]
+
+    return {
+        "status": "ok",
+        "opponent": matched,
+        "opportunities": opportunities,
+        "zones": zones_out,
+        "exploiters": exploiters,
+        "weakness_label": _weakness_label(weakness["weakest_zones"]),
+        "verdict": _opportunity_verdict(matched, weakness["weakest_zones"]),
+        "penalty_context": weakness["penalty_context"],
+    }
+
+
+# ---------------------------------------------------------------------------
+# Player-centric outlook (T-player: /player Saka → next fixtures matchup read)
+# ---------------------------------------------------------------------------
+
+def _find_store_player(
+    player_query: str, shares: dict[str, dict[str, Any]]
+) -> tuple[str | None, list[str]]:
+    """Match *player_query* against store player names.
+
+    Case-insensitive exact match wins; otherwise substring. Returns
+    ``(match, candidates)`` — a unique match, or None with the (possibly
+    empty / multiple) candidate list for not_found / ambiguous handling.
+    """
+    q = player_query.strip().lower()
+    exact = [p for p in shares if p.lower() == q]
+    candidates = exact or [p for p in shares if q in p.lower()]
+    if len(candidates) == 1:
+        return candidates[0], candidates
+    return None, sorted(candidates)
+
+
+def get_player_zonal_outlook(
+    player_query: str,
+    *,
+    fixtures_for_team: Any,
+    store: Any = None,
+) -> dict[str, Any]:
+    """Per-fixture zonal matchup read for one player's upcoming opponents.
+
+    *fixtures_for_team* is a callable ``(store_team_name) -> list[fixture]``
+    injected by the tool wrapper (fixtures live in the FPL bootstrap, not in
+    the tactical store — the engine stays bootstrap-agnostic). Each fixture
+    dict: ``{"gameweek": int, "opponent": <store team name>, "is_home": bool}``.
+
+    A fixture is ``favorable`` when the opponent concedes above the league
+    baseline in a zone (their top-``TOP_WEAK_ZONES``, positive delta only)
+    where the player concentrates ≥ ``PLAYER_ZONE_XG_SHARE_THRESHOLD`` of
+    their own non-penalty xG; ``neutral`` otherwise; ``no_data`` when the
+    opponent is absent from the store (e.g. newly promoted side).
+
+    Returns ``status ∈ {ok, not_found, ambiguous, missing_context}``; on ok:
+    ``player``, ``team``, ``player_zones`` (zones the player operates in,
+    share-sorted), ``outlook`` (per-fixture entries with ``matches`` carrying
+    ``zone`` / ``delta_vs_avg`` / ``player_share``), and a Spanish,
+    opportunity-framed ``verdict`` (never buy/sell).
+    """
+    shots = _load_shots(store)
+    if shots is None:
+        return {"status": "missing_context", "player": player_query}
+
+    shares = compute_player_zone_shares(shots)
+    player, candidates = _find_store_player(player_query, shares)
+    if player is None:
+        if candidates:
+            return {
+                "status": "ambiguous",
+                "player": player_query,
+                "candidates": candidates[:5],
+            }
+        return {"status": "not_found", "player": player_query}
+
+    info = shares[player]
+    player_zones = sorted(
+        (
+            {"zone": zone, "share": round(share, 4)}
+            for zone, share in info["zone_share"].items()
+            if share >= PLAYER_ZONE_XG_SHARE_THRESHOLD
+        ),
+        key=lambda z: -z["share"],
+    )
+
+    fixtures = fixtures_for_team(info["team"]) or []
+    if not fixtures:
+        return {"status": "missing_context", "player": player, "team": info["team"]}
+
+    profiles = compute_team_zone_profiles(shots)
+    baseline = compute_league_baseline(profiles)
+
+    outlook: list[dict[str, Any]] = []
+    for fx in fixtures:
+        opponent_raw = str(fx.get("opponent", ""))
+        entry: dict[str, Any] = {
+            "gameweek": int(fx.get("gameweek", 0)),
+            "opponent": opponent_raw,
+            "is_home": bool(fx.get("is_home", False)),
+            "matches": [],
+        }
+        matched = _match_team(opponent_raw, list(profiles))
+        if matched is None:
+            entry["status"] = "no_data"
+            outlook.append(entry)
+            continue
+        entry["opponent"] = matched
+        deltas = sorted(
+            (
+                (
+                    (profiles[matched][zone]["xga"] / profiles[matched][zone]["games"]
+                     if profiles[matched][zone]["games"] else 0.0) - baseline[zone],
+                    zone,
+                )
+                for zone in ZONES
+            ),
+            reverse=True,
+        )[:TOP_WEAK_ZONES]
+        for delta, zone in deltas:
+            if delta <= 0:
+                continue
+            share = info["zone_share"][zone]
+            if share >= PLAYER_ZONE_XG_SHARE_THRESHOLD:
+                entry["matches"].append(
+                    {
+                        "zone": zone,
+                        "delta_vs_avg": round(delta, 4),
+                        "player_share": round(share, 4),
+                    }
+                )
+        entry["status"] = "favorable" if entry["matches"] else "neutral"
+        outlook.append(entry)
+
+    favorable = [e for e in outlook if e["status"] == "favorable"]
+    if favorable:
+        gws = " y ".join(
+            f"J{e['gameweek']} ({e['opponent']})" for e in favorable
+        )
+        verdict = (
+            f"{player} genera su xG justo en zonas donde el rival concede por "
+            f"encima de la media — cruce favorable en {gws}."
+        )
+    else:
+        verdict = (
+            f"Sin cruce zonal destacado para {player} en las próximas "
+            f"{len(outlook)} jornadas."
+        )
+
+    return {
+        "status": "ok",
+        "player": player,
+        "team": info["team"],
+        "player_zones": player_zones,
+        "outlook": outlook,
+        "verdict": verdict,
+    }

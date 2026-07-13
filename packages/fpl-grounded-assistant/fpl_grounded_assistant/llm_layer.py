@@ -227,8 +227,10 @@ _OUTCOME_INSTRUCTION: dict[str, str] = {
     OUTCOME_UNSUPPORTED_INTENT: (
         "This question is outside the scope of the FPL assistant. Politely "
         "explain that you can help with captain picks, player summaries, "
-        "gameweek information, and player identity — and that this question "
-        "falls outside those areas."
+        "gameweek information, player identity, and tactical zonal analysis "
+        "(where teams concede and which players can exploit those zones) — "
+        "and that this question falls outside those areas. Respond in the "
+        "user's language."
     ),
 }
 

@@ -935,6 +935,92 @@ SEARCH_WEB_SCHEMA = ToolSchema(
 
 
 # ---------------------------------------------------------------------------
+# T-zonal atomic tools — tactical zonal-weakness intelligence (owned
+# Understat store). Orchestrator-callable only: deliberately NOT in
+# _TOOL_TO_INTENT / SUPPORTED_INTENTS / the classifier (narrated as text).
+# ---------------------------------------------------------------------------
+
+GET_ZONAL_WEAKNESS_SCHEMA = ToolSchema(
+    name="get_zonal_weakness",
+    description=(
+        "Use ONLY when the user asks purely which zones a team concedes in "
+        "(por dónde/en qué zonas concede), with NO mention of players or "
+        "exploiting. If they mention who can exploit/attack it, use "
+        "get_zonal_opportunity instead. Shows where the attacking opportunity "
+        "is per pitch zone — xGA/game vs league baseline (delta_vs_avg is the "
+        "signal; penalties excluded, reported separately), owned Understat "
+        "data. Zones ONLY, no player names. Opportunity read only — never "
+        "buy/sell advice."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "team": {
+                "type":        "string",
+                "description": "Team name / short_name / alias (e.g. 'Crystal Palace', 'CRY').",
+            },
+        },
+        "required":             ["team"],
+        "additionalProperties": False,
+    },
+)
+
+GET_ZONAL_OPPORTUNITY_SCHEMA = ToolSchema(
+    name="get_zonal_opportunity",
+    description=(
+        "Use whenever the user asks WHO / WHICH PLAYERS can exploit, attack "
+        "or take advantage of an opponent's weak zones (quién puede "
+        "explotarlo/atacarlo, qué jugadores lo aprovechan) — EVEN IF the "
+        "question also asks which zones they concede. This is the PRIMARY "
+        "tool for any 'zones + players' question about an opponent: it shows "
+        "where to attack (weak zones vs league baseline) WITH the matched "
+        "players to exploit each zone, from owned Understat data. Opportunity "
+        "signal only — never buy/sell advice."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "opponent": {
+                "type":        "string",
+                "description": "Opposing team name / short_name / alias whose defence to probe.",
+            },
+        },
+        "required":             ["opponent"],
+        "additionalProperties": False,
+    },
+)
+
+
+GET_PLAYER_ZONAL_OUTLOOK_SCHEMA = ToolSchema(
+    name="get_player_zonal_outlook",
+    description=(
+        "Use when the SUBJECT is a specific NAMED PLAYER and the question is "
+        "whether their upcoming fixtures suit them zonally — do the next "
+        "opponents' weak zones match where the player generates xG (¿le "
+        "vienen bien los próximos rivales a X?, ¿contra quién juega X y le "
+        "favorece el cruce?). Per-GW favorable/neutral matchup read over the "
+        "next 1-5 fixtures (default 3), from owned Understat shot data + the "
+        "fixture calendar. Opportunity signal only — never buy/sell advice."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "player": {
+                "type":        "string",
+                "description": "Player name as known (e.g. 'Saka', 'Bukayo Saka').",
+            },
+            "horizon": {
+                "type":        "integer",
+                "description": "Upcoming GWs to analyse (1-5, default 3).",
+            },
+        },
+        "required":             ["player"],
+        "additionalProperties": False,
+    },
+)
+
+
+# ---------------------------------------------------------------------------
 # Registry construction
 # ---------------------------------------------------------------------------
 
@@ -975,6 +1061,10 @@ _ALL_SCHEMAS: tuple[ToolSchema, ...] = (
     WEB_FETCH_SCHEMA,
     # P2.8 atomic tool
     RANK_PLAYERS_BY_METRIC_SCHEMA,
+    # T-zonal atomic tools (orchestrator-only; no intent, no card)
+    GET_ZONAL_WEAKNESS_SCHEMA,
+    GET_ZONAL_OPPORTUNITY_SCHEMA,
+    GET_PLAYER_ZONAL_OUTLOOK_SCHEMA,
 )
 
 #: Immutable dict mapping tool name → ToolSchema.

@@ -19,6 +19,7 @@
  *   chip_advice        → 'chip'               (chip field non-null)
  *   player_fixture_run → 'fixture_run'        (fixture_run non-null, fixtures.length > 0)
  *   differential_picks → 'differential'       (differential non-null, picks.length > 0)
+ *   zonal_opportunity  → 'defensive_zones'    (zonal_opportunity non-null, zones.length > 0) (T4b)
  *   @top_form/xg/etc.  → 'resource_ranking'  (resource_rows non-null, resource != 'injuries')
  *   @injuries          → 'resource_injuries'  (resource_rows non-null, resource === 'injuries')
  *   search_web (premium) → 'web_search'      (web_search non-null; lowest precedence)
@@ -38,6 +39,7 @@ export type IntentView =
   | 'fixture_outlook'
   | 'differential'
   | 'multi_intent'
+  | 'defensive_zones'
   | 'resource_ranking'
   | 'resource_injuries'
   | 'web_search';
@@ -105,6 +107,13 @@ export function selectIntentView(response: AskResponse): IntentView | null {
     response.sub_responses.length > 0
   ) {
     return 'multi_intent';
+  }
+  if (
+    response.intent === 'zonal_opportunity' &&
+    response.zonal_opportunity != null &&
+    response.zonal_opportunity.zones.length > 0
+  ) {
+    return 'defensive_zones';
   }
 
   // Lowest precedence: web search is a premium fallback, not a routed intent.

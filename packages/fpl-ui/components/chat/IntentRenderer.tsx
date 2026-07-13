@@ -14,6 +14,7 @@
  *   chip_advice        → ChipCard
  *   player_fixture_run → FixtureRunTable
  *   differential_picks → DifferentialTable
+ *   zonal_opportunity  → DefensiveZonesCard (T4b)
  *   multi_intent       → MultiIntentView (bounded to one nesting level)
  *   @resource (metric) → ResourceRankingTable  (A2 post-graduation)
  *   @injuries          → InjuriesTable         (A2 post-graduation)
@@ -31,6 +32,7 @@ import ChipCard from '@/components/intents/ChipCard';
 import FixtureRunTable from '@/components/intents/FixtureRunTable';
 import FixtureOutlookCard from '@/components/intents/FixtureOutlookCard';
 import DifferentialTable from '@/components/intents/DifferentialTable';
+import DefensiveZonesCard from '@/components/intents/DefensiveZonesCard';
 import MultiIntentView from '@/components/intents/MultiIntentView';
 import ResourceRankingTable from '@/components/intents/ResourceRankingTable';
 import InjuriesTable from '@/components/intents/InjuriesTable';
@@ -69,6 +71,9 @@ export default function IntentRenderer({ response }: Props) {
   }
   if (view === 'multi_intent' && response.sub_responses != null) {
     return <MultiIntentView sub_responses={response.sub_responses} />;
+  }
+  if (view === 'defensive_zones' && response.zonal_opportunity != null) {
+    return <DefensiveZonesCard data={response.zonal_opportunity} />;
   }
   if (view === 'resource_ranking' && response.resource_rows != null) {
     return <ResourceRankingTable data={response.resource_rows} />;
