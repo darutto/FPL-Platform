@@ -7,7 +7,7 @@ name: Publish FPL stats snapshot
 # gated Railway assistant service.
 on:
   schedule:
-    - cron: "0 5 * * 1" # Mondays 05:00 UTC, weekly (after the GW settles)
+    - cron: "0 5 * * *" # daily 05:00 UTC — publishes a GW's stats within ~a day of it ending; commits only when data changes
   workflow_dispatch: {} # manual trigger from the Actions tab
 
 concurrency:
