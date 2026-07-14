@@ -4,7 +4,7 @@
 **Produced by:** Claude Code repository audit, 2026-07-13
 **Input brief:** `FOOTBALL_INTELLIGENCE_PLANNING_BRIEF.md`
 **Executor:** Codex, one approved phase/slice at a time
-**Status:** IMPLEMENTATION — FI-0(a) complete; FI-0(b) not started
+**Status:** IMPLEMENTATION — FI-0 complete; FI-1 not started
 
 ---
 
@@ -496,8 +496,8 @@ Global rules for every phase (brief §18 — Codex MUST): work one approved slic
 
 Phase table (each phase = one or more PR-sized slices; "Trial-dep" = requires live Sportmonks):
 
-### FI-0 — Audit closure & scaffolding *(FI-0(a) complete; FI-0(b) remains)*
-- **Purpose:** this document is the FI-0 audit outcome. One mechanical slice remains after FI-0(a).
+### FI-0 — Audit closure & scaffolding *(complete)*
+- **Purpose:** this document is the FI-0 audit outcome. Both mechanical slices are complete.
 - **Slices:** (a) close intent-contract gate drift so the TS/Python gate is trustworthy. The two expected `lib/types.ts` `SUPPORTED_INTENT_VALUES` failures were already repaired on `main`; the accepted review widened FI-0(a) to refresh the actual remaining stale Python Orch-4a K1 exact-count pin from 10 to 29. (b) scaffold the four packages (dirs, CONTRACT.md stubs, pytest.ini, requirements, Dockerfile copy list, contract-gate PYTHONPATH) with zero logic.
 - **Tests:** existing UI contract tests green; empty-package import smoke.
 - **DoD:** `npm test` contract suite green; `bash scripts/run_contract_gate.sh` green; packages importable.
@@ -626,7 +626,7 @@ Open questions requiring trial validation are enumerated in §14.2/§14.3 and mu
 | Phase | Slice | Status | Tests | Notes |
 |---|---|---|---|---|
 | FI-0 | a — intent contract-drift repair | complete | UI contract 27/27; Orch-4a 217/217; contract gate 7/7 | Backend `dispatcher.py` is authoritative for response intents. The expected `fixture_outlook`/`zonal_opportunity` TypeScript mirror repairs already existed on `main` via `a630104`; FI-0(a) added explicit regression pins and, per accepted review, widened scope to refresh the stale independent Orch-4a K1 literal tool-count pin from 10 to 29. FI-0(b) was not started. |
-| FI-0 | b — package scaffold | not started | — | |
+| FI-0 | b — package scaffold | complete | pytest import smoke 4/4; UI contract 27/27; TypeScript check green; FI-0(b) runner 16/16; Orch-4i 74/74; contract gate 8/8 | Added the four import-light, dependency-free package scaffolds and wired their paths into the backend image, local/CI contract gate, and package inventories. Docker COPY wiring is statically pinned; a local image build was unavailable because the Docker daemon was not running. No FI-1 contracts, provider logic, features, modules, or runtime behavior were added. FI-1 was not started. |
 | FI-1 | contracts + evidence | not started | — | |
 | FI-2 | identity registry | not started | — | |
 | FI-3 | sportmonks client | not started | — | |
