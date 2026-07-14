@@ -4,7 +4,7 @@
 **Produced by:** Claude Code repository audit, 2026-07-13
 **Input brief:** `FOOTBALL_INTELLIGENCE_PLANNING_BRIEF.md`
 **Executor:** Codex, one approved phase/slice at a time
-**Status:** PLAN — no implementation has begun
+**Status:** IMPLEMENTATION — FI-0(a) complete; FI-0(b) not started
 
 ---
 
@@ -68,7 +68,7 @@ POST /session/{id}/ask ──► ConversationSession.respond() (legacy respond()
 
 Key invariant preserved everywhere: **the LLM chooses tools and phrases output; it never produces football facts.** Tool execution is deterministic; every failure path returns a valid response.
 
-### 1.2 Tool surface (26 registered tools)
+### 1.2 Tool surface (29 registered tools)
 
 `tool_schema_registry.py` is the single source of tool definitions. Categories:
 
@@ -244,7 +244,7 @@ Rules:
 
 ### 5.2 TypeScript parity
 
-Only types that reach the UI get TS mirrors (evidence types in FI-1; others as they surface). Mirror lives in `packages/fpl-ui/lib/types.ts` extensions plus a new `lib/evidence.ts`; parity pinned by a contract test in the same style as the existing lib/types contract tests (and FI-0 must first clear the two pre-existing `SUPPORTED_INTENT_VALUES` drift failures so the gate is trustworthy).
+Only types that reach the UI get TS mirrors (evidence types in FI-1; others as they surface). Mirror lives in `packages/fpl-ui/lib/types.ts` extensions plus a new `lib/evidence.ts`; parity is pinned by the existing lib/types contract tests. FI-0(a) confirmed that the two expected `SUPPORTED_INTENT_VALUES` drift failures had already been repaired on `main`; the actual remaining gate-trust issue was the stale Orch-4a K1 exact tool-count pin, which FI-0(a) refreshed from 10 to 29.
 
 ---
 
@@ -400,7 +400,7 @@ All modules: pure functions over canonical/feature frames + FPL bootstrap; retur
 1. **New grounded tools** (thin wrappers in `fpl-grounded-assistant`, engine in `football-intelligence`), registered in `TOOL_REGISTRY` + `tool_schema_registry` + renderer, exactly like `get_fixture_outlook`:
    - `get_player_intelligence(player, modules=None)` — **the deterministic investigation runner**: resolves the player, runs the enabled module set (default: all enabled flags), returns merged evidence bundle + per-module scores. One tool call answers "Is Saka a good pick this week?" without the LLM sequencing 5 calls — keeps token cost flat (this matters: quota/audit infra bills Patreon users per token; see also `internet-ideas/2026-06-07-agentic-rag-ed-donner.md` on cheap-path routing).
    - `get_expected_minutes(player)`, `get_tactical_role(player)`, `get_fixture_context(team)` — atomic variants for narrow questions.
-   - Registry grows 26 → 30. Note: `run_phase_orch3a` O6a/O6b/O6c token-budget baselines will need their documented registry-growth adjustment.
+   - Registry grows 29 → 33. Note: `run_phase_orch3a` O6a/O6b/O6c token-budget baselines will need their documented registry-growth adjustment.
 2. **System prompt:** one added SOURCE→TOOL mapping block entry ("player context / minutes / role / matchup questions → get_player_intelligence"). No change to source-discipline classification.
 3. **The LLM may select modules only by choosing tools/args** from the allowlist; module internals are invisible to it. The evaluator's GROUNDED axis applies unchanged.
 4. **Existing intents receiving evidence first (Q7):** `captain_score`, `compare_players`, `transfer_advice` — an FI-7 slice enriches their OK-turn assembly with evidence from M1/M3 (flag-gated). Deterministic recommendations (tiers, deltas, recommendations) are **not** changed by evidence in this plan — evidence explains; a later approved phase may let it score (that phase would define weighting profiles per brief §8).
@@ -496,9 +496,9 @@ Global rules for every phase (brief §18 — Codex MUST): work one approved slic
 
 Phase table (each phase = one or more PR-sized slices; "Trial-dep" = requires live Sportmonks):
 
-### FI-0 — Audit closure & scaffolding *(complete except two slices below)*
-- **Purpose:** this document is the FI-0 audit outcome. Two mechanical slices remain.
-- **Slices:** (a) fix the two pre-existing `lib/types.ts` `SUPPORTED_INTENT_VALUES` contract-drift failures so the TS gate is trustworthy; (b) scaffold the four packages (dirs, CONTRACT.md stubs, pytest.ini, requirements, Dockerfile copy list, contract-gate PYTHONPATH) with zero logic.
+### FI-0 — Audit closure & scaffolding *(FI-0(a) complete; FI-0(b) remains)*
+- **Purpose:** this document is the FI-0 audit outcome. One mechanical slice remains after FI-0(a).
+- **Slices:** (a) close intent-contract gate drift so the TS/Python gate is trustworthy. The two expected `lib/types.ts` `SUPPORTED_INTENT_VALUES` failures were already repaired on `main`; the accepted review widened FI-0(a) to refresh the actual remaining stale Python Orch-4a K1 exact-count pin from 10 to 29. (b) scaffold the four packages (dirs, CONTRACT.md stubs, pytest.ini, requirements, Dockerfile copy list, contract-gate PYTHONPATH) with zero logic.
 - **Tests:** existing UI contract tests green; empty-package import smoke.
 - **DoD:** `npm test` contract suite green; `bash scripts/run_contract_gate.sh` green; packages importable.
 - **Trial-dep:** none. **Pre-trial:** yes.
@@ -599,7 +599,7 @@ Phase table (each phase = one or more PR-sized slices; "Trial-dep" = requires li
 | Trial window misses (season start slips / trial starts late) | Everything through FI-8 is provider-independent; trial can shift without waste |
 | Token-cost creep from new tools | Composite tool keeps typical investigations to 1 call; schemas compressed per P1.e conventions; quota/audit already meter |
 | Evidence misread as advice | Framing rules encoded: no advice verbs in `summary`, opportunity-positive UI, deterministic recommendations unchanged by evidence in v1 |
-| Two pre-existing TS contract failures mask new drift | FI-0(a) fixes them first |
+| Intent-contract drift can mask future registry changes | FI-0(a) verified the two expected TS mirror repairs already existed, added explicit regression pins, and refreshed the stale independent Orch-4a exact tool-count assertion to 29. |
 | Hand-tuned v1 coefficients trusted too much | Explicit heuristic labels, FI-10 backtest gate before any recommendation coupling (8a lesson) |
 | Package sprawl / PYTHONPATH breakage | Only 4 new packages; FI-0(b) wires Dockerfile + gate once; import-smoke tests |
 
@@ -625,7 +625,7 @@ Open questions requiring trial validation are enumerated in §14.2/§14.3 and mu
 
 | Phase | Slice | Status | Tests | Notes |
 |---|---|---|---|---|
-| FI-0 | a — TS drift fix | complete | UI contract 27/27; UI 300/300; TS check pass; contract gate 6/7 (pre-existing Orch-4a tool-count pin) | Backend `dispatcher.py` is authoritative. The audited HEAD already contained the `fixture_outlook`/`zonal_opportunity` mirror repair via `a630104`; FI-0(a) added explicit regression pins. Gate intent mappings pass; unrelated K1 still expects 10 tools while the registry has 29. |
+| FI-0 | a — intent contract-drift repair | complete | UI contract 27/27; Orch-4a 217/217; contract gate 7/7 | Backend `dispatcher.py` is authoritative for response intents. The expected `fixture_outlook`/`zonal_opportunity` TypeScript mirror repairs already existed on `main` via `a630104`; FI-0(a) added explicit regression pins and, per accepted review, widened scope to refresh the stale independent Orch-4a K1 literal tool-count pin from 10 to 29. FI-0(b) was not started. |
 | FI-0 | b — package scaffold | not started | — | |
 | FI-1 | contracts + evidence | not started | — | |
 | FI-2 | identity registry | not started | — | |

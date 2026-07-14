@@ -675,7 +675,10 @@ from fpl_grounded_assistant.orchestrator import (
 
 # Orch-2a: registry integrity
 _names = list_tool_schemas()
-ok(len(_names) == 10,                           "K1: 10 tools in registry")
+ok(
+    len(_names) == 29,
+    "K1: 29 tools in registry (FI-0(a) refresh; was 10 at Orch-2a)",
+)
 ok(_names == sorted(_names),                    "K2: names sorted")
 for _s in _ALL_SCHEMAS:
     ok(validate_tool_schema_shape(_s),          f"K3-valid: '{_s.name}' validates")
