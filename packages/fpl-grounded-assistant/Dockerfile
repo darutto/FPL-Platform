@@ -71,7 +71,7 @@ ENV PATH="/venv/bin:$PATH" \
 
 COPY --from=builder /venv /venv
 
-# Copy only the packages fpl_server.py inserts into sys.path at startup.
+# Copy runtime packages plus the import-light FI-0(b) package scaffolds.
 # (fpl-grounded-assistant + 8 siblings explicit in _SIB() list, plus
 # fpl-historical [owned-store fallback] and fpl-tactical [zonal_weakness
 # shared constants/paths — its sys.path shim points here], both read-only.)
@@ -90,6 +90,10 @@ COPY packages/fpl-captain-engine/     /app/packages/fpl-captain-engine/
 COPY packages/fpl-pipeline/           /app/packages/fpl-pipeline/
 COPY packages/fpl-historical/         /app/packages/fpl-historical/
 COPY packages/fpl-tactical/           /app/packages/fpl-tactical/
+COPY packages/football-data-contract/ /app/packages/football-data-contract/
+COPY packages/sportmonks-client/ /app/packages/sportmonks-client/
+COPY packages/football-identity-registry/ /app/packages/football-identity-registry/
+COPY packages/football-intelligence/ /app/packages/football-intelligence/
 
 WORKDIR /app/packages/fpl-grounded-assistant
 

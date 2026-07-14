@@ -1,6 +1,6 @@
 # fpl-platform · Package Status
-**Last updated:** 2026-03-15
-**After:** Phase 4j (session interaction examples and operational docs — 86/86 assertions)
+**Last updated:** 2026-07-14
+**After:** FI-0(b) (football-intelligence package scaffolding)
 
 Status vocabulary:
 - `planned` — described in audit, no platform code written yet
@@ -8,6 +8,20 @@ Status vocabulary:
 - `parity-validated` — tested against source implementation, assertions pass
 - `pilot-validated` — integrated into a consumer project, tests pass end-to-end
 - `adopted` — consumer project has permanently switched its imports
+
+---
+
+## Football intelligence scaffolds (FI-0(b))
+
+| Package | Status | Current public surface | Next implementation slice |
+|---------|--------|------------------------|---------------------------|
+| `football-data-contract` | `created` | Importable package only; provider-neutral and import-light | FI-1 |
+| `sportmonks-client` | `created` | Importable package only; future sole owner of Sportmonks shapes and normalization | FI-3 |
+| `football-identity-registry` | `created` | Importable package only; existing identity mechanisms unchanged | FI-2 |
+| `football-intelligence` | `created` | Importable package only; no features or modules yet | FI-5 |
+
+All four packages contain documentation and import-smoke scaffolding only. They
+add no runtime dependencies or football-intelligence behavior.
 
 ---
 

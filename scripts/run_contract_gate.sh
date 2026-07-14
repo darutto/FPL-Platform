@@ -15,6 +15,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PKG_DIR="$REPO_ROOT/packages/fpl-grounded-assistant"
+FI_PACKAGE_PATHS="$REPO_ROOT/packages/football-data-contract:$REPO_ROOT/packages/sportmonks-client:$REPO_ROOT/packages/football-identity-registry:$REPO_ROOT/packages/football-intelligence"
+export PYTHONPATH="$FI_PACKAGE_PATHS${PYTHONPATH:+:$PYTHONPATH}"
 
 # Resolve Python — walk up to find the repo .venv, handling both Unix and
 # Windows (Git Bash) path styles.
@@ -61,6 +63,7 @@ run_runner "Orch-4d: squad_context override parity"  "run_phase_orch4d_tests.py"
 run_runner "Orch-4c: orchestration audit parity"     "run_phase_orch4c_tests.py"
 run_runner "Orch-4a: orch enable/disable flag parity" "run_phase_orch4a_tests.py"
 run_runner "Orch-4b: orch_outcome serialization"      "run_phase_orch4b_tests.py"
+run_runner "FI-0(b): package scaffold imports"         "run_phase_fi0b_tests.py"
 
 echo "==================="
 echo "Contract gate: $PASS passed, $FAIL failed"
