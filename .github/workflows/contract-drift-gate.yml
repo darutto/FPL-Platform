@@ -29,7 +29,7 @@ jobs:
     name: Contract and fixture drift check
     runs-on: ubuntu-latest
     env:
-      PYTHONPATH: packages/football-data-contract:packages/sportmonks-client:packages/football-identity-registry:packages/football-intelligence
+      PYTHONPATH: ${{ github.workspace }}/packages/football-data-contract:${{ github.workspace }}/packages/sportmonks-client:${{ github.workspace }}/packages/football-identity-registry:${{ github.workspace }}/packages/football-intelligence
 
     defaults:
       run:
