@@ -41,8 +41,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-          cache: "pip"
-          cache-dependency-path: packages/fpl-grounded-assistant/requirements.txt
 
       - name: Install dependencies
         run: pip install --no-cache-dir -r requirements.txt

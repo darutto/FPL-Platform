@@ -327,4 +327,11 @@ describe('intent drift guard — dispatcher.py vs lib/types.ts', () => {
     );
     expect(SUPPORTED_INTENT_VALUES.length).toBe(backendResponseIntents.size);
   });
+
+  test('orchestrator-only response intents remain in the TypeScript mirror', () => {
+    // Regression pins for the two FI-0(a) drift cases. These intents can be
+    // emitted in response.intent even though they are not classifier targets.
+    expect(SUPPORTED_INTENT_VALUES).toContain('fixture_outlook');
+    expect(SUPPORTED_INTENT_VALUES).toContain('zonal_opportunity');
+  });
 });
