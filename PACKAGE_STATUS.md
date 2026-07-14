@@ -11,17 +11,19 @@ Status vocabulary:
 
 ---
 
-## Football intelligence scaffolds (FI-0(b))
+## Football intelligence packages
 
 | Package | Status | Current public surface | Next implementation slice |
 |---------|--------|------------------------|---------------------------|
-| `football-data-contract` | `created` | Importable package only; provider-neutral and import-light | FI-1 |
+| `football-data-contract` | `parity-validated` | Frozen canonical entities, closed enums, provenance, and Python/TypeScript `EvidenceItem` contract | FI-4 normalizers consume it; FI-7 exposes evidence |
 | `sportmonks-client` | `created` | Importable package only; future sole owner of Sportmonks shapes and normalization | FI-3 |
 | `football-identity-registry` | `created` | Importable package only; existing identity mechanisms unchanged | FI-2 |
 | `football-intelligence` | `created` | Importable package only; no features or modules yet | FI-5 |
 
-All four packages contain documentation and import-smoke scaffolding only. They
-add no runtime dependencies or football-intelligence behavior.
+`football-data-contract` is implemented through FI-1 with no runtime
+dependencies. The other three packages remain documentation and import-smoke
+scaffolds only; no identity, provider-client, feature, or module behavior has
+started.
 
 ---
 

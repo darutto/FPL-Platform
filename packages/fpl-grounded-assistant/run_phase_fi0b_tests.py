@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib
+import re
 from pathlib import Path
 
 
@@ -44,8 +45,13 @@ for package_dir, module_name in PACKAGES:
         if line.strip() and not line.lstrip().startswith("#")
     ]
     ok(not active_requirements, f"{package_dir} adds no runtime dependency")
-    ok(f"COPY packages/{package_dir}/" in docker_text,
-       f"backend image copies {package_dir}")
+    docker_copy = re.compile(
+        rf"^COPY\s+packages/{re.escape(package_dir)}/\s+"
+        rf"/app/packages/{re.escape(package_dir)}/\s*$",
+        re.MULTILINE,
+    )
+    ok(bool(docker_copy.search(docker_text)),
+       f"backend image copies {package_dir} source to exact destination")
 
 print(f"\nFI-0(b) scaffold checks: {passed} passed, {failed} failed")
 raise SystemExit(1 if failed else 0)

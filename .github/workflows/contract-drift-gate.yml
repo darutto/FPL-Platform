@@ -112,3 +112,6 @@ jobs:
       # FI-0(b) package imports and scaffold/Docker wiring (no network).
       - name: FI-0(b) package scaffold imports
         run: python run_phase_fi0b_tests.py
+
+      - name: FI-1 provider-neutral evidence contract
+        run: python run_phase_fi1_tests.py
