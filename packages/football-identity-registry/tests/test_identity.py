@@ -8,12 +8,12 @@ import pytest
 
 from football_identity_registry.builder import build
 from football_identity_registry import canonical_ids
-from football_identity_registry.canonical_ids import CanonicalIdCollisionError, canonical_player_id
+from football_identity_registry.canonical_ids import CanonicalIdCollisionError, IdentityIndistinguishableError, canonical_player_id
 from football_identity_registry.matcher import MATCH_TIERS, match_player
 from football_identity_registry.models import CandidatePlayer, SourcePlayer
 from football_identity_registry.normalization import normalize_name
 from football_identity_registry.overrides import OverrideSchemaError, load_overrides
-from football_identity_registry.store import IdentityStore, PlayerIdentityRow, _atomic_json, reconcile_player_rows
+from football_identity_registry.store import IdentityStore, PlayerIdentityRow, _atomic_json, reconcile_player_rows, verify_player_rows
 
 
 def candidate(identifier="p1", name="José O'Neil", team="A", dob="2000-01-02", known="Jose"):
@@ -82,6 +82,66 @@ def test_canonical_id_collision_stops_build(monkeypatch):
     monkeypatch.setattr(canonical_ids.hashlib, "sha256", lambda value: Digest())
     with pytest.raises(CanonicalIdCollisionError):
         canonical_ids.assert_no_id_collisions([("One Player", None), ("Other Player", None)])
+
+
+def _build_payload(candidates, sources=None):
+    return {"candidates": candidates, "sources": sources or []}
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_distinct_no_dob_same_name_fails_closed_independent_of_order(tmp_path, reverse):
+    candidates = [
+        {"full_name": "John Smith", "team_provider_id": "TEAM_A", "known_name": "John"},
+        {"full_name": "John Smith", "team_provider_id": "TEAM_B", "known_name": "J. Smith"},
+    ]
+    if reverse:
+        candidates.reverse()
+    input_path = tmp_path / "input.json"
+    input_path.write_text(json.dumps(_build_payload(candidates)), encoding="utf-8")
+    overrides = tmp_path / "overrides.yaml"
+    overrides.write_text("version: 1\noverrides: []\n", encoding="utf-8")
+    with pytest.raises(IdentityIndistinguishableError, match="distinct candidates"):
+        build(input_path, IdentityStore(tmp_path / "store"), overrides, valid_from="2025-08-01", run_id="r", generated_at="2025-08-01T00:00:00Z")
+    assert not (tmp_path / "store" / "player_identity.parquet").exists()
+
+
+def test_identical_duplicate_candidate_rows_do_not_false_collide(tmp_path):
+    candidate_row = {"full_name": "John Smith", "team_provider_id": "TEAM_A", "known_name": "John"}
+    source = dataclasses.asdict(SourcePlayer("understat", "u1", "John Smith", "TEAM_A"))
+    input_path = tmp_path / "input.json"
+    input_path.write_text(json.dumps(_build_payload([candidate_row, candidate_row], [source])), encoding="utf-8")
+    overrides = tmp_path / "overrides.yaml"
+    overrides.write_text("version: 1\noverrides: []\n", encoding="utf-8")
+    store = IdentityStore(tmp_path / "store")
+    assert build(input_path, store, overrides, valid_from="2025-08-01", run_id="r", generated_at="2025-08-01T00:00:00Z")["matched"] == 1
+    assert len(store.read_players()) == 1
+
+
+def test_same_name_distinct_dobs_have_distinct_stable_ids():
+    first = canonical_player_id("John Smith", "1990-01-01")
+    second = canonical_player_id("John Smith", "1991-01-01")
+    assert first != second
+    assert first == canonical_player_id("John Smith", "1990-01-01")
+
+
+def test_manual_override_cannot_bypass_indistinguishable_candidates(tmp_path):
+    candidates = [
+        {"full_name": "John Smith", "team_provider_id": "TEAM_A"},
+        {"full_name": "John Smith", "team_provider_id": "TEAM_B"},
+    ]
+    source = dataclasses.asdict(SourcePlayer("understat", "u1", "John Smith", "TEAM_A"))
+    input_path = tmp_path / "input.json"
+    input_path.write_text(json.dumps(_build_payload(candidates, [source])), encoding="utf-8")
+    overrides = tmp_path / "overrides.yaml"
+    overrides.write_text(f"version: 1\noverrides:\n  - provider: understat\n    provider_id: u1\n    canonical_player_id: {canonical_player_id('John Smith', None)}\n    reason: reviewed\n", encoding="utf-8")
+    with pytest.raises(IdentityIndistinguishableError):
+        build(input_path, IdentityStore(tmp_path / "store"), overrides, valid_from="2025-08-01", run_id="r", generated_at="2025-08-01T00:00:00Z")
+
+
+def test_manual_override_cannot_bypass_active_mapping_uniqueness():
+    first = dataclasses.replace(row(), match_method="manual_override", match_confidence=1.0, manual_override=True)
+    second = dataclasses.replace(first, team_provider_id="TEAM_B")
+    assert verify_player_rows([first, second]) == ["conflicting active mapping: understat/u1"]
 
 
 def row(team="A", start="2025-08-01", end=None):

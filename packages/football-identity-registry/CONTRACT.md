@@ -23,6 +23,21 @@ collision between different fingerprints and stop for operator review. Build
 inputs cannot choose canonical IDs: the builder derives them from the immutable
 name/birth-date identity and rejects a caller-supplied identifier.
 
+Missing birth date is an explicitly degraded identity mode. Distinct candidate
+records with the same normalized-name/no-DOB fingerprint (including records
+distinguished by team or known/web name) fail the entire build with
+`IdentityIndistinguishableError` before overrides or mappings are evaluated.
+Exact duplicate input rows are deduplicated and do not constitute a collision.
+Team alone is never promoted into the permanent canonical fingerprint.
+
+A later authoritative DOB backfill changes the fingerprint and therefore may
+change the canonical ID; it is not identity-neutral. Reconciliation must retain
+the old historical crosswalk, close its validity range, append the new mapping,
+and record an auditable operator reconciliation or override when continuity is
+asserted. Silent overwrite is forbidden. FI-9 must revisit canonical-ID
+fitness and migration using the identity metadata observed during the live
+Sportmonks trial.
+
 ## Persistent schemas
 
 `player_identity.parquet` has this exact ordered schema:
@@ -58,6 +73,11 @@ contains no production mapping.
 item records the complete source context, reason (`ambiguous`,
 `below_threshold`, `no_candidate`, or `invalid_manual_override`), and sorted
 candidate evidence including canonical ID, display name, and matched fields.
+
+The offline owned-corpus validation writes a names-only extract and deterministic
+report under `corpus/`. Its denominator includes every distinct non-empty source
+name/team identity. The report carries source hashes, tier counts, match rates,
+and the complete unresolved queue; raw shots and credentials are never copied.
 
 Schema column renames/removals, tier changes, confidence changes, canonical-ID
 changes, or queue shape changes are breaking. Additive metadata needs a labelled

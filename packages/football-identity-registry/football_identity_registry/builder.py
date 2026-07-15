@@ -5,7 +5,7 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
-from .canonical_ids import assert_no_id_collisions, canonical_player_id
+from .canonical_ids import assert_candidates_distinguishable, assert_no_id_collisions, canonical_player_id
 from .matcher import match_player
 from .models import CandidatePlayer, SourcePlayer
 from .normalization import normalize_name
@@ -17,12 +17,14 @@ def build(input_path: Path, store: IdentityStore, overrides_path: Path, *, valid
     payload = json.loads(input_path.read_text(encoding="utf-8"))
     if any("canonical_player_id" in item for item in payload["candidates"]):
         raise ValueError("build inputs must not supply canonical_player_id")
+    assert_candidates_distinguishable(payload["candidates"])
     identities = [(item["full_name"], item.get("birth_date")) for item in payload["candidates"]]
     assert_no_id_collisions(identities)
-    candidates = [CandidatePlayer(
+    candidate_rows = [CandidatePlayer(
         canonical_player_id(item["full_name"], item.get("birth_date")),
         item["full_name"], item.get("team_provider_id"), item.get("birth_date"), item.get("known_name"),
     ) for item in payload["candidates"]]
+    candidates = list(dict.fromkeys(candidate_rows))
     sources = [SourcePlayer(**item) for item in payload["sources"]]
     overrides = load_overrides(overrides_path)
     incoming: list[PlayerIdentityRow] = []

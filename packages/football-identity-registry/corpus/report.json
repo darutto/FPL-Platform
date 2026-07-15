@@ -1,0 +1,918 @@
+{
+  "ambiguity_queue": [
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Abduqodir Khusanov",
+        "provider": "understat",
+        "provider_id": "understat-0002",
+        "team_provider_id": "Manchester City"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Adama Traoré",
+        "provider": "understat",
+        "provider_id": "understat-0005",
+        "team_provider_id": "Fulham"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Adama Traoré",
+        "provider": "understat",
+        "provider_id": "understat-0006",
+        "team_provider_id": "West Ham"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Alejandro Garnacho",
+        "provider": "understat",
+        "provider_id": "understat-0008",
+        "team_provider_id": "Chelsea"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Alejandro Jiménez",
+        "provider": "understat",
+        "provider_id": "understat-0009",
+        "team_provider_id": "Bournemouth"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Amad Diallo Traore",
+        "provider": "understat",
+        "provider_id": "understat-0016",
+        "team_provider_id": "Manchester United"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "André",
+        "provider": "understat",
+        "provider_id": "understat-0021",
+        "team_provider_id": "Wolverhampton Wanderers"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Ao Tanaka",
+        "provider": "understat",
+        "provider_id": "understat-0029",
+        "team_provider_id": "Leeds"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Arnaud Kalimuendo Muinga",
+        "provider": "understat",
+        "provider_id": "understat-0032",
+        "team_provider_id": "Nottingham Forest"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Ben Doak",
+        "provider": "understat",
+        "provider_id": "understat-0042",
+        "team_provider_id": "Bournemouth"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Ben White",
+        "provider": "understat",
+        "provider_id": "understat-0043",
+        "team_provider_id": "Arsenal"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Bernardo Silva",
+        "provider": "understat",
+        "provider_id": "understat-0045",
+        "team_provider_id": "Manchester City"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Bruno Fernandes",
+        "provider": "understat",
+        "provider_id": "understat-0056",
+        "team_provider_id": "Manchester United"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Bruno Guimarães",
+        "provider": "understat",
+        "provider_id": "understat-0057",
+        "team_provider_id": "Newcastle United"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Carlos Alcaraz",
+        "provider": "understat",
+        "provider_id": "understat-0064",
+        "team_provider_id": "Everton"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Casemiro",
+        "provider": "understat",
+        "provider_id": "understat-0066",
+        "team_provider_id": "Manchester United"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Chimuanya Ugochukwu",
+        "provider": "understat",
+        "provider_id": "understat-0070",
+        "team_provider_id": "Burnley"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Dan Ballard",
+        "provider": "understat",
+        "provider_id": "understat-0085",
+        "team_provider_id": "Sunderland"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Daniel Muñoz",
+        "provider": "understat",
+        "provider_id": "understat-0090",
+        "team_provider_id": "Crystal Palace"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Diego Gómez",
+        "provider": "understat",
+        "provider_id": "understat-0096",
+        "team_provider_id": "Brighton"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Diogo Dalot",
+        "provider": "understat",
+        "provider_id": "understat-0098",
+        "team_provider_id": "Manchester United"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Djordje Petrovic",
+        "provider": "understat",
+        "provider_id": "understat-0100",
+        "team_provider_id": "Bournemouth"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Dominic Solanke",
+        "provider": "understat",
+        "provider_id": "understat-0102",
+        "team_provider_id": "Tottenham"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Douglas Luiz",
+        "provider": "understat",
+        "provider_id": "understat-0106",
+        "team_provider_id": "Nottingham Forest"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Eli Junior Kroupi",
+        "provider": "understat",
+        "provider_id": "understat-0112",
+        "team_provider_id": "Bournemouth"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Eliezer Mayenda",
+        "provider": "understat",
+        "provider_id": "understat-0113",
+        "team_provider_id": "Sunderland"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Emiliano Buendía",
+        "provider": "understat",
+        "provider_id": "understat-0116",
+        "team_provider_id": "Aston Villa"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Ferdi Kadioglu",
+        "provider": "understat",
+        "provider_id": "understat-0135",
+        "team_provider_id": "Brighton"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Fernando López",
+        "provider": "understat",
+        "provider_id": "understat-0136",
+        "team_provider_id": "Wolverhampton Wanderers"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Florentino Luís",
+        "provider": "understat",
+        "provider_id": "understat-0137",
+        "team_provider_id": "Burnley"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Gabriel",
+        "provider": "understat",
+        "provider_id": "understat-0140",
+        "team_provider_id": "Arsenal"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Hee-Chan Hwang",
+        "provider": "understat",
+        "provider_id": "understat-0156",
+        "team_provider_id": "Wolverhampton Wanderers"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Hugo Bueno",
+        "provider": "understat",
+        "provider_id": "understat-0158",
+        "team_provider_id": "Wolverhampton Wanderers"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Igor Jesus",
+        "provider": "understat",
+        "provider_id": "understat-0164",
+        "team_provider_id": "Nottingham Forest"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Iyenoma Destiny Udogie",
+        "provider": "understat",
+        "provider_id": "understat-0169",
+        "team_provider_id": "Tottenham"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Jair",
+        "provider": "understat",
+        "provider_id": "understat-0180",
+        "team_provider_id": "Nottingham Forest"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Jake O&#039;Brien",
+        "provider": "understat",
+        "provider_id": "understat-0182",
+        "team_provider_id": "Everton"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Jefferson Lerma",
+        "provider": "understat",
+        "provider_id": "understat-0202",
+        "team_provider_id": "Crystal Palace"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Joelinton",
+        "provider": "understat",
+        "provider_id": "understat-0210",
+        "team_provider_id": "Newcastle United"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Jorge Cuenca",
+        "provider": "understat",
+        "provider_id": "understat-0213",
+        "team_provider_id": "Fulham"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Joseph Gomez",
+        "provider": "understat",
+        "provider_id": "understat-0215",
+        "team_provider_id": "Liverpool"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Joshua King",
+        "provider": "understat",
+        "provider_id": "understat-0220",
+        "team_provider_id": "Fulham"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "João Gomes",
+        "provider": "understat",
+        "provider_id": "understat-0223",
+        "team_provider_id": "Wolverhampton Wanderers"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "João Palhinha",
+        "provider": "understat",
+        "provider_id": "understat-0224",
+        "team_provider_id": "Tottenham"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Kaoru Mitoma",
+        "provider": "understat",
+        "provider_id": "understat-0235",
+        "team_provider_id": "Brighton"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Lucas Paquetá",
+        "provider": "understat",
+        "provider_id": "understat-0264",
+        "team_provider_id": "West Ham"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Luis Guilherme",
+        "provider": "understat",
+        "provider_id": "understat-0266",
+        "team_provider_id": "West Ham"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Luke O&#039;Nien",
+        "provider": "understat",
+        "provider_id": "understat-0268",
+        "team_provider_id": "Sunderland"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Manuel Ugarte",
+        "provider": "understat",
+        "provider_id": "understat-0275",
+        "team_provider_id": "Manchester United"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Marc Cucurella",
+        "provider": "understat",
+        "provider_id": "understat-0276",
+        "team_provider_id": "Chelsea"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Marc Guiu",
+        "provider": "understat",
+        "provider_id": "understat-0280",
+        "team_provider_id": "Sunderland"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Marcos Senesi",
+        "provider": "understat",
+        "provider_id": "understat-0281",
+        "team_provider_id": "Bournemouth"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Martín Zubimendi",
+        "provider": "understat",
+        "provider_id": "understat-0286",
+        "team_provider_id": "Arsenal"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Matheus Cunha",
+        "provider": "understat",
+        "provider_id": "understat-0291",
+        "team_provider_id": "Manchester United"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Mathis Cherki",
+        "provider": "understat",
+        "provider_id": "understat-0294",
+        "team_provider_id": "Manchester City"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Matt O&#039;Riley",
+        "provider": "understat",
+        "provider_id": "understat-0298",
+        "team_provider_id": "Brighton"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Matthew Cash",
+        "provider": "understat",
+        "provider_id": "understat-0299",
+        "team_provider_id": "Aston Villa"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Max Kilman",
+        "provider": "understat",
+        "provider_id": "understat-0303",
+        "team_provider_id": "West Ham"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Mikel Merino",
+        "provider": "understat",
+        "provider_id": "understat-0311",
+        "team_provider_id": "Arsenal"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Moisés Caicedo",
+        "provider": "understat",
+        "provider_id": "understat-0317",
+        "team_provider_id": "Chelsea"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Morato",
+        "provider": "understat",
+        "provider_id": "understat-0318",
+        "team_provider_id": "Nottingham Forest"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Murillo",
+        "provider": "understat",
+        "provider_id": "understat-0321",
+        "team_provider_id": "Nottingham Forest"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Naif Aguerd",
+        "provider": "understat",
+        "provider_id": "understat-0323",
+        "team_provider_id": "West Ham"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Nico González",
+        "provider": "understat",
+        "provider_id": "understat-0332",
+        "team_provider_id": "Manchester City"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Nico O&#039;Reilly",
+        "provider": "understat",
+        "provider_id": "understat-0333",
+        "team_provider_id": "Manchester City"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Oliver Scarles",
+        "provider": "understat",
+        "provider_id": "understat-0345",
+        "team_provider_id": "West Ham"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Pape Sarr",
+        "provider": "understat",
+        "provider_id": "understat-0355",
+        "team_provider_id": "Tottenham"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Pedro Lima",
+        "provider": "understat",
+        "provider_id": "understat-0361",
+        "team_provider_id": "Wolverhampton Wanderers"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Pedro Porro",
+        "provider": "understat",
+        "provider_id": "understat-0363",
+        "team_provider_id": "Tottenham"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Raúl Jiménez",
+        "provider": "understat",
+        "provider_id": "understat-0371",
+        "team_provider_id": "Fulham"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Reinildo",
+        "provider": "understat",
+        "provider_id": "understat-0373",
+        "team_provider_id": "Sunderland"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Richarlison",
+        "provider": "understat",
+        "provider_id": "understat-0376",
+        "team_provider_id": "Tottenham"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Rodri",
+        "provider": "understat",
+        "provider_id": "understat-0381",
+        "team_provider_id": "Manchester City"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Rodrigo Gomes",
+        "provider": "understat",
+        "provider_id": "understat-0383",
+        "team_provider_id": "Wolverhampton Wanderers"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Rúben Dias",
+        "provider": "understat",
+        "provider_id": "understat-0393",
+        "team_provider_id": "Manchester City"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Santiago Bueno",
+        "provider": "understat",
+        "provider_id": "understat-0398",
+        "team_provider_id": "Wolverhampton Wanderers"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Souza",
+        "provider": "understat",
+        "provider_id": "understat-0408",
+        "team_provider_id": "Tottenham"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Sávio",
+        "provider": "understat",
+        "provider_id": "understat-0411",
+        "team_provider_id": "Manchester City"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Thiago",
+        "provider": "understat",
+        "provider_id": "understat-0414",
+        "team_provider_id": "Brentford"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Toti",
+        "provider": "understat",
+        "provider_id": "understat-0425",
+        "team_provider_id": "Wolverhampton Wanderers"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Treymaurice Nyoni",
+        "provider": "understat",
+        "provider_id": "understat-0428",
+        "team_provider_id": "Liverpool"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Valentino Livramento",
+        "provider": "understat",
+        "provider_id": "understat-0435",
+        "team_provider_id": "Newcastle United"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Wataru Endo",
+        "provider": "understat",
+        "provider_id": "understat-0443",
+        "team_provider_id": "Liverpool"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Yehor Yarmolyuk",
+        "provider": "understat",
+        "provider_id": "understat-0454",
+        "team_provider_id": "Brentford"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Yeremi Pino",
+        "provider": "understat",
+        "provider_id": "understat-0455",
+        "team_provider_id": "Crystal Palace"
+      }
+    },
+    {
+      "corpus": "understat",
+      "reason": "no_candidate",
+      "source": {
+        "full_name": "Yerson Mosquera",
+        "provider": "understat",
+        "provider_id": "understat-0456",
+        "team_provider_id": "Wolverhampton Wanderers"
+      }
+    }
+  ],
+  "denominator_rule": "all distinct non-empty source name plus team identities in each owned source; no exclusions",
+  "generation_command": "python -m football_identity_registry.corpus generate --repo-root .",
+  "provenance": {
+    "candidate_registry": {
+      "season": "2025-2026",
+      "sha256": "799d4658af37aba02ad2880e97833dd12664e94a8443c53586b244e5169a7200",
+      "source": "owned historical players.parquet"
+    },
+    "sanitization": "names, team context, birth date, and generated corpus-local source ids only; no match data",
+    "understat": {
+      "season": "2025-2026",
+      "sha256": "4e3e321e0dd2eb12b70374d5c7fa36c07a60d24d0e83924cbfaeb95b70da3204",
+      "source": "owned tactical understat_shots.parquet"
+    },
+    "vaastav": {
+      "season": "2024-2025",
+      "sha256": "123b0cae2ffa51f764acb74c8bb8abd4d633d350506196b13ecd6af724358344",
+      "source": "owned vaastav-imported historical players.parquet"
+    }
+  },
+  "results": {
+    "understat": {
+      "ambiguous": 0,
+      "automatic_match_rate": 0.813449,
+      "manual_override": 0,
+      "matched": 375,
+      "meets_95_percent_target": false,
+      "tier_distribution": {
+        "full_name_team": 247,
+        "full_name_unique": 108,
+        "known_name_team": 20
+      },
+      "total_source_identities": 461,
+      "unmatched": 86,
+      "unresolved_reasons": {
+        "no_candidate": 86
+      }
+    },
+    "vaastav": {
+      "ambiguous": 0,
+      "automatic_match_rate": 1.0,
+      "manual_override": 0,
+      "matched": 804,
+      "meets_95_percent_target": true,
+      "tier_distribution": {
+        "full_name_team": 16,
+        "known_name_team": 788
+      },
+      "total_source_identities": 804,
+      "unmatched": 0,
+      "unresolved_reasons": {}
+    }
+  },
+  "schema_version": 1
+}

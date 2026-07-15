@@ -201,9 +201,14 @@ The gate requires only:
 
 ```
 pip install -r packages/fpl-grounded-assistant/requirements.txt
+pip install pytest==9.1.1
 ```
 
-No additional packages. No API keys. No network access at runtime.
+No other packages, API keys, or runtime network access are required.
+
+Pytest is an explicit gate dependency because the FI-2 runner delegates to the
+identity package suite. The CI workflow installs the same pinned version; a
+package-test failure therefore fails both the runner and canonical CI gate.
 
 The Orch-4i runner (`run_phase_orch4i_tests.py`) imports only Python stdlib
 (`re`, `os`, `sys`) and reads two files from the repo root. It can run without

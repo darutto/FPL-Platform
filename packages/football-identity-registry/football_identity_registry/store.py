@@ -83,7 +83,7 @@ def verify_player_rows(rows: Iterable[PlayerIdentityRow]) -> list[str]:
             errors.append(f"invalid validity range: {row.provider}/{row.provider_id}")
         if row.valid_to is None:
             key = (row.provider, row.provider_id)
-            if key in active and active[key] != row.canonical_player_id:
+            if key in active:
                 errors.append(f"conflicting active mapping: {row.provider}/{row.provider_id}")
             active[key] = row.canonical_player_id
     return errors

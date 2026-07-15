@@ -4,7 +4,7 @@
 **Produced by:** Claude Code repository audit, 2026-07-13
 **Input brief:** `FOOTBALL_INTELLIGENCE_PLANNING_BRIEF.md`
 **Executor:** Codex, one approved phase/slice at a time
-**Status:** IMPLEMENTATION — FI-2 complete; FI-3 not started
+**Status:** IMPLEMENTATION — FI-2 review remediation; real Understat target unmet; FI-3 not started
 
 ---
 
@@ -276,7 +276,9 @@ Transfers/season changes (brief Q13): mappings are validity-ranged; a new season
 
 ### 6.3 Pre-trial validation
 
-The matcher is exercised before any Sportmonks data exists against: (a) Understat player names in `understat_shots.parquet` (replacing nothing — `zonal_weakness_tool` keeps its current query-time join until FI-6 optionally consumes the crosswalk), and (b) vaastav historical names. Target: ≥95% auto-match on current-season Understat shooters, quantified in the FI-2 test report.
+The matcher is exercised before any Sportmonks data exists against: (a) Understat player names in `understat_shots.parquet` (replacing nothing — `zonal_weakness_tool` keeps its current query-time join until FI-6 optionally consumes the crosswalk), and (b) vaastav historical names. Target: ≥95% auto-match on current-season Understat shooters, quantified in the FI-2 test report. The owned-store FI-2 run measured 375/461 source name/team identities (81.3449%) with 86 unmatched and 0 ambiguous; the 2024–25 vaastav corpus measured 804/804 (100%). The Understat target is therefore honestly unmet and remains under Fable/plan-owner review rather than being relaxed.
+
+Canonical player IDs currently hash normalized full name plus DOB. Missing DOB is a degraded mode: distinct candidate records sharing a no-DOB fingerprint fail closed before matching or overrides. A later DOB backfill changes the fingerprint and can change the canonical ID; migration must preserve and close historical rows, append the corrected mapping, and use an auditable reconciliation/override when continuity is asserted. FI-9 must revisit this strategy against live Sportmonks identity metadata.
 
 ---
 
@@ -628,7 +630,7 @@ Open questions requiring trial validation are enumerated in §14.2/§14.3 and mu
 | FI-0 | a — intent contract-drift repair | complete | UI contract 27/27; Orch-4a 217/217; contract gate 7/7 | Backend `dispatcher.py` is authoritative for response intents. The expected `fixture_outlook`/`zonal_opportunity` TypeScript mirror repairs already existed on `main` via `a630104`; FI-0(a) added explicit regression pins and, per accepted review, widened scope to refresh the stale independent Orch-4a K1 literal tool-count pin from 10 to 29. FI-0(b) was not started. |
 | FI-0 | b — package scaffold | complete | pytest import smoke 4/4; UI contract 27/27; TypeScript check green; FI-0(b) runner 16/16; Orch-4i 74/74; contract gate 8/8 | Added the four import-light, dependency-free package scaffolds and wired their paths into the backend image, local/CI contract gate, and package inventories. Docker COPY wiring is statically pinned; a local image build was unavailable because the Docker daemon was not running. No FI-1 contracts, provider logic, features, modules, or runtime behavior were added. FI-1 was not started. |
 | FI-1 | contracts + evidence | complete | football-data-contract pytest 47/47; Python/TS evidence parity 7/7; UI contract 27/27; TypeScript check green; FI-0(b) 16/16; FI-1 gate 22/22; Orch-4i 78/78; contract gate 9/9 | Added frozen provider-neutral canonical entities, closed enums, provenance, the 13-code bounded `EvidenceItem` contract, and a UI-only TypeScript mirror. Fable review hardening made parity parsing CRLF-safe and documented lineup-entry/timestamp validation boundaries. No dependencies or runtime/HTTP/FinalResponse fields were added. Carry-forward hardening refreshed Docker COPY matching, FI-7 registry growth, and verified Orch-4a/4b counts. FI-2 was not started. |
-| FI-2 | identity registry | complete | football-identity-registry pytest 26/26; FI-2 gate 5/5; FI-0(b) 16/16; Orch-4i 82/82; contract gate 10/10 | Added exact tiered matching, stable provider-free player IDs, validity-ranged parquet crosswalks, schema-validated overrides, deterministic ambiguity queue, and non-interactive CLI. Sanitized Understat fixture is 4/4 (100%) and vaastav fixture 2/3 (66.7%); these fixtures are not representative enough to claim the real-store ≥95% target. Existing resolvers and runtime behavior remain unchanged. FI-3 was not started. |
+| FI-2 | identity registry | review remediation — target unmet | identity pytest 34/34; FI-2 gate 5/5; FI-0(b) 16/16; FI-1 22/22; Orch-4i 82/82; contract gate 10/10 | B1 pins pytest in CI and a seeded failure proved propagation; B2 makes distinct no-DOB candidate collisions fail closed before overrides; B3 adds a hashed names-only extract from real owned stores. Understat: 375/461 (81.3449%), 86 unmatched, 0 ambiguous, below ≥95%. Vaastav: 804/804 (100%). FI-2 is not marked complete pending review of the unmet Understat target. Existing runtime joins remain unchanged and FI-3 was not started. |
 | FI-3 | sportmonks client | not started | — | |
 | FI-4 | ingestion + store | not started | — | |
 | FI-5 | feature engine | not started | — | |

@@ -17,8 +17,15 @@ never prompt or access the network. The root defaults to
 `data/football/identity` and can be changed with `FPL_FOOTBALL_ROOT` or
 `--root`.
 
-The checked corpus is deliberately small and sanitized: Understat-shaped
-names match 4/4 (100%) and vaastav-shaped historical names match 2/3 (66.7%).
-It proves matcher behavior but is not representative enough to claim a ≥95%
-rate over the real current-season owned store; that measurement remains open
-until such a snapshot is available locally.
+Real owned-store validation is reproducible with:
+
+```bash
+python -m football_identity_registry.corpus verify
+```
+
+The committed names-only extract is derived from hashed 2025–26 tactical/FPL
+stores and the 2024–25 vaastav-imported store. Understat produces 375/461
+automatic matches (81.3449%; 86 unmatched, 0 ambiguous), below the ≥95% target.
+Vaastav produces 804/804 (100%). See `corpus/report.json` for tier distribution
+and the complete unresolved queue. The earlier tiny synthetic corpus remains a
+unit fixture only and is not presented as production validation.
