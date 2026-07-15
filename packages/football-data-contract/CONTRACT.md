@@ -62,6 +62,11 @@ Canonical identifiers use the prefixes described by the implementation plan
 (`cp_`, `ct_`, `cc_`, and `cf_`). Validation and identifier generation belong
 to adapters/identity work in later slices; FI-1 does not guess or generate IDs.
 
+`PlayerMatchRole.starting_role` records lineup-entry status and must agree with
+the paired `PlayerMatchAppearance.started` value for the same fixture and
+player. FI-4 normalization is responsible for enforcing this cross-record
+consistency when constructing canonical records.
+
 ## Traceability
 
 | Type | Fields |
@@ -73,6 +78,12 @@ to adapters/identity work in later slices; FI-1 does not guess or generate IDs.
 an explicit UTC offset. `Z` and `+00:00` are accepted. Dates used for validity
 or expected return are ISO calendar dates unless a later storage contract
 explicitly narrows them.
+
+`EvidenceItem.calculated_at` and `Provenance` timestamps are validated when
+their contracts are constructed. Entity timestamps such as `kickoff_utc`,
+`as_of_utc`, `recorded_at_utc`, and formation source timestamps are currently
+stored as canonical strings; stricter source-format and UTC validation for
+those entity fields is deferred to provider adapters and FI-4 normalization.
 
 ## EvidenceItem
 

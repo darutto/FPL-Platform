@@ -16,11 +16,19 @@ const PYTHON_ROOT = path.resolve(
   __dirname,
   '../../football-data-contract/football_data_contract',
 );
-const evidencePython = fs.readFileSync(path.join(PYTHON_ROOT, 'evidence.py'), 'utf-8');
-const enumsPython = fs.readFileSync(path.join(PYTHON_ROOT, 'enums.py'), 'utf-8');
-const evidenceTypescript = fs.readFileSync(
+
+function normalizeLineEndings(source: string): string {
+  return source.replace(/\r\n/g, '\n');
+}
+
+function readNormalizedSource(sourcePath: string): string {
+  return normalizeLineEndings(fs.readFileSync(sourcePath, 'utf8'));
+}
+
+const evidencePython = readNormalizedSource(path.join(PYTHON_ROOT, 'evidence.py'));
+const enumsPython = readNormalizedSource(path.join(PYTHON_ROOT, 'enums.py'));
+const evidenceTypescript = readNormalizedSource(
   path.resolve(__dirname, '../lib/evidence.ts'),
-  'utf-8',
 );
 
 function pythonTuple(name: string): string[] {
@@ -37,8 +45,8 @@ function pythonEvidenceCodes(): string[] {
   return [...match[1].matchAll(/"([A-Z_]+)"/g)].map((item) => item[1]);
 }
 
-function pythonEnumValues(className: string): string[] {
-  const match = enumsPython.match(
+function pythonEnumValues(className: string, source = enumsPython): string[] {
+  const match = source.match(
     new RegExp(`class ${className}\\(StrEnum\\):([\\s\\S]*?)(?=\\n\\nclass |$)`),
   );
   if (!match) throw new Error(`Python enum ${className} not found`);
@@ -52,6 +60,13 @@ function typescriptInterfaceFields(): string[] {
 }
 
 describe('FI-1 Python/TypeScript evidence parity', () => {
+  test('source normalization converts CRLF once at the read boundary', () => {
+    expect(normalizeLineEndings('first\r\n\r\nclass Next')).toBe('first\n\nclass Next');
+    expect(evidencePython).not.toContain('\r\n');
+    expect(enumsPython).not.toContain('\r\n');
+    expect(evidenceTypescript).not.toContain('\r\n');
+  });
+
   test('field names and order match exactly', () => {
     const expected = pythonTuple('EVIDENCE_FIELD_NAMES');
     expect(EVIDENCE_FIELD_NAMES).toEqual(expected);
@@ -68,6 +83,11 @@ describe('FI-1 Python/TypeScript evidence parity', () => {
     expect(SIGNAL_BASIS_VALUES).toEqual(pythonEnumValues('SignalBasis'));
     expect(EVIDENCE_DIRECTION_VALUES).toEqual(pythonEnumValues('EvidenceDirection'));
     expect(EVIDENCE_SUBJECT_TYPE_VALUES).toEqual(pythonEnumValues('SubjectType'));
+  });
+
+  test('enum removal still produces a parity mismatch', () => {
+    const mutated = enumsPython.replace('    INFERRED_PROXY = "inferred_proxy"\n', '');
+    expect(pythonEnumValues('SignalBasis', mutated)).not.toEqual(SIGNAL_BASIS_VALUES);
   });
 
   test('evidence codes match Python exactly', () => {
