@@ -14,6 +14,9 @@ PACKAGES = (
     ("football-intelligence", "football_intelligence"),
 )
 REQUIRED_FILES = ("README.md", "CONTRACT.md", "pytest.ini", "requirements.txt")
+APPROVED_REQUIREMENTS = {
+    "football-identity-registry": ["pandas>=2.0", "pyarrow>=14.0", "PyYAML==6.0.3"],
+}
 DOCKERFILE = REPO_ROOT / "packages" / "fpl-grounded-assistant" / "Dockerfile"
 
 passed = 0
@@ -44,7 +47,9 @@ for package_dir, module_name in PACKAGES:
         line for line in (package_root / "requirements.txt").read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.lstrip().startswith("#")
     ]
-    ok(not active_requirements, f"{package_dir} adds no runtime dependency")
+    expected_requirements = APPROVED_REQUIREMENTS.get(package_dir, [])
+    ok(active_requirements == expected_requirements,
+       f"{package_dir} dependencies match the deliberate FI-2 allowlist")
     docker_copy = re.compile(
         rf"^COPY\s+packages/{re.escape(package_dir)}/\s+"
         rf"/app/packages/{re.escape(package_dir)}/\s*$",

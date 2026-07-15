@@ -65,6 +65,7 @@ run_runner "Orch-4a: orch enable/disable flag parity" "run_phase_orch4a_tests.py
 run_runner "Orch-4b: orch_outcome serialization"      "run_phase_orch4b_tests.py"
 run_runner "FI-0(b): package scaffold imports"         "run_phase_fi0b_tests.py"
 run_runner "FI-1: provider-neutral evidence contract"  "run_phase_fi1_tests.py"
+run_runner "FI-2: identity and mapping foundation"      "run_phase_fi2_tests.py"
 
 echo "==================="
 echo "Contract gate: $PASS passed, $FAIL failed"
