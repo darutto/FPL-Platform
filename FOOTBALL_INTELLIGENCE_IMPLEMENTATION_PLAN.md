@@ -4,7 +4,7 @@
 **Produced by:** Claude Code repository audit, 2026-07-13
 **Input brief:** `FOOTBALL_INTELLIGENCE_PLANNING_BRIEF.md`
 **Executor:** Codex, one approved phase/slice at a time
-**Status:** IMPLEMENTATION — FI-0 complete; FI-1 not started
+**Status:** IMPLEMENTATION — FI-1 complete; FI-2 not started
 
 ---
 
@@ -121,7 +121,7 @@ There is no cross-season, cross-provider, persistent identity store. Understat j
 - `FinalResponse` frozen dataclass — stable fields + **additive optional metadata** per intent (`captain`, `comparison`, `transfer`, `chip`, `fixture_run`, `differential`, `sub_responses`, `orch_outcome`). The additive-bounded-metadata pattern is the sanctioned way to extend it.
 - `http_contract_fixtures.json` — machine-readable HTTP contract; CI contract-drift gate (`scripts/run_contract_gate.sh`, `CONTRACT_GATE.md`).
 - `routing_trace` — stable (graduated M5) audit schema on every `ask_v2` result.
-- TS mirror: `packages/fpl-ui/lib/types.ts` (known debt: 2 pre-existing contract-drift failures from P2 intent constants).
+- TS mirror: `packages/fpl-ui/lib/types.ts`; the two former P2 intent-drift failures were repaired and regression-pinned in FI-0(a).
 - Per-package `CONTRACT.md` in `fpl-historical` and `fpl-tactical` freeze storage layouts.
 
 ### 1.7 UI
@@ -546,7 +546,7 @@ Phase table (each phase = one or more PR-sized slices; "Trial-dep" = requires li
 - **DoD:** M1–M3 produce pinned evidence on golden fixtures; M4/M5 return `missing_context` cleanly. **Trial-dep:** M4 graduation; M2 grid-semantics confirmation. **Pre-trial:** yes (mocks).
 
 ### FI-7 — Response and UI integration
-- **Slices:** (a) `FinalResponse.evidence` + serialization + `http_contract_fixtures.json` additions + CLI debug; (b) tools `get_player_intelligence`, `get_expected_minutes`, `get_tactical_role`, `get_fixture_context` + schemas + renderers (registry 26→30; adjust documented orch3a token baselines); (c) evidence enrichment of `captain_score`/`compare_players`/`transfer_advice` OK turns behind master flag; (d) UI `EvidenceChip/EvidenceList/ConfidenceBadge` + card wiring + `@minutes`/`@role` resources; (e) end-to-end mock demo script + recording.
+- **Slices:** (a) `FinalResponse.evidence` + serialization + `http_contract_fixtures.json` additions + CLI debug; (b) tools `get_player_intelligence`, `get_expected_minutes`, `get_tactical_role`, `get_fixture_context` + schemas + renderers (registry 29→33; adjust documented orch3a token baselines); (c) evidence enrichment of `captain_score`/`compare_players`/`transfer_advice` OK turns behind master flag; (d) UI `EvidenceChip/EvidenceList/ConfidenceBadge` + card wiring + `@minutes`/`@role` resources; (e) end-to-end mock demo script + recording.
 - **Existing files touched:** `final_response.py`, `harness_adapter.py`, `tool_schema_registry.py`, renderer module, `resource_registry.py`, `fpl_server.py` (serialization only), `IntentRenderer.tsx`, three cards, `lib/types.ts`.
 - **Compatibility:** all additive; flags-off sweep of the full validation corpus is the slice-(c) gate.
 - **Tests:** contract additivity; renderer snapshots with/without evidence; tool schema validation; Jest card tests.
@@ -627,7 +627,7 @@ Open questions requiring trial validation are enumerated in §14.2/§14.3 and mu
 |---|---|---|---|---|
 | FI-0 | a — intent contract-drift repair | complete | UI contract 27/27; Orch-4a 217/217; contract gate 7/7 | Backend `dispatcher.py` is authoritative for response intents. The expected `fixture_outlook`/`zonal_opportunity` TypeScript mirror repairs already existed on `main` via `a630104`; FI-0(a) added explicit regression pins and, per accepted review, widened scope to refresh the stale independent Orch-4a K1 literal tool-count pin from 10 to 29. FI-0(b) was not started. |
 | FI-0 | b — package scaffold | complete | pytest import smoke 4/4; UI contract 27/27; TypeScript check green; FI-0(b) runner 16/16; Orch-4i 74/74; contract gate 8/8 | Added the four import-light, dependency-free package scaffolds and wired their paths into the backend image, local/CI contract gate, and package inventories. Docker COPY wiring is statically pinned; a local image build was unavailable because the Docker daemon was not running. No FI-1 contracts, provider logic, features, modules, or runtime behavior were added. FI-1 was not started. |
-| FI-1 | contracts + evidence | not started | — | |
+| FI-1 | contracts + evidence | complete | football-data-contract pytest 47/47; Python/TS evidence parity 7/7; UI contract 27/27; TypeScript check green; FI-0(b) 16/16; FI-1 gate 22/22; Orch-4i 78/78; contract gate 9/9 | Added frozen provider-neutral canonical entities, closed enums, provenance, the 13-code bounded `EvidenceItem` contract, and a UI-only TypeScript mirror. Fable review hardening made parity parsing CRLF-safe and documented lineup-entry/timestamp validation boundaries. No dependencies or runtime/HTTP/FinalResponse fields were added. Carry-forward hardening refreshed Docker COPY matching, FI-7 registry growth, and verified Orch-4a/4b counts. FI-2 was not started. |
 | FI-2 | identity registry | not started | — | |
 | FI-3 | sportmonks client | not started | — | |
 | FI-4 | ingestion + store | not started | — | |
