@@ -4,7 +4,7 @@
 **Produced by:** Claude Code repository audit, 2026-07-13
 **Input brief:** `FOOTBALL_INTELLIGENCE_PLANNING_BRIEF.md`
 **Executor:** Codex, one approved phase/slice at a time
-**Status:** IMPLEMENTATION — FI-2 complete under amended DoD; FI-3 not started
+**Status:** IMPLEMENTATION — FI-3 complete; pre-FI-4 reconciliation checkpoint next
 
 ---
 
@@ -528,6 +528,14 @@ Phase table (each phase = one or more PR-sized slices; "Trial-dep" = requires li
 - **Docs:** README (auth, includes, rate limits as documented — flagged UNVERIFIED until trial).
 - **DoD:** all client tests green with no network; `--mock` mode demonstrated. **Trial-dep:** payload shapes are doc-derived — every fixture carries an `UNVERIFIED_VS_LIVE` header comment to be removed in FI-9. **Pre-trial:** yes.
 
+### Pre-FI-4 canonical-contract reconciliation checkpoint *(required; not started in FI-3)*
+- Reconcile canonical ID prefixes between `football-data-contract` and `football-identity-registry`.
+- Decide and govern the authoritative fingerprint-name policy.
+- Define team, fixture, and competition canonical-ID generation consistently across packages.
+- Add one cross-package canonical-ID consistency runner rather than duplicating governance.
+- Decide whether evidence needs structured details before FI-4 consumers depend on it.
+- These Milestone A audit debts are recorded only in FI-3; no reconciliation implementation belongs in the Sportmonks client slice.
+
 ### FI-4 — Raw→canonical ingestion + owned-store landing
 - **Files new:** `sportmonks_client/{normalize/*.py, ingest.py, cli.py}`; `data/football/` layout (§7.1); R2 publish/sync commands; `fpl_server` lifespan hook behind `FOOTBALL_STORE_SYNC_ENABLED`; `.github/workflows/football-store-refresh.yml` (disabled until trial; cron offset from the two existing refreshes).
 - **Contracts:** canonical parquet schemas frozen; `_football_latest.json` pointer.
@@ -633,7 +641,7 @@ Open questions requiring trial validation are enumerated in §14.2/§14.3 and mu
 | FI-0 | b — package scaffold | complete | pytest import smoke 4/4; UI contract 27/27; TypeScript check green; FI-0(b) runner 16/16; Orch-4i 74/74; contract gate 8/8 | Added the four import-light, dependency-free package scaffolds and wired their paths into the backend image, local/CI contract gate, and package inventories. Docker COPY wiring is statically pinned; a local image build was unavailable because the Docker daemon was not running. No FI-1 contracts, provider logic, features, modules, or runtime behavior were added. FI-1 was not started. |
 | FI-1 | contracts + evidence | complete | football-data-contract pytest 47/47; Python/TS evidence parity 7/7; UI contract 27/27; TypeScript check green; FI-0(b) 16/16; FI-1 gate 22/22; Orch-4i 78/78; contract gate 9/9 | Added frozen provider-neutral canonical entities, closed enums, provenance, the 13-code bounded `EvidenceItem` contract, and a UI-only TypeScript mirror. Fable review hardening made parity parsing CRLF-safe and documented lineup-entry/timestamp validation boundaries. No dependencies or runtime/HTTP/FinalResponse fields were added. Carry-forward hardening refreshed Docker COPY matching, FI-7 registry growth, and verified Orch-4a/4b counts. FI-2 was not started. |
 | FI-2 | identity registry | complete — amended DoD | identity pytest 34/34; FI-2 gate 5/5; FI-0(b) 16/16; FI-1 22/22; Orch-4i 82/82; contract gate 10/10 | B1 pins pytest in CI and a seeded failure proved propagation; B2 makes distinct no-DOB candidate collisions fail closed before overrides; B3 commits the reproducible real owned-store measurement. Understat: 375/461 (81.3449%), 86 unmatched, 0 ambiguous; vaastav: 804/804 (100%). Fable formally transferred the mandatory ≥95% identity target to the §14.1/FI-9 trial-readiness gate. The 86-item unresolved queue remains a tracked blocker and was not waived. Existing runtime joins remain unchanged and FI-3 was not started. |
-| FI-3 | sportmonks client | not started | — | |
+| FI-3 | sportmonks client | complete | sportmonks-client pytest 34/34; FI-3 gate 5/5; FI-0(b)/FI-1/FI-2 green; Orch-4i 86/86; contract gate 11/11 | Added offline-only configuration/auth plumbing, injected transport, 15 endpoint families, provider-owned immutable models, envelopes/snapshots, bounded GET retry/rate-limit handling, pagination guards, secret-safe errors, documentation-derived fixtures, assumption registry, and guarded live smoke CLI. All live assumptions remain unverified; no account/token/network was used. No FI-4 normalization or pre-FI-4 reconciliation began. |
 | FI-4 | ingestion + store | not started | — | |
 | FI-5 | feature engine | not started | — | |
 | FI-6 | modules M1–M3 (+M4/M5 skeletons) | not started | — | |

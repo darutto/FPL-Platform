@@ -1,0 +1,7 @@
+{
+  "_fixture": {"source":"documentation-derived pagination shape", "status":"unverified_against_live"},
+  "pages": [
+    {"data":[{"id":1,"name":"One"}],"pagination":{"current_page":1,"has_more":true,"next_page":2}},
+    {"data":[{"id":2,"name":"Two"}],"pagination":{"current_page":2,"has_more":false,"next_page":null}}
+  ]
+}

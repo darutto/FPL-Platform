@@ -1,0 +1,10 @@
+{
+  "_fixture": {"source":"manually constructed edge cases", "status":"unverified_against_live"},
+  "empty":{"data":[],"pagination":{"current_page":1,"has_more":false,"next_page":null}},
+  "missing_optional":{"data":[{"id":1}]},
+  "malformed_envelope":{"unexpected":[]},
+  "pagination_loop":[
+    {"data":[{"id":1}],"pagination":{"current_page":1,"has_more":true,"next_page":1}}
+  ],
+  "statuses":{"authentication":[401,403],"rate_limit":429,"retryable":[500,502,503],"non_retryable":400,"malformed_json":"not-json"}
+}

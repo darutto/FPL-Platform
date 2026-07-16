@@ -44,6 +44,7 @@ canonical list, Orch-4i fails before any semantic runner executes.
 | 8 | `run_phase_fi0b_tests.py` | FI-0(b) package scaffold imports and Docker wiring |
 | 9 | `run_phase_fi1_tests.py` | FI-1 provider-neutral evidence contract and TS parity |
 | 10 | `run_phase_fi2_tests.py` | FI-2 deterministic identity matcher and store contract |
+| 11 | `run_phase_fi3_tests.py` | FI-3 Sportmonks provider boundary, offline client suite, and deferred normalization |
 
 Four seeded mutation proofs in Orch-4i (F-A through F-D) verify:
 - F-A: Missing runner in yml → detected
@@ -79,7 +80,7 @@ which causes CI to fail immediately.
 
 | Runner | Assertions | What it catches |
 |--------|-----------|----------------|
-| `run_phase_orch4i_tests.py` | 82 | Gate scope parity: CI yml and shell script enumerate the same runners in the same order |
+| `run_phase_orch4i_tests.py` | 86 | Gate scope parity after FI-3 runner registration |
 | `run_phase_orch4f_tests.py` | 125 | Cross-file drift: stable field parity, orch_outcome vocabulary parity, HTTP always-present claim, override-order completeness, independence invariants, deferred note parity, conditional field coverage, HTTP status contract |
 | `run_phase_orch4e_tests.py` | 81 | Runtime orch_outcome semantics: field presence, always-None invariant with no client, override-ordering proof via `_apply_squad_overrides`, depth-bypass deferred invariant, contract doc/fixture parity |
 | `run_phase_orch4d_tests.py` | 17 | `_apply_squad_overrides` helper contract: budget/hit-warning/chip-unavailable firing rules, no-op when `squad_context=None` |
@@ -89,6 +90,7 @@ which causes CI to fail immediately.
 | `run_phase_fi0b_tests.py` | 16 | FI-0(b) scaffold imports, required files, dependency-free requirements, and backend Docker COPY wiring |
 | `run_phase_fi1_tests.py` | 22 | FI-1 immutable evidence bounds, closed registries, provider-neutral import boundary, TypeScript field parity, and deferred FinalResponse exposure |
 | `run_phase_fi2_tests.py` | 5 | FI-2 governed schemas and tiers, atomic store, contamination boundary, and package test suite |
+| `run_phase_fi3_tests.py` | 5 | FI-3 unverified-live boundary, auth/config pins, no canonical persistence, and delegated package suite |
 
 **2026-07-12 retirement note:** `orch4c`, `orch4d`, and `orch4e` all had assertion
 counts drop sharply (from 120/84/122 to 21/17/81). Commit 118d43e ("G2.a delete
@@ -166,6 +168,7 @@ python run_phase_orch4b_tests.py   # orch_outcome serialization parity
 python run_phase_fi0b_tests.py     # FI-0(b) package scaffold imports
 python run_phase_fi1_tests.py      # FI-1 provider-neutral evidence contract
 python run_phase_fi2_tests.py      # FI-2 identity and mapping foundation
+python run_phase_fi3_tests.py      # FI-3 Sportmonks client skeleton
 ```
 
 Or use the convenience script at the repo root:

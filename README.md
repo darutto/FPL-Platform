@@ -25,8 +25,8 @@ A grounded Fantasy Premier League assistant. Deterministic FPL logic drives all 
 | `fpl-ui` | Next.js + TS | Web frontend — Spanish-first slash commands, Patreon-gated |
 | `fpl-charts` | TypeScript | Brand color and risk-level theme constants |
 | `football-data-contract` | Python | Provider-neutral canonical entities, provenance, and structured evidence contracts |
-| `sportmonks-client` | Python | Sportmonks adapter boundary (FI-0(b) scaffold only) |
-| `football-identity-registry` | Python | Provider-neutral identity boundary (FI-0(b) scaffold only) |
+| `sportmonks-client` | Python | FI-3 Sportmonks transport, provider models, pagination/retry, and offline mocks; no canonical normalization yet |
+| `football-identity-registry` | Python | FI-2 deterministic cross-provider identity crosswalk and owned corpus baseline |
 | `football-intelligence` | Python | Football feature/module boundary (FI-0(b) scaffold only) |
 
 ## Tech stack
