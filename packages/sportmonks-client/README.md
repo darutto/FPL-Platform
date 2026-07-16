@@ -23,3 +23,7 @@ python -m sportmonks_client.cli smoke --i-understand-this-is-live
 
 Do not run it in FI-3, tests, or CI. See `CONTRACT.md` and
 `sportmonks_client.assumptions.assumption_registry()` for trial obligations.
+The command fetches exactly one page/request. Raw `requests` causes are
+discarded at the transport boundary. Numeric `Retry-After` is clamped to 60
+seconds; invalid, non-finite, negative, HTTP-date, or missing values use bounded
+exponential backoff.

@@ -2,6 +2,9 @@ from pathlib import Path
 
 from sportmonks_client.assumptions import assumption_registry
 from sportmonks_client.cli import main
+from sportmonks_client.client import SportmonksClient
+from sportmonks_client.config import SportmonksConfig
+from conftest import FakeTransport, response
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -28,6 +31,19 @@ def test_live_smoke_opt_in_without_token_fails_without_network(monkeypatch, caps
     monkeypatch.delenv("SPORTMONKS_API_TOKEN", raising=False)
     assert main(["smoke", "--i-understand-this-is-live"]) == 1
     assert "API_TOKEN" in capsys.readouterr().out
+
+
+def test_live_smoke_makes_exactly_one_request_when_more_pages_exist(capsys):
+    token = "SMOKE-SECRET"
+    page = {"data":[{"id":8,"name":"League"}],"pagination":{"current_page":1,"has_more":True,"next_page":2}}
+    fake = FakeTransport([response(page)])
+    def factory():
+        return SportmonksClient(SportmonksConfig(api_token=token), transport=fake)
+    assert main(["smoke", "--i-understand-this-is-live"], client_factory=factory) == 0
+    output = capsys.readouterr().out
+    assert len(fake.calls) == 1
+    assert fake.calls[0][2].get("page") != 2
+    assert token not in output and "records=1" in output
 
 
 def test_no_sportmonks_import_contamination():

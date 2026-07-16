@@ -14,7 +14,10 @@ class SportmonksError(Exception):
 class SportmonksConfigurationError(SportmonksError): pass
 class SportmonksAuthenticationError(SportmonksError): pass
 class SportmonksRateLimitError(SportmonksError): pass
-class SportmonksRequestError(SportmonksError): pass
+class SportmonksRequestError(SportmonksError):
+    def __init__(self, message: str, *, retryable: bool = False, endpoint: str | None = None, status_code: int | None = None) -> None:
+        self.retryable = retryable
+        super().__init__(message, endpoint=endpoint, status_code=status_code)
 class SportmonksResponseError(SportmonksError): pass
 class SportmonksPaginationError(SportmonksError): pass
 class SportmonksSchemaError(SportmonksError): pass

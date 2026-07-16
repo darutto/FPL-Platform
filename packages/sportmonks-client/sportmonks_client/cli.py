@@ -7,7 +7,7 @@ from .client import SportmonksClient
 from .errors import SportmonksError
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None, *, client_factory=SportmonksClient) -> int:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
     smoke = sub.add_parser("smoke", help="LIVE and potentially rate-limited")
@@ -17,8 +17,8 @@ def main(argv: list[str] | None = None) -> int:
         print("REFUSED: live smoke requires --i-understand-this-is-live")
         return 2
     try:
-        client = SportmonksClient()
-        result = client.leagues(per_page=1)
+        client = client_factory()
+        result = client.fetch_page("leagues", params={"per_page": 1})
         print(f"LIVE Sportmonks smoke succeeded; records={len(result)}")
         return 0
     except SportmonksError as exc:

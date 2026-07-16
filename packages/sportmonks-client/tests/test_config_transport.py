@@ -1,4 +1,5 @@
 import logging
+import traceback
 from unittest.mock import MagicMock
 
 import pytest
@@ -63,3 +64,38 @@ def test_token_only_in_sanctioned_query_and_redacted():
     client.leagues()
     assert fake.calls[0][2]["api_token"] == "TOP-SECRET"
     assert "TOP-SECRET" not in str(SportmonksConfigurationError("failed"))
+
+
+def test_transport_exception_chain_traceback_and_logs_redact_token(caplog):
+    token = "TRACEBACK-SECRET"
+    session = MagicMock()
+    session.request.side_effect = requests.ConnectionError(f"failed https://host/path?api_token={token}")
+    with caplog.at_level(logging.ERROR):
+        try:
+            RequestsTransport(session).request("GET", "https://host/path", params={"api_token": token}, timeout=1)
+        except Exception as exc:
+            logging.exception("captured typed transport failure")
+            rendered = "".join(traceback.format_exception(exc))
+            assert token not in str(exc)
+            assert token not in repr(exc)
+            assert token not in repr(exc.__cause__)
+            assert token not in repr(exc.__context__)
+            assert token not in rendered
+        else:
+            pytest.fail("transport failure was not wrapped")
+    assert token not in caplog.text
+
+
+@pytest.mark.parametrize("raw_error", [
+    requests.TooManyRedirects("https://x?api_token=SECRET"),
+    requests.exceptions.ChunkedEncodingError("https://x?api_token=SECRET"),
+    requests.exceptions.InvalidURL("https://x?api_token=SECRET"),
+])
+def test_all_request_exception_subclasses_are_safely_wrapped(raw_error):
+    token = "SECRET"
+    session = MagicMock(); session.request.side_effect = raw_error
+    with pytest.raises(Exception) as captured:
+        RequestsTransport(session).request("GET", "https://x", params={"api_token":token}, timeout=1)
+    assert type(captured.value).__name__ == "SportmonksRequestError"
+    assert captured.value.__cause__ is None and captured.value.__context__ is None
+    assert "SECRET" not in "".join(traceback.format_exception(captured.value))

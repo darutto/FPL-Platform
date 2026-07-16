@@ -1,6 +1,6 @@
 import pytest
 
-from sportmonks_client.client import ENDPOINTS, SportmonksClient
+from sportmonks_client.client import ENDPOINTS, MAX_RETRY_AFTER_SECONDS, SportmonksClient
 from sportmonks_client.config import SportmonksConfig
 from sportmonks_client.errors import (SportmonksAuthenticationError, SportmonksPaginationError,
                                       SportmonksRateLimitError, SportmonksRequestError, SportmonksSchemaError)
@@ -61,7 +61,7 @@ def test_page_limit():
 
 def test_timeout_then_success_and_backoff():
     sleeps=[]
-    client=offline([SportmonksRequestError("timeout"),response({"data":[]})],sleep=sleeps.append)
+    client=offline([SportmonksRequestError("timeout", retryable=True),response({"data":[]})],sleep=sleeps.append)
     assert client.players()==() and sleeps==[.25]
 
 
@@ -69,6 +69,19 @@ def test_429_retry_after_then_success():
     sleeps=[]
     client=offline([response({},429,{"Retry-After":"2"}),response({"data":[]})],sleep=sleeps.append)
     assert client.players()==() and sleeps==[2]
+
+
+@pytest.mark.parametrize(("header", "expected"), [
+    ("-2", .25), ("0", 0), ("2.5", 2.5), ("999999", 60),
+    ("NaN", .25), ("Infinity", .25), ("-Infinity", .25),
+    ("Wed, 21 Oct 2015 07:28:00 GMT", .25), ("malformed", .25), (None, .25),
+])
+def test_retry_after_is_finite_non_negative_and_bounded(header, expected):
+    sleeps=[]; headers={} if header is None else {"Retry-After":header}
+    client=offline([response({},429,headers),response({"data":[]})],sleep=sleeps.append)
+    assert client.players()==()
+    assert sleeps == [expected]
+    assert 0 <= sleeps[0] <= MAX_RETRY_AFTER_SECONDS
 
 
 def test_429_exhaustion():

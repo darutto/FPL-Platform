@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import time
+import math
 from datetime import datetime, timezone
 from typing import Any, Callable, Mapping
 
@@ -24,6 +25,8 @@ ENDPOINTS: dict[str, tuple[str, type[ProviderEntity]]] = {
     "referees": ("referees", Referee), "team_statistics": ("statistics/fixtures/teams", TeamFixtureStatistic),
     "player_statistics": ("statistics/fixtures/players", PlayerFixtureStatistic),
 }
+
+MAX_RETRY_AFTER_SECONDS = 60.0
 
 
 class SportmonksClient:
@@ -50,10 +53,10 @@ class SportmonksClient:
         for attempt in range(attempts):
             try:
                 response = self.transport.request("GET", url, params=clean_params, timeout=self.config.timeout_seconds)
-            except SportmonksRequestError:
-                if attempt + 1 >= attempts:
+            except SportmonksRequestError as exc:
+                if not exc.retryable or attempt + 1 >= attempts:
                     raise
-                self.sleep(self.config.backoff_seconds * (2 ** attempt))
+                self.sleep(self._backoff(attempt))
                 continue
             status = response.status
             if status in (401, 403):
@@ -62,17 +65,13 @@ class SportmonksClient:
                 last_rate_limit = response
                 if attempt + 1 >= attempts:
                     break
-                retry_after = response.headers.get("Retry-After")
-                try:
-                    delay = float(retry_after) if retry_after is not None else self.config.backoff_seconds * (2 ** attempt)
-                except ValueError:
-                    delay = self.config.backoff_seconds * (2 ** attempt)
+                delay = self._retry_delay(response.headers.get("Retry-After"), attempt)
                 self.sleep(delay)
                 continue
             if 500 <= status <= 599:
                 if attempt + 1 >= attempts:
                     raise SportmonksRequestError("retryable server error exhausted", endpoint=endpoint, status_code=status)
-                self.sleep(self.config.backoff_seconds * (2 ** attempt))
+                self.sleep(self._backoff(attempt))
                 continue
             if status >= 400:
                 raise SportmonksRequestError("non-retryable request failure", endpoint=endpoint, status_code=status)
@@ -84,6 +83,27 @@ class SportmonksClient:
                 ))
             return response
         raise SportmonksRateLimitError("rate limit exhausted", endpoint=endpoint, status_code=last_rate_limit.status if last_rate_limit else 429)
+
+    def _backoff(self, attempt: int) -> float:
+        value = self.config.backoff_seconds * (2 ** attempt)
+        if not math.isfinite(value) or value < 0:
+            value = 0.0
+        return min(value, MAX_RETRY_AFTER_SECONDS)
+
+    def _retry_delay(self, retry_after: str | None, attempt: int) -> float:
+        try:
+            value = float(retry_after) if retry_after is not None else float("nan")
+        except (TypeError, ValueError):
+            return self._backoff(attempt)
+        if not math.isfinite(value) or value < 0:
+            return self._backoff(attempt)
+        return min(value, MAX_RETRY_AFTER_SECONDS)
+
+    def fetch_page(self, family: str, *, params: Mapping[str, Any] | None = None) -> tuple[ProviderEntity, ...]:
+        """Fetch and parse exactly one page, regardless of has_more metadata."""
+        endpoint, model = ENDPOINTS[family]
+        envelope = parse_envelope(self._request(endpoint, dict(params or {})).body, endpoint)
+        return tuple(parse_entity(model, item, endpoint) for item in envelope.data)
 
     def iter_entities(self, family: str, *, params: Mapping[str, Any] | None = None):
         endpoint, model = ENDPOINTS[family]

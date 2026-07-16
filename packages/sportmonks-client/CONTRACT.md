@@ -27,6 +27,11 @@ and uses the repository's existing `requests` dependency. Endpoint/model code
 never performs HTTP. Transport responses preserve status, headers, and parsed
 JSON; malformed JSON raises `SportmonksResponseError`.
 
+All `requests.RequestException` subclasses are converted at this boundary.
+Raw causes are discarded after safe retry classification and the typed error is
+raised outside the catch block with no `__cause__` or `__context__`; authenticated
+URLs therefore cannot leak through tracebacks, exception logging, or telemetry.
+
 ## Endpoint interfaces
 
 The typed client exposes leagues, seasons, fixtures, teams, squads, players,
@@ -48,7 +53,10 @@ sets work, repeated pages fail, disappearing/malformed pagination fails, and
 
 Only GET is used. Transient connection/timeout errors, HTTP 429, and 5xx retry
 up to the configured bound with injectable exponential backoff. Numeric
-`Retry-After` wins. HTTP 400 and other non-retryable 4xx fail immediately;
+`Retry-After` wins only when finite and non-negative and is clamped to
+`MAX_RETRY_AFTER_SECONDS=60.0`. Negative, non-finite, missing, malformed, and
+HTTP-date values fall back to bounded exponential backoff. Every sleep is in
+the inclusive range 0–60 seconds. HTTP 400 and other non-retryable 4xx fail immediately;
 401/403 fail as authentication errors. No retry loop is unbounded.
 
 Closed hierarchy: `SportmonksError`, `SportmonksConfigurationError`,
@@ -80,7 +88,8 @@ and mandatory live-validation flag. No public example is claimed as live proof.
 
 `python -m sportmonks_client.cli smoke` refuses without explicit opt-in and a
 token. It is excluded from ordinary tests/CI and must remain the smallest safe
-request. Provider-shape changes are contained here. Canonical conversion begins
+request: it uses `fetch_page` and performs exactly one authenticated HTTP call,
+even when page one reports more results. Provider-shape changes are contained here. Canonical conversion begins
 in FI-4 only after the approved pre-FI-4 reconciliation checkpoint.
 
 Breaking changes include error semantics, retry safety, endpoint signatures,
