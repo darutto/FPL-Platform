@@ -26,6 +26,7 @@ Canonical runner order:
   run_phase_orch4b_tests.py   (orch_outcome serialization parity)
   run_phase_fi0b_tests.py     (FI-0(b) package scaffold imports)
   run_phase_fi1_tests.py      (FI-1 provider-neutral evidence contract)
+  run_phase_fi2_tests.py      (FI-2 identity and mapping foundation)
 
 All checks are pure string / structure-based — no network calls, no LLM calls,
 no runtime respond() calls.
@@ -66,6 +67,7 @@ CANONICAL_RUNNERS: list[str] = [
     "run_phase_orch4b_tests.py",   # orch_outcome serialization parity
     "run_phase_fi0b_tests.py",     # FI-0(b) package scaffold imports
     "run_phase_fi1_tests.py",      # FI-1 provider-neutral evidence contract
+    "run_phase_fi2_tests.py",      # FI-2 identity and mapping foundation
 ]
 
 # Slices implemented without a standalone runner file.
@@ -82,7 +84,7 @@ NON_RUNNER_SLICES: list[str] = [
 # When a runner's count changes, update both this mapping and the CONTRACT_GATE.md table
 # in the same commit — G9 will fail until both are aligned.
 RUNNER_EXPECTED_COUNTS: dict[str, int] = {
-    "run_phase_orch4i_tests.py": 78,   # includes G8 + G9 + G10 + F-G/H/I/J (Orch-4k5)
+    "run_phase_orch4i_tests.py": 82,   # includes FI-2 canonical-runner mutation proofs
     "run_phase_orch4f_tests.py": 125,
     "run_phase_orch4e_tests.py": 81,   # trimmed 2026-07-12 — see CONTRACT_GATE.md retirement note
     "run_phase_orch4d_tests.py": 17,   # trimmed 2026-07-12 — see CONTRACT_GATE.md retirement note
@@ -91,6 +93,7 @@ RUNNER_EXPECTED_COUNTS: dict[str, int] = {
     "run_phase_orch4b_tests.py": 161,
     "run_phase_fi0b_tests.py": 16,
     "run_phase_fi1_tests.py": 22,
+    "run_phase_fi2_tests.py": 5,
 }
 
 # ---------------------------------------------------------------------------

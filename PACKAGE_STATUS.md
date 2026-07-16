@@ -1,6 +1,6 @@
 # fpl-platform · Package Status
 **Last updated:** 2026-07-14
-**After:** FI-0(b) (football-intelligence package scaffolding)
+**After:** FI-2 complete under amended DoD
 
 Status vocabulary:
 - `planned` — described in audit, no platform code written yet
@@ -17,13 +17,15 @@ Status vocabulary:
 |---------|--------|------------------------|---------------------------|
 | `football-data-contract` | `parity-validated` | Frozen canonical entities, closed enums, provenance, and Python/TypeScript `EvidenceItem` contract | FI-4 normalizers consume it; FI-7 exposes evidence |
 | `sportmonks-client` | `created` | Importable package only; future sole owner of Sportmonks shapes and normalization | FI-3 |
-| `football-identity-registry` | `created` | Importable package only; existing identity mechanisms unchanged | FI-2 |
+| `football-identity-registry` | `parity-validated` | FI-2 deterministic matcher/store complete; real baseline is Understat 375/461 and vaastav 804/804 | Mandatory ≥95% identity gate in FI-9 after team/metadata enrichment |
 | `football-intelligence` | `created` | Importable package only; no features or modules yet | FI-5 |
 
 `football-data-contract` is implemented through FI-1 with no runtime
-dependencies. The other three packages remain documentation and import-smoke
-scaffolds only; no identity, provider-client, feature, or module behavior has
-started.
+dependencies. FI-2 adds an unused offline identity foundation and is complete
+under its formally amended DoD. The ≥95% requirement was not waived: it remains
+a mandatory FI-9 trial-readiness gate, with 86 Understat identities unresolved.
+`sportmonks-client` and `football-intelligence` remain scaffolds; no provider
+client, feature, module, HTTP, UI, tool, or runtime integration has started.
 
 ---
 

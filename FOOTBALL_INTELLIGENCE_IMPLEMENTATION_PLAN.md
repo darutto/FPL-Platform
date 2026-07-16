@@ -4,7 +4,7 @@
 **Produced by:** Claude Code repository audit, 2026-07-13
 **Input brief:** `FOOTBALL_INTELLIGENCE_PLANNING_BRIEF.md`
 **Executor:** Codex, one approved phase/slice at a time
-**Status:** IMPLEMENTATION — FI-1 complete; FI-2 not started
+**Status:** IMPLEMENTATION — FI-2 complete under amended DoD; FI-3 not started
 
 ---
 
@@ -276,7 +276,9 @@ Transfers/season changes (brief Q13): mappings are validity-ranged; a new season
 
 ### 6.3 Pre-trial validation
 
-The matcher is exercised before any Sportmonks data exists against: (a) Understat player names in `understat_shots.parquet` (replacing nothing — `zonal_weakness_tool` keeps its current query-time join until FI-6 optionally consumes the crosswalk), and (b) vaastav historical names. Target: ≥95% auto-match on current-season Understat shooters, quantified in the FI-2 test report.
+The matcher is exercised before any Sportmonks data exists against: (a) Understat player names in `understat_shots.parquet` (replacing nothing — `zonal_weakness_tool` keeps its current query-time join until FI-6 optionally consumes the crosswalk), and (b) vaastav historical names. FI-2 establishes the reproducible owned-store baseline: Understat 2025/26 matched 375/461 eligible source name/team identities automatically (81.3449%), with 86 unmatched and 0 ambiguous; vaastav 2024/25 matched 804/804 (100%). Every unresolved identity remains in the committed ambiguity queue. The mandatory ≥95% automatic-match target is transferred—not waived—to the §14.1/FI-9 trial-readiness identity gate, after canonical team-crosswalk population, sanctioned Sportmonks identity metadata, audited overrides, operator queue burn-down, and upstream data-quality repair. Fuzzy or speculative matching remains prohibited.
+
+Canonical player IDs currently hash normalized full name plus DOB. Missing DOB is a degraded mode: distinct candidate records sharing a no-DOB fingerprint fail closed before matching or overrides. A later DOB backfill changes the fingerprint and can change the canonical ID; migration must preserve and close historical rows, append the corrected mapping, and use an auditable reconciliation/override when continuity is asserted. FI-9 must revisit this strategy against live Sportmonks identity metadata.
 
 ---
 
@@ -465,14 +467,14 @@ Runner conventions: new packages use pytest (`fpl-tactical` precedent); grounded
 - [ ] Mock end-to-end demo recorded: question → `get_player_intelligence` → evidence in `AskResponse` → EvidenceChips rendered
 - [ ] `SPORTMONKS_API_TOKEN` wiring proven with token absent (degradation) and dummy-token (auth-failure path)
 - [ ] FI-8 acceptance scripts (`packages/sportmonks-client/scripts/trial_*.py`) runnable end-to-end against mocks via `--mock`
-- [ ] Identity matcher ≥95% auto-match on Understat current-season corpus
+- [ ] Identity matcher reaches ≥95% automatic matching on the current-season Understat corpus after canonical team-crosswalk population and sanctioned Sportmonks identity metadata are applied. FI-2 baseline: 375/461 (81.3449%), with an 86-item unresolved queue. Before this gate passes, unresolved identities must be reduced below 5% through canonical team-crosswalk alignment, richer sanctioned identity metadata, audited manual overrides, and upstream encoding/data-quality fixes. Fuzzy matching, speculative aliases, and unsafe fall-through matching are prohibited.
 - [ ] Licensing question list (§14.3) ready to send to Sportmonks support on day 1
 - [ ] Go/no-go rubric (§14.4) agreed
 - [ ] Trial dashboard artifact: `TRIAL_STATUS.md` template with the 20 acceptance objectives from brief §11.3 as a checklist, updated daily during the trial
 
 ### 14.2 Trial execution outline (FI-9, ~Aug 10–24)
 
-Day 1–2: auth live; competition/season id discovery; entity availability sweep → record every payload as raw snapshot. Day 2–5: full PL squads + players ingest; identity mapping run; ambiguity queue triage to ≥95%. Day 5–10: lineups/formations/injuries for preseason + opening fixtures; validate grid semantics against known deployments (e.g. Saka right, Mitoma left — same known-flank pinning trick as the zonal fix). Aug 22–24: opening weekend live observation — update timing pre/during/post match, corrections, stat completeness; run M1–M3 on real data; produce three-module demo + subscription recommendation.
+Day 1–2: auth live; competition/season id discovery; entity availability sweep → record every payload as raw snapshot. Day 2–5: full PL squads + players ingest; populate canonical team crosswalks; apply licensed Sportmonks birth dates and richer player names where available; re-run the real current-season identity corpus; review and burn down the FI-2 unresolved queue; and verify that no fuzzy, speculative, or unsafe matching tier was introduced. The identity trial gate cannot pass below ≥95% automatic matching. Day 5–10: lineups/formations/injuries for preseason + opening fixtures; validate grid semantics against known deployments (e.g. Saka right, Mitoma left — same known-flank pinning trick as the zonal fix). Aug 22–24: opening weekend live observation — update timing pre/during/post match, corrections, stat completeness; run M1–M3 on real data; produce three-module demo + subscription recommendation.
 
 ### 14.3 Questions for Sportmonks support (send day 1)
 
@@ -516,7 +518,7 @@ Phase table (each phase = one or more PR-sized slices; "Trial-dep" = requires li
 - **Contracts:** crosswalk parquet schemas frozen in package CONTRACT.md.
 - **Algorithms:** §6.2 tiers.
 - **Tests:** §13 identity row; Understat + vaastav corpus report committed as test artifact.
-- **DoD:** ≥95% auto-match on Understat corpus; queue artifact generated; idempotent rebuild proven. **Trial-dep:** none. **Pre-trial:** yes.
+- **FI-2 identity corpus DoD (formally amended after Fable re-review):** duplicate-fingerprint and collision handling fail closed; real owned-store corpus validation is measured and committed with reproducible provenance; Understat 2025/26 baseline is 375/461 automatically matched (81.3449%), with 86 unmatched and 0 ambiguous; vaastav 2024/25 is 804/804 (100%); all unresolved identities are retained in the committed ambiguity queue; idempotent rebuild and canonical-ID stability are proven. The mandatory ≥95% target moves to the §14.1/FI-9 trial-readiness identity gate and is expected to be reached through populated team crosswalks, sanctioned Sportmonks birth dates/richer names, audited manual overrides, operator queue burn-down, and upstream encoding repair. Fuzzy or speculative matching remains prohibited. **Trial-dep:** none. **Pre-trial:** yes.
 
 ### FI-3 — Sportmonks client skeleton
 - **Files new:** `packages/sportmonks-client/sportmonks_client/{config.py, transport.py, client.py, models.py, endpoints/*.py}`; `tests/fixtures/*.json` (sanitized doc-derived payloads for: fixtures, seasons/competitions, teams+squads, players, lineups+formations+detailed positions, substitutions, injuries, suspensions, coaches, referees, team/player match stats).
@@ -557,7 +559,7 @@ Phase table (each phase = one or more PR-sized slices; "Trial-dep" = requires li
 - **DoD:** §14.1 checklist fully ticked. **Trial-dep:** none to build; exists to spend the trial well. **Pre-trial:** yes.
 
 ### FI-9 — Live trial execution *(operator + Codex support)*
-- Per §14.2. Deliverables (brief §11.4): working connector; raw+canonical ingestion of real payloads; ≥95% mapping + queue; M1–M3 on real data; one end-to-end visual example; go/no-go decision documented. Payload-shape mismatches found here are handled as plan-revision requests, fixed in `sportmonks-client` only.
+- Per §14.2. Deliverables (brief §11.4): working connector; raw+canonical ingestion of real payloads; M1–M3 on real data; one end-to-end visual example; go/no-go decision documented. Identity work must re-run the real current-season corpus after populated canonical team crosswalks and licensed Sportmonks birth dates/richer player names are applied; review and burn down the FI-2 86-item unresolved queue; prove no fuzzy, speculative, or unsafe tier was introduced; and demonstrate ≥95% automatic matching before the identity trial gate passes. Payload-shape mismatches found here are handled as plan-revision requests, fixed in `sportmonks-client` only.
 - **Trial-dep:** entirely. **Pre-trial:** no.
 
 ### FI-10 — Post-trial calibration
@@ -596,6 +598,8 @@ Phase table (each phase = one or more PR-sized slices; "Trial-dep" = requires li
 | Grid coordinates unusable/undocumented | M2 degrades to detailed_position-only roles; go/no-go criterion (b)/(NO-GO) covers it |
 | Licensing blocks storage or derived display | Question list day 1; `purge` CLI exists; derived-only exposure (no raw fields in contracts) is already the design |
 | Identity mapping under 95% on real pool | Ambiguity queue + overrides.yaml workflow sized for operator triage during trial |
+| Understat mojibake/encoding defects reduce identity matches | **Tracked debt:** repair encoding in the `fpl-tactical` ingestion path before the FI-9 identity gate; do not compensate with speculative aliases |
+| Canonical team labels are not yet aligned across providers | **Tracked debt:** seed and populate canonical team-label crosswalks before the FI-9 identity trial-readiness check |
 | Trial window misses (season start slips / trial starts late) | Everything through FI-8 is provider-independent; trial can shift without waste |
 | Token-cost creep from new tools | Composite tool keeps typical investigations to 1 call; schemas compressed per P1.e conventions; quota/audit already meter |
 | Evidence misread as advice | Framing rules encoded: no advice verbs in `summary`, opportunity-positive UI, deterministic recommendations unchanged by evidence in v1 |
@@ -628,7 +632,7 @@ Open questions requiring trial validation are enumerated in §14.2/§14.3 and mu
 | FI-0 | a — intent contract-drift repair | complete | UI contract 27/27; Orch-4a 217/217; contract gate 7/7 | Backend `dispatcher.py` is authoritative for response intents. The expected `fixture_outlook`/`zonal_opportunity` TypeScript mirror repairs already existed on `main` via `a630104`; FI-0(a) added explicit regression pins and, per accepted review, widened scope to refresh the stale independent Orch-4a K1 literal tool-count pin from 10 to 29. FI-0(b) was not started. |
 | FI-0 | b — package scaffold | complete | pytest import smoke 4/4; UI contract 27/27; TypeScript check green; FI-0(b) runner 16/16; Orch-4i 74/74; contract gate 8/8 | Added the four import-light, dependency-free package scaffolds and wired their paths into the backend image, local/CI contract gate, and package inventories. Docker COPY wiring is statically pinned; a local image build was unavailable because the Docker daemon was not running. No FI-1 contracts, provider logic, features, modules, or runtime behavior were added. FI-1 was not started. |
 | FI-1 | contracts + evidence | complete | football-data-contract pytest 47/47; Python/TS evidence parity 7/7; UI contract 27/27; TypeScript check green; FI-0(b) 16/16; FI-1 gate 22/22; Orch-4i 78/78; contract gate 9/9 | Added frozen provider-neutral canonical entities, closed enums, provenance, the 13-code bounded `EvidenceItem` contract, and a UI-only TypeScript mirror. Fable review hardening made parity parsing CRLF-safe and documented lineup-entry/timestamp validation boundaries. No dependencies or runtime/HTTP/FinalResponse fields were added. Carry-forward hardening refreshed Docker COPY matching, FI-7 registry growth, and verified Orch-4a/4b counts. FI-2 was not started. |
-| FI-2 | identity registry | not started | — | |
+| FI-2 | identity registry | complete — amended DoD | identity pytest 34/34; FI-2 gate 5/5; FI-0(b) 16/16; FI-1 22/22; Orch-4i 82/82; contract gate 10/10 | B1 pins pytest in CI and a seeded failure proved propagation; B2 makes distinct no-DOB candidate collisions fail closed before overrides; B3 commits the reproducible real owned-store measurement. Understat: 375/461 (81.3449%), 86 unmatched, 0 ambiguous; vaastav: 804/804 (100%). Fable formally transferred the mandatory ≥95% identity target to the §14.1/FI-9 trial-readiness gate. The 86-item unresolved queue remains a tracked blocker and was not waived. Existing runtime joins remain unchanged and FI-3 was not started. |
 | FI-3 | sportmonks client | not started | — | |
 | FI-4 | ingestion + store | not started | — | |
 | FI-5 | feature engine | not started | — | |

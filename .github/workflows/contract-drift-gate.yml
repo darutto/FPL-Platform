@@ -45,7 +45,9 @@ jobs:
           python-version: "3.13"
 
       - name: Install dependencies
-        run: pip install --no-cache-dir -r requirements.txt
+        # FI-2 delegates to the identity package's pytest suite. Keep this
+        # explicit so a clean CI image and the local gate exercise the same tests.
+        run: pip install --no-cache-dir -r requirements.txt pytest==9.1.1
 
       # -----------------------------------------------------------------------
       # Step 1: Orch-4i — gate scope parity checker (runs first)
@@ -115,3 +117,6 @@ jobs:
 
       - name: FI-1 provider-neutral evidence contract
         run: python run_phase_fi1_tests.py
+
+      - name: FI-2 identity and mapping foundation
+        run: python run_phase_fi2_tests.py

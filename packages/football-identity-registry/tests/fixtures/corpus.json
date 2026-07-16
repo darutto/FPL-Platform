@@ -1,0 +1,20 @@
+{
+  "description": "Sanitized contract corpus, not a complete current-season owned-store snapshot.",
+  "candidates": [
+    {"canonical_player_id":"p1","full_name":"Ana Striker","team_provider_id":"Alpha FC","birth_date":"1999-01-01","known_name":"Ana"},
+    {"canonical_player_id":"p2","full_name":"Bruno Wing","team_provider_id":"Beta United","birth_date":"1998-02-02","known_name":"Bruno"},
+    {"canonical_player_id":"p3","full_name":"Carla Mid","team_provider_id":"Gamma City","birth_date":"1997-03-03","known_name":"Carla"},
+    {"canonical_player_id":"p4","full_name":"Dani Nine","team_provider_id":"Delta Town","birth_date":"1996-04-04","known_name":"Dani"}
+  ],
+  "understat": [
+    {"provider":"understat","provider_id":"u1","full_name":"Ana Striker","team_provider_id":"Alpha FC"},
+    {"provider":"understat","provider_id":"u2","full_name":"Bruno Wing","team_provider_id":"Beta United"},
+    {"provider":"understat","provider_id":"u3","full_name":"Carla Mid","team_provider_id":"Gamma City"},
+    {"provider":"understat","provider_id":"u4","full_name":"Dani Nine","team_provider_id":"Delta Town"}
+  ],
+  "vaastav": [
+    {"provider":"vaastav","provider_id":"v1","full_name":"Ana Striker"},
+    {"provider":"vaastav","provider_id":"v2","full_name":"Bruno Wing"},
+    {"provider":"vaastav","provider_id":"v3","full_name":"Unknown Historical"}
+  ]
+}
