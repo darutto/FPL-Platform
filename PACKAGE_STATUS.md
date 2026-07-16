@@ -1,6 +1,6 @@
 # fpl-platform · Package Status
 **Last updated:** 2026-07-14
-**After:** FI-2 complete under amended DoD
+**After:** FI-3 Sportmonks client skeleton
 
 Status vocabulary:
 - `planned` — described in audit, no platform code written yet
@@ -16,7 +16,7 @@ Status vocabulary:
 | Package | Status | Current public surface | Next implementation slice |
 |---------|--------|------------------------|---------------------------|
 | `football-data-contract` | `parity-validated` | Frozen canonical entities, closed enums, provenance, and Python/TypeScript `EvidenceItem` contract | FI-4 normalizers consume it; FI-7 exposes evidence |
-| `sportmonks-client` | `created` | Importable package only; future sole owner of Sportmonks shapes and normalization | FI-3 |
+| `sportmonks-client` | `parity-validated` | Offline-tested config/auth, injected transport, 15 endpoint families, provider models, pagination/retries/errors, fixtures, assumptions, guarded smoke CLI | Pre-FI-4 canonical-contract reconciliation checkpoint |
 | `football-identity-registry` | `parity-validated` | FI-2 deterministic matcher/store complete; real baseline is Understat 375/461 and vaastav 804/804 | Mandatory ≥95% identity gate in FI-9 after team/metadata enrichment |
 | `football-intelligence` | `created` | Importable package only; no features or modules yet | FI-5 |
 

@@ -1,0 +1,20 @@
+{
+  "_fixture": {"source": "documentation-derived and manually minimized", "status": "unverified_against_live", "live_validation_required": true},
+  "families": {
+    "leagues": {"data":[{"id":8,"name":"Premier League"}]},
+    "seasons": {"data":[{"id":23614,"name":"2025/2026","league_id":8}]},
+    "fixtures": {"data":[{"id":1001,"league_id":8,"season_id":23614,"starting_at":"2025-08-15 19:00:00"}]},
+    "teams": {"data":[{"id":1,"name":"Example FC","short_code":"EFC"}]},
+    "squads": {"data":[{"id":11,"team_id":1,"player_id":101,"position_id":27}]},
+    "players": {"data":[{"id":101,"name":"Example Player","display_name":null,"date_of_birth":"2000-01-01"}]},
+    "lineups": {"data":[{"id":21,"fixture_id":1001,"player_id":101,"formation_field":"1:4"}]},
+    "formations": {"data":[{"id":31,"fixture_id":1001,"formation":"4-3-3"}]},
+    "substitutions": {"data":[{"id":41,"fixture_id":1001,"player_in_id":102,"player_out_id":101,"minute":70}]},
+    "injuries": {"data":[{"id":51,"player_id":101,"type_id":1,"expected_return":null}]},
+    "suspensions": {"data":[{"id":61,"player_id":101,"type_id":2,"games_remaining":1}]},
+    "coaches": {"data":[{"id":71,"name":"Example Coach","team_id":1}]},
+    "referees": {"data":[{"id":81,"name":"Example Referee"}]},
+    "team_statistics": {"data":[{"id":91,"fixture_id":1001,"team_id":1,"type_id":42,"value":55}]},
+    "player_statistics": {"data":[{"id":1011,"fixture_id":1001,"player_id":101,"type_id":52,"value":3}]}
+  }
+}

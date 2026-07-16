@@ -120,3 +120,6 @@ jobs:
 
       - name: FI-2 identity and mapping foundation
         run: python run_phase_fi2_tests.py
+
+      - name: FI-3 Sportmonks client skeleton
+        run: python run_phase_fi3_tests.py

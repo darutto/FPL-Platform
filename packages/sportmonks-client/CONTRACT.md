@@ -1,7 +1,97 @@
-# Package contract
+# Sportmonks client contract — FI-3
 
-This package will own Sportmonks-specific payload shapes, transport, and
-normalization into provider-neutral contracts.
+## Ownership and boundary
 
-Status: scaffolded only. No API client, payload model, or normalization logic
-is implemented in FI-0(b).
+This package is the sole owner of Sportmonks URLs, authentication, query/include
+syntax, pagination, provider IDs and fields, response envelopes, errors, and
+documentation-derived normalization assumptions. No provider type may cross
+into canonical contracts, identity, intelligence, assistant, or UI packages.
+FI-3 performs no canonical normalization, persistence, R2 publication, runtime
+integration, identity mapping, feature computation, or recommendation work.
+
+## Configuration and authentication
+
+`SPORTMONKS_API_TOKEN` has no default and is required only for live client
+construction. `SPORTMONKS_BASE_URL` defaults to the v3 football URL;
+`SPORTMONKS_TIMEOUT_SECONDS=15`, `SPORTMONKS_MAX_RETRIES=3`, and
+`SPORTMONKS_BACKOFF_SECONDS=0.5`. Invalid/negative numeric values fail clearly.
+The token is placed only in the assumed `api_token` query location and is
+removed from snapshots, errors, logs, fixtures, and test output. Offline clients
+require neither token nor network.
+
+## Transport
+
+`Transport.request(method, url, params, timeout) -> TransportResponse` is the
+injection boundary. `RequestsTransport` is the only production network owner
+and uses the repository's existing `requests` dependency. Endpoint/model code
+never performs HTTP. Transport responses preserve status, headers, and parsed
+JSON; malformed JSON raises `SportmonksResponseError`.
+
+All `requests.RequestException` subclasses are converted at this boundary.
+Raw causes are discarded after safe retry classification and the typed error is
+raised outside the catch block with no `__cause__` or `__context__`; authenticated
+URLs therefore cannot leak through tracebacks, exception logging, or telemetry.
+
+## Endpoint interfaces
+
+The typed client exposes leagues, seasons, fixtures, teams, squads, players,
+lineups, formations, substitutions, injuries, suspensions, coaches, referees,
+team fixture statistics, and player fixture statistics. Paths and provider
+fields are governed in `client.ENDPOINTS` and remain unverified against live.
+Provider entities are immutable, preserve integer provider ID, source endpoint,
+and unknown raw fields, and never produce canonical entities.
+
+## Envelope and pagination
+
+Documented `data` collections and optional `pagination` (direct or under
+`meta`) are supported. `current_page` and boolean `has_more` are required when
+pagination exists; `next_page` is optional. Iteration is deterministic, empty
+sets work, repeated pages fail, disappearing/malformed pagination fails, and
+`max_pages` (default 100) bounds traversal.
+
+## Retry, rate limit, and errors
+
+Only GET is used. Transient connection/timeout errors, HTTP 429, and 5xx retry
+up to the configured bound with injectable exponential backoff. Numeric
+`Retry-After` wins only when finite and non-negative and is clamped to
+`MAX_RETRY_AFTER_SECONDS=60.0`. Negative, non-finite, missing, malformed, and
+HTTP-date values fall back to bounded exponential backoff. Every sleep is in
+the inclusive range 0–60 seconds. HTTP 400 and other non-retryable 4xx fail immediately;
+401/403 fail as authentication errors. No retry loop is unbounded.
+
+Closed hierarchy: `SportmonksError`, `SportmonksConfigurationError`,
+`SportmonksAuthenticationError`, `SportmonksRateLimitError`,
+`SportmonksRequestError`, `SportmonksResponseError`,
+`SportmonksPaginationError`, and `SportmonksSchemaError`. Context may include
+endpoint/status, never credentials.
+
+## Raw response and cache hook
+
+`RawResponseSnapshot` preserves endpoint, redacted parameters, UTC fetch time,
+status, provider metadata, raw JSON, and schema version for an injected hook.
+FI-3 supplies no filesystem cache and writes nothing under `data/football`.
+
+## Fixtures and assumptions
+
+Every checked fixture labels itself documentation-derived or manually
+constructed, `unverified_against_live`, and sanitized. Coverage includes every
+endpoint family, one/multiple/empty pages, absent optional fields, malformed
+envelopes/JSON, 401/403, 429 with/without Retry-After, 4xx/5xx, and loops.
+
+The assumption registry governs base URL/API version, query authentication,
+paths/includes, pagination, lineup/formation/grid/detailed positions,
+injury/suspension shapes, statistics nesting, rate headers, and correction
+behavior. Every entry starts `unverified_against_live` with source, fixture,
+and mandatory live-validation flag. No public example is claimed as live proof.
+
+## Live guard and change rules
+
+`python -m sportmonks_client.cli smoke` refuses without explicit opt-in and a
+token. It is excluded from ordinary tests/CI and must remain the smallest safe
+request: it uses `fetch_page` and performs exactly one authenticated HTTP call,
+even when page one reports more results. Provider-shape changes are contained here. Canonical conversion begins
+in FI-4 only after the approved pre-FI-4 reconciliation checkpoint.
+
+Breaking changes include error semantics, retry safety, endpoint signatures,
+pagination interpretation, or removal/reinterpretation of provider fields.
+Assumption statuses may change only with recorded live evidence.

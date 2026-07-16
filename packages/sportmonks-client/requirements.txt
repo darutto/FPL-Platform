@@ -1,1 +1,1 @@
-# No runtime dependencies in the FI-0(b) scaffold.
+requests>=2.31

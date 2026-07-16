@@ -15,6 +15,7 @@ PACKAGES = (
 )
 REQUIRED_FILES = ("README.md", "CONTRACT.md", "pytest.ini", "requirements.txt")
 APPROVED_REQUIREMENTS = {
+    "sportmonks-client": ["requests>=2.31"],
     "football-identity-registry": ["pandas>=2.0", "pyarrow>=14.0", "PyYAML==6.0.3"],
 }
 DOCKERFILE = REPO_ROOT / "packages" / "fpl-grounded-assistant" / "Dockerfile"
