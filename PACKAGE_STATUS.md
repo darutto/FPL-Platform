@@ -1,6 +1,6 @@
 # fpl-platform · Package Status
-**Last updated:** 2026-07-14
-**After:** FI-3 Sportmonks client skeleton
+**Last updated:** 2026-07-16
+**After:** pre-FI-4 canonical-contract reconciliation checkpoint
 
 Status vocabulary:
 - `planned` — described in audit, no platform code written yet
@@ -15,17 +15,18 @@ Status vocabulary:
 
 | Package | Status | Current public surface | Next implementation slice |
 |---------|--------|------------------------|---------------------------|
-| `football-data-contract` | `parity-validated` | Frozen canonical entities, closed enums, provenance, and Python/TypeScript `EvidenceItem` contract | FI-4 normalizers consume it; FI-7 exposes evidence |
-| `sportmonks-client` | `parity-validated` | Offline-tested config/auth, injected transport, 15 endpoint families, provider models, pagination/retries/errors, fixtures, assumptions, guarded smoke CLI | Pre-FI-4 canonical-contract reconciliation checkpoint |
-| `football-identity-registry` | `parity-validated` | FI-2 deterministic matcher/store complete; real baseline is Understat 375/461 and vaastav 804/804 | Mandatory ≥95% identity gate in FI-9 after team/metadata enrichment |
+| `football-data-contract` | `parity-validated` | Frozen canonical entities/evidence plus authoritative deterministic ID formats and minting helpers | FI-4a normalizers consume it; FI-7 exposes evidence |
+| `sportmonks-client` | `parity-validated` | Offline client plus redirects-off transport, sanitized snapshot-header allowlist, and typed metadata failures | FI-4a normalizers/store; streaming cap before any live call |
+| `football-identity-registry` | `parity-validated` | FI-2 matcher/store consuming canonical ID/provider contracts; real baseline Understat 375/461 and vaastav 804/804 | FI-4a team-crosswalk seed; mandatory ≥95% FI-9 gate |
 | `football-intelligence` | `created` | Importable package only; no features or modules yet | FI-5 |
 
 `football-data-contract` is implemented through FI-1 with no runtime
 dependencies. FI-2 adds an unused offline identity foundation and is complete
 under its formally amended DoD. The ≥95% requirement was not waived: it remains
 a mandatory FI-9 trial-readiness gate, with 86 Understat identities unresolved.
-`sportmonks-client` and `football-intelligence` remain scaffolds; no provider
-client, feature, module, HTTP, UI, tool, or runtime integration has started.
+`sportmonks-client` is implemented but remains unused by runtime code.
+`football-intelligence` remains scaffold-only; no normalizer, canonical store,
+feature, module, HTTP, UI, tool, or runtime integration has started.
 
 ---
 

@@ -26,6 +26,11 @@ from football_data_contract import (
     Substitution,
     SuspensionRecord,
     TeamMatchStats,
+    canonical_competition_id,
+    canonical_fixture_id,
+    canonical_player_id,
+    canonical_season_id,
+    canonical_team_id,
 )
 
 
@@ -35,25 +40,31 @@ PROVENANCE = Provenance(
     source_timestamp=None,
     ingestion_run_id="run-fi1-test",
 )
+PLAYER_ID = canonical_player_id("Alex Player", None)
+TEAM_ID = canonical_team_id("england|example-fc|men|first-team")
+OTHER_TEAM_ID = canonical_team_id("england|other-fc|men|first-team")
+COMPETITION_ID = canonical_competition_id("the-fa", "example-league", "men")
+SEASON_ID = canonical_season_id(COMPETITION_ID, "2026-2027")
+FIXTURE_ID = canonical_fixture_id(COMPETITION_ID, SEASON_ID, TEAM_ID, OTHER_TEAM_ID, "round-01-match-01")
 
 
 @pytest.mark.parametrize(
     "instance",
     [
-        CanonicalPlayer("cp_1", "Alex Player", "Alex", None, None, ("MID",), PROVENANCE),
-        CanonicalTeam("ct_1", "Example FC", "EXA", PROVENANCE),
-        CanonicalCompetition("cc_1", "Example League", CompetitionTier.LEAGUE, "GB", PROVENANCE),
-        CanonicalSeason("cs_1", "2026-2027", "cc_1", PROVENANCE),
-        CanonicalFixture("cf_1", "cs_1", "cc_1", "2026-08-15T14:00:00Z", "ct_1", "ct_2", FixtureStatus.SCHEDULED, 1, PROVENANCE),
-        PlayerMatchAppearance("cf_1", "cp_1", "ct_1", True, 90, None, None, None, PROVENANCE),
-        PlayerMatchRole("cf_1", "cp_1", "4-3-3", "8", "right_winger", Flank.RIGHT, FormationDepth.ADVANCED, StartingRole.STARTER, PROVENANCE),
-        Formation("cf_1", "ct_1", "4-3-3", "2026-08-15T13:00:00Z", PROVENANCE),
-        AvailabilityStatus("cp_1", "2026-08-14T12:00:00Z", AvailabilityState.AVAILABLE, None, None, PROVENANCE),
-        InjuryRecord("cp_1", "2026-08-01T12:00:00Z", "ankle injury", None, None, PROVENANCE),
-        SuspensionRecord("cp_1", "2026-08-01T12:00:00Z", "disciplinary", None, None, 1, PROVENANCE),
-        Substitution("cf_1", "ct_1", "cp_1", "cp_2", 70, PROVENANCE),
-        TeamMatchStats("cf_1", "ct_1", 55.2, 14, 6, 1.7, PROVENANCE),
-        PlayerMatchStats("cf_1", "cp_1", "ct_1", 90, 1, 1, 3, 0.7, 0.4, 2, 1, PROVENANCE),
+        CanonicalPlayer(PLAYER_ID, "Alex Player", "Alex", None, None, ("MID",), PROVENANCE),
+        CanonicalTeam(TEAM_ID, "Example FC", "EXA", PROVENANCE),
+        CanonicalCompetition(COMPETITION_ID, "Example League", CompetitionTier.LEAGUE, "GB", PROVENANCE),
+        CanonicalSeason(SEASON_ID, "2026-2027", COMPETITION_ID, PROVENANCE),
+        CanonicalFixture(FIXTURE_ID, SEASON_ID, COMPETITION_ID, "2026-08-15T14:00:00Z", TEAM_ID, OTHER_TEAM_ID, FixtureStatus.SCHEDULED, 1, PROVENANCE),
+        PlayerMatchAppearance(FIXTURE_ID, PLAYER_ID, TEAM_ID, True, 90, None, None, None, PROVENANCE),
+        PlayerMatchRole(FIXTURE_ID, PLAYER_ID, "4-3-3", "8", "right_winger", Flank.RIGHT, FormationDepth.ADVANCED, StartingRole.STARTER, PROVENANCE),
+        Formation(FIXTURE_ID, TEAM_ID, "4-3-3", "2026-08-15T13:00:00Z", PROVENANCE),
+        AvailabilityStatus(PLAYER_ID, "2026-08-14T12:00:00Z", AvailabilityState.AVAILABLE, None, None, PROVENANCE),
+        InjuryRecord(PLAYER_ID, "2026-08-01T12:00:00Z", "ankle injury", None, None, PROVENANCE),
+        SuspensionRecord(PLAYER_ID, "2026-08-01T12:00:00Z", "disciplinary", None, None, 1, PROVENANCE),
+        Substitution(FIXTURE_ID, TEAM_ID, PLAYER_ID, canonical_player_id("Other Player", None), 70, PROVENANCE),
+        TeamMatchStats(FIXTURE_ID, TEAM_ID, 55.2, 14, 6, 1.7, PROVENANCE),
+        PlayerMatchStats(FIXTURE_ID, PLAYER_ID, TEAM_ID, 90, 1, 1, 3, 0.7, 0.4, 2, 1, PROVENANCE),
         ProviderRef(ProviderIdentifier.UNDERSTAT, "provider-player-1", "2026-07-01"),
         PROVENANCE,
     ],

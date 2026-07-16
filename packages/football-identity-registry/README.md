@@ -29,3 +29,8 @@ automatic matches (81.3449%; 86 unmatched, 0 ambiguous), below the ≥95% target
 Vaastav produces 804/804 (100%). See `corpus/report.json` for tier distribution
 and the complete unresolved queue. The earlier tiny synthetic corpus remains a
 unit fixture only and is not presented as production validation.
+
+Canonical ID formats and minting are owned by `football-data-contract`. This
+package consumes those helpers, owns matching/crosswalk history, and rejects
+providers outside the canonical closed vocabulary. Team aliases are future
+seeded crosswalk inputs; this checkpoint adds no live mapping data.

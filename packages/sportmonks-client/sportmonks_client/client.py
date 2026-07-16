@@ -27,6 +27,10 @@ ENDPOINTS: dict[str, tuple[str, type[ProviderEntity]]] = {
 }
 
 MAX_RETRY_AFTER_SECONDS = 60.0
+SNAPSHOT_RESPONSE_HEADERS = frozenset({
+    "content-type", "date", "retry-after", "x-ratelimit-limit",
+    "x-ratelimit-remaining", "x-ratelimit-reset", "x-request-id",
+})
 
 
 class SportmonksClient:
@@ -61,6 +65,8 @@ class SportmonksClient:
             status = response.status
             if status in (401, 403):
                 raise SportmonksAuthenticationError("authentication failed", endpoint=endpoint, status_code=status)
+            if 300 <= status <= 399:
+                raise SportmonksRequestError("redirect refused", endpoint=endpoint, status_code=status)
             if status == 429:
                 last_rate_limit = response
                 if attempt + 1 >= attempts:
@@ -79,7 +85,10 @@ class SportmonksClient:
                 self.snapshot_hook(RawResponseSnapshot(
                     endpoint, {k: v for k, v in clean_params.items() if k != "api_token"},
                     datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"), status,
-                    {}, response.body if isinstance(response.body, dict) else {"data": response.body},
+                    {
+                        key.casefold(): value for key, value in response.headers.items()
+                        if key.casefold() in SNAPSHOT_RESPONSE_HEADERS
+                    }, response.body if isinstance(response.body, dict) else {"data": response.body},
                 ))
             return response
         raise SportmonksRateLimitError("rate limit exhausted", endpoint=endpoint, status_code=last_rate_limit.status if last_rate_limit else 429)

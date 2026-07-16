@@ -3,15 +3,20 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from football_data_contract import ProviderIdentifier
+
 
 @dataclass(frozen=True)
 class SourcePlayer:
-    provider: str
+    provider: ProviderIdentifier
     provider_id: str
     full_name: str
     team_provider_id: str | None = None
     birth_date: str | None = None
     known_name: str | None = None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "provider", ProviderIdentifier(self.provider))
 
 
 @dataclass(frozen=True)

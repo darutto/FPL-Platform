@@ -103,7 +103,31 @@ def test_authentication_fails_immediately(status):
     assert len(fake.calls)==1
 
 
+def test_redirect_is_refused_without_following():
+    with pytest.raises(SportmonksRequestError, match="redirect refused"):
+        offline([response({}, 302, {"Location": "https://other.invalid/?api_token=SECRET"})]).players()
+
+
 def test_snapshot_hook_redacts_token():
     snapshots=[]; fake=FakeTransport([response({"data":[]})])
     SportmonksClient(SportmonksConfig(api_token="secret"),transport=fake,snapshot_hook=snapshots.append).players(include="team")
     assert isinstance(snapshots[0],RawResponseSnapshot) and "api_token" not in snapshots[0].requested_parameters
+
+
+def test_snapshot_hook_preserves_only_governed_response_headers():
+    snapshots=[]
+    client=SportmonksClient.offline(
+        FakeTransport([response({"data":[]}, headers={
+            "Content-Type":"application/json", "X-RateLimit-Remaining":"99",
+            "X-Request-ID":"request-1", "Set-Cookie":"secret-cookie",
+        })]), config=SportmonksConfig(), snapshot_hook=snapshots.append,
+    )
+    client.players()
+    assert snapshots[0].response_metadata == {
+        "content-type":"application/json", "x-ratelimit-remaining":"99", "x-request-id":"request-1",
+    }
+
+
+def test_malformed_meta_is_typed_schema_failure():
+    with pytest.raises(SportmonksSchemaError, match="malformed meta"):
+        offline([response({"data":[], "meta":[]})]).players()

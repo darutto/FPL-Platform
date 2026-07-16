@@ -56,6 +56,16 @@ Four seeded mutation proofs in Orch-4i (F-A through F-D) verify:
 
 ## Runner-backed slices vs non-runner slices
 
+Runner governance uses one runner per meaningful package or integration
+boundary, never one per tiny sub-slice. Runners delegate to package pytest
+suites where possible. The canonical manifest in `run_phase_orch4i_tests.py`
+remains authoritative. Retirement requires removing the runner from CI, the
+shell gate, the canonical manifest/count map, and this document in one commit,
+while moving any still-live invariant into an explicitly named surviving
+boundary. Stale or retired files must not remain referenced by either gate.
+The pre-FI-4 cross-contract suite delegates through FI-2 because identity is
+the consuming boundary; it does not add a checkpoint runner.
+
 Not every stabilization slice has a standalone runner file.  Some slices are
 implemented entirely as configuration changes (CI wiring, shell scripts, docs)
 and are therefore not in the canonical gate list.  This table is the definitive
@@ -75,7 +85,7 @@ in CI until all three are updated.
 
 ## What the gate catches
 
-The gate runs nine runners in sequence.  Each runner exits nonzero on failure,
+The gate runs eleven runners in sequence. Each runner exits nonzero on failure,
 which causes CI to fail immediately.
 
 | Runner | Assertions | What it catches |

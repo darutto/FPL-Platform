@@ -4,7 +4,7 @@
 **Produced by:** Claude Code repository audit, 2026-07-13
 **Input brief:** `FOOTBALL_INTELLIGENCE_PLANNING_BRIEF.md`
 **Executor:** Codex, one approved phase/slice at a time
-**Status:** IMPLEMENTATION — FI-3 complete; pre-FI-4 reconciliation checkpoint next
+**Status:** IMPLEMENTATION — pre-FI-4 canonical-contract reconciliation checkpoint complete; FI-4a next
 
 ---
 
@@ -212,13 +212,13 @@ New-package conventions (all four): `CONTRACT.md`, `README.md`, `pytest.ini`, `r
 ### 5.1 Entities (Python frozen dataclasses; pydantic models only at HTTP edges)
 
 ```
-CanonicalPlayer      player_id (str, ULID-style "cp_…"), full_name, known_name,
+CanonicalPlayer      player_id (`player_` + 24 hex deterministic hash), full_name, known_name,
                      birth_date|None, nationality|None, positions_nominal
-CanonicalTeam        team_id ("ct_…"), name, short_code
-CanonicalCompetition competition_id ("cc_…"), name, tier (league|domestic_cup|
+CanonicalTeam        team_id (`team_` + 24 hex deterministic hash), name, short_code
+CanonicalCompetition competition_id (`competition_` + 24 hex), name, tier (league|domestic_cup|
                      continental), country|None
 CanonicalSeason      season_id, label ("2026-2027"), competition_id
-CanonicalFixture     fixture_id ("cf_…"), season_id, competition_id, kickoff_utc,
+CanonicalFixture     fixture_id (`fixture_` + 24 hex), season_id, competition_id, kickoff_utc,
                      home_team_id, away_team_id, status, gameweek|None (PL only)
 PlayerMatchAppearance fixture_id, player_id, team_id, started, minutes,
                      sub_on_minute|None, sub_off_minute|None, replaced_by|None
@@ -429,9 +429,9 @@ Renderer plumbing: `IntentRenderer` passes `evidence` through; `intent-renderer.
 ## 12. Security and Configuration Plan
 
 - `SPORTMONKS_API_TOKEN` env var; added to `.env.template`; never committed; server-side only (token never reaches the browser — UI talks only to our backend).
-- Client behaviour without token: constructor succeeds, every call returns a typed `ProviderUnavailable` result (never raises) — platform behaviour unchanged when unconfigured (mirrors classifier-client init pattern in `fpl_server`).
-- Transport: stdlib `urllib` (repo precedent from `web_fetch`) or `requests` if already in requirements; 10s timeout default; bounded retries for idempotent GETs only (reuse the retry-policy shape of `llm_orchestrator_core.provider_client`: rate-limit retry with delay, auth errors never retried); response-size cap; secrets never in logs or error strings (200-char truncation rule).
-- Rate-limit strategy: token-bucket honouring Sportmonks per-entity limits (documented 3000 req/entity/hour — verify in trial); `Retry-After` respected; ingestion CLI batches politely like the tactical 380-request weekly pass.
+- Client behaviour without token: offline construction is explicit; live construction without required configuration raises `SportmonksConfigurationError`. Future request-time runtime integration must use capability discovery and may expose unavailable/disabled status without constructing a live client; no undefined `ProviderUnavailable` transport result is required.
+- Transport: `requests`, redirects disabled, 15s timeout default, bounded idempotent-GET retries, secret-safe typed errors, and numeric `Retry-After` capped at 60 seconds. A streaming response-size cap is a hard FI-4a prerequisite before any live ingestion call; an after-download length check is insufficient.
+- Rate-limit strategy: controlled serialized ingestion scheduling plus sanitized rate-header observation and reactive bounded 429 handling. A proactive token bucket is not required before offline FI-4a; revisit only if live trial measurements show controlled pacing is insufficient.
 - Cache: raw snapshot store *is* the cache (replay via `rebuild`); no separate HTTP cache layer.
 - Secret rotation: documented procedure in `sportmonks-client/README.md` (Railway env update + restart; no code change).
 - Feature flags (env vars, matching `orch_config.py` truthy-parse convention, all default OFF), read via a new `football_intelligence/config.py`:
@@ -522,26 +522,34 @@ Phase table (each phase = one or more PR-sized slices; "Trial-dep" = requires li
 
 ### FI-3 — Sportmonks client skeleton
 - **Files new:** `packages/sportmonks-client/sportmonks_client/{config.py, transport.py, client.py, models.py, endpoints/*.py}`; `tests/fixtures/*.json` (sanitized doc-derived payloads for: fixtures, seasons/competitions, teams+squads, players, lineups+formations+detailed positions, substitutions, injuries, suspensions, coaches, referees, team/player match stats).
-- **Contracts:** client public API (typed methods per endpoint family returning provider models); `ProviderUnavailable`; snapshot manifest schema.
-- **Algorithms:** pagination iterator, token-bucket rate limiter, retry policy (§12).
+- **Contracts:** client public API (typed methods per endpoint family returning provider models); `SportmonksConfigurationError` for missing live configuration; snapshot manifest schema.
+- **Algorithms:** pagination iterator, controlled scheduling plus reactive bounded 429 handling, retry policy (§12).
 - **Tests:** §13 client row via injected fake transport.
 - **Docs:** README (auth, includes, rate limits as documented — flagged UNVERIFIED until trial).
-- **DoD:** all client tests green with no network; `--mock` mode demonstrated. **Trial-dep:** payload shapes are doc-derived — every fixture carries an `UNVERIFIED_VS_LIVE` header comment to be removed in FI-9. **Pre-trial:** yes.
-- **FI-3 implementation discrepancies (recorded after Fable review):** `ProviderUnavailable` was not added; missing-token live construction uses `SportmonksConfigurationError` and the error decision must be finalized at the pre-FI-4 checkpoint. FI-3 implements reactive bounded HTTP 429 handling, not a proactive token bucket; live-ingestion rate policy must be finalized before FI-4 live ingestion/FI-9. No response-size cap exists; one is required for decision before live ingestion and must be present by FI-8/FI-9 trial readiness. JSON fixture provenance uses governed `_fixture` metadata because JSON has no comments. Endpoint modules are represented by one governed endpoint table. `SportmonksClient.offline(...)` replaces the planned `--mock` surface. These are plan/code honesty notes, not permission to implement checkpoint or FI-4 work in FI-3.
+- **DoD:** all client tests green with no network; `SportmonksClient.offline(...)` demonstrated. **Trial-dep:** payload shapes are doc-derived — every fixture carries governed `_fixture` provenance until FI-9 validation. **Pre-trial:** yes.
+- **FI-3 implementation discrepancies (recorded after Fable review and resolved by the pre-FI-4 checkpoint):** `ProviderUnavailable` was not added; missing-token live construction uses `SportmonksConfigurationError`, now the blessed operator-facing policy. Controlled scheduling plus reactive bounded HTTP 429 handling is the approved pre-live strategy; a proactive token bucket is conditional on trial measurements. No response-size cap exists; a streaming cap is a hard FI-4a prerequisite before the first live request. JSON fixture provenance uses governed `_fixture` metadata because JSON has no comments. Endpoint modules are represented by one governed endpoint table. `SportmonksClient.offline(...)` replaces the planned `--mock` surface.
 
-### Pre-FI-4 canonical-contract reconciliation checkpoint *(required; not started in FI-3)*
-- Reconcile canonical ID prefixes between `football-data-contract` and `football-identity-registry`.
-- Decide and govern the authoritative fingerprint-name policy.
-- Define team, fixture, and competition canonical-ID generation consistently across packages.
-- Add one cross-package canonical-ID consistency runner rather than duplicating governance.
-- Decide whether evidence needs structured details before FI-4 consumers depend on it.
-- These Milestone A audit debts are recorded only in FI-3; no reconciliation implementation belongs in the Sportmonks client slice.
+### Pre-FI-4 canonical-contract reconciliation checkpoint *(complete)*
+- Canonical formats are provider-neutral deterministic hashes owned by `football-data-contract`: `player_`, `team_`, `competition_`, `season_`, and `fixture_`, each followed by 24 lowercase hex characters. FI-2 player IDs remain unchanged; the former `cp_`/`ct_`/`cc_`/`cf_` text was never a stored implementation.
+- Player fingerprints use the owned FPL registry/history full name plus DOB under canonical normalization. Corrections require historical close-and-append migration; missing DOB remains degraded/fail-closed; FI-9 reassesses authority with live-validated richer identity data.
+- Teams use seeded immutable registry keys, never display-name-only minting. Competition keys include governing body/category. Fixture keys exclude kickoff so rescheduling preserves identity and use explicit replay discriminators.
+- `ProviderIdentifier` is the sole persisted provider vocabulary; FI-2 strings remain read-compatible and unknown values fail.
+- Cross-contract consistency tests delegate through the existing FI-2 package runner; no checkpoint runner was added.
+- Evidence `details` is rejected for v1 because quantitative values belong to canonical/feature stores; FI-6 uses bounded impact/confidence/summary/source-feature references.
+- `ProviderUnavailable` is rejected as a transport result; missing live configuration raises `SportmonksConfigurationError`, while future runtime capability discovery degrades without constructing the client.
+- Redirects are disabled; snapshot headers use a secret-safe allowlist; malformed `meta` is typed. Controlled scheduling plus reactive 429 handling is sufficient pending measurements. A streaming response cap is mandatory in FI-4a before any live request.
+- No normalizer, canonical store, persistence, R2, workflow, server, feature, tool, UI, or runtime integration was added.
 
-### FI-4 — Raw→canonical ingestion + owned-store landing
-- **Files new:** `sportmonks_client/{normalize/*.py, ingest.py, cli.py}`; `data/football/` layout (§7.1); R2 publish/sync commands; `fpl_server` lifespan hook behind `FOOTBALL_STORE_SYNC_ENABLED`; `.github/workflows/football-store-refresh.yml` (disabled until trial; cron offset from the two existing refreshes).
-- **Contracts:** canonical parquet schemas frozen; `_football_latest.json` pointer.
-- **Tests:** normalizer suite (§13); ingest idempotency; atomic-replace; fail-soft sync; server boots with store absent.
-- **DoD:** mock payloads → full canonical parquet set; `rebuild` replay proven byte-stable. **Trial-dep:** none (mocks). **Pre-trial:** yes.
+### FI-4a — Normalizers and canonical store
+- **Files new:** `sportmonks_client/{normalize/*.py, ingest.py, cli.py}` and the local `data/football/` layout (§7.1).
+- **First deliverable:** governed team-registry/crosswalk seed before player or fixture normalization.
+- **Contracts:** canonical parquet schemas and `_football_latest.json`; provider mocks/raw snapshots → canonical records; deterministic byte-stable replay and rebuild CLI.
+- **Safety prerequisite:** streaming response-size cap must be implemented and mutation-tested before any live ingestion call. Ordinary FI-4a tests remain offline.
+- **DoD:** mocks → full canonical parquet set; idempotent atomic local writes; replay proven byte-stable. No production server integration.
+
+### FI-4b — Distribution and runtime integration
+- **Files new/touched:** R2 publishing/synchronization, disabled scheduled workflow, server lifespan hook behind `FOOTBALL_STORE_SYNC_ENABLED`, and production deployment validation.
+- **DoD:** fail-soft startup and store-absent behavior, scheduled delivery, synchronization, and deployment checks. No feature computation.
 
 ### FI-5 — Feature engine v1
 - **Files new:** `packages/football-intelligence/football_intelligence/{config.py, features/{roles.py, minutes.py, congestion.py, availability.py, io.py}}`.
@@ -642,8 +650,10 @@ Open questions requiring trial validation are enumerated in §14.2/§14.3 and mu
 | FI-0 | b — package scaffold | complete | pytest import smoke 4/4; UI contract 27/27; TypeScript check green; FI-0(b) runner 16/16; Orch-4i 74/74; contract gate 8/8 | Added the four import-light, dependency-free package scaffolds and wired their paths into the backend image, local/CI contract gate, and package inventories. Docker COPY wiring is statically pinned; a local image build was unavailable because the Docker daemon was not running. No FI-1 contracts, provider logic, features, modules, or runtime behavior were added. FI-1 was not started. |
 | FI-1 | contracts + evidence | complete | football-data-contract pytest 47/47; Python/TS evidence parity 7/7; UI contract 27/27; TypeScript check green; FI-0(b) 16/16; FI-1 gate 22/22; Orch-4i 78/78; contract gate 9/9 | Added frozen provider-neutral canonical entities, closed enums, provenance, the 13-code bounded `EvidenceItem` contract, and a UI-only TypeScript mirror. Fable review hardening made parity parsing CRLF-safe and documented lineup-entry/timestamp validation boundaries. No dependencies or runtime/HTTP/FinalResponse fields were added. Carry-forward hardening refreshed Docker COPY matching, FI-7 registry growth, and verified Orch-4a/4b counts. FI-2 was not started. |
 | FI-2 | identity registry | complete — amended DoD | identity pytest 34/34; FI-2 gate 5/5; FI-0(b) 16/16; FI-1 22/22; Orch-4i 82/82; contract gate 10/10 | B1 pins pytest in CI and a seeded failure proved propagation; B2 makes distinct no-DOB candidate collisions fail closed before overrides; B3 commits the reproducible real owned-store measurement. Understat: 375/461 (81.3449%), 86 unmatched, 0 ambiguous; vaastav: 804/804 (100%). Fable formally transferred the mandatory ≥95% identity target to the §14.1/FI-9 trial-readiness gate. The 86-item unresolved queue remains a tracked blocker and was not waived. Existing runtime joins remain unchanged and FI-3 was not started. |
-| FI-3 | sportmonks client | complete | sportmonks-client pytest 49/49; FI-3 gate 5/5; FI-0(b)/FI-1/FI-2 green; Orch-4i 86/86; contract gate 11/11 | Added offline-only configuration/auth plumbing, injected transport, 15 endpoint families, provider-owned immutable models, envelopes/snapshots, bounded GET retry/rate-limit handling, pagination guards, secret-safe errors, documentation-derived fixtures, assumption registry, and a one-request guarded live smoke CLI. Fable hardening suppresses raw request causes and clamps numeric Retry-After to 60 seconds. All live assumptions remain unverified; no account/token/network was used. ProviderUnavailable/token-bucket/response-cap decisions remain explicitly deferred as governed above. No FI-4 normalization or pre-FI-4 reconciliation began. |
-| FI-4 | ingestion + store | not started | — | |
+| FI-3 | sportmonks client | complete | sportmonks-client pytest 49/49; FI-3 gate 5/5; FI-0(b)/FI-1/FI-2 green; Orch-4i 86/86; contract gate 11/11 | Added offline-only configuration/auth plumbing, injected transport, 15 endpoint families, provider-owned immutable models, envelopes/snapshots, bounded GET retry/rate-limit handling, pagination guards, secret-safe errors, documentation-derived fixtures, assumption registry, and a one-request guarded live smoke CLI. Fable hardening suppresses raw request causes and clamps numeric Retry-After to 60 seconds. All live assumptions remain unverified; no account/token/network was used. Former ProviderUnavailable/token-bucket/response-cap discrepancies are resolved by the checkpoint row below. No FI-4 normalization began. |
+| Pre-FI-4 | canonical-contract reconciliation checkpoint | complete | football-data-contract 52/52; identity/cross-contract 40/40; Sportmonks 53/53; FI-0(b) 16/16; FI-1 22/22; FI-2 5/5; FI-3 5/5; Orch-4i 86/86; contract gate 11/11 | Blessed deterministic canonical IDs and ownership, governed FPL fingerprint authority/migration, seeded team and scheduling identities, closed provider compatibility, rejected EvidenceItem details v1, settled ProviderUnavailable and pre-live transport policies, and split FI-4a/FI-4b. No FI-4 implementation began. |
+| FI-4 | a — normalizers and canonical store | not started | — | Exact next approved slice; streaming response cap required before any live call. |
+| FI-4 | b — distribution and runtime integration | not started | — | |
 | FI-5 | feature engine | not started | — | |
 | FI-6 | modules M1–M3 (+M4/M5 skeletons) | not started | — | |
 | FI-7 | a–e response/UI integration | not started | — | |

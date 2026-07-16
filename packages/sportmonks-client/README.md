@@ -27,3 +27,9 @@ The command fetches exactly one page/request. Raw `requests` causes are
 discarded at the transport boundary. Numeric `Retry-After` is clamped to 60
 seconds; invalid, non-finite, negative, HTTP-date, or missing values use bounded
 exponential backoff.
+
+Redirects are disabled for authenticated requests. Snapshot hooks retain only
+the governed non-secret response-header allowlist, and malformed `meta` shapes
+raise a typed schema error. A streaming response-size cap remains mandatory
+before the first live ingestion call in FI-4a; no live request is authorized by
+this checkpoint.
