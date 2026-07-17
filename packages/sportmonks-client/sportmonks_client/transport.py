@@ -27,7 +27,9 @@ class RequestsTransport:
     def request(self, method: str, url: str, *, params: Mapping[str, Any], timeout: float) -> TransportResponse:
         failure: tuple[str, bool] | None = None
         try:
-            response = self._session.request(method, url, params=dict(params), timeout=timeout)
+            response = self._session.request(
+                method, url, params=dict(params), timeout=timeout, allow_redirects=False
+            )
         except requests.RequestException as exc:
             retryable = isinstance(exc, (requests.Timeout, requests.ConnectionError))
             failure = (type(exc).__name__, retryable)

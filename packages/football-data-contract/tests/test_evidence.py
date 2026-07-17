@@ -17,7 +17,7 @@ def make_evidence(**overrides) -> EvidenceItem:
         "code": "ROLE_STABLE",
         "label": "Stable role",
         "subject_type": SubjectType.PLAYER,
-        "subject_id": "cp_1",
+        "subject_id": "player_365f648bdd9b01f5504c074e",
         "fixture_id": None,
         "impact": 2.0,
         "direction": EvidenceDirection.POSITIVE,

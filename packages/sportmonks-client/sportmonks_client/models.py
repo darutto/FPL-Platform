@@ -67,7 +67,10 @@ def parse_envelope(payload: Any, endpoint: str) -> ResponseEnvelope:
     if not isinstance(payload, dict) or "data" not in payload or not isinstance(payload["data"], list):
         raise SportmonksSchemaError("malformed response envelope", endpoint=endpoint)
     pagination = None
-    raw_pagination = payload.get("pagination") or payload.get("meta", {}).get("pagination")
+    raw_meta = payload.get("meta")
+    if raw_meta is not None and not isinstance(raw_meta, dict):
+        raise SportmonksSchemaError("malformed meta metadata", endpoint=endpoint)
+    raw_pagination = payload.get("pagination") or (raw_meta or {}).get("pagination")
     if raw_pagination is not None:
         if not isinstance(raw_pagination, dict) or not isinstance(raw_pagination.get("current_page"), int):
             raise SportmonksSchemaError("malformed pagination metadata", endpoint=endpoint)
@@ -78,4 +81,4 @@ def parse_envelope(payload: Any, endpoint: str) -> ResponseEnvelope:
         if next_page is not None and not isinstance(next_page, int):
             raise SportmonksSchemaError("pagination next_page must be integer or null", endpoint=endpoint)
         pagination = Pagination(raw_pagination["current_page"], has_more, next_page)
-    return ResponseEnvelope(tuple(dict(item) for item in payload["data"]), pagination, dict(payload.get("meta") or {}))
+    return ResponseEnvelope(tuple(dict(item) for item in payload["data"]), pagination, dict(raw_meta or {}))

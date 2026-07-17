@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from football_data_contract import ProviderIdentifier
 
 from .models import CandidateEvidence, CandidatePlayer, MatchResult, SourcePlayer
 from .normalization import normalize_name, surname
@@ -23,7 +24,7 @@ def _evidence(candidate: CandidatePlayer, fields: tuple[str, ...]) -> CandidateE
 def match_player(
     source: SourcePlayer,
     candidates: Sequence[CandidatePlayer],
-    overrides: Mapping[tuple[str, str], str] | None = None,
+    overrides: Mapping[tuple[ProviderIdentifier, str], str] | None = None,
     *,
     threshold: float = 0.80,
 ) -> MatchResult:

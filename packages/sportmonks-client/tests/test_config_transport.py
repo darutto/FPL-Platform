@@ -48,7 +48,7 @@ def test_requests_transport_query_timeout_and_json():
     raw.json.return_value = {"data": []}
     session = MagicMock(); session.request.return_value = raw
     result = RequestsTransport(session).request("GET", "https://example.test", params={"x":1}, timeout=7)
-    session.request.assert_called_once_with("GET", "https://example.test", params={"x":1}, timeout=7)
+    session.request.assert_called_once_with("GET", "https://example.test", params={"x":1}, timeout=7, allow_redirects=False)
     assert result.body == {"data": []}
 
 
@@ -64,6 +64,15 @@ def test_token_only_in_sanctioned_query_and_redacted():
     client.leagues()
     assert fake.calls[0][2]["api_token"] == "TOP-SECRET"
     assert "TOP-SECRET" not in str(SportmonksConfigurationError("failed"))
+
+
+def test_transport_disables_redirects_for_authenticated_requests():
+    session = MagicMock()
+    raw = MagicMock(status_code=200, headers={})
+    raw.json.return_value = {"data": []}
+    session.request.return_value = raw
+    RequestsTransport(session).request("GET", "https://host/path", params={"api_token": "SECRET"}, timeout=1)
+    assert session.request.call_args.kwargs["allow_redirects"] is False
 
 
 def test_transport_exception_chain_traceback_and_logs_redact_token(caplog):

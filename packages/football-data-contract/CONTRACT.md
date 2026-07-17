@@ -58,9 +58,59 @@ All structures are frozen dataclasses. Every canonical data record carries a
 | `TeamMatchStats` | `fixture_id`, `team_id`, `possession_pct: float|null`, `shots: int|null`, `shots_on_target: int|null`, `expected_goals: float|null`, `provenance` |
 | `PlayerMatchStats` | `fixture_id`, `player_id`, `team_id`, `minutes: int`, `goals: int`, `assists: int`, `shots: int|null`, `expected_goals: float|null`, `expected_assists: float|null`, `tackles: int|null`, `interceptions: int|null`, `provenance` |
 
-Canonical identifiers use the prefixes described by the implementation plan
-(`cp_`, `ct_`, `cc_`, and `cf_`). Validation and identifier generation belong
-to adapters/identity work in later slices; FI-1 does not guess or generate IDs.
+## Canonical identifiers
+
+This package owns every canonical-ID format and provider-neutral minting helper.
+Each ID is its literal entity prefix plus the first 24 lowercase hexadecimal
+characters of SHA-256 over the governed fingerprint: `player_`, `team_`,
+`competition_`, `season_`, or `fixture_`. Provider identifiers are forbidden
+fingerprint inputs. Generators are deterministic and collision checks compare
+the full governed fingerprint before accepting a truncated digest.
+
+`|` is reserved solely as the internal fingerprint separator. Every free-string
+component fails before hashing when it is empty, whitespace-only, contains `|`,
+or has leading/trailing whitespace. Valid existing fingerprints and IDs are
+unchanged.
+
+Player fingerprints are `player|<normalized authoritative name>|<DOB or empty>`.
+Until FI-9 trial reconciliation, the authoritative name is the full name from
+the owned FPL player registry/history candidate record. Name normalization is
+NFKD accent folding, case folding, punctuation-to-space, and whitespace
+collapse. A corrected authoritative name or DOB changes the fingerprint and
+requires an audited migration: close historical mappings, retain them, and add
+the new mapping. An explicit continuity override may reconcile the identities
+but may never silently rewrite history. Missing DOB remains degraded mode and
+indistinguishable same-name candidates fail closed. FI-9 must reassess this
+authority after Sportmonks names and DOBs are live-validated.
+
+Teams use an operator-governed immutable registry key with exactly four
+pipe-separated segments:
+`jurisdiction|stable_club_key|category|squad_level`. Every segment is non-empty
+and uses lowercase ASCII letters, digits, and single hyphens only. Display names, aliases,
+sponsor names, provider IDs, competition, promotion/relegation, and season are
+not valid registry keys or inputs. Renames therefore preserve identity; women's, men's, reserve, and
+youth sides require distinct keys. Understat/FPL labels resolve through
+provider crosswalk rows to a seeded team registry; name-only minting is banned.
+
+Competitions use governing body, immutable competition registry key, and
+category; sponsor and display names are aliases. Seasons use competition ID and
+governed edition key. Fixtures use competition ID, season ID, canonical home
+and away teams, and a governed scheduling key/replay discriminator. Kickoff is
+deliberately excluded, so postponement or rescheduling preserves identity;
+abandoned replays get a distinct governed fixture key.
+
+Changing a prefix, hash length, fingerprint grammar, or registry key is a
+breaking migration. No canonical records have yet been minted for team,
+competition, season, or fixture, so this checkpoint introduces no stored-data
+migration. Existing FI-2 `player_<24 hex>` values remain valid unchanged.
+
+The full literal examples pinned by the independent cross-contract suite are
+governance anchors: `player_365f648bdd9b01f5504c074e`,
+`team_95409c689633dd59ec8ee8f5`,
+`competition_1721113dddcb228b9371f88d`,
+`season_d93fe50bb7dbe68dca513212`, and
+`fixture_9670657776dfa3ee4de0c365`. Changing any anchor is a breaking contract
+change requiring explicit migration review.
 
 `PlayerMatchRole.starting_role` records lineup-entry status and must agree with
 the paired `PlayerMatchAppearance.started` value for the same fixture and
@@ -110,6 +160,13 @@ Observed evidence is directly supported by canonical source facts. An
 `inferred_proxy` is a deterministic derivation whose limitation must remain
 visible to consumers. Missing inputs omit evidence; they never cause evidence
 to be fabricated. Advice and recommendation decisions are not evidence fields.
+
+Structured quantitative `details` are deliberately rejected for EvidenceItem
+v1. Canonical/feature stores own machine-readable measurements; evidence owns a
+bounded impact, confidence, summary, and immutable source-feature references.
+An arbitrary scalar bag would duplicate feature schemas and weaken the closed
+contract. FI-6 modules must use those existing fields and may not add `details`
+without a separately approved versioned contract change.
 
 ### Initial EVIDENCE_CODES registry
 

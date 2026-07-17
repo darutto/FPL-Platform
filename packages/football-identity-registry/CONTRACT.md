@@ -16,9 +16,12 @@ confidence: `manual_override` 1.00, `full_name_birth_date` 0.99,
 anything below the configurable threshold (default 0.80), and no candidate all
 produce queue entries; no lower tier or fuzzy guess resolves ambiguity.
 
-Canonical player IDs are `player_` plus the first 24 hexadecimal SHA-256
-characters of `player|<normalized full name>|<birth date or empty>`. Provider
-names and IDs are forbidden inputs. Builders must detect a truncated-hash
+Canonical formats and generators are owned by `football-data-contract`; this
+package consumes and does not redefine them. Player IDs are `player_` plus the
+first 24 hexadecimal SHA-256 characters of
+`player|<normalized authoritative name>|<birth date or empty>`. Provider names
+and IDs are forbidden inputs. The current authoritative fingerprint name is the
+full name from the owned FPL registry/history candidate record. Builders detect a truncated-hash
 collision between different fingerprints and stop for operator review. Build
 inputs cannot choose canonical IDs: the builder derives them from the immutable
 name/birth-date identity and rejects a caller-supplied identifier.
@@ -37,6 +40,25 @@ and record an auditable operator reconciliation or override when continuity is
 asserted. Silent overwrite is forbidden. FI-9 must revisit canonical-ID
 fitness and migration using the identity metadata observed during the live
 Sportmonks trial.
+
+Spelling, accent, order, legal-name, or DOB corrections that change the
+governed fingerprint require an ID migration. Reconciliation closes and keeps
+the historical row before appending the replacement. A reviewed continuity
+override may link the corrected identity, with reason and validity history,
+but never changes the original ID in place.
+
+Team identities are manually assigned from the canonical package's governed
+team registry keys. Provider label aliases (including Understat/FPL variants)
+belong in `team_identity.parquet`; normalized display names alone never mint or
+merge clubs. Competition, season, and fixture IDs likewise come only from the
+canonical helpers and governed keys. This checkpoint seeds no live mappings.
+
+Team keys have exactly four non-empty lowercase segments,
+`jurisdiction|stable_club_key|category|squad_level`, using ASCII letters,
+digits, and single hyphens. Display names and provider labels are not keys.
+`|` is reserved for fingerprint serialization and cannot occur within any
+free-string component; invalid components fail before hashing. The literal ID
+examples in the cross-contract suite are independent governance anchors.
 
 ## Persistent schemas
 
@@ -60,6 +82,12 @@ All parquet and JSON writes use a sibling temporary file plus `os.replace`.
 `_identity_latest.json` is written last with schema version, run provenance,
 counts, and caller-supplied UTC timestamp. Repeating identical inputs is
 semantically idempotent.
+
+`provider` values use the closed `football_data_contract.ProviderIdentifier`
+serialized vocabulary (`fpl`, `understat`, `sportmonks`, `vaastav`). Existing
+FI-2 parquet strings remain read-compatible because `ProviderIdentifier` is a
+string enum; reads coerce them into the closed enum and reject unknown or
+misspelled providers. Payload models from provider clients remain prohibited.
 
 ## Overrides and queue
 

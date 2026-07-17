@@ -29,7 +29,7 @@ def test_normalization(raw, expected):
 
 def test_models_frozen():
     with pytest.raises(dataclasses.FrozenInstanceError):
-        SourcePlayer("x", "1", "A").full_name = "B"
+        SourcePlayer("fpl", "1", "A").full_name = "B"
 
 
 def test_tiers_are_closed_and_ordered():
@@ -43,30 +43,30 @@ def test_manual_override_wins():
 
 
 @pytest.mark.parametrize(("source", "expected"), [
-    (SourcePlayer("x", "1", "Jose O Neil", "Z", "2000-01-02"), "full_name_birth_date"),
-    (SourcePlayer("x", "1", "Jose O Neil", "A"), "full_name_team"),
-    (SourcePlayer("x", "1", "Jose O Neil"), "full_name_unique"),
-    (SourcePlayer("x", "1", "Unrelated", "A", known_name="Jose"), "known_name_team"),
-    (SourcePlayer("x", "1", "M. O'Neil", "Z", "2000-01-02"), "surname_birth_date"),
+    (SourcePlayer("fpl", "1", "Jose O Neil", "Z", "2000-01-02"), "full_name_birth_date"),
+    (SourcePlayer("fpl", "1", "Jose O Neil", "A"), "full_name_team"),
+    (SourcePlayer("fpl", "1", "Jose O Neil"), "full_name_unique"),
+    (SourcePlayer("fpl", "1", "Unrelated", "A", known_name="Jose"), "known_name_team"),
+    (SourcePlayer("fpl", "1", "M. O'Neil", "Z", "2000-01-02"), "surname_birth_date"),
 ])
 def test_each_automatic_tier(source, expected):
     assert match_player(source, [candidate()]).match_method == expected
 
 
 def test_ambiguity_never_guesses_and_is_sorted():
-    source = SourcePlayer("x", "1", "Same Name")
+    source = SourcePlayer("fpl", "1", "Same Name")
     result = match_player(source, [candidate("z", "Same Name"), candidate("a", "Same Name")])
     assert not result.matched and result.reason == "ambiguous"
     assert [c.canonical_player_id for c in result.candidates] == ["a", "z"]
 
 
 def test_below_threshold_queues():
-    result = match_player(SourcePlayer("x", "1", "Same Name"), [candidate(name="Same Name")], threshold=.95)
+    result = match_player(SourcePlayer("fpl", "1", "Same Name"), [candidate(name="Same Name")], threshold=.95)
     assert not result.matched and result.reason == "below_threshold"
 
 
 def test_no_fuzzy_matching():
-    assert match_player(SourcePlayer("x", "1", "Jsoe O Neil"), [candidate()]).reason == "no_candidate"
+    assert match_player(SourcePlayer("fpl", "1", "Jsoe O Neil"), [candidate()]).reason == "no_candidate"
 
 
 def test_id_is_stable_and_provider_free():
@@ -79,7 +79,7 @@ def test_canonical_id_collision_stops_build(monkeypatch):
     class Digest:
         def hexdigest(self):
             return "0" * 64
-    monkeypatch.setattr(canonical_ids.hashlib, "sha256", lambda value: Digest())
+    monkeypatch.setattr("football_data_contract.identifiers.hashlib.sha256", lambda value: Digest())
     with pytest.raises(CanonicalIdCollisionError):
         canonical_ids.assert_no_id_collisions([("One Player", None), ("Other Player", None)])
 
@@ -145,7 +145,7 @@ def test_manual_override_cannot_bypass_active_mapping_uniqueness():
 
 
 def row(team="A", start="2025-08-01", end=None):
-    return PlayerIdentityRow("p1", "understat", "u1", "jose", "Jose", team, None, start, end, "full_name_team", .95, False)
+    return PlayerIdentityRow(canonical_player_id("Jose", None), "understat", "u1", "jose", "Jose", team, None, start, end, "full_name_team", .95, False)
 
 
 def test_transfer_closes_old_row_and_preserves_history():

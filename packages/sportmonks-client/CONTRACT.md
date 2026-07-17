@@ -27,6 +27,10 @@ and uses the repository's existing `requests` dependency. Endpoint/model code
 never performs HTTP. Transport responses preserve status, headers, and parsed
 JSON; malformed JSON raises `SportmonksResponseError`.
 
+Authenticated requests set `allow_redirects=False`. Any 3xx response becomes a
+non-retryable typed request failure; credentials are never forwarded to another
+origin or redirect target.
+
 All `requests.RequestException` subclasses are converted at this boundary.
 Raw causes are discarded after safe retry classification and the typed error is
 raised outside the catch block with no `__cause__` or `__context__`; authenticated
@@ -91,6 +95,27 @@ token. It is excluded from ordinary tests/CI and must remain the smallest safe
 request: it uses `fetch_page` and performs exactly one authenticated HTTP call,
 even when page one reports more results. Provider-shape changes are contained here. Canonical conversion begins
 in FI-4 only after the approved pre-FI-4 reconciliation checkpoint.
+
+## Pre-live checkpoint decisions
+
+- Missing configuration for live client construction remains
+  `SportmonksConfigurationError`. `ProviderUnavailable` is not a transport
+  exception. Future runtime capability discovery may expose disabled/unavailable
+  status without constructing a live client or throwing through a request path.
+- A proactive token bucket is not required for offline FI-4a. Any later live
+  ingestion must be serialized, deliberately paced, observe sanitized rate
+  headers, and retain the bounded reactive 429 policy. Revisit only if trial
+  measurements show scheduling is insufficient.
+- A streaming response-body cap is a hard prerequisite before the first live
+  ingestion call. Post-download `len(response.content)` is not accepted as a
+  resource cap. FI-4a must add and mutation-test the streaming cap before any
+  live trial execution; offline normalization work may proceed first.
+- Snapshot metadata preserves only case-folded `content-type`, `date`,
+  `retry-after`, `x-ratelimit-limit`, `x-ratelimit-remaining`,
+  `x-ratelimit-reset`, and `x-request-id`. Cookies, authorization, URLs, and
+  unapproved headers are discarded. Persistence remains FI-4a work.
+- A non-object `meta`, malformed pagination object, or invalid pagination field
+  raises `SportmonksSchemaError` before FI-4 replay consumes it.
 
 Breaking changes include error semantics, retry safety, endpoint signatures,
 pagination interpretation, or removal/reinterpretation of provider fields.

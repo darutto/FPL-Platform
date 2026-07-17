@@ -1,17 +1,12 @@
 """Provider-neutral, deterministic name normalization."""
 from __future__ import annotations
 
-import re
-import unicodedata
-
-_SPECIALS = str.maketrans({"ø": "o", "Ø": "o", "æ": "ae", "Æ": "ae", "ß": "ss"})
+from football_data_contract import normalize_identity_name
 
 
 def normalize_name(value: str) -> str:
-    """NFKD-fold accents, case and punctuation, then collapse whitespace."""
-    folded = unicodedata.normalize("NFKD", value.translate(_SPECIALS).casefold())
-    unaccented = "".join(c for c in folded if not unicodedata.combining(c))
-    return " ".join(re.sub(r"[^\w]+", " ", unaccented, flags=re.UNICODE).split())
+    """Compatibility alias for the canonical fingerprint normalization."""
+    return normalize_identity_name(value)
 
 
 def surname(value: str) -> str:

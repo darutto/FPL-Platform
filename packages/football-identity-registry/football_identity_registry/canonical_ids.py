@@ -1,37 +1,30 @@
 """Stable canonical identifiers derived without provider identifiers."""
 from __future__ import annotations
 
-import hashlib
 from collections.abc import Mapping, Sequence
 
+from football_data_contract import (
+    CanonicalIdCollisionError,
+    assert_no_canonical_id_collisions,
+    canonical_player_id,
+    player_identity_fingerprint,
+)
+
 from .normalization import normalize_name
-
-
-class CanonicalIdCollisionError(ValueError):
-    pass
-
 
 class IdentityIndistinguishableError(CanonicalIdCollisionError):
     """Distinct candidate records collapse to the same governed fingerprint."""
 
 
 def identity_fingerprint(full_name: str, birth_date: str | None) -> str:
-    return f"player|{normalize_name(full_name)}|{birth_date or ''}"
-
-
-def canonical_player_id(full_name: str, birth_date: str | None) -> str:
-    digest = hashlib.sha256(identity_fingerprint(full_name, birth_date).encode("utf-8")).hexdigest()
-    return f"player_{digest[:24]}"
+    return player_identity_fingerprint(full_name, birth_date)
 
 
 def assert_no_id_collisions(identities: list[tuple[str, str | None]]) -> None:
-    seen: dict[str, str] = {}
-    for full_name, birth_date in identities:
-        canonical_id = canonical_player_id(full_name, birth_date)
-        fingerprint = identity_fingerprint(full_name, birth_date)
-        if canonical_id in seen and seen[canonical_id] != fingerprint:
-            raise CanonicalIdCollisionError(f"canonical id collision: {canonical_id}")
-        seen[canonical_id] = fingerprint
+    assert_no_canonical_id_collisions(
+        (canonical_player_id(full_name, birth_date), identity_fingerprint(full_name, birth_date))
+        for full_name, birth_date in identities
+    )
 
 
 def assert_candidates_distinguishable(candidates: Sequence[Mapping[str, object]]) -> None:

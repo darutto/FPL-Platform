@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 import pandas as pd
+from football_data_contract import ProviderIdentifier, validate_canonical_id
 
 PLAYER_COLUMNS = (
     "canonical_player_id", "provider", "provider_id", "normalized_name", "full_name",
@@ -25,7 +26,7 @@ OTHER_COLUMNS = {
 @dataclass(frozen=True)
 class PlayerIdentityRow:
     canonical_player_id: str
-    provider: str
+    provider: ProviderIdentifier
     provider_id: str
     normalized_name: str
     full_name: str
@@ -36,6 +37,10 @@ class PlayerIdentityRow:
     match_method: str
     match_confidence: float
     manual_override: bool
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "provider", ProviderIdentifier(self.provider))
+        validate_canonical_id("player", self.canonical_player_id)
 
 
 def identity_root() -> Path:
@@ -77,6 +82,11 @@ def verify_player_rows(rows: Iterable[PlayerIdentityRow]) -> list[str]:
     errors: list[str] = []
     active: dict[tuple[str, str], str] = {}
     for row in rows:
+        try:
+            validate_canonical_id("player", row.canonical_player_id)
+            ProviderIdentifier(row.provider)
+        except ValueError as exc:
+            errors.append(str(exc))
         if not 0 <= row.match_confidence <= 1:
             errors.append(f"confidence out of range: {row.provider}/{row.provider_id}")
         if row.valid_to and row.valid_to < row.valid_from:

@@ -16,7 +16,7 @@ item = EvidenceItem(
     code="ROLE_STABLE",
     label="Stable role",
     subject_type=SubjectType.PLAYER,
-    subject_id="cp_01",
+    subject_id="player_365f648bdd9b01f5504c074e",
     fixture_id=None,
     impact=2.0,
     direction=EvidenceDirection.POSITIVE,
@@ -43,3 +43,19 @@ carry `Provenance`.
 
 See `CONTRACT.md` for the complete schemas, vocabularies, versioning rules, and
 provider-neutral import boundary.
+
+Canonical ID helpers are provider-neutral and deterministic:
+
+```python
+from football_data_contract import canonical_player_id, canonical_team_id
+
+player_id = canonical_player_id("Bukayo Saka", "2001-09-05")
+team_id = canonical_team_id("england|arsenal|men|first-team")
+```
+
+Team registry keys are governed operator assignments with exactly four
+lowercase segments: `jurisdiction|stable_club_key|category|squad_level`.
+Segments use ASCII letters, digits, and single hyphens. Display names and
+provider labels are invalid keys. `|` is reserved for fingerprint boundaries
+and is forbidden inside every free-string component; invalid values fail before
+hashing. This package does not match providers, ingest payloads, or persist data.
