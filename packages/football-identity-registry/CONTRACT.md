@@ -53,6 +53,13 @@ belong in `team_identity.parquet`; normalized display names alone never mint or
 merge clubs. Competition, season, and fixture IDs likewise come only from the
 canonical helpers and governed keys. This checkpoint seeds no live mappings.
 
+Team keys have exactly four non-empty lowercase segments,
+`jurisdiction|stable_club_key|category|squad_level`, using ASCII letters,
+digits, and single hyphens. Display names and provider labels are not keys.
+`|` is reserved for fingerprint serialization and cannot occur within any
+free-string component; invalid components fail before hashing. The literal ID
+examples in the cross-contract suite are independent governance anchors.
+
 ## Persistent schemas
 
 `player_identity.parquet` has this exact ordered schema:

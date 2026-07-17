@@ -12,6 +12,7 @@ from football_data_contract import (
     canonical_team_id,
     player_identity_fingerprint,
     validate_canonical_id,
+    validate_team_registry_key,
 )
 
 
@@ -55,3 +56,68 @@ def test_collision_guard_compares_independent_fingerprints() -> None:
 def test_wrong_prefix_or_length_is_rejected() -> None:
     with pytest.raises(ValueError):
         validate_canonical_id("team", canonical_player_id("Player", None))
+
+
+@pytest.mark.parametrize("registry_key", [
+    "Arsenal", "", "england|arsenal|men", "england|arsenal|men|first-team|extra",
+    "England|arsenal|men|first-team", "england|arsenal men|men|first-team",
+    "|arsenal|men|first-team", "england|arsenal|men|", "england|arsenal!|men|first-team",
+])
+def test_team_registry_key_grammar_rejects_invalid_values(registry_key: str) -> None:
+    with pytest.raises(ValueError):
+        canonical_team_id(registry_key)
+
+
+def test_team_registry_key_has_exact_governed_segments() -> None:
+    assert validate_team_registry_key("england|arsenal|men|first-team") == (
+        "england", "arsenal", "men", "first-team",
+    )
+    assert canonical_team_id("england|arsenal|men|first-team") == canonical_team_id("england|arsenal|men|first-team")
+
+
+@pytest.mark.parametrize(("generator", "arguments"), [
+    (canonical_competition_id, ("the-fa|premier", "league", "men")),
+    (canonical_competition_id, ("the-fa", "premier|league", "men")),
+    (canonical_competition_id, ("the-fa", "league", "men|senior")),
+    (canonical_competition_id, (" the-fa", "league", "men")),
+    (canonical_player_id, ("Player|Shifted", None)),
+    (canonical_player_id, (" Player", None)),
+    (canonical_player_id, ("Player", "2000|01|01")),
+])
+def test_reserved_separator_and_invalid_component_boundaries_fail_before_hashing(generator, arguments) -> None:
+    with pytest.raises(ValueError):
+        generator(*arguments)
+
+
+def test_separator_validation_prevents_split_component_collision() -> None:
+    with pytest.raises(ValueError):
+        canonical_competition_id("the-fa|premier", "league", "men")
+    with pytest.raises(ValueError):
+        canonical_competition_id("the-fa", "premier|league", "men")
+
+
+@pytest.mark.parametrize(("generator", "arguments"), [
+    (canonical_player_id, ("", None)),
+    (canonical_player_id, ("Player", "")),
+    (canonical_competition_id, ("", "premier-league", "men")),
+    (canonical_competition_id, ("the-fa", "   ", "men")),
+    (canonical_competition_id, ("the-fa", "premier-league", "men ")),
+])
+def test_empty_whitespace_and_edge_whitespace_components_fail(generator, arguments) -> None:
+    with pytest.raises(ValueError):
+        generator(*arguments)
+
+
+def test_season_and_fixture_free_components_are_validated() -> None:
+    competition = canonical_competition_id("the-fa", "premier-league", "men")
+    team = canonical_team_id("england|arsenal|men|first-team")
+    other = canonical_team_id("england|chelsea|men|first-team")
+    with pytest.raises(ValueError):
+        canonical_season_id(competition, "2026|2027")
+    with pytest.raises(ValueError):
+        canonical_season_id(competition, "")
+    season = canonical_season_id(competition, "2026-2027")
+    with pytest.raises(ValueError):
+        canonical_fixture_id(competition, season, team, other, "round|01")
+    with pytest.raises(ValueError):
+        canonical_fixture_id(competition, season, team, other, "   ")

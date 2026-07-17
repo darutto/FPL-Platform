@@ -67,6 +67,11 @@ characters of SHA-256 over the governed fingerprint: `player_`, `team_`,
 fingerprint inputs. Generators are deterministic and collision checks compare
 the full governed fingerprint before accepting a truncated digest.
 
+`|` is reserved solely as the internal fingerprint separator. Every free-string
+component fails before hashing when it is empty, whitespace-only, contains `|`,
+or has leading/trailing whitespace. Valid existing fingerprints and IDs are
+unchanged.
+
 Player fingerprints are `player|<normalized authoritative name>|<DOB or empty>`.
 Until FI-9 trial reconciliation, the authoritative name is the full name from
 the owned FPL player registry/history candidate record. Name normalization is
@@ -78,10 +83,12 @@ but may never silently rewrite history. Missing DOB remains degraded mode and
 indistinguishable same-name candidates fail closed. FI-9 must reassess this
 authority after Sportmonks names and DOBs are live-validated.
 
-Teams use an operator-governed immutable registry key containing jurisdiction,
-stable club identity, category/gender, and squad level. Display names, aliases,
+Teams use an operator-governed immutable registry key with exactly four
+pipe-separated segments:
+`jurisdiction|stable_club_key|category|squad_level`. Every segment is non-empty
+and uses lowercase ASCII letters, digits, and single hyphens only. Display names, aliases,
 sponsor names, provider IDs, competition, promotion/relegation, and season are
-not inputs. Renames therefore preserve identity; women's, men's, reserve, and
+not valid registry keys or inputs. Renames therefore preserve identity; women's, men's, reserve, and
 youth sides require distinct keys. Understat/FPL labels resolve through
 provider crosswalk rows to a seeded team registry; name-only minting is banned.
 
@@ -96,6 +103,14 @@ Changing a prefix, hash length, fingerprint grammar, or registry key is a
 breaking migration. No canonical records have yet been minted for team,
 competition, season, or fixture, so this checkpoint introduces no stored-data
 migration. Existing FI-2 `player_<24 hex>` values remain valid unchanged.
+
+The full literal examples pinned by the independent cross-contract suite are
+governance anchors: `player_365f648bdd9b01f5504c074e`,
+`team_95409c689633dd59ec8ee8f5`,
+`competition_1721113dddcb228b9371f88d`,
+`season_d93fe50bb7dbe68dca513212`, and
+`fixture_9670657776dfa3ee4de0c365`. Changing any anchor is a breaking contract
+change requiring explicit migration review.
 
 `PlayerMatchRole.starting_role` records lineup-entry status and must agree with
 the paired `PlayerMatchAppearance.started` value for the same fixture and

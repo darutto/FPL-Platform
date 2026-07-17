@@ -50,8 +50,12 @@ Canonical ID helpers are provider-neutral and deterministic:
 from football_data_contract import canonical_player_id, canonical_team_id
 
 player_id = canonical_player_id("Bukayo Saka", "2001-09-05")
-team_id = canonical_team_id("england|arsenal-fc|men|first-team")
+team_id = canonical_team_id("england|arsenal|men|first-team")
 ```
 
-Team registry keys are governed operator assignments, not normalized display
-names. This package does not match providers, ingest payloads, or persist data.
+Team registry keys are governed operator assignments with exactly four
+lowercase segments: `jurisdiction|stable_club_key|category|squad_level`.
+Segments use ASCII letters, digits, and single hyphens. Display names and
+provider labels are invalid keys. `|` is reserved for fingerprint boundaries
+and is forbidden inside every free-string component; invalid values fail before
+hashing. This package does not match providers, ingest payloads, or persist data.
