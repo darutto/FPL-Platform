@@ -1,0 +1,26 @@
+{
+  "content_hashes": {
+    "coaches": "8feb82297fa45470f3ac3df9ad4a01890fee8d7ce8fb344e70eab0fa15f6d1e8",
+    "competitions": "7c3a784ad351ca09895aeea54bce7cba99108251b8210798085fa3f58348e10e",
+    "fixtures": "8a0360098f8c1dc9e4a75266e176c514fc1610a96f21f21453ad8b17741ef5e8",
+    "formations": "99b9dab10146efcc5a9089894dc3f73259637d16bb656ffef87d958122d29574",
+    "injuries": "7eb221c1f3b2b73827f4160d99c3b4f0289f403da0711c9fbf17780fccce68f3",
+    "lineups": "c0fdac4f66cf6314df01acfe29cd065e18b776b77c9441c6558fe492e3e7b438",
+    "player_fixture_statistics": "3e0ee640e0959ddb583693a51e6ff5c0a482d3a025ad6a7eb187eaa66adb41b1",
+    "players": "f352109d04d68e35710f5548f4af8aa528503fbddd156838a7f1ef900d1b2ec3",
+    "referees": "04841a6150c32afeff8d841a403c7620636b75cc16cad4902bcb95c661e91ead",
+    "seasons": "6f15ac9343947b181e0ea3c5ef269990570eb06d7abc7ae115450661f4bf1f5f",
+    "squads": "7dee2da0cd2926a4a59f2e92facd892cc23cc1e693da92520bb64fac4b159643",
+    "substitutions": "2e59f8366f913835a329aa46e2b7f203dc2d2898541f6397dba303fb3f02d91f",
+    "suspensions": "feada77b9a357ddf8ffc60cfcd4d4e7b8c750f304462daead7528222e616a312",
+    "team_fixture_statistics": "b246818dc9fadedf840a2a39310b7ec4f6ba6532becd69618291103f0cabf4c1",
+    "teams": "7d5adf491e9f556c307b667a7b5a7235ee10f9e448a242e80ad5695660eaadec"
+  },
+  "row_counts": {
+    "coaches": 1, "competitions": 1, "fixtures": 1, "formations": 1,
+    "injuries": 1, "lineups": 1, "player_fixture_statistics": 1,
+    "players": 2, "referees": 1, "seasons": 1, "squads": 1,
+    "substitutions": 1, "suspensions": 1, "team_fixture_statistics": 1,
+    "teams": 2
+  }
+}

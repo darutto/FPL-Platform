@@ -67,6 +67,7 @@ run_runner "FI-0(b): package scaffold imports"         "run_phase_fi0b_tests.py"
 run_runner "FI-1: provider-neutral evidence contract"  "run_phase_fi1_tests.py"
 run_runner "FI-2: identity and mapping foundation"      "run_phase_fi2_tests.py"
 run_runner "FI-3: Sportmonks client skeleton"            "run_phase_fi3_tests.py"
+run_runner "FI-4a: offline normalizers and canonical store" "run_phase_fi4a_tests.py"
 
 echo "==================="
 echo "Contract gate: $PASS passed, $FAIL failed"

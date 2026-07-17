@@ -1,0 +1,20 @@
+{
+  "_fixture": {"version": "fi4a-sportmonks-replay-v1", "captured_at": "2026-07-01T00:00:00Z", "assumption_status": "unverified_against_live", "source": "documentation-derived mock"},
+  "competition": {"id": 8, "name": "Premier League", "governing_body": "the-fa", "registry_key": "premier-league", "category": "men", "tier": "league", "country": "England"},
+  "season": {"id": 23614, "edition_key": "2025-2026", "label": "2025/26"},
+  "teams": [{"id": 1, "name": "Arsenal", "short_code": "ARS"}, {"id": 2, "name": "Chelsea", "short_code": "CHE"}],
+  "owned_players": [{"fpl_id": "101", "full_name": "Example Player", "known_name": "Example", "birth_date": "2000-01-01", "nationality": "England", "positions": ["midfielder"]}, {"fpl_id": "102", "full_name": "Second Player", "known_name": "Second", "birth_date": "1999-02-02", "nationality": "England", "positions": ["forward"]}],
+  "player_crosswalks": [{"sportmonks_id": "101", "fpl_id": "101"}, {"sportmonks_id": "102", "fpl_id": "102"}],
+  "players": [{"id": 101, "name": "Provider Alias One"}, {"id": 102, "name": "Provider Alias Two"}, {"id": 999, "name": "Unmatched Player"}],
+  "fixtures": [{"id": 1001, "home_team_id": 1, "away_team_id": 2, "fixture_key": "league-home-meeting-1", "kickoff": "2025-08-17T15:00:00Z", "status": "scheduled", "gameweek": 1}],
+  "squads": [{"id": 2001, "team_id": 1, "player_id": 101, "valid_from": "2025-07-01", "valid_to": null}],
+  "lineups": [{"id": 3001, "fixture_id": 1001, "team_id": 1, "player_id": 101, "started": true, "minutes": 90, "formation": "4-3-3", "grid_slot": "8:2", "position": "central midfield"}],
+  "formations": [{"id": 4001, "fixture_id": 1001, "team_id": 1, "formation": "4-3-3", "source_timestamp": "2025-08-17T14:00:00Z"}],
+  "substitutions": [{"id": 5001, "fixture_id": 1001, "team_id": 1, "player_off_id": 101, "player_on_id": 102, "minute": 75}],
+  "injuries": [{"id": 6001, "player_id": 102, "recorded_at": "2025-08-01T00:00:00Z", "detail": "ankle", "expected_return": null}],
+  "suspensions": [{"id": 7001, "player_id": 101, "recorded_at": "2025-08-02T00:00:00Z", "reason": "disciplinary", "fixtures_remaining": 1}],
+  "coaches": [{"id": 8001, "team_id": 1, "name": "Example Coach"}],
+  "referees": [{"id": 9001, "fixture_id": 1001, "name": "Example Referee"}],
+  "team_statistics": [{"id": 10001, "fixture_id": 1001, "team_id": 1, "possession_pct": 55.0, "shots": 12, "shots_on_target": 5, "expected_goals": 1.4}],
+  "player_statistics": [{"id": 11001, "fixture_id": 1001, "team_id": 1, "player_id": 101, "minutes": 90, "goals": 1, "assists": 0, "shots": 3, "expected_goals": 0.6, "expected_assists": 0.1, "tackles": 2, "interceptions": 1}]
+}

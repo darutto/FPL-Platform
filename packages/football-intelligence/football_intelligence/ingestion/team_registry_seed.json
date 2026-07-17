@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "teams": [
+    {
+      "canonical_team_id": "team_40aacfa0c00a94eb11e47626",
+      "registry_key": "england|arsenal|men|senior",
+      "display_name": "Arsenal",
+      "jurisdiction": "england",
+      "category": "men",
+      "squad_level": "senior",
+      "valid_from": "1886-01-01",
+      "valid_to": null,
+      "provenance": "operator-governed from owned FPL and Understat labels",
+      "status": "active",
+      "notes": "Display name is an alias, never an identity key."
+    },
+    {
+      "canonical_team_id": "team_bbdb1c461c739be178d00d8c",
+      "registry_key": "england|chelsea|men|senior",
+      "display_name": "Chelsea",
+      "jurisdiction": "england",
+      "category": "men",
+      "squad_level": "senior",
+      "valid_from": "1905-01-01",
+      "valid_to": null,
+      "provenance": "operator-governed from owned FPL and Understat labels",
+      "status": "active",
+      "notes": "Display name is an alias, never an identity key."
+    }
+  ],
+  "crosswalks": [
+    {"provider": "fpl", "provider_id": "1", "canonical_team_id": "team_40aacfa0c00a94eb11e47626", "valid_from": "2025-07-01", "valid_to": null, "provenance": "owned current FPL fixture"},
+    {"provider": "fpl", "provider_id": "7", "canonical_team_id": "team_bbdb1c461c739be178d00d8c", "valid_from": "2025-07-01", "valid_to": null, "provenance": "owned current FPL fixture"},
+    {"provider": "understat", "provider_id": "Arsenal", "canonical_team_id": "team_40aacfa0c00a94eb11e47626", "valid_from": "2025-07-01", "valid_to": null, "provenance": "owned Understat label"},
+    {"provider": "understat", "provider_id": "Chelsea", "canonical_team_id": "team_bbdb1c461c739be178d00d8c", "valid_from": "2025-07-01", "valid_to": null, "provenance": "owned Understat label"},
+    {"provider": "sportmonks", "provider_id": "1", "canonical_team_id": "team_40aacfa0c00a94eb11e47626", "valid_from": "2025-07-01", "valid_to": null, "provenance": "mock-only; unverified_against_live"},
+    {"provider": "sportmonks", "provider_id": "2", "canonical_team_id": "team_bbdb1c461c739be178d00d8c", "valid_from": "2025-07-01", "valid_to": null, "provenance": "mock-only; unverified_against_live"},
+    {"provider": "vaastav", "provider_id": "1", "canonical_team_id": "team_40aacfa0c00a94eb11e47626", "valid_from": "2025-07-01", "valid_to": null, "provenance": "owned vaastav import fixture"},
+    {"provider": "vaastav", "provider_id": "7", "canonical_team_id": "team_bbdb1c461c739be178d00d8c", "valid_from": "2025-07-01", "valid_to": null, "provenance": "owned vaastav import fixture"}
+  ]
+}

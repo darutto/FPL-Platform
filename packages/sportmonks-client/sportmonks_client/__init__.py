@@ -2,5 +2,6 @@
 
 from .client import SportmonksClient
 from .config import SportmonksConfig
+from .errors import SportmonksResponseSizeError
 
-__all__ = ["SportmonksClient", "SportmonksConfig"]
+__all__ = ["SportmonksClient", "SportmonksConfig", "SportmonksResponseSizeError"]

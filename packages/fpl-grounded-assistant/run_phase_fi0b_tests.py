@@ -17,6 +17,7 @@ REQUIRED_FILES = ("README.md", "CONTRACT.md", "pytest.ini", "requirements.txt")
 APPROVED_REQUIREMENTS = {
     "sportmonks-client": ["requests>=2.31"],
     "football-identity-registry": ["pandas>=2.0", "pyarrow>=14.0", "PyYAML==6.0.3"],
+    "football-intelligence": ["pandas>=2.0", "pyarrow>=14.0"],
 }
 DOCKERFILE = REPO_ROOT / "packages" / "fpl-grounded-assistant" / "Dockerfile"
 
@@ -50,7 +51,7 @@ for package_dir, module_name in PACKAGES:
     ]
     expected_requirements = APPROVED_REQUIREMENTS.get(package_dir, [])
     ok(active_requirements == expected_requirements,
-       f"{package_dir} dependencies match the deliberate FI-2 allowlist")
+       f"{package_dir} dependencies match the deliberate FI-2/FI-4a allowlist")
     docker_copy = re.compile(
         rf"^COPY\s+packages/{re.escape(package_dir)}/\s+"
         rf"/app/packages/{re.escape(package_dir)}/\s*$",

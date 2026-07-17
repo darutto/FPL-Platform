@@ -14,7 +14,9 @@ integration, identity mapping, feature computation, or recommendation work.
 `SPORTMONKS_API_TOKEN` has no default and is required only for live client
 construction. `SPORTMONKS_BASE_URL` defaults to the v3 football URL;
 `SPORTMONKS_TIMEOUT_SECONDS=15`, `SPORTMONKS_MAX_RETRIES=3`, and
-`SPORTMONKS_BACKOFF_SECONDS=0.5`. Invalid/negative numeric values fail clearly.
+`SPORTMONKS_BACKOFF_SECONDS=0.5`, and `SPORTMONKS_MAX_RESPONSE_BYTES=4194304`.
+The body cap must be an integer in the inclusive range 1â€“67108864 bytes.
+Invalid values fail before any request.
 The token is placed only in the assumed `api_token` query location and is
 removed from snapshots, errors, logs, fixtures, and test output. Offline clients
 require neither token nor network.
@@ -24,8 +26,13 @@ require neither token nor network.
 `Transport.request(method, url, params, timeout) -> TransportResponse` is the
 injection boundary. `RequestsTransport` is the only production network owner
 and uses the repository's existing `requests` dependency. Endpoint/model code
-never performs HTTP. Transport responses preserve status, headers, and parsed
-JSON; malformed JSON raises `SportmonksResponseError`.
+never performs HTTP. Responses are streamed in 64 KiB chunks and closed on
+every successful or exceptional path. A declared oversize `Content-Length`
+fails before reading; missing, malformed, chunked, or misleading lengths are
+still bounded during iteration. Exceeding the cap raises
+`SportmonksResponseSizeError`, is not retried, and never includes a URL or
+token. Transport responses preserve status, headers, and parsed JSON;
+malformed JSON raises `SportmonksResponseError`.
 
 Authenticated requests set `allow_redirects=False`. Any 3xx response becomes a
 non-retryable typed request failure; credentials are never forwarded to another
@@ -65,7 +72,7 @@ the inclusive range 0–60 seconds. HTTP 400 and other non-retryable 4xx fail im
 
 Closed hierarchy: `SportmonksError`, `SportmonksConfigurationError`,
 `SportmonksAuthenticationError`, `SportmonksRateLimitError`,
-`SportmonksRequestError`, `SportmonksResponseError`,
+`SportmonksRequestError`, `SportmonksResponseError`, `SportmonksResponseSizeError`,
 `SportmonksPaginationError`, and `SportmonksSchemaError`. Context may include
 endpoint/status, never credentials.
 
@@ -106,10 +113,9 @@ in FI-4 only after the approved pre-FI-4 reconciliation checkpoint.
   ingestion must be serialized, deliberately paced, observe sanitized rate
   headers, and retain the bounded reactive 429 policy. Revisit only if trial
   measurements show scheduling is insufficient.
-- A streaming response-body cap is a hard prerequisite before the first live
-  ingestion call. Post-download `len(response.content)` is not accepted as a
-  resource cap. FI-4a must add and mutation-test the streaming cap before any
-  live trial execution; offline normalization work may proceed first.
+- The FI-4a streaming response-body cap is implemented and tested, but this
+  does not authorize live ingestion. Post-download `len(response.content)` is
+  not used as a resource cap. Live trial authorization remains FI-4b work.
 - Snapshot metadata preserves only case-folded `content-type`, `date`,
   `retry-after`, `x-ratelimit-limit`, `x-ratelimit-remaining`,
   `x-ratelimit-reset`, and `x-request-id`. Cookies, authorization, URLs, and
