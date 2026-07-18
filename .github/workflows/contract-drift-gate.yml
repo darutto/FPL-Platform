@@ -126,3 +126,6 @@ jobs:
 
       - name: FI-4a offline normalizers and canonical store
         run: python run_phase_fi4a_tests.py
+
+      - name: FI-4b distribution and runtime integration
+        run: python run_phase_fi4b_tests.py

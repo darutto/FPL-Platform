@@ -71,6 +71,7 @@ CANONICAL_RUNNERS: list[str] = [
     "run_phase_fi2_tests.py",      # FI-2 identity and mapping foundation
     "run_phase_fi3_tests.py",      # FI-3 Sportmonks client skeleton
     "run_phase_fi4a_tests.py",     # FI-4a offline normalization/store
+    "run_phase_fi4b_tests.py",     # FI-4b distribution/runtime integration
 ]
 
 # Slices implemented without a standalone runner file.
@@ -87,7 +88,7 @@ NON_RUNNER_SLICES: list[str] = [
 # When a runner's count changes, update both this mapping and the CONTRACT_GATE.md table
 # in the same commit — G9 will fail until both are aligned.
 RUNNER_EXPECTED_COUNTS: dict[str, int] = {
-    "run_phase_orch4i_tests.py": 90,   # includes FI-4a canonical-runner governance
+    "run_phase_orch4i_tests.py": 94,   # includes FI-4b canonical-runner governance
     "run_phase_orch4f_tests.py": 125,
     "run_phase_orch4e_tests.py": 81,   # trimmed 2026-07-12 — see CONTRACT_GATE.md retirement note
     "run_phase_orch4d_tests.py": 17,   # trimmed 2026-07-12 — see CONTRACT_GATE.md retirement note
@@ -99,6 +100,7 @@ RUNNER_EXPECTED_COUNTS: dict[str, int] = {
     "run_phase_fi2_tests.py": 5,
     "run_phase_fi3_tests.py": 5,
     "run_phase_fi4a_tests.py": 5,
+    "run_phase_fi4b_tests.py": 5,
 }
 
 # ---------------------------------------------------------------------------

@@ -115,3 +115,42 @@ python -m football_intelligence.ingestion.cli replay --manifest FILE --destinati
 Commands accept local files only and exit nonzero on schema, identity,
 referential, publication, or replay failure. They never require a token and
 cannot select live mode.
+
+## FI-4b portable manifest and distribution contract
+
+Manifest schema v2 replaces the absolute `source_fixture` field with a portable
+`source` descriptor: kind, name, version, exact source-byte hash, and an optional
+normalized repository-relative path. Replay verifies that hash and confines
+implicit resolution beneath the repository root; external snapshots require an
+explicit `--source`. Schema-v1 replay fails clearly and is never reinterpreted.
+Remote validation does not require the original source snapshot.
+
+Remote keys are generated only as `<prefix>/builds/<build-id>/manifest.json`,
+governed canonical/report paths beneath that build, and
+`<prefix>/_football_latest.json`. Prefix, ID, and path grammars reject traversal,
+absolute/drive/UNC paths, backslashes, controls, empty segments, and ambiguous
+separators. Immutable writes are idempotent only for identical bytes.
+
+Publication validates locally, uploads and verifies every artifact, uploads and
+verifies the manifest, then conditionally writes the pointer last. Pointer schema
+v1 has exactly `schema_version`, `build_id`, `manifest_hash`, `published_at`, and
+`publisher_version`. Unknown fields/versions fail. A pointer race preserves the
+prior pointer.
+
+Download defaults are 64 KiB pointer, 1 MiB manifest, 1 MiB report, 128 MiB per
+parquet, and 512 MiB total. Declared and streamed sizes are enforced. Sync uses
+a timeout-bounded stale-recoverable lock, unique staging, complete FI-4a
+validation, immutable finalization, and an atomic local pointer swap. Failed
+refreshes retain the previous validated build.
+
+Missing `FPL_FOOTBALL_REMOTE_*` configuration is `disabled`; no local build is
+`unavailable`; a failed refresh with a valid cache is `degraded`; a validated
+sync is `ready`. Startup is fail-soft. Request handling reads the validated local
+cache via `RuntimeBuildHandle`, never the remote store. SDK failures become typed,
+secret-safe errors. Supported versions are pointer 1, manifest 2, canonical 1,
+normalizer `fi4a-v1`, and identity registry
+`team-seed-v1/player-precedence-v1`; unknown versions fail before activation.
+
+FI-5 features, recommendations, tools, analysis routes, UI/evidence exposure,
+live ingestion, and background polling remain out of scope. Tests use fakes and
+no real account, credentials, or network.
