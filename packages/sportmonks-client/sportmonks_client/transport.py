@@ -46,6 +46,7 @@ class RequestsTransport:
                 endpoint="provider request",
                 retryable=failure[1],
             ) from None
+        stream_failure: tuple[str, bool] | None = None
         try:
             declared = response.headers.get("Content-Length")
             if declared is not None:
@@ -59,22 +60,37 @@ class RequestsTransport:
                         endpoint="provider response", status_code=response.status_code,
                     )
             payload = bytearray()
-            for chunk in response.iter_content(chunk_size=64 * 1024):
-                if not chunk:
-                    continue
-                payload.extend(chunk)
-                if len(payload) > self._max_response_bytes:
-                    raise SportmonksResponseSizeError(
-                        "response exceeds configured byte limit",
-                        endpoint="provider response", status_code=response.status_code,
-                    )
             try:
-                body = json.loads(bytes(payload).decode("utf-8"))
-            except (UnicodeDecodeError, ValueError):
-                raise SportmonksResponseError(
-                    "response body is not valid JSON", endpoint="provider response",
-                    status_code=response.status_code,
-                ) from None
-            return TransportResponse(response.status_code, dict(response.headers), body)
+                for chunk in response.iter_content(chunk_size=64 * 1024):
+                    if not chunk:
+                        continue
+                    payload.extend(chunk)
+                    if len(payload) > self._max_response_bytes:
+                        raise SportmonksResponseSizeError(
+                            "response exceeds configured byte limit",
+                            endpoint="provider response", status_code=response.status_code,
+                        )
+            except requests.RequestException as exc:
+                retryable = isinstance(
+                    exc,
+                    (requests.Timeout, requests.ConnectionError,
+                     requests.exceptions.ChunkedEncodingError),
+                )
+                stream_failure = (type(exc).__name__, retryable)
+            if stream_failure is None:
+                try:
+                    body = json.loads(bytes(payload).decode("utf-8"))
+                except (UnicodeDecodeError, ValueError):
+                    raise SportmonksResponseError(
+                        "response body is not valid JSON", endpoint="provider response",
+                        status_code=response.status_code,
+                    ) from None
+                return TransportResponse(response.status_code, dict(response.headers), body)
         finally:
             response.close()
+        if stream_failure is not None:
+            raise SportmonksRequestError(
+                f"streamed transport failure ({stream_failure[0]})",
+                endpoint="provider response", retryable=stream_failure[1],
+            ) from None
+        raise AssertionError("unreachable streamed transport state")

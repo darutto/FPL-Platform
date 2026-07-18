@@ -4,10 +4,11 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import tempfile
 from collections import Counter
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 import pandas as pd
 
@@ -17,6 +18,56 @@ from .team_registry import load_team_registry
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
 DEFAULT_TEAM_SEED = PACKAGE_ROOT / "team_registry_seed.json"
+_BUILD_ID = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
+
+
+class CanonicalStoreValidationError(ValueError):
+    """A canonical-store path, pointer, or file violates its contract."""
+
+
+def validate_build_id(value: object) -> str:
+    if not isinstance(value, str) or _BUILD_ID.fullmatch(value) is None:
+        raise CanonicalStoreValidationError(
+            "build_id must match [a-z0-9]+(?:-[a-z0-9]+)*"
+        )
+    return value
+
+
+def _contained(root: Path, candidate: Path, label: str) -> tuple[Path, Path]:
+    resolved_root = root.resolve()
+    resolved_candidate = candidate.resolve()
+    try:
+        resolved_candidate.relative_to(resolved_root)
+    except ValueError as exc:
+        raise CanonicalStoreValidationError(f"{label} escapes governed root") from exc
+    return resolved_root, resolved_candidate
+
+
+def resolve_contained_file(root: Path, relative: object) -> Path:
+    if not isinstance(relative, str) or not relative:
+        raise CanonicalStoreValidationError("entity file path must be a non-empty string")
+    posix = PurePosixPath(relative)
+    windows = PureWindowsPath(relative)
+    if posix.is_absolute() or windows.is_absolute() or windows.drive:
+        raise CanonicalStoreValidationError("entity file path must be relative")
+    if "\\" in relative or ".." in posix.parts or ".." in windows.parts:
+        raise CanonicalStoreValidationError("entity file path contains a prohibited component")
+    if len(posix.parts) != 2 or posix.parts[0] != "canonical" or not posix.parts[1].endswith(".parquet"):
+        raise CanonicalStoreValidationError("entity file path must be canonical/<name>.parquet")
+    _, candidate = _contained(root, root / Path(*posix.parts), "entity file path")
+    if not candidate.is_file():
+        raise CanonicalStoreValidationError("entity file path is not a regular file")
+    return candidate
+
+
+def resolve_contained_build_directory(builds_root: Path, build_id: object) -> Path:
+    governed_id = validate_build_id(build_id)
+    resolved_root, candidate = _contained(
+        builds_root, builds_root / governed_id, "active build path"
+    )
+    if candidate.parent != resolved_root or not candidate.is_dir():
+        raise CanonicalStoreValidationError("active build must be a direct build directory")
+    return candidate
 
 
 def football_root() -> Path:
@@ -74,6 +125,7 @@ def _validate_references(frames: dict[str, pd.DataFrame]) -> None:
 
 def build_from_fixture(source: Path, destination: Path | None = None, *, build_id: str,
                        built_at: str | None = None, fail_after_write: bool = False) -> dict:
+    build_id = validate_build_id(build_id)
     root = destination or football_root()
     registry = load_team_registry(DEFAULT_TEAM_SEED)
     result = normalize_fixture(source, registry, build_id)
@@ -142,7 +194,7 @@ def validate_build(build_dir: Path) -> dict:
     manifest = json.loads((build_dir / "manifest.json").read_text(encoding="utf-8"))
     frames = {}
     for name, relative in manifest["entity_files"].items():
-        path = build_dir / relative
+        path = resolve_contained_file(build_dir, relative)
         if _file_hash(path) != manifest["parquet_byte_hashes"][name]:
             raise ValueError(f"parquet byte hash mismatch: {name}")
         frames[name] = _frame(name, tuple(pd.read_parquet(path).astype(object).where(lambda value: pd.notna(value), None).to_dict("records")))
@@ -155,7 +207,7 @@ def validate_build(build_dir: Path) -> dict:
 def validate_active(root: Path | None = None) -> dict:
     target = root or football_root()
     pointer = json.loads((target / "_football_latest.json").read_text(encoding="utf-8"))
-    return validate_build(target / "builds" / pointer["build_id"])
+    return validate_build(resolve_contained_build_directory(target / "builds", pointer.get("build_id")))
 
 
 def replay_manifest(manifest_path: Path, destination: Path) -> dict:

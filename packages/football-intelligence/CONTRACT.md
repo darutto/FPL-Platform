@@ -89,6 +89,14 @@ and hashed before publication. The completed staging directory is moved into an
 immutable build directory, then `_football_latest.json` is atomically replaced.
 If any step fails, the prior pointer and active build remain untouched.
 
+Manifest entity paths must be non-empty strings of the exact form
+`canonical/<name>.parquet`. Absolute, drive-qualified, UNC, backslash, and `..`
+paths are rejected before any file read. The resolved file must remain under the
+resolved build root and be a regular file, so symlink escapes fail closed.
+Active build IDs use the complete grammar `[a-z0-9]+(?:-[a-z0-9]+)*`; the
+resolved target must be a real, direct child directory of `builds/`. Symlinked
+build directories that resolve outside `builds/` are rejected.
+
 The sorted JSON manifest contains schema/build identifiers, build time, input
 version, normalizer and identity versions, entity paths, row counts, normalized
 content hashes, parquet byte hashes, warning/quarantine counts, and assumption

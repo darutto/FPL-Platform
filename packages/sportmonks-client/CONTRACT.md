@@ -42,6 +42,12 @@ All `requests.RequestException` subclasses are converted at this boundary.
 Raw causes are discarded after safe retry classification and the typed error is
 raised outside the catch block with no `__cause__` or `__context__`; authenticated
 URLs therefore cannot leak through tracebacks, exception logging, or telemetry.
+This also applies after response headers: streamed `RequestException` failures
+are converted to secret-safe `SportmonksRequestError` only after the response
+closes and the raw exception context is discarded. Timeout, connection, and
+`ChunkedEncodingError` stream failures are retryable under the existing bounded
+GET policy; `ContentDecodingError` is non-retryable. Size-limit errors remain
+typed response errors and are never retried.
 
 ## Endpoint interfaces
 

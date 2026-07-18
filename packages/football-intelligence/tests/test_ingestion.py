@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 import json
+import socket
 from pathlib import Path
 
 import pandas as pd
 import pytest
+import football_intelligence.ingestion.builder as builder_module
 
 from football_data_contract import canonical_fixture_id
 from football_intelligence.ingestion.authority import select_player_authority
 from football_intelligence.ingestion.builder import (DEFAULT_TEAM_SEED, build_from_fixture,
-    replay_manifest, validate_active)
+    CanonicalStoreValidationError, replay_manifest, resolve_contained_build_directory,
+    resolve_contained_file, validate_active, validate_build_id)
 from football_intelligence.ingestion.keys import validate_edition_key, validate_fixture_key
 from football_intelligence.ingestion.normalizers import NormalizationError, normalize_fixture
 from football_intelligence.ingestion.schemas import SCHEMAS
@@ -143,6 +146,143 @@ def test_failed_publication_preserves_previous_active_build(tmp_path):
         build_from_fixture(FIXTURE, tmp_path, build_id="bad", fail_after_write=True)
     assert (tmp_path / "_football_latest.json").read_bytes() == pointer
     assert not (tmp_path / "builds/bad").exists()
+
+
+@pytest.mark.parametrize("relative", [
+    "../../outside.parquet", "../outside.parquet", "/absolute/outside.parquet",
+    "build/../outside.parquet", r"C:\outside.parquet",
+    r"\\server\share\outside.parquet", "", None,
+])
+def test_entity_manifest_path_rejects_traversal_absolute_and_invalid(relative, tmp_path):
+    with pytest.raises(CanonicalStoreValidationError):
+        resolve_contained_file(tmp_path, relative)
+
+
+def test_entity_manifest_path_rejects_directory_and_accepts_governed_file(tmp_path):
+    canonical = tmp_path / "canonical"; canonical.mkdir()
+    valid = canonical / "teams.parquet"; valid.write_bytes(b"fixture")
+    assert resolve_contained_file(tmp_path, "canonical/teams.parquet") == valid.resolve()
+    directory = canonical / "directory.parquet"; directory.mkdir()
+    with pytest.raises(CanonicalStoreValidationError, match="regular file"):
+        resolve_contained_file(tmp_path, "canonical/directory.parquet")
+
+
+def test_entity_parent_component_has_independent_rejection(tmp_path):
+    canonical = tmp_path / "canonical"; canonical.mkdir()
+    (canonical / "teams.parquet").write_bytes(b"fixture")
+    with pytest.raises(CanonicalStoreValidationError, match="prohibited component"):
+        resolve_contained_file(tmp_path, "canonical/../canonical/teams.parquet")
+
+
+def test_entity_absolute_path_has_independent_rejection(tmp_path):
+    absolute = (tmp_path / "outside.parquet").resolve()
+    absolute.write_bytes(b"outside")
+    with pytest.raises(CanonicalStoreValidationError, match="must be relative"):
+        resolve_contained_file(tmp_path / "build", str(absolute))
+
+
+def test_resolved_containment_has_independent_escape_tripwire(tmp_path, monkeypatch):
+    root = tmp_path / "build"; canonical = root / "canonical"; canonical.mkdir(parents=True)
+    governed = canonical / "teams.parquet"; governed.write_bytes(b"inside")
+    outside = tmp_path / "outside.parquet"; outside.write_bytes(b"outside")
+    original_resolve = Path.resolve
+    governed_absolute = original_resolve(governed)
+    outside_absolute = original_resolve(outside)
+
+    def simulated_symlink_escape(path, *args, **kwargs):
+        resolved = original_resolve(path, *args, **kwargs)
+        return outside_absolute if resolved == governed_absolute else resolved
+
+    monkeypatch.setattr(Path, "resolve", simulated_symlink_escape)
+    with pytest.raises(CanonicalStoreValidationError, match="escapes governed root"):
+        resolve_contained_file(root, "canonical/teams.parquet")
+
+
+def test_validate_build_rejects_external_path_before_hash_or_parquet_read(tmp_path, monkeypatch):
+    build = tmp_path / "build"; build.mkdir()
+    (build / "manifest.json").write_text(json.dumps({
+        "entity_files": {"teams": "../../outside.parquet"},
+        "parquet_byte_hashes": {"teams": "unused"}, "content_hashes": {"teams": "unused"},
+    }))
+    calls = []
+    monkeypatch.setattr(builder_module, "_file_hash", lambda path: calls.append(path))
+    monkeypatch.setattr(pd, "read_parquet", lambda path: calls.append(path))
+    with pytest.raises(CanonicalStoreValidationError):
+        builder_module.validate_build(build)
+    assert calls == []
+
+
+def test_entity_manifest_symlink_escape_rejected_where_supported(tmp_path):
+    outside = tmp_path / "outside.parquet"; outside.write_bytes(b"outside")
+    canonical = tmp_path / "build/canonical"; canonical.mkdir(parents=True)
+    link = canonical / "teams.parquet"
+    try:
+        link.symlink_to(outside)
+    except OSError:
+        pytest.skip("symlink creation unavailable")
+    with pytest.raises(CanonicalStoreValidationError, match="escapes"):
+        resolve_contained_file(tmp_path / "build", "canonical/teams.parquet")
+
+
+@pytest.mark.parametrize("build_id", [
+    "../../probe", "../build", "build/other", r"build\other", "/absolute",
+    r"C:\outside", ".", "..", "valid-id.json", "UPPERCASE",
+    "double--hyphen", "-leading", "trailing-", "", None, "white space",
+])
+def test_build_id_grammar_rejects_unsafe_values(build_id):
+    with pytest.raises(CanonicalStoreValidationError):
+        validate_build_id(build_id)
+
+
+def test_build_id_forward_slash_has_independent_tripwire():
+    with pytest.raises(CanonicalStoreValidationError):
+        validate_build_id("build/other")
+
+
+def test_build_id_backslash_has_independent_tripwire():
+    with pytest.raises(CanonicalStoreValidationError):
+        validate_build_id(r"build\other")
+
+
+@pytest.mark.parametrize("build_id", [
+    "../../probe", "../build", "build/other", r"build\other", "/absolute",
+    r"C:\outside", ".", "..", "valid-id.json", "UPPERCASE",
+    "double--hyphen", "-leading", "trailing-", "", None,
+])
+def test_active_pointer_rejects_unsafe_build_id_before_manifest_read(build_id, tmp_path, monkeypatch):
+    tmp_path.mkdir(exist_ok=True)
+    (tmp_path / "_football_latest.json").write_text(json.dumps({"build_id": build_id}))
+    calls = []
+    monkeypatch.setattr(builder_module, "validate_build", lambda path: calls.append(path))
+    with pytest.raises(CanonicalStoreValidationError):
+        validate_active(tmp_path)
+    assert calls == []
+
+
+def test_valid_build_id_and_active_pointer_continue_to_work(tmp_path):
+    assert validate_build_id("valid-build-1") == "valid-build-1"
+    build_from_fixture(FIXTURE, tmp_path, build_id="valid-build-1")
+    assert validate_active(tmp_path)["build_id"] == "valid-build-1"
+
+
+def test_offline_rebuild_denies_all_socket_creation(tmp_path, monkeypatch):
+    def forbidden_socket(*args, **kwargs):
+        raise AssertionError("offline FI-4a rebuild attempted network access")
+    monkeypatch.setattr(socket, "socket", forbidden_socket)
+    manifest = build_from_fixture(FIXTURE, tmp_path, build_id="socket-denied")
+    assert manifest["build_id"] == "socket-denied"
+
+
+def test_active_build_symlink_escape_rejected_where_supported(tmp_path):
+    builds = tmp_path / "builds"; builds.mkdir()
+    outside = tmp_path / "outside"; outside.mkdir()
+    link = builds / "valid-id"
+    try:
+        link.symlink_to(outside, target_is_directory=True)
+    except OSError:
+        pytest.skip("directory symlink creation unavailable")
+    with pytest.raises(CanonicalStoreValidationError, match="escapes"):
+        resolve_contained_build_directory(builds, "valid-id")
 
 
 def test_runtime_and_canonical_contract_are_not_contaminated():

@@ -8,7 +8,8 @@ import requests
 from sportmonks_client.client import SportmonksClient
 from sportmonks_client.config import SportmonksConfig
 from sportmonks_client.errors import (SportmonksConfigurationError,
-    SportmonksResponseError, SportmonksResponseSizeError)
+    SportmonksError, SportmonksRequestError, SportmonksResponseError,
+    SportmonksResponseSizeError)
 from sportmonks_client.transport import RequestsTransport
 from conftest import FakeTransport, response
 
@@ -130,6 +131,62 @@ def test_response_size_error_is_secret_safe_and_not_retried():
         client.leagues()
     assert session.request.call_count == 1
     assert token not in "".join(traceback.format_exception(captured.value))
+
+
+def streamed_failure(error):
+    yield b'{"data":'
+    raise error
+
+
+def test_chunked_stream_failure_is_typed_sanitized_closed_and_retried():
+    token = "STREAM-TRACEBACK-SECRET"
+    raw_one = raw_response(chunks=streamed_failure(
+        requests.exceptions.ChunkedEncodingError(
+            f"failed https://host/path?api_token={token}"
+        )
+    ))
+    raw_two = raw_response(chunks=streamed_failure(
+        requests.exceptions.ChunkedEncodingError(
+            f"failed https://host/path?api_token={token}"
+        )
+    ))
+    session = MagicMock(); session.request.side_effect = [raw_one, raw_two]
+    client = SportmonksClient(
+        SportmonksConfig(api_token=token, max_retries=1, backoff_seconds=0),
+        transport=RequestsTransport(session), sleep=lambda _: None,
+    )
+    with pytest.raises(SportmonksError) as captured:
+        client.leagues()
+    assert isinstance(captured.value, SportmonksRequestError)
+    assert captured.value.retryable is True
+    assert not isinstance(captured.value, requests.exceptions.ChunkedEncodingError)
+    assert captured.value.__cause__ is None and captured.value.__context__ is None
+    rendered = "".join(traceback.format_exception(captured.value))
+    assert token not in rendered and "api_token=" not in rendered
+    assert "https://host/path?" not in rendered
+    assert session.request.call_count == 2
+    raw_one.close.assert_called_once(); raw_two.close.assert_called_once()
+
+
+def test_content_decoding_stream_failure_is_typed_nonretryable_and_closed():
+    token = "DECODING-SECRET"
+    raw = raw_response(chunks=streamed_failure(
+        requests.exceptions.ContentDecodingError(
+            f"failed https://host/path?api_token={token}"
+        )
+    ))
+    session = MagicMock(); session.request.return_value = raw
+    client = SportmonksClient(
+        SportmonksConfig(api_token=token, max_retries=3),
+        transport=RequestsTransport(session), sleep=lambda _: None,
+    )
+    with pytest.raises(SportmonksRequestError) as captured:
+        client.leagues()
+    assert captured.value.retryable is False
+    assert captured.value.__cause__ is None and captured.value.__context__ is None
+    assert token not in "".join(traceback.format_exception(captured.value))
+    assert session.request.call_count == 1
+    raw.close.assert_called_once()
 
 
 @pytest.mark.parametrize("value", ["0", "-1", str(64 * 1024 * 1024 + 1)])
