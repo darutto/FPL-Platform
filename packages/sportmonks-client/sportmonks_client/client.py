@@ -38,7 +38,9 @@ class SportmonksClient:
                  sleep: Callable[[float], None] = time.sleep, offline: bool = False,
                  snapshot_hook: Callable[[RawResponseSnapshot], None] | None = None) -> None:
         self.config = config or SportmonksConfig.from_env()
-        self.transport = transport or RequestsTransport()
+        self.transport = transport or RequestsTransport(
+            max_response_bytes=self.config.max_response_bytes
+        )
         self.sleep = sleep
         self.snapshot_hook = snapshot_hook
         self.token = None if offline else self.config.require_token()

@@ -123,3 +123,6 @@ jobs:
 
       - name: FI-3 Sportmonks client skeleton
         run: python run_phase_fi3_tests.py
+
+      - name: FI-4a offline normalizers and canonical store
+        run: python run_phase_fi4a_tests.py

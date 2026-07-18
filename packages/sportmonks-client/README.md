@@ -12,7 +12,8 @@ players = client.players(include="team")
 
 Live construction requires `SPORTMONKS_API_TOKEN`. Defaults are base URL
 `https://api.sportmonks.com/v3/football`, timeout 15 seconds, 3 retries, and
-0.5-second exponential backoff. All are documentation-derived and remain
+0.5-second exponential backoff, and a 4 MiB streaming response cap (configurable
+from 1 byte through 64 MiB). All are documentation-derived and remain
 `unverified_against_live`.
 
 The explicit smoke command refuses to run without both a token and opt-in:
@@ -28,8 +29,8 @@ discarded at the transport boundary. Numeric `Retry-After` is clamped to 60
 seconds; invalid, non-finite, negative, HTTP-date, or missing values use bounded
 exponential backoff.
 
-Redirects are disabled for authenticated requests. Snapshot hooks retain only
+Redirects are disabled for authenticated requests. Responses are streamed,
+bounded before full materialization, and always closed; oversize bodies raise a
+typed non-retryable error. Snapshot hooks retain only
 the governed non-secret response-header allowlist, and malformed `meta` shapes
-raise a typed schema error. A streaming response-size cap remains mandatory
-before the first live ingestion call in FI-4a; no live request is authorized by
-this checkpoint.
+raise a typed schema error. No live request is authorized by FI-4a.

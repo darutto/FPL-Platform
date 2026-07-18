@@ -19,5 +19,6 @@ class SportmonksRequestError(SportmonksError):
         self.retryable = retryable
         super().__init__(message, endpoint=endpoint, status_code=status_code)
 class SportmonksResponseError(SportmonksError): pass
+class SportmonksResponseSizeError(SportmonksResponseError): pass
 class SportmonksPaginationError(SportmonksError): pass
 class SportmonksSchemaError(SportmonksError): pass

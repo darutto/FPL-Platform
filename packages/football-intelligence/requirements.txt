@@ -1,1 +1,3 @@
 # No runtime dependencies in the FI-0(b) scaffold.
+pandas>=2.0
+pyarrow>=14.0
