@@ -8,7 +8,7 @@ from football_intelligence.distribution.config import DownloadLimits, RemoteStor
 from football_intelligence.distribution.errors import ArtifactSizeError, DistributionConfigError, ImmutableConflictError, PointerRaceError, RemoteValidationError
 from football_intelligence.distribution.keys import artifact_key, manifest_key, pointer_key
 from football_intelligence.distribution.runtime import RuntimeBuildHandle, startup_status
-from football_intelligence.distribution.service import encode_pointer, parse_pointer, publish_build, read_bounded, sync_build
+from football_intelligence.distribution.service import encode_pointer, parse_pointer, publish_build, read_bounded, sync_build, verify_remote
 from football_intelligence.distribution.store import InMemoryArtifactStore
 from football_intelligence.ingestion.builder import build_from_fixture, replay_manifest
 
@@ -94,6 +94,11 @@ def test_sync_initial_noop_upgrade_and_runtime_handle(tmp_path):
     assert first.changed and RuntimeBuildHandle(cache).manifest()["build_id"] == "one"
     assert not sync_build(store, "football", cache).changed
     publish_build(store, "football", built(author, "two")); assert sync_build(store, "football", cache).build_id == "two"
+
+
+def test_remote_verifier_leaves_no_runtime_cache(tmp_path):
+    store = InMemoryArtifactStore(); publish_build(store, "football", built(tmp_path))
+    assert verify_remote(store, "football").build_id == "portable"
 
 
 def test_sync_hash_failure_retains_previous_active(tmp_path):

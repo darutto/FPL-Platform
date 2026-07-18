@@ -219,3 +219,9 @@ def sync_build(store: ArtifactStore, prefix: str, cache_root: Path, limits: Down
             return SyncReport(build_id, True, count, total[0])
         finally:
             shutil.rmtree(stage, ignore_errors=True)
+
+
+def verify_remote(store: ArtifactStore, prefix: str, limits: DownloadLimits = DownloadLimits()) -> SyncReport:
+    """Fully download and validate the active remote build without retaining it."""
+    with tempfile.TemporaryDirectory(prefix="fi4b-verify-") as target:
+        return sync_build(store, prefix, Path(target), limits)

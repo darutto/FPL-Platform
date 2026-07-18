@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from .runtime import RuntimeBuildHandle, startup_status
 from .config import RemoteStoreConfig
-from .service import publish_build, sync_build
+from .service import publish_build, sync_build, verify_remote
 from .store import S3ArtifactStore
 
 
@@ -25,9 +25,7 @@ def main(argv=None) -> int:
         store = S3ArtifactStore(config)
         if args.command == "publish": report = publish_build(store, config.prefix, args.build, dry_run=args.dry_run)
         elif args.command == "sync": report = sync_build(store, config.prefix, Path("data/football-runtime"), config.limits)
-        else:
-            # Verification is a bounded sync into a disposable cache in the full operator workflow.
-            raise RuntimeError("verify-remote requires an explicit sync target; use sync")
+        else: report = verify_remote(store, config.prefix, config.limits)
         print(json.dumps(report.__dict__, sort_keys=True)); return 0
     except Exception as exc:
         print(f"FI-4b command failed: {type(exc).__name__}: {exc}"); return 1
