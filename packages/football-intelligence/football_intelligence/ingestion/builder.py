@@ -17,7 +17,9 @@ from .schemas import PRIMARY_KEYS, SCHEMAS, SCHEMA_VERSION
 from .team_registry import load_team_registry
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
+REPOSITORY_ROOT = PACKAGE_ROOT.parents[3]
 DEFAULT_TEAM_SEED = PACKAGE_ROOT / "team_registry_seed.json"
+MANIFEST_SCHEMA_VERSION = 2
 _BUILD_ID = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 
 
@@ -96,6 +98,47 @@ def _file_hash(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _source_descriptor(source: Path, source_version: str) -> dict[str, str | None]:
+    resolved = source.resolve()
+    try:
+        relative = resolved.relative_to(REPOSITORY_ROOT.resolve()).as_posix()
+    except ValueError:
+        relative = None
+    return {
+        "source_kind": "checked-in-fixture" if relative is not None else "local-snapshot",
+        "source_name": source.name,
+        "source_version": source_version,
+        "source_content_hash": _file_hash(source),
+        "source_relative_path": relative,
+    }
+
+
+def _resolve_replay_source(descriptor: object, explicit_source: Path | None) -> Path:
+    if not isinstance(descriptor, dict) or set(descriptor) != {
+        "source_kind", "source_name", "source_version", "source_content_hash",
+        "source_relative_path",
+    }:
+        raise CanonicalStoreValidationError("manifest source descriptor has an unsupported shape")
+    candidate = explicit_source
+    if candidate is None:
+        relative = descriptor["source_relative_path"]
+        if not isinstance(relative, str) or not relative:
+            raise CanonicalStoreValidationError("portable replay requires an explicit source")
+        posix = PurePosixPath(relative)
+        windows = PureWindowsPath(relative)
+        if posix.is_absolute() or windows.is_absolute() or windows.drive or "\\" in relative or ".." in posix.parts:
+            raise CanonicalStoreValidationError("source_relative_path is not repository-relative")
+        _, candidate = _contained(REPOSITORY_ROOT, REPOSITORY_ROOT / Path(*posix.parts), "replay source")
+    if not candidate.is_file():
+        raise CanonicalStoreValidationError("replay source is not a regular file")
+    expected = descriptor["source_content_hash"]
+    if not isinstance(expected, str) or not re.fullmatch(r"[0-9a-f]{64}", expected):
+        raise CanonicalStoreValidationError("source content hash is invalid")
+    if _file_hash(candidate) != expected:
+        raise CanonicalStoreValidationError("replay source content hash mismatch")
+    return candidate
+
+
 def _validate_references(frames: dict[str, pd.DataFrame]) -> None:
     ids = {"competition": set(frames["competitions"]["competition_id"]),
            "season": set(frames["seasons"]["season_id"]),
@@ -153,10 +196,11 @@ def build_from_fixture(source: Path, destination: Path | None = None, *, build_i
         quarantine_counts = dict(sorted(Counter(item["reason"] for item in result.quarantine).items()))
         quarantine_counts["total"] = len(result.quarantine)
         manifest = {
-            "schema_version": SCHEMA_VERSION, "build_id": build_id,
+            "schema_version": MANIFEST_SCHEMA_VERSION,
+            "canonical_schema_version": SCHEMA_VERSION, "build_id": build_id,
             "built_at": built_at or result.captured_at,
             "input_fixture_or_snapshot_versions": [result.source_version],
-            "source_fixture": str(source.resolve()),
+            "source": _source_descriptor(source, result.source_version),
             "normalizer_versions": {"sportmonks_adapter": "fi4a-v1"},
             "identity_registry_version": "team-seed-v1/player-precedence-v1",
             "entity_files": entity_files,
@@ -172,6 +216,13 @@ def build_from_fixture(source: Path, destination: Path | None = None, *, build_i
             "quarantine_counts": quarantine_counts,
             "assumption_status_summary": manifest["assumption_status_summary"],
         }, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        manifest["report_files"] = {
+            "warnings": "reports/warnings.json", "quarantine": "reports/quarantine.json",
+            "build": "reports/build_report.json",
+        }
+        manifest["report_byte_hashes"] = {
+            name: _file_hash(stage / relative) for name, relative in manifest["report_files"].items()
+        }
         (stage / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         if fail_after_write:
             raise RuntimeError("seeded publication failure")
@@ -192,6 +243,10 @@ def build_from_fixture(source: Path, destination: Path | None = None, *, build_i
 
 def validate_build(build_dir: Path) -> dict:
     manifest = json.loads((build_dir / "manifest.json").read_text(encoding="utf-8"))
+    if manifest.get("schema_version") != MANIFEST_SCHEMA_VERSION:
+        raise CanonicalStoreValidationError("unsupported canonical manifest schema_version")
+    if manifest.get("canonical_schema_version") != SCHEMA_VERSION:
+        raise CanonicalStoreValidationError("unsupported canonical schema_version")
     frames = {}
     for name, relative in manifest["entity_files"].items():
         path = resolve_contained_file(build_dir, relative)
@@ -201,6 +256,12 @@ def validate_build(build_dir: Path) -> dict:
         if _records_hash(frames[name]) != manifest["content_hashes"][name]:
             raise ValueError(f"canonical content hash mismatch: {name}")
     _validate_references(frames)
+    for name, relative in manifest.get("report_files", {}).items():
+        if relative != {"warnings": "reports/warnings.json", "quarantine": "reports/quarantine.json", "build": "reports/build_report.json"}.get(name):
+            raise CanonicalStoreValidationError("report file path is not governed")
+        _, report = _contained(build_dir, build_dir / Path(*PurePosixPath(relative).parts), "report file path")
+        if not report.is_file() or _file_hash(report) != manifest.get("report_byte_hashes", {}).get(name):
+            raise CanonicalStoreValidationError(f"report byte hash mismatch: {name}")
     return manifest
 
 
@@ -210,9 +271,12 @@ def validate_active(root: Path | None = None) -> dict:
     return validate_build(resolve_contained_build_directory(target / "builds", pointer.get("build_id")))
 
 
-def replay_manifest(manifest_path: Path, destination: Path) -> dict:
+def replay_manifest(manifest_path: Path, destination: Path, source: Path | None = None) -> dict:
     original = json.loads(manifest_path.read_text(encoding="utf-8"))
-    replay = build_from_fixture(Path(original["source_fixture"]), destination,
+    if original.get("schema_version") != MANIFEST_SCHEMA_VERSION:
+        raise CanonicalStoreValidationError("schema-v1 manifests are not replay-compatible; rebuild with FI-4b")
+    replay_source = _resolve_replay_source(original.get("source"), source)
+    replay = build_from_fixture(replay_source, destination,
                                 build_id=original["build_id"], built_at=original["built_at"])
     if replay["content_hashes"] != original["content_hashes"] or replay["row_counts"] != original["row_counts"]:
         raise ValueError("deterministic replay mismatch")

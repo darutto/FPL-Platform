@@ -68,6 +68,7 @@ for _pkg in [
     _SIB("fpl-pipeline"),
     _SIB("fpl-historical"),  # H4d: explicit; owned_store_fallback shim also inserts this — defensive symmetry
     _SIB("fpl-tactical"),    # T-zonal: tactical store sync + shared constants (zonal_weakness shim also inserts this)
+    _SIB("football-intelligence"),  # FI-4b: provider-neutral local capability discovery
 ]:
     if _pkg not in sys.path:
         sys.path.insert(0, _pkg)
@@ -78,6 +79,10 @@ from pydantic import BaseModel
 from fpl_grounded_assistant import respond
 from fpl_grounded_assistant.player_form import _element_summary_guard  # Phase 2.6d.3 — guard stats
 from fpl_pipeline import assemble_captain_context
+try:
+    from football_intelligence.distribution import startup_sync as _football_startup_status
+except ImportError:  # fail-soft for partial/source-only deployments
+    _football_startup_status = None
 
 # Phase P3.1: quota meter + audit log
 from fpl_grounded_assistant.quota import (  # noqa: E402
@@ -111,6 +116,7 @@ _LOG = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 _bootstrap: dict[str, Any] | None = None
+_football_distribution_status: Any = None
 
 
 def _init_bootstrap(bs: dict[str, Any]) -> None:
@@ -662,6 +668,12 @@ async def lifespan(app: FastAPI):
     attempts fail the server starts in a degraded state and /ask returns 503
     until the bootstrap is populated externally (no manual restart required).
     """
+    global _football_distribution_status
+    # FI-4b capability discovery is local/config-only here. Disabled or malformed
+    # remote configuration never prevents unrelated backend startup.
+    if _football_startup_status is not None:
+        _football_distribution_status = _football_startup_status()
+        app.state.football_distribution_status = _football_distribution_status
     # H5: optional startup sync of the owned store from R2. Runs BEFORE the
     # bootstrap fetch so the bootstrap (and per-tool) fallbacks can read the
     # synced data. Gated by sync_enabled() — default-off preserves current

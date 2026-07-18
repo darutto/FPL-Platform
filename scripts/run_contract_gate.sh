@@ -21,6 +21,9 @@ export PYTHONPATH="$FI_PACKAGE_PATHS${PYTHONPATH:+:$PYTHONPATH}"
 # Resolve Python — walk up to find the repo .venv, handling both Unix and
 # Windows (Git Bash) path styles.
 _find_python() {
+  if [ -n "${FPL_CONTRACT_PYTHON:-}" ]; then
+    echo "$FPL_CONTRACT_PYTHON"; return
+  fi
   local dir="$REPO_ROOT"
   if [ -f "$dir/.venv/Scripts/python" ]; then
     echo "$dir/.venv/Scripts/python"; return
@@ -68,6 +71,7 @@ run_runner "FI-1: provider-neutral evidence contract"  "run_phase_fi1_tests.py"
 run_runner "FI-2: identity and mapping foundation"      "run_phase_fi2_tests.py"
 run_runner "FI-3: Sportmonks client skeleton"            "run_phase_fi3_tests.py"
 run_runner "FI-4a: offline normalizers and canonical store" "run_phase_fi4a_tests.py"
+run_runner "FI-4b: distribution and runtime integration" "run_phase_fi4b_tests.py"
 
 echo "==================="
 echo "Contract gate: $PASS passed, $FAIL failed"

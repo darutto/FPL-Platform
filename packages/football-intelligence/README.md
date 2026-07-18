@@ -15,5 +15,10 @@ The checked-in team seed is deliberately minimal and Sportmonks mappings remain
 mock-only and `unverified_against_live`. See `CONTRACT.md` for schemas, identity
 grammars, replay guarantees, quarantine behavior, and atomic publication.
 
-Non-goals in FI-4a: live requests, tokens, R2, scheduled workflows, server or
-assistant imports, tools, UI, features, modules, and all FI-4b integration.
+FI-4b adds portable manifests, immutable S3-compatible publication, bounded
+cache synchronization, fail-soft backend capability discovery, and the
+`python -m football_intelligence.distribution` operator CLI. Imports and
+`--help` need no credentials; tests use an in-memory adapter.
+
+Non-goals remain live Sportmonks ingestion, features, recommendations, tools,
+analysis routes, UI/evidence exposure, and background polling.
