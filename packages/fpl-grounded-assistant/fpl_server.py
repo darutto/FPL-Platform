@@ -669,8 +669,8 @@ async def lifespan(app: FastAPI):
     until the bootstrap is populated externally (no manual restart required).
     """
     global _football_distribution_status
-    # FI-4b capability discovery is local/config-only here. Disabled or malformed
-    # remote configuration never prevents unrelated backend startup.
+    # FI-4b performs a bounded, fail-soft remote synchronization when configured.
+    # Disabled/malformed configuration never prevents unrelated backend startup.
     if _football_startup_status is not None:
         _football_distribution_status = _football_startup_status()
         app.state.football_distribution_status = _football_distribution_status

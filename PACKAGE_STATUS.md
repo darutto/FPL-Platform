@@ -1,6 +1,6 @@
 # fpl-platform · Package Status
 **Last updated:** 2026-07-17
-**After:** FI-4b distribution and runtime integration
+**After:** FI-5 deterministic feature engine v1
 
 Status vocabulary:
 - `planned` — described in audit, no platform code written yet
@@ -18,7 +18,7 @@ Status vocabulary:
 | `football-data-contract` | `parity-validated` | Frozen canonical entities/evidence plus authoritative deterministic ID formats and minting helpers | FI-4a normalizers consume it; FI-7 exposes evidence |
 | `sportmonks-client` | `parity-validated` | Offline client plus redirects-off, secret-safe streaming transport with a bounded response body | FI-4b distribution remains unauthorized; live assumptions unverified |
 | `football-identity-registry` | `parity-validated` | FI-2 matcher/store consuming canonical ID/provider contracts; real baseline Understat 375/461 and vaastav 804/804 | FI-4a team-crosswalk seed; mandatory ≥95% FI-9 gate |
-| `football-intelligence` | `pilot-validated` | FI-4a canonical store plus FI-4b portable manifests, immutable S3-compatible distribution, bounded local sync, and read-only runtime handle | FI-5 features later |
+| `football-intelligence` | `pilot-validated` | FI-4a canonical store, FI-4b distribution/runtime cache, and FI-5 deterministic 13-feature local engine/store | FI-6 intelligence modules later |
 
 `football-data-contract` is implemented through FI-1 with no runtime
 dependencies. FI-2 adds an unused offline identity foundation and is complete

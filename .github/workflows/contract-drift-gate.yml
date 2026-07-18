@@ -129,3 +129,6 @@ jobs:
 
       - name: FI-4b distribution and runtime integration
         run: python run_phase_fi4b_tests.py
+
+      - name: FI-5 deterministic feature engine
+        run: python run_phase_fi5_tests.py
