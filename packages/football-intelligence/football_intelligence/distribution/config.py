@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from urllib.parse import urlsplit
 
 from .errors import DistributionConfigError
@@ -35,8 +35,8 @@ class RemoteStoreConfig:
     endpoint: str
     bucket: str
     prefix: str
-    access_key_id: str
-    secret_access_key: str
+    access_key_id: str = field(repr=False)
+    secret_access_key: str = field(repr=False)
     region: str = "auto"
     force_path_style: bool = True
     limits: DownloadLimits = DownloadLimits()

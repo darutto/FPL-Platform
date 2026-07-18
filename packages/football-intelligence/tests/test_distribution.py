@@ -115,3 +115,46 @@ def test_runtime_disabled_and_unavailable_are_fail_soft():
     assert startup_status({}).state == "disabled"
     status = startup_status({"FPL_FOOTBALL_REMOTE_ENDPOINT":"https://example.invalid", "FPL_FOOTBALL_REMOTE_BUCKET":"bucket-ok", "FPL_FOOTBALL_REMOTE_ACCESS_KEY_ID":"x", "FPL_FOOTBALL_REMOTE_SECRET_ACCESS_KEY":"y"})
     assert status.state == "unavailable"
+
+
+def test_pointer_manifest_hash_binding_is_mandatory(tmp_path):
+    store = InMemoryArtifactStore(); publish_build(store, "football", built(tmp_path))
+    pointer = parse_pointer(store.objects[pointer_key("football")])
+    store.objects[pointer_key("football")] = encode_pointer(pointer["build_id"], "0" * 64)
+    with pytest.raises(RemoteValidationError, match="manifest hash"): sync_build(store, "football", tmp_path / "cache")
+
+
+def test_pre_activation_validation_is_mandatory(tmp_path, monkeypatch):
+    import football_intelligence.distribution.service as service
+    store = InMemoryArtifactStore(); publish_build(store, "football", built(tmp_path / "author"))
+    monkeypatch.setattr(service, "validate_build", lambda path: (_ for _ in ()).throw(ValueError("seeded validation")))
+    with pytest.raises(ValueError, match="seeded validation"): sync_build(store, "football", tmp_path / "cache")
+    assert not (tmp_path / "cache/_football_latest.json").exists()
+
+
+def test_total_remote_build_size_is_enforced(tmp_path):
+    store = InMemoryArtifactStore(); publish_build(store, "football", built(tmp_path / "author"))
+    with pytest.raises(ArtifactSizeError, match="total size"): sync_build(store, "football", tmp_path / "cache", DownloadLimits(total=100))
+
+
+def test_remote_manifest_schema_version_is_rejected(tmp_path):
+    store = InMemoryArtifactStore(); publish_build(store, "football", built(tmp_path / "author"))
+    pkey = pointer_key("football"); pointer = parse_pointer(store.objects[pkey]); mkey = manifest_key("football", pointer["build_id"])
+    manifest = json.loads(store.objects[mkey]); manifest["schema_version"] = 999
+    changed = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode(); store.objects[mkey] = changed
+    store.objects[pkey] = encode_pointer(pointer["build_id"], __import__("hashlib").sha256(changed).hexdigest())
+    with pytest.raises(RemoteValidationError, match="version"): sync_build(store, "football", tmp_path / "cache")
+
+
+def test_fake_adapter_compares_etag_as_opaque_token():
+    store = InMemoryArtifactStore(); key = pointer_key("football")
+    first = store.put_pointer(key, b"one", None)
+    with pytest.raises(PointerRaceError): store.put_pointer(key, b"two", "not-the-etag")
+    assert store.put_pointer(key, b"two", first.etag).etag != first.etag
+
+
+def test_sync_lock_releases_only_for_owner(tmp_path):
+    from football_intelligence.distribution.service import SyncLock
+    lock = SyncLock(tmp_path); lock.__enter__(); (tmp_path / ".sync.lock").write_text("other-owner")
+    lock.__exit__(None, None, None)
+    assert (tmp_path / ".sync.lock").read_text() == "other-owner"

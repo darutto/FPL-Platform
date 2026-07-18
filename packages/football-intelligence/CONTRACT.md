@@ -137,6 +137,11 @@ v1 has exactly `schema_version`, `build_id`, `manifest_hash`, `published_at`, an
 `publisher_version`. Unknown fields/versions fail. A pointer race preserves the
 prior pointer.
 
+Conditional pointer safety depends on the configured S3/R2 implementation
+honoring `If-Match` and `If-None-Match`. ETags are opaque concurrency tokens,
+not SHA-256 content hashes. This assumption has not yet been verified against a
+real R2 deployment.
+
 Download defaults are 64 KiB pointer, 1 MiB manifest, 1 MiB report, 128 MiB per
 parquet, and 512 MiB total. Declared and streamed sizes are enforced. Sync uses
 a timeout-bounded stale-recoverable lock, unique staging, complete FI-4a
@@ -154,3 +159,10 @@ normalizer `fi4a-v1`, and identity registry
 FI-5 features, recommendations, tools, analysis routes, UI/evidence exposure,
 live ingestion, and background polling remain out of scope. Tests use fakes and
 no real account, credentials, or network.
+
+## FI-5 feature engine
+
+FI-5 is defined by `FEATURE_CONTRACT.md`. It consumes only a validated local
+`RuntimeBuildHandle`, generates immutable local feature builds, and preserves a
+strict pre-kickoff cutoff. It adds no runtime request computation, remote
+feature distribution, prediction, recommendation, tool, route, evidence, or UI.

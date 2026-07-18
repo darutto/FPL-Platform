@@ -20,5 +20,15 @@ cache synchronization, fail-soft backend capability discovery, and the
 `python -m football_intelligence.distribution` operator CLI. Imports and
 `--help` need no credentials; tests use an in-memory adapter.
 
-Non-goals remain live Sportmonks ingestion, features, recommendations, tools,
+Non-goals remain live Sportmonks ingestion, predictions, recommendations, tools,
 analysis routes, UI/evidence exposure, and background polling.
+
+FI-5 adds the offline deterministic feature engine:
+
+```bash
+python -m football_intelligence.features build --canonical-root data/football-runtime --feature-root data/football-features --feature-build-id fixture-v1 --built-at 2026-07-01T00:00:00Z
+python -m football_intelligence.features validate --canonical-root data/football-runtime --feature-build data/football-features/builds/fixture-v1
+```
+
+See `FEATURE_CONTRACT.md` for the exact 13-feature catalog, cutoff/window rules,
+missingness, provenance, atomic local layout, and analytical non-goals.
