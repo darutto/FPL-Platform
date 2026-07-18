@@ -19,7 +19,10 @@ Registry `fi5-registry-v1`, engine `fi5-engine-v1`, and cutoff policy
 Fractions use `[0,1]`, minutes use `[0,120]`, rest uses days, and congestion is
 a count. Role features use the last ten eligible starts; participation uses the
 last five eligible appearances. Missing history remains null with
-`missing_reason=insufficient_history`; congestion is a true zero when no prior
+`missing_reason=insufficient_history`; this row field describes participation-
+history absence only, not role mapping or feature-family-specific null causes.
+An unused-substitute lineup record with zero minutes is an appearance record and
+therefore consumes a last-five slot. Congestion is a true zero when no prior
 fixture exists. Availability is 1.0 available, 0.5 for an effective injury,
 and 0.0 for an effective suspension. These are deterministic status encodings,
 not medical or selection predictions.
@@ -41,7 +44,15 @@ incomplete/abandoned fixtures do not contribute to v1 windows.
 ## Provenance and output
 
 Every row carries canonical build and manifest hash, target fixture/team/player,
-cutoff, window start, observation count, engine version, and registry version.
+cutoff, engine version, and registry version. `eligible_observations` and
+`window_start_utc` are specifically participation provenance: respectively the
+number of eligible last-five appearance rows and the most recent eligible
+appearance kickoff. They do not claim to describe the independent deployment,
+congestion, or availability windows.
+
+The v1 emitted flank vocabulary is `left`, `right`, and `center`; it emits
+neither `central` nor `mixed`. Role and flank distributions retain unmapped
+starts in their denominator, so mapped shares may sum below 1.
 The immutable local layout is:
 
 ```text

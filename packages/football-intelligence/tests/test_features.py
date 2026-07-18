@@ -1,5 +1,6 @@
 from __future__ import annotations
 import hashlib, json, socket
+from dataclasses import replace
 from pathlib import Path
 import pandas as pd, pytest
 import football_intelligence.features.engine as engine
@@ -36,6 +37,15 @@ def compute(monkeypatch,data):
 def test_registry_is_closed_provider_neutral_and_complete():
     assert len(FEATURE_SPECS)==13 and {s.name for s in FEATURE_SPECS}=={"primary_role","role_stability","flank","flank_distribution","formation_depth","out_of_position_score","start_share_last_5","mean_minutes_last_5","cameo_share_last_5","rotation_tendency","rest_days","fixture_congestion_index","availability_multiplier"}
     with pytest.raises(ValueError): validate_registry((FEATURE_SPECS[0],FEATURE_SPECS[0]))
+    assert "formations" not in {dataset for spec in FEATURE_SPECS for dataset in spec.inputs}
+    assert next(spec for spec in FEATURE_SPECS if spec.name=="out_of_position_score").inputs[-1]=="players"
+    with pytest.raises(ValueError,match="inaccurate required columns"):
+        validate_registry((replace(FEATURE_SPECS[0],required_columns=("players.player_id",)),))
+
+def test_missing_declared_input_column_fails_before_computation(monkeypatch):
+    data=frames(); data["players"]=data["players"].drop(columns="positions_nominal")
+    with pytest.raises(ValueError,match=r"players\.positions_nominal"):
+        compute(monkeypatch,data)
 
 def test_cutoff_excludes_target_and_later_and_values_are_literal(monkeypatch):
     data=frames(); result=compute(monkeypatch,data); row=result[result.fixture_id=="f3"].iloc[0]
@@ -60,6 +70,71 @@ def test_reversed_inputs_are_deterministic(monkeypatch):
     data=frames(); first=compute(monkeypatch,data)
     reverse={k:v.iloc[::-1].reset_index(drop=True) for k,v in data.items()}
     pd.testing.assert_frame_equal(first,compute(monkeypatch,reverse))
+
+def test_same_time_fixtures_are_mutually_exclusive_and_order_independent(monkeypatch):
+    data=frames(); same=data["fixtures"].iloc[-1].copy(); same["fixture_id"]="a-same"; same["fixture_key"]="same"
+    data["fixtures"]=pd.concat([data["fixtures"],pd.DataFrame([same])],ignore_index=True)
+    target_rows=pd.DataFrame([
+        {"fixture_id":"f3","team_id":"t1","player_id":"p1","started":True,"minutes":120,"formation":"x","grid_slot":None,"detailed_position":"left wing"},
+        {"fixture_id":"a-same","team_id":"t1","player_id":"p1","started":True,"minutes":1,"formation":"x","grid_slot":None,"detailed_position":"right wing"},
+    ])
+    data["lineups"]=pd.concat([data["lineups"],target_rows],ignore_index=True)
+    first=compute(monkeypatch,data).query("fixture_id in ['f3','a-same']").sort_values("fixture_id").reset_index(drop=True)
+    assert set(first.eligible_observations)=={2} and set(first.primary_role)=={"central_midfield"}
+    reverse={key:value.iloc[::-1].reset_index(drop=True) for key,value in data.items()}
+    pd.testing.assert_frame_equal(first,compute(monkeypatch,reverse).query("fixture_id in ['f3','a-same']").sort_values("fixture_id").reset_index(drop=True))
+
+def test_row_universe_comes_only_from_governed_pre_cutoff_squads(monkeypatch):
+    data=frames(); data["players"]=pd.concat([data["players"],pd.DataFrame([{"player_id":"p2","positions_nominal":"forward"}])],ignore_index=True)
+    target_lineup={"fixture_id":"f3","team_id":"t1","player_id":"p2","started":True,"minutes":90,"formation":"x","grid_slot":None,"detailed_position":"centre forward"}
+    data["lineups"]=pd.concat([data["lineups"],pd.DataFrame([target_lineup])],ignore_index=True)
+    assert "p2" not in set(compute(monkeypatch,data).query("fixture_id=='f3'").player_id)
+    changed=data.copy(); changed["lineups"]=data["lineups"].iloc[:-1].copy()
+    assert set(compute(monkeypatch,changed).query("fixture_id=='f3'").player_id)=={"p1"}
+    data["squads"]=pd.concat([data["squads"],pd.DataFrame([{"team_id":"t1","player_id":"p2","valid_from":"2025-08-15T12:00:01Z","valid_to":None}])],ignore_index=True)
+    assert "p2" not in set(compute(monkeypatch,data).query("fixture_id=='f3'").player_id)
+    data["squads"].loc[data["squads"].player_id=="p2","valid_from"]="2025-08-15T11:59:59Z"
+    assert "p2" in set(compute(monkeypatch,data).query("fixture_id=='f3'").player_id)
+
+def test_congestion_21_day_boundary_is_left_inclusive_and_cutoff_exclusive(monkeypatch):
+    data=frames(); cutoff=pd.Timestamp("2025-08-15T12:00:00Z")
+    probes=[("outside",cutoff-pd.Timedelta(days=21,seconds=1)),("left",cutoff-pd.Timedelta(days=21)),("inside",cutoff-pd.Timedelta(days=21)+pd.Timedelta(seconds=1)),("target",cutoff)]
+    extras=[]
+    for fixture_id,kickoff in probes:
+        extras.append({"fixture_id":fixture_id,"season_id":"other","competition_id":"other","home_team_id":"t1","away_team_id":"t9","fixture_key":fixture_id,"kickoff_utc":kickoff.isoformat(),"status":"completed","gameweek":None})
+    data["fixtures"]=pd.concat([data["fixtures"],pd.DataFrame(extras)],ignore_index=True)
+    # Existing f1/f2 plus exact-left and inside are eligible; outside/target are not.
+    assert compute(monkeypatch,data).query("fixture_id=='f3'").iloc[0].fixture_congestion_index==4
+
+def test_role_participation_isolate_competition_and_season_but_congestion_crosses_competitions(monkeypatch):
+    data=frames(); extras=pd.DataFrame([
+      {"fixture_id":"other-comp","season_id":"s","competition_id":"cup","home_team_id":"t1","away_team_id":"t2","fixture_key":"oc","kickoff_utc":"2025-08-10T12:00:00Z","status":"completed","gameweek":None},
+      {"fixture_id":"other-season","season_id":"old","competition_id":"c","home_team_id":"t1","away_team_id":"t2","fixture_key":"os","kickoff_utc":"2025-08-11T12:00:00Z","status":"completed","gameweek":None}])
+    data["fixtures"]=pd.concat([data["fixtures"],extras],ignore_index=True)
+    alien=pd.DataFrame([
+      {"fixture_id":"other-comp","team_id":"t1","player_id":"p1","started":True,"minutes":1,"formation":"x","grid_slot":None,"detailed_position":"left wing"},
+      {"fixture_id":"other-season","team_id":"t1","player_id":"p1","started":True,"minutes":2,"formation":"x","grid_slot":None,"detailed_position":"right wing"}])
+    data["lineups"]=pd.concat([data["lineups"],alien],ignore_index=True)
+    row=compute(monkeypatch,data).query("fixture_id=='f3' and team_id=='t1' and player_id=='p1'").iloc[0]
+    assert row.eligible_observations==2 and row.primary_role=="central_midfield" and row.mean_minutes_last_5==55.0
+    assert row.fixture_congestion_index==4
+
+def test_player_and_team_grouping_null_history_and_role_ties_are_pinned(monkeypatch):
+    data=frames()
+    data["players"]=pd.concat([data["players"],pd.DataFrame([{"player_id":"p2","positions_nominal":"forward"}])],ignore_index=True)
+    data["squads"]=pd.concat([data["squads"],pd.DataFrame([{"team_id":"t2","player_id":"p2","valid_from":"2025-01-01","valid_to":None}])],ignore_index=True)
+    data["lineups"]=pd.concat([data["lineups"],pd.DataFrame([
+      {"fixture_id":"f1","team_id":"t1","player_id":"p1","started":True,"minutes":90,"formation":"x","grid_slot":None,"detailed_position":"left wing"},
+      {"fixture_id":"f2","team_id":"t2","player_id":"p2","started":True,"minutes":90,"formation":"x","grid_slot":None,"detailed_position":"centre forward"}])],ignore_index=True)
+    result=compute(monkeypatch,data); p1=result.query("fixture_id=='f3' and player_id=='p1'").iloc[0]
+    p2_empty=result.query("fixture_id=='f1' and player_id=='p2'").iloc[0]
+    p2_target=result.query("fixture_id=='f3' and player_id=='p2'").iloc[0]
+    # Equal role counts resolve lexically, and another player's history never leaks.
+    assert p1.primary_role=="central_midfield" and p1.eligible_observations==3
+    # No-history feature values stay null rather than becoming zero.
+    assert pd.isna(p2_empty.start_share_last_5) and pd.isna(p2_empty.mean_minutes_last_5) and p2_empty.missing_reason=="insufficient_history"
+    # t2's target row counts only t2 fixtures, not all completed fixtures in the universe.
+    assert p2_target.fixture_congestion_index==2
 
 def test_atomic_build_validate_replay_and_source_binding(tmp_path):
     handle=canonical(tmp_path/"canonical"); one=tmp_path/"one"; two=tmp_path/"two"

@@ -4,7 +4,7 @@ import hashlib, json
 from collections import Counter
 import pandas as pd
 from football_intelligence.distribution.runtime import RuntimeBuildHandle
-from .registry import FEATURE_REGISTRY_VERSION
+from .registry import FEATURE_REGISTRY_VERSION, FEATURE_SPECS
 
 ENGINE_VERSION = "fi5-engine-v1"; CUTOFF_POLICY_VERSION = "strictly-before-kickoff-v1"
 ROLE_MAP = {"goalkeeper": ("goalkeeper", "center", "goalkeeper"), "central midfield": ("central_midfield", "center", "midfield"),
@@ -23,11 +23,20 @@ def _mode(values):
     counts = Counter(str(v) for v in values if pd.notna(v)); return sorted(counts, key=lambda x: (-counts[x], x))[0] if counts else None
 
 
+def _validate_inputs(frames):
+    for requirement in sorted({item for spec in FEATURE_SPECS for item in spec.required_columns}):
+        dataset, column = requirement.split(".", 1)
+        if dataset not in frames or column not in frames[dataset].columns:
+            raise ValueError(f"missing declared feature input column: {requirement}")
+
+
 def compute_features(handle: RuntimeBuildHandle) -> pd.DataFrame:
     manifest, source_hash = _manifest_hash(handle)
-    fixtures = _read(handle, "fixtures").sort_values(["kickoff_utc", "fixture_id"])
-    squads, lineups = _read(handle, "squads"), _read(handle, "lineups")
-    players, injuries, suspensions = _read(handle, "players"), _read(handle, "injuries"), _read(handle, "suspensions")
+    frames = {name: _read(handle, name) for name in ("fixtures", "squads", "lineups", "players", "injuries", "suspensions")}
+    _validate_inputs(frames)
+    fixtures = frames["fixtures"].sort_values(["kickoff_utc", "fixture_id"])
+    squads, lineups = frames["squads"], frames["lineups"]
+    players, injuries, suspensions = frames["players"], frames["injuries"], frames["suspensions"]
     fixture_times = dict(zip(fixtures.fixture_id.astype(str), fixtures.kickoff_utc.map(_iso)))
     nominal = dict(zip(players.player_id.astype(str), players.positions_nominal.astype(str)))
     rows = []
