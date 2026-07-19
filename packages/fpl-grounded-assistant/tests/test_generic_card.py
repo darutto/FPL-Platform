@@ -120,6 +120,24 @@ _POSITION_FIXTURE_RUN_RAW = {
 
 _CURRENT_GAMEWEEK_RAW = {"status": "ok", "gameweek": 29}
 
+_INJURY_LIST_RAW = {
+    "injured": [
+        {"web_name": "Jota", "team_short": "LIV", "position": "MID",
+         "status_label": "Lesionado", "news": "Rodilla - baja",
+         "news_added": "2026-07-15T10:00:00Z"},
+    ],
+    "doubtful": [
+        {"web_name": "Saka", "team_short": "ARS", "position": "MID",
+         "status_label": "En duda", "chance_of_playing": 75,
+         "news": "Molestia muscular", "news_added": "2026-07-14T09:00:00Z"},
+    ],
+    "other": [
+        {"web_name": "Rodri", "team_short": "MCI", "position": "MID",
+         "status_label": "Sancionado", "news": "", "news_added": None},
+    ],
+    "total": 3,
+}
+
 
 def _card(intent: str, raw: dict, outcome: str = "ok") -> GenericCardMeta | None:
     return _extract_structured_meta(intent, raw, outcome)["generic_card"]
@@ -204,6 +222,40 @@ def test_position_fixture_run_composer() -> None:
     _assert_row_width(card)
 
 
+def test_injury_list_composer() -> None:
+    card = _card("injury_list", _INJURY_LIST_RAW)
+    assert isinstance(card, GenericCardMeta)
+    assert card.accent == "coral"
+    assert card.title == "LESIONES"
+    # injured, then doubtful, then other
+    assert len(card.rows) == 3
+    # injured: chance null → em dash; news + ISO date present
+    assert card.rows[0] == ("Jota", "LIV", "MID", "Lesionado", "—",
+                            "Rodilla - baja", "2026-07-15T10:00:00Z")
+    # doubtful: chance as number string
+    assert card.rows[1] == ("Saka", "ARS", "MID", "En duda", "75",
+                            "Molestia muscular", "2026-07-14T09:00:00Z")
+    # other: chance null → em dash; empty news + empty date
+    assert card.rows[2] == ("Rodri", "MCI", "MID", "Sancionado", "—", "", "")
+    _assert_row_width(card)
+
+
+def test_injury_list_header_vocabulary() -> None:
+    """The UI adapter matches columns by case-insensitive substring on the
+    header (first match wins).  Every expected keyword must appear in some
+    header, and the chance column must match '%' or 'Probabilidad'."""
+    card = _card("injury_list", _INJURY_LIST_RAW)
+    headers_lower = [c.header.lower() for c in card.columns]
+
+    def _present(keyword: str) -> bool:
+        return any(keyword.lower() in h for h in headers_lower)
+
+    for keyword in ("Jugador", "Equipo", "Pos", "Estado", "Noticia", "Fecha"):
+        assert _present(keyword), f"header vocabulary missing '{keyword}'"
+    # chance-of-playing column: either '%' or 'Probabilidad'
+    assert _present("%") or _present("Probabilidad")
+
+
 def test_current_gameweek_composer() -> None:
     card = _card("current_gameweek", _CURRENT_GAMEWEEK_RAW)
     assert isinstance(card, GenericCardMeta)
@@ -240,7 +292,6 @@ def test_generic_card_none_on_non_ok(outcome: str) -> None:
     "differential_picks",
     "fixture_outlook",
     "zonal_opportunity",
-    "injury_list",          # UI reuses its injuries table
     "transfer_suggestion",  # bespoke card owned by another track
 ])
 def test_generic_card_none_for_bespoke_intents(intent: str) -> None:

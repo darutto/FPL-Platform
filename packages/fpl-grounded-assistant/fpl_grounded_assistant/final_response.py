@@ -577,6 +577,11 @@ class InjuryEntry:
     position:         str
     status_label:     str
     chance_of_playing: "int | None" = field(default=None)  # doubtful only
+    # Track A: deterministic availability context from the bootstrap element.
+    # ``news`` is the free-text FPL note (may be empty); ``news_added`` is an
+    # ISO-8601 string or None.  Never LLM-sourced.
+    news:             str            = field(default="")
+    news_added:       "str | None"   = field(default=None)
 
 
 @dataclass(frozen=True)
@@ -1571,6 +1576,8 @@ def _extract_injury_list_meta(ro: "dict[str, Any]") -> "InjuryListMeta | None":
                     position          = e.get("position", ""),
                     status_label      = e.get("status_label", ""),
                     chance_of_playing = e.get("chance_of_playing"),
+                    news              = e.get("news", "") or "",
+                    news_added        = e.get("news_added"),
                 )
                 for e in lst
             )

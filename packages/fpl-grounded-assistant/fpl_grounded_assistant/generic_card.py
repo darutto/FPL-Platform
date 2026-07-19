@@ -50,6 +50,7 @@ if TYPE_CHECKING:  # pragma: no cover — type hints only; avoids a runtime impo
         TeamFixtureCalendarMeta,
         TeamScheduleMeta,
         PositionFixtureRunMeta,
+        InjuryListMeta,
     )
 
 # ---------------------------------------------------------------------------
@@ -388,16 +389,84 @@ def compose_current_gameweek(gameweek: int) -> GenericCardMeta:
     )
 
 
+#: Column headers for the LESIONES card.  The UI adapter maps these string
+#: rows back onto rich injury rows by **case-insensitive substring match on the
+#: header** (first match wins), so each header intentionally contains exactly
+#: one keyword from the adapter's vocabulary and none of the others:
+#:   Jugador · Equipo · Pos · Estado · Probabilidad/% · Noticia · Fecha
+_INJURY_COLUMNS: tuple[Column, ...] = (
+    Column(header="JUGADOR",       align="left",  kind="text"),
+    Column(header="EQUIPO",        align="left",  kind="text"),
+    Column(header="POS",           align="left",  kind="text"),
+    Column(header="ESTADO",        align="left",  kind="badge"),
+    Column(header="PROBABILIDAD %", align="right", kind="mono"),
+    Column(header="NOTICIA",       align="left",  kind="text"),
+    Column(header="FECHA",         align="left",  kind="text"),
+)
+
+
+def compose_injury_list(meta: "InjuryListMeta") -> GenericCardMeta:
+    """Compose a LESIONES card from an ``InjuryListMeta``.
+
+    One row per player across the injured / doubtful / other lists (in that
+    order).  Column headers deliberately match the UI adapter's keyword
+    vocabulary so it can re-map the string cells onto rich injury rows.
+    ``chance_of_playing`` is a number string or an em dash when null;
+    ``news_added`` is an ISO date string or empty; ``status`` is the label text.
+    """
+    injured  = tuple(meta.injured)
+    doubtful = tuple(meta.doubtful)
+    other    = tuple(meta.other)
+
+    pills_list: list[Pill] = []
+    if injured:
+        pills_list.append(Pill(label=f"{len(injured)} LESIONADOS", tone="bad"))
+    if doubtful:
+        pills_list.append(Pill(label=f"{len(doubtful)} EN DUDA", tone="warn"))
+    if other:
+        pills_list.append(Pill(label=f"{len(other)} NO DISPONIBLES", tone="bad"))
+
+    def _row(e: Any) -> tuple[str, ...]:
+        chance = getattr(e, "chance_of_playing", None)
+        chance_cell = str(int(chance)) if chance is not None else "—"
+        news_added = getattr(e, "news_added", None)
+        return (
+            e.web_name,
+            e.team_short,
+            e.position,
+            e.status_label,
+            chance_cell,
+            getattr(e, "news", "") or "",
+            news_added if news_added else "",
+        )
+
+    rows = tuple(_row(e) for e in (injured + doubtful + other))
+
+    return GenericCardMeta(
+        accent="coral",
+        title="LESIONES",
+        subtitle=None,
+        hero=None,
+        pills=tuple(pills_list),
+        columns=_INJURY_COLUMNS,
+        rows=rows,
+        footer=None,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Dispatch
 # ---------------------------------------------------------------------------
 #
 # Intents WITH a composer here (plain-text-today intents that gain a card):
 #   player_form, price_changes, team_fixture_calendar, team_schedule,
-#   position_fixture_run, current_gameweek
+#   position_fixture_run, current_gameweek, injury_list
+#
+# injury_list note: the UI adapter re-maps the generic_card string rows back
+# onto rich injury rows by matching column headers, so a card IS emitted (the
+# earlier "skip injury_list" decision was reversed by the UI track).
 #
 # Intents intentionally EXCLUDED (return None):
-#   - injury_list          — UI reuses its dedicated injuries table
 #   - transfer_suggestion  — bespoke card owned by another track
 #   - every intent that already has a bespoke UI card: captain_score,
 #     compare_players, rank_candidates, transfer_advice, chip_advice,
@@ -445,8 +514,12 @@ def build_generic_card(
             INTENT_TEAM_SCHEDULE,
             INTENT_POSITION_FIXTURE_RUN,
             INTENT_CURRENT_GAMEWEEK,
+            INTENT_INJURY_LIST,
         )
 
+        if intent == INTENT_INJURY_LIST:
+            m = meta.get("injury_list")
+            return compose_injury_list(m) if m is not None else None
         if intent == INTENT_PLAYER_FORM:
             m = meta.get("player_form")
             return compose_player_form(m) if m is not None else None

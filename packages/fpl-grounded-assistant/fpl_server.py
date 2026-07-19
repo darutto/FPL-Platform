@@ -859,6 +859,8 @@ def _injury_list_meta_dict(il: Any) -> dict[str, Any]:
                 "position":          e.position,
                 "status_label":      e.status_label,
                 "chance_of_playing": e.chance_of_playing,
+                "news":              e.news,
+                "news_added":        e.news_added,
             }
             for e in lst
         ]

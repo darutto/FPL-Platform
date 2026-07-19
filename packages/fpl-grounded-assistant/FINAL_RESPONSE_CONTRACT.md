@@ -643,12 +643,34 @@ multi-intent sub-responses all carry it identically.
 | `team_schedule` | average FDR over the horizon | one row per fixture; FDR as neutral text label |
 | `position_fixture_run` | — | one row per ranked team; FDR as neutral text label |
 | `current_gameweek` | gameweek number | — (no table) |
+| `injury_list` | — | one row per player (injured → doubtful → other); count pills |
 
-**Explicitly excluded** (return `None`): `injury_list` (UI reuses its injuries
-table), `transfer_suggestion` (bespoke card owned by another track), and every
-intent that already has a bespoke UI card (`captain_score`, `compare_players`,
-`rank_candidates`, `transfer_advice`, `chip_advice`, `player_fixture_run`,
-`differential_picks`, `fixture_outlook`, `zonal_opportunity`).
+**Explicitly excluded** (return `None`): `transfer_suggestion` (bespoke card
+owned by another track) and every intent that already has a bespoke UI card
+(`captain_score`, `compare_players`, `rank_candidates`, `transfer_advice`,
+`chip_advice`, `player_fixture_run`, `differential_picks`, `fixture_outlook`,
+`zonal_opportunity`).
+
+### `injury_list` card — UI adapter header contract
+
+The UI adapter re-maps the `injury_list` card's string rows back onto rich
+injury rows by **case-insensitive substring match on each column header
+(first match wins)**. The composer emits these exact headers, each containing
+exactly one keyword from the adapter's vocabulary:
+
+| Header (as emitted) | Adapter keyword | Cell value |
+|---------------------|-----------------|------------|
+| `JUGADOR` | `Jugador` | `web_name` |
+| `EQUIPO` | `Equipo` | `team_short` |
+| `POS` | `Pos` | `position` |
+| `ESTADO` | `Estado` | `status_label` |
+| `PROBABILIDAD %` | `%` / `Probabilidad` | `chance_of_playing` number string, or `—` when null |
+| `NOTICIA` | `Noticia` | `news` free-text (may be empty) |
+| `FECHA` | `Fecha` | `news_added` ISO-8601 string, or empty |
+
+`news` and `news_added` are sourced deterministically from the bootstrap
+element (surfaced through `get_injury_list` → `InjuryEntry.news` /
+`InjuryEntry.news_added`) — never from LLM text.
 
 ### `GenericCardMeta` block schema
 
