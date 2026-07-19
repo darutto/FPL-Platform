@@ -369,6 +369,7 @@ def to_ask_response(
         position_fixture_run=_to_dict(d.get("position_fixture_run")),
         transfer_suggestion=_to_dict(d.get("transfer_suggestion")),
         zonal_opportunity=_to_dict(d.get("zonal_opportunity")),  # T4b
+        generic_card=_to_dict(d.get("generic_card")),            # Track A: additive card
 
         # A1 (post-graduation): pure passthrough — adapter is still pure mapping; no transformation, no LLM.
         resource_rows=d.get("resource_rows"),

@@ -93,6 +93,7 @@ def get_injury_list(bootstrap: dict[str, Any]) -> dict[str, Any]:
 
     Each entry contains:
     ``web_name``, ``team_short``, ``position``, ``status_label``,
+    ``news`` (str, may be empty), ``news_added`` (ISO-8601 str or None), and
     ``chance_of_playing`` (int or None for doubtful players only)
     """
     teams_map: dict[int, str] = {
@@ -116,6 +117,11 @@ def get_injury_list(bootstrap: dict[str, Any]) -> dict[str, Any]:
             "team_short":  _team_short(el, teams_map),
             "position":    pos,
             "status_label": _STATUS_LABEL.get(status, status.upper()),
+            # Deterministic availability context straight from the bootstrap
+            # element (never LLM-sourced).  news_added is an ISO-8601 string or
+            # None; news is the free-text FPL note (may be empty).
+            "news":        el.get("news") or "",
+            "news_added":  el.get("news_added"),
         }
 
         if status == "d":
