@@ -32,3 +32,8 @@ python -m football_intelligence.features validate --canonical-root data/football
 
 See `FEATURE_CONTRACT.md` for the exact 13-feature catalog, cutoff/window rules,
 missingness, provenance, atomic local layout, and analytical non-goals.
+# FI-5b(a) runner
+
+Run `python ../fpl-grounded-assistant/run_phase_fi5ba_tests.py` from this
+package's parent directory. The runner executes only the canonical scheduling
+context v2 tests and performs no network access.
