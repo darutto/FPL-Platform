@@ -258,6 +258,16 @@ export interface AskResponse {
   resource_rows: ResourceRows | null;
 
   /**
+   * Generic card payload (Track B) — non-null when outcome='ok' and the
+   * intent has no bespoke structured component. Renders via GenericCard,
+   * the fallback that closes the "plain text block" gap. Optional because
+   * pre-generic-card fixtures/serialisers omit it (same convention as
+   * zonal_opportunity/web_search). Can also appear on entries inside
+   * `sub_responses` (multi_intent nests full AskResponse objects).
+   */
+  generic_card?: GenericCardMeta | null;
+
+  /**
    * Web search payload — non-null when the premium search_web tool ran
    * end-to-end (outcome='ok'). Unverified AI synthesis over live web
    * sources — never implies "grounded" data. Parity with the WC chat's
@@ -565,6 +575,63 @@ export interface ResourceRows {
   columns: string[];
   rows: ResourceRankingRow[] | InjuryRow[];
   data_age?: Record<string, unknown> | null;
+}
+
+// ---------------------------------------------------------------------------
+// Generic card types (Track B — generic_card payload)
+// Fallback structured card for intents without a bespoke component.
+// ---------------------------------------------------------------------------
+
+/** Semantic tone used by generic_card pills/hero — maps to Bendito Fantasy
+ *  turquoise/gold/coral/gray via lib/theme GENERIC_TONE_CLASSES. */
+export type Tone = 'good' | 'warn' | 'bad' | 'neutral';
+
+/** Accent palette the backend can select for a generic_card. */
+export type GenericCardAccent =
+  | 'turquoise'
+  | 'cyan'
+  | 'coral'
+  | 'gold'
+  | 'purple'
+  | 'gray';
+
+/** Big Archivo Black hero stat — optional single headline number. */
+export interface GenericCardHero {
+  value: string;
+  label: string;
+  tone: Tone | null;
+}
+
+/** One tinted pill in the title row. */
+export interface GenericCardPill {
+  label: string;
+  tone: Tone;
+}
+
+/** One CardTable column descriptor. */
+export interface GenericCardColumn {
+  header: string;
+  align: 'left' | 'right';
+  kind: 'text' | 'mono' | 'badge';
+}
+
+/**
+ * generic_card field — non-null when outcome='ok' and the intent has no
+ * bespoke structured component (see AskResponse.generic_card).
+ *
+ * rows: each entry's length MUST equal columns.length (backend-enforced;
+ * the UI does not validate this at runtime — CardTable renders defensively
+ * by index and drops cells past columns.length).
+ */
+export interface GenericCardMeta {
+  accent: GenericCardAccent;
+  title: string;
+  subtitle: string | null;
+  hero: GenericCardHero | null;
+  pills: GenericCardPill[];
+  columns: GenericCardColumn[];
+  rows: string[][];
+  footer: string | null;
 }
 
 // ---------------------------------------------------------------------------

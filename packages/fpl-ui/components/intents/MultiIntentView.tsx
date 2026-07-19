@@ -27,6 +27,8 @@ import TransferCard from '@/components/intents/TransferCard';
 import ChipCard from '@/components/intents/ChipCard';
 import FixtureRunTable from '@/components/intents/FixtureRunTable';
 import DifferentialTable from '@/components/intents/DifferentialTable';
+import GenericCard from '@/components/intents/GenericCard';
+import InjuryListTable from '@/components/intents/InjuryListTable';
 
 interface Props {
   sub_responses: AskResponse[];
@@ -81,6 +83,12 @@ function renderSubView(
   }
   if (view === 'differential' && response.differential != null) {
     return <DifferentialTable data={response.differential} />;
+  }
+  if (view === 'generic_injuries' && response.generic_card != null) {
+    return <InjuryListTable data={response.generic_card} />;
+  }
+  if (view === 'generic' && response.generic_card != null) {
+    return <GenericCard data={response.generic_card} />;
   }
   return null;
 }

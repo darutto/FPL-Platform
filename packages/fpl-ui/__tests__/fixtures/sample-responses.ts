@@ -527,3 +527,130 @@ export const multiIntentEmptySubsResponse: AskResponse = {
   ...multiIntentOkResponse,
   sub_responses: [],
 };
+
+// ---------------------------------------------------------------------------
+// generic_card fixtures (Track B) — price_changes-style fallback card
+// ---------------------------------------------------------------------------
+
+/** price_changes OK — full generic_card: hero + pills + table + footer */
+export const genericCardOkResponse: AskResponse = {
+  final_text: 'Estos son los mayores cambios de precio hoy.',
+  outcome: 'ok',
+  supported: true,
+  intent: 'price_changes',
+  review_passed: true,
+  llm_used: false,
+  captain: null,
+  captain_ranking: null,
+  comparison: null,
+  transfer: null,
+  chip: null,
+  fixture_run: null,
+  differential: null,
+  fixture_outlook: null,
+  sub_responses: null,
+  orch_outcome: null,
+  degraded: false,
+  resource_rows: null,
+  generic_card: {
+    accent: 'gold',
+    title: 'Cambios de precio',
+    subtitle: 'Actualizado hoy a las 02:00',
+    hero: { value: '12', label: 'Jugadores subieron de precio', tone: 'good' },
+    pills: [
+      { label: '8 suben', tone: 'good' },
+      { label: '4 bajan', tone: 'bad' },
+    ],
+    columns: [
+      { header: 'Jugador', align: 'left', kind: 'text' },
+      { header: 'Equipo', align: 'left', kind: 'text' },
+      { header: 'Cambio', align: 'right', kind: 'mono' },
+    ],
+    rows: [
+      ['Haaland', 'MCI', '+0.1'],
+      ['Salah', 'LIV', '+0.1'],
+      ['Rashford', 'MUN', '-0.1'],
+    ],
+    footer: 'Los precios pueden cambiar hasta la medianoche.',
+  },
+};
+
+/** generic_card OK — minimal: title only, no hero/pills/table/footer */
+export const genericCardMinimalResponse: AskResponse = {
+  ...genericCardOkResponse,
+  generic_card: {
+    accent: 'gray',
+    title: 'Sin datos adicionales',
+    subtitle: null,
+    hero: null,
+    pills: [],
+    columns: [],
+    rows: [],
+    footer: null,
+  },
+};
+
+/** generic_card OK — hero with no tone (defaults to neutral/white text) */
+export const genericCardNoHeroToneResponse: AskResponse = {
+  ...genericCardOkResponse,
+  generic_card: {
+    ...genericCardOkResponse.generic_card!,
+    hero: { value: '5', label: 'Jornada actual', tone: null },
+  },
+};
+
+/** injury_list OK — routes to InjuryListTable (generic_card adapter) */
+export const injuryListGenericResponse: AskResponse = {
+  final_text: 'Estas son las lesiones más recientes.',
+  outcome: 'ok',
+  supported: true,
+  intent: 'injury_list',
+  review_passed: true,
+  llm_used: false,
+  captain: null,
+  captain_ranking: null,
+  comparison: null,
+  transfer: null,
+  chip: null,
+  fixture_run: null,
+  differential: null,
+  fixture_outlook: null,
+  sub_responses: null,
+  orch_outcome: null,
+  degraded: false,
+  resource_rows: null,
+  generic_card: {
+    accent: 'coral',
+    title: 'Lesiones',
+    subtitle: null,
+    hero: null,
+    pills: [],
+    columns: [
+      { header: 'Jugador', align: 'left', kind: 'text' },
+      { header: 'Equipo', align: 'left', kind: 'text' },
+      { header: 'Pos', align: 'left', kind: 'text' },
+      { header: 'Estado', align: 'left', kind: 'badge' },
+      { header: '%', align: 'right', kind: 'text' },
+      { header: 'Noticia', align: 'left', kind: 'text' },
+      { header: 'Fecha', align: 'left', kind: 'text' },
+    ],
+    rows: [
+      ['Saka', 'ARS', 'MID', 'Duda', '75', 'Molestia en el tobillo', '2026-07-15T00:00:00Z'],
+      ['Isak', 'NEW', 'FWD', 'Lesionado', '0', 'Rotura muscular, baja varias semanas', '2026-07-10T00:00:00Z'],
+    ],
+    footer: null,
+  },
+};
+
+/**
+ * injury_list OK — generic_card present but empty rows: the injury_list
+ * special-case requires non-empty rows, so this falls through to the plain
+ * 'generic' view (generic_card is still non-null) rather than 'generic_injuries'.
+ */
+export const injuryListGenericEmptyResponse: AskResponse = {
+  ...injuryListGenericResponse,
+  generic_card: {
+    ...injuryListGenericResponse.generic_card!,
+    rows: [],
+  },
+};

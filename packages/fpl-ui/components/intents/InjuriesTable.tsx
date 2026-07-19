@@ -34,7 +34,7 @@ export default function InjuriesTable({ data }: Props) {
       ) : (
         <div>
           {rows.map((row, idx) => (
-            <InjuryRow key={`${row.web_name}-${idx}`} row={row} banded={idx % 2 === 0} />
+            <InjuryRowItem key={`${row.web_name}-${idx}`} row={row} banded={idx % 2 === 0} />
           ))}
         </div>
       )}
@@ -42,7 +42,12 @@ export default function InjuriesTable({ data }: Props) {
   );
 }
 
-function InjuryRow({ row, banded }: { row: InjuryRow; banded: boolean }) {
+/**
+ * Exported so other card components can reuse the same row treatment for
+ * injury-shaped data outside the @injuries resource path (e.g. GenericCard's
+ * InjuryListTable adapter for the injury_list intent).
+ */
+export function InjuryRowItem({ row, banded }: { row: InjuryRow; banded: boolean }) {
   const { web_name, team_short, position, status_label, chance_of_playing, news, news_added } = row;
   const { className: badgeClass, label: badgeLabel } = resolveStatusBadge(status_label);
   const chanceText = chance_of_playing != null ? `${chance_of_playing}%` : '—';
@@ -83,7 +88,7 @@ function InjuryRow({ row, banded }: { row: InjuryRow; banded: boolean }) {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function resolveStatusBadge(statusLabel: string): { className: string; label: string } {
+export function resolveStatusBadge(statusLabel: string): { className: string; label: string } {
   const lower = statusLabel.toLowerCase();
   if (lower.includes('injur') || lower.includes('suspend') || lower.includes('unavailable')) {
     return { className: STATUS_TONE_CLASSES.bad, label: statusLabel };
@@ -102,7 +107,7 @@ function resolveStatusBadge(statusLabel: string): { className: string; label: st
  * Formats an ISO date string as a simple relative string in Spanish.
  * Falls back to the raw string if parsing fails.
  */
-function formatRelativeDate(isoString: string): string {
+export function formatRelativeDate(isoString: string): string {
   try {
     const date = new Date(isoString);
     if (isNaN(date.getTime())) return isoString;
