@@ -1,5 +1,5 @@
 /**
- * ComparisonCard — structured rendering for compare_players OK turns.
+ * ComparisonCard — rich "Hi-Fi" rendering for compare_players OK turns.
  *
  * Rendered beneath final_text when:
  *   response.outcome     === 'ok'
@@ -9,96 +9,107 @@
  * Consumes from ComparisonMeta (stable conditional fields only):
  *   winner, margin, label, reasons, player_a, player_b
  *
- * player_a / player_b may be null (legacy construction).
- * When null, only the summary row is shown.
+ * Shape (design handoff — CompareCard prototype):
+ *   - uppercase micro-label + margin pill (MARGIN_CONFIG)
+ *   - verdict headline "La mejor selección es {winner}." (or "Empate técnico.")
+ *   - side-by-side OptionCols; the winner gets a PICK tab + big Archivo Black
+ *     captain_score (accent, ~30px); the loser a smaller muted number (~22px)
+ *   - "{winner} lidera por {margin} pts" lead strip
+ *   - reasons ≤3, each line-clamped
+ *
+ * All verdict wording lives in lib/copy.ts (no-imperative rule). All numbers
+ * come from metadata — nothing is invented in the UI.
+ *
+ * player_a / player_b may be null (legacy construction). When null, only the
+ * verdict + lead + reasons are shown (summary-only fallback).
  */
 import type { ComparisonMeta, ComparisonPlayerContext } from '@/lib/types';
 import { MARGIN_CONFIG, PILL_BASE, CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
+import { COMPARISON_LABEL, comparisonVerdict, comparisonLead, UNIT_CAPTAIN_PTS } from '@/lib/copy';
 import { FingerprintWaves } from './CardOrnaments';
 
 interface Props {
   data: ComparisonMeta;
 }
 
+const ACCENT = 'cyan' as const;
+
 export default function ComparisonCard({ data }: Props) {
   const { winner, margin, label, reasons, player_a, player_b } = data;
   const { text: labelText, pillClass } = MARGIN_CONFIG[label] ?? MARGIN_CONFIG.moderate;
+  const topReasons = reasons.slice(0, 3);
 
   return (
-    <div className={`mt-3 text-sm ${CARD_BASE} ${CARD_ACCENT.cyan.border}`}>
+    <div className={`mt-3 text-sm ${CARD_BASE} ${CARD_ACCENT[ACCENT].border}`}>
       <FingerprintWaves color={ACCENT_HEX.cyan} corner="br" />
       <div className="relative z-10 p-4 space-y-3">
-        {/* Header */}
+        {/* Header — micro-label + margin pill */}
         <div className="flex items-center justify-between gap-2">
           <span className="text-xs font-extrabold text-bf-cyan uppercase tracking-wide">
-            Comparación
+            {COMPARISON_LABEL}
           </span>
-          <span className={`${PILL_BASE} ${pillClass}`}>
-            Diferencia {labelText}
-          </span>
+          <span className={`${PILL_BASE} ${pillClass}`}>Diferencia {labelText}</span>
         </div>
 
-        {/* Player row */}
+        {/* Verdict headline */}
+        <p className="text-lg font-extrabold leading-tight text-white">
+          {winner != null ? (
+            <>
+              La mejor selección es <span className="text-bf-turquoise">{winner}</span>.
+            </>
+          ) : (
+            'Empate técnico.'
+          )}
+        </p>
+
+        {/* Side-by-side OptionCols */}
         {player_a && player_b && (
-          <PlayerRow
-            playerA={player_a}
-            playerB={player_b}
-            winner={winner}
-          />
+          <div className="grid grid-cols-2 gap-2.5">
+            <OptionCol player={player_a} isWinner={winner === player_a.web_name} />
+            <OptionCol player={player_b} isWinner={winner === player_b.web_name} />
+          </div>
         )}
 
-        {/* Winner summary */}
-        <div className="text-xs text-bf-text/80">
-          {winner != null ? (
-            <span className="inline-flex items-center gap-1.5">
-              <span aria-hidden="true" className="inline-block w-0 h-0 border-l-[4px] border-r-[4px] border-b-[7px] border-l-transparent border-r-transparent border-b-bf-turquoise" />
-              <span className="text-white font-bold">{winner}</span>
-              {' '}lidera por{' '}
-              <span className="font-display tracking-tighter text-bf-turquoise">{margin.toFixed(1)}</span>
-              {' '}puntos
+        {/* Lead strip */}
+        {winner != null && (
+          <div className="flex items-center gap-1.5 text-xs text-bf-text/80">
+            <span
+              aria-hidden="true"
+              className="inline-block h-0 w-0 border-l-[4px] border-r-[4px] border-b-[7px] border-l-transparent border-r-transparent border-b-bf-turquoise"
+            />
+            <span>
+              <span className="font-bold text-white">{winner}</span> lidera por{' '}
+              <span className="font-display tracking-tighter text-bf-turquoise">
+                {margin.toFixed(1)}
+              </span>{' '}
+              pts
             </span>
-          ) : (
-            <span className="text-bf-gray">Empate — misma puntuación</span>
-          )}
-        </div>
-
-        {/* Reasons */}
-        {reasons.length > 0 && (
-          <div className="space-y-0.5">
-            <p className="text-xs text-bf-gray">Ventajas:</p>
-            <ul className="space-y-0.5">
-              {reasons.map((reason, i) => (
-                <li key={i} className="text-xs text-bf-text/80 flex items-center gap-1.5">
-                  <span aria-hidden="true" className="inline-block w-0 h-0 border-l-[4px] border-r-[4px] border-b-[7px] border-l-transparent border-r-transparent border-b-bf-cyan" />
-                  {reason}
-                </li>
-              ))}
-            </ul>
           </div>
+        )}
+
+        {/* Reasons — max 3, line-clamped */}
+        {topReasons.length > 0 && (
+          <ul className="space-y-0.5">
+            {topReasons.map((reason, i) => (
+              <li
+                key={i}
+                className="flex items-start gap-1.5 text-xs text-bf-text/80"
+              >
+                <span
+                  aria-hidden="true"
+                  className="mt-1 inline-block h-0 w-0 shrink-0 border-l-[4px] border-r-[4px] border-b-[7px] border-l-transparent border-r-transparent border-b-bf-cyan"
+                />
+                <span className="line-clamp-1">{reason}</span>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
     </div>
   );
 }
 
-function PlayerRow({
-  playerA,
-  playerB,
-  winner,
-}: {
-  playerA: ComparisonPlayerContext;
-  playerB: ComparisonPlayerContext;
-  winner: string | null;
-}) {
-  return (
-    <div className="grid grid-cols-2 gap-3">
-      <PlayerCell player={playerA} isWinner={winner === playerA.web_name} />
-      <PlayerCell player={playerB} isWinner={winner === playerB.web_name} />
-    </div>
-  );
-}
-
-function PlayerCell({
+function OptionCol({
   player,
   isWinner,
 }: {
@@ -107,24 +118,46 @@ function PlayerCell({
 }) {
   return (
     <div
-      className={`rounded-lg p-2.5 border ${
+      className={`relative min-w-0 overflow-hidden rounded-lg border p-2.5 ${
         isWinner
-          ? 'bg-bf-turquoise/10 border-bf-turquoise/40'
-          : 'bg-white/[0.04] border-white/10'
+          ? 'border-bf-turquoise/40 bg-bf-turquoise/10'
+          : 'border-white/10 bg-white/[0.04]'
       }`}
     >
-      <div className="flex items-center justify-between gap-1">
-        <span className={`font-extrabold ${isWinner ? 'text-white' : 'text-bf-text/70'}`}>
-          {player.web_name}
+      {isWinner && (
+        <span className="absolute right-0 top-0 rounded-bl-lg bg-bf-turquoise px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-bf-ink">
+          Pick
         </span>
-        {isWinner && (
-          <span className="text-[10px] text-bf-turquoise">✓</span>
-        )}
+      )}
+      <div className={`truncate font-extrabold ${isWinner ? 'text-white' : 'text-bf-text/70'}`}>
+        {player.web_name}
       </div>
-      <div className="text-xs text-bf-gray">{player.position}</div>
-      <div className={`mt-1 font-display tracking-tighter text-lg leading-none ${isWinner ? 'text-bf-turquoise' : 'text-bf-gray'}`}>
+      <div className="text-[11px] text-bf-gray">{playerContext(player)}</div>
+      <div
+        className={`mt-1 font-display leading-none tracking-tighter ${
+          isWinner ? 'text-bf-turquoise' : 'text-bf-gray'
+        }`}
+        style={{ fontSize: isWinner ? 30 : 22 }}
+      >
         {player.captain_score.toFixed(1)}
+      </div>
+      <div className="text-[9px] font-bold uppercase tracking-wide text-bf-gray">
+        {UNIT_CAPTAIN_PTS}
       </div>
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Exported pure helpers — tested in comparison-card tests.
+// ---------------------------------------------------------------------------
+
+/** Position + venue micro-row, e.g. "FWD · Local" / "MID · Visitante" / "FWD". */
+export function playerContext(player: ComparisonPlayerContext): string {
+  if (player.is_home === true) return `${player.position} · Local`;
+  if (player.is_home === false) return `${player.position} · Visitante`;
+  return player.position;
+}
+
+// Re-export copy helpers so tests can assert wording via one surface.
+export { comparisonVerdict, comparisonLead };

@@ -234,6 +234,12 @@ export interface AskResponse {
   fixture_run: FixtureRunMeta | null;
   differential: DifferentialPicksMeta | null;
   /**
+   * transfer_suggestion field — non-null when intent=transfer_suggestion AND
+   * outcome=ok (Phase 2.6h). Optional because pre-2.6h fixtures/serialisers
+   * omit it (same convention as zonal_opportunity / fixture_outlook).
+   */
+  transfer_suggestion?: TransferSuggestionMeta | null;
+  /**
    * fixture_outlook field — non-null when intent=fixture_outlook AND
    * outcome=ok (Track D/FI4). Optional because pre-FI4 fixtures/serialisers
    * omit it (same convention as zonal_opportunity).
@@ -342,6 +348,40 @@ export interface TransferMeta {
   reasons: string[];
   budget_constraint: boolean;
   hit_warning: boolean;
+}
+
+/**
+ * One pick in a transfer_suggestion result (Phase 2.6h).
+ * Source: fpl_grounded_assistant/final_response.py → TransferSuggestionEntry.
+ */
+export interface TransferSuggestionEntry {
+  rank: number;
+  web_name: string;
+  team_short: string;
+  position: string;
+  /** now_cost in tenths of £ (e.g. 75 → £7.5m). */
+  now_cost: number;
+  /** now_cost pre-divided to £m (e.g. 7.5). */
+  now_cost_m: number;
+  form: number;
+  avg_fdr: number;
+  difficulty_label: string;
+  composite_score: number;
+  ownership: number;
+}
+
+/** transfer_suggestion field — non-null when intent=transfer_suggestion AND outcome=ok */
+export interface TransferSuggestionMeta {
+  /** Canonical FPL position code or "ALL". */
+  position: string;
+  position_label: string;
+  /** null when no club filter was applied (Phase 2.6i). */
+  team_short: string | null;
+  team_name: string | null;
+  max_price: number | null;
+  horizon: number;
+  top_n: number;
+  picks: TransferSuggestionEntry[];
 }
 
 export type ChipRecommendation =

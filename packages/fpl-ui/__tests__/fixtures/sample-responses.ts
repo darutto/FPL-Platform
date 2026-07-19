@@ -479,6 +479,93 @@ export const differentialEmptyResponse: AskResponse = {
   },
 };
 
+/** transfer_suggestion OK — TransferSuggestionCard should render (Phase 2.6h) */
+export const transferSuggestionOkResponse: AskResponse = {
+  final_text: 'Los mejores objetivos de transferencia para medio son Palmer, Saka y Gordon.',
+  outcome: 'ok',
+  supported: true,
+  intent: 'transfer_suggestion',
+  review_passed: true,
+  llm_used: false,
+  captain: null,
+  captain_ranking: null,
+  comparison: null,
+  transfer: null,
+  chip: null,
+  fixture_run: null,
+  differential: null,
+  fixture_outlook: null,
+  transfer_suggestion: {
+    position: 'MID',
+    position_label: 'Mediocampistas',
+    team_short: null,
+    team_name: null,
+    max_price: 9.5,
+    horizon: 5,
+    top_n: 3,
+    picks: [
+      {
+        rank: 1,
+        web_name: 'Palmer',
+        team_short: 'CHE',
+        position: 'MID',
+        now_cost: 85,
+        now_cost_m: 8.5,
+        form: 7.4,
+        avg_fdr: 2.4,
+        difficulty_label: 'fácil',
+        composite_score: 82.1,
+        ownership: 42.3,
+      },
+      {
+        rank: 2,
+        web_name: 'Saka',
+        team_short: 'ARS',
+        position: 'MID',
+        now_cost: 90,
+        now_cost_m: 9.0,
+        form: 6.8,
+        avg_fdr: 2.8,
+        difficulty_label: 'moderado',
+        composite_score: 78.5,
+        ownership: 35.1,
+      },
+      {
+        rank: 3,
+        web_name: 'Gordon',
+        team_short: 'NEW',
+        position: 'MID',
+        now_cost: 75,
+        now_cost_m: 7.5,
+        form: 6.1,
+        avg_fdr: 3.0,
+        difficulty_label: 'moderado',
+        composite_score: 71.9,
+        ownership: 18.7,
+      },
+    ],
+  },
+  sub_responses: null,
+  orch_outcome: null,
+  degraded: false,
+  resource_rows: null,
+};
+
+/** transfer_suggestion OK — empty picks (edge case: should fall through to text-only) */
+export const transferSuggestionEmptyResponse: AskResponse = {
+  ...transferSuggestionOkResponse,
+  transfer_suggestion: {
+    position: 'MID',
+    position_label: 'Mediocampistas',
+    team_short: null,
+    team_name: null,
+    max_price: null,
+    horizon: 5,
+    top_n: 0,
+    picks: [],
+  },
+};
+
 /**
  * multi_intent OK — two sub-responses (captain_score + transfer_advice).
  * MultiIntentView should render with two stacked sub-cards.
