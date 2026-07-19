@@ -34,6 +34,7 @@ import ChipCard from '@/components/intents/ChipCard';
 import FixtureRunTable from '@/components/intents/FixtureRunTable';
 import FixtureOutlookCard from '@/components/intents/FixtureOutlookCard';
 import DifferentialTable from '@/components/intents/DifferentialTable';
+import TransferSuggestionCard from '@/components/intents/TransferSuggestionCard';
 import DefensiveZonesCard from '@/components/intents/DefensiveZonesCard';
 import MultiIntentView from '@/components/intents/MultiIntentView';
 import ResourceRankingTable from '@/components/intents/ResourceRankingTable';
@@ -72,6 +73,9 @@ export default function IntentRenderer({ response }: Props) {
   }
   if (view === 'differential' && response.differential != null) {
     return <DifferentialTable data={response.differential} />;
+  }
+  if (view === 'transfer_suggestion' && response.transfer_suggestion != null) {
+    return <TransferSuggestionCard data={response.transfer_suggestion} />;
   }
   if (view === 'multi_intent' && response.sub_responses != null) {
     return <MultiIntentView sub_responses={response.sub_responses} />;

@@ -33,6 +33,8 @@ import {
   fixtureRunEmptyResponse,
   differentialOkResponse,
   differentialEmptyResponse,
+  transferSuggestionOkResponse,
+  transferSuggestionEmptyResponse,
   multiIntentOkResponse,
   multiIntentNullSubsResponse,
   multiIntentEmptySubsResponse,
@@ -104,6 +106,10 @@ describe('selectIntentView — returns structured view', () => {
 
   test('differential_picks OK non-empty picks → "differential"', () => {
     expect(selectIntentView(differentialOkResponse)).toBe('differential');
+  });
+
+  test('transfer_suggestion OK non-empty picks → "transfer_suggestion"', () => {
+    expect(selectIntentView(transferSuggestionOkResponse)).toBe('transfer_suggestion');
   });
 
   test('multi_intent OK non-empty sub_responses → "multi_intent"', () => {
@@ -277,6 +283,16 @@ describe('selectIntentView — null-safety on conditional fields', () => {
     expect(selectIntentView(differentialEmptyResponse)).toBeNull();
   });
 
+  test('transfer_suggestion OK, transfer_suggestion null → null', () => {
+    expect(
+      selectIntentView({ ...transferSuggestionOkResponse, transfer_suggestion: null }),
+    ).toBeNull();
+  });
+
+  test('transfer_suggestion OK, picks empty array → null', () => {
+    expect(selectIntentView(transferSuggestionEmptyResponse)).toBeNull();
+  });
+
   test('multi_intent OK, sub_responses null → null', () => {
     expect(selectIntentView(multiIntentNullSubsResponse)).toBeNull();
   });
@@ -337,6 +353,7 @@ describe('sample responses — data contract', () => {
     fixtureRunEmptyResponse,
     differentialOkResponse,
     differentialEmptyResponse,
+    transferSuggestionOkResponse,
     multiIntentOkResponse,
     multiIntentNullSubsResponse,
     multiIntentEmptySubsResponse,

@@ -44,6 +44,7 @@ export type IntentView =
   | 'fixture_run'
   | 'fixture_outlook'
   | 'differential'
+  | 'transfer_suggestion'
   | 'multi_intent'
   | 'defensive_zones'
   | 'resource_ranking'
@@ -108,6 +109,13 @@ export function selectIntentView(response: AskResponse): IntentView | null {
     response.fixture_outlook.teams.length > 0
   ) {
     return 'fixture_outlook';
+  }
+  if (
+    response.intent === 'transfer_suggestion' &&
+    response.transfer_suggestion != null &&
+    response.transfer_suggestion.picks.length > 0
+  ) {
+    return 'transfer_suggestion';
   }
   if (
     response.intent === 'multi_intent' &&
