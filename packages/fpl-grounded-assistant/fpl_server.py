@@ -314,6 +314,9 @@ class AskResponse(BaseModel):
     position_fixture_run: dict[str, Any] | None = None    # Phase 2.6e.4
     transfer_suggestion:  dict[str, Any] | None = None    # Phase 2.6h
     zonal_opportunity:    dict[str, Any] | None = None    # T4b: defensive zones card
+    # Track A: additive renderable card composed only from deterministic metadata
+    # (never LLM text). Non-null for composer-backed plain-text intents on OK turns.
+    generic_card:         dict[str, Any] | None = None
     # Phase A1 (post-graduation): full ResourceListResult dict for @resource turns; null for all other intents.
     resource_rows:        dict[str, Any] | None = None
     # Phase 2.7d: routing audit fields
@@ -378,6 +381,8 @@ class SessionAskResponse(BaseModel):
     position_fixture_run: dict[str, Any] | None = None    # Phase 2.6e.4
     transfer_suggestion:  dict[str, Any] | None = None    # Phase 2.6h
     zonal_opportunity:    dict[str, Any] | None = None    # T4b: defensive zones card
+    # Track A: additive renderable card composed only from deterministic metadata.
+    generic_card:         dict[str, Any] | None = None
     # Phase A1 (post-graduation): full ResourceListResult dict for @resource turns; null for all other intents.
     resource_rows:        dict[str, Any] | None = None
     # Phase 2.7d: routing audit fields
@@ -1038,6 +1043,16 @@ def _team_schedule_meta_dict(ts: Any) -> dict[str, Any]:
     }
 
 
+def _generic_card_meta_dict(card: Any) -> dict[str, Any]:
+    """Serialise a ``GenericCardMeta`` instance to a JSON-safe dict.  Track A.
+
+    Delegates to the single-source serializer in ``generic_card`` so the wire
+    shape is identical across the /ask (adapter) and /session/{id}/ask paths.
+    """
+    from fpl_grounded_assistant.generic_card import generic_card_to_dict  # noqa: PLC0415
+    return generic_card_to_dict(card)  # type: ignore[return-value]
+
+
 def _fixture_run_meta_dict(fixture_run: Any) -> dict[str, Any]:
     """Serialise a ``FixtureRunMeta`` instance to a JSON-safe dict.  Phase 7h."""
     ctx = fixture_run.team_fdr_context
@@ -1096,6 +1111,8 @@ def _sub_response_dict(sr: Any) -> dict[str, Any]:
         d["fixture_run"] = _fixture_run_meta_dict(sr.fixture_run)
     if sr.differential is not None:                        # Phase 7g
         d["differential"] = _differential_meta_dict(sr.differential)
+    if getattr(sr, "generic_card", None) is not None:      # Track A
+        d["generic_card"] = _generic_card_meta_dict(sr.generic_card)
     return d
 
 
@@ -2056,6 +2073,7 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         position_fixture_run=sess_pos_fixture_run_bundle,
         transfer_suggestion=_transfer_suggestion_meta_dict(r.transfer_suggestion) if r.transfer_suggestion is not None else None,
         zonal_opportunity=_zonal_opportunity_meta_dict(r.zonal_opportunity) if r.zonal_opportunity is not None else None,  # T4b
+        generic_card=_generic_card_meta_dict(r.generic_card) if r.generic_card is not None else None,  # Track A
         # Phase 2.7d: routing audit fields
         route_source=r.route_source,
         classifier_confidence=r.classifier_confidence,

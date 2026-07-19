@@ -134,6 +134,15 @@ from .final_response import (
     Exploiter,
     DefensiveZonesMeta,
 )
+from .generic_card import (
+    # Track A: additive renderable generic card composed from deterministic metadata
+    GenericCardMeta,
+    HeroStat,
+    Pill,
+    Column,
+    build_generic_card,
+    generic_card_to_dict,
+)
 from .final_response_fixtures import (
     # Phase 3d: final response contract fixtures
     FinalResponseFixture,
@@ -353,6 +362,12 @@ __all__ = [
     "ZoneCell",                 # T4b
     "Exploiter",                # T4b
     "DefensiveZonesMeta",       # T4b
+    "GenericCardMeta",          # Track A
+    "HeroStat",                 # Track A
+    "Pill",                     # Track A
+    "Column",                   # Track A
+    "build_generic_card",       # Track A
+    "generic_card_to_dict",     # Track A
     # Phase 3a: LLM layer
     "LLMResponse",
     "SYSTEM_PROMPT",

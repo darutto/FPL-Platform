@@ -76,6 +76,7 @@ from . import telemetry as _telemetry  # Phase 2.7g: in-process telemetry (never
 from .dispatcher import OUTCOME_OK, OUTCOME_NEEDS_CLARIFICATION, INTENT_COMPARE_PLAYERS, INTENT_CAPTAIN_SCORE, INTENT_RANK_CANDIDATES, INTENT_MULTI_INTENT, INTENT_TRANSFER_ADVICE, INTENT_CHIP_ADVICE, INTENT_PLAYER_FIXTURE_RUN, INTENT_DIFFERENTIAL_PICKS, INTENT_PLAYER_FORM, INTENT_INJURY_LIST, INTENT_PRICE_CHANGES, INTENT_TEAM_FIXTURE_CALENDAR, INTENT_TEAM_SCHEDULE, INTENT_POSITION_FIXTURE_RUN, INTENT_TRANSFER_SUGGESTION, INTENT_FIXTURE_OUTLOOK, INTENT_ZONAL_OPPORTUNITY  # noqa: F401 — re-exported
 from .dispatcher import _TOOL_TO_INTENT, INTENT_UNSUPPORTED  # _orch_result_to_final_response: tool->intent map
 from .multi_intent import detect_multi_intent
+from .generic_card import GenericCardMeta, build_generic_card  # Track A: additive generic card
 from .llm_layer import DEFAULT_MODEL
 from .llm_review import ask_llm_safe
 from .orchestrator import (  # _orch_result_to_final_response: result type + OK constant
@@ -1076,6 +1077,10 @@ class FinalResponse:
     # Phase 2.7f: clarification policy layer (additive, safe default)
     clarification_asked:   bool                            = field(default=False)  # True when outcome==needs_clarification
     total_tokens:           int                             = field(default=0)        # Grad-D
+    # Track A: additive renderable generic card composed only from deterministic
+    # metadata (never LLM text).  Populated for composer-backed plain-text
+    # intents on OK turns; None otherwise.
+    generic_card:           "GenericCardMeta | None"        = field(default=None)
 
 
 # ---------------------------------------------------------------------------
@@ -1907,7 +1912,7 @@ def _extract_structured_meta(
         elif intent == INTENT_ZONAL_OPPORTUNITY:
             zonal_opportunity_meta = _extract_zonal_opportunity_meta(raw_output)
 
-    return {
+    result: "dict[str, Any]" = {
         "comparison":           comparison,
         "captain":              captain,
         "captain_ranking":      captain_ranking,
@@ -1925,6 +1930,11 @@ def _extract_structured_meta(
         "fixture_outlook":      fixture_outlook_meta,
         "zonal_opportunity":    zonal_opportunity_meta,
     }
+    # Track A: additive renderable generic card, composed only from the
+    # deterministic metadata just built (never LLM text).  Returns None for
+    # non-ok outcomes, excluded intents, or missing metadata.
+    result["generic_card"] = build_generic_card(intent, result, raw_output, outcome)
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -2336,6 +2346,8 @@ def respond(
         route_conflict=dr.route_conflict,
         # Phase 2.7f: clarification policy layer
         clarification_asked=clarification_asked,
+        # Track A: additive renderable generic card (deterministic metadata only)
+        generic_card=_meta["generic_card"],
     )
     # Phase 2.7g: in-process telemetry — record after result is built, never raises
     try:

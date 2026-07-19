@@ -143,6 +143,7 @@ Frozen dataclass.
 | `fixture_run` | `FixtureRunMeta\|None` | **Stable (Phase 7h)** | Populated for `player_fixture_run` OK turns. `None` for all other intents and non-OK outcomes. Provides structured access to `web_name`, `team_short`, `position`, `horizon`, `current_gameweek`, `fixtures`. |
 | `differential` | `DifferentialPicksMeta\|None` | **Stable (Phase 7g)** | Populated for `differential_picks` OK turns. `None` for all other intents and non-OK outcomes. Provides structured access to `ownership_threshold`, `top_n`, `picks`. |
 | `orch_outcome` | `str\|None` | **Stable (Orch-4c)** | Orchestration audit field. `None` when orchestration was not attempted (orch flag OFF or `_multi_intent_depth > 0`). `"ok"` when orchestrator succeeded and its answer was used. One of six non-OK strings when orchestrator was attempted but fell back to the deterministic path. **Independent of `outcome`** — `outcome` always reflects the deterministic result, regardless of orch state. |
+| `generic_card` | `GenericCardMeta\|None` | **Stable (Track A)** | Additive renderable card payload for a curated set of intents that otherwise answer as plain text. Populated on OK turns for `player_form`, `price_changes`, `team_fixture_calendar`, `team_schedule`, `position_fixture_run`, and `current_gameweek`; `None` for all other intents and non-OK outcomes. **Composed only from already-built deterministic metadata — never from LLM text; the `llm_review` parity gate is untouched.** See the `generic_card` section below for the block schema. |
 
 ### Field shape stability commitment
 
@@ -610,6 +611,86 @@ if r.differential:
         print(p.captain_score, p.ownership, p.now_cost)
         # 1 Palmer CHE MID 55.0 3.5 60
         # 2 Mbeumo MUN FWD 38.0 8.2 75
+```
+
+---
+
+## `generic_card` — Additive Renderable Card (Track A)
+
+Frozen dataclass `GenericCardMeta`. Populated on `FinalResponse.generic_card`
+for a curated set of intents that historically answered as **plain text only**,
+so a UI can render a deterministic card instead of parsing free text. `None`
+for every other intent and for all non-OK outcomes.
+
+### Grounding invariant (non-negotiable)
+
+`generic_card` is **composed only from already-built deterministic metadata** —
+the same frozen `*Meta` dataclasses produced by `_extract_structured_meta`, or
+the raw deterministic tool output for intents with no metadata dataclass
+(`current_gameweek`). **No value ever comes from LLM-generated text.** The
+`llm_review` parity gate is not consulted and is entirely untouched by this
+feature. It is built inside `_extract_structured_meta` (gated on
+`outcome == "ok"`) so the deterministic path, the `ask_v2` path, and
+multi-intent sub-responses all carry it identically.
+
+### Which intents compose a card
+
+| Intent | Hero | Rows |
+|--------|------|------|
+| `player_form` | total points over the window | one mono row per gameweek |
+| `price_changes` | — | risers then fallers; signed `CAMBIO` cell; good/bad count pills |
+| `team_fixture_calendar` | — | one row per ranked team; FDR as neutral text label |
+| `team_schedule` | average FDR over the horizon | one row per fixture; FDR as neutral text label |
+| `position_fixture_run` | — | one row per ranked team; FDR as neutral text label |
+| `current_gameweek` | gameweek number | — (no table) |
+
+**Explicitly excluded** (return `None`): `injury_list` (UI reuses its injuries
+table), `transfer_suggestion` (bespoke card owned by another track), and every
+intent that already has a bespoke UI card (`captain_score`, `compare_players`,
+`rank_candidates`, `transfer_advice`, `chip_advice`, `player_fixture_run`,
+`differential_picks`, `fixture_outlook`, `zonal_opportunity`).
+
+### `GenericCardMeta` block schema
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `accent` | `str` | One of `turquoise`, `cyan`, `coral`, `gold`, `purple`, `gray`. |
+| `title` | `str` | Uppercase Spanish micro-label (e.g. `"FORMA RECIENTE"`, `"CAMBIOS DE PRECIO"`, `"CALENDARIO"`, `"JORNADA ACTUAL"`). |
+| `subtitle` | `str\|None` | Optional secondary label. |
+| `hero` | `HeroStat\|None` | `{value: str, label: str, tone: str\|None}` — a single prominent stat. |
+| `pills` | `tuple[Pill, ...]` | Each `{label: str, tone: good\|warn\|bad\|neutral}`. |
+| `columns` | `tuple[Column, ...]` | Each `{header: str, align: left\|right, kind: text\|mono\|badge}`. |
+| `rows` | `tuple[tuple[str, ...], ...]` | Each row has exactly `len(columns)` string cells. |
+| `footer` | `str\|None` | Optional footer note. |
+
+### Colours and copy
+
+Spanish-first titles/labels. FDR is surfaced as a neutral difficulty **text**
+label (`Muy favorable` / `Favorable` / `Media` / `Exigente` / `Muy exigente`) —
+colours are applied UI-side. No buy/sell imperatives appear anywhere.
+
+### Wire serialization
+
+Serialised via `generic_card_to_dict` (single source of truth, shared by the
+`/ask` adapter and `/session/{id}/ask` paths): `hero` → object or `null`,
+`pills`/`columns` → arrays of objects, `rows` → array of arrays of strings.
+Present as a key (JSON `null` when absent) on `AskResponse` and
+`SessionAskResponse`.
+
+### Deviation note — `current_gameweek` footer
+
+The spec suggested a deadline in the `current_gameweek` footer. The
+deterministic `get_current_gameweek` tool output is `{status, gameweek}` and
+carries **no deadline**, so `footer` is left `None` rather than sourced from
+LLM text (honouring the grounding invariant). A deadline can be added later if
+the tool output is enriched.
+
+```python
+r = respond("forma de Salah", bootstrap)
+if r.generic_card:
+    print(r.generic_card.title)             # "FORMA RECIENTE"
+    print(r.generic_card.hero.value)        # "27"  (total points over window)
+    print(r.generic_card.rows[0])           # ("GW26", "90", "1", "0", "2", "8")
 ```
 
 ---
