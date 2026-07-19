@@ -166,3 +166,25 @@ FI-5 is defined by `FEATURE_CONTRACT.md`. It consumes only a validated local
 `RuntimeBuildHandle`, generates immutable local feature builds, and preserves a
 strict pre-kickoff cutoff. It adds no runtime request computation, remote
 feature distribution, prediction, recommendation, tool, route, evidence, or UI.
+# FI-5b(a) canonical context v2
+
+Canonical v1 remains immutable and readable by its existing tooling. FI-5b(a)
+adds the separate `canonical-context-v2` build family and
+`_football_v2_latest.json` pointer. Its dataset catalog is `competitions`,
+`seasons`, `teams`, `fixtures`, `competition_memberships`,
+`fixture_schedule_snapshots`, and `team_standing_snapshots`.
+
+`competition_memberships` is the sole, storage-neutral authority for active
+competition-season teams. Its effective interval is `[effective_from_utc,
+effective_to_utc)`. Schedule selection is independently latest per fixture at
+`observed_at_utc < cutoff_utc`. Standings selection is the latest complete
+table `(competition_id, season_id, as_of_utc)` at `as_of_utc < cutoff_utc`; an
+incomplete table is skipped and timestamps are never mixed.
+
+Ranks use adjusted points, goal difference, goals scored, wins, then canonical
+team ID. Provider position is audit-only. Bands use
+`floor(4 * (rank - 1) / league_size)` with `top`, `upper_mid`, `lower_mid`, and
+`bottom`. Missing complete context returns an empty selection. Mock provenance
+is explicitly `mock_validated`; no live-provider transport exists in this
+slice. The independently executable gate is
+`python packages/fpl-grounded-assistant/run_phase_fi5ba_tests.py`.

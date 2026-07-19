@@ -1,0 +1,32 @@
+{
+  "version": "fi5ba-mock-v1",
+  "captured_at": "2026-07-01T00:00:00Z",
+  "canonical": {
+    "competitions": [{"competition_id":"comp_1","source_provider":"mock","source_timestamp":"2026-01-01T00:00:00Z","assumption_status":"mock_validated"}],
+    "seasons": [{"season_id":"season_1","competition_id":"comp_1","source_provider":"mock","source_timestamp":"2026-01-01T00:00:00Z","assumption_status":"mock_validated"}],
+    "teams": [
+      {"team_id":"team_a","source_provider":"mock","source_timestamp":"2026-01-01T00:00:00Z","assumption_status":"mock_validated"},
+      {"team_id":"team_b","source_provider":"mock","source_timestamp":"2026-01-01T00:00:00Z","assumption_status":"mock_validated"},
+      {"team_id":"team_c","source_provider":"mock","source_timestamp":"2026-01-01T00:00:00Z","assumption_status":"mock_validated"},
+      {"team_id":"team_d","source_provider":"mock","source_timestamp":"2026-01-01T00:00:00Z","assumption_status":"mock_validated"}
+    ],
+    "fixtures": [{"fixture_id":"fixture_1","competition_id":"comp_1","season_id":"season_1","home_team_id":"team_a","away_team_id":"team_b","competition_stage":"league","source_provider":"mock","source_timestamp":"2026-06-01T00:00:00Z","assumption_status":"mock_validated"}],
+    "competition_memberships": [
+      {"competition_id":"comp_1","season_id":"season_1","team_id":"team_a","effective_from_utc":"2026-01-01T00:00:00Z","effective_to_utc":null,"source_provider":"mock","source_timestamp":"2026-01-01T00:00:00Z","assumption_status":"mock_validated"},
+      {"competition_id":"comp_1","season_id":"season_1","team_id":"team_b","effective_from_utc":"2026-01-01T00:00:00Z","effective_to_utc":null,"source_provider":"mock","source_timestamp":"2026-01-01T00:00:00Z","assumption_status":"mock_validated"},
+      {"competition_id":"comp_1","season_id":"season_1","team_id":"team_c","effective_from_utc":"2026-01-01T00:00:00Z","effective_to_utc":null,"source_provider":"mock","source_timestamp":"2026-01-01T00:00:00Z","assumption_status":"mock_validated"},
+      {"competition_id":"comp_1","season_id":"season_1","team_id":"team_d","effective_from_utc":"2026-01-01T00:00:00Z","effective_to_utc":null,"source_provider":"mock","source_timestamp":"2026-01-01T00:00:00Z","assumption_status":"mock_validated"}
+    ],
+    "fixture_schedule_snapshots": [
+      {"fixture_id":"fixture_1","observed_at_utc":"2026-06-01T00:00:00Z","scheduled_kickoff_utc":"2026-07-10T15:00:00Z","status":"scheduled","competition_tier":"league","source_provider":"mock","source_timestamp":"2026-06-01T00:00:00Z","assumption_status":"mock_validated"},
+      {"fixture_id":"fixture_1","observed_at_utc":"2026-07-05T00:00:00Z","scheduled_kickoff_utc":"2026-07-17T15:00:00Z","status":"postponed","competition_tier":"league","source_provider":"mock","source_timestamp":"2026-07-05T00:00:00Z","assumption_status":"mock_validated"}
+    ],
+    "team_standing_snapshots": [
+      {"competition_id":"comp_1","season_id":"season_1","as_of_utc":"2026-06-01T00:00:00Z","team_id":"team_a","observed_position":2,"played":3,"wins":2,"draws":1,"losses":0,"goals_for":5,"goals_against":2,"goal_difference":3,"points_before_deduction":7,"points_deduction":0,"source_provider":"mock","source_timestamp":"2026-06-01T00:00:00Z","assumption_status":"mock_validated"},
+      {"competition_id":"comp_1","season_id":"season_1","as_of_utc":"2026-06-01T00:00:00Z","team_id":"team_b","observed_position":1,"played":3,"wins":2,"draws":1,"losses":0,"goals_for":6,"goals_against":3,"goal_difference":3,"points_before_deduction":7,"points_deduction":0,"source_provider":"mock","source_timestamp":"2026-06-01T00:00:00Z","assumption_status":"mock_validated"},
+      {"competition_id":"comp_1","season_id":"season_1","as_of_utc":"2026-06-01T00:00:00Z","team_id":"team_c","observed_position":3,"played":3,"wins":1,"draws":0,"losses":2,"goals_for":3,"goals_against":4,"goal_difference":-1,"points_before_deduction":3,"points_deduction":1,"source_provider":"mock","source_timestamp":"2026-06-01T00:00:00Z","assumption_status":"mock_validated"},
+      {"competition_id":"comp_1","season_id":"season_1","as_of_utc":"2026-06-01T00:00:00Z","team_id":"team_d","observed_position":4,"played":3,"wins":0,"draws":0,"losses":3,"goals_for":1,"goals_against":6,"goal_difference":-5,"points_before_deduction":0,"points_deduction":0,"source_provider":"mock","source_timestamp":"2026-06-01T00:00:00Z","assumption_status":"mock_validated"},
+      {"competition_id":"comp_1","season_id":"season_1","as_of_utc":"2026-06-20T00:00:00Z","team_id":"team_a","observed_position":1,"played":4,"wins":3,"draws":1,"losses":0,"goals_for":7,"goals_against":2,"goal_difference":5,"points_before_deduction":10,"points_deduction":0,"source_provider":"mock","source_timestamp":"2026-06-20T00:00:00Z","assumption_status":"mock_validated"}
+    ]
+  }
+}
