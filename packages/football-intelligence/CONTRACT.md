@@ -188,3 +188,14 @@ team ID. Provider position is audit-only. Bands use
 is explicitly `mock_validated`; no live-provider transport exists in this
 slice. The independently executable gate is
 `python packages/fpl-grounded-assistant/run_phase_fi5ba_tests.py`.
+
+# FI-5b(b) module-enablement features v2
+
+FI-5b(b) adds only the parallel, offline
+`module-enablement-features-v2` build family and
+`_features_v2_latest.json`. It binds validated governed squad/lineup history
+and validated canonical-context-v2 scheduling context, then emits normalized
+M1/M2/M3 sufficient statistics governed by `FEATURE_CONTRACT.md`. It adds no
+intelligence probability, expected minutes, role-change or fixture-priority
+decision, evidence, recommendation, runtime consumer, remote publication,
+tool, route, or UI behavior. Existing FI-5 v1 behavior and paths are unchanged.

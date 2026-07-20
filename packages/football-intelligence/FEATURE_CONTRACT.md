@@ -80,3 +80,81 @@ explicit canonical root and feature build selection. They are offline and do
 not publish remotely. The mock corpus is intentionally small; role mapping is a
 closed v1 table and unmatched canonical detailed positions remain null. FI-6
 intelligence modules and predictive interpretations are deferred.
+
+## FI-5b(b) feature contract v2
+
+FI-5b(b) is an additive, offline-only build family. It does not reinterpret or
+replace the v1 registry, datasets, validator, build path, or pointer. Registry
+`fi5-registry-v2`, engine `fi5-engine-v2`, manifest schema 2, and cutoff policy
+`strictly-before-kickoff-v2` are exact compatibility boundaries. V2 requires a
+validated canonical-v1 base build for governed squad/lineup history and a
+validated `canonical-context-v2` build (canonical schema 2, manifest schema 2)
+for as-known scheduling and standings. Both source build IDs and exact manifest
+hashes are bound. Neither source is inferred from aggregate v1 features or an
+unversioned “latest” fallback.
+The closed registry contains all 30 approved M1/M2/M3 fields with explicit
+grain, dtype, nullability, unit/vocabulary, source datasets, cutoff, window,
+minimum evidence, missingness, and consumer. Its stable ordered JSON has a
+SHA-256 hash pinned in every manifest; reordering or changing any contract field
+changes the hash.
+Each persisted row carries its feature build ID; the manifest binds that ID to
+the exact per-dataset semantic and byte hashes, avoiding a circular in-row
+manifest-hash dependency while preserving complete build provenance.
+
+| Dataset | Primary key | Purpose |
+|---|---|---|
+| `player_fixture_module_inputs` | `(fixture_id, team_id, player_id)` | M1 sufficient statistics |
+| `player_role_window_summary` | `(fixture_id, team_id, player_id, window_segment)` | M2 window sufficiency and modal role |
+| `player_role_distribution` | `(fixture_id, team_id, player_id, window_segment, role, flank, formation_depth)` | normalized M2 distribution |
+| `team_fixture_context_v2` | `(fixture_id, team_id)` | M3 schedule and table context |
+
+M1 exposes `weighted_start_share_last_6`, its numerator/denominator,
+`starts_last_6`, `appearances_last_6`, `cameo_appearances_last_6`, separate
+start- and cameo-conditioned mean minutes, and `recency_weight_version`.
+Weights are literal `1..6` oldest to newest. An eligible governed team league
+fixture consumes a slot even on nonappearance. No history gives a null share,
+zero denominator/counts, null conditional means, and null weight version.
+Probability, expected minutes, risk, and confidence remain FI-6 outputs.
+
+M2 emits summary rows for `last_10`, `last_3`, and non-overlapping `prior_7`.
+Empty windows retain a zero-count summary and no distribution rows. The closed
+map is `role-map-v2`; unmapped eligible starts remain in the share denominator.
+`role_change_comparable` states only whether comparison is possible, not a
+role-change conclusion. Raw provider coordinates and opaque JSON are excluded.
+
+M3 exposes weighted trailing completed fixtures in `[cutoff-21d, cutoff)`,
+leading fixtures known before cutoff with kickoff in `(cutoff, cutoff+21d]`,
+counts, prior/next rest, target tier/stage, recomputed historical league band,
+selected context timestamps, and `competition-weights-v1`. Weights are league
+`1.0`, domestic cup `1.0`, and continental `1.25`. Missing standings remain
+`unknown` with null as-of; missing context is never backfilled from current
+state.
+
+`previous_rest_days` and `next_rest_days` are independent of the 21-day
+congestion collections. They use respectively the nearest eligible completed
+fixture strictly before kickoff and the nearest eligible known scheduled
+fixture strictly after kickoff, up to the governed 365-day bound. Same-kickoff
+fixtures are neither previous nor next anchors. A missing eligible anchor is
+represented by null even when the corresponding 21-day count is a valid zero.
+
+All eligibility is strict at cutoff. Same-time/future lineup evidence and
+schedule observations at or after cutoff are excluded. Exact ordered schemas,
+closed vocabularies, unique keys, stable sorting, finite ranges, contained
+literal paths, source hashes, semantic hashes, and parquet hashes fail closed.
+Validation precedes immutable finalization and pointer publication.
+
+```text
+features/builds-v2/<id>/manifest.json
+features/builds-v2/<id>/datasets/{player_fixture_module_inputs,player_role_window_summary,player_role_distribution,team_fixture_context_v2}.parquet
+features/builds-v2/<id>/reports/{warnings,exclusions}.json
+features/_features_v2_latest.json
+```
+
+Python entry points are `build_features_v2`, `validate_feature_build_v2`, and
+`replay_feature_build_v2`; the focused gate is
+`python packages/fpl-grounded-assistant/run_phase_fi5bb_tests.py`. V1 and v2
+validators reject the other contract. FI-5b(b) also makes membership-overlap
+validation unconditional, declares `points_before_deduction` nonnegative, and
+closes canonical-context-v2 manifest fields. The pinned phase-coupled
+`fi5ba-v1` mock-normalizer name is documented and deferred until a deliberate
+canonical version can replace it without compatibility churn.

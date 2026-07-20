@@ -41,15 +41,20 @@ def build_context_v2(source: Path, destination: Path, *, build_id: str, built_at
 
 def validate_context_build(build: Path) -> dict:
     manifest = json.loads((build / "manifest.json").read_text())
-    if manifest.get("canonical_schema_version") != 2 or manifest.get("build_family") != "canonical-context-v2": raise ValueError("unsupported canonical context contract")
+    fields = {"schema_version", "canonical_schema_version", "build_family", "build_id", "built_at", "source",
+        "normalizer_versions", "entity_files", "row_counts", "content_hashes", "parquet_byte_hashes",
+        "warning_count", "assumption_status"}
+    if set(manifest) != fields or manifest.get("schema_version") != 2 or manifest.get("canonical_schema_version") != 2 or manifest.get("build_family") != "canonical-context-v2": raise ValueError("unsupported canonical context contract")
+    if set(manifest["source"]) != {"source_kind", "source_version", "source_content_hash"} or set(manifest["normalizer_versions"]) != {"mock_adapter"} or manifest["normalizer_versions"]["mock_adapter"] != "fi5ba-v1": raise ValueError("unsupported canonical context binding")
     tables = {}
-    if set(manifest["entity_files"]) != set(SCHEMAS): raise ValueError("dataset registry mismatch")
+    if any(set(manifest[name]) != set(SCHEMAS) for name in ("entity_files", "row_counts", "content_hashes", "parquet_byte_hashes")): raise ValueError("dataset registry mismatch")
     for name, relative in manifest["entity_files"].items():
         if relative != f"canonical/{name}.parquet": raise ValueError("ungoverned entity path")
         path = (build / relative).resolve(); path.relative_to(build.resolve())
         if _hash(path) != manifest["parquet_byte_hashes"][name]: raise ValueError("parquet hash mismatch")
         value = frame(name, tuple(pd.read_parquet(path).astype(object).where(lambda x: pd.notna(x), None).to_dict("records")))
         if semantic_hash(value) != manifest["content_hashes"][name]: raise ValueError("semantic hash mismatch")
+        if len(value) != manifest["row_counts"][name]: raise ValueError("row count mismatch")
         tables[name] = tuple(value.astype(object).where(lambda x: pd.notna(x), None).to_dict("records"))
     validate_tables(tables); return manifest
 

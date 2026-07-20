@@ -132,3 +132,7 @@ jobs:
 
       - name: FI-5 deterministic feature engine
         run: python run_phase_fi5_tests.py
+      - name: FI-5b(a) canonical scheduling context v2
+        run: python run_phase_fi5ba_tests.py
+      - name: FI-5b(b) module-enablement features v2
+        run: python run_phase_fi5bb_tests.py

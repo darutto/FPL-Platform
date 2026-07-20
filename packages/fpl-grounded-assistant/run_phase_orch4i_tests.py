@@ -28,6 +28,8 @@ Canonical runner order:
   run_phase_fi1_tests.py      (FI-1 provider-neutral evidence contract)
   run_phase_fi2_tests.py      (FI-2 identity and mapping foundation)
   run_phase_fi3_tests.py      (FI-3 Sportmonks client skeleton)
+  run_phase_fi5ba_tests.py    (FI-5b(a) canonical scheduling context v2)
+  run_phase_fi5bb_tests.py    (FI-5b(b) module-enablement features v2)
 
 All checks are pure string / structure-based — no network calls, no LLM calls,
 no runtime respond() calls.
@@ -73,6 +75,8 @@ CANONICAL_RUNNERS: list[str] = [
     "run_phase_fi4a_tests.py",     # FI-4a offline normalization/store
     "run_phase_fi4b_tests.py",     # FI-4b distribution/runtime integration
     "run_phase_fi5_tests.py",      # FI-5 deterministic feature engine
+    "run_phase_fi5ba_tests.py",    # FI-5b(a) canonical scheduling context v2
+    "run_phase_fi5bb_tests.py",    # FI-5b(b) module-enablement features v2
 ]
 
 # Slices implemented without a standalone runner file.
@@ -89,7 +93,7 @@ NON_RUNNER_SLICES: list[str] = [
 # When a runner's count changes, update both this mapping and the CONTRACT_GATE.md table
 # in the same commit — G9 will fail until both are aligned.
 RUNNER_EXPECTED_COUNTS: dict[str, int] = {
-    "run_phase_orch4i_tests.py": 98,   # includes FI-5 canonical-runner governance
+    "run_phase_orch4i_tests.py": 106,  # includes FI-5b(a)/(b) canonical-runner governance
     "run_phase_orch4f_tests.py": 125,
     "run_phase_orch4e_tests.py": 81,   # trimmed 2026-07-12 — see CONTRACT_GATE.md retirement note
     "run_phase_orch4d_tests.py": 17,   # trimmed 2026-07-12 — see CONTRACT_GATE.md retirement note
@@ -103,6 +107,8 @@ RUNNER_EXPECTED_COUNTS: dict[str, int] = {
     "run_phase_fi4a_tests.py": 5,
     "run_phase_fi4b_tests.py": 5,
     "run_phase_fi5_tests.py": 5,
+    "run_phase_fi5ba_tests.py": 29,
+    "run_phase_fi5bb_tests.py": 35,
 }
 
 # ---------------------------------------------------------------------------

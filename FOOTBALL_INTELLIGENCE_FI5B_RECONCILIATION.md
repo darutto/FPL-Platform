@@ -292,5 +292,6 @@ proven. No recommendation, tool, route, FinalResponse, or UI integration occurs.
 
 ## Scope statement
 
-This artifact records the approved architecture. FI-5b(a) is implemented and
-under review. FI-5b(b), FI-6, and FI-7 remain unstarted.
+This artifact records the approved architecture. FI-5b(a) is merged and
+complete. FI-5b(b) is implemented and under review. FI-6 remains blocked and
+FI-7 remains unstarted.

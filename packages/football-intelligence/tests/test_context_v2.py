@@ -2,7 +2,7 @@ from __future__ import annotations
 import copy, json, socket
 from pathlib import Path
 import pytest
-from football_intelligence.ingestion.builder_v2 import build_context_v2, replay_context_v2
+from football_intelligence.ingestion.builder_v2 import build_context_v2, replay_context_v2, validate_context_build
 from football_intelligence.ingestion.context_v2 import (BANDS, ContextValidationError, active_teams,
     normalize_context, rank_table, select_schedule, select_standings)
 
@@ -89,6 +89,15 @@ def test_membership_effective_from_is_inclusive_and_effective_to_is_exclusive():
     assert "team_d" in active_teams(memberships,"comp_1","season_1","2026-06-19T23:59:59Z")
     assert "team_d" not in active_teams(memberships,"comp_1","season_1","2026-06-20T00:00:00Z")
 
+def test_all_membership_overlaps_fail_at_build_validation_even_without_standings_selection():
+    value = payload(); duplicate = copy.deepcopy(value["competition_memberships"][0]); duplicate["effective_from_utc"] = "2026-02-01T00:00:00Z"
+    value["competition_memberships"].append(duplicate)
+    with pytest.raises(ContextValidationError, match="overlapping effective memberships"): normalized(value)
+
+def test_points_before_deduction_is_explicitly_nonnegative():
+    value = payload(); value["team_standing_snapshots"][0]["points_before_deduction"] = -1
+    with pytest.raises(ContextValidationError, match="points_before_deduction must be nonnegative"): normalized(value)
+
 def test_missing_ranking_input_and_nonactive_contamination_rejected_as_context():
     value = payload(); value["team_standing_snapshots"][0]["wins"] = None
     tables, _ = normalized(value); assert select_standings(tables["team_standing_snapshots"],tables["competition_memberships"],"comp_1","season_1","2026-06-10T00:00:00Z") == ()
@@ -108,6 +117,11 @@ def test_invalid_build_never_activates_and_v1_pointer_is_untouched(tmp_path):
     (tmp_path/"_football_latest.json").write_text("v1")
     with pytest.raises(RuntimeError): build_context_v2(FIXTURE,tmp_path,build_id="bad",fail_after_write=True)
     assert not (tmp_path/"_football_v2_latest.json").exists() and (tmp_path/"_football_latest.json").read_text() == "v1"
+
+def test_context_v2_manifest_has_strict_top_level_and_nested_closure(tmp_path):
+    build_context_v2(FIXTURE,tmp_path,build_id="closed"); path=tmp_path/"builds-v2/closed/manifest.json"
+    manifest=json.loads(path.read_text()); manifest["unexpected"]=True; path.write_text(json.dumps(manifest))
+    with pytest.raises(ValueError,match="unsupported canonical context contract"): validate_context_build(path.parent)
 
 @pytest.mark.parametrize("build_id", ["../escape", "UPPER", "double--dash", "", None])
 def test_build_id_containment_grammar(build_id, tmp_path):

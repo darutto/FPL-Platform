@@ -48,6 +48,8 @@ canonical list, Orch-4i fails before any semantic runner executes.
 | 12 | `run_phase_fi4a_tests.py` | FI-4a offline normalization, canonical store, replay, and transport cap |
 | 13 | `run_phase_fi4b_tests.py` | FI-4b portable distribution, bounded synchronization, and fail-soft runtime |
 | 14 | `run_phase_fi5_tests.py` | FI-5 deterministic provider-neutral feature engine and atomic local feature store |
+| 15 | `run_phase_fi5ba_tests.py` | FI-5b(a) canonical scheduling and standings context v2 |
+| 16 | `run_phase_fi5bb_tests.py` | FI-5b(b) module-enablement feature contract v2 |
 
 Four seeded mutation proofs in Orch-4i (F-A through F-D) verify:
 - F-A: Missing runner in yml → detected
@@ -88,12 +90,12 @@ in CI until all three are updated.
 
 ## What the gate catches
 
-The gate runs twelve runners in sequence. Each runner exits nonzero on failure,
+The gate runs sixteen runners in sequence. Each runner exits nonzero on failure,
 which causes CI to fail immediately.
 
 | Runner | Assertions | What it catches |
 |--------|-----------|----------------|
-| `run_phase_orch4i_tests.py` | 98 | Gate scope parity after FI-5 runner registration |
+| `run_phase_orch4i_tests.py` | 106 | Gate scope parity after FI-5b(a)/(b) runner registration |
 | `run_phase_orch4f_tests.py` | 125 | Cross-file drift: stable field parity, orch_outcome vocabulary parity, HTTP always-present claim, override-order completeness, independence invariants, deferred note parity, conditional field coverage, HTTP status contract |
 | `run_phase_orch4e_tests.py` | 81 | Runtime orch_outcome semantics: field presence, always-None invariant with no client, override-ordering proof via `_apply_squad_overrides`, depth-bypass deferred invariant, contract doc/fixture parity |
 | `run_phase_orch4d_tests.py` | 17 | `_apply_squad_overrides` helper contract: budget/hit-warning/chip-unavailable firing rules, no-op when `squad_context=None` |
@@ -107,6 +109,8 @@ which causes CI to fail immediately.
 | `run_phase_fi4a_tests.py` | 5 | FI-4a offline-only boundary, no runtime/network path, unverified assumptions, and delegated package suite |
 | `run_phase_fi4b_tests.py` | 5 | Portable manifest, provider-neutral distribution, immutable publication, bounded downloads, and delegated package suite |
 | `run_phase_fi5_tests.py` | 5 | Strict cutoff, local validated input, provider neutrality, atomic validation order, and delegated package suite |
+| `run_phase_fi5ba_tests.py` | 29 | Canonical context-v2 scheduling, standings, membership, manifest, and replay suite |
+| `run_phase_fi5bb_tests.py` | 35 | Feature-contract-v2 registry, M1-M3 sufficient statistics, version rejection, cross-source consistency, store, and replay suite |
 
 **2026-07-12 retirement note:** `orch4c`, `orch4d`, and `orch4e` all had assertion
 counts drop sharply (from 120/84/122 to 21/17/81). Commit 118d43e ("G2.a delete
@@ -188,6 +192,8 @@ python run_phase_fi3_tests.py      # FI-3 Sportmonks client skeleton
 python run_phase_fi4a_tests.py     # FI-4a offline normalizers and canonical store
 python run_phase_fi4b_tests.py     # FI-4b distribution and runtime integration
 python run_phase_fi5_tests.py      # FI-5 deterministic feature engine
+python run_phase_fi5ba_tests.py    # FI-5b(a) canonical context v2
+python run_phase_fi5bb_tests.py    # FI-5b(b) feature contract v2
 ```
 
 Or use the convenience script at the repo root:
