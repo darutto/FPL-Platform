@@ -80,7 +80,7 @@ function DiffRow({ entry, banded }: { entry: DifferentialEntry; banded: boolean 
 
       {/* Player */}
       <div className="min-w-0">
-        <span className="font-bold text-white truncate">{web_name}</span>
+        <span className="block truncate font-bold text-white">{web_name}</span>
         <span className="ml-1.5 text-[11px] text-bf-gray">
           {team_short} · {position}
         </span>

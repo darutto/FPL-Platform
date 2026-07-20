@@ -55,10 +55,11 @@ export function InjuryRowItem({ row, banded }: { row: InjuryRow; banded: boolean
 
   return (
     <div className={`flex items-start gap-3 px-4 py-2.5 ${banded ? 'bg-white/[0.035]' : ''}`}>
-      {/* Player info */}
-      <div className="flex-shrink-0 w-36 min-w-0">
+      {/* Player info — fixed but narrower on mobile so the badge/chance/news
+          columns keep breathing room at 360px; still shrinks via min-w-0. */}
+      <div className="flex-shrink-0 w-24 min-w-0 sm:w-36">
         <span className="font-bold text-white truncate block">{web_name}</span>
-        <span className="text-xs text-bf-gray">
+        <span className="block truncate text-xs text-bf-gray">
           {team_short} · {position}
         </span>
       </div>

@@ -36,13 +36,13 @@ export default function ChipCard({ data }: Props) {
       <div className="relative z-10 p-4 space-y-3">
         {/* Header row */}
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="font-extrabold text-white">{chipLabel}</span>
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="truncate font-extrabold text-white">{chipLabel}</span>
             {gw != null && (
-              <span className="inline-flex items-center rounded-full bg-bf-purple/10 border border-bf-purple/40 px-2 py-0.5 text-[10px] font-bold text-bf-purple">GW{gw}</span>
+              <span className="inline-flex flex-shrink-0 items-center rounded-full bg-bf-purple/10 border border-bf-purple/40 px-2 py-0.5 text-[10px] font-bold text-bf-purple">GW{gw}</span>
             )}
           </div>
-          <span className={`${PILL_BASE} ${pillClass}`}>
+          <span className={`flex-shrink-0 ${PILL_BASE} ${pillClass}`}>
             {label}
           </span>
         </div>

@@ -59,16 +59,16 @@ export default function DefensiveZonesCard({ data }: Props) {
       <div className="relative z-10 p-5">
         {/* Header — kicker + team, opponent-weakness pill (coral = alert) */}
         <div className="mb-3 flex items-baseline justify-between gap-3">
-          <div className="flex flex-col gap-0.5">
+          <div className="min-w-0 flex flex-col gap-0.5">
             <span className="text-[11px] font-extrabold uppercase tracking-[0.13em] text-bf-coral whitespace-nowrap">
               Zonas que concede
             </span>
-            <span className="text-base font-black tracking-tight text-bf-text">
+            <span className="block truncate text-base font-black tracking-tight text-bf-text">
               {opponent}
             </span>
           </div>
           <span
-            className={`${PILL_BASE} text-[10px] font-extrabold bg-bf-coral/10 border-bf-coral/40 text-bf-coral whitespace-nowrap`}
+            className={`${PILL_BASE} flex-shrink-0 text-[10px] font-extrabold bg-bf-coral/10 border-bf-coral/40 text-bf-coral whitespace-nowrap`}
           >
             {weakness_label}
           </span>

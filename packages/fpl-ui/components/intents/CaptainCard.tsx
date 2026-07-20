@@ -29,11 +29,11 @@ export default function CaptainCard({ data }: Props) {
       <div className="relative z-10 p-4 space-y-3">
         {/* Header row */}
         <div className="flex items-center justify-between gap-3">
-          <div>
-            <span className="font-extrabold text-white text-base leading-none">{web_name}</span>
+          <div className="min-w-0 flex-1">
+            <span className="block truncate font-extrabold text-white text-base leading-none">{web_name}</span>
             <span className="ml-2 text-bf-turquoise text-xs font-bold tracking-wide">{team_short}</span>
           </div>
-          <span className={`${TIER_BADGE_BASE} ${badgeClass}`}>
+          <span className={`flex-shrink-0 ${TIER_BADGE_BASE} ${badgeClass}`}>
             <span className="text-[11px] leading-none">{icon}</span>
             {label}
           </span>

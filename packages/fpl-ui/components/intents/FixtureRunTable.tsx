@@ -35,11 +35,11 @@ export default function FixtureRunTable({ data }: Props) {
       <div className="relative z-10 p-4 space-y-3">
         {/* Header */}
         <div className="flex items-center gap-2 text-sm">
-          <span className="font-extrabold text-white">{web_name}</span>
-          <span className="text-bf-gray/60">·</span>
-          <span className="text-bf-gray text-xs font-bold tracking-wide">{team_short}</span>
-          <span className="text-bf-gray/60">·</span>
-          <span className="text-bf-gray text-xs">{position}</span>
+          <span className="min-w-0 truncate font-extrabold text-white">{web_name}</span>
+          <span className="flex-shrink-0 text-bf-gray/60">·</span>
+          <span className="flex-shrink-0 text-bf-gray text-xs font-bold tracking-wide">{team_short}</span>
+          <span className="flex-shrink-0 text-bf-gray/60">·</span>
+          <span className="flex-shrink-0 text-bf-gray text-xs">{position}</span>
         </div>
 
         {/* Fixture chips — DS .scout-fdr stack: GW strip on top, FDR pill below.

@@ -52,8 +52,8 @@ function SubCard({ response }: { response: AskResponse }) {
   const safeView = view === 'multi_intent' ? null : view;
 
   return (
-    <div className="rounded-card border border-white/10 bg-white/[0.03] p-3 space-y-2">
-      <p className="text-sm text-bf-text/80 leading-relaxed">{response.final_text}</p>
+    <div className="min-w-0 overflow-hidden rounded-card border border-white/10 bg-white/[0.03] p-3 space-y-2">
+      <p className="break-words text-sm text-bf-text/80 leading-relaxed">{response.final_text}</p>
       {safeView != null && renderSubView(safeView, response)}
     </div>
   );
