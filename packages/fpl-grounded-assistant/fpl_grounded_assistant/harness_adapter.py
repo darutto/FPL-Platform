@@ -370,6 +370,7 @@ def to_ask_response(
         transfer_suggestion=_to_dict(d.get("transfer_suggestion")),
         zonal_opportunity=_to_dict(d.get("zonal_opportunity")),  # T4b
         generic_card=_to_dict(d.get("generic_card")),            # Track A: additive card
+        suggestions=d.get("player_suggestions"),                 # Guided Comparison: tappable chips (already list[dict])
 
         # A1 (post-graduation): pure passthrough — adapter is still pure mapping; no transformation, no LLM.
         resource_rows=d.get("resource_rows"),

@@ -77,6 +77,7 @@ from .dispatcher import OUTCOME_OK, OUTCOME_NEEDS_CLARIFICATION, INTENT_COMPARE_
 from .dispatcher import _TOOL_TO_INTENT, INTENT_UNSUPPORTED  # _orch_result_to_final_response: tool->intent map
 from .multi_intent import detect_multi_intent
 from .generic_card import GenericCardMeta, build_generic_card  # Track A: additive generic card
+from .suggestions import Suggestion, build_suggestions  # Guided Comparison: tappable suggestions
 from .llm_layer import DEFAULT_MODEL
 from .llm_review import ask_llm_safe
 from .orchestrator import (  # _orch_result_to_final_response: result type + OK constant
@@ -1086,6 +1087,10 @@ class FinalResponse:
     # metadata (never LLM text).  Populated for composer-backed plain-text
     # intents on OK turns; None otherwise.
     generic_card:           "GenericCardMeta | None"        = field(default=None)
+    # Guided Comparison flow: additive tappable suggestions attached only when
+    # outcome==needs_clarification AND intent==compare_players (deterministic,
+    # never LLM).  None on OK outcomes and all other intents.
+    suggestions:            "tuple[Suggestion, ...] | None"  = field(default=None)
 
 
 # ---------------------------------------------------------------------------
@@ -2292,6 +2297,10 @@ def respond(
         clarification_asked = True
         final_text = _clarification_text_for_intent(dr.intent)
 
+    # Guided Comparison flow: attach deterministic tappable suggestions when the
+    # clarification is a compare turn (intent==compare_players).  None otherwise.
+    suggestions = build_suggestions(dr.intent, dr.outcome, bootstrap)
+
     # -----------------------------------------------------------------------
     # Debug bundle (opt-in only)
     # -----------------------------------------------------------------------
@@ -2355,6 +2364,8 @@ def respond(
         clarification_asked=clarification_asked,
         # Track A: additive renderable generic card (deterministic metadata only)
         generic_card=_meta["generic_card"],
+        # Guided Comparison flow: tappable suggestions on compare clarification
+        suggestions=suggestions,
     )
     # Phase 2.7g: in-process telemetry — record after result is built, never raises
     try:

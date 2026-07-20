@@ -317,6 +317,9 @@ class AskResponse(BaseModel):
     # Track A: additive renderable card composed only from deterministic metadata
     # (never LLM text). Non-null for composer-backed plain-text intents on OK turns.
     generic_card:         dict[str, Any] | None = None
+    # Guided Comparison flow: tappable player-name suggestions. Non-null only on
+    # a compare_players needs_clarification turn. Each item {label, send_text}.
+    suggestions:          list[dict[str, Any]] | None = None
     # Phase A1 (post-graduation): full ResourceListResult dict for @resource turns; null for all other intents.
     resource_rows:        dict[str, Any] | None = None
     # Phase 2.7d: routing audit fields
@@ -383,6 +386,8 @@ class SessionAskResponse(BaseModel):
     zonal_opportunity:    dict[str, Any] | None = None    # T4b: defensive zones card
     # Track A: additive renderable card composed only from deterministic metadata.
     generic_card:         dict[str, Any] | None = None
+    # Guided Comparison flow: tappable player-name suggestions (compare clarification only).
+    suggestions:          list[dict[str, Any]] | None = None
     # Phase A1 (post-graduation): full ResourceListResult dict for @resource turns; null for all other intents.
     resource_rows:        dict[str, Any] | None = None
     # Phase 2.7d: routing audit fields
@@ -1055,6 +1060,16 @@ def _generic_card_meta_dict(card: Any) -> dict[str, Any]:
     return generic_card_to_dict(card)  # type: ignore[return-value]
 
 
+def _suggestions_meta_list(suggestions: Any) -> list[dict[str, Any]] | None:
+    """Serialise a tuple of ``Suggestion`` to a JSON-safe list of dicts.  Guided Comparison.
+
+    Delegates to the single-source serializer in ``suggestions`` so the wire
+    shape is identical across the /ask (adapter) and /session/{id}/ask paths.
+    """
+    from fpl_grounded_assistant.suggestions import suggestions_to_list  # noqa: PLC0415
+    return suggestions_to_list(suggestions)
+
+
 def _fixture_run_meta_dict(fixture_run: Any) -> dict[str, Any]:
     """Serialise a ``FixtureRunMeta`` instance to a JSON-safe dict.  Phase 7h."""
     ctx = fixture_run.team_fdr_context
@@ -1115,6 +1130,8 @@ def _sub_response_dict(sr: Any) -> dict[str, Any]:
         d["differential"] = _differential_meta_dict(sr.differential)
     if getattr(sr, "generic_card", None) is not None:      # Track A
         d["generic_card"] = _generic_card_meta_dict(sr.generic_card)
+    if getattr(sr, "suggestions", None) is not None:       # Guided Comparison
+        d["suggestions"] = _suggestions_meta_list(sr.suggestions)
     return d
 
 
@@ -2076,6 +2093,7 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         transfer_suggestion=_transfer_suggestion_meta_dict(r.transfer_suggestion) if r.transfer_suggestion is not None else None,
         zonal_opportunity=_zonal_opportunity_meta_dict(r.zonal_opportunity) if r.zonal_opportunity is not None else None,  # T4b
         generic_card=_generic_card_meta_dict(r.generic_card) if r.generic_card is not None else None,  # Track A
+        suggestions=_suggestions_meta_list(r.suggestions) if r.suggestions is not None else None,  # Guided Comparison
         # Phase 2.7d: routing audit fields
         route_source=r.route_source,
         classifier_confidence=r.classifier_confidence,

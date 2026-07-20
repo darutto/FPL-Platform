@@ -725,6 +725,18 @@ def ask_v2(
 
     if outcome == OUTCOME_NEEDS_CLARIFICATION:
         routing_trace["branch"] = "prompt"
+        # Guided Comparison flow: attach deterministic tappable suggestions when
+        # the clarification belongs to a compare prompt (intent==compare_players).
+        # The prompt's workflow_intent is resolved from the registry so the
+        # intent -> supplier map lives entirely in suggestions.py.
+        from .prompt_registry import get_prompt_spec as _get_prompt_spec  # noqa: PLC0415
+        from .suggestions import build_suggestion_dicts as _build_suggestion_dicts  # noqa: PLC0415
+        _pn = decision.get("prompt_name")
+        _spec = _get_prompt_spec(_pn) if _pn else None
+        _clar_intent = _spec.workflow_intent if _spec is not None else None
+        _player_suggestions = _build_suggestion_dicts(
+            _clar_intent, "needs_clarification", actual_bootstrap,
+        )
         result = {
             "selected_tool":  None,
             "tool_input":     {},
@@ -735,6 +747,7 @@ def ask_v2(
             "prompt_name":    decision.get("prompt_name"),
             "missing_fields": decision.get("missing_fields", []),
             "errors":         decision.get("errors", []),
+            "player_suggestions": _player_suggestions,  # Guided Comparison: list[dict] | None
             "routing_trace":  routing_trace,
             **_none_meta,  # needs_clarification: no tool ran → all 14 keys are None
         }

@@ -144,6 +144,7 @@ Frozen dataclass.
 | `differential` | `DifferentialPicksMeta\|None` | **Stable (Phase 7g)** | Populated for `differential_picks` OK turns. `None` for all other intents and non-OK outcomes. Provides structured access to `ownership_threshold`, `top_n`, `picks`. |
 | `orch_outcome` | `str\|None` | **Stable (Orch-4c)** | Orchestration audit field. `None` when orchestration was not attempted (orch flag OFF or `_multi_intent_depth > 0`). `"ok"` when orchestrator succeeded and its answer was used. One of six non-OK strings when orchestrator was attempted but fell back to the deterministic path. **Independent of `outcome`** — `outcome` always reflects the deterministic result, regardless of orch state. |
 | `generic_card` | `GenericCardMeta\|None` | **Stable (Track A)** | Additive renderable card payload for a curated set of intents that otherwise answer as plain text. Populated on OK turns for `player_form`, `price_changes`, `team_fixture_calendar`, `team_schedule`, `position_fixture_run`, and `current_gameweek`; `None` for all other intents and non-OK outcomes. **Composed only from already-built deterministic metadata — never from LLM text; the `llm_review` parity gate is untouched.** See the `generic_card` section below for the block schema. |
+| `suggestions` | `tuple[Suggestion,…]\|None` (wire: `list[{label, send_text}]\|None`) | **Stable (Guided Comparison)** | Additive tappable player-name suggestions for the guided comparison flow. Populated **only** on a `compare_players` `needs_clarification` turn, ranked by current-gameweek `transfers_in_event` (descending). `None` on OK outcomes and every other intent. **Deterministic — sourced from bootstrap data, never from LLM.** See the `suggestions` section below. |
 
 ### Field shape stability commitment
 
@@ -713,6 +714,52 @@ if r.generic_card:
     print(r.generic_card.title)             # "FORMA RECIENTE"
     print(r.generic_card.hero.value)        # "27"  (total points over window)
     print(r.generic_card.rows[0])           # ("GW26", "90", "1", "0", "2", "8")
+```
+
+---
+
+## `suggestions` — Tappable Player-Name Suggestions (Guided Comparison)
+
+Frozen dataclass `Suggestion` `{label: str, send_text: str}`. Present on
+`FinalResponse.suggestions` as a `tuple[Suggestion, …] | None`; serialised on the
+wire as `list[{label, send_text}] | None`.
+
+**Purpose.** When a user sends a bare `/comparar` (or `/comparar <one player>`),
+the backend answers `needs_clarification`. Instead of forcing the user to type
+two names, `suggestions` supplies a small ranked list of players the UI renders
+as tappable chips, driving a two-step "chip wizard" whose final send is a normal
+`comparar A vs B` question — so free-text and wizard converge on the identical
+`ComparisonCard` by construction.
+
+**When populated.** Only when `outcome == "needs_clarification"` **and** the
+clarified intent is `compare_players`. `None` on OK outcomes, on every other
+intent, and whenever no players can be ranked. Wired through a small
+`intent → supplier` map in `suggestions.py`; only `compare_players` is wired
+today.
+
+**Ranking.** `top_transfer_names` reads `bootstrap.elements` and ranks by
+`transfers_in_event` **descending** (the same field `find_players` /
+`get_player_snapshot` already read), default limit 6. Ties break by element `id`
+ascending, so the output is **deterministic** for a given bootstrap. `label` and
+`send_text` are both the player's `web_name` (short, chip-friendly).
+
+**Grounding invariant.** Composed only from deterministic bootstrap data —
+**never from LLM text**. The function is pure and never raises on malformed
+input (non-dict elements, missing/empty `web_name`, non-numeric volumes are
+skipped or defaulted).
+
+**Serialisation.** `suggestions_to_list` (single source of truth) is shared by
+the `/ask` adapter (`harness_adapter.to_ask_response`, which passes through the
+`player_suggestions` list attached inside `ask_v2`) and the
+`/session/{id}/ask` path (`fpl_server._suggestions_meta_list`), so the wire
+shape is identical across both. Present as a key (JSON `null` when absent) on
+`AskResponse` and `SessionAskResponse`.
+
+```python
+r = respond("/comparar", bootstrap)          # medium-confidence compare clarification
+if r.suggestions:
+    print(r.suggestions[0].label)            # "Palmer"  (most transferred-in this GW)
+    print(r.suggestions[0].send_text)        # "Palmer"
 ```
 
 ---
