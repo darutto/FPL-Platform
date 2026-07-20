@@ -32,6 +32,7 @@ import type { AskResponse, SquadContext } from '@/lib/types';
 import { QUOTA_BUCKETS, type QuotaBucket } from '@/lib/tiers';
 import { readDevTier } from '@/lib/dev-tier';
 import MessageList, { type Message } from './MessageList';
+import { type CompareWizardState } from './SuggestionChips';
 import InputBar, { type InsertRequest } from './InputBar';
 import StarterPrompts from './StarterPrompts';
 import SquadContextPanel from './SquadContextPanel';
@@ -67,6 +68,10 @@ export default function ChatShell() {
   // Message id whose "Seguir conversación" button was tapped — arms the
   // NEXT send to use the session path. Reset after every send.
   const [followUpArmedFor, setFollowUpArmedFor] = useState<string | null>(null);
+  // Guided Comparison flow: armed when a compare `/comparar` clarification turn
+  // arrives with backend suggestions. Tied to the LATEST assistant turn only;
+  // any manual send clears it (see sendMessage).
+  const [compareWizard, setCompareWizard] = useState<CompareWizardState | null>(null);
   const [squadContext, setSquadContext] = useState<SquadContext | null>(null);
   // Incremented after each completed turn so QuotaIndicator re-fetches quota
   const [quotaRefreshTrigger, setQuotaRefreshTrigger] = useState(0);
@@ -134,6 +139,8 @@ export default function ChatShell() {
     setMessages((prev) => [...prev, userMessage]);
     setLoading(true);
     setFollowUpArmedFor(null);
+    // Any send (manual or wizard-driven) exits an active comparison wizard.
+    setCompareWizard(null);
 
     try {
       let response: AskResponse;
@@ -185,6 +192,14 @@ export default function ChatShell() {
         response,
       };
       setMessages((prev) => [...prev, assistantMessage]);
+      // Guided Comparison: a compare clarification turn arrives with tappable
+      // suggestions. The backend guarantees `suggestions` is populated ONLY on a
+      // compare_players needs_clarification turn, so its presence is the
+      // authoritative compare signal. Arm the two-step chip wizard for THIS
+      // latest turn.
+      if (response.suggestions != null && response.suggestions.length > 0) {
+        setCompareWizard({ playerA: null, options: response.suggestions });
+      }
       // Refresh quota indicator after every completed turn
       setQuotaRefreshTrigger((n) => n + 1);
     } catch (err) {
@@ -204,6 +219,22 @@ export default function ChatShell() {
       setLoading(false);
     }
   }, [loading, followUpArmedFor, sessionId, squadContext, webSearchOn, webSearchAvailable]);
+
+  // Guided Comparison: a chip tap. First tap stores player A client-side (no
+  // round trip) and swaps the question to step 2. Second tap sends the canonical
+  // `comparar {A} vs {B}` question through the normal send path — sendMessage
+  // clears the wizard — so the wizard and free-text "A vs B" converge on the
+  // identical ComparisonCard by construction.
+  const handleSuggestionPick = useCallback((sendText: string) => {
+    if (!compareWizard) return;
+    if (compareWizard.playerA == null) {
+      // First pick: store player A, swap to step 2 (no round trip).
+      setCompareWizard({ playerA: sendText, options: compareWizard.options });
+    } else {
+      // Second pick: send canonical compare text; sendMessage clears the wizard.
+      sendMessage(`comparar ${compareWizard.playerA} vs ${sendText}`);
+    }
+  }, [compareWizard, sendMessage]);
 
   // Quick commands ("Vistas rápidas") are complete queries — send immediately
   // and jump to the chat screen, skipping the edit step.
@@ -258,6 +289,8 @@ export default function ChatShell() {
                   loading={loading}
                   onFollowUp={handleFollowUp}
                   followUpArmedFor={followUpArmedFor}
+                  compareWizard={compareWizard}
+                  onSuggestionPick={handleSuggestionPick}
                 />
               )}
             </div>

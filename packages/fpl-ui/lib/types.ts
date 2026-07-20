@@ -31,6 +31,9 @@ export type Outcome =
   | 'not_found'
   | 'ambiguous'
   | 'missing_arguments'
+  // A prompt (e.g. bare `/comparar`) needs more info before it can run. Carries
+  // `suggestions` for the Guided Comparison chip wizard.
+  | 'needs_clarification'
   | 'error'
   | 'quota_exceeded'
   // A premium feature (web search) was requested by an ineligible tier.
@@ -282,9 +285,28 @@ export interface AskResponse {
    */
   web_search?: WebSearchPayload | null;
 
+  /**
+   * Guided Comparison suggestions — non-null only on a compare_players
+   * needs_clarification turn (bare or partial `/comparar`). Each item is a
+   * tappable chip {label, send_text} sourced deterministically from the
+   * most transferred-in players this gameweek. The UI turns these into a
+   * two-step chip wizard whose final send is a normal `comparar A vs B`
+   * question. Optional because pre-guided-comparison fixtures/serialisers omit
+   * it (same convention as generic_card/web_search).
+   */
+  suggestions?: Suggestion[] | null;
+
   // debug_only — null unless request included debug=true.
   // Do not gate production logic on this field.
   debug?: DebugBundle | null;
+}
+
+/** A single tappable suggestion chip (Guided Comparison). */
+export interface Suggestion {
+  /** Chip label — short player web_name. */
+  label: string;
+  /** Text sent through the normal send path when the chip is tapped. */
+  send_text: string;
 }
 
 /** Session turn response — same as AskResponse plus session_id. */
