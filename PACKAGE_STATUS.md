@@ -18,7 +18,7 @@ Status vocabulary:
 | `football-data-contract` | `parity-validated` | Frozen canonical entities/evidence plus authoritative deterministic ID formats and minting helpers | FI-4a normalizers consume it; FI-7 exposes evidence |
 | `sportmonks-client` | `parity-validated` | Offline client plus redirects-off, secret-safe streaming transport with a bounded response body | FI-4b distribution remains unauthorized; live assumptions unverified |
 | `football-identity-registry` | `parity-validated` | FI-2 matcher/store consuming canonical ID/provider contracts; real baseline Understat 375/461 and vaastav 804/804 | FI-4a team-crosswalk seed; mandatory ≥95% FI-9 gate |
-| `football-intelligence` | `pilot-validated` | FI-4a canonical store, FI-4b distribution/runtime cache, and FI-5 deterministic 13-feature local engine/store | FI-6 intelligence modules later |
+| `football-intelligence` | `pilot-validated` | FI-4a canonical store, FI-4b distribution/runtime cache, FI-5 v1, FI-5b(a) canonical context v2, and unused FI-5b(b) module-enablement feature contract v2 | FI-6 remains blocked pending FI-5b(b) review/merge |
 
 `football-data-contract` is implemented through FI-1 with no runtime
 dependencies. FI-2 adds an unused offline identity foundation and is complete

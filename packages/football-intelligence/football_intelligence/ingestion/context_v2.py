@@ -141,11 +141,20 @@ def validate_tables(tables: dict[str, tuple[dict, ...]]) -> None:
     for row in tables["competition_memberships"]:
         if row["competition_id"] not in competitions or seasons.get(row["season_id"]) != row["competition_id"] or row["team_id"] not in teams: raise ContextValidationError("membership foreign key failure")
         if row["effective_to_utc"] is not None and row["effective_to_utc"] <= row["effective_from_utc"]: raise ContextValidationError("invalid membership interval")
+    membership_groups: dict[tuple[str, str, str], list[dict]] = {}
+    for row in tables["competition_memberships"]:
+        membership_groups.setdefault((row["competition_id"], row["season_id"], row["team_id"]), []).append(row)
+    for key, rows in membership_groups.items():
+        ordered = sorted(rows, key=lambda row: row["effective_from_utc"])
+        for previous, current in zip(ordered, ordered[1:]):
+            if previous["effective_to_utc"] is None or current["effective_from_utc"] < previous["effective_to_utc"]:
+                raise ContextValidationError(f"overlapping effective memberships: {key}")
     for row in tables["fixture_schedule_snapshots"]:
         if row["fixture_id"] not in fixtures: raise ContextValidationError("schedule fixture foreign key failure")
         if row["status"] not in STATUSES or row["competition_tier"] not in TIERS: raise ContextValidationError("invalid schedule vocabulary")
     for row in tables["team_standing_snapshots"]:
         if row["competition_id"] not in competitions or seasons.get(row["season_id"]) != row["competition_id"] or row["team_id"] not in teams: raise ContextValidationError("standing foreign key failure")
+        if row["points_before_deduction"] < 0: raise ContextValidationError("points_before_deduction must be nonnegative")
 
 def frame(name: str, rows: tuple[dict, ...]) -> pd.DataFrame:
     result = pd.DataFrame(rows, columns=[c for c, _, _ in SCHEMAS[name]])

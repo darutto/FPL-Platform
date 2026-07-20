@@ -37,3 +37,9 @@ missingness, provenance, atomic local layout, and analytical non-goals.
 Run `python ../fpl-grounded-assistant/run_phase_fi5ba_tests.py` from this
 package's parent directory. The runner executes only the canonical scheduling
 context v2 tests and performs no network access.
+
+# FI-5b(b) runner
+
+Run `python ../fpl-grounded-assistant/run_phase_fi5bb_tests.py` from this
+package's parent directory. The additive feature-contract-v2 build family is
+offline and unused by runtime code; no FI-6 module logic is present.

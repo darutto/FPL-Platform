@@ -73,6 +73,8 @@ run_runner "FI-3: Sportmonks client skeleton"            "run_phase_fi3_tests.py
 run_runner "FI-4a: offline normalizers and canonical store" "run_phase_fi4a_tests.py"
 run_runner "FI-4b: distribution and runtime integration" "run_phase_fi4b_tests.py"
 run_runner "FI-5: deterministic feature engine" "run_phase_fi5_tests.py"
+run_runner "FI-5b(a): canonical scheduling context v2" "run_phase_fi5ba_tests.py"
+run_runner "FI-5b(b): module-enablement features v2" "run_phase_fi5bb_tests.py"
 
 echo "==================="
 echo "Contract gate: $PASS passed, $FAIL failed"
