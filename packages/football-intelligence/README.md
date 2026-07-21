@@ -51,4 +51,8 @@ deterministic evaluator over validated FI-5b v2 rows plus explicit
 provider-neutral availability input. It emits frozen `expected-minutes-v1`
 results and bounded evidence without a wall clock, network, tool, response,
 or persisted intelligence store. See `FEATURE_CONTRACT.md` for the strict v2
-loading and degradation boundary. FI-6b/c/d and FI-7 remain unstarted.
+loading and degradation boundary. FI-6c/d and FI-7 remain unstarted.
+
+Pure FI-6 evaluator semantics, including FI-6b tactical role and role
+stability, are governed by [`MODULE_CONTRACT.md`](MODULE_CONTRACT.md). FI-5
+feature-store behavior remains governed by `FEATURE_CONTRACT.md`.

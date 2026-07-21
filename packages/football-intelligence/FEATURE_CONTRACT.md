@@ -184,3 +184,7 @@ intelligence store, manifest, pointer, or persisted evidence. Optional
 `intelligence_evidence.parquet` remains deferred to backtesting. Tools,
 responses, orchestration, recommendations, routes, and UI exposure remain
 FI-7 scope.
+
+Pure FI-6 evaluator behavior, including M2 consumption of these governed role
+rows, is owned by [`MODULE_CONTRACT.md`](MODULE_CONTRACT.md). This reference
+adds no FI-5 feature or storage semantics.

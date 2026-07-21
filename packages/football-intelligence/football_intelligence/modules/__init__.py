@@ -7,14 +7,32 @@ from .expected_minutes import (
     evaluate_expected_minutes,
     load_expected_minutes_input,
 )
+from .tactical_role import (
+    FlankShare,
+    RoleDistributionRow,
+    RoleShare,
+    RoleWindowSummary,
+    TacticalRoleInput,
+    TacticalRoleResult,
+    evaluate_tactical_role,
+    load_tactical_role_input,
+)
 
 __all__ = [
     "AvailabilityInput",
     "ExpectedMinutesInput",
     "ExpectedMinutesResult",
+    "FlankShare",
     "ModuleResult",
     "ModuleStatus",
+    "RoleDistributionRow",
+    "RoleShare",
+    "RoleWindowSummary",
+    "TacticalRoleInput",
+    "TacticalRoleResult",
     "UnsupportedFeatureContractError",
     "evaluate_expected_minutes",
+    "evaluate_tactical_role",
     "load_expected_minutes_input",
+    "load_tactical_role_input",
 ]
