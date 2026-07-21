@@ -158,3 +158,29 @@ validation unconditional, declares `points_before_deduction` nonnegative, and
 closes canonical-context-v2 manifest fields. The pinned phase-coupled
 `fi5ba-v1` mock-normalizer name is documented and deferred until a deliberate
 canonical version can replace it without compatibility churn.
+
+## FI-6a module-consumption boundary
+
+FI-6a consumes only a fully validated `module-enablement-features-v2` build
+bound to its validated canonical-v1 and canonical-context-v2 sources. A
+recognizable FI-5 v1 manifest fails with typed
+`unsupported_feature_contract`; hash, schema, version, registry, path, and
+source-binding corruption remains a validation failure and must not degrade to
+`missing_context`. Only an absent build or absent target row degrades to
+`missing_context`.
+
+`evaluate_expected_minutes` is pure over frozen, provider-neutral inputs. Its
+availability state and chance-of-playing fraction are explicit versioned
+evaluator inputs rather than resurrected FI-5 v1 features, using the closed
+input version `availability-input-v1`. The coefficients are centralized as
+`expected-minutes-hand-tuned-v1`; they are heuristic and
+must be backtested before being treated as calibrated probabilities. The model
+version is `expected-minutes-v1`.
+
+FI-6 replay is deterministic reevaluation: the same validated v2 build,
+explicit evaluator inputs, and explicit UTC `calculated_at` produce identical
+frozen results and evidence. No wall clock participates. FI-6a creates no
+intelligence store, manifest, pointer, or persisted evidence. Optional
+`intelligence_evidence.parquet` remains deferred to backtesting. Tools,
+responses, orchestration, recommendations, routes, and UI exposure remain
+FI-7 scope.
