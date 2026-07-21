@@ -267,10 +267,13 @@ DoD: M1-M3 consume validated FI-5b v2 builds exclusively and emit the exact
 plan-governed typed outputs/evidence on independent golden anchors. Complete
 mock context produces active M1-M3 output; per-row absent stage/standing context
 produces deterministic `missing_context` only for dependent M3 outputs. M4/M5
-remain mechanically non-operational skeletons. Module-order independence,
-temporal integrity, immutable intelligence builds, provenance, replay,
-validation, rollback, containment, no-network, and runner/gate propagation are
-proven. No recommendation, tool, route, FinalResponse, or UI integration occurs.
+remain mechanically non-operational skeletons. Module-order independence and
+temporal integrity are proven by deterministic reevaluation: an identical
+validated FI-5b v2 build plus an identical explicit `calculated_at` produces
+identical frozen results and evidence. FI-6 adds no intelligence store,
+manifest, pointer, or persisted evidence; immutability, validation, rollback,
+and containment remain properties of the underlying feature builds. No
+recommendation, tool, route, FinalResponse, or UI integration occurs.
 
 ## Risk assessment
 
@@ -292,6 +295,6 @@ proven. No recommendation, tool, route, FinalResponse, or UI integration occurs.
 
 ## Scope statement
 
-This artifact records the approved architecture. FI-5b(a) is merged and
-complete. FI-5b(b) is implemented and under review. FI-6 remains blocked and
+This artifact records the approved architecture. FI-5b(a)/(b) are merged and
+complete. FI-6a is implemented and under review; FI-6b/c/d remain blocked.
 FI-7 remains unstarted.

@@ -20,8 +20,8 @@ cache synchronization, fail-soft backend capability discovery, and the
 `python -m football_intelligence.distribution` operator CLI. Imports and
 `--help` need no credentials; tests use an in-memory adapter.
 
-Non-goals remain live Sportmonks ingestion, predictions, recommendations, tools,
-analysis routes, UI/evidence exposure, and background polling.
+Non-goals remain live Sportmonks ingestion, recommendations, tools, analysis
+routes, UI/evidence exposure, and background polling.
 
 FI-5 adds the offline deterministic feature engine:
 
@@ -42,4 +42,13 @@ context v2 tests and performs no network access.
 
 Run `python ../fpl-grounded-assistant/run_phase_fi5bb_tests.py` from this
 package's parent directory. The additive feature-contract-v2 build family is
-offline and unused by runtime code; no FI-6 module logic is present.
+offline and unused by runtime code.
+
+# FI-6a expected-minutes module
+
+`football_intelligence.modules.evaluate_expected_minutes` is a pure,
+deterministic evaluator over validated FI-5b v2 rows plus explicit
+provider-neutral availability input. It emits frozen `expected-minutes-v1`
+results and bounded evidence without a wall clock, network, tool, response,
+or persisted intelligence store. See `FEATURE_CONTRACT.md` for the strict v2
+loading and degradation boundary. FI-6b/c/d and FI-7 remain unstarted.

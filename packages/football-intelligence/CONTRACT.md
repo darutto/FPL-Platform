@@ -199,3 +199,17 @@ M1/M2/M3 sufficient statistics governed by `FEATURE_CONTRACT.md`. It adds no
 intelligence probability, expected minutes, role-change or fixture-priority
 decision, evidence, recommendation, runtime consumer, remote publication,
 tool, route, or UI behavior. Existing FI-5 v1 behavior and paths are unchanged.
+
+# FI-6a expected-minutes module
+
+FI-6a adds a pure module layer that consumes validated FI-5b v2 builds
+exclusively. An absent build or target row returns `missing_context`; a
+recognizable v1 build raises typed `unsupported_feature_contract`; corruption
+continues to raise the underlying typed v2 validation failure. Availability is
+an explicit closed `availability-input-v1` evaluator input and is not restored
+as an FI-5 v1 feature.
+
+Results and evidence are frozen and deterministically reevaluated from the same
+validated inputs and explicit `calculated_at`. There is no intelligence build,
+manifest, pointer, persistence, network, provider adapter, tool, response,
+or UI integration in FI-6a.

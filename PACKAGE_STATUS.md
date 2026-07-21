@@ -1,6 +1,6 @@
 # fpl-platform · Package Status
-**Last updated:** 2026-07-17
-**After:** FI-5 deterministic feature engine v1
+**Last updated:** 2026-07-19
+**After:** FI-5b(b) merge and FI-6a implementation
 
 Status vocabulary:
 - `planned` — described in audit, no platform code written yet
@@ -18,15 +18,16 @@ Status vocabulary:
 | `football-data-contract` | `parity-validated` | Frozen canonical entities/evidence plus authoritative deterministic ID formats and minting helpers | FI-4a normalizers consume it; FI-7 exposes evidence |
 | `sportmonks-client` | `parity-validated` | Offline client plus redirects-off, secret-safe streaming transport with a bounded response body | FI-4b distribution remains unauthorized; live assumptions unverified |
 | `football-identity-registry` | `parity-validated` | FI-2 matcher/store consuming canonical ID/provider contracts; real baseline Understat 375/461 and vaastav 804/804 | FI-4a team-crosswalk seed; mandatory ≥95% FI-9 gate |
-| `football-intelligence` | `pilot-validated` | FI-4a canonical store, FI-4b distribution/runtime cache, FI-5 v1, FI-5b(a) canonical context v2, and unused FI-5b(b) module-enablement feature contract v2 | FI-6 remains blocked pending FI-5b(b) review/merge |
+| `football-intelligence` | `pilot-validated` | FI-4a/4b stores, FI-5 v1, FI-5b v2 context/features, and pure FI-6a `evaluate_expected_minutes` | FI-6a independent review; FI-6b/c/d and FI-7 remain blocked |
 
 `football-data-contract` is implemented through FI-1 with no runtime
 dependencies. FI-2 adds an unused offline identity foundation and is complete
 under its formally amended DoD. The ≥95% requirement was not waived: it remains
 a mandatory FI-9 trial-readiness gate, with 86 Understat identities unresolved.
 `sportmonks-client` and FI-4a ingestion remain unused by runtime code. FI-4a
-normalization/store is offline-only and mock-driven. No feature, module, R2,
-workflow, server, HTTP, UI, tool, or runtime integration has started.
+normalization/store is offline-only and mock-driven. FI-6a adds only a pure
+module over validated local v2 inputs; no server, HTTP, UI, tool, orchestration,
+recommendation, or runtime integration has started.
 
 ---
 
