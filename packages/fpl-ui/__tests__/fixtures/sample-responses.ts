@@ -88,6 +88,22 @@ export const comparisonOkResponse: AskResponse = {
       role_bonus: 0.0,
       set_piece_notes: [],
     },
+    stat_comparison: {
+      rows: [
+        { key: 'form', label: 'Forma', kind: 'performance',
+          value_a: { value: 9.5, display: '9.5' }, value_b: { value: 8.0, display: '8.0' }, better: 'a' },
+        { key: 'total_points', label: 'Puntos totales', kind: 'performance',
+          value_a: { value: 210, display: '210' }, value_b: { value: 195, display: '195' }, better: 'a' },
+        { key: 'price_m', label: 'Precio', kind: 'context',
+          value_a: { value: 14.5, display: '£14.5m' }, value_b: { value: 13.5, display: '£13.5m' }, better: null },
+        { key: 'ownership_percent', label: 'Propiedad %', kind: 'context',
+          value_a: { value: 52.3, display: '52.3%' }, value_b: { value: 64.1, display: '64.1%' }, better: null },
+        { key: 'goals', label: 'Goles', kind: 'performance',
+          value_a: { value: 22, display: '22' }, value_b: { value: 18, display: '18' }, better: 'a' },
+        { key: 'assists', label: 'Asistencias', kind: 'performance',
+          value_a: { value: 5, display: '5' }, value_b: { value: 9, display: '9' }, better: 'b' },
+      ],
+    },
   },
   transfer: null,
   chip: null,
@@ -110,6 +126,7 @@ export const comparisonTiedResponse: AskResponse = {
     reasons: [],
     player_a: comparisonOkResponse.comparison!.player_a,
     player_b: comparisonOkResponse.comparison!.player_b,
+    stat_comparison: null,
   },
 };
 
@@ -123,6 +140,7 @@ export const comparisonNoContextResponse: AskResponse = {
     reasons: ['Mejor forma'],
     player_a: null,
     player_b: null,
+    stat_comparison: null,
   },
 };
 

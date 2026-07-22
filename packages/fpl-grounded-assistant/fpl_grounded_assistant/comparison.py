@@ -40,6 +40,9 @@ Output shape -- status "ok"
     margin_label        "narrow" | "moderate" | "clear"  (Phase 5d)
     comparison_reasons  list[str] — comparative advantage phrases  (Phase 5d/5h)
     recommendation      human-readable comparison sentence (deterministic)
+    stat_comparison     dict | None — additive raw-stat table (position-conditional
+                         rows appended below the verdict in the UI); JSON-safe plain
+                         dict, see comparison_stats.py. None on any failure.
 
 player_a / player_b subdicts
 -----------------------------
@@ -62,6 +65,7 @@ Output shape -- status "not_found" / "ambiguous"
 """
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fpl_tool_contract import tool_resolve_player
@@ -72,6 +76,9 @@ from fpl_tool_runner.specs import ToolSpec
 from .explainer import explain_captain
 from .fixture_context import build_fixture_context, fixture_tiebreaker_line  # FI3a
 from .position_score import compute_position_score
+from .comparison_stats import build_player_stat_source, build_stat_comparison  # additive stat table
+
+_LOG = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -400,6 +407,7 @@ def _score_one(query: str, bootstrap: dict[str, Any]) -> dict[str, Any]:
         "name":             resolve["name"],
         "team":             resolve["team"],
         "team_id":          element.get("team"),   # FI3a: for fixture context
+        "player_id":        player_id,              # internal only — never copied into compare_players()'s player_a/player_b
         "position":         resolve["position"],
         "captain_score":    score,
         "position_score":   ps_result.position_score,
@@ -509,6 +517,27 @@ def compare_players(
         emit=(_margin_label(margin) == "narrow"),
     )
 
+    # Additive raw-stat comparison table — appended below the verdict in the
+    # UI, never changes score/winner/margin. Built from bootstrap elements
+    # fetched independently by player_id (not by extending _score_one()'s
+    # return dict, which _explain_comparison already destructures by specific
+    # key set). Single error boundary: build_stat_comparison() handles all
+    # expected malformed/missing input internally; this catches genuinely
+    # unexpected failures so the rest of the comparison is never affected.
+    try:
+        elements = bootstrap.get("elements", [])
+        element_a = next((el for el in elements if el.get("id") == scored_a.get("player_id")), None)
+        element_b = next((el for el in elements if el.get("id") == scored_b.get("player_id")), None)
+        if element_a is not None and element_b is not None:
+            source_a = build_player_stat_source(element_a, scored_a.get("position", ""))
+            source_b = build_player_stat_source(element_b, scored_b.get("position", ""))
+            stat_comparison = build_stat_comparison(source_a, source_b)
+        else:
+            stat_comparison = None
+    except Exception:  # noqa: BLE001 — single boundary; comparison itself must never fail because of this
+        _LOG.exception("Failed to build comparison stat table")
+        stat_comparison = None
+
     return {
         "status":   "ok",
         "query_a":  query_a,
@@ -545,6 +574,7 @@ def compare_players(
             name_b, score_b,
             winner, margin, comparison_reasons,
         ),
+        "stat_comparison":     stat_comparison,               # additive raw-stat table, JSON-safe dict or None
     }
 
 

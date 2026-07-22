@@ -353,6 +353,38 @@ export interface ComparisonPlayerContext {
   set_piece_notes: string[];
 }
 
+/** Which side of a StatRow has the better (numerically higher, or otherwise
+ *  preferred) value. Backend-computed — never re-derived on the frontend. */
+export type BetterSide = 'a' | 'b';
+
+/** "performance" rows can be highlighted; "context" rows (price, ownership)
+ *  never are — this is authoritative from the backend, not a frontend list. */
+export type RowKind = 'performance' | 'context';
+
+/** A single cell in the stat comparison table. `value` is the raw, unrounded
+ *  number (present for completeness/future use); `display` is the backend's
+ *  pre-formatted string (including "—" for missing) — always render `display`
+ *  directly, never reformat `value` on the frontend. */
+export interface StatCell {
+  value: number | null;
+  display: string;
+}
+
+/** One row in the additive raw-stat comparison table appended below the
+ *  compare_players verdict (v1, first-pass — see FINAL_RESPONSE_CONTRACT.md). */
+export interface StatRow {
+  key: string;
+  label: string;
+  kind: RowKind;
+  value_a: StatCell;
+  value_b: StatCell;
+  better: BetterSide | null;
+}
+
+export interface StatComparisonMeta {
+  rows: StatRow[];
+}
+
 /** comparison field — non-null when intent=compare_players AND outcome=ok */
 export interface ComparisonMeta {
   winner: string | null;
@@ -361,6 +393,7 @@ export interface ComparisonMeta {
   reasons: string[];
   player_a: ComparisonPlayerContext | null;
   player_b: ComparisonPlayerContext | null;
+  stat_comparison: StatComparisonMeta | null;
 }
 
 export type TransferRecommendation =

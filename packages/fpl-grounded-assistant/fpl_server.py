@@ -774,6 +774,25 @@ def _player_ctx_dict(ctx: Any) -> dict[str, Any] | None:
     }
 
 
+def _stat_comparison_dict(sc: Any) -> dict[str, Any] | None:
+    """Serialise a ``StatComparisonMeta`` instance to a JSON-safe dict, or None."""
+    if sc is None:
+        return None
+    return {
+        "rows": [
+            {
+                "key":      row.key,
+                "label":    row.label,
+                "kind":     row.kind,
+                "value_a":  {"value": row.value_a.value, "display": row.value_a.display},
+                "value_b":  {"value": row.value_b.value, "display": row.value_b.display},
+                "better":   row.better,
+            }
+            for row in sc.rows
+        ],
+    }
+
+
 def _comparison_dict(comparison: Any) -> dict[str, Any]:
     """Serialise a ``ComparisonMeta`` instance to a JSON-safe dict."""
     return {
@@ -783,6 +802,7 @@ def _comparison_dict(comparison: Any) -> dict[str, Any]:
         "reasons":  list(comparison.reasons),
         "player_a": _player_ctx_dict(comparison.player_a),
         "player_b": _player_ctx_dict(comparison.player_b),
+        "stat_comparison": _stat_comparison_dict(comparison.stat_comparison),
     }
 
 

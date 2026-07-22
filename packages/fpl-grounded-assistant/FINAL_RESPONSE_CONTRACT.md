@@ -431,6 +431,7 @@ Frozen dataclass. Populated on `FinalResponse.comparison` when `intent == "compa
 | `reasons` | `tuple[str, ...]` | Deterministic advantage phrases (e.g. `"stronger form (9.5 vs 8.0)"`). Empty tuple when no advantage clears the threshold. |
 | `player_a` | `ComparisonPlayerContext\|None` | Bounded per-player context for the first comparison player (Phase 5i). |
 | `player_b` | `ComparisonPlayerContext\|None` | Bounded per-player context for the second comparison player (Phase 5i). |
+| `stat_comparison` | `StatComparisonMeta\|None` | **v1, first-pass — not a stable contract** like the fields above. Additive, position-conditional raw-stat table rendered *below* the verdict. Never influences `winner`/`margin`/`label`/`reasons`. See the `StatComparisonMeta` section below. |
 
 ```python
 r = respond("compare Haaland and Salah", bootstrap)
@@ -441,6 +442,44 @@ if r.comparison:
     print(r.comparison.player_a.position) # "FWD"
     print(r.comparison.player_b.role_bonus) # 5.0
 ```
+
+---
+
+## `StatComparisonMeta` — Additive Raw-Stat Comparison Table (v1, first-pass)
+
+**Not a stable contract** — this is a first-pass design choice (analogous to `position_score.py`'s own weight table, which is documented as heuristic, not calibrated), open to recalibration. Populated on `ComparisonMeta.stat_comparison` when at least one comparable row exists; `None` otherwise (including when both players' data is entirely missing).
+
+**Grounding invariant**: every value here is a deterministic read from the bootstrap `element` dict (`comparison_stats.py::build_player_stat_source`). No value ever comes from LLM-generated text. `llm_review.py` is not imported by, and does not gate, any part of this table.
+
+```python
+@dataclass(frozen=True)
+class StatCell:
+    value:   float | int | None   # raw, unrounded — used for comparison, never for display
+    display: str                  # pre-formatted string, "—" for missing
+
+@dataclass(frozen=True)
+class StatRow:
+    key:      str                  # stable identifier (e.g. "goals") — for keys/tests, not the label
+    label:    str                  # Spanish micro-label, display only
+    kind:     Literal["performance", "context"]   # "performance" can highlight; "context" never does
+    value_a:  StatCell
+    value_b:  StatCell
+    better:   Literal["a", "b"] | None
+
+@dataclass(frozen=True)
+class StatComparisonMeta:
+    rows: tuple[StatRow, ...]
+```
+
+**Row set** — universal rows (`form`, `total_points`, `price_m`, `ownership_percent`) always attempted; `price_m`/`ownership_percent` are `kind="context"` and structurally never receive a `better` value. Position-specific rows (`goals`, `assists`, `xgi_per_90` for DEF/MID/FWD; `saves_per_90`/`clean_sheets_per_90` for GKP; `clean_sheets_per_90` also for DEF) are included whenever *either* compared player's position makes them relevant — both players' real values are always shown (never a placeholder standing in for "not this position"; a goalkeeper's goal count is real data, not an inapplicable field). `dc_per_90` is deliberately excluded (documented elsewhere as not a proven signal).
+
+**Missing vs. zero**: both values `None` → row omitted entirely; exactly one `None` → `"—"` on that side, `better=None`; both present (including both `0`) → compared normally on the raw, unrounded value.
+
+**Mixed-position highlight suppression**: when the pairing is "fundamentally mixed" (exactly one player is GKP), `better` is forced to `None` on every non-universal row — real values still shown on both sides, but not directly comparable across such different roles.
+
+**Rounding-tie rule**: `better` is computed from the raw value, but forced to `None` whenever the two cells' *formatted display strings* are equal — a highlight must always be visually justified by what the user actually sees.
+
+**`xgi_per_90` note**: deliberately self-derived using the identical formula the verdict/reasons pipeline (`_derive_scoring_inputs`) already uses (`expected_goal_involvements / (minutes / 90)`), not the bootstrap's enriched `expected_goal_involvements_per_90` field — this guarantees the table's number can never subtly disagree with what the verdict already implies about xGI. `saves_per_90`/`clean_sheets_per_90`, by contrast, prefer the enriched bootstrap field (falling back to derivation from raw counts) since the verdict pipeline reads those same enriched fields directly.
 
 ---
 

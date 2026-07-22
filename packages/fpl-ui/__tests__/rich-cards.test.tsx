@@ -125,6 +125,17 @@ describe('ComparisonCard', () => {
     expect(playerContext({ ...comparisonOkResponse.comparison!.player_a!, is_home: false })).toBe('FWD · Visitante');
     expect(playerContext({ ...comparisonOkResponse.comparison!.player_a!, is_home: null })).toBe('FWD');
   });
+
+  test('renders the stat comparison table below the verdict when present', () => {
+    render(<ComparisonCard data={comparisonOkResponse.comparison!} />);
+    expect(screen.getByText('Forma')).toBeInTheDocument();
+    expect(screen.getByText('Goles')).toBeInTheDocument();
+  });
+
+  test('renders nothing extra when stat_comparison is null', () => {
+    render(<ComparisonCard data={comparisonTiedResponse.comparison!} />);
+    expect(screen.queryByText('Forma')).not.toBeInTheDocument();
+  });
 });
 
 // ---------------------------------------------------------------------------

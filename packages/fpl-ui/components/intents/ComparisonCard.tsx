@@ -27,6 +27,7 @@ import type { ComparisonMeta, ComparisonPlayerContext } from '@/lib/types';
 import { MARGIN_CONFIG, PILL_BASE, CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
 import { COMPARISON_LABEL, comparisonVerdict, comparisonLead, UNIT_CAPTAIN_PTS } from '@/lib/copy';
 import { FingerprintWaves } from './CardOrnaments';
+import StatComparisonTable from './StatComparisonTable';
 
 interface Props {
   data: ComparisonMeta;
@@ -35,7 +36,7 @@ interface Props {
 const ACCENT = 'cyan' as const;
 
 export default function ComparisonCard({ data }: Props) {
-  const { winner, margin, label, reasons, player_a, player_b } = data;
+  const { winner, margin, label, reasons, player_a, player_b, stat_comparison } = data;
   const { text: labelText, pillClass } = MARGIN_CONFIG[label] ?? MARGIN_CONFIG.moderate;
   const topReasons = reasons.slice(0, 3);
 
@@ -103,6 +104,18 @@ export default function ComparisonCard({ data }: Props) {
               </li>
             ))}
           </ul>
+        )}
+
+        {/* Additive raw-stat table — appended below the verdict, never
+            replacing it. v1/first-pass, see FINAL_RESPONSE_CONTRACT.md. */}
+        {stat_comparison && stat_comparison.rows.length > 0 && (
+          <div className="border-t border-white/10 pt-1">
+            <StatComparisonTable
+              data={stat_comparison}
+              nameA={player_a?.web_name ?? 'Jugador A'}
+              nameB={player_b?.web_name ?? 'Jugador B'}
+            />
+          </div>
         )}
       </div>
     </div>

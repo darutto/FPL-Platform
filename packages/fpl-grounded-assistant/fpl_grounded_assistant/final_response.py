@@ -77,6 +77,7 @@ from .dispatcher import OUTCOME_OK, OUTCOME_NEEDS_CLARIFICATION, INTENT_COMPARE_
 from .dispatcher import _TOOL_TO_INTENT, INTENT_UNSUPPORTED  # _orch_result_to_final_response: tool->intent map
 from .multi_intent import detect_multi_intent
 from .generic_card import GenericCardMeta, build_generic_card  # Track A: additive generic card
+from .comparison_stats import StatComparisonMeta, stat_comparison_from_dict  # additive stat table
 from .suggestions import Suggestion, build_suggestions  # Guided Comparison: tappable suggestions
 from .llm_layer import DEFAULT_MODEL
 from .llm_review import ask_llm_safe
@@ -836,6 +837,11 @@ class ComparisonMeta:
     player_b:
         Bounded per-player context for the second comparison player (Phase 5i).
         ``None`` only on legacy construction without this field.
+    stat_comparison:
+        Additive, position-conditional raw-stat table rendered BELOW the
+        verdict — v1/first-pass, not a stable contract like the fields above.
+        ``None`` when no comparable rows exist. Never influences
+        winner/margin/label/reasons.
     """
 
     winner:  str | None
@@ -844,6 +850,7 @@ class ComparisonMeta:
     reasons: tuple[str, ...]
     player_a: "ComparisonPlayerContext | None" = field(default=None)  # Phase 5i
     player_b: "ComparisonPlayerContext | None" = field(default=None)  # Phase 5i
+    stat_comparison: "StatComparisonMeta | None" = field(default=None)  # v1, additive
 
 
 # ---------------------------------------------------------------------------
@@ -1327,6 +1334,7 @@ def _extract_comparison_meta(ro: "dict[str, Any]") -> "ComparisonMeta | None":
             reasons  = tuple(ro.get("comparison_reasons") or []),
             player_a = _extract_comparison_player_ctx(ro.get("player_a", {})),
             player_b = _extract_comparison_player_ctx(ro.get("player_b", {})),
+            stat_comparison = stat_comparison_from_dict(ro.get("stat_comparison")),
         )
     except Exception:  # noqa: BLE001
         return None
