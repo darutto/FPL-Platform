@@ -27,7 +27,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { ask, sessionAsk, createSession, clearSession, FplApiError } from '@/lib/api';
-import { parseSlashCommand } from '@/lib/slash-commands';
+import { generateId } from '@/lib/id';
 import type { AskResponse, SquadContext } from '@/lib/types';
 import { QUOTA_BUCKETS, type QuotaBucket } from '@/lib/tiers';
 import { readDevTier } from '@/lib/dev-tier';
@@ -120,12 +120,24 @@ export default function ChatShell() {
     const input = rawInput.trim();
     if (!input || loading) return;
 
-    const parsed = parseSlashCommand(input);
-    const effectiveQuestion = parsed?.question || input;
-    const intentHint = parsed?.intent_hint ?? null;
+    // Recognized slash commands (/capitan, /comparar, /transferencia, ...) are
+    // sent to the backend RAW, with the leading command intact and no
+    // intent_hint. The backend's prompt-registry decision_router parses the
+    // literal "/command args" text natively — including bare commands with no
+    // argument (correctly triggering needs_clarification) — for every
+    // registered prompt. Stripping the prefix and attaching the legacy
+    // intent_hint bias here actively breaks routing for some intents (e.g.
+    // captain_score, player_fixture_run): _try_route_with_hint's canonical
+    // templates were designed for a bare argument, not the leading-slash form,
+    // and for commands with no argument the previous `parsed.question || input`
+    // fallback (question is "" and falsy) re-introduced the raw slash text
+    // anyway while still attaching the hint, hitting the same bug from the
+    // other direction. Only non-slash free text gets no hint at all (unchanged).
+    const effectiveQuestion = input;
+    const intentHint = null;
 
     const userMessage: Message = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       role: 'user',
       text: input,
     };
@@ -183,7 +195,7 @@ export default function ChatShell() {
       }
 
       const assistantMessage: Message = {
-        id: crypto.randomUUID(),
+        id: generateId(),
         role: 'assistant',
         text: response.final_text,
         outcome: response.outcome,
@@ -197,8 +209,20 @@ export default function ChatShell() {
       // compare_players needs_clarification turn, so its presence is the
       // authoritative compare signal. Arm the two-step chip wizard for THIS
       // latest turn.
+      //
+      // If the user already typed a single name ("/comparar Gabriel"), needs_
+      // clarification only fires because the SECOND name is missing (two valid
+      // names would have resolved to outcome=ok, not clarification) — so any
+      // leftover text after the command prefix is safe to seed as playerA and
+      // jump straight to step 2. Skip seeding when a two-name connector is
+      // present (e.g. "Gabriel vs Bogus") since that means a comparison was
+      // attempted and failed for another reason (unknown second player) —
+      // seeding the whole phrase as one name would be nonsensical.
       if (response.suggestions != null && response.suggestions.length > 0) {
-        setCompareWizard({ playerA: null, options: response.suggestions });
+        const afterCommand = input.replace(/^\/(comparar|compare)\s*/i, '').trim();
+        const hasConnector = /\b(por|for|vs|y|and)\b|,/i.test(afterCommand);
+        const seededA = afterCommand.length > 0 && !hasConnector ? afterCommand : null;
+        setCompareWizard({ playerA: seededA, options: response.suggestions });
       }
       // Refresh quota indicator after every completed turn
       setQuotaRefreshTrigger((n) => n + 1);
@@ -209,7 +233,7 @@ export default function ChatShell() {
           : 'Error inesperado. Por favor, inténtalo de nuevo.';
 
       const errorMessage: Message = {
-        id: crypto.randomUUID(),
+        id: generateId(),
         role: 'assistant',
         text: errorText,
         isError: true,
@@ -232,7 +256,7 @@ export default function ChatShell() {
       setCompareWizard({ playerA: sendText, options: compareWizard.options });
     } else {
       // Second pick: send canonical compare text; sendMessage clears the wizard.
-      sendMessage(`comparar ${compareWizard.playerA} vs ${sendText}`);
+      sendMessage(`/comparar ${compareWizard.playerA} vs ${sendText}`);
     }
   }, [compareWizard, sendMessage]);
 

@@ -60,6 +60,16 @@ def _safe_int(value: Any, default: int = 0) -> int:
         return default
 
 
+def _safe_float(value: Any, default: float = 0.0) -> float:
+    """Best-effort float cast that never raises (selected_by_percent is a string)."""
+    try:
+        if value is None:
+            return default
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
 # ---------------------------------------------------------------------------
 # Deterministic ranker: top transferred players this gameweek
 # ---------------------------------------------------------------------------
@@ -91,6 +101,17 @@ def top_transfer_names(
         highest transfer volume first.  Deterministic: ties are broken by
         element id (ascending) so the output is stable for a given bootstrap.
         Never raises.
+
+    Off-season fallback
+    --------------------
+    Between seasons (or between gameweeks, briefly) every element's
+    ``transfers_in_event`` / ``transfers_out_event`` is genuinely ``0`` — there
+    is no live gameweek to transfer within. Ranking by an all-zero field
+    degenerates to the tie-break (element id), which produces an arbitrary,
+    non-meaningful list (e.g. a run of backup goalkeepers). When the top
+    candidate's volume is ``0``, fall back to ``selected_by_percent``
+    (ownership — the same signal used by the ``@populares`` resource) so
+    suggestions stay sensible year-round instead of reading as broken.
     """
     if not isinstance(bootstrap, dict) or limit <= 0:
         return []
@@ -100,19 +121,26 @@ def top_transfer_names(
     if not isinstance(elements, list):
         return []
 
-    ranked: list[tuple[int, int, str]] = []
-    for el in elements:
-        if not isinstance(el, dict):
-            continue
-        web_name = el.get("web_name")
-        if not isinstance(web_name, str) or not web_name.strip():
-            continue
-        volume = _safe_int(el.get(field_name), 0)
-        el_id = _safe_int(el.get("id"), 0)
-        # Sort key: volume DESC, then id ASC (negate id to keep single reverse sort).
-        ranked.append((volume, -el_id, web_name))
+    def _rank(field: str, is_float: bool = False) -> list[tuple[float, int, str]]:
+        rows: list[tuple[float, int, str]] = []
+        for el in elements:
+            if not isinstance(el, dict):
+                continue
+            web_name = el.get("web_name")
+            if not isinstance(web_name, str) or not web_name.strip():
+                continue
+            raw = el.get(field)
+            volume = _safe_float(raw, 0.0) if is_float else float(_safe_int(raw, 0))
+            el_id = _safe_int(el.get("id"), 0)
+            # Sort key: volume DESC, then id ASC (negate id to keep single reverse sort).
+            rows.append((volume, -el_id, web_name))
+        rows.sort(key=lambda t: (t[0], t[1]), reverse=True)
+        return rows
 
-    ranked.sort(key=lambda t: (t[0], t[1]), reverse=True)
+    ranked = _rank(field_name)
+    if ranked and ranked[0][0] == 0:
+        # Degenerate (off-season) case — fall back to ownership.
+        ranked = _rank("selected_by_percent", is_float=True)
 
     out: list[dict[str, str]] = []
     for _, _, web_name in ranked[:limit]:

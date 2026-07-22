@@ -150,7 +150,7 @@ describe('Guided Comparison chip wizard', () => {
     ask.mockResolvedValueOnce(clarificationResponse());
     render(<ChatShell />);
 
-    await sendText(user, 'comparar');
+    await sendText(user, '/comparar ');
 
     // Step 1: wizard armed, first-player question + all chips.
     const wizard = await screen.findByTestId('compare-wizard');
@@ -173,9 +173,54 @@ describe('Guided Comparison chip wizard', () => {
     await user.click(within(wizard2).getByRole('button', { name: 'Salah' }));
 
     await waitFor(() => expect(ask).toHaveBeenCalledTimes(2));
-    expect(ask.mock.calls[1][0]).toMatchObject({ question: 'comparar Palmer vs Salah' });
+    expect(ask.mock.calls[1][0]).toMatchObject({ question: '/comparar Palmer vs Salah' });
     // Wizard cleared after the send.
     await waitFor(() => expect(getWizard()).toBeNull());
+
+    // Regression: the ORIGINAL clarification turn's raw backend text
+    // (final_text, e.g. English "Are you comparing two players?...") must
+    // stay hidden forever, not just while the wizard was still active.
+    // `compareWizard` clearing back to null on completion must not make it
+    // reappear on the now-historical message.
+    expect(screen.queryByText(clarificationResponse().final_text)).toBeNull();
+  });
+
+  test('a single name already typed seeds player A and jumps to step 2', async () => {
+    const user = userEvent.setup();
+    ask.mockResolvedValueOnce(clarificationResponse());
+    render(<ChatShell />);
+
+    await sendText(user, '/comparar Palmer');
+
+    // Backend only returns needs_clarification here because the SECOND name
+    // is missing (two valid names would resolve to outcome=ok) — so "Palmer"
+    // is safe to seed as player A directly, skipping the redundant step-1
+    // question the user already answered by typing.
+    const wizard = await screen.findByTestId('compare-wizard');
+    expect(within(wizard).getByText('¿Contra quién lo comparamos?')).toBeInTheDocument();
+    expect(within(wizard).getByText('Palmer')).toBeInTheDocument();
+    // Palmer is excluded from the remaining chip options (can't compare to self).
+    expect(within(wizard).queryByRole('button', { name: 'Palmer' })).toBeNull();
+    expect(within(wizard).getByRole('button', { name: 'Salah' })).toBeInTheDocument();
+
+    ask.mockResolvedValueOnce(plainResponse('Comparación lista'));
+    await user.click(within(wizard).getByRole('button', { name: 'Salah' }));
+
+    await waitFor(() => expect(ask).toHaveBeenCalledTimes(2));
+    expect(ask.mock.calls[1][0]).toMatchObject({ question: '/comparar Palmer vs Salah' });
+  });
+
+  test('a two-name attempt with an unresolved second name does not seed player A', async () => {
+    const user = userEvent.setup();
+    ask.mockResolvedValueOnce(clarificationResponse());
+    render(<ChatShell />);
+
+    // Contains a connector ("vs") — a comparison was attempted and failed for
+    // another reason, so seeding the whole phrase as one name would be wrong.
+    await sendText(user, '/comparar Palmer vs Zzzznotaplayer');
+
+    const wizard = await screen.findByTestId('compare-wizard');
+    expect(within(wizard).getByText('¿Cuál es el primer jugador?')).toBeInTheDocument();
   });
 
   test('manual send exits the wizard', async () => {
@@ -183,7 +228,7 @@ describe('Guided Comparison chip wizard', () => {
     ask.mockResolvedValueOnce(clarificationResponse());
     render(<ChatShell />);
 
-    await sendText(user, 'comparar');
+    await sendText(user, '/comparar ');
     expect(await screen.findByTestId('compare-wizard')).toBeInTheDocument();
 
     // A manual message (not a chip tap) clears the wizard.
@@ -199,7 +244,7 @@ describe('Guided Comparison chip wizard', () => {
     ask.mockResolvedValueOnce(clarificationResponse());
     render(<ChatShell />);
 
-    await sendText(user, 'comparar');
+    await sendText(user, '/comparar ');
     expect(await screen.findByTestId('compare-wizard')).toBeInTheDocument();
 
     // A newer turn with NO suggestions arrives → the wizard is gone entirely,

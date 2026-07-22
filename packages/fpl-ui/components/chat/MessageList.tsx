@@ -106,10 +106,18 @@ function MessageBubble({ message, isLast, armed, onFollowUp, compareWizard, onSu
   const isUser = message.role === 'user';
   const showOriginBadge = !isUser && !message.isError && (message.response != null || message.wcResponse != null);
   const showFollowUp = !isUser && !message.isError && isLast && onFollowUp != null;
+  // A compare-clarification turn is identified by ITS OWN response carrying
+  // suggestions — a permanent property of this message, unlike `compareWizard`
+  // (transient global state that clears once the user finishes the wizard).
+  // The backend's raw clarification text (English, redundant with the wizard's
+  // own Spanish copy) must stay hidden for this turn FOREVER, not just while
+  // the wizard is still active — otherwise it reappears the moment the wizard
+  // completes and `compareWizard` resets to null.
+  const hasSuggestions =
+    !isUser && !message.isError && (message.response?.suggestions?.length ?? 0) > 0;
   // Guided Comparison chips: only under the LATEST top-level assistant bubble
   // (never historical turns, never sub-responses) while a wizard is armed.
-  const showWizard =
-    !isUser && !message.isError && isLast && compareWizard != null && onSuggestionPick != null;
+  const showWizard = hasSuggestions && isLast && compareWizard != null && onSuggestionPick != null;
   // Structured turn → render the card alone, like /preview (no text bubble,
   // no bubble-around-card double box).
   const hasFplCard =
@@ -148,7 +156,17 @@ function MessageBubble({ message, isLast, armed, onFollowUp, compareWizard, onSu
               : 'bg-white/5 border border-white/10 text-bf-text rounded-[14px] rounded-tl'
         }`}
       >
-        <p className="text-sm whitespace-pre-wrap">{message.text}</p>
+        {/* A compare-clarification turn's bubble content is owned by the
+            wizard's own Spanish copy — not the backend's generic/English
+            clarification text — for the LIFE of this message, not just while
+            the wizard is still the active one. Live chips while active;
+            once superseded (wizard finished or a newer turn arrived), fall
+            back to a static, non-interactive line so the turn still reads
+            sensibly in history without the English text reappearing. */}
+        {!hasSuggestions && <p className="text-sm whitespace-pre-wrap">{message.text}</p>}
+        {hasSuggestions && !showWizard && (
+          <p className="text-sm font-semibold text-bf-text/90">¿Cuál es el primer jugador?</p>
+        )}
 
         {showOriginBadge && <OriginBadges message={message} />}
         {showWizard && <SuggestionChips wizard={compareWizard!} onPick={onSuggestionPick!} />}

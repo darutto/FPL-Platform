@@ -125,6 +125,30 @@ def test_ranker_non_positive_limit_returns_empty():
     assert top_transfer_names(_bootstrap_with_transfers(), limit=-3) == []
 
 
+def test_ranker_falls_back_to_ownership_when_transfers_all_zero():
+    """Off-season / between-gameweeks: transfers_in_event is 0 for every
+    player, so ranking by it degenerates to the id tie-break (arbitrary,
+    not a real signal). Falls back to selected_by_percent (ownership)."""
+    bs = {"elements": [
+        {"id": 1, "web_name": "Keeper",  "transfers_in_event": 0, "selected_by_percent": "2.1"},
+        {"id": 2, "web_name": "Star",    "transfers_in_event": 0, "selected_by_percent": "45.6"},
+        {"id": 3, "web_name": "Mid",     "transfers_in_event": 0, "selected_by_percent": "10.0"},
+    ]}
+    labels = [d["label"] for d in top_transfer_names(bs, limit=3)]
+    assert labels == ["Star", "Mid", "Keeper"]
+
+
+def test_ranker_no_fallback_when_transfers_nonzero():
+    """Fallback only triggers on the genuinely-degenerate all-zero case —
+    a normal in-season ranking (even a low top value) is left alone."""
+    bs = {"elements": [
+        {"id": 1, "web_name": "Low",  "transfers_in_event": 1, "selected_by_percent": "99.0"},
+        {"id": 2, "web_name": "High", "transfers_in_event": 5, "selected_by_percent": "0.1"},
+    ]}
+    labels = [d["label"] for d in top_transfer_names(bs, limit=2)]
+    assert labels == ["High", "Low"]
+
+
 def test_ranker_direction_out():
     bs = {"elements": [
         {"id": 1, "web_name": "A", "transfers_out_event": 10, "transfers_in_event": 0},

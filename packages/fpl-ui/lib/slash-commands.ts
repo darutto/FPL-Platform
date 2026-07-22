@@ -95,12 +95,12 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     intent_hint: 'rank_candidates',
     placeholder: 'p.ej. Haaland, Salah, Palmer',
   },
-  {
-    command: '/calendario',
-    label: 'Ticker de calendario',
-    intent_hint: 'fixture_outlook',
-    placeholder: 'ataque (por defecto) o escribe "portería" para defensa',
-  },
+  // NOTE: /calendario (singular, fixture_outlook ticker) was removed from the
+  // quick-command list — it only ever worked through the legacy intent_hint
+  // pre-processing shim (it has no entry in the backend's real prompt
+  // registry, unlike the other seven commands here), and a dedicated
+  // Calendario tab already covers this need in the swipe pager. Removing it
+  // avoids maintaining a second, redundant path to the same feature.
 ];
 
 // Validate at module load: all registered commands use allowlisted hints.
