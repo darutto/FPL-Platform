@@ -207,11 +207,15 @@ HOME_FDR_ADJUSTMENT: float = 0.5
 
 
 def _get_current_gw(bootstrap: dict[str, Any]) -> int | None:
-    """Return the current GW id from bootstrap events, or None."""
-    for event in bootstrap.get("events", []):
-        if event.get("is_current"):
-            return event.get("id")
-    return None
+    """Return the current-or-next GW id, or None.
+
+    Delegates to the canonical ``get_current_gameweek`` resolver so this
+    behaves identically everywhere: it falls back to ``is_next`` when no
+    event is ``is_current`` — the pre-season / between-GW state (e.g. GW1
+    before kickoff), which a bare ``is_current`` check misses.
+    """
+    from fpl_api_client import get_current_gameweek
+    return get_current_gameweek(bootstrap)
 
 
 def _resolve_venue(
@@ -288,7 +292,10 @@ def _derive_scoring_inputs(
         minutes_risk = _STATUS_RISK.get(status, 50.0)
 
     team_id = element.get("team")
-    fixture_difficulty = int(fdr_map.get(team_id, 3))
+    # FDR can be present-but-null pre-season (season launch: fixtures exist
+    # before difficulty ratings are populated), so the .get default won't fire.
+    _raw_fdr = fdr_map.get(team_id)
+    fixture_difficulty = int(_raw_fdr) if _raw_fdr is not None else 3
 
     # Phase 8b: home/away venue resolution and effective FDR
     is_home = _resolve_venue(team_id, team_fixtures, current_gw)

@@ -90,8 +90,9 @@ describe('ComparisonCard', () => {
     expect(screen.getByText(/La mejor selección es/)).toBeInTheDocument();
     // winner appears in headline, option col, and lead strip
     expect(screen.getAllByText('Haaland').length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByText('83.5')).toBeInTheDocument();
-    expect(screen.getByText('76.7')).toBeInTheDocument();
+    // Big number is position_score (the ranking signal), not captain_score
+    expect(screen.getByText('84.0')).toBeInTheDocument();
+    expect(screen.getByText('77.0')).toBeInTheDocument();
     expect(screen.getByText('Pick')).toBeInTheDocument();
     expect(screen.getByText(/lidera por/)).toBeInTheDocument();
   });
@@ -105,8 +106,8 @@ describe('ComparisonCard', () => {
   test('null player context still renders verdict (summary-only fallback)', () => {
     render(<ComparisonCard data={comparisonNoContextResponse.comparison!} />);
     expect(screen.getByText(/La mejor selección es/)).toBeInTheDocument();
-    // no option columns → captain score numbers absent
-    expect(screen.queryByText('83.5')).not.toBeInTheDocument();
+    // no option columns → position score numbers absent
+    expect(screen.queryByText('84.0')).not.toBeInTheDocument();
   });
 
   test('caps reasons at 3', () => {

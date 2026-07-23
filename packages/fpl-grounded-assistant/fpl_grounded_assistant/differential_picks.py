@@ -94,11 +94,15 @@ _SCORE_FLOOR: float = 0.0
 # ---------------------------------------------------------------------------
 
 def _get_current_gw(bootstrap: dict[str, Any]) -> int | None:
-    """Return the current GW id from bootstrap events, or None."""
-    for event in bootstrap.get("events", []):
-        if event.get("is_current"):
-            return event.get("id")
-    return None
+    """Return the current-or-next GW id, or None.
+
+    Delegates to the canonical ``get_current_gameweek`` resolver so this
+    behaves identically everywhere: it falls back to ``is_next`` when no
+    event is ``is_current`` — the pre-season / between-GW state (e.g. GW1
+    before kickoff), which a bare ``is_current`` check misses.
+    """
+    from fpl_api_client import get_current_gameweek
+    return get_current_gameweek(bootstrap)
 
 
 def _has_current_gw_fixture(

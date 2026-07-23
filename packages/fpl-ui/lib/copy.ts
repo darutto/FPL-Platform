@@ -30,6 +30,11 @@ export const SUGGESTION_LABEL = 'Objetivos de transferencia';
 // ---------------------------------------------------------------------------
 
 export const UNIT_CAPTAIN_PTS = 'pts capitán';
+// ComparisonCard shows position_score — our own 0–100 heuristic rating, not
+// literal captain points. Branded "Bendito Fantasy"; the number is rendered
+// with a "/100" suffix (see BF_SCORE_MAX) so the scale is explicit.
+export const UNIT_BF_SCORE = 'Bendito Fantasy';
+export const BF_SCORE_MAX = 100;
 export const UNIT_PRICE = 'precio';
 export const UNIT_FORM = 'forma';
 export const UNIT_OWNERSHIP = 'propiedad';
