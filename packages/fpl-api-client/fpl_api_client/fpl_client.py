@@ -292,9 +292,12 @@ def get_fixture_difficulty_map(
 
     Source: captaincy-showdown/src/services/captaincyDataService.ts::getFixtureDifficulty
     """
+    # `strength` (and per-fixture difficulty) can be present-but-null pre-season
+    # — the FPL API ships teams/fixtures before ratings are published, so a
+    # plain `.get(key, default)` won't fire (the key exists with value null) and
+    # int(None) raises. `_coerce` guards None/invalid to a neutral default and is
+    # reused below for the per-fixture difficulty preference.
     def _coerce(value: Any, default: int = 3) -> int:
-        # ``strength`` can be present-but-null pre-season, so a plain default
-        # arg won't fire — coerce None/invalid to the neutral default here.
         try:
             return int(value) if value is not None else default
         except (TypeError, ValueError):

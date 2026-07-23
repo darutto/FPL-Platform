@@ -176,7 +176,13 @@ def get_fixture_difficulty_map(
     if teams is None:
         teams = get_teams(bootstrap)
 
-    team_strength: dict[int, int] = {t["id"]: t.get("strength", 3) for t in teams}
+    # t.get("strength", 3) only falls back when the key is absent — the FPL
+    # API can (and does, e.g. before a new season's ratings are published)
+    # return the key present with an explicit `null`, which the default
+    # above doesn't catch. Guard the None case explicitly.
+    team_strength: dict[int, int] = {
+        t["id"]: t["strength"] if t.get("strength") is not None else 3 for t in teams
+    }
     fixtures = get_fixtures(gameweek)
 
     difficulty_map: dict[int, int] = {}

@@ -28,6 +28,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { ask, sessionAsk, createSession, clearSession, FplApiError } from '@/lib/api';
 import { generateId } from '@/lib/id';
+import { buildSessionSeed } from '@/lib/session-seed';
 import type { AskResponse, SquadContext } from '@/lib/types';
 import { QUOTA_BUCKETS, type QuotaBucket } from '@/lib/tiers';
 import { readDevTier } from '@/lib/dev-tier';
@@ -147,6 +148,10 @@ export default function ChatShell() {
     // runs the legacy respond() pipeline, which doesn't recognize them.
     const isResourceQuery = effectiveQuestion.trim().startsWith('@');
     const isFollowUp = followUpArmedFor != null && !isResourceQuery;
+    // Named for readability, not because the value would otherwise be lost:
+    // followUpArmedFor is closure-captured at this point in the running
+    // call, so setFollowUpArmedFor(null) below only affects future renders.
+    const armedForId = followUpArmedFor;
 
     setMessages((prev) => [...prev, userMessage]);
     setLoading(true);
@@ -172,7 +177,19 @@ export default function ChatShell() {
       if (isFollowUp) {
         let activeId = sessionId;
         if (activeId === null) {
-          const created = await createSession();
+          // Brand-new session — seed it from the prior turn's already-in-
+          // memory response, so follow-up resolvers (comparison, transfer,
+          // etc.) have context on the very first follow-up instead of
+          // starting blank. Seeding only happens here, at creation time:
+          // the existing non-follow-up branch below already clears
+          // sessionId back to null on every ordinary send, so there is no
+          // stale-session path where a later follow-up would reuse this
+          // session without a chance to reseed.
+          const priorMessage = armedForId
+            ? messages.find((m) => m.id === armedForId)
+            : undefined;
+          const seed = buildSessionSeed(priorMessage?.response) ?? undefined;
+          const created = await createSession(seed);
           activeId = created.session_id;
           setSessionId(activeId);
         }
@@ -242,7 +259,7 @@ export default function ChatShell() {
     } finally {
       setLoading(false);
     }
-  }, [loading, followUpArmedFor, sessionId, squadContext, webSearchOn, webSearchAvailable]);
+  }, [loading, followUpArmedFor, sessionId, squadContext, webSearchOn, webSearchAvailable, messages]);
 
   // Guided Comparison: a chip tap. First tap stores player A client-side (no
   // round trip) and swaps the question to step 2. Second tap sends the canonical

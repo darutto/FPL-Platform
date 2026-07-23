@@ -74,7 +74,7 @@ for _pkg in [
         sys.path.insert(0, _pkg)
 
 from fastapi import FastAPI, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, StrictBool, field_validator, model_validator
 
 from fpl_grounded_assistant import respond
 from fpl_grounded_assistant.player_form import _element_summary_guard  # Phase 2.6d.3 — guard stats
@@ -332,6 +332,61 @@ class AskResponse(BaseModel):
     # ran end-to-end. Shape: {topic, summary, results, timestamp}. Unverified
     # AI synthesis over live web sources — never implies "grounded" data.
     web_search:             dict[str, Any] | None = None
+
+
+class CreateSessionRequest(BaseModel):
+    """Optional seed for POST /session — carries the prior turn's already-
+    resolved state so a follow-up session doesn't start with no memory of a
+    turn that happened over the stateless /ask endpoint before it existed.
+
+    Entirely optional and additive: omitting the body (or sending it as
+    JSON ``null``) is identical to today's bodiless POST — an empty-state
+    session, HTTP 200. This model is an external trust boundary (client
+    input feeding directly into in-memory session state), so it validates
+    rather than just structurally types its fields.
+    """
+
+    model_config = ConfigDict(extra="forbid")  # unknown/misspelled seed fields -> 422
+
+    last_comparison: tuple[str, str] | None = None
+    last_transfer: tuple[str, str] | None = None
+    last_fixture_run_player: str | None = None
+    last_differential: StrictBool = False  # reject string/int coercion (e.g. "true", 1)
+    last_player_query: str | None = None
+
+    @field_validator("last_comparison", "last_transfer")
+    @classmethod
+    def _validate_pair(cls, v: tuple[str, str] | None) -> tuple[str, str] | None:
+        if v is None:
+            return v
+        a, b = v
+        a, b = a.strip(), b.strip()
+        if not a or not b or len(a) > 100 or len(b) > 100:
+            raise ValueError("player names must be non-empty and reasonably sized")
+        return (a, b)
+
+    @field_validator("last_fixture_run_player", "last_player_query")
+    @classmethod
+    def _validate_name(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        v = v.strip()
+        if not v or len(v) > 100:
+            raise ValueError("player name must be non-empty and reasonably sized")
+        return v
+
+    @model_validator(mode="after")
+    def _single_anchor(self) -> "CreateSessionRequest":
+        # A legitimate seed carries exactly one "anchor" (the prior turn's
+        # single successful intent). last_differential/last_player_query are
+        # lightweight enough not to count as competing anchors, but two
+        # specialized multi-field anchors together would contradict the
+        # "most recent successful intent" invariant ConversationState relies
+        # on — whichever the frontend sends should be the only prior turn.
+        anchors = [self.last_comparison, self.last_transfer]
+        if sum(a is not None for a in anchors) > 1:
+            raise ValueError("at most one of last_comparison/last_transfer may be set")
+        return self
 
 
 class CreateSessionResponse(BaseModel):
@@ -1828,7 +1883,7 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
 
 
 @app.post("/session", response_model=CreateSessionResponse)
-def create_session() -> CreateSessionResponse:
+def create_session(req: CreateSessionRequest | None = None) -> CreateSessionResponse:
     """Create a new in-memory conversation session.
 
     Prunes expired sessions before creating a new entry.
@@ -1840,13 +1895,19 @@ def create_session() -> CreateSessionResponse:
 
     P3.f (F1 remediation): set ``FPL_SESSION_ENABLED=false`` to disable all
     session endpoints.  Default is ``true`` for backwards compatibility.
+
+    Optional JSON body (``CreateSessionRequest``) seeds the new session's
+    initial state from a prior turn that happened over the stateless /ask
+    endpoint before this session existed — see that model's docstring. An
+    absent body, an empty ``{}``, or an explicit JSON ``null`` are all
+    identical to today's contract: an empty-state session.
     """
     if os.environ.get("FPL_SESSION_ENABLED", "true").lower() in ("false", "0", "no"):
         raise HTTPException(
             status_code=503,
             detail="Session endpoints are disabled (FPL_SESSION_ENABLED=false). Use /ask instead.",
         )
-    from fpl_grounded_assistant import ConversationSession  # noqa: PLC0415
+    from fpl_grounded_assistant import ConversationSession, ConversationState  # noqa: PLC0415
     _prune_expired_sessions()
     if len(_sessions) >= _SESSION_MAX_COUNT:
         raise HTTPException(
@@ -1855,8 +1916,19 @@ def create_session() -> CreateSessionResponse:
         )
     now = time.time()
     session_id = str(uuid.uuid4())
+    initial_state = (
+        ConversationState(
+            last_comparison=req.last_comparison,
+            last_transfer=req.last_transfer,
+            last_fixture_run_player=req.last_fixture_run_player,
+            last_differential=req.last_differential,
+            last_player_query=req.last_player_query,
+        )
+        if req is not None
+        else ConversationState()
+    )
     _sessions[session_id] = _SessionEntry(
-        session=ConversationSession(),
+        session=ConversationSession(state=initial_state),
         created_at=now,
         last_used_at=now,
     )
