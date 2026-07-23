@@ -59,12 +59,22 @@ _spec.loader.exec_module(fixture_outlook)
 sys.path.insert(0, os.path.join(_PACKAGES, "fpl-historical"))
 from fpl_historical.rolling_strength import compute_rolling_strength  # noqa: E402
 
+# fpl-api-client is a sibling package (not pip-installed) — used only by the
+# --season-start live path.
+sys.path.insert(0, os.path.join(_PACKAGES, "fpl-api-client"))
+
 SEASON = "2025-2026"
+NEW_SEASON = "2026-27"
 _DATA_ROOT = os.path.join(
     _PACKAGES, "fpl-historical", "data", "historical", "seasons", SEASON, "parquet_merged"
 )
 _OUT_PATH = os.path.join(
     _PACKAGES, "fpl-ui", "lib", "data", "fixture-outlook-2025-26.json"
+)
+# --season-start writes here (new-season live schedule), keeping the finished
+# 2025-26 bundle untouched.
+_OUT_PATH_NEW = os.path.join(
+    _PACKAGES, "fpl-ui", "lib", "data", "fixture-outlook-2026-27.json"
 )
 
 HORIZONS = (5, 8, 10)
@@ -78,6 +88,42 @@ _W_FORM = 0.4
 def _load_frames() -> tuple[pd.DataFrame, pd.DataFrame]:
     teams_df = pd.read_parquet(os.path.join(_DATA_ROOT, "teams.parquet"))
     fixtures_df = pd.read_parquet(os.path.join(_DATA_ROOT, "fixtures.parquet"))
+    return teams_df, fixtures_df
+
+
+def _load_live_frames() -> tuple[pd.DataFrame, pd.DataFrame]:
+    """teams_df + fixtures_df pulled from the LIVE FPL API (new season).
+
+    Team ids are re-assigned every season (promotions/relegations), so both the
+    team roster and the fixture schedule must come from the live bootstrap /
+    fixtures endpoints — never reuse last season's parquet. Fixtures whose
+    ``event`` is null (season tail not yet scheduled at launch) are dropped.
+    """
+    from fpl_api_client.fpl_client import get_bootstrap, get_all_fixtures  # noqa: E402
+
+    boot = get_bootstrap()
+    teams_df = pd.DataFrame(
+        [
+            {"team_id": int(t["id"]), "short_name": t["short_name"], "name": t["name"]}
+            for t in boot["teams"]
+        ]
+    )
+
+    rows = []
+    for f in get_all_fixtures():
+        ev = f.get("event")
+        if ev is None:
+            continue  # unscheduled tail — no GW assigned yet
+        rows.append(
+            {
+                "event_id": int(ev),
+                "team_h": int(f["team_h"]),
+                "team_a": int(f["team_a"]),
+                "team_h_difficulty": int(f["team_h_difficulty"]),
+                "team_a_difficulty": int(f["team_a_difficulty"]),
+            }
+        )
+    fixtures_df = pd.DataFrame(rows)
     return teams_df, fixtures_df
 
 
@@ -154,6 +200,23 @@ def build_recipe_bootstraps(teams_df: pd.DataFrame, fixtures_df: pd.DataFrame) -
     return attack_boot, defence_boot
 
 
+def build_season_start_bootstraps(
+    teams_df: pd.DataFrame, fixtures_df: pd.DataFrame
+) -> tuple[dict, dict]:
+    """(attack_boot, defence_boot) for a freshly-launched season.
+
+    At launch zero games have been played, so ``compute_rolling_strength`` has
+    no data and the defence-axis form overlay is undefined. Both axes therefore
+    band from FPL's own FDR (``difficulty``); the defence axis upgrades to the
+    validated FDR+form recipe (build_recipe_bootstraps) once real results exist.
+    ``events`` is empty so the engine walks the earliest ``horizon`` GWs (GW1+).
+    """
+    teams_min = _teams_min(teams_df)
+    base_tf = _base_team_fixtures(fixtures_df)  # difficulty = FDR
+    boot = {"teams": teams_min, "team_fixtures": base_tf, "events": []}
+    return boot, boot
+
+
 def build_rolling_bootstrap(as_of_gw: int) -> dict:
     """Legacy Step-2 comparison: raw walk-forward rolling STRENGTH snapshot fed
     through the engine's quintile bucketing, horizon projected from GW N."""
@@ -182,20 +245,34 @@ def parse_args() -> argparse.Namespace:
         help="Output path. Required with --as-of-gw (never overwrites the shipped JSON). "
              "Defaults to the committed /fixtures path otherwise.",
     )
+    parser.add_argument(
+        "--season-start", action="store_true",
+        help="Pull the new season's live schedule + FDR from the FPL API and write "
+             "the 2026-27 bundle (both axes = FDR; no results exist yet). Defaults "
+             f"its output to {os.path.basename(_OUT_PATH_NEW)}.",
+    )
     args = parser.parse_args()
     if args.as_of_gw is not None and args.out is None:
         parser.error("--out is required when --as-of-gw is given")
+    if args.season_start and args.as_of_gw is not None:
+        parser.error("--season-start and --as-of-gw are mutually exclusive")
     return args
 
 
 def main() -> None:
     args = parse_args()
-    out_path = args.out or _OUT_PATH
 
-    if args.as_of_gw is not None:
+    if args.season_start:
+        out_path = args.out or _OUT_PATH_NEW
+        teams_df, fixtures_df = _load_live_frames()
+        attack_boot, defence_boot = build_season_start_bootstraps(teams_df, fixtures_df)
+        boots = {"attack": attack_boot, "defence": defence_boot}
+    elif args.as_of_gw is not None:
+        out_path = args.out or _OUT_PATH
         boot = build_rolling_bootstrap(args.as_of_gw)
         boots = {"attack": boot, "defence": boot}
     else:
+        out_path = args.out or _OUT_PATH
         teams_df, fixtures_df = _load_frames()
         attack_boot, defence_boot = build_recipe_bootstraps(teams_df, fixtures_df)
         boots = {"attack": attack_boot, "defence": defence_boot}

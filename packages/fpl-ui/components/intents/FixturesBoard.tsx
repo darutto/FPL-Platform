@@ -6,11 +6,11 @@
  * Shared by the standalone public /fixtures page and the in-app Calendario
  * pager tab. Owns the four controls (attack⇄defence axis, 5/8/10 horizon,
  * detailed⇄compact⇄tendency view) and renders the league outlook from the
- * interim data seam — real, finished 2025–26 fixtures run through the same
- * band/run engine the live tool uses (buildRealSeasonOutlook; see
- * lib/fixture-outlook-real.ts). Swap for a live fetch once the new season's
- * fixtures roll over — identical FixtureOutlookMeta shape, so nothing else
- * changes. Every team/cell deep-links via `onAsk`, which each surface
+ * data seam — real 2026–27 fixtures + FDR pulled from the live FPL API at
+ * launch, run through the same band/run engine the live tool uses
+ * (buildRealSeasonOutlook; see lib/fixture-outlook-real.ts). Identical
+ * FixtureOutlookMeta shape, so nothing here changes as the season progresses.
+ * Every team/cell deep-links via `onAsk`, which each surface
  * fulfils differently: the page routes to /chat?q=…, the pager prefills the
  * composer.
  */
@@ -158,11 +158,12 @@ export function FixturesBoard({
           <BandLegend />
 
           <p className="text-[10px] leading-snug text-bf-gray/50 pt-1 border-t border-white/5">
-            Calendario real de la temporada 2025–26 (finalizada), sin datos
-            inventados. Ataque: dificultad FDR de FPL. Portería a cero: FDR
-            ajustado por la forma atacante reciente del rival. Se reemplazará
-            por el calendario real de la nueva temporada cuando la API de FPL
-            lo publique.
+            Calendario real de la temporada 2026–27 desde la API oficial de FPL,
+            sin datos inventados. Ambos ejes usan la dificultad FDR de FPL: al
+            arrancar la temporada aún no hay partidos jugados, así que el eje de
+            portería a cero se ajustará por la forma atacante reciente del rival
+            en cuanto haya resultados. El calendario del final de temporada se
+            completará según la API lo vaya publicando.
           </p>
         </div>
       </div>

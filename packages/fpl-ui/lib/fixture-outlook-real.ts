@@ -1,29 +1,26 @@
 /**
- * fixture-outlook-real — the interim /fixtures data seam (Track D).
+ * fixture-outlook-real — the /fixtures data seam (Track D).
  *
- * Real 2025–26 season fixtures + results (via fpl-historical), run through
- * the SAME run-detection / verdict engine the live tool uses (see
+ * Real 2026–27 season fixtures + FDR, pulled from the LIVE FPL API the day the
+ * season launched and run through the SAME run-detection / verdict engine the
+ * live tool uses (see
  * packages/fpl-grounded-assistant/scripts/export_real_season_fixture_outlook.py
- * — it loads fixture_outlook.py directly, no reimplementation). Real
- * opponents, real venues, real gameweek order.
+ * --season-start — it loads fixture_outlook.py directly, no reimplementation).
+ * Real opponents, real venues, real gameweek order.
  *
- * Difficulty is the ASYMMETRIC RECIPE the ML0 evaluation harness picked as
- * best-validated across ~760 team-fixtures vs xG: the attack axis is FPL's
- * own FDR; the defence axis is FDR refined by the opponent's walk-forward
- * rolling attacking form. Not fabricated data — a difficulty *signal*
- * chosen by measured skill, not a guess.
+ * Season-start difficulty: both axes band from FPL's own FDR. Zero games have
+ * been played, so the defence-axis FDR+form recipe (the ML0-validated signal)
+ * has no rolling form to refine with yet — the defence axis therefore mirrors
+ * the attack axis until real results exist, at which point re-running the
+ * default (non-`--season-start`) export re-separates the axes.
  *
- * Manual backtesting: since the season is finished, real results (scores)
- * exist in fpl-historical's fixtures.parquet — ask directly ("how did
- * Arsenal's GW10 home game actually go?") and the answer comes from that
- * real data, not from anything rendered here.
- *
- * Swap point for when the new season's live fixtures exist: replace this
- * module's import in FixturesBoard with a live get_fixture_outlook fetch —
- * same FixtureOutlookMeta shape, so nothing else changes.
+ * Refresh cadence: re-run `export_real_season_fixture_outlook.py --season-start`
+ * to pick up newly-scheduled tail gameweeks (the launch schedule is partial),
+ * then switch to the form-refined recipe export once GWs have been played.
+ * Same FixtureOutlookMeta shape throughout, so nothing else changes.
  */
 import type { FixtureAxis, FixtureOutlookMeta } from './types';
-import real from './data/fixture-outlook-2025-26.json';
+import real from './data/fixture-outlook-2026-27.json';
 
 type RealBundle = Record<FixtureAxis, Record<string, FixtureOutlookMeta>>;
 
