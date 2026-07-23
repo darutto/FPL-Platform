@@ -17,6 +17,21 @@ schedule + FDR (`export_real_season_fixture_outlook.py --season-start` →
 `fixture-outlook-2026-27.json`; seam + disclaimer updated). Both axes = FDR at
 launch; defence axis re-separates once results exist (see next item).
 
+**Also done 2026-07-23 (compare-card + season-launch data bugs):** three
+season-launch data bugs found while eyeballing `/comparar` — all the same
+`.get(key, default)`-doesn't-fire-when-`key:null` trap: (a) `team["strength"]`
+present-but-null broke ALL backend startup (`context.py::_build_team_fixtures`),
+forcing a ~53-day-stale fallback; (b) `fixture_difficulty_map` was all-null
+because `get_fixture_difficulty_map` read the null aggregate `strength` instead
+of each fixture's `team_h/a_difficulty` (the real FDR the calendar already uses)
+— so compare treated every fixture as neutral FDR=3; (c) GW1 venue never
+resolved because three byte-identical `_get_current_gw` copies only checked
+`is_current` (GW1 is `is_next` pre-kickoff), no-op'ing home/away on the most
+important GW — fixed by delegating all three to canonical `get_current_gameweek`.
+Compare card also now shows `position_score` (the value that decides the winner)
+instead of `captain_score`, branded **Bendito Fantasy /100**. Duplicate-resolver
+sprawl (≥9 current-GW impls) deferred to a dedicated cleanup track.
+
 | # | Item | Severity | Notes |
 |---|---|---|---|
 | 1 | **Zero-minutes / fresh-season safety** — verify per-90 & ratio consumers don't divide-by-zero or rank on empty stats before GW1 is played | High | All cumulative stats/xG are 0 until GW1 completes; audit `PER_90_COLS` consumers + any form/value ranking |
@@ -194,6 +209,48 @@ The same engine (FI0–FI3) powers both surfaces; the visual ticker + sparkline 
 - **Via the deterministic engines (FI3a/FI3b).** FI3a is additive (context/tiebreaker, tuned scores untouched). FI3b swaps the scoring input and is recalibration-sensitive → gated on Track B.
 
 **Sequencing:** FI0–FI2 (engine + narrative + tool) deliver broad reach with no UI and no recalibration. FI3a adds additive per-engine context. FI4–FI5 add the in-chat static visuals; FI7 reuses them as the standalone free browse-first page. FI6 is the predictive Poisson upgrade (gated on Track A); FI3b is input replacement (gated on Track B). Each phase is independently shippable; FI7 can land any time after FI4–FI5.
+
+---
+
+## Track E — Bendito Fantasy Score Leaderboard (added 2026-07-23)
+
+**Origin:** came out of the compare-card work. The card now surfaces
+`position_score` as the branded **Bendito Fantasy score (X/100)** — our own
+0–100 heuristic rating (`position_score.py`, Layer 2). Natural next question from
+the user: *"can we show a ranking of players by our score?"* Yes — the score is
+already computed per player; this is a **read/surface** feature, not a scoring
+change. Mostly additive: new (or extended) tool + new card + optional page.
+
+**What already exists (reuse, don't rebuild):**
+- `differential_picks` already ranks by `position_score` (filtered by ownership).
+- A `rank_candidates` / `/clasificacion` surface is referenced in Track D
+  (captain fixture context) — confirm its current state and whether the
+  leaderboard should extend it rather than add a parallel tool. **This is
+  exactly the duplicate-resolver trap (see the duplicate-resolver cleanup track) —
+  check before writing a new ranking path.**
+
+**Scope (v1):**
+| Phase | Work |
+|---|---|
+| E1 | **Reuse/extend an existing ranking tool — do NOT add a third.** Candidates already in the tree: `rank_players_by_metric` (atomic tool, P0–P6 pivot), `rank_candidates` / `/clasificacion` (Track D surface), and `differential_picks` (already ranks by `position_score`). First task is to audit these three and decide whether `position_score` is just another `metric` value for `rank_players_by_metric` (likely the cleanest) or warrants a thin dedicated path. Then: input filters — `position` (GKP/DEF/MID/FWD), `max_price`, `min_minutes`, `top_n` (default 15); output ranked `{rank, web_name, team_short, position, position_score, captain_score, now_cost, ownership, is_home, effective_fdr}` sorted by `position_score` desc. Pure deterministic; reuses `_score_one`/`compute_position_score`. |
+| E2 | **Leaderboard card** (`ranking` intent + renderer). Ranked rows with the Bendito Fantasy score `/100` shown prominently (the honest place to expose the scale — users see the whole distribution). Position/price filter chips. Bendito Fantasy design language, mobile-first, reuses intent→renderer pipeline. Add `/ranking` (or reuse `/clasificacion`) slash command. |
+| E3 | **Standalone leaderboard page (optional, browse-first).** Full-table version behind or beside the Fixtures page (Track D FI7). Same engine; page scale. Gate/paywall decision TBD alongside FI7. |
+
+**Design notes / open questions:**
+- **Scale honesty (season-start artifact).** `form` is 40% of the MID/FWD weight
+  and is **0 for every player until GW1 is played**, so the reachable ceiling is
+  ~60 right now and premiums sit ~40/100. Scores rise into the 70s–80s once form
+  accrues. 100 is near-asymptotic (needs form≈10 + FDR-1 + elite xGI + secure
+  minutes simultaneously). The leaderboard makes this visible, which is good —
+  but consider a short pre-GW1 disclaimer ("las puntuaciones suben cuando arranca
+  la forma"). Ties into the Layer-3 calibration work in `position_score.py`.
+- **Cross-position comparability caveat** already documented in
+  `position_score.py`: scores are operationally rankable across positions but not
+  fully calibrated to equal predictive meaning — a single mixed leaderboard is
+  fine for v1 but a per-position default view is safer. Relates to
+  the Phase 8a modeling-direction notes.
+- No buy/sell language (product-wide rule): the leaderboard *rates*, it doesn't
+  instruct. Positive framing only.
 
 ---
 
