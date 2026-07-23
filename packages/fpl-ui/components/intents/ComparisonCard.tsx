@@ -25,7 +25,7 @@
  */
 import type { ComparisonMeta, ComparisonPlayerContext } from '@/lib/types';
 import { MARGIN_CONFIG, PILL_BASE, CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
-import { COMPARISON_LABEL, comparisonVerdict, comparisonLead, UNIT_CAPTAIN_PTS } from '@/lib/copy';
+import { COMPARISON_LABEL, comparisonVerdict, comparisonLead, UNIT_BF_SCORE, BF_SCORE_MAX } from '@/lib/copy';
 import { FingerprintWaves } from './CardOrnaments';
 import StatComparisonTable from './StatComparisonTable';
 
@@ -147,15 +147,21 @@ function OptionCol({
       </div>
       <div className="text-[11px] text-bf-gray">{playerContext(player)}</div>
       <div
-        className={`mt-1 font-display leading-none tracking-tighter ${
+        className={`mt-1 flex items-baseline gap-0.5 font-display leading-none tracking-tighter ${
           isWinner ? 'text-bf-turquoise' : 'text-bf-gray'
         }`}
-        style={{ fontSize: isWinner ? 30 : 22 }}
       >
-        {player.captain_score.toFixed(1)}
+        {/* Display position_score, not captain_score: position_score is the
+            Layer 2 heuristic that decides winner + margin (comparison.py).
+            captain_score (Layer 1) can rank the other way — e.g. at season
+            start when form=0 and only captain_score ignores home/away FDR —
+            which made the headline number contradict the verdict. The "/100"
+            suffix makes the rating scale explicit. */}
+        <span style={{ fontSize: isWinner ? 30 : 22 }}>{player.position_score.toFixed(1)}</span>
+        <span className="text-[11px] font-bold text-bf-gray">/{BF_SCORE_MAX}</span>
       </div>
       <div className="text-[9px] font-bold uppercase tracking-wide text-bf-gray">
-        {UNIT_CAPTAIN_PTS}
+        {UNIT_BF_SCORE}
       </div>
     </div>
   );
