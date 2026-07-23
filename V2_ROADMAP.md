@@ -93,6 +93,8 @@ sprawl (≥9 current-GW impls) deferred to a dedicated cleanup track.
 | Bench-boost truncation deeper fix | Low | Doubles cost (2nd LLM synthesis call); defer to post-cost-model decision |
 | Mismatch fixture tool | Low | `get_fixture_mismatches(gw)` or `largest_fdr_delta_fixture` extension |
 | `lib/types.ts` contract-sync | Low | 2 pre-existing frontend test failures |
+| **`get_historical_gameweek_top_scorer` not wired in** — full tool implementation exists (`fpl_grounded_assistant/historical_gameweek_top_scorer.py`) but its docstring's own registration step ("`__init__.py` must import this module") was never done, so the tool never registers in `TOOL_REGISTRY` and is currently unreachable | Medium | One-line fix (add the import) once someone verifies the tool end-to-end against `fpl-historical`'s owned store; committed uncommitted-until-2026-07-23 |
+| **Player of the Gameweek hero page** — design handoff done (`packages/fpl-ui/docs/player-of-the-gameweek/HANDOFF.md` + 4-season data file), no dispatch wiring or component built yet | Low | Prototype-validated concept (ESPN Body Issue style hero page); not started |
 
 ---
 

@@ -1,0 +1,1369 @@
+{
+  "2022-2023": [
+    {
+      "event_id": 1,
+      "player_id": 366,
+      "web_name": "Schär",
+      "team_short": "NEW",
+      "position": "DEF",
+      "points": 15,
+      "highlight": "1 goal, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 2,
+      "player_id": 28,
+      "web_name": "Jesus",
+      "team_short": "ARS",
+      "position": "FWD",
+      "points": 19,
+      "highlight": "2 goals, 2 assists, 3 bonus points"
+    },
+    {
+      "event_id": 3,
+      "player_id": 7,
+      "web_name": "Ødegaard",
+      "team_short": "ARS",
+      "position": "MID",
+      "points": 16,
+      "highlight": "2 goals, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 4,
+      "player_id": 279,
+      "web_name": "Firmino",
+      "team_short": "LIV",
+      "position": "FWD",
+      "points": 22,
+      "highlight": "2 goals, 3 assists, 3 bonus points"
+    },
+    {
+      "event_id": 5,
+      "player_id": 318,
+      "web_name": "Haaland",
+      "team_short": "MCI",
+      "position": "FWD",
+      "points": 17,
+      "highlight": "3 goals, 3 bonus points"
+    },
+    {
+      "event_id": 6,
+      "player_id": 335,
+      "web_name": "Rashford",
+      "team_short": "MUN",
+      "position": "MID",
+      "points": 18,
+      "highlight": "2 goals, 1 assist, 3 bonus points"
+    },
+    {
+      "event_id": 8,
+      "player_id": 428,
+      "web_name": "Son",
+      "team_short": "TOT",
+      "position": "MID",
+      "points": 19,
+      "highlight": "3 goals, 3 bonus points"
+    },
+    {
+      "event_id": 9,
+      "player_id": 318,
+      "web_name": "Haaland",
+      "team_short": "MCI",
+      "position": "FWD",
+      "points": 23,
+      "highlight": "3 goals, 2 assists, 3 bonus points"
+    },
+    {
+      "event_id": 10,
+      "player_id": 306,
+      "web_name": "Cancelo",
+      "team_short": "MCI",
+      "position": "DEF",
+      "points": 18,
+      "highlight": "1 goal, 1 assist, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 11,
+      "player_id": 142,
+      "web_name": "Mount",
+      "team_short": "CHE",
+      "position": "MID",
+      "points": 15,
+      "highlight": "2 goals, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 12,
+      "player_id": 281,
+      "web_name": "Alisson",
+      "team_short": "LIV",
+      "position": "GKP",
+      "points": 15,
+      "highlight": "3 saves, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 13,
+      "player_id": 461,
+      "web_name": "Zouma",
+      "team_short": "WHU",
+      "position": "DEF",
+      "points": 15,
+      "highlight": "1 goal, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 14,
+      "player_id": 356,
+      "web_name": "Wilson",
+      "team_short": "NEW",
+      "position": "FWD",
+      "points": 19,
+      "highlight": "2 goals, 2 assists, 3 bonus points"
+    },
+    {
+      "event_id": 15,
+      "player_id": 535,
+      "web_name": "Tavernier",
+      "team_short": "BOU",
+      "position": "MID",
+      "points": 16,
+      "highlight": "1 goal, 2 assists, 3 bonus points"
+    },
+    {
+      "event_id": 16,
+      "player_id": 7,
+      "web_name": "Ødegaard",
+      "team_short": "ARS",
+      "position": "MID",
+      "points": 16,
+      "highlight": "2 goals, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 17,
+      "player_id": 210,
+      "web_name": "Mitrović",
+      "team_short": "FUL",
+      "position": "FWD",
+      "points": 15,
+      "highlight": "1 goal, 2 assists, 3 bonus points"
+    },
+    {
+      "event_id": 18,
+      "player_id": 7,
+      "web_name": "Ødegaard",
+      "team_short": "ARS",
+      "position": "MID",
+      "points": 13,
+      "highlight": "1 goal, 1 assist, 3 bonus points"
+    },
+    {
+      "event_id": 19,
+      "player_id": 427,
+      "web_name": "Kane",
+      "team_short": "TOT",
+      "position": "FWD",
+      "points": 16,
+      "highlight": "2 goals, 1 assist, 3 bonus points"
+    },
+    {
+      "event_id": 20,
+      "player_id": 107,
+      "web_name": "March",
+      "team_short": "BHA",
+      "position": "MID",
+      "points": 19,
+      "highlight": "2 goals, 1 assist, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 21,
+      "player_id": 318,
+      "web_name": "Haaland",
+      "team_short": "MCI",
+      "position": "FWD",
+      "points": 17,
+      "highlight": "3 goals, 3 bonus points"
+    },
+    {
+      "event_id": 22,
+      "player_id": 262,
+      "web_name": "Iheanacho",
+      "team_short": "LEI",
+      "position": "FWD",
+      "points": 15,
+      "highlight": "1 goal, 2 assists, 3 bonus points"
+    },
+    {
+      "event_id": 23,
+      "player_id": 301,
+      "web_name": "De Bruyne",
+      "team_short": "MCI",
+      "position": "MID",
+      "points": 13,
+      "highlight": "1 goal, 1 assist, 3 bonus points"
+    },
+    {
+      "event_id": 24,
+      "player_id": 335,
+      "web_name": "Rashford",
+      "team_short": "MUN",
+      "position": "MID",
+      "points": 15,
+      "highlight": "2 goals, clean sheet, 2 bonus points"
+    },
+    {
+      "event_id": 25,
+      "player_id": 19,
+      "web_name": "Martinelli",
+      "team_short": "ARS",
+      "position": "MID",
+      "points": 16,
+      "highlight": "2 goals, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 26,
+      "player_id": 283,
+      "web_name": "Salah",
+      "team_short": "LIV",
+      "position": "MID",
+      "points": 21,
+      "highlight": "2 goals, 2 assists, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 27,
+      "player_id": 111,
+      "web_name": "Trossard",
+      "team_short": "ARS",
+      "position": "MID",
+      "points": 15,
+      "highlight": "3 assists, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 28,
+      "player_id": 13,
+      "web_name": "Saka",
+      "team_short": "ARS",
+      "position": "MID",
+      "points": 18,
+      "highlight": "2 goals, 1 assist, 3 bonus points"
+    },
+    {
+      "event_id": 29,
+      "player_id": 472,
+      "web_name": "Aguerd",
+      "team_short": "WHU",
+      "position": "DEF",
+      "points": 15,
+      "highlight": "90 minutes played"
+    },
+    {
+      "event_id": 30,
+      "player_id": 171,
+      "web_name": "Olise",
+      "team_short": "CRY",
+      "position": "MID",
+      "points": 14,
+      "highlight": "3 assists, 3 bonus points"
+    },
+    {
+      "event_id": 31,
+      "player_id": 288,
+      "web_name": "Diogo Jota",
+      "team_short": "LIV",
+      "position": "FWD",
+      "points": 16,
+      "highlight": "2 goals, 1 assist, 3 bonus points"
+    },
+    {
+      "event_id": 32,
+      "player_id": 288,
+      "web_name": "Diogo Jota",
+      "team_short": "LIV",
+      "position": "FWD",
+      "points": 13,
+      "highlight": "2 goals, 3 bonus points"
+    },
+    {
+      "event_id": 33,
+      "player_id": 301,
+      "web_name": "De Bruyne",
+      "team_short": "MCI",
+      "position": "MID",
+      "points": 19,
+      "highlight": "2 goals, 1 assist, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 34,
+      "player_id": 308,
+      "web_name": "Aké",
+      "team_short": "MCI",
+      "position": "DEF",
+      "points": 15,
+      "highlight": "1 goal, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 35,
+      "player_id": 534,
+      "web_name": "McNeil",
+      "team_short": "EVE",
+      "position": "MID",
+      "points": 21,
+      "highlight": "2 goals, 2 assists, 3 bonus points"
+    },
+    {
+      "event_id": 36,
+      "player_id": 300,
+      "web_name": "Gündogan",
+      "team_short": "MCI",
+      "position": "MID",
+      "points": 19,
+      "highlight": "2 goals, 1 assist, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 37,
+      "player_id": 95,
+      "web_name": "Mbeumo",
+      "team_short": "BRE",
+      "position": "FWD",
+      "points": 16,
+      "highlight": "2 goals, 1 assist, 3 bonus points"
+    },
+    {
+      "event_id": 38,
+      "player_id": 427,
+      "web_name": "Kane",
+      "team_short": "TOT",
+      "position": "FWD",
+      "points": 16,
+      "highlight": "2 goals, 1 assist, 3 bonus points"
+    }
+  ],
+  "2023-2024": [
+    {
+      "event_id": 1,
+      "player_id": 395,
+      "web_name": "R.Varane",
+      "team_short": "MUN",
+      "position": "DEF",
+      "points": 14,
+      "highlight": "1 goal, clean sheet, 2 bonus points"
+    },
+    {
+      "event_id": 2,
+      "player_id": 108,
+      "web_name": "Mbeumo",
+      "team_short": "BRE",
+      "position": "MID",
+      "points": 16,
+      "highlight": "2 goals, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 3,
+      "player_id": 216,
+      "web_name": "Sterling",
+      "team_short": "CHE",
+      "position": "MID",
+      "points": 19,
+      "highlight": "2 goals, 1 assist, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 4,
+      "player_id": 516,
+      "web_name": "Son",
+      "team_short": "TOT",
+      "position": "MID",
+      "points": 20,
+      "highlight": "3 goals, 3 bonus points"
+    },
+    {
+      "event_id": 5,
+      "player_id": 344,
+      "web_name": "Bernardo",
+      "team_short": "MCI",
+      "position": "MID",
+      "points": 13,
+      "highlight": "1 goal, 1 assist, 3 bonus points"
+    },
+    {
+      "event_id": 6,
+      "player_id": 430,
+      "web_name": "Trippier",
+      "team_short": "NEW",
+      "position": "DEF",
+      "points": 18,
+      "highlight": "3 assists, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 7,
+      "player_id": 60,
+      "web_name": "Watkins",
+      "team_short": "AVL",
+      "position": "FWD",
+      "points": 23,
+      "highlight": "3 goals, 2 assists, 3 bonus points"
+    },
+    {
+      "event_id": 8,
+      "player_id": 216,
+      "web_name": "Sterling",
+      "team_short": "CHE",
+      "position": "MID",
+      "points": 16,
+      "highlight": "1 goal, 2 assists, 3 bonus points"
+    },
+    {
+      "event_id": 9,
+      "player_id": 423,
+      "web_name": "J.Murphy",
+      "team_short": "NEW",
+      "position": "MID",
+      "points": 17,
+      "highlight": "1 goal, 2 assists, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 10,
+      "player_id": 13,
+      "web_name": "Nketiah",
+      "team_short": "ARS",
+      "position": "FWD",
+      "points": 17,
+      "highlight": "3 goals, 3 bonus points"
+    },
+    {
+      "event_id": 11,
+      "player_id": 678,
+      "web_name": "Doku",
+      "team_short": "MCI",
+      "position": "MID",
+      "points": 22,
+      "highlight": "1 goal, 4 assists, 3 bonus points"
+    },
+    {
+      "event_id": 12,
+      "player_id": 355,
+      "web_name": "Haaland",
+      "team_short": "MCI",
+      "position": "FWD",
+      "points": 16,
+      "highlight": "2 goals, 1 assist, 3 bonus points"
+    },
+    {
+      "event_id": 13,
+      "player_id": 86,
+      "web_name": "Tavernier",
+      "team_short": "BOU",
+      "position": "MID",
+      "points": 16,
+      "highlight": "2 goals, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 14,
+      "player_id": 199,
+      "web_name": "Enzo",
+      "team_short": "CHE",
+      "position": "MID",
+      "points": 14,
+      "highlight": "2 goals, 3 bonus points"
+    },
+    {
+      "event_id": 15,
+      "player_id": 267,
+      "web_name": "Andreas",
+      "team_short": "FUL",
+      "position": "MID",
+      "points": 15,
+      "highlight": "3 assists, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 16,
+      "player_id": 516,
+      "web_name": "Son",
+      "team_short": "TOT",
+      "position": "MID",
+      "points": 17,
+      "highlight": "1 goal, 2 assists, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 17,
+      "player_id": 689,
+      "web_name": "Kudus",
+      "team_short": "WHU",
+      "position": "MID",
+      "points": 16,
+      "highlight": "2 goals, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 18,
+      "player_id": 85,
+      "web_name": "Solanke",
+      "team_short": "BOU",
+      "position": "FWD",
+      "points": 17,
+      "highlight": "3 goals, 3 bonus points"
+    },
+    {
+      "event_id": 19,
+      "player_id": 468,
+      "web_name": "Wood",
+      "team_short": "NFO",
+      "position": "FWD",
+      "points": 17,
+      "highlight": "3 goals, 3 bonus points"
+    },
+    {
+      "event_id": 20,
+      "player_id": 362,
+      "web_name": "Palmer",
+      "team_short": "CHE",
+      "position": "MID",
+      "points": 18,
+      "highlight": "2 goals, 1 assist, 3 bonus points"
+    },
+    {
+      "event_id": 21,
+      "player_id": 294,
+      "web_name": "Diogo J.",
+      "team_short": "LIV",
+      "position": "MID",
+      "points": 19,
+      "highlight": "2 goals, 1 assist, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 22,
+      "player_id": 757,
+      "web_name": "Bradley",
+      "team_short": "LIV",
+      "position": "DEF",
+      "points": 21,
+      "highlight": "1 goal, 2 assists, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 23,
+      "player_id": 353,
+      "web_name": "Foden",
+      "team_short": "MCI",
+      "position": "MID",
+      "points": 20,
+      "highlight": "3 goals, 3 bonus points"
+    },
+    {
+      "event_id": 24,
+      "player_id": 540,
+      "web_name": "Rice",
+      "team_short": "ARS",
+      "position": "MID",
+      "points": 17,
+      "highlight": "1 goal, 2 assists, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 25,
+      "player_id": 122,
+      "web_name": "Adingra",
+      "team_short": "BHA",
+      "position": "MID",
+      "points": 15,
+      "highlight": "2 goals, clean sheet, 2 bonus points"
+    },
+    {
+      "event_id": 26,
+      "player_id": 526,
+      "web_name": "Bowen",
+      "team_short": "WHU",
+      "position": "MID",
+      "points": 20,
+      "highlight": "3 goals, 3 bonus points"
+    },
+    {
+      "event_id": 27,
+      "player_id": 353,
+      "web_name": "Foden",
+      "team_short": "MCI",
+      "position": "MID",
+      "points": 15,
+      "highlight": "2 goals, 3 bonus points"
+    },
+    {
+      "event_id": 28,
+      "player_id": 516,
+      "web_name": "Son",
+      "team_short": "TOT",
+      "position": "MID",
+      "points": 17,
+      "highlight": "1 goal, 2 assists, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 29,
+      "player_id": 279,
+      "web_name": "Muniz",
+      "team_short": "FUL",
+      "position": "FWD",
+      "points": 13,
+      "highlight": "2 goals, 3 bonus points"
+    },
+    {
+      "event_id": 30,
+      "player_id": 775,
+      "web_name": "Brereton Díaz",
+      "team_short": "SHU",
+      "position": "MID",
+      "points": 18,
+      "highlight": "2 goals, 1 assist, 3 bonus points"
+    },
+    {
+      "event_id": 31,
+      "player_id": 353,
+      "web_name": "Foden",
+      "team_short": "MCI",
+      "position": "MID",
+      "points": 20,
+      "highlight": "3 goals, 3 bonus points"
+    },
+    {
+      "event_id": 32,
+      "player_id": 349,
+      "web_name": "De Bruyne",
+      "team_short": "MCI",
+      "position": "MID",
+      "points": 18,
+      "highlight": "2 goals, 1 assist, 3 bonus points"
+    },
+    {
+      "event_id": 33,
+      "player_id": 362,
+      "web_name": "Palmer",
+      "team_short": "CHE",
+      "position": "MID",
+      "points": 26,
+      "highlight": "4 goals, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 34,
+      "player_id": 29,
+      "web_name": "White",
+      "team_short": "ARS",
+      "position": "DEF",
+      "points": 20,
+      "highlight": "2 goals, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 35,
+      "player_id": 194,
+      "web_name": "Chalobah",
+      "team_short": "CHE",
+      "position": "DEF",
+      "points": 15,
+      "highlight": "1 goal, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 36,
+      "player_id": 355,
+      "web_name": "Haaland",
+      "team_short": "MCI",
+      "position": "FWD",
+      "points": 21,
+      "highlight": "4 goals, 3 bonus points"
+    },
+    {
+      "event_id": 37,
+      "player_id": 616,
+      "web_name": "Gvardiol",
+      "team_short": "MCI",
+      "position": "DEF",
+      "points": 21,
+      "highlight": "clean sheet"
+    },
+    {
+      "event_id": 38,
+      "player_id": 232,
+      "web_name": "Mateta",
+      "team_short": "CRY",
+      "position": "FWD",
+      "points": 20,
+      "highlight": "3 goals, 1 assist, 3 bonus points"
+    }
+  ],
+  "2024-2025": [
+    {
+      "event_id": 1,
+      "player_id": 328,
+      "web_name": "M.Salah",
+      "team_short": "LIV",
+      "position": "MID",
+      "points": 14,
+      "highlight": "1 goal, 1 assist, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 2,
+      "player_id": 177,
+      "web_name": "Madueke",
+      "team_short": "CHE",
+      "position": "MID",
+      "points": 20,
+      "highlight": "3 goals, 3 bonus points"
+    },
+    {
+      "event_id": 3,
+      "player_id": 328,
+      "web_name": "M.Salah",
+      "team_short": "LIV",
+      "position": "MID",
+      "points": 17,
+      "highlight": "1 goal, 2 assists, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 4,
+      "player_id": 185,
+      "web_name": "Sánchez",
+      "team_short": "CHE",
+      "position": "GKP",
+      "points": 15,
+      "highlight": "7 saves, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 5,
+      "player_id": 180,
+      "web_name": "N.Jackson",
+      "team_short": "CHE",
+      "position": "FWD",
+      "points": 16,
+      "highlight": "2 goals, 1 assist, 3 bonus points"
+    },
+    {
+      "event_id": 6,
+      "player_id": 182,
+      "web_name": "Palmer",
+      "team_short": "CHE",
+      "position": "MID",
+      "points": 25,
+      "highlight": "4 goals, 3 bonus points"
+    },
+    {
+      "event_id": 7,
+      "player_id": 512,
+      "web_name": "Antonio",
+      "team_short": "WHU",
+      "position": "FWD",
+      "points": 18,
+      "highlight": "1 goal, 3 assists, 3 bonus points"
+    },
+    {
+      "event_id": 8,
+      "player_id": 228,
+      "web_name": "Keane",
+      "team_short": "EVE",
+      "position": "DEF",
+      "points": 14,
+      "highlight": "1 goal, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 9,
+      "player_id": 99,
+      "web_name": "Mbeumo",
+      "team_short": "BRE",
+      "position": "MID",
+      "points": 15,
+      "highlight": "2 goals, 3 bonus points"
+    },
+    {
+      "event_id": 10,
+      "player_id": 82,
+      "web_name": "Solanke",
+      "team_short": "TOT",
+      "position": "FWD",
+      "points": 16,
+      "highlight": "2 goals, 1 assist, 3 bonus points"
+    },
+    {
+      "event_id": 11,
+      "player_id": 366,
+      "web_name": "B.Fernandes",
+      "team_short": "MUN",
+      "position": "MID",
+      "points": 17,
+      "highlight": "1 goal, 2 assists, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 12,
+      "player_id": 494,
+      "web_name": "Maddison",
+      "team_short": "TOT",
+      "position": "MID",
+      "points": 16,
+      "highlight": "2 goals, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 13,
+      "player_id": 106,
+      "web_name": "Schade",
+      "team_short": "BRE",
+      "position": "MID",
+      "points": 23,
+      "highlight": "3 goals, 1 assist, 3 bonus points"
+    },
+    {
+      "event_id": 14,
+      "player_id": 328,
+      "web_name": "M.Salah",
+      "team_short": "LIV",
+      "position": "MID",
+      "points": 18,
+      "highlight": "2 goals, 1 assist, 3 bonus points"
+    },
+    {
+      "event_id": 15,
+      "player_id": 182,
+      "web_name": "Palmer",
+      "team_short": "CHE",
+      "position": "MID",
+      "points": 18,
+      "highlight": "2 goals, 1 assist, 3 bonus points"
+    },
+    {
+      "event_id": 16,
+      "player_id": 585,
+      "web_name": "I.Sarr",
+      "team_short": "CRY",
+      "position": "MID",
+      "points": 17,
+      "highlight": "2 goals, 1 assist, 3 bonus points"
+    },
+    {
+      "event_id": 17,
+      "player_id": 328,
+      "web_name": "M.Salah",
+      "team_short": "LIV",
+      "position": "MID",
+      "points": 21,
+      "highlight": "2 goals, 2 assists, 3 bonus points"
+    },
+    {
+      "event_id": 18,
+      "player_id": 403,
+      "web_name": "Joelinton",
+      "team_short": "NEW",
+      "position": "MID",
+      "points": 13,
+      "highlight": "1 goal, 1 assist, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 19,
+      "player_id": 328,
+      "web_name": "M.Salah",
+      "team_short": "LIV",
+      "position": "MID",
+      "points": 16,
+      "highlight": "1 goal, 2 assists, clean sheet, 2 bonus points"
+    },
+    {
+      "event_id": 20,
+      "player_id": 99,
+      "web_name": "Mbeumo",
+      "team_short": "BRE",
+      "position": "MID",
+      "points": 19,
+      "highlight": "2 goals, 1 assist, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 21,
+      "player_id": 364,
+      "web_name": "Amad",
+      "team_short": "MUN",
+      "position": "MID",
+      "points": 20,
+      "highlight": "3 goals, 3 bonus points"
+    },
+    {
+      "event_id": 22,
+      "player_id": 71,
+      "web_name": "Kluivert",
+      "team_short": "BOU",
+      "position": "MID",
+      "points": 22,
+      "highlight": "3 goals, 1 assist, 3 bonus points"
+    },
+    {
+      "event_id": 23,
+      "player_id": 74,
+      "web_name": "O.Dango",
+      "team_short": "BOU",
+      "position": "MID",
+      "points": 21,
+      "highlight": "3 goals, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 24,
+      "player_id": 447,
+      "web_name": "Wood",
+      "team_short": "NFO",
+      "position": "FWD",
+      "points": 17,
+      "highlight": "3 goals, 3 bonus points"
+    },
+    {
+      "event_id": 25,
+      "player_id": 755,
+      "web_name": "Marmoush",
+      "team_short": "MCI",
+      "position": "FWD",
+      "points": 17,
+      "highlight": "3 goals, 3 bonus points"
+    },
+    {
+      "event_id": 26,
+      "player_id": 762,
+      "web_name": "M.Asensio",
+      "team_short": "AVL",
+      "position": "MID",
+      "points": 15,
+      "highlight": "2 goals, 3 bonus points"
+    },
+    {
+      "event_id": 27,
+      "player_id": 585,
+      "web_name": "I.Sarr",
+      "team_short": "CRY",
+      "position": "MID",
+      "points": 15,
+      "highlight": "2 goals, 3 bonus points"
+    },
+    {
+      "event_id": 28,
+      "player_id": 328,
+      "web_name": "M.Salah",
+      "team_short": "LIV",
+      "position": "MID",
+      "points": 15,
+      "highlight": "2 goals, 3 bonus points"
+    },
+    {
+      "event_id": 29,
+      "player_id": 366,
+      "web_name": "B.Fernandes",
+      "team_short": "MUN",
+      "position": "MID",
+      "points": 17,
+      "highlight": "1 goal, 2 assists, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 30,
+      "player_id": 762,
+      "web_name": "M.Asensio",
+      "team_short": "AVL",
+      "position": "MID",
+      "points": 12,
+      "highlight": "1 goal, 1 assist, 3 bonus points"
+    },
+    {
+      "event_id": 31,
+      "player_id": 491,
+      "web_name": "Johnson",
+      "team_short": "TOT",
+      "position": "MID",
+      "points": 18,
+      "highlight": "2 goals, 1 assist, 3 bonus points"
+    },
+    {
+      "event_id": 32,
+      "player_id": 14,
+      "web_name": "Ramsdale",
+      "team_short": "SOU",
+      "position": "GKP",
+      "points": 16,
+      "highlight": "7 saves, 3 bonus points"
+    },
+    {
+      "event_id": 33,
+      "player_id": 99,
+      "web_name": "Mbeumo",
+      "team_short": "BRE",
+      "position": "MID",
+      "points": 18,
+      "highlight": "2 goals, 1 assist, 3 bonus points"
+    },
+    {
+      "event_id": 34,
+      "player_id": 418,
+      "web_name": "Trippier",
+      "team_short": "NEW",
+      "position": "DEF",
+      "points": 15,
+      "highlight": "2 assists, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 35,
+      "player_id": 106,
+      "web_name": "Schade",
+      "team_short": "BRE",
+      "position": "MID",
+      "points": 14,
+      "highlight": "2 goals, 2 bonus points"
+    },
+    {
+      "event_id": 36,
+      "player_id": 199,
+      "web_name": "Eze",
+      "team_short": "CRY",
+      "position": "MID",
+      "points": 16,
+      "highlight": "2 goals, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 37,
+      "player_id": 44,
+      "web_name": "Konsa",
+      "team_short": "AVL",
+      "position": "DEF",
+      "points": 15,
+      "highlight": "1 goal, clean sheet, 3 bonus points"
+    },
+    {
+      "event_id": 38,
+      "player_id": 78,
+      "web_name": "Semenyo",
+      "team_short": "BOU",
+      "position": "MID",
+      "points": 16,
+      "highlight": "2 goals, clean sheet, 3 bonus points"
+    }
+  ],
+  "2025-2026": [
+    {
+      "event_id": 1,
+      "player_id": 531,
+      "web_name": "Ballard",
+      "team_short": "SUN",
+      "position": "DEF",
+      "points": 17,
+      "highlight": "1 goal, clean sheet, 14 defensive contributions, 3 bonus points"
+    },
+    {
+      "event_id": 2,
+      "player_id": 8,
+      "web_name": "J.Timber",
+      "team_short": "ARS",
+      "position": "DEF",
+      "points": 24,
+      "highlight": "2 goals, 1 assist, clean sheet, 6 defensive contributions, 3 bonus points"
+    },
+    {
+      "event_id": 3,
+      "player_id": 260,
+      "web_name": "Guéhi",
+      "team_short": "MCI",
+      "position": "DEF",
+      "points": 15,
+      "highlight": "1 goal, clean sheet, 9 defensive contributions, 3 bonus points"
+    },
+    {
+      "event_id": 4,
+      "player_id": 26,
+      "web_name": "Zubimendi",
+      "team_short": "ARS",
+      "position": "MID",
+      "points": 16,
+      "highlight": "2 goals, clean sheet, 2 defensive contributions, 3 bonus points"
+    },
+    {
+      "event_id": 5,
+      "player_id": 660,
+      "web_name": "Stach",
+      "team_short": "LEE",
+      "position": "MID",
+      "points": 15,
+      "highlight": "1 goal, 1 assist, 15 defensive contributions, 3 bonus points"
+    },
+    {
+      "event_id": 6,
+      "player_id": 683,
+      "web_name": "Alderete",
+      "team_short": "SUN",
+      "position": "DEF",
+      "points": 17,
+      "highlight": "1 goal, clean sheet, 11 defensive contributions, 3 bonus points"
+    },
+    {
+      "event_id": 7,
+      "player_id": 82,
+      "web_name": "Semenyo",
+      "team_short": "MCI",
+      "position": "MID",
+      "points": 18,
+      "highlight": "2 goals, 1 assist, 9 defensive contributions, 3 bonus points"
+    },
+    {
+      "event_id": 8,
+      "player_id": 225,
+      "web_name": "James",
+      "team_short": "CHE",
+      "position": "DEF",
+      "points": 18,
+      "highlight": "1 goal, 1 assist, clean sheet, 3 defensive contributions, 3 bonus points"
+    },
+    {
+      "event_id": 9,
+      "player_id": 575,
+      "web_name": "Van de Ven",
+      "team_short": "TOT",
+      "position": "DEF",
+      "points": 23,
+      "highlight": "2 goals, clean sheet, 10 defensive contributions, 3 bonus points"
+    },
+    {
+      "event_id": 10,
+      "player_id": 169,
+      "web_name": "Gomez",
+      "team_short": "BHA",
+      "position": "MID",
+      "points": 16,
+      "highlight": "2 goals, clean sheet, 8 defensive contributions, 3 bonus points"
+    },
+    {
+      "event_id": 11,
+      "player_id": 228,
+      "web_name": "Gusto",
+      "team_short": "CHE",
+      "position": "DEF",
+      "points": 15,
+      "highlight": "1 goal, clean sheet, 3 defensive contributions, 3 bonus points"
+    },
+    {
+      "event_id": 12,
+      "player_id": 266,
+      "web_name": "Eze",
+      "team_short": "ARS",
+      "position": "MID",
+      "points": 20,
+      "highlight": "3 goals, 8 defensive contributions, 3 bonus points"
+    },
+    {
+      "event_id": 13,
+      "player_id": 684,
+      "web_name": "Thiaw",
+      "team_short": "NEW",
+      "position": "DEF",
+      "points": 16,
+      "highlight": "2 goals, 6 defensive contributions, 2 bonus points"
+    },
+    {
+      "event_id": 14,
+      "player_id": 414,
+      "web_name": "Foden",
+      "team_short": "MCI",
+      "position": "MID",
+      "points": 17,
+      "highlight": "2 goals, 12 defensive contributions, 3 bonus points"
+    },
+    {
+      "event_id": 15,
+      "player_id": 449,
+      "web_name": "B.Fernandes",
+      "team_short": "MUN",
+      "position": "MID",
+      "points": 18,
+      "highlight": "2 goals, 1 assist, 8 defensive contributions, 3 bonus points"
+    },
+    {
+      "event_id": 16,
+      "player_id": 516,
+      "web_name": "Hudson-Odoi",
+      "team_short": "NFO",
+      "position": "MID",
+      "points": 19,
+      "highlight": "2 goals, 1 assist, clean sheet, 6 defensive contributions, 3 bonus points"
+    },
+    {
+      "event_id": 17,
+      "player_id": 107,
+      "web_name": "Lewis-Potter",
+      "team_short": "BRE",
+      "position": "DEF",
+      "points": 21,
+      "highlight": "2 goals, clean sheet, 3 defensive contributions, 3 bonus points"
+    },
+    {
+      "event_id": 18,
+      "player_id": 120,
+      "web_name": "Schade",
+      "team_short": "BRE",
+      "position": "MID",
+      "points": 20,
+      "highlight": "3 goals, 9 defensive contributions, 3 bonus points"
+    },
+    {
+      "event_id": 19,
+      "player_id": 303,
+      "web_name": "Garner",
+      "team_short": "EVE",
+      "position": "MID",
+      "points": 16,
+      "highlight": "1 goal, 1 assist, clean sheet, 19 defensive contributions, 3 bonus points"
+    },
+    {
+      "event_id": 20,
+      "player_id": 136,
+      "web_name": "Thiago",
+      "team_short": "BRE",
+      "position": "FWD",
+      "points": 17,
+      "highlight": "3 goals, 3 bonus points"
+    },
+    {
+      "event_id": 21,
+      "player_id": 487,
+      "web_name": "Barnes",
+      "team_short": "NEW",
+      "position": "MID",
+      "points": 15,
+      "highlight": "2 goals, 7 defensive contributions, 3 bonus points"
+    },
+    {
+      "event_id": 22,
+      "player_id": 441,
+      "web_name": "Dorgu",
+      "team_short": "MUN",
+      "position": "DEF",
+      "points": 15,
+      "highlight": "1 goal, clean sheet, 6 defensive contributions, 3 bonus points"
+    },
+    {
+      "event_id": 23,
+      "player_id": 387,
+      "web_name": "Szoboszlai",
+      "team_short": "LIV",
+      "position": "MID",
+      "points": 13,
+      "highlight": "1 goal, 1 assist, 7 defensive contributions, 3 bonus points"
+    },
+    {
+      "event_id": 24,
+      "player_id": 18,
+      "web_name": "Madueke",
+      "team_short": "ARS",
+      "position": "MID",
+      "points": 14,
+      "highlight": "1 goal, 1 assist, clean sheet, 2 defensive contributions, 3 bonus points"
+    },
+    {
+      "event_id": 25,
+      "player_id": 235,
+      "web_name": "Palmer",
+      "team_short": "CHE",
+      "position": "MID",
+      "points": 20,
+      "highlight": "3 goals, 1 defensive contribution, 3 bonus points"
+    },
+    {
+      "event_id": 26,
+      "player_id": 373,
+      "web_name": "Virgil",
+      "team_short": "LIV",
+      "position": "DEF",
+      "points": 17,
+      "highlight": "1 goal, clean sheet, 13 defensive contributions, 3 bonus points"
+    },
+    {
+      "event_id": 27,
+      "player_id": 411,
+      "web_name": "O'Reilly",
+      "team_short": "MCI",
+      "position": "DEF",
+      "points": 17,
+      "highlight": "2 goals, 1 defensive contribution, 3 bonus points"
+    },
+    {
+      "event_id": 28,
+      "player_id": 121,
+      "web_name": "Damsgaard",
+      "team_short": "BRE",
+      "position": "MID",
+      "points": 18,
+      "highlight": "2 goals, 1 assist, 6 defensive contributions, 3 bonus points"
+    },
+    {
+      "event_id": 29,
+      "player_id": 249,
+      "web_name": "João Pedro",
+      "team_short": "CHE",
+      "position": "FWD",
+      "points": 19,
+      "highlight": "3 goals, 1 assist, 3 bonus points"
+    },
+    {
+      "event_id": 30,
+      "player_id": 55,
+      "web_name": "Barkley",
+      "team_short": "AVL",
+      "position": "MID",
+      "points": 12,
+      "highlight": "1 goal, 12 defensive contributions, 3 bonus points"
+    },
+    {
+      "event_id": 31,
+      "player_id": 311,
+      "web_name": "Beto",
+      "team_short": "EVE",
+      "position": "FWD",
+      "points": 16,
+      "highlight": "2 goals, 1 assist, 3 bonus points"
+    },
+    {
+      "event_id": 32,
+      "player_id": 606,
+      "web_name": "Mavropanos",
+      "team_short": "WHU",
+      "position": "DEF",
+      "points": 21,
+      "highlight": "2 goals, clean sheet, 9 defensive contributions, 3 bonus points"
+    },
+    {
+      "event_id": 33,
+      "player_id": 515,
+      "web_name": "Gibbs-White",
+      "team_short": "NFO",
+      "position": "MID",
+      "points": 20,
+      "highlight": "3 goals, 4 defensive contributions, 3 bonus points"
+    },
+    {
+      "event_id": 34,
+      "player_id": 526,
+      "web_name": "Igor Jesus",
+      "team_short": "NFO",
+      "position": "FWD",
+      "points": 14,
+      "highlight": "1 goal, 2 assists, 3 bonus points"
+    },
+    {
+      "event_id": 35,
+      "player_id": 527,
+      "web_name": "Awoniyi",
+      "team_short": "NFO",
+      "position": "FWD",
+      "points": 16,
+      "highlight": "2 goals, 1 assist, 3 bonus points"
+    },
+    {
+      "event_id": 36,
+      "player_id": 145,
+      "web_name": "De Cuyper",
+      "team_short": "BHA",
+      "position": "DEF",
+      "points": 15,
+      "highlight": "2 assists, clean sheet, 2 defensive contributions, 3 bonus points"
+    },
+    {
+      "event_id": 37,
+      "player_id": 64,
+      "web_name": "Watkins",
+      "team_short": "AVL",
+      "position": "FWD",
+      "points": 15,
+      "highlight": "2 goals, 1 assist, 3 bonus points"
+    },
+    {
+      "event_id": 38,
+      "player_id": 441,
+      "web_name": "Dorgu",
+      "team_short": "MUN",
+      "position": "DEF",
+      "points": 18,
+      "highlight": "1 goal, 1 assist, clean sheet, 1 defensive contribution, 3 bonus points"
+    }
+  ]
+}

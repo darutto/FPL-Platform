@@ -32,3 +32,10 @@ packages/fpl-historical/data/
 # Claude Code runtime artifacts (agent worktrees, scheduler lock)
 .claude/worktrees/
 .claude/scheduled_tasks.lock
+
+# Personal local dev-server convenience scripts + their logs
+packages/fpl-grounded-assistant/start_server.py
+packages/fpl-ui/.devserver.log
+
+# Scratch / temp working directories
+tmp/
