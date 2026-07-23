@@ -3,9 +3,10 @@
 /**
  * StarterPrompts — clickable prompt chips shown on empty chat.
  *
- * No player names hardcoded — prompts are generic and gameweek-agnostic.
- * Configurable: update STARTER_PROMPTS per gameweek without code changes.
- * Clicking populates the question and sends immediately.
+ * The example prompts DO name real players for concreteness, so they must be
+ * refreshed when the squad landscape changes (transfers, players leaving the
+ * league) — keep every name here a current Premier League player. Clicking
+ * populates the question and sends immediately.
  *
  * For slash-command starters, the text includes the command prefix
  * so parseSlashCommand picks up the intent_hint automatically.
@@ -13,10 +14,10 @@
 
 const STARTER_PROMPTS = [
   '¿A quién debería dar el brazalete?',
-  '/comparar Haaland vs Salah',
+  '/comparar Haaland vs Bruno Fernandes',
   '¿Debería usar el triple capitán?',
   '/diferenciales menos del 10%',
-  '/transferencia Palmer por Saka',
+  '/transferencia Cole Palmer por Saka',
   '/calendarios Haaland',
 ] as const;
 
