@@ -1,8 +1,8 @@
 /**
- * Tests for buildRealSeasonOutlook — the interim /fixtures data seam sourced
- * from the real, finished 2025-26 season (exported by
- * export_real_season_fixture_outlook.py, which runs the actual backend
- * fixture_outlook.py engine — no algorithm duplicated here).
+ * Tests for buildRealSeasonOutlook — the /fixtures data seam sourced from the
+ * live 2026-27 season schedule (exported by
+ * export_real_season_fixture_outlook.py --season-start, which runs the actual
+ * backend fixture_outlook.py engine — no algorithm duplicated here).
  */
 import { buildRealSeasonOutlook, REAL_SEASON_HORIZONS } from '@/lib/fixture-outlook-real';
 
@@ -35,12 +35,12 @@ describe('buildRealSeasonOutlook', () => {
     }
   });
 
-  test('a known real fixture is present: Aston Villa hosted Newcastle in GW1', () => {
+  test('a known real fixture is present: Man City host Bournemouth in GW1', () => {
     const meta = buildRealSeasonOutlook('attack', 5);
-    const avl = meta.teams.find((t) => t.team_short === 'AVL');
-    expect(avl).toBeDefined();
-    const gw1 = avl!.series.find((s) => s.gameweek === 1);
-    expect(gw1?.fixtures[0]).toMatchObject({ opponent_short: 'NEW', is_home: true });
+    const mci = meta.teams.find((t) => t.team_short === 'MCI');
+    expect(mci).toBeDefined();
+    const gw1 = mci!.series.find((s) => s.gameweek === 1);
+    expect(gw1?.fixtures[0]).toMatchObject({ opponent_short: 'BOU', is_home: true });
   });
 
   test('throws on an unsupported horizon rather than silently returning nothing', () => {
