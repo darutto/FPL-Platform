@@ -92,7 +92,16 @@ type FetchState =
   | { status: 'idle' }
   | { status: 'loading' }
   | { status: 'ready'; data: SquadData }
+  | { status: 'preseason'; nextGw: number | null; deadline: string | null }
   | { status: 'error'; message: string };
+
+/** "21 ago" — short Spanish date for the next deadline, or null if unparseable. */
+function formatDeadline(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+}
 
 export default function SquadPitch({ teamId, onAskPlayer, onGw }: Props) {
   const [state, setState] = useState<FetchState>({ status: 'idle' });
@@ -107,6 +116,17 @@ export default function SquadPitch({ teamId, onAskPlayer, onGw }: Props) {
     try {
       const res = await fetch(`/api/fpl-squad/${teamId}`);
       if (!res.ok) {
+        // A pre-season 404 is an expected empty state, not a failure: the API
+        // tags it with code:'preseason' plus the upcoming GW + deadline.
+        const body = await res.json().catch(() => null);
+        if (body?.code === 'preseason') {
+          setState({
+            status: 'preseason',
+            nextGw: body.next_gw ?? null,
+            deadline: body.next_deadline ?? null,
+          });
+          return;
+        }
         setState({ status: 'error', message: `No se pudo cargar la plantilla (${res.status}).` });
         return;
       }
@@ -149,6 +169,10 @@ export default function SquadPitch({ teamId, onAskPlayer, onGw }: Props) {
         </CenteredHint>
       )}
 
+      {state.status === 'preseason' && (
+        <PreseasonHint nextGw={state.nextGw} deadline={state.deadline} />
+      )}
+
       {state.status === 'error' && (
         <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center">
           <p className="text-xs text-bf-coral">{state.message}</p>
@@ -169,6 +193,34 @@ export default function SquadPitch({ teamId, onAskPlayer, onGw }: Props) {
           onAskPlayer={onAskPlayer}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * Pre-season empty state: the manager connected fine, but no gameweek is live
+ * yet so there are no picks to render. Explain that clearly (with the GW1 date)
+ * rather than surfacing a raw 404.
+ */
+function PreseasonHint({ nextGw, deadline }: { nextGw: number | null; deadline: string | null }) {
+  const date = formatDeadline(deadline);
+  const when =
+    nextGw != null && date
+      ? `la Jornada ${nextGw} (${date})`
+      : nextGw != null
+        ? `la Jornada ${nextGw}`
+        : 'la nueva temporada';
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center">
+      <span className="text-2xl" aria-hidden>⚽️</span>
+      <p className="text-sm font-bold text-bf-text/80">La temporada aún no ha comenzado</p>
+      <p className="text-xs text-bf-text/40 leading-relaxed max-w-[240px]">
+        Tu plantilla aparecerá aquí cuando arranque {when}. Hasta entonces la API
+        de FPL no publica los onces.
+      </p>
+      <p className="text-[11px] text-bf-turquoise/80 leading-relaxed">
+        Mientras tanto, revisa el Calendario y pregunta en el Chat.
+      </p>
     </div>
   );
 }
