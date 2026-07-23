@@ -271,8 +271,15 @@ def get_fixture_difficulty_map(
 ) -> dict[int, int]:
     """Return ``{team_id: fdr}`` for every team appearing in *fixtures*.
 
-    FDR (fixture difficulty rating) = opponent team's ``strength`` from the
-    bootstrap teams array (1–5 scale).  Teams absent from *fixtures* (blank
+    FDR (fixture difficulty rating) is taken from the fixture's own
+    ``team_h_difficulty`` / ``team_a_difficulty`` fields — the canonical FPL
+    per-fixture difficulty (1–5), the same source the fixtures calendar uses.
+    These are populated from GW1 onward, unlike the aggregate team ``strength``
+    field which the API leaves null pre-season.
+
+    When a fixture is missing those fields, we fall back to the opponent team's
+    ``strength`` (with a neutral 3 default when that too is null/absent), so the
+    map always yields a usable integer.  Teams absent from *fixtures* (blank
     gameweek) are absent from the returned dict.
 
     Parameters
@@ -280,21 +287,34 @@ def get_fixture_difficulty_map(
     fixtures:
         Fixture list for a single gameweek (e.g. from ``get_fixtures()``).
     bootstrap:
-        FPL bootstrap dict containing a ``teams`` array with ``strength``
-        values.
+        FPL bootstrap dict containing a ``teams`` array (used for the
+        strength fallback only).
 
     Source: captaincy-showdown/src/services/captaincyDataService.ts::getFixtureDifficulty
     """
+    def _coerce(value: Any, default: int = 3) -> int:
+        # ``strength`` can be present-but-null pre-season, so a plain default
+        # arg won't fire — coerce None/invalid to the neutral default here.
+        try:
+            return int(value) if value is not None else default
+        except (TypeError, ValueError):
+            return default
+
     strength_by_id: dict[int, int] = {
-        t["id"]: t.get("strength", 3)
+        t["id"]: _coerce(t.get("strength"))
         for t in bootstrap.get("teams", [])
     }
     fdr_map: dict[int, int] = {}
     for fix in fixtures:
         home_id = fix["team_h"]
         away_id = fix["team_a"]
-        fdr_map[home_id] = strength_by_id.get(away_id, 3)
-        fdr_map[away_id] = strength_by_id.get(home_id, 3)
+        # Prefer the fixture's own difficulty; fall back to opponent strength.
+        fdr_map[home_id] = _coerce(
+            fix.get("team_h_difficulty"), strength_by_id.get(away_id, 3)
+        )
+        fdr_map[away_id] = _coerce(
+            fix.get("team_a_difficulty"), strength_by_id.get(home_id, 3)
+        )
     return fdr_map
 
 

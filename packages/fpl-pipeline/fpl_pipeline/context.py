@@ -86,8 +86,11 @@ def _build_team_fixtures(
     Each team entry contains upcoming fixtures as dicts with keys:
     ``gameweek``, ``opponent_team``, ``is_home``, ``difficulty``.
     """
+    # ``strength`` can be present-but-null pre-season (season launch: the FPL
+    # API ships teams before strengths are populated), so a plain
+    # ``.get("strength", 3)`` default won't fire — coerce None to 3 explicitly.
     strength_by_id: dict[int, int] = {
-        int(team["id"]): int(team.get("strength", 3))
+        int(team["id"]): int(team["strength"]) if team.get("strength") is not None else 3
         for team in bootstrap.get("teams", [])
     }
     team_fixtures: dict[int, list[dict[str, Any]]] = {}
