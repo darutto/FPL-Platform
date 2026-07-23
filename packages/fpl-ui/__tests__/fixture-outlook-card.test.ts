@@ -37,9 +37,9 @@ function response(over: Partial<AskResponse>): AskResponse {
 }
 
 describe('bandColor / axisLabel', () => {
-  test('band ramp: 1 green … 5 red', () => {
-    expect(bandColor(1)).toBe('#2ecc71');
-    expect(bandColor(5)).toBe('#e74c3c');
+  test('band ramp: 1 turquoise … 5 coral (Calendario FDR palette)', () => {
+    expect(bandColor(1)).toBe('#02EBAE');
+    expect(bandColor(5)).toBe('#FF6A4D');
   });
   test('axis labels are Spanish', () => {
     expect(axisLabel('attack')).toBe('Ataque');

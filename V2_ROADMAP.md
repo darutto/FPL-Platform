@@ -1,7 +1,29 @@
 # FPL Platform — Full Roadmap
 
-**Last updated:** 2026-06-27 — added Track D (Fixture Intelligence) as next slice
+**Last updated:** 2026-07-23 — 2026-27 season launched; added Season Launch block (top of pipeline)
 **Current state:** Architectural pivot merged to main. Backend fully production-capable (25 tools, LLM-primary orchestrator, quota/audit, 126/126 validation scenarios). UI deployed on Railway + Vercel. Phase 3 auth is the remaining blocker for Patreon launch.
+
+---
+
+## 🚀 Season Launch — 2026-27 (added 2026-07-23) — TOP OF PIPELINE
+
+The 2026-27 FPL API went live 2026-07-23. Reviewed `bootstrap-static` + `fixtures`
+against our client/schemas: **no breaking structural changes** — every field
+`fpl_client.py` and `schemas.py` depend on is still present. Actions below fall
+out of that review, ordered by urgency.
+
+**Done 2026-07-23:** `/fixtures` ticker regenerated from the live 2026-27
+schedule + FDR (`export_real_season_fixture_outlook.py --season-start` →
+`fixture-outlook-2026-27.json`; seam + disclaimer updated). Both axes = FDR at
+launch; defence axis re-separates once results exist (see next item).
+
+| # | Item | Severity | Notes |
+|---|---|---|---|
+| 1 | **Zero-minutes / fresh-season safety** — verify per-90 & ratio consumers don't divide-by-zero or rank on empty stats before GW1 is played | High | All cumulative stats/xG are 0 until GW1 completes; audit `PER_90_COLS` consumers + any form/value ranking |
+| 2 | **Chip logic → two-window aware** — API exposes 8 chip entries: 2× each chip, split GW1–19 / GW20–38; **wildcard & free hit are NOT available in GW1** (`start_event=2`) | Medium | `chip_advisor.py` reasons over 4 chip names statically; make it window-aware (chips remaining, GW1 WC/FH unavailability). Honors `feedback_chip_advice_meta_7b` |
+| 3 | **Defence-axis form upgrade** — re-run the default (non-`--season-start`) fixture export once enough GWs are played, to re-separate defence from attack via the validated FDR+form recipe | Medium | Blocked on real results accumulating (`compute_rolling_strength` needs played GWs) |
+| 4 | **Partial-schedule refresh** — launch schedule is partial (320 fixtures, events 1–33 of 38); re-run `--season-start` export to pick up newly-scheduled tail GWs | Low | Idempotent; safe to re-run anytime |
+| 5 | **New elements signals** — `scout_risks` + `scout_news_link` are new 2026-27 fields (official injury/rotation scout flags); `opta_code` is a clean cross-source join key | Low | Additive — nothing breaks; evaluate for availability grounding + historical join |
 
 ---
 

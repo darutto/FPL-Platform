@@ -3,27 +3,41 @@
 /**
  * FixtureTendencyChart — per-team trend line (Track D / FI5).
  *
- * A compact sparkline (no axis labels) rendered inline; tapping the chart
- * itself (or the "Tendencia" label) expands it to a full chart with GW
- * labels. Tapping a point opens a small popover with the fixture's
- * opponent/venue and a qualitative difficulty label — deliberately NOT a
- * fabricated probability number (real Poisson modelling is FI6, gated on
- * Track A's historical backtesting). "Reversed axis, good=up": the line
- * rises during good runs and dips during bad ones (see lib/fixture-tendency).
+ * "Calendario FDR" design: a full, fixed-scale chart (not a stretched
+ * sparkline). Five band gridlines (1 easiest … 5 hardest) with coloured axis
+ * labels, an area fill + polyline in the team's average-band colour, a dot per
+ * gameweek coloured by that GW's difficulty, and an opponent / J{gw}·venue
+ * label row beneath. The whole card carries the same header as the detailed
+ * row (code + "Prom X.X" pill + verdict). The chart scrolls horizontally on
+ * narrow screens rather than distorting.
  *
- * The svg itself carries the expand/collapse tap target (not just the small
- * label above it) so the chart graphic — the thing a user naturally taps —
- * does something, rather than falling through to a sibling "ask about this
- * team" button.
+ * Deep-links preserved: the team code and each GW label column hand a
+ * ready-made question to chat via `onAsk` (the /fixtures board wires it).
  */
-import { useState } from 'react';
-import type { TeamOutlook, FixtureOutlookGW, FixtureOutlookRun } from '@/lib/types';
-import { bandColor } from '@/lib/fixture-outlook-format';
-import { buildTendencyPoints, qualitativeBandLabel, type TendencyPoint } from '@/lib/fixture-tendency';
-import { fixtureCellQuestion } from '@/lib/fixture-chat-links';
+import type { TeamOutlook, FixtureOutlookGW } from '@/lib/types';
+import { bandColor, venueLabel, hexRgba, type Band } from '@/lib/fixture-outlook-format';
+import { teamOutlookQuestion, fixtureCellQuestion } from '@/lib/fixture-chat-links';
+import { AvgPill } from './FixtureTickerRow';
 
-const COMPACT_H = 32;
-const FULL_H = 72;
+// Chart geometry (SVG user units == px; the chart scrolls, never stretches).
+const X0 = 52;
+const STEP = 74;
+const Y_TOP = 22; // band 1
+const Y_GAP = 20; // px between bands
+const Y_BASE = 106; // area baseline, just below band 5 (y=102)
+const CHART_H = 112;
+const COL_W = 74; // x-axis label column width
+const X_PAD = 15; // left spacer so first column centres on X0
+
+type Pt = {
+  gw: number;
+  band: number | null;
+  blank: boolean;
+  opp: string;
+  venue: string;
+  cx: number;
+  cy: number | null;
+};
 
 export function FixtureTendencyChart({
   team,
@@ -32,203 +46,160 @@ export function FixtureTendencyChart({
   team: TeamOutlook;
   onAsk?: (question: string) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const [activeGw, setActiveGw] = useState<number | null>(null);
+  const series = team.series;
+  const n = series.length;
+  const chartW = X0 + Math.max(0, n - 1) * STEP + 40;
 
-  const height = expanded ? FULL_H : COMPACT_H;
-  const width = 100; // viewBox units; SVG scales to container via preserveAspectRatio=none
-  const points = buildTendencyPoints(team.series, width, height);
-
-  const runByGw = new Map<number, FixtureOutlookRun>();
-  for (const r of team.runs) {
-    for (let g = r.start_gw; g <= r.end_gw; g++) runByGw.set(g, r);
-  }
-
-  // Split the polyline into segments so each run gets its own tinted stroke.
-  type Segment = { run: FixtureOutlookRun | null; pts: TendencyPoint[] };
-  const segments: Segment[] = [];
-  points.forEach((p) => {
-    const run = runByGw.get(p.gw) ?? null;
-    const last = segments[segments.length - 1];
-    if (last && last.run === run) {
-      last.pts.push(p);
-    } else {
-      // Carry the previous point over so segments connect (no visual gaps).
-      segments.push({ run, pts: last ? [last.pts[last.pts.length - 1], p] : [p] });
-    }
+  const points: Pt[] = series.map((s, i) => {
+    const blank = s.band === null;
+    return {
+      gw: s.gameweek,
+      band: s.band,
+      blank,
+      opp: blank ? '—' : s.fixtures.map((f) => f.opponent_short).join('/'),
+      venue: blank ? '' : s.fixtures.map((f) => venueLabel(f.is_home)).join('/'),
+      cx: X0 + i * STEP,
+      cy: blank ? null : Y_TOP + ((s.band as number) - 1) * Y_GAP,
+    };
   });
 
-  const strokeFor = (run: FixtureOutlookRun | null) => {
-    if (!run) return 'rgba(255,255,255,0.25)';
-    return run.type === 'good' ? '#02EBAE' : '#FF6A4D';
-  };
-  const strokeWidthFor = (run: FixtureOutlookRun | null) =>
-    run?.intensity === 'strong' ? 2.4 : run ? 1.8 : 1.2;
+  const drawn = points.filter((p) => p.cy !== null);
+  const linePoints = drawn.map((p) => `${p.cx},${p.cy}`).join(' ');
+  const areaPoints =
+    drawn.length >= 2
+      ? `${linePoints} ${drawn[drawn.length - 1].cx},${Y_BASE} ${drawn[0].cx},${Y_BASE}`
+      : '';
 
-  const active = activeGw != null ? team.series.find((s) => s.gameweek === activeGw) : null;
+  const avg = team.avg_band;
+  const avgHex = avg === null ? '#ABA9AC' : bandColor(Math.max(1, Math.min(5, Math.round(avg))) as Band);
 
-  const toggle = () => {
-    setExpanded((v) => !v);
-    setActiveGw(null);
-  };
+  const gridX1 = 34;
+  const gridX2 = chartW - 24;
+  const bands = [1, 2, 3, 4, 5] as const;
 
   return (
-    <div className="space-y-1">
-      <button
-        type="button"
-        onClick={toggle}
-        className="w-full flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider text-bf-gray/60 hover:text-bf-gray transition-colors"
-      >
-        Tendencia
-        <span className="text-[8px]">{expanded ? '▴' : '▾'}</span>
-      </button>
-
-      <div className="relative">
-        {/* Chart area: sized exactly to the svg so the dot overlay's
-            percentage positions (below) line up with it — not with the
-            taller wrapper that also holds the GW-label row and popover. */}
-        <div className="relative" style={{ height }}>
-          <svg
-            viewBox={`0 0 ${width} ${height}`}
-            preserveAspectRatio="none"
-            className="w-full h-full cursor-pointer"
-            role="button"
-            aria-label={`${expanded ? 'Contraer' : 'Expandir'} tendencia de calendario de ${team.team_name}`}
-            onClick={toggle}
+    <div className="space-y-3">
+      {/* Header — parity with the detailed row */}
+      <div className="flex items-center gap-3.5 flex-wrap">
+        {onAsk ? (
+          <button
+            type="button"
+            onClick={() => onAsk(teamOutlookQuestion(team.team_name, team.axis))}
+            className="text-[22px] font-black tracking-tight leading-none text-white hover:text-bf-turquoise transition-colors min-w-[58px] text-left"
           >
-            {segments.map((seg, i) => (
+            {team.team_short}
+          </button>
+        ) : (
+          <span className="text-[22px] font-black tracking-tight leading-none text-white min-w-[58px]">
+            {team.team_short}
+          </span>
+        )}
+        <AvgPill avg={avg} />
+        {team.verdict && <span className="text-[14.5px] text-bf-gray">{team.verdict}</span>}
+      </div>
+
+      <div className="overflow-x-auto">
+        <div style={{ width: chartW }}>
+          <svg width={chartW} height={CHART_H} className="overflow-visible block">
+            {bands.map((b) => {
+              const y = Y_TOP + (b - 1) * Y_GAP;
+              return (
+                <g key={b}>
+                  <line x1={gridX1} y1={y} x2={gridX2} y2={y} stroke="rgba(255,255,255,.07)" />
+                  <text
+                    x={24}
+                    y={y + 4}
+                    textAnchor="end"
+                    style={{ fontSize: 11, fontWeight: 700, fill: bandColor(b) }}
+                  >
+                    {b}
+                  </text>
+                </g>
+              );
+            })}
+
+            {areaPoints && <polygon points={areaPoints} fill={hexRgba(avgHex, 0.09)} />}
+            {drawn.length >= 2 && (
               <polyline
-                key={i}
-                points={seg.pts.map((p) => `${p.x},${p.y}`).join(' ')}
+                points={linePoints}
                 fill="none"
-                stroke={strokeFor(seg.run)}
-                strokeWidth={strokeWidthFor(seg.run)}
-                strokeLinecap="round"
+                stroke={avgHex}
+                strokeWidth={2.5}
                 strokeLinejoin="round"
+                strokeLinecap="round"
+              />
+            )}
+            {drawn.map((p) => (
+              <circle
+                key={p.gw}
+                cx={p.cx}
+                cy={p.cy as number}
+                r={5.5}
+                fill={bandColor(p.band as Band)}
+                stroke="#1A1922"
+                strokeWidth={2}
               />
             ))}
           </svg>
 
-          {/* Dots as an HTML overlay, not SVG circles: the chart's viewBox is
-              deliberately stretched (preserveAspectRatio="none") to fill any
-              container width, which would flatten true circles into ellipses.
-              Plain rounded-full divs, positioned by percentage, stay round. */}
-          {expanded &&
-            points.map((p) => {
-              const isActive = activeGw === p.gw;
-              return (
-                <button
-                  key={p.gw}
-                  type="button"
-                  aria-label={`J${p.gw}`}
-                  onClick={(e) => {
-                    // Stop the point tap from also bubbling to the svg's
-                    // expand/collapse toggle beneath it.
-                    e.stopPropagation();
-                    setActiveGw((g) => (g === p.gw ? null : p.gw));
-                  }}
-                  className={`absolute rounded-full transition-all ${
-                    p.blank ? 'border border-white/40 bg-transparent' : ''
-                  } ${isActive ? 'ring-2 ring-white/50' : ''}`}
-                  style={{
-                    left: `${(p.x / width) * 100}%`,
-                    top: `${(p.y / height) * 100}%`,
-                    width: isActive ? 8 : 5,
-                    height: isActive ? 8 : 5,
-                    transform: 'translate(-50%, -50%)',
-                    backgroundColor: p.blank ? undefined : bandColor(p.band as 1 | 2 | 3 | 4 | 5),
-                  }}
-                />
-              );
-            })}
-        </div>
-
-        {expanded && (
-          <div className="flex justify-between px-0.5 mt-0.5">
-            {team.series.map((s) => (
-              <span
-                key={s.gameweek}
-                className={`text-[8px] font-bold ${activeGw === s.gameweek ? 'text-white' : 'text-bf-gray/50'}`}
-              >
-                J{s.gameweek}
-              </span>
+          {/* X-axis: opponent + J{gw}·venue, one column per GW. */}
+          <div className="flex mt-1">
+            <div className="flex-none" style={{ width: X_PAD }} />
+            {points.map((p) => (
+              <GwLabel
+                key={p.gw}
+                point={p}
+                onAsk={
+                  onAsk && !p.blank
+                    ? () =>
+                        onAsk(
+                          fixtureCellQuestion(
+                            team.team_name,
+                            series.find((s) => s.gameweek === p.gw) as FixtureOutlookGW,
+                            team.axis,
+                          ),
+                        )
+                    : undefined
+                }
+              />
             ))}
           </div>
-        )}
-
-        {active && (
-          <FixturePopover
-            gw={active}
-            team={team}
-            run={runByGw.get(active.gameweek) ?? null}
-            onAsk={onAsk}
-            onClose={() => setActiveGw(null)}
-          />
-        )}
+        </div>
       </div>
     </div>
   );
 }
 
-/** "Racha buena en curso: 3 jornadas (J3–J5)." — schedule-only, no advice. */
-function runMembershipLine(run: FixtureOutlookRun): string {
-  const kind = run.type === 'good' ? 'buena' : 'mala';
-  return `Racha ${kind} en curso: ${run.length} jornadas (J${run.start_gw}–J${run.end_gw}).`;
-}
-
-function FixturePopover({
-  gw,
-  team,
-  run,
-  onAsk,
-  onClose,
-}: {
-  gw: FixtureOutlookGW;
-  team: TeamOutlook;
-  /** The detected run this GW belongs to, if any (real data — no invented streaks). */
-  run: FixtureOutlookRun | null;
-  onAsk?: (question: string) => void;
-  onClose: () => void;
-}) {
+function GwLabel({ point, onAsk }: { point: Pt; onAsk?: () => void }) {
+  const fg = point.blank ? '#ABA9AC' : bandColor(point.band as Band);
+  const inner = (
+    <>
+      <span className="text-[13px] font-extrabold" style={{ color: fg }}>
+        {point.opp}
+      </span>
+      <span className="text-[10.5px] font-bold text-bf-gray whitespace-nowrap">
+        J{point.gw}
+        {point.venue ? ` · ${point.venue}` : ''}
+      </span>
+    </>
+  );
+  const cls = 'flex-none flex flex-col items-center gap-0.5';
+  if (onAsk) {
+    return (
+      <button
+        type="button"
+        onClick={onAsk}
+        title={`${point.opp} · preguntar en el chat`}
+        className={`${cls} transition-transform hover:-translate-y-0.5`}
+        style={{ width: COL_W }}
+      >
+        {inner}
+      </button>
+    );
+  }
   return (
-    <div className="mt-1.5 rounded-md border border-white/10 bg-black/60 px-2.5 py-2 text-[11px] leading-snug space-y-1">
-      <div className="flex items-center justify-between gap-2">
-        <span className="font-bold text-white">
-          J{gw.gameweek}
-          {gw.is_dgw ? ' · doble jornada' : ''}
-        </span>
-        <button type="button" onClick={onClose} className="text-bf-gray/60 hover:text-white text-xs leading-none">
-          ✕
-        </button>
-      </div>
-
-      {gw.fixtures.length === 0 ? (
-        <p className="text-bf-gray">Sin partido esta jornada.</p>
-      ) : (
-        gw.fixtures.map((f, i) => (
-          <div key={i}>
-            <p className="text-bf-gray">
-              <span className="font-medium text-white">
-                {team.team_short} vs {f.opponent_short}
-              </span>{' '}
-              — {f.is_home ? 'en casa' : 'fuera'}
-            </p>
-            <p className="text-bf-gray">{qualitativeBandLabel(f.band, team.axis)}</p>
-          </div>
-        ))
-      )}
-
-      {run && <p className="text-bf-gray/80 italic">{runMembershipLine(run)}</p>}
-
-      {onAsk && (
-        <button
-          type="button"
-          onClick={() => onAsk(fixtureCellQuestion(team.team_name, gw, team.axis))}
-          className="text-[10px] font-bold text-bf-turquoise hover:text-bf-turquoise/80 transition-colors"
-        >
-          Preguntar en el chat →
-        </button>
-      )}
+    <div className={cls} style={{ width: COL_W }}>
+      {inner}
     </div>
   );
 }
