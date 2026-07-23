@@ -22,6 +22,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { wcAsk, wcCreateSession } from '@/lib/wc-api';
+import { generateId } from '@/lib/id';
 import { WcApiError } from '@/lib/wc-types';
 import { QUOTA_BUCKETS, type QuotaBucket } from '@/lib/tiers';
 import { readDevTier } from '@/lib/dev-tier';
@@ -124,7 +125,7 @@ export default function WcChatShell() {
     setLastQuery(input);
 
     const userMessage: Message = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       role: 'user',
       text: input,
     };
@@ -147,7 +148,7 @@ export default function WcChatShell() {
       });
 
       const assistantMessage: Message = {
-        id: crypto.randomUUID(),
+        id: generateId(),
         role: 'assistant',
         text: response.final_text,
         outcome: response.outcome,
@@ -165,7 +166,7 @@ export default function WcChatShell() {
           : 'Error inesperado. Por favor, inténtalo de nuevo.';
 
       const errorMessage: Message = {
-        id: crypto.randomUUID(),
+        id: generateId(),
         role: 'assistant',
         text: errorText,
         isError: true,

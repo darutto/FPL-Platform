@@ -18,6 +18,7 @@ import { selectIntentView } from '@/lib/intent-renderer';
 import { selectWcIntentView } from '@/lib/wc-intent-renderer';
 import IntentRenderer from './IntentRenderer';
 import WcIntentRenderer from '@/components/wc/WcIntentRenderer';
+import SuggestionChips, { type CompareWizardState } from './SuggestionChips';
 
 export interface Message {
   id: string;
@@ -42,9 +43,21 @@ interface Props {
   onFollowUp?: (messageId: string) => void;
   /** Id of the message currently armed for follow-up, if any. */
   followUpArmedFor?: string | null;
+  /** Guided Comparison wizard state — non-null while a compare wizard is armed.
+   *  Chips render ONLY under the latest top-level assistant bubble. */
+  compareWizard?: CompareWizardState | null;
+  /** Called with a tapped chip's send_text. */
+  onSuggestionPick?: (sendText: string) => void;
 }
 
-export default function MessageList({ messages, loading, onFollowUp, followUpArmedFor }: Props) {
+export default function MessageList({
+  messages,
+  loading,
+  onFollowUp,
+  followUpArmedFor,
+  compareWizard,
+  onSuggestionPick,
+}: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -62,6 +75,8 @@ export default function MessageList({ messages, loading, onFollowUp, followUpArm
           isLast={msg.id === lastId}
           armed={followUpArmedFor === msg.id}
           onFollowUp={onFollowUp}
+          compareWizard={compareWizard}
+          onSuggestionPick={onSuggestionPick}
         />
       ))}
       {loading && (
@@ -83,12 +98,26 @@ interface MessageBubbleProps {
   isLast: boolean;
   armed: boolean;
   onFollowUp?: (messageId: string) => void;
+  compareWizard?: CompareWizardState | null;
+  onSuggestionPick?: (sendText: string) => void;
 }
 
-function MessageBubble({ message, isLast, armed, onFollowUp }: MessageBubbleProps) {
+function MessageBubble({ message, isLast, armed, onFollowUp, compareWizard, onSuggestionPick }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const showOriginBadge = !isUser && !message.isError && (message.response != null || message.wcResponse != null);
   const showFollowUp = !isUser && !message.isError && isLast && onFollowUp != null;
+  // A compare-clarification turn is identified by ITS OWN response carrying
+  // suggestions — a permanent property of this message, unlike `compareWizard`
+  // (transient global state that clears once the user finishes the wizard).
+  // The backend's raw clarification text (English, redundant with the wizard's
+  // own Spanish copy) must stay hidden for this turn FOREVER, not just while
+  // the wizard is still active — otherwise it reappears the moment the wizard
+  // completes and `compareWizard` resets to null.
+  const hasSuggestions =
+    !isUser && !message.isError && (message.response?.suggestions?.length ?? 0) > 0;
+  // Guided Comparison chips: only under the LATEST top-level assistant bubble
+  // (never historical turns, never sub-responses) while a wizard is armed.
+  const showWizard = hasSuggestions && isLast && compareWizard != null && onSuggestionPick != null;
   // Structured turn → render the card alone, like /preview (no text bubble,
   // no bubble-around-card double box).
   const hasFplCard =
@@ -109,6 +138,7 @@ function MessageBubble({ message, isLast, armed, onFollowUp }: MessageBubbleProp
           {hasFplCard && <IntentRenderer response={message.response!} />}
           {hasWcCard && <WcIntentRenderer response={message.wcResponse!} />}
           {showOriginBadge && <OriginBadges message={message} />}
+          {showWizard && <SuggestionChips wizard={compareWizard!} onPick={onSuggestionPick!} />}
           {showFollowUp && <FollowUpButton armed={armed} onClick={() => onFollowUp!(message.id)} />}
         </div>
       </div>
@@ -126,9 +156,20 @@ function MessageBubble({ message, isLast, armed, onFollowUp }: MessageBubbleProp
               : 'bg-white/5 border border-white/10 text-bf-text rounded-[14px] rounded-tl'
         }`}
       >
-        <p className="text-sm whitespace-pre-wrap">{message.text}</p>
+        {/* A compare-clarification turn's bubble content is owned by the
+            wizard's own Spanish copy — not the backend's generic/English
+            clarification text — for the LIFE of this message, not just while
+            the wizard is still the active one. Live chips while active;
+            once superseded (wizard finished or a newer turn arrived), fall
+            back to a static, non-interactive line so the turn still reads
+            sensibly in history without the English text reappearing. */}
+        {!hasSuggestions && <p className="text-sm whitespace-pre-wrap">{message.text}</p>}
+        {hasSuggestions && !showWizard && (
+          <p className="text-sm font-semibold text-bf-text/90">¿Cuál es el primer jugador?</p>
+        )}
 
         {showOriginBadge && <OriginBadges message={message} />}
+        {showWizard && <SuggestionChips wizard={compareWizard!} onPick={onSuggestionPick!} />}
         {showFollowUp && <FollowUpButton armed={armed} onClick={() => onFollowUp!(message.id)} />}
       </div>
     </div>

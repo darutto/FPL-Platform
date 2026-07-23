@@ -76,6 +76,9 @@ from . import telemetry as _telemetry  # Phase 2.7g: in-process telemetry (never
 from .dispatcher import OUTCOME_OK, OUTCOME_NEEDS_CLARIFICATION, INTENT_COMPARE_PLAYERS, INTENT_CAPTAIN_SCORE, INTENT_RANK_CANDIDATES, INTENT_MULTI_INTENT, INTENT_TRANSFER_ADVICE, INTENT_CHIP_ADVICE, INTENT_PLAYER_FIXTURE_RUN, INTENT_DIFFERENTIAL_PICKS, INTENT_PLAYER_FORM, INTENT_INJURY_LIST, INTENT_PRICE_CHANGES, INTENT_TEAM_FIXTURE_CALENDAR, INTENT_TEAM_SCHEDULE, INTENT_POSITION_FIXTURE_RUN, INTENT_TRANSFER_SUGGESTION, INTENT_FIXTURE_OUTLOOK, INTENT_ZONAL_OPPORTUNITY  # noqa: F401 — re-exported
 from .dispatcher import _TOOL_TO_INTENT, INTENT_UNSUPPORTED  # _orch_result_to_final_response: tool->intent map
 from .multi_intent import detect_multi_intent
+from .generic_card import GenericCardMeta, build_generic_card  # Track A: additive generic card
+from .comparison_stats import StatComparisonMeta, stat_comparison_from_dict  # additive stat table
+from .suggestions import Suggestion, build_suggestions  # Guided Comparison: tappable suggestions
 from .llm_layer import DEFAULT_MODEL
 from .llm_review import ask_llm_safe
 from .orchestrator import (  # _orch_result_to_final_response: result type + OK constant
@@ -576,6 +579,11 @@ class InjuryEntry:
     position:         str
     status_label:     str
     chance_of_playing: "int | None" = field(default=None)  # doubtful only
+    # Track A: deterministic availability context from the bootstrap element.
+    # ``news`` is the free-text FPL note (may be empty); ``news_added`` is an
+    # ISO-8601 string or None.  Never LLM-sourced.
+    news:             str            = field(default="")
+    news_added:       "str | None"   = field(default=None)
 
 
 @dataclass(frozen=True)
@@ -829,6 +837,11 @@ class ComparisonMeta:
     player_b:
         Bounded per-player context for the second comparison player (Phase 5i).
         ``None`` only on legacy construction without this field.
+    stat_comparison:
+        Additive, position-conditional raw-stat table rendered BELOW the
+        verdict — v1/first-pass, not a stable contract like the fields above.
+        ``None`` when no comparable rows exist. Never influences
+        winner/margin/label/reasons.
     """
 
     winner:  str | None
@@ -837,6 +850,7 @@ class ComparisonMeta:
     reasons: tuple[str, ...]
     player_a: "ComparisonPlayerContext | None" = field(default=None)  # Phase 5i
     player_b: "ComparisonPlayerContext | None" = field(default=None)  # Phase 5i
+    stat_comparison: "StatComparisonMeta | None" = field(default=None)  # v1, additive
 
 
 # ---------------------------------------------------------------------------
@@ -1076,6 +1090,14 @@ class FinalResponse:
     # Phase 2.7f: clarification policy layer (additive, safe default)
     clarification_asked:   bool                            = field(default=False)  # True when outcome==needs_clarification
     total_tokens:           int                             = field(default=0)        # Grad-D
+    # Track A: additive renderable generic card composed only from deterministic
+    # metadata (never LLM text).  Populated for composer-backed plain-text
+    # intents on OK turns; None otherwise.
+    generic_card:           "GenericCardMeta | None"        = field(default=None)
+    # Guided Comparison flow: additive tappable suggestions attached only when
+    # outcome==needs_clarification AND intent==compare_players (deterministic,
+    # never LLM).  None on OK outcomes and all other intents.
+    suggestions:            "tuple[Suggestion, ...] | None"  = field(default=None)
 
 
 # ---------------------------------------------------------------------------
@@ -1312,6 +1334,7 @@ def _extract_comparison_meta(ro: "dict[str, Any]") -> "ComparisonMeta | None":
             reasons  = tuple(ro.get("comparison_reasons") or []),
             player_a = _extract_comparison_player_ctx(ro.get("player_a", {})),
             player_b = _extract_comparison_player_ctx(ro.get("player_b", {})),
+            stat_comparison = stat_comparison_from_dict(ro.get("stat_comparison")),
         )
     except Exception:  # noqa: BLE001
         return None
@@ -1566,6 +1589,8 @@ def _extract_injury_list_meta(ro: "dict[str, Any]") -> "InjuryListMeta | None":
                     position          = e.get("position", ""),
                     status_label      = e.get("status_label", ""),
                     chance_of_playing = e.get("chance_of_playing"),
+                    news              = e.get("news", "") or "",
+                    news_added        = e.get("news_added"),
                 )
                 for e in lst
             )
@@ -1907,7 +1932,7 @@ def _extract_structured_meta(
         elif intent == INTENT_ZONAL_OPPORTUNITY:
             zonal_opportunity_meta = _extract_zonal_opportunity_meta(raw_output)
 
-    return {
+    result: "dict[str, Any]" = {
         "comparison":           comparison,
         "captain":              captain,
         "captain_ranking":      captain_ranking,
@@ -1925,6 +1950,11 @@ def _extract_structured_meta(
         "fixture_outlook":      fixture_outlook_meta,
         "zonal_opportunity":    zonal_opportunity_meta,
     }
+    # Track A: additive renderable generic card, composed only from the
+    # deterministic metadata just built (never LLM text).  Returns None for
+    # non-ok outcomes, excluded intents, or missing metadata.
+    result["generic_card"] = build_generic_card(intent, result, raw_output, outcome)
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -2275,6 +2305,10 @@ def respond(
         clarification_asked = True
         final_text = _clarification_text_for_intent(dr.intent)
 
+    # Guided Comparison flow: attach deterministic tappable suggestions when the
+    # clarification is a compare turn (intent==compare_players).  None otherwise.
+    suggestions = build_suggestions(dr.intent, dr.outcome, bootstrap)
+
     # -----------------------------------------------------------------------
     # Debug bundle (opt-in only)
     # -----------------------------------------------------------------------
@@ -2336,6 +2370,10 @@ def respond(
         route_conflict=dr.route_conflict,
         # Phase 2.7f: clarification policy layer
         clarification_asked=clarification_asked,
+        # Track A: additive renderable generic card (deterministic metadata only)
+        generic_card=_meta["generic_card"],
+        # Guided Comparison flow: tappable suggestions on compare clarification
+        suggestions=suggestions,
     )
     # Phase 2.7g: in-process telemetry — record after result is built, never raises
     try:

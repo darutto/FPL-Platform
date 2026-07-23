@@ -31,6 +31,9 @@ export type Outcome =
   | 'not_found'
   | 'ambiguous'
   | 'missing_arguments'
+  // A prompt (e.g. bare `/comparar`) needs more info before it can run. Carries
+  // `suggestions` for the Guided Comparison chip wizard.
+  | 'needs_clarification'
   | 'error'
   | 'quota_exceeded'
   // A premium feature (web search) was requested by an ineligible tier.
@@ -234,6 +237,12 @@ export interface AskResponse {
   fixture_run: FixtureRunMeta | null;
   differential: DifferentialPicksMeta | null;
   /**
+   * transfer_suggestion field — non-null when intent=transfer_suggestion AND
+   * outcome=ok (Phase 2.6h). Optional because pre-2.6h fixtures/serialisers
+   * omit it (same convention as zonal_opportunity / fixture_outlook).
+   */
+  transfer_suggestion?: TransferSuggestionMeta | null;
+  /**
    * fixture_outlook field — non-null when intent=fixture_outlook AND
    * outcome=ok (Track D/FI4). Optional because pre-FI4 fixtures/serialisers
    * omit it (same convention as zonal_opportunity).
@@ -258,6 +267,16 @@ export interface AskResponse {
   resource_rows: ResourceRows | null;
 
   /**
+   * Generic card payload (Track B) — non-null when outcome='ok' and the
+   * intent has no bespoke structured component. Renders via GenericCard,
+   * the fallback that closes the "plain text block" gap. Optional because
+   * pre-generic-card fixtures/serialisers omit it (same convention as
+   * zonal_opportunity/web_search). Can also appear on entries inside
+   * `sub_responses` (multi_intent nests full AskResponse objects).
+   */
+  generic_card?: GenericCardMeta | null;
+
+  /**
    * Web search payload — non-null when the premium search_web tool ran
    * end-to-end (outcome='ok'). Unverified AI synthesis over live web
    * sources — never implies "grounded" data. Parity with the WC chat's
@@ -266,9 +285,28 @@ export interface AskResponse {
    */
   web_search?: WebSearchPayload | null;
 
+  /**
+   * Guided Comparison suggestions — non-null only on a compare_players
+   * needs_clarification turn (bare or partial `/comparar`). Each item is a
+   * tappable chip {label, send_text} sourced deterministically from the
+   * most transferred-in players this gameweek. The UI turns these into a
+   * two-step chip wizard whose final send is a normal `comparar A vs B`
+   * question. Optional because pre-guided-comparison fixtures/serialisers omit
+   * it (same convention as generic_card/web_search).
+   */
+  suggestions?: Suggestion[] | null;
+
   // debug_only — null unless request included debug=true.
   // Do not gate production logic on this field.
   debug?: DebugBundle | null;
+}
+
+/** A single tappable suggestion chip (Guided Comparison). */
+export interface Suggestion {
+  /** Chip label — short player web_name. */
+  label: string;
+  /** Text sent through the normal send path when the chip is tapped. */
+  send_text: string;
 }
 
 /** Session turn response — same as AskResponse plus session_id. */
@@ -315,6 +353,38 @@ export interface ComparisonPlayerContext {
   set_piece_notes: string[];
 }
 
+/** Which side of a StatRow has the better (numerically higher, or otherwise
+ *  preferred) value. Backend-computed — never re-derived on the frontend. */
+export type BetterSide = 'a' | 'b';
+
+/** "performance" rows can be highlighted; "context" rows (price, ownership)
+ *  never are — this is authoritative from the backend, not a frontend list. */
+export type RowKind = 'performance' | 'context';
+
+/** A single cell in the stat comparison table. `value` is the raw, unrounded
+ *  number (present for completeness/future use); `display` is the backend's
+ *  pre-formatted string (including "—" for missing) — always render `display`
+ *  directly, never reformat `value` on the frontend. */
+export interface StatCell {
+  value: number | null;
+  display: string;
+}
+
+/** One row in the additive raw-stat comparison table appended below the
+ *  compare_players verdict (v1, first-pass — see FINAL_RESPONSE_CONTRACT.md). */
+export interface StatRow {
+  key: string;
+  label: string;
+  kind: RowKind;
+  value_a: StatCell;
+  value_b: StatCell;
+  better: BetterSide | null;
+}
+
+export interface StatComparisonMeta {
+  rows: StatRow[];
+}
+
 /** comparison field — non-null when intent=compare_players AND outcome=ok */
 export interface ComparisonMeta {
   winner: string | null;
@@ -323,6 +393,7 @@ export interface ComparisonMeta {
   reasons: string[];
   player_a: ComparisonPlayerContext | null;
   player_b: ComparisonPlayerContext | null;
+  stat_comparison: StatComparisonMeta | null;
 }
 
 export type TransferRecommendation =
@@ -342,6 +413,40 @@ export interface TransferMeta {
   reasons: string[];
   budget_constraint: boolean;
   hit_warning: boolean;
+}
+
+/**
+ * One pick in a transfer_suggestion result (Phase 2.6h).
+ * Source: fpl_grounded_assistant/final_response.py → TransferSuggestionEntry.
+ */
+export interface TransferSuggestionEntry {
+  rank: number;
+  web_name: string;
+  team_short: string;
+  position: string;
+  /** now_cost in tenths of £ (e.g. 75 → £7.5m). */
+  now_cost: number;
+  /** now_cost pre-divided to £m (e.g. 7.5). */
+  now_cost_m: number;
+  form: number;
+  avg_fdr: number;
+  difficulty_label: string;
+  composite_score: number;
+  ownership: number;
+}
+
+/** transfer_suggestion field — non-null when intent=transfer_suggestion AND outcome=ok */
+export interface TransferSuggestionMeta {
+  /** Canonical FPL position code or "ALL". */
+  position: string;
+  position_label: string;
+  /** null when no club filter was applied (Phase 2.6i). */
+  team_short: string | null;
+  team_name: string | null;
+  max_price: number | null;
+  horizon: number;
+  top_n: number;
+  picks: TransferSuggestionEntry[];
 }
 
 export type ChipRecommendation =
@@ -565,6 +670,63 @@ export interface ResourceRows {
   columns: string[];
   rows: ResourceRankingRow[] | InjuryRow[];
   data_age?: Record<string, unknown> | null;
+}
+
+// ---------------------------------------------------------------------------
+// Generic card types (Track B — generic_card payload)
+// Fallback structured card for intents without a bespoke component.
+// ---------------------------------------------------------------------------
+
+/** Semantic tone used by generic_card pills/hero — maps to Bendito Fantasy
+ *  turquoise/gold/coral/gray via lib/theme GENERIC_TONE_CLASSES. */
+export type Tone = 'good' | 'warn' | 'bad' | 'neutral';
+
+/** Accent palette the backend can select for a generic_card. */
+export type GenericCardAccent =
+  | 'turquoise'
+  | 'cyan'
+  | 'coral'
+  | 'gold'
+  | 'purple'
+  | 'gray';
+
+/** Big Archivo Black hero stat — optional single headline number. */
+export interface GenericCardHero {
+  value: string;
+  label: string;
+  tone: Tone | null;
+}
+
+/** One tinted pill in the title row. */
+export interface GenericCardPill {
+  label: string;
+  tone: Tone;
+}
+
+/** One CardTable column descriptor. */
+export interface GenericCardColumn {
+  header: string;
+  align: 'left' | 'right';
+  kind: 'text' | 'mono' | 'badge';
+}
+
+/**
+ * generic_card field — non-null when outcome='ok' and the intent has no
+ * bespoke structured component (see AskResponse.generic_card).
+ *
+ * rows: each entry's length MUST equal columns.length (backend-enforced;
+ * the UI does not validate this at runtime — CardTable renders defensively
+ * by index and drops cells past columns.length).
+ */
+export interface GenericCardMeta {
+  accent: GenericCardAccent;
+  title: string;
+  subtitle: string | null;
+  hero: GenericCardHero | null;
+  pills: GenericCardPill[];
+  columns: GenericCardColumn[];
+  rows: string[][];
+  footer: string | null;
 }
 
 // ---------------------------------------------------------------------------

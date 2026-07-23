@@ -17,6 +17,7 @@ import type {
   CaptainTier,
   TransferRecommendation,
   ChipRecommendation,
+  Tone,
 } from './types';
 
 // ---------------------------------------------------------------------------
@@ -221,6 +222,27 @@ export const QUOTA_TONE_CLASSES: Record<
     bar: 'bg-bf-coral',
     text: 'text-bf-coral',
   },
+};
+
+// ---------------------------------------------------------------------------
+// Generic tone — GenericCard pills + hero stat. Tone is a superset of
+// StatusTone (adds 'neutral') since generic_card pills can be purely
+// informational, not just good/warn/bad.
+// ---------------------------------------------------------------------------
+
+export const GENERIC_TONE_CLASSES: Record<Tone, string> = {
+  good: 'bg-bf-turquoise/10 border-bf-turquoise/40 text-bf-turquoise',
+  warn: 'bg-bf-gold/10 border-bf-gold/40 text-bf-gold',
+  bad: 'bg-bf-coral/10 border-bf-coral/40 text-bf-coral',
+  neutral: 'bg-bf-gray/10 border-bf-gray/40 text-bf-gray',
+};
+
+/** Text-only tone (no pill chrome) — used for the hero stat's big number. */
+export const GENERIC_TONE_TEXT: Record<Tone, string> = {
+  good: 'text-bf-turquoise',
+  warn: 'text-bf-gold',
+  bad: 'text-bf-coral',
+  neutral: 'text-white',
 };
 
 // ---------------------------------------------------------------------------

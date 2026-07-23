@@ -1268,9 +1268,20 @@ class ConversationSession:
                                 fallback_reason=None,
                             )
                         else:
-                            # Phase 5f: LLM comparison follow-up (Spanish/ellipsis, requires client)
+                            # Phase 5f: LLM comparison follow-up (Spanish/ellipsis).
+                            # resolver_client may be None here — that's fine and
+                            # expected: resolve_comparison_followup_llm passes it
+                            # straight to get_provider(_PROVIDER, client=None),
+                            # which then constructs its own provider from env
+                            # credentials and degrades to None (via
+                            # ProviderNotAvailableError) if none are configured.
+                            # Gating this call on `resolver_client is not None`
+                            # made the entire LLM comparison-followup path dead
+                            # in production, since the /session HTTP endpoint
+                            # never passes an explicit resolver_client — only
+                            # `self.state.last_comparison` is a meaningful gate.
                             llm_comp: ReferenceResolution | None = None
-                            if self.state.last_comparison and resolver_client is not None:
+                            if self.state.last_comparison:
                                 llm_comp = resolve_comparison_followup_llm(
                                     question, self.state, client=resolver_client
                                 )

@@ -242,12 +242,18 @@ describe('slash-commands — allowlist validation', () => {
     }
   });
 
-  test('all 6 allowlisted intents have a registered slash command', () => {
+  test('all allowlisted intents (minus documented exceptions) have a registered slash command', () => {
     const registered = new Set(SLASH_COMMANDS.map((sc) => sc.intent_hint));
-    // rank_candidates is intentionally omitted from slash commands
-    // (the /capitan command already implies it for the ranked path)
     const expected = INTENT_HINT_ALLOWLIST.filter(
-      (h) => h !== 'rank_candidates',
+      (h) =>
+        // rank_candidates is intentionally omitted from slash commands
+        // (the /capitan command already implies it for the ranked path)
+        h !== 'rank_candidates' &&
+        // fixture_outlook's /calendario quick command was removed — it only
+        // ever worked through the legacy intent_hint pre-processing shim (no
+        // backend prompt-registry entry, unlike the other slash commands),
+        // and a dedicated Calendario tab already covers this need.
+        h !== 'fixture_outlook',
     );
     for (const hint of expected) {
       expect(registered).toContain(hint);

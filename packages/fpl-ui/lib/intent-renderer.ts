@@ -22,10 +22,16 @@
  *   zonal_opportunity  → 'defensive_zones'    (zonal_opportunity non-null, zones.length > 0) (T4b)
  *   @top_form/xg/etc.  → 'resource_ranking'  (resource_rows non-null, resource != 'injuries')
  *   @injuries          → 'resource_injuries'  (resource_rows non-null, resource === 'injuries')
+ *   injury_list         → 'generic_injuries'  (generic_card non-null, rows.length > 0) (Track B)
+ *   * (any intent, no bespoke match) → 'generic' (generic_card non-null) (Track B)
  *   search_web (premium) → 'web_search'      (web_search non-null; lowest precedence)
  *
  * TEXT-ONLY (Phase 2c, structured rendering deferred):
  *   multi_intent, current_gameweek, player_summary, player_resolve
+ *
+ * PRECEDENCE (Track B): generic_card sits BELOW every bespoke intent check
+ * above (a bespoke field, when present, always wins) and ABOVE the
+ * web_search fallback (lowest precedence of all).
  */
 import type { AskResponse } from './types';
 
@@ -38,10 +44,13 @@ export type IntentView =
   | 'fixture_run'
   | 'fixture_outlook'
   | 'differential'
+  | 'transfer_suggestion'
   | 'multi_intent'
   | 'defensive_zones'
   | 'resource_ranking'
   | 'resource_injuries'
+  | 'generic_injuries'
+  | 'generic'
   | 'web_search';
 
 /**
@@ -102,6 +111,13 @@ export function selectIntentView(response: AskResponse): IntentView | null {
     return 'fixture_outlook';
   }
   if (
+    response.intent === 'transfer_suggestion' &&
+    response.transfer_suggestion != null &&
+    response.transfer_suggestion.picks.length > 0
+  ) {
+    return 'transfer_suggestion';
+  }
+  if (
     response.intent === 'multi_intent' &&
     response.sub_responses != null &&
     response.sub_responses.length > 0
@@ -114,6 +130,22 @@ export function selectIntentView(response: AskResponse): IntentView | null {
     response.zonal_opportunity.zones.length > 0
   ) {
     return 'defensive_zones';
+  }
+
+  // injury_list — routes through InjuriesTable's row treatment (status
+  // badge, chance %, relative date) instead of the bare generic table.
+  if (
+    response.intent === 'injury_list' &&
+    response.generic_card != null &&
+    response.generic_card.rows.length > 0
+  ) {
+    return 'generic_injuries';
+  }
+
+  // generic_card fallback — any intent without a bespoke component above.
+  // Must stay below every bespoke check and above web_search (lowest).
+  if (response.generic_card != null) {
+    return 'generic';
   }
 
   // Lowest precedence: web search is a premium fallback, not a routed intent.

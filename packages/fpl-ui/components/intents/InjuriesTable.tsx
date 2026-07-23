@@ -34,7 +34,7 @@ export default function InjuriesTable({ data }: Props) {
       ) : (
         <div>
           {rows.map((row, idx) => (
-            <InjuryRow key={`${row.web_name}-${idx}`} row={row} banded={idx % 2 === 0} />
+            <InjuryRowItem key={`${row.web_name}-${idx}`} row={row} banded={idx % 2 === 0} />
           ))}
         </div>
       )}
@@ -42,7 +42,12 @@ export default function InjuriesTable({ data }: Props) {
   );
 }
 
-function InjuryRow({ row, banded }: { row: InjuryRow; banded: boolean }) {
+/**
+ * Exported so other card components can reuse the same row treatment for
+ * injury-shaped data outside the @injuries resource path (e.g. GenericCard's
+ * InjuryListTable adapter for the injury_list intent).
+ */
+export function InjuryRowItem({ row, banded }: { row: InjuryRow; banded: boolean }) {
   const { web_name, team_short, position, status_label, chance_of_playing, news, news_added } = row;
   const { className: badgeClass, label: badgeLabel } = resolveStatusBadge(status_label);
   const chanceText = chance_of_playing != null ? `${chance_of_playing}%` : '—';
@@ -50,10 +55,11 @@ function InjuryRow({ row, banded }: { row: InjuryRow; banded: boolean }) {
 
   return (
     <div className={`flex items-start gap-3 px-4 py-2.5 ${banded ? 'bg-white/[0.035]' : ''}`}>
-      {/* Player info */}
-      <div className="flex-shrink-0 w-36 min-w-0">
+      {/* Player info — fixed but narrower on mobile so the badge/chance/news
+          columns keep breathing room at 360px; still shrinks via min-w-0. */}
+      <div className="flex-shrink-0 w-24 min-w-0 sm:w-36">
         <span className="font-bold text-white truncate block">{web_name}</span>
-        <span className="text-xs text-bf-gray">
+        <span className="block truncate text-xs text-bf-gray">
           {team_short} · {position}
         </span>
       </div>
@@ -83,7 +89,7 @@ function InjuryRow({ row, banded }: { row: InjuryRow; banded: boolean }) {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function resolveStatusBadge(statusLabel: string): { className: string; label: string } {
+export function resolveStatusBadge(statusLabel: string): { className: string; label: string } {
   const lower = statusLabel.toLowerCase();
   if (lower.includes('injur') || lower.includes('suspend') || lower.includes('unavailable')) {
     return { className: STATUS_TONE_CLASSES.bad, label: statusLabel };
@@ -102,7 +108,7 @@ function resolveStatusBadge(statusLabel: string): { className: string; label: st
  * Formats an ISO date string as a simple relative string in Spanish.
  * Falls back to the raw string if parsing fails.
  */
-function formatRelativeDate(isoString: string): string {
+export function formatRelativeDate(isoString: string): string {
   try {
     const date = new Date(isoString);
     if (isNaN(date.getTime())) return isoString;

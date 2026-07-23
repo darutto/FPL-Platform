@@ -88,6 +88,22 @@ export const comparisonOkResponse: AskResponse = {
       role_bonus: 0.0,
       set_piece_notes: [],
     },
+    stat_comparison: {
+      rows: [
+        { key: 'form', label: 'Forma', kind: 'performance',
+          value_a: { value: 9.5, display: '9.5' }, value_b: { value: 8.0, display: '8.0' }, better: 'a' },
+        { key: 'total_points', label: 'Puntos totales', kind: 'performance',
+          value_a: { value: 210, display: '210' }, value_b: { value: 195, display: '195' }, better: 'a' },
+        { key: 'price_m', label: 'Precio', kind: 'context',
+          value_a: { value: 14.5, display: '£14.5m' }, value_b: { value: 13.5, display: '£13.5m' }, better: null },
+        { key: 'ownership_percent', label: 'Propiedad %', kind: 'context',
+          value_a: { value: 52.3, display: '52.3%' }, value_b: { value: 64.1, display: '64.1%' }, better: null },
+        { key: 'goals', label: 'Goles', kind: 'performance',
+          value_a: { value: 22, display: '22' }, value_b: { value: 18, display: '18' }, better: 'a' },
+        { key: 'assists', label: 'Asistencias', kind: 'performance',
+          value_a: { value: 5, display: '5' }, value_b: { value: 9, display: '9' }, better: 'b' },
+      ],
+    },
   },
   transfer: null,
   chip: null,
@@ -110,6 +126,7 @@ export const comparisonTiedResponse: AskResponse = {
     reasons: [],
     player_a: comparisonOkResponse.comparison!.player_a,
     player_b: comparisonOkResponse.comparison!.player_b,
+    stat_comparison: null,
   },
 };
 
@@ -123,6 +140,7 @@ export const comparisonNoContextResponse: AskResponse = {
     reasons: ['Mejor forma'],
     player_a: null,
     player_b: null,
+    stat_comparison: null,
   },
 };
 
@@ -479,6 +497,93 @@ export const differentialEmptyResponse: AskResponse = {
   },
 };
 
+/** transfer_suggestion OK — TransferSuggestionCard should render (Phase 2.6h) */
+export const transferSuggestionOkResponse: AskResponse = {
+  final_text: 'Los mejores objetivos de transferencia para medio son Palmer, Saka y Gordon.',
+  outcome: 'ok',
+  supported: true,
+  intent: 'transfer_suggestion',
+  review_passed: true,
+  llm_used: false,
+  captain: null,
+  captain_ranking: null,
+  comparison: null,
+  transfer: null,
+  chip: null,
+  fixture_run: null,
+  differential: null,
+  fixture_outlook: null,
+  transfer_suggestion: {
+    position: 'MID',
+    position_label: 'Mediocampistas',
+    team_short: null,
+    team_name: null,
+    max_price: 9.5,
+    horizon: 5,
+    top_n: 3,
+    picks: [
+      {
+        rank: 1,
+        web_name: 'Palmer',
+        team_short: 'CHE',
+        position: 'MID',
+        now_cost: 85,
+        now_cost_m: 8.5,
+        form: 7.4,
+        avg_fdr: 2.4,
+        difficulty_label: 'fácil',
+        composite_score: 82.1,
+        ownership: 42.3,
+      },
+      {
+        rank: 2,
+        web_name: 'Saka',
+        team_short: 'ARS',
+        position: 'MID',
+        now_cost: 90,
+        now_cost_m: 9.0,
+        form: 6.8,
+        avg_fdr: 2.8,
+        difficulty_label: 'moderado',
+        composite_score: 78.5,
+        ownership: 35.1,
+      },
+      {
+        rank: 3,
+        web_name: 'Gordon',
+        team_short: 'NEW',
+        position: 'MID',
+        now_cost: 75,
+        now_cost_m: 7.5,
+        form: 6.1,
+        avg_fdr: 3.0,
+        difficulty_label: 'moderado',
+        composite_score: 71.9,
+        ownership: 18.7,
+      },
+    ],
+  },
+  sub_responses: null,
+  orch_outcome: null,
+  degraded: false,
+  resource_rows: null,
+};
+
+/** transfer_suggestion OK — empty picks (edge case: should fall through to text-only) */
+export const transferSuggestionEmptyResponse: AskResponse = {
+  ...transferSuggestionOkResponse,
+  transfer_suggestion: {
+    position: 'MID',
+    position_label: 'Mediocampistas',
+    team_short: null,
+    team_name: null,
+    max_price: null,
+    horizon: 5,
+    top_n: 0,
+    picks: [],
+  },
+};
+
 /**
  * multi_intent OK — two sub-responses (captain_score + transfer_advice).
  * MultiIntentView should render with two stacked sub-cards.
@@ -526,4 +631,131 @@ export const multiIntentNullSubsResponse: AskResponse = {
 export const multiIntentEmptySubsResponse: AskResponse = {
   ...multiIntentOkResponse,
   sub_responses: [],
+};
+
+// ---------------------------------------------------------------------------
+// generic_card fixtures (Track B) — price_changes-style fallback card
+// ---------------------------------------------------------------------------
+
+/** price_changes OK — full generic_card: hero + pills + table + footer */
+export const genericCardOkResponse: AskResponse = {
+  final_text: 'Estos son los mayores cambios de precio hoy.',
+  outcome: 'ok',
+  supported: true,
+  intent: 'price_changes',
+  review_passed: true,
+  llm_used: false,
+  captain: null,
+  captain_ranking: null,
+  comparison: null,
+  transfer: null,
+  chip: null,
+  fixture_run: null,
+  differential: null,
+  fixture_outlook: null,
+  sub_responses: null,
+  orch_outcome: null,
+  degraded: false,
+  resource_rows: null,
+  generic_card: {
+    accent: 'gold',
+    title: 'Cambios de precio',
+    subtitle: 'Actualizado hoy a las 02:00',
+    hero: { value: '12', label: 'Jugadores subieron de precio', tone: 'good' },
+    pills: [
+      { label: '8 suben', tone: 'good' },
+      { label: '4 bajan', tone: 'bad' },
+    ],
+    columns: [
+      { header: 'Jugador', align: 'left', kind: 'text' },
+      { header: 'Equipo', align: 'left', kind: 'text' },
+      { header: 'Cambio', align: 'right', kind: 'mono' },
+    ],
+    rows: [
+      ['Haaland', 'MCI', '+0.1'],
+      ['Salah', 'LIV', '+0.1'],
+      ['Rashford', 'MUN', '-0.1'],
+    ],
+    footer: 'Los precios pueden cambiar hasta la medianoche.',
+  },
+};
+
+/** generic_card OK — minimal: title only, no hero/pills/table/footer */
+export const genericCardMinimalResponse: AskResponse = {
+  ...genericCardOkResponse,
+  generic_card: {
+    accent: 'gray',
+    title: 'Sin datos adicionales',
+    subtitle: null,
+    hero: null,
+    pills: [],
+    columns: [],
+    rows: [],
+    footer: null,
+  },
+};
+
+/** generic_card OK — hero with no tone (defaults to neutral/white text) */
+export const genericCardNoHeroToneResponse: AskResponse = {
+  ...genericCardOkResponse,
+  generic_card: {
+    ...genericCardOkResponse.generic_card!,
+    hero: { value: '5', label: 'Jornada actual', tone: null },
+  },
+};
+
+/** injury_list OK — routes to InjuryListTable (generic_card adapter) */
+export const injuryListGenericResponse: AskResponse = {
+  final_text: 'Estas son las lesiones más recientes.',
+  outcome: 'ok',
+  supported: true,
+  intent: 'injury_list',
+  review_passed: true,
+  llm_used: false,
+  captain: null,
+  captain_ranking: null,
+  comparison: null,
+  transfer: null,
+  chip: null,
+  fixture_run: null,
+  differential: null,
+  fixture_outlook: null,
+  sub_responses: null,
+  orch_outcome: null,
+  degraded: false,
+  resource_rows: null,
+  generic_card: {
+    accent: 'coral',
+    title: 'Lesiones',
+    subtitle: null,
+    hero: null,
+    pills: [],
+    columns: [
+      { header: 'Jugador', align: 'left', kind: 'text' },
+      { header: 'Equipo', align: 'left', kind: 'text' },
+      { header: 'Pos', align: 'left', kind: 'text' },
+      { header: 'Estado', align: 'left', kind: 'badge' },
+      { header: '%', align: 'right', kind: 'text' },
+      { header: 'Noticia', align: 'left', kind: 'text' },
+      { header: 'Fecha', align: 'left', kind: 'text' },
+    ],
+    rows: [
+      ['Saka', 'ARS', 'MID', 'Duda', '75', 'Molestia en el tobillo', '2026-07-15T00:00:00Z'],
+      ['Isak', 'NEW', 'FWD', 'Lesionado', '0', 'Rotura muscular, baja varias semanas', '2026-07-10T00:00:00Z'],
+    ],
+    footer: null,
+  },
+};
+
+/**
+ * injury_list OK — generic_card present but empty rows: the injury_list
+ * special-case requires non-empty rows, so this falls through to the plain
+ * 'generic' view (generic_card is still non-null) rather than 'generic_injuries'.
+ */
+export const injuryListGenericEmptyResponse: AskResponse = {
+  ...injuryListGenericResponse,
+  generic_card: {
+    ...injuryListGenericResponse.generic_card!,
+    rows: [],
+  },
 };

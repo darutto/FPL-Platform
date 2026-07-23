@@ -18,6 +18,8 @@
  *   multi_intent       → MultiIntentView (bounded to one nesting level)
  *   @resource (metric) → ResourceRankingTable  (A2 post-graduation)
  *   @injuries          → InjuriesTable         (A2 post-graduation)
+ *   injury_list        → InjuryListTable       (Track B — generic_card adapter)
+ *   * (no bespoke match) → GenericCard         (Track B — generic_card fallback)
  *
  * TEXT-ONLY (Phase 2d — structured rendering deferred):
  *   current_gameweek, player_summary, player_resolve
@@ -32,10 +34,13 @@ import ChipCard from '@/components/intents/ChipCard';
 import FixtureRunTable from '@/components/intents/FixtureRunTable';
 import FixtureOutlookCard from '@/components/intents/FixtureOutlookCard';
 import DifferentialTable from '@/components/intents/DifferentialTable';
+import TransferSuggestionCard from '@/components/intents/TransferSuggestionCard';
 import DefensiveZonesCard from '@/components/intents/DefensiveZonesCard';
 import MultiIntentView from '@/components/intents/MultiIntentView';
 import ResourceRankingTable from '@/components/intents/ResourceRankingTable';
 import InjuriesTable from '@/components/intents/InjuriesTable';
+import InjuryListTable from '@/components/intents/InjuryListTable';
+import GenericCard from '@/components/intents/GenericCard';
 import WebSearchCard from '@/components/intents/WebSearchCard';
 
 interface Props {
@@ -69,6 +74,9 @@ export default function IntentRenderer({ response }: Props) {
   if (view === 'differential' && response.differential != null) {
     return <DifferentialTable data={response.differential} />;
   }
+  if (view === 'transfer_suggestion' && response.transfer_suggestion != null) {
+    return <TransferSuggestionCard data={response.transfer_suggestion} />;
+  }
   if (view === 'multi_intent' && response.sub_responses != null) {
     return <MultiIntentView sub_responses={response.sub_responses} />;
   }
@@ -80,6 +88,12 @@ export default function IntentRenderer({ response }: Props) {
   }
   if (view === 'resource_injuries' && response.resource_rows != null) {
     return <InjuriesTable data={response.resource_rows} />;
+  }
+  if (view === 'generic_injuries' && response.generic_card != null) {
+    return <InjuryListTable data={response.generic_card} />;
+  }
+  if (view === 'generic' && response.generic_card != null) {
+    return <GenericCard data={response.generic_card} />;
   }
   if (view === 'web_search' && response.web_search != null) {
     return <WebSearchCard data={response.web_search} />;

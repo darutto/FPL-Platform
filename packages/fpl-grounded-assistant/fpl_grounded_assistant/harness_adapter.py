@@ -150,6 +150,7 @@ def to_ask_response(
         _apply_squad_overrides,
         _clarification_text_for_intent,
     )
+    from fpl_grounded_assistant.prompt_registry import get_prompt_spec
 
     # Work on a shallow copy so we never mutate the caller's dict.
     d: dict[str, Any] = dict(ask_v2_dict)
@@ -205,12 +206,22 @@ def to_ask_response(
     #    Exception: when the medium-confidence gate fires, selected_tool=None
     #    but ask_v2() injects "medium_gate_intent" with the classifier-resolved
     #    intent so callers see the correct intent (matching dispatcher.py line 660).
+    #    Exception: when a prompt (slash-command workflow, e.g. /comparar) is
+    #    missing required arguments, no tool ran either — selected_tool=None
+    #    and medium_gate_intent=None — but d["prompt_name"] identifies which
+    #    prompt is asking for clarification. Resolve its workflow_intent from
+    #    the registry so callers (and _clarification_text_for_intent below)
+    #    see the real intent instead of falling through to "unsupported".
     # ------------------------------------------------------------------
     selected_tool: str | None = d.get("selected_tool")
+    _prompt_name: str | None = d.get("prompt_name")
+    _prompt_spec = get_prompt_spec(_prompt_name) if _prompt_name else None
     if selected_tool is not None:
         intent: str = _TOOL_TO_INTENT.get(selected_tool, INTENT_UNSUPPORTED)
     elif d.get("medium_gate_intent") is not None:
         intent = d["medium_gate_intent"]
+    elif _prompt_spec is not None:
+        intent = _prompt_spec.workflow_intent
     else:
         intent = INTENT_UNSUPPORTED
 
@@ -369,6 +380,8 @@ def to_ask_response(
         position_fixture_run=_to_dict(d.get("position_fixture_run")),
         transfer_suggestion=_to_dict(d.get("transfer_suggestion")),
         zonal_opportunity=_to_dict(d.get("zonal_opportunity")),  # T4b
+        generic_card=_to_dict(d.get("generic_card")),            # Track A: additive card
+        suggestions=d.get("player_suggestions"),                 # Guided Comparison: tappable chips (already list[dict])
 
         # A1 (post-graduation): pure passthrough — adapter is still pure mapping; no transformation, no LLM.
         resource_rows=d.get("resource_rows"),

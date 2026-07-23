@@ -59,7 +59,7 @@ function RankRow({ entry, banded }: { entry: RankedCaptainEntry; banded: boolean
 
       {/* Player + team */}
       <div className="flex-1 min-w-0">
-        <span className="font-bold text-white truncate">{web_name}</span>
+        <span className="block truncate font-bold text-white">{web_name}</span>
         <span className="ml-1.5 text-xs text-bf-gray">{team_short}</span>
         {set_piece_notes.length > 0 && (
           <span className="ml-1.5 text-[10px] text-bf-turquoise" title={set_piece_notes.join(', ')}>

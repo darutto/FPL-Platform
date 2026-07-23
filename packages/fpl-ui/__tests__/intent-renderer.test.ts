@@ -33,11 +33,18 @@ import {
   fixtureRunEmptyResponse,
   differentialOkResponse,
   differentialEmptyResponse,
+  transferSuggestionOkResponse,
+  transferSuggestionEmptyResponse,
   multiIntentOkResponse,
   multiIntentNullSubsResponse,
   multiIntentEmptySubsResponse,
   unsupportedResponse,
   notFoundResponse,
+  genericCardOkResponse,
+  genericCardMinimalResponse,
+  genericCardNoHeroToneResponse,
+  injuryListGenericResponse,
+  injuryListGenericEmptyResponse,
 } from './fixtures/sample-responses';
 
 // ---------------------------------------------------------------------------
@@ -101,8 +108,97 @@ describe('selectIntentView — returns structured view', () => {
     expect(selectIntentView(differentialOkResponse)).toBe('differential');
   });
 
+  test('transfer_suggestion OK non-empty picks → "transfer_suggestion"', () => {
+    expect(selectIntentView(transferSuggestionOkResponse)).toBe('transfer_suggestion');
+  });
+
   test('multi_intent OK non-empty sub_responses → "multi_intent"', () => {
     expect(selectIntentView(multiIntentOkResponse)).toBe('multi_intent');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// generic_card (Track B) — fallback + injury_list special case + precedence
+// ---------------------------------------------------------------------------
+
+describe('selectIntentView — generic_card fallback', () => {
+  test('price_changes OK with generic_card → "generic"', () => {
+    expect(selectIntentView(genericCardOkResponse)).toBe('generic');
+  });
+
+  test('generic_card with no rows/hero/pills still selects "generic" (title-only card)', () => {
+    expect(selectIntentView(genericCardMinimalResponse)).toBe('generic');
+  });
+
+  test('generic_card with hero.tone=null still selects "generic"', () => {
+    expect(selectIntentView(genericCardNoHeroToneResponse)).toBe('generic');
+  });
+
+  test('non-ok outcome → null even when generic_card is present', () => {
+    expect(
+      selectIntentView({ ...genericCardOkResponse, outcome: 'not_found' }),
+    ).toBeNull();
+  });
+
+  test('ok but generic_card null/undefined → null (no other view matches)', () => {
+    expect(selectIntentView({ ...genericCardOkResponse, generic_card: null })).toBeNull();
+  });
+
+  test('generic_card is never selected when a bespoke field is also set (captain wins)', () => {
+    expect(
+      selectIntentView({ ...captainOkResponse, generic_card: genericCardOkResponse.generic_card }),
+    ).toBe('captain');
+  });
+
+  test('generic_card is never selected when resource_rows is set (resource wins — highest precedence)', () => {
+    const withResourceRows: AskResponse = {
+      ...genericCardOkResponse,
+      intent: 'price_changes',
+      resource_rows: {
+        resource: 'top_form',
+        title: 'Mejor forma',
+        columns: ['Jugador'],
+        rows: [],
+      },
+    };
+    expect(selectIntentView(withResourceRows)).toBe('resource_ranking');
+  });
+
+  test('generic_card outranks web_search (generic still wins when both present)', () => {
+    const both: AskResponse = {
+      ...genericCardOkResponse,
+      web_search: { topic: 'x', summary: 'y', results: [], timestamp: '2026-07-19T00:00:00Z' },
+    };
+    expect(selectIntentView(both)).toBe('generic');
+  });
+});
+
+describe('selectIntentView — injury_list routes through generic_card', () => {
+  test('injury_list OK, generic_card non-empty rows → "generic_injuries"', () => {
+    expect(selectIntentView(injuryListGenericResponse)).toBe('generic_injuries');
+  });
+
+  test('injury_list OK, generic_card empty rows → falls through to "generic" (card still non-null)', () => {
+    expect(selectIntentView(injuryListGenericEmptyResponse)).toBe('generic');
+  });
+
+  test('injury_list OK, generic_card null → null', () => {
+    expect(
+      selectIntentView({ ...injuryListGenericResponse, generic_card: null }),
+    ).toBeNull();
+  });
+
+  test('injury_list never wins over resource_rows (highest precedence)', () => {
+    const withResourceRows: AskResponse = {
+      ...injuryListGenericResponse,
+      resource_rows: {
+        resource: 'injuries',
+        title: 'Lesiones',
+        columns: ['Jugador'],
+        rows: [],
+      },
+    };
+    expect(selectIntentView(withResourceRows)).toBe('resource_injuries');
   });
 });
 
@@ -187,6 +283,16 @@ describe('selectIntentView — null-safety on conditional fields', () => {
     expect(selectIntentView(differentialEmptyResponse)).toBeNull();
   });
 
+  test('transfer_suggestion OK, transfer_suggestion null → null', () => {
+    expect(
+      selectIntentView({ ...transferSuggestionOkResponse, transfer_suggestion: null }),
+    ).toBeNull();
+  });
+
+  test('transfer_suggestion OK, picks empty array → null', () => {
+    expect(selectIntentView(transferSuggestionEmptyResponse)).toBeNull();
+  });
+
   test('multi_intent OK, sub_responses null → null', () => {
     expect(selectIntentView(multiIntentNullSubsResponse)).toBeNull();
   });
@@ -247,11 +353,17 @@ describe('sample responses — data contract', () => {
     fixtureRunEmptyResponse,
     differentialOkResponse,
     differentialEmptyResponse,
+    transferSuggestionOkResponse,
     multiIntentOkResponse,
     multiIntentNullSubsResponse,
     multiIntentEmptySubsResponse,
     unsupportedResponse,
     notFoundResponse,
+    genericCardOkResponse,
+    genericCardMinimalResponse,
+    genericCardNoHeroToneResponse,
+    injuryListGenericResponse,
+    injuryListGenericEmptyResponse,
   ];
 
   test('final_text non-empty on every sample response', () => {

@@ -143,6 +143,8 @@ Frozen dataclass.
 | `fixture_run` | `FixtureRunMeta\|None` | **Stable (Phase 7h)** | Populated for `player_fixture_run` OK turns. `None` for all other intents and non-OK outcomes. Provides structured access to `web_name`, `team_short`, `position`, `horizon`, `current_gameweek`, `fixtures`. |
 | `differential` | `DifferentialPicksMeta\|None` | **Stable (Phase 7g)** | Populated for `differential_picks` OK turns. `None` for all other intents and non-OK outcomes. Provides structured access to `ownership_threshold`, `top_n`, `picks`. |
 | `orch_outcome` | `str\|None` | **Stable (Orch-4c)** | Orchestration audit field. `None` when orchestration was not attempted (orch flag OFF or `_multi_intent_depth > 0`). `"ok"` when orchestrator succeeded and its answer was used. One of six non-OK strings when orchestrator was attempted but fell back to the deterministic path. **Independent of `outcome`** — `outcome` always reflects the deterministic result, regardless of orch state. |
+| `generic_card` | `GenericCardMeta\|None` | **Stable (Track A)** | Additive renderable card payload for a curated set of intents that otherwise answer as plain text. Populated on OK turns for `player_form`, `price_changes`, `team_fixture_calendar`, `team_schedule`, `position_fixture_run`, and `current_gameweek`; `None` for all other intents and non-OK outcomes. **Composed only from already-built deterministic metadata — never from LLM text; the `llm_review` parity gate is untouched.** See the `generic_card` section below for the block schema. |
+| `suggestions` | `tuple[Suggestion,…]\|None` (wire: `list[{label, send_text}]\|None`) | **Stable (Guided Comparison)** | Additive tappable player-name suggestions for the guided comparison flow. Populated **only** on a `compare_players` `needs_clarification` turn, ranked by current-gameweek `transfers_in_event` (descending). `None` on OK outcomes and every other intent. **Deterministic — sourced from bootstrap data, never from LLM.** See the `suggestions` section below. |
 
 ### Field shape stability commitment
 
@@ -429,6 +431,7 @@ Frozen dataclass. Populated on `FinalResponse.comparison` when `intent == "compa
 | `reasons` | `tuple[str, ...]` | Deterministic advantage phrases (e.g. `"stronger form (9.5 vs 8.0)"`). Empty tuple when no advantage clears the threshold. |
 | `player_a` | `ComparisonPlayerContext\|None` | Bounded per-player context for the first comparison player (Phase 5i). |
 | `player_b` | `ComparisonPlayerContext\|None` | Bounded per-player context for the second comparison player (Phase 5i). |
+| `stat_comparison` | `StatComparisonMeta\|None` | **v1, first-pass — not a stable contract** like the fields above. Additive, position-conditional raw-stat table rendered *below* the verdict. Never influences `winner`/`margin`/`label`/`reasons`. See the `StatComparisonMeta` section below. |
 
 ```python
 r = respond("compare Haaland and Salah", bootstrap)
@@ -439,6 +442,44 @@ if r.comparison:
     print(r.comparison.player_a.position) # "FWD"
     print(r.comparison.player_b.role_bonus) # 5.0
 ```
+
+---
+
+## `StatComparisonMeta` — Additive Raw-Stat Comparison Table (v1, first-pass)
+
+**Not a stable contract** — this is a first-pass design choice (analogous to `position_score.py`'s own weight table, which is documented as heuristic, not calibrated), open to recalibration. Populated on `ComparisonMeta.stat_comparison` when at least one comparable row exists; `None` otherwise (including when both players' data is entirely missing).
+
+**Grounding invariant**: every value here is a deterministic read from the bootstrap `element` dict (`comparison_stats.py::build_player_stat_source`). No value ever comes from LLM-generated text. `llm_review.py` is not imported by, and does not gate, any part of this table.
+
+```python
+@dataclass(frozen=True)
+class StatCell:
+    value:   float | int | None   # raw, unrounded — used for comparison, never for display
+    display: str                  # pre-formatted string, "—" for missing
+
+@dataclass(frozen=True)
+class StatRow:
+    key:      str                  # stable identifier (e.g. "goals") — for keys/tests, not the label
+    label:    str                  # Spanish micro-label, display only
+    kind:     Literal["performance", "context"]   # "performance" can highlight; "context" never does
+    value_a:  StatCell
+    value_b:  StatCell
+    better:   Literal["a", "b"] | None
+
+@dataclass(frozen=True)
+class StatComparisonMeta:
+    rows: tuple[StatRow, ...]
+```
+
+**Row set** — universal rows (`form`, `total_points`, `price_m`, `ownership_percent`) always attempted; `price_m`/`ownership_percent` are `kind="context"` and structurally never receive a `better` value. Position-specific rows (`goals`, `assists`, `xgi_per_90` for DEF/MID/FWD; `saves_per_90`/`clean_sheets_per_90` for GKP; `clean_sheets_per_90` also for DEF) are included whenever *either* compared player's position makes them relevant — both players' real values are always shown (never a placeholder standing in for "not this position"; a goalkeeper's goal count is real data, not an inapplicable field). `dc_per_90` is deliberately excluded (documented elsewhere as not a proven signal).
+
+**Missing vs. zero**: both values `None` → row omitted entirely; exactly one `None` → `"—"` on that side, `better=None`; both present (including both `0`) → compared normally on the raw, unrounded value.
+
+**Mixed-position highlight suppression**: when the pairing is "fundamentally mixed" (exactly one player is GKP), `better` is forced to `None` on every non-universal row — real values still shown on both sides, but not directly comparable across such different roles.
+
+**Rounding-tie rule**: `better` is computed from the raw value, but forced to `None` whenever the two cells' *formatted display strings* are equal — a highlight must always be visually justified by what the user actually sees.
+
+**`xgi_per_90` note**: deliberately self-derived using the identical formula the verdict/reasons pipeline (`_derive_scoring_inputs`) already uses (`expected_goal_involvements / (minutes / 90)`), not the bootstrap's enriched `expected_goal_involvements_per_90` field — this guarantees the table's number can never subtly disagree with what the verdict already implies about xGI. `saves_per_90`/`clean_sheets_per_90`, by contrast, prefer the enriched bootstrap field (falling back to derivation from raw counts) since the verdict pipeline reads those same enriched fields directly.
 
 ---
 
@@ -610,6 +651,154 @@ if r.differential:
         print(p.captain_score, p.ownership, p.now_cost)
         # 1 Palmer CHE MID 55.0 3.5 60
         # 2 Mbeumo MUN FWD 38.0 8.2 75
+```
+
+---
+
+## `generic_card` — Additive Renderable Card (Track A)
+
+Frozen dataclass `GenericCardMeta`. Populated on `FinalResponse.generic_card`
+for a curated set of intents that historically answered as **plain text only**,
+so a UI can render a deterministic card instead of parsing free text. `None`
+for every other intent and for all non-OK outcomes.
+
+### Grounding invariant (non-negotiable)
+
+`generic_card` is **composed only from already-built deterministic metadata** —
+the same frozen `*Meta` dataclasses produced by `_extract_structured_meta`, or
+the raw deterministic tool output for intents with no metadata dataclass
+(`current_gameweek`). **No value ever comes from LLM-generated text.** The
+`llm_review` parity gate is not consulted and is entirely untouched by this
+feature. It is built inside `_extract_structured_meta` (gated on
+`outcome == "ok"`) so the deterministic path, the `ask_v2` path, and
+multi-intent sub-responses all carry it identically.
+
+### Which intents compose a card
+
+| Intent | Hero | Rows |
+|--------|------|------|
+| `player_form` | total points over the window | one mono row per gameweek |
+| `price_changes` | — | risers then fallers; signed `CAMBIO` cell; good/bad count pills |
+| `team_fixture_calendar` | — | one row per ranked team; FDR as neutral text label |
+| `team_schedule` | average FDR over the horizon | one row per fixture; FDR as neutral text label |
+| `position_fixture_run` | — | one row per ranked team; FDR as neutral text label |
+| `current_gameweek` | gameweek number | — (no table) |
+| `injury_list` | — | one row per player (injured → doubtful → other); count pills |
+
+**Explicitly excluded** (return `None`): `transfer_suggestion` (bespoke card
+owned by another track) and every intent that already has a bespoke UI card
+(`captain_score`, `compare_players`, `rank_candidates`, `transfer_advice`,
+`chip_advice`, `player_fixture_run`, `differential_picks`, `fixture_outlook`,
+`zonal_opportunity`).
+
+### `injury_list` card — UI adapter header contract
+
+The UI adapter re-maps the `injury_list` card's string rows back onto rich
+injury rows by **case-insensitive substring match on each column header
+(first match wins)**. The composer emits these exact headers, each containing
+exactly one keyword from the adapter's vocabulary:
+
+| Header (as emitted) | Adapter keyword | Cell value |
+|---------------------|-----------------|------------|
+| `JUGADOR` | `Jugador` | `web_name` |
+| `EQUIPO` | `Equipo` | `team_short` |
+| `POS` | `Pos` | `position` |
+| `ESTADO` | `Estado` | `status_label` |
+| `PROBABILIDAD %` | `%` / `Probabilidad` | `chance_of_playing` number string, or `—` when null |
+| `NOTICIA` | `Noticia` | `news` free-text (may be empty) |
+| `FECHA` | `Fecha` | `news_added` ISO-8601 string, or empty |
+
+`news` and `news_added` are sourced deterministically from the bootstrap
+element (surfaced through `get_injury_list` → `InjuryEntry.news` /
+`InjuryEntry.news_added`) — never from LLM text.
+
+### `GenericCardMeta` block schema
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `accent` | `str` | One of `turquoise`, `cyan`, `coral`, `gold`, `purple`, `gray`. |
+| `title` | `str` | Uppercase Spanish micro-label (e.g. `"FORMA RECIENTE"`, `"CAMBIOS DE PRECIO"`, `"CALENDARIO"`, `"JORNADA ACTUAL"`). |
+| `subtitle` | `str\|None` | Optional secondary label. |
+| `hero` | `HeroStat\|None` | `{value: str, label: str, tone: str\|None}` — a single prominent stat. |
+| `pills` | `tuple[Pill, ...]` | Each `{label: str, tone: good\|warn\|bad\|neutral}`. |
+| `columns` | `tuple[Column, ...]` | Each `{header: str, align: left\|right, kind: text\|mono\|badge}`. |
+| `rows` | `tuple[tuple[str, ...], ...]` | Each row has exactly `len(columns)` string cells. |
+| `footer` | `str\|None` | Optional footer note. |
+
+### Colours and copy
+
+Spanish-first titles/labels. FDR is surfaced as a neutral difficulty **text**
+label (`Muy favorable` / `Favorable` / `Media` / `Exigente` / `Muy exigente`) —
+colours are applied UI-side. No buy/sell imperatives appear anywhere.
+
+### Wire serialization
+
+Serialised via `generic_card_to_dict` (single source of truth, shared by the
+`/ask` adapter and `/session/{id}/ask` paths): `hero` → object or `null`,
+`pills`/`columns` → arrays of objects, `rows` → array of arrays of strings.
+Present as a key (JSON `null` when absent) on `AskResponse` and
+`SessionAskResponse`.
+
+### Deviation note — `current_gameweek` footer
+
+The spec suggested a deadline in the `current_gameweek` footer. The
+deterministic `get_current_gameweek` tool output is `{status, gameweek}` and
+carries **no deadline**, so `footer` is left `None` rather than sourced from
+LLM text (honouring the grounding invariant). A deadline can be added later if
+the tool output is enriched.
+
+```python
+r = respond("forma de Salah", bootstrap)
+if r.generic_card:
+    print(r.generic_card.title)             # "FORMA RECIENTE"
+    print(r.generic_card.hero.value)        # "27"  (total points over window)
+    print(r.generic_card.rows[0])           # ("GW26", "90", "1", "0", "2", "8")
+```
+
+---
+
+## `suggestions` — Tappable Player-Name Suggestions (Guided Comparison)
+
+Frozen dataclass `Suggestion` `{label: str, send_text: str}`. Present on
+`FinalResponse.suggestions` as a `tuple[Suggestion, …] | None`; serialised on the
+wire as `list[{label, send_text}] | None`.
+
+**Purpose.** When a user sends a bare `/comparar` (or `/comparar <one player>`),
+the backend answers `needs_clarification`. Instead of forcing the user to type
+two names, `suggestions` supplies a small ranked list of players the UI renders
+as tappable chips, driving a two-step "chip wizard" whose final send is a normal
+`comparar A vs B` question — so free-text and wizard converge on the identical
+`ComparisonCard` by construction.
+
+**When populated.** Only when `outcome == "needs_clarification"` **and** the
+clarified intent is `compare_players`. `None` on OK outcomes, on every other
+intent, and whenever no players can be ranked. Wired through a small
+`intent → supplier` map in `suggestions.py`; only `compare_players` is wired
+today.
+
+**Ranking.** `top_transfer_names` reads `bootstrap.elements` and ranks by
+`transfers_in_event` **descending** (the same field `find_players` /
+`get_player_snapshot` already read), default limit 6. Ties break by element `id`
+ascending, so the output is **deterministic** for a given bootstrap. `label` and
+`send_text` are both the player's `web_name` (short, chip-friendly).
+
+**Grounding invariant.** Composed only from deterministic bootstrap data —
+**never from LLM text**. The function is pure and never raises on malformed
+input (non-dict elements, missing/empty `web_name`, non-numeric volumes are
+skipped or defaulted).
+
+**Serialisation.** `suggestions_to_list` (single source of truth) is shared by
+the `/ask` adapter (`harness_adapter.to_ask_response`, which passes through the
+`player_suggestions` list attached inside `ask_v2`) and the
+`/session/{id}/ask` path (`fpl_server._suggestions_meta_list`), so the wire
+shape is identical across both. Present as a key (JSON `null` when absent) on
+`AskResponse` and `SessionAskResponse`.
+
+```python
+r = respond("/comparar", bootstrap)          # medium-confidence compare clarification
+if r.suggestions:
+    print(r.suggestions[0].label)            # "Palmer"  (most transferred-in this GW)
+    print(r.suggestions[0].send_text)        # "Palmer"
 ```
 
 ---

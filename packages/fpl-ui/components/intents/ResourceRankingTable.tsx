@@ -76,7 +76,7 @@ function ResourceRankRow({
 
       {/* Player + team */}
       <div className="flex-1 min-w-0">
-        <span className="font-bold text-white truncate">{web_name}</span>
+        <span className="block truncate font-bold text-white">{web_name}</span>
         <span className="ml-1.5 text-xs text-bf-gray">{team_short}</span>
       </div>
 

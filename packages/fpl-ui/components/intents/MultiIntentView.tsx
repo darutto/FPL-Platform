@@ -27,6 +27,8 @@ import TransferCard from '@/components/intents/TransferCard';
 import ChipCard from '@/components/intents/ChipCard';
 import FixtureRunTable from '@/components/intents/FixtureRunTable';
 import DifferentialTable from '@/components/intents/DifferentialTable';
+import GenericCard from '@/components/intents/GenericCard';
+import InjuryListTable from '@/components/intents/InjuryListTable';
 
 interface Props {
   sub_responses: AskResponse[];
@@ -50,8 +52,8 @@ function SubCard({ response }: { response: AskResponse }) {
   const safeView = view === 'multi_intent' ? null : view;
 
   return (
-    <div className="rounded-card border border-white/10 bg-white/[0.03] p-3 space-y-2">
-      <p className="text-sm text-bf-text/80 leading-relaxed">{response.final_text}</p>
+    <div className="min-w-0 overflow-hidden rounded-card border border-white/10 bg-white/[0.03] p-3 space-y-2">
+      <p className="break-words text-sm text-bf-text/80 leading-relaxed">{response.final_text}</p>
       {safeView != null && renderSubView(safeView, response)}
     </div>
   );
@@ -81,6 +83,12 @@ function renderSubView(
   }
   if (view === 'differential' && response.differential != null) {
     return <DifferentialTable data={response.differential} />;
+  }
+  if (view === 'generic_injuries' && response.generic_card != null) {
+    return <InjuryListTable data={response.generic_card} />;
+  }
+  if (view === 'generic' && response.generic_card != null) {
+    return <GenericCard data={response.generic_card} />;
   }
   return null;
 }
