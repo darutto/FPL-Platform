@@ -52,6 +52,8 @@ interface BootstrapTeam {
 interface BootstrapEvent {
   id: number;
   is_current: boolean;
+  is_next: boolean;
+  deadline_time: string;
 }
 
 interface PickEntry {
@@ -104,8 +106,18 @@ export async function GET(
 
   const currentEvent = bootstrap.events.find((e) => e.is_current);
   if (!currentEvent) {
+    // Pre-season / between-season: no gameweek is live yet, so no picks exist
+    // to show. Surface the upcoming GW + its deadline so the UI can explain the
+    // empty state instead of reading as a failure. `code` lets the client
+    // distinguish this from a genuine error.
+    const nextEvent = bootstrap.events.find((e) => e.is_next);
     return NextResponse.json(
-      { error: 'No current gameweek (pre-season?)' },
+      {
+        error: 'No current gameweek (pre-season)',
+        code: 'preseason',
+        next_gw: nextEvent?.id ?? null,
+        next_deadline: nextEvent?.deadline_time ?? null,
+      },
       { status: 404 },
     );
   }
