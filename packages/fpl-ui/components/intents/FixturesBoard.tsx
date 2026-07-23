@@ -109,25 +109,41 @@ export function FixturesBoard({
         </div>
       </div>
 
+      {/* FDR / venue / streak legend (above the board, design parity) */}
+      <BandLegend />
+
       {/* Board */}
       <div className={`${CARD_BASE} ${CARD_ACCENT.turquoise.border}`}>
         <FingerprintWaves color={ACCENT_HEX.turquoise} corner="br" />
-        <div className="relative z-10 p-4 space-y-3">
-          <div className="flex items-center gap-2 text-sm">
-            <span className="font-extrabold text-white">Liga · orden por calendario</span>
-            <span className="text-bf-gray/60">·</span>
-            <span
-              className="text-[10px] font-bold uppercase tracking-wider rounded px-1.5 py-0.5"
-              style={{ backgroundColor: `${ACCENT_HEX.turquoise}22`, color: ACCENT_HEX.turquoise }}
-            >
-              {axisLabel(axis)}
-            </span>
+        <div className="relative z-10 p-5 md:p-6 space-y-4">
+          <div>
+            <div className="flex items-baseline gap-3 flex-wrap">
+              <h2 className="text-2xl font-black tracking-tight text-white">
+                Liga · orden por calendario
+              </h2>
+              <span
+                className="text-[13px] font-extrabold uppercase tracking-wider rounded-md px-3 py-1 border"
+                style={{
+                  backgroundColor: `${ACCENT_HEX.turquoise}26`,
+                  color: ACCENT_HEX.turquoise,
+                  borderColor: `${ACCENT_HEX.turquoise}66`,
+                }}
+              >
+                {axisLabel(axis)}
+              </span>
+            </div>
+            <p className="mt-1.5 text-sm text-bf-gray">
+              Mejor calendario primero · FDR promedio J1–J{horizon}
+            </p>
           </div>
 
           {view === 'detailed' && (
-            <div className="divide-y divide-white/5">
+            <div>
               {data.teams.map((t) => (
-                <div key={t.team_short} className="py-2 first:pt-0">
+                <div
+                  key={t.team_short}
+                  className="py-[18px] first:pt-0 border-t border-white/10 first:border-t-0"
+                >
                   <FixtureTickerRow
                     team={t}
                     onAskTeam={() => onAsk(teamOutlookQuestion(t.team_name, axis))}
@@ -139,25 +155,19 @@ export function FixturesBoard({
           )}
           {view === 'compact' && <FixtureCompactGrid data={data} onAsk={onAsk} />}
           {view === 'tendency' && (
-            <div className="divide-y divide-white/5">
+            <div>
               {data.teams.map((t) => (
-                <div key={t.team_short} className="py-2.5 first:pt-0 space-y-1">
-                  <button
-                    type="button"
-                    onClick={() => onAsk(teamOutlookQuestion(t.team_name, axis))}
-                    className="text-xs font-bold tracking-wide text-white hover:text-bf-turquoise transition-colors"
-                  >
-                    {t.team_short}
-                  </button>
+                <div
+                  key={t.team_short}
+                  className="py-[18px] first:pt-0 border-t border-white/10 first:border-t-0"
+                >
                   <FixtureTendencyChart team={t} onAsk={onAsk} />
                 </div>
               ))}
             </div>
           )}
 
-          <BandLegend />
-
-          <p className="text-[10px] leading-snug text-bf-gray/50 pt-1 border-t border-white/5">
+          <p className="text-[10px] leading-snug text-bf-gray/50 pt-3 border-t border-white/5">
             Calendario real de la temporada 2026–27 desde la API oficial de FPL,
             sin datos inventados. Ambos ejes usan la dificultad FDR de FPL: al
             arrancar la temporada aún no hay partidos jugados, así que el eje de
