@@ -285,8 +285,12 @@ def get_fixture_difficulty_map(
 
     Source: captaincy-showdown/src/services/captaincyDataService.ts::getFixtureDifficulty
     """
+    # t.get("strength", 3) only falls back when the key is absent — the FPL
+    # API can (and does, e.g. before a new season's ratings are published)
+    # return the key present with an explicit `null`, which the default
+    # above doesn't catch. Guard the None case explicitly.
     strength_by_id: dict[int, int] = {
-        t["id"]: t.get("strength", 3)
+        t["id"]: t["strength"] if t.get("strength") is not None else 3
         for t in bootstrap.get("teams", [])
     }
     fdr_map: dict[int, int] = {}
