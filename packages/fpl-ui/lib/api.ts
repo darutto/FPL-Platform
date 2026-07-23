@@ -11,6 +11,7 @@
  *   503  — backend not initialised
  */
 import type { AskRequest, AskResponse } from './types';
+import type { SessionSeed } from './session-seed';
 
 /** Returned by POST /session (create session). */
 export interface CreateSessionResult {
@@ -63,9 +64,21 @@ export async function ask(request: AskRequest): Promise<AskResponse> {
  * Returns a session_id to hold in React state. The session is in-memory on
  * the backend — it does not survive server restarts or page refreshes.
  * Throws FplApiError 429 when the backend session cap is reached.
+ *
+ * `seed` (optional) carries the prior turn's already-resolved state (see
+ * buildSessionSeed) so a follow-up session doesn't start with no memory of
+ * a turn that happened over the stateless /ask endpoint before it existed.
+ * Omitted or empty — the request is sent bodiless, identical to before this
+ * parameter existed.
  */
-export async function createSession(): Promise<CreateSessionResult> {
-  const res = await fetch('/api/session', { method: 'POST' });
+export async function createSession(seed?: SessionSeed): Promise<CreateSessionResult> {
+  const hasSeed = seed != null && Object.keys(seed).length > 0;
+  const res = await fetch('/api/session', {
+    method: 'POST',
+    ...(hasSeed
+      ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(seed) }
+      : {}),
+  });
 
   if (res.status === 429) {
     throw new FplApiError(429, 'Límite de sesiones alcanzado — inténtalo de nuevo en unos minutos');

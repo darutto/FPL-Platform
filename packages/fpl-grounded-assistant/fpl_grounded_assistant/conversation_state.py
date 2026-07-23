@@ -416,7 +416,13 @@ class ConversationState:
         the same five-value vocabulary as ``ResolverDebug.resolver_source``
         (Phase 5l).  ``None`` until the first turn completes.
 
-    Mutated only by ``update_from_response()`` and ``clear()``.
+    In-place mutation happens only via ``update_from_response()`` and
+    ``clear()``. A separate, legitimate initialization path also exists:
+    constructor-time seeding (``ConversationState(last_comparison=(a, b), ...)``)
+    is used by follow-up session creation to carry forward a prior turn's
+    already-resolved state when that turn happened over the stateless /ask
+    endpoint before this session existed — see fpl_server.py's
+    ``CreateSessionRequest`` / ``create_session()``.
     """
 
     last_player_query: str | None = field(default=None)
