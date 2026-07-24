@@ -14,6 +14,11 @@ from .fixture_context import (
     evaluate_fixture_context,
     load_fixture_context_input,
 )
+from .opponent_disruption import (
+    OpponentPersonnelDisruptionInput,
+    OpponentPersonnelDisruptionResult,
+    evaluate_opponent_personnel_disruption,
+)
 from .tactical_role import (
     FlankShare,
     RoleDistributionRow,
@@ -35,6 +40,8 @@ __all__ = [
     "FlankShare",
     "ModuleResult",
     "ModuleStatus",
+    "OpponentPersonnelDisruptionInput",
+    "OpponentPersonnelDisruptionResult",
     "RoleDistributionRow",
     "RoleShare",
     "RoleWindowSummary",
@@ -43,6 +50,7 @@ __all__ = [
     "UnsupportedFeatureContractError",
     "evaluate_expected_minutes",
     "evaluate_fixture_context",
+    "evaluate_opponent_personnel_disruption",
     "evaluate_tactical_role",
     "load_expected_minutes_input",
     "load_fixture_context_input",
