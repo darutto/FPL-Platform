@@ -7,6 +7,13 @@ from .expected_minutes import (
     evaluate_expected_minutes,
     load_expected_minutes_input,
 )
+from .fixture_context import (
+    FixtureContextInput,
+    FixtureContextResult,
+    FixturePriority,
+    evaluate_fixture_context,
+    load_fixture_context_input,
+)
 from .tactical_role import (
     FlankShare,
     RoleDistributionRow,
@@ -22,6 +29,9 @@ __all__ = [
     "AvailabilityInput",
     "ExpectedMinutesInput",
     "ExpectedMinutesResult",
+    "FixtureContextInput",
+    "FixtureContextResult",
+    "FixturePriority",
     "FlankShare",
     "ModuleResult",
     "ModuleStatus",
@@ -32,7 +42,9 @@ __all__ = [
     "TacticalRoleResult",
     "UnsupportedFeatureContractError",
     "evaluate_expected_minutes",
+    "evaluate_fixture_context",
     "evaluate_tactical_role",
     "load_expected_minutes_input",
+    "load_fixture_context_input",
     "load_tactical_role_input",
 ]

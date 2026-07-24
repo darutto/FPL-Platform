@@ -29,6 +29,7 @@ ownership. FI-6 modules consume validated features but do not alter FI-5.
 |---|---|---|
 | M1 expected minutes | `expected-minutes-v1` | `expected-minutes-hand-tuned-v1`, `availability-input-v1` |
 | M2 tactical role | `tactical-role-v1` | `role-map-v2`, `fpl-nominal-position-v1`, `nominal-role-distance-v1` |
+| M3 fixture context | `fixture-context-v1` | `fixture-priority-v1`, `competition-weights-v1` |
 
 M1 semantics remain documented in `FEATURE_CONTRACT.md`; moving its existing
 package-contract paragraphs here is deferred documentation debt.
@@ -126,4 +127,156 @@ defensive: a lexical depth tie is reported while remaining deterministic; an
 absent distance mapping would be reported only if a future supported vocabulary
 could not be classified. Unknown current vocabulary fails validation.
 
-FI-6c, FI-6d, and FI-7 remain outside this slice.
+## M3 fixture and rotation context
+
+`evaluate_fixture_context` asks: what governed scheduling, recovery,
+competition-stage, standings-band, and fixture-priority context applies to this
+team for the target fixture?
+
+M3 is a team-fixture evaluator at `(fixture_id, team_id)` grain. It consumes
+only the exact `team_fixture_context_v2` row selected from an explicit,
+validated FI-5b v2 feature build. It does not consume M1 or M2 results. Future
+FI-7 composition may place one M3 team result beside multiple player-scoped M1
+and M2 results without duplicating M3 computation; that work is outside FI-6c.
+
+FI-6c requires zero FI-5 changes. It does not alter the feature registry,
+engine, store, schemas, manifests, builders, pointers, canonical sources,
+cutoff policy, or feature tests. Any requirement for such a change stops FI-6c
+for another architecture review.
+
+M3 reports only feature-backed schedule context. It does not produce player
+rotation probability, late-cameo risk, manager-tendency inference, opponent
+difficulty, FDR, fixture outlook, recommendations, or selection conclusions.
+The term rotation context is descriptive; it is not a player-selection model.
+
+### Input and public result
+
+The governed M3 row provides weighted trailing and leading congestion over
+their existing 21-day windows; corresponding fixture counts; previous and next
+rest days; target competition tier and stage; league-position band; schedule
+and standings audit timestamps; `competition-weights-v1`; and feature,
+canonical, and context-build provenance.
+
+The frozen result exposes the inherited module status, versions, feature-build
+reference, fixture/team IDs, confidence, reasons, and evidence plus:
+
+- explicit UTC `calculated_at`;
+- fixture priority and `fixture-priority-v1`;
+- combined congestion index and both governed directional weighted values;
+- previous and next rest days;
+- target competition tier and stage;
+- league-position band;
+- competition-weight version;
+- schedule and standings as-of timestamps.
+
+Cutoff, raw counts, feature `built_at`, and source manifest hashes remain
+internal evaluator inputs. The merged dataset has no competition ID, season ID,
+standings-table ID, or schedule-snapshot ID, and M3 does not invent them.
+
+### Fixture priority
+
+Priority is a deterministic team-motivation or rotation-incentive context. It
+is not fixture difficulty. The closed ordered vocabulary is `normal`, `high`,
+and `critical`, plus non-rankable `unknown`; there is no `low`. Competition
+tier is descriptive and already affects FI-5 congestion weights, but it never
+affects fixture priority.
+
+| League band / stage | league | qualification | group | league_phase | round_of_32 | round_of_16 | quarter_final | semi_final | final | replay | unknown |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `top` | critical | normal | normal | normal | normal | high | high | critical | critical | high | unknown |
+| `upper_mid` | normal | normal | normal | normal | normal | high | high | critical | critical | high | unknown |
+| `lower_mid` | normal | normal | normal | normal | normal | high | high | critical | critical | high | unknown |
+| `bottom` | critical | normal | normal | normal | normal | high | high | critical | critical | high | unknown |
+| `unknown` | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown |
+
+Unknown band or stage is not silently treated as ordinary priority; it causes
+`missing_context`. A null target tier does likewise. Literal tier `"unknown"`
+is valid because it records a selected schedule fact whose tier was unknown.
+
+### Congestion and rest
+
+The public congestion index is:
+
+```text
+weighted_trailing_congestion_21d + weighted_leading_congestion_21d
+```
+
+Higher values mean more surrounding scheduling load. M3 neither reloads
+fixtures nor recomputes weights. Both values are finite and nonnegative, and
+for each direction `count <= weighted <= 1.25 * count`; zero count therefore
+requires zero weight. No separate global maximum is invented.
+
+Previous and next rest days retain their direction. A non-null value is within
+`(0, 365]`. Either or both may be null at a season boundary while the result
+remains `ok`; null rest reduces context-completeness confidence but does not
+fabricate missing context or opponent-relative advantage.
+
+### Missing context and typed failures
+
+An absent build, absent manifest, or absent exact target row returns
+`missing_context`. Unknown league band, unknown stage, or null target tier also
+returns `missing_context`. Such a result has confidence zero, exactly one
+reason, empty evidence, and no partial priority, congestion, rest, or context
+output.
+
+Zero trailing or leading counts and null rest anchors are valid facts.
+Malformed supported-v2 artifacts raise `FeatureV2ValidationError`; corruption
+never degrades. Unsupported feature family, manifest schema, registry, engine,
+cutoff policy, or competition-weight version raises
+`UnsupportedFeatureContractError`. The loader performs minimal dispatch,
+invokes the complete FI-5b v2 store validator, and then enforces only M3
+selection and semantic invariants. It performs no pointer discovery, migration,
+canonical/provider fallback, or M1/M2 fallback.
+
+### Context-completeness confidence
+
+Confidence measures context completeness, not predictive or rotation accuracy:
+
+- 50% build freshness: age through 24h = 1.0, over 24h through 72h = 0.8,
+  over 72h through 168h = 0.5, and over 168h = 0.25;
+- 30% schedule coverage:
+  `min((trailing_count + leading_count) / 6, 1)`;
+- 10% previous-rest-anchor availability;
+- 10% next-rest-anchor availability.
+
+The total is clamped to `[0,1]` and rounded once to four decimal places. A
+future feature build is invalid and is never clamped. Six is a hand-tuned v1
+full-sample reference across the combined 42-day surrounding windows and must
+be backtested before predictive interpretation.
+
+### Reasons and evidence
+
+The exact reason order is:
+
+1. `feature_build_unavailable`
+2. `feature_manifest_unavailable`
+3. `fixture_context_row_unavailable`
+4. `unknown_league_position_band`
+5. `unknown_competition_stage`
+6. `target_competition_tier_unavailable`
+7. `stale_feature_build`
+8. `sparse_trailing_schedule`
+9. `sparse_leading_schedule`
+10. `previous_rest_anchor_unavailable`
+11. `next_rest_anchor_unavailable`
+12. `fixture_congestion`
+
+Missing-context results emit exactly one of the first six. Operational results
+emit applicable later reasons in the listed order. A schedule direction is
+sparse at fewer than three fixtures. A build is stale after 72 hours.
+
+`FIXTURE_CONGESTION` is emitted exactly when the combined index is at least
+`7.0`. It is a neutral (`impact=0.0`, direction neutral), observed, team-subject
+fact for the target fixture. Its ordered source features are trailing then
+leading weighted congestion, and its summary says only that the team has a
+dense governed schedule surrounding the target fixture. Evidence confidence
+equals result confidence. M3 emits no `REST_ADVANTAGE`, because no opponent row
+is loaded. The immutable evidence tuple has maximum length one.
+
+Replay is deterministic reevaluation: identical validated FI-5b v2 features
+and identical explicit `calculated_at` produce an identical frozen result,
+reason order, and evidence. M3 performs no network, provider, tool, response,
+orchestration, UI, recommendation, persistence, manifest, or pointer work.
+
+FI-6a and FI-6b are merged and complete. FI-6c is implemented and under
+review. FI-6d and FI-7 remain unstarted.
