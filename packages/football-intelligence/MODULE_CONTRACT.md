@@ -30,6 +30,7 @@ ownership. FI-6 modules consume validated features but do not alter FI-5.
 | M1 expected minutes | `expected-minutes-v1` | `expected-minutes-hand-tuned-v1`, `availability-input-v1` |
 | M2 tactical role | `tactical-role-v1` | `role-map-v2`, `fpl-nominal-position-v1`, `nominal-role-distance-v1` |
 | M3 fixture context | `fixture-context-v1` | `fixture-priority-v1`, `competition-weights-v1` |
+| M4 opponent personnel disruption | `opponent-personnel-disruption-v1` | non-operational skeleton |
 
 M1 semantics remain documented in `FEATURE_CONTRACT.md`; moving its existing
 package-contract paragraphs here is deferred documentation debt.
@@ -278,5 +279,41 @@ and identical explicit `calculated_at` produce an identical frozen result,
 reason order, and evidence. M3 performs no network, provider, tool, response,
 orchestration, UI, recommendation, persistence, manifest, or pointer work.
 
-FI-6a and FI-6b are merged and complete. FI-6c is implemented and under
-review. FI-6d and FI-7 remain unstarted.
+## M4 opponent personnel disruption skeleton
+
+`evaluate_opponent_personnel_disruption` reserves the stable public M4 surface
+without implementing opponent-personnel analysis. In FI-6d it is mechanically
+non-operational and always returns:
+
+```text
+status = not_implemented
+model_version = opponent-personnel-disruption-v1
+feature_registry_version = null
+feature_build_id = null
+confidence = 0.0
+reason_codes = (not_implemented,)
+evidence = ()
+```
+
+The frozen `OpponentPersonnelDisruptionInput` contains only `fixture_id`,
+`team_id`, and explicit UTC `calculated_at`. The frozen
+`OpponentPersonnelDisruptionResult` adds no fields to `ModuleResult`.
+In particular, FI-6d exposes no affected-unit, affected-flank, missing-starter,
+replacement, formation-change, disruption-score, or benefiting-player output,
+even as a null default.
+
+M4 has no feature loader and never returns `missing_context`. It does not read
+feature builds, registries, manifests, pointers, stores, parquet, canonical
+ingestion, provider data, the network, the filesystem, or a wall clock. It has
+no M1, M2, or M3 dependency and makes no FI-5 change. It emits no
+`OPPONENT_UNIT_DISRUPTION` evidence, prediction, FDR, recommendation, tool,
+response, orchestration, renderer, or UI output.
+
+The filename `opponent_disruption.py` follows the implementation-plan mandate.
+The evaluator and types retain the governed product/API term “opponent
+personnel disruption” so their public names remain stable if a future active
+evaluator graduates. That graduation is a separate, trial-gated architecture
+slice and is not part of FI-6d.
+
+FI-6a, FI-6b, and FI-6c are merged and complete. FI-6d is implemented and
+under review. M5 and FI-7 remain unstarted.
