@@ -38,6 +38,7 @@ The two Adversarial-Reviewer-blessed semantic shifts (documented below):
 from __future__ import annotations
 
 import dataclasses
+from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -57,8 +58,15 @@ def _to_dict(value: Any) -> Any:
     """
     if value is None:
         return None
+    if isinstance(value, Enum):
+        return _to_dict(value.value)
     if dataclasses.is_dataclass(value) and not isinstance(value, type):
-        return dataclasses.asdict(value)
+        return {
+            field.name: _to_dict(getattr(value, field.name))
+            for field in dataclasses.fields(value)
+        }
+    if isinstance(value, dict):
+        return {key: _to_dict(item) for key, item in value.items()}
     if isinstance(value, (list, tuple)):
         return [_to_dict(item) for item in value]
     return value
@@ -382,6 +390,7 @@ def to_ask_response(
         zonal_opportunity=_to_dict(d.get("zonal_opportunity")),  # T4b
         generic_card=_to_dict(d.get("generic_card")),            # Track A: additive card
         suggestions=d.get("player_suggestions"),                 # Guided Comparison: tappable chips (already list[dict])
+        evidence=_to_dict(d.get("evidence")),                    # FI-7a: contract-only passthrough
 
         # A1 (post-graduation): pure passthrough — adapter is still pure mapping; no transformation, no LLM.
         resource_rows=d.get("resource_rows"),

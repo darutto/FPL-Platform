@@ -72,6 +72,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from football_data_contract import EvidenceItem
+
 from . import telemetry as _telemetry  # Phase 2.7g: in-process telemetry (never raises)
 from .dispatcher import OUTCOME_OK, OUTCOME_NEEDS_CLARIFICATION, INTENT_COMPARE_PLAYERS, INTENT_CAPTAIN_SCORE, INTENT_RANK_CANDIDATES, INTENT_MULTI_INTENT, INTENT_TRANSFER_ADVICE, INTENT_CHIP_ADVICE, INTENT_PLAYER_FIXTURE_RUN, INTENT_DIFFERENTIAL_PICKS, INTENT_PLAYER_FORM, INTENT_INJURY_LIST, INTENT_PRICE_CHANGES, INTENT_TEAM_FIXTURE_CALENDAR, INTENT_TEAM_SCHEDULE, INTENT_POSITION_FIXTURE_RUN, INTENT_TRANSFER_SUGGESTION, INTENT_FIXTURE_OUTLOOK, INTENT_ZONAL_OPPORTUNITY  # noqa: F401 — re-exported
 from .dispatcher import _TOOL_TO_INTENT, INTENT_UNSUPPORTED  # _orch_result_to_final_response: tool->intent map
@@ -1028,6 +1030,11 @@ class FinalResponse:
         otherwise.  Provides programmatic access to ``ownership_threshold``,
         ``top_n``, and ``picks`` (tuple of :class:`DifferentialEntry`)
         without parsing ``final_text``.
+    evidence:
+        Optional immutable provider-neutral evidence items (FI-7a).  ``None``
+        preserves the pre-FI-7a response shape.  When present, the tuple is
+        carried unchanged to serialization; assembly, ordering, and truncation
+        are deferred to later FI-7 slices.
     orch_outcome:
         Orchestration audit field (Orch-4c).  Captures the outcome of the
         LLM-orchestration attempt when ``FPL_ORCH_ENABLED`` is ON.
@@ -1098,6 +1105,8 @@ class FinalResponse:
     # outcome==needs_clarification AND intent==compare_players (deterministic,
     # never LLM).  None on OK outcomes and all other intents.
     suggestions:            "tuple[Suggestion, ...] | None"  = field(default=None)
+    # FI-7a: additive provider-neutral evidence contract. Assembly is deferred.
+    evidence:                "tuple[EvidenceItem, ...] | None" = field(default=None)
 
 
 # ---------------------------------------------------------------------------
