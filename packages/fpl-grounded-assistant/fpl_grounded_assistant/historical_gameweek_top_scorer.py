@@ -60,6 +60,7 @@ except ImportError:
 _POSITION_MAP: dict[int, str] = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
 
 _SEASON_RE = re.compile(r"(\d{4})\D+(\d{2,4})")
+_SEASON_2DIGIT_RE = re.compile(r"^(\d{2})[-/](\d{2})$")
 _YEAR_ONLY_RE = re.compile(r"^(\d{4})$")
 
 
@@ -70,8 +71,9 @@ _YEAR_ONLY_RE = re.compile(r"^(\d{4})$")
 def _normalize_season(raw: str) -> str | None:
     """Parse a loosely-formatted season string into ``YYYY-YYYY``.
 
-    Accepts ``2025-2026``, ``2025-26``, ``2025/26``, ``25/26``, ``2025``
-    (interpreted as the season starting that year). Returns ``None`` when
+    Accepts ``2025-2026``, ``2025-26``, ``2025/26``, ``25/26``, ``25-26``,
+    ``2025`` (interpreted as the season starting that year). Bare 2-digit
+    forms (``25-26``/``25/26``) infer a 2000s century. Returns ``None`` when
     the input cannot be parsed as a season.
     """
     raw = raw.strip()
@@ -84,6 +86,18 @@ def _normalize_season(raw: str) -> str | None:
             end = (start // 100) * 100 + int(end_str)
         else:
             end = int(end_str)
+        if end == start + 1:
+            return f"{start}-{end}"
+        return None
+
+    # Bare "25-26" / "25/26" — both halves 2-digit, no 4-digit anchor for
+    # _SEASON_RE to latch onto. Documented as accepted input (see docstring)
+    # but previously unhandled — infer the century (2000s; correct for every
+    # season this owned store covers, 2016-2017 onward).
+    m3 = _SEASON_2DIGIT_RE.match(raw)
+    if m3:
+        start = 2000 + int(m3.group(1))
+        end = 2000 + int(m3.group(2))
         if end == start + 1:
             return f"{start}-{end}"
         return None

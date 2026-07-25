@@ -54,6 +54,7 @@ from .dispatcher import (
     INTENT_INJURY_LIST,             # Phase 2.6d
     INTENT_PRICE_CHANGES,           # Phase 2.6d
     INTENT_TEAM_FIXTURE_CALENDAR,   # Phase 2.6e
+    INTENT_PLAYER_SEASON_POINTS,
     INTENT_UNSUPPORTED,
     SUPPORTED_INTENTS,
     # Phase 2k: tool→intent mapping (exported for test access)
@@ -250,6 +251,7 @@ from .chip_advisor import (       # Phase 6b
     _BB_MARGINAL_FDR,
 )
 from .player_form import get_player_form              # Phase 2.6d — triggers TOOL_REGISTRY self-registration
+from .get_player_season_points import get_player_season_points  # triggers TOOL_REGISTRY self-registration
 from .injury_list import get_injury_list              # Phase 2.6d
 from .price_changes import get_price_changes          # Phase 2.6d
 from .position_fixture_run import get_position_fixture_run  # Phase 2.6e.4 — triggers TOOL_REGISTRY self-registration
