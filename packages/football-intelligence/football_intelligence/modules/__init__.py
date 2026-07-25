@@ -14,6 +14,11 @@ from .fixture_context import (
     evaluate_fixture_context,
     load_fixture_context_input,
 )
+from .flank_matchup import (
+    FlankMatchupInput,
+    FlankMatchupResult,
+    evaluate_flank_matchup,
+)
 from .opponent_disruption import (
     OpponentPersonnelDisruptionInput,
     OpponentPersonnelDisruptionResult,
@@ -38,6 +43,8 @@ __all__ = [
     "FixtureContextResult",
     "FixturePriority",
     "FlankShare",
+    "FlankMatchupInput",
+    "FlankMatchupResult",
     "ModuleResult",
     "ModuleStatus",
     "OpponentPersonnelDisruptionInput",
@@ -49,6 +56,7 @@ __all__ = [
     "TacticalRoleResult",
     "UnsupportedFeatureContractError",
     "evaluate_expected_minutes",
+    "evaluate_flank_matchup",
     "evaluate_fixture_context",
     "evaluate_opponent_personnel_disruption",
     "evaluate_tactical_role",

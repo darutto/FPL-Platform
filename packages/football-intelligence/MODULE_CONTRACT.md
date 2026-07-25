@@ -31,6 +31,7 @@ ownership. FI-6 modules consume validated features but do not alter FI-5.
 | M2 tactical role | `tactical-role-v1` | `role-map-v2`, `fpl-nominal-position-v1`, `nominal-role-distance-v1` |
 | M3 fixture context | `fixture-context-v1` | `fixture-priority-v1`, `competition-weights-v1` |
 | M4 opponent personnel disruption | `opponent-personnel-disruption-v1` | non-operational skeleton |
+| M5 flank matchup | `flank-matchup-v1` | non-operational skeleton |
 
 M1 semantics remain documented in `FEATURE_CONTRACT.md`; moving its existing
 package-contract paragraphs here is deferred documentation debt.
@@ -315,5 +316,24 @@ personnel disruption” so their public names remain stable if a future active
 evaluator graduates. That graduation is a separate, trial-gated architecture
 slice and is not part of FI-6d.
 
-FI-6a, FI-6b, and FI-6c are merged and complete. FI-6d is implemented and
-under review. M5 and FI-7 remain unstarted.
+## M5 flank matchup skeleton
+
+`evaluate_flank_matchup` reserves the stable player-grain M5 surface without
+implementing flank inference, zonal logic, or opponent matching. Model version
+`flank-matchup-v1` is mechanically non-operational: every valid input returns
+`not_implemented`, confidence `0.0`, feature registry and build metadata set to
+null, reason codes `(not_implemented,)`, and empty evidence.
+
+The frozen input contains only `fixture_id`, `team_id`, `player_id`, and an
+explicit UTC `calculated_at`. The frozen result adds only `player_id` to
+`ModuleResult`. It has no active outputs, including nullable placeholders, and
+no feature family, feature loader, provider, predecessor-module, zonal-engine,
+network, persistence, or wall-clock dependency.
+
+The reserved `OPPONENT_FLANK_WEAKNESS` evidence code is not imported or emitted.
+Graduation to an active evaluator is a separate, trial-gated architecture
+slice pending M4 graduation, zonal integration, and Understat/Sportmonks trial.
+FI-7 remains blocked and is not begun by this skeleton.
+
+FI-6a through FI-6d are merged and complete. FI-6e implements only the M5
+skeleton described above.
