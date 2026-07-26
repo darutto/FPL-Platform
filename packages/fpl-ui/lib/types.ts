@@ -66,6 +66,7 @@ export type Intent =
   | 'differential_picks'
   | 'multi_intent'
   | 'player_form'
+  | 'player_season_points'
   | 'injury_list'
   | 'price_changes'
   | 'team_fixture_calendar'
@@ -102,6 +103,7 @@ export const SUPPORTED_INTENT_VALUES = [
   'differential_picks',
   'multi_intent',
   'player_form',
+  'player_season_points',
   'injury_list',
   'price_changes',
   'team_fixture_calendar',
