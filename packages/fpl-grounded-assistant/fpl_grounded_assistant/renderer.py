@@ -130,6 +130,14 @@ def _render_get_current_gameweek(output: dict[str, Any]) -> str:
     status = output.get("status")
     if status == "ok":
         gw = output.get("gameweek", "?")
+        if output.get("is_pre_season"):
+            deadline = output.get("deadline_time")
+            if deadline:
+                return (
+                    f"The season hasn't started yet — GW{gw} is the opening "
+                    f"gameweek, with a deadline of {deadline}."
+                )
+            return f"The season hasn't started yet — GW{gw} is the opening gameweek."
         return f"The current Premier League Fantasy gameweek is GW{gw}."
 
     if status == "not_found":

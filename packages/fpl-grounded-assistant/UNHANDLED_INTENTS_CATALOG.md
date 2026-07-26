@@ -749,6 +749,15 @@ Priority scale:
 ---
 
 ## Category: Player Pick / Start Recommendation
+### Unqualified "best players" ask at the start of a new season
+- **Raw prompt:** "who are the best players to pick at the start of the season this year" / "give me a good starting squad for this season" / "cuáles son los mejores jugadores para el inicio de la temporada"
+- **App response:** blocked / unsupported intent
+- **App final_text:** "I couldn't match that question to a supported query. Supported questions include: captain score for a player, captain rankings, player comparison, transfer advice, chip advice, player fixture run, differential picks, player summary, player lookup, and current gameweek."
+- **User need:** User wants season-opening player/squad recommendations before GW1, without naming a position, budget, or metric to anchor the router on
+- **Priority:** P1 — seasonal but predictable; this is exactly the question new-season users ask
+- **Source:** synthetic pre-season bootstrap probe (no live API access in sandbox), 2026-07-26
+- **Notes:** Not a pre-season-data bug — `find_players` / `rank_players_by_metric` both need a metric or position filter the router can key on, and a bare "best players this year" doesn't supply one. Needs a real design decision (default metric? per-position picks? budget-aware full-squad build?), not just a routing fix. Distinct from the already-catalogued "Cumulative season FPL points for a named player" gap below — that one names a player, this one doesn't.
+
 ### Specific defender transfer based on fixture reasoning
 - **Raw prompt:** "me conviene fichar a Pedro Porro para tener defensa del Spurs con buen fixture?"
 - **App response:** Blocked — transfer_advice + player_fixture_run should catch this; fixture-reasoning framing prevented routing

@@ -192,6 +192,35 @@ class TestHarnessCurrentGameweek:
         assert "28" in result["answer_text"]
 
 
+class TestHarnessCurrentGameweekPreSeason:
+    """A new season/tournament hasn't kicked off: no event is current,
+    finished, or flagged is_next, but the calendar has real deadlines.
+    The answer should name GW1 as the opening gameweek, not claim the
+    gameweek 'could not be determined'."""
+
+    _PRE_SEASON_BOOTSTRAP = {
+        "events": [
+            {"id": 1, "is_current": False, "is_next": False, "finished": False,
+             "deadline_time": "2026-08-15T10:30:00Z"},
+            {"id": 2, "is_current": False, "is_next": False, "finished": False,
+             "deadline_time": "2026-08-22T10:30:00Z"},
+        ],
+    }
+
+    def test_raw_output_reports_gw1_pre_season(self):
+        from fpl_grounded_assistant import ask
+        result = ask("What is the current gameweek?", self._PRE_SEASON_BOOTSTRAP)
+        assert result["raw_output"]["status"] == "ok"
+        assert result["raw_output"]["gameweek"] == 1
+        assert result["raw_output"]["is_pre_season"] is True
+
+    def test_answer_names_gw1_not_undetermined(self):
+        from fpl_grounded_assistant import ask
+        result = ask("What is the current gameweek?", self._PRE_SEASON_BOOTSTRAP)
+        assert "GW1" in result["answer_text"]
+        assert "could not be determined" not in result["answer_text"]
+
+
 # ===========================================================================
 # G. Harness — ambiguous player (Johnson)
 # ===========================================================================

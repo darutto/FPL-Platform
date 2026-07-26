@@ -346,3 +346,84 @@ Three changes:
 - Heuristic does NOT affect the fail-open path (client=None returns
   `_FAIL_OPEN` before any heuristic call).
 - `EvaluatorVerdict` change is strictly additive.
+
+---
+
+## Season-start / "beginning of the tournament" query probe (2026-07-26)
+
+**Context:** today's real-world date sits in the pre-season window between the
+2025-26 season ending and 2026-27's GW1 opening — a good time to check how the
+assistant handles "which players for this year" / "start of the season" style
+questions. This sandbox has no route to `fantasy.premierleague.com` (proxy
+blocks it), so this pass used a synthetic bootstrap injected directly into
+`respond()`/`ask()` (deterministic path, `client=None`) rather than live data
+or the CLI/HTTP surfaces — a lighter-weight probe than a full
+`UAT_CAPTURE`/`UAT_FINDINGS` session, not a replacement for one.
+
+**Pre-season bootstrap shape used:** every event `finished=False`,
+`is_current=False`, `is_next=False` (real FPL bootstraps briefly look exactly
+like this in the window before the platform flips `is_next` onto GW1), with
+real `deadline_time` values populated — the actual shape a "new tournament,
+nothing has kicked off" bootstrap takes.
+
+### Finding — `current_gameweek` intent misreported pre-season as "on a break" (FIXED)
+
+**Severity:** major (hits every "what gameweek is it" / "what's the GW1
+deadline" question at the exact moment a new season is about to start).
+
+**Symptom:** `tool_get_current_gameweek` (`fpl-tool-contract/fpl_tool_contract/tools.py`)
+delegated straight to `get_current_gameweek_from_bootstrap`, which only checks
+`is_current`/`is_next` flags and returns `None` when neither is set — true in
+the pre-season window. The renderer then produced: *"The current gameweek
+could not be determined from the available data. The season may be on a
+break or between gameweeks."* — actively misleading right when a user is
+asking about the new season's opening GW. `get_gameweek_context.py` (the
+newer P2.5 tool) already had a pre-season fallback for exactly this case;
+`get_current_gameweek`/`current_gameweek` (the older, more directly-routed
+intent) did not.
+
+**Fix:** `tool_get_current_gameweek` now recognises the pre-season shape
+(no event finished, none current/next, but the earliest event carries a real
+`deadline_time` — distinguishing genuine pre-season from malformed/empty
+test data) and returns `{"status": "ok", "gameweek": 1, "is_pre_season":
+True, "deadline_time": ...}` instead of `not_found`. The renderer now says
+*"The season hasn't started yet — GW1 is the opening gameweek, with a
+deadline of \<deadline\>."* The normal in-season "ok" result is untouched
+(`{"status": "ok", "gameweek": <n>}`, no new keys), so existing callers are
+unaffected. Covered by new tests in
+`fpl-tool-contract/tests/test_tools.py::TestToolGetCurrentGameweek` and
+`fpl-grounded-assistant/tests/test_harness.py::TestHarnessCurrentGameweekPreSeason`.
+
+### Finding — "best players to pick for this year / new season" has no route (logged, not fixed)
+
+**Severity:** minor-to-moderate (seasonal, but real: this is exactly the
+question a user asks right before a new season).
+
+**Symptom:** Queries like "who are the best players to pick at the start of
+the season this year", "give me a good starting squad for this season", and
+the Spanish "cuáles son los mejores jugadores para el inicio de la
+temporada" all fall through to `unsupported_intent`. This isn't specific to
+pre-season data — these phrasings simply don't match any existing router
+pattern (`find_players` / `rank_players_by_metric` require a metric or
+position filter the router can anchor on; a bare "best players this year"
+doesn't supply one). Logged here rather than fixed — building a sensible
+default ranking for an unqualified "best players" ask is a real design
+decision (which metric? total squad or per-position picks? budget-aware?),
+not a routing bug.
+
+**Related, already catalogued:** "how many points has \<player\> scored [this
+season]" also routes to `unsupported_intent` regardless of season phrasing —
+this is the pre-existing gap already tracked in
+`UNHANDLED_INTENTS_CATALOG.md` under "Cumulative season FPL points for a
+named player" (P1). Not new to this pass; `get_player_season_points` (#47)
+only covers the explicit-past-season phrasing ("in season 25-26"), by design,
+so it doesn't shadow this still-open live-season case.
+
+**Observed but not changed:** "best forwards to buy for the new season"
+correctly reaches `transfer_suggestion` and returns `status: "empty"` with
+*"No available forwards found with positive form in the current
+bootstrap."* — technically correct pre-season (nobody has played a minute
+yet, so `form` is genuinely 0 for the whole league), but the message reads
+like a bug rather than "too early in the season for form data." Worth a
+friendlier pre-season-aware message in a future pass; not changed here to
+keep this fix scoped to the `current_gameweek` regression above.

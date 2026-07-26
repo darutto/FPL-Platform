@@ -635,8 +635,16 @@ def tool_get_current_gameweek(
 
     Returns — status "ok"
     ----------------------
-    ``status``    "ok"
-    ``gameweek``  Gameweek number (int)
+    ``status``         "ok"
+    ``gameweek``        Gameweek number (int)
+    ``is_pre_season``   Present (``True``) only when the tournament itself
+                         hasn't kicked off: no event is current, finished, or
+                         flagged ``is_next`` yet, but the calendar carries a
+                         real deadline for GW1. Absent for the normal in-season
+                         case, so existing callers reading exactly
+                         ``{"status", "gameweek"}`` are unaffected.
+    ``deadline_time``   GW1's deadline, present only alongside
+                         ``is_pre_season``.
 
     Returns — status "not_found"
     ----------------------------
@@ -645,6 +653,19 @@ def tool_get_current_gameweek(
     """
     gw = get_current_gameweek_from_bootstrap(bootstrap)
     if gw is None:
+        events = bootstrap.get("events") or []
+        finished = [ev for ev in events if ev.get("finished")]
+        first_event = min(events, key=lambda e: int(e.get("id", 0))) if events else None
+        # A real (non-malformed) bootstrap always carries a deadline_time,
+        # even before the season's is_next flag has been set on GW1 —
+        # that combination is the pre-season window, not missing data.
+        if first_event is not None and not finished and first_event.get("deadline_time"):
+            return {
+                "status":        "ok",
+                "gameweek":      int(first_event.get("id", 1)),
+                "is_pre_season": True,
+                "deadline_time": first_event.get("deadline_time"),
+            }
         return {
             "status":  "not_found",
             "message": "No active or upcoming gameweek found in bootstrap.",

@@ -257,8 +257,16 @@ GET_CURRENT_GAMEWEEK_SPEC = ToolSpec(
                 "type": "object",
                 "required": ["status", "gameweek"],
                 "properties": {
-                    "status":   {"type": "string", "enum": ["ok"]},
-                    "gameweek": {"type": "integer", "description": "Gameweek number"},
+                    "status":        {"type": "string", "enum": ["ok"]},
+                    "gameweek":      {"type": "integer", "description": "Gameweek number"},
+                    "is_pre_season": {
+                        "type": "boolean",
+                        "description": "True only when the season/tournament hasn't kicked off yet; gameweek is GW1.",
+                    },
+                    "deadline_time": {
+                        "type": "string",
+                        "description": "GW1's deadline; present only alongside is_pre_season.",
+                    },
                 },
                 "additionalProperties": False,
             },

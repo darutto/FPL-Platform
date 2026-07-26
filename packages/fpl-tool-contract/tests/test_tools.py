@@ -243,6 +243,33 @@ class TestToolGetCurrentGameweek:
         # "ok" result should contain exactly status + gameweek — clean contract
         assert set(result.keys()) == {"status", "gameweek"}
 
+    def test_pre_season_reports_gw1_not_not_found(self):
+        """Before a new tournament's GW1 has is_next set, but with a real
+        calendar (deadlines populated), the tool should surface GW1 as the
+        upcoming gameweek instead of a bare 'not_found'."""
+        from fpl_tool_contract import tool_get_current_gameweek
+        bs = {"events": [
+            {"id": 1, "is_current": False, "is_next": False, "finished": False,
+             "deadline_time": "2026-08-15T10:30:00Z"},
+            {"id": 2, "is_current": False, "is_next": False, "finished": False,
+             "deadline_time": "2026-08-22T10:30:00Z"},
+        ]}
+        result = tool_get_current_gameweek(bs)
+        assert result["status"] == "ok"
+        assert result["gameweek"] == 1
+        assert result["is_pre_season"] is True
+        assert result["deadline_time"] == "2026-08-15T10:30:00Z"
+
+    def test_no_flags_without_deadline_still_not_found(self):
+        """Malformed/insufficient data (no deadline_time) must not be
+        mistaken for the pre-season case."""
+        from fpl_tool_contract import tool_get_current_gameweek
+        bs = {"events": [{"id": 1, "is_current": False, "is_next": False,
+                           "finished": False}]}
+        result = tool_get_current_gameweek(bs)
+        assert result["status"] == "not_found"
+        assert "is_pre_season" not in result
+
 
 # ===========================================================================
 # H. Structured output contract
