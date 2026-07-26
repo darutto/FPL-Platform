@@ -125,8 +125,13 @@ ok(not re.search(r"readonly\s+\w+\?:", ts_source),
    "TypeScript EvidenceItem has no independently optional fields")
 ok(all(code in ts_source for code in EVIDENCE_CODES),
    "TypeScript contains every approved evidence code")
-ok("evidence:" not in FINAL_RESPONSE.read_text(encoding="utf-8"),
-   "FinalResponse evidence exposure remains deferred")
+final_response_source = FINAL_RESPONSE.read_text(encoding="utf-8")
+ok(bool(re.search(
+       r"evidence:\s+[\"']?tuple\[EvidenceItem,\s*\.\.\.\]\s*\|\s*None[\"']?"
+       r"\s*=\s*field\(default=None\)",
+       final_response_source,
+   )),
+   "FinalResponse exposes additive optional immutable evidence in FI-7a")
 
 print(f"\nFI-1 contract checks: {passed} passed, {failed} failed")
 raise SystemExit(1 if failed else 0)

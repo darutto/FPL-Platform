@@ -74,7 +74,7 @@ for _pkg in [
         sys.path.insert(0, _pkg)
 
 from fastapi import FastAPI, HTTPException, Request
-from pydantic import BaseModel, ConfigDict, StrictBool, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator, model_validator
 
 from fpl_grounded_assistant import respond
 from fpl_grounded_assistant.player_form import _element_summary_guard  # Phase 2.6d.3 — guard stats
@@ -287,6 +287,7 @@ class AskResponse(BaseModel):
     ``chip`` is populated for chip_advice OK turns (Phase 7b).
     ``fixture_run`` is populated for player_fixture_run OK turns (Phase 7h).
     ``differential`` is populated for differential_picks OK turns (Phase 7g).
+    ``evidence`` is optional provider-neutral structured evidence (FI-7a).
     """
 
     final_text: str
@@ -332,6 +333,10 @@ class AskResponse(BaseModel):
     # ran end-to-end. Shape: {topic, summary, results, timestamp}. Unverified
     # AI synthesis over live web sources — never implies "grounded" data.
     web_search:             dict[str, Any] | None = None
+    # FI-7a: omit None to preserve the pre-FI-7a wire shape byte-for-byte.
+    evidence: list[dict[str, Any]] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class CreateSessionRequest(BaseModel):
@@ -410,6 +415,7 @@ class SessionAskResponse(BaseModel):
     chip is populated for chip_advice OK turns (Phase 7b).
     fixture_run is populated for player_fixture_run OK turns (Phase 7h).
     differential is populated for differential_picks OK turns (Phase 7g).
+    evidence is optional provider-neutral structured evidence (FI-7a).
     """
 
     session_id: str
@@ -451,6 +457,10 @@ class SessionAskResponse(BaseModel):
     route_conflict:        bool         = False            # True when deterministic and LLM disagree
     # Phase 2.7f: clarification policy layer
     clarification_asked:   bool         = False            # True when outcome==needs_clarification
+    # FI-7a: omit None to preserve the pre-FI-7a wire shape byte-for-byte.
+    evidence: list[dict[str, Any]] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class ClearSessionResponse(BaseModel):
@@ -1207,6 +1217,9 @@ def _sub_response_dict(sr: Any) -> dict[str, Any]:
         d["generic_card"] = _generic_card_meta_dict(sr.generic_card)
     if getattr(sr, "suggestions", None) is not None:       # Guided Comparison
         d["suggestions"] = _suggestions_meta_list(sr.suggestions)
+    if getattr(sr, "evidence", None) is not None:          # FI-7a
+        from fpl_grounded_assistant.harness_adapter import _to_dict
+        d["evidence"] = _to_dict(sr.evidence)
     return d
 
 
@@ -2132,6 +2145,9 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
     if r.differential is not None:
         sess_differential_bundle = _differential_meta_dict(r.differential)
 
+    from fpl_grounded_assistant.harness_adapter import _to_dict
+    sess_evidence_list = _to_dict(r.evidence)
+
     sess_player_form_bundle: dict[str, Any] | None = None
     if r.player_form is not None:
         sess_player_form_bundle = _player_form_meta_dict(r.player_form)
@@ -2174,6 +2190,7 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         chip=sess_chip_bundle,
         fixture_run=sess_fixture_run_bundle,
         differential=sess_differential_bundle,
+        evidence=sess_evidence_list,
         orch_outcome=r.orch_outcome,   # Orch-4c: audit
         degraded=r.degraded,           # Phase 2.6b: provider failed silently
         player_form=sess_player_form_bundle,

@@ -20,6 +20,9 @@
  *   - Structured intent component rendering
  */
 
+import type { EvidenceItem } from './evidence';
+export type { EvidenceItem } from './evidence';
+
 // ---------------------------------------------------------------------------
 // Outcome + Intent enums
 // ---------------------------------------------------------------------------
@@ -254,6 +257,11 @@ export interface AskResponse {
    * AND outcome=ok. Optional because pre-T4b fixtures/serialisers omit it.
    */
   zonal_opportunity?: DefensiveZonesMeta | null;
+  /**
+   * Provider-neutral structured evidence (FI-7a). Optional so responses
+   * produced without evidence retain the pre-FI-7a wire shape.
+   */
+  evidence?: EvidenceItem[] | null;
 
   /**
    * Provider degradation flag (Phase 2.6b).

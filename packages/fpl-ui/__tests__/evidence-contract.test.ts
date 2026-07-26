@@ -30,6 +30,9 @@ const enumsPython = readNormalizedSource(path.join(PYTHON_ROOT, 'enums.py'));
 const evidenceTypescript = readNormalizedSource(
   path.resolve(__dirname, '../lib/evidence.ts'),
 );
+const responseTypescript = readNormalizedSource(
+  path.resolve(__dirname, '../lib/types.ts'),
+);
 
 function pythonTuple(name: string): string[] {
   const match = evidencePython.match(
@@ -104,5 +107,17 @@ describe('FI-1 Python/TypeScript evidence parity', () => {
       calculated_at: '2026-07-14T18:00:00Z',
     };
     expect(Object.keys(item)).toEqual(EVIDENCE_FIELD_NAMES);
+  });
+
+  test('AskResponse evidence is optional and nullable through the shared mirror', () => {
+    expect(responseTypescript).toMatch(
+      /import type \{ EvidenceItem \} from '\.\/evidence';/,
+    );
+    expect(responseTypescript).toMatch(
+      /evidence\?: EvidenceItem\[\] \| null;/,
+    );
+    expect(responseTypescript).not.toMatch(
+      /^\s*evidence: EvidenceItem\[\] \| null;/m,
+    );
   });
 });

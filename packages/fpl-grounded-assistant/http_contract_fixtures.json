@@ -140,6 +140,15 @@
       "differential": "populated for differential_picks OK turns only; null otherwise",
       "sub_responses": "populated for multi_intent turns only; null for single-intent turns"
     },
+    "evidence_contract": {
+      "field": "evidence",
+      "type": "array|null",
+      "stability": "conditional",
+      "required": false,
+      "absent_when_null": true,
+      "item_contract": "football_data_contract.EvidenceItem",
+      "note": "FI-7a contract-only passthrough. No module execution or evidence assembly; ordering and the future item limit are deferred."
+    },
     "response_debug_only_fields": {
       "debug.response_text": "deterministic grounded response text before LLM presentation",
       "debug.llm_text": "raw LLM output (may equal response_text if LLM not called)",
@@ -197,6 +206,54 @@
         "deterministic_share_ge_80": "deterministic_share >= 0.80 (resource+prompt+route+classifier_rewrite dominate)",
         "reject_rate_lt_5": "reject_rate < 0.05 (fewer than 5% of inputs fully unsupported)"
       }
+    }
+  },
+  "evidence_fixtures": {
+    "without_evidence": {
+      "python_value": null,
+      "expected": {
+        "presence": "absent"
+      }
+    },
+    "with_evidence": {
+      "python_value": [
+        {
+          "code": "ROLE_STABLE",
+          "label": "Stable role",
+          "subject_type": "player",
+          "subject_id": "cp_1",
+          "fixture_id": null,
+          "impact": 2.0,
+          "direction": "positive",
+          "confidence": 0.8,
+          "basis": "observed",
+          "summary": "Stable recent role.",
+          "source_features": [
+            "player_role_window_summary"
+          ],
+          "model_version": "tactical-role-v1",
+          "calculated_at": "2026-07-25T00:00:00Z"
+        }
+      ],
+      "expected_wire": [
+        {
+          "code": "ROLE_STABLE",
+          "label": "Stable role",
+          "subject_type": "player",
+          "subject_id": "cp_1",
+          "fixture_id": null,
+          "impact": 2.0,
+          "direction": "positive",
+          "confidence": 0.8,
+          "basis": "observed",
+          "summary": "Stable recent role.",
+          "source_features": [
+            "player_role_window_summary"
+          ],
+          "model_version": "tactical-role-v1",
+          "calculated_at": "2026-07-25T00:00:00Z"
+        }
+      ]
     }
   },
   "ask_fixtures": [
