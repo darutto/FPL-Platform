@@ -772,6 +772,15 @@ def _parse_all_gemini_tool_calls(
             if fc is None:
                 continue
             name = getattr(fc, "name", None)
+            # Gemini parts are protobuf messages: `function_call` is frequently
+            # present-but-default (empty `name`) on text-only or "thought" parts
+            # rather than absent, so the `fc is None` check alone lets an
+            # empty-named call slip through and later trips the "unknown tool: ''"
+            # guard. Treat a falsy name as "no real tool call here" and skip it —
+            # if every part is empty the caller correctly falls through to the
+            # no-tool text-extraction path.
+            if not name:
+                continue
             raw_args = getattr(fc, "args", None)
             args = dict(raw_args) if raw_args is not None else {}
             call_id = f"gemini_call_{idx}"
