@@ -380,6 +380,30 @@ _SUMMARY_PREFIXES: tuple[str, ...] = (
     "esta descartado",
 )
 
+#: Trailing noise that leaks into the player-name slot for summary questions
+#: like "cuántos puntos lleva Isak esta temporada en total" — _SUMMARY_PREFIXES
+#: only strips the *leading* phrase, so without this the extracted query would
+#: be "Isak esta temporada en total" and fail player resolution entirely.
+#: Longest phrase first so "esta temporada en total" is stripped in one pass
+#: rather than leaving a dangling "en total".
+_SUMMARY_TRAILING_NOISE_PHRASES: tuple[str, ...] = (
+    "esta temporada en total",
+    "esta temporada",
+    "en total",
+    "this season",
+    "in total",
+)
+
+
+def _strip_summary_trailing_noise(player_query: str) -> str:
+    """Strip a trailing '(esta) temporada'/'(in) total'-style phrase, if present."""
+    q_deacc = _deaccent(player_query.lower())
+    for phrase in _SUMMARY_TRAILING_NOISE_PHRASES:
+        if q_deacc.endswith(phrase):
+            return player_query[: len(player_query) - len(phrase)].strip().rstrip(",")
+    return player_query
+
+
 _RESOLVE_PREFIXES: tuple[str, ...] = (
     "who is",
     "who's",
@@ -1169,6 +1193,124 @@ def _try_route_player_form(q_orig: str, q_norm: str) -> "RouteResult | None":
 
 
 # ---------------------------------------------------------------------------
+# Player season-points helper
+# ---------------------------------------------------------------------------
+# Answers "how many points did X score in season Y" / "cuántos puntos hizo X
+# la temporada 25-26" — a full-season total, as distinct from player_form's
+# "last N gameweeks" window. Deliberately gated on an explicit season signal
+# (a digit-year token like "25-26"/"2024-2025", or a "last season" phrase) so
+# it never intercepts the plain current-season case ("cuántos puntos lleva
+# Salah") — that stays on the existing player_summary path.
+
+# Player-first prefixes: player name follows the prefix, season follows the
+# player name. Stored WITHOUT accents; matched against the deaccented query
+# (mirrors _try_route_player_form's accent-insensitive approach).
+_SEASON_POINTS_PREFIXES: tuple[str, ...] = (
+    "cuantos puntos hizo",
+    "cuantos puntos saco",
+    "cuantos puntos consiguio",
+    "cuantos puntos anoto",
+    "cuantos puntos sumo",
+    "cuantos puntos marco",
+    "cuantos puntos lleva",
+    "puntos totales de",
+    "dame el total de puntos de",
+    "dame los puntos de",
+    "puntos de",
+    "how many points did",
+    "how many total points did",
+    "total points for",
+    "total points scored by",
+)
+
+# An explicit season token: "2025-2026", "2025-26", "25/26", "25-26".
+_SEASON_TOKEN_RE = _re.compile(r'\b(20\d{2}\s*[-/]\s*(?:20)?\d{2}|\d{2}\s*[-/]\s*\d{2})\b')
+
+# Relative-season phrases with no explicit year — mapped to the sentinel
+# tool_args["season"] value get_player_season_points understands.
+_SEASON_POINTS_RELATIVE_KEYWORDS: tuple[tuple[str, str], ...] = (
+    ("temporada pasada", "previous"),
+    ("la pasada temporada", "previous"),
+    ("ultima temporada", "previous"),
+    ("last season", "previous"),
+    ("previous season", "previous"),
+)
+
+# Trailing connector/verb words stripped iteratively from the tail of the
+# player-name span once the season token (or relative-season phrase) has
+# been located — handles "Palmer la temporada" -> "Palmer" and
+# "Palmer score in" -> "Palmer".
+_SEASON_POINTS_STRIP_WORDS: frozenset[str] = frozenset({
+    "la", "el", "de", "en", "the", "in", "during", "for", "on",
+    "temporada", "season", "score", "scored", "get", "got", "make", "made",
+    "did", "sacar", "saco", "hizo", "consiguio", "anoto", "marco", "sumo",
+})
+
+
+def _strip_season_points_connectors(text: str) -> str:
+    """Iteratively pop trailing connector/verb stop-words from *text*."""
+    tokens = text.strip().rstrip(",").split()
+    while tokens and _deaccent(tokens[-1].lower().rstrip(",")) in _SEASON_POINTS_STRIP_WORDS:
+        tokens.pop()
+    return " ".join(tokens).strip().rstrip(",")
+
+
+def _try_route_player_season_points(q_orig: str, q_norm: str) -> "RouteResult | None":
+    """Detect a full-season player-points question and return a RouteResult.
+
+    Requires BOTH a recognised player-first prefix AND an explicit season
+    signal (a digit-year token or a "last season" phrase) — the season
+    requirement is what keeps this from ever firing on a plain "how many
+    points does X have" question, which correctly stays on player_summary
+    (the live/current-season path).
+
+    Returns ``RouteResult(tool_name="get_player_season_points",
+    tool_args={"query": player, "season": season})`` or ``None``.
+    """
+    q_deacc = _deaccent(q_norm)
+
+    for prefix in _SEASON_POINTS_PREFIXES:
+        prefix_deacc = _deaccent(prefix)
+        if not q_deacc.startswith(prefix_deacc):
+            continue
+
+        # NOTE: deliberately NOT .strip()'d here — remainder_deacc and
+        # remainder_orig must stay character-aligned so that match indices
+        # found in one apply unchanged to the other. Leading/trailing
+        # whitespace is handled by _strip_season_points_connectors() instead.
+        remainder_deacc = q_deacc[len(prefix_deacc):]
+        remainder_orig = q_orig[len(prefix_deacc):]
+
+        m = _SEASON_TOKEN_RE.search(remainder_deacc)
+        if m is not None:
+            season_raw = remainder_orig[m.start():m.end()].strip()
+            before = remainder_orig[:m.start()]
+            player = _strip_season_points_connectors(before)
+            player = _strip_spanish_name_prefix(player)
+            if player and season_raw:
+                return RouteResult(
+                    tool_name="get_player_season_points",
+                    tool_args={"query": player, "season": season_raw},
+                )
+            continue
+
+        for kw, season_sentinel in _SEASON_POINTS_RELATIVE_KEYWORDS:
+            idx = remainder_deacc.find(kw)
+            if idx == -1:
+                continue
+            before = remainder_orig[:idx]
+            player = _strip_season_points_connectors(before)
+            player = _strip_spanish_name_prefix(player)
+            if player:
+                return RouteResult(
+                    tool_name="get_player_season_points",
+                    tool_args={"query": player, "season": season_sentinel},
+                )
+
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Transfer helper  (Phase 6a)
 # ---------------------------------------------------------------------------
 
@@ -1841,6 +1983,14 @@ def route(question: str) -> RouteResult | None:
     if any(kw in q_norm for kw in _INJURY_LIST_KEYWORDS):
         return RouteResult(tool_name="get_injury_list", tool_args={})
 
+    # ── Player season-points intent (before player form / summary — a
+    #    full-season total is a different question than "last N games" or
+    #    the live current-season snapshot). Gated on an explicit season
+    #    signal so it never shadows the plain current-season case.
+    _season_points_result = _try_route_player_season_points(q_orig, q_norm)
+    if _season_points_result is not None:
+        return _season_points_result
+
     # ── Player form intent (Phase 2.6d; before player summary) ──────────────
     _form_result = _try_route_player_form(q_orig, q_norm)
     if _form_result is not None:
@@ -1858,6 +2008,7 @@ def route(question: str) -> RouteResult | None:
     # ── Summary intent ───────────────────────────────────────────────────
     if any(q_norm.startswith(p) or p in q_norm for p in _SUMMARY_PREFIXES):
         player_query = _extract_player_query(q_orig, q_norm, _SUMMARY_PREFIXES)
+        player_query = _strip_summary_trailing_noise(player_query)
         if player_query:
             return RouteResult(
                 tool_name="get_player_summary",

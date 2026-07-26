@@ -192,6 +192,21 @@ player_form:
             "dame las stats de los últimos 5 partidos de Cherki",
             "historial de puntos de Mbeumo"
 
+player_season_points:
+  The user wants a player's TOTAL FPL points across one full season (past or
+  present), named explicitly or as "last season". Distinct from player_form
+  (last N gameweeks) and from player_summary (live current-season snapshot
+  with no season named).
+  Canonical template: "how many points did {player_name} score in season {season}"
+    where {season} is a year-range like "2025-26", OR — when the user says
+    "last season" / "temporada pasada" with no explicit year — use the
+    template "how many points did {player_name} score last season" instead.
+  Examples (English): "how many points did Palmer score in 2025-26?",
+            "Haaland's total points last season", "Salah points in 2023-24"
+  Examples (Spanish): "cuántos puntos hizo Palmer la temporada 25-26",
+            "puntos totales de Salah la temporada pasada",
+            "cuántos puntos sacó Haaland en 2024-25"
+
 injury_list:
   The user wants to know which players are injured or doubtful for the current GW.
   Canonical template: "injury list this week"

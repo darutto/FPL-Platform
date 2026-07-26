@@ -410,6 +410,49 @@ def _render_get_player_form(output: dict[str, Any]) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Player season-points renderer
+# ---------------------------------------------------------------------------
+
+def _render_get_player_season_points(output: dict[str, Any]) -> str:
+    """Render get_player_season_points output."""
+    status = output.get("status")
+    if status == "ok":
+        season = output.get("season", "?")
+        player = output.get("player", {})
+        web_name = player.get("web_name", "?")
+        team = player.get("team_short", "")
+        pos = player.get("position", "")
+        summary = output.get("summary", {})
+
+        total_pts = summary.get("total_points", 0)
+        gws = summary.get("gws_played", 0)
+        ppg = summary.get("points_per_game", 0.0)
+        goals = summary.get("total_goals", 0)
+        assists = summary.get("total_assists", 0)
+        clean_sheets = summary.get("total_clean_sheets", 0)
+        bonus = summary.get("total_bonus", 0)
+        minutes = summary.get("total_minutes", 0)
+
+        return (
+            f"{web_name} ({team}, {pos}) — {season}: {total_pts} points "
+            f"across {gws} gameweek(s) played ({ppg} pts/game). "
+            f"{goals}g {assists}a {clean_sheets}cs {bonus}bps {minutes}mins."
+        )
+
+    if status == "ambiguous":
+        query = output.get("query", "that player")
+        return f"Multiple players share the name '{query}'. Please use a full name or player ID to disambiguate."
+
+    if status == "not_found":
+        query = output.get("query", "that player")
+        return output.get("message", f"No player found matching '{query}'.")
+
+    code = output.get("code", "error")
+    message = output.get("message", "An unexpected error occurred looking up season points.")
+    return f"Error ({code}): {message}"
+
+
+# ---------------------------------------------------------------------------
 # Injury list renderer  (Phase 2.6d Story 2.3)
 # ---------------------------------------------------------------------------
 
@@ -1345,6 +1388,7 @@ _RENDERERS = {
     "get_player_fixture_run":    _render_get_player_fixture_run,     # Phase 7h
     "get_differential_picks":    _render_get_differential_picks,     # Phase 7g
     "get_player_form":              _render_get_player_form,            # Phase 2.6d
+    "get_player_season_points":     _render_get_player_season_points,
     "get_injury_list":              _render_get_injury_list,            # Phase 2.6d
     "get_price_changes":            _render_get_price_changes,          # Phase 2.6d
     "get_team_fixture_calendar":    _render_get_team_fixture_calendar,  # Phase 2.6e
