@@ -1655,6 +1655,33 @@ ok("cache_control" not in _s5_double[1],
 
 
 # ---------------------------------------------------------------------------
+# T: value/calendar player-recommendation guidance (2026-07-26 season-start fix)
+# ---------------------------------------------------------------------------
+# A live probe ("Give me 5 value midfielders with good calendar for the start
+# of the season") showed the orchestrator picking get_gameweek_context instead
+# of get_transfer_suggestion — it latched onto "start of the season" as a
+# temporal-grounding cue rather than treating the ask as a recommendation.
+# _SYSTEM_PROMPT now explicitly steers "N {position} + value/calendar" phrasing
+# to get_transfer_suggestion and tells the model not to treat a season mention
+# as a get_gameweek_context trigger. These are content assertions only (no live
+# model call available in CI) — same style as the Q1 TOOL_OUTPUT_TRUST checks.
+
+from fpl_grounded_assistant.orchestrator import _SYSTEM_PROMPT as _SYSP_T
+
+ok("get_transfer_suggestion FIRST" in _SYSP_T,
+   "T1a: _SYSTEM_PROMPT directs value/calendar player asks to get_transfer_suggestion")
+ok("do not call\n" in _SYSP_T or "do not call" in _SYSP_T,
+   "T1b: _SYSTEM_PROMPT tells the model not to default to get_gameweek_context")
+ok("start of the season" in _SYSP_T,
+   "T1c: _SYSTEM_PROMPT names the exact failure phrase ('start of the season')")
+# Regression: prior Q1/S2 assertions on _SYSTEM_PROMPT content still hold
+# (checked above under those labels) — this section only adds new content,
+# it must not have removed the TOOL_OUTPUT_TRUST / GW_AWARENESS / WEB_FETCH_SOURCING lines.
+ok("TOOL_OUTPUT_TRUST" in _SYSP_T and "GW_AWARENESS" in _SYSP_T and "WEB_FETCH_SOURCING" in _SYSP_T,
+   "T2: pre-existing CONSTRAINTS lines (TOOL_OUTPUT_TRUST/GW_AWARENESS/WEB_FETCH_SOURCING) untouched")
+
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 
