@@ -588,6 +588,89 @@ Phase table (each phase = one or more PR-sized slices; "Trial-dep" = requires li
 - **DoD:** demo recorded; contract gate + validation corpus + `npm run build`/tests green. **Trial-dep:** none. **Pre-trial:** yes — completing FI-7 IS the trial-readiness bar.
 - **Status (2026-07-26):** slice **(a) complete — merged in PR #45** (approved head `7de77b2`): additive optional immutable `FinalResponse.evidence`, recursive adapter serialization, `AskResponse`/`SessionAskResponse` omit-when-None, `lib/types.ts` mirror, `http_contract_fixtures.json` evidence fixtures, FI-1 gate graduated from deferred. Slices **(b)–(e) not started**; **(b) is the next engineering task**. Carry-forward (F2): add a session-level end-to-end evidence test in slice (b) once an assembler can produce top-level evidence — the `session_ask` top-level path is an equivalent-mutant until then. **Not a slice:** PR #48 (`fix(ui): mirror player season points intent`, merged to main `03bac5697d087e1dba636ef8c4f534edc63d978a`) was a **post-merge cleanup associated with PR #47** — a one-file, two-line TypeScript intent-mirror parity fix, not an FI-7 roadmap slice.
 
+### FI-7b — detailed slice specification (source of truth for b1–b3)
+
+**Status:** planned; next engineering task. Supersedes the one-line FI-7(b) summary in the §15 FI-7 block for implementation detail. Delivered as three sequential, independently-reviewed sub-slices (b1 → b2 → b3), each its own draft PR.
+
+#### Verified module dependencies (confirmed merged on main)
+FI-7b exposes already-merged, fully-implemented FI-6 modules — no module work occurs in FI-7b:
+- **M1 `expected_minutes`** — FI-6a, PR #31 (implemented).
+- **M2 `tactical_role`** — FI-6b, PR #32 (implemented).
+- **M3 `fixture_context`** — FI-6c, PR #40 (implemented); this is the FI-6c `football-intelligence` `fixture_context` module, not the separate Track-D `fpl_grounded_assistant` fixture-context helper.
+
+#### Explicit exclusions
+- **M4 `opponent_disruption`** (FI-6d, PR #42) and **M5 `flank_matchup`** (FI-6e, PR #43) are merged as **skeletons** returning `not_implemented`. FI-7b exposes **no** tool for M4/M5. They gain tools only after their modules graduate under a future FI-6 slice.
+
+#### Master flag
+`FOOTBALL_INTELLIGENCE_ENABLED`, defined in `orch_config.py` mirroring the `FPL_ORCH_ENABLED` pattern (env constant, truthy parse helper, **default OFF**, value snapshotted into the harness debug/audit bundle beside `feature_flag_orch_enabled`). When OFF: the FI-7b tools are excluded from the offered LLM tool set, and no FI-6 module is imported on the request path. The flag governs all of b1–b3.
+
+#### Tool set, schemas, registry transition
+Four tools, schemas added to `tool_schema_registry.py`. Two distinct counts, not to be conflated:
+- **Static schema registry:** 29 → **33** in **b1** (the four schema definitions exist once registered), and remains 33 through b2–b3.
+- **Offered LLM tool set:** flag-gated — **29** when `FOOTBALL_INTELLIGENCE_ENABLED` is OFF (byte-identical to the pre-FI-7b offered set), **33** when ON.
+
+| Tool | Backing | Returns |
+|---|---|---|
+| `get_expected_minutes(player)` | M1 | minutes result dataclass + evidence |
+| `get_tactical_role(player)` | M2 | role result dataclass + evidence |
+| `get_fixture_context(team, fixture)` | FI-6c `football-intelligence` M3 `fixture_context` | fixture-context result dataclass + evidence, using resolved `team_id`, selected `fixture_id`, explicit UTC `calculated_at`, and a validated v2 build |
+| `get_player_intelligence(player)` | M1+M2+M3 composite | merged result + merged evidence (default investigation, Q8/Q9) |
+
+In **b2**, `get_player_intelligence(player)` resolves the player to the canonical `player_id` and `team_id`, selects the applicable fixture deterministically to obtain `fixture_id`, acquires the validated v2 build and explicit UTC `calculated_at`, and constructs the exact public M1/M2/M3 input types before invoking the modules. M3 does not consume `player_id`.
+
+Implementers must verify the live static pre-count is 29 before adding; if it differs, stop and reconcile rather than hardcoding. The documented orch3a token baselines are updated in **b2**.
+
+#### Evidence propagation and the ≤8 bound
+FI-7a already delivered the `FinalResponse.evidence` field and generic serialization (`Enum→.value`, tuple→array, omit-when-None at the HTTP boundary). Serialization exists; population does not yet exist. In **b2**, orchestrator-answered results from the four new FI-7b tools will populate `FinalResponse.evidence` through new bounded stateless assembly wiring. That wiring does not enrich any existing intent; existing-intent enrichment remains FI-7c. In **b3**, session-path integration will populate top-level and nested evidence as required for the end-to-end `/session/{id}/ask` test that retires F2.
+
+The **≤8-item evidence bound (brief §8.2 / Q6)** — deliberately *not* implemented in FI-7a — is owned **here**. It is deterministic selection/truncation, not a newly scored ranking model:
+1. The composite preserves module order: M1 `expected_minutes`, then M2 `tactical_role`, then M3 `fixture_context`.
+2. Within each module, preserve the evidence order emitted by that module.
+3. Deduplicate only exact duplicate `EvidenceItem`s using their fully serialized canonical value.
+4. Take the first eight remaining items.
+5. Do not use an LLM, relevance score, confidence guess, or nondeterministic ordering.
+6. Single-module tools apply the same exact deduplication and first-eight truncation while preserving their native emitted order.
+
+#### Cross-slice invariants (apply to b1, b2, and b3)
+1. **Additive only.** No change to deterministic recommendations, tiers, deltas, routing, classification, rendering of existing intents, or HTTP-contract semantics.
+2. **Flag-off byte-identity.** With `FOOTBALL_INTELLIGENCE_ENABLED` OFF, the full validation corpus and contract gate are byte-identical to pre-FI-7b main; no FI-6 import on the request path.
+3. **Honest degradation.** Tools surface each module's `missing_context` / `not_implemented` verbatim — never fabricated scores, defaults, or evidence.
+4. **No LLM-sourced evidence.** Evidence derives only from deterministic module output, consistent with the FI-6 grounding invariant.
+5. **Scope isolation.** No existing-intent evidence enrichment (FI-7c), no UI (FI-7d), no M4/M5, no new intent.
+6. **Registry vs. allowlist.** The static registry reaches exactly 33 in b1 and remains 33 through b2–b3. The flag controls whether the four FI-7b tools are included in the offered LLM tool set.
+
+#### Sub-slice boundaries
+- **b1 — flag + schemas + wiring (zero module risk).** Add the flag to `orch_config.py`; add the four tool schemas to `tool_schema_registry.py`; add placeholder handlers returning `not_implemented`; and gate the four tools into the orchestrator's offered allowlist only when the flag is ON. No FI-6 import. The static registry reaches 33, while the flag-OFF offered tool set remains byte-identical to the pre-FI-7b set of 29.
+- **b2 — real handlers + stateless evidence assembly.** Replace the four placeholder handlers with implementations that resolve the requested player through the existing football identity registry to canonical `player_id` and `team_id`; select the applicable fixture deterministically to obtain `fixture_id`; acquire the validated v2 build and explicit UTC `calculated_at` required by the FI-6 public APIs; construct the exact public M1, M2, and M3 input types; and call the unchanged M1/M2/M3 modules, returning result dataclasses and deterministic evidence. This is new FI-7b identity-resolution, fixture-selection, build-loading, and input-construction wiring, not FI-6 module implementation. The composite bundles M1+M2+M3 evidence in module/native order, performs exact serialized-value deduplication, and takes the first eight; single-module tools use the same native-order exact-deduplication and first-eight rule. Add bounded stateless orchestrator-answered assembly that copies evidence from only these four new tools into `FinalResponse.evidence`. Update the documented orch3a token baselines in this slice. Adds no schemas, renderers, session integration, existing-intent enrichment, UI, M4/M5, or FI-6 logic changes.
+- **b3 — renderers + session integration + F2 test.** Add tool-output text renderers for the orchestrator-answered path and session-path evidence assembly/integration as required; add the `/session/{id}/ask` end-to-end test asserting top-level and nested evidence and retiring F2 (below). No card/chip work.
+
+#### Cumulative acceptance criteria
+Every sub-slice must leave the tree green on **both** configurations:
+
+| Gate | Flag OFF | Flag ON (over mocks) |
+|---|---|---|
+| Full validation corpus | byte-identical to pre-FI-7b main | passes; tools offered & callable |
+| Contract gate (`run_contract_gate.sh`) | 16/0, unchanged | 16/0 |
+| Static schema registry | 33 valid schemas | 33 valid schemas |
+| Offered LLM tool set | 29, byte-identical | 33, including four FI tools |
+| Handler behavior | tools unreachable | four tools callable over mocks |
+| `npm run build` / Jest | green, unchanged | green |
+| FI-1 gate | 22/0 | 22/0 |
+
+Any deviation between the two configurations not explained by the flag is a blocker. After b1 the static-registry row is 33 under both flag states; the flag-OFF offered set stays 29.
+
+#### F2 retirement condition
+The FI-7a review left finding **F2** open: the `session_ask` top-level `evidence` path is an equivalent-mutant (structurally always `None`) until an assembler can produce top-level evidence. **b3 retires F2** by adding the required session-path evidence assembly/integration and a session-level end-to-end test asserting top-level **and** nested `evidence` serialization on `/session/{id}/ask` once `get_player_intelligence` populates it. F2 is considered closed only when that test exists and passes with the flag ON.
+
+#### Explicit non-goals (deferred to later FI-7 slices)
+- **FI-7c:** evidence enrichment of `captain_score` / `compare_players` / `transfer_advice` OK-turn assembly behind the master flag. FI-7b adds **no** evidence to any existing intent.
+- **FI-7d:** `EvidenceChip` / `EvidenceList` / `ConfidenceBadge` UI, card wiring, and `@minutes` / `@role` resources. FI-7b touches **no** `lib/types.ts` and no UI.
+- **FI-7e:** the recorded mock end-to-end demo.
+- Out entirely: `player_recommendation` intent (Q8, post-calibration), M4/M5 tools, any change to FI-6 module logic or deterministic scoring.
+
+#### Files touched (union across b1–b3)
+`orch_config.py` (flag); `tool_schema_registry.py` (4 schemas, static 29→33); a tools/handlers module (confirm existing home vs new); renderer module (tool-output text); `harness.py` / orchestrator allowlist wiring (flag-gated); bounded stateless `FinalResponse.evidence` assembly for the four new tools; session-path evidence assembly/integration; tests. **Not touched:** `final_response.py` field set (FI-7a already added `evidence`), `lib/types.ts`, any existing-intent assembly, FI-6 modules.
+
 ### FI-8 — Trial readiness gate
 - **Files new:** `sportmonks-client/scripts/trial_{auth,entities,fixtures,squads,lineups,injuries,stats,mapping}.py` (each: live call → raw snapshot → normalize → report; `--mock` mode for CI-less rehearsal); `TRIAL_STATUS.md` template; licensing checklist doc; go/no-go rubric doc (§14.4).
 - **DoD:** §14.1 checklist fully ticked. **Trial-dep:** none to build; exists to spend the trial well. **Pre-trial:** yes.
