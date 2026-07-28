@@ -100,7 +100,7 @@ which causes CI to fail immediately.
 | `run_phase_orch4e_tests.py` | 81 | Runtime orch_outcome semantics: field presence, always-None invariant with no client, override-ordering proof via `_apply_squad_overrides`, depth-bypass deferred invariant, contract doc/fixture parity |
 | `run_phase_orch4d_tests.py` | 17 | `_apply_squad_overrides` helper contract: budget/hit-warning/chip-unavailable firing rules, no-op when `squad_context=None` |
 | `run_phase_orch4c_tests.py` | 21 | orch_outcome field surface, always-None invariant with no client, depth-bypass, regression stack |
-| `run_phase_orch4a_tests.py` | 217 | Orchestration enable/disable: `FPL_ORCH_ENABLED` gates correctly, deterministic path unaffected, provider/model constants stable |
+| `run_phase_orch4a_tests.py` | 222 | Orchestration enable/disable: `FPL_ORCH_ENABLED` gates correctly, FI-7b1 static registry is 33, deterministic path unaffected, provider/model constants stable |
 | `run_phase_orch4b_tests.py` | 161 | orch_outcome serialization: values serialize consistently across CLI, HTTP, and session surfaces for all supported intents |
 | `run_phase_fi0b_tests.py` | 16 | FI-0(b) scaffold imports, required files, dependency-free requirements, and backend Docker COPY wiring |
 | `run_phase_fi1_tests.py` | 22 | FI-1 immutable evidence bounds, closed registries, provider-neutral import boundary, TypeScript field parity, and deferred FinalResponse exposure |

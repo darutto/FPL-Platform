@@ -272,6 +272,7 @@ from .team_fixture_calendar import (                  # Phase 2.6e
     DEFAULT_TOP_N   as TEAM_CALENDAR_DEFAULT_TOP_N,
 )
 from . import fixture_outlook_tool as fixture_outlook_tool  # Track D / FI2 — triggers TOOL_REGISTRY self-registration
+from . import football_intelligence_tools as football_intelligence_tools  # FI-7b1 shells
 from .router import (
     RouteResult,
     route,

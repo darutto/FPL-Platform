@@ -1021,10 +1021,87 @@ GET_PLAYER_ZONAL_OUTLOOK_SCHEMA = ToolSchema(
 
 
 # ---------------------------------------------------------------------------
+# FI-7b1 intelligence tool shells
+# ---------------------------------------------------------------------------
+
+GET_EXPECTED_MINUTES_SCHEMA = ToolSchema(
+    name="get_expected_minutes",
+    description=(
+        "Return governed expected-minutes intelligence for one player. "
+        "FI-7b1 exposes a non-operational shell only."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {"player": _PLAYER_QUERY_PROP},
+        "required": ["player"],
+        "additionalProperties": False,
+    },
+)
+
+GET_TACTICAL_ROLE_SCHEMA = ToolSchema(
+    name="get_tactical_role",
+    description=(
+        "Return governed tactical-role intelligence for one player. "
+        "FI-7b1 exposes a non-operational shell only."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {"player": _PLAYER_QUERY_PROP},
+        "required": ["player"],
+        "additionalProperties": False,
+    },
+)
+
+GET_FIXTURE_CONTEXT_SCHEMA = ToolSchema(
+    name="get_fixture_context",
+    description=(
+        "Return governed fixture context for a team and fixture. "
+        "FI-7b1 exposes a non-operational shell only."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "team": {
+                "type": ["string", "integer"],
+                "description": "Team name, short name, or canonical identifier.",
+            },
+            "fixture": {
+                "type": ["string", "integer"],
+                "description": "Fixture reference supplied by the caller.",
+            },
+        },
+        "required": ["team", "fixture"],
+        "additionalProperties": False,
+    },
+)
+
+GET_PLAYER_INTELLIGENCE_SCHEMA = ToolSchema(
+    name="get_player_intelligence",
+    description=(
+        "Return the governed M1, M2, and M3 intelligence bundle for one "
+        "player. FI-7b1 exposes a non-operational shell only."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {"player": _PLAYER_QUERY_PROP},
+        "required": ["player"],
+        "additionalProperties": False,
+    },
+)
+
+FI7B_TOOL_SCHEMAS: tuple[ToolSchema, ...] = (
+    GET_EXPECTED_MINUTES_SCHEMA,
+    GET_TACTICAL_ROLE_SCHEMA,
+    GET_FIXTURE_CONTEXT_SCHEMA,
+    GET_PLAYER_INTELLIGENCE_SCHEMA,
+)
+
+
+# ---------------------------------------------------------------------------
 # Registry construction
 # ---------------------------------------------------------------------------
 
-_ALL_SCHEMAS: tuple[ToolSchema, ...] = (
+_BASE_OFFERED_SCHEMAS: tuple[ToolSchema, ...] = (
     GET_CURRENT_GAMEWEEK_SCHEMA,
     GET_PLAYER_SUMMARY_SCHEMA,
     RESOLVE_PLAYER_SCHEMA,
@@ -1067,11 +1144,19 @@ _ALL_SCHEMAS: tuple[ToolSchema, ...] = (
     GET_PLAYER_ZONAL_OUTLOOK_SCHEMA,
 )
 
+_ALL_SCHEMAS: tuple[ToolSchema, ...] = (
+    *_BASE_OFFERED_SCHEMAS,
+    *FI7B_TOOL_SCHEMAS,
+)
+
 #: Immutable dict mapping tool name → ToolSchema.
 _REGISTRY: dict[str, ToolSchema] = {s.name: s for s in _ALL_SCHEMAS}
 
 #: Frozenset of all registered tool names.  Stable across imports.
 TOOL_NAMES: frozenset[str] = frozenset(_REGISTRY)
+
+#: Names of the four FI-7b tools controlled by the master offered-set flag.
+FI7B_TOOL_NAMES: frozenset[str] = frozenset(s.name for s in FI7B_TOOL_SCHEMAS)
 
 #: search_web is intentionally excluded from _ALL_SCHEMAS / TOOL_NAMES (it is
 #: premium-gated and opt-in per request — see SEARCH_WEB_SCHEMA docstring
@@ -1079,6 +1164,28 @@ TOOL_NAMES: frozenset[str] = frozenset(_REGISTRY)
 #: explicitly enables web search for the turn (orchestrator.py).
 _REGISTRY_WITH_SEARCH: dict[str, ToolSchema] = {**_REGISTRY, SEARCH_WEB_SCHEMA.name: SEARCH_WEB_SCHEMA}
 TOOL_NAMES_WITH_SEARCH: frozenset[str] = frozenset(_REGISTRY_WITH_SEARCH)
+
+
+def get_offered_tool_schemas(
+    football_intelligence_enabled: bool,
+) -> tuple[ToolSchema, ...]:
+    """Return the immutable LLM-offered schema set for one flag state."""
+    return _ALL_SCHEMAS if football_intelligence_enabled else _BASE_OFFERED_SCHEMAS
+
+
+def get_offered_tool_names(
+    football_intelligence_enabled: bool,
+    *,
+    web_search_enabled: bool = False,
+) -> frozenset[str]:
+    """Return names reachable through LLM tool dispatch for one request."""
+    names = frozenset(
+        schema.name
+        for schema in get_offered_tool_schemas(football_intelligence_enabled)
+    )
+    if web_search_enabled:
+        return names | {SEARCH_WEB_SCHEMA.name}
+    return names
 
 
 # ---------------------------------------------------------------------------

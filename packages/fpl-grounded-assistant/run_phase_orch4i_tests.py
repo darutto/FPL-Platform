@@ -98,7 +98,7 @@ RUNNER_EXPECTED_COUNTS: dict[str, int] = {
     "run_phase_orch4e_tests.py": 81,   # trimmed 2026-07-12 — see CONTRACT_GATE.md retirement note
     "run_phase_orch4d_tests.py": 17,   # trimmed 2026-07-12 — see CONTRACT_GATE.md retirement note
     "run_phase_orch4c_tests.py": 21,   # trimmed 2026-07-12 — see CONTRACT_GATE.md retirement note
-    "run_phase_orch4a_tests.py": 217,
+    "run_phase_orch4a_tests.py": 222,
     "run_phase_orch4b_tests.py": 161,
     "run_phase_fi0b_tests.py": 16,
     "run_phase_fi1_tests.py": 22,
