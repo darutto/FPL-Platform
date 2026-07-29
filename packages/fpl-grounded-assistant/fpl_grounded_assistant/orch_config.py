@@ -25,6 +25,11 @@ FPL_ORCH_PROVIDER
     When absent or empty, defaults to ``None`` (Anthropic-first auto-detect).
     Default: None (auto-detect).
 
+FOOTBALL_INTELLIGENCE_ENABLED
+    Uses the same truthy values as ``FPL_ORCH_ENABLED`` to offer the FI-7b
+    tool shells to the LLM.  Any other value (or absent) means OFF.
+    Default: OFF.
+
 Design notes
 ------------
 * ``is_orch_enabled()`` is called once per ``respond()`` invocation; it reads
@@ -56,6 +61,9 @@ ORCH_MAX_RETRIES_ENV: str = "FPL_ORCH_MAX_RETRIES"
 
 #: Environment variable for explicit model override (any provider).
 ORCH_MODEL_ENV: str = "FPL_ORCH_MODEL"
+
+#: Environment variable that offers FI-7b tools when set to a truthy value.
+FOOTBALL_INTELLIGENCE_ENABLED_ENV: str = "FOOTBALL_INTELLIGENCE_ENABLED"
 
 
 # ---------------------------------------------------------------------------
@@ -109,6 +117,16 @@ def is_orch_enabled() -> bool:
     True
     """
     return os.environ.get(ORCH_ENABLED_ENV, "").strip().lower() in _TRUTHY
+
+
+def is_football_intelligence_enabled() -> bool:
+    """Return whether the FI-7b tool surface is enabled for this request."""
+    return (
+        os.environ.get(FOOTBALL_INTELLIGENCE_ENABLED_ENV, "")
+        .strip()
+        .lower()
+        in _TRUTHY
+    )
 
 
 def get_orch_provider() -> str | None:

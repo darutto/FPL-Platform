@@ -165,6 +165,7 @@ ROUTING_TRACE_REQUIRED_KEYS: frozenset[str] = frozenset({
     "orchestrator_outcome",
     "grounded",
     "feature_flag_orch_enabled",
+    "feature_flag_football_intelligence_enabled",
 })
 
 ROUTING_TRACE_OPTIONAL_KEYS: frozenset[str] = frozenset({
@@ -525,6 +526,8 @@ def ask_v2(
           "orchestrator_outcome":    str | None,     # orchestrator OUTCOME_* constant, or None
           "grounded":                bool,           # True iff a deterministic tool ran end-to-end
           "feature_flag_orch_enabled": bool,         # snapshot of FPL_ORCH_ENABLED at call time
+          "feature_flag_football_intelligence_enabled": bool,
+                                                     # snapshot of FI master flag
         }
 
     Optional keys (present only on specific branches)::
@@ -633,7 +636,12 @@ def ask_v2(
     from fpl_tool_runner import run_tool as _run_tool
     from .renderer import render as _render
     from .dispatcher import _auto_candidates_from_bootstrap, OUTCOME_OK as _DISP_OUTCOME_OK, _TOOL_TO_INTENT
-    from .orch_config import is_orch_enabled, get_orch_provider, get_orch_model
+    from .orch_config import (
+        get_orch_model,
+        get_orch_provider,
+        is_football_intelligence_enabled,
+        is_orch_enabled,
+    )
     from . import telemetry as _telemetry
     # G1 commit 2: deferred to avoid circular import (dispatcher imports ask from harness)
     from .final_response import _extract_structured_meta
@@ -685,6 +693,7 @@ def ask_v2(
     outcome = decision["outcome"]
 
     _orch_enabled = is_orch_enabled()
+    _football_intelligence_enabled = is_football_intelligence_enabled()
 
     # M3 routing_trace — additive observability dict attached to every result.
     # Keys are stable; values are filled in per-branch below.
@@ -701,6 +710,7 @@ def ask_v2(
         "orchestrator_outcome":      None,
         "grounded":                  False,
         "feature_flag_orch_enabled": _orch_enabled,
+        "feature_flag_football_intelligence_enabled": _football_intelligence_enabled,
     }
 
     if outcome == OUTCOME_OK_RESOURCE and kind == "resource":

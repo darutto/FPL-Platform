@@ -89,7 +89,11 @@ from .llm_layer import (
     _CONTEXT_TRUNCATION_MARKER,
     _MAX_CONTEXT_CHARS,
 )
-from .orch_config import get_orch_max_retries, get_orch_timeout
+from .orch_config import (
+    get_orch_max_retries,
+    get_orch_timeout,
+    is_football_intelligence_enabled,
+)
 from .provider_client import (
     PERR_AUTH,
     PERR_NETWORK,
@@ -104,8 +108,8 @@ from .renderer import render
 from .tool_schema_registry import (
     _ALL_SCHEMAS,
     SEARCH_WEB_SCHEMA,
-    TOOL_NAMES,
-    TOOL_NAMES_WITH_SEARCH,
+    get_offered_tool_names,
+    get_offered_tool_schemas,
 )
 
 _LOG = logging.getLogger(__name__)
@@ -638,6 +642,7 @@ def _build_tools(
     provider: str | None,
     *,
     web_search_enabled: bool = False,
+    football_intelligence_enabled: bool | None = None,
 ) -> list[dict[str, Any]]:
     """Return a tool list in the appropriate wire format for *provider*.
 
@@ -658,7 +663,13 @@ def _build_tools(
     list[dict[str, Any]]
         Tool list ready to be passed to the LLM API's ``tools=`` parameter.
     """
-    schemas = (*_ALL_SCHEMAS, SEARCH_WEB_SCHEMA) if web_search_enabled else _ALL_SCHEMAS
+    fi_enabled = (
+        is_football_intelligence_enabled()
+        if football_intelligence_enabled is None
+        else football_intelligence_enabled
+    )
+    offered = get_offered_tool_schemas(fi_enabled)
+    schemas = (*offered, SEARCH_WEB_SCHEMA) if web_search_enabled else offered
     if provider == PROVIDER_OPENAI:
         return [s.to_openai() for s in schemas]
     if provider == PROVIDER_GEMINI:
@@ -996,7 +1007,7 @@ def _apply_evaluator(
     _max_retries: int,
     _orch_request_fn: Any,
     actual_bootstrap: dict[str, Any],
-    _valid_tool_names: frozenset[str] = TOOL_NAMES,
+    _valid_tool_names: frozenset[str] = get_offered_tool_names(False),
     # P1.e Lever 2: cached system blocks for Anthropic retry call
     _system_blocks: list[dict[str, Any]] | None = None,
     # F3: token counts from the primary (and optional multi-tool 2nd) call
@@ -1443,8 +1454,16 @@ def ask_orchestrated(
     # so the entire tools block is cached. OpenAI/DeepSeek: automatic.
     # Gemini: TODO (see _apply_tools_cache_control docstring).
     # ------------------------------------------------------------------
-    tools: list[dict[str, Any]] = _build_tools(provider, web_search_enabled=web_search_enabled)
-    _valid_tool_names: frozenset[str] = TOOL_NAMES_WITH_SEARCH if web_search_enabled else TOOL_NAMES
+    _fi_enabled = is_football_intelligence_enabled()
+    tools: list[dict[str, Any]] = _build_tools(
+        provider,
+        web_search_enabled=web_search_enabled,
+        football_intelligence_enabled=_fi_enabled,
+    )
+    _valid_tool_names = get_offered_tool_names(
+        _fi_enabled,
+        web_search_enabled=web_search_enabled,
+    )
     _provider_for_cache = provider if provider in _ALL_PROVIDERS else PROVIDER_ANTHROPIC
     if _provider_for_cache == PROVIDER_ANTHROPIC:
         tools = _apply_tools_cache_control(tools)

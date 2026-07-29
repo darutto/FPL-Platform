@@ -202,11 +202,25 @@ class TestRenderPlayerZonalOutlook:
 #: ONLY with a comment pointing at their card renderer.
 _KNOWN_INTENT_RENDERED: frozenset[str] = frozenset()
 
+# FI-7b1 shells return before rendering because their status is
+# ``not_implemented``.  FI-7b3 owns their text renderers.
+_KNOWN_NON_OPERATIONAL: frozenset[str] = frozenset({
+    "get_expected_minutes",
+    "get_tactical_role",
+    "get_fixture_context",
+    "get_player_intelligence",
+})
+
 
 class TestRendererCoverage:
     def test_every_schema_tool_has_a_renderer(self):
         schema_names = {s.name for s in tool_schema_registry._ALL_SCHEMAS}
-        missing = schema_names - set(_RENDERERS) - _KNOWN_INTENT_RENDERED
+        missing = (
+            schema_names
+            - set(_RENDERERS)
+            - _KNOWN_INTENT_RENDERED
+            - _KNOWN_NON_OPERATIONAL
+        )
         assert not missing, (
             f"Tools in _ALL_SCHEMAS without a text renderer: {sorted(missing)}. "
             f"Register them in renderer._RENDERERS (or document them in "
