@@ -671,6 +671,249 @@ The FI-7a review left finding **F2** open: the `session_ask` top-level `evidence
 #### Files touched (union across b1–b3)
 `orch_config.py` (flag); `tool_schema_registry.py` (4 schemas, static 29→33); a tools/handlers module (confirm existing home vs new); renderer module (tool-output text); `harness.py` / orchestrator allowlist wiring (flag-gated); bounded stateless `FinalResponse.evidence` assembly for the four new tools; session-path evidence assembly/integration; tests. **Not touched:** `final_response.py` field set (FI-7a already added `evidence`), `lib/types.ts`, any existing-intent assembly, FI-6 modules.
 
+### FI-7b2 — deterministic Football Intelligence runtime integration
+
+**Status:** specification draft; documentation only. No implementation is
+authorized by this subsection. FI-7b1 remains the merged flag/schema/shell
+baseline, and FI-7b3 remains deferred.
+
+#### Runtime responsibilities and ownership
+
+FI-7b2 owns only the stateless adapter between the four FI-7b1 tool shells and
+the already-merged FI-6 M1–M3 APIs. Its responsibilities are:
+
+1. resolve a tool argument through the existing FPL query resolver, then map
+   the resolved FPL provider identity through the owned
+   `football-identity-registry` crosswalks;
+2. resolve the canonical player and team IDs without minting, guessing, fuzzy
+   matching, or modifying identity data;
+3. select or validate one canonical target fixture under the deterministic
+   rule below;
+4. acquire one validated `module-enablement-features-v2` build and its exact
+   validated canonical-v1 and `canonical-context-v2` source bindings;
+5. capture or receive one explicit UTC `calculated_at` for the tool invocation
+   and pass that same value to every invoked module;
+6. construct the existing frozen M1, M2, and M3 input dataclasses through their
+   public v2 loaders;
+7. evaluate M1, M2, and M3 in the fixed order M1 → M2 → M3 when the composite
+   tool requests all three;
+8. serialize module results without changing their statuses, reasons, model
+   versions, confidence, or evidence; and
+9. assemble bounded evidence under the native-order, exact-deduplication,
+   first-eight rule already governed by the FI-7b source-of-truth section.
+
+FI-7b2 does not own identity matching policy, canonical-ID generation, feature
+calculation, module formulas, feature-build publication, pointer mutation,
+rendering, or recommendation logic. It delegates those responsibilities to the
+existing resolver, `football-identity-registry`, FI-5b v2 validation, and FI-6
+module contracts respectively.
+
+#### Deterministic fixture selection
+
+The governing sources are:
+
+- `football_intelligence.ingestion.context_v2.select_schedule`, which selects
+  independently per fixture the latest schedule snapshot whose
+  `observed_at_utc` is strictly before the supplied cutoff;
+- `football_intelligence.features.engine_v2`, which treats a next fixture as
+  eligible only when its governed status is exactly `scheduled` and its kickoff
+  is strictly after the cutoff; and
+- `FEATURE_CONTRACT.md`, which makes `fixture_id` the deterministic secondary
+  ordering key for same-kickoff fixtures.
+
+FI-7b2 therefore pins this player-tool target-selection algorithm:
+
+1. Use the invocation's explicit UTC `calculated_at` as the selection cutoff.
+2. Validate the selected feature build and both source bindings before using
+   any row. Corrupt, contradictory, unsupported, or unversioned artifacts fail
+   with their existing typed validation/unsupported-contract error and are
+   never treated as missing context.
+3. From the validated `canonical-context-v2` source, select the latest schedule
+   snapshot for each fixture with `observed_at_utc < calculated_at`, exactly as
+   `select_schedule` does.
+4. Join those schedule facts to validated canonical fixtures involving the
+   resolved canonical `team_id`.
+5. Retain only fixtures whose selected status is exactly `scheduled` and whose
+   `scheduled_kickoff_utc` is strictly greater than `calculated_at`.
+6. Retain only fixtures represented as target rows for that team in the
+   selected validated FI-5b v2 build. This prevents the runtime from evaluating
+   a fixture outside the immutable build it has loaded.
+7. Sort candidates by `(scheduled_kickoff_utc, fixture_id)` ascending and select
+   the first.
+
+The boundary cases are fixed:
+
+| Case | Required result |
+|---|---|
+| Multiple future fixtures | Earliest kickoff wins; canonical `fixture_id` breaks an exact-kickoff tie. |
+| Postponed fixture | Excluded because its selected status is not `scheduled`; it may become eligible only through a later as-known `scheduled` snapshot in a later validated build/invocation. |
+| Completed fixture | Excluded. |
+| Live fixture | Excluded. |
+| Kickoff equal to `calculated_at` | Excluded by the strict-future boundary. |
+| Missing kickoff | Invalid canonical/context artifact; typed validation failure, never sorting fallback. |
+| Duplicate fixture ID or duplicate target key | Invalid validated artifact; typed validation failure, never first-row-wins. |
+| Missing/empty fixture ID | Invalid canonical/context artifact; typed validation failure. |
+| No eligible fixture | Deterministic `missing_context`; no module is invoked. |
+
+`player_fixture_run.py` and `get_team_snapshot.py` are not authoritative for
+this selection. Their gameweek-oriented FPL display helpers neither consume the
+validated canonical v2 schedule nor govern status/as-known semantics.
+
+For `get_fixture_context(team, fixture)`, the caller supplies a fixture
+reference. FI-7b2 resolves that reference through the existing identity
+crosswalk, verifies that the resolved canonical team participates in the
+resolved canonical fixture, and requires the exact `(fixture_id, team_id)`
+target row in the validated v2 build. It does not silently replace an explicit
+fixture with the next fixture.
+
+#### Identity lifecycle
+
+The player-tool input is the existing FI-7b1 `player` argument. FI-7b2 first
+delegates query parsing and unique FPL element resolution to the existing FPL
+resolver. `not_found` and `ambiguous` remain deterministic terminal tool
+results; FI-7b2 must not choose among ambiguous candidates.
+
+For a unique FPL element, FI-7b2 uses the active FPL-provider row in the owned
+identity store to obtain `canonical_player_id`, and the active FPL team
+crosswalk to obtain `canonical_team_id`. Exactly one active mapping must exist
+for each resolved provider identity. No mapping yields `missing_context`;
+multiple active mappings, invalid validity intervals, an unknown provider, or
+a player/team mapping contradiction is a typed identity-validation failure.
+The FPL nominal position and availability inputs remain explicit,
+versioned evaluator inputs sourced from the resolved FPL element; they do not
+become FI-5 features.
+
+The identity registry owns matching tiers, overrides, canonical ID generation,
+validity history, and ambiguity policy. FI-7b2 owns only the read-only runtime
+adapter that composes the existing FPL resolver with validated active
+crosswalks. It performs no crosswalk writes and never creates an identity.
+`football-identity-registry/README.md` currently states that the package has no
+runtime consumer; FI-7b2 is the first authorized consumer, not evidence that a
+runtime adapter already exists.
+
+Team-only fixture-context input follows the same lifecycle through the existing
+exact FPL team data and active team crosswalk. The repository does not govern a
+new fuzzy team/fixture resolver. A canonical ID may be used directly; otherwise
+the reference must identify exactly one active provider row (an exact governed
+team name/provider ID for a team, or provider fixture ID for a fixture).
+The explicit fixture reference is resolved through the governed fixture
+crosswalk. An unresolved or ambiguous team/fixture reference is deterministic
+`not_found`/`ambiguous`; absent governed crosswalk context is
+`missing_context`.
+
+#### Build loading and module invocation
+
+One tool invocation uses one immutable feature build, its bound validated
+canonical sources, and one `calculated_at`. The handler resolves the configured
+local runtime handle once, resolves the v2 pointer once if a pointer is the
+configured entry point, and validates the resulting build before module
+loading. It must not fall back to FI-5 v1 or an unversioned feature root.
+
+Loading and evaluation order is fixed:
+
+| Tool | Load/evaluate order |
+|---|---|
+| `get_expected_minutes` | Load M1 input (including governed M3 congestion columns used by M1), then evaluate M1. |
+| `get_tactical_role` | Load M2 input, then evaluate M2. |
+| `get_fixture_context` | Load M3 input, then evaluate M3. |
+| `get_player_intelligence` | Load/evaluate M1, then M2, then M3 against the same build, bindings, fixture, team, player where applicable, and `calculated_at`. |
+
+Lazy import/loading is permitted only after
+`FOOTBALL_INTELLIGENCE_ENABLED` is ON and the tool has been selected. It must
+not change results or ordering, and the OFF path must retain the FI-7b1
+no-FI-6-import guarantee. There are no retries, remote reads, pointer refreshes,
+fallback builds, or wall-clock reads inside the adapter or modules. A caller
+may retry a whole request as a new invocation, but FI-7b2 itself evaluates each
+module at most once.
+
+Absent build, manifest, or exact governed row degrades only as already allowed
+by the relevant FI-6 loader. Unsupported families/versions raise
+`UnsupportedFeatureContractError`; malformed, contradictory, non-finite, or
+corrupt supported-v2 input raises `FeatureV2ValidationError` (or the existing
+typed identity validation error before module loading). FI-7b2 must not catch
+those failures and relabel them `missing_context`.
+
+#### Aggregation and partial-module contract
+
+Single-module tools return the serialized frozen result of their backing
+module, including its native `status`, reason codes, confidence, model/build
+versions, identifiers, and bounded evidence. `missing_context` remains an
+honest module result and is not replaced with defaults.
+
+The composite returns an ordered module mapping with keys
+`expected_minutes`, `tactical_role`, and `fixture_context` in that order. Every
+successfully evaluated module result is present, including a native
+`missing_context` result. Composite status is derived without prediction:
+
+- `ok` when all three module statuses are `ok`;
+- `partial` when at least one is `ok` and at least one is
+  `missing_context`; and
+- `missing_context` when none is `ok`.
+
+The composite records each native module status and reason codes so the
+top-level status never hides which context is absent. Its evidence is assembled
+M1 then M2 then M3, preserving native order, removing only fully serialized
+exact duplicates, and taking the first eight.
+
+A native `missing_context` result does not prevent later modules from being
+evaluated. For example, M1 `ok`, M2 `missing_context`, and M3
+`missing_context` produces composite `partial` with the M1 result/evidence and
+both missing-context results/reasons intact. M1 `missing_context`, M2 `ok`, and
+M3 `ok` is likewise `partial`.
+
+Typed identity, fixture, unsupported-contract, or validation failures are
+request-level failures because they invalidate the shared identity/build
+premise. They abort the invocation deterministically; the composite must not
+return a misleading partial bundle from modules evaluated before the failure.
+Unexpected exceptions also fail the tool through the existing tool-runner
+error boundary and do not trigger fallback values, retries, an LLM-generated
+answer, or partial evidence.
+
+For identical validated identity/build inputs, explicit tool arguments, and
+explicit `calculated_at`, serialization is byte-stable: fixed module order,
+fixed mapping order, immutable tuples, canonical enum values, exact evidence
+deduplication, and no process-global accumulation.
+
+#### Per-tool contract
+
+| Tool | Inputs and resolution | Output | Deterministic failures |
+|---|---|---|---|
+| `get_expected_minutes` | FI-7b1 `player`; resolve canonical player/team, select target fixture, load M1 with explicit availability and `calculated_at`. | Serialized `ExpectedMinutesResult` plus native bounded evidence. | `not_found`/`ambiguous`, identity/build validation error, or native M1 `missing_context`. |
+| `get_tactical_role` | FI-7b1 `player`; resolve canonical player/team and nominal FPL position, select target fixture, load M2. | Serialized `TacticalRoleResult` plus native bounded evidence. | `not_found`/`ambiguous`, identity/build validation error, or native M2 `missing_context`. |
+| `get_fixture_context` | FI-7b1 `team` and `fixture`; resolve both canonical identities, verify participation, load exact M3 row. | Serialized `FixtureContextResult` plus native bounded evidence. | `not_found`/`ambiguous`, team-fixture mismatch, identity/build validation error, or native M3 `missing_context`. |
+| `get_player_intelligence` | FI-7b1 `player`; one canonical identity, one selected fixture, one validated build/binding set, one `calculated_at`; invoke M1→M2→M3. | Ordered three-module bundle, derived composite status, native reasons, and merged evidence capped at eight. | Shared identity/fixture/build failures abort; native module `missing_context` values aggregate under the partial-module rules above. |
+
+No tool calls M4 or M5. No tool selects an opponent, ranks a player, changes a
+recommendation, or describes module confidence as predictive certainty.
+
+#### Explicit FI-7b2 non-goals
+
+FI-7b2 does not implement or change:
+
+- text/card renderers or FI-7b3 session integration;
+- UI, TypeScript response types, evidence chips, or evidence formatting;
+- evidence for existing intents;
+- recommendation generation or ranking;
+- M1–M5 formulas, FI-5 features, schemas, registries, manifests, or pointers;
+- new intelligence modules, M4/M5 tools, or b3 behavior;
+- network/provider calls, remote refresh, persistence, or intelligence builds;
+- tool schemas, the 33-entry static registry, the 29/33 offered-set gate, or
+  the default-OFF master flag.
+
+#### FI-7b2 acceptance matrix
+
+| Area | Required acceptance |
+|---|---|
+| Fixture selection | Latest as-known facts strictly before `calculated_at`; only strict-future `scheduled` targets; `(kickoff, fixture_id)` order; explicit tests for multiple, same-time, postponed, live, completed, missing kickoff/ID, duplicate ID/key, and no candidate. |
+| Deterministic identity | Existing resolver + active owned crosswalks only; unique player/team/fixture mappings; ambiguity never guessed; no writes or ID minting. |
+| Build loading | One validated FI-5b v2 build and exact source bindings per invocation; no v1/unversioned fallback, retries, remote reads, or pointer mutation. |
+| Module invocation | M1/M2/M3 use existing public loaders/evaluators and one shared `calculated_at`; composite order is M1→M2→M3; each module evaluated at most once. |
+| Partial results | All combinations of `ok`/`missing_context` pin composite status, native result retention, native reason retention, and evidence order; typed corruption/unsupported/identity failures abort rather than degrade. |
+| Reproducibility | Reversed source-row order, repeated evaluation, lazy-vs-eager import, and fresh-process replay produce identical selected fixture, results, reasons, evidence, and serialization. |
+| Flag behavior | OFF retains 29 offered tools and no FI-6 request-path imports; ON retains 33 static/offered tools and enables only the four governed handlers. |
+| Runtime isolation | No wall clock inside modules/adapter, network/provider import, LLM fallback, mutable global cache, session state, renderer, UI, recommendation, M4/M5, FI-5 behavior, or persisted intelligence. |
+| Regression | Focused FI-7b2 tests, FI-6 M1/M2/M3 suites, FI-7b1 flag/registry tests, full grounded-assistant suite, football-intelligence suite, contract gate, Jest, and production build preserve their governed baselines. |
+
 ### FI-8 — Trial readiness gate
 - **Files new:** `sportmonks-client/scripts/trial_{auth,entities,fixtures,squads,lineups,injuries,stats,mapping}.py` (each: live call → raw snapshot → normalize → report; `--mock` mode for CI-less rehearsal); `TRIAL_STATUS.md` template; licensing checklist doc; go/no-go rubric doc (§14.4).
 - **DoD:** §14.1 checklist fully ticked. **Trial-dep:** none to build; exists to spend the trial well. **Pre-trial:** yes.
