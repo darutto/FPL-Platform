@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import sys
+import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -12,7 +14,7 @@ from fpl_grounded_assistant.orch_config import (
     is_football_intelligence_enabled,
 )
 from fpl_grounded_assistant.orchestrator import (
-    OUTCOME_TOOL_RESULT_ERROR,
+    OUTCOME_OK,
     OUTCOME_UNKNOWN_TOOL,
     _build_tools,
     ask_orchestrated,
@@ -142,18 +144,29 @@ def test_flag_defaults_false_and_rejects_other_forms(
         ("get_player_intelligence", {"player": "Saka"}),
     ],
 )
-def test_all_shell_handlers_are_registered_and_honestly_not_implemented(
+def test_all_handlers_are_registered_and_dispatch_to_runtime(
+    monkeypatch: pytest.MonkeyPatch,
     name: str,
     args: dict[str, object],
 ) -> None:
+    calls: list[tuple[str, dict[str, object]]] = []
+
+    def execute(
+        tool_name: str,
+        tool_args: dict[str, object],
+        bootstrap: dict[str, object],
+    ) -> dict[str, object]:
+        del bootstrap
+        calls.append((tool_name, tool_args))
+        return {"status": "ok", "fixture_id": "fixture_test"}
+
+    monkeypatch.setattr(
+        "fpl_grounded_assistant.football_intelligence_runtime.run_football_intelligence_tool",
+        execute,
+    )
     result = run_tool(name, args, {})
-    assert result == {
-        "status": "not_implemented",
-        "reason_codes": ["not_implemented"],
-        "message": "Football intelligence tool implementation is deferred to FI-7b2.",
-    }
-    assert "confidence" not in result
-    assert "evidence" not in result
+    assert result == {"status": "ok", "fixture_id": "fixture_test"}
+    assert calls == [(name, args)]
 
 
 @pytest.mark.parametrize(
@@ -170,6 +183,13 @@ def test_llm_dispatch_is_unreachable_off_and_callable_on(
     name: str,
     args: dict[str, object],
 ) -> None:
+    monkeypatch.setattr(
+        "fpl_grounded_assistant.football_intelligence_runtime.run_football_intelligence_tool",
+        lambda tool_name, tool_args, bootstrap: {
+            "status": "ok",
+            "tool": tool_name,
+        },
+    )
     monkeypatch.delenv(FOOTBALL_INTELLIGENCE_ENABLED_ENV, raising=False)
     off = ask_orchestrated("question", {}, client=_AnthropicToolClient(name, args))
     assert off.outcome == OUTCOME_UNKNOWN_TOOL
@@ -177,10 +197,8 @@ def test_llm_dispatch_is_unreachable_off_and_callable_on(
 
     monkeypatch.setenv(FOOTBALL_INTELLIGENCE_ENABLED_ENV, "1")
     on = ask_orchestrated("question", {}, client=_AnthropicToolClient(name, args))
-    assert on.outcome == OUTCOME_TOOL_RESULT_ERROR
-    assert on.tool_output["status"] == "not_implemented"
-    assert "confidence" not in on.tool_output
-    assert "evidence" not in on.tool_output
+    assert on.outcome == OUTCOME_OK
+    assert on.tool_output == {"status": "ok", "tool": name}
 
 
 def test_routing_audit_snapshots_master_flag(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -194,11 +212,31 @@ def test_routing_audit_snapshots_master_flag(monkeypatch: pytest.MonkeyPatch) ->
 
 
 def test_shell_path_imports_no_fi6_modules() -> None:
-    assert not (set(sys.modules) & FORBIDDEN_MODULES)
-    before = set(sys.modules)
-    result = run_tool("get_player_intelligence", {"player": "Saka"}, {})
-    newly_imported = set(sys.modules) - before
-
-    assert result["status"] == "not_implemented"
-    assert not (newly_imported & FORBIDDEN_MODULES)
-    assert not (set(sys.modules) & FORBIDDEN_MODULES)
+    code = """
+import json
+import sys
+sys.path.insert(0, "packages/fpl-captain-engine")
+import python
+from fpl_grounded_assistant.orchestrator import _build_tools
+before = set(sys.modules)
+tools = _build_tools(False)
+after = set(sys.modules)
+forbidden = {
+    "football_intelligence.modules.expected_minutes",
+    "football_intelligence.modules.tactical_role",
+    "football_intelligence.modules.fixture_context",
+}
+assert len(tools) == 29
+assert not (after & forbidden)
+assert not ((after - before) & forbidden)
+print(json.dumps({"tools": len(tools)}))
+"""
+    completed = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=Path(__file__).resolve().parents[3],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stdout.strip() == '{"tools": 29}'
