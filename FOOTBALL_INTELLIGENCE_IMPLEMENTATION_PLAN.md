@@ -407,7 +407,7 @@ All modules: pure functions over canonical/feature frames + FPL bootstrap; retur
 3. **The LLM may select modules only by choosing tools/args** from the allowlist; module internals are invisible to it. The evaluator's GROUNDED axis applies unchanged.
 4. **Existing intents receiving evidence first (Q7):** `captain_score`, `compare_players`, `transfer_advice` — FI-7c enriches their OK-turn assembly, behind the master flag, by reusing the governed `get_player_intelligence` M1 → M2 → M3 composite and its already-bounded evidence. This supersedes this section's earlier M1/M3-only phrasing; FI-7c must not filter M2 or reconstruct/re-bound an M1/M3 subset. Deterministic recommendations (tiers, deltas, recommendations) are **not** changed by evidence in this plan — evidence explains; a later approved phase may let it score (that phase would define weighting profiles per brief §8).
 5. **Scoring strategy (brief §8):** no universal score. Module scores are Layer-2-adjacent component scores; the only sanctioned coupling in this plan is `minutes_risk_v2` → Layer 2 minutes component behind its flag (§9.1-M1). Intent-specific weighting profiles are designed (constants + version string per profile) but **not applied** to recommendations until FI-10 backtesting exists.
-6. `@resource` surface: add `@minutes <player>`, `@role <player>` resource entries in `resource_registry` (deterministic, quota-free) in FI-7 — cheap parity with the resource browse model.
+6. **`@resource` surface:** `@minutes <player>` and `@role <player>` entries in `resource_registry` are deterministic and quota-free, but are deferred out of FI-7d and FI-7e to the separately reviewed **FI-7f — resource-surface parity** slice. They require registry/runtime scope that the FI-7d UI-only boundary excludes, and no authoritative resource contract exists yet.
 
 Session path (`respond()`) is untouched except that `get_player_intelligence` is reachable through it like any registered tool.
 
@@ -581,12 +581,12 @@ Phase table (each phase = one or more PR-sized slices; "Trial-dep" = requires li
 - **DoD:** M1–M3 produce pinned evidence on golden fixtures; M4/M5 return `not_implemented` cleanly. **Trial-dep:** M4 graduation; M2 grid-semantics confirmation. **Pre-trial:** yes (mocks).
 
 ### FI-7 — Response and UI integration
-- **Slices:** (a) `FinalResponse.evidence` + serialization + `http_contract_fixtures.json` additions + CLI debug; (b) tools `get_player_intelligence`, `get_expected_minutes`, `get_tactical_role`, `get_fixture_context` + schemas + renderers (registry 29→33; adjust documented orch3a token baselines); (c) evidence enrichment of `captain_score`/`compare_players`/`transfer_advice` OK turns behind master flag; (d) UI `EvidenceChip/EvidenceList/ConfidenceBadge` + card wiring + `@minutes`/`@role` resources; (e) end-to-end mock demo script + recording.
+- **Slices:** (a) `FinalResponse.evidence` + serialization + `http_contract_fixtures.json` additions + CLI debug; (b) tools `get_player_intelligence`, `get_expected_minutes`, `get_tactical_role`, `get_fixture_context` + schemas + renderers (registry 29→33; adjust documented orch3a token baselines); (c) evidence enrichment of `captain_score`/`compare_players`/`transfer_advice` OK turns behind master flag; (d) UI `EvidenceChip/EvidenceList/ConfidenceBadge` + card wiring only; (e) end-to-end mock demo script + recording only; (f) separately reviewed deterministic, quota-free `@minutes`/`@role` `resource_registry` parity.
 - **Existing files touched:** `final_response.py`, `harness_adapter.py`, `tool_schema_registry.py`, renderer module, `resource_registry.py`, `fpl_server.py` (serialization only), `IntentRenderer.tsx`, three cards, `lib/types.ts`.
 - **Compatibility:** all additive; flags-off sweep of the full validation corpus is the slice-(c) gate.
 - **Tests:** contract additivity; renderer snapshots with/without evidence; tool schema validation; Jest card tests.
 - **DoD:** demo recorded; contract gate + validation corpus + `npm run build`/tests green. **Trial-dep:** none. **Pre-trial:** yes — completing FI-7 IS the trial-readiness bar.
-- **Status (2026-08-01):** slices **(a) and (b) complete**. FI-7a merged in PR #45. FI-7b1/b2/b3 merged in PRs #51/#53/#55; b3 closed F2 through deterministic FI rendering plus real single- and multi-intent session evidence propagation. **FI-7c documentation is the active slice; implementation has not started.** FI-7d/FI-7e remain unstarted. **Not a slice:** PR #48 (`fix(ui): mirror player season points intent`, merged to main `03bac5697d087e1dba636ef8c4f534edc63d978a`) was a **post-merge cleanup associated with PR #47** — a one-file, two-line TypeScript intent-mirror parity fix, not an FI-7 roadmap slice.
+- **Status (2026-08-01):** slices **(a), (b), and (c) complete**. FI-7a merged in PR #45. FI-7b1/b2/b3 merged in PRs #51/#53/#55; b3 closed F2 through deterministic FI rendering plus real single- and multi-intent session evidence propagation. FI-7c merged in PR #57 at `49435bd004d4314567bb934e8f353db92d43130d`. **FI-7d documentation is the active slice; implementation has not started.** FI-7e remains demo-only and unstarted. FI-7f resource-surface parity is deferred and unstarted pending its own documentation and independent review. **Not a slice:** PR #48 (`fix(ui): mirror player season points intent`, merged to main `03bac5697d087e1dba636ef8c4f534edc63d978a`) was a **post-merge cleanup associated with PR #47** — a one-file, two-line TypeScript intent-mirror parity fix, not an FI-7 roadmap slice.
 
 ### FI-7b — detailed slice specification (source of truth for b1–b3)
 
@@ -664,8 +664,9 @@ The FI-7a review left finding **F2** open: the `session_ask` top-level `evidence
 
 #### Explicit non-goals (deferred to later FI-7 slices)
 - **FI-7c:** evidence enrichment of `captain_score` / `compare_players` / `transfer_advice` OK-turn assembly behind the master flag. FI-7b adds **no** evidence to any existing intent.
-- **FI-7d:** `EvidenceChip` / `EvidenceList` / `ConfidenceBadge` UI, card wiring, and `@minutes` / `@role` resources. FI-7b touches **no** `lib/types.ts` and no UI.
-- **FI-7e:** the recorded mock end-to-end demo.
+- **FI-7d:** `EvidenceChip` / `EvidenceList` / `ConfidenceBadge` UI and card wiring only. `@minutes` / `@role` resources are not part of FI-7d; they are deferred to FI-7f resource-surface parity. FI-7b touches **no** `lib/types.ts` and no UI.
+- **FI-7e:** the recorded mock end-to-end demo only.
+- **FI-7f:** deterministic, quota-free `@minutes` / `@role` `resource_registry` parity, deferred pending its own documentation and independent review.
 - Out entirely: `player_recommendation` intent (Q8, post-calibration), M4/M5 tools, any change to FI-6 module logic or deterministic scoring.
 
 #### Files touched (union across b1–b3)
@@ -1111,8 +1112,8 @@ to carry evidence at both parent and nested levels.
 #### Explicit FI-7b3 non-goals
 
 FI-7b3 does not implement FI-7c existing-intent evidence enrichment; FI-7d
-`EvidenceChip`, `EvidenceList`, `ConfidenceBadge`, cards, resources, or other UI;
-FI-7e demo recording; new tool schemas/names; new runtime adapters or module
+`EvidenceChip`, `EvidenceList`, `ConfidenceBadge`, cards, or other UI; FI-7e
+demo recording; FI-7f `@minutes` / `@role` resources; new tool schemas/names; new runtime adapters or module
 calls; new build loading, fixture selection, or identity behavior; evidence
 ranking; recommendations or `player_recommendation`; M4/M5 tools; formula or
 confidence changes; HTTP field changes; TypeScript changes; session persistence
@@ -1161,9 +1162,9 @@ authorize their correction.
 
 ### FI-7c — deterministic evidence enrichment of existing intents
 
-**Status:** specification draft; documentation only. FI-7b3 is merged and
-closed. FI-7c implementation is not authorized by this subsection. FI-7d and
-FI-7e remain separate and unstarted.
+**Status:** complete — merged in PR #57 at merge commit
+`49435bd004d4314567bb934e8f353db92d43130d`. FI-7d documentation is active;
+FI-7d implementation and FI-7e remain unstarted.
 
 #### Purpose, ownership, and invariants
 
@@ -1416,6 +1417,265 @@ evidence, FI-7d, FI-7e, or the separately tracked double-`ask_v2` correction.
 The dormant M3 findings, three accepted router extraction failures, owned-store
 fallback failure, and atomic-tool-ranking work remain untouched.
 
+### FI-7d — governed evidence presentation in the existing UI
+
+**Status:** documentation active; implementation not started. FI-7c is complete
+and merged in PR #57. This subsection authorizes no TypeScript, component,
+runtime, test, asset, or generated-file change. FI-7e remains demo-only and
+unstarted; FI-7f resource-surface parity remains deferred and unstarted.
+
+#### Purpose, repository facts, and ownership
+
+FI-7d is a presentation-only consumer of the optional `evidence` already
+carried by `AskResponse` and recursively by each `sub_responses` entry. The
+current frontend is a Next.js 15 / React 19 / TypeScript application under
+`packages/fpl-ui`. Both stateless `ask()` and session `sessionAsk()` return the
+same `AskResponse` shape. `ChatShell` stores that response on the assistant
+message; `MessageList` renders either an intent card through `IntentRenderer`
+or a text bubble; `MultiIntentView` renders each child in its own bounded
+sub-card. Replayed controlled responses traverse those same component seams.
+
+The Python `football-data-contract` remains authoritative. Its existing
+TypeScript mirror in `lib/evidence.ts` defines a closed `EvidenceItem` with
+`code`, `label`, `subject_type`, `subject_id`, nullable `fixture_id`, `impact`,
+`direction`, `confidence`, `basis`, `summary`, `source_features`,
+`model_version`, and `calculated_at`. Confidence exists per evidence item only,
+in the inclusive domain `[0.0, 1.0]`; there is no response-level or module-level
+confidence on the UI response contract. An evidence item has no module,
+status, reason, or `missing_context` field.
+
+Backend ownership is final: M1 → M2 → M3 order, exact serialized duplicate
+removal, first-occurrence retention, and the maximum-eight bound happen before
+the response reaches React. FI-7d must not construct, infer, fetch, translate
+semantics, reorder, deduplicate, filter valid items, or truncate evidence. It
+must not reuse the FI-7b3 text renderer or append duplicate FI prose. Existing
+recommendation text and cards remain their current owners.
+
+#### Exact UI surfaces and response ownership
+
+Evidence presentation is ownership-based, not intent-detection-based. A
+successful non-parent response renders one `EvidenceList` whenever it owns a
+non-empty array containing at least one structurally valid item:
+
+| Surface | Required placement and behavior |
+|---|---|
+| Stateless text response | Inside the assistant bubble, immediately after `final_text`. This includes FI-native text-only results and any future response that legitimately owns evidence. |
+| Stateless structured response | In the same assistant message block, immediately after the bespoke/generic intent card and before share/origin/follow-up controls. Captain, comparison, and transfer cards are not modified internally. |
+| Single-intent session response | The identical top-level placement because `sessionAsk()` is structurally the same `AskResponse` renderer input. |
+| Multi-intent response | The parent never renders evidence, even if an invalid upstream payload supplies it. Each eligible child renders its own list inside its existing `MultiIntentView` sub-card, after the child's text and structured child view. |
+| Replayed response | The same response-local placement and byte-equivalent field mapping; replay performs no FI call and creates no UI state derived from time. |
+| Mobile and desktop | The same content and order. Layout adapts only through existing responsive utilities; neither viewport changes evidence selection. |
+
+Non-eligible children remain visually unchanged. Child order remains the wire
+order. Lists are never merged across children, and identical serialized items
+in different children remain independently visible because response ownership
+differs. Share-image/export rendering is unchanged in FI-7d and is not a new
+evidence surface.
+
+#### Component contracts and bounded implementation homes
+
+Implementation is expected to add only these bounded presentation components
+under `packages/fpl-ui/components/intelligence/`, subject to re-verification
+against authoritative main at implementation time:
+
+- `EvidenceList.tsx` accepts `readonly EvidenceItem[] | null | undefined`,
+  validates items independently at the UI trust boundary, and renders every
+  valid received item in original order as semantic `<ul>` / `<li>` markup.
+  It owns no sorting, semantic eligibility, deduplication, cap, collapse, or
+  network activity. `null`, `undefined`, an empty array, or an array with no
+  valid items renders `null` rather than an empty heading or placeholder.
+- `EvidenceChip.tsx` represents exactly one validated item. Despite its name,
+  it is a presentational evidence row, not a button, link, checkbox, tooltip
+  trigger, or recommendation. It shows the supplied human label and summary,
+  then deterministic basis, direction, confidence, and source-feature text.
+  It has no `tabIndex`, click handler, hover-only content, or button semantics.
+- `ConfidenceBadge.tsx` accepts only one evidence item's numeric confidence.
+  It displays `Confianza N%`, where `N = Math.round(confidence * 100)`, including
+  `0%` and `100%`. It defines no low/medium/high categories or thresholds,
+  performs no recalculation, and uses neutral styling plus visible text so
+  meaning never depends on color.
+- `EvidenceBoundary.tsx` is a narrow React error boundary around only the
+  evidence subtree. Its fallback is `null`: unexpected evidence-rendering
+  failure removes the evidence section while the main response/card remains.
+  It performs no retry, network request, analytics expansion, or fallback copy.
+
+The response-placement changes are bounded to `MessageList.tsx` for top-level
+text/card messages and `MultiIntentView.tsx` for child-owned evidence. A small
+pure `lib/evidence-presentation.ts` helper may own structural validation,
+deterministic labels/formatting, and stable-key construction. Focused component
+and ownership tests may add one new Jest test file and evidence fixtures; an
+existing fixture/test file may be modified only where integration coverage
+requires it. No individual recommendation card needs FI-specific logic.
+
+#### Deterministic field-to-presentation mapping
+
+The mapping is local, closed, and contains no LLM, locale API, network lookup,
+or wall-clock formatting:
+
+| Evidence field | FI-7d treatment |
+|---|---|
+| `label` | Visible primary text verbatim. It is the contract's human label; the UI does not replace it from `code`. |
+| `summary` | Visible secondary factual text verbatim and allowed to wrap fully. It is never rewritten as advice. |
+| `confidence` | Visible through the per-item `ConfidenceBadge` numeric percentage. Zero is rendered, not treated as absent. |
+| `basis` | Visible deterministic Spanish map: `observed` → `Observado`; `inferred_proxy` → `Proxy inferido`. Proxy status must remain explicit. |
+| `direction` | Visible deterministic Spanish map: `positive` → `Positivo`; `negative` → `Negativo`; `neutral` → `Neutral`. Styling may reinforce but never replace this text. |
+| `source_features` | Visible traceability line `Fuentes: <values in received order>`. These are provider-neutral evidence feature identifiers and are shown verbatim unless this same contract later defines a closed presentation map. An empty tuple renders `Fuentes: no indicadas`; values are not localized, sorted, or inferred, and no secret, provider credential, or internal subject ID may be displayed. |
+| `code` | Not user-facing prose. Used only as one stable-key input and permitted in test-only/data attributes; never displayed as the label. |
+| `subject_type` | Internal routing metadata; not visibly rendered. It may participate in stable keys and runtime validation. |
+| `subject_id`, `fixture_id` | Canonical internal identifiers. Prohibited from visible, tooltip, accessible-label, title, or copied UI text; may participate only in stable keys. |
+| `impact` | Governed machine-readable scale without an approved user interpretation. Validated but hidden; direction text supplies the approved qualitative presentation. |
+| `model_version`, `calculated_at` | Internal provenance. Validated and usable for stable keys, but hidden; FI-7d adds no relative-time or model copy. |
+
+Stable React keys must not delete duplicates. Construct a deterministic
+canonical serialization of the full received item plus that serialization's
+zero-based occurrence ordinal in the current list. This keeps exact duplicates
+separate, avoids array-index-only identity, exposes no identifier to users, and
+remains stable for identical input.
+
+#### Ordering, completeness, and interaction
+
+The list is expanded by default and displays all valid received items. Because
+the backend supplies at most eight, FI-7d adds no fixed-count hiding, “show
+more”, disclosure, carousel, pagination, tooltip, or collapse state. There is
+therefore no hydration-sensitive client state and no silent evidence loss.
+Backend order is semantic and preserved exactly on every viewport and replay.
+
+Chips are noninteractive. They must not receive keyboard focus or interactive
+ARIA roles. Full label, summary, and traceability text remain in the document;
+long content wraps instead of becoming hover-only or being visually truncated.
+
+#### Missing context, partial evidence, and malformed input
+
+The authoritative evidence contract says missing inputs omit evidence rather
+than fabricate it. Since `EvidenceItem` contains no status/reason field or
+`missing_context` code, FI-7d must not infer missing context from an intent,
+module, absent code, confidence, summary, empty feature list, or other payload
+field. The exact policies are:
+
+| Input condition | Presentation |
+|---|---|
+| No `evidence` property, `null`, or `[]` | Render no evidence section and no invented “insufficient data” message. |
+| Partial backend module result with a non-empty evidence array | Render every received valid item unchanged; do not announce or guess which module is absent. |
+| Zero confidence | Render `Confianza 0%`; zero is a valid governed value. |
+| Empty `source_features` | Render the neutral literal `Fuentes: no indicadas`; do not invent a source. |
+| Structurally malformed item | Skip only that item; continue rendering valid siblings in original order. If none remain, render no section. |
+| Unsupported enum, non-finite/out-of-range confidence or impact, non-array feature list, missing required field, or invalid UTC string | Treat that item as malformed under the same isolation rule. |
+
+“Dropping missing-context items” is not a valid FI-7d mutation target because
+no such item exists in the closed wire contract. The causal replacement is a
+test proving that partial-result evidence is not filtered by code, basis,
+direction, zero confidence, or empty sources, alongside a test proving that
+absence never produces a fabricated item.
+
+#### Feature flag, renderer, and runtime isolation
+
+The UI does not read `FOOTBALL_INTELLIGENCE_ENABLED`, add a client flag, or
+reconstruct backend eligibility. It renders only response-owned evidence.
+When the backend master flag is OFF, the backend supplies no FI evidence and
+the component renders nothing, preserving the existing UI. No evidence
+component calls `ask`, `sessionAsk`, `fetch`, an FI tool, or any backend route.
+
+Backend deterministic FI renderers remain backend-owned. Frontend components
+render the structured `EvidenceItem` fields only. Existing `final_text`,
+recommendation cards, recommendations, confidence calculations, and renderer
+copy remain unchanged; no duplicate FI prose is appended.
+
+The `@minutes` and `@role` resources are explicitly deferred, not removed and
+not stale. They remain a coherent deterministic, quota-free `resource_registry`
+feature, but require registry/runtime scope forbidden by the FI-7d UI-only
+boundary and have no authoritative resource contract yet. They are relocated
+to FI-7f resource-surface parity and are outside FI-7d and FI-7e. No later
+slice may implement them without a separately reviewed contract.
+
+#### Accessibility and responsive behavior
+
+- `EvidenceList` uses a visible section heading and semantic `<ul>` / `<li>`
+  structure. The heading is associated with the list by `aria-labelledby`.
+- Confidence, basis, and direction are always written as text. Color is
+  redundant decoration only, and existing `hc:` high-contrast tokens must
+  retain readable borders/text.
+- Decorative icons, if any are later selected from the existing set, are
+  `aria-hidden`; no icon is required for meaning.
+- Noninteractive chips are absent from the tab order. Because there is no
+  disclosure or tooltip, FI-7d introduces no new keyboard/focus state or ARIA
+  expanded relationship.
+- No motion is required. If existing transitions are reused, they must honor
+  reduced motion; evidence never animates on replay/hydration.
+- Full content remains screen-reader accessible. No `title`-only explanation,
+  clipped accessible name, or identifier leakage is allowed.
+- The list remains inside the existing `max-w-prose` response width.
+  `EvidenceList` renders as exactly one column below the existing `sm`
+  breakpoint and exactly two columns at and above `sm`, with backend order
+  preserved by row-major placement. Every evidence row uses `min-w-0`; long
+  text wraps, and no hidden overflow may contain meaningful content. There is
+  no horizontal scroll, fixed pixel width, viewport-dependent filtering,
+  truncation, reordering, balancing, or item removal. Identical evidence
+  content remains available at every viewport size, and SSR and hydration
+  render the same item set.
+- Dense multi-intent child lists stay within each existing child sub-card and
+  never overlap or merge. Badge/content rows wrap or stack on narrow screens.
+
+#### Failure isolation and logging
+
+Structural validation happens per item before rendering. A malformed item
+cannot suppress valid siblings. `EvidenceBoundary` is the repository's first
+evidence-specific React error boundary and must use React's supported
+class-component error-boundary contract, or an already-supported equivalent if
+the repository adopts one before implementation. It catches unexpected render
+exceptions only in the evidence subtree and returns `null`; server rendering
+must not replace or hide the primary response. The main recommendation
+text/card, origin badge, sharing, and follow-up controls remain available.
+FI-7d adds no custom telemetry event, analytics, persistence,
+console payload dump, retry, or network fallback; in particular it must never
+log canonical subject or fixture IDs from malformed evidence.
+
+#### Causal test and acceptance matrix
+
+Tests follow the existing Jest 29 / Testing Library / `@jest-environment jsdom`
+component convention, plus the existing pure TypeScript contract tests.
+
+| Area | Required acceptance |
+|---|---|
+| Component contract | `EvidenceList` preserves exact input order, renders exact duplicates separately, performs no frontend truncation, shows all eight governed items, renders `null`/absent/empty as nothing, skips only malformed items, and retains valid zero-confidence/empty-source/proxy/neutral items. |
+| `EvidenceChip` mapping | Label and summary are verbatim; basis/direction/source mappings are deterministic; source-feature order is preserved; code and every internal ID/provenance field are absent from visible and accessible text; long content remains fully available. |
+| Confidence | `0`, representative fractional input, and `1` render `0%`, the repository-pinned rounded integer, and `100%`; no thresholds/categories exist; visible confidence text remains when color classes are removed. |
+| Top-level ownership | Stateless and single-intent session-shaped responses render top-level evidence on both structured-card and text-only paths. Recommendation/card text is unchanged when evidence is added. |
+| Multi-intent ownership | Parent evidence never renders; eligible child evidence renders inside that child; non-eligible child remains unchanged; child order and separate lists remain; identical cross-child items do not merge. |
+| Replay/determinism | Re-render and replay of an identical response produce the same item text/order/keys with no network, clock, random, locale, or hydration-dependent branch. |
+| Flag/isolation | Absent evidence produces no FI UI; components do not import API clients, reconstruct eligible intents, inspect a client flag, invoke `fetch`, or change tools/registry behavior. |
+| Accessibility | Heading/list association, semantic list/listitem roles, nonfocusable chips, complete text, color-independent confidence/basis/direction, high-contrast classes, and no inaccessible tooltip/disclosure are pinned. |
+| Responsive | Tests pin exact `grid-cols-1 sm:grid-cols-2` classes, row-major DOM order, `min-w-0`, long-label/source wrapping, and containment inside dense child cards without hidden meaningful overflow. No conditional JavaScript viewport rendering is allowed; below `sm` is exactly one column, at and above `sm` is exactly two, and SSR/hydration retain the identical item set. |
+| Failure containment | Mixed valid/malformed arrays keep valid siblings; all-malformed arrays show no section; a deliberately throwing evidence child is contained while the main response remains visible; no identifier is logged. |
+| Regression | Existing MessageList/IntentRenderer/MultiIntentView behavior without evidence is unchanged; Jest, TypeScript type-check, production build, contract/evidence parity, backend governed suites, and contract gate remain green. Snapshots change only if intentionally introduced. |
+
+Mutation checks must causally fail when an implementation reverses evidence,
+deduplicates exact duplicates, caps below the received length, removes a valid
+partial/zero-confidence item, turns zero into absence, renders parent evidence,
+merges child lists, exposes `subject_id`/`fixture_id`, hides source features,
+uses color without text, gives a presentational chip button/tab semantics,
+hides items after a fixed count, or invokes a client FI/network path.
+
+#### Exact exclusions and definition of done
+
+FI-7d changes presentation only. It explicitly excludes backend runtime and
+enrichment changes; M1/M2/M3 algorithms; M4/M5; evidence construction,
+ordering, deduplication, truncation, schemas, or confidence; new tools,
+resources, registry entries, and flags; recommendation, identity, fixture, or
+backend renderer changes; HTTP/Python contracts; LLM use; network requests from
+evidence components; analytics expansion; persistence; share-image redesign;
+recorded-demo assets; and all FI-7e work. A schema mismatch discovered during
+implementation stops the slice for separate contract review rather than being
+silently widened.
+
+FI-7f resource-surface parity is also excluded. This section records its
+deferral only and does not begin its contract or implementation.
+
+FI-7d is complete only after the documentation is independently reviewed and
+merged, a separately authorized bounded implementation satisfies the full
+matrix, realistic mutations are killed, the implementation receives
+independent review, and the final merge is independently verified. This
+documentation PR does not authorize or begin that implementation.
+
 ### FI-8 — Trial readiness gate
 - **Files new:** `sportmonks-client/scripts/trial_{auth,entities,fixtures,squads,lineups,injuries,stats,mapping}.py` (each: live call → raw snapshot → normalize → report; `--mock` mode for CI-less rehearsal); `TRIAL_STATUS.md` template; licensing checklist doc; go/no-go rubric doc (§14.4).
 - **DoD:** §14.1 checklist fully ticked. **Trial-dep:** none to build; exists to spend the trial well. **Pre-trial:** yes.
@@ -1506,8 +1766,10 @@ Open questions requiring trial validation are enumerated in §14.2/§14.3 and mu
 | FI-7 | a — `FinalResponse.evidence` + serialization + TS mirror + fixtures + FI-1 gate graduation | complete — merged PR #45 | FI-7a focused 6/6; FI-1 gate 22/22; TS evidence-contract 8/8; contract gate 16/0 | Additive optional immutable `evidence` on `FinalResponse`; recursive adapter serialization (`Enum→.value`, dataclass walk, tuple→array, None→absent at HTTP boundary); `AskResponse`/`SessionAskResponse` omit-when-None; `lib/types.ts` mirror; `http_contract_fixtures.json` evidence fixtures; FI-1 gate graduated from deferred. Approved head `7de77b2`. Carry-forward (F2): add a session-level end-to-end evidence test in FI-7b once an assembler can produce top-level evidence (`session_ask` top-level path is an equivalent-mutant until then). No flag, tool, intent enrichment, or UI work — those are FI-7b+. |
 | — | post-merge cleanup — PR #47 intent drift (NOT a roadmap slice) | complete — merged PR #48 | UI contract 27/27; evidence-contract 8/8; full Jest 406/25 suites; contract gate 16/0; FI-1 22/22; PR-47 Python 15/15 | **Not an FI-7 slice** — recorded here only to explain the extra PR between FI-7a and FI-7b. Two-line TypeScript intent-mirror parity fix (`packages/fpl-ui/lib/types.ts` only): added `player_season_points` to the `Intent` union and `SUPPORTED_INTENT_VALUES`, restoring parity with `dispatcher.py` after PR #47 shipped the backend intent without the UI mirror. Merged to main `03bac5697d087e1dba636ef8c4f534edc63d978a`. FI-7a untouched. |
 | FI-7 | b — FI tools/runtime/rendering/evidence propagation | complete — merged PRs #51/#53/#55 | FI-7b3 focused/session mutation coverage; contract drift gate green on approved PR #55 head | Static registry 33; offered set 29 OFF/33 ON; deterministic M1→M2→M3 runtime, rendering, and stateless/session evidence transport; F2 closed. |
-| FI-7 | c — existing-intent evidence enrichment | specification draft; implementation not started | documentation review pending | Exact eligible set: `captain_score`, `compare_players`, `transfer_advice`; evidence-only, master-flag gated, no recommendation or renderer change. |
-| FI-7 | d–e UI and demo | not started | — | Remain blocked behind the separately reviewed FI-7c workflow. |
+| FI-7 | c — existing-intent evidence enrichment | complete — merged PR #57 | FI-7c focused 11/11; combined FI-7b/c 75/75; grounded assistant 547 passed with 4 accepted legacy failures; football-intelligence 389 passed/2 skips; contract gate 16/16 | Exact eligible set: `captain_score`, `compare_players`, `transfer_advice`; evidence-only, master-flag gated, no recommendation or renderer change. Merged to main `49435bd004d4314567bb934e8f353db92d43130d`. |
+| FI-7 | d — governed evidence UI | documentation active; implementation not started | documentation review pending | Ownership-based `EvidenceList` / `EvidenceChip` / per-item numeric `ConfidenceBadge`; consumes existing evidence only. No runtime or second flag. |
+| FI-7 | e — mock demo and recording | not started | — | Demo-only; remains blocked behind the separately reviewed and merged FI-7d workflow. No `@minutes` / `@role` resources. |
+| FI-7 | f — resource-surface parity | deferred; not started | documentation and independent review required before implementation | Deterministic, quota-free `resource_registry` entries for `@minutes <player>` and `@role <player>`. Outside FI-7d/FI-7e; no authoritative resource contract exists yet. |
 | FI-8 | trial gate artifacts | not started | — | |
 | FI-9 | live trial | blocked until ~2026-08-10 | — | |
 | FI-10 | calibration | blocked on FI-9 | — | |
