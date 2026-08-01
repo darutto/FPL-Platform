@@ -1376,6 +1376,25 @@ def _render_get_fixture_outlook(output: dict[str, Any]) -> str:
 # Dispatch table and public API
 # ---------------------------------------------------------------------------
 
+def _render_expected_minutes_v2(output: dict[str, Any]) -> str:
+    from .football_intelligence_renderer import render_expected_minutes
+    return render_expected_minutes(output)
+
+
+def _render_tactical_role_v2(output: dict[str, Any]) -> str:
+    from .football_intelligence_renderer import render_tactical_role
+    return render_tactical_role(output)
+
+
+def _render_fixture_context_v2(output: dict[str, Any]) -> str:
+    from .football_intelligence_renderer import render_fixture_context
+    return render_fixture_context(output)
+
+
+def _render_player_intelligence_v2(output: dict[str, Any]) -> str:
+    from .football_intelligence_renderer import render_player_intelligence
+    return render_player_intelligence(output)
+
 _RENDERERS = {
     "resolve_player":            _render_resolve_player,
     "get_player_summary":        _render_get_player_summary,
@@ -1410,6 +1429,10 @@ _RENDERERS = {
     "get_zonal_opportunity":    _render_get_zonal_opportunity,   # T-zonal
     "get_player_zonal_outlook": _render_get_player_zonal_outlook,  # T-player
     "get_fixture_outlook":      _render_get_fixture_outlook,     # Track D / FI2
+    "get_expected_minutes":     _render_expected_minutes_v2,     # FI-7b3
+    "get_tactical_role":        _render_tactical_role_v2,        # FI-7b3
+    "get_fixture_context":      _render_fixture_context_v2,      # FI-7b3
+    "get_player_intelligence":  _render_player_intelligence_v2,  # FI-7b3
 }
 
 
