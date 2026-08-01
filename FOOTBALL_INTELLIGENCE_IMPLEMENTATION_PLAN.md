@@ -914,6 +914,252 @@ FI-7b2 does not implement or change:
 | Runtime isolation | No wall clock inside modules/adapter, network/provider import, LLM fallback, mutable global cache, session state, renderer, UI, recommendation, M4/M5, FI-5 behavior, or persisted intelligence. |
 | Regression | Focused FI-7b2 tests, FI-6 M1/M2/M3 suites, FI-7b1 flag/registry tests, full grounded-assistant suite, football-intelligence suite, contract gate, Jest, and production build preserve their governed baselines. |
 
+### FI-7b3 — deterministic rendering, response evidence, and session F2 closure
+
+**Status:** specification draft; documentation only. No implementation is
+authorized by this subsection. FI-7b1 and FI-7b2 are merged; FI-7b3 is the
+final FI-7b sub-slice. FI-7c, FI-7d, and FI-7e remain separate and deferred.
+
+#### Verified current state and exact remaining gap
+
+The merged FI-7b2 runtime returns deterministic structured dictionaries for
+`get_expected_minutes`, `get_tactical_role`, `get_fixture_context`, and
+`get_player_intelligence`. Each dictionary contains native status/reasons and
+the already-bounded evidence list; the composite preserves M1 → M2 → M3 order,
+exact-value deduplication, and the first-eight bound.
+
+On the stateless orchestrator-answered path, `harness.ask_v2()` currently copies
+the tool dictionary into `raw_output` but uses the orchestrator's existing
+`answer_text` unchanged and does not copy `raw_output["evidence"]` into the
+top-level `evidence` key consumed by `harness_adapter.to_ask_response()`.
+Consequently FI-7b2 does **not** yet populate stateless
+`FinalResponse.evidence`/`AskResponse.evidence`; the b2 source-of-truth wording
+describes the intended ownership, while this b3 subsection governs the
+remaining implementation.
+
+`SessionAskResponse` already has the optional evidence field. `session_ask()`
+already converts `r.evidence` through the generic recursive serializer and
+passes it to that top-level field, and `_sub_response_dict()` already serializes
+and includes a nested response's evidence when non-`None`. Therefore nested
+evidence can serialize today when injected. The remaining F2 gap is production:
+`ConversationSession.respond()` reuses the legacy `FinalResponse` path, which
+does not yet produce FI tool evidence, so session top-level evidence remains
+`None` and ordinary nested FI evidence is likewise unreachable. FI-7b3 must
+connect the existing FI orchestrator result to `FinalResponse` on both the
+stateless and session paths, then prove the real HTTP path end to end.
+
+#### Renderer ownership and prohibitions
+
+A new bounded FI renderer module in `fpl_grounded_assistant` owns deterministic
+text rendering for exactly the four FI tools. It exposes one dispatcher over
+four tool-specific pure renderers (or equivalently four pure public functions
+behind one bounded dispatcher). Each renderer consumes only the serialized
+structured FI-7b2 tool result and returns text. The harness/orchestrator response
+assembly selects that renderer only after a successful call to one of the four
+FI tools; generic and existing-intent rendering remain unchanged.
+
+Renderers must not reinvoke M1/M2/M3, reload builds, resolve identities, select
+fixtures, recalculate confidence, reorder or create evidence, generate
+recommendations, invent explanations, call an LLM, read the network, use the
+wall clock, or mutate request/global state. Native status, reason codes, model
+values, and canonical serialized numbers remain authoritative. Where the
+repository has no existing numeric-formatting precedent, render the canonical
+serialized value without introducing a new rounding policy.
+
+#### Deterministic per-tool text contracts
+
+All labels and sections below have fixed order. Every rendered line uses the
+literal `Label: value` form. Status is the first line (`Status: <native-status>`),
+reasons are the last line when non-empty (`Reasons: <code-1>, <code-2>, ...`),
+and a governed null value is rendered as the literal `unavailable`. Repeated
+evaluation of the same structured result produces identical text. Native
+reason-code order is preserved; an empty reason list adds no fabricated reason.
+
+| Tool | Fixed text contract |
+|---|---|
+| `get_expected_minutes` | After status, fixed labels are `Expected minutes`, `Start probability`, `Cameo probability`, `Rotation risk`, `Minutes risk v2`, and `Confidence`, followed by reasons when present. Values are the canonical serialized FI-7b2 values. `missing_context` therefore renders each unavailable native value as `unavailable` plus native reasons; it never prints invented minutes or start/bench/buy advice. |
+| `get_tactical_role` | After status, fixed labels are `Primary role`, `Role distribution`, `Primary flank`, `Flank distribution`, `Formation depth`, `Role stability`, `Role change detected`, `Out-of-position score`, and `Confidence`, followed by reasons when present. Distributions preserve their governed serialized order and values. `missing_context` uses `unavailable`/the governed empty distribution plus native reasons and never converts role facts into strategy. |
+| `get_fixture_context` | After status, fixed labels are `Fixture priority`, `Congestion index`, `Weighted trailing congestion 21d`, `Weighted leading congestion 21d`, `Previous rest days`, `Next rest days`, `Competition tier`, `Competition stage`, `League position band`, and `Confidence`, followed by reasons when present. `missing_context` preserves unavailable fields/reasons and never invents FDR, opponent difficulty, rotation implications, or advice. |
+| `get_player_intelligence` | Render fixed sections `Expected minutes`, `Tactical role`, `Fixture context` in M1 → M2 → M3 order. `ok` renders all three native sections. `partial` renders available sections and a deterministic unavailable marker with native reasons for every missing section. When all modules are `missing_context`, retain all three section headings and unavailable markers. |
+
+Typed identity, fixture, build, validation, and unsupported-contract failures
+remain request-level failures and must not be rendered as successful prose.
+Unexpected exceptions remain governed by the existing tool/orchestrator failure
+boundary; no broad catch may fabricate a successful answer. A renderer does not
+change the structured status or failure outcome.
+
+#### Stateless evidence-copy ownership
+
+FI-7a owns the immutable optional `FinalResponse.evidence` contract and generic
+HTTP serialization. FI-7b2 owns deterministic structured evidence assembly in
+each FI tool result. FI-7b3 owns the narrow bridge in the successful
+orchestrator-answered FI path: copy the selected FI tool's structured
+`evidence` unchanged into the top-level harness response consumed by
+`to_ask_response()`, and let the existing adapter/HTTP serialization carry it
+to `FinalResponse.evidence`/`AskResponse.evidence`.
+
+All four individual tools and the composite populate evidence through this same
+copy path. FI-7b3 performs no reranking, rededuplication, new evidence creation,
+or LLM-authored evidence. The FI-7b2 order and first-eight bound are preserved.
+`None` remains omitted at the HTTP boundary. An FI tool's governed empty
+evidence list remains empty rather than being rewritten as fabricated evidence.
+Pre-existing non-FI intents are not enriched; that remains FI-7c.
+
+#### Session integration and storage semantics
+
+The smallest session change must reuse the existing `ConversationSession` and
+`FinalResponse` architecture rather than create a second intelligence runtime.
+The session path must route an enabled FI request through the same successful FI
+tool execution, renderer, and unchanged evidence-copy rules as the stateless
+path, then return that `FinalResponse` through the existing `session_ask()`
+projection. The existing top-level `_to_dict(r.evidence)` and nested
+`_sub_response_dict()` serializers remain the wire-format owners.
+
+Evidence ownership follows the existing response hierarchy. A single-intent FI
+turn owns evidence on its top-level `FinalResponse`. In a multi-intent turn, the
+FI sub-response owns its evidence and the multi-intent parent keeps
+`evidence=None`; FI-7b3 must not aggregate sub-response evidence onto that
+parent. `ConversationSession` wraps and transports the resulting responses, and
+`fpl_server.py` performs their HTTP projection.
+
+Session state stores its existing conversation/reference state and retains the
+existing `FinalResponse` objects where the architecture already does so; FI-7b3
+adds no evidence store, manifest, pointer, persistence family, or reduced
+parallel response model. Evidence is transported with the response, not
+persisted as intelligence data. Identical controlled inputs and evidence tuples
+must replay to byte-identical evidence arrays. `evidence=None` remains absent;
+nested sub-responses preserve each response's own evidence independently.
+
+#### F2 retirement tests
+
+F2 closes only through two distinct real HTTP scenarios. Both enable
+`FOOTBALL_INTELLIGENCE_ENABLED`, use controlled deterministic mocks or validated
+local test builds, create a real session, and invoke `POST /session/{id}/ask`.
+
+**Scenario A — single-intent top-level evidence.** Submit the controlled query
+`player intelligence for Saka`, with the existing FI tool-selection seam pinned
+to `get_player_intelligence`. The response is a single-intent response:
+`SessionAskResponse.evidence` is present and exactly matches the bounded FI-7b2
+composite evidence, while `sub_responses` is absent or empty. This scenario must
+kill mutations that stop `session_ask()` assigning top-level evidence, remove
+`SessionAskResponse.evidence`, or drop the top-level FI evidence copy.
+
+**Scenario B — multi-intent nested evidence.** Use the exact fixture
+`player intelligence for Saka and what gameweek is it?`. It reuses the existing
+deterministic multi-intent convention: split on the first `" and "`, execute two
+ordered sub-questions independently, and retain ordered sub-responses. Because
+the FI phrase intentionally has no deterministic-router rule, the test controls
+the existing multi-intent detection/tool-selection seams rather than adding a
+new intent or classifier rule: sub-response index 0 is routed through
+`get_player_intelligence`, and index 1 uses the already-supported deterministic
+`get_current_gameweek` intent for `what gameweek is it?`.
+
+The Scenario B parent has `evidence` absent/`None` and has `sub_responses`.
+Sub-response index 0 contains the unchanged bounded FI evidence; index 1 remains
+the existing non-FI response with unchanged evidence behavior. This scenario
+must kill mutations where `_sub_response_dict()` drops nested evidence, the FI
+sub-response evidence copy is removed, or nested evidence is copied only to the
+top level. It must also causally reject any implementation that aggregates FI
+sub-response evidence onto the multi-intent parent.
+
+Across both scenarios, enum values serialize as strings, `source_features`
+serialize as JSON arrays, evidence order and FI-7b2's first-eight bound are
+preserved, `evidence=None` remains omitted where applicable, and repeated
+controlled requests produce identical wire values.
+
+**F2 CLOSED** requires all of the following:
+
+1. Scenario A passes through the real session HTTP endpoint, its top-level FI
+   evidence assertion passes, and the `session_ask` top-level evidence mutation
+   is killed.
+2. Scenario B passes through the real session HTTP endpoint, its nested FI
+   evidence assertion passes, the `_sub_response_dict` nested-evidence mutation
+   is killed, and the multi-intent parent's evidence remains absent.
+3. The serialization, ordering, bound, omission, and replay assertions above
+   pass in their applicable scenarios.
+
+Serializer-only tests and direct helper-only tests are insufficient. Both real
+HTTP session scenarios are required; no single response is required or allowed
+to carry evidence at both parent and nested levels.
+
+#### Determinism and feature flag
+
+- Same structured FI result → identical text; same evidence tuple → identical
+  wire output.
+- Field and composite-section order is explicit and independent of uncontrolled
+  dictionary insertion order.
+- Rendering and propagation use no wall clock, locale-dependent formatting,
+  randomness, network, provider, or LLM.
+- The static registry remains 33 with the flag OFF and ON; the offered set
+  remains 29 OFF and 33 ON. No second FI-7b3 flag is added.
+- With the flag OFF, FI renderers are unreachable through FI dispatch, no FI
+  runtime/module import occurs, existing responses remain byte-identical, and
+  FI-7b3 causes no evidence field to appear.
+- With the flag ON, successful FI tool results use the deterministic renderer,
+  populate `FinalResponse.evidence` from the structured result, and serialize
+  that evidence through stateless and session HTTP paths.
+
+#### Error and degradation behavior
+
+| Input/result condition | Required behavior |
+|---|---|
+| Native module `missing_context` | Render deterministic unavailable/context text, preserve native structured status and reasons, and never fabricate values/evidence. |
+| Composite `partial` | Render all three fixed sections, available native content, and deterministic unavailable markers for missing sections. |
+| All modules `missing_context` | Render all three unavailable sections with native reasons; composite status remains `missing_context`. |
+| Typed identity/build/fixture/contract failure | Preserve request-level failure; do not render as successful FI output or emit partial evidence. |
+| Unexpected exception | Use the existing tool/orchestrator failure boundary; no retry or fabricated prose. |
+
+#### Explicit FI-7b3 non-goals
+
+FI-7b3 does not implement FI-7c existing-intent evidence enrichment; FI-7d
+`EvidenceChip`, `EvidenceList`, `ConfidenceBadge`, cards, resources, or other UI;
+FI-7e demo recording; new tool schemas/names; new runtime adapters or module
+calls; new build loading, fixture selection, or identity behavior; evidence
+ranking; recommendations or `player_recommendation`; M4/M5 tools; formula or
+confidence changes; HTTP field changes; TypeScript changes; session persistence
+expansion; or provider/network/LLM behavior. FI-7a already supplies the required
+HTTP and TypeScript evidence fields, so no contract expansion is required.
+
+#### Bounded implementation homes
+
+The expected smallest implementation union, to be reconfirmed against main at
+implementation time, is:
+
+- a bounded FI tool-output renderer module under
+  `packages/fpl-grounded-assistant/fpl_grounded_assistant/`;
+- `harness.py` and/or `harness_adapter.py` for successful FI render/evidence
+  response assembly;
+- the existing session orchestration/response path (`conversation_state.py`
+  and/or `fpl_server.py`) only where needed to reuse the same FI response;
+- bounded `final_response.py` `respond()`/assembly work where the actual session
+  path must create the evidence-bearing `FinalResponse`;
+- focused FI-7b3 renderer/evidence tests and real session HTTP tests; and
+- governance runner counts only when an existing asserted corpus requires new
+  tests to be enumerated.
+
+Explicitly excluded are FI-7b2 `football_intelligence_runtime.py` module logic,
+all FI-6 module implementations, `tool_schema_registry.py`, `orch_config.py`
+flag semantics, `lib/types.ts`, UI components, the identity registry, build
+engine, and `FEATURE_CONTRACT.md`. Implementation must use the smallest feasible
+subset of the candidate homes and stop if it appears to require a governed
+exclusion.
+
+#### FI-7b3 cumulative acceptance matrix
+
+| Area | Required acceptance |
+|---|---|
+| Rendering | Each individual tool renders deterministically; composite order is M1 → M2 → M3; `ok`/`partial`/`missing_context` are exact; typed failures never render as success; no advice or recommendations appear. |
+| Evidence | Stateless `FinalResponse.evidence` is copied from individual/composite FI structured results; no evidence is generated or reordered; exact FI-7b2 deduplication and ≤8 bound remain unchanged; `None` omission remains intact. |
+| Session and F2 | Scenario A: real single-intent `/session/{id}/ask` has top-level FI evidence, no nested response, and kills the top-level assignment/copy mutants. Scenario B: real multi-intent `/session/{id}/ask` keeps parent evidence absent, places FI evidence only in sub-response index 0, leaves the index-1 `get_current_gameweek` response unchanged, and kills the nested serializer/copy mutants. Both pin string enums, array `source_features`, stable order/bound, and `None` omission. FI-7b3 never aggregates sub-response evidence into the multi-intent parent. |
+| Flag | OFF responses and import isolation remain byte-identical; ON renderer/evidence paths work; static/offered counts remain 33/33 and 29/33 respectively. |
+| Determinism | Repeated and fresh-process rendering/serialization over identical controlled input is identical; no uncontrolled mapping order, locale, clock, randomness, network, or LLM participates. |
+| Regression | FI-7b1, FI-7b2, FI runtime, FI-1, HTTP contract tests, full governed validation corpus, and contract gate remain green; Jest/build remain green with no UI change. |
+
+The dormant M3 preflight findings B1.12, B2.1, and B2.1b, plus the three
+pre-existing router player-extraction failures and one owned-store fallback
+failure, remain recorded as pre-existing and outside FI-7b3. FI-7b3 does not
+authorize their correction.
+
 ### FI-8 — Trial readiness gate
 - **Files new:** `sportmonks-client/scripts/trial_{auth,entities,fixtures,squads,lineups,injuries,stats,mapping}.py` (each: live call → raw snapshot → normalize → report; `--mock` mode for CI-less rehearsal); `TRIAL_STATUS.md` template; licensing checklist doc; go/no-go rubric doc (§14.4).
 - **DoD:** §14.1 checklist fully ticked. **Trial-dep:** none to build; exists to spend the trial well. **Pre-trial:** yes.
