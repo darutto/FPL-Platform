@@ -405,7 +405,7 @@ All modules: pure functions over canonical/feature frames + FPL bootstrap; retur
    - Registry grows 29 → 33. Note: `run_phase_orch3a` O6a/O6b/O6c token-budget baselines will need their documented registry-growth adjustment.
 2. **System prompt:** one added SOURCE→TOOL mapping block entry ("player context / minutes / role / matchup questions → get_player_intelligence"). No change to source-discipline classification.
 3. **The LLM may select modules only by choosing tools/args** from the allowlist; module internals are invisible to it. The evaluator's GROUNDED axis applies unchanged.
-4. **Existing intents receiving evidence first (Q7):** `captain_score`, `compare_players`, `transfer_advice` — an FI-7 slice enriches their OK-turn assembly with evidence from M1/M3 (flag-gated). Deterministic recommendations (tiers, deltas, recommendations) are **not** changed by evidence in this plan — evidence explains; a later approved phase may let it score (that phase would define weighting profiles per brief §8).
+4. **Existing intents receiving evidence first (Q7):** `captain_score`, `compare_players`, `transfer_advice` — FI-7c enriches their OK-turn assembly, behind the master flag, by reusing the governed `get_player_intelligence` M1 → M2 → M3 composite and its already-bounded evidence. This supersedes this section's earlier M1/M3-only phrasing; FI-7c must not filter M2 or reconstruct/re-bound an M1/M3 subset. Deterministic recommendations (tiers, deltas, recommendations) are **not** changed by evidence in this plan — evidence explains; a later approved phase may let it score (that phase would define weighting profiles per brief §8).
 5. **Scoring strategy (brief §8):** no universal score. Module scores are Layer-2-adjacent component scores; the only sanctioned coupling in this plan is `minutes_risk_v2` → Layer 2 minutes component behind its flag (§9.1-M1). Intent-specific weighting profiles are designed (constants + version string per profile) but **not applied** to recommendations until FI-10 backtesting exists.
 6. `@resource` surface: add `@minutes <player>`, `@role <player>` resource entries in `resource_registry` (deterministic, quota-free) in FI-7 — cheap parity with the resource browse model.
 
@@ -586,11 +586,11 @@ Phase table (each phase = one or more PR-sized slices; "Trial-dep" = requires li
 - **Compatibility:** all additive; flags-off sweep of the full validation corpus is the slice-(c) gate.
 - **Tests:** contract additivity; renderer snapshots with/without evidence; tool schema validation; Jest card tests.
 - **DoD:** demo recorded; contract gate + validation corpus + `npm run build`/tests green. **Trial-dep:** none. **Pre-trial:** yes — completing FI-7 IS the trial-readiness bar.
-- **Status (2026-07-26):** slice **(a) complete — merged in PR #45** (approved head `7de77b2`): additive optional immutable `FinalResponse.evidence`, recursive adapter serialization, `AskResponse`/`SessionAskResponse` omit-when-None, `lib/types.ts` mirror, `http_contract_fixtures.json` evidence fixtures, FI-1 gate graduated from deferred. Slices **(b)–(e) not started**; **(b) is the next engineering task**. Carry-forward (F2): add a session-level end-to-end evidence test in slice (b) once an assembler can produce top-level evidence — the `session_ask` top-level path is an equivalent-mutant until then. **Not a slice:** PR #48 (`fix(ui): mirror player season points intent`, merged to main `03bac5697d087e1dba636ef8c4f534edc63d978a`) was a **post-merge cleanup associated with PR #47** — a one-file, two-line TypeScript intent-mirror parity fix, not an FI-7 roadmap slice.
+- **Status (2026-08-01):** slices **(a) and (b) complete**. FI-7a merged in PR #45. FI-7b1/b2/b3 merged in PRs #51/#53/#55; b3 closed F2 through deterministic FI rendering plus real single- and multi-intent session evidence propagation. **FI-7c documentation is the active slice; implementation has not started.** FI-7d/FI-7e remain unstarted. **Not a slice:** PR #48 (`fix(ui): mirror player season points intent`, merged to main `03bac5697d087e1dba636ef8c4f534edc63d978a`) was a **post-merge cleanup associated with PR #47** — a one-file, two-line TypeScript intent-mirror parity fix, not an FI-7 roadmap slice.
 
 ### FI-7b — detailed slice specification (source of truth for b1–b3)
 
-**Status:** planned; next engineering task. Supersedes the one-line FI-7(b) summary in the §15 FI-7 block for implementation detail. Delivered as three sequential, independently-reviewed sub-slices (b1 → b2 → b3), each its own draft PR.
+**Status:** complete. FI-7b1, FI-7b2, and FI-7b3 merged in PRs #51, #53, and #55. Supersedes the one-line FI-7(b) summary in the §15 FI-7 block for implementation detail.
 
 #### Verified module dependencies (confirmed merged on main)
 FI-7b exposes already-merged, fully-implemented FI-6 modules — no module work occurs in FI-7b:
@@ -673,9 +673,8 @@ The FI-7a review left finding **F2** open: the `session_ask` top-level `evidence
 
 ### FI-7b2 — deterministic Football Intelligence runtime integration
 
-**Status:** specification draft; documentation only. No implementation is
-authorized by this subsection. FI-7b1 remains the merged flag/schema/shell
-baseline, and FI-7b3 remains deferred.
+**Status:** complete — merged in PR #53. This subsection remains the
+authoritative FI-7b2 runtime contract; FI-7b3 subsequently merged in PR #55.
 
 #### Runtime responsibilities and ownership
 
@@ -916,9 +915,9 @@ FI-7b2 does not implement or change:
 
 ### FI-7b3 — deterministic rendering, response evidence, and session F2 closure
 
-**Status:** specification draft; documentation only. No implementation is
-authorized by this subsection. FI-7b1 and FI-7b2 are merged; FI-7b3 is the
-final FI-7b sub-slice. FI-7c, FI-7d, and FI-7e remain separate and deferred.
+**Status:** complete — merged in PR #55 at merge commit
+`9e36795adbffcf361274565a6f8868fb8f71d25c`. FI-7c, FI-7d, and FI-7e remain
+separate and unstarted.
 
 #### Verified current state and exact remaining gap
 
@@ -1160,6 +1159,263 @@ pre-existing router player-extraction failures and one owned-store fallback
 failure, remain recorded as pre-existing and outside FI-7b3. FI-7b3 does not
 authorize their correction.
 
+### FI-7c — deterministic evidence enrichment of existing intents
+
+**Status:** specification draft; documentation only. FI-7b3 is merged and
+closed. FI-7c implementation is not authorized by this subsection. FI-7d and
+FI-7e remain separate and unstarted.
+
+#### Purpose, ownership, and invariants
+
+FI-7c enriches exactly three existing successful deterministic intents with
+already-governed Football Intelligence evidence. It does not create an intent,
+tool, schema, recommendation, score, renderer, module, or evidence item.
+
+FI-7c supersedes the earlier §10.4/Q7 M1/M3 phrasing. Existing-intent
+enrichment reuses the already-governed M1 → M2 → M3 composite and must not
+filter or reconstruct its bounded evidence.
+
+The existing intent implementation remains the sole owner of routing, entity
+arguments, recommendation calculation, outcome, structured metadata, and
+rendered text. The FI-7b2 runtime remains the sole owner of identity crosswalk
+validation, fixture selection, v2 build loading, explicit `calculated_at`,
+M1 → M2 → M3 evaluation, and bounded evidence construction. FI-7c owns only a
+bounded post-success enrichment adapter and the copy into the existing
+`FinalResponse.evidence` field. FI-7a/FI-7b3 serializers remain the only wire
+format owners.
+
+All FI-7b invariants continue unchanged:
+
+- master flag `FOOTBALL_INTELLIGENCE_ENABLED`, default OFF; no second flag;
+- static registry 33 in both states; offered tools 29 OFF and 33 ON; no global
+  registry mutation;
+- strict-future fixture selection from the latest known schedule ordered by
+  `scheduled_kickoff_utc`, then `fixture_id`;
+- one canonical identity policy, one validated v2 build, and no v1 or
+  unversioned fallback;
+- M1 → M2 → M3 order, each module at most once for each enriched player;
+- exact serialized duplicate removal, first occurrence retained, then the
+  first eight evidence items;
+- no LLM-, router-, renderer-, or serializer-generated evidence; and
+- native `missing_context`, statuses, reasons, confidence, model versions, and
+  evidence remain unmodified.
+
+#### Eligible intent matrix
+
+Eligibility is closed, not pattern-based. Only an `OUTCOME_OK` result from one
+of these exact intents may enter enrichment:
+
+| Intent / existing tool | Why eligible and entity context | FI entry point and maximum execution | Text and evidence ownership | Fallback |
+|---|---|---|---|---|
+| `captain_score` / `get_captain_score` | The successful raw output identifies one uniquely resolved player through its existing player result. | Invoke the existing `get_player_intelligence` runtime entry point once for that player. It evaluates M1, M2, and M3 once each. | Existing captain text, score, tier, reasons, and metadata are unchanged. The successful `FinalResponse` receives the unchanged bounded composite evidence at top level. | Any enrichment identity, fixture, build, module, or renderer-independent adapter failure leaves the original captain response successful with `evidence=None`. |
+| `compare_players` / `compare_players` | The successful raw output contains the two resolved comparison players in existing argument order. | Invoke `get_player_intelligence` once per player, first player then second. Each player's M1/M2/M3 executes at most once. Merge the two already-bounded bundles in player order, exact-deduplicate by canonical serialized value, then retain the first eight. | Existing winner, deltas, recommendation-neutral comparison text, and metadata are unchanged. Only top-level evidence is added. | A failed player enrichment contributes no evidence; a successful other player may still contribute its honest native evidence. If neither contributes, evidence is `None`. |
+| `transfer_advice` / `get_transfer_advice` | The successful raw output contains resolved `player_out` and `player_in` identities and preserves that semantic order. | Invoke `get_player_intelligence` once for `player_out`, then once for `player_in`. Each player's M1/M2/M3 executes at most once. Merge in out-then-in order, exact-deduplicate, then retain the first eight. | Existing recommendation, score delta, tier, reasons, text, squad overrides, and transfer metadata are unchanged. Only top-level evidence is added. | A failed side contributes no evidence; the other side may still contribute. If neither contributes, evidence is `None`; the original transfer result stays successful. |
+
+The composite entry point is required because it is the existing governed
+single-execution pipeline that preserves M1 → M2 → M3 ordering and shared
+identity/build/fixture semantics. FI-7c must not call the three atomic tools in
+sequence or independently reconstruct their inputs. For two-player intents,
+the final cross-player bound repeats FI-7b2's exact canonical serialized-value
+deduplication and first-eight operation; it does not score, rank, reinterpret,
+or alternate between players.
+
+When an eligible raw intent result exposes its already-resolved FPL element or
+player ID, the adapter passes that ID to the existing FI identity path. It
+falls back to the existing deterministic identity resolver only when no such ID
+is available. This introduces no new identity or matching policy; an ambiguous
+fallback resolution skips that player.
+
+#### Explicit exclusions
+
+All other intent constants and categories remain unchanged, including:
+
+- `rank_candidates`, `current_gameweek`, `player_summary`, `player_resolve`,
+  `chip_advice`, `player_fixture_run`, `differential_picks`, `player_form`,
+  `player_season_points`, `injury_list`, `price_changes`,
+  `team_fixture_calendar`, `team_schedule`, `position_fixture_run`,
+  `transfer_suggestion`, `fixture_outlook`, `zonal_opportunity`,
+  `unsupported`, and the `multi_intent` parent;
+- the four native FI tool turns, whose evidence is already owned by FI-7b3;
+- non-OK eligible-intent outcomes (`not_found`, `ambiguous`,
+  `missing_arguments`, `needs_clarification`, `error`, `quota_exceeded`, or
+  unsupported); and
+- any future intent unless a later reviewed contract adds it by exact name.
+
+Player/team/fixture context in an excluded intent is not implicit permission to
+enrich it. FI-7c does not widen eligibility based on text, metadata shape,
+router guesses, or LLM tool selection.
+
+#### Enrichment and rendering semantics
+
+Enrichment is **evidence-only** for all three eligible intents. Existing
+`final_text`, renderer selection, structured metadata, recommendation language,
+scores, tiers, deltas, reasons, `supported`, `outcome`, review fields, routing
+audit fields, suggestions, and squad overrides must remain contract-equivalent
+to the pre-FI-7c result.
+
+No FI section is appended and no FI renderer replaces existing intent text.
+`renderer.py` and `football_intelligence_renderer.py` remain unchanged. The
+bounded adapter runs only after the existing deterministic result is known to
+be OK and consumes the canonical resolved player values already present in
+that successful raw output; it does not reroute or re-resolve the user's prose.
+
+#### Feature-flag and import behavior
+
+With `FOOTBALL_INTELLIGENCE_ENABLED=OFF`:
+
+- the enrichment adapter returns without importing the FI runtime or modules;
+- all three eligible paths are contract-equivalent to current `main`, including
+  `evidence=None` and omission at HTTP boundaries;
+- FI modules are unreachable and execute zero times; and
+- schema registry and offered-tool counts remain 33 static / 29 offered.
+
+With the flag ON, only the exact eligible OK results above are enriched. An
+unrelated or non-OK turn must not execute FI. Existing FI-native requests keep
+their FI-7b3 behavior and must not be enriched a second time. Static/offered
+counts remain 33/33.
+
+#### Evidence construction, copy, and serialization
+
+FI-6 modules construct immutable `EvidenceItem`s. The FI-7b2 runtime serializes
+and bounds each composite. FI-7c may only concatenate eligible per-player
+bundles in the governed player order, exact-deduplicate canonical serialized
+items, take the first eight, restore the existing immutable evidence tuple, and
+assign it to the same successful response. It may not alter any field or
+synthesize a summary.
+
+The first player may consume all eight evidence slots. The cap is global across
+the ordered request, not reserved or balanced per player.
+
+For a single-intent stateless or session response, the response owns evidence
+at top level. In a multi-intent turn, each eligible child independently owns
+its evidence; the `multi_intent` parent remains `evidence=None` and never
+aggregates child evidence. Non-FI children retain `evidence=None`. Existing
+recursive adapter and HTTP projection code owns Enum-to-string, tuple-to-array,
+and omit-when-`None` behavior. A governed empty bundle remains empty; total
+enrichment failure uses `None` so absence is omitted.
+
+#### Failure and honest degradation matrix
+
+| Condition | Required result |
+|---|---|
+| Eligible intent is non-OK | Skip enrichment; return the existing response unchanged. |
+| Existing intent player resolution is absent or contradictory | Skip that player; do not attempt a new matching policy. |
+| FI identity is unresolved or ambiguous | Skip that player's enrichment; preserve the normal intent success and existing text. |
+| No strict-future fixture | Preserve the runtime's honest unavailable/missing-context result and any native evidence it actually emits; if the runtime produces no evidence, contribute none. |
+| Native M1/M2/M3 `missing_context` or composite `partial` | Preserve native statuses/reasons and copy only native evidence; do not fabricate replacement evidence. |
+| Typed build/fixture/contract validation failure | Treat enrichment as unavailable for that player; never convert the original successful intent to failure and never hide corruption behind fabricated `missing_context`. |
+| Unexpected FI runtime or adapter failure | Contain it at the enrichment boundary, emit no evidence for that player, and preserve the original response. No retry or alternate provider path. |
+| FI renderer failure | Impossible by design because FI-7c does not render FI text; no FI renderer is invoked. |
+| Multi-intent child failure | Affects only that child under existing response semantics; parent evidence remains absent. |
+
+Degradation containment must be observable in deterministic test seams without
+adding user-visible advice, fallback prose, or a persisted intelligence log.
+
+#### Determinism, execution count, and the existing double-`ask_v2` finding
+
+For identical bootstrap/build data, explicit controlled `calculated_at`, raw
+eligible tool output, and flag state, enrichment returns byte-identical
+evidence arrays. No wall clock, locale, randomness, network, provider refresh,
+LLM output, unordered set iteration, mutable global cache, or session history
+may affect evidence selection.
+
+Maximum FI composite executions are one for `captain_score` and two for
+`compare_players`/`transfer_advice`; each entity executes at most once and each
+M1/M2/M3 module at most once within that composite. There are no retries. The
+implementation must expose a request-scoped cache keyed by canonical player
+identity only if the same eligible entity is repeated within one intent; this
+prevents duplicate execution without persisting results across requests.
+
+The accepted informational finding that some non-FI requests can invoke
+`ask_v2` twice when the FI flag is ON predates FI-7c. Correcting that routing
+architecture is explicitly outside FI-7c because it changes shared request
+routing beyond evidence enrichment. FI-7c must not call `ask_v2`, the
+orchestrator, or a tool-selection LLM for enrichment, and causal spies must
+prove the count is not increased relative to the same request on pre-FI-7c
+main. The existing finding remains tracked; FI-7c neither fixes nor worsens it.
+
+#### Stateless, session, multi-intent, and replay behavior
+
+- Stateless HTTP `POST /ask` follows `fpl_server.py` → `harness.ask_v2()` →
+  `harness_adapter.to_ask_response()`. A narrow copy-only seam in `harness.py`
+  attaches the adapter's finalized evidence bundle to the successful existing-
+  intent harness result; the existing adapter then exposes it at top level and
+  omits it when unavailable. `harness.py` does not extract players, execute FI,
+  cache results, order players, deduplicate, truncate, degrade, or render.
+- A single-intent `ConversationSession.respond()` and HTTP session response
+  carry top-level evidence through the existing `final_response.py` successful
+  assembly seam. Session assembly does not reuse the stateless copy seam.
+- Multi-intent execution enriches eligible children independently in existing
+  child order. Parent evidence remains absent; excluded children are unchanged.
+- Replayed session requests over identical controlled inputs produce identical
+  response-local evidence. FI-7c adds no intelligence persistence, manifest,
+  pointer, session evidence store, or cross-request cache.
+
+The enrichment adapter executes before either response assembly projection.
+Stateless and session seams copy its finalized result only. Replay,
+`harness_adapter.py`, `fpl_server.py`, and all serializers transport existing
+values and must never trigger enrichment or FI execution.
+
+These rules extend FI-7b3 Scenario A/B ownership to eligible existing-intent
+children without changing the native FI scenarios or response schema.
+
+#### Bounded implementation homes
+
+The expected smallest implementation union, to be reverified against merged
+`main`, is:
+
+- a new bounded evidence-enrichment adapter under
+  `packages/fpl-grounded-assistant/fpl_grounded_assistant/`;
+- `final_response.py` only at the existing successful deterministic
+  `FinalResponse` assembly seam, including the existing recursive multi-intent
+  child path; and
+- `harness.py` only at the successful stateless existing-intent response seam,
+  where it copies the finalized adapter evidence into the existing harness
+  result for `harness_adapter.to_ask_response()`, only for the three eligible
+  intents, only while the master flag is ON, and only while the original intent
+  result remains successful. This seam performs no player extraction, FI
+  execution, caching, ordering, filtering, deduplication, truncation,
+  degradation decision, or rendering; and
+- focused FI-7c tests plus runner-count updates only where repository gates
+  explicitly enumerate test totals.
+
+No change is authorized to `renderer.py`, `football_intelligence_renderer.py`,
+`football_intelligence_runtime.py`, FI-6 modules, `harness_adapter.py`,
+`fpl_server.py`, `conversation_state.py`, schemas,
+registries, flags, TypeScript, UI, persistence, lockfiles, or generated files.
+If implementation appears to require one of those homes, stop for a contract
+revision rather than expanding scope.
+
+#### Causal test and acceptance matrix
+
+| Area | Required acceptance |
+|---|---|
+| Eligible set | Each of the three exact OK intents enriches when ON; every enumerated excluded category and each non-OK outcome remains unchanged. Mutating any eligibility constant causes a focused failure. |
+| Flag OFF | Existing response dictionaries/text are contract-equivalent, evidence is absent, FI runtime/modules are not imported or invoked, and the full flags-off regression corpus stays at its governed baseline. |
+| Identity input | A resolved FPL element/player ID in existing raw output is passed through preferentially; name resolution occurs only when that ID is absent; ambiguity skips the player. Mutations that discard an available ID or guess an ambiguous fallback must fail. |
+| Evidence | Single-player and ordered two-player golden cases pin the governed composite's unchanged M1→M2→M3 evidence, cross-player order, exact duplicate removal, first-occurrence retention, global first-eight truncation, immutable result shape, and no synthesized fields. Tests pin that M2 is not filtered, no M1/M3 subset is reconstructed or re-bounded, and the first player may consume all eight slots. Mutations that filter M2, reorder, retain duplicates, balance slots, or take nine must fail. |
+| Recommendations | Golden captain, comparison, and transfer text, scores, tiers, deltas, winners/recommendations, reasons, metadata, and squad overrides are identical with the flag OFF and ON; only evidence may differ. |
+| Execution | Spies prove one composite execution for captain, two maximum for distinct compare/transfer players, one for a repeated canonical player, M1/M2/M3 exactly once per executed composite, no M4/M5, no atomic-tool fan-out, no retry, and no enrichment-originated `ask_v2`/orchestrator call. Stateless and session assembly over their respective request each copy one finalized bundle and never duplicate FI execution; adapters, serializers, and replay execute none. |
+| Failure/degradation | Identity failure, no fixture, native missing context, partial modules, typed corruption, and unexpected failure each preserve the normal successful intent and contribute only honest native evidence or none. |
+| HTTP/session ownership | A real stateless HTTP `POST /ask` parameterized over `captain_score`, `compare_players`, and `transfer_advice` pins top-level evidence while intent, outcome, supported state, text, and recommendation values remain unchanged. Removing the `harness.py` copy must fail this test. A single-intent session test pins top-level evidence and fails when the `final_response.py` copy is removed. Eligible multi-intent children own nested evidence; parent evidence remains absent; non-FI children and omission behavior remain unchanged. |
+| Determinism | Input-row reversal where supported, repeated evaluation, reversed test order, and fresh-process replay produce identical evidence and execution order; no clock/network/LLM access occurs. |
+| Registry/contracts | Static schemas remain 33; offered tools remain 29 OFF / 33 ON; no schema, intent, tool name, response field, serializer, renderer, or TypeScript mirror changes. |
+| Regression | Focused FI-7c, FI-7b1/b2/b3, relevant captain/compare/transfer, multi-intent/session/HTTP, full grounded-assistant, football-intelligence, FI-1, Orch-4a/4i, contract gate, Jest, and production build retain governed results. Accepted legacy failures remain exactly unchanged and are not opportunistically corrected. |
+
+#### Definition of done and explicit non-goals
+
+FI-7c is complete only when the three eligible OK intents satisfy the matrix in
+both flag states, evidence is deterministic and response-local, recommendation
+behavior is unchanged, all required mutation targets are killed, and the
+documentation-review → merge → implementation-review workflow is complete.
+
+FI-7c does not add FI text, UI, evidence formatting, cards/resources, tools,
+schemas, intents, registry entries, recommendation logic, confidence
+recalculation, FI algorithms, M4/M5, persistence, provider/network access, LLM
+evidence, FI-7d, FI-7e, or the separately tracked double-`ask_v2` correction.
+The dormant M3 findings, three accepted router extraction failures, owned-store
+fallback failure, and atomic-tool-ranking work remain untouched.
+
 ### FI-8 — Trial readiness gate
 - **Files new:** `sportmonks-client/scripts/trial_{auth,entities,fixtures,squads,lineups,injuries,stats,mapping}.py` (each: live call → raw snapshot → normalize → report; `--mock` mode for CI-less rehearsal); `TRIAL_STATUS.md` template; licensing checklist doc; go/no-go rubric doc (§14.4).
 - **DoD:** §14.1 checklist fully ticked. **Trial-dep:** none to build; exists to spend the trial well. **Pre-trial:** yes.
@@ -1182,7 +1438,7 @@ authorize their correction.
 4. **Raw caching/replay:** immutable snapshots + manifests; `rebuild` CLI replays raw→canonical (§7.1).
 5. **Versions:** `feature_version` columns; `model_version` on evidence; profile version strings; bump-on-change, pinned in tests (§8.1).
 6. **Evidence in FinalResponse:** additive optional `evidence` field, ≤8 items, same pattern as existing meta (§8.2).
-7. **First intents:** captain_score, compare_players, transfer_advice (§10.4).
+7. **First intents:** captain_score, compare_players, transfer_advice (§10.4 as superseded and locked by FI-7c's governed M1 → M2 → M3 composite rule).
 8. **`player_recommendation` intent:** later. `get_player_intelligence` + orchestrator covers the vague-question case now; a deterministic intent can graduate post-calibration (§10).
 9. **Module selection:** LLM chooses allowlisted tools; composite tool bundles the default investigation; flags gate modules (§10).
 10. **Pre-trial computable:** congestion/rest (PL), minutes-confidence inputs (owned history), finish-zone flank proxy (zonal store), identity for Understat/vaastav, everything else on mocks (§9, §15).
@@ -1249,7 +1505,9 @@ Open questions requiring trial validation are enumerated in §14.2/§14.3 and mu
 | FI-6 | a — shared contracts, strict v2 input, and M1 | implemented; under review | focused FI-6a 11/11; full football-intelligence 196 passed/2 platform skips; contract gate 16/16 | Added frozen module/result contracts, strict validated v2 row loading, explicit `availability-input-v1`, pure `expected-minutes-v1` evaluation, hand-tuned-v1 coefficient versioning, deterministic evidence/replay, and corruption-versus-absence degradation tests. No persistence, tool, response, orchestration, recommendation, UI, FI-6b/c/d, or FI-7 work. |
 | FI-7 | a — `FinalResponse.evidence` + serialization + TS mirror + fixtures + FI-1 gate graduation | complete — merged PR #45 | FI-7a focused 6/6; FI-1 gate 22/22; TS evidence-contract 8/8; contract gate 16/0 | Additive optional immutable `evidence` on `FinalResponse`; recursive adapter serialization (`Enum→.value`, dataclass walk, tuple→array, None→absent at HTTP boundary); `AskResponse`/`SessionAskResponse` omit-when-None; `lib/types.ts` mirror; `http_contract_fixtures.json` evidence fixtures; FI-1 gate graduated from deferred. Approved head `7de77b2`. Carry-forward (F2): add a session-level end-to-end evidence test in FI-7b once an assembler can produce top-level evidence (`session_ask` top-level path is an equivalent-mutant until then). No flag, tool, intent enrichment, or UI work — those are FI-7b+. |
 | — | post-merge cleanup — PR #47 intent drift (NOT a roadmap slice) | complete — merged PR #48 | UI contract 27/27; evidence-contract 8/8; full Jest 406/25 suites; contract gate 16/0; FI-1 22/22; PR-47 Python 15/15 | **Not an FI-7 slice** — recorded here only to explain the extra PR between FI-7a and FI-7b. Two-line TypeScript intent-mirror parity fix (`packages/fpl-ui/lib/types.ts` only): added `player_season_points` to the `Intent` union and `SUPPORTED_INTENT_VALUES`, restoring parity with `dispatcher.py` after PR #47 shipped the backend intent without the UI mirror. Merged to main `03bac5697d087e1dba636ef8c4f534edc63d978a`. FI-7a untouched. |
-| FI-7 | b–e response/UI integration | not started | — | (b) tools + schemas + renderers is the next engineering task |
+| FI-7 | b — FI tools/runtime/rendering/evidence propagation | complete — merged PRs #51/#53/#55 | FI-7b3 focused/session mutation coverage; contract drift gate green on approved PR #55 head | Static registry 33; offered set 29 OFF/33 ON; deterministic M1→M2→M3 runtime, rendering, and stateless/session evidence transport; F2 closed. |
+| FI-7 | c — existing-intent evidence enrichment | specification draft; implementation not started | documentation review pending | Exact eligible set: `captain_score`, `compare_players`, `transfer_advice`; evidence-only, master-flag gated, no recommendation or renderer change. |
+| FI-7 | d–e UI and demo | not started | — | Remain blocked behind the separately reviewed FI-7c workflow. |
 | FI-8 | trial gate artifacts | not started | — | |
 | FI-9 | live trial | blocked until ~2026-08-10 | — | |
 | FI-10 | calibration | blocked on FI-9 | — | |
