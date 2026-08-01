@@ -2265,6 +2265,7 @@ def _try_football_intelligence_response(
         classifier_client=classifier_client,
         orch_client=client,
         orch_api_key=api_key,
+        _enrich_existing_intents=False,
     )
     selected_tool = result.get("selected_tool")
     if selected_tool not in _FI_TOOL_NAMES:
@@ -2444,6 +2445,21 @@ def respond(
         squad_context=squad_context,
     )
 
+    _existing_intent_evidence: "tuple[EvidenceItem, ...] | None" = None
+    if dr.outcome == OUTCOME_OK:
+        from .orch_config import is_football_intelligence_enabled
+
+        if is_football_intelligence_enabled():
+            from .existing_intent_evidence import enrich_existing_intent_evidence
+
+            _existing_intent_evidence = _evidence_from_wire(
+                enrich_existing_intent_evidence(
+                    dr.selected_tool,
+                    dr.raw_output,
+                    bootstrap,
+                )
+            )
+
     _result = FinalResponse(
         final_text=final_text,
         outcome=dr.outcome,
@@ -2480,6 +2496,7 @@ def respond(
         generic_card=_meta["generic_card"],
         # Guided Comparison flow: tappable suggestions on compare clarification
         suggestions=suggestions,
+        evidence=_existing_intent_evidence,
     )
     # Phase 2.7g: in-process telemetry — record after result is built, never raises
     try:
