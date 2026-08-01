@@ -484,6 +484,7 @@ def ask_v2(
     orch_api_key: str | None = None,
     orch_provider: str | None = None,
     web_search_enabled: bool = False,
+    _enrich_existing_intents: bool = True,
 ) -> dict[str, Any]:
     """Phase M1/M2/M3 entrypoint composing `decision_router` + existing `ask()`.
 
@@ -695,6 +696,24 @@ def ask_v2(
     _orch_enabled = is_orch_enabled()
     _football_intelligence_enabled = is_football_intelligence_enabled()
 
+    def _copy_existing_intent_evidence(result: dict[str, Any]) -> None:
+        """Copy one finalized FI-7c bundle onto a successful stateless result."""
+        if (
+            not _enrich_existing_intents
+            or not _football_intelligence_enabled
+            or result.get("outcome") != "ok"
+        ):
+            return
+        from .existing_intent_evidence import enrich_existing_intent_evidence
+
+        evidence = enrich_existing_intent_evidence(
+            result.get("selected_tool"),
+            result.get("raw_output") or {},
+            actual_bootstrap,
+        )
+        if evidence is not None:
+            result["evidence"] = evidence
+
     # M3 routing_trace — additive observability dict attached to every result.
     # Keys are stable; values are filled in per-branch below.
     routing_trace: dict[str, Any] = {
@@ -796,6 +815,7 @@ def ask_v2(
         result["routing_trace"] = routing_trace
         # prompt-expansion branch: extract metadata when tool ran, else all-None
         result.update(_meta(result.get("selected_tool"), result.get("raw_output", {})))
+        _copy_existing_intent_evidence(result)
         _telemetry.record(routing_trace)  # M5 telemetry
         return result
 
@@ -825,6 +845,7 @@ def ask_v2(
         }
         if context_meta is not None:
             result["context_meta"] = context_meta
+        _copy_existing_intent_evidence(result)
         _telemetry.record(routing_trace)  # M5 telemetry
         return result
 
@@ -953,6 +974,7 @@ def ask_v2(
                 "get_player_intelligence",
             }:
                 result["evidence"] = _orch_raw.get("evidence")
+            _copy_existing_intent_evidence(result)
             if context_meta is not None:
                 result["context_meta"] = context_meta
             _telemetry.record(routing_trace)  # M5 telemetry (orchestrator grounded)
