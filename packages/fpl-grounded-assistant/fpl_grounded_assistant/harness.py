@@ -946,6 +946,13 @@ def ask_v2(
                 },
                 **_meta(orch_result.tool_chosen, _orch_raw),  # orchestrator: grounded tool ran
             }
+            if orch_result.tool_chosen in {
+                "get_expected_minutes",
+                "get_tactical_role",
+                "get_fixture_context",
+                "get_player_intelligence",
+            }:
+                result["evidence"] = _orch_raw.get("evidence")
             if context_meta is not None:
                 result["context_meta"] = context_meta
             _telemetry.record(routing_trace)  # M5 telemetry (orchestrator grounded)

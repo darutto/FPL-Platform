@@ -72,7 +72,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from football_data_contract import EvidenceItem
+from football_data_contract import (
+    EvidenceDirection,
+    EvidenceItem,
+    SignalBasis,
+    SubjectType,
+)
 
 from . import telemetry as _telemetry  # Phase 2.7g: in-process telemetry (never raises)
 from .dispatcher import OUTCOME_OK, OUTCOME_NEEDS_CLARIFICATION, INTENT_COMPARE_PLAYERS, INTENT_CAPTAIN_SCORE, INTENT_RANK_CANDIDATES, INTENT_MULTI_INTENT, INTENT_TRANSFER_ADVICE, INTENT_CHIP_ADVICE, INTENT_PLAYER_FIXTURE_RUN, INTENT_DIFFERENTIAL_PICKS, INTENT_PLAYER_FORM, INTENT_INJURY_LIST, INTENT_PRICE_CHANGES, INTENT_TEAM_FIXTURE_CALENDAR, INTENT_TEAM_SCHEDULE, INTENT_POSITION_FIXTURE_RUN, INTENT_TRANSFER_SUGGESTION, INTENT_FIXTURE_OUTLOOK, INTENT_ZONAL_OPPORTUNITY  # noqa: F401 — re-exported
@@ -2200,6 +2205,86 @@ def _orch_result_to_final_response(
 # Public entrypoint
 # ---------------------------------------------------------------------------
 
+_FI_TOOL_NAMES = frozenset(
+    {
+        "get_expected_minutes",
+        "get_tactical_role",
+        "get_fixture_context",
+        "get_player_intelligence",
+    }
+)
+
+
+def _evidence_from_wire(value: Any) -> tuple[EvidenceItem, ...] | None:
+    """Restore the immutable FI evidence tuple without changing its order."""
+    if value is None:
+        return None
+    return tuple(
+        EvidenceItem(
+            code=item["code"],
+            label=item["label"],
+            subject_type=SubjectType(item["subject_type"]),
+            subject_id=item["subject_id"],
+            fixture_id=item.get("fixture_id"),
+            impact=item["impact"],
+            direction=EvidenceDirection(item["direction"]),
+            confidence=item["confidence"],
+            basis=SignalBasis(item["basis"]),
+            summary=item["summary"],
+            source_features=tuple(item["source_features"]),
+            model_version=item["model_version"],
+            calculated_at=item["calculated_at"],
+        )
+        for item in value
+    )
+
+
+def _try_football_intelligence_response(
+    user_message: str,
+    bootstrap: dict[str, Any],
+    *,
+    client: Any,
+    candidate_inputs: dict[str, Any] | None,
+    candidates_list: list[dict[str, Any]] | None,
+    api_key: str | None,
+    classifier_client: Any,
+) -> FinalResponse | None:
+    """Use the shared FI harness path when the FI flag selects an FI tool."""
+    from .orch_config import is_football_intelligence_enabled
+
+    if not is_football_intelligence_enabled():
+        return None
+
+    from .harness import ask_v2
+
+    result = ask_v2(
+        user_message,
+        bootstrap,
+        candidate_inputs=candidate_inputs,
+        candidates_list=candidates_list,
+        classifier_client=classifier_client,
+        orch_client=client,
+        orch_api_key=api_key,
+    )
+    selected_tool = result.get("selected_tool")
+    if selected_tool not in _FI_TOOL_NAMES:
+        return None
+
+    routing_trace = result.get("routing_trace") or {}
+    tokens = result.get("tokens") or {}
+    return FinalResponse(
+        final_text=result["answer_text"],
+        outcome=result.get("outcome", OUTCOME_OK),
+        supported=result.get("outcome") != "unsupported",
+        intent=_TOOL_TO_INTENT.get(selected_tool, INTENT_UNSUPPORTED),
+        review_passed=True,
+        llm_used=False,
+        debug=None,
+        orch_outcome=routing_trace.get("orchestrator_outcome"),
+        total_tokens=int(tokens.get("total", 0)),
+        evidence=_evidence_from_wire(result.get("evidence")),
+    )
+
 def respond(
     user_message: str,
     bootstrap: dict[str, Any],
@@ -2283,6 +2368,18 @@ def respond(
                 classifier_client=classifier_client,
                 squad_context=squad_context,  # Phase 8e1: forward per-turn constraint state
             )
+
+    fi_response = _try_football_intelligence_response(
+        user_message,
+        bootstrap,
+        client=client,
+        candidate_inputs=candidate_inputs,
+        candidates_list=candidates_list,
+        api_key=api_key,
+        classifier_client=classifier_client,
+    )
+    if fi_response is not None:
+        return fi_response
 
     lr, review = ask_llm_safe(
         user_message,
