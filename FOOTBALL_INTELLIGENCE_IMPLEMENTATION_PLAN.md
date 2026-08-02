@@ -586,7 +586,7 @@ Phase table (each phase = one or more PR-sized slices; "Trial-dep" = requires li
 - **Compatibility:** all additive; flags-off sweep of the full validation corpus is the slice-(c) gate.
 - **Tests:** contract additivity; renderer snapshots with/without evidence; tool schema validation; Jest card tests.
 - **DoD:** demo recorded; contract gate + validation corpus + `npm run build`/tests green. **Trial-dep:** none. **Pre-trial:** yes — completing FI-7 IS the trial-readiness bar.
-- **Status (2026-08-01):** slices **(a), (b), and (c) complete**. FI-7a merged in PR #45. FI-7b1/b2/b3 merged in PRs #51/#53/#55; b3 closed F2 through deterministic FI rendering plus real single- and multi-intent session evidence propagation. FI-7c merged in PR #57 at `49435bd004d4314567bb934e8f353db92d43130d`. **FI-7d documentation is the active slice; implementation has not started.** FI-7e remains demo-only and unstarted. FI-7f resource-surface parity is deferred and unstarted pending its own documentation and independent review. **Not a slice:** PR #48 (`fix(ui): mirror player season points intent`, merged to main `03bac5697d087e1dba636ef8c4f534edc63d978a`) was a **post-merge cleanup associated with PR #47** — a one-file, two-line TypeScript intent-mirror parity fix, not an FI-7 roadmap slice.
+- **Status (2026-08-01):** slices **(a), (b), (c), and (d) complete**. FI-7a merged in PR #45. FI-7b1/b2/b3 merged in PRs #51/#53/#55; b3 closed F2 through deterministic FI rendering plus real single- and multi-intent session evidence propagation. FI-7c merged in PR #57 at `49435bd004d4314567bb934e8f353db92d43130d`. FI-7d merged in PR #59 and was independently post-merge verified on `main@239bc8137358eeeb5aad137f53a9b0b66a22d0f2`. **FI-7e documentation is the active slice; artifact production has not started.** FI-7f resource-surface parity is deferred and unstarted pending its own documentation and independent review. **Not a slice:** PR #48 (`fix(ui): mirror player season points intent`, merged to main `03bac5697d087e1dba636ef8c4f534edc63d978a`) was a **post-merge cleanup associated with PR #47** — a one-file, two-line TypeScript intent-mirror parity fix, not an FI-7 roadmap slice.
 
 ### FI-7b — detailed slice specification (source of truth for b1–b3)
 
@@ -1163,8 +1163,8 @@ authorize their correction.
 ### FI-7c — deterministic evidence enrichment of existing intents
 
 **Status:** complete — merged in PR #57 at merge commit
-`49435bd004d4314567bb934e8f353db92d43130d`. FI-7d documentation is active;
-FI-7d implementation and FI-7e remain unstarted.
+`49435bd004d4314567bb934e8f353db92d43130d`. FI-7d is complete and merged in
+PR #59. FI-7e documentation is active; artifact production remains unstarted.
 
 #### Purpose, ownership, and invariants
 
@@ -1419,10 +1419,9 @@ fallback failure, and atomic-tool-ranking work remain untouched.
 
 ### FI-7d — governed evidence presentation in the existing UI
 
-**Status:** documentation active; implementation not started. FI-7c is complete
-and merged in PR #57. This subsection authorizes no TypeScript, component,
-runtime, test, asset, or generated-file change. FI-7e remains demo-only and
-unstarted; FI-7f resource-surface parity remains deferred and unstarted.
+**Status:** complete; merged in PR #59 and independently verified on
+`main@239bc8137358eeeb5aad137f53a9b0b66a22d0f2`. FI-7e artifact production
+remains unstarted; FI-7f resource-surface parity remains deferred and unstarted.
 
 #### Purpose, repository facts, and ownership
 
@@ -1676,6 +1675,404 @@ matrix, realistic mutations are killed, the implementation receives
 independent review, and the final merge is independently verified. This
 documentation PR does not authorize or begin that implementation.
 
+### FI-7e — deterministic end-to-end demo and verification evidence
+
+**Status:** documentation active; artifact production not started. FI-7d is
+complete and merged in PR #59. This subsection authorizes no production, test,
+script, fixture, screenshot, recording, generated-artifact, or deployment
+change by itself. FI-7f and the `@minutes` / `@role` resources remain deferred
+and unstarted.
+
+#### Purpose, repository facts, and evidence model
+
+FI-7e produces a reproducible evidence and communication package for the
+completed FI-7a–FI-7d vertical. It adds no product behavior. The package must
+prove the runtime and UI claims with machine-readable assertions rather than
+asking reviewers to infer correctness from a video.
+
+Repository inspection found checked-in UAT runbooks, dated capture/findings
+records, immutable completed passes, machine-readable validation JSON, HTTP
+session examples, FastAPI `TestClient` fixtures, and Jest/Testing Library UI
+tests. It found no Playwright, Cypress, browser screenshot runner, established
+video directory, or binary-video retention convention. The existing FI tests
+already provide deterministic controlled inputs, explicit `calculated_at`,
+module-call spies, session HTTP transport, response replay, recommendation
+equality, malformed-evidence containment, and responsive-class assertions.
+The UI runs locally with `npm run dev` and proxies sessions to
+`FPL_BACKEND_URL` (default `http://localhost:8000`); the backend runs locally
+with `python fpl_server.py` on `127.0.0.1:8000`.
+
+The locked format is therefore a **combined evidence package**:
+
+1. a test-only deterministic capture command exercises the existing backend
+   harness/session seams against frozen canonical/mock inputs and emits raw and
+   normalized JSON plus a structured runtime trace;
+2. the exact normalized `AskResponse` payloads emitted by that command are
+   served by a demo-only local fixture server to the unchanged UI, so the UI
+   recording consumes the same canonical-JSON SHA-256 payload hashes reviewed
+   in the backend trace;
+3. checked-in desktop/mobile screenshots, a transcript, manifests, checksums,
+   and test summaries make every visual claim independently reviewable; and
+4. one short externally hosted silent browser recording is referenced by URL
+   and SHA-256 in the manifest. Binary video is not committed to Git.
+
+The fixture server and capture command are later **demo/test tooling**, never a
+production route or runtime fallback. A browser-only recording is not runtime
+proof, and a backend-only trace is not FI-7d proof. Both halves must name the
+same scenario IDs and canonical-JSON response SHA-256 values. If this linkage cannot be
+implemented without modifying production code, FI-7e stops as a blocker for
+separate review.
+
+#### Exact later artifact boundary and inventory
+
+The separately authorized artifact-production slice may add only these paths;
+the current documentation slice adds none of them:
+
+| Path | Class | Retention and purpose |
+|---|---|---|
+| `packages/fpl-grounded-assistant/FI7E_DEMO_RUNBOOK.md` | hand-authored documentation | Checked in; exact clean-checkout setup, capture, review, rerun, and cleanup procedure. |
+| `packages/fpl-grounded-assistant/scripts/capture_fi7e_demo.py` | demo/test tooling | Checked in; offline deterministic capture and assertion runner. It may import existing public/test helpers but may not change production state or call a provider. |
+| `packages/fpl-grounded-assistant/scripts/serve_fi7e_demo.py` | demo/test tooling | Checked in; localhost-only fixture server for the exact captured response payloads. It must fail closed outside loopback and is not imported by production. |
+| `packages/fpl-grounded-assistant/tests/fixtures/fi7e_demo_inputs.json` | frozen test-only fixture | Checked in; canonical player/fixture/build identifiers, explicit prompts, flag states, and fixed `calculated_at`. |
+| `packages/fpl-grounded-assistant/fi7e_evidence/README.md` | hand-authored index | Checked in; SHA, completion state, artifact map, reviewer commands, and external video link. Uses an `IN PROGRESS` marker until every acceptance item passes. |
+| `packages/fpl-grounded-assistant/fi7e_evidence/environment.json` | deterministic generated artifact | Checked in; repository SHA, OS family, Python/Node/npm versions, viewport/browser versions, fixture version, and flag state. No environment dump or absolute paths. |
+| `packages/fpl-grounded-assistant/fi7e_evidence/manifest.json` | deterministic generated manifest | Checked in; schema version, scenario IDs, artifact paths, canonical-JSON SHA-256 hashes, ordinary non-JSON checksums, generation command, and external video metadata/hash. |
+| `packages/fpl-grounded-assistant/fi7e_evidence/backend-trace.json` | deterministic generated artifact | Checked in; module/tool/import/network counters, module order, evidence ownership/count/order, and canonical-JSON response hashes. |
+| `packages/fpl-grounded-assistant/fi7e_evidence/responses.json` | deterministic generated artifact | Checked in; raw fixture-backed HTTP responses with allowed volatile fields removed or frozen as specified below. |
+| `packages/fpl-grounded-assistant/fi7e_evidence/recommendation-equality.json` | deterministic generated artifact | Checked in; OFF/ON normalized comparison and exact differing-field allowlist. |
+| `packages/fpl-grounded-assistant/fi7e_evidence/test-summary.txt` | deterministic generated artifact | Checked in; exact commands, exit codes, and pass totals for focused/full UI, backend FI suites, TypeScript, build, and contract gate. |
+| `packages/fpl-grounded-assistant/fi7e_evidence/transcript.md` | hand-authored capture record | Checked in; scenario-by-scenario visible actions/captions tied to manifest IDs and screenshot names. No narration is required. |
+| `packages/fpl-grounded-assistant/fi7e_evidence/redaction-statement.md` | hand-authored attestation | Checked in; secret/privacy scan scope and result. |
+| `packages/fpl-grounded-assistant/fi7e_evidence/known-issues.md` | hand-authored status | Checked in; Railway caveat and any accepted recording-only limitations, clearly separated from product acceptance. |
+| `packages/fpl-grounded-assistant/fi7e_evidence/screenshots/{A-off-desktop,B-native-desktop,B-native-mobile,C-compare-desktop,D-multi-desktop,E-replay-desktop,F-failure-desktop}.png` | deterministic visual captures | Checked in; lossless captures of the exact named fixture payload. No additional screenshots are required unless review finds a missing claim. |
+| `packages/fpl-grounded-assistant/fi7e_evidence/SHA256SUMS` | deterministic checksum file | Checked in; relative POSIX paths and SHA-256 for every evidence file except itself and the external video. |
+
+The external recording filename is
+`fi7e-demo-<40-char-main-sha>.webm`. It is hosted as a review-accessible GitHub
+PR/release attachment or another independently accessible immutable object;
+`manifest.json` records its URL, byte length, ordinary byte-level SHA-256,
+media type, duration, codec, width, height, and frame rate when the container
+reports frame rate reliably. URL, byte length, SHA-256, media type, duration,
+codec, width, and height are mandatory; frame rate may be `null` only with the
+inspection command and reason recorded. A URL without a downloadable object
+and matching hash blocks completion. No binary video, credential, cookie, or
+personal data enters Git.
+
+Completed evidence is immutable. A rerun creates a new directory named
+`fi7e_evidence_rerun_<YYYYMMDD>_<short-sha>` only after separate review; it
+does not overwrite the accepted package. During capture the index begins with
+`<!-- IN PROGRESS — not a completed evidence record -->`, following the UAT
+archive convention, and removes it only at closeout.
+
+#### Frozen deterministic data and environment
+
+Every scenario uses `fi7e-demo-input-v1`, derived from the already governed
+canonical/mock and FI-7 test fixtures. It uses canonical Saka and Palmer
+identities, one fixed scheduled fixture, validated FI-5b v2 feature/context
+bindings, and `calculated_at = 2026-08-01T12:00:00Z`. Fixture IDs, kickoff,
+module inputs, evidence, and responses are committed. Row reversal and repeated
+evaluation must produce identical normalized results.
+
+No live FPL, Sportmonks, Understat, LLM/provider, Railway, Vercel, wall clock,
+production session, user account, or network response is a demo input. The
+capture runner fails if a non-loopback socket is attempted. Browser recording
+uses the demo-only localhost fixture server and unchanged frontend proxy. No
+credentials are required. A clean checkout plus repository dependencies must
+be sufficient on Windows PowerShell (authoritative) and should also work on a
+POSIX shell; OS-specific command spelling may differ but normalized artifacts
+must not.
+
+`environment.json` pins the exact repository SHA and records, rather than
+silently assumes, runtime versions. The later runbook must use the versions in
+the repository lockfiles/current CI and commands already supported by the
+repository; it may not install a new browser-automation dependency merely for
+FI-7e.
+
+#### Scenario and assertion matrix
+
+| ID | Input and capture | Machine-checkable acceptance |
+|---|---|---|
+| A — flag OFF baseline | Default/unset `FOOTBALL_INTELLIGENCE_ENABLED`; prompt `captain score for Saka`; desktop UI capture. | Static schemas = 33; offered tools = 29; no FI imports, tool calls, module calls, or evidence field; normalized recommendation equals the frozen pre-FI value; UI has no Evidence heading. |
+| B — flag ON FI-native | Flag ON; prompt `player intelligence for Saka`; desktop and mobile captures. | Offered tools = 33; one composite invocation; call order exactly `M1,M2,M3`, each once; no M4/M5; the demo payload proves its own bounded native-order M1→M2→M3 evidence output (`0..8`). Exact duplicate collapse, first-occurrence retention, and the eight-item boundary are causally proven by `test_evidence_exact_dedup_first_occurrence_order_and_first_eight`; the screenshot need not show an over-eight pre-truncation input. UI shows `Evidencia`, visible label/summary/basis/direction/confidence/sources, hidden IDs, and no UI FI/network request. |
+| C — eligible existing intent | OFF and ON executions of `compare Saka and Palmer`; desktop ON capture. | Intent remains `compare_players`; player order is Saka then Palmer; every response field except `evidence` has identical canonical UTF-8 JSON bytes; ON adds bounded per-player evidence in player order; runtime cache invokes a repeated canonical player at most once in the separate duplicate-input assertion. |
+| D — multi-intent ownership | Flag ON; `player intelligence for Saka and what gameweek is it?`; desktop capture. | Parent intent is `multi_intent`, parent evidence absent; child 0 owns FI evidence; child 1 remains unchanged with no evidence; lists do not merge; child order remains fixed; identical cross-child evidence stays independently owned in the adversarial fixture. |
+| E — session and replay | Flag ON; create local fixture session, ask `player intelligence for Saka`, persist the returned response, then replay that exact stored object through the same UI path; desktop capture. | Original top-level evidence and stored/replayed evidence have identical canonical UTF-8 JSON bytes and SHA-256; original executes M1→M2→M3 once; replay module/tool/enrichment/UI-request counters are all zero; no sub-response is introduced. |
+| F — deterministic degradation | Existing test-only enrichment adapter is made to raise for an eligible `captain score for Saka` response; separately render a fixture with a throwing evidence subtree. | Primary recommendation text/values equal the no-enrichment control; evidence is absent, never fabricated; main UI response remains visible; boundary fallback is null; no retry, provider call, logging of payload IDs, or production failure hook. |
+
+Additional assertions apply across the matrix: flag OFF is the default; no M4
+or M5 executes; no LLM creates evidence; no frontend sorting, deduplication,
+truncation, or collapse occurs; zero-confidence evidence remains visible;
+response ownership is unchanged; and FI-7f resources are absent.
+
+#### Runtime trace and replay proof
+
+`capture_fi7e_demo.py` must produce a closed `backend-trace-v1` record per
+scenario with: scenario ID; canonical-JSON input SHA-256; flag state;
+static/offered tool counts;
+selected tool/intent; canonical identity/fixture IDs (machine artifact only);
+M1/M2/M3 load/evaluate counts and order; M4/M5 counts; FI import count on OFF;
+enrichment/composite counts; UI-request count; evidence canonical-JSON SHA-256
+values and owners; replay count; canonical-JSON response SHA-256; and assertion
+results.
+
+Counters come from existing injected test seams/spies, not new production
+logging. The trace command must run the existing focused FI-7b2, FI-7b3,
+FI-7c, and FI-7d tests as causal corroboration. Replay proof requires the
+original response object to be serialized once, stored in `responses.json`,
+deserialized without modification, and rendered again while all FI execution
+counters remain zero. Merely issuing the same prompt twice is reevaluation,
+not replay, and fails Scenario E.
+
+#### Recommendation equality
+
+All normalized hashes, including backend-trace, responses,
+recommendation-equality, and manifest hashes, use one canonical serialization:
+UTF-8 JSON produced with Python `json.dumps` using `sort_keys=True`,
+`separators=(",", ":")`, `ensure_ascii=False`, LF semantics, and no trailing
+newline. This is the same compact canonical form already used by
+`packages/fpl-grounded-assistant/fpl_grounded_assistant/existing_intent_evidence.py`.
+Array order, strings, `null` values, and member omission semantics are
+preserved. Numbers use Python's shortest round-trip representation; therefore
+all confidence, impact, score, and other floating-point values used by FI-7e
+must originate from the frozen fixture and must not be recomputed or
+reformatted by shell tools, JavaScript, `jq`, PowerShell, spreadsheet software,
+or manual editing before hashing. The only permitted response difference in
+Scenario C is the top-level `evidence` member on the eligible successful
+response.
+
+Canonical JSON files contain those exact bytes: Unicode is written directly
+as UTF-8 rather than `\uXXXX`, JSON is not pretty-printed, omitted members stay
+omitted, and `null` remains distinct from omission. SHA-256 is calculated over
+the exact canonical UTF-8 bytes. No shell or JavaScript serializer may
+regenerate a hashed JSON artifact. Scenario C compares this canonical form for
+OFF and ON. No text, intent,
+supported/outcome value, comparison player order/value, recommendation,
+score, tier, reason, routing trace, or other metadata may differ.
+
+`recommendation-equality.json` records both canonical-JSON SHA-256 values after removing
+only `evidence`, the exact JSON Pointer allowlist (`/evidence`), and an empty
+unexpected-diff array. Visual similarity or hand-selected field comparisons
+are insufficient. The duplicate-player cache assertion is test-only and
+records canonical player-resolution/runtime call counts without altering the
+user-facing compare request.
+
+#### UI capture and recording protocol
+
+Use Chromium from the locally installed supported browser, 100% zoom, dark
+theme, no browser extensions, a fresh unauthenticated local session, and no
+open developer-tools panes containing secrets. Desktop captures use
+`1440×900`; mobile captures use `390×844`, both at device pixel ratio 1. The
+desktop width proves two columns at/above `sm`; the mobile width proves one
+column below `sm`. Both Scenario B captures must contain the identical item
+labels in identical DOM/backend order, and the manifest records their common
+canonical-JSON response SHA-256.
+
+The recording is silent; `transcript.md` supplies captions. It starts with a
+title card showing the full repository SHA, scenario ID, flag state, fixture
+version, viewport, and expected assertion, then shows A through F in order. It
+ends with the manifest/checksum verification result. Permitted editing is
+limited to trimming idle time and concatenating whole scenario segments.
+Overlays may add scenario titles only. Cutting within a request/response,
+reordering scenarios, replacing payloads, changing visible values, hiding an
+error, or compositing evidence is prohibited. Raw segment hashes are retained
+in the manifest if editing occurs.
+
+Required visual views are: OFF/no-evidence; FI-native desktop; FI-native
+mobile; eligible structured comparison; child-owned multi-intent evidence;
+session replay; and failure containment. Empty/all-invalid presentation is
+machine-tested and may share the failure segment; no fabricated empty-state
+copy is shown. The screenshots must demonstrate `grid-cols-1 sm:grid-cols-2`,
+`Confianza 0%` in at least one governed fixture, source text including
+`Fuentes: no indicadas`, noninteractive rows, and absence of visible internal
+subject/fixture IDs.
+
+#### Setup, execution, capture, and rerun contract
+
+The later runbook must provide literal PowerShell and POSIX equivalents for:
+
+1. clone/fetch and checkout the exact accepted artifact-production SHA;
+2. verify `git status --porcelain` is empty and record the SHA;
+3. create/use the repository Python environment and install only existing
+   requirements;
+4. run `npm ci` under `packages/fpl-ui`;
+5. run the offline capture command with a clean output directory and expect
+   exit code 0;
+6. start `serve_fi7e_demo.py` on loopback, set the existing
+   `FPL_BACKEND_URL=http://127.0.0.1:<documented-port>`, and run `npm run dev`;
+7. execute A–F in order, capture the pinned viewports, and stop both processes;
+8. run focused FI tests, FI-7d Jest, full UI, TypeScript, production build,
+   football-intelligence/grounded-assistant governed suites, and contract gate;
+9. run normalization, manifest validation, secret scan, and SHA-256 verification;
+10. confirm no tracked file outside the approved artifact boundary changed,
+    then remove only documented temporary output/processes.
+
+The canonical PowerShell sequence (with `<accepted-sha>` replaced by the
+reviewed artifact-production SHA) is:
+
+```powershell
+git fetch origin --prune
+git checkout --detach <accepted-sha>
+git status --porcelain=v1 --untracked-files=all
+git rev-parse HEAD
+$fi7eOutput='C:\tmp\fi7e-rerun-<short-sha>'
+py -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r packages\fpl-grounded-assistant\requirements.txt -r packages\football-intelligence\requirements.txt
+Push-Location packages\fpl-ui
+npm ci
+Pop-Location
+.\.venv\Scripts\python.exe packages\fpl-grounded-assistant\scripts\capture_fi7e_demo.py --fixture packages\fpl-grounded-assistant\tests\fixtures\fi7e_demo_inputs.json --output $fi7eOutput
+```
+
+Then keep the fixture server running in terminal 1:
+
+```powershell
+$fi7eOutput='C:\tmp\fi7e-rerun-<short-sha>'
+.\.venv\Scripts\python.exe packages\fpl-grounded-assistant\scripts\serve_fi7e_demo.py --responses "$fi7eOutput\responses.json" --host 127.0.0.1 --port 8765
+```
+
+After its readiness check passes, keep the UI running separately in terminal
+2:
+
+```powershell
+$env:FPL_BACKEND_URL='http://127.0.0.1:8765'
+Push-Location packages\fpl-ui
+npm run dev
+Pop-Location
+```
+
+The server and UI therefore cannot be pasted as sequential foreground commands
+in one terminal. After A–F capture, stop both with
+their foreground `Ctrl+C`; do not kill unrelated processes. The verification
+sequence is:
+
+```powershell
+Push-Location packages\fpl-grounded-assistant
+..\..\.venv\Scripts\python.exe -m pytest tests\test_fi7b1_tool_shells.py tests\test_fi7b2_runtime_integration.py tests\test_fi7b3_rendering_session_evidence.py tests\test_fi7c_existing_intent_evidence.py
+Pop-Location
+Push-Location packages\fpl-ui
+npm test -- --runInBand __tests__\fi7d-evidence-ui.test.tsx
+npm test -- --runInBand
+npx tsc --noEmit
+npm run build
+Pop-Location
+& 'C:\Program Files\Git\bin\bash.exe' 'scripts/run_contract_gate.sh'
+git diff --check
+git status --porcelain=v1 --untracked-files=all
+```
+
+The POSIX runbook first runs `python3 -m venv .venv`, then uses the same
+arguments with `.venv/bin/python`, `/` path separators, `pushd`/`popd`, and
+`FPL_BACKEND_URL=http://127.0.0.1:8765 npm run dev`; it must not change any
+scenario input, output path, or assertion. Every command's expected exit code
+is zero. The two long-lived servers are the only exceptions and are considered
+successful after their documented loopback readiness checks and clean stop.
+
+The capture command must refuse a dirty tracked or full worktree, stale SHA,
+wrong fixture version, pre-existing nonempty output directory, live-provider
+configuration, or non-loopback target. It must be idempotent into a fresh
+directory. Reviewers rerun into a temporary directory and compare normalized
+JSON and canonical-JSON SHA-256 values to the committed package; committed file modification times are
+not evidence and are excluded.
+
+#### Timestamps, normalization, privacy, and secrets
+
+All governed `calculated_at`, kickoff, response, and scenario timestamps are
+frozen fixture values. Session UUIDs, process IDs, durations, local ports,
+absolute paths, file modification times, and recording creation timestamps are
+volatile: they may appear only in a raw temporary capture, are removed from
+committed normalized JSON, and never participate in canonical hashes. Manifest
+`generated_at` is the fixed fixture timestamp, not the wall clock.
+
+JSON semantic hashing and ordinary artifact checksums are distinct. Every
+normalized JSON payload uses the compact Python canonical serialization above,
+has no trailing newline, and is SHA-256 hashed over those exact UTF-8 bytes.
+Every non-JSON artifact is hashed as ordinary final bytes and is never passed
+through the JSON canonicalizer: PNG metadata is stripped first and the
+resulting PNG bytes are hashed; Markdown is normalized to UTF-8/LF with no
+other semantic rewrite and those text bytes are hashed; WebM is hashed over
+the downloadable finalized container bytes; and other non-JSON artifacts are
+hashed over their final stored bytes. The external video's container metadata
+may vary only before finalization; the committed manifest pins the accepted
+bytes.
+
+No artifact may contain real user/player-account data beyond public frozen
+football fixture names, API/provider keys, auth headers, cookies, tokens,
+emails, IPs other than loopback, personal session IDs, environment dumps,
+home-directory paths, Railway/Vercel credentials, or provider payloads outside
+licensed checked-in mocks. All text/JSON is UTF-8 with LF and relative POSIX
+paths. Before closeout, run the repository's available secret scan if present
+and an explicit case-insensitive search for token/key/auth/cookie/email and
+absolute-path patterns; record the command and zero findings in
+`redaction-statement.md`. Potential matches are reviewed, not blindly deleted.
+
+#### Failure policy and Railway caveat
+
+Never edit output to appear successful. On a failed scenario, retain the raw
+temporary failure evidence outside the accepted directory, mark the package
+`IN PROGRESS`, and classify the failure as product regression, fixture drift,
+environment issue, or recording-only issue. Record the failed command, exit
+code, SHA, and classification before rerun. Product regression, fixture drift,
+machine assertion failure, canonical response/hash mismatch, secret/privacy finding,
+missing scenario, missing video access/hash, dirty/stale capture, production
+delta, or visual/machine contradiction blocks FI-7e. A recording-only failure
+may be rerun from unchanged machine artifacts; an environment issue may be
+rerun after documenting the environment correction. Hand-written claims never
+replace machine evidence.
+
+Railway `fpl-backend` deployment failure is a separate operational caveat. It
+predates FI-7d, FI-7d changed no backend file, and backend tests/contract gates
+pass. FI-7e uses the local deterministic backend/fixture server, does not fix
+or configure Railway, does not hide its status, and does not treat Railway as
+proof. Successful FI-7e does not resolve that issue; Railway requires a
+separate operational ticket/runbook outside this roadmap slice. Railway health
+is not an FI-7e completion gate when local deterministic validation passes.
+
+#### Review, acceptance, and adversarial mutations
+
+FI-7e is complete only when all A–F scenarios pass; raw/normalized JSON is
+linked by canonical-JSON SHA-256 and non-JSON artifacts by ordinary byte-level
+SHA-256; visual evidence matches machine evidence; OFF and ON are both
+shown; exact tool counts and M1→M2→M3-once are proven; replay has zero FI
+execution; parent anti-aggregation and child separation are proven;
+recommendation equality has no unexpected diff; desktop/mobile show identical
+items and order with the governed responsive layout; failure degradation keeps
+the primary response; no M4/M5, LLM evidence, FI network from UI, FI-7f,
+`@minutes`, or `@role` appears; privacy/secret checks pass; every checksum and
+external link verifies; the package reruns from a clean checkout; all governed
+test/build/gate commands pass; and the artifact PR contains no production code.
+
+Independent review must attempt at least these misleading mutations and prove
+the manifest/assertions or review procedure rejects each one: ON-only capture;
+omitted OFF baseline; live/changing data; stale or dirty SHA; edited JSON after
+capture; evidence shown without module-order/count proof; prompt reevaluation
+mislabelled as replay; replay with enrichment; child evidence while hiding a
+parent payload; merged cross-child lists; recommendation comparison that
+ignores fields beyond `/evidence`; changed recommendation text/value; exposed
+internal IDs; desktop-only capture; item reordering/dedup/truncation; omitted
+zero-confidence evidence; hidden malformed/failure behavior; M4/M5 execution;
+LLM-authored evidence; UI FI fetch; missing/altered checksums; inaccessible or
+unhashed video; committed secret/path/personal data; reliance on failed
+Railway; and accidental FI-7f/resource inclusion.
+
+The later `FI7E_DEMO_RUNBOOK.md` must include an adversarial detection matrix
+with exactly four columns: misleading mutation, detecting artifact, detecting
+command or assertion, and expected failure. Every mutation named above must
+have at least one causal detecting assertion; a prose claim without a failing
+command/assertion does not satisfy review.
+
+#### Explicit exclusions and next gate
+
+FI-7e does not authorize changes to production backend/frontend behavior,
+runtime, M1/M2/M3 algorithms, fixture/identity selection, evidence semantics,
+response ownership, recommendations, rendering, schemas, registry, flags,
+deployment, persistence, analytics, or external provider integration. It adds
+no product failure hook. FI-7f, `@minutes`, and `@role` remain deferred.
+
+After this documentation is independently reviewed, corrected if required,
+merged, and post-merge verified, a separate bounded prompt may authorize only
+the listed demo/test tooling and evidence artifacts. This documentation PR
+does not create those artifacts or derive that production prompt.
+
 ### FI-8 — Trial readiness gate
 - **Files new:** `sportmonks-client/scripts/trial_{auth,entities,fixtures,squads,lineups,injuries,stats,mapping}.py` (each: live call → raw snapshot → normalize → report; `--mock` mode for CI-less rehearsal); `TRIAL_STATUS.md` template; licensing checklist doc; go/no-go rubric doc (§14.4).
 - **DoD:** §14.1 checklist fully ticked. **Trial-dep:** none to build; exists to spend the trial well. **Pre-trial:** yes.
@@ -1767,8 +2164,8 @@ Open questions requiring trial validation are enumerated in §14.2/§14.3 and mu
 | — | post-merge cleanup — PR #47 intent drift (NOT a roadmap slice) | complete — merged PR #48 | UI contract 27/27; evidence-contract 8/8; full Jest 406/25 suites; contract gate 16/0; FI-1 22/22; PR-47 Python 15/15 | **Not an FI-7 slice** — recorded here only to explain the extra PR between FI-7a and FI-7b. Two-line TypeScript intent-mirror parity fix (`packages/fpl-ui/lib/types.ts` only): added `player_season_points` to the `Intent` union and `SUPPORTED_INTENT_VALUES`, restoring parity with `dispatcher.py` after PR #47 shipped the backend intent without the UI mirror. Merged to main `03bac5697d087e1dba636ef8c4f534edc63d978a`. FI-7a untouched. |
 | FI-7 | b — FI tools/runtime/rendering/evidence propagation | complete — merged PRs #51/#53/#55 | FI-7b3 focused/session mutation coverage; contract drift gate green on approved PR #55 head | Static registry 33; offered set 29 OFF/33 ON; deterministic M1→M2→M3 runtime, rendering, and stateless/session evidence transport; F2 closed. |
 | FI-7 | c — existing-intent evidence enrichment | complete — merged PR #57 | FI-7c focused 11/11; combined FI-7b/c 75/75; grounded assistant 547 passed with 4 accepted legacy failures; football-intelligence 389 passed/2 skips; contract gate 16/16 | Exact eligible set: `captain_score`, `compare_players`, `transfer_advice`; evidence-only, master-flag gated, no recommendation or renderer change. Merged to main `49435bd004d4314567bb934e8f353db92d43130d`. |
-| FI-7 | d — governed evidence UI | documentation active; implementation not started | documentation review pending | Ownership-based `EvidenceList` / `EvidenceChip` / per-item numeric `ConfidenceBadge`; consumes existing evidence only. No runtime or second flag. |
-| FI-7 | e — mock demo and recording | not started | — | Demo-only; remains blocked behind the separately reviewed and merged FI-7d workflow. No `@minutes` / `@role` resources. |
+| FI-7 | d — governed evidence UI | complete — merged PR #59 | FI-7d 43/43; full UI 449/449; TypeScript/build green; contract gate 16/16 | Ownership-based `EvidenceList` / `EvidenceChip` / per-item numeric `ConfidenceBadge`; consumes existing evidence only. Independently post-merge verified on `main@239bc8137358eeeb5aad137f53a9b0b66a22d0f2`; no runtime or second flag. |
+| FI-7 | e — deterministic demo and verification evidence | documentation active; artifact production not started | documentation review pending | Combined fixture-backed backend trace, exact-payload local UI capture, checked-in machine evidence/screenshots/transcript/checksums, and externally hosted hashed video. No production change and no `@minutes` / `@role` resources. |
 | FI-7 | f — resource-surface parity | deferred; not started | documentation and independent review required before implementation | Deterministic, quota-free `resource_registry` entries for `@minutes <player>` and `@role <player>`. Outside FI-7d/FI-7e; no authoritative resource contract exists yet. |
 | FI-8 | trial gate artifacts | not started | — | |
 | FI-9 | live trial | blocked until ~2026-08-10 | — | |
