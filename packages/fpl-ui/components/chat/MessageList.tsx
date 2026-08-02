@@ -20,6 +20,8 @@ import IntentRenderer from './IntentRenderer';
 import WcIntentRenderer from '@/components/wc/WcIntentRenderer';
 import SuggestionChips, { type CompareWizardState } from './SuggestionChips';
 import ShareActions from '@/components/share/ShareActions';
+import EvidenceBoundary from '@/components/intelligence/EvidenceBoundary';
+import EvidenceList from '@/components/intelligence/EvidenceList';
 
 export interface Message {
   id: string;
@@ -140,6 +142,11 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
       <div className="flex justify-start">
         <div className="max-w-prose w-full [&>:first-child]:mt-0">
           {hasFplCard && <IntentRenderer response={message.response!} />}
+          {hasFplCard && message.response!.intent !== 'multi_intent' && (
+            <EvidenceBoundary>
+              <EvidenceList evidence={message.response!.evidence} />
+            </EvidenceBoundary>
+          )}
           {hasFplCard && shareQuestion && (
             <ShareActions question={shareQuestion} response={message.response!} />
           )}
@@ -173,6 +180,12 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
         {!hasSuggestions && <p className="text-sm whitespace-pre-wrap">{message.text}</p>}
         {hasSuggestions && !showWizard && (
           <p className="text-sm font-semibold text-bf-text/90">¿Cuál es el primer jugador?</p>
+        )}
+
+        {!isUser && !message.isError && message.response?.intent !== 'multi_intent' && (
+          <EvidenceBoundary>
+            <EvidenceList evidence={message.response?.evidence} />
+          </EvidenceBoundary>
         )}
 
         {showOriginBadge && <OriginBadges message={message} />}

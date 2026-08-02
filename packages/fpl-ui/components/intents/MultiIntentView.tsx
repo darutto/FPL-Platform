@@ -29,6 +29,8 @@ import FixtureRunTable from '@/components/intents/FixtureRunTable';
 import DifferentialTable from '@/components/intents/DifferentialTable';
 import GenericCard from '@/components/intents/GenericCard';
 import InjuryListTable from '@/components/intents/InjuryListTable';
+import EvidenceBoundary from '@/components/intelligence/EvidenceBoundary';
+import EvidenceList from '@/components/intelligence/EvidenceList';
 
 interface Props {
   sub_responses: AskResponse[];
@@ -55,6 +57,9 @@ function SubCard({ response }: { response: AskResponse }) {
     <div className="min-w-0 overflow-hidden rounded-card border border-white/10 bg-white/[0.03] p-3 space-y-2">
       <p className="break-words text-sm text-bf-text/80 leading-relaxed">{response.final_text}</p>
       {safeView != null && renderSubView(safeView, response)}
+      <EvidenceBoundary>
+        <EvidenceList evidence={response.evidence} />
+      </EvidenceBoundary>
     </div>
   );
 }
