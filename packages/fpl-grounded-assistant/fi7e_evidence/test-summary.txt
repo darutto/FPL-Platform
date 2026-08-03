@@ -1,0 +1,29 @@
+Observed focused validation
+
+python_focused: exit 0
+run_id: cfe39684c1bb2c3b9d5001ed1e5499f7c403ad14be9cec170df78e1e43931984
+........................................................................ [ 96%]
+...                                                                      [100%]
+75 passed in <DURATION>
+
+
+ui_fi7d: exit 0
+run_id: 0920d639194fb78994d87004b48fc95bd3fcf0334384e5fc8391ff0f3b09f606
+tamp (<DURATION>)
+    √ rejects non-UTC timestamp
+  response ownership across stateless, session, replay, and multi-intent paths
+    √ renders stateless text evidence after final text without reconstructing intent eligibility (<DURATION>)
+    √ renders structured-card evidence once while preserving card content (<DURATION>)
+    √ session-shaped and replayed responses use the same local renderer and stable item sequence (<DURATION>)
+    √ never renders parent evidence; child evidence remains separate and ordered (<DURATION>)
+    √ MultiIntentView ignores no child, does not merge lists, and preserves child order (<DURATION>)
+  error, network, and feature-flag isolation
+    √ contains a throwing evidence subtree while preserving the primary response with null fallback (<DURATION>)
+    √ rendering evidence performs no fetch or hydration-time request (<DURATION>)
+    √ bounded implementation files contain no API/runtime imports, FI flag read, viewport JS, or resource work (<DURATION>)
+
+Test Suites: 1 passed, 1 total
+Tests:       43 passed, 43 total
+Snapshots:   0 total
+Time:        <DURATION>
+Ran all test suites within paths "<REPO>\packages\fpl-ui\__tests__\fi7d-evidence-ui.test.tsx".
