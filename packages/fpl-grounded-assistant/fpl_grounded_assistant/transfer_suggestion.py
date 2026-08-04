@@ -146,10 +146,14 @@ def _position_label(element_type: int) -> str:
 # ---------------------------------------------------------------------------
 
 def _get_current_gameweek(bootstrap: dict[str, Any]) -> int | None:
-    for ev in bootstrap.get("events", []):
-        if ev.get("is_current"):
-            return int(ev["id"])
-    return None
+    """Return the current-or-next GW id, or None.
+
+    Delegates to the canonical ``get_current_gameweek`` resolver so the
+    ``is_next`` fallback (pre-season / between-GW, e.g. GW1 before kickoff)
+    is applied consistently — a bare ``is_current`` check misses it.
+    """
+    from fpl_api_client import get_current_gameweek
+    return get_current_gameweek(bootstrap)
 
 
 def _team_short_map(bootstrap: dict[str, Any]) -> dict[int, str]:
