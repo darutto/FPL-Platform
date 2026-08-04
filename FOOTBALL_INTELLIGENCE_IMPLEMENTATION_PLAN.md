@@ -407,7 +407,7 @@ All modules: pure functions over canonical/feature frames + FPL bootstrap; retur
 3. **The LLM may select modules only by choosing tools/args** from the allowlist; module internals are invisible to it. The evaluator's GROUNDED axis applies unchanged.
 4. **Existing intents receiving evidence first (Q7):** `captain_score`, `compare_players`, `transfer_advice` — FI-7c enriches their OK-turn assembly, behind the master flag, by reusing the governed `get_player_intelligence` M1 → M2 → M3 composite and its already-bounded evidence. This supersedes this section's earlier M1/M3-only phrasing; FI-7c must not filter M2 or reconstruct/re-bound an M1/M3 subset. Deterministic recommendations (tiers, deltas, recommendations) are **not** changed by evidence in this plan — evidence explains; a later approved phase may let it score (that phase would define weighting profiles per brief §8).
 5. **Scoring strategy (brief §8):** no universal score. Module scores are Layer-2-adjacent component scores; the only sanctioned coupling in this plan is `minutes_risk_v2` → Layer 2 minutes component behind its flag (§9.1-M1). Intent-specific weighting profiles are designed (constants + version string per profile) but **not applied** to recommendations until FI-10 backtesting exists.
-6. **`@resource` surface:** `@minutes <player>` and `@role <player>` entries in `resource_registry` are deterministic and quota-free, but are deferred out of FI-7d and FI-7e to the separately reviewed **FI-7f — resource-surface parity** slice. They require registry/runtime scope that the FI-7d UI-only boundary excludes, and no authoritative resource contract exists yet.
+6. **`@resource` surface:** `@minutes <player>` and `@role <player>` entries in `resource_registry` are deterministic and quota-free, and remain outside FI-7d/FI-7e. The separately reviewed **FI-7f — resource-surface parity** contract below now governs their future implementation.
 
 Session path (`respond()`) is untouched except that `get_player_intelligence` is reachable through it like any registered tool.
 
@@ -586,7 +586,7 @@ Phase table (each phase = one or more PR-sized slices; "Trial-dep" = requires li
 - **Compatibility:** all additive; flags-off sweep of the full validation corpus is the slice-(c) gate.
 - **Tests:** contract additivity; renderer snapshots with/without evidence; tool schema validation; Jest card tests.
 - **DoD:** demo recorded; contract gate + validation corpus + `npm run build`/tests green. **Trial-dep:** none. **Pre-trial:** yes — completing FI-7 IS the trial-readiness bar.
-- **Status (2026-08-01):** slices **(a), (b), (c), and (d) complete**. FI-7a merged in PR #45. FI-7b1/b2/b3 merged in PRs #51/#53/#55; b3 closed F2 through deterministic FI rendering plus real single- and multi-intent session evidence propagation. FI-7c merged in PR #57 at `49435bd004d4314567bb934e8f353db92d43130d`. FI-7d merged in PR #59 and was independently post-merge verified on `main@239bc8137358eeeb5aad137f53a9b0b66a22d0f2`. **FI-7e documentation is the active slice; artifact production has not started.** FI-7f resource-surface parity is deferred and unstarted pending its own documentation and independent review. **Not a slice:** PR #48 (`fix(ui): mirror player season points intent`, merged to main `03bac5697d087e1dba636ef8c4f534edc63d978a`) was a **post-merge cleanup associated with PR #47** — a one-file, two-line TypeScript intent-mirror parity fix, not an FI-7 roadmap slice.
+- **Status (2026-08-04):** slices **(a), (b), (c), (d), and (e) complete**. FI-7a merged in PR #45. FI-7b1/b2/b3 merged in PRs #51/#53/#55; b3 closed F2 through deterministic FI rendering plus real single- and multi-intent session evidence propagation. FI-7c merged in PR #57 at `49435bd004d4314567bb934e8f353db92d43130d`. FI-7d merged in PR #59 and was independently post-merge verified on `main@239bc8137358eeeb5aad137f53a9b0b66a22d0f2`. FI-7e documentation and artifact production are complete; PR #61 merged and merge integrity was independently verified at `main@5e57a40b76bb9478abc5358ca6de700c4c8f6493`. **FI-7f resource-surface parity remains unstarted until this specification is independently approved and merged.** **Not a slice:** PR #48 (`fix(ui): mirror player season points intent`, merged to main `03bac5697d087e1dba636ef8c4f534edc63d978a`) was a **post-merge cleanup associated with PR #47** — a one-file, two-line TypeScript intent-mirror parity fix, not an FI-7 roadmap slice.
 
 ### FI-7b — detailed slice specification (source of truth for b1–b3)
 
@@ -666,7 +666,7 @@ The FI-7a review left finding **F2** open: the `session_ask` top-level `evidence
 - **FI-7c:** evidence enrichment of `captain_score` / `compare_players` / `transfer_advice` OK-turn assembly behind the master flag. FI-7b adds **no** evidence to any existing intent.
 - **FI-7d:** `EvidenceChip` / `EvidenceList` / `ConfidenceBadge` UI and card wiring only. `@minutes` / `@role` resources are not part of FI-7d; they are deferred to FI-7f resource-surface parity. FI-7b touches **no** `lib/types.ts` and no UI.
 - **FI-7e:** the recorded mock end-to-end demo only.
-- **FI-7f:** deterministic, quota-free `@minutes` / `@role` `resource_registry` parity, deferred pending its own documentation and independent review.
+- **FI-7f:** deterministic, quota-free `@minutes` / `@role` `resource_registry` parity; the contract below is active for independent documentation review and implementation remains unstarted.
 - Out entirely: `player_recommendation` intent (Q8, post-calibration), M4/M5 tools, any change to FI-6 module logic or deterministic scoring.
 
 #### Files touched (union across b1–b3)
@@ -1164,7 +1164,8 @@ authorize their correction.
 
 **Status:** complete — merged in PR #57 at merge commit
 `49435bd004d4314567bb934e8f353db92d43130d`. FI-7d is complete and merged in
-PR #59. FI-7e documentation is active; artifact production remains unstarted.
+PR #59. FI-7e is complete and merged in PR #61 at
+`main@5e57a40b76bb9478abc5358ca6de700c4c8f6493`.
 
 #### Purpose, ownership, and invariants
 
@@ -1420,8 +1421,9 @@ fallback failure, and atomic-tool-ranking work remain untouched.
 ### FI-7d — governed evidence presentation in the existing UI
 
 **Status:** complete; merged in PR #59 and independently verified on
-`main@239bc8137358eeeb5aad137f53a9b0b66a22d0f2`. FI-7e artifact production
-remains unstarted; FI-7f resource-surface parity remains deferred and unstarted.
+`main@239bc8137358eeeb5aad137f53a9b0b66a22d0f2`. FI-7e is complete and merged
+in PR #61. FI-7f resource-surface parity remains implementation-unstarted while
+its contract is under independent documentation review.
 
 #### Purpose, repository facts, and ownership
 
@@ -1579,12 +1581,10 @@ render the structured `EvidenceItem` fields only. Existing `final_text`,
 recommendation cards, recommendations, confidence calculations, and renderer
 copy remain unchanged; no duplicate FI prose is appended.
 
-The `@minutes` and `@role` resources are explicitly deferred, not removed and
-not stale. They remain a coherent deterministic, quota-free `resource_registry`
-feature, but require registry/runtime scope forbidden by the FI-7d UI-only
-boundary and have no authoritative resource contract yet. They are relocated
-to FI-7f resource-surface parity and are outside FI-7d and FI-7e. No later
-slice may implement them without a separately reviewed contract.
+The `@minutes` and `@role` resources are outside the FI-7d UI-only boundary and
+outside FI-7e. The FI-7f subsection below is now their authoritative proposed
+contract; implementation remains prohibited until that documentation is
+independently approved and merged.
 
 #### Accessibility and responsive behavior
 
@@ -1677,11 +1677,12 @@ documentation PR does not authorize or begin that implementation.
 
 ### FI-7e — deterministic end-to-end demo and verification evidence
 
-**Status:** documentation active; artifact production not started. FI-7d is
-complete and merged in PR #59. This subsection authorizes no production, test,
-script, fixture, screenshot, recording, generated-artifact, or deployment
-change by itself. FI-7f and the `@minutes` / `@role` resources remain deferred
-and unstarted.
+**Status:** complete — documentation and artifact production merged in PR #61;
+merge integrity was independently verified at
+`main@5e57a40b76bb9478abc5358ca6de700c4c8f6493`. The retained contract below
+records the completed evidence boundary. FI-7f and the `@minutes` / `@role`
+resources remain unstarted until their documentation is independently approved
+and merged.
 
 #### Purpose, repository facts, and evidence model
 
@@ -2066,12 +2067,336 @@ FI-7e does not authorize changes to production backend/frontend behavior,
 runtime, M1/M2/M3 algorithms, fixture/identity selection, evidence semantics,
 response ownership, recommendations, rendering, schemas, registry, flags,
 deployment, persistence, analytics, or external provider integration. It adds
-no product failure hook. FI-7f, `@minutes`, and `@role` remain deferred.
+no product failure hook. FI-7f, `@minutes`, and `@role` remain outside FI-7e;
+their separately reviewed contract follows below.
 
 After this documentation is independently reviewed, corrected if required,
 merged, and post-merge verified, a separate bounded prompt may authorize only
 the listed demo/test tooling and evidence artifacts. This documentation PR
 does not create those artifacts or derive that production prompt.
+
+### FI-7f — deterministic resource-surface parity
+
+**Status:** specification active; implementation unstarted. This subsection is
+the authoritative contract for the separately reviewed FI-7f implementation.
+It does not authorize production changes until this documentation is
+independently approved, merged, and post-merge verified.
+
+#### Objective and definition of parity
+
+FI-7f adds deterministic, quota-free player detail commands:
+
+- `@minutes <player>` returns the resolved player's accumulated FPL minutes;
+- `@role <player>` returns the resolved player's **nominal FPL position**.
+
+Resource-surface parity means that both commands are registered and
+discoverable beside the existing `@resource` surface; use the same deterministic
+player resolver as existing tools; return one stable structured resource
+payload through the existing stateless and session transports; distinguish
+success, ambiguity, absence, and invalid input honestly; produce identical
+serialized output for identical bootstrap bytes and input; use no LLM-authored
+facts; and perform no provider or network call during command execution.
+
+Parity does **not** mean exposing FI-6 M1 expected minutes or M2 tactical role.
+The repository already has quota-free player facts in the loaded FPL bootstrap:
+`elements[].minutes` and `elements[].element_type`. FI-7f exposes those facts
+without changing or invoking FI models.
+
+#### Repository-grounded ownership and data sources
+
+| Concern | Existing owner/source | FI-7f contract |
+|---|---|---|
+| Prefix recognition | `fpl_grounded_assistant.input_normalizer` | Parse an argument-bearing resource form without routing it as plain text or a slash prompt. |
+| Resource aliases/order | `fpl_grounded_assistant.intent_aliases` | Preserve all six existing resources and aliases; add only the two player-detail command forms. |
+| Registry and handlers | `fpl_grounded_assistant.resource_registry` | Own immutable specs, deterministic bootstrap lookup, result construction, and stable registration order. |
+| Dispatch | `fpl_grounded_assistant.decision_router` | Pass the parsed player argument to the registered handler and preserve explicit degraded outcomes. |
+| Player identity | `fpl_tool_contract.tool_resolve_player` | Reuse verbatim; no new fuzzy, alias, or tie-breaking policy. |
+| Minutes | already-loaded `bootstrap.elements[].minutes` | Python integer (but never `bool`), season-to-current-bootstrap accumulated playing minutes; zero is valid; missing, null, Boolean, non-integral, or negative is unavailable. |
+| Role | already-loaded `bootstrap.elements[].element_type` plus the existing FPL position map | Nominal fantasy classification only: `GKP`, `DEF`, `MID`, or `FWD`; missing/unknown IDs are unavailable. |
+| HTTP/session transport | existing `ask_v2` resource branch, `harness_adapter`, `AskResponse.resource_rows`, and `SessionAskResponse.resource_rows` | Pure passthrough; no new endpoint or top-level response schema. |
+
+The bootstrap is already supplied to `ask_v2` by the caller/server or resolved
+through the existing owned bootstrap path before `decision_router.decide` runs.
+Startup/bootstrap acquisition may occur under those pre-existing owners, but
+the FI-7f parser, resolver call, registry handler, and dispatcher perform no
+network I/O. Tests inject a fixed bootstrap and make every provider, HTTP, and
+LLM seam fail if called.
+
+No source timestamp exists per player in bootstrap. Therefore FI-7f does not
+invent `updated_at` or `calculated_at`; it uses the existing exact
+`data_age="current_bootstrap"` provenance label. Freshness is the freshness of
+the caller's already-loaded bootstrap snapshot.
+
+#### Command grammar and compatibility
+
+Input normalization remains NFC, surrounding-whitespace trimmed, and
+case-insensitive for the command token. Internal player-query handling remains
+whatever `tool_resolve_player` currently governs.
+
+| Input | Required interpretation |
+|---|---|
+| `@minutes <player>` | Player-specific accumulated-minutes resource. `<player>` is the entire trimmed remainder, 1–100 characters. |
+| `@role <player>` | Player-specific nominal-position resource. Same argument rule. |
+| `@minutes` | Preserve the existing alias for the argument-free `@top_minutes` ranking. This is a frozen compatibility exception. |
+| `@top_minutes` and its other existing aliases | Preserve the existing ranking resource byte-for-byte. |
+| `@role` | Degraded `missing_player_argument`; it has no legacy meaning. |
+
+The internal canonical registry keys are `player_minutes` and `player_role`;
+their user-facing command forms are `@minutes <player>` and `@role <player>`.
+This avoids colliding with the existing canonical `top_minutes` resource.
+Discoverability must show the command forms, not invite users to type the
+internal keys. `@player_minutes` and `@player_role` are not public aliases.
+
+The parser must retain the entire remainder rather than silently discard it,
+which is current argument-free resource behavior. Whitespace separating the
+command from its argument and surrounding whitespace are trimmed, but internal
+whitespace in the player query is preserved verbatim for
+`tool_resolve_player`, matching its current `str(query).strip()` boundary; FI-7f
+does not add a whitespace-normalization policy. Thus
+`@minutes   Bukayo    Saka` forwards exactly `Bukayo    Saka` and returns the
+existing resolver's deterministic outcome for that string. Quotes are not a
+separate grammar and are also passed literally. Options and flags are
+unsupported: an argument containing a standalone token beginning `--` yields
+`invalid_command_shape`. Any C0/C1 control character (`U+0000`–`U+001F` or
+`U+007F`–`U+009F`) in the retained argument also yields
+`invalid_command_shape`; it is never sanitized into a different identity or
+written raw to a resolver/log. Other additional words are part of the player
+query, because valid full names contain spaces. Inputs longer than 100
+characters are also `invalid_command_shape`.
+
+#### Identity lifecycle
+
+The input to identity resolution is the parsed player query string. FI-7f calls
+`fpl_tool_contract.tool_resolve_player(query, bootstrap)` exactly once and
+branches only on its existing `status`:
+
+- `ok`: use `player_id` internally to select exactly one bootstrap element;
+- `ambiguous`: return `ambiguous_player`; do not choose or tie-break;
+- `not_found`: return `unresolved_player`;
+- any malformed/contradictory successful identity (missing ID, absent element,
+  or more than one element with that ID): return `resource_data_unavailable`.
+
+Existing exact ID, web-name, exact-name, and governed alias behavior is
+inherited. FI-7f adds no alias table, fuzzy threshold, team qualifier, or new
+tie-break. Resolved numeric IDs are not exposed in resource rows or human text;
+the stable display identity is `web_name` plus `team_short`. This matches the
+existing resource list's public identity convention while keeping resolution
+consistent with FI tools and existing deterministic intents.
+
+#### Logical response contracts
+
+The existing list resources retain their current `ResourceResult.to_dict()`
+bytes. FI-7f adds one immutable player-resource result type inside
+`resource_registry.py`; it does not widen `AskResponse` or `SessionAskResponse`
+because `resource_rows` is already an opaque `dict[str, Any] | None` transport.
+Every player-resource result serializes these keys in this order, with none
+omitted:
+
+| Field | Type | Invariant |
+|---|---|---|
+| `resource` | string | `player_minutes` or `player_role` |
+| `title` | string | Frozen English display title |
+| `columns` | array[string] | Frozen ordered row columns for that resource |
+| `rows` | array[object] | Exactly one row on `ok`; empty on degradation |
+| `data_age` | string | Exactly `current_bootstrap` |
+| `status` | string | `ok` or `unavailable` |
+| `reason` | string or null | Null on `ok`; one stable reason code otherwise |
+
+`@minutes <player>` successful columns and row are:
+
+```text
+columns = ["web_name", "team_short", "position", "value", "unit", "scope", "provenance"]
+row = {
+  "web_name": string,
+  "team_short": string,
+  "position": "GKP" | "DEF" | "MID" | "FWD",
+  "value": integer >= 0,
+  "unit": "minutes",
+  "scope": "current_season_to_bootstrap",
+  "provenance": "fpl_bootstrap.elements.minutes"
+}
+```
+
+`@role <player>` successful columns and row are:
+
+```text
+columns = ["web_name", "team_short", "role", "role_kind", "provenance"]
+row = {
+  "web_name": string,
+  "team_short": string,
+  "role": "GKP" | "DEF" | "MID" | "FWD",
+  "role_kind": "nominal_fpl_position",
+  "provenance": "fpl_bootstrap.elements.element_type"
+}
+```
+
+`role` never means average position, flank, formation depth, observed tactical
+deployment, inferred proxy, out-of-position score, or M2 tactical role. No
+confidence or evidence is attached. JSON primitives are emitted directly;
+field and column order is frozen as above, reason/status values are lowercase
+stable strings, and no free-form LLM factual text is permitted.
+
+#### Honest degradation
+
+Degraded player-resource responses use the same seven top-level keys, empty
+`rows`, `status="unavailable"`, and exactly one of these `reason` codes:
+
+| Reason | Condition |
+|---|---|
+| `missing_player_argument` | Required player remainder is empty (`@role`; player-specific parser path only). |
+| `invalid_command_shape` | More than 100 characters, any C0/C1 control character, or a standalone `--...` option/flag token. |
+| `unresolved_player` | Existing resolver returns `not_found`. |
+| `ambiguous_player` | Existing resolver returns `ambiguous`. |
+| `minutes_unavailable` | Resolved row lacks a valid nonnegative integral `minutes`. |
+| `role_unavailable` | Resolved row lacks a supported `element_type` mapping. |
+| `resource_data_unavailable` | Bootstrap/identity structure is absent or contradictory, or the resolver returns an unsupported shape/status. |
+
+There are no zero/default fallbacks. Zero minutes is a valid successful fact.
+`True` and `False` are unavailable rather than the integer values one and zero,
+even though Python `bool` subclasses `int`.
+Degradation is a supported resource response, not an exception converted to an
+LLM answer. Invalid Python input types and programmer-contract violations may
+still raise existing typed errors; provider/network exceptions cannot arise
+from the resource handler because it has no such dependency.
+
+Exactly one degradation reason is emitted. The first failing stage owns it in
+this fixed precedence: command-shape validation (`missing_player_argument` or
+`invalid_command_shape`), then identity resolution (`unresolved_player`,
+`ambiguous_player`, or malformed identity as `resource_data_unavailable`), then
+resource-data validation (`minutes_unavailable`, `role_unavailable`, or
+`resource_data_unavailable`). Later stages do not run after a failure.
+
+#### Registration, dispatch, flags, and transport
+
+The two immutable specs append after the six current specs in stable order:
+`player_minutes`, then `player_role`. Duplicate canonical keys or duplicate
+public command forms fail tests. `list_resource_specs` exposes both specs;
+resource suggestions/discovery render the public syntaxes. Exact command-token
+matching occurs before general alias fallback so `@minutes Saka` selects
+`player_minutes`, while bare `@minutes` continues to select `top_minutes`.
+
+FI-7f resources are general grounded bootstrap resources, not FI tool schemas.
+They are always registered and are **not** gated by
+`FOOTBALL_INTELLIGENCE_ENABLED`. OFF and ON therefore produce identical FI-7f
+resource results for identical bootstrap/input, and OFF preserves all existing
+resource behavior except the newly valid argument-bearing forms. FI-7f does
+not modify `tool_schema_registry.py` or the orchestrator allowlist:
+
+- static FI schemas remain 33;
+- offered FI tools remain 29 OFF / 33 ON;
+- FI runtime M1 → M2 → M3 behavior is untouched;
+- M4/M5 remain unexecuted;
+- recommendations and FI evidence are untouched.
+
+Both commands use the existing direct resource branch of `ask_v2`. The adapter
+copies `resource_rows` unchanged into stateless `AskResponse` and session
+`SessionAskResponse`; no new HTTP endpoint, renderer, UI schema, or FI-7f-owned
+session field is required. Repeated stateless calls over identical input and
+bootstrap serialize identically. Repeated session calls preserve byte-identical
+`resource_rows`, while session envelope/metadata may differ under the existing
+turn lifecycle. The resource response carries no `FinalResponse.evidence`; it
+does not aggregate, enrich, or modify FI evidence or recommendation output.
+
+#### Existing session lifecycle and player-context decision
+
+FI-7f introduces no session mutation beyond the repository's existing generic
+resource-turn handling. The current path is
+`session_ask()` → `ConversationSession.respond()` → generic resource dispatch →
+`ConversationState.update_from_response()`:
+
+- `ConversationSession.respond()` calls the legacy `route(rewritten)` only for
+  context extraction. An `@resource` string has no legacy route, so
+  `player_query` is `None` even though FI-7f later resolves the resource's
+  argument inside the resource handler.
+- `update_from_response()` always increments `turn_count` and appends
+  `(rewritten_question, response.intent)` to the existing three-entry bounded
+  `history` when question text is present.
+- Because `resolved_query` is `None` and a resource intent is not in the
+  existing player-context eligibility set, the resource player is **not**
+  persisted into `last_player_query`. An older `last_player_query`, if any,
+  remains unchanged. A later pronoun therefore cannot refer to the FI-7f
+  resource player; it may still resolve to an older context under existing
+  semantics.
+- Existing successful non-comparison/non-transfer/non-fixture-run/
+  non-differential turn behavior remains unchanged: it may clear
+  `last_comparison`, `last_transfer`, `last_fixture_run_player`, and
+  `last_differential`, and it updates `last_resolver_source` through the
+  existing resolver lifecycle. FI-7f adds no extra clearing or persistence.
+- The HTTP session owner updates `_SessionEntry.last_used_at`, invokes the
+  existing `_record_turn(...)` and audit-writing paths, and returns the normal
+  session envelope. Deterministic-prefix quota-check bypass remains unchanged;
+  FI-7f does not add a quota or audit exception.
+
+This is Outcome B: the resource argument is not reusable player context. It is
+not evidence persistence, and no recommendation or FI evidence state is added.
+Tests compare the stable `resource_rows` subobject, not the entire session
+response whose timestamps, counters, history, and envelope are legitimately
+session-owned.
+
+#### Implementation boundary and ownership
+
+The later implementation is bounded to these likely homes, subject only to
+independent review finding an existing test home that is more specific:
+
+- `fpl_grounded_assistant/input_normalizer.py`: retain resource argument text
+  and validate the bounded command shape;
+- `fpl_grounded_assistant/intent_aliases.py`: public command/canonical mapping
+  and stable discovery order without changing existing aliases;
+- `fpl_grounded_assistant/resource_registry.py`: two specs, immutable result,
+  bootstrap lookup, data validation, and serialization;
+- `fpl_grounded_assistant/decision_router.py`: argument-aware dispatch and
+  degraded result mapping;
+- `tests/test_fi7f_resource_parity.py`: focused contract/mutation coverage;
+- existing M1/G1 resource runners only where a regression pin belongs.
+
+`harness.py`, `harness_adapter.py`, `conversation_state.py`, `fpl_server.py`,
+response/session schemas, and UI are expected to require **no** implementation
+change because their existing generic resource/session handling already
+supports the logical payload and lifecycle above. If implementation proves
+otherwise, stop for contract review rather than silently widening scope.
+Parsing belongs only to the normalizer; identity only to
+`tool_resolve_player`; retrieval/validation/serialization only to the resource
+registry; dispatch/error mapping only to the decision router.
+
+#### Acceptance and adversarial test matrix
+
+| Area | Required implementation proof |
+|---|---|
+| Registration | Eight specs in frozen order; two new public syntaxes discoverable; no duplicate keys/forms; all six existing result bytes unchanged; FI static/offered counts remain 33 and 29/33. |
+| Parsing | Valid mixed-case forms; NFC and surrounding whitespace; multiword player; `@minutes   Bukayo    Saka` is forwarded as exact `Bukayo    Saka`; bare `@minutes` legacy ranking; bare `@role`; empty/overlong input; C0/C1 control character; standalone option token; unknown resource; no silent argument discard or control-character sanitization. |
+| Identity | Exact ID/name/web-name/governed alias behavior inherited; resolver called exactly once; unresolved and ambiguous remain distinct; ambiguity never tie-broken; resolved ID absent/duplicated in bootstrap fails honestly. |
+| Minutes | Positive and zero values; `True`/`False`, null, missing, non-integral, and negative values unavailable; exact unit/scope/provenance; season-total semantics; stable ordered serialization; reversed unrelated bootstrap rows do not change output. |
+| Role | Each `element_type` 1–4 maps to `GKP/DEF/MID/FWD`; null/unknown unavailable; `role_kind` and provenance exact; tests reject tactical/flank/depth/confidence/evidence fields. |
+| Determinism | Input copy not mutated; repeated calls and fresh-process replay are byte-identical; no wall clock, random value, unordered-set serialization, or locale-sensitive formatting. |
+| Quota isolation | Provider/Sportmonks clients, HTTP/network calls, FI runtime, and LLM seams are fail-on-call; command still succeeds over injected bootstrap; no new provider imports in bounded files. |
+| Flags | Resource outputs identical OFF/ON; 33 static schemas; 29 offered OFF and 33 ON; M1/M2/M3 call counts unchanged and zero for resource calls; M4/M5 zero. |
+| Session lifecycle | Real `session.respond()` and session HTTP calls preserve existing `turn_count`, bounded `history`, `_SessionEntry.last_used_at`, `_record_turn(...)`, audit, resolver-source, and successful-turn context-clearing behavior with no FI-7f-specific extra mutation. Resource turns do not replace `last_player_query`; an older value remains, and pronoun resolution cannot reuse the FI-7f resource player. Ordinary eligible player-query turns still update `last_player_query` under existing rules. |
+| Transport | Direct decision, `ask_v2`, adapter/stateless HTTP, and session HTTP preserve the exact resource payload. Stateless handling remains stateless. Repeated identical session calls compare `resource_rows` byte-for-byte, not timestamps/counters/envelopes; evidence remains absent and no session schema is added. |
+| Regression | Existing resources/aliases/count/order and current bare `@minutes` ranking pass unchanged; recommendation output and FI evidence are unchanged, while pre-existing successful-resource context clearing is pinned rather than mislabelled as mutation-free; existing FI tests, HTTP schemas, UI, and FI-7e artifacts are byte-identical. |
+| Mutations | Tests fail if the player remainder is dropped/collapsed; control characters pass; Boolean minutes become 0/1; reason precedence changes; bare `@minutes` is repurposed; ambiguous identity is selected; zero becomes unavailable; missing data becomes zero; role is labelled tactical; a provider/LLM/FI call occurs; flag changes output; IDs/evidence leak; resource players persist to `last_player_query`; generic turn/history/audit behavior is skipped or duplicated; field/order/provenance/reason changes; or existing registry order drifts. |
+
+Expected validation includes the focused FI-7f tests, existing M1/G1 resource
+runners, resolver/tool-contract tests, grounded-assistant regression suite, FI
+tool registry invariant tests under OFF and ON, HTTP/session contract tests,
+contract gate, `git diff --check`, and network/provider import scans. No live
+provider account, token, or network is permitted.
+
+#### Explicit non-goals and completion gates
+
+FI-7f excludes FI model or M1/M2/M3 changes; M4/M5 activation; expected-minutes
+prediction; tactical-role, flank, depth, average-position, or matchup
+inference; recommendation or ranking changes; UI redesign; evidence creation or
+evidence UI changes; external provider integration; new identity/fuzzy/alias
+policy; LLM prompts; tool schemas; persistence; FI-7e artifact changes;
+unrelated legacy fixes; atomic-tool-ranking work; and any stash operation.
+
+FI-7f is complete only after this documentation is independently approved and
+merged; implementation is derived from the merged specification; targeted and
+full regression, registry-invariant, quota-isolation, transport, and contract
+gates pass; recommendation/evidence byte identity is proven; independent
+implementation review closes all findings; exact-head merge-readiness approval
+is issued; and the implementation merge receives independent integrity
+verification.
 
 ### FI-8 — Trial readiness gate
 - **Files new:** `sportmonks-client/scripts/trial_{auth,entities,fixtures,squads,lineups,injuries,stats,mapping}.py` (each: live call → raw snapshot → normalize → report; `--mock` mode for CI-less rehearsal); `TRIAL_STATUS.md` template; licensing checklist doc; go/no-go rubric doc (§14.4).
@@ -2165,8 +2490,8 @@ Open questions requiring trial validation are enumerated in §14.2/§14.3 and mu
 | FI-7 | b — FI tools/runtime/rendering/evidence propagation | complete — merged PRs #51/#53/#55 | FI-7b3 focused/session mutation coverage; contract drift gate green on approved PR #55 head | Static registry 33; offered set 29 OFF/33 ON; deterministic M1→M2→M3 runtime, rendering, and stateless/session evidence transport; F2 closed. |
 | FI-7 | c — existing-intent evidence enrichment | complete — merged PR #57 | FI-7c focused 11/11; combined FI-7b/c 75/75; grounded assistant 547 passed with 4 accepted legacy failures; football-intelligence 389 passed/2 skips; contract gate 16/16 | Exact eligible set: `captain_score`, `compare_players`, `transfer_advice`; evidence-only, master-flag gated, no recommendation or renderer change. Merged to main `49435bd004d4314567bb934e8f353db92d43130d`. |
 | FI-7 | d — governed evidence UI | complete — merged PR #59 | FI-7d 43/43; full UI 449/449; TypeScript/build green; contract gate 16/16 | Ownership-based `EvidenceList` / `EvidenceChip` / per-item numeric `ConfidenceBadge`; consumes existing evidence only. Independently post-merge verified on `main@239bc8137358eeeb5aad137f53a9b0b66a22d0f2`; no runtime or second flag. |
-| FI-7 | e — deterministic demo and verification evidence | documentation active; artifact production not started | documentation review pending | Combined fixture-backed backend trace, exact-payload local UI capture, checked-in machine evidence/screenshots/transcript/checksums, and externally hosted hashed video. No production change and no `@minutes` / `@role` resources. |
-| FI-7 | f — resource-surface parity | deferred; not started | documentation and independent review required before implementation | Deterministic, quota-free `resource_registry` entries for `@minutes <player>` and `@role <player>`. Outside FI-7d/FI-7e; no authoritative resource contract exists yet. |
+| FI-7 | e — deterministic demo and verification evidence | complete — merged PR #61 | focused Python 75/75; FI-7d UI 43/43; Contract Drift Gate green; canonical checksum verification 22/22 and manifest 12/12 | Combined real-path backend trace, exact-payload local UI captures, checked-in machine evidence/screenshots/transcript/checksums, and immutable externally hosted hashed video. Merge integrity verified at `main@5e57a40b76bb9478abc5358ca6de700c4c8f6493`; no production behavior or `@minutes` / `@role` resource change. |
+| FI-7 | f — resource-surface parity | documentation active; implementation not started | independent documentation review required before implementation | Authoritative contract above defines deterministic, quota-free bootstrap-backed `@minutes <player>` season minutes and `@role <player>` nominal FPL position; preserves bare `@minutes` ranking compatibility and FI 33/29/33 invariants. |
 | FI-8 | trial gate artifacts | not started | — | |
 | FI-9 | live trial | blocked until ~2026-08-10 | — | |
 | FI-10 | calibration | blocked on FI-9 | — | |
