@@ -1,0 +1,1 @@
+{"authoritative_repository_sha":"119f5e601456a928ad83cb5965e219e85c0e8ff8","capture_mode":"real deterministic loaders/evaluators/runtime plus focused regression execution","fixture_version":"fi7e-demo-input-v1","frozen_timestamp":"2026-08-01T12:00:00Z","generated_at":"2026-08-01T12:00:00Z","operating_system_family":"Windows","versions":{"node":"v25.2.0","python":"3.13.14"}}
