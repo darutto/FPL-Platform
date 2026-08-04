@@ -120,11 +120,14 @@ _FH_DGW_MARGINAL_TEAMS: int = 1
 # ---------------------------------------------------------------------------
 
 def _get_current_gameweek(bootstrap: dict[str, Any]) -> int | None:
-    """Return the current GW id from bootstrap events, or None if unavailable."""
-    for event in bootstrap.get("events", []):
-        if event.get("is_current"):
-            return event.get("id")
-    return None
+    """Return the current-or-next GW id from bootstrap events, or None.
+
+    Delegates to the canonical ``get_current_gameweek`` resolver so the
+    ``is_next`` fallback (pre-season / between-GW, e.g. GW1 before kickoff)
+    is applied consistently — a bare ``is_current`` check misses it.
+    """
+    from fpl_api_client import get_current_gameweek
+    return get_current_gameweek(bootstrap)
 
 
 def _classify_gameweek_type(
