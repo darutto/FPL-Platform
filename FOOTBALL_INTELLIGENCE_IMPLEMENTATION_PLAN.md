@@ -2092,7 +2092,7 @@ FI-7f adds deterministic, quota-free player detail commands:
 Resource-surface parity means that both commands are registered and
 discoverable beside the existing `@resource` surface; use the same deterministic
 player resolver as existing tools; return one stable structured resource
-payload through the existing stateless and session transports; distinguish
+payload through the existing stateless transport; distinguish
 success, ambiguity, absence, and invalid input honestly; produce identical
 serialized output for identical bootstrap bytes and input; use no LLM-authored
 facts; and perform no provider or network call during command execution.
@@ -2113,7 +2113,7 @@ without changing or invoking FI models.
 | Player identity | `fpl_tool_contract.tool_resolve_player` | Reuse verbatim; no new fuzzy, alias, or tie-breaking policy. |
 | Minutes | already-loaded `bootstrap.elements[].minutes` | Python integer (but never `bool`), season-to-current-bootstrap accumulated playing minutes; zero is valid; missing, null, Boolean, non-integral, or negative is unavailable. |
 | Role | already-loaded `bootstrap.elements[].element_type` plus the existing FPL position map | Nominal fantasy classification only: `GKP`, `DEF`, `MID`, or `FWD`; missing/unknown IDs are unavailable. |
-| HTTP/session transport | existing `ask_v2` resource branch, `harness_adapter`, `AskResponse.resource_rows`, and `SessionAskResponse.resource_rows` | Pure passthrough; no new endpoint or top-level response schema. |
+| Stateless HTTP transport | existing `ask_v2` resource branch, `harness_adapter`, and `AskResponse.resource_rows` | Pure passthrough through `/ask`; no new endpoint or top-level response schema. Session transport is deferred as described below. |
 
 The bootstrap is already supplied to `ask_v2` by the caller/server or resolved
 through the existing owned bootstrap path before `decision_router.decide` runs.
@@ -2187,8 +2187,8 @@ consistent with FI tools and existing deterministic intents.
 
 The existing list resources retain their current `ResourceResult.to_dict()`
 bytes. FI-7f adds one immutable player-resource result type inside
-`resource_registry.py`; it does not widen `AskResponse` or `SessionAskResponse`
-because `resource_rows` is already an opaque `dict[str, Any] | None` transport.
+`resource_registry.py`; it does not widen `AskResponse` because `resource_rows`
+is already an opaque `dict[str, Any] | None` transport.
 Every player-resource result serializes these keys in this order, with none
 omitted:
 
@@ -2289,49 +2289,30 @@ not modify `tool_schema_registry.py` or the orchestrator allowlist:
 - recommendations and FI evidence are untouched.
 
 Both commands use the existing direct resource branch of `ask_v2`. The adapter
-copies `resource_rows` unchanged into stateless `AskResponse` and session
-`SessionAskResponse`; no new HTTP endpoint, renderer, UI schema, or FI-7f-owned
-session field is required. Repeated stateless calls over identical input and
-bootstrap serialize identically. Repeated session calls preserve byte-identical
-`resource_rows`, while session envelope/metadata may differ under the existing
-turn lifecycle. The resource response carries no `FinalResponse.evidence`; it
-does not aggregate, enrich, or modify FI evidence or recommendation output.
+copies `resource_rows` unchanged into stateless `AskResponse`; no new HTTP
+endpoint, renderer, or UI schema is required. Repeated stateless calls over
+identical input and bootstrap serialize identically. The resource response
+carries no `FinalResponse.evidence`; it does not aggregate, enrich, or modify
+FI evidence or recommendation output.
 
-#### Existing session lifecycle and player-context decision
+#### Session transport is deferred
 
-FI-7f introduces no session mutation beyond the repository's existing generic
-resource-turn handling. The current path is
-`session_ask()` → `ConversationSession.respond()` → generic resource dispatch →
-`ConversationState.update_from_response()`:
+Repository-grounded implementation testing found that the current session path
+is `session_ask()` → `ConversationSession.respond()` →
+`final_response.respond()`. Unlike stateless `ask_v2`, that path does not
+dispatch ordinary `@resource` commands and returns `unsupported_intent` for an
+FI-7f player-resource command. The earlier assumption that generic session
+resource dispatch already existed was false.
 
-- `ConversationSession.respond()` calls the legacy `route(rewritten)` only for
-  context extraction. An `@resource` string has no legacy route, so
-  `player_query` is `None` even though FI-7f later resolves the resource's
-  argument inside the resource handler.
-- `update_from_response()` always increments `turn_count` and appends
-  `(rewritten_question, response.intent)` to the existing three-entry bounded
-  `history` when question text is present.
-- Because `resolved_query` is `None` and a resource intent is not in the
-  existing player-context eligibility set, the resource player is **not**
-  persisted into `last_player_query`. An older `last_player_query`, if any,
-  remains unchanged. A later pronoun therefore cannot refer to the FI-7f
-  resource player; it may still resolve to an older context under existing
-  semantics.
-- Existing successful non-comparison/non-transfer/non-fixture-run/
-  non-differential turn behavior remains unchanged: it may clear
-  `last_comparison`, `last_transfer`, `last_fixture_run_player`, and
-  `last_differential`, and it updates `last_resolver_source` through the
-  existing resolver lifecycle. FI-7f adds no extra clearing or persistence.
-- The HTTP session owner updates `_SessionEntry.last_used_at`, invokes the
-  existing `_record_turn(...)` and audit-writing paths, and returns the normal
-  session envelope. Deterministic-prefix quota-check bypass remains unchanged;
-  FI-7f does not add a quota or audit exception.
-
-This is Outcome B: the resource argument is not reusable player context. It is
-not evidence persistence, and no recommendation or FI evidence state is added.
-Tests compare the stable `resource_rows` subobject, not the entire session
-response whose timestamps, counters, history, and envelope are legitimately
-session-owned.
+FI-7f therefore authorizes **stateless resource parity only**. It does not add
+session dispatch, `SessionAskResponse.resource_rows`, player-context behavior,
+or session lifecycle tests for these commands. `conversation_state.py`,
+`final_response.py`, `fpl_server.py`, session schemas, turn/history/audit
+behavior, and `last_player_query` remain unchanged and outside this slice.
+Session support requires its own documentation-first slice grounded in the
+actual response-assembly boundary; until then, FI-7f session commands retain
+the repository's existing unsupported behavior. No claim about resource-player
+context persistence or pronoun reuse is made by this slice.
 
 #### Implementation boundary and ownership
 
@@ -2349,11 +2330,12 @@ independent review finding an existing test home that is more specific:
 - `tests/test_fi7f_resource_parity.py`: focused contract/mutation coverage;
 - existing M1/G1 resource runners only where a regression pin belongs.
 
-`harness.py`, `harness_adapter.py`, `conversation_state.py`, `fpl_server.py`,
-response/session schemas, and UI are expected to require **no** implementation
-change because their existing generic resource/session handling already
-supports the logical payload and lifecycle above. If implementation proves
-otherwise, stop for contract review rather than silently widening scope.
+`harness.py`, `harness_adapter.py`, `conversation_state.py`, `final_response.py`,
+`fpl_server.py`, response/session schemas, and UI require **no** implementation
+change. Existing stateless generic handling already supports the logical
+payload; session handling is explicitly deferred rather than inferred. If
+stateless implementation proves to require one of these files, stop for
+contract review rather than silently widening scope.
 Parsing belongs only to the normalizer; identity only to
 `tool_resolve_player`; retrieval/validation/serialization only to the resource
 registry; dispatch/error mapping only to the decision router.
@@ -2370,15 +2352,15 @@ registry; dispatch/error mapping only to the decision router.
 | Determinism | Input copy not mutated; repeated calls and fresh-process replay are byte-identical; no wall clock, random value, unordered-set serialization, or locale-sensitive formatting. |
 | Quota isolation | Provider/Sportmonks clients, HTTP/network calls, FI runtime, and LLM seams are fail-on-call; command still succeeds over injected bootstrap; no new provider imports in bounded files. |
 | Flags | Resource outputs identical OFF/ON; 33 static schemas; 29 offered OFF and 33 ON; M1/M2/M3 call counts unchanged and zero for resource calls; M4/M5 zero. |
-| Session lifecycle | Real `session.respond()` and session HTTP calls preserve existing `turn_count`, bounded `history`, `_SessionEntry.last_used_at`, `_record_turn(...)`, audit, resolver-source, and successful-turn context-clearing behavior with no FI-7f-specific extra mutation. Resource turns do not replace `last_player_query`; an older value remains, and pronoun resolution cannot reuse the FI-7f resource player. Ordinary eligible player-query turns still update `last_player_query` under existing rules. |
-| Transport | Direct decision, `ask_v2`, adapter/stateless HTTP, and session HTTP preserve the exact resource payload. Stateless handling remains stateless. Repeated identical session calls compare `resource_rows` byte-for-byte, not timestamps/counters/envelopes; evidence remains absent and no session schema is added. |
-| Regression | Existing resources/aliases/count/order and current bare `@minutes` ranking pass unchanged; recommendation output and FI evidence are unchanged, while pre-existing successful-resource context clearing is pinned rather than mislabelled as mutation-free; existing FI tests, HTTP schemas, UI, and FI-7e artifacts are byte-identical. |
-| Mutations | Tests fail if the player remainder is dropped/collapsed; control characters pass; Boolean minutes become 0/1; reason precedence changes; bare `@minutes` is repurposed; ambiguous identity is selected; zero becomes unavailable; missing data becomes zero; role is labelled tactical; a provider/LLM/FI call occurs; flag changes output; IDs/evidence leak; resource players persist to `last_player_query`; generic turn/history/audit behavior is skipped or duplicated; field/order/provenance/reason changes; or existing registry order drifts. |
+| Transport | Direct decision, `ask_v2`, adapter, and stateless HTTP preserve the exact resource payload. Stateless handling remains stateless; evidence remains absent and no response schema is added. Session transport is not an acceptance target. |
+| Regression | Existing resources/aliases/count/order and current bare `@minutes` ranking pass unchanged; recommendation output and FI evidence are unchanged; existing FI tests, stateless HTTP schemas, UI, session behavior, and FI-7e artifacts are byte-identical. |
+| Mutations | Tests fail if the player remainder is dropped/collapsed; control characters pass; Boolean minutes become 0/1; reason precedence changes; bare `@minutes` is repurposed; ambiguous identity is selected; zero becomes unavailable; missing data becomes zero; role is labelled tactical; a provider/LLM/FI call occurs; flag changes output; IDs/evidence leak; field/order/provenance/reason changes; or existing registry order drifts. |
 
 Expected validation includes the focused FI-7f tests, existing M1/G1 resource
 runners, resolver/tool-contract tests, grounded-assistant regression suite, FI
-tool registry invariant tests under OFF and ON, HTTP/session contract tests,
-contract gate, `git diff --check`, and network/provider import scans. No live
+tool registry invariant tests under OFF and ON, stateless HTTP contract tests,
+the existing session suite as an unchanged regression boundary, contract gate,
+`git diff --check`, and network/provider import scans. No live
 provider account, token, or network is permitted.
 
 #### Explicit non-goals and completion gates
