@@ -82,9 +82,9 @@ class TestToolSpecStructure:
 # ===========================================================================
 
 class TestToolRegistryIntrospection:
-    def test_list_tools_returns_three(self):
+    def test_list_tools_returns_expected_count(self):
         from fpl_tool_runner import TOOL_REGISTRY
-        assert len(TOOL_REGISTRY.list_tools()) == 3
+        assert len(TOOL_REGISTRY.list_tools()) == 5
 
     def test_list_tools_contains_expected_names(self):
         from fpl_tool_runner import TOOL_REGISTRY
@@ -101,14 +101,14 @@ class TestToolRegistryIntrospection:
     def test_to_openai_tools_length(self):
         from fpl_tool_runner import TOOL_REGISTRY
         tools = TOOL_REGISTRY.to_openai_tools()
-        assert len(tools) == 3
+        assert len(tools) == 5
         for t in tools:
             assert t["type"] == "function"
 
     def test_to_anthropic_tools_length(self):
         from fpl_tool_runner import TOOL_REGISTRY
         tools = TOOL_REGISTRY.to_anthropic_tools()
-        assert len(tools) == 3
+        assert len(tools) == 5
         for t in tools:
             assert "input_schema" in t
 
@@ -288,10 +288,10 @@ class TestPublicSurface:
         from fpl_tool_runner import TOOL_REGISTRY, ToolRegistry
         assert isinstance(TOOL_REGISTRY, ToolRegistry)
 
-    def test_tool_specs_is_list_of_three(self):
+    def test_tool_specs_is_list_of_expected_count(self):
         from fpl_tool_runner import TOOL_SPECS, ToolSpec
         assert isinstance(TOOL_SPECS, list)
-        assert len(TOOL_SPECS) == 3
+        assert len(TOOL_SPECS) == 5
         assert all(isinstance(s, ToolSpec) for s in TOOL_SPECS)
 
 
