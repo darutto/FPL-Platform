@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 import subprocess
 from pathlib import Path
@@ -215,7 +216,6 @@ def test_shell_path_imports_no_fi6_modules() -> None:
     code = """
 import json
 import sys
-sys.path.insert(0, "packages/fpl-captain-engine")
 import python
 from fpl_grounded_assistant.orchestrator import _build_tools
 before = set(sys.modules)
@@ -231,9 +231,14 @@ assert not (after & forbidden)
 assert not ((after - before) & forbidden)
 print(json.dumps({"tools": len(tools)}))
 """
+    # Pass the parent's resolved sys.path through rather than restating the
+    # pythonpath entries here -- a hardcoded list would immediately drift from
+    # pytest.ini.
+    env = dict(os.environ, PYTHONPATH=os.pathsep.join(sys.path))
     completed = subprocess.run(
         [sys.executable, "-c", code],
         cwd=Path(__file__).resolve().parents[3],
+        env=env,
         check=False,
         capture_output=True,
         text=True,

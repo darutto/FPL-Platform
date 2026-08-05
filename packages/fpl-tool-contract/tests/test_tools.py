@@ -305,14 +305,16 @@ class TestPublicSurface:
             "tool_resolve_player",
             "tool_get_player_summary",
             "tool_get_current_gameweek",
+            "tool_get_captain_score",
+            "tool_rank_captain_candidates",
         }
 
     def test_internal_helper_not_exported(self):
         import fpl_tool_contract as pkg
         assert not hasattr(pkg, "_resolve_with_status")
 
-    def test_only_three_tools_in_all(self):
+    def test_expected_tool_count_in_all(self):
         import fpl_tool_contract as pkg
-        assert len(pkg.__all__) == 3
+        assert len(pkg.__all__) == 5
 
 

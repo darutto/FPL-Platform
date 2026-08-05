@@ -85,17 +85,17 @@ class TestRouterPlayerExtraction:
     def test_who_is_extracts_name(self):
         from fpl_grounded_assistant import route
         r = route("Who is Salah?")
-        assert r is not None and r.tool_args["query"] == "salah"
+        assert r is not None and r.tool_args["query"] == "Salah"
 
     def test_summary_for_extracts_name(self):
         from fpl_grounded_assistant import route
         r = route("Give me a summary for Haaland")
-        assert r is not None and r.tool_args["query"] == "haaland"
+        assert r is not None and r.tool_args["query"] == "Haaland"
 
     def test_tell_me_about_extracts_name(self):
         from fpl_grounded_assistant import route
         r = route("Tell me about De Bruyne")
-        assert r is not None and r.tool_args["query"] == "de bruyne"
+        assert r is not None and r.tool_args["query"] == "De Bruyne"
 
     def test_gameweek_has_empty_tool_args(self):
         from fpl_grounded_assistant import route
