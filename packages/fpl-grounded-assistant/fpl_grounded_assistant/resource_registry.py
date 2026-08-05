@@ -36,6 +36,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from fpl_tool_contract import tool_resolve_player
+
 from .injury_list import get_injury_list, _POSITION_LABEL, _STATUS_LABEL
 
 
@@ -68,6 +70,29 @@ class ResourceResult:
             "columns": list(self.columns),
             "rows": [dict(r) for r in self.rows],
             "data_age": self.data_age,
+        }
+
+
+@dataclass(frozen=True)
+class PlayerResourceResult:
+    """Immutable FI-7f player-resource envelope."""
+    resource: str
+    title: str
+    columns: tuple[str, ...]
+    rows: tuple[dict[str, Any], ...]
+    data_age: str = "current_bootstrap"
+    status: str = "ok"
+    reason: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "resource": self.resource,
+            "title": self.title,
+            "columns": list(self.columns),
+            "rows": [dict(row) for row in self.rows],
+            "data_age": self.data_age,
+            "status": self.status,
+            "reason": self.reason,
         }
 
 
@@ -252,6 +277,131 @@ def _resource_popular(bootstrap: dict[str, Any]) -> ResourceResult:
     )
 
 
+_PLAYER_MINUTES_COLUMNS = (
+    "web_name", "team_short", "position", "value", "unit", "scope", "provenance",
+)
+_PLAYER_ROLE_COLUMNS = (
+    "web_name", "team_short", "role", "role_kind", "provenance",
+)
+_POSITIONS = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
+
+
+def _unavailable_player_resource(
+    canonical: str,
+    reason: str,
+) -> PlayerResourceResult:
+    is_minutes = canonical == "player_minutes"
+    return PlayerResourceResult(
+        resource=canonical,
+        title="Player Minutes" if is_minutes else "Player Role",
+        columns=_PLAYER_MINUTES_COLUMNS if is_minutes else _PLAYER_ROLE_COLUMNS,
+        rows=(),
+        status="unavailable",
+        reason=reason,
+    )
+
+
+def _player_resource(
+    canonical: str,
+    bootstrap: dict[str, Any],
+    argument: str | None,
+    shape_reason: str | None,
+) -> PlayerResourceResult:
+    """Resolve and serialize one deterministic FI-7f bootstrap fact."""
+    if shape_reason is not None:
+        return _unavailable_player_resource(canonical, shape_reason)
+
+    # This fallback is defensive for direct registry callers.  Normalized
+    # command traffic supplies the governed missing-argument reason above.
+    if argument is None or not argument:
+        return _unavailable_player_resource(canonical, "missing_player_argument")
+
+    if not isinstance(bootstrap, dict):
+        return _unavailable_player_resource(canonical, "resource_data_unavailable")
+    elements = bootstrap.get("elements")
+    teams = bootstrap.get("teams")
+    if not isinstance(elements, list) or not elements or not isinstance(teams, list):
+        return _unavailable_player_resource(canonical, "resource_data_unavailable")
+    if any(not isinstance(element, dict) for element in elements):
+        return _unavailable_player_resource(canonical, "resource_data_unavailable")
+
+    try:
+        resolved = tool_resolve_player(argument, bootstrap)
+    except (AttributeError, KeyError, TypeError, ValueError):
+        return _unavailable_player_resource(canonical, "resource_data_unavailable")
+    if not isinstance(resolved, dict):
+        return _unavailable_player_resource(canonical, "resource_data_unavailable")
+
+    status = resolved.get("status")
+    if status == "ambiguous":
+        return _unavailable_player_resource(canonical, "ambiguous_player")
+    if status == "not_found":
+        return _unavailable_player_resource(canonical, "unresolved_player")
+    if status != "ok":
+        return _unavailable_player_resource(canonical, "resource_data_unavailable")
+
+    player_id = resolved.get("player_id")
+    if isinstance(player_id, bool) or not isinstance(player_id, int):
+        return _unavailable_player_resource(canonical, "resource_data_unavailable")
+    matches = [
+        element for element in elements
+        if isinstance(element.get("id"), int)
+        and not isinstance(element.get("id"), bool)
+        and element.get("id") == player_id
+    ]
+    if len(matches) != 1:
+        return _unavailable_player_resource(canonical, "resource_data_unavailable")
+
+    web_name = resolved.get("web_name")
+    team_short = resolved.get("team_short")
+    position = resolved.get("position")
+    if (
+        not isinstance(web_name, str) or not web_name
+        or not isinstance(team_short, str) or not team_short
+    ):
+        return _unavailable_player_resource(canonical, "resource_data_unavailable")
+
+    element = matches[0]
+    if canonical == "player_minutes":
+        if position not in _POSITIONS.values():
+            return _unavailable_player_resource(canonical, "resource_data_unavailable")
+        minutes = element.get("minutes")
+        if isinstance(minutes, bool) or not isinstance(minutes, int) or minutes < 0:
+            return _unavailable_player_resource(canonical, "minutes_unavailable")
+        row = {
+            "web_name": web_name,
+            "team_short": team_short,
+            "position": position,
+            "value": minutes,
+            "unit": "minutes",
+            "scope": "current_season_to_bootstrap",
+            "provenance": "fpl_bootstrap.elements.minutes",
+        }
+        return PlayerResourceResult(
+            resource=canonical,
+            title="Player Minutes",
+            columns=_PLAYER_MINUTES_COLUMNS,
+            rows=(row,),
+        )
+
+    element_type = element.get("element_type")
+    if isinstance(element_type, bool) or element_type not in _POSITIONS:
+        return _unavailable_player_resource(canonical, "role_unavailable")
+    row = {
+        "web_name": web_name,
+        "team_short": team_short,
+        "role": _POSITIONS[element_type],
+        "role_kind": "nominal_fpl_position",
+        "provenance": "fpl_bootstrap.elements.element_type",
+    }
+    return PlayerResourceResult(
+        resource=canonical,
+        title="Player Role",
+        columns=_PLAYER_ROLE_COLUMNS,
+        rows=(row,),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
@@ -294,6 +444,18 @@ RESOURCE_SPECS: tuple[ResourceSpec, ...] = (
         description="Available players ranked by selected_by_percent (descending).",
         columns=("web_name", "team_short", "position", "value"),
     ),
+    ResourceSpec(
+        name="player_minutes",
+        title="Player Minutes",
+        description="Use @minutes <player> for accumulated current-season FPL minutes.",
+        columns=_PLAYER_MINUTES_COLUMNS,
+    ),
+    ResourceSpec(
+        name="player_role",
+        title="Player Role",
+        description="Use @role <player> for nominal FPL position.",
+        columns=_PLAYER_ROLE_COLUMNS,
+    ),
 )
 
 
@@ -308,19 +470,29 @@ _RESOURCE_HANDLERS: dict[str, Callable[[dict[str, Any]], ResourceResult]] = {
 
 
 def list_resource_specs() -> tuple[ResourceSpec, ...]:
-    """Return the six ResourceSpec entries in stable registration order."""
+    """Return the eight ResourceSpec entries in stable registration order."""
     return RESOURCE_SPECS
 
 
 def has_resource(canonical: str) -> bool:
-    return canonical in _RESOURCE_HANDLERS
+    return canonical in _RESOURCE_HANDLERS or canonical in {
+        "player_minutes", "player_role",
+    }
 
 
-def run_resource(canonical: str, bootstrap: dict[str, Any]) -> ResourceResult:
+def run_resource(
+    canonical: str,
+    bootstrap: dict[str, Any],
+    *,
+    argument: str | None = None,
+    shape_reason: str | None = None,
+) -> ResourceResult | PlayerResourceResult:
     """Dispatch to the resource handler for *canonical*.
 
     Raises `KeyError` if the resource is not registered — callers MUST
     check `has_resource()` first or catch the error.
     """
+    if canonical in {"player_minutes", "player_role"}:
+        return _player_resource(canonical, bootstrap, argument, shape_reason)
     handler = _RESOURCE_HANDLERS[canonical]
     return handler(bootstrap)

@@ -41,14 +41,18 @@ TOP_XG       = "top_xg"
 TOP_POINTS   = "top_points"
 TOP_MINUTES  = "top_minutes"
 POPULAR      = "popular"
+PLAYER_MINUTES = "player_minutes"
+PLAYER_ROLE    = "player_role"
 
 RESOURCE_CANONICAL: frozenset[str] = frozenset({
     INJURIES, TOP_FORM, TOP_XG, TOP_POINTS, TOP_MINUTES, POPULAR,
+    PLAYER_MINUTES, PLAYER_ROLE,
 })
 
 # Registration order — used for `list_resources()` and `GET /resources`.
 _RESOURCE_ORDER: tuple[str, ...] = (
     INJURIES, TOP_FORM, TOP_XG, TOP_POINTS, TOP_MINUTES, POPULAR,
+    PLAYER_MINUTES, PLAYER_ROLE,
 )
 
 
