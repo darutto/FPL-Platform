@@ -23,11 +23,21 @@
 
 name: Package Test Suites
 
+# Scoped to packages/** so doc-only PRs don't pay for a test run -- but no
+# narrower than that: PR-2 touches four packages at once and the whole point is
+# catching cross-package import breakage. The workflow's own path is included so
+# changes to this file are self-testing.
 on:
   push:
     branches: [main]
+    paths:
+      - "packages/**"
+      - ".github/workflows/package-test-suites.yml"
   pull_request:
     branches: [main]
+    paths:
+      - "packages/**"
+      - ".github/workflows/package-test-suites.yml"
 
 jobs:
   pytest:
