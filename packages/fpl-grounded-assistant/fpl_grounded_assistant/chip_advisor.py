@@ -208,8 +208,7 @@ def _score_outfield_players(bootstrap: dict[str, Any]) -> list[dict[str, Any]]:
 
     Returns an empty list if no players can be scored.
     """
-    import fpl_captain_engine          # noqa: F401 -- triggers sub-module sys.path
-    from python.captain_tiers import classify_captain_tier
+    from fpl_captain_engine import classify_captain_tier
 
     elements = bootstrap.get("elements", [])
     fdr_map  = bootstrap.get("fixture_difficulty_map", {})

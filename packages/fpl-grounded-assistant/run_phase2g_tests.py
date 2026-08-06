@@ -203,7 +203,7 @@ def _bs() -> dict:
 print("Phase 2g — Tiered Captain Recommendation Framing")
 print("=" * 60)
 
-from python.captain_tiers import (  # type: ignore
+from fpl_captain_engine import (
     classify_captain_tier,
     CAPTAIN_TIER_RULES,
     TIER_SAFE,
@@ -213,7 +213,14 @@ from python.captain_tiers import (  # type: ignore
     TIER_LOW_CONFIDENCE,
     ALL_TIERS,
 )
-from fpl_captain_engine import (  # shim
+# NOTE: the `_ce_*` aliases below used to import the same names through the
+# `fpl_captain_engine` shim so this runner could assert shim-vs-source parity.
+# Both blocks now resolve to the same module, so those parity assertions
+# compare an object with itself and are vacuous. Left in place rather than
+# rewritten: this runner is retired (not referenced by contract-drift-gate.yml
+# or scripts/run_contract_gate.sh) and reworking its test logic is out of
+# scope for the import-path fix.
+from fpl_captain_engine import (
     classify_captain_tier      as _ce_classify,
     CAPTAIN_TIER_RULES         as _ce_rules,
     TIER_SAFE                  as _ce_SAFE,

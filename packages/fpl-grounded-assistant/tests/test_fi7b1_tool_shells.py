@@ -216,7 +216,7 @@ def test_shell_path_imports_no_fi6_modules() -> None:
     code = """
 import json
 import sys
-import python
+import fpl_captain_engine  # noqa: F401 -- exercise the real package
 from fpl_grounded_assistant.orchestrator import _build_tools
 before = set(sys.modules)
 tools = _build_tools(False)
@@ -233,8 +233,10 @@ print(json.dumps({"tools": len(tools)}))
 """
     # Pass the parent's resolved sys.path through rather than restating the
     # pythonpath entries here -- a hardcoded list would immediately drift from
-    # pytest.ini.
-    env = dict(os.environ, PYTHONPATH=os.pathsep.join(sys.path))
+    # pytest.ini. Falsy entries are filtered: an empty string in sys.path means
+    # "cwd", and passing it through as an empty PYTHONPATH segment would let the
+    # child resolve imports against its own cwd rather than the parent's path.
+    env = dict(os.environ, PYTHONPATH=os.pathsep.join(p for p in sys.path if p))
     completed = subprocess.run(
         [sys.executable, "-c", code],
         cwd=Path(__file__).resolve().parents[3],

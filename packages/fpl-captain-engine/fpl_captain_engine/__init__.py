@@ -3,11 +3,14 @@ fpl_captain_engine
 ==================
 Importable Python package for fpl-captain-engine.
 
-This is a thin re-export shim over the source modules in the sibling
-``../python/`` directory.  The source modules remain at ``python/`` to
-preserve the original layout of the repository; this directory provides
-the canonical importable name ``fpl_captain_engine`` that the rest of the
-fpl-platform stack expects.
+The canonical importable name for the captain engine. Implementation modules
+live directly in this package.
+
+Previously the implementation sat in a sibling ``../python/`` directory that
+this module re-exported via a ``sys.path`` insertion. That made the engine
+depend on the bare top-level name ``python`` resolving to the right directory
+-- but three other packages ship a ``python/`` directory too, so which one won
+was import-order luck. The modules were moved here to remove that hazard.
 
 Public surface
 --------------
@@ -20,8 +23,8 @@ Public surface
 
 Source of truth
 ---------------
-    packages/fpl-captain-engine/python/captain_score.py
-    packages/fpl-captain-engine/python/tier_classifier.py
+    packages/fpl-captain-engine/fpl_captain_engine/captain_score.py
+    packages/fpl-captain-engine/fpl_captain_engine/tier_classifier.py
 
 Formula (captain_score.py)
 --------------------------
@@ -35,27 +38,19 @@ Formula (captain_score.py)
 
 from __future__ import annotations
 
-import os as _os
-import sys as _sys
-
-# Ensure the sibling ``python/`` package is importable under the name
-# ``python`` by putting this package's parent directory on sys.path.
-_here   = _os.path.dirname(_os.path.abspath(__file__))
-_parent = _os.path.dirname(_here)   # packages/fpl-captain-engine/
-if _parent not in _sys.path:
-    _sys.path.insert(0, _parent)
-
-# Re-export the canonical captain-engine public surface
-from python import (  # noqa: E402  (import not at top of file)
+from .captain_score import (
     CaptainCandidate,
     calculate_captain_score,
     update_captain_scores,
+)
+from .tier_classifier import (
     Tier,
     TieredRecommendation,
     TierClassifier,
     TieredCaptainSelector,
     TIER_CRITERIA,
-    # Phase 5m: tier classification
+)
+from .captain_tiers import (  # Phase 5m: tier classification
     classify_captain_tier,
     TIER_SAFE,
     TIER_UPSIDE,
@@ -64,7 +59,8 @@ from python import (  # noqa: E402  (import not at top of file)
     TIER_LOW_CONFIDENCE,
     ALL_TIERS,
     CAPTAIN_TIER_RULES,
-    # Phase 5m: role signals
+)
+from .role_evaluator import (  # Phase 5m: role signals
     derive_role_signals,
     compute_role_bonus,
     ROLE_BONUS_MAP,
