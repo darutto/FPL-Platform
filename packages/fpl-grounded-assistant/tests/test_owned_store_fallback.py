@@ -174,7 +174,10 @@ def test_happy_path(season_dir):
     assert prov.baseline_captured_at == baseline_captured_at
     assert prov.incremental_count == 1
     assert prov.staleness_hours >= 0.0
-    assert prov.row_counts == pointer["row_counts"]
+    # load_bootstrap_from_owned_store augments row_counts additively with a
+    # `fixtures` key; the pointer's own keys must survive untouched. Asserting
+    # the exact merged shape pins both halves of that contract.
+    assert prov.row_counts == {**pointer["row_counts"], "fixtures": 0}
 
 
 # ---------------------------------------------------------------------------
