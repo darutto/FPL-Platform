@@ -321,10 +321,7 @@ def _score_one(query: str, bootstrap: dict[str, Any]) -> dict[str, Any]:
     Returns a complete scoring dict on success, or an error dict
     (status="not_found" / "ambiguous" / "error") on failure.
     """
-    # Import triggers sys.path setup for python.* sub-modules
-    import fpl_captain_engine  # noqa: F401
-    from python.captain_tiers import classify_captain_tier
-    from python.role_evaluator import derive_role_signals
+    from fpl_captain_engine import classify_captain_tier, derive_role_signals
 
     resolve = tool_resolve_player(query, bootstrap)
     if resolve["status"] != "ok":
