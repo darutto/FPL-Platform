@@ -1,0 +1,87 @@
+# package-test-suites.yml
+# ========================
+# Runs each package's own pytest suite, in that package's own directory.
+#
+# WHY THIS EXISTS
+# ---------------
+# Until 2026-08-05 no CI job ran pytest against these packages at all. As a
+# result, fpl-tool-contract sat at 39 failures and fpl-tool-runner was dead at
+# collection for an extended period without anyone noticing -- both caused by a
+# single wrong `pythonpath` entry in their pytest.ini files (PR #66). A fourth
+# pre-existing failure (test_owned_store_fallback) had been invisible on Windows
+# because the tmp_path fixture errors with PermissionError before reaching the
+# assertion; this job surfaced it on Linux.
+#
+# DESIGN RULE -- DO NOT ADD A PYTHONPATH ENV VAR HERE
+# ---------------------------------------------------
+# Each step cds into its package and runs bare pytest, letting that package's
+# pytest.ini `pythonpath` resolve imports. That is deliberate: this job's purpose
+# is to protect the pytest.ini wiring, so it must consume that wiring rather than
+# restate it. A hand-maintained PYTHONPATH (as in contract-drift-gate.yml) would
+# let this job go green while the pytest.ini it is supposed to guard is broken --
+# precisely the drift that produced the bug this job exists to catch.
+#
+# DESIGN RULE -- ONE JOB, STABLE NAME, NO MATRIX
+# ----------------------------------------------
+# Branch protection matches required checks by job name, and renaming a required
+# check silently un-requires it. A matrix would emit three names that change if
+# the package list changes; one job emits one stable name that is safe to wire
+# into protection.
+#
+# DESIGN RULE -- NO `paths:` FILTER
+# ---------------------------------
+# Deliberately runs on every PR. A required check that never runs never reports,
+# and GitHub blocks the PR forever waiting for it -- a doc-only PR (like #64,
+# which touched one markdown file) would hang. The suites take ~30-40s total, so
+# always running is cheaper than engineering around that trap.
+#
+# Complements contract-drift-gate.yml, which runs the deterministic
+# run_phase_*.py contract checkers rather than the pytest suites.
+
+name: Package Test Suites
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  pytest:
+    # This name is the required-check string. Do not rename casually.
+    name: Package test suites
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      # No package in this monorepo ships pyproject.toml/setup.py, so there is
+      # nothing to pip-install as a package. fpl-grounded-assistant's
+      # requirements.txt is the dependency superset for all three suites;
+      # fpl-tool-contract and fpl-tool-runner have no requirements file of their
+      # own but import the same third-party libraries transitively.
+      - name: Install dependencies
+        run: pip install --no-cache-dir -r packages/fpl-grounded-assistant/requirements.txt pytest==9.1.1
+
+      # `if: '!cancelled()'` on the later steps so one failing suite still lets
+      # the others report -- the same benefit the previous matrix got from
+      # fail-fast: false.
+      - name: fpl-tool-contract suite
+        working-directory: packages/fpl-tool-contract
+        run: python -m pytest -v
+
+      - name: fpl-tool-runner suite
+        if: ${{ !cancelled() }}
+        working-directory: packages/fpl-tool-runner
+        run: python -m pytest -v
+
+      - name: fpl-grounded-assistant suite
+        if: ${{ !cancelled() }}
+        working-directory: packages/fpl-grounded-assistant
+        run: python -m pytest -v
