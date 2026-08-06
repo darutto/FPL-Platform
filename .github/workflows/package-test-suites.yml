@@ -1,0 +1,64 @@
+# package-test-suites.yml
+# ========================
+# Runs each package's own pytest suite, in that package's own directory.
+#
+# WHY THIS EXISTS
+# ---------------
+# Until 2026-08-05 no CI job ran pytest against these packages at all. As a
+# result, fpl-tool-contract sat at 39 failures and fpl-tool-runner was dead at
+# collection for an extended period without anyone noticing -- both caused by a
+# single wrong `pythonpath` entry in their pytest.ini files (PR #66).
+#
+# DESIGN RULE -- DO NOT ADD A PYTHONPATH ENV VAR HERE
+# ---------------------------------------------------
+# Each job cds into its package and lets that package's pytest.ini `pythonpath`
+# resolve imports. That is deliberate: this job's purpose is to protect the
+# pytest.ini wiring, so it must consume that wiring rather than restate it.
+# A hand-maintained PYTHONPATH (as in contract-drift-gate.yml) would let this
+# job go green while the pytest.ini it is supposed to guard is broken -- which
+# is precisely the drift that produced the bug this job exists to catch.
+#
+# Complements contract-drift-gate.yml, which runs the deterministic
+# run_phase_*.py contract checkers rather than the pytest suites.
+
+name: Package Test Suites
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  pytest:
+    name: pytest (${{ matrix.package }})
+    runs-on: ubuntu-latest
+    strategy:
+      # Report every failing suite in one run rather than stopping at the first.
+      fail-fast: false
+      matrix:
+        package:
+          - fpl-grounded-assistant
+          - fpl-tool-contract
+          - fpl-tool-runner
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      # No package in this monorepo ships pyproject.toml/setup.py, so there is
+      # nothing to pip-install as a package. fpl-grounded-assistant's
+      # requirements.txt is the dependency superset for all three suites;
+      # fpl-tool-contract and fpl-tool-runner have no requirements file of their
+      # own but import the same third-party libraries transitively.
+      - name: Install dependencies
+        run: pip install --no-cache-dir -r packages/fpl-grounded-assistant/requirements.txt pytest==9.1.1
+
+      - name: Run ${{ matrix.package }} suite
+        working-directory: packages/${{ matrix.package }}
+        run: python -m pytest -v
