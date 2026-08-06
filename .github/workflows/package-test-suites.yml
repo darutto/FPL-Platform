@@ -7,50 +7,50 @@
 # Until 2026-08-05 no CI job ran pytest against these packages at all. As a
 # result, fpl-tool-contract sat at 39 failures and fpl-tool-runner was dead at
 # collection for an extended period without anyone noticing -- both caused by a
-# single wrong `pythonpath` entry in their pytest.ini files (PR #66).
+# single wrong `pythonpath` entry in their pytest.ini files (PR #66). A fourth
+# pre-existing failure (test_owned_store_fallback) had been invisible on Windows
+# because the tmp_path fixture errors with PermissionError before reaching the
+# assertion; this job surfaced it on Linux.
 #
 # DESIGN RULE -- DO NOT ADD A PYTHONPATH ENV VAR HERE
 # ---------------------------------------------------
-# Each job cds into its package and lets that package's pytest.ini `pythonpath`
-# resolve imports. That is deliberate: this job's purpose is to protect the
-# pytest.ini wiring, so it must consume that wiring rather than restate it.
-# A hand-maintained PYTHONPATH (as in contract-drift-gate.yml) would let this
-# job go green while the pytest.ini it is supposed to guard is broken -- which
-# is precisely the drift that produced the bug this job exists to catch.
+# Each step cds into its package and runs bare pytest, letting that package's
+# pytest.ini `pythonpath` resolve imports. That is deliberate: this job's purpose
+# is to protect the pytest.ini wiring, so it must consume that wiring rather than
+# restate it. A hand-maintained PYTHONPATH (as in contract-drift-gate.yml) would
+# let this job go green while the pytest.ini it is supposed to guard is broken --
+# precisely the drift that produced the bug this job exists to catch.
+#
+# DESIGN RULE -- ONE JOB, STABLE NAME, NO MATRIX
+# ----------------------------------------------
+# Branch protection matches required checks by job name, and renaming a required
+# check silently un-requires it. A matrix would emit three names that change if
+# the package list changes; one job emits one stable name that is safe to wire
+# into protection.
+#
+# DESIGN RULE -- NO `paths:` FILTER
+# ---------------------------------
+# Deliberately runs on every PR. A required check that never runs never reports,
+# and GitHub blocks the PR forever waiting for it -- a doc-only PR (like #64,
+# which touched one markdown file) would hang. The suites take ~30-40s total, so
+# always running is cheaper than engineering around that trap.
 #
 # Complements contract-drift-gate.yml, which runs the deterministic
 # run_phase_*.py contract checkers rather than the pytest suites.
 
 name: Package Test Suites
 
-# Scoped to packages/** so doc-only PRs don't pay for a test run -- but no
-# narrower than that: PR-2 touches four packages at once and the whole point is
-# catching cross-package import breakage. The workflow's own path is included so
-# changes to this file are self-testing.
 on:
   push:
     branches: [main]
-    paths:
-      - "packages/**"
-      - ".github/workflows/package-test-suites.yml"
   pull_request:
     branches: [main]
-    paths:
-      - "packages/**"
-      - ".github/workflows/package-test-suites.yml"
 
 jobs:
   pytest:
-    name: pytest (${{ matrix.package }})
+    # This name is the required-check string. Do not rename casually.
+    name: Package test suites
     runs-on: ubuntu-latest
-    strategy:
-      # Report every failing suite in one run rather than stopping at the first.
-      fail-fast: false
-      matrix:
-        package:
-          - fpl-grounded-assistant
-          - fpl-tool-contract
-          - fpl-tool-runner
 
     steps:
       - name: Checkout repository
@@ -69,6 +69,19 @@ jobs:
       - name: Install dependencies
         run: pip install --no-cache-dir -r packages/fpl-grounded-assistant/requirements.txt pytest==9.1.1
 
-      - name: Run ${{ matrix.package }} suite
-        working-directory: packages/${{ matrix.package }}
+      # `if: '!cancelled()'` on the later steps so one failing suite still lets
+      # the others report -- the same benefit the previous matrix got from
+      # fail-fast: false.
+      - name: fpl-tool-contract suite
+        working-directory: packages/fpl-tool-contract
+        run: python -m pytest -v
+
+      - name: fpl-tool-runner suite
+        if: ${{ !cancelled() }}
+        working-directory: packages/fpl-tool-runner
+        run: python -m pytest -v
+
+      - name: fpl-grounded-assistant suite
+        if: ${{ !cancelled() }}
+        working-directory: packages/fpl-grounded-assistant
         run: python -m pytest -v
