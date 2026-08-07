@@ -11,7 +11,7 @@ Phase 4a additions (fixtures slice):
 
     from fpl_api_client import get_fixtures, get_fixture_difficulty_map
 
-Reference: fpl-api-client/python/fpl_client.py (audit copy — do not modify)
+Reference: fpl-api-client/audit-reference/fpl_client.py (audit copy — do not modify)
 """
 
 from .fpl_client import (
