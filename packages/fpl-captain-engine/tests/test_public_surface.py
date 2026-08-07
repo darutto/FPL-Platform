@@ -55,8 +55,17 @@ def test_package_does_not_depend_on_a_bare_python_module():
 
     The package used to reach its implementation through the bare top-level
     name `python`, which three other packages also shipped -- so which one won
-    was import-order luck. Importing the engine must not pull in any module
-    named `python`.
+    was import-order luck. Reinstating `from python import ...` would populate
+    sys.modules["python"] and fail this.
+
+    Scope limit, deliberately stated: this asserts against process-global
+    sys.modules, and this package's pytest.ini sets `pythonpath = .` only, so
+    no sibling `python/` is importable here in the first place. The assertion
+    can therefore pass for a reason unrelated to what it pins. It catches the
+    specific regression, not the general hazard. A true guard would run a
+    subprocess with the colliding package roots on PYTHONPATH and assert the
+    engine still resolves -- the pattern used in fpl-grounded-assistant's
+    tests/test_fi7b1_tool_shells.py.
     """
     import sys
 
