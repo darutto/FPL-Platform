@@ -72,7 +72,13 @@ jobs:
       # `if: '!cancelled()'` on the later steps so one failing suite still lets
       # the others report -- the same benefit the previous matrix got from
       # fail-fast: false.
+      # Leaf package -- no intra-repo dependencies, so it runs first.
+      - name: fpl-captain-engine suite
+        working-directory: packages/fpl-captain-engine
+        run: python -m pytest -v
+
       - name: fpl-tool-contract suite
+        if: ${{ !cancelled() }}
         working-directory: packages/fpl-tool-contract
         run: python -m pytest -v
 

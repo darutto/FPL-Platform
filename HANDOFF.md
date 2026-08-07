@@ -100,8 +100,8 @@ self-contained (no pytest required, no network, no LLM calls):
 | `run_phase2c_tests.py` | 2c — auto-derivation | 133 |
 | `run_phase2d_tests.py` | 2d — fixture difficulty | 132 |
 | `run_phase2f_tests.py` | 2f — assembled context | 106 |
-| `run_phase2g_tests.py` | 2g — tiers | 160 |
-| `run_phase2h_tests.py` | 2h — role signals | 165 |
+| ~~`run_phase2g_tests.py`~~ | 2g — tiers (retired; ported to `fpl-captain-engine/tests/test_captain_tiers.py` + `fpl-tool-contract/tests/test_captain_tier_integration.py`) | 160 |
+| ~~`run_phase2h_tests.py`~~ | 2h — role signals (retired; ported to `fpl-captain-engine/tests/test_role_evaluator.py`; role→tier sections not ported — see issue #69) | 165 |
 | `run_phase2i_tests.py` | 2i — renderer | 172 |
 | `run_phase2j_tests.py` | 2j — explainer | 184 |
 | `run_phase2k_tests.py` | 2k — dispatcher | 132 |
