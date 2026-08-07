@@ -3,7 +3,7 @@ fpl_data_core.season_registry
 ==============================
 YAML-driven season layout loader. Canonical platform version.
 
-Reference: fpl-data-core/python/season_registry.py (audit copy — do not modify)
+Reference: fpl-data-core/audit-reference/season_registry.py (audit copy — do not modify)
 Source:    captaincy-ml/ml/data/season_layouts.py (SeasonLayout dataclass + registry)
 
 The _DEFAULT_YAML path resolves to season_registry.yaml two directories up

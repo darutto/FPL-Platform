@@ -9,7 +9,9 @@ functions (now scheduled for retirement).
 
 Source: captaincy-showdown/src/utils/performanceEnricher.ts::buildAggMap
         (lines 32-93) — Python equivalent of the TypeScript rolling aggregation.
-        Also present in: fpl-data-core/python/stat_calculator.py (reference copy).
+        Previously also present in fpl-data-core/python/stat_calculator.py, a
+        stale duplicate deleted 2026-08-07 (its other functions were flagged
+        RETIRE in PACKAGE_AUDIT.md; this one had already been promoted here).
 """
 
 from __future__ import annotations

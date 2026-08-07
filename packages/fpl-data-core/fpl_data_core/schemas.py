@@ -3,7 +3,7 @@ fpl_data_core.schemas
 ======================
 Canonical column schemas and stat definitions. Tier B upstream contract adapter.
 
-Reference: fpl-data-core/python/schemas.py (audit copy — do not modify)
+Reference: fpl-data-core/audit-reference/schemas.py (audit copy — do not modify)
 Source:    FPL-Elo-Insights/scripts/export_data.py (CUMULATIVE_COLS, ID_COLS,
            SNAPSHOT_COLS, TOURNAMENT_NAME_MAP)
 

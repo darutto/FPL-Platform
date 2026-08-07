@@ -14,7 +14,7 @@ Phase 4a additions — fixtures:
     get_fixtures(gameweek)                       GW fixture list (live)
     get_fixture_difficulty_map(fixtures, bootstrap)  {team_id: fdr} map
 
-Reference: fpl-api-client/python/fpl_client.py (audit copy — do not modify)
+Reference: fpl-api-client/audit-reference/fpl_client.py (audit copy — do not modify)
 Sources:   fpl-video-repurposer/build_fpl_kb.py (fetch_json, build_master_squad)
            captaincy-showdown/src/services/captaincyDataService.ts (gameweek logic)
 """
@@ -222,7 +222,7 @@ def get_fixtures(gameweek: int) -> list[dict[str, Any]]:
     Each fixture dict contains at minimum ``team_h`` (home team id),
     ``team_a`` (away team id), and ``event`` (gameweek number).
 
-    Source: fpl-api-client/python/fpl_client.py::get_fixtures
+    Source: fpl-api-client/audit-reference/fpl_client.py::get_fixtures
     """
     return fetch_json(FIXTURES_URL.format(gameweek=gameweek))
 

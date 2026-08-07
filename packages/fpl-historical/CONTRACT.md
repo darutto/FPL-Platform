@@ -10,7 +10,7 @@ Recon-verified deltas from the plan are flagged inline as **[recon]**.
 
 - **Canonical FPL client module** [recon]:
   `packages/fpl-api-client/fpl_api_client/fpl_client.py` (importable as `fpl_api_client.fpl_client`).
-  The `packages/fpl-api-client/python/fpl_client.py` path referenced in the plan is a parallel/legacy copy — **all edits go to `fpl_api_client/fpl_client.py`**.
+  The `packages/fpl-api-client/audit-reference/fpl_client.py` path (named `python/` in the plan, renamed 2026-08-07) is a parallel/legacy copy — **all edits go to `fpl_api_client/fpl_client.py`**.
 - **Existing client surface** (do NOT re-implement):
   - `fetch_json(url, timeout=30) -> Any` — HTTP with 3-retry backoff.
   - `BOOTSTRAP_URL`, `FIXTURES_URL` (per-gameweek, `?event={gameweek}`), `ELEMENT_SUMMARY_URL` (`{element_id}`).
