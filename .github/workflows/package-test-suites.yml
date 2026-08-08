@@ -91,3 +91,14 @@ jobs:
         if: ${{ !cancelled() }}
         working-directory: packages/fpl-grounded-assistant
         run: python -m pytest -v
+
+      # Added by FI-8 S0. FI-8 adds twelve files to this package; until now no
+      # CI job ran its suite, which is the same shape that left
+      # fpl-tool-contract at 39 silent failures and fpl-tool-runner dead at
+      # collection. Baseline at the time of wiring: 67 passed. Its only
+      # dependency is requests>=2.31, already satisfied by the requests==2.32.5
+      # pinned in the install step above -- no second install line is needed.
+      - name: sportmonks-client suite
+        if: ${{ !cancelled() }}
+        working-directory: packages/sportmonks-client
+        run: python -m pytest -v
