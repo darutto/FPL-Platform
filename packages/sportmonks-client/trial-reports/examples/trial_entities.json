@@ -1,0 +1,77 @@
+{
+  "script": "trial_entities",
+  "mode": "mock",
+  "objectives": [
+    {
+      "id": 1,
+      "title": "competition and season identifiers",
+      "status": "observed",
+      "evidence": "leagues: reachable (1 records, ids={8}); seasons: reachable (1 records, ids={23614})"
+    }
+  ],
+  "observed_shapes": [
+    {
+      "name": "family:leagues",
+      "shape": "status=reachable records=1 provider_ids={8}"
+    },
+    {
+      "name": "family:seasons",
+      "shape": "status=reachable records=1 provider_ids={23614}"
+    },
+    {
+      "name": "family:fixtures",
+      "shape": "status=reachable records=1 provider_ids={1001}"
+    },
+    {
+      "name": "family:teams",
+      "shape": "status=reachable records=1 provider_ids={1}"
+    },
+    {
+      "name": "family:squads",
+      "shape": "status=reachable records=1 provider_ids={11}"
+    },
+    {
+      "name": "family:players",
+      "shape": "status=reachable records=1 provider_ids={101}"
+    },
+    {
+      "name": "family:lineups",
+      "shape": "status=reachable records=1 provider_ids={21}"
+    },
+    {
+      "name": "family:formations",
+      "shape": "status=reachable records=1 provider_ids={31}"
+    },
+    {
+      "name": "family:substitutions",
+      "shape": "status=reachable records=1 provider_ids={41}"
+    },
+    {
+      "name": "family:injuries",
+      "shape": "status=reachable records=1 provider_ids={51}"
+    },
+    {
+      "name": "family:suspensions",
+      "shape": "status=reachable records=1 provider_ids={61}"
+    },
+    {
+      "name": "family:coaches",
+      "shape": "status=reachable records=1 provider_ids={71}"
+    },
+    {
+      "name": "family:referees",
+      "shape": "status=reachable records=1 provider_ids={81}"
+    },
+    {
+      "name": "family:team_statistics",
+      "shape": "status=reachable records=1 provider_ids={91}"
+    },
+    {
+      "name": "family:player_statistics",
+      "shape": "status=reachable records=1 provider_ids={1011}"
+    }
+  ],
+  "warnings": [
+    "mock mode: family payloads are documentation-derived and carry \"status\": \"unverified_against_live\" until FI-9"
+  ]
+}

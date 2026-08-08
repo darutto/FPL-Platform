@@ -1,0 +1,31 @@
+{
+  "script": "trial_fixtures",
+  "mode": "mock",
+  "objectives": [
+    {
+      "id": 2,
+      "title": "Premier League fixtures",
+      "status": "observed",
+      "evidence": "2 fixture(s), all league_id=8 season_id=23614"
+    },
+    {
+      "id": 3,
+      "title": "cross-competition fixtures for Premier League clubs",
+      "status": "observed",
+      "evidence": "2 fixture(s) for club id 1 across leagues [2, 24]"
+    }
+  ],
+  "observed_shapes": [
+    {
+      "name": "season_fixtures",
+      "shape": "fixture{id,league_id,participants,season_id,starting_at}"
+    },
+    {
+      "name": "cross_competition_leagues",
+      "shape": "2,24"
+    }
+  ],
+  "warnings": [
+    "mock mode: fixture payloads are documentation-derived and carry \"status\": \"unverified_against_live\" until FI-9"
+  ]
+}
