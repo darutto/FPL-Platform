@@ -50,7 +50,8 @@ Where each is measured:
 | 3 | Mapping <90% auto | no | |
 
 **Condition 1 is the one to watch.** Every grid fixture checked into this package
-is documentation-derived and flagged `UNVERIFIED_VS_LIVE`; the semantics are not
+is documentation-derived and carries `"status": "unverified_against_live"` in its
+`_fixture` block (see `sportmonks_client/assumptions.py`); the semantics are not
 documented, which is why licensing question 13 exists. `trial_lineups.py` is
 built to *report the shape it finds* rather than assert an expected one,
 precisely so this condition is detected rather than papered over.

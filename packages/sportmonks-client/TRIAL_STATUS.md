@@ -26,11 +26,14 @@ looks to answer "how is the trial going, and what do we still not know?"
 4. Never mark an objective observed because the script exited 0 in `--mock`.
    Mock mode proves the script runs, not that the provider supplies the data.
 
-**Status values** — the same set the scripts emit:
+**Status values** — the four the scripts emit, plus `not_started`, which is
+dashboard-only. The scripts' report schema is frozen at exactly four
+(`observed`, `unmet`, `degraded`, `not_applicable`); do not widen it to include
+`not_started`, which describes this table's state rather than a run's outcome.
 
 | Status | Meaning |
 |---|---|
-| `not_started` | no run yet |
+| `not_started` | no run yet — **dashboard-only, not a script status** |
 | `observed` | present in a live payload, with evidence |
 | `degraded` | present but not in the documented shape, or incomplete — record what was found |
 | `unmet` | absent, or below the bar |
@@ -57,8 +60,8 @@ them — the wording is the acceptance bar.
 | 12 | Coaches and manager records | `trial_injuries.py` | `not_started` | |
 | 13 | Fixture-level team statistics | `trial_stats.py` | `not_started` | |
 | 14 | Player match statistics | `trial_stats.py` | `not_started` | |
-| 15 | Data update timing before, during, and after matches | `trial_stats.py` | `not_started` | |
-| 16 | Post-match corrections | `trial_stats.py` | `not_started` | |
+| 15 | Data update timing before, during, and after matches | `trial_stats.py` | `not_applicable` | *requires live observation — see below* |
+| 16 | Post-match corrections | `trial_stats.py` | `not_applicable` | *requires live observation — see below* |
 | 17 | API rate limits and pagination | `trial_auth.py` | `not_started` | |
 | 18 | Stable provider IDs | `trial_mapping.py` | `not_started` | |
 | 19 | FPL identity-match rate | `trial_mapping.py` | `not_started` | |

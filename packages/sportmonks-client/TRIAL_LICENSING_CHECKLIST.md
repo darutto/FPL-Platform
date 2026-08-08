@@ -53,7 +53,7 @@ than the trial can.
 
 | # | Question | Sent | Answered | Answer | Consequence |
 |---|---|---|---|---|---|
-| 13 | Are formation-grid coordinates documented semantics (slot indices vs pitch coordinates), and are they stable across competitions? | no | no | | **GO criterion (b) / NO-GO.** Every checked-in grid fixture is flagged `UNVERIFIED_VS_LIVE`; the docs do not say. If undocumented, M2 degrades to `detailed_position` only |
+| 13 | Are formation-grid coordinates documented semantics (slot indices vs pitch coordinates), and are they stable across competitions? | no | no | | **GO criterion (b) / NO-GO.** Every checked-in grid fixture carries `"status": "unverified_against_live"`; the docs do not say. If undocumented, M2 degrades to `detailed_position` only |
 | 14 | What is the actual per-hour/per-entity rate limit on the trial vs the Starter plan? | no | no | | A trial limit that differs from Starter's makes trial pacing measurements non-transferable. Current strategy is controlled serialized scheduling plus reactive 429 handling; a proactive token bucket is conditional on this answer |
 
 ## Answer summary
