@@ -1,7 +1,7 @@
 ---
 name: independent-verifier
 description: Use after every architectural-pivot phase slice to verify acceptance criteria are explicitly met. Must NOT be the same agent that implemented the slice. Read-only; runs tests but does not edit code. Rejects partial completion even if code compiles.
-model: sonnet
+model: opus
 tools: Read, Glob, Grep, Bash
 ---
 
