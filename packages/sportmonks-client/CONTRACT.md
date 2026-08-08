@@ -125,7 +125,6 @@ because the transport's own tests legitimately construct it with injected fake
 sessions. If an HTTP client is ever added to `requirements.txt`, its entry point
 joins the guard in the same change.
 
-
 `python -m sportmonks_client.cli smoke` refuses without explicit opt-in and a
 token. It is excluded from ordinary tests/CI and must remain the smallest safe
 request: it uses `fetch_page` and performs exactly one authenticated HTTP call,

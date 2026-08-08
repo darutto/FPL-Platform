@@ -4,7 +4,7 @@ Mode: `mock`
 
 | # | Objective | Status | Evidence |
 |---|---|---|---|
-| 17 | API rate limits and pagination | `observed` | walked 2 pages, 2 records; rate-limit headers observed |
+| 17 | API rate limits and pagination | `observed` | walked 2 pages, 2 records; rate-limit fields seen: x-ratelimit-limit, x-ratelimit-remaining, x-ratelimit-reset; throttled responses: 1 |
 
 ## Observed shapes
 
@@ -12,6 +12,7 @@ Mode: `mock`
 |---|---|
 | pagination | `envelope.meta.pagination{current_page,has_more,next_page}` |
 | rate_limit_headers | `x-ratelimit-limit, x-ratelimit-remaining, x-ratelimit-reset` |
+| retry_after | `HTTP 429 retry-after=2` |
 
 ## Warnings
 

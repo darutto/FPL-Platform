@@ -5,6 +5,13 @@ Covers brief §11.3 objective 17 (API rate limits and pagination) and proves the
 cleanly, dummy token surfaces the auth-failure path, and neither leaks the token
 into the report.
 
+Everything this script reports is read from the responses it actually received,
+via `ObservingTransport`. Nothing about the provider is stated as a literal: if
+the rate-limit headers are absent, the objective degrades and the shape entry
+does not appear. That is standing DoD item 10, and it exists because the first
+version of this file claimed "rate-limit headers observed" from a hardcoded
+string that survived deleting every header from the payload.
+
 `--mock` is the default and is the only mode that runs before FI-9.
 """
 from __future__ import annotations
@@ -15,57 +22,99 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _trial_common import (  # noqa: E402
-    DEGRADED, EXIT_CONFIG, EXIT_REFUSED, MODE_MOCK, NOT_APPLICABLE, OBSERVED,
-    Objective, ObservedShape, ReplayTransport, TrialRefusal, TrialReport,
-    build_parser, load_fixture, make_client, resolve_mode, response, write_report,
+    DEGRADED, EXIT_CONFIG, EXIT_REFUSED, MODE_MOCK, OBSERVED, Objective,
+    ObservedShape, ReplayTransport, TrialRefusal, TrialReport, build_parser,
+    load_fixture, make_client, observed_rate_limit_fields, observed_retry_after,
+    resolve_mode, response, write_report,
 )
 from sportmonks_client.errors import (  # noqa: E402
     SportmonksAuthenticationError, SportmonksConfigurationError, SportmonksError,
 )
 
 SCRIPT = "trial_auth"
+OBJECTIVE_17 = "API rate limits and pagination"
 
 
-def mock_transport() -> ReplayTransport:
-    """Replay the checked-in multi-page fixture, with rate-limit headers on the
-    first page so header observation is exercised without a live call."""
+def mock_transport(*, rate_limit_headers: bool = True, throttle: bool = True) -> ReplayTransport:
+    """Replay the checked-in multi-page fixture.
+
+    The keyword arguments exist for the tests that prove this script observes
+    rather than asserts: with `rate_limit_headers=False` the objective must
+    degrade and the shape entry must disappear.
+    """
     pages = load_fixture("multi_page.json")["pages"]
     headers = {
         "X-RateLimit-Limit": "3000",
         "X-RateLimit-Remaining": "2997",
         "X-RateLimit-Reset": "3600",
-    }
-    return ReplayTransport(
-        [response(page, headers=headers if index == 0 else None) for index, page in enumerate(pages)]
-    )
+    } if rate_limit_headers else {}
+    served: list[object] = []
+    if throttle:
+        # A synthetic 429 with Retry-After, ahead of page one. The client retries
+        # it; the observation is of the real header the provider would send.
+        served.append(response({}, status=429, headers={**headers, "Retry-After": "2"}))
+    served += [response(page, headers=headers if index == 0 else {}) for index, page in enumerate(pages)]
+    return ReplayTransport(served)
 
 
-def collect(client, transport: ReplayTransport | None) -> TrialReport:
-    report = TrialReport(script=SCRIPT, mode=MODE_MOCK if transport is not None else "live")
+def collect(client, mode: str) -> TrialReport:
+    """Build the report from what the transport actually saw."""
+    report = TrialReport(script=SCRIPT, mode=mode)
     records = tuple(client.iter_entities("leagues"))
-    pages_walked = len(transport.calls) if transport is not None else 0
+    exchanges = client.transport.exchanges
 
-    if pages_walked > 1 and records:
-        report.objectives.append(Objective(
-            17, "API rate limits and pagination", OBSERVED,
-            f"walked {pages_walked} pages, {len(records)} records; rate-limit headers observed",
+    pages_walked = sum(1 for exchange in exchanges if exchange.status == 200)
+    rate_fields = observed_rate_limit_fields(exchanges)
+    throttles = observed_retry_after(exchanges)
+
+    missing = []
+    if pages_walked <= 1:
+        missing.append(f"pagination did not advance beyond {pages_walked} page(s)")
+    if not rate_fields:
+        missing.append("no rate-limit headers present on any response")
+
+    evidence = (
+        f"walked {pages_walked} pages, {len(records)} records; "
+        f"rate-limit fields seen: {', '.join(rate_fields) if rate_fields else 'none'}; "
+        f"throttled responses: {len(throttles)}"
+    )
+    report.objectives.append(Objective(
+        17, OBJECTIVE_17,
+        OBSERVED if not missing else DEGRADED,
+        evidence if not missing else f"{evidence} — {'; '.join(missing)}",
+    ))
+
+    # Shapes are recorded only when found. An unconditional entry is an
+    # assertion wearing an observation's name (standing DoD item 10).
+    if pages_walked:
+        report.observed_shapes.append(ObservedShape(
+            "pagination", "envelope.meta.pagination{current_page,has_more,next_page}",
+        ))
+    if rate_fields:
+        report.observed_shapes.append(ObservedShape("rate_limit_headers", ", ".join(rate_fields)))
+    if throttles:
+        report.observed_shapes.append(ObservedShape(
+            "retry_after",
+            "; ".join(f"HTTP {status} retry-after={value}" for status, value in throttles),
         ))
     else:
-        report.objectives.append(Objective(
-            17, "API rate limits and pagination", DEGRADED,
-            f"pagination did not advance beyond {pages_walked} page(s)",
-        ))
+        report.warnings.append("no throttled response observed; retry pacing is unmeasured")
 
-    report.observed_shapes.append(ObservedShape(
-        "pagination", "envelope.meta.pagination{current_page,has_more,next_page}",
-    ))
-    report.observed_shapes.append(ObservedShape(
-        "rate_limit_headers", "x-ratelimit-limit, x-ratelimit-remaining, x-ratelimit-reset",
-    ))
     report.warnings.append(
         "mock mode: shapes are documentation-derived and carry "
         '"status": "unverified_against_live" until FI-9'
+        if mode == MODE_MOCK else
+        "live mode: shapes are as received from the provider"
     )
+    return report
+
+
+def _failure_report(mode: str, reason: str) -> TrialReport:
+    """A report is still written on the failure paths, so the token-leak check
+    has real bytes to assert against and the run leaves an evidence pointer."""
+    report = TrialReport(script=SCRIPT, mode=mode)
+    report.objectives.append(Objective(17, OBJECTIVE_17, DEGRADED, reason))
+    report.warnings.append(reason)
     return report
 
 
@@ -78,25 +127,27 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_REFUSED
 
     transport = mock_transport() if mode == MODE_MOCK else None
+    failure: str | None = None
     try:
         client = make_client(mode, transport=transport, out_dir=args.out)
-        report = collect(client, transport)
+        report = collect(client, mode)
     except SportmonksConfigurationError as exc:
         # Token absent. Degrade cleanly -- never a traceback, never a partial fetch.
-        print(f"CONFIG: {type(exc).__name__}")
-        return EXIT_CONFIG
+        failure = f"CONFIG: {type(exc).__name__}"
+        report = _failure_report(mode, "configuration incomplete; no request was issued")
     except SportmonksAuthenticationError as exc:
-        # Dummy or rejected token. The message is already secret-safe.
-        print(f"AUTH: {type(exc).__name__}")
-        return EXIT_CONFIG
+        # Dummy or rejected token. The error is already secret-safe.
+        failure = f"AUTH: {type(exc).__name__}"
+        report = _failure_report(mode, "authentication rejected by the provider")
     except SportmonksError as exc:
-        report = TrialReport(script=SCRIPT, mode=mode)
-        report.objectives.append(Objective(
-            17, "API rate limits and pagination", NOT_APPLICABLE,
-            f"provider error: {type(exc).__name__}",
-        ))
+        failure = f"PROVIDER: {type(exc).__name__}"
+        report = _failure_report(mode, f"provider error: {type(exc).__name__}")
 
     json_path, md_path = write_report(report, args.out)
+    if failure is not None:
+        print(failure)
+        print(f"{SCRIPT}: mode={report.mode} report={json_path}")
+        return EXIT_CONFIG
     print(f"{SCRIPT}: mode={report.mode} report={json_path} markdown={md_path}")
     return report.exit_code()
 
