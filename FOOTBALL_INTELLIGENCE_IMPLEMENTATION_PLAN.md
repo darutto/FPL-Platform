@@ -586,7 +586,7 @@ Phase table (each phase = one or more PR-sized slices; "Trial-dep" = requires li
 - **Compatibility:** all additive; flags-off sweep of the full validation corpus is the slice-(c) gate.
 - **Tests:** contract additivity; renderer snapshots with/without evidence; tool schema validation; Jest card tests.
 - **DoD:** demo recorded; contract gate + validation corpus + `npm run build`/tests green. **Trial-dep:** none. **Pre-trial:** yes — completing FI-7 IS the trial-readiness bar.
-- **Status (2026-08-04):** slices **(a), (b), (c), (d), and (e) complete**. FI-7a merged in PR #45. FI-7b1/b2/b3 merged in PRs #51/#53/#55; b3 closed F2 through deterministic FI rendering plus real single- and multi-intent session evidence propagation. FI-7c merged in PR #57 at `49435bd004d4314567bb934e8f353db92d43130d`. FI-7d merged in PR #59 and was independently post-merge verified on `main@239bc8137358eeeb5aad137f53a9b0b66a22d0f2`. FI-7e documentation and artifact production are complete; PR #61 merged and merge integrity was independently verified at `main@5e57a40b76bb9478abc5358ca6de700c4c8f6493`. **FI-7f resource-surface parity remains unstarted until this specification is independently approved and merged.** **Not a slice:** PR #48 (`fix(ui): mirror player season points intent`, merged to main `03bac5697d087e1dba636ef8c4f534edc63d978a`) was a **post-merge cleanup associated with PR #47** — a one-file, two-line TypeScript intent-mirror parity fix, not an FI-7 roadmap slice.
+- **Status (2026-08-08):** slices **(a), (b), (c), (d), (e), and (f) complete — FI-7 is closed.** The **Pre-trial** bar above ("completing FI-7 IS the trial-readiness bar") is therefore **satisfied**; FI-8 is unblocked. FI-7a merged in PR #45. FI-7b1/b2/b3 merged in PRs #51/#53/#55; b3 closed F2 through deterministic FI rendering plus real single- and multi-intent session evidence propagation. FI-7c merged in PR #57 at `49435bd004d4314567bb934e8f353db92d43130d`. FI-7d merged in PR #59 and was independently post-merge verified on `main@239bc8137358eeeb5aad137f53a9b0b66a22d0f2`. FI-7e documentation and artifact production are complete; PR #61 merged and merge integrity was independently verified at `main@5e57a40b76bb9478abc5358ca6de700c4c8f6493`. **FI-7f resource-surface parity is complete**, merged in PR #65 at `main@e12c8b9179a90624e6a3cf089022522c9f592283` (reviewed head `0ea9f6cb5b65059f1110acacec60b4f34e7bc19c`, a direct parent of the merge commit). It was **independently reviewed and approved** against this contract by a reviewer with no involvement in its implementation: **no blockers and no required changes**, with two informational findings recorded in the FI-7f closeout note below. Both required checks (`Contract and fixture drift check`, `Package test suites`) pass on the resulting `main`. **Not a slice:** PR #48 (`fix(ui): mirror player season points intent`, merged to main `03bac5697d087e1dba636ef8c4f534edc63d978a`) was a **post-merge cleanup associated with PR #47** — a one-file, two-line TypeScript intent-mirror parity fix, not an FI-7 roadmap slice.
 
 ### FI-7b — detailed slice specification (source of truth for b1–b3)
 
@@ -666,7 +666,7 @@ The FI-7a review left finding **F2** open: the `session_ask` top-level `evidence
 - **FI-7c:** evidence enrichment of `captain_score` / `compare_players` / `transfer_advice` OK-turn assembly behind the master flag. FI-7b adds **no** evidence to any existing intent.
 - **FI-7d:** `EvidenceChip` / `EvidenceList` / `ConfidenceBadge` UI and card wiring only. `@minutes` / `@role` resources are not part of FI-7d; they are deferred to FI-7f resource-surface parity. FI-7b touches **no** `lib/types.ts` and no UI.
 - **FI-7e:** the recorded mock end-to-end demo only.
-- **FI-7f:** deterministic, quota-free `@minutes` / `@role` `resource_registry` parity; the contract below is active for independent documentation review and implementation remains unstarted.
+- **FI-7f:** deterministic, quota-free `@minutes` / `@role` `resource_registry` parity. **Complete** — merged in PR #65 at `main@e12c8b9179a90624e6a3cf089022522c9f592283`; see the FI-7f closeout note below.
 - Out entirely: `player_recommendation` intent (Q8, post-calibration), M4/M5 tools, any change to FI-6 module logic or deterministic scoring.
 
 #### Files touched (union across b1–b3)
@@ -1422,8 +1422,8 @@ fallback failure, and atomic-tool-ranking work remain untouched.
 
 **Status:** complete; merged in PR #59 and independently verified on
 `main@239bc8137358eeeb5aad137f53a9b0b66a22d0f2`. FI-7e is complete and merged
-in PR #61. FI-7f resource-surface parity remains implementation-unstarted while
-its contract is under independent documentation review.
+in PR #61. FI-7f resource-surface parity is complete and merged in PR #65 at
+`main@e12c8b9179a90624e6a3cf089022522c9f592283`, closing FI-7.
 
 #### Purpose, repository facts, and ownership
 
@@ -2380,6 +2380,46 @@ implementation review closes all findings; exact-head merge-readiness approval
 is issued; and the implementation merge receives independent integrity
 verification.
 
+#### FI-7f closeout note (2026-08-08)
+
+Every condition above is satisfied. The specification was approved and merged
+(PRs #63/#64); the implementation was merged in **PR #65** at
+`main@e12c8b9179a90624e6a3cf089022522c9f592283`, with reviewed head
+`0ea9f6cb5b65059f1110acacec60b4f34e7bc19c` confirmed as a direct parent of the
+merge commit. Evidence: **42/42** FI-7f parity tests; grounded-assistant
+**592 passed / 1 skipped**; both required checks green on the resulting `main`.
+
+Independent implementation review — by a reviewer with no involvement in the
+implementation — returned **approve, no blockers, no required changes**. It
+verified determinism (byte-identical output under element-order reversal),
+quota isolation (no provider/network/LLM import in the execution path; identical
+output with `FOOTBALL_INTELLIGENCE_ENABLED` off and on), FI-6 non-exposure
+(`@minutes` reads `elements[].minutes`, `@role` maps `elements[].element_type`
+locally), single-call identity resolution, the frozen seven-key response
+envelope and column lists, and session-transport deferral.
+
+**Two informational findings — recorded so a future reader need not rediscover
+them. Neither is a defect and neither requires action:**
+
+1. `resource_registry.py:36` imports `field` from `dataclasses` without using
+   it. Confirmed **pre-existing** — the import line is untouched context in
+   `git diff 81cc2d7..0ea9f6c`, not introduced by FI-7f. Left alone deliberately
+   rather than swept into an unrelated slice.
+2. The `except (AttributeError, KeyError, TypeError, ValueError)` guard around
+   the `tool_resolve_player` call (`resource_registry.py:328-331`) is a narrower
+   net than "no exception can escape" — an `IndexError` from a malformed
+   resolver, for instance, would propagate. This is **explicitly permitted** by
+   the contract above ("Invalid Python input types and programmer-contract
+   violations may still raise existing typed errors"), so it is not a violation.
+   Worth revisiting only if `tool_resolve_player`'s exception surface changes.
+
+**Two items the reviewer could not verify, stated as limits rather than
+assumed:** (a) the contract describes tests in which "every provider, HTTP, and
+LLM seam fail if called"; the suite instead proves no such call occurs via
+absence-of-import plus a resolver-call-count assertion — judged adequate, but
+not literally that test shape; (b) repo-wide cross-package regression suites
+were spot-checked rather than exhaustively re-run in that session.
+
 ### FI-8 — Trial readiness gate
 - **Files new:** `sportmonks-client/scripts/trial_{auth,entities,fixtures,squads,lineups,injuries,stats,mapping}.py` (each: live call → raw snapshot → normalize → report; `--mock` mode for CI-less rehearsal); `TRIAL_STATUS.md` template; licensing checklist doc; go/no-go rubric doc (§14.4).
 - **DoD:** §14.1 checklist fully ticked. **Trial-dep:** none to build; exists to spend the trial well. **Pre-trial:** yes.
@@ -2473,7 +2513,8 @@ Open questions requiring trial validation are enumerated in §14.2/§14.3 and mu
 | FI-7 | c — existing-intent evidence enrichment | complete — merged PR #57 | FI-7c focused 11/11; combined FI-7b/c 75/75; grounded assistant 547 passed with 4 accepted legacy failures; football-intelligence 389 passed/2 skips; contract gate 16/16 | Exact eligible set: `captain_score`, `compare_players`, `transfer_advice`; evidence-only, master-flag gated, no recommendation or renderer change. Merged to main `49435bd004d4314567bb934e8f353db92d43130d`. |
 | FI-7 | d — governed evidence UI | complete — merged PR #59 | FI-7d 43/43; full UI 449/449; TypeScript/build green; contract gate 16/16 | Ownership-based `EvidenceList` / `EvidenceChip` / per-item numeric `ConfidenceBadge`; consumes existing evidence only. Independently post-merge verified on `main@239bc8137358eeeb5aad137f53a9b0b66a22d0f2`; no runtime or second flag. |
 | FI-7 | e — deterministic demo and verification evidence | complete — merged PR #61 | focused Python 75/75; FI-7d UI 43/43; Contract Drift Gate green; canonical checksum verification 22/22 and manifest 12/12 | Combined real-path backend trace, exact-payload local UI captures, checked-in machine evidence/screenshots/transcript/checksums, and immutable externally hosted hashed video. Merge integrity verified at `main@5e57a40b76bb9478abc5358ca6de700c4c8f6493`; no production behavior or `@minutes` / `@role` resource change. |
-| FI-7 | f — resource-surface parity | documentation active; implementation not started | independent documentation review required before implementation | Authoritative contract above defines deterministic, quota-free bootstrap-backed `@minutes <player>` season minutes and `@role <player>` nominal FPL position; preserves bare `@minutes` ranking compatibility and FI 33/29/33 invariants. |
+| FI-7 | f — resource-surface parity | complete — merged PR #65 | FI-7f parity 42/42; grounded-assistant 592 passed / 1 skipped; both required checks green (`Contract and fixture drift check`, `Package test suites`) | Deterministic, quota-free bootstrap-backed `@minutes <player>` season minutes and `@role <player>` nominal FPL position; bare `@minutes` ranking compatibility and FI 33/29/33 invariants preserved. Four files + one test; no protected surface touched; session transport deferred by contract. Independently reviewed and approved — no blockers, no required changes, two informational findings (see closeout note below). Merged at `main@e12c8b9179a90624e6a3cf089022522c9f592283`; reviewed head `0ea9f6cb` is a direct parent. |
+| **FI-7** | **— phase complete —** | **complete** | **all six slices (a)–(f) merged and verified** | **"Completing FI-7 IS the trial-readiness bar" (§15 FI-7 DoD) is satisfied. FI-8 is unblocked.** |
 | FI-8 | trial gate artifacts | not started | — | |
 | FI-9 | live trial | blocked until ~2026-08-10 | — | |
 | FI-10 | calibration | blocked on FI-9 | — | |
