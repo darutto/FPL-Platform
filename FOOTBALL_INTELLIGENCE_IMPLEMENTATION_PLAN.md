@@ -2424,6 +2424,171 @@ were spot-checked rather than exhaustively re-run in that session.
 - **Files new:** `sportmonks-client/scripts/trial_{auth,entities,fixtures,squads,lineups,injuries,stats,mapping}.py` (each: live call → raw snapshot → normalize → report; `--mock` mode for CI-less rehearsal); `TRIAL_STATUS.md` template; licensing checklist doc; go/no-go rubric doc (§14.4).
 - **DoD:** §14.1 checklist fully ticked. **Trial-dep:** none to build; exists to spend the trial well. **Pre-trial:** yes.
 
+### FI-8 — detailed slice specification (source of truth for S0–S6)
+
+**Status:** planned. Supersedes the two-line FI-8 summary above for implementation detail. FI-8 requires **no Sportmonks account, token, or network** and is not gated on the FI-9 trial window; it exists to spend that window well.
+
+#### Scope deviation, recorded
+
+§15 lists **11** new files for FI-8. This spec adds a **12th**, `scripts/_trial_common.py`, holding the shared harness. Eight scripts each doing *live call → raw snapshot → normalize → report* would otherwise carry eight divergent copies of the same argument parsing, mock wiring, snapshot writing, and report emission. The deviation is deliberate and must be restated in the FI-8 commit message per §15's "document deviations" rule.
+
+#### The hard constraint (governs every slice)
+
+**No live Sportmonks call before FI-9 — anywhere, including tests.**
+
+1. `--mock` is the **default** execution mode of every `trial_*.py`.
+2. The live path **is written now and reviewed, but never executed**. It requires an explicit `--i-understand-this-is-live` flag, mirroring `cli.py:17`'s `REFUSED` path and exit code 2.
+3. Every test constructs its client through `SportmonksClient.offline(transport=…)` with a fake transport. No test may construct `RequestsTransport`.
+4. Rule 3 is **enforced structurally, not by convention**: an autouse fixture in `packages/sportmonks-client/tests/conftest.py` patches the real transport constructor to raise, so a test that reaches the network boundary fails loudly rather than silently succeeding. This is the seam shape the FI-7f reviewer flagged as absent from that slice — adequately covered there by absence-of-import, but FI-8 is the code that will genuinely make live calls, so the real guard is built here.
+5. Payload-shape mismatches discovered in FI-9 are **plan-revision requests**, fixed only inside `sportmonks-client` (§17). Open trial questions must not be answered by assumption in code — §15: *stop and request plan revision*.
+
+#### Frozen contract (defined in S2, consumed unchanged by S3–S6)
+
+Every `trial_*.py` is a thin script over `_trial_common.py`. S2 freezes:
+
+- **Invocation** — `python scripts/trial_<name>.py [--mock] [--i-understand-this-is-live] [--out DIR]`. `--mock` is the default; the two mode flags are mutually exclusive.
+- **Exit codes** — `0` every claimed objective observed; `1` an objective is unmet or degraded; `2` refused (live requested without the acknowledgement flag); `3` configuration/auth failure.
+- **Raw snapshots** — written via the existing `snapshot_hook` / `RawResponseSnapshot` seam. No new snapshot writer is introduced.
+- **Normalization** — calls the existing FI-4a offline normalizers in `football_intelligence.ingestion`. **FI-8 adds no normalizer and changes none.**
+- **Report** — one machine-readable JSON plus one human-readable Markdown per script, with a fixed schema: `script`, `mode`, `objectives[]` (each `id`, `title`, `status ∈ {observed, unmet, degraded, not_applicable}`, `evidence`), `observed_shapes[]`, `warnings[]`.
+- **Shape reporting over shape assertion** — reports record the shape actually found. A script must not fail merely because a payload differs from the documented shape; it records the difference and marks the objective `degraded`.
+
+#### Standing DoD — applies to every slice S1–S6
+
+Each of these is a command with a checkable result, not an intention:
+
+1. `cd packages/sportmonks-client && python -m pytest` exits 0, with a test count **≥ the previous slice's** count (the S0 baseline is 67).
+2. Every `trial_*.py` added by the slice runs `--mock` end-to-end, exits 0, and writes both report artifacts.
+3. `grep -rn "RequestsTransport" packages/sportmonks-client/tests/ packages/sportmonks-client/scripts/` returns only the conftest guard itself.
+4. Required check **`Package test suites`** green.
+5. Required check **`Contract and fixture drift check`** green.
+6. Appendix A's FI-8 row updated with the slice and its test evidence.
+7. No file outside `packages/sportmonks-client/`, `.github/workflows/package-test-suites.yml`, and this plan document is modified, except where a slice below explicitly says otherwise (only S6 does, and only to *read*).
+
+#### Slices
+
+##### S0 — put the package under CI *(no FI-8 code)*
+
+- **Files modified:** `.github/workflows/package-test-suites.yml` only.
+- **Why first:** FI-8 adds 12 files to a package **no CI job currently watches**. That is the exact shape that left `fpl-tool-contract` at 39 silent failures and `fpl-tool-runner` dead at collection (see that workflow's own header comment). Capturing the 67-passed baseline now keeps any future deviation attributable to FI-8 rather than to drift.
+- **Change:** add a fifth step, `sportmonks-client suite`, guarded by `if: ${{ !cancelled() }}`, `working-directory: packages/sportmonks-client`, `run: python -m pytest -v` — matching the existing four steps exactly. The job **name stays `Package test suites`**; renaming it would silently un-require the branch-protection check.
+- **DoD (verifiable):**
+  1. The workflow's fifth step appears in a completed run's log with `67 passed`.
+  2. The job name string is unchanged: `grep -c "name: Package test suites"` → 1.
+  3. No `paths:` filter is added, and **no `PYTHONPATH` env var** — the step must consume `packages/sportmonks-client/pytest.ini`'s `pythonpath = .`, which is what it exists to protect.
+  4. No change to the `Install dependencies` step: `requirements.txt` is `requests>=2.31`, already satisfied by the pinned `requests==2.32.5`. If CI shows otherwise, **stop** — do not add a second install line without recording why.
+  5. The 67-passed figure is written into Appendix A as the pre-FI-8 baseline.
+- **Objectives covered:** none. This is infrastructure.
+- **Non-goals:** no `scripts/` directory, no test, no fixture, no change to the four existing steps, no branch-protection change (the check is already required).
+
+##### S1 — trial documentation *(prose only, zero code)*
+
+- **Files new:** `packages/sportmonks-client/TRIAL_STATUS.md` (template), `packages/sportmonks-client/TRIAL_LICENSING_CHECKLIST.md`, `packages/sportmonks-client/TRIAL_GO_NO_GO.md`.
+- **Why before the scripts:** these documents define *what every later script must report*. Writing them first means S2's report schema is built against a known output contract instead of retrofitted. They are also zero-risk and needed on trial day 1 regardless of script progress.
+- **DoD (verifiable):**
+  1. `TRIAL_STATUS.md` contains all **20** brief §11.3 objectives verbatim as a checklist, numbered 1–20, each with a status cell and an evidence-pointer cell.
+  2. `TRIAL_LICENSING_CHECKLIST.md` contains all **14** §14.3 questions — the 12 from brief §11.5 plus the two audit-derived additions (grid-coordinate semantics; actual trial vs Starter rate limit) — each with a `sent / answered / answer` field.
+  3. `TRIAL_GO_NO_GO.md` reproduces §14.4 exactly: six GO criteria (a)–(f), three NO-GO conditions, and the lineups-only partial fallback, with the decision recorded in `TRIAL_STATUS.md`.
+  4. Every objective in `TRIAL_STATUS.md` names the `trial_*.py` that will report it, per the S3–S6 mapping below. Any objective with no owning script is a blocker.
+- **Objectives covered:** **20** (raw-data storage and derived-data licensing) — answered by document, not by script.
+- **Non-goals:** no code, no `scripts/` directory, no answers invented for the 14 licensing questions (they are for Sportmonks to answer on day 1).
+
+##### S2 — harness + `trial_auth.py` + the structural live-call guard
+
+- **Files new:** `packages/sportmonks-client/scripts/_trial_common.py`, `packages/sportmonks-client/scripts/trial_auth.py`, `packages/sportmonks-client/tests/test_trial_harness.py`.
+- **Files modified:** `packages/sportmonks-client/tests/conftest.py` (autouse guard).
+- **DoD (verifiable):**
+  1. The autouse fixture patches the real transport constructor to raise; a deliberately-seeded test that constructs a default `SportmonksClient()` fails with that error, proving the guard fires. Seed it, observe the failure, remove the seed — the same propagation proof used for the FI-2 CI pin.
+  2. A test asserts the script runs in mock mode by default, and that a live-mode invocation **without** the acknowledgement flag returns **2** and prints a `REFUSED:` line, mirroring `cli.py:17`.
+  3. **Token absent:** with `SPORTMONKS_API_TOKEN` unset, a live-mode invocation degrades cleanly through `SportmonksConfigurationError` and exits **3** — never a traceback, never a partial fetch.
+  4. **Dummy token:** with a dummy token and a fake transport returning 401, the auth-failure path surfaces `SportmonksAuthenticationError` and exits **3**, and the report contains no token substring (`assert token not in report_text`). Items 3 and 4 together tick §14.1's token-wiring box.
+  5. Pagination and rate-limit-header observation are exercised against `multi_page.json` and synthetic `Retry-After` headers, and reported.
+  6. The report schema above is emitted and pinned by a test, so S3–S6 inherit a frozen shape.
+- **Objectives covered:** **17** (API rate limits and pagination).
+- **Non-goals:** no endpoint-family script beyond `trial_auth`; no normalizer; no identity-registry access; no change to `client.py`, `transport.py`, `config.py`, or `models.py` — S2 consumes the FI-3/FI-4a seams as they are. If a seam proves insufficient, **stop and request a plan revision** rather than widening it.
+
+##### S3 — discovery: competitions, seasons, fixtures
+
+- **Files new:** `scripts/trial_entities.py`, `scripts/trial_fixtures.py`, `tests/test_trial_discovery.py`.
+- **DoD (verifiable):**
+  1. `trial_entities.py` sweeps all 15 `ENDPOINTS` families against mock payloads and reports, per family: reachable / empty / unavailable, record count, and the `provider_id` set observed.
+  2. `trial_fixtures.py` reports PL fixtures for a season and, separately, cross-competition fixtures for PL clubs — the two are distinguished in the report, since objectives 2 and 3 are distinct.
+  3. Both exit 0 on mocks and exit 1 when a mock is swapped for an empty-result fixture from `edge_cases.json`, proving the unmet path is real rather than decorative.
+  4. `TRIAL_STATUS.md` objectives 1–3 point at these scripts.
+- **Objectives covered:** **1** (competition and season identifiers), **2** (Premier League fixtures), **3** (cross-competition fixtures).
+- **Non-goals:** no squad, lineup, injury, stat, or identity work; no new family added to `ENDPOINTS`.
+
+##### S4 — squads and lineups *(the high-risk slice)*
+
+- **Files new:** `scripts/trial_squads.py`, `scripts/trial_lineups.py`, `tests/test_trial_lineups.py`, plus **new fixture entries** in `tests/fixtures/edge_cases.json`.
+- **Why this slice carries the risk:** §14.4's GO criterion (b) and its *"M2 collapses to detailed_position only"* NO-GO both hinge on formation-grid semantics — and §14.3 question 13 exists precisely because those semantics are **undocumented**. Mock fixtures can prove the script runs; they cannot tell us whether the real grid means slot indices or pitch coordinates.
+- **DoD (verifiable):**
+  1. `trial_lineups.py` **reports the grid shape it finds rather than asserting an expected one.** A test feeds a payload whose grid field differs from the documented shape and asserts the script exits 0 with the objective marked `degraded` and the observed shape recorded — **not** a crash and **not** a silent pass.
+  2. `edge_cases.json` gains **at least three** deliberately unexpected formation-grid fixtures: wrong type (string where a list is documented), unexpected nesting (list-of-lists), and the field missing entirely. Fixtures derived from documentation can only rehearse the documented case; a rehearsal covering only the expected input is not a rehearsal of the risk.
+  3. The report distinguishes objectives 7 (formation *string*), 8 (formation-grid / lineup-position *field*), and 9 (detailed position identifier) as three separately-observable facts. Collapsing them would hide exactly the NO-GO condition §14.4 is watching for.
+  4. `trial_squads.py` reports squad and player-record completeness as counts with named missing fields, not a boolean.
+  5. Substitution relationships and minutes are reported as `(player_off, player_on, minute)` triples, with the on/off direction asserted by test — the field most likely to be inverted against a real payload.
+  6. No grid **semantics** are inferred or hardcoded. The scripts describe; FI-9 decides. Any temptation to encode a guess is a *stop and ask* per §17.
+- **Objectives covered:** **4** (team and squad completeness), **5** (current player records), **6** (confirmed starters and substitutes), **7** (formation strings), **8** (formation-grid or lineup-position fields), **9** (detailed position identifiers), **10** (substitution relationships and minutes).
+- **Non-goals:** no change to M2 `tactical_role` or any `football-intelligence` module; no normalizer change; no grid-semantics decision.
+
+##### S5 — health and statistics
+
+- **Files new:** `scripts/trial_injuries.py`, `scripts/trial_stats.py`, `tests/test_trial_health_stats.py`.
+- **DoD (verifiable):**
+  1. `trial_injuries.py` reports injuries, suspensions, and coach/manager records as three separately-statused objectives.
+  2. Every injury record carries a freshness timestamp in the report — the input the §12 degradation matrix consumes to apply a confidence penalty. A record with no timestamp is reported `degraded`, never defaulted to "fresh".
+  3. `trial_stats.py` reports fixture-level team statistics and player match statistics separately, each with per-field presence counts.
+  4. **Objectives 15 and 16 are structurally different from the rest** and must be honestly labelled: update timing and post-match corrections can only be measured by repeated live observation across a real match. S5 ships the *recording scaffold* — a stable schema for pre/during/post samples and a diff between successive snapshots of the same fixture — and marks both objectives `not_applicable (requires FI-9 live observation)` in mock mode. The scaffold's diff logic is tested against two hand-written snapshot versions.
+- **Objectives covered:** **11** (injuries and suspensions), **12** (coaches and manager records), **13** (fixture-level team statistics), **14** (player match statistics), **15** (data update timing — scaffold only), **16** (post-match corrections — scaffold only).
+- **Non-goals:** no confidence-penalty logic (that is §8.1 / M-module territory); no M1 coefficient work; no live sampling.
+
+##### S6 — identity mapping *(the only slice that reads outside the package)*
+
+- **Files new:** `scripts/trial_mapping.py`, `tests/test_trial_mapping.py`.
+- **Reads (does not modify):** `packages/football-identity-registry/` — the FI-2 crosswalks, `overrides.yaml`, and ambiguity queue.
+- **Why last:** it depends on the FI-2 registry and is the only script whose *output is itself a gate* (≥95% automatic matching, §14.1). Its FI-8 job is to be **ready to measure**; the measurement itself is FI-9.
+- **DoD (verifiable):**
+  1. `trial_mapping.py` computes an automatic-match rate against the FI-2 registry from a mock provider player pool and emits the unresolved queue in the same format FI-2's CLI already produces.
+  2. A test pins the rate arithmetic on a hand-built pool with a known answer (e.g. 8/10 → exactly `80.0`), so a real-pool number in FI-9 can be trusted.
+  3. The script reports `provider_id` stability by diffing two snapshots of the same entity set and listing any id that changed — objective 18's only mechanical check.
+  4. **Fuzzy matching, speculative aliases, and unsafe fall-through tiers remain prohibited** (§14.1). A test asserts the script introduces no new matching tier: it calls the registry's existing matcher and does not implement its own.
+  5. The script **must not write** to any registry file. Assert the `football-identity-registry` tree is byte-identical before and after a run.
+  6. Below-threshold results exit **1** and are reported as unmet — never rounded up, never waived. The 86-item FI-2 unresolved queue stays a tracked blocker.
+- **Objectives covered:** **18** (stable provider IDs), **19** (FPL identity-match rate).
+- **Non-goals:** no registry data change, no override authored, no queue burn-down (that is FI-9, day 2–5), no new matching tier.
+
+#### Objective coverage map — all 20 accounted for
+
+| Slice | Brief §11.3 objectives |
+|---|---|
+| S0 | — (infrastructure) |
+| S1 | 20 |
+| S2 | 17 |
+| S3 | 1, 2, 3 |
+| S4 | 4, 5, 6, 7, 8, 9, 10 |
+| S5 | 11, 12, 13, 14, 15\*, 16\* |
+| S6 | 18, 19 |
+
+\* scaffold only in FI-8; measured in FI-9.
+
+#### Phase DoD
+
+FI-8 is complete when §14.1's eight boxes are fully ticked. Attribution, box by box — **FI-8 owns five of the eight**:
+
+| §14.1 box | Owner | Closed by |
+|---|---|---|
+| 1. FI-1…FI-7 merged; contract gate + corpus green, flags off **and** on over mocks | FI-7 | already closed (§15 FI-7 status, 2026-08-08) |
+| 2. Mock end-to-end demo recorded | FI-7 | already closed (FI-7e, PR #61) |
+| 3. `SPORTMONKS_API_TOKEN` wiring — token absent + dummy token | **FI-8** | **S2** (DoD 3 and 4) |
+| 4. FI-8 acceptance scripts runnable end-to-end via `--mock` | **FI-8** | **S2–S6** (standing DoD 2) |
+| 5. Identity matcher ≥95% on the real current-season corpus | FI-9 | **not** an FI-8 box — explicitly a trial gate |
+| 6. Licensing question list ready to send day 1 | **FI-8** | **S1** (DoD 2) |
+| 7. Go/no-go rubric agreed | **FI-8** | **S1** (DoD 3) |
+| 8. Trial dashboard artifact: `TRIAL_STATUS.md` with the 20 objectives as a checklist | **FI-8** | **S1** (DoD 1) |
+
+Box 8 in particular is **not** closed upstream — `TRIAL_STATUS.md` does not exist yet, and S1 is what creates it. A reader tallying boxes must verify it against S1 rather than assume FI-1…FI-7 ticked it.
+
 ### FI-9 — Live trial execution *(operator + Codex support)*
 - Per §14.2. Deliverables (brief §11.4): working connector; raw+canonical ingestion of real payloads; M1–M3 on real data; one end-to-end visual example; go/no-go decision documented. Identity work must re-run the real current-season corpus after populated canonical team crosswalks and licensed Sportmonks birth dates/richer player names are applied; review and burn down the FI-2 86-item unresolved queue; prove no fuzzy, speculative, or unsafe tier was introduced; and demonstrate ≥95% automatic matching before the identity trial gate passes. Payload-shape mismatches found here are handled as plan-revision requests, fixed in `sportmonks-client` only.
 - **Trial-dep:** entirely. **Pre-trial:** no.
@@ -2515,6 +2680,6 @@ Open questions requiring trial validation are enumerated in §14.2/§14.3 and mu
 | FI-7 | e — deterministic demo and verification evidence | complete — merged PR #61 | focused Python 75/75; FI-7d UI 43/43; Contract Drift Gate green; canonical checksum verification 22/22 and manifest 12/12 | Combined real-path backend trace, exact-payload local UI captures, checked-in machine evidence/screenshots/transcript/checksums, and immutable externally hosted hashed video. Merge integrity verified at `main@5e57a40b76bb9478abc5358ca6de700c4c8f6493`; no production behavior or `@minutes` / `@role` resource change. |
 | FI-7 | f — resource-surface parity | complete — merged PR #65 | FI-7f parity 42/42; grounded-assistant 592 passed / 1 skipped; both required checks green (`Contract and fixture drift check`, `Package test suites`) | Deterministic, quota-free bootstrap-backed `@minutes <player>` season minutes and `@role <player>` nominal FPL position; bare `@minutes` ranking compatibility and FI 33/29/33 invariants preserved. Four files + one test; no protected surface touched; session transport deferred by contract. Independently reviewed and approved — no blockers, no required changes, two informational findings (see closeout note below). Merged at `main@e12c8b9179a90624e6a3cf089022522c9f592283`; reviewed head `0ea9f6cb` is a direct parent. |
 | **FI-7** | **— phase complete —** | **complete** | **all six slices (a)–(f) merged and verified** | **"Completing FI-7 IS the trial-readiness bar" (§15 FI-7 DoD) is satisfied. FI-8 is unblocked.** |
-| FI-8 | trial gate artifacts | not started | — | |
+| FI-8 | trial gate artifacts | planned | pre-FI-8 baseline: sportmonks-client 67/67 (measured 2026-08-08; not yet under CI until S0) | Sliced S0–S6; see "FI-8 — detailed slice specification (source of truth for S0–S6)" in §15. Adds a 12th file (`scripts/_trial_common.py`) beyond §15's stated 11 — deviation approved and to be restated in the FI-8 commit. Hard constraint: no live Sportmonks call before FI-9, anywhere including tests; `--mock` is the default and every test uses `SportmonksClient.offline(...)` behind a structural transport guard. |
 | FI-9 | live trial | blocked until ~2026-08-10 | — | |
 | FI-10 | calibration | blocked on FI-9 | — | |
