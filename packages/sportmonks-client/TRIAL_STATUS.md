@@ -17,8 +17,8 @@ looks to answer "how is the trial going, and what do we still not know?"
 ## How to use this file
 
 1. Run the owning script for an objective (all scripts default to `--mock`; the
-   live path requires `--i-understand-this-is-live` and must not be used before
-   FI-9).
+   live path requires **both** `--live` and `--i-understand-this-is-live`, and
+   must not be used before FI-9).
 2. Set the objective's **Status** from the script's report.
 3. Put a path or URL in **Evidence** — a report artifact, a raw snapshot, a
    support-ticket reply. An objective with a status but no evidence pointer is
@@ -62,7 +62,7 @@ them — the wording is the acceptance bar.
 | 14 | Player match statistics | `trial_stats.py` | `not_started` | |
 | 15 | Data update timing before, during, and after matches | `trial_stats.py` | `not_applicable` | *requires live observation — see below* |
 | 16 | Post-match corrections | `trial_stats.py` | `not_applicable` | *requires live observation — see below* |
-| 17 | API rate limits and pagination | `trial_auth.py` | `not_started` | |
+| 17 | API rate limits and pagination | `trial_auth.py` | `not_started` | mock rehearsal only: [trial-reports/examples/trial_auth.json](trial-reports/examples/trial_auth.json) — **not** a live observation |
 | 18 | Stable provider IDs | `trial_mapping.py` | `not_started` | |
 | 19 | FPL identity-match rate | `trial_mapping.py` | `not_started` | |
 | 20 | Raw-data storage and derived-data licensing | *document, not script* — [TRIAL_LICENSING_CHECKLIST.md](TRIAL_LICENSING_CHECKLIST.md) | `not_started` | |

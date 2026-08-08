@@ -48,10 +48,10 @@ _PACKAGE_ROOT = str(Path(__file__).resolve().parent.parent)
 if _PACKAGE_ROOT not in sys.path:
     sys.path.insert(0, _PACKAGE_ROOT)
 
-from sportmonks_client.client import SportmonksClient  # noqa: E402
+from sportmonks_client.client import SNAPSHOT_RESPONSE_HEADERS, SportmonksClient  # noqa: E402
 from sportmonks_client.config import SportmonksConfig  # noqa: E402
 from sportmonks_client.models import RawResponseSnapshot  # noqa: E402
-from sportmonks_client.transport import Transport, TransportResponse  # noqa: E402
+from sportmonks_client.transport import RequestsTransport, Transport, TransportResponse  # noqa: E402
 
 PACKAGE_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_OUT = PACKAGE_ROOT / "trial-output"
@@ -168,6 +168,67 @@ def load_fixture(name: str) -> Any:
     return json.loads((FIXTURES_DIR / name).read_text(encoding="utf-8"))
 
 
+RATE_LIMIT_HEADERS: tuple[str, ...] = (
+    "x-ratelimit-limit", "x-ratelimit-remaining", "x-ratelimit-reset",
+)
+
+
+@dataclass(frozen=True)
+class Exchange:
+    """One response as actually received: status plus sanctioned headers."""
+
+    status: int
+    headers: Mapping[str, str]
+
+
+class ObservingTransport:
+    """Wraps any transport and records what actually came back.
+
+    This exists because a script must report what it *received*, not what the
+    documentation says it should receive. Without it, a script can only infer
+    from call counts, and the difference between "observed" and "asserted"
+    collapses -- an FI-8 review caught exactly that: stripping every header from
+    the mock transport left the report byte-identical, still claiming
+    "rate-limit headers observed".
+
+    Wraps the real transport in live mode too, so FI-9 observes by the same
+    mechanism the mock rehearsal does. Only headers on the client's existing
+    sanctioned allowlist are retained -- never arbitrary provider headers.
+    """
+
+    def __init__(self, inner: Transport) -> None:
+        self._inner = inner
+        self.exchanges: list[Exchange] = []
+
+    def request(self, method: str, url: str, *, params: Mapping[str, Any], timeout: float) -> TransportResponse:
+        response = self._inner.request(method, url, params=params, timeout=timeout)
+        self.exchanges.append(Exchange(
+            response.status,
+            {
+                key.casefold(): value for key, value in response.headers.items()
+                if key.casefold() in SNAPSHOT_RESPONSE_HEADERS
+            },
+        ))
+        return response
+
+
+def observed_rate_limit_fields(exchanges: Sequence[Exchange]) -> tuple[str, ...]:
+    """Rate-limit header names actually present, in canonical order. Empty when
+    the provider sent none -- which is a `degraded` observation, not a gap to
+    paper over."""
+    seen = {name for exchange in exchanges for name in exchange.headers}
+    return tuple(name for name in RATE_LIMIT_HEADERS if name in seen)
+
+
+def observed_retry_after(exchanges: Sequence[Exchange]) -> tuple[tuple[int, str], ...]:
+    """(status, Retry-After) for every throttled response actually received."""
+    return tuple(
+        (exchange.status, exchange.headers["retry-after"])
+        for exchange in exchanges
+        if exchange.status == 429 and "retry-after" in exchange.headers
+    )
+
+
 class ReplayTransport:
     """Serves checked-in responses in mock mode. Never touches the network."""
 
@@ -241,8 +302,16 @@ def make_client(
     if mode == MODE_MOCK:
         if transport is None:
             raise ValueError("mock mode requires an injected transport")
-        return SportmonksClient.offline(transport, config=config, snapshot_hook=hook)
-    return SportmonksClient(config, transport=transport, snapshot_hook=hook)
+        # Mock mode observes the retry delay from the header; it does not enact
+        # it. Sleeping real seconds for a synthetic 429 would put wall-clock
+        # time into every rehearsal and every CI run for no added signal.
+        return SportmonksClient.offline(
+            ObservingTransport(transport), config=config, snapshot_hook=hook,
+            sleep=lambda _seconds: None,
+        )
+    resolved = config or SportmonksConfig.from_env()
+    inner = transport or RequestsTransport(max_response_bytes=resolved.max_response_bytes)
+    return SportmonksClient(resolved, transport=ObservingTransport(inner), snapshot_hook=hook)
 
 
 def render_markdown(report: TrialReport) -> str:
