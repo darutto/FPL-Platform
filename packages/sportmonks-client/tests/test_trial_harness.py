@@ -24,7 +24,7 @@ from _trial_common import (  # noqa: E402
     STATUSES, UNMET, Exchange, Objective, ObservingTransport, ReplayTransport,
     TrialReport, build_parser, make_client, observed_pagination,
     observed_rate_limit_fields, observed_retry_after, observed_throttles,
-    render_markdown, resolve_mode, response, write_report,
+    render_markdown, render_skeleton, resolve_mode, response, write_report,
 )
 from sportmonks_client.config import SportmonksConfig
 
@@ -218,6 +218,69 @@ def test_removing_the_pagination_metadata_drops_the_shape(tmp_path):
     assert "no pagination metadata on any response" in payload["objectives"][0]["evidence"]
     assert "pagination at: none" in payload["objectives"][0]["evidence"]
     assert not [s for s in payload["observed_shapes"] if s["name"] == "pagination"]
+
+
+def _run_with_transport(tmp_path, responses):
+    """Run trial_auth against an explicit response sequence."""
+    original = trial_auth.mock_transport
+    trial_auth.mock_transport = lambda: ReplayTransport(responses)
+    try:
+        code = trial_auth.main(["--out", str(tmp_path)])
+    finally:
+        trial_auth.mock_transport = original
+    return code, json.loads((tmp_path / "reports" / "trial_auth.json").read_text(encoding="utf-8"))
+
+
+def test_a_payload_the_parser_rejects_degrades_and_records_what_arrived(tmp_path, capsys):
+    """The single scenario FI-8 exists to rehearse: a live payload differing
+    from the documented shape (§17's top risk).
+
+    `has_more` as a string rather than a bool makes `parse_envelope` raise. Before
+    this fix that surfaced as exit **3** -- which the frozen contract defines as
+    *configuration/auth failure* -- with an empty `observed_shapes`, discarding
+    the very payload the trial needed to see. The contract already said the
+    opposite: a script "must not fail merely because a payload differs from the
+    documented shape; it records the difference and marks the objective
+    `degraded`."
+    """
+    code, payload = _run_with_transport(tmp_path, [
+        response({"data": [{"id": 1}], "pagination": {"current_page": 1, "has_more": "yes"}}),
+    ])
+    objective = payload["objectives"][0]
+    assert code == EXIT_UNMET, "a shape difference is not a configuration failure"
+    assert code != EXIT_CONFIG
+    assert objective["status"] == DEGRADED
+    assert "payload rejected by the parser" in objective["evidence"]
+
+    shapes = {s["name"]: s["shape"] for s in payload["observed_shapes"]}
+    assert "rejected_envelope" in shapes, "the refused payload must be recorded, not discarded"
+    assert "pagination{current_page,has_more}" in shapes["rejected_envelope"]
+    assert "data" in shapes["rejected_envelope"]
+
+
+def test_an_empty_pagination_block_is_recorded_not_treated_as_absent(tmp_path):
+    """Present-but-empty and absent are different observations. Truthiness
+    conflated them."""
+    code, payload = _run_with_transport(tmp_path, [
+        response({"data": [{"id": 1}], "pagination": {}}),
+    ])
+    objective = payload["objectives"][0]
+    assert code == EXIT_UNMET and objective["status"] == DEGRADED
+    assert "present but carried no field names" in objective["evidence"]
+    assert "no pagination metadata on any response" not in objective["evidence"]
+    shapes = {s["name"]: s["shape"] for s in payload["observed_shapes"]}
+    assert shapes["pagination"] == "envelope.pagination{}"
+
+
+def test_observed_pagination_distinguishes_absent_from_empty():
+    assert observed_pagination([Exchange(200, {}, {"data": {}})]) == (None, ())
+    assert observed_pagination([Exchange(200, {}, {"data": {}, "pagination": {}})]) == ("pagination", ())
+
+
+def test_render_skeleton_shows_names_only():
+    assert render_skeleton({"data": {}, "pagination": {"current_page": {}, "has_more": {}}}) == (
+        "data, pagination{current_page,has_more}"
+    )
 
 
 def test_pagination_shape_names_only_the_fields_present():

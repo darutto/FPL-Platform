@@ -25,10 +25,12 @@ from _trial_common import (  # noqa: E402
     DEGRADED, EXIT_CONFIG, EXIT_REFUSED, MODE_MOCK, OBSERVED, UNMET, Objective,
     ObservedShape, ReplayTransport, TrialRefusal, TrialReport, build_parser,
     load_fixture, make_client, observed_pagination, observed_rate_limit_fields,
-    observed_retry_after, observed_throttles, resolve_mode, response, write_report,
+    observed_retry_after, observed_throttles, render_skeleton, resolve_mode,
+    response, write_report,
 )
 from sportmonks_client.errors import (  # noqa: E402
     SportmonksAuthenticationError, SportmonksConfigurationError, SportmonksError,
+    SportmonksSchemaError,
 )
 
 SCRIPT = "trial_auth"
@@ -72,7 +74,18 @@ def mock_transport(
 def collect(client, mode: str) -> TrialReport:
     """Build the report from what the transport actually saw."""
     report = TrialReport(script=SCRIPT, mode=mode)
-    records = tuple(client.iter_entities("leagues"))
+    rejection: str | None = None
+    try:
+        records = tuple(client.iter_entities("leagues"))
+    except SportmonksSchemaError as exc:
+        # A payload that differs from the documented shape is the single thing
+        # FI-8 exists to rehearse (§17's top risk: "Sportmonks docs != live
+        # payloads"). The frozen contract is explicit that a script "must not
+        # fail merely because a payload differs from the documented shape; it
+        # records the difference and marks the objective degraded". The response
+        # is already in `exchanges`, so the skeleton survives the rejection.
+        rejection = str(exc) or type(exc).__name__
+        records = ()
     exchanges = client.transport.exchanges
 
     pages_walked = sum(1 for exchange in exchanges if exchange.status == 200)
@@ -82,10 +95,14 @@ def collect(client, mode: str) -> TrialReport:
     retry_afters = observed_retry_after(exchanges)
 
     missing = []
+    if rejection is not None:
+        missing.append(f"payload rejected by the parser: {rejection}")
     if pages_walked <= 1:
         missing.append(f"pagination did not advance beyond {pages_walked} page(s)")
     if page_location is None:
         missing.append("no pagination metadata on any response")
+    elif not page_fields:
+        missing.append(f"{page_location} block present but carried no field names")
     if not rate_fields:
         missing.append("no rate-limit headers present on any response")
     if throttles and not retry_afters:
@@ -111,6 +128,12 @@ def collect(client, mode: str) -> TrialReport:
         report.observed_shapes.append(ObservedShape(
             "pagination", f"envelope.{page_location}{{{','.join(page_fields)}}}",
         ))
+    if rejection is not None and exchanges:
+        # The payload the parser refused, recorded rather than discarded. This is
+        # the observation FI-9 most needs on day one.
+        report.observed_shapes.append(ObservedShape(
+            "rejected_envelope", render_skeleton(exchanges[-1].body_keys),
+        ))
     if rate_fields:
         report.observed_shapes.append(ObservedShape("rate_limit_headers", ", ".join(rate_fields)))
     if retry_afters:
@@ -130,19 +153,25 @@ def collect(client, mode: str) -> TrialReport:
     return report
 
 
-def _failure_report(mode: str, reason: str) -> TrialReport:
+def _report_with(mode: str, status: str, reason: str) -> TrialReport:
     """A report is still written on the failure paths, so the token-leak check
-    has real bytes to assert against and the run leaves an evidence pointer.
-
-    `unmet` rather than `degraded`: the run never reached the provider, so the
-    objective was not partially observed -- it was not observed at all. This is
-    also the only place `unmet` is produced, which keeps the frozen status that
-    S3 depends on exercised rather than merely declared.
-    """
+    has real bytes to assert against and the run leaves an evidence pointer."""
     report = TrialReport(script=SCRIPT, mode=mode)
-    report.objectives.append(Objective(17, OBJECTIVE_17, UNMET, reason))
+    report.objectives.append(Objective(17, OBJECTIVE_17, status, reason))
     report.warnings.append(reason)
     return report
+
+
+def _unmet_report(mode: str, reason: str) -> TrialReport:
+    """The run never reached the provider, so nothing was observed at all --
+    `unmet`, not partially observed. This keeps the frozen status S3 depends on
+    exercised rather than merely declared."""
+    return _report_with(mode, UNMET, reason)
+
+
+def _degraded_report(mode: str, reason: str) -> TrialReport:
+    """The provider was reached and misbehaved: a partial observation."""
+    return _report_with(mode, DEGRADED, reason)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -155,28 +184,34 @@ def main(argv: list[str] | None = None) -> int:
 
     transport = mock_transport() if mode == MODE_MOCK else None
     failure: str | None = None
+    config_failure = False
     try:
         client = make_client(mode, transport=transport, out_dir=args.out)
         report = collect(client, mode)
     except SportmonksConfigurationError as exc:
         # Token absent. Degrade cleanly -- never a traceback, never a partial fetch.
         failure = f"CONFIG: {type(exc).__name__}"
-        report = _failure_report(mode, "configuration incomplete; no request was issued")
+        config_failure = True
+        report = _unmet_report(mode, "configuration incomplete; no request was issued")
     except SportmonksAuthenticationError as exc:
         # Dummy or rejected token. The error is already secret-safe.
         failure = f"AUTH: {type(exc).__name__}"
-        report = _failure_report(mode, "authentication rejected by the provider")
+        config_failure = True
+        report = _unmet_report(mode, "authentication rejected by the provider")
     except SportmonksError as exc:
+        # Exit 3 is defined as *configuration or authentication* failure. A
+        # provider that paginated badly, throttled us out, or returned an
+        # unparseable body is none of those -- it is a degraded observation, and
+        # collapsing it into the config bucket misreports what happened. Only
+        # the two branches above are exit 3.
         failure = f"PROVIDER: {type(exc).__name__}"
-        report = _failure_report(mode, f"provider error: {type(exc).__name__}")
+        report = _degraded_report(mode, f"provider error: {type(exc).__name__}")
 
     json_path, md_path = write_report(report, args.out)
     if failure is not None:
         print(failure)
-        print(f"{SCRIPT}: mode={report.mode} report={json_path}")
-        return EXIT_CONFIG
     print(f"{SCRIPT}: mode={report.mode} report={json_path} markdown={md_path}")
-    return report.exit_code()
+    return EXIT_CONFIG if config_failure else report.exit_code()
 
 
 if __name__ == "__main__":

@@ -268,12 +268,24 @@ def observed_pagination(exchanges: Sequence[Exchange]) -> tuple[str | None, tupl
     """
     for exchange in exchanges:
         skeleton = exchange.body_keys
-        if skeleton.get("pagination"):
+        # Presence, not truthiness. A `pagination: {}` block that arrived and
+        # carried no field names is a *shape difference worth recording*, not an
+        # absent block -- conflating them is the same failure to observe a
+        # distinction that this file exists to demonstrate observing.
+        if "pagination" in skeleton:
             return "pagination", tuple(skeleton["pagination"])
         nested = skeleton.get("meta", {})
-        if isinstance(nested, Mapping) and nested.get("pagination"):
+        if isinstance(nested, Mapping) and "pagination" in nested:
             return "meta.pagination", tuple(nested["pagination"])
     return None, ()
+
+
+def render_skeleton(skeleton: Mapping[str, Any]) -> str:
+    """Render a key-name skeleton as `data, pagination{current_page,has_more}`."""
+    parts = []
+    for key, nested in skeleton.items():
+        parts.append(f"{key}{{{','.join(nested)}}}" if nested else key)
+    return ", ".join(parts)
 
 
 class ReplayTransport:
