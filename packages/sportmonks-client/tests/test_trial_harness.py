@@ -21,9 +21,10 @@ import trial_auth  # noqa: E402
 from _trial_common import (  # noqa: E402
     DEFAULT_OUT, DEGRADED, EXAMPLES_DIR, EXIT_CONFIG, EXIT_OK, EXIT_REFUSED,
     EXIT_UNMET, MODE_LIVE, MODE_MOCK, NOT_APPLICABLE, OBSERVED, PACKAGE_ROOT,
-    STATUSES, Exchange, Objective, ObservingTransport, ReplayTransport,
-    TrialReport, build_parser, make_client, observed_rate_limit_fields,
-    observed_retry_after, render_markdown, resolve_mode, response, write_report,
+    STATUSES, UNMET, Exchange, Objective, ObservingTransport, ReplayTransport,
+    TrialReport, build_parser, make_client, observed_pagination,
+    observed_rate_limit_fields, observed_retry_after, observed_throttles,
+    render_markdown, resolve_mode, response, write_report,
 )
 from sportmonks_client.config import SportmonksConfig
 
@@ -130,6 +131,12 @@ def test_dummy_token_surfaces_auth_failure_without_leaking_it(monkeypatch, tmp_p
     assert printed.startswith("AUTH: SportmonksAuthenticationError")
     assert token not in printed
 
+    payload = json.loads((tmp_path / "reports" / "trial_auth.json").read_text(encoding="utf-8"))
+    assert payload["objectives"][0]["status"] == UNMET, (
+        "a run that never reached the provider observed nothing, so the objective "
+        "is unmet rather than partially degraded"
+    )
+
     report_bytes = (tmp_path / "reports" / "trial_auth.json").read_bytes()
     markdown_bytes = (tmp_path / "reports" / "trial_auth.md").read_bytes()
     assert report_bytes, "the auth-failure path must still write a report"
@@ -187,6 +194,62 @@ def test_removing_the_headers_degrades_the_objective_and_drops_the_shape(tmp_pat
     assert "no rate-limit headers present" in objective["evidence"]
     assert "rate-limit fields seen: none" in objective["evidence"]
     assert not [s for s in payload["observed_shapes"] if s["name"] == "rate_limit_headers"]
+
+
+def test_pagination_shape_reports_the_location_and_fields_actually_present(tmp_path):
+    """The checked-in fixtures carry pagination at the **top level**, not under
+    `meta` -- the client accepts either (`models.py:73`). A hardcoded
+    `envelope.meta.pagination` would name a location the response did not have,
+    which is what the first two versions of this slice shipped."""
+    _, payload = _run(tmp_path)
+    shapes = {s["name"]: s["shape"] for s in payload["observed_shapes"]}
+    assert shapes["pagination"] == "envelope.pagination{current_page,has_more,next_page}"
+    assert "meta.pagination" not in shapes["pagination"]
+    assert "pagination at: pagination" in payload["objectives"][0]["evidence"]
+
+
+def test_removing_the_pagination_metadata_drops_the_shape(tmp_path):
+    """Standing DoD item 10 for the pagination entry. The previous version
+    keyed this shape off a 200-response count, so it survived deleting the
+    pagination block entirely."""
+    code, payload = _run(tmp_path, pagination=False)
+    assert code == EXIT_UNMET
+    assert payload["objectives"][0]["status"] == DEGRADED
+    assert "no pagination metadata on any response" in payload["objectives"][0]["evidence"]
+    assert "pagination at: none" in payload["objectives"][0]["evidence"]
+    assert not [s for s in payload["observed_shapes"] if s["name"] == "pagination"]
+
+
+def test_pagination_shape_names_only_the_fields_present():
+    """`next_page` is optional. The shape must not name a field the response
+    did not carry."""
+    exchanges = [Exchange(200, {}, {"data": {}, "pagination": {"current_page": {}, "has_more": {}}})]
+    assert observed_pagination(exchanges) == ("pagination", ("current_page", "has_more"))
+
+
+def test_pagination_shape_reports_the_meta_location_when_that_is_where_it_is():
+    exchanges = [Exchange(200, {}, {"meta": {"pagination": {"current_page": {}}}})]
+    assert observed_pagination(exchanges) == ("meta.pagination", ("current_page",))
+
+
+def test_body_skeleton_carries_key_names_only_never_values():
+    """Reports must not carry raw provider data. The skeleton is names only."""
+    skeleton = _trial_common.body_skeleton({"data": [{"id": 1}], "meta": {"pagination": {"current_page": 3}}})
+    assert skeleton == {"data": {}, "meta": {"pagination": {"current_page": {}}}}
+    assert "3" not in json.dumps(skeleton)
+
+
+def test_a_throttle_without_retry_after_is_still_counted(tmp_path):
+    """Conflating "throttled" with "throttled and carried the header" reports a
+    real 429 as zero throttles -- a misobservation inside objective 17's own
+    subject matter, previously exiting 0."""
+    code, payload = _run(tmp_path, retry_after=False)
+    evidence = payload["objectives"][0]["evidence"]
+    assert "throttled responses: 1 (with Retry-After: 0)" in evidence
+    assert "carried no Retry-After" in evidence
+    assert payload["objectives"][0]["status"] == DEGRADED
+    assert code == EXIT_UNMET
+    assert not [s for s in payload["observed_shapes"] if s["name"] == "retry_after"]
 
 
 def test_synthetic_retry_after_is_observed_and_reported(tmp_path):

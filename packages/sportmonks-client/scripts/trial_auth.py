@@ -22,10 +22,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _trial_common import (  # noqa: E402
-    DEGRADED, EXIT_CONFIG, EXIT_REFUSED, MODE_MOCK, OBSERVED, Objective,
+    DEGRADED, EXIT_CONFIG, EXIT_REFUSED, MODE_MOCK, OBSERVED, UNMET, Objective,
     ObservedShape, ReplayTransport, TrialRefusal, TrialReport, build_parser,
-    load_fixture, make_client, observed_rate_limit_fields, observed_retry_after,
-    resolve_mode, response, write_report,
+    load_fixture, make_client, observed_pagination, observed_rate_limit_fields,
+    observed_retry_after, observed_throttles, resolve_mode, response, write_report,
 )
 from sportmonks_client.errors import (  # noqa: E402
     SportmonksAuthenticationError, SportmonksConfigurationError, SportmonksError,
@@ -35,7 +35,13 @@ SCRIPT = "trial_auth"
 OBJECTIVE_17 = "API rate limits and pagination"
 
 
-def mock_transport(*, rate_limit_headers: bool = True, throttle: bool = True) -> ReplayTransport:
+def mock_transport(
+    *,
+    rate_limit_headers: bool = True,
+    throttle: bool = True,
+    retry_after: bool = True,
+    pagination: bool = True,
+) -> ReplayTransport:
     """Replay the checked-in multi-page fixture.
 
     The keyword arguments exist for the tests that prove this script observes
@@ -48,11 +54,17 @@ def mock_transport(*, rate_limit_headers: bool = True, throttle: bool = True) ->
         "X-RateLimit-Remaining": "2997",
         "X-RateLimit-Reset": "3600",
     } if rate_limit_headers else {}
+    if not pagination:
+        pages = [{"data": page["data"]} for page in pages[:1]]
     served: list[object] = []
     if throttle:
-        # A synthetic 429 with Retry-After, ahead of page one. The client retries
-        # it; the observation is of the real header the provider would send.
-        served.append(response({}, status=429, headers={**headers, "Retry-After": "2"}))
+        # A synthetic 429, ahead of page one. The client retries it; the
+        # observation is of the real header the provider would send. `retry_after`
+        # can be turned off to prove a throttle with no header is still counted.
+        throttle_headers = dict(headers)
+        if retry_after:
+            throttle_headers["Retry-After"] = "2"
+        served.append(response({}, status=429, headers=throttle_headers))
     served += [response(page, headers=headers if index == 0 else {}) for index, page in enumerate(pages)]
     return ReplayTransport(served)
 
@@ -65,18 +77,25 @@ def collect(client, mode: str) -> TrialReport:
 
     pages_walked = sum(1 for exchange in exchanges if exchange.status == 200)
     rate_fields = observed_rate_limit_fields(exchanges)
-    throttles = observed_retry_after(exchanges)
+    page_location, page_fields = observed_pagination(exchanges)
+    throttles = observed_throttles(exchanges)
+    retry_afters = observed_retry_after(exchanges)
 
     missing = []
     if pages_walked <= 1:
         missing.append(f"pagination did not advance beyond {pages_walked} page(s)")
+    if page_location is None:
+        missing.append("no pagination metadata on any response")
     if not rate_fields:
         missing.append("no rate-limit headers present on any response")
+    if throttles and not retry_afters:
+        missing.append(f"{len(throttles)} throttled response(s) carried no Retry-After")
 
     evidence = (
         f"walked {pages_walked} pages, {len(records)} records; "
+        f"pagination at: {page_location or 'none'}; "
         f"rate-limit fields seen: {', '.join(rate_fields) if rate_fields else 'none'}; "
-        f"throttled responses: {len(throttles)}"
+        f"throttled responses: {len(throttles)} (with Retry-After: {len(retry_afters)})"
     )
     report.objectives.append(Objective(
         17, OBJECTIVE_17,
@@ -84,20 +103,22 @@ def collect(client, mode: str) -> TrialReport:
         evidence if not missing else f"{evidence} — {'; '.join(missing)}",
     ))
 
-    # Shapes are recorded only when found. An unconditional entry is an
-    # assertion wearing an observation's name (standing DoD item 10).
-    if pages_walked:
+    # Shapes are recorded only when found, and describe what was found -- the
+    # block's actual location and the fields it actually carried. An
+    # unconditional entry is an assertion wearing an observation's name
+    # (standing DoD item 10).
+    if page_location is not None:
         report.observed_shapes.append(ObservedShape(
-            "pagination", "envelope.meta.pagination{current_page,has_more,next_page}",
+            "pagination", f"envelope.{page_location}{{{','.join(page_fields)}}}",
         ))
     if rate_fields:
         report.observed_shapes.append(ObservedShape("rate_limit_headers", ", ".join(rate_fields)))
-    if throttles:
+    if retry_afters:
         report.observed_shapes.append(ObservedShape(
             "retry_after",
-            "; ".join(f"HTTP {status} retry-after={value}" for status, value in throttles),
+            "; ".join(f"HTTP {status} retry-after={value}" for status, value in retry_afters),
         ))
-    else:
+    elif not throttles:
         report.warnings.append("no throttled response observed; retry pacing is unmeasured")
 
     report.warnings.append(
@@ -111,9 +132,15 @@ def collect(client, mode: str) -> TrialReport:
 
 def _failure_report(mode: str, reason: str) -> TrialReport:
     """A report is still written on the failure paths, so the token-leak check
-    has real bytes to assert against and the run leaves an evidence pointer."""
+    has real bytes to assert against and the run leaves an evidence pointer.
+
+    `unmet` rather than `degraded`: the run never reached the provider, so the
+    objective was not partially observed -- it was not observed at all. This is
+    also the only place `unmet` is produced, which keeps the frozen status that
+    S3 depends on exercised rather than merely declared.
+    """
     report = TrialReport(script=SCRIPT, mode=mode)
-    report.objectives.append(Objective(17, OBJECTIVE_17, DEGRADED, reason))
+    report.objectives.append(Objective(17, OBJECTIVE_17, UNMET, reason))
     report.warnings.append(reason)
     return report
 
