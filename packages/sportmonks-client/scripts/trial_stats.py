@@ -6,6 +6,15 @@ Covers brief §11.3 objective 13 (fixture-level team statistics) and objective
 14 (player match statistics), each reported separately with per-field
 presence counts derived from the records actually received (S5 DoD 3).
 
+Existence-versus-content declaration (standing DoD item 10). Both shape
+entries -- `team_stat_fields` and `player_stat_fields` -- are ones whose
+**existence is the observation**'s subject: each disappears when its family
+returns no records, and each is covered by a test that empties that family and
+asserts the entry is gone while the sibling family's entry survives. Their
+content is the per-field presence counts read from the records received.
+Objectives 15 and 16 carry no shape entry at all; see below for why their
+status is deliberately not derived from any payload.
+
 Objectives 15 (data update timing) and 16 (post-match corrections) are
 structurally different from the rest of FI-8 (S5 DoD 4): they can only be
 measured by repeated live observation of a real match across pre/during/post

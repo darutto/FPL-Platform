@@ -19,10 +19,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 import trial_injuries  # noqa: E402
 import trial_stats  # noqa: E402
+import _trial_common  # noqa: E402
 from _trial_common import (  # noqa: E402
     DEGRADED, EXAMPLES_DIR, EXIT_CONFIG, EXIT_OK, EXIT_UNMET, MODE_MOCK,
-    NOT_APPLICABLE, OBSERVED, UNMET,
+    NOT_APPLICABLE, OBSERVED, UNMET, ReplayTransport, response,
 )
+from sportmonks_client.config import SportmonksConfig  # noqa: E402
 from trial_stats import SampleDiff, StatSample, diff_samples  # noqa: E402
 
 # ==============================================================================
@@ -174,11 +176,45 @@ def test_injury_record_fields_shape_reflects_fields_actually_present(tmp_path):
     assert "type_id" not in shapes["injury_record_fields"]
 
 
+def test_suspension_record_fields_shape_reflects_fields_actually_present(tmp_path):
+    """The falsification test this family was missing.
+
+    An independent review seeded `"id, player_id, type_id, games_remaining"` as a
+    literal here and the whole suite stayed green, because the only suspension
+    input any test supplied was `suspensions=[]` — which proves the entry
+    disappears, not that its content is derived. With the literal in place the
+    report named `type_id` and `games_remaining` on a payload that carried
+    neither: the S2 defect verbatim.
+    """
+    _, payload = _run_injuries(tmp_path, suspensions=[{"id": 61, "player_id": 103}])
+    shapes = {s["name"]: s["shape"] for s in payload["observed_shapes"]}
+    assert shapes["suspension_record_fields"] == "id, player_id"
+    assert "type_id" not in shapes["suspension_record_fields"]
+    assert "games_remaining" not in shapes["suspension_record_fields"]
+
+
+def test_suspension_evidence_reflects_the_actual_payload(tmp_path):
+    """`evidence` is a reported fact too, so item 10 covers it — a literal here
+    survived the suite for the same reason."""
+    _, payload = _run_injuries(tmp_path, suspensions=[{"id": 61, "player_id": 103}])
+    evidence = _objective(payload, 11, "Suspensions")["evidence"]
+    assert "1 suspension" in evidence
+    assert "id, player_id" in evidence
+    assert "games_remaining" not in evidence
+
+
 def test_coach_record_fields_reflect_the_actual_payload(tmp_path):
     _, payload = _run_injuries(tmp_path, coaches=[{"id": 99, "name": "Someone"}])
     shapes = {s["name"]: s["shape"] for s in payload["observed_shapes"]}
     assert shapes["coach_record_fields"] == "id, name"
     assert "team_id" not in shapes["coach_record_fields"]
+
+    # The shape was covered; the evidence string was not, and a literal in it
+    # survived seeding.
+    evidence = _objective(payload, 12, "Coaches and manager records")["evidence"]
+    assert "1 coach" in evidence
+    assert "id, name" in evidence
+    assert "team_id" not in evidence
 
 
 def test_injuries_exits_config_when_token_absent(monkeypatch, tmp_path):
@@ -187,6 +223,58 @@ def test_injuries_exits_config_when_token_absent(monkeypatch, tmp_path):
     assert code == EXIT_CONFIG
     payload = json.loads((tmp_path / "reports" / "trial_injuries.json").read_text(encoding="utf-8"))
     assert all(o["status"] == UNMET for o in payload["objectives"])
+
+
+@pytest.mark.parametrize("script", [trial_injuries, trial_stats])
+def test_a_rejected_token_exits_three_not_one(monkeypatch, tmp_path, script):
+    """The taxonomy defect that sank the sibling slice S3.
+
+    There, `main()` had the correct config/auth handlers but an inner
+    per-family `except SportmonksError` swallowed a 401 into a per-family
+    "unavailable" classification, so an authentication failure exited **1** --
+    "the provider does not have this data" -- instead of **3** -- "stop, your
+    token is wrong". A materially different trial conclusion on day one.
+
+    These scripts have no inner catch, which review confirmed by probe. This
+    pins it, because "no inner catch today" is not a property anything checked.
+    """
+    monkeypatch.setenv("SPORTMONKS_API_TOKEN", "DUMMY-TRIAL-TOKEN")
+    monkeypatch.setattr(
+        script, "make_client",
+        lambda mode, **kw: _trial_common.make_client(
+            mode, transport=ReplayTransport([response({}, status=401)] * 12),
+            config=SportmonksConfig(api_token="DUMMY-TRIAL-TOKEN"), out_dir=kw.get("out_dir"),
+        ),
+    )
+    code = script.main(["--live", "--i-understand-this-is-live", "--out", str(tmp_path)])
+    assert code == EXIT_CONFIG, "an authentication failure is exit 3, never exit 1"
+
+
+@pytest.mark.parametrize("script", [trial_injuries, trial_stats])
+def test_a_throttled_provider_degrades_rather_than_reporting_misconfiguration(
+    monkeypatch, tmp_path, script
+):
+    """The payload-preserving half of the taxonomy rule, which shipped untested.
+
+    Being rate-limited is not a misconfiguration -- for objective 17 it is
+    evidence. Only config and auth reach exit 3; every other provider failure
+    is a degraded observation.
+    """
+    monkeypatch.setenv("SPORTMONKS_API_TOKEN", "DUMMY-TRIAL-TOKEN")
+    monkeypatch.setattr(
+        script, "make_client",
+        lambda mode, **kw: _trial_common.make_client(
+            mode, transport=ReplayTransport([response({}, status=429)] * 12),
+            config=SportmonksConfig(api_token="DUMMY-TRIAL-TOKEN", max_retries=0),
+            out_dir=kw.get("out_dir"),
+        ),
+    )
+    code = script.main(["--live", "--i-understand-this-is-live", "--out", str(tmp_path)])
+    assert code != EXIT_CONFIG, "a throttled provider is not a configuration failure"
+    payload = json.loads(
+        (tmp_path / "reports" / f"{script.SCRIPT}.json").read_text(encoding="utf-8")
+    )
+    assert any(o["status"] == DEGRADED for o in payload["objectives"])
 
 
 def test_injuries_mock_output_is_byte_stable(tmp_path):

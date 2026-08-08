@@ -6,9 +6,24 @@ coach/manager records to be reported as *three* separately-statused
 objectives even though they collapse to two objective ids in the brief: this
 script emits two `Objective(11, ...)` entries -- one titled "Injuries", one
 titled "Suspensions" -- plus one `Objective(12, ...)`. Each is built only from
-the records the transport actually returned; an empty family degrades that
-family's objective and drops that family's shape entry, and no other family
-is affected (standing DoD item 10).
+the records the transport actually returned; an empty family marks that
+family's objective `unmet` -- nothing was observed, so it is not a partial
+observation -- and drops that family's shape entry, leaving every other family
+untouched (standing DoD item 10).
+
+Existence-versus-content declaration (standing DoD item 10). Every shape entry
+here is one whose **existence is the observation**'s subject, so each must
+disappear when its family's data is absent, and each is covered by a test that
+removes that family and asserts exactly that:
+
+- `injury_record_fields`, `suspension_record_fields`, `coach_record_fields`
+  -- content derived from the records received; entry disappears when empty.
+- `injury_freshness_field` -- the entry's *existence* signals that at least one
+  record carried a freshness timestamp, and it disappears when none did. Its
+  value is the module constant `FRESHNESS_FIELD`, a declared and still
+  unverified documentation assumption rather than a derived value; the failure
+  mode is deliberately conservative, since an unexpected live field name yields
+  "no timestamp" and therefore `degraded`, never a fabricated "fresh".
 
 Every injury record's freshness is read from its own raw payload. A record
 whose freshness field is absent, null, or empty is reported as carrying *no*
