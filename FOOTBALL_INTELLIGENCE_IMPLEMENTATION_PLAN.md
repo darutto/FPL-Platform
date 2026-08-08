@@ -2467,6 +2467,20 @@ Every `trial_*.py` is a thin script over `_trial_common.py`. S2 freezes:
 
 Each of these is a command with a checkable result, not an intention:
 
+> **Running these locally on Windows: pass `--basetemp`.**
+> ```
+> python -m pytest --basetemp=<a writable dir>   # plus PYTHONIOENCODING=utf-8
+> ```
+> Without it, every `tmp_path` test errors with `PermissionError: [WinError 5]` on
+> `%LOCALAPPDATA%\Temp\pytest-of-<user>` — 54 errors in `fpl-grounded-assistant`,
+> 22 in `sportmonks-client`. Those errors were treated as an environmental fact of
+> the machine for most of FI-7 and FI-8, and every count in this document was
+> therefore verified through a CI round-trip. They are fixable with this one flag.
+> **A test that errors cannot falsify anything**, so a seeding probe or
+> falsification matrix run without it silently over-reports survivors. With the
+> flag, local runs are authoritative: `fpl-grounded-assistant` → 593 passed / 0
+> errors, `sportmonks-client` → its full count / 0 errors.
+
 1. `cd packages/sportmonks-client && python -m pytest` exits 0, with a test count **≥ the previous slice's** count (the S0 baseline is 67).
 2. Every `trial_*.py` added by the slice runs `--mock` end-to-end, exits 0, and writes both report artifacts.
 3. The autouse guard in `tests/conftest.py` patches every HTTP entry point the package's dependencies expose (frozen-contract rule 4) to raise, and a test proves it fires by attempting a real `requests.Session().request(...)`. Before S2 creates the guard, the slice must instead show that no new live-capable call path was added. **Do not substitute a `grep` for `RequestsTransport`** — that target is a wrapper, not the boundary, and greping it both misses bypass paths and flags the 12 legitimate constructions in `tests/test_config_transport.py`.

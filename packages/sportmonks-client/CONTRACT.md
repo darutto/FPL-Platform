@@ -101,6 +101,20 @@ injury/suspension shapes, statistics nesting, rate headers, and correction
 behavior. Every entry starts `unverified_against_live` with source, fixture,
 and mandatory live-validation flag. No public example is claimed as live proof.
 
+## Running the suite locally on Windows — pass `--basetemp`
+
+```
+PYTHONIOENCODING=utf-8 python -m pytest --basetemp=<a writable dir>
+```
+
+Without `--basetemp`, every `tmp_path` test errors with
+`PermissionError: [WinError 5]` on `%LOCALAPPDATA%\Temp\pytest-of-<user>`. The
+suite is not broken and the count is not wrong — the fixture cannot create its
+directory. **A test that errors cannot falsify anything**, so any seeding probe
+or falsification check run without this flag silently over-reports survivors.
+`PYTHONIOENCODING=utf-8` separately avoids `cp1252` `UnicodeEncodeError` on
+console output containing non-ASCII.
+
 ## Directory naming — non-package directories are hyphenated
 
 Directories inside a package root that are **not** Python packages get
