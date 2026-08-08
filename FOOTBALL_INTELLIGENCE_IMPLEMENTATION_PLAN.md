@@ -2459,11 +2459,14 @@ Each of these is a command with a checkable result, not an intention:
 
 1. `cd packages/sportmonks-client && python -m pytest` exits 0, with a test count **≥ the previous slice's** count (the S0 baseline is 67).
 2. Every `trial_*.py` added by the slice runs `--mock` end-to-end, exits 0, and writes both report artifacts.
-3. `grep -rn "RequestsTransport" packages/sportmonks-client/tests/ packages/sportmonks-client/scripts/` returns only the conftest guard itself.
+3. `grep -rn "RequestsTransport" packages/sportmonks-client/tests/ packages/sportmonks-client/scripts/` returns **no match outside the conftest guard**. Before S2 creates that guard, the correct result is no match at all — the item is satisfiable at every slice, and at S1 it still asserts something real: nobody smuggled a transport in early.
 4. Required check **`Package test suites`** green.
 5. Required check **`Contract and fixture drift check`** green.
 6. Appendix A's FI-8 row updated with the slice and its test evidence.
 7. No file outside `packages/sportmonks-client/`, `.github/workflows/package-test-suites.yml`, and this plan document is modified, except where a slice below explicitly says otherwise (only S6 does, and only to *read*).
+8. Every artifact the slice creates or modifies is internally self-consistent: no table contradicts its own legend, no prose contradicts its own table, and no identifier appears in more than one spelling. Where a slice defines or consumes a vocabulary, schema, or enum, every use of it within the slice matches that definition exactly. Where the definition lives outside the slice, verify the spelling against its source repo-wide, not only within the slice — an identifier can be perfectly consistent inside a slice and still be wrong everywhere it appears.
+
+Item 8 exists because of a measured gap, not a hypothetical one. S1 was reviewed by an independent verifier supplied with the plan section, the pinned suite counts, the invariants, and the slice under review. It returned APPROVE and found three real defects — and it did not find a fourth: a status table contradicting its own legend and its own explanatory note. Nothing in the criteria asked whether the artifact agreed with itself, so nothing checked it. Item 8 lives here rather than in the invocation precisely so it reaches the verifier automatically: the plan section is a supplied parameter, whereas an invocation clause is something a caller retypes correctly six times or does not. This matters most at **S2**, which freezes the report schema, the exit-code convention, and the transport guard — a frozen contract that contradicts itself is worse than no contract, because every later slice inherits the contradiction and each has a reason to resolve it differently.
 
 #### Slices
 
@@ -2625,7 +2628,7 @@ Box 8 in particular is **not** closed upstream — `TRIAL_STATUS.md` does not ex
 
 | Risk | Mitigation |
 |---|---|
-| Sportmonks docs ≠ live payloads (grid fields especially) | All fixtures flagged `UNVERIFIED_VS_LIVE`; FI-9 day-1 shape sweep; mismatches fixed only inside the adapter |
+| Sportmonks docs ≠ live payloads (grid fields especially) | All fixtures carry `"status": "unverified_against_live"`; FI-9 day-1 shape sweep; mismatches fixed only inside the adapter |
 | Grid coordinates unusable/undocumented | M2 degrades to detailed_position-only roles; go/no-go criterion (b)/(NO-GO) covers it |
 | Licensing blocks storage or derived display | Question list day 1; `purge` CLI exists; derived-only exposure (no raw fields in contracts) is already the design |
 | Identity mapping under 95% on real pool | Ambiguity queue + overrides.yaml workflow sized for operator triage during trial |
