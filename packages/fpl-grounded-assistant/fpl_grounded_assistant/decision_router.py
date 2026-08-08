@@ -47,8 +47,12 @@ OUTCOME_FALLTHROUGH         = "fallthrough"  # plain text — caller dispatches 
 
 
 def _suggestions() -> list[str]:
-    """Return the six canonical resource names with `@` prefix."""
-    return [f"@{name}" for name in list_resources()]
+    """Return public resource command forms in stable registry order."""
+    public = {
+        "player_minutes": "@minutes <player>",
+        "player_role": "@role <player>",
+    }
+    return [public.get(name, f"@{name}") for name in list_resources()]
 
 
 def decide(question: str, bootstrap: dict[str, Any]) -> dict[str, Any]:
@@ -88,7 +92,12 @@ def decide(question: str, bootstrap: dict[str, Any]) -> dict[str, Any]:
                     f"Try one of: {', '.join(_suggestions())}."
                 ),
             }
-        result = run_resource(norm.canonical, bootstrap)
+        result = run_resource(
+            norm.canonical,
+            bootstrap,
+            argument=norm.argument,
+            shape_reason=norm.shape_reason,
+        )
         return {
             "kind":          "resource",
             "outcome":       OUTCOME_OK_RESOURCE,

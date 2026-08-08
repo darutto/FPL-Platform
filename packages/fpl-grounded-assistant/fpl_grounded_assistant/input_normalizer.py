@@ -86,6 +86,8 @@ class ResourceInput:
     raw_alias: str = ""           # what the user typed after `@`, NFC + casefolded
     canonical: str | None = None  # canonical resource key, or None if unknown
     original: str = ""            # original input (post trim/NFC, pre-prefix-strip)
+    argument: str | None = None   # FI-7f player query; internal whitespace preserved
+    shape_reason: str | None = None  # governed pre-resolution degradation reason
 
 
 @dataclass(frozen=True)
@@ -139,13 +141,45 @@ def normalize(text: str) -> NormalizedInput:
         body = cleaned[1:].strip()
         if not body:
             return ResourceInput(raw_alias="", canonical=None, original=cleaned)
-        # split off optional trailing tokens
-        first = body.split()[0]
-        canonical = resolve_resource(first)
+        # ``split(None, 1)`` consumes only command-separator whitespace.  It
+        # deliberately preserves whitespace inside the retained FI-7f player
+        # query (for example ``Bukayo    Saka``).
+        parts = body.split(None, 1)
+        first = parts[0]
+        remainder = parts[1] if len(parts) > 1 else None
+        folded = first.casefold()
+
+        # Bare @minutes is a frozen compatibility alias for top_minutes.
+        # Only its argument-bearing form selects the new player resource.
+        if folded == "minutes" and remainder is not None:
+            canonical = "player_minutes"
+        elif folded == "role":
+            canonical = "player_role"
+        else:
+            canonical = resolve_resource(first)
+
+        argument: str | None = None
+        shape_reason: str | None = None
+        if canonical in {"player_minutes", "player_role"}:
+            argument = remainder
+            if argument is None or not argument:
+                shape_reason = "missing_player_argument"
+            elif len(argument) > 100:
+                shape_reason = "invalid_command_shape"
+            elif any(
+                ord(char) <= 0x1F or 0x7F <= ord(char) <= 0x9F
+                for char in argument
+            ):
+                shape_reason = "invalid_command_shape"
+            elif any(token.startswith("--") for token in argument.split()):
+                shape_reason = "invalid_command_shape"
+
         return ResourceInput(
             raw_alias=first.casefold(),
             canonical=canonical,
             original=cleaned,
+            argument=argument,
+            shape_reason=shape_reason,
         )
 
     if cleaned.startswith("/"):
