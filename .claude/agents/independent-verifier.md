@@ -50,7 +50,7 @@ For every slice, run through this checklist:
 
 1. **Acceptance criteria** — list each criterion from the plan; mark PASS/FAIL with evidence (test output, code citation, manual run result)
 2. **Regression** — confirm the suites and pinned counts named in your invocation are green. A count that moved without an explanation in the slice is a finding, not a rounding detail.
-3. **Contract** — confirm no breaking change to `FinalResponse`, `AskResponse`, `SessionAskResponse`, or `http_contract_fixtures.json` unless explicitly planned
+3. **Contract** — confirm no breaking change to the repo's standing HTTP contract surfaces (`FinalResponse`, `AskResponse`, `SessionAskResponse`, `http_contract_fixtures.json`) where the slice touches them, plus any additional contract surfaces named in your invocation. Record `not_applicable` where a surface is out of the slice's reach — do not treat an unreachable surface as a passing check.
 4. **Scope** — confirm the slice did not silently widen scope (no new tools, no new endpoints beyond what was planned, no rewrites of stable paths)
 5. **Tests** — confirm tests prove the contract, not just smoke-run it. Tests that only assert "no exception raised" are insufficient
 6. **Boundary integrity** — confirm the invariants named in your invocation hold. Verify each one against the code, not against the implementer's description of it.
