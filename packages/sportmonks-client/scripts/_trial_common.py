@@ -175,10 +175,26 @@ RATE_LIMIT_HEADERS: tuple[str, ...] = (
 
 @dataclass(frozen=True)
 class Exchange:
-    """One response as actually received: status plus sanctioned headers."""
+    """One response as actually received.
+
+    `body_keys` is a **key-name skeleton** -- names only, never values -- so a
+    script can report where a block was found and which of its fields were
+    present without carrying raw provider data into a report.
+    """
 
     status: int
     headers: Mapping[str, str]
+    body_keys: Mapping[str, Any] = field(default_factory=dict)
+
+
+def body_skeleton(body: Any, depth: int = 3) -> dict[str, Any]:
+    """Nested key names, no values. Bounded depth keeps it small on real payloads."""
+    if not isinstance(body, Mapping) or depth <= 0:
+        return {}
+    return {
+        str(key): body_skeleton(value, depth - 1) if isinstance(value, Mapping) else {}
+        for key, value in body.items()
+    }
 
 
 class ObservingTransport:
@@ -208,6 +224,7 @@ class ObservingTransport:
                 key.casefold(): value for key, value in response.headers.items()
                 if key.casefold() in SNAPSHOT_RESPONSE_HEADERS
             },
+            body_skeleton(response.body),
         ))
         return response
 
@@ -220,13 +237,43 @@ def observed_rate_limit_fields(exchanges: Sequence[Exchange]) -> tuple[str, ...]
     return tuple(name for name in RATE_LIMIT_HEADERS if name in seen)
 
 
+def observed_throttles(exchanges: Sequence[Exchange]) -> tuple[Exchange, ...]:
+    """Every throttled response actually received, header or not.
+
+    Kept separate from `observed_retry_after` because conflating them
+    under-reports a real 429 that arrived without the header as zero throttles --
+    a misobservation inside objective 17's own subject matter.
+    """
+    return tuple(exchange for exchange in exchanges if exchange.status == 429)
+
+
 def observed_retry_after(exchanges: Sequence[Exchange]) -> tuple[tuple[int, str], ...]:
-    """(status, Retry-After) for every throttled response actually received."""
+    """(status, Retry-After) for throttled responses that carried the header."""
     return tuple(
         (exchange.status, exchange.headers["retry-after"])
-        for exchange in exchanges
-        if exchange.status == 429 and "retry-after" in exchange.headers
+        for exchange in observed_throttles(exchanges)
+        if "retry-after" in exchange.headers
     )
+
+
+def observed_pagination(exchanges: Sequence[Exchange]) -> tuple[str | None, tuple[str, ...]]:
+    """Where the pagination block was found and which fields it carried.
+
+    Returns `(None, ())` when no response carried pagination metadata. The
+    location matters: this client accepts it top-level *or* under `meta`
+    (`models.py:73`), and the checked-in fixtures use the top-level form -- so a
+    hardcoded `envelope.meta.pagination` would name a location the response did
+    not have. `next_page` is optional, so the field list is what was present,
+    not what the documentation lists.
+    """
+    for exchange in exchanges:
+        skeleton = exchange.body_keys
+        if skeleton.get("pagination"):
+            return "pagination", tuple(skeleton["pagination"])
+        nested = skeleton.get("meta", {})
+        if isinstance(nested, Mapping) and nested.get("pagination"):
+            return "meta.pagination", tuple(nested["pagination"])
+    return None, ()
 
 
 class ReplayTransport:
