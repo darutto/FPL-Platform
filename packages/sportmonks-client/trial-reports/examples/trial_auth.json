@@ -1,0 +1,25 @@
+{
+  "script": "trial_auth",
+  "mode": "mock",
+  "objectives": [
+    {
+      "id": 17,
+      "title": "API rate limits and pagination",
+      "status": "observed",
+      "evidence": "walked 2 pages, 2 records; rate-limit headers observed"
+    }
+  ],
+  "observed_shapes": [
+    {
+      "name": "pagination",
+      "shape": "envelope.meta.pagination{current_page,has_more,next_page}"
+    },
+    {
+      "name": "rate_limit_headers",
+      "shape": "x-ratelimit-limit, x-ratelimit-remaining, x-ratelimit-reset"
+    }
+  ],
+  "warnings": [
+    "mock mode: shapes are documentation-derived and carry \"status\": \"unverified_against_live\" until FI-9"
+  ]
+}

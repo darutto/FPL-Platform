@@ -101,7 +101,30 @@ injury/suspension shapes, statistics nesting, rate headers, and correction
 behavior. Every entry starts `unverified_against_live` with source, fixture,
 and mandatory live-validation flag. No public example is claimed as live proof.
 
+## Directory naming — non-package directories are hyphenated
+
+Directories inside a package root that are **not** Python packages get
+hyphenated names (`trial-output/`, `trial-reports/`, and `audit-reference/` in
+`fpl-data-core` and `fpl-api-client`), because the package root is on
+`pythonpath` and a hyphen cannot be imported — not as a package, and not as a
+PEP 420 namespace package either. Deleting `__init__.py` is **not** sufficient:
+without it the directory becomes an implicit namespace package that also merges
+with same-named directories on other path entries. This is the third use of the
+trick; write nothing new as `trial_output/`.
+
 ## Live guard and change rules
+
+FI-8's trial scripts are guarded twice. At runtime, `--mock` is the default and
+a live run requires both `--live` and `--i-understand-this-is-live`, mirroring
+the smoke CLI's `REFUSED` path and exit code 2. In tests, an autouse fixture in
+`tests/conftest.py` patches every HTTP entry point the package's dependencies
+expose (`requests.Session.request`, `requests.adapters.HTTPAdapter.send`) to
+raise. That guards the boundary rather than `RequestsTransport`, which is a
+wrapper around it — patching the wrapper was measured at 18 failed / 49 passed
+because the transport's own tests legitimately construct it with injected fake
+sessions. If an HTTP client is ever added to `requirements.txt`, its entry point
+joins the guard in the same change.
+
 
 `python -m sportmonks_client.cli smoke` refuses without explicit opt-in and a
 token. It is excluded from ordinary tests/CI and must remain the smallest safe
