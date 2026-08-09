@@ -348,6 +348,29 @@ def test_an_exempt_survivor_does_not_fail_the_gate():
     assert fp.exit_code([KILLED, SURVIVED], labels) != 0
 
 
+def test_the_exemption_list_is_pinned_so_growth_is_an_event_not_a_drift():
+    """The one place this gate can quietly lose its teeth.
+
+    Every exemption will look justified at the moment it is added — exactly as
+    each unswept sibling did. Pinning the set means going from two to three is
+    a deliberate change with a diff someone has to write a reason into, rather
+    than a line that accretes. Same move as the pinned suite counts, aimed at
+    the gate's own escape valve.
+
+    Adding a role here is legitimate. Doing it without noticing is not.
+    """
+    assert fp.EXEMPT_ROLES == frozenset({"title", "entry-name"})
+    assert len(fp.EXEMPT_ROLES) == 2
+
+
+def test_the_exempt_site_count_in_the_exemplar_is_pinned():
+    """The other half: a role can stay fixed while the number of *sites* it
+    excuses grows. Two `Objective` titles today, both constants by design."""
+    trial_auth = Path(fp.__file__).parent / "trial_auth.py"
+    exempt = [s for s in fp.enumerate_construction_sites(trial_auth) if fp.is_exempt(s.label)]
+    assert len(exempt) == 2, [s.label for s in exempt]
+
+
 def test_exempt_sites_are_still_enumerated_and_seeded(tmp_path):
     """An exemption that hides its subject is indistinguishable from an
     enumeration gap — which is the failure this instrument exists to prevent.

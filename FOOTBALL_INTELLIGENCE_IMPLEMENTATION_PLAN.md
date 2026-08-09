@@ -2511,6 +2511,33 @@ Item 10 exists because the principle was already in the frozen contract — *"sh
 
 Item 8 exists because of a measured gap, not a hypothetical one. S1 was reviewed by an independent verifier supplied with the plan section, the pinned suite counts, the invariants, and the slice under review. It returned APPROVE and found three real defects — and it did not find a fourth: a status table contradicting its own legend and its own explanatory note. Nothing in the criteria asked whether the artifact agreed with itself, so nothing checked it. Item 8 lives here rather than in the invocation precisely so it reaches the verifier automatically: the plan section is a supplied parameter, whereas an invocation clause is something a caller retypes correctly six times or does not. This matters most at **S2**, which freezes the report schema, the exit-code convention, and the transport guard — a frozen contract that contradicts itself is worse than no contract, because every later slice inherits the contradiction and each has a reason to resolve it differently.
 
+#### Sweeping the already-merged slices — triage rule, pre-registered
+
+The falsifiability probe ([#93](https://github.com/darutto/FPL-Platform/issues/93)) is about to be run against merged, approved code, and `_degraded_report` — unfalsifiable from the day the correction that created it landed, through an approval — says to expect survivors. **This rule is written before the sweep runs.** Choosing a threshold after seeing the count is choosing it to fit the result, and the S5 experience says the risk is not finding defects but the remediation loop that follows.
+
+**Survivors in merged slices are triaged, not immediately fixed.** Each is recorded with its site and verdict, then classified:
+
+| classification | disposition |
+|---|---|
+| the value is derived and the mechanical seed was implausible | exempt, **declared** with the reason |
+| the value is a literal that should be derived | **fix** |
+| the value is a literal and correct (an identifier, a constant) | exempt, **declared** with the reason |
+
+Fixes land as **one PR per slice**, not one per finding — the sibling-sweep failure recurs specifically when findings are addressed one at a time.
+
+**Rewrite threshold: more than 3 in-scope survivors in a slice, and that slice's tests are rewritten rather than patched** — the S5 stopping rule, applied to already-merged code. Three is the point at which the failures stop being independent: one or two are oversights at specific sites, but a slice carrying more than that has a test *design* that does not falsify, and patching site-by-site is the loop that consumed three passes of S5 without converging.
+
+The threshold counts **in-scope** survivors only. Exempt roles are printed but do not count, and an exemption invented during triage to duck the threshold is the failure this rule exists to prevent — which is why exemptions are declared with reasons and the exemption list itself is pinned by test.
+
+#### What each seeding layer is allowed to certify
+
+Not a caveat — a division of labour, and it says what may be claimed from a green run.
+
+- **Mechanical seeding certifies the enumeration.** Its guarantee is that *no site was skipped*, which is precisely the class that has actually shipped in this phase: four times, including inside the probe itself, where a uniqueness check written as a guard was working as a filter that silently discarded five of twelve sites.
+- **Semantic seeding certifies the derivation.** `{len(retry_afters)}` being satisfiable by `1 if retry_afters else 0` is a hypothesis about *meaning*, and nothing mechanical will generate it. Those seeds stay hand-written.
+
+What the probe buys is that the hand-written semantic seeds now go on top of a **complete** list instead of the author's list. A green probe run is not a claim that every value is genuinely derived; it is a claim that every value was tested for it.
+
 #### Slices
 
 ##### S0 — put the package under CI *(no FI-8 code)*
