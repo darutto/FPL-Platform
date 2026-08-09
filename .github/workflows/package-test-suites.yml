@@ -102,3 +102,26 @@ jobs:
         if: ${{ !cancelled() }}
         working-directory: packages/sportmonks-client
         run: python -m pytest -v
+
+      # The falsifiability gate. Every mitigation this phase produced for
+      # unfalsifiable reported values was a *rule*, and the measured result is
+      # that rules about sweeping fail under the most favourable conditions
+      # available: the author of the sweep rule, in the commit introducing it,
+      # in a 218-line file, applied it to one site of six. This runs the
+      # experiment instead of asking someone to remember it.
+      #
+      # It runs here rather than only locally because the runner is a different
+      # platform and keeps falsifying assumptions a local run cannot see -- the
+      # ignore assertion in #94 passed locally and failed here, because
+      # `git status --ignored` lists only paths that exist and the local machine
+      # happened to have them.
+      - name: sportmonks-client falsifiability probe
+        if: ${{ !cancelled() }}
+        working-directory: packages/sportmonks-client
+        run: |
+          python scripts/falsifiability_probe.py \
+            --file scripts/trial_auth.py \
+            --subject "../../.gitignore::downloaded_files/" \
+            --subject "../../.gitignore::packages/sportmonks-client/trial-output/" \
+            --positive-control "scripts/trial_auth.py::exchanges[-1].body_keys::exchanges[0].body_keys" \
+            --basetemp-root "${RUNNER_TEMP}/probe"
