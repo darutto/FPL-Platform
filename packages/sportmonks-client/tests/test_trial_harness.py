@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 import requests
+import requests.adapters
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
@@ -41,6 +42,13 @@ REPO_ROOT = PACKAGE_ROOT.parent.parent
 #: host is irrelevant to the proof and entirely relevant to the blast radius.
 LOOPBACK = "http://127.0.0.1:1"
 
+#: The two callables the guard replaces, captured at import time -- collection
+#: happens before any fixture runs, so these are the genuine unpatched
+#: implementations. The isolation tests below hand one of them back mid-test in
+#: order to run with a single layer of the guard standing.
+REAL_SESSION_REQUEST = requests.Session.request
+REAL_ADAPTER_SEND = requests.adapters.HTTPAdapter.send
+
 
 def test_the_guard_fires_on_a_real_session_request():
     """The seeded violation, made permanent.
@@ -56,6 +64,33 @@ def test_the_guard_fires_on_a_real_session_request():
 
 
 def test_the_guard_covers_the_adapter_entry_point_too():
+    with pytest.raises(AssertionError, match="live network call attempted"):
+        requests.adapters.HTTPAdapter().send(requests.Request("GET", LOOPBACK).prepare())
+
+
+# The two tests above assert the *outcome* -- a call was refused -- and both
+# layers of the guard produce that outcome with the same exception and the same
+# message. A subject-deletion sweep measured the consequence: with
+# `monkeypatch.setattr(requests.Session, "request", _refuse)` deleted from
+# conftest.py, the whole suite stayed green, because `Session.request` fell
+# through to the still-patched `HTTPAdapter.send`. Defence in depth whose layers
+# share an observable outcome is indistinguishable from a single layer.
+#
+# The pair below removes that ambiguity by isolation: each test hands one layer
+# back to its real implementation and exercises the entry point the *other*
+# layer guards. They assert what the outcome tests cannot -- that each layer
+# catches the call alone -- and they fail individually, naming the layer that
+# went missing. Both aim at LOOPBACK, so the failure mode when a layer is
+# genuinely absent is a refused local connection.
+
+def test_the_session_layer_refuses_on_its_own_with_the_adapter_layer_stood_down(monkeypatch):
+    monkeypatch.setattr(requests.adapters.HTTPAdapter, "send", REAL_ADAPTER_SEND)
+    with pytest.raises(AssertionError, match="live network call attempted"):
+        requests.Session().request("GET", f"{LOOPBACK}/leagues")
+
+
+def test_the_adapter_layer_refuses_on_its_own_with_the_session_layer_stood_down(monkeypatch):
+    monkeypatch.setattr(requests.Session, "request", REAL_SESSION_REQUEST)
     with pytest.raises(AssertionError, match="live network call attempted"):
         requests.adapters.HTTPAdapter().send(requests.Request("GET", LOOPBACK).prepare())
 
