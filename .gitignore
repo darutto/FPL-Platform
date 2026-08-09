@@ -37,9 +37,10 @@ packages/fpl-historical/data/
 # in packages/sportmonks-client/trial-reports/examples/ and ARE tracked.
 packages/sportmonks-client/trial-output/
 
-# Claude Code runtime artifacts (agent worktrees, scheduler lock)
+# Claude Code runtime artifacts (agent worktrees, scheduler lock, dashboard)
 .claude/worktrees/
 .claude/scheduled_tasks.lock
+downloaded_files/
 
 # Personal local dev-server convenience scripts + their logs
 packages/fpl-grounded-assistant/start_server.py
