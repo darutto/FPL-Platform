@@ -862,6 +862,32 @@ def test_committed_example_matches_a_fresh_mock_run(tmp_path):
         assert fresh == committed, f"{name} drifted from trial-reports/examples/"
 
 
+def test_every_report_path_carries_the_same_objective_title(tmp_path, monkeypatch):
+    """Deliberate coverage for the two sites the probe marks exempt.
+
+    Those sites are currently killed by a *side effect*: seeding a title to a
+    literal turns the argument into an `ast.Constant`, enumeration correctly
+    skips constants, the exempt-site count drops from 2 to 1, and the pin
+    fails. Pleasing, but coupled to two unrelated behaviours — change either
+    and the coverage vanishes with nothing failing to announce it. An escape
+    valve protected by an accident is not protected.
+
+    The property that actually matters: objective 17 is one objective, so every
+    path reporting it names it identically. A literal at either site breaks
+    that the moment it differs from the constant.
+    """
+    _, observed = _run(tmp_path / "ok")
+    monkeypatch.delenv("SPORTMONKS_API_TOKEN", raising=False)
+    trial_auth.main(["--live", "--i-understand-this-is-live", "--out", str(tmp_path / "cfg")])
+    failed = json.loads(
+        (tmp_path / "cfg" / "reports" / "trial_auth.json").read_text(encoding="utf-8")
+    )
+    titles = {observed["objectives"][0]["title"], failed["objectives"][0]["title"]}
+    assert titles == {trial_auth.OBJECTIVE_17}, (
+        f"objective 17 is reported under more than one name: {titles}"
+    )
+
+
 def test_report_carries_no_timestamp_field(tmp_path):
     """Byte-stability is structural, not conventional: the frozen schema has no
     time field, so nothing needs freezing at render time."""
