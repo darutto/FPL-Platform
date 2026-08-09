@@ -64,6 +64,9 @@ export default function SuggestionChips({ wizard, onPick }: Props) {
           </button>
         ))}
       </div>
+      <p className="mt-2 text-[11px] text-bf-gray">
+        ¿No está tu jugador? Escribilo abajo.
+      </p>
     </div>
   );
 }
