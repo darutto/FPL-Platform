@@ -2542,6 +2542,10 @@ Three failures this phase share one shape: **a confident, well-formed answer to 
 | `grep`ping source for `"checkout"` | does this code *use* git? | does this file *mention* git? |
 | `git check-ignore -v`'s citation | is this path ignored *by our rule*? | does some rule match, at some line, in whatever tree you are on? |
 | `git status --ignored` | is the rule present? | does an ignored path *currently exist on disk*? |
+| a regex over CI logs for test IDs | which tests ran? | which test IDs contain no spaces? |
+| `read_text` comparison | are these files byte-identical? | are they identical after universal-newline translation? |
+
+The regex one nearly cost a day: extracting test IDs with `[^ ]+` silently dropped every parametrized case whose id contains a space, reporting 170 where 181 ran. An 11-test gap between platforms is exactly the evidence that would have justified a "Windows is the lenient environment" investigation — one the direct set comparison had already ruled out. **A measurement that under-reports produces the most convincing kind of wrong answer: one that confirms a plausible prior.**
 
 **Grepping source is the one to watch**, because it is the most tempting shortcut and diverges from behaviour on every comment, docstring, string literal, and dead branch. It failed here on a docstring that *explained why not to use `git checkout`* — the prose describing the prohibition tripped the check enforcing it. **Assert on what executes**: parse the AST and inspect the nodes that run, as `test_the_probe_never_shells_out_to_git_to_restore` does.
 

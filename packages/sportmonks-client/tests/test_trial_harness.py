@@ -845,12 +845,47 @@ def test_mock_output_is_byte_stable_across_runs(tmp_path):
 
 def test_committed_example_matches_a_fresh_mock_run(tmp_path):
     """The committed example is evidence only while it matches. If this fails,
-    regenerate it in the same change that altered the schema."""
+    regenerate it in the same change that altered the schema.
+
+    Compared as **bytes**. `read_text` applies universal-newline translation on
+    both platforms, so the previous version asserted text-identity while every
+    report of this check — including several PR descriptions — claimed
+    byte-identity. The two happen to coincide here (`core.autocrlf` gives the
+    working tree the platform's convention, and `write_text` generates the
+    same), but a drift confined to line endings would have passed while the
+    claim about it was false. Assert the property that is being claimed.
+    """
     trial_auth.main(["--out", str(tmp_path)])
     for name in ("trial_auth.json", "trial_auth.md"):
-        fresh = (tmp_path / "reports" / name).read_text(encoding="utf-8")
-        committed = (EXAMPLES_DIR / name).read_text(encoding="utf-8")
+        fresh = (tmp_path / "reports" / name).read_bytes()
+        committed = (EXAMPLES_DIR / name).read_bytes()
         assert fresh == committed, f"{name} drifted from trial-reports/examples/"
+
+
+def test_every_report_path_carries_the_same_objective_title(tmp_path, monkeypatch):
+    """Deliberate coverage for the two sites the probe marks exempt.
+
+    Those sites are currently killed by a *side effect*: seeding a title to a
+    literal turns the argument into an `ast.Constant`, enumeration correctly
+    skips constants, the exempt-site count drops from 2 to 1, and the pin
+    fails. Pleasing, but coupled to two unrelated behaviours — change either
+    and the coverage vanishes with nothing failing to announce it. An escape
+    valve protected by an accident is not protected.
+
+    The property that actually matters: objective 17 is one objective, so every
+    path reporting it names it identically. A literal at either site breaks
+    that the moment it differs from the constant.
+    """
+    _, observed = _run(tmp_path / "ok")
+    monkeypatch.delenv("SPORTMONKS_API_TOKEN", raising=False)
+    trial_auth.main(["--live", "--i-understand-this-is-live", "--out", str(tmp_path / "cfg")])
+    failed = json.loads(
+        (tmp_path / "cfg" / "reports" / "trial_auth.json").read_text(encoding="utf-8")
+    )
+    titles = {observed["objectives"][0]["title"], failed["objectives"][0]["title"]}
+    assert titles == {trial_auth.OBJECTIVE_17}, (
+        f"objective 17 is reported under more than one name: {titles}"
+    )
 
 
 def test_report_carries_no_timestamp_field(tmp_path):
