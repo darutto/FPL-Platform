@@ -591,7 +591,14 @@ def main(argv: list[str] | None = None) -> int:
 
         seeds: list[Seed] = []
         for source in args.file:
-            seeds += enumerate_construction_sites(source)
+            found = enumerate_construction_sites(source)
+            if not found:
+                # A sweep with zero seeds is void, not clean. Fourth instance of
+                # this class: pushes that triggered no runs, an enumerator that
+                # scanned nothing, an AST scan that matched nothing, and a
+                # verdict-set comparison over two empty sets.
+                raise ProbeAbort(f"no construction sites found in {source}; nothing to sweep")
+            seeds += found
         for spec in args.subject:
             path, _, text = spec.partition("::")
             seeds.append(subject_deletion_seed(Path(path), text))
