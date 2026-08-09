@@ -2492,6 +2492,8 @@ Each of these is a command with a checkable result, not an intention:
 9. `git ls-files packages/sportmonks-client/trial-output/` returns nothing, and no raw snapshot payload is tracked anywhere. The ignore rule is added in the same slice that creates the writer.
 10. Every objective's `status` and `evidence`, and every `observed_shapes[]` entry, is derived from the response actually received — never a literal. Each is covered by a test that removes or blanks the underlying data and asserts the objective degrades and the shape entry disappears. Where an entry's **existence is itself the observation** (an outcome that must be reported even when the thing was absent), test instead that its **content changes with the input** — and **state in the slice which of the two applies to each entry**. **A shape entry appended unconditionally, with no declared reason and no content test, is an assertion wearing an observation's name.**
 
+**The declaration is machine-checked, not prose-checked.** Every declared entry name must appear as an emitted `ObservedShape` name in the same slice, and every emitted name must carry a declaration. **A test asserts the two sets are equal.** This exists because the clause's *first* use — written by the same person who added the clause — declared `team_stat_fields` and `player_stat_fields` while the script emitted `team_statistics_fields` and `player_statistics_fields`: two identifiers present nowhere in the repository, in a commitment whose entire purpose is being checkable against the entry. That is a string mismatch, and string mismatches do not need a reviewer. A declaration nobody can match to an entry is worse than none, because it reads as a commitment while committing to nothing.
+
 The declaration clause is the load-bearing half. "Existence is the observation" is a legitimate reading — S3's per-family sweep must report `unavailable` as an outcome, so an entry that vanished on absence could not report it — but it is also exactly the shape a rationalisation takes when reached for after the fact. Requiring the author to declare per entry which obligation they are under makes the choice a commitment made in advance rather than a defence assembled in review. The review that produced this wording accepted the argument on its merits **and then held the slice to the obligation that reading creates**: entries that never disappear must have tests proving their content moves, and that slice had them for 3 of 15.
 
 Item 10 exists because the principle was already in the frozen contract — *"shape reporting over shape assertion"* — and in `TRIAL_STATUS.md` — *"an objective with a status but no pointer is not observed; it is asserted"* — and **nothing executed either of them**. S2's first version reported `"rate-limit headers observed"` and a `rate_limit_headers` shape entry from hardcoded strings; deleting every header from the payload left the report byte-identical and still exiting 0. Two reviewers checked the schema's shape, its byte-stability, its example match, and its status enum, and neither asked whether the fields were derived from anything. The defect was found by an independent verifier **running** the experiment — strip the headers, observe nothing change — not by reading the code. Item 10 turns that experiment into a required test per objective, so S3–S6 cannot inherit the pattern even by copying the worked example.
@@ -2554,19 +2556,42 @@ Item 8 exists because of a measured gap, not a hypothetical one. S1 was reviewed
 - **Objectives covered:** **1** (competition and season identifiers), **2** (Premier League fixtures), **3** (cross-competition fixtures).
 - **Non-goals:** no squad, lineup, injury, stat, or identity work; no new family added to `ENDPOINTS`.
 
-##### S4 — squads and lineups *(the high-risk slice)*
+##### S4 — split into S4a and S4b before implementation
 
-- **Files new:** `scripts/trial_squads.py`, `scripts/trial_lineups.py`, `tests/test_trial_lineups.py`, plus **new fixture entries** in `tests/fixtures/edge_cases.json`.
+The original S4 was one slice covering seven objectives across two scripts, and it is **the slice the go/no-go actually depends on**. It is split because slice size, not model choice, is what predicted convergence in this phase:
+
+| Slice | Scripts | Objectives | Passes to green |
+|---|---|---|---|
+| S0 | 0 | — | 1 |
+| S1 | 0 (docs) | 1 | 2 |
+| S2 | 2 | 1 | **4** |
+| S3 | 2 | 3 | rejected, restarting |
+| S5 | 2 | 6 | **3+** |
+| S4 (as one slice) | 2 | **7** | — |
+
+S4 would have been the largest slice in the phase *and* the only one with genuine design ambiguity — undocumented grid semantics (§14.3 q13), plus the 7/8/9 separation that GO criterion (b) hinges on. Small slices here converged fast and large ones did not, regardless of who wrote them. Splitting before starting is cheaper than discovering it in a fourth remediation of the slice that decides the subscription.
+
+##### S4a — squads
+
+- **Files new:** `scripts/trial_squads.py`, `tests/test_trial_squads.py`.
+- **DoD (verifiable):**
+  1. Squad and player-record completeness is reported as **counts with named missing fields, not a boolean**. A test supplies records where a field is present on some but not all, and asserts the exact `k/n` with `k ∉ {0, n}` — a count satisfiable only by `0/n` or `n/n` is satisfiable by a literal.
+  2. Objectives 4 and 5 are **separately statused**: a complete squad list with impoverished player records must degrade 5 while leaving 4 observed.
+- **Objectives covered:** **4** (team and squad completeness), **5** (current player records).
+- **Non-goals:** no lineup, formation, grid, position, or substitution work — that is S4b. No `football-intelligence` module change.
+
+##### S4b — lineups, formations, grid *(the highest-risk slice in FI-8)*
+
+- **Files new:** `scripts/trial_lineups.py`, `tests/test_trial_lineups.py`, plus **new fixture entries** in `tests/fixtures/edge_cases.json`.
 - **Why this slice carries the risk:** §14.4's GO criterion (b) and its *"M2 collapses to detailed_position only"* NO-GO both hinge on formation-grid semantics — and §14.3 question 13 exists precisely because those semantics are **undocumented**. Mock fixtures can prove the script runs; they cannot tell us whether the real grid means slot indices or pitch coordinates.
 - **DoD (verifiable):**
-  1. `trial_lineups.py` **reports the grid shape it finds rather than asserting an expected one.** A test feeds a payload whose grid field differs from the documented shape and asserts the script exits 0 with the objective marked `degraded` and the observed shape recorded — **not** a crash and **not** a silent pass.
+  1. `trial_lineups.py` **reports the grid shape it finds rather than asserting an expected one.** A test feeds a payload whose grid field differs from the documented shape and asserts the script exits 1 with the objective marked `degraded` and the observed shape recorded — **not** a crash and **not** a silent pass.
   2. `edge_cases.json` gains **at least three** deliberately unexpected formation-grid fixtures: wrong type (string where a list is documented), unexpected nesting (list-of-lists), and the field missing entirely. Fixtures derived from documentation can only rehearse the documented case; a rehearsal covering only the expected input is not a rehearsal of the risk.
-  3. The report distinguishes objectives 7 (formation *string*), 8 (formation-grid / lineup-position *field*), and 9 (detailed position identifier) as three separately-observable facts. Collapsing them would hide exactly the NO-GO condition §14.4 is watching for.
-  4. `trial_squads.py` reports squad and player-record completeness as counts with named missing fields, not a boolean.
-  5. Substitution relationships and minutes are reported as `(player_off, player_on, minute)` triples, with the on/off direction asserted by test — the field most likely to be inverted against a real payload.
-  6. No grid **semantics** are inferred or hardcoded. The scripts describe; FI-9 decides. Any temptation to encode a guess is a *stop and ask* per §17.
-- **Objectives covered:** **4** (team and squad completeness), **5** (current player records), **6** (confirmed starters and substitutes), **7** (formation strings), **8** (formation-grid or lineup-position fields), **9** (detailed position identifiers), **10** (substitution relationships and minutes).
-- **Non-goals:** no change to M2 `tactical_role` or any `football-intelligence` module; no normalizer change; no grid-semantics decision.
+  3. The report distinguishes objectives 7 (formation *string*), 8 (formation-grid / lineup-position *field*), and 9 (detailed position identifier) as three separately-observable facts, each independently falsifiable per item 10. Collapsing them would hide exactly the NO-GO condition §14.4 is watching for: a formation string alone satisfies criterion (b) on a technicality while the grid is absent.
+  4. Substitution relationships and minutes are reported as `(player_off, player_on, minute)` triples, with the on/off **direction asserted by test** — the field most likely to be inverted against a real payload, and one an inverted implementation would report just as confidently.
+  5. No grid **semantics** are inferred or hardcoded. The scripts describe; FI-9 decides. Any temptation to encode a guess is a *stop and ask* per §17.
+- **Objectives covered:** **6** (confirmed starters and substitutes), **7** (formation strings), **8** (formation-grid or lineup-position fields), **9** (detailed position identifiers), **10** (substitution relationships and minutes).
+- **Non-goals:** no squad work (S4a); no change to M2 `tactical_role` or any `football-intelligence` module; no normalizer change; **no grid-semantics decision**.
 
 ##### S5 — health and statistics
 
@@ -2602,7 +2627,8 @@ Item 8 exists because of a measured gap, not a hypothetical one. S1 was reviewed
 | S1 | 20 |
 | S2 | 17 |
 | S3 | 1, 2, 3 |
-| S4 | 4, 5, 6, 7, 8, 9, 10 |
+| S4a | 4, 5 |
+| S4b | 6, 7, 8, 9, 10 |
 | S5 | 11, 12, 13, 14, 15\*, 16\* |
 | S6 | 18, 19 |
 
