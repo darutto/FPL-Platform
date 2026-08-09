@@ -70,8 +70,9 @@ export default function ChatShell() {
   // NEXT send to use the session path. Reset after every send.
   const [followUpArmedFor, setFollowUpArmedFor] = useState<string | null>(null);
   // Guided Comparison flow: armed when a compare `/comparar` clarification turn
-  // arrives with backend suggestions. Tied to the LATEST assistant turn only;
-  // any manual send clears it (see sendMessage).
+  // arrives with backend suggestions. Tied to the LATEST assistant turn only.
+  // A manual send while armed is composed into the wizard's answer (see
+  // sendMessage) unless it's an explicit "/" or "@" escape hatch.
   const [compareWizard, setCompareWizard] = useState<CompareWizardState | null>(null);
   const [squadContext, setSquadContext] = useState<SquadContext | null>(null);
   // Incremented after each completed turn so QuotaIndicator re-fetches quota
@@ -118,8 +119,23 @@ export default function ChatShell() {
   }, []);
 
   const sendMessage = useCallback(async (rawInput: string) => {
-    const input = rawInput.trim();
-    if (!input || loading) return;
+    const trimmed = rawInput.trim();
+    if (!trimmed || loading) return;
+
+    // If a compare wizard is armed, a plain typed reply (not another slash
+    // command, not an @resource query) answers the wizard's outstanding
+    // question rather than firing an unrelated query — composed into the
+    // same canonical "/comparar A vs B" text a chip tap already sends
+    // (handleSuggestionPick), so typed and tapped answers converge on the
+    // identical ComparisonCard. An explicit "/..." or "@..." send is the
+    // escape hatch out of the wizard into something else.
+    const isEscapeHatch = /^[/@]/.test(trimmed);
+    const input =
+      compareWizard != null && !isEscapeHatch
+        ? compareWizard.playerA == null
+          ? `/comparar ${trimmed}`
+          : `/comparar ${compareWizard.playerA} vs ${trimmed}`
+        : trimmed;
 
     // Recognized slash commands (/capitan, /comparar, /transferencia, ...) are
     // sent to the backend RAW, with the leading command intact and no
@@ -156,7 +172,8 @@ export default function ChatShell() {
     setMessages((prev) => [...prev, userMessage]);
     setLoading(true);
     setFollowUpArmedFor(null);
-    // Any send (manual or wizard-driven) exits an active comparison wizard.
+    // Every send clears the (now-resolved-or-abandoned) wizard state; if the
+    // response below carries fresh suggestions, it gets re-armed at line ~250.
     setCompareWizard(null);
 
     try {
@@ -259,7 +276,7 @@ export default function ChatShell() {
     } finally {
       setLoading(false);
     }
-  }, [loading, followUpArmedFor, sessionId, squadContext, webSearchOn, webSearchAvailable, messages]);
+  }, [loading, followUpArmedFor, sessionId, squadContext, webSearchOn, webSearchAvailable, messages, compareWizard]);
 
   // Guided Comparison: a chip tap. First tap stores player A client-side (no
   // round trip) and swaps the question to step 2. Second tap sends the canonical
