@@ -255,4 +255,15 @@ describe('Guided Comparison chip wizard', () => {
     await waitFor(() => expect(getWizard()).toBeNull());
     expect(screen.getByText('respuesta normal')).toBeInTheDocument();
   });
+
+  test('the wizard hints that a player outside the chips can still be typed', async () => {
+    const user = userEvent.setup();
+    ask.mockResolvedValueOnce(clarificationResponse());
+    render(<ChatShell />);
+
+    await sendText(user, '/comparar ');
+
+    const wizard = await screen.findByTestId('compare-wizard');
+    expect(within(wizard).getByText('¿No está tu jugador? Escribilo abajo.')).toBeInTheDocument();
+  });
 });
