@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import Sequence
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -36,37 +37,89 @@ from sportmonks_client.errors import (  # noqa: E402
 SCRIPT = "trial_auth"
 OBJECTIVE_17 = "API rate limits and pagination"
 
+#: Standing DoD items 10 and 11, per entry: which item-10 branch the entry falls
+#: under, and the test that supplies its item-11 two-input equality proof.
+#:
+#: Every entry here is under item 10's **first** branch -- its existence is not
+#: itself an observation, so each must disappear when its underlying data is
+#: absent, and each has a test asserting exactly that. None is appended
+#: unconditionally.
+#:
+#: `test_every_entry_is_declared_and_names_a_test_that_exists` asserts this
+#: mapping's keys equal the names actually emitted and that every test named
+#: here resolves. A declaration naming a test nobody can find is worse than
+#: none: it reads as a commitment while committing to nothing.
+DECLARED_SHAPES = {
+    "pagination": (
+        "test_the_pagination_entry_names_the_location_the_response_actually_used",
+        "test_removing_the_pagination_metadata_drops_the_shape",
+    ),
+    "rejected_envelope": (
+        "test_a_payload_the_parser_rejects_degrades_and_records_what_arrived",
+        "test_the_rejected_envelope_records_the_response_that_was_refused",
+    ),
+    "rate_limit_headers": (
+        "test_the_rate_limit_entry_names_the_headers_that_arrived_and_no_others",
+        "test_removing_the_headers_degrades_the_objective_and_drops_the_shape",
+    ),
+    "retry_after": (
+        "test_the_retry_after_entry_carries_the_value_that_arrived",
+        "test_removing_the_throttle_drops_the_retry_shape_and_warns",
+    ),
+}
+
+
+#: The full documented rate-limit header set. Tests select subsets of it to
+#: prove the reported fields track the payload rather than this constant:
+#: an all-or-nothing switch cannot distinguish "reports what arrived" from
+#: "reports the canonical set whenever anything arrived" (standing DoD item 11).
+RATE_LIMIT_HEADERS = {
+    "X-RateLimit-Limit": "3000",
+    "X-RateLimit-Remaining": "2997",
+    "X-RateLimit-Reset": "3600",
+}
+
 
 def mock_transport(
     *,
-    rate_limit_headers: bool = True,
-    throttle: bool = True,
-    retry_after: bool = True,
+    rate_limit_headers: bool | Sequence[str] = True,
+    throttle: bool | int = True,
+    retry_after: bool | str = True,
     pagination: bool = True,
 ) -> ReplayTransport:
     """Replay the checked-in multi-page fixture.
 
     The keyword arguments exist for the tests that prove this script observes
     rather than asserts: with `rate_limit_headers=False` the objective must
-    degrade and the shape entry must disappear.
+    degrade and the shape entry must disappear, and with a *subset* of header
+    names the entry must name that subset and nothing more.
+
+    `rate_limit_headers` takes `True` (all), `False` (none), or the header
+    names to serve. `retry_after` takes `True` (the default `2`), `False`
+    (header omitted), or the literal value to send. `throttle` takes `True`
+    (one 429), `False` (none), or how many to serve -- a count above one is
+    what distinguishes a derived throttle tally from `1 if any else 0`, which
+    survived a seeding probe of the two-input version.
     """
     pages = load_fixture("multi_page.json")["pages"]
-    headers = {
-        "X-RateLimit-Limit": "3000",
-        "X-RateLimit-Remaining": "2997",
-        "X-RateLimit-Reset": "3600",
-    } if rate_limit_headers else {}
+    if rate_limit_headers is True:
+        headers = dict(RATE_LIMIT_HEADERS)
+    elif rate_limit_headers is False:
+        headers = {}
+    else:
+        headers = {name: RATE_LIMIT_HEADERS[name] for name in rate_limit_headers}
     if not pagination:
         pages = [{"data": page["data"]} for page in pages[:1]]
     served: list[object] = []
-    if throttle:
-        # A synthetic 429, ahead of page one. The client retries it; the
+    if throttle is not False:
+        # Synthetic 429s, ahead of page one. The client retries them; the
         # observation is of the real header the provider would send. `retry_after`
         # can be turned off to prove a throttle with no header is still counted.
         throttle_headers = dict(headers)
-        if retry_after:
-            throttle_headers["Retry-After"] = "2"
-        served.append(response({}, status=429, headers=throttle_headers))
+        if retry_after is not False:
+            throttle_headers["Retry-After"] = "2" if retry_after is True else retry_after
+        count = 1 if throttle is True else throttle
+        served += [response({}, status=429, headers=throttle_headers) for _ in range(count)]
     served += [response(page, headers=headers if index == 0 else {}) for index, page in enumerate(pages)]
     return ReplayTransport(served)
 

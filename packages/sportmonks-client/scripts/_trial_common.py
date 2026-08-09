@@ -280,12 +280,40 @@ def observed_pagination(exchanges: Sequence[Exchange]) -> tuple[str | None, tupl
     return None, ()
 
 
+def _render_nested(skeleton: Mapping[str, Any]) -> str:
+    return ",".join(
+        f"{key}{{{_render_nested(nested)}}}" if nested else key
+        for key, nested in skeleton.items()
+    )
+
+
 def render_skeleton(skeleton: Mapping[str, Any]) -> str:
-    """Render a key-name skeleton as `data, pagination{current_page,has_more}`."""
-    parts = []
-    for key, nested in skeleton.items():
-        parts.append(f"{key}{{{','.join(nested)}}}" if nested else key)
-    return ", ".join(parts)
+    """Render a key-name skeleton as `data, pagination{current_page,has_more}`.
+
+    Renders every level `body_skeleton` captured. The first version joined only
+    the immediate keys of each nested map, so a skeleton three deep rendered as
+    `meta{pagination}` -- silently dropping the field names, which is the whole
+    observation when a provider carries pagination under `meta`.
+
+    Two limits remain, both deferred with a decision to make (#92), because
+    resolving them changes the report format that S3-S6 consume:
+
+    - **Truncation is still silent, one level deeper.** `body_skeleton` caps at
+      depth 3, and a payload cut off there renders identically to one that
+      genuinely ended there: `a{b{c}}` means both. This function is bounded only
+      because its caller is; it carries no depth parameter of its own.
+    - **The rendering is not injective.** A key containing a comma collides with
+      two sibling keys (`{"a, b": {}}` and `{"a": {}, "b": {}}` both render
+      `a, b`), and list, scalar, and empty-object values all render as the bare
+      key -- the ambiguity tracked in #85.
+
+    Neither is load-bearing for the mock rehearsal, and both are worth knowing
+    before reading an FI-9 report as if it were exhaustive.
+    """
+    return ", ".join(
+        f"{key}{{{_render_nested(nested)}}}" if nested else key
+        for key, nested in skeleton.items()
+    )
 
 
 class ReplayTransport:

@@ -27,6 +27,7 @@ from _trial_common import (  # noqa: E402
     render_markdown, render_skeleton, resolve_mode, response, write_report,
 )
 from sportmonks_client.config import SportmonksConfig
+from sportmonks_client.errors import SportmonksRateLimitError
 
 REPO_ROOT = PACKAGE_ROOT.parent.parent
 
@@ -178,6 +179,78 @@ def test_mock_run_walks_pages_and_observes_rate_limit_headers(tmp_path):
     assert shapes["rate_limit_headers"] == "x-ratelimit-limit, x-ratelimit-remaining, x-ratelimit-reset"
 
 
+#: Header subsets and the exact `rate_limit_headers` entry each must produce.
+#: Standing DoD item 11: the all-or-nothing switch alone could not tell
+#: "reports what arrived" from "reports the canonical set whenever anything
+#: arrived" -- the latter survived a seeding probe of the single-input version.
+RATE_HEADER_SUBSETS = [
+    pytest.param(
+        ("X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"),
+        "x-ratelimit-limit, x-ratelimit-remaining, x-ratelimit-reset",
+        id="all-three",
+    ),
+    pytest.param(("X-RateLimit-Remaining",), "x-ratelimit-remaining", id="remaining-only"),
+    pytest.param(
+        ("X-RateLimit-Limit", "X-RateLimit-Reset"),
+        "x-ratelimit-limit, x-ratelimit-reset",
+        id="limit-and-reset",
+    ),
+]
+
+
+@pytest.mark.parametrize("served,expected", RATE_HEADER_SUBSETS)
+def test_the_rate_limit_entry_names_the_headers_that_arrived_and_no_others(tmp_path, served, expected):
+    _, payload = _run(tmp_path, rate_limit_headers=served)
+    shapes = {s["name"]: s["shape"] for s in payload["observed_shapes"]}
+    assert shapes["rate_limit_headers"] == expected
+    assert f"rate-limit fields seen: {expected}" in payload["objectives"][0]["evidence"]
+
+
+def test_the_rate_header_subsets_are_pairwise_distinguishing():
+    expected = [case.values[1] for case in RATE_HEADER_SUBSETS]
+    assert len(set(expected)) == len(expected) >= 2
+
+
+@pytest.mark.parametrize("value,expected", [("2", "HTTP 429 retry-after=2"), ("7", "HTTP 429 retry-after=7")])
+def test_the_retry_after_entry_carries_the_value_that_arrived(tmp_path, value, expected):
+    """Equality, not containment, and two values. The single-input substring
+    version was satisfied by the literal `"HTTP 429 retry-after=2"`."""
+    _, payload = _run(tmp_path, retry_after=value)
+    shapes = {s["name"]: s["shape"] for s in payload["observed_shapes"]}
+    assert shapes["retry_after"] == expected
+
+
+def test_the_objective_17_evidence_string_is_derived_end_to_end(tmp_path):
+    """The evidence string as a whole, pinned by `==` on two inputs that differ
+    in every derived sub-field. Every prior assertion against it was `in`, so
+    three independent literals inside it survived a seeding probe: the record
+    count, the rate-limit field list, and the Retry-After count."""
+    _, full = _run(tmp_path)
+    assert full["objectives"][0]["evidence"] == (
+        "walked 2 pages, 2 records; "
+        "pagination at: pagination; "
+        "rate-limit fields seen: x-ratelimit-limit, x-ratelimit-remaining, x-ratelimit-reset; "
+        "throttled responses: 1 (with Retry-After: 1)"
+    )
+
+    _, thin = _run(tmp_path, rate_limit_headers=("X-RateLimit-Remaining",), throttle=False, pagination=False)
+    assert thin["objectives"][0]["evidence"] == (
+        "walked 1 pages, 1 records; "
+        "pagination at: none; "
+        "rate-limit fields seen: x-ratelimit-remaining; "
+        "throttled responses: 0 (with Retry-After: 0) — "
+        "pagination did not advance beyond 1 page(s); "
+        "no pagination metadata on any response"
+    )
+    assert full["objectives"][0]["evidence"] != thin["objectives"][0]["evidence"]
+
+    # A third input with **two** throttles. Two inputs alone left the counts
+    # satisfiable by `1 if retry_afters else 0`, which is a boolean wearing an
+    # integer's name -- it survived the probe until this case existed.
+    _, twice = _run(tmp_path, throttle=2)
+    assert "throttled responses: 2 (with Retry-After: 2)" in twice["objectives"][0]["evidence"]
+
+
 def test_removing_the_headers_degrades_the_objective_and_drops_the_shape(tmp_path):
     """Standing DoD item 10, made falsifiable.
 
@@ -231,21 +304,68 @@ def _run_with_transport(tmp_path, responses):
     return code, json.loads((tmp_path / "reports" / "trial_auth.json").read_text(encoding="utf-8"))
 
 
-def test_a_payload_the_parser_rejects_degrades_and_records_what_arrived(tmp_path, capsys):
+#: Three refused payloads whose skeletons are pairwise different, and the exact
+#: string each must round-trip to. This is the falsification pattern S3, S4a,
+#: S4b, S5a, S5b, and S6 copy for every derived-content entry (standing DoD
+#: item 11): more than one input, expected outputs that differ, and equality
+#: rather than containment. One payload plus a substring assertion proves the
+#: entry *exists*; it cannot distinguish a derivation from a literal, because
+#: any literal containing the substring passes.
+#:
+#: All three are rejected by `parse_envelope` for the same reason -- `has_more`
+#: is not a bool -- so the payloads vary only in the dimension under test.
+REFUSED_PAYLOADS = [
+    pytest.param(
+        {"data": [{"id": 1}], "pagination": {"current_page": 1, "has_more": "yes"}},
+        "data, pagination{current_page,has_more}",
+        id="pagination-top-level",
+    ),
+    pytest.param(
+        {"data": [{"id": 1}], "meta": {"pagination": {"current_page": 1, "has_more": "yes"}}},
+        "data, meta{pagination{current_page,has_more}}",
+        id="pagination-under-meta",
+    ),
+    pytest.param(
+        # The envelope Sportmonks v3 actually documents around `data`: a
+        # `subscription` list and a `rate_limit` block. If the live payload
+        # carries blocks we have never seen, this is the entry that shows them,
+        # so it has to reproduce the whole top level rather than the part we
+        # expected.
+        {
+            "data": [{"id": 1}],
+            "subscription": [{"meta": {}}],
+            "rate_limit": {"resets_in_seconds": 3600, "remaining": 2997},
+            "pagination": {"current_page": 1, "has_more": "yes"},
+        },
+        "data, subscription, rate_limit{resets_in_seconds,remaining}, pagination{current_page,has_more}",
+        id="unexpected-live-blocks",
+    ),
+]
+
+
+@pytest.mark.parametrize("body,expected_skeleton", REFUSED_PAYLOADS)
+def test_a_payload_the_parser_rejects_degrades_and_records_what_arrived(
+    tmp_path, body, expected_skeleton,
+):
     """The single scenario FI-8 exists to rehearse: a live payload differing
     from the documented shape (§17's top risk).
 
-    `has_more` as a string rather than a bool makes `parse_envelope` raise. Before
-    this fix that surfaced as exit **3** -- which the frozen contract defines as
-    *configuration/auth failure* -- with an empty `observed_shapes`, discarding
-    the very payload the trial needed to see. The contract already said the
-    opposite: a script "must not fail merely because a payload differs from the
-    documented shape; it records the difference and marks the objective
+    `has_more` as a string rather than a bool makes `parse_envelope` raise. The
+    first version surfaced that as exit **3** -- which the frozen contract
+    defines as *configuration/auth failure* -- with an empty `observed_shapes`,
+    discarding the very payload the trial needed to see. The contract already
+    said the opposite: a script "must not fail merely because a payload differs
+    from the documented shape; it records the difference and marks the objective
     `degraded`."
+
+    The second version fixed the discard but proved only that *an*
+    `rejected_envelope` entry appeared, asserting a substring one fixed payload
+    happened to contain. Replacing the derivation with the literal
+    `"data[],pagination{current_page,has_more}"` left the whole suite green --
+    measured, not supposed. Four slices had copied that test by then. Hence
+    three payloads and equality: no single literal satisfies all three.
     """
-    code, payload = _run_with_transport(tmp_path, [
-        response({"data": [{"id": 1}], "pagination": {"current_page": 1, "has_more": "yes"}}),
-    ])
+    code, payload = _run_with_transport(tmp_path, [response(body)])
     objective = payload["objectives"][0]
     assert code == EXIT_UNMET, "a shape difference is not a configuration failure"
     assert code != EXIT_CONFIG
@@ -254,8 +374,73 @@ def test_a_payload_the_parser_rejects_degrades_and_records_what_arrived(tmp_path
 
     shapes = {s["name"]: s["shape"] for s in payload["observed_shapes"]}
     assert "rejected_envelope" in shapes, "the refused payload must be recorded, not discarded"
-    assert "pagination{current_page,has_more}" in shapes["rejected_envelope"]
-    assert "data" in shapes["rejected_envelope"]
+    assert shapes["rejected_envelope"] == expected_skeleton
+
+
+def test_the_rejected_envelope_records_the_response_that_was_refused(tmp_path):
+    """*Which* exchange the entry reads, which a single-response sequence cannot
+    test: with one response, `exchanges[0]` and `exchanges[-1]` coincide, so
+    swapping them left the suite green. Page one parses; page two is refused. The
+    entry must describe page two -- the one that failed -- and the two pages'
+    skeletons differ, so reading the wrong end is now a failure."""
+    code, payload = _run_with_transport(tmp_path, [
+        response({"data": [{"id": 1}], "pagination": {"current_page": 1, "has_more": True, "next_page": 2}}),
+        response({"data": [{"id": 2}], "meta": {"pagination": {"current_page": 2, "has_more": "no"}}}),
+    ])
+    shapes = {s["name"]: s["shape"] for s in payload["observed_shapes"]}
+    assert code == EXIT_UNMET
+    assert shapes["rejected_envelope"] == "data, meta{pagination{current_page,has_more}}"
+    assert shapes["rejected_envelope"] != "data, pagination{current_page,has_more,next_page}", (
+        "that is page one, which parsed fine"
+    )
+
+
+def test_the_refused_payload_cases_are_pairwise_distinguishing():
+    """The property that makes the parametrization falsifying rather than
+    merely repetitive. If two cases ever expect the same string, a literal of
+    that string passes both and the redundancy hides it -- so the distinctness
+    the pattern relies on is asserted, not assumed."""
+    expected = [case.values[1] for case in REFUSED_PAYLOADS]
+    assert len(set(expected)) == len(expected) >= 2
+
+
+#: Pagination carried at two different locations, end to end, and the exact
+#: `pagination` entry each must produce. Item 11's two inputs for this entry
+#: previously differed only in their *field list*, so the location half stayed a
+#: literal: replacing `envelope.{page_location}` with `envelope.pagination` left
+#: all 122 green. That is the defect S2 was rejected for twice — naming a
+#: location the response never had — surviving in the entry it was found in,
+#: because the only `meta.pagination` test exercised `observed_pagination` at
+#: unit level and never reached the f-string that builds the entry.
+PAGINATION_LOCATIONS = [
+    pytest.param(
+        {"data": [{"id": 1}], "pagination": {"current_page": 1, "has_more": False}},
+        "envelope.pagination{current_page,has_more}",
+        "pagination at: pagination",
+        id="top-level",
+    ),
+    pytest.param(
+        {"data": [{"id": 1}], "meta": {"pagination": {"current_page": 1, "has_more": False}}},
+        "envelope.meta.pagination{current_page,has_more}",
+        "pagination at: meta.pagination",
+        id="under-meta",
+    ),
+]
+
+
+@pytest.mark.parametrize("body,expected_shape,expected_evidence", PAGINATION_LOCATIONS)
+def test_the_pagination_entry_names_the_location_the_response_actually_used(
+    tmp_path, body, expected_shape, expected_evidence,
+):
+    _, payload = _run_with_transport(tmp_path, [response(body)])
+    shapes = {s["name"]: s["shape"] for s in payload["observed_shapes"]}
+    assert shapes["pagination"] == expected_shape
+    assert expected_evidence in payload["objectives"][0]["evidence"]
+
+
+def test_the_pagination_location_cases_are_pairwise_distinguishing():
+    expected = [case.values[1] for case in PAGINATION_LOCATIONS]
+    assert len(set(expected)) == len(expected) >= 2
 
 
 def test_an_empty_pagination_block_is_recorded_not_treated_as_absent(tmp_path):
@@ -281,6 +466,16 @@ def test_render_skeleton_shows_names_only():
     assert render_skeleton({"data": {}, "pagination": {"current_page": {}, "has_more": {}}}) == (
         "data, pagination{current_page,has_more}"
     )
+
+
+def test_render_skeleton_does_not_truncate_below_the_second_level():
+    """`body_skeleton` captures three levels; rendering only two loses the field
+    names under `meta.pagination` -- the location the client explicitly supports
+    (`models.py:73`) and the one a rejected-envelope entry most needs to show."""
+    skeleton = _trial_common.body_skeleton(
+        {"data": [], "meta": {"pagination": {"current_page": 1, "has_more": True}}}
+    )
+    assert render_skeleton(skeleton) == "data, meta{pagination{current_page,has_more}}"
 
 
 def test_pagination_shape_names_only_the_fields_present():
@@ -329,6 +524,161 @@ def test_removing_the_throttle_drops_the_retry_shape_and_warns(tmp_path):
     assert not [s for s in payload["observed_shapes"] if s["name"] == "retry_after"]
     assert any("retry pacing is unmeasured" in w for w in payload["warnings"])
     assert "throttled responses: 0" in payload["objectives"][0]["evidence"]
+
+
+#: The three `missing` messages that interpolate a value, and two inputs each
+#: producing a different one. Item 11 applies to "every `evidence` string", and
+#: these three sub-fields were asserted only by containment, so each accepted a
+#: literal: the parser-rejection detail, the empty-block location, and the
+#: unpaired-throttle count.
+INTERPOLATED_MISSING_MESSAGES = [
+    pytest.param(
+        [response({"data": [{"id": 1}], "pagination": {"current_page": 1, "has_more": "yes"}})],
+        "payload rejected by the parser: pagination has_more must be boolean endpoint=leagues",
+        id="rejection-detail-has-more",
+    ),
+    pytest.param(
+        [response({"data": "not-a-list"})],
+        "payload rejected by the parser: malformed response envelope endpoint=leagues",
+        id="rejection-detail-envelope",
+    ),
+    pytest.param(
+        [response({"data": [{"id": 1}], "pagination": {}})],
+        "pagination block present but carried no field names",
+        id="empty-block-top-level",
+    ),
+    pytest.param(
+        [response({"data": [{"id": 1}], "meta": {"pagination": {}}})],
+        "meta.pagination block present but carried no field names",
+        id="empty-block-under-meta",
+    ),
+]
+
+
+@pytest.mark.parametrize("served,expected_message", INTERPOLATED_MISSING_MESSAGES)
+def test_each_interpolated_missing_message_carries_the_value_that_produced_it(
+    tmp_path, served, expected_message,
+):
+    _, payload = _run_with_transport(tmp_path, served)
+    evidence = payload["objectives"][0]["evidence"]
+    detail = evidence.split(" — ")[1]
+    assert expected_message in detail.split("; ")
+
+
+def test_the_interpolated_missing_message_cases_are_pairwise_distinguishing():
+    """Within each pair, the two inputs must differ — a literal satisfying both
+    members of a pair is exactly what containment allowed."""
+    expected = [case.values[1] for case in INTERPOLATED_MISSING_MESSAGES]
+    assert len(set(expected)) == len(expected) >= 2
+
+
+@pytest.mark.parametrize("throttles,expected", [(1, "1 throttled response(s) carried no Retry-After"),
+                                                (3, "3 throttled response(s) carried no Retry-After")])
+def test_the_unpaired_throttle_count_is_derived(tmp_path, throttles, expected):
+    _, payload = _run(tmp_path, throttle=throttles, retry_after=False)
+    detail = payload["objectives"][0]["evidence"].split(" — ")[1]
+    assert expected in detail.split("; ")
+
+
+# --- The failure-path reports -------------------------------------------------
+
+def test_the_two_unmet_reasons_are_not_interchangeable(tmp_path, monkeypatch):
+    """Swapping the config-absent and auth-rejected report bodies was undetected:
+    both tests asserted only stdout and the exit code, never the evidence the
+    report carries. The reason string is `evidence` content on two
+    distinguishable inputs, so item 11 applies to it."""
+    monkeypatch.delenv("SPORTMONKS_API_TOKEN", raising=False)
+    trial_auth.main(["--live", "--i-understand-this-is-live", "--out", str(tmp_path / "cfg")])
+    config = json.loads((tmp_path / "cfg" / "reports" / "trial_auth.json").read_text(encoding="utf-8"))
+
+    token = "DUMMY-TRIAL-TOKEN"
+    monkeypatch.setenv("SPORTMONKS_API_TOKEN", token)
+    monkeypatch.setattr(
+        trial_auth, "make_client",
+        lambda mode, **kw: _trial_common.make_client(
+            mode, transport=ReplayTransport([response({}, status=401)]),
+            config=SportmonksConfig(api_token=token), out_dir=kw.get("out_dir"),
+        ),
+    )
+    trial_auth.main(["--live", "--i-understand-this-is-live", "--out", str(tmp_path / "auth")])
+    auth = json.loads((tmp_path / "auth" / "reports" / "trial_auth.json").read_text(encoding="utf-8"))
+
+    assert config["objectives"][0]["evidence"] == "configuration incomplete; no request was issued"
+    assert auth["objectives"][0]["evidence"] == "authentication rejected by the provider"
+    assert config["objectives"][0]["evidence"] != auth["objectives"][0]["evidence"]
+
+
+# --- The item 10 / item 11 declaration ----------------------------------------
+
+def test_every_entry_is_declared_and_names_a_test_that_exists(tmp_path):
+    """The machine check standing DoD items 10 and 11 require.
+
+    Set equality against the names actually emitted, because a declaration that
+    drifts from the code is the defect the clause exists to prevent — it has
+    already happened once in this phase, naming two identifiers present nowhere
+    in the repository. Resolving each named test closes the same gap on the
+    other side.
+    """
+    emitted = set()
+    for kwargs in ({}, {"rate_limit_headers": False}, {"throttle": False}, {"pagination": False}):
+        _, payload = _run(tmp_path, **kwargs) if kwargs else _run(tmp_path)
+        emitted |= {s["name"] for s in payload["observed_shapes"]}
+    _, rejected = _run_with_transport(tmp_path, [
+        response({"data": [{"id": 1}], "pagination": {"current_page": 1, "has_more": "yes"}}),
+    ])
+    emitted |= {s["name"] for s in rejected["observed_shapes"]}
+
+    assert set(trial_auth.DECLARED_SHAPES) == emitted
+
+    module = sys.modules[__name__]
+    for entry, named_tests in trial_auth.DECLARED_SHAPES.items():
+        assert named_tests, f"{entry} declares no test"
+        for name in named_tests:
+            assert hasattr(module, name), f"{entry} names a test that does not exist: {name}"
+
+
+# --- The degraded-provider branch ---------------------------------------------
+
+#: Two provider failures that are neither configuration nor authentication, and
+#: the exact reason each must produce. This branch is S2's third correction --
+#: "only Config and Auth map to exit 3; every other provider failure is a
+#: degraded observation" -- and until now **no test reached it**: replacing
+#: `_degraded_report`'s whole body with `raise AssertionError` left all 111
+#: green. Its status and its evidence were both unfalsifiable, which is the
+#: defect that correction was itself written to fix.
+PROVIDER_FAILURES = [
+    pytest.param(
+        [
+            response({"data": [{"id": 1}], "pagination": {"current_page": 1, "has_more": True, "next_page": 2}}),
+            response({"data": [{"id": 2}], "pagination": {"current_page": 1, "has_more": True, "next_page": 2}}),
+        ],
+        "provider error: SportmonksPaginationError",
+        id="pagination-repeats-a-page",
+    ),
+    pytest.param(
+        [SportmonksRateLimitError("rate limited")],
+        "provider error: SportmonksRateLimitError",
+        id="rate-limit-exhausted",
+    ),
+]
+
+
+@pytest.mark.parametrize("served,expected_reason", PROVIDER_FAILURES)
+def test_a_non_auth_provider_failure_degrades_rather_than_exiting_three(
+    tmp_path, capsys, served, expected_reason,
+):
+    code, payload = _run_with_transport(tmp_path, served)
+    objective = payload["objectives"][0]
+    assert code == EXIT_UNMET, "a provider fault is not a configuration failure"
+    assert code != EXIT_CONFIG
+    assert objective["status"] == DEGRADED
+    assert objective["evidence"] == expected_reason
+    assert capsys.readouterr().out.startswith(f"PROVIDER: {expected_reason.split(': ')[1]}")
+
+
+def test_the_provider_failure_cases_are_pairwise_distinguishing():
+    expected = [case.values[1] for case in PROVIDER_FAILURES]
+    assert len(set(expected)) == len(expected) >= 2
 
 
 # --- The frozen report schema -------------------------------------------------
