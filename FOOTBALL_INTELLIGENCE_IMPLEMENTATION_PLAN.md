@@ -2551,6 +2551,14 @@ Written **before S5a starts** and before any of its findings exist. A reading ag
 2. **S5a and S5b are compared summed.** They are one slice split for size, not two independent samples. Counting them separately would halve the apparent rate by construction and make any comparison against the baseline meaningless.
 3. **A summed total of ≥4 falsifies the hypothesis.** Not "suggests more work is needed" — falsifies it. Four is inside the baseline's own range (3, 6, 4), so a result there is indistinguishable from the instruments having changed nothing.
 
+**Recorded alongside, not a fourth criterion: which instrument found each finding.** Every substantive finding is logged as **probe-found** or **review-found**. This does not change what falsifies the hypothesis — the threshold is the summed total either way — but it decomposes *why* if the hypothesis holds, and the split is unrecoverable once the slice is merged:
+
+- **The count drops because the probe catches things before review** → the instrument is doing the work. That is the claim items 12/13 and #93 were built to support.
+- **The count drops because reviews come back empty on constructs that used to fail** → plausibly the author, who has now been through S2 and S3. Not bad news, but a different claim, and the one the confound above predicts.
+- **Both fall** → consistent with either, and the split says so rather than letting the stronger reading be assumed.
+
+The baseline decomposes trivially and is worth stating: all **13** of S5's original findings (3 + 6 + 4) were **review-found**, because no probe existed. So any probe-found finding in S5a/S5b is, by construction, a class the old process could only have caught by a reviewer noticing it.
+
 **What the measurement cannot show, recorded so it is not claimed later.** n=1. The scripts differ from the originals, the objectives are the same but the payloads are not, and the largest uncontrolled variable is that the same author has now been through S2 and S3 — learning that would show up as improvement whether or not the instruments did anything. A pass under 4 is *consistent with* the hypothesis; it does not isolate the cause.
 
 **What is already known, and is not evidence for the hypothesis.** S3 needed one rewrite: six in-scope survivors on first sweep, one defect class, over the threshold. The defensible claim from S3 is narrower than "less rework" — the instrument changed **who found the rework and how fast**, from a reviewer over a full pass to a mechanical sweep in minutes. Whether that compounds into less rework is exactly what is untested, and is why this is written down before S5a rather than after.
