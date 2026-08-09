@@ -845,11 +845,20 @@ def test_mock_output_is_byte_stable_across_runs(tmp_path):
 
 def test_committed_example_matches_a_fresh_mock_run(tmp_path):
     """The committed example is evidence only while it matches. If this fails,
-    regenerate it in the same change that altered the schema."""
+    regenerate it in the same change that altered the schema.
+
+    Compared as **bytes**. `read_text` applies universal-newline translation on
+    both platforms, so the previous version asserted text-identity while every
+    report of this check — including several PR descriptions — claimed
+    byte-identity. The two happen to coincide here (`core.autocrlf` gives the
+    working tree the platform's convention, and `write_text` generates the
+    same), but a drift confined to line endings would have passed while the
+    claim about it was false. Assert the property that is being claimed.
+    """
     trial_auth.main(["--out", str(tmp_path)])
     for name in ("trial_auth.json", "trial_auth.md"):
-        fresh = (tmp_path / "reports" / name).read_text(encoding="utf-8")
-        committed = (EXAMPLES_DIR / name).read_text(encoding="utf-8")
+        fresh = (tmp_path / "reports" / name).read_bytes()
+        committed = (EXAMPLES_DIR / name).read_bytes()
         assert fresh == committed, f"{name} drifted from trial-reports/examples/"
 
 
