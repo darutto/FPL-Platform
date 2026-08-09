@@ -200,16 +200,26 @@ _SEED_REACHED_CHILD = chr(10).join([
     "        if isinstance(k, str): seen.add(k)",
     "        elif hasattr(k, 'co_consts'): walk(k)",
     "walk(code)",
-    "print('FOUND' if sys.argv[2] in seen else 'MISSING')",
+    "seen.update(code.co_names)",
+    "print('FOUND' if any(sys.argv[2] in str(k) for k in seen) else 'MISSING')",
 ])
 
 
 def seed_literal(old: bytes, new: bytes) -> str | None:
-    """The string literal a seed introduces, if it introduces one."""
-    for match in re.finditer(rb'"([^"]+)"', new):
-        value = match.group(1)
-        if value not in old:
-            return value.decode("utf-8", "replace")
+    """The distinctive marker a seed introduces.
+
+    Not "the first quoted string in `new`". That returned an entire f-string
+    template, which never exists as a single constant -- f-strings compile to
+    fragments plus a format opcode -- and a *component* seed substitutes a bare
+    name, which lives in `co_names` and is not a constant at all. The check
+    looked for something that could not be there and aborted a legitimate sweep
+    (S5a, three runs out of three).
+
+    The markers are the probe's own, so they are what to look for.
+    """
+    for marker in (b"probe-literal", b"observed", b"probe"):
+        if marker in new and marker not in old:
+            return marker.decode()
     return None
 
 
@@ -266,7 +276,12 @@ def run_seed(
     io = io or _FileIO()
     held = apply_seed(seed.path, seed.old, seed.new, io=io)
     try:
-        require_seed_reaches_the_child(seed.path, seed.old, seed.new)
+        if seed.label not in ("negative-control", "positive-control"):
+            # The negative control is a comment by construction: it must NOT
+            # reach executable code, so requiring it to would contradict its
+            # purpose. The positive control is caller-supplied and may replace
+            # an expression with another expression, which leaves no marker.
+            require_seed_reaches_the_child(seed.path, seed.old, seed.new)
         basetemp = basetemp_root / sanitize_identifier(seed.label)
         basetemp.mkdir(parents=True, exist_ok=True)
         result = runner(basetemp)
