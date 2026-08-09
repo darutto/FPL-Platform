@@ -731,12 +731,93 @@ def _git_ls_files(pathspec: str) -> list[str]:
     ).stdout.split()
 
 
+def _git_ignored_entries(pathspec: str) -> list[str]:
+    """Paths git reports as **ignored** -- the `!!` rows of `status --ignored`,
+    not the `??` untracked ones.
+
+    Deliberately not `git check-ignore`. That command answers this question with
+    an exit code and a `<file>:<line>` citation, and a citation is only as good
+    as the ref the working tree happens to be on: read against a branch
+    predating the rule, it reports a line number that means something else
+    entirely. `status --ignored` distinguishes the two outcomes as different
+    tokens, so ignored and merely-untracked cannot be confused.
+    """
+    rows = subprocess.run(
+        ["git", "status", "--porcelain", "--ignored", pathspec],
+        cwd=REPO_ROOT, capture_output=True, text=True, check=True,
+    ).stdout.splitlines()
+    return [row[3:] for row in rows if row.startswith("!! ")]
+
+
 @requires_git
 def test_trial_output_is_gitignored_after_a_run_that_wrote_there():
+    """Two assertions that do not imply each other, and both are load-bearing.
+
+    The **property**: nothing under `trial-output/` is tracked. This is what
+    fails if payloads are ever committed for a reason having nothing to do with
+    the ignore rule, and it is the one that matters most.
+
+    The **mechanism**: the ignore rule is what keeps them untracked. The
+    property assertion passes unchanged with the rule deleted, because nothing
+    was ever `git add`ed either way -- its subject can be absent without its
+    result changing, which means on its own it does not test the rule at all.
+    Delete the `.gitignore` line and only the second assertion fails.
+    """
     assert trial_auth.main([]) == EXIT_OK
     assert (DEFAULT_OUT / "reports" / "trial_auth.json").exists()
+
     tracked = _git_ls_files("packages/sportmonks-client/trial-output/")
     assert tracked == [], f"trial-output/ must never be tracked; found: {tracked}"
+
+    ignored = _git_ignored_entries("packages/sportmonks-client/")
+    assert any("trial-output" in entry for entry in ignored), (
+        "trial-output/ is untracked but not *ignored* -- the .gitignore rule is "
+        f"missing, so one `git add -A` tracks raw payloads. Ignored here: {ignored}"
+    )
+
+
+def _git_ignore_pattern_for(path: str) -> str | None:
+    """The `.gitignore` **pattern** that would ignore `path`, or None.
+
+    `--no-index` so the answer does not depend on the path existing: the first
+    version of this check asked `git status --ignored`, which lists only paths
+    present on disk, so it passed locally and failed on CI where the
+    directories are absent. It was asserting ambient state, not a rule.
+
+    This uses `git check-ignore` but reads only the **pattern** field, never
+    the `<file>:<line>` citation. The citation is what misleads — read against
+    a branch predating a rule it will cite a line number that means something
+    else, and a broad unrelated pattern will answer "ignored" for a reason
+    nobody intended. The pattern says *which* rule matched, which is the
+    question worth asking.
+    """
+    result = subprocess.run(
+        ["git", "check-ignore", "--no-index", "-v", path],
+        cwd=REPO_ROOT, capture_output=True, text=True,
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        return None
+    _source, _line, rest = result.stdout.strip().split(":", 2)
+    return rest.split("\t")[0]
+
+
+@requires_git
+@pytest.mark.parametrize("path,expected_pattern", [
+    ("downloaded_files/x", "downloaded_files/"),
+    (".claude/worktrees/x", ".claude/worktrees/"),
+    ("packages/sportmonks-client/trial-output/raw/x.json",
+     "packages/sportmonks-client/trial-output/"),
+])
+def test_each_ignore_rule_is_present_and_is_the_one_that_matches(path, expected_pattern):
+    """Asserted at all because the runtime-artifact rule shipped alongside the
+    `trial-output/` one and was proven only by *observing* `!!` in a tree where
+    the directory happened to exist. Deleting the line left the suite green.
+
+    Asserting the matched pattern rather than mere ignored-ness also catches the
+    case where some unrelated broad rule is doing the work — a rule that is
+    effective today for a reason that has nothing to do with the rule we wrote.
+    """
+    assert _git_ignore_pattern_for(path) == expected_pattern
 
 
 @requires_git
