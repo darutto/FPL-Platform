@@ -2537,6 +2537,23 @@ Three is also the number the only available evidence supports: S5's three review
 
 The threshold counts **in-scope** survivors only. Exempt roles are printed but do not count, and an exemption invented during triage to duck the threshold is the failure this rule exists to prevent — which is why exemptions are declared with reasons and the exemption list itself is pinned by test.
 
+#### The CI flip mode — an open environmental hazard, not a closed incident
+
+The falsifiability probe returned different verdicts for identical seeds on identical code. Four pre-registered arms:
+
+| arm | SHA | detector | env var | when | flips |
+|---|---|---|---|---|---|
+| A | `69b00ee` | off | off | earlier | **4/20** |
+| B | `8a8e017` | on | on | later | 0/21 |
+| C | experiment | off | on | later | 0/20 |
+| D | `69b00ee` | off | off | **now** | **0/20** |
+
+Arm D is byte-identical to arm A. **The mode was real** — 4/20, and 3 of those were false in-scope survivors that would have failed good code. **Its cause is external and unknown** — neither `PYTHONDONTWRITEBYTECODE` nor the seed-reaches-child detector fixed it, both proposed mechanisms (stale bytecode, a write-visibility race) were falsified by direct measurement, and arm D shows the mode stopped occurring at the *unchanged* commit. **The gate's current stability was inherited, not earned** — 61 consecutive clean runs say the mode is dormant, not that it is gone, and it can return without warning.
+
+Survivor re-run confirmation is therefore a **recurrence detector**, not a fix: a survivor that does not reproduce is printed and counted as residual noise, never silently retried. Retrying in silence would stop the gate reporting its own failure rate, which is the one number that matters for a hazard nobody controls.
+
+**The phase's actual finding, and the least expected one: the code being swept has been in better shape than the things doing the sweeping, consistently.** Three of five high-confidence claims failed on instruments — the live-call guard's outer layer, the probe's own enumeration, and the detector, which was broken while both its author and its reviewer argued to keep it on a mechanism that turned out impossible. The trial scripts themselves have needed one rewrite in total, caught mechanically, inside the pre-registered threshold. A reader will assume the risk lived in the domain code. It did not. **A cause that fits the data and cannot work is a coincidence with good manners.**
+
 #### Instruments that answer the adjacent question — a class, for S3–S6
 
 Three failures this phase share one shape: **a confident, well-formed answer to a question next to the one being asked.** They are cheap to write and read as coverage, so name them before the remaining slices reach for them.

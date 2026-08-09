@@ -604,13 +604,31 @@ def main(argv: list[str] | None = None) -> int:
             seeds.append(subject_deletion_seed(Path(path), text))
 
         verdicts, labels, survivors, exempt = [], [], [], []
+        unreproduced: list[str] = []
         for seed in seeds:
             outcome = run_seed(seed, runner, root)
             verdict = outcome.verdict
             verdicts.append(verdict)
             labels.append(seed.label)
-            if verdict != KILLED:
-                (exempt if is_exempt(seed.label) else survivors).append(seed.label)
+            if verdict != KILLED and not is_exempt(seed.label):
+                # Recurrence detector for a known-live hazard. The CI flip mode
+                # is real (4/20), its cause is external and unknown, and it
+                # produces FALSE in-scope survivors at ~15%. With the gate
+                # required and five slices to run, one spurious survivor costs a
+                # trial day. A survivor that does not reproduce is noise -- but
+                # it is printed and counted, never silently retried, or the
+                # gate stops reporting its own failure rate.
+                second = run_seed(seed, runner, root)
+                if second.verdict == KILLED:
+                    unreproduced.append(seed.label)
+                    print(f"{'noise':9} {seed.label}  did not reproduce "
+                          f"[{second.summary}] {', '.join(second.failed[:2]) or '-'}")
+                    verdicts.append(KILLED)
+                    labels.append(seed.label)
+                    continue
+                survivors.append(seed.label)
+            elif verdict != KILLED:
+                exempt.append(seed.label)
             marker = " (exempt)" if is_exempt(seed.label) else ""
             # The node ids are the diagnostic half. Two seeds can share the
             # summary `1 failed, 258 passed` and mean opposite things: killed by
