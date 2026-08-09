@@ -21,6 +21,7 @@ from .fpl_client import (
     get_current_gameweek,
     get_fixtures,
     get_fixture_difficulty_map,
+    is_form_informative,
 )
 
 __all__ = [
@@ -30,6 +31,7 @@ __all__ = [
     "get_current_gameweek",
     "get_fixtures",
     "get_fixture_difficulty_map",
+    "is_form_informative",
 ]
 
 

@@ -72,7 +72,12 @@ from fpl_tool_runner.specs import ToolSpec
 
 from .transfer_advisor import _derive_scoring_inputs
 from .fixture_context import build_fixture_context  # FI3a: additive fixture context
-from .position_score import compute_position_score
+from .position_score import (
+    compute_position_score,
+    redistribute_preseason_weights,
+    shrink_rate_by_minutes,
+    POSITION_PROFILES,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -194,6 +199,12 @@ def get_differential_picks(
     current_gw     = _get_current_gw(bootstrap)
     short_map = _team_short_map(bootstrap)
 
+    # Hoisted out of the per-element loop below: is_form_informative is an
+    # O(elements) scan, so it must be computed once here, not once per
+    # candidate (~325k redundant float conversions per request otherwise).
+    from fpl_api_client import is_form_informative
+    form_ready = is_form_informative(bootstrap)
+
     scored: list[dict[str, Any]] = []
 
     for element in bootstrap.get("elements", []):
@@ -231,19 +242,34 @@ def get_differential_picks(
         # Phase 8a1/8b: position-aware heuristic evaluation (Layer 2)
         # Uses effective_fdr (home/away adjusted) for fixture component
         position = _position_label(int(element.get("element_type", 0)))
-        saves_per_90 = float(element.get("saves_per_90", 0) or 0)
-        cs_per_90    = float(element.get("clean_sheets_per_90", 0) or 0)
-        dc_per_90    = float(element.get("defensive_contribution_per_90", 0) or 0)
+        minutes      = float(element.get("minutes", 0) or 0)
+        saves_per_90 = shrink_rate_by_minutes(float(element.get("saves_per_90", 0) or 0), minutes)
+        cs_per_90    = shrink_rate_by_minutes(float(element.get("clean_sheets_per_90", 0) or 0), minutes)
+        dc_per_90    = shrink_rate_by_minutes(float(element.get("defensive_contribution_per_90", 0) or 0), minutes)
+
+        # Preseason: form is 0 for ~everyone, so its weight is dead.
+        # Redistribute it (mostly onto xgi) rather than let it silently
+        # compress every score. form_ready is computed once above, not per
+        # element.
+        weights_override = None
+        label_override = None
+        if not form_ready:
+            pos_key = position.upper()
+            base_profile = POSITION_PROFILES.get(pos_key, POSITION_PROFILES["MID"])
+            weights_override = redistribute_preseason_weights(base_profile)
+            label_override = pos_key if pos_key in POSITION_PROFILES else "MID"
 
         ps_result = compute_position_score(
             position=position,
             form=inputs["form"],
             fixture_difficulty=inputs["effective_fdr"],
-            xgi_per_90=inputs["xgi_per_90"],
+            xgi_per_90=inputs["xgi_per_90_shrunk"],
             minutes_risk=inputs["minutes_risk"],
             saves_per_90=saves_per_90,
             clean_sheets_per_90=cs_per_90,
             dc_per_90=dc_per_90,
+            weights_override=weights_override,
+            weights_override_label=label_override,
         )
 
         if ps_result.position_score <= _SCORE_FLOOR:
