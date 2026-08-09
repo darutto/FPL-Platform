@@ -12,13 +12,13 @@ observation -- and drops that family's shape entry, leaving every other family
 untouched (standing DoD item 10).
 
 Existence-versus-content declaration (standing DoD item 10). Every shape entry
-here is one whose **existence is the observation**'s subject, so each must
-disappear when its family's data is absent, and each is covered by a test that
-removes that family and asserts exactly that:
+here falls under item 10's **first** branch -- its existence is *not* itself an
+observation, so each must **disappear** when its family's data is absent, and
+each is covered by a test that removes that family and asserts exactly that:
 
 - `injury_record_fields`, `suspension_record_fields`, `coach_record_fields`
   -- content derived from the records received; entry disappears when empty.
-- `injury_freshness_field` -- the entry's *existence* signals that at least one
+- `injury_freshness_field` -- the entry's *presence* signals that at least one
   record carried a freshness timestamp, and it disappears when none did. Its
   value is the module constant `FRESHNESS_FIELD`, a declared and still
   unverified documentation assumption rather than a derived value; the failure
@@ -44,7 +44,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _trial_common import (  # noqa: E402
     DEGRADED, EXIT_CONFIG, EXIT_REFUSED, MODE_MOCK, OBSERVED, UNMET, Objective,
     ObservedShape, ReplayTransport, TrialRefusal, TrialReport, build_parser,
-    make_client, resolve_mode, response, write_report,
+    make_client, render_skeleton, resolve_mode, response, write_report,
 )
 from sportmonks_client.errors import (  # noqa: E402
     SportmonksAuthenticationError, SportmonksConfigurationError, SportmonksError,
@@ -199,6 +199,23 @@ def _degraded_report(mode: str, reason: str) -> TrialReport:
     return _report_with(mode, DEGRADED, reason)
 
 
+def _record_rejected_envelope(report: TrialReport, client) -> None:
+    """Record the shape of what actually arrived before the failure.
+
+    The frozen contract requires a non-config, non-auth failure to be a
+    degraded observation "with the payload recorded, not discarded". Recording
+    only the exception class name discards exactly the observation §17's top
+    risk -- live payloads differing from the docs -- exists to capture. This
+    mirrors `trial_auth.py`'s `rejected_envelope` entry, using the same
+    `ObservingTransport` skeleton `make_client` already wraps every client in.
+    """
+    exchanges = getattr(getattr(client, "transport", None), "exchanges", ())
+    if exchanges:
+        report.observed_shapes.append(
+            ObservedShape("rejected_envelope", render_skeleton(exchanges[-1].body_keys))
+        )
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser(SCRIPT).parse_args(argv)
     try:
@@ -208,6 +225,7 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_REFUSED
 
     transport = mock_transport() if mode == MODE_MOCK else None
+    client = None
     failure: str | None = None
     config_failure = False
     try:
@@ -228,6 +246,7 @@ def main(argv: list[str] | None = None) -> int:
         # discarded.
         failure = f"PROVIDER: {type(exc).__name__}"
         report = _degraded_report(mode, f"provider error: {type(exc).__name__}")
+        _record_rejected_envelope(report, client)
 
     json_path, md_path = write_report(report, args.out)
     if failure is not None:

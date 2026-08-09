@@ -7,13 +7,16 @@ Covers brief §11.3 objective 13 (fixture-level team statistics) and objective
 presence counts derived from the records actually received (S5 DoD 3).
 
 Existence-versus-content declaration (standing DoD item 10). Both shape
-entries -- `team_stat_fields` and `player_stat_fields` -- are ones whose
-**existence is the observation**'s subject: each disappears when its family
-returns no records, and each is covered by a test that empties that family and
-asserts the entry is gone while the sibling family's entry survives. Their
-content is the per-field presence counts read from the records received.
-Objectives 15 and 16 carry no shape entry at all; see below for why their
-status is deliberately not derived from any payload.
+entries -- `team_statistics_fields` and `player_statistics_fields` -- fall
+under item 10's **first** branch: their existence is *not* itself an
+observation, so each must **disappear** when its family returns no records,
+and each is covered by a test that empties that family and asserts the entry
+is gone while the sibling family's entry survives. Their content is the
+comma-joined list of field *names* present on at least one record. The
+per-field presence *counts* live in the objective's `evidence`, not in the
+shape entry, and are covered separately by a partial-presence test. Objectives
+15 and 16 carry no shape entry at all; see below for why their status is
+deliberately not derived from any payload.
 
 Objectives 15 (data update timing) and 16 (post-match corrections) are
 structurally different from the rest of FI-8 (S5 DoD 4): they can only be
@@ -44,7 +47,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _trial_common import (  # noqa: E402
     DEGRADED, EXIT_CONFIG, EXIT_REFUSED, MODE_MOCK, NOT_APPLICABLE, OBSERVED,
     UNMET, Objective, ObservedShape, ReplayTransport, TrialRefusal, TrialReport,
-    build_parser, make_client, resolve_mode, response, write_report,
+    build_parser, make_client, render_skeleton, resolve_mode, response,
+    write_report,
 )
 from sportmonks_client.errors import (  # noqa: E402
     SportmonksAuthenticationError, SportmonksConfigurationError, SportmonksError,
@@ -240,6 +244,23 @@ def _degraded_report(mode: str, reason: str) -> TrialReport:
     return _report_with(mode, DEGRADED, reason)
 
 
+def _record_rejected_envelope(report: TrialReport, client) -> None:
+    """Record the shape of what actually arrived before the failure.
+
+    The frozen contract requires a non-config, non-auth failure to be a
+    degraded observation "with the payload recorded, not discarded". Recording
+    only the exception class name discards exactly the observation §17's top
+    risk -- live payloads differing from the docs -- exists to capture. This
+    mirrors `trial_auth.py`'s `rejected_envelope` entry, using the same
+    `ObservingTransport` skeleton `make_client` already wraps every client in.
+    """
+    exchanges = getattr(getattr(client, "transport", None), "exchanges", ())
+    if exchanges:
+        report.observed_shapes.append(
+            ObservedShape("rejected_envelope", render_skeleton(exchanges[-1].body_keys))
+        )
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser(SCRIPT).parse_args(argv)
     try:
@@ -249,6 +270,7 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_REFUSED
 
     transport = mock_transport() if mode == MODE_MOCK else None
+    client = None
     failure: str | None = None
     config_failure = False
     try:
@@ -268,6 +290,7 @@ def main(argv: list[str] | None = None) -> int:
         # recorded, not discarded.
         failure = f"PROVIDER: {type(exc).__name__}"
         report = _degraded_report(mode, f"provider error: {type(exc).__name__}")
+        _record_rejected_envelope(report, client)
 
     json_path, md_path = write_report(report, args.out)
     if failure is not None:

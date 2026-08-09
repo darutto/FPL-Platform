@@ -277,6 +277,37 @@ def test_a_throttled_provider_degrades_rather_than_reporting_misconfiguration(
     assert any(o["status"] == DEGRADED for o in payload["objectives"])
 
 
+@pytest.mark.parametrize("script", [trial_injuries, trial_stats])
+def test_a_rejected_payload_is_recorded_not_discarded(monkeypatch, tmp_path, script):
+    """The frozen contract requires a degraded observation to carry "the payload
+    recorded, not discarded".
+
+    Both scripts previously recorded only the exception class name, so a
+    `SportmonksSchemaError` — §17's top risk, and the single thing FI-8 exists
+    to rehearse — told the FI-9 operator nothing about the payload that caused
+    it. `trial_auth.py` froze the `rejected_envelope` entry for exactly this.
+    """
+    monkeypatch.setenv("SPORTMONKS_API_TOKEN", "DUMMY-TRIAL-TOKEN")
+    monkeypatch.setattr(
+        script, "make_client",
+        lambda mode, **kw: _trial_common.make_client(
+            mode,
+            transport=ReplayTransport([
+                response({"data": [{"id": 1}], "pagination": {"current_page": 1, "has_more": "yes"}})
+            ] * 12),
+            config=SportmonksConfig(api_token="DUMMY-TRIAL-TOKEN"), out_dir=kw.get("out_dir"),
+        ),
+    )
+    code = script.main(["--live", "--i-understand-this-is-live", "--out", str(tmp_path)])
+    assert code != EXIT_CONFIG, "a shape difference is not a configuration failure"
+    payload = json.loads(
+        (tmp_path / "reports" / f"{script.SCRIPT}.json").read_text(encoding="utf-8")
+    )
+    shapes = {s["name"]: s["shape"] for s in payload["observed_shapes"]}
+    assert "rejected_envelope" in shapes, "the refused payload must be recorded"
+    assert "pagination{current_page,has_more}" in shapes["rejected_envelope"]
+
+
 def test_injuries_mock_output_is_byte_stable(tmp_path):
     first, second = tmp_path / "a", tmp_path / "b"
     trial_injuries.main(["--out", str(first)])
@@ -308,6 +339,47 @@ def _run_stats(tmp_path, **kwargs):
         if kwargs:
             trial_stats.mock_transport = original
     return code, json.loads((tmp_path / "reports" / "trial_stats.json").read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize(
+    "family,objective_id,title",
+    [("team_stats", 13, "Fixture-level team statistics"),
+     ("player_stats", 14, "Player match statistics")],
+)
+def test_partial_field_presence_is_counted_not_rounded(tmp_path, family, objective_id, title):
+    """S5 DoD 3's per-field presence counts, made falsifiable.
+
+    Every stats fixture in this file had a field on *all* records or on *none*,
+    so `presence[name]` could be replaced with `len(records)` and the suite
+    stayed green — a 3-record payload with `value` on one record would report
+    `value=3/3`. `trial_injuries.py` has the analogue
+    (`test_partial_freshness_is_counted_not_rounded`); the sibling script did
+    not, and a review found it by seeding.
+
+    k must be neither 0 nor n, or the assertion is satisfiable by a literal.
+    """
+    id_field = "team_id" if family == "team_stats" else "player_id"
+    records = [
+        {"id": 1, "fixture_id": 900, id_field: 10, "type_id": 5, "value": 3},
+        {"id": 2, "fixture_id": 900, id_field: 11, "type_id": 5},
+        {"id": 3, "fixture_id": 900, id_field: 12, "type_id": 5},
+    ]
+    _, payload = _run_stats(tmp_path, **{family: records})
+    evidence = _objective(payload, objective_id, title)["evidence"]
+    assert "value=1/3" in evidence, "a partial presence count must be k/n, not n/n"
+    assert "value=3/3" not in evidence
+    assert "3 record(s)" in evidence, "the record count is derived, not a literal"
+
+
+def test_stats_record_count_tracks_the_payload(tmp_path):
+    """The record count in `evidence` survived seeding as a literal — the same
+    defect closed for suspensions and coaches, left open in the sibling script."""
+    _, payload = _run_stats(tmp_path, team_stats=[
+        {"id": 1, "fixture_id": 900, "team_id": 10, "type_id": 5, "value": 3},
+    ])
+    evidence = _objective(payload, 13, "Fixture-level team statistics")["evidence"]
+    assert "1 record(s)" in evidence
+    assert "2 record(s)" not in evidence
 
 
 def test_default_mock_run_reports_team_and_player_stats_separately(tmp_path):
