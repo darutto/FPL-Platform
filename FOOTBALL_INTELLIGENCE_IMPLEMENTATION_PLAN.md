@@ -2527,7 +2527,25 @@ Fixes land as **one PR per slice**, not one per finding — the sibling-sweep fa
 
 **Rewrite threshold: more than 3 in-scope survivors in a slice, and that slice's tests are rewritten rather than patched** — the S5 stopping rule, applied to already-merged code. Three is the point at which the failures stop being independent: one or two are oversights at specific sites, but a slice carrying more than that has a test *design* that does not falsify, and patching site-by-site is the loop that consumed three passes of S5 without converging.
 
+**Known property of the threshold, recorded before it is used.** Three is an absolute count applied to slices of very different size. Three survivors in `trial_auth.py` (22 sites) is a ~14% miss rate; three in a five-site script is 60% and means something much worse. The absolute figure is the right *floor* — it must still fire on the small script — but it will be lenient on the large ones exactly where a rate would be strict. This is noted rather than fixed: the threshold was chosen blind, before any sweep ran, and adjusting it now on reasoning alone would forfeit what choosing it blind bought. The moment to revisit is a sweep where the count and the rate disagree, with that data in hand.
+
+Three is also the number the only available evidence supports: S5's three review passes returned 3, 6, and 4 substantive findings, so it is where observed non-convergence actually began rather than a round number.
+
 The threshold counts **in-scope** survivors only. Exempt roles are printed but do not count, and an exemption invented during triage to duck the threshold is the failure this rule exists to prevent — which is why exemptions are declared with reasons and the exemption list itself is pinned by test.
+
+#### Instruments that answer the adjacent question — a class, for S3–S6
+
+Three failures this phase share one shape: **a confident, well-formed answer to a question next to the one being asked.** They are cheap to write and read as coverage, so name them before the remaining slices reach for them.
+
+| instrument | question asked | question answered |
+|---|---|---|
+| `grep`ping source for `"checkout"` | does this code *use* git? | does this file *mention* git? |
+| `git check-ignore -v`'s citation | is this path ignored *by our rule*? | does some rule match, at some line, in whatever tree you are on? |
+| `git status --ignored` | is the rule present? | does an ignored path *currently exist on disk*? |
+
+**Grepping source is the one to watch**, because it is the most tempting shortcut and diverges from behaviour on every comment, docstring, string literal, and dead branch. It failed here on a docstring that *explained why not to use `git checkout`* — the prose describing the prohibition tripped the check enforcing it. **Assert on what executes**: parse the AST and inspect the nodes that run, as `test_the_probe_never_shells_out_to_git_to_restore` does.
+
+The general rule: when an instrument's output is a *proxy* for the property, state what the proxy can and cannot distinguish, and prefer the instrument whose two outcomes are different tokens over one whose two outcomes differ by a field you have to read correctly.
 
 #### What each seeding layer is allowed to certify
 
