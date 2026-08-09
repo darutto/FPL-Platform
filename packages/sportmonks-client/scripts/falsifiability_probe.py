@@ -186,6 +186,62 @@ def restore(path: Path, held: bytes, io: _FileIO | None = None) -> None:
         raise ProbeAbort(f"restore did not reproduce {path.name} byte for byte; stopping")
 
 
+#: Executed in a child interpreter to answer "is the seeded code what actually
+#: loads?". Deliberately inspects the **code object**, not the source text:
+#: `inspect.getsource` re-reads the `.py` and would report the seed even while
+#: stale bytecode executes, which is the exact failure it must detect.
+_SEED_REACHED_CHILD = chr(10).join([
+    "import importlib.util, sys",
+    "spec = importlib.util.spec_from_file_location('_probe_target', sys.argv[1])",
+    "code = spec.loader.get_code('_probe_target')",
+    "seen = set()",
+    "def walk(c):",
+    "    for k in c.co_consts:",
+    "        if isinstance(k, str): seen.add(k)",
+    "        elif hasattr(k, 'co_consts'): walk(k)",
+    "walk(code)",
+    "print('FOUND' if sys.argv[2] in seen else 'MISSING')",
+])
+
+
+def seed_literal(old: bytes, new: bytes) -> str | None:
+    """The string literal a seed introduces, if it introduces one."""
+    for match in re.finditer(rb'"([^"]+)"', new):
+        value = match.group(1)
+        if value not in old:
+            return value.decode("utf-8", "replace")
+    return None
+
+
+def require_seed_reaches_the_child(path: Path, old: bytes, new: bytes) -> None:
+    """Assert the seeded code is what the child interpreter actually loads.
+
+    `apply_seed` proves the **bytes on disk changed** -- a property. This proves
+    the **seeded code executes** -- the mechanism. They came apart in practice:
+    a stale `.pyc` produced a fully green suite with the seed genuinely written,
+    3 times in 20 CI runs, reported as a survivor.
+
+    `PYTHONDONTWRITEBYTECODE=1` fixes that one cause. This detects the class:
+    a module already in `sys.modules`, an installed copy shadowing the tree, an
+    editable install resolving elsewhere, and causes nobody has thought of yet.
+    The fix addresses a mechanism; the detector outlives it.
+    """
+    needle = seed_literal(old, new)
+    if needle is None:
+        return  # nothing quoted to look for; the suite result stands on its own
+    result = subprocess.run(
+        [sys.executable, "-c", _SEED_REACHED_CHILD, str(path), needle],
+        capture_output=True, text=True,
+        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+    )
+    if result.stdout.strip() != "FOUND":
+        raise ProbeAbort(
+            f"the seed for {path.name} is on disk but the child interpreter does not "
+            f"load it (looked for {needle!r}; got {result.stdout.strip() or result.stderr.strip()!r}). "
+            "A verdict measured against unseeded code is not a verdict."
+        )
+
+
 class SeedOutcome(NamedTuple):
     """A verdict and the suite summary it was scored from.
 
@@ -210,6 +266,7 @@ def run_seed(
     io = io or _FileIO()
     held = apply_seed(seed.path, seed.old, seed.new, io=io)
     try:
+        require_seed_reaches_the_child(seed.path, seed.old, seed.new)
         basetemp = basetemp_root / sanitize_identifier(seed.label)
         basetemp.mkdir(parents=True, exist_ok=True)
         result = runner(basetemp)
@@ -396,7 +453,16 @@ def pytest_runner(package_root: Path) -> Callable[[Path], SuiteResult]:
         completed = subprocess.run(
             [sys.executable, "-m", "pytest", "-q", f"--basetemp={basetemp}"],
             cwd=package_root, capture_output=True, text=True,
-            env={**__import__("os").environ, "PYTHONIOENCODING": "utf-8"},
+            # PYTHONDONTWRITEBYTECODE: a seed replaces a derived expression with
+            # a literal of similar length, written milliseconds after the
+            # original. CPython invalidates a cached .pyc on source mtime+size,
+            # so a same-second write of similar size can hit a stale cache and
+            # the seeded source never executes -- a fully green suite with the
+            # seed genuinely on disk. Measured at 4 flips in 20 CI runs, in both
+            # directions: a false survivor when the seeded module is stale, and
+            # unrelated failures when a *previous* seed's module is still cached.
+            env={**os.environ, "PYTHONIOENCODING": "utf-8",
+                 "PYTHONDONTWRITEBYTECODE": "1"},
         )
         lines = completed.stdout.splitlines()
         summaries = [l for l in lines if re.search(r"\d+ (passed|failed|error)", l)]

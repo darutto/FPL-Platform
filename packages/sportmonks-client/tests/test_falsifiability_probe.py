@@ -566,3 +566,96 @@ def test_the_runner_captures_full_node_ids_from_pytest_output(tmp_path, monkeypa
         "tests/test_trial_discovery.py::test_two[trial_fixtures]",
     ]
     assert result.summary == "2 failed, 3 passed in 1.0s"
+
+
+def test_the_runner_disables_bytecode_caching(tmp_path, monkeypatch):
+    """A seed on disk that the child process never executes is a false survivor.
+
+    CPython invalidates a cached .pyc on source mtime+size; a probe seed is a
+    similar-length replacement written milliseconds after the original, so a
+    same-second write can hit a stale cache. Measured at 4 flips in 20 CI runs,
+    in both directions -- a false survivor when the seeded module is stale, and
+    failures in an *unrelated* module when a previous seed's cache is still
+    live. Behavioural: the env actually handed to the subprocess is captured.
+    """
+    import types
+    captured = {}
+
+    def _fake_run(cmd, **kwargs):
+        captured.update(kwargs.get("env") or {})
+        return types.SimpleNamespace(returncode=0, stdout="1 passed in 0.1s", stderr="")
+
+    monkeypatch.setattr(fp.subprocess, "run", _fake_run)
+    fp.pytest_runner(tmp_path)(tmp_path / "bt")
+
+    assert captured.get("PYTHONDONTWRITEBYTECODE") == "1"
+    assert captured.get("PYTHONIOENCODING") == "utf-8"
+
+
+def test_a_seed_that_is_on_disk_but_not_loaded_by_the_child_aborts(tmp_path):
+    """The mechanism assertion. `apply_seed` proves the *bytes changed* -- a
+    property. This proves the *seeded code executes* -- the mechanism. They came
+    apart: a stale .pyc gave a fully green suite with the seed genuinely
+    written, 3 times in 20 CI runs, reported as a survivor.
+
+    PYTHONDONTWRITEBYTECODE fixes that one cause; this detects the class,
+    including sys.modules reuse, a shadowing installed copy, and causes nobody
+    has thought of. The fix addresses a mechanism, the detector outlives it.
+    """
+    target = tmp_path / "m.py"
+    target.write_text("X = 'probe-literal'" + chr(10), encoding="utf-8")
+    fp.require_seed_reaches_the_child(target, b"ORIGINAL", b'"probe-literal"')
+
+    target.write_text("X = 'something-else'" + chr(10), encoding="utf-8")
+    with pytest.raises(fp.ProbeAbort, match="does not load it"):
+        fp.require_seed_reaches_the_child(target, b"ORIGINAL", b'"probe-literal"')
+
+
+def test_a_seed_introducing_no_literal_skips_the_load_check(tmp_path):
+    """Numeric or expression-only seeds have nothing quoted to look for; the
+    check must decline rather than invent a needle and abort every sweep."""
+    assert fp.seed_literal(b"len(a)", b"len(b)") is None
+    fp.require_seed_reaches_the_child(tmp_path / "missing.py", b"len(a)", b"len(b)")
+
+
+def test_the_detector_fires_on_a_genuinely_stale_bytecode_cache(tmp_path):
+    """Constructs the real scenario rather than a stand-in for it.
+
+    A working safeguard and an unnecessary one produce identical observations:
+    zero flips is what you see if this detector is redundant AND what you see if
+    it is the thing preventing them. That is the same unfalsifiability this
+    phase keeps finding, aimed at a control instead of a claim -- so the value
+    is demonstrated here, not inferred.
+
+    Note what this also shows: PYTHONDONTWRITEBYTECODE stops the child *writing*
+    a cache, not *reading* one that already exists. The env var is therefore not
+    a complete fix on a tree where any earlier process left caches behind, and
+    the detector covers that residue.
+    """
+    import os
+    import py_compile
+
+    module = tmp_path / "stale.py"
+    module.write_text("X = 'aaaaaaaaaaaaa'" + chr(10), encoding="utf-8")
+    py_compile.compile(str(module), doraise=True)
+    before = module.stat()
+
+    # The "seed": identical byte length, different content, mtime restored --
+    # exactly what CPython's mtime+size validation cannot distinguish.
+    module.write_text("X = 'probe-literal'" + chr(10), encoding="utf-8")
+    os.utime(module, (before.st_atime, before.st_mtime))
+    assert module.stat().st_size == before.st_size
+
+    with pytest.raises(fp.ProbeAbort, match="does not load it"):
+        fp.require_seed_reaches_the_child(module, b"ORIGINAL", b'"probe-literal"')
+
+
+def test_the_same_seed_passes_once_the_stale_cache_is_gone(tmp_path):
+    """The other half: without the stale cache the identical seed is accepted,
+    so the abort above is attributable to staleness and not to the seed."""
+    import shutil
+
+    module = tmp_path / "fresh.py"
+    module.write_text("X = 'probe-literal'" + chr(10), encoding="utf-8")
+    shutil.rmtree(tmp_path / "__pycache__", ignore_errors=True)
+    fp.require_seed_reaches_the_child(module, b"ORIGINAL", b'"probe-literal"')
