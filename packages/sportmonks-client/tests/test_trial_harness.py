@@ -777,6 +777,22 @@ def test_trial_output_is_gitignored_after_a_run_that_wrote_there():
 
 
 @requires_git
+def test_the_runtime_artifact_rules_are_present_not_merely_effective():
+    """`downloaded_files/` and the other Claude Code runtime artifacts.
+
+    Lives here because this is where the `git status --ignored` helper is, not
+    because the package owns repo-root hygiene. It is asserted at all because
+    the rule shipped alongside the `trial-output/` one and was proven only by
+    *observing* `!!` — deleting the line left the suite green, so the coverage
+    was the state of the tree rather than anything a test held.
+    """
+    ignored = _git_ignored_entries(str(REPO_ROOT))
+    missing = [name for name in ("downloaded_files", ".claude/worktrees")
+               if not any(name in entry for entry in ignored)]
+    assert not missing, f"runtime artifacts untracked but not ignored: {missing}"
+
+
+@requires_git
 def test_no_raw_snapshot_payload_is_tracked_anywhere():
     tracked = _git_ls_files("packages/sportmonks-client/")
     assert not [p for p in tracked if "/raw/" in p or "trial-output" in p]
