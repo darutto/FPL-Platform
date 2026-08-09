@@ -266,7 +266,9 @@ def run_seed(
     io = io or _FileIO()
     held = apply_seed(seed.path, seed.old, seed.new, io=io)
     try:
-        require_seed_reaches_the_child(seed.path, seed.old, seed.new)
+        # EXPERIMENT ARM (#101): detector disabled, env var still set.
+        # One variable changed, to tell timing from detection.
+        pass  # require_seed_reaches_the_child(seed.path, seed.old, seed.new)
         basetemp = basetemp_root / sanitize_identifier(seed.label)
         basetemp.mkdir(parents=True, exist_ok=True)
         result = runner(basetemp)
