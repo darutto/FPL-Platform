@@ -37,6 +37,37 @@ from sportmonks_client.errors import (  # noqa: E402
 SCRIPT = "trial_auth"
 OBJECTIVE_17 = "API rate limits and pagination"
 
+#: Standing DoD items 10 and 11, per entry: which item-10 branch the entry falls
+#: under, and the test that supplies its item-11 two-input equality proof.
+#:
+#: Every entry here is under item 10's **first** branch -- its existence is not
+#: itself an observation, so each must disappear when its underlying data is
+#: absent, and each has a test asserting exactly that. None is appended
+#: unconditionally.
+#:
+#: `test_every_entry_is_declared_and_names_a_test_that_exists` asserts this
+#: mapping's keys equal the names actually emitted and that every test named
+#: here resolves. A declaration naming a test nobody can find is worse than
+#: none: it reads as a commitment while committing to nothing.
+DECLARED_SHAPES = {
+    "pagination": (
+        "test_the_pagination_entry_names_the_location_the_response_actually_used",
+        "test_removing_the_pagination_metadata_drops_the_shape",
+    ),
+    "rejected_envelope": (
+        "test_a_payload_the_parser_rejects_degrades_and_records_what_arrived",
+        "test_the_rejected_envelope_records_the_response_that_was_refused",
+    ),
+    "rate_limit_headers": (
+        "test_the_rate_limit_entry_names_the_headers_that_arrived_and_no_others",
+        "test_removing_the_headers_degrades_the_objective_and_drops_the_shape",
+    ),
+    "retry_after": (
+        "test_the_retry_after_entry_carries_the_value_that_arrived",
+        "test_removing_the_throttle_drops_the_retry_shape_and_warns",
+    ),
+}
+
 
 #: The full documented rate-limit header set. Tests select subsets of it to
 #: prove the reported fields track the payload rather than this constant:
