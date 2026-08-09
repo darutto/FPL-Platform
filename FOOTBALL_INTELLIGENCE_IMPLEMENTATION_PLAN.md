@@ -2537,6 +2537,24 @@ Three is also the number the only available evidence supports: S5's three review
 
 The threshold counts **in-scope** survivors only. Exempt roles are printed but do not count, and an exemption invented during triage to duck the threshold is the failure this rule exists to prevent — which is why exemptions are declared with reasons and the exemption list itself is pinned by test.
 
+#### Pre-registered: does any of this reduce rework? — the S5a/S5b measurement
+
+Written **before S5a starts** and before any of its findings exist. A reading agreed after the numbers are in is not a prediction; it is an interpretation, and the interpreter is the person whose work is being measured.
+
+**The hypothesis.** Standing DoD items 12 and 13, plus mechanical site enumeration by the falsifiability probe, reduce the substantive rework a slice needs before it can merge.
+
+**The baseline.** S5 is the only slice with a measured rework history: three independent review passes returned **3, 6, and 4** substantive findings, never converging — which is where the rewrite threshold of 3 came from. S5a and S5b are that same slice split, written against the same objectives, so they are the closest thing this phase has to a repeat measurement.
+
+**The three criteria, fixed now:**
+
+1. **Substantive findings only.** A finding counts when it changes executable behaviour or an assertion — a wrong value, an unfalsifiable test, a missing branch, a contract violation. Wording, docstrings, naming, and plan prose do not count, in either direction. The rule is applied to the *baseline* numbers too; 3, 6, 4 were substantive counts already.
+2. **S5a and S5b are compared summed.** They are one slice split for size, not two independent samples. Counting them separately would halve the apparent rate by construction and make any comparison against the baseline meaningless.
+3. **A summed total of ≥4 falsifies the hypothesis.** Not "suggests more work is needed" — falsifies it. Four is inside the baseline's own range (3, 6, 4), so a result there is indistinguishable from the instruments having changed nothing.
+
+**What the measurement cannot show, recorded so it is not claimed later.** n=1. The scripts differ from the originals, the objectives are the same but the payloads are not, and the largest uncontrolled variable is that the same author has now been through S2 and S3 — learning that would show up as improvement whether or not the instruments did anything. A pass under 4 is *consistent with* the hypothesis; it does not isolate the cause.
+
+**What is already known, and is not evidence for the hypothesis.** S3 needed one rewrite: six in-scope survivors on first sweep, one defect class, over the threshold. The defensible claim from S3 is narrower than "less rework" — the instrument changed **who found the rework and how fast**, from a reviewer over a full pass to a mechanical sweep in minutes. Whether that compounds into less rework is exactly what is untested, and is why this is written down before S5a rather than after.
+
 #### Instruments that answer the adjacent question — a class, for S3–S6
 
 Three failures this phase share one shape: **a confident, well-formed answer to a question next to the one being asked.** They are cheap to write and read as coverage, so name them before the remaining slices reach for them.
