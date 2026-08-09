@@ -2467,6 +2467,20 @@ Every `trial_*.py` is a thin script over `_trial_common.py`. S2 freezes:
 
 Each of these is a command with a checkable result, not an intention:
 
+> **Running these locally on Windows: pass `--basetemp`.**
+> ```
+> python -m pytest --basetemp=<a writable dir>   # plus PYTHONIOENCODING=utf-8
+> ```
+> Without it, every `tmp_path` test errors with `PermissionError: [WinError 5]` on
+> `%LOCALAPPDATA%\Temp\pytest-of-<user>` — 54 errors in `fpl-grounded-assistant`,
+> 22 in `sportmonks-client`. Those errors were treated as an environmental fact of
+> the machine for most of FI-7 and FI-8, and every count in this document was
+> therefore verified through a CI round-trip. They are fixable with this one flag.
+> **A test that errors cannot falsify anything**, so a seeding probe or
+> falsification matrix run without it silently over-reports survivors. With the
+> flag, local runs are authoritative: `fpl-grounded-assistant` → 593 passed / 0
+> errors, `sportmonks-client` → its full count / 0 errors.
+
 1. `cd packages/sportmonks-client && python -m pytest` exits 0, with a test count **≥ the previous slice's** count (the S0 baseline is 67).
 2. Every `trial_*.py` added by the slice runs `--mock` end-to-end, exits 0, and writes both report artifacts.
 3. The autouse guard in `tests/conftest.py` patches every HTTP entry point the package's dependencies expose (frozen-contract rule 4) to raise, and a test proves it fires by attempting a real `requests.Session().request(...)`. Before S2 creates the guard, the slice must instead show that no new live-capable call path was added. **Do not substitute a `grep` for `RequestsTransport`** — that target is a wrapper, not the boundary, and greping it both misses bypass paths and flags the 12 legitimate constructions in `tests/test_config_transport.py`.
@@ -2476,7 +2490,9 @@ Each of these is a command with a checkable result, not an intention:
 7. No file outside `packages/sportmonks-client/`, `.github/workflows/package-test-suites.yml`, and this plan document is modified, except where a slice below explicitly says otherwise (only S6 does, and only to *read*).
 8. Every artifact the slice creates or modifies is internally self-consistent: no table contradicts its own legend, no prose contradicts its own table, and no identifier appears in more than one spelling. Where a slice defines or consumes a vocabulary, schema, or enum, every use of it within the slice matches that definition exactly. Where the definition lives outside the slice, verify the spelling against its source repo-wide, not only within the slice — an identifier can be perfectly consistent inside a slice and still be wrong everywhere it appears.
 9. `git ls-files packages/sportmonks-client/trial-output/` returns nothing, and no raw snapshot payload is tracked anywhere. The ignore rule is added in the same slice that creates the writer.
-10. Every objective's `status` and `evidence`, and every `observed_shapes[]` entry, is derived from the response actually received — never a literal. Each is covered by a test that removes or blanks the underlying data and asserts the objective degrades and the shape entry disappears. **A shape entry appended unconditionally is an assertion wearing an observation's name.**
+10. Every objective's `status` and `evidence`, and every `observed_shapes[]` entry, is derived from the response actually received — never a literal. Each is covered by a test that removes or blanks the underlying data and asserts the objective degrades and the shape entry disappears. Where an entry's **existence is itself the observation** (an outcome that must be reported even when the thing was absent), test instead that its **content changes with the input** — and **state in the slice which of the two applies to each entry**. **A shape entry appended unconditionally, with no declared reason and no content test, is an assertion wearing an observation's name.**
+
+The declaration clause is the load-bearing half. "Existence is the observation" is a legitimate reading — S3's per-family sweep must report `unavailable` as an outcome, so an entry that vanished on absence could not report it — but it is also exactly the shape a rationalisation takes when reached for after the fact. Requiring the author to declare per entry which obligation they are under makes the choice a commitment made in advance rather than a defence assembled in review. The review that produced this wording accepted the argument on its merits **and then held the slice to the obligation that reading creates**: entries that never disappear must have tests proving their content moves, and that slice had them for 3 of 15.
 
 Item 10 exists because the principle was already in the frozen contract — *"shape reporting over shape assertion"* — and in `TRIAL_STATUS.md` — *"an objective with a status but no pointer is not observed; it is asserted"* — and **nothing executed either of them**. S2's first version reported `"rate-limit headers observed"` and a `rate_limit_headers` shape entry from hardcoded strings; deleting every header from the payload left the report byte-identical and still exiting 0. Two reviewers checked the schema's shape, its byte-stability, its example match, and its status enum, and neither asked whether the fields were derived from anything. The defect was found by an independent verifier **running** the experiment — strip the headers, observe nothing change — not by reading the code. Item 10 turns that experiment into a required test per objective, so S3–S6 cannot inherit the pattern even by copying the worked example.
 
