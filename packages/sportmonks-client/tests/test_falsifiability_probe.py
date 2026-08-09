@@ -183,9 +183,27 @@ def test_two_labels_differing_only_in_forbidden_characters_do_not_collide():
 
 def test_basetemp_is_validated_before_the_first_run_not_discovered_mid_sweep(tmp_path):
     """The colon failure surfaced 39 errors into a run. The path is checked
-    once, up front, against the platform actually running."""
+    once, up front, against the platform actually running.
+
+    The unusable path here is one *whose parent is a regular file* — invalid on
+    every platform. The first version used `no:such/dir`, which is invalid on
+    Windows and a perfectly ordinary directory name on Linux, so this test
+    passed locally and failed on the runner. That is the same
+    ambient-assumption error as #94's ignore check: an assertion about the
+    machine it happened to run on, wearing a claim about behaviour.
+    """
+    blocker = tmp_path / "a-file"
+    blocker.write_bytes(b"not a directory")
     with pytest.raises(ProbeAbort, match="not a usable basetemp"):
-        fp.validate_basetemp_root(tmp_path / "no:such" / "dir")
+        fp.validate_basetemp_root(blocker / "child")
+
+
+@pytest.mark.parametrize("label", ["a:b", "a/b", "a\\b"])
+def test_sanitizing_covers_separators_that_differ_by_platform(label):
+    """`:` is only special on Windows and `\\` only on Windows, but a probe run
+    on either must produce the same directory names, or a survivor's basetemp
+    depends on who ran it."""
+    assert not set(fp.sanitize_identifier(label)) & set(':/\\')
 
 
 def test_basetemp_is_created_before_the_suite_runs(tmp_path):
