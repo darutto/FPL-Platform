@@ -49,6 +49,23 @@ Where each is measured:
 | 2 | Licensing blocks derived display | no | |
 | 3 | Mapping <90% auto | no | |
 
+**Before any `unavailable` is read as evidence for a NO-GO, check the exit code.**
+An endpoint family reported `unavailable` means *the provider did not answer for
+that family*. It does **not** mean the endpoint is missing from our plan — and
+those two readings lead to opposite decisions. A run that ended in a credential
+failure exits **3** and reports nothing about coverage at all; only a run that
+exited **0** or **1** carries a coverage claim worth reading.
+
+This is not hypothetical. S3 shipped with a defect that made a rejected token
+report as per-family unavailability: `SportmonksAuthenticationError` subclasses
+`SportmonksError`, so the sweep's broad catch swallowed it, and a 401 on every
+family would have produced *"15 families unavailable"* with exit 1. That report
+is not a failure signal — it is a **plausible NO-GO**, and it would have
+recommended against buying the product on trial day 1 from a credential typo.
+The taxonomy is fixed and pinned (standing DoD item 13), and the check stays
+here because the cost of this class of error is a wrong *decision*, not a wrong
+test.
+
 **Condition 1 is the one to watch.** Every grid fixture checked into this package
 is documentation-derived and carries `"status": "unverified_against_live"` in its
 `_fixture` block (see `sportmonks_client/assumptions.py`); the semantics are not

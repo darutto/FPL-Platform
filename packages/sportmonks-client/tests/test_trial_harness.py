@@ -111,11 +111,26 @@ def test_the_adapter_layer_refuses_on_its_own_with_the_session_layer_stood_down(
 #: exactly as production code would.
 GUARDED_DIRS = ("sportmonks_client", "scripts", "tests")
 
+def _first_party_roots():
+    """Top-level names this package supplies itself, derived from the tree.
+
+    Written as a literal list first, which broke on the next slice: S3 added two
+    scripts and the allowlist failed on our own files. Making a maintainer edit
+    a list every time they add a script is precisely the friction that ends in
+    someone loosening the assertion instead — so the list is derived. It can
+    only ever classify *our own files* as first-party, which they are.
+    """
+    roots = {
+        child.name for child in PACKAGE_ROOT.iterdir()
+        if (child / "__init__.py").exists()
+    }
+    for directory in GUARDED_DIRS:
+        roots |= {path.stem for path in (PACKAGE_ROOT / directory).glob("*.py")}
+    return frozenset(roots)
+
+
 #: Modules importable from this package that are neither stdlib nor third-party.
-FIRST_PARTY = frozenset({
-    "sportmonks_client", "_trial_common", "trial_auth", "conftest",
-    "falsifiability_probe",
-})
+FIRST_PARTY = _first_party_roots()
 
 #: The pin. Growth here is an event, not a drift: adding an entry is a
 #: deliberate edit that must be accompanied by extending the conftest guard to
@@ -207,6 +222,15 @@ def test_requests_is_the_only_network_client_the_package_can_reach(monkeypatch):
         "narrow NETWORK_CAPABLE_STDLIB above to the dotted names that can, "
         "the way `urllib.request` is listed and `urllib.parse` is not."
     )
+
+
+def test_the_first_party_derivation_finds_the_modules_it_is_supposed_to():
+    """Derived, so it needs its own subject: a derivation returning everything
+    would classify a real third-party client as ours and the pin would pass
+    while guarding nothing."""
+    assert {"sportmonks_client", "trial_auth", "conftest"} <= FIRST_PARTY
+    assert "requests" not in FIRST_PARTY
+    assert "pytest" not in FIRST_PARTY
 
 
 def test_the_completeness_check_actually_read_the_package(monkeypatch):

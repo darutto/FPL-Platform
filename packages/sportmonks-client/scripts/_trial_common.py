@@ -331,6 +331,75 @@ class ReplayTransport:
         return item
 
 
+#: The term the discovery scripts resolve the competition by. An **input**, the
+#: same way an endpoint path is an input — what gets *observed* is the id the
+#: provider returns for it, which is why no league id is written down anywhere
+#: in the trial scripts. Defined once here because S3's two scripts must search
+#: by the same term or their reports describe different competitions.
+COMPETITION_NAME = "Premier League"
+
+
+def match_by_name(records: Sequence[Any], term: str) -> tuple[Any, ...]:
+    """Records whose reported `name` contains `term`, case-insensitively.
+
+    Returns every match. Callers must report an ambiguous result rather than
+    take the first: which of two similarly-named competitions is the intended
+    one is a question for the provider (§17), not a tie a script may break.
+    """
+    needle = term.casefold()
+    return tuple(
+        record for record in records
+        if needle in str(record.raw_fields.get("name", "")).casefold()
+    )
+
+
+class EndpointReplayTransport:
+    """Serves checked-in responses keyed by **endpoint**, not by call order.
+
+    `ReplayTransport` pops in sequence, which is right for a script that calls
+    one family repeatedly. A sweep across fifteen families cannot use it: if the
+    order a script iterates ever diverges from the order the fixtures were
+    stacked, one family's payload is reported under another family's name. That
+    is not a crash — it is a *misobservation that looks like data*, the exact
+    failure the trial scripts exist to avoid producing.
+
+    Keys are endpoint paths as `ENDPOINTS` spells them (`leagues`,
+    `statistics/fixtures/teams`). Matching takes the **longest** key whose
+    `/`-prefixed form the URL ends with, because `.../statistics/fixtures/teams`
+    ends with `/teams` as well and a shortest-match would serve the wrong one.
+
+    A value may be a response, an `Exception` to raise (an unavailable family is
+    an observation), a list served in order for repeated calls to one endpoint,
+    or a callable taking the request params — which is how one endpoint answers
+    two different questions without the script depending on call order.
+
+    An unmapped endpoint raises. A mock that silently answered "nothing here"
+    for a family nobody wrote a fixture for would report `empty` — a claim about
+    the provider — when the truth is a gap in our own corpus.
+    """
+
+    def __init__(self, by_endpoint: Mapping[str, Any]) -> None:
+        self._by_endpoint = dict(by_endpoint)
+        self.calls: list[tuple[str, str, dict[str, Any], float]] = []
+
+    def _match(self, url: str) -> str:
+        candidates = [key for key in self._by_endpoint if url.endswith(f"/{key}")]
+        if not candidates:
+            raise KeyError(f"no mock response mapped for {url!r}")
+        return max(candidates, key=len)
+
+    def request(self, method: str, url: str, *, params: Mapping[str, Any], timeout: float) -> TransportResponse:
+        self.calls.append((method, url, dict(params), timeout))
+        item = self._by_endpoint[self._match(url)]
+        if isinstance(item, list):
+            item = item.pop(0)
+        if callable(item) and not isinstance(item, Exception):
+            item = item(dict(params))
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+
 def response(body: Any, status: int = 200, headers: Mapping[str, str] | None = None) -> TransportResponse:
     return TransportResponse(status, dict(headers or {}), body)
 
