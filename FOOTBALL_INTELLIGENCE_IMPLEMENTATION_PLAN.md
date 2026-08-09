@@ -2549,6 +2549,9 @@ Three failures this phase share one shape: **a confident, well-formed answer to 
 | a regex over CI logs for test IDs | which tests ran? | which test IDs contain no spaces? |
 | `read_text` comparison | are these files byte-identical? | are they identical after universal-newline translation? |
 | an outcome assertion over redundant layers | is *this* layer working? | is *some* layer working? |
+| `inspect.getsource` | is the seeded code what actually *runs*? | what does the `.py` on disk *say*? |
+
+The `inspect.getsource` entry is the sharpest of these and the one anyone would reach for: to check that a seed took effect, read the module's source. It re-reads the `.py` from disk, so it reports the seed **while stale bytecode executes** — a detector that returns success exactly when the bug it is looking for is active. The working form interrogates the compiled artifact: `spec.loader.get_code(...)`, which honours the bytecode cache, then searches `co_consts` for the literal the seed introduced. Measured cost of not having it: 3 false in-scope survivors in 20 CI runs, each a fully green suite with the seed genuinely on disk.
 
 The regex one nearly cost a day: extracting test IDs with `[^ ]+` silently dropped every parametrized case whose id contains a space, reporting 170 where 181 ran. An 11-test gap between platforms is exactly the evidence that would have justified a "Windows is the lenient environment" investigation — one the direct set comparison had already ruled out. **A measurement that under-reports produces the most convincing kind of wrong answer: one that confirms a plausible prior.**
 
