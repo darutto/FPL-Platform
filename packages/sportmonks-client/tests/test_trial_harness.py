@@ -6,6 +6,7 @@ and byte-stability of mock output.
 """
 from __future__ import annotations
 
+import ast
 import json
 import subprocess
 import sys
@@ -93,6 +94,105 @@ def test_the_adapter_layer_refuses_on_its_own_with_the_session_layer_stood_down(
     monkeypatch.setattr(requests.Session, "request", REAL_SESSION_REQUEST)
     with pytest.raises(AssertionError, match="live network call attempted"):
         requests.adapters.HTTPAdapter().send(requests.Request("GET", LOOPBACK).prepare())
+
+
+# The isolation tests above prove each layer catches the call alone. They say
+# nothing about whether the two layers *cover the surface* -- that holds only
+# while `requests` is the package's sole way out. Today it is: `transport.py:8`
+# is the one import, and nothing here reaches the network by any other route.
+#
+# That is a standing condition, not a settled fact. The day someone adds `httpx`
+# the guard becomes incomplete, and the discovery would otherwise be a live call
+# during FI-9. So the condition is pinned rather than remembered: an allowlist,
+# not a denylist, so a client nobody thought of fails it too.
+
+#: Directories the guard's completeness claim covers. `tests/` is included
+#: deliberately -- a test that imported another client would bypass the guard
+#: exactly as production code would.
+GUARDED_DIRS = ("sportmonks_client", "scripts", "tests")
+
+#: Modules importable from this package that are neither stdlib nor third-party.
+FIRST_PARTY = frozenset({
+    "sportmonks_client", "_trial_common", "trial_auth", "conftest",
+    "falsifiability_probe",
+})
+
+#: The pin. Growth here is an event, not a drift: adding an entry is a
+#: deliberate edit that must be accompanied by extending the conftest guard to
+#: that library's entry points, or by an argument for why it cannot reach the
+#: network.
+EXPECTED_THIRD_PARTY = frozenset({"requests", "pytest"})
+
+#: Stdlib routes out, matched on the full dotted name so that `urllib.parse`
+#: -- string handling, not networking -- does not read as a violation.
+NETWORK_CAPABLE_STDLIB = (
+    "socket", "ssl", "http", "urllib.request", "urllib.error", "ftplib",
+    "smtplib", "poplib", "imaplib", "nntplib", "xmlrpc", "asyncio",
+    "webbrowser", "socketserver",
+)
+
+
+def _imported_modules(*roots):
+    """Every module imported under `roots`, by full dotted name.
+
+    Parses rather than greps: the same reason `test_the_probe_never_shells_out_
+    to_git_to_restore` uses the AST. A docstring naming `httpx` is not an import
+    of it, and a grep cannot tell the difference.
+    """
+    found = {}
+    for root in roots:
+        for path in sorted(Path(root).rglob("*.py")):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    names = [alias.name for alias in node.names]
+                elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                    names = [node.module]
+                else:
+                    continue
+                for name in names:
+                    found.setdefault(name, set()).add(str(path))
+    return found
+
+
+def test_the_import_enumerator_reports_what_each_file_imports(tmp_path):
+    """Two inputs, different expectations -- the enumerator is the instrument
+    every claim below rests on, so it is measured before it is trusted."""
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    (tmp_path / "a" / "one.py").write_text(
+        "import requests\nfrom urllib.parse import quote\n", encoding="utf-8")
+    (tmp_path / "b" / "two.py").write_text(
+        '"""httpx is named here but not imported."""\nimport socket\n', encoding="utf-8")
+
+    assert set(_imported_modules(tmp_path / "a")) == {"requests", "urllib.parse"}
+    assert set(_imported_modules(tmp_path / "b")) == {"socket"}
+
+
+def test_requests_is_the_only_network_client_the_package_can_reach(monkeypatch):
+    monkeypatch.chdir(PACKAGE_ROOT)
+    imported = _imported_modules(*GUARDED_DIRS)
+    third_party = {
+        name.split(".")[0] for name in imported
+        if name.split(".")[0] not in sys.stdlib_module_names
+        and name.split(".")[0] not in FIRST_PARTY
+    }
+    assert third_party == EXPECTED_THIRD_PARTY
+
+    reached = sorted(
+        name for name in imported
+        if any(name == mod or name.startswith(f"{mod}.")
+               for mod in NETWORK_CAPABLE_STDLIB)
+    )
+    assert reached == []
+
+
+def test_the_completeness_check_actually_read_the_package(monkeypatch):
+    """Both assertions above are satisfiable by an enumerator that scanned
+    nothing. This one is not: it names the file the guard's premise rests on."""
+    monkeypatch.chdir(PACKAGE_ROOT)
+    imported = _imported_modules(*GUARDED_DIRS)
+    assert str(Path("sportmonks_client/transport.py")) in imported["requests"]
 
 
 def test_default_client_construction_cannot_reach_the_network(monkeypatch):
