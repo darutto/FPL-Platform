@@ -38,12 +38,13 @@ from __future__ import annotations
 
 import argparse
 import ast
+import os
 import re
 import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Sequence
+from typing import Callable, NamedTuple, Sequence
 
 KILLED = "killed"
 SURVIVED = "SURVIVED"
@@ -185,12 +186,27 @@ def restore(path: Path, held: bytes, io: _FileIO | None = None) -> None:
         raise ProbeAbort(f"restore did not reproduce {path.name} byte for byte; stopping")
 
 
+class SeedOutcome(NamedTuple):
+    """A verdict and the suite summary it was scored from.
+
+    The summary is not decoration. A bare verdict cannot be diagnosed: a
+    `SURVIVED` that is genuine and a `KILLED` produced by an unrelated flaky
+    test look identical in the output, and telling them apart afterwards means
+    re-running the whole sweep. Carrying the line the verdict was read from
+    makes each row self-diagnosing.
+    """
+
+    verdict: str
+    summary: str
+    failed: tuple[str, ...] = ()
+
+
 def run_seed(
     seed: Seed,
     runner: Callable[[Path], SuiteResult],
     basetemp_root: Path,
     io: _FileIO | None = None,
-) -> str:
+) -> SeedOutcome:
     io = io or _FileIO()
     held = apply_seed(seed.path, seed.old, seed.new, io=io)
     try:
@@ -205,7 +221,7 @@ def run_seed(
             f"the run for {seed.label!r} measured nothing (summary: {result.summary!r}). "
             "A test that errors cannot falsify anything."
         )
-    return verdict
+    return SeedOutcome(verdict, result.summary, tuple(result.failed))
 
 
 def require_positive_control(positive: Seed | None) -> Seed:
@@ -235,13 +251,13 @@ def check_controls(
     io = io or _FileIO()
     held = io.read_bytes(target)
     noop = Seed("negative-control", target, held, held + b"\r\n# probe no-op\r\n")
-    if run_seed(noop, runner, basetemp_root, io=io) != SURVIVED:
+    if run_seed(noop, runner, basetemp_root, io=io).verdict != SURVIVED:
         raise ProbeAbort(
             "negative control was killed: a no-op edit changed the result, so this "
             "sweep is measuring the harness, not the seeds. Every verdict is void."
         )
     control = require_positive_control(positive)
-    if run_seed(control, runner, basetemp_root, io=io) != KILLED:
+    if run_seed(control, runner, basetemp_root, io=io).verdict != KILLED:
         raise ProbeAbort(
             f"positive control {control.label!r} survived: a known-bad edit went "
             "unnoticed, so a clean sweep proves nothing."
@@ -384,9 +400,91 @@ def pytest_runner(package_root: Path) -> Callable[[Path], SuiteResult]:
         )
         lines = completed.stdout.splitlines()
         summaries = [l for l in lines if re.search(r"\d+ (passed|failed|error)", l)]
-        failed = [l.split("::")[-1] for l in lines if l.startswith("FAILED")]
+        # Full node ids, not bare test names: the module matters. When a sweep
+        # was invalidated by a concurrent edit, the tell was failures in a
+        # module unrelated to the seeded file -- invisible if the path is cut.
+        failed = [l[len("FAILED "):].split(" ")[0] for l in lines if l.startswith("FAILED")]
         return SuiteResult(summaries[-1] if summaries else "", failed)
     return run
+
+
+#: Held for the duration of a sweep. A second probe starting while one is in
+#: flight would seed a tree the first is mid-restore on, and neither run's
+#: verdicts would be attributable to its own seeds.
+LOCK_NAME = ".probe-in-flight"
+
+
+class _SweepLock:
+    """Refuse to start a second sweep in the same package tree.
+
+    Measured, not anticipated: a background sweep and a foreground hand-seed
+    ran against one checkout, and five tests from an unrelated module failed in
+    the seeded run. Both results were void. The rule "one worktree per agent or
+    serialize" was being actively restated by its author at the time — which is
+    the cleanest available demonstration that a rule form does not hold, even
+    for the person holding it. **An instrument that can be invalidated by a
+    condition it does not check will be.**
+    """
+
+    def __init__(self, root: Path) -> None:
+        self._path = root / LOCK_NAME
+
+    def __enter__(self) -> "_SweepLock":
+        try:
+            # O_EXCL: the check and the claim are one operation, so two probes
+            # starting together cannot both see "no lock" and proceed.
+            handle = os.open(self._path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            raise ProbeAbort(
+                f"another sweep holds {self._path}. Two probes in one tree cannot "
+                "attribute verdicts to their own seeds. Wait for it, or run in a "
+                f"separate git worktree. If no sweep is running, delete {LOCK_NAME}."
+            ) from None
+        os.write(handle, str(os.getpid()).encode())
+        os.close(handle)
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        self._path.unlink(missing_ok=True)
+
+
+def require_clean_tree(package_root: Path, *, phase: str = "start") -> None:
+    """Refuse to sweep a tree with uncommitted changes to tracked files.
+
+    A sweep restores every seed it applies, verified byte for byte. It cannot
+    restore an edit it did not make — so a crash mid-sweep on a dirty tree
+    leaves the author unable to tell their own work from the probe's residue.
+    Untracked files are permitted: a new slice's scripts are untracked by
+    definition, and refusing them would make the probe unusable exactly when it
+    is most needed.
+
+    Called at **both ends** of a sweep. The start check is a t=0 check, and a
+    t=0 check certifies nothing about a property that can change per seed: the
+    lock stops a second *process*, but nothing stops a hand edit mid-sweep,
+    which is materially what the incident was. A tree clean at the start and
+    dirty at the finish means something moved underneath the run, and every
+    verdict in between is unattributable — the same voiding rule as a negative
+    control that survives at the start and dies at the end.
+    """
+    result = subprocess.run(
+        ["git", "status", "--porcelain", "--untracked-files=no", "--", str(package_root)],
+        capture_output=True, text=True, cwd=package_root,
+    )
+    if result.returncode != 0:
+        raise ProbeAbort(f"could not determine tree state: {result.stderr.strip()}")
+    if result.stdout.strip():
+        changed = ", ".join(line[3:] for line in result.stdout.splitlines()[:5])
+        if phase == "start":
+            raise ProbeAbort(
+                f"tracked files have uncommitted changes ({changed}). A sweep restores "
+                "only what it seeded; it cannot tell your edits from its own residue "
+                "if it stops midway. Commit or stash first."
+            )
+        raise ProbeAbort(
+            f"the tree is dirty at the end of the sweep ({changed}), and it was clean "
+            "at the start. Something changed underneath the run, so no verdict above "
+            "is attributable to its own seed. THIS SWEEP IS VOID."
+        )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -402,6 +500,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
+        require_clean_tree(PACKAGE_ROOT)
         root = validate_basetemp_root(args.basetemp_root)
         runner = pytest_runner(PACKAGE_ROOT)
 
@@ -418,13 +517,23 @@ def main(argv: list[str] | None = None) -> int:
 
         verdicts, labels, survivors, exempt = [], [], [], []
         for seed in seeds:
-            verdict = run_seed(seed, runner, root)
+            outcome = run_seed(seed, runner, root)
+            verdict = outcome.verdict
             verdicts.append(verdict)
             labels.append(seed.label)
             if verdict != KILLED:
                 (exempt if is_exempt(seed.label) else survivors).append(seed.label)
             marker = " (exempt)" if is_exempt(seed.label) else ""
-            print(f"{verdict:9} {seed.label}{marker}")
+            # The node ids are the diagnostic half. Two seeds can share the
+            # summary `1 failed, 258 passed` and mean opposite things: killed by
+            # the test that targets the site, or killed by an unrelated flaky
+            # test. Counts cannot tell those apart; names can, and a flip then
+            # reads itself off the log instead of needing a forensic diff.
+            names = ", ".join(outcome.failed[:3]) or "-"
+            print(f"{verdict:9} {seed.label}{marker}  [{outcome.summary}] {names}")
+
+        # Both ends of the window, same voiding rule.
+        require_clean_tree(PACKAGE_ROOT, phase="end")
     except ProbeAbort as exc:
         print(f"ABORT: {exc}")
         return 3

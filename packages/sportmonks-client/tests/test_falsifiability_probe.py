@@ -134,26 +134,48 @@ def test_a_corrupted_restore_aborts_rather_than_continuing(tmp_path):
         fp.restore(target, b"x = f()\r\n", io=Sabotage())
 
 
-def test_the_probe_never_shells_out_to_git_to_restore():
+#: git subcommands the probe may execute. Read-only only, and pinned so that
+#: adding one is a deliberate edit rather than a drift. `checkout`, `restore`,
+#: `stash`, `reset` and `clean` are the ones that would silently widen a
+#: change-scoped restore into a file-scoped one.
+ALLOWED_GIT_SUBCOMMANDS = frozenset({"status"})
+
+
+def test_the_probe_only_ever_runs_read_only_git_commands():
     """A restore scoped to a *file* is wider than a restore scoped to a
-    *change*. `git checkout -- <file>` reverted an unrelated edit made minutes
-    earlier in the same file. Byte-scoped restore or nothing."""
+    *change*: `git checkout -- <file>` reverted an unrelated edit made minutes
+    earlier in the same file. Byte-scoped restore or nothing.
+
+    This originally banned the string `git` outright, which was the right
+    prohibition stated too broadly — it also forbade `git status`, which the
+    dirty-tree precondition needs and which cannot restore anything. Narrowed
+    to the actual hazard: every git subcommand the probe executes must be on a
+    pinned read-only list, so `checkout` cannot re-enter and the allowlist
+    cannot grow by accident.
+    """
     import ast
 
     tree = ast.parse(Path(fp.__file__).read_text(encoding="utf-8"))
-    executed = [
-        node.value for node in ast.walk(tree)
-        if isinstance(node, ast.Constant) and isinstance(node.value, str)
-        and not isinstance(getattr(node, "parent", None), ast.Expr)
-    ]
-    # Docstrings legitimately discuss `git checkout` — that is the finding this
-    # exists to record. What must not appear is git in anything *executed*.
-    docstrings = {ast.get_docstring(n) for n in ast.walk(tree)
-                  if isinstance(n, (ast.Module, ast.FunctionDef, ast.ClassDef))}
-    code_strings = [s for s in executed if s not in docstrings]
-    assert not [s for s in code_strings if "git" in s.split()], (
-        f"probe must not shell out to git: {[s for s in code_strings if 'git' in s]}"
+    subcommands = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.List) or not node.elts:
+            continue
+        parts = [e.value for e in node.elts if isinstance(e, ast.Constant)
+                 and isinstance(e.value, str)]
+        if parts and parts[0] == "git":
+            subcommands += [part for part in parts[1:] if not part.startswith("-")][:1]
+
+    assert subcommands, "no git invocation found; this test would pass vacuously"
+    assert set(subcommands) <= ALLOWED_GIT_SUBCOMMANDS, (
+        f"probe executed a git subcommand outside the read-only allowlist: "
+        f"{sorted(set(subcommands) - ALLOWED_GIT_SUBCOMMANDS)}"
     )
+
+
+def test_the_git_allowlist_excludes_every_restoring_subcommand():
+    """The allowlist is the load-bearing half; pin what it must never contain."""
+    assert ALLOWED_GIT_SUBCOMMANDS.isdisjoint(
+        {"checkout", "restore", "stash", "reset", "clean", "revert"})
 
 
 def test_the_seed_is_restored_even_when_the_run_aborts(tmp_path):
@@ -414,3 +436,133 @@ def _noop_io():
         def read_bytes(self, path):
             return path.read_bytes()
     return IO()
+
+
+# --- The sweep's own preconditions ---------------------------------------------
+#
+# Both refusals below exist because the conditions they check were violated in
+# practice, not anticipated in design: a background sweep and a foreground
+# hand-seed ran against one checkout, five tests from an unrelated module failed
+# in the seeded run, and both results were void. The rule form of this
+# ("one worktree per agent, or serialize") was being actively restated by its
+# author at the time. An instrument that can be invalidated by a condition it
+# does not check will be.
+
+def test_a_verdict_carries_the_summary_it_was_scored_from(tmp_path):
+    """Two runs, two different summaries, two different outcomes — a verdict
+    alone cannot distinguish a genuine SURVIVED from a KILLED produced by an
+    unrelated flaky test, which is exactly the ambiguity that cost a sweep."""
+    target = tmp_path / "t.py"
+    target.write_bytes(b"a" + bytes((13, 10)))
+    seed = fp.Seed("s", target, b"a", b"b")
+    io = _noop_io()
+    first = fp.run_seed(seed, _runner("1 failed, 3 passed"), tmp_path / "bt", io)
+    second = fp.run_seed(seed, _runner("4 passed"), tmp_path / "bt", io)
+    assert (first.verdict, first.summary) == (fp.KILLED, "1 failed, 3 passed")
+    assert (second.verdict, second.summary) == (fp.SURVIVED, "4 passed")
+
+
+def test_a_second_sweep_in_the_same_tree_is_refused(tmp_path):
+    with fp._SweepLock(tmp_path):
+        with pytest.raises(fp.ProbeAbort, match="another sweep holds"):
+            with fp._SweepLock(tmp_path):
+                pass
+
+
+def test_the_lock_is_released_even_when_the_sweep_aborts(tmp_path):
+    with pytest.raises(ValueError):
+        with fp._SweepLock(tmp_path):
+            raise ValueError("boom")
+    assert not (tmp_path / fp.LOCK_NAME).exists()
+    with fp._SweepLock(tmp_path):  # the next sweep can start
+        pass
+
+
+def test_a_dirty_tree_is_refused_but_untracked_files_are_not(tmp_path, monkeypatch):
+    """Untracked files must be allowed: a new slice's scripts are untracked by
+    definition, and refusing them would disable the probe exactly when a slice
+    most needs sweeping."""
+    calls = []
+
+    def _fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        import types
+        return types.SimpleNamespace(returncode=0, stdout=_fake_run.stdout, stderr="")
+
+    monkeypatch.setattr(fp.subprocess, "run", _fake_run)
+
+    _fake_run.stdout = ""
+    fp.require_clean_tree(tmp_path)
+
+    _fake_run.stdout = " M scripts/trial_auth.py\n"
+    with pytest.raises(fp.ProbeAbort, match="uncommitted changes"):
+        fp.require_clean_tree(tmp_path)
+
+    assert all("--untracked-files=no" in cmd for cmd in calls)
+
+
+def test_a_tree_dirtied_during_the_sweep_voids_it(tmp_path, monkeypatch):
+    """The start check is a t=0 check. The lock stops a second process; nothing
+    stops a hand edit mid-sweep, which is materially what the incident was. Two
+    phases, two different refusals — and the end-of-sweep one must say the run
+    is void, not merely that the tree is dirty."""
+    import types
+    dirty = " M scripts/trial_auth.py\n"
+    monkeypatch.setattr(
+        fp.subprocess, "run",
+        lambda *a, **k: types.SimpleNamespace(returncode=0, stdout=dirty, stderr=""))
+
+    with pytest.raises(fp.ProbeAbort, match="Commit or stash first") as at_start:
+        fp.require_clean_tree(tmp_path, phase="start")
+    with pytest.raises(fp.ProbeAbort, match="THIS SWEEP IS VOID") as at_end:
+        fp.require_clean_tree(tmp_path, phase="end")
+    assert str(at_start.value) != str(at_end.value)
+
+
+def test_a_verdict_carries_the_node_ids_that_failed(tmp_path):
+    """Two runs with identical summaries and different failing tests.
+
+    `1 failed, 3 passed` cannot distinguish a seed killed by the test that
+    targets it from a seed killed by an unrelated flaky test -- identical
+    counts, opposite meanings. The names are what make a flip read itself off
+    the log rather than needing a diff of two job logs.
+    """
+    target = tmp_path / "t.py"
+    target.write_bytes(b"a" + bytes((13, 10)))
+    seed = fp.Seed("s", target, b"a", b"b")
+
+    def _runner_with(failed):
+        return lambda _bt: fp.SuiteResult("1 failed, 3 passed", failed)
+
+    on_target = fp.run_seed(seed, _runner_with(["tests/test_x.py::test_the_site"]),
+                            tmp_path / "bt", _noop_io())
+    elsewhere = fp.run_seed(seed, _runner_with(["tests/test_other.py::test_unrelated"]),
+                            tmp_path / "bt", _noop_io())
+
+    assert on_target.summary == elsewhere.summary
+    assert on_target.failed == ("tests/test_x.py::test_the_site",)
+    assert elsewhere.failed == ("tests/test_other.py::test_unrelated",)
+    assert on_target.failed != elsewhere.failed
+
+
+def test_the_runner_captures_full_node_ids_from_pytest_output(tmp_path, monkeypatch):
+    """Behavioural, not a grep of the source. Asserting that the file contains
+    a particular slicing expression answers "does this code look right", which
+    is the adjacent-question family the plan names. This drives the parser."""
+    import types
+    stdout = chr(10).join([
+        "FAILED tests/test_trial_harness.py::test_one - AssertionError: x",
+        "FAILED tests/test_trial_discovery.py::test_two[trial_fixtures] - E",
+        "2 failed, 3 passed in 1.0s",
+    ])
+    monkeypatch.setattr(
+        fp.subprocess, "run",
+        lambda *a, **k: types.SimpleNamespace(returncode=1, stdout=stdout, stderr=""))
+
+    result = fp.pytest_runner(tmp_path)(tmp_path / "bt")
+
+    assert result.failed == [
+        "tests/test_trial_harness.py::test_one",
+        "tests/test_trial_discovery.py::test_two[trial_fixtures]",
+    ]
+    assert result.summary == "2 failed, 3 passed in 1.0s"
