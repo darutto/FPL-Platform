@@ -27,6 +27,7 @@ from _trial_common import (  # noqa: E402
     render_markdown, render_skeleton, resolve_mode, response, write_report,
 )
 from sportmonks_client.config import SportmonksConfig
+from sportmonks_client.errors import SportmonksRateLimitError
 
 REPO_ROOT = PACKAGE_ROOT.parent.parent
 
@@ -178,6 +179,78 @@ def test_mock_run_walks_pages_and_observes_rate_limit_headers(tmp_path):
     assert shapes["rate_limit_headers"] == "x-ratelimit-limit, x-ratelimit-remaining, x-ratelimit-reset"
 
 
+#: Header subsets and the exact `rate_limit_headers` entry each must produce.
+#: Standing DoD item 11: the all-or-nothing switch alone could not tell
+#: "reports what arrived" from "reports the canonical set whenever anything
+#: arrived" -- the latter survived a seeding probe of the single-input version.
+RATE_HEADER_SUBSETS = [
+    pytest.param(
+        ("X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"),
+        "x-ratelimit-limit, x-ratelimit-remaining, x-ratelimit-reset",
+        id="all-three",
+    ),
+    pytest.param(("X-RateLimit-Remaining",), "x-ratelimit-remaining", id="remaining-only"),
+    pytest.param(
+        ("X-RateLimit-Limit", "X-RateLimit-Reset"),
+        "x-ratelimit-limit, x-ratelimit-reset",
+        id="limit-and-reset",
+    ),
+]
+
+
+@pytest.mark.parametrize("served,expected", RATE_HEADER_SUBSETS)
+def test_the_rate_limit_entry_names_the_headers_that_arrived_and_no_others(tmp_path, served, expected):
+    _, payload = _run(tmp_path, rate_limit_headers=served)
+    shapes = {s["name"]: s["shape"] for s in payload["observed_shapes"]}
+    assert shapes["rate_limit_headers"] == expected
+    assert f"rate-limit fields seen: {expected}" in payload["objectives"][0]["evidence"]
+
+
+def test_the_rate_header_subsets_are_pairwise_distinguishing():
+    expected = [case.values[1] for case in RATE_HEADER_SUBSETS]
+    assert len(set(expected)) == len(expected) >= 2
+
+
+@pytest.mark.parametrize("value,expected", [("2", "HTTP 429 retry-after=2"), ("7", "HTTP 429 retry-after=7")])
+def test_the_retry_after_entry_carries_the_value_that_arrived(tmp_path, value, expected):
+    """Equality, not containment, and two values. The single-input substring
+    version was satisfied by the literal `"HTTP 429 retry-after=2"`."""
+    _, payload = _run(tmp_path, retry_after=value)
+    shapes = {s["name"]: s["shape"] for s in payload["observed_shapes"]}
+    assert shapes["retry_after"] == expected
+
+
+def test_the_objective_17_evidence_string_is_derived_end_to_end(tmp_path):
+    """The evidence string as a whole, pinned by `==` on two inputs that differ
+    in every derived sub-field. Every prior assertion against it was `in`, so
+    three independent literals inside it survived a seeding probe: the record
+    count, the rate-limit field list, and the Retry-After count."""
+    _, full = _run(tmp_path)
+    assert full["objectives"][0]["evidence"] == (
+        "walked 2 pages, 2 records; "
+        "pagination at: pagination; "
+        "rate-limit fields seen: x-ratelimit-limit, x-ratelimit-remaining, x-ratelimit-reset; "
+        "throttled responses: 1 (with Retry-After: 1)"
+    )
+
+    _, thin = _run(tmp_path, rate_limit_headers=("X-RateLimit-Remaining",), throttle=False, pagination=False)
+    assert thin["objectives"][0]["evidence"] == (
+        "walked 1 pages, 1 records; "
+        "pagination at: none; "
+        "rate-limit fields seen: x-ratelimit-remaining; "
+        "throttled responses: 0 (with Retry-After: 0) — "
+        "pagination did not advance beyond 1 page(s); "
+        "no pagination metadata on any response"
+    )
+    assert full["objectives"][0]["evidence"] != thin["objectives"][0]["evidence"]
+
+    # A third input with **two** throttles. Two inputs alone left the counts
+    # satisfiable by `1 if retry_afters else 0`, which is a boolean wearing an
+    # integer's name -- it survived the probe until this case existed.
+    _, twice = _run(tmp_path, throttle=2)
+    assert "throttled responses: 2 (with Retry-After: 2)" in twice["objectives"][0]["evidence"]
+
+
 def test_removing_the_headers_degrades_the_objective_and_drops_the_shape(tmp_path):
     """Standing DoD item 10, made falsifiable.
 
@@ -304,6 +377,24 @@ def test_a_payload_the_parser_rejects_degrades_and_records_what_arrived(
     assert shapes["rejected_envelope"] == expected_skeleton
 
 
+def test_the_rejected_envelope_records_the_response_that_was_refused(tmp_path):
+    """*Which* exchange the entry reads, which a single-response sequence cannot
+    test: with one response, `exchanges[0]` and `exchanges[-1]` coincide, so
+    swapping them left the suite green. Page one parses; page two is refused. The
+    entry must describe page two -- the one that failed -- and the two pages'
+    skeletons differ, so reading the wrong end is now a failure."""
+    code, payload = _run_with_transport(tmp_path, [
+        response({"data": [{"id": 1}], "pagination": {"current_page": 1, "has_more": True, "next_page": 2}}),
+        response({"data": [{"id": 2}], "meta": {"pagination": {"current_page": 2, "has_more": "no"}}}),
+    ])
+    shapes = {s["name"]: s["shape"] for s in payload["observed_shapes"]}
+    assert code == EXIT_UNMET
+    assert shapes["rejected_envelope"] == "data, meta{pagination{current_page,has_more}}"
+    assert shapes["rejected_envelope"] != "data, pagination{current_page,has_more,next_page}", (
+        "that is page one, which parsed fine"
+    )
+
+
 def test_the_refused_payload_cases_are_pairwise_distinguishing():
     """The property that makes the parametrization falsifying rather than
     merely repetitive. If two cases ever expect the same string, a literal of
@@ -394,6 +485,50 @@ def test_removing_the_throttle_drops_the_retry_shape_and_warns(tmp_path):
     assert not [s for s in payload["observed_shapes"] if s["name"] == "retry_after"]
     assert any("retry pacing is unmeasured" in w for w in payload["warnings"])
     assert "throttled responses: 0" in payload["objectives"][0]["evidence"]
+
+
+# --- The degraded-provider branch ---------------------------------------------
+
+#: Two provider failures that are neither configuration nor authentication, and
+#: the exact reason each must produce. This branch is S2's third correction --
+#: "only Config and Auth map to exit 3; every other provider failure is a
+#: degraded observation" -- and until now **no test reached it**: replacing
+#: `_degraded_report`'s whole body with `raise AssertionError` left all 111
+#: green. Its status and its evidence were both unfalsifiable, which is the
+#: defect that correction was itself written to fix.
+PROVIDER_FAILURES = [
+    pytest.param(
+        [
+            response({"data": [{"id": 1}], "pagination": {"current_page": 1, "has_more": True, "next_page": 2}}),
+            response({"data": [{"id": 2}], "pagination": {"current_page": 1, "has_more": True, "next_page": 2}}),
+        ],
+        "provider error: SportmonksPaginationError",
+        id="pagination-repeats-a-page",
+    ),
+    pytest.param(
+        [SportmonksRateLimitError("rate limited")],
+        "provider error: SportmonksRateLimitError",
+        id="rate-limit-exhausted",
+    ),
+]
+
+
+@pytest.mark.parametrize("served,expected_reason", PROVIDER_FAILURES)
+def test_a_non_auth_provider_failure_degrades_rather_than_exiting_three(
+    tmp_path, capsys, served, expected_reason,
+):
+    code, payload = _run_with_transport(tmp_path, served)
+    objective = payload["objectives"][0]
+    assert code == EXIT_UNMET, "a provider fault is not a configuration failure"
+    assert code != EXIT_CONFIG
+    assert objective["status"] == DEGRADED
+    assert objective["evidence"] == expected_reason
+    assert capsys.readouterr().out.startswith(f"PROVIDER: {expected_reason.split(': ')[1]}")
+
+
+def test_the_provider_failure_cases_are_pairwise_distinguishing():
+    expected = [case.values[1] for case in PROVIDER_FAILURES]
+    assert len(set(expected)) == len(expected) >= 2
 
 
 # --- The frozen report schema -------------------------------------------------

@@ -115,6 +115,15 @@ or falsification check run without this flag silently over-reports survivors.
 `PYTHONIOENCODING=utf-8` separately avoids `cp1252` `UnicodeEncodeError` on
 console output containing non-ASCII.
 
+**A seeding probe needs both controls.** Score a seed as killed only from a run
+that *failed*, never one that *errored*, and include two controls in every
+probe: a no-op edit that must survive, and a known-bad edit that must be
+killed. An FI-8 probe scored all twelve of its seeds as "killed" while
+measuring nothing — the `--basetemp` parent directory did not exist, so every
+run errored out and returned non-zero. The no-op control is what exposed it.
+Also verify the seed was applied: a probe whose search string does not match
+silently tests the unmodified tree.
+
 ## Directory naming — non-package directories are hyphenated
 
 Directories inside a package root that are **not** Python packages get
