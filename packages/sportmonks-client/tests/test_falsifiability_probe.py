@@ -616,3 +616,46 @@ def test_a_seed_introducing_no_literal_skips_the_load_check(tmp_path):
     check must decline rather than invent a needle and abort every sweep."""
     assert fp.seed_literal(b"len(a)", b"len(b)") is None
     fp.require_seed_reaches_the_child(tmp_path / "missing.py", b"len(a)", b"len(b)")
+
+
+def test_the_detector_fires_on_a_genuinely_stale_bytecode_cache(tmp_path):
+    """Constructs the real scenario rather than a stand-in for it.
+
+    A working safeguard and an unnecessary one produce identical observations:
+    zero flips is what you see if this detector is redundant AND what you see if
+    it is the thing preventing them. That is the same unfalsifiability this
+    phase keeps finding, aimed at a control instead of a claim -- so the value
+    is demonstrated here, not inferred.
+
+    Note what this also shows: PYTHONDONTWRITEBYTECODE stops the child *writing*
+    a cache, not *reading* one that already exists. The env var is therefore not
+    a complete fix on a tree where any earlier process left caches behind, and
+    the detector covers that residue.
+    """
+    import os
+    import py_compile
+
+    module = tmp_path / "stale.py"
+    module.write_text("X = 'aaaaaaaaaaaaa'" + chr(10), encoding="utf-8")
+    py_compile.compile(str(module), doraise=True)
+    before = module.stat()
+
+    # The "seed": identical byte length, different content, mtime restored --
+    # exactly what CPython's mtime+size validation cannot distinguish.
+    module.write_text("X = 'probe-literal'" + chr(10), encoding="utf-8")
+    os.utime(module, (before.st_atime, before.st_mtime))
+    assert module.stat().st_size == before.st_size
+
+    with pytest.raises(fp.ProbeAbort, match="does not load it"):
+        fp.require_seed_reaches_the_child(module, b"ORIGINAL", b'"probe-literal"')
+
+
+def test_the_same_seed_passes_once_the_stale_cache_is_gone(tmp_path):
+    """The other half: without the stale cache the identical seed is accepted,
+    so the abort above is attributable to staleness and not to the seed."""
+    import shutil
+
+    module = tmp_path / "fresh.py"
+    module.write_text("X = 'probe-literal'" + chr(10), encoding="utf-8")
+    shutil.rmtree(tmp_path / "__pycache__", ignore_errors=True)
+    fp.require_seed_reaches_the_child(module, b"ORIGINAL", b'"probe-literal"')
