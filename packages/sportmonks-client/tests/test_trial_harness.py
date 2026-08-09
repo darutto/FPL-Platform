@@ -177,14 +177,36 @@ def test_requests_is_the_only_network_client_the_package_can_reach(monkeypatch):
         if name.split(".")[0] not in sys.stdlib_module_names
         and name.split(".")[0] not in FIRST_PARTY
     }
-    assert third_party == EXPECTED_THIRD_PARTY
+    assert third_party == EXPECTED_THIRD_PARTY, (
+        "The live-call guard patches `requests` entry points only, so its "
+        "completeness holds exactly while `requests` is this package's sole "
+        "route out.\n"
+        f"  unexpected: {sorted(third_party - EXPECTED_THIRD_PARTY)}\n"
+        f"  missing:    {sorted(EXPECTED_THIRD_PARTY - third_party)}\n"
+        "A legitimate new dependency is a two-step decision, not a reason to "
+        "loosen this assertion:\n"
+        "  1. Extend the autouse guard in tests/conftest.py to the new "
+        "library's network entry points, with an isolation test per layer "
+        "(see test_the_session_layer_refuses_on_its_own_with_the_adapter_"
+        "layer_stood_down) -- or record in this test why the library cannot "
+        "reach the network at all.\n"
+        "  2. Add its top-level name to EXPECTED_THIRD_PARTY above."
+    )
 
     reached = sorted(
         name for name in imported
         if any(name == mod or name.startswith(f"{mod}.")
                for mod in NETWORK_CAPABLE_STDLIB)
     )
-    assert reached == []
+    assert reached == [], (
+        f"A stdlib network route out of the package: {reached}\n"
+        "The guard patches `requests` only, so this path is unguarded and a "
+        "call through it would reach the provider during FI-9.\n"
+        "Either route the call through `requests` and the existing transport "
+        "seam, or -- if this import genuinely cannot reach the network -- "
+        "narrow NETWORK_CAPABLE_STDLIB above to the dotted names that can, "
+        "the way `urllib.request` is listed and `urllib.parse` is not."
+    )
 
 
 def test_the_completeness_check_actually_read_the_package(monkeypatch):
