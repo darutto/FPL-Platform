@@ -280,12 +280,26 @@ def observed_pagination(exchanges: Sequence[Exchange]) -> tuple[str | None, tupl
     return None, ()
 
 
+def _render_nested(skeleton: Mapping[str, Any]) -> str:
+    return ",".join(
+        f"{key}{{{_render_nested(nested)}}}" if nested else key
+        for key, nested in skeleton.items()
+    )
+
+
 def render_skeleton(skeleton: Mapping[str, Any]) -> str:
-    """Render a key-name skeleton as `data, pagination{current_page,has_more}`."""
-    parts = []
-    for key, nested in skeleton.items():
-        parts.append(f"{key}{{{','.join(nested)}}}" if nested else key)
-    return ", ".join(parts)
+    """Render a key-name skeleton as `data, pagination{current_page,has_more}`.
+
+    Renders every level `body_skeleton` captured. The first version joined only
+    the immediate keys of each nested map, so a skeleton three deep rendered as
+    `meta{pagination}` -- silently dropping the field names, which is the whole
+    observation when a provider carries pagination under `meta`. Depth is
+    already bounded upstream by `body_skeleton`.
+    """
+    return ", ".join(
+        f"{key}{{{_render_nested(nested)}}}" if nested else key
+        for key, nested in skeleton.items()
+    )
 
 
 class ReplayTransport:

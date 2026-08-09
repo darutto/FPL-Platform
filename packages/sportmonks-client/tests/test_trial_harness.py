@@ -231,21 +231,68 @@ def _run_with_transport(tmp_path, responses):
     return code, json.loads((tmp_path / "reports" / "trial_auth.json").read_text(encoding="utf-8"))
 
 
-def test_a_payload_the_parser_rejects_degrades_and_records_what_arrived(tmp_path, capsys):
+#: Three refused payloads whose skeletons are pairwise different, and the exact
+#: string each must round-trip to. This is the falsification pattern S3, S4a,
+#: S4b, S5a, S5b, and S6 copy for every derived-content entry (standing DoD
+#: item 11): more than one input, expected outputs that differ, and equality
+#: rather than containment. One payload plus a substring assertion proves the
+#: entry *exists*; it cannot distinguish a derivation from a literal, because
+#: any literal containing the substring passes.
+#:
+#: All three are rejected by `parse_envelope` for the same reason -- `has_more`
+#: is not a bool -- so the payloads vary only in the dimension under test.
+REFUSED_PAYLOADS = [
+    pytest.param(
+        {"data": [{"id": 1}], "pagination": {"current_page": 1, "has_more": "yes"}},
+        "data, pagination{current_page,has_more}",
+        id="pagination-top-level",
+    ),
+    pytest.param(
+        {"data": [{"id": 1}], "meta": {"pagination": {"current_page": 1, "has_more": "yes"}}},
+        "data, meta{pagination{current_page,has_more}}",
+        id="pagination-under-meta",
+    ),
+    pytest.param(
+        # The envelope Sportmonks v3 actually documents around `data`: a
+        # `subscription` list and a `rate_limit` block. If the live payload
+        # carries blocks we have never seen, this is the entry that shows them,
+        # so it has to reproduce the whole top level rather than the part we
+        # expected.
+        {
+            "data": [{"id": 1}],
+            "subscription": [{"meta": {}}],
+            "rate_limit": {"resets_in_seconds": 3600, "remaining": 2997},
+            "pagination": {"current_page": 1, "has_more": "yes"},
+        },
+        "data, subscription, rate_limit{resets_in_seconds,remaining}, pagination{current_page,has_more}",
+        id="unexpected-live-blocks",
+    ),
+]
+
+
+@pytest.mark.parametrize("body,expected_skeleton", REFUSED_PAYLOADS)
+def test_a_payload_the_parser_rejects_degrades_and_records_what_arrived(
+    tmp_path, body, expected_skeleton,
+):
     """The single scenario FI-8 exists to rehearse: a live payload differing
     from the documented shape (§17's top risk).
 
-    `has_more` as a string rather than a bool makes `parse_envelope` raise. Before
-    this fix that surfaced as exit **3** -- which the frozen contract defines as
-    *configuration/auth failure* -- with an empty `observed_shapes`, discarding
-    the very payload the trial needed to see. The contract already said the
-    opposite: a script "must not fail merely because a payload differs from the
-    documented shape; it records the difference and marks the objective
+    `has_more` as a string rather than a bool makes `parse_envelope` raise. The
+    first version surfaced that as exit **3** -- which the frozen contract
+    defines as *configuration/auth failure* -- with an empty `observed_shapes`,
+    discarding the very payload the trial needed to see. The contract already
+    said the opposite: a script "must not fail merely because a payload differs
+    from the documented shape; it records the difference and marks the objective
     `degraded`."
+
+    The second version fixed the discard but proved only that *an*
+    `rejected_envelope` entry appeared, asserting a substring one fixed payload
+    happened to contain. Replacing the derivation with the literal
+    `"data[],pagination{current_page,has_more}"` left the whole suite green --
+    measured, not supposed. Four slices had copied that test by then. Hence
+    three payloads and equality: no single literal satisfies all three.
     """
-    code, payload = _run_with_transport(tmp_path, [
-        response({"data": [{"id": 1}], "pagination": {"current_page": 1, "has_more": "yes"}}),
-    ])
+    code, payload = _run_with_transport(tmp_path, [response(body)])
     objective = payload["objectives"][0]
     assert code == EXIT_UNMET, "a shape difference is not a configuration failure"
     assert code != EXIT_CONFIG
@@ -254,8 +301,16 @@ def test_a_payload_the_parser_rejects_degrades_and_records_what_arrived(tmp_path
 
     shapes = {s["name"]: s["shape"] for s in payload["observed_shapes"]}
     assert "rejected_envelope" in shapes, "the refused payload must be recorded, not discarded"
-    assert "pagination{current_page,has_more}" in shapes["rejected_envelope"]
-    assert "data" in shapes["rejected_envelope"]
+    assert shapes["rejected_envelope"] == expected_skeleton
+
+
+def test_the_refused_payload_cases_are_pairwise_distinguishing():
+    """The property that makes the parametrization falsifying rather than
+    merely repetitive. If two cases ever expect the same string, a literal of
+    that string passes both and the redundancy hides it -- so the distinctness
+    the pattern relies on is asserted, not assumed."""
+    expected = [case.values[1] for case in REFUSED_PAYLOADS]
+    assert len(set(expected)) == len(expected) >= 2
 
 
 def test_an_empty_pagination_block_is_recorded_not_treated_as_absent(tmp_path):
@@ -281,6 +336,16 @@ def test_render_skeleton_shows_names_only():
     assert render_skeleton({"data": {}, "pagination": {"current_page": {}, "has_more": {}}}) == (
         "data, pagination{current_page,has_more}"
     )
+
+
+def test_render_skeleton_does_not_truncate_below_the_second_level():
+    """`body_skeleton` captures three levels; rendering only two loses the field
+    names under `meta.pagination` -- the location the client explicitly supports
+    (`models.py:73`) and the one a rejected-envelope entry most needs to show."""
+    skeleton = _trial_common.body_skeleton(
+        {"data": [], "meta": {"pagination": {"current_page": 1, "has_more": True}}}
+    )
+    assert render_skeleton(skeleton) == "data, meta{pagination{current_page,has_more}}"
 
 
 def test_pagination_shape_names_only_the_fields_present():
