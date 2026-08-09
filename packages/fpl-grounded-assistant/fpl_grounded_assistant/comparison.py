@@ -75,7 +75,12 @@ from fpl_tool_runner.specs import ToolSpec
 
 from .explainer import explain_captain
 from .fixture_context import build_fixture_context, fixture_tiebreaker_line  # FI3a
-from .position_score import compute_position_score
+from .position_score import (
+    compute_position_score,
+    redistribute_preseason_weights,
+    shrink_rate_by_minutes,
+    POSITION_PROFILES,
+)
 from .comparison_stats import build_player_stat_source, build_stat_comparison  # additive stat table
 
 _LOG = logging.getLogger(__name__)
@@ -283,6 +288,11 @@ def _derive_scoring_inputs(
     minutes = float(element.get("minutes", 0) or 0)
     xgi_raw = float(element.get("expected_goal_involvements", "0") or 0)
     xgi_per_90 = (xgi_raw / (minutes / 90.0)) if minutes > 0 else 0.0
+    # xgi_per_90 stays RAW above — it feeds calculate_captain_score (Layer 1)
+    # unchanged. xgi_per_90_shrunk is the minutes-floor-shrunk variant,
+    # consumed only by the position_score (Layer 2) branch in _score_one, so
+    # captain_score/chip advice never see the shrinkage.
+    xgi_per_90_shrunk = shrink_rate_by_minutes(xgi_per_90, minutes)
 
     status = element.get("status", "u")
     chance = element.get("chance_of_playing_this_round")
@@ -304,6 +314,7 @@ def _derive_scoring_inputs(
     return {
         "form":               form,
         "xgi_per_90":         round(xgi_per_90, 6),
+        "xgi_per_90_shrunk":  round(xgi_per_90_shrunk, 6),
         "minutes_risk":       minutes_risk,
         "fixture_difficulty": fixture_difficulty,
         "is_home":            is_home,
@@ -322,6 +333,7 @@ def _score_one(query: str, bootstrap: dict[str, Any]) -> dict[str, Any]:
     (status="not_found" / "ambiguous" / "error") on failure.
     """
     from fpl_captain_engine import classify_captain_tier, derive_role_signals
+    from fpl_api_client import is_form_informative
 
     resolve = tool_resolve_player(query, bootstrap)
     if resolve["status"] != "ok":
@@ -358,19 +370,35 @@ def _score_one(query: str, bootstrap: dict[str, Any]) -> dict[str, Any]:
     # Phase 8a1/8b: position-aware heuristic evaluation (Layer 2)
     # Uses effective_fdr (home/away adjusted) for fixture component
     position_str = resolve["position"]
-    saves_per_90 = float(element.get("saves_per_90", 0) or 0)
-    cs_per_90    = float(element.get("clean_sheets_per_90", 0) or 0)
-    dc_per_90    = float(element.get("defensive_contribution_per_90", 0) or 0)
+    minutes      = float(element.get("minutes", 0) or 0)
+    saves_per_90 = shrink_rate_by_minutes(float(element.get("saves_per_90", 0) or 0), minutes)
+    cs_per_90    = shrink_rate_by_minutes(float(element.get("clean_sheets_per_90", 0) or 0), minutes)
+    dc_per_90    = shrink_rate_by_minutes(float(element.get("defensive_contribution_per_90", 0) or 0), minutes)
+
+    # Preseason: form is 0 for ~everyone, so its weight is dead. Redistribute
+    # it (mostly onto xgi — see position_score.py) rather than let it silently
+    # compress every score toward a ~60/100 ceiling. Re-derived on every call
+    # from the live bootstrap, so this stops applying the moment `form` is
+    # genuinely populated again — nothing to persist or remember to revert.
+    weights_override = None
+    label_override = None
+    if not is_form_informative(bootstrap):
+        pos_key = position_str.upper()
+        base_profile = POSITION_PROFILES.get(pos_key, POSITION_PROFILES["MID"])
+        weights_override = redistribute_preseason_weights(base_profile)
+        label_override = pos_key if pos_key in POSITION_PROFILES else "MID"
 
     ps_result = compute_position_score(
         position=position_str,
         form=inputs["form"],
         fixture_difficulty=inputs["effective_fdr"],
-        xgi_per_90=inputs["xgi_per_90"],
+        xgi_per_90=inputs["xgi_per_90_shrunk"],
         minutes_risk=inputs["minutes_risk"],
         saves_per_90=saves_per_90,
         clean_sheets_per_90=cs_per_90,
         dc_per_90=dc_per_90,
+        weights_override=weights_override,
+        weights_override_label=label_override,
     )
 
     tier         = classify_captain_tier(ps_result.position_score, inputs["minutes_risk"], inputs["xgi_per_90"])

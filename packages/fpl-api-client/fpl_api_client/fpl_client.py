@@ -187,6 +187,34 @@ def get_current_gameweek(bootstrap: dict[str, Any] | None = None) -> int | None:
     return None
 
 
+FORM_INFORMATIVE_THRESHOLD = 0.05  # ≥5% of elements carrying real form
+
+
+def is_form_informative(bootstrap: dict[str, Any]) -> bool:
+    """Return False while ``form`` is still empty for ~everyone in *bootstrap*
+    — preseason, or the narrow post-kickoff window before GW1 results are
+    processed.
+
+    Deliberately checks ``form`` itself, population-wide, rather than
+    ``is_current``/``get_current_gameweek``: ``minutes``/``starts`` reset to
+    0 at season rollover around the same moment a gameweek turns
+    ``is_current``, so gating on that flag instead of on ``form`` would
+    switch consumers off a preseason-aware code path right as ``form`` is
+    still 0 but ``minutes``-derived rates have just collapsed too — a worse
+    window than the one being fixed. ``form`` and ``minutes`` are expected to
+    become meaningful together, since both come from the same GW1 results.
+
+    Must be evaluated over the whole population, never per-player — one
+    legitimately out-of-form player having ``form == 0`` mid-season must not
+    read as "the season hasn't started".
+    """
+    elements: list[dict[str, Any]] = bootstrap.get("elements", [])
+    if not elements:
+        return True  # missing/incomplete data: don't guess, assume normal
+    non_zero = sum(1 for e in elements if float(e.get("form") or 0) > 0)
+    return (non_zero / len(elements)) >= FORM_INFORMATIVE_THRESHOLD
+
+
 # ---------------------------------------------------------------------------
 # Fixtures  (Phase 4a)
 # ---------------------------------------------------------------------------

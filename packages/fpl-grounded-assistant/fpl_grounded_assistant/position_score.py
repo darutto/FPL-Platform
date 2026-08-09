@@ -143,6 +143,102 @@ DEF_EXPERIMENTAL_PROFILES: dict[str, PositionWeights] = {
 
 
 # ---------------------------------------------------------------------------
+# Preseason handling — minutes-floor shrinkage + form-weight redistribution
+# ---------------------------------------------------------------------------
+# Both fixes here address the same underlying failure mode measured live
+# against Haaland vs Konsa in `/comparar` (see
+# field-notes/2026-08-05-preseason-gaps.md findings #2/#3 and the design
+# discussion that produced this module): `form` is 0 for every player before
+# GW1, and per-90 rates carry no minutes floor, so a player with a handful of
+# minutes can rank above established starters.
+
+MINUTES_SHRINKAGE_K = 450.0  # ~5 full matches of "prior" weight.
+# A reasonable starting default, not a validated constant — adjustable.
+
+
+def shrink_rate_by_minutes(
+    raw_rate: float, minutes: float, k: float = MINUTES_SHRINKAGE_K
+) -> float:
+    """Regress a per-90 rate toward 0 in proportion to how little playing
+    time backs it, so a handful of minutes can't produce a top-ranked rate
+    (e.g. 2 minutes played, one lucky involvement). Applies all season, not
+    only preseason — a January signing with 60 minutes hits this too.
+    """
+    if minutes <= 0:
+        return 0.0
+    return raw_rate * (minutes / (minutes + k))
+
+
+XGI_BOOST_SHARE = 0.70  # share of form's freed weight routed to xgi.
+# Tuned on a single pair (Haaland vs Konsa) — adjustable, not calibrated
+# against outcomes. Same status as MINUTES_SHRINKAGE_K above.
+# NOTE: the "is form actually informative yet" population-wide check lives in
+# fpl_client.py as `is_form_informative` (next to the canonical GW resolver,
+# since every caller already holds `bootstrap` there) — not in this module.
+
+
+def redistribute_preseason_weights(profile: PositionWeights) -> PositionWeights:
+    """Preseason: form is 0 for everyone, so its weight is dead. Route most
+    of it to xgi (the one component carrying real per-player signal — a
+    proportional spread across everything just amplifies fixture noise and
+    the flat minutes term equally, without re-ranking anything), the rest
+    proportionally across the other unprotected components. `saves` is held
+    fixed — GKP's saves weight was deliberately lowered by the 2026-03-28
+    overpromotion calibration above; redistributing onto it would silently
+    revert that, worst-case exactly when there's no form to counterbalance
+    it.
+    """
+    form_w = profile.form
+    if form_w <= 0:
+        return profile
+
+    if profile.xgi > 0:
+        to_xgi = form_w * XGI_BOOST_SHARE
+        remainder = form_w - to_xgi
+    else:
+        # GKP: xgi is structurally zero by design — goalkeepers have no
+        # attacking output. Routing the boost there would lock ~28% of the
+        # preseason score on a dead term, capping every keeper near 72/100
+        # and making them unrankable against each other — reintroducing,
+        # for one position, exactly the compression this function exists to
+        # remove. Spread all of form's weight proportionally instead:
+        # fixture, minutes, AND clean_sheet (a real per-player signal) all
+        # absorb a share, plus the protected saves. Preseason GKP still
+        # carries real discriminating weight (clean_sheet + saves), just
+        # meaningfully behind DEF's post-redistribution xgi+clean_sheet — an
+        # honest gap, not solved here, just not made worse than it needs to
+        # be.
+        to_xgi = 0.0
+        remainder = form_w
+
+    rest_fields = {
+        "fixture": profile.fixture,
+        "minutes": profile.minutes,
+        "clean_sheet": profile.clean_sheet,
+        "dc": profile.dc,
+    }
+    rest_sum = sum(rest_fields.values())
+    if rest_sum <= 0:
+        to_xgi += remainder
+        remainder = 0.0
+        rest_fields = {k: 0.0 for k in rest_fields}
+    else:
+        rest_fields = {
+            k: v + remainder * (v / rest_sum) for k, v in rest_fields.items()
+        }
+
+    return PositionWeights(
+        form=0.0,
+        xgi=profile.xgi + to_xgi,
+        fixture=rest_fields["fixture"],
+        minutes=rest_fields["minutes"],
+        saves=profile.saves,  # protected, untouched
+        clean_sheet=rest_fields["clean_sheet"],
+        dc=rest_fields["dc"],
+    )
+
+
+# ---------------------------------------------------------------------------
 # Result dataclass
 # ---------------------------------------------------------------------------
 
@@ -191,6 +287,7 @@ def compute_position_score(
     dc_per_90: float = 0.0,
     *,
     weights_override: PositionWeights | None = None,
+    weights_override_label: str | None = None,
 ) -> PositionScoreResult:
     """Compute a position-aware evaluation score.
 
@@ -218,6 +315,12 @@ def compute_position_score(
         Optional custom weight profile.  When provided, overrides the
         default profile for this position.  Enables Layer 3 (ML) migration
         and experimental profile testing (e.g. DEF with DC weight).
+    weights_override_label:
+        Optional label to report as ``position_profile`` when
+        ``weights_override`` is given (e.g. the real position code for a
+        preseason-redistributed profile). Ignored when ``weights_override``
+        is None. Without it, an override still reports ``"custom"`` as
+        before — additive, not a behavior change for existing callers.
 
     Returns
     -------
@@ -247,7 +350,7 @@ def compute_position_score(
     pos = position.upper()
     if weights_override is not None:
         profile = weights_override
-        profile_label = "custom"
+        profile_label = weights_override_label if weights_override_label is not None else "custom"
     else:
         profile = POSITION_PROFILES.get(pos, POSITION_PROFILES["MID"])
         profile_label = pos if pos in POSITION_PROFILES else "MID"
