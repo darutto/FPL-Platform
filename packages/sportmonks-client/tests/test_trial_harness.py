@@ -776,20 +776,48 @@ def test_trial_output_is_gitignored_after_a_run_that_wrote_there():
     )
 
 
-@requires_git
-def test_the_runtime_artifact_rules_are_present_not_merely_effective():
-    """`downloaded_files/` and the other Claude Code runtime artifacts.
+def _git_ignore_pattern_for(path: str) -> str | None:
+    """The `.gitignore` **pattern** that would ignore `path`, or None.
 
-    Lives here because this is where the `git status --ignored` helper is, not
-    because the package owns repo-root hygiene. It is asserted at all because
-    the rule shipped alongside the `trial-output/` one and was proven only by
-    *observing* `!!` — deleting the line left the suite green, so the coverage
-    was the state of the tree rather than anything a test held.
+    `--no-index` so the answer does not depend on the path existing: the first
+    version of this check asked `git status --ignored`, which lists only paths
+    present on disk, so it passed locally and failed on CI where the
+    directories are absent. It was asserting ambient state, not a rule.
+
+    This uses `git check-ignore` but reads only the **pattern** field, never
+    the `<file>:<line>` citation. The citation is what misleads — read against
+    a branch predating a rule it will cite a line number that means something
+    else, and a broad unrelated pattern will answer "ignored" for a reason
+    nobody intended. The pattern says *which* rule matched, which is the
+    question worth asking.
     """
-    ignored = _git_ignored_entries(str(REPO_ROOT))
-    missing = [name for name in ("downloaded_files", ".claude/worktrees")
-               if not any(name in entry for entry in ignored)]
-    assert not missing, f"runtime artifacts untracked but not ignored: {missing}"
+    result = subprocess.run(
+        ["git", "check-ignore", "--no-index", "-v", path],
+        cwd=REPO_ROOT, capture_output=True, text=True,
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        return None
+    _source, _line, rest = result.stdout.strip().split(":", 2)
+    return rest.split("\t")[0]
+
+
+@requires_git
+@pytest.mark.parametrize("path,expected_pattern", [
+    ("downloaded_files/x", "downloaded_files/"),
+    (".claude/worktrees/x", ".claude/worktrees/"),
+    ("packages/sportmonks-client/trial-output/raw/x.json",
+     "packages/sportmonks-client/trial-output/"),
+])
+def test_each_ignore_rule_is_present_and_is_the_one_that_matches(path, expected_pattern):
+    """Asserted at all because the runtime-artifact rule shipped alongside the
+    `trial-output/` one and was proven only by *observing* `!!` in a tree where
+    the directory happened to exist. Deleting the line left the suite green.
+
+    Asserting the matched pattern rather than mere ignored-ness also catches the
+    case where some unrelated broad rule is doing the work — a rule that is
+    effective today for a reason that has nothing to do with the rule we wrote.
+    """
+    assert _git_ignore_pattern_for(path) == expected_pattern
 
 
 @requires_git
