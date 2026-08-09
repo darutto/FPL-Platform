@@ -223,7 +223,27 @@ describe('Guided Comparison chip wizard', () => {
     expect(within(wizard).getByText('¿Cuál es el primer jugador?')).toBeInTheDocument();
   });
 
-  test('manual send exits the wizard', async () => {
+  test('typing the second player composes the canonical compare text, same as a chip tap', async () => {
+    const user = userEvent.setup();
+    ask.mockResolvedValueOnce(clarificationResponse());
+    render(<ChatShell />);
+
+    await sendText(user, '/comparar ');
+    const wizard = await screen.findByTestId('compare-wizard');
+    await user.click(within(wizard).getByRole('button', { name: 'Palmer' }));
+    expect(ask).toHaveBeenCalledTimes(1); // still no round trip after the first pick
+
+    // Typed reply, not a chip tap — must converge on the same canonical text
+    // a second chip tap would have sent.
+    ask.mockResolvedValueOnce(plainResponse('Comparación lista'));
+    await sendText(user, 'Salah');
+
+    await waitFor(() => expect(ask).toHaveBeenCalledTimes(2));
+    expect(ask.mock.calls[1][0]).toMatchObject({ question: '/comparar Palmer vs Salah' });
+    await waitFor(() => expect(getWizard()).toBeNull());
+  });
+
+  test('typing the first player in step 1 (no chip tapped) attempts a fresh /comparar', async () => {
     const user = userEvent.setup();
     ask.mockResolvedValueOnce(clarificationResponse());
     render(<ChatShell />);
@@ -231,12 +251,30 @@ describe('Guided Comparison chip wizard', () => {
     await sendText(user, '/comparar ');
     expect(await screen.findByTestId('compare-wizard')).toBeInTheDocument();
 
-    // A manual message (not a chip tap) clears the wizard.
-    ask.mockResolvedValueOnce(plainResponse('forma de Salah'));
-    await sendText(user, 'como va Salah');
+    ask.mockResolvedValueOnce(plainResponse('Comparación lista'));
+    await sendText(user, 'Palmer');
 
+    await waitFor(() => expect(ask).toHaveBeenCalledTimes(2));
+    expect(ask.mock.calls[1][0]).toMatchObject({ question: '/comparar Palmer' });
+  });
+
+  test('an explicit slash command escapes the wizard instead of being composed into it', async () => {
+    const user = userEvent.setup();
+    ask.mockResolvedValueOnce(clarificationResponse());
+    render(<ChatShell />);
+
+    await sendText(user, '/comparar ');
+    const wizard = await screen.findByTestId('compare-wizard');
+    await user.click(within(wizard).getByRole('button', { name: 'Palmer' }));
+
+    // A deliberate new command (leading "/") is sent as-is, not folded into
+    // "/comparar Palmer vs /capitan Haaland".
+    ask.mockResolvedValueOnce(plainResponse('capitan: Haaland'));
+    await sendText(user, '/capitan Haaland');
+
+    await waitFor(() => expect(ask).toHaveBeenCalledTimes(2));
+    expect(ask.mock.calls[1][0]).toMatchObject({ question: '/capitan Haaland' });
     await waitFor(() => expect(getWizard()).toBeNull());
-    expect(ask.mock.calls[1][0]).toMatchObject({ question: 'como va Salah' });
   });
 
   test('chips render only under the latest assistant turn', async () => {
