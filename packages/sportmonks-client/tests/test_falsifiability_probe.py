@@ -659,3 +659,38 @@ def test_the_same_seed_passes_once_the_stale_cache_is_gone(tmp_path):
     module.write_text("X = 'probe-literal'" + chr(10), encoding="utf-8")
     shutil.rmtree(tmp_path / "__pycache__", ignore_errors=True)
     fp.require_seed_reaches_the_child(module, b"ORIGINAL", b'"probe-literal"')
+
+
+def test_the_detector_survives_a_live_sweep_of_every_trial_script(tmp_path):
+    """Coverage geometry, not mechanism.
+
+    The detector's other tests use inputs its author constructed for it: a
+    deliberately same-size string pair, and files it had already seen. The first
+    real script with a different seed shape aborted 3 of 3 -- a component seed
+    inside an f-string, whose replacement is a bare name in co_names and never a
+    constant. Constructed tests certify the mechanism; only a live sweep
+    certifies it against shapes nobody anticipated.
+
+    Every trial_*.py, because the shapes differ per file and that is exactly
+    where it broke. Seeds are applied to a copy, so the tree is never mutated.
+    """
+    import shutil
+
+    scripts = sorted((Path(fp.__file__).parent).glob("trial_*.py"))
+    assert scripts, "no trial scripts found; this test would pass vacuously"
+
+    total = 0
+    for script in scripts:
+        copy = tmp_path / script.name
+        shutil.copy2(script, copy)
+        seeds = fp.enumerate_construction_sites(copy)
+        assert seeds, f"no construction sites enumerated in {script.name}"
+        for seed in seeds:
+            total += 1
+            held = fp.apply_seed(seed.path, seed.old, seed.new)
+            try:
+                fp.require_seed_reaches_the_child(seed.path, seed.old, seed.new)
+            finally:
+                fp.restore(seed.path, held)
+
+    assert total > 0
