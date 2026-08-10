@@ -39,6 +39,15 @@ export const UNIT_PRICE = 'precio';
 export const UNIT_FORM = 'forma';
 export const UNIT_OWNERSHIP = 'propiedad';
 
+// PlayerCard's micro-labels — PPG/xG/xA/xGI/ICT/Minutos have no existing
+// UNIT_* to reuse; UNIT_PRICE/UNIT_FORM/UNIT_OWNERSHIP above are reused as-is.
+export const UNIT_PPG = 'PPG';
+export const UNIT_XG = 'xG';
+export const UNIT_XA = 'xA';
+export const UNIT_XGI = 'xGI';
+export const UNIT_ICT = 'ICT';
+export const UNIT_MINUTES = 'minutos';
+
 // DifferentialTable's score column — short header for a narrow grid cell.
 // Was mislabeled "Pts" (read as season points); it's actually position_score.
 export const DIFFERENTIAL_SCORE_LABEL = 'BF';

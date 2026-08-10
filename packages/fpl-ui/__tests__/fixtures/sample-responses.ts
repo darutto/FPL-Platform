@@ -759,3 +759,61 @@ export const injuryListGenericEmptyResponse: AskResponse = {
     rows: [],
   },
 };
+
+/** player_snapshot OK — available player, PlayerCard should render */
+export const playerSnapshotOkResponse: AskResponse = {
+  final_text: 'Haaland: 239 puntos esta temporada.',
+  outcome: 'ok',
+  supported: true,
+  intent: 'player_snapshot',
+  review_passed: true,
+  llm_used: true,
+  captain: null,
+  captain_ranking: null,
+  comparison: null,
+  transfer: null,
+  chip: null,
+  fixture_run: null,
+  differential: null,
+  fixture_outlook: null,
+  sub_responses: null,
+  orch_outcome: 'ok',
+  degraded: false,
+  resource_rows: null,
+  player_snapshot: {
+    id: 351,
+    web_name: 'Haaland',
+    team_short: 'MCI',
+    position: 'FWD',
+    minutes_played_season: 2953,
+    status: 'Available',
+    news: '',
+    news_added: null,
+    chance_of_playing_this_round: null,
+    form: 6.8,
+    total_points: 239,
+    points_per_game: 6.8,
+    expected_goals: 25.5,
+    expected_assists: 2.67,
+    expected_goal_involvements: 28.17,
+    ict_index: 302.3,
+    now_cost: 155,
+    selected_by_percent: 74.2,
+    transfers_in_event: 12345,
+    transfers_out_event: 6789,
+  },
+};
+
+/** player_snapshot OK — doubtful player with news, exercises the warn-tone status badge */
+export const playerSnapshotDoubtfulResponse: AskResponse = {
+  ...playerSnapshotOkResponse,
+  final_text: 'Saka: duda para la próxima jornada.',
+  player_snapshot: {
+    ...playerSnapshotOkResponse.player_snapshot!,
+    web_name: 'Saka',
+    team_short: 'ARS',
+    status: 'Doubtful',
+    news: 'Molestia en el tobillo, duda para la próxima jornada',
+    chance_of_playing_this_round: 75,
+  },
+};

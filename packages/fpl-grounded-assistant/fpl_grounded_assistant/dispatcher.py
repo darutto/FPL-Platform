@@ -94,6 +94,11 @@ INTENT_FIXTURE_OUTLOOK:         str = "fixture_outlook"           # Track D / FI
 # orchestrator selects the tool; the mapping below labels its turns so the
 # meta extraction and the UI card fire.
 INTENT_ZONAL_OPPORTUNITY:       str = "zonal_opportunity"          # T4b
+# Renderable card intent for the orchestrator-routed single-player snapshot
+# tool. Deliberately NOT in SUPPORTED_INTENTS / the classifier — only the
+# orchestrator selects the tool; the mapping below labels its turns so the
+# meta extraction and the UI card fire.
+INTENT_PLAYER_SNAPSHOT:         str = "player_snapshot"
 INTENT_UNSUPPORTED:             str = "unsupported"
 
 SUPPORTED_INTENTS: frozenset[str] = frozenset({
@@ -195,6 +200,7 @@ _TOOL_TO_INTENT: dict[str, str] = {
     # land in FI4-3.
     "get_fixture_outlook":          INTENT_FIXTURE_OUTLOOK,           # Track D / FI4
     "get_zonal_opportunity":        INTENT_ZONAL_OPPORTUNITY,          # T4b (orchestrator-only)
+    "get_player_snapshot":          INTENT_PLAYER_SNAPSHOT,            # orchestrator-only
 }
 
 

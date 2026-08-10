@@ -26,10 +26,12 @@ import TransferSuggestionCard from '../components/intents/TransferSuggestionCard
 import CaptainCard from '../components/intents/CaptainCard';
 import ChipCard from '../components/intents/ChipCard';
 import FixtureRunTable from '../components/intents/FixtureRunTable';
+import PlayerCard from '../components/intents/PlayerCard';
 import {
   rankingOkResponse,
   differentialOkResponse,
   transferSuggestionOkResponse,
+  playerSnapshotOkResponse,
 } from './fixtures/sample-responses';
 import type { CaptainScoreMeta, ChipAdviceMeta, FixtureRunMeta, ResourceRows } from '../lib/types';
 
@@ -50,6 +52,16 @@ describe('DifferentialTable — name cell truncation', () => {
     const name = screen.getByText('Palmer');
     expect(name.className).toEqual(expect.stringContaining('block'));
     expect(name.className).toEqual(expect.stringContaining('truncate'));
+  });
+});
+
+describe('PlayerCard — name cell truncation', () => {
+  test('web_name span is block + truncate, header row allows shrink', () => {
+    render(<PlayerCard data={playerSnapshotOkResponse.player_snapshot!} />);
+    const name = screen.getByText('Haaland');
+    expect(name.className).toEqual(expect.stringContaining('block'));
+    expect(name.className).toEqual(expect.stringContaining('truncate'));
+    expect(name.parentElement?.className).toEqual(expect.stringContaining('min-w-0'));
   });
 });
 

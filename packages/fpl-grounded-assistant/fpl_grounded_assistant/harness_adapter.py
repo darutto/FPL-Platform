@@ -388,6 +388,7 @@ def to_ask_response(
         position_fixture_run=_to_dict(d.get("position_fixture_run")),
         transfer_suggestion=_to_dict(d.get("transfer_suggestion")),
         zonal_opportunity=_to_dict(d.get("zonal_opportunity")),  # T4b
+        player_snapshot=_to_dict(d.get("player_snapshot")),      # single-player card
         generic_card=_to_dict(d.get("generic_card")),            # Track A: additive card
         suggestions=d.get("player_suggestions"),                 # Guided Comparison: tappable chips (already list[dict])
         evidence=_to_dict(d.get("evidence")),                    # FI-7a: contract-only passthrough

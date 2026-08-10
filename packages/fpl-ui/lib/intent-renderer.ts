@@ -20,6 +20,7 @@
  *   player_fixture_run → 'fixture_run'        (fixture_run non-null, fixtures.length > 0)
  *   differential_picks → 'differential'       (differential non-null, picks.length > 0)
  *   zonal_opportunity  → 'defensive_zones'    (zonal_opportunity non-null, zones.length > 0) (T4b)
+ *   player_snapshot    → 'player_snapshot'    (player_snapshot field non-null)
  *   @top_form/xg/etc.  → 'resource_ranking'  (resource_rows non-null, resource != 'injuries')
  *   @injuries          → 'resource_injuries'  (resource_rows non-null, resource === 'injuries')
  *   injury_list         → 'generic_injuries'  (generic_card non-null, rows.length > 0) (Track B)
@@ -47,6 +48,7 @@ export type IntentView =
   | 'transfer_suggestion'
   | 'multi_intent'
   | 'defensive_zones'
+  | 'player_snapshot'
   | 'resource_ranking'
   | 'resource_injuries'
   | 'generic_injuries'
@@ -130,6 +132,9 @@ export function selectIntentView(response: AskResponse): IntentView | null {
     response.zonal_opportunity.zones.length > 0
   ) {
     return 'defensive_zones';
+  }
+  if (response.intent === 'player_snapshot' && response.player_snapshot != null) {
+    return 'player_snapshot';
   }
 
   // injury_list — routes through InjuriesTable's row treatment (status
