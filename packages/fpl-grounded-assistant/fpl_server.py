@@ -69,6 +69,12 @@ for _pkg in [
     _SIB("fpl-historical"),  # H4d: explicit; owned_store_fallback shim also inserts this — defensive symmetry
     _SIB("fpl-tactical"),    # T-zonal: tactical store sync + shared constants (zonal_weakness shim also inserts this)
     _SIB("football-intelligence"),  # FI-4b: provider-neutral local capability discovery
+    _SIB("football-data-contract"),  # FI-7a: evidence contract -- missing here since PR #45
+                                      # (2026-07-26) caused every Railway deploy since to crash
+                                      # at import time (final_response.py imports it at module
+                                      # level) before uvicorn could bind. The Dockerfile already
+                                      # COPYs the package into the image; this is the only piece
+                                      # that was missing.
 ]:
     if _pkg not in sys.path:
         sys.path.insert(0, _pkg)
@@ -1246,6 +1252,26 @@ def ready() -> dict[str, str]:
     if _bootstrap is None:
         raise HTTPException(status_code=503, detail="Bootstrap not ready")
     return {"status": "ready"}
+
+
+@app.get("/version")
+def version() -> dict[str, str]:
+    """Report the commit actually running in this container.
+
+    /health and /ready only answer "is a server alive / has it loaded
+    data" -- neither can tell you whether it's running the code you think
+    you merged. That gap hid 161 consecutive failed Railway deploys for two
+    weeks (root cause: PR #45, fixed alongside this endpoint): every deploy
+    crashed at import time, but Railway kept serving the last container that
+    HAD started successfully, and both /health and /ready kept answering 200
+    from it the whole time. This endpoint exists so "does main match what's
+    live" is a single request instead of an assumption.
+
+    APP_COMMIT_SHA is baked in at build time from Railway's RAILWAY_GIT_COMMIT_SHA
+    build arg (see Dockerfile) -- "unknown" outside that build path (e.g. local
+    `docker build`/`uvicorn` runs without the ARG set).
+    """
+    return {"commit": os.environ.get("APP_COMMIT_SHA", "unknown")}
 
 
 # ---------------------------------------------------------------------------

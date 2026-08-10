@@ -64,6 +64,13 @@ RUN python -m venv /venv \
 # ---------------------------------------------------------------------------
 FROM python:3.13-slim AS runtime
 
+# Railway passes this build arg automatically for every Docker build; baking
+# it into an env var lets the running container report which commit it
+# actually is (see /version in fpl_server.py). Empty/unset outside Railway
+# (e.g. a local `docker build`) -- /version reports "unknown" in that case.
+ARG RAILWAY_GIT_COMMIT_SHA
+ENV APP_COMMIT_SHA=$RAILWAY_GIT_COMMIT_SHA
+
 # Add venv to PATH — applies to RUN, CMD, and ENTRYPOINT without shell wrapping.
 ENV PATH="/venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
