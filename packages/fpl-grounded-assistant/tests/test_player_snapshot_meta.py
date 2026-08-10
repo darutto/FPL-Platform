@@ -72,6 +72,13 @@ def _ok_raw_output() -> dict:
             "selected_by_percent": "74.2",
             "transfers_in_event": 12345,
             "transfers_out_event": 6789,
+            "fixtures": [
+                {"gameweek": 28, "opponent_short": "ARS", "is_home": True, "difficulty": 3},
+                {"gameweek": 29, "opponent_short": "LIV", "is_home": False, "difficulty": 5},
+            ],
+            "team_fdr_context": {
+                "avg_fdr": 4.0, "difficulty_label": "hard", "gw_from": 28, "gw_to": 29,
+            },
         },
     }
 
@@ -88,6 +95,25 @@ def test_extract_builds_from_ok_payload():
     assert meta.position == "FWD"
     assert meta.total_points == 239
     assert meta.now_cost == 155
+    assert len(meta.fixtures) == 2
+    assert meta.fixtures[0].gameweek == 28
+    assert meta.fixtures[0].opponent_short == "ARS"
+    assert meta.fixtures[1].difficulty == 5
+    assert meta.team_fdr_context is not None
+    assert meta.team_fdr_context.difficulty_label == "hard"
+
+
+def test_extract_degrades_gracefully_when_fixtures_missing():
+    """A player whose team isn't covered by team_fixtures (missing_context
+    upstream) must still produce a valid PlayerSnapshotMeta -- empty
+    fixtures, not a crash."""
+    ro = _ok_raw_output()
+    del ro["player"]["fixtures"]
+    del ro["player"]["team_fdr_context"]
+    meta = _extract_player_snapshot_meta(ro)
+    assert meta is not None
+    assert meta.fixtures == ()
+    assert meta.team_fdr_context is None
 
 
 def test_extract_none_on_ambiguous_status():
@@ -148,6 +174,42 @@ def test_integration_real_tool_output_extracts_cleanly(bootstrap):
     assert meta.position == "FWD"
 
 
+def test_integration_no_team_fixtures_degrades_to_empty(bootstrap):
+    """The shared fixture bootstrap has no team_fixtures key -- the
+    real get_player_snapshot() call must degrade to empty fixtures
+    rather than erroring, and the "ok" player result must be unaffected."""
+    raw = get_player_snapshot("Haaland", bootstrap=bootstrap)
+    assert raw["player"]["fixtures"] == []
+    assert raw["player"]["team_fdr_context"] is None
+
+
+def test_integration_real_fixtures_attached_when_team_fixtures_present(bootstrap):
+    """With team_fixtures present, get_player_snapshot() attaches the same
+    fixture data get_player_fixture_run() would return standalone."""
+    import copy as _copy
+
+    bs = _copy.deepcopy(bootstrap)
+    haaland = next(el for el in bs["elements"] if el["web_name"] == "Haaland")
+    bs["team_fixtures"] = {
+        haaland["team"]: [
+            {"gameweek": 29, "opponent_team": 14, "is_home": True, "difficulty": 2},
+            {"gameweek": 30, "opponent_team": 1, "is_home": False, "difficulty": 4},
+        ],
+    }
+    raw = get_player_snapshot("Haaland", bootstrap=bs)
+    assert raw["status"] == "ok"
+    assert len(raw["player"]["fixtures"]) == 2
+    assert raw["player"]["fixtures"][0]["opponent_short"] == "LIV"
+    assert raw["player"]["team_fdr_context"]["gw_from"] == 29
+
+    meta = _extract_player_snapshot_meta(raw)
+    assert meta is not None
+    assert len(meta.fixtures) == 2
+    assert meta.fixtures[0].opponent_short == "LIV"
+    assert meta.team_fdr_context is not None
+    assert meta.team_fdr_context.gw_from == 29
+
+
 # ---------------------------------------------------------------------------
 # Real /ask wiring — ask_v2 + harness_adapter.to_ask_response
 # ---------------------------------------------------------------------------
@@ -173,6 +235,9 @@ def test_to_ask_response_maps_player_snapshot(bootstrap):
     assert resp.player_snapshot is not None
     assert resp.player_snapshot["web_name"] == "Haaland"
     assert resp.player_snapshot["total_points"] == 239
+    assert len(resp.player_snapshot["fixtures"]) == 2
+    assert resp.player_snapshot["fixtures"][0]["opponent_short"] == "ARS"
+    assert resp.player_snapshot["team_fdr_context"]["difficulty_label"] == "hard"
 
 
 def test_to_ask_response_player_snapshot_none_for_other_intents():

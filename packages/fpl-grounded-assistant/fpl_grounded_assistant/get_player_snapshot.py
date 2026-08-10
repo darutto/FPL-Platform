@@ -54,6 +54,10 @@ from typing import Any
 from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
 
+# Reuse the fixture-run tool so the snapshot card can show an upcoming
+# schedule strip without duplicating fixture-lookup logic.
+from fpl_grounded_assistant.player_fixture_run import get_player_fixture_run
+
 # Re-use helpers from find_players — single source of truth.
 from fpl_grounded_assistant.find_players import (
     _normalize,
@@ -62,6 +66,32 @@ from fpl_grounded_assistant.find_players import (
 )
 
 _MAX_AMBIGUOUS_CANDIDATES: int = 5
+
+#: Fixtures shown on the snapshot card — matches get_player_fixture_run's
+#: own DEFAULT_HORIZON, kept explicit here so a change to that default
+#: doesn't silently change what this card shows.
+_SNAPSHOT_FIXTURE_HORIZON: int = 5
+
+
+def _attach_fixture_run(player_dict: dict[str, Any], bootstrap: dict[str, Any]) -> None:
+    """Mutate *player_dict* in place, adding "fixtures"/"team_fdr_context".
+
+    Resolves by the player's own numeric id (not by re-running name
+    matching) so this can never disagree with the player already resolved
+    above -- get_player_fixture_run's query resolver accepts a numeric FPL
+    element id directly. Degrades to an empty list / None on any
+    non-"ok" outcome (e.g. missing_context) rather than raising or
+    propagating an error status onto an otherwise-successful snapshot.
+    """
+    fx = get_player_fixture_run(
+        str(player_dict["id"]), bootstrap, horizon=_SNAPSHOT_FIXTURE_HORIZON
+    )
+    if fx.get("status") == "ok":
+        player_dict["fixtures"] = fx.get("fixtures", [])
+        player_dict["team_fdr_context"] = fx.get("team_fdr_context")
+    else:
+        player_dict["fixtures"] = []
+        player_dict["team_fdr_context"] = None
 
 
 # ---------------------------------------------------------------------------
@@ -94,6 +124,8 @@ def get_player_snapshot(
                 # expected_assists, expected_goal_involvements, ict_index,
                 # now_cost, selected_by_percent, transfers_in_event,
                 # transfers_out_event
+                # plus: fixtures (next 5, via get_player_fixture_run),
+                # team_fdr_context (None if fixtures is empty)
             }
         }
         # OR ambiguous resolution:
@@ -196,6 +228,7 @@ def get_player_snapshot(
         )
         # Single answer: drop match_rank (meaningless for a unique result)
         player_dict.pop("match_rank", None)
+        _attach_fixture_run(player_dict, bootstrap)
         return {
             "status": "ok",
             "player": player_dict,
@@ -219,6 +252,7 @@ def get_player_snapshot(
             prefix_matches[0], teams, element_types, match_rank=1
         )
         player_dict.pop("match_rank", None)
+        _attach_fixture_run(player_dict, bootstrap)
         return {
             "status": "ok",
             "player": player_dict,
@@ -288,7 +322,7 @@ GET_PLAYER_SNAPSHOT_SPEC = ToolSpec(
             },
             "player": {
                 "type":        "object",
-                "description": "Full 20-field grounding payload (only when status=ok)",
+                "description": "Full 20-field grounding payload plus fixtures/team_fdr_context (only when status=ok)",
             },
             "query": {
                 "type":        "string",

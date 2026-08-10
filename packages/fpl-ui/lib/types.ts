@@ -680,6 +680,8 @@ export interface PlayerSnapshotMeta {
   selected_by_percent: number;
   transfers_in_event: number;
   transfers_out_event: number;
+  /** Next-N fixture strip (reuses the fixture_run tool's FixtureEntry shape). Empty when the player's team isn't covered by bootstrap["team_fixtures"]. */
+  fixtures: FixtureEntry[];
 }
 
 // ---------------------------------------------------------------------------

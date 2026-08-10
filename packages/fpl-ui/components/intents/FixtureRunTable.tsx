@@ -57,7 +57,8 @@ export default function FixtureRunTable({ data }: Props) {
   );
 }
 
-function FixtureChip({ entry }: { entry: FixtureEntry }) {
+/** Exported so other cards (e.g. PlayerCard's fixture strip) can reuse the same chip. */
+export function FixtureChip({ entry }: { entry: FixtureEntry }) {
   const { gameweek, opponent_short, is_home, difficulty } = entry;
   const color = fdrColor(difficulty);
   const venue = formatVenue(is_home);
