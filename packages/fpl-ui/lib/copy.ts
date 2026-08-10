@@ -39,6 +39,18 @@ export const UNIT_PRICE = 'precio';
 export const UNIT_FORM = 'forma';
 export const UNIT_OWNERSHIP = 'propiedad';
 
+// DifferentialTable's score column — short header for a narrow grid cell.
+// Was mislabeled "Pts" (read as season points); it's actually position_score.
+export const DIFFERENTIAL_SCORE_LABEL = 'BF';
+
+// DifferentialTable ranks every position (GKP/DEF/MID/FWD) in one list, but
+// each position's position_score is computed under a different weight
+// profile (see packages/fpl-grounded-assistant/position_score.py) — a GKP's
+// score and a FWD's score are not on a directly comparable scale. Shown as
+// a footer caveat rather than silently implying the ranking is apples-to-apples.
+export const DIFFERENTIAL_CROSS_POSITION_DISCLAIMER =
+  'El puntaje BF se calcula distinto por posición — no es directamente comparable entre GKP, DEF, MID y FWD.';
+
 // ---------------------------------------------------------------------------
 // ComparisonCard verdicts
 // ---------------------------------------------------------------------------
