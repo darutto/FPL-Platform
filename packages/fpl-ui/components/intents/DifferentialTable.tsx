@@ -21,6 +21,7 @@
 import type { DifferentialPicksMeta, DifferentialEntry } from '@/lib/types';
 import { CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
 import { TriangleField } from './CardOrnaments';
+import { DIFFERENTIAL_SCORE_LABEL, DIFFERENTIAL_CROSS_POSITION_DISCLAIMER } from '@/lib/copy';
 
 interface Props {
   data: DifferentialPicksMeta;
@@ -49,7 +50,7 @@ export default function DifferentialTable({ data }: Props) {
         <span>Jugador</span>
         <span className="text-right">Prop</span>
         <span className="text-right">Precio</span>
-        <span className="text-right">Pts</span>
+        <span className="text-right">{DIFFERENTIAL_SCORE_LABEL}</span>
       </div>
 
       {/* Rows — banded (DS zebra) */}
@@ -58,6 +59,12 @@ export default function DifferentialTable({ data }: Props) {
           <DiffRow key={entry.rank} entry={entry} banded={idx % 2 === 0} />
         ))}
       </div>
+
+      {/* Cross-position caveat — the list ranks GKP/DEF/MID/FWD together,
+          but each position's BF score comes from a different weight profile. */}
+      <p className="px-4 py-2 text-[11px] text-bf-gray border-t border-white/10">
+        {DIFFERENTIAL_CROSS_POSITION_DISCLAIMER}
+      </p>
     </div>
   );
 }
