@@ -80,7 +80,7 @@ from football_data_contract import (
 )
 
 from . import telemetry as _telemetry  # Phase 2.7g: in-process telemetry (never raises)
-from .dispatcher import OUTCOME_OK, OUTCOME_NEEDS_CLARIFICATION, INTENT_COMPARE_PLAYERS, INTENT_CAPTAIN_SCORE, INTENT_RANK_CANDIDATES, INTENT_MULTI_INTENT, INTENT_TRANSFER_ADVICE, INTENT_CHIP_ADVICE, INTENT_PLAYER_FIXTURE_RUN, INTENT_DIFFERENTIAL_PICKS, INTENT_PLAYER_FORM, INTENT_INJURY_LIST, INTENT_PRICE_CHANGES, INTENT_TEAM_FIXTURE_CALENDAR, INTENT_TEAM_SCHEDULE, INTENT_POSITION_FIXTURE_RUN, INTENT_TRANSFER_SUGGESTION, INTENT_FIXTURE_OUTLOOK, INTENT_ZONAL_OPPORTUNITY  # noqa: F401 — re-exported
+from .dispatcher import OUTCOME_OK, OUTCOME_NEEDS_CLARIFICATION, INTENT_COMPARE_PLAYERS, INTENT_CAPTAIN_SCORE, INTENT_RANK_CANDIDATES, INTENT_MULTI_INTENT, INTENT_TRANSFER_ADVICE, INTENT_CHIP_ADVICE, INTENT_PLAYER_FIXTURE_RUN, INTENT_DIFFERENTIAL_PICKS, INTENT_PLAYER_FORM, INTENT_INJURY_LIST, INTENT_PRICE_CHANGES, INTENT_TEAM_FIXTURE_CALENDAR, INTENT_TEAM_SCHEDULE, INTENT_POSITION_FIXTURE_RUN, INTENT_TRANSFER_SUGGESTION, INTENT_FIXTURE_OUTLOOK, INTENT_ZONAL_OPPORTUNITY, INTENT_PLAYER_SNAPSHOT  # noqa: F401 — re-exported
 from .dispatcher import _TOOL_TO_INTENT, INTENT_UNSUPPORTED  # _orch_result_to_final_response: tool->intent map
 from .multi_intent import detect_multi_intent
 from .generic_card import GenericCardMeta, build_generic_card  # Track A: additive generic card
@@ -572,6 +572,43 @@ class PlayerFormMeta:
     position:   str
     n_games:    int
     history:    tuple[PlayerFormEntry, ...]
+
+
+# ---------------------------------------------------------------------------
+# Player snapshot metadata  (single-player grounding-payload card)
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class PlayerSnapshotMeta:
+    """Structured single-player snapshot output for the player detail card.
+
+    Populated on ``FinalResponse`` when ``intent == player_snapshot`` and
+    ``outcome == ok``.  ``None`` for all other turns.  Orch-only — this
+    intent is never reached via the deterministic router, only via the
+    LLM-orchestrator's ``get_player_snapshot`` tool call.  Fields mirror
+    ``find_players._build_match_dict()``'s grounding payload exactly
+    (``match_rank`` omitted — meaningless for a single-answer "ok" result).
+    """
+    id:                             int
+    web_name:                       str
+    team_short:                     str
+    position:                       str
+    minutes_played_season:          int
+    status:                         str
+    news:                           str
+    news_added:                     str | None
+    chance_of_playing_this_round:   int | None
+    form:                           float
+    total_points:                   int
+    points_per_game:                float
+    expected_goals:                 float
+    expected_assists:                float
+    expected_goal_involvements:      float
+    ict_index:                       float
+    now_cost:                        int
+    selected_by_percent:             float
+    transfers_in_event:              int
+    transfers_out_event:             int
 
 
 # ---------------------------------------------------------------------------
@@ -1095,6 +1132,7 @@ class FinalResponse:
     transfer_suggestion:  "TransferSuggestionMeta | None"  = field(default=None)  # Phase 2.6h
     fixture_outlook:      "FixtureOutlookMeta | None"      = field(default=None)  # Track D / FI4
     zonal_opportunity:    "DefensiveZonesMeta | None"      = field(default=None)  # T4b
+    player_snapshot:      "PlayerSnapshotMeta | None"      = field(default=None)  # single-player card
     # Phase 2.7d: routing audit fields (additive, safe defaults)
     route_source:          "str | None"                    = field(default=None)   # which routing stage decided
     classifier_confidence: "float | None"                  = field(default=None)   # LLM classifier confidence when attempted
@@ -1592,6 +1630,43 @@ def _extract_player_form_meta(ro: "dict[str, Any]") -> "PlayerFormMeta | None":
         return None
 
 
+def _extract_player_snapshot_meta(ro: "dict[str, Any]") -> "PlayerSnapshotMeta | None":
+    """Extract PlayerSnapshotMeta from a get_player_snapshot tool_output dict.
+
+    Requires ``status == "ok"`` with a ``player`` payload — ``ambiguous`` /
+    ``not_found`` / ``error`` statuses (and any malformed payload) degrade
+    to ``None`` so the card never renders on a non-match.
+    """
+    try:
+        if ro.get("status") != "ok" or not ro.get("player"):
+            return None
+        p = ro["player"]
+        return PlayerSnapshotMeta(
+            id                           = int(p.get("id", 0)),
+            web_name                     = p.get("web_name", ""),
+            team_short                   = p.get("team_short", ""),
+            position                     = p.get("position", ""),
+            minutes_played_season        = int(p.get("minutes_played_season", 0)),
+            status                       = p.get("status", ""),
+            news                         = p.get("news", "") or "",
+            news_added                   = p.get("news_added"),
+            chance_of_playing_this_round = p.get("chance_of_playing_this_round"),
+            form                         = float(p.get("form", 0.0)),
+            total_points                 = int(p.get("total_points", 0)),
+            points_per_game              = float(p.get("points_per_game", 0.0)),
+            expected_goals               = float(p.get("expected_goals", 0.0)),
+            expected_assists             = float(p.get("expected_assists", 0.0)),
+            expected_goal_involvements   = float(p.get("expected_goal_involvements", 0.0)),
+            ict_index                    = float(p.get("ict_index", 0.0)),
+            now_cost                     = int(p.get("now_cost", 0)),
+            selected_by_percent          = float(p.get("selected_by_percent", 0.0)),
+            transfers_in_event           = int(p.get("transfers_in_event", 0)),
+            transfers_out_event          = int(p.get("transfers_out_event", 0)),
+        )
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def _extract_injury_list_meta(ro: "dict[str, Any]") -> "InjuryListMeta | None":
     """Extract InjuryListMeta from a get_injury_list tool_output dict."""
     try:
@@ -1890,8 +1965,9 @@ def _extract_structured_meta(
         ``"transfer"``, ``"chip"``, ``"fixture_run"``, ``"differential"``,
         ``"player_form"``, ``"injury_list"``, ``"price_changes"``,
         ``"team_calendar"``, ``"team_schedule"``, ``"position_fixture_run"``,
-        ``"transfer_suggestion"``, ``"zonal_opportunity"``.  All values are
-        ``None`` for intents / outcomes that do not populate the field.
+        ``"transfer_suggestion"``, ``"zonal_opportunity"``, ``"player_snapshot"``.
+        All values are ``None`` for intents / outcomes that do not populate
+        the field.
     """
     ok = (outcome == OUTCOME_OK)
 
@@ -1911,6 +1987,7 @@ def _extract_structured_meta(
     transfer_suggestion_meta:  "TransferSuggestionMeta | None"    = None
     fixture_outlook_meta:      "FixtureOutlookMeta | None"        = None
     zonal_opportunity_meta:    "DefensiveZonesMeta | None"        = None
+    player_snapshot_meta:      "PlayerSnapshotMeta | None"        = None
 
     if ok:
         if intent == INTENT_COMPARE_PLAYERS:
@@ -1945,6 +2022,8 @@ def _extract_structured_meta(
             fixture_outlook_meta = _extract_fixture_outlook_meta(raw_output)
         elif intent == INTENT_ZONAL_OPPORTUNITY:
             zonal_opportunity_meta = _extract_zonal_opportunity_meta(raw_output)
+        elif intent == INTENT_PLAYER_SNAPSHOT:
+            player_snapshot_meta = _extract_player_snapshot_meta(raw_output)
 
     result: "dict[str, Any]" = {
         "comparison":           comparison,
@@ -1963,6 +2042,7 @@ def _extract_structured_meta(
         "transfer_suggestion":  transfer_suggestion_meta,
         "fixture_outlook":      fixture_outlook_meta,
         "zonal_opportunity":    zonal_opportunity_meta,
+        "player_snapshot":      player_snapshot_meta,
     }
     # Track A: additive renderable generic card, composed only from the
     # deterministic metadata just built (never LLM text).  Returns None for
@@ -2486,6 +2566,7 @@ def respond(
         transfer_suggestion=_meta["transfer_suggestion"],    # Phase 2.6h
         fixture_outlook=_meta["fixture_outlook"],            # Track D / FI4
         zonal_opportunity=_meta["zonal_opportunity"],        # T4b
+        player_snapshot=_meta["player_snapshot"],            # single-player card
         # Phase 2.7d: routing audit fields threaded from DispatchResult
         route_source=dr.route_source,
         classifier_confidence=dr.classifier_confidence,

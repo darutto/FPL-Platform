@@ -78,7 +78,10 @@ export type Intent =
   | 'fixture_outlook'
   // T4b: orchestrator-only renderable intent (in dispatcher._TOOL_TO_INTENT
   // but deliberately NOT in SUPPORTED_INTENTS/the classifier).
-  | 'zonal_opportunity';
+  | 'zonal_opportunity'
+  // Orchestrator-only renderable intent for the single-player detail card
+  // (same non-classifier pattern as zonal_opportunity).
+  | 'player_snapshot';
 
 /**
  * Runtime-accessible list of every intent value that can appear in
@@ -112,6 +115,7 @@ export const SUPPORTED_INTENT_VALUES = [
   'transfer_suggestion',
   'fixture_outlook',   // Track D/FI4 — renderable orchestrator-routed intent
   'zonal_opportunity', // T4b — renderable orchestrator-routed intent
+  'player_snapshot',   // renderable orchestrator-routed intent (player card)
 ] as const satisfies readonly Intent[];
 
 export type FplPosition = 'FWD' | 'MID' | 'DEF' | 'GKP';
@@ -259,6 +263,12 @@ export interface AskResponse {
    * AND outcome=ok. Optional because pre-T4b fixtures/serialisers omit it.
    */
   zonal_opportunity?: DefensiveZonesMeta | null;
+  /**
+   * Single-player snapshot payload — non-null when intent=player_snapshot
+   * AND outcome=ok. Optional for the same reason as zonal_opportunity
+   * (pre-existing fixtures/serialisers omit it).
+   */
+  player_snapshot?: PlayerSnapshotMeta | null;
   /**
    * Provider-neutral structured evidence (FI-7a). Optional so responses
    * produced without evidence retain the pre-FI-7a wire shape.
@@ -639,6 +649,37 @@ export interface DefensiveZonesMeta {
   exploiters: ZonalExploiter[];
   penalty_xga_per_game: number;
   ai_active: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Player snapshot types (single-player detail card)
+// Source: fpl_grounded_assistant/final_response.py → PlayerSnapshotMeta
+// ---------------------------------------------------------------------------
+
+/** player_snapshot field — non-null when intent=player_snapshot AND outcome=ok */
+export interface PlayerSnapshotMeta {
+  id: number;
+  web_name: string;
+  team_short: string;
+  position: FplPosition;
+  minutes_played_season: number;
+  /** 'Available' | 'Doubtful' | 'Injured' | 'Suspended' | 'Not in squad' | 'Unavailable' | 'Unknown' */
+  status: string;
+  news: string;
+  news_added: string | null;
+  chance_of_playing_this_round: number | null;
+  form: number;
+  total_points: number;
+  points_per_game: number;
+  expected_goals: number;
+  expected_assists: number;
+  expected_goal_involvements: number;
+  ict_index: number;
+  /** Tenths of £ (e.g. 155 → £15.5m). */
+  now_cost: number;
+  selected_by_percent: number;
+  transfers_in_event: number;
+  transfers_out_event: number;
 }
 
 // ---------------------------------------------------------------------------

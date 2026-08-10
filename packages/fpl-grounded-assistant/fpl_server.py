@@ -321,6 +321,7 @@ class AskResponse(BaseModel):
     position_fixture_run: dict[str, Any] | None = None    # Phase 2.6e.4
     transfer_suggestion:  dict[str, Any] | None = None    # Phase 2.6h
     zonal_opportunity:    dict[str, Any] | None = None    # T4b: defensive zones card
+    player_snapshot:      dict[str, Any] | None = None    # single-player detail card
     # Track A: additive renderable card composed only from deterministic metadata
     # (never LLM text). Non-null for composer-backed plain-text intents on OK turns.
     generic_card:         dict[str, Any] | None = None
@@ -451,6 +452,7 @@ class SessionAskResponse(BaseModel):
     position_fixture_run: dict[str, Any] | None = None    # Phase 2.6e.4
     transfer_suggestion:  dict[str, Any] | None = None    # Phase 2.6h
     zonal_opportunity:    dict[str, Any] | None = None    # T4b: defensive zones card
+    player_snapshot:      dict[str, Any] | None = None    # single-player detail card
     # Track A: additive renderable card composed only from deterministic metadata.
     generic_card:         dict[str, Any] | None = None
     # Guided Comparison flow: tappable player-name suggestions (compare clarification only).
@@ -1080,6 +1082,32 @@ def _zonal_opportunity_meta_dict(zo: Any) -> dict[str, Any]:
         ],
         "penalty_xga_per_game": zo.penalty_xga_per_game,
         "ai_active":            zo.ai_active,
+    }
+
+
+def _player_snapshot_meta_dict(ps: Any) -> dict[str, Any]:
+    """Serialise a PlayerSnapshotMeta instance."""
+    return {
+        "id":                           ps.id,
+        "web_name":                     ps.web_name,
+        "team_short":                   ps.team_short,
+        "position":                     ps.position,
+        "minutes_played_season":        ps.minutes_played_season,
+        "status":                       ps.status,
+        "news":                         ps.news,
+        "news_added":                   ps.news_added,
+        "chance_of_playing_this_round": ps.chance_of_playing_this_round,
+        "form":                         ps.form,
+        "total_points":                 ps.total_points,
+        "points_per_game":              ps.points_per_game,
+        "expected_goals":               ps.expected_goals,
+        "expected_assists":             ps.expected_assists,
+        "expected_goal_involvements":   ps.expected_goal_involvements,
+        "ict_index":                    ps.ict_index,
+        "now_cost":                     ps.now_cost,
+        "selected_by_percent":          ps.selected_by_percent,
+        "transfers_in_event":           ps.transfers_in_event,
+        "transfers_out_event":          ps.transfers_out_event,
     }
 
 
@@ -2227,6 +2255,7 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         position_fixture_run=sess_pos_fixture_run_bundle,
         transfer_suggestion=_transfer_suggestion_meta_dict(r.transfer_suggestion) if r.transfer_suggestion is not None else None,
         zonal_opportunity=_zonal_opportunity_meta_dict(r.zonal_opportunity) if r.zonal_opportunity is not None else None,  # T4b
+        player_snapshot=_player_snapshot_meta_dict(r.player_snapshot) if r.player_snapshot is not None else None,  # single-player card
         generic_card=_generic_card_meta_dict(r.generic_card) if r.generic_card is not None else None,  # Track A
         suggestions=_suggestions_meta_list(r.suggestions) if r.suggestions is not None else None,  # Guided Comparison
         # Phase 2.7d: routing audit fields
