@@ -1087,6 +1087,7 @@ def _zonal_opportunity_meta_dict(zo: Any) -> dict[str, Any]:
 
 def _player_snapshot_meta_dict(ps: Any) -> dict[str, Any]:
     """Serialise a PlayerSnapshotMeta instance."""
+    ctx = ps.team_fdr_context
     return {
         "id":                           ps.id,
         "web_name":                     ps.web_name,
@@ -1108,6 +1109,21 @@ def _player_snapshot_meta_dict(ps: Any) -> dict[str, Any]:
         "selected_by_percent":          ps.selected_by_percent,
         "transfers_in_event":           ps.transfers_in_event,
         "transfers_out_event":          ps.transfers_out_event,
+        "fixtures": [
+            {
+                "gameweek":       fx.gameweek,
+                "opponent_short": fx.opponent_short,
+                "is_home":        fx.is_home,
+                "difficulty":     fx.difficulty,
+            }
+            for fx in ps.fixtures
+        ],
+        "team_fdr_context": {
+            "avg_fdr":          ctx.avg_fdr,
+            "difficulty_label": ctx.difficulty_label,
+            "gw_from":          ctx.gw_from,
+            "gw_to":            ctx.gw_to,
+        } if ctx is not None else None,
     }
 
 

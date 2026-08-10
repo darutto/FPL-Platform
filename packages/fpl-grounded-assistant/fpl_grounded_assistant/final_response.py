@@ -609,6 +609,11 @@ class PlayerSnapshotMeta:
     selected_by_percent:             float
     transfers_in_event:              int
     transfers_out_event:             int
+    # Next-N fixture strip (reuses get_player_fixture_run — see FixtureEntry/
+    # TeamFDRContext above, Phase 7h). Empty tuple / None when the player's
+    # team isn't covered by bootstrap["team_fixtures"] (missing_context).
+    fixtures:                        tuple[FixtureEntry, ...]
+    team_fdr_context:                TeamFDRContext | None
 
 
 # ---------------------------------------------------------------------------
@@ -1641,6 +1646,15 @@ def _extract_player_snapshot_meta(ro: "dict[str, Any]") -> "PlayerSnapshotMeta |
         if ro.get("status") != "ok" or not ro.get("player"):
             return None
         p = ro["player"]
+        ctx_raw = p.get("team_fdr_context")
+        team_fdr_context: TeamFDRContext | None = None
+        if ctx_raw is not None:
+            team_fdr_context = TeamFDRContext(
+                avg_fdr          = float(ctx_raw["avg_fdr"]),
+                difficulty_label = str(ctx_raw["difficulty_label"]),
+                gw_from          = int(ctx_raw["gw_from"]),
+                gw_to            = int(ctx_raw["gw_to"]),
+            )
         return PlayerSnapshotMeta(
             id                           = int(p.get("id", 0)),
             web_name                     = p.get("web_name", ""),
@@ -1662,6 +1676,16 @@ def _extract_player_snapshot_meta(ro: "dict[str, Any]") -> "PlayerSnapshotMeta |
             selected_by_percent          = float(p.get("selected_by_percent", 0.0)),
             transfers_in_event           = int(p.get("transfers_in_event", 0)),
             transfers_out_event          = int(p.get("transfers_out_event", 0)),
+            fixtures                     = tuple(
+                FixtureEntry(
+                    gameweek       = int(fx["gameweek"]),
+                    opponent_short = fx["opponent_short"],
+                    is_home        = bool(fx["is_home"]),
+                    difficulty     = int(fx["difficulty"]),
+                )
+                for fx in p.get("fixtures", [])
+            ),
+            team_fdr_context             = team_fdr_context,
         )
     except Exception:  # noqa: BLE001
         return None

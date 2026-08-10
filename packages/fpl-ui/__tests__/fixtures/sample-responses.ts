@@ -801,6 +801,19 @@ export const playerSnapshotOkResponse: AskResponse = {
     selected_by_percent: 74.2,
     transfers_in_event: 12345,
     transfers_out_event: 6789,
+    fixtures: [
+      { gameweek: 29, opponent_short: 'LIV', is_home: true, difficulty: 4 },
+      { gameweek: 30, opponent_short: 'ARS', is_home: false, difficulty: 5 },
+    ],
+  },
+};
+
+/** player_snapshot OK — no team_fixtures coverage, fixture strip omitted */
+export const playerSnapshotNoFixturesResponse: AskResponse = {
+  ...playerSnapshotOkResponse,
+  player_snapshot: {
+    ...playerSnapshotOkResponse.player_snapshot!,
+    fixtures: [],
   },
 };
 

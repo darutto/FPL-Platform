@@ -12,6 +12,10 @@
  *   expected_assists, expected_goal_involvements, ict_index,
  *   minutes_played_season.
  *
+ * Also shows a compact next-5-fixtures strip (fixtures field, reusing
+ * FixtureRunTable's FixtureChip) when the player's team is covered by
+ * bootstrap["team_fixtures"] — empty array otherwise, strip omitted.
+ *
  * Deliberately has no BF/position_score — get_player_snapshot is a pure
  * grounding-payload lookup, not a position_score.py caller. This card
  * renders the CURRENT snapshot fields with the same visual quality as
@@ -32,6 +36,7 @@ import {
 } from '@/lib/copy';
 import { FingerprintWaves } from './CardOrnaments';
 import { resolveStatusBadge } from './InjuriesTable';
+import { FixtureChip, fixtureKey } from './FixtureRunTable';
 
 interface Props {
   data: PlayerSnapshotMeta;
@@ -56,6 +61,7 @@ export default function PlayerCard({ data }: Props) {
     expected_goal_involvements,
     ict_index,
     minutes_played_season,
+    fixtures,
   } = data;
 
   const { className: badgeClass, label: badgeLabel } = resolveStatusBadge(status);
@@ -107,6 +113,16 @@ export default function PlayerCard({ data }: Props) {
         <div className="text-[10px] text-bf-gray">
           {minutes_played_season} {UNIT_MINUTES}
         </div>
+
+        {/* Next-5 fixture strip — reuses FixtureRunTable's chip so the two
+            cards stay visually identical for the same underlying data. */}
+        {fixtures.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 border-t border-white/10 pt-2.5">
+            {fixtures.map((f) => (
+              <FixtureChip key={fixtureKey(f)} entry={f} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
