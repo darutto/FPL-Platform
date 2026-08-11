@@ -123,6 +123,7 @@ jobs:
             --file scripts/trial_auth.py \
             --file scripts/trial_entities.py \
             --file scripts/trial_fixtures.py \
+            --file scripts/trial_injuries.py \
             --subject "../../.gitignore::downloaded_files/" \
             --subject "../../.gitignore::packages/sportmonks-client/trial-output/" \
             --positive-control "scripts/trial_auth.py::exchanges[-1].body_keys::exchanges[0].body_keys" \
