@@ -2554,6 +2554,16 @@ Survivor re-run confirmation is therefore a **recurrence detector**, not a fix: 
 
 **The phase's actual finding, and the least expected one: the code being swept has been in better shape than the things doing the sweeping, consistently.** Three of five high-confidence claims failed on instruments — the live-call guard's outer layer, the probe's own enumeration, and the detector, which was broken while both its author and its reviewer argued to keep it on a mechanism that turned out impossible. The trial scripts themselves have needed one rewrite in total, caught mechanically, inside the pre-registered threshold. A reader will assume the risk lived in the domain code. It did not. **A cause that fits the data and cannot work is a coincidence with good manners.**
 
+#### The probe is frozen at #109/#114 — improvements are filed, not built
+
+**Probe work stops here.** Further improvements go on [#93](https://github.com/darutto/FPL-Platform/issues/93) as filed items; none is built until the remaining slices are written. #93 is kept **open** for exactly this reason — a freeze whose destination is a closed issue has no destination.
+
+The reason is a measurement, not a preference. Roughly forty turns went into the instrument — enumeration, the AST allowlist, the lock, the clean-tree precondition at both ends, the stale-bytecode detector, four pre-registered flip-mode arms — and the durable result is **one line**: the mode was real, its cause is external and unknown, and the gate's stability is inherited. Everything else either fixed an instrument defect that the instrument itself introduced, or falsified a mechanism nobody can now act on. Over the same period five slices went unwritten against a fourteen-day trial clock that does not extend.
+
+This is the same trade the phase has been getting wrong in one direction, and worth naming plainly because the conclusion will outlive the investigation that produced it: **the instruments have been in worse shape than the code they measure, and the correct response to that is not more instrument.** The probe as it stands catches what it was built to catch. It has an open environmental hazard against it that more probe work has already failed twice to close.
+
+**What still applies:** the gate stays required, survivor re-run confirmation stays on as a recurrence detector, and a survivor that does not reproduce is printed and counted rather than silently retried. **What does not:** building anything new into `falsifiability_probe.py` before the slices are done.
+
 #### Instruments that answer the adjacent question — a class, for S3–S6
 
 Three failures this phase share one shape: **a confident, well-formed answer to a question next to the one being asked.** They are cheap to write and read as coverage, so name them before the remaining slices reach for them.
@@ -2722,16 +2732,30 @@ S4 would have been the largest slice in the phase *and* the only one with genuin
 - **Objectives covered:** **6** (confirmed starters and substitutes), **7** (formation strings), **8** (formation-grid or lineup-position fields), **9** (detailed position identifiers), **10** (substitution relationships and minutes).
 - **Non-goals:** no squad work (S4a); no change to M2 `tactical_role` or any `football-intelligence` module; no normalizer change; **no grid-semantics decision**.
 
-##### S5 — health and statistics
+##### S5 — split into S5a and S5b, for the same reason S4 was
 
-- **Files new:** `scripts/trial_injuries.py`, `scripts/trial_stats.py`, `tests/test_trial_health_stats.py`.
+Two scripts, six objectives, and the phase's worst convergence record — S5's three review passes returned 3, 6, and 4 substantive findings without converging, which is where the rewrite threshold came from. The two halves share no code beyond `_trial_common.py` and answer unrelated questions, so the split costs nothing.
+
+They are also **separated in time**, which the original single slice could not express: S5a runs before the trial window and S5b runs on trial day 5–10 (see the trial-day order below). That gap is a recorded confound in the #100 measurement, not a scheduling detail.
+
+##### S5a — health
+
+- **Files new:** `scripts/trial_injuries.py`, `tests/test_trial_health_stats.py`.
 - **DoD (verifiable):**
-  1. `trial_injuries.py` reports injuries, suspensions, and coach/manager records as three separately-statused objectives.
+  1. Injuries, suspensions, and coach/manager records are reported as separately-statused facts. **The spec's original "three separately-statused objectives" conflicts with brief §11.3, which gives two ids** — objective 11 covers injuries *and* suspensions. Resolved by statusing all three internally and having objective 11 take the **worse** of injuries and suspensions, so a missing suspension feed cannot hide behind healthy injury data.
   2. Every injury record carries a freshness timestamp in the report — the input the §12 degradation matrix consumes to apply a confidence penalty. A record with no timestamp is reported `degraded`, never defaulted to "fresh".
-  3. `trial_stats.py` reports fixture-level team statistics and player match statistics separately, each with per-field presence counts.
-  4. **Objectives 15 and 16 are structurally different from the rest** and must be honestly labelled: update timing and post-match corrections can only be measured by repeated live observation across a real match. S5 ships the *recording scaffold* — a stable schema for pre/during/post samples and a diff between successive snapshots of the same fixture — and marks both objectives `not_applicable (requires FI-9 live observation)` in mock mode. The scaffold's diff logic is tested against two hand-written snapshot versions.
-- **Objectives covered:** **11** (injuries and suspensions), **12** (coaches and manager records), **13** (fixture-level team statistics), **14** (player match statistics), **15** (data update timing — scaffold only), **16** (post-match corrections — scaffold only).
-- **Non-goals:** no confidence-penalty logic (that is §8.1 / M-module territory); no M1 coefficient work; no live sampling.
+  3. **The freshness field name is searched, not assumed.** The mock corpus carries no timestamps, so the mock synthesizes them and the report carries a warning saying so. Which field Sportmonks actually uses is unverified until FI-9, and a script that hardcodes one name reports `degraded` on live data for the wrong reason.
+- **Objectives covered:** **11** (injuries and suspensions), **12** (coaches and manager records).
+- **Non-goals:** no statistics work (S5b); no confidence-penalty logic (that is §8.1 / M-module territory); no M1 coefficient work.
+
+##### S5b — statistics *(runs on trial day 5–10)*
+
+- **Files new:** `scripts/trial_stats.py`, `tests/test_trial_stats.py`.
+- **DoD (verifiable):**
+  1. `trial_stats.py` reports fixture-level team statistics and player match statistics separately, each with per-field presence counts.
+  2. **Objectives 15 and 16 are structurally different from the rest** and must be honestly labelled: update timing and post-match corrections can only be measured by repeated live observation across a real match. S5b ships the *recording scaffold* — a stable schema for pre/during/post samples and a diff between successive snapshots of the same fixture — and marks both objectives `not_applicable (requires FI-9 live observation)` in mock mode. The scaffold's diff logic is tested against two hand-written snapshot versions, and a test drives **both** keys in one run so the `not_applicable` status is itself falsifiable.
+- **Objectives covered:** **13** (fixture-level team statistics), **14** (player match statistics), **15** (data update timing — scaffold only), **16** (post-match corrections — scaffold only).
+- **Non-goals:** no health work (S5a); no live sampling; no confidence-penalty logic.
 
 ##### S6 — identity mapping *(the only slice that reads outside the package)*
 
@@ -2758,10 +2782,27 @@ S4 would have been the largest slice in the phase *and* the only one with genuin
 | S3 | 1, 2, 3 |
 | S4a | 4, 5 |
 | S4b | 6, 7, 8, 9, 10 |
-| S5 | 11, 12, 13, 14, 15\*, 16\* |
+| S5a | 11, 12 |
+| S5b | 13, 14, 15\*, 16\* |
 | S6 | 18, 19 |
 
 \* scaffold only in FI-8; measured in FI-9.
+
+#### Execution order is trial-day order, not plan order
+
+**The slices above are written in dependency order. They are not to be executed in it.** Once the FI-9 window opens, the order is set by §14.2's day map — what a slice can be *used for* on the day it lands — and a fresh reader following the section order will build the wrong thing first.
+
+| # | Slice | Trial window | Why here |
+|---|---|---|---|
+| 1 | **S5a** (health) | before / day 1 | Already written; needs its sweep finished. Nothing downstream waits on it. |
+| 2 | **S4a** (squads) | day 2–5 | §14.2 day 2–5 is *"full PL squads + players ingest"*. Squads are the input the identity corpus is re-run against. |
+| 3 | **S6** (identity) | day 2–5 | **Moved ahead of S4b.** §14.2 puts the identity corpus re-run and queue burn-down at day 2–5, and §14.1's ≥95% gate stands at **81.3449%** — the largest gap of any gate in the phase. S6 is the instrument that measures it, so it must exist while there is still trial time to act on a bad number. |
+| 4 | **S4b** (lineups, grid) | day 5–10 | §14.2 puts lineups and formations at day 5–10, against preseason and opening fixtures. It is the highest-risk slice, but it cannot be validated earlier than the fixtures that validate it. |
+| 5 | **S5b** (statistics) | day 5–10 | Stat completeness and update timing need real matches. Deferral recorded on [#101](https://github.com/darutto/FPL-Platform/issues/101). |
+
+**S6 before S4b is the one inversion, and it is deliberate.** Dependency order puts S6 last because it reads outside the package; trial value puts it third because a below-threshold identity rate discovered on day 8 leaves nothing to do about it. The plan's own §14.4 makes the gate a GO criterion, so measuring it late is measuring it too late to change the answer.
+
+The pre-registered #100 measurement is amended rather than protected: S5a and S5b will be measured under different conditions, weeks apart, and the summed comparison completes when S5b lands. **Reordering slices to keep an experiment clean would be optimising the experiment over the trial.**
 
 #### Phase DoD
 

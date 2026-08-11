@@ -14,6 +14,16 @@ before the trial is that the bar cannot move afterwards to fit the result.
 | Decided by | — |
 | Recorded in | [TRIAL_STATUS.md](TRIAL_STATUS.md) |
 
+> **Criterion (a) is the largest open risk in the phase, and it starts furthest
+> from its bar.** The FI-2 baseline is **375/461 — 81.3449%** automatic matching,
+> against a required **≥95%**, with an 86-item unresolved queue. Every other
+> criterion is unmeasured; this one is measured and short. Closing it depends on
+> populated canonical team crosswalks, sanctioned Sportmonks identity metadata,
+> audited overrides, and operator queue burn-down — all of which are day 2–5 work,
+> which is why S6 is scheduled ahead of S4b. **Fuzzy matching, speculative
+> aliases, and unsafe fall-through tiers stay prohibited**, so the gap cannot be
+> closed by loosening the matcher.
+
 ## GO — requires **all six**
 
 A single unmet criterion is not a GO. There is no partial credit and no
