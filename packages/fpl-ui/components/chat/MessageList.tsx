@@ -18,7 +18,7 @@ import { selectIntentView } from '@/lib/intent-renderer';
 import { selectWcIntentView } from '@/lib/wc-intent-renderer';
 import IntentRenderer from './IntentRenderer';
 import WcIntentRenderer from '@/components/wc/WcIntentRenderer';
-import SuggestionChips, { type CompareWizardState } from './SuggestionChips';
+import SuggestionChips, { PlayerPickChips, type CompareWizardState, type PlayerPickWizardState } from './SuggestionChips';
 import ShareActions from '@/components/share/ShareActions';
 import EvidenceBoundary from '@/components/intelligence/EvidenceBoundary';
 import EvidenceList from '@/components/intelligence/EvidenceList';
@@ -51,6 +51,10 @@ interface Props {
   compareWizard?: CompareWizardState | null;
   /** Called with a tapped chip's send_text. */
   onSuggestionPick?: (sendText: string) => void;
+  /** Single-tap player disambiguation wizard state (player_snapshot intent). */
+  playerPickWizard?: PlayerPickWizardState | null;
+  /** Called with a tapped chip's send_text. */
+  onPlayerPick?: (sendText: string) => void;
 }
 
 export default function MessageList({
@@ -60,6 +64,8 @@ export default function MessageList({
   followUpArmedFor,
   compareWizard,
   onSuggestionPick,
+  playerPickWizard,
+  onPlayerPick,
 }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const shareQuestionByAssistantId = assistantShareQuestionMap(messages);
@@ -82,6 +88,8 @@ export default function MessageList({
           onFollowUp={onFollowUp}
           compareWizard={compareWizard}
           onSuggestionPick={onSuggestionPick}
+          playerPickWizard={playerPickWizard}
+          onPlayerPick={onPlayerPick}
         />
       ))}
       {loading && (
@@ -106,9 +114,11 @@ interface MessageBubbleProps {
   onFollowUp?: (messageId: string) => void;
   compareWizard?: CompareWizardState | null;
   onSuggestionPick?: (sendText: string) => void;
+  playerPickWizard?: PlayerPickWizardState | null;
+  onPlayerPick?: (sendText: string) => void;
 }
 
-function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, compareWizard, onSuggestionPick }: MessageBubbleProps) {
+function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, compareWizard, onSuggestionPick, playerPickWizard, onPlayerPick }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const showOriginBadge = !isUser && !message.isError && (message.response != null || message.wcResponse != null);
   const showFollowUp = !isUser && !message.isError && isLast && onFollowUp != null;
@@ -124,6 +134,12 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
   // Guided Comparison chips: only under the LATEST top-level assistant bubble
   // (never historical turns, never sub-responses) while a wizard is armed.
   const showWizard = hasSuggestions && isLast && compareWizard != null && onSuggestionPick != null;
+  // Single-tap player disambiguation chips — mutually exclusive with
+  // showWizard in practice (ChatShell only arms one wizard per intent), but
+  // each derived independently here so the two chip sets never depend on
+  // each other's state.
+  const showPlayerPickWizard =
+    hasSuggestions && isLast && playerPickWizard != null && onPlayerPick != null;
   // Structured turn → render the card alone, like /preview (no text bubble,
   // no bubble-around-card double box).
   const hasFplCard =
@@ -153,6 +169,7 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
           {hasWcCard && <WcIntentRenderer response={message.wcResponse!} />}
           {showOriginBadge && <OriginBadges message={message} />}
           {showWizard && <SuggestionChips wizard={compareWizard!} onPick={onSuggestionPick!} />}
+          {showPlayerPickWizard && <PlayerPickChips wizard={playerPickWizard!} onPick={onPlayerPick!} />}
           {showFollowUp && <FollowUpButton armed={armed} onClick={() => onFollowUp!(message.id)} />}
         </div>
       </div>
@@ -178,8 +195,12 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
             back to a static, non-interactive line so the turn still reads
             sensibly in history without the English text reappearing. */}
         {!hasSuggestions && <p className="text-sm whitespace-pre-wrap">{message.text}</p>}
-        {hasSuggestions && !showWizard && (
-          <p className="text-sm font-semibold text-bf-text/90">¿Cuál es el primer jugador?</p>
+        {hasSuggestions && !showWizard && !showPlayerPickWizard && (
+          <p className="text-sm font-semibold text-bf-text/90">
+            {message.response?.intent === 'player_snapshot'
+              ? '¿Cuál de estos jugadores buscabas?'
+              : '¿Cuál es el primer jugador?'}
+          </p>
         )}
 
         {!isUser && !message.isError && message.response?.intent !== 'multi_intent' && (
@@ -190,6 +211,7 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
 
         {showOriginBadge && <OriginBadges message={message} />}
         {showWizard && <SuggestionChips wizard={compareWizard!} onPick={onSuggestionPick!} />}
+        {showPlayerPickWizard && <PlayerPickChips wizard={playerPickWizard!} onPick={onPlayerPick!} />}
         {showFollowUp && <FollowUpButton armed={armed} onClick={() => onFollowUp!(message.id)} />}
       </div>
     </div>

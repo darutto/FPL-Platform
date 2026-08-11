@@ -91,7 +91,7 @@ function clarificationResponse() {
     final_text: '¿A quién quieres comparar?',
     outcome: 'needs_clarification',
     supported: true,
-    intent: null,
+    intent: 'compare_players',
     review_passed: true,
     llm_used: false,
     orch_outcome: null,

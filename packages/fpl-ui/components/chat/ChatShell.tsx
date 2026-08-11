@@ -33,7 +33,7 @@ import type { AskResponse, SquadContext } from '@/lib/types';
 import { QUOTA_BUCKETS, type QuotaBucket } from '@/lib/tiers';
 import { readDevTier } from '@/lib/dev-tier';
 import MessageList, { type Message } from './MessageList';
-import { type CompareWizardState } from './SuggestionChips';
+import { type CompareWizardState, type PlayerPickWizardState } from './SuggestionChips';
 import InputBar, { type InsertRequest } from './InputBar';
 import StarterPrompts from './StarterPrompts';
 import SquadContextPanel from './SquadContextPanel';
@@ -74,6 +74,10 @@ export default function ChatShell() {
   // A manual send while armed is composed into the wizard's answer (see
   // sendMessage) unless it's an explicit "/" or "@" escape hatch.
   const [compareWizard, setCompareWizard] = useState<CompareWizardState | null>(null);
+  // Single-tap disambiguation wizard for an ambiguous single-player lookup
+  // (e.g. "Joao Pedro" matching two players). Sibling to compareWizard, not
+  // a variant of it — one tap fully resolves the turn, no A/B composition.
+  const [playerPickWizard, setPlayerPickWizard] = useState<PlayerPickWizardState | null>(null);
   const [squadContext, setSquadContext] = useState<SquadContext | null>(null);
   // Incremented after each completed turn so QuotaIndicator re-fetches quota
   const [quotaRefreshTrigger, setQuotaRefreshTrigger] = useState(0);
@@ -175,6 +179,7 @@ export default function ChatShell() {
     // Every send clears the (now-resolved-or-abandoned) wizard state; if the
     // response below carries fresh suggestions, it gets re-armed at line ~250.
     setCompareWizard(null);
+    setPlayerPickWizard(null);
 
     try {
       let response: AskResponse;
@@ -252,11 +257,26 @@ export default function ChatShell() {
       // present (e.g. "Gabriel vs Bogus") since that means a comparison was
       // attempted and failed for another reason (unknown second player) —
       // seeding the whole phrase as one name would be nonsensical.
-      if (response.suggestions != null && response.suggestions.length > 0) {
+      // Intent-gated so the two wizards can never collide -- response.suggestions
+      // is a generic {label, send_text}[] shared by both suppliers; without this
+      // check a player_snapshot disambiguation turn would incorrectly arm the
+      // two-slot compare flow (or vice versa).
+      if (
+        response.intent === 'compare_players' &&
+        response.suggestions != null &&
+        response.suggestions.length > 0
+      ) {
         const afterCommand = input.replace(/^\/(comparar|compare)\s*/i, '').trim();
         const hasConnector = /\b(por|for|vs|y|and)\b|,/i.test(afterCommand);
         const seededA = afterCommand.length > 0 && !hasConnector ? afterCommand : null;
         setCompareWizard({ playerA: seededA, options: response.suggestions });
+      }
+      if (
+        response.intent === 'player_snapshot' &&
+        response.suggestions != null &&
+        response.suggestions.length > 0
+      ) {
+        setPlayerPickWizard({ options: response.suggestions });
       }
       // Refresh quota indicator after every completed turn
       setQuotaRefreshTrigger((n) => n + 1);
@@ -293,6 +313,14 @@ export default function ChatShell() {
       sendMessage(`/comparar ${compareWizard.playerA} vs ${sendText}`);
     }
   }, [compareWizard, sendMessage]);
+
+  // Single-tap player disambiguation: the tapped candidate's send_text
+  // ("{web_name} {team_short}") is already a complete, unambiguous query —
+  // unlike the compare wizard there's no second slot to fill, so this just
+  // sends it straight through the normal path (which also clears the wizard).
+  const handlePlayerPick = useCallback((sendText: string) => {
+    sendMessage(sendText);
+  }, [sendMessage]);
 
   // Quick commands ("Vistas rápidas") are complete queries — send immediately
   // and jump to the chat screen, skipping the edit step.
@@ -349,6 +377,8 @@ export default function ChatShell() {
                   followUpArmedFor={followUpArmedFor}
                   compareWizard={compareWizard}
                   onSuggestionPick={handleSuggestionPick}
+                  playerPickWizard={playerPickWizard}
+                  onPlayerPick={handlePlayerPick}
                 />
               )}
             </div>

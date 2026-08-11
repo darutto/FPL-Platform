@@ -63,6 +63,7 @@ from fpl_grounded_assistant.find_players import (
     _normalize,
     _build_match_dict,
     _safe_int,
+    _team_short,
 )
 
 _MAX_AMBIGUOUS_CANDIDATES: int = 5
@@ -92,6 +93,66 @@ def _attach_fixture_run(player_dict: dict[str, Any], bootstrap: dict[str, Any]) 
     else:
         player_dict["fixtures"] = []
         player_dict["team_fdr_context"] = None
+
+
+def _split_team_hint(
+    normalized_query: str, bootstrap: dict[str, Any]
+) -> tuple[str, str | None]:
+    """Detect a trailing team short_name token on *normalized_query*.
+
+    Lets a disambiguation chip send natural text like "Joao Pedro CHE" that
+    the LLM already reliably routes to this tool, and have the team
+    qualifier resolved *here* rather than requiring a new deterministic
+    route or asking the LLM to interpret a bare id (get_player_snapshot is
+    orchestrator-only -- there is no deterministic path for it, unlike
+    /comparar's MODE_DISPATCH prompt).
+
+    Matches on team short_name ONLY (3-letter codes like "CHE") -- not full
+    team names, which carry real collision risk with player surnames. Short
+    codes are also exactly what the disambiguation chips below send, so
+    nothing else needs to be supported.
+
+    Returns ``(name_only_query, team_hint)``. ``team_hint`` is ``None`` (and
+    *normalized_query* returned unchanged) when the last token isn't a
+    known team code, or when stripping it would leave nothing to match on --
+    a query that just happens to end in a real team code but describes no
+    real name should fall through to ordinary matching, not silently lose
+    its last word.
+    """
+    tokens = normalized_query.split()
+    if len(tokens) < 2:
+        return normalized_query, None
+
+    team_shorts = {
+        _normalize(str(t.get("short_name", ""))): str(t.get("short_name", ""))
+        for t in bootstrap.get("teams", [])
+    }
+    last = tokens[-1]
+    if last not in team_shorts:
+        return normalized_query, None
+
+    name_only = " ".join(tokens[:-1]).strip()
+    if not name_only:
+        return normalized_query, None
+
+    return name_only, last
+
+
+def _resolve_via_team_hint(
+    bucket: list[dict[str, Any]],
+    teams: list[dict[str, Any]],
+    team_hint: str,
+) -> dict[str, Any] | None:
+    """Narrow *bucket* to the single element whose team_short matches
+    *team_hint* (already normalized). Returns ``None`` when the hint
+    doesn't narrow it to exactly one -- the caller falls back to the
+    ordinary (unfiltered) ambiguous response in that case, never a
+    partial/wrong result."""
+    filtered = [
+        el for el in bucket
+        if _normalize(_team_short(el, teams)) == team_hint
+    ]
+    return filtered[0] if len(filtered) == 1 else None
 
 
 # ---------------------------------------------------------------------------
@@ -168,6 +229,13 @@ def get_player_snapshot(
     teams: list[dict[str, Any]] = bootstrap.get("teams", []) or []
     element_types: list[dict[str, Any]] = bootstrap.get("element_types", []) or []
 
+    # A trailing team-code token (e.g. "joao pedro che") can never match any
+    # player's name text, so it must be stripped BEFORE matching -- left in,
+    # the whole query fails every rank and falls straight to not_found
+    # (this was the actual bug: appending "Chelsea" made the search worse,
+    # not better). team_hint is used below to disambiguate a multi-match.
+    match_query, team_hint = _split_team_hint(normalized_query, bootstrap)
+
     # ------------------------------------------------------------------
     # 2. Classify each element into rank buckets (same algorithm as find_players)
     # ------------------------------------------------------------------
@@ -184,21 +252,21 @@ def get_player_snapshot(
         composite = f"{first} {second} {web}"
 
         # Rank 0: exact match on any canonical name field
-        if normalized_query in (first, second, web):
+        if match_query in (first, second, web):
             rank_bucket[el_id] = 0
             continue
 
         # Rank 1: prefix match on any name field
         if (
-            first.startswith(normalized_query)
-            or second.startswith(normalized_query)
-            or web.startswith(normalized_query)
+            first.startswith(match_query)
+            or second.startswith(match_query)
+            or web.startswith(match_query)
         ):
             rank_bucket[el_id] = 1
             continue
 
         # Rank 2: substring match anywhere in composite
-        if normalized_query in composite:
+        if match_query in composite:
             rank_bucket[el_id] = 2
 
     # ------------------------------------------------------------------
@@ -235,6 +303,16 @@ def get_player_snapshot(
         }
 
     if len(exact_matches) > 1:
+        if team_hint is not None:
+            resolved = _resolve_via_team_hint(exact_matches, teams, team_hint)
+            if resolved is not None:
+                player_dict = _build_match_dict(resolved, teams, element_types, match_rank=0)
+                player_dict.pop("match_rank", None)
+                _attach_fixture_run(player_dict, bootstrap)
+                return {
+                    "status": "ok",
+                    "player": player_dict,
+                }
         candidates = [
             _build_match_dict(el, teams, element_types, match_rank=0)
             for el in exact_matches[:_MAX_AMBIGUOUS_CANDIDATES]
@@ -259,6 +337,16 @@ def get_player_snapshot(
         }
 
     if len(prefix_matches) > 1:
+        if team_hint is not None:
+            resolved = _resolve_via_team_hint(prefix_matches, teams, team_hint)
+            if resolved is not None:
+                player_dict = _build_match_dict(resolved, teams, element_types, match_rank=1)
+                player_dict.pop("match_rank", None)
+                _attach_fixture_run(player_dict, bootstrap)
+                return {
+                    "status": "ok",
+                    "player": player_dict,
+                }
         candidates = [
             _build_match_dict(el, teams, element_types, match_rank=1)
             for el in prefix_matches[:_MAX_AMBIGUOUS_CANDIDATES]

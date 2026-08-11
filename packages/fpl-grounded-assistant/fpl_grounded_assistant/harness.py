@@ -945,13 +945,25 @@ def ask_v2(
             routing_trace["orchestrator_tool_calls"] = [orch_result.tool_chosen]
             routing_trace["grounded"]                = True
             _orch_raw = dict(orch_result.tool_output)
+            # get_player_snapshot's own status (ok/ambiguous/not_found/error)
+            # must not be flattened to "ok" just because the orchestrator
+            # call itself succeeded -- otherwise an ambiguous match reports
+            # as a successful answer and the frontend has no signal to arm
+            # a disambiguation wizard. Scoped to this one tool deliberately:
+            # every other orch-only tool still gets the historical "ok"
+            # hardcode below (unaudited whether they rely on it -- see the
+            # PR description for the follow-up this intentionally excludes).
+            _orch_outcome = (
+                _outcome_from_status(_orch_raw)
+                if orch_result.tool_chosen == "get_player_snapshot"
+                else "ok"
+            )
             result = {
                 "selected_tool": orch_result.tool_chosen,
                 "tool_input":    dict(orch_result.tool_args),
                 "raw_output":    _orch_raw,
                 "answer_text":   orch_result.answer_text,
-                # Intentional "ok": this branch only fires when orch_result.outcome == ORCH_OUTCOME_OK.
-                "outcome":       "ok",
+                "outcome":       _orch_outcome,
                 "kind":          "text",
                 "orchestrator_model": orch_result.model,
                 "routing_trace": routing_trace,
@@ -967,6 +979,18 @@ def ask_v2(
                 },
                 **_meta(orch_result.tool_chosen, _orch_raw),  # orchestrator: grounded tool ran
             }
+            if (
+                orch_result.tool_chosen == "get_player_snapshot"
+                and _orch_raw.get("status") == "ambiguous"
+            ):
+                from .suggestions import Suggestion, suggestions_to_list  # noqa: PLC0415
+                result["player_suggestions"] = suggestions_to_list(tuple(
+                    Suggestion(
+                        label=f"{c.get('web_name', '')} ({c.get('team_short', '')})",
+                        send_text=f"{c.get('web_name', '')} {c.get('team_short', '')}",
+                    )
+                    for c in _orch_raw.get("candidates", [])
+                ))
             if orch_result.tool_chosen in {
                 "get_expected_minutes",
                 "get_tactical_role",

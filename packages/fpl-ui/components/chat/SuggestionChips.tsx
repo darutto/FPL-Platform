@@ -27,6 +27,16 @@ export interface CompareWizardState {
   options: Suggestion[];
 }
 
+/**
+ * Single-tap disambiguation wizard — armed when a bare player-name lookup
+ * (e.g. "Joao Pedro") matches more than one player. Unlike CompareWizardState
+ * there's no two-slot A/B flow: one tap resolves the whole turn, so this is
+ * a sibling type rather than a generalization of the compare wizard.
+ */
+export interface PlayerPickWizardState {
+  options: Suggestion[];
+}
+
 interface Props {
   wizard: CompareWizardState;
   /** Called with the tapped chip's send_text. */
@@ -67,6 +77,34 @@ export default function SuggestionChips({ wizard, onPick }: Props) {
       <p className="mt-2 text-[11px] text-bf-gray">
         ¿No está tu jugador? Escribilo abajo.
       </p>
+    </div>
+  );
+}
+
+interface PlayerPickProps {
+  wizard: PlayerPickWizardState;
+  /** Called with the tapped chip's send_text — resolves the turn in one tap. */
+  onPick: (sendText: string) => void;
+}
+
+export function PlayerPickChips({ wizard, onPick }: PlayerPickProps) {
+  return (
+    <div className="mt-3" data-testid="player-pick-wizard">
+      <p className="text-[13px] font-semibold text-bf-text/90">
+        ¿Cuál de estos jugadores buscabas?
+      </p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {wizard.options.map((chip) => (
+          <button
+            key={chip.send_text}
+            type="button"
+            onClick={() => onPick(chip.send_text)}
+            className="inline-flex items-center rounded-full border border-bf-turquoise/40 bg-bf-turquoise/10 px-3 py-1.5 text-[13px] font-medium text-bf-turquoise transition-colors hover:bg-bf-turquoise/20 hover:border-bf-turquoise/60 active:bg-bf-turquoise/25"
+          >
+            {chip.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
