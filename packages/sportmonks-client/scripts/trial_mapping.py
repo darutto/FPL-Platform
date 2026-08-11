@@ -51,18 +51,28 @@ matcher's models require). It **must not write** to either;
 `test_a_run_leaves_the_identity_registry_byte_identical` hashes the whole
 registry tree before and after.
 
-These two imports grow `EXPECTED_THIRD_PARTY` in `tests/test_trial_harness.py`,
-which pins the live-call guard's completeness. That pin's own error message
-sanctions exactly two ways to grow: extend the conftest guard to the new
-library's network entry points, **or record why the library cannot reach the
-network at all**. The second applies, and it is recorded as a test rather than a
-comment: `test_the_registry_import_reaches_no_network_capable_module` walks what
-importing this script actually loads into `sys.modules` and asserts none of it
-is network-capable. Note *loads*, not *declares* — `football_identity_registry`
-does contain `pandas` and `yaml` imports, in `corpus.py`, `store.py`, and
-`overrides.py`, none of which are on the import path this script takes. A file
-scan would report a dependency that never executes; the adjacent-question table
-in §15 is about exactly that difference.
+Only `football_identity_registry` grows `EXPECTED_THIRD_PARTY` in
+`tests/test_trial_harness.py`, which pins the live-call guard's completeness.
+`football_data_contract` is on `sys.path` as the registry's own dependency but
+is imported by none of our files, and that allowlist is a statement about what
+*we* reach for.
+
+That pin's own error message sanctions exactly two ways to grow: extend the
+conftest guard to the new library's network entry points, **or record why the
+library cannot reach the network at all**. The second applies, and it is
+recorded as a test rather than a comment:
+`test_the_registry_import_adds_no_network_capable_module` measures what
+importing this script loads into a *fresh interpreter*, as a **difference**
+against the harness alone — `requests` brings `http`, `socket`, and `ssl` with
+it and always has, and those are the routes the conftest guard already covers.
+The question the allowlist entry rests on is the narrow one: does the registry
+path add any more.
+
+Note *loads*, not *declares* — `football_identity_registry` does contain
+`pandas` and `yaml` imports, in `corpus.py`, `store.py`, and `overrides.py`,
+none of which are on the import path this script takes. A file scan would
+report a dependency that never executes; the adjacent-question table in §15 is
+about exactly that difference.
 
 `--mock` is the default and is the only mode that runs before FI-9.
 """
