@@ -1,0 +1,39 @@
+{
+  "script": "trial_squads",
+  "mode": "mock",
+  "objectives": [
+    {
+      "id": 4,
+      "title": "Team and squad completeness",
+      "status": "observed",
+      "evidence": "teams: 1 record(s) [id 1/1,name 1/1,short_code 1/1]; squads: 1 record(s) [id 1/1,team_id 1/1,player_id 1/1,position_id 1/1]"
+    },
+    {
+      "id": 5,
+      "title": "Current player records",
+      "status": "observed",
+      "evidence": "players: 1 record(s) [id 1/1,name 1/1,date_of_birth 1/1]; 1/1 squad row(s) resolve to a player record"
+    }
+  ],
+  "observed_shapes": [
+    {
+      "name": "teams",
+      "shape": "1 record(s); record{id,name,short_code}; required[id 1/1,name 1/1,short_code 1/1]"
+    },
+    {
+      "name": "squads",
+      "shape": "1 record(s); record{id,team_id,player_id,position_id}; required[id 1/1,team_id 1/1,player_id 1/1,position_id 1/1]"
+    },
+    {
+      "name": "players",
+      "shape": "1 record(s); record{id,name,display_name,date_of_birth}; required[id 1/1,name 1/1,date_of_birth 1/1]"
+    },
+    {
+      "name": "squad_player_coverage",
+      "shape": "1/1 squad row(s) resolve; 1 player record(s) held"
+    }
+  ],
+  "warnings": [
+    "mock mode: shapes are documentation-derived and carry \"status\": \"unverified_against_live\" until FI-9"
+  ]
+}
