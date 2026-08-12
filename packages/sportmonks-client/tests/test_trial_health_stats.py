@@ -278,9 +278,29 @@ def test_the_synthesized_freshness_is_declared_in_the_report(tmp_path):
 def test_the_synthesis_uses_a_candidate_name_the_script_would_actually_find():
     """A synthesis writing a field outside the search list would rehearse
     nothing: the run would degrade in mock and the gap would look like a
-    provider fact."""
+    provider fact.
+
+    The subset assertion this replaces was **satisfied by the empty set**, so a
+    synthesis that added nothing at all passed it — the one outcome the
+    docstring is about. Measured rather than reasoned: making
+    `_with_synthetic_freshness` return its input unchanged left this test green
+    while four others in this file failed.
+
+    That is why the severity is low and the defect is still real. The no-op is
+    caught, so this was never a hole in coverage; it was an assertion that did
+    not test its own docstring, and a subset check against a non-empty
+    allowlist is the shape that failure always takes.
+    """
     payload = trial_injuries._with_synthetic_freshness({"data": [_injury()]})
-    assert set(payload["data"][0]) - set(_injury()) <= set(trial_injuries.FRESHNESS_FIELDS)
+    added = set(payload["data"][0]) - set(_injury())
+    assert len(added) == 1, "the synthesis must add exactly one field"
+    field = added.pop()
+    assert field in trial_injuries.FRESHNESS_FIELDS
+    assert payload["data"][0][field] is not None, (
+        "a candidate field carrying None is not stamped -- `freshness_of` skips "
+        "null values, so synthesizing one would rehearse nothing while looking "
+        "like it had"
+    )
 
 
 # --- The declaration -------------------------------------------------------------
