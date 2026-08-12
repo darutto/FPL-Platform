@@ -776,3 +776,93 @@ def test_killer_files_reads_the_module_not_the_test_name():
         ["tests/test_a.py::test_one", "tests/sub/test_b.py::TestC::test_two"]
     ) == frozenset({"test_a.py", "test_b.py"})
     assert fp.killer_files(["not-a-node-id"]) == frozenset()
+
+
+# --- Owner attribution: the wiring, not just the predicate ----------------------
+#
+# The tests above exercise `owner_was_silent` and `require_owners` directly. That
+# proves the predicates are right and says nothing about whether `main()` calls
+# them -- and an outcome nobody asserts is the layer that gets deleted silently.
+# These drive `main()` end to end with a stubbed suite runner and assert the
+# thing that actually matters: the gate FAILS.
+
+def _drive_main(monkeypatch, tmp_path, killer_module, owner_args):
+    """Run fp.main() over a fake script with a stubbed pytest and git."""
+    import types
+
+    target = tmp_path / "trial_fake.py"
+    target.write_text(SAMPLE, encoding="utf-8")
+    pristine = target.read_bytes()
+    basetemp = tmp_path / "bt"
+    basetemp.mkdir()
+
+    real_run = fp.subprocess.run
+
+    def _fake_run(cmd, **kwargs):
+        # The seed-reaches-child detector spawns its own interpreter. Delegate
+        # it to the real subprocess so that layer stays genuinely exercised --
+        # stubbing it would be deleting a layer to make a test pass, which is
+        # the failure this file exists to catch.
+        if "-c" in cmd:
+            return real_run(cmd, **kwargs)
+        if "pytest" not in cmd:                      # git status -> clean tree
+            return types.SimpleNamespace(returncode=0, stdout="", stderr="")
+        body = target.read_bytes()
+        # "Is this file seeded?" is answered by comparing against the pristine
+        # bytes, never by sniffing for a token. Replacements are role-specific:
+        # a status site gets `"observed"`, an f-string component gets a bare
+        # `probe`, and only some sites get `fp.LITERAL`. A token check scored
+        # three of six seeds as survivors and the test measured the wrong thing
+        # while appearing to work -- the failure this file is about, committed
+        # inside a test written to catch it.
+        if b"# probe no-op" in body:                 # negative control must SURVIVE
+            out = "1 passed in 0.01s"
+        elif body != pristine:                       # seeded: the suite notices
+            out = (f"FAILED {killer_module}::test_notices\n"
+                   "1 failed, 1 passed in 0.01s")
+        else:
+            out = "1 passed in 0.01s"
+        return types.SimpleNamespace(returncode=0, stdout=out, stderr="")
+
+    monkeypatch.setattr(fp.subprocess, "run", _fake_run)
+    code = fp.main([
+        "--file", str(target),
+        "--positive-control", f"{target}::always-this::pc-broken",
+        "--basetemp-root", str(basetemp),
+        *owner_args,
+    ])
+    return code
+
+
+def test_main_passes_when_the_owning_suite_catches_every_seed(
+        monkeypatch, tmp_path, capsys):
+    code = _drive_main(monkeypatch, tmp_path, "tests/test_owner.py",
+                       ["--owner", "trial_fake.py::test_owner.py"])
+    out = capsys.readouterr().out
+    assert "owner-silent kills: 0" in out
+    assert "OWNER-SILENT" not in out
+    assert code == 0
+
+
+def test_main_fails_the_gate_when_only_foreign_tests_caught_the_seed(
+        monkeypatch, tmp_path, capsys):
+    """The case the check exists for, asserted as the *outcome*: a non-zero exit.
+
+    Same inputs as the passing test except which module the failures name, so a
+    gate that ignored attribution would return 0 here and be caught."""
+    code = _drive_main(monkeypatch, tmp_path, "tests/test_stranger.py",
+                       ["--owner", "trial_fake.py::test_owner.py"])
+    out = capsys.readouterr().out
+    assert "OWNER-SILENT" in out
+    assert "owner-silent kills: 0" not in out
+    assert code == 1
+
+
+def test_main_aborts_when_the_swept_file_declares_no_owner(
+        monkeypatch, tmp_path, capsys):
+    """Non-vacuity at the entry point: an undeclared file must stop the sweep
+    rather than be attributed as trivially owned."""
+    code = _drive_main(monkeypatch, tmp_path, "tests/test_owner.py", [])
+    out = capsys.readouterr().out
+    assert "ABORT" in out and "trial_fake.py" in out
+    assert code == 3
