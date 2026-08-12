@@ -1,0 +1,40 @@
+{
+  "script": "trial_mapping",
+  "mode": "mock",
+  "objectives": [
+    {
+      "id": 19,
+      "title": "FPL identity-match rate",
+      "status": "observed",
+      "evidence": "20/20 matched automatically = 100.0% against a 841-candidate registry (gate ≥95.0%)"
+    },
+    {
+      "id": 18,
+      "title": "Stable provider IDs",
+      "status": "observed",
+      "evidence": "20 entit(ies) in both snapshots; 0 provider_id change(s)"
+    }
+  ],
+  "observed_shapes": [
+    {
+      "name": "provider_player_pool",
+      "shape": "20 record(s); record{id,name,display_name,date_of_birth,team}"
+    },
+    {
+      "name": "match_tiers",
+      "shape": "full_name_birth_date 19,full_name_team 1"
+    },
+    {
+      "name": "unresolved_reasons",
+      "shape": "none unresolved"
+    },
+    {
+      "name": "provider_id_stability",
+      "shape": "20 compared; 0 changed; 0 appeared; 0 disappeared"
+    }
+  ],
+  "warnings": [
+    "the mock provider pool is synthesized from the identity registry's own candidates, so it matches by construction; its rate is a property of the rehearsal and is not evidence about Sportmonks. The rate that counts against the ≥95% gate is the one FI-9 computes on a real provider pool",
+    "mock mode: shapes are documentation-derived and carry \"status\": \"unverified_against_live\" until FI-9"
+  ]
+}

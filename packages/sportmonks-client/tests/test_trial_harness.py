@@ -136,7 +136,26 @@ FIRST_PARTY = _first_party_roots()
 #: deliberate edit that must be accompanied by extending the conftest guard to
 #: that library's entry points, or by an argument for why it cannot reach the
 #: network.
-EXPECTED_THIRD_PARTY = frozenset({"requests", "pytest"})
+#:
+#: `football_identity_registry` is the second kind, added by FI-8 S6 — the one
+#: slice §15 permits to read outside this package. It is a sibling package in
+#: this repository, not an installed library, and the argument that it cannot
+#: reach the network is not left as this comment:
+#: `test_the_registry_import_adds_no_network_capable_module` below measures what
+#: importing it actually loads. That distinction matters here more than usual,
+#: because `football_identity_registry` *does* import `pandas` and `yaml` — in
+#: `corpus.py`, `store.py`, and `overrides.py`, none of which are on the import
+#: path `trial_mapping` takes. A file scan would report a dependency that never
+#: executes.
+EXPECTED_THIRD_PARTY = frozenset({
+    "requests", "pytest", "football_identity_registry",
+})
+
+#: The packages S6 is permitted to reach outside this package, as top-level
+#: names. `football_data_contract` is on `trial_mapping`'s `sys.path` as the
+#: registry's own dependency but is imported by none of our files, which is why
+#: it is not here: this set is what *we* reach for, not what our dependencies do.
+SIBLING_PACKAGE_ROOTS = frozenset({"football_identity_registry"})
 
 #: Stdlib routes out, matched on the full dotted name so that `urllib.parse`
 #: -- string handling, not networking -- does not read as a violation.
@@ -222,6 +241,96 @@ def test_requests_is_the_only_network_client_the_package_can_reach(monkeypatch):
         "narrow NETWORK_CAPABLE_STDLIB above to the dotted names that can, "
         "the way `urllib.request` is listed and `urllib.parse` is not."
     )
+
+
+def _modules_loaded_by(statement):
+    """Top-level module names a fresh interpreter loads for `statement`.
+
+    A subprocess, because in-process `sys.modules` carries whatever every other
+    test in the suite already imported — a check that passes because pandas
+    happened not to be imported *yet* is a check whose result depends on
+    collection order.
+    """
+    probe = (
+        "import json, sys\n"
+        f"sys.path.insert(0, {str(PACKAGE_ROOT / 'scripts')!r})\n"
+        f"{statement}\n"
+        "print(json.dumps(sorted({name.split('.')[0] for name in sys.modules})))\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", probe], cwd=PACKAGE_ROOT,
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    return set(json.loads(result.stdout.strip().splitlines()[-1]))
+
+
+def test_the_module_load_probe_sees_what_a_statement_actually_imports():
+    """The instrument before the claim. Two statements, different expectations —
+    a probe returning the same set for both would make every assertion below
+    vacuous, and both of them assert on a *difference*."""
+    baseline = _modules_loaded_by("pass")
+    with_socket = _modules_loaded_by("import socket")
+    assert "socket" not in baseline
+    assert "socket" in with_socket
+
+
+def test_the_registry_import_adds_no_network_capable_module():
+    """The argument that S6's sibling package cannot reach the network, made as
+    a measurement.
+
+    The allowlist above grew by one entry, and the pin's own error message
+    sanctions that only when the conftest guard is extended to the new library's
+    entry points *or* the library provably cannot reach the network. This is the
+    second, and it interrogates **what actually loads** rather than what the
+    files say: `football_identity_registry` contains `import pandas` and
+    `import yaml`, in three modules that are not on the path `trial_mapping`
+    takes. Reading the tree would report a dependency that never executes — the
+    `inspect.getsource` entry in §15's adjacent-question table, in a different
+    costume.
+
+    Measured as a **difference** against the harness alone. `requests` brings
+    `http`, `socket`, and `ssl` with it and always has; those are the routes the
+    conftest guard covers. The question this test asks is the narrow one the
+    allowlist entry rests on: does the registry path add any *more*.
+    """
+    baseline = _modules_loaded_by("import _trial_common")
+    added = _modules_loaded_by("import trial_mapping") - baseline
+
+    reached = sorted(
+        name for name in added
+        if any(name == mod or name.startswith(f"{mod}.") for mod in NETWORK_CAPABLE_STDLIB)
+    )
+    assert reached == [], (
+        "Importing the identity-registry path loaded a network-capable module "
+        f"the harness alone does not: {reached}. The allowlist entry for "
+        "football_identity_registry rests on it being unable to reach the "
+        "network; that is no longer true."
+    )
+    assert "pandas" not in added and "yaml" not in added, (
+        "A pandas- or yaml-importing module of football_identity_registry is "
+        "now on trial_mapping's import path. Both can open URLs, so the "
+        "allowlist argument above no longer holds — either keep the import "
+        "path off those modules or extend the conftest guard to them."
+    )
+    assert "football_identity_registry" in added, (
+        "The difference no longer contains the registry at all, so this test is "
+        "measuring nothing. Either the import moved or the baseline grew to "
+        "include it."
+    )
+
+
+def test_the_sibling_packages_are_the_only_ones_reached_outside_this_package():
+    """S6 is the only slice permitted to read outside the package, and it names
+    two. A third arriving is growth nobody decided on."""
+    imported = _imported_modules(*(PACKAGE_ROOT / name for name in GUARDED_DIRS))
+    outside = {
+        name.split(".")[0] for name in imported
+        if name.split(".")[0] not in sys.stdlib_module_names
+        and name.split(".")[0] not in FIRST_PARTY
+        and name.split(".")[0] not in {"requests", "pytest"}
+    }
+    assert outside == SIBLING_PACKAGE_ROOTS
 
 
 def test_the_first_party_derivation_finds_the_modules_it_is_supposed_to():
