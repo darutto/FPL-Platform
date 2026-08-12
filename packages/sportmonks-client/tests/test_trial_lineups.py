@@ -438,13 +438,30 @@ def test_the_synthesis_is_declared_in_the_report(tmp_path):
 def test_the_synthesis_uses_candidate_names_the_script_would_actually_find():
     """A synthesis writing fields outside the search lists would rehearse
     nothing: the run would degrade in mock and the gap would look like a
-    provider fact."""
+    provider fact.
+
+    Asserted as membership per field rather than as a subset of the union. A
+    subset check against a non-empty allowlist is **satisfied by the empty
+    set**, so a synthesis that added nothing at all would pass it — the one
+    outcome this test exists to exclude. Same defect as the S5a assertion
+    corrected in #122; it is written out here because the shape is what
+    recurs, not the instance.
+    """
     source = {"data": [{"id": 21, "fixture_id": 1001, "player_id": 101,
                         "formation_field": "1:4"}]}
     built = trial_lineups._synthesize_lineups(source)
-    added = set(built["data"][0]) - set(source["data"][0])
-    assert added <= set(trial_lineups.STARTER_FIELDS) | set(
-        trial_lineups.DETAILED_POSITION_FIELDS)
+    record = built["data"][0]
+    added = set(record) - set(source["data"][0])
+    assert len(added) == 2, "the synthesis must add a starter marker and a position"
+
+    starter = added & set(trial_lineups.STARTER_FIELDS)
+    position = added & set(trial_lineups.DETAILED_POSITION_FIELDS)
+    assert len(starter) == 1 and len(position) == 1
+    for field in (starter | position):
+        assert record[field] is not None, (
+            f"{field} was synthesized as None; `survey` skips null values, so "
+            "the rehearsal would find nothing while looking like it had"
+        )
 
 
 def test_the_synthesis_produces_a_real_partition():
