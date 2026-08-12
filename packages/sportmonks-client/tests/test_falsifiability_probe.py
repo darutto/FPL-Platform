@@ -694,3 +694,175 @@ def test_the_detector_survives_a_live_sweep_of_every_trial_script(tmp_path):
                 fp.restore(seed.path, held)
 
     assert total > 0
+
+
+# --- Owner attribution ---------------------------------------------------------
+#
+# The gate books a kill when *any* test fails under a seed. That is the right
+# default and it has a gap: a test that reads a seeded file at runtime fails
+# whatever the seed was, so its failure is not evidence that the seeded value is
+# falsifiable. `test_falsifiability_probe.py` does exactly that to
+# `trial_auth.py` -- it enumerates the real exemplar from disk -- and fires on 7
+# of that file's 12 sites.
+#
+# It has never inflated anything: the owning suite fires on all 12, so no kill
+# rests on the coupling alone. These tests exist so that stops being a fact
+# somebody has to keep re-measuring.
+
+def test_the_owner_mapping_is_not_derivable_from_the_name():
+    """The three cases a name-matching heuristic gets wrong. This is the whole
+    reason the mapping is written out rather than computed."""
+    assert fp.OWNERS["trial_injuries.py"] == frozenset({"test_trial_health_stats.py"})
+    assert fp.OWNERS["trial_entities.py"] == frozenset({"test_trial_discovery.py"})
+    assert fp.OWNERS["trial_fixtures.py"] == frozenset({"test_trial_discovery.py"})
+
+
+def test_every_swept_script_has_a_declared_owner():
+    """Coverage of the mapping itself. A script the gate sweeps but nobody owns
+    is a script whose kills cannot be attributed."""
+    scripts = sorted(p.name for p in Path(fp.__file__).parent.glob("trial_*.py"))
+    assert scripts, "no trial scripts found; this test would pass vacuously"
+    undeclared = [name for name in scripts if not fp.owners_for(name)]
+    assert undeclared == [], f"no owner declared for {undeclared}"
+
+
+def test_an_owner_among_the_killers_is_not_silent():
+    assert not fp.owner_was_silent(
+        "trial_auth.py",
+        ["tests/test_trial_harness.py::test_x", "tests/test_falsifiability_probe.py::test_y"],
+    )
+
+
+def test_a_kill_with_only_foreign_killers_is_owner_silent():
+    """The case that matters: the probe's own tests fired and the owning suite
+    did not. Today this returns False for every real site; it is the regression
+    that would make it True which the gate now names."""
+    assert fp.owner_was_silent(
+        "trial_auth.py", ["tests/test_falsifiability_probe.py::test_y"])
+
+
+def test_a_seed_that_killed_nothing_is_not_owner_silent():
+    """A survivor has no killers to attribute. Reporting it here would double-count
+    it as both a survivor and an attribution failure."""
+    assert not fp.owner_was_silent("trial_auth.py", [])
+
+
+def test_owner_silence_is_decided_per_file_not_globally():
+    """Two files, same killer, opposite answers -- so the check cannot be
+    passing on a constant."""
+    failed = ["tests/test_trial_discovery.py::test_x"]
+    assert not fp.owner_was_silent("trial_entities.py", failed)
+    assert fp.owner_was_silent("trial_squads.py", failed)
+
+
+def test_the_owner_flag_extends_the_mapping():
+    extra = {"trial_new.py": frozenset({"test_trial_new.py"})}
+    assert fp.owner_was_silent("trial_new.py", ["tests/test_other.py::t"], extra)
+    assert not fp.owner_was_silent("trial_new.py", ["tests/test_trial_new.py::t"], extra)
+
+
+def test_an_undeclared_file_aborts_before_the_sweep():
+    """Non-vacuity. An attribution check that skips what it cannot attribute
+    passes by measuring nothing -- the enumerator-that-scanned-nothing failure,
+    one layer up."""
+    with pytest.raises(fp.ProbeAbort) as excinfo:
+        fp.require_owners(["trial_auth.py", "trial_unmapped.py"], {})
+    assert "trial_unmapped.py" in str(excinfo.value)
+    fp.require_owners(["trial_auth.py"], {})
+
+
+def test_killer_files_reads_the_module_not_the_test_name():
+    assert fp.killer_files(
+        ["tests/test_a.py::test_one", "tests/sub/test_b.py::TestC::test_two"]
+    ) == frozenset({"test_a.py", "test_b.py"})
+    assert fp.killer_files(["not-a-node-id"]) == frozenset()
+
+
+# --- Owner attribution: the wiring, not just the predicate ----------------------
+#
+# The tests above exercise `owner_was_silent` and `require_owners` directly. That
+# proves the predicates are right and says nothing about whether `main()` calls
+# them -- and an outcome nobody asserts is the layer that gets deleted silently.
+# These drive `main()` end to end with a stubbed suite runner and assert the
+# thing that actually matters: the gate FAILS.
+
+def _drive_main(monkeypatch, tmp_path, killer_module, owner_args):
+    """Run fp.main() over a fake script with a stubbed pytest and git."""
+    import types
+
+    target = tmp_path / "trial_fake.py"
+    target.write_text(SAMPLE, encoding="utf-8")
+    pristine = target.read_bytes()
+    basetemp = tmp_path / "bt"
+    basetemp.mkdir()
+
+    real_run = fp.subprocess.run
+
+    def _fake_run(cmd, **kwargs):
+        # The seed-reaches-child detector spawns its own interpreter. Delegate
+        # it to the real subprocess so that layer stays genuinely exercised --
+        # stubbing it would be deleting a layer to make a test pass, which is
+        # the failure this file exists to catch.
+        if "-c" in cmd:
+            return real_run(cmd, **kwargs)
+        if "pytest" not in cmd:                      # git status -> clean tree
+            return types.SimpleNamespace(returncode=0, stdout="", stderr="")
+        body = target.read_bytes()
+        # "Is this file seeded?" is answered by comparing against the pristine
+        # bytes, never by sniffing for a token. Replacements are role-specific:
+        # a status site gets `"observed"`, an f-string component gets a bare
+        # `probe`, and only some sites get `fp.LITERAL`. A token check scored
+        # three of six seeds as survivors and the test measured the wrong thing
+        # while appearing to work -- the failure this file is about, committed
+        # inside a test written to catch it.
+        if b"# probe no-op" in body:                 # negative control must SURVIVE
+            out = "1 passed in 0.01s"
+        elif body != pristine:                       # seeded: the suite notices
+            out = (f"FAILED {killer_module}::test_notices\n"
+                   "1 failed, 1 passed in 0.01s")
+        else:
+            out = "1 passed in 0.01s"
+        return types.SimpleNamespace(returncode=0, stdout=out, stderr="")
+
+    monkeypatch.setattr(fp.subprocess, "run", _fake_run)
+    code = fp.main([
+        "--file", str(target),
+        "--positive-control", f"{target}::always-this::pc-broken",
+        "--basetemp-root", str(basetemp),
+        *owner_args,
+    ])
+    return code
+
+
+def test_main_passes_when_the_owning_suite_catches_every_seed(
+        monkeypatch, tmp_path, capsys):
+    code = _drive_main(monkeypatch, tmp_path, "tests/test_owner.py",
+                       ["--owner", "trial_fake.py::test_owner.py"])
+    out = capsys.readouterr().out
+    assert "owner-silent kills: 0" in out
+    assert "OWNER-SILENT" not in out
+    assert code == 0
+
+
+def test_main_fails_the_gate_when_only_foreign_tests_caught_the_seed(
+        monkeypatch, tmp_path, capsys):
+    """The case the check exists for, asserted as the *outcome*: a non-zero exit.
+
+    Same inputs as the passing test except which module the failures name, so a
+    gate that ignored attribution would return 0 here and be caught."""
+    code = _drive_main(monkeypatch, tmp_path, "tests/test_stranger.py",
+                       ["--owner", "trial_fake.py::test_owner.py"])
+    out = capsys.readouterr().out
+    assert "OWNER-SILENT" in out
+    assert "owner-silent kills: 0" not in out
+    assert code == 1
+
+
+def test_main_aborts_when_the_swept_file_declares_no_owner(
+        monkeypatch, tmp_path, capsys):
+    """Non-vacuity at the entry point: an undeclared file must stop the sweep
+    rather than be attributed as trivially owned."""
+    code = _drive_main(monkeypatch, tmp_path, "tests/test_owner.py", [])
+    out = capsys.readouterr().out
+    assert "ABORT" in out and "trial_fake.py" in out
+    assert code == 3

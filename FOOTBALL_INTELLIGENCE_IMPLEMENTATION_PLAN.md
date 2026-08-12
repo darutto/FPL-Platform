@@ -2564,6 +2564,30 @@ This is the same trade the phase has been getting wrong in one direction, and wo
 
 **What still applies:** the gate stays required, survivor re-run confirmation stays on as a recurrence detector, and a survivor that does not reproduce is printed and counted rather than silently retried. **What does not:** building anything new into `falsifiability_probe.py` before the slices are done.
 
+**The freeze lapsed on its own terms when S4b merged.** Its condition was *"before the slices are done"*, and with S4b on `main` and S5b deferred to trial day 5–10 by decision, that condition no longer holds. One addition was made under it, described below. The freeze's *reason* — that this phase has repeatedly answered an instrument problem with more instrument — has not lapsed and still governs what is worth adding.
+
+#### Owner attribution — the one addition after the freeze lapsed
+
+**A kill is booked when *any* test fails under a seed, and not every failing test is evidence.** `tests/test_falsifiability_probe.py` reads `scripts/trial_auth.py` from disk at runtime and enumerates it, so seeding that file fails those tests **whatever the seed was**. A kill resting only on that is a kill booked for a reason unrelated to falsifiability.
+
+The exposure was found by attributing each kill to the test file that produced it, and then measured rather than argued:
+
+| | |
+|---|---|
+| `trial_auth.py` sites | **12** |
+| sites where the probe's own tests fire | **7** |
+| sites where the **owning** suite also fires | **12** |
+| kills resting on the coupling alone | **0** |
+| owner-silent kills across the full gate (137 seeds, 7 files, 122 kills) | **0** |
+
+The redundancy is real and currently harmless, and the positive statement is the stronger one: **every seeded site in the gate dies to its own slice's assertions.** The full-gate figure is exact rather than an upper bound — owner presence is proven positively, and the probe's three-node print cap can only hide *additional* killers, never remove one already shown.
+
+So the check exists to keep that true, not to fix something broken. `OWNERS` maps each seeded file to its owning test file, `require_owners` **aborts before the first seed** if any swept file has no declared owner — an attribution check that skips what it cannot attribute passes by measuring nothing — and a kill whose killers contain no owning test is reported as `OWNER-SILENT` and fails the gate.
+
+**The mapping is written out because it cannot be derived.** `trial_injuries.py` is covered by `test_trial_health_stats.py`, and `trial_entities.py` and `trial_fixtures.py` share `test_trial_discovery.py`. A name-matching heuristic scores all three as unowned and manufactures the exact finding the check exists to detect — which is not hypothetical: the first hand-written analysis of this property did that and had to be corrected before it reported anything.
+
+This is reporting, not sweeping: no new seeds, no new runs, no reopened investigation. Tracked against [#101](https://github.com/darutto/FPL-Platform/issues/101).
+
 #### Instruments that answer the adjacent question — a class, for S3–S6
 
 Three failures this phase share one shape: **a confident, well-formed answer to a question next to the one being asked.** They are cheap to write and read as coverage, so name them before the remaining slices reach for them.
