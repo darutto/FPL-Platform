@@ -124,6 +124,7 @@ jobs:
             --file scripts/trial_entities.py \
             --file scripts/trial_fixtures.py \
             --file scripts/trial_injuries.py \
+            --file scripts/trial_lineups.py \
             --file scripts/trial_mapping.py \
             --file scripts/trial_squads.py \
             --subject "../../.gitignore::downloaded_files/" \

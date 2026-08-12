@@ -1,0 +1,71 @@
+{
+  "script": "trial_lineups",
+  "mode": "mock",
+  "objectives": [
+    {
+      "id": 6,
+      "title": "Confirmed starters and substitutes",
+      "status": "observed",
+      "evidence": "lineups: 2 record(s); partition field type_id with 2 distinct value(s)"
+    },
+    {
+      "id": 7,
+      "title": "Formation strings",
+      "status": "observed",
+      "evidence": "formations: 1 record(s); field formation; 1 distinct value(s)"
+    },
+    {
+      "id": 8,
+      "title": "Formation-grid or lineup-position fields",
+      "status": "observed",
+      "evidence": "grid field formation_field; shape(s) str; 2/2 record(s)"
+    },
+    {
+      "id": 9,
+      "title": "Detailed position identifiers",
+      "status": "observed",
+      "evidence": "detailed-position field detailed_position_id; 2/2 record(s); 2 distinct value(s)"
+    },
+    {
+      "id": 10,
+      "title": "Substitution relationships and minutes",
+      "status": "observed",
+      "evidence": "substitutions: 1 triple(s) (player_off, player_on, minute); 1 complete"
+    }
+  ],
+  "observed_shapes": [
+    {
+      "name": "lineups",
+      "shape": "2 record(s); record{id,fixture_id,player_id,formation_field,type_id,detailed_position_id}"
+    },
+    {
+      "name": "formations",
+      "shape": "1 record(s); record{id,fixture_id,formation}"
+    },
+    {
+      "name": "substitutions",
+      "shape": "1 record(s); record{id,fixture_id,player_in_id,player_out_id,minute}"
+    },
+    {
+      "name": "starter_marker",
+      "shape": "field=type_id; values{11:1,12:1}; 2/2 record(s)"
+    },
+    {
+      "name": "formation_grid",
+      "shape": "field=formation_field; shape=str; documented=str; 2/2 record(s)"
+    },
+    {
+      "name": "detailed_position",
+      "shape": "field=detailed_position_id; 2/2 record(s); 2 distinct value(s)"
+    },
+    {
+      "name": "substitution_direction",
+      "shape": "off=player_out_id; on=player_in_id; first=(101,102,70)"
+    }
+  ],
+  "warnings": [
+    "the mock lineup records carry a synthesized starter marker and detailed position; the checked-in corpus has neither, and which fields Sportmonks actually uses is unverified until FI-9",
+    "mock mode: shapes are documentation-derived and carry \"status\": \"unverified_against_live\" until FI-9",
+    "grid semantics are not decided here: §14.3 question 13 is open, and this report describes the value's structure only"
+  ]
+}
