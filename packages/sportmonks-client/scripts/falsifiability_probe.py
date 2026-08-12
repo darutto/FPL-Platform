@@ -44,7 +44,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, NamedTuple, Sequence
+from typing import Callable, Mapping, NamedTuple, Sequence
 
 KILLED = "killed"
 SURVIVED = "SURVIVED"
@@ -80,6 +80,27 @@ EXEMPT_ROLES = frozenset({"title", "entry-name"})
 #: than obviously wrong: an implausible token fails containment assertions that
 #: a realistic literal would pass, which would under-report survivors.
 LITERAL = '"probe-literal"'
+
+#: Which test file owns each seeded file — **the mapping is not the name**.
+#:
+#: `trial_injuries.py` is covered by `test_trial_health_stats.py`, and
+#: `trial_entities.py` and `trial_fixtures.py` share `test_trial_discovery.py`.
+#: A name-matching heuristic scores all three as unowned and manufactures
+#: exactly the finding this check exists to detect, which is not hypothetical:
+#: the first hand-written analysis of this property did precisely that and had
+#: to be corrected. Written out because it cannot be derived.
+OWNERS: dict[str, frozenset[str]] = {
+    "trial_auth.py": frozenset({"test_trial_harness.py"}),
+    "trial_entities.py": frozenset({"test_trial_discovery.py"}),
+    "trial_fixtures.py": frozenset({"test_trial_discovery.py"}),
+    "trial_injuries.py": frozenset({"test_trial_health_stats.py"}),
+    "trial_lineups.py": frozenset({"test_trial_lineups.py"}),
+    "trial_mapping.py": frozenset({"test_trial_mapping.py"}),
+    "trial_squads.py": frozenset({"test_trial_squads.py"}),
+    # Subject deletions target the repo-root ignore file; the rules are asserted
+    # by the harness suite.
+    ".gitignore": frozenset({"test_trial_harness.py"}),
+}
 
 
 class ProbeAbort(RuntimeError):
@@ -453,6 +474,54 @@ def is_exempt(label: str) -> bool:
     return any(label.endswith(f":{role}") for role in EXEMPT_ROLES)
 
 
+def owners_for(name: str, extra: Mapping[str, frozenset[str]] | None = None) -> frozenset[str]:
+    """Test files that own `name`, or an empty set when none is declared."""
+    return (extra or {}).get(name) or OWNERS.get(name, frozenset())
+
+
+def require_owners(names: Sequence[str], extra: Mapping[str, frozenset[str]]) -> None:
+    """Every seeded file must declare an owner before the sweep starts.
+
+    A file with no owner cannot be attributed, and an attribution check that
+    skips the files it cannot attribute passes vacuously — the same shape as an
+    enumerator that scans nothing. Refusing up front makes adding a script a
+    deliberate edit rather than a silent loss of coverage.
+    """
+    undeclared = sorted({name for name in names if not owners_for(name, extra)})
+    if undeclared:
+        raise ProbeAbort(
+            f"no owning test file declared for {undeclared}. Add it to OWNERS in "
+            "this script, or pass --owner FILE::TESTFILE. An unowned file cannot "
+            "be attributed, and skipping it would make the owner-coverage check "
+            "pass by measuring nothing."
+        )
+
+
+def killer_files(failed: Sequence[str]) -> frozenset[str]:
+    """Test *file* names from full pytest node ids."""
+    return frozenset(Path(node.split("::")[0]).name for node in failed if "::" in node)
+
+
+def owner_was_silent(seed_name: str, failed: Sequence[str],
+                     extra: Mapping[str, frozenset[str]] | None = None) -> bool:
+    """True when a seed died, but **no owning test** was among the killers.
+
+    This is the property that turns the cross-file path from a worry into a
+    measurement. `test_falsifiability_probe.py` reads `trial_auth.py` from disk
+    at runtime and enumerates it, so seeding that file fails those tests
+    whatever the seed was — a kill booked for a reason unrelated to
+    falsifiability. Measured exhaustively over `trial_auth.py`'s 12 sites: the
+    probe's own tests fire on 7, and the owner fires on **all 12**, so no kill
+    has ever rested on the coupling alone.
+
+    That is a fact about today, not a property of the design. When owner
+    coverage regresses, this names the site instead of quietly booking a kill.
+    """
+    if not failed:
+        return False
+    return not (killer_files(failed) & owners_for(seed_name, extra))
+
+
 def exit_code(verdicts: Sequence[str], labels: Sequence[str] = ()) -> int:
     """Non-zero on any in-scope survivor, and on an empty sweep — a probe that
     seeded nothing has certified nothing."""
@@ -578,7 +647,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--positive-control", metavar="FILE::OLD::NEW", required=True,
                         help="a known-bad edit that MUST be killed")
     parser.add_argument("--basetemp-root", type=Path, required=True)
+    parser.add_argument("--owner", action="append", default=[], metavar="FILE::TESTFILE",
+                        help="declare the test file that owns FILE, extending OWNERS")
     args = parser.parse_args(argv)
+
+    extra_owners: dict[str, frozenset[str]] = {}
+    for spec in args.owner:
+        name, _, test_file = spec.partition("::")
+        extra_owners[name] = extra_owners.get(name, frozenset()) | {test_file}
 
     try:
         require_clean_tree(PACKAGE_ROOT)
@@ -603,8 +679,13 @@ def main(argv: list[str] | None = None) -> int:
             path, _, text = spec.partition("::")
             seeds.append(subject_deletion_seed(Path(path), text))
 
+        # Before the first seed, not after the last: an unowned file discovered
+        # at report time has already cost the whole sweep.
+        require_owners([seed.path.name for seed in seeds], extra_owners)
+
         verdicts, labels, survivors, exempt = [], [], [], []
         unreproduced: list[str] = []
+        owner_silent: list[tuple[str, list[str]]] = []
         for seed in seeds:
             outcome = run_seed(seed, runner, root)
             verdict = outcome.verdict
@@ -629,6 +710,15 @@ def main(argv: list[str] | None = None) -> int:
                 survivors.append(seed.label)
             elif verdict != KILLED:
                 exempt.append(seed.label)
+            # Attribution runs on every kill, exempt included. Exemption is
+            # about item 10 not governing titles and entry names; it says
+            # nothing about which test caught the seed, and an exempt site whose
+            # only killers are foreign tests is exactly as unattributed as an
+            # in-scope one.
+            if verdict == KILLED and owner_was_silent(
+                    seed.path.name, outcome.failed, extra_owners):
+                owner_silent.append((seed.label, sorted(killer_files(outcome.failed))))
+
             marker = " (exempt)" if is_exempt(seed.label) else ""
             # The node ids are the diagnostic half. Two seeds can share the
             # summary `1 failed, 258 passed` and mean opposite things: killed by
@@ -649,7 +739,22 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  SURVIVOR {label}")
     for label in exempt:
         print(f"  exempt survivor (item 10 governs status/evidence/shapes only): {label}")
-    return exit_code(verdicts, labels)
+
+    # Owner coverage, reported every run so the number is visible while it is
+    # still zero. A count that only appears once it is non-zero has no baseline
+    # to be read against.
+    print(f"\nowner-silent kills: {len(owner_silent)}")
+    for label, files in owner_silent:
+        print(f"  OWNER-SILENT {label}\n      killed only by: {', '.join(files)}")
+    if owner_silent:
+        print(
+            "\nA kill with no owning test among its killers is a kill booked for "
+            "a reason unrelated to falsifiability. The seeded slice's own "
+            "assertions did not notice; something else broke and the gate "
+            "recorded a pass."
+        )
+
+    return exit_code(verdicts, labels) or (1 if owner_silent else 0)
 
 
 if __name__ == "__main__":

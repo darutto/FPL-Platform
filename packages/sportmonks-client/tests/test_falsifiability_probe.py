@@ -694,3 +694,85 @@ def test_the_detector_survives_a_live_sweep_of_every_trial_script(tmp_path):
                 fp.restore(seed.path, held)
 
     assert total > 0
+
+
+# --- Owner attribution ---------------------------------------------------------
+#
+# The gate books a kill when *any* test fails under a seed. That is the right
+# default and it has a gap: a test that reads a seeded file at runtime fails
+# whatever the seed was, so its failure is not evidence that the seeded value is
+# falsifiable. `test_falsifiability_probe.py` does exactly that to
+# `trial_auth.py` -- it enumerates the real exemplar from disk -- and fires on 7
+# of that file's 12 sites.
+#
+# It has never inflated anything: the owning suite fires on all 12, so no kill
+# rests on the coupling alone. These tests exist so that stops being a fact
+# somebody has to keep re-measuring.
+
+def test_the_owner_mapping_is_not_derivable_from_the_name():
+    """The three cases a name-matching heuristic gets wrong. This is the whole
+    reason the mapping is written out rather than computed."""
+    assert fp.OWNERS["trial_injuries.py"] == frozenset({"test_trial_health_stats.py"})
+    assert fp.OWNERS["trial_entities.py"] == frozenset({"test_trial_discovery.py"})
+    assert fp.OWNERS["trial_fixtures.py"] == frozenset({"test_trial_discovery.py"})
+
+
+def test_every_swept_script_has_a_declared_owner():
+    """Coverage of the mapping itself. A script the gate sweeps but nobody owns
+    is a script whose kills cannot be attributed."""
+    scripts = sorted(p.name for p in Path(fp.__file__).parent.glob("trial_*.py"))
+    assert scripts, "no trial scripts found; this test would pass vacuously"
+    undeclared = [name for name in scripts if not fp.owners_for(name)]
+    assert undeclared == [], f"no owner declared for {undeclared}"
+
+
+def test_an_owner_among_the_killers_is_not_silent():
+    assert not fp.owner_was_silent(
+        "trial_auth.py",
+        ["tests/test_trial_harness.py::test_x", "tests/test_falsifiability_probe.py::test_y"],
+    )
+
+
+def test_a_kill_with_only_foreign_killers_is_owner_silent():
+    """The case that matters: the probe's own tests fired and the owning suite
+    did not. Today this returns False for every real site; it is the regression
+    that would make it True which the gate now names."""
+    assert fp.owner_was_silent(
+        "trial_auth.py", ["tests/test_falsifiability_probe.py::test_y"])
+
+
+def test_a_seed_that_killed_nothing_is_not_owner_silent():
+    """A survivor has no killers to attribute. Reporting it here would double-count
+    it as both a survivor and an attribution failure."""
+    assert not fp.owner_was_silent("trial_auth.py", [])
+
+
+def test_owner_silence_is_decided_per_file_not_globally():
+    """Two files, same killer, opposite answers -- so the check cannot be
+    passing on a constant."""
+    failed = ["tests/test_trial_discovery.py::test_x"]
+    assert not fp.owner_was_silent("trial_entities.py", failed)
+    assert fp.owner_was_silent("trial_squads.py", failed)
+
+
+def test_the_owner_flag_extends_the_mapping():
+    extra = {"trial_new.py": frozenset({"test_trial_new.py"})}
+    assert fp.owner_was_silent("trial_new.py", ["tests/test_other.py::t"], extra)
+    assert not fp.owner_was_silent("trial_new.py", ["tests/test_trial_new.py::t"], extra)
+
+
+def test_an_undeclared_file_aborts_before_the_sweep():
+    """Non-vacuity. An attribution check that skips what it cannot attribute
+    passes by measuring nothing -- the enumerator-that-scanned-nothing failure,
+    one layer up."""
+    with pytest.raises(fp.ProbeAbort) as excinfo:
+        fp.require_owners(["trial_auth.py", "trial_unmapped.py"], {})
+    assert "trial_unmapped.py" in str(excinfo.value)
+    fp.require_owners(["trial_auth.py"], {})
+
+
+def test_killer_files_reads_the_module_not_the_test_name():
+    assert fp.killer_files(
+        ["tests/test_a.py::test_one", "tests/sub/test_b.py::TestC::test_two"]
+    ) == frozenset({"test_a.py", "test_b.py"})
+    assert fp.killer_files(["not-a-node-id"]) == frozenset()
