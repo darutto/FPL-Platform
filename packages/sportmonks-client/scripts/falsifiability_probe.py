@@ -97,6 +97,7 @@ OWNERS: dict[str, frozenset[str]] = {
     "trial_lineups.py": frozenset({"test_trial_lineups.py"}),
     "trial_mapping.py": frozenset({"test_trial_mapping.py"}),
     "trial_squads.py": frozenset({"test_trial_squads.py"}),
+    "trial_stats.py": frozenset({"test_trial_health_stats.py"}),
     # Subject deletions target the repo-root ignore file; the rules are asserted
     # by the harness suite.
     ".gitignore": frozenset({"test_trial_harness.py"}),
