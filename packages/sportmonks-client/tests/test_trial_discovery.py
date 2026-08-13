@@ -18,9 +18,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 import trial_entities  # noqa: E402
 import trial_fixtures  # noqa: E402
 from _trial_common import (  # noqa: E402
-    COMPETITION_NAME, EXIT_CONFIG, EXIT_OK, EXIT_REFUSED, EXIT_UNMET, MODE_MOCK,
-    OBSERVED, PACKAGE_ROOT, UNMET, EndpointReplayTransport, make_client,
-    match_by_name, response,
+    COMPETITION_NAME, EXAMPLES_DIR, EXIT_CONFIG, EXIT_OK, EXIT_REFUSED,
+    EXIT_UNMET, MODE_MOCK, OBSERVED, PACKAGE_ROOT, UNMET,
+    EndpointReplayTransport, make_client, match_by_name, response,
 )
 from sportmonks_client.client import ENDPOINTS  # noqa: E402
 from sportmonks_client.errors import SportmonksRequestError  # noqa: E402
@@ -175,6 +175,23 @@ def test_a_mock_run_is_byte_stable_across_repeats(module, tmp_path):
         name = f"{module.SCRIPT}.{suffix}"
         assert (tmp_path / "a" / "reports" / name).read_bytes() == \
                (tmp_path / "b" / "reports" / name).read_bytes()
+
+
+@pytest.mark.parametrize("module", SCRIPTS, ids=lambda m: m.SCRIPT)
+def test_the_committed_example_matches_a_fresh_mock_run(module, tmp_path):
+    """The frozen contract commits one mock report per script so
+    `TRIAL_STATUS.md`'s evidence pointer resolves to something. A committed copy
+    nobody re-derives is a stale artifact wearing an evidence pointer's name.
+
+    These two examples were missing entirely until this change, and the copies
+    on the unmerged `agent/fi8-s3-discovery` branch no longer match what `main`
+    emits — which is why they were regenerated rather than copied across.
+    """
+    module.main(["--out", str(tmp_path)])
+    for suffix in ("json", "md"):
+        name = f"{module.SCRIPT}.{suffix}"
+        assert (EXAMPLES_DIR / name).read_bytes() == \
+               (tmp_path / "reports" / name).read_bytes()
 
 
 def test_the_objective_titles_match_the_trial_dashboard():

@@ -1,0 +1,32 @@
+{
+  "script": "trial_fixtures",
+  "mode": "mock",
+  "objectives": [
+    {
+      "id": 2,
+      "title": "Premier League fixtures",
+      "status": "observed",
+      "evidence": "requested league_id=8, season_id=23614; 1 fixture(s); season_ids returned=(23614,); league_ids returned=(8,)"
+    },
+    {
+      "id": 3,
+      "title": "Cross-competition fixtures for Premier League clubs",
+      "status": "observed",
+      "evidence": "swept 1 team(s) by team_id with no competition filter; 2 fixture(s); competitions inside=(8,), outside=(9,)"
+    }
+  ],
+  "observed_shapes": [
+    {
+      "name": "season_fixtures",
+      "shape": "data; record{id,league_id,season_id,starting_at}"
+    },
+    {
+      "name": "cross_competition_fixtures",
+      "shape": "data; record{id,league_id,season_id,starting_at}"
+    }
+  ],
+  "warnings": [
+    "cross-competition fixtures were synthesized for the rehearsal; objective 3 is unverified against live until FI-9",
+    "mock mode: shapes are documentation-derived and carry \"status\": \"unverified_against_live\" until FI-9"
+  ]
+}

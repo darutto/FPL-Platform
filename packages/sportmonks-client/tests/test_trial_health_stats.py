@@ -16,8 +16,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 import trial_injuries  # noqa: E402
 from _trial_common import (  # noqa: E402
-    DEGRADED, EXIT_CONFIG, EXIT_OK, EXIT_REFUSED, EXIT_UNMET, MODE_MOCK, OBSERVED,
-    UNMET, make_client, response,
+    DEGRADED, EXAMPLES_DIR, EXIT_CONFIG, EXIT_OK, EXIT_REFUSED, EXIT_UNMET,
+    MODE_MOCK, OBSERVED, UNMET, make_client, response,
 )
 from sportmonks_client.client import ENDPOINTS  # noqa: E402
 from sportmonks_client.errors import SportmonksRequestError  # noqa: E402
@@ -75,6 +75,23 @@ def test_a_mock_run_is_byte_stable_across_repeats(tmp_path):
         name = f"{SCRIPT}.{suffix}"
         assert (tmp_path / "a" / "reports" / name).read_bytes() == \
                (tmp_path / "b" / "reports" / name).read_bytes()
+
+
+def test_the_committed_example_matches_a_fresh_mock_run(tmp_path):
+    """The frozen contract commits one mock report per script so
+    `TRIAL_STATUS.md`'s evidence pointer resolves to something. A committed copy
+    nobody re-derives is a stale artifact wearing an evidence pointer's name.
+
+    This example was missing entirely until this change. The copy on the
+    unmerged `feat/fi8-s5-health-stats` branch predates S5a's rewrite and
+    reports the three families under different objective titles and different
+    shape names than `main` now emits, so it was regenerated, not copied.
+    """
+    trial_injuries.main(["--out", str(tmp_path)])
+    for suffix in ("json", "md"):
+        name = f"{SCRIPT}.{suffix}"
+        assert (EXAMPLES_DIR / name).read_bytes() == \
+               (tmp_path / "reports" / name).read_bytes()
 
 
 def test_the_objective_titles_match_the_trial_dashboard():
