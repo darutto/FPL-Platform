@@ -1,0 +1,22 @@
+# The frozen mock examples are compared to a fresh `--mock` run byte for byte
+# (`test_*_committed_example_matches_a_fresh_mock_run`, one per trial script).
+# That comparison is `read_bytes()`, so the line endings on disk have to match
+# what the writer emits, on every platform.
+#
+# PAIRED WITH `newline="\n"` IN `scripts/_trial_common.py` (`write_report`, and
+# `snapshot_writer`). Removing this line REQUIRES reverting those, and vice
+# versa -- either one alone leaves a broken state:
+#
+#   * this line without the writer change -> checkout gives LF everywhere, but
+#     `write_text` with `newline=None` still emits CRLF on Windows, so every
+#     example test fails on every Windows machine;
+#   * the writer change without this line -> the writer emits LF everywhere,
+#     but `core.autocrlf=true` smudges the checkout to CRLF on Windows, so the
+#     same tests fail the same way, mirrored.
+#
+# Before this file existed the invariant held only because both conversions
+# happened to key off the same platform and agree. That made it a property of
+# each contributor's git config rather than of the repository: one Windows
+# contributor with `core.autocrlf=false` commits a CRLF blob, and all the
+# example tests go red at once with a cause that appears in no diff.
+trial-reports/examples/** text eol=lf

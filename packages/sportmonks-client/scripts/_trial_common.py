@@ -411,6 +411,12 @@ def snapshot_writer(out_dir: Path, mode: str) -> Callable[[RawResponseSnapshot],
     slice that committed mock payloads would make FI-9 commit real provider
     payloads by default -- into a public repo, before licensing question 3 has
     been answered.
+
+    Writes `newline="\\n"` for the same reason `write_report` does, ahead of
+    need: these snapshots are gitignored today, so no attribute governs them
+    and nothing compares their bytes. Licensing question 2 asks whether they
+    become committed fixtures, and on the day the answer is yes they inherit
+    the platform-dependent-endings trap with no test to catch it.
     """
     raw_dir = out_dir / "raw"
 
@@ -432,7 +438,7 @@ def snapshot_writer(out_dir: Path, mode: str) -> Callable[[RawResponseSnapshot],
                 },
                 indent=2, ensure_ascii=False,
             ) + "\n",
-            encoding="utf-8",
+            encoding="utf-8", newline="\n",
         )
 
     return _write
@@ -494,13 +500,23 @@ def render_markdown(report: TrialReport) -> str:
 
 
 def write_report(report: TrialReport, out_dir: Path) -> tuple[Path, Path]:
-    """Emit the JSON and Markdown pair. Returns (json_path, markdown_path)."""
+    """Emit the JSON and Markdown pair. Returns (json_path, markdown_path).
+
+    `newline="\\n"` is not incidental and is **paired with**
+    `.gitattributes`'s `trial-reports/examples/** text eol=lf`. The committed
+    examples are compared to a fresh run with `read_bytes()`, so the writer has
+    to emit the same endings the checkout produces. Without this, `newline=None`
+    translates to `os.linesep` and a Windows run emits CRLF against an LF
+    working copy, failing every example test on Windows only. Dropping the
+    attributes line without dropping this one fails the same way, mirrored.
+    """
     reports_dir = out_dir / "reports"
     reports_dir.mkdir(parents=True, exist_ok=True)
     json_path = reports_dir / f"{report.script}.json"
     md_path = reports_dir / f"{report.script}.md"
     json_path.write_text(
-        json.dumps(report.to_dict(), indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+        json.dumps(report.to_dict(), indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8", newline="\n",
     )
-    md_path.write_text(render_markdown(report), encoding="utf-8")
+    md_path.write_text(render_markdown(report), encoding="utf-8", newline="\n")
     return json_path, md_path
