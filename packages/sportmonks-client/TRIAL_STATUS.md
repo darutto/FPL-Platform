@@ -58,8 +58,8 @@ them — the wording is the acceptance bar.
 | 10 | Substitution relationships and minutes | `trial_lineups.py` | `not_started` | |
 | 11 | Injuries and suspensions | `trial_injuries.py` | `not_started` | |
 | 12 | Coaches and manager records | `trial_injuries.py` | `not_started` | |
-| 13 | Fixture-level team statistics | `trial_stats.py` | `not_started` | |
-| 14 | Player match statistics | `trial_stats.py` | `not_started` | |
+| 13 | Fixture-level team statistics | `trial_stats.py` | `not_started` | mock rehearsal only: [trial-reports/examples/trial_stats.json](trial-reports/examples/trial_stats.json) — **not** a live observation |
+| 14 | Player match statistics | `trial_stats.py` | `not_started` | mock rehearsal only: [trial-reports/examples/trial_stats.json](trial-reports/examples/trial_stats.json) — **not** a live observation |
 | 15 | Data update timing before, during, and after matches | `trial_stats.py` | `not_applicable` | *requires live observation — see below* |
 | 16 | Post-match corrections | `trial_stats.py` | `not_applicable` | *requires live observation — see below* |
 | 17 | API rate limits and pagination | `trial_auth.py` | `not_started` | mock rehearsal only: [trial-reports/examples/trial_auth.json](trial-reports/examples/trial_auth.json) — **not** a live observation |

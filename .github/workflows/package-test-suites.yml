@@ -127,6 +127,7 @@ jobs:
             --file scripts/trial_lineups.py \
             --file scripts/trial_mapping.py \
             --file scripts/trial_squads.py \
+            --file scripts/trial_stats.py \
             --subject "../../.gitignore::downloaded_files/" \
             --subject "../../.gitignore::packages/sportmonks-client/trial-output/" \
             --positive-control "scripts/trial_auth.py::exchanges[-1].body_keys::exchanges[0].body_keys" \
