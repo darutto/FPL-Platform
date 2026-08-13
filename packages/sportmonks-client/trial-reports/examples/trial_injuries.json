@@ -1,0 +1,40 @@
+{
+  "script": "trial_injuries",
+  "mode": "mock",
+  "objectives": [
+    {
+      "id": 11,
+      "title": "Injuries and suspensions",
+      "status": "observed",
+      "evidence": "injuries: 1 record(s), 1 with a freshness field [updated_at]; suspensions: 1 record(s)"
+    },
+    {
+      "id": 12,
+      "title": "Coaches and manager records",
+      "status": "observed",
+      "evidence": "coaches: 1 record(s)"
+    }
+  ],
+  "observed_shapes": [
+    {
+      "name": "injuries",
+      "shape": "1 record(s); record{id,player_id,type_id,expected_return,updated_at}"
+    },
+    {
+      "name": "suspensions",
+      "shape": "1 record(s); record{id,player_id,type_id,games_remaining}"
+    },
+    {
+      "name": "coaches",
+      "shape": "1 record(s); record{id,name,team_id}"
+    },
+    {
+      "name": "injury_freshness",
+      "shape": "field=updated_at; 1/1 record(s) stamped"
+    }
+  ],
+  "warnings": [
+    "injury freshness timestamps were synthesized for the rehearsal; the field name the provider actually uses is unverified until FI-9",
+    "mock mode: shapes are documentation-derived and carry \"status\": \"unverified_against_live\" until FI-9"
+  ]
+}

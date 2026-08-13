@@ -1,0 +1,77 @@
+{
+  "script": "trial_entities",
+  "mode": "mock",
+  "objectives": [
+    {
+      "id": 1,
+      "title": "Competition and season identifiers",
+      "status": "observed",
+      "evidence": "Premier League resolved to league_ids=(8,); season_ids=(23614,); swept 15 families: 15 reachable, 0 empty, 0 unavailable"
+    }
+  ],
+  "observed_shapes": [
+    {
+      "name": "family:leagues",
+      "shape": "reachable; 1 record(s); provider_ids={8}"
+    },
+    {
+      "name": "family:seasons",
+      "shape": "reachable; 1 record(s); provider_ids={23614}"
+    },
+    {
+      "name": "family:fixtures",
+      "shape": "reachable; 1 record(s); provider_ids={1001}"
+    },
+    {
+      "name": "family:teams",
+      "shape": "reachable; 1 record(s); provider_ids={1}"
+    },
+    {
+      "name": "family:squads",
+      "shape": "reachable; 1 record(s); provider_ids={11}"
+    },
+    {
+      "name": "family:players",
+      "shape": "reachable; 1 record(s); provider_ids={101}"
+    },
+    {
+      "name": "family:lineups",
+      "shape": "reachable; 1 record(s); provider_ids={21}"
+    },
+    {
+      "name": "family:formations",
+      "shape": "reachable; 1 record(s); provider_ids={31}"
+    },
+    {
+      "name": "family:substitutions",
+      "shape": "reachable; 1 record(s); provider_ids={41}"
+    },
+    {
+      "name": "family:injuries",
+      "shape": "reachable; 1 record(s); provider_ids={51}"
+    },
+    {
+      "name": "family:suspensions",
+      "shape": "reachable; 1 record(s); provider_ids={61}"
+    },
+    {
+      "name": "family:coaches",
+      "shape": "reachable; 1 record(s); provider_ids={71}"
+    },
+    {
+      "name": "family:referees",
+      "shape": "reachable; 1 record(s); provider_ids={81}"
+    },
+    {
+      "name": "family:team_statistics",
+      "shape": "reachable; 1 record(s); provider_ids={91}"
+    },
+    {
+      "name": "family:player_statistics",
+      "shape": "reachable; 1 record(s); provider_ids={1011}"
+    }
+  ],
+  "warnings": [
+    "mock mode: shapes are documentation-derived and carry \"status\": \"unverified_against_live\" until FI-9"
+  ]
+}

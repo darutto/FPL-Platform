@@ -46,9 +46,9 @@ them — the wording is the acceptance bar.
 
 | # | Objective | Owning script | Status | Evidence |
 |---|---|---|---|---|
-| 1 | Competition and season identifiers | `trial_entities.py` | `not_started` | |
-| 2 | Premier League fixtures | `trial_fixtures.py` | `not_started` | |
-| 3 | Cross-competition fixtures for Premier League clubs | `trial_fixtures.py` | `not_started` | |
+| 1 | Competition and season identifiers | `trial_entities.py` | `not_started` | mock rehearsal only: [trial-reports/examples/trial_entities.json](trial-reports/examples/trial_entities.json) — **not** a live observation |
+| 2 | Premier League fixtures | `trial_fixtures.py` | `not_started` | mock rehearsal only: [trial-reports/examples/trial_fixtures.json](trial-reports/examples/trial_fixtures.json) — **not** a live observation |
+| 3 | Cross-competition fixtures for Premier League clubs | `trial_fixtures.py` | `not_started` | mock rehearsal only: [trial-reports/examples/trial_fixtures.json](trial-reports/examples/trial_fixtures.json) — **not** a live observation |
 | 4 | Team and squad completeness | `trial_squads.py` | `not_started` | |
 | 5 | Current player records | `trial_squads.py` | `not_started` | |
 | 6 | Confirmed starters and substitutes | `trial_lineups.py` | `not_started` | |
@@ -56,8 +56,8 @@ them — the wording is the acceptance bar.
 | 8 | Formation-grid or lineup-position fields | `trial_lineups.py` | `not_started` | |
 | 9 | Detailed position identifiers | `trial_lineups.py` | `not_started` | |
 | 10 | Substitution relationships and minutes | `trial_lineups.py` | `not_started` | |
-| 11 | Injuries and suspensions | `trial_injuries.py` | `not_started` | |
-| 12 | Coaches and manager records | `trial_injuries.py` | `not_started` | |
+| 11 | Injuries and suspensions | `trial_injuries.py` | `not_started` | mock rehearsal only: [trial-reports/examples/trial_injuries.json](trial-reports/examples/trial_injuries.json) — **not** a live observation |
+| 12 | Coaches and manager records | `trial_injuries.py` | `not_started` | mock rehearsal only: [trial-reports/examples/trial_injuries.json](trial-reports/examples/trial_injuries.json) — **not** a live observation |
 | 13 | Fixture-level team statistics | `trial_stats.py` | `not_started` | |
 | 14 | Player match statistics | `trial_stats.py` | `not_started` | |
 | 15 | Data update timing before, during, and after matches | `trial_stats.py` | `not_applicable` | *requires live observation — see below* |
