@@ -164,7 +164,18 @@ jobs:
         working-directory: packages/fpl-tactical
         run: python -m pytest -v
 
-      # Baseline at the time of wiring: 114 passed.
+      # Two tests in TestRealSeasonSanity read the owned parquet store under
+      # data/, which is gitignored -- captured output, not source. They passed
+      # locally only because the author's machine had a captured store; on a
+      # clean checkout they raised FileNotFoundError. Found by this very PR's
+      # first CI run, which is the point of the issue. They are now skipped when
+      # the store is absent, with a named reason: NOT rewritten onto synthetic
+      # frames, which would delete what they check.
+      # Read the baseline accordingly -- in CI those two are skipped, so their
+      # real coverage exists only where the store does, and a green run here is
+      # not evidence they passed.
+      # Baseline at the time of wiring: 112 passed, 2 skipped (114 passed with a
+      # local store present).
       - name: fpl-historical suite
         if: ${{ !cancelled() }}
         working-directory: packages/fpl-historical

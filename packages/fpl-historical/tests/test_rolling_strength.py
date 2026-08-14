@@ -7,6 +7,10 @@ Synthetic-data tests use injected DataFrames (_teams_df/_fixtures_df) so they
 don't depend on real captured data. One sanity test runs against the real
 2025-2026 season to confirm the GW1 degenerate case (no matches played yet)
 exactly preserves FPL's own captured rank order.
+
+The real-season tests read the owned parquet store under ``data/``, which is
+``.gitignore``d — it is captured output, not source. They therefore cannot run
+on a clean checkout and are skipped there; see ``requires_real_season`` below.
 """
 from __future__ import annotations
 
@@ -19,6 +23,34 @@ from fpl_historical.rolling_strength import (
     _decay_weight,
     _percentile_rank,
     compute_rolling_strength,
+)
+
+
+def _real_season_available(season: str = "2025-2026") -> bool:
+    """True when the owned parquet store for *season* is present locally."""
+    from fpl_historical.paths import merged_parquet_dir
+
+    return (merged_parquet_dir(season) / "teams.parquet").is_file()
+
+
+#: Skip marker for tests that need the captured season data.
+#:
+#: These are genuine sanity checks against real data and are deliberately NOT
+#: rewritten to use synthetic frames — that would delete the thing they check.
+#: But ``data/`` is gitignored, so on any machine without a captured store
+#: (CI included) they raise FileNotFoundError from pandas rather than failing
+#: an assertion, which is noise, not signal.
+#:
+#: Consequence worth stating plainly: in CI these two are skipped, so the real
+#: coverage they provide exists only where the store does. A green CI run does
+#: not mean they passed. Making that visible is the point of a skip with a
+#: reason — `pytest -rs` names them.
+requires_real_season = pytest.mark.skipif(
+    not _real_season_available(),
+    reason=(
+        "owned parquet store (packages/fpl-historical/data/, gitignored) is "
+        "not present - real-season sanity checks cannot run on a clean checkout"
+    ),
 )
 
 
@@ -170,6 +202,7 @@ class TestDefenceSign:
         assert res[1]["strength_defence_home"] > res[3]["strength_defence_home"]
 
 
+@requires_real_season
 class TestRealSeasonSanity:
     def test_real_2025_26_gw1_preserves_fpl_fallback_rank_order(self):
         """No lookahead + no matches played yet at GW1 => the model's output
