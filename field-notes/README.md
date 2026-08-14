@@ -46,6 +46,9 @@ needs to be more specific about the domain layer:
 | `ui` | V2 Next.js frontend rendering rules |
 | `data-quality` | upstream FPL API quirks, stale/missing/null fields |
 | `packaging` | import paths, package collisions, test wiring |
+| `instruments` | the tools we measure *with* — probes, greps, byte counts, CI readings |
+| `falsifiability` | whether a reported value can fail; seeding, deletion experiments, the probe gate |
+| `tooling` | git/shell/test-harness behaviour that changes what a measurement means |
 
 ## Severity
 
@@ -68,6 +71,7 @@ needs to be more specific about the domain layer:
 | 2026-08-07 | [Primitive discovery close](2026-08-07-primitive-discovery-close.md) | no season table / promotion model / venue filter / offset GW window / block swing / real xP — **plus the 4-category synthesis and scoping warning** | contracts, fixtures, historical, orchestrator | new |
 | 2026-08-09 | [Armado 25-26 dogfooding](2026-08-09-user-armado-dogfooding.md) | bootstrap minutes cache staleness; `position_score` vs `captain_score` split, no standalone rating query; compare-wizard free-text discoverability (fixed, PR #104); player-snapshot renderer asymmetry + no shareable card | scoring, contracts, ui, data-quality | new |
 | 2026-08-12 | [«mejor jugador del Newcastle» — team dump, no card](2026-08-12-team-snapshot-no-card-wrong-answer.md) | card coverage gated by `_TOOL_TO_INTENT` (13 tools unmapped); «máximo goleador» is top *points* not goals; «mejor forma» degenerate at form=0; GW1 dropped from the fixture run; last-season totals undisclosed; superlative question unanswered | contracts, ui, gw-resolution, data-quality, preseason, orchestrator | new |
+| 2026-08-13 | [Three instruments, three false readings](2026-08-13-instruments-failing-silently.md) | aborted probe run read as a verdict (caught by the tool); `grep -c $'\r'` and `file`-through-a-pipe both misreport line endings, in opposite directions; `git check-attr` reads a deleted `.gitattributes` from the index, turning a falsification experiment into a false pass already written into a commit message — **common factor is silence, and the fix each time was a second measurement by a different mechanism** | instruments, falsifiability, tooling | new |
 
 > **Discovery status:** the primitive-discovery pass is **closed** as of
 > 2026-08-07 — findings converged into 4 categories. Read the synthesis section
