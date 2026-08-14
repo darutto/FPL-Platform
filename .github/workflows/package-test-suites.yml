@@ -38,8 +38,9 @@
 # always running is cheaper than engineering around that trap." The first half is
 # still true; the conclusion no longer follows. Measured on job 94652126309:
 # all pytest suites together ~25s, but the falsifiability probe below is 32m06s,
-# for a 33m job. #72 phase 1 adds ~61s of suites, which does not move that.
-# So every PR, doc-only ones included, now pays ~33 min.
+# for a 33m job. #72 phase 1 took the suites to ~46s (measured on job
+# 94920804740), which does not move the total. So every PR, doc-only ones
+# included, now pays ~33 min, essentially all of it the probe.
 #
 # That is left standing rather than fixed here, because the fix is a judgement
 # about CI budget and check topology (split the probe into its own job? give it
