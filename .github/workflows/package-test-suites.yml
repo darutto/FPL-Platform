@@ -32,8 +32,21 @@
 # ---------------------------------
 # Deliberately runs on every PR. A required check that never runs never reports,
 # and GitHub blocks the PR forever waiting for it -- a doc-only PR (like #64,
-# which touched one markdown file) would hang. The suites take ~30-40s total, so
-# always running is cheaper than engineering around that trap.
+# which touched one markdown file) would hang.
+#
+# COST, MEASURED -- this argument used to end "the suites take ~30-40s total, so
+# always running is cheaper than engineering around that trap." The first half is
+# still true; the conclusion no longer follows. Measured on job 94652126309:
+# all pytest suites together ~25s, but the falsifiability probe below is 32m06s,
+# for a 33m job. #72 phase 1 adds ~61s of suites, which does not move that.
+# So every PR, doc-only ones included, now pays ~33 min.
+#
+# That is left standing rather than fixed here, because the fix is a judgement
+# about CI budget and check topology (split the probe into its own job? give it
+# its own cadence?), and job names are required checks -- renaming or splitting
+# touches branch protection. Recorded in
+# field-notes/2026-08-14-pr62-instrument-gaps.md finding 2. Anyone re-opening
+# the `paths:` question should decide it on these numbers, not the old ones.
 #
 # Complements contract-drift-gate.yml, which runs the deterministic
 # run_phase_*.py contract checkers rather than the pytest suites.
@@ -92,6 +105,78 @@ jobs:
         working-directory: packages/fpl-grounded-assistant
         run: python -m pytest -v
 
+      # ---------------------------------------------------------------------
+      # Added by #72 phase 1 -- six packages that were in no CI job at all.
+      #
+      # All ten remaining unrun suites were measured before wiring any of them;
+      # five were already green and one (fpl-api-client) was red only on a
+      # stale pin, fixed in this same PR. The other four reds and the one
+      # unmeasured slow suite are deliberately NOT here -- see the phase notes
+      # at the bottom of this file.
+      #
+      # Each step records the baseline at the time of wiring, the convention
+      # FI-8 S0 set below: without it, nobody can later tell whether a changed
+      # number is growth or loss.
+      #
+      # No extra install line is needed for any of these. pandas / pyarrow /
+      # PyYAML / requests are already in the grounded-assistant requirements
+      # superset installed above. fpl-tactical lists soccerdata, but that is a
+      # build-time dependency its suite does not use -- verified by running the
+      # suite with soccerdata blocked from sys.meta_path: identical result.
+      # ---------------------------------------------------------------------
+
+      # No runtime dependencies at all (FI-0(b) scaffold).
+      # Baseline at the time of wiring: 76 passed.
+      - name: football-data-contract suite
+        if: ${{ !cancelled() }}
+        working-directory: packages/football-data-contract
+        run: python -m pytest -v
+
+      # Wired in this phase rather than a later one because #62 just made six
+      # grounded-assistant modules delegate their current-GW resolution here:
+      # this is the package with the widest blast radius and, until now, the
+      # least protection. Its one failure was `test_only_bootstrap_surface_in_all`,
+      # an exact-set `__all__` pin that went red when the preseason reweight
+      # (b3e8842, 2026-08-09) exported `is_form_informative` -- red for five days
+      # with nothing to report it. Pin updated in this PR; the assertion stays
+      # exact rather than being loosened to a subset.
+      # Baseline at the time of wiring: 38 passed.
+      - name: fpl-api-client suite
+        if: ${{ !cancelled() }}
+        working-directory: packages/fpl-api-client
+        run: python -m pytest -v
+
+      # NOTE: the only package here with no pytest.ini -- its single test file
+      # bootstraps sys.path itself. That works, but it is the same
+      # wiring-restated-in-the-guarded-thing pattern this job exists to catch,
+      # so it should grow a pytest.ini like its siblings. Left as follow-up
+      # rather than folded in silently; wiring it green now is still strictly
+      # better than leaving it unrun.
+      # Baseline at the time of wiring: 4 passed.
+      - name: fpl-pipeline suite
+        if: ${{ !cancelled() }}
+        working-directory: packages/fpl-pipeline
+        run: python -m pytest -v
+
+      # Baseline at the time of wiring: 19 passed.
+      - name: fpl-tactical suite
+        if: ${{ !cancelled() }}
+        working-directory: packages/fpl-tactical
+        run: python -m pytest -v
+
+      # Baseline at the time of wiring: 114 passed.
+      - name: fpl-historical suite
+        if: ${{ !cancelled() }}
+        working-directory: packages/fpl-historical
+        run: python -m pytest -v
+
+      # Slowest of the six at ~39s locally; still cheap next to the probe below.
+      # Baseline at the time of wiring: 40 passed.
+      - name: football-identity-registry suite
+        if: ${{ !cancelled() }}
+        working-directory: packages/football-identity-registry
+        run: python -m pytest -v
+
       # Added by FI-8 S0. FI-8 adds twelve files to this package; until now no
       # CI job ran its suite, which is the same shape that left
       # fpl-tool-contract at 39 silent failures and fpl-tool-runner dead at
@@ -131,3 +216,33 @@ jobs:
             --subject "../../.gitignore::packages/sportmonks-client/trial-output/" \
             --positive-control "scripts/trial_auth.py::exchanges[-1].body_keys::exchanges[0].body_keys" \
             --basetemp-root "${RUNNER_TEMP}/probe"
+
+# ============================================================================
+# #72 ONBOARDING -- WHERE THIS STOPPED AND WHY
+# ============================================================================
+# Phase 1 (this PR) wired six of the ten unrun suites. Coverage is now 11 of 15
+# test-bearing packages. The remaining four are left out deliberately, each for
+# a different reason, so that "not wired yet" never has to be re-derived:
+#
+# Phase 2 -- three suites are red, cause not yet diagnosed:
+#     fpl-query-tools      1 failed, 39 passed
+#     fpl-data-core        2 failed, 60 passed, 7 skipped
+#     fpl-player-registry  2 failed, 45 passed
+#   Do NOT assume these are stale pins like fpl-api-client's was. One known
+#   candidate is fpl-data-core's `test_cumulative_cols_count` (expects 26,
+#   CUMULATIVE_COLS has 30, per #72), but a real defect hidden for months is
+#   exactly as likely as a drifted assertion, and the two need opposite fixes.
+#   Diagnose per failure; resolve test-vs-code each time; never loosen an
+#   assertion into a tautology to get green.
+#
+# Phase 3 -- football-intelligence is unmeasured:
+#   It exceeds 120s and nobody has waited it out, so its true cost is unknown.
+#   With the probe above already at ~32 min, adding another slow suite to a
+#   required check is a CI-budget decision, not a wiring task. Measure first,
+#   then decide -- possibly in its own job rather than this one.
+#
+# Local-vs-CI caveat when measuring any of the above: on Windows these suites
+# report extra `PermissionError: [WinError 5]` errors against the pytest temp
+# dir, which do not occur on ubuntu-latest. They are erroring, not failing, so
+# `N passed` locally undercounts. fpl-tactical reads 12 passed + 7 errors
+# locally and 19 passed here. Reconcile before believing a local number.

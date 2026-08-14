@@ -440,13 +440,37 @@ class TestPublicSurface:
             assert callable(getattr(fpl_api_client, name)), f"{name} is not callable"
 
     def test_only_bootstrap_surface_in_all(self):
-        """__all__ contains exactly the 4 Phase 1c bootstrap functions."""
+        """``__all__`` is exactly the intended public surface.
+
+        Deliberately an exact-set assertion, not a subset: the point is to make
+        *adding* to the public surface a conscious act, so an accidental export
+        cannot slip in unnoticed. Extending the set below is the correct way to
+        pass this test; loosening it to ``>=`` would delete the guarantee.
+
+        The set is grouped by the slice that introduced each name so a future
+        reader can tell deliberate growth from drift:
+
+        * Phase 1c — bootstrap slice
+        * Phase 4a — fixtures slice
+        * Preseason reweight (b3e8842) — ``is_form_informative``, the
+          season-launch guard for ``form``-based scoring
+
+        This assertion had been red since b3e8842 (2026-08-09): the package
+        carried no CI job, so nothing reported it. Wired into
+        ``package-test-suites.yml`` as part of #72 phase 1.
+        """
         import fpl_api_client
         assert set(fpl_api_client.__all__) == {
+            # Phase 1c — bootstrap slice
             "get_bootstrap",
             "get_players",
             "get_teams",
             "get_current_gameweek",
+            # Phase 4a — fixtures slice
+            "get_fixtures",
+            "get_fixture_difficulty_map",
+            # Preseason reweight — season-launch form guard
+            "is_form_informative",
         }
 
 
