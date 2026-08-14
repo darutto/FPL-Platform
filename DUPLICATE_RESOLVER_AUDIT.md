@@ -145,7 +145,7 @@ None else 3`). Three other sites are not:
 - **Failing input:** season launch, a team whose `fixture_difficulty_map` value is present
   but `null`.
 - **Fix:** delegate all derivation to the null-safe `scoring_core._derive_scoring_inputs`
-  (yields `fixture_difficulty = 3`); at `chip_advisor.py:243` reuse the already-computed
+  (yields `fixture_difficulty = 3`); at `chip_advisor.py:245` reuse the already-computed
   `inputs["fixture_difficulty"]` instead of recomputing.
 - **Grep invariant after fix:** `int(\s*\w+\.get(` over `fixture_difficulty_map` /
   `fdr_map` returns **zero** hits.
@@ -158,7 +158,7 @@ None else 3`). Three other sites are not:
    the season-launch edge (no `is_current`, one `is_next` → returns the `is_next` id) and
    the precedence edge (both present → `is_current` wins).
 2. **Cluster B (PR B)** — extract `scoring_core.py` + `scoring_display.py`; migrate
-   `chip_advisor` (import **and** the inline :243 site), `differential_picks`, `tools.py`;
+   `chip_advisor` (import **and** the inline :245 site), `differential_picks`, `tools.py`;
    keep `comparison.py` / `transfer_advisor.py` as compat re-export shims so `__init__.py`
    and the phase scripts keep resolving. Regressions: null-FDR → 3 at helper level, plus
    **public-path** tests (transfer advice returns the pick; differential returns the ranked
@@ -167,3 +167,18 @@ None else 3`). Three other sites are not:
 
 **Verdict:** 2 clusters, 9 true duplicates (6 + 3), 1 inline drift site, **2 latent
 season-launch bugs** suspected — one crashing, one silent.
+
+---
+
+## Known gap in PR A's regression pin — fold into PR B
+
+`test_current_gameweek_delegation.py` pins the six resolver *bodies*, not the fact that
+anything still calls them. A call site that abandons its resolver and re-inlines the
+`is_current`-only loop leaves all 25 cases green — reproduced, see
+[`field-notes/2026-08-14-pr62-instrument-gaps.md`](field-notes/2026-08-14-pr62-instrument-gaps.md)
+finding 1.
+
+PR B already reopens `chip_advisor`, `differential_picks` and `tools.py`, so it is the
+cheap moment to add a static companion check (no `is_current` reads outside the
+delegating resolver) rather than a separate pass. Same gap applies to whatever
+regression PR B writes: assert the **public path**, not just the helper.
