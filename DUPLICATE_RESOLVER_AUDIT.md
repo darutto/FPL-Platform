@@ -15,8 +15,8 @@
 
 | Cluster | Concern | #true-dups | Canonical home | Drift? | Bug suspected? |
 |---|---|---|---|---|---|
-| A | current/next gameweek resolver | 6 | `fpl_api_client.get_current_gameweek` | **yes** | **yes** (dropped `is_next`) |
-| B | scoring inputs / venue / minutes-risk / set-piece | 3 impls + 1 inline | new `scoring_core.py` + `scoring_display.py` | **yes** | **yes** (`int(None)` on null FDR) |
+| A | current/next gameweek resolver | 6 | `fpl_api_client.get_current_gameweek` | **yes** | **yes** (dropped `is_next`) — ✅ fixed by PR A |
+| B | scoring inputs / venue / minutes-risk / set-piece | 3 impls + 1 inline | new `scoring_core.py` + `scoring_display.py` | **yes** | **yes** (`int(None)` on null FDR) — ⏳ open, PR B |
 
 ---
 
@@ -114,7 +114,10 @@ Two parallel twins — `comparison.py` and `transfer_advisor.py`
 Both are the **null-default drift signature**: `int(<map>.get(key, default))` only defaults
 on a *missing* key, but the FPL API ships `key: null` at season launch → `int(None)`.
 
-### Bug 1 — Cluster A: six resolvers drop the `is_next` fallback
+### Bug 1 — Cluster A: six resolvers drop the `is_next` fallback ✅ FIXED BY PR A
+
+> Status: **fixed in this PR**. Described below as found, on the pre-PR-A tree.
+> Regression pin: `tests/test_current_gameweek_delegation.py` (25 cases).
 
 - **Where:** the six true-dups above (context_builder, chip_advisor, fixture_outlook,
   player_fixture_run, team_fixture_calendar, transfer_suggestion).
@@ -126,7 +129,9 @@ on a *missing* key, but the FPL API ships `key: null` at season launch → `int(
 - **Fix:** replace each body with delegation to canonical
   `get_current_gameweek(bootstrap)`.
 
-### Bug 2 — Cluster B: `int(None)` on present-but-null FDR
+### Bug 2 — Cluster B: `int(None)` on present-but-null FDR ⏳ STILL OPEN
+
+> Status: **still present on main** as of 2026-08-13; awaits PR B.
 
 `comparison.py:306-307` is null-safe (`_raw_fdr = fdr_map.get(team_id); … if _raw_fdr is not
 None else 3`). Three other sites are not:
