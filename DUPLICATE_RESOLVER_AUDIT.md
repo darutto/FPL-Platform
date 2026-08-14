@@ -4,6 +4,12 @@
 > Read-only report. Consolidation is tracked as PR A (Cluster A) then PR B (Cluster B);
 > see the approved plan `consolidate-duplicate-resolvers-vectorized-hummingbird.md`.
 > Paths are the live tree under `packages/…`; all `.claude/worktrees/…` copies ignored.
+>
+> **Line references re-verified 2026-08-13** against main at the PR A rebase. Every
+> finding below still holds; what moved was line numbers (preseason reweight `b3e8842`
+> shifted `comparison.py` / `transfer_advisor.py` / `differential_picks.py` by ~+5) and
+> one path (the api-client audit copy moved to `audit-reference/`). Cluster-A line
+> numbers are stated **post-PR-A**, i.e. as the tree reads once this PR merges.
 
 ## Cluster summary
 
@@ -35,7 +41,7 @@ Each re-implements the loop with **`is_current` only** — no `is_next` fallback
 
 ### Already delegating (leave)
 
-`comparison.py:209`, `differential_picks.py:96`, `transfer_advisor.py:182` (call canonical,
+`comparison.py:214`, `differential_picks.py:101`, `transfer_advisor.py:187` (call canonical,
 per #38); `fpl-query-tools/fpl_query_tools/queries.py:181`
 `get_current_gameweek_from_bootstrap` (thin wrapper).
 
@@ -54,7 +60,8 @@ per #38); `fpl-query-tools/fpl_query_tools/queries.py:181`
 
 ### Out of scope
 
-`packages/fpl-api-client/python/fpl_client.py:136` (labelled "audit copy — do not modify").
+`packages/fpl-api-client/audit-reference/fpl_client.py:136` (labelled "audit copy — do not
+modify"; main relocated it from `python/` to `audit-reference/` after this audit was written).
 TypeScript mirrors: `fpl-api-client/typescript/src/fplClient.ts:104`, `fpl-ui`
 `fpl-squad/[teamId]/route.ts:107` — separate language.
 
@@ -69,16 +76,16 @@ Two parallel twins — `comparison.py` and `transfer_advisor.py`
 
 | Helper | comparison.py | transfer_advisor.py | tools.py | Status |
 |---|---|---|---|---|
-| `_STATUS_RISK` | :88 | :82 | :73 | identical |
-| `_*_ADV_THRESHOLD` (×4) | :101-111 | :95-105 | — | values identical, comments differ |
-| `_SET_PIECE_SHORT` | :126 | :123 | — | identical |
-| `_venue_tag` | :134 | :157 | — | identical |
-| `_set_piece_advantage_phrase` | :143 | :131 | — | logic identical, param names/docstring differ |
-| `HOME_FDR_ADJUSTMENT` | :206 | :179 | — | value identical, comments differ |
-| `_get_current_gw` | :209 | :182 | — | identical (both delegate to canonical) |
-| `_resolve_venue` | :221 | :194 | — | identical |
-| `_compute_effective_fdr` | :239 | :212 | — | identical |
-| `_derive_scoring_inputs` | :255 | :228 | `_..._from_element` :82 | **DIVERGED** — see bugs |
+| `_STATUS_RISK` | :93 | :87 | :73 | identical |
+| `_*_ADV_THRESHOLD` (×4) | :107-116 | :101-110 | — | values identical, comments differ |
+| `_SET_PIECE_SHORT` | :131 | :128 | — | identical |
+| `_venue_tag` | :139 | :162 | — | identical |
+| `_set_piece_advantage_phrase` | :148 | :136 | — | logic identical, param names/docstring differ |
+| `HOME_FDR_ADJUSTMENT` | :211 | :184 | — | value identical, comments differ |
+| `_get_current_gw` | :214 | :187 | — | identical (both delegate to canonical) |
+| `_resolve_venue` | :226 | :199 | — | identical |
+| `_compute_effective_fdr` | :244 | :217 | — | identical |
+| `_derive_scoring_inputs` | :260 | :233 | `_..._from_element` :82 | **DIVERGED** — see bugs |
 
 **Canonical homes (dependency-safe):**
 - `fpl_tool_contract/scoring_core.py` (new) — cross-layer: `_STATUS_RISK`,
@@ -92,10 +99,10 @@ Two parallel twins — `comparison.py` and `transfer_advisor.py`
 
 ### External importers (a dedup must preserve these — use compat re-exports)
 
-- `fpl_grounded_assistant/__init__.py:211-228` re-exports the comparison thresholds,
+- `fpl_grounded_assistant/__init__.py:212-229` re-exports the comparison thresholds,
   `_set_piece_advantage_phrase`, and `_TRANSFER_THRESHOLD_STRONG`.
-- Production consumers of `_derive_scoring_inputs`: `chip_advisor.py:68` (calls at :224),
-  `differential_picks.py:73`.
+- Production consumers of `_derive_scoring_inputs`: `chip_advisor.py:68` (calls at :226),
+  `differential_picks.py:73` (calls at :230).
 - Phase scripts / diagnostics importing these private symbols: `run_phase5h_tests.py`
   (:78/:84/:90/:112), `run_phase5i_tests.py:539`, `run_phase8a1_tests.py:198`,
   `run_phase8a1_overpromotion_triage.py:54`, `run_gkp_weight_sensitivity.py:85`.
@@ -121,14 +128,14 @@ on a *missing* key, but the FPL API ships `key: null` at season launch → `int(
 
 ### Bug 2 — Cluster B: `int(None)` on present-but-null FDR
 
-`comparison.py:297-298` is null-safe (`_raw = fdr_map.get(team_id); … if _raw is not None
-else 3`). Three other sites are not:
+`comparison.py:306-307` is null-safe (`_raw_fdr = fdr_map.get(team_id); … if _raw_fdr is not
+None else 3`). Three other sites are not:
 
 | file:line | context | symptom |
 |---|---|---|
-| `transfer_advisor.py:253` | inside `_derive_scoring_inputs` | **crashes** with `TypeError` (unguarded); `differential_picks.py` inherits it via its :73 import |
+| `transfer_advisor.py:263` | inside `_derive_scoring_inputs` | **crashes** with `TypeError` (unguarded); `differential_picks.py` inherits it via its :73 import |
 | `tools.py:106` | inside `_derive_scoring_inputs_from_element` | **crashes** with `TypeError` |
-| `chip_advisor.py:243` | **inline** `"fdr": int(fdr_map.get(el.get("team"), 3))` inside `_score_outfield_players`'s `try/except` (:223) | **silent** — the null-FDR player is dropped from the scored list, no error surfaced |
+| `chip_advisor.py:245` | **inline** `"fdr": int(fdr_map.get(el.get("team"), 3))` inside `_score_outfield_players`'s `try/except` (:225) | **silent** — the null-FDR player is dropped from the scored list, no error surfaced |
 
 - **Failing input:** season launch, a team whose `fixture_difficulty_map` value is present
   but `null`.
