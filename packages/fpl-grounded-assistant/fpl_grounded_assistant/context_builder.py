@@ -78,11 +78,14 @@ _FIXTURE_HORIZON: int = 3
 # ---------------------------------------------------------------------------
 
 def _get_current_gw(bootstrap: dict[str, Any]) -> int | None:
-    for event in bootstrap.get("events", []):
-        if event.get("is_current"):
-            gw = event.get("id")
-            return int(gw) if gw is not None else None
-    return None
+    """Return the current-or-next GW id, or None.
+
+    Delegates to the canonical ``get_current_gameweek`` resolver so the
+    ``is_next`` fallback (pre-season / between-GW, e.g. GW1 before kickoff)
+    is applied consistently — a bare ``is_current`` check misses it.
+    """
+    from fpl_api_client import get_current_gameweek
+    return get_current_gameweek(bootstrap)
 
 
 def _get_next_gw(bootstrap: dict[str, Any]) -> int | None:
