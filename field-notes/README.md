@@ -24,6 +24,35 @@ each with its own severity.
 re-derive, a file:line, an API response. This folder is not for hunches — a
 hunch goes in the session's "open questions" section, clearly separated.
 
+### Committing a note: direct push to `main` is allowed
+
+Notes in this folder (and edits to this README) may be pushed straight to
+`main`, without a pull request. This is a **deliberate, written exception** to
+the branch rule, not an oversight.
+
+The reasoning, so it can be re-decided rather than inherited:
+
+- `main` requires a PR and two checks, but `required_reviews` is `0`. With no
+  reviewer, a PR buys exactly the two checks and nothing else.
+- Both checks test code. Neither can say anything about a Markdown file in this
+  folder, so for a note they are pure latency.
+- That latency is not small: `Package test suites` runs ~33 min, almost all of
+  it the FI-8 falsifiability probe (the suites themselves total ~46s). A
+  doc-only PR paying half an hour is what manufactures the pressure to bypass
+  the rule quietly — which is worse than either enforcing it or writing it down.
+
+Scope of the exception, deliberately narrow — **`field-notes/` only**:
+
+- anything touching code, workflows, or package config goes through a PR, even
+  a one-line comment change
+- a note that also changes code is not a note; split it
+- `enforce_admins` is `false`, so this is enforced by convention, not by the
+  platform. Honour it.
+
+If the 33-minute check ever becomes cheap (see #72 phase 3 — splitting the
+probe out of the required job), this exception loses its justification and
+should be deleted rather than kept out of habit.
+
 ### When you're planning a roadmap step
 Skim this folder (or grep `relevant_to:`) before writing a plan. If the step
 touches the same area as a finding, decide whether to **fix it in** (cheap,
