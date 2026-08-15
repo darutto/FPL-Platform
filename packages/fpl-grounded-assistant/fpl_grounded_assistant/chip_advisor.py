@@ -65,7 +65,7 @@ from fpl_captain_engine import calculate_captain_score
 from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
 
-from .transfer_advisor import _derive_scoring_inputs
+from .scoring_shared import _derive_scoring_inputs
 from .fixture_context import build_fixture_context  # FI3a: additive fixture context
 
 
@@ -242,7 +242,11 @@ def _score_outfield_players(bootstrap: dict[str, Any]) -> list[dict[str, Any]]:
                 "web_name":      el.get("web_name", "Unknown"),
                 "captain_score": score,
                 "tier":          tier,
-                "fdr":           int(fdr_map.get(el.get("team"), 3)),
+                # Reuse the null-safe value from _derive_scoring_inputs. The old
+                # inline int(fdr_map.get(team, 3)) crashed on a present-but-null
+                # FDR (season launch); inside this try/except that silently
+                # DROPPED the player from the scored list.
+                "fdr":           inputs["fixture_difficulty"],
                 # FI3a: carry the bits the fixture bridge needs for the top pick.
                 "team_id":       el.get("team"),
                 "position":      {3: "MID", 4: "FWD"}.get(el.get("element_type"), ""),

@@ -70,7 +70,7 @@ from fpl_captain_engine import calculate_captain_score
 from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
 
-from .transfer_advisor import _derive_scoring_inputs
+from .scoring_shared import _derive_scoring_inputs
 from .fixture_context import build_fixture_context  # FI3a: additive fixture context
 from .position_score import (
     compute_position_score,

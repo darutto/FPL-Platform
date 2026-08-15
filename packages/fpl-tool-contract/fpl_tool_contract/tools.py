@@ -65,18 +65,11 @@ from fpl_captain_engine import (
 )
 from fpl_player_registry import build_registry
 from fpl_query_tools import get_current_gameweek_from_bootstrap, get_player_summary
+from fpl_tool_contract.scoring_core import _derive_base_scoring_inputs
 
 # ---------------------------------------------------------------------------
 # Phase 5m: scoring input derivation helpers
 # ---------------------------------------------------------------------------
-
-_STATUS_RISK: dict[str, float] = {
-    "a": 0.0,
-    "d": 30.0,
-    "i": 100.0,
-    "s": 100.0,
-    "u": 100.0,
-}
 
 
 def _derive_scoring_inputs_from_element(
@@ -86,31 +79,13 @@ def _derive_scoring_inputs_from_element(
     """Derive captain scoring inputs from a raw FPL bootstrap element.
 
     Returns a dict with keys: form, xgi_per_90, minutes_risk,
-    fixture_difficulty.  Mirrors the derivation in comparison._score_one().
+    fixture_difficulty. Thin wrapper over the canonical, null-safe
+    ``scoring_core._derive_base_scoring_inputs`` (the fixture_difficulty map
+    ships present-but-null values at season launch, which the old inline
+    ``int(fdr_map.get(team, 3))`` crashed on).
     """
-    form = float(element.get("form", "0") or 0)
-
-    minutes = float(element.get("minutes", 0) or 0)
-    xgi_raw = float(element.get("expected_goal_involvements", "0") or 0)
-    xgi_per_90 = (xgi_raw / (minutes / 90.0)) if minutes > 0 else 0.0
-
-    status = element.get("status", "u")
-    chance = element.get("chance_of_playing_this_round")
-    if chance is not None and status == "d":
-        minutes_risk = max(0.0, min(100.0, (1.0 - chance / 100.0) * 100.0))
-    else:
-        minutes_risk = _STATUS_RISK.get(status, 50.0)
-
     fdr_map = bootstrap.get("fixture_difficulty_map", {})
-    team_id = element.get("team")
-    fixture_difficulty = int(fdr_map.get(team_id, 3))
-
-    return {
-        "form":               form,
-        "xgi_per_90":         round(xgi_per_90, 6),
-        "minutes_risk":       minutes_risk,
-        "fixture_difficulty": fixture_difficulty,
-    }
+    return _derive_base_scoring_inputs(element, fdr_map)
 
 
 # ---------------------------------------------------------------------------
