@@ -21,12 +21,21 @@
 # let this job go green while the pytest.ini it is supposed to guard is broken --
 # precisely the drift that produced the bug this job exists to catch.
 #
-# DESIGN RULE -- ONE JOB, STABLE NAME, NO MATRIX
-# ----------------------------------------------
+# DESIGN RULE -- STABLE JOB NAMES, NO MATRIX
+# -------------------------------------------
 # Branch protection matches required checks by job name, and renaming a required
-# check silently un-requires it. A matrix would emit three names that change if
-# the package list changes; one job emits one stable name that is safe to wire
-# into protection.
+# check silently un-requires it. A matrix would emit one name per package, all
+# of which change when the package list changes; a fixed job emits one stable
+# name that is safe to wire into protection.
+#
+# There are now two jobs -- `Package test suites` and `Falsifiability probe` --
+# because they answer different questions at wildly different speeds, not
+# because the list grew. Both names are protection contexts. Adding a job here
+# does not add protection: the context must be added to the required list by
+# hand, and there is an unavoidable window between merging a new job and
+# requiring it, during which it runs but blocks nothing. Do not add a required
+# context before the job producing it exists on main -- nothing could merge,
+# including the PR that creates it.
 #
 # DESIGN RULE -- NO `paths:` FILTER
 # ---------------------------------
@@ -35,19 +44,22 @@
 # which touched one markdown file) would hang.
 #
 # COST, MEASURED -- this argument used to end "the suites take ~30-40s total, so
-# always running is cheaper than engineering around that trap." The first half is
-# still true; the conclusion no longer follows. Measured on job 94652126309:
-# all pytest suites together ~25s, but the falsifiability probe below is 32m06s,
-# for a 33m job. #72 phase 1 took the suites to ~46s (measured on job
-# 94920804740), which does not move the total. So every PR, doc-only ones
-# included, now pays ~33 min, essentially all of it the probe.
+# always running is cheaper than engineering around that trap." The first half
+# was true and the conclusion had stopped following: the suites were ~25s but the
+# falsifiability probe was 32m06s, so every PR paid ~33 min for this one check.
 #
-# That is left standing rather than fixed here, because the fix is a judgement
-# about CI budget and check topology (split the probe into its own job? give it
-# its own cadence?), and job names are required checks -- renaming or splitting
-# touches branch protection. Recorded in
-# field-notes/2026-08-14-pr62-instrument-gaps.md finding 2. Anyone re-opening
-# the `paths:` question should decide it on these numbers, not the old ones.
+# The probe now lives in its own job (see `falsifiability-probe` below), so this
+# job reports in ~115s. That does NOT make a PR cheaper -- the probe still gates
+# for ~32 min on its own check -- it makes a *failing suite* visible in ~2 min
+# instead of 33, which is the cost that kept being paid in practice.
+#
+# So for THIS job the original argument holds again on current numbers: 115s is
+# cheap enough that always running beats engineering around the never-reports
+# trap. For the probe job the `paths:` question is still open and still has the
+# skipped-required-check hazard (a required check that is skipped never reports,
+# and GitHub blocks the merge). Recorded in
+# field-notes/2026-08-14-pr62-instrument-gaps.md finding 2. Anyone re-opening it
+# should decide on measured numbers, not inherited ones.
 #
 # Complements contract-drift-gate.yml, which runs the deterministic
 # run_phase_*.py contract checkers rather than the pytest suites.
@@ -264,6 +276,70 @@ jobs:
         working-directory: packages/sportmonks-client
         run: python -m pytest -v
 
+  # ==========================================================================
+  # Falsifiability probe -- its own job, running in PARALLEL with the suites.
+  #
+  # WHY IT IS NOT A STEP OF `pytest` ANY MORE
+  # -----------------------------------------
+  # It used to be the last step of that job. Splitting does NOT reduce wall
+  # clock -- the probe is ~32 min either way, and it is what a PR waits on.
+  # It reduces *feedback latency*, which is the thing that actually kept
+  # biting: GitHub does not serve a job's logs until the whole job finishes,
+  # so while the probe ran, a failing suite was invisible for half an hour
+  # even though it had failed in the first two minutes.
+  #
+  # Measured cost of that, during #72 alone: a fpl-historical failure took
+  # 32 min to become readable; reading one number out of a 69s step took
+  # another 32; and it did it twice more across the phase-2 rebases. After
+  # this split the suites report in ~115s, on their own check.
+  #
+  # WHAT IT DOES NOT FIX
+  # --------------------
+  # A PR is still blocked for ~33 min by this job. Making *that* cheaper is a
+  # different change (parallelise the sweep across its scripts, or a `paths:`
+  # filter) with different trade-offs, and neither is this PR.
+  #
+  # CLEAN-TREE PRECONDITION -- STRICTLY BETTER HERE
+  # -----------------------------------------------
+  # require_clean_tree() refuses to sweep when tracked files under
+  # packages/sportmonks-client are dirty, at both ends of the sweep. In its own
+  # job it runs on a fresh checkout with nothing before it, instead of after
+  # fifteen pytest suites. That can only make the precondition easier to hold,
+  # never harder -- untracked residue like .pytest_cache was already permitted
+  # (`--untracked-files=no`), so nothing that used to pass now fails.
+  #
+  # The duplicated checkout + Python setup costs no wall clock: this job runs
+  # concurrently with `pytest`, and both are far shorter than the sweep.
+  #
+  # The install line is deliberately IDENTICAL to the one in `pytest` rather
+  # than a minimal pytest+requests pair. The probe shells out to
+  # `python -m pytest` over the sportmonks-client suite, so it needs whatever
+  # that suite needs -- and a second, hand-trimmed dependency list is exactly
+  # the kind of restated wiring that drifts out of sync with the thing it
+  # mirrors. One source of truth, even at the cost of installing more than
+  # this job strictly uses.
+  #
+  # NOTE: `falsifiability_probe.py` itself is untouched by this change. This is
+  # workflow configuration only; the instrument freeze (580b278) stands.
+  # ==========================================================================
+  falsifiability-probe:
+    # This name becomes a status-check context. Adding it to branch protection
+    # is a separate, manual step -- see the #72 notes at the bottom of the file.
+    name: Falsifiability probe
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: pip install --no-cache-dir -r packages/fpl-grounded-assistant/requirements.txt pytest==9.1.1
+
       # The falsifiability gate. Every mitigation this phase produced for
       # unfalsifiable reported values was a *rule*, and the measured result is
       # that rules about sweeping fail under the most favourable conditions
@@ -277,7 +353,6 @@ jobs:
       # `git status --ignored` lists only paths that exist and the local machine
       # happened to have them.
       - name: sportmonks-client falsifiability probe
-        if: ${{ !cancelled() }}
         working-directory: packages/sportmonks-client
         run: |
           python scripts/falsifiability_probe.py \
@@ -294,31 +369,50 @@ jobs:
             --basetemp-root "${RUNNER_TEMP}/probe"
 
 # ============================================================================
-# #72 ONBOARDING -- WHERE THIS STOPPED AND WHY
+# #72 ONBOARDING -- CLOSED AT 15/15
 # ============================================================================
-# Phase 1 (this PR) wired six of the ten unrun suites. Coverage is now 11 of 15
-# test-bearing packages. The remaining four are left out deliberately, each for
-# a different reason, so that "not wired yet" never has to be re-derived:
+# All fifteen test-bearing packages now run here. #72 is closed (2026-08-15).
+# Kept because the reasoning is worth more than the status:
 #
-# Phase 2 -- three suites are red, cause not yet diagnosed:
-#     fpl-query-tools      1 failed, 39 passed
-#     fpl-data-core        2 failed, 60 passed, 7 skipped
-#     fpl-player-registry  2 failed, 45 passed
-#   Do NOT assume these are stale pins like fpl-api-client's was. One known
-#   candidate is fpl-data-core's `test_cumulative_cols_count` (expects 26,
-#   CUMULATIVE_COLS has 30, per #72), but a real defect hidden for months is
-#   exactly as likely as a drifted assertion, and the two need opposite fixes.
-#   Diagnose per failure; resolve test-vs-code each time; never loosen an
-#   assertion into a tautology to get green.
+# Onboarding found eight problems and NO TWO WERE THE SAME KIND:
+#   - two stale exact-value pins   (fpl-api-client __all__, fpl-data-core count)
+#   - two real defects             (player-registry ambiguity; query-tools
+#                                   composition -- every lookup correct, the
+#                                   chain wrong)
+#   - one that was never a failure (fpl-data-core compared a Path as a substring
+#                                   of str(), so the host separator decided it;
+#                                   red on Windows, green here untouched)
+#   - two green only for their author (fpl-historical read a gitignored parquet
+#                                   store, so they passed on any machine that
+#                                   had run a capture and nowhere else)
 #
-# Phase 3 -- football-intelligence is unmeasured:
-#   It exceeds 120s and nobody has waited it out, so its true cost is unknown.
-#   With the probe above already at ~32 min, adding another slow suite to a
-#   required check is a CI-budget decision, not a wiring task. Measure first,
-#   then decide -- possibly in its own job rather than this one.
+# ab32cc6 alone accounts for three of those, in three different packages, with
+# zero signal for months -- because none of the three had a job. That is the
+# measured cost of the thing this file exists to prevent.
 #
-# Local-vs-CI caveat when measuring any of the above: on Windows these suites
-# report extra `PermissionError: [WinError 5]` errors against the pytest temp
-# dir, which do not occur on ubuntu-latest. They are erroring, not failing, so
-# `N passed` locally undercounts. fpl-tactical reads 12 passed + 7 errors
-# locally and 19 passed here. Reconcile before believing a local number.
+# RULES THAT CAME OUT OF IT
+#   - A local `N passed` is not evidence about CI, in EITHER direction. Windows
+#     `PermissionError: [WinError 5]` on the pytest temp dir and "symlink
+#     creation unavailable" both make it UNDERCOUNT (fpl-tactical reads 12+7
+#     errors locally, 19 here; football-intelligence reads 389+2 skipped
+#     locally, 391 here). A gitignored data dependency makes it OVERCOUNT
+#     (fpl-historical). Reconcile before believing a local number.
+#   - Never loosen an assertion into a tautology to get green. Exact pins were
+#     updated to exact pins with provenance recorded, never relaxed to `>=`.
+#   - A skipped test protects nothing. If one genuinely cannot run without local
+#     data, skip with a named reason AND say so wherever coverage is claimed.
+#   - Validate edits to this file against the Actions schema, not YAML syntax.
+#     A step missing `run:` is valid YAML and invalid Actions; GitHub then names
+#     the run after the FILE instead of the job and executes nothing. That cost
+#     a full 33-minute cycle during phase 2. Assert every step has run: or uses:.
+#   - Stacked PRs always conflict here, because every new suite step lands at
+#     the same point and the shared trailing `run:` line sits on the far side of
+#     the conflict marker. "Keep both hunks" silently drops it from the first
+#     step. That is how the above happened.
+#
+# STILL OPEN
+#   Making a PR cheaper, as opposed to making failures visible sooner. The
+#   probe job gates for ~32 min on every PR including doc-only ones. Options
+#   are parallelising the sweep across its scripts, or a `paths:` filter -- the
+#   latter still carrying the hazard that a SKIPPED required check never
+#   reports, so GitHub blocks the merge forever. Decide on measured numbers.
