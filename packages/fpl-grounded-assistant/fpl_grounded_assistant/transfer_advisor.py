@@ -81,37 +81,31 @@ from .position_score import (
 
 
 # ---------------------------------------------------------------------------
-# Minutes-risk table (same as comparison.py)
+# Shared scoring helpers — canonical homes are scoring_core (cross-layer base)
+# and scoring_shared (grounded-assistant). Re-imported here so this module's
+# public surface is unchanged for __init__.py re-exports and the consumers that
+# import _derive_scoring_inputs from transfer_advisor (chip_advisor,
+# differential_picks, phase scripts).
 # ---------------------------------------------------------------------------
 
-_STATUS_RISK: dict[str, float] = {
-    "a": 0.0,
-    "d": 30.0,
-    "i": 100.0,
-    "s": 100.0,
-    "u": 100.0,
-}
-
-
-# ---------------------------------------------------------------------------
-# Advantage thresholds (mirror comparison.py)
-# ---------------------------------------------------------------------------
-
-#: Minimum form delta (in - out) for "stronger form" advantage
-_FORM_ADV_THRESHOLD: float = 1.5
-
-#: Minimum FDR difference (out_fdr - in_fdr) for "easier fixture" advantage
-_FDR_ADV_THRESHOLD: int = 1
-
-#: Minimum xGI/90 delta (in - out) for "higher xGI output" advantage
-_XGI_ADV_THRESHOLD: float = 0.10
-
-#: Minimum minutes_risk delta (out - in) for "better minutes security" advantage
-_RISK_ADV_THRESHOLD: float = 20.0
+from fpl_tool_contract.scoring_core import _STATUS_RISK  # noqa: F401  (compat re-export)
+from .scoring_shared import (  # noqa: F401  (compat re-exports)
+    _FORM_ADV_THRESHOLD,
+    _FDR_ADV_THRESHOLD,
+    _XGI_ADV_THRESHOLD,
+    _RISK_ADV_THRESHOLD,
+    _SET_PIECE_SHORT,
+    _venue_tag,
+    _set_piece_advantage_phrase,
+    HOME_FDR_ADJUSTMENT,
+    _resolve_venue,
+    _compute_effective_fdr,
+    _derive_scoring_inputs,
+)
 
 
 # ---------------------------------------------------------------------------
-# Recommendation thresholds
+# Recommendation thresholds  (transfer-advisor-local, not shared)
 # ---------------------------------------------------------------------------
 
 #: score_delta > this → "transfer_in"  (player_in clearly better)
@@ -119,69 +113,6 @@ _TRANSFER_THRESHOLD_STRONG: float = 5.0
 
 #: 0 < score_delta <= _TRANSFER_THRESHOLD_STRONG → "marginal_transfer_in"
 #: score_delta <= 0 → "hold"
-
-
-# ---------------------------------------------------------------------------
-# Set-piece labels (same as comparison.py — kept local to avoid coupling)
-# ---------------------------------------------------------------------------
-
-_SET_PIECE_SHORT: dict[str, str] = {
-    "penalty_taker_1":  "pen",
-    "penalty_taker_2":  "pen2",
-    "freekick_taker_1": "fk",
-    "freekick_taker_2": "fk2",
-}
-
-
-def _set_piece_advantage_phrase(
-    in_role: dict[str, Any],
-    out_role: dict[str, Any],
-) -> str | None:
-    """Return a set-piece advantage phrase for player_in, or ``None``.
-
-    Fires when player_in's ``role_bonus`` strictly exceeds player_out's.
-    """
-    in_bonus  = float(in_role.get("role_bonus", 0.0))
-    out_bonus = float(out_role.get("role_bonus", 0.0))
-    if in_bonus <= out_bonus:
-        return None
-
-    in_notes  = in_role.get("set_piece_notes", [])
-    out_notes = out_role.get("set_piece_notes", [])
-
-    if not in_notes:
-        return "set-piece advantage"
-
-    in_label = _SET_PIECE_SHORT.get(in_notes[0], in_notes[0])
-    if out_notes:
-        out_label = _SET_PIECE_SHORT.get(out_notes[0], out_notes[0])
-        return f"set-piece advantage ({in_label} vs {out_label})"
-    return f"set-piece advantage ({in_label})"
-
-
-def _venue_tag(is_home: bool | None) -> str:
-    """Return a short venue suffix for display: 'H', 'A', or ''."""
-    if is_home is True:
-        return "H"
-    if is_home is False:
-        return "A"
-    return ""
-
-
-# ---------------------------------------------------------------------------
-# Scoring input derivation (same logic as comparison.py)
-# ---------------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------------
-# Phase 8b: home/away fixture awareness
-# ---------------------------------------------------------------------------
-
-#: Home/away FDR adjustment magnitude.
-#: Home team gets ``raw_fdr - HOME_FDR_ADJUSTMENT`` (easier at home).
-#: Away team gets ``raw_fdr + HOME_FDR_ADJUSTMENT`` (harder away).
-#: Net effect on fixture_score: ±10 points (via ``(6 - fdr) * 20``).
-HOME_FDR_ADJUSTMENT: float = 0.5
 
 
 def _get_current_gw(bootstrap: dict[str, Any]) -> int | None:
@@ -196,85 +127,6 @@ def _get_current_gw(bootstrap: dict[str, Any]) -> int | None:
     return get_current_gameweek(bootstrap)
 
 
-def _resolve_venue(
-    team_id: int | None,
-    team_fixtures: dict | None,
-    current_gw: int | None,
-) -> bool | None:
-    """Return ``True`` if the team plays at home this GW, ``False`` if away,
-    or ``None`` if venue cannot be determined."""
-    if team_id is None or team_fixtures is None or current_gw is None:
-        return None
-    fixtures = team_fixtures.get(team_id)
-    if not fixtures:
-        return None
-    for fix in fixtures:
-        if fix.get("gameweek") == current_gw:
-            return fix.get("is_home")
-    return None
-
-
-def _compute_effective_fdr(
-    raw_fdr: int,
-    is_home: bool | None,
-) -> float:
-    """Apply home/away adjustment to raw FDR.
-
-    Returns a float FDR clamped to [1.0, 5.0].  When ``is_home`` is
-    ``None`` (venue unknown), returns ``raw_fdr`` unchanged.
-    """
-    if is_home is None:
-        return float(raw_fdr)
-    if is_home:
-        return max(1.0, min(5.0, raw_fdr - HOME_FDR_ADJUSTMENT))
-    return max(1.0, min(5.0, raw_fdr + HOME_FDR_ADJUSTMENT))
-
-
-def _derive_scoring_inputs(
-    element: dict[str, Any],
-    fdr_map: dict[int, int],
-    team_fixtures: dict | None = None,
-    current_gw: int | None = None,
-) -> dict[str, Any]:
-    """Derive captain scoring inputs from a raw FPL bootstrap element.
-
-    Phase 8b: when ``team_fixtures`` and ``current_gw`` are provided,
-    computes ``effective_fdr`` (home/away adjusted) and ``is_home``.
-    """
-    form = float(element.get("form", "0") or 0)
-
-    minutes = float(element.get("minutes", 0) or 0)
-    xgi_raw = float(element.get("expected_goal_involvements", "0") or 0)
-    xgi_per_90 = (xgi_raw / (minutes / 90.0)) if minutes > 0 else 0.0
-    # xgi_per_90 stays RAW above — it feeds calculate_captain_score (Layer 1)
-    # unchanged. xgi_per_90_shrunk is the minutes-floor-shrunk variant,
-    # consumed only by the position_score (Layer 2) branch in _score_one, so
-    # captain_score/chip advice never see the shrinkage.
-    xgi_per_90_shrunk = shrink_rate_by_minutes(xgi_per_90, minutes)
-
-    status = element.get("status", "u")
-    chance = element.get("chance_of_playing_this_round")
-    if chance is not None and status == "d":
-        minutes_risk = max(0.0, min(100.0, (1.0 - chance / 100.0) * 100.0))
-    else:
-        minutes_risk = _STATUS_RISK.get(status, 50.0)
-
-    team_id = element.get("team")
-    fixture_difficulty = int(fdr_map.get(team_id, 3))
-
-    # Phase 8b: home/away venue resolution and effective FDR
-    is_home = _resolve_venue(team_id, team_fixtures, current_gw)
-    effective_fdr = _compute_effective_fdr(fixture_difficulty, is_home)
-
-    return {
-        "form":               form,
-        "xgi_per_90":         round(xgi_per_90, 6),
-        "xgi_per_90_shrunk":  round(xgi_per_90_shrunk, 6),
-        "minutes_risk":       minutes_risk,
-        "fixture_difficulty": fixture_difficulty,
-        "is_home":            is_home,
-        "effective_fdr":      round(effective_fdr, 1),
-    }
 
 
 # ---------------------------------------------------------------------------

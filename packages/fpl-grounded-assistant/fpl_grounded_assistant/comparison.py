@@ -87,128 +87,32 @@ _LOG = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Minutes-risk table
+# Shared scoring helpers — canonical homes are scoring_core (cross-layer base)
+# and scoring_shared (grounded-assistant). Re-imported here so this module's
+# public surface (thresholds, venue helpers, _derive_scoring_inputs, ...) is
+# unchanged for __init__.py re-exports and the phase scripts that import them.
 # ---------------------------------------------------------------------------
 
-_STATUS_RISK: dict[str, float] = {
-    "a": 0.0,
-    "d": 30.0,
-    "i": 100.0,
-    "s": 100.0,
-    "u": 100.0,
-}
+from fpl_tool_contract.scoring_core import _STATUS_RISK  # noqa: F401  (compat re-export)
+from .scoring_shared import (  # noqa: F401  (compat re-exports)
+    _FORM_ADV_THRESHOLD,
+    _FDR_ADV_THRESHOLD,
+    _XGI_ADV_THRESHOLD,
+    _RISK_ADV_THRESHOLD,
+    _SET_PIECE_SHORT,
+    _venue_tag,
+    _set_piece_advantage_phrase,
+    HOME_FDR_ADJUSTMENT,
+    _resolve_venue,
+    _compute_effective_fdr,
+    _derive_scoring_inputs,
+)
 
-
-# ---------------------------------------------------------------------------
-# Phase 5d: comparative explainability thresholds
-# ---------------------------------------------------------------------------
-
-#: Minimum form delta for "stronger form" advantage
-_FORM_ADV_THRESHOLD: float = 1.5
-
-#: Minimum FDR difference for "easier fixture" advantage (lower FDR = better)
-_FDR_ADV_THRESHOLD: int = 1
-
-#: Minimum xGI/90 delta for "higher xGI output" advantage
-_XGI_ADV_THRESHOLD: float = 0.10
-
-#: Minimum minutes_risk delta for "better minutes security" advantage
-_RISK_ADV_THRESHOLD: float = 20.0
-
-#: margin < _MARGIN_NARROW → "narrow" edge
+#: margin < _MARGIN_NARROW → "narrow" edge  (comparison-local, not shared)
 _MARGIN_NARROW: float = 3.0
 
-#: margin >= _MARGIN_CLEAR → "clear" edge
+#: margin >= _MARGIN_CLEAR → "clear" edge  (comparison-local, not shared)
 _MARGIN_CLEAR: float = 10.0
-
-
-# ---------------------------------------------------------------------------
-# Phase 5h: role-aware set-piece labels
-# ---------------------------------------------------------------------------
-
-#: Short display labels for set-piece role keys — kept local to avoid
-#: coupling with renderer.py which has a parallel mapping.
-_SET_PIECE_SHORT: dict[str, str] = {
-    "penalty_taker_1":  "pen",
-    "penalty_taker_2":  "pen2",
-    "freekick_taker_1": "fk",
-    "freekick_taker_2": "fk2",
-}
-
-
-def _venue_tag(is_home: bool | None) -> str:
-    """Return a short venue suffix for display: 'H', 'A', or ''."""
-    if is_home is True:
-        return "H"
-    if is_home is False:
-        return "A"
-    return ""
-
-
-def _set_piece_advantage_phrase(
-    w_role: dict[str, Any],
-    l_role: dict[str, Any],
-) -> str | None:
-    """Return a specific set-piece advantage phrase, or ``None``.
-
-    Fires when the winner's ``role_bonus`` strictly exceeds the loser's.
-    Uses ``set_piece_notes`` to label the specific roles rather than
-    producing a generic "set-piece advantage" string.
-
-    Parameters
-    ----------
-    w_role, l_role:
-        ``role_signals`` dicts from ``_score_one()`` for the winner and loser.
-
-    Returns
-    -------
-    str | None
-        Phrase such as ``"set-piece advantage (pen vs fk2)"`` or
-        ``"set-piece advantage (pen)"``, or ``None`` when no advantage.
-
-    Examples
-    --------
-    winner=penalty_taker_1, loser=freekick_taker_2
-        → ``"set-piece advantage (pen vs fk2)"``
-    winner=penalty_taker_1, loser=[]
-        → ``"set-piece advantage (pen)"``
-    winner=freekick_taker_1, loser=freekick_taker_2
-        → ``"set-piece advantage (fk vs fk2)"``
-    winner.role_bonus == loser.role_bonus
-        → ``None``
-    """
-    w_bonus = float(w_role.get("role_bonus", 0.0))
-    l_bonus = float(l_role.get("role_bonus", 0.0))
-    if w_bonus <= l_bonus:
-        return None
-
-    w_notes = w_role.get("set_piece_notes", [])
-    l_notes = l_role.get("set_piece_notes", [])
-
-    if not w_notes:
-        # role_bonus set but no notes — generic fallback
-        return "set-piece advantage"
-
-    w_label = _SET_PIECE_SHORT.get(w_notes[0], w_notes[0])
-
-    if l_notes:
-        l_label = _SET_PIECE_SHORT.get(l_notes[0], l_notes[0])
-        return f"set-piece advantage ({w_label} vs {l_label})"
-
-    return f"set-piece advantage ({w_label})"
-
-
-# ---------------------------------------------------------------------------
-# Scoring input derivation
-# ---------------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------------
-# Phase 8b: home/away fixture awareness
-# ---------------------------------------------------------------------------
-
-#: Home/away FDR adjustment magnitude.
-HOME_FDR_ADJUSTMENT: float = 0.5
 
 
 def _get_current_gw(bootstrap: dict[str, Any]) -> int | None:
@@ -221,105 +125,6 @@ def _get_current_gw(bootstrap: dict[str, Any]) -> int | None:
     """
     from fpl_api_client import get_current_gameweek
     return get_current_gameweek(bootstrap)
-
-
-def _resolve_venue(
-    team_id: int | None,
-    team_fixtures: dict | None,
-    current_gw: int | None,
-) -> bool | None:
-    """Return ``True`` if the team plays at home this GW, ``False`` if away,
-    or ``None`` if venue cannot be determined."""
-    if team_id is None or team_fixtures is None or current_gw is None:
-        return None
-    fixtures = team_fixtures.get(team_id)
-    if not fixtures:
-        return None
-    for fix in fixtures:
-        if fix.get("gameweek") == current_gw:
-            return fix.get("is_home")
-    return None
-
-
-def _compute_effective_fdr(
-    raw_fdr: int,
-    is_home: bool | None,
-) -> float:
-    """Apply home/away adjustment to raw FDR.
-
-    Returns a float FDR clamped to [1.0, 5.0].  When ``is_home`` is
-    ``None`` (venue unknown), returns ``raw_fdr`` unchanged.
-    """
-    if is_home is None:
-        return float(raw_fdr)
-    if is_home:
-        return max(1.0, min(5.0, raw_fdr - HOME_FDR_ADJUSTMENT))
-    return max(1.0, min(5.0, raw_fdr + HOME_FDR_ADJUSTMENT))
-
-
-def _derive_scoring_inputs(
-    element: dict[str, Any],
-    fdr_map: dict[int, int],
-    team_fixtures: dict | None = None,
-    current_gw: int | None = None,
-) -> dict[str, Any]:
-    """Derive captain scoring inputs from a raw FPL bootstrap element.
-
-    Parameters
-    ----------
-    element:
-        Raw element dict from ``bootstrap["elements"]``.
-    fdr_map:
-        ``bootstrap.get("fixture_difficulty_map", {})`` — maps team_id to FDR.
-        Falls back to FDR=3 when the team is absent from the map.
-    team_fixtures:
-        Optional ``bootstrap.get("team_fixtures", {})`` — per-team fixture
-        schedule with ``is_home`` flag.  Phase 8b.
-    current_gw:
-        Optional current gameweek number.  Phase 8b.
-
-    Returns
-    -------
-    dict with keys: form (float), xgi_per_90 (float), minutes_risk (float),
-    fixture_difficulty (int), is_home (bool|None), effective_fdr (float).
-    """
-    form = float(element.get("form", "0") or 0)
-
-    minutes = float(element.get("minutes", 0) or 0)
-    xgi_raw = float(element.get("expected_goal_involvements", "0") or 0)
-    xgi_per_90 = (xgi_raw / (minutes / 90.0)) if minutes > 0 else 0.0
-    # xgi_per_90 stays RAW above — it feeds calculate_captain_score (Layer 1)
-    # unchanged. xgi_per_90_shrunk is the minutes-floor-shrunk variant,
-    # consumed only by the position_score (Layer 2) branch in _score_one, so
-    # captain_score/chip advice never see the shrinkage.
-    xgi_per_90_shrunk = shrink_rate_by_minutes(xgi_per_90, minutes)
-
-    status = element.get("status", "u")
-    chance = element.get("chance_of_playing_this_round")
-    if chance is not None and status == "d":
-        minutes_risk = max(0.0, min(100.0, (1.0 - chance / 100.0) * 100.0))
-    else:
-        minutes_risk = _STATUS_RISK.get(status, 50.0)
-
-    team_id = element.get("team")
-    # FDR can be present-but-null pre-season (season launch: fixtures exist
-    # before difficulty ratings are populated), so the .get default won't fire.
-    _raw_fdr = fdr_map.get(team_id)
-    fixture_difficulty = int(_raw_fdr) if _raw_fdr is not None else 3
-
-    # Phase 8b: home/away venue resolution and effective FDR
-    is_home = _resolve_venue(team_id, team_fixtures, current_gw)
-    effective_fdr = _compute_effective_fdr(fixture_difficulty, is_home)
-
-    return {
-        "form":               form,
-        "xgi_per_90":         round(xgi_per_90, 6),
-        "xgi_per_90_shrunk":  round(xgi_per_90_shrunk, 6),
-        "minutes_risk":       minutes_risk,
-        "fixture_difficulty": fixture_difficulty,
-        "is_home":            is_home,
-        "effective_fdr":      round(effective_fdr, 1),
-    }
 
 
 # ---------------------------------------------------------------------------

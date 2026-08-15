@@ -16,7 +16,18 @@
 | Cluster | Concern | #true-dups | Canonical home | Drift? | Bug suspected? |
 |---|---|---|---|---|---|
 | A | current/next gameweek resolver | 6 | `fpl_api_client.get_current_gameweek` | **yes** | **yes** (dropped `is_next`) — ✅ fixed by PR A |
-| B | scoring inputs / venue / minutes-risk / set-piece | 3 impls + 1 inline | new `scoring_core.py` + `scoring_display.py` | **yes** | **yes** (`int(None)` on null FDR) — ⏳ open, PR B |
+| B | scoring inputs / venue / minutes-risk / set-piece | 3 impls + 1 inline | `scoring_core.py` (tool-contract) + `scoring_shared.py` (grounded) | **yes** | **yes** (`int(None)` on null FDR) — ✅ fixed by PR B |
+
+> **PR B note (2026-08-15):** the preseason reweight (`b3e8842`) had since added
+> `xgi_per_90_shrunk` (via `position_score.shrink_rate_by_minutes`) to
+> `_derive_scoring_inputs` in *both* twins. Because that helper lives in
+> grounded-assistant (a layer *above* tool-contract), the shared home split by
+> layer: `scoring_core.py` (tool-contract) owns the cross-layer null-safe *base*
+> derivation that `tools.py` also needs; `scoring_shared.py` (grounded) owns the
+> 7-key `_derive_scoring_inputs` (base + shrunk + venue) plus the set-piece /
+> venue / threshold helpers. `comparison.py` and `transfer_advisor.py` keep their
+> public surface via compat re-exports. Behaviour-preserving except the fixed
+> null-FDR edge; full grounded suite +7 vs main baseline, zero new failures.
 
 ---
 
