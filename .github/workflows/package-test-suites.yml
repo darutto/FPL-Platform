@@ -225,6 +225,28 @@ jobs:
         working-directory: packages/fpl-data-core
         run: python -m pytest -v
 
+      # Added by #72 phase 3 -- the last unwired package, and the one that
+      # completes coverage at 15/15.
+      #
+      # It was held back as a "CI-budget decision" while its cost was unknown.
+      # Measured: it is green, not red, and takes ~100s. State the cost on its
+      # own axis rather than the flattering fraction: this roughly *triples*
+      # the suites, ~46s -> ~2.5 min. Against the 32m probe below it is ~5% of
+      # the job, but the probe is the thing to fix, not a licence to grow the
+      # suites for free.
+      #
+      # No install line needed. Its requirements are pandas / pyarrow / boto3,
+      # all already in the grounded-assistant superset installed above --
+      # verified by scanning every import in the package and its tests, not by
+      # reading the requirements file. (Unlike fpl-tactical, whose case was the
+      # inverse: a listed dependency its suite does not use.)
+      #
+      # Baseline: PLACEHOLDER -- replaced with the first CI run's number below.
+      - name: football-intelligence suite
+        if: ${{ !cancelled() }}
+        working-directory: packages/football-intelligence
+        run: python -m pytest -v
+
       # Added by FI-8 S0. FI-8 adds twelve files to this package; until now no
       # CI job ran its suite, which is the same shape that left
       # fpl-tool-contract at 39 silent failures and fpl-tool-runner dead at
