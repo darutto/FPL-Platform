@@ -291,7 +291,18 @@ jobs:
   # Measured cost of that, during #72 alone: a fpl-historical failure took
   # 32 min to become readable; reading one number out of a 69s step took
   # another 32; and it did it twice more across the phase-2 rebases. After
-  # this split the suites report in ~115s, on their own check.
+  # this split the suites report in ~115s, on their own check. Verified on the
+  # first run of this change (job 95024753452): suites completed in 1m52s and
+  # all fifteen results were readable while the probe still had ~30 min to go.
+  #
+  # HOW TO ACTUALLY READ THEM EARLY -- this is not obvious and cost a
+  # measurement to find. `gh run view --job=<id> --log` still refuses with
+  # "run is still in progress": it gates on the RUN, and the run is not done
+  # until the probe is. The REST endpoint gates on the JOB and serves them
+  # immediately:
+  #     gh api repos/<owner>/<repo>/actions/jobs/<job_id>/logs
+  # So the split delivers the early feedback, but only through that endpoint.
+  # Reaching for the CLI out of habit gives back the 33-minute wait.
   #
   # WHAT IT DOES NOT FIX
   # --------------------
