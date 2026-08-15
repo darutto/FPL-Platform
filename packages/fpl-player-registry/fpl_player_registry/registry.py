@@ -253,8 +253,14 @@ class PlayerRegistry:
         candidates = self._by_web_name_raw.get(key, [])
         if len(candidates) == 1:
             return candidates[0]
-        # Diacritic-insensitive fallback — always try the folded index when
-        # the exact lookup missed (handles "Odegaard" → "Ødegaard").
+        if len(candidates) > 1:
+            # Ambiguous — must NOT fall through to the folded index. That index
+            # is dict[str, PlayerRecord], one winner per key chosen by highest
+            # ownership, so falling through would silently answer an ambiguous
+            # question with the most-owned candidate.
+            return None
+        # Only when the exact lookup found *nothing*: diacritic-insensitive
+        # fallback (handles "Odegaard" → "Ødegaard").
         return self._by_web_name_folded.get(_fold(web_name))
 
     def lookup_by_exact_name(self, query: str) -> PlayerRecord | None:
@@ -276,6 +282,11 @@ class PlayerRegistry:
         candidates = self._by_web_name_raw.get(q, [])
         if len(candidates) == 1:
             return candidates[0]
+        # An ambiguous web_name falls through to steps 2-4, which may resolve it
+        # by another attribute — but it must not be resolved by the *folded*
+        # web_name index in step 5, which would reintroduce exactly the
+        # ambiguity this step declined to answer.
+        web_name_ambiguous = len(candidates) > 1
         # 2. second_name
         if q in self._by_second_name:
             return self._by_second_name[q]
@@ -297,9 +308,10 @@ class PlayerRegistry:
                 return candidate_f
         # 5. Diacritic-insensitive fallback — always try folded indexes when
         #    exact lookups missed (handles "Odegaard" → "Ødegaard", etc.)
-        r = self._by_web_name_folded.get(qf)
-        if r:
-            return r
+        if not web_name_ambiguous:
+            r = self._by_web_name_folded.get(qf)
+            if r:
+                return r
         r = self._by_second_name_folded.get(qf)
         if r:
             return r

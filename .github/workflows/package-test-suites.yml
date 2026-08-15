@@ -189,6 +189,18 @@ jobs:
         working-directory: packages/football-identity-registry
         run: python -m pytest -v
 
+      # Added by #72 phase 2. Its two failures were a real defect, not a stale
+      # pin: lookup_by_web_name answered ambiguous web_names with the
+      # highest-owned candidate instead of None. Four independent witnesses
+      # said None (its own docstring, two tests, the standalone phase-1d
+      # runner) and only the implementation disagreed -- the opposite of
+      # fpl-api-client, where the pin was the stale one. Fixed in source.
+      # Baseline at the time of wiring: 50 passed (47 + 3 new regressions).
+      - name: fpl-player-registry suite
+        if: ${{ !cancelled() }}
+        working-directory: packages/fpl-player-registry
+        run: python -m pytest -v
+
       # Added by FI-8 S0. FI-8 adds twelve files to this package; until now no
       # CI job ran its suite, which is the same shape that left
       # fpl-tool-contract at 39 silent failures and fpl-tool-runner dead at

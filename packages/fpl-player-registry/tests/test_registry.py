@@ -258,6 +258,66 @@ class TestDuplicateWebName:
         assert "haaland" not in registry.ambiguous_web_names
         assert "salah"   not in registry.ambiguous_web_names
 
+    # -- the folded-index leak -------------------------------------------
+    # The two tests above pin lookup_by_web_name. The diacritic hardening
+    # (ab32cc6, Phase 2.5) added a folded index and routed *everything* that
+    # was not an exact single hit through it -- so the ambiguous case (2+)
+    # took the same branch as the not-found case (0), and an ambiguous name
+    # silently resolved to whichever candidate had the highest ownership.
+    #
+    # The registry fixture cannot expose the second half of that leak: its two
+    # "Johnson" records also share the second_name "Johnson", so
+    # lookup_by_exact_name resolves them at step 2, which is documented to
+    # tie-break on ownership and is therefore correct. These build a registry
+    # where the shared web_name is a nickname and the second_names differ, so
+    # steps 2-4 cannot fire and the folded fallback at step 5 is the only
+    # remaining path -- which is exactly where the leak was.
+
+    @staticmethod
+    def _shared_nickname_registry():
+        from fpl_player_registry import build_registry
+        players = [
+            {"id": 1, "first_name": "Rodrigo", "second_name": "Hernandez",
+             "web_name": "Rodri", "team_id": 1, "element_type": 3,
+             "status": "a", "selected_by_percent": "1.0"},
+            {"id": 2, "first_name": "Rodrigo", "second_name": "Moreno",
+             "web_name": "Rodri", "team_id": 2, "element_type": 4,
+             "status": "a", "selected_by_percent": "20.0"},
+        ]
+        teams = [{"id": 1, "name": "Man City", "short_name": "MCI"},
+                 {"id": 2, "name": "Leeds", "short_name": "LEE"}]
+        return build_registry(players, teams)
+
+    def test_ambiguous_web_name_not_resolved_by_folded_index(self):
+        """Ambiguous web_name must not leak through the folded fallback."""
+        reg = self._shared_nickname_registry()
+        assert "rodri" in reg.ambiguous_web_names
+        assert reg.lookup_by_web_name("Rodri") is None
+
+    def test_ambiguous_web_name_not_resolved_by_exact_name_either(self):
+        """Same leak via lookup_by_exact_name step 5 (folded web_name).
+
+        Before the fix this returned the 20%-owned player -- an ambiguous
+        question answered with the most popular guess, contradicting both the
+        docstring ("Returns None if no unambiguous match is found") and the
+        caller contract in fpl-query-tools ("exact, unambiguous only").
+        """
+        reg = self._shared_nickname_registry()
+        assert reg.lookup_by_exact_name("Rodri") is None
+
+    def test_diacritic_fallback_still_works_for_unambiguous_names(self):
+        """The fix must not disable the folded index for its real purpose."""
+        from fpl_player_registry import build_registry
+        players = [
+            {"id": 3, "first_name": "Martin", "second_name": "Odegaard",
+             "web_name": "Ødegaard", "team_id": 1, "element_type": 3,
+             "status": "a", "selected_by_percent": "5.0"},
+        ]
+        teams = [{"id": 1, "name": "Arsenal", "short_name": "ARS"}]
+        reg = build_registry(players, teams)
+        rec = reg.lookup_by_web_name("Odegaard")
+        assert rec is not None and rec.id == 3
+
 
 # ===========================================================================
 # H. Missing-player / None returns
