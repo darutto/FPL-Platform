@@ -958,6 +958,18 @@ def ask_v2(
                 if orch_result.tool_chosen == "get_player_snapshot"
                 else "ok"
             )
+            _orch_meta = _meta(orch_result.tool_chosen, _orch_raw)  # orchestrator: grounded tool ran
+            # Structured card for open-ended atomic-tool answers (e.g.
+            # rank_players_by_metric): compose a GenericCardMeta from the tool
+            # output so the UI renders a card instead of the ASCII table. Guarded
+            # to SINGLE-tool turns — a multi-tool synthesis' answer_text covers
+            # tools not reflected in tool_output, so carding it (and suppressing
+            # that answer) would lose information.
+            if orch_result.tool_call_count == 1 and _orch_meta.get("generic_card") is None:
+                from .atomic_tool_cards import maybe_atomic_tool_card
+                _overlay = maybe_atomic_tool_card(orch_result.tool_chosen, _orch_raw, None)
+                if _overlay is not None:
+                    _orch_meta["generic_card"] = _overlay  # dataclass; _to_dict serializes downstream
             result = {
                 "selected_tool": orch_result.tool_chosen,
                 "tool_input":    dict(orch_result.tool_args),
@@ -977,7 +989,7 @@ def ask_v2(
                     "retry_output":     orch_result.retry_output_tokens,
                     "total":            orch_result.total_tokens,
                 },
-                **_meta(orch_result.tool_chosen, _orch_raw),  # orchestrator: grounded tool ran
+                **_orch_meta,
             }
             if (
                 orch_result.tool_chosen == "get_player_snapshot"

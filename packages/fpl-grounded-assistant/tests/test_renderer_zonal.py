@@ -29,6 +29,10 @@ def _load(name: str):
     return mod
 
 
+# renderer.py imports format_metric_value from its sibling formatting.py; when
+# loaded standalone (no package parent) it falls back to `from formatting import`,
+# so register that sibling in sys.modules first.
+_load("formatting")
 renderer = _load("renderer")
 tool_schema_registry = _load("tool_schema_registry")
 
