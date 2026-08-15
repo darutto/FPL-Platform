@@ -199,6 +199,8 @@ jobs:
       - name: fpl-player-registry suite
         if: ${{ !cancelled() }}
         working-directory: packages/fpl-player-registry
+        run: python -m pytest -v
+
       # Added by #72 phase 2b. Its single failure was a composition defect, not
       # a stale pin and not downstream of phase 2a: each registry lookup behaves
       # as documented, but chaining them re-answered the ambiguous question the
