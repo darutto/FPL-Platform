@@ -229,7 +229,7 @@ class PlayerRegistry:
             for alias in aliases:
                 self._by_alias[alias.lower()] = matched
                 # Also index with "el " prefix stripped
-                stripped = alias.lower().lstrip("el ").strip()
+                stripped = alias.lower().removeprefix("el ").strip()
                 if stripped and stripped != alias.lower():
                     self._by_alias.setdefault(stripped, matched)
 
@@ -332,7 +332,7 @@ class PlayerRegistry:
         if a in self._by_alias:
             return self._by_alias[a]
         # Strip "el " prefix and retry
-        stripped = a.lstrip("el ").strip()
+        stripped = a.removeprefix("el ").strip()
         if stripped and stripped != a:
             return self._by_alias.get(stripped)
         return None
