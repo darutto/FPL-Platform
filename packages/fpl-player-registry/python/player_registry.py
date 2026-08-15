@@ -184,7 +184,7 @@ def resolve_nickname(alias: str, players: List[Dict]) -> Optional[Dict]:
     Returns:
         The best-matching player dict, or None if unresolved.
     """
-    alias_lower = alias.lower().lstrip("el ").strip()
+    alias_lower = alias.strip().lower().removeprefix("el ").strip()
 
     # Direct match on known nicknames
     for web_name, aliases in KNOWN_NICKNAMES.items():

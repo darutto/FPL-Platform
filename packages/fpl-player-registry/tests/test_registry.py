@@ -235,6 +235,53 @@ class TestLookupByAlias:
         reg = build_registry(players, teams)
         assert reg.lookup_by_alias("Mo") is None
 
+    # -- "el " prefix regression: lstrip("el ") is a charset strip, not a
+    #    prefix strip. It repeatedly removes any of {'e', 'l', ' '} from the
+    #    left, so "el elanga" -> "anga", "ellis" -> "is", "elliott" -> "iott".
+    #    These tests must fail against the old lstrip("el ") code and pass
+    #    against removeprefix("el "). See packages/fpl-player-registry
+    #    PR description for the corruption cases this pins.
+
+    def test_el_prefix_retry_does_not_charset_strip(self, monkeypatch):
+        # "el elanga" has no registered alias, so lookup_by_alias falls
+        # through to the "el " retry. The old lstrip("el ") bug would strip
+        # down to "anga" and accidentally hit an unrelated alias that also
+        # happens to normalise to "anga". The fix must retry with "elanga"
+        # (the true prefix-stripped form) and find nothing, not the decoy.
+        import fpl_player_registry.registry as registry_module
+        monkeypatch.setattr(
+            registry_module, "KNOWN_NICKNAMES", {"Decoy": ["Anga"]}
+        )
+        from fpl_player_registry import build_registry
+        players = [
+            {"id": 99, "first_name": "Decoy", "second_name": "Decoy",
+             "web_name": "Decoy", "team_id": 1, "element_type": 2, "status": "a"},
+            {"id": 1, "first_name": "Anthony", "second_name": "Elanga",
+             "web_name": "Elanga", "team_id": 1, "element_type": 3, "status": "a"},
+        ]
+        teams = [{"id": 1, "name": "Arsenal", "short_name": "ARS"}]
+        reg = build_registry(players, teams)
+        assert reg.lookup_by_alias("el elanga") is None
+
+    def test_el_prefix_index_does_not_leave_charset_stripped_garbage(self, monkeypatch):
+        # Building the alias index for "el Elanga" must add the whole-prefix
+        # -stripped key "elanga", never the charset-stripped garbage "anga".
+        import fpl_player_registry.registry as registry_module
+        monkeypatch.setattr(
+            registry_module, "KNOWN_NICKNAMES", {"Elanga": ["el Elanga"]}
+        )
+        from fpl_player_registry import build_registry
+        players = [
+            {"id": 1, "first_name": "Anthony", "second_name": "Elanga",
+             "web_name": "Elanga", "team_id": 1, "element_type": 3, "status": "a"},
+        ]
+        teams = [{"id": 1, "name": "Arsenal", "short_name": "ARS"}]
+        reg = build_registry(players, teams)
+        assert reg.lookup_by_alias("anga") is None
+        rec = reg.lookup_by_alias("elanga")
+        assert rec is not None
+        assert rec.id == 1
+
 
 # ===========================================================================
 # G. Duplicate web_name handling
@@ -385,5 +432,75 @@ class TestPublicSurface:
     def test_build_registry_is_callable(self):
         from fpl_player_registry import build_registry
         assert callable(build_registry)
+
+
+# ===========================================================================
+# K. resolve_nickname (python/player_registry.py legacy module)
+# ===========================================================================
+#
+# This module imports fpl_data_core.season_registry, an internal dependency
+# not installed in this package's test environment (and pytest.ini/CI are
+# deliberately not given a PYTHONPATH shortcut to reach it -- see
+# .github/workflows/package-test-suites.yml). Stubbing the one function it
+# needs (get_season_layout, used only inside SeasonIdMapper, never inside
+# resolve_nickname) lets these tests exercise the real alias-stripping code
+# without touching CI wiring.
+
+def _import_legacy_player_registry():
+    import sys
+    import types
+
+    if "fpl_data_core" not in sys.modules:
+        fake_pkg = types.ModuleType("fpl_data_core")
+        fake_season_registry = types.ModuleType("fpl_data_core.season_registry")
+        fake_season_registry.get_season_layout = lambda *a, **kw: None
+        fake_pkg.season_registry = fake_season_registry
+        sys.modules["fpl_data_core"] = fake_pkg
+        sys.modules["fpl_data_core.season_registry"] = fake_season_registry
+
+    from python.player_registry import resolve_nickname
+    return resolve_nickname
+
+
+class TestResolveNicknameElPrefixRegression:
+    """Pins the same lstrip("el ") charset-strip bug in the legacy module.
+
+    resolve_nickname's fuzzy fallback does `alias_lower in web_name.lower()`,
+    so a charset-truncated fragment ("anga", "is", "iott") is still a
+    substring of the *correct* player's own web_name -- the bug hides itself
+    when that player is the only candidate. It surfaces as a false positive
+    when a decoy player earlier in the list also contains the truncated
+    fragment. These tests put such a decoy first.
+    """
+
+    def test_el_elanga_does_not_match_charset_stripped_decoy(self):
+        resolve_nickname = _import_legacy_player_registry()
+        players = [
+            {"id": 99, "web_name": "Manga"},   # contains "anga" -- the old bug's target
+            {"id": 1, "web_name": "Elanga"},   # the real, intended player
+        ]
+        result = resolve_nickname("el elanga", players)
+        assert result is not None
+        assert result["id"] == 1
+
+    def test_ellis_does_not_match_charset_stripped_decoy(self):
+        resolve_nickname = _import_legacy_player_registry()
+        players = [
+            {"id": 99, "web_name": "Willis"},  # contains "is" -- the old bug's target
+            {"id": 1, "web_name": "Ellis"},
+        ]
+        result = resolve_nickname("ellis", players)
+        assert result is not None
+        assert result["id"] == 1
+
+    def test_elliott_does_not_match_charset_stripped_decoy(self):
+        resolve_nickname = _import_legacy_player_registry()
+        players = [
+            {"id": 99, "web_name": "Kiottel"},  # contains "iott" -- the old bug's target
+            {"id": 1, "web_name": "Elliott"},
+        ]
+        result = resolve_nickname("elliott", players)
+        assert result is not None
+        assert result["id"] == 1
 
 
