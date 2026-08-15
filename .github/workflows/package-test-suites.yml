@@ -199,6 +199,14 @@ jobs:
       - name: fpl-player-registry suite
         if: ${{ !cancelled() }}
         working-directory: packages/fpl-player-registry
+      # Added by #72 phase 2b. Its single failure was a composition defect, not
+      # a stale pin and not downstream of phase 2a: each registry lookup behaves
+      # as documented, but chaining them re-answered the ambiguous question the
+      # web_name step had correctly declined. Fixed in source.
+      # Baseline at the time of wiring: 42 passed (40 + 2 new regressions).
+      - name: fpl-query-tools suite
+        if: ${{ !cancelled() }}
+        working-directory: packages/fpl-query-tools
         run: python -m pytest -v
 
       # Added by FI-8 S0. FI-8 adds twelve files to this package; until now no

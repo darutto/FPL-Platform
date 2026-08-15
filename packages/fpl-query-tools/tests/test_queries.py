@@ -94,6 +94,39 @@ class TestResolveByWebName:
         # "Johnson" is shared by two players → ambiguous → None
         assert resolve_player_query("Johnson", players, teams) is None
 
+    def test_ambiguous_web_name_not_rescued_by_second_name(self, players, teams):
+        """The cascade must not re-answer what the web_name step declined.
+
+        This is the mechanism behind the test above, pinned directly. Step 2
+        (lookup_by_web_name) correctly returns None for an ambiguous name, but
+        step 3 (lookup_by_exact_name) resolves "Johnson" by *second_name*,
+        which both players also share, tie-breaking on ownership. Each lookup
+        is behaving as documented; only the composition was wrong.
+
+        Pinned via the strategy label so a future refactor cannot satisfy it by
+        returning None from a different step for a different reason.
+        """
+        from fpl_query_tools.queries import _build_and_resolve
+        rec, strategy = _build_and_resolve("Johnson", players, teams)
+        assert rec is None
+        assert strategy is None
+
+    def test_unambiguous_names_still_resolve_by_second_name(self, players, teams):
+        """The guard must not disable second_name resolution generally.
+
+        Only queries that are themselves ambiguous web_names are refused; a
+        normal second_name lookup is untouched.
+
+        Uses player 8 ("Player" / web_name "TPlayer") deliberately: it is the
+        one fixture row whose second_name is *not* also a web_name, so it is
+        the only query that actually reaches step 3. "De Bruyne" would not —
+        it is a web_name and resolves at step 2.
+        """
+        from fpl_query_tools.queries import _build_and_resolve
+        rec, strategy = _build_and_resolve("Player", players, teams)
+        assert rec is not None and rec.id == 8
+        assert strategy == "exact_name"
+
 
 # ===========================================================================
 # D. resolve_player_query — exact name resolution
