@@ -23,6 +23,11 @@ from __future__ import annotations
 
 from typing import Any
 
+try:
+    from .formatting import format_metric_value
+except ImportError:  # standalone load (test_renderer_zonal bypasses the package)
+    from formatting import format_metric_value  # type: ignore[no-redef]
+
 # Map tool status → label for use in answer text
 _STATUS_DISPLAY = {
     "a": "Available",
@@ -1150,11 +1155,7 @@ def _render_rank_players_by_metric(output: dict[str, Any]) -> str:
             team  = entry.get("team_short", "?")
             pos   = entry.get("position", "?")
             val   = entry.get("metric_value", 0.0)
-            # Format float sensibly
-            if isinstance(val, float) and val == int(val) and abs(val) < 1e6:
-                val_str = str(int(val))
-            else:
-                val_str = f"{val:.2f}"
+            val_str = format_metric_value(val)
             lines.append(
                 f"  {str(rank).rjust(3)} | {name.ljust(13)} | {team.ljust(6)} | {pos.ljust(3)} | {val_str}"
             )

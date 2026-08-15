@@ -43,6 +43,7 @@ import {
   genericCardOkResponse,
   genericCardMinimalResponse,
   genericCardNoHeroToneResponse,
+  orchestratorRankCardResponse,
   injuryListGenericResponse,
   injuryListGenericEmptyResponse,
 } from './fixtures/sample-responses';
@@ -132,6 +133,12 @@ describe('selectIntentView — generic_card fallback', () => {
 
   test('generic_card with hero.tone=null still selects "generic"', () => {
     expect(selectIntentView(genericCardNoHeroToneResponse)).toBe('generic');
+  });
+
+  test('orchestrator atomic-tool card: intent=null (unmapped) + generic_card → "generic" (intent does not suppress)', () => {
+    // rank_players_by_metric carries intent='unsupported' but outcome='ok';
+    // the generic branch must not gate on intent.
+    expect(selectIntentView(orchestratorRankCardResponse)).toBe('generic');
   });
 
   test('non-ok outcome → null even when generic_card is present', () => {

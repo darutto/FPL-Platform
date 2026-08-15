@@ -143,7 +143,7 @@ Frozen dataclass.
 | `fixture_run` | `FixtureRunMeta\|None` | **Stable (Phase 7h)** | Populated for `player_fixture_run` OK turns. `None` for all other intents and non-OK outcomes. Provides structured access to `web_name`, `team_short`, `position`, `horizon`, `current_gameweek`, `fixtures`. |
 | `differential` | `DifferentialPicksMeta\|None` | **Stable (Phase 7g)** | Populated for `differential_picks` OK turns. `None` for all other intents and non-OK outcomes. Provides structured access to `ownership_threshold`, `top_n`, `picks`. |
 | `orch_outcome` | `str\|None` | **Stable (Orch-4c)** | Orchestration audit field. `None` when orchestration was not attempted (orch flag OFF or `_multi_intent_depth > 0`). `"ok"` when orchestrator succeeded and its answer was used. One of six non-OK strings when orchestrator was attempted but fell back to the deterministic path. **Independent of `outcome`** — `outcome` always reflects the deterministic result, regardless of orch state. |
-| `generic_card` | `GenericCardMeta\|None` | **Stable (Track A)** | Additive renderable card payload for a curated set of intents that otherwise answer as plain text. Populated on OK turns for `player_form`, `price_changes`, `team_fixture_calendar`, `team_schedule`, `position_fixture_run`, and `current_gameweek`; `None` for all other intents and non-OK outcomes. **Composed only from already-built deterministic metadata — never from LLM text; the `llm_review` parity gate is untouched.** See the `generic_card` section below for the block schema. |
+| `generic_card` | `GenericCardMeta\|None` | **Stable (Track A)** | Additive renderable card payload. Two deterministic sources: (1) curated deterministic composers on OK turns for `player_form`, `price_changes`, `team_fixture_calendar`, `team_schedule`, `position_fixture_run`, `current_gameweek`; (2) an orchestrator atomic-tool overlay for open-ended single-tool turns (currently `rank_players_by_metric`, `/ask` path only). `None` otherwise. **Composed only from deterministic metadata/tool output — never from LLM text; the `llm_review` parity gate is untouched.** See the `generic_card` section below. |
 | `suggestions` | `tuple[Suggestion,…]\|None` (wire: `list[{label, send_text}]\|None`) | **Stable (Guided Comparison)** | Additive tappable player-name suggestions for the guided comparison flow. Populated **only** on a `compare_players` `needs_clarification` turn, ranked by current-gameweek `transfers_in_event` (descending). `None` on OK outcomes and every other intent. **Deterministic — sourced from bootstrap data, never from LLM.** See the `suggestions` section below. |
 
 ### Field shape stability commitment
@@ -669,9 +669,31 @@ the same frozen `*Meta` dataclasses produced by `_extract_structured_meta`, or
 the raw deterministic tool output for intents with no metadata dataclass
 (`current_gameweek`). **No value ever comes from LLM-generated text.** The
 `llm_review` parity gate is not consulted and is entirely untouched by this
-feature. It is built inside `_extract_structured_meta` (gated on
-`outcome == "ok"`) so the deterministic path, the `ask_v2` path, and
-multi-intent sub-responses all carry it identically.
+feature.
+
+### Two composition sources
+
+`generic_card` is populated by **two** distinct, deterministic paths:
+
+1. **Deterministic composers (Track A)** — built inside `_extract_structured_meta`
+   (gated on `outcome == "ok"`) for the curated intents listed below. This runs
+   on the deterministic `respond()` path, the `ask_v2` path, and multi-intent
+   sub-responses identically.
+2. **Orchestrator atomic-tool overlay (Phase 1, `atomic_tool_cards.py`)** — for
+   **open-ended orchestrator-answered questions** whose chosen tool has no
+   `_TOOL_TO_INTENT` entry (so `_extract_structured_meta` returns no card) and
+   whose output is a ranked list. Applied in the harness orchestrator-OK branch
+   via `maybe_atomic_tool_card`, **only for single-tool turns** (`OrchestratorResult.tool_call_count == 1`),
+   and **only when the deterministic composers produced no card**. Currently
+   covers `rank_players_by_metric`; composed from the tool's raw output (same
+   grounding invariant — no LLM text). This applies to the **stateless `/ask`**
+   path only; `/session/{id}/ask` runs the deterministic `respond()` and never
+   reaches the orchestrator. Multi-tool turns are intentionally left as prose
+   (their synthesized `answer_text` covers tools not reflected in `tool_output`).
+
+Because of source 2, the statement "generic_card is always built inside
+`_extract_structured_meta`" is true only for the deterministic composers; the
+orchestrator overlay is a second, additive source that never overrides source 1.
 
 ### Which intents compose a card
 

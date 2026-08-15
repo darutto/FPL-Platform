@@ -704,6 +704,56 @@ export const genericCardNoHeroToneResponse: AskResponse = {
   },
 };
 
+/**
+ * Orchestrator atomic-tool ranking card — the open-ended "top players" case.
+ * The tool (rank_players_by_metric) has no _TOOL_TO_INTENT entry, so intent is
+ * null here (the frontend's representation of an unmapped/unsupported turn — the
+ * backend's raw "unsupported" string maps to null in the Intent union), yet
+ * outcome is 'ok' and generic_card is populated by the orchestrator overlay.
+ * final_text is the raw ASCII table the card replaces.
+ */
+export const orchestratorRankCardResponse: AskResponse = {
+  final_text:
+    'Top 3 jugadores por total_points:\n  #  | Jugador | Equipo | Pos | Valor métrica\n  ---|---------|--------|-----|---------------\n    1 | Haaland | MCI    | FWD | 239',
+  outcome: 'ok',
+  supported: true,
+  intent: null,
+  review_passed: true,
+  llm_used: true,
+  captain: null,
+  captain_ranking: null,
+  comparison: null,
+  transfer: null,
+  chip: null,
+  fixture_run: null,
+  differential: null,
+  fixture_outlook: null,
+  sub_responses: null,
+  orch_outcome: 'ok',
+  degraded: false,
+  resource_rows: null,
+  generic_card: {
+    accent: 'turquoise',
+    title: 'TOP 3 · Puntos',
+    subtitle: null,
+    hero: { value: '239', label: 'Puntos', tone: null },
+    pills: [],
+    columns: [
+      { header: '#', align: 'right', kind: 'mono' },
+      { header: 'Jugador', align: 'left', kind: 'text' },
+      { header: 'Equipo', align: 'left', kind: 'text' },
+      { header: 'Pos', align: 'left', kind: 'text' },
+      { header: 'Puntos', align: 'right', kind: 'mono' },
+    ],
+    rows: [
+      ['1', 'Haaland', 'MCI', 'FWD', '239'],
+      ['2', 'B.Fernandes', 'MUN', 'MID', '180'],
+      ['3', 'Palmer', 'CHE', 'MID', '175'],
+    ],
+    footer: null,
+  },
+};
+
 /** injury_list OK — routes to InjuryListTable (generic_card adapter) */
 export const injuryListGenericResponse: AskResponse = {
   final_text: 'Estas son las lesiones más recientes.',

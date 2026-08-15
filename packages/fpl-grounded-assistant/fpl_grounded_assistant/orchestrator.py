@@ -446,6 +446,13 @@ class OrchestratorResult:
     retry_input_tokens:      int = 0
     retry_output_tokens:     int = 0
     total_tokens:            int = 0
+    # Number of successfully-executed tool calls underlying the retained result
+    # payload. Set on the success paths (primary → len(tool_calls_trace);
+    # successful retry → len(_retry_executed)); 0 on pre-execution / error /
+    # no-tool returns. Used by the harness to card single-tool orchestrator
+    # turns only (never a multi-tool synthesis, whose answer_text covers tools
+    # not reflected in tool_output). Additive, 0-default.
+    tool_call_count:         int = 0
 
 
 # ---------------------------------------------------------------------------
@@ -1024,6 +1031,13 @@ def _apply_evaluator(
     If the evaluator rejects, retries the primary LLM ONCE with feedback
     prepended. Delivers the retry result unconditionally (hard cap = 1 retry).
     """
+    # tool_call_count semantics: number of successfully-executed tool calls
+    # underlying the RETAINED result payload. Every branch that keeps the
+    # primary tool_output uses _primary_count; the one branch that delivers a
+    # successful retry uses len(_retry_executed); error/no-tool branches keep
+    # the 0 default. (Used by the harness to card single-tool turns only.)
+    _primary_count = len(tool_calls_trace)
+
     # ------------------------------------------------------------------
     # E0. Skip evaluator if disabled via env flag
     # ------------------------------------------------------------------
@@ -1045,6 +1059,7 @@ def _apply_evaluator(
             primary_output_tokens=_primary_output_tokens,
             primary_cache_read_tokens=_primary_cache_read_tokens,
             total_tokens=_total,
+            tool_call_count=_primary_count,   # E0: primary tool_output retained
         )
 
     # ------------------------------------------------------------------
@@ -1086,6 +1101,7 @@ def _apply_evaluator(
             primary_cache_read_tokens=_primary_cache_read_tokens,
             evaluator_input_tokens=_eval_combined,
             total_tokens=_total,
+            tool_call_count=_primary_count,   # E2: evaluator approved primary
         )
 
     # ------------------------------------------------------------------
@@ -1144,6 +1160,7 @@ def _apply_evaluator(
             retry_input_tokens=_retry_in,
             retry_output_tokens=_retry_out,
             total_tokens=_total,
+            tool_call_count=_primary_count,   # E3a: retry call failed → primary retained
         )
 
     # ------------------------------------------------------------------
@@ -1199,6 +1216,9 @@ def _apply_evaluator(
             retry_input_tokens=_retry_in,
             retry_output_tokens=_retry_out,
             total_tokens=_total,
+            # E3b: no retry tool → primary tool_output retained (answer may be
+            # retry prose, but the grounding payload is still the primary's).
+            tool_call_count=_primary_count,
         )
 
     # Execute retry tool calls
@@ -1229,6 +1249,7 @@ def _apply_evaluator(
                 retry_input_tokens=_retry_in,
                 retry_output_tokens=_retry_out,
                 total_tokens=_total,
+                tool_call_count=_primary_count,   # unknown retry tool → primary retained
             )
         try:
             _retry_raw: dict[str, Any] = run_tool(_rtname, _rtargs, actual_bootstrap)
@@ -1293,6 +1314,9 @@ def _apply_evaluator(
         retry_input_tokens=_retry_in,
         retry_output_tokens=_retry_out,
         total_tokens=_total,
+        # Retry-success: the retained payload is the RETRY's tool_output, so the
+        # count reflects the retry's executed tools, not the primary's.
+        tool_call_count=len(_retry_executed),
     )
 
 
