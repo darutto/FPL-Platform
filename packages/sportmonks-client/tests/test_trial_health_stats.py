@@ -418,6 +418,22 @@ def test_partial_field_presence_is_counted_not_rounded(tmp_path, family, objecti
     assert "3 record(s)" in evidence, "the record count is derived, not a literal"
 
 
+def test_a_null_stat_value_does_not_count_as_present(tmp_path):
+    """`_field_presence` counted key presence, not value presence: a record
+    carrying `value: null` was scored the same as one carrying a real value.
+    `trial_squads.py`/`trial_fixtures.py` already read `null` as absent
+    everywhere else in this package; this closes the one place `trial_stats.py`
+    did not."""
+    _, payload = _run_stats(tmp_path, team_stats=[
+        {"id": 91, "fixture_id": 1001, "team_id": 1, "type_id": 42, "value": None},
+        {"id": 92, "fixture_id": 1001, "team_id": 2, "type_id": 42, "value": 45},
+    ])
+    team = _stats_objective(payload, 13, "Fixture-level team statistics")
+    assert "value=1/2" in team["evidence"], "a null value must not count as present"
+    assert "value=2/2" not in team["evidence"]
+    assert team["status"] == OBSERVED, "value is present on at least one record"
+
+
 def test_stats_record_count_tracks_the_payload(tmp_path):
     """The record count in `evidence` survived seeding as a literal - the same
     defect closed for suspensions and coaches, left open in the sibling script."""

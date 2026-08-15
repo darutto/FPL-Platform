@@ -87,9 +87,15 @@ def mock_transport(*, team_stats=None, player_stats=None) -> ReplayTransport:
 
 
 def _field_presence(records: Sequence, fields: Sequence[str]) -> dict[str, int]:
-    """How many of these records actually carry each field -- key presence,
-    never a fixed list. A field absent from every record counts 0."""
-    return {name: sum(1 for r in records if name in r.raw_fields) for name in fields}
+    """How many of these records actually carry each field -- value presence,
+    never a fixed list. A field absent from every record, or present only as
+    `null`, counts 0: `null` is the provider declining to supply a value, not
+    the value itself, the same reading `trial_squads.py`/`trial_fixtures.py`
+    already give key presence elsewhere in this package."""
+    return {
+        name: sum(1 for r in records if r.raw_fields.get(name) is not None)
+        for name in fields
+    }
 
 
 def _stat_objective(
