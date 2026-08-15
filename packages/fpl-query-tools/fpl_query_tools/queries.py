@@ -71,15 +71,39 @@ def _build_and_resolve(
     except (ValueError, TypeError):
         pass
 
-    # 2. Exact web_name
-    rec = reg.lookup_by_web_name(q)
-    if rec is not None:
-        return rec, "web_name"
+    # An ambiguous web_name must not be resolved by the name-matching steps.
+    # Each lookup below is well-behaved alone -- lookup_by_web_name declines an
+    # ambiguous name, and lookup_by_exact_name is documented to tie-break
+    # second_name collisions by ownership -- but composing them re-answers the
+    # question step 2 correctly refused: two players named "Johnson" also share
+    # the second_name "Johnson", so step 3 resolves to whichever is more owned.
+    #
+    # That contradicts this function's own contract ("None if no unambiguous
+    # match is found") and the resolution order it documents, where web_name is
+    # "exact, unambiguous only". Guarded here rather than by weakening
+    # lookup_by_exact_name, whose per-attribute tie-break is deliberate and
+    # correct for a query that is *not* an ambiguous web_name.
+    #
+    # Mirrors what fpl_grounded_assistant/player_form.py:438 already does
+    # defensively before calling in -- the guard belongs in the shared
+    # resolution path, not in each caller that remembers to write it.
+    #
+    # Scoped to steps 2-3. Step 4 stays reachable on purpose: KNOWN_NICKNAMES is
+    # hand-curated, so an alias naming one specific player is a deliberate
+    # disambiguation and is exactly what *should* still resolve an otherwise
+    # ambiguous string.
+    web_name_ambiguous = q.lower() in reg.ambiguous_web_names
 
-    # 3. Exact name (web > second > first; handled inside lookup_by_exact_name)
-    rec = reg.lookup_by_exact_name(q)
-    if rec is not None:
-        return rec, "exact_name"
+    if not web_name_ambiguous:
+        # 2. Exact web_name
+        rec = reg.lookup_by_web_name(q)
+        if rec is not None:
+            return rec, "web_name"
+
+        # 3. Exact name (web > second > first; handled inside lookup_by_exact_name)
+        rec = reg.lookup_by_exact_name(q)
+        if rec is not None:
+            return rec, "exact_name"
 
     # 4. Alias / nickname table
     rec = reg.lookup_by_alias(q)
