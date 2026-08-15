@@ -207,7 +207,15 @@ class TestSeasonRegistryEdgeCases:
         assert "2030-2031" in SEASON_REGISTRY
 
     def test_custom_yaml_overrides_data_root(self, tmp_path):
-        """A custom YAML entry's data_root is preserved on the SeasonLayout."""
+        """A custom YAML entry's data_root is preserved on the SeasonLayout.
+
+        Compared as a Path, not as a substring of ``str(...)``. The original
+        substring form was platform-dependent: ``data_root`` is a ``Path``, so
+        ``str()`` renders it with the host separator, and
+        ``"custom/path/..." in "custom\\path\\..."`` is False on Windows while
+        passing on Linux. The intent was never to assert a separator style, and
+        a Path comparison is both stricter (exact, not substring) and portable.
+        """
         from fpl_data_core.season_registry import load_registry_from_yaml, get_season_layout
         custom_yaml = tmp_path / "seasons.yaml"
         custom_yaml.write_text(yaml.dump({
@@ -222,7 +230,7 @@ class TestSeasonRegistryEdgeCases:
         }))
         load_registry_from_yaml(custom_yaml)
         layout = get_season_layout("2031-2032")
-        assert "custom/path/2031-2032" in str(layout.data_root)
+        assert Path(layout.data_root) == Path("custom/path/2031-2032")
 
     def test_load_registry_empty_seasons_list(self, tmp_path):
         """A YAML with an empty seasons list does not crash."""

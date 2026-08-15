@@ -211,6 +211,20 @@ jobs:
         working-directory: packages/fpl-query-tools
         run: python -m pytest -v
 
+      # Added by #72 phase 2c. Its two failures were two different things, which
+      # is the whole argument for diagnosing per failure rather than per package:
+      # one stale pin (CUMULATIVE_COLS 26 -> 30, four 2025-26 defensive stats
+      # added by ab32cc6) and one Windows-only artifact that would have passed
+      # here untouched (a Path compared as a substring of str(), so the host
+      # separator decided the result). The second is the reverse-direction case
+      # the phase rule exists for -- a local red that is not a CI red.
+      # The 7 skips are data-conditional and already carry named reasons.
+      # Baseline at the time of wiring: 63 passed, 7 skipped.
+      - name: fpl-data-core suite
+        if: ${{ !cancelled() }}
+        working-directory: packages/fpl-data-core
+        run: python -m pytest -v
+
       # Added by FI-8 S0. FI-8 adds twelve files to this package; until now no
       # CI job ran its suite, which is the same shape that left
       # fpl-tool-contract at 39 silent failures and fpl-tool-runner dead at

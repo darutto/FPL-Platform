@@ -24,7 +24,10 @@ ID_COLS: list[str] = [
 ]
 
 # ---------------------------------------------------------------------------
-# Stats that accumulate across the season (26 columns)
+# Stats that accumulate across the season (30 columns)
+#
+# 26 original + 4 added by ab32cc6 for the 2025-26 upstream shape:
+# defensive_contribution, clearances_blocks_interceptions, tackles, recoveries.
 # ---------------------------------------------------------------------------
 
 CUMULATIVE_COLS: list[str] = [

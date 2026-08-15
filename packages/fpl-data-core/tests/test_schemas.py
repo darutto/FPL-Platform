@@ -18,11 +18,38 @@ from pathlib import Path
 class TestSchemasSmoke:
 
     def test_cumulative_cols_count(self):
-        """CUMULATIVE_COLS has exactly 26 entries (matches upstream source)."""
+        """CUMULATIVE_COLS has exactly 30 entries (matches upstream source).
+
+        Deliberately an exact count, not a lower bound: this list mirrors an
+        upstream schema, so silent growth is precisely what it exists to catch.
+        Updating the number is the correct way to pass it when the upstream
+        shape really did change; relaxing it to ``>=`` would delete the check.
+
+        Was 26 until ab32cc6 added the four 2025-26 defensive stats
+        (defensive_contribution, clearances_blocks_interceptions, tackles,
+        recoveries). The pin was never updated, and the package carried no CI
+        job to report it. Wired in #72 phase 2c.
+        """
         from fpl_data_core.schemas import CUMULATIVE_COLS
-        assert len(CUMULATIVE_COLS) == 26, (
-            f"Expected 26 CUMULATIVE_COLS, got {len(CUMULATIVE_COLS)}"
+        assert len(CUMULATIVE_COLS) == 30, (
+            f"Expected 30 CUMULATIVE_COLS, got {len(CUMULATIVE_COLS)}"
         )
+
+    def test_cumulative_cols_includes_2025_26_defensive_stats(self):
+        """The four columns that moved the count are present by name.
+
+        A bare count says the list has 30 entries; it does not say *which*.
+        These four are what FPL added for 2025-26 and what downstream
+        defensive scoring reads, so pin them by name too.
+        """
+        from fpl_data_core.schemas import CUMULATIVE_COLS
+        for col in (
+            "defensive_contribution",
+            "clearances_blocks_interceptions",
+            "tackles",
+            "recoveries",
+        ):
+            assert col in CUMULATIVE_COLS, f"missing 2025-26 column: {col}"
 
     def test_cumulative_cols_contains_expected_goals(self):
         from fpl_data_core.schemas import CUMULATIVE_COLS
