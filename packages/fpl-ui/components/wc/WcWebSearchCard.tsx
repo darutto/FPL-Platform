@@ -16,6 +16,7 @@
 import type { WcWebSearchPayload } from '@/lib/wc-types';
 import { CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
 import { TriangleField } from '@/components/intents/CardOrnaments';
+import MarkdownLite from '@/components/MarkdownLite';
 
 interface Props {
   data: WcWebSearchPayload;
@@ -54,62 +55,6 @@ function hostLabel(result: { source: string; url: string }): string {
   }
 }
 
-/** Inline **bold** → <strong>; everything else stays plain text. */
-function renderInline(text: string): React.ReactNode[] {
-  return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
-    part.startsWith('**') && part.endsWith('**') ? (
-      <strong key={i} className="font-bold text-white">
-        {part.slice(2, -2)}
-      </strong>
-    ) : (
-      <span key={i}>{part}</span>
-    ),
-  );
-}
-
-/** Minimal markdown for the model's web-search summary: paragraphs, bullet
- *  lists (`* ` / `- `), and inline bold. Avoids pulling in a markdown lib for
- *  the one place a WC card renders model prose. Snippets are pre-flattened
- *  server-side, so this only ever runs on the trusted summary. */
-function MarkdownLite({ text }: { text: string }) {
-  const lines = text.split('\n');
-  const blocks: React.ReactNode[] = [];
-  let bullets: string[] = [];
-
-  const flushBullets = () => {
-    if (bullets.length === 0) return;
-    blocks.push(
-      <ul key={`ul-${blocks.length}`} className="list-disc pl-4 space-y-1">
-        {bullets.map((b, i) => (
-          <li key={i}>{renderInline(b)}</li>
-        ))}
-      </ul>,
-    );
-    bullets = [];
-  };
-
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (!line) {
-      flushBullets();
-      continue;
-    }
-    const bullet = line.match(/^[*-]\s+(.*)$/);
-    if (bullet) {
-      bullets.push(bullet[1]);
-    } else {
-      flushBullets();
-      blocks.push(
-        <p key={`p-${blocks.length}`} className="leading-relaxed">
-          {renderInline(line)}
-        </p>,
-      );
-    }
-  }
-  flushBullets();
-
-  return <div className="space-y-2">{blocks}</div>;
-}
 
 export default function WcWebSearchCard({ data }: Props) {
   const { topic, summary, results, timestamp } = data;
