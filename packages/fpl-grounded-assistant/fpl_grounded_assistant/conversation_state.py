@@ -144,6 +144,7 @@ from .dispatcher import (
     INTENT_PLAYER_FIXTURE_RUN,     # Phase 8d-i
     INTENT_DIFFERENTIAL_PICKS,     # Phase 8d-ii
     INTENT_PLAYER_FORM,            # Phase 2.7c
+    INTENT_PLAYER_SNAPSHOT,
 )
 from .router import route
 from .final_response import respond as _respond, FinalResponse
@@ -519,6 +520,7 @@ class ConversationState:
                 INTENT_PLAYER_SUMMARY,
                 INTENT_PLAYER_RESOLVE,
                 INTENT_PLAYER_FORM,   # Phase 2.7c: form turns also anchor player context
+                INTENT_PLAYER_SNAPSHOT,
             )
         ):
             self.last_player_query = resolved_query
@@ -1340,7 +1342,20 @@ class ConversationSession:
             if route_result.tool_name == "get_differential_picks":  # Phase 8d-ii
                 differential_turn = True
 
-        response = _respond(rewritten, bootstrap, **kwargs, _resolver_debug=_resolver_debug)
+        if player_query is None:
+            from .player_lookup import classify_player_lookup  # noqa: PLC0415
+
+            lookup_decision = classify_player_lookup(rewritten, bootstrap)
+            if lookup_decision.terminal:
+                player_query = lookup_decision.query
+
+        response = _respond(
+            rewritten,
+            bootstrap,
+            **kwargs,
+            _resolver_debug=_resolver_debug,
+            _session_orchestration=True,
+        )
         self.last_tokens = response.total_tokens
         self.state.update_from_response(
             response, player_query, question_text=rewritten,

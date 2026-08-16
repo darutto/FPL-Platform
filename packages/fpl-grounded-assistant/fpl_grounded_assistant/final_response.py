@@ -2390,6 +2390,201 @@ def _try_football_intelligence_response(
         evidence=_evidence_from_wire(result.get("evidence")),
     )
 
+
+def _try_deterministic_player_lookup_response(
+    user_message: str,
+    bootstrap: dict[str, Any],
+    *,
+    include_debug: bool,
+    resolver_debug: ResolverDebug | None,
+    intent_hint: str | None,
+) -> FinalResponse | None:
+    """Return a rich deterministic player response, or fall through unchanged."""
+    # Accepted intent hints are specialized and retain priority over a general
+    # bare-name probe. Unknown hints are ignored by the dispatcher, so they
+    # must not suppress deterministic lookup on the session path either.
+    from .dispatcher import INTENT_HINT_ALLOWLIST
+
+    if intent_hint in INTENT_HINT_ALLOWLIST:
+        return None
+
+    from .player_lookup import classify_player_lookup, execute_player_lookup
+    from .renderer import render
+    from .suggestions import player_disambiguation_suggestions
+
+    decision = classify_player_lookup(user_message, bootstrap)
+    if not decision.terminal:
+        return None
+
+    raw_output = execute_player_lookup(decision, bootstrap)
+    outcome = str(raw_output.get("status") or "error")
+    final_text = render("get_player_snapshot", raw_output)
+    meta = _extract_structured_meta(INTENT_PLAYER_SNAPSHOT, raw_output, outcome)
+    suggestions = (
+        player_disambiguation_suggestions(raw_output.get("candidates", []))
+        if outcome == "ambiguous"
+        else None
+    )
+    debug = None
+    if include_debug:
+        debug = FinalResponseDebug(
+            llm_text=final_text,
+            response_text=final_text,
+            violations=(),
+            prompt_used="",
+            model="none",
+            resolver=resolver_debug,
+            classification_source=None,
+        )
+    result = FinalResponse(
+        final_text=final_text,
+        outcome=outcome,
+        supported=True,
+        intent=INTENT_PLAYER_SNAPSHOT,
+        review_passed=True,
+        llm_used=False,
+        debug=debug,
+        player_snapshot=meta["player_snapshot"],
+        generic_card=meta["generic_card"],
+        suggestions=suggestions,
+        route_source="deterministic",
+    )
+    try:
+        _telemetry.record_response(
+            intent=result.intent,
+            outcome=result.outcome,
+            route_source=result.route_source,
+            classifier_confidence=None,
+            supported=result.supported,
+            clarification_asked=False,
+        )
+    except Exception:  # noqa: BLE001
+        pass
+    return result
+
+
+def _try_session_orchestration_response(
+    user_message: str,
+    bootstrap: dict[str, Any],
+    *,
+    client: Any,
+    api_key: str | None,
+    candidate_inputs: dict[str, Any] | None,
+    candidates_list: list[dict[str, Any]] | None,
+    classifier_client: Any,
+    include_debug: bool,
+    resolver_debug: ResolverDebug | None,
+    squad_context: dict[str, Any] | None,
+    intent_hint: str | None,
+) -> FinalResponse | None:
+    """Give the legacy/session entrypoint the same orchestration fallthrough.
+
+    Successful deterministic player lookups have already returned before this
+    helper runs. A disabled or unavailable orchestrator retains the legacy safe
+    pipeline; an attempted but non-grounded call returns one unsupported result
+    so the session never pays for a second provider decision.
+    """
+    from .dispatcher import INTENT_HINT_ALLOWLIST
+    from .orch_config import is_orch_enabled
+
+    if intent_hint in INTENT_HINT_ALLOWLIST or not is_orch_enabled():
+        return None
+
+    from .harness import ask_v2
+
+    result = ask_v2(
+        user_message,
+        bootstrap,
+        candidate_inputs=candidate_inputs,
+        candidates_list=candidates_list,
+        classifier_client=classifier_client,
+        orch_client=client,
+        orch_api_key=api_key,
+        _enrich_existing_intents=False,
+    )
+    routing_trace = result.get("routing_trace") or {}
+    branch = routing_trace.get("branch")
+    if branch != "orchestrator" and not routing_trace.get("orchestrator_called"):
+        return None
+
+    selected_tool = result.get("selected_tool")
+    intent = result.get("intent") or _TOOL_TO_INTENT.get(
+        selected_tool or "", INTENT_UNSUPPORTED
+    )
+    outcome = str(result.get("outcome") or "unsupported")
+    if outcome == "unsupported" and result.get("kind") == "text":
+        outcome = "unsupported_intent"
+    answer_text = str(result.get("answer_text") or "")
+    transfer = result.get("transfer")
+    chip = result.get("chip")
+    transfer, chip, answer_text = _apply_squad_overrides(
+        transfer=transfer,
+        chip=chip,
+        final_text=answer_text,
+        squad_context=squad_context,
+    )
+    suggestions = result.get("player_suggestions")
+    suggestion_items = (
+        tuple(Suggestion(**item) for item in suggestions) if suggestions else None
+    )
+    debug = None
+    if include_debug:
+        debug = FinalResponseDebug(
+            llm_text=answer_text,
+            response_text=answer_text,
+            violations=(),
+            prompt_used="",
+            model=str(result.get("orchestrator_model") or ""),
+            resolver=resolver_debug,
+            classification_source="orchestrator",
+        )
+    tokens = result.get("tokens") or {}
+    response = FinalResponse(
+        final_text=answer_text,
+        outcome=outcome,
+        supported=outcome not in {
+            "unsupported", "unsupported_intent", "needs_clarification"
+        },
+        intent=intent,
+        review_passed=bool(routing_trace.get("grounded")),
+        llm_used=branch == "orchestrator",
+        debug=debug,
+        comparison=result.get("comparison"),
+        captain=result.get("captain"),
+        captain_ranking=result.get("captain_ranking"),
+        transfer=transfer,
+        chip=chip,
+        fixture_run=result.get("fixture_run"),
+        differential=result.get("differential"),
+        player_form=result.get("player_form"),
+        injury_list=result.get("injury_list"),
+        price_changes=result.get("price_changes"),
+        team_calendar=result.get("team_calendar"),
+        team_schedule=result.get("team_schedule"),
+        position_fixture_run=result.get("position_fixture_run"),
+        transfer_suggestion=result.get("transfer_suggestion"),
+        fixture_outlook=result.get("fixture_outlook"),
+        zonal_opportunity=result.get("zonal_opportunity"),
+        player_snapshot=result.get("player_snapshot"),
+        generic_card=result.get("generic_card"),
+        suggestions=suggestion_items,
+        evidence=_evidence_from_wire(result.get("evidence")),
+        orch_outcome=routing_trace.get("orchestrator_outcome"),
+        total_tokens=int(tokens.get("total", 0)),
+    )
+    try:
+        _telemetry.record_response(
+            intent=response.intent,
+            outcome=response.outcome,
+            route_source=response.route_source,
+            classifier_confidence=response.classifier_confidence,
+            supported=response.supported,
+            clarification_asked=response.clarification_asked,
+        )
+    except Exception:  # noqa: BLE001
+        pass
+    return response
+
 def respond(
     user_message: str,
     bootstrap: dict[str, Any],
@@ -2405,6 +2600,7 @@ def respond(
     _multi_intent_depth: int = 0,  # Phase 6c: prevents recursive multi-intent splitting
     squad_context: dict[str, Any] | None = None,  # Phase 8e1: optional per-turn squad state
     intent_hint: str | None = None,  # V2: optional slash-command routing bias
+    _session_orchestration: bool = False,
 ) -> FinalResponse:
     """Run the full pipeline and return a single caller-facing ``FinalResponse``.
 
@@ -2474,17 +2670,47 @@ def respond(
                 squad_context=squad_context,  # Phase 8e1: forward per-turn constraint state
             )
 
-    fi_response = _try_football_intelligence_response(
+    player_lookup_response = _try_deterministic_player_lookup_response(
         user_message,
         bootstrap,
-        client=client,
-        candidate_inputs=candidate_inputs,
-        candidates_list=candidates_list,
-        api_key=api_key,
-        classifier_client=classifier_client,
+        include_debug=include_debug,
+        resolver_debug=_resolver_debug,
+        intent_hint=intent_hint,
     )
-    if fi_response is not None:
-        return fi_response
+    if player_lookup_response is not None:
+        return player_lookup_response
+
+    if _session_orchestration:
+        # Session turns use one shared harness call for both FI and ordinary
+        # orchestration. This avoids paying for or accepting two independent
+        # tool decisions when Football Intelligence is enabled.
+        orchestration_response = _try_session_orchestration_response(
+            user_message,
+            bootstrap,
+            client=client,
+            api_key=api_key,
+            candidate_inputs=candidate_inputs,
+            candidates_list=candidates_list,
+            classifier_client=classifier_client,
+            include_debug=include_debug,
+            resolver_debug=_resolver_debug,
+            squad_context=squad_context,
+            intent_hint=intent_hint,
+        )
+        if orchestration_response is not None:
+            return orchestration_response
+    else:
+        fi_response = _try_football_intelligence_response(
+            user_message,
+            bootstrap,
+            client=client,
+            candidate_inputs=candidate_inputs,
+            candidates_list=candidates_list,
+            api_key=api_key,
+            classifier_client=classifier_client,
+        )
+        if fi_response is not None:
+            return fi_response
 
     lr, review = ask_llm_safe(
         user_message,

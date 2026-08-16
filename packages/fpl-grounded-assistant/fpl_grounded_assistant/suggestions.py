@@ -156,8 +156,9 @@ def top_transfer_names(
 # dispatcher/final_response).  Must stay equal to dispatcher.INTENT_COMPARE_PLAYERS.
 _INTENT_COMPARE_PLAYERS = "compare_players"
 
-# Suppliers take the bootstrap and return a list of Suggestion.  Extend by
-# adding a new intent key here; only compare is wired today.
+# Suppliers take the bootstrap and return a list of Suggestion. This map is
+# for generic clarification turns; player ambiguity uses the candidate-aware
+# helper below because its options come from a specific resolver result.
 _SUGGESTION_SUPPLIERS: "dict[str, Callable[[dict[str, Any]], list[Suggestion]]]" = {
     _INTENT_COMPARE_PLAYERS: lambda bs: [
         Suggestion(label=d["label"], send_text=d["send_text"])
@@ -189,6 +190,21 @@ def build_suggestions(
     if not items:
         return None
     return tuple(items)
+
+
+def player_disambiguation_suggestions(
+    candidates: "list[dict[str, Any]] | tuple[dict[str, Any], ...]",
+) -> "tuple[Suggestion, ...] | None":
+    """Build deterministic player-pick chips from snapshot candidates."""
+    items = tuple(
+        Suggestion(
+            label=f"{candidate.get('web_name', '')} ({candidate.get('team_short', '')})",
+            send_text=f"{candidate.get('web_name', '')} {candidate.get('team_short', '')}".strip(),
+        )
+        for candidate in candidates
+        if candidate.get("web_name")
+    )
+    return items or None
 
 
 def suggestions_to_list(
