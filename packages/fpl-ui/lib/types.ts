@@ -678,12 +678,22 @@ export interface PlayerSnapshotMeta {
   expected_goals: number;
   expected_assists: number;
   expected_goal_involvements: number;
+  expected_goals_conceded: number;
   ict_index: number;
+  influence: number;
+  creativity: number;
+  threat: number;
+  saves: number;
+  yellow_cards: number;
+  red_cards: number;
   /** Tenths of £ (e.g. 155 → £15.5m). */
   now_cost: number;
   selected_by_percent: number;
   transfers_in_event: number;
   transfers_out_event: number;
+  penalties_order: number | null;
+  direct_freekicks_order: number | null;
+  corners_and_indirect_freekicks_order: number | null;
   /** Next-N fixture strip (reuses the fixture_run tool's FixtureEntry shape). Empty when the player's team isn't covered by bootstrap["team_fixtures"]. */
   fixtures: FixtureEntry[];
 }

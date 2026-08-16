@@ -36,7 +36,7 @@ Reuse
 Matching uses the canonical ``fpl_player_registry`` resolver. The grounding
 payload builder remains shared with ``find_players``:
     _normalize          — compatibility wrapper around canonical normalization
-    _build_match_dict   — 21-field grounding payload builder
+    _build_match_dict   — 31-field grounding payload builder
 
 Registration
 ------------
@@ -160,7 +160,7 @@ def get_player_snapshot(
         {
             "status": "ok",
             "player": {
-                # 20-field grounding payload (21 minus match_rank)
+                # 30-field grounding payload (31 minus match_rank)
                 # id, web_name, team_short, position, minutes_played_season,
                 # status, news, news_added, chance_of_playing_this_round,
                 # form, total_points, points_per_game, expected_goals,
@@ -308,7 +308,7 @@ GET_PLAYER_SNAPSHOT_SPEC = ToolSpec(
             },
             "player": {
                 "type":        "object",
-                "description": "Full 20-field grounding payload plus fixtures/team_fdr_context (only when status=ok)",
+                "description": "Full 30-field grounding payload plus fixtures/team_fdr_context (only when status=ok)",
             },
             "query": {
                 "type":        "string",

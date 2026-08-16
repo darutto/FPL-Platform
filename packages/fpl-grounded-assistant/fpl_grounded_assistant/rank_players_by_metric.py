@@ -10,7 +10,7 @@ previously returned branch=unsupported / outcome=no_tool.
 Reuse
 -----
 *  ``_build_match_dict`` from ``find_players`` — single source of truth for
-   the 21-field grounding payload.
+   the grounding payload.
 *  ``_safe_float`` from ``find_players`` — numeric coercion with safe default.
 *  ``_POSITION_MAP`` / ``_normalize`` from ``find_players`` — position labels
    and accent-strip utility.
@@ -35,6 +35,7 @@ of import.  ``__init__.py`` must import this module so
 """
 from __future__ import annotations
 
+import unicodedata
 from typing import Any
 
 from fpl_tool_runner import TOOL_REGISTRY
@@ -111,6 +112,51 @@ _METRIC_ALIASES: dict[str, str] = {
     "dc/90":                              "defensive_contribution_per_90",
     "dc_per_90":                          "defensive_contribution_per_90",
     "defensive contribution per 90":      "defensive_contribution_per_90",
+    # Price and current-GW transfer momentum (already in the grounding payload).
+    "now_cost":                           "now_cost",
+    "price":                              "now_cost",
+    "precio":                             "now_cost",
+    "cost":                               "now_cost",
+    "transfers_in_event":                 "transfers_in_event",
+    "transfers_in":                       "transfers_in_event",
+    "transferencias entrantes":           "transfers_in_event",
+    "momentum_in":                        "transfers_in_event",
+    "transfers_out_event":                "transfers_out_event",
+    "transfers_out":                      "transfers_out_event",
+    "transferencias salientes":           "transfers_out_event",
+    "momentum_out":                       "transfers_out_event",
+    # Set-piece order (lower positive value is better).
+    "penalties_order":                    "penalties_order",
+    "penalty_order":                      "penalties_order",
+    "penalties":                          "penalties_order",
+    "penales":                            "penalties_order",
+    "direct_freekicks_order":             "direct_freekicks_order",
+    "free_kick_order":                    "direct_freekicks_order",
+    "free kicks":                         "direct_freekicks_order",
+    "tiros libres":                       "direct_freekicks_order",
+    "corners_and_indirect_freekicks_order": "corners_and_indirect_freekicks_order",
+    "corners_order":                      "corners_and_indirect_freekicks_order",
+    "corner_order":                       "corners_and_indirect_freekicks_order",
+    "corners":                            "corners_and_indirect_freekicks_order",
+    "corner kicks":                       "corners_and_indirect_freekicks_order",
+    "corners y tiros libres indirectos":  "corners_and_indirect_freekicks_order",
+    # Additional season totals supplied by the bootstrap.
+    "yellow_cards":                       "yellow_cards",
+    "yellow cards":                       "yellow_cards",
+    "tarjetas amarillas":                 "yellow_cards",
+    "red_cards":                          "red_cards",
+    "red cards":                          "red_cards",
+    "tarjetas rojas":                     "red_cards",
+    "expected_goals_conceded":            "expected_goals_conceded",
+    "xgc":                                "expected_goals_conceded",
+    "influence":                          "influence",
+    "influencia":                         "influence",
+    "creativity":                         "creativity",
+    "creatividad":                        "creativity",
+    "threat":                             "threat",
+    "amenaza":                            "threat",
+    "saves":                              "saves",
+    "paradas":                            "saves",
 }
 
 #: Sorted list of canonical metric names exposed to users.
@@ -135,6 +181,25 @@ _POSITION_FILTER_MAP: dict[str, str] = {
 
 _TOP_N_CAP: int = 50
 
+# Set-piece list positions are the only supported metrics where 1 ranks above
+# 2. Missing/zero order means the player is not listed and is excluded.
+_LOWER_IS_BETTER: frozenset[str] = frozenset({
+    "penalties_order",
+    "direct_freekicks_order",
+    "corners_and_indirect_freekicks_order",
+})
+
+# now_cost is stored by FPL in tenths of a million; expose the user-facing £m
+# value while retaining the raw now_cost in each grounding payload.
+_METRIC_VALUE_SCALE: dict[str, float] = {"now_cost": 0.1}
+
+
+def _normalize_metric(value: str) -> str:
+    """Normalize accents/case without rewriting metric punctuation."""
+    nfkd = unicodedata.normalize("NFKD", value)
+    stripped = "".join(char for char in nfkd if not unicodedata.combining(char))
+    return " ".join(stripped.lower().split())
+
 
 # ---------------------------------------------------------------------------
 # Core public function
@@ -150,14 +215,9 @@ def rank_players_by_metric(
     """Rank players by a numeric bootstrap metric.
 
     Args:
-        metric: metric name or alias (case-insensitive).
-            Season totals: form, total_points, points_per_game, expected_goals/xg,
-            expected_assists/xa, expected_goal_involvements/xgi, ict_index/ict,
-            selected_by_percent/popularity/ownership, minutes, goals_scored,
-            assists, clean_sheets, bonus, bps.
-            Per-90 rates: expected_goals_per_90/xg/90, expected_assists_per_90/xa/90,
-            expected_goal_involvements_per_90/xgi/90, saves_per_90/saves/90,
-            clean_sheets_per_90/cs/90, defensive_contribution_per_90/dc/90.
+        metric: metric name or alias (case/accent-insensitive). Supports core
+            performance totals and per-90 rates, price, current-GW transfers,
+            set-piece order, cards, xGC, ICT components, and saves.
         top_n: max results (1-50, default 10). Silently capped at 50.
         position: optional position filter (GKP/DEF/MID/FWD, case-insensitive).
             Also accepts Spanish names (portero/defensa/centrocampista/delantero).
@@ -174,7 +234,7 @@ def rank_players_by_metric(
             "min_minutes_filter": <int>,
             "ranked": [
                 {
-                    # Full 21-field grounding payload (including match_rank=0)
+                    # Full grounding payload (including match_rank=0)
                     # PLUS:
                     "metric_value": <float>,
                     "rank": <int>   # 1-based
@@ -210,15 +270,31 @@ def rank_players_by_metric(
             "valid_metrics": _VALID_METRICS,
         }
 
-    normalized_metric = metric.strip().lower()
+    normalized_metric = _normalize_metric(metric.strip())
     field_name = _METRIC_ALIASES.get(normalized_metric)
 
     if field_name is None:
         # Try partial: if input is a prefix of exactly one metric, resolve.
         partial_matches = [k for k in _METRIC_ALIASES if k.startswith(normalized_metric)]
-        if len(partial_matches) == 1:
-            field_name = _METRIC_ALIASES[partial_matches[0]]
-            normalized_metric = partial_matches[0]
+        # Prefer a uniquely shortest completion when all longer candidates are
+        # variants of the same base metric (e.g. base total and its per-90 form).
+        shortest_matches: list[str] = []
+        if partial_matches:
+            shortest_length = min(len(candidate) for candidate in partial_matches)
+            shortest_matches = [
+                candidate for candidate in partial_matches if len(candidate) == shortest_length
+            ]
+        shortest_field = (
+            _METRIC_ALIASES[shortest_matches[0]] if len(shortest_matches) == 1 else None
+        )
+        same_metric_family = shortest_field is not None and all(
+            _METRIC_ALIASES[candidate] == shortest_field
+            or _METRIC_ALIASES[candidate].startswith(f"{shortest_field}_")
+            for candidate in partial_matches
+        )
+        if len(shortest_matches) == 1 and same_metric_family:
+            normalized_metric = shortest_matches[0]
+            field_name = shortest_field
         else:
             return {
                 "status":        "invalid_argument",
@@ -287,15 +363,26 @@ def rank_players_by_metric(
             if el_position != canonical_position:
                 continue
 
+        # Null/zero set-piece order means the player is not on that list.
+        if field_name in _LOWER_IS_BETTER and _safe_int(el.get(field_name), 0) <= 0:
+            continue
+
         filtered.append(el)
 
     # ------------------------------------------------------------------
-    # 3. Sort by metric value descending
+    # 3. Sort by metric direction (descending normally; ascending for order)
     # ------------------------------------------------------------------
-    def _metric_value(el: dict[str, Any]) -> float:
+    def _raw_metric_value(el: dict[str, Any]) -> float:
         return _safe_float(el.get(field_name), 0.0)
 
-    filtered.sort(key=_metric_value, reverse=True)
+    filtered.sort(
+        key=_raw_metric_value,
+        reverse=field_name not in _LOWER_IS_BETTER,
+    )
+
+    def _metric_value(el: dict[str, Any]) -> float:
+        scale = _METRIC_VALUE_SCALE.get(field_name, 1.0)
+        return _raw_metric_value(el) * scale
 
     # ------------------------------------------------------------------
     # 4. Build ranked list
@@ -326,11 +413,9 @@ def rank_players_by_metric(
 RANK_PLAYERS_BY_METRIC_SPEC = ToolSpec(
     name="rank_players_by_metric",
     description=(
-        "Top N players by metric — season totals (xGI, form, points, xG, xA, ICT, "
-        "ownership, minutes, etc.) AND per-90 rates (xGI/90, xG/90, xA/90, saves/90, "
-        "CS/90, DC/90). Filter by position/min_minutes. Returns ranked list with "
-        "grounding payload + metric_value. Use for ANY 'top/best/most by <metric>' "
-        "query, including per-90 phrasings like 'mejores por xgi/90'."
+        "Top N players by a bootstrap metric: performance, per-90 rates, price, "
+        "current-GW transfer momentum, set-piece order, cards, xGC, ICT components, "
+        "and saves. Filter by position/min_minutes. Use for ANY top/best/most-by-metric query."
     ),
     parameters={
         "type": "object",
@@ -338,11 +423,11 @@ RANK_PLAYERS_BY_METRIC_SPEC = ToolSpec(
             "metric": {
                 "type":        "string",
                 "description": (
-                    "Metric to rank by. Season aliases: xgi, xg, xa, ict, "
-                    "popularity, ppg, points. Per-90 aliases: xgi/90, xg/90, "
-                    "xa/90, saves/90, cs/90, dc/90. Full names: "
-                    "expected_goal_involvements, expected_goal_involvements_per_90, "
-                    "form, total_points, selected_by_percent, minutes, etc."
+                    "Metric to rank by. Common aliases include xgi, xg, xa, ict, ppg, "
+                    "xgi/90, price/precio, transfers_in/out, penalties/penales, corners, "
+                    "free kicks/tiros libres, yellow/red cards, xgc, influence, creativity, "
+                    "threat, and saves/paradas. Unknown values must still be passed through "
+                    "so the tool can return unknown_metric with valid_metrics."
                 ),
             },
             "top_n": {

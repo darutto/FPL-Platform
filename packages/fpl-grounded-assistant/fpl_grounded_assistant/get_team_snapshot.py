@@ -32,7 +32,7 @@ Examples::
 Reuse
 -----
 *  ``_normalize`` from ``find_players`` for accent/case stripping.
-*  ``_build_match_dict`` from ``find_players`` for the full 20-field
+*  ``_build_match_dict`` from ``find_players`` for the full 30-field
    grounding payload (``match_rank`` stripped since it is a single-team
    context).
 *  ``_fetch_fixtures_for_gw``, ``_extract_fixture`` from
@@ -240,7 +240,7 @@ def _build_top_players(
 ) -> list[dict[str, Any]]:
     """Return top ``top_n`` players for ``team_id``, sorted by total_points desc.
 
-    Each entry is the full 20-field grounding payload (match_rank omitted).
+    Each entry is the full 30-field grounding payload (match_rank omitted).
     """
     elements:      list[dict[str, Any]] = bootstrap.get("elements", []) or []
     teams:         list[dict[str, Any]] = bootstrap.get("teams", []) or []
@@ -402,7 +402,7 @@ def get_team_snapshot(
                 ...
             ],
             "top_players": [
-                {<full 20-field grounding payload — no match_rank>},
+                {<full 30-field grounding payload — no match_rank>},
                 ...
             ],
             "summary": {
