@@ -106,7 +106,7 @@ from fpl_grounded_assistant.orchestrator import (
 from fpl_grounded_assistant.dispatcher import (
     _TOOL_TO_INTENT,
     INTENT_CAPTAIN_SCORE,
-    INTENT_PLAYER_RESOLVE,
+    INTENT_PLAYER_SNAPSHOT,
     INTENT_CURRENT_GAMEWEEK,
     INTENT_RANK_CANDIDATES,
     INTENT_COMPARE_PLAYERS,
@@ -114,7 +114,6 @@ from fpl_grounded_assistant.dispatcher import (
     INTENT_CHIP_ADVICE,
     INTENT_PLAYER_FIXTURE_RUN,
     INTENT_DIFFERENTIAL_PICKS,
-    INTENT_PLAYER_SUMMARY,
     INTENT_UNSUPPORTED,
     OUTCOME_OK as DISP_OUTCOME_OK,
 )
@@ -318,10 +317,10 @@ _r_d1 = respond("should I captain Haaland", STANDARD_BOOTSTRAP)
 ok(_r_d1.intent  == "captain_score",            "D1: captain_score intent unchanged (flag OFF)")
 ok(_r_d1.outcome == DISP_OUTCOME_OK,            "D2: captain_score outcome unchanged (flag OFF)")
 
-# D3-D4: player summary
+# D3-D4: deterministic rich player snapshot
 _r_d2 = respond("tell me about Salah", STANDARD_BOOTSTRAP)
-ok(_r_d2.intent  == "player_summary",           "D3: player_summary intent unchanged (flag OFF)")
-ok(_r_d2.outcome == DISP_OUTCOME_OK,            "D4: player_summary outcome unchanged (flag OFF)")
+ok(_r_d2.intent  == INTENT_PLAYER_SNAPSHOT,     "D3: player lookup uses rich snapshot (flag OFF)")
+ok(_r_d2.outcome == DISP_OUTCOME_OK,            "D4: player snapshot outcome ok (flag OFF)")
 
 # D5-D6: chip advice
 _r_d3 = respond("should I bench boost this week", STANDARD_BOOTSTRAP)
@@ -376,11 +375,11 @@ ok(isinstance(_r_e2.final_text, str) and _r_e2.final_text,
    "E11: captain_score final_text non-empty")
 # G2.c: E12 deleted — tested Orch-4a gate behavior removed in commit 118d43e
 
-# E13-E14: resolve_player intent mapping
+# E13-E14: deterministic lookup preempts a competing LLM tool choice
 _mock_e3 = _AnthropicToolClient("resolve_player", {"query": "Salah"})
 _r_e3 = respond("who is Salah", STANDARD_BOOTSTRAP, client=_mock_e3)
-ok(_r_e3.outcome == DISP_OUTCOME_OK,            "E13: resolve_player orch -> OUTCOME_OK")
-ok(_r_e3.intent == INTENT_PLAYER_RESOLVE,       "E14: resolve_player intent mapped correctly")
+ok(_r_e3.outcome == DISP_OUTCOME_OK,            "E13: deterministic player lookup -> OUTCOME_OK")
+ok(_r_e3.intent == INTENT_PLAYER_SNAPSHOT,      "E14: rich snapshot preempts resolve_player")
 
 # E15: include_debug=True populates FinalResponseDebug with orch metadata
 _mock_e4 = _AnthropicToolClient("get_current_gameweek", {})
@@ -644,8 +643,8 @@ ok(_r_j1.intent  == "captain_score",            "J1: captain_score intent")
 ok(_r_j1.outcome == DISP_OUTCOME_OK,            "J2: captain_score outcome")
 
 _r_j2 = respond("tell me about Salah", STANDARD_BOOTSTRAP)
-ok(_r_j2.intent  == "player_summary",           "J3: player_summary intent")
-ok(_r_j2.outcome == DISP_OUTCOME_OK,            "J4: player_summary outcome")
+ok(_r_j2.intent  == INTENT_PLAYER_SNAPSHOT,     "J3: player_snapshot intent")
+ok(_r_j2.outcome == DISP_OUTCOME_OK,            "J4: player_snapshot outcome")
 
 _r_j3 = respond("should I bench boost this week", STANDARD_BOOTSTRAP)
 ok(_r_j3.intent  == "chip_advice",              "J5: chip_advice intent")
