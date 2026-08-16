@@ -2398,6 +2398,7 @@ def _try_deterministic_player_lookup_response(
     include_debug: bool,
     resolver_debug: ResolverDebug | None,
     intent_hint: str | None,
+    allow_explicit_not_found: bool = False,
 ) -> FinalResponse | None:
     """Return a rich deterministic player response, or fall through unchanged."""
     # Accepted intent hints are specialized and retain priority over a general
@@ -2409,14 +2410,24 @@ def _try_deterministic_player_lookup_response(
         return None
 
     from .player_lookup import classify_player_lookup, execute_player_lookup
+    from .get_player_snapshot import get_player_snapshot
     from .renderer import render
     from .suggestions import player_disambiguation_suggestions
 
     decision = classify_player_lookup(user_message, bootstrap)
-    if not decision.terminal:
+    explicit_not_found = (
+        allow_explicit_not_found
+        and decision.explicit
+        and decision.status == "not_found"
+        and decision.query is not None
+    )
+    if not decision.terminal and not explicit_not_found:
         return None
 
-    raw_output = execute_player_lookup(decision, bootstrap)
+    if explicit_not_found:
+        raw_output = get_player_snapshot(decision.query, bootstrap=bootstrap)
+    else:
+        raw_output = execute_player_lookup(decision, bootstrap)
     outcome = str(raw_output.get("status") or "error")
     final_text = render("get_player_snapshot", raw_output)
     meta = _extract_structured_meta(INTENT_PLAYER_SNAPSHOT, raw_output, outcome)
@@ -2699,6 +2710,19 @@ def respond(
         )
         if orchestration_response is not None:
             return orchestration_response
+        # If orchestration is disabled or unavailable, explicit player-search
+        # phrases still terminate through the snapshot contract. This keeps
+        # legacy player_summary/player_resolve intents direct-call-only.
+        unavailable_lookup_response = _try_deterministic_player_lookup_response(
+            user_message,
+            bootstrap,
+            include_debug=include_debug,
+            resolver_debug=_resolver_debug,
+            intent_hint=intent_hint,
+            allow_explicit_not_found=True,
+        )
+        if unavailable_lookup_response is not None:
+            return unavailable_lookup_response
     else:
         fi_response = _try_football_intelligence_response(
             user_message,

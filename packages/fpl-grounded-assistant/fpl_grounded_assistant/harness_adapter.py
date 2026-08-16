@@ -224,10 +224,7 @@ def to_ask_response(
     _prompt_name: str | None = d.get("prompt_name")
     _prompt_spec = get_prompt_spec(_prompt_name) if _prompt_name else None
     # Explicit override: ask_v2() may set d["intent"] when the intent it wants
-    # the caller/UI to see differs from the tool-derived one — e.g. a
-    # find_players multi-match is rerouted to the player_snapshot pick wizard
-    # even though find_players itself isn't in _TOOL_TO_INTENT. Nothing else
-    # sets this key, so the tool-derived path below is unchanged when absent.
+    # the caller/UI to see differs from the tool-derived one.
     _explicit_intent = d.get("intent")
     if _explicit_intent is not None:
         intent: str = _explicit_intent

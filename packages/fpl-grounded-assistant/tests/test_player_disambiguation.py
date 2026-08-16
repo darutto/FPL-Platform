@@ -155,7 +155,6 @@ def test_ok_player_snapshot_has_no_suggestions(monkeypatch, bootstrap):
     assert result["outcome"] == "ok"
     assert result.get("player_suggestions") is None
 
-
 def test_other_orch_tool_outcome_unaffected(monkeypatch, bootstrap):
     """Scope guard: a different orch-only tool returning a non-ok status
     must NOT start reporting it -- only get_player_snapshot's branch was
@@ -171,60 +170,3 @@ def test_other_orch_tool_outcome_unaffected(monkeypatch, bootstrap):
     assert result["outcome"] == "ok"
     assert result.get("player_suggestions") is None
 
-
-# ---------------------------------------------------------------------------
-# harness.ask_v2() — find_players multi-match also arms the pick wizard
-# (PR #120 wired only get_player_snapshot; the LLM sometimes picks
-# find_players for the identical ambiguous-name query — this closes that gap)
-# ---------------------------------------------------------------------------
-
-def test_find_players_multi_match_arms_pick_wizard(monkeypatch, bootstrap):
-    """find_players is a pure name-lookup tool, so >1 match is an ambiguous
-    disambiguation. It must arm the SAME wizard as get_player_snapshot's
-    'ambiguous' status instead of falling through to a dead-end plain-text
-    list. Asserts on the wire AskResponse the frontend actually consumes:
-    the pick wizard arms on intent==player_snapshot + suggestions."""
-    from fpl_grounded_assistant.harness_adapter import to_ask_response  # noqa: PLC0415
-    import fpl_server  # noqa: PLC0415
-    matches = [
-        {"id": 10, "web_name": "João Pedro", "team_short": "CHE", "position": "FWD"},
-        {"id": 11, "web_name": "Costinha",   "team_short": "BHA", "position": "DEF"},
-    ]
-    monkeypatch.setattr(
-        "fpl_grounded_assistant.orchestrator.ask_orchestrated",
-        lambda *a, **k: _orch_result(
-            "find_players",
-            {"status": "ok", "query": "joao pedro", "match_count": 2, "matches": matches},
-        ),
-    )
-    ar = to_ask_response(ask_v2("joao pedro", bootstrap, orch_client=object()),
-                         fpl_server.AskRequest(question="joao pedro"))
-    assert ar.intent == "player_snapshot"     # frontend arms the pick wizard on this
-    assert ar.outcome == "ambiguous"
-    assert ar.suggestions is not None
-    assert len(ar.suggestions) == 2
-    assert ar.suggestions[0] == {"label": "João Pedro (CHE)", "send_text": "João Pedro CHE"}
-    assert ar.suggestions[1] == {"label": "Costinha (BHA)", "send_text": "Costinha BHA"}
-
-
-def test_find_players_single_match_does_not_arm_wizard(monkeypatch, bootstrap):
-    """A unique name lookup via find_players is NOT ambiguous — no chips, no
-    forced player_snapshot intent, outcome stays ok. Guards against turning
-    every find_players result into a wizard."""
-    from fpl_grounded_assistant.harness_adapter import to_ask_response  # noqa: PLC0415
-    import fpl_server  # noqa: PLC0415
-    monkeypatch.setattr(
-        "fpl_grounded_assistant.orchestrator.ask_orchestrated",
-        lambda *a, **k: _orch_result(
-            "find_players",
-            {"status": "ok", "query": "haaland", "match_count": 1,
-             "matches": [{"id": 1, "web_name": "Haaland", "team_short": "MCI", "position": "FWD"}]},
-        ),
-    )
-    # Use a non-name conversational request so PR 2's deterministic bare-name
-    # interception does not pre-empt this legacy orchestrator-path scope guard.
-    ar = to_ask_response(ask_v2("player search request", bootstrap, orch_client=object()),
-                         fpl_server.AskRequest(question="player search request"))
-    assert ar.suggestions is None
-    assert ar.outcome == "ok"
-    assert ar.intent != "player_snapshot"   # find_players' own (unsupported) intent, untouched

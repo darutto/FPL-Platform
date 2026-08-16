@@ -78,7 +78,13 @@ def _explicit_subject(question: str) -> tuple[str | None, bool]:
         key=lambda item: -len(item[0]),
     )
     for prefix, is_summary in prefixes:
-        if not normalized.startswith(prefix):
+        start = normalized.find(prefix)
+        if start < 0:
+            continue
+        end = start + len(prefix)
+        if start > 0 and normalized[start - 1].isalnum():
+            continue
+        if end < len(normalized) and normalized[end].isalnum():
             continue
         subject = _extract_player_query(original, normalized, (prefix,))
         if is_summary:
