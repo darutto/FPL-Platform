@@ -605,6 +605,12 @@ class PlayerSnapshotMeta:
     expected_assists:                float
     expected_goal_involvements:      float
     ict_index:                       float
+    expected_goals_per_90:           float
+    expected_assists_per_90:         float
+    expected_goal_involvements_per_90: float
+    ict_index_per_90:                float
+    defensive_contribution:          int
+    defensive_contribution_per_90:   float
     now_cost:                        int
     selected_by_percent:             float
     transfers_in_event:              int
@@ -1672,6 +1678,16 @@ def _extract_player_snapshot_meta(ro: "dict[str, Any]") -> "PlayerSnapshotMeta |
             expected_assists             = float(p.get("expected_assists", 0.0)),
             expected_goal_involvements   = float(p.get("expected_goal_involvements", 0.0)),
             ict_index                    = float(p.get("ict_index", 0.0)),
+            expected_goals_per_90        = float(p.get("expected_goals_per_90", 0.0)),
+            expected_assists_per_90      = float(p.get("expected_assists_per_90", 0.0)),
+            expected_goal_involvements_per_90 = float(
+                p.get("expected_goal_involvements_per_90", 0.0)
+            ),
+            ict_index_per_90             = float(p.get("ict_index_per_90", 0.0)),
+            defensive_contribution       = int(p.get("defensive_contribution", 0)),
+            defensive_contribution_per_90 = float(
+                p.get("defensive_contribution_per_90", 0.0)
+            ),
             now_cost                     = int(p.get("now_cost", 0)),
             selected_by_percent          = float(p.get("selected_by_percent", 0.0)),
             transfers_in_event           = int(p.get("transfers_in_event", 0)),

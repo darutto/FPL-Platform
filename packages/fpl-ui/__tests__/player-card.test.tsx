@@ -39,6 +39,37 @@ describe('PlayerCard — available player', () => {
     expect(screen.getByText(/LIV/)).toBeInTheDocument();
     expect(screen.getByText('GW30')).toBeInTheDocument();
   });
+
+  test('renders season totals and aligned per-90 metrics including DC', () => {
+    render(<PlayerCard data={data} />);
+    for (const label of ['xG', 'xA', 'xGI', 'ICT', 'DC']) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    for (const label of ['xG/90', 'xA/90', 'xGI/90', 'ICT/90', 'DC/90']) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    expect(screen.getByText('25.50')).toBeInTheDocument();
+    expect(screen.getByText('0.78')).toBeInTheDocument();
+    expect(screen.getByText('116')).toBeInTheDocument();
+    expect(screen.getByText('3.54')).toBeInTheDocument();
+  });
+
+  test('derives rates without crashing against an older API response', () => {
+    const legacyData = {
+      ...data,
+      expected_goals_per_90: undefined,
+      expected_assists_per_90: undefined,
+      expected_goal_involvements_per_90: undefined,
+      ict_index_per_90: undefined,
+      defensive_contribution: undefined,
+      defensive_contribution_per_90: undefined,
+    };
+    render(<PlayerCard data={legacyData} />);
+    expect(screen.getByText('0.78')).toBeInTheDocument();
+    expect(screen.getByText('9.21')).toBeInTheDocument();
+    expect(screen.getByText('0')).toBeInTheDocument();
+    expect(screen.getByText('0.00')).toBeInTheDocument();
+  });
 });
 
 describe('PlayerCard — no fixture coverage', () => {

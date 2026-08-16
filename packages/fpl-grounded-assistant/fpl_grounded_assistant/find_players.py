@@ -32,8 +32,9 @@ Every match dict includes the full P2 binding grounding payload:
 - Identity:       id, web_name, team_short, position
 - Availability:   minutes_played_season, status, news, news_added,
                   chance_of_playing_this_round
-- Form:           form, total_points, points_per_game, expected_goals,
-                  expected_assists, expected_goal_involvements, ict_index
+- Form:           form, total_points, points_per_game, expected goals/assists/
+                  involvements and ICT (totals + per 90), defensive
+                  contribution (total + per 90)
 - Selection meta: now_cost, selected_by_percent, transfers_in_event,
                   transfers_out_event
 - Match meta:     match_rank
@@ -179,6 +180,32 @@ def _safe_int(value: Any, default: int = 0) -> int:
         return default
 
 
+def _per_90(
+    element: dict[str, Any],
+    total_field: str,
+    rate_field: str | None = None,
+) -> float:
+    """Return an official per-90 rate, or derive it from total and minutes.
+
+    The current FPL bootstrap supplies the expected-stat and defensive-
+    contribution rates directly. Deriving the rate keeps snapshots useful
+    with older cached bootstraps and covers ICT, which has no official /90
+    field. Zero-minute players safely return 0.0.
+    """
+    if rate_field is not None:
+        raw_rate = element.get(rate_field)
+        if raw_rate not in (None, ""):
+            try:
+                return float(raw_rate)
+            except (ValueError, TypeError):
+                pass
+
+    minutes = _safe_int(element.get("minutes"), 0)
+    if minutes <= 0:
+        return 0.0
+    return _safe_float(element.get(total_field), 0.0) * 90.0 / minutes
+
+
 def _build_match_dict(
     element: dict[str, Any],
     teams: list[dict[str, Any]],
@@ -210,6 +237,20 @@ def _build_match_dict(
         "expected_assists":          _safe_float(element.get("expected_assists"), 0.0),
         "expected_goal_involvements": _safe_float(element.get("expected_goal_involvements"), 0.0),
         "ict_index":                 _safe_float(element.get("ict_index"), 0.0),
+        "expected_goals_per_90":     _per_90(element, "expected_goals", "expected_goals_per_90"),
+        "expected_assists_per_90":   _per_90(element, "expected_assists", "expected_assists_per_90"),
+        "expected_goal_involvements_per_90": _per_90(
+            element,
+            "expected_goal_involvements",
+            "expected_goal_involvements_per_90",
+        ),
+        "ict_index_per_90":          _per_90(element, "ict_index", "ict_index_per_90"),
+        "defensive_contribution":    _safe_int(element.get("defensive_contribution"), 0),
+        "defensive_contribution_per_90": _per_90(
+            element,
+            "defensive_contribution",
+            "defensive_contribution_per_90",
+        ),
         # Selection meta
         "now_cost":             _safe_int(element.get("now_cost"), 0),
         "selected_by_percent":  _safe_float(element.get("selected_by_percent"), 0.0),

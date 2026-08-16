@@ -68,6 +68,12 @@ def _ok_raw_output() -> dict:
             "expected_assists": "2.67",
             "expected_goal_involvements": "28.17",
             "ict_index": "302.3",
+            "expected_goals_per_90": "0.78",
+            "expected_assists_per_90": "0.08",
+            "expected_goal_involvements_per_90": "0.86",
+            "ict_index_per_90": "9.21",
+            "defensive_contribution": 116,
+            "defensive_contribution_per_90": "3.54",
             "now_cost": 155,
             "selected_by_percent": "74.2",
             "transfers_in_event": 12345,
@@ -95,6 +101,12 @@ def test_extract_builds_from_ok_payload():
     assert meta.position == "FWD"
     assert meta.total_points == 239
     assert meta.now_cost == 155
+    assert meta.expected_goals_per_90 == 0.78
+    assert meta.expected_assists_per_90 == 0.08
+    assert meta.expected_goal_involvements_per_90 == 0.86
+    assert meta.ict_index_per_90 == 9.21
+    assert meta.defensive_contribution == 116
+    assert meta.defensive_contribution_per_90 == 3.54
     assert len(meta.fixtures) == 2
     assert meta.fixtures[0].gameweek == 28
     assert meta.fixtures[0].opponent_short == "ARS"
@@ -160,6 +172,20 @@ def test_extract_structured_meta_none_for_other_intents():
     assert result["player_snapshot"] is None
 
 
+def test_session_http_serializer_includes_per_90_and_dc_fields():
+    from fpl_server import _player_snapshot_meta_dict  # noqa: PLC0415
+
+    meta = _extract_player_snapshot_meta(_ok_raw_output())
+    assert meta is not None
+    payload = _player_snapshot_meta_dict(meta)
+    assert payload["expected_goals_per_90"] == 0.78
+    assert payload["expected_assists_per_90"] == 0.08
+    assert payload["expected_goal_involvements_per_90"] == 0.86
+    assert payload["ict_index_per_90"] == 9.21
+    assert payload["defensive_contribution"] == 116
+    assert payload["defensive_contribution_per_90"] == 3.54
+
+
 # ---------------------------------------------------------------------------
 # Integration: real get_player_snapshot() against the fixture bootstrap
 # ---------------------------------------------------------------------------
@@ -172,6 +198,56 @@ def test_integration_real_tool_output_extracts_cleanly(bootstrap):
     assert meta.web_name == "Haaland"
     assert meta.team_short != ""
     assert meta.position == "FWD"
+
+
+def test_integration_snapshot_prefers_official_rates_and_includes_dc(bootstrap):
+    """Official bootstrap rates win over locally derived values."""
+    import copy as _copy
+
+    bs = _copy.deepcopy(bootstrap)
+    haaland = next(el for el in bs["elements"] if el["web_name"] == "Haaland")
+    haaland.update({
+        "minutes": 900,
+        "ict_index": "100.0",
+        "expected_goals_per_90": "0.91",
+        "expected_assists_per_90": "0.22",
+        "expected_goal_involvements_per_90": "1.13",
+        "defensive_contribution": 72,
+        "defensive_contribution_per_90": "7.25",
+    })
+
+    player = get_player_snapshot("Haaland", bootstrap=bs)["player"]
+    assert player["expected_goals_per_90"] == 0.91
+    assert player["expected_assists_per_90"] == 0.22
+    assert player["expected_goal_involvements_per_90"] == 1.13
+    assert player["ict_index_per_90"] == 10.0
+    assert player["defensive_contribution"] == 72
+    assert player["defensive_contribution_per_90"] == 7.25
+
+
+def test_integration_snapshot_derives_rates_and_handles_zero_minutes(bootstrap):
+    """Cached bootstraps without official rates still work without division errors."""
+    import copy as _copy
+
+    bs = _copy.deepcopy(bootstrap)
+    haaland = next(el for el in bs["elements"] if el["web_name"] == "Haaland")
+    haaland.update({
+        "minutes": 180,
+        "ict_index": "20.0",
+        "defensive_contribution": 16,
+    })
+    player = get_player_snapshot("Haaland", bootstrap=bs)["player"]
+    assert player["expected_goals_per_90"] == 0.75
+    assert player["expected_assists_per_90"] == 0.1
+    assert player["expected_goal_involvements_per_90"] == 0.85
+    assert player["ict_index_per_90"] == 10.0
+    assert player["defensive_contribution_per_90"] == 8.0
+
+    haaland["minutes"] = 0
+    player = get_player_snapshot("Haaland", bootstrap=bs)["player"]
+    assert player["expected_goals_per_90"] == 0.0
+    assert player["ict_index_per_90"] == 0.0
+    assert player["defensive_contribution_per_90"] == 0.0
 
 
 def test_integration_no_team_fixtures_degrades_to_empty(bootstrap):
