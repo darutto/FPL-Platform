@@ -91,8 +91,9 @@ NEW_TOOLS = (
     "get_transfer_suggestion",
 )
 
-# FI-7b1 expands the unconditional static registry to 33.  The runtime
-# offered set remains feature-flag gated at 29 OFF / 33 ON.
+# FI-7b1 expands the unconditional static registry to 33. The runtime offered
+# set is 26 with FI off and 30 with FI on; three deprecated compatibility
+# adapters remain registered but are never offered to an LLM.
 check(len(_ALL_SCHEMAS) == 33, "B1.1: _ALL_SCHEMAS has exactly 33 entries")
 check(len(_REGISTRY) == 33, "B1.2: _REGISTRY dict has 33 entries (no name collisions)")
 check(len(TOOL_NAMES) == 33, "B1.3: TOOL_NAMES frozenset has 33 entries")

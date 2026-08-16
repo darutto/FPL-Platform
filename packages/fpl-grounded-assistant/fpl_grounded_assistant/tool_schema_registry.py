@@ -24,8 +24,8 @@ Registry API
 ``get_tool_schema(name)``            → ToolSchema | None
 ``validate_tool_schema_shape(s)``    → bool            — structural check
 
-Registered tools (26 grounded tools, including P2.1–P2.8 atomic tools)
-----------------------------------------------------------------------
+Registered tools (33 grounded tools, including compatibility and FI tools)
+-------------------------------------------------------------------------
 +----------------------------+----------------------------------+
 | Tool name                  | Intent label                     |
 +============================+==================================+
@@ -130,7 +130,8 @@ class ToolSchema:
         Intended for use inside a ``{"function_declarations": [...]}`` wrapper
         when building the full Gemini tools list::
 
-            tools = [{"function_declarations": [s.to_gemini() for s in _ALL_SCHEMAS]}]
+            offered = get_offered_tool_schemas(football_intelligence_enabled=False)
+            tools = [{"function_declarations": [s.to_gemini() for s in offered]}]
         """
         return {
             "name":        self.name,
@@ -687,8 +688,8 @@ GET_PLAYER_SNAPSHOT_SCHEMA = ToolSchema(
     name="get_player_snapshot",
     description=(
         "Single player full grounding payload by name. Returns status=ok+player "
-        "(1 match), ambiguous+candidates (multi-match), or not_found. "
-        "For candidate lists use find_players instead."
+        "(1 match), ambiguous+candidates (multi-match), or not_found. Use for "
+        "every general named-player lookup, profile, or current-stat question."
     ),
     parameters={
         "type": "object",
@@ -1101,7 +1102,7 @@ FI7B_TOOL_SCHEMAS: tuple[ToolSchema, ...] = (
 # Registry construction
 # ---------------------------------------------------------------------------
 
-_BASE_OFFERED_SCHEMAS: tuple[ToolSchema, ...] = (
+_BASE_REGISTERED_SCHEMAS: tuple[ToolSchema, ...] = (
     GET_CURRENT_GAMEWEEK_SCHEMA,
     GET_PLAYER_SUMMARY_SCHEMA,
     RESOLVE_PLAYER_SCHEMA,
@@ -1144,8 +1145,23 @@ _BASE_OFFERED_SCHEMAS: tuple[ToolSchema, ...] = (
     GET_PLAYER_ZONAL_OUTLOOK_SCHEMA,
 )
 
+# Compatibility adapters remain registered and directly callable, but are no
+# longer choices the LLM can make for new chat turns. General named-player
+# lookup is represented by get_player_snapshot alone.
+DEPRECATED_LLM_TOOL_NAMES: frozenset[str] = frozenset({
+    "find_players",
+    "resolve_player",
+    "get_player_summary",
+})
+
+_BASE_OFFERED_SCHEMAS: tuple[ToolSchema, ...] = tuple(
+    schema
+    for schema in _BASE_REGISTERED_SCHEMAS
+    if schema.name not in DEPRECATED_LLM_TOOL_NAMES
+)
+
 _ALL_SCHEMAS: tuple[ToolSchema, ...] = (
-    *_BASE_OFFERED_SCHEMAS,
+    *_BASE_REGISTERED_SCHEMAS,
     *FI7B_TOOL_SCHEMAS,
 )
 
@@ -1170,7 +1186,9 @@ def get_offered_tool_schemas(
     football_intelligence_enabled: bool,
 ) -> tuple[ToolSchema, ...]:
     """Return the immutable LLM-offered schema set for one flag state."""
-    return _ALL_SCHEMAS if football_intelligence_enabled else _BASE_OFFERED_SCHEMAS
+    if football_intelligence_enabled:
+        return (*_BASE_OFFERED_SCHEMAS, *FI7B_TOOL_SCHEMAS)
+    return _BASE_OFFERED_SCHEMAS
 
 
 def get_offered_tool_names(
