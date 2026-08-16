@@ -35,7 +35,11 @@ class TestImportSmoke:
 
     def test_all_exports_present(self):
         import fpl_player_registry as pkg
-        for name in ("PlayerRecord", "PlayerRegistry", "build_registry", "KNOWN_NICKNAMES"):
+        for name in (
+            "PlayerRecord", "PlayerRegistry", "build_registry", "KNOWN_NICKNAMES",
+            "PlayerMatch", "PlayerResolution", "normalize_player_name",
+            "resolve_player_candidates",
+        ):
             assert hasattr(pkg, name), f"Missing export: {name}"
 
     def test_known_nicknames_is_non_empty_dict(self):
@@ -235,6 +239,24 @@ class TestLookupByAlias:
         reg = build_registry(players, teams)
         assert reg.lookup_by_alias("Mo") is None
 
+    def test_alias_collision_returns_none_in_legacy_adapter(self, monkeypatch):
+        import fpl_player_registry.registry as registry_module
+        monkeypatch.setattr(
+            registry_module,
+            "KNOWN_NICKNAMES",
+            {"One": ["shared"], "Two": ["shared"]},
+        )
+        from fpl_player_registry import build_registry
+        players = [
+            {"id": 1, "first_name": "Alpha", "second_name": "One",
+             "web_name": "One", "team_id": 1, "element_type": 3, "status": "a"},
+            {"id": 2, "first_name": "Beta", "second_name": "Two",
+             "web_name": "Two", "team_id": 1, "element_type": 3, "status": "a"},
+        ]
+        teams = [{"id": 1, "name": "Test FC", "short_name": "TST"}]
+        reg = build_registry(players, teams)
+        assert reg.lookup_by_alias("shared") is None
+
     # -- "el " prefix regression: lstrip("el ") is a charset strip, not a
     #    prefix strip. It repeatedly removes any of {'e', 'l', ' '} from the
     #    left, so "el elanga" -> "anga", "ellis" -> "is", "elliott" -> "iott".
@@ -422,7 +444,9 @@ class TestPublicSurface:
     def test_all_exports_in_all(self):
         import fpl_player_registry as pkg
         assert set(pkg.__all__) == {
-            "PlayerRecord", "PlayerRegistry", "build_registry", "KNOWN_NICKNAMES"
+            "PlayerRecord", "PlayerRegistry", "build_registry", "KNOWN_NICKNAMES",
+            "PlayerMatch", "PlayerResolution", "normalize_player_name",
+            "resolve_player_candidates",
         }
 
     def test_season_id_mapper_not_exposed(self):

@@ -33,12 +33,10 @@ tiebreak or explain the options to the user.
 
 Reuse
 -----
-All matching logic and the 21-field grounding-payload builder are imported
-directly from ``find_players`` — SINGLE SOURCE of truth.  The helpers exposed
-from ``find_players`` are:
-    _normalize          — Unicode normalization
+Matching uses the canonical ``fpl_player_registry`` resolver. The grounding
+payload builder remains shared with ``find_players``:
+    _normalize          — compatibility wrapper around canonical normalization
     _build_match_dict   — 21-field grounding payload builder
-    _safe_int           — safe integer coercion (used for total_points sort)
 
 Registration
 ------------
@@ -51,6 +49,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from fpl_player_registry import resolve_player_candidates
 from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
 
@@ -62,9 +61,7 @@ from fpl_grounded_assistant.player_fixture_run import get_player_fixture_run
 from fpl_grounded_assistant.find_players import (
     _normalize,
     _build_match_dict,
-    _safe_int,
     _team_short,
-    _resolve_alias,
 )
 
 _MAX_AMBIGUOUS_CANDIDATES: int = 5
@@ -137,23 +134,6 @@ def _split_team_hint(
         return normalized_query, None
 
     return name_only, last
-
-
-def _resolve_via_team_hint(
-    bucket: list[dict[str, Any]],
-    teams: list[dict[str, Any]],
-    team_hint: str,
-) -> dict[str, Any] | None:
-    """Narrow *bucket* to the single element whose team_short matches
-    *team_hint* (already normalized). Returns ``None`` when the hint
-    doesn't narrow it to exactly one -- the caller falls back to the
-    ordinary (unfiltered) ambiguous response in that case, never a
-    partial/wrong result."""
-    filtered = [
-        el for el in bucket
-        if _normalize(_team_short(el, teams)) == team_hint
-    ]
-    return filtered[0] if len(filtered) == 1 else None
 
 
 # ---------------------------------------------------------------------------
@@ -236,142 +216,44 @@ def get_player_snapshot(
     # (this was the actual bug: appending "Chelsea" made the search worse,
     # not better). team_hint is used below to disambiguate a multi-match.
     match_query, team_hint = _split_team_hint(normalized_query, bootstrap)
-    # Community abbreviation / nickname (e.g. "DCL", "VVD") → canonical web_name,
-    # matched at rank 0 below — same shared alias table as find_players.
-    alias_web = _resolve_alias(match_query)
+    resolution = resolve_player_candidates(
+        match_query,
+        elements,
+        teams,
+        allow_prefix=True,
+        allow_substring=True,
+    )
+    best_matches = list(resolution.best_matches)
+    elements_by_id = {el.get("id"): el for el in elements}
 
-    # ------------------------------------------------------------------
-    # 2. Classify each element into rank buckets (same algorithm as find_players)
-    # ------------------------------------------------------------------
-    rank_bucket: dict[int, int] = {}
-
-    for el in elements:
-        el_id = el.get("id")
-        if el_id is None:
-            continue
-
-        first   = _normalize(el.get("first_name", "") or "")
-        second  = _normalize(el.get("second_name", "") or "")
-        web     = _normalize(el.get("web_name", "") or "")
-        composite = f"{first} {second} {web}"
-
-        # Rank 0: community abbreviation / nickname (e.g. "DCL" -> Calvert-Lewin)
-        if alias_web is not None and web == alias_web:
-            rank_bucket[el_id] = 0
-            continue
-
-        # Rank 0: exact match on any canonical name field
-        if match_query in (first, second, web):
-            rank_bucket[el_id] = 0
-            continue
-
-        # Rank 1: prefix match on any name field
-        if (
-            first.startswith(match_query)
-            or second.startswith(match_query)
-            or web.startswith(match_query)
-        ):
-            rank_bucket[el_id] = 1
-            continue
-
-        # Rank 2: substring match anywhere in composite
-        if match_query in composite:
-            rank_bucket[el_id] = 2
-
-    # ------------------------------------------------------------------
-    # 3. Separate by rank
-    # ------------------------------------------------------------------
-    def _elements_at_rank(target_rank: int) -> list[dict[str, Any]]:
-        """Return elements at a specific rank, sorted by total_points desc."""
-        bucket = [
-            el for el in elements
-            if rank_bucket.get(el.get("id")) == target_rank
-        ]
-        bucket.sort(key=lambda el: -_safe_int(el.get("total_points"), 0))
-        return bucket
-
-    exact_matches   = _elements_at_rank(0)
-    prefix_matches  = _elements_at_rank(1)
-    substr_matches  = _elements_at_rank(2)
-
-    # ------------------------------------------------------------------
-    # 4. Resolution rules
-    # ------------------------------------------------------------------
-
-    # Rule 2: exact match(es)
-    if len(exact_matches) == 1:
+    def _ok(match: Any) -> dict[str, Any]:
         player_dict = _build_match_dict(
-            exact_matches[0], teams, element_types, match_rank=0
-        )
-        # Single answer: drop match_rank (meaningless for a unique result)
-        player_dict.pop("match_rank", None)
-        _attach_fixture_run(player_dict, bootstrap)
-        return {
-            "status": "ok",
-            "player": player_dict,
-        }
-
-    if len(exact_matches) > 1:
-        if team_hint is not None:
-            resolved = _resolve_via_team_hint(exact_matches, teams, team_hint)
-            if resolved is not None:
-                player_dict = _build_match_dict(resolved, teams, element_types, match_rank=0)
-                player_dict.pop("match_rank", None)
-                _attach_fixture_run(player_dict, bootstrap)
-                return {
-                    "status": "ok",
-                    "player": player_dict,
-                }
-        candidates = [
-            _build_match_dict(el, teams, element_types, match_rank=0)
-            for el in exact_matches[:_MAX_AMBIGUOUS_CANDIDATES]
-        ]
-        return {
-            "status":     "ambiguous",
-            "query":      normalized_query,
-            "candidates": candidates,
-            "message":    f"Multiple players match '{normalized_query}'. Please specify.",
-        }
-
-    # Rule 3: prefix match(es)
-    if len(prefix_matches) == 1:
-        player_dict = _build_match_dict(
-            prefix_matches[0], teams, element_types, match_rank=1
+            elements_by_id[match.record.id], teams, element_types, match.rank
         )
         player_dict.pop("match_rank", None)
         _attach_fixture_run(player_dict, bootstrap)
-        return {
-            "status": "ok",
-            "player": player_dict,
-        }
+        return {"status": "ok", "player": player_dict}
 
-    if len(prefix_matches) > 1:
-        if team_hint is not None:
-            resolved = _resolve_via_team_hint(prefix_matches, teams, team_hint)
-            if resolved is not None:
-                player_dict = _build_match_dict(resolved, teams, element_types, match_rank=1)
-                player_dict.pop("match_rank", None)
-                _attach_fixture_run(player_dict, bootstrap)
-                return {
-                    "status": "ok",
-                    "player": player_dict,
-                }
-        candidates = [
-            _build_match_dict(el, teams, element_types, match_rank=1)
-            for el in prefix_matches[:_MAX_AMBIGUOUS_CANDIDATES]
-        ]
-        return {
-            "status":     "ambiguous",
-            "query":      normalized_query,
-            "candidates": candidates,
-            "message":    f"Multiple players match '{normalized_query}'. Please specify.",
-        }
+    # Preserve the snapshot's existing conservative rule: a substring match
+    # remains a wizard candidate even when only one player happens to match.
+    if len(best_matches) == 1 and best_matches[0].rank < 2:
+        return _ok(best_matches[0])
 
-    # Rule 4: substring match(es) — always ambiguous (too loose to auto-resolve)
-    if len(substr_matches) > 0:
+    if best_matches:
+        if team_hint is not None and best_matches[0].rank < 2:
+            narrowed = [
+                match
+                for match in best_matches
+                if _normalize(_team_short(elements_by_id[match.record.id], teams))
+                == team_hint
+            ]
+            if len(narrowed) == 1:
+                return _ok(narrowed[0])
         candidates = [
-            _build_match_dict(el, teams, element_types, match_rank=2)
-            for el in substr_matches[:_MAX_AMBIGUOUS_CANDIDATES]
+            _build_match_dict(
+                elements_by_id[match.record.id], teams, element_types, match.rank
+            )
+            for match in best_matches[:_MAX_AMBIGUOUS_CANDIDATES]
         ]
         return {
             "status":     "ambiguous",

@@ -86,6 +86,13 @@ class TestToolResolvePlayerOk:
         assert result["resolved_via"] == "alias"
         assert result["player_id"] == 4
 
+    def test_prefix_resolution_keeps_public_contract(self, bootstrap):
+        from fpl_tool_contract import tool_resolve_player
+        result = tool_resolve_player("Haal", bootstrap)
+        assert result["status"] == "ok"
+        assert result["resolved_via"] == "exact_name"
+        assert result["player_id"] == 1
+
     def test_query_field_preserved(self, bootstrap):
         from fpl_tool_contract import tool_resolve_player
         result = tool_resolve_player("el Vikingo", bootstrap)

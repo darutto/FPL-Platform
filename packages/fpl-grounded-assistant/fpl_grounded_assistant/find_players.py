@@ -50,9 +50,13 @@ any full-package import.
 """
 from __future__ import annotations
 
-import unicodedata
 from typing import Any
 
+from fpl_player_registry import (
+    KNOWN_NICKNAMES as _KNOWN_NICKNAMES,
+    normalize_player_name,
+    resolve_player_candidates,
+)
 from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
 
@@ -101,9 +105,7 @@ def _normalize(text: str) -> str:
     >>> _normalize("calvert lewin")
     'calvert lewin'
     """
-    nfkd = unicodedata.normalize("NFKD", text)
-    stripped = "".join(c for c in nfkd if not unicodedata.combining(c))
-    return " ".join(stripped.replace("-", " ").lower().split())
+    return normalize_player_name(text)
 
 
 # ---------------------------------------------------------------------------
@@ -113,26 +115,15 @@ def _normalize(text: str) -> str:
 # equals a known alias is treated as a rank-0 match on the resolved player.
 # Shared with get_player_snapshot, which imports _ALIAS_TO_WEBNAME.
 # ---------------------------------------------------------------------------
-try:
-    from fpl_player_registry import KNOWN_NICKNAMES as _KNOWN_NICKNAMES
-except Exception:  # registry unavailable in some isolated imports — degrade to no aliases
-    _KNOWN_NICKNAMES = {}
-
-_ALIAS_TO_WEBNAME: dict[str, str] = {}
+_alias_web_names: dict[str, set[str]] = {}
 for _wn, _aliases in _KNOWN_NICKNAMES.items():
     for _alias in _aliases:
-        _ALIAS_TO_WEBNAME[_normalize(_alias)] = _wn
+        _alias_web_names.setdefault(_normalize(_alias), set()).add(_wn)
 
-
-def _resolve_alias(normalized_query: str) -> "str | None":
-    """Return the normalized web_name a full-query alias resolves to, or None.
-
-    Matches only when the *entire* query equals a known alias (so "dcl" resolves
-    Calvert-Lewin, but a name that merely contains an alias substring does not).
-    """
-    web_name = _ALIAS_TO_WEBNAME.get(normalized_query)
-    return _normalize(web_name) if web_name else None
-
+_ALIAS_TO_WEBNAME: dict[str, str | tuple[str, ...]] = {
+    alias: next(iter(web_names)) if len(web_names) == 1 else tuple(sorted(web_names))
+    for alias, web_names in _alias_web_names.items()
+}
 
 # ---------------------------------------------------------------------------
 # Grounding payload extraction
@@ -280,10 +271,6 @@ def find_players(
     limit = max(1, min(int(limit) if isinstance(limit, (int, float)) else 5, _MAX_LIMIT))
 
     normalized_query = _normalize(name_query.strip())
-    # Community abbreviation / nickname (e.g. "DCL", "VVD", "Mo") → canonical
-    # web_name, matched at rank 0 below. None for ordinary name queries.
-    alias_web = _resolve_alias(normalized_query)
-
     # ------------------------------------------------------------------
     # 1. Guard: bootstrap required
     # ------------------------------------------------------------------
@@ -299,66 +286,16 @@ def find_players(
     teams: list[dict[str, Any]] = bootstrap.get("teams", []) or []
     element_types: list[dict[str, Any]] = bootstrap.get("element_types", []) or []
 
-    # ------------------------------------------------------------------
-    # 2. Classify each element into a rank bucket
-    # ------------------------------------------------------------------
-    # rank_bucket: element_id → rank (0/1/2)
-    rank_bucket: dict[int, int] = {}
-
-    for el in elements:
-        el_id = el.get("id")
-        if el_id is None:
-            continue
-
-        first   = _normalize(el.get("first_name", "") or "")
-        second  = _normalize(el.get("second_name", "") or "")
-        web     = _normalize(el.get("web_name", "") or "")
-        # Composite string for substring matching
-        composite = f"{first} {second} {web}"
-
-        # Rank 0: community abbreviation / nickname (e.g. "DCL" -> Calvert-Lewin)
-        if alias_web is not None and web == alias_web:
-            rank_bucket[el_id] = 0
-            continue
-
-        # Rank 0: exact match on any canonical name field
-        if normalized_query in (first, second, web):
-            rank_bucket[el_id] = 0
-            continue
-
-        # Rank 1: prefix match on any name field or composite
-        if (
-            first.startswith(normalized_query)
-            or second.startswith(normalized_query)
-            or web.startswith(normalized_query)
-        ):
-            rank_bucket[el_id] = 1
-            continue
-
-        # Rank 2: substring match anywhere in composite
-        if normalized_query in composite:
-            rank_bucket[el_id] = 2
-
-    # ------------------------------------------------------------------
-    # 3. Sort: rank asc, then total_points desc as tiebreaker
-    # ------------------------------------------------------------------
-    matched_elements: list[dict[str, Any]] = [
-        el for el in elements if el.get("id") in rank_bucket
-    ]
-
-    matched_elements.sort(
-        key=lambda el: (
-            rank_bucket[el.get("id")],
-            -_safe_int(el.get("total_points"), 0),
-        )
+    resolution = resolve_player_candidates(
+        name_query,
+        elements,
+        teams,
+        allow_prefix=True,
+        allow_substring=True,
     )
+    matches_at_limit = resolution.matches[:limit]
 
-    # ------------------------------------------------------------------
-    # 4. Apply limit and build grounding payloads
-    # ------------------------------------------------------------------
-    top: list[dict[str, Any]] = matched_elements[:limit]
-
-    if not top:
+    if not matches_at_limit:
         return {
             "status":      "not_found",
             "query":       normalized_query,
@@ -366,11 +303,12 @@ def find_players(
             "matches":     [],
         }
 
+    elements_by_id = {el.get("id"): el for el in elements}
     matches: list[dict[str, Any]] = [
         _build_match_dict(
-            el, teams, element_types, rank_bucket[el.get("id")]
+            elements_by_id[match.record.id], teams, element_types, match.rank
         )
-        for el in top
+        for match in matches_at_limit
     ]
 
     return {

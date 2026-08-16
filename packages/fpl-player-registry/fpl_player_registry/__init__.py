@@ -20,10 +20,20 @@ Reference: fpl-player-registry/python/player_registry.py (audit copy — do not 
 
 from .nicknames import KNOWN_NICKNAMES
 from .registry import PlayerRecord, PlayerRegistry, build_registry
+from .resolution import (
+    PlayerMatch,
+    PlayerResolution,
+    normalize_player_name,
+    resolve_player_candidates,
+)
 
 __all__ = [
     "PlayerRecord",
     "PlayerRegistry",
     "build_registry",
     "KNOWN_NICKNAMES",
+    "PlayerMatch",
+    "PlayerResolution",
+    "normalize_player_name",
+    "resolve_player_candidates",
 ]

@@ -344,8 +344,12 @@ check(mutation_raised, "I5  PlayerRecord is immutable (frozen dataclass)")
 section("J. Public surface guard")
 
 check(
-    set(_pkg.__all__) == {"PlayerRecord", "PlayerRegistry", "build_registry", "KNOWN_NICKNAMES"},
-    "J1  __all__ contains exactly the 4 Phase 1d exports",
+    set(_pkg.__all__) == {
+        "PlayerRecord", "PlayerRegistry", "build_registry", "KNOWN_NICKNAMES",
+        "PlayerMatch", "PlayerResolution", "normalize_player_name",
+        "resolve_player_candidates",
+    },
+    "J1  __all__ contains the registry and canonical resolver exports",
     f"got {_pkg.__all__}",
 )
 check(not hasattr(_pkg, "SeasonIdMapper"),   "J2  SeasonIdMapper not in surface")

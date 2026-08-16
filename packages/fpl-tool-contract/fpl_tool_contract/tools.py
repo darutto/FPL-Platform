@@ -63,7 +63,7 @@ from fpl_captain_engine import (
     classify_captain_tier,   # Phase 5m
     derive_role_signals,     # Phase 5m
 )
-from fpl_player_registry import build_registry
+from fpl_player_registry import resolve_player_candidates
 from fpl_query_tools import get_current_gameweek_from_bootstrap, get_player_summary
 from fpl_tool_contract.scoring_core import _derive_base_scoring_inputs
 
@@ -96,34 +96,29 @@ def _resolve_with_status(
     query: str | int,
     bootstrap: dict[str, Any],
 ) -> tuple[str, dict[str, Any] | None]:
-    """Decompose bootstrap, detect ambiguity, call get_player_summary.
+    """Decompose bootstrap, resolve canonically, and call get_player_summary.
 
     Returns (status, summary_or_None) where status is one of
     "ok" | "ambiguous" | "not_found".
 
-    Ambiguity is detected by checking ``registry.ambiguous_web_names``
-    *before* delegating to fpl_query_tools, because resolve_player_query
-    returns None for both ambiguous and not-found and loses the distinction.
+    The canonical resolver preserves ambiguity before the legacy summary
+    adapter, which returns ``None`` for both ambiguous and not-found queries.
     """
     players = get_players(bootstrap)
     teams   = get_teams(bootstrap)
 
-    # Numeric queries cannot be ambiguous (ids are always unique)
-    q = str(query).strip()
-    is_numeric = False
-    try:
-        int(q)
-        is_numeric = True
-    except (ValueError, TypeError):
-        pass
-
-    if not is_numeric:
-        reg = build_registry(players, teams)
-        if q.lower() in reg.ambiguous_web_names:
-            return "ambiguous", None
+    resolution = resolve_player_candidates(
+        query,
+        players,
+        teams,
+        allow_prefix=True,
+        allow_substring=False,
+    )
+    if resolution.status == "ambiguous":
+        return "ambiguous", None
 
     summary = get_player_summary(query, players, teams)
-    if summary is None:
+    if resolution.status == "not_found" or summary is None:
         return "not_found", None
 
     return "ok", summary
