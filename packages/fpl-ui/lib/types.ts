@@ -679,6 +679,13 @@ export interface PlayerSnapshotMeta {
   expected_assists: number;
   expected_goal_involvements: number;
   ict_index: number;
+  /** Additive snapshot fields; optional for rolling compatibility with older API deployments. */
+  expected_goals_per_90?: number;
+  expected_assists_per_90?: number;
+  expected_goal_involvements_per_90?: number;
+  ict_index_per_90?: number;
+  defensive_contribution?: number;
+  defensive_contribution_per_90?: number;
   /** Tenths of £ (e.g. 155 → £15.5m). */
   now_cost: number;
   selected_by_percent: number;

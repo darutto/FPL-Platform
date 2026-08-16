@@ -46,6 +46,12 @@ export const UNIT_XG = 'xG';
 export const UNIT_XA = 'xA';
 export const UNIT_XGI = 'xGI';
 export const UNIT_ICT = 'ICT';
+export const UNIT_DC = 'DC';
+export const UNIT_XG_PER_90 = 'xG/90';
+export const UNIT_XA_PER_90 = 'xA/90';
+export const UNIT_XGI_PER_90 = 'xGI/90';
+export const UNIT_ICT_PER_90 = 'ICT/90';
+export const UNIT_DC_PER_90 = 'DC/90';
 export const UNIT_MINUTES = 'minutos';
 
 // DifferentialTable's score column — short header for a narrow grid cell.

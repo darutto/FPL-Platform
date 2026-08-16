@@ -160,11 +160,12 @@ def get_player_snapshot(
         {
             "status": "ok",
             "player": {
-                # 20-field grounding payload (21 minus match_rank)
+                # Full grounding payload (match_rank omitted)
                 # id, web_name, team_short, position, minutes_played_season,
                 # status, news, news_added, chance_of_playing_this_round,
                 # form, total_points, points_per_game, expected_goals,
                 # expected_assists, expected_goal_involvements, ict_index,
+                # their per-90 rates, defensive_contribution and DC/90,
                 # now_cost, selected_by_percent, transfers_in_event,
                 # transfers_out_event
                 # plus: fixtures (next 5, via get_player_fixture_run),
