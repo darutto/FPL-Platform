@@ -221,8 +221,10 @@ def test_find_players_single_match_does_not_arm_wizard(monkeypatch, bootstrap):
              "matches": [{"id": 1, "web_name": "Haaland", "team_short": "MCI", "position": "FWD"}]},
         ),
     )
-    ar = to_ask_response(ask_v2("haaland", bootstrap, orch_client=object()),
-                         fpl_server.AskRequest(question="haaland"))
+    # Use a non-name conversational request so PR 2's deterministic bare-name
+    # interception does not pre-empt this legacy orchestrator-path scope guard.
+    ar = to_ask_response(ask_v2("player search request", bootstrap, orch_client=object()),
+                         fpl_server.AskRequest(question="player search request"))
     assert ar.suggestions is None
     assert ar.outcome == "ok"
     assert ar.intent != "player_snapshot"   # find_players' own (unsupported) intent, untouched

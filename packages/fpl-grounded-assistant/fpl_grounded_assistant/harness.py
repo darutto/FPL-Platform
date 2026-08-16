@@ -174,6 +174,9 @@ ROUTING_TRACE_OPTIONAL_KEYS: frozenset[str] = frozenset({
     "dispatched_tool",      # prompt-dispatch branch: tool name invoked
     "classification_source",  # classifier_rewrite branch: "llm_classifier"
     "orchestrator_error",   # orchestrator-exception path: exception message string
+    "player_resolution_strategy",  # deterministic player resolution strategy
+    "player_candidate_count",      # candidates at the best resolver rank
+    "player_lookup_branch",        # explicit/bare outcome or specialized fallthrough
 })
 
 # ---------------------------------------------------------------------------
@@ -494,9 +497,10 @@ def ask_v2(
                         `resource_rows={...}`, and `routing_trace`.
     * `@<unknown>`   -> `outcome="unsupported"`, `suggestions=[...]`.
     * `/<prompt>`    -> M2: prompt registry dispatch / expansion.
-    * plain text     -> P1.a orchestrator-primary routing:
-                         1. ask_orchestrated()             — LLM-primary (P1.a)
-                         2. unsupported + suggestions
+    * plain text     -> deterministic general-player probe, then P1.a routing:
+                         1. rich snapshot / ambiguity wizard when resolved
+                         2. ask_orchestrated()             — LLM-primary (P1.a)
+                         3. unsupported + suggestions
 
     Step 1 is gated by the ``FPL_ORCH_ENABLED`` environment variable (default
     OFF).  The ``classifier_client`` kwarg is accepted for backwards
@@ -538,6 +542,9 @@ def ask_v2(
         "dispatched_tool"      (str)   prompt-dispatch branch: tool name invoked
         "classification_source" (str)  classifier_rewrite branch: "llm_classifier"
         "orchestrator_error"   (str)   orchestrator-exception path: exception message
+        "player_resolution_strategy" (str | None) player resolver's best rank
+        "player_candidate_count" (int) number of candidates at that rank
+        "player_lookup_branch" (str) deterministic lookup/fallthrough branch
 
     See ``ROUTING_TRACE_REQUIRED_KEYS`` and ``ROUTING_TRACE_OPTIONAL_KEYS``
     for the machine-readable frozen-schema constants used by tests.
@@ -579,13 +586,12 @@ def ask_v2(
 
         "resource"           — @resource matched and returned grounded rows.
         "prompt"             — /prompt matched (expansion or dispatch mode).
+        "route"              — plain text resolved as a general player lookup.
         "orchestrator"       — plain text; orchestrator returned a grounded
                                tool call (P1.a primary path).
         "unsupported"        — no path produced a grounded answer.
 
-        [P1.a: "route" and "classifier_rewrite" no longer fire for plain text
-        from ask_v2().  They remain in harness_adapter.py as legacy branches
-        (defensive) in case synthetic dicts or session paths produce them.]
+        ["classifier_rewrite" no longer fires for plain text from ask_v2().]
 
     ``grounded`` is True iff at least one deterministic tool ran end-to-end
     via the tool runner. An orchestrator answer with no tool call sets
@@ -868,23 +874,62 @@ def ask_v2(
         return result
 
     # ------------------------------------------------------------------
-    # P1.a text-branch: orchestrator-primary routing
+    # Deterministic general-player probe, then P1.a orchestrator routing
     # ------------------------------------------------------------------
-    # Post-P1.a, plain-text questions go DIRECTLY to ask_orchestrated().
-    # Steps 1 (route() first-try) and 2 (classifier_rewrite) have been
-    # REMOVED from the plain-text path.  The orchestrator MAY call route()
-    # internally as one of its tools (it is a fine deterministic resolver),
-    # but route() is no longer the gatekeeper.
+    # General named-player lookups are resolved before orchestration. Everything
+    # else continues through the post-P1.a orchestrator-primary path; classifier
+    # rewriting remains absent.
     #
-    # Ladder summary (P1.a):
-    #   1. ask_orchestrated()  — LLM-primary; gated by FPL_ORCH_ENABLED
-    #   2. unsupported + suggestions  — when orchestrator disabled/unavailable
+    # Ladder summary:
+    #   1. deterministic rich player snapshot / ambiguity wizard
+    #   2. ask_orchestrated()  — LLM-primary; gated by FPL_ORCH_ENABLED
+    #   3. unsupported + suggestions  — when orchestrator disabled/unavailable
     #
     # Legacy: classifier_client kwarg is no longer consulted for plain-text
     # routing.  The parameter is kept for backwards-compat call-sites but
     # has NO effect on the plain-text path post-P1.a.
     assert outcome == OUTCOME_FALLTHROUGH
     cleaned_text = decision.get("text", question)
+
+    # General named-player lookups are deterministic and precede orchestration.
+    # Non-terminal misses retain the complete input for the existing LLM path.
+    from .player_lookup import classify_player_lookup, execute_player_lookup  # noqa: PLC0415
+
+    _player_lookup = classify_player_lookup(cleaned_text, actual_bootstrap)
+    routing_trace["player_resolution_strategy"] = _player_lookup.resolution_strategy
+    routing_trace["player_candidate_count"] = _player_lookup.candidate_count
+    routing_trace["player_lookup_branch"] = _player_lookup.deterministic_branch
+    if _player_lookup.terminal:
+        from .suggestions import (  # noqa: PLC0415
+            player_disambiguation_suggestions,
+            suggestions_to_list,
+        )
+
+        _player_raw = execute_player_lookup(_player_lookup, actual_bootstrap)
+        _player_outcome = _outcome_from_status(_player_raw)
+        routing_trace["branch"] = "route"
+        routing_trace["router_hit"] = True
+        routing_trace["grounded"] = True
+        _player_meta = _meta("get_player_snapshot", _player_raw)
+        result = {
+            "selected_tool": "get_player_snapshot",
+            "tool_input": {"player_name": _player_lookup.query},
+            "raw_output": _player_raw,
+            "answer_text": _render("get_player_snapshot", _player_raw),
+            "outcome": _player_outcome,
+            "kind": "text",
+            "routing_trace": routing_trace,
+            **_player_meta,
+        }
+        if _player_outcome == "ambiguous":
+            result["player_suggestions"] = suggestions_to_list(
+                player_disambiguation_suggestions(_player_raw.get("candidates", []))
+            )
+        _copy_existing_intent_evidence(result)
+        if context_meta is not None:
+            result["context_meta"] = context_meta
+        _telemetry.record(routing_trace)
+        return result
 
     # --- Step 1 (P1.a): ask_orchestrated() — PRIMARY for plain text ---
     # The orchestrator runs when (a) the feature flag is ON AND (b) a
@@ -1064,6 +1109,15 @@ def ask_v2(
             "kind":          "text",
             "suggestions":   [f"@{r}" for r in _suggestions_for_text()],
             "orchestrator_outcome": orch_result.outcome,
+            "tokens": {
+                "primary_input": orch_result.primary_input_tokens,
+                "primary_output": orch_result.primary_output_tokens,
+                "primary_cache_read": orch_result.primary_cache_read_tokens,
+                "evaluator": orch_result.evaluator_input_tokens,
+                "retry_input": orch_result.retry_input_tokens,
+                "retry_output": orch_result.retry_output_tokens,
+                "total": orch_result.total_tokens,
+            },
             "routing_trace": routing_trace,
             **_none_meta,  # orchestrator no-grounded-tool: tool execution failed → all 14 keys None
         }

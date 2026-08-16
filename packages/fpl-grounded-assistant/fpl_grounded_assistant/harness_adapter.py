@@ -85,9 +85,8 @@ def _to_dict(value: Any) -> Any:
 _LLM_BRANCHES: frozenset[str] = frozenset({"orchestrator", "classifier_rewrite"})
 
 # Branches where the question was grounded (a deterministic tool ran end-to-end).
-# P1.a note: "route" and "classifier_rewrite" no longer fire for plain text
-# from ask_v2() post-P1.a.  Kept here (legacy, defensive) for the same reasons
-# as _LLM_BRANCHES above.
+# The route branch now also represents a pre-orchestration general-player
+# lookup. Classifier rewriting remains as legacy defensive compatibility.
 _GROUNDED_BRANCHES: frozenset[str] = frozenset(
     {"route", "classifier_rewrite", "orchestrator", "prompt"}
 )
@@ -320,9 +319,8 @@ def to_ask_response(
             # but fall back gracefully.
             route_source = "llm_classifier"
     elif branch == "route":
-        # P1.a legacy: "route" branch no longer fires for plain text from ask_v2()
-        # post-P1.a.  Kept defensive for synthetic unit tests and session paths.
-        # Deterministic path: route() succeeded on the first try, no LLM involved.
+        # Deterministic path: either the general-player probe or a compatible
+        # legacy route succeeded without an LLM.
         route_source = "deterministic"
     else:
         route_source = None
