@@ -7,8 +7,7 @@
  * + InputBar and exercises the one-tap flow end to end:
  *   1. An ambiguous player_snapshot turn returns backend `suggestions` → the
  *      wizard arms and chips render under the latest assistant bubble.
- *   2. Tapping a chip sends its send_text verbatim through the normal send
- *      path (single round trip, unlike the two-step compare wizard).
+ *   2. Tapping a chip displays its label and sends its stable player_id.
  *   3. Chips render only under the LATEST assistant turn.
  *   4. The compare wizard and this wizard never collide -- each only arms
  *      for its own intent, even though both share the generic
@@ -89,8 +88,8 @@ function ambiguousPlayerResponse() {
     orch_outcome: 'ambiguous',
     degraded: false,
     suggestions: [
-      { label: 'Johnson (CHE)', send_text: 'Johnson CHE' },
-      { label: 'Johnson (MUN)', send_text: 'Johnson MUN' },
+      { label: 'Johnson (CHE)', send_text: 'Johnson CHE', player_id: 6 },
+      { label: 'Johnson (MUN)', send_text: 'Johnson MUN', player_id: 7 },
     ],
   };
 }
@@ -166,7 +165,25 @@ describe('Player disambiguation chip wizard', () => {
     expect(within(wizard).getByRole('button', { name: 'Johnson (MUN)' })).toBeInTheDocument();
   });
 
-  test('tapping a chip sends its send_text verbatim in a single round trip', async () => {
+  test('legacy player suggestions without stable ids never render dead chips', async () => {
+    const user = userEvent.setup();
+    const legacy = {
+      ...ambiguousPlayerResponse(),
+      suggestions: [
+        { label: 'Johnson (CHE)', send_text: 'Johnson CHE' },
+        { label: 'Johnson (MUN)', send_text: 'Johnson MUN' },
+      ],
+    };
+    ask.mockResolvedValueOnce(legacy);
+    render(<ChatShell />);
+
+    await sendText(user, 'johnson');
+
+    await screen.findByText(/multiple players match/i);
+    expect(getWizard()).toBeNull();
+  });
+
+  test('tapping a chip shows its label and sends its stable id in one round trip', async () => {
     const user = userEvent.setup();
     ask.mockResolvedValueOnce(ambiguousPlayerResponse());
     render(<ChatShell />);
@@ -178,8 +195,42 @@ describe('Player disambiguation chip wizard', () => {
     await user.click(within(wizard).getByRole('button', { name: 'Johnson (CHE)' }));
 
     await waitFor(() => expect(ask).toHaveBeenCalledTimes(2));
-    expect(ask.mock.calls[1][0]).toMatchObject({ question: 'Johnson CHE' });
+    expect(ask.mock.calls[1][0]).toMatchObject({
+      question: 'Johnson (CHE)',
+      selected_player_id: 6,
+    });
+    expect(screen.getByText('Johnson (CHE)', { selector: 'p' })).toBeInTheDocument();
     await waitFor(() => expect(getWizard()).toBeNull());
+  });
+
+  test('a wizard produced by a session submits its stable id to that same session', async () => {
+    const user = userEvent.setup();
+    ask.mockResolvedValueOnce(plainResponse('primera respuesta'));
+    createSession.mockResolvedValueOnce({
+      session_id: 'session-player-pick',
+      created_at: 0,
+      expires_after_seconds: 900,
+    });
+    sessionAsk
+      .mockResolvedValueOnce(ambiguousPlayerResponse())
+      .mockResolvedValueOnce(plainResponse('Johnson (CHE): 45 puntos'));
+    render(<ChatShell />);
+
+    await sendText(user, 'primera pregunta');
+    await user.click(await screen.findByRole('button', { name: /seguir conversaci/i }));
+    await sendText(user, 'johnson');
+    const wizard = await screen.findByTestId('player-pick-wizard');
+    await user.click(within(wizard).getByRole('button', { name: 'Johnson (CHE)' }));
+
+    await waitFor(() => expect(sessionAsk).toHaveBeenCalledTimes(2));
+    expect(sessionAsk).toHaveBeenLastCalledWith(
+      'session-player-pick',
+      expect.objectContaining({
+        question: 'Johnson (CHE)',
+        selected_player_id: 6,
+      }),
+    );
+    expect(ask).toHaveBeenCalledTimes(1);
   });
 
   test('chips render only under the latest assistant turn', async () => {

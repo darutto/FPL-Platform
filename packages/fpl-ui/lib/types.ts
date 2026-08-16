@@ -164,6 +164,8 @@ export type IntentHint = (typeof INTENT_HINT_ALLOWLIST)[number];
 export interface AskRequest {
   /** Required. FPL question in natural language or slash command text. */
   question: string;
+  /** Stable FPL element id chosen from a player-disambiguation wizard. */
+  selected_player_id?: number | null;
   /**
    * Optional pre-classifier routing bias (V2 Phase 1c).
    * Must be in INTENT_HINT_ALLOWLIST. Values outside the list are silently
@@ -327,6 +329,8 @@ export interface Suggestion {
   label: string;
   /** Text sent through the normal send path when the chip is tapped. */
   send_text: string;
+  /** Stable FPL element id; present only on player-disambiguation options. */
+  player_id?: number;
 }
 
 /** Session turn response — same as AskResponse plus session_id. */

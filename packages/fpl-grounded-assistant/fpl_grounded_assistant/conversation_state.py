@@ -1154,6 +1154,36 @@ class ConversationSession:
         )
         self.last_tokens: int = 0
 
+    def respond_to_selected_player_id(
+        self,
+        player_id: int,
+        bootstrap: dict[str, Any],
+        *,
+        question_text: str | None = None,
+        include_debug: bool = False,
+    ) -> FinalResponse:
+        """Execute a stable-id wizard choice and update state like a typed hit."""
+        from .final_response import respond_to_selected_player_id  # noqa: PLC0415
+
+        response = respond_to_selected_player_id(
+            player_id,
+            bootstrap,
+            include_debug=include_debug,
+        )
+        self.last_tokens = 0
+        canonical_query = (
+            response.player_snapshot.web_name
+            if response.outcome == OUTCOME_OK and response.player_snapshot is not None
+            else None
+        )
+        self.state.update_from_response(
+            response,
+            canonical_query,
+            question_text=question_text,
+            resolver_source="none",
+        )
+        return response
+
     def respond(
         self,
         question: str,

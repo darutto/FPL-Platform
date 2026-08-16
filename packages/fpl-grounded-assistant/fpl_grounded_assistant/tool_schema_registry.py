@@ -687,7 +687,7 @@ FIND_PLAYERS_SCHEMA = ToolSchema(
 GET_PLAYER_SNAPSHOT_SCHEMA = ToolSchema(
     name="get_player_snapshot",
     description=(
-        "Single player full grounding payload by name. Returns status=ok+player "
+        "Single player full grounding payload by name or numeric FPL element id. Returns status=ok+player "
         "(1 match), ambiguous+candidates (multi-match), or not_found. Use for "
         "every general named-player lookup, profile, or current-stat question."
     ),
@@ -695,8 +695,8 @@ GET_PLAYER_SNAPSHOT_SCHEMA = ToolSchema(
         "type": "object",
         "properties": {
             "player_name": {
-                "type":        "string",
-                "description": "Player name (case-insensitive, accent-insensitive)",
+                "type":        ["string", "integer"],
+                "description": "Player name (case/accent-insensitive) or numeric FPL element id",
             },
         },
         "required":             ["player_name"],

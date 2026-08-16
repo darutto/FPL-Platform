@@ -487,6 +487,7 @@ def ask_v2(
     orch_api_key: str | None = None,
     orch_provider: str | None = None,
     web_search_enabled: bool = False,
+    selected_player_id: int | None = None,
     _enrich_existing_intents: bool = True,
 ) -> dict[str, Any]:
     """Phase M1/M2/M3 entrypoint composing `decision_router` + existing `ask()`.
@@ -694,6 +695,47 @@ def ask_v2(
 
     # Resolve bootstrap up-front so both branches operate on the same data
     actual_bootstrap, context_meta = _resolve_bootstrap_and_meta(bootstrap)
+
+    # Stable-id wizard handoff: the structured id is authoritative. The
+    # display question is deliberately ignored so a stale id can never fall
+    # back to name matching and silently select another player.
+    if selected_player_id is not None:
+        from .get_player_snapshot import get_player_snapshot  # noqa: PLC0415
+
+        _player_raw = get_player_snapshot(selected_player_id, bootstrap=actual_bootstrap)
+        _player_outcome = _outcome_from_status(_player_raw)
+        routing_trace = {
+            "branch": "route",
+            "decision_kind": "selected_player_id",
+            "decision_outcome": _player_outcome,
+            "router_hit": True,
+            "classifier_called": False,
+            "classifier_confidence": None,
+            "classifier_intent": None,
+            "orchestrator_called": False,
+            "orchestrator_tool_calls": None,
+            "orchestrator_outcome": None,
+            "grounded": True,
+            "feature_flag_orch_enabled": is_orch_enabled(),
+            "feature_flag_football_intelligence_enabled": is_football_intelligence_enabled(),
+            "player_resolution_strategy": "id" if _player_outcome == "ok" else None,
+            "player_candidate_count": 1 if _player_outcome == "ok" else 0,
+            "player_lookup_branch": "selected_player_id",
+        }
+        result = {
+            "selected_tool": "get_player_snapshot",
+            "tool_input": {"player_name": selected_player_id},
+            "raw_output": _player_raw,
+            "answer_text": _render("get_player_snapshot", _player_raw),
+            "outcome": _player_outcome,
+            "kind": "text",
+            "routing_trace": routing_trace,
+            **_meta("get_player_snapshot", _player_raw),
+        }
+        if context_meta is not None:
+            result["context_meta"] = context_meta
+        _telemetry.record(routing_trace)
+        return result
 
     decision = decide(question, actual_bootstrap)
     kind = decision["kind"]
@@ -1040,14 +1082,13 @@ def ask_v2(
                 orch_result.tool_chosen == "get_player_snapshot"
                 and _orch_raw.get("status") == "ambiguous"
             ):
-                from .suggestions import Suggestion, suggestions_to_list  # noqa: PLC0415
-                result["player_suggestions"] = suggestions_to_list(tuple(
-                    Suggestion(
-                        label=f"{c.get('web_name', '')} ({c.get('team_short', '')})",
-                        send_text=f"{c.get('web_name', '')} {c.get('team_short', '')}",
-                    )
-                    for c in _orch_raw.get("candidates", [])
-                ))
+                from .suggestions import (  # noqa: PLC0415
+                    player_disambiguation_suggestions,
+                    suggestions_to_list,
+                )
+                result["player_suggestions"] = suggestions_to_list(
+                    player_disambiguation_suggestions(_orch_raw.get("candidates", []))
+                )
             if orch_result.tool_chosen in {
                 "get_expected_minutes",
                 "get_tactical_role",

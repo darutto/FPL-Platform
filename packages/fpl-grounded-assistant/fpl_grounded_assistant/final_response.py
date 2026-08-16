@@ -583,9 +583,9 @@ class PlayerSnapshotMeta:
     """Structured single-player snapshot output for the player detail card.
 
     Populated on ``FinalResponse`` when ``intent == player_snapshot`` and
-    ``outcome == ok``.  ``None`` for all other turns.  Orch-only — this
-    intent is never reached via the deterministic router, only via the
-    LLM-orchestrator's ``get_player_snapshot`` tool call.  Fields mirror
+    ``outcome == ok``.  ``None`` for all other turns. It is produced by
+    deterministic typed lookups, stable-id wizard choices,
+    and orchestrator calls to ``get_player_snapshot``. Fields mirror
     ``find_players._build_match_dict()``'s grounding payload exactly
     (``match_rank`` omitted — meaningless for a single-answer "ok" result).
     """
@@ -2391,43 +2391,16 @@ def _try_football_intelligence_response(
     )
 
 
-def _try_deterministic_player_lookup_response(
-    user_message: str,
-    bootstrap: dict[str, Any],
+def _player_snapshot_response_from_raw(
+    raw_output: dict[str, Any],
     *,
     include_debug: bool,
-    resolver_debug: ResolverDebug | None,
-    intent_hint: str | None,
-    allow_explicit_not_found: bool = False,
-) -> FinalResponse | None:
-    """Return a rich deterministic player response, or fall through unchanged."""
-    # Accepted intent hints are specialized and retain priority over a general
-    # bare-name probe. Unknown hints are ignored by the dispatcher, so they
-    # must not suppress deterministic lookup on the session path either.
-    from .dispatcher import INTENT_HINT_ALLOWLIST
-
-    if intent_hint in INTENT_HINT_ALLOWLIST:
-        return None
-
-    from .player_lookup import classify_player_lookup, execute_player_lookup
-    from .get_player_snapshot import get_player_snapshot
+    resolver_debug: ResolverDebug | None = None,
+) -> FinalResponse:
+    """Build the shared rich-card response from a snapshot tool result."""
     from .renderer import render
     from .suggestions import player_disambiguation_suggestions
 
-    decision = classify_player_lookup(user_message, bootstrap)
-    explicit_not_found = (
-        allow_explicit_not_found
-        and decision.explicit
-        and decision.status == "not_found"
-        and decision.query is not None
-    )
-    if not decision.terminal and not explicit_not_found:
-        return None
-
-    if explicit_not_found:
-        raw_output = get_player_snapshot(decision.query, bootstrap=bootstrap)
-    else:
-        raw_output = execute_player_lookup(decision, bootstrap)
     outcome = str(raw_output.get("status") or "error")
     final_text = render("get_player_snapshot", raw_output)
     meta = _extract_structured_meta(INTENT_PLAYER_SNAPSHOT, raw_output, outcome)
@@ -2472,6 +2445,61 @@ def _try_deterministic_player_lookup_response(
     except Exception:  # noqa: BLE001
         pass
     return result
+
+
+def respond_to_selected_player_id(
+    player_id: int,
+    bootstrap: dict[str, Any],
+    *,
+    include_debug: bool = False,
+) -> FinalResponse:
+    """Execute a wizard selection by stable id with no name/LLM fallback."""
+    from .get_player_snapshot import get_player_snapshot
+
+    raw_output = get_player_snapshot(player_id, bootstrap=bootstrap)
+    return _player_snapshot_response_from_raw(raw_output, include_debug=include_debug)
+
+
+def _try_deterministic_player_lookup_response(
+    user_message: str,
+    bootstrap: dict[str, Any],
+    *,
+    include_debug: bool,
+    resolver_debug: ResolverDebug | None,
+    intent_hint: str | None,
+    allow_explicit_not_found: bool = False,
+) -> FinalResponse | None:
+    """Return a rich deterministic player response, or fall through unchanged."""
+    # Accepted intent hints are specialized and retain priority over a general
+    # bare-name probe. Unknown hints are ignored by the dispatcher, so they
+    # must not suppress deterministic lookup on the session path either.
+    from .dispatcher import INTENT_HINT_ALLOWLIST
+
+    if intent_hint in INTENT_HINT_ALLOWLIST:
+        return None
+
+    from .player_lookup import classify_player_lookup, execute_player_lookup
+    from .get_player_snapshot import get_player_snapshot
+
+    decision = classify_player_lookup(user_message, bootstrap)
+    explicit_not_found = (
+        allow_explicit_not_found
+        and decision.explicit
+        and decision.status == "not_found"
+        and decision.query is not None
+    )
+    if not decision.terminal and not explicit_not_found:
+        return None
+
+    if explicit_not_found:
+        raw_output = get_player_snapshot(decision.query, bootstrap=bootstrap)
+    else:
+        raw_output = execute_player_lookup(decision, bootstrap)
+    return _player_snapshot_response_from_raw(
+        raw_output,
+        include_debug=include_debug,
+        resolver_debug=resolver_debug,
+    )
 
 
 def _try_session_orchestration_response(

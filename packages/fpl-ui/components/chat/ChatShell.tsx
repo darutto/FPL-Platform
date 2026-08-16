@@ -29,7 +29,7 @@ import { useUser } from '@clerk/nextjs';
 import { ask, sessionAsk, createSession, clearSession, FplApiError } from '@/lib/api';
 import { generateId } from '@/lib/id';
 import { buildSessionSeed } from '@/lib/session-seed';
-import type { AskResponse, SquadContext } from '@/lib/types';
+import type { AskResponse, SquadContext, Suggestion } from '@/lib/types';
 import { QUOTA_BUCKETS, type QuotaBucket } from '@/lib/tiers';
 import { readDevTier } from '@/lib/dev-tier';
 import MessageList, { type Message } from './MessageList';
@@ -122,7 +122,11 @@ export default function ChatShell() {
     setFollowUpArmedFor(null);
   }, []);
 
-  const sendMessage = useCallback(async (rawInput: string) => {
+  const sendMessage = useCallback(async (
+    rawInput: string,
+    selectedPlayerId?: number,
+    selectedPlayerSessionId?: string | null,
+  ) => {
     const trimmed = rawInput.trim();
     if (!trimmed || loading) return;
 
@@ -135,7 +139,7 @@ export default function ChatShell() {
     // escape hatch out of the wizard into something else.
     const isEscapeHatch = /^[/@]/.test(trimmed);
     const input =
-      compareWizard != null && !isEscapeHatch
+      selectedPlayerId == null && compareWizard != null && !isEscapeHatch
         ? compareWizard.playerA == null
           ? `/comparar ${trimmed}`
           : `/comparar ${compareWizard.playerA} vs ${trimmed}`
@@ -167,7 +171,9 @@ export default function ChatShell() {
     // only supported on the /ask (ask_v2) path — /session/{id}/ask still
     // runs the legacy respond() pipeline, which doesn't recognize them.
     const isResourceQuery = effectiveQuestion.trim().startsWith('@');
-    const isFollowUp = followUpArmedFor != null && !isResourceQuery;
+    const isFollowUp =
+      !isResourceQuery &&
+      (followUpArmedFor != null || (selectedPlayerId != null && selectedPlayerSessionId != null));
     // Named for readability, not because the value would otherwise be lost:
     // followUpArmedFor is closure-captured at this point in the running
     // call, so setFollowUpArmedFor(null) below only affects future renders.
@@ -183,9 +189,11 @@ export default function ChatShell() {
 
     try {
       let response: AskResponse;
+      let responseSessionId: string | null = null;
 
       const requestBody = {
         question: effectiveQuestion,
+        ...(selectedPlayerId != null ? { selected_player_id: selectedPlayerId } : {}),
         intent_hint: intentHint,
         // squad_context is passed on every turn; null when no team connected
         squad_context: squadContext ?? null,
@@ -197,7 +205,7 @@ export default function ChatShell() {
       };
 
       if (isFollowUp) {
-        let activeId = sessionId;
+        let activeId = selectedPlayerSessionId ?? sessionId;
         if (activeId === null) {
           // Brand-new session — seed it from the prior turn's already-in-
           // memory response, so follow-up resolvers (comparison, transfer,
@@ -217,6 +225,7 @@ export default function ChatShell() {
         }
         try {
           response = await sessionAsk(activeId, requestBody);
+          responseSessionId = activeId;
         } catch (err) {
           if (err instanceof FplApiError && err.status === 404) {
             setSessionId(null);
@@ -276,7 +285,13 @@ export default function ChatShell() {
         response.suggestions != null &&
         response.suggestions.length > 0
       ) {
-        setPlayerPickWizard({ options: response.suggestions });
+        const stableIdOptions = response.suggestions.filter(
+          (suggestion): suggestion is Suggestion & { player_id: number } =>
+            suggestion.player_id != null,
+        );
+        if (stableIdOptions.length === response.suggestions.length) {
+          setPlayerPickWizard({ options: stableIdOptions, sessionId: responseSessionId });
+        }
       }
       // Refresh quota indicator after every completed turn
       setQuotaRefreshTrigger((n) => n + 1);
@@ -314,13 +329,13 @@ export default function ChatShell() {
     }
   }, [compareWizard, sendMessage]);
 
-  // Single-tap player disambiguation: the tapped candidate's send_text
-  // ("{web_name} {team_short}") is already a complete, unambiguous query —
-  // unlike the compare wizard there's no second slot to fill, so this just
-  // sends it straight through the normal path (which also clears the wizard).
-  const handlePlayerPick = useCallback((sendText: string) => {
-    sendMessage(sendText);
-  }, [sendMessage]);
+  // Single-tap player disambiguation: show the friendly label in the user
+  // bubble, but submit the stable FPL element id as authoritative data. If the
+  // ambiguity came from a session turn, keep the selection in that session.
+  const handlePlayerPick = useCallback((suggestion: Suggestion) => {
+    if (suggestion.player_id == null) return;
+    sendMessage(suggestion.label, suggestion.player_id, playerPickWizard?.sessionId ?? null);
+  }, [playerPickWizard, sendMessage]);
 
   // Quick commands ("Vistas rápidas") are complete queries — send immediately
   // and jump to the chat screen, skipping the edit step.

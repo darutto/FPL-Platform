@@ -35,6 +35,8 @@ export interface CompareWizardState {
  */
 export interface PlayerPickWizardState {
   options: Suggestion[];
+  /** Session that produced the ambiguity, or null for a stateless turn. */
+  sessionId: string | null;
 }
 
 interface Props {
@@ -83,8 +85,8 @@ export default function SuggestionChips({ wizard, onPick }: Props) {
 
 interface PlayerPickProps {
   wizard: PlayerPickWizardState;
-  /** Called with the tapped chip's send_text — resolves the turn in one tap. */
-  onPick: (sendText: string) => void;
+  /** Called with the complete stable-id suggestion; resolves in one tap. */
+  onPick: (suggestion: Suggestion) => void;
 }
 
 export function PlayerPickChips({ wizard, onPick }: PlayerPickProps) {
@@ -96,9 +98,9 @@ export function PlayerPickChips({ wizard, onPick }: PlayerPickProps) {
       <div className="mt-2 flex flex-wrap gap-2">
         {wizard.options.map((chip) => (
           <button
-            key={chip.send_text}
+            key={chip.player_id ?? chip.send_text}
             type="button"
-            onClick={() => onPick(chip.send_text)}
+            onClick={() => onPick(chip)}
             className="inline-flex items-center rounded-full border border-bf-turquoise/40 bg-bf-turquoise/10 px-3 py-1.5 text-[13px] font-medium text-bf-turquoise transition-colors hover:bg-bf-turquoise/20 hover:border-bf-turquoise/60 active:bg-bf-turquoise/25"
           >
             {chip.label}

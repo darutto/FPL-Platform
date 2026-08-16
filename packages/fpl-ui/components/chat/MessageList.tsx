@@ -12,7 +12,7 @@
  *   - Show a visible origin badge for assistant turns in both shapes.
  */
 import { useEffect, useRef } from 'react';
-import type { AskResponse, Outcome } from '@/lib/types';
+import type { AskResponse, Outcome, Suggestion } from '@/lib/types';
 import type { WcAskResponse } from '@/lib/wc-types';
 import { selectIntentView } from '@/lib/intent-renderer';
 import { selectWcIntentView } from '@/lib/wc-intent-renderer';
@@ -50,12 +50,12 @@ interface Props {
   /** Guided Comparison wizard state — non-null while a compare wizard is armed.
    *  Chips render ONLY under the latest top-level assistant bubble. */
   compareWizard?: CompareWizardState | null;
-  /** Called with a tapped chip's send_text. */
+  /** Called with the complete stable-id player suggestion. */
   onSuggestionPick?: (sendText: string) => void;
   /** Single-tap player disambiguation wizard state (player_snapshot intent). */
   playerPickWizard?: PlayerPickWizardState | null;
   /** Called with a tapped chip's send_text. */
-  onPlayerPick?: (sendText: string) => void;
+  onPlayerPick?: (suggestion: Suggestion) => void;
 }
 
 export default function MessageList({
@@ -116,7 +116,7 @@ interface MessageBubbleProps {
   compareWizard?: CompareWizardState | null;
   onSuggestionPick?: (sendText: string) => void;
   playerPickWizard?: PlayerPickWizardState | null;
-  onPlayerPick?: (sendText: string) => void;
+  onPlayerPick?: (suggestion: Suggestion) => void;
 }
 
 function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, compareWizard, onSuggestionPick, playerPickWizard, onPlayerPick }: MessageBubbleProps) {
@@ -130,8 +130,15 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
   // own Spanish copy) must stay hidden for this turn FOREVER, not just while
   // the wizard is still active — otherwise it reappears the moment the wizard
   // completes and `compareWizard` resets to null.
+  const responseSuggestions = message.response?.suggestions;
   const hasSuggestions =
-    !isUser && !message.isError && (message.response?.suggestions?.length ?? 0) > 0;
+    !isUser &&
+    !message.isError &&
+    (responseSuggestions?.length ?? 0) > 0 &&
+    (
+      message.response?.intent !== 'player_snapshot' ||
+      responseSuggestions!.every((suggestion) => suggestion.player_id != null)
+    );
   // Guided Comparison chips: only under the LATEST top-level assistant bubble
   // (never historical turns, never sub-responses) while a wizard is armed.
   const showWizard = hasSuggestions && isLast && compareWizard != null && onSuggestionPick != null;

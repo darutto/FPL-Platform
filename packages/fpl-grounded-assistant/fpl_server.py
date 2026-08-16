@@ -80,7 +80,7 @@ for _pkg in [
         sys.path.insert(0, _pkg)
 
 from fastapi import FastAPI, HTTPException, Request
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, field_validator, model_validator
 
 from fpl_grounded_assistant import respond
 from fpl_grounded_assistant.player_form import _element_summary_guard  # Phase 2.6d.3 — guard stats
@@ -268,6 +268,7 @@ class AskRequest(BaseModel):
     """Incoming question payload."""
 
     question: str
+    selected_player_id: StrictInt | None = None
     debug: bool = False
     candidates_list: list[dict[str, Any]] | None = None  # Phase 5p
     squad_context: dict[str, Any] | None = None          # Phase 8e1: optional per-turn squad state
@@ -325,8 +326,8 @@ class AskResponse(BaseModel):
     # Track A: additive renderable card composed only from deterministic metadata
     # (never LLM text). Non-null for composer-backed plain-text intents on OK turns.
     generic_card:         dict[str, Any] | None = None
-    # Guided Comparison flow: tappable player-name suggestions. Non-null only on
-    # a compare_players needs_clarification turn. Each item {label, send_text}.
+    # Tappable comparison or player-disambiguation suggestions. Player-pick
+    # items additionally carry a stable FPL element id as ``player_id``.
     suggestions:          list[dict[str, Any]] | None = None
     # Phase A1 (post-graduation): full ResourceListResult dict for @resource turns; null for all other intents.
     resource_rows:        dict[str, Any] | None = None
@@ -1821,7 +1822,9 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
     # is observable, but we never block these turns.
     # ------------------------------------------------------------------
     _question_stripped = req.question.lstrip()
-    _is_deterministic_prefix = _question_stripped.startswith("@") or _question_stripped.startswith("/")
+    _is_deterministic_prefix = req.selected_player_id is None and (
+        _question_stripped.startswith("@") or _question_stripped.startswith("/")
+    )
 
     # ------------------------------------------------------------------
     # Phase P3.1: pre-call quota gate.
@@ -1900,6 +1903,7 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
         candidates_list=req.candidates_list,
         classifier_client=_classifier_client,  # Phase 4l
         web_search_enabled=web_search_enabled,
+        selected_player_id=req.selected_player_id,
     )
 
     # ------------------------------------------------------------------
@@ -2086,7 +2090,7 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
 
     # P3.f (F2 remediation): deterministic-prefix bypass (same as /ask boundary).
     _sess_question_stripped = req.question.lstrip()
-    _sess_is_deterministic = (
+    _sess_is_deterministic = req.selected_player_id is None and (
         _sess_question_stripped.startswith("@") or _sess_question_stripped.startswith("/")
     )
     _sess_quota = check_quota(_sess_user_id, _sess_tier) if not _sess_is_deterministic else None
@@ -2121,19 +2125,27 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
             llm_used=False,
         )
 
-    r = entry.session.respond(
-        req.question, _bootstrap,
-        include_debug=req.debug,
-        candidates_list=req.candidates_list,
-        classifier_client=_classifier_client,  # Phase 4l
-        squad_context=req.squad_context,        # Phase 8e1
-        intent_hint=req.intent_hint,            # V2
-    )
+    if req.selected_player_id is not None:
+        r = entry.session.respond_to_selected_player_id(
+            req.selected_player_id,
+            _bootstrap,
+            question_text=req.question,
+            include_debug=req.debug,
+        )
+    else:
+        r = entry.session.respond(
+            req.question, _bootstrap,
+            include_debug=req.debug,
+            candidates_list=req.candidates_list,
+            classifier_client=_classifier_client,  # Phase 4l
+            squad_context=req.squad_context,        # Phase 8e1
+            intent_hint=req.intent_hint,            # V2
+        )
     entry.last_used_at = time.time()
 
     # Phase P3.1 / P3.f (F1 remediation): post-call quota accounting + audit for session turns.
     # Grad-D D3-B: token count now surfaced via entry.session.last_tokens.
-    if entry.session.last_tokens == 0 and is_orch_enabled():
+    if entry.session.last_tokens == 0 and is_orch_enabled() and req.selected_player_id is None:
         _LOG.warning(
             "session turn recorded with tokens=0 despite orch enabled — "
             "possible token surfacing failure for user=%s tier=%s",
