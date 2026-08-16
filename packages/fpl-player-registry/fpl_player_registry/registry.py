@@ -59,6 +59,16 @@ def _fold(s: str) -> str:
     )
 
 
+def _alias_key(value: str) -> str:
+    """Normalize aliases symmetrically without importing the resolver module."""
+    folded = _fold(value)
+    folded = "".join(
+        " " if char in "-‐‑‒–—―−" else "" if char in "'’‘ʼ`" else char
+        for char in folded
+    )
+    return " ".join(folded.split())
+
+
 # ---------------------------------------------------------------------------
 # PlayerRecord — canonical identity for one player
 # ---------------------------------------------------------------------------
@@ -212,26 +222,31 @@ class PlayerRegistry:
         # Falls back to second_name lookup when web_name key doesn't match the
         # live FPL web_name (e.g. KNOWN_NICKNAMES["Salah"] still resolves even
         # after FPL renamed the player to "M.Salah").
-        self._by_alias: dict[str, PlayerRecord] = {}
+        by_web_alias_key: dict[str, list[PlayerRecord]] = {}
+        by_first_alias_key: dict[str, list[PlayerRecord]] = {}
+        by_second_alias_key: dict[str, list[PlayerRecord]] = {}
+        for record in records:
+            by_web_alias_key.setdefault(_alias_key(record.web_name), []).append(record)
+            by_first_alias_key.setdefault(_alias_key(record.first_name), []).append(record)
+            by_second_alias_key.setdefault(_alias_key(record.second_name), []).append(record)
+
+        self._by_alias: dict[str, set[int]] = {}
         for web_name, aliases in KNOWN_NICKNAMES.items():
-            matched = next(
-                (r for r in records if r.web_name.lower() == web_name.lower()),
-                None,
-            )
-            if matched is None:
-                # Fallback: look up by second_name or first_name
-                matched = (
-                    self._by_second_name.get(web_name.lower())
-                    or self._by_first_name.get(web_name.lower())
-                )
-            if matched is None:
+            target_key = _alias_key(web_name)
+            matched = list(by_web_alias_key.get(target_key, ()))
+            if not matched:
+                matched.extend(by_second_alias_key.get(target_key, ()))
+                matched.extend(by_first_alias_key.get(target_key, ()))
+            if not matched:
                 continue
+            target_ids = {record.id for record in matched}
             for alias in aliases:
-                self._by_alias[alias.lower()] = matched
+                alias_key = _alias_key(alias)
+                self._by_alias.setdefault(alias_key, set()).update(target_ids)
                 # Also index with "el " prefix stripped
-                stripped = alias.lower().removeprefix("el ").strip()
-                if stripped and stripped != alias.lower():
-                    self._by_alias.setdefault(stripped, matched)
+                stripped = alias_key.removeprefix("el ").strip()
+                if stripped and stripped != alias_key:
+                    self._by_alias.setdefault(stripped, set()).update(target_ids)
 
     # ------------------------------------------------------------------
     # Lookups
@@ -328,13 +343,18 @@ class PlayerRegistry:
         Does NOT perform fuzzy matching — that is Phase 2+.
         Returns ``None`` if the alias is not recognised.
         """
-        a = alias.strip().lower()
-        if a in self._by_alias:
-            return self._by_alias[a]
+        a = _alias_key(alias.strip())
+        player_ids = self._by_alias.get(a, set())
+        if len(player_ids) == 1:
+            return self._by_id[next(iter(player_ids))]
+        if len(player_ids) > 1:
+            return None
         # Strip "el " prefix and retry
         stripped = a.removeprefix("el ").strip()
         if stripped and stripped != a:
-            return self._by_alias.get(stripped)
+            player_ids = self._by_alias.get(stripped, set())
+            if len(player_ids) == 1:
+                return self._by_id[next(iter(player_ids))]
         return None
 
     # ------------------------------------------------------------------

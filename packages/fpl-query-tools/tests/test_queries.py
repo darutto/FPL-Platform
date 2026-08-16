@@ -133,6 +133,11 @@ class TestResolveByWebName:
 # ===========================================================================
 
 class TestResolveByExactName:
+    def test_unique_prefix_resolves(self, players, teams):
+        from fpl_query_tools import resolve_player_query
+        rec = resolve_player_query("Haal", players, teams)
+        assert rec is not None and rec.id == 1
+
     def test_second_name_resolves(self, players, teams):
         from fpl_query_tools import resolve_player_query
         rec = resolve_player_query("De Bruyne", players, teams)
@@ -253,6 +258,13 @@ class TestGetPlayerSummaryHit:
         result = get_player_summary("KDB", players, teams)
         assert result["query_resolved_via"] == "alias"
         assert result["id"] == 4
+
+    def test_prefix_preserves_existing_strategy_enum(self, players, teams):
+        from fpl_query_tools import get_player_summary
+        result = get_player_summary("Haal", players, teams)
+        assert result is not None
+        assert result["id"] == 1
+        assert result["query_resolved_via"] == "exact_name"
 
 
 # ===========================================================================

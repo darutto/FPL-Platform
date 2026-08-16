@@ -421,38 +421,34 @@ def _resolve_player(
     meta: dict with web_name, team_short, position, player_id
     """
     from fpl_api_client.fpl_client import get_players, get_teams  # noqa: PLC0415
-    from fpl_player_registry import build_registry               # noqa: PLC0415
-    from fpl_query_tools import get_player_summary               # noqa: PLC0415
+    from fpl_player_registry import resolve_player_candidates     # noqa: PLC0415
 
     players = get_players(bootstrap)
     teams   = get_teams(bootstrap)
 
-    q = str(query).strip()
-    try:
-        int(q)
-        is_numeric = True
-    except (ValueError, TypeError):
-        is_numeric = False
-
-    if not is_numeric:
-        reg = build_registry(players, teams)
-        if q.lower() in reg.ambiguous_web_names:
-            return "ambiguous", None, {}
-
-    summary = get_player_summary(q, players, teams)
-    if summary is None:
+    resolution = resolve_player_candidates(
+        query,
+        players,
+        teams,
+        allow_prefix=True,
+        allow_substring=False,
+    )
+    if resolution.status == "ambiguous":
+        return "ambiguous", None, {}
+    match = resolution.player
+    if match is None:
         return "not_found", None, {}
 
     element = next(
-        (e for e in bootstrap.get("elements", []) if e.get("id") == summary["id"]),
+        (e for e in bootstrap.get("elements", []) if e.get("id") == match.record.id),
         None,
     )
 
     meta = {
-        "player_id":  summary["id"],
-        "web_name":   summary["web_name"],
-        "team_short": summary["team_short"],
-        "position":   summary["position"],
+        "player_id":  match.record.id,
+        "web_name":   match.record.web_name,
+        "team_short": match.record.team_short_name,
+        "position":   _position_label(match.record.element_type),
     }
     return "ok", element, meta
 

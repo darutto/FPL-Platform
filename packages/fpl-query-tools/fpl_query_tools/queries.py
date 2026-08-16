@@ -14,10 +14,10 @@ Design rules for this layer
 - Each public function accepts raw bootstrap dicts; it builds internal
   structures on demand (no shared mutable state)
 - Resolution order for player queries:
-    1. Numeric id  (cast query → int → lookup_by_id)
-    2. Exact web_name (case-insensitive)
-    3. Exact name  (web_name > second_name > first_name)
-    4. Alias / nickname (KNOWN_NICKNAMES table)
+    1. Numeric id
+    2. Exact normalized canonical name or alias
+    3. Exact first, second, web, or full name
+    4. Unambiguous prefix
 - get_player_summary records which strategy resolved the query in the
   returned dict under "query_resolved_via" — useful for chat interface logs
 - No LLM integration, no fuzzy matching, no consumer-project wiring
@@ -34,7 +34,7 @@ from typing import Any
 
 from fpl_api_client.fpl_client import get_current_gameweek as _api_get_gw
 from fpl_data_core.schemas import POSITION_MAP
-from fpl_player_registry import PlayerRecord, build_registry
+from fpl_player_registry import PlayerRecord, resolve_player_candidates
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -57,60 +57,25 @@ def _build_and_resolve(
     """Build a registry and resolve *query*, returning (record, strategy).
 
     Strategy is one of: "id" | "web_name" | "exact_name" | "alias" | None.
+    Prefix matches use the legacy-compatible ``exact_name`` label.
     This is the single authoritative resolution path used by both public
     functions so they stay consistent.
     """
-    reg = build_registry(players, teams)
-    q = str(query).strip()
-
-    # 1. Numeric id
-    try:
-        rec = reg.lookup_by_id(int(q))
-        if rec is not None:
-            return rec, "id"
-    except (ValueError, TypeError):
-        pass
-
-    # An ambiguous web_name must not be resolved by the name-matching steps.
-    # Each lookup below is well-behaved alone -- lookup_by_web_name declines an
-    # ambiguous name, and lookup_by_exact_name is documented to tie-break
-    # second_name collisions by ownership -- but composing them re-answers the
-    # question step 2 correctly refused: two players named "Johnson" also share
-    # the second_name "Johnson", so step 3 resolves to whichever is more owned.
-    #
-    # That contradicts this function's own contract ("None if no unambiguous
-    # match is found") and the resolution order it documents, where web_name is
-    # "exact, unambiguous only". Guarded here rather than by weakening
-    # lookup_by_exact_name, whose per-attribute tie-break is deliberate and
-    # correct for a query that is *not* an ambiguous web_name.
-    #
-    # Mirrors what fpl_grounded_assistant/player_form.py:438 already does
-    # defensively before calling in -- the guard belongs in the shared
-    # resolution path, not in each caller that remembers to write it.
-    #
-    # Scoped to steps 2-3. Step 4 stays reachable on purpose: KNOWN_NICKNAMES is
-    # hand-curated, so an alias naming one specific player is a deliberate
-    # disambiguation and is exactly what *should* still resolve an otherwise
-    # ambiguous string.
-    web_name_ambiguous = q.lower() in reg.ambiguous_web_names
-
-    if not web_name_ambiguous:
-        # 2. Exact web_name
-        rec = reg.lookup_by_web_name(q)
-        if rec is not None:
-            return rec, "web_name"
-
-        # 3. Exact name (web > second > first; handled inside lookup_by_exact_name)
-        rec = reg.lookup_by_exact_name(q)
-        if rec is not None:
-            return rec, "exact_name"
-
-    # 4. Alias / nickname table
-    rec = reg.lookup_by_alias(q)
-    if rec is not None:
-        return rec, "alias"
-
-    return None, None
+    resolution = resolve_player_candidates(
+        query,
+        players,
+        teams,
+        allow_prefix=True,
+        allow_substring=False,
+    )
+    match = resolution.player
+    if match is None:
+        return None, None
+    # The legacy query/tool contracts expose a fixed four-value strategy enum.
+    # Prefix support is new resolver behavior, but the public schema remains
+    # unchanged in this slice; report it through the existing name strategy.
+    via = "exact_name" if match.matched_via == "prefix" else match.matched_via
+    return match.record, via
 
 
 # ---------------------------------------------------------------------------
@@ -127,8 +92,8 @@ def resolve_player_query(
     Parameters
     ----------
     query:
-        Any of: FPL element id (int or numeric string), web_name,
-        first/second name, or a known nickname alias (e.g. "KDB", "Mo").
+        Any of: FPL element id (int or numeric string), web_name, full name,
+        first/second name, known alias, or an unambiguous name prefix.
     players:
         Player list from ``fpl_api_client.get_players(bootstrap)``.
     teams:
@@ -139,12 +104,8 @@ def resolve_player_query(
     PlayerRecord | None
         The resolved player, or ``None`` if no unambiguous match is found.
 
-    Resolution order
-    ----------------
-    1. Numeric id  → ``registry.lookup_by_id``
-    2. web_name    → ``registry.lookup_by_web_name``  (exact, unambiguous only)
-    3. Exact name  → ``registry.lookup_by_exact_name`` (web > second > first)
-    4. Alias       → ``registry.lookup_by_alias`` (KNOWN_NICKNAMES table)
+    Resolution uses the canonical collision-safe player resolver. Only the
+    best non-empty rank is considered; ties are returned as ``None``.
     """
     rec, _ = _build_and_resolve(query, players, teams)
     return rec

@@ -41,6 +41,12 @@ from fpl_grounded_assistant.find_players import (  # noqa: E402
     _ALIAS_TO_WEBNAME,
 )
 from fpl_grounded_assistant.get_player_snapshot import get_player_snapshot  # noqa: E402
+from fpl_grounded_assistant.get_player_history import (  # noqa: E402
+    _resolve_player as resolve_history_player,
+)
+from fpl_grounded_assistant.player_form import (  # noqa: E402
+    _resolve_player as resolve_form_player,
+)
 
 
 @pytest.fixture
@@ -71,6 +77,24 @@ def bs() -> dict:
             {"id": 13, "first_name": "Erling", "second_name": "Haaland",
              "web_name": "Haaland", "team": 4, "element_type": 4,
              "total_points": 200, "minutes": 900, "status": "a", "now_cost": 150, "selected_by_percent": "10.0"},
+            {"id": 14, "first_name": "Callum", "second_name": "Hudson-Odoi",
+             "web_name": "Hudson-Odoi", "team": 3, "element_type": 3,
+             "total_points": 80, "minutes": 900, "status": "a"},
+            {"id": 15, "first_name": "Emile", "second_name": "Smith Rowe",
+             "web_name": "Smith Rowe", "team": 1, "element_type": 3,
+             "total_points": 70, "minutes": 900, "status": "a"},
+            {"id": 16, "first_name": "James", "second_name": "Ward-Prowse",
+             "web_name": "Ward-Prowse", "team": 2, "element_type": 3,
+             "total_points": 60, "minutes": 900, "status": "a"},
+            {"id": 17, "first_name": "Kevin", "second_name": "De Bruyne",
+             "web_name": "De Bruyne", "team": 4, "element_type": 3,
+             "total_points": 150, "minutes": 900, "status": "a"},
+            {"id": 18, "first_name": "Trent", "second_name": "Alexander-Arnold",
+             "web_name": "Alexander-Arnold", "team": 2, "element_type": 2,
+             "total_points": 130, "minutes": 900, "status": "a"},
+            {"id": 19, "first_name": "Mohamed", "second_name": "Salah",
+             "web_name": "Salah", "team": 2, "element_type": 3,
+             "total_points": 190, "minutes": 900, "status": "a"},
         ],
     }
 
@@ -96,6 +120,9 @@ def test_alias_index_has_new_abbreviations():
     assert _ALIAS_TO_WEBNAME["vvd"] == "Van Dijk"
     assert _ALIAS_TO_WEBNAME["mgw"] == "Gibbs-White"
     assert _ALIAS_TO_WEBNAME["mgg"] == "Gibbs-White"
+    assert _ALIAS_TO_WEBNAME["cho"] == "Hudson-Odoi"
+    assert _ALIAS_TO_WEBNAME["esr"] == "Smith Rowe"
+    assert _ALIAS_TO_WEBNAME["jwp"] == "Ward-Prowse"
     # pre-existing initialisms still present
     assert _ALIAS_TO_WEBNAME["kdb"] == "De Bruyne"
     assert _ALIAS_TO_WEBNAME["taa"] == "Alexander-Arnold"
@@ -114,6 +141,12 @@ def test_alias_index_has_new_abbreviations():
     ("VVD",           "Van Dijk"),
     ("MGW",           "Gibbs-White"),
     ("MGG",           "Gibbs-White"),
+    ("CHO",           "Hudson-Odoi"),
+    ("ESR",           "Smith Rowe"),
+    ("JWP",           "Ward-Prowse"),
+    ("KDB",           "De Bruyne"),
+    ("TAA",           "Alexander-Arnold"),
+    ("Mo",            "Salah"),
     ("erling",        "Haaland"),         # existing first-name nickname now wired
 ])
 def test_find_players_resolves_hyphen_and_abbreviations(bs, query, expected):
@@ -137,8 +170,29 @@ def test_find_players_unknown_abbreviation_still_not_found(bs):
     ("DCL",           "Calvert-Lewin"),
     ("VVD",           "Van Dijk"),
     ("MGW",           "Gibbs-White"),
+    ("MGG",           "Gibbs-White"),
+    ("CHO",           "Hudson-Odoi"),
+    ("ESR",           "Smith Rowe"),
+    ("JWP",           "Ward-Prowse"),
+    ("KDB",           "De Bruyne"),
+    ("TAA",           "Alexander-Arnold"),
+    ("Mo",            "Salah"),
 ])
 def test_get_player_snapshot_resolves_hyphen_and_abbreviations(bs, query, expected):
     r = get_player_snapshot(query, bootstrap=bs)
     assert r["status"] == "ok"
     assert r["player"]["web_name"] == expected
+
+
+def test_history_inherits_canonical_abbreviation_matching(bs):
+    r = resolve_history_player("DCL", bs)
+    assert r["status"] == "ok"
+    assert r["player_id"] == 10
+    assert r["web_name"] == "Calvert-Lewin"
+
+
+def test_form_inherits_canonical_abbreviation_matching(bs):
+    status, element, meta = resolve_form_player("DCL", bs)
+    assert status == "ok"
+    assert element is not None and element["id"] == 10
+    assert meta["web_name"] == "Calvert-Lewin"

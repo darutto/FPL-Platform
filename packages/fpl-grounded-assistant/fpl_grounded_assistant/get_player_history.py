@@ -20,7 +20,8 @@ Identical to get_player_snapshot (and get_player_snapshot re-uses find_players):
 4. Rank 2 — substring match: Any matches → ambiguous.
 5. No matches → not_found.
 
-Single source of truth: matching helpers imported from find_players.
+Single source of truth: canonical matching from ``fpl_player_registry`` and
+the shared grounding-payload builder from ``find_players``.
 
 History fetch
 -------------
@@ -53,6 +54,7 @@ import time
 from collections import OrderedDict
 from typing import Any
 
+from fpl_player_registry import resolve_player_candidates
 from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
 
@@ -143,45 +145,20 @@ def _resolve_player(
     teams: list[dict[str, Any]] = bootstrap.get("teams", []) or []
     element_types: list[dict[str, Any]] = bootstrap.get("element_types", []) or []
 
-    rank_bucket: dict[int, int] = {}
+    resolution = resolve_player_candidates(
+        player_name,
+        elements,
+        teams,
+        allow_prefix=True,
+        allow_substring=True,
+    )
+    best_matches = list(resolution.best_matches)
+    elements_by_id = {el.get("id"): el for el in elements}
 
-    for el in elements:
-        el_id = el.get("id")
-        if el_id is None:
-            continue
-
-        first   = _normalize(el.get("first_name", "") or "")
-        second  = _normalize(el.get("second_name", "") or "")
-        web     = _normalize(el.get("web_name", "") or "")
-        composite = f"{first} {second} {web}"
-
-        if normalized_query in (first, second, web):
-            rank_bucket[el_id] = 0
-            continue
-        if (
-            first.startswith(normalized_query)
-            or second.startswith(normalized_query)
-            or web.startswith(normalized_query)
-        ):
-            rank_bucket[el_id] = 1
-            continue
-        if normalized_query in composite:
-            rank_bucket[el_id] = 2
-
-    def _at_rank(target_rank: int) -> list[dict[str, Any]]:
-        bucket = [
-            el for el in elements
-            if rank_bucket.get(el.get("id")) == target_rank
-        ]
-        bucket.sort(key=lambda el: -_safe_int(el.get("total_points"), 0))
-        return bucket
-
-    exact_matches  = _at_rank(0)
-    prefix_matches = _at_rank(1)
-    substr_matches = _at_rank(2)
-
-    def _ok_from_element(el: dict[str, Any]) -> dict[str, Any]:
-        payload = _build_match_dict(el, teams, element_types, match_rank=0)
+    def _ok_from_match(match: Any) -> dict[str, Any]:
+        payload = _build_match_dict(
+            elements_by_id[match.record.id], teams, element_types, match.rank
+        )
         return {
             "status":     "ok",
             "player_id":  payload["id"],
@@ -190,10 +167,12 @@ def _resolve_player(
             "position":   payload["position"],
         }
 
-    def _ambiguous_from(els: list[dict[str, Any]], rank: int) -> dict[str, Any]:
+    def _ambiguous_from(matches: list[Any]) -> dict[str, Any]:
         candidates = [
-            _build_match_dict(el, teams, element_types, match_rank=rank)
-            for el in els[:_MAX_AMBIGUOUS_CANDIDATES]
+            _build_match_dict(
+                elements_by_id[match.record.id], teams, element_types, match.rank
+            )
+            for match in matches[:_MAX_AMBIGUOUS_CANDIDATES]
         ]
         return {
             "status":     "ambiguous",
@@ -202,18 +181,10 @@ def _resolve_player(
             "message":    f"Multiple players match '{normalized_query}'. Please specify.",
         }
 
-    if len(exact_matches) == 1:
-        return _ok_from_element(exact_matches[0])
-    if len(exact_matches) > 1:
-        return _ambiguous_from(exact_matches, 0)
-
-    if len(prefix_matches) == 1:
-        return _ok_from_element(prefix_matches[0])
-    if len(prefix_matches) > 1:
-        return _ambiguous_from(prefix_matches, 1)
-
-    if len(substr_matches) > 0:
-        return _ambiguous_from(substr_matches, 2)
+    if len(best_matches) == 1 and best_matches[0].rank < 2:
+        return _ok_from_match(best_matches[0])
+    if best_matches:
+        return _ambiguous_from(best_matches)
 
     return {
         "status":  "not_found",
