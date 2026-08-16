@@ -351,6 +351,9 @@ def test_stateless_and_session_ambiguity_match(bootstrap: dict):
     assert [item["send_text"] for item in stateless.suggestions] == [
         item.send_text for item in stateful.suggestions
     ]
+    assert [item["player_id"] for item in stateless.suggestions] == [
+        item.player_id for item in stateful.suggestions
+    ]
 
 
 def test_http_stateless_and_session_player_contracts_match(monkeypatch, bootstrap: dict):

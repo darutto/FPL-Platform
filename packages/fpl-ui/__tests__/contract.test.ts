@@ -44,6 +44,7 @@ const fixtures = JSON.parse(fs.readFileSync(fixturesPath, 'utf-8'));
 // ---------------------------------------------------------------------------
 const KNOWN_REQUEST_KEYS: Set<keyof AskRequest> = new Set([
   'question',
+  'selected_player_id',
   'debug',
   'candidates_list',
   'squad_context',

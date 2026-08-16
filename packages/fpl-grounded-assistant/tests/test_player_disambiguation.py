@@ -139,8 +139,12 @@ def test_ambiguous_player_snapshot_reports_ambiguous_outcome(monkeypatch, bootst
     suggestions = result["player_suggestions"]
     assert suggestions is not None
     assert len(suggestions) == 2
-    assert suggestions[0] == {"label": "Johnson (CHE)", "send_text": "Johnson CHE"}
-    assert suggestions[1] == {"label": "Johnson (MUN)", "send_text": "Johnson MUN"}
+    assert suggestions[0] == {
+        "label": "Johnson (CHE)", "send_text": "Johnson CHE", "player_id": 6,
+    }
+    assert suggestions[1] == {
+        "label": "Johnson (MUN)", "send_text": "Johnson MUN", "player_id": 7,
+    }
 
 
 def test_ok_player_snapshot_has_no_suggestions(monkeypatch, bootstrap):

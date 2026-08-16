@@ -141,17 +141,18 @@ def _split_team_hint(
 # ---------------------------------------------------------------------------
 
 def get_player_snapshot(
-    player_name: str,
+    player_name: str | int,
     bootstrap: "dict[str, Any] | None" = None,
 ) -> dict[str, Any]:
-    """Single player full grounding payload by name.
+    """Single player full grounding payload by name or FPL element id.
 
     Resolution: exact match (case + accent insensitive) wins immediately.
     If multiple exact matches OR multiple prefix matches without a tiebreaker,
     return status='ambiguous' with up to 5 candidates (LLM decides what to do).
 
     Args:
-        player_name: player name (case-insensitive, unicode-normalized).
+        player_name: player name (case-insensitive, unicode-normalized) or
+            numeric FPL element id.
         bootstrap: live FPL bootstrap; if None, returns not_found.
 
     Returns one of:
@@ -187,14 +188,20 @@ def get_player_snapshot(
     # ------------------------------------------------------------------
     # 0. Validate and normalize inputs
     # ------------------------------------------------------------------
-    if not isinstance(player_name, str) or not player_name.strip():
+    if isinstance(player_name, bool) or not isinstance(player_name, (str, int)):
         return {
             "status":  "error",
             "code":    "invalid_argument",
-            "message": "player_name must be a non-empty string.",
+            "message": "player_name must be a non-empty string or integer element id.",
+        }
+    if isinstance(player_name, str) and not player_name.strip():
+        return {
+            "status":  "error",
+            "code":    "invalid_argument",
+            "message": "player_name must be a non-empty string or integer element id.",
         }
 
-    normalized_query = _normalize(player_name.strip())
+    normalized_query = _normalize(str(player_name).strip())
 
     # ------------------------------------------------------------------
     # 1. Guard: bootstrap required
@@ -277,7 +284,7 @@ def get_player_snapshot(
 GET_PLAYER_SNAPSHOT_SPEC = ToolSpec(
     name="get_player_snapshot",
     description=(
-        "Single player full grounding payload by name. Returns status=ok+player "
+        "Single player full grounding payload by name or numeric FPL element id. Returns status=ok+player "
         "(1 match), ambiguous+candidates (multi-match), or not_found. "
         "For candidate lists use find_players instead."
     ),
@@ -285,8 +292,8 @@ GET_PLAYER_SNAPSHOT_SPEC = ToolSpec(
         "type": "object",
         "properties": {
             "player_name": {
-                "type":        "string",
-                "description": "Player name (case-insensitive, accent-insensitive)",
+                "type":        ["string", "integer"],
+                "description": "Player name (case/accent-insensitive) or numeric FPL element id",
             },
         },
         "required":             ["player_name"],

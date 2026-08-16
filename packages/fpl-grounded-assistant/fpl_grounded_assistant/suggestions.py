@@ -25,9 +25,10 @@ one-line map entry.
 
 Schema (as implemented — the UI builds against this)
 ----------------------------------------------------
-``Suggestion``  {label: str, send_text: str}
+``Suggestion``  {label: str, send_text: str, player_id?: int}
     label      : short web_name, chip-friendly (e.g. "Saka")
     send_text  : text the UI sends when the chip is tapped (also web_name)
+    player_id  : stable FPL element id, player-disambiguation chips only
 """
 from __future__ import annotations
 
@@ -48,6 +49,7 @@ class Suggestion:
     """
     label: str
     send_text: str
+    player_id: int | None = None
 
 
 def _safe_int(value: Any, default: int = 0) -> int:
@@ -200,16 +202,17 @@ def player_disambiguation_suggestions(
         Suggestion(
             label=f"{candidate.get('web_name', '')} ({candidate.get('team_short', '')})",
             send_text=f"{candidate.get('web_name', '')} {candidate.get('team_short', '')}".strip(),
+            player_id=_safe_int(candidate.get("id"), 0) or None,
         )
         for candidate in candidates
-        if candidate.get("web_name")
+        if candidate.get("web_name") and _safe_int(candidate.get("id"), 0) > 0
     )
     return items or None
 
 
 def suggestions_to_list(
     suggestions: "tuple[Suggestion, ...] | None",
-) -> "list[dict[str, str]] | None":
+) -> "list[dict[str, Any]] | None":
     """Serialise a tuple of ``Suggestion`` to a JSON-safe list of dicts (or ``None``).
 
     Single-source serializer so the wire shape is identical across the /ask
@@ -217,14 +220,21 @@ def suggestions_to_list(
     """
     if not suggestions:
         return None
-    return [{"label": s.label, "send_text": s.send_text} for s in suggestions]
+    return [
+        {
+            "label": s.label,
+            "send_text": s.send_text,
+            **({"player_id": s.player_id} if s.player_id is not None else {}),
+        }
+        for s in suggestions
+    ]
 
 
 def build_suggestion_dicts(
     intent: "str | None",
     outcome: "str | None",
     bootstrap: "dict[str, Any] | None",
-) -> "list[dict[str, str]] | None":
+) -> "list[dict[str, Any]] | None":
     """Convenience: ``build_suggestions`` followed by ``suggestions_to_list``.
 
     Used by the /ask path (``ask_v2``), whose result dict carries JSON-safe
