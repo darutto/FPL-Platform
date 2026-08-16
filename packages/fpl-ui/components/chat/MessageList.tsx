@@ -22,6 +22,7 @@ import SuggestionChips, { PlayerPickChips, type CompareWizardState, type PlayerP
 import ShareActions from '@/components/share/ShareActions';
 import EvidenceBoundary from '@/components/intelligence/EvidenceBoundary';
 import EvidenceList from '@/components/intelligence/EvidenceList';
+import MarkdownLite from '@/components/MarkdownLite';
 
 export interface Message {
   id: string;
@@ -194,7 +195,17 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
             once superseded (wizard finished or a newer turn arrived), fall
             back to a static, non-interactive line so the turn still reads
             sensibly in history without the English text reappearing. */}
-        {!hasSuggestions && <p className="text-sm whitespace-pre-wrap">{message.text}</p>}
+        {!hasSuggestions &&
+          (isUser || message.isError ? (
+            // User prompts and error strings render verbatim (a user's literal
+            // asterisks/dashes must not become bold/bullets).
+            <p className="text-sm whitespace-pre-wrap">{message.text}</p>
+          ) : (
+            // Assistant prose (orchestrator synthesis, tool narration) renders
+            // as minimal markdown so open-ended answers read with hierarchy
+            // instead of a flat/raw text wall.
+            <MarkdownLite text={message.text} className="text-sm" />
+          ))}
         {hasSuggestions && !showWizard && !showPlayerPickWizard && (
           <p className="text-sm font-semibold text-bf-text/90">
             {message.response?.intent === 'player_snapshot'

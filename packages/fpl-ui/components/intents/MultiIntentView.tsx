@@ -32,6 +32,7 @@ import GenericCard from '@/components/intents/GenericCard';
 import InjuryListTable from '@/components/intents/InjuryListTable';
 import EvidenceBoundary from '@/components/intelligence/EvidenceBoundary';
 import EvidenceList from '@/components/intelligence/EvidenceList';
+import MarkdownLite from '@/components/MarkdownLite';
 
 interface Props {
   sub_responses: AskResponse[];
@@ -56,7 +57,11 @@ function SubCard({ response }: { response: AskResponse }) {
 
   return (
     <div className="min-w-0 overflow-hidden rounded-card border border-white/10 bg-white/[0.03] p-3 space-y-2">
-      <p className="break-words text-sm text-bf-text/80 leading-relaxed">{response.final_text}</p>
+      {response.final_text && (
+        <div className="break-words text-sm text-bf-text/80 leading-relaxed">
+          <MarkdownLite text={response.final_text} />
+        </div>
+      )}
       {safeView != null && renderSubView(safeView, response)}
       <EvidenceBoundary>
         <EvidenceList evidence={response.evidence} />
