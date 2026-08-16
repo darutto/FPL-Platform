@@ -636,7 +636,7 @@ def ask_v2(
     )
     from fpl_tool_runner import run_tool as _run_tool
     from .renderer import render as _render
-    from .dispatcher import _auto_candidates_from_bootstrap, OUTCOME_OK as _DISP_OUTCOME_OK, _TOOL_TO_INTENT
+    from .dispatcher import _auto_candidates_from_bootstrap, OUTCOME_OK as _DISP_OUTCOME_OK, _TOOL_TO_INTENT, INTENT_PLAYER_SNAPSHOT
     from .orch_config import (
         get_orch_model,
         get_orch_provider,
@@ -1003,6 +1003,35 @@ def ask_v2(
                     )
                     for c in _orch_raw.get("candidates", [])
                 ))
+            elif (
+                orch_result.tool_chosen == "find_players"
+                and _orch_raw.get("status") == "ok"
+                and len(_orch_raw.get("matches") or []) > 1
+            ):
+                # find_players is a pure NAME-lookup tool (it ranks by name
+                # match, not by filters), so a multi-match result IS an
+                # ambiguous player-name disambiguation — the same case
+                # get_player_snapshot signals with status="ambiguous", only
+                # reached via the other tool the orchestrator sometimes picks
+                # for the identical query (which tool it chooses is not fixed).
+                # PR #120 wired only get_player_snapshot to the pick wizard and
+                # flagged this exact fall-through as out of scope; close it here
+                # by routing find_players' multi-match through the SAME wizard
+                # so the flow is consistent regardless of the chosen tool.
+                # The pick wizard arms on intent=player_snapshot + suggestions,
+                # so tag both; the plain-text list is then suppressed in favour
+                # of the chips (MessageList hides message.text when suggestions
+                # are present).
+                from .suggestions import Suggestion, suggestions_to_list  # noqa: PLC0415
+                result["player_suggestions"] = suggestions_to_list(tuple(
+                    Suggestion(
+                        label=f"{m.get('web_name', '')} ({m.get('team_short', '')})",
+                        send_text=f"{m.get('web_name', '')} {m.get('team_short', '')}",
+                    )
+                    for m in _orch_raw.get("matches", [])
+                ))
+                result["intent"]  = INTENT_PLAYER_SNAPSHOT
+                result["outcome"] = "ambiguous"
             if orch_result.tool_chosen in {
                 "get_expected_minutes",
                 "get_tactical_role",
