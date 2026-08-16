@@ -50,7 +50,10 @@ from fpl_grounded_assistant.generic_card import (  # noqa: E402
     GenericCardMeta,
     generic_card_to_dict,
 )
-from fpl_grounded_assistant.rank_players_by_metric import _METRIC_ALIASES  # noqa: E402
+from fpl_grounded_assistant.rank_players_by_metric import (  # noqa: E402
+    _METRIC_ALIASES,
+    rank_players_by_metric,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -294,3 +297,68 @@ def test_count_multi_tool(monkeypatch):
         ("get_current_gameweek", {}),
     ])
     assert res.tool_call_count == 2
+
+
+# ---------------------------------------------------------------------------
+# Per-90 metric support (rank_players_by_metric)
+# ---------------------------------------------------------------------------
+
+def _bootstrap_per90() -> dict:
+    """Three FWDs carrying per-90 fields, listed in a deliberately unsorted order."""
+    def el(pid, name, xgi90, xg90, xa90, sv90, cs90, dc90):
+        return {
+            "id": pid, "web_name": name, "team": 1, "element_type": 4,
+            "minutes": 900,
+            "expected_goal_involvements_per_90": xgi90,
+            "expected_goals_per_90": xg90,
+            "expected_assists_per_90": xa90,
+            "saves_per_90": sv90,
+            "clean_sheets_per_90": cs90,
+            "defensive_contribution_per_90": dc90,
+        }
+    return {
+        "elements": [
+            el(1, "Mid",  0.9, 0.5, 0.4, 1.0, 0.2, 5.0),
+            el(2, "High", 1.5, 1.1, 0.7, 3.0, 0.6, 1.0),
+            el(3, "Low",  0.3, 0.2, 0.1, 0.5, 0.1, 9.0),
+        ],
+        "teams": [{"id": 1, "short_name": "MCI", "name": "Man City"}],
+        "element_types": [
+            {"id": 4, "singular_name_short": "FWD", "plural_name": "Forwards"},
+        ],
+    }
+
+
+def test_per90_aliases_map_to_canonical():
+    assert _METRIC_ALIASES["xgi/90"] == "expected_goal_involvements_per_90"
+    assert _METRIC_ALIASES["xg/90"] == "expected_goals_per_90"
+    assert _METRIC_ALIASES["xa/90"] == "expected_assists_per_90"
+    assert _METRIC_ALIASES["saves/90"] == "saves_per_90"
+    assert _METRIC_ALIASES["cs/90"] == "clean_sheets_per_90"
+    assert _METRIC_ALIASES["dc/90"] == "defensive_contribution_per_90"
+
+
+@pytest.mark.parametrize("alias,canonical,winner", [
+    ("xgi/90",   "expected_goal_involvements_per_90", "High"),
+    ("xgi_per_90", "expected_goal_involvements_per_90", "High"),
+    ("xg/90",    "expected_goals_per_90",             "High"),
+    ("xa/90",    "expected_assists_per_90",           "High"),
+    ("saves/90", "saves_per_90",                      "High"),
+    ("cs/90",    "clean_sheets_per_90",               "High"),
+    ("dc/90",    "defensive_contribution_per_90",     "Low"),   # different metric → different winner
+])
+def test_per90_alias_resolves_and_ranks(alias, canonical, winner):
+    out = rank_players_by_metric(alias, bootstrap=_bootstrap_per90())
+    assert out["status"] == "ok"
+    assert out["metric"] == canonical            # resolved to the per-90 field
+    assert out["ranked"][0]["web_name"] == winner  # ranked by that field, desc
+
+
+def test_per90_card_composes_with_spanish_header():
+    """End-to-end: a per-90 tool output cards with the nice Spanish header."""
+    out = rank_players_by_metric("xgi/90", bootstrap=_bootstrap_per90())
+    card = compose_rank_players_card(out)
+    assert card is not None
+    assert card.columns[-1].header == "xGI/90"
+    assert card.title == "TOP 3 · xGI/90"
+    assert card.rows[0][1] == "High"
