@@ -64,6 +64,7 @@ from fpl_grounded_assistant.find_players import (
     _build_match_dict,
     _safe_int,
     _team_short,
+    _resolve_alias,
 )
 
 _MAX_AMBIGUOUS_CANDIDATES: int = 5
@@ -235,6 +236,9 @@ def get_player_snapshot(
     # (this was the actual bug: appending "Chelsea" made the search worse,
     # not better). team_hint is used below to disambiguate a multi-match.
     match_query, team_hint = _split_team_hint(normalized_query, bootstrap)
+    # Community abbreviation / nickname (e.g. "DCL", "VVD") → canonical web_name,
+    # matched at rank 0 below — same shared alias table as find_players.
+    alias_web = _resolve_alias(match_query)
 
     # ------------------------------------------------------------------
     # 2. Classify each element into rank buckets (same algorithm as find_players)
@@ -250,6 +254,11 @@ def get_player_snapshot(
         second  = _normalize(el.get("second_name", "") or "")
         web     = _normalize(el.get("web_name", "") or "")
         composite = f"{first} {second} {web}"
+
+        # Rank 0: community abbreviation / nickname (e.g. "DCL" -> Calvert-Lewin)
+        if alias_web is not None and web == alias_web:
+            rank_bucket[el_id] = 0
+            continue
 
         # Rank 0: exact match on any canonical name field
         if match_query in (first, second, web):

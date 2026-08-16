@@ -31,6 +31,16 @@ KNOWN_NICKNAMES: dict[str, list[str]] = {
     "Watkins":          ["el Watkins", "Ollie"],
     "Gordon":           ["el Gordon", "Anthony"],
     "Isak":             ["el Isak", "Alexander"],
+    # Community initialisms for multi-part / hyphenated names (see WebSearch
+    # 2026-08: VVD, DCL, etc. are standard FPL shorthand on r/FantasyPL & FPL
+    # glossaries). Keyed on the exact FPL web_name. "De Bruyne"/"Alexander-Arnold"
+    # already carry KDB/TAA above.
+    "Van Dijk":         ["VVD"],
+    "Calvert-Lewin":    ["DCL"],
+    "Gibbs-White":      ["MGW", "MGG"],
+    "Hudson-Odoi":      ["CHO"],
+    "Smith Rowe":       ["ESR"],
+    "Ward-Prowse":      ["JWP"],
 }
 
 

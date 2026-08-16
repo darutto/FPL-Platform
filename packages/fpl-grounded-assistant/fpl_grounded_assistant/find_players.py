@@ -80,7 +80,13 @@ _MAX_LIMIT: int = 10
 # ---------------------------------------------------------------------------
 
 def _normalize(text: str) -> str:
-    """Normalize a string: NFKD decompose, strip combining diacritics, lowercase.
+    """Normalize a string: NFKD decompose, strip combining diacritics, lowercase,
+    treat hyphens as spaces, and collapse whitespace.
+
+    Hyphens become spaces so a user who drops the dash still matches — e.g.
+    "calvert lewin" resolves "Calvert-Lewin", "gibbs white" resolves
+    "Gibbs-White". Both the query and the stored name fields pass through here,
+    so matching stays symmetric.
 
     Examples
     --------
@@ -90,10 +96,42 @@ def _normalize(text: str) -> str:
     'hernandez'
     >>> _normalize("De Bruyne")
     'de bruyne'
+    >>> _normalize("Calvert-Lewin")
+    'calvert lewin'
+    >>> _normalize("calvert lewin")
+    'calvert lewin'
     """
     nfkd = unicodedata.normalize("NFKD", text)
     stripped = "".join(c for c in nfkd if not unicodedata.combining(c))
-    return stripped.lower()
+    return " ".join(stripped.replace("-", " ").lower().split())
+
+
+# ---------------------------------------------------------------------------
+# Name-alias index: community abbreviations & nicknames (DCL, VVD, KDB, "Mo",
+# "Cole", …) resolve to a canonical FPL web_name. Sourced from the shared
+# player registry so the whole app has one alias table. A query that exactly
+# equals a known alias is treated as a rank-0 match on the resolved player.
+# Shared with get_player_snapshot, which imports _ALIAS_TO_WEBNAME.
+# ---------------------------------------------------------------------------
+try:
+    from fpl_player_registry import KNOWN_NICKNAMES as _KNOWN_NICKNAMES
+except Exception:  # registry unavailable in some isolated imports — degrade to no aliases
+    _KNOWN_NICKNAMES = {}
+
+_ALIAS_TO_WEBNAME: dict[str, str] = {}
+for _wn, _aliases in _KNOWN_NICKNAMES.items():
+    for _alias in _aliases:
+        _ALIAS_TO_WEBNAME[_normalize(_alias)] = _wn
+
+
+def _resolve_alias(normalized_query: str) -> "str | None":
+    """Return the normalized web_name a full-query alias resolves to, or None.
+
+    Matches only when the *entire* query equals a known alias (so "dcl" resolves
+    Calvert-Lewin, but a name that merely contains an alias substring does not).
+    """
+    web_name = _ALIAS_TO_WEBNAME.get(normalized_query)
+    return _normalize(web_name) if web_name else None
 
 
 # ---------------------------------------------------------------------------
@@ -242,6 +280,9 @@ def find_players(
     limit = max(1, min(int(limit) if isinstance(limit, (int, float)) else 5, _MAX_LIMIT))
 
     normalized_query = _normalize(name_query.strip())
+    # Community abbreviation / nickname (e.g. "DCL", "VVD", "Mo") → canonical
+    # web_name, matched at rank 0 below. None for ordinary name queries.
+    alias_web = _resolve_alias(normalized_query)
 
     # ------------------------------------------------------------------
     # 1. Guard: bootstrap required
@@ -274,6 +315,11 @@ def find_players(
         web     = _normalize(el.get("web_name", "") or "")
         # Composite string for substring matching
         composite = f"{first} {second} {web}"
+
+        # Rank 0: community abbreviation / nickname (e.g. "DCL" -> Calvert-Lewin)
+        if alias_web is not None and web == alias_web:
+            rank_bucket[el_id] = 0
+            continue
 
         # Rank 0: exact match on any canonical name field
         if normalized_query in (first, second, web):
