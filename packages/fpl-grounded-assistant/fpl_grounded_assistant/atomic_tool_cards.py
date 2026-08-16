@@ -60,6 +60,13 @@ _METRIC_HEADER_ES: dict[str, str] = {
     "clean_sheets":                "Porterías 0",
     "bonus":                       "Bonus",
     "bps":                         "BPS",
+    # Per-90 rate stats
+    "expected_goals_per_90":              "xG/90",
+    "expected_assists_per_90":            "xA/90",
+    "expected_goal_involvements_per_90":  "xGI/90",
+    "saves_per_90":                       "Paradas/90",
+    "clean_sheets_per_90":                "Porterías 0/90",
+    "defensive_contribution_per_90":      "DC/90",
 }
 
 

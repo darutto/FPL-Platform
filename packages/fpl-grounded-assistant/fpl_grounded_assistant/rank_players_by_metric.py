@@ -80,6 +80,37 @@ _METRIC_ALIASES: dict[str, str] = {
     "clean_sheets":                   "clean_sheets",
     "bonus":                          "bonus",
     "bps":                            "bps",
+    # Per-90 rate stats. FPL supplies these fields directly on each element,
+    # so ranking reads them the same generic way as the season totals above.
+    # `_normalize` only lowercases + strips accents (keeps "/" and spaces), so
+    # the alias keys below must match the raw phrasings users/LLMs emit.
+    "expected_goals_per_90":              "expected_goals_per_90",
+    "xg/90":                              "expected_goals_per_90",
+    "xg_per_90":                          "expected_goals_per_90",
+    "xg per 90":                          "expected_goals_per_90",
+    "xg90":                               "expected_goals_per_90",
+    "expected_assists_per_90":            "expected_assists_per_90",
+    "xa/90":                              "expected_assists_per_90",
+    "xa_per_90":                          "expected_assists_per_90",
+    "xa per 90":                          "expected_assists_per_90",
+    "xa90":                               "expected_assists_per_90",
+    "expected_goal_involvements_per_90":  "expected_goal_involvements_per_90",
+    "xgi/90":                             "expected_goal_involvements_per_90",
+    "xgi_per_90":                         "expected_goal_involvements_per_90",
+    "xgi per 90":                         "expected_goal_involvements_per_90",
+    "xgi90":                              "expected_goal_involvements_per_90",
+    "saves_per_90":                       "saves_per_90",
+    "saves/90":                           "saves_per_90",
+    "saves_per90":                        "saves_per_90",
+    "saves per 90":                       "saves_per_90",
+    "clean_sheets_per_90":                "clean_sheets_per_90",
+    "cs/90":                              "clean_sheets_per_90",
+    "cs_per_90":                          "clean_sheets_per_90",
+    "clean sheets per 90":                "clean_sheets_per_90",
+    "defensive_contribution_per_90":      "defensive_contribution_per_90",
+    "dc/90":                              "defensive_contribution_per_90",
+    "dc_per_90":                          "defensive_contribution_per_90",
+    "defensive contribution per 90":      "defensive_contribution_per_90",
 }
 
 #: Sorted list of canonical metric names exposed to users.
@@ -120,10 +151,13 @@ def rank_players_by_metric(
 
     Args:
         metric: metric name or alias (case-insensitive).
-            Accepted: form, total_points, points_per_game, expected_goals/xg,
+            Season totals: form, total_points, points_per_game, expected_goals/xg,
             expected_assists/xa, expected_goal_involvements/xgi, ict_index/ict,
             selected_by_percent/popularity/ownership, minutes, goals_scored,
             assists, clean_sheets, bonus, bps.
+            Per-90 rates: expected_goals_per_90/xg/90, expected_assists_per_90/xa/90,
+            expected_goal_involvements_per_90/xgi/90, saves_per_90/saves/90,
+            clean_sheets_per_90/cs/90, defensive_contribution_per_90/dc/90.
         top_n: max results (1-50, default 10). Silently capped at 50.
         position: optional position filter (GKP/DEF/MID/FWD, case-insensitive).
             Also accepts Spanish names (portero/defensa/centrocampista/delantero).
@@ -292,9 +326,11 @@ def rank_players_by_metric(
 RANK_PLAYERS_BY_METRIC_SPEC = ToolSpec(
     name="rank_players_by_metric",
     description=(
-        "Top N players by metric (xGI, form, points, xG, xA, ICT, ownership, minutes, etc.). "
-        "Filter by position/min_minutes. Returns ranked list with grounding payload + metric_value. "
-        "Use for top-N queries."
+        "Top N players by metric — season totals (xGI, form, points, xG, xA, ICT, "
+        "ownership, minutes, etc.) AND per-90 rates (xGI/90, xG/90, xA/90, saves/90, "
+        "CS/90, DC/90). Filter by position/min_minutes. Returns ranked list with "
+        "grounding payload + metric_value. Use for ANY 'top/best/most by <metric>' "
+        "query, including per-90 phrasings like 'mejores por xgi/90'."
     ),
     parameters={
         "type": "object",
@@ -302,8 +338,10 @@ RANK_PLAYERS_BY_METRIC_SPEC = ToolSpec(
             "metric": {
                 "type":        "string",
                 "description": (
-                    "Metric to rank by. Aliases accepted: xgi, xg, xa, ict, "
-                    "popularity, ppg, points. Full names: expected_goal_involvements, "
+                    "Metric to rank by. Season aliases: xgi, xg, xa, ict, "
+                    "popularity, ppg, points. Per-90 aliases: xgi/90, xg/90, "
+                    "xa/90, saves/90, cs/90, dc/90. Full names: "
+                    "expected_goal_involvements, expected_goal_involvements_per_90, "
                     "form, total_points, selected_by_percent, minutes, etc."
                 ),
             },
