@@ -857,9 +857,10 @@ WEB_FETCH_SCHEMA = ToolSchema(
 RANK_PLAYERS_BY_METRIC_SCHEMA = ToolSchema(
     name="rank_players_by_metric",
     description=(
-        "Top N players by metric (xGI, form, points, xG, xA, ICT, ownership, minutes, etc.). "
-        "Filter by position/min_minutes. Returns ranked list with grounding payload + metric_value. "
-        "Use for top-N queries."
+        "Top N players by any supported bootstrap metric: performance and per-90 rates; "
+        "price; current-GW transfer momentum; set-piece order; cards; xGC; ICT components; "
+        "and saves. Filter by position/min_minutes. Use for every top/best/most-by-metric query, "
+        "even when the metric may be unknown (the tool validates and returns valid_metrics)."
     ),
     parameters={
         "type": "object",
@@ -867,8 +868,10 @@ RANK_PLAYERS_BY_METRIC_SCHEMA = ToolSchema(
             "metric": {
                 "type":        "string",
                 "description": (
-                    "Metric to rank by. Aliases: xgi, xg, xa, ict, popularity, ppg. "
-                    "Full names: expected_goal_involvements, form, total_points, etc."
+                    "Metric to rank by. Common aliases: xgi, xg, xa, ict, ppg, xgi/90, "
+                    "price/precio, transfers_in/out, penalties/penales, corners, free kicks, "
+                    "yellow/red cards, xgc, influence, creativity, threat, saves/paradas. "
+                    "Pass unknown values through so the tool returns unknown_metric."
                 ),
             },
             "top_n": {

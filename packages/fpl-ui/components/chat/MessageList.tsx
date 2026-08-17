@@ -68,17 +68,28 @@ export default function MessageList({
   playerPickWizard,
   onPlayerPick,
 }: Props) {
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const shareQuestionByAssistantId = assistantShareQuestionMap(messages);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const list = listRef.current;
+    if (!list) return;
+
+    // Keep autoscroll scoped to the conversation viewport. scrollIntoView()
+    // also scrolls overflow-hidden ancestors, which can move the SwipePager
+    // itself upward when a tall card arrives.
+    if (typeof list.scrollTo === 'function') {
+      list.scrollTo({ top: list.scrollHeight, behavior: 'smooth' });
+    } else {
+      // jsdom and older browser shims may not expose scrollTo().
+      list.scrollTop = list.scrollHeight;
+    }
   }, [messages, loading]);
 
   const lastId = messages[messages.length - 1]?.id;
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+    <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
       {messages.map((msg) => (
         <MessageBubble
           key={msg.id}
@@ -102,7 +113,7 @@ export default function MessageList({
           </div>
         </div>
       )}
-      <div ref={bottomRef} />
+      <div />
     </div>
   );
 }

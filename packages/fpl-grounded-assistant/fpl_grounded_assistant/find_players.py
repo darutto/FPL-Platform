@@ -180,6 +180,16 @@ def _safe_int(value: Any, default: int = 0) -> int:
         return default
 
 
+def _safe_optional_int(value: Any) -> int | None:
+    """Parse an optional integer, preserving missing/invalid values as None."""
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return None
+
+
 def _per_90(
     element: dict[str, Any],
     total_field: str,
@@ -236,7 +246,14 @@ def _build_match_dict(
         "expected_goals":            _safe_float(element.get("expected_goals"), 0.0),
         "expected_assists":          _safe_float(element.get("expected_assists"), 0.0),
         "expected_goal_involvements": _safe_float(element.get("expected_goal_involvements"), 0.0),
+        "expected_goals_conceded":   _safe_float(element.get("expected_goals_conceded"), 0.0),
         "ict_index":                 _safe_float(element.get("ict_index"), 0.0),
+        "influence":                 _safe_float(element.get("influence"), 0.0),
+        "creativity":                _safe_float(element.get("creativity"), 0.0),
+        "threat":                    _safe_float(element.get("threat"), 0.0),
+        "saves":                     _safe_int(element.get("saves"), 0),
+        "yellow_cards":              _safe_int(element.get("yellow_cards"), 0),
+        "red_cards":                 _safe_int(element.get("red_cards"), 0),
         "expected_goals_per_90":     _per_90(element, "expected_goals", "expected_goals_per_90"),
         "expected_assists_per_90":   _per_90(element, "expected_assists", "expected_assists_per_90"),
         "expected_goal_involvements_per_90": _per_90(
@@ -256,6 +273,12 @@ def _build_match_dict(
         "selected_by_percent":  _safe_float(element.get("selected_by_percent"), 0.0),
         "transfers_in_event":   _safe_int(element.get("transfers_in_event"), 0),
         "transfers_out_event":  _safe_int(element.get("transfers_out_event"), 0),
+        # Set-piece priority: 1 is first choice; missing means not listed.
+        "penalties_order":      _safe_optional_int(element.get("penalties_order")),
+        "direct_freekicks_order": _safe_optional_int(element.get("direct_freekicks_order")),
+        "corners_and_indirect_freekicks_order": _safe_optional_int(
+            element.get("corners_and_indirect_freekicks_order")
+        ),
         # Match confidence
         "match_rank": match_rank,
     }

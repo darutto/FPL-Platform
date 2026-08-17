@@ -36,7 +36,7 @@ Reuse
 Matching uses the canonical ``fpl_player_registry`` resolver. The grounding
 payload builder remains shared with ``find_players``:
     _normalize          — compatibility wrapper around canonical normalization
-    _build_match_dict   — 21-field grounding payload builder
+    _build_match_dict   — 31-field grounding payload builder
 
 Registration
 ------------
@@ -309,7 +309,7 @@ GET_PLAYER_SNAPSHOT_SPEC = ToolSpec(
             },
             "player": {
                 "type":        "object",
-                "description": "Full 20-field grounding payload plus fixtures/team_fdr_context (only when status=ok)",
+                "description": "Full 30-field grounding payload plus fixtures/team_fdr_context (only when status=ok)",
             },
             "query": {
                 "type":        "string",

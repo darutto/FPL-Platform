@@ -67,6 +67,20 @@ _METRIC_HEADER_ES: dict[str, str] = {
     "saves_per_90":                       "Paradas/90",
     "clean_sheets_per_90":                "Porterías 0/90",
     "defensive_contribution_per_90":      "DC/90",
+    # Price, momentum, set pieces, discipline, and detailed performance
+    "now_cost":                           "Precio (£m)",
+    "transfers_in_event":                 "Fichajes GW",
+    "transfers_out_event":                "Ventas GW",
+    "penalties_order":                    "Orden penales",
+    "direct_freekicks_order":             "Orden tiros libres",
+    "corners_and_indirect_freekicks_order": "Orden córners/TLI",
+    "yellow_cards":                       "Amarillas",
+    "red_cards":                          "Rojas",
+    "expected_goals_conceded":            "xGC",
+    "influence":                          "Influencia",
+    "creativity":                         "Creatividad",
+    "threat":                             "Amenaza",
+    "saves":                              "Paradas",
 }
 
 

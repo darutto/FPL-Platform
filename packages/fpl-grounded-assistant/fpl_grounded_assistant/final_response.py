@@ -604,7 +604,14 @@ class PlayerSnapshotMeta:
     expected_goals:                 float
     expected_assists:                float
     expected_goal_involvements:      float
+    expected_goals_conceded:         float
     ict_index:                       float
+    influence:                       float
+    creativity:                      float
+    threat:                          float
+    saves:                           int
+    yellow_cards:                    int
+    red_cards:                       int
     expected_goals_per_90:           float
     expected_assists_per_90:         float
     expected_goal_involvements_per_90: float
@@ -615,6 +622,9 @@ class PlayerSnapshotMeta:
     selected_by_percent:             float
     transfers_in_event:              int
     transfers_out_event:             int
+    penalties_order:                 int | None
+    direct_freekicks_order:          int | None
+    corners_and_indirect_freekicks_order: int | None
     # Next-N fixture strip (reuses get_player_fixture_run — see FixtureEntry/
     # TeamFDRContext above, Phase 7h). Empty tuple / None when the player's
     # team isn't covered by bootstrap["team_fixtures"] (missing_context).
@@ -1677,7 +1687,14 @@ def _extract_player_snapshot_meta(ro: "dict[str, Any]") -> "PlayerSnapshotMeta |
             expected_goals               = float(p.get("expected_goals", 0.0)),
             expected_assists             = float(p.get("expected_assists", 0.0)),
             expected_goal_involvements   = float(p.get("expected_goal_involvements", 0.0)),
+            expected_goals_conceded      = float(p.get("expected_goals_conceded", 0.0)),
             ict_index                    = float(p.get("ict_index", 0.0)),
+            influence                    = float(p.get("influence", 0.0)),
+            creativity                   = float(p.get("creativity", 0.0)),
+            threat                       = float(p.get("threat", 0.0)),
+            saves                        = int(p.get("saves", 0)),
+            yellow_cards                 = int(p.get("yellow_cards", 0)),
+            red_cards                    = int(p.get("red_cards", 0)),
             expected_goals_per_90        = float(p.get("expected_goals_per_90", 0.0)),
             expected_assists_per_90      = float(p.get("expected_assists_per_90", 0.0)),
             expected_goal_involvements_per_90 = float(
@@ -1692,6 +1709,17 @@ def _extract_player_snapshot_meta(ro: "dict[str, Any]") -> "PlayerSnapshotMeta |
             selected_by_percent          = float(p.get("selected_by_percent", 0.0)),
             transfers_in_event           = int(p.get("transfers_in_event", 0)),
             transfers_out_event          = int(p.get("transfers_out_event", 0)),
+            penalties_order              = (
+                int(p["penalties_order"]) if p.get("penalties_order") is not None else None
+            ),
+            direct_freekicks_order       = (
+                int(p["direct_freekicks_order"])
+                if p.get("direct_freekicks_order") is not None else None
+            ),
+            corners_and_indirect_freekicks_order = (
+                int(p["corners_and_indirect_freekicks_order"])
+                if p.get("corners_and_indirect_freekicks_order") is not None else None
+            ),
             fixtures                     = tuple(
                 FixtureEntry(
                     gameweek       = int(fx["gameweek"]),

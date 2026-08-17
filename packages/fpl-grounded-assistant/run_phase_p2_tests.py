@@ -5,7 +5,7 @@ Phase P2.1+P2.2: find_players + get_player_snapshot atomic tools.
 
 Validates that:
 - find_players() returns status="ok" with at least 1 match for a known player.
-- Every match has the full grounding payload (all 21 required keys present).
+- Every match has the full grounding payload (all 31 required keys present).
 - Unicode normalization works (Núñez matches Nunez).
 - Case-insensitive matching works.
 - No-match query returns status="not_found", match_count=0.
@@ -16,7 +16,7 @@ Validates that:
 - Status codes map correctly (injured player -> "Injured").
 - Orchestrator can invoke find_players via ask_orchestrated() with a mock LLM.
 - get_player_snapshot() returns status="ok" for unique match (Haaland).
-- get_player_snapshot() returns 20 grounding fields (21 minus match_rank).
+- get_player_snapshot() returns 30 grounding fields (31 minus match_rank).
 - get_player_snapshot() returns status="not_found" for unknown names.
 - get_player_snapshot() returns status="ambiguous" for multi-match prefix queries.
 - get_player_snapshot() registered in TOOL_NAMES (registry = 19 tools).
@@ -25,7 +25,7 @@ Validates that:
 Sections
 --------
 T1  Basic match               -- haaland -> status=ok, >=1 match
-T2  Full grounding payload    -- all 21 required fields present on every match
+T2  Full grounding payload    -- all 31 required fields present on every match
 T3  Unicode normalization     -- Núñez-style accents stripped for matching
 T4  Case-insensitive          -- hAaLaNd matches Haaland
 T5  Not found                 -- xx_no_such_player -> not_found, 0 matches
@@ -36,7 +36,7 @@ T9  Schema registry           -- 19 tools, find_players+get_player_snapshot incl
 T10 Status code mapping       -- injured player -> "Injured"
 T11 Orchestrator integration  -- ask_orchestrated() with mock LLM returns find_players output
 U1  Snapshot basic match      -- haaland -> status=ok, player.web_name=Haaland
-U2  Snapshot payload          -- 20 fields present (21 minus match_rank)
+U2  Snapshot payload          -- 30 fields present (31 minus match_rank)
 U3  Snapshot not_found        -- unknown name -> not_found, non-empty message
 U4  Snapshot ambiguous        -- multi-prefix "sa" -> ambiguous, candidates with match_rank
 U5  Snapshot accent/case      -- Núñez ≡ Nunez
@@ -134,9 +134,13 @@ _REQUIRED_MATCH_FIELDS = [
     # Form & performance
     "form", "total_points", "points_per_game",
     "expected_goals", "expected_assists", "expected_goal_involvements",
-    "ict_index",
+    "expected_goals_conceded", "ict_index", "influence", "creativity", "threat",
+    "saves", "yellow_cards", "red_cards",
     # Selection meta
     "now_cost", "selected_by_percent", "transfers_in_event", "transfers_out_event",
+    # Set-piece priority
+    "penalties_order", "direct_freekicks_order",
+    "corners_and_indirect_freekicks_order",
     # Match confidence
     "match_rank",
 ]
@@ -226,7 +230,7 @@ _first_match = _r2["matches"][0]
 for _field in _REQUIRED_MATCH_FIELDS:
     ok(_field in _first_match, f"T2: field '{_field}' present in match")
 
-ok(len(_REQUIRED_MATCH_FIELDS) == 21, "T2: contract has exactly 21 required fields")
+ok(len(_REQUIRED_MATCH_FIELDS) == 31, "T2: contract has exactly 31 required fields")
 
 # ---------------------------------------------------------------------------
 # Section T3: Unicode normalization (Núñez -> Nunez)
@@ -405,9 +409,9 @@ ok(_u1["status"] == "ok",                                  "U1.1: status=ok for 
 ok("player" in _u1,                                        "U1.2: 'player' key present in ok response")
 ok(_u1["player"]["web_name"] == "Haaland",                 "U1.3: player.web_name == 'Haaland'")
 
-print("\n=== U2: full grounding payload (20 fields, no match_rank) ===")
+print("\n=== U2: full grounding payload (30 fields, no match_rank) ===")
 
-# Single-answer omits match_rank; 21 required fields minus match_rank = 20.
+# Single-answer omits match_rank; 31 required fields minus match_rank = 30.
 _SNAPSHOT_REQUIRED_FIELDS = [
     f for f in _REQUIRED_MATCH_FIELDS if f != "match_rank"
 ]
@@ -415,7 +419,7 @@ _u2 = get_player_snapshot("Haaland", bootstrap=STANDARD_BOOTSTRAP)
 ok(_u2["status"] == "ok",                                  "U2.0: Haaland snapshot ok")
 for _field in _SNAPSHOT_REQUIRED_FIELDS:
     ok(_field in _u2["player"], f"U2: field '{_field}' present in player dict")
-ok(len(_SNAPSHOT_REQUIRED_FIELDS) == 20,                   "U2: snapshot contract has exactly 20 required fields")
+ok(len(_SNAPSHOT_REQUIRED_FIELDS) == 30,                   "U2: snapshot contract has exactly 30 required fields")
 ok("match_rank" not in _u2["player"],                      "U2: match_rank absent from single-answer player")
 
 print("\n=== U3: not_found ===")
@@ -1338,7 +1342,7 @@ ok("team" in _y1,                                               "Y1.2: 'team' ke
 ok(_y1["team"]["short_name"] == "WOL",                          "Y1.3: team.short_name=='WOL'")
 ok(_y1["team"]["name"] == "Wolves",                             "Y1.4: team.name=='Wolves'")
 
-print("\n=== Y2: top_players has 5 entries (default), each with full 20-field grounding payload ===")
+print("\n=== Y2: top_players has 5 entries (default), each with full 30-field grounding payload ===")
 
 _y2 = _y1
 ok("top_players" in _y2 and isinstance(_y2["top_players"], list),
