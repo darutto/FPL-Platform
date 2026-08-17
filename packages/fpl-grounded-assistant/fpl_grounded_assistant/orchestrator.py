@@ -24,9 +24,9 @@ Provider shapes supported (Orch-3b)
 ------------------------------------
 * Anthropic: ``response.content[i].type == "tool_use"``, ``.name``, ``.input``
   (dict).  Tool list format: ``[{"name", "description", "input_schema"}, ...]``.
-* OpenAI: ``response.choices[0].message.tool_calls[0].function.name``,
-  ``.function.arguments`` (JSON **string** — must be ``json.loads()``'d).
-  Tool list format: ``[{"type": "function", "function": {...}}, ...]``.
+* OpenAI Responses: typed ``response.output`` items with
+  ``type == "function_call"`` and JSON-string ``arguments``.
+  Tool definitions use the Responses API's flat function shape.
 * Gemini: ``response.candidates[0].content.parts[0].function_call.name``,
   ``.function_call.args`` (dict-like).
   Tool list format: ``[{"function_declarations": [...]}]``.
@@ -42,9 +42,7 @@ Outcome constants (Orch-3b additions)
 * ``OUTCOME_TOOL_RESULT_ERROR``: tool ran and returned ``status != "ok"``.
   Distinguishes from ``OUTCOME_TOOL_ERROR`` (``run_tool()`` raised) and
   ``OUTCOME_OK`` (``status == "ok"``).
-* Total outcomes: 7 (OUTCOME_OK, OUTCOME_NO_CLIENT, OUTCOME_LLM_ERROR,
-  OUTCOME_NO_TOOL, OUTCOME_UNKNOWN_TOOL, OUTCOME_TOOL_ERROR,
-  OUTCOME_TOOL_RESULT_ERROR).
+* The outcome set also includes cooldown and quota-exceeded degradation paths.
 
 Design invariants
 -----------------
@@ -548,6 +546,82 @@ def _truncate_tool_output(
     return modified
 
 
+def _build_multi_tool_follow_up(
+    provider: str | None,
+    question: str,
+    response: Any,
+    executed: list[tuple[str | None, str | None, dict[str, Any], dict[str, Any]]],
+) -> list[Any]:
+    """Build a provider-native follow-up after executing multiple tool calls.
+
+    The original assistant output is retained wherever the provider supports
+    round-tripping it.  In particular, Gemini's original ``Content`` object is
+    forwarded unchanged so thought signatures and other SDK metadata survive.
+    """
+    provider_name = provider or PROVIDER_ANTHROPIC
+
+    if provider_name == PROVIDER_OPENAI:
+        # Responses API accepts the typed items from the previous response as
+        # input. Each result is paired only by the function call's call_id.
+        messages: list[Any] = [
+            {"role": "user", "content": question},
+            *(getattr(response, "output", None) or []),
+        ]
+        for index, (tool_id, _tool_name, _tool_args, raw_output) in enumerate(executed):
+            messages.append({
+                "type": "function_call_output",
+                "call_id": tool_id or f"synthetic_{index}",
+                "output": json.dumps(_truncate_tool_output(raw_output)),
+            })
+        return messages
+
+    if provider_name == PROVIDER_GEMINI:
+        messages = [{"role": "user", "parts": [{"text": question}]}]
+        candidates = getattr(response, "candidates", None) or []
+        if candidates:
+            original_content = getattr(candidates[0], "content", None)
+            if original_content is not None:
+                messages.append(original_content)
+        messages.append({
+            "role": "user",
+            "parts": [
+                {
+                    "function_response": {
+                        "name": tool_name or "",
+                        "response": _truncate_tool_output(raw_output),
+                    }
+                }
+                for _tool_id, tool_name, _tool_args, raw_output in executed
+            ],
+        })
+        return messages
+
+    original_content = getattr(response, "content", None)
+    if not original_content:
+        original_content = [
+            {
+                "type": "tool_use",
+                "id": tool_id or f"synthetic_{index}",
+                "name": tool_name,
+                "input": tool_args,
+            }
+            for index, (tool_id, tool_name, tool_args, _raw_output) in enumerate(executed)
+        ]
+    tool_results = [
+        {
+            "type": "tool_result",
+            "tool_use_id": tool_id or f"synthetic_{index}",
+            "content": json.dumps(_truncate_tool_output(raw_output)),
+        }
+        for index, (tool_id, _tool_name, _tool_args, raw_output) in enumerate(executed)
+    ]
+    return [
+        {"role": "user", "content": question},
+        {"role": "assistant", "content": original_content},
+        {"role": "user", "content": tool_results},
+    ]
+
+
 # ---------------------------------------------------------------------------
 # P1.e Lever 2: Prompt caching helpers
 # ---------------------------------------------------------------------------
@@ -753,21 +827,19 @@ def _parse_all_anthropic_tool_calls(
 def _parse_all_openai_tool_calls(
     response: Any,
 ) -> list[tuple[str, str | None, dict[str, Any]]]:
-    """Parse ALL OpenAI tool_calls from a single chat-completions response.
+    """Parse ALL function-call items from an OpenAI Responses response.
 
-    Returns list of ``(tool_call_id, function_name, function_args)`` tuples.
+    Returns list of ``(call_id, function_name, function_args)`` tuples.
     Empty list when no tool calls are present or parsing fails.
     """
     try:
-        choices = getattr(response, "choices", None) or []
-        message = choices[0].message
-        tool_calls = getattr(message, "tool_calls", None) or []
         results = []
-        for tc in tool_calls:
-            tc_id = getattr(tc, "id", None)
-            func = tc.function
-            name = getattr(func, "name", None)
-            raw_args = getattr(func, "arguments", "{}")
+        for item in getattr(response, "output", None) or []:
+            if getattr(item, "type", None) != "function_call":
+                continue
+            call_id = getattr(item, "call_id", None)
+            name = getattr(item, "name", None)
+            raw_args = getattr(item, "arguments", "{}")
             if isinstance(raw_args, str):
                 args = json.loads(raw_args)
             elif isinstance(raw_args, dict):
@@ -776,7 +848,7 @@ def _parse_all_openai_tool_calls(
                 args = {}
             if not isinstance(args, dict):
                 args = {}
-            results.append((tc_id, name, args))
+            results.append((call_id, name, args))
         return results
     except Exception:  # noqa: BLE001
         return []
@@ -825,7 +897,7 @@ def _extract_text_from_response(
     Provider shapes
     ---------------
     - Anthropic: ``response.content[i].type == "text"`` → ``.text``
-    - OpenAI:    ``response.choices[0].message.content`` (string)
+    - OpenAI:    ``response.output_text`` or typed message ``output_text`` blocks
     - Gemini:    ``response.candidates[0].content.parts[i].text``
                  (fallback: ``response.text``)
 
@@ -833,14 +905,22 @@ def _extract_text_from_response(
     """
     try:
         if provider == PROVIDER_OPENAI:
-            # OpenAI: message.content is a plain string (no tool calls present)
-            choices = getattr(response, "choices", None) or []
-            if choices:
-                msg = choices[0].message
-                text = getattr(msg, "content", None)
-                if isinstance(text, str) and text.strip():
-                    return text
-            return None
+            # Responses may interleave reasoning, function calls and messages.
+            output_text = getattr(response, "output_text", None)
+            if isinstance(output_text, str) and output_text.strip():
+                return output_text.strip()
+            texts: list[str] = []
+            for item in getattr(response, "output", None) or []:
+                if getattr(item, "type", None) != "message":
+                    continue
+                for content in getattr(item, "content", None) or []:
+                    if getattr(content, "type", None) != "output_text":
+                        continue
+                    text = getattr(content, "text", None)
+                    if isinstance(text, str):
+                        texts.append(text)
+            combined = "".join(texts).strip()
+            return combined or None
         if provider == PROVIDER_GEMINI:
             # Gemini: iterate parts for text
             candidates = getattr(response, "candidates", None) or []
@@ -909,9 +989,9 @@ def _parse_all_tool_calls(
 def _parse_openai_tool_call(
     response: Any,
 ) -> tuple[str | None, dict[str, Any]] | None:
-    """Parse an OpenAI function-calling (chat completions) response.
+    """Parse the first OpenAI Responses API function-call item.
 
-    Handles ``response.choices[0].message.tool_calls[0].function.{name, arguments}``.
+    Handles typed ``response.output`` items with ``type == "function_call"``.
     ``arguments`` is a JSON string; this function deserialises it.
 
     Returns ``(tool_name, tool_args)`` on success, or ``None`` when no
@@ -920,24 +1000,11 @@ def _parse_openai_tool_call(
     Note: returns the FIRST tool_call only.  Use ``_parse_all_openai_tool_calls``
     for multi-tool responses.
     """
-    try:
-        choices = getattr(response, "choices", None) or []
-        message = choices[0].message
-        tc = (getattr(message, "tool_calls", None) or [])[0]
-        func = tc.function
-        name = getattr(func, "name", None)
-        raw_args = getattr(func, "arguments", "{}")
-        if isinstance(raw_args, str):
-            args = json.loads(raw_args)
-        elif isinstance(raw_args, dict):
-            args = raw_args
-        else:
-            args = {}
-        if not isinstance(args, dict):
-            args = {}
-        return name, args
-    except Exception:  # noqa: BLE001
+    calls = _parse_all_openai_tool_calls(response)
+    if not calls:
         return None
+    _, name, args = calls[0]
+    return name, args
 
 
 def _parse_gemini_tool_call(
@@ -1186,11 +1253,7 @@ def _apply_evaluator(
 
     if not _retry_tool_calls:
         # No tool call in retry — check if there's plain text
-        _retry_text: str | None = None
-        for _block in getattr(_retry_response, "content", []):
-            if getattr(_block, "type", None) == "text":
-                _retry_text = getattr(_block, "text", None)
-                break
+        _retry_text = _extract_text_from_response(_retry_response, _provider_label)
         # P2.9 preamble defense: if the retry text looks like a narration-only
         # preamble ("Ahora obtendré...", "Voy a buscar...", ends with ":"),
         # the LLM likely intended to call tools but truncated mid-response
@@ -1663,7 +1726,7 @@ def ask_orchestrated(
     # 8. Execute ALL tools deterministically; collect (tool_use_id, result)
     #    pairs for the follow-up message.
     # ------------------------------------------------------------------
-    executed: list[tuple[str, str | None, dict[str, Any], dict[str, Any]]] = []
+    executed: list[tuple[str | None, str | None, dict[str, Any], dict[str, Any]]] = []
     # Each entry: (tool_use_id, tool_name, tool_args, raw_output)
 
     for _tool_id, _tool_name, _tool_args in all_tool_calls:
@@ -1696,32 +1759,12 @@ def ask_orchestrated(
     first_tool_id, tool_name, tool_args, raw_output = executed[0]
 
     if len(executed) > 1:
-        # Build a single role=user message containing ALL tool_result blocks.
-        # tool_use_id MUST match the block's id from the model's prior response.
-        # P1.e Lever 4: truncate large list payloads before JSON serialization.
-        tool_result_blocks: list[dict[str, Any]] = [
-            {
-                "type": "tool_result",
-                "tool_use_id": _tid if _tid is not None else f"synthetic_{_idx}",
-                "content": json.dumps(_truncate_tool_output(_rout)),
-            }
-            for _idx, (_tid, _tname, _targs, _rout) in enumerate(executed)
-        ]
-        # The assistant turn that triggered the tool calls must also be echoed
-        # back in the conversation so the second call has full context.
-        assistant_content: list[dict[str, Any]] = []
-        for _tid, _tname, _targs, _rout in executed:
-            assistant_content.append({
-                "type": "tool_use",
-                "id": _tid if _tid is not None else f"synthetic_0",
-                "name": _tname,
-                "input": _targs,
-            })
-        follow_up_messages: list[dict[str, Any]] = [
-            {"role": "user", "content": question},
-            {"role": "assistant", "content": assistant_content},
-            {"role": "user", "content": tool_result_blocks},
-        ]
+        follow_up_messages = _build_multi_tool_follow_up(
+            _provider_label,
+            question,
+            response,
+            executed,
+        )
         _second_call: OrchCallResult = call_orch_provider(
             _provider_label,
             model=model,
@@ -1745,11 +1788,7 @@ def ask_orchestrated(
         else:
             # Second call succeeded; surface its synthesised answer text.
             _second_response = _second_call.response
-            _second_text: str | None = None
-            for _block in getattr(_second_response, "content", []):
-                if getattr(_block, "type", None) == "text":
-                    _second_text = getattr(_block, "text", None)
-                    break
+            _second_text = _extract_text_from_response(_second_response, _provider_label)
             if _second_text:
                 tool_status = raw_output.get("status")
                 outcome = OUTCOME_OK if tool_status == "ok" else OUTCOME_TOOL_RESULT_ERROR
@@ -1789,6 +1828,11 @@ def ask_orchestrated(
                     _primary_output_tokens=_prim_out_mt,
                     _primary_cache_read_tokens=_prim_cache_mt,
                 )
+            _LOG.warning(
+                "multi-tool second LLM call succeeded but returned no text for "
+                "provider=%s; rendering first tool only",
+                _provider_label,
+            )
 
     # ------------------------------------------------------------------
     # 9. Render answer; determine outcome from first tool's status.

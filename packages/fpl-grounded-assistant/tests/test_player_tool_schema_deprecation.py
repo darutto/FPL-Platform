@@ -46,7 +46,7 @@ def _provider_names(provider: str, *, fi_enabled: bool, web_enabled: bool) -> se
         web_search_enabled=web_enabled,
     )
     if provider == PROVIDER_OPENAI:
-        return {str(tool["function"]["name"]) for tool in tools}
+        return {str(tool["name"]) for tool in tools}
     if provider == PROVIDER_GEMINI:
         declarations = tools[0]["function_declarations"]
         return {str(tool["name"]) for tool in declarations}
