@@ -49,7 +49,7 @@ from fpl_grounded_assistant.tool_schema_registry import _ALL_SCHEMAS  # noqa: E4
 def _anthropic_tool_response() -> object:
     blocks = [
         NS(type="tool_use", id="ant-1", name="get_current_gameweek", input={}),
-        NS(type="tool_use", id="ant-2", name="resolve_player", input={"query": "Salah"}),
+        NS(type="tool_use", id="ant-2", name="get_player_snapshot", input={"player_name": "Salah"}),
     ]
     return NS(content=blocks, stop_reason="tool_use")
 
@@ -66,8 +66,8 @@ def _openai_tool_response() -> object:
         NS(
             type="function_call",
             call_id="oai-2",
-            name="resolve_player",
-            arguments=json.dumps({"query": "Salah"}),
+            name="get_player_snapshot",
+            arguments=json.dumps({"player_name": "Salah"}),
         ),
     ])
 
@@ -78,7 +78,7 @@ def _gemini_tool_response() -> object:
         thought_signature="preserve-me",
         parts=[
             NS(function_call=NS(name="get_current_gameweek", args={})),
-            NS(function_call=NS(name="resolve_player", args={"query": "Salah"})),
+            NS(function_call=NS(name="get_player_snapshot", args={"player_name": "Salah"})),
         ],
     )
     return NS(candidates=[NS(content=content)])
@@ -177,7 +177,7 @@ def test_two_tools_receive_one_provider_native_follow_up(
         responses = follow_up[2]["parts"]
         assert [part["function_response"]["name"] for part in responses] == [
             "get_current_gameweek",
-            "resolve_player",
+            "get_player_snapshot",
         ]
 
 
@@ -185,7 +185,7 @@ def test_openai_follow_up_preserves_output_items_and_call_ids():
     first_response = _openai_tool_response()
     executed = [
         ("oai-1", "get_current_gameweek", {}, {"status": "ok", "gameweek": 1}),
-        ("oai-2", "resolve_player", {"query": "Salah"}, {"status": "ok", "player": {}}),
+        ("oai-2", "get_player_snapshot", {"player_name": "Salah"}, {"status": "ok", "player": {}}),
     ]
 
     follow_up = _build_multi_tool_follow_up(
