@@ -489,11 +489,9 @@ GET_HISTORICAL_GAMEWEEK_TOP_SCORER_SPEC = ToolSpec(
                 "maximum": 38,
             },
         },
-        # season is genuinely required — the tool can never guess which
-        # season the user means. Making it required also ensures the shared
-        # ToolRegistry.run() dispatches handler(args, bootstrap) rather than
-        # handler(bootstrap) alone (see fpl_tool_runner.runner.ToolRegistry.run).
-        "required": ["season"],
+        # The current completed season is the deterministic default when the
+        # caller omits season; the runner still forwards optional arguments.
+        "required": [],
         "additionalProperties": False,
     },
     output_schema={
@@ -519,7 +517,7 @@ def _get_historical_gameweek_top_scorer_handler(
     """
     try:
         return get_historical_gameweek_top_scorer(
-            season=args["season"],
+            season=args.get("season", CURRENT_SEASON),
             gw=args.get("gw"),
         )
     except Exception as exc:  # noqa: BLE001

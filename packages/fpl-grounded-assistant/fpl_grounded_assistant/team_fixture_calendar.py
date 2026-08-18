@@ -427,10 +427,7 @@ TEAM_FIXTURE_CALENDAR_SPEC = ToolSpec(
                 "description": "GW lookahead window (default 5, max 10).",
             },
         },
-        # mode is always supplied by the router; listing it as required
-        # ensures the runner calls handler(args, bootstrap) so both mode
-        # and horizon are available to the handler.
-        "required": ["mode"],
+        "required": [],
     },
     output_schema={
         "type": "object",

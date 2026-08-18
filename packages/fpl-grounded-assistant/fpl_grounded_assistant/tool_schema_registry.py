@@ -861,7 +861,8 @@ RANK_PLAYERS_BY_METRIC_SCHEMA = ToolSchema(
     description=(
         "Top N players by any supported bootstrap metric: performance and per-90 rates; "
         "price; current-GW transfer momentum; set-piece order; cards; xGC; ICT components; "
-        "and saves. Filter by position/min_minutes. Use for every top/best/most-by-metric query, "
+        "and saves. Filter by position, minutes, and price bounds. "
+        "Use for every top/best/most-by-metric query, "
         "even when the metric may be unknown (the tool validates and returns valid_metrics)."
     ),
     parameters={
@@ -892,6 +893,16 @@ RANK_PLAYERS_BY_METRIC_SCHEMA = ToolSchema(
             "min_minutes": {
                 "type":        "integer",
                 "description": "Exclude players with fewer minutes (default 0)",
+                "minimum":     0,
+            },
+            "min_price": {
+                "type":        "number",
+                "description": "Inclusive minimum player price in GBP millions.",
+                "minimum":     0,
+            },
+            "max_price": {
+                "type":        "number",
+                "description": "Inclusive maximum player price in GBP millions.",
                 "minimum":     0,
             },
         },
