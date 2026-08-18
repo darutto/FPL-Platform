@@ -30,15 +30,20 @@ from fpl_grounded_assistant import provider_client  # noqa: E402
 from fpl_grounded_assistant.evaluator import EvaluatorVerdict  # noqa: E402
 from fpl_grounded_assistant.orchestrator import (  # noqa: E402
     OUTCOME_OK,
+    OUTCOME_NO_TOOL,
     PROVIDER_ANTHROPIC,
     PROVIDER_GEMINI,
     PROVIDER_OPENAI,
     _build_multi_tool_follow_up,
+    _FailureGate,
+    _LOOP_SYSTEM_PROMPT,
+    _SYSTEM_PROMPT,
     _extract_text_from_response,
     _parse_all_openai_tool_calls,
     ask_orchestrated,
 )
 from fpl_grounded_assistant.orch_config import get_orch_model  # noqa: E402
+from fpl_grounded_assistant.orch_config import get_orch_max_rounds  # noqa: E402
 from fpl_grounded_assistant.provider_client import (  # noqa: E402
     OpenAIProvider,
     _extract_openai_text,
@@ -190,7 +195,10 @@ def test_openai_follow_up_preserves_output_items_and_call_ids():
     ]
 
     follow_up = _build_multi_tool_follow_up(
-        PROVIDER_OPENAI, "question", first_response, executed
+        PROVIDER_OPENAI,
+        [{"role": "user", "content": "question"}],
+        first_response,
+        executed,
     )
 
     assert follow_up[1:4] == first_response.output
@@ -454,3 +462,293 @@ def test_verdict_only_records_rejection_without_primary_retry(monkeypatch, boots
     assert result.retry_attempted is False
     assert result.evaluator_input_tokens == 17
     assert client.calls == 1
+
+
+def _action_response(provider: str, call_id: str, name: str, args: dict, narration: str = ""):
+    if provider == PROVIDER_OPENAI:
+        output = []
+        if narration:
+            output.append(NS(type="message", content=[NS(type="output_text", text=narration)]))
+        output.append(NS(
+            type="function_call",
+            call_id=call_id,
+            name=name,
+            arguments=json.dumps(args),
+        ))
+        return NS(output=output, output_text="")
+    if provider == PROVIDER_GEMINI:
+        parts = []
+        if narration:
+            parts.append(NS(text=narration))
+        parts.append(NS(function_call=NS(name=name, args=args)))
+        return NS(candidates=[NS(content=NS(
+            role="model",
+            thought_signature=f"sig-{call_id}",
+            parts=parts,
+        ))])
+    blocks = []
+    if narration:
+        blocks.append(NS(type="text", text=narration))
+    blocks.append(NS(type="tool_use", id=call_id, name=name, input=args))
+    return NS(content=blocks, stop_reason="tool_use")
+
+
+def _text_response(provider: str, text_value: str):
+    if provider == PROVIDER_OPENAI:
+        return NS(
+            output_text="",
+            output=[NS(type="message", content=[NS(type="output_text", text=text_value)])],
+        )
+    if provider == PROVIDER_GEMINI:
+        return NS(candidates=[NS(content=NS(parts=[NS(text=text_value)]))])
+    return NS(content=[NS(type="text", text=text_value)])
+
+
+class _SequenceClient:
+    def __init__(self, provider: str, responses: list[object]):
+        self.provider = provider
+        self.responses = self
+        self.messages = self
+        self.queue = list(responses)
+        self.calls: list[object] = []
+
+    def create(self, **kwargs):
+        self.calls.append(kwargs)
+        response = self.queue.pop(0)
+        if isinstance(response, BaseException):
+            raise response
+        return response
+
+    def generate_content(self, contents, **kwargs):
+        self.calls.append(contents)
+        response = self.queue.pop(0)
+        if isinstance(response, BaseException):
+            raise response
+        return response
+
+
+def _enable_loop(monkeypatch, rounds: int = 3):
+    monkeypatch.setenv("FPL_ORCH_LOOP_ENABLED", "1")
+    monkeypatch.setenv("FPL_ORCH_MAX_ROUNDS", str(rounds))
+    monkeypatch.setenv("FPL_ORCH_MAX_RETRIES", "0")
+    monkeypatch.setattr(provider_client, "_OPENAI_AVAILABLE", True)
+    monkeypatch.setattr(provider_client, "_GEMINI_AVAILABLE", True)
+
+
+@pytest.mark.parametrize("provider", [PROVIDER_ANTHROPIC, PROVIDER_OPENAI, PROVIDER_GEMINI])
+def test_loop_converges_with_provider_native_message_accumulation(
+    monkeypatch, bootstrap, provider
+):
+    _enable_loop(monkeypatch)
+    first = _action_response(provider, "call-1", "get_current_gameweek", {})
+    second = _action_response(
+        provider, "call-2", "get_player_snapshot", {"player_name": "Salah"}
+    )
+    client = _SequenceClient(provider, [first, second, _text_response(provider, "final answer")])
+
+    result = ask_orchestrated(
+        "question",
+        bootstrap,
+        provider=provider,
+        client=client,
+        api_key="test-key",
+        _eval_client=None,
+    )
+
+    assert result.outcome == OUTCOME_OK
+    assert result.answer_text == "final answer"
+    assert result.rounds_used == 2
+    assert result.rounds_exhausted is False
+    assert len(client.calls) == result.rounds_used + 1
+    assert [entry["name"] for entry in result.tool_calls_trace] == [
+        "get_current_gameweek", "get_player_snapshot",
+    ]
+    if provider == PROVIDER_ANTHROPIC:
+        third_messages = client.calls[2]["messages"]
+        assert len(third_messages) == 5
+        assert third_messages[1]["content"] is first.content
+        assert third_messages[3]["content"] is second.content
+    elif provider == PROVIDER_OPENAI:
+        third_input = client.calls[2]["input"]
+        ids = [getattr(item, "call_id", None) for item in third_input]
+        assert "call-1" in ids and "call-2" in ids
+        result_ids = [item.get("call_id") for item in third_input if isinstance(item, dict)]
+        assert "call-1" in result_ids and "call-2" in result_ids
+    else:
+        third_contents = client.calls[2]
+        assert first.candidates[0].content in third_contents
+        assert second.candidates[0].content in third_contents
+        assert first.candidates[0].content.thought_signature == "sig-call-1"
+
+
+def test_loop_cap_ignores_action_narration_and_selects_latest_success(
+    monkeypatch, bootstrap
+):
+    _enable_loop(monkeypatch, rounds=2)
+    responses = [
+        _action_response(PROVIDER_ANTHROPIC, "call-1", "get_current_gameweek", {}),
+        _action_response(
+            PROVIDER_ANTHROPIC,
+            "call-2",
+            "get_player_snapshot",
+            {"player_name": "Salah"},
+        ),
+        _action_response(
+            PROVIDER_ANTHROPIC,
+            "call-3",
+            "get_current_gameweek",
+            {},
+            narration="NARRATION IS NOT THE ANSWER",
+        ),
+    ]
+    client = _SequenceClient(PROVIDER_ANTHROPIC, responses)
+    result = ask_orchestrated("question", bootstrap, client=client, _eval_client=None)
+
+    assert result.outcome == OUTCOME_OK
+    assert result.rounds_used == 2
+    assert result.rounds_exhausted is True
+    assert len(client.calls) == 3
+    assert "NARRATION IS NOT THE ANSWER" not in result.answer_text
+    assert result.answer_text.startswith("Respuesta incompleta")
+    assert result.tool_chosen == "get_player_snapshot"
+    assert result.tool_output == result.tool_calls_trace[-1]["output"]
+
+
+def test_follow_up_provider_failure_returns_latest_grounded_partial(monkeypatch, bootstrap):
+    _enable_loop(monkeypatch)
+    client = _SequenceClient(PROVIDER_ANTHROPIC, [
+        _action_response(PROVIDER_ANTHROPIC, "call-1", "get_current_gameweek", {}),
+        TimeoutError("provider down"),
+    ])
+    gate = _FailureGate(threshold=1, window_s=60, cooldown_s=30)
+    result = ask_orchestrated(
+        "question", bootstrap, client=client, _eval_client=None, _gate=gate,
+    )
+    assert result.outcome == OUTCOME_OK
+    assert result.tool_chosen == "get_current_gameweek"
+    assert result.rounds_used == 1
+    assert result.rounds_exhausted is False
+    assert "Respuesta incompleta" in result.answer_text
+    assert gate.is_open()
+
+
+def test_unknown_tool_is_fed_back_then_recovered(monkeypatch, bootstrap):
+    _enable_loop(monkeypatch)
+    client = _SequenceClient(PROVIDER_ANTHROPIC, [
+        _action_response(PROVIDER_ANTHROPIC, "bad-1", "invented_tool", {}),
+        _action_response(PROVIDER_ANTHROPIC, "ok-2", "get_current_gameweek", {}),
+        _text_response(PROVIDER_ANTHROPIC, "recovered"),
+    ])
+    result = ask_orchestrated("question", bootstrap, client=client, _eval_client=None)
+    assert result.answer_text == "recovered"
+    assert result.outcome == OUTCOME_OK
+    assert result.rounds_used == 2
+    assert [entry["success"] for entry in result.tool_calls_trace] == [False, True]
+    second_messages = client.calls[1]["messages"]
+    assert "unknown_tool" in str(second_messages[-1])
+
+
+def test_non_ok_tool_result_is_passed_through_then_recovered(monkeypatch, bootstrap):
+    _enable_loop(monkeypatch)
+    client = _SequenceClient(PROVIDER_ANTHROPIC, [
+        _action_response(PROVIDER_ANTHROPIC, "bad-1", "get_player_snapshot", {}),
+        _action_response(PROVIDER_ANTHROPIC, "ok-2", "get_current_gameweek", {}),
+        _text_response(PROVIDER_ANTHROPIC, "recovered"),
+    ])
+    result = ask_orchestrated("question", bootstrap, client=client, _eval_client=None)
+    assert result.answer_text == "recovered"
+    assert [entry["success"] for entry in result.tool_calls_trace] == [False, True]
+    assert "missing_argument" in str(client.calls[1]["messages"][-1])
+
+
+def test_handler_exception_is_fed_back_and_can_recover(monkeypatch, bootstrap):
+    _enable_loop(monkeypatch)
+    import fpl_grounded_assistant.orchestrator as orch
+
+    original = orch.run_tool
+    calls = 0
+
+    def flaky_run_tool(name, args, supplied_bootstrap):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise RuntimeError("handler exploded")
+        return original(name, args, supplied_bootstrap)
+
+    monkeypatch.setattr(orch, "run_tool", flaky_run_tool)
+    client = _SequenceClient(PROVIDER_ANTHROPIC, [
+        _action_response(PROVIDER_ANTHROPIC, "call-1", "get_current_gameweek", {}),
+        _action_response(PROVIDER_ANTHROPIC, "call-2", "get_current_gameweek", {}),
+        _text_response(PROVIDER_ANTHROPIC, "recovered"),
+    ])
+    result = ask_orchestrated("question", bootstrap, client=client, _eval_client=None)
+    assert result.answer_text == "recovered"
+    assert [entry["success"] for entry in result.tool_calls_trace] == [False, True]
+    assert "tool_exception" in str(client.calls[1]["messages"][-1])
+
+
+def test_two_consecutive_failing_rounds_abort_without_success(monkeypatch, bootstrap):
+    _enable_loop(monkeypatch)
+    client = _SequenceClient(PROVIDER_ANTHROPIC, [
+        _action_response(PROVIDER_ANTHROPIC, "bad-1", "invented_one", {}),
+        _action_response(PROVIDER_ANTHROPIC, "bad-2", "invented_two", {}),
+        _text_response(PROVIDER_ANTHROPIC, "ignored after abort"),
+    ])
+    result = ask_orchestrated("question", bootstrap, client=client, _eval_client=None)
+    assert result.outcome == OUTCOME_NO_TOOL
+    assert result.rounds_used == 2
+    assert len(client.calls) == result.rounds_used + 1
+    assert "two consecutive failing tool rounds" in result.error
+
+
+def test_any_success_in_a_mixed_round_resets_failure_counter(monkeypatch, bootstrap):
+    _enable_loop(monkeypatch)
+    mixed = NS(content=[
+        NS(type="tool_use", id="bad-1", name="invented_tool", input={}),
+        NS(type="tool_use", id="ok-1", name="get_current_gameweek", input={}),
+    ])
+    client = _SequenceClient(PROVIDER_ANTHROPIC, [
+        mixed,
+        _action_response(PROVIDER_ANTHROPIC, "bad-2", "invented_again", {}),
+        _text_response(PROVIDER_ANTHROPIC, "still converged"),
+    ])
+    result = ask_orchestrated("question", bootstrap, client=client, _eval_client=None)
+    assert result.outcome == OUTCOME_OK
+    assert result.answer_text == "still converged"
+    assert result.rounds_used == 2
+    assert [entry["success"] for entry in result.tool_calls_trace] == [False, True, False]
+
+
+@pytest.mark.parametrize(("raw", "expected"), [("0", 1), ("9", 5), ("bad", 3)])
+def test_loop_round_config_is_clamped(monkeypatch, raw, expected):
+    monkeypatch.setenv("FPL_ORCH_MAX_ROUNDS", raw)
+    assert get_orch_max_rounds() == expected
+
+
+def test_loop_prompt_is_independent_and_preserves_grounding_rules(monkeypatch, bootstrap):
+    class Client:
+        def __init__(self):
+            self.messages = self
+            self.calls = []
+
+        def create(self, **kwargs):
+            self.calls.append(kwargs)
+            return NS(content=[NS(type="text", text="done")])
+
+    assert "single_source_per_turn" in _SYSTEM_PROMPT
+    assert "single_source_per_turn" not in _LOOP_SYSTEM_PROMPT
+    assert "rank_players_by_metric FIRST;" in _LOOP_SYSTEM_PROMPT
+    assert "ITERATIVE TOOL USE" in _LOOP_SYSTEM_PROMPT
+    assert "TOOL_OUTPUT_TRUST" in _LOOP_SYSTEM_PROMPT
+    assert "minutes_played_season + status + news" in _LOOP_SYSTEM_PROMPT
+
+    client = Client()
+    monkeypatch.delenv("FPL_ORCH_LOOP_ENABLED", raising=False)
+    monkeypatch.setenv("FPL_ORCH_LOOP_PROMPT", "1")
+    ask_orchestrated("question", bootstrap, client=client, _eval_client=None)
+    assert "ITERATIVE TOOL USE" in str(client.calls[-1]["system"])
+    assert len(client.calls) == 1
+
+    monkeypatch.delenv("FPL_ORCH_LOOP_PROMPT", raising=False)
+    ask_orchestrated("question", bootstrap, client=client, _eval_client=None)
+    assert "ITERATIVE TOOL USE" not in str(client.calls[-1]["system"])

@@ -71,6 +71,15 @@ ORCH_EVAL_VERDICT_ONLY_ENV: str = "FPL_ORCH_EVAL_VERDICT_ONLY"
 #: Experiment-only: request a machine-readable evaluation block in final prose.
 ORCH_EXPERIMENT_OUTPUT_ENV: str = "FPL_ORCH_EXPERIMENT_OUTPUT"
 
+#: Experiment treatment: enable cumulative bounded tool execution rounds.
+ORCH_LOOP_ENABLED_ENV: str = "FPL_ORCH_LOOP_ENABLED"
+
+#: Maximum tool-execution rounds for the cumulative loop.
+ORCH_MAX_ROUNDS_ENV: str = "FPL_ORCH_MAX_ROUNDS"
+
+#: Experiment treatment: select the loop-aware system prompt variant.
+ORCH_LOOP_PROMPT_ENV: str = "FPL_ORCH_LOOP_PROMPT"
+
 
 # ---------------------------------------------------------------------------
 # Internal defaults
@@ -88,6 +97,9 @@ _PROVIDER_DEFAULT_MODELS: dict[str, str] = {
 
 #: Default max retries used when ``FPL_ORCH_MAX_RETRIES`` is absent or invalid.
 DEFAULT_MAX_RETRIES: int = 1
+
+#: Default tool-execution rounds for the experiment loop.
+DEFAULT_MAX_ROUNDS: int = 3
 
 
 # ---------------------------------------------------------------------------
@@ -143,6 +155,25 @@ def is_orch_eval_verdict_only() -> bool:
 def is_orch_experiment_output_enabled() -> bool:
     """Return whether the experiment-only structured-output suffix is enabled."""
     return os.environ.get(ORCH_EXPERIMENT_OUTPUT_ENV, "").strip().lower() in _TRUTHY
+
+
+def is_orch_loop_enabled() -> bool:
+    """Return whether the cumulative bounded orchestration loop is enabled."""
+    return os.environ.get(ORCH_LOOP_ENABLED_ENV, "").strip().lower() in _TRUTHY
+
+
+def is_orch_loop_prompt_enabled() -> bool:
+    """Return whether the independent loop-aware prompt treatment is enabled."""
+    return os.environ.get(ORCH_LOOP_PROMPT_ENV, "").strip().lower() in _TRUTHY
+
+
+def get_orch_max_rounds() -> int:
+    """Return tool-execution round cap, defaulting to 3 and clamped to [1, 5]."""
+    raw = os.environ.get(ORCH_MAX_ROUNDS_ENV, "").strip()
+    try:
+        return max(1, min(int(raw), 5))
+    except (TypeError, ValueError):
+        return DEFAULT_MAX_ROUNDS
 
 
 def get_orch_provider() -> str | None:

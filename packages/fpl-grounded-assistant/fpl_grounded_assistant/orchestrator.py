@@ -75,7 +75,7 @@ import json
 import logging
 import os
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from fpl_tool_runner import run_tool
@@ -89,10 +89,13 @@ from .llm_layer import (
 )
 from .orch_config import (
     get_orch_max_retries,
+    get_orch_max_rounds,
     get_orch_timeout,
     is_football_intelligence_enabled,
     is_orch_eval_verdict_only,
     is_orch_experiment_output_enabled,
+    is_orch_loop_enabled,
+    is_orch_loop_prompt_enabled,
 )
 from .provider_client import (
     PERR_AUTH,
@@ -399,6 +402,25 @@ _SYSTEM_PROMPT: str = (
 #: Value now matches _SYSTEM_PROMPT (the P1.b compressed prompt).
 _ORCH_SYSTEM_SUFFIX: str = _SYSTEM_PROMPT
 
+# Independent experiment treatment. The production string above remains byte
+# unchanged when the prompt flag is off.
+_LOOP_SYSTEM_PROMPT: str = (
+    _SYSTEM_PROMPT
+    .replace("CLASSIFY query â†’ ONE source:", "CLASSIFY query â†’ one or more relevant sources:")
+    .replace(
+        "call rank_players_by_metric FIRST and as the ONLY tool",
+        "call rank_players_by_metric FIRST; call another tool only if its result leaves a requested constraint unanswered",
+    )
+    .replace("  - single_source_per_turn (no cross-source unless user explicit)\n", "")
+    .replace(
+        "\nCONSTRAINTS:\n",
+        "\nITERATIVE TOOL USE:\n"
+        "  - Call a tool, read its result, and call another relevant tool when the user question is not yet answerable.\n"
+        "  - Compose only from returned tool evidence. If evidence is still missing, state exactly what is missing instead of refusing generically.\n"
+        "\nCONSTRAINTS:\n",
+    )
+)
+
 # Experiment-only output contract. It is appended dynamically, never folded
 # into _SYSTEM_PROMPT / _ORCH_SYSTEM_SUFFIX, so production prompt assertions and
 # prompt-cache behaviour remain unchanged while the flag is off.
@@ -482,6 +504,10 @@ class OrchestratorResult:
     # turns only (never a multi-tool synthesis, whose answer_text covers tools
     # not reflected in tool_output). Additive, 0-default.
     tool_call_count:         int = 0
+    # Slice 2: cumulative loop observability. Tuples preserve frozen semantics.
+    tool_calls_trace:        tuple[dict[str, Any], ...] = ()
+    rounds_used:             int = 0
+    rounds_exhausted:        bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -566,7 +592,7 @@ def _truncate_tool_output(
 
 def _build_multi_tool_follow_up(
     provider: str | None,
-    question: str,
+    messages: list[Any],
     response: Any,
     executed: list[tuple[str | None, str | None, dict[str, Any], dict[str, Any]]],
 ) -> list[Any]:
@@ -581,26 +607,26 @@ def _build_multi_tool_follow_up(
     if provider_name == PROVIDER_OPENAI:
         # Responses API accepts the typed items from the previous response as
         # input. Each result is paired only by the function call's call_id.
-        messages: list[Any] = [
-            {"role": "user", "content": question},
+        follow_up: list[Any] = [
+            *messages,
             *(getattr(response, "output", None) or []),
         ]
         for index, (tool_id, _tool_name, _tool_args, raw_output) in enumerate(executed):
-            messages.append({
+            follow_up.append({
                 "type": "function_call_output",
                 "call_id": tool_id or f"synthetic_{index}",
                 "output": json.dumps(_truncate_tool_output(raw_output)),
             })
-        return messages
+        return follow_up
 
     if provider_name == PROVIDER_GEMINI:
-        messages = [{"role": "user", "parts": [{"text": question}]}]
+        follow_up = list(messages)
         candidates = getattr(response, "candidates", None) or []
         if candidates:
             original_content = getattr(candidates[0], "content", None)
             if original_content is not None:
-                messages.append(original_content)
-        messages.append({
+                follow_up.append(original_content)
+        follow_up.append({
             "role": "user",
             "parts": [
                 {
@@ -612,7 +638,7 @@ def _build_multi_tool_follow_up(
                 for _tool_id, tool_name, _tool_args, raw_output in executed
             ],
         })
-        return messages
+        return follow_up
 
     original_content = getattr(response, "content", None)
     if not original_content:
@@ -634,7 +660,7 @@ def _build_multi_tool_follow_up(
         for index, (tool_id, _tool_name, _tool_args, raw_output) in enumerate(executed)
     ]
     return [
-        {"role": "user", "content": question},
+        *messages,
         {"role": "assistant", "content": original_content},
         {"role": "user", "content": tool_results},
     ]
@@ -1441,6 +1467,260 @@ def _apply_evaluator(
     )
 
 
+def _run_bounded_loop(
+    *,
+    question: str,
+    initial_response: Any,
+    actual_bootstrap: dict[str, Any],
+    provider_label: str,
+    model: str,
+    system: str,
+    tools: list[dict[str, Any]],
+    max_tokens: int,
+    temperature: float | None,
+    top_p: float | None,
+    timeout_s: float,
+    max_retries: int,
+    resolved_client: Any,
+    api_key: str | None,
+    orch_request_fn: Any,
+    system_blocks: list[dict[str, Any]] | None,
+    valid_tool_names: frozenset[str],
+    active_gate: _FailureGate,
+    eval_client: Any,
+    primary_input_tokens: int,
+    primary_output_tokens: int,
+    primary_cache_read_tokens: int,
+) -> OrchestratorResult:
+    """Execute cumulative provider-native tool rounds until convergence or cap."""
+    messages: list[Any] = [{"role": "user", "content": question}]
+    response = initial_response
+    rounds_used = 0
+    consecutive_failing_rounds = 0
+    exhausted = False
+    terminal_reason: str | None = None
+    successful: list[
+        tuple[str | None, str | None, dict[str, Any], dict[str, Any]]
+    ] = []
+    trace: list[dict[str, Any]] = []
+    prim_in = primary_input_tokens
+    prim_out = primary_output_tokens
+    prim_cache = primary_cache_read_tokens
+
+    def _result_with_observability(
+        result: OrchestratorResult,
+        *,
+        exhausted_value: bool = False,
+    ) -> OrchestratorResult:
+        return replace(
+            result,
+            tool_calls_trace=tuple(trace),
+            rounds_used=rounds_used,
+            rounds_exhausted=exhausted_value,
+            tool_call_count=len(successful),
+        )
+
+    def _evaluated_result(
+        answer_text: str,
+        selected: tuple[str | None, str | None, dict[str, Any], dict[str, Any]],
+        *,
+        exhausted_value: bool = False,
+    ) -> OrchestratorResult:
+        _tool_id, tool_name, tool_args, tool_output = selected
+        result = _apply_evaluator(
+            question=question,
+            answer_text=answer_text,
+            tool_chosen=tool_name,
+            tool_args=tool_args,
+            tool_output=tool_output,
+            tool_calls_trace=trace,
+            outcome=OUTCOME_OK,
+            model=model,
+            provider=provider_label,
+            eval_client=eval_client,
+            resolved_client=resolved_client,
+            api_key=api_key,
+            system=system,
+            tools=tools,
+            _provider_label=provider_label,
+            _timeout_s=timeout_s,
+            _max_retries=max_retries,
+            _orch_request_fn=orch_request_fn,
+            actual_bootstrap=actual_bootstrap,
+            _valid_tool_names=valid_tool_names,
+            _system_blocks=system_blocks,
+            _primary_input_tokens=prim_in,
+            _primary_output_tokens=prim_out,
+            _primary_cache_read_tokens=prim_cache,
+        )
+        return _result_with_observability(
+            result,
+            exhausted_value=exhausted_value,
+        )
+
+    while True:
+        calls = _parse_all_tool_calls(response, provider_label)
+        if not calls:
+            answer = _extract_text_from_response(response, provider_label)
+            if successful:
+                selected = successful[0]
+                if not answer:
+                    try:
+                        answer = render(selected[1], selected[3])
+                    except Exception:  # noqa: BLE001
+                        answer = f"[{selected[3].get('status', 'unknown')}]"
+                return _evaluated_result(answer, selected)
+
+            no_tool_answer = answer or "No encontrÃ© una herramienta para responder a esto."
+            return OrchestratorResult(
+                question=question,
+                tool_chosen=None,
+                tool_args={},
+                tool_output={},
+                answer_text=no_tool_answer,
+                llm_used=True,
+                model=model,
+                outcome=OUTCOME_NO_TOOL,
+                error="no successful tool call before convergence",
+                primary_input_tokens=prim_in,
+                primary_output_tokens=prim_out,
+                primary_cache_read_tokens=prim_cache,
+                total_tokens=prim_in + prim_out + prim_cache,
+                tool_calls_trace=tuple(trace),
+                rounds_used=rounds_used,
+            )
+
+        # A response with calls is an action response. At the cap, ignore any
+        # co-located narration and render the latest grounded success instead.
+        if rounds_used >= get_orch_max_rounds():
+            exhausted = True
+            terminal_reason = "round limit reached"
+            break
+
+        round_executed: list[
+            tuple[str | None, str | None, dict[str, Any], dict[str, Any]]
+        ] = []
+        round_had_success = False
+        round_number = rounds_used + 1
+        for tool_id, tool_name, tool_args in calls:
+            if not tool_name or tool_name not in valid_tool_names:
+                raw_output = {
+                    "status": "error",
+                    "code": "unknown_tool",
+                    "message": f"Unknown tool {tool_name!r}.",
+                }
+            else:
+                try:
+                    raw_output = run_tool(tool_name, tool_args, actual_bootstrap)
+                except Exception as exc:  # noqa: BLE001
+                    raw_output = {
+                        "status": "error",
+                        "code": "tool_exception",
+                        "message": str(exc),
+                    }
+
+            item = (tool_id, tool_name, tool_args, raw_output)
+            round_executed.append(item)
+            is_success = raw_output.get("status") == "ok"
+            if is_success:
+                successful.append(item)
+                round_had_success = True
+            trace.append({
+                "round": round_number,
+                "tool_call_id": tool_id,
+                "name": tool_name or "",
+                "args": tool_args,
+                "output": raw_output,
+                "success": is_success,
+            })
+
+        rounds_used += 1
+        consecutive_failing_rounds = (
+            0 if round_had_success else consecutive_failing_rounds + 1
+        )
+        messages = _build_multi_tool_follow_up(
+            provider_label,
+            messages,
+            response,
+            round_executed,
+        )
+
+        next_call = call_orch_provider(
+            provider_label,
+            model=model,
+            system=system,
+            tools=tools,
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            timeout_s=timeout_s,
+            max_retries=max_retries,
+            client=resolved_client,
+            api_key=api_key,
+            _request_fn=orch_request_fn,
+            _system_blocks=system_blocks,
+        )
+        provider_result = ProviderResult(
+            text=None,
+            model=model,
+            error_code=next_call.error_code,
+            error_msg=next_call.error_msg,
+            attempts=next_call.attempts,
+            latency_ms=next_call.latency_ms,
+        )
+        _log_orch_provider_event(provider_label, provider_result)
+        prim_in += next_call.input_tokens or 0
+        prim_out += next_call.output_tokens or 0
+        prim_cache += next_call.cache_read_tokens or 0
+
+        if next_call.error_code is not None:
+            active_gate.record_failure(next_call.error_code)
+            terminal_reason = f"provider failure: {next_call.error_code}"
+            break
+        active_gate.reset_on_success()
+        response = next_call.response
+
+        if consecutive_failing_rounds >= 2:
+            terminal_reason = "two consecutive failing tool rounds"
+            break
+
+    if successful:
+        selected = successful[-1]
+        try:
+            rendered = render(selected[1], selected[3])
+        except Exception:  # noqa: BLE001
+            rendered = f"[{selected[3].get('status', 'unknown')}]"
+        incomplete = f"Respuesta incompleta ({terminal_reason}): {rendered}"
+        return _evaluated_result(
+            incomplete,
+            selected,
+            exhausted_value=exhausted,
+        )
+
+    return OrchestratorResult(
+        question=question,
+        tool_chosen=None,
+        tool_args={},
+        tool_output={},
+        answer_text=(
+            "No se pudo completar una llamada de herramienta correctamente"
+            + (f" ({terminal_reason})." if terminal_reason else ".")
+        ),
+        llm_used=True,
+        model=model,
+        outcome=OUTCOME_NO_TOOL,
+        error=terminal_reason or "no successful tool call",
+        primary_input_tokens=prim_in,
+        primary_output_tokens=prim_out,
+        primary_cache_read_tokens=prim_cache,
+        total_tokens=prim_in + prim_out + prim_cache,
+        tool_calls_trace=tuple(trace),
+        rounds_used=rounds_used,
+        rounds_exhausted=exhausted,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Public entrypoint
 # ---------------------------------------------------------------------------
@@ -1625,6 +1905,7 @@ def ask_orchestrated(
     # P1.e Lever 2: for Anthropic, also build system_blocks with cache_control
     # applied to the last block so the system prompt prefix is cached.
     # ------------------------------------------------------------------
+    _static_prompt = _LOOP_SYSTEM_PROMPT if is_orch_loop_prompt_enabled() else _SYSTEM_PROMPT
     try:
         from .context_builder import build_orchestration_context  # noqa: PLC0415
         _ctx = build_orchestration_context(actual_bootstrap)
@@ -1633,18 +1914,18 @@ def ask_orchestrated(
         _dynamic_ctx_section: str = _CONTEXT_SECTION_HEADER + _ctx + _CONTEXT_SECTION_FOOTER
         if is_orch_experiment_output_enabled():
             _dynamic_ctx_section = _EXPERIMENT_OUTPUT_SUFFIX + _dynamic_ctx_section
-        system: str = _SYSTEM_PROMPT + _dynamic_ctx_section
+        system: str = _static_prompt + _dynamic_ctx_section
     except Exception:  # noqa: BLE001
         _dynamic_ctx_section = (
             _EXPERIMENT_OUTPUT_SUFFIX if is_orch_experiment_output_enabled() else ""
         )
-        system = _SYSTEM_PROMPT + _dynamic_ctx_section
+        system = _static_prompt + _dynamic_ctx_section
     # F4 fix: build Anthropic system blocks with cache_control ONLY on the static
     # _SYSTEM_PROMPT block.  The dynamic context section is a second block with NO
     # cache_control, so context changes do NOT invalidate the cached static prefix.
     # (Previously: one combined block → any context change broke caching.)
     _system_blocks: list[dict[str, Any]] | None = (
-        _build_anthropic_system_blocks(_SYSTEM_PROMPT, dynamic_suffix=_dynamic_ctx_section)
+        _build_anthropic_system_blocks(_static_prompt, dynamic_suffix=_dynamic_ctx_section)
         if _provider_for_cache == PROVIDER_ANTHROPIC
         else None
     )
@@ -1724,6 +2005,32 @@ def ask_orchestrated(
     _prim_in    = orch_call.input_tokens or 0
     _prim_out   = orch_call.output_tokens or 0
     _prim_cache = orch_call.cache_read_tokens or 0
+
+    if is_orch_loop_enabled():
+        return _run_bounded_loop(
+            question=question,
+            initial_response=response,
+            actual_bootstrap=actual_bootstrap,
+            provider_label=_provider_label,
+            model=model,
+            system=system,
+            tools=tools,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            timeout_s=_timeout_s,
+            max_retries=_max_retries,
+            resolved_client=resolved_client,
+            api_key=api_key,
+            orch_request_fn=_orch_request_fn,
+            system_blocks=_system_blocks,
+            valid_tool_names=_valid_tool_names,
+            active_gate=_active_gate,
+            eval_client=_eval_client,
+            primary_input_tokens=_prim_in,
+            primary_output_tokens=_prim_out,
+            primary_cache_read_tokens=_prim_cache,
+        )
 
     # ------------------------------------------------------------------
     # 6. Parse ALL tool-call blocks from response (multi-tool batching, P1.c).
@@ -1820,7 +2127,7 @@ def ask_orchestrated(
     if len(executed) > 1:
         follow_up_messages = _build_multi_tool_follow_up(
             _provider_label,
-            question,
+            [{"role": "user", "content": question}],
             response,
             executed,
         )
