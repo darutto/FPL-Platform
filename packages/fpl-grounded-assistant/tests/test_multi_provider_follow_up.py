@@ -27,6 +27,7 @@ for _path in [
         sys.path.insert(0, _path)
 
 from fpl_grounded_assistant import provider_client  # noqa: E402
+from fpl_grounded_assistant.evaluator import EvaluatorVerdict  # noqa: E402
 from fpl_grounded_assistant.orchestrator import (  # noqa: E402
     OUTCOME_OK,
     PROVIDER_ANTHROPIC,
@@ -123,7 +124,7 @@ class _GeminiClient:
         self.calls: list[list[object]] = []
         self.first_response = _gemini_tool_response()
 
-    def generate_content(self, contents, request_options=None):
+    def generate_content(self, contents, generation_config=None, request_options=None):
         self.calls.append(contents)
         if len(self.calls) == 1:
             return self.first_response
@@ -307,3 +308,149 @@ def test_single_tool_makes_only_one_call(bootstrap):
 def test_gemini_orchestrator_default_model(monkeypatch):
     monkeypatch.delenv("FPL_ORCH_MODEL", raising=False)
     assert get_orch_model(PROVIDER_GEMINI) == "gemini-3.5-flash"
+
+
+def test_gemini_orchestrator_forwards_generation_controls(monkeypatch):
+    monkeypatch.setattr(provider_client, "_GEMINI_AVAILABLE", True)
+
+    class Client:
+        def __init__(self):
+            self.kwargs = None
+
+        def generate_content(self, contents, **kwargs):
+            self.kwargs = kwargs
+            return NS(candidates=[NS(content=NS(parts=[NS(text="done")]))])
+
+    client = Client()
+    ask_orchestrated(
+        "off topic",
+        {"events": [], "elements": [], "teams": [], "element_types": []},
+        provider=PROVIDER_GEMINI,
+        client=client,
+        api_key="test-key",
+        max_tokens=4096,
+        temperature=0.2,
+        top_p=0.9,
+        _eval_client=None,
+    )
+    assert client.kwargs["generation_config"] == {
+        "max_output_tokens": 4096,
+        "temperature": 0.2,
+        "top_p": 0.9,
+    }
+
+
+def test_experiment_output_suffix_is_flag_gated(monkeypatch, bootstrap):
+    class Client:
+        def __init__(self):
+            self.messages = self
+            self.systems = []
+
+        def create(self, **kwargs):
+            self.systems.append(kwargs["system"])
+            return NS(content=[NS(type="text", text="done")])
+
+    client = Client()
+    monkeypatch.delenv("FPL_ORCH_EXPERIMENT_OUTPUT", raising=False)
+    ask_orchestrated("question", bootstrap, client=client, _eval_client=None)
+    assert "EXPERIMENT_EVALUATION_OUTPUT" not in str(client.systems[-1])
+
+    monkeypatch.setenv("FPL_ORCH_EXPERIMENT_OUTPUT", "1")
+    ask_orchestrated("question", bootstrap, client=client, _eval_client=None)
+    assert "EXPERIMENT_EVALUATION_OUTPUT" in str(client.systems[-1])
+
+
+def test_anthropic_orchestrator_forwards_generation_controls(bootstrap):
+    class Client:
+        def __init__(self):
+            self.messages = self
+            self.kwargs = None
+
+        def create(self, **kwargs):
+            self.kwargs = kwargs
+            return NS(content=[NS(type="text", text="done")])
+
+    client = Client()
+    ask_orchestrated(
+        "question",
+        bootstrap,
+        client=client,
+        max_tokens=4096,
+        temperature=0.2,
+        top_p=0.9,
+        _eval_client=None,
+    )
+    assert client.kwargs["max_tokens"] == 4096
+    assert client.kwargs["temperature"] == 0.2
+    assert client.kwargs["top_p"] == 0.9
+
+
+def test_openai_orchestrator_forwards_generation_controls(monkeypatch, bootstrap):
+    monkeypatch.setattr(provider_client, "_OPENAI_AVAILABLE", True)
+
+    class Client:
+        def __init__(self):
+            self.responses = self
+            self.kwargs = None
+
+        def create(self, **kwargs):
+            self.kwargs = kwargs
+            return NS(output_text="done", output=[])
+
+    client = Client()
+    ask_orchestrated(
+        "question",
+        bootstrap,
+        provider=PROVIDER_OPENAI,
+        client=client,
+        api_key="test-key",
+        max_tokens=4096,
+        temperature=0.2,
+        top_p=0.9,
+        _eval_client=None,
+    )
+    assert client.kwargs["max_output_tokens"] == 4096
+    assert client.kwargs["temperature"] == 0.2
+    assert client.kwargs["top_p"] == 0.9
+
+
+def test_verdict_only_records_rejection_without_primary_retry(monkeypatch, bootstrap):
+    class Client:
+        def __init__(self):
+            self.messages = self
+            self.calls = 0
+
+        def create(self, **kwargs):
+            self.calls += 1
+            return NS(content=[NS(
+                type="tool_use",
+                id="ant-only",
+                name="get_current_gameweek",
+                input={},
+            )])
+
+    verdict = EvaluatorVerdict(
+        approved=False,
+        grounded=True,
+        complete=False,
+        safe=True,
+        retry_feedback="answer every requested part",
+        tokens_used=17,
+    )
+    monkeypatch.setenv("FPL_ORCH_EVAL_VERDICT_ONLY", "1")
+    monkeypatch.setattr(
+        "fpl_grounded_assistant.orchestrator.evaluate_response",
+        lambda **kwargs: verdict,
+    )
+    client = Client()
+    result = ask_orchestrated(
+        "What gameweek is it?",
+        bootstrap,
+        client=client,
+        _eval_client=object(),
+    )
+
+    assert result.evaluator_verdict is verdict
+    assert result.retry_attempted is False
+    assert result.evaluator_input_tokens == 17
+    assert client.calls == 1

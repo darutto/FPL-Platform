@@ -65,6 +65,12 @@ ORCH_MODEL_ENV: str = "FPL_ORCH_MODEL"
 #: Environment variable that offers FI-7b tools when set to a truthy value.
 FOOTBALL_INTELLIGENCE_ENABLED_ENV: str = "FOOTBALL_INTELLIGENCE_ENABLED"
 
+#: Experiment-only: retain evaluator verdicts but skip the context-losing retry.
+ORCH_EVAL_VERDICT_ONLY_ENV: str = "FPL_ORCH_EVAL_VERDICT_ONLY"
+
+#: Experiment-only: request a machine-readable evaluation block in final prose.
+ORCH_EXPERIMENT_OUTPUT_ENV: str = "FPL_ORCH_EXPERIMENT_OUTPUT"
+
 
 # ---------------------------------------------------------------------------
 # Internal defaults
@@ -127,6 +133,16 @@ def is_football_intelligence_enabled() -> bool:
         .lower()
         in _TRUTHY
     )
+
+
+def is_orch_eval_verdict_only() -> bool:
+    """Return whether evaluator rejection should be recorded without retrying."""
+    return os.environ.get(ORCH_EVAL_VERDICT_ONLY_ENV, "").strip().lower() in _TRUTHY
+
+
+def is_orch_experiment_output_enabled() -> bool:
+    """Return whether the experiment-only structured-output suffix is enabled."""
+    return os.environ.get(ORCH_EXPERIMENT_OUTPUT_ENV, "").strip().lower() in _TRUTHY
 
 
 def get_orch_provider() -> str | None:

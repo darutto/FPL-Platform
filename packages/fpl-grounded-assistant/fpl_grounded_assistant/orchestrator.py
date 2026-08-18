@@ -91,6 +91,8 @@ from .orch_config import (
     get_orch_max_retries,
     get_orch_timeout,
     is_football_intelligence_enabled,
+    is_orch_eval_verdict_only,
+    is_orch_experiment_output_enabled,
 )
 from .provider_client import (
     PERR_AUTH,
@@ -396,6 +398,22 @@ _SYSTEM_PROMPT: str = (
 #: Retained for backwards compatibility with tests that import this name.
 #: Value now matches _SYSTEM_PROMPT (the P1.b compressed prompt).
 _ORCH_SYSTEM_SUFFIX: str = _SYSTEM_PROMPT
+
+# Experiment-only output contract. It is appended dynamically, never folded
+# into _SYSTEM_PROMPT / _ORCH_SYSTEM_SUFFIX, so production prompt assertions and
+# prompt-cache behaviour remain unchanged while the flag is off.
+_EXPERIMENT_OUTPUT_SUFFIX: str = (
+    "\n\nEXPERIMENT_EVALUATION_OUTPUT:\n"
+    "After the user-facing prose, emit exactly one fenced ```json block when the "
+    "question asks for a squad, position group, or budget allocation. Use stable "
+    "numeric element IDs and no prose inside the block.\n"
+    "For position-group selections use keys: locked_players, locked_cost, "
+    "primary_selection, alternative_selection, quoted_prices, formation, "
+    "selection_cost, total_cost_including_locked, remaining_budget, ranking_basis.\n"
+    "For Bench Boost/team-build decisions use keys: verdict, squad_selection, "
+    "starting_xi, bench_selection, formation, total_cost, ranking_basis, reasons.\n"
+    "All prices are GBP millions in JSON; do arithmetic from tool-sourced prices."
+)
 
 
 # ---------------------------------------------------------------------------
@@ -1184,6 +1202,33 @@ def _apply_evaluator(
             tool_call_count=_primary_count,   # E2: evaluator approved primary
         )
 
+    # Experiment control: retain the rejection verdict and all token accounting,
+    # but do not start the legacy context-losing retry conversation.
+    if is_orch_eval_verdict_only():
+        _total = (
+            _primary_input_tokens + _primary_output_tokens + _primary_cache_read_tokens
+            + _eval_combined
+        )
+        return OrchestratorResult(
+            question=question,
+            tool_chosen=tool_chosen,
+            tool_args=tool_args,
+            tool_output=tool_output,
+            answer_text=answer_text,
+            llm_used=True,
+            model=model,
+            outcome=outcome,
+            error=None if outcome == OUTCOME_OK else f"tool returned status={tool_output.get('status')!r}",
+            evaluator_verdict=verdict,
+            retry_attempted=False,
+            primary_input_tokens=_primary_input_tokens,
+            primary_output_tokens=_primary_output_tokens,
+            primary_cache_read_tokens=_primary_cache_read_tokens,
+            evaluator_input_tokens=_eval_combined,
+            total_tokens=_total,
+            tool_call_count=_primary_count,
+        )
+
     # ------------------------------------------------------------------
     # E3. Evaluator rejected → retry primary LLM ONCE with feedback.
     #     Hard cap: 1 retry.  No second evaluation.
@@ -1409,6 +1454,9 @@ def ask_orchestrated(
     api_key: str | None = None,
     provider: str | None = None,
     web_search_enabled: bool = False,
+    max_tokens: int = 1024,
+    temperature: float | None = None,
+    top_p: float | None = None,
     _gate: _FailureGate | None = None,
     _orch_request_fn: Any = None,
     _eval_client: Any = None,
@@ -1452,6 +1500,10 @@ def ask_orchestrated(
         tool list (see ``_build_tools``). Callers (``harness.ask_v2()``) must
         only set this after verifying tier eligibility + explicit opt-in —
         the orchestrator itself performs no gating.
+    max_tokens:
+        Maximum provider output tokens for each orchestration call.
+    temperature, top_p:
+        Optional provider sampling controls. ``None`` preserves provider defaults.
 
     Returns
     -------
@@ -1579,10 +1631,14 @@ def ask_orchestrated(
         if len(_ctx) > _MAX_CONTEXT_CHARS:
             _ctx = _ctx[:_MAX_CONTEXT_CHARS] + _CONTEXT_TRUNCATION_MARKER
         _dynamic_ctx_section: str = _CONTEXT_SECTION_HEADER + _ctx + _CONTEXT_SECTION_FOOTER
+        if is_orch_experiment_output_enabled():
+            _dynamic_ctx_section = _EXPERIMENT_OUTPUT_SUFFIX + _dynamic_ctx_section
         system: str = _SYSTEM_PROMPT + _dynamic_ctx_section
     except Exception:  # noqa: BLE001
-        _dynamic_ctx_section = ""
-        system = _SYSTEM_PROMPT
+        _dynamic_ctx_section = (
+            _EXPERIMENT_OUTPUT_SUFFIX if is_orch_experiment_output_enabled() else ""
+        )
+        system = _SYSTEM_PROMPT + _dynamic_ctx_section
     # F4 fix: build Anthropic system blocks with cache_control ONLY on the static
     # _SYSTEM_PROMPT block.  The dynamic context section is a second block with NO
     # cache_control, so context changes do NOT invalidate the cached static prefix.
@@ -1622,6 +1678,9 @@ def ask_orchestrated(
         system=system,
         tools=tools,
         messages=[{"role": "user", "content": question}],
+        max_tokens=max_tokens,
+        temperature=temperature,
+        top_p=top_p,
         timeout_s=_timeout_s,
         max_retries=_max_retries,
         client=resolved_client,
@@ -1771,6 +1830,9 @@ def ask_orchestrated(
             system=system,
             tools=tools,
             messages=follow_up_messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
             timeout_s=_timeout_s,
             max_retries=_max_retries,
             client=resolved_client,
