@@ -32,24 +32,74 @@ def extract_json_block(answer_text: str) -> dict[str, Any] | None:
     return None
 
 
-def classify_user_visible(outcome: str, answer_text: str) -> dict[str, Any]:
-    """Axis 1: identify churn-level empty/error/content-free responses."""
+#: Outcomes that mean orchestration itself failed, independent of any tool
+#: result. These are reported identically by the loop and the legacy
+#: single-round path, so they are safe to compare across arms.
+ORCHESTRATION_FAILURE_OUTCOMES: frozenset[str] = frozenset({
+    "no_client",
+    "llm_error",
+    "cooldown",
+    "no_tool",
+    "unknown_tool",
+    "tool_error",
+    "quota_exceeded",
+    "worker_error",
+})
+
+#: Invariant fragments of content-free tool messages. These match on the stable
+#: part of the sentence, NOT on a fully rendered example: the transfer-suggestion
+#: message interpolates position, club and price clauses
+#: (``f"No available {pos}{team}{price} found with positive form..."`` at
+#: transfer_suggestion.py), so a marker like "no available midfielders found"
+#: silently fails to match the price-filtered variant that this experiment
+#: exists to measure.
+CONTENT_FREE_MARKERS: tuple[str, ...] = (
+    "found with positive form in the current bootstrap",
+    "no encontr\u00e9 una herramienta",
+    "llm call failed",
+    "no se pudo completar una llamada",
+)
+
+
+def classify_user_visible(
+    outcome: str,
+    answer_text: str,
+    tool_output: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Axis 1: identify churn-level empty/error/content-free responses.
+
+    Arm-uniform by construction. ``outcome`` is deliberately NOT read as a
+    general quality signal, because the arms do not agree on it: the bounded
+    loop reports ``ok`` plus ``rounds_exhausted`` for grounded partials (so the
+    harness delivers them instead of collapsing to ``unsupported``), while the
+    legacy single-round path reports ``tool_result_error`` for the very same
+    tool status. Scoring on ``outcome`` would therefore mark identical answer
+    text catastrophic in arms A/B and substantive in arms C/D, handing the loop
+    a systematic advantage on the headline churn metric that has nothing to do
+    with answer quality.
+
+    So orchestration-level failures are read from ``outcome`` (both paths agree
+    there), and tool-level quality is read from the tool's own ``status``, which
+    both paths populate identically.
+    """
     text = (answer_text or "").strip()
     reasons: list[str] = []
-    if outcome != "ok":
+
+    if outcome in ORCHESTRATION_FAILURE_OUTCOMES:
         reasons.append(f"outcome={outcome}")
+
+    if isinstance(tool_output, dict):
+        status = tool_output.get("status")
+        if status is not None and status != "ok":
+            reasons.append(f"tool_status={status}")
+
     if len(text) < 40:
         reasons.append("answer_too_short")
+
     lowered = text.lower()
-    content_free_markers = (
-        "no available midfielders found",
-        "no available forwards found",
-        "no encontrÃ© una herramienta",
-        "llm call failed",
-        "no se pudo completar una llamada",
-    )
-    if any(marker in lowered for marker in content_free_markers):
+    if any(marker in lowered for marker in CONTENT_FREE_MARKERS):
         reasons.append("content_free_stub")
+
     return {
         "classification": "catastrophic_failure" if reasons else "substantive_answer",
         "catastrophic_failure": bool(reasons),
@@ -502,7 +552,19 @@ def grade_structured_output(
                 expected_locked_ids,
                 require_alternative=False,
             )
-            return {"source": "raw_tool_output", **result}
+            return {
+                "source": "raw_tool_output",
+                # These fields are reconstructed from the trusted bootstrap,
+                # not quoted or calculated by the model. They remain useful
+                # for checking whether the raw ranking is legally completable,
+                # but cannot be compared with JSON-block price/arithmetic
+                # accuracy.
+                "non_comparable_checks": [
+                    "quoted_prices",
+                    "budget_arithmetic",
+                ],
+                **result,
+            }
 
     return {
         "source": None,
@@ -510,3 +572,15 @@ def grade_structured_output(
         "valid": None,
         "errors": [],
     }
+
+
+def summarize_axis2_by_source(rows: list[dict[str, Any]]) -> dict[str, dict[str, int]]:
+    """Count legality statuses without pooling model JSON and raw fallbacks."""
+    summary: dict[str, dict[str, int]] = {}
+    for row in rows:
+        axis2 = row.get("axis2") or {}
+        source = str(axis2.get("source") or "none")
+        status = str(axis2.get("status") or "unknown")
+        source_counts = summary.setdefault(source, {})
+        source_counts[status] = source_counts.get(status, 0) + 1
+    return summary

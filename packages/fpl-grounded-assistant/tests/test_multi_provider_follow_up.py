@@ -661,6 +661,50 @@ def test_non_ok_tool_result_is_passed_through_then_recovered(monkeypatch, bootst
     assert "missing_argument" in str(client.calls[1]["messages"][-1])
 
 
+@pytest.mark.parametrize("status", ["ambiguous", "not_found"])
+def test_identity_resolution_status_is_a_usable_loop_observation(
+    monkeypatch, bootstrap, status
+):
+    _enable_loop(monkeypatch)
+    import fpl_grounded_assistant.orchestrator as orch
+
+    raw = {
+        "status": status,
+        "query": "Silva",
+        "candidates": [{"id": 1, "web_name": "Silva"}] if status == "ambiguous" else [],
+        "message": "Choose a player" if status == "ambiguous" else "No player found",
+    }
+    monkeypatch.setattr(orch, "run_tool", lambda *args, **kwargs: raw)
+    client = _SequenceClient(PROVIDER_ANTHROPIC, [
+        _action_response(
+            PROVIDER_ANTHROPIC,
+            "lookup-1",
+            "get_player_snapshot",
+            {"player_name": "Silva"},
+        ),
+        _text_response(PROVIDER_ANTHROPIC, "Necesito que elijas el jugador exacto."),
+    ])
+
+    result = ask_orchestrated("Compara a Silva", bootstrap, client=client, _eval_client=None)
+
+    assert result.outcome == OUTCOME_OK
+    assert result.tool_chosen == "get_player_snapshot"
+    assert result.tool_output is raw
+    assert result.tool_call_count == 1
+    assert result.tool_calls_trace[0]["success"] is True
+    assert result.answer_text == "Necesito que elijas el jugador exacto."
+
+
+def test_textless_loop_fallback_is_valid_spanish(monkeypatch, bootstrap):
+    _enable_loop(monkeypatch)
+    client = _SequenceClient(PROVIDER_ANTHROPIC, [NS(content=[])])
+
+    result = ask_orchestrated("question", bootstrap, client=client, _eval_client=None)
+
+    assert result.answer_text == "No encontré una herramienta para responder a esto."
+    assert "Ã" not in result.answer_text
+
+
 def test_handler_exception_is_fed_back_and_can_recover(monkeypatch, bootstrap):
     _enable_loop(monkeypatch)
     import fpl_grounded_assistant.orchestrator as orch
@@ -697,7 +741,8 @@ def test_two_consecutive_failing_rounds_abort_without_success(monkeypatch, boots
     result = ask_orchestrated("question", bootstrap, client=client, _eval_client=None)
     assert result.outcome == OUTCOME_NO_TOOL
     assert result.rounds_used == 2
-    assert len(client.calls) == result.rounds_used + 1
+    assert len(client.calls) == 2
+    assert client.queue == [_text_response(PROVIDER_ANTHROPIC, "ignored after abort")]
     assert "two consecutive failing tool rounds" in result.error
 
 
@@ -717,6 +762,45 @@ def test_any_success_in_a_mixed_round_resets_failure_counter(monkeypatch, bootst
     assert result.answer_text == "still converged"
     assert result.rounds_used == 2
     assert [entry["success"] for entry in result.tool_calls_trace] == [False, True, False]
+    assert result.tool_call_count == 3
+
+
+def test_loop_observability_preserves_evaluator_retry_call_count(monkeypatch, bootstrap):
+    _enable_loop(monkeypatch)
+    monkeypatch.delenv("FPL_ORCH_EVAL_VERDICT_ONLY", raising=False)
+    verdict = EvaluatorVerdict(
+        approved=False,
+        grounded=True,
+        complete=False,
+        safe=True,
+        retry_feedback="retry once",
+        tokens_used=5,
+    )
+    monkeypatch.setattr(
+        "fpl_grounded_assistant.orchestrator.evaluate_response",
+        lambda **kwargs: verdict,
+    )
+    mixed = NS(content=[
+        NS(type="tool_use", id="ok-1", name="get_current_gameweek", input={}),
+        NS(type="tool_use", id="bad-1", name="invented_one", input={}),
+        NS(type="tool_use", id="bad-2", name="invented_two", input={}),
+    ])
+    client = _SequenceClient(PROVIDER_ANTHROPIC, [
+        mixed,
+        _text_response(PROVIDER_ANTHROPIC, "primary answer"),
+        _action_response(PROVIDER_ANTHROPIC, "retry-1", "get_current_gameweek", {}),
+    ])
+
+    result = ask_orchestrated(
+        "question",
+        bootstrap,
+        client=client,
+        _eval_client=object(),
+    )
+
+    assert result.retry_attempted is True
+    assert result.tool_call_count == 1
+    assert result.tool_chosen == "get_current_gameweek"
 
 
 @pytest.mark.parametrize(("raw", "expected"), [("0", 1), ("9", 5), ("bad", 3)])
@@ -737,6 +821,8 @@ def test_loop_prompt_is_independent_and_preserves_grounding_rules(monkeypatch, b
 
     assert "single_source_per_turn" in _SYSTEM_PROMPT
     assert "single_source_per_turn" not in _LOOP_SYSTEM_PROMPT
+    assert "CLASSIFY query → ONE source:" in _SYSTEM_PROMPT
+    assert "CLASSIFY query → one or more relevant sources:" in _LOOP_SYSTEM_PROMPT
     assert "rank_players_by_metric FIRST;" in _LOOP_SYSTEM_PROMPT
     assert "ITERATIVE TOOL USE" in _LOOP_SYSTEM_PROMPT
     assert "TOOL_OUTPUT_TRUST" in _LOOP_SYSTEM_PROMPT

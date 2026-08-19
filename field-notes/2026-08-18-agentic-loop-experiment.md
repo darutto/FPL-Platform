@@ -60,6 +60,45 @@ including answers side by side, Axis 1 classifications, Axis 2 legality,
 separate Axis 3 human-score columns, failure rates, token/cost totals, complete
 tool traces, rounds, and evaluator verdicts.
 
+## Pre-live audit corrections
+
+The paid run remains intentionally unopened until the review findings are
+covered by tests. Before running it, the implementation was corrected so that:
+
+- Spanish fallbacks and the exact Q6/Q7/Q9 prompts are valid Unicode;
+- `ambiguous`, `not_found`, and other usable tool observations survive the
+  loop instead of becoming generic no-tool failures;
+- `tool_call_count` counts all calls behind the retained primary payload, so a
+  mixed success/failure synthesis cannot pass the atomic-card single-call gate;
+- two consecutive fully failing rounds stop before an unnecessary provider
+  call; and
+- raw-tool fallback legality is reported separately from model JSON, with its
+  bootstrap-synthesized price and arithmetic checks marked non-comparable.
+
+A second review pass found two further Axis 1 biases, both fixed before the
+paid run:
+
+- **The canonical failure string scored as a success.** `content_free_stub`
+  matched the literal `"no available midfielders found"`, but the message is
+  interpolated (`f"No available {pos}{team}{price} found with positive
+  form..."`), so the price-filtered variant — the exact Q8 response that
+  motivated this experiment — was not a substring and classified as
+  `substantive_answer`. Markers now match the invariant tail
+  (`"found with positive form in the current bootstrap"`).
+- **`outcome` was not comparable across arms.** Axis 1 flagged any
+  `outcome != "ok"`, but the loop reports `ok` plus `rounds_exhausted` for
+  grounded partials (so the harness delivers them rather than collapsing to
+  `unsupported`), while the legacy single-round path reports
+  `tool_result_error` for the same tool status. Identical answer text was
+  therefore catastrophic in arms A/B and substantive in arms C/D — a
+  systematic advantage to the loop on the headline churn metric, unrelated to
+  answer quality. Axis 1 now reads orchestration-level failures from `outcome`
+  (where both paths agree) and tool-level quality from the tool's own
+  `status` (which both paths populate identically).
+
+Both corrections are pinned by tests that were verified to **fail** against the
+previous implementation, so they cannot silently regress.
+
 ## Decision boundary
 
 Passing Q8-style ranking is not season readiness. If loop arms C/D still fail

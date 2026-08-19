@@ -2,11 +2,15 @@
 from __future__ import annotations
 
 from collections import Counter
+from pathlib import Path
+import runpy
 
 from fpl_grounded_assistant.experiment_measurement import (
     SQUAD_QUOTAS,
+    classify_user_visible,
     exact_completion,
     grade_structured_output,
+    summarize_axis2_by_source,
     validate_decision_payload,
     validate_selection_payload,
 )
@@ -173,3 +177,160 @@ def test_structured_output_missing_is_not_scored_invalid():
     result = grade_structured_output("Q6", "A substantive prose answer without JSON.", {}, _legal_bootstrap(), [])
     assert result["status"] == "structured_output_missing"
     assert result["valid"] is None
+
+
+def test_raw_ranking_marks_synthesized_checks_non_comparable_and_is_not_pooled():
+    bootstrap = _legal_bootstrap()
+    raw_grade = grade_structured_output(
+        "Q9",
+        "Dos delanteros elegibles.",
+        {
+            "ranking_basis": "prior_season_carryover",
+            "ranked": [{"id": 14}, {"id": 15}],
+        },
+        bootstrap,
+        [13],
+    )
+    assert raw_grade["source"] == "raw_tool_output"
+    assert raw_grade["non_comparable_checks"] == [
+        "quoted_prices",
+        "budget_arithmetic",
+    ]
+
+    summary = summarize_axis2_by_source([
+        {"axis2": raw_grade},
+        {"axis2": {"source": "json_block", "status": "invalid"}},
+        {"axis2": {"source": None, "status": "structured_output_missing"}},
+    ])
+    assert summary == {
+        "raw_tool_output": {raw_grade["status"]: 1},
+        "json_block": {"invalid": 1},
+        "none": {"structured_output_missing": 1},
+    }
+
+
+def test_driver_prompts_and_axis1_spanish_marker_are_not_mojibake():
+    script = Path(__file__).parents[1] / "scripts" / "run_agentic_loop_experiment.py"
+    namespace = runpy.run_path(str(script), run_name="agentic_experiment_test")
+    prompts = namespace["SCENARIOS"]
+
+    assert prompts["Q6"].startswith("¿hay forma")
+    assert "tú" in prompts["Q6"]
+    assert "Así" in prompts["Q7"]
+    assert "Además" in prompts["Q9"]
+    assert not any(marker in text for text in prompts.values() for marker in ("Ã", "Â"))
+
+    classification = classify_user_visible(
+        "ok",
+        "No encontré una herramienta para responder a esto.",
+    )
+    assert classification["catastrophic_failure"] is True
+    assert "content_free_stub" in classification["reasons"]
+
+
+# The exact strings observed in the 2026-08-16 field-note probe. The
+# price-filtered variant is the one that motivated the whole experiment, and an
+# earlier marker list matched only the unfiltered wording, so it scored as a
+# substantive answer.
+FIELD_NOTE_EMPTY_MESSAGES = (
+    "No available midfielders under £7.5m found with positive form in the current bootstrap.",
+    "No available midfielders found with positive form in the current bootstrap.",
+    "No available forwards found with positive form in the current bootstrap.",
+)
+
+
+def test_axis1_flags_every_observed_empty_message_including_price_filtered():
+    for message in FIELD_NOTE_EMPTY_MESSAGES:
+        classification = classify_user_visible("ok", message)
+        assert classification["catastrophic_failure"] is True, message
+        assert "content_free_stub" in classification["reasons"], message
+
+
+def test_axis1_is_arm_uniform_for_identical_text_and_tool_status():
+    """The loop reports ok+flag where the legacy path reports tool_result_error.
+
+    Both must score identically, or arms C/D win the churn metric on outcome
+    plumbing rather than on answer quality.
+    """
+    text = (
+        "Los datos disponibles no permiten confirmar minutos ni rol para estos "
+        "jugadores en la jornada 1, por lo que no hay base suficiente."
+    )
+    empty_output = {"status": "empty", "message": "no candidates"}
+
+    legacy_arm = classify_user_visible("tool_result_error", text, empty_output)
+    loop_arm = classify_user_visible("ok", text, empty_output)
+
+    assert legacy_arm["catastrophic_failure"] == loop_arm["catastrophic_failure"] is True
+    assert legacy_arm["reasons"] == loop_arm["reasons"] == ["tool_status=empty"]
+
+
+def test_axis1_still_flags_orchestration_level_failures():
+    for outcome in ("llm_error", "no_client", "no_tool", "worker_error", "cooldown"):
+        classification = classify_user_visible(
+            outcome,
+            "A sufficiently long answer that would otherwise pass the length check.",
+            {"status": "ok"},
+        )
+        assert classification["catastrophic_failure"] is True, outcome
+        assert f"outcome={outcome}" in classification["reasons"], outcome
+
+
+def test_axis1_passes_a_genuinely_substantive_grounded_answer():
+    classification = classify_user_visible(
+        "ok",
+        "Rice (£7.5m, 3093 minutos, 5.1 ppg) encabeza a los medios por debajo de "
+        "£7.5m, seguido de Anderson y Rogers. Base: temporada anterior.",
+        {"status": "ok", "ranked": [{"id": 1}]},
+    )
+    assert classification["catastrophic_failure"] is False
+    assert classification["reasons"] == []
+
+
+def test_artifact_groups_axis2_by_source_instead_of_pooling():
+    script = Path(__file__).parents[1] / "scripts" / "run_agentic_loop_experiment.py"
+    namespace = runpy.run_path(str(script), run_name="agentic_experiment_render_test")
+    observations = []
+    for provider in ("anthropic", "gemini"):
+        for arm in namespace["ARMS"]:
+            for scenario in namespace["SCENARIOS"]:
+                source = "raw_tool_output" if arm in {"A", "B"} else "json_block"
+                observations.append({
+                    "provider": provider,
+                    "arm": arm,
+                    "scenario": scenario,
+                    "repetition": 1,
+                    "outcome": "ok",
+                    "axis1": {"catastrophic_failure": False, "classification": "substantive_answer"},
+                    "axis2": {
+                        "source": source,
+                        "status": "valid",
+                        "errors": [],
+                        "non_comparable_checks": (
+                            ["quoted_prices", "budget_arithmetic"]
+                            if source == "raw_tool_output"
+                            else []
+                        ),
+                    },
+                    "axis3": {},
+                    "rounds_used": 0,
+                    "total_tokens": 0,
+                    "usd": 0.0,
+                    "tool_calls_trace": [],
+                    "tool_chosen": "rank_players_by_metric",
+                    "answer_text": "Substantive answer",
+                })
+
+    artifact = namespace["_render_artifact"](
+        observations,
+        bootstrap_path=Path("bootstrap.json"),
+        bootstrap_hash="abc",
+        captured_at="2026-08-18T00:00:00+00:00",
+        pricing={},
+        repetitions=1,
+    )
+
+    assert '{"raw_tool_output": {"valid": 1}}' in artifact
+    assert '{"json_block": {"valid": 1}}' in artifact
+    assert "raw_tool_output / valid" in artifact
+    assert "Axis 2 non-comparable checks" in artifact

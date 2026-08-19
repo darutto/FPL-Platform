@@ -20,20 +20,20 @@ from typing import Any
 
 SCENARIOS: dict[str, str] = {
     "Q6": (
-        "Â¿hay forma de que tÃº me des una respuesta de si el bench boost es una "
-        "opciÃ³n viable en la fecha uno armando un equipo desde cero basado en nuestras "
-        "mÃ©tricas de evaluaciÃ³n de jugadores individualmente y de fixtures?"
+        "\u00bfhay forma de que t\u00fa me des una respuesta de si el bench boost es una "
+        "opci\u00f3n viable en la fecha uno armando un equipo desde cero basado en nuestras "
+        "m\u00e9tricas de evaluaci\u00f3n de jugadores individualmente y de fixtures?"
     ),
     "Q7": (
-        "Haaland es un lock in. AsÃ­ es que mi presupuesto arranca con un -15.5. "
-        "A partir de ahÃ­ creo que voy a jugar con una alineaciÃ³n de 4-5-1 o de 5-4-1, "
-        "quiero analizar los dos Ã¡ngulos. Empecemos con 4 medios con mejores 5 fechas "
+        "Haaland es un lock in. As\u00ed es que mi presupuesto arranca con un -15.5. "
+        "A partir de ah\u00ed creo que voy a jugar con una alineaci\u00f3n de 4-5-1 o de 5-4-1, "
+        "quiero analizar los dos \u00e1ngulos. Empecemos con 4 medios con mejores 5 fechas "
         "y precio que permita el budget"
     ),
     "Q9": (
-        "AdemÃ¡s de Haaland, Â¿quiÃ©nes son dos buenos delanteros para incluir en mi "
+        "Adem\u00e1s de Haaland, \u00bfqui\u00e9nes son dos buenos delanteros para incluir en mi "
         "equipo para la fecha 1? Estoy indeciso entre jugadores muy baratos y elegir "
-        "medios o defensas mÃ¡s caros o pagar un poco mÃ¡s por delanteros"
+        "medios o defensas m\u00e1s caros o pagar un poco m\u00e1s por delanteros"
     ),
 }
 
@@ -171,6 +171,8 @@ def _render_artifact(
     pricing: dict[str, dict[str, float]],
     repetitions: int,
 ) -> str:
+    from fpl_grounded_assistant.experiment_measurement import summarize_axis2_by_source
+
     lines = [
         "# Agentic loop experiment results",
         "",
@@ -201,6 +203,7 @@ def _render_artifact(
         "",
         "- Axis 1: user-visible catastrophic failure versus substantive answer.",
         "- Axis 2: deterministic legality; `structured_output_missing` is never treated as invalid.",
+        "- Axis 2 is grouped by source. Raw-tool fallbacks never share a pass rate with model JSON; their bootstrap-synthesized price and arithmetic checks are non-comparable.",
         "- Axis 3: human semantic score using the scenario-specific rubric; legality is not a proxy.",
         "",
     ]
@@ -211,10 +214,7 @@ def _render_artifact(
             for scenario in SCENARIOS:
                 rows = [row for row in observations if row["provider"] == provider and row["arm"] == arm and row["scenario"] == scenario]
                 catastrophic = sum(row["axis1"]["catastrophic_failure"] for row in rows)
-                axis2_counts: dict[str, int] = {}
-                for row in rows:
-                    status = row["axis2"]["status"]
-                    axis2_counts[status] = axis2_counts.get(status, 0) + 1
+                axis2_counts = summarize_axis2_by_source(rows)
                 human_values = [row["axis3"].get("score") for row in rows if isinstance(row["axis3"].get("score"), (int, float))]
                 human = f"{sum(human_values)/len(human_values):.2f}" if human_values else "pending"
                 costs = [row["usd"] for row in rows if row["usd"] is not None]
@@ -235,18 +235,23 @@ def _render_artifact(
         for scenario, question in SCENARIOS.items():
             lines.extend([f"### {scenario}", "", question, "", f"Human rubric: {SEMANTIC_RUBRICS[scenario]}", ""])
             for repetition in range(1, repetitions + 1):
-                lines.extend([f"#### Repetition {repetition}", "", "| Arm | Outcome | Axis 1 | Axis 2 | Axis 3 | Rounds / tools | Tokens / USD | Answer |", "|---|---|---|---|---|---|---|---|"])
+                lines.extend([f"#### Repetition {repetition}", "", "| Arm | Outcome | Axis 1 | Axis 2 source/status | Axis 3 | Rounds / tools | Tokens / USD | Answer |", "|---|---|---|---|---|---|---|---|"])
                 for arm in ARMS:
                     row = next(item for item in observations if item["provider"] == provider and item["arm"] == arm and item["scenario"] == scenario and item["repetition"] == repetition)
-                    tools = " â†’ ".join(entry.get("name", "") for entry in row["tool_calls_trace"]) or (row.get("tool_chosen") or "none")
+                    tools = " \u2192 ".join(entry.get("name", "") for entry in row["tool_calls_trace"]) or (row.get("tool_chosen") or "none")
                     usd = "n/a" if row["usd"] is None else f"${row['usd']:.6f}"
                     lines.append(
                         f"| {arm} {ARMS[arm]['label']} | {row['outcome']} | {row['axis1']['classification']} | "
-                        f"{row['axis2']['status']} | {row['axis3'].get('score', 'pending')} | "
+                        f"{row['axis2'].get('source') or 'none'} / {row['axis2']['status']} | {row['axis3'].get('score', 'pending')} | "
                         f"{row['rounds_used']} / {tools} | {row['total_tokens']} / {usd} | {_markdown_answer(row['answer_text'])} |"
                     )
                     if row["axis2"].get("errors"):
                         lines.append(f"\nAxis 2 errors ({arm}): `{json.dumps(row['axis2']['errors'])}`\n")
+                    if row["axis2"].get("non_comparable_checks"):
+                        lines.append(
+                            f"\nAxis 2 non-comparable checks ({arm}): "
+                            f"`{json.dumps(row['axis2']['non_comparable_checks'])}`\n"
+                        )
     lines.extend([
         "",
         "## Decision gate",
@@ -352,7 +357,11 @@ def _driver(args: argparse.Namespace) -> int:
                     else:
                         result = json.loads(completed.stdout.strip().splitlines()[-1])
                     result.update({"arm": arm, "scenario": scenario, "repetition": repetition})
-                    result["axis1"] = classify_user_visible(result["outcome"], result["answer_text"])
+                    result["axis1"] = classify_user_visible(
+                        result["outcome"],
+                        result["answer_text"],
+                        result.get("tool_output"),
+                    )
                     result["axis2"] = grade_structured_output(
                         scenario,
                         result["answer_text"],

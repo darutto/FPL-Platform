@@ -406,7 +406,10 @@ _ORCH_SYSTEM_SUFFIX: str = _SYSTEM_PROMPT
 # unchanged when the prompt flag is off.
 _LOOP_SYSTEM_PROMPT: str = (
     _SYSTEM_PROMPT
-    .replace("CLASSIFY query â†’ ONE source:", "CLASSIFY query â†’ one or more relevant sources:")
+    .replace(
+        "CLASSIFY query \u2192 ONE source:",
+        "CLASSIFY query \u2192 one or more relevant sources:",
+    )
     .replace(
         "call rank_players_by_metric FIRST and as the ONLY tool",
         "call rank_players_by_metric FIRST; call another tool only if its result leaves a requested constraint unanswered",
@@ -497,12 +500,12 @@ class OrchestratorResult:
     retry_input_tokens:      int = 0
     retry_output_tokens:     int = 0
     total_tokens:            int = 0
-    # Number of successfully-executed tool calls underlying the retained result
-    # payload. Set on the success paths (primary → len(tool_calls_trace);
-    # successful retry → len(_retry_executed)); 0 on pre-execution / error /
-    # no-tool returns. Used by the harness to card single-tool orchestrator
-    # turns only (never a multi-tool synthesis, whose answer_text covers tools
-    # not reflected in tool_output). Additive, 0-default.
+    # Number of executed tool calls underlying the retained result payload,
+    # including failed calls. Primary paths use len(tool_calls_trace); a
+    # successful evaluator retry uses len(_retry_executed). Zero on
+    # pre-execution / no-tool returns. Used by the harness to card genuinely
+    # single-call turns only (never a synthesis that also observed failures).
+    # Additive, 0-default.
     tool_call_count:         int = 0
     # Slice 2: cumulative loop observability. Tuples preserve frozen semantics.
     tool_calls_trace:        tuple[dict[str, Any], ...] = ()
@@ -1155,11 +1158,11 @@ def _apply_evaluator(
     If the evaluator rejects, retries the primary LLM ONCE with feedback
     prepended. Delivers the retry result unconditionally (hard cap = 1 retry).
     """
-    # tool_call_count semantics: number of successfully-executed tool calls
-    # underlying the RETAINED result payload. Every branch that keeps the
-    # primary tool_output uses _primary_count; the one branch that delivers a
-    # successful retry uses len(_retry_executed); error/no-tool branches keep
-    # the 0 default. (Used by the harness to card single-tool turns only.)
+    # tool_call_count semantics: number of executed tool calls underlying the
+    # RETAINED result payload, including failures. Every branch that keeps the
+    # primary payload uses the full trace count; the branch delivering a retry
+    # payload uses that retry's executed-call count. (The harness cards only a
+    # genuinely single-call turn.)
     _primary_count = len(tool_calls_trace)
 
     # ------------------------------------------------------------------
@@ -1512,12 +1515,15 @@ def _run_bounded_loop(
         *,
         exhausted_value: bool = False,
     ) -> OrchestratorResult:
+        # _apply_evaluator owns tool_call_count. Its primary paths already use
+        # the complete trace count, while its retry-success path intentionally
+        # reports the retained retry payload's call count. Do not overwrite
+        # that distinction here.
         return replace(
             result,
             tool_calls_trace=tuple(trace),
             rounds_used=rounds_used,
             rounds_exhausted=exhausted_value,
-            tool_call_count=len(successful),
         )
 
     def _evaluated_result(
@@ -1571,7 +1577,7 @@ def _run_bounded_loop(
                         answer = f"[{selected[3].get('status', 'unknown')}]"
                 return _evaluated_result(answer, selected)
 
-            no_tool_answer = answer or "No encontrÃ© una herramienta para responder a esto."
+            no_tool_answer = answer or "No encontr\u00e9 una herramienta para responder a esto."
             return OrchestratorResult(
                 question=question,
                 tool_chosen=None,
@@ -1621,7 +1627,16 @@ def _run_bounded_loop(
 
             item = (tool_id, tool_name, tool_args, raw_output)
             round_executed.append(item)
-            is_success = raw_output.get("status") == "ok"
+            # Ambiguous, not-found, and missing-context responses are usable
+            # observations: the model can ask a better follow-up or explain the
+            # limitation, and the harness may need the original status. Only
+            # execution/argument failures count toward the failing-round abort.
+            output_status = raw_output.get("status")
+            is_success = bool(output_status) and output_status not in {
+                "error",
+                "invalid_argument",
+                "missing_argument",
+            }
             if is_success:
                 successful.append(item)
                 round_had_success = True
@@ -1638,6 +1653,14 @@ def _run_bounded_loop(
         consecutive_failing_rounds = (
             0 if round_had_success else consecutive_failing_rounds + 1
         )
+
+        # A third provider call cannot change the already-observed fact that
+        # two consecutive tool rounds fully failed. Stop before paying for and
+        # then discarding such a response.
+        if consecutive_failing_rounds >= 2:
+            terminal_reason = "two consecutive failing tool rounds"
+            break
+
         messages = _build_multi_tool_follow_up(
             provider_label,
             messages,
@@ -1680,10 +1703,6 @@ def _run_bounded_loop(
             break
         active_gate.reset_on_success()
         response = next_call.response
-
-        if consecutive_failing_rounds >= 2:
-            terminal_reason = "two consecutive failing tool rounds"
-            break
 
     if successful:
         selected = successful[-1]
