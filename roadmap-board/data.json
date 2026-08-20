@@ -23,7 +23,7 @@
     { "id": "s20", "col": "shipped",    "title": "Desambiguación de find_players → wizard (#140)", "desc": "Fusionada. find_players arma el mismo wizard de chips que get_player_snapshot.", "tags": ["UI", "Backend"], "progress": 100 },
     { "id": "s21", "col": "shipped",    "title": "Matching de guiones y abreviaturas (#141)", "desc": "Fusionada. Hyphen-insensitive + VVD/DCL/CHO/etc. resuelven a rank 0.", "tags": ["Backend", "Datos"], "progress": 100 },
 
-    { "id": "b1", "col": "building",    "title": "Football Intelligence — prueba en vivo (FI-9)", "desc": "Ventana ligera 22/08→20/09; evaluación pesada durante el parón 26/09→10/10.", "tags": ["Datos", "IA"], "progress": 35 },
+    { "id": "b1", "col": "building",    "title": "Football Intelligence — prueba en vivo (FI-9)", "desc": "Ventana ligera 22/08→20/09; evaluación pesada durante el parón 26/09→10/10. Bootstrap re-congelado (4cbb9fa1…) con fixtures completas (380 fixtures, 38 GWs, 20 teams), network leak cerrado, validación 5/5 OK. Re-run en tus manos si procede.", "tags": ["Datos", "IA"], "progress": 42 },
     { "id": "b2", "col": "building",    "title": "Login benditofantasy-web (Patreon/Clerk)", "desc": "Bloqueado por el dominio de cookies del Clerk; cuenta única compartida decidida.", "tags": ["Auth", "Web"], "progress": 40 },
     { "id": "b4", "col": "building",    "title": "PR #13 — FotMob Tier-2 zonal", "desc": "Flanco de juego real más A/B de resolución de nombres, abierto desde julio.", "tags": ["Datos", "FPL Asistente"], "progress": 60 },
 

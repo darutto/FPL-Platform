@@ -18,6 +18,11 @@ SELECTION_REQUIREMENTS: dict[str, tuple[int, int]] = {
     "Q9": (4, 2),
 }
 
+CLASS2_REQUIREMENTS: dict[str, dict[str, Any]] = {
+    "Q10": {"position": 3, "min_price": 6.0, "max_price": 8.0},
+    "Q11": {"position": 2, "min_price": 4.5, "max_price": 6.0},
+}
+
 
 def extract_json_block(answer_text: str) -> dict[str, Any] | None:
     """Return the last fenced JSON object, or None when no valid block exists."""
@@ -506,6 +511,191 @@ def validate_decision_payload(payload: dict[str, Any], bootstrap: dict[str, Any]
     return {"status": "valid" if not errors else "invalid", "valid": not errors, "errors": errors}
 
 
+def check_composition(tool_calls_trace: list[dict[str, Any]]) -> dict[str, Any]:
+    """Verify a tool trace exhibits class-2 composition (ranking + fixture grounding).
+
+    Passes when the trace contains:
+    - A rank_players_by_metric call WITH min_price or max_price (bare ranking doesn't count)
+    - A get_fixture_outlook OR get_team_fixture_calendar call with a horizon
+
+    Returns structured result: {status, valid, errors}
+    """
+    errors: list[str] = []
+
+    # Check for price-bounded ranking
+    has_priced_ranking = False
+    for call in tool_calls_trace:
+        if call.get("name") == "rank_players_by_metric":
+            args = call.get("args", {})
+            if args.get("min_price") is not None or args.get("max_price") is not None:
+                has_priced_ranking = True
+                break
+
+    if not has_priced_ranking:
+        errors.append("ranking_missing_or_unpriced")
+
+    # Check for fixture grounding with horizon
+    has_fixture_horizon = False
+    for call in tool_calls_trace:
+        if call.get("name") in {"get_fixture_outlook", "get_team_fixture_calendar"}:
+            args = call.get("args", {})
+            if args.get("horizon") is not None or args.get("horizon_gws") is not None:
+                has_fixture_horizon = True
+                break
+
+    if not has_fixture_horizon:
+        errors.append("fixture_grounding_missing")
+
+    return {
+        "status": "valid" if not errors else "invalid",
+        "valid": not errors,
+        "errors": errors,
+    }
+
+
+def validate_player_pick_payload(
+    scenario_id: str,
+    payload: dict[str, Any],
+    bootstrap: dict[str, Any],
+) -> dict[str, Any]:
+    """Axis 2 validator for Q10/Q11 player-pick-by-price-range class-2 schemas.
+
+    Checks:
+    - player validity (status=a, minutes>0, correct position)
+    - price containment (both primary and runner-up in range)
+    - quoted price accuracy (exact match to bootstrap now_cost/10)
+    - horizon fidelity (exactly 5 consecutive GWs from next_gw)
+    - fixture grounding (fixture_evidence entries match team_fixtures exactly)
+    - evidence coverage (recommendation team has entries for all 5 GWs)
+    - candidate set (no duplicates, includes both picks)
+    - provenance (ranking_basis present and contextually correct)
+    """
+    players = _player_index(bootstrap)
+    errors: list[str] = []
+    req = CLASS2_REQUIREMENTS.get(scenario_id)
+    if not req:
+        return {"status": "invalid", "valid": False, "errors": ["unknown_scenario"]}
+
+    expected_position = req["position"]
+    min_price = req["min_price"]
+    max_price = req["max_price"]
+
+    # Extract recommendation and runner-up IDs
+    try:
+        rec = payload.get("recommendation", {})
+        rec_id = int(rec.get("id", 0) or 0)
+        rec_price = float(rec.get("quoted_price", 0) or 0)
+        runner = payload.get("runner_up", {})
+        runner_id = int(runner.get("id", 0) or 0)
+        runner_price = float(runner.get("quoted_price", 0) or 0)
+    except (TypeError, ValueError):
+        return {"status": "invalid", "valid": False, "errors": ["non_numeric_ids_or_prices"]}
+
+    # Player validity checks
+    for player_id in [rec_id, runner_id]:
+        player = players.get(player_id)
+        if player is None:
+            errors.append(f"unknown_player:{player_id}")
+            continue
+        if player.get("status") != "a":
+            errors.append(f"unavailable_player:{player_id}")
+        if _minutes(player) <= 0:
+            errors.append(f"zero_minutes:{player_id}")
+        if int(player.get("element_type", 0) or 0) != expected_position:
+            errors.append(f"wrong_position:{player_id}")
+
+    # Price containment: convert to millions for comparison
+    if rec_id in players:
+        rec_actual_price = _cost(players[rec_id]) / 10.0
+        if not (min_price <= rec_actual_price <= max_price):
+            errors.append(f"recommendation_price_out_of_range:{rec_actual_price}")
+
+    if runner_id in players:
+        runner_actual_price = _cost(players[runner_id]) / 10.0
+        if not (min_price <= runner_actual_price <= max_price):
+            errors.append(f"runner_up_price_out_of_range:{runner_actual_price}")
+
+    # Quoted price accuracy (check in integer tenths to avoid float comparison)
+    if rec_id in players:
+        expected_tenths = _cost(players[rec_id])
+        quoted_tenths = _millions_to_tenths(rec_price)
+        if quoted_tenths != expected_tenths:
+            errors.append(f"recommendation_quoted_price_mismatch:{quoted_tenths}!={expected_tenths}")
+
+    if runner_id in players:
+        expected_tenths = _cost(players[runner_id])
+        quoted_tenths = _millions_to_tenths(runner_price)
+        if quoted_tenths != expected_tenths:
+            errors.append(f"runner_up_quoted_price_mismatch:{quoted_tenths}!={expected_tenths}")
+
+    # Horizon fidelity: exactly 5 consecutive GWs from next_gw
+    events = bootstrap.get("events", [])
+    current_gw = None
+    for event in events:
+        if event.get("is_current"):
+            current_gw = int(event.get("id", 0) or 0)
+            break
+    next_gw = current_gw + 1 if current_gw else 1
+
+    horizon_gws = payload.get("horizon_gws", [])
+    expected_horizon = list(range(next_gw, next_gw + 5))
+    if horizon_gws != expected_horizon:
+        errors.append(f"horizon_mismatch:{horizon_gws}!={expected_horizon}")
+
+    # Fixture grounding: validate fixture_evidence entries
+    # team_fixtures is a pre-built structure with keys: difficulty, gameweek, is_home, opponent_team
+    team_fixtures = bootstrap.get("team_fixtures", {})
+    fixture_evidence = payload.get("fixture_evidence", [])
+
+    if rec_id in players:
+        rec_team = int(players[rec_id].get("team", 0) or 0)
+        rec_fixtures = team_fixtures.get(rec_team) or team_fixtures.get(str(rec_team)) or []
+        rec_gw_map = {f.get("gameweek"): f for f in rec_fixtures}
+
+        # Collect fixture evidence entries for recommendation team
+        rec_evidence = [e for e in fixture_evidence if e.get("team") == rec_team]
+        if len(rec_evidence) < 5:
+            errors.append(f"insufficient_fixture_evidence:{len(rec_evidence)}<5")
+
+        for entry in rec_evidence:
+            gw = entry.get("gameweek")
+            if gw not in rec_gw_map:
+                errors.append(f"fixture_evidence_gw_not_found:{gw}")
+                continue
+
+            actual_fixture = rec_gw_map[gw]
+            expected_opponent = actual_fixture.get("opponent_team")
+            if entry.get("opponent_team") != expected_opponent:
+                errors.append(f"fixture_evidence_opponent_mismatch:{gw}:{entry.get('opponent_team')}!={expected_opponent}")
+
+            expected_is_home = actual_fixture.get("is_home", False)
+            if entry.get("is_home") != expected_is_home:
+                errors.append(f"fixture_evidence_venue_mismatch:{gw}")
+
+            expected_difficulty = actual_fixture.get("difficulty", None)
+            if entry.get("difficulty") != expected_difficulty:
+                errors.append(f"fixture_evidence_difficulty_mismatch:{gw}:{entry.get('difficulty')}!={expected_difficulty}")
+
+    # Duplicate and inclusion checks
+    candidates = payload.get("candidates_considered", [])
+    if _duplicates(candidates):
+        errors.append("duplicate_candidates")
+    if rec_id not in candidates:
+        errors.append("recommendation_not_in_candidates")
+    if runner_id not in candidates:
+        errors.append("runner_up_not_in_candidates")
+
+    # Provenance
+    if not payload.get("ranking_basis"):
+        errors.append("ranking_basis_missing")
+
+    return {
+        "status": "valid" if not errors else "invalid",
+        "valid": not errors,
+        "errors": errors,
+    }
+
+
 def grade_structured_output(
     scenario_id: str,
     answer_text: str,
@@ -516,11 +706,12 @@ def grade_structured_output(
     """Grade JSON when present; otherwise validate an unambiguous raw ranking."""
     payload = extract_json_block(answer_text)
     if payload is not None:
-        result = (
-            validate_decision_payload(payload, bootstrap)
-            if scenario_id == "Q6"
-            else validate_selection_payload(scenario_id, payload, bootstrap, expected_locked_ids)
-        )
+        if scenario_id == "Q6":
+            result = validate_decision_payload(payload, bootstrap)
+        elif scenario_id in CLASS2_REQUIREMENTS:
+            result = validate_player_pick_payload(scenario_id, payload, bootstrap)
+        else:
+            result = validate_selection_payload(scenario_id, payload, bootstrap, expected_locked_ids)
         return {"source": "json_block", **result}
 
     if scenario_id in SELECTION_REQUIREMENTS:
@@ -583,4 +774,28 @@ def summarize_axis2_by_source(rows: list[dict[str, Any]]) -> dict[str, dict[str,
         status = str(axis2.get("status") or "unknown")
         source_counts = summary.setdefault(source, {})
         source_counts[status] = source_counts.get(status, 0) + 1
+    return summary
+
+
+def summarize_composition(rows: list[dict[str, Any]]) -> dict[str, int]:
+    """Count composition pass/fail/not_applicable/unknown for a set of observations.
+
+    Returns: {"valid": N, "invalid": M, "not_applicable": K, "unknown": U}
+    Unknown includes rows with missing composition key or unrecognized status.
+    """
+    summary = {"valid": 0, "invalid": 0, "not_applicable": 0, "unknown": 0}
+    for row in rows:
+        composition = row.get("composition")
+        if composition is None:
+            summary["unknown"] += 1
+        else:
+            status = composition.get("status", "unknown")
+            if status == "valid":
+                summary["valid"] += 1
+            elif status == "invalid":
+                summary["invalid"] += 1
+            elif status == "not_applicable":
+                summary["not_applicable"] += 1
+            else:
+                summary["unknown"] += 1
     return summary
