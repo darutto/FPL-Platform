@@ -29,9 +29,21 @@ _VIA_PRIORITY = {
     "web_name": 1,
     "exact_name": 2,
     "alias": 3,
-    "prefix": 4,
-    "substring": 5,
+    "compound_name": 4,
+    "prefix": 5,
+    "substring": 6,
 }
+
+#: Rank tiers, strongest first.  ``best_matches`` only ever returns one tier,
+#: so a weaker tier can never make a stronger one ambiguous.
+RANK_EXACT: int = 0
+RANK_COMPOUND: int = 1
+RANK_PREFIX: int = 2
+RANK_SUBSTRING: int = 3
+
+#: Highest rank a single-player caller may auto-resolve without asking the
+#: user.  Substring matches stay wizard candidates even when unique.
+RANK_AUTO_RESOLVE_MAX: int = RANK_PREFIX
 
 
 def normalize_player_name(value: Any) -> str:
@@ -114,6 +126,48 @@ def _team_id_by_short(teams: Iterable[dict[str, Any]]) -> dict[str, int]:
     return result
 
 
+def compound_name_forms(first: str, second: str) -> set[str]:
+    """Everyday name forms for a player whose FPL surname is compound.
+
+    FPL stores the legal name (``Bruno`` + ``Borges Fernandes``) but people
+    type the everyday one (``Bruno Fernandes``).  The everyday form keeps the
+    given name and drops *leading* components of the surname, so generate
+    exactly those suffixes rather than arbitrary word pairs::
+
+        Bruno   + Borges Fernandes           -> bruno fernandes
+        Gabriel + dos Santos Magalhaes       -> gabriel santos magalhaes
+                                                gabriel magalhaes
+        Matheus + Santos Carneiro da Cunha   -> matheus carneiro da cunha
+                                                matheus da cunha
+                                                matheus cunha
+
+    Working on suffixes keeps multi-word surname particles intact: ``Virgil``
+    + ``van Dijk`` yields ``virgil dijk`` but never the nonsense ``virgil van``.
+
+    A multi-word given name also contributes its first word alone, so
+    ``Jan Paul`` + ``van Hecke`` reaches ``jan van hecke`` and ``jan hecke``.
+
+    Both arguments must already be normalized by :func:`normalize_player_name`.
+    Returns an empty set for simple surnames — ``"first second"`` is a
+    canonical field there and needs no derived form.
+    """
+    surname_words = second.split()
+    if not first or len(surname_words) < 2:
+        return set()
+
+    forms: set[str] = set()
+    for start in range(1, len(surname_words)):
+        forms.add(f"{first} {' '.join(surname_words[start:])}")
+
+    given_words = first.split()
+    if len(given_words) > 1:
+        given = given_words[0]
+        for start in range(len(surname_words)):
+            forms.add(f"{given} {' '.join(surname_words[start:])}")
+
+    return forms
+
+
 def _alias_targets(
     players: list[dict[str, Any]],
     aliases: dict[str, list[str]],
@@ -189,7 +243,7 @@ def resolve_player_candidates(
         raw = raw_by_id.get(record.id, {})
         return PlayerResolution(
             query=normalized_query,
-            matches=(PlayerMatch(record, 0, "id", _safe_int(raw.get("total_points"))),),
+            matches=(PlayerMatch(record, RANK_EXACT, "id", _safe_int(raw.get("total_points"))),),
         )
 
     team_id: int | None = None
@@ -215,7 +269,7 @@ def resolve_player_candidates(
             candidates[player_id] = (rank, via)
 
     for player_id in alias_index.get(normalized_query, set()):
-        add(player_id, 0, "alias")
+        add(player_id, RANK_EXACT, "alias")
 
     for player in players:
         player_id_raw = player.get("id")
@@ -229,13 +283,15 @@ def resolve_player_candidates(
         fields = tuple(field for field in (web, first, second, full) if field)
 
         if normalized_query == web:
-            add(player_id, 0, "web_name")
+            add(player_id, RANK_EXACT, "web_name")
         elif normalized_query in fields:
-            add(player_id, 0, "exact_name")
+            add(player_id, RANK_EXACT, "exact_name")
+        elif normalized_query in compound_name_forms(first, second):
+            add(player_id, RANK_COMPOUND, "compound_name")
         elif allow_prefix and any(field.startswith(normalized_query) for field in fields):
-            add(player_id, 1, "prefix")
+            add(player_id, RANK_PREFIX, "prefix")
         elif allow_substring and any(normalized_query in field for field in fields):
-            add(player_id, 2, "substring")
+            add(player_id, RANK_SUBSTRING, "substring")
 
     ranked: list[PlayerMatch] = []
     for player_id, (rank, via) in candidates.items():
@@ -251,6 +307,12 @@ def resolve_player_candidates(
 __all__ = [
     "PlayerMatch",
     "PlayerResolution",
+    "RANK_AUTO_RESOLVE_MAX",
+    "RANK_COMPOUND",
+    "RANK_EXACT",
+    "RANK_PREFIX",
+    "RANK_SUBSTRING",
+    "compound_name_forms",
     "normalize_player_name",
     "resolve_player_candidates",
 ]

@@ -54,7 +54,7 @@ import time
 from collections import OrderedDict
 from typing import Any
 
-from fpl_player_registry import resolve_player_candidates
+from fpl_player_registry import RANK_AUTO_RESOLVE_MAX, resolve_player_candidates
 from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
 
@@ -181,7 +181,7 @@ def _resolve_player(
             "message":    f"Multiple players match '{normalized_query}'. Please specify.",
         }
 
-    if len(best_matches) == 1 and best_matches[0].rank < 2:
+    if len(best_matches) == 1 and best_matches[0].rank <= RANK_AUTO_RESOLVE_MAX:
         return _ok_from_match(best_matches[0])
     if best_matches:
         return _ambiguous_from(best_matches)
