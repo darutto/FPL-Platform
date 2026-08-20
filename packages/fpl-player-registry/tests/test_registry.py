@@ -446,7 +446,9 @@ class TestPublicSurface:
         assert set(pkg.__all__) == {
             "PlayerRecord", "PlayerRegistry", "build_registry", "KNOWN_NICKNAMES",
             "PlayerMatch", "PlayerResolution", "normalize_player_name",
-            "resolve_player_candidates",
+            "resolve_player_candidates", "compound_name_forms",
+            "RANK_EXACT", "RANK_COMPOUND", "RANK_PREFIX", "RANK_SUBSTRING",
+            "RANK_AUTO_RESOLVE_MAX",
         }
 
     def test_season_id_mapper_not_exposed(self):

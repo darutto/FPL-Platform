@@ -49,7 +49,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fpl_player_registry import resolve_player_candidates
+from fpl_player_registry import RANK_AUTO_RESOLVE_MAX, resolve_player_candidates
 from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
 
@@ -244,11 +244,11 @@ def get_player_snapshot(
 
     # Preserve the snapshot's existing conservative rule: a substring match
     # remains a wizard candidate even when only one player happens to match.
-    if len(best_matches) == 1 and best_matches[0].rank < 2:
+    if len(best_matches) == 1 and best_matches[0].rank <= RANK_AUTO_RESOLVE_MAX:
         return _ok(best_matches[0])
 
     if best_matches:
-        if team_hint is not None and best_matches[0].rank < 2:
+        if team_hint is not None and best_matches[0].rank <= RANK_AUTO_RESOLVE_MAX:
             narrowed = [
                 match
                 for match in best_matches

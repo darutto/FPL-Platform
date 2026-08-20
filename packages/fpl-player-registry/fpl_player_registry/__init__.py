@@ -23,6 +23,12 @@ from .registry import PlayerRecord, PlayerRegistry, build_registry
 from .resolution import (
     PlayerMatch,
     PlayerResolution,
+    RANK_AUTO_RESOLVE_MAX,
+    RANK_COMPOUND,
+    RANK_EXACT,
+    RANK_PREFIX,
+    RANK_SUBSTRING,
+    compound_name_forms,
     normalize_player_name,
     resolve_player_candidates,
 )
@@ -34,6 +40,12 @@ __all__ = [
     "KNOWN_NICKNAMES",
     "PlayerMatch",
     "PlayerResolution",
+    "RANK_AUTO_RESOLVE_MAX",
+    "RANK_COMPOUND",
+    "RANK_EXACT",
+    "RANK_PREFIX",
+    "RANK_SUBSTRING",
+    "compound_name_forms",
     "normalize_player_name",
     "resolve_player_candidates",
 ]
