@@ -1,49 +1,513 @@
 {
-  "updated": "2026-08-16",
+  "updated": "2026-08-20",
   "cards": [
-    { "id": "s1",  "col": "shipped",    "title": "Núcleo del motor (Fases 0–2)", "desc": "Consolidación de paquetes, infraestructura de herramientas y motor de capitanía determinista.", "tags": ["Backend", "Datos"], "progress": 100 },
-    { "id": "s2",  "col": "shipped",    "title": "Capa LLM y contrato final (Fase 3)", "desc": "Fraseo con LLM acotado sobre respuestas deterministas; contrato FinalResponse estable.", "tags": ["IA", "Backend"], "progress": 100 },
-    { "id": "s3",  "col": "shipped",    "title": "Sesiones multi-turno y HTTP (Fase 4)", "desc": "Estado conversacional, resolución de referencias, endpoints /ask y /session, gobernanza documentada.", "tags": ["Backend", "Chat"], "progress": 100 },
-    { "id": "s4",  "col": "shipped",    "title": "Comparación de jugadores (Fase 5)", "desc": "Intent compare_players con metadata estructurada y seguimiento conversacional.", "tags": ["FPL Asistente"], "progress": 100 },
-    { "id": "s5",  "col": "shipped",    "title": "Consejo de transferencias (Fase 6)", "desc": "get_transfer_advice conectado a proveedores LLM reales: Gemini, Anthropic, OpenAI.", "tags": ["FPL Asistente", "IA"], "progress": 100 },
-    { "id": "s6",  "col": "shipped",    "title": "V1 MVP declarado (Fase 7)", "desc": "Metadata estructurada en las cuatro familias de consejo, picks diferenciales, calendario de fixtures.", "tags": ["FPL Asistente"], "progress": 100 },
-    { "id": "s7",  "col": "shipped",    "title": "Interfaz de chat (V2 Fase 1)", "desc": "Next.js + shadcn/ui, modo sesión, slash commands con intent_hint.", "tags": ["UI", "Chat", "Web"], "progress": 100 },
-    { "id": "s8",  "col": "shipped",    "title": "Tarjetas e intents visuales (V2 Fase 2)", "desc": "CaptainCard, ComparisonCard, TransferCard, ChipCard, panel de plantilla, menú Spanish-first.", "tags": ["UI", "Web"], "progress": 100 },
-    { "id": "s9",  "col": "shipped",    "title": "Motor LLM en vivo conectado (V2 Fase 2.5)", "desc": "Backend Python conectado a la UI con proveedor Gemini real.", "tags": ["IA", "Backend"], "progress": 100 },
-    { "id": "s10", "col": "shipped",    "title": "Despliegue a producción (V2 Fase 4.1–4.2)", "desc": "Backend en Railway, frontend en Vercel, boundary server-side seguro.", "tags": ["Deploy", "Web"], "progress": 100 },
-    { "id": "s11", "col": "shipped",    "title": "Track D — Inteligencia de fixtures", "desc": "Datos reales de temporada 2025-26/26-27 en el ticker de /fixtures.", "tags": ["Datos", "FPL Asistente"], "progress": 100 },
-    { "id": "s12", "col": "shipped",    "title": "Debilidad zonal táctica", "desc": "Tarjeta, sombreado y desambiguación de equipo/jugador en producción.", "tags": ["Datos", "FPL Asistente"], "progress": 100 },
-    { "id": "s13", "col": "shipped",    "title": "Re-skin Bendito Fantasy (Track 3 U1/U2)", "desc": "Identidad visual aplicada en toda la fpl-ui.", "tags": ["UI", "Web"], "progress": 100 },
-    { "id": "s14", "col": "shipped",    "title": "Graduación MCP", "desc": "ask_v2 + harness_adapter en main; /ask-orchestrated retirado.", "tags": ["Backend"], "progress": 100 },
-    { "id": "s15", "col": "shipped",    "title": "UI card-first (PR #36)", "desc": "generic_card, tarjetas Hi-Fi, wizard de /comparar; fusionado 23/07.", "tags": ["UI", "Chat"], "progress": 100 },
-    { "id": "s16", "col": "shipped",    "title": "Resolutores duplicados — Cluster B (#136)", "desc": "Gemelos de scoring/venue/set-piece consolidados; fix de null-FDR incluido.", "tags": ["Backend"], "progress": 100 },
-    { "id": "s17", "col": "shipped",    "title": "Resolución determinista de jugadores — 4 PRs (#142-145)", "desc": "Milestone completo. Resolver canónico, routing pre-orquestación, tools LLM competidoras retiradas, handoff de wizard por ID estable. PR1/3/4 revisados línea por línea por este chat, sin bloqueantes. Resuelve i16 (Costinha) de raíz.", "tags": ["Backend", "IA", "UI"], "progress": 100 },
-    { "id": "s18", "col": "shipped",    "title": "Burbuja de texto con Markdown mínimo (#138)", "desc": "Fusionada. Prosa del orquestador con negrita/viñetas/párrafos reales vía MarkdownLite.tsx compartido.", "tags": ["UI", "Chat"], "progress": 100 },
-    { "id": "s19", "col": "shipped",    "title": "Métricas por-90 en ranking (#139)", "desc": "Fusionada. xGI/90, xG/90, xA/90, saves/90, CS/90, DC/90 en rank_players_by_metric.", "tags": ["Backend", "IA"], "progress": 100 },
-    { "id": "s20", "col": "shipped",    "title": "Desambiguación de find_players → wizard (#140)", "desc": "Fusionada. find_players arma el mismo wizard de chips que get_player_snapshot.", "tags": ["UI", "Backend"], "progress": 100 },
-    { "id": "s21", "col": "shipped",    "title": "Matching de guiones y abreviaturas (#141)", "desc": "Fusionada. Hyphen-insensitive + VVD/DCL/CHO/etc. resuelven a rank 0.", "tags": ["Backend", "Datos"], "progress": 100 },
-
-    { "id": "b1", "col": "building",    "title": "Football Intelligence — prueba en vivo (FI-9)", "desc": "Ventana ligera 22/08→20/09; evaluación pesada durante el parón 26/09→10/10. Bootstrap re-congelado (4cbb9fa1…) con fixtures completas (380 fixtures, 38 GWs, 20 teams), network leak cerrado, validación 5/5 OK. Re-run en tus manos si procede.", "tags": ["Datos", "IA"], "progress": 42 },
-    { "id": "b2", "col": "building",    "title": "Login benditofantasy-web (Patreon/Clerk)", "desc": "Bloqueado por el dominio de cookies del Clerk; cuenta única compartida decidida.", "tags": ["Auth", "Web"], "progress": 40 },
-    { "id": "b4", "col": "building",    "title": "PR #13 — FotMob Tier-2 zonal", "desc": "Flanco de juego real más A/B de resolución de nombres, abierto desde julio.", "tags": ["Datos", "FPL Asistente"], "progress": 60 },
-
-    { "id": "e2", "col": "evaluation",  "title": "Bug del orquestador LLM local", "desc": "Falla la llamada a haiku-4-5 en local; registrado, aún sin triage.", "tags": ["IA", "Backend"], "progress": 20 },
-    { "id": "e6", "col": "evaluation",  "title": "Métricas /90 + DC en la tarjeta de jugador", "desc": "Revisado y aprobado. PR #146 abierta (agent/player-card-per90-dc), 818 backend + 477 UI en verde.", "tags": ["UI", "Backend"], "progress": 95 },
-    { "id": "i1",  "col": "idea", "title": "Estabilización V1.5 (Fases 8a–8f)", "desc": "Scoring por posición, FDR local/visitante, detección DGW/BGW, contexto de plantilla.", "tags": ["FPL Asistente", "Backend"], "progress": 0 },
-    { "id": "i2",  "col": "idea", "title": "Auth y suscripción Patreon (V2 Fase 3)", "desc": "Clerk + OAuth de Patreon, paywall en /subscribe.", "tags": ["Auth"], "progress": 0 },
-    { "id": "i3",  "col": "idea", "title": "Dominio, SSL y rate limiting (V2 Fase 4.x)", "desc": "Cierre de la fase de producción del frontend.", "tags": ["Deploy"], "progress": 0 },
-    { "id": "i4",  "col": "idea", "title": "Score model V2", "desc": "Decaimiento exponencial de forma, disponibilidad por lesión, minutos esperados.", "tags": ["FPL Asistente"], "progress": 0 },
-    { "id": "i5",  "col": "idea", "title": "Pipeline de datos históricos propios", "desc": "El track más urgente antes del reinicio de temporada.", "tags": ["Datos"], "progress": 0 },
-    { "id": "i6",  "col": "idea", "title": "Brechas de tarjetas Hi-Fi", "desc": "Chip-wizard de /comparar, ranking de picks de presupuesto, resultados de búsqueda web.", "tags": ["UI"], "progress": 0 },
-    { "id": "i7",  "col": "idea", "title": "Integración de rediseño Stitch", "desc": "Track de largo plazo 3: unificar el nuevo sistema visual.", "tags": ["UI"], "progress": 0 },
-    { "id": "i8",  "col": "idea", "title": "Gate de identidad ≥95%", "desc": "Actualmente 375/461 (81.3%); cola de 86 ítems pendientes.", "tags": ["Datos"], "progress": 0 },
-    { "id": "i9",  "col": "idea", "title": "Decisión de datos posicionales", "desc": "Sportmonks (€29/mes) frente a StatsBomb/Wyscout, aún sin resolver.", "tags": ["Datos"], "progress": 0 },
-    { "id": "i10", "col": "idea", "title": "Mundial 2026 — Iteración 2 (UI)", "desc": "Backend listo y verificado en vivo; interfaz sin comenzar.", "tags": ["FPL Asistente", "Web"], "progress": 0 },
-    { "id": "i11", "col": "evaluation", "title": "Bug de desplazamiento en el chat", "desc": "Fix reconciliado limpiamente sobre origin/main: scrollTo() queda acotado al contenedor de mensajes y conserva su test de regresión. Suite UI real: 476/476; build de producción OK. Falta prueba física final en la Surface.", "tags": ["UI", "Web"], "progress": 90 },
-    { "id": "i13", "col": "idea", "title": "Composición multi-tarjeta en turnos multi-herramienta", "desc": "Prioridad 2 (techo): retener la traza por herramienta del orquestador y renderizar una tarjeta por herramienta más una cabecera de síntesis. Requiere el trabajo de retención de traza diferido en la fase atómica.", "tags": ["UI", "Backend", "IA"], "progress": 0 },
-    { "id": "i14", "col": "idea", "title": "Enrutar consultas mixtas al camino multi-intent", "desc": "Prioridad 3: llevar más preguntas mixtas al MultiIntentView (tarjetas apiladas) en vez de la síntesis libre del orquestador. Es detección de intents/enrutamiento, no renderizado.", "tags": ["Backend", "Chat"], "progress": 0 },
-    { "id": "i15", "col": "evaluation", "title": "Métrica no reconocida → decirlo, no responder otra cosa", "desc": "Hardening reconciliado con la guía post-#143/#144: todo ranking por métrica prioriza rank_players_by_metric y unknown_metric se relaya sin fallback a gameweek. Regresiones de métrica desconocida y prefix-match en verde; falta confirmación con LLM real.", "tags": ["IA", "Backend"], "progress": 90 },
-    { "id": "i18", "col": "evaluation", "title": "Cobertura Nivel 1 en ranking — precio y momentum", "desc": "Implementado sobre main real: aliases para now_cost y transfers_in/out_event; precio expuesto en £m sin alterar el grounding crudo. Incluido en 853 backend pass + 476 UI pass y build OK.", "tags": ["Backend", "Datos"], "progress": 90 },
-    { "id": "i19", "col": "evaluation", "title": "Cobertura Nivel 2 en ranking — set-pieces, tarjetas, xGC", "desc": "Implementado sobre el resolver canónico de #142/#145: órdenes de penales/córners/tiros libres, tarjetas, xGC, influencia/creatividad/amenaza y saves. Set-pieces ordenan ascendente y excluyen no listados. 853 backend pass + 476 UI pass; runner P2 legado 507/518 por 8 asserts de 25 herramientas y 3 mocks de find_players retirado del schema LLM en #144.", "tags": ["Backend", "Datos"], "progress": 90 }
+    {
+      "id": "s1",
+      "col": "shipped",
+      "title": "Núcleo del motor (Fases 0–2)",
+      "desc": "Consolidación de paquetes, infraestructura de herramientas y motor de capitanía determinista.",
+      "tags": [
+        "Backend",
+        "Datos"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s2",
+      "col": "shipped",
+      "title": "Capa LLM y contrato final (Fase 3)",
+      "desc": "Fraseo con LLM acotado sobre respuestas deterministas; contrato FinalResponse estable.",
+      "tags": [
+        "IA",
+        "Backend"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s3",
+      "col": "shipped",
+      "title": "Sesiones multi-turno y HTTP (Fase 4)",
+      "desc": "Estado conversacional, resolución de referencias, endpoints /ask y /session, gobernanza documentada.",
+      "tags": [
+        "Backend",
+        "Chat"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s4",
+      "col": "shipped",
+      "title": "Comparación de jugadores (Fase 5)",
+      "desc": "Intent compare_players con metadata estructurada y seguimiento conversacional.",
+      "tags": [
+        "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s5",
+      "col": "shipped",
+      "title": "Consejo de transferencias (Fase 6)",
+      "desc": "get_transfer_advice conectado a proveedores LLM reales: Gemini, Anthropic, OpenAI.",
+      "tags": [
+        "FPL Asistente",
+        "IA"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s6",
+      "col": "shipped",
+      "title": "V1 MVP declarado (Fase 7)",
+      "desc": "Metadata estructurada en las cuatro familias de consejo, picks diferenciales, calendario de fixtures.",
+      "tags": [
+        "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s7",
+      "col": "shipped",
+      "title": "Interfaz de chat (V2 Fase 1)",
+      "desc": "Next.js + shadcn/ui, modo sesión, slash commands con intent_hint.",
+      "tags": [
+        "UI",
+        "Chat",
+        "Web"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s8",
+      "col": "shipped",
+      "title": "Tarjetas e intents visuales (V2 Fase 2)",
+      "desc": "CaptainCard, ComparisonCard, TransferCard, ChipCard, panel de plantilla, menú Spanish-first.",
+      "tags": [
+        "UI",
+        "Web"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s9",
+      "col": "shipped",
+      "title": "Motor LLM en vivo conectado (V2 Fase 2.5)",
+      "desc": "Backend Python conectado a la UI con proveedor Gemini real.",
+      "tags": [
+        "IA",
+        "Backend"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s10",
+      "col": "shipped",
+      "title": "Despliegue a producción (V2 Fase 4.1–4.2)",
+      "desc": "Backend en Railway, frontend en Vercel, boundary server-side seguro.",
+      "tags": [
+        "Deploy",
+        "Web"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s11",
+      "col": "shipped",
+      "title": "Track D — Inteligencia de fixtures",
+      "desc": "Datos reales de temporada 2025-26/26-27 en el ticker de /fixtures.",
+      "tags": [
+        "Datos",
+        "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s12",
+      "col": "shipped",
+      "title": "Debilidad zonal táctica",
+      "desc": "Tarjeta, sombreado y desambiguación de equipo/jugador en producción.",
+      "tags": [
+        "Datos",
+        "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s13",
+      "col": "shipped",
+      "title": "Re-skin Bendito Fantasy (Track 3 U1/U2)",
+      "desc": "Identidad visual aplicada en toda la fpl-ui.",
+      "tags": [
+        "UI",
+        "Web"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s14",
+      "col": "shipped",
+      "title": "Graduación MCP",
+      "desc": "ask_v2 + harness_adapter en main; /ask-orchestrated retirado.",
+      "tags": [
+        "Backend"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s15",
+      "col": "shipped",
+      "title": "UI card-first (PR #36)",
+      "desc": "generic_card, tarjetas Hi-Fi, wizard de /comparar; fusionado 23/07.",
+      "tags": [
+        "UI",
+        "Chat"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s16",
+      "col": "shipped",
+      "title": "Resolutores duplicados — Cluster B (#136)",
+      "desc": "Gemelos de scoring/venue/set-piece consolidados; fix de null-FDR incluido.",
+      "tags": [
+        "Backend"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s17",
+      "col": "shipped",
+      "title": "Resolución determinista de jugadores — 4 PRs (#142-145)",
+      "desc": "Milestone completo. Resolver canónico, routing pre-orquestación, tools LLM competidoras retiradas, handoff de wizard por ID estable. PR1/3/4 revisados línea por línea por este chat, sin bloqueantes. Resuelve i16 (Costinha) de raíz.",
+      "tags": [
+        "Backend",
+        "IA",
+        "UI"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s18",
+      "col": "shipped",
+      "title": "Burbuja de texto con Markdown mínimo (#138)",
+      "desc": "Fusionada. Prosa del orquestador con negrita/viñetas/párrafos reales vía MarkdownLite.tsx compartido.",
+      "tags": [
+        "UI",
+        "Chat"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s19",
+      "col": "shipped",
+      "title": "Métricas por-90 en ranking (#139)",
+      "desc": "Fusionada. xGI/90, xG/90, xA/90, saves/90, CS/90, DC/90 en rank_players_by_metric.",
+      "tags": [
+        "Backend",
+        "IA"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s20",
+      "col": "shipped",
+      "title": "Desambiguación de find_players → wizard (#140)",
+      "desc": "Fusionada. find_players arma el mismo wizard de chips que get_player_snapshot.",
+      "tags": [
+        "UI",
+        "Backend"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s21",
+      "col": "shipped",
+      "title": "Matching de guiones y abreviaturas (#141)",
+      "desc": "Fusionada. Hyphen-insensitive + VVD/DCL/CHO/etc. resuelven a rank 0.",
+      "tags": [
+        "Backend",
+        "Datos"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "b1",
+      "col": "building",
+      "title": "Football Intelligence — prueba en vivo (FI-9)",
+      "desc": "Ventana ligera 22/08→20/09; evaluación pesada durante el parón 26/09→10/10. Bootstrap re-congelado (4cbb9fa1…) con fixtures completas (380 fixtures, 38 GWs, 20 teams), network leak cerrado, validación 5/5 OK. Re-run en tus manos si procede.",
+      "tags": [
+        "Datos",
+        "IA"
+      ],
+      "progress": 42
+    },
+    {
+      "id": "b2",
+      "col": "building",
+      "title": "Login benditofantasy-web (Patreon/Clerk)",
+      "desc": "Bloqueado por el dominio de cookies del Clerk; cuenta única compartida decidida.",
+      "tags": [
+        "Auth",
+        "Web"
+      ],
+      "progress": 40
+    },
+    {
+      "id": "b4",
+      "col": "building",
+      "title": "PR #13 — FotMob Tier-2 zonal",
+      "desc": "Flanco de juego real más A/B de resolución de nombres, abierto desde julio.",
+      "tags": [
+        "Datos",
+        "FPL Asistente"
+      ],
+      "progress": 60
+    },
+    {
+      "id": "e2",
+      "col": "evaluation",
+      "title": "Bug del orquestador LLM local",
+      "desc": "Falla la llamada a haiku-4-5 en local; registrado, aún sin triage.",
+      "tags": [
+        "IA",
+        "Backend"
+      ],
+      "progress": 20
+    },
+    {
+      "id": "e6",
+      "col": "evaluation",
+      "title": "Métricas /90 + DC en la tarjeta de jugador",
+      "desc": "Revisado y aprobado. PR #146 abierta (agent/player-card-per90-dc), 818 backend + 477 UI en verde.",
+      "tags": [
+        "UI",
+        "Backend"
+      ],
+      "progress": 95
+    },
+    {
+      "id": "i1",
+      "col": "idea",
+      "title": "Estabilización V1.5 (Fases 8a–8f)",
+      "desc": "Scoring por posición, FDR local/visitante, detección DGW/BGW, contexto de plantilla.",
+      "tags": [
+        "FPL Asistente",
+        "Backend"
+      ],
+      "progress": 0
+    },
+    {
+      "id": "i2",
+      "col": "idea",
+      "title": "Auth y suscripción Patreon (V2 Fase 3)",
+      "desc": "Clerk + OAuth de Patreon, paywall en /subscribe.",
+      "tags": [
+        "Auth"
+      ],
+      "progress": 0
+    },
+    {
+      "id": "i3",
+      "col": "idea",
+      "title": "Dominio, SSL y rate limiting (V2 Fase 4.x)",
+      "desc": "Cierre de la fase de producción del frontend.",
+      "tags": [
+        "Deploy"
+      ],
+      "progress": 0
+    },
+    {
+      "id": "i4",
+      "col": "idea",
+      "title": "Score model V2",
+      "desc": "Decaimiento exponencial de forma, disponibilidad por lesión, minutos esperados.",
+      "tags": [
+        "FPL Asistente"
+      ],
+      "progress": 0
+    },
+    {
+      "id": "i5",
+      "col": "idea",
+      "title": "Pipeline de datos históricos propios",
+      "desc": "El track más urgente antes del reinicio de temporada.",
+      "tags": [
+        "Datos"
+      ],
+      "progress": 0
+    },
+    {
+      "id": "i6",
+      "col": "idea",
+      "title": "Brechas de tarjetas Hi-Fi",
+      "desc": "Chip-wizard de /comparar, ranking de picks de presupuesto, resultados de búsqueda web.",
+      "tags": [
+        "UI"
+      ],
+      "progress": 0
+    },
+    {
+      "id": "i7",
+      "col": "idea",
+      "title": "Integración de rediseño Stitch",
+      "desc": "Track de largo plazo 3: unificar el nuevo sistema visual.",
+      "tags": [
+        "UI"
+      ],
+      "progress": 0
+    },
+    {
+      "id": "i8",
+      "col": "idea",
+      "title": "Gate de identidad ≥95%",
+      "desc": "Actualmente 375/461 (81.3%); cola de 86 ítems pendientes.",
+      "tags": [
+        "Datos"
+      ],
+      "progress": 0
+    },
+    {
+      "id": "i9",
+      "col": "idea",
+      "title": "Decisión de datos posicionales",
+      "desc": "Sportmonks (€29/mes) frente a StatsBomb/Wyscout, aún sin resolver.",
+      "tags": [
+        "Datos"
+      ],
+      "progress": 0
+    },
+    {
+      "id": "i10",
+      "col": "idea",
+      "title": "Mundial 2026 — Iteración 2 (UI)",
+      "desc": "Backend listo y verificado en vivo; interfaz sin comenzar.",
+      "tags": [
+        "FPL Asistente",
+        "Web"
+      ],
+      "progress": 0
+    },
+    {
+      "id": "i11",
+      "col": "evaluation",
+      "title": "Bug de desplazamiento en el chat",
+      "desc": "Fix reconciliado limpiamente sobre origin/main: scrollTo() queda acotado al contenedor de mensajes y conserva su test de regresión. Suite UI real: 476/476; build de producción OK. Falta prueba física final en la Surface.",
+      "tags": [
+        "UI",
+        "Web"
+      ],
+      "progress": 90
+    },
+    {
+      "id": "i13",
+      "col": "idea",
+      "title": "Composición multi-tarjeta en turnos multi-herramienta",
+      "desc": "Prioridad 2 (techo): retener la traza por herramienta del orquestador y renderizar una tarjeta por herramienta más una cabecera de síntesis. Requiere el trabajo de retención de traza diferido en la fase atómica.",
+      "tags": [
+        "UI",
+        "Backend",
+        "IA"
+      ],
+      "progress": 0
+    },
+    {
+      "id": "i14",
+      "col": "idea",
+      "title": "Enrutar consultas mixtas al camino multi-intent",
+      "desc": "Prioridad 3: llevar más preguntas mixtas al MultiIntentView (tarjetas apiladas) en vez de la síntesis libre del orquestador. Es detección de intents/enrutamiento, no renderizado.",
+      "tags": [
+        "Backend",
+        "Chat"
+      ],
+      "progress": 0
+    },
+    {
+      "id": "i15",
+      "col": "evaluation",
+      "title": "Métrica no reconocida → decirlo, no responder otra cosa",
+      "desc": "Hardening reconciliado con la guía post-#143/#144: todo ranking por métrica prioriza rank_players_by_metric y unknown_metric se relaya sin fallback a gameweek. Regresiones de métrica desconocida y prefix-match en verde; falta confirmación con LLM real.",
+      "tags": [
+        "IA",
+        "Backend"
+      ],
+      "progress": 90
+    },
+    {
+      "id": "i18",
+      "col": "evaluation",
+      "title": "Cobertura Nivel 1 en ranking — precio y momentum",
+      "desc": "Implementado sobre main real: aliases para now_cost y transfers_in/out_event; precio expuesto en £m sin alterar el grounding crudo. Incluido en 853 backend pass + 476 UI pass y build OK.",
+      "tags": [
+        "Backend",
+        "Datos"
+      ],
+      "progress": 90
+    },
+    {
+      "id": "i19",
+      "col": "evaluation",
+      "title": "Cobertura Nivel 2 en ranking — set-pieces, tarjetas, xGC",
+      "desc": "Implementado sobre el resolver canónico de #142/#145: órdenes de penales/córners/tiros libres, tarjetas, xGC, influencia/creatividad/amenaza y saves. Set-pieces ordenan ascendente y excluyen no listados. 853 backend pass + 476 UI pass; runner P2 legado 507/518 por 8 asserts de 25 herramientas y 3 mocks de find_players retirado del schema LLM en #144.",
+      "tags": [
+        "Backend",
+        "Datos"
+      ],
+      "progress": 90
+    },
+    {
+      "id": "i20",
+      "col": "idea",
+      "title": "P0 · Añadir OpenAI como proveedor evaluable",
+      "desc": "La rama OpenAI ya existe en orch_config/provider_client, pero OPENAI_API_KEY en .env es el placeholder de la plantilla. Poner key real, fijar FPL_ORCH_MODEL al modelo a probar y correr el brazo B del experimento. Los precios de los modelos nuevos hay que confirmarlos en la doc oficial antes de estimar coste.",
+      "tags": [
+        "IA",
+        "Backend"
+      ],
+      "progress": 0
+    },
+    {
+      "id": "i21",
+      "col": "idea",
+      "title": "P1 · Promover el solver de plantilla al producto",
+      "desc": "min-cost flow exacto (source→posición→jugador→club→sink) ya escrito y testeado en experiment_measurement.py:172/222, pero vive solo en el harness de medición del worktree agentic-loop. Promoverlo a producto y convertirlo de validador (¿existe completación legal?) en generador (mejor bajo restricciones). El LLM elige objetivo y explica; nunca hace la aritmética. Es el win más grande de los experimentos.",
+      "tags": [
+        "Backend",
+        "FPL Asistente"
+      ],
+      "progress": 70
+    },
+    {
+      "id": "i22",
+      "col": "idea",
+      "title": "P2 · Probar Sonnet en el brazo B (~$1)",
+      "desc": "El prototipo MCP corría claude-sonnet-4-6 con 4 tools; el experimento corrió haiku-4-5/gemini-flash con 26. Aísla el confound de modelo: si B-con-Sonnet iguala al MCP-con-Sonnet, la respuesta es subir de modelo, no cambiar arquitectura.",
+      "tags": [
+        "IA",
+        "Datos"
+      ],
+      "progress": 0
+    },
+    {
+      "id": "i23",
+      "col": "idea",
+      "title": "P3 · Migrar fpl-grounded-assistant a llm-orchestrator-core",
+      "desc": "Duplicado real: llm-orchestrator-core (1.430 líneas, tool_loop + provider_client + tool_schema) solo lo usa worldcup-assistant. fpl-grounded-assistant mantiene sus tres ramas por proveedor a mano. Refactor sin dependencias nuevas, no apuesta arquitectónica.",
+      "tags": [
+        "Backend",
+        "IA"
+      ],
+      "progress": 0
+    },
+    {
+      "id": "i24",
+      "col": "idea",
+      "title": "P4 · Evaluar MCP / framework de agentes externo",
+      "desc": "Solo si P1–P3 dejan un problema sin resolver. MCP es transporte y descubrimiento, no grounding: no aporta garantías nuevas contra alucinación. Coste real de migrar = la capa de cards (FinalResponse/generic_card) que un loop conversacional devuelve como prosa.",
+      "tags": [
+        "IA",
+        "Backend"
+      ],
+      "progress": 0
+    }
   ]
 }

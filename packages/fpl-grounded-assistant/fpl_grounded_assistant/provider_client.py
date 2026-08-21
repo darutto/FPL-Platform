@@ -262,6 +262,12 @@ def _classify_error(exc: Exception) -> str:
 
     exc_name = type(exc).__name__.lower()
     exc_text = str(exc).lower()
+    # Checked BEFORE the model heuristics below: OpenAI rejects an unsupported
+    # sampling parameter with "Unsupported parameter: 'temperature' is not
+    # supported with this model", whose "is not supported" would otherwise be
+    # read as "the model was retired" and send operators hunting a live model id.
+    if "unsupported parameter" in exc_text or "unsupported_parameter" in exc_text:
+        return PERR_PROVIDER
     if "timeout" in exc_name or "timed out" in exc_text:
         return PERR_TIMEOUT
     if "connection" in exc_name or "network" in exc_name:

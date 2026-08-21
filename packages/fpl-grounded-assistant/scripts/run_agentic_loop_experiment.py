@@ -52,12 +52,41 @@ ARMS: dict[str, dict[str, str]] = {
     "D": {"label": "loop+prompt", "loop": "1", "prompt": "1"},
 }
 
+# The single place a provider is declared. Adding one here is enough for the
+# CLI choices, the credential guard, the per-worker key lookup and the artifact
+# header; nothing else enumerates providers.
+#
+# Sampling controls are per provider because the providers do not accept the
+# same ones:
+#   anthropic - Anthropic recommends changing temperature or top_p, not both.
+#   gemini    - accepts both; top_p is pinned for reproducibility.
+#   openai    - the GPT-5.6 family rejects BOTH with HTTP 400 ("Unsupported
+#               parameter: 'temperature' is not supported with this model").
+#               Verified live against gpt-5.6-luna on 2026-08-20. OpenAI
+#               observations therefore run at the model's own default
+#               sampling, which is a real comparability caveat, not a setting
+#               that was forgotten; the artifact header states it per provider.
+PROVIDERS: dict[str, dict[str, Any]] = {
+    "anthropic": {"key_env": "ANTHROPIC_API_KEY", "temperature": 0.0,  "top_p": None},
+    "gemini":    {"key_env": "GOOGLE_API_KEY",    "temperature": 0.0,  "top_p": 1.0},
+    "openai":    {"key_env": "OPENAI_API_KEY",    "temperature": None, "top_p": None},
+}
+
+#: Providers a bare `--providers`-less run measures. Deliberately NOT every
+#: entry in PROVIDERS: each added provider multiplies the paid matrix, so a new
+#: one has to be opted into explicitly.
+DEFAULT_PROVIDERS: str = "anthropic,gemini"
+
 # Model-level table owned by this experiment. Operators may replace it with
 # --pricing-json; the exact table used is printed in the artifact header.
+# OpenAI rates: https://developers.openai.com/api/docs/models/ (2026-08-20).
 DEFAULT_MODEL_PRICING_PER_1M: dict[str, dict[str, float]] = {
     "claude-haiku-4-5-20251001": {"input": 1.0, "output": 5.0, "cache_read": 0.10},
     "gemini-3.5-flash": {"input": 1.50, "output": 9.00, "cache_read": 0.15},
     "gpt-4o-mini": {"input": 0.15, "output": 0.60, "cache_read": 0.075},
+    "gpt-5.6-luna": {"input": 0.20, "output": 1.20, "cache_read": 0.02},
+    "gpt-5.6-terra": {"input": 2.00, "output": 12.00, "cache_read": 0.20},
+    "gpt-5.6-sol": {"input": 5.00, "output": 30.00, "cache_read": 0.50},
 }
 
 SEMANTIC_RUBRICS: dict[str, str] = {
@@ -87,8 +116,10 @@ def _worker(args: argparse.Namespace) -> int:
     from fpl_grounded_assistant.evaluator import _EVALUATOR_MODELS
 
     provider = args.provider
-    model = get_orch_model(provider)
-    key_name = "GOOGLE_API_KEY" if provider == "gemini" else "ANTHROPIC_API_KEY"
+    # --model pins the tier for THIS observation only. FPL_ORCH_MODEL would
+    # override the model for every arm and provider in a mixed run.
+    model = args.model or get_orch_model(provider)
+    key_name = PROVIDERS[provider]["key_env"]
     api_key = os.environ.get(key_name)
     eval_client = _build_eval_client(provider, api_key=api_key)
     result = ask_orchestrated(
@@ -98,10 +129,8 @@ def _worker(args: argparse.Namespace) -> int:
         model=model,
         api_key=api_key,
         max_tokens=4096,
-        temperature=0.0,
-        # Anthropic recommends changing temperature or top_p, not both. Gemini
-        # accepts both controls, so pin top_p there for reproducibility.
-        top_p=None if args.provider == "anthropic" else 1.0,
+        temperature=PROVIDERS[provider]["temperature"],
+        top_p=PROVIDERS[provider]["top_p"],
         _eval_client=eval_client,
     )
     verdict = asdict(result.evaluator_verdict) if result.evaluator_verdict is not None else None
@@ -262,6 +291,36 @@ def _estimate_cost(observation: dict[str, Any], pricing: dict[str, dict[str, flo
     return primary + evaluator
 
 
+def _sampling_label(provider: str) -> str:
+    """Render a provider's pinned sampling controls for the artifact header."""
+    settings = PROVIDERS.get(provider, {})
+    return " / ".join(
+        "omitted" if settings.get(control) is None else f"`{settings[control]}`"
+        for control in ("temperature", "top_p")
+    )
+
+
+def _observed_units(observations: list[dict[str, Any]]) -> list[tuple[str, str]]:
+    """Ordered distinct ``(provider, model)`` pairs present in ``observations``.
+
+    Derived from the data rather than a hardcoded provider tuple, so a run that
+    measures one provider at several model tiers renders one block per tier and
+    a run that skips a provider renders no empty rows for it.
+    """
+    order = {name: index for index, name in enumerate(PROVIDERS)}
+    seen = {(row["provider"], row.get("model") or "unknown") for row in observations}
+    return sorted(seen, key=lambda unit: (order.get(unit[0], len(order)), unit[1]))
+
+
+def _unit_rows(
+    observations: list[dict[str, Any]], provider: str, model: str
+) -> list[dict[str, Any]]:
+    return [
+        row for row in observations
+        if row["provider"] == provider and (row.get("model") or "unknown") == model
+    ]
+
+
 def _markdown_answer(text: str) -> str:
     escaped = (text or "").replace("|", "&#124;").replace("\n", "<br>")
     return f"<details><summary>answer</summary>{escaped}</details>"
@@ -279,6 +338,8 @@ def _render_artifact(
 ) -> str:
     from fpl_grounded_assistant.experiment_measurement import summarize_axis2_by_source, summarize_composition
 
+    units = _observed_units(observations)
+
     lines = [
         "# Agentic loop experiment results",
         "",
@@ -292,8 +353,16 @@ def _render_artifact(
         # every FDR tool at missing_context and sends get_fixtures_for_gw live.
         *([f"- Bootstrap fixture coverage: `{json.dumps(fixture_counts, sort_keys=True)}`"]
           if fixture_counts else []),
-        "- Providers: `anthropic`, `gemini`",
-        "- max_tokens: `4096`; temperature: `0.0`; Anthropic top_p omitted; Gemini top_p: `1.0`.",
+        "- Providers: " + ", ".join(f"`{provider}` @ `{model}`" for provider, model in units),
+        "- max_tokens: `4096`. Sampling per provider (temperature / top_p): "
+        + "; ".join(
+            f"{provider} {_sampling_label(provider)}"
+            for provider in dict.fromkeys(provider for provider, _ in units)
+        )
+        + ".",
+        "- OpenAI's GPT-5.6 family rejects temperature and top_p (HTTP 400), so "
+        "those observations run at the model's default sampling rather than "
+        "pinned determinism. Treat cross-provider variance accordingly.",
         "- Anthropic decoding default not otherwise overridden: extended thinking off.",
         "- Gemini decoding default not otherwise overridden: thinking level `medium`.",
         "- Evaluator: same-provider cheapest model, verdict-only; no primary retry",
@@ -301,7 +370,9 @@ def _render_artifact(
         f"- Repetitions per critical scenario/configuration: `{repetitions}`",
         "- Scope: direct `ask_orchestrated`; not an end-to-end UI/session test",
         "- Cost note: evaluator tokens are combined by the current API and conservatively charged at output price.",
-        "- Price sources: https://platform.claude.com/docs/en/about-claude/pricing and https://ai.google.dev/gemini-api/docs/pricing",
+        "- Price sources: https://platform.claude.com/docs/en/about-claude/pricing , "
+        "https://ai.google.dev/gemini-api/docs/pricing and "
+        "https://developers.openai.com/api/docs/models/",
         "",
         "### Model pricing used (USD per 1M tokens)",
         "",
@@ -318,11 +389,12 @@ def _render_artifact(
         "",
     ]
 
-    lines.extend(["## Summary", "", "| Provider | Arm | Scenario | Catastrophic rate | Axis 2 | Composition | Human semantic | Avg rounds | Avg tokens | Avg USD |", "|---|---|---|---:|---|---|---|---:|---:|---:|"])
-    for provider in ("anthropic", "gemini"):
+    lines.extend(["## Summary", "", "| Provider / model | Arm | Scenario | Catastrophic rate | Axis 2 | Composition | Human semantic | Avg rounds | Avg tokens | Avg USD |", "|---|---|---|---:|---|---|---|---:|---:|---:|"])
+    for provider, model in units:
+        unit_rows = _unit_rows(observations, provider, model)
         for arm in ARMS:
             for scenario in SCENARIOS:
-                rows = [row for row in observations if row["provider"] == provider and row["arm"] == arm and row["scenario"] == scenario]
+                rows = [row for row in unit_rows if row["arm"] == arm and row["scenario"] == scenario]
                 # --scenarios/--arms filters leave most combinations empty; an
                 # empty group has no average to report (and would divide by zero).
                 if not rows:
@@ -343,27 +415,28 @@ def _render_artifact(
                 human = f"{sum(human_values)/len(human_values):.2f}" if human_values else "pending"
                 costs = [row["usd"] for row in rows if row["usd"] is not None]
                 lines.append(
-                    f"| {provider} | {arm} {ARMS[arm]['label']} | {scenario} | "
+                    f"| {provider} / {model} | {arm} {ARMS[arm]['label']} | {scenario} | "
                     f"{catastrophic}/{len(rows)} | {json.dumps(axis2_counts)} | {composition_str} | {human} | "
                     f"{sum(row['rounds_used'] for row in rows)/len(rows):.2f} | "
                     f"{sum(row['total_tokens'] for row in rows)/len(rows):.0f} | "
                     f"{sum(costs)/len(costs):.6f} |" if costs else
-                    f"| {provider} | {arm} {ARMS[arm]['label']} | {scenario} | "
+                    f"| {provider} / {model} | {arm} {ARMS[arm]['label']} | {scenario} | "
                     f"{catastrophic}/{len(rows)} | {json.dumps(axis2_counts)} | {composition_str} | {human} | "
                     f"{sum(row['rounds_used'] for row in rows)/len(rows):.2f} | "
                     f"{sum(row['total_tokens'] for row in rows)/len(rows):.0f} | n/a |"
                 )
 
-    for provider in ("anthropic", "gemini"):
-        lines.extend(["", f"## Answers: {provider}", ""])
+    for provider, model in units:
+        unit_rows = _unit_rows(observations, provider, model)
+        lines.extend(["", f"## Answers: {provider} / {model}", ""])
         for scenario, question in SCENARIOS.items():
-            if not any(item["provider"] == provider and item["scenario"] == scenario for item in observations):
+            if not any(item["scenario"] == scenario for item in unit_rows):
                 continue
             lines.extend([f"### {scenario}", "", question, "", f"Human rubric: {SEMANTIC_RUBRICS[scenario]}", ""])
             for repetition in range(1, repetitions + 1):
                 lines.extend([f"#### Repetition {repetition}", "", "| Arm | Outcome | Axis 1 | Axis 2 source/status | Axis 3 | Rounds / tools | Tokens / USD | Answer |", "|---|---|---|---|---|---|---|---|"])
                 for arm in ARMS:
-                    row = next((item for item in observations if item["provider"] == provider and item["arm"] == arm and item["scenario"] == scenario and item["repetition"] == repetition), None)
+                    row = next((item for item in unit_rows if item["arm"] == arm and item["scenario"] == scenario and item["repetition"] == repetition), None)
                     if row is None:
                         continue
                     tools = " \u2192 ".join(entry.get("name", "") for entry in row["tool_calls_trace"]) or (row.get("tool_chosen") or "none")
@@ -392,13 +465,50 @@ def _render_artifact(
     return "\n".join(lines)
 
 
+def parse_provider_units(spec: str | None) -> list[tuple[str, str | None]]:
+    """Parse ``--providers`` into ordered ``(provider, model_override)`` units.
+
+    Each comma-separated entry is ``provider`` or ``provider:model``. The second
+    form is how one provider is measured at several model tiers inside a single
+    matrix: ``FPL_ORCH_MODEL`` cannot do it, because it overrides the model for
+    every arm and provider at once and would silently invalidate a mixed run.
+    """
+    units: list[tuple[str, str | None]] = []
+    for entry in (spec or DEFAULT_PROVIDERS).split(","):
+        entry = entry.strip()
+        if not entry:
+            continue
+        provider, _, model = entry.partition(":")
+        provider = provider.strip()
+        if provider not in PROVIDERS:
+            raise SystemExit(
+                f"Unknown provider {provider!r}; known: {sorted(PROVIDERS)}"
+            )
+        unit = (provider, model.strip() or None)
+        if unit not in units:
+            units.append(unit)
+    if not units:
+        raise SystemExit("--providers selected no providers")
+    return units
+
+
+def required_key_envs(units: list[tuple[str, str | None]]) -> list[str]:
+    """Credential env vars for the SELECTED providers only.
+
+    Demanding every provider's key would make an openai-only run fail for a
+    missing GOOGLE_API_KEY it never uses.
+    """
+    return sorted({PROVIDERS[provider]["key_env"] for provider, _ in units})
+
+
 def _driver(args: argparse.Namespace) -> int:
     bootstrap_path = Path(args.bootstrap).resolve()
     # Fail fast on missing credentials. Without this the run "succeeds": every
     # observation records outcome=no_client with 0 tokens, which looks like a
     # measured negative result rather than a run that never reached a provider.
     # Env vars live only in the shell that set them; a fresh terminal loses them.
-    _required_keys = ("ANTHROPIC_API_KEY", "GOOGLE_API_KEY")
+    units = parse_provider_units(args.providers)
+    _required_keys = required_key_envs(units)
     _missing = [k for k in _required_keys if not os.environ.get(k)]
     if _missing:
         raise SystemExit(
@@ -449,6 +559,14 @@ def _driver(args: argparse.Namespace) -> int:
         grade_structured_output,
         check_composition,
     )
+    from fpl_grounded_assistant.orch_config import get_orch_model
+
+    # Resolve every unit's model up front and pass it explicitly to the worker,
+    # so the artifact header and the worker_error fallback both name the model
+    # that was actually requested instead of "unknown".
+    unit_models: dict[tuple[str, str | None], str] = {
+        unit: (unit[1] or get_orch_model(unit[0])) for unit in units
+    }
 
     # Parse scenario/arm filters
     scenarios_to_run = set(SCENARIOS.keys())
@@ -468,7 +586,9 @@ def _driver(args: argparse.Namespace) -> int:
         arms_to_run = requested
 
     observations: list[dict[str, Any]] = []
-    for provider in ("anthropic", "gemini"):
+    for unit in units:
+        provider, _ = unit
+        model = unit_models[unit]
         for arm, config in ARMS.items():
             if arm not in arms_to_run:
                 continue
@@ -495,6 +615,7 @@ def _driver(args: argparse.Namespace) -> int:
                             "--repo-root", str(worktree),
                             "--bootstrap", str(bootstrap_path),
                             "--provider", provider,
+                            "--model", model,
                             "--scenario", scenario,
                         ],
                         cwd=worktree,
@@ -508,7 +629,7 @@ def _driver(args: argparse.Namespace) -> int:
                     if completed.returncode or not (completed.stdout or "").strip():
                         result = {
                             "provider": provider,
-                            "model": "unknown",
+                            "model": model,
                             "evaluator_model": None,
                             "outcome": "worker_error",
                             "answer_text": (completed.stderr or "")[-2000:],
@@ -553,7 +674,7 @@ def _driver(args: argparse.Namespace) -> int:
                         result["composition"] = {"status": "not_applicable", "reason": "class-2 composition check only applies to Q10/Q11"}
                     result["usd"] = _estimate_cost(result, pricing)
                     observations.append(result)
-                    print(f"completed {provider} arm={arm} {scenario} rep={repetition}", flush=True)
+                    print(f"completed {provider}/{model} arm={arm} {scenario} rep={repetition}", flush=True)
 
     # Persist the raw observations FIRST. Rendering has now twice crashed after
     # every paid call completed, discarding the entire run; the JSON is the
@@ -600,7 +721,18 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--bootstrap", required=True)
     parser.add_argument("--capture-bootstrap", action="store_true")
     parser.add_argument("--capture-only", action="store_true")
-    parser.add_argument("--provider", choices=("anthropic", "gemini"))
+    parser.add_argument("--provider", choices=tuple(PROVIDERS))
+    parser.add_argument(
+        "--model",
+        help="Worker-only: pin the model for this observation. Set by the "
+             "driver from --providers; never set FPL_ORCH_MODEL instead.",
+    )
+    parser.add_argument(
+        "--providers",
+        help="Comma-separated provider units, each `provider` or "
+             f"`provider:model` (e.g. openai:gpt-5.6-luna,openai:gpt-5.6-terra). "
+             f"Default: {DEFAULT_PROVIDERS}",
+    )
     parser.add_argument("--scenario", choices=tuple(SCENARIOS))
     parser.add_argument("--scenarios", help="Comma-separated scenario subset (e.g. Q10,Q11)")
     parser.add_argument("--arms", help="Comma-separated arm subset (e.g. A,C)")

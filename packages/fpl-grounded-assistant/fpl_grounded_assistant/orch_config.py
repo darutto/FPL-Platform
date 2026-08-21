@@ -91,7 +91,7 @@ DEFAULT_TIMEOUT_S: float = 20.0
 #: Default model identifiers per provider (used by get_orch_model).
 _PROVIDER_DEFAULT_MODELS: dict[str, str] = {
     "gemini":    "gemini-3.5-flash",
-    "openai":    "gpt-4o-mini",
+    "openai":    "gpt-5.6-luna",
     "anthropic": "claude-haiku-4-5-20251001",
 }
 
