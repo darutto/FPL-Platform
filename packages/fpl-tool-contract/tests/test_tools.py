@@ -126,6 +126,45 @@ class TestToolResolvePlayerAmbiguous:
         assert result["query"] == "Johnson"
 
 
+class TestAmbiguousCarriesCandidates:
+    """The tied players must survive to the caller.
+
+    `_resolve_with_status` computes the full ranked candidate list and used to
+    throw it away, so `/comparar` had nothing to build disambiguation chips
+    from and fell back to a dead-end message.
+    """
+
+    def test_candidates_present_and_complete(self, bootstrap):
+        from fpl_tool_contract import tool_resolve_player
+        result = tool_resolve_player("Johnson", bootstrap)
+        assert [c["id"] for c in result["candidates"]] == [6, 7]
+
+    def test_candidate_fields_match_the_chip_builder_contract(self, bootstrap):
+        from fpl_tool_contract import tool_resolve_player
+        result = tool_resolve_player("Johnson", bootstrap)
+        for candidate in result["candidates"]:
+            assert {"id", "web_name", "team_short"}.issubset(candidate)
+            assert candidate["web_name"]
+
+    def test_get_player_summary_also_carries_candidates(self, bootstrap):
+        from fpl_tool_contract import tool_get_player_summary
+        result = tool_get_player_summary("Johnson", bootstrap)
+        assert result["status"] == "ambiguous"
+        assert len(result["candidates"]) == 2
+
+    def test_resolved_and_missing_queries_carry_no_candidates(self, bootstrap):
+        from fpl_tool_contract import tool_resolve_player
+        assert tool_resolve_player("Haaland", bootstrap).get("candidates") is None
+        assert tool_resolve_player("Nobody", bootstrap).get("candidates") is None
+
+    def test_message_does_not_instruct_an_llm(self, bootstrap):
+        """This string is rendered verbatim to the user on the deterministic
+        compare path, so it must read as user copy, not as a prompt."""
+        from fpl_tool_contract import tool_resolve_player
+        message = tool_resolve_player("Johnson", bootstrap)["message"]
+        assert "Ask the user" not in message
+
+
 # ===========================================================================
 # D. tool_resolve_player — status "not_found"
 # ===========================================================================

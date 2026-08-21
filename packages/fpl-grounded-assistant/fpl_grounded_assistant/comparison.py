@@ -300,6 +300,7 @@ def compare_players(
             "query_a":      query_a,
             "query_b":      query_b,
             "error_player": query_a,
+            "candidates":   scored_a.get("candidates", []),
             "message":      scored_a.get("message", f"Could not score '{query_a}'."),
         }
 
@@ -310,6 +311,7 @@ def compare_players(
             "query_a":      query_a,
             "query_b":      query_b,
             "error_player": query_b,
+            "candidates":   scored_b.get("candidates", []),
             "message":      scored_b.get("message", f"Could not score '{query_b}'."),
         }
 
