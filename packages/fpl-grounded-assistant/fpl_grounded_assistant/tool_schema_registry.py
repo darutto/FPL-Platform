@@ -862,7 +862,11 @@ RANK_PLAYERS_BY_METRIC_SCHEMA = ToolSchema(
         "Top N players by any supported bootstrap metric: performance and per-90 rates; "
         "price; current-GW transfer momentum; set-piece order; cards; xGC; ICT components; "
         "and saves. Filter by position, minutes, and price bounds. "
-        "Use for every top/best/most-by-metric query, "
+        "Ranks the CURRENT snapshot only: it has NO knowledge of fixtures, opponents, "
+        "schedule difficulty or future gameweeks, and no metric expresses them. "
+        "For a question about upcoming gameweeks ('next 5', 'over the run', "
+        "'best fixtures'), use get_transfer_suggestion, which takes a horizon. "
+        "Use this for top/best/most-by-metric queries about present-state metrics, "
         "even when the metric may be unknown (the tool validates and returns valid_metrics)."
     ),
     parameters={
