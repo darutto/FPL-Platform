@@ -334,6 +334,7 @@ def _render_artifact(
     captured_at: str,
     fixture_counts: dict[str, Any] | None = None,
     pricing: dict[str, dict[str, float]],
+    max_rounds: int = 3,
     repetitions: int,
 ) -> str:
     from fpl_grounded_assistant.experiment_measurement import summarize_axis2_by_source, summarize_composition
@@ -366,7 +367,7 @@ def _render_artifact(
         "- Anthropic decoding default not otherwise overridden: extended thinking off.",
         "- Gemini decoding default not otherwise overridden: thinking level `medium`.",
         "- Evaluator: same-provider cheapest model, verdict-only; no primary retry",
-        "- FPL_ORCH_MAX_ROUNDS: `3` tool-execution rounds",
+        f"- FPL_ORCH_MAX_ROUNDS: `{max_rounds}` tool-execution rounds",
         f"- Repetitions per critical scenario/configuration: `{repetitions}`",
         "- Scope: direct `ask_orchestrated`; not an end-to-end UI/session test",
         "- Cost note: evaluator tokens are combined by the current API and conservatively charged at output price.",
@@ -599,7 +600,7 @@ def _driver(args: argparse.Namespace) -> int:
                     env.update({
                         "FPL_ORCH_LOOP_ENABLED": config["loop"],
                         "FPL_ORCH_LOOP_PROMPT": config["prompt"],
-                        "FPL_ORCH_MAX_ROUNDS": "3",
+                        "FPL_ORCH_MAX_ROUNDS": str(args.max_rounds),
                         "FPL_ORCH_EVAL_VERDICT_ONLY": "1",
                         "FPL_ORCH_EXPERIMENT_OUTPUT": "1",
                         # Windows: a piped child defaults to the ANSI codepage
@@ -695,6 +696,7 @@ def _driver(args: argparse.Namespace) -> int:
         fixture_counts=metadata.get("fixture_counts"),
         pricing=pricing,
         repetitions=args.repetitions,
+        max_rounds=args.max_rounds,
     )
     output.write_text(artifact, encoding="utf-8")
     print(f"wrote {output}")
@@ -738,6 +740,12 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--scenarios", help="Comma-separated scenario subset (e.g. Q10,Q11)")
     parser.add_argument("--arms", help="Comma-separated arm subset (e.g. A,C)")
     parser.add_argument("--repetitions", type=int, default=3)
+    parser.add_argument(
+        "--max-rounds", type=int, default=3,
+        help="FPL_ORCH_MAX_ROUNDS for loop arms. The orchestrator clamps to [1, 5]; "
+             "a higher value here is reported verbatim in the artifact header so a run "
+             "cannot silently claim a cap it did not use.",
+    )
     parser.add_argument("--semantic-scores")
     parser.add_argument("--pricing-json")
     parser.add_argument("--output", default=str(repo_root / "field-notes/2026-08-18-agentic-loop-experiment.md"))
