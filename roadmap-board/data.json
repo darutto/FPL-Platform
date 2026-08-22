@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-20",
+  "updated": "2026-08-22",
   "cards": [
     {
       "id": "s1",
@@ -456,25 +456,25 @@
     },
     {
       "id": "i20",
-      "col": "idea",
+      "col": "shipped",
       "title": "P0 · Añadir OpenAI como proveedor evaluable",
-      "desc": "La rama OpenAI ya existe en orch_config/provider_client, pero OPENAI_API_KEY en .env es el placeholder de la plantilla. Poner key real, fijar FPL_ORCH_MODEL al modelo a probar y correr el brazo B del experimento. Los precios de los modelos nuevos hay que confirmarlos en la doc oficial antes de estimar coste.",
+      "desc": "HECHO (#151). GPT-5.6 Luna/Terra/Sol añadidos como proveedores evaluables; Luna en brazo B dio la mejor respuesta a la pregunta de plantilla a ~25x menos coste que Anthropic en brazo D. Trampas registradas: rechaza temperature Y top_p (400) pese a la documentacion.",
       "tags": [
         "IA",
         "Backend"
       ],
-      "progress": 0
+      "progress": 100
     },
     {
       "id": "i21",
-      "col": "idea",
+      "col": "shipped",
       "title": "P1 · Promover el solver de plantilla al producto",
-      "desc": "min-cost flow exacto (source→posición→jugador→club→sink) ya escrito y testeado en experiment_measurement.py:172/222, pero vive solo en el harness de medición del worktree agentic-loop. Promoverlo a producto y convertirlo de validador (¿existe completación legal?) en generador (mejor bajo restricciones). El LLM elige objetivo y explica; nunca hace la aritmética. Es el win más grande de los experimentos.",
+      "desc": "HECHO (#151). build_squad y select_players_within_budget promovidos del harness de medicion al producto, con seleccion parcial y completabilidad. El flujo de costo minimo exacto (source->posicion->jugador->club->sink) es ahora generador, no solo validador.",
       "tags": [
         "Backend",
         "FPL Asistente"
       ],
-      "progress": 70
+      "progress": 100
     },
     {
       "id": "i22",
@@ -508,6 +508,39 @@
         "Backend"
       ],
       "progress": 0
+    },
+    {
+      "id": "i25",
+      "col": "idea",
+      "progress": 0,
+      "title": "Golden test — bateria de aceptacion de modelos",
+      "desc": "Serie fija de preguntas que un modelo debe pasar para decidir si lo usamos. Nucleo automatizable: leer las afirmaciones DE LA PROSA (nombres, precios, sumas, cuantos medios se pidieron vs se entregaron) y contrastarlas contra el bootstrap. NO depender de un bloque JSON auto-reportado: los modelos lo emitieron 6 de 120 veces y los 6 estaban mal. Las puntuaciones humanas de Axis 3 son la verdad de campo para calibrar cualquier juez automatico. Tres trampas de diseno: (1) el bootstrap congelado envejece -- es pretemporada con form=0.0 en los 592 elementos, declararlo test de snapshot y re-congelar por temporada; (2) una corrida no decide -- N repeticiones, no un veredicto de una pasada; (3) el umbral se pre-registra ANTES de correr al candidato o se racionaliza el modelo que ya se queria usar. Ya reutilizable: escenarios Q6/Q7/Q9, verificador de factibilidad por flujo de costo minimo, tabla de precios por modelo.",
+      "tags": [
+        "IA",
+        "Datos"
+      ]
+    },
+    {
+      "id": "i26",
+      "col": "idea",
+      "progress": 0,
+      "title": "Gemini no tiene criterio de parada",
+      "desc": "Consume exactamente el cap de rondas, sea cual sea: 6/6 agotadas con cap 3, 6/6 con cap 5, 0 llamadas duplicadas en 51, tools devolviendo ok 48/51. Es investigacion coherente que se ensancha sin criterio para detenerse. Hipotesis de cap mal calibrado FALSADA con corrida pre-registrada. Es problema de prompt: el prompt loop-aware dice cuando seguir y nunca cuando parar. El selector parcial (#151) mitiga el sintoma -- ahora entrega la llamada mas informativa en vez de la mas reciente -- pero no la causa. Coste medido del sintoma: $0.14 por respuesta de 151 caracteres tras cinco rondas.",
+      "tags": [
+        "IA",
+        "Backend"
+      ]
+    },
+    {
+      "id": "i27",
+      "col": "idea",
+      "progress": 0,
+      "title": "Deuda del surface de herramientas (auditoria Codex)",
+      "desc": "Cuatro items sueltos de la auditoria externa, ninguno bloqueante por separado. (1) Texto generado por tools en INGLES contra el contrato Spanish-first (chip_advisor.py:273,323; transfer_advisor.py:506,521) -- posible causa de que Gemini responda en ingles, hipotesis sin probar. (2) additionalProperties:false declarado pero no aplicado; el runner solo valida required. (3) Tercer par de resolutores duplicados: team_fixture_calendar vs get_team_snapshot devuelven ya la misma forma pero emparejan distinto (alias map vs prefix tiers + normalize); consolidar necesita pines propios, ojo con alias->club descendido que debe seguir not_found. (4) El nuevo ambiguous de get_team_schedule mapea a OUTCOME_AMBIGUOUS, pero no esta verificado si ChatShell puede armar el wizard desde ahi -- puede ser un septimo caso de la brecha conocida. Pendiente y gratis: segunda pasada de Codex con matriz de confusion de frases en espanol -> tool esperada, unica evidencia que decidiria si el surface de 28 tools necesita podarse.",
+      "tags": [
+        "Backend",
+        "IA"
+      ]
     }
   ]
 }
