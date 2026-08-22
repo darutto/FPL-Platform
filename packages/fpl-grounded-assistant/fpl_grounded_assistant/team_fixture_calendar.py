@@ -506,8 +506,11 @@ _TEAM_RESOLVE_ALIASES: dict[str, str] = {
 }
 
 
-def _resolve_team(team_query: str, bootstrap: "dict[str, Any]") -> "dict | None":
-    """Resolve a free-text team name to a bootstrap team dict.
+def _resolve_team_result(
+    team_query: str,
+    bootstrap:  "dict[str, Any]",
+) -> "dict[str, Any]":
+    """Resolve a free-text team name to a resolution *outcome*.
 
     Resolution order:
     1. Exact match on ``short_name`` (case-insensitive) — raw query first,
@@ -516,17 +519,31 @@ def _resolve_team(team_query: str, bootstrap: "dict[str, Any]") -> "dict | None"
     3. Alias map (nicknames / abbreviations / formal names → short_name
        code), then exact short_name/name on the alias target. An alias
        whose code is absent from the bootstrap (e.g. a relegated club)
-       cleanly returns ``None``.
-    4. Substring match on ``name`` — only if the substring is unambiguous.
-       A query matching more than one team (e.g. "man" → Man City AND
-       Man Utd) returns ``None`` instead of silently picking the first.
+       cleanly returns ``not_found``.
+    4. Substring match on ``name``. One hit resolves; two or more (e.g.
+       "man" → Man City AND Man Utd) report ``ambiguous`` carrying both
+       candidates, instead of silently picking the first — or, as this
+       function's ``None``-returning predecessor forced callers to do,
+       claiming no such team exists.
 
-    Returns the matching bootstrap team dict, or ``None``.
+    Returns
+    -------
+    dict with one of::
+
+        {"status": "ok",        "team_data": <bootstrap team dict>}
+        {"status": "ambiguous", "candidates": [{"short_name":…, "name":…}, …]}
+        {"status": "not_found"}
+
+    The shape deliberately mirrors ``get_team_snapshot._resolve_team`` so the
+    two tools stop contradicting each other on the same query. The *matching
+    rules* still differ (this one has an alias map; that one has prefix tiers
+    and ``_normalize``) — consolidating them is follow-up work with its own
+    regression pins, not this function's job.
     """
     teams = bootstrap.get("teams", [])
     q = team_query.lower().strip()
     if not q:
-        return None
+        return {"status": "not_found"}
 
     def _exact(query: str) -> "dict | None":
         for t in teams:
@@ -539,18 +556,43 @@ def _resolve_team(team_query: str, bootstrap: "dict[str, Any]") -> "dict | None"
 
     hit = _exact(q)
     if hit is not None:
-        return hit
+        return {"status": "ok", "team_data": hit}
 
     alias_target = _TEAM_RESOLVE_ALIASES.get(q)
     if alias_target is not None:
         # Alias targets are exact codes by construction — no substring
         # fallback on them (a 3-letter code substring could false-match).
-        return _exact(alias_target)
+        aliased = _exact(alias_target)
+        if aliased is not None:
+            return {"status": "ok", "team_data": aliased}
+        return {"status": "not_found"}
 
     matches = [t for t in teams if q in t.get("name", "").lower()]
     if len(matches) == 1:
-        return matches[0]
-    return None
+        return {"status": "ok", "team_data": matches[0]}
+    if len(matches) > 1:
+        return {
+            "status":     "ambiguous",
+            "candidates": [
+                {"short_name": t.get("short_name", ""), "name": t.get("name", "")}
+                for t in matches
+            ],
+        }
+    return {"status": "not_found"}
+
+
+def _resolve_team(team_query: str, bootstrap: "dict[str, Any]") -> "dict | None":
+    """Resolve a free-text team name to a bootstrap team dict, or ``None``.
+
+    Thin wrapper over :func:`_resolve_team_result`; ``None`` collapses both
+    the ambiguous and the not-found outcomes. Four other modules
+    (``fixture_context``, ``fixture_outlook_tool``, ``transfer_suggestion``,
+    ``zonal_weakness_tool``) depend on that collapsing and are unaffected.
+    ``get_team_schedule`` consumes the richer function directly so it can
+    report ambiguity instead of denying the team exists.
+    """
+    res = _resolve_team_result(team_query, bootstrap)
+    return res["team_data"] if res["status"] == "ok" else None
 
 
 def get_team_schedule(
@@ -582,6 +624,13 @@ def get_team_schedule(
     ``dgw_gameweeks``     sorted GW numbers with double fixtures
     ``bgw_gameweeks``     sorted GW numbers where this team has a blank
 
+    Returns — status "ambiguous"
+    ----------------------------
+    When ``team_query`` matches more than one team (e.g. "man" → MCI + MUN).
+    Carries ``candidates`` — ``[{"short_name", "name"}, …]`` — so the caller
+    can ask which one was meant. ``get_team_snapshot`` already answered this
+    way; before this, the two tools disagreed on the same query.
+
     Returns — status "not_found"
     ----------------------------
     When no team matches ``team_query`` in bootstrap.
@@ -600,13 +649,25 @@ def get_team_schedule(
             "message": "No team fixture schedule available (team_fixtures not in bootstrap).",
         }
 
-    team = _resolve_team(team_query, bootstrap)
-    if team is None:
+    resolution = _resolve_team_result(team_query, bootstrap)
+    if resolution["status"] == "ambiguous":
+        candidates = resolution["candidates"]
+        return {
+            "status":     "ambiguous",
+            "team_query": team_query,
+            "candidates": candidates,
+            "message":    (
+                f"Multiple teams match '{team_query}'. Please specify. "
+                f"Candidates: {', '.join(c['short_name'] for c in candidates)}"
+            ),
+        }
+    if resolution["status"] == "not_found":
         return {
             "status":     "not_found",
             "team_query": team_query,
             "message":    f"No team found matching '{team_query}'.",
         }
+    team = resolution["team_data"]
 
     team_id   = int(team["id"])
     short     = team.get("short_name", f"T{team_id}")
@@ -660,7 +721,9 @@ TEAM_SCHEDULE_SPEC = ToolSpec(
     description=(
         "Return one club's upcoming fixtures with DGW/BGW labels. "
         "Resolves the team by name, short_name, or common alias from bootstrap. "
-        "Returns status='not_found' when no team matches the query, "
+        "Returns status='ambiguous' with candidates when the query matches "
+        "more than one club (e.g. 'man'), "
+        "status='not_found' when no team matches the query, "
         "status='missing_context' when fixture data is absent."
     ),
     parameters={

@@ -757,6 +757,15 @@ def _render_get_team_schedule(output: dict[str, Any]) -> str:
             f"  {fx_str}"
         )
 
+    if status == "ambiguous":
+        query      = output.get("team_query", "")
+        candidates = output.get("candidates", [])
+        shorts     = [c.get("short_name", "?") for c in candidates]
+        return (
+            f"Multiple teams match '{query}': {', '.join(shorts)}. "
+            "Please specify which one."
+        )
+
     if status == "not_found":
         return output.get("message", "Team not found.")
 
