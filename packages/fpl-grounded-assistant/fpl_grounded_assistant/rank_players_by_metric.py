@@ -24,6 +24,7 @@ Filters
 -------
 *  ``position``: optional filter (GKP/DEF/MID/FWD, case-insensitive).
 *  ``min_minutes``: exclude players with fewer minutes than this threshold.
+*  ``min_price`` / ``max_price``: inclusive GBP-million price bounds.
 
 Both filters are applied BEFORE sorting.
 
@@ -48,6 +49,7 @@ from fpl_grounded_assistant.find_players import (
     _normalize,
     _position_label,
 )
+from fpl_grounded_assistant.ranking_provenance import get_ranking_basis
 
 
 # ---------------------------------------------------------------------------
@@ -210,6 +212,8 @@ def rank_players_by_metric(
     top_n: int = 10,
     position: "str | None" = None,
     min_minutes: int = 0,
+    min_price: "float | None" = None,
+    max_price: "float | None" = None,
     bootstrap: "dict[str, Any] | None" = None,
 ) -> dict[str, Any]:
     """Rank players by a numeric bootstrap metric.
@@ -222,6 +226,8 @@ def rank_players_by_metric(
         position: optional position filter (GKP/DEF/MID/FWD, case-insensitive).
             Also accepts Spanish names (portero/defensa/centrocampista/delantero).
         min_minutes: exclude players with fewer minutes (default 0).
+        min_price: optional inclusive minimum price in GBP millions.
+        max_price: optional inclusive maximum price in GBP millions.
         bootstrap: live FPL bootstrap; fetched if None.
 
     Returns:
@@ -318,6 +324,20 @@ def rank_players_by_metric(
     except (ValueError, TypeError):
         min_minutes = 0
 
+    def _price_tenths(value: Any) -> int | None:
+        if value is None:
+            return None
+        try:
+            return max(0, int(round(float(value) * 10)))
+        except (TypeError, ValueError):
+            return None
+
+    min_cost = _price_tenths(min_price)
+    max_cost = _price_tenths(max_price)
+    min_price_filter = round(min_cost / 10, 1) if min_cost is not None else None
+    max_price_filter = round(max_cost / 10, 1) if max_cost is not None else None
+    ranking_basis = get_ranking_basis(bootstrap)
+
     # Resolve position filter
     canonical_position: "str | None" = None
     if position is not None and isinstance(position, str) and position.strip():
@@ -339,6 +359,9 @@ def rank_players_by_metric(
             "top_n":              0,
             "position_filter":    canonical_position,
             "min_minutes_filter": min_minutes,
+            "min_price_filter":   min_price_filter,
+            "max_price_filter":   max_price_filter,
+            "ranking_basis":      ranking_basis,
             "ranked":             [],
         }
 
@@ -355,6 +378,12 @@ def rank_players_by_metric(
         # Minutes filter
         el_minutes = _safe_int(el.get("minutes"), 0)
         if el_minutes < min_minutes:
+            continue
+
+        el_cost = _safe_int(el.get("now_cost"), 0)
+        if min_cost is not None and el_cost < min_cost:
+            continue
+        if max_cost is not None and el_cost > max_cost:
             continue
 
         # Position filter
@@ -402,6 +431,9 @@ def rank_players_by_metric(
         "top_n":              len(ranked),
         "position_filter":    canonical_position,
         "min_minutes_filter": min_minutes,
+        "min_price_filter":   min_price_filter,
+        "max_price_filter":   max_price_filter,
+        "ranking_basis":      ranking_basis,
         "ranked":             ranked,
     }
 
@@ -415,7 +447,8 @@ RANK_PLAYERS_BY_METRIC_SPEC = ToolSpec(
     description=(
         "Top N players by a bootstrap metric: performance, per-90 rates, price, "
         "current-GW transfer momentum, set-piece order, cards, xGC, ICT components, "
-        "and saves. Filter by position/min_minutes. Use for ANY top/best/most-by-metric query."
+        "and saves. Filter by position, minutes, and price bounds. "
+        "Use for ANY top/best/most-by-metric query."
     ),
     parameters={
         "type": "object",
@@ -448,6 +481,16 @@ RANK_PLAYERS_BY_METRIC_SPEC = ToolSpec(
                 "description": "Exclude players with fewer minutes (default 0)",
                 "minimum":     0,
             },
+            "min_price": {
+                "type":        "number",
+                "description": "Inclusive minimum player price in GBP millions.",
+                "minimum":     0,
+            },
+            "max_price": {
+                "type":        "number",
+                "description": "Inclusive maximum player price in GBP millions.",
+                "minimum":     0,
+            },
         },
         "required":             ["metric"],
         "additionalProperties": False,
@@ -460,6 +503,9 @@ RANK_PLAYERS_BY_METRIC_SPEC = ToolSpec(
             "top_n":              {"type": "integer"},
             "position_filter":    {"type": ["string", "null"]},
             "min_minutes_filter": {"type": "integer"},
+            "min_price_filter":   {"type": ["number", "null"]},
+            "max_price_filter":   {"type": ["number", "null"]},
+            "ranking_basis":      {"type": "string"},
             "ranked":             {"type": "array"},
         },
     },
@@ -485,6 +531,8 @@ def _rank_players_by_metric_handler(
             top_n       = args.get("top_n", 10),
             position    = args.get("position"),
             min_minutes = args.get("min_minutes", 0),
+            min_price   = args.get("min_price"),
+            max_price   = args.get("max_price"),
             bootstrap   = bootstrap,
         )
     except Exception as exc:  # noqa: BLE001

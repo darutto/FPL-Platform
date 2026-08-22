@@ -82,7 +82,8 @@ class ToolRegistry:
         The handler signature must be one of:
           - ``handler(args, bootstrap)``  — for tools with parameters
           - ``handler(bootstrap)``        — for tools with no parameters
-        The registry dispatches based on the spec's ``required`` list.
+        The registry dispatches based on whether the schema declares input
+        properties. Optional parameters still need to reach their handler.
         """
         self._specs[spec.name]    = spec
         self._handlers[spec.name] = handler
@@ -166,11 +167,12 @@ class ToolRegistry:
                 }
 
         handler = self._handlers[name]
-        if required:
-            # Tools with parameters: pass args dict + bootstrap
+        properties: dict[str, Any] = spec.parameters.get("properties", {}) or {}
+        if properties:
+            # Parameterised tools receive args even when every property is optional.
             return handler(args, bootstrap)
         else:
-            # Tools with no parameters (get_current_gameweek): pass only bootstrap
+            # Genuinely parameterless tools receive only bootstrap.
             return handler(bootstrap)
 
 

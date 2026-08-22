@@ -1,0 +1,107 @@
+{
+  "gemini/B/Q6/1": {
+    "score": null,
+    "rubric": "Explains why the named bench makes Bench Boost viable or not.",
+    "notes": "Respondio en INGLES (producto Spanish-first). Solo senal 'marginal' sin explicar mas.",
+    "score_proposed_0_3": 0,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "gemini/C/Q6/1": {
+    "score": null,
+    "rubric": "Explains why the named bench makes Bench Boost viable or not.",
+    "notes": "Respuesta incompleta (round limit reached). Gemini se queda muchisimo mas corto en uso efectivo de herramientas.",
+    "score_proposed_0_3": 0,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "gemini/D/Q6/1": {
+    "score": null,
+    "rubric": "Explains why the named bench makes Bench Boost viable or not.",
+    "notes": "Respuesta incompleta (round limit reached). Gemini se queda muchisimo mas corto en uso efectivo de herramientas.",
+    "score_proposed_0_3": 0,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "gemini/B/Q7/1": {
+    "score": null,
+    "rubric": "Explains fixture discrimination, budget allocation, and at least one alternative.",
+    "notes": "'Jornada actual: GW1 (pending)...' - basicamente NO es respuesta.",
+    "score_proposed_0_3": 0,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "gemini/C/Q7/1": {
+    "score": null,
+    "rubric": "Explains fixture discrimination, budget allocation, and at least one alternative.",
+    "notes": "Respuesta incompleta (round limit reached). Gemini se queda muchisimo mas corto en uso efectivo de herramientas.",
+    "score_proposed_0_3": 0,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "gemini/D/Q7/1": {
+    "score": null,
+    "rubric": "Explains fixture discrimination, budget allocation, and at least one alternative.",
+    "notes": "Respuesta incompleta (round limit reached). Gemini se queda muchisimo mas corto en uso efectivo de herramientas.",
+    "score_proposed_0_3": 0,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "gemini/B/Q9/1": {
+    "score": null,
+    "rubric": "Presents at least two price strategies and quantifies the budget difference.",
+    "notes": "Otra vez solo una lista de jugadores.",
+    "score_proposed_0_3": 1,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "gemini/C/Q9/1": {
+    "score": null,
+    "rubric": "Presents at least two price strategies and quantifies the budget difference.",
+    "notes": "Respuesta incompleta (round limit reached). Gemini se queda muchisimo mas corto en uso efectivo de herramientas.",
+    "score_proposed_0_3": 0,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "gemini/D/Q9/1": {
+    "score": null,
+    "rubric": "Presents at least two price strategies and quantifies the budget difference.",
+    "notes": "Respuesta incompleta (round limit reached). Gemini se queda muchisimo mas corto en uso efectivo de herramientas.",
+    "score_proposed_0_3": 0,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "gemini/B/Q10/1": {
+    "score": null,
+    "rubric": "Names a MID £6.0m-£8.0m, justifies via fixture difficulty and form.",
+    "notes": "No da nada.",
+    "score_proposed_0_3": 0,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "gemini/C/Q10/1": {
+    "score": null,
+    "rubric": "Names a MID £6.0m-£8.0m, justifies via fixture difficulty and form.",
+    "notes": "Respuesta incompleta (round limit reached). Gemini se queda muchisimo mas corto en uso efectivo de herramientas.",
+    "score_proposed_0_3": 0,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "gemini/D/Q10/1": {
+    "score": null,
+    "rubric": "Names a MID £6.0m-£8.0m, justifies via fixture difficulty and form.",
+    "notes": "Respuesta incompleta (round limit reached). Gemini se queda muchisimo mas corto en uso efectivo de herramientas.",
+    "score_proposed_0_3": 0,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "gemini/B/Q11/1": {
+    "score": null,
+    "rubric": "Names a DEF £4.5m-£6.0m, justifies via fixture difficulty and clean-sheet risk.",
+    "notes": "Mismo top 5 que los otros; solo 5 opciones.",
+    "score_proposed_0_3": 1,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "gemini/C/Q11/1": {
+    "score": null,
+    "rubric": "Names a DEF £4.5m-£6.0m, justifies via fixture difficulty and clean-sheet risk.",
+    "notes": "Respuesta incompleta (round limit reached). Gemini se queda muchisimo mas corto en uso efectivo de herramientas.",
+    "score_proposed_0_3": 0,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "gemini/D/Q11/1": {
+    "score": null,
+    "rubric": "Names a DEF £4.5m-£6.0m, justifies via fixture difficulty and clean-sheet risk.",
+    "notes": "Respuesta incompleta (round limit reached). Gemini se queda muchisimo mas corto en uso efectivo de herramientas.",
+    "score_proposed_0_3": 0,
+    "scored_by": "human (Leo), 2026-08-21"
+  }
+}

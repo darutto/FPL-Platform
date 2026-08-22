@@ -1,0 +1,19 @@
+{
+  "captured_at": "2026-08-19T02:43:43.220549+00:00",
+  "sources": [
+    "https://fantasy.premierleague.com/api/bootstrap-static/",
+    "https://fantasy.premierleague.com/api/fixtures/"
+  ],
+  "sha256": "4cbb9fa18a5852c73a54fbe24a03b34e0c33ae5b3c549171cbcb02568d8b2aae",
+  "source_sha256": {
+    "bootstrap_static": "ba4be870f0aa9d0b6557b9fb967e53f5f8144c2e13fa8c0bbe3e2bcb7ee8f849",
+    "fixtures": "18745575078b4bbf1c3a1c85862945e8d5ff15825130c68b4d11124e2c7bbc54"
+  },
+  "fixture_counts": {
+    "fixtures_returned": 380,
+    "fixtures_scheduled": 380,
+    "fixtures_dropped_no_event": 0,
+    "gameweeks_covered": 38,
+    "teams_with_fixtures": 20
+  }
+}

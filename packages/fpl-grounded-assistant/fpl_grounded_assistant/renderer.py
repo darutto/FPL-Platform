@@ -757,6 +757,15 @@ def _render_get_team_schedule(output: dict[str, Any]) -> str:
             f"  {fx_str}"
         )
 
+    if status == "ambiguous":
+        query      = output.get("team_query", "")
+        candidates = output.get("candidates", [])
+        shorts     = [c.get("short_name", "?") for c in candidates]
+        return (
+            f"Multiple teams match '{query}': {', '.join(shorts)}. "
+            "Please specify which one."
+        )
+
     if status == "not_found":
         return output.get("message", "Team not found.")
 
@@ -1373,6 +1382,168 @@ def _render_get_fixture_outlook(output: dict[str, Any]) -> str:
     return f"Error ({code}): {message}"
 
 
+def _render_build_squad(output: dict[str, Any]) -> str:
+    """Render build_squad raw_output.  S1.
+
+    Prints the totals the solver computed, in the solver's own units. Nothing
+    here re-adds a column: the whole point of the tool is that the arithmetic
+    happens once, in one place.
+    """
+    status = output.get("status")
+
+    if status == "ok":
+        squad     = output.get("squad", [])
+        formation = output.get("formation")
+        xi_ids    = {entry.get("id") for entry in output.get("starting_xi", [])}
+
+        lines = [
+            f"Equipo de {output.get('squad_size', len(squad))} jugadores "
+            f"por {output.get('objective', '?')} "
+            f"(base: {output.get('ranking_basis', '?')}):"
+        ]
+        lines.append("  Pos | Jugador          | Club | Precio | Valor  | XI")
+        lines.append("  ----|------------------|------|--------|--------|----")
+        for entry in squad:
+            pos   = str(entry.get("position", "?")).ljust(3)
+            name  = str(entry.get("web_name", "?"))[:16].ljust(16)
+            club  = str(entry.get("team_short", "?")).ljust(4)
+            price = f"{entry.get('price', 0.0):.1f}m".rjust(6)
+            value = str(entry.get("objective_value", "?")).rjust(6)
+            mark  = "XI" if entry.get("id") in xi_ids else "banca"
+            if entry.get("locked"):
+                mark += " *"
+            lines.append(f"  {pos} | {name} | {club} | {price} | {value} | {mark}")
+
+        lines.append(
+            f"  Coste total: {output.get('total_cost', 0.0)}m de "
+            f"{output.get('budget', 0.0)}m — queda {output.get('remaining', 0.0)}m."
+        )
+        clubs = output.get("club_counts") or {}
+        if clubs:
+            lines.append(
+                "  Por club: "
+                + ", ".join(f"{club} {count}" for club, count in clubs.items())
+                + f" (máximo permitido {3})."
+            )
+        if formation:
+            lines.append(f"  Alineación: {formation} (más portero).")
+        for warning in output.get("warnings", []):
+            lines.append(f"  Aviso: {warning}")
+        return "\n".join(lines)
+
+    if status == "infeasible":
+        return output.get("message", "No existe ningún equipo legal con esas restricciones.")
+
+    if status == "ambiguous":
+        candidates = ", ".join(
+            str(candidate.get("web_name", "?")) for candidate in output.get("candidates", [])
+        )
+        message = output.get("message", "Varios jugadores coinciden.")
+        return f"{message} Candidatos: {candidates}." if candidates else message
+
+    if status == "not_found":
+        return output.get("message", "No encontré a ese jugador.")
+
+    if status == "invalid_argument":
+        return output.get("message", "Argumentos no válidos para armar el equipo.")
+
+    code    = output.get("code", "error")
+    message = output.get("message", "Error inesperado.")
+    return f"Error ({code}): {message}"
+
+
+def _render_select_players(output: dict[str, Any]) -> str:
+    """Render select_players_within_budget raw_output.  S2.
+
+    Prints the solver's totals in the solver's own units. Nothing here re-adds
+    a column: the arithmetic happens once, in squad_solver, and this is a view
+    of it. The completability line is the point of the tool, so it is stated
+    rather than implied.
+    """
+    status = output.get("status")
+
+    if status == "ok":
+        selection  = output.get("selection", [])
+        completion = output.get("completion") or {}
+        position   = output.get("position", "?")
+
+        lines = [
+            f"{output.get('count', len(selection))} {position} "
+            f"por {output.get('objective', '?')} "
+            f"(base: {output.get('ranking_basis', '?')}):"
+        ]
+        lines.append("  Jugador          | Club | Precio | Valor")
+        lines.append("  -----------------|------|--------|-------")
+        for entry in selection:
+            name  = str(entry.get("web_name", "?"))[:16].ljust(16)
+            club  = str(entry.get("team_short", "?")).ljust(4)
+            price = f"{entry.get('price', 0.0):.1f}m".rjust(6)
+            value = str(entry.get("objective_value", "?")).rjust(6)
+            lines.append(f"  {name} | {club} | {price} | {value}")
+
+        locked = output.get("locked_players") or []
+        if locked:
+            lines.append(
+                "  Ya en el equipo: "
+                + ", ".join(
+                    f"{entry.get('web_name', '?')} ({entry.get('price', 0.0)}m)"
+                    for entry in locked
+                )
+                + f" \u2014 {output.get('locked_cost', 0.0)}m."
+            )
+
+        lines.append(
+            f"  Coste de la selecci\u00f3n: {output.get('selection_cost', 0.0)}m de "
+            f"{output.get('budget', 0.0)}m \u2014 queda {output.get('remaining', 0.0)}m "
+            f"para los {completion.get('slots_left', '?')} huecos restantes."
+        )
+        if completion.get("exists"):
+            lines.append(
+                f"  Cabe: existe un 15 legal con estos fichajes; el relleno m\u00e1s barato "
+                f"cuesta {completion.get('cheapest_fill_cost', 0.0)}m "
+                f"(total {completion.get('witness_total_cost', 0.0)}m). "
+                "Ese relleno es la prueba de que cabe, no una recomendaci\u00f3n de banquillo."
+            )
+            clubs = completion.get("witness_club_counts") or {}
+            if clubs:
+                lines.append(
+                    "  Por club en el 15 de prueba: "
+                    + ", ".join(f"{club} {count}" for club, count in clubs.items())
+                    + " (m\u00e1ximo permitido 3)."
+                )
+        for warning in output.get("warnings", []):
+            lines.append(f"  Aviso: {warning}")
+        return "\n".join(lines)
+
+    if status == "infeasible":
+        lines = [output.get("message", "No hay ninguna selecci\u00f3n legal con esas restricciones.")]
+        affordable = output.get("affordable") or {}
+        best = affordable.get("best_by_objective") or {}
+        for entry in best.get("players", []):
+            lines.append(
+                f"  S\u00ed cabe: {entry.get('web_name', '?')} "
+                f"({entry.get('team_short', '?')}, {entry.get('price', 0.0)}m)"
+            )
+        return "\n".join(lines)
+
+    if status == "ambiguous":
+        candidates = ", ".join(
+            str(candidate.get("web_name", "?")) for candidate in output.get("candidates", [])
+        )
+        message = output.get("message", "Varios jugadores coinciden.")
+        return f"{message} Candidatos: {candidates}." if candidates else message
+
+    if status == "not_found":
+        return output.get("message", "No encontr\u00e9 a ese jugador.")
+
+    if status == "invalid_argument":
+        return output.get("message", "Argumentos no v\u00e1lidos para seleccionar jugadores.")
+
+    code    = output.get("code", "error")
+    message = output.get("message", "Error inesperado.")
+    return f"Error ({code}): {message}"
+
+
 # ---------------------------------------------------------------------------
 # Dispatch table and public API
 # ---------------------------------------------------------------------------
@@ -1424,6 +1595,8 @@ _RENDERERS = {
     "get_team_snapshot":        _render_get_team_snapshot,       # P2.6
     "web_fetch":                _render_web_fetch,               # P2.7
     "rank_players_by_metric":   _render_rank_players_by_metric,  # P2.8
+    "build_squad":              _render_build_squad,             # S1
+    "select_players_within_budget": _render_select_players,      # S2
     "search_web":               _render_search_web,              # web search parity
     # T-zonal atomic tools
     "get_zonal_weakness":       _render_get_zonal_weakness,      # T-zonal

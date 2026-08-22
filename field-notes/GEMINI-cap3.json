@@ -1,0 +1,3926 @@
+[
+  {
+    "provider": "gemini",
+    "model": "gemini-3.5-flash",
+    "evaluator_model": "gemini-3.5-flash",
+    "outcome": "ok",
+    "answer_text": "Respuesta incompleta (round limit reached): **Eze** (ARS, MID)\n  Precio: £6.5m | Propiedad: 2.4% | Estado: Available\n  Pts totales: 113 | PPG: 3.4 | Forma: 0.0\n  xG: 5.18 | xA: 2.66 | xGI: 7.84 | ICT: 115.1\n  Minutos: 1885",
+    "tool_chosen": "get_player_snapshot",
+    "tool_args": {
+      "player_name": "Eze"
+    },
+    "tool_output": {
+      "status": "ok",
+      "player": {
+        "id": 14,
+        "web_name": "Eze",
+        "team_short": "ARS",
+        "position": "MID",
+        "minutes_played_season": 1885,
+        "status": "Available",
+        "news": "",
+        "news_added": null,
+        "chance_of_playing_this_round": null,
+        "form": 0.0,
+        "total_points": 113,
+        "points_per_game": 3.4,
+        "expected_goals": 5.18,
+        "expected_assists": 2.66,
+        "expected_goal_involvements": 7.84,
+        "expected_goals_conceded": 14.21,
+        "ict_index": 115.1,
+        "influence": 393.4,
+        "creativity": 305.7,
+        "threat": 455.0,
+        "saves": 0,
+        "yellow_cards": 1,
+        "red_cards": 0,
+        "expected_goals_per_90": 0.25,
+        "expected_assists_per_90": 0.13,
+        "expected_goal_involvements_per_90": 0.38,
+        "ict_index_per_90": 5.495490716180371,
+        "defensive_contribution": 120,
+        "defensive_contribution_per_90": 5.73,
+        "now_cost": 65,
+        "selected_by_percent": 2.4,
+        "transfers_in_event": 0,
+        "transfers_out_event": 0,
+        "penalties_order": null,
+        "direct_freekicks_order": 3,
+        "corners_and_indirect_freekicks_order": null,
+        "fixtures": [
+          {
+            "gameweek": 1,
+            "opponent_short": "COV",
+            "is_home": true,
+            "difficulty": 2
+          },
+          {
+            "gameweek": 2,
+            "opponent_short": "AVL",
+            "is_home": false,
+            "difficulty": 4
+          },
+          {
+            "gameweek": 3,
+            "opponent_short": "CHE",
+            "is_home": true,
+            "difficulty": 4
+          },
+          {
+            "gameweek": 4,
+            "opponent_short": "SUN",
+            "is_home": false,
+            "difficulty": 3
+          },
+          {
+            "gameweek": 5,
+            "opponent_short": "BHA",
+            "is_home": false,
+            "difficulty": 3
+          }
+        ],
+        "team_fdr_context": {
+          "avg_fdr": 3.2,
+          "difficulty_label": "moderate",
+          "gw_from": 1,
+          "gw_to": 5
+        }
+      }
+    },
+    "tool_calls_trace": [
+      {
+        "round": 1,
+        "tool_call_id": "gemini_call_0",
+        "name": "get_transfer_suggestion",
+        "args": {
+          "position_query": "midfielder",
+          "max_price": 8.0,
+          "horizon": 5.0,
+          "top_n": 10.0
+        },
+        "output": {
+          "status": "ok",
+          "position": "MID",
+          "position_label": "midfielders",
+          "team_short": null,
+          "team_name": null,
+          "max_price": 8.0,
+          "horizon": 5,
+          "top_n": 10,
+          "ranking_basis": "prior_season_carryover",
+          "ranking_metric": "points_per_game",
+          "picks": [
+            {
+              "rank": 1,
+              "id": 452,
+              "web_name": "Bruno G.",
+              "team_short": "ARS",
+              "position": "MID",
+              "now_cost": 70,
+              "now_cost_m": 7.0,
+              "form": 0.0,
+              "avg_fdr": 3.2,
+              "difficulty_label": "moderate",
+              "composite_score": 0.0,
+              "ownership": 8.8,
+              "minutes": 2456,
+              "status": "a",
+              "news": "",
+              "points_per_game": 5.3,
+              "total_points": 154,
+              "ranking_score": 5.3
+            },
+            {
+              "rank": 2,
+              "id": 480,
+              "web_name": "Gibbs-White",
+              "team_short": "NFO",
+              "position": "MID",
+              "now_cost": 80,
+              "now_cost_m": 8.0,
+              "form": 0.0,
+              "avg_fdr": 3.0,
+              "difficulty_label": "moderate",
+              "composite_score": 0.0,
+              "ownership": 11.9,
+              "minutes": 3101,
+              "status": "a",
+              "news": "",
+              "points_per_game": 5.1,
+              "total_points": 188,
+              "ranking_score": 5.1
+            },
+            {
+              "rank": 3,
+              "id": 13,
+              "web_name": "Rice",
+              "team_short": "ARS",
+              "position": "MID",
+              "now_cost": 75,
+              "now_cost_m": 7.5,
+              "form": 0.0,
+              "avg_fdr": 3.2,
+              "difficulty_label": "moderate",
+              "composite_score": 0.0,
+              "ownership": 19.7,
+              "minutes": 3093,
+              "status": "a",
+              "news": "",
+              "points_per_game": 5.1,
+              "total_points": 184,
+              "ranking_score": 5.1
+            },
+            {
+              "rank": 4,
+              "id": 236,
+              "web_name": "Dewsbury-Hall",
+              "team_short": "EVE",
+              "position": "MID",
+              "now_cost": 65,
+              "now_cost_m": 6.5,
+              "form": 0.0,
+              "avg_fdr": 3.0,
+              "difficulty_label": "moderate",
+              "composite_score": 0.0,
+              "ownership": 3.5,
+              "minutes": 2629,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.9,
+              "total_points": 151,
+              "ranking_score": 4.9
+            },
+            {
+              "rank": 5,
+              "id": 481,
+              "web_name": "Anderson",
+              "team_short": "MCI",
+              "position": "MID",
+              "now_cost": 65,
+              "now_cost_m": 6.5,
+              "form": 0.0,
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "composite_score": 0.0,
+              "ownership": 9.4,
+              "minutes": 3332,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.7,
+              "total_points": 180,
+              "ranking_score": 4.7
+            },
+            {
+              "rank": 6,
+              "id": 260,
+              "web_name": "Wilson",
+              "team_short": "LEE",
+              "position": "MID",
+              "now_cost": 65,
+              "now_cost_m": 6.5,
+              "form": 0.0,
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "composite_score": 0.0,
+              "ownership": 7.2,
+              "minutes": 2674,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.7,
+              "total_points": 168,
+              "ranking_score": 4.7
+            },
+            {
+              "rank": 7,
+              "id": 335,
+              "web_name": "Stach",
+              "team_short": "LEE",
+              "position": "MID",
+              "now_cost": 60,
+              "now_cost_m": 6.0,
+              "form": 0.0,
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "composite_score": 0.0,
+              "ownership": 1.0,
+              "minutes": 2369,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.7,
+              "total_points": 137,
+              "ranking_score": 4.7
+            },
+            {
+              "rank": 8,
+              "id": 40,
+              "web_name": "Rogers",
+              "team_short": "CHE",
+              "position": "MID",
+              "now_cost": 75,
+              "now_cost_m": 7.5,
+              "form": 0.0,
+              "avg_fdr": 3.0,
+              "difficulty_label": "moderate",
+              "composite_score": 0.0,
+              "ownership": 26.4,
+              "minutes": 3280,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.6,
+              "total_points": 169,
+              "ranking_score": 4.6
+            },
+            {
+              "rank": 9,
+              "id": 427,
+              "web_name": "Mbeumo",
+              "team_short": "MUN",
+              "position": "MID",
+              "now_cost": 80,
+              "now_cost_m": 8.0,
+              "form": 0.0,
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "composite_score": 0.0,
+              "ownership": 31.6,
+              "minutes": 2611,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.5,
+              "total_points": 148,
+              "ranking_score": 4.5
+            },
+            {
+              "rank": 10,
+              "id": 67,
+              "web_name": "Rayan",
+              "team_short": "BOU",
+              "position": "MID",
+              "now_cost": 65,
+              "now_cost_m": 6.5,
+              "form": 0.0,
+              "avg_fdr": 3.6,
+              "difficulty_label": "hard",
+              "composite_score": 0.0,
+              "ownership": 3.0,
+              "minutes": 1110,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.5,
+              "total_points": 67,
+              "ranking_score": 4.5
+            }
+          ]
+        },
+        "success": true
+      },
+      {
+        "round": 2,
+        "tool_call_id": "gemini_call_0",
+        "name": "get_player_fixture_run",
+        "args": {
+          "query": "Bruno G."
+        },
+        "output": {
+          "status": "ok",
+          "query": "Bruno G.",
+          "web_name": "Bruno G.",
+          "team_short": "ARS",
+          "position": "MID",
+          "horizon": 5,
+          "current_gameweek": 1,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "COV",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "AVL",
+              "is_home": false,
+              "difficulty": 4
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "CHE",
+              "is_home": true,
+              "difficulty": 4
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "SUN",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "BHA",
+              "is_home": false,
+              "difficulty": 3
+            }
+          ],
+          "team_fdr_context": {
+            "avg_fdr": 3.2,
+            "difficulty_label": "moderate",
+            "gw_from": 1,
+            "gw_to": 5
+          }
+        },
+        "success": true
+      },
+      {
+        "round": 2,
+        "tool_call_id": "gemini_call_1",
+        "name": "get_player_fixture_run",
+        "args": {
+          "query": "Gibbs-White"
+        },
+        "output": {
+          "status": "ok",
+          "query": "Gibbs-White",
+          "web_name": "Gibbs-White",
+          "team_short": "NFO",
+          "position": "MID",
+          "horizon": 5,
+          "current_gameweek": 1,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "LEE",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "LIV",
+              "is_home": false,
+              "difficulty": 4
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "TOT",
+              "is_home": true,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "AVL",
+              "is_home": false,
+              "difficulty": 4
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "COV",
+              "is_home": true,
+              "difficulty": 2
+            }
+          ],
+          "team_fdr_context": {
+            "avg_fdr": 3.0,
+            "difficulty_label": "moderate",
+            "gw_from": 1,
+            "gw_to": 5
+          }
+        },
+        "success": true
+      },
+      {
+        "round": 2,
+        "tool_call_id": "gemini_call_2",
+        "name": "get_player_fixture_run",
+        "args": {
+          "query": "Anderson"
+        },
+        "output": {
+          "status": "ok",
+          "query": "Anderson",
+          "web_name": "Anderson",
+          "team_short": "MCI",
+          "position": "MID",
+          "horizon": 5,
+          "current_gameweek": 1,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "BOU",
+              "is_home": true,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "CRY",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "COV",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "MUN",
+              "is_home": false,
+              "difficulty": 4
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "SUN",
+              "is_home": true,
+              "difficulty": 2
+            }
+          ],
+          "team_fdr_context": {
+            "avg_fdr": 2.8,
+            "difficulty_label": "easy",
+            "gw_from": 1,
+            "gw_to": 5
+          }
+        },
+        "success": true
+      },
+      {
+        "round": 2,
+        "tool_call_id": "gemini_call_3",
+        "name": "get_player_fixture_run",
+        "args": {
+          "query": "Mbeumo"
+        },
+        "output": {
+          "status": "ok",
+          "query": "Mbeumo",
+          "web_name": "Mbeumo",
+          "team_short": "MUN",
+          "position": "MID",
+          "horizon": 5,
+          "current_gameweek": 1,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "HUL",
+              "is_home": false,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "IPS",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "EVE",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "MCI",
+              "is_home": true,
+              "difficulty": 4
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "FUL",
+              "is_home": false,
+              "difficulty": 3
+            }
+          ],
+          "team_fdr_context": {
+            "avg_fdr": 2.8,
+            "difficulty_label": "easy",
+            "gw_from": 1,
+            "gw_to": 5
+          }
+        },
+        "success": true
+      },
+      {
+        "round": 3,
+        "tool_call_id": "gemini_call_0",
+        "name": "get_player_snapshot",
+        "args": {
+          "player_name": "Eze"
+        },
+        "output": {
+          "status": "ok",
+          "player": {
+            "id": 14,
+            "web_name": "Eze",
+            "team_short": "ARS",
+            "position": "MID",
+            "minutes_played_season": 1885,
+            "status": "Available",
+            "news": "",
+            "news_added": null,
+            "chance_of_playing_this_round": null,
+            "form": 0.0,
+            "total_points": 113,
+            "points_per_game": 3.4,
+            "expected_goals": 5.18,
+            "expected_assists": 2.66,
+            "expected_goal_involvements": 7.84,
+            "expected_goals_conceded": 14.21,
+            "ict_index": 115.1,
+            "influence": 393.4,
+            "creativity": 305.7,
+            "threat": 455.0,
+            "saves": 0,
+            "yellow_cards": 1,
+            "red_cards": 0,
+            "expected_goals_per_90": 0.25,
+            "expected_assists_per_90": 0.13,
+            "expected_goal_involvements_per_90": 0.38,
+            "ict_index_per_90": 5.495490716180371,
+            "defensive_contribution": 120,
+            "defensive_contribution_per_90": 5.73,
+            "now_cost": 65,
+            "selected_by_percent": 2.4,
+            "transfers_in_event": 0,
+            "transfers_out_event": 0,
+            "penalties_order": null,
+            "direct_freekicks_order": 3,
+            "corners_and_indirect_freekicks_order": null,
+            "fixtures": [
+              {
+                "gameweek": 1,
+                "opponent_short": "COV",
+                "is_home": true,
+                "difficulty": 2
+              },
+              {
+                "gameweek": 2,
+                "opponent_short": "AVL",
+                "is_home": false,
+                "difficulty": 4
+              },
+              {
+                "gameweek": 3,
+                "opponent_short": "CHE",
+                "is_home": true,
+                "difficulty": 4
+              },
+              {
+                "gameweek": 4,
+                "opponent_short": "SUN",
+                "is_home": false,
+                "difficulty": 3
+              },
+              {
+                "gameweek": 5,
+                "opponent_short": "BHA",
+                "is_home": false,
+                "difficulty": 3
+              }
+            ],
+            "team_fdr_context": {
+              "avg_fdr": 3.2,
+              "difficulty_label": "moderate",
+              "gw_from": 1,
+              "gw_to": 5
+            }
+          }
+        },
+        "success": true
+      }
+    ],
+    "rounds_used": 3,
+    "rounds_exhausted": true,
+    "primary_input_tokens": 50518,
+    "primary_output_tokens": 168,
+    "primary_cache_read_tokens": 0,
+    "evaluator_tokens": 796,
+    "total_tokens": 51482,
+    "evaluator_verdict": {
+      "approved": false,
+      "grounded": true,
+      "complete": false,
+      "safe": true,
+      "retry_feedback": "Please provide a complete response recommending a £6.0m-£8.0m midfielder and justifying the pick based on their next 5 fixtures.",
+      "tokens_used": 796,
+      "off_topic_score": 0.0
+    },
+    "arm": "D",
+    "scenario": "Q10",
+    "repetition": 1,
+    "axis1": {
+      "classification": "catastrophic_failure",
+      "catastrophic_failure": true,
+      "reasons": [
+        "rounds_exhausted"
+      ]
+    },
+    "axis2": {
+      "source": null,
+      "status": "structured_output_missing",
+      "valid": null,
+      "errors": []
+    },
+    "axis3": {
+      "score": "pending_human_review",
+      "rubric": "Names a MID £6.0m-£8.0m, justifies via fixture difficulty and form."
+    },
+    "composition": {
+      "status": "invalid",
+      "valid": false,
+      "errors": [
+        "ranking_missing_or_unpriced",
+        "fixture_grounding_missing"
+      ]
+    },
+    "usd": 0.084453
+  },
+  {
+    "provider": "gemini",
+    "model": "gemini-3.5-flash",
+    "evaluator_model": "gemini-3.5-flash",
+    "outcome": "ok",
+    "answer_text": "Respuesta incompleta (round limit reached): **Eze** (ARS, MID)\n  Precio: £6.5m | Propiedad: 2.4% | Estado: Available\n  Pts totales: 113 | PPG: 3.4 | Forma: 0.0\n  xG: 5.18 | xA: 2.66 | xGI: 7.84 | ICT: 115.1\n  Minutos: 1885",
+    "tool_chosen": "get_player_snapshot",
+    "tool_args": {
+      "player_name": "Eze"
+    },
+    "tool_output": {
+      "status": "ok",
+      "player": {
+        "id": 14,
+        "web_name": "Eze",
+        "team_short": "ARS",
+        "position": "MID",
+        "minutes_played_season": 1885,
+        "status": "Available",
+        "news": "",
+        "news_added": null,
+        "chance_of_playing_this_round": null,
+        "form": 0.0,
+        "total_points": 113,
+        "points_per_game": 3.4,
+        "expected_goals": 5.18,
+        "expected_assists": 2.66,
+        "expected_goal_involvements": 7.84,
+        "expected_goals_conceded": 14.21,
+        "ict_index": 115.1,
+        "influence": 393.4,
+        "creativity": 305.7,
+        "threat": 455.0,
+        "saves": 0,
+        "yellow_cards": 1,
+        "red_cards": 0,
+        "expected_goals_per_90": 0.25,
+        "expected_assists_per_90": 0.13,
+        "expected_goal_involvements_per_90": 0.38,
+        "ict_index_per_90": 5.495490716180371,
+        "defensive_contribution": 120,
+        "defensive_contribution_per_90": 5.73,
+        "now_cost": 65,
+        "selected_by_percent": 2.4,
+        "transfers_in_event": 0,
+        "transfers_out_event": 0,
+        "penalties_order": null,
+        "direct_freekicks_order": 3,
+        "corners_and_indirect_freekicks_order": null,
+        "fixtures": [
+          {
+            "gameweek": 1,
+            "opponent_short": "COV",
+            "is_home": true,
+            "difficulty": 2
+          },
+          {
+            "gameweek": 2,
+            "opponent_short": "AVL",
+            "is_home": false,
+            "difficulty": 4
+          },
+          {
+            "gameweek": 3,
+            "opponent_short": "CHE",
+            "is_home": true,
+            "difficulty": 4
+          },
+          {
+            "gameweek": 4,
+            "opponent_short": "SUN",
+            "is_home": false,
+            "difficulty": 3
+          },
+          {
+            "gameweek": 5,
+            "opponent_short": "BHA",
+            "is_home": false,
+            "difficulty": 3
+          }
+        ],
+        "team_fdr_context": {
+          "avg_fdr": 3.2,
+          "difficulty_label": "moderate",
+          "gw_from": 1,
+          "gw_to": 5
+        }
+      }
+    },
+    "tool_calls_trace": [
+      {
+        "round": 1,
+        "tool_call_id": "gemini_call_0",
+        "name": "get_transfer_suggestion",
+        "args": {
+          "top_n": 10.0,
+          "max_price": 8.0,
+          "horizon": 5.0,
+          "position_query": "midfielder"
+        },
+        "output": {
+          "status": "ok",
+          "position": "MID",
+          "position_label": "midfielders",
+          "team_short": null,
+          "team_name": null,
+          "max_price": 8.0,
+          "horizon": 5,
+          "top_n": 10,
+          "ranking_basis": "prior_season_carryover",
+          "ranking_metric": "points_per_game",
+          "picks": [
+            {
+              "rank": 1,
+              "id": 452,
+              "web_name": "Bruno G.",
+              "team_short": "ARS",
+              "position": "MID",
+              "now_cost": 70,
+              "now_cost_m": 7.0,
+              "form": 0.0,
+              "avg_fdr": 3.2,
+              "difficulty_label": "moderate",
+              "composite_score": 0.0,
+              "ownership": 8.8,
+              "minutes": 2456,
+              "status": "a",
+              "news": "",
+              "points_per_game": 5.3,
+              "total_points": 154,
+              "ranking_score": 5.3
+            },
+            {
+              "rank": 2,
+              "id": 480,
+              "web_name": "Gibbs-White",
+              "team_short": "NFO",
+              "position": "MID",
+              "now_cost": 80,
+              "now_cost_m": 8.0,
+              "form": 0.0,
+              "avg_fdr": 3.0,
+              "difficulty_label": "moderate",
+              "composite_score": 0.0,
+              "ownership": 11.9,
+              "minutes": 3101,
+              "status": "a",
+              "news": "",
+              "points_per_game": 5.1,
+              "total_points": 188,
+              "ranking_score": 5.1
+            },
+            {
+              "rank": 3,
+              "id": 13,
+              "web_name": "Rice",
+              "team_short": "ARS",
+              "position": "MID",
+              "now_cost": 75,
+              "now_cost_m": 7.5,
+              "form": 0.0,
+              "avg_fdr": 3.2,
+              "difficulty_label": "moderate",
+              "composite_score": 0.0,
+              "ownership": 19.7,
+              "minutes": 3093,
+              "status": "a",
+              "news": "",
+              "points_per_game": 5.1,
+              "total_points": 184,
+              "ranking_score": 5.1
+            },
+            {
+              "rank": 4,
+              "id": 236,
+              "web_name": "Dewsbury-Hall",
+              "team_short": "EVE",
+              "position": "MID",
+              "now_cost": 65,
+              "now_cost_m": 6.5,
+              "form": 0.0,
+              "avg_fdr": 3.0,
+              "difficulty_label": "moderate",
+              "composite_score": 0.0,
+              "ownership": 3.5,
+              "minutes": 2629,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.9,
+              "total_points": 151,
+              "ranking_score": 4.9
+            },
+            {
+              "rank": 5,
+              "id": 481,
+              "web_name": "Anderson",
+              "team_short": "MCI",
+              "position": "MID",
+              "now_cost": 65,
+              "now_cost_m": 6.5,
+              "form": 0.0,
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "composite_score": 0.0,
+              "ownership": 9.4,
+              "minutes": 3332,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.7,
+              "total_points": 180,
+              "ranking_score": 4.7
+            },
+            {
+              "rank": 6,
+              "id": 260,
+              "web_name": "Wilson",
+              "team_short": "LEE",
+              "position": "MID",
+              "now_cost": 65,
+              "now_cost_m": 6.5,
+              "form": 0.0,
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "composite_score": 0.0,
+              "ownership": 7.2,
+              "minutes": 2674,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.7,
+              "total_points": 168,
+              "ranking_score": 4.7
+            },
+            {
+              "rank": 7,
+              "id": 335,
+              "web_name": "Stach",
+              "team_short": "LEE",
+              "position": "MID",
+              "now_cost": 60,
+              "now_cost_m": 6.0,
+              "form": 0.0,
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "composite_score": 0.0,
+              "ownership": 1.0,
+              "minutes": 2369,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.7,
+              "total_points": 137,
+              "ranking_score": 4.7
+            },
+            {
+              "rank": 8,
+              "id": 40,
+              "web_name": "Rogers",
+              "team_short": "CHE",
+              "position": "MID",
+              "now_cost": 75,
+              "now_cost_m": 7.5,
+              "form": 0.0,
+              "avg_fdr": 3.0,
+              "difficulty_label": "moderate",
+              "composite_score": 0.0,
+              "ownership": 26.4,
+              "minutes": 3280,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.6,
+              "total_points": 169,
+              "ranking_score": 4.6
+            },
+            {
+              "rank": 9,
+              "id": 427,
+              "web_name": "Mbeumo",
+              "team_short": "MUN",
+              "position": "MID",
+              "now_cost": 80,
+              "now_cost_m": 8.0,
+              "form": 0.0,
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "composite_score": 0.0,
+              "ownership": 31.6,
+              "minutes": 2611,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.5,
+              "total_points": 148,
+              "ranking_score": 4.5
+            },
+            {
+              "rank": 10,
+              "id": 67,
+              "web_name": "Rayan",
+              "team_short": "BOU",
+              "position": "MID",
+              "now_cost": 65,
+              "now_cost_m": 6.5,
+              "form": 0.0,
+              "avg_fdr": 3.6,
+              "difficulty_label": "hard",
+              "composite_score": 0.0,
+              "ownership": 3.0,
+              "minutes": 1110,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.5,
+              "total_points": 67,
+              "ranking_score": 4.5
+            }
+          ]
+        },
+        "success": true
+      },
+      {
+        "round": 2,
+        "tool_call_id": "gemini_call_0",
+        "name": "get_player_fixture_run",
+        "args": {
+          "query": "Bruno G."
+        },
+        "output": {
+          "status": "ok",
+          "query": "Bruno G.",
+          "web_name": "Bruno G.",
+          "team_short": "ARS",
+          "position": "MID",
+          "horizon": 5,
+          "current_gameweek": 1,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "COV",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "AVL",
+              "is_home": false,
+              "difficulty": 4
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "CHE",
+              "is_home": true,
+              "difficulty": 4
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "SUN",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "BHA",
+              "is_home": false,
+              "difficulty": 3
+            }
+          ],
+          "team_fdr_context": {
+            "avg_fdr": 3.2,
+            "difficulty_label": "moderate",
+            "gw_from": 1,
+            "gw_to": 5
+          }
+        },
+        "success": true
+      },
+      {
+        "round": 2,
+        "tool_call_id": "gemini_call_1",
+        "name": "get_player_fixture_run",
+        "args": {
+          "query": "Gibbs-White"
+        },
+        "output": {
+          "status": "ok",
+          "query": "Gibbs-White",
+          "web_name": "Gibbs-White",
+          "team_short": "NFO",
+          "position": "MID",
+          "horizon": 5,
+          "current_gameweek": 1,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "LEE",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "LIV",
+              "is_home": false,
+              "difficulty": 4
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "TOT",
+              "is_home": true,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "AVL",
+              "is_home": false,
+              "difficulty": 4
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "COV",
+              "is_home": true,
+              "difficulty": 2
+            }
+          ],
+          "team_fdr_context": {
+            "avg_fdr": 3.0,
+            "difficulty_label": "moderate",
+            "gw_from": 1,
+            "gw_to": 5
+          }
+        },
+        "success": true
+      },
+      {
+        "round": 2,
+        "tool_call_id": "gemini_call_2",
+        "name": "get_player_fixture_run",
+        "args": {
+          "query": "Anderson"
+        },
+        "output": {
+          "status": "ok",
+          "query": "Anderson",
+          "web_name": "Anderson",
+          "team_short": "MCI",
+          "position": "MID",
+          "horizon": 5,
+          "current_gameweek": 1,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "BOU",
+              "is_home": true,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "CRY",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "COV",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "MUN",
+              "is_home": false,
+              "difficulty": 4
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "SUN",
+              "is_home": true,
+              "difficulty": 2
+            }
+          ],
+          "team_fdr_context": {
+            "avg_fdr": 2.8,
+            "difficulty_label": "easy",
+            "gw_from": 1,
+            "gw_to": 5
+          }
+        },
+        "success": true
+      },
+      {
+        "round": 2,
+        "tool_call_id": "gemini_call_3",
+        "name": "get_player_fixture_run",
+        "args": {
+          "query": "Mbeumo"
+        },
+        "output": {
+          "status": "ok",
+          "query": "Mbeumo",
+          "web_name": "Mbeumo",
+          "team_short": "MUN",
+          "position": "MID",
+          "horizon": 5,
+          "current_gameweek": 1,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "HUL",
+              "is_home": false,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "IPS",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "EVE",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "MCI",
+              "is_home": true,
+              "difficulty": 4
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "FUL",
+              "is_home": false,
+              "difficulty": 3
+            }
+          ],
+          "team_fdr_context": {
+            "avg_fdr": 2.8,
+            "difficulty_label": "easy",
+            "gw_from": 1,
+            "gw_to": 5
+          }
+        },
+        "success": true
+      },
+      {
+        "round": 3,
+        "tool_call_id": "gemini_call_0",
+        "name": "get_player_snapshot",
+        "args": {
+          "player_name": "Eze"
+        },
+        "output": {
+          "status": "ok",
+          "player": {
+            "id": 14,
+            "web_name": "Eze",
+            "team_short": "ARS",
+            "position": "MID",
+            "minutes_played_season": 1885,
+            "status": "Available",
+            "news": "",
+            "news_added": null,
+            "chance_of_playing_this_round": null,
+            "form": 0.0,
+            "total_points": 113,
+            "points_per_game": 3.4,
+            "expected_goals": 5.18,
+            "expected_assists": 2.66,
+            "expected_goal_involvements": 7.84,
+            "expected_goals_conceded": 14.21,
+            "ict_index": 115.1,
+            "influence": 393.4,
+            "creativity": 305.7,
+            "threat": 455.0,
+            "saves": 0,
+            "yellow_cards": 1,
+            "red_cards": 0,
+            "expected_goals_per_90": 0.25,
+            "expected_assists_per_90": 0.13,
+            "expected_goal_involvements_per_90": 0.38,
+            "ict_index_per_90": 5.495490716180371,
+            "defensive_contribution": 120,
+            "defensive_contribution_per_90": 5.73,
+            "now_cost": 65,
+            "selected_by_percent": 2.4,
+            "transfers_in_event": 0,
+            "transfers_out_event": 0,
+            "penalties_order": null,
+            "direct_freekicks_order": 3,
+            "corners_and_indirect_freekicks_order": null,
+            "fixtures": [
+              {
+                "gameweek": 1,
+                "opponent_short": "COV",
+                "is_home": true,
+                "difficulty": 2
+              },
+              {
+                "gameweek": 2,
+                "opponent_short": "AVL",
+                "is_home": false,
+                "difficulty": 4
+              },
+              {
+                "gameweek": 3,
+                "opponent_short": "CHE",
+                "is_home": true,
+                "difficulty": 4
+              },
+              {
+                "gameweek": 4,
+                "opponent_short": "SUN",
+                "is_home": false,
+                "difficulty": 3
+              },
+              {
+                "gameweek": 5,
+                "opponent_short": "BHA",
+                "is_home": false,
+                "difficulty": 3
+              }
+            ],
+            "team_fdr_context": {
+              "avg_fdr": 3.2,
+              "difficulty_label": "moderate",
+              "gw_from": 1,
+              "gw_to": 5
+            }
+          }
+        },
+        "success": true
+      }
+    ],
+    "rounds_used": 3,
+    "rounds_exhausted": true,
+    "primary_input_tokens": 50518,
+    "primary_output_tokens": 168,
+    "primary_cache_read_tokens": 0,
+    "evaluator_tokens": 813,
+    "total_tokens": 51499,
+    "evaluator_verdict": {
+      "approved": false,
+      "grounded": true,
+      "complete": false,
+      "safe": true,
+      "retry_feedback": "The response is incomplete and was cut off; please provide a full recommendation for the £6.0m-£8.0m midfielder range with a proper 5-fixture analysis.",
+      "tokens_used": 813,
+      "off_topic_score": 0.0
+    },
+    "arm": "D",
+    "scenario": "Q10",
+    "repetition": 2,
+    "axis1": {
+      "classification": "catastrophic_failure",
+      "catastrophic_failure": true,
+      "reasons": [
+        "rounds_exhausted"
+      ]
+    },
+    "axis2": {
+      "source": null,
+      "status": "structured_output_missing",
+      "valid": null,
+      "errors": []
+    },
+    "axis3": {
+      "score": "pending_human_review",
+      "rubric": "Names a MID £6.0m-£8.0m, justifies via fixture difficulty and form."
+    },
+    "composition": {
+      "status": "invalid",
+      "valid": false,
+      "errors": [
+        "ranking_missing_or_unpriced",
+        "fixture_grounding_missing"
+      ]
+    },
+    "usd": 0.084606
+  },
+  {
+    "provider": "gemini",
+    "model": "gemini-3.5-flash",
+    "evaluator_model": "gemini-3.5-flash",
+    "outcome": "ok",
+    "answer_text": "Respuesta incompleta (round limit reached): **Eze** (ARS, MID)\n  Precio: £6.5m | Propiedad: 2.4% | Estado: Available\n  Pts totales: 113 | PPG: 3.4 | Forma: 0.0\n  xG: 5.18 | xA: 2.66 | xGI: 7.84 | ICT: 115.1\n  Minutos: 1885",
+    "tool_chosen": "get_player_snapshot",
+    "tool_args": {
+      "player_name": "Eze"
+    },
+    "tool_output": {
+      "status": "ok",
+      "player": {
+        "id": 14,
+        "web_name": "Eze",
+        "team_short": "ARS",
+        "position": "MID",
+        "minutes_played_season": 1885,
+        "status": "Available",
+        "news": "",
+        "news_added": null,
+        "chance_of_playing_this_round": null,
+        "form": 0.0,
+        "total_points": 113,
+        "points_per_game": 3.4,
+        "expected_goals": 5.18,
+        "expected_assists": 2.66,
+        "expected_goal_involvements": 7.84,
+        "expected_goals_conceded": 14.21,
+        "ict_index": 115.1,
+        "influence": 393.4,
+        "creativity": 305.7,
+        "threat": 455.0,
+        "saves": 0,
+        "yellow_cards": 1,
+        "red_cards": 0,
+        "expected_goals_per_90": 0.25,
+        "expected_assists_per_90": 0.13,
+        "expected_goal_involvements_per_90": 0.38,
+        "ict_index_per_90": 5.495490716180371,
+        "defensive_contribution": 120,
+        "defensive_contribution_per_90": 5.73,
+        "now_cost": 65,
+        "selected_by_percent": 2.4,
+        "transfers_in_event": 0,
+        "transfers_out_event": 0,
+        "penalties_order": null,
+        "direct_freekicks_order": 3,
+        "corners_and_indirect_freekicks_order": null,
+        "fixtures": [
+          {
+            "gameweek": 1,
+            "opponent_short": "COV",
+            "is_home": true,
+            "difficulty": 2
+          },
+          {
+            "gameweek": 2,
+            "opponent_short": "AVL",
+            "is_home": false,
+            "difficulty": 4
+          },
+          {
+            "gameweek": 3,
+            "opponent_short": "CHE",
+            "is_home": true,
+            "difficulty": 4
+          },
+          {
+            "gameweek": 4,
+            "opponent_short": "SUN",
+            "is_home": false,
+            "difficulty": 3
+          },
+          {
+            "gameweek": 5,
+            "opponent_short": "BHA",
+            "is_home": false,
+            "difficulty": 3
+          }
+        ],
+        "team_fdr_context": {
+          "avg_fdr": 3.2,
+          "difficulty_label": "moderate",
+          "gw_from": 1,
+          "gw_to": 5
+        }
+      }
+    },
+    "tool_calls_trace": [
+      {
+        "round": 1,
+        "tool_call_id": "gemini_call_0",
+        "name": "get_transfer_suggestion",
+        "args": {
+          "position_query": "midfielder",
+          "max_price": 8.0,
+          "horizon": 5.0,
+          "top_n": 10.0
+        },
+        "output": {
+          "status": "ok",
+          "position": "MID",
+          "position_label": "midfielders",
+          "team_short": null,
+          "team_name": null,
+          "max_price": 8.0,
+          "horizon": 5,
+          "top_n": 10,
+          "ranking_basis": "prior_season_carryover",
+          "ranking_metric": "points_per_game",
+          "picks": [
+            {
+              "rank": 1,
+              "id": 452,
+              "web_name": "Bruno G.",
+              "team_short": "ARS",
+              "position": "MID",
+              "now_cost": 70,
+              "now_cost_m": 7.0,
+              "form": 0.0,
+              "avg_fdr": 3.2,
+              "difficulty_label": "moderate",
+              "composite_score": 0.0,
+              "ownership": 8.8,
+              "minutes": 2456,
+              "status": "a",
+              "news": "",
+              "points_per_game": 5.3,
+              "total_points": 154,
+              "ranking_score": 5.3
+            },
+            {
+              "rank": 2,
+              "id": 480,
+              "web_name": "Gibbs-White",
+              "team_short": "NFO",
+              "position": "MID",
+              "now_cost": 80,
+              "now_cost_m": 8.0,
+              "form": 0.0,
+              "avg_fdr": 3.0,
+              "difficulty_label": "moderate",
+              "composite_score": 0.0,
+              "ownership": 11.9,
+              "minutes": 3101,
+              "status": "a",
+              "news": "",
+              "points_per_game": 5.1,
+              "total_points": 188,
+              "ranking_score": 5.1
+            },
+            {
+              "rank": 3,
+              "id": 13,
+              "web_name": "Rice",
+              "team_short": "ARS",
+              "position": "MID",
+              "now_cost": 75,
+              "now_cost_m": 7.5,
+              "form": 0.0,
+              "avg_fdr": 3.2,
+              "difficulty_label": "moderate",
+              "composite_score": 0.0,
+              "ownership": 19.7,
+              "minutes": 3093,
+              "status": "a",
+              "news": "",
+              "points_per_game": 5.1,
+              "total_points": 184,
+              "ranking_score": 5.1
+            },
+            {
+              "rank": 4,
+              "id": 236,
+              "web_name": "Dewsbury-Hall",
+              "team_short": "EVE",
+              "position": "MID",
+              "now_cost": 65,
+              "now_cost_m": 6.5,
+              "form": 0.0,
+              "avg_fdr": 3.0,
+              "difficulty_label": "moderate",
+              "composite_score": 0.0,
+              "ownership": 3.5,
+              "minutes": 2629,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.9,
+              "total_points": 151,
+              "ranking_score": 4.9
+            },
+            {
+              "rank": 5,
+              "id": 481,
+              "web_name": "Anderson",
+              "team_short": "MCI",
+              "position": "MID",
+              "now_cost": 65,
+              "now_cost_m": 6.5,
+              "form": 0.0,
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "composite_score": 0.0,
+              "ownership": 9.4,
+              "minutes": 3332,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.7,
+              "total_points": 180,
+              "ranking_score": 4.7
+            },
+            {
+              "rank": 6,
+              "id": 260,
+              "web_name": "Wilson",
+              "team_short": "LEE",
+              "position": "MID",
+              "now_cost": 65,
+              "now_cost_m": 6.5,
+              "form": 0.0,
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "composite_score": 0.0,
+              "ownership": 7.2,
+              "minutes": 2674,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.7,
+              "total_points": 168,
+              "ranking_score": 4.7
+            },
+            {
+              "rank": 7,
+              "id": 335,
+              "web_name": "Stach",
+              "team_short": "LEE",
+              "position": "MID",
+              "now_cost": 60,
+              "now_cost_m": 6.0,
+              "form": 0.0,
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "composite_score": 0.0,
+              "ownership": 1.0,
+              "minutes": 2369,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.7,
+              "total_points": 137,
+              "ranking_score": 4.7
+            },
+            {
+              "rank": 8,
+              "id": 40,
+              "web_name": "Rogers",
+              "team_short": "CHE",
+              "position": "MID",
+              "now_cost": 75,
+              "now_cost_m": 7.5,
+              "form": 0.0,
+              "avg_fdr": 3.0,
+              "difficulty_label": "moderate",
+              "composite_score": 0.0,
+              "ownership": 26.4,
+              "minutes": 3280,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.6,
+              "total_points": 169,
+              "ranking_score": 4.6
+            },
+            {
+              "rank": 9,
+              "id": 427,
+              "web_name": "Mbeumo",
+              "team_short": "MUN",
+              "position": "MID",
+              "now_cost": 80,
+              "now_cost_m": 8.0,
+              "form": 0.0,
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "composite_score": 0.0,
+              "ownership": 31.6,
+              "minutes": 2611,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.5,
+              "total_points": 148,
+              "ranking_score": 4.5
+            },
+            {
+              "rank": 10,
+              "id": 67,
+              "web_name": "Rayan",
+              "team_short": "BOU",
+              "position": "MID",
+              "now_cost": 65,
+              "now_cost_m": 6.5,
+              "form": 0.0,
+              "avg_fdr": 3.6,
+              "difficulty_label": "hard",
+              "composite_score": 0.0,
+              "ownership": 3.0,
+              "minutes": 1110,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.5,
+              "total_points": 67,
+              "ranking_score": 4.5
+            }
+          ]
+        },
+        "success": true
+      },
+      {
+        "round": 2,
+        "tool_call_id": "gemini_call_0",
+        "name": "get_player_fixture_run",
+        "args": {
+          "query": "Bruno G."
+        },
+        "output": {
+          "status": "ok",
+          "query": "Bruno G.",
+          "web_name": "Bruno G.",
+          "team_short": "ARS",
+          "position": "MID",
+          "horizon": 5,
+          "current_gameweek": 1,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "COV",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "AVL",
+              "is_home": false,
+              "difficulty": 4
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "CHE",
+              "is_home": true,
+              "difficulty": 4
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "SUN",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "BHA",
+              "is_home": false,
+              "difficulty": 3
+            }
+          ],
+          "team_fdr_context": {
+            "avg_fdr": 3.2,
+            "difficulty_label": "moderate",
+            "gw_from": 1,
+            "gw_to": 5
+          }
+        },
+        "success": true
+      },
+      {
+        "round": 2,
+        "tool_call_id": "gemini_call_1",
+        "name": "get_player_fixture_run",
+        "args": {
+          "query": "Gibbs-White"
+        },
+        "output": {
+          "status": "ok",
+          "query": "Gibbs-White",
+          "web_name": "Gibbs-White",
+          "team_short": "NFO",
+          "position": "MID",
+          "horizon": 5,
+          "current_gameweek": 1,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "LEE",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "LIV",
+              "is_home": false,
+              "difficulty": 4
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "TOT",
+              "is_home": true,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "AVL",
+              "is_home": false,
+              "difficulty": 4
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "COV",
+              "is_home": true,
+              "difficulty": 2
+            }
+          ],
+          "team_fdr_context": {
+            "avg_fdr": 3.0,
+            "difficulty_label": "moderate",
+            "gw_from": 1,
+            "gw_to": 5
+          }
+        },
+        "success": true
+      },
+      {
+        "round": 2,
+        "tool_call_id": "gemini_call_2",
+        "name": "get_player_fixture_run",
+        "args": {
+          "query": "Anderson"
+        },
+        "output": {
+          "status": "ok",
+          "query": "Anderson",
+          "web_name": "Anderson",
+          "team_short": "MCI",
+          "position": "MID",
+          "horizon": 5,
+          "current_gameweek": 1,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "BOU",
+              "is_home": true,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "CRY",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "COV",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "MUN",
+              "is_home": false,
+              "difficulty": 4
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "SUN",
+              "is_home": true,
+              "difficulty": 2
+            }
+          ],
+          "team_fdr_context": {
+            "avg_fdr": 2.8,
+            "difficulty_label": "easy",
+            "gw_from": 1,
+            "gw_to": 5
+          }
+        },
+        "success": true
+      },
+      {
+        "round": 2,
+        "tool_call_id": "gemini_call_3",
+        "name": "get_player_fixture_run",
+        "args": {
+          "query": "Mbeumo"
+        },
+        "output": {
+          "status": "ok",
+          "query": "Mbeumo",
+          "web_name": "Mbeumo",
+          "team_short": "MUN",
+          "position": "MID",
+          "horizon": 5,
+          "current_gameweek": 1,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "HUL",
+              "is_home": false,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "IPS",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "EVE",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "MCI",
+              "is_home": true,
+              "difficulty": 4
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "FUL",
+              "is_home": false,
+              "difficulty": 3
+            }
+          ],
+          "team_fdr_context": {
+            "avg_fdr": 2.8,
+            "difficulty_label": "easy",
+            "gw_from": 1,
+            "gw_to": 5
+          }
+        },
+        "success": true
+      },
+      {
+        "round": 3,
+        "tool_call_id": "gemini_call_0",
+        "name": "get_player_snapshot",
+        "args": {
+          "player_name": "Eze"
+        },
+        "output": {
+          "status": "ok",
+          "player": {
+            "id": 14,
+            "web_name": "Eze",
+            "team_short": "ARS",
+            "position": "MID",
+            "minutes_played_season": 1885,
+            "status": "Available",
+            "news": "",
+            "news_added": null,
+            "chance_of_playing_this_round": null,
+            "form": 0.0,
+            "total_points": 113,
+            "points_per_game": 3.4,
+            "expected_goals": 5.18,
+            "expected_assists": 2.66,
+            "expected_goal_involvements": 7.84,
+            "expected_goals_conceded": 14.21,
+            "ict_index": 115.1,
+            "influence": 393.4,
+            "creativity": 305.7,
+            "threat": 455.0,
+            "saves": 0,
+            "yellow_cards": 1,
+            "red_cards": 0,
+            "expected_goals_per_90": 0.25,
+            "expected_assists_per_90": 0.13,
+            "expected_goal_involvements_per_90": 0.38,
+            "ict_index_per_90": 5.495490716180371,
+            "defensive_contribution": 120,
+            "defensive_contribution_per_90": 5.73,
+            "now_cost": 65,
+            "selected_by_percent": 2.4,
+            "transfers_in_event": 0,
+            "transfers_out_event": 0,
+            "penalties_order": null,
+            "direct_freekicks_order": 3,
+            "corners_and_indirect_freekicks_order": null,
+            "fixtures": [
+              {
+                "gameweek": 1,
+                "opponent_short": "COV",
+                "is_home": true,
+                "difficulty": 2
+              },
+              {
+                "gameweek": 2,
+                "opponent_short": "AVL",
+                "is_home": false,
+                "difficulty": 4
+              },
+              {
+                "gameweek": 3,
+                "opponent_short": "CHE",
+                "is_home": true,
+                "difficulty": 4
+              },
+              {
+                "gameweek": 4,
+                "opponent_short": "SUN",
+                "is_home": false,
+                "difficulty": 3
+              },
+              {
+                "gameweek": 5,
+                "opponent_short": "BHA",
+                "is_home": false,
+                "difficulty": 3
+              }
+            ],
+            "team_fdr_context": {
+              "avg_fdr": 3.2,
+              "difficulty_label": "moderate",
+              "gw_from": 1,
+              "gw_to": 5
+            }
+          }
+        },
+        "success": true
+      }
+    ],
+    "rounds_used": 3,
+    "rounds_exhausted": true,
+    "primary_input_tokens": 50518,
+    "primary_output_tokens": 168,
+    "primary_cache_read_tokens": 0,
+    "evaluator_tokens": 801,
+    "total_tokens": 51487,
+    "evaluator_verdict": {
+      "approved": false,
+      "grounded": true,
+      "complete": false,
+      "safe": true,
+      "retry_feedback": "The response is incomplete, cut off due to limit, and fails to provide the requested fixture justification for the next 5 matches.",
+      "tokens_used": 801,
+      "off_topic_score": 0.0
+    },
+    "arm": "D",
+    "scenario": "Q10",
+    "repetition": 3,
+    "axis1": {
+      "classification": "catastrophic_failure",
+      "catastrophic_failure": true,
+      "reasons": [
+        "rounds_exhausted"
+      ]
+    },
+    "axis2": {
+      "source": null,
+      "status": "structured_output_missing",
+      "valid": null,
+      "errors": []
+    },
+    "axis3": {
+      "score": "pending_human_review",
+      "rubric": "Names a MID £6.0m-£8.0m, justifies via fixture difficulty and form."
+    },
+    "composition": {
+      "status": "invalid",
+      "valid": false,
+      "errors": [
+        "ranking_missing_or_unpriced",
+        "fixture_grounding_missing"
+      ]
+    },
+    "usd": 0.08449799999999999
+  },
+  {
+    "provider": "gemini",
+    "model": "gemini-3.5-flash",
+    "evaluator_model": "gemini-3.5-flash",
+    "outcome": "ok",
+    "answer_text": "Respuesta incompleta (round limit reached): **Guéhi** (MCI, DEF)\n  Precio: £6.0m | Propiedad: 19.8% | Estado: Available\n  Pts totales: 179 | PPG: 5.1 | Forma: 0.0\n  xG: 4.05 | xA: 2.37 | xGI: 6.42 | ICT: 160.9\n  Minutos: 3150",
+    "tool_chosen": "get_player_snapshot",
+    "tool_args": {
+      "player_name": "Guéhi"
+    },
+    "tool_output": {
+      "status": "ok",
+      "player": {
+        "id": 388,
+        "web_name": "Guéhi",
+        "team_short": "MCI",
+        "position": "DEF",
+        "minutes_played_season": 3150,
+        "status": "Available",
+        "news": "",
+        "news_added": null,
+        "chance_of_playing_this_round": null,
+        "form": 0.0,
+        "total_points": 179,
+        "points_per_game": 5.1,
+        "expected_goals": 4.05,
+        "expected_assists": 2.37,
+        "expected_goal_involvements": 6.42,
+        "expected_goals_conceded": 44.58,
+        "ict_index": 160.9,
+        "influence": 901.6,
+        "creativity": 304.6,
+        "threat": 402.0,
+        "saves": 0,
+        "yellow_cards": 6,
+        "red_cards": 0,
+        "expected_goals_per_90": 0.12,
+        "expected_assists_per_90": 0.07,
+        "expected_goal_involvements_per_90": 0.19,
+        "ict_index_per_90": 4.597142857142857,
+        "defensive_contribution": 278,
+        "defensive_contribution_per_90": 7.94,
+        "now_cost": 60,
+        "selected_by_percent": 19.8,
+        "transfers_in_event": 0,
+        "transfers_out_event": 0,
+        "penalties_order": null,
+        "direct_freekicks_order": null,
+        "corners_and_indirect_freekicks_order": null,
+        "fixtures": [
+          {
+            "gameweek": 1,
+            "opponent_short": "BOU",
+            "is_home": true,
+            "difficulty": 3
+          },
+          {
+            "gameweek": 2,
+            "opponent_short": "CRY",
+            "is_home": false,
+            "difficulty": 3
+          },
+          {
+            "gameweek": 3,
+            "opponent_short": "COV",
+            "is_home": true,
+            "difficulty": 2
+          },
+          {
+            "gameweek": 4,
+            "opponent_short": "MUN",
+            "is_home": false,
+            "difficulty": 4
+          },
+          {
+            "gameweek": 5,
+            "opponent_short": "SUN",
+            "is_home": true,
+            "difficulty": 2
+          }
+        ],
+        "team_fdr_context": {
+          "avg_fdr": 2.8,
+          "difficulty_label": "easy",
+          "gw_from": 1,
+          "gw_to": 5
+        }
+      }
+    },
+    "tool_calls_trace": [
+      {
+        "round": 1,
+        "tool_call_id": "gemini_call_0",
+        "name": "get_transfer_suggestion",
+        "args": {
+          "position_query": "defender",
+          "max_price": 6.0,
+          "horizon": 5.0,
+          "top_n": 10.0
+        },
+        "output": {
+          "status": "ok",
+          "position": "DEF",
+          "position_label": "defenders",
+          "team_short": null,
+          "team_name": null,
+          "max_price": 6.0,
+          "horizon": 5,
+          "top_n": 10,
+          "ranking_basis": "prior_season_carryover",
+          "ranking_metric": "points_per_game",
+          "picks": [
+            {
+              "rank": 1,
+              "id": 388,
+              "web_name": "Guéhi",
+              "team_short": "MCI",
+              "position": "DEF",
+              "now_cost": 60,
+              "now_cost_m": 6.0,
+              "form": 0.0,
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "composite_score": 0.0,
+              "ownership": 19.8,
+              "minutes": 3150,
+              "status": "a",
+              "news": "",
+              "points_per_game": 5.1,
+              "total_points": 179,
+              "ranking_score": 5.1
+            },
+            {
+              "rank": 2,
+              "id": 498,
+              "web_name": "Senesi",
+              "team_short": "TOT",
+              "position": "DEF",
+              "now_cost": 60,
+              "now_cost_m": 6.0,
+              "form": 0.0,
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "composite_score": 0.0,
+              "ownership": 9.4,
+              "minutes": 3288,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.7,
+              "total_points": 175,
+              "ranking_score": 4.7
+            },
+            {
+              "rank": 3,
+              "id": 201,
+              "web_name": "Muñoz",
+              "team_short": "CRY",
+              "position": "DEF",
+              "now_cost": 55,
+              "now_cost_m": 5.5,
+              "form": 0.0,
+              "avg_fdr": 3.0,
+              "difficulty_label": "moderate",
+              "composite_score": 0.0,
+              "ownership": 10.8,
+              "minutes": 2400,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.7,
+              "total_points": 136,
+              "ranking_score": 4.7
+            },
+            {
+              "rank": 4,
+              "id": 229,
+              "web_name": "Tarkowski",
+              "team_short": "EVE",
+              "position": "DEF",
+              "now_cost": 60,
+              "now_cost_m": 6.0,
+              "form": 0.0,
+              "avg_fdr": 3.0,
+              "difficulty_label": "moderate",
+              "composite_score": 0.0,
+              "ownership": 9.4,
+              "minutes": 3330,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.6,
+              "total_points": 170,
+              "ranking_score": 4.6
+            },
+            {
+              "rank": 5,
+              "id": 200,
+              "web_name": "Lacroix",
+              "team_short": "CHE",
+              "position": "DEF",
+              "now_cost": 60,
+              "now_cost_m": 6.0,
+              "form": 0.0,
+              "avg_fdr": 3.0,
+              "difficulty_label": "moderate",
+              "composite_score": 0.0,
+              "ownership": 10.4,
+              "minutes": 3085,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.4,
+              "total_points": 154,
+              "ranking_score": 4.4
+            },
+            {
+              "rank": 6,
+              "id": 391,
+              "web_name": "Gvardiol",
+              "team_short": "MCI",
+              "position": "DEF",
+              "now_cost": 55,
+              "now_cost_m": 5.5,
+              "form": 0.0,
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "composite_score": 0.0,
+              "ownership": 11.7,
+              "minutes": 1370,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.4,
+              "total_points": 79,
+              "ranking_score": 4.4
+            },
+            {
+              "rank": 7,
+              "id": 61,
+              "web_name": "Truffert",
+              "team_short": "BOU",
+              "position": "DEF",
+              "now_cost": 55,
+              "now_cost_m": 5.5,
+              "form": 0.0,
+              "avg_fdr": 3.6,
+              "difficulty_label": "hard",
+              "composite_score": 0.0,
+              "ownership": 4.9,
+              "minutes": 3378,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.3,
+              "total_points": 165,
+              "ranking_score": 4.3
+            },
+            {
+              "rank": 8,
+              "id": 390,
+              "web_name": "Rúben",
+              "team_short": "MCI",
+              "position": "DEF",
+              "now_cost": 55,
+              "now_cost_m": 5.5,
+              "form": 0.0,
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "composite_score": 0.0,
+              "ownership": 1.6,
+              "minutes": 2139,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.3,
+              "total_points": 113,
+              "ranking_score": 4.3
+            },
+            {
+              "rank": 9,
+              "id": 8,
+              "web_name": "Calafiori",
+              "team_short": "ARS",
+              "position": "DEF",
+              "now_cost": 55,
+              "now_cost_m": 5.5,
+              "form": 0.0,
+              "avg_fdr": 3.2,
+              "difficulty_label": "moderate",
+              "composite_score": 0.0,
+              "ownership": 28.2,
+              "minutes": 1697,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.2,
+              "total_points": 109,
+              "ranking_score": 4.2
+            },
+            {
+              "rank": 10,
+              "id": 112,
+              "web_name": "Van Hecke",
+              "team_short": "TOT",
+              "position": "DEF",
+              "now_cost": 50,
+              "now_cost_m": 5.0,
+              "form": 0.0,
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "composite_score": 0.0,
+              "ownership": 9.0,
+              "minutes": 3210,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.1,
+              "total_points": 148,
+              "ranking_score": 4.1
+            }
+          ]
+        },
+        "success": true
+      },
+      {
+        "round": 2,
+        "tool_call_id": "gemini_call_0",
+        "name": "get_player_fixture_run",
+        "args": {
+          "query": "Guéhi"
+        },
+        "output": {
+          "status": "ok",
+          "query": "Guéhi",
+          "web_name": "Guéhi",
+          "team_short": "MCI",
+          "position": "DEF",
+          "horizon": 5,
+          "current_gameweek": 1,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "BOU",
+              "is_home": true,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "CRY",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "COV",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "MUN",
+              "is_home": false,
+              "difficulty": 4
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "SUN",
+              "is_home": true,
+              "difficulty": 2
+            }
+          ],
+          "team_fdr_context": {
+            "avg_fdr": 2.8,
+            "difficulty_label": "easy",
+            "gw_from": 1,
+            "gw_to": 5
+          }
+        },
+        "success": true
+      },
+      {
+        "round": 2,
+        "tool_call_id": "gemini_call_1",
+        "name": "get_player_fixture_run",
+        "args": {
+          "query": "Senesi"
+        },
+        "output": {
+          "status": "ok",
+          "query": "Senesi",
+          "web_name": "Senesi",
+          "team_short": "TOT",
+          "position": "DEF",
+          "horizon": 5,
+          "current_gameweek": 1,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "BRE",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "NEW",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "NFO",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "EVE",
+              "is_home": true,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "AVL",
+              "is_home": true,
+              "difficulty": 3
+            }
+          ],
+          "team_fdr_context": {
+            "avg_fdr": 2.8,
+            "difficulty_label": "easy",
+            "gw_from": 1,
+            "gw_to": 5
+          }
+        },
+        "success": true
+      },
+      {
+        "round": 2,
+        "tool_call_id": "gemini_call_2",
+        "name": "get_player_fixture_run",
+        "args": {
+          "query": "Muñoz"
+        },
+        "output": {
+          "status": "ambiguous",
+          "query": "Muñoz",
+          "message": "Multiple players share the name 'Muñoz'. Ask the user to clarify — for example by providing a player id, full name, or team name."
+        },
+        "success": true
+      },
+      {
+        "round": 2,
+        "tool_call_id": "gemini_call_3",
+        "name": "get_player_fixture_run",
+        "args": {
+          "query": "Gvardiol"
+        },
+        "output": {
+          "status": "ok",
+          "query": "Gvardiol",
+          "web_name": "Gvardiol",
+          "team_short": "MCI",
+          "position": "DEF",
+          "horizon": 5,
+          "current_gameweek": 1,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "BOU",
+              "is_home": true,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "CRY",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "COV",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "MUN",
+              "is_home": false,
+              "difficulty": 4
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "SUN",
+              "is_home": true,
+              "difficulty": 2
+            }
+          ],
+          "team_fdr_context": {
+            "avg_fdr": 2.8,
+            "difficulty_label": "easy",
+            "gw_from": 1,
+            "gw_to": 5
+          }
+        },
+        "success": true
+      },
+      {
+        "round": 3,
+        "tool_call_id": "gemini_call_0",
+        "name": "get_player_snapshot",
+        "args": {
+          "player_name": "Guéhi"
+        },
+        "output": {
+          "status": "ok",
+          "player": {
+            "id": 388,
+            "web_name": "Guéhi",
+            "team_short": "MCI",
+            "position": "DEF",
+            "minutes_played_season": 3150,
+            "status": "Available",
+            "news": "",
+            "news_added": null,
+            "chance_of_playing_this_round": null,
+            "form": 0.0,
+            "total_points": 179,
+            "points_per_game": 5.1,
+            "expected_goals": 4.05,
+            "expected_assists": 2.37,
+            "expected_goal_involvements": 6.42,
+            "expected_goals_conceded": 44.58,
+            "ict_index": 160.9,
+            "influence": 901.6,
+            "creativity": 304.6,
+            "threat": 402.0,
+            "saves": 0,
+            "yellow_cards": 6,
+            "red_cards": 0,
+            "expected_goals_per_90": 0.12,
+            "expected_assists_per_90": 0.07,
+            "expected_goal_involvements_per_90": 0.19,
+            "ict_index_per_90": 4.597142857142857,
+            "defensive_contribution": 278,
+            "defensive_contribution_per_90": 7.94,
+            "now_cost": 60,
+            "selected_by_percent": 19.8,
+            "transfers_in_event": 0,
+            "transfers_out_event": 0,
+            "penalties_order": null,
+            "direct_freekicks_order": null,
+            "corners_and_indirect_freekicks_order": null,
+            "fixtures": [
+              {
+                "gameweek": 1,
+                "opponent_short": "BOU",
+                "is_home": true,
+                "difficulty": 3
+              },
+              {
+                "gameweek": 2,
+                "opponent_short": "CRY",
+                "is_home": false,
+                "difficulty": 3
+              },
+              {
+                "gameweek": 3,
+                "opponent_short": "COV",
+                "is_home": true,
+                "difficulty": 2
+              },
+              {
+                "gameweek": 4,
+                "opponent_short": "MUN",
+                "is_home": false,
+                "difficulty": 4
+              },
+              {
+                "gameweek": 5,
+                "opponent_short": "SUN",
+                "is_home": true,
+                "difficulty": 2
+              }
+            ],
+            "team_fdr_context": {
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "gw_from": 1,
+              "gw_to": 5
+            }
+          }
+        },
+        "success": true
+      }
+    ],
+    "rounds_used": 3,
+    "rounds_exhausted": true,
+    "primary_input_tokens": 49993,
+    "primary_output_tokens": 169,
+    "primary_cache_read_tokens": 0,
+    "evaluator_tokens": 801,
+    "total_tokens": 50963,
+    "evaluator_verdict": {
+      "approved": false,
+      "grounded": true,
+      "complete": false,
+      "safe": true,
+      "retry_feedback": "The response is incomplete and fails to justify the defender recommendation based on their upcoming fixtures as requested.",
+      "tokens_used": 801,
+      "off_topic_score": 0.0
+    },
+    "arm": "D",
+    "scenario": "Q11",
+    "repetition": 1,
+    "axis1": {
+      "classification": "catastrophic_failure",
+      "catastrophic_failure": true,
+      "reasons": [
+        "rounds_exhausted"
+      ]
+    },
+    "axis2": {
+      "source": null,
+      "status": "structured_output_missing",
+      "valid": null,
+      "errors": []
+    },
+    "axis3": {
+      "score": "pending_human_review",
+      "rubric": "Names a DEF £4.5m-£6.0m, justifies via fixture difficulty and clean-sheet risk."
+    },
+    "composition": {
+      "status": "invalid",
+      "valid": false,
+      "errors": [
+        "ranking_missing_or_unpriced",
+        "fixture_grounding_missing"
+      ]
+    },
+    "usd": 0.0837195
+  },
+  {
+    "provider": "gemini",
+    "model": "gemini-3.5-flash",
+    "evaluator_model": "gemini-3.5-flash",
+    "outcome": "ok",
+    "answer_text": "Respuesta incompleta (round limit reached): **Guéhi** (MCI, DEF)\n  Precio: £6.0m | Propiedad: 19.8% | Estado: Available\n  Pts totales: 179 | PPG: 5.1 | Forma: 0.0\n  xG: 4.05 | xA: 2.37 | xGI: 6.42 | ICT: 160.9\n  Minutos: 3150",
+    "tool_chosen": "get_player_snapshot",
+    "tool_args": {
+      "player_name": "Guéhi"
+    },
+    "tool_output": {
+      "status": "ok",
+      "player": {
+        "id": 388,
+        "web_name": "Guéhi",
+        "team_short": "MCI",
+        "position": "DEF",
+        "minutes_played_season": 3150,
+        "status": "Available",
+        "news": "",
+        "news_added": null,
+        "chance_of_playing_this_round": null,
+        "form": 0.0,
+        "total_points": 179,
+        "points_per_game": 5.1,
+        "expected_goals": 4.05,
+        "expected_assists": 2.37,
+        "expected_goal_involvements": 6.42,
+        "expected_goals_conceded": 44.58,
+        "ict_index": 160.9,
+        "influence": 901.6,
+        "creativity": 304.6,
+        "threat": 402.0,
+        "saves": 0,
+        "yellow_cards": 6,
+        "red_cards": 0,
+        "expected_goals_per_90": 0.12,
+        "expected_assists_per_90": 0.07,
+        "expected_goal_involvements_per_90": 0.19,
+        "ict_index_per_90": 4.597142857142857,
+        "defensive_contribution": 278,
+        "defensive_contribution_per_90": 7.94,
+        "now_cost": 60,
+        "selected_by_percent": 19.8,
+        "transfers_in_event": 0,
+        "transfers_out_event": 0,
+        "penalties_order": null,
+        "direct_freekicks_order": null,
+        "corners_and_indirect_freekicks_order": null,
+        "fixtures": [
+          {
+            "gameweek": 1,
+            "opponent_short": "BOU",
+            "is_home": true,
+            "difficulty": 3
+          },
+          {
+            "gameweek": 2,
+            "opponent_short": "CRY",
+            "is_home": false,
+            "difficulty": 3
+          },
+          {
+            "gameweek": 3,
+            "opponent_short": "COV",
+            "is_home": true,
+            "difficulty": 2
+          },
+          {
+            "gameweek": 4,
+            "opponent_short": "MUN",
+            "is_home": false,
+            "difficulty": 4
+          },
+          {
+            "gameweek": 5,
+            "opponent_short": "SUN",
+            "is_home": true,
+            "difficulty": 2
+          }
+        ],
+        "team_fdr_context": {
+          "avg_fdr": 2.8,
+          "difficulty_label": "easy",
+          "gw_from": 1,
+          "gw_to": 5
+        }
+      }
+    },
+    "tool_calls_trace": [
+      {
+        "round": 1,
+        "tool_call_id": "gemini_call_0",
+        "name": "get_transfer_suggestion",
+        "args": {
+          "position_query": "defender",
+          "max_price": 6.0,
+          "horizon": 5.0,
+          "top_n": 10.0
+        },
+        "output": {
+          "status": "ok",
+          "position": "DEF",
+          "position_label": "defenders",
+          "team_short": null,
+          "team_name": null,
+          "max_price": 6.0,
+          "horizon": 5,
+          "top_n": 10,
+          "ranking_basis": "prior_season_carryover",
+          "ranking_metric": "points_per_game",
+          "picks": [
+            {
+              "rank": 1,
+              "id": 388,
+              "web_name": "Guéhi",
+              "team_short": "MCI",
+              "position": "DEF",
+              "now_cost": 60,
+              "now_cost_m": 6.0,
+              "form": 0.0,
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "composite_score": 0.0,
+              "ownership": 19.8,
+              "minutes": 3150,
+              "status": "a",
+              "news": "",
+              "points_per_game": 5.1,
+              "total_points": 179,
+              "ranking_score": 5.1
+            },
+            {
+              "rank": 2,
+              "id": 498,
+              "web_name": "Senesi",
+              "team_short": "TOT",
+              "position": "DEF",
+              "now_cost": 60,
+              "now_cost_m": 6.0,
+              "form": 0.0,
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "composite_score": 0.0,
+              "ownership": 9.4,
+              "minutes": 3288,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.7,
+              "total_points": 175,
+              "ranking_score": 4.7
+            },
+            {
+              "rank": 3,
+              "id": 201,
+              "web_name": "Muñoz",
+              "team_short": "CRY",
+              "position": "DEF",
+              "now_cost": 55,
+              "now_cost_m": 5.5,
+              "form": 0.0,
+              "avg_fdr": 3.0,
+              "difficulty_label": "moderate",
+              "composite_score": 0.0,
+              "ownership": 10.8,
+              "minutes": 2400,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.7,
+              "total_points": 136,
+              "ranking_score": 4.7
+            },
+            {
+              "rank": 4,
+              "id": 229,
+              "web_name": "Tarkowski",
+              "team_short": "EVE",
+              "position": "DEF",
+              "now_cost": 60,
+              "now_cost_m": 6.0,
+              "form": 0.0,
+              "avg_fdr": 3.0,
+              "difficulty_label": "moderate",
+              "composite_score": 0.0,
+              "ownership": 9.4,
+              "minutes": 3330,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.6,
+              "total_points": 170,
+              "ranking_score": 4.6
+            },
+            {
+              "rank": 5,
+              "id": 200,
+              "web_name": "Lacroix",
+              "team_short": "CHE",
+              "position": "DEF",
+              "now_cost": 60,
+              "now_cost_m": 6.0,
+              "form": 0.0,
+              "avg_fdr": 3.0,
+              "difficulty_label": "moderate",
+              "composite_score": 0.0,
+              "ownership": 10.4,
+              "minutes": 3085,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.4,
+              "total_points": 154,
+              "ranking_score": 4.4
+            },
+            {
+              "rank": 6,
+              "id": 391,
+              "web_name": "Gvardiol",
+              "team_short": "MCI",
+              "position": "DEF",
+              "now_cost": 55,
+              "now_cost_m": 5.5,
+              "form": 0.0,
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "composite_score": 0.0,
+              "ownership": 11.7,
+              "minutes": 1370,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.4,
+              "total_points": 79,
+              "ranking_score": 4.4
+            },
+            {
+              "rank": 7,
+              "id": 61,
+              "web_name": "Truffert",
+              "team_short": "BOU",
+              "position": "DEF",
+              "now_cost": 55,
+              "now_cost_m": 5.5,
+              "form": 0.0,
+              "avg_fdr": 3.6,
+              "difficulty_label": "hard",
+              "composite_score": 0.0,
+              "ownership": 4.9,
+              "minutes": 3378,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.3,
+              "total_points": 165,
+              "ranking_score": 4.3
+            },
+            {
+              "rank": 8,
+              "id": 390,
+              "web_name": "Rúben",
+              "team_short": "MCI",
+              "position": "DEF",
+              "now_cost": 55,
+              "now_cost_m": 5.5,
+              "form": 0.0,
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "composite_score": 0.0,
+              "ownership": 1.6,
+              "minutes": 2139,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.3,
+              "total_points": 113,
+              "ranking_score": 4.3
+            },
+            {
+              "rank": 9,
+              "id": 8,
+              "web_name": "Calafiori",
+              "team_short": "ARS",
+              "position": "DEF",
+              "now_cost": 55,
+              "now_cost_m": 5.5,
+              "form": 0.0,
+              "avg_fdr": 3.2,
+              "difficulty_label": "moderate",
+              "composite_score": 0.0,
+              "ownership": 28.2,
+              "minutes": 1697,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.2,
+              "total_points": 109,
+              "ranking_score": 4.2
+            },
+            {
+              "rank": 10,
+              "id": 112,
+              "web_name": "Van Hecke",
+              "team_short": "TOT",
+              "position": "DEF",
+              "now_cost": 50,
+              "now_cost_m": 5.0,
+              "form": 0.0,
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "composite_score": 0.0,
+              "ownership": 9.0,
+              "minutes": 3210,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.1,
+              "total_points": 148,
+              "ranking_score": 4.1
+            }
+          ]
+        },
+        "success": true
+      },
+      {
+        "round": 2,
+        "tool_call_id": "gemini_call_0",
+        "name": "get_player_fixture_run",
+        "args": {
+          "query": "Guéhi"
+        },
+        "output": {
+          "status": "ok",
+          "query": "Guéhi",
+          "web_name": "Guéhi",
+          "team_short": "MCI",
+          "position": "DEF",
+          "horizon": 5,
+          "current_gameweek": 1,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "BOU",
+              "is_home": true,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "CRY",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "COV",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "MUN",
+              "is_home": false,
+              "difficulty": 4
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "SUN",
+              "is_home": true,
+              "difficulty": 2
+            }
+          ],
+          "team_fdr_context": {
+            "avg_fdr": 2.8,
+            "difficulty_label": "easy",
+            "gw_from": 1,
+            "gw_to": 5
+          }
+        },
+        "success": true
+      },
+      {
+        "round": 2,
+        "tool_call_id": "gemini_call_1",
+        "name": "get_player_fixture_run",
+        "args": {
+          "query": "Senesi"
+        },
+        "output": {
+          "status": "ok",
+          "query": "Senesi",
+          "web_name": "Senesi",
+          "team_short": "TOT",
+          "position": "DEF",
+          "horizon": 5,
+          "current_gameweek": 1,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "BRE",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "NEW",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "NFO",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "EVE",
+              "is_home": true,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "AVL",
+              "is_home": true,
+              "difficulty": 3
+            }
+          ],
+          "team_fdr_context": {
+            "avg_fdr": 2.8,
+            "difficulty_label": "easy",
+            "gw_from": 1,
+            "gw_to": 5
+          }
+        },
+        "success": true
+      },
+      {
+        "round": 2,
+        "tool_call_id": "gemini_call_2",
+        "name": "get_player_fixture_run",
+        "args": {
+          "query": "Muñoz"
+        },
+        "output": {
+          "status": "ambiguous",
+          "query": "Muñoz",
+          "message": "Multiple players share the name 'Muñoz'. Ask the user to clarify — for example by providing a player id, full name, or team name."
+        },
+        "success": true
+      },
+      {
+        "round": 2,
+        "tool_call_id": "gemini_call_3",
+        "name": "get_player_fixture_run",
+        "args": {
+          "query": "Gvardiol"
+        },
+        "output": {
+          "status": "ok",
+          "query": "Gvardiol",
+          "web_name": "Gvardiol",
+          "team_short": "MCI",
+          "position": "DEF",
+          "horizon": 5,
+          "current_gameweek": 1,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "BOU",
+              "is_home": true,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "CRY",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "COV",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "MUN",
+              "is_home": false,
+              "difficulty": 4
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "SUN",
+              "is_home": true,
+              "difficulty": 2
+            }
+          ],
+          "team_fdr_context": {
+            "avg_fdr": 2.8,
+            "difficulty_label": "easy",
+            "gw_from": 1,
+            "gw_to": 5
+          }
+        },
+        "success": true
+      },
+      {
+        "round": 3,
+        "tool_call_id": "gemini_call_0",
+        "name": "get_player_snapshot",
+        "args": {
+          "player_name": "Guéhi"
+        },
+        "output": {
+          "status": "ok",
+          "player": {
+            "id": 388,
+            "web_name": "Guéhi",
+            "team_short": "MCI",
+            "position": "DEF",
+            "minutes_played_season": 3150,
+            "status": "Available",
+            "news": "",
+            "news_added": null,
+            "chance_of_playing_this_round": null,
+            "form": 0.0,
+            "total_points": 179,
+            "points_per_game": 5.1,
+            "expected_goals": 4.05,
+            "expected_assists": 2.37,
+            "expected_goal_involvements": 6.42,
+            "expected_goals_conceded": 44.58,
+            "ict_index": 160.9,
+            "influence": 901.6,
+            "creativity": 304.6,
+            "threat": 402.0,
+            "saves": 0,
+            "yellow_cards": 6,
+            "red_cards": 0,
+            "expected_goals_per_90": 0.12,
+            "expected_assists_per_90": 0.07,
+            "expected_goal_involvements_per_90": 0.19,
+            "ict_index_per_90": 4.597142857142857,
+            "defensive_contribution": 278,
+            "defensive_contribution_per_90": 7.94,
+            "now_cost": 60,
+            "selected_by_percent": 19.8,
+            "transfers_in_event": 0,
+            "transfers_out_event": 0,
+            "penalties_order": null,
+            "direct_freekicks_order": null,
+            "corners_and_indirect_freekicks_order": null,
+            "fixtures": [
+              {
+                "gameweek": 1,
+                "opponent_short": "BOU",
+                "is_home": true,
+                "difficulty": 3
+              },
+              {
+                "gameweek": 2,
+                "opponent_short": "CRY",
+                "is_home": false,
+                "difficulty": 3
+              },
+              {
+                "gameweek": 3,
+                "opponent_short": "COV",
+                "is_home": true,
+                "difficulty": 2
+              },
+              {
+                "gameweek": 4,
+                "opponent_short": "MUN",
+                "is_home": false,
+                "difficulty": 4
+              },
+              {
+                "gameweek": 5,
+                "opponent_short": "SUN",
+                "is_home": true,
+                "difficulty": 2
+              }
+            ],
+            "team_fdr_context": {
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "gw_from": 1,
+              "gw_to": 5
+            }
+          }
+        },
+        "success": true
+      }
+    ],
+    "rounds_used": 3,
+    "rounds_exhausted": true,
+    "primary_input_tokens": 49993,
+    "primary_output_tokens": 169,
+    "primary_cache_read_tokens": 0,
+    "evaluator_tokens": 809,
+    "total_tokens": 50971,
+    "evaluator_verdict": {
+      "approved": false,
+      "grounded": true,
+      "complete": false,
+      "safe": true,
+      "retry_feedback": "The response is incomplete and does not justify the recommendation using the player's upcoming 5 fixtures as requested.",
+      "tokens_used": 809,
+      "off_topic_score": 0.0
+    },
+    "arm": "D",
+    "scenario": "Q11",
+    "repetition": 2,
+    "axis1": {
+      "classification": "catastrophic_failure",
+      "catastrophic_failure": true,
+      "reasons": [
+        "rounds_exhausted"
+      ]
+    },
+    "axis2": {
+      "source": null,
+      "status": "structured_output_missing",
+      "valid": null,
+      "errors": []
+    },
+    "axis3": {
+      "score": "pending_human_review",
+      "rubric": "Names a DEF £4.5m-£6.0m, justifies via fixture difficulty and clean-sheet risk."
+    },
+    "composition": {
+      "status": "invalid",
+      "valid": false,
+      "errors": [
+        "ranking_missing_or_unpriced",
+        "fixture_grounding_missing"
+      ]
+    },
+    "usd": 0.08379149999999999
+  },
+  {
+    "provider": "gemini",
+    "model": "gemini-3.5-flash",
+    "evaluator_model": "gemini-3.5-flash",
+    "outcome": "ok",
+    "answer_text": "Respuesta incompleta (round limit reached): **Guéhi** (MCI, DEF)\n  Precio: £6.0m | Propiedad: 19.8% | Estado: Available\n  Pts totales: 179 | PPG: 5.1 | Forma: 0.0\n  xG: 4.05 | xA: 2.37 | xGI: 6.42 | ICT: 160.9\n  Minutos: 3150",
+    "tool_chosen": "get_player_snapshot",
+    "tool_args": {
+      "player_name": "Guéhi"
+    },
+    "tool_output": {
+      "status": "ok",
+      "player": {
+        "id": 388,
+        "web_name": "Guéhi",
+        "team_short": "MCI",
+        "position": "DEF",
+        "minutes_played_season": 3150,
+        "status": "Available",
+        "news": "",
+        "news_added": null,
+        "chance_of_playing_this_round": null,
+        "form": 0.0,
+        "total_points": 179,
+        "points_per_game": 5.1,
+        "expected_goals": 4.05,
+        "expected_assists": 2.37,
+        "expected_goal_involvements": 6.42,
+        "expected_goals_conceded": 44.58,
+        "ict_index": 160.9,
+        "influence": 901.6,
+        "creativity": 304.6,
+        "threat": 402.0,
+        "saves": 0,
+        "yellow_cards": 6,
+        "red_cards": 0,
+        "expected_goals_per_90": 0.12,
+        "expected_assists_per_90": 0.07,
+        "expected_goal_involvements_per_90": 0.19,
+        "ict_index_per_90": 4.597142857142857,
+        "defensive_contribution": 278,
+        "defensive_contribution_per_90": 7.94,
+        "now_cost": 60,
+        "selected_by_percent": 19.8,
+        "transfers_in_event": 0,
+        "transfers_out_event": 0,
+        "penalties_order": null,
+        "direct_freekicks_order": null,
+        "corners_and_indirect_freekicks_order": null,
+        "fixtures": [
+          {
+            "gameweek": 1,
+            "opponent_short": "BOU",
+            "is_home": true,
+            "difficulty": 3
+          },
+          {
+            "gameweek": 2,
+            "opponent_short": "CRY",
+            "is_home": false,
+            "difficulty": 3
+          },
+          {
+            "gameweek": 3,
+            "opponent_short": "COV",
+            "is_home": true,
+            "difficulty": 2
+          },
+          {
+            "gameweek": 4,
+            "opponent_short": "MUN",
+            "is_home": false,
+            "difficulty": 4
+          },
+          {
+            "gameweek": 5,
+            "opponent_short": "SUN",
+            "is_home": true,
+            "difficulty": 2
+          }
+        ],
+        "team_fdr_context": {
+          "avg_fdr": 2.8,
+          "difficulty_label": "easy",
+          "gw_from": 1,
+          "gw_to": 5
+        }
+      }
+    },
+    "tool_calls_trace": [
+      {
+        "round": 1,
+        "tool_call_id": "gemini_call_0",
+        "name": "get_transfer_suggestion",
+        "args": {
+          "position_query": "defender",
+          "max_price": 6.0,
+          "horizon": 5.0,
+          "top_n": 10.0
+        },
+        "output": {
+          "status": "ok",
+          "position": "DEF",
+          "position_label": "defenders",
+          "team_short": null,
+          "team_name": null,
+          "max_price": 6.0,
+          "horizon": 5,
+          "top_n": 10,
+          "ranking_basis": "prior_season_carryover",
+          "ranking_metric": "points_per_game",
+          "picks": [
+            {
+              "rank": 1,
+              "id": 388,
+              "web_name": "Guéhi",
+              "team_short": "MCI",
+              "position": "DEF",
+              "now_cost": 60,
+              "now_cost_m": 6.0,
+              "form": 0.0,
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "composite_score": 0.0,
+              "ownership": 19.8,
+              "minutes": 3150,
+              "status": "a",
+              "news": "",
+              "points_per_game": 5.1,
+              "total_points": 179,
+              "ranking_score": 5.1
+            },
+            {
+              "rank": 2,
+              "id": 498,
+              "web_name": "Senesi",
+              "team_short": "TOT",
+              "position": "DEF",
+              "now_cost": 60,
+              "now_cost_m": 6.0,
+              "form": 0.0,
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "composite_score": 0.0,
+              "ownership": 9.4,
+              "minutes": 3288,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.7,
+              "total_points": 175,
+              "ranking_score": 4.7
+            },
+            {
+              "rank": 3,
+              "id": 201,
+              "web_name": "Muñoz",
+              "team_short": "CRY",
+              "position": "DEF",
+              "now_cost": 55,
+              "now_cost_m": 5.5,
+              "form": 0.0,
+              "avg_fdr": 3.0,
+              "difficulty_label": "moderate",
+              "composite_score": 0.0,
+              "ownership": 10.8,
+              "minutes": 2400,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.7,
+              "total_points": 136,
+              "ranking_score": 4.7
+            },
+            {
+              "rank": 4,
+              "id": 229,
+              "web_name": "Tarkowski",
+              "team_short": "EVE",
+              "position": "DEF",
+              "now_cost": 60,
+              "now_cost_m": 6.0,
+              "form": 0.0,
+              "avg_fdr": 3.0,
+              "difficulty_label": "moderate",
+              "composite_score": 0.0,
+              "ownership": 9.4,
+              "minutes": 3330,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.6,
+              "total_points": 170,
+              "ranking_score": 4.6
+            },
+            {
+              "rank": 5,
+              "id": 200,
+              "web_name": "Lacroix",
+              "team_short": "CHE",
+              "position": "DEF",
+              "now_cost": 60,
+              "now_cost_m": 6.0,
+              "form": 0.0,
+              "avg_fdr": 3.0,
+              "difficulty_label": "moderate",
+              "composite_score": 0.0,
+              "ownership": 10.4,
+              "minutes": 3085,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.4,
+              "total_points": 154,
+              "ranking_score": 4.4
+            },
+            {
+              "rank": 6,
+              "id": 391,
+              "web_name": "Gvardiol",
+              "team_short": "MCI",
+              "position": "DEF",
+              "now_cost": 55,
+              "now_cost_m": 5.5,
+              "form": 0.0,
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "composite_score": 0.0,
+              "ownership": 11.7,
+              "minutes": 1370,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.4,
+              "total_points": 79,
+              "ranking_score": 4.4
+            },
+            {
+              "rank": 7,
+              "id": 61,
+              "web_name": "Truffert",
+              "team_short": "BOU",
+              "position": "DEF",
+              "now_cost": 55,
+              "now_cost_m": 5.5,
+              "form": 0.0,
+              "avg_fdr": 3.6,
+              "difficulty_label": "hard",
+              "composite_score": 0.0,
+              "ownership": 4.9,
+              "minutes": 3378,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.3,
+              "total_points": 165,
+              "ranking_score": 4.3
+            },
+            {
+              "rank": 8,
+              "id": 390,
+              "web_name": "Rúben",
+              "team_short": "MCI",
+              "position": "DEF",
+              "now_cost": 55,
+              "now_cost_m": 5.5,
+              "form": 0.0,
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "composite_score": 0.0,
+              "ownership": 1.6,
+              "minutes": 2139,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.3,
+              "total_points": 113,
+              "ranking_score": 4.3
+            },
+            {
+              "rank": 9,
+              "id": 8,
+              "web_name": "Calafiori",
+              "team_short": "ARS",
+              "position": "DEF",
+              "now_cost": 55,
+              "now_cost_m": 5.5,
+              "form": 0.0,
+              "avg_fdr": 3.2,
+              "difficulty_label": "moderate",
+              "composite_score": 0.0,
+              "ownership": 28.2,
+              "minutes": 1697,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.2,
+              "total_points": 109,
+              "ranking_score": 4.2
+            },
+            {
+              "rank": 10,
+              "id": 112,
+              "web_name": "Van Hecke",
+              "team_short": "TOT",
+              "position": "DEF",
+              "now_cost": 50,
+              "now_cost_m": 5.0,
+              "form": 0.0,
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "composite_score": 0.0,
+              "ownership": 9.0,
+              "minutes": 3210,
+              "status": "a",
+              "news": "",
+              "points_per_game": 4.1,
+              "total_points": 148,
+              "ranking_score": 4.1
+            }
+          ]
+        },
+        "success": true
+      },
+      {
+        "round": 2,
+        "tool_call_id": "gemini_call_0",
+        "name": "get_player_fixture_run",
+        "args": {
+          "query": "Guéhi"
+        },
+        "output": {
+          "status": "ok",
+          "query": "Guéhi",
+          "web_name": "Guéhi",
+          "team_short": "MCI",
+          "position": "DEF",
+          "horizon": 5,
+          "current_gameweek": 1,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "BOU",
+              "is_home": true,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "CRY",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "COV",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "MUN",
+              "is_home": false,
+              "difficulty": 4
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "SUN",
+              "is_home": true,
+              "difficulty": 2
+            }
+          ],
+          "team_fdr_context": {
+            "avg_fdr": 2.8,
+            "difficulty_label": "easy",
+            "gw_from": 1,
+            "gw_to": 5
+          }
+        },
+        "success": true
+      },
+      {
+        "round": 2,
+        "tool_call_id": "gemini_call_1",
+        "name": "get_player_fixture_run",
+        "args": {
+          "query": "Senesi"
+        },
+        "output": {
+          "status": "ok",
+          "query": "Senesi",
+          "web_name": "Senesi",
+          "team_short": "TOT",
+          "position": "DEF",
+          "horizon": 5,
+          "current_gameweek": 1,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "BRE",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "NEW",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "NFO",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "EVE",
+              "is_home": true,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "AVL",
+              "is_home": true,
+              "difficulty": 3
+            }
+          ],
+          "team_fdr_context": {
+            "avg_fdr": 2.8,
+            "difficulty_label": "easy",
+            "gw_from": 1,
+            "gw_to": 5
+          }
+        },
+        "success": true
+      },
+      {
+        "round": 2,
+        "tool_call_id": "gemini_call_2",
+        "name": "get_player_fixture_run",
+        "args": {
+          "query": "Muñoz"
+        },
+        "output": {
+          "status": "ambiguous",
+          "query": "Muñoz",
+          "message": "Multiple players share the name 'Muñoz'. Ask the user to clarify — for example by providing a player id, full name, or team name."
+        },
+        "success": true
+      },
+      {
+        "round": 2,
+        "tool_call_id": "gemini_call_3",
+        "name": "get_player_fixture_run",
+        "args": {
+          "query": "Gvardiol"
+        },
+        "output": {
+          "status": "ok",
+          "query": "Gvardiol",
+          "web_name": "Gvardiol",
+          "team_short": "MCI",
+          "position": "DEF",
+          "horizon": 5,
+          "current_gameweek": 1,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "BOU",
+              "is_home": true,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "CRY",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "COV",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "MUN",
+              "is_home": false,
+              "difficulty": 4
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "SUN",
+              "is_home": true,
+              "difficulty": 2
+            }
+          ],
+          "team_fdr_context": {
+            "avg_fdr": 2.8,
+            "difficulty_label": "easy",
+            "gw_from": 1,
+            "gw_to": 5
+          }
+        },
+        "success": true
+      },
+      {
+        "round": 3,
+        "tool_call_id": "gemini_call_0",
+        "name": "get_player_snapshot",
+        "args": {
+          "player_name": "Guéhi"
+        },
+        "output": {
+          "status": "ok",
+          "player": {
+            "id": 388,
+            "web_name": "Guéhi",
+            "team_short": "MCI",
+            "position": "DEF",
+            "minutes_played_season": 3150,
+            "status": "Available",
+            "news": "",
+            "news_added": null,
+            "chance_of_playing_this_round": null,
+            "form": 0.0,
+            "total_points": 179,
+            "points_per_game": 5.1,
+            "expected_goals": 4.05,
+            "expected_assists": 2.37,
+            "expected_goal_involvements": 6.42,
+            "expected_goals_conceded": 44.58,
+            "ict_index": 160.9,
+            "influence": 901.6,
+            "creativity": 304.6,
+            "threat": 402.0,
+            "saves": 0,
+            "yellow_cards": 6,
+            "red_cards": 0,
+            "expected_goals_per_90": 0.12,
+            "expected_assists_per_90": 0.07,
+            "expected_goal_involvements_per_90": 0.19,
+            "ict_index_per_90": 4.597142857142857,
+            "defensive_contribution": 278,
+            "defensive_contribution_per_90": 7.94,
+            "now_cost": 60,
+            "selected_by_percent": 19.8,
+            "transfers_in_event": 0,
+            "transfers_out_event": 0,
+            "penalties_order": null,
+            "direct_freekicks_order": null,
+            "corners_and_indirect_freekicks_order": null,
+            "fixtures": [
+              {
+                "gameweek": 1,
+                "opponent_short": "BOU",
+                "is_home": true,
+                "difficulty": 3
+              },
+              {
+                "gameweek": 2,
+                "opponent_short": "CRY",
+                "is_home": false,
+                "difficulty": 3
+              },
+              {
+                "gameweek": 3,
+                "opponent_short": "COV",
+                "is_home": true,
+                "difficulty": 2
+              },
+              {
+                "gameweek": 4,
+                "opponent_short": "MUN",
+                "is_home": false,
+                "difficulty": 4
+              },
+              {
+                "gameweek": 5,
+                "opponent_short": "SUN",
+                "is_home": true,
+                "difficulty": 2
+              }
+            ],
+            "team_fdr_context": {
+              "avg_fdr": 2.8,
+              "difficulty_label": "easy",
+              "gw_from": 1,
+              "gw_to": 5
+            }
+          }
+        },
+        "success": true
+      }
+    ],
+    "rounds_used": 3,
+    "rounds_exhausted": true,
+    "primary_input_tokens": 49993,
+    "primary_output_tokens": 169,
+    "primary_cache_read_tokens": 0,
+    "evaluator_tokens": 804,
+    "total_tokens": 50966,
+    "evaluator_verdict": {
+      "approved": false,
+      "grounded": true,
+      "complete": false,
+      "safe": true,
+      "retry_feedback": "The response was cut off and failed to analyze the fixtures for the next 5 matches to justify the recommendation.",
+      "tokens_used": 804,
+      "off_topic_score": 0.0
+    },
+    "arm": "D",
+    "scenario": "Q11",
+    "repetition": 3,
+    "axis1": {
+      "classification": "catastrophic_failure",
+      "catastrophic_failure": true,
+      "reasons": [
+        "rounds_exhausted"
+      ]
+    },
+    "axis2": {
+      "source": null,
+      "status": "structured_output_missing",
+      "valid": null,
+      "errors": []
+    },
+    "axis3": {
+      "score": "pending_human_review",
+      "rubric": "Names a DEF £4.5m-£6.0m, justifies via fixture difficulty and clean-sheet risk."
+    },
+    "composition": {
+      "status": "invalid",
+      "valid": false,
+      "errors": [
+        "ranking_missing_or_unpriced",
+        "fixture_grounding_missing"
+      ]
+    },
+    "usd": 0.0837465
+  }
+]
