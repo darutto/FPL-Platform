@@ -253,7 +253,7 @@ RANK_CAPTAIN_CANDIDATES_SCHEMA = ToolSchema(
     name="rank_captain_candidates",
     description=(
         "Rank captain candidates by score (desc). Inputs auto-derived; override per candidate. "
-        "Omit candidates → auto top-10 by form."
+        "candidates is required: pass the players to rank."
     ),
     parameters={
         "type": "object",
