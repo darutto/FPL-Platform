@@ -663,12 +663,35 @@ class AnthropicProvider(ProviderInterface):
         )
 
 
+def _extract_openai_text(response: Any) -> str | None:
+    """Return aggregated text from an OpenAI Responses API response."""
+    try:
+        output_text = getattr(response, "output_text", None)
+        if isinstance(output_text, str) and output_text.strip():
+            return output_text.strip()
+
+        texts: list[str] = []
+        for item in getattr(response, "output", None) or []:
+            if getattr(item, "type", None) != "message":
+                continue
+            for content in getattr(item, "content", None) or []:
+                if getattr(content, "type", None) != "output_text":
+                    continue
+                text = getattr(content, "text", None)
+                if isinstance(text, str):
+                    texts.append(text)
+        combined = "".join(texts).strip()
+        return combined or None
+    except Exception:  # noqa: BLE001
+        return None
+
+
 class OpenAIProvider(ProviderInterface):
-    """OpenAI Chat Completions provider.
+    """OpenAI Responses API provider.
 
     Validates ``OPENAI_API_KEY`` (or ``api_key``) at construction.
 
-    Text extraction: ``response.choices[0].message.content``
+    Text extraction: ``response.output_text`` with typed-output fallback.
     """
 
     def __init__(self, api_key: str | None = None) -> None:
@@ -700,13 +723,11 @@ class OpenAIProvider(ProviderInterface):
             _client = self._client
 
             def _request_fn() -> Any:
-                return _client.chat.completions.create(
+                return _client.responses.create(
                     model=model,
-                    max_tokens=max_tokens,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_message},
-                    ],
+                    instructions=system_prompt,
+                    input=[{"role": "user", "content": user_message}],
+                    max_output_tokens=max_tokens,
                     timeout=timeout_s,
                 )
 
@@ -723,9 +744,8 @@ class OpenAIProvider(ProviderInterface):
                 attempts=raw.attempts,
                 latency_ms=_latency_ms,
             )
-        try:
-            text = raw.response.choices[0].message.content.strip()
-        except Exception:  # noqa: BLE001
+        text = _extract_openai_text(raw.response)
+        if text is None:
             return ProviderResult(
                 text=None,
                 model=model,
@@ -961,8 +981,8 @@ def _extract_openai_usage(
 ) -> tuple[int | None, int | None, int | None]:
     """Extract (input_tokens, output_tokens, cache_read_tokens) from an OpenAI response.
 
-    OpenAI uses ``prompt_tokens`` / ``completion_tokens``; cache reads come from
-    ``usage.prompt_tokens_details.cached_tokens`` (present in newer SDK versions).
+    Responses API uses ``input_tokens`` / ``output_tokens``; cache reads come
+    from ``usage.input_tokens_details.cached_tokens``.
     Returns ``(None, None, None)`` when extraction fails.
     """
     try:
@@ -973,17 +993,17 @@ def _extract_openai_usage(
         output_tokens: int | None = None
         cache_read_tokens: int | None = None
         try:
-            v = getattr(usage, "prompt_tokens", None)
+            v = getattr(usage, "input_tokens", None)
             input_tokens = int(v) if v is not None else None
         except Exception:  # noqa: BLE001
             pass
         try:
-            v = getattr(usage, "completion_tokens", None)
+            v = getattr(usage, "output_tokens", None)
             output_tokens = int(v) if v is not None else None
         except Exception:  # noqa: BLE001
             pass
         try:
-            details = getattr(usage, "prompt_tokens_details", None)
+            details = getattr(usage, "input_tokens_details", None)
             if details is not None:
                 v = getattr(details, "cached_tokens", None)
                 cache_read_tokens = int(v) if v is not None else None
@@ -1068,7 +1088,7 @@ def _call_with_oai_compat_timeout(
     ----------
     create_fn:
         Callable accepting keyword arguments; typically
-        ``openai_client.chat.completions.create``.
+        ``openai_client.responses.create``.
     timeout_s:
         Desired timeout in seconds.
     **kwargs:
@@ -1111,13 +1131,36 @@ def _call_with_oai_compat_timeout(
     return create_fn(**kwargs)
 
 
+def _to_gemini_contents(messages: list[Any]) -> list[Any]:
+    """Convert common role/content messages to legacy Gemini contents.
+
+    Provider-native ``Content`` objects and dictionaries that already contain
+    ``parts`` are preserved verbatim.  This is required for function-calling
+    follow-ups because the original model content may carry thought signatures.
+    """
+    contents: list[Any] = []
+    for message in messages:
+        if not isinstance(message, dict):
+            contents.append(message)
+            continue
+        if "parts" in message:
+            contents.append(message)
+            continue
+
+        role = "model" if message.get("role") == "assistant" else "user"
+        content = message.get("content", "")
+        parts = content if isinstance(content, list) else [content]
+        contents.append({"role": role, "parts": parts})
+    return contents
+
+
 def call_orch_provider(
     provider_name: str,
     *,
     model: str,
     system: str,
     tools: list[dict[str, Any]],
-    messages: list[dict[str, Any]],
+    messages: list[Any],
     max_tokens: int = 1024,
     timeout_s: float = 20.0,
     max_retries: int = 1,
@@ -1133,7 +1176,7 @@ def call_orch_provider(
     """Unified orchestration provider call for tool-use / function-calling.
 
     Handles provider-specific request construction (Anthropic ``messages.create``
-    with tools, OpenAI ``chat.completions.create`` with function-calling,
+    with tools, OpenAI ``responses.create`` with function-calling,
     Gemini ``generate_content`` with function declarations).  Returns the raw
     API response so the orchestrator can parse tool-call blocks directly.
 
@@ -1150,8 +1193,9 @@ def call_orch_provider(
         Tool list in the **provider-appropriate wire format** (caller is
         responsible for building the right format via ``_build_tools()``).
     messages:
-        Conversation messages.  For Gemini, only the first message's
-        ``"content"`` value is used (single-turn tool-use).
+        Conversation items.  OpenAI accepts Responses API input items;
+        Anthropic accepts Messages API messages; Gemini accepts either common
+        role/content messages or provider-native ``Content``/parts values.
     max_tokens:
         Maximum tokens to generate.
     timeout_s:
@@ -1183,13 +1227,20 @@ def call_orch_provider(
     """
     _t0 = time.perf_counter()
 
+    name = provider_name.lower().strip() if provider_name else PROVIDER_ANTHROPIC
+
     # --- Test injection: bypass all provider-specific client construction ---
     if _request_fn is not None:
         raw = call_provider_request(_request_fn, max_retries=max_retries, _sleep_fn=_sleep_fn)
-        # F3: attempt token extraction from mock/real response (best-effort, Anthropic shape first).
+        # F3: attempt token extraction using the active provider's response shape.
         _inj_in, _inj_out, _inj_cache = (None, None, None)
         if raw.success and raw.response is not None:
-            _inj_in, _inj_out, _inj_cache = _extract_anthropic_usage(raw.response)
+            if name == PROVIDER_OPENAI:
+                _inj_in, _inj_out, _inj_cache = _extract_openai_usage(raw.response)
+            elif name == PROVIDER_GEMINI:
+                _inj_in, _inj_out, _inj_cache = _extract_gemini_usage(raw.response)
+            else:
+                _inj_in, _inj_out, _inj_cache = _extract_anthropic_usage(raw.response)
         return OrchCallResult(
             response=raw.response if raw.success else None,
             error_code=raw.error_code,
@@ -1201,9 +1252,7 @@ def call_orch_provider(
             cache_read_tokens=_inj_cache,
         )
 
-    name = provider_name.lower().strip() if provider_name else PROVIDER_ANTHROPIC
-
-    # --- OpenAI: Chat Completions with function-calling ---
+    # --- OpenAI: Responses API with function-calling ---
     if name == PROVIDER_OPENAI:
         _key = api_key or os.environ.get("OPENAI_API_KEY")
         if not _OPENAI_AVAILABLE or not _key:
@@ -1221,16 +1270,17 @@ def call_orch_provider(
 
         def _oai_request() -> Any:
             return _call_with_oai_compat_timeout(
-                _oai.chat.completions.create,
+                _oai.responses.create,
                 timeout_s=timeout_s,
                 model=model,
-                max_tokens=max_tokens,
-                messages=[{"role": "system", "content": _sys}, *_msgs],
+                instructions=_sys,
+                input=_msgs,
+                max_output_tokens=max_tokens,
                 tools=_tools,
             )
 
         raw = call_provider_request(_oai_request, max_retries=max_retries, _sleep_fn=_sleep_fn)
-        # F3: extract OpenAI (and DeepSeek, same shape) usage tokens.
+        # F3: extract OpenAI Responses API usage tokens.
         _oai_in, _oai_out, _oai_cache = (None, None, None)
         if raw.success and raw.response is not None:
             _oai_in, _oai_out, _oai_cache = _extract_openai_usage(raw.response)
@@ -1275,12 +1325,12 @@ def call_orch_provider(
                     attempts=1,
                     latency_ms=(time.perf_counter() - _t0) * 1000.0,
                 )
-        _user_content = messages[0]["content"] if messages else ""
+        _gem_contents = _to_gemini_contents(messages)
         _gm = _gem_model
 
         def _gem_request() -> Any:
             return _gm.generate_content(
-                _user_content,
+                _gem_contents,
                 request_options={"timeout": timeout_s},
             )
 

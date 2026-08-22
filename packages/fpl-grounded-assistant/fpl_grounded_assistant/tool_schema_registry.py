@@ -97,7 +97,7 @@ class ToolSchema:
         Concise description for human and LLM consumers.
     parameters:
         JSON Schema (draft-07) ``object`` describing tool inputs.
-        Compatible with OpenAI ``function.parameters`` and Anthropic
+        Compatible with OpenAI Responses ``parameters`` and Anthropic
         ``input_schema``.
     """
 
@@ -106,14 +106,16 @@ class ToolSchema:
     parameters:  dict[str, Any]
 
     def to_openai(self) -> dict[str, Any]:
-        """Return an OpenAI function-calling tool dict."""
+        """Return an OpenAI Responses API function-calling tool dict."""
         return {
-            "type": "function",
-            "function": {
-                "name":        self.name,
-                "description": self.description,
-                "parameters":  self.parameters,
-            },
+            "type":        "function",
+            "name":        self.name,
+            "description": self.description,
+            "parameters":  self.parameters,
+            # Existing schemas are not guaranteed to satisfy every strict-mode
+            # constraint (notably required/additionalProperties), so opt out
+            # explicitly while still using the current Responses wire shape.
+            "strict":      False,
         }
 
     def to_anthropic(self) -> dict[str, Any]:
