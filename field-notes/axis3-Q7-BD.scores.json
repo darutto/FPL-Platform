@@ -1,0 +1,30 @@
+{
+  "anthropic/B/Q7/1": {
+    "score": null,
+    "rubric": "Explains fixture discrimination, budget allocation, and at least one alternative.",
+    "notes": "223 chars: narracion cortada, no hay respuesta. El turno muere tras get_gameweek_context -> get_transfer_suggestion.",
+    "score_proposed_0_3": 0,
+    "scored_by": "human (Leo), 2026-08-22"
+  },
+  "anthropic/D/Q7/1": {
+    "score": null,
+    "rubric": "Explains fixture discrimination, budget allocation, and at least one alternative.",
+    "notes": "Corre build_squad dos veces porque la pregunta menciona dos alineaciones (4-5-1 y 5-4-1) y lo lee como 'armame las dos y dime cual es mejor'. Ligera falla: la pregunta dice 'empecemos con' una en particular, y el usuario preguntaria por la segunda despues. Aun asi la respuesta es bastante completa.",
+    "score_proposed_0_3": 2,
+    "scored_by": "human (Leo), 2026-08-22"
+  },
+  "openai/B/Q7/1": {
+    "score": null,
+    "rubric": "Explains fixture discrimination, budget allocation, and at least one alternative.",
+    "notes": "Respuesta muchisimo mas concreta: 4 mediocampistas tal y como se pidio, considera a Haaland, da el coste de la seleccion.",
+    "score_proposed_0_3": 3,
+    "scored_by": "human (Leo), 2026-08-22"
+  },
+  "openai/D/Q7/1": {
+    "score": null,
+    "rubric": "Explains fixture discrimination, budget allocation, and at least one alternative.",
+    "notes": "Mismos 4 jugadores y decisiones similares despues; ambas con sentido.",
+    "score_proposed_0_3": 3,
+    "scored_by": "human (Leo), 2026-08-22"
+  }
+}

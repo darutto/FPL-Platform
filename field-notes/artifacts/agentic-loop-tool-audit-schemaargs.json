@@ -1,0 +1,4289 @@
+[
+  {
+    "tool": "build_squad",
+    "args": {
+      "budget": 100.0
+    },
+    "status": "ok",
+    "output": {
+      "status": "ok",
+      "objective": "total_points",
+      "objective_optimality": "lagrangian_plus_single_swap_fixpoint",
+      "objective_total": 2603,
+      "ranking_basis": "prior_season_carryover",
+      "squad_size": 15,
+      "position_counts": {
+        "GKP": 2,
+        "DEF": 5,
+        "MID": 5,
+        "FWD": 3
+      },
+      "club_counts": {
+        "ARS": 3,
+        "BOU": 1,
+        "BRE": 2,
+        "CHE": 1,
+        "LEE": 2,
+        "MCI": 3,
+        "NFO": 1,
+        "TOT": 2
+      },
+      "budget_tenths": 1000,
+      "budget": 100.0,
+      "total_cost_tenths": 1000,
+      "total_cost": 100.0,
+      "remaining_tenths": 0,
+      "remaining": 0.0,
+      "locked_cost_tenths": 0,
+      "locked_cost": 0.0,
+      "squad": [
+        {
+          "id": 1,
+          "web_name": "Raya",
+          "position": "GKP",
+          "team_short": "ARS",
+          "price": 6.0,
+          "price_tenths": 60,
+          "objective_value": 162,
+          "minutes": 3330,
+          "status": "a",
+          "locked": false
+        },
+        {
+          "id": 82,
+          "web_name": "Kelleher",
+          "position": "GKP",
+          "team_short": "BRE",
+          "price": 5.0,
+          "price_tenths": 50,
+          "objective_value": 143,
+          "minutes": 3330,
+          "status": "a",
+          "locked": false
+        },
+        {
+          "id": 4,
+          "web_name": "Gabriel",
+          "position": "DEF",
+          "team_short": "ARS",
+          "price": 8.0,
+          "price_tenths": 80,
+          "objective_value": 209,
+          "minutes": 2750,
+          "status": "a",
+          "locked": false
+        },
+        {
+          "id": 388,
+          "web_name": "Guéhi",
+          "position": "DEF",
+          "team_short": "MCI",
+          "price": 6.0,
+          "price_tenths": 60,
+          "objective_value": 179,
+          "minutes": 3150,
+          "status": "a",
+          "locked": false
+        },
+        {
+          "id": 498,
+          "web_name": "Senesi",
+          "position": "DEF",
+          "team_short": "TOT",
+          "price": 6.0,
+          "price_tenths": 60,
+          "objective_value": 175,
+          "minutes": 3288,
+          "status": "a",
+          "locked": false
+        },
+        {
+          "id": 61,
+          "web_name": "Truffert",
+          "position": "DEF",
+          "team_short": "BOU",
+          "price": 5.5,
+          "price_tenths": 55,
+          "objective_value": 165,
+          "minutes": 3378,
+          "status": "a",
+          "locked": false
+        },
+        {
+          "id": 112,
+          "web_name": "Van Hecke",
+          "position": "DEF",
+          "team_short": "TOT",
+          "price": 5.0,
+          "price_tenths": 50,
+          "objective_value": 148,
+          "minutes": 3210,
+          "status": "a",
+          "locked": false
+        },
+        {
+          "id": 397,
+          "web_name": "Semenyo",
+          "position": "MID",
+          "team_short": "MCI",
+          "price": 8.5,
+          "price_tenths": 85,
+          "objective_value": 202,
+          "minutes": 3200,
+          "status": "a",
+          "locked": false
+        },
+        {
+          "id": 480,
+          "web_name": "Gibbs-White",
+          "position": "MID",
+          "team_short": "NFO",
+          "price": 8.0,
+          "price_tenths": 80,
+          "objective_value": 188,
+          "minutes": 3101,
+          "status": "a",
+          "locked": false
+        },
+        {
+          "id": 13,
+          "web_name": "Rice",
+          "position": "MID",
+          "team_short": "ARS",
+          "price": 7.5,
+          "price_tenths": 75,
+          "objective_value": 184,
+          "minutes": 3093,
+          "status": "a",
+          "locked": false
+        },
+        {
+          "id": 260,
+          "web_name": "Wilson",
+          "position": "MID",
+          "team_short": "LEE",
+          "price": 6.5,
+          "price_tenths": 65,
+          "objective_value": 168,
+          "minutes": 2674,
+          "status": "a",
+          "locked": false
+        },
+        {
+          "id": 481,
+          "web_name": "Anderson",
+          "position": "MID",
+          "team_short": "MCI",
+          "price": 6.5,
+          "price_tenths": 65,
+          "objective_value": 180,
+          "minutes": 3332,
+          "status": "a",
+          "locked": false
+        },
+        {
+          "id": 106,
+          "web_name": "Thiago",
+          "position": "FWD",
+          "team_short": "BRE",
+          "price": 8.0,
+          "price_tenths": 80,
+          "objective_value": 181,
+          "minutes": 3282,
+          "status": "a",
+          "locked": false
+        },
+        {
+          "id": 165,
+          "web_name": "João Pedro",
+          "position": "FWD",
+          "team_short": "CHE",
+          "price": 7.5,
+          "price_tenths": 75,
+          "objective_value": 177,
+          "minutes": 2658,
+          "status": "a",
+          "locked": false
+        },
+        {
+          "id": 346,
+          "web_name": "Calvert-Lewin",
+          "position": "FWD",
+          "team_short": "LEE",
+          "price": 6.0,
+          "price_tenths": 60,
+          "objective_value": 142,
+          "minutes": 2721,
+          "status": "a",
+          "locked": false
+        }
+      ],
+      "formation": "3-5-2",
+      "starting_xi": [
+        {
+          "id": 1,
+          "web_name": "Raya",
+          "position": "GKP",
+          "team_short": "ARS",
+          "price": 6.0,
+          "price_tenths": 60,
+          "objective_value": 162,
+          "minutes": 3330,
+          "status": "a",
+          "locked": false
+        },
+        {
+          "id": 4,
+          "web_name": "Gabriel",
+          "position": "DEF",
+          "team_short": "ARS",
+          "price": 8.0,
+          "price_tenths": 80,
+          "objective_value": 209,
+          "minutes": 2750,
+          "status": "a",
+          "locked": false
+        },
+        {
+          "id": 388,
+          "web_name": "Guéhi",
+          "position": "DEF",
+          "team_short": "MCI",
+          "price": 6.0,
+          "price_tenths": 60,
+          "objective_value": 179,
+          "minutes": 3150,
+          "status": "a",
+          "locked": false
+        },
+        {
+          "id": 498,
+          "web_name": "Senesi",
+          "position": "DEF",
+          "team_short": "TOT",
+          "price": 6.0,
+          "price_tenths": 60,
+          "objective_value": 175,
+          "minutes": 3288,
+          "status": "a",
+          "locked": false
+        },
+        {
+          "id": 397,
+          "web_name": "Semenyo",
+          "position": "MID",
+          "team_short": "MCI",
+          "price": 8.5,
+          "price_tenths": 85,
+          "objective_value": 202,
+          "minutes": 3200,
+          "status": "a",
+          "locked": false
+        },
+        {
+          "id": 480,
+          "web_name": "Gibbs-White",
+          "position": "MID",
+          "team_short": "NFO",
+          "price": 8.0,
+          "price_tenths": 80,
+          "objective_value": 188,
+          "minutes": 3101,
+          "status": "a",
+          "locked": false
+        },
+        {
+          "id": 13,
+          "web_name": "Rice",
+          "position": "MID",
+          "team_short": "ARS",
+          "price": 7.5,
+          "price_tenths": 75,
+          "objective_value": 184,
+          "minutes": 3093,
+          "status": "a",
+          "locked": false
+        },
+        {
+          "id": 481,
+          "web_name": "Anderson",
+          "position": "MID",
+          "team_short": "MCI",
+          "price": 6.5,
+          "price_tenths": 65,
+          "objective_value": 180,
+          "minutes": 3332,
+          "status": "a",
+          "locked": false
+        },
+        {
+          "id": 260,
+          "web_name": "Wilson",
+          "position": "MID",
+          "team_short": "LEE",
+          "price": 6.5,
+          "price_tenths": 65,
+          "objective_value": 168,
+          "minutes": 2674,
+          "status": "a",
+          "locked": false
+        },
+        {
+          "id": 106,
+          "web_name": "Thiago",
+          "position": "FWD",
+          "team_short": "BRE",
+          "price": 8.0,
+          "price_tenths": 80,
+          "objective_value": 181,
+          "minutes": 3282,
+          "status": "a",
+          "locked": false
+        },
+        {
+          "id": 165,
+          "web_name": "João Pedro",
+          "position": "FWD",
+          "team_short": "CHE",
+          "price": 7.5,
+          "price_tenths": 75,
+          "objective_value": 177,
+          "minutes": 2658,
+          "status": "a",
+          "locked": false
+        }
+      ],
+      "bench": [
+        {
+          "id": 82,
+          "web_name": "Kelleher",
+          "position": "GKP",
+          "team_short": "BRE",
+          "price": 5.0,
+          "price_tenths": 50,
+          "objective_value": 143,
+          "minutes": 3330,
+          "status": "a",
+          "locked": false
+        },
+        {
+          "id": 61,
+          "web_name": "Truffert",
+          "position": "DEF",
+          "team_short": "BOU",
+          "price": 5.5,
+          "price_tenths": 55,
+          "objective_value": 165,
+          "minutes": 3378,
+          "status": "a",
+          "locked": false
+        },
+        {
+          "id": 112,
+          "web_name": "Van Hecke",
+          "position": "DEF",
+          "team_short": "TOT",
+          "price": 5.0,
+          "price_tenths": 50,
+          "objective_value": 148,
+          "minutes": 3210,
+          "status": "a",
+          "locked": false
+        },
+        {
+          "id": 346,
+          "web_name": "Calvert-Lewin",
+          "position": "FWD",
+          "team_short": "LEE",
+          "price": 6.0,
+          "price_tenths": 60,
+          "objective_value": 142,
+          "minutes": 2721,
+          "status": "a",
+          "locked": false
+        }
+      ],
+      "min_minutes_filter": 1,
+      "warnings": []
+    }
+  },
+  {
+    "tool": "compare_players",
+    "args": {
+      "query_a": "Haaland",
+      "query_b": "Haaland"
+    },
+    "status": "ok",
+    "output": {
+      "status": "ok",
+      "query_a": "Haaland",
+      "query_b": "Haaland",
+      "player_a": {
+        "web_name": "Haaland",
+        "position": "FWD",
+        "captain_score": 36.59,
+        "position_score": 54.28,
+        "tier": "upside",
+        "reasons": [
+          "Penalty taker",
+          "Weak recent form",
+          "High attacking involvement",
+          "Secure minutes"
+        ],
+        "score_inputs": {
+          "form": 0.0,
+          "fixture_difficulty": 3,
+          "xgi_per_90": 0.858551,
+          "minutes_risk": 0.0,
+          "saves_per_90": 0.0,
+          "clean_sheets_per_90": 0.3471,
+          "dc_per_90": 2.7508,
+          "is_home": null,
+          "effective_fdr": 3.0,
+          "position_score": 54.28,
+          "position_profile": "FWD",
+          "components": {
+            "form_score": 0.0,
+            "fixture_score": 60.0,
+            "xgi_score": 37.2509,
+            "minutes_score": 100.0,
+            "saves_score": 0.0,
+            "cs_score": 69.4211,
+            "dc_score": 22.9234
+          },
+          "weights": {
+            "form": 0.0,
+            "fixture": 0.39,
+            "xgi": 0.48,
+            "minutes": 0.13,
+            "saves": 0.0,
+            "clean_sheet": 0.0,
+            "dc": 0.0
+          }
+        },
+        "role_signals": {
+          "penalties_order": 1,
+          "direct_freekicks_order": null,
+          "corners_and_indirect_freekicks_order": null,
+          "set_piece_notes": [
+            "penalty_taker_1"
+          ],
+          "set_piece_threat": true,
+          "role_bonus": 5.0
+        },
+        "fixture_context": {
+          "axis": "attack",
+          "team_short": "MCI",
+          "avg_band": 2.9,
+          "verdict": "Calendario sin rachas claras en el horizonte.",
+          "has_good_run": false,
+          "has_bad_run": false,
+          "tiebreaker_signal": 0,
+          "phrase": "calendario sin rachas marcadas",
+          "role_lean": "attack",
+          "is_defensive_mid": false
+        }
+      },
+      "player_b": {
+        "web_name": "Haaland",
+        "position": "FWD",
+        "captain_score": 36.59,
+        "position_score": 54.28,
+        "tier": "upside",
+        "reasons": [
+          "Penalty taker",
+          "Weak recent form",
+          "High attacking involvement",
+          "Secure minutes"
+        ],
+        "score_inputs": {
+          "form": 0.0,
+          "fixture_difficulty": 3,
+          "xgi_per_90": 0.858551,
+          "minutes_risk": 0.0,
+          "saves_per_90": 0.0,
+          "clean_sheets_per_90": 0.3471,
+          "dc_per_90": 2.7508,
+          "is_home": null,
+          "effective_fdr": 3.0,
+          "position_score": 54.28,
+          "position_profile": "FWD",
+          "components": {
+            "form_score": 0.0,
+            "fixture_score": 60.0,
+            "xgi_score": 37.2509,
+            "minutes_score": 100.0,
+            "saves_score": 0.0,
+            "cs_score": 69.4211,
+            "dc_score": 22.9234
+          },
+          "weights": {
+            "form": 0.0,
+            "fixture": 0.39,
+            "xgi": 0.48,
+            "minutes": 0.13,
+            "saves": 0.0,
+            "clean_sheet": 0.0,
+            "dc": 0.0
+          }
+        },
+        "role_signals": {
+          "penalties_order": 1,
+          "direct_freekicks_order": null,
+          "corners_and_indirect_freekicks_order": null,
+          "set_piece_notes": [
+            "penalty_taker_1"
+          ],
+          "set_piece_threat": true,
+          "role_bonus": 5.0
+        },
+        "fixture_context": {
+          "axis": "attack",
+          "team_short": "MCI",
+          "avg_band": 2.9,
+          "verdict": "Calendario sin rachas claras en el horizonte.",
+          "has_good_run": false,
+          "has_bad_run": false,
+          "tiebreaker_signal": 0,
+          "phrase": "calendario sin rachas marcadas",
+          "role_lean": "attack",
+          "is_defensive_mid": false
+        }
+      },
+      "winner": null,
+      "margin": 0.0,
+      "margin_label": "narrow",
+      "comparison_reasons": [],
+      "fixture_tiebreaker": "Muy parejos; por calendario — Haaland: calendario sin rachas marcadas; Haaland: calendario sin rachas marcadas.",
+      "recommendation": "Haaland (54.28) and Haaland (54.28) are tied on score.",
+      "stat_comparison": {
+        "rows": [
+          {
+            "key": "form",
+            "label": "Forma",
+            "kind": "performance",
+            "value_a": {
+              "value": 0.0,
+              "display": "0.0"
+            },
+            "value_b": {
+              "value": 0.0,
+              "display": "0.0"
+            },
+            "better": null
+          },
+          {
+            "key": "total_points",
+            "label": "Puntos totales",
+            "kind": "performance",
+            "value_a": {
+              "value": 239,
+              "display": "239"
+            },
+            "value_b": {
+              "value": 239,
+              "display": "239"
+            },
+            "better": null
+          },
+          {
+            "key": "price_m",
+            "label": "Precio",
+            "kind": "context",
+            "value_a": {
+              "value": 15.5,
+              "display": "£15.5m"
+            },
+            "value_b": {
+              "value": 15.5,
+              "display": "£15.5m"
+            },
+            "better": null
+          },
+          {
+            "key": "ownership_percent",
+            "label": "Propiedad %",
+            "kind": "context",
+            "value_a": {
+              "value": 70.2,
+              "display": "70.2%"
+            },
+            "value_b": {
+              "value": 70.2,
+              "display": "70.2%"
+            },
+            "better": null
+          },
+          {
+            "key": "goals",
+            "label": "Goles",
+            "kind": "performance",
+            "value_a": {
+              "value": 27,
+              "display": "27"
+            },
+            "value_b": {
+              "value": 27,
+              "display": "27"
+            },
+            "better": null
+          },
+          {
+            "key": "assists",
+            "label": "Asistencias",
+            "kind": "performance",
+            "value_a": {
+              "value": 8,
+              "display": "8"
+            },
+            "value_b": {
+              "value": 8,
+              "display": "8"
+            },
+            "better": null
+          },
+          {
+            "key": "xgi_per_90",
+            "label": "xGI/90",
+            "kind": "performance",
+            "value_a": {
+              "value": 0.8585506264815442,
+              "display": "0.86"
+            },
+            "value_b": {
+              "value": 0.8585506264815442,
+              "display": "0.86"
+            },
+            "better": null
+          }
+        ]
+      }
+    }
+  },
+  {
+    "tool": "find_players",
+    "args": {
+      "name_query": "sal",
+      "limit": 5
+    },
+    "status": "ok",
+    "output": {
+      "status": "ok",
+      "query": "sal",
+      "match_count": 1,
+      "matches": [
+        {
+          "id": 6,
+          "web_name": "Saliba",
+          "team_short": "ARS",
+          "position": "DEF",
+          "minutes_played_season": 2614,
+          "status": "Injured",
+          "news": "Back injury - Unknown return date",
+          "news_added": "2026-07-23T12:01:23.289376Z",
+          "chance_of_playing_this_round": null,
+          "form": 0.0,
+          "total_points": 137,
+          "points_per_game": 4.4,
+          "expected_goals": 0.88,
+          "expected_assists": 1.21,
+          "expected_goal_involvements": 2.09,
+          "expected_goals_conceded": 20.41,
+          "ict_index": 84.3,
+          "influence": 552.6,
+          "creativity": 201.0,
+          "threat": 90.0,
+          "saves": 0,
+          "yellow_cards": 2,
+          "red_cards": 0,
+          "expected_goals_per_90": 0.03,
+          "expected_assists_per_90": 0.04,
+          "expected_goal_involvements_per_90": 0.07,
+          "ict_index_per_90": 2.902448355011477,
+          "defensive_contribution": 193,
+          "defensive_contribution_per_90": 6.64,
+          "now_cost": 60,
+          "selected_by_percent": 0.4,
+          "transfers_in_event": 0,
+          "transfers_out_event": 0,
+          "penalties_order": null,
+          "direct_freekicks_order": null,
+          "corners_and_indirect_freekicks_order": null,
+          "match_rank": 1
+        }
+      ]
+    }
+  },
+  {
+    "tool": "get_captain_score",
+    "args": {
+      "query": "Haaland"
+    },
+    "status": "ok",
+    "output": {
+      "status": "ok",
+      "player_id": 411,
+      "web_name": "Haaland",
+      "name": "Erling Haaland",
+      "team": "Man City",
+      "team_short": "MCI",
+      "position": "FWD",
+      "captain_score": 36.59,
+      "tier": "differential",
+      "role_signals": {
+        "penalties_order": 1,
+        "direct_freekicks_order": null,
+        "corners_and_indirect_freekicks_order": null,
+        "set_piece_notes": [
+          "penalty_taker_1"
+        ],
+        "set_piece_threat": true,
+        "role_bonus": 5.0
+      },
+      "score_inputs": {
+        "form": 0.0,
+        "fixture_difficulty": 3,
+        "xgi_per_90": 0.858551,
+        "minutes_risk": 0.0
+      },
+      "query": "Haaland"
+    }
+  },
+  {
+    "tool": "get_chip_advice",
+    "args": {
+      "chip": "triple_captain"
+    },
+    "status": "ok",
+    "output": {
+      "status": "ok",
+      "chip": "triple_captain",
+      "current_gameweek": 1,
+      "recommendation": "conditions_unfavorable",
+      "signals": {
+        "top_player": "Dasilva",
+        "top_captain_score": 48.0,
+        "top_tier": "upside"
+      },
+      "advice_text": "Triple captain conditions: unfavorable. No standout captain option this week. Best available: Dasilva (captain score 48.0, tier: upside). It may be worth saving the triple captain chip. Note: whether you still have this chip available is not known to this system.",
+      "fixture_context": {
+        "axis": "defence",
+        "team_short": "BRE",
+        "avg_band": 3.1,
+        "verdict": "Tramo complicado para mantener la portería a cero (J5–J7).",
+        "has_good_run": false,
+        "has_bad_run": true,
+        "tiebreaker_signal": -1,
+        "phrase": "calendario defensivo exigente (J5–J7)",
+        "role_lean": "defensive",
+        "is_defensive_mid": true,
+        "dc_per_90": 45.0,
+        "mid_dc_threshold": 9.9,
+        "dc_percentile": 100.0
+      }
+    }
+  },
+  {
+    "tool": "get_current_gameweek",
+    "args": {},
+    "status": "ok",
+    "output": {
+      "status": "ok",
+      "gameweek": 1
+    }
+  },
+  {
+    "tool": "get_differential_picks",
+    "args": {},
+    "status": "ok",
+    "output": {
+      "status": "ok",
+      "ownership_threshold": 15.0,
+      "top_n": 5,
+      "picks": [
+        {
+          "rank": 1,
+          "web_name": "Donnarumma",
+          "team_short": "MCI",
+          "position": "GKP",
+          "captain_score": 28.04,
+          "position_score": 70.78,
+          "ownership": 9.5,
+          "now_cost": 55,
+          "is_home": null,
+          "fixture_context": {
+            "axis": "defence",
+            "team_short": "MCI",
+            "avg_band": 2.9,
+            "verdict": "Calendario sin rachas claras en el horizonte.",
+            "has_good_run": false,
+            "has_bad_run": false,
+            "tiebreaker_signal": 0,
+            "phrase": "calendario sin rachas marcadas",
+            "role_lean": "defensive",
+            "is_defensive_mid": false
+          }
+        },
+        {
+          "rank": 2,
+          "web_name": "Roefs",
+          "team_short": "SUN",
+          "position": "GKP",
+          "captain_score": 28.03,
+          "position_score": 66.14,
+          "ownership": 4.8,
+          "now_cost": 50,
+          "is_home": null,
+          "fixture_context": {
+            "axis": "defence",
+            "team_short": "SUN",
+            "avg_band": 2.9,
+            "verdict": "Calendario sin rachas claras en el horizonte.",
+            "has_good_run": false,
+            "has_bad_run": false,
+            "tiebreaker_signal": 0,
+            "phrase": "calendario sin rachas marcadas",
+            "role_lean": "defensive",
+            "is_defensive_mid": false
+          }
+        },
+        {
+          "rank": 3,
+          "web_name": "Henderson",
+          "team_short": "CRY",
+          "position": "GKP",
+          "captain_score": 28.03,
+          "position_score": 65.98,
+          "ownership": 3.2,
+          "now_cost": 50,
+          "is_home": null,
+          "fixture_context": {
+            "axis": "defence",
+            "team_short": "CRY",
+            "avg_band": 3.0,
+            "verdict": "Calendario sin rachas claras en el horizonte.",
+            "has_good_run": false,
+            "has_bad_run": false,
+            "tiebreaker_signal": 0,
+            "phrase": "calendario sin rachas marcadas",
+            "role_lean": "defensive",
+            "is_defensive_mid": false
+          }
+        },
+        {
+          "rank": 4,
+          "web_name": "Petrović",
+          "team_short": "BOU",
+          "position": "GKP",
+          "captain_score": 28.0,
+          "position_score": 65.59,
+          "ownership": 3.5,
+          "now_cost": 45,
+          "is_home": null,
+          "fixture_context": {
+            "axis": "defence",
+            "team_short": "BOU",
+            "avg_band": 3.2,
+            "verdict": "Calendario sin rachas claras en el horizonte.",
+            "has_good_run": false,
+            "has_bad_run": false,
+            "tiebreaker_signal": 0,
+            "phrase": "calendario sin rachas marcadas",
+            "role_lean": "defensive",
+            "is_defensive_mid": false
+          }
+        },
+        {
+          "rank": 5,
+          "web_name": "Pickford",
+          "team_short": "EVE",
+          "position": "GKP",
+          "captain_score": 28.05,
+          "position_score": 64.79,
+          "ownership": 8.5,
+          "now_cost": 55,
+          "is_home": null,
+          "fixture_context": {
+            "axis": "defence",
+            "team_short": "EVE",
+            "avg_band": 3.1,
+            "verdict": "Calendario sin rachas claras en el horizonte.",
+            "has_good_run": false,
+            "has_bad_run": false,
+            "tiebreaker_signal": 0,
+            "phrase": "calendario sin rachas marcadas",
+            "role_lean": "defensive",
+            "is_defensive_mid": false
+          }
+        }
+      ]
+    }
+  },
+  {
+    "tool": "get_expected_minutes",
+    "args": {
+      "player": "Haaland"
+    },
+    "status": "missing_context",
+    "output": {
+      "status": "missing_context",
+      "reason_codes": [
+        "feature_build_unavailable"
+      ],
+      "evidence": []
+    }
+  },
+  {
+    "tool": "get_fixture_context",
+    "args": {
+      "team": "Arsenal",
+      "fixture": "Arsenal vs Chelsea"
+    },
+    "status": "missing_context",
+    "output": {
+      "status": "missing_context",
+      "reason_codes": [
+        "feature_build_unavailable"
+      ],
+      "evidence": []
+    }
+  },
+  {
+    "tool": "get_fixture_outlook",
+    "args": {
+      "axis": "attack",
+      "horizon": 5,
+      "team_query": "Arsenal"
+    },
+    "status": "ok",
+    "output": {
+      "team_id": 1,
+      "team_short": "ARS",
+      "team_name": "Arsenal",
+      "axis": "attack",
+      "horizon": 5,
+      "avg_band": 3.2,
+      "series": [
+        {
+          "gameweek": 1,
+          "band": 2,
+          "klass": "good",
+          "is_dgw": false,
+          "is_bgw": false,
+          "fixtures": [
+            {
+              "opponent_short": "COV",
+              "is_home": true,
+              "band": 2
+            }
+          ]
+        },
+        {
+          "gameweek": 2,
+          "band": 4,
+          "klass": "bad",
+          "is_dgw": false,
+          "is_bgw": false,
+          "fixtures": [
+            {
+              "opponent_short": "AVL",
+              "is_home": false,
+              "band": 4
+            }
+          ]
+        },
+        {
+          "gameweek": 3,
+          "band": 4,
+          "klass": "bad",
+          "is_dgw": false,
+          "is_bgw": false,
+          "fixtures": [
+            {
+              "opponent_short": "CHE",
+              "is_home": true,
+              "band": 4
+            }
+          ]
+        },
+        {
+          "gameweek": 4,
+          "band": 3,
+          "klass": "neutral",
+          "is_dgw": false,
+          "is_bgw": false,
+          "fixtures": [
+            {
+              "opponent_short": "SUN",
+              "is_home": false,
+              "band": 3
+            }
+          ]
+        },
+        {
+          "gameweek": 5,
+          "band": 3,
+          "klass": "neutral",
+          "is_dgw": false,
+          "is_bgw": false,
+          "fixtures": [
+            {
+              "opponent_short": "BHA",
+              "is_home": false,
+              "band": 3
+            }
+          ]
+        }
+      ],
+      "runs": [],
+      "verdict": "Calendario sin rachas claras en el horizonte.",
+      "status": "ok"
+    }
+  },
+  {
+    "tool": "get_fixtures_for_gw",
+    "args": {
+      "gw_number": 1
+    },
+    "status": "ok",
+    "output": {
+      "status": "ok",
+      "gw": 1,
+      "is_blank": false,
+      "is_double": false,
+      "finished": false,
+      "fixtures": [
+        {
+          "id": 1,
+          "kickoff_time": "2026-08-21T19:00:00Z",
+          "home_team_short": "ARS",
+          "away_team_short": "COV",
+          "home_fdr": 2,
+          "away_fdr": 5,
+          "finished": false,
+          "home_score": null,
+          "away_score": null,
+          "minutes": 0
+        },
+        {
+          "id": 4,
+          "kickoff_time": "2026-08-22T11:30:00Z",
+          "home_team_short": "HUL",
+          "away_team_short": "MUN",
+          "home_fdr": 4,
+          "away_fdr": 2,
+          "finished": false,
+          "home_score": null,
+          "away_score": null,
+          "minutes": 0
+        },
+        {
+          "id": 3,
+          "kickoff_time": "2026-08-22T14:00:00Z",
+          "home_team_short": "EVE",
+          "away_team_short": "CRY",
+          "home_fdr": 3,
+          "away_fdr": 3,
+          "finished": false,
+          "home_score": null,
+          "away_score": null,
+          "minutes": 0
+        },
+        {
+          "id": 5,
+          "kickoff_time": "2026-08-22T14:00:00Z",
+          "home_team_short": "IPS",
+          "away_team_short": "SUN",
+          "home_fdr": 2,
+          "away_fdr": 2,
+          "finished": false,
+          "home_score": null,
+          "away_score": null,
+          "minutes": 0
+        },
+        {
+          "id": 6,
+          "kickoff_time": "2026-08-22T14:00:00Z",
+          "home_team_short": "NFO",
+          "away_team_short": "LEE",
+          "home_fdr": 2,
+          "away_fdr": 3,
+          "finished": false,
+          "home_score": null,
+          "away_score": null,
+          "minutes": 0
+        },
+        {
+          "id": 2,
+          "kickoff_time": "2026-08-22T16:30:00Z",
+          "home_team_short": "BRE",
+          "away_team_short": "TOT",
+          "home_fdr": 3,
+          "away_fdr": 3,
+          "finished": false,
+          "home_score": null,
+          "away_score": null,
+          "minutes": 0
+        },
+        {
+          "id": 7,
+          "kickoff_time": "2026-08-23T13:00:00Z",
+          "home_team_short": "BHA",
+          "away_team_short": "AVL",
+          "home_fdr": 3,
+          "away_fdr": 3,
+          "finished": false,
+          "home_score": null,
+          "away_score": null,
+          "minutes": 0
+        },
+        {
+          "id": 8,
+          "kickoff_time": "2026-08-23T13:00:00Z",
+          "home_team_short": "MCI",
+          "away_team_short": "BOU",
+          "home_fdr": 3,
+          "away_fdr": 5,
+          "finished": false,
+          "home_score": null,
+          "away_score": null,
+          "minutes": 0
+        },
+        {
+          "id": 9,
+          "kickoff_time": "2026-08-23T15:30:00Z",
+          "home_team_short": "NEW",
+          "away_team_short": "LIV",
+          "home_fdr": 4,
+          "away_fdr": 3,
+          "finished": false,
+          "home_score": null,
+          "away_score": null,
+          "minutes": 0
+        },
+        {
+          "id": 10,
+          "kickoff_time": "2026-08-24T19:00:00Z",
+          "home_team_short": "FUL",
+          "away_team_short": "CHE",
+          "home_fdr": 4,
+          "away_fdr": 3,
+          "finished": false,
+          "home_score": null,
+          "away_score": null,
+          "minutes": 0
+        }
+      ],
+      "summary": {
+        "total_fixtures": 10,
+        "easiest_for_home_team": "ARS",
+        "hardest_for_home_team": "HUL",
+        "double_gw_teams": [],
+        "blank_gw_teams": []
+      }
+    }
+  },
+  {
+    "tool": "get_gameweek_context",
+    "args": {},
+    "status": "ok",
+    "output": {
+      "status": "ok",
+      "current_gw": 1,
+      "next_gw": 1,
+      "current_gw_deadline": "2026-08-21T17:30:00Z",
+      "next_gw_deadline": "2026-08-21T17:30:00Z",
+      "season_total_gws": 38,
+      "is_season_over": false,
+      "is_pre_season": true,
+      "current_gw_status": "pending",
+      "blank_gw_alerts": [
+        {
+          "gw": 1,
+          "blank_teams": [
+            "ARS",
+            "AVL",
+            "BHA",
+            "BOU",
+            "BRE",
+            "CHE",
+            "COV",
+            "CRY",
+            "EVE",
+            "FUL",
+            "HUL",
+            "IPS",
+            "LEE",
+            "LIV",
+            "MCI",
+            "MUN",
+            "NEW",
+            "NFO",
+            "SUN",
+            "TOT"
+          ],
+          "count": 20
+        },
+        {
+          "gw": 2,
+          "blank_teams": [
+            "ARS",
+            "AVL",
+            "BHA",
+            "BOU",
+            "BRE",
+            "CHE",
+            "COV",
+            "CRY",
+            "EVE",
+            "FUL",
+            "HUL",
+            "IPS",
+            "LEE",
+            "LIV",
+            "MCI",
+            "MUN",
+            "NEW",
+            "NFO",
+            "SUN",
+            "TOT"
+          ],
+          "count": 20
+        },
+        {
+          "gw": 3,
+          "blank_teams": [
+            "ARS",
+            "AVL",
+            "BHA",
+            "BOU",
+            "BRE",
+            "CHE",
+            "COV",
+            "CRY",
+            "EVE",
+            "FUL",
+            "HUL",
+            "IPS",
+            "LEE",
+            "LIV",
+            "MCI",
+            "MUN",
+            "NEW",
+            "NFO",
+            "SUN",
+            "TOT"
+          ],
+          "count": 20
+        },
+        {
+          "gw": 4,
+          "blank_teams": [
+            "ARS",
+            "AVL",
+            "BHA",
+            "BOU",
+            "BRE",
+            "CHE",
+            "COV",
+            "CRY",
+            "EVE",
+            "FUL",
+            "HUL",
+            "IPS",
+            "LEE",
+            "LIV",
+            "MCI",
+            "MUN",
+            "NEW",
+            "NFO",
+            "SUN",
+            "TOT"
+          ],
+          "count": 20
+        },
+        {
+          "gw": 5,
+          "blank_teams": [
+            "ARS",
+            "AVL",
+            "BHA",
+            "BOU",
+            "BRE",
+            "CHE",
+            "COV",
+            "CRY",
+            "EVE",
+            "FUL",
+            "HUL",
+            "IPS",
+            "LEE",
+            "LIV",
+            "MCI",
+            "MUN",
+            "NEW",
+            "NFO",
+            "SUN",
+            "TOT"
+          ],
+          "count": 20
+        }
+      ],
+      "double_gw_alerts": []
+    }
+  },
+  {
+    "tool": "get_injury_list",
+    "args": {},
+    "status": "ok",
+    "output": {
+      "status": "ok",
+      "injured": [
+        {
+          "web_name": "J.Timber",
+          "team_short": "ARS",
+          "position": "DEF",
+          "status_label": "Injured",
+          "news": "Groin injury - Unknown return date",
+          "news_added": "2026-07-23T12:01:23.272929Z"
+        },
+        {
+          "web_name": "Saliba",
+          "team_short": "ARS",
+          "position": "DEF",
+          "status_label": "Injured",
+          "news": "Back injury - Unknown return date",
+          "news_added": "2026-07-23T12:01:23.289376Z"
+        },
+        {
+          "web_name": "Onana",
+          "team_short": "AVL",
+          "position": "MID",
+          "status_label": "Injured",
+          "news": "Knee injury - Unknown return date",
+          "news_added": "2026-07-23T12:01:23.352497Z"
+        },
+        {
+          "web_name": "Manzambi",
+          "team_short": "AVL",
+          "position": "MID",
+          "status_label": "Injured",
+          "news": "Knee injury - Unknown return date",
+          "news_added": "2026-08-15T15:30:06.388335Z"
+        },
+        {
+          "web_name": "Gomes",
+          "team_short": "AVL",
+          "position": "MID",
+          "status_label": "Injured",
+          "news": "Calf injury - Unknown return date",
+          "news_added": "2026-08-15T16:00:07.546807Z"
+        },
+        {
+          "web_name": "Madjo",
+          "team_short": "AVL",
+          "position": "FWD",
+          "status_label": "Injured",
+          "news": "Unspecified injury - Unknown return date",
+          "news_added": "2026-08-15T16:00:07.974271Z"
+        },
+        {
+          "web_name": "Milosavljević",
+          "team_short": "BOU",
+          "position": "DEF",
+          "status_label": "Injured",
+          "news": "Unspecified injury - Unknown return date",
+          "news_added": "2026-08-06T10:00:10.456051Z"
+        },
+        {
+          "web_name": "J.Araujo",
+          "team_short": "BOU",
+          "position": "DEF",
+          "status_label": "Injured",
+          "news": "Thigh injury - Unknown return date",
+          "news_added": "2026-08-09T08:00:05.645826Z"
+        },
+        {
+          "web_name": "Adli",
+          "team_short": "BOU",
+          "position": "MID",
+          "status_label": "Injured",
+          "news": "Unspecified injury - Unknown return date",
+          "news_added": "2026-08-15T16:00:07.590566Z"
+        },
+        {
+          "web_name": "Kroupi.Jr",
+          "team_short": "BOU",
+          "position": "MID",
+          "status_label": "Injured",
+          "news": "Foot injury - Unknown return date",
+          "news_added": "2026-07-29T17:30:09.796802Z"
+        },
+        {
+          "web_name": "Van den Berg",
+          "team_short": "BRE",
+          "position": "DEF",
+          "status_label": "Injured",
+          "news": "Unspecified injury - Unknown return date",
+          "news_added": "2026-08-15T15:30:06.416627Z"
+        },
+        {
+          "web_name": "Milambo",
+          "team_short": "BRE",
+          "position": "MID",
+          "status_label": "Injured",
+          "news": "Knee injury - Unknown return date",
+          "news_added": "2026-07-23T12:01:23.384798Z"
+        },
+        {
+          "web_name": "Mitoma",
+          "team_short": "BHA",
+          "position": "MID",
+          "status_label": "Injured",
+          "news": "Hamstring injury - Unknown return date",
+          "news_added": "2026-07-24T18:30:10.661894Z"
+        },
+        {
+          "web_name": "Minteh",
+          "team_short": "BHA",
+          "position": "MID",
+          "status_label": "Injured",
+          "news": "Leg injury - Expected back 28 Nov",
+          "news_added": "2026-08-14T18:00:06.418033Z"
+        },
+        {
+          "web_name": "Baleba",
+          "team_short": "BHA",
+          "position": "MID",
+          "status_label": "Injured",
+          "news": "Ankle injury - Expected back 23 Aug",
+          "news_added": "2026-08-06T16:00:10.997714Z"
+        },
+        {
+          "web_name": "Ferguson",
+          "team_short": "BHA",
+          "position": "FWD",
+          "status_label": "Injured",
+          "news": "Ankle injury - Expected back 10 Oct",
+          "news_added": "2026-07-23T12:01:23.448357Z"
+        },
+        {
+          "web_name": "Wright",
+          "team_short": "COV",
+          "position": "FWD",
+          "status_label": "Injured",
+          "news": "Thigh injury - Unknown return date",
+          "news_added": "2026-08-14T22:00:07.214508Z"
+        },
+        {
+          "web_name": "Garner",
+          "team_short": "EVE",
+          "position": "MID",
+          "status_label": "Injured",
+          "news": "Groin injury - Unknown return date",
+          "news_added": "2026-07-25T14:30:10.455878Z"
+        },
+        {
+          "web_name": "Iroegbunam",
+          "team_short": "EVE",
+          "position": "MID",
+          "status_label": "Injured",
+          "news": "Groin injury - Unknown return date",
+          "news_added": "2026-08-15T20:00:06.878792Z"
+        },
+        {
+          "web_name": "Cairney",
+          "team_short": "FUL",
+          "position": "MID",
+          "status_label": "Injured",
+          "news": "Knee injury - Expected back 10 Oct",
+          "news_added": "2026-08-14T18:00:06.460944Z"
+        },
+        {
+          "web_name": "Butland",
+          "team_short": "HUL",
+          "position": "GKP",
+          "status_label": "Injured",
+          "news": "Arm injury - Unknown return date",
+          "news_added": "2026-08-08T19:00:05.601633Z"
+        },
+        {
+          "web_name": "Hughes",
+          "team_short": "HUL",
+          "position": "DEF",
+          "status_label": "Injured",
+          "news": "Groin injury - Unknown return date",
+          "news_added": "2026-08-02T09:00:11.030017Z"
+        },
+        {
+          "web_name": "Drameh",
+          "team_short": "HUL",
+          "position": "DEF",
+          "status_label": "Injured",
+          "news": "Hamstring injury - Expected back 29 Aug",
+          "news_added": "2026-08-08T19:00:05.613036Z"
+        },
+        {
+          "web_name": "Matazo",
+          "team_short": "HUL",
+          "position": "MID",
+          "status_label": "Injured",
+          "news": "Knee injury - Unknown return date",
+          "news_added": "2026-07-23T12:01:23.532635Z"
+        },
+        {
+          "web_name": "Zambrano",
+          "team_short": "HUL",
+          "position": "MID",
+          "status_label": "Injured",
+          "news": "Thigh injury - Unknown return date",
+          "news_added": "2026-08-04T18:30:11.016909Z"
+        },
+        {
+          "web_name": "Gyabi",
+          "team_short": "HUL",
+          "position": "MID",
+          "status_label": "Injured",
+          "news": "Thigh injury - Unknown return date",
+          "news_added": "2026-08-04T18:30:11.027155Z"
+        },
+        {
+          "web_name": "Gelhardt",
+          "team_short": "HUL",
+          "position": "MID",
+          "status_label": "Injured",
+          "news": "Ankle injury - Expected back 5 Sep",
+          "news_added": "2026-08-17T21:30:07.799839Z"
+        },
+        {
+          "web_name": "Matusiwa",
+          "team_short": "IPS",
+          "position": "MID",
+          "status_label": "Injured",
+          "news": "Muscular injury - Unknown return date",
+          "news_added": "2026-07-29T18:00:10.305484Z"
+        },
+        {
+          "web_name": "Taylor",
+          "team_short": "IPS",
+          "position": "MID",
+          "status_label": "Injured",
+          "news": "Knee injury - Unknown return date",
+          "news_added": "2026-07-29T18:00:10.319370Z"
+        },
+        {
+          "web_name": "Gudmundsson",
+          "team_short": "LEE",
+          "position": "DEF",
+          "status_label": "Injured",
+          "news": "Hamstring injury - Expected back 30 Aug",
+          "news_added": "2026-08-08T20:00:07.546568Z"
+        },
+        {
+          "web_name": "Gruev",
+          "team_short": "LEE",
+          "position": "MID",
+          "status_label": "Injured",
+          "news": "Knee injury - Unknown return date",
+          "news_added": "2026-08-14T23:00:06.272027Z"
+        },
+        {
+          "web_name": "Mateo Joseph",
+          "team_short": "LEE",
+          "position": "FWD",
+          "status_label": "Injured",
+          "news": "Knee injury - Unknown return date",
+          "news_added": "2026-07-29T18:00:10.338170Z"
+        },
+        {
+          "web_name": "Jaros",
+          "team_short": "LIV",
+          "position": "GKP",
+          "status_label": "Injured",
+          "news": "Knee injury - Unknown return date",
+          "news_added": "2026-07-29T18:00:10.351066Z"
+        },
+        {
+          "web_name": "Gomez",
+          "team_short": "LIV",
+          "position": "DEF",
+          "status_label": "Injured",
+          "news": "Muscular injury - Unknown return date",
+          "news_added": "2026-07-26T08:30:10.078473Z"
+        },
+        {
+          "web_name": "Bradley",
+          "team_short": "LIV",
+          "position": "DEF",
+          "status_label": "Injured",
+          "news": "Knee injury - Unknown return date",
+          "news_added": "2026-07-23T12:01:23.565711Z"
+        },
+        {
+          "web_name": "Leoni",
+          "team_short": "LIV",
+          "position": "DEF",
+          "status_label": "Injured",
+          "news": "Knee injury - Unknown return date",
+          "news_added": "2026-07-23T12:01:23.596909Z"
+        },
+        {
+          "web_name": "Bajcetic",
+          "team_short": "LIV",
+          "position": "MID",
+          "status_label": "Injured",
+          "news": "Hamstring injury - Expected back 23 Aug",
+          "news_added": "2026-07-23T12:01:23.628373Z"
+        },
+        {
+          "web_name": "Ekitiké",
+          "team_short": "LIV",
+          "position": "FWD",
+          "status_label": "Injured",
+          "news": "Achilles injury - Unknown return date",
+          "news_added": "2026-07-23T12:01:23.643771Z"
+        },
+        {
+          "web_name": "Danns",
+          "team_short": "LIV",
+          "position": "FWD",
+          "status_label": "Injured",
+          "news": "Unspecified injury - Unknown return date",
+          "news_added": "2026-07-23T12:01:23.659279Z"
+        },
+        {
+          "web_name": "Rodrigo",
+          "team_short": "MCI",
+          "position": "MID",
+          "status_label": "Injured",
+          "news": "Back injury - Unknown return date",
+          "news_added": "2026-07-23T12:01:23.675537Z"
+        },
+        {
+          "web_name": "Heaton",
+          "team_short": "MUN",
+          "position": "GKP",
+          "status_label": "Injured",
+          "news": "Hamstring injury - Unknown return date",
+          "news_added": "2026-08-15T16:00:07.854151Z"
+        },
+        {
+          "web_name": "De Ligt",
+          "team_short": "MUN",
+          "position": "DEF",
+          "status_label": "Injured",
+          "news": "Back injury - Unknown return date",
+          "news_added": "2026-07-23T12:01:23.690880Z"
+        },
+        {
+          "web_name": "Ugarte",
+          "team_short": "MUN",
+          "position": "MID",
+          "status_label": "Injured",
+          "news": "Knee injury - Unknown return date",
+          "news_added": "2026-07-23T12:01:23.706702Z"
+        },
+        {
+          "web_name": "Joelinton",
+          "team_short": "NEW",
+          "position": "MID",
+          "status_label": "Injured",
+          "news": "Unspecified injury - Unknown return date",
+          "news_added": "2026-08-16T08:00:08.074045Z"
+        },
+        {
+          "web_name": "Savona",
+          "team_short": "NFO",
+          "position": "DEF",
+          "status_label": "Injured",
+          "news": "Knee injury - Unknown return date",
+          "news_added": "2026-07-23T12:01:23.816304Z"
+        },
+        {
+          "web_name": "Xavi",
+          "team_short": "TOT",
+          "position": "MID",
+          "status_label": "Injured",
+          "news": "Knee injury - Unknown return date",
+          "news_added": "2026-07-23T12:01:23.864304Z"
+        },
+        {
+          "web_name": "Odobert",
+          "team_short": "TOT",
+          "position": "MID",
+          "status_label": "Injured",
+          "news": "Knee injury - Unknown return date",
+          "news_added": "2026-07-23T12:01:23.879434Z"
+        },
+        {
+          "web_name": "Kulusevski",
+          "team_short": "TOT",
+          "position": "MID",
+          "status_label": "Injured",
+          "news": "Knee injury - Unknown return date",
+          "news_added": "2026-07-23T12:01:23.895175Z"
+        }
+      ],
+      "doubtful": [
+        {
+          "web_name": "Abraham",
+          "team_short": "AVL",
+          "position": "FWD",
+          "status_label": "Doubtful",
+          "news": "Knock - 75% chance of playing",
+          "news_added": "2026-08-15T16:00:07.558543Z",
+          "chance_of_playing": null
+        },
+        {
+          "web_name": "Soler",
+          "team_short": "BOU",
+          "position": "DEF",
+          "status_label": "Doubtful",
+          "news": "Hamstring injury - 75% chance of playing",
+          "news_added": "2026-08-15T16:30:07.021055Z",
+          "chance_of_playing": null
+        },
+        {
+          "web_name": "Adams",
+          "team_short": "BOU",
+          "position": "MID",
+          "status_label": "Doubtful",
+          "news": "Unspecified injury - 75% chance of playing",
+          "news_added": "2026-08-15T16:30:07.029928Z",
+          "chance_of_playing": null
+        },
+        {
+          "web_name": "Brooks",
+          "team_short": "BOU",
+          "position": "MID",
+          "status_label": "Doubtful",
+          "news": "Unspecified injury - 75% chance of playing",
+          "news_added": "2026-08-15T16:30:07.037929Z",
+          "chance_of_playing": null
+        },
+        {
+          "web_name": "Rodríguez",
+          "team_short": "BOU",
+          "position": "FWD",
+          "status_label": "Doubtful",
+          "news": "Unspecified injury - 75% chance of playing",
+          "news_added": "2026-08-15T16:30:07.054142Z",
+          "chance_of_playing": null
+        },
+        {
+          "web_name": "Carvalho",
+          "team_short": "BRE",
+          "position": "MID",
+          "status_label": "Doubtful",
+          "news": "Lack of match fitness - 75% chance of playing",
+          "news_added": "2026-08-18T13:58:17.442072Z",
+          "chance_of_playing": null
+        },
+        {
+          "web_name": "Tzimas",
+          "team_short": "BHA",
+          "position": "FWD",
+          "status_label": "Doubtful",
+          "news": "Knee injury - 75% chance of playing",
+          "news_added": "2026-07-23T12:01:23.432796Z",
+          "chance_of_playing": null
+        },
+        {
+          "web_name": "Struijk",
+          "team_short": "BHA",
+          "position": "DEF",
+          "status_label": "Doubtful",
+          "news": "Knock - 75% chance of playing",
+          "news_added": "2026-08-15T20:30:07.523574Z",
+          "chance_of_playing": null
+        },
+        {
+          "web_name": "Henderson",
+          "team_short": "CHE",
+          "position": "MID",
+          "status_label": "Doubtful",
+          "news": "Wrist injury - 75% chance of playing",
+          "news_added": "2026-08-09T09:30:07.136250Z",
+          "chance_of_playing": null
+        },
+        {
+          "web_name": "Emegha",
+          "team_short": "CHE",
+          "position": "FWD",
+          "status_label": "Doubtful",
+          "news": "Hamstring injury - 75% chance of playing",
+          "news_added": "2026-07-24T20:30:10.622380Z",
+          "chance_of_playing": null
+        },
+        {
+          "web_name": "Rudoni",
+          "team_short": "COV",
+          "position": "MID",
+          "status_label": "Doubtful",
+          "news": "Shoulder injury - 75% chance of playing",
+          "news_added": "2026-07-23T12:01:23.481435Z",
+          "chance_of_playing": null
+        },
+        {
+          "web_name": "Mason-Clark",
+          "team_short": "COV",
+          "position": "MID",
+          "status_label": "Doubtful",
+          "news": "Hamstring injury - 75% chance of playing",
+          "news_added": "2026-08-14T22:00:07.201509Z",
+          "chance_of_playing": null
+        },
+        {
+          "web_name": "Nørgaard",
+          "team_short": "EVE",
+          "position": "MID",
+          "status_label": "Doubtful",
+          "news": "Lack of match fitness - 75% chance of playing",
+          "news_added": "2026-08-15T20:00:06.779594Z",
+          "chance_of_playing": null
+        },
+        {
+          "web_name": "Jacob",
+          "team_short": "HUL",
+          "position": "DEF",
+          "status_label": "Doubtful",
+          "news": "Hip injury - 75% chance of playing",
+          "news_added": "2026-08-02T09:00:11.038361Z",
+          "chance_of_playing": null
+        },
+        {
+          "web_name": "Morita",
+          "team_short": "HUL",
+          "position": "MID",
+          "status_label": "Doubtful",
+          "news": "Calf injury - 50% chance of playing",
+          "news_added": "2026-08-15T16:00:07.961518Z",
+          "chance_of_playing": null
+        },
+        {
+          "web_name": "Gnonto",
+          "team_short": "LEE",
+          "position": "MID",
+          "status_label": "Doubtful",
+          "news": "Hamstring injury - 25% chance of playing",
+          "news_added": "2026-08-17T20:30:08.092366Z",
+          "chance_of_playing": null
+        },
+        {
+          "web_name": "C.Jones",
+          "team_short": "LIV",
+          "position": "MID",
+          "status_label": "Doubtful",
+          "news": "Hip injury - 75% chance of playing",
+          "news_added": "2026-08-16T18:30:07.426408Z",
+          "chance_of_playing": null
+        },
+        {
+          "web_name": "Matheus N.",
+          "team_short": "MCI",
+          "position": "DEF",
+          "status_label": "Doubtful",
+          "news": "Knock - 75% chance of playing",
+          "news_added": "2026-08-16T18:30:07.457097Z",
+          "chance_of_playing": null
+        },
+        {
+          "web_name": "Doku",
+          "team_short": "MCI",
+          "position": "MID",
+          "status_label": "Doubtful",
+          "news": "Calf injury - 75% chance of playing",
+          "news_added": "2026-08-18T17:00:08.385597Z",
+          "chance_of_playing": null
+        },
+        {
+          "web_name": "Darlow",
+          "team_short": "MUN",
+          "position": "GKP",
+          "status_label": "Doubtful",
+          "news": "Unspecified injury - 75% chance of playing",
+          "news_added": "2026-07-23T12:01:23.549136Z",
+          "chance_of_playing": null
+        },
+        {
+          "web_name": "Mount",
+          "team_short": "MUN",
+          "position": "MID",
+          "status_label": "Doubtful",
+          "news": "Foot injury - 50% chance of playing",
+          "news_added": "2026-08-15T16:00:07.879135Z",
+          "chance_of_playing": null
+        },
+        {
+          "web_name": "Šeško",
+          "team_short": "MUN",
+          "position": "FWD",
+          "status_label": "Doubtful",
+          "news": "Shin injury - 75% chance of playing",
+          "news_added": "2026-07-23T12:01:23.722029Z",
+          "chance_of_playing": null
+        },
+        {
+          "web_name": "Livramento",
+          "team_short": "NEW",
+          "position": "DEF",
+          "status_label": "Doubtful",
+          "news": "Calf injury - 75% chance of playing",
+          "news_added": "2026-07-23T12:01:23.753221Z",
+          "chance_of_playing": null
+        },
+        {
+          "web_name": "Yates",
+          "team_short": "NFO",
+          "position": "MID",
+          "status_label": "Doubtful",
+          "news": "Unspecified injury - 75% chance of playing",
+          "news_added": "2026-08-17T20:30:08.195072Z",
+          "chance_of_playing": null
+        },
+        {
+          "web_name": "Kudus",
+          "team_short": "TOT",
+          "position": "MID",
+          "status_label": "Doubtful",
+          "news": "Thigh injury - 75% chance of playing",
+          "news_added": "2026-07-23T12:01:23.848657Z",
+          "chance_of_playing": null
+        },
+        {
+          "web_name": "Mukiele",
+          "team_short": "SUN",
+          "position": "DEF",
+          "status_label": "Doubtful",
+          "news": "Knock - 75% chance of playing",
+          "news_added": "2026-08-09T08:30:05.954750Z",
+          "chance_of_playing": null
+        },
+        {
+          "web_name": "Alderete",
+          "team_short": "SUN",
+          "position": "DEF",
+          "status_label": "Doubtful",
+          "news": "Knock - 75% chance of playing",
+          "news_added": "2026-08-09T08:30:05.962393Z",
+          "chance_of_playing": null
+        },
+        {
+          "web_name": "Meunier",
+          "team_short": "SUN",
+          "position": "DEF",
+          "status_label": "Doubtful",
+          "news": "Knock - 75% chance of playing",
+          "news_added": "2026-08-16T08:30:07.830062Z",
+          "chance_of_playing": null
+        }
+      ],
+      "other": [
+        {
+          "web_name": "Digne",
+          "team_short": "AVL",
+          "position": "DEF",
+          "status_label": "Unavailable",
+          "news": "Has joined Paris Saint-Germain permanently",
+          "news_added": "2026-08-10T14:03:30.089007Z"
+        },
+        {
+          "web_name": "Iling Jr",
+          "team_short": "AVL",
+          "position": "MID",
+          "status_label": "Unavailable",
+          "news": "Has joined Bolton Wanderers on loan for the rest of the season",
+          "news_added": "2026-08-17T13:52:28.532616Z"
+        },
+        {
+          "web_name": "Christie",
+          "team_short": "BOU",
+          "position": "MID",
+          "status_label": "Suspended",
+          "news": "Suspended until 29 Aug",
+          "news_added": "2026-07-24T17:30:10.035483Z"
+        },
+        {
+          "web_name": "Enes Ünal",
+          "team_short": "BOU",
+          "position": "FWD",
+          "status_label": "Unavailable",
+          "news": "Has joined Getafe permanently",
+          "news_added": "2026-08-14T14:14:21.881112Z"
+        },
+        {
+          "web_name": "Buonanotte",
+          "team_short": "BHA",
+          "position": "MID",
+          "status_label": "Unavailable",
+          "news": "Has joined Elche on loan for the rest of the season",
+          "news_added": "2026-08-10T14:03:07.561436Z"
+        },
+        {
+          "web_name": "Howell",
+          "team_short": "BHA",
+          "position": "MID",
+          "status_label": "Unavailable",
+          "news": "Has joined Leicester City on loan for the rest of the season",
+          "news_added": "2026-08-17T13:53:19.019938Z"
+        },
+        {
+          "web_name": "Watson",
+          "team_short": "BHA",
+          "position": "MID",
+          "status_label": "Unavailable",
+          "news": "Has joined Leicester City on loan for the rest of the season",
+          "news_added": "2026-08-03T14:05:44.459483Z"
+        },
+        {
+          "web_name": "Jörgensen",
+          "team_short": "CHE",
+          "position": "GKP",
+          "status_label": "Unavailable",
+          "news": "Has joined RC Strasbourg on loan for the rest of the season",
+          "news_added": "2026-08-12T14:07:02.607115Z"
+        },
+        {
+          "web_name": "Chalobah",
+          "team_short": "CHE",
+          "position": "DEF",
+          "status_label": "Unavailable",
+          "news": "Has joined Como permanently",
+          "news_added": "2026-08-10T14:03:50.769483Z"
+        },
+        {
+          "web_name": "Fofana",
+          "team_short": "CHE",
+          "position": "DEF",
+          "status_label": "Suspended",
+          "news": "Suspended until 6 Sep",
+          "news_added": "2026-07-23T12:01:23.464591Z"
+        },
+        {
+          "web_name": "Markelo",
+          "team_short": "COV",
+          "position": "FWD",
+          "status_label": "Unavailable",
+          "news": "Has joined Shabab Al-Ahli Dubai permanently",
+          "news_added": "2026-08-17T13:53:55.791223Z"
+        },
+        {
+          "web_name": "Bassette",
+          "team_short": "COV",
+          "position": "FWD",
+          "status_label": "Unavailable",
+          "news": "Has joined KVC Westerlo on loan for the rest of the season",
+          "news_added": "2026-07-28T12:58:50.001768Z"
+        },
+        {
+          "web_name": "Cardines",
+          "team_short": "CRY",
+          "position": "DEF",
+          "status_label": "Unavailable",
+          "news": "Has joined Bristol City on loan for the rest of the season",
+          "news_added": "2026-08-12T14:08:46.501813Z"
+        },
+        {
+          "web_name": "Uche",
+          "team_short": "CRY",
+          "position": "FWD",
+          "status_label": "Unavailable",
+          "news": "has returned to Getafe CF",
+          "news_added": "2026-07-23T12:18:56.275922Z"
+        },
+        {
+          "web_name": "Andersen",
+          "team_short": "FUL",
+          "position": "DEF",
+          "status_label": "Suspended",
+          "news": "Suspended until 30 Aug",
+          "news_added": "2026-07-23T12:01:23.516350Z"
+        },
+        {
+          "web_name": "Cartwright",
+          "team_short": "HUL",
+          "position": "GKP",
+          "status_label": "Unavailable",
+          "news": "Has joined Grimsby Town on loan for the rest of the season",
+          "news_added": "2026-07-29T13:00:27.959925Z"
+        },
+        {
+          "web_name": "Lo-Tutala",
+          "team_short": "HUL",
+          "position": "GKP",
+          "status_label": "Unavailable",
+          "news": "Has joined Colchester United on loan for the rest of the season",
+          "news_added": "2026-08-17T13:50:27.125537Z"
+        },
+        {
+          "web_name": "Kamara",
+          "team_short": "HUL",
+          "position": "MID",
+          "status_label": "Unavailable",
+          "news": "Has joined Portsmouth permanently",
+          "news_added": "2026-08-12T14:08:23.542043Z"
+        },
+        {
+          "web_name": "Destan",
+          "team_short": "HUL",
+          "position": "FWD",
+          "status_label": "Unavailable",
+          "news": "Has joined Konyaspor permanently",
+          "news_added": "2026-08-17T13:50:27.145733Z"
+        },
+        {
+          "web_name": "Burstow",
+          "team_short": "HUL",
+          "position": "FWD",
+          "status_label": "Unavailable",
+          "news": "Has joined Sheffield Wednesday on loan for the rest of the season",
+          "news_added": "2026-08-03T14:05:20.234842Z"
+        },
+        {
+          "web_name": "Burns",
+          "team_short": "IPS",
+          "position": "MID",
+          "status_label": "Unavailable",
+          "news": "Has joined Leicester City permanently",
+          "news_added": "2026-08-10T14:02:47.597478Z"
+        },
+        {
+          "web_name": "Szmodics",
+          "team_short": "IPS",
+          "position": "MID",
+          "status_label": "Unavailable",
+          "news": "Has joined Derby County on loan for the rest of the season",
+          "news_added": "2026-08-17T13:51:41.713979Z"
+        },
+        {
+          "web_name": "Harrison",
+          "team_short": "LEE",
+          "position": "MID",
+          "status_label": "Unavailable",
+          "news": "Has joined New England Revolution permanently",
+          "news_added": "2026-07-28T12:59:09.492431Z"
+        },
+        {
+          "web_name": "Pecsi",
+          "team_short": "LIV",
+          "position": "GKP",
+          "status_label": "Unavailable",
+          "news": "Has joined TSV Hartberg on loan for the rest of the season",
+          "news_added": "2026-08-18T14:11:18.638344Z"
+        },
+        {
+          "web_name": "Alleyne",
+          "team_short": "MCI",
+          "position": "DEF",
+          "status_label": "Unavailable",
+          "news": "Has joined Burnley on loan for the rest of the season",
+          "news_added": "2026-08-18T14:11:56.324656Z"
+        },
+        {
+          "web_name": "Phillips",
+          "team_short": "MCI",
+          "position": "MID",
+          "status_label": "Unavailable",
+          "news": "Has joined Sheffield United on loan for the rest of the season",
+          "news_added": "2026-08-18T14:11:56.348781Z"
+        },
+        {
+          "web_name": "Bayindir",
+          "team_short": "MUN",
+          "position": "GKP",
+          "status_label": "Unavailable",
+          "news": "Has joined Celta Vigo on loan for the rest of the season",
+          "news_added": "2026-08-10T14:02:28.608415Z"
+        },
+        {
+          "web_name": "Fredricson",
+          "team_short": "MUN",
+          "position": "DEF",
+          "status_label": "Unavailable",
+          "news": "Has joined Lausanne-Sport permanently",
+          "news_added": "2026-08-18T14:12:31.904433Z"
+        },
+        {
+          "web_name": "A.Murphy",
+          "team_short": "NEW",
+          "position": "DEF",
+          "status_label": "Unavailable",
+          "news": "Has joined FC Kaiserslautern on loan for the rest of the season",
+          "news_added": "2026-08-12T14:05:29.224600Z"
+        },
+        {
+          "web_name": "Romero",
+          "team_short": "TOT",
+          "position": "DEF",
+          "status_label": "Unavailable",
+          "news": "Has joined Atletico Madrid permanently",
+          "news_added": "2026-08-17T13:49:05.465401Z"
+        },
+        {
+          "web_name": "Spence",
+          "team_short": "TOT",
+          "position": "DEF",
+          "status_label": "Unavailable",
+          "news": "Has joined Internazionale permanently",
+          "news_added": "2026-08-18T14:13:08.454214Z"
+        },
+        {
+          "web_name": "Phillips",
+          "team_short": "TOT",
+          "position": "DEF",
+          "status_label": "Unavailable",
+          "news": "Has joined Middlesbrough permanently",
+          "news_added": "2026-08-18T14:13:08.474144Z"
+        },
+        {
+          "web_name": "Patterson",
+          "team_short": "SUN",
+          "position": "GKP",
+          "status_label": "Unavailable",
+          "news": "Has joined Wrexham permanently",
+          "news_added": "2026-08-12T14:08:03.064533Z"
+        },
+        {
+          "web_name": "Hjelde",
+          "team_short": "SUN",
+          "position": "DEF",
+          "status_label": "Unavailable",
+          "news": "Has joined KV Mechelen on loan for the rest of the season",
+          "news_added": "2026-08-12T14:08:03.081789Z"
+        },
+        {
+          "web_name": "Masuaku",
+          "team_short": "SUN",
+          "position": "DEF",
+          "status_label": "Unavailable",
+          "news": "Has joined Konyaspor permanently",
+          "news_added": "2026-08-12T14:08:03.097784Z"
+        }
+      ],
+      "total": 111
+    }
+  },
+  {
+    "tool": "get_player_fixture_run",
+    "args": {
+      "query": "Haaland"
+    },
+    "status": "ok",
+    "output": {
+      "status": "ok",
+      "query": "Haaland",
+      "web_name": "Haaland",
+      "team_short": "MCI",
+      "position": "FWD",
+      "horizon": 5,
+      "current_gameweek": 1,
+      "fixtures": [
+        {
+          "gameweek": 1,
+          "opponent_short": "BOU",
+          "is_home": true,
+          "difficulty": 3
+        },
+        {
+          "gameweek": 2,
+          "opponent_short": "CRY",
+          "is_home": false,
+          "difficulty": 3
+        },
+        {
+          "gameweek": 3,
+          "opponent_short": "COV",
+          "is_home": true,
+          "difficulty": 2
+        },
+        {
+          "gameweek": 4,
+          "opponent_short": "MUN",
+          "is_home": false,
+          "difficulty": 4
+        },
+        {
+          "gameweek": 5,
+          "opponent_short": "SUN",
+          "is_home": true,
+          "difficulty": 2
+        }
+      ],
+      "team_fdr_context": {
+        "avg_fdr": 2.8,
+        "difficulty_label": "easy",
+        "gw_from": 1,
+        "gw_to": 5
+      }
+    }
+  },
+  {
+    "tool": "get_player_form",
+    "args": {
+      "query": "Haaland",
+      "n_games": 5
+    },
+    "status": "ok",
+    "output": {
+      "status": "ok",
+      "player_id": 411,
+      "web_name": "Haaland",
+      "team_short": "MCI",
+      "position": "FWD",
+      "n_games": 1,
+      "history": [
+        {
+          "gameweek": 1,
+          "minutes": 0,
+          "goals_scored": 0,
+          "assists": 0,
+          "bonus": 0,
+          "total_points": 0
+        }
+      ],
+      "query": "Haaland"
+    }
+  },
+  {
+    "tool": "get_player_history",
+    "args": {
+      "player_name": "Haaland",
+      "last_n_gws": 5
+    },
+    "status": "ok",
+    "output": {
+      "status": "ok",
+      "player": {
+        "id": 411,
+        "web_name": "Haaland",
+        "team_short": "MCI",
+        "position": "FWD"
+      },
+      "last_n_gws": 1,
+      "history": [
+        {
+          "round": 1,
+          "opponent_team_short": "3",
+          "was_home": true,
+          "minutes": 0,
+          "total_points": 0,
+          "goals_scored": 0,
+          "assists": 0,
+          "clean_sheets": 0,
+          "yellow_cards": 0,
+          "red_cards": 0,
+          "saves": 0,
+          "bonus": 0,
+          "bps": 0,
+          "expected_goals": 0.0,
+          "expected_assists": 0.0,
+          "expected_goal_involvements": 0.0,
+          "expected_goals_conceded": 0.0,
+          "value": 155,
+          "transfers_in": 0,
+          "transfers_out": 0,
+          "selected": 6209794,
+          "kickoff_time": "2026-08-23T13:00:00Z"
+        }
+      ],
+      "summary": {
+        "gws_played": 0,
+        "total_points": 0,
+        "total_minutes": 0,
+        "total_goals": 0,
+        "total_assists": 0,
+        "avg_form": 0.0,
+        "total_xgi": 0.0
+      }
+    }
+  },
+  {
+    "tool": "get_player_intelligence",
+    "args": {
+      "player": "Haaland"
+    },
+    "status": "missing_context",
+    "output": {
+      "status": "missing_context",
+      "reason_codes": [
+        "feature_build_unavailable"
+      ],
+      "evidence": []
+    }
+  },
+  {
+    "tool": "get_player_snapshot",
+    "args": {
+      "player_name": "Haaland"
+    },
+    "status": "ok",
+    "output": {
+      "status": "ok",
+      "player": {
+        "id": 411,
+        "web_name": "Haaland",
+        "team_short": "MCI",
+        "position": "FWD",
+        "minutes_played_season": 2953,
+        "status": "Available",
+        "news": "",
+        "news_added": null,
+        "chance_of_playing_this_round": null,
+        "form": 0.0,
+        "total_points": 239,
+        "points_per_game": 6.8,
+        "expected_goals": 25.5,
+        "expected_assists": 2.67,
+        "expected_goal_involvements": 28.17,
+        "expected_goals_conceded": 38.6,
+        "ict_index": 302.3,
+        "influence": 1180.4,
+        "creativity": 320.1,
+        "threat": 1520.0,
+        "saves": 0,
+        "yellow_cards": 2,
+        "red_cards": 0,
+        "expected_goals_per_90": 0.78,
+        "expected_assists_per_90": 0.08,
+        "expected_goal_involvements_per_90": 0.86,
+        "ict_index_per_90": 9.213342363697935,
+        "defensive_contribution": 104,
+        "defensive_contribution_per_90": 3.17,
+        "now_cost": 155,
+        "selected_by_percent": 70.2,
+        "transfers_in_event": 0,
+        "transfers_out_event": 0,
+        "penalties_order": 1,
+        "direct_freekicks_order": null,
+        "corners_and_indirect_freekicks_order": null,
+        "fixtures": [
+          {
+            "gameweek": 1,
+            "opponent_short": "BOU",
+            "is_home": true,
+            "difficulty": 3
+          },
+          {
+            "gameweek": 2,
+            "opponent_short": "CRY",
+            "is_home": false,
+            "difficulty": 3
+          },
+          {
+            "gameweek": 3,
+            "opponent_short": "COV",
+            "is_home": true,
+            "difficulty": 2
+          },
+          {
+            "gameweek": 4,
+            "opponent_short": "MUN",
+            "is_home": false,
+            "difficulty": 4
+          },
+          {
+            "gameweek": 5,
+            "opponent_short": "SUN",
+            "is_home": true,
+            "difficulty": 2
+          }
+        ],
+        "team_fdr_context": {
+          "avg_fdr": 2.8,
+          "difficulty_label": "easy",
+          "gw_from": 1,
+          "gw_to": 5
+        }
+      }
+    }
+  },
+  {
+    "tool": "get_player_summary",
+    "args": {
+      "query": "Haaland"
+    },
+    "status": "ok",
+    "output": {
+      "status": "ok",
+      "player_id": 411,
+      "web_name": "Haaland",
+      "name": "Erling Haaland",
+      "team": "Man City",
+      "team_short": "MCI",
+      "position": "FWD",
+      "cost_m": 15.5,
+      "status_label": "Available",
+      "selected_by_percent": "70.2",
+      "resolved_via": "web_name",
+      "query": "Haaland",
+      "total_points": 239,
+      "form": "0.0",
+      "minutes": 2953
+    }
+  },
+  {
+    "tool": "get_player_zonal_outlook",
+    "args": {
+      "player": "Haaland",
+      "horizon": 5
+    },
+    "status": "missing_context",
+    "output": {
+      "status": "missing_context",
+      "player": "Haaland",
+      "message": "Tactical store or upcoming fixtures unavailable for this player."
+    }
+  },
+  {
+    "tool": "get_position_fixture_run",
+    "args": {
+      "position_query": "MID",
+      "horizon": 5,
+      "mode": "easiest"
+    },
+    "status": "ok",
+    "output": {
+      "status": "ok",
+      "mode": "easiest",
+      "horizon": 5,
+      "current_gameweek": 1,
+      "top_n": 5,
+      "teams": [
+        {
+          "rank": 1,
+          "team_short": "LIV",
+          "team_name": "Liverpool",
+          "fixture_count": 5,
+          "avg_fdr": 2.6,
+          "total_fdr": 13,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "NEW",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "NFO",
+              "is_home": true,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "IPS",
+              "is_home": false,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "FUL",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "BOU",
+              "is_home": false,
+              "difficulty": 3
+            }
+          ],
+          "has_dgw": false,
+          "has_bgw": false,
+          "dgw_gameweeks": [],
+          "bgw_gameweeks": []
+        },
+        {
+          "rank": 2,
+          "team_short": "LEE",
+          "team_name": "Leeds",
+          "fixture_count": 5,
+          "avg_fdr": 2.8,
+          "total_fdr": 14,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "NFO",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "BRE",
+              "is_home": true,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "BHA",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "NEW",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "CRY",
+              "is_home": true,
+              "difficulty": 3
+            }
+          ],
+          "has_dgw": false,
+          "has_bgw": false,
+          "dgw_gameweeks": [],
+          "bgw_gameweeks": []
+        },
+        {
+          "rank": 3,
+          "team_short": "MCI",
+          "team_name": "Man City",
+          "fixture_count": 5,
+          "avg_fdr": 2.8,
+          "total_fdr": 14,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "BOU",
+              "is_home": true,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "CRY",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "COV",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "MUN",
+              "is_home": false,
+              "difficulty": 4
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "SUN",
+              "is_home": true,
+              "difficulty": 2
+            }
+          ],
+          "has_dgw": false,
+          "has_bgw": false,
+          "dgw_gameweeks": [],
+          "bgw_gameweeks": []
+        },
+        {
+          "rank": 4,
+          "team_short": "MUN",
+          "team_name": "Man Utd",
+          "fixture_count": 5,
+          "avg_fdr": 2.8,
+          "total_fdr": 14,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "HUL",
+              "is_home": false,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "IPS",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "EVE",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "MCI",
+              "is_home": true,
+              "difficulty": 4
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "FUL",
+              "is_home": false,
+              "difficulty": 3
+            }
+          ],
+          "has_dgw": false,
+          "has_bgw": false,
+          "dgw_gameweeks": [],
+          "bgw_gameweeks": []
+        },
+        {
+          "rank": 5,
+          "team_short": "TOT",
+          "team_name": "Spurs",
+          "fixture_count": 5,
+          "avg_fdr": 2.8,
+          "total_fdr": 14,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "BRE",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "NEW",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "NFO",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "EVE",
+              "is_home": true,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "AVL",
+              "is_home": true,
+              "difficulty": 3
+            }
+          ],
+          "has_dgw": false,
+          "has_bgw": false,
+          "dgw_gameweeks": [],
+          "bgw_gameweeks": []
+        }
+      ],
+      "position": "MID",
+      "position_label": "midfielders"
+    }
+  },
+  {
+    "tool": "get_price_changes",
+    "args": {},
+    "status": "ok",
+    "output": {
+      "status": "ok",
+      "risers": [],
+      "fallers": [],
+      "gw_note": "Price changes reflect cost_change_event from the current bootstrap."
+    }
+  },
+  {
+    "tool": "get_tactical_role",
+    "args": {
+      "player": "Haaland"
+    },
+    "status": "missing_context",
+    "output": {
+      "status": "missing_context",
+      "reason_codes": [
+        "feature_build_unavailable"
+      ],
+      "evidence": []
+    }
+  },
+  {
+    "tool": "get_team_fixture_calendar",
+    "args": {
+      "horizon": 5,
+      "top_n": 5,
+      "mode": "easiest"
+    },
+    "status": "ok",
+    "output": {
+      "status": "ok",
+      "mode": "easiest",
+      "horizon": 5,
+      "current_gameweek": 1,
+      "top_n": 5,
+      "teams": [
+        {
+          "rank": 1,
+          "team_short": "LIV",
+          "team_name": "Liverpool",
+          "fixture_count": 5,
+          "avg_fdr": 2.6,
+          "total_fdr": 13,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "NEW",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "NFO",
+              "is_home": true,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "IPS",
+              "is_home": false,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "FUL",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "BOU",
+              "is_home": false,
+              "difficulty": 3
+            }
+          ],
+          "has_dgw": false,
+          "has_bgw": false,
+          "dgw_gameweeks": [],
+          "bgw_gameweeks": []
+        },
+        {
+          "rank": 2,
+          "team_short": "LEE",
+          "team_name": "Leeds",
+          "fixture_count": 5,
+          "avg_fdr": 2.8,
+          "total_fdr": 14,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "NFO",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "BRE",
+              "is_home": true,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "BHA",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "NEW",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "CRY",
+              "is_home": true,
+              "difficulty": 3
+            }
+          ],
+          "has_dgw": false,
+          "has_bgw": false,
+          "dgw_gameweeks": [],
+          "bgw_gameweeks": []
+        },
+        {
+          "rank": 3,
+          "team_short": "MCI",
+          "team_name": "Man City",
+          "fixture_count": 5,
+          "avg_fdr": 2.8,
+          "total_fdr": 14,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "BOU",
+              "is_home": true,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "CRY",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "COV",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "MUN",
+              "is_home": false,
+              "difficulty": 4
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "SUN",
+              "is_home": true,
+              "difficulty": 2
+            }
+          ],
+          "has_dgw": false,
+          "has_bgw": false,
+          "dgw_gameweeks": [],
+          "bgw_gameweeks": []
+        },
+        {
+          "rank": 4,
+          "team_short": "MUN",
+          "team_name": "Man Utd",
+          "fixture_count": 5,
+          "avg_fdr": 2.8,
+          "total_fdr": 14,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "HUL",
+              "is_home": false,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "IPS",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "EVE",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "MCI",
+              "is_home": true,
+              "difficulty": 4
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "FUL",
+              "is_home": false,
+              "difficulty": 3
+            }
+          ],
+          "has_dgw": false,
+          "has_bgw": false,
+          "dgw_gameweeks": [],
+          "bgw_gameweeks": []
+        },
+        {
+          "rank": 5,
+          "team_short": "TOT",
+          "team_name": "Spurs",
+          "fixture_count": 5,
+          "avg_fdr": 2.8,
+          "total_fdr": 14,
+          "fixtures": [
+            {
+              "gameweek": 1,
+              "opponent_short": "BRE",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 2,
+              "opponent_short": "NEW",
+              "is_home": true,
+              "difficulty": 2
+            },
+            {
+              "gameweek": 3,
+              "opponent_short": "NFO",
+              "is_home": false,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 4,
+              "opponent_short": "EVE",
+              "is_home": true,
+              "difficulty": 3
+            },
+            {
+              "gameweek": 5,
+              "opponent_short": "AVL",
+              "is_home": true,
+              "difficulty": 3
+            }
+          ],
+          "has_dgw": false,
+          "has_bgw": false,
+          "dgw_gameweeks": [],
+          "bgw_gameweeks": []
+        }
+      ]
+    }
+  },
+  {
+    "tool": "get_team_schedule",
+    "args": {
+      "team_query": "Arsenal",
+      "horizon": 5
+    },
+    "status": "ok",
+    "output": {
+      "status": "ok",
+      "team_short": "ARS",
+      "team_name": "Arsenal",
+      "horizon": 5,
+      "current_gameweek": 1,
+      "fixture_count": 5,
+      "avg_fdr": 3.2,
+      "total_fdr": 16,
+      "fixtures": [
+        {
+          "gameweek": 1,
+          "opponent_short": "COV",
+          "is_home": true,
+          "difficulty": 2
+        },
+        {
+          "gameweek": 2,
+          "opponent_short": "AVL",
+          "is_home": false,
+          "difficulty": 4
+        },
+        {
+          "gameweek": 3,
+          "opponent_short": "CHE",
+          "is_home": true,
+          "difficulty": 4
+        },
+        {
+          "gameweek": 4,
+          "opponent_short": "SUN",
+          "is_home": false,
+          "difficulty": 3
+        },
+        {
+          "gameweek": 5,
+          "opponent_short": "BHA",
+          "is_home": false,
+          "difficulty": 3
+        }
+      ],
+      "has_dgw": false,
+      "has_bgw": false,
+      "dgw_gameweeks": [],
+      "bgw_gameweeks": []
+    }
+  },
+  {
+    "tool": "get_team_snapshot",
+    "args": {
+      "team_name": "Arsenal",
+      "fixture_horizon": 5
+    },
+    "status": "ok",
+    "output": {
+      "status": "ok",
+      "team": {
+        "id": 1,
+        "short_name": "ARS",
+        "name": "Arsenal",
+        "strength": 3,
+        "strength_overall_home": 4,
+        "strength_overall_away": 5,
+        "form": null,
+        "position": 0,
+        "played": 0,
+        "win": 0,
+        "draw": 0,
+        "loss": 0,
+        "points": 0
+      },
+      "upcoming_fixtures": [
+        {
+          "gw": 2,
+          "opponent_short": "AVL",
+          "opponent_name": "Aston Villa",
+          "is_home": false,
+          "fdr": 4,
+          "kickoff_time": "2026-08-31T19:00:00Z"
+        },
+        {
+          "gw": 3,
+          "opponent_short": "CHE",
+          "opponent_name": "Chelsea",
+          "is_home": true,
+          "fdr": 4,
+          "kickoff_time": "2026-09-06T15:30:00Z"
+        },
+        {
+          "gw": 4,
+          "opponent_short": "SUN",
+          "opponent_name": "Sunderland",
+          "is_home": false,
+          "fdr": 3,
+          "kickoff_time": "2026-09-12T19:00:00Z"
+        },
+        {
+          "gw": 5,
+          "opponent_short": "BHA",
+          "opponent_name": "Brighton",
+          "is_home": false,
+          "fdr": 3,
+          "kickoff_time": "2026-09-19T14:00:00Z"
+        },
+        {
+          "gw": 6,
+          "opponent_short": "LEE",
+          "opponent_name": "Leeds",
+          "is_home": true,
+          "fdr": 2,
+          "kickoff_time": "2026-10-10T11:30:00Z"
+        }
+      ],
+      "top_players": [
+        {
+          "id": 4,
+          "web_name": "Gabriel",
+          "team_short": "ARS",
+          "position": "DEF",
+          "minutes_played_season": 2750,
+          "status": "Available",
+          "news": "",
+          "news_added": null,
+          "chance_of_playing_this_round": null,
+          "form": 0.0,
+          "total_points": 209,
+          "points_per_game": 6.5,
+          "expected_goals": 2.94,
+          "expected_assists": 1.75,
+          "expected_goal_involvements": 4.69,
+          "expected_goals_conceded": 22.01,
+          "ict_index": 125.0,
+          "influence": 824.0,
+          "creativity": 128.5,
+          "threat": 298.0,
+          "saves": 0,
+          "yellow_cards": 4,
+          "red_cards": 0,
+          "expected_goals_per_90": 0.1,
+          "expected_assists_per_90": 0.06,
+          "expected_goal_involvements_per_90": 0.16,
+          "ict_index_per_90": 4.090909090909091,
+          "defensive_contribution": 277,
+          "defensive_contribution_per_90": 9.07,
+          "now_cost": 80,
+          "selected_by_percent": 28.9,
+          "transfers_in_event": 0,
+          "transfers_out_event": 0,
+          "penalties_order": null,
+          "direct_freekicks_order": null,
+          "corners_and_indirect_freekicks_order": null
+        },
+        {
+          "id": 13,
+          "web_name": "Rice",
+          "team_short": "ARS",
+          "position": "MID",
+          "minutes_played_season": 3093,
+          "status": "Available",
+          "news": "",
+          "news_added": null,
+          "chance_of_playing_this_round": null,
+          "form": 0.0,
+          "total_points": 184,
+          "points_per_game": 5.1,
+          "expected_goals": 3.15,
+          "expected_assists": 7.32,
+          "expected_goal_involvements": 10.47,
+          "expected_goals_conceded": 23.87,
+          "ict_index": 215.4,
+          "influence": 827.2,
+          "creativity": 1027.4,
+          "threat": 298.0,
+          "saves": 0,
+          "yellow_cards": 3,
+          "red_cards": 0,
+          "expected_goals_per_90": 0.09,
+          "expected_assists_per_90": 0.21,
+          "expected_goal_involvements_per_90": 0.3,
+          "ict_index_per_90": 6.267701260911736,
+          "defensive_contribution": 376,
+          "defensive_contribution_per_90": 10.94,
+          "now_cost": 75,
+          "selected_by_percent": 19.7,
+          "transfers_in_event": 0,
+          "transfers_out_event": 0,
+          "penalties_order": null,
+          "direct_freekicks_order": 1,
+          "corners_and_indirect_freekicks_order": 1
+        },
+        {
+          "id": 1,
+          "web_name": "Raya",
+          "team_short": "ARS",
+          "position": "GKP",
+          "minutes_played_season": 3330,
+          "status": "Available",
+          "news": "",
+          "news_added": null,
+          "chance_of_playing_this_round": null,
+          "form": 0.0,
+          "total_points": 162,
+          "points_per_game": 4.4,
+          "expected_goals": 0.0,
+          "expected_assists": 0.07,
+          "expected_goal_involvements": 0.07,
+          "expected_goals_conceded": 27.56,
+          "ict_index": 57.5,
+          "influence": 541.6,
+          "creativity": 33.5,
+          "threat": 0.0,
+          "saves": 60,
+          "yellow_cards": 1,
+          "red_cards": 0,
+          "expected_goals_per_90": 0.0,
+          "expected_assists_per_90": 0.0,
+          "expected_goal_involvements_per_90": 0.0,
+          "ict_index_per_90": 1.554054054054054,
+          "defensive_contribution": 0,
+          "defensive_contribution_per_90": 0.0,
+          "now_cost": 60,
+          "selected_by_percent": 34.6,
+          "transfers_in_event": 0,
+          "transfers_out_event": 0,
+          "penalties_order": null,
+          "direct_freekicks_order": null,
+          "corners_and_indirect_freekicks_order": null
+        },
+        {
+          "id": 12,
+          "web_name": "Saka",
+          "team_short": "ARS",
+          "position": "MID",
+          "minutes_played_season": 2218,
+          "status": "Available",
+          "news": "",
+          "news_added": null,
+          "chance_of_playing_this_round": null,
+          "form": 0.0,
+          "total_points": 157,
+          "points_per_game": 5.1,
+          "expected_goals": 7.57,
+          "expected_assists": 7.16,
+          "expected_goal_involvements": 14.73,
+          "expected_goals_conceded": 15.57,
+          "ict_index": 230.6,
+          "influence": 627.0,
+          "creativity": 847.6,
+          "threat": 828.0,
+          "saves": 0,
+          "yellow_cards": 2,
+          "red_cards": 0,
+          "expected_goals_per_90": 0.31,
+          "expected_assists_per_90": 0.29,
+          "expected_goal_involvements_per_90": 0.6,
+          "ict_index_per_90": 9.357078449053201,
+          "defensive_contribution": 184,
+          "defensive_contribution_per_90": 7.47,
+          "now_cost": 95,
+          "selected_by_percent": 9.5,
+          "transfers_in_event": 0,
+          "transfers_out_event": 0,
+          "penalties_order": 1,
+          "direct_freekicks_order": 2,
+          "corners_and_indirect_freekicks_order": 2
+        },
+        {
+          "id": 452,
+          "web_name": "Bruno G.",
+          "team_short": "ARS",
+          "position": "MID",
+          "minutes_played_season": 2456,
+          "status": "Available",
+          "news": "",
+          "news_added": null,
+          "chance_of_playing_this_round": null,
+          "form": 0.0,
+          "total_points": 154,
+          "points_per_game": 5.3,
+          "expected_goals": 5.59,
+          "expected_assists": 4.96,
+          "expected_goal_involvements": 10.55,
+          "expected_goals_conceded": 31.99,
+          "ict_index": 202.9,
+          "influence": 782.4,
+          "creativity": 756.7,
+          "threat": 488.0,
+          "saves": 0,
+          "yellow_cards": 6,
+          "red_cards": 0,
+          "expected_goals_per_90": 0.2,
+          "expected_assists_per_90": 0.18,
+          "expected_goal_involvements_per_90": 0.38,
+          "ict_index_per_90": 7.4352605863192185,
+          "defensive_contribution": 251,
+          "defensive_contribution_per_90": 9.2,
+          "now_cost": 70,
+          "selected_by_percent": 8.8,
+          "transfers_in_event": 0,
+          "transfers_out_event": 0,
+          "penalties_order": 4,
+          "direct_freekicks_order": null,
+          "corners_and_indirect_freekicks_order": 5
+        }
+      ],
+      "summary": {
+        "avg_fdr_next_5": 3.2,
+        "is_easy_run": false,
+        "is_hard_run": false,
+        "top_scorer_web_name": "Gabriel",
+        "top_form_web_name": "Gabriel"
+      }
+    }
+  },
+  {
+    "tool": "get_transfer_advice",
+    "args": {
+      "query_out": "Haaland",
+      "query_in": "Haaland"
+    },
+    "status": "ok",
+    "output": {
+      "status": "ok",
+      "query_out": "Haaland",
+      "query_in": "Haaland",
+      "player_out": {
+        "web_name": "Haaland",
+        "captain_score": 36.59,
+        "position_score": 54.28,
+        "tier": "upside",
+        "reasons": [
+          "Penalty taker",
+          "Weak recent form",
+          "High attacking involvement",
+          "Secure minutes"
+        ],
+        "score_inputs": {
+          "form": 0.0,
+          "fixture_difficulty": 3,
+          "xgi_per_90": 0.858551,
+          "minutes_risk": 0.0,
+          "saves_per_90": 0.0,
+          "clean_sheets_per_90": 0.3471,
+          "dc_per_90": 2.7508,
+          "is_home": null,
+          "effective_fdr": 3.0,
+          "position_score": 54.28,
+          "position_profile": "FWD",
+          "components": {
+            "form_score": 0.0,
+            "fixture_score": 60.0,
+            "xgi_score": 37.2509,
+            "minutes_score": 100.0,
+            "saves_score": 0.0,
+            "cs_score": 69.4211,
+            "dc_score": 22.9234
+          },
+          "weights": {
+            "form": 0.0,
+            "fixture": 0.39,
+            "xgi": 0.48,
+            "minutes": 0.13,
+            "saves": 0.0,
+            "clean_sheet": 0.0,
+            "dc": 0.0
+          }
+        },
+        "role_signals": {
+          "penalties_order": 1,
+          "direct_freekicks_order": null,
+          "corners_and_indirect_freekicks_order": null,
+          "set_piece_notes": [
+            "penalty_taker_1"
+          ],
+          "set_piece_threat": true,
+          "role_bonus": 5.0
+        },
+        "now_cost": 155,
+        "cost_m": "£15.5m",
+        "fixture_context": {
+          "axis": "attack",
+          "team_short": "MCI",
+          "avg_band": 2.9,
+          "verdict": "Calendario sin rachas claras en el horizonte.",
+          "has_good_run": false,
+          "has_bad_run": false,
+          "tiebreaker_signal": 0,
+          "phrase": "calendario sin rachas marcadas",
+          "role_lean": "attack",
+          "is_defensive_mid": false
+        }
+      },
+      "player_in": {
+        "web_name": "Haaland",
+        "captain_score": 36.59,
+        "position_score": 54.28,
+        "tier": "upside",
+        "reasons": [
+          "Penalty taker",
+          "Weak recent form",
+          "High attacking involvement",
+          "Secure minutes"
+        ],
+        "score_inputs": {
+          "form": 0.0,
+          "fixture_difficulty": 3,
+          "xgi_per_90": 0.858551,
+          "minutes_risk": 0.0,
+          "saves_per_90": 0.0,
+          "clean_sheets_per_90": 0.3471,
+          "dc_per_90": 2.7508,
+          "is_home": null,
+          "effective_fdr": 3.0,
+          "position_score": 54.28,
+          "position_profile": "FWD",
+          "components": {
+            "form_score": 0.0,
+            "fixture_score": 60.0,
+            "xgi_score": 37.2509,
+            "minutes_score": 100.0,
+            "saves_score": 0.0,
+            "cs_score": 69.4211,
+            "dc_score": 22.9234
+          },
+          "weights": {
+            "form": 0.0,
+            "fixture": 0.39,
+            "xgi": 0.48,
+            "minutes": 0.13,
+            "saves": 0.0,
+            "clean_sheet": 0.0,
+            "dc": 0.0
+          }
+        },
+        "role_signals": {
+          "penalties_order": 1,
+          "direct_freekicks_order": null,
+          "corners_and_indirect_freekicks_order": null,
+          "set_piece_notes": [
+            "penalty_taker_1"
+          ],
+          "set_piece_threat": true,
+          "role_bonus": 5.0
+        },
+        "now_cost": 155,
+        "cost_m": "£15.5m",
+        "fixture_context": {
+          "axis": "attack",
+          "team_short": "MCI",
+          "avg_band": 2.9,
+          "verdict": "Calendario sin rachas claras en el horizonte.",
+          "has_good_run": false,
+          "has_bad_run": false,
+          "tiebreaker_signal": 0,
+          "phrase": "calendario sin rachas marcadas",
+          "role_lean": "attack",
+          "is_defensive_mid": false
+        }
+      },
+      "score_delta": 0.0,
+      "price_delta": 0,
+      "recommendation": "hold",
+      "transfer_reasons": [],
+      "recommendation_text": "Recommendation: Hold Haaland. Score: 54 vs Haaland's 54 (0.0).",
+      "fixture_tiebreaker": "Muy parejos; por calendario — Haaland: calendario sin rachas marcadas; Haaland: calendario sin rachas marcadas."
+    }
+  },
+  {
+    "tool": "get_transfer_suggestion",
+    "args": {
+      "horizon": 5,
+      "top_n": 5,
+      "position_query": "MID",
+      "team_query": "Arsenal"
+    },
+    "status": "ok",
+    "output": {
+      "status": "ok",
+      "position": "MID",
+      "position_label": "midfielders",
+      "team_short": "ARS",
+      "team_name": "Arsenal",
+      "max_price": null,
+      "horizon": 5,
+      "top_n": 5,
+      "ranking_basis": "prior_season_carryover",
+      "ranking_metric": "points_per_game",
+      "picks": [
+        {
+          "rank": 1,
+          "id": 452,
+          "web_name": "Bruno G.",
+          "team_short": "ARS",
+          "position": "MID",
+          "now_cost": 70,
+          "now_cost_m": 7.0,
+          "form": 0.0,
+          "avg_fdr": 3.2,
+          "difficulty_label": "moderate",
+          "composite_score": 0.0,
+          "ownership": 8.8,
+          "minutes": 2456,
+          "status": "a",
+          "news": "",
+          "points_per_game": 5.3,
+          "total_points": 154,
+          "ranking_score": 5.3
+        },
+        {
+          "rank": 2,
+          "id": 13,
+          "web_name": "Rice",
+          "team_short": "ARS",
+          "position": "MID",
+          "now_cost": 75,
+          "now_cost_m": 7.5,
+          "form": 0.0,
+          "avg_fdr": 3.2,
+          "difficulty_label": "moderate",
+          "composite_score": 0.0,
+          "ownership": 19.7,
+          "minutes": 3093,
+          "status": "a",
+          "news": "",
+          "points_per_game": 5.1,
+          "total_points": 184,
+          "ranking_score": 5.1
+        },
+        {
+          "rank": 3,
+          "id": 12,
+          "web_name": "Saka",
+          "team_short": "ARS",
+          "position": "MID",
+          "now_cost": 95,
+          "now_cost_m": 9.5,
+          "form": 0.0,
+          "avg_fdr": 3.2,
+          "difficulty_label": "moderate",
+          "composite_score": 0.0,
+          "ownership": 9.5,
+          "minutes": 2218,
+          "status": "a",
+          "news": "",
+          "points_per_game": 5.1,
+          "total_points": 157,
+          "ranking_score": 5.1
+        },
+        {
+          "rank": 4,
+          "id": 19,
+          "web_name": "Zubimendi",
+          "team_short": "ARS",
+          "position": "MID",
+          "now_cost": 55,
+          "now_cost_m": 5.5,
+          "form": 0.0,
+          "avg_fdr": 3.2,
+          "difficulty_label": "moderate",
+          "composite_score": 0.0,
+          "ownership": 1.3,
+          "minutes": 2991,
+          "status": "a",
+          "news": "",
+          "points_per_game": 3.5,
+          "total_points": 133,
+          "ranking_score": 3.5
+        },
+        {
+          "rank": 5,
+          "id": 14,
+          "web_name": "Eze",
+          "team_short": "ARS",
+          "position": "MID",
+          "now_cost": 65,
+          "now_cost_m": 6.5,
+          "form": 0.0,
+          "avg_fdr": 3.2,
+          "difficulty_label": "moderate",
+          "composite_score": 0.0,
+          "ownership": 2.4,
+          "minutes": 1885,
+          "status": "a",
+          "news": "",
+          "points_per_game": 3.4,
+          "total_points": 113,
+          "ranking_score": 3.4
+        }
+      ]
+    }
+  },
+  {
+    "tool": "get_zonal_opportunity",
+    "args": {
+      "opponent": "Arsenal"
+    },
+    "status": "missing_context",
+    "output": {
+      "status": "missing_context",
+      "opponent": "Arsenal",
+      "message": "Tactical (Understat zonal) store not available on this deployment."
+    }
+  },
+  {
+    "tool": "get_zonal_weakness",
+    "args": {
+      "team": "Arsenal"
+    },
+    "status": "missing_context",
+    "output": {
+      "status": "missing_context",
+      "team": "Arsenal",
+      "message": "Tactical (Understat zonal) store not available on this deployment."
+    }
+  },
+  {
+    "tool": "rank_captain_candidates",
+    "args": {
+      "candidates": [
+        {
+          "query": "Haaland"
+        },
+        {
+          "query": "Haaland"
+        }
+      ]
+    },
+    "status": "ok",
+    "output": {
+      "status": "ok",
+      "ranked_candidates": [
+        {
+          "status": "ok",
+          "index": 0,
+          "player_id": 411,
+          "web_name": "Haaland",
+          "name": "Erling Haaland",
+          "team": "Man City",
+          "team_short": "MCI",
+          "position": "FWD",
+          "captain_score": 36.59,
+          "tier": "differential",
+          "role_signals": {
+            "penalties_order": 1,
+            "direct_freekicks_order": null,
+            "corners_and_indirect_freekicks_order": null,
+            "set_piece_notes": [
+              "penalty_taker_1"
+            ],
+            "set_piece_threat": true,
+            "role_bonus": 5.0
+          },
+          "score_inputs": {
+            "form": 0.0,
+            "fixture_difficulty": 3,
+            "xgi_per_90": 0.858551,
+            "minutes_risk": 0.0
+          },
+          "query": "Haaland",
+          "rank": 1
+        },
+        {
+          "status": "ok",
+          "index": 1,
+          "player_id": 411,
+          "web_name": "Haaland",
+          "name": "Erling Haaland",
+          "team": "Man City",
+          "team_short": "MCI",
+          "position": "FWD",
+          "captain_score": 36.59,
+          "tier": "differential",
+          "role_signals": {
+            "penalties_order": 1,
+            "direct_freekicks_order": null,
+            "corners_and_indirect_freekicks_order": null,
+            "set_piece_notes": [
+              "penalty_taker_1"
+            ],
+            "set_piece_threat": true,
+            "role_bonus": 5.0
+          },
+          "score_inputs": {
+            "form": 0.0,
+            "fixture_difficulty": 3,
+            "xgi_per_90": 0.858551,
+            "minutes_risk": 0.0
+          },
+          "query": "Haaland",
+          "rank": 2
+        }
+      ],
+      "total": 2,
+      "error_count": 0
+    }
+  },
+  {
+    "tool": "rank_players_by_metric",
+    "args": {
+      "metric": "total_points",
+      "top_n": 5,
+      "position": "MID"
+    },
+    "status": "ok",
+    "output": {
+      "status": "ok",
+      "metric": "total_points",
+      "top_n": 5,
+      "position_filter": "MID",
+      "min_minutes_filter": 0,
+      "min_price_filter": null,
+      "max_price_filter": null,
+      "ranking_basis": "prior_season_carryover",
+      "ranked": [
+        {
+          "id": 426,
+          "web_name": "B.Fernandes",
+          "team_short": "MUN",
+          "position": "MID",
+          "minutes_played_season": 3065,
+          "status": "Available",
+          "news": "",
+          "news_added": null,
+          "chance_of_playing_this_round": null,
+          "form": 0.0,
+          "total_points": 235,
+          "points_per_game": 6.7,
+          "expected_goals": 10.79,
+          "expected_assists": 12.28,
+          "expected_goal_involvements": 23.07,
+          "expected_goals_conceded": 44.42,
+          "ict_index": 381.4,
+          "influence": 1258.0,
+          "creativity": 1938.5,
+          "threat": 614.0,
+          "saves": 0,
+          "yellow_cards": 5,
+          "red_cards": 0,
+          "expected_goals_per_90": 0.32,
+          "expected_assists_per_90": 0.36,
+          "expected_goal_involvements_per_90": 0.68,
+          "ict_index_per_90": 11.199347471451876,
+          "defensive_contribution": 287,
+          "defensive_contribution_per_90": 8.43,
+          "now_cost": 120,
+          "selected_by_percent": 49.2,
+          "transfers_in_event": 0,
+          "transfers_out_event": 0,
+          "penalties_order": 1,
+          "direct_freekicks_order": 1,
+          "corners_and_indirect_freekicks_order": 1,
+          "match_rank": 0,
+          "metric_value": 235.0,
+          "rank": 1
+        },
+        {
+          "id": 397,
+          "web_name": "Semenyo",
+          "team_short": "MCI",
+          "position": "MID",
+          "minutes_played_season": 3200,
+          "status": "Available",
+          "news": "",
+          "news_added": null,
+          "chance_of_playing_this_round": null,
+          "form": 0.0,
+          "total_points": 202,
+          "points_per_game": 5.5,
+          "expected_goals": 11.1,
+          "expected_assists": 3.12,
+          "expected_goal_involvements": 14.21,
+          "expected_goals_conceded": 47.67,
+          "ict_index": 257.7,
+          "influence": 923.2,
+          "creativity": 607.4,
+          "threat": 1047.0,
+          "saves": 0,
+          "yellow_cards": 7,
+          "red_cards": 0,
+          "expected_goals_per_90": 0.31,
+          "expected_assists_per_90": 0.09,
+          "expected_goal_involvements_per_90": 0.4,
+          "ict_index_per_90": 7.2478125,
+          "defensive_contribution": 236,
+          "defensive_contribution_per_90": 6.64,
+          "now_cost": 85,
+          "selected_by_percent": 26.5,
+          "transfers_in_event": 0,
+          "transfers_out_event": 0,
+          "penalties_order": 3,
+          "direct_freekicks_order": null,
+          "corners_and_indirect_freekicks_order": null,
+          "match_rank": 0,
+          "metric_value": 202.0,
+          "rank": 2
+        },
+        {
+          "id": 480,
+          "web_name": "Gibbs-White",
+          "team_short": "NFO",
+          "position": "MID",
+          "minutes_played_season": 3101,
+          "status": "Available",
+          "news": "",
+          "news_added": null,
+          "chance_of_playing_this_round": null,
+          "form": 0.0,
+          "total_points": 188,
+          "points_per_game": 5.1,
+          "expected_goals": 10.81,
+          "expected_assists": 2.91,
+          "expected_goal_involvements": 13.72,
+          "expected_goals_conceded": 49.7,
+          "ict_index": 242.5,
+          "influence": 843.8,
+          "creativity": 747.7,
+          "threat": 836.0,
+          "saves": 0,
+          "yellow_cards": 1,
+          "red_cards": 0,
+          "expected_goals_per_90": 0.31,
+          "expected_assists_per_90": 0.08,
+          "expected_goal_involvements_per_90": 0.39,
+          "ict_index_per_90": 7.038052241212512,
+          "defensive_contribution": 178,
+          "defensive_contribution_per_90": 5.17,
+          "now_cost": 80,
+          "selected_by_percent": 11.9,
+          "transfers_in_event": 0,
+          "transfers_out_event": 0,
+          "penalties_order": 2,
+          "direct_freekicks_order": 1,
+          "corners_and_indirect_freekicks_order": null,
+          "match_rank": 0,
+          "metric_value": 188.0,
+          "rank": 3
+        },
+        {
+          "id": 13,
+          "web_name": "Rice",
+          "team_short": "ARS",
+          "position": "MID",
+          "minutes_played_season": 3093,
+          "status": "Available",
+          "news": "",
+          "news_added": null,
+          "chance_of_playing_this_round": null,
+          "form": 0.0,
+          "total_points": 184,
+          "points_per_game": 5.1,
+          "expected_goals": 3.15,
+          "expected_assists": 7.32,
+          "expected_goal_involvements": 10.47,
+          "expected_goals_conceded": 23.87,
+          "ict_index": 215.4,
+          "influence": 827.2,
+          "creativity": 1027.4,
+          "threat": 298.0,
+          "saves": 0,
+          "yellow_cards": 3,
+          "red_cards": 0,
+          "expected_goals_per_90": 0.09,
+          "expected_assists_per_90": 0.21,
+          "expected_goal_involvements_per_90": 0.3,
+          "ict_index_per_90": 6.267701260911736,
+          "defensive_contribution": 376,
+          "defensive_contribution_per_90": 10.94,
+          "now_cost": 75,
+          "selected_by_percent": 19.7,
+          "transfers_in_event": 0,
+          "transfers_out_event": 0,
+          "penalties_order": null,
+          "direct_freekicks_order": 1,
+          "corners_and_indirect_freekicks_order": 1,
+          "match_rank": 0,
+          "metric_value": 184.0,
+          "rank": 4
+        },
+        {
+          "id": 481,
+          "web_name": "Anderson",
+          "team_short": "MCI",
+          "position": "MID",
+          "minutes_played_season": 3332,
+          "status": "Available",
+          "news": "",
+          "news_added": null,
+          "chance_of_playing_this_round": null,
+          "form": 0.0,
+          "total_points": 180,
+          "points_per_game": 4.7,
+          "expected_goals": 2.94,
+          "expected_assists": 4.79,
+          "expected_goal_involvements": 7.73,
+          "expected_goals_conceded": 53.65,
+          "ict_index": 219.0,
+          "influence": 915.2,
+          "creativity": 961.5,
+          "threat": 310.0,
+          "saves": 0,
+          "yellow_cards": 8,
+          "red_cards": 0,
+          "expected_goals_per_90": 0.08,
+          "expected_assists_per_90": 0.13,
+          "expected_goal_involvements_per_90": 0.21,
+          "ict_index_per_90": 5.915366146458584,
+          "defensive_contribution": 515,
+          "defensive_contribution_per_90": 13.91,
+          "now_cost": 65,
+          "selected_by_percent": 9.4,
+          "transfers_in_event": 0,
+          "transfers_out_event": 0,
+          "penalties_order": null,
+          "direct_freekicks_order": null,
+          "corners_and_indirect_freekicks_order": 2,
+          "match_rank": 0,
+          "metric_value": 180.0,
+          "rank": 5
+        }
+      ]
+    }
+  },
+  {
+    "tool": "resolve_player",
+    "args": {
+      "query": "Haaland"
+    },
+    "status": "ok",
+    "output": {
+      "status": "ok",
+      "player_id": 411,
+      "web_name": "Haaland",
+      "name": "Erling Haaland",
+      "team": "Man City",
+      "team_short": "MCI",
+      "position": "FWD",
+      "status_label": "Available",
+      "resolved_via": "web_name",
+      "query": "Haaland"
+    }
+  },
+  {
+    "tool": "select_players_within_budget",
+    "args": {
+      "position": "MID",
+      "count": 3
+    },
+    "status": "ok",
+    "output": {
+      "position": "MID",
+      "count": 3,
+      "objective": "total_points",
+      "ranking_basis": "prior_season_carryover",
+      "budget_tenths": 1000,
+      "budget": 100.0,
+      "locked_cost_tenths": 0,
+      "locked_cost": 0.0,
+      "locked_players": [],
+      "price_bounds": {
+        "min": null,
+        "max": null
+      },
+      "min_minutes_filter": 1,
+      "candidate_pool": {
+        "position_total": 155,
+        "within_price_bounds": 155
+      },
+      "status": "ok",
+      "completable": true,
+      "objective_optimality": "lagrangian_plus_selection_swap_fixpoint",
+      "objective_total": 625,
+      "selection": [
+        {
+          "id": 426,
+          "web_name": "B.Fernandes",
+          "position": "MID",
+          "team_short": "MUN",
+          "price": 12.0,
+          "price_tenths": 120,
+          "objective_value": 235,
+          "minutes": 3065,
+          "status": "a",
+          "locked": false
+        },
+        {
+          "id": 397,
+          "web_name": "Semenyo",
+          "position": "MID",
+          "team_short": "MCI",
+          "price": 8.5,
+          "price_tenths": 85,
+          "objective_value": 202,
+          "minutes": 3200,
+          "status": "a",
+          "locked": false
+        },
+        {
+          "id": 480,
+          "web_name": "Gibbs-White",
+          "position": "MID",
+          "team_short": "NFO",
+          "price": 8.0,
+          "price_tenths": 80,
+          "objective_value": 188,
+          "minutes": 3101,
+          "status": "a",
+          "locked": false
+        }
+      ],
+      "selection_cost_tenths": 285,
+      "selection_cost": 28.5,
+      "remaining_tenths": 715,
+      "remaining": 71.5,
+      "completion": {
+        "exists": true,
+        "proof": "exact_completion",
+        "slots_left": 12,
+        "cheapest_fill_cost_tenths": 505,
+        "cheapest_fill_cost": 50.5,
+        "witness_total_cost_tenths": 790,
+        "witness_total_cost": 79.0,
+        "witness_position_counts": {
+          "DEF": 5,
+          "FWD": 3,
+          "GKP": 2,
+          "MID": 5
+        },
+        "witness_club_counts": {
+          "AVL": 3,
+          "BRE": 1,
+          "CHE": 1,
+          "FUL": 1,
+          "IPS": 1,
+          "LIV": 1,
+          "MCI": 1,
+          "MUN": 1,
+          "NFO": 2,
+          "TOT": 3
+        },
+        "witness_squad": [
+          {
+            "id": 426,
+            "web_name": "B.Fernandes",
+            "position": "MID",
+            "team_short": "MUN",
+            "price": 12.0,
+            "price_tenths": 120,
+            "objective_value": 235,
+            "minutes": 3065,
+            "status": "a",
+            "locked": false
+          },
+          {
+            "id": 397,
+            "web_name": "Semenyo",
+            "position": "MID",
+            "team_short": "MCI",
+            "price": 8.5,
+            "price_tenths": 85,
+            "objective_value": 202,
+            "minutes": 3200,
+            "status": "a",
+            "locked": false
+          },
+          {
+            "id": 480,
+            "web_name": "Gibbs-White",
+            "position": "MID",
+            "team_short": "NFO",
+            "price": 8.0,
+            "price_tenths": 80,
+            "objective_value": 188,
+            "minutes": 3101,
+            "status": "a",
+            "locked": false
+          },
+          {
+            "id": 497,
+            "web_name": "Dubravka",
+            "position": "GKP",
+            "team_short": "TOT",
+            "price": 4.0,
+            "price_tenths": 40,
+            "objective_value": 96,
+            "minutes": 3150,
+            "status": "a",
+            "locked": false
+          },
+          {
+            "id": 259,
+            "web_name": "Diop",
+            "position": "DEF",
+            "team_short": "IPS",
+            "price": 4.0,
+            "price_tenths": 40,
+            "objective_value": 31,
+            "minutes": 812,
+            "status": "a",
+            "locked": false
+          },
+          {
+            "id": 508,
+            "web_name": "Davies",
+            "position": "DEF",
+            "team_short": "TOT",
+            "price": 4.0,
+            "price_tenths": 40,
+            "objective_value": 10,
+            "minutes": 136,
+            "status": "a",
+            "locked": false
+          },
+          {
+            "id": 272,
+            "web_name": "Kusi-Asare",
+            "position": "FWD",
+            "team_short": "FUL",
+            "price": 4.5,
+            "price_tenths": 45,
+            "objective_value": 6,
+            "minutes": 49,
+            "status": "a",
+            "locked": false
+          },
+          {
+            "id": 352,
+            "web_name": "Woodman",
+            "position": "GKP",
+            "team_short": "LIV",
+            "price": 4.0,
+            "price_tenths": 40,
+            "objective_value": 6,
+            "minutes": 212,
+            "status": "a",
+            "locked": false
+          },
+          {
+            "id": 38,
+            "web_name": "A.García",
+            "position": "DEF",
+            "team_short": "AVL",
+            "price": 4.0,
+            "price_tenths": 40,
+            "objective_value": 5,
+            "minutes": 83,
+            "status": "a",
+            "locked": false
+          },
+          {
+            "id": 477,
+            "web_name": "Abbott",
+            "position": "DEF",
+            "team_short": "NFO",
+            "price": 4.0,
+            "price_tenths": 40,
+            "objective_value": 3,
+            "minutes": 165,
+            "status": "a",
+            "locked": false
+          },
+          {
+            "id": 51,
+            "web_name": "George Hemmings",
+            "position": "MID",
+            "team_short": "AVL",
+            "price": 4.5,
+            "price_tenths": 45,
+            "objective_value": 2,
+            "minutes": 25,
+            "status": "a",
+            "locked": false
+          },
+          {
+            "id": 50,
+            "web_name": "Burrowes",
+            "position": "MID",
+            "team_short": "AVL",
+            "price": 4.5,
+            "price_tenths": 45,
+            "objective_value": 1,
+            "minutes": 16,
+            "status": "a",
+            "locked": false
+          },
+          {
+            "id": 107,
+            "web_name": "Furo",
+            "position": "FWD",
+            "team_short": "BRE",
+            "price": 4.5,
+            "price_tenths": 45,
+            "objective_value": 1,
+            "minutes": 1,
+            "status": "a",
+            "locked": false
+          },
+          {
+            "id": 169,
+            "web_name": "Mheuka",
+            "position": "FWD",
+            "team_short": "CHE",
+            "price": 4.5,
+            "price_tenths": 45,
+            "objective_value": 1,
+            "minutes": 1,
+            "status": "a",
+            "locked": false
+          },
+          {
+            "id": 509,
+            "web_name": "Byfield",
+            "position": "DEF",
+            "team_short": "TOT",
+            "price": 4.0,
+            "price_tenths": 40,
+            "objective_value": 1,
+            "minutes": 1,
+            "status": "a",
+            "locked": false
+          }
+        ],
+        "note": "The witness is the CHEAPEST legal completion, shown to prove the selection is affordable — it is not a recommended bench. Use build_squad for a squad worth entering."
+      },
+      "warnings": []
+    }
+  },
+  {
+    "tool": "web_fetch",
+    "args": {
+      "url": "https://www.premierleague.com/news"
+    },
+    "status": "ok",
+    "output": {
+      "status": "ok",
+      "url": "https://www.premierleague.com/news",
+      "domain": "www.premierleague.com",
+      "content_type": "text/html",
+      "content_length": 87249,
+      "text_excerpt": "<!doctype html>\n<html lang=\"en\">\n\n    <link rel=\"alternate\" hreflang=\"x-default\" href=\"https://www.premierleague.com/en/news\" />\n        <link rel=\"alternate\" hreflang=\"en\" href=\"https://www.premierleague.com/en/news\" />\n        <link rel=\"alternate\" hreflang=\"es\" href=\"https://www.premierleague.com/es/news\" />\n        <link rel=\"alternate\" hreflang=\"ar\" href=\"https://www.premierleague.com/ar/news\" />\n\n\n<head>\n\t<meta charset=\"UTF-8\">\n\t<meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge,chrome=1\">\n\t<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n\n\t<meta data-analytics=\"screen_page_category\" content=\"news\"/>\n<meta name=\"twitter:title\" content=\"Latest Premier League Football Team News & Features\"/>\n<meta name=\"description\" content=\"Read all the latest Premier League news & features, visit the official website of the Premier League.\"/>\n<meta name=\"twitter:description\" content=\"Read all the latest Premier League news & features, visit the official website of the Premier League.\"/>\n<meta data-analytics=\"screen_page_name\" content=\"news home\"/>\n<meta property=\"og:title\" content=\"Latest Premier League Football Team News & Features\"/>\n<title>Latest Premier League Football Team News & Features</title>\n<meta property=\"og:description\" content=\"Read all the latest Premier League news & features, visit the official website of the Premier League.\"/>\n\n\n    <link rel=\"stylesheet\" href=\"/resources/v1.51.20/styles/screen.css\" media=\"screen\" />\n\n\t<!-- Sets the theme immediately on <html> element -->\n\t<script>\n\t    (function () {\n            let selectedTheme = localStorage.getItem('theme');\n\n            if (selectedTheme === 'null') {\n                selectedTheme = 'light-theme';\n                localStorage.setItem('theme', 'light-theme');\n            }\n\n\t\t\tconst prefersDarkTheme = window.matchMedia('(prefers-color-scheme: dark)').matches;\n\t\t\tconst theme = selectedTheme || (prefersDarkTheme ? 'dark-theme' : 'light-theme');\n\n\t\t\tdocument.documentElement.classList.add(theme);\n        })();\n\t</script>\n\n\t<!-- OneTrust Cookies Consent Notice start for premierleague.com -->\n\t<script src=\"https://cdn-ukwest.onetrust.com/scripttemplates/otSDKStub.js\"\n\t\t\ttype=\"text/javascript\"\n\t\t\tcharset=\"UTF-8\"\n\t\t\tdata-domain-script=\"cdf436a9-4615-4772-a4b4-7660a91cc3a2\" >\n\t</script>\n\t<script type=\"text/javascript\">\n\t\t\tfunction OptanonWrapper() { }\n\t</script>\n\t<!-- OneTrust Cookies Consent Notice end for premierleague.com -->\n\n    <script>\n        window.RESOURCES_VERSION = 'v1.51.20';\n\t\tconsole.info( '%c Version: ' + window.RESOURCES_VERSION + ' ', \"background-color: #37003c; color: #ffffff;\")\n        window.ACTIVE_PL_MATCHWEEK_ID = '1';\n        window.ACTIVE_PL_SEASON_ID = '2026';\n\t\twindow.OPTIMIZELY_SDK_KEY = 'QPqQ8wophP3g3Q72D8A5e';\n        window.USE_REQ_LANGUAGE = 'true';\n\t\twindow.SUPPORTED_LANGUAGES = 'en,es,ar';\n        window.FF_SEAMLESS_LOGIN = 'true';\n\t\twindow.SDP_API = 'https://sdp-prem-prod.premier-league-prod.pulselive.com/api';\n\t\twindow.LIVESTREAM_REDIRECT = '{$LIVESTREAM_REDIRECT$}';\n\t\twindow.PREMIUM_PRODUCT_ALLOWED_COUNTRIES = 'SG,GB';\n\t\twindow.MSFT_STREAM_TIMEOUT_SECS = '60';\n\t\twindow.USE_SMP_NEUTRAL_COLOURS = 'true';\n\t\twindow.EVERGENT_ALLOWED_ERRORS_PAGES = '/,/watch-live,/video,/settings/subscriptions,/packages';\n\t\twindow.SUPPRESSED_EVERGENT_ERRORS = 'eV2808,eV4705';\n\t\twindow.SUPPRESSED_MK_ERRORS = '{$SUPPRESSED_MK_ERRORS$}';\n\t\twindow.SUPPORTED_BROWSERS = 'Edge,Chrome,Safari';\n    </script>\n\n\t<!-- Google Tag Manager -->\n\t<script>\n\t\t(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':\n\t\tnew Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],\n\t\tj=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=\n\t\t'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);\n\t\t})(window,document,'script','dataLayer','GTM-MDWXC59G');\n\t</script>\n\t<!-- End Google Tag Manager -->\n\n\t<link rel=\"apple-touch-icon-precomposed\" sizes=\"57x57\" href=\"/resources/v1.51.20/i/favicon/apple-touch-icon-57x",
+      "truncated": true
+    }
+  }
+]

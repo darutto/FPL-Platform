@@ -21,7 +21,8 @@ Design rules
   - form: float from element "form" field (string → float cast).
   - avg_fdr: average FDR over next ``horizon`` GWs from team_fixtures.
   - Fallback when team_fixtures absent: avg_fdr treated as 1.0 (neutral).
-* Players with composite_score ≤ 0 (zero form) are excluded.
+* When every eligible player has zero form, ranking falls back to
+  points_per_game, then total_points.
 * Returns at most top_n results (default 5).
 
 Output shape — status "ok"
@@ -72,6 +73,7 @@ from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
 
 from .team_fixture_calendar import _resolve_team  # reuse existing team resolver
+from .ranking_provenance import get_ranking_basis
 
 
 # ---------------------------------------------------------------------------
@@ -139,6 +141,20 @@ def _resolve_position(query: str) -> str | None:
 
 def _position_label(element_type: int) -> str:
     return {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}.get(element_type, "UNK")
+
+
+def _safe_float(value: Any) -> float:
+    try:
+        return float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _safe_int(value: Any) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 # ---------------------------------------------------------------------------
@@ -263,12 +279,17 @@ def get_transfer_suggestion(
     team_fixtures = bootstrap.get("team_fixtures") or {}
     current_gw    = _get_current_gameweek(bootstrap)
     short_map     = _team_short_map(bootstrap)
+    ranking_basis = get_ranking_basis(bootstrap)
 
     scored: list[dict[str, Any]] = []
 
     for el in elements:
         # Availability
         if el.get("status") != "a":
+            continue
+
+        minutes = _safe_int(el.get("minutes"))
+        if minutes <= 0:
             continue
 
         # Position filter
@@ -297,16 +318,13 @@ def get_transfer_suggestion(
         denom = avg_fdr if avg_fdr > 0 else 1.0
         composite = round(form / denom, 4)
 
-        # Exclude zero-form players (no useful signal)
-        if composite <= 0:
-            continue
-
         try:
             ownership = float(el.get("selected_by_percent", 0) or 0)
         except (TypeError, ValueError):
             ownership = 0.0
 
         scored.append({
+            "id":              int(el.get("id", 0) or 0),
             "web_name":        str(el.get("web_name", "")),
             "team_short":      short_map.get(team_id, f"T{team_id}"),
             "position":        pos_code,
@@ -317,6 +335,11 @@ def get_transfer_suggestion(
             "difficulty_label": _difficulty_label(avg_fdr),
             "composite_score": composite,
             "ownership":       round(ownership, 1),
+            "minutes":         minutes,
+            "status":          str(el.get("status", "")),
+            "news":            str(el.get("news") or ""),
+            "points_per_game": _safe_float(el.get("points_per_game")),
+            "total_points":    _safe_int(el.get("total_points")),
         })
 
     if not scored:
@@ -331,19 +354,42 @@ def get_transfer_suggestion(
             "max_price":  max_price_raw,
             "horizon":    horizon,
             "top_n":      top_n,
+            "ranking_basis": ranking_basis,
             "message": (
                 f"No available {pos_label}{team_clause}{price_clause} found "
-                "with positive form in the current bootstrap."
+                "with prior playing minutes in the current bootstrap."
             ),
         }
 
-    # Sort by composite_score descending, then by form descending as tiebreaker
-    scored.sort(key=lambda p: (p["composite_score"], p["form"]), reverse=True)
+    positive_form = [player for player in scored if player["composite_score"] > 0]
+    if positive_form:
+        scored = positive_form
+        ranking_metric = "form_per_fixture_difficulty"
+        for player in scored:
+            player["ranking_score"] = player["composite_score"]
+    elif any(player["points_per_game"] > 0 for player in scored):
+        ranking_metric = "points_per_game"
+        for player in scored:
+            player["ranking_score"] = player["points_per_game"]
+    else:
+        ranking_metric = "total_points"
+        for player in scored:
+            player["ranking_score"] = player["total_points"]
+
+    scored.sort(
+        key=lambda p: (
+            -p["ranking_score"],
+            -p["total_points"],
+            p["now_cost"],
+            p["id"],
+        )
+    )
     top = scored[:top_n]
 
     picks = [
         {
             "rank":             i + 1,
+            "id":               p["id"],
             "web_name":         p["web_name"],
             "team_short":       p["team_short"],
             "position":         p["position"],
@@ -354,6 +400,12 @@ def get_transfer_suggestion(
             "difficulty_label": p["difficulty_label"],
             "composite_score":  p["composite_score"],
             "ownership":        p["ownership"],
+            "minutes":          p["minutes"],
+            "status":           p["status"],
+            "news":             p["news"],
+            "points_per_game":  p["points_per_game"],
+            "total_points":     p["total_points"],
+            "ranking_score":    p["ranking_score"],
         }
         for i, p in enumerate(top)
     ]
@@ -367,6 +419,8 @@ def get_transfer_suggestion(
         "max_price":      max_price_raw,
         "horizon":        horizon,
         "top_n":          len(picks),
+        "ranking_basis":  ranking_basis,
+        "ranking_metric": ranking_metric,
         "picks":          picks,
     }
 
@@ -380,7 +434,8 @@ TRANSFER_SUGGESTION_SPEC = ToolSpec(
     description=(
         "Return ranked transfer targets for a given position and optional price ceiling. "
         "Filters available players by position and max_price, then ranks by "
-        "form / avg_fdr composite score (higher = better). "
+        "form / avg_fdr composite score (higher = better), with a preseason "
+        "points-per-game then total-points fallback when league-wide form is zero. "
         "Returns status='empty' when no players survive filters. "
         "Returns status='missing_context' when no element data is in bootstrap."
     ),
@@ -404,10 +459,7 @@ TRANSFER_SUGGESTION_SPEC = ToolSpec(
                 "description": "GW lookahead for FDR computation (default 5, max 10).",
             },
         },
-        # horizon is always provided by the router; listing it as required
-        # ensures the tool runner calls handler(args, bootstrap) so all
-        # route-injected parameters (position_query, max_price, horizon) are passed.
-        "required": ["horizon"],
+        "required": [],
     },
     output_schema={
         "type": "object",
@@ -418,6 +470,8 @@ TRANSFER_SUGGESTION_SPEC = ToolSpec(
             "max_price":      {"type": ["number", "null"]},
             "horizon":        {"type": "integer"},
             "top_n":          {"type": "integer"},
+            "ranking_basis":  {"type": "string"},
+            "ranking_metric": {"type": "string"},
             "picks":          {"type": "array"},
         },
     },

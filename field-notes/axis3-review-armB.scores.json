@@ -1,0 +1,107 @@
+{
+  "anthropic/B/Q6/1": {
+    "score": null,
+    "rubric": "Explains why the named bench makes Bench Boost viable or not.",
+    "notes": "Buen proceso y veredicto fundamentado; arma equipo. Suma XI incorrecta (dice 91.5, real 92.5). Banca malisima, vale 25. Total 117.5: se pasa de presupuesto sin miramientos. Dice BB poco recomendable pero calcula +21 pts extra, que serian un gran puntaje (5.25/jugador de banca = todos con retorno). La mejor de las tres pese a romper reglas fundamentales.",
+    "score_proposed_0_3": 2,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "gemini/B/Q6/1": {
+    "score": null,
+    "rubric": "Explains why the named bench makes Bench Boost viable or not.",
+    "notes": "Respondio en INGLES (producto Spanish-first). Solo senal 'marginal' sin explicar mas.",
+    "score_proposed_0_3": 0,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "openai/B/Q6/1": {
+    "score": null,
+    "rubric": "Explains why the named bench makes Bench Boost viable or not.",
+    "notes": "Igual que Gemini: se quedo en la superficie.",
+    "score_proposed_0_3": 0,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "anthropic/B/Q7/1": {
+    "score": null,
+    "rubric": "Explains fixture discrimination, budget allocation, and at least one alternative.",
+    "notes": "Solo devuelve lista de 15 jugadores; no explica quienes son ideales para la formacion de 5 medios.",
+    "score_proposed_0_3": 1,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "gemini/B/Q7/1": {
+    "score": null,
+    "rubric": "Explains fixture discrimination, budget allocation, and at least one alternative.",
+    "notes": "'Jornada actual: GW1 (pending)...' - basicamente NO es respuesta.",
+    "score_proposed_0_3": 0,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "openai/B/Q7/1": {
+    "score": null,
+    "rubric": "Explains fixture discrimination, budget allocation, and at least one alternative.",
+    "notes": "Igual que anthropic: solo lista, 20 jugadores, sin contexto.",
+    "score_proposed_0_3": 1,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "anthropic/B/Q9/1": {
+    "score": null,
+    "rubric": "Presents at least two price strategies and quantifies the budget difference.",
+    "notes": "Responde por partes, bien. Ofrece Watkins y Thiago (dice 'Thiago Silva'; el real es Igor Thiago). Analisis de presupuesto con breakdown por tipo, excelente. Veredicto final con sentido.",
+    "score_proposed_0_3": 3,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "gemini/B/Q9/1": {
+    "score": null,
+    "rubric": "Presents at least two price strategies and quantifies the budget difference.",
+    "notes": "Otra vez solo una lista de jugadores.",
+    "score_proposed_0_3": 1,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "openai/B/Q9/1": {
+    "score": null,
+    "rubric": "Presents at least two price strategies and quantifies the budget difference.",
+    "notes": "Igual que gemini: solo lista.",
+    "score_proposed_0_3": 1,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "anthropic/B/Q10/1": {
+    "score": null,
+    "rubric": "Names a MID £6.0m-£8.0m, justifies via fixture difficulty and form.",
+    "notes": "Lista de 10, se mantiene en rango de precios. Suficiente pero pobre.",
+    "score_proposed_0_3": 1,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "gemini/B/Q10/1": {
+    "score": null,
+    "rubric": "Names a MID £6.0m-£8.0m, justifies via fixture difficulty and form.",
+    "notes": "No da nada.",
+    "score_proposed_0_3": 0,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "openai/B/Q10/1": {
+    "score": null,
+    "rubric": "Names a MID £6.0m-£8.0m, justifies via fixture difficulty and form.",
+    "notes": "Lista de 5, en rango. Ok pero no satisfactoria.",
+    "score_proposed_0_3": 1,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "anthropic/B/Q11/1": {
+    "score": null,
+    "rubric": "Names a DEF £4.5m-£6.0m, justifies via fixture difficulty and clean-sheet risk.",
+    "notes": "Responde similar a los demas; mismo top 5 (consistencia entre proveedores, bien).",
+    "score_proposed_0_3": 1,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "gemini/B/Q11/1": {
+    "score": null,
+    "rubric": "Names a DEF £4.5m-£6.0m, justifies via fixture difficulty and clean-sheet risk.",
+    "notes": "Mismo top 5 que los otros; solo 5 opciones.",
+    "score_proposed_0_3": 1,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "openai/B/Q11/1": {
+    "score": null,
+    "rubric": "Names a DEF £4.5m-£6.0m, justifies via fixture difficulty and clean-sheet risk.",
+    "notes": "Mismo top 5 que los otros; solo 5 opciones.",
+    "score_proposed_0_3": 1,
+    "scored_by": "human (Leo), 2026-08-21"
+  }
+}

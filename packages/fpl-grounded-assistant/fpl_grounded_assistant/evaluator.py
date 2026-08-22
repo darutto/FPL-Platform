@@ -23,7 +23,7 @@ _LOG = logging.getLogger(__name__)
 
 _EVALUATOR_MODELS: dict[str, str] = {
     "anthropic": "claude-haiku-4-5-20251001",
-    "openai":    "gpt-4o-mini",
+    "openai":    "gpt-5.6-luna",
     "gemini":    "gemini-3.5-flash",
     "deepseek":  "deepseek-chat",
 }
@@ -198,7 +198,53 @@ def _call_evaluator_openai(
     model: str,
     user_message: str,
 ) -> tuple[str | None, int]:
-    """Call OpenAI client.chat.completions.create() and return (raw_text, tokens_used)."""
+    """Call OpenAI ``responses.create()`` and return (raw_text, tokens_used).
+
+    The orchestrator's OpenAI branch already speaks the Responses API, so the
+    evaluator uses it too: one observation then exercises a single endpoint for
+    both halves rather than mixing wire shapes (and their differing token-field
+    names) inside one measurement.
+
+    DeepSeek is OpenAI-*compatible* on Chat Completions only, so it keeps its
+    own path in ``_call_evaluator_openai_chat_completions``.
+    """
+    try:
+        response = client.responses.create(
+            model=model,
+            max_output_tokens=256,
+            instructions=_EVALUATOR_SYSTEM_PROMPT,
+            input=[{"role": "user", "content": user_message}],
+        )
+        raw_text = getattr(response, "output_text", None) or None
+        if raw_text is None:
+            texts: list[str] = []
+            for item in getattr(response, "output", None) or []:
+                if getattr(item, "type", None) != "message":
+                    continue
+                for content in getattr(item, "content", None) or []:
+                    if getattr(content, "type", None) == "output_text":
+                        text = getattr(content, "text", None)
+                        if isinstance(text, str):
+                            texts.append(text)
+            raw_text = "".join(texts) or None
+        usage = getattr(response, "usage", None)
+        tokens = 0
+        if usage is not None:
+            tokens = (getattr(usage, "input_tokens", 0) or 0) + (
+                getattr(usage, "output_tokens", 0) or 0
+            )
+        return raw_text, tokens
+    except Exception as exc:  # noqa: BLE001
+        print(f"[evaluator] OpenAI call failed: {exc}", file=sys.stderr)
+        return None, 0
+
+
+def _call_evaluator_openai_chat_completions(
+    client: Any,
+    model: str,
+    user_message: str,
+) -> tuple[str | None, int]:
+    """Call an OpenAI-compatible ``chat.completions.create()`` endpoint."""
     try:
         response = client.chat.completions.create(
             model=model,
@@ -267,8 +313,8 @@ def _call_evaluator_deepseek(
     user_message: str,
 ) -> tuple[str | None, int]:
     """Call DeepSeek (OpenAI-compat) client and return (raw_text, tokens_used)."""
-    # DeepSeek uses OpenAI-compatible API
-    return _call_evaluator_openai(client, model, user_message)
+    # DeepSeek is compatible with Chat Completions, not the Responses API.
+    return _call_evaluator_openai_chat_completions(client, model, user_message)
 
 
 # ---------------------------------------------------------------------------

@@ -262,6 +262,12 @@ def _classify_error(exc: Exception) -> str:
 
     exc_name = type(exc).__name__.lower()
     exc_text = str(exc).lower()
+    # Checked BEFORE the model heuristics below: OpenAI rejects an unsupported
+    # sampling parameter with "Unsupported parameter: 'temperature' is not
+    # supported with this model", whose "is not supported" would otherwise be
+    # read as "the model was retired" and send operators hunting a live model id.
+    if "unsupported parameter" in exc_text or "unsupported_parameter" in exc_text:
+        return PERR_PROVIDER
     if "timeout" in exc_name or "timed out" in exc_text:
         return PERR_TIMEOUT
     if "connection" in exc_name or "network" in exc_name:
@@ -1162,6 +1168,8 @@ def call_orch_provider(
     tools: list[dict[str, Any]],
     messages: list[Any],
     max_tokens: int = 1024,
+    temperature: float | None = None,
+    top_p: float | None = None,
     timeout_s: float = 20.0,
     max_retries: int = 1,
     client: Any = None,
@@ -1198,6 +1206,11 @@ def call_orch_provider(
         role/content messages or provider-native ``Content``/parts values.
     max_tokens:
         Maximum tokens to generate.
+    temperature:
+        Optional provider sampling temperature. ``None`` preserves the provider
+        default and avoids changing production behaviour.
+    top_p:
+        Optional nucleus-sampling value. ``None`` preserves the provider default.
     timeout_s:
         Per-attempt timeout in seconds.
     max_retries:
@@ -1269,14 +1282,21 @@ def call_orch_provider(
         _tools = tools
 
         def _oai_request() -> Any:
+            request_kwargs: dict[str, Any] = {
+                "model": model,
+                "instructions": _sys,
+                "input": _msgs,
+                "max_output_tokens": max_tokens,
+                "tools": _tools,
+            }
+            if temperature is not None:
+                request_kwargs["temperature"] = temperature
+            if top_p is not None:
+                request_kwargs["top_p"] = top_p
             return _call_with_oai_compat_timeout(
                 _oai.responses.create,
                 timeout_s=timeout_s,
-                model=model,
-                instructions=_sys,
-                input=_msgs,
-                max_output_tokens=max_tokens,
-                tools=_tools,
+                **request_kwargs,
             )
 
         raw = call_provider_request(_oai_request, max_retries=max_retries, _sleep_fn=_sleep_fn)
@@ -1329,8 +1349,14 @@ def call_orch_provider(
         _gm = _gem_model
 
         def _gem_request() -> Any:
+            generation_config: dict[str, Any] = {"max_output_tokens": max_tokens}
+            if temperature is not None:
+                generation_config["temperature"] = temperature
+            if top_p is not None:
+                generation_config["top_p"] = top_p
             return _gm.generate_content(
                 _gem_contents,
+                generation_config=generation_config,
                 request_options={"timeout": timeout_s},
             )
 
@@ -1385,14 +1411,19 @@ def call_orch_provider(
     _system_arg: Any = _system_blocks if _system_blocks is not None else system
 
     def _ant_request() -> Any:
-        return _ac.messages.create(
-            model=model,
-            max_tokens=max_tokens,
-            system=_system_arg,
-            tools=_tools,
-            messages=_msgs,
-            timeout=timeout_s,
-        )
+        request_kwargs: dict[str, Any] = {
+            "model": model,
+            "max_tokens": max_tokens,
+            "system": _system_arg,
+            "tools": _tools,
+            "messages": _msgs,
+            "timeout": timeout_s,
+        }
+        if temperature is not None:
+            request_kwargs["temperature"] = temperature
+        if top_p is not None:
+            request_kwargs["top_p"] = top_p
+        return _ac.messages.create(**request_kwargs)
 
     raw = call_provider_request(_ant_request, max_retries=max_retries, _sleep_fn=_sleep_fn)
     # F3: extract Anthropic usage tokens (including cache_read_input_tokens).

@@ -242,6 +242,53 @@ class TestRunToolErrors:
         result = run_tool("resolve_player", {}, bootstrap)
         assert "query" in result["message"]
 
+    def test_all_optional_schema_receives_args_and_bootstrap(self, bootstrap):
+        from fpl_tool_runner import ToolRegistry, ToolSpec
+
+        registry = ToolRegistry()
+        spec = ToolSpec(
+            name="optional_tool",
+            description="test",
+            parameters={
+                "type": "object",
+                "properties": {"horizon": {"type": "integer"}},
+                "required": [],
+            },
+            output_schema={"type": "object"},
+        )
+        registry.register(
+            spec,
+            lambda args, supplied_bootstrap: {
+                "status": "ok",
+                "horizon": args.get("horizon"),
+                "same_bootstrap": supplied_bootstrap is bootstrap,
+            },
+        )
+
+        result = registry.run("optional_tool", {"horizon": 5}, bootstrap)
+        assert result == {"status": "ok", "horizon": 5, "same_bootstrap": True}
+
+    def test_parameterless_schema_receives_only_bootstrap(self, bootstrap):
+        from fpl_tool_runner import ToolRegistry, ToolSpec
+
+        registry = ToolRegistry()
+        spec = ToolSpec(
+            name="parameterless_tool",
+            description="test",
+            parameters={"type": "object", "properties": {}, "required": []},
+            output_schema={"type": "object"},
+        )
+        registry.register(
+            spec,
+            lambda supplied_bootstrap: {
+                "status": "ok",
+                "same_bootstrap": supplied_bootstrap is bootstrap,
+            },
+        )
+
+        result = registry.run("parameterless_tool", {}, bootstrap)
+        assert result == {"status": "ok", "same_bootstrap": True}
+
 
 # ===========================================================================
 # H. Schema contract

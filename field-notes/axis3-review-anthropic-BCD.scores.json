@@ -1,0 +1,107 @@
+{
+  "anthropic/B/Q6/1": {
+    "score": null,
+    "rubric": "Explains why the named bench makes Bench Boost viable or not.",
+    "notes": "Buen proceso y veredicto fundamentado; arma equipo. Suma XI incorrecta (dice 91.5, real 92.5). Banca malisima, vale 25. Total 117.5: se pasa de presupuesto sin miramientos. Dice BB poco recomendable pero calcula +21 pts extra, que serian un gran puntaje (5.25/jugador de banca = todos con retorno). La mejor de las tres pese a romper reglas fundamentales.",
+    "score_proposed_0_3": 2,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "anthropic/C/Q6/1": {
+    "score": null,
+    "rubric": "Explains why the named bench makes Bench Boost viable or not.",
+    "notes": "'Coste Total: 133.5m (dentro del presupuesto de 100m)': miente con confianza, y ademas el 133.5 tambien es incorrecto. Buena profundidad de respuesta y buenos tips.",
+    "score_proposed_0_3": 1,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "anthropic/D/Q6/1": {
+    "score": null,
+    "rubric": "Explains why the named bench makes Bench Boost viable or not.",
+    "notes": "Coste de titulares erroneo pero casi correcto. Total 118.5 segun su calculo; SE DIO CUENTA del excedente y quiso ajustar (muy bien), pero se vuelve a pasar y ya no reajusta, solo concluye.",
+    "score_proposed_0_3": 2,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "anthropic/B/Q7/1": {
+    "score": null,
+    "rubric": "Explains fixture discrimination, budget allocation, and at least one alternative.",
+    "notes": "Solo devuelve lista de 15 jugadores; no explica quienes son ideales para la formacion de 5 medios.",
+    "score_proposed_0_3": 1,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "anthropic/C/Q7/1": {
+    "score": null,
+    "rubric": "Explains fixture discrimination, budget allocation, and at least one alternative.",
+    "notes": "Top 4 medios exactamente como se pidio; calcula bien el presupuesto del escenario. Respuesta bastante solida.",
+    "score_proposed_0_3": 3,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "anthropic/D/Q7/1": {
+    "score": null,
+    "rubric": "Explains fixture discrimination, budget allocation, and at least one alternative.",
+    "notes": "Da 5 medios en vez de 4 considerando todo lo que hara falta; ofrece opcion premium y balanceada, decision interesante y se aplaude. Pide eleccion al usuario y abre la ruta para terminar la plantilla.",
+    "score_proposed_0_3": 3,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "anthropic/B/Q9/1": {
+    "score": null,
+    "rubric": "Presents at least two price strategies and quantifies the budget difference.",
+    "notes": "Responde por partes, bien. Ofrece Watkins y Thiago (dice 'Thiago Silva'; el real es Igor Thiago). Analisis de presupuesto con breakdown por tipo, excelente. Veredicto final con sentido.",
+    "score_proposed_0_3": 3,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "anthropic/C/Q9/1": {
+    "score": null,
+    "rubric": "Presents at least two price strategies and quantifies the budget difference.",
+    "notes": "Recomendaciones incluso mejores que en B. Buen par de opciones.",
+    "score_proposed_0_3": 3,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "anthropic/D/Q9/1": {
+    "score": null,
+    "rubric": "Presents at least two price strategies and quantifies the budget difference.",
+    "notes": "Vuelve a caer en Thiago e inventa el 'Silva'. Arma bien la respuesta; la recomendacion no es muy buena, pero por falta de xMins/forma, no por razonamiento. Un usuario la calificaria como pobre.",
+    "score_proposed_0_3": 2,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "anthropic/B/Q10/1": {
+    "score": null,
+    "rubric": "Names a MID £6.0m-£8.0m, justifies via fixture difficulty and form.",
+    "notes": "Lista de 10, se mantiene en rango de precios. Suficiente pero pobre.",
+    "score_proposed_0_3": 1,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "anthropic/C/Q10/1": {
+    "score": null,
+    "rubric": "Names a MID £6.0m-£8.0m, justifies via fixture difficulty and form.",
+    "notes": "Mejor que B: da veredicto, muestra entendimiento de FDR, lista ventajas, muestra alternativas y da recomendacion final. Super buen instinto.",
+    "score_proposed_0_3": 3,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "anthropic/D/Q10/1": {
+    "score": null,
+    "rubric": "Names a MID £6.0m-£8.0m, justifies via fixture difficulty and form.",
+    "notes": "Practicamente igual que C.",
+    "score_proposed_0_3": 3,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "anthropic/B/Q11/1": {
+    "score": null,
+    "rubric": "Names a DEF £4.5m-£6.0m, justifies via fixture difficulty and clean-sheet risk.",
+    "notes": "Responde similar a los demas; mismo top 5 (consistencia entre proveedores, bien).",
+    "score_proposed_0_3": 1,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "anthropic/C/Q11/1": {
+    "score": null,
+    "rubric": "Names a DEF £4.5m-£6.0m, justifies via fixture difficulty and clean-sheet risk.",
+    "notes": "Comportamiento similar a Q10.",
+    "score_proposed_0_3": 3,
+    "scored_by": "human (Leo), 2026-08-21"
+  },
+  "anthropic/D/Q11/1": {
+    "score": null,
+    "rubric": "Names a DEF £4.5m-£6.0m, justifies via fixture difficulty and clean-sheet risk.",
+    "notes": "Muy similar a C, aunque da una recomendacion adicional.",
+    "score_proposed_0_3": 3,
+    "scored_by": "human (Leo), 2026-08-21"
+  }
+}
