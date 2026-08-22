@@ -653,6 +653,7 @@ def _driver(args: argparse.Namespace) -> int:
                         result["outcome"],
                         result["answer_text"],
                         result.get("tool_output"),
+                        result.get("rounds_exhausted"),
                     )
                     result["axis2"] = grade_structured_output(
                         scenario,

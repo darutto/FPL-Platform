@@ -66,10 +66,22 @@ CONTENT_FREE_MARKERS: tuple[str, ...] = (
 )
 
 
+#: Fragments of answers that declare their own incompleteness. A turn that hits
+#: the round cap is rendered with an explicit "incomplete" preamble, which is a
+#: churn-level outcome by definition: the user is told the system gave up.
+#: Unlike the outcome constants, this IS a real user-visible difference rather
+#: than a code-path artifact, so scoring it does not break arm uniformity --
+#: arms A/B simply never produce it, because they never loop.
+TRUNCATION_MARKERS: tuple[str, ...] = (
+    "respuesta incompleta",
+    "round limit reached",
+)
+
 def classify_user_visible(
     outcome: str,
     answer_text: str,
     tool_output: dict[str, Any] | None = None,
+    rounds_exhausted: bool | None = None,
 ) -> dict[str, Any]:
     """Axis 1: identify churn-level empty/error/content-free responses.
 
@@ -104,6 +116,11 @@ def classify_user_visible(
     lowered = text.lower()
     if any(marker in lowered for marker in CONTENT_FREE_MARKERS):
         reasons.append("content_free_stub")
+
+    if rounds_exhausted:
+        reasons.append("rounds_exhausted")
+    elif any(marker in lowered for marker in TRUNCATION_MARKERS):
+        reasons.append("answer_declares_itself_incomplete")
 
     return {
         "classification": "catastrophic_failure" if reasons else "substantive_answer",
