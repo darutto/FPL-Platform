@@ -71,6 +71,7 @@ graceful ``status='error'`` unknown-tool result.
 """
 from __future__ import annotations
 
+import functools
 import json
 import logging
 import os
@@ -1116,9 +1117,78 @@ def _parse_tool_call(
 
 
 # ---------------------------------------------------------------------------
+# Tool-call trace records (shared by the legacy single-round path and the loop)
+# ---------------------------------------------------------------------------
+
+#: Statuses that mean a call produced no usable observation.  ``ambiguous``,
+#: ``not_found`` and ``missing_context`` are deliberately absent: those are
+#: usable observations the model can act on, not execution failures.
+_TRACE_FAILURE_STATUSES: frozenset[str] = frozenset({
+    "error",
+    "invalid_argument",
+    "missing_argument",
+})
+
+
+def _trace_entry(
+    *,
+    round_number: int,
+    tool_call_id: str | None,
+    tool_name: str | None,
+    tool_args: dict[str, Any],
+    raw_output: dict[str, Any],
+) -> dict[str, Any]:
+    """Build one ``tool_calls_trace`` record for an EXECUTED tool call.
+
+    One shape for every arm: the legacy single-round path records its calls as
+    round 1, exactly as the loop records its first round.  Key order is part of
+    the contract — recorded loop traces are compared literally in the tests.
+    """
+    _status = raw_output.get("status")
+    return {
+        "round": round_number,
+        "tool_call_id": tool_call_id,
+        "name": tool_name or "",
+        "args": tool_args,
+        "output": raw_output,
+        "success": bool(_status) and _status not in _TRACE_FAILURE_STATUSES,
+    }
+
+
+def _attaches_tool_calls_trace(fn: Any) -> Any:
+    """Attach the supplied ``tool_calls_trace`` to every result *fn* returns.
+
+    ``_apply_evaluator`` has eight return sites and used the trace only for the
+    evaluator prompt and ``tool_call_count``; none of them copied it onto the
+    ``OrchestratorResult``.  The loop path masked that by overwriting the field
+    afterwards, so the legacy single-round path shipped an empty trace and only
+    ``tool_chosen`` (= ``executed[0]``) was visible for arms A/B.  Enforcing the
+    attachment here rather than at each return keeps future return sites honest.
+
+    A return site that sets its own non-empty trace wins.  The trace describes
+    the PRIMARY calls; an evaluator-retry's own tool calls are not appended, so
+    that loop and non-loop arms report the same thing (the loop has always
+    discarded them) — ``tool_chosen`` / ``tool_output`` already carry the retry
+    payload, and ``tool_call_count`` already reports the retry's call count.
+    """
+    @functools.wraps(fn)
+    def _wrapper(**kwargs: Any) -> OrchestratorResult:
+        result: OrchestratorResult = fn(**kwargs)
+        if result.tool_calls_trace:
+            return result
+        return replace(
+            result,
+            tool_calls_trace=tuple(kwargs.get("tool_calls_trace") or ()),
+        )
+
+    return _wrapper
+
+
+# ---------------------------------------------------------------------------
 # Evaluator integration helper (P1.d)
 # ---------------------------------------------------------------------------
 
+@_attaches_tool_calls_trace
 def _apply_evaluator(
     *,
     question: str,
@@ -1631,23 +1701,18 @@ def _run_bounded_loop(
             # observations: the model can ask a better follow-up or explain the
             # limitation, and the harness may need the original status. Only
             # execution/argument failures count toward the failing-round abort.
-            output_status = raw_output.get("status")
-            is_success = bool(output_status) and output_status not in {
-                "error",
-                "invalid_argument",
-                "missing_argument",
-            }
+            entry = _trace_entry(
+                round_number=round_number,
+                tool_call_id=tool_id,
+                tool_name=tool_name,
+                tool_args=tool_args,
+                raw_output=raw_output,
+            )
+            is_success = entry["success"]
             if is_success:
                 successful.append(item)
                 round_had_success = True
-            trace.append({
-                "round": round_number,
-                "tool_call_id": tool_id,
-                "name": tool_name or "",
-                "args": tool_args,
-                "output": raw_output,
-                "success": is_success,
-            })
+            trace.append(entry)
 
         rounds_used += 1
         consecutive_failing_rounds = (
@@ -2114,11 +2179,30 @@ def ask_orchestrated(
     executed: list[tuple[str | None, str | None, dict[str, Any], dict[str, Any]]] = []
     # Each entry: (tool_use_id, tool_name, tool_args, raw_output)
 
+    # Observability: this single round is recorded exactly as the loop records
+    # its first round, so a turn that batched several tool calls reports all of
+    # them and not just ``executed[0]`` (which is all ``tool_chosen`` shows).
+    _trace: list[dict[str, Any]] = []
+
     for _tool_id, _tool_name, _tool_args in all_tool_calls:
         assert _tool_name is not None  # validated above
         try:
             _raw_output: dict[str, Any] = run_tool(_tool_name, _tool_args, actual_bootstrap)
         except Exception as exc:  # noqa: BLE001
+            # Record the raising call — and everything already executed in this
+            # round — before returning. Dropping them is how a multi-call turn
+            # ends up looking like it only ever called its first tool.
+            _trace.append(_trace_entry(
+                round_number=1,
+                tool_call_id=_tool_id,
+                tool_name=_tool_name,
+                tool_args=_tool_args,
+                raw_output={
+                    "status": "error",
+                    "code": "tool_exception",
+                    "message": str(exc),
+                },
+            ))
             return OrchestratorResult(
                 question=question,
                 tool_chosen=_tool_name,
@@ -2129,8 +2213,16 @@ def ask_orchestrated(
                 model=model,
                 outcome=OUTCOME_TOOL_ERROR,
                 error=str(exc),
+                tool_calls_trace=tuple(_trace),
             )
         executed.append((_tool_id, _tool_name, _tool_args, _raw_output))
+        _trace.append(_trace_entry(
+            round_number=1,
+            tool_call_id=_tool_id,
+            tool_name=_tool_name,
+            tool_args=_tool_args,
+            raw_output=_raw_output,
+        ))
 
     # ------------------------------------------------------------------
     # 8b. Multi-tool batching: if the LLM issued 2+ tool_use blocks, send
@@ -2180,10 +2272,6 @@ def ask_orchestrated(
             if _second_text:
                 tool_status = raw_output.get("status")
                 outcome = OUTCOME_OK if tool_status == "ok" else OUTCOME_TOOL_RESULT_ERROR
-                _tool_calls_trace_mt: list[dict[str, Any]] = [
-                    {"name": _tname or "", "args": _targs, "output": _rout}
-                    for _, _tname, _targs, _rout in executed
-                ]
                 # F3: accumulate second-call tokens into "primary" bucket
                 # (primary + multi-tool 2nd call are both part of the primary turn).
                 _prim_in_mt    = _prim_in    + (_second_call.input_tokens or 0)
@@ -2195,7 +2283,7 @@ def ask_orchestrated(
                     tool_chosen=tool_name,
                     tool_args=tool_args,
                     tool_output=raw_output,
-                    tool_calls_trace=_tool_calls_trace_mt,
+                    tool_calls_trace=_trace,
                     outcome=outcome,
                     model=model,
                     provider=_provider_label,
@@ -2235,17 +2323,13 @@ def ask_orchestrated(
         # Renderer failed; surface status as minimal fallback
         answer_text = f"[{tool_status or 'unknown'}]"
 
-    _tool_calls_trace: list[dict[str, Any]] = [
-        {"name": _tname or "", "args": _targs, "output": _rout}
-        for _, _tname, _targs, _rout in executed
-    ]
     return _apply_evaluator(
         question=question,
         answer_text=answer_text,
         tool_chosen=tool_name,
         tool_args=tool_args,
         tool_output=raw_output,
-        tool_calls_trace=_tool_calls_trace,
+        tool_calls_trace=_trace,
         outcome=outcome,
         model=model,
         provider=_provider_label,
