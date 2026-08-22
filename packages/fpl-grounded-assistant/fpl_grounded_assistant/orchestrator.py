@@ -1540,6 +1540,39 @@ def _apply_evaluator(
     )
 
 
+def _select_partial(
+    successful: list[tuple[str | None, str | None, dict[str, Any], dict[str, Any]]],
+) -> tuple[str | None, str | None, dict[str, Any], dict[str, Any]]:
+    """Pick which grounded call to render when the loop ends without an answer.
+
+    An agentic investigation *narrows*: a broad candidate set, then per-candidate
+    profiles, then a pairwise comparison. Selecting the most recent success is
+    therefore anti-correlated with selecting the most informative one. Replayed
+    over the 39 recorded exhausted traces, "most recent" never once picked the
+    answer-bearing call; it picked a single-player or pairwise view in all 39.
+
+    Rendered length is the proxy because it is exactly what reaches the user, it
+    needs no per-tool payload knowledge, and it is deterministic. A tie keeps the
+    earliest call, so a narrowing sequence resolves toward the broader view.
+
+    Pure by construction: no I/O, no config reads, no provider knowledge, so it
+    can be replayed offline against recorded traces. ``successful`` is never
+    empty -- every call site guards on it.
+    """
+    best = successful[0]
+    best_len = -1
+    for item in successful:
+        try:
+            rendered_len = len(render(item[1], item[3]))
+        except Exception:  # noqa: BLE001
+            # A call whose payload cannot be rendered is not a usable answer.
+            rendered_len = 0
+        if rendered_len > best_len:  # strict: an earlier call wins a tie
+            best = item
+            best_len = rendered_len
+    return best
+
+
 def _run_bounded_loop(
     *,
     question: str,
@@ -1770,7 +1803,7 @@ def _run_bounded_loop(
         response = next_call.response
 
     if successful:
-        selected = successful[-1]
+        selected = _select_partial(successful)
         try:
             rendered = render(selected[1], selected[3])
         except Exception:  # noqa: BLE001

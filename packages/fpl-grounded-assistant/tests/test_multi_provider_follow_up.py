@@ -43,6 +43,7 @@ from fpl_grounded_assistant.orchestrator import (  # noqa: E402
     ask_orchestrated,
 )
 from fpl_grounded_assistant.orch_config import get_orch_model  # noqa: E402
+from fpl_grounded_assistant.renderer import render  # noqa: E402
 from fpl_grounded_assistant.orch_config import get_orch_max_rounds  # noqa: E402
 from fpl_grounded_assistant.provider_client import (  # noqa: E402
     OpenAIProvider,
@@ -581,7 +582,7 @@ def test_loop_converges_with_provider_native_message_accumulation(
         assert first.candidates[0].content.thought_signature == "sig-call-1"
 
 
-def test_loop_cap_ignores_action_narration_and_selects_latest_success(
+def test_loop_cap_ignores_action_narration_and_renders_a_consistent_partial(
     monkeypatch, bootstrap
 ):
     _enable_loop(monkeypatch, rounds=2)
@@ -611,7 +612,23 @@ def test_loop_cap_ignores_action_narration_and_selects_latest_success(
     assert "NARRATION IS NOT THE ANSWER" not in result.answer_text
     assert result.answer_text.startswith("Respuesta incompleta")
     assert result.tool_chosen == "get_player_snapshot"
-    assert result.tool_output == result.tool_calls_trace[-1]["output"]
+    # The invariant is that tool_chosen/tool_args/tool_output all point at the
+    # SAME call whose prose was rendered -- NOT that it is the last call in
+    # the trace. Under the old "most recent success" rule those coincided by
+    # construction; under _select_partial they need not, so assert the
+    # agreement directly.
+    selected = [
+        entry for entry in result.tool_calls_trace
+        if entry["name"] == result.tool_chosen
+        and entry["args"] == result.tool_args
+        and entry["output"] == result.tool_output
+    ]
+    assert selected, (
+        "tool_chosen/tool_args/tool_output must identify one real trace entry"
+    )
+    assert result.answer_text.endswith(
+        render(result.tool_chosen, result.tool_output)
+    ), "rendered prose must come from the selected call payload"
 
 
 def test_follow_up_provider_failure_returns_latest_grounded_partial(monkeypatch, bootstrap):
