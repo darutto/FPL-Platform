@@ -1511,6 +1511,15 @@ def check_provider_health(
         return {"available": False, "error": f"health check error: {type(exc).__name__}"}
 
 
+#: Output-token budget for the health canary. NOT 1: OpenAI's reasoning
+#: models (gpt-5.6-*) reject max_output_tokens below 16 with a bare HTTP 400,
+#: which surfaced as error_code "provider" and made GET /health/llm report a
+#: dead model while POST /ask was serving correctly. Verified live against all
+#: three providers: 16 is accepted by openai, gemini and anthropic; 1 is
+#: accepted only by gemini and anthropic. Keep this at or above 16.
+_CANARY_MAX_TOKENS: int = 16
+
+
 def probe_orch_model(
     provider_name: str | None,
     model: str,
@@ -1560,7 +1569,7 @@ def probe_orch_model(
         system="Health probe. Reply with the single token: ok",
         messages=[{"role": "user", "content": "ping"}],
         tools=[],
-        max_tokens=1,
+        max_tokens=_CANARY_MAX_TOKENS,
         timeout_s=timeout_s,
         max_retries=0,
         api_key=api_key,
