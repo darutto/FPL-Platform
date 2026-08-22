@@ -1,18 +1,32 @@
 """Measurement-only legality and outcome graders for the agentic-loop experiment.
 
-This module validates selections; it is deliberately not a squad optimiser and
-is not called by any product path.
+This module validates selections; it is deliberately not a squad optimiser.
+
+The exact min-cost-flow completion oracle it used to define now lives in
+``fpl_grounded_assistant.squad_solver`` and is shared with the product
+``build_squad`` tool -- the experiment is what proved the tool was needed, so
+the two must stay on one implementation rather than drifting apart. This module
+re-exports ``SQUAD_QUOTAS``, ``POSITION_LABELS`` and ``exact_completion`` so the
+harness and its tests keep their existing import surface.
 """
 from __future__ import annotations
 
 import json
 import re
-from collections import defaultdict, deque
-from typing import Any, Iterable
+from collections import defaultdict
+from typing import Any
+
+from .squad_solver import (
+    POSITION_LABELS,
+    SQUAD_QUOTAS,
+    _cost,
+    _duplicates,
+    _minutes,
+    _player_index,
+    exact_completion,
+)
 
 
-SQUAD_QUOTAS: dict[int, int] = {1: 2, 2: 5, 3: 5, 4: 3}
-POSITION_LABELS: dict[int, str] = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
 SELECTION_REQUIREMENTS: dict[str, tuple[int, int]] = {
     "Q7": (3, 4),
     "Q9": (4, 2),
@@ -129,216 +143,11 @@ def classify_user_visible(
     }
 
 
-def _player_index(bootstrap: dict[str, Any]) -> dict[int, dict[str, Any]]:
-    return {
-        int(player["id"]): player
-        for player in bootstrap.get("elements", [])
-        if isinstance(player, dict) and "id" in player
-    }
-
-
-def _cost(player: dict[str, Any]) -> int:
-    try:
-        return int(player.get("now_cost", 0) or 0)
-    except (TypeError, ValueError):
-        return 0
-
-
-def _minutes(player: dict[str, Any]) -> int:
-    try:
-        return int(player.get("minutes", 0) or 0)
-    except (TypeError, ValueError):
-        return 0
-
-
 def _millions_to_tenths(value: Any) -> int | None:
     try:
         return int(round(float(value) * 10))
     except (TypeError, ValueError):
         return None
-
-
-def _duplicates(values: Iterable[int]) -> list[int]:
-    seen: set[int] = set()
-    duplicates: set[int] = set()
-    for value in values:
-        if value in seen:
-            duplicates.add(value)
-        seen.add(value)
-    return sorted(duplicates)
-
-
-class _Edge:
-    __slots__ = ("to", "rev", "cap", "cost")
-
-    def __init__(self, to: Any, rev: int, cap: int, cost: int) -> None:
-        self.to = to
-        self.rev = rev
-        self.cap = cap
-        self.cost = cost
-
-
-def _add_edge(graph: dict[Any, list[_Edge]], source: Any, target: Any, cap: int, cost: int) -> int:
-    forward_index = len(graph[source])
-    reverse_index = len(graph[target])
-    graph[source].append(_Edge(target, reverse_index, cap, cost))
-    graph[target].append(_Edge(source, forward_index, 0, -cost))
-    return forward_index
-
-
-def _min_cost_flow(
-    graph: dict[Any, list[_Edge]], source: Any, sink: Any, target_flow: int
-) -> tuple[int, int]:
-    """Small successive-shortest-paths solver using SPFA for residual negatives."""
-    flow = 0
-    total_cost = 0
-    while flow < target_flow:
-        infinity = 10**12
-        distance: dict[Any, int] = {node: infinity for node in graph}
-        previous: dict[Any, tuple[Any, int]] = {}
-        in_queue: set[Any] = {source}
-        queue: deque[Any] = deque([source])
-        distance[source] = 0
-
-        while queue:
-            node = queue.popleft()
-            in_queue.discard(node)
-            for edge_index, edge in enumerate(graph[node]):
-                if edge.cap <= 0:
-                    continue
-                candidate = distance[node] + edge.cost
-                if candidate >= distance[edge.to]:
-                    continue
-                distance[edge.to] = candidate
-                previous[edge.to] = (node, edge_index)
-                if edge.to not in in_queue:
-                    queue.append(edge.to)
-                    in_queue.add(edge.to)
-
-        if sink not in previous:
-            break
-
-        augment = target_flow - flow
-        node = sink
-        while node != source:
-            prior, edge_index = previous[node]
-            augment = min(augment, graph[prior][edge_index].cap)
-            node = prior
-        node = sink
-        while node != source:
-            prior, edge_index = previous[node]
-            edge = graph[prior][edge_index]
-            edge.cap -= augment
-            graph[node][edge.rev].cap += augment
-            node = prior
-        flow += augment
-        total_cost += augment * distance[sink]
-    return flow, total_cost
-
-
-def exact_completion(
-    bootstrap: dict[str, Any],
-    locked_ids: Iterable[int],
-    selected_ids: Iterable[int],
-    *,
-    budget_tenths: int = 1000,
-) -> dict[str, Any]:
-    """Return whether the fixed players have an exact legal, affordable completion."""
-    players = _player_index(bootstrap)
-    locked = [int(value) for value in locked_ids]
-    selected = [int(value) for value in selected_ids]
-    fixed = locked + selected
-    if _duplicates(fixed):
-        return {"completion_exists": False, "witness_squad": [], "reason": "duplicate_fixed_id"}
-    if any(player_id not in players for player_id in fixed):
-        return {"completion_exists": False, "witness_squad": [], "reason": "unknown_fixed_id"}
-
-    position_counts: dict[int, int] = defaultdict(int)
-    club_counts: dict[int, int] = defaultdict(int)
-    fixed_cost = 0
-    for player_id in fixed:
-        player = players[player_id]
-        position_counts[int(player.get("element_type", 0) or 0)] += 1
-        club_counts[int(player.get("team", 0) or 0)] += 1
-        fixed_cost += _cost(player)
-
-    if fixed_cost > budget_tenths:
-        return {"completion_exists": False, "witness_squad": [], "reason": "fixed_budget_exceeded"}
-    if any(count > 3 for count in club_counts.values()):
-        return {"completion_exists": False, "witness_squad": [], "reason": "fixed_club_cap_exceeded"}
-    if any(position_counts[position] > quota for position, quota in SQUAD_QUOTAS.items()):
-        return {"completion_exists": False, "witness_squad": [], "reason": "fixed_position_quota_exceeded"}
-
-    remaining = {
-        position: quota - position_counts[position]
-        for position, quota in SQUAD_QUOTAS.items()
-    }
-    target_flow = sum(remaining.values())
-    if target_flow == 0:
-        return {
-            "completion_exists": True,
-            "witness_squad": fixed,
-            "completion_ids": [],
-            "minimum_completion_cost": 0,
-            "total_cost": fixed_cost,
-            "reason": None,
-        }
-
-    fixed_set = set(fixed)
-    grouped: dict[tuple[int, int], list[dict[str, Any]]] = defaultdict(list)
-    for player in players.values():
-        player_id = int(player["id"])
-        position = int(player.get("element_type", 0) or 0)
-        club = int(player.get("team", 0) or 0)
-        if player_id in fixed_set or remaining.get(position, 0) <= 0:
-            continue
-        if player.get("status") != "a" or _minutes(player) <= 0:
-            continue
-        if club_counts[club] >= 3:
-            continue
-        grouped[(club, position)].append(player)
-
-    candidates: list[dict[str, Any]] = []
-    for (_club, position), group in grouped.items():
-        keep = min(remaining[position], 3)
-        candidates.extend(sorted(group, key=lambda item: (_cost(item), int(item["id"])))[:keep])
-
-    source = ("source",)
-    sink = ("sink",)
-    graph: dict[Any, list[_Edge]] = defaultdict(list)
-    player_edges: dict[int, tuple[Any, int]] = {}
-    for position, needed in remaining.items():
-        if needed:
-            _add_edge(graph, source, ("position", position), needed, 0)
-    for player in candidates:
-        player_id = int(player["id"])
-        position = int(player["element_type"])
-        club = int(player["team"])
-        position_node = ("position", position)
-        player_node = ("player", player_id)
-        club_node = ("club", club)
-        _add_edge(graph, position_node, player_node, 1, 0)
-        edge_index = _add_edge(graph, player_node, club_node, 1, _cost(player))
-        player_edges[player_id] = (player_node, edge_index)
-    for club in {int(player["team"]) for player in candidates}:
-        _add_edge(graph, ("club", club), sink, 3 - club_counts[club], 0)
-
-    flow, completion_cost = _min_cost_flow(graph, source, sink, target_flow)
-    completion_ids = sorted(
-        player_id
-        for player_id, (node, edge_index) in player_edges.items()
-        if graph[node][edge_index].cap == 0
-    )
-    exists = flow == target_flow and fixed_cost + completion_cost <= budget_tenths
-    witness = fixed + completion_ids if exists else []
-    return {
-        "completion_exists": exists,
-        "witness_squad": witness,
-        "completion_ids": completion_ids if exists else [],
-        "minimum_completion_cost": completion_cost if flow == target_flow else None,
-        "total_cost": fixed_cost + completion_cost if flow == target_flow else None,
-        "reason": None if exists else ("budget_exceeded" if flow == target_flow else "flow_not_saturated"),
-    }
 
 
 def _validate_player_set(

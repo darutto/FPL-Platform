@@ -24,7 +24,7 @@ Registry API
 ``get_tool_schema(name)``            → ToolSchema | None
 ``validate_tool_schema_shape(s)``    → bool            — structural check
 
-Registered tools (33 grounded tools, including compatibility and FI tools)
+Registered tools (34 grounded tools, including compatibility and FI tools)
 -------------------------------------------------------------------------
 +----------------------------+----------------------------------+
 | Tool name                  | Intent label                     |
@@ -55,6 +55,7 @@ Registered tools (33 grounded tools, including compatibility and FI tools)
 | get_team_snapshot          | atomic: single-team overview     |  (P2.6)
 | web_fetch                  | atomic: allowlisted URL fetch    |  (P2.7)
 | rank_players_by_metric     | atomic: ranked player list       |  (P2.8)
+| build_squad                | exact 15-man squad under budget  |  (S1)
 +----------------------------+----------------------------------+
 
 Schema format
@@ -327,7 +328,10 @@ GET_CHIP_ADVICE_SCHEMA = ToolSchema(
     name="get_chip_advice",
     description=(
         "Chip usage advice (triple_captain/wildcard/bench_boost/free_hit). "
-        "Evaluates GW type (normal/double/blank), FDR, captain signals."
+        "Evaluates GW type (normal/double/blank), FDR, captain signals. "
+        "It does NOT build or price a squad: for 'is bench boost viable if I build "
+        "a team from scratch' call build_squad for the squad and its totals, then "
+        "this tool for the chip verdict."
     ),
     parameters={
         "type": "object",
@@ -552,7 +556,10 @@ GET_TRANSFER_SUGGESTION_SCHEMA = ToolSchema(
     name="get_transfer_suggestion",
     description=(
         "Ranked transfer targets filtered by position/club/price ceiling. "
-        "Use for 'best X to buy' or 'cheap forwards under Y'. NOT for sell decisions or differentials."
+        "Use for 'best X to buy' or 'cheap forwards under Y'. NOT for sell decisions or differentials. "
+        "Returns independent suggestions: it does not check squad legality, the "
+        "three-per-club cap or a total budget, so for a full 15-man squad within a "
+        "budget use build_squad."
     ),
     parameters={
         "type": "object",
@@ -867,7 +874,9 @@ RANK_PLAYERS_BY_METRIC_SCHEMA = ToolSchema(
         "For a question about upcoming gameweeks ('next 5', 'over the run', "
         "'best fixtures'), use get_transfer_suggestion, which takes a horizon. "
         "Use this for top/best/most-by-metric queries about present-state metrics, "
-        "even when the metric may be unknown (the tool validates and returns valid_metrics)."
+        "even when the metric may be unknown (the tool validates and returns valid_metrics). "
+        "A ranked list is not a squad: it ignores budget, positional quotas and the "
+        "three-per-club cap, so use build_squad when the answer has to be a legal squad."
     ),
     parameters={
         "type": "object",
@@ -915,6 +924,112 @@ RANK_PLAYERS_BY_METRIC_SCHEMA = ToolSchema(
     },
 )
 
+
+# ---------------------------------------------------------------------------
+# S1 — build_squad: exact constrained squad construction
+#
+# The LLM cannot do constrained squad arithmetic. Measured, not assumed: across
+# the agentic-loop experiment models produced squads costing 117.5 and 133.5
+# against a 100.0 budget while stating the total as 100.0m, with every
+# individual price grounded correctly. This tool owns the arithmetic so no
+# prompt has to ask a model to be careful with it.
+#
+# The description states fixture blindness BEFORE the capability, following
+# 7a05a96: a description that over-promises coverage sends models to the wrong
+# tool, and that failure is silent.
+# ---------------------------------------------------------------------------
+
+BUILD_SQUAD_SCHEMA = ToolSchema(
+    name="build_squad",
+    description=(
+        "Builds a complete, legal 15-man FPL squad under a budget and does all the "
+        "arithmetic itself. Enforces exactly 2 GKP / 5 DEF / 5 MID / 3 FWD, at most 3 "
+        "players per club, and the budget ceiling; returns the squad, every price, "
+        "totals that reconcile, and a starting XI. When no legal squad fits it says so "
+        "explicitly and reports the cheapest legal squad's cost rather than returning a "
+        "near-miss. "
+        "USE IT for 'build me a squad', 'armar un equipo desde cero', wildcard drafts, "
+        "bench-boost feasibility, and any question whose answer must add up to a budget. "
+        "NEVER total the prices or check the three-per-club limit yourself: quote this "
+        "tool's totals verbatim. "
+        "WHAT IT DOES NOT CONSIDER: fixtures, opponents, schedule difficulty or any "
+        "future gameweek. It ranks on the season-to-date bootstrap only (objective "
+        "'total_points' by default, or 'points_per_game'; 'form' is not offered because "
+        "it reads 0.0 for every player pre-season). No view on captaincy, price changes "
+        "or rotation risk, and it excludes only players not flagged available. It "
+        "maximises the total across all 15 and does not discount bench slots -- exactly "
+        "right for a bench-boost question, slightly bench-heavy otherwise. Pair it with "
+        "get_fixture_outlook or get_transfer_suggestion when the question is about the "
+        "upcoming run."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "budget": {
+                "type":        "number",
+                "description": (
+                    "TOTAL budget in millions (default 100.0). Pass the whole budget even "
+                    "when players are locked -- their cost is deducted automatically. For "
+                    "'Haaland is a lock, so I start at -15.5' pass budget=100.0 and "
+                    "locked_players=['Haaland'], NOT budget=84.5."
+                ),
+                "minimum":     0,
+            },
+            "locked_players": {
+                "type":        "array",
+                "description": (
+                    "Players the squad must contain, by name, alias or element id. Their "
+                    "price is charged against the budget."
+                ),
+                "items":       {"type": ["string", "integer"]},
+            },
+            "formation": {
+                "type":        "string",
+                "description": (
+                    "Starting-XI shape as DEF-MID-FWD, e.g. '4-5-1' or '3-4-3' (the "
+                    "goalkeeper is implicit). Picks the XI out of the 15; it does NOT "
+                    "change the 15-man squad split. Omit for the best legal shape."
+                ),
+            },
+            "position_counts": {
+                "type":        "object",
+                "description": (
+                    "Override the 15-man SQUAD split, e.g. {'DEF': 4, 'MID': 6}. Rarely "
+                    "needed, and NOT how to express a formation: a real FPL squad is "
+                    "always 2/5/5/3, so any override returns a squad that cannot be "
+                    "entered in the game, flagged in warnings."
+                ),
+                "properties": {
+                    "GKP": {"type": "integer", "minimum": 0},
+                    "DEF": {"type": "integer", "minimum": 0},
+                    "MID": {"type": "integer", "minimum": 0},
+                    "FWD": {"type": "integer", "minimum": 0},
+                },
+                "additionalProperties": False,
+            },
+            "objective": {
+                "type":        "string",
+                "enum":        ["points_per_game", "total_points"],
+                "description": (
+                    "What to maximise. 'total_points' (default) is season points and "
+                    "rewards players who actually played; 'points_per_game' is "
+                    "per-appearance and will favour small-sample backups unless "
+                    "min_minutes is raised."
+                ),
+            },
+            "min_minutes": {
+                "type":        "integer",
+                "description": (
+                    "Exclude players below this minutes total (default 1, i.e. anyone who "
+                    "has played). Raise it to suppress small-sample picks."
+                ),
+                "minimum":     0,
+            },
+        },
+        "required":             [],
+        "additionalProperties": False,
+    },
+)
 
 # ---------------------------------------------------------------------------
 # Web search — last-resort, premium-gated tool (kept OUT of _ALL_SCHEMAS)
@@ -1159,6 +1274,8 @@ _BASE_REGISTERED_SCHEMAS: tuple[ToolSchema, ...] = (
     WEB_FETCH_SCHEMA,
     # P2.8 atomic tool
     RANK_PLAYERS_BY_METRIC_SCHEMA,
+    # S1 — exact constrained squad construction
+    BUILD_SQUAD_SCHEMA,
     # T-zonal atomic tools (orchestrator-only; no intent, no card)
     GET_ZONAL_WEAKNESS_SCHEMA,
     GET_ZONAL_OPPORTUNITY_SCHEMA,

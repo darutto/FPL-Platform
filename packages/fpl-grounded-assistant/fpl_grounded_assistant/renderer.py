@@ -1373,6 +1373,76 @@ def _render_get_fixture_outlook(output: dict[str, Any]) -> str:
     return f"Error ({code}): {message}"
 
 
+def _render_build_squad(output: dict[str, Any]) -> str:
+    """Render build_squad raw_output.  S1.
+
+    Prints the totals the solver computed, in the solver's own units. Nothing
+    here re-adds a column: the whole point of the tool is that the arithmetic
+    happens once, in one place.
+    """
+    status = output.get("status")
+
+    if status == "ok":
+        squad     = output.get("squad", [])
+        formation = output.get("formation")
+        xi_ids    = {entry.get("id") for entry in output.get("starting_xi", [])}
+
+        lines = [
+            f"Equipo de {output.get('squad_size', len(squad))} jugadores "
+            f"por {output.get('objective', '?')} "
+            f"(base: {output.get('ranking_basis', '?')}):"
+        ]
+        lines.append("  Pos | Jugador          | Club | Precio | Valor  | XI")
+        lines.append("  ----|------------------|------|--------|--------|----")
+        for entry in squad:
+            pos   = str(entry.get("position", "?")).ljust(3)
+            name  = str(entry.get("web_name", "?"))[:16].ljust(16)
+            club  = str(entry.get("team_short", "?")).ljust(4)
+            price = f"{entry.get('price', 0.0):.1f}m".rjust(6)
+            value = str(entry.get("objective_value", "?")).rjust(6)
+            mark  = "XI" if entry.get("id") in xi_ids else "banca"
+            if entry.get("locked"):
+                mark += " *"
+            lines.append(f"  {pos} | {name} | {club} | {price} | {value} | {mark}")
+
+        lines.append(
+            f"  Coste total: {output.get('total_cost', 0.0)}m de "
+            f"{output.get('budget', 0.0)}m — queda {output.get('remaining', 0.0)}m."
+        )
+        clubs = output.get("club_counts") or {}
+        if clubs:
+            lines.append(
+                "  Por club: "
+                + ", ".join(f"{club} {count}" for club, count in clubs.items())
+                + f" (máximo permitido {3})."
+            )
+        if formation:
+            lines.append(f"  Alineación: {formation} (más portero).")
+        for warning in output.get("warnings", []):
+            lines.append(f"  Aviso: {warning}")
+        return "\n".join(lines)
+
+    if status == "infeasible":
+        return output.get("message", "No existe ningún equipo legal con esas restricciones.")
+
+    if status == "ambiguous":
+        candidates = ", ".join(
+            str(candidate.get("web_name", "?")) for candidate in output.get("candidates", [])
+        )
+        message = output.get("message", "Varios jugadores coinciden.")
+        return f"{message} Candidatos: {candidates}." if candidates else message
+
+    if status == "not_found":
+        return output.get("message", "No encontré a ese jugador.")
+
+    if status == "invalid_argument":
+        return output.get("message", "Argumentos no válidos para armar el equipo.")
+
+    code    = output.get("code", "error")
+    message = output.get("message", "Error inesperado.")
+    return f"Error ({code}): {message}"
+
+
 # ---------------------------------------------------------------------------
 # Dispatch table and public API
 # ---------------------------------------------------------------------------
@@ -1424,6 +1494,7 @@ _RENDERERS = {
     "get_team_snapshot":        _render_get_team_snapshot,       # P2.6
     "web_fetch":                _render_web_fetch,               # P2.7
     "rank_players_by_metric":   _render_rank_players_by_metric,  # P2.8
+    "build_squad":              _render_build_squad,             # S1
     "search_web":               _render_search_web,              # web search parity
     # T-zonal atomic tools
     "get_zonal_weakness":       _render_get_zonal_weakness,      # T-zonal
