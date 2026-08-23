@@ -555,25 +555,25 @@
     },
     {
       "id": "i28",
-      "col": "idea",
+      "col": "shipped",
       "title": "Idioma F0 - el portador de locale",
-      "desc": "FUNDACION - PR #156 abierto. Resolver un `locale` UNA vez en el borde del request y enhebrarlo hasta los renders, con default 'es' y SIN cambio de comportamiento. En main no existe nada: cero `locale`/`lang`/i18n en backend y en fpl-ui, y la politica de idioma del LLM es una sola frase del system prompt ('Spanish-first.', orchestrator.py:399). Va primero porque enhebrar un parametro por diez modulos DOS veces es el error caro. Leccion de verificacion registrada: la prueba de no-op NO se puede hacer con un diff de /ask en vivo -- el control (main contra main, cero diferencia de codigo) divergio 5 de 15 veces porque el modelo varia los ARGUMENTOS de herramienta entre llamadas identicas. Se prueba en la frontera del renderer con entradas fijas.",
+      "desc": "HECHO (PR #156). El `locale` se resuelve UNA vez en resolve_locale() en el borde del request y se enhebra hasta los productores de texto; default 'es', sin cambio de comportamiento. Antes de esto no existia nada: cero locale/lang/i18n en backend y en fpl-ui, y toda la politica de idioma del LLM era una frase del system prompt. LECCION DE VERIFICACION que vale para todo el track: la prueba de no-op NO se puede hacer con un diff de /ask en vivo -- el control (main contra main, cero diferencia de codigo) divergio 5 de 15 veces porque el modelo varia los ARGUMENTOS de herramienta entre llamadas identicas (dos peticiones seguidas devolvieron 5 y 20 candidatos, mismos jugadores, mismos numeros). Se prueba en la frontera del renderer con entradas fijas: 110 renders hasheados (35 outputs reales de la auditoria + 37 renderers x vacio/error + fallback de tool desconocida).",
       "tags": [
         "Backend",
         "UX"
       ],
-      "progress": 0
+      "progress": 100
     },
     {
       "id": "i29",
-      "col": "idea",
+      "col": "shipped",
       "title": "Idioma F1 - catalogo de strings ES/EN (capa 1: renderers)",
-      "desc": "El grueso de la capa 1. Medido sobre los 35 outputs reales de la auditoria: de 37 renderers, 22 producen ingles, 5 espanol y 8 son neutros. ACOTADO a lo que el smoke en vivo demostro que los usuarios tocan: get_transfer_suggestion (el mas golpeado, 14 tokens ingleses por render, alcanzado por 3 de 5 preguntas), select_players_within_budget, get_player_snapshot, get_player_fixture_run, compare_players, y el fallback de harness.py:191 -- que hoy le dice a un usuario en espanol que pregunte en ingles. NO los 535 literales de renderer.py. Dos commits separados: (1) mecanico, las 37 subfirmas a (output, locale), no-op probado; (2) el catalogo y las traducciones en alcance. PROHIBICION DURA: nada de locale global de modulo ni contextvar -- FastAPI corre los endpoints sync en un threadpool y un global se filtra entre requests concurrentes. Regla de traduccion: web_name, codigos de club y GKP/DEF/MID/FWD NO se traducen; gameweek/jornada, fixtures/partidos, budget/presupuesto SI.",
+      "desc": "HECHO (PR #157, 3 commits separables). Catalogo t(key, locale, **params) sin dependencias. Alcance: get_transfer_suggestion, select_players_within_budget, get_player_snapshot, get_player_fixture_run, compare_players y el fallback de harness.py -- que hasta ahora le decia EN INGLES a un usuario en espanol que preguntara en ingles. Las 37 subfirmas pasaron a (output, locale) en un commit mecanico aparte, probado no-op 110/110, para que ninguna fase futura vuelva a tocar 37 firmas. Verificado: en el commit de la etiqueta de dificultad el ingles quedo 110/110 IDENTICO -- la comprobacion mas filosa, porque el riesgo real era romper el ingles al arreglar el espanol. 0 claves fugadas en 218 salidas. REGLA AFINADA, ahora en el docstring del catalogo: el discriminador NO es 'es un enum calculado por la herramienta' sino '¿el usuario contrasta este token en otro lado, o lo lee como palabra dentro de una frase?'. El usuario contrasta MID y MCI contra la app de FPL; nadie contrasta 'easy'. Por eso easy/moderate/hard se traducen y ranking_basis (current_season_partial) no. PROHIBICION que sigue vigente: nada de locale global de modulo ni contextvar -- FastAPI corre los endpoints sync en un threadpool y se filtraria entre requests concurrentes, apareciendo como 'a veces sale en el idioma equivocado'.",
       "tags": [
         "Backend",
         "UX"
       ],
-      "progress": 0
+      "progress": 100
     },
     {
       "id": "i30",
@@ -611,8 +611,8 @@
     {
       "id": "i33",
       "col": "idea",
-      "title": "Idioma capa 2 - el runner devuelve codigo, no prosa",
-      "desc": "HALLAZGO que acota i29: el texto de usuario sale de TRES capas, no de una. Capa 1 = el renderer compone prosa desde campos (eso es i29). Capa 2 = la herramienta pre-construye la prosa y el renderer solo la pasa -- localizar renderers NO arregla esto. Son 20 herramientas: get_chip_advice.advice_text, get_transfer_advice.recommendation_text, get_price_changes.gw_note, y 16 mensajes .message del runner del tipo \"Tool 'X' requires argument 'Y'\", que vive en OTRO paquete (fpl-tool-runner). El arreglo correcto NO es traducir 20 strings: es que el runner devuelva codigo + parametros y el renderer componga el mensaje localizado. Es cambio de contrato, no de catalogo, y por eso no va dentro de i29. Capa 3 = datos de terceros (get_injury_list.news, 'Has joined Bolton Wanderers on loan') es texto de la API de FPL: se pasa verbatim y se documenta, no se traduce.",
+      "title": "Idioma capa 2 - particion: enum cerrado vs prosa libre",
+      "desc": "El texto de usuario sale de TRES capas. Capa 1 (el renderer compone prosa desde campos) quedo cerrada en [[i29]]. Capa 3 (texto de la API de FPL, p.ej. get_injury_list.news 'Has joined Bolton Wanderers on loan') se pasa verbatim y NO se traduce nunca. Esta carta es la capa 2, y haciendo F1 aprendimos que NO es una sola cosa -- se parte en dos con arreglos distintos:\n\n2a. ENUM CERRADO calculado por la herramienta. Vocabulario acotado, verificable desde el codigo fuente. Se mapea EN EL RENDERER con una entrada de catalogo; NO necesita tocar el contrato. Ya se hizo el primero asi (difficulty_label: easy|moderate|hard, tres valores enumerados en transfer_suggestion.py:208-211 y player_fixture_run.py:154-156). Quedan por barrer otros enums del mismo tipo -- las etiquetas de estado (_STATUS_DISPLAY: Available/Doubtful/Injured/...) son la siguiente candidata. Regla del mapeo: enumerar desde el codigo fuente, NUNCA desde lo que el corpus de prueba resulta contener, y el valor no mapeado cae al token crudo (una palabra inglesa visible es una regresion depurable; un campo vacio es una silenciosa).\n\n2b. PROSA LIBRE pre-construida por la herramienta. Aqui el renderer solo la reenvia y NINGUNA entrada de catalogo la alcanza. Son: get_chip_advice.advice_text, get_transfer_advice.recommendation_text, compare_players.recommendation (nace en comparison.py), get_price_changes.gw_note, el mensaje de infactibilidad de squad_solver, y 16 mensajes .message del runner del tipo \"Tool 'X' requires argument 'Y'\" que viven en OTRO paquete (fpl-tool-runner). El arreglo correcto NO es traducir 20 strings: es que el productor devuelva CODIGO + PARAMETROS y el renderer componga el mensaje localizado. Es cambio de contrato y cruza paquetes, por eso nunca debio ir dentro de i29.\n\nHacer 2a primero: es barato, sigue el patron ya probado, y reduce lo que queda para 2b.",
       "tags": [
         "Backend",
         "UX"
