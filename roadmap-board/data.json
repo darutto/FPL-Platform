@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-22",
+  "updated": "2026-08-23",
   "cards": [
     {
       "id": "s1",
@@ -255,8 +255,8 @@
     {
       "id": "b4",
       "col": "building",
-      "title": "PR #13 — FotMob Tier-2 zonal",
-      "desc": "Flanco de juego real más A/B de resolución de nombres, abierto desde julio.",
+      "title": "FotMob Tier-2 zonal",
+      "desc": "Referencia corregida: la PR #13 citada aquí es en realidad el fix de flank-mirror fusionado en julio, no este trabajo -- el flanco de juego real más A/B de resolución de nombres sigue sin PR abierta.",
       "tags": [
         "Datos",
         "FPL Asistente"
@@ -541,6 +541,17 @@
         "Backend",
         "IA"
       ]
+    },
+    {
+      "id": "s22",
+      "col": "shipped",
+      "title": "Fix del canario de salud LLM (#153)",
+      "desc": "Fusionada (PR #153, 23/08). El canario de /health/llm subía max_tokens de 1 a 16, ya que los modelos de razonamiento de OpenAI rechazan valores menores con HTTP 400, lo que hacía reportar el modelo como caído mientras /ask servía respuestas correctas en producción.",
+      "tags": [
+        "Backend",
+        "IA"
+      ],
+      "progress": 100
     }
   ]
 }
