@@ -610,14 +610,25 @@
     },
     {
       "id": "i33",
-      "col": "idea",
-      "title": "Idioma capa 2 - particion: enum cerrado vs prosa libre",
-      "desc": "El texto de usuario sale de TRES capas. Capa 1 (el renderer compone prosa desde campos) quedo cerrada en [[i29]]. Capa 3 (texto de la API de FPL, p.ej. get_injury_list.news 'Has joined Bolton Wanderers on loan') se pasa verbatim y NO se traduce nunca. Esta carta es la capa 2, y haciendo F1 aprendimos que NO es una sola cosa -- se parte en dos con arreglos distintos:\n\n2a. ENUM CERRADO calculado por la herramienta. Vocabulario acotado, verificable desde el codigo fuente. Se mapea EN EL RENDERER con una entrada de catalogo; NO necesita tocar el contrato. Ya se hizo el primero asi (difficulty_label: easy|moderate|hard, tres valores enumerados en transfer_suggestion.py:208-211 y player_fixture_run.py:154-156). Quedan por barrer otros enums del mismo tipo -- las etiquetas de estado (_STATUS_DISPLAY: Available/Doubtful/Injured/...) son la siguiente candidata. Regla del mapeo: enumerar desde el codigo fuente, NUNCA desde lo que el corpus de prueba resulta contener, y el valor no mapeado cae al token crudo (una palabra inglesa visible es una regresion depurable; un campo vacio es una silenciosa).\n\n2b. PROSA LIBRE pre-construida por la herramienta. Aqui el renderer solo la reenvia y NINGUNA entrada de catalogo la alcanza. Son: get_chip_advice.advice_text, get_transfer_advice.recommendation_text, compare_players.recommendation (nace en comparison.py), get_price_changes.gw_note, el mensaje de infactibilidad de squad_solver, y 16 mensajes .message del runner del tipo \"Tool 'X' requires argument 'Y'\" que viven en OTRO paquete (fpl-tool-runner). El arreglo correcto NO es traducir 20 strings: es que el productor devuelva CODIGO + PARAMETROS y el renderer componga el mensaje localizado. Es cambio de contrato y cruza paquetes, por eso nunca debio ir dentro de i29.\n\nHacer 2a primero: es barato, sigue el patron ya probado, y reduce lo que queda para 2b.",
+      "col": "shipped",
+      "title": "Idioma capa 2a - vocabularios cerrados (HECHO)",
+      "desc": "HECHO (PR #158). CORRECCION IMPORTANTE de como estaba escrita esta carta: decia que 2a era 'mapear el enum cerrado en el renderer, sin tocar el contrato'. La tecnica era correcta, el alcance NO: los enums vivian dentro de renderers que seguian ENTEROS en ingles, asi que traducir solo el enum daba un hibrido peor que cualquiera de los dos idiomas puros ('Raya plays for Arsenal (ARS) as a GKP. Estado: Disponible.'). Hubo que localizar los cinco renderers Y mapear sus vocabularios a la vez.\n\nRenderers: resolve_player, get_player_summary, get_injury_list, get_captain_score, rank_captain_candidates. Vocabularios: estado (5), tier largo y corto (5+5), balon parado (4), y las 15 frases fijas de explainer.py -- que NO eran prosa libre sino constantes literales, o sea catalogo, no cambio de contrato.\n\nTRES DEFECTOS que solo aparecieron al inspeccionar, no al planear: (1) _STATUS_DISPLAY era codigo muerto y ya habia desviado el scoping una vez; (2) _SET_PIECE_SHORT tambien muerto, y su docstring MENTIA sobre lo que renderiza; (3) _COMPACT_EXCLUDED filtraba por string literal en ingles -- al traducir habria dejado de excluir nada, que es REGRESION FUNCIONAL (info duplicada colandose a la vista compacta), no fuga de idioma. Se arreglo filtrando por clave.\n\nTambien aqui se fijo el REGISTRO del producto: TUTEO, no voseo. Fueron las primeras cadenas que le hablan al usuario directamente en espanol y el primer pase eligio voseo por defecto. 8 ocurrencias corregidas (3 mas de las listadas, halladas escaneando por FORMA del voseo en el codigo y no confiando en una lista escrita a mano). La regla vive en el docstring del catalogo y la aplica TestSpanishRegisterIsTuteo, con allowlist de 3 palabras que a su vez esta guardada por otro test.",
       "tags": [
         "Backend",
         "UX"
       ],
-      "progress": 0
+      "progress": 100
+    },
+    {
+      "id": "i34",
+      "col": "idea",
+      "progress": 0,
+      "title": "Idioma capa 2b - el productor devuelve codigo, no prosa",
+      "desc": "Lo que queda de la capa 2 despues de [[i33]]. Prosa libre pre-construida por la herramienta: el renderer solo la reenvia y NINGUNA entrada de catalogo la alcanza. Seis fuentes: compare_players.recommendation (nace en comparison.py), get_transfer_advice.recommendation_text, get_chip_advice.advice_text, get_price_changes.gw_note, el mensaje de infactibilidad de squad_solver, y 16 mensajes .message del runner del tipo \"Tool 'X' requires argument 'Y'\" que viven en OTRO paquete (fpl-tool-runner).\n\nEl arreglo correcto NO es traducir estas cadenas: es que el productor devuelva CODIGO + PARAMETROS y el renderer componga el mensaje localizado. Es cambio de contrato y cruza paquetes, por eso nunca cupo dentro de i29 ni de i33.\n\nOJO con una trampa ya vista en #158: explain_captain/explain_captain_compact tienen llamadores fuera de alcance (comparison.py, transfer_advisor.py) que empalman su salida dentro de prosa inglesa 2b. Por eso ambas funciones tienen locale='en' por defecto EXPLICITO, distinto del default del catalogo. Cuando 2b localice a esos llamadores, ese default hay que revisarlo -- si no, quedaran pidiendo ingles dentro de prosa ya traducida.\n\nCapa 3 (texto de la API de FPL: news de get_injury_list, nombres) se pasa verbatim y NO se traduce nunca.",
+      "tags": [
+        "Backend",
+        "UX"
+      ]
     }
   ]
 }
