@@ -38,21 +38,41 @@ try:
 except ImportError:  # standalone load (test_renderer_zonal bypasses the package)
     from catalogue import t  # type: ignore[no-redef]
 
-# Map tool status → label for use in answer text
-_STATUS_DISPLAY = {
-    "a": "Available",
-    "d": "Doubtful",
-    "i": "Injured",
-    "s": "Suspended",
-    "u": "Unavailable",
+# ---------------------------------------------------------------------------
+# status_label: shared by resolve_player and get_player_summary.  F2.
+# ---------------------------------------------------------------------------
+# The renderer never receives the raw single-char status code -- by the
+# time output["status_label"] reaches here it is already the English word
+# ("Available"/"Doubtful"/"Injured"/"Suspended"/"Unavailable"), produced
+# upstream by fpl_query_tools._STATUS_LABELS -- so this maps that English
+# value straight to a catalogue key. Same unmapped-fallback shape as
+# _localized_difficulty_label: a raw English word in Spanish output is a
+# visible, debuggable regression; a blank field is not.
+
+_STATUS_LABEL_KEYS = {
+    "Available":   "status_label.available",
+    "Doubtful":    "status_label.doubtful",
+    "Injured":     "status_label.injured",
+    "Suspended":   "status_label.suspended",
+    "Unavailable": "status_label.unavailable",
 }
+
+
+def _localized_status_label(value: str, locale: Locale) -> str:
+    key = _STATUS_LABEL_KEYS.get(value)
+    if key is None:
+        return value
+    return t(key, locale)
+
 
 # ---------------------------------------------------------------------------
 # Per-tool renderers
 # ---------------------------------------------------------------------------
 
 def _render_resolve_player(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
+    """Render a resolve_player raw_output dict into a human-readable string.
+    F2: localized.
+    """
     status = output.get("status")
     if status == "ok":
         name       = output.get("name", output.get("web_name", "Unknown"))
@@ -60,39 +80,43 @@ def _render_resolve_player(output: dict[str, Any], locale: Locale = DEFAULT_LOCA
         team       = output.get("team", "")
         team_short = output.get("team_short", "")
         position   = output.get("position", "")
-        status_lbl = output.get("status_label", "")
+        status_lbl = _localized_status_label(output.get("status_label", ""), locale)
         via        = output.get("resolved_via", "")
 
-        display = f"{web_name} ({name})" if name != web_name else web_name
-        return (
-            f"{display} plays for {team} ({team_short}) "
-            f"as a {position}. Status: {status_lbl}."
-            + (f" [Resolved via: {via}]" if via else "")
-        )
+        if name != web_name:
+            result = t(
+                "resolve_player.summary_named", locale,
+                web_name=web_name, name=name, team=team, team_short=team_short,
+                position=position, status_lbl=status_lbl,
+            )
+        else:
+            result = t(
+                "resolve_player.summary_unnamed", locale,
+                web_name=web_name, team=team, team_short=team_short,
+                position=position, status_lbl=status_lbl,
+            )
+        if via:
+            result += t("resolve_player.resolved_via_suffix", locale, via=via)
+        return result
 
     if status == "ambiguous":
         query = output.get("query", "that name")
-        return (
-            f"Multiple players share the name '{query}'. "
-            f"Please use a full name or player ID to disambiguate "
-            f"(e.g. 'Who is Adam Johnson?' or 'Who is player 6?')."
-        )
+        return t("resolve_player.ambiguous", locale, query=query)
 
     if status == "not_found":
         query = output.get("query", "that player")
-        return (
-            f"No player found matching '{query}'. "
-            f"Check the spelling or try a full name / player ID."
-        )
+        return t("resolve_player.not_found", locale, query=query)
 
     # error or unexpected
     code    = output.get("code", "unknown")
-    message = output.get("message", "An unexpected error occurred.")
+    message = output.get("message", t("resolve_player.error_fallback", locale))
     return f"Error ({code}): {message}"
 
 
 def _render_get_player_summary(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
+    """Render a get_player_summary raw_output dict into a human-readable
+    string. F2: localized.
+    """
     status = output.get("status")
     if status == "ok":
         name       = output.get("name", output.get("web_name", "Unknown"))
@@ -100,14 +124,15 @@ def _render_get_player_summary(output: dict[str, Any], locale: Locale = DEFAULT_
         team       = output.get("team", "")
         team_short = output.get("team_short", "")
         position   = output.get("position", "")
-        status_lbl = output.get("status_label", "")
+        status_lbl = _localized_status_label(output.get("status_label", ""), locale)
         cost_m     = output.get("cost_m", "?")
         ownership  = output.get("selected_by_percent", "?")
 
         display = f"{web_name} ({name})" if name != web_name else web_name
-        base = (
-            f"{display} | {team} ({team_short}) | {position} | "
-            f"£{cost_m}m | {ownership}% ownership | Status: {status_lbl}."
+        base = t(
+            "player_summary.line", locale,
+            display=display, team=team, team_short=team_short, position=position,
+            cost_m=cost_m, ownership=ownership, status_lbl=status_lbl,
         )
         # Phase 2.6d Story 2.2: append season totals when available
         extras: list[str] = []
@@ -115,31 +140,25 @@ def _render_get_player_summary(output: dict[str, Any], locale: Locale = DEFAULT_
         form_val  = output.get("form")
         minutes   = output.get("minutes")
         if total_pts is not None:
-            extras.append(f"Total pts: {total_pts}")
+            extras.append(t("player_summary.extra_total_pts", locale, total_pts=total_pts))
         if form_val is not None:
-            extras.append(f"Form: {form_val}")
+            extras.append(t("player_summary.extra_form", locale, form_val=form_val))
         if minutes is not None:
-            extras.append(f"Mins: {minutes}")
+            extras.append(t("player_summary.extra_mins", locale, minutes=minutes))
         if extras:
             return base + " " + " | ".join(extras) + "."
         return base
 
     if status == "ambiguous":
         query = output.get("query", "that name")
-        return (
-            f"Multiple players share the name '{query}'. "
-            f"Please use a full name or player ID to disambiguate."
-        )
+        return t("player_summary.ambiguous", locale, query=query)
 
     if status == "not_found":
         query = output.get("query", "that player")
-        return (
-            f"No player found matching '{query}'. "
-            f"Check the spelling or try a full name / player ID."
-        )
+        return t("player_summary.not_found_fallback", locale, query=query)
 
     code    = output.get("code", "unknown")
-    message = output.get("message", "An unexpected error occurred.")
+    message = output.get("message", t("player_summary.error_fallback", locale))
     return f"Error ({code}): {message}"
 
 
@@ -166,8 +185,9 @@ def _render_get_current_gameweek(output: dict[str, Any], locale: Locale = DEFAUL
 # ---------------------------------------------------------------------------
 
 def _render_get_captain_score(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
-    """Render a get_captain_score raw_output dict into a human-readable string."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
+    """Render a get_captain_score raw_output dict into a human-readable string.
+    F2: localized.
+    """
     from .explainer import explain_captain  # local import — avoids circular
 
     status = output.get("status")
@@ -177,29 +197,23 @@ def _render_get_captain_score(output: dict[str, Any], locale: Locale = DEFAULT_L
         score      = output.get("captain_score", 0)
         tier       = output.get("tier", "")
 
-        tier_label = _tier_display(tier)  # e.g. "Safe", "Upside", "Differential"
+        tier_label = _tier_display(tier, locale)  # e.g. "Safe"/"Segura"
 
-        reasons = explain_captain(output)
+        reasons = explain_captain(output, locale=locale)
         reasons_clause = (" " + "; ".join(reasons) + ".") if reasons else ""
 
         return f"{web_name} ({team_short}) — {tier_label} [{score}].{reasons_clause}"
 
     if status == "ambiguous":
         query = output.get("query", "that name")
-        return (
-            f"Multiple players share the name '{query}'. "
-            f"Please use a full name or player ID to disambiguate."
-        )
+        return t("captain_score.ambiguous", locale, query=query)
 
     if status == "not_found":
         query = output.get("query", "that player")
-        return (
-            f"No player found matching '{query}'. "
-            f"Check the spelling or try a full name / player ID."
-        )
+        return t("captain_score.not_found_fallback", locale, query=query)
 
     code    = output.get("code", "unknown")
-    message = output.get("message", "An unexpected error occurred.")
+    message = output.get("message", t("captain_score.error_fallback", locale))
     return f"Error ({code}): {message}"
 
 
@@ -208,8 +222,9 @@ def _render_get_captain_score(output: dict[str, Any], locale: Locale = DEFAULT_L
 # ---------------------------------------------------------------------------
 
 def _render_rank_captain_candidates(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
-    """Render a rank_captain_candidates raw_output dict into a human-readable string."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
+    """Render a rank_captain_candidates raw_output dict into a human-readable
+    string. F2: localized.
+    """
     from .explainer import explain_captain_compact  # local import
 
     status = output.get("status")
@@ -218,7 +233,7 @@ def _render_rank_captain_candidates(output: dict[str, Any], locale: Locale = DEF
         ok_entries = [c for c in candidates if c.get("status") == "ok"]
 
         if not ok_entries:
-            return "No captain candidates could be scored."
+            return t("rank_captain.none", locale)
 
         lines = []
         for c in ok_entries:
@@ -229,10 +244,10 @@ def _render_rank_captain_candidates(output: dict[str, Any], locale: Locale = DEF
             tier      = c.get("tier", "")
             role_sigs = c.get("role_signals", {})
 
-            tier_s   = _tier_short(tier)             # e.g. "safe", "up", "diff"
-            sp_sfx   = _set_piece_suffix(role_sigs)  # e.g. "· pen" or ""
+            tier_s   = _tier_short(tier, locale)             # e.g. "safe"/"seg"
+            sp_sfx   = _set_piece_suffix(role_sigs, locale)  # e.g. "· penalty taker" or ""
 
-            compact_reasons = explain_captain_compact(c)
+            compact_reasons = explain_captain_compact(c, locale=locale)
             reason_str = "; ".join(compact_reasons) if compact_reasons else ""
 
             line = f"{rank}. {name} ({team_s}) [{tier_s}] {score}{(' ' + sp_sfx) if sp_sfx else ''}"
@@ -243,7 +258,7 @@ def _render_rank_captain_candidates(output: dict[str, Any], locale: Locale = DEF
         return "\n".join(lines)
 
     code    = output.get("code", "error")
-    message = output.get("message", "Could not rank captain candidates.")
+    message = output.get("message", t("rank_captain.error_fallback", locale))
     return f"Error ({code}): {message}"
 
 
@@ -548,8 +563,13 @@ def _render_get_player_season_points(output: dict[str, Any], locale: Locale = DE
 # ---------------------------------------------------------------------------
 
 def _render_get_injury_list(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
-    """Render get_injury_list output."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
+    """Render get_injury_list output. F2: localized.
+
+    ``other`` groups both suspended and unavailable players under one
+    composite header (see injury_list.py's bucketing), so this is 3 header
+    phrases, not the 5-value status vocabulary — per-player ``web_name``/
+    ``team_short``/``position`` stay raw codes/names as elsewhere.
+    """
     status = output.get("status")
     if status == "ok":
         injured  = output.get("injured", [])
@@ -558,12 +578,12 @@ def _render_get_injury_list(output: dict[str, Any], locale: Locale = DEFAULT_LOC
         total    = output.get("total", 0)
 
         if total == 0:
-            return "No injury concerns in the current bootstrap."
+            return t("injury_list.none", locale)
 
         parts: list[str] = []
         if injured:
             names = ", ".join(f"{p['web_name']} ({p['team_short']}, {p['position']})" for p in injured)
-            parts.append(f"Injured: {names}")
+            parts.append(t("injury_list.injured_header", locale, names=names))
         if doubtful:
             doubt_strs: list[str] = []
             for p in doubtful:
@@ -572,15 +592,15 @@ def _render_get_injury_list(output: dict[str, Any], locale: Locale = DEFAULT_LOC
                 if chance is not None:
                     s += f" {chance}%"
                 doubt_strs.append(s)
-            parts.append(f"Doubtful: {', '.join(doubt_strs)}")
+            parts.append(t("injury_list.doubtful_header", locale, names=", ".join(doubt_strs)))
         if other:
             names = ", ".join(f"{p['web_name']} ({p['team_short']})" for p in other)
-            parts.append(f"Suspended/unavailable: {names}")
+            parts.append(t("injury_list.suspended_header", locale, names=names))
 
         return " | ".join(parts) + "."
 
     code    = output.get("code", "error")
-    message = output.get("message", "An unexpected injury list error occurred.")
+    message = output.get("message", t("injury_list.error_fallback", locale))
     return f"Error ({code}): {message}"
 
 
@@ -1787,6 +1807,14 @@ def render(tool_name: str, raw_output: dict[str, Any], locale: Locale = DEFAULT_
 # ---------------------------------------------------------------------------
 # Phase 2i: Tier and set-piece display helpers
 # ---------------------------------------------------------------------------
+# _TIER_LABEL / _SET_PIECE_LABEL below are the domain-vocabulary tables: they
+# enumerate the valid codes and their canonical English text, and stay
+# English-only -- _tier_display/_tier_short/_set_piece_clause route through
+# the catalogue for the actual localized text (F2). _SET_PIECE_SHORT used to
+# sit here too but was dead: nothing in this module ever called it (the live
+# "· {clause}" suffix has always used the full label via _SET_PIECE_LABEL,
+# despite _set_piece_suffix's stale docstring claiming "· pen" -- see the F2
+# report). Deleted rather than translated, same as _STATUS_DISPLAY.
 
 _TIER_LABEL: dict[str, str] = {
     "safe":               "Safe",
@@ -1811,25 +1839,49 @@ _SET_PIECE_LABEL: dict[str, str] = {
     "freekick_taker_2":   "2nd free-kick taker",
 }
 
-_SET_PIECE_SHORT: dict[str, str] = {
-    "penalty_taker_1":    "pen",
-    "penalty_taker_2":    "pen2",
-    "freekick_taker_1":   "fk",
-    "freekick_taker_2":   "fk2",
+_TIER_LABEL_KEYS = {
+    "safe":            "tier_label.safe",
+    "upside":          "tier_label.upside",
+    "differential":    "tier_label.differential",
+    "avoid":           "tier_label.avoid",
+    "low_confidence":  "tier_label.low_confidence",
+}
+
+_TIER_SHORT_KEYS = {
+    "safe":            "tier_short.safe",
+    "upside":          "tier_short.upside",
+    "differential":    "tier_short.differential",
+    "avoid":           "tier_short.avoid",
+    "low_confidence":  "tier_short.low_confidence",
+}
+
+_SET_PIECE_LABEL_KEYS = {
+    "penalty_taker_1":   "set_piece_label.penalty_taker_1",
+    "penalty_taker_2":   "set_piece_label.penalty_taker_2",
+    "freekick_taker_1":  "set_piece_label.freekick_taker_1",
+    "freekick_taker_2":  "set_piece_label.freekick_taker_2",
 }
 
 
-def _tier_display(tier: str) -> str:
-    """Return full tier label for display."""
-    return _TIER_LABEL.get(tier, tier)
+def _tier_display(tier: str, locale: Locale = DEFAULT_LOCALE) -> str:
+    """Return full tier label for display, localized. Unmapped tier codes
+    fall back to the raw token (same shape as _localized_difficulty_label).
+    """
+    key = _TIER_LABEL_KEYS.get(tier)
+    if key is None:
+        return _TIER_LABEL.get(tier, tier)
+    return t(key, locale)
 
 
-def _tier_short(tier: str) -> str:
-    """Return short tier label for bracket display."""
-    return _TIER_SHORT.get(tier, tier)
+def _tier_short(tier: str, locale: Locale = DEFAULT_LOCALE) -> str:
+    """Return short tier label for bracket display, localized."""
+    key = _TIER_SHORT_KEYS.get(tier)
+    if key is None:
+        return _TIER_SHORT.get(tier, tier)
+    return t(key, locale)
 
 
-def _set_piece_clause(role_signals: dict[str, Any]) -> str:
+def _set_piece_clause(role_signals: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Build a descriptive clause from role_signals set-piece notes.
 
     Returns empty string if no set-piece notes are present.
@@ -1837,27 +1889,30 @@ def _set_piece_clause(role_signals: dict[str, Any]) -> str:
     Examples:
         ""                            # no set-piece roles
         "penalty taker"               # single role
-        "penalty taker, free-kick"    # multiple roles
+        "penalty taker, free-kick taker"    # multiple roles
     """
     notes = role_signals.get("set_piece_notes", [])
     if not notes:
         return ""
 
-    labels = [_SET_PIECE_LABEL.get(note, note) for note in notes]
+    labels = []
+    for note in notes:
+        key = _SET_PIECE_LABEL_KEYS.get(note)
+        labels.append(t(key, locale) if key is not None else _SET_PIECE_LABEL.get(note, note))
     return ", ".join(labels)
 
 
-def _set_piece_suffix(role_signals: dict[str, Any]) -> str:
+def _set_piece_suffix(role_signals: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Build a brief suffix from role_signals set-piece notes.
 
     Returns empty string if no set-piece notes are present.
 
     Examples:
-        ""        # no set-piece roles
-        "· pen"   # penalty taker
-        "· pen, fk"  # multiple roles
+        ""                  # no set-piece roles
+        "· penalty taker"   # single role
+        "· penalty taker, free-kick taker"  # multiple roles
     """
-    clause = _set_piece_clause(role_signals)
+    clause = _set_piece_clause(role_signals, locale)
     if not clause:
         return ""
     return f"· {clause}"
