@@ -512,6 +512,19 @@ class OrchestratorResult:
     tool_calls_trace:        tuple[dict[str, Any], ...] = ()
     rounds_used:             int = 0
     rounds_exhausted:        bool = False
+    # G3 (raw-dump instrumentation): True iff answer_text is text the model
+    # itself generated (extracted from an LLM response) -- as opposed to text
+    # this module manufactured (render() of a tool's raw output, a bracket
+    # status fallback, an "incomplete" wrapper around a render(), or a static
+    # error/no-tool string). False is the safe default: every return site that
+    # does NOT explicitly set this to True is, by construction, one of the
+    # manufactured-text cases above. Distinct from tool_call_count: a turn can
+    # call exactly one tool and still get a synthesis turn (loop mode's second
+    # round), and a turn can call two+ tools and still end up with NO synthesis
+    # turn (the second/synthesis call itself fails or returns no text). This
+    # field -- not tool_call_count -- is what actually determines whether the
+    # user sees a bare deterministic render.
+    synthesis_turn:          bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -1201,6 +1214,13 @@ def _apply_evaluator(
     model: str,
     provider: str,
     eval_client: Any,
+    # G3: whether the CALLER's answer_text is model-generated text (True) or
+    # manufactured by this module -- render(), a bracket fallback, a static
+    # error string (False). See OrchestratorResult.synthesis_turn. Every
+    # branch below that retains answer_text unchanged must pass this value
+    # through unchanged too; only E3b (retry text) and the final retry-render
+    # branch compute a different value, because only they replace answer_text.
+    synthesis_turn: bool,
     # kwargs needed for optional retry
     resolved_client: Any,
     api_key: str | None,
@@ -1257,6 +1277,7 @@ def _apply_evaluator(
             primary_cache_read_tokens=_primary_cache_read_tokens,
             total_tokens=_total,
             tool_call_count=_primary_count,   # E0: primary tool_output retained
+            synthesis_turn=synthesis_turn,    # E0: answer_text unchanged
         )
 
     # ------------------------------------------------------------------
@@ -1299,6 +1320,7 @@ def _apply_evaluator(
             evaluator_input_tokens=_eval_combined,
             total_tokens=_total,
             tool_call_count=_primary_count,   # E2: evaluator approved primary
+            synthesis_turn=synthesis_turn,    # E2: answer_text unchanged
         )
 
     # Experiment control: retain the rejection verdict and all token accounting,
@@ -1326,6 +1348,7 @@ def _apply_evaluator(
             evaluator_input_tokens=_eval_combined,
             total_tokens=_total,
             tool_call_count=_primary_count,
+            synthesis_turn=synthesis_turn,    # verdict-only: answer_text unchanged
         )
 
     # ------------------------------------------------------------------
@@ -1385,6 +1408,7 @@ def _apply_evaluator(
             retry_output_tokens=_retry_out,
             total_tokens=_total,
             tool_call_count=_primary_count,   # E3a: retry call failed → primary retained
+            synthesis_turn=synthesis_turn,    # E3a: answer_text unchanged
         )
 
     # ------------------------------------------------------------------
@@ -1413,6 +1437,13 @@ def _apply_evaluator(
             )
         )
         _retry_answer = answer_text if _is_preamble else (_retry_text or answer_text)
+        # G3: matches _retry_answer's own selection above -- the retry's own
+        # text is model-generated (synthesis) only when it's actually used
+        # (not preamble-guarded, and non-empty); otherwise we kept the
+        # original answer_text, so the original classification stands.
+        _retry_synthesis_turn = (
+            True if (not _is_preamble and _retry_text) else synthesis_turn
+        )
         _total = (
             _primary_input_tokens + _primary_output_tokens + _primary_cache_read_tokens
             + _eval_combined + _retry_in + _retry_out
@@ -1439,6 +1470,7 @@ def _apply_evaluator(
             # E3b: no retry tool → primary tool_output retained (answer may be
             # retry prose, but the grounding payload is still the primary's).
             tool_call_count=_primary_count,
+            synthesis_turn=_retry_synthesis_turn,
         )
 
     # Execute retry tool calls
@@ -1470,6 +1502,7 @@ def _apply_evaluator(
                 retry_output_tokens=_retry_out,
                 total_tokens=_total,
                 tool_call_count=_primary_count,   # unknown retry tool → primary retained
+                synthesis_turn=synthesis_turn,    # unknown retry tool: answer_text unchanged
             )
         try:
             _retry_raw: dict[str, Any] = run_tool(_rtname, _rtargs, actual_bootstrap)
@@ -1497,6 +1530,7 @@ def _apply_evaluator(
                 retry_input_tokens=_retry_in,
                 retry_output_tokens=_retry_out,
                 total_tokens=_total,
+                synthesis_turn=False,   # retry tool exception: static error string
             )
         _retry_executed.append((_rtid, _rtname, _rtargs, _retry_raw))
 
@@ -1537,6 +1571,7 @@ def _apply_evaluator(
         # Retry-success: the retained payload is the RETRY's tool_output, so the
         # count reflects the retry's executed tools, not the primary's.
         tool_call_count=len(_retry_executed),
+        synthesis_turn=False,   # retry tool executed and rendered: not model text
     )
 
 
@@ -1633,6 +1668,7 @@ def _run_bounded_loop(
         answer_text: str,
         selected: tuple[str | None, str | None, dict[str, Any], dict[str, Any]],
         *,
+        synthesis_turn: bool,
         exhausted_value: bool = False,
     ) -> OrchestratorResult:
         _tool_id, tool_name, tool_args, tool_output = selected
@@ -1647,6 +1683,7 @@ def _run_bounded_loop(
             model=model,
             provider=provider_label,
             eval_client=eval_client,
+            synthesis_turn=synthesis_turn,
             resolved_client=resolved_client,
             api_key=api_key,
             system=system,
@@ -1671,6 +1708,10 @@ def _run_bounded_loop(
         calls = _parse_all_tool_calls(response, provider_label)
         if not calls:
             answer = _extract_text_from_response(response, provider_label)
+            # G3: capture BEFORE the render() fallback below can overwrite it --
+            # this is the model's own text from the round that stopped calling
+            # tools, which is exactly what "synthesis turn" means.
+            _had_model_text = bool(answer)
             if successful:
                 selected = successful[0]
                 if not answer:
@@ -1678,7 +1719,7 @@ def _run_bounded_loop(
                         answer = render(selected[1], selected[3])
                     except Exception:  # noqa: BLE001
                         answer = f"[{selected[3].get('status', 'unknown')}]"
-                return _evaluated_result(answer, selected)
+                return _evaluated_result(answer, selected, synthesis_turn=_had_model_text)
 
             no_tool_answer = answer or "No encontr\u00e9 una herramienta para responder a esto."
             return OrchestratorResult(
@@ -1697,6 +1738,7 @@ def _run_bounded_loop(
                 total_tokens=prim_in + prim_out + prim_cache,
                 tool_calls_trace=tuple(trace),
                 rounds_used=rounds_used,
+                synthesis_turn=_had_model_text,  # model text, or static fallback if empty
             )
 
         # A response with calls is an action response. At the cap, ignore any
@@ -1812,6 +1854,7 @@ def _run_bounded_loop(
         return _evaluated_result(
             incomplete,
             selected,
+            synthesis_turn=False,  # deterministic render, wrapped in a static prefix
             exhausted_value=exhausted,
         )
 
@@ -1835,6 +1878,7 @@ def _run_bounded_loop(
         tool_calls_trace=tuple(trace),
         rounds_used=rounds_used,
         rounds_exhausted=exhausted,
+        synthesis_turn=False,   # static "no tool succeeded" message
     )
 
 
@@ -2186,6 +2230,7 @@ def ask_orchestrated(
             model=model,
             outcome=OUTCOME_NO_TOOL,
             error="no tool-call block in response",
+            synthesis_turn=bool(_no_tool_text),  # model's own text, unless it was empty
         )
 
     # ------------------------------------------------------------------
@@ -2321,6 +2366,8 @@ def ask_orchestrated(
                     model=model,
                     provider=_provider_label,
                     eval_client=_eval_client,
+                    synthesis_turn=True,   # 8b: second-call model text, guarded by `if _second_text`
+
                     # retry kwargs for primary re-call
                     resolved_client=resolved_client,
                     api_key=api_key,
@@ -2367,6 +2414,7 @@ def ask_orchestrated(
         model=model,
         provider=_provider_label,
         eval_client=_eval_client,
+        synthesis_turn=False,   # 9: bare render() -- single-tool path, or multi-tool fallback
         # retry kwargs for primary re-call
         resolved_client=resolved_client,
         api_key=api_key,
