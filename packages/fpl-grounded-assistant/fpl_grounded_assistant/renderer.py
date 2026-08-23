@@ -33,6 +33,11 @@ try:
 except ImportError:  # standalone load (test_renderer_zonal bypasses the package)
     from locale_types import Locale, DEFAULT_LOCALE  # type: ignore[no-redef]
 
+try:
+    from .catalogue import t
+except ImportError:  # standalone load (test_renderer_zonal bypasses the package)
+    from catalogue import t  # type: ignore[no-redef]
+
 # Map tool status → label for use in answer text
 _STATUS_DISPLAY = {
     "a": "Available",
@@ -247,18 +252,25 @@ def _render_rank_captain_candidates(output: dict[str, Any], locale: Locale = DEF
 # ---------------------------------------------------------------------------
 
 def _render_compare_players(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
-    """Render a compare_players raw_output dict into a human-readable string."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
+    """Render a compare_players raw_output dict into a human-readable string.
+    F1: localized.
+
+    The "ok" status is almost entirely tier-2: ``output["recommendation"]``
+    is a finished sentence built by comparison.py, not this renderer, and it
+    stays in whatever language it was built in (currently always English)
+    regardless of *locale* — the three fallback strings below are the only
+    text this renderer actually owns.
+    """
     status = output.get("status")
     if status == "ok":
         rec = output.get("recommendation", "")
-        return rec if rec else "Comparison completed."
+        return rec if rec else t("compare_players.ok_fallback", locale)
     if status in ("not_found", "ambiguous"):
         ep  = output.get("error_player", "")
-        msg = output.get("message", f"Could not resolve player '{ep}'.")
+        msg = output.get("message", t("compare_players.not_found_fallback", locale, player=ep))
         return msg
     code    = output.get("code", "error")
-    message = output.get("message", "An unexpected comparison error occurred.")
+    message = output.get("message", t("compare_players.error_fallback", locale))
     return f"Error ({code}): {message}"
 
 
@@ -305,8 +317,16 @@ def _render_get_transfer_advice(output: dict[str, Any], locale: Locale = DEFAULT
 # ---------------------------------------------------------------------------
 
 def _render_get_player_fixture_run(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
-    """Render a get_player_fixture_run raw_output dict into a human-readable string."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
+    """Render a get_player_fixture_run raw_output dict into a human-readable
+    string.  F1: localized.
+
+    ``GW{n}`` stays ``GW{n}`` in both locales — matching the convention
+    already established elsewhere in this module (see
+    ``_render_get_gameweek_context``'s "Jornada actual: GW{n}") — as does
+    the per-fixture ``FDR``/venue-letter line, which is codes, not prose.
+    ``difficulty_label`` (``ctx["difficulty_label"]``) is tier-2 and stays
+    untranslated in both locales.
+    """
     status = output.get("status")
     if status == "ok":
         web_name = output.get("web_name", "?")
@@ -320,9 +340,15 @@ def _render_get_player_fixture_run(output: dict[str, Any], locale: Locale = DEFA
         if team or position:
             inner = ", ".join(filter(None, [team, position]))
             header_parts.append(f"({inner})")
-        gw_label = f" from GW{gw_from}" if gw_from is not None else ""
-        plural   = "s" if horizon != 1 else ""
-        header   = " ".join(header_parts) + f" – next {horizon} fixture{plural}{gw_label}:"
+        gw_clause = (
+            t("player_fixture_run.gw_from_clause", locale, gw=gw_from)
+            if gw_from is not None else ""
+        )
+        plural = "s" if horizon != 1 else ""
+        header = " ".join(header_parts) + t(
+            "player_fixture_run.header_suffix", locale,
+            horizon=horizon, plural=plural, gw_clause=gw_clause,
+        )
 
         parts: list[str] = []
         for fx in fixtures:
@@ -336,24 +362,31 @@ def _render_get_player_fixture_run(output: dict[str, Any], locale: Locale = DEFA
         ctx = output.get("team_fdr_context")
         if ctx and parts:
             avg   = ctx.get("avg_fdr", 0.0)
-            label = ctx.get("difficulty_label", "")
+            label = ctx.get("difficulty_label", "")  # tier-2: never translated
             g_from = ctx.get("gw_from")
             g_to   = ctx.get("gw_to")
             gw_range = f"GW{g_from}-GW{g_to}" if g_from and g_to else ""
-            gw_clause = f" over {gw_range}" if gw_range else ""
-            article   = "an" if label[0] in "aeiou" else "a"
-            result += f" | {team} have {article} {label} run{gw_clause}, avg FDR {avg:.1f}."
+            fdr_gw_clause = (
+                t("player_fixture_run.fdr_context_gw_clause", locale, gw_range=gw_range)
+                if gw_range else ""
+            )
+            article = "an" if label[:1] in "aeiou" else "a"  # EN-only agreement
+            result += t(
+                "player_fixture_run.fdr_context", locale,
+                team=team, article=article, label=label,
+                gw_clause=fdr_gw_clause, avg=f"{avg:.1f}",
+            )
 
         return result
 
     if status in ("not_found", "ambiguous"):
-        return output.get("message", "Player not found.")
+        return output.get("message", t("player_fixture_run.not_found_fallback", locale))
 
     if status == "missing_context":
-        return output.get("message", "Fixture schedule not available.")
+        return output.get("message", t("player_fixture_run.missing_context_fallback", locale))
 
     code    = output.get("code", "error")
-    message = output.get("message", "An unexpected fixture run error occurred.")
+    message = output.get("message", t("player_fixture_run.error_fallback", locale))
     return f"Error ({code}): {message}"
 
 
@@ -621,13 +654,33 @@ def _render_get_team_fixture_calendar(output: dict[str, Any], locale: Locale = D
 # Position fixture run renderer  (Phase 2.6e.4)
 # ---------------------------------------------------------------------------
 
+_TRANSFER_SUGGESTION_POSITION_KEYS = {
+    "GKP": "position_noun.GKP",
+    "DEF": "position_noun.DEF",
+    "MID": "position_noun.MID",
+    "FWD": "position_noun.FWD",
+    "ALL": "position_noun.ALL",
+}
+
+
 def _render_get_transfer_suggestion(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
-    """Render get_transfer_suggestion output.  Phase 2.6h."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
+    """Render get_transfer_suggestion output.  Phase 2.6h.  F1: localized.
+
+    ``position_noun`` is built by this renderer from the raw ``position``
+    code (a closed enum: GKP/DEF/MID/FWD/ALL), *not* from the payload's own
+    ``position_label`` field — that field is tier-2 (built by
+    transfer_suggestion.py) and stays English regardless of locale;
+    reusing it here would silently defeat the whole point of this change.
+    ``difficulty_label`` per pick is left untouched for the same reason: it
+    is tier-2, not renderer prose.
+    """
     status = output.get("status")
 
     if status == "ok":
-        pos_label  = output.get("position_label", output.get("position", "?"))
+        position_code = output.get("position", "ALL")
+        position_noun = t(
+            _TRANSFER_SUGGESTION_POSITION_KEYS.get(position_code, "position_noun.ALL"), locale,
+        )
         team_short = output.get("team_short")
         max_price  = output.get("max_price")
         horizon    = output.get("horizon", 5)
@@ -639,15 +692,16 @@ def _render_get_transfer_suggestion(output: dict[str, Any], locale: Locale = DEF
         price_clause = ""
         if max_price is not None:
             try:
-                price_clause = f" under £{float(max_price):.1f}m"
+                price_clause = t("transfer_suggestion.price_clause", locale, max_price=f"{float(max_price):.1f}")
             except (TypeError, ValueError):
                 pass
-        header = (
-            f"Top transfer targets — {team_prefix}{pos_label}{price_clause} "
-            f"(next {horizon} GWs):"
+        header = t(
+            "transfer_suggestion.header", locale,
+            team_prefix=team_prefix, position_noun=position_noun,
+            price_clause=price_clause, horizon=horizon,
         )
         if not picks:
-            return header + " None found."
+            return header + t("transfer_suggestion.no_picks_suffix", locale)
 
         lines = [header]
         for p in picks:
@@ -658,29 +712,28 @@ def _render_get_transfer_suggestion(output: dict[str, Any], locale: Locale = DEF
             cost_m = p.get("now_cost_m", 0.0)
             form   = p.get("form", 0.0)
             avg    = p.get("avg_fdr", 0.0)
-            label  = p.get("difficulty_label", "")
+            label  = p.get("difficulty_label", "")  # tier-2: never translated
             own    = p.get("ownership", 0.0)
-            lines.append(
-                f"  {rank}. {name} ({team}, {pos}) "
-                f"£{cost_m:.1f}m | form {form:.1f} | avg FDR {avg:.1f} ({label}) | {own:.1f}% owned"
-            )
+            lines.append(t(
+                "transfer_suggestion.pick_line", locale,
+                rank=rank, name=name, team=team, pos=pos,
+                cost_m=f"{cost_m:.1f}", form=f"{form:.1f}", avg_fdr=f"{avg:.1f}",
+                label=label, own=f"{own:.1f}",
+            ))
         return "\n".join(lines)
 
     if status == "empty":
-        return output.get("message", "No transfer targets found matching the criteria.")
+        return output.get("message", t("transfer_suggestion.empty_fallback", locale))
 
     if status == "not_found":
         team_query = output.get("team_query", "that team")
-        return (
-            f"No club matching '{team_query}' was found in the current fixture data. "
-            "Check the spelling or try a common abbreviation (e.g. 'Liverpool', 'LIV', 'Spurs')."
-        )
+        return t("transfer_suggestion.not_found", locale, team_query=team_query)
 
     if status == "missing_context":
-        return output.get("message", "Player data not available.")
+        return output.get("message", t("transfer_suggestion.missing_context_fallback", locale))
 
     code    = output.get("code", "error")
-    message = output.get("message", "An unexpected error occurred.")
+    message = output.get("message", t("transfer_suggestion.error_fallback", locale))
     return f"Error ({code}): {message}"
 
 
@@ -840,8 +893,12 @@ def _render_find_players(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE
 
 
 def _render_get_player_snapshot(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
-    """Render get_player_snapshot raw_output.  P2.2."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
+    """Render get_player_snapshot raw_output.  P2.2.  F1: localized.
+
+    ``news`` is FPL's own third-party API text (tier-3) and is passed
+    through verbatim in both locales — only the "News:"/"Noticias:" label
+    around it is this renderer's own prose.
+    """
     status = output.get("status")
     if status == "ok":
         p = output.get("player", {})
@@ -859,39 +916,39 @@ def _render_get_player_snapshot(output: dict[str, Any], locale: Locale = DEFAULT
         xgi       = p.get("expected_goal_involvements", 0.0)
         ict       = p.get("ict_index", 0.0)
         mins      = p.get("minutes_played_season", 0)
-        news      = p.get("news", "") or ""
+        news      = p.get("news", "") or ""  # tier-3: third-party, verbatim
         chance    = p.get("chance_of_playing_this_round")
 
         lines = [
             f"**{name}** ({team}, {pos})",
-            f"  Precio: £{cost:.1f}m | Propiedad: {own:.1f}% | Estado: {status_lbl}",
-            f"  Pts totales: {pts} | PPG: {ppg:.1f} | Forma: {form}",
+            t("player_snapshot.price_line", locale, cost=f"{cost:.1f}", own=f"{own:.1f}", status_lbl=status_lbl),
+            t("player_snapshot.points_line", locale, pts=pts, ppg=f"{ppg:.1f}", form=form),
             f"  xG: {xg:.2f} | xA: {xa:.2f} | xGI: {xgi:.2f} | ICT: {ict:.1f}",
-            f"  Minutos: {mins}",
+            t("player_snapshot.minutes_line", locale, mins=mins),
         ]
         if chance is not None:
-            lines.append(f"  Prob. de jugar: {chance}%")
+            lines.append(t("player_snapshot.chance_line", locale, chance=chance))
         if news:
-            lines.append(f"  Noticias: {news}")
+            lines.append(t("player_snapshot.news_line", locale, news=news))
         return "\n".join(lines)
 
     if status == "ambiguous":
         query      = output.get("query", "")
         candidates = output.get("candidates", [])
-        lines = [f"Múltiples jugadores coinciden con '{query}' — por favor especifica:"]
+        lines = [t("player_snapshot.ambiguous_header", locale, query=query)]
         for c in candidates:
             name  = c.get("web_name", "?")
             team  = c.get("team_short", "?")
             pos   = c.get("position", "?")
             rank  = c.get("match_rank", "?")
-            lines.append(f"  - {name} ({team}, {pos}) [rank {rank}]")
+            lines.append(t("player_snapshot.candidate_line", locale, name=name, team=team, pos=pos, rank=rank))
         return "\n".join(lines)
 
     if status == "not_found":
-        return output.get("message", "Jugador no encontrado.")
+        return output.get("message", t("player_snapshot.not_found_fallback", locale))
 
     code    = output.get("code", "error")
-    message = output.get("message", "Error inesperado.")
+    message = output.get("message", t("player_snapshot.error_fallback", locale))
     return f"Error ({code}): {message}"
 
 
@@ -1490,16 +1547,20 @@ def _render_build_squad(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE)
 
 
 def _render_select_players(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
-    """Render select_players_within_budget raw_output.  S2.
+    """Render select_players_within_budget raw_output.  S2.  F1: localized.
 
     Prints the solver's totals in the solver's own units. Nothing here re-adds
     a column: the arithmetic happens once, in squad_solver, and this is a view
     of it. The completability line is the point of the tool, so it is stated
     rather than implied.
 
-    *locale* is a language-track F0 carrier param; ignored for now (see F1).
+    ``position``, ``objective``, and ``ranking_basis`` are raw identifiers
+    (a position code, a metric name, a provenance tag) and are never
+    translated. When the tool populates its own ``message`` (as
+    squad_solver's infeasibility path always does, in English), that
+    payload text wins over the renderer's own fallback regardless of
+    *locale* \u2014 a known tier-2 leak, not something this renderer can fix.
     """
-    del locale  # F0: not yet honored.
     status = output.get("status")
 
     if status == "ok":
@@ -1507,12 +1568,12 @@ def _render_select_players(output: dict[str, Any], locale: Locale = DEFAULT_LOCA
         completion = output.get("completion") or {}
         position   = output.get("position", "?")
 
-        lines = [
-            f"{output.get('count', len(selection))} {position} "
-            f"por {output.get('objective', '?')} "
-            f"(base: {output.get('ranking_basis', '?')}):"
-        ]
-        lines.append("  Jugador          | Club | Precio | Valor")
+        lines = [t(
+            "select_players.header", locale,
+            count=output.get("count", len(selection)), position=position,
+            objective=output.get("objective", "?"), ranking_basis=output.get("ranking_basis", "?"),
+        )]
+        lines.append(t("select_players.column_header", locale))
         lines.append("  -----------------|------|--------|-------")
         for entry in selection:
             name  = str(entry.get("web_name", "?"))[:16].ljust(16)
@@ -1523,64 +1584,64 @@ def _render_select_players(output: dict[str, Any], locale: Locale = DEFAULT_LOCA
 
         locked = output.get("locked_players") or []
         if locked:
-            lines.append(
-                "  Ya en el equipo: "
-                + ", ".join(
-                    f"{entry.get('web_name', '?')} ({entry.get('price', 0.0)}m)"
-                    for entry in locked
-                )
-                + f" \u2014 {output.get('locked_cost', 0.0)}m."
+            entries = ", ".join(
+                f"{entry.get('web_name', '?')} ({entry.get('price', 0.0)}m)"
+                for entry in locked
             )
+            lines.append(t(
+                "select_players.locked_line", locale,
+                entries=entries, locked_cost=output.get("locked_cost", 0.0),
+            ))
 
-        lines.append(
-            f"  Coste de la selecci\u00f3n: {output.get('selection_cost', 0.0)}m de "
-            f"{output.get('budget', 0.0)}m \u2014 queda {output.get('remaining', 0.0)}m "
-            f"para los {completion.get('slots_left', '?')} huecos restantes."
-        )
+        lines.append(t(
+            "select_players.selection_cost_line", locale,
+            selection_cost=output.get("selection_cost", 0.0), budget=output.get("budget", 0.0),
+            remaining=output.get("remaining", 0.0), slots_left=completion.get("slots_left", "?"),
+        ))
         if completion.get("exists"):
-            lines.append(
-                f"  Cabe: existe un 15 legal con estos fichajes; el relleno m\u00e1s barato "
-                f"cuesta {completion.get('cheapest_fill_cost', 0.0)}m "
-                f"(total {completion.get('witness_total_cost', 0.0)}m). "
-                "Ese relleno es la prueba de que cabe, no una recomendaci\u00f3n de banquillo."
-            )
+            lines.append(t(
+                "select_players.fits_line", locale,
+                cheapest_fill_cost=completion.get("cheapest_fill_cost", 0.0),
+                witness_total_cost=completion.get("witness_total_cost", 0.0),
+            ))
             clubs = completion.get("witness_club_counts") or {}
             if clubs:
-                lines.append(
-                    "  Por club en el 15 de prueba: "
-                    + ", ".join(f"{club} {count}" for club, count in clubs.items())
-                    + " (m\u00e1ximo permitido 3)."
-                )
+                entries = ", ".join(f"{club} {count}" for club, count in clubs.items())
+                lines.append(t("select_players.clubs_line", locale, entries=entries))
         for warning in output.get("warnings", []):
-            lines.append(f"  Aviso: {warning}")
+            lines.append(t("select_players.warning_line", locale, warning=warning))
         return "\n".join(lines)
 
     if status == "infeasible":
-        lines = [output.get("message", "No hay ninguna selecci\u00f3n legal con esas restricciones.")]
+        lines = [output.get("message", t("select_players.infeasible_fallback", locale))]
         affordable = output.get("affordable") or {}
         best = affordable.get("best_by_objective") or {}
         for entry in best.get("players", []):
-            lines.append(
-                f"  S\u00ed cabe: {entry.get('web_name', '?')} "
-                f"({entry.get('team_short', '?')}, {entry.get('price', 0.0)}m)"
-            )
+            lines.append(t(
+                "select_players.fits_entry_line", locale,
+                name=entry.get("web_name", "?"), team=entry.get("team_short", "?"),
+                price=entry.get("price", 0.0),
+            ))
         return "\n".join(lines)
 
     if status == "ambiguous":
         candidates = ", ".join(
             str(candidate.get("web_name", "?")) for candidate in output.get("candidates", [])
         )
-        message = output.get("message", "Varios jugadores coinciden.")
-        return f"{message} Candidatos: {candidates}." if candidates else message
+        message = output.get("message", t("select_players.ambiguous_fallback", locale))
+        return (
+            t("select_players.ambiguous_candidates_suffix", locale, message=message, candidates=candidates)
+            if candidates else message
+        )
 
     if status == "not_found":
-        return output.get("message", "No encontr\u00e9 a ese jugador.")
+        return output.get("message", t("select_players.not_found_fallback", locale))
 
     if status == "invalid_argument":
-        return output.get("message", "Argumentos no v\u00e1lidos para seleccionar jugadores.")
+        return output.get("message", t("select_players.invalid_argument_fallback", locale))
 
     code    = output.get("code", "error")
-    message = output.get("message", "Error inesperado.")
+    message = output.get("message", t("select_players.error_fallback", locale))
     return f"Error ({code}): {message}"
 
 
