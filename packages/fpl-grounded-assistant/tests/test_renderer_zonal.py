@@ -29,10 +29,12 @@ def _load(name: str):
     return mod
 
 
-# renderer.py imports format_metric_value from its sibling formatting.py; when
-# loaded standalone (no package parent) it falls back to `from formatting import`,
-# so register that sibling in sys.modules first.
+# renderer.py imports format_metric_value from its sibling formatting.py, and
+# Locale/DEFAULT_LOCALE from its sibling locale_types.py; when loaded standalone
+# (no package parent) it falls back to `from formatting import` / `from
+# locale_types import`, so register both siblings in sys.modules first.
 _load("formatting")
+_load("locale_types")
 renderer = _load("renderer")
 tool_schema_registry = _load("tool_schema_registry")
 

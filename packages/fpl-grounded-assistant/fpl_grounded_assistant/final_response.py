@@ -80,6 +80,7 @@ from football_data_contract import (
 )
 
 from . import telemetry as _telemetry  # Phase 2.7g: in-process telemetry (never raises)
+from .locale_types import Locale, DEFAULT_LOCALE
 from .dispatcher import OUTCOME_OK, OUTCOME_NEEDS_CLARIFICATION, INTENT_COMPARE_PLAYERS, INTENT_CAPTAIN_SCORE, INTENT_RANK_CANDIDATES, INTENT_MULTI_INTENT, INTENT_TRANSFER_ADVICE, INTENT_CHIP_ADVICE, INTENT_PLAYER_FIXTURE_RUN, INTENT_DIFFERENTIAL_PICKS, INTENT_PLAYER_FORM, INTENT_INJURY_LIST, INTENT_PRICE_CHANGES, INTENT_TEAM_FIXTURE_CALENDAR, INTENT_TEAM_SCHEDULE, INTENT_POSITION_FIXTURE_RUN, INTENT_TRANSFER_SUGGESTION, INTENT_FIXTURE_OUTLOOK, INTENT_ZONAL_OPPORTUNITY, INTENT_PLAYER_SNAPSHOT  # noqa: F401 — re-exported
 from .dispatcher import _TOOL_TO_INTENT, INTENT_UNSUPPORTED  # _orch_result_to_final_response: tool->intent map
 from .multi_intent import detect_multi_intent
@@ -1294,6 +1295,7 @@ def _respond_multi(
     api_key: str | None,
     classifier_client: Any,
     squad_context: dict[str, Any] | None = None,  # Phase 8e1: forwarded to each sub-call
+    locale: Locale = DEFAULT_LOCALE,
 ) -> "FinalResponse":
     """Execute each sub-question independently and combine into a multi-intent response.
 
@@ -1338,6 +1340,7 @@ def _respond_multi(
             classifier_client=classifier_client,
             _multi_intent_depth=1,    # prevent nested multi-intent splitting
             squad_context=squad_context,  # Phase 8e1: forward per-turn constraint state
+            locale=locale,
         )
         sub_list.append(sub)
 
@@ -2396,6 +2399,7 @@ def _try_football_intelligence_response(
     candidates_list: list[dict[str, Any]] | None,
     api_key: str | None,
     classifier_client: Any,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> FinalResponse | None:
     """Use the shared FI harness path when the FI flag selects an FI tool."""
     from .orch_config import is_football_intelligence_enabled
@@ -2414,6 +2418,7 @@ def _try_football_intelligence_response(
         orch_client=client,
         orch_api_key=api_key,
         _enrich_existing_intents=False,
+        locale=locale,
     )
     selected_tool = result.get("selected_tool")
     if selected_tool not in _FI_TOOL_NAMES:
@@ -2440,13 +2445,14 @@ def _player_snapshot_response_from_raw(
     *,
     include_debug: bool,
     resolver_debug: ResolverDebug | None = None,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> FinalResponse:
     """Build the shared rich-card response from a snapshot tool result."""
     from .renderer import render
     from .suggestions import player_disambiguation_suggestions
 
     outcome = str(raw_output.get("status") or "error")
-    final_text = render("get_player_snapshot", raw_output)
+    final_text = render("get_player_snapshot", raw_output, locale=locale)
     meta = _extract_structured_meta(INTENT_PLAYER_SNAPSHOT, raw_output, outcome)
     suggestions = (
         player_disambiguation_suggestions(raw_output.get("candidates", []))
@@ -2496,12 +2502,15 @@ def respond_to_selected_player_id(
     bootstrap: dict[str, Any],
     *,
     include_debug: bool = False,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> FinalResponse:
     """Execute a wizard selection by stable id with no name/LLM fallback."""
     from .get_player_snapshot import get_player_snapshot
 
     raw_output = get_player_snapshot(player_id, bootstrap=bootstrap)
-    return _player_snapshot_response_from_raw(raw_output, include_debug=include_debug)
+    return _player_snapshot_response_from_raw(
+        raw_output, include_debug=include_debug, locale=locale,
+    )
 
 
 def _try_deterministic_player_lookup_response(
@@ -2512,6 +2521,7 @@ def _try_deterministic_player_lookup_response(
     resolver_debug: ResolverDebug | None,
     intent_hint: str | None,
     allow_explicit_not_found: bool = False,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> FinalResponse | None:
     """Return a rich deterministic player response, or fall through unchanged."""
     # Accepted intent hints are specialized and retain priority over a general
@@ -2543,6 +2553,7 @@ def _try_deterministic_player_lookup_response(
         raw_output,
         include_debug=include_debug,
         resolver_debug=resolver_debug,
+        locale=locale,
     )
 
 
@@ -2559,6 +2570,7 @@ def _try_session_orchestration_response(
     resolver_debug: ResolverDebug | None,
     squad_context: dict[str, Any] | None,
     intent_hint: str | None,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> FinalResponse | None:
     """Give the legacy/session entrypoint the same orchestration fallthrough.
 
@@ -2584,6 +2596,7 @@ def _try_session_orchestration_response(
         orch_client=client,
         orch_api_key=api_key,
         _enrich_existing_intents=False,
+        locale=locale,
     )
     routing_trace = result.get("routing_trace") or {}
     branch = routing_trace.get("branch")
@@ -2684,6 +2697,7 @@ def respond(
     squad_context: dict[str, Any] | None = None,  # Phase 8e1: optional per-turn squad state
     intent_hint: str | None = None,  # V2: optional slash-command routing bias
     _session_orchestration: bool = False,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> FinalResponse:
     """Run the full pipeline and return a single caller-facing ``FinalResponse``.
 
@@ -2718,6 +2732,10 @@ def respond(
         Internal — populated by ``ConversationSession.respond()`` with
         resolver metadata.  Not part of the public caller contract.
         External callers should leave this as ``None``.
+    locale:
+        Language-track F0 carrier param. Forwarded to the deterministic
+        player-lookup path and to multi-intent sub-calls. Currently ignored
+        — no string changes with *locale*'s value yet (see F1).
 
     Returns
     -------
@@ -2751,6 +2769,7 @@ def respond(
                 api_key=api_key,
                 classifier_client=classifier_client,
                 squad_context=squad_context,  # Phase 8e1: forward per-turn constraint state
+                locale=locale,
             )
 
     player_lookup_response = _try_deterministic_player_lookup_response(
@@ -2759,6 +2778,7 @@ def respond(
         include_debug=include_debug,
         resolver_debug=_resolver_debug,
         intent_hint=intent_hint,
+        locale=locale,
     )
     if player_lookup_response is not None:
         return player_lookup_response
@@ -2779,6 +2799,7 @@ def respond(
             resolver_debug=_resolver_debug,
             squad_context=squad_context,
             intent_hint=intent_hint,
+            locale=locale,
         )
         if orchestration_response is not None:
             return orchestration_response
@@ -2792,6 +2813,7 @@ def respond(
             resolver_debug=_resolver_debug,
             intent_hint=intent_hint,
             allow_explicit_not_found=True,
+            locale=locale,
         )
         if unavailable_lookup_response is not None:
             return unavailable_lookup_response
@@ -2804,6 +2826,7 @@ def respond(
             candidates_list=candidates_list,
             api_key=api_key,
             classifier_client=classifier_client,
+            locale=locale,
         )
         if fi_response is not None:
             return fi_response

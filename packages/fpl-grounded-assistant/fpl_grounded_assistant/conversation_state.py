@@ -148,6 +148,7 @@ from .dispatcher import (
 )
 from .router import route
 from .final_response import respond as _respond, FinalResponse
+from .locale_types import Locale, DEFAULT_LOCALE
 
 
 # ---------------------------------------------------------------------------
@@ -1161,6 +1162,7 @@ class ConversationSession:
         *,
         question_text: str | None = None,
         include_debug: bool = False,
+        locale: Locale = DEFAULT_LOCALE,
     ) -> FinalResponse:
         """Execute a stable-id wizard choice and update state like a typed hit."""
         from .final_response import respond_to_selected_player_id  # noqa: PLC0415
@@ -1169,6 +1171,7 @@ class ConversationSession:
             player_id,
             bootstrap,
             include_debug=include_debug,
+            locale=locale,
         )
         self.last_tokens = 0
         canonical_query = (

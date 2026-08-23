@@ -28,6 +28,11 @@ try:
 except ImportError:  # standalone load (test_renderer_zonal bypasses the package)
     from formatting import format_metric_value  # type: ignore[no-redef]
 
+try:
+    from .locale_types import Locale, DEFAULT_LOCALE
+except ImportError:  # standalone load (test_renderer_zonal bypasses the package)
+    from locale_types import Locale, DEFAULT_LOCALE  # type: ignore[no-redef]
+
 # Map tool status → label for use in answer text
 _STATUS_DISPLAY = {
     "a": "Available",
@@ -1452,14 +1457,17 @@ def _render_build_squad(output: dict[str, Any]) -> str:
     return f"Error ({code}): {message}"
 
 
-def _render_select_players(output: dict[str, Any]) -> str:
+def _render_select_players(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render select_players_within_budget raw_output.  S2.
 
     Prints the solver's totals in the solver's own units. Nothing here re-adds
     a column: the arithmetic happens once, in squad_solver, and this is a view
     of it. The completability line is the point of the tool, so it is stated
     rather than implied.
+
+    *locale* is a language-track F0 carrier param; ignored for now (see F1).
     """
+    del locale  # F0: not yet honored.
     status = output.get("status")
 
     if status == "ok":
@@ -1610,7 +1618,7 @@ _RENDERERS = {
 }
 
 
-def render(tool_name: str, raw_output: dict[str, Any]) -> str:
+def render(tool_name: str, raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """
     Convert *raw_output* from ``run_tool(tool_name, ...)`` into a safe,
     human-readable answer string.
@@ -1622,12 +1630,17 @@ def render(tool_name: str, raw_output: dict[str, Any]) -> str:
         the appropriate renderer).
     raw_output:
         The dict returned by ``fpl_tool_runner.run_tool()``.
+    locale:
+        Language-track F0 carrier param. Currently ignored — every renderer
+        below still produces its historical (mixed English/Spanish) text
+        regardless of *locale*. F1 wires this up per string.
 
     Returns
     -------
     str
         A natural-language sentence suitable for display to a user.
     """
+    del locale  # F0: accepted for the request-boundary carrier, not yet honored.
     renderer = _RENDERERS.get(tool_name)
     if renderer is None:
         code    = raw_output.get("code", "unknown_tool")
