@@ -2303,96 +2303,100 @@ def ask_orchestrated(
         ))
 
     # ------------------------------------------------------------------
-    # 8b. Multi-tool batching: if the LLM issued 2+ tool_use blocks, send
-    #     ALL tool_result blocks in a SINGLE role=user message and make a
-    #     second model invocation to get the synthesised answer.
-    #
-    #     Single-tool path (N == 1): skip the second LLM call entirely —
-    #     behaviour is identical to the pre-P1.c implementation.
+    # 8b. Synthesis turn: send ALL tool_result blocks in a SINGLE
+    #     role=user message and make a second model invocation to get the
+    #     synthesised answer. Runs for every turn that executed at least
+    #     one tool, single included -- see the module docstring on
+    #     OrchestratorResult.synthesis_turn and G3's raw-dump fix (a
+    #     single-tool turn used to render() the tool's raw output directly
+    #     with no LLM turn to explain it; that was the "Jornada actual:
+    #     GW1..." incident's root cause). Falls back to a bare render() of
+    #     the first tool below only when this second call itself fails or
+    #     returns no text.
     # ------------------------------------------------------------------
-    # Unpack the first (and for single-tool path: only) result for use below.
+    # Unpack the first (and for a single-tool turn: only) result for use below.
     first_tool_id, tool_name, tool_args, raw_output = executed[0]
 
-    if len(executed) > 1:
-        follow_up_messages = _build_multi_tool_follow_up(
-            _provider_label,
-            [{"role": "user", "content": question}],
-            response,
-            executed,
+    follow_up_messages = _build_multi_tool_follow_up(
+        _provider_label,
+        [{"role": "user", "content": question}],
+        response,
+        executed,
+    )
+    _second_call: OrchCallResult = call_orch_provider(
+        _provider_label,
+        model=model,
+        system=system,
+        tools=tools,
+        messages=follow_up_messages,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        top_p=top_p,
+        timeout_s=_timeout_s,
+        max_retries=_max_retries,
+        client=resolved_client,
+        api_key=api_key,
+        _request_fn=_orch_request_fn,
+        _system_blocks=_system_blocks,  # P1.e: cache_control preserved
+    )
+    if _second_call.error_code is not None:
+        # Second call failed — fall through to render the first tool's
+        # output as a graceful degradation rather than returning an error.
+        _LOG.warning(
+            "synthesis LLM call failed: [%s] %s; rendering first tool only",
+            _second_call.error_code, _second_call.error_msg,
         )
-        _second_call: OrchCallResult = call_orch_provider(
-            _provider_label,
-            model=model,
-            system=system,
-            tools=tools,
-            messages=follow_up_messages,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            top_p=top_p,
-            timeout_s=_timeout_s,
-            max_retries=_max_retries,
-            client=resolved_client,
-            api_key=api_key,
-            _request_fn=_orch_request_fn,
-            _system_blocks=_system_blocks,  # P1.e: cache_control preserved
-        )
-        if _second_call.error_code is not None:
-            # Second call failed — fall through to render the first tool's
-            # output as a graceful degradation rather than returning an error.
-            _LOG.warning(
-                "multi-tool second LLM call failed: [%s] %s; rendering first tool only",
-                _second_call.error_code, _second_call.error_msg,
-            )
-        else:
-            # Second call succeeded; surface its synthesised answer text.
-            _second_response = _second_call.response
-            _second_text = _extract_text_from_response(_second_response, _provider_label)
-            if _second_text:
-                tool_status = raw_output.get("status")
-                outcome = OUTCOME_OK if tool_status == "ok" else OUTCOME_TOOL_RESULT_ERROR
-                # F3: accumulate second-call tokens into "primary" bucket
-                # (primary + multi-tool 2nd call are both part of the primary turn).
-                _prim_in_mt    = _prim_in    + (_second_call.input_tokens or 0)
-                _prim_out_mt   = _prim_out   + (_second_call.output_tokens or 0)
-                _prim_cache_mt = _prim_cache + (_second_call.cache_read_tokens or 0)
-                return _apply_evaluator(
-                    question=question,
-                    answer_text=_second_text,
-                    tool_chosen=tool_name,
-                    tool_args=tool_args,
-                    tool_output=raw_output,
-                    tool_calls_trace=_trace,
-                    outcome=outcome,
-                    model=model,
-                    provider=_provider_label,
-                    eval_client=_eval_client,
-                    synthesis_turn=True,   # 8b: second-call model text, guarded by `if _second_text`
+    else:
+        # Second call succeeded; surface its synthesised answer text.
+        _second_response = _second_call.response
+        _second_text = _extract_text_from_response(_second_response, _provider_label)
+        if _second_text:
+            tool_status = raw_output.get("status")
+            outcome = OUTCOME_OK if tool_status == "ok" else OUTCOME_TOOL_RESULT_ERROR
+            # F3: accumulate second-call tokens into "primary" bucket
+            # (primary + synthesis call are both part of the primary turn).
+            _prim_in_mt    = _prim_in    + (_second_call.input_tokens or 0)
+            _prim_out_mt   = _prim_out   + (_second_call.output_tokens or 0)
+            _prim_cache_mt = _prim_cache + (_second_call.cache_read_tokens or 0)
+            return _apply_evaluator(
+                question=question,
+                answer_text=_second_text,
+                tool_chosen=tool_name,
+                tool_args=tool_args,
+                tool_output=raw_output,
+                tool_calls_trace=_trace,
+                outcome=outcome,
+                model=model,
+                provider=_provider_label,
+                eval_client=_eval_client,
+                synthesis_turn=True,   # 8b: second-call model text, guarded by `if _second_text`
 
-                    # retry kwargs for primary re-call
-                    resolved_client=resolved_client,
-                    api_key=api_key,
-                    system=system,
-                    tools=tools,
-                    _provider_label=_provider_label,
-                    _timeout_s=_timeout_s,
-                    _max_retries=_max_retries,
-                    _orch_request_fn=_orch_request_fn,
-                    actual_bootstrap=actual_bootstrap,
-                    _valid_tool_names=_valid_tool_names,
-                    _system_blocks=_system_blocks,  # P1.e: cache_control preserved
-                    _primary_input_tokens=_prim_in_mt,
-                    _primary_output_tokens=_prim_out_mt,
-                    _primary_cache_read_tokens=_prim_cache_mt,
-                )
-            _LOG.warning(
-                "multi-tool second LLM call succeeded but returned no text for "
-                "provider=%s; rendering first tool only",
-                _provider_label,
+                # retry kwargs for primary re-call
+                resolved_client=resolved_client,
+                api_key=api_key,
+                system=system,
+                tools=tools,
+                _provider_label=_provider_label,
+                _timeout_s=_timeout_s,
+                _max_retries=_max_retries,
+                _orch_request_fn=_orch_request_fn,
+                actual_bootstrap=actual_bootstrap,
+                _valid_tool_names=_valid_tool_names,
+                _system_blocks=_system_blocks,  # P1.e: cache_control preserved
+                _primary_input_tokens=_prim_in_mt,
+                _primary_output_tokens=_prim_out_mt,
+                _primary_cache_read_tokens=_prim_cache_mt,
             )
+        _LOG.warning(
+            "synthesis LLM call succeeded but returned no text for "
+            "provider=%s; rendering first tool only",
+            _provider_label,
+        )
 
     # ------------------------------------------------------------------
     # 9. Render answer; determine outcome from first tool's status.
-    #    (Single-tool path, or multi-tool fallback when second call failed.)
+    #    (Fallback only: the synthesis call itself failed or returned no
+    #    text above.)
     # ------------------------------------------------------------------
     tool_status = raw_output.get("status")
     outcome = OUTCOME_OK if tool_status == "ok" else OUTCOME_TOOL_RESULT_ERROR

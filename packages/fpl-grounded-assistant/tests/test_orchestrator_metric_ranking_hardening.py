@@ -66,7 +66,11 @@ def test_unknown_metric_is_relayed_instead_of_using_unrelated_tool(monkeypatch, 
         "aerial_duels_won",
     )
 
-    assert client.calls == 1
+    # G3 raw-dump fix: a single tool call now always gets a synthesis-turn
+    # attempt too. This fake client returns the same tool_use block on every
+    # call, so the synthesis call has no text and falls back to the primary
+    # tool's own output/error below, unaffected -- only the call count changes.
+    assert client.calls == 2
     assert result.tool_chosen == "rank_players_by_metric"
     assert result.tool_call_count == 1
     assert result.outcome == OUTCOME_TOOL_RESULT_ERROR
@@ -85,7 +89,10 @@ def test_misspelled_metric_still_uses_unique_prefix_match(monkeypatch, bootstrap
         "expected_goal_involvement",
     )
 
-    assert client.calls == 1
+    # G3 raw-dump fix: see the comment in the previous test -- the fake
+    # client's synthesis-call response has no text, so it falls back to the
+    # same primary tool output/answer, unaffected apart from the call count.
+    assert client.calls == 2
     assert result.tool_chosen == "rank_players_by_metric"
     assert result.tool_call_count == 1
     assert result.outcome == OUTCOME_OK

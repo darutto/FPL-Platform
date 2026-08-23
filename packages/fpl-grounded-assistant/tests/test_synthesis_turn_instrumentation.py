@@ -66,6 +66,7 @@ from fpl_grounded_assistant.orchestrator import (  # noqa: E402
     OrchestratorResult,
     ask_orchestrated,
 )
+from fpl_grounded_assistant.evaluator import EvaluatorVerdict  # noqa: E402
 from fpl_grounded_assistant.renderer import render  # noqa: E402
 
 
@@ -88,8 +89,15 @@ def _is_bare_render_reply(result: OrchestratorResult) -> bool:
 # ---------------------------------------------------------------------------
 
 def test_single_tool_no_synthesis_bare_render(bootstrap):
-    """The incident's exact mechanism: one tool call, no second LLM call,
-    answer_text is the literal render() output."""
+    """The incident's exact mechanism, still reachable as a FALLBACK after
+    the G3 fix (commit 2): one tool call, a synthesis turn IS now attempted,
+    but this fake client never produces text on any call, so the synthesis
+    call has no text and the code falls back to answer_text == literal
+    render() output. Before the fix this was reached directly (single-tool
+    turns skipped the synthesis call entirely, client.calls == 1); after the
+    fix it is reached only via this fallback (client.calls == 2). The
+    observable properties this test pins -- tool_call_count, synthesis_turn,
+    and the bare-render text -- are unchanged either way."""
     class Client:
         def __init__(self):
             self.messages = self
@@ -105,7 +113,7 @@ def test_single_tool_no_synthesis_bare_render(bootstrap):
     result = ask_orchestrated(
         "What gameweek is it?", bootstrap, client=client, _eval_client=None,
     )
-    assert client.calls == 1
+    assert client.calls == 2
     assert result.tool_call_count == 1
     assert result.synthesis_turn is False
     assert _is_bare_render_reply(result) is True
@@ -435,3 +443,66 @@ def test_synthesis_turn_is_the_correct_one_directional_predicate(bootstrap, monk
     no_tool_result = cases[1]
     assert no_tool_result.synthesis_turn is False
     assert _is_bare_render_reply(no_tool_result) is False
+
+
+# ---------------------------------------------------------------------------
+# Known residual gap (documented, NOT fixed here -- out of scope)
+# ---------------------------------------------------------------------------
+
+def test_evaluator_retry_render_is_a_known_residual_bare_render_path(monkeypatch, bootstrap):
+    """Live verification of commit 2's fix (POST /ask and POST /session/{id}/ask,
+    n=40 each, production config) found the raw-dump rate dropped from the
+    incident's ~10-20% baseline to 1/40 on EACH endpoint -- not zero. This
+    test reproduces and documents that residual mechanism; it is a DIFFERENT,
+    pre-existing code path from the one this task fixes, and is intentionally
+    left alone.
+
+    Sequence: (1) the model calls one tool -- the primary call this task's
+    fix now always follows with a synthesis attempt; (2) that synthesis
+    attempt succeeds with genuine text; (3) the evaluator REJECTS it anyway
+    (matching production, where evaluation is enabled by default) and
+    triggers the hard-capped, single retry; (4) the retry model call itself
+    chooses to call a tool again instead of writing text. _apply_evaluator's
+    retry branch delivers that retry tool's render() UNCONDITIONALLY (by
+    design: "hard cap = 1 retry, no second evaluation" -- avoiding a third
+    LLM call) -- with no synthesis attempt of its own. This is a bare render
+    reply this task's fix does not cover, because the fix targets the
+    orchestrator's single-tool PRIMARY path (step 8b/9), not the evaluator's
+    own retry-and-render path."""
+    class Client:
+        def __init__(self):
+            self.messages = self
+            self.calls = 0
+
+        def create(self, **kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                return NS(content=[NS(
+                    type="tool_use", id="c1", name="get_current_gameweek", input={},
+                )])
+            if self.calls == 2:
+                # The fix's synthesis attempt succeeds with real text --
+                # but the evaluator rejects it regardless (mocked below).
+                return NS(content=[NS(type="text", text="A genuine synthesised answer.")])
+            # Retry call: the model chooses to call a tool again, not text.
+            return NS(content=[NS(
+                type="tool_use", id="c2", name="get_current_gameweek", input={},
+            )])
+
+    verdict = EvaluatorVerdict(
+        approved=False, grounded=True, complete=False, safe=True,
+        retry_feedback="be more complete", tokens_used=17,
+    )
+    monkeypatch.setattr(
+        "fpl_grounded_assistant.orchestrator.evaluate_response",
+        lambda **kwargs: verdict,
+    )
+    client = Client()
+    result = ask_orchestrated("What gameweek is it?", bootstrap, client=client, _eval_client=object())
+
+    assert client.calls == 3
+    assert result.retry_attempted is True
+    assert result.tool_call_count == 1
+    assert result.synthesis_turn is False
+    assert _is_bare_render_reply(result) is True
+    assert result.answer_text == render(result.tool_chosen, result.tool_output)
