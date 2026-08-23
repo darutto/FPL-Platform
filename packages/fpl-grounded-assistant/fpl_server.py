@@ -83,6 +83,7 @@ from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, field_validator, model_validator
 
 from fpl_grounded_assistant import respond
+from fpl_grounded_assistant.locale_types import Locale, DEFAULT_LOCALE
 from fpl_grounded_assistant.player_form import _element_summary_guard  # Phase 2.6d.3 — guard stats
 from fpl_pipeline import assemble_captain_context
 try:
@@ -1734,6 +1735,28 @@ def _extract_user_context(request: Request) -> tuple[str, str]:
     return user_id, tier
 
 
+def resolve_locale(request: Request, body: "AskRequest") -> Locale:
+    """Resolve the locale for one turn. Language-track F0 boundary carrier.
+
+    Phase F0: always returns ``DEFAULT_LOCALE`` — both parameters are
+    currently ignored. F2 (client signal, e.g. ``Accept-Language``) and F3
+    (system-prompt wiring) replace this function's body and nothing else.
+    """
+    del request, body  # F0: not yet honored.
+    return DEFAULT_LOCALE
+
+
+def _quota_upgrade_text(quota_check: "QuotaCheck", locale: Locale = DEFAULT_LOCALE) -> str:
+    """Build the quota-exceeded upgrade message.
+
+    *locale* is a language-track F0 carrier param; ignored for now — the
+    message is always ``quota_check.upgrade_prompt_es`` (or its English
+    literal fallback) regardless of *locale*'s value (see F1).
+    """
+    del locale  # F0: not yet honored.
+    return quota_check.upgrade_prompt_es or "Has alcanzado tu límite de uso. Por favor actualiza tu plan."
+
+
 def _is_deterministic_branch(ask_v2_dict: dict[str, Any]) -> bool:
     """Return True when the branch is a deterministic (LLM-free) turn.
 
@@ -1796,6 +1819,9 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
 
     # Phase P3.1: extract user context from headers.
     user_id, tier = _extract_user_context(request)
+
+    # Language track F0: resolve once at the boundary, thread down.
+    locale = resolve_locale(request, req)
 
     # ------------------------------------------------------------------
     # Premium web-search gate (tier allowlist + explicit opt-in).
@@ -1868,11 +1894,7 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
     # ------------------------------------------------------------------
     if _quota_check is not None and not _quota_check.allowed:
         # Soft-fail: return a polite upgrade message.
-        _lang = "en"   # TODO: detect from Accept-Language header (P4 scope)
-        _upgrade_text = (
-            _quota_check.upgrade_prompt_es
-            or "Has alcanzado tu límite de uso. Por favor actualiza tu plan."
-        )
+        _upgrade_text = _quota_upgrade_text(_quota_check, locale)
         # Audit the quota-exceeded turn (no LLM was called).
         _quota_exceeded_entry = make_audit_entry(
             user_id=user_id,
@@ -1910,6 +1932,7 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
         classifier_client=_classifier_client,  # Phase 4l
         web_search_enabled=web_search_enabled,
         selected_player_id=req.selected_player_id,
+        locale=locale,
     )
 
     # ------------------------------------------------------------------
@@ -2094,6 +2117,9 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
     # Phase P3.1: extract user context + apply quota gate (same enforcement as /ask).
     _sess_user_id, _sess_tier = _extract_user_context(request)
 
+    # Language track F0: resolve once at the boundary, thread down.
+    locale = resolve_locale(request, req)
+
     # P3.f (F2 remediation): deterministic-prefix bypass (same as /ask boundary).
     _sess_question_stripped = req.question.lstrip()
     _sess_is_deterministic = req.selected_player_id is None and (
@@ -2101,10 +2127,7 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
     )
     _sess_quota = check_quota(_sess_user_id, _sess_tier) if not _sess_is_deterministic else None
     if _sess_quota is not None and not _sess_quota.allowed:
-        _sess_upgrade_text = (
-            _sess_quota.upgrade_prompt_es
-            or "Has alcanzado tu límite de uso. Por favor actualiza tu plan."
-        )
+        _sess_upgrade_text = _quota_upgrade_text(_sess_quota, locale)
         _sess_quota_entry = make_audit_entry(
             user_id=_sess_user_id,
             tier=_sess_tier,
@@ -2137,6 +2160,7 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
             _bootstrap,
             question_text=req.question,
             include_debug=req.debug,
+            locale=locale,
         )
     else:
         r = entry.session.respond(
@@ -2146,6 +2170,7 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
             classifier_client=_classifier_client,  # Phase 4l
             squad_context=req.squad_context,        # Phase 8e1
             intent_hint=req.intent_hint,            # V2
+            locale=locale,
         )
     entry.last_used_at = time.time()
 

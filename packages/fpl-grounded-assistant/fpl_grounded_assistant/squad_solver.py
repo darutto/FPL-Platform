@@ -60,6 +60,8 @@ from __future__ import annotations
 from collections import Counter, defaultdict, deque
 from typing import Any, Callable, Iterable, NamedTuple
 
+from .locale_types import Locale, DEFAULT_LOCALE
+
 
 #: The standard FPL 15-man squad split, keyed by ``element_type``.
 SQUAD_QUOTAS: dict[int, int] = {1: 2, 2: 5, 3: 5, 4: 3}
@@ -1045,8 +1047,14 @@ def build_squad(
 
 
 def _infeasible_message(
-    feasibility: dict[str, Any], budget_tenths: int, cheapest: int | None
+    feasibility: dict[str, Any],
+    budget_tenths: int,
+    cheapest: int | None,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> str:
+    """Build the infeasibility message. *locale* is a language-track F0
+    carrier param; ignored for now (see F1)."""
+    del locale  # F0: not yet honored.
     reason = feasibility.get("reason")
     budget = _tenths_to_millions(budget_tenths)
     if reason == "fixed_club_cap_exceeded":
