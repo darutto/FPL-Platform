@@ -536,7 +536,7 @@
       "col": "idea",
       "progress": 0,
       "title": "Deuda del surface de herramientas (auditoria Codex)",
-      "desc": "Cuatro items sueltos de la auditoria externa, ninguno bloqueante por separado. (1) Texto generado por tools en INGLES contra el contrato Spanish-first (chip_advisor.py:273,323; transfer_advisor.py:506,521) -- posible causa de que Gemini responda en ingles, hipotesis sin probar. (2) additionalProperties:false declarado pero no aplicado; el runner solo valida required. (3) Tercer par de resolutores duplicados: team_fixture_calendar vs get_team_snapshot devuelven ya la misma forma pero emparejan distinto (alias map vs prefix tiers + normalize); consolidar necesita pines propios, ojo con alias->club descendido que debe seguir not_found. (4) El nuevo ambiguous de get_team_schedule mapea a OUTCOME_AMBIGUOUS, pero no esta verificado si ChatShell puede armar el wizard desde ahi -- puede ser un septimo caso de la brecha conocida. Pendiente y gratis: segunda pasada de Codex con matriz de confusion de frases en espanol -> tool esperada, unica evidencia que decidiria si el surface de 28 tools necesita podarse.",
+      "desc": "Cuatro items sueltos de la auditoria externa, ninguno bloqueante por separado. (1) SUPERSEDIDO por el track de idioma i28-i33: el texto en ingles no es deuda menor sino falta de arquitectura de locale. Ver i28 (portador) e i33 (capa 2). (2) additionalProperties:false declarado pero no aplicado; el runner solo valida required. (3) Tercer par de resolutores duplicados: team_fixture_calendar vs get_team_snapshot devuelven ya la misma forma pero emparejan distinto (alias map vs prefix tiers + normalize); consolidar necesita pines propios, ojo con alias->club descendido que debe seguir not_found. (4) El nuevo ambiguous de get_team_schedule mapea a OUTCOME_AMBIGUOUS, pero no esta verificado si ChatShell puede armar el wizard desde ahi -- puede ser un septimo caso de la brecha conocida. Pendiente y gratis: segunda pasada de Codex con matriz de confusion de frases en espanol -> tool esperada, unica evidencia que decidiria si el surface de 28 tools necesita podarse.",
       "tags": [
         "Backend",
         "IA"
@@ -552,6 +552,83 @@
         "IA"
       ],
       "progress": 100
+    },
+    {
+      "id": "i28",
+      "col": "shipped",
+      "title": "Idioma F0 - el portador de locale",
+      "desc": "HECHO (PR #156). El `locale` se resuelve UNA vez en resolve_locale() en el borde del request y se enhebra hasta los productores de texto; default 'es', sin cambio de comportamiento. Antes de esto no existia nada: cero locale/lang/i18n en backend y en fpl-ui, y toda la politica de idioma del LLM era una frase del system prompt. LECCION DE VERIFICACION que vale para todo el track: la prueba de no-op NO se puede hacer con un diff de /ask en vivo -- el control (main contra main, cero diferencia de codigo) divergio 5 de 15 veces porque el modelo varia los ARGUMENTOS de herramienta entre llamadas identicas (dos peticiones seguidas devolvieron 5 y 20 candidatos, mismos jugadores, mismos numeros). Se prueba en la frontera del renderer con entradas fijas: 110 renders hasheados (35 outputs reales de la auditoria + 37 renderers x vacio/error + fallback de tool desconocida).",
+      "tags": [
+        "Backend",
+        "UX"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "i29",
+      "col": "shipped",
+      "title": "Idioma F1 - catalogo de strings ES/EN (capa 1: renderers)",
+      "desc": "HECHO (PR #157, 3 commits separables). Catalogo t(key, locale, **params) sin dependencias. Alcance: get_transfer_suggestion, select_players_within_budget, get_player_snapshot, get_player_fixture_run, compare_players y el fallback de harness.py -- que hasta ahora le decia EN INGLES a un usuario en espanol que preguntara en ingles. Las 37 subfirmas pasaron a (output, locale) en un commit mecanico aparte, probado no-op 110/110, para que ninguna fase futura vuelva a tocar 37 firmas. Verificado: en el commit de la etiqueta de dificultad el ingles quedo 110/110 IDENTICO -- la comprobacion mas filosa, porque el riesgo real era romper el ingles al arreglar el espanol. 0 claves fugadas en 218 salidas. REGLA AFINADA, ahora en el docstring del catalogo: el discriminador NO es 'es un enum calculado por la herramienta' sino '¿el usuario contrasta este token en otro lado, o lo lee como palabra dentro de una frase?'. El usuario contrasta MID y MCI contra la app de FPL; nadie contrasta 'easy'. Por eso easy/moderate/hard se traducen y ranking_basis (current_season_partial) no. PROHIBICION que sigue vigente: nada de locale global de modulo ni contextvar -- FastAPI corre los endpoints sync en un threadpool y se filtraria entre requests concurrentes, apareciendo como 'a veces sale en el idioma equivocado'.",
+      "tags": [
+        "Backend",
+        "UX"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "i30",
+      "col": "idea",
+      "title": "Idioma F2 - switch de idioma en la UI",
+      "desc": "Control explicito, persistido. Va ANTES que la deteccion aunque la deteccion sea la preferencia de producto: la deteccion sin switch no tiene salida de emergencia -- si adivina mal, el usuario queda atrapado hablandole al producto en el idioma equivocado. El switch es el piso fiable, determinista y testeable. Aqui se anade AskRequest.locale, que F0 dejo fuera a proposito por no aceptar un campo que nadie lee.",
+      "tags": [
+        "Backend",
+        "UX"
+      ],
+      "progress": 0
+    },
+    {
+      "id": "i31",
+      "col": "idea",
+      "title": "Idioma F3 - deteccion del idioma de interaccion",
+      "desc": "Valor INICIAL de la sesion, nunca override de una preferencia explicita. Precedencia: (1) preferencia del usuario gana siempre, (2) idioma detectado si hay confianza, (3) default es. PEGAJOSO POR SESION, no por mensaje -- turno 1 en espanol y turno 2 'Haaland?' en ingles es peor que cualquiera de los dos consistente. Riesgos medidos: nombres de jugador, codigos de club y jerga FPL son neutros de idioma, las consultas cortas no tienen senal, y el publico escribe spanglish nativo ('hago wildcard', 'los fixtures', 'es differential'). Aqui tambien 'Spanish-first.' pasa a 'Responde en {locale}' con el valor inyectado.",
+      "tags": [
+        "Backend",
+        "UX"
+      ],
+      "progress": 0
+    },
+    {
+      "id": "i32",
+      "col": "idea",
+      "title": "Idioma F4 - eje de idioma en el golden test",
+      "desc": "'Responde en el idioma de interaccion' se vuelve una asercion de maquina. Es de los ejes mas baratos de [[i25]] y es exactamente el fallo cazado a mano con Gemini (respuestas en ingles en un producto Spanish-first). Anadir revision de cumplimiento de idioma en el evaluador, que hoy no lo mira nadie.",
+      "tags": [
+        "Backend",
+        "UX"
+      ],
+      "progress": 0
+    },
+    {
+      "id": "i33",
+      "col": "shipped",
+      "title": "Idioma capa 2a - vocabularios cerrados (HECHO)",
+      "desc": "HECHO (PR #158). CORRECCION IMPORTANTE de como estaba escrita esta carta: decia que 2a era 'mapear el enum cerrado en el renderer, sin tocar el contrato'. La tecnica era correcta, el alcance NO: los enums vivian dentro de renderers que seguian ENTEROS en ingles, asi que traducir solo el enum daba un hibrido peor que cualquiera de los dos idiomas puros ('Raya plays for Arsenal (ARS) as a GKP. Estado: Disponible.'). Hubo que localizar los cinco renderers Y mapear sus vocabularios a la vez.\n\nRenderers: resolve_player, get_player_summary, get_injury_list, get_captain_score, rank_captain_candidates. Vocabularios: estado (5), tier largo y corto (5+5), balon parado (4), y las 15 frases fijas de explainer.py -- que NO eran prosa libre sino constantes literales, o sea catalogo, no cambio de contrato.\n\nTRES DEFECTOS que solo aparecieron al inspeccionar, no al planear: (1) _STATUS_DISPLAY era codigo muerto y ya habia desviado el scoping una vez; (2) _SET_PIECE_SHORT tambien muerto, y su docstring MENTIA sobre lo que renderiza; (3) _COMPACT_EXCLUDED filtraba por string literal en ingles -- al traducir habria dejado de excluir nada, que es REGRESION FUNCIONAL (info duplicada colandose a la vista compacta), no fuga de idioma. Se arreglo filtrando por clave.\n\nTambien aqui se fijo el REGISTRO del producto: TUTEO, no voseo. Fueron las primeras cadenas que le hablan al usuario directamente en espanol y el primer pase eligio voseo por defecto. 8 ocurrencias corregidas (3 mas de las listadas, halladas escaneando por FORMA del voseo en el codigo y no confiando en una lista escrita a mano). La regla vive en el docstring del catalogo y la aplica TestSpanishRegisterIsTuteo, con allowlist de 3 palabras que a su vez esta guardada por otro test.",
+      "tags": [
+        "Backend",
+        "UX"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "i34",
+      "col": "idea",
+      "progress": 0,
+      "title": "Idioma capa 2b - el productor devuelve codigo, no prosa",
+      "desc": "Lo que queda de la capa 2 despues de [[i33]]. Prosa libre pre-construida por la herramienta: el renderer solo la reenvia y NINGUNA entrada de catalogo la alcanza. Seis fuentes: compare_players.recommendation (nace en comparison.py), get_transfer_advice.recommendation_text, get_chip_advice.advice_text, get_price_changes.gw_note, el mensaje de infactibilidad de squad_solver, y 16 mensajes .message del runner del tipo \"Tool 'X' requires argument 'Y'\" que viven en OTRO paquete (fpl-tool-runner).\n\nEl arreglo correcto NO es traducir estas cadenas: es que el productor devuelva CODIGO + PARAMETROS y el renderer componga el mensaje localizado. Es cambio de contrato y cruza paquetes, por eso nunca cupo dentro de i29 ni de i33.\n\nOJO con una trampa ya vista en #158: explain_captain/explain_captain_compact tienen llamadores fuera de alcance (comparison.py, transfer_advisor.py) que empalman su salida dentro de prosa inglesa 2b. Por eso ambas funciones tienen locale='en' por defecto EXPLICITO, distinto del default del catalogo. Cuando 2b localice a esos llamadores, ese default hay que revisarlo -- si no, quedaran pidiendo ingles dentro de prosa ya traducida.\n\nCapa 3 (texto de la API de FPL: news de get_injury_list, nombres) se pasa verbatim y NO se traduce nunca.",
+      "tags": [
+        "Backend",
+        "UX"
+      ]
     }
   ]
 }
