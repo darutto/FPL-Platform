@@ -72,8 +72,22 @@ class TestResolveLocaleBoundary:
 # ===========================================================================
 
 class TestRenderLocaleNoOp:
+    # F0's original fixture used status="not_found", which was locale-
+    # invariant purely because every renderer ignored `locale` outright at
+    # the time. That stopped being true once resolve_player was localized
+    # (F2) -- its "not_found" branch has always built its own text rather
+    # than forwarding output["message"] (true before and after F2), so this
+    # specific payload/status combination was never actually pinning "locale
+    # is a no-op" so much as "resolve_player hadn't been localized yet".
+    #
+    # status="error" instead exercises the generic `f"Error ({code}):
+    # {message}"` fallback path that every renderer in this module shares:
+    # when the tool payload supplies its own `message`, that value always
+    # wins over any catalogue fallback regardless of locale -- a real,
+    # durable invariant that holds independent of which renderers have been
+    # localized, unlike the original choice.
     _RAW_OUTPUT = {
-        "status": "not_found",
+        "status": "error",
         "code": "player_not_found",
         "message": "No player matches 'zzzznotaplayer'.",
     }
