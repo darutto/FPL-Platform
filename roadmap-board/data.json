@@ -536,11 +536,66 @@
       "col": "idea",
       "progress": 0,
       "title": "Deuda del surface de herramientas (auditoria Codex)",
-      "desc": "Cuatro items sueltos de la auditoria externa, ninguno bloqueante por separado. (1) Texto generado por tools en INGLES contra el contrato Spanish-first (chip_advisor.py:273,323; transfer_advisor.py:506,521) -- posible causa de que Gemini responda en ingles, hipotesis sin probar. (2) additionalProperties:false declarado pero no aplicado; el runner solo valida required. (3) Tercer par de resolutores duplicados: team_fixture_calendar vs get_team_snapshot devuelven ya la misma forma pero emparejan distinto (alias map vs prefix tiers + normalize); consolidar necesita pines propios, ojo con alias->club descendido que debe seguir not_found. (4) El nuevo ambiguous de get_team_schedule mapea a OUTCOME_AMBIGUOUS, pero no esta verificado si ChatShell puede armar el wizard desde ahi -- puede ser un septimo caso de la brecha conocida. Pendiente y gratis: segunda pasada de Codex con matriz de confusion de frases en espanol -> tool esperada, unica evidencia que decidiria si el surface de 28 tools necesita podarse.",
+      "desc": "Cuatro items sueltos de la auditoria externa, ninguno bloqueante por separado. (1) SUPERSEDIDO por el track de idioma i28-i32: el texto en ingles no es deuda menor sino falta de arquitectura de locale. Ver i28. (2) additionalProperties:false declarado pero no aplicado; el runner solo valida required. (3) Tercer par de resolutores duplicados: team_fixture_calendar vs get_team_snapshot devuelven ya la misma forma pero emparejan distinto (alias map vs prefix tiers + normalize); consolidar necesita pines propios, ojo con alias->club descendido que debe seguir not_found. (4) El nuevo ambiguous de get_team_schedule mapea a OUTCOME_AMBIGUOUS, pero no esta verificado si ChatShell puede armar el wizard desde ahi -- puede ser un septimo caso de la brecha conocida. Pendiente y gratis: segunda pasada de Codex con matriz de confusion de frases en espanol -> tool esperada, unica evidencia que decidiria si el surface de 28 tools necesita podarse.",
       "tags": [
         "Backend",
         "IA"
       ]
+    },
+    {
+      "id": "i28",
+      "col": "idea",
+      "title": "Idioma F0 - el portador de locale",
+      "desc": "FUNDACION. Resolver un `locale` UNA vez en el borde del request y enhebrarlo hasta los renders, con default 'es' y SIN cambio de comportamiento. Hoy no existe nada: cero `locale`/`lang`/i18n en backend y en fpl-ui, y la politica de idioma del LLM es una sola frase del system prompt ('Spanish-first.'). El texto de usuario esta hardcodeado en 10+ modulos (renderer, final_response, squad_solver, transfer_advisor, chip_advisor, harness, decision_router, rank_players) y mezcla los dos idiomas dentro del mismo archivo (~30 literales EN vs ~9 ES solo en renderer.py). Esta fase va primero porque enhebrar un parametro por diez modulos DOS veces es el error caro; hacer el catalogo antes que el portador obliga a rehacerlo.",
+      "tags": [
+        "Backend",
+        "UX"
+      ],
+      "progress": 0
+    },
+    {
+      "id": "i29",
+      "col": "idea",
+      "title": "Idioma F1 - catalogo de strings ES/EN",
+      "desc": "El grueso del trabajo. Extraer el texto de usuario a un catalogo con las dos locales. Hallazgo del smoke en vivo: en el brazo B el modelo ELIGE la herramienta y el render ESCRIBE la respuesta -- o sea que esto es sobre todo un problema de catalogo determinista, no de prompt: testeable, sin varianza de LLM, sin coste por turno. ACOTAR el alcance a lo que el smoke demostro que los usuarios tocan (get_transfer_suggestion, el solver, fallbacks y mensajes de cuota), NO a los 535 literales de renderer.py. Regla explicita a escribir una sola vez: web_name, codigos de club y posiciones GKP/DEF/MID/FWD NO se traducen; gameweek/jornada, fixtures/partidos, budget/presupuesto SI. Decision tomada: el backend devuelve texto ya localizado (la UI no mantiene un segundo catalogo).",
+      "tags": [
+        "Backend",
+        "UX"
+      ],
+      "progress": 0
+    },
+    {
+      "id": "i30",
+      "col": "idea",
+      "title": "Idioma F2 - switch de idioma en la UI",
+      "desc": "Control explicito, persistido. Va ANTES que la deteccion aunque la deteccion sea la preferencia de producto: la deteccion sin switch no tiene salida de emergencia -- si adivina mal, el usuario queda atrapado hablandole al producto en el idioma equivocado. El switch es el piso fiable y ademas es determinista y testeable.",
+      "tags": [
+        "Backend",
+        "UX"
+      ],
+      "progress": 0
+    },
+    {
+      "id": "i31",
+      "col": "idea",
+      "title": "Idioma F3 - deteccion del idioma de interaccion",
+      "desc": "Valor INICIAL de la sesion, nunca override de una preferencia explicita. Precedencia: (1) preferencia del usuario gana siempre, (2) idioma detectado si hay confianza, (3) default es. PEGAJOSO POR SESION, no por mensaje -- turno 1 en espanol y turno 2 'Haaland?' en ingles es peor que cualquiera de los dos consistente. Riesgos medidos: nombres de jugador, codigos de club y jerga FPL son neutros de idioma, las consultas cortas no tienen senal, y el publico escribe spanglish nativo ('hago wildcard', 'los fixtures', 'es differential'). Aqui tambien: 'Spanish-first.' del system prompt pasa a 'Responde en {locale}' con el valor inyectado.",
+      "tags": [
+        "Backend",
+        "UX"
+      ],
+      "progress": 0
+    },
+    {
+      "id": "i32",
+      "col": "idea",
+      "title": "Idioma F4 - eje de idioma en el golden test",
+      "desc": "'Responde en el idioma de interaccion' se vuelve una asercion de maquina. Es de los ejes mas baratos del golden test [[i25]] y es exactamente el fallo que se cazo a mano con Gemini (respuestas en ingles en un producto Spanish-first). Anadir tambien revision de cumplimiento de idioma en el evaluador, que hoy no lo mira nadie.",
+      "tags": [
+        "Backend",
+        "UX"
+      ],
+      "progress": 0
     }
   ]
 }
