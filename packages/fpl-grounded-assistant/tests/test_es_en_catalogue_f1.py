@@ -71,6 +71,55 @@ class TestCatalogueLookup:
 
 
 # ===========================================================================
+# A2. difficulty_label — F1 commit 3
+# ===========================================================================
+# The closed 3-value enum shared by get_transfer_suggestion and
+# get_player_fixture_run (transfer_suggestion.py's _difficulty_label() and
+# player_fixture_run.py's FDR-context builder use the same thresholds).
+
+class TestDifficultyLabelTranslation:
+    def test_all_three_values_both_locales(self):
+        from fpl_grounded_assistant.renderer import _localized_difficulty_label
+        assert _localized_difficulty_label("easy", "en") == "easy"
+        assert _localized_difficulty_label("easy", "es") == "fácil"
+        assert _localized_difficulty_label("moderate", "en") == "moderate"
+        assert _localized_difficulty_label("moderate", "es") == "moderado"
+        assert _localized_difficulty_label("hard", "en") == "hard"
+        assert _localized_difficulty_label("hard", "es") == "difícil"
+
+    def test_unmapped_value_falls_back_to_raw_token(self):
+        # The enum is closed today, but the thresholds that produce it live
+        # in the tool, not here. If a build ever adds a fourth band without
+        # a matching catalogue entry, the raw token must still render (a
+        # visible, debuggable "extreme" beats a silently blank field).
+        from fpl_grounded_assistant.renderer import _localized_difficulty_label
+        assert _localized_difficulty_label("extreme", "es") == "extreme"
+        assert _localized_difficulty_label("extreme", "en") == "extreme"
+        assert _localized_difficulty_label("", "es") == ""
+
+    def test_hard_wired_into_transfer_suggestion_pick_line(self):
+        from fpl_grounded_assistant.renderer import render
+        payload = {
+            "status": "ok", "position": "FWD", "horizon": 5,
+            "picks": [{"rank": 1, "web_name": "X", "team_short": "Y", "position": "FWD",
+                       "now_cost_m": 5.0, "form": 1.0, "avg_fdr": 4.5,
+                       "difficulty_label": "hard", "ownership": 1.0}],
+        }
+        assert "(difícil)" in render("get_transfer_suggestion", payload, locale="es")
+        assert "(hard)" in render("get_transfer_suggestion", payload, locale="en")
+
+    def test_hard_wired_into_fixture_run_fdr_context(self):
+        from fpl_grounded_assistant.renderer import render
+        payload = {
+            "status": "ok", "web_name": "X", "team_short": "Y", "position": "DEF",
+            "horizon": 1, "fixtures": [{"gameweek": 1, "opponent_short": "Z", "is_home": True, "difficulty": 5}],
+            "team_fdr_context": {"avg_fdr": 5.0, "difficulty_label": "hard", "gw_from": 1, "gw_to": 1},
+        }
+        assert "racha difícil" in render("get_player_fixture_run", payload, locale="es")
+        assert "a hard run" in render("get_player_fixture_run", payload, locale="en")
+
+
+# ===========================================================================
 # B. get_transfer_suggestion
 # ===========================================================================
 
@@ -103,14 +152,18 @@ class TestTransferSuggestionRenderer:
         assert "por debajo de £8.0m" in es
         assert "under £8.0m" in en
 
-    def test_pick_line_translates_form_and_owned_not_difficulty_label(self):
+    def test_pick_line_translates_form_owned_and_difficulty_label(self):
+        # F1 commit 3: difficulty_label is an adjective inside the sentence
+        # ("(fácil)"), not a cross-referenced identifier — it translates
+        # along with "form"/"owned" now, unlike ranking_basis/objective/
+        # position which stay raw.
         from fpl_grounded_assistant.renderer import render
         es = render("get_transfer_suggestion", _TRANSFER_OK, locale="es")
         en = render("get_transfer_suggestion", _TRANSFER_OK, locale="en")
         assert "forma 7.2" in es and "propiedad" in es
         assert "form 7.2" in en and "owned" in en
-        # tier-2: difficulty_label is never translated, in either locale.
-        assert "(easy)" in es and "(easy)" in en
+        assert "(fácil)" in es and "easy" not in es
+        assert "(easy)" in en
 
     def test_no_picks_suffix_both_locales(self):
         from fpl_grounded_assistant.renderer import render
@@ -172,14 +225,9 @@ class TestPlayerFixtureRunRenderer:
         en = render("get_player_fixture_run", _FIXTURE_RUN_OK, locale="en")
         assert "próximos 2 partidos desde GW10" in es
         assert "next 2 fixtures from GW10" in en
-        assert "tiene una racha moderate" in es
+        # F1 commit 3: difficulty_label translates along with the sentence.
+        assert "tiene una racha moderado" in es
         assert "have a moderate run" in en
-
-    def test_difficulty_label_never_translated(self):
-        from fpl_grounded_assistant.renderer import render
-        es = render("get_player_fixture_run", _FIXTURE_RUN_OK, locale="es")
-        en = render("get_player_fixture_run", _FIXTURE_RUN_OK, locale="en")
-        assert "moderate" in es and "moderate" in en
 
     def test_not_found_and_missing_context_fallbacks(self):
         from fpl_grounded_assistant.renderer import render

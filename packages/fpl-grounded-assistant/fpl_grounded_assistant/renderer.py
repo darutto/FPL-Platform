@@ -313,6 +313,39 @@ def _render_get_transfer_advice(output: dict[str, Any], locale: Locale = DEFAULT
 
 
 # ---------------------------------------------------------------------------
+# difficulty_label: shared by get_player_fixture_run and
+# get_transfer_suggestion (Phase 7h / 2.6h).  F1 commit 3.
+# ---------------------------------------------------------------------------
+# The same closed 3-value enum in both tools, with matching thresholds:
+# transfer_suggestion.py's _difficulty_label() and player_fixture_run.py's
+# FDR-context builder. An adjective the renderer drops into a sentence
+# ("una racha {label}"), not a cross-referenced identifier -- see the
+# translation rule in catalogue.py's module docstring.
+
+_DIFFICULTY_LABEL_KEYS = {
+    "easy":     "difficulty_label.easy",
+    "moderate": "difficulty_label.moderate",
+    "hard":     "difficulty_label.hard",
+}
+
+
+def _localized_difficulty_label(value: str, locale: Locale) -> str:
+    """Translate a tool-computed difficulty_label.
+
+    The enum is closed today (easy/moderate/hard), but the thresholds that
+    produce it live in the tool, not here -- if a fourth band is ever added
+    there without a matching catalogue entry, fall back to the raw token
+    rather than rendering silently blank. A raw English word appearing in
+    Spanish output is a visible, debuggable regression; an empty string in
+    its place is not.
+    """
+    key = _DIFFICULTY_LABEL_KEYS.get(value)
+    if key is None:
+        return value
+    return t(key, locale)
+
+
+# ---------------------------------------------------------------------------
 # Player fixture run renderer  (Phase 7h)
 # ---------------------------------------------------------------------------
 
@@ -324,8 +357,10 @@ def _render_get_player_fixture_run(output: dict[str, Any], locale: Locale = DEFA
     already established elsewhere in this module (see
     ``_render_get_gameweek_context``'s "Jornada actual: GW{n}") — as does
     the per-fixture ``FDR``/venue-letter line, which is codes, not prose.
-    ``difficulty_label`` (``ctx["difficulty_label"]``) is tier-2 and stays
-    untranslated in both locales.
+    ``difficulty_label`` (``ctx["difficulty_label"]``) *is* translated (F1
+    commit 3) via ``_localized_difficulty_label`` — it is an adjective
+    ("una racha fácil"), not a cross-referenced identifier like the codes
+    above.
     """
     status = output.get("status")
     if status == "ok":
@@ -362,7 +397,8 @@ def _render_get_player_fixture_run(output: dict[str, Any], locale: Locale = DEFA
         ctx = output.get("team_fdr_context")
         if ctx and parts:
             avg   = ctx.get("avg_fdr", 0.0)
-            label = ctx.get("difficulty_label", "")  # tier-2: never translated
+            raw_label = ctx.get("difficulty_label", "")
+            label = _localized_difficulty_label(raw_label, locale)
             g_from = ctx.get("gw_from")
             g_to   = ctx.get("gw_to")
             gw_range = f"GW{g_from}-GW{g_to}" if g_from and g_to else ""
@@ -370,7 +406,7 @@ def _render_get_player_fixture_run(output: dict[str, Any], locale: Locale = DEFA
                 t("player_fixture_run.fdr_context_gw_clause", locale, gw_range=gw_range)
                 if gw_range else ""
             )
-            article = "an" if label[:1] in "aeiou" else "a"  # EN-only agreement
+            article = "an" if raw_label[:1] in "aeiou" else "a"  # EN-only agreement; on the raw (English) word
             result += t(
                 "player_fixture_run.fdr_context", locale,
                 team=team, article=article, label=label,
@@ -671,8 +707,8 @@ def _render_get_transfer_suggestion(output: dict[str, Any], locale: Locale = DEF
     ``position_label`` field — that field is tier-2 (built by
     transfer_suggestion.py) and stays English regardless of locale;
     reusing it here would silently defeat the whole point of this change.
-    ``difficulty_label`` per pick is left untouched for the same reason: it
-    is tier-2, not renderer prose.
+    ``difficulty_label`` per pick *is* translated (F1 commit 3) via
+    ``_localized_difficulty_label`` — see that function's docstring.
     """
     status = output.get("status")
 
@@ -712,7 +748,7 @@ def _render_get_transfer_suggestion(output: dict[str, Any], locale: Locale = DEF
             cost_m = p.get("now_cost_m", 0.0)
             form   = p.get("form", 0.0)
             avg    = p.get("avg_fdr", 0.0)
-            label  = p.get("difficulty_label", "")  # tier-2: never translated
+            label  = _localized_difficulty_label(p.get("difficulty_label", ""), locale)
             own    = p.get("ownership", 0.0)
             lines.append(t(
                 "transfer_suggestion.pick_line", locale,

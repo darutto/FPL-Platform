@@ -24,23 +24,39 @@ is warranted.
 
 The translation rule
 ---------------------
-Applied consistently across every catalogue entry and every caller:
+Applied consistently across every catalogue entry and every caller. The
+discriminator is not "is this a tool-computed enum value" — ``difficulty_label``
+is one and belongs on the translated side anyway (see below). The actual
+question is:
 
-* **Never translated**: ``web_name``, club short codes (``LIV``, ``MCI``),
-  position codes (``GKP``/``DEF``/``MID``/``FWD``), metric identifiers
-  (``objective``, ``ranking_basis``, ``difficulty_label`` and other
-  tool-computed enum values), and prices. These are identifiers and data,
-  not prose — translating "MID" to a Spanish word would make the payload
-  harder to cross-reference against the FPL API and the UI's own codes, not
+    Does the user ever cross-reference this token against something else
+    (the FPL app, another card, the raw API), or does it just read as a
+    word inside a sentence?
+
+* **Never translated — cross-referenced identifiers and data**: ``web_name``,
+  club short codes (``LIV``, ``MCI``), position codes
+  (``GKP``/``DEF``/``MID``/``FWD``), provenance/metric tags (``objective``,
+  ``ranking_basis`` — e.g. ``current_season_partial``, snake_case and
+  obviously a system token), and prices. A user cross-references ``MID`` and
+  ``MCI`` against the FPL app; translating "MID" to a Spanish word would make
+  the payload harder to line up against the app and the UI's own codes, not
   easier to read.
-* **Translated**: gameweek → jornada, fixtures → partidos, budget →
-  presupuesto, form → forma, owned → propiedad, and all connective prose
-  around those values (headers, labels, fallback error text).
-* Getting this line wrong — translating an identifier, or leaving connective
-  prose in English — reads worse to a Spanish-speaking user than leaving the
-  whole sentence in English, because it signals the product doesn't know its
-  own vocabulary. When in doubt, leave the token alone and translate the
-  words around it.
+* **Translated — adjectives and connective prose, even when tool-computed**:
+  gameweek → jornada, fixtures → partidos, budget → presupuesto, form →
+  forma, owned → propiedad, ``difficulty_label`` (``easy``/``moderate``/
+  ``hard``) → fácil/moderado/difícil, and all connective prose around these
+  values (headers, labels, fallback error text). Nobody cross-references
+  "easy" against anything; it is an adjective the renderer drops into a
+  sentence, so it translates like the rest of the sentence around it —
+  leaving it in English is what tripped this up the first time (see F1
+  commit 3): ``"MCI tiene una racha easy"`` reads as broken, not neutral.
+* Getting this line wrong — translating an identifier, or leaving an
+  in-sentence adjective in English — reads worse to a Spanish-speaking user
+  than leaving the whole sentence in English, because it signals the product
+  doesn't know its own vocabulary. When in doubt, ask whether the token would
+  ever be typed into a search box or matched against another system's output;
+  if yes, leave it alone; if it only ever appears as a word inside a rendered
+  sentence, translate it with the sentence.
 
 Tier boundary (see the renderer call sites, not this module)
 --------------------------------------------------------------
@@ -121,6 +137,16 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     "position_noun.MID": {"en": "midfielders", "es": "mediocampistas"},
     "position_noun.FWD": {"en": "forwards", "es": "delanteros"},
     "position_noun.ALL": {"en": "all positions", "es": "todas las posiciones"},
+
+    # -- difficulty_label, shared by get_transfer_suggestion and
+    # get_player_fixture_run (the same closed 3-value enum, same thresholds:
+    # transfer_suggestion.py's _difficulty_label() and
+    # player_fixture_run.py's fdr context builder). An adjective dropped
+    # into a sentence, not a cross-referenced identifier -- see the
+    # translation rule above. F1 commit 3.
+    "difficulty_label.easy": {"en": "easy", "es": "fácil"},
+    "difficulty_label.moderate": {"en": "moderate", "es": "moderado"},
+    "difficulty_label.hard": {"en": "hard", "es": "difícil"},
 
     # -- get_transfer_suggestion --------------------------------------------
     "transfer_suggestion.header": {
