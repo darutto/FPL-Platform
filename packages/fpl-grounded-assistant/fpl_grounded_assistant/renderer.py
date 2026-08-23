@@ -46,7 +46,8 @@ _STATUS_DISPLAY = {
 # Per-tool renderers
 # ---------------------------------------------------------------------------
 
-def _render_resolve_player(output: dict[str, Any]) -> str:
+def _render_resolve_player(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         name       = output.get("name", output.get("web_name", "Unknown"))
@@ -85,7 +86,8 @@ def _render_resolve_player(output: dict[str, Any]) -> str:
     return f"Error ({code}): {message}"
 
 
-def _render_get_player_summary(output: dict[str, Any]) -> str:
+def _render_get_player_summary(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         name       = output.get("name", output.get("web_name", "Unknown"))
@@ -136,7 +138,8 @@ def _render_get_player_summary(output: dict[str, Any]) -> str:
     return f"Error ({code}): {message}"
 
 
-def _render_get_current_gameweek(output: dict[str, Any]) -> str:
+def _render_get_current_gameweek(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         gw = output.get("gameweek", "?")
@@ -157,8 +160,9 @@ def _render_get_current_gameweek(output: dict[str, Any]) -> str:
 # Captain score renderer  (Phase 5m)
 # ---------------------------------------------------------------------------
 
-def _render_get_captain_score(output: dict[str, Any]) -> str:
+def _render_get_captain_score(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render a get_captain_score raw_output dict into a human-readable string."""
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     from .explainer import explain_captain  # local import — avoids circular
 
     status = output.get("status")
@@ -198,8 +202,9 @@ def _render_get_captain_score(output: dict[str, Any]) -> str:
 # Rank captain candidates renderer  (Phase 5m)
 # ---------------------------------------------------------------------------
 
-def _render_rank_captain_candidates(output: dict[str, Any]) -> str:
+def _render_rank_captain_candidates(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render a rank_captain_candidates raw_output dict into a human-readable string."""
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     from .explainer import explain_captain_compact  # local import
 
     status = output.get("status")
@@ -241,8 +246,9 @@ def _render_rank_captain_candidates(output: dict[str, Any]) -> str:
 # Comparison renderer  (Phase 5b)
 # ---------------------------------------------------------------------------
 
-def _render_compare_players(output: dict[str, Any]) -> str:
+def _render_compare_players(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render a compare_players raw_output dict into a human-readable string."""
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         rec = output.get("recommendation", "")
@@ -264,8 +270,9 @@ def _render_compare_players(output: dict[str, Any]) -> str:
 # Chip advice renderer  (Phase 6b)
 # ---------------------------------------------------------------------------
 
-def _render_get_chip_advice(output: dict[str, Any]) -> str:
+def _render_get_chip_advice(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render a get_chip_advice raw_output dict into a human-readable string."""
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         return output.get("advice_text", "Chip advice computed.")
@@ -277,8 +284,9 @@ def _render_get_chip_advice(output: dict[str, Any]) -> str:
     return f"Error ({code}): {message}"
 
 
-def _render_get_transfer_advice(output: dict[str, Any]) -> str:
+def _render_get_transfer_advice(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render a get_transfer_advice raw_output dict into a human-readable string."""
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         rec_text = output.get("recommendation_text", "")
@@ -296,8 +304,9 @@ def _render_get_transfer_advice(output: dict[str, Any]) -> str:
 # Player fixture run renderer  (Phase 7h)
 # ---------------------------------------------------------------------------
 
-def _render_get_player_fixture_run(output: dict[str, Any]) -> str:
+def _render_get_player_fixture_run(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render a get_player_fixture_run raw_output dict into a human-readable string."""
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         web_name = output.get("web_name", "?")
@@ -348,8 +357,9 @@ def _render_get_player_fixture_run(output: dict[str, Any]) -> str:
     return f"Error ({code}): {message}"
 
 
-def _render_get_differential_picks(output: dict[str, Any]) -> str:
+def _render_get_differential_picks(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render differential picks output.  Phase 7g."""
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         picks    = output.get("picks", [])
@@ -380,8 +390,9 @@ def _render_get_differential_picks(output: dict[str, Any]) -> str:
 # Player form renderer  (Phase 2.6d Story 2.1)
 # ---------------------------------------------------------------------------
 
-def _render_get_player_form(output: dict[str, Any]) -> str:
+def _render_get_player_form(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_player_form output."""
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         web_name  = output.get("web_name", "?")
@@ -423,8 +434,9 @@ def _render_get_player_form(output: dict[str, Any]) -> str:
 # Player season-points renderer
 # ---------------------------------------------------------------------------
 
-def _render_get_player_season_points(output: dict[str, Any]) -> str:
+def _render_get_player_season_points(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_player_season_points output."""
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         season = output.get("season", "?")
@@ -466,8 +478,9 @@ def _render_get_player_season_points(output: dict[str, Any]) -> str:
 # Injury list renderer  (Phase 2.6d Story 2.3)
 # ---------------------------------------------------------------------------
 
-def _render_get_injury_list(output: dict[str, Any]) -> str:
+def _render_get_injury_list(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_injury_list output."""
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         injured  = output.get("injured", [])
@@ -506,8 +519,9 @@ def _render_get_injury_list(output: dict[str, Any]) -> str:
 # Price changes renderer  (Phase 2.6d Story 2.4)
 # ---------------------------------------------------------------------------
 
-def _render_get_price_changes(output: dict[str, Any]) -> str:
+def _render_get_price_changes(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_price_changes output."""
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         risers  = output.get("risers", [])
@@ -544,8 +558,9 @@ def _render_get_price_changes(output: dict[str, Any]) -> str:
 # Team fixture calendar renderer  (Phase 2.6e)
 # ---------------------------------------------------------------------------
 
-def _render_get_team_fixture_calendar(output: dict[str, Any]) -> str:
+def _render_get_team_fixture_calendar(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_team_fixture_calendar output."""
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         mode    = output.get("mode", "easiest")
@@ -606,8 +621,9 @@ def _render_get_team_fixture_calendar(output: dict[str, Any]) -> str:
 # Position fixture run renderer  (Phase 2.6e.4)
 # ---------------------------------------------------------------------------
 
-def _render_get_transfer_suggestion(output: dict[str, Any]) -> str:
+def _render_get_transfer_suggestion(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_transfer_suggestion output.  Phase 2.6h."""
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
 
     if status == "ok":
@@ -668,8 +684,9 @@ def _render_get_transfer_suggestion(output: dict[str, Any]) -> str:
     return f"Error ({code}): {message}"
 
 
-def _render_get_position_fixture_run(output: dict[str, Any]) -> str:
+def _render_get_position_fixture_run(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_position_fixture_run output."""
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         pos_label = output.get("position_label", output.get("position", "?"))
@@ -724,8 +741,9 @@ def _render_get_position_fixture_run(output: dict[str, Any]) -> str:
 # Single-team fixture schedule renderer  (Phase 2.6e.3)
 # ---------------------------------------------------------------------------
 
-def _render_get_team_schedule(output: dict[str, Any]) -> str:
+def _render_get_team_schedule(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_team_schedule output."""
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         short   = output.get("team_short", "?")
@@ -786,8 +804,9 @@ def _render_get_team_schedule(output: dict[str, Any]) -> str:
 # P2 atomic tool renderers  (P2.8 Gap B fix)
 # ---------------------------------------------------------------------------
 
-def _render_find_players(output: dict[str, Any]) -> str:
+def _render_find_players(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render find_players raw_output.  P2.1."""
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         matches = output.get("matches", [])
@@ -820,8 +839,9 @@ def _render_find_players(output: dict[str, Any]) -> str:
     return f"Error ({code}): {message}"
 
 
-def _render_get_player_snapshot(output: dict[str, Any]) -> str:
+def _render_get_player_snapshot(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_player_snapshot raw_output.  P2.2."""
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         p = output.get("player", {})
@@ -875,8 +895,9 @@ def _render_get_player_snapshot(output: dict[str, Any]) -> str:
     return f"Error ({code}): {message}"
 
 
-def _render_get_player_history(output: dict[str, Any]) -> str:
+def _render_get_player_history(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_player_history raw_output.  P2.3."""
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         p       = output.get("player", {})
@@ -929,8 +950,9 @@ def _render_get_player_history(output: dict[str, Any]) -> str:
     return f"Error ({code}): {message}"
 
 
-def _render_get_fixtures_for_gw(output: dict[str, Any]) -> str:
+def _render_get_fixtures_for_gw(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_fixtures_for_gw raw_output.  P2.4."""
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         gw        = output.get("gw", "?")
@@ -980,8 +1002,9 @@ def _render_get_fixtures_for_gw(output: dict[str, Any]) -> str:
     return f"Error ({code}): {message}"
 
 
-def _render_get_gameweek_context(output: dict[str, Any]) -> str:
+def _render_get_gameweek_context(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_gameweek_context raw_output.  P2.5."""
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         curr_gw    = output.get("current_gw", "?")
@@ -1022,8 +1045,9 @@ def _render_get_gameweek_context(output: dict[str, Any]) -> str:
     return f"Error ({code}): {message}"
 
 
-def _render_get_team_snapshot(output: dict[str, Any]) -> str:
+def _render_get_team_snapshot(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_team_snapshot raw_output.  P2.6."""
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         team      = output.get("team", {})
@@ -1086,7 +1110,7 @@ def _render_get_team_snapshot(output: dict[str, Any]) -> str:
     return f"Error ({code}): {message}"
 
 
-def _render_search_web(output: dict[str, Any]) -> str:
+def _render_search_web(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render search_web raw_output as a Spanish prose summary.
 
     Unlike worldcup_assistant's web_search, FPL's single-tool orchestrator
@@ -1097,6 +1121,7 @@ def _render_search_web(output: dict[str, Any]) -> str:
     individually, so the real content is always visible regardless of how
     this summary reads.
     """
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status != "ok":
         code    = output.get("code", "error")
@@ -1116,8 +1141,9 @@ def _render_search_web(output: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _render_web_fetch(output: dict[str, Any]) -> str:
+def _render_web_fetch(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render web_fetch raw_output.  P2.7."""
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         url      = output.get("url", "?")
@@ -1139,8 +1165,9 @@ def _render_web_fetch(output: dict[str, Any]) -> str:
     return f"Error ({code}): {message}{suffix}"
 
 
-def _render_rank_players_by_metric(output: dict[str, Any]) -> str:
+def _render_rank_players_by_metric(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render rank_players_by_metric raw_output.  P2.8."""
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         metric    = output.get("metric", "?")
@@ -1183,12 +1210,13 @@ def _render_rank_players_by_metric(output: dict[str, Any]) -> str:
     return f"Error ({code}): {message}"
 
 
-def _render_get_zonal_weakness(output: dict[str, Any]) -> str:
+def _render_get_zonal_weakness(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_zonal_weakness raw_output.  T-zonal.
 
     Weakness/opportunity read only — the verdict comes from the engine and
     is already Spanish and buy/sell-free; this renderer only formats it.
     """
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         team    = output.get("team", "?")
@@ -1232,12 +1260,13 @@ def _render_get_zonal_weakness(output: dict[str, Any]) -> str:
     return f"Error ({code}): {message}"
 
 
-def _render_get_zonal_opportunity(output: dict[str, Any]) -> str:
+def _render_get_zonal_opportunity(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_zonal_opportunity raw_output.  T-zonal.
 
     Opportunity signal only — lists players whose shot profile concentrates
     in the opponent's above-average weak zones. Never buy/sell framing.
     """
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         opponent      = output.get("opponent", "?")
@@ -1272,11 +1301,12 @@ def _render_get_zonal_opportunity(output: dict[str, Any]) -> str:
     return f"Error ({code}): {message}"
 
 
-def _render_get_player_zonal_outlook(output: dict[str, Any]) -> str:
+def _render_get_player_zonal_outlook(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_player_zonal_outlook raw_output.  T-player.
 
     Opportunity-framed per-fixture matchup read — never buy/sell framing.
     """
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         player  = output.get("player", "?")
@@ -1335,12 +1365,13 @@ def _render_get_player_zonal_outlook(output: dict[str, Any]) -> str:
     return f"Error ({code}): {message}"
 
 
-def _render_get_fixture_outlook(output: dict[str, Any]) -> str:
+def _render_get_fixture_outlook(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_fixture_outlook raw_output.  Track D / FI2.
 
     Schedule-only read (bands + runs + verdict) — never buy/sell framing.
     Single team when ``series`` is present; all-teams grid otherwise.
     """
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     axis_label = "ofensivo" if output.get("axis") == "attack" else "de portería a cero"
 
@@ -1387,13 +1418,14 @@ def _render_get_fixture_outlook(output: dict[str, Any]) -> str:
     return f"Error ({code}): {message}"
 
 
-def _render_build_squad(output: dict[str, Any]) -> str:
+def _render_build_squad(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render build_squad raw_output.  S1.
 
     Prints the totals the solver computed, in the solver's own units. Nothing
     here re-adds a column: the whole point of the tool is that the arithmetic
     happens once, in one place.
     """
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
 
     if status == "ok":
@@ -1556,22 +1588,26 @@ def _render_select_players(output: dict[str, Any], locale: Locale = DEFAULT_LOCA
 # Dispatch table and public API
 # ---------------------------------------------------------------------------
 
-def _render_expected_minutes_v2(output: dict[str, Any]) -> str:
+def _render_expected_minutes_v2(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     from .football_intelligence_renderer import render_expected_minutes
     return render_expected_minutes(output)
 
 
-def _render_tactical_role_v2(output: dict[str, Any]) -> str:
+def _render_tactical_role_v2(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     from .football_intelligence_renderer import render_tactical_role
     return render_tactical_role(output)
 
 
-def _render_fixture_context_v2(output: dict[str, Any]) -> str:
+def _render_fixture_context_v2(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     from .football_intelligence_renderer import render_fixture_context
     return render_fixture_context(output)
 
 
-def _render_player_intelligence_v2(output: dict[str, Any]) -> str:
+def _render_player_intelligence_v2(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
+    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     from .football_intelligence_renderer import render_player_intelligence
     return render_player_intelligence(output)
 
@@ -1631,23 +1667,24 @@ def render(tool_name: str, raw_output: dict[str, Any], locale: Locale = DEFAULT_
     raw_output:
         The dict returned by ``fpl_tool_runner.run_tool()``.
     locale:
-        Language-track F0 carrier param. Currently ignored — every renderer
-        below still produces its historical (mixed English/Spanish) text
-        regardless of *locale*. F1 wires this up per string.
+        Language-track F1: forwarded to every sub-renderer, all 37 of which
+        now share this signature. Renderers outside F1's scoped set still
+        ignore it (``del locale``) and produce their historical text
+        regardless of *locale* — see the F1 report for exactly which five
+        renderers honor it.
 
     Returns
     -------
     str
         A natural-language sentence suitable for display to a user.
     """
-    del locale  # F0: accepted for the request-boundary carrier, not yet honored.
     renderer = _RENDERERS.get(tool_name)
     if renderer is None:
         code    = raw_output.get("code", "unknown_tool")
         message = raw_output.get("message", f"No renderer for tool '{tool_name}'.")
         return f"Error ({code}): {message}"
 
-    return renderer(raw_output)
+    return renderer(raw_output, locale)
 
 
 # ---------------------------------------------------------------------------
