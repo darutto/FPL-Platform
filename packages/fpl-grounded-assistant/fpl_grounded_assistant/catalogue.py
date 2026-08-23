@@ -57,6 +57,15 @@ question is:
   ever be typed into a search box or matched against another system's output;
   if yes, leave it alone; if it only ever appears as a word inside a rendered
   sentence, translate it with the sentence.
+* **Register — tuteo, not voseo.** Every second-person Spanish string uses
+  "tú" verb forms (``revisa``, ``prueba``, ``usa``), never Rioplatense "vos"
+  forms (``revisá``, ``probá``, ``usá``). This is a deliberate product-voice
+  decision, not a per-string judgement call: a product that mixes tú and vos
+  reads as two different products stitched together, so once one string picks
+  a register every later string must match it rather than following whichever
+  regional habit its author happens to have. Enforced by
+  ``TestSpanishRegisterIsTuteo`` in the F1/F2 test module — any future string
+  using a voseo verb form fails that test.
 
 Tier boundary (see the renderer call sites, not this module)
 --------------------------------------------------------------
@@ -126,7 +135,7 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         ),
         "es": (
             "No pude relacionar la pregunta con ninguna herramienta conocida. "
-            "Probá preguntando '¿Quién es [jugador]?', "
+            "Prueba preguntando '¿Quién es [jugador]?', "
             "'Dame un resumen de [jugador]', o '¿Cuál es la jornada actual?'."
         ),
     },
@@ -182,7 +191,7 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         ),
         "es": (
             "No encontré ningún club que coincida con '{team_query}' en los datos de "
-            "fixtures actuales. Revisá la ortografía o probá con una abreviatura "
+            "fixtures actuales. Revisa la ortografía o prueba con una abreviatura "
             "común (por ejemplo, 'Liverpool', 'LIV', 'Spurs')."
         ),
     },
@@ -386,13 +395,13 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         ),
         "es": (
             "Varios jugadores comparten el nombre '{query}'. "
-            "Usá el nombre completo o el ID del jugador para desambiguar "
+            "Usa el nombre completo o el ID del jugador para desambiguar "
             "(por ejemplo, '¿Quién es Adam Johnson?' o '¿Quién es el jugador 6?')."
         ),
     },
     "resolve_player.not_found": {
         "en": "No player found matching '{query}'. Check the spelling or try a full name / player ID.",
-        "es": "No encontré ningún jugador que coincida con '{query}'. Revisá la ortografía o probá con el nombre completo o el ID del jugador.",
+        "es": "No encontré ningún jugador que coincida con '{query}'. Revisa la ortografía o prueba con el nombre completo o el ID del jugador.",
     },
     "resolve_player.error_fallback": {
         "en": "An unexpected error occurred.",
@@ -418,11 +427,11 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     },
     "player_summary.ambiguous": {
         "en": "Multiple players share the name '{query}'. Please use a full name or player ID to disambiguate.",
-        "es": "Varios jugadores comparten el nombre '{query}'. Usá el nombre completo o el ID del jugador para desambiguar.",
+        "es": "Varios jugadores comparten el nombre '{query}'. Usa el nombre completo o el ID del jugador para desambiguar.",
     },
     "player_summary.not_found_fallback": {
         "en": "No player found matching '{query}'. Check the spelling or try a full name / player ID.",
-        "es": "No encontré ningún jugador que coincida con '{query}'. Revisá la ortografía o probá con el nombre completo o el ID del jugador.",
+        "es": "No encontré ningún jugador que coincida con '{query}'. Revisa la ortografía o prueba con el nombre completo o el ID del jugador.",
     },
     "player_summary.error_fallback": {
         "en": "An unexpected error occurred.",
@@ -461,11 +470,11 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     # status branches below are this renderer's own prose.
     "captain_score.ambiguous": {
         "en": "Multiple players share the name '{query}'. Please use a full name or player ID to disambiguate.",
-        "es": "Varios jugadores comparten el nombre '{query}'. Usá el nombre completo o el ID del jugador para desambiguar.",
+        "es": "Varios jugadores comparten el nombre '{query}'. Usa el nombre completo o el ID del jugador para desambiguar.",
     },
     "captain_score.not_found_fallback": {
         "en": "No player found matching '{query}'. Check the spelling or try a full name / player ID.",
-        "es": "No encontré ningún jugador que coincida con '{query}'. Revisá la ortografía o probá con el nombre completo o el ID del jugador.",
+        "es": "No encontré ningún jugador que coincida con '{query}'. Revisa la ortografía o prueba con el nombre completo o el ID del jugador.",
     },
     "captain_score.error_fallback": {
         "en": "An unexpected error occurred.",

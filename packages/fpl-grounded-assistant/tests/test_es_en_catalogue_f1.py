@@ -753,3 +753,80 @@ class TestExplainCaptainDefaultLocale:
         reasons = explain_captain(raw)  # comparison.py's exact call shape
         assert "Strong recent form" in reasons
         assert "Buena forma reciente" not in reasons
+
+
+# ===========================================================================
+# M. Spanish register — tuteo, not voseo (product-voice fix, no phase letter
+#    of its own; a follow-up to F2, scanning the whole catalogue)
+# ===========================================================================
+
+class TestSpanishRegisterIsTuteo:
+    """The product uses tuteo ("usa", "revisa") -- never voseo ("usá",
+    "revisá"). See the "Register" bullet in catalogue.py's module docstring
+    for why this is a deliberate, enforced decision rather than a per-string
+    habit.
+
+    The detector matches Spanish words ending in a stressed a/e/i (bare, or
+    followed by a bare "s") -- the shape of voseo imperative/present forms
+    ("usá", "tenés", "vivís"). That shape collides with a few ordinary,
+    non-voseo Spanish words already in the catalogue: 1st-person preterite
+    verbs ending in "-é" ("encontré" = "I found", not a 2nd-person form at
+    all), and short non-verb function words ("más", "sí"). Those are the
+    only three surface forms the current catalogue actually produces --
+    confirmed by running the scan below against every "es" value and reading
+    every hit, not by guessing a list up front. A real voseo word is not on
+    this list; do not add anything here to make a real hit disappear.
+    """
+
+    _ALLOWED_NON_VOSEO_HITS = {
+        "encontré",  # 1st-person preterite ("no encontré..." = "I didn't find...")
+        "más",       # adverb "more", not a verb form
+        "sí",        # "yes", not a verb form
+    }
+
+    def _voseo_hits(self):
+        import re
+        from fpl_grounded_assistant.catalogue import _CATALOGUE
+
+        pattern = re.compile(r"\b[a-záéíóúñA-ZÁÉÍÓÚÑ]+(?:á|é|í|ás|és|ís)\b")
+        allowed = {w.lower() for w in self._ALLOWED_NON_VOSEO_HITS}
+        hits = []
+        for key, pair in _CATALOGUE.items():
+            es_text = pair.get("es", "")
+            for m in pattern.finditer(es_text):
+                word = m.group(0)
+                if word.lower() not in allowed:
+                    hits.append((key, word))
+        return hits
+
+    def test_no_voseo_verb_forms_in_catalogue(self):
+        hits = self._voseo_hits()
+        assert hits == [], f"voseo verb form(s) found (tuteo required): {hits}"
+
+    def test_known_non_voseo_words_still_present(self):
+        # Guards against the allowlist silently swallowing a real regression:
+        # if these words ever disappear from the catalogue, the allowlist
+        # entries protecting them would too, and the point of naming them
+        # explicitly here is that removal should be a visible, deliberate
+        # edit -- not just have the corresponding line quietly deleted.
+        from fpl_grounded_assistant.catalogue import _CATALOGUE
+        joined_es = " ".join(pair.get("es", "") for pair in _CATALOGUE.values())
+        assert "encontré" in joined_es
+        assert "más" in joined_es
+        assert "Sí" in joined_es or "sí" in joined_es
+
+    def test_mutation_reintroducing_voseo_is_caught(self):
+        # Proves the detector actually fires: a synthetic catalogue entry
+        # using a real voseo form ("usá") must be flagged, not silently
+        # absorbed by the allowlist or missed by the pattern.
+        import re
+        pattern = re.compile(r"\b[a-záéíóúñA-ZÁÉÍÓÚÑ]+(?:á|é|í|ás|és|ís)\b")
+        mutated = {"fake.key": {"en": "use", "es": "Usá el nombre completo."}}
+        allowed = {w.lower() for w in self._ALLOWED_NON_VOSEO_HITS}
+        hits = [
+            (key, m.group(0))
+            for key, pair in mutated.items()
+            for m in pattern.finditer(pair.get("es", ""))
+            if m.group(0).lower() not in allowed
+        ]
+        assert hits == [("fake.key", "Usá")]

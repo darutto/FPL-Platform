@@ -202,18 +202,25 @@ class TestHarnessAmbiguousPlayer:
         result = ask("Who is Johnson?", bootstrap)
         assert result["raw_output"]["status"] == "ambiguous"
 
-    def test_answer_mentions_disambiguate(self, bootstrap):
+    @pytest.mark.parametrize(
+        "locale,expected_phrases",
+        [
+            ("es", ("varios jugadores", "desambiguar", "nombre completo")),
+            ("en", ("multiple", "disambiguate", "full name")),
+        ],
+    )
+    def test_answer_mentions_disambiguate(self, bootstrap, locale, expected_phrases):
         from fpl_grounded_assistant import ask
-        result = ask("Who is Johnson?", bootstrap)
-        # Must acknowledge ambiguity and instruct the user how to clarify.
-        # ask() defaults to Spanish (F2: resolve_player is now localized,
-        # where it used to always render English regardless of locale) —
-        # check both languages' equivalent phrasing rather than assuming EN.
+        # Must acknowledge ambiguity and instruct the user how to clarify,
+        # in the language actually requested. F2 localized resolve_player,
+        # so ask() with no locale argument now returns Spanish rather than
+        # the language-agnostic English it used to always produce -- this
+        # asserts the correct phrasing per locale rather than accepting
+        # either language for any call, which would pass even if a bug made
+        # the "es" call render English (or vice versa).
+        result = ask("Who is Johnson?", bootstrap, locale=locale)
         text = result["answer_text"].lower()
-        assert (
-            "multiple" in text or "disambiguate" in text or "full name" in text
-            or "varios jugadores" in text or "desambiguar" in text or "nombre completo" in text
-        )
+        assert any(phrase in text for phrase in expected_phrases)
 
     def test_answer_does_not_leak_cost(self, bootstrap):
         from fpl_grounded_assistant import ask
