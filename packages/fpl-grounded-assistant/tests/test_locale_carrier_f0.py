@@ -155,14 +155,20 @@ class TestHarnessThreadsLocaleToRenderer:
         assert result["routing_trace"]["branch"] == "route"
         assert seen["locale"] == "en"
 
-    def test_ask_v2_unsupported_branch_locale_does_not_change_text(self, bootstrap):
-        # F0 no-op guarantee for the deterministic fallback message: same
-        # text regardless of which locale reaches it.
+    def test_ask_v2_unsupported_branch_locale_changes_text_f1(self, bootstrap):
+        # Superseded by F1 (language-track ES/EN catalogue): the harness
+        # fallback is now one of the strings F1 actually localizes, so the
+        # F0-era "same text regardless of locale" guarantee for this
+        # specific message no longer holds by design. This test now pins
+        # the F1 contract instead: default (Spanish) and English differ,
+        # and each matches its own language.
         from fpl_grounded_assistant import harness
 
         default_result = harness.ask_v2("asdkjhasdkjh nonsense query", bootstrap)
         en_result = harness.ask_v2("asdkjhasdkjh nonsense query", bootstrap, locale="en")
-        assert default_result["answer_text"] == en_result["answer_text"]
+        assert default_result["answer_text"] != en_result["answer_text"]
+        assert "could not be mapped" in en_result["answer_text"]
+        assert "no pude relacionar" in default_result["answer_text"].lower()
 
 
 # ===========================================================================

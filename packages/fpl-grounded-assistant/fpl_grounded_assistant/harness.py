@@ -132,6 +132,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
+from fpl_grounded_assistant.catalogue import t
 from fpl_grounded_assistant.locale_types import Locale, DEFAULT_LOCALE
 from fpl_grounded_assistant.renderer import render
 from fpl_grounded_assistant.router import route
@@ -196,12 +197,8 @@ _UNRECOGNISED = {
 
 
 def _unrecognised_message(locale: Locale = DEFAULT_LOCALE) -> str:
-    """Deterministic fallback text for an unroutable question.
-
-    *locale* is a language-track F0 carrier param; ignored for now (see F1).
-    """
-    del locale  # F0: not yet honored.
-    return _UNRECOGNISED["message"]
+    """Deterministic fallback text for an unroutable question. F1: localized."""
+    return t("harness.unrecognised", locale)
 
 
 # ---------------------------------------------------------------------------
