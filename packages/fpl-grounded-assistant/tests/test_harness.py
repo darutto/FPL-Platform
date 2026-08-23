@@ -205,9 +205,15 @@ class TestHarnessAmbiguousPlayer:
     def test_answer_mentions_disambiguate(self, bootstrap):
         from fpl_grounded_assistant import ask
         result = ask("Who is Johnson?", bootstrap)
-        # Must acknowledge ambiguity and instruct the user how to clarify
+        # Must acknowledge ambiguity and instruct the user how to clarify.
+        # ask() defaults to Spanish (F2: resolve_player is now localized,
+        # where it used to always render English regardless of locale) —
+        # check both languages' equivalent phrasing rather than assuming EN.
         text = result["answer_text"].lower()
-        assert "multiple" in text or "disambiguate" in text or "full name" in text
+        assert (
+            "multiple" in text or "disambiguate" in text or "full name" in text
+            or "varios jugadores" in text or "desambiguar" in text or "nombre completo" in text
+        )
 
     def test_answer_does_not_leak_cost(self, bootstrap):
         from fpl_grounded_assistant import ask

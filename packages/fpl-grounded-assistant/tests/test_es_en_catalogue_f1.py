@@ -2,6 +2,8 @@
 tests/test_es_en_catalogue_f1.py
 ==================================
 Language track, Phase F1: the ES/EN string catalogue.
+Phase F2 (captain/status renderers + closed vocabularies) reuses this same
+harness and file rather than duplicating it.
 
 Test suites
 -----------
@@ -17,6 +19,13 @@ H.  Deterministic render harness — 110 fixed renders (35 real tool outputs
     and zero leaked catalogue keys in either locale. This is the same
     check used to verify the F1 commits by hand; it is pinned here as a
     permanent regression test.
+I.  resolve_player / get_player_summary — status_label
+J.  get_injury_list — 3 group headers (not 5 status values; "other" is
+    suspended+unavailable composite)
+K.  get_captain_score / rank_captain_candidates — tier, set-piece, reasons
+L.  explainer.py — captain_reason catalogue coverage + the "en" default
+    that protects comparison.py/transfer_advisor.py (tier-2b) from a
+    silent language flip
 """
 from __future__ import annotations
 
@@ -439,3 +448,308 @@ class TestDeterministicRenderHarness:
         assert errors == []
         leaks = [(name, text) for name in _CATALOGUE for text in texts if name in text]
         assert leaks == []
+
+
+# ===========================================================================
+# I. resolve_player / get_player_summary — status_label
+# ===========================================================================
+# status_label is already an English word by the time it reaches the
+# renderer (fpl_query_tools._STATUS_LABELS builds it upstream from the raw
+# "a"/"d"/"i"/"s"/"u" code) -- translation keys off that English value.
+
+_RESOLVE_OK = {
+    "status": "ok", "web_name": "Raya", "name": "David Raya Martín",
+    "team": "Arsenal", "team_short": "ARS", "position": "GKP",
+    "status_label": "Available", "resolved_via": "web_name", "query": "Raya",
+}
+
+_SUMMARY_OK = {
+    "status": "ok", "web_name": "Raya", "name": "David Raya Martín",
+    "team": "Arsenal", "team_short": "ARS", "position": "GKP",
+    "cost_m": 6.0, "status_label": "Available", "selected_by_percent": "34.6",
+    "resolved_via": "web_name", "query": "Raya",
+    "total_points": 162, "form": "0.0", "minutes": 3330,
+}
+
+
+class TestStatusLabelTranslation:
+    def test_all_five_values_both_locales(self):
+        from fpl_grounded_assistant.renderer import _localized_status_label
+        pairs = [
+            ("Available", "Disponible"), ("Doubtful", "Dudoso"),
+            ("Injured", "Lesionado"), ("Suspended", "Suspendido"),
+            ("Unavailable", "No disponible"),
+        ]
+        for en_val, es_val in pairs:
+            assert _localized_status_label(en_val, "en") == en_val
+            assert _localized_status_label(en_val, "es") == es_val
+
+    def test_unmapped_value_falls_back_to_raw_token(self):
+        from fpl_grounded_assistant.renderer import _localized_status_label
+        assert _localized_status_label("Retired", "es") == "Retired"
+        assert _localized_status_label("", "es") == ""
+
+
+class TestResolvePlayerRenderer:
+    def test_ok_translates_status_and_connective_prose(self):
+        from fpl_grounded_assistant.renderer import render
+        es = render("resolve_player", _RESOLVE_OK, locale="es")
+        en = render("resolve_player", _RESOLVE_OK, locale="en")
+        assert es == (
+            "Raya (David Raya Martín) juega en Arsenal (ARS) como GKP. "
+            "Estado: Disponible. [Resuelto vía: web_name]"
+        )
+        assert en == (
+            "Raya (David Raya Martín) plays for Arsenal (ARS) as a GKP. "
+            "Status: Available. [Resolved via: web_name]"
+        )
+
+    def test_position_and_codes_stay_raw_in_spanish(self):
+        # GKP/ARS are cross-referenced identifiers -- must not translate.
+        from fpl_grounded_assistant.renderer import render
+        es = render("resolve_player", _RESOLVE_OK, locale="es")
+        assert "GKP" in es and "ARS" in es
+
+    def test_ambiguous_and_not_found_both_locales(self):
+        from fpl_grounded_assistant.renderer import render
+        amb = render("resolve_player", {"status": "ambiguous", "query": "Silva"}, locale="es")
+        assert "Varios jugadores comparten el nombre 'Silva'" in amb
+        nf = render("resolve_player", {"status": "not_found", "query": "Zzz"}, locale="en")
+        assert "No player found matching 'Zzz'" in nf
+
+
+class TestPlayerSummaryRenderer:
+    def test_ok_translates_status_and_extras(self):
+        from fpl_grounded_assistant.renderer import render
+        es = render("get_player_summary", _SUMMARY_OK, locale="es")
+        en = render("get_player_summary", _SUMMARY_OK, locale="en")
+        assert es == (
+            "Raya (David Raya Martín) | Arsenal (ARS) | GKP | £6.0m | "
+            "34.6% de propiedad | Estado: Disponible. "
+            "Pts totales: 162 | Forma: 0.0 | Min: 3330."
+        )
+        assert en == (
+            "Raya (David Raya Martín) | Arsenal (ARS) | GKP | £6.0m | "
+            "34.6% ownership | Status: Available. "
+            "Total pts: 162 | Form: 0.0 | Mins: 3330."
+        )
+
+    def test_ambiguous_has_no_examples_clause_unlike_resolve_player(self):
+        # Pre-existing distinction preserved: get_player_summary's ambiguous
+        # text never had the "(e.g. 'Who is ...')" clause resolve_player has.
+        from fpl_grounded_assistant.renderer import render
+        es = render("get_player_summary", {"status": "ambiguous", "query": "Silva"}, locale="es")
+        assert "por ejemplo" not in es
+
+
+# ===========================================================================
+# J. get_injury_list
+# ===========================================================================
+
+_INJURY_OK = {
+    "status": "ok", "total": 2,
+    "injured": [{"web_name": "Saliba", "team_short": "ARS", "position": "DEF"}],
+    "doubtful": [{"web_name": "Mount", "team_short": "MUN", "position": "MID", "chance_of_playing": 75}],
+    "other": [],
+}
+
+
+class TestInjuryListRenderer:
+    def test_headers_translate_both_locales(self):
+        from fpl_grounded_assistant.renderer import render
+        es = render("get_injury_list", _INJURY_OK, locale="es")
+        en = render("get_injury_list", _INJURY_OK, locale="en")
+        assert es == "Lesionados: Saliba (ARS, DEF) | Dudosos: Mount (MUN, MID) 75%."
+        assert en == "Injured: Saliba (ARS, DEF) | Doubtful: Mount (MUN, MID) 75%."
+
+    def test_suspended_header_is_a_composite_not_five_values(self):
+        # "other" covers both suspended ("s") and unavailable ("u") -- one
+        # header, not a per-status-value translation.
+        from fpl_grounded_assistant.renderer import render
+        payload = {"status": "ok", "total": 1, "injured": [], "doubtful": [],
+                   "other": [{"web_name": "Digne", "team_short": "AVL"}]}
+        es = render("get_injury_list", payload, locale="es")
+        en = render("get_injury_list", payload, locale="en")
+        assert es == "Suspendidos/no disponibles: Digne (AVL)."
+        assert en == "Suspended/unavailable: Digne (AVL)."
+
+    def test_none_fallback_both_locales(self):
+        from fpl_grounded_assistant.renderer import render
+        payload = {"status": "ok", "total": 0, "injured": [], "doubtful": [], "other": []}
+        assert render("get_injury_list", payload, locale="es") == "No hay problemas de lesiones en los datos actuales."
+        assert render("get_injury_list", payload, locale="en") == "No injury concerns in the current bootstrap."
+
+
+# ===========================================================================
+# K. get_captain_score / rank_captain_candidates
+# ===========================================================================
+
+_CAPTAIN_OK = {
+    "status": "ok", "web_name": "Haaland", "team_short": "MCI",
+    "captain_score": 36.59, "tier": "differential",
+    "role_signals": {"set_piece_notes": ["penalty_taker_1"]},
+    "score_inputs": {"form": 0.0, "fixture_difficulty": 3, "xgi_per_90": 0.858551, "minutes_risk": 0.0},
+}
+
+_RANK_OK = {
+    "status": "ok",
+    "ranked_candidates": [
+        {"status": "ok", "rank": 1, "web_name": "Haaland", "team_short": "MCI",
+         "captain_score": 36.59, "tier": "differential",
+         "role_signals": {"set_piece_notes": ["penalty_taker_1"]},
+         "score_inputs": {"form": 0.0, "fixture_difficulty": 3, "xgi_per_90": 0.858551, "minutes_risk": 0.0}},
+        {"status": "ok", "rank": 3, "web_name": "Raya", "team_short": "ARS",
+         "captain_score": 28.02, "tier": "low_confidence",
+         "role_signals": {"set_piece_notes": []},
+         "score_inputs": {"form": 0.0, "fixture_difficulty": 3, "xgi_per_90": 0.01, "minutes_risk": 0.0}},
+    ],
+}
+
+
+class TestCaptainScoreRenderer:
+    def test_ok_translates_tier_and_reasons(self):
+        from fpl_grounded_assistant.renderer import render
+        es = render("get_captain_score", _CAPTAIN_OK, locale="es")
+        en = render("get_captain_score", _CAPTAIN_OK, locale="en")
+        assert es == (
+            "Haaland (MCI) — Diferencial [36.59]. Pateador de penales; "
+            "Mala forma reciente; Alta participación ofensiva; "
+            "Minutos asegurados; Perfil diferencial de alto potencial."
+        )
+        assert en == (
+            "Haaland (MCI) — Differential [36.59]. Penalty taker; "
+            "Weak recent form; High attacking involvement; "
+            "Secure minutes; High-upside differential profile."
+        )
+
+    def test_ambiguous_and_not_found_both_locales(self):
+        from fpl_grounded_assistant.renderer import render
+        amb = render("get_captain_score", {"status": "ambiguous", "query": "Silva"}, locale="es")
+        assert "Varios jugadores comparten el nombre 'Silva'" in amb
+        nf = render("get_captain_score", {"status": "not_found", "query": "Zzz"}, locale="en")
+        assert "No player found matching 'Zzz'" in nf
+
+
+class TestRankCaptainCandidatesRenderer:
+    def test_ok_translates_tier_short_setpiece_and_reasons(self):
+        from fpl_grounded_assistant.renderer import render
+        es = render("rank_captain_candidates", _RANK_OK, locale="es")
+        en = render("rank_captain_candidates", _RANK_OK, locale="en")
+        assert es == (
+            "1. Haaland (MCI) [dif] 36.59 · pateador de penales — "
+            "Mala forma reciente; Alta participación ofensiva\n"
+            "3. Raya (ARS) [baj] 28.02 — "
+            "Mala forma reciente; Baja participación ofensiva"
+        )
+        assert en == (
+            "1. Haaland (MCI) [diff] 36.59 · penalty taker — "
+            "Weak recent form; High attacking involvement\n"
+            "3. Raya (ARS) [low] 28.02 — "
+            "Weak recent form; Weak attacking process"
+        )
+
+    def test_short_codes_never_longer_than_english(self):
+        # "upside" is a documented, deliberate exception (catalogue.py):
+        # "pot" (potencial) is one character longer than "up" -- there is no
+        # equally-short natural Spanish abbreviation. Every other tier code
+        # must match or beat the English length.
+        from fpl_grounded_assistant.renderer import _TIER_SHORT_KEYS
+        from fpl_grounded_assistant.catalogue import t
+        allowed_overage = {"upside": 1}
+        for tier, key in _TIER_SHORT_KEYS.items():
+            en_len = len(t(key, "en"))
+            es_len = len(t(key, "es"))
+            max_len = en_len + allowed_overage.get(tier, 0)
+            assert es_len <= max_len, f"{tier}: es short code longer than allowed ({es_len} > {max_len})"
+
+    def test_none_fallback_both_locales(self):
+        from fpl_grounded_assistant.renderer import render
+        payload = {"status": "ok", "ranked_candidates": []}
+        assert render("rank_captain_candidates", payload, locale="es") == "No se pudo puntuar a ningún candidato a capitán."
+        assert render("rank_captain_candidates", payload, locale="en") == "No captain candidates could be scored."
+
+
+# ===========================================================================
+# L. explainer.py — captain_reason coverage + tier-2b default protection
+# ===========================================================================
+
+class TestCaptainReasonCoverage:
+    """Pins all 15 reason phrases in both locales, driven from the source
+    constants (not hand-copied), so a 16th phrase added later without a
+    catalogue entry fails loudly here rather than leaking English.
+    """
+
+    def test_all_role_reasons_both_locales(self):
+        from fpl_grounded_assistant.explainer import _ROLE_REASON
+        from fpl_grounded_assistant.catalogue import t
+        assert len(_ROLE_REASON) == 4
+        for note, key in _ROLE_REASON.items():
+            en = t(key, "en")
+            es = t(key, "es")
+            assert en and es and en != es
+
+    def test_all_non_role_reasons_both_locales(self):
+        from fpl_grounded_assistant.catalogue import t
+        non_role_keys = [
+            "captain_reason.form_strong", "captain_reason.form_weak",
+            "captain_reason.fixture_favorable", "captain_reason.fixture_tough",
+            "captain_reason.xgi_high", "captain_reason.xgi_low",
+            "captain_reason.minutes_secure", "captain_reason.minutes_rotation_risk",
+            "captain_reason.minutes_significant_risk",
+            "captain_reason.tier_differential", "captain_reason.tier_low_confidence",
+        ]
+        assert len(non_role_keys) == 11  # 4 role + 11 = 15 total, matching explainer.py's 12 append sites
+        for key in non_role_keys:
+            en = t(key, "en")
+            es = t(key, "es")
+            assert en and es and en != es
+
+    def test_compact_exclusion_is_locale_independent(self):
+        # _COMPACT_EXCLUDED filters by catalogue key, not translated text --
+        # this must hold for both locales, not just the locale it was
+        # written against.
+        from fpl_grounded_assistant.explainer import explain_captain_compact
+        out_role = {
+            "status": "ok",
+            "role_signals": {"set_piece_notes": ["penalty_taker_1"]},
+            "score_inputs": {},
+            "tier": "differential",
+        }
+        for locale in ("en", "es"):
+            compact = explain_captain_compact(out_role, locale=locale, max_reasons=5)
+            # Role reason and tier-summary reason both excluded regardless
+            # of locale -- only neutral score_inputs produce no extra reasons,
+            # so compact should be empty here.
+            assert compact == []
+
+
+class TestExplainCaptainDefaultLocale:
+    """comparison.py and transfer_advisor.py call explain_captain()/
+    explain_captain_compact() with no locale argument and splice the result
+    into their own (tier-2b, out-of-scope) English recommendation prose --
+    the default must stay English, not follow DEFAULT_LOCALE="es".
+    """
+
+    def test_default_is_english_not_default_locale(self):
+        from fpl_grounded_assistant.explainer import explain_captain
+        from fpl_grounded_assistant.locale_types import DEFAULT_LOCALE
+        assert DEFAULT_LOCALE == "es"  # sanity: this is the trap this test guards
+        out = {
+            "status": "ok", "tier": "differential",
+            "role_signals": {"set_piece_notes": ["penalty_taker_1"]},
+            "score_inputs": {"form": 2.0, "fixture_difficulty": 3, "xgi_per_90": 0.3, "minutes_risk": 0.0},
+        }
+        assert explain_captain(out) == explain_captain(out, locale="en")
+        assert explain_captain(out) != explain_captain(out, locale="es")
+
+    def test_comparison_reasons_field_stays_english_by_default(self):
+        # Exercises the real out-of-scope call site directly.
+        from fpl_grounded_assistant.explainer import explain_captain
+        raw = {
+            "status": "ok", "tier": "safe",
+            "role_signals": {"set_piece_notes": []},
+            "score_inputs": {"form": 8.0, "fixture_difficulty": 1, "xgi_per_90": 0.6, "minutes_risk": 0.0},
+        }
+        reasons = explain_captain(raw)  # comparison.py's exact call shape
+        assert "Strong recent form" in reasons
+        assert "Buena forma reciente" not in reasons

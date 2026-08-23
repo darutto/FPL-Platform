@@ -351,6 +351,196 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "en": "Unexpected error.",
         "es": "Error inesperado.",
     },
+
+    # -- status_label: shared by resolve_player and get_player_summary ------
+    # Closed 5-value vocabulary. The renderer never sees the raw single-char
+    # status code ("a"/"d"/"i"/"s"/"u") -- fpl_query_tools._STATUS_LABELS
+    # already turns it into this English word before the tool output reaches
+    # the renderer, so translation keys off the English value itself (see
+    # renderer._localized_status_label). An adjective describing the player,
+    # not a cross-referenced identifier -- translates like difficulty_label.
+    "status_label.available": {"en": "Available", "es": "Disponible"},
+    "status_label.doubtful": {"en": "Doubtful", "es": "Dudoso"},
+    "status_label.injured": {"en": "Injured", "es": "Lesionado"},
+    "status_label.suspended": {"en": "Suspended", "es": "Suspendido"},
+    "status_label.unavailable": {"en": "Unavailable", "es": "No disponible"},
+
+    # -- resolve_player -------------------------------------------------------
+    "resolve_player.summary_named": {
+        "en": "{web_name} ({name}) plays for {team} ({team_short}) as a {position}. Status: {status_lbl}.",
+        "es": "{web_name} ({name}) juega en {team} ({team_short}) como {position}. Estado: {status_lbl}.",
+    },
+    "resolve_player.summary_unnamed": {
+        "en": "{web_name} plays for {team} ({team_short}) as a {position}. Status: {status_lbl}.",
+        "es": "{web_name} juega en {team} ({team_short}) como {position}. Estado: {status_lbl}.",
+    },
+    "resolve_player.resolved_via_suffix": {
+        "en": " [Resolved via: {via}]",
+        "es": " [Resuelto vía: {via}]",
+    },
+    "resolve_player.ambiguous": {
+        "en": (
+            "Multiple players share the name '{query}'. "
+            "Please use a full name or player ID to disambiguate "
+            "(e.g. 'Who is Adam Johnson?' or 'Who is player 6?')."
+        ),
+        "es": (
+            "Varios jugadores comparten el nombre '{query}'. "
+            "Usá el nombre completo o el ID del jugador para desambiguar "
+            "(por ejemplo, '¿Quién es Adam Johnson?' o '¿Quién es el jugador 6?')."
+        ),
+    },
+    "resolve_player.not_found": {
+        "en": "No player found matching '{query}'. Check the spelling or try a full name / player ID.",
+        "es": "No encontré ningún jugador que coincida con '{query}'. Revisá la ortografía o probá con el nombre completo o el ID del jugador.",
+    },
+    "resolve_player.error_fallback": {
+        "en": "An unexpected error occurred.",
+        "es": "Ocurrió un error inesperado.",
+    },
+
+    # -- get_player_summary -----------------------------------------------
+    "player_summary.line": {
+        "en": "{display} | {team} ({team_short}) | {position} | £{cost_m}m | {ownership}% ownership | Status: {status_lbl}.",
+        "es": "{display} | {team} ({team_short}) | {position} | £{cost_m}m | {ownership}% de propiedad | Estado: {status_lbl}.",
+    },
+    "player_summary.extra_total_pts": {
+        "en": "Total pts: {total_pts}",
+        "es": "Pts totales: {total_pts}",
+    },
+    "player_summary.extra_form": {
+        "en": "Form: {form_val}",
+        "es": "Forma: {form_val}",
+    },
+    "player_summary.extra_mins": {
+        "en": "Mins: {minutes}",
+        "es": "Min: {minutes}",
+    },
+    "player_summary.ambiguous": {
+        "en": "Multiple players share the name '{query}'. Please use a full name or player ID to disambiguate.",
+        "es": "Varios jugadores comparten el nombre '{query}'. Usá el nombre completo o el ID del jugador para desambiguar.",
+    },
+    "player_summary.not_found_fallback": {
+        "en": "No player found matching '{query}'. Check the spelling or try a full name / player ID.",
+        "es": "No encontré ningún jugador que coincida con '{query}'. Revisá la ortografía o probá con el nombre completo o el ID del jugador.",
+    },
+    "player_summary.error_fallback": {
+        "en": "An unexpected error occurred.",
+        "es": "Ocurrió un error inesperado.",
+    },
+
+    # -- get_injury_list -----------------------------------------------------
+    # "other" groups both suspended ("s") and unavailable ("u") players under
+    # one composite header -- see injury_list.py's bucketing -- so this is 3
+    # header phrases, not 5 status values.
+    "injury_list.none": {
+        "en": "No injury concerns in the current bootstrap.",
+        "es": "No hay problemas de lesiones en los datos actuales.",
+    },
+    "injury_list.injured_header": {
+        "en": "Injured: {names}",
+        "es": "Lesionados: {names}",
+    },
+    "injury_list.doubtful_header": {
+        "en": "Doubtful: {names}",
+        "es": "Dudosos: {names}",
+    },
+    "injury_list.suspended_header": {
+        "en": "Suspended/unavailable: {names}",
+        "es": "Suspendidos/no disponibles: {names}",
+    },
+    "injury_list.error_fallback": {
+        "en": "An unexpected injury list error occurred.",
+        "es": "Ocurrió un error inesperado al obtener la lista de lesiones.",
+    },
+
+    # -- get_captain_score ----------------------------------------------------
+    # The result line itself ("{web_name} ({team_short}) — {tier_label}
+    # [{score}].{reasons_clause}") carries no literal English words once
+    # tier_label and reasons_clause are localized elsewhere -- only the
+    # status branches below are this renderer's own prose.
+    "captain_score.ambiguous": {
+        "en": "Multiple players share the name '{query}'. Please use a full name or player ID to disambiguate.",
+        "es": "Varios jugadores comparten el nombre '{query}'. Usá el nombre completo o el ID del jugador para desambiguar.",
+    },
+    "captain_score.not_found_fallback": {
+        "en": "No player found matching '{query}'. Check the spelling or try a full name / player ID.",
+        "es": "No encontré ningún jugador que coincida con '{query}'. Revisá la ortografía o probá con el nombre completo o el ID del jugador.",
+    },
+    "captain_score.error_fallback": {
+        "en": "An unexpected error occurred.",
+        "es": "Ocurrió un error inesperado.",
+    },
+
+    # -- rank_captain_candidates ----------------------------------------------
+    # Same story as captain_score: each ranked line is pure interpolation
+    # once tier_short/set_piece_label/reasons are localized elsewhere.
+    "rank_captain.none": {
+        "en": "No captain candidates could be scored.",
+        "es": "No se pudo puntuar a ningún candidato a capitán.",
+    },
+    "rank_captain.error_fallback": {
+        "en": "Could not rank captain candidates.",
+        "es": "No se pudo clasificar a los candidatos a capitán.",
+    },
+
+    # -- tier: shared by get_captain_score (full) and rank_captain_candidates
+    # (short bracket code), Phase 2i.  Adjectives describing a captaincy
+    # pick, not cross-referenced identifiers -- translate like tier_label.
+    "tier_label.safe": {"en": "Safe", "es": "Segura"},
+    "tier_label.upside": {"en": "Upside", "es": "Con potencial"},
+    "tier_label.differential": {"en": "Differential", "es": "Diferencial"},
+    "tier_label.avoid": {"en": "Avoid", "es": "Evitar"},
+    "tier_label.low_confidence": {"en": "Low-confidence", "es": "Baja confianza"},
+
+    # Short bracket codes, e.g. "[safe]" / "[up]". Must stay compact -- a
+    # Spanish code longer than the English one breaks the ranked-line
+    # format. "pot" (potencial) is one character longer than "up"; every
+    # other pair is equal length or shorter -- "baj" is a truncated
+    # abbreviation of "baja" (confianza), not the full word, chosen
+    # specifically to match "low"'s length. See the F2 report for the
+    # per-entry reasoning.
+    "tier_short.safe": {"en": "safe", "es": "seg"},
+    "tier_short.upside": {"en": "up", "es": "pot"},
+    "tier_short.differential": {"en": "diff", "es": "dif"},
+    "tier_short.avoid": {"en": "avoid", "es": "evit"},
+    "tier_short.low_confidence": {"en": "low", "es": "baj"},
+
+    # -- set-piece labels: the inline "· {clause}" suffix in
+    # rank_captain_candidates (_set_piece_clause/_set_piece_suffix).  Despite
+    # the "short" naming of the sibling _SET_PIECE_SHORT map, that map is
+    # dead code in renderer.py -- the live suffix always uses the full label
+    # (see the F2 report) -- so these are the only set-piece strings that
+    # actually render.
+    "set_piece_label.penalty_taker_1": {"en": "penalty taker", "es": "pateador de penales"},
+    "set_piece_label.penalty_taker_2": {"en": "2nd penalty taker", "es": "2do pateador de penales"},
+    "set_piece_label.freekick_taker_1": {"en": "free-kick taker", "es": "pateador de tiros libres"},
+    "set_piece_label.freekick_taker_2": {"en": "2nd free-kick taker", "es": "2do pateador de tiros libres"},
+
+    # -- captain reasons: explainer.py's 15 fixed reason phrases (12 append
+    # call sites -- the role-signal site alone yields 4 of the 15 via
+    # _ROLE_REASON). Literal constants, not free prose, so they belong in
+    # the catalogue exactly like an enum. explain_captain()/
+    # explain_captain_compact() default locale to "en", not DEFAULT_LOCALE
+    # -- comparison.py and transfer_advisor.py call these without a locale
+    # argument and depend on English output for their own (tier-2b,
+    # out-of-scope) recommendation text; only the two F2 renderer call
+    # sites pass locale explicitly.
+    "captain_reason.penalty_taker": {"en": "Penalty taker", "es": "Pateador de penales"},
+    "captain_reason.penalty_taker_2nd": {"en": "2nd penalty taker", "es": "2do pateador de penales"},
+    "captain_reason.freekick_taker": {"en": "Free-kick taker", "es": "Pateador de tiros libres"},
+    "captain_reason.freekick_taker_2nd": {"en": "2nd free-kick taker", "es": "2do pateador de tiros libres"},
+    "captain_reason.form_strong": {"en": "Strong recent form", "es": "Buena forma reciente"},
+    "captain_reason.form_weak": {"en": "Weak recent form", "es": "Mala forma reciente"},
+    "captain_reason.fixture_favorable": {"en": "Favorable fixture", "es": "Partido favorable"},
+    "captain_reason.fixture_tough": {"en": "Tough fixture", "es": "Partido difícil"},
+    "captain_reason.xgi_high": {"en": "High attacking involvement", "es": "Alta participación ofensiva"},
+    "captain_reason.xgi_low": {"en": "Weak attacking process", "es": "Baja participación ofensiva"},
+    "captain_reason.minutes_secure": {"en": "Secure minutes", "es": "Minutos asegurados"},
+    "captain_reason.minutes_rotation_risk": {"en": "Rotation risk lowers confidence", "es": "El riesgo de rotación baja la confianza"},
+    "captain_reason.minutes_significant_risk": {"en": "Significant minutes risk", "es": "Riesgo significativo de minutos"},
+    "captain_reason.tier_differential": {"en": "High-upside differential profile", "es": "Perfil diferencial de alto potencial"},
+    "captain_reason.tier_low_confidence": {"en": "Low-confidence captaincy profile", "es": "Perfil de capitanía de baja confianza"},
 }
 
 
