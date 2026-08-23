@@ -132,6 +132,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
+from fpl_grounded_assistant.locale_types import Locale, DEFAULT_LOCALE
 from fpl_grounded_assistant.renderer import render
 from fpl_grounded_assistant.router import route
 from fpl_tool_runner import run_tool
@@ -192,6 +193,15 @@ _UNRECOGNISED = {
         "or 'What is the current gameweek?'."
     ),
 }
+
+
+def _unrecognised_message(locale: Locale = DEFAULT_LOCALE) -> str:
+    """Deterministic fallback text for an unroutable question.
+
+    *locale* is a language-track F0 carrier param; ignored for now (see F1).
+    """
+    del locale  # F0: not yet honored.
+    return _UNRECOGNISED["message"]
 
 
 # ---------------------------------------------------------------------------
@@ -310,6 +320,7 @@ def ask(
     bootstrap: dict[str, Any],
     candidate_inputs: dict[str, Any] | None = None,
     candidates_list: list[dict[str, Any]] | None = None,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> dict[str, Any]:
     """
     Route *question*, execute the matched tool, and render a safe answer.
@@ -389,7 +400,7 @@ def ask(
             "selected_tool": None,
             "tool_input":    {},
             "raw_output":    _UNRECOGNISED,
-            "answer_text":   _UNRECOGNISED["message"],
+            "answer_text":   _unrecognised_message(locale),
         }
         if context_meta is not None:
             result["context_meta"] = context_meta
@@ -417,7 +428,7 @@ def ask(
         actual_bootstrap,
     )
 
-    answer_text = render(route_result.tool_name, raw_output)
+    answer_text = render(route_result.tool_name, raw_output, locale=locale)
 
     # ------------------------------------------------------------------
     # 5. Build return dict
@@ -489,6 +500,7 @@ def ask_v2(
     web_search_enabled: bool = False,
     selected_player_id: int | None = None,
     _enrich_existing_intents: bool = True,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> dict[str, Any]:
     """Phase M1/M2/M3 entrypoint composing `decision_router` + existing `ask()`.
 
@@ -630,6 +642,13 @@ def ask_v2(
         Passed straight through to ``ask_orchestrated()``. Callers
         (``fpl_server.py``) must resolve tier eligibility + explicit opt-in
         BEFORE setting this to ``True`` — ``ask_v2()`` performs no gating.
+    locale:
+        Language-track F0 carrier param. Forwarded to the deterministic
+        text producers on the ``route`` / ``prompt`` branches (``ask()``,
+        ``render()``, the unrecognised-query fallback). Currently ignored by
+        all of them — no string changes with *locale*'s value yet (see F1).
+        The orchestrator branch (``ask_orchestrated()``) is untouched by this
+        param; its own text production is out of scope for F0.
     """
     # Import here to avoid circulars at module-load time.
     from .decision_router import (
@@ -726,7 +745,7 @@ def ask_v2(
             "selected_tool": "get_player_snapshot",
             "tool_input": {"player_name": selected_player_id},
             "raw_output": _player_raw,
-            "answer_text": _render("get_player_snapshot", _player_raw),
+            "answer_text": _render("get_player_snapshot", _player_raw, locale=locale),
             "outcome": _player_outcome,
             "kind": "text",
             "routing_trace": routing_trace,
@@ -849,6 +868,7 @@ def ask_v2(
             bootstrap,
             candidate_inputs=candidate_inputs,
             candidates_list=eff_candidates,
+            locale=locale,
         )
         result["outcome"] = "ok" if result.get("selected_tool") else "unsupported"
         result["kind"] = "prompt"
@@ -874,7 +894,7 @@ def ask_v2(
         tool_name, raw_output, tool_input = _dispatch_prompt(
             prompt_name, args, actual_bootstrap,
         )
-        answer_text = _render(tool_name, raw_output) if tool_name else ""
+        answer_text = _render(tool_name, raw_output, locale=locale) if tool_name else ""
         routing_trace["branch"]          = "prompt"
         routing_trace["dispatched_tool"] = tool_name
         routing_trace["workflow_intent"] = workflow_intent
@@ -957,7 +977,7 @@ def ask_v2(
             "selected_tool": "get_player_snapshot",
             "tool_input": {"player_name": _player_lookup.query},
             "raw_output": _player_raw,
-            "answer_text": _render("get_player_snapshot", _player_raw),
+            "answer_text": _render("get_player_snapshot", _player_raw, locale=locale),
             "outcome": _player_outcome,
             "kind": "text",
             "routing_trace": routing_trace,
@@ -1011,7 +1031,7 @@ def ask_v2(
                 "selected_tool": None,
                 "tool_input":    {},
                 "raw_output":    {"status": "unsupported", "code": "orchestrator_exception"},
-                "answer_text":   _UNRECOGNISED["message"],
+                "answer_text":   _unrecognised_message(locale),
                 "outcome":       "unsupported",
                 "kind":          "text",
                 "suggestions":   [f"@{r}" for r in _suggestions_for_text()],
@@ -1116,7 +1136,7 @@ def ask_v2(
             "selected_tool": None,
             "tool_input":    {},
             "raw_output":    {"status": "unsupported", "code": "orchestrator_no_grounded_tool"},
-            "answer_text":   orch_result.answer_text or _UNRECOGNISED["message"],
+            "answer_text":   orch_result.answer_text or _unrecognised_message(locale),
             "outcome":       "unsupported",
             "kind":          "text",
             "suggestions":   [f"@{r}" for r in _suggestions_for_text()],
@@ -1146,7 +1166,7 @@ def ask_v2(
         "selected_tool": None,
         "tool_input":    {},
         "raw_output":    {"status": "unsupported", "code": "unrecognised_query"},
-        "answer_text":   _UNRECOGNISED["message"],
+        "answer_text":   _unrecognised_message(locale),
         "outcome":       "unsupported",
         "kind":          "text",
         "suggestions":   [f"@{r}" for r in _suggestions_for_text()],
