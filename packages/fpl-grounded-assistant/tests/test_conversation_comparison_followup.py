@@ -102,9 +102,38 @@ def test_successful_llm_resolution_rewrites_to_canonical_compare_question():
         rewritten_question="compare Haaland and Semenyo",
     )
 
+    def _fake_ask_v2(question, bootstrap, *args, **kwargs):
+        # G2 (session/ask parity fix): sessions now route through ask_v2()
+        # unconditionally, exactly like POST /ask. ask_v2()'s plain-text
+        # path has no deterministic full-intent ladder for multi-player
+        # sentences (only for bare player names) -- compare_players is
+        # resolved by the orchestrator, so it must be mocked here. The
+        # assertion below is the actual proof this test cares about: the
+        # REWRITTEN (canonical) question, not the raw "y con Semenyo?", is
+        # what reached routing.
+        assert question == "compare Haaland and Semenyo"
+        return {
+            "selected_tool": "compare_players",
+            "tool_input": {"query_a": "Haaland", "query_b": "Semenyo"},
+            "raw_output": {"status": "ok"},
+            "answer_text": "Haaland edges Semenyo.",
+            "outcome": "ok",
+            "kind": "text",
+            "routing_trace": {
+                "branch": "orchestrator",
+                "orchestrator_called": True,
+                "orchestrator_outcome": "ok",
+                "grounded": True,
+            },
+            "tokens": {"total": 123},
+        }
+
     with patch(
         "fpl_grounded_assistant.reference_resolver.resolve_comparison_followup_llm",
         return_value=fake_resolution,
+    ), patch(
+        "fpl_grounded_assistant.harness.ask_v2",
+        side_effect=_fake_ask_v2,
     ):
         result = session.respond("y con Semenyo?", STANDARD_BOOTSTRAP, resolver_client=None)
 
