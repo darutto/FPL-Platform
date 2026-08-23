@@ -32,8 +32,20 @@ The two Adversarial-Reviewer-blessed semantic shifts (documented below):
    - ``llm_used = True`` only when ``branch in ("orchestrator", "classifier_rewrite")``.
    - ``review_passed = True`` when the answer is grounded (tool ran end-to-end)
      OR when outcome is not "unsupported"; ``False`` only on full-ladder misses.
-   Session paths (``POST /session/{id}/ask``) still call ``respond()`` and
-   retain the original LLM-review semantics.
+   G2 (session/ask parity fix): ``POST /session/{id}/ask`` still calls
+   ``respond()``, but ``respond()`` now routes every PLAIN-TEXT session turn
+   (no ``intent_hint``, orchestrator enabled) through ``ask_v2()`` too, on
+   every branch, not just ``"orchestrator"`` (see
+   ``final_response._try_session_orchestration_response()``), duplicating
+   this exact semantic shift there -- those session responses use the SAME
+   post-graduation ``llm_used``/``review_passed`` semantics as this adapter.
+   Two narrow session-only cases (an ``intent_hint``-tagged call, or the
+   orchestrator administratively disabled) still fall through to the legacy
+   dispatcher pipeline and its pre-graduation LLM-review semantics unchanged
+   -- ``ask_v2()`` has no ``intent_hint`` parameter and no LLM-free
+   fallback for those. The two projections that DO run through ``ask_v2()``
+   are hand-kept in sync (``final_response.py`` cannot import this module);
+   the /ask-vs-/session parity test pins the drift.
 """
 from __future__ import annotations
 

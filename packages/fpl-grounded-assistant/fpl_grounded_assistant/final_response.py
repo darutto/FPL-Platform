@@ -2557,6 +2557,13 @@ def _try_deterministic_player_lookup_response(
     )
 
 
+# Branches where an LLM ran somewhere in the pipeline (mirrors
+# harness_adapter._LLM_BRANCHES exactly — kept as a separate constant because
+# final_response.py must not import harness_adapter.py, see the docstring on
+# _try_session_orchestration_response below).
+_SESSION_LLM_BRANCHES: frozenset[str] = frozenset({"orchestrator", "classifier_rewrite"})
+
+
 def _try_session_orchestration_response(
     user_message: str,
     bootstrap: dict[str, Any],
@@ -2572,20 +2579,58 @@ def _try_session_orchestration_response(
     intent_hint: str | None,
     locale: Locale = DEFAULT_LOCALE,
 ) -> FinalResponse | None:
-    """Give the legacy/session entrypoint the same orchestration fallthrough.
+    """Route a session turn through the unified ``ask_v2()`` pipeline.
 
-    Successful deterministic player lookups have already returned before this
-    helper runs. A disabled or unavailable orchestrator retains the legacy safe
-    pipeline; an attempted but non-grounded call returns one unsupported result
-    so the session never pays for a second provider decision.
+    G2 (session/ask parity fix): for a plain-text session turn (no
+    ``intent_hint``, orchestrator enabled -- i.e. every real free-text chat
+    question in production), this is now the ONLY session routing path (see
+    ``ConversationSession.respond()``). It used to return ``None`` whenever
+    ``ask_v2()``'s ladder resolved through anything other than the
+    ``"orchestrator"`` branch, letting the caller fall through to the legacy
+    ``ask_llm_safe()`` pipeline. That legacy pipeline renders a single
+    deterministic tool's raw output with no LLM synthesis turn -- it produced
+    user-visible dumps like "Jornada actual: GW1 (in_progress)..." for
+    questions the model answered sensibly through ``POST /ask``, which always
+    routes through ``ask_v2()`` regardless of branch. This helper now mirrors
+    that unconditionally for sessions too on the branch dimension, so both
+    endpoints take the same routing path and never diverge on branch alone.
+
+    Two early-outs are DELIBERATELY PRESERVED unchanged (do not remove --
+    see ``test_valid_specialized_session_intent_hint_retains_priority`` and
+    ``test_unavailable_session_explicit_miss_never_emits_legacy_resolve``):
+
+    * ``intent_hint in INTENT_HINT_ALLOWLIST``: ``ask_v2()`` has no
+      ``intent_hint`` parameter and no deterministic full-intent ladder for
+      hint-driven text (e.g. "captain score for Haaland") -- only the legacy
+      dispatcher pipeline resolves those without an LLM call, via
+      ``dispatcher._try_route_with_hint()`` inside ``ask_llm_safe()``. The
+      production bug this fixes is about free-text chat questions, which
+      never carry an ``intent_hint``, so deferring hinted calls to the
+      legacy pipeline is not a parity gap for that bug.
+    * ``not is_orch_enabled()``: when the orchestrator is administratively
+      disabled, the legacy pipeline's explicit-not-found player lookup
+      (``_try_deterministic_player_lookup_response(allow_explicit_not_found=True)``)
+      is the only path that still answers "tell me about <retired player>"
+      -type questions without an LLM. ``ask_v2()`` has no equivalent
+      LLM-free fallback for that case.
+
+    The outcome/supported/review_passed/llm_used/route_source/orch_outcome
+    projection below is a deliberate DUPLICATE of
+    ``harness_adapter.to_ask_response()``'s equivalent steps -- not a shared
+    import, because ``final_response.py`` sits below ``fpl_server.py`` in the
+    dependency graph (many unit tests import it directly without ever
+    touching FastAPI) and must not import ``harness_adapter.py``, which is
+    only ever called from ``fpl_server.py`` itself at request time. Keep the
+    two projections in sync; the /ask-vs-/session parity test pins the drift.
     """
-    from .dispatcher import INTENT_HINT_ALLOWLIST
+    from .dispatcher import INTENT_HINT_ALLOWLIST, _CLASSIFIER_HIGH_CONFIDENCE
     from .orch_config import is_orch_enabled
 
     if intent_hint in INTENT_HINT_ALLOWLIST or not is_orch_enabled():
         return None
 
     from .harness import ask_v2
+    from .prompt_registry import get_prompt_spec
 
     result = ask_v2(
         user_message,
@@ -2598,31 +2643,81 @@ def _try_session_orchestration_response(
         _enrich_existing_intents=False,
         locale=locale,
     )
-    routing_trace = result.get("routing_trace") or {}
-    branch = routing_trace.get("branch")
-    if branch != "orchestrator" and not routing_trace.get("orchestrator_called"):
-        return None
 
-    selected_tool = result.get("selected_tool")
-    intent = result.get("intent") or _TOOL_TO_INTENT.get(
-        selected_tool or "", INTENT_UNSUPPORTED
-    )
-    outcome = str(result.get("outcome") or "unsupported")
-    if outcome == "unsupported" and result.get("kind") == "text":
-        outcome = "unsupported_intent"
-    answer_text = str(result.get("answer_text") or "")
+    routing_trace: dict[str, Any] = dict(result.get("routing_trace") or {})
+    branch: str = routing_trace.get("branch", "unsupported")
+
+    # ---- squad overrides (mirrors harness_adapter.to_ask_response step 1) ----
     transfer = result.get("transfer")
     chip = result.get("chip")
-    transfer, chip, answer_text = _apply_squad_overrides(
-        transfer=transfer,
-        chip=chip,
-        final_text=answer_text,
-        squad_context=squad_context,
+    answer_text: str = str(result.get("answer_text") or "")
+    if squad_context is not None and (transfer is not None or chip is not None):
+        transfer, chip, answer_text = _apply_squad_overrides(
+            transfer=transfer,
+            chip=chip,
+            final_text=answer_text,
+            squad_context=squad_context,
+        )
+
+    # ---- intent derivation (mirrors harness_adapter.to_ask_response step 2) ----
+    selected_tool: str | None = result.get("selected_tool")
+    prompt_name: str | None = result.get("prompt_name")
+    prompt_spec = get_prompt_spec(prompt_name) if prompt_name else None
+    explicit_intent = result.get("intent")
+    if explicit_intent is not None:
+        intent: str = explicit_intent
+    elif selected_tool is not None:
+        intent = _TOOL_TO_INTENT.get(selected_tool, INTENT_UNSUPPORTED)
+    elif result.get("medium_gate_intent") is not None:
+        intent = result["medium_gate_intent"]
+    elif prompt_spec is not None:
+        intent = prompt_spec.workflow_intent
+    else:
+        intent = INTENT_UNSUPPORTED
+
+    # ---- outcome / supported (mirrors harness_adapter.to_ask_response step 3) ----
+    raw_outcome: str = str(result.get("outcome") or "unsupported")
+    kind: str = result.get("kind", "")
+    if raw_outcome == "unsupported" and branch == "unsupported" and kind == "text":
+        outcome: str = "unsupported_intent"
+    else:
+        outcome = raw_outcome
+    supported: bool = outcome not in ("unsupported", "unsupported_intent", "needs_clarification")
+
+    if outcome == "needs_clarification":
+        answer_text = _clarification_text_for_intent(intent)
+
+    # ---- semantic-shift fields (mirrors harness_adapter.to_ask_response step 4) ----
+    llm_used: bool = branch in _SESSION_LLM_BRANCHES
+    review_passed: bool = bool(routing_trace.get("grounded", False)) or (
+        outcome not in ("unsupported", "unsupported_intent")
     )
-    suggestions = result.get("player_suggestions")
-    suggestion_items = (
-        tuple(Suggestion(**item) for item in suggestions) if suggestions else None
+
+    # ---- route_source (mirrors harness_adapter.to_ask_response step 5) ----
+    classification_source = routing_trace.get("classification_source")
+    if classification_source == "intent_hint":
+        route_source: str | None = "intent_hint"
+    elif branch == "classifier_rewrite":
+        conf = routing_trace.get("classifier_confidence")
+        if conf is not None and conf >= _CLASSIFIER_HIGH_CONFIDENCE:
+            route_source = "llm_classifier_high"
+        elif conf is not None:
+            route_source = "llm_classifier_medium"
+        else:
+            route_source = "llm_classifier"
+    elif branch == "route":
+        route_source = "deterministic"
+    else:
+        route_source = None
+    classifier_confidence: float | None = routing_trace.get("classifier_confidence")
+    route_conflict = False  # M3 ladder is strict-order; conflicts cannot arise post-graduation.
+
+    clarification_asked: bool = outcome == "needs_clarification"
+
+    orch_outcome: str | None = (
+        routing_trace.get("orchestrator_outcome") if branch == "orchestrator" else None
     )
+
     debug = None
     if include_debug:
         debug = FinalResponseDebug(
@@ -2632,18 +2727,20 @@ def _try_session_orchestration_response(
             prompt_used="",
             model=str(result.get("orchestrator_model") or ""),
             resolver=resolver_debug,
-            classification_source="orchestrator",
+            classification_source=classification_source or branch,
         )
+    suggestions = result.get("player_suggestions")
+    suggestion_items = (
+        tuple(Suggestion(**item) for item in suggestions) if suggestions else None
+    )
     tokens = result.get("tokens") or {}
     response = FinalResponse(
         final_text=answer_text,
         outcome=outcome,
-        supported=outcome not in {
-            "unsupported", "unsupported_intent", "needs_clarification"
-        },
+        supported=supported,
         intent=intent,
-        review_passed=bool(routing_trace.get("grounded")),
-        llm_used=branch == "orchestrator",
+        review_passed=review_passed,
+        llm_used=llm_used,
         debug=debug,
         comparison=result.get("comparison"),
         captain=result.get("captain"),
@@ -2665,7 +2762,12 @@ def _try_session_orchestration_response(
         generic_card=result.get("generic_card"),
         suggestions=suggestion_items,
         evidence=_evidence_from_wire(result.get("evidence")),
-        orch_outcome=routing_trace.get("orchestrator_outcome"),
+        orch_outcome=orch_outcome,
+        degraded=False,
+        route_source=route_source,
+        classifier_confidence=classifier_confidence,
+        route_conflict=route_conflict,
+        clarification_asked=clarification_asked,
         total_tokens=int(tokens.get("total", 0)),
     )
     try:
@@ -2784,9 +2886,16 @@ def respond(
         return player_lookup_response
 
     if _session_orchestration:
-        # Session turns use one shared harness call for both FI and ordinary
-        # orchestration. This avoids paying for or accepting two independent
-        # tool decisions when Football Intelligence is enabled.
+        # G2 (session/ask parity fix): for plain-text turns (no intent_hint,
+        # orchestrator enabled) this now routes through ask_v2() on every
+        # branch, exactly like POST /ask. It used to be conditional on
+        # branch == "orchestrator" and fall through to the legacy
+        # ask_llm_safe() pipeline otherwise; that pipeline renders single-tool
+        # deterministic output with no LLM synthesis turn, which is the root
+        # cause of raw dumps like "Jornada actual: GW1..." reaching session
+        # users. See _try_session_orchestration_response()'s docstring for
+        # the two early-outs that are deliberately preserved (intent_hint,
+        # orchestrator disabled) and must not be removed.
         orchestration_response = _try_session_orchestration_response(
             user_message,
             bootstrap,
@@ -2803,9 +2912,10 @@ def respond(
         )
         if orchestration_response is not None:
             return orchestration_response
-        # If orchestration is disabled or unavailable, explicit player-search
-        # phrases still terminate through the snapshot contract. This keeps
-        # legacy player_summary/player_resolve intents direct-call-only.
+        # Only reachable for the two preserved early-outs above. Explicit
+        # player-search phrases still terminate through the snapshot
+        # contract so legacy player_summary/player_resolve intents remain
+        # direct-call-only when the orchestrator can't be used.
         unavailable_lookup_response = _try_deterministic_player_lookup_response(
             user_message,
             bootstrap,

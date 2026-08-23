@@ -1787,7 +1787,19 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
     -------
     G1 (mcp-graduation): rewired through ``harness.ask_v2()`` and
     ``harness_adapter.to_ask_response()``.  ``AskResponse`` shape unchanged.
-    ``POST /session/{id}/ask`` still calls ``respond()`` (sessions out of scope).
+    G2 (session/ask parity fix): ``POST /session/{id}/ask`` still calls
+    ``respond()`` for reference resolution and state tracking, but
+    ``respond()`` now routes every plain-text session turn through this SAME
+    ``ask_v2()`` too (see ``final_response._try_session_orchestration_response()``),
+    regardless of which ``ask_v2()`` branch resolves it -- not just the
+    ``"orchestrator"`` branch, which is what caused the bug this fixes (a
+    raw deterministic-tool dump reaching session users on other branches).
+    Two narrow cases still defer to the legacy dispatcher pipeline
+    unchanged: an ``intent_hint``-tagged call (``ask_v2()`` has no
+    ``intent_hint`` parameter) and a turn made while the orchestrator is
+    administratively disabled. Neither applies to ordinary free-text chat
+    questions, which is what production traffic (and the incident this
+    fixes) consists of.
 
     intent_hint (deferred deprecation)
     -----------------------------------
@@ -2083,16 +2095,24 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
     --------------------
     * Reads ``X-User-Id`` and ``X-User-Tier`` headers (same as /ask).
     * Applies quota gate before session.respond().
-    * Token observability is limited for session turns: ConversationSession.respond()
-      does not currently surface token counts.  Tokens are recorded as 0 for session
-      turns; cost estimate will under-report until session path gains token observability.
+    * Token observability: G2 (session/ask parity fix) routes plain-text
+      session turns through ``ask_v2()`` regardless of branch, which
+      surfaces real token counts for every turn that actually called an LLM
+      (``entry.session.last_tokens``). A turn legitimately records 0 tokens
+      when no LLM ran (a deterministic ladder match, or one of the two
+      narrow cases -- intent_hint, orchestrator disabled -- that still defer
+      to the legacy pipeline; see ``final_response._try_session_orchestration_response()``).
 
     P3.f remediation
     ----------------
-    F1: Session turns record tokens=0 (graduation debt — ConversationSession.respond()
-        does not surface token counts).  A logger.warning fires per turn so production
-        has an observable signal.  Set FPL_SESSION_ENABLED=false to disable sessions
-        entirely (operator kill-switch) until tokens are properly surfaced.
+    F1: LARGELY RESOLVED by G2 (session/ask parity fix) — session turns now
+        route through ``ask_v2()`` for the common case (plain-text, orch
+        enabled, no intent_hint) and surface real token counts there. The
+        two narrow legacy-pipeline cases above can still record tokens=0
+        while an LLM-free deterministic answer was given, which is correct,
+        not the bug. The tokens==0 + is_orch_enabled() case below is retained as a
+        regression signal (it should now only fire for legitimately
+        zero-LLM-cost turns) rather than removed outright.
     F2: @resource and /prompt prefixes bypass check_quota (deterministic = free).
     F8: Audit write failures are logged via logger.exception instead of silently swallowed.
     """
