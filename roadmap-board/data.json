@@ -536,7 +536,7 @@
       "col": "idea",
       "progress": 0,
       "title": "Deuda del surface de herramientas (auditoria Codex)",
-      "desc": "Cuatro items sueltos de la auditoria externa, ninguno bloqueante por separado. (1) SUPERSEDIDO por el track de idioma i28-i33: el texto en ingles no es deuda menor sino falta de arquitectura de locale. Ver i28 (portador) e i33 (capa 2). (2) additionalProperties:false declarado pero no aplicado; el runner solo valida required. (3) Tercer par de resolutores duplicados: team_fixture_calendar vs get_team_snapshot devuelven ya la misma forma pero emparejan distinto (alias map vs prefix tiers + normalize); consolidar necesita pines propios, ojo con alias->club descendido que debe seguir not_found. (4) El nuevo ambiguous de get_team_schedule mapea a OUTCOME_AMBIGUOUS, pero no esta verificado si ChatShell puede armar el wizard desde ahi -- puede ser un septimo caso de la brecha conocida. Pendiente y gratis: segunda pasada de Codex con matriz de confusion de frases en espanol -> tool esperada, unica evidencia que decidiria si el surface de 28 tools necesita podarse.",
+      "desc": "Cuatro items sueltos de la auditoria externa, ninguno bloqueante por separado. (1) SUPERSEDIDO por el track de idioma i28-i33: el texto en ingles no es deuda menor sino falta de arquitectura de locale. Ver i28 (portador) e i33 (capa 2). (2) additionalProperties:false declarado pero no aplicado; el runner solo valida required. (3) Tercer par de resolutores duplicados: team_fixture_calendar vs get_team_snapshot devuelven ya la misma forma pero emparejan distinto (alias map vs prefix tiers + normalize); consolidar necesita pines propios, ojo con alias->club descendido que debe seguir not_found. (4) El nuevo ambiguous de get_team_schedule mapea a OUTCOME_AMBIGUOUS, pero no esta verificado si ChatShell puede armar el wizard desde ahi -- puede ser un septimo caso de la brecha conocida. Pendiente y gratis: segunda pasada de Codex con matriz de confusion de frases en espanol -> tool esperada, unica evidencia que decidiria si el surface de 28 tools necesita podarse. NOTA: la segunda pasada de Codex (matriz de confusion) se traslada a [[i38]], que la enmarca como problema de ENRUTAMIENTO y no como deuda de surface.",
       "tags": [
         "Backend",
         "IA"
@@ -629,6 +629,50 @@
         "Backend",
         "UX"
       ]
+    },
+    {
+      "id": "i35",
+      "col": "building",
+      "title": "Volcado crudo: el modelo no escribia la respuesta (INCIDENTE)",
+      "desc": "PR #160 abierto. INCIDENTE REAL: un usuario pidio evaluacion de plantilla + veredicto de bench boost para GW2 y recibio SOLO 'Jornada actual: GW1 (in_progress). Proxima jornada: GW2...'. CAUSA: cuando el modelo pedia UNA sola herramienta, la respuesta era render(tool_output) directo y el modelo NUNCA recibia turno para escribir. Con dos o mas herramientas si habia segunda llamada y si escribia. ARREGLO: `if len(executed) > 1` pasa a incondicional -- el mecanismo de sintesis multi-herramienta (ya correcto, ya testeado) corre para todo turno que ejecuto al menos una herramienta.\n\nMEDIDO, no estimado: antes ~6/50 (~12%) de respuestas crudas; despues 1/40 del autor y 0/20 + 1/20 en verificacion independiente. A 12%, sacar 1 en 40 tiene probabilidad ~3%, o sea no es suerte. Coste: $0.0524 por 80 turnos, y solo 15/80 pagan la llamada extra porque la mayoria de turnos no consulta herramienta.\n\nDOS LECCIONES DE METODO que valen mas que el arreglo. (1) La hipotesis del encargo era un BICONDICIONAL ('crudo <=> una herramienta y sin sintesis') y resulto FALSA en ambas direcciones; la relacion que se sostiene es unidireccional (crudo => !synthesis_turn), y synthesis_turn -- no tool_call_count -- es la senal correcta para condicionar. De haber aceptado el bicondicional, el arreglo habria fallado en dos casos reproducidos. (2) Se instrumento ANTES de arreglar: sin tool_call_count/synthesis_turn en routing_trace solo se podia medir una tasa que se mueve sola, no probar un mecanismo.",
+      "tags": [
+        "Backend",
+        "IA"
+      ],
+      "progress": 90
+    },
+    {
+      "id": "i36",
+      "col": "idea",
+      "title": "La ruta de sesion no proyecta routing_trace",
+      "desc": "Hallado en la verificacion independiente de #160: las 20 corridas por /session/{id}/ask devolvieron synthesis_turn=None y tool_call_count=None, mientras /ask las devuelve pobladas. El ARREGLO de #160 si llega a las dos rutas (lo demuestra el 1/40 combinado); lo que no llega es la INSTRUMENTACION -- SessionAskResponse no proyecta esos campos al bundle de debug.\n\nConsecuencia practica: si manana el volcado crudo reaparece por la ruta de sesion, no se puede diagnosticar con las herramientas que acabamos de construir. No es bloqueante hoy, es ceguera para el proximo incidente. Nota: #159 unifico el ENRUTAMIENTO de las dos rutas pero no la proyeccion de campos de debug, que sigue viviendo en las ~250 lineas de session_ask().",
+      "tags": [
+        "Backend",
+        "IA"
+      ],
+      "progress": 0
+    },
+    {
+      "id": "i37",
+      "col": "idea",
+      "title": "Residual: el reintento del evaluador entrega render crudo",
+      "desc": "Lo que queda del 1/40 de #160, y es un camino DISTINTO y preexistente. Cuando el evaluador rechaza una respuesta YA sintetizada y el unico reintento (limitado por diseno a uno, para no pagar una tercera llamada al LLM) llama a una herramienta en vez de escribir texto, esa salida se entrega sin sintetizar. Reproducido con cliente falso y pineado en test_evaluator_retry_render_is_a_known_residual_bare_render_path -- documentado, no escondido.\n\nEl arreglo tiene el mismo dilema de coste que #160 resolvio para el camino principal: dar turno de sintesis al reintento significa una tercera llamada. El numero de #160 sugiere que el coste real seria bajo (solo 15/80 turnos ejecutan herramienta, y de esos solo los rechazados llegan aqui), pero hay que medirlo antes de decidir, no asumirlo.",
+      "tags": [
+        "Backend",
+        "IA"
+      ],
+      "progress": 0
+    },
+    {
+      "id": "i38",
+      "col": "idea",
+      "title": "Eleccion de herramienta: el modelo elige mal en fronteras cercanas",
+      "desc": "El defecto que #160 NO arregla y que quedo visible por debajo. Para 'evalua mi equipo y que tan buena idea es el bench boost en la fecha 2' el modelo elige get_gameweek_context sobre get_chip_advice 5 de cada 6 veces. Tras #160 al menos da una respuesta util PESE a elegir mal -- antes el volcado crudo hacia que la mala eleccion fuera fatal.\n\nEvidencia que falta y es GRATIS: la segunda pasada que Codex ofrecio hace dias y sigue sin dueno -- frases en espanol mapeadas a la herramienta esperada, matriz de confusion por familia de herramientas solapadas. Offline, sin llamadas de pago. Es lo unico que decidiria si el surface de 28 herramientas necesita podarse.\n\nFamilias con solape fuerte ya identificadas: get_team_snapshot / get_team_schedule / get_team_fixture_calendar / get_fixture_outlook, y get_player_snapshot / get_player_fixture_run / compare_players. Dato que reencuadra el problema: en el brazo B el modelo ELIGE la herramienta y el render ESCRIBE la respuesta -- o sea que la calidad depende sobre todo del enrutamiento, que es exactamente lo que la matriz mide. Ver tambien i27 (deuda del surface) y [[i25]] (golden test), que necesita esta matriz para saber que preguntas discriminan.",
+      "tags": [
+        "Backend",
+        "IA"
+      ],
+      "progress": 0
     }
   ]
 }
