@@ -1,0 +1,24 @@
+--- A: completed, empty output, no usage ---
+  outcome     = 'no_tool'
+  error       = 'no tool-call block in response'
+  answer_text = 'No encontré una herramienta para responder a esto.'
+  tool_chosen = None
+  tokens in/out/cache = 0/0/0
+  answer_is_empty = False
+
+--- B: incomplete/max_output_tokens, reasoning-only output ---
+  outcome     = 'no_tool'
+  error       = 'no tool-call block in response'
+  answer_text = 'No encontré una herramienta para responder a esto.'
+  tool_chosen = None
+  tokens in/out/cache = 0/0/0
+  answer_is_empty = False
+
+--- C: response is None (success but nothing) ---
+  outcome     = 'no_tool'
+  error       = 'no tool-call block in response'
+  answer_text = 'No encontré una herramienta para responder a esto.'
+  tool_chosen = None
+  tokens in/out/cache = 0/0/0
+  answer_is_empty = False
+
