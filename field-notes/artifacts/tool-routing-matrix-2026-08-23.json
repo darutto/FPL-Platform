@@ -1,0 +1,1850 @@
+{
+  "n_observations": 450,
+  "n_exceptions": 0,
+  "total_cost_usd": 0.9357,
+  "confusion_matrix": {
+    "team_fixtures": {
+      "get_team_snapshot": 15,
+      "get_team_fixture_calendar": 5,
+      "get_team_schedule": 27,
+      "get_fixture_outlook": 16,
+      "get_position_fixture_run": 7
+    },
+    "player_views": {
+      "get_player_snapshot": 26,
+      "get_player_form": 22,
+      "get_player_history": 12,
+      "get_player_fixture_run": 5,
+      "get_injury_list": 5
+    },
+    "captaincy": {
+      "get_captain_score": 15,
+      "get_gameweek_context": 8,
+      "compare_players": 15,
+      "rank_captain_candidates": 22
+    },
+    "squad_building": {
+      "build_squad": 21,
+      "(no_tool)": 10,
+      "get_transfer_suggestion": 15,
+      "rank_players_by_metric": 15,
+      "select_players_within_budget": 5,
+      "get_gameweek_context": 4
+    },
+    "advice": {
+      "get_transfer_advice": 13,
+      "get_differential_picks": 20,
+      "get_chip_advice": 17,
+      "get_gameweek_context": 7,
+      "(no_tool)": 1,
+      "compare_players": 2
+    },
+    "gameweek_state": {
+      "get_gameweek_context": 28,
+      "get_current_gameweek": 2,
+      "get_fixtures_for_gw": 15,
+      "web_fetch": 5,
+      "(no_tool)": 10
+    },
+    "chip_vs_gameweek": {
+      "get_gameweek_context": 17,
+      "get_chip_advice": 23,
+      "(no_tool)": 10,
+      "build_squad": 10
+    }
+  },
+  "per_question": {
+    "tf-01": {
+      "family": "team_fixtures",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_team_snapshot"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_team_snapshot": 5
+      }
+    },
+    "tf-02": {
+      "family": "team_fixtures",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_team_fixture_calendar"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_team_fixture_calendar": 5
+      }
+    },
+    "tf-03": {
+      "family": "team_fixtures",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_team_schedule"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_team_schedule": 5
+      }
+    },
+    "tf-04": {
+      "family": "team_fixtures",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_fixture_outlook"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_fixture_outlook": 5
+      }
+    },
+    "tf-05": {
+      "family": "team_fixtures",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_team_snapshot",
+        "get_team_schedule"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_team_snapshot": 5
+      }
+    },
+    "tf-06": {
+      "family": "team_fixtures",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_team_schedule",
+        "get_fixture_outlook"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_team_schedule": 5
+      }
+    },
+    "tf-07": {
+      "family": "team_fixtures",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_team_schedule",
+        "get_fixture_outlook"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_team_schedule": 4,
+        "get_fixture_outlook": 1
+      }
+    },
+    "tf-08": {
+      "family": "team_fixtures",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_team_fixture_calendar",
+        "get_fixture_outlook"
+      ],
+      "n": 5,
+      "hits_first": 0,
+      "hit_rate_first": 0.0,
+      "hits_any": 0,
+      "hit_rate_any": 0.0,
+      "tools_seen": {
+        "get_position_fixture_run": 5
+      }
+    },
+    "tf-09": {
+      "family": "team_fixtures",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_fixture_outlook",
+        "get_team_fixture_calendar"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_fixture_outlook": 5
+      }
+    },
+    "tf-10": {
+      "family": "team_fixtures",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_team_snapshot",
+        "get_team_schedule"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_team_snapshot": 5
+      }
+    },
+    "tf-11": {
+      "family": "team_fixtures",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_fixture_outlook",
+        "get_team_schedule"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_team_schedule": 3,
+        "get_fixture_outlook": 2
+      }
+    },
+    "tf-12": {
+      "family": "team_fixtures",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_fixture_outlook"
+      ],
+      "n": 5,
+      "hits_first": 3,
+      "hit_rate_first": 0.6,
+      "hits_any": 3,
+      "hit_rate_any": 0.6,
+      "tools_seen": {
+        "get_position_fixture_run": 2,
+        "get_fixture_outlook": 3
+      }
+    },
+    "tf-13": {
+      "family": "team_fixtures",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_team_schedule",
+        "get_fixture_outlook"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_team_schedule": 5
+      }
+    },
+    "tf-14": {
+      "family": "team_fixtures",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_team_schedule",
+        "get_fixture_outlook"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_team_schedule": 5
+      }
+    },
+    "pv-01": {
+      "family": "player_views",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_player_snapshot"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_player_snapshot": 5
+      }
+    },
+    "pv-02": {
+      "family": "player_views",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_player_form"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_player_form": 5
+      }
+    },
+    "pv-03": {
+      "family": "player_views",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_player_history"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_player_history": 5
+      }
+    },
+    "pv-04": {
+      "family": "player_views",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_player_fixture_run"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_player_fixture_run": 5
+      }
+    },
+    "pv-05": {
+      "family": "player_views",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_player_snapshot",
+        "get_player_form"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_player_snapshot": 5
+      }
+    },
+    "pv-06": {
+      "family": "player_views",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_player_form",
+        "get_player_history"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_player_history": 1,
+        "get_player_form": 4
+      }
+    },
+    "pv-07": {
+      "family": "player_views",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_player_snapshot",
+        "get_player_history"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_player_snapshot": 5
+      }
+    },
+    "pv-08": {
+      "family": "player_views",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_player_snapshot",
+        "get_player_fixture_run"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_player_snapshot": 5
+      }
+    },
+    "pv-09": {
+      "family": "player_views",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_player_form",
+        "get_player_history"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_player_form": 5
+      }
+    },
+    "pv-10": {
+      "family": "player_views",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_player_snapshot"
+      ],
+      "n": 5,
+      "hits_first": 0,
+      "hit_rate_first": 0.0,
+      "hits_any": 0,
+      "hit_rate_any": 0.0,
+      "tools_seen": {
+        "get_injury_list": 5
+      }
+    },
+    "pv-11": {
+      "family": "player_views",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_player_history"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_player_history": 5
+      }
+    },
+    "pv-12": {
+      "family": "player_views",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_player_snapshot",
+        "get_player_form",
+        "get_player_fixture_run"
+      ],
+      "n": 5,
+      "hits_first": 4,
+      "hit_rate_first": 0.8,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_player_form": 3,
+        "get_player_history": 1,
+        "get_player_snapshot": 1
+      }
+    },
+    "pv-13": {
+      "family": "player_views",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_player_snapshot"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_player_snapshot": 5
+      }
+    },
+    "pv-14": {
+      "family": "player_views",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_player_form",
+        "get_player_history"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_player_form": 5
+      }
+    },
+    "cp-01": {
+      "family": "captaincy",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_captain_score"
+      ],
+      "n": 5,
+      "hits_first": 4,
+      "hit_rate_first": 0.8,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_captain_score": 4,
+        "get_gameweek_context": 1
+      }
+    },
+    "cp-02": {
+      "family": "captaincy",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "compare_players"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "compare_players": 5
+      }
+    },
+    "cp-03": {
+      "family": "captaincy",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "rank_captain_candidates"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "rank_captain_candidates": 5
+      }
+    },
+    "cp-04": {
+      "family": "captaincy",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "compare_players",
+        "rank_captain_candidates"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "compare_players": 5
+      }
+    },
+    "cp-05": {
+      "family": "captaincy",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "rank_captain_candidates"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "rank_captain_candidates": 5
+      }
+    },
+    "cp-06": {
+      "family": "captaincy",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_captain_score",
+        "rank_captain_candidates"
+      ],
+      "n": 5,
+      "hits_first": 2,
+      "hit_rate_first": 0.4,
+      "hits_any": 4,
+      "hit_rate_any": 0.8,
+      "tools_seen": {
+        "get_gameweek_context": 3,
+        "get_captain_score": 2
+      }
+    },
+    "cp-07": {
+      "family": "captaincy",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "compare_players",
+        "rank_captain_candidates"
+      ],
+      "n": 5,
+      "hits_first": 3,
+      "hit_rate_first": 0.6,
+      "hits_any": 4,
+      "hit_rate_any": 0.8,
+      "tools_seen": {
+        "get_gameweek_context": 2,
+        "rank_captain_candidates": 3
+      }
+    },
+    "cp-08": {
+      "family": "captaincy",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_captain_score"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_captain_score": 5
+      }
+    },
+    "cp-09": {
+      "family": "captaincy",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "compare_players",
+        "rank_captain_candidates"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "compare_players": 5
+      }
+    },
+    "cp-10": {
+      "family": "captaincy",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "rank_captain_candidates"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "rank_captain_candidates": 5
+      }
+    },
+    "cp-11": {
+      "family": "captaincy",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_captain_score",
+        "rank_captain_candidates"
+      ],
+      "n": 5,
+      "hits_first": 4,
+      "hit_rate_first": 0.8,
+      "hits_any": 4,
+      "hit_rate_any": 0.8,
+      "tools_seen": {
+        "get_gameweek_context": 1,
+        "rank_captain_candidates": 4
+      }
+    },
+    "cp-12": {
+      "family": "captaincy",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_captain_score"
+      ],
+      "n": 5,
+      "hits_first": 4,
+      "hit_rate_first": 0.8,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_captain_score": 4,
+        "get_gameweek_context": 1
+      }
+    },
+    "sb-01": {
+      "family": "squad_building",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "build_squad"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "build_squad": 5
+      }
+    },
+    "sb-02": {
+      "family": "squad_building",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "select_players_within_budget"
+      ],
+      "n": 5,
+      "hits_first": 0,
+      "hit_rate_first": 0.0,
+      "hits_any": 0,
+      "hit_rate_any": 0.0,
+      "tools_seen": {
+        "(no_tool)": 5
+      }
+    },
+    "sb-03": {
+      "family": "squad_building",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_transfer_suggestion"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_transfer_suggestion": 5
+      }
+    },
+    "sb-04": {
+      "family": "squad_building",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "rank_players_by_metric"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "rank_players_by_metric": 5
+      }
+    },
+    "sb-05": {
+      "family": "squad_building",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "select_players_within_budget"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "select_players_within_budget": 5
+      }
+    },
+    "sb-06": {
+      "family": "squad_building",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_transfer_suggestion",
+        "rank_players_by_metric"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_transfer_suggestion": 5
+      }
+    },
+    "sb-07": {
+      "family": "squad_building",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "build_squad",
+        "get_chip_advice"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "build_squad": 5
+      }
+    },
+    "sb-08": {
+      "family": "squad_building",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "rank_players_by_metric",
+        "get_transfer_suggestion"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "rank_players_by_metric": 5
+      }
+    },
+    "sb-09": {
+      "family": "squad_building",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "build_squad"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "build_squad": 5
+      }
+    },
+    "sb-10": {
+      "family": "squad_building",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_transfer_suggestion",
+        "rank_players_by_metric"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_transfer_suggestion": 5
+      }
+    },
+    "sb-11": {
+      "family": "squad_building",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "build_squad"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "build_squad": 5
+      }
+    },
+    "sb-12": {
+      "family": "squad_building",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "rank_players_by_metric"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "rank_players_by_metric": 5
+      }
+    },
+    "sb-13": {
+      "family": "squad_building",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "select_players_within_budget"
+      ],
+      "n": 5,
+      "hits_first": 0,
+      "hit_rate_first": 0.0,
+      "hits_any": 0,
+      "hit_rate_any": 0.0,
+      "tools_seen": {
+        "(no_tool)": 5
+      }
+    },
+    "sb-14": {
+      "family": "squad_building",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "build_squad",
+        "get_fixture_outlook"
+      ],
+      "n": 5,
+      "hits_first": 1,
+      "hit_rate_first": 0.2,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_gameweek_context": 4,
+        "build_squad": 1
+      }
+    },
+    "ad-01": {
+      "family": "advice",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_transfer_advice"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_transfer_advice": 5
+      }
+    },
+    "ad-02": {
+      "family": "advice",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_differential_picks"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_differential_picks": 5
+      }
+    },
+    "ad-03": {
+      "family": "advice",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_chip_advice"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_chip_advice": 5
+      }
+    },
+    "ad-04": {
+      "family": "advice",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_chip_advice",
+        "get_captain_score"
+      ],
+      "n": 5,
+      "hits_first": 2,
+      "hit_rate_first": 0.4,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_chip_advice": 2,
+        "get_gameweek_context": 3
+      }
+    },
+    "ad-05": {
+      "family": "advice",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_transfer_advice",
+        "get_chip_advice"
+      ],
+      "n": 5,
+      "hits_first": 0,
+      "hit_rate_first": 0.0,
+      "hits_any": 0,
+      "hit_rate_any": 0.0,
+      "tools_seen": {
+        "get_gameweek_context": 4,
+        "(no_tool)": 1
+      }
+    },
+    "ad-06": {
+      "family": "advice",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_transfer_advice",
+        "get_differential_picks"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_differential_picks": 5
+      }
+    },
+    "ad-07": {
+      "family": "advice",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_chip_advice"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_chip_advice": 5
+      }
+    },
+    "ad-08": {
+      "family": "advice",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_differential_picks"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_differential_picks": 5
+      }
+    },
+    "ad-09": {
+      "family": "advice",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_transfer_advice",
+        "get_differential_picks"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_differential_picks": 5
+      }
+    },
+    "ad-10": {
+      "family": "advice",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_chip_advice"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_chip_advice": 5
+      }
+    },
+    "ad-11": {
+      "family": "advice",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_transfer_advice",
+        "get_differential_picks"
+      ],
+      "n": 5,
+      "hits_first": 3,
+      "hit_rate_first": 0.6,
+      "hits_any": 3,
+      "hit_rate_any": 0.6,
+      "tools_seen": {
+        "get_transfer_advice": 3,
+        "compare_players": 2
+      }
+    },
+    "ad-12": {
+      "family": "advice",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_transfer_advice"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_transfer_advice": 5
+      }
+    },
+    "gw-01": {
+      "family": "gameweek_state",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_current_gameweek"
+      ],
+      "n": 5,
+      "hits_first": 2,
+      "hit_rate_first": 0.4,
+      "hits_any": 2,
+      "hit_rate_any": 0.4,
+      "tools_seen": {
+        "get_gameweek_context": 3,
+        "get_current_gameweek": 2
+      }
+    },
+    "gw-02": {
+      "family": "gameweek_state",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_fixtures_for_gw"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_fixtures_for_gw": 5
+      }
+    },
+    "gw-03": {
+      "family": "gameweek_state",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_gameweek_context"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_gameweek_context": 5
+      }
+    },
+    "gw-04": {
+      "family": "gameweek_state",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_gameweek_context"
+      ],
+      "n": 5,
+      "hits_first": 0,
+      "hit_rate_first": 0.0,
+      "hits_any": 0,
+      "hit_rate_any": 0.0,
+      "tools_seen": {
+        "web_fetch": 5
+      }
+    },
+    "gw-05": {
+      "family": "gameweek_state",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_current_gameweek",
+        "get_gameweek_context"
+      ],
+      "n": 5,
+      "hits_first": 0,
+      "hit_rate_first": 0.0,
+      "hits_any": 0,
+      "hit_rate_any": 0.0,
+      "tools_seen": {
+        "(no_tool)": 5
+      }
+    },
+    "gw-06": {
+      "family": "gameweek_state",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_gameweek_context",
+        "get_fixtures_for_gw"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_gameweek_context": 5
+      }
+    },
+    "gw-07": {
+      "family": "gameweek_state",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_fixtures_for_gw"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_fixtures_for_gw": 5
+      }
+    },
+    "gw-08": {
+      "family": "gameweek_state",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_gameweek_context",
+        "get_fixtures_for_gw"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_gameweek_context": 5
+      }
+    },
+    "gw-09": {
+      "family": "gameweek_state",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_current_gameweek"
+      ],
+      "n": 5,
+      "hits_first": 0,
+      "hit_rate_first": 0.0,
+      "hits_any": 0,
+      "hit_rate_any": 0.0,
+      "tools_seen": {
+        "(no_tool)": 5
+      }
+    },
+    "gw-10": {
+      "family": "gameweek_state",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_gameweek_context",
+        "get_current_gameweek"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_gameweek_context": 5
+      }
+    },
+    "gw-11": {
+      "family": "gameweek_state",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_fixtures_for_gw"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_fixtures_for_gw": 5
+      }
+    },
+    "gw-12": {
+      "family": "gameweek_state",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_gameweek_context"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_gameweek_context": 5
+      }
+    },
+    "cvg-01": {
+      "family": "chip_vs_gameweek",
+      "control": false,
+      "pinned": true,
+      "acceptable_tools": [
+        "get_chip_advice",
+        "build_squad"
+      ],
+      "n": 5,
+      "hits_first": 3,
+      "hit_rate_first": 0.6,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_gameweek_context": 2,
+        "get_chip_advice": 3
+      }
+    },
+    "cvg-02": {
+      "family": "chip_vs_gameweek",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_chip_advice",
+        "build_squad"
+      ],
+      "n": 5,
+      "hits_first": 0,
+      "hit_rate_first": 0.0,
+      "hits_any": 0,
+      "hit_rate_any": 0.0,
+      "tools_seen": {
+        "(no_tool)": 5
+      }
+    },
+    "cvg-03": {
+      "family": "chip_vs_gameweek",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_chip_advice",
+        "build_squad"
+      ],
+      "n": 5,
+      "hits_first": 4,
+      "hit_rate_first": 0.8,
+      "hits_any": 4,
+      "hit_rate_any": 0.8,
+      "tools_seen": {
+        "get_chip_advice": 4,
+        "(no_tool)": 1
+      }
+    },
+    "cvg-04": {
+      "family": "chip_vs_gameweek",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_chip_advice"
+      ],
+      "n": 5,
+      "hits_first": 2,
+      "hit_rate_first": 0.4,
+      "hits_any": 2,
+      "hit_rate_any": 0.4,
+      "tools_seen": {
+        "get_chip_advice": 2,
+        "get_gameweek_context": 3
+      }
+    },
+    "cvg-05": {
+      "family": "chip_vs_gameweek",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_chip_advice"
+      ],
+      "n": 5,
+      "hits_first": 4,
+      "hit_rate_first": 0.8,
+      "hits_any": 4,
+      "hit_rate_any": 0.8,
+      "tools_seen": {
+        "get_chip_advice": 4,
+        "get_gameweek_context": 1
+      }
+    },
+    "cvg-06": {
+      "family": "chip_vs_gameweek",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_chip_advice",
+        "build_squad"
+      ],
+      "n": 5,
+      "hits_first": 4,
+      "hit_rate_first": 0.8,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "build_squad": 4,
+        "get_gameweek_context": 1
+      }
+    },
+    "cvg-07": {
+      "family": "chip_vs_gameweek",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_chip_advice",
+        "build_squad"
+      ],
+      "n": 5,
+      "hits_first": 3,
+      "hit_rate_first": 0.6,
+      "hits_any": 4,
+      "hit_rate_any": 0.8,
+      "tools_seen": {
+        "get_gameweek_context": 2,
+        "build_squad": 3
+      }
+    },
+    "cvg-08": {
+      "family": "chip_vs_gameweek",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_chip_advice",
+        "build_squad"
+      ],
+      "n": 5,
+      "hits_first": 3,
+      "hit_rate_first": 0.6,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_gameweek_context": 2,
+        "build_squad": 3
+      }
+    },
+    "cvg-09": {
+      "family": "chip_vs_gameweek",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_chip_advice"
+      ],
+      "n": 5,
+      "hits_first": 3,
+      "hit_rate_first": 0.6,
+      "hits_any": 3,
+      "hit_rate_any": 0.6,
+      "tools_seen": {
+        "get_gameweek_context": 2,
+        "get_chip_advice": 3
+      }
+    },
+    "cvg-10": {
+      "family": "chip_vs_gameweek",
+      "control": true,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_chip_advice"
+      ],
+      "n": 5,
+      "hits_first": 5,
+      "hit_rate_first": 1.0,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_chip_advice": 5
+      }
+    },
+    "cvg-11": {
+      "family": "chip_vs_gameweek",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_chip_advice",
+        "build_squad"
+      ],
+      "n": 5,
+      "hits_first": 0,
+      "hit_rate_first": 0.0,
+      "hits_any": 2,
+      "hit_rate_any": 0.4,
+      "tools_seen": {
+        "get_gameweek_context": 3,
+        "(no_tool)": 2
+      }
+    },
+    "cvg-12": {
+      "family": "chip_vs_gameweek",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_chip_advice",
+        "build_squad"
+      ],
+      "n": 5,
+      "hits_first": 2,
+      "hit_rate_first": 0.4,
+      "hits_any": 3,
+      "hit_rate_any": 0.6,
+      "tools_seen": {
+        "(no_tool)": 2,
+        "get_gameweek_context": 1,
+        "get_chip_advice": 2
+      }
+    }
+  },
+  "control_summary": {
+    "n_questions": 47,
+    "mean_hit_rate": 0.8382978723404255,
+    "worst": [
+      {
+        "question_id": "pv-10",
+        "family": "player_views",
+        "control": true,
+        "pinned": false,
+        "acceptable_tools": [
+          "get_player_snapshot"
+        ],
+        "n": 5,
+        "hits_first": 0,
+        "hit_rate_first": 0.0,
+        "hits_any": 0,
+        "hit_rate_any": 0.0,
+        "tools_seen": {
+          "get_injury_list": 5
+        }
+      },
+      {
+        "question_id": "sb-02",
+        "family": "squad_building",
+        "control": true,
+        "pinned": false,
+        "acceptable_tools": [
+          "select_players_within_budget"
+        ],
+        "n": 5,
+        "hits_first": 0,
+        "hit_rate_first": 0.0,
+        "hits_any": 0,
+        "hit_rate_any": 0.0,
+        "tools_seen": {
+          "(no_tool)": 5
+        }
+      },
+      {
+        "question_id": "sb-13",
+        "family": "squad_building",
+        "control": true,
+        "pinned": false,
+        "acceptable_tools": [
+          "select_players_within_budget"
+        ],
+        "n": 5,
+        "hits_first": 0,
+        "hit_rate_first": 0.0,
+        "hits_any": 0,
+        "hit_rate_any": 0.0,
+        "tools_seen": {
+          "(no_tool)": 5
+        }
+      },
+      {
+        "question_id": "gw-04",
+        "family": "gameweek_state",
+        "control": true,
+        "pinned": false,
+        "acceptable_tools": [
+          "get_gameweek_context"
+        ],
+        "n": 5,
+        "hits_first": 0,
+        "hit_rate_first": 0.0,
+        "hits_any": 0,
+        "hit_rate_any": 0.0,
+        "tools_seen": {
+          "web_fetch": 5
+        }
+      },
+      {
+        "question_id": "gw-09",
+        "family": "gameweek_state",
+        "control": true,
+        "pinned": false,
+        "acceptable_tools": [
+          "get_current_gameweek"
+        ],
+        "n": 5,
+        "hits_first": 0,
+        "hit_rate_first": 0.0,
+        "hits_any": 0,
+        "hit_rate_any": 0.0,
+        "tools_seen": {
+          "(no_tool)": 5
+        }
+      }
+    ]
+  },
+  "worst_offenders": [
+    {
+      "question_id": "tf-08",
+      "family": "team_fixtures",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_team_fixture_calendar",
+        "get_fixture_outlook"
+      ],
+      "n": 5,
+      "hits_first": 0,
+      "hit_rate_first": 0.0,
+      "hits_any": 0,
+      "hit_rate_any": 0.0,
+      "tools_seen": {
+        "get_position_fixture_run": 5
+      }
+    },
+    {
+      "question_id": "ad-05",
+      "family": "advice",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_transfer_advice",
+        "get_chip_advice"
+      ],
+      "n": 5,
+      "hits_first": 0,
+      "hit_rate_first": 0.0,
+      "hits_any": 0,
+      "hit_rate_any": 0.0,
+      "tools_seen": {
+        "get_gameweek_context": 4,
+        "(no_tool)": 1
+      }
+    },
+    {
+      "question_id": "gw-05",
+      "family": "gameweek_state",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_current_gameweek",
+        "get_gameweek_context"
+      ],
+      "n": 5,
+      "hits_first": 0,
+      "hit_rate_first": 0.0,
+      "hits_any": 0,
+      "hit_rate_any": 0.0,
+      "tools_seen": {
+        "(no_tool)": 5
+      }
+    },
+    {
+      "question_id": "cvg-02",
+      "family": "chip_vs_gameweek",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_chip_advice",
+        "build_squad"
+      ],
+      "n": 5,
+      "hits_first": 0,
+      "hit_rate_first": 0.0,
+      "hits_any": 0,
+      "hit_rate_any": 0.0,
+      "tools_seen": {
+        "(no_tool)": 5
+      }
+    },
+    {
+      "question_id": "cvg-11",
+      "family": "chip_vs_gameweek",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_chip_advice",
+        "build_squad"
+      ],
+      "n": 5,
+      "hits_first": 0,
+      "hit_rate_first": 0.0,
+      "hits_any": 2,
+      "hit_rate_any": 0.4,
+      "tools_seen": {
+        "get_gameweek_context": 3,
+        "(no_tool)": 2
+      }
+    },
+    {
+      "question_id": "sb-14",
+      "family": "squad_building",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "build_squad",
+        "get_fixture_outlook"
+      ],
+      "n": 5,
+      "hits_first": 1,
+      "hit_rate_first": 0.2,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_gameweek_context": 4,
+        "build_squad": 1
+      }
+    },
+    {
+      "question_id": "cp-06",
+      "family": "captaincy",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_captain_score",
+        "rank_captain_candidates"
+      ],
+      "n": 5,
+      "hits_first": 2,
+      "hit_rate_first": 0.4,
+      "hits_any": 4,
+      "hit_rate_any": 0.8,
+      "tools_seen": {
+        "get_gameweek_context": 3,
+        "get_captain_score": 2
+      }
+    },
+    {
+      "question_id": "ad-04",
+      "family": "advice",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_chip_advice",
+        "get_captain_score"
+      ],
+      "n": 5,
+      "hits_first": 2,
+      "hit_rate_first": 0.4,
+      "hits_any": 5,
+      "hit_rate_any": 1.0,
+      "tools_seen": {
+        "get_chip_advice": 2,
+        "get_gameweek_context": 3
+      }
+    },
+    {
+      "question_id": "cvg-12",
+      "family": "chip_vs_gameweek",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "get_chip_advice",
+        "build_squad"
+      ],
+      "n": 5,
+      "hits_first": 2,
+      "hit_rate_first": 0.4,
+      "hits_any": 3,
+      "hit_rate_any": 0.6,
+      "tools_seen": {
+        "(no_tool)": 2,
+        "get_gameweek_context": 1,
+        "get_chip_advice": 2
+      }
+    },
+    {
+      "question_id": "cp-07",
+      "family": "captaincy",
+      "control": false,
+      "pinned": false,
+      "acceptable_tools": [
+        "compare_players",
+        "rank_captain_candidates"
+      ],
+      "n": 5,
+      "hits_first": 3,
+      "hit_rate_first": 0.6,
+      "hits_any": 4,
+      "hit_rate_any": 0.8,
+      "tools_seen": {
+        "get_gameweek_context": 2,
+        "rank_captain_candidates": 3
+      }
+    }
+  ]
+}
