@@ -168,6 +168,13 @@ ROUTING_TRACE_REQUIRED_KEYS: frozenset[str] = frozenset({
     "grounded",
     "feature_flag_orch_enabled",
     "feature_flag_football_intelligence_enabled",
+    # G3 (raw-dump instrumentation): how many tools the model actually
+    # requested (int) and whether it got a turn to write the final answer
+    # itself, as opposed to a bare deterministic render() (bool). Both None
+    # when the orchestrator did not run (mirrors orchestrator_tool_calls).
+    # See OrchestratorResult.tool_call_count / .synthesis_turn.
+    "tool_call_count",
+    "synthesis_turn",
 })
 
 ROUTING_TRACE_OPTIONAL_KEYS: frozenset[str] = frozenset({
@@ -543,6 +550,8 @@ def ask_v2(
           "feature_flag_orch_enabled": bool,         # snapshot of FPL_ORCH_ENABLED at call time
           "feature_flag_football_intelligence_enabled": bool,
                                                      # snapshot of FI master flag
+          "tool_call_count":         int | None,     # G3: tools the model actually requested, or None
+          "synthesis_turn":          bool | None,    # G3: model wrote answer_text itself, or None
         }
 
     Optional keys (present only on specific branches)::
@@ -732,6 +741,8 @@ def ask_v2(
             "orchestrator_tool_calls": None,
             "orchestrator_outcome": None,
             "grounded": True,
+            "tool_call_count": None,
+            "synthesis_turn": None,
             "feature_flag_orch_enabled": is_orch_enabled(),
             "feature_flag_football_intelligence_enabled": is_football_intelligence_enabled(),
             "player_resolution_strategy": "id" if _player_outcome == "ok" else None,
@@ -792,6 +803,8 @@ def ask_v2(
         "orchestrator_tool_calls":   None,
         "orchestrator_outcome":      None,
         "grounded":                  False,
+        "tool_call_count":           None,
+        "synthesis_turn":            None,
         "feature_flag_orch_enabled": _orch_enabled,
         "feature_flag_football_intelligence_enabled": _football_intelligence_enabled,
     }
@@ -1048,6 +1061,11 @@ def ask_v2(
             routing_trace["branch"]                  = "orchestrator"
             routing_trace["orchestrator_tool_calls"] = [orch_result.tool_chosen]
             routing_trace["grounded"]                = True
+            # G3: orchestrator_tool_calls above is still first-tool-only (known,
+            # documented debt -- not touched here to keep this commit behaviour-
+            # neutral). These two DO carry the real turn shape:
+            routing_trace["tool_call_count"]         = orch_result.tool_call_count
+            routing_trace["synthesis_turn"]          = orch_result.synthesis_turn
             _orch_raw = dict(orch_result.tool_output)
             # get_player_snapshot's own status (ok/ambiguous/not_found/error)
             # must not be flattened to "ok" just because the orchestrator
@@ -1124,6 +1142,11 @@ def ask_v2(
         # deterministic fallback (unsupported + suggestions) is shown.
         routing_trace["branch"]   = "unsupported"
         routing_trace["grounded"] = False
+        # G3: these carry the real turn shape regardless of whether a tool was
+        # named -- this branch is exactly where a single-tool bare render()
+        # used to be indistinguishable from a genuine no-tool-call turn.
+        routing_trace["tool_call_count"] = orch_result.tool_call_count
+        routing_trace["synthesis_turn"]  = orch_result.synthesis_turn
         if orch_result.tool_chosen:
             # Outcomes UNKNOWN_TOOL / TOOL_ERROR / TOOL_RESULT_ERROR — a tool
             # was named but execution did not yield ok. Record the attempt

@@ -291,7 +291,13 @@ def test_successful_second_call_without_text_warns_and_falls_back(caplog, bootst
     assert "succeeded but returned no text" in caplog.text
 
 
-def test_single_tool_makes_only_one_call(bootstrap):
+def test_single_tool_still_gets_a_synthesis_turn(bootstrap):
+    """G3 raw-dump fix: a single tool call USED to skip the second LLM call
+    entirely (this test used to be named test_single_tool_makes_only_one_call
+    and asserted client.calls == 1) -- that "optimization" is exactly what
+    let a single tool's raw render() reach the user with no explanation
+    (the "Jornada actual: GW1..." incident). A single-tool turn now gets the
+    same synthesis turn a multi-tool turn always got."""
     class Client:
         def __init__(self):
             self.messages = self
@@ -299,19 +305,24 @@ def test_single_tool_makes_only_one_call(bootstrap):
 
         def create(self, **kwargs):
             self.calls += 1
-            return NS(content=[NS(
-                type="tool_use",
-                id="ant-only",
-                name="get_current_gameweek",
-                input={},
-            )])
+            if self.calls == 1:
+                return NS(content=[NS(
+                    type="tool_use",
+                    id="ant-only",
+                    name="get_current_gameweek",
+                    input={},
+                )])
+            return NS(content=[NS(type="text", text="It's GW1 and the deadline is Friday.")])
 
     client = Client()
     result = ask_orchestrated(
         "What gameweek is it?", bootstrap, client=client, _eval_client=None
     )
     assert result.outcome == OUTCOME_OK
-    assert client.calls == 1
+    assert client.calls == 2
+    assert result.synthesis_turn is True
+    assert result.answer_text == "It's GW1 and the deadline is Friday."
+    assert result.tool_call_count == 1
 
 
 def test_gemini_orchestrator_default_model(monkeypatch):
@@ -462,7 +473,12 @@ def test_verdict_only_records_rejection_without_primary_retry(monkeypatch, boots
     assert result.evaluator_verdict is verdict
     assert result.retry_attempted is False
     assert result.evaluator_input_tokens == 17
-    assert client.calls == 1
+    # G3 raw-dump fix: a single tool call now always gets a synthesis-turn
+    # attempt too (2 calls, not 1). This fake client returns the same
+    # tool_use block on every call, so the synthesis call has no text and
+    # falls back to the primary tool's render() -- the evaluator still runs
+    # against that same primary answer, unaffected by the extra call.
+    assert client.calls == 2
 
 
 def _action_response(provider: str, call_id: str, name: str, args: dict, narration: str = ""):
