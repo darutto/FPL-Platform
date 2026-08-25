@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-23",
+  "updated": "2026-08-24",
   "cards": [
     {
       "id": "s1",
@@ -632,14 +632,14 @@
     },
     {
       "id": "i35",
-      "col": "building",
+      "col": "shipped",
       "title": "Volcado crudo: el modelo no escribia la respuesta (INCIDENTE)",
-      "desc": "PR #160 abierto. INCIDENTE REAL: un usuario pidio evaluacion de plantilla + veredicto de bench boost para GW2 y recibio SOLO 'Jornada actual: GW1 (in_progress). Proxima jornada: GW2...'. CAUSA: cuando el modelo pedia UNA sola herramienta, la respuesta era render(tool_output) directo y el modelo NUNCA recibia turno para escribir. Con dos o mas herramientas si habia segunda llamada y si escribia. ARREGLO: `if len(executed) > 1` pasa a incondicional -- el mecanismo de sintesis multi-herramienta (ya correcto, ya testeado) corre para todo turno que ejecuto al menos una herramienta.\n\nMEDIDO, no estimado: antes ~6/50 (~12%) de respuestas crudas; despues 1/40 del autor y 0/20 + 1/20 en verificacion independiente. A 12%, sacar 1 en 40 tiene probabilidad ~3%, o sea no es suerte. Coste: $0.0524 por 80 turnos, y solo 15/80 pagan la llamada extra porque la mayoria de turnos no consulta herramienta.\n\nDOS LECCIONES DE METODO que valen mas que el arreglo. (1) La hipotesis del encargo era un BICONDICIONAL ('crudo <=> una herramienta y sin sintesis') y resulto FALSA en ambas direcciones; la relacion que se sostiene es unidireccional (crudo => !synthesis_turn), y synthesis_turn -- no tool_call_count -- es la senal correcta para condicionar. De haber aceptado el bicondicional, el arreglo habria fallado en dos casos reproducidos. (2) Se instrumento ANTES de arreglar: sin tool_call_count/synthesis_turn en routing_trace solo se podia medir una tasa que se mueve sola, no probar un mecanismo.",
+      "desc": "Fusionada (PR #160, 24/08). El turno de síntesis multi-herramienta pasa a incondicional para todo turno que ejecutó al menos una herramienta (antes solo con más de una), cerrando el volcado crudo que dejaba sin redactar las respuestas de una sola herramienta: la tasa medida bajó de ~12% (6/50) a 1/40 del autor y 0/20+1/20 en verificación independiente, con costo de $0.0524 en 80 turnos reales.",
       "tags": [
         "Backend",
         "IA"
       ],
-      "progress": 90
+      "progress": 100
     },
     {
       "id": "i36",
