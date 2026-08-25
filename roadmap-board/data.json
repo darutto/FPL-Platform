@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-24",
+  "updated": "2026-08-25",
   "cards": [
     {
       "id": "s1",
@@ -276,14 +276,14 @@
     },
     {
       "id": "e6",
-      "col": "evaluation",
+      "col": "shipped",
       "title": "Métricas /90 + DC en la tarjeta de jugador",
-      "desc": "Revisado y aprobado. PR #146 abierta (agent/player-card-per90-dc), 818 backend + 477 UI en verde.",
+      "desc": "Fusionada (PR #146, 16/08). Métricas por-90 (xG/90, xA/90, xGI/90, ICT/90) y contribución defensiva/DC-90 añadidas a la tarjeta de jugador, con fallback seguro para bootstrap cacheado sin datos oficiales.",
       "tags": [
         "UI",
         "Backend"
       ],
-      "progress": 95
+      "progress": 100
     },
     {
       "id": "i1",
@@ -662,6 +662,17 @@
         "IA"
       ],
       "progress": 0
+    },
+    {
+      "id": "s23",
+      "col": "shipped",
+      "title": "Contabilidad de tokens y logging de llamadas vacías (#164)",
+      "desc": "Fusionada (PR #164, 25/08). Los outcomes NO_TOOL/UNKNOWN_TOOL/TOOL_ERROR del orquestador ahora reportan tokens del proveedor primario en vez de descartarlos en 0, y las llamadas sin tool/texto/uso se loguean como provider_call_success_empty en vez de éxito genérico.",
+      "tags": [
+        "Backend",
+        "IA"
+      ],
+      "progress": 100
     },
     {
       "id": "i38",
