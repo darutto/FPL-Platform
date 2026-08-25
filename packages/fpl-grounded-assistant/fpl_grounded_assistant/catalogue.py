@@ -550,6 +550,59 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     "captain_reason.minutes_significant_risk": {"en": "Significant minutes risk", "es": "Riesgo significativo de minutos"},
     "captain_reason.tier_differential": {"en": "High-upside differential profile", "es": "Perfil diferencial de alto potencial"},
     "captain_reason.tier_low_confidence": {"en": "Low-confidence captaincy profile", "es": "Perfil de capitanía de baja confianza"},
+
+    # -- get_my_squad (i39) --------------------------------------------------
+    # The connected user's own squad. "no_team_connected" is the overwhelming
+    # common case for any turn without a linked team -- see get_my_squad.py's
+    # module docstring for why the tool degrades here instead of raising.
+    "my_squad.no_team_connected": {
+        "en": "No team is connected. Connect your team from the Squad tab so I can evaluate it.",
+        "es": "No hay ningún equipo conectado. Conecta tu equipo desde la pestaña Plantilla para que pueda evaluarlo.",
+    },
+    "my_squad.team_not_found": {
+        "en": "I couldn't find an FPL team with ID {team_id}. Check that the ID is correct.",
+        "es": "No encontré ningún equipo FPL con el ID {team_id}. Revisa que el ID sea correcto.",
+    },
+    "my_squad.network_error": {
+        "en": "I couldn't fetch your squad right now. Try again in a moment.",
+        "es": "No pude obtener tu plantilla en este momento. Intenta de nuevo en un momento.",
+    },
+    "my_squad.invalid_gw": {
+        "en": "Gameweek must be between {min_gw} and {max_gw}.",
+        "es": "La jornada debe estar entre {min_gw} y {max_gw}.",
+    },
+    "my_squad.header": {
+        "en": "**Your squad — GW{gw}**{chip_clause}",
+        "es": "**Tu equipo — GW{gw}**{chip_clause}",
+    },
+    "my_squad.gw_clamped_note": {
+        "en": (
+            "_(GW{requested_gw} picks aren't published yet — showing your "
+            "most recently confirmed squad, GW{gw}.)_"
+        ),
+        "es": (
+            "_(La alineación de la GW{requested_gw} aún no fue publicada — "
+            "muestro tu equipo confirmado más reciente, GW{gw}.)_"
+        ),
+    },
+    "my_squad.chip_clause": {
+        "en": " (active chip: {chip_label})",
+        "es": " (chip activo: {chip_label})",
+    },
+    "my_squad.starters_header": {"en": "Starting XI:", "es": "Titulares:"},
+    "my_squad.bench_header": {"en": "Bench:", "es": "Banquillo:"},
+    "my_squad.player_line": {
+        "en": "  {name} ({team}, {pos}) £{cost}m | {status_lbl} | form {form}{captain_tag}",
+        "es": "  {name} ({team}, {pos}) £{cost}m | {status_lbl} | forma {form}{captain_tag}",
+    },
+    "my_squad.summary_line": {
+        "en": "GW{gw}: {gw_points}pts | Total: {total_points}pts | In the bank: £{bank}m",
+        "es": "GW{gw}: {gw_points}pts | Total: {total_points}pts | En el banco: £{bank}m",
+    },
+    "my_squad.error_fallback": {
+        "en": "An unexpected error occurred.",
+        "es": "Ocurrió un error inesperado.",
+    },
 }
 
 

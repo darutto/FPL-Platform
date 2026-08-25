@@ -35,6 +35,7 @@ FIXTURES_URL        = "https://fantasy.premierleague.com/api/fixtures/?event={ga
 ALL_FIXTURES_URL    = "https://fantasy.premierleague.com/api/fixtures/"
 ELEMENT_SUMMARY_URL = "https://fantasy.premierleague.com/api/element-summary/{element_id}/"
 EVENT_LIVE_URL      = "https://fantasy.premierleague.com/api/event/{gameweek}/live/"
+ENTRY_PICKS_URL      = "https://fantasy.premierleague.com/api/entry/{team_id}/event/{gameweek}/picks/"
 
 # Default HTTP settings
 _DEFAULT_TIMEOUT: int = 30
@@ -47,6 +48,11 @@ _RETRY_BACKOFF: float = 2.0  # seconds; multiplied by attempt number
 # The player_form handler enforces a stricter *total* latency budget on top of
 # this via its own ThreadPoolExecutor gate.
 ELEMENT_SUMMARY_TIMEOUT_S: int = 4
+
+# Per-request timeout for entry-picks calls.
+# Same rationale as ELEMENT_SUMMARY_TIMEOUT_S: a single small per-team JSON
+# payload, called on-demand only when a squad-related question needs it.
+ENTRY_PICKS_TIMEOUT_S: int = 6
 
 
 # ---------------------------------------------------------------------------
@@ -291,6 +297,39 @@ def get_event_live(gameweek: int) -> dict[str, Any]:
             (Track A H2a incremental GW puller)
     """
     return fetch_json(EVENT_LIVE_URL.format(gameweek=gameweek))
+
+
+def get_entry_picks(team_id: int, gameweek: int) -> dict[str, Any]:
+    """Return one manager's squad picks for *gameweek* from the FPL API.
+
+    The response contains a ``picks`` array (15 entries, ``element`` id +
+    ``position`` 1-15, ``is_captain``, ``is_vice_captain``, ``multiplier``)
+    and an ``entry_history`` object (``points``, ``total_points``, ``bank``,
+    ``event_transfers``, ``event_transfers_cost``). ``active_chip`` is
+    ``None`` or one of the FPL chip codes (``"wildcard"``, ``"3xc"``,
+    ``"bboost"``, ``"freehit"``) when a chip was played that gameweek.
+
+    Raises the same ``requests.HTTPError`` / ``requests.ConnectionError`` as
+    ``fetch_json`` on failure — including a 404 for an unknown ``team_id`` or
+    a ``gameweek`` the manager has no picks for (e.g. before their team was
+    created). Callers must catch these; this function does not degrade them
+    to a status dict itself.
+
+    Parameters
+    ----------
+    team_id:
+        The FPL manager (entry) integer id.
+    gameweek:
+        The gameweek number (1-38) to fetch picks for.
+
+    Source: FPL API — entry/{id}/event/{gw}/picks/ endpoint
+            (packages/fpl-ui/app/api/fpl-squad/[teamId]/route.ts uses the
+            same endpoint for the U2 pitch view)
+    """
+    return fetch_json(
+        ENTRY_PICKS_URL.format(team_id=team_id, gameweek=gameweek),
+        timeout=ENTRY_PICKS_TIMEOUT_S,
+    )
 
 
 def get_fixture_difficulty_map(
