@@ -634,7 +634,7 @@
       "id": "i35",
       "col": "shipped",
       "title": "Volcado crudo: el modelo no escribia la respuesta (INCIDENTE)",
-      "desc": "Fusionada (PR #160, 24/08). El turno de síntesis multi-herramienta pasa a incondicional para todo turno que ejecutó al menos una herramienta (antes solo con más de una), cerrando el volcado crudo que dejaba sin redactar las respuestas de una sola herramienta: la tasa medida bajó de ~12% (6/50) a 1/40 del autor y 0/20+1/20 en verificación independiente, con costo de $0.0524 en 80 turnos reales.",
+      "desc": "Fusionada (PR #160, 24/08). El turno de síntesis multi-herramienta pasa a incondicional para todo turno que ejecutó al menos una herramienta (antes solo con más de una), cerrando el volcado crudo que dejaba sin redactar las respuestas de una sola herramienta: la tasa medida bajó de ~12% (6/50) a 1/40 del autor y 0/20+1/20 en verificación independiente, con costo de $0.0524 en 80 turnos reales.\n\nVERIFICADO EN PRODUCCION 2026-08-24 con la pregunta original del incidente: volcado_crudo=False, y synthesis_turn/tool_call_count ya viajan en el routing_trace de prod. NOTA que importa: en esa misma prueba el modelo SIGUIO eligiendo get_gameweek_context en vez de get_chip_advice -- lo que cambio es que ahora escribe una respuesta util A PESAR de consultar lo incorrecto. Arreglamos que no contestara; falta que consulte lo correcto. Ver [[i38]].",
       "tags": [
         "Backend",
         "IA"
@@ -668,6 +668,28 @@
       "col": "idea",
       "title": "Eleccion de herramienta: el modelo elige mal en fronteras cercanas",
       "desc": "El defecto que #160 NO arregla y que quedo visible por debajo. Para 'evalua mi equipo y que tan buena idea es el bench boost en la fecha 2' el modelo elige get_gameweek_context sobre get_chip_advice 5 de cada 6 veces. Tras #160 al menos da una respuesta util PESE a elegir mal -- antes el volcado crudo hacia que la mala eleccion fuera fatal.\n\nEvidencia que falta y es GRATIS: la segunda pasada que Codex ofrecio hace dias y sigue sin dueno -- frases en espanol mapeadas a la herramienta esperada, matriz de confusion por familia de herramientas solapadas. Offline, sin llamadas de pago. Es lo unico que decidiria si el surface de 28 herramientas necesita podarse.\n\nFamilias con solape fuerte ya identificadas: get_team_snapshot / get_team_schedule / get_team_fixture_calendar / get_fixture_outlook, y get_player_snapshot / get_player_fixture_run / compare_players. Dato que reencuadra el problema: en el brazo B el modelo ELIGE la herramienta y el render ESCRIBE la respuesta -- o sea que la calidad depende sobre todo del enrutamiento, que es exactamente lo que la matriz mide. Ver tambien i27 (deuda del surface) y [[i25]] (golden test), que necesita esta matriz para saber que preguntas discriminan.",
+      "tags": [
+        "Backend",
+        "IA"
+      ],
+      "progress": 0
+    },
+    {
+      "id": "i39",
+      "col": "idea",
+      "title": "El contexto de plantilla no llega a la capa que decide",
+      "desc": "REPORTADO POR EL USUARIO 2026-08-24: cargo su equipo en la app, lo ve en el tab de Squad, y el asistente le sigue pidiendo 'pasame tus 15 jugadores'. NO es que falte la funcionalidad -- la tuberia existe COMPLETA en los dos lados y esta cortada en un tramo concreto.\n\nLa UI si lo manda en cada turno (ChatShell.tsx:199, `squad_context: squadContext ?? null`). El backend si lo recibe (AskRequest.squad_context, fpl_server.py:275) y lo consumen tres modulos. Pero el comentario en fpl_server.py:1938 lo dice explicito: 'squad_context goes to the adapter only (not to ask_v2)'. O sea, llega a harness_adapter, que lo usa para 'squad_context overrides' sobre la respuesta YA construida -- y NUNCA llega a ask_v2(), que es quien llama al orquestador. El modelo, que decide que herramienta consultar y que escribir, no lo ve jamas.\n\nDECISION DE DISENO no trivial antes de codificar: el modelo recibe la plantilla (a) como texto en el prompt -- simple, encarece cada turno y es contexto no fundamentado; o (b) como HERRAMIENTA que puede consultar -- mas limpio y encaja con el principio del producto de fundamentar toda afirmacion en salida de herramienta. La (b) es la que respeta la arquitectura; la (a) es la tentacion.\n\nIMPACTO: la mayoria de las preguntas reales llevan 'mi equipo' dentro. Sin esto el asistente responde en abstracto a un juego que es personal.",
+      "tags": [
+        "Backend",
+        "IA"
+      ],
+      "progress": 0
+    },
+    {
+      "id": "i40",
+      "col": "idea",
+      "title": "El modelo responde sin consultar herramientas (grounding)",
+      "desc": "Hallado por accidente investigando el incidente del volcado crudo, y sobrevivio a DOS diagnosticos equivocados antes de entenderse -- primero se leyo como 'turnos vacios', luego como 'bug de la Responses API de OpenAI'. Ninguna era cierta.\n\nLo que pasa de verdad: para preguntas simples el modelo contesta de su propio conocimiento sin llamar a ninguna herramienta. Verificado por llamada directa: '¿Que gameweek es la actual?' -> answer_text='La gameweek actual es la **GW1**.' con outcome=no_tool y CERO tool calls. Acierta. En la medicion de enrutamiento fueron 31 de 450 observaciones, concentradas en 5 preguntas que fallan 5/5 -- determinista, no flaky.\n\nPOR QUE IMPORTA aunque acierte: el principio del producto es fundamentar toda afirmacion en salida de herramienta. Hoy acierta porque GW1 es trivial; manana puede inventar un precio o unos minutos con la misma confianza y sin nada que lo respalde. El evaluador tampoco lo detecta porque no hay traza de herramienta contra la que contrastar.\n\nANTES DE TOCAR NINGUN PROMPT: esto necesita su propia medicion -- con que frecuencia ocurre, en que clases de pregunta, y si el modelo acierta o inventa cuando lo hace. Actuar sobre una causa no establecida es exactamente el error que ya se cometio dos veces con este mismo hallazgo. Nota tecnica: los tokens de esos turnos se subcontabilizaban a 0; eso se cerro en PR #164, asi que a partir de ahora estos turnos SI aparecen en cuota y coste.",
       "tags": [
         "Backend",
         "IA"
