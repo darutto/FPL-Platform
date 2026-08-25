@@ -294,7 +294,12 @@ def _eval_disabled() -> bool:
     return os.environ.get(_EVAL_DISABLED_ENV, "").strip().lower() in _TEST_MODE_TRUTHY
 
 
-def _log_orch_provider_event(provider_name: str, result: ProviderResult) -> None:
+def _log_orch_provider_event(
+    provider_name: str,
+    result: ProviderResult,
+    *,
+    empty_response: bool = False,
+) -> None:
     """Emit a structured provider event from the orchestrator call path.
 
     Identical schema to ``llm_layer._log_provider_event``:
@@ -304,10 +309,19 @@ def _log_orch_provider_event(provider_name: str, result: ProviderResult) -> None
 
     ``error_msg`` is deliberately excluded from the event payload — it may
     contain sanitised-but-sensitive strings and is not needed by log processors.
+
+    ``empty_response``:
+        Set by the caller when a *successful* call (``result.error_code is
+        None``) nonetheless yielded no tool call, no text, and no usage.
+        ``error_code is None`` alone does not mean the call was useful to
+        the user — without this flag such a call is indistinguishable in
+        the log from a genuine success. Ignored when ``result.error_code``
+        is not ``None`` (a failure is already distinguishable via
+        ``provider_call_failure``).
     """
     if result.error_code is None:
         event: dict[str, Any] = {
-            "event":      "provider_call_success",
+            "event":      "provider_call_success" if not empty_response else "provider_call_success_empty",
             "provider":   provider_name,
             "model":      result.model,
             "latency_ms": round(result.latency_ms, 2),
@@ -324,6 +338,22 @@ def _log_orch_provider_event(provider_name: str, result: ProviderResult) -> None
             "attempts":   result.attempts,
         }
         _LOG.warning("fpl_provider_event %s", json.dumps(event), extra={"fpl_event": event})
+
+
+def _is_empty_provider_response(response: Any, provider: str | None) -> bool:
+    """True when a provider response carries no tool call and no text.
+
+    Used only to decide the ``empty_response`` flag passed to
+    ``_log_orch_provider_event`` — never consulted for control flow, so a
+    false negative here costs nothing beyond a slightly less precise log
+    line, and callers still combine it with a zero-usage check (see call
+    sites) to match the "no tool block, no text, no usage" definition.
+    """
+    if response is None:
+        return False
+    if _parse_all_tool_calls(response, provider):
+        return False
+    return not _extract_text_from_response(response, provider)
 
 
 # ---------------------------------------------------------------------------
@@ -1832,10 +1862,18 @@ def _run_bounded_loop(
             attempts=next_call.attempts,
             latency_ms=next_call.latency_ms,
         )
-        _log_orch_provider_event(provider_label, provider_result)
-        prim_in += next_call.input_tokens or 0
-        prim_out += next_call.output_tokens or 0
-        prim_cache += next_call.cache_read_tokens or 0
+        _next_in    = next_call.input_tokens or 0
+        _next_out   = next_call.output_tokens or 0
+        _next_cache = next_call.cache_read_tokens or 0
+        _next_empty = (
+            next_call.error_code is None
+            and not _next_in and not _next_out and not _next_cache
+            and _is_empty_provider_response(next_call.response, provider_label)
+        )
+        _log_orch_provider_event(provider_label, provider_result, empty_response=_next_empty)
+        prim_in += _next_in
+        prim_out += _next_out
+        prim_cache += _next_cache
 
         if next_call.error_code is not None:
             active_gate.record_failure(next_call.error_code)
@@ -1995,6 +2033,8 @@ def ask_orchestrated(
     # reject immediately rather than silently bypassing credential validation.
     if _orch_request_fn is not None:
         if not _test_mode_active():
+            # Rejected before any provider call is attempted — token fields
+            # correctly default to 0 (nothing was ever sent to a provider).
             return OrchestratorResult(
                 question=question,
                 tool_chosen=None, tool_args={}, tool_output={},
@@ -2133,6 +2173,14 @@ def ask_orchestrated(
 
     # 5c: ProviderResult envelope for structured event emission
     #     (identical schema to llm_layer._log_provider_event)
+    # F3: capture primary call token counts for aggregation downstream.
+    # Computed here (ahead of the failure check) rather than after it: reads
+    # from orch_call are safe regardless of error_code, since input/output/
+    # cache_read_tokens are always None on a failed call (see OrchCallResult
+    # docstring), so `or 0` is a no-op on that path either way.
+    _prim_in    = orch_call.input_tokens or 0
+    _prim_out   = orch_call.output_tokens or 0
+    _prim_cache = orch_call.cache_read_tokens or 0
     _orch_pr = ProviderResult(
         text=None,   # raw response retained below for tool-call parsing
         model=model,
@@ -2141,7 +2189,15 @@ def ask_orchestrated(
         attempts=orch_call.attempts,
         latency_ms=orch_call.latency_ms,
     )
-    _log_orch_provider_event(_provider_label, _orch_pr)
+    # A "success" (error_code is None) can still yield nothing usable: no
+    # tool call, no text, no usage. Flag it so the log line is distinguishable
+    # from a genuine success (see _log_orch_provider_event docstring).
+    _empty_response = (
+        orch_call.error_code is None
+        and not _prim_in and not _prim_out and not _prim_cache
+        and _is_empty_provider_response(orch_call.response, provider)
+    )
+    _log_orch_provider_event(_provider_label, _orch_pr, empty_response=_empty_response)
 
     # 5d: Handle failure — record transient errors against the gate
     if orch_call.error_code is not None:
@@ -2150,6 +2206,14 @@ def ask_orchestrated(
             answer_text = "LLM authentication failed during orchestration."
         else:
             answer_text = "LLM call failed during orchestration."
+        # Token fields default to 0 here, and that is not a shortcut: every
+        # provider branch in call_orch_provider() only extracts usage when
+        # the raw request succeeded (raw.success and raw.response is not
+        # None — see OrchCallResult.cache_read_tokens docstring, "Always
+        # None on failure"). error_code is not None implies raw.success is
+        # False, which implies orch_call.{input,output,cache_read}_tokens
+        # are unconditionally None across all three providers today — there
+        # is no captured usage to plumb through on this path.
         return OrchestratorResult(
             question=question,
             tool_chosen=None, tool_args={}, tool_output={},
@@ -2161,11 +2225,9 @@ def ask_orchestrated(
 
     _active_gate.reset_on_success()
     response = orch_call.response
-
-    # F3: capture primary call token counts for aggregation downstream.
-    _prim_in    = orch_call.input_tokens or 0
-    _prim_out   = orch_call.output_tokens or 0
-    _prim_cache = orch_call.cache_read_tokens or 0
+    # _prim_in / _prim_out / _prim_cache were already captured above (5c),
+    # ahead of the failure check, so both this path and the log call use
+    # the same values.
 
     if is_orch_loop_enabled():
         return _run_bounded_loop(
@@ -2231,6 +2293,10 @@ def ask_orchestrated(
             outcome=OUTCOME_NO_TOOL,
             error="no tool-call block in response",
             synthesis_turn=bool(_no_tool_text),  # model's own text, unless it was empty
+            primary_input_tokens=_prim_in,
+            primary_output_tokens=_prim_out,
+            primary_cache_read_tokens=_prim_cache,
+            total_tokens=_prim_in + _prim_out + _prim_cache,
         )
 
     # ------------------------------------------------------------------
@@ -2248,6 +2314,10 @@ def ask_orchestrated(
                 model=model,
                 outcome=OUTCOME_UNKNOWN_TOOL,
                 error=f"unknown tool: {_tool_name!r}",
+                primary_input_tokens=_prim_in,
+                primary_output_tokens=_prim_out,
+                primary_cache_read_tokens=_prim_cache,
+                total_tokens=_prim_in + _prim_out + _prim_cache,
             )
 
     # ------------------------------------------------------------------
@@ -2292,6 +2362,10 @@ def ask_orchestrated(
                 outcome=OUTCOME_TOOL_ERROR,
                 error=str(exc),
                 tool_calls_trace=tuple(_trace),
+                primary_input_tokens=_prim_in,
+                primary_output_tokens=_prim_out,
+                primary_cache_read_tokens=_prim_cache,
+                total_tokens=_prim_in + _prim_out + _prim_cache,
             )
         executed.append((_tool_id, _tool_name, _tool_args, _raw_output))
         _trace.append(_trace_entry(
