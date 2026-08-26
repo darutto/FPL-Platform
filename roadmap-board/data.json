@@ -423,14 +423,14 @@
     },
     {
       "id": "i15",
-      "col": "evaluation",
+      "col": "shipped",
       "title": "Métrica no reconocida → decirlo, no responder otra cosa",
-      "desc": "Hardening reconciliado con la guía post-#143/#144: todo ranking por métrica prioriza rank_players_by_metric y unknown_metric se relaya sin fallback a gameweek. Regresiones de métrica desconocida y prefix-match en verde; falta confirmación con LLM real.",
+      "desc": "Hardening reconciliado con la guía post-#143/#144: todo ranking por métrica prioriza rank_players_by_metric y unknown_metric se relaya sin fallback a gameweek. Regresiones de métrica desconocida y prefix-match en verde; falta confirmación con LLM real.\n\nCONFIRMADO CON LLM REAL 2026-08-26 (gpt-5.6-luna, provider pasado explicito, bootstrap congelado). Era el unico pendiente de esta carta. 10 llamadas sobre 5 metricas INEXISTENTES ('chispa ofensiva', 'garra', 'vibra', 'regularidad de gameweek', 'hambre de gol'):\n  cayo a una herramienta de gameweek:   0/10   <- el fallo que esta carta existia para prevenir\n  relayo unknown_metric al usuario:     8/10\n  eligio rank_players_by_metric:        8/10\n\nLO DECISIVO: dos de las preguntas eran cebo deliberado -- 'ranking por garra en la JORNADA 3' y 'ordename por regularidad de GAMEWEEK' mencionan jornada explicitamente, que es justo el solape de palabra clave que antes desviaba el enrutamiento. Las dos fueron a rank_players_by_metric y relayaron la metrica desconocida. El override del system prompt ('never choose another tool from keyword overlap in the metric') hace lo que dice.\n\nLos 2 restantes fueron a rank_captain_candidates con '¿quien tiene mejor vibra esta fecha?' -- otra herramienta, NO una de gameweek. Es una lectura defendible de una frase vaga y no es el modo de fallo de esta carta; se anota sin contarlo como incumplimiento.\n\nEFECTO LATERAL UTIL que esta verificacion destapo: i15 degrada TAN limpiamente -- dice que no reconoce la metrica y sugiere el nombre correcto -- que enmascara huecos de cobertura en [[i18]] e [[i19]]. Preguntas razonables en espanol ('transferencias de entrada', 'goles esperados en contra') salen como 'metrica no reconocida' y parece que el usuario pregunto mal, cuando lo que falta es un alias.",
       "tags": [
         "IA",
         "Backend"
       ],
-      "progress": 90
+      "progress": 100
     },
     {
       "id": "i18",
