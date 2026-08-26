@@ -330,6 +330,22 @@ export interface AskResponse {
   debug?: DebugBundle | null;
 }
 
+/**
+ * `Suggestion.kind` for a chip whose `send_text` is a complete, ready-to-send
+ * command rather than a name fragment — produced when a player name inside a
+ * slash prompt (`/comparar Palmer vs Saka`) is ambiguous. The chip carries the
+ * user's own command rewritten with the ambiguous slot resolved.
+ *
+ * Such a chip MUST be sent verbatim as plain text, WITHOUT `selected_player_id`:
+ * the id identifies one player, but the command is a two-player comparison, and
+ * the stable-id handoff discards the question text entirely (harness.ask_v2
+ * treats the id as authoritative) — which would silently run a single-player
+ * lookup instead of the comparison the user asked for.
+ *
+ * Source: fpl_grounded_assistant/suggestions.py → KIND_PROMPT_REWRITE.
+ */
+export const SUGGESTION_KIND_PROMPT_REWRITE = 'prompt_rewrite';
+
 /** A single tappable suggestion chip (Guided Comparison). */
 export interface Suggestion {
   /** Chip label — short player web_name. */
@@ -338,6 +354,12 @@ export interface Suggestion {
   send_text: string;
   /** Stable FPL element id; present only on player-disambiguation options. */
   player_id?: number;
+  /**
+   * Tap-behavior discriminator. Absent on ordinary name chips (the historical
+   * shape). `SUGGESTION_KIND_PROMPT_REWRITE` marks a self-contained command —
+   * see that constant for why the two cannot be handled the same way.
+   */
+  kind?: string;
 }
 
 /** Session turn response — same as AskResponse plus session_id. */

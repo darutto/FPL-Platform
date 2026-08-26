@@ -144,6 +144,10 @@ def decide(question: str, bootstrap: dict[str, Any]) -> dict[str, Any]:
                 "prompt_name":    spec.name,
                 "workflow_intent": spec.workflow_intent,
                 "args":           parsed["args"],
+                # Raw argument text as typed. Carried so a downstream
+                # disambiguation rewrite can preserve the user's own wording
+                # and connector instead of re-rendering from parsed args.
+                "args_text":      norm.args_text,
                 "canonical_text": canonical_text,
                 "message":        canonical_text,
             }
@@ -155,6 +159,7 @@ def decide(question: str, bootstrap: dict[str, Any]) -> dict[str, Any]:
             "prompt_name":    spec.name,
             "workflow_intent": spec.workflow_intent,
             "args":           parsed["args"],
+            "args_text":      norm.args_text,
             "message":        f"dispatch prompt /{spec.name}",
         }
 

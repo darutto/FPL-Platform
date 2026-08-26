@@ -5,6 +5,57 @@ name: Publish FPL stats snapshot
 # raw URL and renders it as a chart tile (see benditofantasy-web
 # scripts/sync-fpl-stats.mjs). Deterministic, no secrets, decoupled from the
 # gated Railway assistant service.
+#
+# WHY THIS OPENS A PR INSTEAD OF PUSHING TO main
+# ----------------------------------------------
+# It used to `git push origin HEAD:main` directly. That has been failing every
+# single day since 2026-07-28 -- 25 consecutive scheduled runs, all with the
+# identical error:
+#
+#     remote: error: GH006: Protected branch update failed for refs/heads/main.
+#     remote: - Changes must be made through a pull request.
+#     remote: - 2 of 2 required status checks are expected.
+#
+# Branch protection on main was turned on and this job was never adapted. It is
+# a scheduled job, so it blocks no PR and nothing forced the issue -- it just
+# reopened/commented on its own alert issue daily while data/stats.json went
+# stale for a month. Nothing about the aggregation was ever broken; only the
+# delivery step.
+#
+# So the snapshot now travels the way protection demands: onto a bot branch, as
+# a pull request. The published artifact is unchanged -- data/stats.json still
+# lands on main at the same path, so the raw URL benditofantasy-web fetches does
+# not move.
+#
+# TOKEN CHOICE DECIDES WHETHER THIS COMPLETES UNATTENDED -- READ THIS
+# -------------------------------------------------------------------
+# GitHub deliberately does not trigger workflow runs for events raised by the
+# built-in GITHUB_TOKEN (it is how they stop workflows recursing). A PR opened
+# with GITHUB_TOKEN therefore fires no `pull_request` event, so the two required
+# checks never report, so auto-merge waits forever on checks that will never
+# arrive. The PR is correct and mergeable by hand -- it simply will not merge
+# itself.
+#
+# Setting STATS_PUBLISH_TOKEN (a PAT or GitHub App installation token with
+# `contents: write` + `pull_requests: write`) removes that: the PR is opened as
+# that identity, the required checks run normally, and auto-merge lands it with
+# no human in the loop. That is the only configuration in which this job is
+# genuinely unattended.
+#
+# Both paths are supported on purpose. Without the secret this is still strictly
+# better than what it replaces -- a daily PR carrying fresh stats and a green
+# job, instead of a daily red job and a month-old file -- and the summary step
+# says plainly which mode ran, so "why has nothing merged" is answerable from
+# the run page rather than from this comment.
+#
+# WHY A FIXED BRANCH NAME
+# -----------------------
+# `bot/stats-snapshot`, force-updated, not a dated branch per run. If merging is
+# ever blocked (the GITHUB_TOKEN case above, a protection change, a red check),
+# a dated scheme quietly accumulates one stale PR per day. One branch means at
+# most one open PR, always carrying the newest snapshot: re-running is
+# self-healing rather than additive. The branch is cut fresh from the checked-out
+# main every run, so it never carries yesterday's commit into a conflict.
 on:
   schedule:
     - cron: "0 5 * * *" # daily 05:00 UTC — publishes a GW's stats within ~a day of it ending; commits only when data changes
@@ -16,14 +67,25 @@ concurrency:
 
 permissions:
   contents: write
+  pull-requests: write # open the snapshot PR and turn on auto-merge
   issues: write # so a failed run can open/close the "publish failing" alert issue
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      # See the token note in the header: GITHUB_TOKEN opens a PR that no
+      # workflow will run against, so auto-merge cannot complete on its own.
+      GH_TOKEN: ${{ secrets.STATS_PUBLISH_TOKEN || secrets.GITHUB_TOKEN }}
+      SNAPSHOT_BRANCH: bot/stats-snapshot
+
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Persist the same token git will push with, so the push and the PR
+          # are made by one identity rather than two.
+          token: ${{ secrets.STATS_PUBLISH_TOKEN || secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-python@v5
         with:
@@ -35,18 +97,103 @@ jobs:
       - name: Build stats snapshot
         run: python scripts/publish_stats.py
 
-      - name: Commit data/stats.json if changed
+      # Nothing below runs when the aggregation produced an identical file --
+      # the no-change path stays a cheap no-op, as it was when this pushed
+      # straight to main. `steps.snapshot.outputs.changed` gates every later
+      # step so an unchanged day opens no PR and touches no branch.
+      - name: Detect snapshot change
+        id: snapshot
         run: |
           if git diff --quiet -- data/stats.json; then
             echo "No stats change."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
           else
-            git config user.name "bendito-bot"
-            git config user.email "actions@github.com"
-            git add data/stats.json
-            git commit -m "Publish FPL stats snapshot"
-            git pull --rebase origin "${GITHUB_REF_NAME}"
-            git push origin "HEAD:${GITHUB_REF_NAME}"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Push snapshot to the bot branch
+        if: steps.snapshot.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          git config user.name "bendito-bot"
+          git config user.email "actions@github.com"
+          # Cut the branch from the main we checked out, so it carries exactly
+          # one commit on top of current main -- never yesterday's snapshot.
+          git checkout -B "${SNAPSHOT_BRANCH}"
+          git add data/stats.json
+          git commit -m "Publish FPL stats snapshot"
+          # Force is correct and safe here: this branch is machine-owned, holds
+          # no human work, and its only content is a regenerated file.
+          git push --force origin "${SNAPSHOT_BRANCH}"
+
+      - name: Open or update the snapshot PR
+        if: steps.snapshot.outputs.changed == 'true'
+        id: pr
+        run: |
+          set -euo pipefail
+          # An open PR from a previous run is reused: the force-push above has
+          # already updated it to today's snapshot, so a second PR would be a
+          # duplicate of the same branch.
+          number="$(gh pr list --head "${SNAPSHOT_BRANCH}" --base "${GITHUB_REF_NAME}" \
+                      --state open --json number --jq '.[0].number // empty')"
+          if [ -n "${number}" ]; then
+            echo "Reusing open PR #${number} (branch force-updated to today's snapshot)."
+          else
+            # Heredoc rather than an inline multi-line string: YAML strips the
+            # block indent, so an inline one would carry this file's leading
+            # spaces into every line of the rendered PR body.
+            body="$(cat <<'BODY'
+          Automated daily `data/stats.json` refresh from the official FPL API.
+
+          Generated by `.github/workflows/publish-stats.yml` via `scripts/publish_stats.py`.
+          Deterministic and data-only — no source changes.
+          BODY
+          )"
+            gh pr create \
+              --head "${SNAPSHOT_BRANCH}" \
+              --base "${GITHUB_REF_NAME}" \
+              --title "Publish FPL stats snapshot" \
+              --body "${body}"
+            number="$(gh pr list --head "${SNAPSHOT_BRANCH}" --base "${GITHUB_REF_NAME}" \
+                        --state open --json number --jq '.[0].number')"
+            echo "Opened PR #${number}."
+          fi
+          echo "number=${number}" >> "$GITHUB_OUTPUT"
+
+      # Best-effort, and deliberately not allowed to fail the job. The job's
+      # deliverable is a PR carrying today's snapshot; that already exists by
+      # this point. Auto-merge can legitimately be unavailable (disabled
+      # repo-wide, or the GITHUB_TOKEN case in the header) and failing here
+      # would re-create exactly the permanent daily red this change removes --
+      # while hiding genuine aggregation failures behind the same alert.
+      - name: Enable auto-merge
+        if: steps.snapshot.outputs.changed == 'true'
+        id: automerge
+        continue-on-error: true
+        run: gh pr merge "${{ steps.pr.outputs.number }}" --auto --squash
+
+      # Says which mode the run was in, on the run page, where someone asking
+      # "why has nothing merged" actually looks.
+      - name: Summarise
+        if: always()
+        run: |
+          {
+            if [ "${{ steps.snapshot.outputs.changed }}" != "true" ]; then
+              echo "### No stats change — nothing to publish"
+            elif [ "${{ steps.automerge.outcome }}" = "success" ]; then
+              echo "### Snapshot PR #${{ steps.pr.outputs.number }}"
+              echo "Auto-merge is on; it lands once the required checks pass."
+            else
+              echo "### Snapshot PR #${{ steps.pr.outputs.number }}"
+              echo "**Auto-merge could not be enabled — this PR needs a human to merge it.**"
+              echo ""
+              echo "Most likely: the PR was opened with the built-in \`GITHUB_TOKEN\`, which"
+              echo "GitHub does not let trigger workflow runs, so the required checks never"
+              echo "report and auto-merge has nothing to wait on. Set the"
+              echo "\`STATS_PUBLISH_TOKEN\` secret to make this unattended — see the comment"
+              echo "at the top of .github/workflows/publish-stats.yml."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Open/update alert issue on failure
         if: failure()
@@ -62,7 +209,7 @@ jobs:
               per_page: 100,
             });
             const existing = open.find((i) => i.title === title && !i.pull_request);
-            const body = `The scheduled FPL stats publish run failed.\n\nFailed run: ${runUrl}\n\nLikely causes: the FPL API returned no teams / an empty or all-zero table (season rollover or schema change), or a blocked push. This issue auto-closes on the next successful run.`;
+            const body = `The scheduled FPL stats publish run failed.\n\nFailed run: ${runUrl}\n\nLikely causes: the FPL API returned no teams / an empty or all-zero table (season rollover or schema change), or the snapshot branch/PR could not be created. Note that a PR left unmerged does NOT fail this job -- check the run summary for that. This issue auto-closes on the next successful run.`;
             if (existing) {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,

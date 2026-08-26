@@ -13,12 +13,19 @@
  */
 import { useEffect, useRef } from 'react';
 import type { AskResponse, Outcome, Suggestion } from '@/lib/types';
+import { SUGGESTION_KIND_PROMPT_REWRITE } from '@/lib/types';
 import type { WcAskResponse } from '@/lib/wc-types';
 import { selectIntentView } from '@/lib/intent-renderer';
 import { selectWcIntentView } from '@/lib/wc-intent-renderer';
 import IntentRenderer from './IntentRenderer';
 import WcIntentRenderer from '@/components/wc/WcIntentRenderer';
-import SuggestionChips, { PlayerPickChips, type CompareWizardState, type PlayerPickWizardState } from './SuggestionChips';
+import SuggestionChips, {
+  PlayerPickChips,
+  COMPARE_STEP1_QUESTION,
+  PICK_ONE_QUESTION,
+  type CompareWizardState,
+  type PlayerPickWizardState,
+} from './SuggestionChips';
 import ShareActions from '@/components/share/ShareActions';
 import EvidenceBoundary from '@/components/intelligence/EvidenceBoundary';
 import EvidenceList from '@/components/intelligence/EvidenceList';
@@ -150,6 +157,17 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
       message.response?.intent !== 'player_snapshot' ||
       responseSuggestions!.every((suggestion) => suggestion.player_id != null)
     );
+  // Which question this turn asked, for the superseded (non-interactive)
+  // fallback copy below. A pick-one turn asks the user to identify ONE player
+  // — either a snapshot disambiguation or a slash prompt whose player name was
+  // ambiguous (prompt_rewrite chips); only the two-step compare wizard asks
+  // for a first player. Keyed off the chips themselves rather than the intent,
+  // because prompt_rewrite chips arrive on a compare_players turn.
+  const isPickOneTurn =
+    message.response?.intent === 'player_snapshot' ||
+    (responseSuggestions ?? []).some(
+      (suggestion) => suggestion.kind === SUGGESTION_KIND_PROMPT_REWRITE,
+    );
   // Guided Comparison chips: only under the LATEST top-level assistant bubble
   // (never historical turns, never sub-responses) while a wizard is armed.
   const showWizard = hasSuggestions && isLast && compareWizard != null && onSuggestionPick != null;
@@ -226,9 +244,7 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
           ))}
         {hasSuggestions && !showWizard && !showPlayerPickWizard && (
           <p className="text-sm font-semibold text-bf-text/90">
-            {message.response?.intent === 'player_snapshot'
-              ? '¿Cuál de estos jugadores buscabas?'
-              : '¿Cuál es el primer jugador?'}
+            {isPickOneTurn ? PICK_ONE_QUESTION : COMPARE_STEP1_QUESTION}
           </p>
         )}
 

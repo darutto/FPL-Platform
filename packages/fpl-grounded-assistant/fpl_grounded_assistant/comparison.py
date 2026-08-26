@@ -62,6 +62,9 @@ Output shape -- status "not_found" / "ambiguous"
     query_b         original query for player B
     error_player    the query that failed
     message         descriptive message from the failed lookup
+    candidates      ambiguous only -- the tied players from the resolver,
+                    forwarded so the caller can offer a pick-one wizard.
+                    Absent when the lookup produced none.
 """
 from __future__ import annotations
 
@@ -293,25 +296,33 @@ def compare_players(
     >>> result["winner"]
     'Salah'
     """
-    scored_a = _score_one(query_a, bootstrap)
-    if scored_a["status"] != "ok":
-        return {
-            "status":       scored_a["status"],
+    def _failed(failed_side: dict[str, Any], failed_query: str) -> dict[str, Any]:
+        """Surface a failed side's status, preserving any disambiguation candidates.
+
+        ``candidates`` is forwarded verbatim when the resolver produced one
+        (ambiguous side only).  Without it the caller has nothing to build
+        pick-one chips from and the comparison dead-ends on a "please
+        clarify" sentence the user cannot act on in one tap.
+        """
+        out = {
+            "status":       failed_side["status"],
             "query_a":      query_a,
             "query_b":      query_b,
-            "error_player": query_a,
-            "message":      scored_a.get("message", f"Could not score '{query_a}'."),
+            "error_player": failed_query,
+            "message":      failed_side.get("message", f"Could not score '{failed_query}'."),
         }
+        candidates = failed_side.get("candidates")
+        if candidates:
+            out["candidates"] = candidates
+        return out
+
+    scored_a = _score_one(query_a, bootstrap)
+    if scored_a["status"] != "ok":
+        return _failed(scored_a, query_a)
 
     scored_b = _score_one(query_b, bootstrap)
     if scored_b["status"] != "ok":
-        return {
-            "status":       scored_b["status"],
-            "query_a":      query_a,
-            "query_b":      query_b,
-            "error_player": query_b,
-            "message":      scored_b.get("message", f"Could not score '{query_b}'."),
-        }
+        return _failed(scored_b, query_b)
 
     # Phase 8a1: rank by position_score (Layer 2 heuristic)
     score_a = scored_a["position_score"]
@@ -593,6 +604,8 @@ COMPARE_PLAYERS_SPEC = ToolSpec(
                     "query_b":      {"type": "string"},
                     "error_player": {"type": "string"},
                     "message":      {"type": "string"},
+                    # Ambiguous only — the tied players, for a pick-one wizard.
+                    "candidates":   {"type": "array", "items": {"type": "object"}},
                 },
             },
         ]

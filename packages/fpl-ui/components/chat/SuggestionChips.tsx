@@ -45,12 +45,19 @@ interface Props {
   onPick: (sendText: string) => void;
 }
 
-const STEP1_QUESTION = '¿Cuál es el primer jugador?';
-const STEP2_QUESTION = '¿Contra quién lo comparamos?';
+/**
+ * Wizard copy. Exported because MessageList renders the same questions as
+ * static, non-interactive text once a turn is superseded — keeping both
+ * spellings in one place so the live chips and the history bubble can never
+ * drift apart.
+ */
+export const COMPARE_STEP1_QUESTION = '¿Cuál es el primer jugador?';
+export const COMPARE_STEP2_QUESTION = '¿Contra quién lo comparamos?';
+export const PICK_ONE_QUESTION = '¿Cuál de estos jugadores buscabas?';
 
 export default function SuggestionChips({ wizard, onPick }: Props) {
   const isStep1 = wizard.playerA == null;
-  const question = isStep1 ? STEP1_QUESTION : STEP2_QUESTION;
+  const question = isStep1 ? COMPARE_STEP1_QUESTION : COMPARE_STEP2_QUESTION;
   // Step 2 hides the already-chosen player so it can't be compared with itself.
   const chips = isStep1
     ? wizard.options
@@ -92,9 +99,7 @@ interface PlayerPickProps {
 export function PlayerPickChips({ wizard, onPick }: PlayerPickProps) {
   return (
     <div className="mt-3" data-testid="player-pick-wizard">
-      <p className="text-[13px] font-semibold text-bf-text/90">
-        ¿Cuál de estos jugadores buscabas?
-      </p>
+      <p className="text-[13px] font-semibold text-bf-text/90">{PICK_ONE_QUESTION}</p>
       <div className="mt-2 flex flex-wrap gap-2">
         {wizard.options.map((chip) => (
           <button
