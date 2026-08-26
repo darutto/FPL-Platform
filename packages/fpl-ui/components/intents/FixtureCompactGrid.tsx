@@ -1,14 +1,6 @@
 /**
- * FixtureCompactGrid — the whole league on one screen (Track D / FI7).
- *
- * A dense team × gameweek matrix so the full 20-team, 5/8/10-GW calendar fits
- * on one screen without scrolling — built for screen-sharing (e.g. talking
- * through the run on a podcast). "Calendario FDR" design: an EQUIPO + J{gw}
- * header row, then one solid-tinted cell per fixture (opponent + venue). Run
- * cells keep a turquoise/coral ring. Team codes and cells deep-link into chat.
- *
- * Deliberately tighter than the detailed view — small cells, minimal row
- * padding — so all 20 rows are visible at a glance on a large display.
+ * Compact whole-league fixture grid. The presentation variant uses the full
+ * viewport for a clean, non-interactive podcast/screen-share surface.
  */
 import type {
   FixtureOutlookMeta,
@@ -35,18 +27,64 @@ function runHexFor(run: FixtureOutlookRun | undefined): string | null {
 export function FixtureCompactGrid({
   data,
   onAsk,
+  presentation = false,
 }: {
   data: FixtureOutlookMeta;
-  onAsk: (question: string) => void;
+  onAsk?: (question: string) => void;
+  /** Large, non-interactive layout used by the podcast/screen-share view. */
+  presentation?: boolean;
 }) {
   const { teams, axis } = data;
-  // All teams share the same aligned gameweek columns; take them from row 1.
   const gameweeks = teams[0]?.series.map((s) => s.gameweek) ?? [];
+
+  if (presentation) {
+    return (
+      <div
+        className="grid h-full w-full gap-x-2 gap-y-1"
+        style={{
+          gridTemplateColumns: `minmax(76px, 1fr) repeat(${gameweeks.length}, minmax(0, 1fr))`,
+          // The header + 20 teams get equal vertical slots, guaranteeing the
+          // full league fits and uses the whole TV/streaming viewport.
+          gridTemplateRows: `repeat(${teams.length + 1}, minmax(0, 1fr))`,
+        }}
+      >
+        <span className="flex items-center text-[clamp(12px,1.4vw,21px)] font-extrabold tracking-wide text-bf-gray">
+          EQUIPO
+        </span>
+        {gameweeks.map((g) => (
+          <span
+            key={g}
+            className="flex items-center justify-center text-center text-[clamp(12px,1.4vw,21px)] font-extrabold tracking-wide text-bf-gray"
+          >
+            J{g}
+          </span>
+        ))}
+        {teams.flatMap((team) => {
+          const runByGw = runsByGameweek(team.runs);
+          return [
+            <span
+              key={`${team.team_short}-label`}
+              className="flex h-full items-center text-left text-[clamp(16px,1.85vw,30px)] font-black text-white"
+            >
+              {team.team_short}
+            </span>,
+            ...team.series.map((gw) => (
+              <CompactCell
+                key={`${team.team_short}-${gw.gameweek}`}
+                gw={gw}
+                runHex={runHexFor(runByGw.get(gw.gameweek))}
+                presentation
+              />
+            )),
+          ];
+        })}
+      </div>
+    );
+  }
 
   return (
     <div className="overflow-x-auto">
       <div className="min-w-max">
-        {/* Header row */}
         <div className="flex items-center gap-1 mb-1.5">
           <span className="w-[50px] text-[11px] font-extrabold tracking-wide text-bf-gray">
             EQUIPO
@@ -61,28 +99,17 @@ export function FixtureCompactGrid({
           ))}
         </div>
 
-        {/* Team rows */}
-        {teams.map((t) => {
-          const runByGw = new Map<number, FixtureOutlookRun>();
-          for (const r of t.runs) {
-            for (let g = r.start_gw; g <= r.end_gw; g++) runByGw.set(g, r);
-          }
+        {teams.map((team) => {
+          const runByGw = runsByGameweek(team.runs);
           return (
-            <div key={t.team_short} className="flex items-center gap-1 py-[2px]">
-              <button
-                type="button"
-                onClick={() => onAsk(teamOutlookQuestion(t.team_name, axis))}
-                title={`${t.team_name} — preguntar en el chat`}
-                className="w-[50px] text-left text-[13px] font-black text-white hover:text-bf-turquoise transition-colors"
-              >
-                {t.team_short}
-              </button>
-              {t.series.map((gw) => (
+            <div key={team.team_short} className="flex items-center gap-1 py-[2px]">
+              <CompactTeamButton teamName={team.team_name} teamShort={team.team_short} axis={axis} onAsk={onAsk} />
+              {team.series.map((gw) => (
                 <CompactCell
                   key={gw.gameweek}
                   gw={gw}
                   runHex={runHexFor(runByGw.get(gw.gameweek))}
-                  onAsk={() => onAsk(fixtureCellQuestion(t.team_name, gw, axis))}
+                  onAsk={onAsk ? () => onAsk(fixtureCellQuestion(team.team_name, gw, axis)) : undefined}
                 />
               ))}
             </div>
@@ -93,41 +120,80 @@ export function FixtureCompactGrid({
   );
 }
 
+function runsByGameweek(runs: FixtureOutlookRun[]): Map<number, FixtureOutlookRun> {
+  const result = new Map<number, FixtureOutlookRun>();
+  for (const run of runs) {
+    for (let gameweek = run.start_gw; gameweek <= run.end_gw; gameweek++) result.set(gameweek, run);
+  }
+  return result;
+}
+
+function CompactTeamButton({
+  teamName,
+  teamShort,
+  axis,
+  onAsk,
+}: {
+  teamName: string;
+  teamShort: string;
+  axis: FixtureOutlookMeta['axis'];
+  onAsk?: (question: string) => void;
+}) {
+  const className = 'w-[50px] text-left text-[13px] font-black text-white hover:text-bf-turquoise transition-colors';
+  if (!onAsk) return <span className={className}>{teamShort}</span>;
+  return (
+    <button
+      type="button"
+      onClick={() => onAsk(teamOutlookQuestion(teamName, axis))}
+      title={`${teamName} - preguntar en el chat`}
+      className={className}
+    >
+      {teamShort}
+    </button>
+  );
+}
+
 function CompactCell({
   gw,
   runHex,
   onAsk,
+  presentation = false,
 }: {
   gw: FixtureOutlookGW;
   runHex: string | null;
-  onAsk: () => void;
+  onAsk?: () => void;
+  presentation?: boolean;
 }) {
   const blank = gw.band === null;
   const fg = blank ? BLANK_COLOR : bandColor(gw.band as Band);
   const opponents = blank ? '—' : gw.fixtures.map((f) => f.opponent_short).join('/');
   const venue = blank ? '' : gw.fixtures.map((f) => venueLabel(f.is_home)).join('/');
+  const className = presentation
+    ? 'flex h-full w-full items-center justify-center gap-1 rounded-md px-1 text-center'
+    : 'flex w-[54px] h-[24px] items-center justify-center gap-0.5 rounded-md transition-transform hover:-translate-y-0.5';
+  const style = {
+    backgroundColor: hexRgba(fg, 0.34),
+    boxShadow: runHex ? `0 0 0 2px ${hexRgba(runHex, 0.7)}` : undefined,
+  };
+  const contents = <>
+    <span className={presentation ? 'text-[clamp(16px,1.85vw,30px)] font-extrabold leading-none' : 'text-[12px] font-extrabold leading-none'} style={{ color: fg }}>
+      {opponents}
+    </span>
+    {venue && (
+      <span className={presentation ? 'text-[clamp(10px,1.1vw,18px)] font-extrabold leading-none text-white/75' : 'text-[8.5px] font-extrabold leading-none text-white/75'}>{venue}</span>
+    )}
+  </>;
 
+  if (!onAsk) return <div className={className} style={style}>{contents}</div>;
   return (
     <button
       type="button"
       onClick={onAsk}
-      title={
-        blank
-          ? 'Sin partido (jornada en blanco)'
-          : `${opponents} ${venue} · dificultad ${gw.band} — preguntar en el chat`
-      }
-      className="w-[54px] h-[24px] flex items-center justify-center gap-0.5 rounded-md transition-transform hover:-translate-y-0.5"
-      style={{
-        backgroundColor: hexRgba(fg, 0.34),
-        boxShadow: runHex ? `0 0 0 2px ${hexRgba(runHex, 0.7)}` : undefined,
-      }}
+      title={blank ? 'Sin partido (jornada en blanco)' : `${opponents} ${venue} · dificultad ${gw.band} - preguntar en el chat`}
+      className={className}
+      style={style}
     >
-      <span className="text-[12px] font-extrabold leading-none" style={{ color: fg }}>
-        {opponents}
-      </span>
-      {venue && (
-        <span className="text-[8.5px] font-extrabold leading-none text-white/75">{venue}</span>
-      )}
+      {contents}
     </button>
   );
 }

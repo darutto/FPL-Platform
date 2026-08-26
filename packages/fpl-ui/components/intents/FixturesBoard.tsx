@@ -14,7 +14,7 @@
  * fulfils differently: the page routes to /chat?q=…, the pager prefills the
  * composer.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { buildRealSeasonOutlook } from '@/lib/fixture-outlook-real';
 import { axisLabel } from '@/lib/fixture-outlook-format';
 import { teamOutlookQuestion, fixtureCellQuestion } from '@/lib/fixture-chat-links';
@@ -56,6 +56,8 @@ export function FixturesBoard({
   const [view, setView] = useState<ViewMode>(initialView);
   const [nextGameweek, setNextGameweek] = useState<number | null>(null);
   const [windowState, setWindowState] = useState<StoredFixtureWindow | null>(null);
+  const [presentationMode, setPresentationMode] = useState(false);
+  const presentationRef = useRef<HTMLDivElement>(null);
 
   // Use the largest exported schedule as the navigation source, then apply
   // the selected 5/8/10-column window below.
@@ -130,6 +132,27 @@ export function FixturesBoard({
     const next = clampFixtureWindowStart(startGameweek + delta, gameweeks, horizon);
     if (next !== null) setWindowState({ baseGameweek, startGameweek: next });
   };
+
+  const openPresentation = () => {
+    setView('compact');
+    setPresentationMode(true);
+    void presentationRef.current?.requestFullscreen().catch(() => {
+      // The fixed overlay remains useful when native fullscreen is unavailable.
+    });
+  };
+
+  const closePresentation = async () => {
+    setPresentationMode(false);
+    if (document.fullscreenElement) await document.exitFullscreen();
+  };
+
+  useEffect(() => {
+    const syncFullscreen = () => {
+      if (!document.fullscreenElement) setPresentationMode(false);
+    };
+    document.addEventListener('fullscreenchange', syncFullscreen);
+    return () => document.removeEventListener('fullscreenchange', syncFullscreen);
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -216,6 +239,13 @@ export function FixturesBoard({
             </button>
           ))}
         </div>
+        <button
+          type="button"
+          onClick={openPresentation}
+          className="rounded-full border border-bf-turquoise/40 bg-bf-turquoise/10 px-3 py-1 text-xs font-bold text-bf-turquoise transition-colors hover:bg-bf-turquoise/20"
+        >
+          Presentar
+        </button>
       </div>
 
       {/* FDR / venue / streak legend (above the board, design parity) */}
@@ -286,6 +316,37 @@ export function FixturesBoard({
           </p>
         </div>
       </div>
+
+      <div
+          ref={presentationRef}
+          className={presentationMode
+            ? 'fixed inset-0 z-[100] flex min-h-[100dvh] flex-col overflow-hidden bg-bf-ink px-[clamp(16px,3vw,56px)] py-[clamp(14px,2.5vh,36px)] text-white'
+            : 'pointer-events-none fixed inset-0 -z-10 flex min-h-[100dvh] flex-col overflow-hidden opacity-0'}
+          aria-label="Calendario en modo presentación"
+          aria-hidden={!presentationMode}
+        >
+          <div className="mb-[clamp(8px,1.25vh,16px)] flex items-center justify-between gap-4">
+            <div className="flex items-baseline gap-[clamp(10px,1.5vw,24px)]">
+              <span className="text-[clamp(18px,2vw,32px)] font-black tracking-tight">Calendario FDR</span>
+              <span className="text-[clamp(12px,1.2vw,18px)] font-extrabold uppercase tracking-wider text-bf-turquoise">
+                {axisLabel(axis)} · J{startGameweek}–J{visibleEndGameweek}
+              </span>
+              <span className="hidden text-[clamp(10px,1vw,15px)] font-bold text-bf-gray lg:inline">
+                Fácil → difícil · ◯ racha favorable · ◯ racha difícil
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={closePresentation}
+              className="rounded-md border border-white/15 px-3 py-1.5 text-[clamp(10px,1vw,14px)] font-bold text-bf-gray hover:text-white"
+            >
+              Salir <span className="text-white/50">Esc</span>
+            </button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <FixtureCompactGrid data={data} presentation />
+          </div>
+        </div>
     </div>
   );
 }
