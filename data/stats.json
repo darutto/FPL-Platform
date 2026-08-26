@@ -1,350 +1,350 @@
 {
-  "generatedAt": "2026-07-23T06:00:25Z",
-  "season": "2025/26",
+  "generatedAt": "2026-08-26T14:47:42Z",
+  "season": "2026/27",
   "seasonStatus": "in_season",
-  "gameweek": 38,
+  "gameweek": 1,
   "teams": [
     {
       "name": "Arsenal",
       "short": "ARS",
-      "goalsFor": 71,
-      "goalsAgainst": 27,
-      "played": 38
+      "goalsFor": 3,
+      "goalsAgainst": 0,
+      "played": 1
     },
     {
       "name": "Aston Villa",
       "short": "AVL",
-      "goalsFor": 56,
-      "goalsAgainst": 49,
-      "played": 38
-    },
-    {
-      "name": "Burnley",
-      "short": "BUR",
-      "goalsFor": 38,
-      "goalsAgainst": 75,
-      "played": 38
+      "goalsFor": 0,
+      "goalsAgainst": 4,
+      "played": 1
     },
     {
       "name": "Bournemouth",
       "short": "BOU",
-      "goalsFor": 58,
-      "goalsAgainst": 54,
-      "played": 38
+      "goalsFor": 1,
+      "goalsAgainst": 2,
+      "played": 1
     },
     {
       "name": "Brentford",
       "short": "BRE",
-      "goalsFor": 55,
-      "goalsAgainst": 52,
-      "played": 38
+      "goalsFor": 3,
+      "goalsAgainst": 0,
+      "played": 1
     },
     {
       "name": "Brighton",
       "short": "BHA",
-      "goalsFor": 52,
-      "goalsAgainst": 46,
-      "played": 38
+      "goalsFor": 4,
+      "goalsAgainst": 0,
+      "played": 1
     },
     {
       "name": "Chelsea",
       "short": "CHE",
-      "goalsFor": 58,
-      "goalsAgainst": 52,
-      "played": 38
+      "goalsFor": 3,
+      "goalsAgainst": 2,
+      "played": 1
+    },
+    {
+      "name": "Coventry City",
+      "short": "COV",
+      "goalsFor": 0,
+      "goalsAgainst": 3,
+      "played": 1
     },
     {
       "name": "Crystal Palace",
       "short": "CRY",
-      "goalsFor": 41,
-      "goalsAgainst": 51,
-      "played": 38
+      "goalsFor": 0,
+      "goalsAgainst": 2,
+      "played": 1
     },
     {
       "name": "Everton",
       "short": "EVE",
-      "goalsFor": 47,
-      "goalsAgainst": 50,
-      "played": 38
+      "goalsFor": 2,
+      "goalsAgainst": 0,
+      "played": 1
     },
     {
       "name": "Fulham",
       "short": "FUL",
-      "goalsFor": 47,
-      "goalsAgainst": 51,
-      "played": 38
+      "goalsFor": 2,
+      "goalsAgainst": 3,
+      "played": 1
+    },
+    {
+      "name": "Hull City",
+      "short": "HUL",
+      "goalsFor": 2,
+      "goalsAgainst": 0,
+      "played": 1
+    },
+    {
+      "name": "Ipswich Town",
+      "short": "IPS",
+      "goalsFor": 2,
+      "goalsAgainst": 1,
+      "played": 1
     },
     {
       "name": "Leeds",
       "short": "LEE",
-      "goalsFor": 49,
-      "goalsAgainst": 56,
-      "played": 38
+      "goalsFor": 1,
+      "goalsAgainst": 0,
+      "played": 1
     },
     {
       "name": "Liverpool",
       "short": "LIV",
-      "goalsFor": 63,
-      "goalsAgainst": 53,
-      "played": 38
+      "goalsFor": 2,
+      "goalsAgainst": 2,
+      "played": 1
     },
     {
       "name": "Man City",
       "short": "MCI",
-      "goalsFor": 77,
-      "goalsAgainst": 35,
-      "played": 38
+      "goalsFor": 2,
+      "goalsAgainst": 1,
+      "played": 1
     },
     {
       "name": "Man Utd",
       "short": "MUN",
-      "goalsFor": 69,
-      "goalsAgainst": 50,
-      "played": 38
+      "goalsFor": 0,
+      "goalsAgainst": 2,
+      "played": 1
     },
     {
       "name": "Newcastle",
       "short": "NEW",
-      "goalsFor": 53,
-      "goalsAgainst": 55,
-      "played": 38
+      "goalsFor": 2,
+      "goalsAgainst": 2,
+      "played": 1
     },
     {
       "name": "Nott'm Forest",
       "short": "NFO",
-      "goalsFor": 48,
-      "goalsAgainst": 51,
-      "played": 38
-    },
-    {
-      "name": "Sunderland",
-      "short": "SUN",
-      "goalsFor": 42,
-      "goalsAgainst": 48,
-      "played": 38
+      "goalsFor": 0,
+      "goalsAgainst": 1,
+      "played": 1
     },
     {
       "name": "Spurs",
       "short": "TOT",
-      "goalsFor": 48,
-      "goalsAgainst": 57,
-      "played": 38
+      "goalsFor": 0,
+      "goalsAgainst": 3,
+      "played": 1
     },
     {
-      "name": "West Ham",
-      "short": "WHU",
-      "goalsFor": 46,
-      "goalsAgainst": 65,
-      "played": 38
-    },
-    {
-      "name": "Wolves",
-      "short": "WOL",
-      "goalsFor": 27,
-      "goalsAgainst": 68,
-      "played": 38
+      "name": "Sunderland",
+      "short": "SUN",
+      "goalsFor": 1,
+      "goalsAgainst": 2,
+      "played": 1
     }
   ],
   "players": [
     {
-      "name": "Haaland",
-      "team": "MCI",
-      "position": "FWD",
-      "xg": 25.5,
-      "xa": 2.67,
-      "minutes": 2953
+      "name": "De Cuyper",
+      "team": "BHA",
+      "position": "DEF",
+      "xg": 1.47,
+      "xa": 0.21,
+      "minutes": 77
     },
     {
-      "name": "B.Fernandes",
-      "team": "MUN",
+      "name": "Hinshelwood",
+      "team": "BHA",
       "position": "MID",
-      "xg": 10.79,
-      "xa": 12.28,
-      "minutes": 3065
+      "xg": 1.41,
+      "xa": 0.02,
+      "minutes": 63
+    },
+    {
+      "name": "Guéhi",
+      "team": "MCI",
+      "position": "DEF",
+      "xg": 0.89,
+      "xa": 0.32,
+      "minutes": 90
+    },
+    {
+      "name": "Nketiah",
+      "team": "CRY",
+      "position": "FWD",
+      "xg": 0.6,
+      "xa": 0.58,
+      "minutes": 55
+    },
+    {
+      "name": "Szoboszlai",
+      "team": "LIV",
+      "position": "MID",
+      "xg": 0.85,
+      "xa": 0.27,
+      "minutes": 90
+    },
+    {
+      "name": "Isak",
+      "team": "LIV",
+      "position": "FWD",
+      "xg": 1.09,
+      "xa": 0.01,
+      "minutes": 90
     },
     {
       "name": "Thiago",
       "team": "BRE",
       "position": "FWD",
-      "xg": 20.6,
-      "xa": 1.83,
-      "minutes": 3282
+      "xg": 1.0,
+      "xa": 0.08,
+      "minutes": 82
     },
     {
-      "name": "Enzo",
+      "name": "Rogers",
       "team": "CHE",
       "position": "MID",
-      "xg": 11.26,
-      "xa": 7.26,
-      "minutes": 3114
+      "xg": 0.96,
+      "xa": 0.1,
+      "minutes": 81
+    },
+    {
+      "name": "Wissa",
+      "team": "NEW",
+      "position": "FWD",
+      "xg": 1.0,
+      "xa": 0.02,
+      "minutes": 90
+    },
+    {
+      "name": "Lewis-Potter",
+      "team": "BRE",
+      "position": "MID",
+      "xg": 0.77,
+      "xa": 0.12,
+      "minutes": 90
+    },
+    {
+      "name": "Emersonn",
+      "team": "IPS",
+      "position": "FWD",
+      "xg": 0.82,
+      "xa": 0.06,
+      "minutes": 65
+    },
+    {
+      "name": "Haaland",
+      "team": "MCI",
+      "position": "FWD",
+      "xg": 0.74,
+      "xa": 0.02,
+      "minutes": 90
+    },
+    {
+      "name": "Gonzalo",
+      "team": "FUL",
+      "position": "FWD",
+      "xg": 0.73,
+      "xa": 0.01,
+      "minutes": 90
     },
     {
       "name": "Mbeumo",
       "team": "MUN",
       "position": "MID",
-      "xg": 11.98,
-      "xa": 4.99,
-      "minutes": 2611
-    },
-    {
-      "name": "João Pedro",
-      "team": "CHE",
-      "position": "FWD",
-      "xg": 14.91,
-      "xa": 1.96,
-      "minutes": 2658
-    },
-    {
-      "name": "Calvert-Lewin",
-      "team": "LEE",
-      "position": "FWD",
-      "xg": 15.57,
-      "xa": 1.06,
-      "minutes": 2721
-    },
-    {
-      "name": "Watkins",
-      "team": "AVL",
-      "position": "FWD",
-      "xg": 15.4,
-      "xa": 1.18,
-      "minutes": 2833
-    },
-    {
-      "name": "Mateta",
-      "team": "CRY",
-      "position": "FWD",
-      "xg": 14.42,
-      "xa": 1.32,
-      "minutes": 2210
+      "xg": 0.5,
+      "xa": 0.23,
+      "minutes": 90
     },
     {
       "name": "Saka",
       "team": "ARS",
       "position": "MID",
-      "xg": 7.57,
-      "xa": 7.16,
-      "minutes": 2218
+      "xg": 0.64,
+      "xa": 0.08,
+      "minutes": 67
     },
     {
-      "name": "Semenyo",
-      "team": "MCI",
-      "position": "MID",
-      "xg": 11.1,
-      "xa": 3.12,
-      "minutes": 3200
-    },
-    {
-      "name": "Gyökeres",
-      "team": "ARS",
+      "name": "Mateta",
+      "team": "CRY",
       "position": "FWD",
-      "xg": 12.26,
-      "xa": 1.94,
-      "minutes": 2217
+      "xg": 0.7,
+      "xa": 0.02,
+      "minutes": 62
+    },
+    {
+      "name": "João Pedro",
+      "team": "CHE",
+      "position": "FWD",
+      "xg": 0.63,
+      "xa": 0.06,
+      "minutes": 90
+    },
+    {
+      "name": "Gomez",
+      "team": "BHA",
+      "position": "MID",
+      "xg": 0.18,
+      "xa": 0.48,
+      "minutes": 85
+    },
+    {
+      "name": "Maeda",
+      "team": "IPS",
+      "position": "MID",
+      "xg": 0.61,
+      "xa": 0.0,
+      "minutes": 79
+    },
+    {
+      "name": "Janelt",
+      "team": "BRE",
+      "position": "MID",
+      "xg": 0.39,
+      "xa": 0.17,
+      "minutes": 90
+    },
+    {
+      "name": "Ndiaye",
+      "team": "EVE",
+      "position": "MID",
+      "xg": 0.24,
+      "xa": 0.32,
+      "minutes": 90
+    },
+    {
+      "name": "Barry",
+      "team": "EVE",
+      "position": "FWD",
+      "xg": 0.45,
+      "xa": 0.09,
+      "minutes": 78
+    },
+    {
+      "name": "Enciso",
+      "team": "IPS",
+      "position": "MID",
+      "xg": 0.23,
+      "xa": 0.31,
+      "minutes": 70
     },
     {
       "name": "Schade",
       "team": "BRE",
       "position": "MID",
-      "xg": 12.08,
-      "xa": 2.05,
-      "minutes": 2744
+      "xg": 0.52,
+      "xa": 0.01,
+      "minutes": 90
     },
     {
-      "name": "Welbeck",
+      "name": "Georginio",
       "team": "BHA",
       "position": "FWD",
-      "xg": 12.36,
-      "xa": 1.4,
-      "minutes": 2249
-    },
-    {
-      "name": "Gibbs-White",
-      "team": "NFO",
-      "position": "MID",
-      "xg": 10.81,
-      "xa": 2.91,
-      "minutes": 3101
-    },
-    {
-      "name": "M.Salah",
-      "team": "LIV",
-      "position": "MID",
-      "xg": 8.23,
-      "xa": 5.44,
-      "minutes": 2144
-    },
-    {
-      "name": "Tavernier",
-      "team": "BOU",
-      "position": "MID",
-      "xg": 9.06,
-      "xa": 4.6,
-      "minutes": 2732
-    },
-    {
-      "name": "Cherki",
-      "team": "MCI",
-      "position": "MID",
-      "xg": 4.28,
-      "xa": 8.87,
-      "minutes": 1772
-    },
-    {
-      "name": "Palmer",
-      "team": "CHE",
-      "position": "MID",
-      "xg": 10.55,
-      "xa": 2.49,
-      "minutes": 1954
-    },
-    {
-      "name": "Gakpo",
-      "team": "LIV",
-      "position": "MID",
-      "xg": 8.35,
-      "xa": 4.67,
-      "minutes": 2736
-    },
-    {
-      "name": "Ekitiké",
-      "team": "LIV",
-      "position": "FWD",
-      "xg": 10.1,
-      "xa": 2.45,
-      "minutes": 1797
-    },
-    {
-      "name": "Raúl",
-      "team": "FUL",
-      "position": "FWD",
-      "xg": 11.58,
-      "xa": 0.9,
-      "minutes": 2183
-    },
-    {
-      "name": "Bowen",
-      "team": "WHU",
-      "position": "FWD",
-      "xg": 7.22,
-      "xa": 5.21,
-      "minutes": 3406
-    },
-    {
-      "name": "Gordon",
-      "team": "NEW",
-      "position": "MID",
-      "xg": 8.77,
-      "xa": 3.38,
-      "minutes": 1798
-    },
-    {
-      "name": "Evanilson",
-      "team": "BOU",
-      "position": "FWD",
-      "xg": 10.64,
-      "xa": 1.48,
-      "minutes": 2741
+      "xg": 0.08,
+      "xa": 0.44,
+      "minutes": 90
     }
   ]
 }
