@@ -11,7 +11,9 @@ Status vocabulary
 -----------------
 ``"ok"``         Resolution succeeded; all answer fields are present.
 ``"ambiguous"``  Multiple players share the query string; the caller must
-                 ask for clarification before answering.
+                 ask for clarification before answering.  Single-player tools
+                 also return a ``candidates`` list of the tied players so the
+                 caller can offer a pick-one wizard.
 ``"not_found"``  No player matched the query; the caller should say so.
 ``"error"``      Runner-level failure (unknown tool, missing required arg,
                  or invalid candidate_inputs).
@@ -92,17 +94,62 @@ def _derive_scoring_inputs_from_element(
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+#: Position label by bootstrap ``element_type`` code.  Local to this module —
+#: the canonical registry stores the raw code, and the tool contract is the
+#: layer that owns the "GKP"/"DEF"/"MID"/"FWD" vocabulary.
+_POSITION_BY_ELEMENT_TYPE: dict[int, str] = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
+
+#: Cap on ambiguous candidates surfaced to the caller.  Matches
+#: ``get_player_snapshot._MAX_AMBIGUOUS_CANDIDATES`` so both disambiguation
+#: paths offer the same number of choices.
+_MAX_AMBIGUOUS_CANDIDATES: int = 5
+
+
+def _candidates_from_matches(matches: Any) -> list[dict[str, Any]]:
+    """Build identity-only candidate dicts from canonical ``PlayerMatch`` records.
+
+    Deliberately narrow: id / web_name / team_short / position / match_rank are
+    everything a disambiguation chip needs.  The richer 31-field grounding
+    payload built by ``find_players._build_match_dict`` lives downstream in
+    fpl-grounded-assistant and must not be reached for from this leaf package.
+
+    Ordering is the resolver's own (rank, then total_points desc, then id), so
+    the same bootstrap always yields the same candidate order.
+    """
+    return [
+        {
+            "id":          match.record.id,
+            "web_name":    match.record.web_name,
+            "first_name":  match.record.first_name,
+            "second_name": match.record.second_name,
+            # Full name is what actually breaks the tie: two players sharing a
+            # web_name ("Palmer") differ on their first name, so this is the
+            # string a caller re-sends to resolve to exactly one of them.
+            "name":        f"{match.record.first_name} {match.record.second_name}".strip(),
+            "team_short":  match.record.team_short_name,
+            "position":    _POSITION_BY_ELEMENT_TYPE.get(match.record.element_type, ""),
+            "match_rank":  match.rank,
+        }
+        for match in matches[:_MAX_AMBIGUOUS_CANDIDATES]
+    ]
+
+
 def _resolve_with_status(
     query: str | int,
     bootstrap: dict[str, Any],
-) -> tuple[str, dict[str, Any] | None]:
+) -> tuple[str, dict[str, Any] | None, list[dict[str, Any]]]:
     """Decompose bootstrap, resolve canonically, and call get_player_summary.
 
-    Returns (status, summary_or_None) where status is one of
+    Returns (status, summary_or_None, candidates) where status is one of
     "ok" | "ambiguous" | "not_found".
 
     The canonical resolver preserves ambiguity before the legacy summary
     adapter, which returns ``None`` for both ambiguous and not-found queries.
+
+    ``candidates`` is populated on "ambiguous" only (empty list otherwise).
+    The resolver already ranks every tied match, so carrying them out costs
+    nothing and is what lets callers offer a disambiguation wizard instead of
+    a dead-end "please clarify" sentence.
     """
     players = get_players(bootstrap)
     teams   = get_teams(bootstrap)
@@ -115,13 +162,13 @@ def _resolve_with_status(
         allow_substring=False,
     )
     if resolution.status == "ambiguous":
-        return "ambiguous", None
+        return "ambiguous", None, _candidates_from_matches(resolution.best_matches)
 
     summary = get_player_summary(query, players, teams)
     if resolution.status == "not_found" or summary is None:
-        return "not_found", None
+        return "not_found", None, []
 
-    return "ok", summary
+    return "ok", summary, []
 
 
 # Required keys for captain scoring inputs
@@ -208,9 +255,14 @@ def tool_resolve_player(
 
     Returns — status "ambiguous"
     ----------------------------
-    ``status``   "ambiguous"
-    ``query``    Original query
-    ``message``  Instruction for the LLM to ask for clarification
+    ``status``      "ambiguous"
+    ``query``       Original query
+    ``candidates``  Up to 5 identity dicts for the tied players — ``id``,
+                    ``web_name``, ``first_name``, ``second_name``, ``name``,
+                    ``team_short``, ``position``, ``match_rank``.  Lets a
+                    caller render a disambiguation wizard instead of a
+                    dead-end clarification sentence.
+    ``message``     Instruction for the LLM to ask for clarification
 
     Returns — status "not_found"
     ----------------------------
@@ -218,12 +270,13 @@ def tool_resolve_player(
     ``query``    Original query
     ``message``  Instruction for the LLM to acknowledge no match
     """
-    status, summary = _resolve_with_status(query, bootstrap)
+    status, summary, candidates = _resolve_with_status(query, bootstrap)
 
     if status == "ambiguous":
         return {
-            "status":  "ambiguous",
-            "query":   str(query),
+            "status":     "ambiguous",
+            "query":      str(query),
+            "candidates": candidates,
             "message": (
                 f"Multiple players share the name '{query}'. "
                 "Ask the user to clarify — for example by providing "
@@ -271,12 +324,13 @@ def tool_get_player_summary(
     -------------------------------------------
     Same as ``tool_resolve_player``.
     """
-    status, summary = _resolve_with_status(query, bootstrap)
+    status, summary, candidates = _resolve_with_status(query, bootstrap)
 
     if status == "ambiguous":
         return {
-            "status":  "ambiguous",
-            "query":   str(query),
+            "status":     "ambiguous",
+            "query":      str(query),
+            "candidates": candidates,
             "message": (
                 f"Multiple players share the name '{query}'. "
                 "Ask the user to clarify — for example by providing "
@@ -379,12 +433,13 @@ def tool_get_captain_score(
         if validation_error:
             return validation_error
 
-    status, summary = _resolve_with_status(query, bootstrap)
+    status, summary, candidates = _resolve_with_status(query, bootstrap)
 
     if status == "ambiguous":
         return {
-            "status":  "ambiguous",
-            "query":   str(query),
+            "status":     "ambiguous",
+            "query":      str(query),
+            "candidates": candidates,
             "message": (
                 f"Multiple players share the name '{query}'. "
                 "Ask the user to clarify — for example by providing "
@@ -518,7 +573,7 @@ def tool_rank_captain_candidates(
             continue
 
         # Resolve player identity first (needed for element derivation)
-        status, summary = _resolve_with_status(query, bootstrap)
+        status, summary, cand_matches = _resolve_with_status(query, bootstrap)
         if status != "ok":
             non_ok_results.append({
                 "status":  status,
@@ -529,6 +584,7 @@ def tool_rank_captain_candidates(
                     else f"No player found matching '{query}'."
                 ),
                 "index": i,
+                **({"candidates": cand_matches} if status == "ambiguous" else {}),
             })
             continue
 

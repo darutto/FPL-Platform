@@ -53,6 +53,8 @@ Output shape -- status "not_found" / "ambiguous"
     query_in        original query for the player being bought
     error_player    the query that failed to resolve
     message         descriptive message from the failed lookup
+    candidates      ambiguous only -- the tied players from the resolver,
+                    for a pick-one wizard. Absent when none were produced.
 
 Deferred
 --------
@@ -445,25 +447,32 @@ def get_transfer_advice(
     >>> result["recommendation"] in ("transfer_in", "marginal_transfer_in", "hold")
     True
     """
-    scored_out = _score_one(query_out, bootstrap)
-    if scored_out["status"] != "ok":
-        return {
-            "status":       scored_out["status"],
+    def _failed(failed_side: dict[str, Any], failed_query: str) -> dict[str, Any]:
+        """Surface a failed side's status, preserving any disambiguation candidates.
+
+        ``candidates`` is forwarded verbatim when the resolver produced one
+        (ambiguous side only), so the caller can offer pick-one chips instead
+        of a clarification the user has to answer by retyping.
+        """
+        out = {
+            "status":       failed_side["status"],
             "query_out":    query_out,
             "query_in":     query_in,
-            "error_player": query_out,
-            "message":      scored_out.get("message", f"Could not score '{query_out}'."),
+            "error_player": failed_query,
+            "message":      failed_side.get("message", f"Could not score '{failed_query}'."),
         }
+        candidates = failed_side.get("candidates")
+        if candidates:
+            out["candidates"] = candidates
+        return out
+
+    scored_out = _score_one(query_out, bootstrap)
+    if scored_out["status"] != "ok":
+        return _failed(scored_out, query_out)
 
     scored_in = _score_one(query_in, bootstrap)
     if scored_in["status"] != "ok":
-        return {
-            "status":       scored_in["status"],
-            "query_out":    query_out,
-            "query_in":     query_in,
-            "error_player": query_in,
-            "message":      scored_in.get("message", f"Could not score '{query_in}'."),
-        }
+        return _failed(scored_in, query_in)
 
     # Phase 8a1: use position_score for recommendation and delta (Layer 2)
     score_out = scored_out["position_score"]
@@ -616,6 +625,8 @@ TRANSFER_ADVICE_SPEC = ToolSpec(
                     "query_in":     {"type": "string"},
                     "error_player": {"type": "string"},
                     "message":      {"type": "string"},
+                    # Ambiguous only — the tied players, for a pick-one wizard.
+                    "candidates":   {"type": "array", "items": {"type": "object"}},
                 },
             },
         ]

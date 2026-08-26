@@ -63,6 +63,8 @@ Output shape -- status "not_found" / "ambiguous"
     status          error status from player lookup
     query           original player query
     message         descriptive message
+    candidates      ambiguous only -- the tied players from the resolver,
+                    for a pick-one wizard. Absent when none were produced.
 
 Output shape -- status "missing_context"
 -----------------------------------------
@@ -216,11 +218,16 @@ def get_player_fixture_run(
     # -- Player resolution ---------------------------------------------------
     resolve = tool_resolve_player(query, bootstrap)
     if resolve["status"] != "ok":
-        return {
+        failed = {
             "status":  resolve["status"],
             "query":   query,
             "message": resolve.get("message", f"Player '{query}' not found."),
         }
+        # Forward the resolver's tied candidates (ambiguous only) so the caller
+        # can offer pick-one chips instead of a dead-end clarification.
+        if resolve.get("candidates"):
+            failed["candidates"] = resolve["candidates"]
+        return failed
 
     player_id = resolve["player_id"]
     web_name  = resolve.get("web_name", query)
@@ -378,6 +385,8 @@ PLAYER_FIXTURE_RUN_SPEC = ToolSpec(
                     },
                     "query":   {"type": "string"},
                     "message": {"type": "string"},
+                    # Ambiguous only — the tied players, for a pick-one wizard.
+                    "candidates": {"type": "array", "items": {"type": "object"}},
                 },
             },
         ],

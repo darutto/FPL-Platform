@@ -25,10 +25,12 @@ one-line map entry.
 
 Schema (as implemented — the UI builds against this)
 ----------------------------------------------------
-``Suggestion``  {label: str, send_text: str, player_id?: int}
+``Suggestion``  {label: str, send_text: str, player_id?: int, kind?: str}
     label      : short web_name, chip-friendly (e.g. "Saka")
     send_text  : text the UI sends when the chip is tapped (also web_name)
     player_id  : stable FPL element id, player-disambiguation chips only
+    kind       : tap-behavior discriminator; absent for ordinary name chips,
+                 "prompt_rewrite" for a complete command to send verbatim
 """
 from __future__ import annotations
 
@@ -40,16 +42,31 @@ from typing import Any, Callable
 # Suggestion contract type
 # ---------------------------------------------------------------------------
 
+#: ``Suggestion.kind`` for a chip whose ``send_text`` is a complete, ready-to-
+#: send command rather than a fragment.  The UI must send it verbatim as plain
+#: text and must NOT attach ``selected_player_id`` — the rewritten command
+#: already names the chosen player, and the stable-id handoff would discard the
+#: rest of it (harness.ask_v2 treats a structured id as authoritative and
+#: ignores the question text entirely).
+KIND_PROMPT_REWRITE: str = "prompt_rewrite"
+
+
 @dataclass(frozen=True)
 class Suggestion:
     """A single tappable suggestion chip.
 
     ``label`` is what the chip shows; ``send_text`` is what the UI sends when it
     is tapped.  For transfer-name suggestions both are the player's ``web_name``.
+
+    ``kind`` discriminates chips that behave differently on tap.  ``None`` (the
+    default) is the historical behavior — a name fragment the UI feeds into a
+    wizard slot.  ``KIND_PROMPT_REWRITE`` marks a self-contained command to send
+    as-is; see that constant for why the two cannot be conflated.
     """
     label: str
     send_text: str
     player_id: int | None = None
+    kind: str | None = None
 
 
 def _safe_int(value: Any, default: int = 0) -> int:
@@ -225,6 +242,7 @@ def suggestions_to_list(
             "label": s.label,
             "send_text": s.send_text,
             **({"player_id": s.player_id} if s.player_id is not None else {}),
+            **({"kind": s.kind} if s.kind is not None else {}),
         }
         for s in suggestions
     ]

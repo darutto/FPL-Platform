@@ -905,11 +905,36 @@ def ask_v2(
             candidates_list=eff_candidates,
             locale=locale,
         )
-        result["outcome"] = "ok" if result.get("selected_tool") else "unsupported"
+        # Derive the outcome from the tool's actual status. This branch used to
+        # hard-code "ok" whenever a tool was selected, which silently reported
+        # ambiguous / not_found / error prompt turns as successes and left the
+        # UI with no signal to act on. Mirrors the dispatcher path, and matches
+        # what the plain-text and prompt-dispatch branches already do.
+        _expansion_raw = result.get("raw_output") or {}
+        result["outcome"] = (
+            _outcome_from_status(_expansion_raw)
+            if result.get("selected_tool")
+            else "unsupported"
+        )
         result["kind"] = "prompt"
         result["prompt_name"] = prompt_name
         result["workflow_intent"] = workflow_intent
         result["canonical_text"] = canonical_text
+        # Ambiguous player inside a prompt turn: offer pick-one chips that
+        # re-send the user's own command with the ambiguous slot resolved,
+        # rather than dead-ending on "please clarify". None when the command
+        # cannot be rewritten safely — see prompt_disambiguation.
+        if result["outcome"] == "ambiguous":
+            from .prompt_disambiguation import (  # noqa: PLC0415
+                prompt_disambiguation_suggestions,
+            )
+            from .suggestions import suggestions_to_list as _sugg_to_list  # noqa: PLC0415
+
+            result["player_suggestions"] = _sugg_to_list(
+                prompt_disambiguation_suggestions(
+                    question, prompt_name, _expansion_raw,
+                )
+            )
         routing_trace["branch"]            = "prompt"
         routing_trace["expansion_text"]    = canonical_text
         routing_trace["workflow_intent"]   = workflow_intent
@@ -934,18 +959,30 @@ def ask_v2(
         routing_trace["dispatched_tool"] = tool_name
         routing_trace["workflow_intent"] = workflow_intent
         routing_trace["grounded"]        = tool_name is not None and raw_output.get("status") == "ok"
+        # Derive the outcome from the tool's status rather than collapsing every
+        # non-"ok" status to "error" — an ambiguous player is a recoverable
+        # clarification the UI can offer chips for, not a failure.
         result = {
             "selected_tool":   tool_name,
             "tool_input":      tool_input,
             "raw_output":      raw_output,
             "answer_text":     answer_text,
-            "outcome":         "ok" if raw_output.get("status") == "ok" else "error",
+            "outcome":         _outcome_from_status(raw_output),
             "kind":            "prompt",
             "prompt_name":     prompt_name,
             "workflow_intent": workflow_intent,
             "routing_trace":   routing_trace,
             **_meta(tool_name, raw_output),  # prompt-dispatch: real tool ran, extract metadata
         }
+        if result["outcome"] == "ambiguous":
+            from .prompt_disambiguation import (  # noqa: PLC0415
+                prompt_disambiguation_suggestions,
+            )
+            from .suggestions import suggestions_to_list as _sugg_to_list  # noqa: PLC0415
+
+            result["player_suggestions"] = _sugg_to_list(
+                prompt_disambiguation_suggestions(question, prompt_name, raw_output)
+            )
         if context_meta is not None:
             result["context_meta"] = context_meta
         _copy_existing_intent_evidence(result)
