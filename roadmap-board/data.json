@@ -687,14 +687,14 @@
     },
     {
       "id": "i39",
-      "col": "idea",
+      "col": "shipped",
       "title": "El contexto de plantilla no llega a la capa que decide",
-      "desc": "REPORTADO POR EL USUARIO 2026-08-24: cargo su equipo en la app, lo ve en el tab de Squad, y el asistente le sigue pidiendo 'pasame tus 15 jugadores'. NO es que falte la funcionalidad -- la tuberia existe COMPLETA en los dos lados y esta cortada en un tramo concreto.\n\nLa UI si lo manda en cada turno (ChatShell.tsx:199, `squad_context: squadContext ?? null`). El backend si lo recibe (AskRequest.squad_context, fpl_server.py:275) y lo consumen tres modulos. Pero el comentario en fpl_server.py:1938 lo dice explicito: 'squad_context goes to the adapter only (not to ask_v2)'. O sea, llega a harness_adapter, que lo usa para 'squad_context overrides' sobre la respuesta YA construida -- y NUNCA llega a ask_v2(), que es quien llama al orquestador. El modelo, que decide que herramienta consultar y que escribir, no lo ve jamas.\n\nDECISION DE DISENO no trivial antes de codificar: el modelo recibe la plantilla (a) como texto en el prompt -- simple, encarece cada turno y es contexto no fundamentado; o (b) como HERRAMIENTA que puede consultar -- mas limpio y encaja con el principio del producto de fundamentar toda afirmacion en salida de herramienta. La (b) es la que respeta la arquitectura; la (a) es la tentacion.\n\nIMPACTO: la mayoria de las preguntas reales llevan 'mi equipo' dentro. Sin esto el asistente responde en abstracto a un juego que es personal.",
+      "desc": "Fusionada (PR #167, 25/08). Se eligio la opcion (b): get_my_squad, herramienta nueva que el orquestador consulta bajo demanda (nunca texto de prompt en cada turno). El team_id llega al handler fijo (args, bootstrap) via un parametro team_id en ask_v2() que inyecta bootstrap['_my_team_id'] sobre una COPIA superficial del bootstrap -- nunca una mutacion del singleton compartido entre requests concurrentes. Sin team_id, se reusa el mismo objeto bootstrap sin copiar (costo cero para turnos anonimos, probado por identidad de objeto, no solo por contenido).\n\nBug real encontrado en vivo: el endpoint de picks de FPL devuelve 404 para cualquier GW futuro (sin alineacion publicada aun) -- exactamente lo que dispara 'bench boost en la fecha 2' estando GW1 vigente. Arreglado con clamping al GW actual (gw_clamped/requested_gw en la respuesta). Verificado en vivo (openai/gpt-5.6-luna, explicito): la pregunta de aceptacion elige get_my_squad 5/5 corridas; tres preguntas sin referencia personal no la disparan (0/3). Suite fpl-grounded-assistant: 1352 pass/1 skip (+59 tests netos). squad_context/_apply_squad_overrides sin tocar. Ver [[i38]] para la eleccion de herramienta en fronteras cercanas -- explicitamente fuera de alcance aqui.",
       "tags": [
         "Backend",
         "IA"
       ],
-      "progress": 0
+      "progress": 100
     },
     {
       "id": "i40",
