@@ -23,6 +23,7 @@ for _p in [_PKG, os.path.join(_PKGS, "fpl-api-client")]:
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
+from fpl_pipeline import context  # noqa: E402
 from fpl_pipeline.context import _build_team_fixtures  # noqa: E402
 
 
@@ -101,3 +102,38 @@ def test_missing_strength_key_entirely_still_falls_back_to_default():
     result = _build_team_fixtures(fixture_batches, bootstrap)
     assert result[1][0]["difficulty"] == 3
     assert result[2][0]["difficulty"] == 3
+
+
+def test_live_bootstrap_is_reweighted_before_context_consumers(monkeypatch):
+    """The live path injects strength before resolving or building fixtures."""
+    bootstrap = _bootstrap_with_null_strength()
+    calls: list[str] = []
+
+    monkeypatch.setattr(context, "get_bootstrap", lambda: bootstrap)
+    monkeypatch.setattr(
+        context,
+        "_inject_walk_forward_team_strength",
+        lambda actual: calls.append("strength") or actual is bootstrap,
+    )
+    monkeypatch.setattr(
+        context, "get_current_gameweek", lambda actual: calls.append("gw") or 1
+    )
+    monkeypatch.setattr(
+        context,
+        "get_fixtures",
+        lambda gameweek: calls.append("fixtures") or [
+            {
+                "event": gameweek,
+                "team_h": 1,
+                "team_a": 2,
+                "team_h_difficulty": 3,
+                "team_a_difficulty": 3,
+            }
+        ],
+    )
+
+    assembled = context.assemble_captain_context()
+
+    assert assembled["bootstrap"] is bootstrap
+    assert calls[0] == "strength"
+    assert calls.index("strength") < calls.index("gw") < calls.index("fixtures")

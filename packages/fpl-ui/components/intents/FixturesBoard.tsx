@@ -14,10 +14,18 @@
  * fulfils differently: the page routes to /chat?q=…, the pager prefills the
  * composer.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { buildRealSeasonOutlook } from '@/lib/fixture-outlook-real';
 import { axisLabel } from '@/lib/fixture-outlook-format';
 import { teamOutlookQuestion, fixtureCellQuestion } from '@/lib/fixture-chat-links';
+import {
+  FIXTURE_WINDOW_SESSION_KEY,
+  clampFixtureWindowStart,
+  fixtureGameweeks,
+  fixtureOutlookWindow,
+  restoreFixtureWindow,
+  type StoredFixtureWindow,
+} from '@/lib/fixture-gameweek-navigation';
 import { FixtureTickerRow, BandLegend } from './FixtureTickerRow';
 import { FixtureCompactGrid } from './FixtureCompactGrid';
 import { FixtureTendencyChart } from './FixtureTendencyChart';
@@ -26,6 +34,8 @@ import { CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
 import type { FixtureAxis } from '@/lib/types';
 
 const HORIZONS = [5, 8, 10] as const;
+const MAX_EXPORTED_HORIZON = 10;
+const DAY_MS = 86_400_000;
 type ViewMode = 'detailed' | 'compact' | 'tendency';
 
 const VIEWS: Array<{ id: ViewMode; label: string }> = [
@@ -44,8 +54,82 @@ export function FixturesBoard({
   const [axis, setAxis] = useState<FixtureAxis>('attack');
   const [horizon, setHorizon] = useState<number>(8);
   const [view, setView] = useState<ViewMode>(initialView);
+  const [nextGameweek, setNextGameweek] = useState<number | null>(null);
+  const [windowState, setWindowState] = useState<StoredFixtureWindow | null>(null);
 
-  const data = useMemo(() => buildRealSeasonOutlook(axis, horizon), [axis, horizon]);
+  // Use the largest exported schedule as the navigation source, then apply
+  // the selected 5/8/10-column window below.
+  const sourceData = useMemo(
+    () => buildRealSeasonOutlook(axis, MAX_EXPORTED_HORIZON),
+    [axis],
+  );
+  const gameweeks = useMemo(() => fixtureGameweeks(sourceData), [sourceData]);
+  const fallbackGameweek = gameweeks[0] ?? 1;
+  const baseGameweek = clampFixtureWindowStart(
+    nextGameweek ?? fallbackGameweek,
+    gameweeks,
+    horizon,
+  ) ?? fallbackGameweek;
+  const startGameweek = windowState?.baseGameweek === baseGameweek
+    ? windowState.startGameweek
+    : baseGameweek;
+  const data = useMemo(
+    () => fixtureOutlookWindow(sourceData, startGameweek, horizon),
+    [horizon, sourceData, startGameweek],
+  );
+  const visibleEndGameweek = data.teams[0]?.series.at(-1)?.gameweek ?? startGameweek;
+  const previousGameweek = clampFixtureWindowStart(startGameweek - 1, gameweeks, horizon);
+  const followingGameweek = clampFixtureWindowStart(startGameweek + 1, gameweeks, horizon);
+
+  // Re-check daily. The route has a daily server cache, so this is one small
+  // request per open session rather than a live polling loop.
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        const response = await fetch('/api/fpl-fixture-status');
+        if (!response.ok) return;
+        const payload = await response.json() as { next_gw?: unknown };
+        if (active && Number.isInteger(payload.next_gw)) setNextGameweek(payload.next_gw as number);
+      } catch {
+        // The committed schedule remains a safe offline fallback.
+      }
+    };
+    void load();
+    const timer = window.setInterval(load, DAY_MS);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  // A saved manual window applies only while FPL's `next_gw` is unchanged.
+  // On the J1 -> J2 rollover this resolves back to J2 automatically.
+  useEffect(() => {
+    if (gameweeks.length === 0) return;
+    let saved: string | null = null;
+    try {
+      saved = window.sessionStorage.getItem(FIXTURE_WINDOW_SESSION_KEY);
+    } catch {
+      // Storage can be disabled; navigation still works in memory.
+    }
+    const restored = restoreFixtureWindow(saved, baseGameweek, gameweeks, horizon);
+    if (restored !== null) setWindowState({ baseGameweek, startGameweek: restored });
+  }, [baseGameweek, gameweeks, horizon]);
+
+  useEffect(() => {
+    if (windowState?.baseGameweek !== baseGameweek) return;
+    try {
+      window.sessionStorage.setItem(FIXTURE_WINDOW_SESSION_KEY, JSON.stringify(windowState));
+    } catch {
+      // Session storage is an enhancement, never a dependency.
+    }
+  }, [baseGameweek, windowState]);
+
+  const moveWindow = (delta: -1 | 1) => {
+    const next = clampFixtureWindowStart(startGameweek + delta, gameweeks, horizon);
+    if (next !== null) setWindowState({ baseGameweek, startGameweek: next });
+  };
 
   return (
     <div className="space-y-4">
@@ -88,6 +172,31 @@ export function FixturesBoard({
               {h}
             </button>
           ))}
+        </div>
+
+        {/* Gameweek window navigation */}
+        <div className="inline-flex items-center gap-1.5" aria-label="Navegar jornadas">
+          <button
+            type="button"
+            onClick={() => moveWindow(-1)}
+            disabled={previousGameweek === null || previousGameweek === startGameweek}
+            aria-label="Jornada anterior"
+            className="w-7 h-7 rounded-md border border-white/10 text-bf-gray hover:text-white disabled:opacity-35 disabled:hover:text-bf-gray transition-colors"
+          >
+            ‹
+          </button>
+          <span className="text-[11px] font-extrabold text-bf-gray whitespace-nowrap" aria-live="polite">
+            J{startGameweek}–J{visibleEndGameweek}
+          </span>
+          <button
+            type="button"
+            onClick={() => moveWindow(1)}
+            disabled={followingGameweek === null || followingGameweek === startGameweek}
+            aria-label="Jornada siguiente"
+            className="w-7 h-7 rounded-md border border-white/10 text-bf-gray hover:text-white disabled:opacity-35 disabled:hover:text-bf-gray transition-colors"
+          >
+            ›
+          </button>
         </div>
 
         {/* View toggle */}

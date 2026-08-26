@@ -29,6 +29,8 @@ exist).
 from __future__ import annotations
 
 import math
+from numbers import Real
+from typing import Any
 
 import pandas as pd
 
@@ -130,7 +132,24 @@ def compute_rolling_strength(
     }
     team_ids = list(fallback.keys())
 
-    past = fixtures_df[fixtures_df["event_id"] < as_of_gw]
+    # The all-fixtures endpoint contains future (unscored) rows alongside
+    # completed matches.  A checkpoint must use final results only: accepting
+    # a partially-played fixture would make the value depend on the moment in
+    # the gameweek at which the process happened to start.
+    required_fixture_columns = {
+        "event_id", "team_h", "team_a", "team_h_score", "team_a_score",
+    }
+    missing_columns = required_fixture_columns - set(fixtures_df.columns)
+    if missing_columns:
+        raise ValueError(
+            "fixtures data is missing required columns: "
+            + ", ".join(sorted(missing_columns))
+        )
+
+    scored = fixtures_df["team_h_score"].notna() & fixtures_df["team_a_score"].notna()
+    if "finished" in fixtures_df.columns:
+        scored &= fixtures_df["finished"].fillna(False).astype(bool)
+    past = fixtures_df[(fixtures_df["event_id"] < as_of_gw) & scored]
 
     # Per (team_id, venue) -> [(gw, goals_scored, goals_conceded), ...].
     by_team_venue: dict[tuple[int, str], list[tuple[int, int, int]]] = {}
@@ -178,3 +197,126 @@ def compute_rolling_strength(
                 result[tid][field] = _OUTPUT_BASE + blended * _OUTPUT_SPAN
 
     return result
+
+
+def _resolve_as_of_gw(bootstrap: dict[str, Any], fixtures: list[dict[str, Any]]) -> int | None:
+    """Find the first GW whose results must not influence the strengths.
+
+    Prefer FPL's ``is_current`` marker while a gameweek is live, excluding its
+    partial results.  Immediately after a completed gameweek no current event
+    remains, so ``is_next`` permits that newly finalised round to influence the
+    upcoming one.  The final fallback makes the helper usable with minimal,
+    test-injected bootstrap payloads as well.
+    """
+    events = bootstrap.get("events", [])
+    if isinstance(events, list):
+        for marker in ("is_current", "is_next"):
+            marked = [event for event in events if isinstance(event, dict) and event.get(marker)]
+            if marked:
+                try:
+                    return min(int(event["id"]) for event in marked)
+                except (KeyError, TypeError, ValueError):
+                    pass
+
+        upcoming = []
+        for event in events:
+            if not isinstance(event, dict) or event.get("finished"):
+                continue
+            try:
+                upcoming.append(int(event["id"]))
+            except (KeyError, TypeError, ValueError):
+                continue
+        if upcoming:
+            return min(upcoming)
+
+    completed = []
+    for fixture in fixtures:
+        if not isinstance(fixture, dict) or not fixture.get("finished"):
+            continue
+        try:
+            completed.append(int(fixture["event"]))
+        except (KeyError, TypeError, ValueError):
+            continue
+    return max(completed) + 1 if completed else None
+
+
+def inject_rolling_strength(
+    bootstrap: dict[str, Any],
+    fixtures: list[dict[str, Any]],
+    *,
+    as_of_gw: int | None = None,
+) -> bool:
+    """Replace bootstrap team-strength fields with final-result walk-forward values.
+
+    ``bootstrap`` is updated in place so every downstream consumer sees one
+    coherent set of strengths.  The function is intentionally conservative:
+    incomplete bootstrap payloads, unscored fixtures, and cold starts leave
+    the original FPL values untouched and return ``False`` rather than
+    degrading fixture responses.  A successful cold-start computation still
+    returns ``True`` because it preserves the FPL fallback rank by design.
+
+    Args:
+        bootstrap: FPL ``bootstrap-static`` shape containing ``teams`` and
+            optionally ``events``.
+        fixtures: FPL all-fixtures payload.  Only rows marked ``finished``
+            with both scores present can contribute.
+        as_of_gw: Explicit checkpoint for deterministic callers/tests.  When
+            omitted it is inferred from bootstrap event markers.
+    """
+    teams = bootstrap.get("teams")
+    if not isinstance(teams, list) or not isinstance(fixtures, list):
+        return False
+
+    checkpoint = as_of_gw if as_of_gw is not None else _resolve_as_of_gw(bootstrap, fixtures)
+    if not isinstance(checkpoint, int) or checkpoint < 1:
+        return False
+
+    team_rows: list[dict[str, Any]] = []
+    for team in teams:
+        if not isinstance(team, dict):
+            return False
+        try:
+            team_id = int(team["id"])
+        except (KeyError, TypeError, ValueError):
+            return False
+        values: dict[str, float] = {}
+        for field in STRENGTH_FIELDS:
+            value = team.get(field)
+            if not isinstance(value, Real) or isinstance(value, bool) or not math.isfinite(float(value)):
+                return False
+            values[field] = float(value)
+        team_rows.append({"team_id": team_id, **values})
+
+    fixture_rows: list[dict[str, int | bool]] = []
+    for fixture in fixtures:
+        if not isinstance(fixture, dict) or not fixture.get("finished"):
+            continue
+        try:
+            fixture_rows.append({
+                "event_id": int(fixture["event"]),
+                "team_h": int(fixture["team_h"]),
+                "team_a": int(fixture["team_a"]),
+                "team_h_score": int(fixture["team_h_score"]),
+                "team_a_score": int(fixture["team_a_score"]),
+                "finished": True,
+            })
+        except (KeyError, TypeError, ValueError):
+            # An anomalous fixture must not prevent the valid final results
+            # from informing strengths for the rest of the league.
+            continue
+
+    teams_df = pd.DataFrame(team_rows)
+    fixtures_df = pd.DataFrame(
+        fixture_rows,
+        columns=["event_id", "team_h", "team_a", "team_h_score", "team_a_score", "finished"],
+    )
+    strengths = compute_rolling_strength(
+        "live",
+        checkpoint,
+        _teams_df=teams_df,
+        _fixtures_df=fixtures_df,
+    )
+    for team in teams:
+        for field, value in strengths[int(team["id"])].items():
+            team[field] = value
+    return True
