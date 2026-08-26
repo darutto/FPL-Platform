@@ -675,6 +675,30 @@
       "progress": 100
     },
     {
+      "id": "s24",
+      "col": "shipped",
+      "title": "Recalcular team strength walk-forward desde resultados reales",
+      "desc": "Fusionada (PR #173, 25/08). rolling_strength.py calcula wins/losses/goals por equipo desde fixtures finalizados; popula strength_attack/defence_home/away escalado 1–5. Inyectado en context.py para bootstrap vivo y owned-store. Resultado: attack/defence difficulty ahora diferenciado en fixture_outlook.",
+      "tags": [
+        "Backend",
+        "Datos",
+        "Track D"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s25",
+      "col": "shipped",
+      "title": "Ticker de fixtures con auto-advance + navegación por jornadas",
+      "desc": "Fusionada (PR #173, 25/08). FixturesBoard.tsx y fixture-gameweek-navigation.ts. Auto-ancla diariamente a next_gw (J1→J2 automático), navegación ±1 GW con persistencia por sesión, reset automático al cambiar jornada. Flechas para explorar más allá de 10 GWs.",
+      "tags": [
+        "Frontend",
+        "Track D",
+        "UI"
+      ],
+      "progress": 100
+    },
+    {
       "id": "i38",
       "col": "evaluation",
       "title": "Eleccion de herramienta: MEDIDO, falta decidir que hacer",
