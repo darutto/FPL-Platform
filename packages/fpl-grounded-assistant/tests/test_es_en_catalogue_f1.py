@@ -366,6 +366,143 @@ class TestSelectPlayersRenderer:
 
 
 # ===========================================================================
+# F2. get_my_squad — new i39 renderer, catalogue-native from day one
+# ===========================================================================
+
+_MY_SQUAD_OK = {
+    "status": "ok", "team_id": 12345, "gw": 3,
+    "players": [
+        {
+            "id": 1, "web_name": "Raya", "team_short": "ARS", "position": "GKP",
+            "now_cost": 50, "status": "Available", "chance_of_playing_this_round": None,
+            "form": 4.0, "total_points": 20, "is_captain": False, "is_vice_captain": False,
+            "multiplier": 1, "pick_position": 1, "is_starter": True,
+        },
+        {
+            "id": 2, "web_name": "Haaland", "team_short": "MCI", "position": "FWD",
+            "now_cost": 145, "status": "Available", "chance_of_playing_this_round": None,
+            "form": 8.0, "total_points": 60, "is_captain": True, "is_vice_captain": False,
+            "multiplier": 2, "pick_position": 2, "is_starter": True,
+        },
+        {
+            "id": 3, "web_name": "Salah", "team_short": "LIV", "position": "MID",
+            "now_cost": 130, "status": "Doubtful", "chance_of_playing_this_round": 75,
+            "form": 6.5, "total_points": 55, "is_captain": False, "is_vice_captain": True,
+            "multiplier": 1, "pick_position": 3, "is_starter": True,
+        },
+        {
+            "id": 4, "web_name": "Sub One", "team_short": "WHU", "position": "DEF",
+            "now_cost": 45, "status": "Available", "chance_of_playing_this_round": None,
+            "form": 2.0, "total_points": 10, "is_captain": False, "is_vice_captain": False,
+            "multiplier": 1, "pick_position": 12, "is_starter": False,
+        },
+    ],
+    "summary": {"gw_points": 58, "total_points": 210, "bank": 5, "active_chip": "bench_boost"},
+}
+
+
+class TestMySquadRenderer:
+    def test_es_header_and_starters_bench_split(self):
+        from fpl_grounded_assistant.renderer import render
+        text = render("get_my_squad", _MY_SQUAD_OK, locale="es")
+        assert "**Tu equipo — GW3** (chip activo: Bench Boost)" in text
+        assert "Titulares:" in text
+        assert "Banquillo:" in text
+        # Starters precede bench in the rendered order.
+        assert text.index("Titulares:") < text.index("Banquillo:")
+        assert "  Sub One (WHU, DEF)" in text
+
+    def test_en_header_and_labels_translate(self):
+        from fpl_grounded_assistant.renderer import render
+        text = render("get_my_squad", _MY_SQUAD_OK, locale="en")
+        assert "**Your squad — GW3** (active chip: Bench Boost)" in text
+        assert "Starting XI:" in text
+        assert "Bench:" in text
+
+    def test_captain_and_vice_captain_tags(self):
+        from fpl_grounded_assistant.renderer import render
+        text = render("get_my_squad", _MY_SQUAD_OK, locale="es")
+        assert "Haaland (MCI, FWD)" in text
+        haaland_line = next(l for l in text.splitlines() if "Haaland" in l)
+        salah_line = next(l for l in text.splitlines() if "Salah" in l)
+        assert haaland_line.endswith("(C)")
+        assert salah_line.endswith("(VC)")
+
+    def test_status_label_localized(self):
+        from fpl_grounded_assistant.renderer import render
+        es = render("get_my_squad", _MY_SQUAD_OK, locale="es")
+        en = render("get_my_squad", _MY_SQUAD_OK, locale="en")
+        assert "Dudoso" in es
+        assert "Doubtful" in en
+
+    def test_summary_line_bank_and_points(self):
+        from fpl_grounded_assistant.renderer import render
+        text = render("get_my_squad", _MY_SQUAD_OK, locale="es")
+        assert "GW3: 58pts | Total: 210pts | En el banco: £0.5m" in text
+
+    def test_no_chip_clause_when_no_active_chip(self):
+        from fpl_grounded_assistant.renderer import render
+        payload = dict(_MY_SQUAD_OK)
+        payload["summary"] = dict(_MY_SQUAD_OK["summary"], active_chip=None)
+        text = render("get_my_squad", payload, locale="es")
+        assert "chip activo" not in text
+        assert "**Tu equipo — GW3**" in text
+
+    def test_no_team_connected_localized(self):
+        from fpl_grounded_assistant.renderer import render
+        payload = {"status": "no_team_connected", "code": "no_team_connected"}
+        es = render("get_my_squad", payload, locale="es")
+        en = render("get_my_squad", payload, locale="en")
+        assert "Conecta tu equipo" in es
+        assert "Connect your team" in en
+
+    def test_team_not_found_localized_with_id(self):
+        from fpl_grounded_assistant.renderer import render
+        payload = {"status": "not_found", "code": "team_not_found", "team_id": 999}
+        es = render("get_my_squad", payload, locale="es")
+        en = render("get_my_squad", payload, locale="en")
+        assert "999" in es and "No encontré" in es
+        assert "999" in en and "couldn't find" in en
+
+    def test_network_error_localized(self):
+        from fpl_grounded_assistant.renderer import render
+        payload = {"status": "error", "code": "network_error", "message": "boom"}
+        es = render("get_my_squad", payload, locale="es")
+        en = render("get_my_squad", payload, locale="en")
+        # The catalogue text is used, not the tool's raw internal message.
+        assert "boom" not in es and "boom" not in en
+        assert "No pude obtener" in es
+        assert "couldn't fetch" in en
+
+    def test_invalid_gw_localized(self):
+        from fpl_grounded_assistant.renderer import render
+        payload = {"status": "error", "code": "invalid_gw"}
+        es = render("get_my_squad", payload, locale="es")
+        en = render("get_my_squad", payload, locale="en")
+        assert "jornada debe estar entre 1 y 38" in es
+        assert "Gameweek must be between 1 and 38" in en
+
+    def test_unknown_error_code_falls_back_to_generic(self):
+        from fpl_grounded_assistant.renderer import render
+        payload = {"status": "error", "code": "tool_exception", "message": "kaput"}
+        text = render("get_my_squad", payload, locale="es")
+        assert text == "Error (tool_exception): kaput"
+
+    def test_gw_clamped_note_shown_localized(self):
+        from fpl_grounded_assistant.renderer import render
+        payload = {**_MY_SQUAD_OK, "requested_gw": 4, "gw_clamped": True}
+        es = render("get_my_squad", payload, locale="es")
+        en = render("get_my_squad", payload, locale="en")
+        assert "GW4" in es and "aún no fue publicada" in es
+        assert "GW4" in en and "aren't published yet" in en
+
+    def test_no_clamp_note_when_not_clamped(self):
+        from fpl_grounded_assistant.renderer import render
+        text = render("get_my_squad", _MY_SQUAD_OK, locale="es")
+        assert "aún no fue publicada" not in text
+
+
+# ===========================================================================
 # G. harness._unrecognised_message
 # ===========================================================================
 
@@ -424,7 +561,7 @@ class TestDeterministicRenderHarness:
         for item in audit_entries:
             safe(item["tool"], item["output"])
 
-        assert len(_RENDERERS) == 37
+        assert len(_RENDERERS) == 38
         error_payload = {"status": "error", "code": "harness_synthetic_error", "message": "synthetic error payload"}
         for tool_name in sorted(_RENDERERS):
             safe(tool_name, {})
@@ -438,7 +575,7 @@ class TestDeterministicRenderHarness:
     def test_zero_errors_and_full_coverage(self, locale, audit_entries):
         texts, errors = self._render_all(locale, audit_entries)
         assert errors == [], f"{len(errors)} render(s) raised: {errors[:3]}"
-        assert len(texts) == 110
+        assert len(texts) == 112
 
     @pytest.mark.parametrize("locale", ["es", "en"])
     def test_no_leaked_catalogue_keys(self, locale, audit_entries):

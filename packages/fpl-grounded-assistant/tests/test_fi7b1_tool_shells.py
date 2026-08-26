@@ -79,8 +79,8 @@ class _AnthropicToolClient:
 def test_static_registry_is_35_under_both_flag_states(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    assert len(_ALL_SCHEMAS) == 35
-    assert len(TOOL_NAMES) == 35
+    assert len(_ALL_SCHEMAS) == 36
+    assert len(TOOL_NAMES) == 36
     assert FI7B_TOOL_NAMES == EXPECTED_FI7B_NAMES
     assert all(validate_tool_schema_shape(schema) for schema in _ALL_SCHEMAS)
 
@@ -89,20 +89,20 @@ def test_static_registry_is_35_under_both_flag_states(
             monkeypatch.delenv(FOOTBALL_INTELLIGENCE_ENABLED_ENV, raising=False)
         else:
             monkeypatch.setenv(FOOTBALL_INTELLIGENCE_ENABLED_ENV, value)
-        assert len(_ALL_SCHEMAS) == 35
+        assert len(_ALL_SCHEMAS) == 36
 
 
 def test_offered_set_excludes_deprecated_adapters_under_both_fi_states() -> None:
     off_names = get_offered_tool_names(False)
     on_names = get_offered_tool_names(True)
 
-    assert len(off_names) == 28
+    assert len(off_names) == 29
     assert not (off_names & EXPECTED_FI7B_NAMES)
     assert off_names == TOOL_NAMES - EXPECTED_FI7B_NAMES - DEPRECATED_LLM_TOOL_NAMES
-    assert len(on_names) == 32
+    assert len(on_names) == 33
     assert on_names == TOOL_NAMES - DEPRECATED_LLM_TOOL_NAMES
-    assert len(get_offered_tool_schemas(False)) == 28
-    assert len(get_offered_tool_schemas(True)) == 32
+    assert len(get_offered_tool_schemas(False)) == 29
+    assert len(get_offered_tool_schemas(True)) == 33
 
 
 def test_provider_tool_payload_tracks_only_the_master_flag(
@@ -113,10 +113,10 @@ def test_provider_tool_payload_tracks_only_the_master_flag(
     monkeypatch.setenv(FOOTBALL_INTELLIGENCE_ENABLED_ENV, "true")
     on_names = _anthropic_names(_build_tools(None))
 
-    assert len(off_names) == 28
+    assert len(off_names) == 29
     assert not (set(off_names) & EXPECTED_FI7B_NAMES)
     assert not (set(off_names) & DEPRECATED_LLM_TOOL_NAMES)
-    assert len(on_names) == 32
+    assert len(on_names) == 33
     assert set(on_names) == TOOL_NAMES - DEPRECATED_LLM_TOOL_NAMES
 
 
@@ -228,7 +228,7 @@ forbidden = {
     "football_intelligence.modules.tactical_role",
     "football_intelligence.modules.fixture_context",
 }
-assert len(tools) == 28
+assert len(tools) == 29
 assert not (after & forbidden)
 assert not ((after - before) & forbidden)
 print(json.dumps({"tools": len(tools)}))
@@ -248,4 +248,4 @@ print(json.dumps({"tools": len(tools)}))
         text=True,
     )
     assert completed.returncode == 0, completed.stderr
-    assert completed.stdout.strip() == '{"tools": 28}'
+    assert completed.stdout.strip() == '{"tools": 29}'

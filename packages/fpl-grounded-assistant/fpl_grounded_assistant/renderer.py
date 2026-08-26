@@ -1223,6 +1223,104 @@ def _render_get_team_snapshot(output: dict[str, Any], locale: Locale = DEFAULT_L
     return f"Error ({code}): {message}"
 
 
+#: Chip codes stay in their FPL-app-native English display form regardless of
+#: locale -- the FPL app itself has no Spanish UI, so a Spanish-speaking user
+#: needs this exact label to find the chip in their own app. Same rule as
+#: web_name / position codes in catalogue.py: cross-referenced against another
+#: system, so it does not translate with the sentence around it.
+_CHIP_DISPLAY_LABEL: dict[str, str] = {
+    "wildcard":       "Wildcard",
+    "triple_captain": "Triple Captain",
+    "bench_boost":    "Bench Boost",
+    "free_hit":       "Free Hit",
+}
+
+
+def _render_get_my_squad(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
+    """Render get_my_squad raw_output.  i39.
+
+    Every status this tool can return is handled explicitly with catalogue
+    text (never the tool's own hardcoded-Spanish ``message`` field) so the
+    deterministic render honors *locale* even though the tool itself does
+    not carry a locale parameter -- same tier boundary as every other F1
+    renderer (catalogue.py's "Tier boundary" note).
+    """
+    status = output.get("status")
+
+    if status == "ok":
+        gw       = output.get("gw", "?")
+        players  = output.get("players", [])
+        summary  = output.get("summary", {})
+        chip_raw = summary.get("active_chip")
+
+        chip_clause = ""
+        if chip_raw:
+            chip_label = _CHIP_DISPLAY_LABEL.get(chip_raw, chip_raw)
+            chip_clause = t("my_squad.chip_clause", locale, chip_label=chip_label)
+
+        lines = [t("my_squad.header", locale, gw=gw, chip_clause=chip_clause)]
+        if output.get("gw_clamped"):
+            lines.append(t(
+                "my_squad.gw_clamped_note", locale,
+                requested_gw=output.get("requested_gw", "?"), gw=gw,
+            ))
+
+        starters = [p for p in players if p.get("is_starter")]
+        bench    = [p for p in players if not p.get("is_starter")]
+
+        def _player_line(p: dict[str, Any]) -> str:
+            name       = p.get("web_name", "?")
+            team       = p.get("team_short", "?")
+            pos        = p.get("position", "?")
+            cost       = p.get("now_cost", 0) / 10.0
+            status_lbl = _localized_status_label(p.get("status", ""), locale)
+            form       = p.get("form", 0.0)
+            captain_tag = ""
+            if p.get("is_captain"):
+                captain_tag = " (C)"
+            elif p.get("is_vice_captain"):
+                captain_tag = " (VC)"
+            return t(
+                "my_squad.player_line", locale,
+                name=name, team=team, pos=pos, cost=f"{cost:.1f}",
+                status_lbl=status_lbl, form=form, captain_tag=captain_tag,
+            )
+
+        if starters:
+            lines.append(t("my_squad.starters_header", locale))
+            lines.extend(_player_line(p) for p in starters)
+        if bench:
+            lines.append(t("my_squad.bench_header", locale))
+            lines.extend(_player_line(p) for p in bench)
+
+        bank_m = (summary.get("bank") or 0) / 10.0
+        lines.append(t(
+            "my_squad.summary_line", locale,
+            gw=gw,
+            gw_points=summary.get("gw_points", "?"),
+            total_points=summary.get("total_points", "?"),
+            bank=f"{bank_m:.1f}",
+        ))
+        return "\n".join(lines)
+
+    if status == "no_team_connected":
+        return t("my_squad.no_team_connected", locale)
+
+    if status == "not_found":
+        team_id = output.get("team_id", "?")
+        return t("my_squad.team_not_found", locale, team_id=team_id)
+
+    if status == "error" and output.get("code") == "network_error":
+        return t("my_squad.network_error", locale)
+
+    if status == "error" and output.get("code") == "invalid_gw":
+        return t("my_squad.invalid_gw", locale, min_gw=1, max_gw=38)
+
+    code    = output.get("code", "error")
+    message = output.get("message", t("my_squad.error_fallback", locale))
+    return f"Error ({code}): {message}"
+
+
 def _render_search_web(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render search_web raw_output as a Spanish prose summary.
 
@@ -1754,6 +1852,7 @@ _RENDERERS = {
     "get_fixtures_for_gw":      _render_get_fixtures_for_gw,     # P2.4
     "get_gameweek_context":     _render_get_gameweek_context,    # P2.5
     "get_team_snapshot":        _render_get_team_snapshot,       # P2.6
+    "get_my_squad":             _render_get_my_squad,            # i39
     "web_fetch":                _render_web_fetch,               # P2.7
     "rank_players_by_metric":   _render_rank_players_by_metric,  # P2.8
     "build_squad":              _render_build_squad,             # S1
@@ -1784,7 +1883,7 @@ def render(tool_name: str, raw_output: dict[str, Any], locale: Locale = DEFAULT_
     raw_output:
         The dict returned by ``fpl_tool_runner.run_tool()``.
     locale:
-        Language-track F1: forwarded to every sub-renderer, all 37 of which
+        Language-track F1: forwarded to every sub-renderer, all 38 of which
         now share this signature. Renderers outside F1's scoped set still
         ignore it (``del locale``) and produce their historical text
         regardless of *locale* — see the F1 report for exactly which five

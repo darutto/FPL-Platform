@@ -675,8 +675,8 @@ from fpl_grounded_assistant.orchestrator import (
 # Orch-2a: registry integrity
 _names = list_tool_schemas()
 ok(
-    len(_names) == 35,
-    "K1: 35 tools in static registry (FI-7b1 + solver; offered set remains flag-gated)",
+    len(_names) == 36,
+    "K1: 36 tools in static registry (FI-7b1 + solver + i39 get_my_squad; offered set remains flag-gated)",
 )
 ok(_names == sorted(_names),                    "K2: names sorted")
 for _s in _ALL_SCHEMAS:

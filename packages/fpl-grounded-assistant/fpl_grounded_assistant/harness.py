@@ -505,6 +505,7 @@ def ask_v2(
     selected_player_id: int | None = None,
     _enrich_existing_intents: bool = True,
     locale: Locale = DEFAULT_LOCALE,
+    team_id: int | None = None,
 ) -> dict[str, Any]:
     """Phase M1/M2/M3 entrypoint composing `decision_router` + existing `ask()`.
 
@@ -655,6 +656,21 @@ def ask_v2(
         all of them — no string changes with *locale*'s value yet (see F1).
         The orchestrator branch (``ask_orchestrated()``) is untouched by this
         param; its own text production is out of scope for F0.
+    team_id:
+        i39 carrier param — the connected user's FPL entry (team) id, when the
+        request has one. ``None`` for every anonymous turn (the overwhelming
+        majority). When present, injected as ``bootstrap["_my_team_id"]`` onto
+        a **shallow copy** of ``actual_bootstrap`` — never a mutation of the
+        caller's ``bootstrap`` dict, which in production is the single
+        server-level cached bootstrap shared across every concurrent request
+        (see ``fpl_server.py``'s module-level ``_bootstrap``). Mutating that
+        shared object in place would leak one user's team id into another
+        user's turn under FastAPI's threadpool — the same class of bug
+        ``catalogue.py`` documents for locale. The copy is skipped entirely
+        when ``team_id is None``, so a turn with no team connected sees the
+        exact same ``actual_bootstrap`` object it always did. Read by the
+        ``get_my_squad`` tool (``get_my_squad.py``); every other tool ignores
+        the extra key.
     """
     # Import here to avoid circulars at module-load time.
     from .decision_router import (
@@ -720,6 +736,15 @@ def ask_v2(
 
     # Resolve bootstrap up-front so both branches operate on the same data
     actual_bootstrap, context_meta = _resolve_bootstrap_and_meta(bootstrap)
+
+    # i39: inject the connected user's team id for get_my_squad, on a shallow
+    # copy only — see the team_id docstring entry above for why this must
+    # never mutate the shared bootstrap dict in place. Skipped entirely when
+    # team_id is None so the no-team-connected path is byte-for-byte
+    # unchanged (same object, not just same contents).
+    if team_id is not None:
+        actual_bootstrap = dict(actual_bootstrap)
+        actual_bootstrap["_my_team_id"] = team_id
 
     # Stable-id wizard handoff: the structured id is authoritative. The
     # display question is deliberately ignored so a stale id can never fall

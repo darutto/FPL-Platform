@@ -261,6 +261,7 @@ from .get_player_history import get_player_history          # P2.3 — triggers 
 from .get_fixtures_for_gw import get_fixtures_for_gw        # P2.4 — triggers TOOL_REGISTRY self-registration
 from .get_gameweek_context import get_gameweek_context      # P2.5 — triggers TOOL_REGISTRY self-registration
 from .get_team_snapshot import get_team_snapshot            # P2.6 — triggers TOOL_REGISTRY self-registration
+from .get_my_squad import get_my_squad                      # i39 — triggers TOOL_REGISTRY self-registration
 from .web_fetch import web_fetch                            # P2.7 — triggers TOOL_REGISTRY self-registration
 from .rank_players_by_metric import rank_players_by_metric  # P2.8 — triggers TOOL_REGISTRY self-registration
 from .build_squad_tool import build_squad                    # S1 — triggers TOOL_REGISTRY self-registration
@@ -542,6 +543,8 @@ __all__ = [
     "get_gameweek_context",
     # P2.6: atomic get_team_snapshot tool
     "get_team_snapshot",
+    # i39: atomic get_my_squad tool (the connected user's own squad)
+    "get_my_squad",
     # P2.7: atomic web_fetch tool (allowlisted football/FPL URLs)
     "web_fetch",
     # P2.8: atomic rank_players_by_metric tool

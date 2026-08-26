@@ -839,6 +839,43 @@ GET_TEAM_SNAPSHOT_SCHEMA = ToolSchema(
 
 
 # ---------------------------------------------------------------------------
+# i39 atomic tool — get_my_squad (the connected user's own squad)
+# ---------------------------------------------------------------------------
+
+GET_MY_SQUAD_SCHEMA = ToolSchema(
+    name="get_my_squad",
+    description=(
+        "The connected user's own 15-man FPL squad for a gameweek: starting XI + bench "
+        "(pick order), captain/vice-captain, price, injury/availability status, form, "
+        "and any active chip. Use for 'mi equipo', 'mi plantilla', 'mis suplentes', "
+        "'evalúa mi equipo', or any question about the user's OWN squad composition — "
+        "never for a hypothetical or another manager's team. "
+        "status='no_team_connected' when no team is linked (ask the user to connect one, "
+        "never ask them to paste their 15 players by hand)."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "gw": {
+                "type":        "integer",
+                "description": (
+                    "Gameweek to fetch picks for (1-38). Defaults to the current gameweek. "
+                    "A future GW has no published picks yet and is clamped down to the "
+                    "current GW automatically (response gw_clamped=true, requested_gw echoes "
+                    "what was asked for) — the current squad is still the right basis for "
+                    "planning a future chip or transfer."
+                ),
+                "minimum":     1,
+                "maximum":     38,
+            },
+        },
+        "required":             [],
+        "additionalProperties": False,
+    },
+)
+
+
+# ---------------------------------------------------------------------------
 # P2.7 atomic tool — web_fetch (allowlisted football/FPL URL fetch)
 # ---------------------------------------------------------------------------
 
@@ -1401,6 +1438,8 @@ _BASE_REGISTERED_SCHEMAS: tuple[ToolSchema, ...] = (
     GET_GAMEWEEK_CONTEXT_SCHEMA,
     # P2.6 atomic tool
     GET_TEAM_SNAPSHOT_SCHEMA,
+    # i39 atomic tool — connected user's own squad
+    GET_MY_SQUAD_SCHEMA,
     # P2.7 atomic tool
     WEB_FETCH_SCHEMA,
     # P2.8 atomic tool

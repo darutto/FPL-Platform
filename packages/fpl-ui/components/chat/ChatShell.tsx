@@ -197,6 +197,8 @@ export default function ChatShell() {
         intent_hint: intentHint,
         // squad_context is passed on every turn; null when no team connected
         squad_context: squadContext ?? null,
+        // team_id enables get_my_squad server-side (i39); null when no team connected
+        team_id: teamId ?? null,
         // Explicit opt-in only — never silent. Gated by tier eligibility so
         // an ineligible user can't spend a request on a feature the backend
         // would reject anyway (defense-in-depth; the UI already locks the

@@ -195,6 +195,13 @@ export interface AskRequest {
    * WEB_SEARCH_TIERS allowlist — see lib/tiers.ts QUOTA_BUCKETS.webSearch.
    */
   web_search_requested?: boolean;
+  /**
+   * The connected user's FPL team (entry) id, when a team is linked (i39).
+   * Enables the get_my_squad tool server-side — unrelated to squad_context
+   * above, which only carries ITB/free-transfers/chips, not the team id.
+   * `null`/omitted for every anonymous turn.
+   */
+  team_id?: number | null;
 }
 
 /** Optional squad state included on every /ask request once the user

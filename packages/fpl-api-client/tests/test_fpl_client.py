@@ -429,6 +429,86 @@ class TestGetEventLive:
 
 
 # ---------------------------------------------------------------------------
+# K. get_entry_picks
+# ---------------------------------------------------------------------------
+
+_MINIMAL_ENTRY_PICKS = {
+    "active_chip": None,
+    "entry_history": {
+        "event": 3,
+        "points": 58,
+        "total_points": 210,
+        "bank": 5,
+        "event_transfers": 1,
+        "event_transfers_cost": 0,
+    },
+    "picks": [
+        {"element": 1, "position": 1, "multiplier": 1, "is_captain": False, "is_vice_captain": False},
+        {"element": 2, "position": 2, "multiplier": 2, "is_captain": True, "is_vice_captain": False},
+    ],
+}
+
+
+class TestGetEntryPicks:
+    def test_url_format(self):
+        """ENTRY_PICKS_URL.format(...) produces the expected URL."""
+        from fpl_api_client.fpl_client import ENTRY_PICKS_URL
+        url = ENTRY_PICKS_URL.format(team_id=12345, gameweek=3)
+        assert url == "https://fantasy.premierleague.com/api/entry/12345/event/3/picks/"
+
+    def test_round_trips_payload(self):
+        """get_entry_picks returns the parsed dict from fetch_json."""
+        from fpl_api_client.fpl_client import get_entry_picks
+        with patch(_PATCH_TARGET, return_value=_make_mock_response(_MINIMAL_ENTRY_PICKS)):
+            result = get_entry_picks(12345, 3)
+        assert result == _MINIMAL_ENTRY_PICKS
+        assert "picks" in result
+        assert "entry_history" in result
+
+    def test_calls_entry_picks_url(self):
+        """get_entry_picks fetches the correct ENTRY_PICKS_URL for the given team/GW."""
+        from fpl_api_client.fpl_client import get_entry_picks, ENTRY_PICKS_URL
+        with patch(_PATCH_TARGET, return_value=_make_mock_response(_MINIMAL_ENTRY_PICKS)) as mock_get:
+            get_entry_picks(12345, 3)
+        called_url = mock_get.call_args[0][0]
+        assert called_url == ENTRY_PICKS_URL.format(team_id=12345, gameweek=3)
+
+    def test_uses_entry_picks_timeout(self):
+        """get_entry_picks passes ENTRY_PICKS_TIMEOUT_S, not the 30s default."""
+        from fpl_api_client.fpl_client import get_entry_picks, ENTRY_PICKS_TIMEOUT_S
+        with patch(_PATCH_TARGET, return_value=_make_mock_response(_MINIMAL_ENTRY_PICKS)) as mock_get:
+            get_entry_picks(12345, 3)
+        assert mock_get.call_args[1]["timeout"] == ENTRY_PICKS_TIMEOUT_S
+
+    def test_picks_entry_shape(self):
+        """Each picks entry has element, position, multiplier, is_captain, is_vice_captain."""
+        from fpl_api_client.fpl_client import get_entry_picks
+        with patch(_PATCH_TARGET, return_value=_make_mock_response(_MINIMAL_ENTRY_PICKS)):
+            result = get_entry_picks(12345, 3)
+        entry = result["picks"][0]
+        assert "element" in entry
+        assert "position" in entry
+        assert "multiplier" in entry
+        assert "is_captain" in entry
+        assert "is_vice_captain" in entry
+
+    def test_404_raises_http_error(self):
+        """An unknown team_id (404) raises requests.HTTPError, same as fetch_json's other callers."""
+        from fpl_api_client.fpl_client import get_entry_picks
+        with patch(_PATCH_TARGET, return_value=_make_error_response(404)):
+            with pytest.raises(requests.HTTPError):
+                get_entry_picks(999999999, 3)
+
+    def test_connection_error_propagates_after_retries(self):
+        """A network failure raises requests.ConnectionError after retries, same as fetch_json."""
+        from fpl_api_client.fpl_client import get_entry_picks
+        with patch(_PATCH_TARGET, side_effect=requests.ConnectionError("no route")):
+            with patch("time.sleep"):  # skip real backoff delay
+                with pytest.raises(requests.ConnectionError):
+                    get_entry_picks(12345, 3)
+
+
+# ---------------------------------------------------------------------------
 # H. Public surface guard
 # ---------------------------------------------------------------------------
 

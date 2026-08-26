@@ -274,6 +274,10 @@ class AskRequest(BaseModel):
     candidates_list: list[dict[str, Any]] | None = None  # Phase 5p
     squad_context: dict[str, Any] | None = None          # Phase 8e1: optional per-turn squad state
     intent_hint: str | None = None                       # V2: optional slash-command routing bias
+    #: i39: the connected user's FPL team (entry) id, when a team is linked.
+    #: ``None`` for every anonymous turn. Threaded to ask_v2() -> the
+    #: get_my_squad tool only — squad_context above is unrelated and unchanged.
+    team_id: StrictInt | None = None
     #: Explicit per-request opt-in for the premium web-search tool (globe
     #: toggle). Only takes effect when the caller's tier is in
     #: WEB_SEARCH_TIERS — see the gate in POST /ask. Parity with WC's
@@ -1935,7 +1939,9 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
 
     # ------------------------------------------------------------------
     # Core routing: ask_v2() → harness_adapter.to_ask_response()
-    # squad_context goes to the adapter only (not to ask_v2).
+    # squad_context goes to the adapter only (not to ask_v2). team_id (i39)
+    # is different: it goes to ask_v2() only, for the get_my_squad tool —
+    # the adapter's _apply_squad_overrides has no use for it.
     # ------------------------------------------------------------------
     ask_v2_dict: dict[str, Any] = _ask_v2(
         effective_question,
@@ -1945,6 +1951,7 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
         web_search_enabled=web_search_enabled,
         selected_player_id=req.selected_player_id,
         locale=locale,
+        team_id=req.team_id,  # i39: get_my_squad tool context
     )
 
     # ------------------------------------------------------------------
