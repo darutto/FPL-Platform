@@ -23,6 +23,7 @@ from fpl_historical.rolling_strength import (
     _decay_weight,
     _percentile_rank,
     compute_rolling_strength,
+    inject_rolling_strength,
 )
 
 
@@ -200,6 +201,87 @@ class TestDefenceSign:
             "synthetic", 11, prior_weight=0.5, _teams_df=teams, _fixtures_df=fixtures
         )
         assert res[1]["strength_defence_home"] > res[3]["strength_defence_home"]
+
+
+class TestBootstrapInjection:
+    def test_current_gameweek_wins_over_next_and_excludes_its_results(self):
+        """A live GW must not leak its partial or even already-final rows."""
+        teams_df = _synthetic_teams(6)
+        bootstrap = {
+            "events": [
+                {"id": 6, "is_current": True},
+                {"id": 7, "is_next": True},
+            ],
+            "teams": [
+                {"id": int(row["team_id"]), **{field: row[field] for field in STRENGTH_FIELDS}}
+                for _, row in teams_df.iterrows()
+            ],
+        }
+        fixtures = []
+        for gw in range(1, 6):
+            fixtures.extend([
+                {"event": gw, "team_h": 1, "team_a": 2, "team_h_score": 4, "team_a_score": 0, "finished": True},
+                {"event": gw, "team_h": 3, "team_a": 4, "team_h_score": 1, "team_a_score": 1, "finished": True},
+                {"event": gw, "team_h": 5, "team_a": 6, "team_h_score": 1, "team_a_score": 0, "finished": True},
+            ])
+        fixtures.extend([
+            # This extreme completed result is in the current GW and must be
+            # excluded until the next bootstrap refresh selects GW7.
+            {"event": 6, "team_h": 1, "team_a": 2, "team_h_score": 99, "team_a_score": 0, "finished": True},
+            {"event": 7, "team_h": 3, "team_a": 4, "team_h_score": 99, "team_a_score": 0, "finished": False},
+        ])
+        expected_fixtures = pd.DataFrame([
+            {"event_id": item["event"], "team_h": item["team_h"], "team_a": item["team_a"],
+             "team_h_score": item["team_h_score"], "team_a_score": item["team_a_score"],
+             "finished": item["finished"]}
+            for item in fixtures
+        ])
+        expected = compute_rolling_strength(
+            "synthetic", 6, _teams_df=teams_df, _fixtures_df=expected_fixtures
+        )
+
+        assert inject_rolling_strength(bootstrap, fixtures) is True
+        for team in bootstrap["teams"]:
+            for field in STRENGTH_FIELDS:
+                assert team[field] == expected[team["id"]][field]
+
+    def test_next_gameweek_uses_the_completed_previous_round(self):
+        """With no current event, ``is_next`` is the walk-forward boundary."""
+        teams_df = _synthetic_teams(6)
+        bootstrap = {
+            "events": [{"id": 2, "is_next": True}],
+            "teams": [
+                {"id": int(row["team_id"]), **{field: row[field] for field in STRENGTH_FIELDS}}
+                for _, row in teams_df.iterrows()
+            ],
+        }
+        fixtures = [
+            {"event": 1, "team_h": 1, "team_a": 2, "team_h_score": 3, "team_a_score": 0, "finished": True},
+            {"event": 2, "team_h": 1, "team_a": 2, "team_h_score": 99, "team_a_score": 0, "finished": False},
+        ]
+        # Five other teams must also have a completed venue observation before
+        # own-rank blending can activate.  The expected computation is still
+        # the cleanest proof that GW1, not GW2, is the boundary.
+        for home, away in ((3, 4), (5, 6), (2, 3), (4, 5), (6, 1)):
+            fixtures.append({"event": 1, "team_h": home, "team_a": away, "team_h_score": 1, "team_a_score": 1, "finished": True})
+        expected = compute_rolling_strength(
+            "synthetic", 2, _teams_df=teams_df,
+            _fixtures_df=pd.DataFrame([
+                {"event_id": item["event"], "team_h": item["team_h"], "team_a": item["team_a"],
+                 "team_h_score": item["team_h_score"], "team_a_score": item["team_a_score"], "finished": item["finished"]}
+                for item in fixtures
+            ]),
+        )
+
+        assert inject_rolling_strength(bootstrap, fixtures) is True
+        assert bootstrap["teams"][0]["strength_attack_home"] == expected[1]["strength_attack_home"]
+
+    def test_incomplete_team_strength_payload_is_left_unchanged(self):
+        bootstrap = {"teams": [{"id": 1, "strength_attack_home": 1200}]}
+        before = {**bootstrap["teams"][0]}
+
+        assert inject_rolling_strength(bootstrap, []) is False
+        assert bootstrap["teams"][0] == before
 
 
 @requires_real_season

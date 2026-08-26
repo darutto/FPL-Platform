@@ -341,6 +341,28 @@ def load_bootstrap_from_owned_store(
     try:
         fixtures_df = pd.read_parquet(merged_dir / "fixtures.parquet")
         fixtures_row_count = int(len(fixtures_df))
+        # The fallback path bypasses fpl_pipeline's live-bootstrap assembly,
+        # so apply the same walk-forward strengths here from the owned final
+        # fixture rows.  This is deliberately fail-soft: old owned snapshots
+        # may lack one of the four strength columns and remain usable with
+        # their captured FPL values.
+        try:
+            from fpl_historical.rolling_strength import inject_rolling_strength
+
+            fixture_records = []
+            for row in fixtures_df.to_dict(orient="records"):
+                fixture_records.append({
+                    "event": row.get("event_id"),
+                    "team_h": row.get("team_h"),
+                    "team_a": row.get("team_a"),
+                    "team_h_score": row.get("team_h_score"),
+                    "team_a_score": row.get("team_a_score"),
+                    "finished": row.get("finished"),
+                })
+            if inject_rolling_strength(bootstrap_dict, fixture_records):
+                _LOGGER.info("owned_store_walk_forward_strength_injected")
+        except Exception as exc:  # Older store / model unavailable: retain FPL values.
+            _LOGGER.debug("owned_store_walk_forward_strength_skipped err=%s", exc)
         bootstrap_dict["team_fixtures"] = _build_team_fixtures_from_owned_store(
             fixtures_df, bootstrap_dict["teams"]
         )

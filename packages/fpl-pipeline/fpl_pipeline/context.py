@@ -49,10 +49,27 @@ from typing import Any
 from fpl_api_client import (
     get_bootstrap,
     get_current_gameweek,
+    get_all_fixtures,
     get_fixture_difficulty_map,
     get_fixtures,
     get_teams,
 )
+
+
+def _inject_walk_forward_team_strength(bootstrap: dict[str, Any]) -> bool:
+    """Populate team strengths from completed real fixtures, fail-soft.
+
+    ``fpl-pipeline`` remains usable as a standalone package: the historical
+    model is an optional sibling dependency.  In the production server it is
+    on ``sys.path`` and the resulting values are injected before fixture maps
+    or any assistant tool receives this bootstrap.
+    """
+    try:
+        from fpl_historical.rolling_strength import inject_rolling_strength
+
+        return inject_rolling_strength(bootstrap, get_all_fixtures())
+    except Exception:  # The live bootstrap is still a valid fallback.
+        return False
 
 
 def _remaining_gameweeks(bootstrap: dict[str, Any], start_gw: int) -> list[int]:
@@ -220,8 +237,15 @@ def assemble_captain_context(
     # ------------------------------------------------------------------
     # 1. Bootstrap
     # ------------------------------------------------------------------
-    if bootstrap is None:
+    bootstrap_was_fetched = bootstrap is None
+    if bootstrap_was_fetched:
         bootstrap = get_bootstrap()
+
+    # Reweight from final real results before any consumer receives the
+    # bootstrap.  Explicitly supplied bootstraps stay fully deterministic and
+    # never trigger an additional all-fixtures network request.
+    if bootstrap_was_fetched:
+        _inject_walk_forward_team_strength(bootstrap)
 
     # ------------------------------------------------------------------
     # 2. Gameweek resolution
