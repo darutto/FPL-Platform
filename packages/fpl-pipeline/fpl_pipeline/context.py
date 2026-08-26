@@ -49,11 +49,11 @@ from typing import Any
 from fpl_api_client import (
     get_bootstrap,
     get_current_gameweek,
-    get_all_fixtures,
     get_fixture_difficulty_map,
     get_fixtures,
     get_teams,
 )
+from fpl_api_client.fpl_client import get_all_fixtures
 
 
 def _inject_walk_forward_team_strength(bootstrap: dict[str, Any]) -> bool:
