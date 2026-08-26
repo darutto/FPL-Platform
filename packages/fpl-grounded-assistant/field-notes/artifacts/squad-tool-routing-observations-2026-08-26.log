@@ -1,0 +1,140 @@
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 8731.37, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 4945.85, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 4061.71, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 3374.47, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 3864.02, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 3608.49, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 5235.16, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 4836.07, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 4040.66, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 3924.05, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2522.27, "attempts": 1}
+synthesis LLM call succeeded but returned no text for provider=openai; rendering first tool only
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1552.37, "attempts": 1}
+synthesis LLM call succeeded but returned no text for provider=openai; rendering first tool only
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1787.21, "attempts": 1}
+synthesis LLM call succeeded but returned no text for provider=openai; rendering first tool only
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1823.17, "attempts": 1}
+synthesis LLM call succeeded but returned no text for provider=openai; rendering first tool only
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1874.36, "attempts": 1}
+synthesis LLM call succeeded but returned no text for provider=openai; rendering first tool only
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 3328.44, "attempts": 1}
+synthesis LLM call succeeded but returned no text for provider=openai; rendering first tool only
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 3582.55, "attempts": 1}
+synthesis LLM call succeeded but returned no text for provider=openai; rendering first tool only
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2896.16, "attempts": 1}
+synthesis LLM call succeeded but returned no text for provider=openai; rendering first tool only
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 3267.04, "attempts": 1}
+synthesis LLM call succeeded but returned no text for provider=openai; rendering first tool only
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2982.69, "attempts": 1}
+synthesis LLM call succeeded but returned no text for provider=openai; rendering first tool only
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 3409.09, "attempts": 1}
+synthesis LLM call succeeded but returned no text for provider=openai; rendering first tool only
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 3907.26, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 3113.2, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2364.77, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 4050.38, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 3467.62, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2086.78, "attempts": 1}
+synthesis LLM call succeeded but returned no text for provider=openai; rendering first tool only
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2395.95, "attempts": 1}
+synthesis LLM call succeeded but returned no text for provider=openai; rendering first tool only
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 4233.49, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2154.18, "attempts": 1}
+synthesis LLM call succeeded but returned no text for provider=openai; rendering first tool only
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 4937.71, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 3567.51, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 4695.59, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 5124.82, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 5311.1, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2299.07, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2303.24, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2433.48, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1788.43, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2220.86, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1562.66, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1179.21, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 3934.91, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1548.81, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1385.39, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2493.73, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2323.94, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 3126.01, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2687.56, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 3013.73, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1938.85, "attempts": 1}
+synthesis LLM call succeeded but returned no text for provider=openai; rendering first tool only
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2090.77, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1545.78, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1649.04, "attempts": 1}
+synthesis LLM call succeeded but returned no text for provider=openai; rendering first tool only
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2049.87, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1769.61, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1655.92, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1634.28, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2990.07, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1727.9, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 4369.85, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2942.13, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 3657.16, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 5153.04, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 4809.18, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 4178.5, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 3788.0, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 5200.66, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 3658.0, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 4444.57, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1691.38, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1544.58, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2283.84, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2174.18, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2048.02, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 4285.21, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2358.84, "attempts": 1}
+synthesis LLM call succeeded but returned no text for provider=openai; rendering first tool only
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 4506.14, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2947.29, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 3275.79, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2642.58, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2183.69, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 3782.32, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2451.44, "attempts": 1}
+synthesis LLM call succeeded but returned no text for provider=openai; rendering first tool only
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 3104.3, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 3158.31, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2764.84, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2434.55, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2444.27, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 3197.51, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 5325.2, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 3915.5, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2488.89, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 4084.49, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 7799.3, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1986.71, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1817.91, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1438.94, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1182.98, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1114.3, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1104.19, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1674.5, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2103.11, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1678.65, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1504.96, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2106.1, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2278.52, "attempts": 1}
+synthesis LLM call succeeded but returned no text for provider=openai; rendering first tool only
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2646.66, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 3838.84, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2190.01, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 3447.82, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1538.15, "attempts": 1}
+synthesis LLM call succeeded but returned no text for provider=openai; rendering first tool only
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2047.44, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1488.27, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 4354.93, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 2048.27, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1661.42, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 4553.72, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1821.52, "attempts": 1}
+fpl_provider_event {"event": "provider_call_success", "provider": "openai", "model": "gpt-5.6-luna", "latency_ms": 1923.09, "attempts": 1}
