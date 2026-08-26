@@ -9,7 +9,7 @@ Phase 1c public surface (bootstrap slice):
 
 Phase 4a additions (fixtures slice):
 
-    from fpl_api_client import get_fixtures, get_all_fixtures, get_fixture_difficulty_map
+    from fpl_api_client import get_fixtures, get_fixture_difficulty_map
 
 Preseason reweight addition (season-launch guard for form-based scoring):
 
@@ -24,7 +24,6 @@ from .fpl_client import (
     get_teams,
     get_current_gameweek,
     get_fixtures,
-    get_all_fixtures,
     get_fixture_difficulty_map,
     is_form_informative,
 )
@@ -35,7 +34,6 @@ __all__ = [
     "get_teams",
     "get_current_gameweek",
     "get_fixtures",
-    "get_all_fixtures",
     "get_fixture_difficulty_map",
     "is_form_informative",
 ]
