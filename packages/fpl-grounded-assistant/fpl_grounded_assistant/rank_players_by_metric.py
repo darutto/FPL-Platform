@@ -17,8 +17,12 @@ Reuse
 
 Metric aliases
 --------------
-The public API accepts common aliases (xgi, xg, xa, ict, popularity).
-All aliases are resolved to the canonical bootstrap field name before lookup.
+The public API accepts common aliases (xgi, xg, xa, ict, popularity) in English
+and Spanish. All aliases are resolved to the canonical bootstrap field name
+before lookup, in three steps: exact match, then a unique-prefix completion,
+then token containment for the Spanish noun phrases a model emits verbatim
+("tiros libres directos" -> direct_freekicks_order). Containment never guesses:
+a tie between two different fields returns ``unknown_metric``.
 
 Filters
 -------
@@ -26,7 +30,14 @@ Filters
 *  ``min_minutes``: exclude players with fewer minutes than this threshold.
 *  ``min_price`` / ``max_price``: inclusive GBP-million price bounds.
 
-Both filters are applied BEFORE sorting.
+All filters are applied BEFORE sorting.
+
+Direction
+---------
+``order`` ("desc" default / "asc") controls the sort. Without it a "cheapest
+defenders" question received the ten most expensive ones and the model rescored
+that set -- a fluent, confidently wrong answer citing real numbers. The applied
+direction is echoed back as ``order`` so renderers can title accordingly.
 
 Registration
 ------------
@@ -159,6 +170,27 @@ _METRIC_ALIASES: dict[str, str] = {
     "amenaza":                            "threat",
     "saves":                              "saves",
     "paradas":                            "saves",
+    # Spanish phrasings the orchestrator emits verbatim (i18). Keys are stored
+    # accent-free because `_normalize_metric` strips accents before lookup.
+    "goles":                              "goals_scored",
+    "goles esperados en contra":          "expected_goals_conceded",
+    "goles esperados concedidos":         "expected_goals_conceded",
+    "xg en contra":                       "expected_goals_conceded",
+    "transferencias de entrada":          "transfers_in_event",
+    "transferencias de salida":           "transfers_out_event",
+    "propiedad":                          "selected_by_percent",
+    "porcentaje de propiedad":            "selected_by_percent",
+    "asistencias":                        "assists",
+    "minutos":                            "minutes",
+    "puntos":                             "total_points",
+    "puntos por partido":                 "points_per_game",
+    "porterias a cero":                   "clean_sheets",
+    "bonificaciones":                     "bonus",
+    "goles esperados":                    "expected_goals",
+    "asistencias esperadas":              "expected_assists",
+    # Disambiguates against "tiros libres" (direct) under token containment:
+    # without it, the longer phrase would resolve to the direct-freekick order.
+    "tiros libres indirectos":            "corners_and_indirect_freekicks_order",
 }
 
 #: Sorted list of canonical metric names exposed to users.
@@ -195,12 +227,99 @@ _LOWER_IS_BETTER: frozenset[str] = frozenset({
 # value while retaining the raw now_cost in each grounding payload.
 _METRIC_VALUE_SCALE: dict[str, float] = {"now_cost": 0.1}
 
+# Sort directions. `order` is caller-supplied; `natural_order` is what applies
+# when the caller supplies nothing.
+_ORDER_DESC: str = "desc"
+_ORDER_ASC:  str = "asc"
+
+
+def natural_order(field_name: str) -> str:
+    """Direction that ranks ``field_name`` best-first absent an explicit order.
+
+    Descending for every metric except the set-piece orders, where being 1st on
+    the list is the good end. Consumers use it to tell a "top N" ranking from
+    one the caller deliberately inverted.
+    """
+    return _ORDER_ASC if field_name in _LOWER_IS_BETTER else _ORDER_DESC
+
 
 def _normalize_metric(value: str) -> str:
     """Normalize accents/case without rewriting metric punctuation."""
     nfkd = unicodedata.normalize("NFKD", value)
     stripped = "".join(char for char in nfkd if not unicodedata.combining(char))
     return " ".join(stripped.lower().split())
+
+
+# ---------------------------------------------------------------------------
+# Token containment: resolving the Spanish phrase a model actually emits
+# ---------------------------------------------------------------------------
+# Measured (26 live calls, i18/i19): routing picks this tool 26/26, but 11 of
+# those returned unknown_metric because the model emits the user's whole
+# Spanish noun phrase -- "tiros libres directos", "amenaza ofensiva",
+# "tiradores de penales" -- and the alias map only did exact equality plus a
+# prefix relaxation in the useless direction (input a prefix OF a key). Every
+# failing phrase CONTAINS its alias rather than prefixing it.
+#
+# Deliberately NOT fuzzy: an alias resolves only when all of its tokens appear
+# in the input, and a tie between aliases of two DIFFERENT fields returns
+# unknown_metric rather than guessing. That is what keeps i15 intact --
+# invented metrics ("chispa ofensiva", "garra") share no token with any alias,
+# so they still relay unknown_metric to the user.
+
+#: Spanish function words and query framing that carry no metric information.
+#: Stripped from both sides so "transferencias de entrada esta jornada" and
+#: "transferencias de entrada" compare as the same token set.
+_METRIC_STOPWORDS: frozenset[str] = frozenset({
+    "de", "del", "la", "las", "los", "el", "en", "por", "esta", "este",
+    "jornada", "gameweek", "liga", "temporada",
+})
+
+
+def _metric_tokens(value: str) -> frozenset[str]:
+    """Content tokens of a metric phrase, accent- and case-insensitive."""
+    return frozenset(
+        token for token in _normalize_metric(value).split()
+        if token not in _METRIC_STOPWORDS
+    )
+
+
+#: (alias tokens, canonical field) for every alias with at least one content
+#: token. Built once at import; the map is static.
+_ALIAS_TOKEN_SETS: tuple[tuple[frozenset[str], str], ...] = tuple(
+    (tokens, field)
+    for tokens, field in (
+        (_metric_tokens(alias), field) for alias, field in _METRIC_ALIASES.items()
+    )
+    if tokens
+)
+
+
+def _resolve_by_token_containment(normalized_metric: str) -> "str | None":
+    """Resolve a phrase that contains an alias, or ``None`` if it is ambiguous.
+
+    The alias with the most matched tokens wins, so "goles esperados en contra"
+    beats both "goles esperados" and "goles". A tie between aliases of two
+    different fields resolves to ``None`` -- never a guess.
+    """
+    input_tokens = _metric_tokens(normalized_metric)
+    if not input_tokens:
+        return None
+
+    best_size = 0
+    winning_fields: set[str] = set()
+    for alias_tokens, field in _ALIAS_TOKEN_SETS:
+        if not alias_tokens <= input_tokens:
+            continue
+        size = len(alias_tokens)
+        if size > best_size:
+            best_size, winning_fields = size, {field}
+        elif size == best_size:
+            # Aliases of the same field collapse; distinct fields tie.
+            winning_fields.add(field)
+
+    if len(winning_fields) != 1:
+        return None
+    return next(iter(winning_fields))
 
 
 # ---------------------------------------------------------------------------
@@ -214,6 +333,7 @@ def rank_players_by_metric(
     min_minutes: int = 0,
     min_price: "float | None" = None,
     max_price: "float | None" = None,
+    order: "str | None" = None,
     bootstrap: "dict[str, Any] | None" = None,
 ) -> dict[str, Any]:
     """Rank players by a numeric bootstrap metric.
@@ -228,6 +348,12 @@ def rank_players_by_metric(
         min_minutes: exclude players with fewer minutes (default 0).
         min_price: optional inclusive minimum price in GBP millions.
         max_price: optional inclusive maximum price in GBP millions.
+        order: "desc" (default, highest first) or "asc" (lowest first, for
+            *menos / más barato / menor / diferencial* questions). An explicit
+            value overrides the metric's natural direction, so ``asc`` really
+            does return the cheapest players rather than the most expensive.
+            Unrecognized values fall back to the natural direction, which the
+            returned ``order`` field always reports.
         bootstrap: live FPL bootstrap; fetched if None.
 
     Returns:
@@ -235,6 +361,7 @@ def rank_players_by_metric(
         {
             "status": "ok",
             "metric": <canonical field name>,
+            "order": "desc" | "asc",   # direction actually applied
             "top_n": <int>,
             "position_filter": <str | None>,
             "min_minutes_filter": <int>,
@@ -302,6 +429,10 @@ def rank_players_by_metric(
             normalized_metric = shortest_matches[0]
             field_name = shortest_field
         else:
+            # Last resort: the input is a phrase that CONTAINS an alias.
+            field_name = _resolve_by_token_containment(normalized_metric)
+
+        if field_name is None:
             return {
                 "status":        "invalid_argument",
                 "code":          "unknown_metric",
@@ -323,6 +454,16 @@ def rank_players_by_metric(
         min_minutes = max(0, int(min_minutes))
     except (ValueError, TypeError):
         min_minutes = 0
+
+    # Explicit order wins over the metric's natural direction, including for
+    # the set-piece orders. Anything unrecognized falls back rather than
+    # erroring -- and the applied direction is reported back in the payload.
+    requested_order: "str | None" = None
+    if isinstance(order, str):
+        candidate = _normalize_metric(order)
+        if candidate in (_ORDER_ASC, _ORDER_DESC):
+            requested_order = candidate
+    effective_order = requested_order or natural_order(field_name)
 
     def _price_tenths(value: Any) -> int | None:
         if value is None:
@@ -356,6 +497,7 @@ def rank_players_by_metric(
         return {
             "status":             "ok",
             "metric":             field_name,
+            "order":              effective_order,
             "top_n":              0,
             "position_filter":    canonical_position,
             "min_minutes_filter": min_minutes,
@@ -406,7 +548,7 @@ def rank_players_by_metric(
 
     filtered.sort(
         key=_raw_metric_value,
-        reverse=field_name not in _LOWER_IS_BETTER,
+        reverse=effective_order == _ORDER_DESC,
     )
 
     def _metric_value(el: dict[str, Any]) -> float:
@@ -428,6 +570,7 @@ def rank_players_by_metric(
     return {
         "status":             "ok",
         "metric":             field_name,
+        "order":              effective_order,
         "top_n":              len(ranked),
         "position_filter":    canonical_position,
         "min_minutes_filter": min_minutes,
@@ -448,7 +591,8 @@ RANK_PLAYERS_BY_METRIC_SPEC = ToolSpec(
         "Top N players by a bootstrap metric: performance, per-90 rates, price, "
         "current-GW transfer momentum, set-piece order, cards, xGC, ICT components, "
         "and saves. Filter by position, minutes, and price bounds. "
-        "Use for ANY top/best/most-by-metric query."
+        "Use for ANY top/best/most-by-metric query, and set order='asc' for the "
+        "least/cheapest/lowest variants."
     ),
     parameters={
         "type": "object",
@@ -491,6 +635,18 @@ RANK_PLAYERS_BY_METRIC_SPEC = ToolSpec(
                 "description": "Inclusive maximum player price in GBP millions.",
                 "minimum":     0,
             },
+            "order": {
+                "type":        "string",
+                "enum":        ["desc", "asc"],
+                "description": (
+                    "Sort direction. Default 'desc' = highest value first. "
+                    "Use 'asc' for LOWEST-first questions -- 'menos', 'más barato', "
+                    "'más baratos', 'menor', 'peor', 'diferencial', 'cheapest', "
+                    "'fewest', 'lowest'. Without it a 'cheapest defenders' question "
+                    "gets the MOST expensive ones. Pair 'asc' with min_minutes so "
+                    "players who have not played do not fill the list."
+                ),
+            },
         },
         "required":             ["metric"],
         "additionalProperties": False,
@@ -500,6 +656,7 @@ RANK_PLAYERS_BY_METRIC_SPEC = ToolSpec(
         "properties": {
             "status":             {"type": "string"},
             "metric":             {"type": "string"},
+            "order":              {"type": "string"},
             "top_n":              {"type": "integer"},
             "position_filter":    {"type": ["string", "null"]},
             "min_minutes_filter": {"type": "integer"},
@@ -533,6 +690,7 @@ def _rank_players_by_metric_handler(
             min_minutes = args.get("min_minutes", 0),
             min_price   = args.get("min_price"),
             max_price   = args.get("max_price"),
+            order       = args.get("order"),
             bootstrap   = bootstrap,
         )
     except Exception as exc:  # noqa: BLE001

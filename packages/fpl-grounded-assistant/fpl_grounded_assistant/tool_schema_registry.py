@@ -918,6 +918,8 @@ RANK_PLAYERS_BY_METRIC_SCHEMA = ToolSchema(
         "'best fixtures'), use get_transfer_suggestion, which takes a horizon. "
         "Use this for top/best/most-by-metric queries about present-state metrics, "
         "even when the metric may be unknown (the tool validates and returns valid_metrics). "
+        "It also answers the LEAST/CHEAPEST/LOWEST variants -- pass order='asc' rather "
+        "than reordering a descending list, which would only rank the wrong end. "
         "A ranked list is not a squad: it ignores budget, positional quotas and the "
         "three-per-club cap, so use build_squad when the answer has to be a legal squad, "
         "and select_players_within_budget when it has to be a specific number of players "
@@ -962,6 +964,18 @@ RANK_PLAYERS_BY_METRIC_SCHEMA = ToolSchema(
                 "type":        "number",
                 "description": "Inclusive maximum player price in GBP millions.",
                 "minimum":     0,
+            },
+            "order": {
+                "type":        "string",
+                "enum":        ["desc", "asc"],
+                "description": (
+                    "Sort direction. Default 'desc' = highest value first. "
+                    "Use 'asc' for LOWEST-first questions -- 'menos', 'más barato', "
+                    "'más baratos', 'menor', 'peor', 'diferencial', 'cheapest', "
+                    "'fewest', 'lowest'. Without it a 'cheapest defenders' question "
+                    "gets the MOST expensive ones. Pair 'asc' with min_minutes so "
+                    "players who have not played do not fill the list."
+                ),
             },
         },
         "required":             ["metric"],
