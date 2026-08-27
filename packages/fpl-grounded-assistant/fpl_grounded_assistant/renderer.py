@@ -1376,6 +1376,22 @@ def _render_web_fetch(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -
     return f"Error ({code}): {message}{suffix}"
 
 
+def _rank_is_inverted(metric: str, order: "str | None") -> bool:
+    """True when the caller flipped the metric's natural ranking direction.
+
+    ``order`` is absent on payloads produced before it existed, and equals the
+    natural direction for an ordinary ranking — both read as not inverted.
+    """
+    if order is None:
+        return False
+    try:  # local import — renderer is also importable flat, without the package
+        from .rank_players_by_metric import natural_order
+    except ImportError:  # pragma: no cover - flat-import fallback
+        from rank_players_by_metric import natural_order  # type: ignore[no-redef]
+
+    return order != natural_order(metric)
+
+
 def _render_rank_players_by_metric(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render rank_players_by_metric raw_output.  P2.8."""
     del locale  # F1 commit 1: mechanical signature only, not yet honored.
@@ -1385,6 +1401,7 @@ def _render_rank_players_by_metric(output: dict[str, Any], locale: Locale = DEFA
         ranked    = output.get("ranked", [])
         pos_flt   = output.get("position_filter")
         min_mins  = output.get("min_minutes_filter", 0)
+        order     = output.get("order")
 
         filter_parts: list[str] = []
         if pos_flt:
@@ -1396,7 +1413,16 @@ def _render_rank_players_by_metric(output: dict[str, Any], locale: Locale = DEFA
         if not ranked:
             return f"Sin jugadores para la métrica '{metric}'{filter_str}."
 
-        header = f"Top {len(ranked)} jugadores por {metric}{filter_str}:"
+        # An inverted ranking must not be titled "Top": that is exactly how a
+        # cheapest-first list got read back as the most expensive players.
+        if _rank_is_inverted(metric, order):
+            extreme = "menor" if order == "asc" else "mayor"
+            header = (
+                f"Los {len(ranked)} jugadores con {extreme} "
+                f"{metric}{filter_str}:"
+            )
+        else:
+            header = f"Top {len(ranked)} jugadores por {metric}{filter_str}:"
         lines = [header]
         # Table header
         lines.append("  #  | Jugador       | Equipo | Pos | Valor métrica")

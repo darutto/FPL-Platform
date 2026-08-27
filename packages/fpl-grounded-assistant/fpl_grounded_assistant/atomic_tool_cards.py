@@ -34,6 +34,7 @@ from typing import Any
 
 from .formatting import format_metric_value
 from .generic_card import Column, GenericCardMeta, HeroStat
+from .rank_players_by_metric import natural_order
 
 _LOG = logging.getLogger(__name__)
 
@@ -77,6 +78,7 @@ _METRIC_HEADER_ES: dict[str, str] = {
     "yellow_cards":                       "Amarillas",
     "red_cards":                          "Rojas",
     "expected_goals_conceded":            "xGC",
+    "goals_conceded":                     "Goles en contra",
     "influence":                          "Influencia",
     "creativity":                         "Creatividad",
     "threat":                             "Amenaza",
@@ -87,6 +89,20 @@ _METRIC_HEADER_ES: dict[str, str] = {
 def _metric_header(metric: str) -> str:
     """Spanish header for a canonical metric name, with a safe fallback."""
     return _METRIC_HEADER_ES.get(metric, metric.replace("_", " ").title())
+
+
+def _card_title(metric: str, order: "str | None", count: int, header_es: str) -> str:
+    """Title matching the ranking's real direction.
+
+    A caller-inverted ranking (``order="asc"`` on price, say) is the cheapest
+    players, not the top ones — titling it "TOP" is how that list got read back
+    as the most expensive. ``order`` is absent on pre-``order`` payloads and
+    equals the natural direction for an ordinary ranking; both stay "TOP".
+    """
+    if order is not None and order != natural_order(metric):
+        extreme = "MENOR" if order == "asc" else "MAYOR"
+        return f"{count} CON {extreme} · {header_es}"
+    return f"TOP {count} · {header_es}"
 
 
 def _rank_subtitle(raw_output: dict[str, Any]) -> "str | None":
@@ -144,7 +160,9 @@ def compose_rank_players_card(raw_output: dict[str, Any]) -> "GenericCardMeta | 
 
         return GenericCardMeta(
             accent="turquoise",
-            title=f"TOP {len(ranked)} · {header_es}",
+            title=_card_title(
+                metric, raw_output.get("order"), len(ranked), header_es,
+            ),
             subtitle=_rank_subtitle(raw_output),
             hero=hero,
             pills=(),
