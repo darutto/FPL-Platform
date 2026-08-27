@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-26",
+  "updated": "2026-08-27",
   "cards": [
     {
       "id": "s1",
@@ -434,9 +434,9 @@
     },
     {
       "id": "i18",
-      "col": "evaluation",
+      "col": "building",
       "title": "Cobertura Nivel 1 en ranking — precio y momentum",
-      "desc": "Implementado sobre main real: aliases para now_cost y transfers_in/out_event; precio expuesto en £m sin alterar el grounding crudo. Incluido en 853 backend pass + 476 UI pass y build OK.",
+      "desc": "REABIERTA CON EVIDENCIA. MEDIDO EN VIVO 2026-08-26 antes de tocar codigo: 26 llamadas a gpt-5.6-luna, provider pasado explicito, bootstrap live de 614 elementos. Enrutamiento 26/26 correcto a rank_players_by_metric (i15 no falla ni una vez) y turno de sintesis presente 26/26 (confirma en vivo el PR #160). El fallo esta en el ARGUMENTO metric: 11 de 26 devuelven unknown_metric.\n\nEl codigo de i18 SI esta en main (alias de now_cost y transfers_in/out_event). Lo que falta no son mas alias sueltos: el modelo emite el sintagma espanol del usuario tal cual, con modificadores, y _METRIC_ALIASES exige igualdad exacta. El unico relajamiento existente es prefijo DE LA ENTRADA SOBRE LA CLAVE, que es la direccion inutil aqui.\n\nFallos medidos de esta carta:\n  'transferencias de entrada'                x2  (la clave es 'transferencias entrantes')\n  'transferencias de entrada esta jornada'   incluido arriba, con encuadre temporal pegado\n  'propiedad'                                x1  (no existe la clave)\n\nARREGLO: contencion de tokens (si los tokens de una clave son subconjunto de los de la entrada, resuelve; gana la clave con mas tokens; empate entre campos distintos => unknown_metric, nunca adivinar) + los alias espanoles faltantes. El empate es lo que protege a [[i15]], que ya esta verificado en vivo y no se toca.\n\nOJO: parte del mismo encargo que [[i19]] y [[i42]]. Scripts y datos en el scratchpad de la sesion: probe_i18_i19_r1.json, probe_i18_i19_r2.json, probe_direction.json. No hay que volver a pagar la medicion.",
       "tags": [
         "Backend",
         "Datos"
@@ -445,9 +445,9 @@
     },
     {
       "id": "i19",
-      "col": "evaluation",
+      "col": "building",
       "title": "Cobertura Nivel 2 en ranking — set-pieces, tarjetas, xGC",
-      "desc": "Implementado sobre el resolver canónico de #142/#145: órdenes de penales/córners/tiros libres, tarjetas, xGC, influencia/creatividad/amenaza y saves. Set-pieces ordenan ascendente y excluyen no listados. 853 backend pass + 476 UI pass; runner P2 legado 507/518 por 8 asserts de 25 herramientas y 3 mocks de find_players retirado del schema LLM en #144.",
+      "desc": "REABIERTA CON EVIDENCIA. MEDIDO EN VIVO 2026-08-26 antes de tocar codigo: 26 llamadas a gpt-5.6-luna, provider pasado explicito, bootstrap live de 614 elementos. Enrutamiento 26/26 correcto a rank_players_by_metric (i15 no falla ni una vez) y turno de sintesis presente 26/26 (confirma en vivo el PR #160). El fallo esta en el ARGUMENTO metric: 11 de 26 devuelven unknown_metric.\n\nMismo mecanismo que [[i18]]: igualdad exacta contra el sintagma completo. La clave 'amenaza' existe y 'amenaza ofensiva' falla; 'tiros libres' existe y 'tiros libres directos' falla; 'penales' existe y 'tiradores de penales' falla.\n\nFallos medidos de esta carta:\n  'tiros libres directos'                          x2\n  'amenaza ofensiva'                               x2\n  'goles esperados en contra' / '... concedidos'   x3  (xGC no tiene NINGUN alias en espanol)\n  'tiradores de penales'                           x1\n\nDOS CASOS SON NO DETERMINISTAS: xGC y penales resuelven o fallan segun la corrida, con la misma pregunta. El usuario no lo lee como limite del producto, lo lee como que la app a veces sirve y a veces no.\n\nEncargo compartido con [[i18]] y [[i42]].",
       "tags": [
         "Backend",
         "Datos"
@@ -737,6 +737,28 @@
       "progress": 0,
       "title": "get_my_squad no reconoce pertenencia sin posesivo",
       "desc": "MEDIDO ANTES DE PROPONER NADA (PR #171, 120 llamadas, $0.3747). Dos preguntas de squad_building siguen sin llamar ninguna herramienta 5/5 INCLUSO con equipo conectado, despues de que [[i39]] resolviera las otras diez:\n  sb-02  'Necesito 4 medios que me permita el presupuesto, ya tengo el resto del equipo armado.'\n  sb-13  'Necesito dos delanteros y un defensa que me entren en el presupuesto que me queda despues de estas ventas.'\n\nCAUSA: ninguna dice 'mi equipo' ni 'mi plantilla' literalmente. Expresan PERTENENCIA SIN POSESIVO -- 'el resto del equipo', 'el presupuesto que me queda', 'estas ventas'. La descripcion de GET_MY_SQUAD_SCHEMA lista disparadores literales ('mi equipo', 'mi plantilla', 'mis suplentes', 'evalua mi equipo'), y estas frases no coinciden con ninguno.\n\nEs un arreglo de DESCRIPCION DE SCHEMA, no de arquitectura -- probablemente una o dos frases. Pero NO se toca sin control: el mismo PR #171 establecio que get_my_squad hoy tiene 0 sobre-disparos en 30 llamadas negativas, y ensanchar sus disparadores es exactamente la forma de romper eso. Cualquier cambio debe re-medir los tres casos negativos ('¿que defensas baratos hay?', 'compara Haaland y Salah', '¿cual es la jornada actual?') ademas de sb-02/sb-13, y reportar ambas cifras.\n\nOJO tambien con ad-05 ('¿Me conviene hacer un transfer esta semana o mejor guardo el chip?'): estaba subdeterminado entre dos herramientas de consejo ANTES de que existiera get_my_squad, y conectar equipo lo EMPEORO (2/5 -> 5/5 sin-herramienta). Puede ser ruido de una sola pregunta, pero si se toca la descripcion conviene medirlo tambien.",
+      "tags": [
+        "Backend",
+        "IA"
+      ]
+    },
+    {
+      "id": "i42",
+      "col": "building",
+      "progress": 0,
+      "title": "Sin control de orden: las preguntas de 'menos' devuelven mentiras fluidas",
+      "desc": "HALLAZGO COLATERAL de la medicion de [[i18]]/[[i19]] el 2026-08-26. No estaba en ninguna carta y es mas grave que las dos que lo destaparon.\n\nrank_players_by_metric ordena SIEMPRE descendente, salvo los tres campos de _LOWER_IS_BETTER (ordenes de balon parado). No existe parametro de orden. Ante una pregunta de 'menos / mas barato / diferencial / menor', el modelo recibe el top-10 CONTRARIO al que pidio el usuario, lo reordena por dentro y responde con seguridad.\n\nMEDIDO, no supuesto:\n  'Dame los cinco defensas mas baratos' -> la herramienta devuelve los diez defensas MAS CAROS; la respuesta presenta a Saliba (6.0m) como el mas barato de la liga. En las DOS repeticiones. Los defensas que de verdad valen 4.0m nunca entran al conjunto que el modelo ve.\n  '¿Que mediocampistas tienen menos propiedad? Busco diferenciales' -> el modelo ESCRIBE que el ranking viene de mayor a menor y aun asi propone a Palmer, con 14,1% de propiedad, como mejor diferencial.\n  '¿Que defensas tienen menos goles esperados en contra?' -> mismo patron sobre los diez peores defensas por xGC.\n\nPOR QUE ES PEOR QUE unknown_metric: un error de metrica se ve. Esto se lee perfecto, cita numeros reales del bootstrap y es lo contrario de lo que se pregunto. Los tests no lo pueden detectar porque la herramienta hace exactamente lo que dice hacer; el defecto vive en la distancia entre lo que dice hacer y lo que la pregunta necesitaba. El modelo hedgea ('el ranking disponible aparece ordenado de mayor a menor') justo porque no tiene forma de arreglarlo.\n\nARREGLO: parametro order asc|desc, default desc, descrito para que el modelo lo use en preguntas de 'menos/mas barato/diferencial'. order explicito manda sobre _LOWER_IS_BETTER. El payload de salida debe incluir order, y el renderer debe dejar de titular 'top' cuando el orden es ascendente. Test obligatorio: order=asc sobre now_cost devuelve los realmente mas baratos de la liga, no un reordenamiento del top descendente; y sin order el comportamiento actual se preserva byte a byte.\n\nVa en el mismo encargo que [[i18]] y [[i19]] porque toca el mismo archivo, pero es el item de mayor severidad de los tres.",
+      "tags": [
+        "Backend",
+        "IA"
+      ]
+    },
+    {
+      "id": "i43",
+      "col": "idea",
+      "progress": 0,
+      "title": "Contencion por tokens: denylist -> allowlist",
+      "desc": "DECISION DE DISENO PENDIENTE, abierta al revisar el PR #181 (que si arregla lo suyo y esta verificado).\n\nLa contencion por tokens de [[i18]] resuelve eligiendo el alias con mas tokens coincidentes y DESCARTANDO los tokens de la entrada que nadie emparejo. Eso es inofensivo con relleno ('de los defensas') y catastrofico con palabras que reescopan la pregunta. El PR #181 lo tapo con un VETO: una lista de modificadores (contra, recibidos, concedidos, anulados, propia, esperados, 90) que si aparecen en la entrada y no en el alias ganador rechazan el match.\n\nUN VETO ES UNA DENYLIST: solo protege de las palabras que alguien ya penso. Barrido propio sobre el head del PR, verificado contra bootstrap en vivo:\n  'media de puntos'   -> total_points   (De Cuyper 17.0 presentado como media; points_per_game EXISTE)\n  'puntos local' / 'puntos visitante' / 'puntos en casa' -> total_points\n  'goles de cabeza' / 'goles de penalti' / 'goles ultimos 5' -> goals_scored\n  'minutos titular'   -> minutes\n\nLO IMPORTANTE, Y QUE NO HAY QUE SUAVIZAR: antes de la contencion TODAS esas frases devolvian unknown_metric, o sea un fallo visible que el usuario podia corregir. Hoy devuelven un campo equivocado con status ok y numeros reales. La contencion no dejo la cola larga igual: la convirtio de fallo visible en respuesta silenciosamente equivocada. Es la misma clase que [[i42]], por dentro.\n\nARREGLO ESTRUCTURAL PROPUESTO (allowlist): tras elegir ganador, todo token no emparejado debe estar en un vocabulario conocido de relleno (stopwords, encuadre, posiciones, superlativos) o se devuelve unknown_metric. Se auto-mantiene en la direccion segura: una palabra que nadie previo falla visible en vez de resolver mal.\n\nPOR QUE NO SE HIZO YA: rechaza mas que hoy, y de mas seria pagar con cobertura lo que se gana en seguridad. ANTES DE VOLTEARLO hay que medir, no discutir: correr la misma sonda en vivo (probe_i18_i19.py, 26 llamadas, ya escrita y pagada) con allowlist puesta y contar cuantas de las frases que hoy resuelven sobreviven. Si la cobertura no cae, es un cambio gratis. Si cae, el vocabulario de relleno se amplia con lo medido, no con lo imaginado.\n\nArreglo suelto y barato mientras tanto: alias 'media de puntos' / 'promedio de puntos' -> points_per_game, que es el unico de la cola larga cuyo campo correcto ya existe.",
       "tags": [
         "Backend",
         "IA"
