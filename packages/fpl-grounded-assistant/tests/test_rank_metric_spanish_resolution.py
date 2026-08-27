@@ -65,6 +65,7 @@ def price_bootstrap() -> dict:
                 penalties_order=(idx % 3) + 1,
                 direct_freekicks_order=(idx % 2) + 1,
                 goals_scored=idx, assists=idx, total_points=idx,
+                goals_conceded=idx * 2,
                 threat=str(float(idx)),
             )
             for idx, cost in enumerate(prices, start=1)
@@ -173,6 +174,160 @@ def test_ambiguous_phrase_between_two_fields_returns_unknown_metric(price_bootst
 def test_tie_between_aliases_of_the_same_field_still_resolves():
     """"goles" and "goals" are two aliases of one field: not an ambiguity."""
     assert _resolve_by_token_containment("goals y goles del torneo") == "goals_scored"
+
+
+# ---------------------------------------------------------------------------
+# Meaning-changing modifiers — containment must not discard them
+# ---------------------------------------------------------------------------
+# Found by adversarial review of the first cut of token containment, which
+# resolved all three of these to goals_scored: "goles" matched as a one-token
+# alias and the unmatched "contra"/"recibidos"/"concedidos" were discarded.
+# End to end on a real bootstrap that returned status=ok and ranked the top
+# SCORERS for a question about goals CONCEDED. Before containment existed the
+# same phrases returned unknown_metric, so the relaxation had converted a
+# visible failure into a fluent, well-numbered lie.
+
+@pytest.mark.parametrize("phrase", [
+    "goles en contra",
+    "goles recibidos",
+    "goles concedidos",
+])
+def test_conceded_goals_never_resolve_to_goals_scored(price_bootstrap, phrase):
+    """The blocking defect. Kept as its own test so the reason survives: a
+    defence question answered with the league's top scorers is indistinguishable
+    from a correct answer at the point of reading it."""
+    result = rank_players_by_metric(phrase, bootstrap=price_bootstrap)
+
+    assert result["metric"] != "goals_scored"
+    assert result["status"] == "ok"
+    assert result["metric"] == "goals_conceded"
+
+
+def test_conceded_goals_rank_the_leakiest_defences(price_bootstrap):
+    """Ranks the real bootstrap field, not the expected-goals stand-in."""
+    result = rank_players_by_metric(
+        "goles en contra", top_n=3, bootstrap=price_bootstrap,
+    )
+
+    assert [entry["metric_value"] for entry in result["ranked"]] == [24.0, 22.0, 20.0]
+    assert result["order"] == "desc"
+
+    fewest = rank_players_by_metric(
+        "goles en contra", top_n=3, order="asc", bootstrap=price_bootstrap,
+    )
+    assert [entry["metric_value"] for entry in fewest["ranked"]] == [2.0, 4.0, 6.0]
+
+
+def test_expected_and_actual_conceded_goals_stay_distinct(price_bootstrap):
+    """One token apart, two different fields — neither may absorb the other."""
+    actual = rank_players_by_metric("goles en contra", bootstrap=price_bootstrap)
+    expected = rank_players_by_metric(
+        "goles esperados en contra", bootstrap=price_bootstrap,
+    )
+
+    assert actual["metric"] == "goals_conceded"
+    assert expected["metric"] == "expected_goals_conceded"
+    assert _resolve_by_token_containment(
+        "goles esperados en contra de los defensas",
+    ) == "expected_goals_conceded"
+    assert _resolve_by_token_containment(
+        "goles en contra de los defensas",
+    ) == "goals_conceded"
+
+
+@pytest.mark.parametrize("phrase", [
+    "goles anulados",
+    "goles en propia",
+    "asistencias recibidas",
+    "puntos concedidos",
+])
+def test_unaccounted_modifier_refuses_rather_than_dropping_it(
+    price_bootstrap, phrase,
+):
+    """The guard covers the whole class, not only the phrasings observed. Each
+    of these would otherwise match a bare alias and silently discard the word
+    that changes what was asked for."""
+    assert _resolve_by_token_containment(phrase) is None
+
+    result = rank_players_by_metric(phrase, bootstrap=price_bootstrap)
+
+    assert result["status"] == "invalid_argument"
+    assert result["code"] == "unknown_metric"
+
+
+@pytest.mark.parametrize("phrase", [
+    "puntos esperados",
+    "paradas esperadas",
+    "minutos esperados",
+])
+def test_expected_variants_without_a_field_refuse(price_bootstrap, phrase):
+    """"esperado" separates a stat from its expected counterpart. None of these
+    has a bootstrap field, so returning the season total would answer a
+    different question than the one asked — and "minutos esperados" belongs to
+    get_expected_minutes, which cannot be reached if this tool answers first."""
+    result = rank_players_by_metric(phrase, bootstrap=price_bootstrap)
+
+    assert result["status"] == "invalid_argument"
+    assert result["code"] == "unknown_metric"
+
+
+def test_expected_variants_that_do_have_a_field_still_resolve(price_bootstrap):
+    """The guard must not swallow the aliases that legitimately carry it."""
+    for phrase, canonical in (
+        ("goles esperados",                          "expected_goals"),
+        ("asistencias esperadas",                    "expected_assists"),
+        ("goles esperados en contra",                "expected_goals_conceded"),
+        ("goles esperados de los delanteros",        "expected_goals"),
+    ):
+        result = rank_players_by_metric(phrase, bootstrap=price_bootstrap)
+        assert result["status"] == "ok", (phrase, result)
+        assert result["metric"] == canonical, phrase
+
+
+@pytest.mark.parametrize(
+    ("phrase", "canonical"),
+    [
+        ("goles esperados por 90",       "expected_goals_per_90"),
+        ("asistencias esperadas por 90", "expected_assists_per_90"),
+        ("xgi por 90",                   "expected_goal_involvements_per_90"),
+        ("paradas por 90",               "saves_per_90"),
+        ("porterías a cero por 90",      "clean_sheets_per_90"),
+    ],
+)
+def test_spanish_per_90_phrases_resolve_to_the_rate_not_the_season_total(
+    price_bootstrap, phrase, canonical,
+):
+    """The soft form of the same defect: "90" was discarded and the season
+    total was returned as if it were a rate. These aliases carry the modifier,
+    so the guard is satisfied and the rate field is what gets ranked."""
+    result = rank_players_by_metric(phrase, bootstrap=price_bootstrap)
+
+    assert result["status"] == "ok", result
+    assert result["metric"] == canonical
+
+
+def test_per_90_modifier_without_a_rate_alias_still_refuses(price_bootstrap):
+    """No per-90 field exists for cards, so the phrase must fail visibly rather
+    than quietly ranking the season total."""
+    result = rank_players_by_metric(
+        "tarjetas amarillas por 90", bootstrap=price_bootstrap,
+    )
+
+    assert result["status"] == "invalid_argument"
+    assert result["code"] == "unknown_metric"
+
+
+@pytest.mark.parametrize("phrase", [
+    "porteria a cero",
+    "porterías a cero",
+    "vallas invictas",
+    "valla invicta",
+])
+def test_clean_sheet_phrasings_all_resolve(price_bootstrap, phrase):
+    result = rank_players_by_metric(phrase, bootstrap=price_bootstrap)
+
+    assert result["status"] == "ok", result
+    assert result["metric"] == "clean_sheets"
 
 
 # ---------------------------------------------------------------------------

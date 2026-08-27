@@ -78,6 +78,7 @@ _METRIC_HEADER_ES: dict[str, str] = {
     "yellow_cards":                       "Amarillas",
     "red_cards":                          "Rojas",
     "expected_goals_conceded":            "xGC",
+    "goals_conceded":                     "Goles en contra",
     "influence":                          "Influencia",
     "creativity":                         "Creatividad",
     "threat":                             "Amenaza",

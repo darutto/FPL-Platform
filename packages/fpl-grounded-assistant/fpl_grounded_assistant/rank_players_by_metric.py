@@ -22,7 +22,10 @@ and Spanish. All aliases are resolved to the canonical bootstrap field name
 before lookup, in three steps: exact match, then a unique-prefix completion,
 then token containment for the Spanish noun phrases a model emits verbatim
 ("tiros libres directos" -> direct_freekicks_order). Containment never guesses:
-a tie between two different fields returns ``unknown_metric``.
+a tie between two different fields returns ``unknown_metric``, and so does a
+meaning-changing modifier the winning alias does not account for -- "contra",
+"recibidos", "90". Without that guard "goles en contra" matched the one-token
+alias "goles" and answered a goals-CONCEDED question with the top scorers.
 
 Filters
 -------
@@ -170,6 +173,13 @@ _METRIC_ALIASES: dict[str, str] = {
     "amenaza":                            "threat",
     "saves":                              "saves",
     "paradas":                            "saves",
+    # Goals CONCEDED — the real bootstrap field, distinct from its expected
+    # counterpart. It had no alias in any language, so "goles en contra" fell
+    # through to the one-token "goles" and ranked top SCORERS instead.
+    "goals_conceded":                     "goals_conceded",
+    "goles en contra":                    "goals_conceded",
+    "goles recibidos":                    "goals_conceded",
+    "goles concedidos":                   "goals_conceded",
     # Spanish phrasings the orchestrator emits verbatim (i18). Keys are stored
     # accent-free because `_normalize_metric` strips accents before lookup.
     "goles":                              "goals_scored",
@@ -185,12 +195,28 @@ _METRIC_ALIASES: dict[str, str] = {
     "puntos":                             "total_points",
     "puntos por partido":                 "points_per_game",
     "porterias a cero":                   "clean_sheets",
+    "porteria a cero":                    "clean_sheets",
+    "vallas invictas":                    "clean_sheets",
+    "valla invicta":                      "clean_sheets",
     "bonificaciones":                     "bonus",
     "goles esperados":                    "expected_goals",
     "asistencias esperadas":              "expected_assists",
     # Disambiguates against "tiros libres" (direct) under token containment:
     # without it, the longer phrase would resolve to the direct-freekick order.
     "tiros libres indirectos":            "corners_and_indirect_freekicks_order",
+    # Spanish per-90 phrasings. Required, not optional: "90" is a meaning-
+    # changing modifier (see _MEANING_CHANGING_MODIFIERS), so without these
+    # keys every Spanish per-90 phrase is refused. With them each resolves to
+    # the rate field rather than silently to the season total.
+    "goles esperados por 90":             "expected_goals_per_90",
+    "xg por 90":                          "expected_goals_per_90",
+    "asistencias esperadas por 90":       "expected_assists_per_90",
+    "xa por 90":                          "expected_assists_per_90",
+    "xgi por 90":                         "expected_goal_involvements_per_90",
+    "porterias a cero por 90":            "clean_sheets_per_90",
+    "porteria a cero por 90":             "clean_sheets_per_90",
+    "paradas por 90":                     "saves_per_90",
+    "contribucion defensiva por 90":      "defensive_contribution_per_90",
 }
 
 #: Sorted list of canonical metric names exposed to users.
@@ -283,6 +309,37 @@ def _metric_tokens(value: str) -> frozenset[str]:
     )
 
 
+#: Tokens that change what a metric MEANS rather than merely describing it.
+#: Containment works by discarding the input tokens no alias matched, which is
+#: safe for filler ("de los defensas") and catastrophic for these: "goles en
+#: contra" matched the one-token alias "goles", the unmatched "contra" was
+#: dropped, and a question about goals CONCEDED was answered with the top
+#: SCORERS -- real numbers, status ok, no signal. Before containment existed
+#: that phrase returned unknown_metric, so the relaxation had turned a visible
+#: failure into a fluent lie.
+#:
+#: So a modifier present in the input but absent from the winning alias vetoes
+#: the match. Aliases that legitimately carry one ("goles en contra",
+#: "goles esperados por 90") satisfy the guard by containing it; everything
+#: else fails visibly. The veto covers the whole class, not just the phrasings
+#: that have been observed.
+#: Listed in every gender/number form Spanish agreement produces -- a
+#: masculine-only set leaves "asistencias recibidas" unguarded.
+_MEANING_CHANGING_MODIFIERS: frozenset[str] = frozenset({
+    "contra",
+    "recibido", "recibidos", "recibida", "recibidas",
+    "concedido", "concedidos", "concedida", "concedidas",
+    "anulado", "anulados", "anulada", "anuladas",
+    "propia", "propias",
+    # "esperado" separates a stat from its expected counterpart. Aliases that
+    # mean the expected form carry the word, so they pass; "puntos esperados"
+    # and "paradas esperadas" have no field at all and must fail visibly rather
+    # than return the season total. "minutos esperados" matters most: it was
+    # ranking raw minutes when get_expected_minutes is the tool that answers it.
+    "esperado", "esperados", "esperada", "esperadas",
+    "90",
+})
+
 #: (alias tokens, canonical field) for every alias with at least one content
 #: token. Built once at import; the map is static.
 _ALIAS_TOKEN_SETS: tuple[tuple[frozenset[str], str], ...] = tuple(
@@ -295,11 +352,13 @@ _ALIAS_TOKEN_SETS: tuple[tuple[frozenset[str], str], ...] = tuple(
 
 
 def _resolve_by_token_containment(normalized_metric: str) -> "str | None":
-    """Resolve a phrase that contains an alias, or ``None`` if it is ambiguous.
+    """Resolve a phrase that contains an alias, or ``None`` if it is unsafe.
 
     The alias with the most matched tokens wins, so "goles esperados en contra"
-    beats both "goles esperados" and "goles". A tie between aliases of two
-    different fields resolves to ``None`` -- never a guess.
+    beats both "goles esperados" and "goles". Two ways to get ``None``, both
+    deliberate: a tie between aliases of two different fields, and a
+    meaning-changing modifier in the input that the winning alias does not
+    account for. Neither guesses.
     """
     input_tokens = _metric_tokens(normalized_metric)
     if not input_tokens:
@@ -307,18 +366,28 @@ def _resolve_by_token_containment(normalized_metric: str) -> "str | None":
 
     best_size = 0
     winning_fields: set[str] = set()
+    winning_tokens: set[str] = set()
     for alias_tokens, field in _ALIAS_TOKEN_SETS:
         if not alias_tokens <= input_tokens:
             continue
         size = len(alias_tokens)
         if size > best_size:
-            best_size, winning_fields = size, {field}
+            best_size = size
+            winning_fields, winning_tokens = {field}, set(alias_tokens)
         elif size == best_size:
             # Aliases of the same field collapse; distinct fields tie.
             winning_fields.add(field)
+            winning_tokens |= alias_tokens
 
     if len(winning_fields) != 1:
         return None
+
+    # A modifier the winning alias never accounted for would be silently
+    # discarded, inverting or rescoping the metric the user asked for.
+    unaccounted = (input_tokens & _MEANING_CHANGING_MODIFIERS) - winning_tokens
+    if unaccounted:
+        return None
+
     return next(iter(winning_fields))
 
 
