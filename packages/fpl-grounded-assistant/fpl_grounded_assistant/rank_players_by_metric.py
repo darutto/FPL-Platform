@@ -194,6 +194,12 @@ _METRIC_ALIASES: dict[str, str] = {
     "minutos":                            "minutes",
     "puntos":                             "total_points",
     "puntos por partido":                 "points_per_game",
+    # The worst case in the residual tail (i43): the correct field already
+    # exists, so "media de puntos" was returning a season TOTAL presented as an
+    # average. Named aliases close it now; the general question of unmatched
+    # tokens stays with the allowlist card.
+    "media de puntos":                    "points_per_game",
+    "promedio de puntos":                 "points_per_game",
     "porterias a cero":                   "clean_sheets",
     "porteria a cero":                    "clean_sheets",
     "vallas invictas":                    "clean_sheets",

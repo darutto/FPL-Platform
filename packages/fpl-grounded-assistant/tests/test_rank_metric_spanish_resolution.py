@@ -318,6 +318,24 @@ def test_per_90_modifier_without_a_rate_alias_still_refuses(price_bootstrap):
 
 
 @pytest.mark.parametrize("phrase", [
+    "media de puntos",
+    "promedio de puntos",
+    "media de puntos por partido",
+])
+def test_points_average_resolves_to_the_average_not_the_season_total(
+    price_bootstrap, phrase,
+):
+    """points_per_game exists, so returning total_points here would present a
+    season total as if it were an average — a wrong number rather than a
+    missing one. "media de puntos" and "puntos por partido" both match the same
+    field, so their tie collapses instead of reading as an ambiguity."""
+    result = rank_players_by_metric(phrase, bootstrap=price_bootstrap)
+
+    assert result["status"] == "ok", result
+    assert result["metric"] == "points_per_game"
+
+
+@pytest.mark.parametrize("phrase", [
     "porteria a cero",
     "porterías a cero",
     "vallas invictas",
