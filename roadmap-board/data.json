@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-27",
+  "updated": "2026-08-28",
   "cards": [
     {
       "id": "s1",
@@ -389,14 +389,14 @@
     },
     {
       "id": "i11",
-      "col": "evaluation",
+      "col": "shipped",
       "title": "Bug de desplazamiento en el chat",
-      "desc": "Fix reconciliado limpiamente sobre origin/main: scrollTo() queda acotado al contenedor de mensajes y conserva su test de regresión. Suite UI real: 476/476; build de producción OK. Falta prueba física final en la Surface.",
+      "desc": "CERRADA POR DESAPARICION, no por diagnostico -- 2026-08-27. El usuario reporta que el desplazamiento ya no se reproduce en uso normal.\n\nIMPORTANTE PARA QUIEN LO VEA VOLVER: nunca se identifico la causa. El trabajo llego al 90% con el diagnostico a medias (repro, aislamiento de Edge/navegador, revision de DPI) y quedo parado esperando una prueba fisica en la Surface que nunca se hizo. El workaround conocido era arrastrar la ventana a otro monitor, lo que apuntaba a DPI o a cambio de pantalla, no a CSS.\n\nAsi que si reaparece: no se arreglo, se dejo de ver. Reabrir con esa hipotesis de DPI como punto de partida en vez de empezar por el CSS.\n\nFix reconciliado limpiamente sobre origin/main: scrollTo() queda acotado al contenedor de mensajes y conserva su test de regresión. Suite UI real: 476/476; build de producción OK. Falta prueba física final en la Surface.",
       "tags": [
         "UI",
         "Web"
       ],
-      "progress": 90
+      "progress": 100
     },
     {
       "id": "i13",
