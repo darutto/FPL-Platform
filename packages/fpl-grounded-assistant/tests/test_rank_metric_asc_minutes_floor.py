@@ -157,6 +157,34 @@ def test_price_asc_still_returns_cheap_players_with_no_minutes(mixed_bootstrap):
     assert all(entry[_MINUTES_KEY] == 0 for entry in result["ranked"])
 
 
+def test_minutes_metric_asc_still_returns_players_who_have_not_played(
+    mixed_bootstrap,
+):
+    """When the metric IS participation, zeros are the data rather than noise —
+    the same reasoning that exempts now_cost.
+
+    Decisive in practice: ``max(min_minutes, 60)`` cannot distinguish an omitted
+    argument from an explicit 0, so a floor here would leave no way to ask the
+    question at all. "Who is playing the fewest minutes" and "who has not played
+    at all" are rotation and injury questions, and the tool must keep answering
+    them."""
+    result = rank_players_by_metric(
+        "minutos", top_n=5, order="asc", bootstrap=mixed_bootstrap,
+    )
+
+    assert result["metric"] == "minutes"
+    assert result["min_minutes_filter"] == 0
+    assert {entry["web_name"] for entry in result["ranked"]} == NEVER_PLAYED
+    assert all(entry[_MINUTES_KEY] == 0 for entry in result["ranked"])
+
+
+def test_minutes_metric_desc_is_unaffected_too(mixed_bootstrap):
+    result = rank_players_by_metric("minutos", top_n=5, bootstrap=mixed_bootstrap)
+
+    assert result["min_minutes_filter"] == 0
+    assert {entry["web_name"] for entry in result["ranked"]} == REGULARS
+
+
 def test_set_piece_orders_are_unchanged_by_the_floor(mixed_bootstrap):
     """They already exclude non-takers by dropping values <= 0."""
     explicit = rank_players_by_metric(

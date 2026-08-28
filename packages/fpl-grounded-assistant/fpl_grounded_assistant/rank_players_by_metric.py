@@ -46,7 +46,8 @@ An explicit ``order="asc"`` also raises ``min_minutes`` to a full match (60)
 for accumulating metrics, because otherwise a player with no minutes has 0 of
 everything and sorts to the top: "which keepers concede the fewest xG" returned
 ten keepers tied at 0.0, none of whom had played. Exempt: ``now_cost`` (a 4.0m
-player with no minutes is legitimate bench fodder) and the set-piece orders
+player with no minutes is legitimate bench fodder), ``minutes`` itself (when the
+metric IS participation, the zeros are the answer), and the set-piece orders
 (they already drop non-takers). The floor never overrides a larger caller
 value, never applies under ``desc``, and is reported in ``min_minutes_filter``
 rather than applied silently.
@@ -290,8 +291,15 @@ _ASC_MIN_MINUTES_FLOOR: int = 60
 # Metrics that must NOT get the floor under "asc":
 #   now_cost -- a 4.0m player with no minutes is a legitimate bench-fodder
 #     answer, and filtering it breaks a real use case.
+#   minutes -- the floor exists so non-participation cannot contaminate a
+#     ranking about something else. When the metric IS participation the zeros
+#     are the data, not noise. Decisive in practice: `max(min_minutes, 60)`
+#     cannot tell an omitted argument from an explicit 0, so with a floor here
+#     there is no way left to ask the question at all -- "who is playing the
+#     fewest minutes" and "who has not played" are rotation and injury
+#     questions, and the tool would make both inexpressible.
 #   set-piece orders -- already exclude non-takers by dropping values <= 0.
-_NO_ASC_FLOOR: frozenset[str] = frozenset({"now_cost"}) | _LOWER_IS_BETTER
+_NO_ASC_FLOOR: frozenset[str] = frozenset({"now_cost", "minutes"}) | _LOWER_IS_BETTER
 
 
 def natural_order(field_name: str) -> str:
@@ -468,10 +476,9 @@ def rank_players_by_metric(
             "status": "ok",
             "metric": <canonical field name>,
             "order": "desc" | "asc",   # direction actually applied
-            "min_minutes_filter": <int>,  # includes any asc floor applied
             "top_n": <int>,
             "position_filter": <str | None>,
-            "min_minutes_filter": <int>,
+            "min_minutes_filter": <int>,  # includes any asc floor applied
             "ranked": [
                 {
                     # Full grounding payload (including match_rank=0)
@@ -739,14 +746,16 @@ RANK_PLAYERS_BY_METRIC_SPEC = ToolSpec(
                 "description": (
                     "Exclude players with fewer minutes (default 0). "
                     "SET THIS WHENEVER order='asc' on any accumulating metric -- goals, "
-                    "assists, cards, xGC, saves, clean sheets, points, minutes and every "
+                    "assists, cards, xGC, saves, clean sheets, points and every "
                     "per-90 rate. A player who has not played has 0 of all of them, and "
                     "0 sorts to the very top of an ascending list, so the answer fills "
                     "with players who never appeared. Use at least a full match's worth "
                     "of minutes: 60-90. min_minutes=1 filters NOTHING -- one minute "
                     "still leaves ~0 in every accumulating metric. The exception is "
                     "price (now_cost), where a 4.0m player with no minutes is a "
-                    "legitimate bench-fodder answer and no floor is wanted. If you "
+                    "legitimate bench-fodder answer, and the 'minutes' metric itself, "
+                    "where players with none are exactly what a rotation or injury "
+                    "question is asking for. If you "
                     "omit it under order='asc' the tool applies a 60-minute floor "
                     "itself and reports it in min_minutes_filter; pass your own value "
                     "when you want a different one."
