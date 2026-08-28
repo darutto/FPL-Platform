@@ -766,13 +766,23 @@
     },
     {
       "id": "i44",
-      "col": "idea",
-      "progress": 0,
+      "col": "shipped",
+      "progress": 100,
       "title": "asc sobre metricas de tasa saca jugadores con 0 minutos",
-      "desc": "RESIDUO CONOCIDO de [[i42]], visto en vivo, no teorico. '¿Que porteros conceden menos goles esperados?' con order='asc' devuelve diez porteros empatados a 0,0 xGC que no han jugado un solo minuto. El ranking es literalmente correcto y practicamente inutil.\n\nMITIGACION ACTUAL: solo la descripcion del schema, que le pide al modelo emparejar asc con min_minutes. En la corrida medida NO lo hizo; lo que si hizo fue avisar en la respuesta ('todos tienen 0 minutos jugados'), asi que el usuario no queda enganado, solo mal servido.\n\nDECISION PENDIENTE, deliberadamente no tomada al vuelo: un piso de minutos automatico bajo asc seria un default escondido, y esos son los que despues nadie sabe por que estan. Alternativas: (a) piso implicito solo para metricas de tasa, documentado en el payload; (b) que el renderer marque las filas con 0 minutos; (c) dejarlo al modelo y medir si con una descripcion mas explicita empareja min_minutes. Medir antes de elegir, con la sonda que ya existe.",
+      "desc": "CERRADA. Piso de 60 minutos bajo order='asc' EXPLICITO. Mergeado en main via PR #182 (fe5065a).\n\nMEDIDO, con regla de decision escrita ANTES de correr la sonda: el Paso 1 (solo endurecer la descripcion del schema con una magnitud util) exigia que el modelo emitiera min_minutes>=60 en >=5 de 6 llamadas. Salio 2/6, y 3/6 en la segunda medicion. Los dos por debajo del umbral, asi que el Paso 1 fallo y se paso al piso implicito. La regla se reporto como salio, que era la condicion de la carta.\n\nHALLAZGO QUE CAMBIO EL DISENO: el modelo SI empareja min_minutes (5 de 8 llamadas con asc), pero manda min_minutes=1, que no filtra nada -- un jugador con un minuto sigue teniendo ~0 en toda metrica acumulada. El problema nunca fue la presencia del parametro sino su magnitud.\n\nEFECTO EN VIVO: jugadores sin minutos devueltos 16/40 -> 0/40, conservando la excepcion de precio en 4/5. '¿Que porteros conceden menos xG?' paso de diez porteros empatados a 0,0 sin jugar, a Raya 0.2 y Verbruggen 0.29 con 90 minutos.\n\nEXENCIONES, todas por la misma razon (el piso existe para que la no-participacion no contamine un ranking sobre OTRA cosa):\n  now_cost -- un jugador de 4.0m sin minutos es bench fodder, o sea una respuesta legitima.\n  ordenes de balon parado -- ya excluyen valores <= 0.\n  minutes -- cuando la metrica ES participacion, los ceros son el dato. Se exento en revision: con el piso, '¿quien esta jugando menos minutos?' y '¿quien no ha jugado nada?' quedaban INEXPRESABLES, porque max(min_minutes, 60) no distingue omitido de cero explicito. No degradaba la respuesta: eliminaba la pregunta.\n\nEsa misma indistincion sigue viva para el resto de metricas y esta en [[i45]].",
       "tags": [
         "Backend",
         "IA"
+      ]
+    },
+    {
+      "id": "i45",
+      "col": "idea",
+      "progress": 0,
+      "title": "min_minutes=0 explicito no puede desactivar el piso de asc",
+      "desc": "SEGUIMIENTO DE [[i44]], acotado y conocido. El piso se aplica con max(min_minutes, 60), que no distingue 'omitido' (default 0) de 'cero explicito'. Consecuencia: hoy nadie puede pedir min_minutes=0 bajo order='asc' en xGC, goles, propiedad o cualquier metrica no exenta y obtenerlo. El caso que dolia -- la metrica minutes -- ya quedo cubierto exentandola, asi que esto es expresividad perdida, no una respuesta equivocada.\n\nARREGLO GENERAL: min_minutes con default None y aplicar el piso solo cuando se omite. Es mas invasivo de lo que parece: cambia la firma publica y hay que revisar los call sites, incluido el handler del tool-runner que hoy hace args.get('min_minutes', 0). Por eso NO se metio de rondon en el PR de i44.\n\nPrioridad baja mientras nadie tope con ella: el default seguro es el correcto para casi todas las preguntas reales, y quien quiera menos filtro puede pedir min_minutes=1, que si se respeta.",
+      "tags": [
+        "Backend"
       ]
     }
   ]
