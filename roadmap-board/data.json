@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-27",
+  "updated": "2026-08-28",
   "cards": [
     {
       "id": "s1",
@@ -763,6 +763,17 @@
         "Backend",
         "IA"
       ]
+    },
+    {
+      "id": "s26",
+      "col": "shipped",
+      "title": "Piso de minutos bajo orden ascendente",
+      "desc": "Fusionada (PR #182, 28/08). rank_players_by_metric aplica un piso de 60 minutos cuando el llamador pide order=asc explícito, exento now_cost y set-pieces, para que xGC, tarjetas y demás métricas acumulativas dejen de rankear primero a jugadores sin minutos jugados.",
+      "tags": [
+        "Backend",
+        "IA"
+      ],
+      "progress": 100
     }
   ]
 }
