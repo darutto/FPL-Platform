@@ -42,6 +42,15 @@ defenders" question received the ten most expensive ones and the model rescored
 that set -- a fluent, confidently wrong answer citing real numbers. The applied
 direction is echoed back as ``order`` so renderers can title accordingly.
 
+An explicit ``order="asc"`` also raises ``min_minutes`` to a full match (60)
+for accumulating metrics, because otherwise a player with no minutes has 0 of
+everything and sorts to the top: "which keepers concede the fewest xG" returned
+ten keepers tied at 0.0, none of whom had played. Exempt: ``now_cost`` (a 4.0m
+player with no minutes is legitimate bench fodder) and the set-piece orders
+(they already drop non-takers). The floor never overrides a larger caller
+value, never applies under ``desc``, and is reported in ``min_minutes_filter``
+rather than applied silently.
+
 Registration
 ------------
 Registers ``rank_players_by_metric`` in ``TOOL_REGISTRY`` as a side-effect
@@ -265,6 +274,26 @@ _ORDER_DESC: str = "desc"
 _ORDER_ASC:  str = "asc"
 
 
+# Minutes floor applied under an EXPLICIT order="asc" (i44). Measured, not
+# guessed: with the schema description alone the model passed min_minutes >= 60
+# in only 2 of 6 live calls, and the value it does reach for unprompted is 1 --
+# which filters nothing, because a player with one minute still has ~0 of every
+# accumulating metric. Under "asc" that 0 sorts to the very top, so "which
+# keepers concede the fewest xG" answered with ten keepers tied at 0.0, none of
+# whom had played. Correct, and useless.
+#
+# A full match's worth of minutes is the smallest floor that actually separates
+# "low" from "has not played". It is never silent: it is written into
+# min_minutes_filter, which both renderers already surface.
+_ASC_MIN_MINUTES_FLOOR: int = 60
+
+# Metrics that must NOT get the floor under "asc":
+#   now_cost -- a 4.0m player with no minutes is a legitimate bench-fodder
+#     answer, and filtering it breaks a real use case.
+#   set-piece orders -- already exclude non-takers by dropping values <= 0.
+_NO_ASC_FLOOR: frozenset[str] = frozenset({"now_cost"}) | _LOWER_IS_BETTER
+
+
 def natural_order(field_name: str) -> str:
     """Direction that ranks ``field_name`` best-first absent an explicit order.
 
@@ -420,7 +449,9 @@ def rank_players_by_metric(
         top_n: max results (1-50, default 10). Silently capped at 50.
         position: optional position filter (GKP/DEF/MID/FWD, case-insensitive).
             Also accepts Spanish names (portero/defensa/centrocampista/delantero).
-        min_minutes: exclude players with fewer minutes (default 0).
+        min_minutes: exclude players with fewer minutes (default 0). Raised to
+            60 when ``order="asc"`` is explicit and the metric is not exempt;
+            the value actually applied is returned in ``min_minutes_filter``.
         min_price: optional inclusive minimum price in GBP millions.
         max_price: optional inclusive maximum price in GBP millions.
         order: "desc" (default, highest first) or "asc" (lowest first, for
@@ -437,6 +468,7 @@ def rank_players_by_metric(
             "status": "ok",
             "metric": <canonical field name>,
             "order": "desc" | "asc",   # direction actually applied
+            "min_minutes_filter": <int>,  # includes any asc floor applied
             "top_n": <int>,
             "position_filter": <str | None>,
             "min_minutes_filter": <int>,
@@ -539,6 +571,13 @@ def rank_players_by_metric(
         if candidate in (_ORDER_ASC, _ORDER_DESC):
             requested_order = candidate
     effective_order = requested_order or natural_order(field_name)
+
+    # Ascending on an accumulating metric ranks "has not played" as best. Raise
+    # the floor -- only on an EXPLICIT asc (a metric that merely sorts ascending
+    # by nature is unaffected), never above a caller's own larger value, and
+    # never for the two exempt families. `desc` is untouched.
+    if requested_order == _ORDER_ASC and field_name not in _NO_ASC_FLOOR:
+        min_minutes = max(min_minutes, _ASC_MIN_MINUTES_FLOOR)
 
     def _price_tenths(value: Any) -> int | None:
         if value is None:
@@ -697,7 +736,21 @@ RANK_PLAYERS_BY_METRIC_SPEC = ToolSpec(
             },
             "min_minutes": {
                 "type":        "integer",
-                "description": "Exclude players with fewer minutes (default 0)",
+                "description": (
+                    "Exclude players with fewer minutes (default 0). "
+                    "SET THIS WHENEVER order='asc' on any accumulating metric -- goals, "
+                    "assists, cards, xGC, saves, clean sheets, points, minutes and every "
+                    "per-90 rate. A player who has not played has 0 of all of them, and "
+                    "0 sorts to the very top of an ascending list, so the answer fills "
+                    "with players who never appeared. Use at least a full match's worth "
+                    "of minutes: 60-90. min_minutes=1 filters NOTHING -- one minute "
+                    "still leaves ~0 in every accumulating metric. The exception is "
+                    "price (now_cost), where a 4.0m player with no minutes is a "
+                    "legitimate bench-fodder answer and no floor is wanted. If you "
+                    "omit it under order='asc' the tool applies a 60-minute floor "
+                    "itself and reports it in min_minutes_filter; pass your own value "
+                    "when you want a different one."
+                ),
                 "minimum":     0,
             },
             "min_price": {
@@ -718,8 +771,9 @@ RANK_PLAYERS_BY_METRIC_SPEC = ToolSpec(
                     "Use 'asc' for LOWEST-first questions -- 'menos', 'más barato', "
                     "'más baratos', 'menor', 'peor', 'diferencial', 'cheapest', "
                     "'fewest', 'lowest'. Without it a 'cheapest defenders' question "
-                    "gets the MOST expensive ones. Pair 'asc' with min_minutes so "
-                    "players who have not played do not fill the list."
+                    "gets the MOST expensive ones. With 'asc' on anything except "
+                    "price, ALSO set min_minutes to at least 60 (a full match), or "
+                    "every value ties at 0 and the list is players who never played."
                 ),
             },
         },

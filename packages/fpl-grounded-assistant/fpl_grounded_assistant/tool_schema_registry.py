@@ -952,7 +952,21 @@ RANK_PLAYERS_BY_METRIC_SCHEMA = ToolSchema(
             },
             "min_minutes": {
                 "type":        "integer",
-                "description": "Exclude players with fewer minutes (default 0)",
+                "description": (
+                    "Exclude players with fewer minutes (default 0). "
+                    "SET THIS WHENEVER order='asc' on any accumulating metric -- goals, "
+                    "assists, cards, xGC, saves, clean sheets, points, minutes and every "
+                    "per-90 rate. A player who has not played has 0 of all of them, and "
+                    "0 sorts to the very top of an ascending list, so the answer fills "
+                    "with players who never appeared. Use at least a full match's worth "
+                    "of minutes: 60-90. min_minutes=1 filters NOTHING -- one minute "
+                    "still leaves ~0 in every accumulating metric. The exception is "
+                    "price (now_cost), where a 4.0m player with no minutes is a "
+                    "legitimate bench-fodder answer and no floor is wanted. If you "
+                    "omit it under order='asc' the tool applies a 60-minute floor "
+                    "itself and reports it in min_minutes_filter; pass your own value "
+                    "when you want a different one."
+                ),
                 "minimum":     0,
             },
             "min_price": {
@@ -973,8 +987,9 @@ RANK_PLAYERS_BY_METRIC_SCHEMA = ToolSchema(
                     "Use 'asc' for LOWEST-first questions -- 'menos', 'más barato', "
                     "'más baratos', 'menor', 'peor', 'diferencial', 'cheapest', "
                     "'fewest', 'lowest'. Without it a 'cheapest defenders' question "
-                    "gets the MOST expensive ones. Pair 'asc' with min_minutes so "
-                    "players who have not played do not fill the list."
+                    "gets the MOST expensive ones. With 'asc' on anything except "
+                    "price, ALSO set min_minutes to at least 60 (a full match), or "
+                    "every value ties at 0 and the list is players who never played."
                 ),
             },
         },
