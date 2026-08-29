@@ -133,11 +133,24 @@ def run_one(question: dict[str, Any], rep_index: int, bootstrap: dict[str, Any],
             top_p=None,
             _eval_client=None,
         )
+        tool_output = result.tool_output if isinstance(result.tool_output, dict) else {}
         base.update(
             outcome=result.outcome,
             tool_chosen=result.tool_chosen,
             tool_sequence=extract_tool_sequence(result),
             tool_call_count=result.tool_call_count,
+            # --- i25 golden battery: assertion surface -------------------
+            # Added so the battery asserts on the same observation the other
+            # measurements produce, instead of forking a second call path.
+            # Three of this week's four measurements were wrong because the
+            # instrument was improvised; one shared path is the fix.
+            tool_args=dict(result.tool_args or {}),
+            tool_output_status=tool_output.get("status"),
+            tool_output_code=tool_output.get("code"),
+            tool_output_metric=tool_output.get("metric"),
+            tool_output_order=tool_output.get("order"),
+            synthesis_turn=bool(getattr(result, "synthesis_turn", False)),
+            answer_text=(result.answer_text or "")[:400],
             rounds_used=getattr(result, "rounds_used", 0),
             error=result.error,
             primary_input_tokens=result.primary_input_tokens,
@@ -156,6 +169,13 @@ def run_one(question: dict[str, Any], rep_index: int, bootstrap: dict[str, Any],
             tool_chosen=None,
             tool_sequence=[],
             tool_call_count=0,
+            tool_args={},
+            tool_output_status=None,
+            tool_output_code=None,
+            tool_output_metric=None,
+            tool_output_order=None,
+            synthesis_turn=False,
+            answer_text="",
             rounds_used=0,
             error=str(exc),
             primary_input_tokens=0,
