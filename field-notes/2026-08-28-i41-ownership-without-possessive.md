@@ -126,6 +126,61 @@ tools since before `get_my_squad` existed, and one question at five reps
 separates nothing. Not evidence for or against this change; a fix, if wanted, is
 a separate card.
 
+## Reviewer probe — the gap this audit missed
+
+Run independently by the reviewer on the PR head, not by the author. Recorded
+here because it is the measurement that found the hole in the audit above, and
+leaving it outside the repo while the author's own 84 observations sit in
+`artifacts/` would archive the weaker half of the evidence.
+
+**The gap.** The over-fire audit stressed the *verb* the new wording
+generalises ("Necesito saber…"), but not the **literal noun phrases written
+into the description itself** — `'necesito 4 medios'`, `'dos delanteros y un
+defensa'`. Those carry no ownership on their own; in sb-02 and sb-13 the
+ownership comes from the surrounding clause. So the audit was aimed at the risk
+that was imagined rather than the one the new text most directly created. The
+right negative is the quoted phrase with the ownership stripped out of the rest
+of the sentence — which is what "desde cero" does below.
+
+Same conditions as the gate: `gpt-5.6-luna`, provider passed explicitly,
+`_my_team_id` injected the same way. `max_tokens=2048`.
+
+| id | question | per-rep tool |
+|---|---|---|
+| `g1` | "Necesito 4 medios baratos para armar un equipo desde cero." | `select_players_within_budget` · **no tool** · `select_players_within_budget` |
+| `g2` | "Estoy armando un equipo nuevo desde cero. Necesito dos delanteros y un defensa que entren en 20 millones." | `select_players_within_budget` ×3 |
+| `g3` | positive control, sb-02 verbatim | `get_my_squad` ×3 |
+
+```
+get_my_squad on g1+g2:  0/6
+positive control g3:    3/3
+```
+
+The trigger held even where the positive phrasing matches word for word, and
+the two negatives routed to `select_players_within_budget`, which is the right
+tool for them. The negative half of the description is what did that work.
+**Combined with the gate and the author's audit: 0 over-fires across 45
+negative calls**, against the 30 that PR #171 established.
+
+Two observations alongside, both data rather than decoration:
+
+* `g1` rep 1 called **no tool at all**. That is i40 territory (a turn no tool
+  serves), not this card's, and it is the same question class the gate scores
+  as a *negative* — so it costs nothing here, but it is a real no-tool turn.
+* **Three of these nine calls hit the empty-synthesis bug** — the tool ran and
+  the synthesis turn returned no text, so the raw tool output was rendered.
+  Now tracked as board card **i46**. It surfaced sideways, out of a measurement
+  aimed at something else, which is part of the argument for the fixed golden
+  battery (**i25**): a standing suite would have been counting
+  `synthesis_turn=False` all along instead of waiting for it to fall out of an
+  unrelated probe.
+
+Raw JSONL is not archived for these nine: they were run outside the author's
+harness, so token counts, latency and cost were never captured in the same
+shape. The per-rep tool choices above are the full record — no reconstructed
+rows, because inventing the missing fields to match the other artifacts would
+make them look like the same instrument.
+
 ## Artifacts
 
 `field-notes/artifacts/i41-ownership-triggers-{pre,post}-2026-08-28.jsonl`
