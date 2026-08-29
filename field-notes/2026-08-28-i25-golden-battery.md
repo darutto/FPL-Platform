@@ -210,12 +210,19 @@ reps on `gi-02`/`gi-03`, not by settling the question with what is here.
 
 ### i46, three runs
 
-| | r1 | r2 | r3 |
-|---|---|---|---|
-| raw failures / tool turns | 11/205 | 12/206 | 19/205 |
-| **clean** (stale excluded) | 7/178 (3.9%) | 8/179 (4.5%) | 13/178 (7.3%) |
+| denominator | r1 | r2 | r3 | combined |
+|---|---|---|---|---|
+| raw — every observation | 11/210 | 12/210 | 19/210 | |
+| **scored** — what the axis prints | 7/183 | 8/183 | 13/183 | 28/549 = 5.1% |
+| **tool turns** — could actually fail | 7/178 (3.9%) | 8/179 (4.5%) | 13/178 (7.3%) | **28/535 = 5.2%** |
 
-Combined clean rate **28/535 = 5.2%**, with real run-to-run spread — r3 is
+**Cite the tool-turn rate.** A turn that called no tool cannot fail synthesis and
+only dilutes the denominator. Say which convention is in use, or two correct
+figures read as a contradiction: the same 13 failures are 7.1% of scored
+observations and 7.3% of the turns that could fail, and the reference row above
+prints `170/183` — that gap is by construction, not an error.
+
+The spread across runs is real — r3 is
 almost double r1, which is itself an argument for a standing battery over a
 one-off probe.
 
