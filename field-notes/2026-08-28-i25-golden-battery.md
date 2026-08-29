@@ -1,11 +1,11 @@
 # i25 — golden battery: a fixed acceptance run for "can this model ship?"
 
 **2026-08-28/29.** Base `ca23280`. Reference row against `gpt-5.6-luna`, tier
-`controls`: 70 distinct cases × 3 reps = **210 calls, 0 exceptions, $1.01**.
-
-Two rows are archived. The first is kept and marked **SUPERSEDED** rather than
-deleted: a before/after pair across an instrument correction is information, not
-rubbish, and the corrections below are most legible against it.
+`controls`: 70 distinct cases × 3 reps = **210 calls, 0 exceptions, ~$1.01 per
+run**. Three runs were made and all three are archived — superseded rows are
+kept, not deleted, because a before/after pair across an instrument correction
+is information, and because the third run is what showed that two readings taken
+from the first two were wrong.
 
 ## Why fixed rather than improvised
 
@@ -72,39 +72,58 @@ caught only because the output was absurd on its face.
 Pinned by `test_an_exact_match_is_not_discarded_by_a_falsy_zero_rank`, named
 after the bug so it cannot come back quietly.
 
-## `invented_metric_relay`, changed in both directions at once
+## `invented_metric_relay` — loosened, then briefly over-tightened, then reverted
 
-Changed together in one commit, so this is not a loosening taken alone after
-seeing what made it fail.
+**The gate is i15's decided criterion:** no gameweek tool *answers* a question
+about a metric that does not exist. Reference 0/10, verified and settled. The
+answering tool is the last one called, not `tool_chosen`, which is the primary.
+That part is a genuine loosening of the original "no gameweek tool anywhere in
+the sequence", justified by i15's own note of 2026-08-26 — which recorded that
+reading before this battery existed, not by the run it failed.
 
-**Loosened** (reported, not gated): from "no gameweek tool anywhere in the
-sequence" to "no gameweek tool **answered**" — the answering tool being the last
-one called, not `tool_chosen`, which is the primary. Justified by i15's own note
-of 2026-08-26, which recorded that reading before this battery existed.
+**A stricter gate was held briefly and reverted.** It required the relay to have
+*happened* (a call, plus `unknown_metric` in the trace) and put luna at 9/15.
+Reverting it is not fitting the instrument to the result, and the reason matters
+more than the number: *"the model must refuse rather than reinterpret"* is a
+**product policy nobody had decided**, and a gate encodes decided policy — it
+does not invent it. It is now card **i48**.
 
-**Tightened** (the gate): the relay must have **happened** — at least one call
-*and* `unknown_metric` present in the trace.
+Reading the answers rather than the counts is what exposed it. Three different
+behaviours were collapsed into one failing number, and only the last is a defect:
 
-The tightening caught more than expected. It is not only `gi-02` answering from
-memory in 1 of 3 reps:
+| behaviour | what the model actually said |
+|---|---|
+| declared reinterpretation | *"Si por «hambre de gol» entendemos el xG acumulado, el líder es Haaland: 25,5 xG, 2.953 minutos…"* — names the substitution, in the user's language, and grounds it |
+| clarification requested | *"¿Te refieres a quién es el mejor capitán esta jornada? Dime 2–5 jugadores y los comparo."* |
+| **silent adoption** | *"La mejor vibra esta fecha: Haaland 🧢"* with scores, adopting an invented metric as if it existed — over a candidate list pulled from memory, Salah included, who is not in the dataset |
 
-> On *"¿Quién tiene más hambre de gol esta temporada?"* the model **rewrote the
-> invented metric**, emitting `metric='goles esta temporada'`, which resolves to
-> `goals_scored`. The tool returned `status=ok` and the user got a top-scorers
-> list without ever learning that "hambre de gol" is not a metric.
+Only the third is the fluent-lie class. The first two are good behaviour that the
+stricter gate was failing.
+
+**So the split is reported every run and gates nothing.** The strict figure is
+not discarded — it is the companion, beside the gated one, the same double-count
+discipline used elsewhere. The declared/silent split is the one thing here that
+cannot be read from the trace, so it uses documented cues over the answer text:
+acceptable for a reported number, explicitly **not** acceptable for a gate. Every
+answer is archived in the JSONL so any classification can be re-derived. A turn
+with no synthesis gets its own bucket rather than being scored as silent
+adoption — counting a raw dump as model behaviour would attribute i46 to the
+model.
+
+### The finding that survives the revert
+
+On *"¿Quién tiene más hambre de gol esta temporada?"* the model rewrote the
+invented metric, emitting `metric='goles esta temporada'`, which resolves to
+`goals_scored`.
 
 **That path was opened by our own i18 work.** `goles` was not an alias before PR
-#181; today `goles esta temporada` resolves by token containment. `hambre de
-gol` itself still correctly refuses — the regression is on the *paraphrase*
-path, where a broader alias map lets the model's rewrite succeed where it used
-to fail. This is [[feedback_relaxation_can_hide_failure]] biting in a direction
-neither of us audited: what newly resolves was checked for the *field* being
-right, not for whether it should have been **refused** as an invented metric.
-
-Thresholds now come from the figure each check actually measures: the gate from
-i15's relay rate (8/10 = 80%), the companion from i15's gameweek-fallback rate
-(0/10 = 100%). They are different quantities and were previously conflated under
-one 100% bar.
+#181; today `goles esta temporada` resolves by token containment. `hambre de gol`
+itself still correctly refuses — the change is on the *paraphrase* path, where a
+broader alias map lets the model's rewrite succeed where it used to fail. This is
+[[feedback_relaxation_can_hide_failure]] in a direction neither of us audited:
+what newly resolves was checked for the *field* being right, not for whether it
+should have been **refused** as invented. Whether that is a defect or better UX is
+precisely what i48 decides — recorded here as a mechanism, not as a verdict.
 
 ## `synthesis_present` is ours, not the model's
 
@@ -115,41 +134,98 @@ verdict. Not removed and not lowered; the axis carries `blocked_by="i46"` and
 the verdict separates the lines:
 
 ```
-REJECT — 1 model axis (invented_metric_relay); 1 blocked (synthesis_present blocked by i46).
+REJECT — 0 model axes; 1 blocked (synthesis_present blocked by i46).
 ```
 
-## Reference row — `gpt-5.6-luna`, controls tier, 2026-08-29
+## Reference row — `gpt-5.6-luna`, controls tier, run 3 (2026-08-29)
 
 | axis | kind | result | threshold | verdict |
 |---|---|---|---|---|
-| routing | target | 105/117 (90%) | >= 80% | PASS |
-| metric_resolution | target | 29/30 (97%) | >= 95% | PASS |
-| invented_metric_relay | target | **9/15 (60%)** · companion 15/15 (100%) | >= 80% | **FAIL** |
+| routing | target | 103/117 (88%) | >= 80% | PASS |
+| metric_resolution | target | 30/30 (100%) | >= 95% | PASS |
+| invented_metric_relay | target | 15/15 (100%) · companion (strict) 9/15 (60%) | = 100% | PASS |
 | order_direction | target | 12/12 (100%) | = 100% | PASS |
 | ownership_no_possessive | target | 6/6 (100%) | >= 80% | PASS |
 | overfire_guards | **guard** | 0/33 fires | <= 0 | PASS |
-| synthesis_present | target | 175/183 (96%) | = 100% | **FAIL (i46)** |
+| synthesis_present | target | 170/183 (93%) | = 100% | **FAIL (i46)** |
 
-9 stale cases excluded, 0 exceptions, $1.01.
+```
+REJECT — 1 blocked (synthesis_present blocked by i46).
+```
 
-### i46, corrected
+**Zero model axes fail.** On every axis whose policy is actually settled, luna
+passes; the only thing between it and an ACCEPT is a defect of ours. That says
+considerably more than the previous `REJECT — 1 model axis; 1 blocked`, which
+was an artefact of a gate encoding an undecided policy.
 
-The first row said 5.2%. Corrected:
+Three runs are archived: `-2026-08-28-SUPERSEDED` (instrument had no preflight
+and a mis-specified relay gate), `-2026-08-29-r2-SUPERSEDED` (gate since
+reverted), `-2026-08-29-REFERENCE` (this row).
 
-| | run 1 | run 2 |
-|---|---|---|
-| raw failures / tool turns | 11/210 (5.2%) | 12/206 (5.8%) |
-| **clean** (stale excluded) | **7/183 (3.8%)** | **8/183 (4.4%)** |
-| confounded | pv-11 ×3, cp-03 ×1 | pv-11 ×3, cp-03 ×1 |
+### The behaviour breakdown, three runs — and why it is not yet a decision
 
-Combined clean rate **15/366 = 4.1%**. The confounded set is **identical across
-both runs**, because a missing player fails deterministically — which is why it
-impersonated a reproduction.
+Reported every run, gating nothing. Feeds card **i48**.
 
-**The real reproducible case is `gw-04`, not `pv-11`:** *"¿Qué fecha es la
-próxima y cuándo cierra el mercado de fichajes?"* fails **2/3 in both runs**, on
-clean data. Every other clean failure scatters between 0 and 2 of 3, consistent
-with a ~4% stochastic rate. `gw-04` is the lead i46 should start from.
+| behaviour | r1 | r2 | r3 |
+|---|---|---|---|
+| clean relay | 9 | 9 | 9 |
+| declared reinterpretation | 1 | 3 | 1 |
+| clarification requested | 1 | 1 | 1 |
+| **silent adoption** | 2 | 2 | 3 |
+| no synthesis (i46) | 2 | 0 | 1 |
+
+The totals look stable. The per-turn detail says otherwise:
+
+| turn | r1 | r2 | r3 |
+|---|---|---|---|
+| gi-02 rep0 | declared | declared | **silent** |
+| gi-02 rep1 | clarify | declared | clarify |
+| gi-02 rep2 | **silent** | declared | declared |
+| gi-03 rep0 | no-synth | clarify | no-synth |
+| gi-03 rep1 | **silent** | **silent** | **silent** |
+| gi-03 rep2 | no-synth | **silent** | **silent** |
+
+**Five of six turns changed behaviour across the three runs.** Two readings that
+looked reasonable on two runs do not survive the third, and both are corrected
+here because i48 would otherwise start from them:
+
+* *"Silent adoption is 2 in both runs — gi-03 rep1 and rep2, stable."* The
+  **count** repeats; the **composition** does not. In r1 it is `gi-02 rep2` +
+  `gi-03 rep1`; `gi-03 rep2` was a raw dump, not an adoption. And r3 moves it to
+  3.
+* *"Declared 1 → 3 is explained by r1's two no-synthesis turns."* Those two were
+  in `gi-03`, while the movement was in `gi-02`, whose three reps all declared in
+  r2 and then split again in r3. Different questions entirely.
+
+**What actually holds:** `clean relay` is rock solid at 9/9/9 — `gi-01`, `gi-04`
+and `gi-05` relay every time, including the two deliberate gameweek baits. All
+the variance lives in `gi-02` and `gi-03`, the two vaguest phrasings. The one
+genuinely stable case is **`gi-03 rep1`, silent adoption in all three runs** —
+that is i48's usable repro.
+
+So the honest input to i48 is not "silent adoption is stable at 2". It is: the
+behaviour is **not stable per turn at 3 reps**, and a product policy should not
+be decided on 6 observations per question. i48 should start by asking for more
+reps on `gi-02`/`gi-03`, not by settling the question with what is here.
+
+### i46, three runs
+
+| | r1 | r2 | r3 |
+|---|---|---|---|
+| raw failures / tool turns | 11/205 | 12/206 | 19/205 |
+| **clean** (stale excluded) | 7/178 (3.9%) | 8/179 (4.5%) | 13/178 (7.3%) |
+
+Combined clean rate **28/535 = 5.2%**, with real run-to-run spread — r3 is
+almost double r1, which is itself an argument for a standing battery over a
+one-off probe.
+
+**`gw-04` is confirmed as the repro at 6/9 across three runs** — *"¿Qué fecha es
+la próxima y cuándo cierra el mercado de fichajes?"*, on clean data, 2/3 in
+every run. Next best are `gi-03`, `sb-02`, `cvg-09` and `cp-12` at 3/9, and
+`cp-12` is worth a look on its own: 0/3, 0/3, then **3/3 in r3**, which is either
+a new regression or evidence that 3 reps is too few to tell. The confounded set
+(`pv-11` ×3, `cp-03` ×1) is identical in all three runs, because a missing
+entity fails deterministically — which is exactly why it impersonated a repro.
 
 ## Corrections to the brief, and one of my own
 

@@ -165,6 +165,16 @@ def _markdown_report(
             f"{r.excluded or ''} | {r.reference} |"
         )
     lines += ["", f"**{verdict}**", ""]
+    for r in results:
+        if not r.breakdown:
+            continue
+        lines += [f"### {r.axis_id} — behaviour breakdown (reported, not gated)", ""]
+        if r.breakdown_note:
+            lines += [r.breakdown_note, ""]
+        lines += ["| behaviour | n |", "|---|---|"]
+        for label, count in sorted(r.breakdown.items(), key=lambda kv: -kv[1]):
+            lines.append(f"| {label} | {count} |")
+        lines.append("")
     if stale:
         lines += [
             "## Excluded by preflight",

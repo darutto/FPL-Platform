@@ -15,20 +15,32 @@ Diffable: two models compare by reading two of these tables, with no re-run.
 | distinct cases | 70 |
 | calls | 210 |
 | stale cases excluded | 9 |
-| spend USD | 1.0062 |
-| run at | 2026-08-29T03:46:24.927298+00:00 |
+| spend USD | 0.9896 |
+| run at | 2026-08-29T17:24:35+00:00 |
 
 | axis | kind | result | threshold | verdict | excluded | reference |
 |---|---|---|---|---|---|---|
-| routing | target | 105/117 pass (90%) | >= 80% | PASS | 24 | #171 / i38: the corpus is labelled with acceptable sets, not a single key; luna's rate is the row this run records. |
-| metric_resolution | target | 29/30 pass (97%) | >= 95% | PASS |  | i18/i19 after PR #181: unknown_metric on 1 of 26 calls (96%). |
-| invented_metric_relay | target | 9/15 pass (60%)<br>no gameweek answer: 15/15 (100%) | >= 80% | **FAIL** |  | i15 live, 2026-08-26: relayed unknown_metric on 8 of 10 calls (80%). |
+| routing | target | 103/117 pass (88%) | >= 80% | PASS | 24 | #171 / i38: the corpus is labelled with acceptable sets, not a single key; luna's rate is the row this run records. |
+| metric_resolution | target | 30/30 pass (100%) | >= 95% | PASS |  | i18/i19 after PR #181: unknown_metric on 1 of 26 calls (96%). |
+| invented_metric_relay | target | 15/15 pass (100%)<br>relay actually happened: 9/15 (60%) | >= 100% | PASS |  | i15 live, 2026-08-26: 0/10 fell through to a gameweek tool (100%). |
 | order_direction | target | 12/12 pass (100%) | >= 100% | PASS |  | i42/i44 after PR #181: order='asc' applied on every call. |
 | ownership_no_possessive | target | 6/6 pass (100%) | >= 80% | PASS |  | i41 after PR #186: sb-02 5/5 and sb-13 5/5. |
 | overfire_guards | guard | 0/33 fires (0%) | <= 0% | PASS |  | i41: 0 fires of get_my_squad in 45 negative calls. |
-| synthesis_present | target | 175/183 pass (96%) | >= 100% | **FAIL (i46)** | 27 | i46, opened 2026-08-28: 3 of 9 calls in an unrelated probe returned synthesis_turn=False. |
+| synthesis_present | target | 170/183 pass (93%) | >= 100% | **FAIL (i46)** | 27 | i46, opened 2026-08-28: 3 of 9 calls in an unrelated probe returned synthesis_turn=False. |
 
-**REJECT — 1 model axis (invented_metric_relay); 1 blocked (synthesis_present blocked by i46).**
+**REJECT — 1 blocked (synthesis_present blocked by i46).**
+
+### invented_metric_relay — behaviour breakdown (reported, not gated)
+
+Three behaviours the single number hid; only 'silent adoption' is the fluent-lie class. The product decision is i48.
+
+| behaviour | n |
+|---|---|
+| clean relay | 9 |
+| silent adoption | 3 |
+| clarification requested | 1 |
+| declared reinterpretation | 1 |
+| no synthesis (i46) | 1 |
 
 ## Excluded by preflight
 

@@ -98,6 +98,11 @@ class Axis:
     companion: "Callable[[Case, dict[str, Any]], bool] | None" = None
     companion_label: str = ""
     companion_reference: str = ""
+    #: Classifies each observation into a named behaviour. Reported every run,
+    #: NEVER gated: it exists so a product decision can be made on a series of
+    #: numbers instead of on one run's impression.
+    breakdown: "Callable[[Case, dict[str, Any]], str] | None" = None
+    breakdown_note: str = ""
     #: False when a stale entity does not invalidate the assertion. A GUARD
     #: asserts a tool must NOT fire: whether Salah is still in the league
     #: changes what "Compara Haaland y Salah" measures, but not whether the
@@ -257,6 +262,72 @@ def _check_synthesis(case: Case, obs: dict[str, Any]) -> bool:
     if not _tools(obs):
         return True
     return bool(obs.get("synthesis_turn"))
+
+
+# --- invented-metric behaviour breakdown (reported, never gated) ----------
+# Reading the answers rather than the counts showed three different behaviours
+# collapsed into one number, only the last of which is a defect:
+#
+#   declared reinterpretation  "Si por «hambre de gol» entendemos el xG
+#                              acumulado, el líder es Haaland: 25,5 xG..."
+#                              -- names the substitution, in the user's
+#                              language, and grounds it. Good behaviour.
+#   clarification requested    "¿Te refieres a quién es el mejor capitán esta
+#                              jornada? Dime 2-5 jugadores y los comparo."
+#                              Also good behaviour.
+#   silent adoption            "La mejor vibra esta fecha: Haaland" with scores,
+#                              adopting an invented metric as if it existed.
+#                              THIS is the fluent-lie class.
+#
+# Whether a declared substitution is better UX than a refusal is a PRODUCT
+# decision (card i48). It is not settled here, which is exactly why this is a
+# breakdown and not a gate: a gate encodes policy already decided, it does not
+# invent it.
+#
+# The declared/silent split is the one thing here that cannot be read from the
+# trace, so it uses documented cues over the answer text. That is acceptable
+# for a reported number and would NOT be acceptable for a gate. Every answer is
+# archived in the JSONL, so any classification can be re-derived later.
+
+_CLARIFY_CUES = ("te refieres", "a que te refieres", "dime", "quieres que",
+                 "prefieres", "puedes especificar", "no quiero inventar")
+_DECLARE_CUES = ("si por", "entendemos", "entiendo que", "interpreto",
+                 "interpretando", "asumo", "asumiendo", "no existe",
+                 "no es una metrica", "como proxy", "en su lugar", "equivale",
+                 "aproximarla", "segun los datos disponibles")
+
+NO_SYNTH = "no synthesis (i46)"
+RELAYED = "clean relay"
+DECLARED = "declared reinterpretation"
+CLARIFIED = "clarification requested"
+ADOPTED = "silent adoption"
+GAMEWEEK = "gameweek fallback"
+
+
+def _plain(text: str) -> str:
+    import unicodedata
+
+    nfkd = unicodedata.normalize("NFKD", text or "")
+    return "".join(c for c in nfkd if not unicodedata.combining(c)).lower()
+
+
+def classify_invented_behaviour(case: Case, obs: dict[str, Any]) -> str:
+    """Which of the observed behaviours this turn shows. Reporting only."""
+    if not _check_invented_no_gameweek_answer(case, obs):
+        return GAMEWEEK
+    if obs.get("tool_output_code") == "unknown_metric":
+        return RELAYED
+    if not obs.get("synthesis_turn"):
+        # The answer is a raw tool dump, so there is no model behaviour to
+        # classify. Counting it as silent adoption would attribute OUR defect
+        # (i46) to the model.
+        return NO_SYNTH
+    answer = _plain(str(obs.get("answer_text") or ""))
+    if "?" in answer and any(cue in answer for cue in _CLARIFY_CUES):
+        return CLARIFIED
+    if any(cue in answer for cue in _DECLARE_CUES):
+        return DECLARED
+    return ADOPTED
 
 
 # ---------------------------------------------------------------------------
@@ -425,22 +496,29 @@ def build_axes(tier: str = "full") -> tuple[Axis, ...]:
         Axis(
             id="invented_metric_relay",
             kind=TARGET,
-            threshold=0.80,
-            reference="i15 live, 2026-08-26: relayed unknown_metric on 8 of 10 "
-                      "calls (80%).",
-            rationale="The GATE is the narrow check: the relay must have "
-                      "happened. Its threshold comes from i15's own relay "
-                      "figure (8/10), not from the 0/10 gameweek-fallback "
-                      "figure, because they measure different things -- the "
-                      "companion below is what that 0/10 refers to. Both are "
-                      "always reported so the criterion cannot be moved "
-                      "quietly between them.",
+            threshold=1.00,
+            reference="i15 live, 2026-08-26: 0/10 fell through to a gameweek "
+                      "tool (100%).",
+            rationale="The GATE is i15's decided criterion: no gameweek tool "
+                      "ANSWERS a question about a metric that does not exist. "
+                      "Verified, referenced, and a settled policy. "
+                      "A briefly-held stricter gate -- requiring the relay to "
+                      "have happened -- was REVERTED: 'the model must refuse "
+                      "rather than reinterpret' is a product policy nobody had "
+                      "decided, and a gate encodes decided policy, it does not "
+                      "invent it. It now lives as card i48, informed by the "
+                      "breakdown below rather than by one run. The strict "
+                      "figure is not discarded: it is the companion.",
             cases=INVENTED_METRIC_CASES,
-            check=_check_invented_relay,
-            companion=_check_invented_no_gameweek_answer,
-            companion_label="no gameweek answer",
-            companion_reference="i15 live, 2026-08-26: 0/10 fell through to a "
-                                "gameweek tool (100%).",
+            check=_check_invented_no_gameweek_answer,
+            companion=_check_invented_relay,
+            companion_label="relay actually happened",
+            companion_reference="i15 live, 2026-08-26: relayed unknown_metric "
+                                "on 8 of 10 calls (80%). Reported, NOT gated.",
+            breakdown=classify_invented_behaviour,
+            breakdown_note="Three behaviours the single number hid; only "
+                           "'silent adoption' is the fluent-lie class. The "
+                           "product decision is i48.",
         ),
         Axis(
             id="order_direction",
@@ -524,6 +602,8 @@ class AxisResult:
     companion_numerator: "int | None" = None
     companion_label: str = ""
     companion_reference: str = ""
+    breakdown: "dict[str, int] | None" = None
+    breakdown_note: str = ""
     blocked_by: "str | None" = None
 
     @property
@@ -581,6 +661,7 @@ def score_axis(
 
     hits = 0
     companion_hits = 0
+    breakdown: dict[str, int] = {}
     for obs in relevant:
         case = by_case.get(obs.get("question_id")) or Case(
             id=str(obs.get("question_id")), question=str(obs.get("question", "")),
@@ -589,6 +670,9 @@ def score_axis(
             hits += 1
         if axis.companion is not None and axis.companion(case, obs):
             companion_hits += 1
+        if axis.breakdown is not None:
+            label = axis.breakdown(case, obs)
+            breakdown[label] = breakdown.get(label, 0) + 1
 
     return AxisResult(
         axis_id=axis.id, kind=axis.kind, threshold=axis.threshold,
@@ -597,6 +681,8 @@ def score_axis(
         companion_numerator=companion_hits if axis.companion is not None else None,
         companion_label=axis.companion_label,
         companion_reference=axis.companion_reference,
+        breakdown=breakdown or None,
+        breakdown_note=axis.breakdown_note,
         blocked_by=axis.blocked_by,
     )
 

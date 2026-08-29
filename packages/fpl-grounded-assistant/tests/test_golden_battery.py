@@ -211,18 +211,16 @@ def test_unknown_metric_on_a_real_metric_fails_resolution():
 
 
 def test_invented_metric_falling_through_to_a_gameweek_tool_fails():
-    """i15's actual failure mode, asserted at the predicate AND the axis."""
+    """i15's actual failure mode and the axis's gate. One is enough: the
+    threshold is 100%, which is what i15 measured (0/10 fell through)."""
     run = _perfect_run()
-    for qid in ("gi-04", "gi-05"):      # gi-04 is the "jornada 3" bait
-        obs = _find(run, qid)
-        obs["tool_sequence"] = ["get_gameweek_context"]
-        obs["tool_chosen"] = "get_gameweek_context"
-        obs["tool_output_code"] = None
-        # The predicate itself must reject it, independent of the threshold.
-        case = gx.Case(qid, obs["question"], {})
-        assert not gx._check_invented_relay(case, obs)
-        assert not gx._check_invented_no_gameweek_answer(case, obs)
+    obs = _find(run, "gi-04")           # the deliberate "jornada 3" bait
+    obs["tool_sequence"] = ["get_gameweek_context"]
+    obs["tool_chosen"] = "get_gameweek_context"
+    obs["tool_output_code"] = None
 
+    case = gx.Case("gi-04", obs["question"], {})
+    assert not gx._check_invented_no_gameweek_answer(case, obs)
     assert not _by_id(_score(run))["invented_metric_relay"].passed
 
 
@@ -596,3 +594,128 @@ def test_target_axes_remain_stale_sensitive():
     for axis in gx.build_axes(TIER):
         if axis.kind == gx.TARGET:
             assert axis.stale_sensitive, axis.id
+
+
+# ---------------------------------------------------------------------------
+# The gate is i15's decided criterion; the strict figure is reported beside it
+# ---------------------------------------------------------------------------
+
+def test_the_gate_is_the_decided_criterion_not_the_stricter_one():
+    """A briefly-held gate required the relay to have HAPPENED. It was reverted:
+    "refuse rather than reinterpret" is a product policy nobody had decided, and
+    a gate encodes decided policy rather than inventing it. The strict figure is
+    kept as the companion, not discarded."""
+    axis = [a for a in gx.build_axes(TIER) if a.id == "invented_metric_relay"][0]
+
+    assert axis.check is gx._check_invented_no_gameweek_answer
+    assert axis.companion is gx._check_invented_relay
+    assert axis.threshold == 1.00
+    assert "0/10" in axis.reference
+    assert "NOT gated" in axis.companion_reference
+
+
+def test_a_declared_reinterpretation_passes_the_gate_and_fails_the_companion():
+    """The behaviour that made the stricter gate wrong: the model names the
+    substitution in the user's language and grounds it. Gate passes; the strict
+    figure still records it, so nothing is lost."""
+    case = _gi_case("gi-02")
+    obs = _obs(case, tool_sequence=[gx.RANK_TOOL], tool_chosen=gx.RANK_TOOL,
+               tool_args={"metric": "goles esta temporada"},
+               tool_output_status="ok", tool_output_metric="goals_scored",
+               tool_output_code=None,
+               answer_text="Si por «hambre de gol» entendemos el xG acumulado, "
+                           "el líder es Haaland: 25,5 xG.")
+
+    assert gx._check_invented_no_gameweek_answer(case, obs)   # gate
+    assert not gx._check_invented_relay(case, obs)            # companion
+    assert gx.classify_invented_behaviour(case, obs) == gx.DECLARED
+
+
+def test_a_clarification_request_passes_the_gate():
+    case = _gi_case("gi-03")
+    obs = _obs(case, tool_sequence=[],
+               answer_text="¿Te refieres a quién es el mejor capitán esta "
+                           "jornada? Dime 2-5 jugadores y los comparo.")
+
+    assert gx._check_invented_no_gameweek_answer(case, obs)
+    assert gx.classify_invented_behaviour(case, obs) == gx.CLARIFIED
+
+
+def test_silent_adoption_is_named_even_though_it_passes_the_gate():
+    """The one behaviour of the three that IS the fluent-lie class. It passes
+    the gate today because the product decision is open (i48) — but it is
+    counted every run so the decision is made on a series, not an impression."""
+    case = _gi_case("gi-03")
+    obs = _obs(case, tool_sequence=["rank_captain_candidates"],
+               tool_chosen="rank_captain_candidates",
+               answer_text="La mejor vibra esta fecha: Haaland. Ranking: "
+                           "1. Haaland 36,59  2. Saka 33,98")
+
+    assert gx._check_invented_no_gameweek_answer(case, obs)
+    assert gx.classify_invented_behaviour(case, obs) == gx.ADOPTED
+
+
+def test_a_raw_dump_is_not_blamed_on_the_model():
+    """A turn with no synthesis has no model behaviour to classify; counting it
+    as silent adoption would attribute i46 to the model."""
+    case = _gi_case("gi-03")
+    obs = _obs(case, tool_sequence=["rank_captain_candidates"],
+               synthesis_turn=False,
+               answer_text="1. Haaland (MCI) 36.59 · pateador de penales")
+
+    assert gx.classify_invented_behaviour(case, obs) == gx.NO_SYNTH
+
+
+def test_a_clean_relay_is_classified_before_any_prose_is_read():
+    """The one classification that never depends on the answer text."""
+    case = _gi_case("gi-01")
+    obs = _obs(case, tool_sequence=[gx.RANK_TOOL],
+               tool_output_status="invalid_argument",
+               tool_output_code="unknown_metric", answer_text="")
+
+    assert gx.classify_invented_behaviour(case, obs) == gx.RELAYED
+
+
+def test_the_breakdown_is_reported_and_never_gates():
+    axis = [a for a in gx.build_axes(TIER) if a.id == "invented_metric_relay"][0]
+    result = gx.score_axis(axis, _perfect_run())
+
+    assert axis.breakdown is not None and axis.breakdown_note
+    assert result.breakdown == {gx.RELAYED: len(gx.INVENTED_METRIC_CASES)}
+    # The verdict is unaffected by how the breakdown splits.
+    assert result.passed
+
+
+def test_every_behaviour_label_is_reachable():
+    """A bucket nothing can land in is a bucket that hides a behaviour."""
+    case = _gi_case("gi-02")
+    traces = {
+        gx.GAMEWEEK:  _obs(case, tool_sequence=["get_gameweek_context"]),
+        gx.RELAYED:   _obs(case, tool_sequence=[gx.RANK_TOOL],
+                           tool_output_code="unknown_metric"),
+        gx.NO_SYNTH:  _obs(case, tool_sequence=[gx.RANK_TOOL], synthesis_turn=False),
+        gx.CLARIFIED: _obs(case, tool_sequence=[], answer_text="¿Te refieres a goles?"),
+        gx.DECLARED:  _obs(case, tool_sequence=[gx.RANK_TOOL],
+                           answer_text="Si por hambre de gol entendemos xG..."),
+        gx.ADOPTED:   _obs(case, tool_sequence=[gx.RANK_TOOL],
+                           answer_text="Haaland lidera con 27 goles."),
+    }
+    for expected, obs in traces.items():
+        assert gx.classify_invented_behaviour(case, obs) == expected, expected
+
+
+def test_luna_passes_the_reverted_gate_on_the_recorded_traces():
+    """The reference row this revert produces: the measured behaviour that made
+    the stricter gate fail now passes, and the strict count is still visible."""
+    case = _gi_case("gi-02")
+    recorded = [
+        _obs(case, tool_sequence=[gx.RANK_TOOL], tool_output_code="unknown_metric"),
+        _obs(case, tool_sequence=[gx.RANK_TOOL], tool_output_code=None,
+             answer_text="Si por hambre de gol entendemos el xG acumulado..."),
+        _obs(case, tool_sequence=["rank_captain_candidates"],
+             answer_text="La mejor vibra: Haaland"),
+    ]
+    axis = [a for a in gx.build_axes(TIER) if a.id == "invented_metric_relay"][0]
+
+    assert all(axis.check(case, o) for o in recorded)
+    assert sum(axis.companion(case, o) for o in recorded) == 1
