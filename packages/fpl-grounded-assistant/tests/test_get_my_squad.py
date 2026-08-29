@@ -347,3 +347,43 @@ class TestHandler:
     def test_run_tool_no_team_connected_end_to_end(self):
         result = run_tool("get_my_squad", {}, _bootstrap(team_id=None))
         assert result["status"] == "no_team_connected"
+
+
+# ---------------------------------------------------------------------------
+# i41 — ownership expressed WITHOUT a possessive
+# ---------------------------------------------------------------------------
+# Measured: sb-02 and sb-13 ("ya tengo el resto del equipo armado", "el
+# presupuesto que me queda después de estas ventas") called no tool at all 5/5
+# even with a team connected, because the description enumerated literal
+# possessive phrases and neither question contains one. Naming the CONDITION
+# instead took both to 5/5.
+#
+# The negative half is load-bearing and is pinned separately below: it is what
+# held the guard at 0 over-fires across 39 negative calls while the trigger was
+# widened. Adding four more literal phrases instead would have failed on the
+# fifth phrasing; dropping the "DO NOT CALL IT" half for brevity is the change
+# this test exists to block.
+
+def test_schema_names_the_ownership_condition_not_just_possessive_phrases():
+    from fpl_grounded_assistant.tool_schema_registry import GET_MY_SQUAD_SCHEMA
+
+    description = GET_MY_SQUAD_SCHEMA.description.lower()
+
+    assert "presupposes the user already has a squad" in description
+    assert "with or without a possessive" in description
+    # The measured phrasings that previously reached no tool.
+    for cue in ("el resto del equipo", "el presupuesto", "estas ventas", "necesito"):
+        assert cue in description, cue
+
+
+def test_schema_states_what_does_not_trigger_it():
+    """The half that sustains the guard. If this is ever trimmed, re-measure the
+    negative controls before trusting the trigger is still bounded."""
+    from fpl_grounded_assistant.tool_schema_registry import GET_MY_SQUAD_SCHEMA
+
+    description = GET_MY_SQUAD_SCHEMA.description.lower()
+
+    assert "do not call it" in description
+    for counter_example in ("defensas baratos", "compara haaland", "jornada actual"):
+        assert counter_example in description, counter_example
+    assert "another manager's team" in description
