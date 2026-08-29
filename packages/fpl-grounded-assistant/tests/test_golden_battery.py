@@ -60,6 +60,11 @@ def _obs(case, **overrides):
 #: label in the corpus (see _ACCEPTABLE_TOOL_PATCHES) rather than a test bug.
 _DUAL_AXIS_TOOLS = {qid: [gx.SQUAD_TOOL] for qid in gx.OWNERSHIP_CASE_IDS}
 
+#: gm-04 ("menos goles esperados en contra") is scored by BOTH the metric axis
+#: (resolved field) and the direction axis (applied order) off one call. A clean
+#: run has to satisfy both at once, exactly as sb-02 does for routing/ownership.
+_DUAL_AXIS_ORDER = {c.id: c.expect["order"] for c in gx.ORDER_DIRECTION_CASES}
+
 
 def _perfect_run():
     """A run where every axis is satisfied. The baseline every mutation breaks."""
@@ -73,9 +78,12 @@ def _perfect_run():
             elif axis.id == "metric_resolution":
                 observations.append(_obs(
                     case, tool_sequence=[gx.RANK_TOOL], tool_chosen=gx.RANK_TOOL,
-                    tool_output_metric=case.expect["metric"], tool_output_order="desc",
+                    tool_output_metric=case.expect["metric"],
+                    tool_output_order=_DUAL_AXIS_ORDER.get(case.id, "desc"),
                 ))
             elif axis.id == "invented_metric_relay":
+                # A clean relay: the tool ran and told the user the metric is
+                # not real. Both halves matter -- see the narrow-gate tests.
                 observations.append(_obs(
                     case, tool_sequence=[gx.RANK_TOOL], tool_chosen=gx.RANK_TOOL,
                     tool_output_status="invalid_argument",
@@ -203,11 +211,17 @@ def test_unknown_metric_on_a_real_metric_fails_resolution():
 
 
 def test_invented_metric_falling_through_to_a_gameweek_tool_fails():
-    """i15's actual failure mode."""
+    """i15's actual failure mode, asserted at the predicate AND the axis."""
     run = _perfect_run()
-    obs = _find(run, "gi-04")           # the deliberate "jornada 3" bait
-    obs["tool_sequence"] = ["get_gameweek_context"]
-    obs["tool_chosen"] = "get_gameweek_context"
+    for qid in ("gi-04", "gi-05"):      # gi-04 is the "jornada 3" bait
+        obs = _find(run, qid)
+        obs["tool_sequence"] = ["get_gameweek_context"]
+        obs["tool_chosen"] = "get_gameweek_context"
+        obs["tool_output_code"] = None
+        # The predicate itself must reject it, independent of the threshold.
+        case = gx.Case(qid, obs["question"], {})
+        assert not gx._check_invented_relay(case, obs)
+        assert not gx._check_invented_no_gameweek_answer(case, obs)
 
     assert not _by_id(_score(run))["invented_metric_relay"].passed
 
@@ -360,3 +374,225 @@ def test_ownership_cases_accept_the_tool_that_actually_serves_them():
         assert gx.SQUAD_TOOL in by_id[qid].acceptable_tools
         # The original label must survive alongside it, not be replaced.
         assert "select_players_within_budget" in by_id[qid].acceptable_tools
+
+
+# ---------------------------------------------------------------------------
+# i25 round 2 — the narrow relay gate, changed in BOTH directions at once
+# ---------------------------------------------------------------------------
+
+def _gi_case(qid="gi-01"):
+    return [c for c in gx.INVENTED_METRIC_CASES if c.id == qid][0]
+
+
+def test_gameweek_context_alongside_the_answering_tool_no_longer_breaches():
+    """LOOSENED half. "¿Quién tiene mejor vibra esta fecha?" gathered gameweek
+    context and answered from rank_captain_candidates. i15's note of 2026-08-26
+    recorded that reading as defensible before this battery existed, which is
+    the justification -- not the run it failed."""
+    case = _gi_case("gi-03")
+    obs = _obs(case, tool_sequence=["get_gameweek_context", "rank_captain_candidates"],
+               tool_chosen="get_gameweek_context")
+
+    assert gx._check_invented_no_gameweek_answer(case, obs)
+    assert gx._answering_tool(obs) == "rank_captain_candidates"
+
+
+def test_gameweek_tool_answering_alone_still_breaches():
+    case = _gi_case("gi-04")
+    obs = _obs(case, tool_sequence=["get_gameweek_context"])
+
+    assert not gx._check_invented_no_gameweek_answer(case, obs)
+    assert not gx._check_invented_relay(case, obs)
+
+
+def test_no_tool_at_all_fails_the_narrow_gate():
+    """TIGHTENED half. Answering from memory about a metric that does not exist
+    is the worse version of the failure this axis watches: the user is never
+    told the metric is not real. gi-02 did this in 1 of 3 reps."""
+    case = _gi_case("gi-02")
+    obs = _obs(case, tool_sequence=[], tool_call_count=0)
+
+    assert not gx._check_invented_relay(case, obs)
+    # The loosened companion cannot see it -- which is why both are reported.
+    assert gx._check_invented_no_gameweek_answer(case, obs)
+
+
+def test_a_rewritten_metric_answered_with_status_ok_fails_the_narrow_gate():
+    """The measured case that made this tightening necessary: on "hambre de
+    gol" the model emitted metric='goles esta temporada', which resolves to
+    goals_scored, so the tool returned ok and the user got a top-scorers list
+    without ever learning the metric was not real."""
+    case = _gi_case("gi-02")
+    obs = _obs(case, tool_sequence=[gx.RANK_TOOL], tool_chosen=gx.RANK_TOOL,
+               tool_args={"metric": "goles esta temporada"},
+               tool_output_status="ok", tool_output_metric="goals_scored",
+               tool_output_code=None)
+
+    assert not gx._check_invented_relay(case, obs)
+    assert gx._check_invented_no_gameweek_answer(case, obs)
+
+
+def test_both_relay_figures_are_always_reported():
+    """The criterion cannot be moved quietly between the two numbers."""
+    axis = [a for a in gx.build_axes(TIER) if a.id == "invented_metric_relay"][0]
+    assert axis.companion is not None
+    assert axis.companion_label and axis.companion_reference
+
+    result = gx.score_axis(axis, _perfect_run())
+    assert result.companion_numerator is not None
+    assert result.companion_rate is not None
+
+
+def test_the_narrow_gate_is_stricter_than_the_companion():
+    """Net effect of changing both directions at once: strictly fewer traces
+    pass the gate than pass the companion."""
+    case = _gi_case("gi-02")
+    traces = [
+        _obs(case, tool_sequence=[]),                                    # memory
+        _obs(case, tool_sequence=[gx.RANK_TOOL], tool_output_code=None),  # rewritten
+        _obs(case, tool_sequence=[gx.RANK_TOOL], tool_output_code="unknown_metric"),
+    ]
+    gate = [gx._check_invented_relay(case, o) for o in traces]
+    companion = [gx._check_invented_no_gameweek_answer(case, o) for o in traces]
+
+    assert gate == [False, False, True]
+    assert companion == [True, True, True]
+    assert sum(gate) < sum(companion)
+
+
+# ---------------------------------------------------------------------------
+# Stale cases are excluded, never counted
+# ---------------------------------------------------------------------------
+
+def test_stale_cases_leave_the_denominator_and_are_reported():
+    run = _perfect_run()
+    _find(run, "gm-01")["tool_output_metric"] = "goals_scored"   # would FAIL
+
+    scored = gx.score_axis(
+        [a for a in gx.build_axes(TIER) if a.id == "metric_resolution"][0],
+        run, stale_case_ids={"gm-01"},
+    )
+
+    assert scored.excluded == 1
+    assert scored.excluded_ids == ("gm-01",)
+    assert scored.denominator == len(gx.METRIC_RESOLUTION_CASES) - 1
+    assert scored.passed, "a stale case must not be counted as a failure either"
+
+
+def test_a_stale_case_is_not_counted_as_a_pass_either():
+    """The i46 lesson: pv-11 failed 3/3 for want of a player, and the first run
+    read that as a reproduction. Excluding must move the denominator, not the
+    numerator."""
+    axis = [a for a in gx.build_axes(TIER) if a.id == "synthesis_present"][0]
+    run = _perfect_run()
+    target = _find(run, "gm-01")
+    target["synthesis_turn"] = False
+
+    full = gx.score_axis(axis, run)
+    excluded = gx.score_axis(axis, run, stale_case_ids={"gm-01"})
+
+    assert full.denominator == excluded.denominator + 1
+    assert full.numerator == excluded.numerator      # the failure left, not a pass
+    assert not full.passed and excluded.passed
+
+
+# ---------------------------------------------------------------------------
+# Our defect vs the model's
+# ---------------------------------------------------------------------------
+
+def test_synthesis_axis_is_marked_blocked_by_i46():
+    axis = [a for a in gx.build_axes(TIER) if a.id == "synthesis_present"][0]
+    assert axis.blocked_by == "i46"
+
+
+def test_verdict_separates_a_blocked_axis_from_a_model_failure():
+    """A gate that rejects every candidate stops discriminating. The verdict
+    must say which failure belongs to the model and which is ours."""
+    run = _perfect_run()
+    _find(run, "gm-01")["synthesis_turn"] = False      # blocked axis (i46)
+    for qid in ("gd-01", "gd-02"):
+        _find(run, qid)["tool_output_order"] = "desc"  # model axis
+
+    results = _score(run)
+    accepted, verdict = gx.overall_verdict(results)
+
+    assert not accepted
+    assert "1 model axis (order_direction)" in verdict
+    assert "1 blocked (synthesis_present blocked by i46)" in verdict
+
+
+def test_a_blocked_axis_alone_still_rejects_but_names_itself():
+    run = _perfect_run()
+    _find(run, "gm-01")["synthesis_turn"] = False
+
+    accepted, verdict = gx.overall_verdict(_score(run))
+
+    assert not accepted
+    assert "blocked by i46" in verdict
+    assert "model axis" not in verdict
+
+
+def test_a_breached_guard_still_outranks_everything_including_blocked():
+    run = _perfect_run()
+    _find(run, "gm-01")["synthesis_turn"] = False
+    _find(run, "neg-defensas")["tool_sequence"] = [gx.SQUAD_TOOL]
+
+    accepted, verdict = gx.overall_verdict(_score(run))
+
+    assert not accepted
+    assert verdict.startswith("REJECT — guard breached")
+
+
+# ---------------------------------------------------------------------------
+# The direction axis gained a fourth case (brief correction)
+# ---------------------------------------------------------------------------
+
+def test_direction_axis_has_four_cases_and_shares_one_with_the_metric_axis():
+    axes = {a.id: a for a in gx.build_axes(TIER)}
+    direction_ids = [c.id for c in axes["order_direction"].cases]
+    metric_ids = [c.id for c in axes["metric_resolution"].cases]
+
+    assert len(direction_ids) == 4
+    assert "gm-04" in direction_ids and "gm-04" in metric_ids
+
+
+def test_the_shared_case_is_called_once_and_scored_twice():
+    """Same question text under the same id, so the runner dedupes it."""
+    direction = [c for c in gx.ORDER_DIRECTION_CASES if c.id == "gm-04"][0]
+    metric = [c for c in gx.METRIC_RESOLUTION_CASES if c.id == "gm-04"][0]
+
+    assert direction.question == metric.question
+    assert direction.expect == {"order": "asc"}
+    assert metric.expect == {"metric": "expected_goals_conceded"}
+
+
+def test_the_over_fire_guard_is_not_shrunk_by_stale_cases():
+    """neg-comparar names Salah, who has left. It no longer measures "a
+    comparison between two current players" — but it is still a question that
+    must not pull the user's squad, so it still counts as a guard. Excluding it
+    would shrink the very record being protected (i41: 0 fires in 45)."""
+    axis = [a for a in gx.build_axes(TIER) if a.kind == gx.GUARD][0]
+    run = _perfect_run()
+
+    scored = gx.score_axis(axis, run, stale_case_ids={"neg-comparar", "pv-10"})
+    unscored = gx.score_axis(axis, run)
+
+    assert axis.stale_sensitive is False
+    assert scored.denominator == unscored.denominator
+    assert scored.excluded == 0
+
+
+def test_a_stale_case_still_breaches_the_guard_if_it_fires():
+    axis = [a for a in gx.build_axes(TIER) if a.kind == gx.GUARD][0]
+    run = _perfect_run()
+    _find(run, "neg-comparar")["tool_sequence"] = [gx.SQUAD_TOOL]
+
+    result = gx.score_axis(axis, run, stale_case_ids={"neg-comparar"})
+
+    assert not result.passed, "a stale question that over-fires is still an over-fire"
+
+
+def test_target_axes_remain_stale_sensitive():
+    for axis in gx.build_axes(TIER):
+        if axis.kind == gx.TARGET:
+            assert axis.stale_sensitive, axis.id

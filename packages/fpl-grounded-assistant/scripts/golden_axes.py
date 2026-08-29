@@ -93,6 +93,25 @@ class Axis:
     rationale: str
     cases: tuple[Case, ...]
     check: Callable[[Case, dict[str, Any]], bool]
+    #: A second figure always reported next to the gated one, so the criterion
+    #: cannot be moved quietly between them.
+    companion: "Callable[[Case, dict[str, Any]], bool] | None" = None
+    companion_label: str = ""
+    companion_reference: str = ""
+    #: False when a stale entity does not invalidate the assertion. A GUARD
+    #: asserts a tool must NOT fire: whether Salah is still in the league
+    #: changes what "Compara Haaland y Salah" measures, but not whether the
+    #: user's own squad is relevant to it -- it is not. Excluding it would
+    #: silently shrink the very guard whose zero-fire record is the asset being
+    #: protected (i41: 0 in 45 negative calls).
+    stale_sensitive: bool = True
+    #: Set when the axis measures a defect of OURS rather than of the model. A
+    #: blocked axis still fails the run, but is reported on its own line: while
+    #: i46 is open every candidate fails this identically, and a gate that
+    #: rejects everyone stops discriminating -- the first thing that happens
+    #: when Sonnet fails it the same way in i22 is that people start ignoring
+    #: the verdict.
+    blocked_by: "str | None" = None
 
     def passed(self, rate: float) -> bool:
         if self.kind == GUARD:
@@ -146,16 +165,55 @@ def _check_metric_resolution(case: Case, obs: dict[str, Any]) -> bool:
 _GAMEWEEK_TOOLS = frozenset({"get_current_gameweek", "get_gameweek_context"})
 
 
-def _check_invented_relay(case: Case, obs: dict[str, Any]) -> bool:
-    """A metric that does not exist must NOT be answered from a gameweek tool.
+def _answering_tool(obs: dict[str, Any]) -> "str | None":
+    """The tool whose output the answer is built from — the last one called.
 
-    This is i15's actual failure mode, and it is what the reference 0/10
-    measured. Choosing another non-gameweek tool on a vague phrase ("mejor
-    vibra") was explicitly recorded as defensible and is not a breach, so the
-    assertion is the absence of the gameweek fallback rather than the presence
-    of any one tool.
+    Not ``tool_chosen``, which is the PRIMARY: on the one measured turn where a
+    gameweek tool appeared next to the answering tool, ``tool_chosen`` was
+    ``get_gameweek_context`` while ``rank_captain_candidates`` actually answered.
     """
-    return not (_GAMEWEEK_TOOLS & set(_tools(obs)))
+    called = _tools(obs)
+    return called[-1] if called else None
+
+
+def _check_invented_no_gameweek_answer(case: Case, obs: dict[str, Any]) -> bool:
+    """LOOSENED, reported not gated: no gameweek tool ANSWERED the question.
+
+    Was "no gameweek tool anywhere in the sequence". Loosened because i15's
+    failure mode is a gameweek tool *answering* a question about a metric that
+    does not exist, and because a question that literally says "esta fecha" can
+    reasonably gather gameweek context alongside the tool that answers.
+
+    The justification is i15's own note of 2026-08-26, which recorded that
+    reading before this battery existed — NOT the run that failed on it. Changed
+    in the same commit as the tightening below, so this is not a loosening taken
+    alone after seeing what made it fail.
+    """
+    return _answering_tool(obs) not in _GAMEWEEK_TOOLS
+
+
+def _check_invented_relay(case: Case, obs: dict[str, Any]) -> bool:
+    """NARROW, the gate: the relay must actually have happened.
+
+    Two ways to fail beyond the gameweek fallback, both measured:
+
+    *   **No tool at all.** Answering from memory about a metric that does not
+        exist is the worse version of what this axis watches: the user is never
+        told the metric is not real.
+    *   **A confident answer to a rewritten question.** On "hambre de gol" the
+        model emitted ``metric='goles esta temporada'``, which resolves to
+        ``goals_scored``, so the tool returned ``status=ok`` and the user got a
+        top-scorers list without ever learning that "hambre de gol" is not a
+        metric. Requiring ``unknown_metric`` in the trace is what catches it.
+
+    This mirrors i15's own second figure ("relayed unknown_metric: 8/10"), which
+    is the reference the threshold is set from.
+    """
+    if not _check_invented_no_gameweek_answer(case, obs):
+        return False
+    if not _tools(obs):
+        return False
+    return obs.get("tool_output_code") == "unknown_metric"
 
 
 # --- axis: order direction -------------------------------------------------
@@ -266,6 +324,11 @@ ORDER_DIRECTION_CASES: tuple[Case, ...] = (
     Case("gd-02", "¿Qué mediocampistas tienen menos propiedad? Busco diferenciales",
          {"order": "asc"}),
     Case("gd-03", "¿Qué porteros conceden menos goles esperados?", {"order": "asc"}),
+    # The fourth direction case. Same question text as gm-04 in the metric axis,
+    # and deliberately the same id: the runner dedupes it, so it is called once
+    # and scored twice -- resolved field AND applied direction on one turn.
+    Case("gm-04", "¿Qué defensas tienen menos goles esperados en contra?",
+         {"order": "asc"}),
 )
 
 #: i41. sb-02/sb-13 verbatim from the routing corpus, kept here so the axis is
@@ -362,13 +425,22 @@ def build_axes(tier: str = "full") -> tuple[Axis, ...]:
         Axis(
             id="invented_metric_relay",
             kind=TARGET,
-            threshold=1.00,
-            reference="i15 live, 2026-08-26: 0/10 fell through to a gameweek tool.",
-            rationale="The measured figure is a clean 0, and the failure mode is "
-                      "a wrong answer to a question the user cannot tell was "
-                      "misread. No headroom is granted.",
+            threshold=0.80,
+            reference="i15 live, 2026-08-26: relayed unknown_metric on 8 of 10 "
+                      "calls (80%).",
+            rationale="The GATE is the narrow check: the relay must have "
+                      "happened. Its threshold comes from i15's own relay "
+                      "figure (8/10), not from the 0/10 gameweek-fallback "
+                      "figure, because they measure different things -- the "
+                      "companion below is what that 0/10 refers to. Both are "
+                      "always reported so the criterion cannot be moved "
+                      "quietly between them.",
             cases=INVENTED_METRIC_CASES,
             check=_check_invented_relay,
+            companion=_check_invented_no_gameweek_answer,
+            companion_label="no gameweek answer",
+            companion_reference="i15 live, 2026-08-26: 0/10 fell through to a "
+                                "gameweek tool (100%).",
         ),
         Axis(
             id="order_direction",
@@ -400,9 +472,14 @@ def build_axes(tier: str = "full") -> tuple[Axis, ...]:
             rationale="GUARD -- outranks every target. A false fire injects "
                       "someone's squad into a general question: dirtier "
                       "context, higher cost, possible bias. Failing to call is "
-                      "cheaper than calling wrongly, so the ceiling is zero.",
+                      "cheaper than calling wrongly, so the ceiling is zero. "
+                      "NOT stale-sensitive: a departed player changes what the "
+                      "question measures but not whether the squad is relevant "
+                      "to it, so dropping those cases would only shrink the "
+                      "guard.",
             cases=_corpus_cases(GUARD_CASE_IDS) + GUARD_ADHOC_CASES,
             check=_check_overfire,
+            stale_sensitive=False,
         ),
         Axis(
             id="synthesis_present",
@@ -412,10 +489,14 @@ def build_axes(tier: str = "full") -> tuple[Axis, ...]:
                       "probe returned synthesis_turn=False.",
             rationale="Scored over EVERY observation in the run, so it costs no "
                       "extra calls -- exactly the standing check whose absence "
-                      "let i46 be found sideways. Expected to FAIL on luna "
-                      "today; that is the point of recording a reference row.",
+                      "let i46 be found sideways. BLOCKED: it measures our "
+                      "defect, not the model's, so it gets its own verdict "
+                      "line. Every candidate fails it identically while i46 is "
+                      "open, and a gate that rejects everyone stops "
+                      "discriminating.",
             cases=(),          # scored across the whole run, see runner
             check=_check_synthesis,
+            blocked_by="i46",
         ),
     )
 
@@ -436,6 +517,20 @@ class AxisResult:
     numerator: int
     denominator: int
     reference: str
+    #: Cases dropped because a pinned entity no longer resolves. Reported, never
+    #: silently absorbed -- see golden_preflight.
+    excluded: int = 0
+    excluded_ids: tuple[str, ...] = ()
+    companion_numerator: "int | None" = None
+    companion_label: str = ""
+    companion_reference: str = ""
+    blocked_by: "str | None" = None
+
+    @property
+    def companion_rate(self) -> "float | None":
+        if self.companion_numerator is None or not self.denominator:
+            return None
+        return self.companion_numerator / self.denominator
 
     @property
     def rate(self) -> float:
@@ -454,36 +549,66 @@ class AxisResult:
         return "fires" if self.kind == GUARD else "pass"
 
 
-def score_axis(axis: Axis, observations: list[dict[str, Any]]) -> AxisResult:
+def score_axis(
+    axis: Axis,
+    observations: list[dict[str, Any]],
+    stale_case_ids: "frozenset[str] | set[str]" = frozenset(),
+) -> AxisResult:
     """Score one axis against the shared observation pool.
 
     Pure and deterministic: the tests drive it with recorded traces.
+
+    ``stale_case_ids`` are dropped from the denominator, not counted as passes
+    and not as failures. A question whose player has left measures nothing: the
+    first reference run scored pv-11 as a 3/3 reproduction of i46 when there was
+    simply nothing to synthesise. Both denominators are reported.
     """
     if axis.id in WHOLE_RUN_AXES:
-        relevant = [o for o in observations if _is_valid(o)]
-        by_case = {c.id: c for c in ()}
+        candidates = [o for o in observations if _is_valid(o)]
+        by_case: dict[str, Case] = {}
     else:
         wanted = {c.id: c for c in axis.cases}
-        relevant = [o for o in observations
-                    if _is_valid(o) and o.get("question_id") in wanted]
+        candidates = [o for o in observations
+                      if _is_valid(o) and o.get("question_id") in wanted]
         by_case = wanted
 
+    if axis.stale_sensitive:
+        relevant = [o for o in candidates if o.get("question_id") not in stale_case_ids]
+        dropped = sorted({str(o.get("question_id")) for o in candidates
+                          if o.get("question_id") in stale_case_ids})
+    else:
+        relevant, dropped = candidates, []
+
     hits = 0
+    companion_hits = 0
     for obs in relevant:
         case = by_case.get(obs.get("question_id")) or Case(
             id=str(obs.get("question_id")), question=str(obs.get("question", "")),
         )
         if axis.check(case, obs):
             hits += 1
+        if axis.companion is not None and axis.companion(case, obs):
+            companion_hits += 1
 
     return AxisResult(
         axis_id=axis.id, kind=axis.kind, threshold=axis.threshold,
         numerator=hits, denominator=len(relevant), reference=axis.reference,
+        excluded=len(candidates) - len(relevant), excluded_ids=tuple(dropped),
+        companion_numerator=companion_hits if axis.companion is not None else None,
+        companion_label=axis.companion_label,
+        companion_reference=axis.companion_reference,
+        blocked_by=axis.blocked_by,
     )
 
 
 def overall_verdict(results: list[AxisResult]) -> tuple[bool, str]:
-    """Guards outrank targets: any breached guard fails the model outright."""
+    """Guards outrank targets; blocked axes get their own line.
+
+    A blocked axis (one measuring OUR defect, e.g. i46) still fails the run but
+    is never conflated with the model's own failures. Reporting "2 axes failed"
+    when one of them fails identically for every candidate is how a verdict
+    stops being read.
+    """
     guards = [r for r in results if r.kind == GUARD]
     targets = [r for r in results if r.kind == TARGET]
 
@@ -493,8 +618,18 @@ def overall_verdict(results: list[AxisResult]) -> tuple[bool, str]:
         return False, f"REJECT — guard breached ({names}). Guards outrank targets."
 
     failed = [r for r in targets if not r.passed]
-    if failed:
-        names = ", ".join(r.axis_id for r in failed)
-        return False, f"REJECT — guards held, but target(s) below threshold: {names}."
+    if not failed:
+        return True, "ACCEPT — every guard held and every target met its threshold."
 
-    return True, "ACCEPT — every guard held and every target met its threshold."
+    model_failures = [r for r in failed if r.blocked_by is None]
+    blocked_failures = [r for r in failed if r.blocked_by is not None]
+
+    parts: list[str] = []
+    if model_failures:
+        names = ", ".join(r.axis_id for r in model_failures)
+        parts.append(f"{len(model_failures)} model axis ({names})")
+    if blocked_failures:
+        names = ", ".join(f"{r.axis_id} blocked by {r.blocked_by}"
+                          for r in blocked_failures)
+        parts.append(f"{len(blocked_failures)} blocked ({names})")
+    return False, "REJECT — " + "; ".join(parts) + "."

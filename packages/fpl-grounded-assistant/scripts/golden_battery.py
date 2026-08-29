@@ -28,6 +28,13 @@ Guarantees the runner enforces, each from a specific failure already paid for
     same" battery against a different answer space.
 *   **Cost is estimated and confirmed before spending**, and the exact planned
     call count is printed.
+*   **The corpus is preflighted offline before a cent is spent.** Every pinned
+    player and team is resolved against the bootstrap; expired ones abort the
+    run by name. Stale cases do not merely lose data, they manufacture
+    findings: the first reference row reported pv-11 failing synthesis 3/3 and
+    called it a reproduction of i46, when in fact Gordon had left and there was
+    nothing to synthesise. ``--allow-stale`` proceeds while EXCLUDING them from
+    scoring with the reason recorded and both denominators reported.
 *   **Exceptions invalidate the run.** An excepted observation is not evidence
     either way; the report refuses a verdict rather than averaging over it.
 *   **Cases are deduplicated across axes.** sb-02 and the eight audit questions
@@ -52,6 +59,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 import measure_tool_routing as base  # noqa: E402
 import measure_squad_tool_routing as squad  # noqa: E402
 import golden_axes as axes_mod  # noqa: E402
+import golden_preflight as preflight  # noqa: E402
 
 #: Mean cost per call over the i41 run (84 calls, $0.367) on gpt-5.6-luna.
 #: Only used for the pre-spend estimate; the report prints real spend.
@@ -116,6 +124,7 @@ def _markdown_report(
     verdict: str,
     spend: float,
     exceptions: int,
+    stale: "list[preflight.StaleCase] | None" = None,
 ) -> str:
     lines = [
         f"# Golden battery — {header['model']}",
@@ -134,21 +143,43 @@ def _markdown_report(
         f"| bootstrap sha256 | `{header['bootstrap_sha256']}` |",
         f"| distinct cases | {header['cases']} |",
         f"| calls | {header['calls']} |",
+        f"| stale cases excluded | {header.get('stale_excluded', 0)} |",
         f"| spend USD | {spend:.4f} |",
         f"| run at | {header['run_at']} |",
         "",
-        "| axis | kind | result | threshold | verdict | reference |",
-        "|---|---|---|---|---|---|",
+        "| axis | kind | result | threshold | verdict | excluded | reference |",
+        "|---|---|---|---|---|---|---|",
     ]
     for r in results:
         mark = "PASS" if r.passed else "**FAIL**"
+        if r.blocked_by and not r.passed:
+            mark = f"**FAIL ({r.blocked_by})**"
         thr = (f"<= {r.threshold:.0%}" if r.kind == axes_mod.GUARD
                else f">= {r.threshold:.0%}")
+        cell = (f"{r.numerator}/{r.denominator} {r.label} ({r.rate:.0%})")
+        if r.companion_numerator is not None:
+            cell += (f"<br>{r.companion_label}: {r.companion_numerator}/"
+                     f"{r.denominator} ({(r.companion_rate or 0):.0%})")
         lines.append(
-            f"| {r.axis_id} | {r.kind} | {r.numerator}/{r.denominator} "
-            f"{r.label} ({r.rate:.0%}) | {thr} | {mark} | {r.reference} |"
+            f"| {r.axis_id} | {r.kind} | {cell} | {thr} | {mark} | "
+            f"{r.excluded or ''} | {r.reference} |"
         )
     lines += ["", f"**{verdict}**", ""]
+    if stale:
+        lines += [
+            "## Excluded by preflight",
+            "",
+            "Pinned entities that no longer resolve. Excluded from scoring, not "
+            "counted as passes or failures — a question about a departed player "
+            "measures nothing. The questions are deliberately NOT rewritten here: "
+            "#171, i38 and i41 were scored against this exact text.",
+            "",
+            "| case | reason |",
+            "|---|---|",
+        ]
+        for item in sorted(stale, key=lambda s: s.case_id):
+            lines.append(f"| `{item.case_id}` | {item.reason} |")
+        lines.append("")
     if exceptions:
         lines.append(
             f"> **INVALID RUN — {exceptions} harness exception(s).** An excepted "
@@ -174,6 +205,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--model", default=base.MODEL)
     ap.add_argument("--max-tokens", type=int, default=1024)
     ap.add_argument("--yes", action="store_true", help="skip the cost confirmation")
+    ap.add_argument("--allow-stale", action="store_true",
+                    help="run despite expired pinned entities, excluding those "
+                         "cases from scoring with the reason recorded")
     args = ap.parse_args(argv)
 
     base._configure_imports()
@@ -190,14 +224,37 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     plan = _plan(args.tier)
-    calls = len(plan) * args.reps
     bootstrap_path = Path(args.bootstrap)
+
+    # ---- preflight, before a cent is spent -----------------------------
+    bootstrap_raw = json.loads(bootstrap_path.read_text(encoding="utf-8"))
+    stale = preflight.check({c.id: c.question for c in plan.values()}, bootstrap_raw)
+    stale_ids = {item.case_id for item in stale}
+    stale_reasons = {item.case_id: item.reason for item in stale}
+    if stale:
+        print("\n" + preflight.format_report(stale))
+        if not args.allow_stale:
+            print(
+                "\nABORT: the corpus has expired against this bootstrap. A stale "
+                "case does not merely lose data, it manufactures findings -- a "
+                "question about a departed player fails every axis for reasons "
+                "that have nothing to do with the model.\n"
+                "Re-run with --allow-stale to proceed while excluding these "
+                "cases (both denominators are reported), or replace the "
+                "questions first.",
+                file=sys.stderr,
+            )
+            return 4
+        print(f"  --allow-stale: excluding {len(stale_ids)} case(s) from scoring.\n")
+
+    calls = len(plan) * args.reps
     header = {
         "model": args.model, "provider": args.provider, "tier": args.tier,
         "reps": args.reps, "max_tokens": args.max_tokens, "temperature": "None (unset)",
         "bootstrap_name": bootstrap_path.name,
         "bootstrap_sha256": _sha256(bootstrap_path),
         "cases": len(plan), "calls": calls,
+        "stale_excluded": len(stale_ids),
         "run_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
 
@@ -215,7 +272,7 @@ def main(argv: list[str] | None = None) -> int:
     logging.getLogger("fpl_grounded_assistant").addHandler(capture)
     logging.getLogger("fpl_grounded_assistant").setLevel(logging.INFO)
 
-    bootstrap = dict(json.loads(bootstrap_path.read_text(encoding="utf-8")))
+    bootstrap = dict(bootstrap_raw)
     bootstrap["_my_team_id"] = squad.TEAM_ID   # the ownership axis needs a team
 
     out_path = Path(args.out)
@@ -228,6 +285,8 @@ def main(argv: list[str] | None = None) -> int:
             for rep in range(args.reps):
                 obs = base.run_one(case.as_question(), rep, bootstrap, api_key)
                 obs["tier"] = args.tier
+                if case.id in stale_ids:
+                    obs["excluded_from_scoring"] = stale_reasons[case.id]
                 observations.append(obs)
                 fh.write(json.dumps(obs, ensure_ascii=False) + "\n")
                 fh.flush()
@@ -238,14 +297,16 @@ def main(argv: list[str] | None = None) -> int:
     _verify_provider(capture.events, args.provider, args.model)
 
     exceptions = sum(1 for o in observations if o.get("exception") is not None)
-    results = [axes_mod.score_axis(a, observations) for a in axes_mod.build_axes(args.tier)]
+    results = [axes_mod.score_axis(a, observations, stale_ids)
+               for a in axes_mod.build_axes(args.tier)]
     accepted, verdict = axes_mod.overall_verdict(results)
     if exceptions:
         accepted, verdict = False, (
             f"INVALID — {exceptions} harness exception(s); no verdict is claimed."
         )
 
-    report = _markdown_report(header, results, accepted, verdict, spend, exceptions)
+    report = _markdown_report(header, results, accepted, verdict, spend,
+                              exceptions, stale)
     print("\n" + report)
     if args.report:
         Path(args.report).write_text(report, encoding="utf-8")

@@ -1,3 +1,12 @@
+> **SUPERSEDED — kept on purpose.** This row was produced by an instrument with
+> two defects, both since fixed: no preflight, so nine questions about departed
+> players (Gordon, Salah, Sterling, Son, an ambiguous Palmer/Rodri) were scored
+> as if they measured something; and `invented_metric_relay` asserted only the
+> absence of a gameweek fallback, not that the relay happened. Read it beside
+> the corrected row, not instead of it: the before/after pair across an
+> instrument correction is information, not rubbish. Its headline claim —
+> `pv-11` failing synthesis 3/3 as a reproduction of i46 — was an artefact.
+
 # Golden battery — gpt-5.6-luna
 
 Diffable: two models compare by reading two of these tables, with no re-run.
