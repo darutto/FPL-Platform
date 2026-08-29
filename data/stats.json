@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-28T07:33:25Z",
+  "generatedAt": "2026-08-29T05:05:49Z",
   "season": "2026/27",
   "seasonStatus": "in_season",
   "gameweek": 1,
@@ -147,12 +147,28 @@
   ],
   "players": [
     {
+      "name": "Foden",
+      "team": "MCI",
+      "position": "MID",
+      "xg": 0.99,
+      "xa": 0.85,
+      "minutes": 171
+    },
+    {
       "name": "De Cuyper",
       "team": "BHA",
       "position": "DEF",
       "xg": 1.47,
       "xa": 0.21,
       "minutes": 77
+    },
+    {
+      "name": "Nketiah",
+      "team": "CRY",
+      "position": "FWD",
+      "xg": 0.96,
+      "xa": 0.58,
+      "minutes": 122
     },
     {
       "name": "Hinshelwood",
@@ -163,20 +179,28 @@
       "minutes": 63
     },
     {
+      "name": "Haaland",
+      "team": "MCI",
+      "position": "FWD",
+      "xg": 1.4,
+      "xa": 0.02,
+      "minutes": 180
+    },
+    {
+      "name": "Cherki",
+      "team": "MCI",
+      "position": "MID",
+      "xg": 0.35,
+      "xa": 1.05,
+      "minutes": 108
+    },
+    {
       "name": "Guéhi",
       "team": "MCI",
       "position": "DEF",
       "xg": 0.89,
-      "xa": 0.32,
-      "minutes": 90
-    },
-    {
-      "name": "Nketiah",
-      "team": "CRY",
-      "position": "FWD",
-      "xg": 0.6,
-      "xa": 0.58,
-      "minutes": 55
+      "xa": 0.36,
+      "minutes": 180
     },
     {
       "name": "Szoboszlai",
@@ -235,12 +259,12 @@
       "minutes": 65
     },
     {
-      "name": "Haaland",
+      "name": "Rúben",
       "team": "MCI",
-      "position": "FWD",
-      "xg": 0.74,
-      "xa": 0.02,
-      "minutes": 90
+      "position": "DEF",
+      "xg": 0.09,
+      "xa": 0.71,
+      "minutes": 180
     },
     {
       "name": "Gonzalo",
@@ -273,6 +297,14 @@
       "xg": 0.7,
       "xa": 0.02,
       "minutes": 62
+    },
+    {
+      "name": "Semenyo",
+      "team": "MCI",
+      "position": "MID",
+      "xg": 0.12,
+      "xa": 0.59,
+      "minutes": 180
     },
     {
       "name": "João Pedro",
@@ -312,38 +344,6 @@
       "position": "MID",
       "xg": 0.24,
       "xa": 0.32,
-      "minutes": 90
-    },
-    {
-      "name": "Barry",
-      "team": "EVE",
-      "position": "FWD",
-      "xg": 0.45,
-      "xa": 0.09,
-      "minutes": 78
-    },
-    {
-      "name": "Enciso",
-      "team": "IPS",
-      "position": "MID",
-      "xg": 0.23,
-      "xa": 0.31,
-      "minutes": 70
-    },
-    {
-      "name": "Schade",
-      "team": "BRE",
-      "position": "MID",
-      "xg": 0.52,
-      "xa": 0.01,
-      "minutes": 90
-    },
-    {
-      "name": "Georginio",
-      "team": "BHA",
-      "position": "FWD",
-      "xg": 0.08,
-      "xa": 0.44,
       "minutes": 90
     }
   ]
