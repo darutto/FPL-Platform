@@ -818,6 +818,17 @@
         "IA",
         "Producto"
       ]
+    },
+    {
+      "id": "i49",
+      "col": "idea",
+      "progress": 0,
+      "title": "El truncado del orquestador cubre 7 de 36 campos, y una entrada miente",
+      "desc": "AUDITADO 2026-08-29, offline, tras un aviso del chat cerebro. _TRUNCATABLE_FIELDS (orchestrator.py:572) es una ALLOWLIST DE NOMBRES DE CAMPO y el match es pertenencia exacta.\n\nCOBERTURA REAL: 7 nombres contra 36 campos de salida declarados como array en los schemas. Quedan fuera, entre otros: ranked, ranked_candidates, squad, starting_xi, bench, matches, teams, top_players, entries, runs, series, zones, opportunities, weakest_zones.\n\nUNA ENTRADA MIENTE SOBRE LO QUE CUBRE. La linea dice:\n    \"candidates\",   # rank_captain_candidates\npero esa herramienta devuelve ranked_candidates (fpl-tool-contract/tools.py:651). El tope NUNCA ha disparado para el camino que el comentario afirma proteger. Quien escribio esa linea creyo que lo cubria.\n\nY SI CUBRE OTRA COSA, PEOR: 'candidates' matchea las listas de desambiguacion de jugador (tools.py:279, 333, 442, 587), que se emiten con status='ambiguous'. O sea que el unico sitio donde esta entrada dispara es cortando a 10 una lista de desambiguacion -- y eso puede DEJAR FUERA AL JUGADOR CORRECTO. No es un problema de coste: es de correccion, y afecta al wizard de eleccion que [[i16]] y el trabajo de resolucion de nombres dejaron funcionando.\n\nTAMANOS, para dimensionar lo que escapa: rank_players_by_metric con top_n=50 empuja 47.968 bytes enteros al modelo, sin nota de truncado.\n\nNO CRECER LA LISTA DE NOMBRES es lo unico claro -- es la misma forma de [[i43]]: una allowlist que solo protege de lo que alguien ya penso. Opciones, sin decidir:\n  (a) Topar en la herramienta, que es la que conoce la semantica. Ya se hizo asi en el pool de capitania (top 12 sobre el pool derivado).\n  (b) Invertir a 'trunca cualquier lista por encima de N salvo exenciones'. Ojo: squad son 15 picks que NO se pueden cortar, y un top_n=50 pedido por el usuario tampoco -- cortarlo contradice en silencio lo que se pidio.\n  (c) Quitar el tope del orquestador y declararlo responsabilidad de cada herramienta.\n\nY ANTES DE TOCAR NADA: el coste de computo no se arregla truncando la salida. En el caso de capitania se siguen puntuando 283 jugadores y solo se recorta lo que se envia; latencia y computo por turno siguen abiertos como decision de diseno.",
+      "tags": [
+        "Backend",
+        "IA"
+      ]
     }
   ]
 }
