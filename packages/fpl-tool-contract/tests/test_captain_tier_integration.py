@@ -29,10 +29,11 @@ from fpl_tool_contract.tools import (
 
 _SCORE_OK_KEYS = {
     "status", "player_id", "web_name", "name", "team", "team_short",
-    "position", "captain_score", "tier", "role_signals", "score_inputs", "query",
+    "position", "captain_score", "tier", "role_signals", "score_inputs",
+    "time_context", "query",
 }
 
-_RANK_ENTRY_OK_KEYS = _SCORE_OK_KEYS | {"index", "rank"}
+_RANK_ENTRY_OK_KEYS = (_SCORE_OK_KEYS - {"time_context"}) | {"index", "rank"}
 
 # Scores produced by the shared conftest bootstrap. Pinned so a change to the
 # scoring formula or its inputs surfaces here rather than silently.

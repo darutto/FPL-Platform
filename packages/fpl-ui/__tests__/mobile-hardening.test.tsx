@@ -130,6 +130,24 @@ describe('ChipCard — header row shrinks around the recommendation pill', () =>
     expect(label.className).toEqual(expect.stringContaining('truncate'));
     expect(label.parentElement?.className).toEqual(expect.stringContaining('min-w-0'));
   });
+
+  test('captain score names its owner and contrasts the global top player', () => {
+    const data: ChipAdviceMeta = {
+      chip: 'triple_captain',
+      recommendation: 'conditions_marginal',
+      gw: 3,
+      signal_value: 79,
+      signal_label: 'Puntuación de capitán',
+      evaluated_player: 'Haaland',
+      top_player: 'Cherki',
+      chip_unavailable: false,
+    };
+
+    render(<ChipCard data={data} />);
+
+    expect(screen.getByText('Puntuación de capitán · Haaland')).toBeInTheDocument();
+    expect(screen.getByText('Mejor disponible: Cherki')).toBeInTheDocument();
+  });
 });
 
 describe('FixtureRunTable — header row name truncates', () => {

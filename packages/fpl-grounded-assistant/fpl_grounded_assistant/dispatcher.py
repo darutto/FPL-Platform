@@ -226,7 +226,7 @@ INTENT_MANIFEST: dict[str, dict[str, Any]] = {
         "tool":                    "rank_captain_candidates",
         "description":             "Rank a list of captain candidates by score",
         "requires_player_query":   False,
-        "requires_candidates_list": True,
+        "requires_candidates_list": False,
         "example_phrasings": [
             "top captains this week",
             "captain rankings",

@@ -7,7 +7,8 @@
  *   response.chip    !== null
  *
  * Consumes from ChipAdviceMeta (stable conditional fields only):
- *   chip, recommendation, gw, signal_value, signal_label, chip_unavailable
+ *   chip, recommendation, gw, signal_value, signal_label, top_player,
+ *   evaluated_player, chip_unavailable
  *
  * chip_unavailable=true: greyed state, "chip no disponible" note.
  * missing_context: neutral state (no strong signal available, e.g. free_hit
@@ -22,7 +23,11 @@ interface Props {
 }
 
 export default function ChipCard({ data }: Props) {
-  const { chip, recommendation, gw, signal_value, signal_label, chip_unavailable } = data;
+  const {
+    chip, recommendation, gw, signal_value, signal_label,
+    top_player, evaluated_player, chip_unavailable,
+  } = data;
+  const signalPlayer = evaluated_player ?? top_player;
   const chipLabel = CHIP_LABELS[chip] ?? chip;
   const { label, pillClass } = CHIP_RECOMMENDATION_CONFIG[recommendation];
 
@@ -50,9 +55,15 @@ export default function ChipCard({ data }: Props) {
         {/* Signal row */}
         {signal_value != null && signal_label != null && (
           <div className="flex items-center justify-between text-xs">
-            <span className="text-bf-gray">{signal_label}</span>
+            <span className="text-bf-gray">
+              {signal_label}{signalPlayer != null ? ` · ${signalPlayer}` : ''}
+            </span>
             <span className="font-display tracking-tighter text-bf-purple text-base leading-none">{signal_value.toFixed(1)}</span>
           </div>
+        )}
+
+        {evaluated_player != null && top_player != null && evaluated_player !== top_player && (
+          <p className="text-xs text-bf-gray">Mejor disponible: {top_player}</p>
         )}
 
         {/* Unavailable note */}

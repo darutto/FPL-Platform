@@ -119,16 +119,13 @@ def test_checker_does_not_flag_truthful_descriptions(description):
 # The defect, and the whole offered set
 # ---------------------------------------------------------------------------
 
-def test_rank_captain_candidates_no_longer_claims_candidates_is_omittable():
+def test_rank_captain_candidates_truthfully_exposes_optional_candidates():
     schema = next(s for s in _ALL_SCHEMAS if s.name == "rank_captain_candidates")
 
-    assert "candidates" in schema.parameters["required"], (
-        "the fix keeps candidates required; auto-derivation was explicitly not "
-        "implemented (it would duplicate rank_players_by_metric and be built on "
-        "form, which is 0.0 for every element pre-season)"
-    )
+    assert "candidates" not in schema.parameters["required"]
     assert not _omittability_claims(schema.description, schema.parameters["required"])
     assert "auto top-10 by form" not in schema.description
+    assert "deterministic global" in schema.description
 
 
 @pytest.mark.parametrize("schema", _ALL_SCHEMAS, ids=lambda s: s.name)

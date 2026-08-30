@@ -67,7 +67,16 @@ from fpl_captain_engine import (
 )
 from fpl_player_registry import resolve_player_candidates
 from fpl_query_tools import get_current_gameweek_from_bootstrap, get_player_summary
-from fpl_tool_contract.scoring_core import _derive_base_scoring_inputs
+from fpl_tool_contract.scoring_core import (
+    _derive_base_scoring_inputs,
+    bootstrap_for_captain_window,
+    captain_pool_elements,
+    captain_time_context,
+    captain_window_needs_fixture_data,
+    missing_captain_fixture_notice,
+)
+
+_DERIVED_CAPTAIN_POOL_LIMIT = 12
 
 # ---------------------------------------------------------------------------
 # Phase 5m: scoring input derivation helpers
@@ -378,6 +387,9 @@ def tool_get_captain_score(
     query: str | int,
     bootstrap: dict[str, Any],
     candidate_inputs: dict[str, Any] | None = None,
+    *,
+    gameweek: int | None = None,
+    horizon: int | None = None,
 ) -> dict[str, Any]:
     """Return a captain score for a resolved player.
 
@@ -427,6 +439,32 @@ def tool_get_captain_score(
     ``code``    "missing_argument"
     ``message`` Descriptive message listing missing fields
     """
+    try:
+        time_context = captain_time_context(bootstrap, gameweek, horizon)
+        scoring_bootstrap, fixture_source = bootstrap_for_captain_window(
+            bootstrap, time_context
+        )
+        time_context["fixture_source"] = fixture_source
+    except ValueError as exc:
+        return {"status": "error", "code": "invalid_argument", "message": str(exc)}
+    has_explicit_fixture = bool(
+        candidate_inputs and "fixture_difficulty" in candidate_inputs
+    )
+    if (
+        captain_window_needs_fixture_data(time_context, fixture_source)
+        and not has_explicit_fixture
+    ):
+        time_context["notice"] = missing_captain_fixture_notice(time_context)
+        return {
+            "status": "error",
+            "code": "missing_context",
+            "message": (
+                f"{time_context['notice']} Future team fixtures "
+                "are not available in bootstrap."
+            ),
+            "time_context": time_context,
+        }
+
     # Validate explicit inputs before player resolution (fast-fail on bad inputs)
     if candidate_inputs:
         validation_error = _validate_candidate_inputs(candidate_inputs)
@@ -463,7 +501,7 @@ def tool_get_captain_score(
 
     # Build final scoring inputs: derived values as base, explicit values override
     if element is not None:
-        derived = _derive_scoring_inputs_from_element(element, bootstrap)
+        derived = _derive_scoring_inputs_from_element(element, scoring_bootstrap)
     else:
         derived = {"form": 5.0, "fixture_difficulty": 3, "xgi_per_90": 0.30, "minutes_risk": 0.0}
 
@@ -498,13 +536,17 @@ def tool_get_captain_score(
             "xgi_per_90":         xgi_per_90,
             "minutes_risk":       minutes_risk,
         },
+        "time_context": time_context,
         "query": str(query),
     }
 
 
 def tool_rank_captain_candidates(
-    candidates: list[dict[str, Any]],
+    candidates: list[dict[str, Any]] | None,
     bootstrap: dict[str, Any],
+    *,
+    gameweek: int | None = None,
+    horizon: int | None = None,
 ) -> dict[str, Any]:
     """Score and rank a list of captain candidates by composite captain score.
 
@@ -524,7 +566,9 @@ def tool_rank_captain_candidates(
     Parameters
     ----------
     candidates:
-        List of candidate dicts (at least one required).
+        Optional list of candidate dicts. When absent or empty, the
+        deterministic bootstrap pool is ranked and its top 12 are returned.
+        Caller-provided lists are never truncated.
     bootstrap:
         Full bootstrap dict from ``fpl_api_client.get_bootstrap()``.
 
@@ -540,6 +584,7 @@ def tool_rank_captain_candidates(
                            Each non-ok entry has: status, query/message,
                            index, and an error code where applicable.
     ``total``              Number of successfully scored candidates.
+    ``pool_size``          Candidate count before the derived-pool output cap.
     ``error_count``        Number of candidates that failed to resolve or
                            were missing required scoring fields.
 
@@ -549,17 +594,43 @@ def tool_rank_captain_candidates(
     ``code``    "missing_argument"
     ``message`` Descriptive message
     """
-    if not candidates:
+    try:
+        time_context = captain_time_context(bootstrap, gameweek, horizon)
+        scoring_bootstrap, fixture_source = bootstrap_for_captain_window(
+            bootstrap, time_context
+        )
+        time_context["fixture_source"] = fixture_source
+    except ValueError as exc:
+        return {"status": "error", "code": "invalid_argument", "message": str(exc)}
+    has_explicit_fixtures = bool(candidates) and all(
+        isinstance(candidate, dict) and "fixture_difficulty" in candidate
+        for candidate in candidates or []
+    )
+    if (
+        captain_window_needs_fixture_data(time_context, fixture_source)
+        and not has_explicit_fixtures
+    ):
+        time_context["notice"] = missing_captain_fixture_notice(time_context)
         return {
-            "status":  "error",
-            "code":    "missing_argument",
-            "message": "candidates list is empty — at least one candidate is required.",
+            "status": "error",
+            "code": "missing_context",
+            "message": (
+                f"{time_context['notice']} Future team fixtures "
+                "are not available in bootstrap."
+            ),
+            "time_context": time_context,
         }
+
+    pool_source = "caller" if candidates else "derived"
+    candidates_to_rank = candidates or [
+        {"query": element["id"]}
+        for element in captain_pool_elements(bootstrap)
+    ]
 
     ok_results:     list[dict[str, Any]] = []
     non_ok_results: list[dict[str, Any]] = []
 
-    for i, c in enumerate(candidates):
+    for i, c in enumerate(candidates_to_rank):
         query = c.get("query")
 
         # Missing query
@@ -600,7 +671,7 @@ def tool_rank_captain_candidates(
         if has_all_explicit:
             ci = c
         elif element is not None:
-            derived = _derive_scoring_inputs_from_element(element, bootstrap)
+            derived = _derive_scoring_inputs_from_element(element, scoring_bootstrap)
             ci = {**derived, **{k: c[k] for k in _REQUIRED_CANDIDATE_KEYS if k in c}}
         else:
             # Element not found — require explicit inputs
@@ -646,11 +717,24 @@ def tool_rank_captain_candidates(
     for rank, entry in enumerate(ok_results, start=1):
         entry["rank"] = rank
 
+    ranked_candidates = ok_results + non_ok_results
+    pool_size = len(ranked_candidates)
+    if pool_source == "derived":
+        ranked_candidates = ranked_candidates[:_DERIVED_CAPTAIN_POOL_LIMIT]
+
+    returned_ok_count = sum(
+        entry.get("status") == "ok" for entry in ranked_candidates
+    )
+    returned_error_count = len(ranked_candidates) - returned_ok_count
+
     return {
         "status":            "ok",
-        "ranked_candidates": ok_results + non_ok_results,
-        "total":             len(ok_results),
-        "error_count":       len(non_ok_results),
+        "pool_source":       pool_source,
+        "time_context":      time_context,
+        "ranked_candidates": ranked_candidates,
+        "pool_size":         pool_size,
+        "total":             returned_ok_count,
+        "error_count":       returned_error_count,
     }
 
 

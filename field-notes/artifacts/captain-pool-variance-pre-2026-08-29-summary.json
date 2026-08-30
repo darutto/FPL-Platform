@@ -1,0 +1,22 @@
+{
+  "question": "¿A quién debería dar el brazalete?",
+  "provider": "openai",
+  "model": "gpt-5.6-luna",
+  "bootstrap_sha256": "4cbb9fa18a5852c73a54fbe24a03b34e0c33ae5b3c549171cbcb02568d8b2aae",
+  "repetitions": 20,
+  "valid_observations": 20,
+  "exceptions": 0,
+  "tool_counts": {
+    "rank_captain_candidates": 10,
+    "get_my_squad": 6,
+    "get_gameweek_context": 4
+  },
+  "rank_turns": 10,
+  "distinct_ordered_candidate_lists": 7,
+  "synthesis_turn_false": 4,
+  "cost_usd": 0.08846432,
+  "pre_registered_threshold": ">=3 distinct lists in 20 valid turns",
+  "verdict": "PROCEED",
+  "observations": "captain-pool-variance-pre-2026-08-29.jsonl",
+  "decision_rule": "../../packages/fpl-grounded-assistant/scripts/measure_captain_pool_variance.py"
+}

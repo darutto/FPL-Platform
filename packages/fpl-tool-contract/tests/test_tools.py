@@ -252,6 +252,189 @@ class TestToolGetCurrentGameweek:
 
 
 # ===========================================================================
+# J. rank_captain_candidates — caller and deterministic derived pools
+# ===========================================================================
+
+class TestRankCaptainCandidatesPool:
+    @staticmethod
+    def _large_pool_bootstrap(bootstrap, size=20):
+        expanded = copy.deepcopy(bootstrap)
+        template = next(
+            element
+            for element in expanded["elements"]
+            if element.get("element_type") in (3, 4)
+            and element.get("status") == "a"
+        )
+        for offset in range(size):
+            player = copy.deepcopy(template)
+            player_id = 10_000 + offset
+            player.update({
+                "id": player_id,
+                "first_name": "Pool",
+                "second_name": f"Player {offset}",
+                "web_name": f"Pool{offset}",
+                "form": str(offset),
+            })
+            expanded["elements"].append(player)
+        return expanded
+
+    def test_explicit_candidates_preserve_caller_mode(self, bootstrap):
+        from fpl_tool_contract import tool_rank_captain_candidates
+
+        result = tool_rank_captain_candidates(
+            [{"query": "Haaland"}, {"query": "Salah"}], bootstrap
+        )
+
+        assert result["status"] == "ok"
+        assert result["pool_source"] == "caller"
+        assert {entry["web_name"] for entry in result["ranked_candidates"]} == {
+            "Haaland", "Salah",
+        }
+
+    @pytest.mark.parametrize("candidates", [None, []])
+    def test_missing_or_empty_candidates_derive_same_pool(self, bootstrap, candidates):
+        from fpl_tool_contract import tool_rank_captain_candidates
+
+        result = tool_rank_captain_candidates(candidates, bootstrap)
+
+        assert result["status"] == "ok"
+        assert result["pool_source"] == "derived"
+        # Available MID/FWD only: injured De Bruyne, defenders and GKP excluded.
+        assert {entry["web_name"] for entry in result["ranked_candidates"]} == {
+            "Haaland", "Salah", "Saka", "Johnson",
+        }
+
+    def test_derived_pool_is_capped_at_12(self, bootstrap):
+        from fpl_tool_contract import tool_rank_captain_candidates
+
+        result = tool_rank_captain_candidates(
+            None, self._large_pool_bootstrap(bootstrap)
+        )
+
+        assert result["pool_source"] == "derived"
+        assert len(result["ranked_candidates"]) <= 12
+        assert result["total"] == 12
+        assert result["pool_size"] == 24
+
+    def test_explicit_pool_is_not_capped(self, bootstrap):
+        from fpl_tool_contract import tool_rank_captain_candidates
+
+        expanded = self._large_pool_bootstrap(bootstrap)
+        candidates = [{"query": 10_000 + offset} for offset in range(16)]
+        result = tool_rank_captain_candidates(candidates, expanded)
+
+        assert result["pool_source"] == "caller"
+        assert len(result["ranked_candidates"]) == 16
+        assert result["total"] == 16
+        assert result["pool_size"] == 16
+
+    def test_same_derived_request_20_times_keeps_list_and_order(self, bootstrap):
+        from fpl_tool_contract import tool_rank_captain_candidates
+
+        expanded = self._large_pool_bootstrap(bootstrap)
+        observed = []
+        for _ in range(20):
+            result = tool_rank_captain_candidates(None, expanded)
+            observed.append([
+                (entry["player_id"], entry["web_name"], entry["rank"])
+                for entry in result["ranked_candidates"]
+            ])
+
+        assert len(observed[0]) == 12
+        assert all(ranking == observed[0] for ranking in observed[1:])
+
+
+# ===========================================================================
+# K. captaincy temporal window
+# ===========================================================================
+
+class TestCaptaincyTemporalWindow:
+    @staticmethod
+    def _with_fixtures(bootstrap):
+        bootstrap = copy.deepcopy(bootstrap)
+        bootstrap["team_fixtures"] = {
+            1: [
+                {"gameweek": 28, "difficulty": 3},
+                {"gameweek": 29, "difficulty": 3},
+            ],
+            8: [
+                {"gameweek": 28, "difficulty": 3},
+                {"gameweek": 29, "difficulty": 3},
+            ],
+            13: [
+                {"gameweek": 28, "difficulty": 5},
+                {"gameweek": 29, "difficulty": 1},
+            ],
+            14: [
+                {"gameweek": 28, "difficulty": 2},
+                {"gameweek": 29, "difficulty": 4},
+            ],
+        }
+        return bootstrap
+
+    def test_omitted_gameweek_explicitly_records_current(self, bootstrap):
+        from fpl_tool_contract import tool_get_captain_score
+
+        result = tool_get_captain_score("Haaland", bootstrap)
+
+        assert result["time_context"]["source"] == "current"
+        assert result["time_context"]["evaluated_gameweek"] == 28
+        assert "current gameweek GW28" in result["time_context"]["notice"]
+
+    def test_requested_gameweek_changes_fixture_score(self, bootstrap):
+        from fpl_tool_contract import tool_get_captain_score
+
+        bs = self._with_fixtures(bootstrap)
+        current = tool_get_captain_score("Haaland", bs)
+        future = tool_get_captain_score("Haaland", bs, gameweek=29)
+
+        assert current["score_inputs"]["fixture_difficulty"] == 5
+        assert future["score_inputs"]["fixture_difficulty"] == 1
+        assert future["captain_score"] > current["captain_score"]
+        assert future["time_context"]["source"] == "caller"
+
+    def test_horizon_averages_fixture_difficulty(self, bootstrap):
+        from fpl_tool_contract import tool_get_captain_score
+
+        bs = self._with_fixtures(bootstrap)
+        result = tool_get_captain_score("Haaland", bs, gameweek=28, horizon=2)
+
+        assert result["score_inputs"]["fixture_difficulty"] == 3
+        assert result["time_context"]["gameweek_to"] == 29
+
+    def test_rank_temporal_window_is_forwarded(self, bootstrap):
+        from fpl_tool_contract import tool_rank_captain_candidates
+
+        bs = self._with_fixtures(bootstrap)
+        result = tool_rank_captain_candidates(None, bs, gameweek=29, horizon=1)
+
+        assert result["time_context"]["evaluated_gameweek"] == 29
+        assert result["time_context"]["horizon"] == 1
+
+    def test_invalid_window_is_structured_error(self, bootstrap):
+        from fpl_tool_contract import tool_get_captain_score
+
+        result = tool_get_captain_score("Haaland", bootstrap, gameweek=39)
+
+        assert result == {
+            "status": "error",
+            "code": "invalid_argument",
+            "message": "gameweek must be between 1 and 38",
+        }
+
+    def test_future_gameweek_without_fixtures_refuses_current_fdr_fallback(self, bootstrap):
+        from fpl_tool_contract import tool_get_captain_score
+
+        result = tool_get_captain_score("Haaland", bootstrap, gameweek=30)
+
+        assert result["status"] == "error"
+        assert result["code"] == "missing_context"
+        assert result["time_context"]["notice"] == (
+            "Could not evaluate the requested gameweek GW30."
+        )
+
+
+# ===========================================================================
 # H. Structured output contract
 # ===========================================================================
 

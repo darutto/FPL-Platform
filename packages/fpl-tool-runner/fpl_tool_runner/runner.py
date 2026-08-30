@@ -218,15 +218,29 @@ def _get_captain_score_handler(
     query = args.get("query")
     # Pass explicit scoring inputs if provided; None causes tool to auto-derive
     # scoring inputs from the player's bootstrap element (Phase 5m).
-    explicit = {k: v for k, v in args.items() if k != "query"} or None
-    return tool_get_captain_score(query, bootstrap, explicit)
+    explicit = {
+        k: v for k, v in args.items()
+        if k not in {"query", "gameweek", "horizon"}
+    } or None
+    return tool_get_captain_score(
+        query,
+        bootstrap,
+        explicit,
+        gameweek=args.get("gameweek"),
+        horizon=args.get("horizon"),
+    )
 
 
 def _rank_captain_candidates_handler(
     args:      dict[str, Any],
     bootstrap: dict[str, Any],
 ) -> dict[str, Any]:
-    return tool_rank_captain_candidates(args.get("candidates", []), bootstrap)
+    return tool_rank_captain_candidates(
+        args.get("candidates"),
+        bootstrap,
+        gameweek=args.get("gameweek"),
+        horizon=args.get("horizon"),
+    )
 
 
 TOOL_REGISTRY = ToolRegistry()

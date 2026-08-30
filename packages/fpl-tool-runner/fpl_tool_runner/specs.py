@@ -309,6 +309,14 @@ GET_CAPTAIN_SCORE_SPEC = ToolSpec(
                 "type": "number",
                 "description": "Rotation/injury risk (0–100)",
             },
+            "gameweek": {
+                "type": "integer", "minimum": 1, "maximum": 38,
+                "description": "First gameweek to evaluate; defaults to current.",
+            },
+            "horizon": {
+                "type": "integer", "minimum": 1, "maximum": 8,
+                "description": "Number of gameweeks to evaluate (default 1).",
+            },
         },
         "required": ["query"],
     },
@@ -330,8 +338,10 @@ GET_CAPTAIN_SCORE_SPEC = ToolSpec(
 RANK_CAPTAIN_CANDIDATES_SPEC = ToolSpec(
     name="rank_captain_candidates",
     description=(
-        "Rank a list of captain candidates by captain score, "
-        "returning them in descending score order."
+        "Rank captain candidates by captain score in descending order. "
+        "When candidates is absent or empty, rank the deterministic global "
+        "pool of available midfielders and forwards and return its top 12. "
+        "Caller-provided candidate lists are not truncated."
     ),
     parameters={
         "type": "object",
@@ -351,14 +361,26 @@ RANK_CAPTAIN_CANDIDATES_SPEC = ToolSpec(
                 },
                 "description": "List of candidate dicts to rank",
             },
+            "gameweek": {
+                "type": "integer", "minimum": 1, "maximum": 38,
+                "description": "First gameweek to evaluate; defaults to current.",
+            },
+            "horizon": {
+                "type": "integer", "minimum": 1, "maximum": 8,
+                "description": "Number of gameweeks to evaluate (default 1).",
+            },
         },
-        "required": ["candidates"],
+        "required": [],
     },
     output_schema={
         "type": "object",
         "properties": {
             "status": {"type": "string"},
             "ranked_candidates": {"type": "array"},
+            "pool_size": {
+                "type": "integer",
+                "description": "Candidate count before the derived-pool output cap.",
+            },
         },
     },
 )

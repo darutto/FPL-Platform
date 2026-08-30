@@ -178,6 +178,24 @@ _SCORE_INPUT_PROPS: dict[str, Any] = {
     },
 }
 
+_CAPTAIN_TIME_PROPS: dict[str, Any] = {
+    "gameweek": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 38,
+        "description": (
+            "Optional first gameweek to evaluate. Defaults explicitly to the "
+            "current-or-next gameweek from bootstrap."
+        ),
+    },
+    "horizon": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 8,
+        "description": "Number of gameweeks to evaluate from gameweek (default 1).",
+    },
+}
+
 
 # ---------------------------------------------------------------------------
 # Tool schemas
@@ -232,7 +250,9 @@ RESOLVE_PLAYER_SCHEMA = ToolSchema(
 GET_CAPTAIN_SCORE_SCHEMA = ToolSchema(
     name="get_captain_score",
     description=(
-        "Score one player as captain candidate. Returns: tier, confidence, signals. "
+        "Score one player as captain candidate for an optional gameweek/window. "
+        "Returns: tier, confidence, signals, and the evaluated time window. "
+        "When gameweek is omitted, explicitly evaluates the current gameweek. "
         "Inputs (form/fdr/xgi_per_90/minutes_risk) auto-derived; override optional."
     ),
     parameters={
@@ -243,6 +263,7 @@ GET_CAPTAIN_SCORE_SCHEMA = ToolSchema(
                 "description": "Player name, ID, or alias to score.",
             },
             **_SCORE_INPUT_PROPS,
+            **_CAPTAIN_TIME_PROPS,
         },
         "required":             ["query"],
         "additionalProperties": False,
@@ -252,8 +273,14 @@ GET_CAPTAIN_SCORE_SCHEMA = ToolSchema(
 RANK_CAPTAIN_CANDIDATES_SCHEMA = ToolSchema(
     name="rank_captain_candidates",
     description=(
-        "Rank captain candidates by score (desc). Inputs auto-derived; override per candidate. "
-        "candidates is required: pass the players to rank."
+        "Rank captain candidates by score (desc) for an optional gameweek/window. "
+        "When gameweek is omitted, explicitly evaluates the current gameweek. "
+        "Inputs auto-derived; override per candidate. "
+        "Omit candidates or pass an empty list to rank the deterministic global "
+        "pool of available midfielders and forwards and return its top 12. "
+        "Caller-provided candidate lists are not truncated. For open-ended captain "
+        "questions, omit candidates; only pass candidates when the user explicitly "
+        "names the comparison set."
     ),
     parameters={
         "type": "object",
@@ -273,8 +300,9 @@ RANK_CAPTAIN_CANDIDATES_SCHEMA = ToolSchema(
                 },
                 "description": "Candidates to rank.",
             },
+            **_CAPTAIN_TIME_PROPS,
         },
-        "required":             ["candidates"],
+        "required":             [],
         "additionalProperties": False,
     },
 )
@@ -328,7 +356,9 @@ GET_TRANSFER_ADVICE_SCHEMA = ToolSchema(
 GET_CHIP_ADVICE_SCHEMA = ToolSchema(
     name="get_chip_advice",
     description=(
-        "Chip usage advice (triple_captain/wildcard/bench_boost/free_hit). "
+        "Chip usage advice (triple_captain/wildcard/bench_boost/free_hit) for "
+        "an optional gameweek/window. When gameweek is omitted, explicitly "
+        "evaluates the current gameweek. "
         "Evaluates GW type (normal/double/blank), FDR, captain signals. "
         "It does NOT build or price a squad: for 'is bench boost viable if I build "
         "a team from scratch' call build_squad for the squad and its totals, then "
@@ -342,6 +372,15 @@ GET_CHIP_ADVICE_SCHEMA = ToolSchema(
                 "enum":        ["triple_captain", "wildcard", "bench_boost", "free_hit"],
                 "description": "The chip to evaluate.",
             },
+            "player": {
+                "type":        ["string", "integer"],
+                "description": (
+                    "Optional player name, ID, or alias. For triple_captain, "
+                    "the verdict is about this player and includes the best "
+                    "available player as an explicit comparison."
+                ),
+            },
+            **_CAPTAIN_TIME_PROPS,
         },
         "required":             ["chip"],
         "additionalProperties": False,

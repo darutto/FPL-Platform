@@ -309,6 +309,24 @@ class TestSchemaContract:
         required = GET_CURRENT_GAMEWEEK_SPEC.parameters.get("required", [])
         assert required == []
 
+    def test_rank_captain_candidates_no_required_args(self):
+        from fpl_tool_runner.specs import RANK_CAPTAIN_CANDIDATES_SPEC
+
+        assert RANK_CAPTAIN_CANDIDATES_SPEC.parameters.get("required", []) == []
+
+    def test_captain_time_arguments_reach_handlers(self, bootstrap):
+        from fpl_tool_runner import run_tool
+
+        score = run_tool(
+            "get_captain_score", {"query": "Haaland", "gameweek": 28}, bootstrap
+        )
+        ranking = run_tool("rank_captain_candidates", {}, bootstrap)
+
+        assert score["time_context"]["evaluated_gameweek"] == 28
+        assert score["time_context"]["source"] == "caller"
+        assert ranking["pool_source"] == "derived"
+        assert ranking["time_context"]["source"] == "current"
+
     def test_all_specs_have_output_schema(self):
         from fpl_tool_runner import TOOL_SPECS
         for spec in TOOL_SPECS:
