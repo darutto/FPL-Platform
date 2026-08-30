@@ -887,6 +887,18 @@
         "UX",
         "FPL Asistente"
       ]
+    },
+    {
+      "id": "i55",
+      "col": "idea",
+      "progress": 0,
+      "title": "Capitanía por propiedad efectiva: la decisión es de clasificación, no de puntos",
+      "desc": "IDEA DEL DUEÑO, sin comprometer a una versión todavía. Hoy el sistema contesta «¿quién marcará más?». La pregunta real del juego es «¿qué me hace subir en la clasificación?», y no son lo mismo.\n\nEL ARGUMENTO. Si Haaland lo lleva y lo capitanea medio juego, no capitanearlo es una apuesta de cola negativa grande. Con propiedad efectiva del 105% y 12 puntos suyos, el campo gana 12,6 de media: capitanearlo te deja +11,4 contra el campo, no tenerlo te deja -12,6. El riesgo no está en fallar el pick, está en no llevar el que lleva todo el mundo.\n\nLA FÓRMULA QUE SALE SOLA, sin coeficientes inventados:\n\n    valor_relativo = puntos_esperados x (2 - EO)\n\ndonde EO = % de propiedad + % de capitanía. Haaland con EO 105% rinde 0,95 por punto; un diferencial con EO 5% rinde 1,95 — el doble por punto marcado, con menos puntos esperados y mucha más varianza. Importa que sea aritmética de clasificación y no intuición: los coeficientes por posición de la Fase 8a quedaron marcados como experimento a calibrar, y esto no repite ese error.\n\nNO METERLO EN LA MISMA PUNTUACIÓN. Serían dos objetivos distintos dentro de un solo número, y esconder el conflicto es exactamente el patrón que esta línea de trabajo lleva persiguiendo (ver i54, donde la etiqueta y el orden ya se contradicen). Va como SEGUNDO EJE, como ya hace el ticker de fixtures: rendimiento esperado en uno, propiedad efectiva en el otro, y la decisión con la información delante.\n\nEL PROBLEMA SON LOS DATOS, verificado contra la API el 2026-08-30:\n  propiedad global (selected_by_percent)   SÍ la tenemos\n  % de capitanía por jugador               NO — la API solo da most_captained, un id\n  propiedad por bandas (10k/100k/1M)       NO existe\nLiveFPL no recibe la EO: la construye muestreando equipos reales. Nosotros podríamos igual — la liga global es enumerable (50 por página) y cada entry/{id}/event/{gw}/picks trae is_captain. El top 10k serían 200 páginas más 10.000 llamadas por jornada; una muestra de 500-1.000 daría un estimado con intervalo de confianza a coste razonable.\n\nLAS BANDAS IMPORTAN MENOS DE LO QUE PARECE, al menos de entrada. El rango global del dueño es 1,3M: el template del top 10k le da igual, lo que mueve su clasificación es la EO global — que se aproxima con el dato que YA está en el bootstrap. Las bandas pesan cuando se compite arriba.\n\nCÓMO ABORDARLO, en orden:\n  1. v1 barata: EO aproximada con selected_by_percent, ignorando capitanía. Segundo eje en la tarjeta. Cero cambios en la fórmula de puntuación.\n  2. Backtest antes de creerle: sobre jornadas pasadas, ¿la recomendación con EO habría movido mejor el rango que la actual? Sin ese número esto es teoría bonita.\n  3. Bandas por muestreo sólo si el backtest lo justifica. Es un pipeline, no una feature.\n\nRELACIÓN CON i54: allí se pregunta qué significan los tiers. Si entra EO, el tier 'differential' —que hoy es una banda de puntuación y no tiene nada que ver con propiedad— queda todavía más mal nombrado y hay que renombrarlo.",
+      "tags": [
+        "Backend",
+        "Datos",
+        "FPL Asistente"
+      ]
     }
   ]
 }

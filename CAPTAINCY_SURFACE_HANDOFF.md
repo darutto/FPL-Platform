@@ -304,6 +304,94 @@ capea: una plantilla tiene 15 jugadores y como mucho ~10 son MID/FWD.
 
 ---
 
+# Encargo 3 — abrir el pool, acortar las listas, y un hipster de verdad
+
+**Depende del Encargo 2**, ya implementado en `fix/captaincy-surface`.
+
+## 1 · Quitar el filtro de posición
+
+Decisión de producto del dueño: **no excluir a nadie por posición**. Hay gente
+que considera capitanear a un defensa o a un portero, y el sistema no debería
+decidirlo por ellos.
+
+Hoy `captain_pool_elements` filtra `element_type in (3, 4)`.
+
+**Medido contra la API en vivo (GW3), quitando ese filtro:**
+
+    4 de los 12 primeros serían DEF/GKP
+    el mejor defensa (De Cuyper, BHA) entraría en el puesto 2, por encima de Haaland
+
+No quedan sepultados: el 80% de la puntuación —forma 40%, fixture 30%, minutos
+10%— es ciego a la posición. Solo el 20% de xGI les penaliza.
+
+**Consecuencia agradable:** `squad_excluded` deja de llenarse de
+`not_eligible_position`. Pasa a contener solo lesionados y no disponibles, que
+es lo accionable. La línea de siete nombres desaparece sola.
+
+## 2 · Mostrar la posición en la tarjeta
+
+**Imprescindible si entran porteros y defensas.** Hoy la tarjeta solo enseña
+nombre y equipo, así que un portero sería indistinguible de un delantero.
+
+## 3 · Acortar ambas listas
+
+    A) tu plantilla   ->  top 3  + 1 hipster
+    B) globales       ->  top 5  + 1 hipster
+
+**Cuidado con la invariante que acaba de construirse.** El Encargo 2 garantiza
+que cada jugador propio se contabiliza exactamente una vez. Ese recuento debe
+seguir cuadrando **en el payload** — los 15 siguen repartidos entre evaluados y
+`squad_excluded`. El recorte a 3+1 es de **presentación**, no de contrato. Si se
+capa el payload, se rompe la auditoría que costó un ciclo de review construir.
+
+## 4 · «Hipster» se calcula por propiedad, NO por el tier actual
+
+**Trampa verificada, leer antes de implementar.** El tier `differential` de hoy
+es una banda de puntuación:
+
+    differential  =  captain_score >= 30  AND  minutes_risk <= 30
+
+`captain_tiers.py` lo declara en su cabecera: *"no ownership data, no external
+API"*. Sacar el hipster de ahí devolvería **el jugador peor puntuado** de la
+lista, que es lo contrario de lo que se pide.
+
+**Usar `selected_by_percent`**, que ya viaja en el cliente de la API
+(`fpl_client.py:137`) pero el tier ignora.
+
+Definición propuesta, ajustable: *el jugador de menor propiedad entre los que
+superan el umbral de `upside` (score ≥ 45, minutes_risk ≤ 25)*. El umbral evita
+que el hipster sea simplemente alguien malo y poco poseído.
+
+El hipster de A sale de tu plantilla; el de B, del pool global. Si el hipster ya
+está en el top, coger el siguiente y decirlo.
+
+## 5 · Lo que NO hay que hacer
+
+**No añadir un término de «techo» a la fórmula.** Es la objeción real a abrir el
+pool: la puntuación trata «6 puntos casi seguros» igual que «6 de media con cola
+de 20», y para capitanear esa cola es lo que importa. Pero los coeficientes por
+posición de la Fase 8a quedaron marcados como *experimento v1, calibrar contra
+resultados antes de confiar*. Ajustar pesos a ojo aquí es exactamente lo que ahí
+se desaconsejó.
+
+Ese matiz se remite a **i54**, que ya va a revisar qué significan los tiers.
+
+**Y de paso, para i54:** el nombre `differential` es engañoso en el vocabulario
+del propio producto. Si va a existir un hipster real por propiedad, ese tier
+debería renombrarse a algo que describa lo que hace — una banda de puntuación.
+
+## Criterios de aceptación
+
+1. Un defensa o portero puede aparecer en ambos bloques, con su posición visible.
+2. `squad_excluded` ya no contiene `not_eligible_position`; el recuento de 15
+   sigue cuadrando en el payload.
+3. A muestra 3 + 1; B muestra 5 + 1. El payload sigue completo.
+4. El hipster se deriva de `selected_by_percent` y respeta el umbral mínimo.
+5. Si no existe hipster que cumpla el umbral, se dice; no se rellena con
+   cualquiera.
+
+---
+
 ## Lo que este encargo NO hace
 
 - **No toca el texto de las burbujas** (`StarterPrompts.tsx`). El copy no debe
