@@ -143,6 +143,14 @@ incondicional para todo turno con ≥1 herramienta, y `i35` verificó en prod qu
 elegir mal la herramienta ya **no** impide redactar. El texto crudo requiere que
 la síntesis no emita nada. Atribuirlo al mapa era mi error.
 
+> **Actualización 2026-08-29 — ya no es hipótesis.** El Slice 0 del trabajo de
+> capitanía (PR #195) midió esta misma pregunta 20 veces con bootstrap congelado
+> `4cbb9fa1`: **`synthesis_turn=False` en 4/20 (20%)**, y el cruce por
+> herramienta da `get_gameweek_context` **2/4**. Es decir, la combinación exacta
+> del turno D — herramienta equivocada **y** síntesis vacía — se reprodujo 2
+> veces en 20. Ya no hace falta inferirla del caso equivalente del 18-ago.
+> Crudo: `field-notes/artifacts/captain-pool-variance-pre-2026-08-29.jsonl`.
+
 **Lo que este caso aporta a `i46`, y complica su hipótesis:** `i46` midió
 `0/52` en preguntas de ranking y `3/9` en construcción de equipo, y concluyó
 que se concentra *«donde el payload de herramienta es grande»*
@@ -151,6 +159,19 @@ tiene uno de los payloads más pequeños del catálogo** — dos números y un
 deadline. Si este turno fue efectivamente una caída de síntesis, entonces el
 tamaño del payload **no** es la variable que la explica, o no es la única.
 Merece entrar en el experimento pre-registrado que `i46` ya dejó escrito.
+
+> **Corrido 2026-08-29, y salió en contra de la hipótesis del tamaño:**
+>
+>     get_gameweek_context      2/4   el payload más pequeño del catálogo
+>     rank_captain_candidates   2/10
+>     get_my_squad              0/6   payload grande — i46 lo nombra zona de riesgo
+>
+> `n` es diminuto (4 y 6), así que **no es refutación**. Lo honesto: la lectura
+> de payload no está separada de la identidad de la herramienta por ningún
+> brazo todavía, y hay un tercer factor sin tocar — producción corre a
+> `max_tokens=1024` y todas las sondas a 2048. El frente de `i46` lo recogió
+> como `i49`, con un vehículo para desacoplarlo (`rank_players_by_metric` a
+> `top_n` 3/10/50, misma herramienta y misma pregunta, 15x de payload).
 
 **Agravante ya registrado en `i46`, aquí confirmado:** el default es
 `max_tokens: int = 1024` en la firma de `orchestrator.py`, y el servidor no lo
@@ -406,14 +427,13 @@ que entiende.
   La matriz de i38 midió 84% de acierto en la familia `gameweek_state`
   *offline*, con otro modelo y otro path. **No se puede extrapolar ese 84% a
   producción** — proveedor, modelo y prompt difieren.
-- **El JSON del turno D no se capturó**, y aunque se hubiera capturado **no
-  habría bastado**. El log de red se limpió con el `F5` (*Preserve log*
-  desmarcado), pero el dato que decide entre finding 2 y finding 3 es
-  `synthesis_turn`, que viaja en el `routing_trace` y **no** se publica en la
-  respuesta que ve la UI (`debug: null`). Así que la atribución del volcado a la
-  caída de síntesis es **la hipótesis principal, no un hecho medido**. Para
-  cerrarla hace falta un turno con el volcado de `debug`/`routing_trace`
-  activado, no solo *Preserve log*.
+- ~~El JSON del turno D no se capturó, así que la atribución del volcado a la
+  caída de síntesis es la hipótesis principal, no un hecho medido.~~
+  **CERRADA 2026-08-29** por el Slice 0 de PR #195: la combinación se reprodujo
+  2/20 con instrumentación propia, sin depender de capturar aquel turno. Sigue
+  en pie el defecto de superficie que lo hizo difícil: `synthesis_turn` viaja en
+  el `routing_trace` y **no** se publica en la respuesta que ve la UI
+  (`debug: null`), así que desde el navegador ese fallo es invisible.
 - **¿`squad_context` afecta el ranking en absoluto?** A (sin plantilla) devolvió
   3 candidatos y C (con plantilla) devolvió 8, pero son turnos distintos con
   varianza de por medio. No medido, y no se debe asumir a partir de estos dos
