@@ -252,13 +252,15 @@ class ChipAdviceMeta:
         ``"missing_context"`` (when required data is unavailable,
         e.g. free_hit without DGW/BGW detection).
     gw:
-        Current gameweek number at the time of the query.  ``None``
-        when the gameweek could not be determined from bootstrap.
+        Evaluated gameweek number.  This is the current gameweek when no
+        explicit gameweek was requested.  ``None`` when it could not be
+        determined from bootstrap.
     signal_value:
         Chip-specific deterministic numeric signal used to derive the
         recommendation:
 
-        * ``triple_captain`` — top available MID/FWD captain score
+        * ``triple_captain`` — the requested player's captain score, or the
+          top available MID/FWD score when no player was requested
           (e.g. ``83.5``).
         * ``wildcard`` — current gameweek number as a float
           (e.g. ``22.0``).
@@ -275,6 +277,10 @@ class ChipAdviceMeta:
         (e.g. ``"top captain score"``, ``"current gameweek"``,
         ``"average FDR (top 10)"``).
         ``None`` when ``signal_value`` is ``None``.
+    top_player:
+        Best available captain in the evaluated pool, when applicable.
+    evaluated_player:
+        Explicit triple-captain target, when one was requested.
     """
 
     chip:             str
@@ -282,6 +288,8 @@ class ChipAdviceMeta:
     gw:               "int | None"
     signal_value:     "float | None"
     signal_label:     "str | None"
+    top_player:       "str | None" = None
+    evaluated_player: "str | None" = None
     chip_unavailable: bool = False  # Phase 8e1: True when chip not in squad_context.chips_remaining
 
 
@@ -1476,11 +1484,20 @@ def _extract_chip_meta(ro: "dict[str, Any]") -> "ChipAdviceMeta | None":
     try:
         chip_name = ro.get("chip", "")
         signals   = ro.get("signals") or {}
-        gw_raw    = ro.get("current_gameweek")
+        gw_raw    = ro.get("evaluated_gameweek", ro.get("current_gameweek"))
 
         if chip_name == "triple_captain":
-            sv = signals.get("top_captain_score")
-            sl: "str | None" = "top captain score" if sv is not None else None
+            evaluated_player = signals.get("evaluated_player")
+            sv = (
+                signals.get("evaluated_captain_score")
+                if evaluated_player is not None
+                else signals.get("top_captain_score")
+            )
+            sl: "str | None" = (
+                ("captain score" if evaluated_player is not None else "top captain score")
+                if sv is not None
+                else None
+            )
         elif chip_name == "wildcard":
             sv = signals.get("current_gameweek")
             sl = "current gameweek" if sv is not None else None
@@ -1522,6 +1539,8 @@ def _extract_chip_meta(ro: "dict[str, Any]") -> "ChipAdviceMeta | None":
             gw             = int(gw_raw) if gw_raw is not None else None,
             signal_value   = float(sv) if sv is not None else None,
             signal_label   = sl,
+            top_player     = signals.get("top_player"),
+            evaluated_player = signals.get("evaluated_player"),
         )
     except Exception:  # noqa: BLE001
         return None
@@ -2219,6 +2238,8 @@ def _apply_squad_overrides(
                 gw=chip.gw,
                 signal_value=chip.signal_value,
                 signal_label=chip.signal_label,
+                top_player=chip.top_player,
+                evaluated_player=chip.evaluated_player,
                 chip_unavailable=True,
             )
 
@@ -2855,6 +2876,10 @@ def respond(
     ``llm_used`` captures whether LLM text is actually in ``final_text``:
     ``llm_used = lr.llm_called and review.passed``.
     """
+    if squad_context is not None:
+        bootstrap = dict(bootstrap)
+        bootstrap["_squad_context"] = dict(squad_context)
+
     # -----------------------------------------------------------------------
     # Phase 6c: multi-intent detection (only at depth 0 to prevent recursion)
     # -----------------------------------------------------------------------

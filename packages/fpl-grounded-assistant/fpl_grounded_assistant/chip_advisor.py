@@ -64,6 +64,14 @@ from typing import Any
 from fpl_captain_engine import calculate_captain_score
 from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
+from fpl_tool_contract.scoring_core import (
+    bootstrap_for_captain_window,
+    captain_pool_elements,
+    captain_time_context,
+    captain_window_needs_fixture_data,
+    missing_captain_fixture_notice,
+)
+from fpl_tool_contract import tool_get_captain_score
 
 from .scoring_shared import _derive_scoring_inputs
 from .fixture_context import build_fixture_context  # FI3a: additive fixture context
@@ -132,6 +140,7 @@ def _get_current_gameweek(bootstrap: dict[str, Any]) -> int | None:
 
 def _classify_gameweek_type(
     bootstrap: dict[str, Any],
+    gameweek: int | None = None,
 ) -> tuple[str, list[str], int, list[str], int]:
     """Classify the current gameweek as normal, double, blank, or mixed.
 
@@ -163,7 +172,7 @@ def _classify_gameweek_type(
       rescheduling and often the strongest Free Hit opportunity
     * Returns ``"unknown"`` when the current GW or team_fixtures are unavailable
     """
-    current_gw = _get_current_gameweek(bootstrap)
+    current_gw = gameweek if gameweek is not None else _get_current_gameweek(bootstrap)
     if current_gw is None:
         return ("unknown", [], 0, [], 0)
 
@@ -213,15 +222,10 @@ def _score_outfield_players(bootstrap: dict[str, Any]) -> list[dict[str, Any]]:
     """
     from fpl_captain_engine import classify_captain_tier
 
-    elements = bootstrap.get("elements", [])
     fdr_map  = bootstrap.get("fixture_difficulty_map", {})
     scored: list[dict[str, Any]] = []
 
-    for el in elements:
-        if el.get("element_type") not in (3, 4):   # MID=3, FWD=4 only
-            continue
-        if el.get("status") in ("i", "s", "u"):    # skip definitely unavailable
-            continue
+    for el in captain_pool_elements(bootstrap):
         try:
             inputs = _derive_scoring_inputs(el, fdr_map)
             score  = round(
@@ -262,8 +266,21 @@ def _score_outfield_players(bootstrap: dict[str, Any]) -> list[dict[str, Any]]:
 # Per-chip advice functions
 # ---------------------------------------------------------------------------
 
-def _advise_triple_captain(bootstrap: dict[str, Any]) -> dict[str, Any]:
-    """Compute triple captain conditions from the top available captain score."""
+def _availability_note(squad_context: dict[str, Any] | None) -> str:
+    """Return the legacy chip-availability caveat only when context is absent."""
+    if squad_context is not None:
+        return ""
+    return " Note: whether you still have this chip available is not known to this system."
+
+
+def _advise_triple_captain(
+    bootstrap: dict[str, Any],
+    player: str | int | None = None,
+    squad_context: dict[str, Any] | None = None,
+    gameweek: int | None = None,
+    horizon: int | None = None,
+) -> dict[str, Any]:
+    """Compute TC conditions for *player*, or the global top option by default."""
     ranked = _score_outfield_players(bootstrap)
     if not ranked:
         return {
@@ -280,36 +297,104 @@ def _advise_triple_captain(bootstrap: dict[str, Any]) -> dict[str, Any]:
     top_name  = top["web_name"]
     top_tier  = top["tier"]
 
-    if top_score >= _TC_FAVORABLE_THRESHOLD:
+    evaluated = top
+    evaluated_player: str | None = None
+    if player is not None:
+        scored_player = tool_get_captain_score(
+            player, bootstrap, gameweek=gameweek, horizon=horizon
+        )
+        if scored_player.get("status") != "ok":
+            return {
+                "recommendation": "missing_context",
+                "signals": {
+                    "requested_player": str(player),
+                    "player_status": scored_player.get("status"),
+                    "top_player": top_name,
+                    "top_captain_score": top_score,
+                    "top_tier": top_tier,
+                },
+                "advice_text": (
+                    f"Triple captain conditions: missing context. The requested "
+                    f"player '{player}' could not be resolved unambiguously. "
+                    f"Best available is {top_name} (captain score {top_score})."
+                    f"{_availability_note(squad_context)}"
+                ),
+            }
+        evaluated_player = str(scored_player["web_name"])
+        evaluated_element = next(
+            (
+                element
+                for element in bootstrap.get("elements", [])
+                if element.get("id") == scored_player["player_id"]
+            ),
+            {},
+        )
+        evaluated = {
+            "web_name": scored_player["web_name"],
+            "captain_score": scored_player["captain_score"],
+            "tier": scored_player["tier"],
+            "team_id": evaluated_element.get("team"),
+            "position": scored_player["position"],
+            "dc_per_90": float(
+                evaluated_element.get("defensive_contribution_per_90", 0) or 0
+            ),
+        }
+
+    evaluated_score = evaluated["captain_score"]
+    evaluated_name = evaluated["web_name"]
+    evaluated_tier = evaluated["tier"]
+
+    if evaluated_score >= _TC_FAVORABLE_THRESHOLD:
         recommendation = "conditions_favorable"
         label  = "favorable"
-        phrase = (
-            f"There is a standout option: {top_name} "
-            f"(captain score {top_score}, tier: {top_tier}). "
-            f"Conditions support using the triple captain chip."
-        )
-    elif top_score >= _TC_MARGINAL_THRESHOLD:
+        if player is None:
+            phrase = (
+                f"There is a standout option: {top_name} "
+                f"(captain score {top_score}, tier: {top_tier}). "
+                f"Conditions support using the triple captain chip."
+            )
+        else:
+            phrase = (
+                f"Your candidate {evaluated_name} scores {evaluated_score} "
+                f"(tier: {evaluated_tier}); best available is {top_name} at {top_score}. "
+                f"Conditions support using the triple captain chip on {evaluated_name}."
+            )
+    elif evaluated_score >= _TC_MARGINAL_THRESHOLD:
         recommendation = "conditions_marginal"
         label  = "marginal"
-        phrase = (
-            f"A decent but not exceptional option exists: {top_name} "
-            f"(captain score {top_score}, tier: {top_tier}). "
-            f"Consider whether a stronger option may appear in a later gameweek."
-        )
+        if player is None:
+            phrase = (
+                f"A decent but not exceptional option exists: {top_name} "
+                f"(captain score {top_score}, tier: {top_tier}). "
+                f"Consider whether a stronger option may appear in a later gameweek."
+            )
+        else:
+            phrase = (
+                f"Your candidate {evaluated_name} scores {evaluated_score} "
+                f"(tier: {evaluated_tier}); best available is {top_name} at {top_score}. "
+                f"Using the triple captain chip on {evaluated_name} is defensible but not obvious."
+            )
     else:
         recommendation = "conditions_unfavorable"
         label  = "unfavorable"
-        phrase = (
-            f"No standout captain option this week. Best available: {top_name} "
-            f"(captain score {top_score}, tier: {top_tier}). "
-            f"It may be worth saving the triple captain chip."
-        )
+        if player is None:
+            phrase = (
+                f"No standout captain option this week. Best available: {top_name} "
+                f"(captain score {top_score}, tier: {top_tier}). "
+                f"It may be worth saving the triple captain chip."
+            )
+        else:
+            phrase = (
+                f"Your candidate {evaluated_name} scores {evaluated_score} "
+                f"(tier: {evaluated_tier}); best available is {top_name} at {top_score}. "
+                f"Conditions do not support using the triple captain chip on {evaluated_name}."
+            )
 
     # FI3a: additive attack-axis outlook for the standout captain (defensive-mid
     # detection applies). Never changes the recommendation — context only.
     fixture_context = build_fixture_context(
-        bootstrap, team_id=top.get("team_id"), position=top.get("position"),
-        dc_per_90=top.get("dc_per_90"),
+        bootstrap, team_id=evaluated.get("team_id"), position=evaluated.get("position"),
+        dc_per_90=evaluated.get("dc_per_90"),
     )
 
     return {
@@ -318,10 +403,15 @@ def _advise_triple_captain(bootstrap: dict[str, Any]) -> dict[str, Any]:
             "top_player":        top_name,
             "top_captain_score": top_score,
             "top_tier":          top_tier,
+            **({
+                "evaluated_player": evaluated_name,
+                "evaluated_captain_score": evaluated_score,
+                "evaluated_tier": evaluated_tier,
+            } if evaluated_player is not None else {}),
         },
         "advice_text": (
-            f"Triple captain conditions: {label}. {phrase} "
-            f"Note: whether you still have this chip available is not known to this system."
+            f"Triple captain conditions: {label}. {phrase}"
+            f"{_availability_note(squad_context)}"
         ),
         "fixture_context": fixture_context,   # FI3a (additive; TC only)
     }
@@ -551,7 +641,14 @@ def _advise_free_hit(
 # Public entrypoint
 # ---------------------------------------------------------------------------
 
-def get_chip_advice(chip: str, bootstrap: dict[str, Any]) -> dict[str, Any]:
+def get_chip_advice(
+    chip: str,
+    bootstrap: dict[str, Any],
+    player: str | int | None = None,
+    squad_context: dict[str, Any] | None = None,
+    gameweek: int | None = None,
+    horizon: int | None = None,
+) -> dict[str, Any]:
     """Return deterministic chip advice for the given FPL chip.
 
     Parameters
@@ -561,6 +658,16 @@ def get_chip_advice(chip: str, bootstrap: dict[str, Any]) -> dict[str, Any]:
         ``triple_captain``, ``wildcard``, ``bench_boost``, ``free_hit``.
     bootstrap:
         FPL bootstrap dict (fpl-data-core format).
+    player:
+        Optional player to evaluate for triple captain. Other chips ignore it.
+    squad_context:
+        Optional per-turn squad context. When present, availability disclaimers
+        are omitted because the response layer can check chips_remaining.
+    gameweek:
+        Optional gameweek to evaluate. Defaults to the canonical current
+        gameweek from bootstrap.
+    horizon:
+        Optional fixture window length from 1 through 8 gameweeks.
 
     Returns
     -------
@@ -569,7 +676,8 @@ def get_chip_advice(chip: str, bootstrap: dict[str, Any]) -> dict[str, Any]:
 
         status          "ok"
         chip            the requested chip name
-        current_gameweek  int | None
+        current_gameweek    int | None
+        evaluated_gameweek  int | None
         recommendation  "conditions_favorable" | "conditions_marginal" |
                         "conditions_unfavorable" | "missing_context"
         signals         chip-specific deterministic signal dict
@@ -580,15 +688,53 @@ def get_chip_advice(chip: str, bootstrap: dict[str, Any]) -> dict[str, Any]:
     * ``recommendation="missing_context"`` means the system lacks the data
       required to give meaningful advice (e.g. free_hit without DGW/BGW data),
       not that the chip is unavailable.
-    * Whether the user actually holds the chip is unknown to this system;
-      the ``advice_text`` notes this explicitly.
+    * When squad context is absent, whether the user holds the chip is unknown
+      and ``advice_text`` notes that explicitly. With squad context, the
+      response layer performs the availability check instead.
     """
-    current_gw = _get_current_gameweek(bootstrap)
+    try:
+        time_context = captain_time_context(bootstrap, gameweek, horizon)
+        window_bootstrap, fixture_source = bootstrap_for_captain_window(
+            bootstrap, time_context
+        )
+        time_context["fixture_source"] = fixture_source
+    except ValueError as exc:
+        return {"status": "error", "code": "invalid_argument", "message": str(exc)}
+
+    if captain_window_needs_fixture_data(time_context, fixture_source):
+        time_context["notice"] = missing_captain_fixture_notice(time_context)
+        return {
+            "status": "ok",
+            "chip": chip,
+            "current_gameweek": time_context["current_gameweek"],
+            "evaluated_gameweek": time_context["evaluated_gameweek"],
+            "time_context": time_context,
+            "recommendation": "missing_context",
+            "signals": {},
+            "advice_text": (
+                f"{time_context['notice']} Future team fixtures "
+                "are not available in bootstrap."
+            ),
+            "fixture_context": None,
+        }
+
+    current_gw = time_context["current_gameweek"]
+    evaluated_gw = time_context["evaluated_gameweek"]
+    if squad_context is None:
+        embedded_context = bootstrap.get("_squad_context")
+        if isinstance(embedded_context, dict):
+            squad_context = embedded_context
 
     if chip == CHIP_TRIPLE_CAPTAIN:
-        result = _advise_triple_captain(bootstrap)
+        result = _advise_triple_captain(
+            window_bootstrap,
+            player=player,
+            squad_context=squad_context,
+            gameweek=evaluated_gw,
+            horizon=time_context["horizon"],
+        )
     elif chip == CHIP_WILDCARD:
-        if current_gw is None:
+        if evaluated_gw is None:
             result = {
                 "recommendation": "missing_context",
                 "signals": {},
@@ -598,17 +744,19 @@ def get_chip_advice(chip: str, bootstrap: dict[str, Any]) -> dict[str, Any]:
                 ),
             }
         else:
-            result = _advise_wildcard(bootstrap, current_gw)
+            result = _advise_wildcard(window_bootstrap, evaluated_gw)
     elif chip == CHIP_BENCH_BOOST:
-        result = _advise_bench_boost(bootstrap)
+        result = _advise_bench_boost(window_bootstrap)
     elif chip == CHIP_FREE_HIT:
-        result = _advise_free_hit(bootstrap, current_gw)  # None is safe — no GW0 leak
+        result = _advise_free_hit(window_bootstrap, evaluated_gw)  # None is safe — no GW0 leak
     else:
         # Defensive fallback -- routing should prevent unknown chip names
         return {
             "status":           "not_found",
             "chip":             chip,
             "current_gameweek": current_gw,
+            "evaluated_gameweek": evaluated_gw,
+            "time_context": time_context,
             "recommendation":   "unsupported",
             "signals":          {},
             "advice_text":      f"'{chip}' is not a recognised FPL chip name.",
@@ -618,9 +766,11 @@ def get_chip_advice(chip: str, bootstrap: dict[str, Any]) -> dict[str, Any]:
         "status":           "ok",
         "chip":             chip,
         "current_gameweek": current_gw,
+        "evaluated_gameweek": evaluated_gw,
+        "time_context":      time_context,
         "recommendation":   result["recommendation"],
         "signals":          result["signals"],
-        "advice_text":      result["advice_text"],
+        "advice_text":      f"{time_context['notice']} {result['advice_text']}",
         # FI3a: additive — populated only for triple_captain (top captain's
         # attack-axis outlook); None for the other chips.
         "fixture_context":  result.get("fixture_context"),
@@ -637,7 +787,13 @@ def _get_chip_advice_handler(
 ) -> dict[str, Any]:
     """Tool runner handler for get_chip_advice."""
     chip = tool_args.get("chip", "")
-    return get_chip_advice(chip=chip, bootstrap=bootstrap)
+    return get_chip_advice(
+        chip=chip,
+        bootstrap=bootstrap,
+        player=tool_args.get("player"),
+        gameweek=tool_args.get("gameweek"),
+        horizon=tool_args.get("horizon"),
+    )
 
 
 CHIP_ADVICE_SPEC = ToolSpec(
@@ -658,6 +814,18 @@ CHIP_ADVICE_SPEC = ToolSpec(
                     "triple_captain, wildcard, bench_boost, or free_hit"
                 ),
                 "enum": ["triple_captain", "wildcard", "bench_boost", "free_hit"],
+            },
+            "player": {
+                "type": ["string", "integer"],
+                "description": "Optional player to evaluate for triple captain.",
+            },
+            "gameweek": {
+                "type": "integer", "minimum": 1, "maximum": 38,
+                "description": "First gameweek to evaluate; defaults to current.",
+            },
+            "horizon": {
+                "type": "integer", "minimum": 1, "maximum": 8,
+                "description": "Number of gameweeks to evaluate (default 1).",
             },
         },
         "required": ["chip"],

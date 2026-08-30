@@ -184,6 +184,24 @@ def _render_get_current_gameweek(output: dict[str, Any], locale: Locale = DEFAUL
 # Captain score renderer  (Phase 5m)
 # ---------------------------------------------------------------------------
 
+def _captain_time_notice(output: dict[str, Any], locale: Locale) -> str:
+    context = output.get("time_context") or {}
+    if not context:
+        return ""
+    if locale != "es":
+        return str(context.get("notice") or "")
+
+    start = context.get("evaluated_gameweek")
+    end = context.get("gameweek_to")
+    source = context.get("source")
+    if start is None:
+        return "No se pudo determinar la jornada actual."
+    if end is None or end == start:
+        label = "jornada actual" if source == "current" else "jornada solicitada"
+        return f"Evaluado para la {label} GW{start}."
+    label = "ventana actual" if source == "current" else "ventana solicitada"
+    return f"Evaluado para la {label} GW{start}-GW{end}."
+
 def _render_get_captain_score(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render a get_captain_score raw_output dict into a human-readable string.
     F2: localized.
@@ -202,7 +220,9 @@ def _render_get_captain_score(output: dict[str, Any], locale: Locale = DEFAULT_L
         reasons = explain_captain(output, locale=locale)
         reasons_clause = (" " + "; ".join(reasons) + ".") if reasons else ""
 
-        return f"{web_name} ({team_short}) — {tier_label} [{score}].{reasons_clause}"
+        notice = _captain_time_notice(output, locale)
+        prefix = f"{notice}\n" if notice else ""
+        return f"{prefix}{web_name} ({team_short}) — {tier_label} [{score}].{reasons_clause}"
 
     if status == "ambiguous":
         query = output.get("query", "that name")
@@ -255,7 +275,26 @@ def _render_rank_captain_candidates(output: dict[str, Any], locale: Locale = DEF
                 line += f" — {reason_str}"
             lines.append(line)
 
-        return "\n".join(lines)
+        notice = _captain_time_notice(output, locale)
+        pool_source = output.get("pool_source")
+        if locale == "es":
+            pool_notice = (
+                "Origen del pool: derivado del bootstrap."
+                if pool_source == "derived"
+                else "Origen del pool: candidatos indicados por el usuario."
+                if pool_source == "caller"
+                else ""
+            )
+        else:
+            pool_notice = (
+                "Pool source: derived from bootstrap."
+                if pool_source == "derived"
+                else "Pool source: caller-supplied candidates."
+                if pool_source == "caller"
+                else ""
+            )
+        header = [value for value in (notice, pool_notice) if value]
+        return "\n".join(header + lines)
 
     code    = output.get("code", "error")
     message = output.get("message", t("rank_captain.error_fallback", locale))

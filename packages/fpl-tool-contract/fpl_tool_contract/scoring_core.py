@@ -33,6 +33,171 @@ _STATUS_RISK: dict[str, float] = {
 #: API ships it present-but-null (season launch: fixtures exist before their
 #: difficulty ratings are populated).
 NEUTRAL_FDR: int = 3
+MAX_CAPTAIN_HORIZON: int = 8
+
+
+def captain_pool_elements(bootstrap: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Return the deterministic global captain pool for *bootstrap*.
+
+    The product's global captain comparison means available midfielders and
+    forwards. Keeping that eligibility rule here prevents ranking and chip
+    advice from drifting. Player id is the tie-breaker, so pool order does not
+    depend on raw bootstrap element ordering.
+    """
+    eligible = [
+        element
+        for element in bootstrap.get("elements", [])
+        if element.get("element_type") in (3, 4)
+        and element.get("status") not in ("i", "s", "u")
+        and element.get("id") is not None
+    ]
+    return sorted(eligible, key=lambda element: int(element["id"]))
+
+
+def captain_time_context(
+    bootstrap: Mapping[str, Any],
+    gameweek: int | None = None,
+    horizon: int | None = None,
+) -> dict[str, Any]:
+    """Resolve and describe the captaincy evaluation window.
+
+    ``gameweek=None`` always means the canonical current-or-next event and is
+    labelled as such in ``notice``. ``horizon`` defaults to one gameweek.
+    """
+    try:
+        resolved_horizon = 1 if horizon is None else int(horizon)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("horizon must be an integer") from exc
+    if not 1 <= resolved_horizon <= MAX_CAPTAIN_HORIZON:
+        raise ValueError(
+            f"horizon must be between 1 and {MAX_CAPTAIN_HORIZON} gameweeks"
+        )
+
+    current: int | None = None
+    for event in bootstrap.get("events", []):
+        if event.get("is_current"):
+            current = int(event["id"])
+            break
+    if current is None:
+        for event in bootstrap.get("events", []):
+            if event.get("is_next"):
+                current = int(event["id"])
+                break
+
+    if gameweek is None:
+        evaluated = current
+        source = "current"
+    else:
+        try:
+            evaluated = int(gameweek)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("gameweek must be an integer") from exc
+        if not 1 <= evaluated <= 38:
+            raise ValueError("gameweek must be between 1 and 38")
+        source = "caller"
+
+    if evaluated is None:
+        notice = "The current gameweek could not be determined from the available data."
+        gw_to = None
+    else:
+        gw_to = min(38, evaluated + resolved_horizon - 1)
+        if gw_to == evaluated:
+            label = "current gameweek" if source == "current" else "requested gameweek"
+            notice = f"Evaluated the {label} GW{evaluated}."
+        else:
+            label = "current window" if source == "current" else "requested window"
+            notice = (
+                f"Evaluated the {label} GW{evaluated}-GW{gw_to} "
+                f"({gw_to - evaluated + 1} gameweeks)."
+            )
+
+    return {
+        "current_gameweek": current,
+        "evaluated_gameweek": evaluated,
+        "gameweek_to": gw_to,
+        "horizon": resolved_horizon,
+        "source": source,
+        "notice": notice,
+    }
+
+
+def fixture_difficulty_map_for_window(
+    bootstrap: Mapping[str, Any],
+    time_context: Mapping[str, Any],
+) -> tuple[dict[int, int | None], str]:
+    """Return average per-team FDR for the resolved window and its source."""
+    start = time_context.get("evaluated_gameweek")
+    end = time_context.get("gameweek_to")
+    team_fixtures = bootstrap.get("team_fixtures")
+    if start is None or end is None or not isinstance(team_fixtures, Mapping):
+        return dict(bootstrap.get("fixture_difficulty_map", {})), "current_fallback"
+
+    result: dict[int, int] = {}
+    for raw_team_id, fixtures in team_fixtures.items():
+        if not isinstance(fixtures, list):
+            continue
+        difficulties: list[int] = []
+        for fixture in fixtures:
+            try:
+                fixture_gw = int(fixture.get("gameweek"))
+                difficulty = int(fixture.get("difficulty"))
+            except (TypeError, ValueError):
+                continue
+            if int(start) <= fixture_gw <= int(end):
+                difficulties.append(difficulty)
+        if difficulties:
+            average = sum(difficulties) / len(difficulties)
+            result[int(raw_team_id)] = max(1, min(5, int(average + 0.5)))
+    return result, "team_fixtures"
+
+
+def bootstrap_for_captain_window(
+    bootstrap: Mapping[str, Any],
+    time_context: Mapping[str, Any],
+) -> tuple[dict[str, Any], str]:
+    """Return a shallow bootstrap view whose fixture signals match the window."""
+    fdr_map, fixture_source = fixture_difficulty_map_for_window(bootstrap, time_context)
+    window_bootstrap = dict(bootstrap)
+    window_bootstrap["fixture_difficulty_map"] = fdr_map
+
+    evaluated = time_context.get("evaluated_gameweek")
+    if evaluated is not None:
+        events = [
+            {
+                **event,
+                "is_current": int(event.get("id", -1)) == int(evaluated),
+                "is_next": False,
+            }
+            for event in bootstrap.get("events", [])
+        ]
+        if not any(int(event.get("id", -1)) == int(evaluated) for event in events):
+            events.append({"id": int(evaluated), "is_current": True, "is_next": False})
+        window_bootstrap["events"] = events
+    return window_bootstrap, fixture_source
+
+
+def captain_window_needs_fixture_data(
+    time_context: Mapping[str, Any],
+    fixture_source: str,
+) -> bool:
+    """Whether a non-current window would otherwise reuse current-only FDR."""
+    if fixture_source == "team_fixtures":
+        return False
+    evaluated = time_context.get("evaluated_gameweek")
+    current = time_context.get("current_gameweek")
+    horizon = int(time_context.get("horizon", 1))
+    return evaluated is not None and (evaluated != current or horizon > 1)
+
+
+def missing_captain_fixture_notice(time_context: Mapping[str, Any]) -> str:
+    """Describe a requested window that cannot be evaluated safely."""
+    start = time_context.get("evaluated_gameweek")
+    end = time_context.get("gameweek_to")
+    if start is None:
+        return "Could not determine the requested gameweek."
+    if end is None or end == start:
+        return f"Could not evaluate the requested gameweek GW{start}."
+    return f"Could not evaluate the requested window GW{start}-GW{end}."
 
 
 def _derive_base_scoring_inputs(

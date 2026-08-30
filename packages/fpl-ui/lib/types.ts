@@ -515,6 +515,8 @@ export interface ChipAdviceMeta {
   gw: number | null;
   signal_value: number | null;
   signal_label: string | null;
+  top_player?: string | null;
+  evaluated_player?: string | null;
   chip_unavailable: boolean;
 }
 

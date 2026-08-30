@@ -907,6 +907,8 @@ def _chip_meta_dict(chip: Any) -> dict[str, Any]:
         "gw":               chip.gw,
         "signal_value":     chip.signal_value,
         "signal_label":     chip.signal_label,
+        "top_player":       chip.top_player,
+        "evaluated_player": chip.evaluated_player,
         "chip_unavailable": chip.chip_unavailable,  # Phase 8e1
     }
 
@@ -1938,14 +1940,17 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
         )
 
     # ------------------------------------------------------------------
-    # Core routing: ask_v2() → harness_adapter.to_ask_response()
-    # squad_context goes to the adapter only (not to ask_v2). team_id (i39)
-    # is different: it goes to ask_v2() only, for the get_my_squad tool —
-    # the adapter's _apply_squad_overrides has no use for it.
+    # Core routing: ask_v2() → harness_adapter.to_ask_response(). A private,
+    # request-local bootstrap copy lets deterministic chip advice know whether
+    # availability was supplied; the adapter still owns the actual hard block.
     # ------------------------------------------------------------------
+    _turn_bootstrap = _bootstrap
+    if req.squad_context is not None:
+        _turn_bootstrap = dict(_bootstrap)
+        _turn_bootstrap["_squad_context"] = dict(req.squad_context)
     ask_v2_dict: dict[str, Any] = _ask_v2(
         effective_question,
-        _bootstrap,
+        _turn_bootstrap,
         candidates_list=req.candidates_list,
         classifier_client=_classifier_client,  # Phase 4l
         web_search_enabled=web_search_enabled,
