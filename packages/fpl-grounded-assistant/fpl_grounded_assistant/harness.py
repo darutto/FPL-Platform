@@ -136,7 +136,7 @@ from fpl_grounded_assistant.catalogue import t
 from fpl_grounded_assistant.locale_types import Locale, DEFAULT_LOCALE
 from fpl_grounded_assistant.renderer import render
 from fpl_grounded_assistant.router import route
-from fpl_tool_runner import run_tool
+from .tool_dispatch import run_tool
 
 # ---------------------------------------------------------------------------
 # Phase M5: frozen routing_trace schema constants

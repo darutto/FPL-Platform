@@ -79,7 +79,7 @@ import time
 from dataclasses import dataclass, replace
 from typing import Any
 
-from fpl_tool_runner import run_tool
+from .tool_dispatch import run_tool
 
 from .llm_layer import (
     _get_anthropic_client,

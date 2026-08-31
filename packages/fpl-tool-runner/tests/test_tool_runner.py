@@ -327,6 +327,25 @@ class TestSchemaContract:
         assert ranking["pool_source"] == "derived"
         assert ranking["time_context"]["source"] == "current"
 
+    def test_squad_player_ids_reach_rank_handler_without_being_model_schema(self, bootstrap):
+        from fpl_tool_runner import run_tool
+        from fpl_tool_runner.specs import RANK_CAPTAIN_CANDIDATES_SPEC
+
+        haaland_id = next(
+            player["id"] for player in bootstrap["elements"]
+            if player.get("web_name") == "Haaland"
+        )
+        result = run_tool(
+            "rank_captain_candidates", {"squad_player_ids": [haaland_id]}, bootstrap
+        )
+
+        assert "squad_player_ids" not in RANK_CAPTAIN_CANDIDATES_SPEC.parameters["properties"]
+        assert result["squad_source"] == "connected"
+        assert next(
+            entry for entry in result["ranked_candidates"]
+            if entry["player_id"] == haaland_id
+        )["owned"] is True
+
     def test_all_specs_have_output_schema(self):
         from fpl_tool_runner import TOOL_SPECS
         for spec in TOOL_SPECS:

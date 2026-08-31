@@ -328,19 +328,153 @@ class TestRankCaptainCandidatesPool:
         assert result["total"] == 16
         assert result["pool_size"] == 16
 
+    def test_owned_player_ranked_40th_is_retained_after_global_top_12(self, bootstrap):
+        from fpl_tool_contract import tool_rank_captain_candidates
+
+        expanded = self._large_pool_bootstrap(bootstrap, size=50)
+        eligible_ids = [
+            element["id"]
+            for element in expanded["elements"]
+            if element.get("element_type") in (3, 4)
+            and element.get("status") not in ("i", "s", "u")
+        ]
+        full_ranking = tool_rank_captain_candidates(
+            [{"query": player_id} for player_id in eligible_ids], expanded
+        )
+        owned_player = next(
+            entry for entry in full_ranking["ranked_candidates"]
+            if entry["rank"] == 40
+        )
+
+        result = tool_rank_captain_candidates(
+            None, expanded, squad_player_ids=[owned_player["player_id"]]
+        )
+
+        retained = next(
+            entry for entry in result["ranked_candidates"]
+            if entry["player_id"] == owned_player["player_id"]
+        )
+        assert retained["rank"] == 40
+        assert retained["owned"] is True
+        assert result["squad_source"] == "connected"
+        assert len(result["ranked_candidates"]) == 13
+
+    def test_unavailable_owned_player_is_reported_as_excluded(self, bootstrap):
+        from fpl_tool_contract import tool_rank_captain_candidates
+
+        unavailable = next(
+            element for element in bootstrap["elements"]
+            if element.get("status") in ("i", "s", "u")
+        )
+        result = tool_rank_captain_candidates(
+            None, bootstrap, squad_player_ids=[unavailable["id"]]
+        )
+
+        assert result["squad_excluded"] == [{
+            "player_id": unavailable["id"],
+            "web_name": unavailable["web_name"],
+            "status": unavailable["status"],
+            "reason": "unavailable",
+        }]
+        assert all(
+            entry.get("player_id") != unavailable["id"]
+            for entry in result["ranked_candidates"]
+        )
+
+    def test_no_squad_ids_declares_not_connected(self, bootstrap):
+        from fpl_tool_contract import tool_rank_captain_candidates
+
+        result = tool_rank_captain_candidates(None, bootstrap)
+
+        assert result["squad_source"] == "not_connected"
+        assert result["squad_excluded"] == []
+        assert all(entry["owned"] is False for entry in result["ranked_candidates"])
+
+    def test_connected_squad_accounts_for_all_15_players_with_reasons(self, bootstrap):
+        from fpl_tool_contract import tool_rank_captain_candidates
+
+        expanded = copy.deepcopy(bootstrap)
+        template = next(
+            element for element in expanded["elements"]
+            if element.get("web_name") == "Salah"
+        )
+        squad_ids = []
+        position_shape = [1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4]
+        for offset, element_type in enumerate(position_shape):
+            player = copy.deepcopy(template)
+            player_id = 20_000 + offset
+            player.update({
+                "id": player_id,
+                "first_name": "Squad",
+                "second_name": f"Player {offset}",
+                "web_name": f"Squad{offset}",
+                "element_type": element_type,
+                "status": "a",
+            })
+            expanded["elements"].append(player)
+            squad_ids.append(player_id)
+
+        result = tool_rank_captain_candidates(
+            None, expanded, squad_player_ids=squad_ids
+        )
+        ranked_owned = [
+            entry for entry in result["ranked_candidates"]
+            if entry.get("status") == "ok" and entry.get("owned")
+        ]
+
+        assert len(ranked_owned) == 8
+        assert len(result["squad_excluded"]) == 7
+        assert len(ranked_owned) + len(result["squad_excluded"]) == 15
+        assert {
+            entry["reason"] for entry in result["squad_excluded"]
+        } == {"not_eligible_position"}
+
+    def test_owned_player_resolution_failure_is_recorded(self, bootstrap, monkeypatch):
+        import fpl_tool_contract.tools as tools_module
+
+        original_resolve = tools_module._resolve_with_status
+
+        def _fail_owned(query, candidate_bootstrap):
+            if query == 1:
+                return "not_found", {}, []
+            return original_resolve(query, candidate_bootstrap)
+
+        monkeypatch.setattr(tools_module, "_resolve_with_status", _fail_owned)
+        result = tools_module.tool_rank_captain_candidates(
+            None, bootstrap, squad_player_ids=[1]
+        )
+
+        assert result["squad_excluded"] == [{
+            "player_id": 1,
+            "web_name": "Haaland",
+            "status": "a",
+            "reason": "unresolved",
+        }]
+        failed = next(
+            entry for entry in result["ranked_candidates"]
+            if entry.get("player_id") == 1
+        )
+        assert failed["status"] == "not_found"
+        assert failed["owned"] is True
+
     def test_same_derived_request_20_times_keeps_list_and_order(self, bootstrap):
         from fpl_tool_contract import tool_rank_captain_candidates
 
         expanded = self._large_pool_bootstrap(bootstrap)
         observed = []
         for _ in range(20):
-            result = tool_rank_captain_candidates(None, expanded)
+            result = tool_rank_captain_candidates(
+                None, expanded, squad_player_ids=[10_000]
+            )
             observed.append([
-                (entry["player_id"], entry["web_name"], entry["rank"])
+                (
+                    entry["player_id"], entry["web_name"],
+                    entry["rank"], entry["owned"],
+                )
                 for entry in result["ranked_candidates"]
             ])
 
-        assert len(observed[0]) == 12
+        assert len(observed[0]) == 13
         assert all(ranking == observed[0] for ranking in observed[1:])
 
 
