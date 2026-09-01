@@ -140,6 +140,27 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         ),
     },
 
+    # -- orchestrator.py: the answer below is a deterministic render, not
+    # prose the model wrote. i46: the synthesis call can come back with no
+    # text at all (it asked for another tool instead), and the orchestrator
+    # then falls back to render()ing the tool output. That fallback is worth
+    # keeping -- a table beats nothing -- but shipping it unlabelled is what
+    # made the defect read to users as a broken answer rather than a partial
+    # one. Sits in this catalogue rather than inline because it is renderer
+    # prose by every test that matters (it is prepended to render() output
+    # and shares its locale), even though the call site is the orchestrator.
+    # Wording note: "what the tool returned", not "the raw data". The same
+    # notice fronts a raw table AND an already-readable tool error ("Metric
+    # 'x' not recognized. Try: ..."), and calling that second one raw data
+    # would make a good message read like a second failure. The alternative --
+    # marking only some renders -- would mean deciding which renders are good
+    # enough to pass as answers, which nobody has decided and which does not
+    # belong in a fallback string.
+    "orchestrator.raw_render_notice": {
+        "en": "I couldn't compose an answer for this. Here is what the tool returned:",
+        "es": "No pude redactar una respuesta para esto. Esto es lo que devolvió la herramienta:",
+    },
+
     # -- position noun, shared by any renderer that names a position group -
     "position_noun.GKP": {"en": "goalkeepers", "es": "porteros"},
     "position_noun.DEF": {"en": "defenders", "es": "defensas"},
