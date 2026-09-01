@@ -133,10 +133,25 @@ accounting.
 `tool_call_count` now reads 2 instead of 1 on turns where the extra round ran a
 tool — correct by its documented semantics ("executed tool calls underlying the
 retained payload"), since a tool really did run twice. Three existing tests
-asserted the old count and were updated with the reason. The comment at
-`_apply_evaluator` notes the harness cards only a genuinely single-call turn, so
-those turns will no longer card — they are turns that previously produced an
-unlabelled raw render, which never carded usefully anyway.
+asserted the old count and were updated with the reason. The harness cards only
+a genuinely single-call turn, so those turns no longer card.
+
+**This is a trade, not a free win.** An earlier draft of this note said those
+turns "never carded usefully anyway". That was wrong: they had
+`tool_call_count == 1`, so they *did* card. What the user actually gets is
+`[raw dump + working card]` replaced by `[good prose + no card]` — the bad half
+swapped for the good one, at the cost of the half that already worked. Worth
+accepting on a broken turn, where prose beats a card, but the card UI is a
+deliberate product direction and this quietly spends some of it.
+
+The finding underneath: **this is the second time `tool_call_count` has stood in
+for something it does not mean.** The first was reading it as "did the model
+speak", where the real signal turned out to be `synthesis_turn` — a mistake that
+cost a biconditional hypothesis false in both directions (see
+`test_synthesis_turn_instrumentation.py`'s module docstring). The real question
+for carding is not how many calls a turn made, but whether there is a tool
+output fit to build a card from. Tracked as its own card; measure before
+promising anything.
 
 ## Verification
 
