@@ -911,7 +911,7 @@
       ]
     },
     {
-      "id": "i57",
+      "id": "i58",
       "col": "idea",
       "progress": 0,
       "title": "Los turnos rescatados pierden su tarjeta: tool_call_count es la senal equivocada",
