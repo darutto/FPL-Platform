@@ -71,17 +71,37 @@ from fpl_grounded_assistant.renderer import render  # noqa: E402
 
 
 def _is_bare_render_reply(result: OrchestratorResult) -> bool:
-    """Independent (non-circular) check: answer_text is EXACTLY what render()
-    produces for the tool that was chosen -- the literal failure mode from
-    the incident ("Jornada actual: GW1...", verbatim, no wrapper, no model
-    text). Does not use result.synthesis_turn at all."""
+    """Independent (non-circular) check: the answer body is EXACTLY what
+    render() produces for the tool that was chosen -- the literal failure mode
+    from the incident ("Jornada actual: GW1...", verbatim, no model text).
+    Does not use result.synthesis_turn at all.
+
+    i46 (c): that render is now prefixed with a catalogued notice saying the
+    model did not write it, so "bare" means the body under the notice, not the
+    whole string. The prefix is stripped here rather than relaxing the
+    comparison to a substring match: an `in` check would keep passing if the
+    render were wrapped in anything at all, which is the one thing this
+    predicate exists to detect. The text is still, byte for byte, a
+    deterministic render -- it just no longer pretends to be an answer.
+    """
     if result.tool_chosen is None:
         return False
     try:
         rendered = render(result.tool_chosen, result.tool_output)
     except Exception:  # noqa: BLE001
         return False
-    return result.answer_text == rendered
+    return _strip_notice(result.answer_text) == rendered
+
+
+def _notice() -> str:
+    from fpl_grounded_assistant.catalogue import t
+    return t("orchestrator.raw_render_notice", "es")
+
+
+def _strip_notice(answer_text: str) -> str:
+    """Remove i46 (c)'s marker prefix, if present, and return the body."""
+    prefix = f"{_notice()}\n\n"
+    return answer_text[len(prefix):] if answer_text.startswith(prefix) else answer_text
 
 
 # ---------------------------------------------------------------------------
@@ -97,7 +117,18 @@ def test_single_tool_no_synthesis_bare_render(bootstrap):
     turns skipped the synthesis call entirely, client.calls == 1); after the
     fix it is reached only via this fallback (client.calls == 2). The
     observable properties this test pins -- tool_call_count, synthesis_turn,
-    and the bare-render text -- are unchanged either way."""
+    and the bare-render text -- are unchanged either way.
+
+    i46: now 3 calls, not 2, and tool_call_count 2, not 1. This fake returns
+    a tool_use block on EVERY call, so the synthesis response carries a tool
+    call rather than text and the one bounded extra round fires -- which this
+    fake answers with another tool call, so the turn still ends on the render.
+    The count rises because the extra round really did execute a tool a second
+    time, which is exactly what tool_call_count is documented to report
+    ("executed tool calls underlying the retained payload, including
+    failures"). synthesis_turn stays False: no model prose was ever produced.
+    The mechanism this test exists to pin is untouched -- still reachable, and
+    still a render."""
     class Client:
         def __init__(self):
             self.messages = self
@@ -113,11 +144,15 @@ def test_single_tool_no_synthesis_bare_render(bootstrap):
     result = ask_orchestrated(
         "What gameweek is it?", bootstrap, client=client, _eval_client=None,
     )
-    assert client.calls == 2
-    assert result.tool_call_count == 1
+    assert client.calls == 3
+    assert result.tool_call_count == 2
     assert result.synthesis_turn is False
     assert _is_bare_render_reply(result) is True
-    assert result.answer_text == render("get_current_gameweek", result.tool_output)
+    assert _strip_notice(result.answer_text) == render(
+        "get_current_gameweek", result.tool_output
+    )
+    # i46 (c): the render still ships, but no longer unlabelled.
+    assert result.answer_text.startswith(_notice())
 
 
 def test_multi_tool_second_call_succeeds_is_synthesis(bootstrap):
@@ -180,7 +215,10 @@ def test_multi_tool_second_call_fails_is_bare_render_with_two_tools(bootstrap):
     assert result.synthesis_turn is False
     assert _is_bare_render_reply(result) is True
     assert result.tool_chosen == "get_current_gameweek"  # first tool only
-    assert result.answer_text == render("get_current_gameweek", result.tool_output)
+    assert _strip_notice(result.answer_text) == render(
+        "get_current_gameweek", result.tool_output
+    )
+    assert result.answer_text.startswith(_notice())
 
 
 def test_multi_tool_second_call_empty_text_is_bare_render(bootstrap):

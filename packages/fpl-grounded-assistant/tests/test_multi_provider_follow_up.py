@@ -474,11 +474,17 @@ def test_verdict_only_records_rejection_without_primary_retry(monkeypatch, boots
     assert result.retry_attempted is False
     assert result.evaluator_input_tokens == 17
     # G3 raw-dump fix: a single tool call now always gets a synthesis-turn
-    # attempt too (2 calls, not 1). This fake client returns the same
-    # tool_use block on every call, so the synthesis call has no text and
-    # falls back to the primary tool's render() -- the evaluator still runs
+    # attempt too (2 calls, not 1). i46 (b) adds a third: this fake returns
+    # the same tool_use block on EVERY call, so the synthesis response carries
+    # a tool call rather than text and the one extra round fires, executes it,
+    # and asks once more -- which this fake also answers with a tool call, so
+    # the turn still ends on the marked render(). The evaluator still runs
     # against that same primary answer, unaffected by the extra call.
-    assert client.calls == 2
+    #
+    # 3 is the ceiling, not a step on the way up: the extra round's own reply
+    # is never re-parsed for tool calls, so no fake -- however stubborn -- can
+    # drive this past 3.
+    assert client.calls == 3
 
 
 def _action_response(provider: str, call_id: str, name: str, args: dict, narration: str = ""):
@@ -871,3 +877,204 @@ def test_loop_prompt_is_independent_and_preserves_grounding_rules(monkeypatch, b
     monkeypatch.delenv("FPL_ORCH_LOOP_PROMPT", raising=False)
     ask_orchestrated("question", bootstrap, client=client, _eval_client=None)
     assert "ITERATIVE TOOL USE" not in str(client.calls[-1]["system"])
+
+
+# ---------------------------------------------------------------------------
+# i46: one bounded extra round when synthesis asks for a tool instead of prose
+#
+# Measured cause (PR #198): the synthesis call was not failing and was not
+# truncated -- 9 of 10 empty synthesis responses carried
+# `reasoning + function_call` with status="completed" and four fifths of the
+# output budget unspent. The model wanted more data and had no round to ask in.
+#
+# Four paths, one test each, across all three provider wire formats:
+#   1. synthesis returns text            -> NO extra call (the guard)
+#   2. synthesis returns a tool call     -> one extra round rescues the turn
+#   3. the extra round asks AGAIN        -> capped, ends on the marked render
+#   4. no text and no tool call          -> no extra call, marked render
+# ---------------------------------------------------------------------------
+
+_PROVIDERS = [PROVIDER_ANTHROPIC, PROVIDER_OPENAI, PROVIDER_GEMINI]
+
+
+def _empty_response(provider: str):
+    """A successful response carrying neither text nor a tool call."""
+    if provider == PROVIDER_OPENAI:
+        return NS(output_text="", output=[])
+    if provider == PROVIDER_GEMINI:
+        return NS(candidates=[])
+    return NS(content=[])
+
+
+def _no_loop(monkeypatch):
+    """Provider SDKs available, bounded loop explicitly OFF.
+
+    i46's extra round must work on the single-round path -- the one production
+    actually runs (verified in Railway: FPL_ORCH_LOOP_ENABLED is unset). This
+    deletes the flag rather than trusting the ambient environment, so the test
+    cannot accidentally pass by exercising the loop instead.
+    """
+    monkeypatch.delenv("FPL_ORCH_LOOP_ENABLED", raising=False)
+    monkeypatch.setenv("FPL_ORCH_MAX_RETRIES", "0")
+    monkeypatch.setattr(provider_client, "_OPENAI_AVAILABLE", True)
+    monkeypatch.setattr(provider_client, "_GEMINI_AVAILABLE", True)
+
+
+def _notice(locale: str = "es") -> str:
+    from fpl_grounded_assistant.catalogue import t as _t
+    return _t("orchestrator.raw_render_notice", locale)
+
+
+@pytest.mark.parametrize("provider", _PROVIDERS)
+def test_synthesis_with_text_makes_no_extra_call(monkeypatch, bootstrap, provider):
+    """THE GUARD, and half the value of the change.
+
+    A turn whose synthesis already produced prose must cost exactly what it
+    cost before: two calls, no third. If this regresses, the fix is spending
+    real money on every healthy turn to solve a minority defect.
+    """
+    _no_loop(monkeypatch)
+    client = _SequenceClient(provider, [
+        _action_response(provider, "call-1", "get_current_gameweek", {}),
+        _text_response(provider, "GW1 it is."),
+    ])
+
+    result = ask_orchestrated(
+        "What gameweek is it?", bootstrap, provider=provider,
+        client=client, api_key="test-key", _eval_client=None,
+    )
+
+    assert len(client.calls) == 2, "a synthesised turn must not make an extra call"
+    assert result.synthesis_turn is True
+    assert result.answer_text == "GW1 it is."
+    assert _notice() not in result.answer_text
+
+
+@pytest.mark.parametrize("provider", _PROVIDERS)
+def test_synthesis_tool_call_is_executed_and_rescued(monkeypatch, bootstrap, provider):
+    """Path 2: the defect's actual shape, now rescued."""
+    _no_loop(monkeypatch)
+    client = _SequenceClient(provider, [
+        _action_response(provider, "call-1", "get_current_gameweek", {}),
+        # Synthesis: no text, asks for another tool -- the measured shape.
+        _action_response(provider, "call-2", "get_player_snapshot",
+                         {"player_name": "Salah"}),
+        _text_response(provider, "GW1, and Salah is fit."),
+    ])
+
+    result = ask_orchestrated(
+        "What gameweek is it and who is Salah?", bootstrap, provider=provider,
+        client=client, api_key="test-key", _eval_client=None,
+    )
+
+    assert len(client.calls) == 3
+    assert result.answer_text == "GW1, and Salah is fit."
+    # The signal the defect is measured with must keep meaning "the model
+    # wrote this", or the fix cannot be measured with the same instrument.
+    assert result.synthesis_turn is True
+    assert _notice() not in result.answer_text
+    # The extra round's tool is recorded as round 2, not hidden.
+    assert [e["name"] for e in result.tool_calls_trace] == [
+        "get_current_gameweek", "get_player_snapshot",
+    ]
+    assert [e["round"] for e in result.tool_calls_trace] == [1, 2]
+
+
+@pytest.mark.parametrize("provider", _PROVIDERS)
+def test_extra_round_asking_again_is_capped_and_marked(monkeypatch, bootstrap, provider):
+    """Path 3: the cap. The extra round's own reply is never re-parsed.
+
+    Also pins that the cap is structural: FPL_ORCH_MAX_ROUNDS is set to 5 here
+    and must not buy a fourth call. i46's extra round is not the bounded loop
+    and must not inherit its configuration.
+    """
+    _no_loop(monkeypatch)
+    monkeypatch.setenv("FPL_ORCH_MAX_ROUNDS", "5")
+    client = _SequenceClient(provider, [
+        _action_response(provider, "call-1", "get_current_gameweek", {}),
+        _action_response(provider, "call-2", "get_player_snapshot",
+                         {"player_name": "Salah"}),
+        _action_response(provider, "call-3", "get_player_snapshot",
+                         {"player_name": "Haaland"}),
+    ])
+
+    result = ask_orchestrated(
+        "What gameweek is it?", bootstrap, provider=provider,
+        client=client, api_key="test-key", _eval_client=None,
+    )
+
+    assert len(client.calls) == 3, "one extra round only, whatever MAX_ROUNDS says"
+    assert result.synthesis_turn is False
+    assert result.answer_text.startswith(_notice())
+
+
+@pytest.mark.parametrize("provider", _PROVIDERS)
+def test_no_text_and_no_tool_call_is_marked_without_an_extra_call(
+    monkeypatch, bootstrap, provider
+):
+    """Path 4: nothing to rescue -- do not pay for a round that cannot help."""
+    _no_loop(monkeypatch)
+    client = _SequenceClient(provider, [
+        _action_response(provider, "call-1", "get_current_gameweek", {}),
+        _empty_response(provider),
+    ])
+
+    result = ask_orchestrated(
+        "What gameweek is it?", bootstrap, provider=provider,
+        client=client, api_key="test-key", _eval_client=None,
+    )
+
+    assert len(client.calls) == 2, "no tool call to run means no extra round"
+    assert result.synthesis_turn is False
+    assert result.answer_text.startswith(_notice())
+
+
+def test_raw_render_notice_comes_from_the_catalogue_in_both_locales():
+    """(c)'s marker is catalogued prose, not a hardcoded string.
+
+    Asserts both locales exist and differ, and that the orchestrator module
+    contains no inline copy of either -- the failure mode this guards against
+    is someone "fixing" a translation in one place and leaving the shipped
+    text untouched.
+    """
+    import inspect
+    from fpl_grounded_assistant import orchestrator as orch_mod
+
+    es, en = _notice("es"), _notice("en")
+    assert es and en and es != en
+    # No leaked catalogue key in either rendering.
+    assert "raw_render_notice" not in es and "raw_render_notice" not in en
+
+    source = inspect.getsource(orch_mod)
+    assert es not in source, "Spanish notice is hardcoded in orchestrator.py"
+    assert en not in source, "English notice is hardcoded in orchestrator.py"
+    assert "orchestrator.raw_render_notice" in source
+
+
+def test_extra_round_tokens_are_billed_to_the_turn(monkeypatch, bootstrap):
+    """Every call the turn makes is counted, including ones that produce no text.
+
+    The fallback path used to drop the synthesis call's tokens entirely, so a
+    degraded turn under-reported its own cost -- exactly the population whose
+    cost this change had to measure. Both the synthesis call and the extra
+    round are billed now.
+    """
+    _no_loop(monkeypatch)
+    first = _action_response(PROVIDER_ANTHROPIC, "call-1", "get_current_gameweek", {})
+    second = _action_response(PROVIDER_ANTHROPIC, "call-2", "get_player_snapshot",
+                              {"player_name": "Salah"})
+    third = _text_response(PROVIDER_ANTHROPIC, "done")
+    for resp in (first, second, third):
+        resp.usage = NS(input_tokens=100, output_tokens=10,
+                        cache_read_input_tokens=0)
+
+    client = _SequenceClient(PROVIDER_ANTHROPIC, [first, second, third])
+    result = ask_orchestrated(
+        "What gameweek is it?", bootstrap, provider=PROVIDER_ANTHROPIC,
+        client=client, api_key="test-key", _eval_client=None,
+    )
+
+    assert len(client.calls) == 3
+    # Three calls at 100 in / 10 out each, all attributed to the turn.
+    assert result.primary_input_tokens == 300
+    assert result.primary_output_tokens == 30
