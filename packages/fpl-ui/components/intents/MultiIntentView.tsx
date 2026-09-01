@@ -84,7 +84,13 @@ function renderSubView(
     return <PlayerCard data={response.player_snapshot} />;
   }
   if (view === 'ranking' && response.captain_ranking != null) {
-    return <RankingTable data={response.captain_ranking} />;
+    return (
+      <RankingTable
+        data={response.captain_ranking}
+        squadSource={response.squad_source}
+        squadExcluded={response.squad_excluded}
+      />
+    );
   }
   if (view === 'transfer' && response.transfer != null) {
     return <TransferCard data={response.transfer} />;

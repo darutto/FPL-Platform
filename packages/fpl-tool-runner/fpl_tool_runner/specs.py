@@ -381,6 +381,11 @@ RANK_CAPTAIN_CANDIDATES_SPEC = ToolSpec(
                 "type": "integer",
                 "description": "Candidate count before the derived-pool output cap.",
             },
+            "squad_source": {
+                "type": "string",
+                "enum": ["connected", "not_connected", "unavailable"],
+            },
+            "squad_excluded": {"type": "array"},
         },
     },
 )

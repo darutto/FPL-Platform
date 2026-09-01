@@ -76,7 +76,7 @@ from fpl_tool_contract.scoring_core import (
     missing_captain_fixture_notice,
 )
 
-_DERIVED_CAPTAIN_POOL_LIMIT = 12
+DERIVED_CAPTAIN_POOL_LIMIT = 12
 
 # ---------------------------------------------------------------------------
 # Phase 5m: scoring input derivation helpers
@@ -547,6 +547,7 @@ def tool_rank_captain_candidates(
     *,
     gameweek: int | None = None,
     horizon: int | None = None,
+    squad_player_ids: list[int] | None = None,
 ) -> dict[str, Any]:
     """Score and rank a list of captain candidates by composite captain score.
 
@@ -571,6 +572,10 @@ def tool_rank_captain_candidates(
         Caller-provided lists are never truncated.
     bootstrap:
         Full bootstrap dict from ``fpl_api_client.get_bootstrap()``.
+    squad_player_ids:
+        Optional IDs resolved by the grounded-assistant layer. The pure
+        contract never fetches a squad. Eligible owned players are retained
+        even when they fall below the global top-12 cutoff.
 
     Returns — status "ok"
     ----------------------
@@ -585,6 +590,11 @@ def tool_rank_captain_candidates(
                            index, and an error code where applicable.
     ``total``              Number of successfully scored candidates.
     ``pool_size``          Candidate count before the derived-pool output cap.
+    ``squad_source``       connected when squad IDs were supplied, otherwise
+                           not_connected (the grounded layer may override this
+                           to unavailable after a failed squad fetch).
+    ``squad_excluded``     Every owned player omitted from the ranking, with
+                           reason unavailable, not_eligible_position, or unresolved.
     ``error_count``        Number of candidates that failed to resolve or
                            were missing required scoring fields.
 
@@ -622,6 +632,41 @@ def tool_rank_captain_candidates(
         }
 
     pool_source = "caller" if candidates else "derived"
+    owned_ids: set[int] = set()
+    if squad_player_ids is not None:
+        for player_id in squad_player_ids:
+            try:
+                owned_ids.add(int(player_id))
+            except (TypeError, ValueError):
+                continue
+    squad_source = "connected" if squad_player_ids is not None else "not_connected"
+
+    elements_by_id = {
+        int(element["id"]): element
+        for element in bootstrap.get("elements", [])
+        if element.get("id") is not None
+    }
+    squad_excluded_by_id: dict[int, dict[str, Any]] = {}
+    for player_id in sorted(owned_ids):
+        element = elements_by_id.get(player_id)
+        reason: str | None = None
+        if element is None:
+            reason = "unresolved"
+        elif element.get("status") in ("i", "s", "u"):
+            reason = "unavailable"
+        elif element.get("element_type") not in (3, 4):
+            reason = "not_eligible_position"
+        if reason is not None:
+            squad_excluded_by_id[player_id] = {
+                "player_id": player_id,
+                "web_name": str(
+                    element.get("web_name") if element is not None else f"#{player_id}"
+                ),
+                "status": str(
+                    element.get("status") if element is not None else "unknown"
+                ),
+                "reason": reason,
+            }
     candidates_to_rank = candidates or [
         {"query": element["id"]}
         for element in captain_pool_elements(bootstrap)
@@ -646,6 +691,10 @@ def tool_rank_captain_candidates(
         # Resolve player identity first (needed for element derivation)
         status, summary, cand_matches = _resolve_with_status(query, bootstrap)
         if status != "ok":
+            try:
+                unresolved_player_id = int(query)
+            except (TypeError, ValueError):
+                unresolved_player_id = None
             non_ok_results.append({
                 "status":  status,
                 "query":   str(query),
@@ -655,6 +704,12 @@ def tool_rank_captain_candidates(
                     else f"No player found matching '{query}'."
                 ),
                 "index": i,
+                "owned": unresolved_player_id in owned_ids,
+                **(
+                    {"player_id": unresolved_player_id}
+                    if unresolved_player_id in owned_ids
+                    else {}
+                ),
                 **({"candidates": cand_matches} if status == "ambiguous" else {}),
             })
             continue
@@ -677,7 +732,13 @@ def tool_rank_captain_candidates(
             # Element not found — require explicit inputs
             validation_error = _validate_candidate_inputs(c)
             if validation_error:
-                non_ok_results.append({**validation_error, "query": str(query), "index": i})
+                non_ok_results.append({
+                    **validation_error,
+                    "query": str(query),
+                    "index": i,
+                    "player_id": player_id,
+                    "owned": player_id in owned_ids,
+                })
                 continue
             ci = c
 
@@ -710,6 +771,7 @@ def tool_rank_captain_candidates(
                 "minutes_risk":       risk,
             },
             "query":         str(query),
+            "owned":         player_id in owned_ids,
         })
 
     # Sort ok results by captain_score descending and assign rank
@@ -717,10 +779,48 @@ def tool_rank_captain_candidates(
     for rank, entry in enumerate(ok_results, start=1):
         entry["rank"] = rank
 
+    ranked_owned_ids = {
+        int(entry["player_id"])
+        for entry in ok_results
+        if entry.get("owned") and entry.get("player_id") is not None
+    }
+    for player_id in sorted(owned_ids - ranked_owned_ids):
+        if player_id in squad_excluded_by_id:
+            continue
+        element = elements_by_id.get(player_id)
+        squad_excluded_by_id[player_id] = {
+            "player_id": player_id,
+            "web_name": str(
+                element.get("web_name") if element is not None else f"#{player_id}"
+            ),
+            "status": str(
+                element.get("status") if element is not None else "unknown"
+            ),
+            "reason": "unresolved",
+        }
+    squad_excluded = [
+        squad_excluded_by_id[player_id]
+        for player_id in sorted(squad_excluded_by_id)
+    ]
+
     ranked_candidates = ok_results + non_ok_results
     pool_size = len(ranked_candidates)
     if pool_source == "derived":
-        ranked_candidates = ranked_candidates[:_DERIVED_CAPTAIN_POOL_LIMIT]
+        global_top = ranked_candidates[:DERIVED_CAPTAIN_POOL_LIMIT]
+        retained_ids = {
+            entry.get("player_id") for entry in global_top
+            if entry.get("player_id") is not None
+        }
+        owned_outside_global_top = [
+            entry for entry in ranked_candidates[DERIVED_CAPTAIN_POOL_LIMIT:]
+            if entry.get("status") == "ok"
+            and entry.get("owned")
+            and entry.get("player_id") not in retained_ids
+        ]
+        ranked_candidates = global_top + owned_outside_global_top
+
+    for entry in ranked_candidates:
+        entry.setdefault("owned", False)
 
     returned_ok_count = sum(
         entry.get("status") == "ok" for entry in ranked_candidates
@@ -730,6 +830,8 @@ def tool_rank_captain_candidates(
     return {
         "status":            "ok",
         "pool_source":       pool_source,
+        "squad_source":      squad_source,
+        "squad_excluded":    squad_excluded,
         "time_context":      time_context,
         "ranked_candidates": ranked_candidates,
         "pool_size":         pool_size,

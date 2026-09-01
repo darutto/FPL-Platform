@@ -312,6 +312,8 @@ class AskResponse(BaseModel):
     comparison: dict[str, Any] | None = None              # Phase 5g
     captain: dict[str, Any] | None = None                 # Phase 5n
     captain_ranking: list[dict[str, Any]] | None = None   # Phase 5p
+    squad_source: str | None = None
+    squad_excluded: list[dict[str, Any]] | None = None
     sub_responses: list[dict[str, Any]] | None = None     # Phase 6c
     transfer: dict[str, Any] | None = None                # Phase 7a
     chip: dict[str, Any] | None = None                    # Phase 7b
@@ -443,6 +445,8 @@ class SessionAskResponse(BaseModel):
     comparison: dict[str, Any] | None = None              # Phase 5g
     captain: dict[str, Any] | None = None                 # Phase 5n
     captain_ranking: list[dict[str, Any]] | None = None   # Phase 5p
+    squad_source: str | None = None
+    squad_excluded: list[dict[str, Any]] | None = None
     sub_responses: list[dict[str, Any]] | None = None     # Phase 6c
     transfer: dict[str, Any] | None = None                # Phase 7a
     chip: dict[str, Any] | None = None                    # Phase 7b
@@ -832,6 +836,7 @@ def _captain_ranking_list(captain_ranking: Any) -> list[dict[str, Any]]:
             "tier":            entry.tier,
             "role_bonus":      entry.role_bonus,
             "set_piece_notes": list(entry.set_piece_notes),
+            "owned":           entry.owned,
         }
         for entry in captain_ranking
     ]
@@ -1269,6 +1274,16 @@ def _sub_response_dict(sr: Any) -> dict[str, Any]:
         d["captain"] = _captain_meta_dict(sr.captain)
     if sr.captain_ranking is not None:
         d["captain_ranking"] = _captain_ranking_list(sr.captain_ranking)
+        d["squad_source"] = sr.squad_source
+        d["squad_excluded"] = [
+            {
+                "player_id": entry.player_id,
+                "web_name": entry.web_name,
+                "status": entry.status,
+                "reason": entry.reason,
+            }
+            for entry in (sr.squad_excluded or ())
+        ]
     if sr.transfer is not None:
         d["transfer"] = _transfer_meta_dict(sr.transfer)
     if sr.chip is not None:
@@ -2186,17 +2201,22 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
             llm_used=False,
         )
 
+    _session_bootstrap = _bootstrap
+    if req.team_id is not None:
+        _session_bootstrap = dict(_bootstrap)
+        _session_bootstrap["_my_team_id"] = req.team_id
+
     if req.selected_player_id is not None:
         r = entry.session.respond_to_selected_player_id(
             req.selected_player_id,
-            _bootstrap,
+            _session_bootstrap,
             question_text=req.question,
             include_debug=req.debug,
             locale=locale,
         )
     else:
         r = entry.session.respond(
-            req.question, _bootstrap,
+            req.question, _session_bootstrap,
             include_debug=req.debug,
             candidates_list=req.candidates_list,
             classifier_client=_classifier_client,  # Phase 4l
@@ -2330,6 +2350,16 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         comparison=sess_comp_bundle,
         captain=sess_captain_bundle,
         captain_ranking=sess_captain_ranking_list,
+        squad_source=r.squad_source,
+        squad_excluded=[
+            {
+                "player_id": entry.player_id,
+                "web_name": entry.web_name,
+                "status": entry.status,
+                "reason": entry.reason,
+            }
+            for entry in (r.squad_excluded or ())
+        ] if r.squad_source is not None else None,
         sub_responses=sess_sub_responses_list,
         transfer=sess_transfer_bundle,
         chip=sess_chip_bundle,

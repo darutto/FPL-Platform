@@ -249,6 +249,8 @@ export interface AskResponse {
   // Source: http_contract_fixtures.json → _meta.response_conditional_fields
   captain: CaptainScoreMeta | null;
   captain_ranking: RankedCaptainEntry[] | null;
+  squad_source?: 'connected' | 'not_connected' | 'unavailable' | null;
+  squad_excluded?: SquadExcludedEntry[] | null;
   comparison: ComparisonMeta | null;
   transfer: TransferMeta | null;
   chip: ChipAdviceMeta | null;
@@ -392,6 +394,14 @@ export interface RankedCaptainEntry {
   tier: CaptainTier;
   role_bonus: number;
   set_piece_notes: string[];
+  owned?: boolean;
+}
+
+export interface SquadExcludedEntry {
+  player_id: number;
+  web_name: string;
+  status: string;
+  reason: 'not_eligible_position' | 'unavailable' | 'unresolved';
 }
 
 /** Per-player context within a comparison turn */

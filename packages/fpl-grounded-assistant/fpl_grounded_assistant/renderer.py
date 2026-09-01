@@ -255,8 +255,7 @@ def _render_rank_captain_candidates(output: dict[str, Any], locale: Locale = DEF
         if not ok_entries:
             return t("rank_captain.none", locale)
 
-        lines = []
-        for c in ok_entries:
+        def _line(c: dict[str, Any], *, mark_owned: bool = False) -> str:
             rank      = c.get("rank", "?")
             name      = c.get("web_name", "?")
             team_s    = c.get("team_short", "")
@@ -271,9 +270,11 @@ def _render_rank_captain_candidates(output: dict[str, Any], locale: Locale = DEF
             reason_str = "; ".join(compact_reasons) if compact_reasons else ""
 
             line = f"{rank}. {name} ({team_s}) [{tier_s}] {score}{(' ' + sp_sfx) if sp_sfx else ''}"
+            if mark_owned and c.get("owned"):
+                line += " · tu plantilla" if locale == "es" else " · your squad"
             if reason_str:
                 line += f" — {reason_str}"
-            lines.append(line)
+            return line
 
         notice = _captain_time_notice(output, locale)
         pool_source = output.get("pool_source")
@@ -294,7 +295,69 @@ def _render_rank_captain_candidates(output: dict[str, Any], locale: Locale = DEF
                 else ""
             )
         header = [value for value in (notice, pool_notice) if value]
-        return "\n".join(header + lines)
+        if pool_source != "derived":
+            return "\n".join(header + [_line(c) for c in ok_entries])
+
+        from fpl_tool_contract.tools import DERIVED_CAPTAIN_POOL_LIMIT
+
+        global_entries = [
+            c for c in ok_entries
+            if int(c.get("rank", 0) or 0) <= DERIVED_CAPTAIN_POOL_LIMIT
+        ]
+        owned_entries = [c for c in ok_entries if c.get("owned")]
+        squad_source = output.get("squad_source", "not_connected")
+
+        body: list[str] = []
+        if squad_source == "connected":
+            body.append(
+                "A) Candidatos elegibles de tu plantilla (solo MID/FWD):"
+                if locale == "es"
+                else "A) Eligible candidates from your squad (MID/FWD only):"
+            )
+            if owned_entries:
+                body.extend(_line(c) for c in owned_entries)
+            else:
+                body.append(
+                    "No hay MID/FWD elegibles en tu plantilla."
+                    if locale == "es"
+                    else "There are no eligible MID/FWD players in your squad."
+                )
+        elif squad_source == "unavailable":
+            body.append(
+                "No pude cargar tu plantilla; te muestro solo el ranking global."
+                if locale == "es"
+                else "I could not load your squad, so I am showing only the global ranking."
+            )
+        else:
+            body.append(
+                "No hay equipo conectado; te muestro solo el ranking global."
+                if locale == "es"
+                else "No team is connected, so I am showing only the global ranking."
+            )
+
+        excluded = output.get("squad_excluded") or []
+        if excluded:
+            reason_labels = {
+                "not_eligible_position": (
+                    "posición no elegible" if locale == "es" else "ineligible position"
+                ),
+                "unavailable": "no disponible" if locale == "es" else "unavailable",
+                "unresolved": "sin resolver" if locale == "es" else "unresolved",
+            }
+            excluded_text = ", ".join(
+                f"{entry.get('web_name', '?')} "
+                f"({reason_labels.get(entry.get('reason'), entry.get('reason', '?'))})"
+                for entry in excluded
+            )
+            body.append(
+                f"No evaluados para capitanía: {excluded_text}."
+                if locale == "es"
+                else f"Not evaluated for captaincy: {excluded_text}."
+            )
+
+        body.append("B) Mejores candidatos globales:" if locale == "es" else "B) Best global candidates:")
+        body.extend(_line(c, mark_owned=True) for c in global_entries)
+        return "\n".join(header + body)
 
     code    = output.get("code", "error")
     message = output.get("message", t("rank_captain.error_fallback", locale))

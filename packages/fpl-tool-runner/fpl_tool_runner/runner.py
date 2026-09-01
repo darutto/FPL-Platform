@@ -240,6 +240,7 @@ def _rank_captain_candidates_handler(
         bootstrap,
         gameweek=args.get("gameweek"),
         horizon=args.get("horizon"),
+        squad_player_ids=args.get("squad_player_ids"),
     )
 
 

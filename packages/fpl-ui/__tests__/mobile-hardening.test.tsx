@@ -44,6 +44,52 @@ describe('RankingTable — name cell truncation', () => {
     // The row wrapper must allow the name column to shrink below content size.
     expect(name.parentElement?.className).toEqual(expect.stringContaining('min-w-0'));
   });
+
+  test('renders owned and global blocks and marks owned players globally', () => {
+    const ranking = rankingOkResponse.captain_ranking!.map((entry, index) => ({
+      ...entry,
+      owned: index === 0,
+    }));
+
+    render(
+      <RankingTable
+        data={ranking}
+        squadSource="connected"
+        squadExcluded={[
+          { player_id: 98, web_name: 'Portero', status: 'a', reason: 'not_eligible_position' },
+          { player_id: 99, web_name: 'Lesionado', status: 'i', reason: 'unavailable' },
+        ]}
+      />,
+    );
+
+    expect(
+      screen.getByText('A) Candidatos elegibles de tu plantilla (solo MID/FWD)'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('B) Mejores candidatos globales')).toBeInTheDocument();
+    expect(screen.getByText('TUYO')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'No evaluados para capitanía: Portero (posición no elegible), Lesionado (no disponible).',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  test('without a connected team renders only the declared global block', () => {
+    render(
+      <RankingTable
+        data={rankingOkResponse.captain_ranking!}
+        squadSource="not_connected"
+      />,
+    );
+
+    expect(
+      screen.queryByText('A) Candidatos elegibles de tu plantilla (solo MID/FWD)'),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('B) Mejores candidatos globales')).toBeInTheDocument();
+    expect(
+      screen.getByText('No hay equipo conectado; te muestro solo el ranking global.'),
+    ).toBeInTheDocument();
+  });
 });
 
 describe('DifferentialTable — name cell truncation', () => {
@@ -148,6 +194,7 @@ describe('ChipCard — header row shrinks around the recommendation pill', () =>
     expect(screen.getByText('Puntuación de capitán · Haaland')).toBeInTheDocument();
     expect(screen.getByText('Mejor disponible: Cherki')).toBeInTheDocument();
   });
+
 });
 
 describe('FixtureRunTable — header row name truncates', () => {

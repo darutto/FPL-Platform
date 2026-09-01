@@ -126,6 +126,8 @@ class CaptainScoreMeta:
     set_piece_notes:
         Tuple of role-key strings (e.g. ``("penalty_taker_1",)``).
         Empty tuple when no set-piece role is recorded.
+    owned:
+        Whether the player belongs to the connected user's squad.
     """
 
     web_name:        str
@@ -177,6 +179,17 @@ class RankedCaptainEntry:
     tier:            str
     role_bonus:      float
     set_piece_notes: tuple[str, ...]
+    owned:           bool = False
+
+
+@dataclass(frozen=True)
+class SquadExcludedEntry:
+    """Owned player omitted from captain ranking, with an explicit reason."""
+
+    player_id: int
+    web_name:  str
+    status:    str
+    reason:    str
 
 
 # ---------------------------------------------------------------------------
@@ -1071,6 +1084,11 @@ class FinalResponse:
         otherwise.  A tuple of :class:`RankedCaptainEntry` objects ordered
         by ``rank`` (1 = highest captain score).  Contains only successfully
         scored candidates — failed entries are omitted.
+    squad_source:
+        Captain-ranking squad context: ``connected``, ``not_connected``, or
+        ``unavailable``. ``None`` outside derived captain rankings.
+    squad_excluded:
+        Owned players excluded from captain consideration by availability.
     sub_responses:
         Tuple of per-sub-intent ``FinalResponse`` objects (Phase 6c).
         Populated when ``intent == multi_intent``; ``None`` for all
@@ -1146,6 +1164,8 @@ class FinalResponse:
     comparison:      ComparisonMeta | None                 = field(default=None)  # Phase 5g
     captain:         CaptainScoreMeta | None               = field(default=None)  # Phase 5n
     captain_ranking: tuple[RankedCaptainEntry, ...] | None = field(default=None)  # Phase 5p
+    squad_source:    "str | None"                          = field(default=None)
+    squad_excluded:  "tuple[SquadExcludedEntry, ...] | None" = field(default=None)
     sub_responses:   "tuple[FinalResponse, ...] | None"    = field(default=None)  # Phase 6c
     transfer:        "TransferMeta | None"                 = field(default=None)  # Phase 7a
     chip:            "ChipAdviceMeta | None"               = field(default=None)  # Phase 7b
@@ -1458,10 +1478,29 @@ def _extract_captain_ranking_meta(
                 tier            = c.get("tier", ""),
                 role_bonus      = float(rs.get("role_bonus", 0.0)),
                 set_piece_notes = tuple(rs.get("set_piece_notes") or []),
+                owned           = bool(c.get("owned", False)),
             ))
         return tuple(entries)
     except Exception:  # noqa: BLE001
         return None
+
+
+def _extract_squad_excluded_meta(
+    ro: "dict[str, Any]",
+) -> "tuple[SquadExcludedEntry, ...]":
+    """Extract unavailable owned players from a captain-ranking payload."""
+    try:
+        return tuple(
+            SquadExcludedEntry(
+                player_id=int(entry.get("player_id", 0)),
+                web_name=str(entry.get("web_name", "")),
+                status=str(entry.get("status", "")),
+                reason=str(entry.get("reason", "unresolved")),
+            )
+            for entry in (ro.get("squad_excluded") or [])
+        )
+    except Exception:  # noqa: BLE001
+        return ()
 
 
 def _extract_transfer_meta(ro: "dict[str, Any]") -> "TransferMeta | None":
@@ -2064,6 +2103,8 @@ def _extract_structured_meta(
     comparison:              "ComparisonMeta | None"              = None
     captain:                 "CaptainScoreMeta | None"            = None
     captain_ranking:         "tuple[RankedCaptainEntry, ...] | None" = None
+    squad_source:            "str | None"                         = None
+    squad_excluded:          "tuple[SquadExcludedEntry, ...] | None" = None
     transfer:                "TransferMeta | None"                = None
     chip:                    "ChipAdviceMeta | None"              = None
     fixture_run:             "FixtureRunMeta | None"              = None
@@ -2086,6 +2127,9 @@ def _extract_structured_meta(
             captain = _extract_captain_meta(raw_output)
         elif intent == INTENT_RANK_CANDIDATES:
             captain_ranking = _extract_captain_ranking_meta(raw_output)
+            if raw_output.get("pool_source") == "derived":
+                squad_source = raw_output.get("squad_source")
+                squad_excluded = _extract_squad_excluded_meta(raw_output)
         elif intent == INTENT_TRANSFER_ADVICE:
             transfer = _extract_transfer_meta(raw_output)
         elif intent == INTENT_CHIP_ADVICE:
@@ -2119,6 +2163,8 @@ def _extract_structured_meta(
         "comparison":           comparison,
         "captain":              captain,
         "captain_ranking":      captain_ranking,
+        "squad_source":         squad_source,
+        "squad_excluded":       squad_excluded,
         "transfer":             transfer,
         "chip":                 chip,
         "fixture_run":          fixture_run,
@@ -2304,6 +2350,8 @@ def _orch_result_to_final_response(
     comparison:      "ComparisonMeta | None"                 = None
     captain:         "CaptainScoreMeta | None"               = None
     captain_ranking: "tuple[RankedCaptainEntry, ...] | None" = None
+    squad_source:    "str | None"                            = None
+    squad_excluded:  "tuple[SquadExcludedEntry, ...] | None" = None
     transfer:        "TransferMeta | None"                   = None
     chip:            "ChipAdviceMeta | None"                 = None
     fixture_run:     "FixtureRunMeta | None"                 = None
@@ -2315,6 +2363,9 @@ def _orch_result_to_final_response(
         captain = _extract_captain_meta(ro)
     elif intent == INTENT_RANK_CANDIDATES:
         captain_ranking = _extract_captain_ranking_meta(ro)
+        if ro.get("pool_source") == "derived":
+            squad_source = ro.get("squad_source")
+            squad_excluded = _extract_squad_excluded_meta(ro)
     elif intent == INTENT_COMPARE_PLAYERS:
         comparison = _extract_comparison_meta(ro)
     elif intent == INTENT_TRANSFER_ADVICE:
@@ -2362,6 +2413,8 @@ def _orch_result_to_final_response(
         comparison=comparison,
         captain=captain,
         captain_ranking=captain_ranking,
+        squad_source=squad_source,
+        squad_excluded=squad_excluded,
         transfer=transfer,
         chip=chip,
         fixture_run=fixture_run,
@@ -2766,6 +2819,8 @@ def _try_session_orchestration_response(
         comparison=result.get("comparison"),
         captain=result.get("captain"),
         captain_ranking=result.get("captain_ranking"),
+        squad_source=result.get("squad_source"),
+        squad_excluded=result.get("squad_excluded"),
         transfer=transfer,
         chip=chip,
         fixture_run=result.get("fixture_run"),
@@ -3055,6 +3110,8 @@ def respond(
         comparison=_meta["comparison"],
         captain=_meta["captain"],
         captain_ranking=_meta["captain_ranking"],
+        squad_source=_meta["squad_source"],
+        squad_excluded=_meta["squad_excluded"],
         transfer=_meta["transfer"],
         chip=_meta["chip"],
         fixture_run=_meta["fixture_run"],
