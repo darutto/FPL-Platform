@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-30",
+  "updated": "2026-09-01",
   "cards": [
     {
       "id": "s1",
@@ -844,15 +844,15 @@
     },
     {
       "id": "i51",
-      "col": "evaluation",
+      "col": "shipped",
       "title": "El consejo de Triple Capitán contestaba sobre otro jugador y otra jornada",
-      "desc": "EL PROBLEMA. Preguntaste «¿le doy el triple capitán a Haaland en la fecha 3?» y el sistema respondió sobre Cherki y sobre la jornada 2. Peor: te recomendó guardar el chip «para un rival más débil» cuando el rival de la fecha 3 era justamente el más débil de la ventana.\n\nPOR QUÉ PASABA. La herramienta de chips solo aceptaba un dato: qué chip. No tenía dónde poner «Haaland» ni «fecha 3», así que los perdía en silencio. No era culpa del modelo.\n\nQUÉ SE HIZO. PR #195: las tres herramientas de capitanía ya aceptan jornada y jugador, avisan cuando evalúan la jornada actual, y se niegan a inventar análisis de jornadas futuras sin datos. La tarjeta ya dice de quién es la puntuación que enseña.\n\nVERIFICADO EN PRODUCCIÓN: la misma pregunta en GW2 y GW3 da puntuaciones distintas, y las diferencias corresponden exactamente al cambio de dificultad del rival.\n\nQUÉ QUEDA. Separar «mejores de tu plantilla» de «mejores globales» — en curso.",
+      "desc": "Fusionada (PR #200, 01/09). rank_captain_candidates ahora lee squad_context y separa un bloque de candidatos elegibles de tu plantilla (solo MID/FWD) del ranking global top 12, resolviendo la plantilla deterministamente en tool_dispatch.py en vez de depender de que el modelo encadene get_my_squad.",
       "tags": [
         "Backend",
         "UI",
         "FPL Asistente"
       ],
-      "progress": 85
+      "progress": 100
     },
     {
       "id": "i52",
