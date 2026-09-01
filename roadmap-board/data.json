@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-30",
+  "updated": "2026-08-31",
   "cards": [
     {
       "id": "s1",
@@ -908,6 +908,17 @@
       "desc": "ENCONTRADO al instrumentar [[i46]] (PR #198). golden_battery.py acepta --max-tokens, lo imprime en la cabecera pinneada del reporte, y NO lo pasa a ninguna llamada. Correr con --max-tokens 4096 produce un reporte que AFIRMA 4096 sobre llamadas hechas a 1024.\n\nUna cabecera pinneada que puede contradecir a su propia corrida es peor que no tener cabecera: todo el valor de pinnear es que dos personas no puedan correr 'la misma' bateria con distinto espacio de respuesta, y esto permite exactamente eso mientras aparenta lo contrario.\n\nNO SE TOCO A PROPOSITO: la fila de referencia de [[i25]] no se puede mover. El arreglo seguro es que la bandera falle en voz alta o desaparezca, no que empiece a funcionar en silencio -- si empieza a pasarse de verdad, la proxima corrida deja de ser comparable con la fila de luna sin que nadie lo note.\n\nMisma clase que las entradas mentirosas de [[i49]]: no es que falte cobertura, es que lo escrito afirma algo que el codigo no hace.",
       "tags": [
         "Backend"
+      ]
+    },
+    {
+      "id": "i57",
+      "col": "idea",
+      "progress": 0,
+      "title": "Los turnos rescatados pierden su tarjeta: tool_call_count es la senal equivocada",
+      "desc": "EFECTO SECUNDARIO CONOCIDO del arreglo de [[i46]] (PR #203), reportado por el constructor sin que se le preguntara. harness.py:1152 compone tarjeta solo si tool_call_count == 1. Un turno que la ronda extra rescata pasa a valer 2, asi que deja de sacar tarjeta.\n\nEL BALANCE REAL, que es mas fino de lo que parece: esos turnos ANTES si sacaban tarjeta, porque tenian tool_call_count == 1. O sea que el usuario recibia [volcado crudo + tarjeta buena] y ahora recibe [prosa buena + sin tarjeta]. No es cambiar nada por algo: es cambiar la mitad mala por la mitad buena y perder la que ya servia. Se acepta porque la prosa vale mas que la tarjeta en un turno que estaba roto, pero no es gratis, y la UI de tarjetas es una direccion de producto deliberada (PR #36).\n\nEL PATRON, que es lo transferible: es la SEGUNDA vez que tool_call_count se usa como proxy de algo que no significa. La primera fue creer que contaba si el modelo habia hablado, y la senal correcta resulto ser synthesis_turn -- eso costo una hipotesis biconditional falsa en las dos direcciones. Aqui la pregunta real no es 'cuantas llamadas hubo' sino 'hay una salida de herramienta que sirva de base para la tarjeta'. Son cosas distintas y el contador no las separa.\n\nARREGLO PROPUESTO: que la puerta de composicion mire la salida cardable, no el numero de llamadas. Distinto de [[i13]], que trata de componer VARIAS tarjetas en turnos multi-intent; aqui es una sola tarjeta que se pierde por un contador.\n\nMEDIR ANTES DE PROMETER: cuantos turnos rescatados dejan de cardar en la practica. Con el arreglo de i46 recien puesto, la poblacion afectada es la misma que ya se instrumento y no cuesta una medicion nueva.",
+      "tags": [
+        "Backend",
+        "UI"
       ]
     }
   ]
