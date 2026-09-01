@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-31T05:07:10Z",
+  "generatedAt": "2026-09-01T05:07:00Z",
   "season": "2026/27",
   "seasonStatus": "in_season",
   "gameweek": 1,
@@ -147,19 +147,19 @@
   ],
   "players": [
     {
-      "name": "Mbeumo",
-      "team": "MUN",
-      "position": "MID",
-      "xg": 2.13,
-      "xa": 0.44,
-      "minutes": 180
-    },
-    {
       "name": "B.Fernandes",
       "team": "MUN",
       "position": "MID",
-      "xg": 2.03,
-      "xa": 0.53,
+      "xg": 2.1,
+      "xa": 0.74,
+      "minutes": 180
+    },
+    {
+      "name": "Mbeumo",
+      "team": "MUN",
+      "position": "MID",
+      "xg": 2.26,
+      "xa": 0.44,
       "minutes": 180
     },
     {
@@ -259,6 +259,14 @@
       "minutes": 108
     },
     {
+      "name": "Saka",
+      "team": "ARS",
+      "position": "MID",
+      "xg": 1.27,
+      "xa": 0.12,
+      "minutes": 157
+    },
+    {
       "name": "Isidor",
       "team": "SUN",
       "position": "FWD",
@@ -336,14 +344,6 @@
       "position": "FWD",
       "xg": 1.0,
       "xa": 0.02,
-      "minutes": 180
-    },
-    {
-      "name": "Gibbs-White",
-      "team": "NFO",
-      "position": "MID",
-      "xg": 0.92,
-      "xa": 0.1,
       "minutes": 180
     }
   ]
