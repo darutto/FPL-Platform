@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-31",
+  "updated": "2026-09-01",
   "cards": [
     {
       "id": "s1",
@@ -788,9 +788,9 @@
     {
       "id": "i46",
       "col": "evaluation",
-      "progress": 70,
+      "progress": 80,
       "title": "La sintesis responde 200 sin texto y el usuario recibe un render pelado",
-      "desc": "CAUSA IDENTIFICADA 2026-08-30 (PR #198). La instrumentacion respondio la pregunta y el experimento de brazos NO se corrio: 10 llamadas, $0.0265.\n\nNO ES TRUNCADO. status='completed' 10/10, incomplete_details.reason=None 10/10, maximo de salida observado 218 tokens = 21% del presupuesto de 1024. H-presupuesto FALSADA, y no por poco: nada se acerco a 4x del techo. La mitigacion de una linea en el servidor NO es el arreglo -- no puedes dar mas presupuesto a una llamada que uso un quinto del que tenia.\n\nLA CAUSA ESTA EN LOS OUTPUT ITEMS, que nadie habia mirado:\n  reasoning + message        1/10   con texto\n  reasoning + function_call  9/10   sin texto\nLA SINTESIS NO FALLA: PIDE OTRA HERRAMIENTA. El camino de una sola ronda no tiene ronda que darle, el codigo no encuentra texto y cae a render(). Esa es la tabla cruda.\n\nY ES NO DETERMINISTA CON ENTRADA IDENTICA: rep4 y rep8, misma herramienta, mismos 289 bytes, mismo presupuesto -- una hablo y la otra pidio otra herramienta. Por eso 3 reps nunca bastaron.\n\nH-payload TAMPOCO SE SOSTIENE: 167 B a 4.452 B dentro de una misma pregunta, fallaron los dos extremos y el unico exito quedo a media tabla.\n\nCORRECCION A ESTA FICHA: decia que las sondas corrieron a 2048 y produccion a 1024, y que lo medido era 'el caso favorable'. ERA FALSO para las cifras que cita. measure_tool_routing.py:131 tiene max_tokens=1024 pinneado desde 2555dc9 (2026-08-25) y TODO pasa por base.run_one: la bateria de [[i25]] y las sondas de [[i41]] ya corrieron a presupuesto de produccion. El 5,2% ES la tasa de produccion. Solo mis sondas sueltas de i18/i19/i42 usaron 2048.\n\nSIGUE CONFUNDIDA la identidad de la herramienta: una sola pregunta no dice nada sobre get_gameweek_context 2/4 frente a get_my_squad 0/6.\n\nBLOQUEANTE ANTES DE DISENAR EL ARREGLO: no sabemos si FPL_ORCH_LOOP_ENABLED esta puesto en produccion. Esta off por defecto, ausente en local y sin documentar en el repo, y /healthz NO lo expone -- una bandera que cambia el camino de ejecucion entero y no aparece en la superficie de salud. Si Railway lo tiene puesto, produccion corre el bucle acotado y este hallazgo hay que reconfirmarlo alli antes de que transfiera.\n\nDIRECCION DEL ARREGLO, una vez sepamos eso: si el bucle esta apagado, la sintesis que pide herramienta se descarta por construccion y las salidas son (a) encender el bucle acotado, (b) conceder UNA ronda extra cuando la sintesis devuelve function_call sin texto, o (c) como minimo no renderizar crudo sin marcarlo. Decision de diseno, no obvia.",
+      "desc": "BLOQUEANTE RESUELTO 2026-08-31, y era gratis: FPL_ORCH_LOOP_ENABLED NO ESTA PUESTO EN PRODUCCION. Leido del dashboard de Railway (proyecto fpl-backend, entorno production) con `railway variables`: el servicio define FPL_ORCH_ENABLED, FPL_ORCH_MODEL y FPL_ORCH_PROVIDER, y NI FPL_ORCH_LOOP_ENABLED NI FPL_ORCH_MAX_ROUNDS aparecen. Con la variable ausente is_orch_loop_enabled() devuelve False.\n\nQUE SIGNIFICA: produccion corre el CAMINO DE UNA SOLA RONDA, el mismo que midio PR #198 (la sonda corrio sin la bandera). EL HALLAZGO TRANSFIERE TAL CUAL -- no hay que reconfirmar nada en el bucle acotado, y la variante con bucle YA NO ES EL SIGUIENTE GASTO: no es lo que corre produccion. El condicional de la ficha se resuelve por la rama 'apagado'.\n\nDESBLOQUEADO ENTONCES: la sintesis que pide otra herramienta se descarta POR CONSTRUCCION en produccion, y las tres salidas de abajo aplican directamente. Sigue siendo decision de diseno, no medicion: (a) encender el bucle acotado, (b) conceder UNA ronda extra cuando la sintesis devuelve function_call sin texto, (c) como minimo no renderizar crudo sin marcarlo. Nadie las ha costeado todavia.\n\nLO QUE ESTO NO RESUELVE: la identidad de la herramienta sigue confundida (ver abajo), y la generalidad tampoco se midio -- 10 llamadas, una pregunta, un modelo. Se establecio el MECANISMO sobre un repro confirmado, no su cuota del 5,2%.\n\nEFECTO COLATERAL QUE VALE UNA FICHA: averiguar esto exigio abrir Railway porque /healthz no expone loop_enabled ni max_rounds. Ver [[i57]].\n\nCAUSA IDENTIFICADA 2026-08-30 (PR #198). La instrumentacion respondio la pregunta y el experimento de brazos NO se corrio: 10 llamadas, $0.0265.\n\nNO ES TRUNCADO. status='completed' 10/10, incomplete_details.reason=None 10/10, maximo de salida observado 218 tokens = 21% del presupuesto de 1024. H-presupuesto FALSADA, y no por poco: nada se acerco a 4x del techo. La mitigacion de una linea en el servidor NO es el arreglo -- no puedes dar mas presupuesto a una llamada que uso un quinto del que tenia.\n\nLA CAUSA ESTA EN LOS OUTPUT ITEMS, que nadie habia mirado:\n  reasoning + message        1/10   con texto\n  reasoning + function_call  9/10   sin texto\nLA SINTESIS NO FALLA: PIDE OTRA HERRAMIENTA. El camino de una sola ronda no tiene ronda que darle, el codigo no encuentra texto y cae a render(). Esa es la tabla cruda.\n\nY ES NO DETERMINISTA CON ENTRADA IDENTICA: rep4 y rep8, misma herramienta, mismos 289 bytes, mismo presupuesto -- una hablo y la otra pidio otra herramienta. Por eso 3 reps nunca bastaron.\n\nH-payload TAMPOCO SE SOSTIENE: 167 B a 4.452 B dentro de una misma pregunta, fallaron los dos extremos y el unico exito quedo a media tabla.\n\nCORRECCION A ESTA FICHA: decia que las sondas corrieron a 2048 y produccion a 1024, y que lo medido era 'el caso favorable'. ERA FALSO para las cifras que cita. measure_tool_routing.py:131 tiene max_tokens=1024 pinneado desde 2555dc9 (2026-08-25) y TODO pasa por base.run_one: la bateria de [[i25]] y las sondas de [[i41]] ya corrieron a presupuesto de produccion. El 5,2% ES la tasa de produccion. Solo mis sondas sueltas de i18/i19/i42 usaron 2048.\n\nSIGUE CONFUNDIDA la identidad de la herramienta: una sola pregunta no dice nada sobre get_gameweek_context 2/4 frente a get_my_squad 0/6.\n\nBLOQUEANTE ANTES DE DISENAR EL ARREGLO (RESUELTO 2026-08-31, ver arriba -- se conserva el texto original en vez de reescribirlo): no sabemos si FPL_ORCH_LOOP_ENABLED esta puesto en produccion. Esta off por defecto, ausente en local y sin documentar en el repo, y /healthz NO lo expone -- una bandera que cambia el camino de ejecucion entero y no aparece en la superficie de salud. Si Railway lo tiene puesto, produccion corre el bucle acotado y este hallazgo hay que reconfirmarlo alli antes de que transfiera.\n\nDIRECCION DEL ARREGLO, una vez sepamos eso (ya lo sabemos: apagado): si el bucle esta apagado, la sintesis que pide herramienta se descarta por construccion y las salidas son (a) encender el bucle acotado, (b) conceder UNA ronda extra cuando la sintesis devuelve function_call sin texto, o (c) como minimo no renderizar crudo sin marcarlo. Decision de diseno, no obvia.",
       "tags": [
         "Backend",
         "IA"
@@ -844,15 +844,15 @@
     },
     {
       "id": "i51",
-      "col": "evaluation",
+      "col": "shipped",
       "title": "El consejo de Triple Capitán contestaba sobre otro jugador y otra jornada",
-      "desc": "EL PROBLEMA. Preguntaste «¿le doy el triple capitán a Haaland en la fecha 3?» y el sistema respondió sobre Cherki y sobre la jornada 2. Peor: te recomendó guardar el chip «para un rival más débil» cuando el rival de la fecha 3 era justamente el más débil de la ventana.\n\nPOR QUÉ PASABA. La herramienta de chips solo aceptaba un dato: qué chip. No tenía dónde poner «Haaland» ni «fecha 3», así que los perdía en silencio. No era culpa del modelo.\n\nQUÉ SE HIZO. PR #195: las tres herramientas de capitanía ya aceptan jornada y jugador, avisan cuando evalúan la jornada actual, y se niegan a inventar análisis de jornadas futuras sin datos. La tarjeta ya dice de quién es la puntuación que enseña.\n\nVERIFICADO EN PRODUCCIÓN: la misma pregunta en GW2 y GW3 da puntuaciones distintas, y las diferencias corresponden exactamente al cambio de dificultad del rival.\n\nQUÉ QUEDA. Separar «mejores de tu plantilla» de «mejores globales» — en curso.",
+      "desc": "Fusionada (PR #200, 01/09). rank_captain_candidates ahora lee squad_context y separa un bloque de candidatos elegibles de tu plantilla (solo MID/FWD) del ranking global top 12, resolviendo la plantilla deterministamente en tool_dispatch.py en vez de depender de que el modelo encadene get_my_squad.",
       "tags": [
         "Backend",
         "UI",
         "FPL Asistente"
       ],
-      "progress": 85
+      "progress": 100
     },
     {
       "id": "i52",
@@ -909,6 +909,17 @@
       "tags": [
         "Backend"
       ]
+    },
+    {
+      "id": "i57",
+      "col": "idea",
+      "title": "/healthz no expone loop_enabled ni max_rounds: nadie sabe en que modo corre produccion",
+      "desc": "ENCONTRADO desbloqueando [[i46]] (2026-08-31). FPL_ORCH_LOOP_ENABLED decide si el orquestador corre el camino de UNA SOLA RONDA o el BUCLE ACOTADO -- dos caminos de ejecucion distintos -- y no aparece en ninguna superficie del producto. Tampoco FPL_ORCH_MAX_ROUNDS.\n\n/healthz hoy devuelve routing_counters, graduation, owned_store_fallback/sync y tactical_store_sync: TODO estado de ejecucion, CERO configuracion. No hay un solo campo que diga en que modo esta corriendo el proceso.\n\nEL COSTE YA SE PAGO: i46 diagnostico la causa raiz y quedo BLOQUEADA sobre si el hallazgo transferia a produccion. La respuesta exigio abrir el dashboard de Railway. Un campo en la superficie de salud lo habria contestado al instante, y sin credenciales de infraestructura.\n\nHAY PRECEDENTE, no hace falta inventar forma: la superficie de salud ya lleva contadores por rama para responder preguntas de go/no-go. Esto es la misma clase de pregunta -- 'en que modo corre' -- y merece el mismo trato.\n\nFORMA PROBABLE (sin decidir): un bloque de solo lectura con loop_enabled y max_rounds. Discutible si debe llevar tambien provider y model, que hoy tampoco se ven y que ya costaron una corrida que no probaba nada cuando un proveedor cayo en silencio -- por eso la bateria de [[i25]] asserta fpl_provider_event por llamada.\n\nCUIDADO AL IMPLEMENTAR: exponer configuracion no es exponer secretos. Nombres y valores de banderas booleanas y numericas, nunca claves. Y no romper la forma existente: hay codigo que depende de que el payload de /healthz se mantenga estable.\n\nMERECE ARREGLARSE PASE LO QUE PASE con la direccion de [[i46]]: una bandera que cambia el camino de ejecucion entero y no es observable desde fuera es un problema de operacion, no de esta investigacion.",
+      "tags": [
+        "Backend",
+        "Deploy"
+      ],
+      "progress": 0
     },
     {
       "id": "i58",

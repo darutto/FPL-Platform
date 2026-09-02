@@ -70,12 +70,25 @@ def test_unknown_metric_is_relayed_instead_of_using_unrelated_tool(monkeypatch, 
     # attempt too. This fake client returns the same tool_use block on every
     # call, so the synthesis call has no text and falls back to the primary
     # tool's own output/error below, unaffected -- only the call count changes.
-    assert client.calls == 2
+    # i46 adds one more: a synthesis response carrying a tool call now buys a
+    # single bounded extra round, which this fake answers with a tool call
+    # again, so the turn still ends on the render. What this test is about --
+    # which metric the model routed to -- is untouched.
+    assert client.calls == 3
     assert result.tool_chosen == "rank_players_by_metric"
-    assert result.tool_call_count == 1
+    # 2, not 1: i46's extra round ran the same tool a second time, and
+    # tool_call_count reports executed calls, not distinct tools. The routing
+    # assertion above is the one this test is about.
+    assert result.tool_call_count == 2
     assert result.outcome == OUTCOME_TOOL_RESULT_ERROR
     assert result.tool_output["code"] == "unknown_metric"
-    assert result.answer_text == result.tool_output["message"]
+    # i46 (c): the tool's own message still reaches the user verbatim, now
+    # behind a notice saying the model did not write it. Stripped rather than
+    # matched loosely, so a future wrapper around the message would still fail.
+    from fpl_grounded_assistant.catalogue import t as _t
+    _prefix = _t("orchestrator.raw_render_notice", "es") + "\n\n"
+    assert result.answer_text.startswith(_prefix)
+    assert result.answer_text[len(_prefix):] == result.tool_output["message"]
     assert "aerial_duels_won" in result.answer_text.lower()
     assert "not recognized" in result.answer_text.lower()
     assert "gameweek" not in result.answer_text.lower()
@@ -89,12 +102,16 @@ def test_misspelled_metric_still_uses_unique_prefix_match(monkeypatch, bootstrap
         "expected_goal_involvement",
     )
 
-    # G3 raw-dump fix: see the comment in the previous test -- the fake
-    # client's synthesis-call response has no text, so it falls back to the
-    # same primary tool output/answer, unaffected apart from the call count.
-    assert client.calls == 2
+    # G3 raw-dump fix + i46's extra round: see the comment in the previous
+    # test -- the fake client's synthesis-call response has no text but does
+    # carry a tool call, so the bounded extra round fires and the turn ends on
+    # the render. Unaffected apart from the call count.
+    assert client.calls == 3
     assert result.tool_chosen == "rank_players_by_metric"
-    assert result.tool_call_count == 1
+    # 2, not 1: i46's extra round ran the same tool a second time, and
+    # tool_call_count reports executed calls, not distinct tools. The routing
+    # assertion above is the one this test is about.
+    assert result.tool_call_count == 2
     assert result.outcome == OUTCOME_OK
     assert result.tool_output["status"] == "ok"
     assert result.tool_output["metric"] == "expected_goal_involvements"
