@@ -120,10 +120,30 @@ reps were never going to be enough and why 10 were specified.
 - **Generality is unmeasured.** 10 calls, one question, one model. The 5.2%
   battery-wide rate is not re-derived here. What is established is the
   *mechanism* on a confirmed repro, not its share of all failures.
-- **Whether prod sets `FPL_ORCH_LOOP_ENABLED`** could not be verified from this
-  worktree. It is absent from the local `.env` and undocumented in-repo. If
-  Railway sets it, the bounded loop path needs the same instrumentation before
-  any of this transfers. **Check this before designing the fix.**
+- ~~**Whether prod sets `FPL_ORCH_LOOP_ENABLED`** could not be verified from
+  this worktree. It is absent from the local `.env` and undocumented in-repo.
+  If Railway sets it, the bounded loop path needs the same instrumentation
+  before any of this transfers. **Check this before designing the fix.**~~
+  **Resolved 2026-08-31 — see the addendum below. It is not set. The finding
+  transfers as-is.**
+
+## Addendum, 2026-08-31 — the flag is not set in production
+
+`railway variables` on `fpl-backend` / `production` lists `FPL_ORCH_ENABLED`,
+`FPL_ORCH_MODEL` and `FPL_ORCH_PROVIDER`. Neither `FPL_ORCH_LOOP_ENABLED` nor
+`FPL_ORCH_MAX_ROUNDS` appears. With the variable absent,
+`is_orch_loop_enabled()` returns `False`.
+
+**Production runs the single-round path** — the same one this probe measured,
+since the probe ran without the flag. So the finding transfers unchanged, the
+bounded-loop path does not need re-instrumenting first, and the loop-enabled
+variant is *not* the next thing to spend on: it is not what production runs.
+
+The three fix directions in the closing section now apply directly, and
+choosing between them remains a design decision rather than a measurement one.
+
+That this took opening the Railway dashboard — because `/healthz` exposes no
+configuration at all — is tracked separately.
 
 ## Two collateral findings about the instruments
 
