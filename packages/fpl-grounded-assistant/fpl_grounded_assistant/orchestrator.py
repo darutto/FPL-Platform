@@ -107,7 +107,9 @@ from .provider_client import (
     ProviderResult,
     call_orch_provider,
 )
+from .catalogue import t
 from .evaluator import EvaluatorVerdict, evaluate_response
+from .locale_types import DEFAULT_LOCALE
 from .renderer import render
 from .tool_schema_registry import (
     _ALL_SCHEMAS,
@@ -1171,6 +1173,146 @@ _TRACE_FAILURE_STATUSES: frozenset[str] = frozenset({
     "invalid_argument",
     "missing_argument",
 })
+
+
+def _run_synthesis_extra_round(
+    *,
+    prior_messages: list[Any],
+    second_response: Any,
+    executed: list[tuple[str | None, str | None, dict[str, Any], dict[str, Any]]],
+    trace: list[dict[str, Any]],
+    provider_label: str | None,
+    model: str,
+    system: str,
+    tools: list[dict[str, Any]],
+    max_tokens: int,
+    temperature: float | None,
+    top_p: float | None,
+    timeout_s: float,
+    max_retries: int,
+    resolved_client: Any,
+    api_key: str | None,
+    orch_request_fn: Any,
+    system_blocks: list[dict[str, Any]] | None,
+    actual_bootstrap: dict[str, Any],
+    valid_tool_names: set[str] | frozenset[str],
+) -> tuple[str | None, int, int, int]:
+    """i46 (b): one extra tool round when synthesis asks for a tool, not prose.
+
+    Why this exists
+    ---------------
+    The synthesis call was assumed to be failing. It is not. Measured
+    2026-08-30 (PR #198, 10 reps of a confirmed repro): 9 of 10 empty
+    synthesis responses carried ``reasoning + function_call``, every one with
+    ``status == "completed"`` and four fifths of the output budget unspent.
+    The model was never truncated — it wanted more data and had no round in
+    which to ask. The single-round path discarded that request and rendered
+    the first tool raw.
+
+    Scope, deliberately narrow
+    --------------------------
+    **Exactly one extra round, hard-capped in the control flow rather than by
+    a counter.** This is not the bounded loop and must not become it: it reads
+    no ``FPL_ORCH_MAX_ROUNDS``, honours no configuration, and cannot recurse —
+    the follow-up call's own output is never re-parsed for tool calls. Turning
+    on the real loop is a separate decision with its own defect history.
+
+    A turn whose synthesis already produced text never reaches this function,
+    so the common path is unchanged and costs exactly what it did before.
+
+    Returns
+    -------
+    ``(text_or_None, input_tokens, output_tokens, cache_read_tokens)``.
+
+    Token counts are returned even when no text is produced, because they were
+    spent either way and the caller must bill them. Never raises: every failure
+    mode (no tool calls, an unknown tool, a raising tool, a provider error, no
+    text again) returns ``None`` and lets the caller fall through to the marked
+    render.
+    """
+    extra_calls = _parse_all_tool_calls(second_response, provider_label)
+    if not extra_calls:
+        # No text and no tool call: nothing to rescue, and not the i46 shape.
+        return None, 0, 0, 0
+
+    # Validate before executing any, matching step 7's all-or-nothing rule.
+    for _id, _name, _args in extra_calls:
+        if not _name or _name not in valid_tool_names:
+            _LOG.warning(
+                "synthesis follow-up requested unknown tool %r; "
+                "falling back to render", _name,
+            )
+            return None, 0, 0, 0
+
+    extra_executed: list[
+        tuple[str | None, str | None, dict[str, Any], dict[str, Any]]
+    ] = []
+    for _id, _name, _args in extra_calls:
+        try:
+            _out: dict[str, Any] = run_tool(_name, _args, actual_bootstrap)
+        except Exception as exc:  # noqa: BLE001
+            # A raising tool in the *extra* round is not worth failing the
+            # whole turn over: the first round's output is still renderable,
+            # which is strictly better than the error this would otherwise
+            # surface. Recorded in the trace so it is not invisible.
+            _LOG.warning("extra synthesis round: tool %r raised: %s", _name, exc)
+            trace.append(_trace_entry(
+                round_number=2,
+                tool_call_id=_id,
+                tool_name=_name,
+                tool_args=_args,
+                raw_output={
+                    "status": "error",
+                    "code": "tool_exception",
+                    "message": str(exc),
+                },
+            ))
+            return None, 0, 0, 0
+        extra_executed.append((_id, _name, _args, _out))
+        executed.append((_id, _name, _args, _out))
+        trace.append(_trace_entry(
+            round_number=2,
+            tool_call_id=_id,
+            tool_name=_name,
+            tool_args=_args,
+            raw_output=_out,
+        ))
+
+    # Same builder the first round uses, so the three provider wire formats
+    # stay in one place. `prior_messages` already carries the user turn, the
+    # first assistant response and the first round's tool results.
+    follow_up = _build_multi_tool_follow_up(
+        provider_label, prior_messages, second_response, extra_executed,
+    )
+    third_call: OrchCallResult = call_orch_provider(
+        provider_label,
+        model=model,
+        system=system,
+        tools=tools,
+        messages=follow_up,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        top_p=top_p,
+        timeout_s=timeout_s,
+        max_retries=max_retries,
+        client=resolved_client,
+        api_key=api_key,
+        _request_fn=orch_request_fn,
+        _system_blocks=system_blocks,
+    )
+    in_tok = third_call.input_tokens or 0
+    out_tok = third_call.output_tokens or 0
+    cache_tok = third_call.cache_read_tokens or 0
+    if third_call.error_code is not None:
+        _LOG.warning(
+            "extra synthesis round failed: [%s] %s; falling back to render",
+            third_call.error_code, third_call.error_msg,
+        )
+        return None, in_tok, out_tok, cache_tok
+
+    # Deliberately NOT re-parsed for further tool calls: one round is the cap.
+    text = _extract_text_from_response(third_call.response, provider_label)
+    return (text or None), in_tok, out_tok, cache_tok
 
 
 def _trace_entry(
@@ -2424,14 +2566,23 @@ def ask_orchestrated(
         # Second call succeeded; surface its synthesised answer text.
         _second_response = _second_call.response
         _second_text = _extract_text_from_response(_second_response, _provider_label)
+        # F3: accumulate second-call tokens into the "primary" bucket (primary
+        # + synthesis call are both part of the primary turn).
+        #
+        # i46: accumulated HERE, before the branch, not inside the success arm.
+        # These tokens are spent whether or not the call produced text, and the
+        # fallback path below used to drop them — every degraded turn reported
+        # fewer tokens than it actually cost, which is precisely the population
+        # whose cost this change needed to measure.
+        _prim_in    += (_second_call.input_tokens or 0)
+        _prim_out   += (_second_call.output_tokens or 0)
+        _prim_cache += (_second_call.cache_read_tokens or 0)
         if _second_text:
             tool_status = raw_output.get("status")
             outcome = OUTCOME_OK if tool_status == "ok" else OUTCOME_TOOL_RESULT_ERROR
-            # F3: accumulate second-call tokens into "primary" bucket
-            # (primary + synthesis call are both part of the primary turn).
-            _prim_in_mt    = _prim_in    + (_second_call.input_tokens or 0)
-            _prim_out_mt   = _prim_out   + (_second_call.output_tokens or 0)
-            _prim_cache_mt = _prim_cache + (_second_call.cache_read_tokens or 0)
+            _prim_in_mt    = _prim_in
+            _prim_out_mt   = _prim_out
+            _prim_cache_mt = _prim_cache
             return _apply_evaluator(
                 question=question,
                 answer_text=_second_text,
@@ -2461,9 +2612,73 @@ def ask_orchestrated(
                 _primary_output_tokens=_prim_out_mt,
                 _primary_cache_read_tokens=_prim_cache_mt,
             )
+        # ------------------------------------------------------------------
+        # 8c (i46 (b)): no text — but the model may have asked for another
+        # tool rather than failed. Give it exactly one extra round, then ask
+        # for prose again. See _run_synthesis_extra_round for the measurement
+        # this is built on and the reasons the cap is structural.
+        # ------------------------------------------------------------------
+        _extra_text, _x_in, _x_out, _x_cache = _run_synthesis_extra_round(
+            prior_messages=follow_up_messages,
+            second_response=_second_response,
+            executed=executed,
+            trace=_trace,
+            provider_label=_provider_label,
+            model=model,
+            system=system,
+            tools=tools,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            timeout_s=_timeout_s,
+            max_retries=_max_retries,
+            resolved_client=resolved_client,
+            api_key=api_key,
+            orch_request_fn=_orch_request_fn,
+            system_blocks=_system_blocks,
+            actual_bootstrap=actual_bootstrap,
+            valid_tool_names=_valid_tool_names,
+        )
+        _prim_in    += _x_in
+        _prim_out   += _x_out
+        _prim_cache += _x_cache
+        if _extra_text:
+            tool_status = raw_output.get("status")
+            outcome = OUTCOME_OK if tool_status == "ok" else OUTCOME_TOOL_RESULT_ERROR
+            return _apply_evaluator(
+                question=question,
+                answer_text=_extra_text,
+                tool_chosen=tool_name,
+                tool_args=tool_args,
+                tool_output=raw_output,
+                tool_calls_trace=_trace,
+                outcome=outcome,
+                model=model,
+                provider=_provider_label,
+                eval_client=_eval_client,
+                # Model-generated prose, exactly like the 8b success arm. The
+                # signal that measures this defect must keep meaning "the text
+                # came from the model", or the fix cannot be measured with it.
+                synthesis_turn=True,
+                resolved_client=resolved_client,
+                api_key=api_key,
+                system=system,
+                tools=tools,
+                _provider_label=_provider_label,
+                _timeout_s=_timeout_s,
+                _max_retries=_max_retries,
+                _orch_request_fn=_orch_request_fn,
+                actual_bootstrap=actual_bootstrap,
+                _valid_tool_names=_valid_tool_names,
+                _system_blocks=_system_blocks,
+                _primary_input_tokens=_prim_in,
+                _primary_output_tokens=_prim_out,
+                _primary_cache_read_tokens=_prim_cache,
+            )
         _LOG.warning(
             "synthesis LLM call succeeded but returned no text for "
-            "provider=%s; rendering first tool only",
+            "provider=%s, and the extra round did not rescue it; "
+            "rendering first tool only",
             _provider_label,
         )
 
@@ -2480,6 +2695,19 @@ def ask_orchestrated(
     except Exception:  # noqa: BLE001
         # Renderer failed; surface status as minimal fallback
         answer_text = f"[{tool_status or 'unknown'}]"
+
+    # i46 (c): this text was NOT written by the model — it is the deterministic
+    # render of the tool's output, reached because synthesis produced no prose
+    # and the extra round did not rescue it. Keep shipping it (a table beats
+    # nothing) but say so, rather than letting a raw dump pass for an answer.
+    #
+    # Locale: DEFAULT_LOCALE, matching the render() call directly above, which
+    # takes the same default. ask_orchestrated has no locale parameter — when
+    # locale reaches this layer, both calls take it together or the notice
+    # would disagree with the table it introduces.
+    answer_text = (
+        f"{t('orchestrator.raw_render_notice', DEFAULT_LOCALE)}\n\n{answer_text}"
+    )
 
     return _apply_evaluator(
         question=question,
