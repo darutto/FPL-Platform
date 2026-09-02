@@ -1,148 +1,148 @@
 {
-  "generatedAt": "2026-09-01T05:07:00Z",
+  "generatedAt": "2026-09-02T05:06:44Z",
   "season": "2026/27",
   "seasonStatus": "in_season",
-  "gameweek": 1,
+  "gameweek": 2,
   "teams": [
     {
       "name": "Arsenal",
       "short": "ARS",
-      "goalsFor": 3,
+      "goalsFor": 4,
       "goalsAgainst": 0,
-      "played": 1
+      "played": 2
     },
     {
       "name": "Aston Villa",
       "short": "AVL",
       "goalsFor": 0,
-      "goalsAgainst": 4,
-      "played": 1
+      "goalsAgainst": 5,
+      "played": 2
     },
     {
       "name": "Bournemouth",
       "short": "BOU",
-      "goalsFor": 1,
-      "goalsAgainst": 2,
-      "played": 1
+      "goalsFor": 2,
+      "goalsAgainst": 3,
+      "played": 2
     },
     {
       "name": "Brentford",
       "short": "BRE",
-      "goalsFor": 3,
-      "goalsAgainst": 0,
-      "played": 1
+      "goalsFor": 4,
+      "goalsAgainst": 1,
+      "played": 2
     },
     {
       "name": "Brighton",
       "short": "BHA",
-      "goalsFor": 4,
-      "goalsAgainst": 0,
-      "played": 1
+      "goalsFor": 7,
+      "goalsAgainst": 4,
+      "played": 2
     },
     {
       "name": "Chelsea",
       "short": "CHE",
-      "goalsFor": 3,
-      "goalsAgainst": 2,
-      "played": 1
+      "goalsFor": 7,
+      "goalsAgainst": 5,
+      "played": 2
     },
     {
       "name": "Coventry City",
       "short": "COV",
       "goalsFor": 0,
-      "goalsAgainst": 3,
-      "played": 1
+      "goalsAgainst": 4,
+      "played": 2
     },
     {
       "name": "Crystal Palace",
       "short": "CRY",
-      "goalsFor": 0,
-      "goalsAgainst": 2,
-      "played": 1
+      "goalsFor": 1,
+      "goalsAgainst": 6,
+      "played": 2
     },
     {
       "name": "Everton",
       "short": "EVE",
-      "goalsFor": 2,
-      "goalsAgainst": 0,
-      "played": 1
+      "goalsFor": 3,
+      "goalsAgainst": 1,
+      "played": 2
     },
     {
       "name": "Fulham",
       "short": "FUL",
       "goalsFor": 2,
-      "goalsAgainst": 3,
-      "played": 1
+      "goalsAgainst": 4,
+      "played": 2
     },
     {
       "name": "Hull City",
       "short": "HUL",
-      "goalsFor": 2,
+      "goalsFor": 3,
       "goalsAgainst": 0,
-      "played": 1
+      "played": 2
     },
     {
       "name": "Ipswich Town",
       "short": "IPS",
-      "goalsFor": 2,
-      "goalsAgainst": 1,
-      "played": 1
+      "goalsFor": 4,
+      "goalsAgainst": 6,
+      "played": 2
     },
     {
       "name": "Leeds",
       "short": "LEE",
-      "goalsFor": 1,
-      "goalsAgainst": 0,
-      "played": 1
+      "goalsFor": 2,
+      "goalsAgainst": 1,
+      "played": 2
     },
     {
       "name": "Liverpool",
       "short": "LIV",
-      "goalsFor": 2,
-      "goalsAgainst": 2,
-      "played": 1
+      "goalsFor": 4,
+      "goalsAgainst": 4,
+      "played": 2
     },
     {
       "name": "Man City",
       "short": "MCI",
-      "goalsFor": 2,
-      "goalsAgainst": 1,
-      "played": 1
+      "goalsFor": 6,
+      "goalsAgainst": 2,
+      "played": 2
     },
     {
       "name": "Man Utd",
       "short": "MUN",
-      "goalsFor": 0,
-      "goalsAgainst": 2,
-      "played": 1
+      "goalsFor": 5,
+      "goalsAgainst": 4,
+      "played": 2
     },
     {
       "name": "Newcastle",
       "short": "NEW",
-      "goalsFor": 2,
+      "goalsFor": 4,
       "goalsAgainst": 2,
-      "played": 1
+      "played": 2
     },
     {
       "name": "Nott'm Forest",
       "short": "NFO",
-      "goalsFor": 0,
-      "goalsAgainst": 1,
-      "played": 1
+      "goalsFor": 2,
+      "goalsAgainst": 3,
+      "played": 2
     },
     {
       "name": "Spurs",
       "short": "TOT",
       "goalsFor": 0,
-      "goalsAgainst": 3,
-      "played": 1
+      "goalsAgainst": 5,
+      "played": 2
     },
     {
       "name": "Sunderland",
       "short": "SUN",
-      "goalsFor": 1,
+      "goalsFor": 2,
       "goalsAgainst": 2,
-      "played": 1
+      "played": 2
     }
   ],
   "players": [
