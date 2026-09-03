@@ -62,22 +62,25 @@ TIERS: dict[str, QuotaTier] = {
     ),
     "patreon_basic": QuotaTier(
         name="patreon_basic",
-        daily_token_cap=700_000,
-        monthly_token_cap=7_000_000,
+        # 30 x p99 and 600 x p99 over the 903-turn sample (see header).
+        daily_token_cap=1_000_000,
+        monthly_token_cap=17_500_000,
         daily_message_cap=30,
         monthly_message_cap=600,
     ),
     "patreon_plus": QuotaTier(
         name="patreon_plus",
-        daily_token_cap=1_400_000,
-        monthly_token_cap=14_000_000,
+        # 60 x p99 and 1200 x p99 over the 903-turn sample (see header).
+        daily_token_cap=1_900_000,
+        monthly_token_cap=35_000_000,
         daily_message_cap=60,
         monthly_message_cap=1_200,
     ),
     "patreon_premium": QuotaTier(
         name="patreon_premium",
-        daily_token_cap=3_500_000,
-        monthly_token_cap=35_000_000,
+        # 150 x p99 and 3000 x p99 over the 903-turn sample (see header).
+        daily_token_cap=4_500_000,
+        monthly_token_cap=85_000_000,
         daily_message_cap=150,
         monthly_message_cap=3_000,
     ),
@@ -250,62 +253,104 @@ def _make_backend() -> _Backend:
 _backend: _Backend = _make_backend()
 
 
+# ---------------------------------------------------------------------------
+# Upgrade prompts
+# ---------------------------------------------------------------------------
+
+#: Where a quota message sends the user. NOTE: fpl-ui/app/subscribe/page.tsx
+#: points at patreon.com/benditofantasy instead — one of the two is wrong and
+#: a dead upgrade link converts nobody. Resolve and collapse to one constant.
+PATREON_URL: str = "https://www.patreon.com/fpl_asistente"
+
+
+@dataclass(frozen=True)
+class TierOffer:
+    """One rung of the paid ladder, as presented in a quota message."""
+
+    tier:        str    # key into TIERS
+    display_es:  str    # the tier's name as it reads on Patreon
+    price_usd:   int
+    web_search:  bool   # headline differentiator from patreon_plus up
+
+
+#: Ordered cheapest -> priciest. Names, prices and the web-search flag mirror
+#: fpl-ui/lib/tiers.ts (SUBSCRIPTION_TIERS + QUOTA_BUCKETS); keep the two in
+#: sync. patreon_premium appears at its $15 entry price (Ejecutivo: carne de
+#: plata) — the $50 carne de oro shares this quota bucket and differs on
+#: community perks only, so it is not a separate rung. The $1 Tribuna tier is
+#: absent for the same reason: it maps to the free bucket and adds no messages,
+#: so pitching it to a user who just ran out would be a bait.
+UPGRADE_LADDER: tuple[TierOffer, ...] = (
+    TierOffer("patreon_basic",   "Gafete de cancha", 5,  False),
+    TierOffer("patreon_plus",    "Socio Junior",     10, True),
+    TierOffer("patreon_premium", "Ejecutivo",        15, True),
+)
+
+_TIER_RANK: dict[str, int] = {
+    "free": 0, "patreon_basic": 1, "patreon_plus": 2, "patreon_premium": 3,
+}
+
+#: True where @resource and /prompt turns bypass the gate (fpl_server.py), so
+#: a blocked user can be told what still works. MUST stay False on a surface
+#: that gates every turn — promising an escape hatch that does not exist
+#: there would be worse than saying nothing.
+_HAS_FREE_COMMANDS: bool = False
+
+
 def _upgrade_prompts(tier_name: str, reason: str | None = None) -> tuple[str, str]:
     """Return (spanish_prompt, english_prompt) for a quota-exceeded message.
 
-    ``reason`` is the ``check_quota()`` reason string. It selects the window
-    wording: a ``monthly_*`` cap must not be announced as a daily limit.
-    Telling a user their "daily" quota is spent when the monthly window is
-    what tripped sends them back the next day to the identical block, with a
-    daily counter that plainly shows messages remaining.
+    Written to convert rather than merely refuse. A bare "you hit your limit"
+    tells the user nothing they can act on; this names the limit actually hit
+    and when it lifts, then lists the rungs above their current tier with the
+    real Patreon names, prices and the concrete benefit each one adds, and
+    closes on a single call to action.
+
+    Caps are read from ``TIERS`` rather than written out, so the pitch cannot
+    drift from what the gate enforces. ``reason`` picks the window: a
+    ``monthly_*`` cap must never be announced as a daily one.
     """
-    monthly = bool(reason) and reason.startswith("monthly")
-    win_es, win_es_f = ("mensual", "mensual") if monthly else ("diario", "diaria")
-    win_en = "monthly" if monthly else "daily"
+    monthly  = bool(reason) and reason.startswith("monthly")
+    cfg      = TIERS.get(tier_name, TIERS[_DEFAULT_TIER_NAME])
+    cap      = cfg.monthly_message_cap if monthly else cfg.daily_message_cap
+    win_es   = "al mes" if monthly else "al día"
+    win_en   = "monthly" if monthly else "daily"
     renew_es = "30 días" if monthly else "24 horas"
     renew_en = "30 days" if monthly else "24 hours"
 
-    if tier_name == "free":
-        es = (
-            f"Has alcanzado tu límite {win_es} gratuito. "
-            "Únete al Club Bendito Fantasy en Patreon para obtener más mensajes."
-        )
-        en = (
-            f"You've reached your free {win_en} limit. "
-            "Become a Patreon member to get more messages."
-        )
-    elif tier_name == "patreon_basic":
-        es = (
-            f"Has alcanzado tu límite {win_es} de Gafete de cancha. "
-            f"Tu cuota {win_es_f} se renueva en {renew_es}. "
-            "Sube a Socio Junior para búsqueda web y el doble de mensajes."
-        )
-        en = (
-            f"You've reached your Gafete de cancha {win_en} limit. "
-            f"Your {win_en} quota resets in {renew_en}. "
-            "Upgrade to Socio Junior for web search and double the messages."
-        )
-    elif tier_name == "patreon_plus":
-        es = (
-            f"Has alcanzado tu límite {win_es} de Socio Junior. "
-            f"Tu cuota {win_es_f} se renueva en {renew_es}. "
-            "Sube a Ejecutivo para un límite mucho mayor."
-        )
-        en = (
-            f"You've reached your Socio Junior {win_en} limit. "
-            f"Your {win_en} quota resets in {renew_en}. "
-            "Upgrade to Ejecutivo for a much higher limit."
-        )
-    else:
-        es = (
-            "Has alcanzado tu límite de uso. "
-            f"Tu cuota se renueva en {renew_es}."
-        )
-        en = (
-            "You've reached your usage limit. "
-            f"Your quota resets in {renew_en}."
-        )
-    return es, en
+    es = [f"Llegaste a tu límite de {cap} mensajes {win_es}. "
+          f"Se renueva en {renew_es}."]
+    en = [f"You've reached your {win_en} limit of {cap} messages. "
+          f"It resets in {renew_en}."]
+
+    offers = [o for o in UPGRADE_LADDER
+              if _TIER_RANK.get(o.tier, 0) > _TIER_RANK.get(tier_name, 0)]
+    if offers:
+        es += ["", "En el Club Bendito Fantasy tienes más:"]
+        en += ["", "Club Bendito Fantasy members get more:"]
+        for o in offers:
+            caps = TIERS[o.tier]
+            # Quote the rung's cap for the SAME window the user just hit —
+            # answering a monthly block with a daily figure makes the offer
+            # hard to compare against the limit that actually stopped them.
+            n_es = caps.monthly_message_cap if monthly else caps.daily_message_cap
+            es.append(f"• {o.display_es} (${o.price_usd}) — "
+                      f"{n_es} mensajes {win_es}"
+                      + (" + búsqueda web" if o.web_search else ""))
+            en.append(f"• {o.display_es} (${o.price_usd}) — "
+                      f"{n_es} messages "
+                      + ("a month" if monthly else "a day")
+                      + (" + web search" if o.web_search else ""))
+        es += ["", f"Únete: {PATREON_URL}"]
+        en += ["", f"Join: {PATREON_URL}"]
+
+    if _HAS_FREE_COMMANDS:
+        es += ["", "Mientras tanto, los comandos @ y / siguen funcionando "
+                   "sin gastar cuota."]
+        en += ["", "In the meantime, @ and / commands still work and cost "
+                   "no quota."]
+
+    return "\n".join(es), "\n".join(en)
 
 
 def check_quota(user_id: str, tier: str = "free") -> QuotaCheck:
