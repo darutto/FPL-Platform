@@ -1,11 +1,13 @@
 /**
  * Subscription tiers — single source of truth for the UI.
  *
- * The Patreon ladder ($1/$5/$10/$15/$50) collapses onto 4 backend quota
- * buckets (see app/api/auth/sync-patreon/route.ts and the backend quota.py
- * TIERS table). Each paid rung adds a distinct kind of value: $5 = assistant
- * access, $10 = web search + 2× messages, $15 = far more messages. Plata & Oro
- * share the premium bucket (Oro differentiates on perks, not caps).
+ * The Patreon ladder ($1/$5/$10/$15/$50) maps onto 5 backend quota buckets
+ * (see app/api/auth/sync-patreon/route.ts and the backend quota.py TIERS
+ * table). Each paid rung adds a distinct kind of value: $1 = 3× the free
+ * message allowance (no other perk — see patreon_tribuna in quota.py), $5 =
+ * assistant access proper, $10 = web search + 2× messages, $15 = far more
+ * messages. Plata & Oro share the premium bucket (Oro differentiates on
+ * perks, not caps).
  *
  * ⚠️ The compute fields below (msgsPerDay, msgsPerMonth, webSearch) MUST stay
  *    in sync with the backend: quota.py `daily_message_cap` /
@@ -15,6 +17,7 @@
  */
 export type QuotaBucket =
   | 'free'
+  | 'patreon_tribuna'
   | 'patreon_basic'
   | 'patreon_plus'
   | 'patreon_premium';
@@ -45,6 +48,12 @@ export const QUOTA_BUCKETS: Record<QuotaBucket, QuotaBucketInfo> = {
     msgsPerMonth: 30,
     webSearch: false,
     allowance: '5 mensajes al día',
+  },
+  patreon_tribuna: {
+    msgsPerDay: 15,
+    msgsPerMonth: 300,
+    webSearch: false,
+    allowance: '15 mensajes al día',
   },
   patreon_basic: {
     msgsPerDay: 30,
@@ -83,7 +92,7 @@ export const SUBSCRIPTION_TIERS: SubscriptionTier[] = [
   {
     name: 'Tribuna',
     priceUsd: 1,
-    bucket: 'free',
+    bucket: 'patreon_tribuna',
     perks: [
       'Mención especial en el podcast',
       'Acceso al Discord del club',
@@ -144,7 +153,9 @@ export const SUBSCRIPTION_TIERS: SubscriptionTier[] = [
  *
  * `shortName` trims the qualifier after the colon so the long premium name
  * ("Ejecutivo: carné de plata") fits a narrow column. Mirrors UPGRADE_LADDER
- * in the backend quota.py — keep the two in step.
+ * in the backend quota.py — keep the two in step. patreon_tribuna is
+ * included here (unlike the backend comment's note about collapsed rungs):
+ * it is its own bucket with its own cap, not a display alias for another one.
  */
 export interface PaidRung {
   bucket: QuotaBucket;
@@ -154,7 +165,7 @@ export interface PaidRung {
 }
 
 export const PAID_LADDER: PaidRung[] = (
-  ['patreon_basic', 'patreon_plus', 'patreon_premium'] as const
+  ['patreon_tribuna', 'patreon_basic', 'patreon_plus', 'patreon_premium'] as const
 ).map((bucket) => {
   const cheapest = SUBSCRIPTION_TIERS
     .filter((t) => t.bucket === bucket)

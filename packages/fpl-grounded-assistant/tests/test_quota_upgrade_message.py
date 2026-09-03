@@ -148,6 +148,51 @@ def test_message_states_the_cap_that_was_actually_hit():
 
 
 # --------------------------------------------------------------------------
+# patreon_tribuna: the $1 pledge is its own bucket, not an alias for free.
+#
+# Before this, "Tribuna" ($1/mo) mapped onto the free quota bucket — a
+# paying patron got literally the same caps as a non-member, and when they
+# ran out the message told them "Unete al Club Bendito Fantasy" (join),
+# which they had already done. That is the bug these tests pin.
+# --------------------------------------------------------------------------
+
+def test_tribuna_is_a_distinct_bucket_from_free():
+    assert TIERS["patreon_tribuna"].daily_message_cap != TIERS["free"].daily_message_cap
+    assert TIERS["patreon_tribuna"].daily_message_cap > TIERS["free"].daily_message_cap
+
+
+def test_only_the_genuinely_unpaid_tier_is_told_to_join():
+    """'Unete' (join) must never reach someone who already pays."""
+    es_free, en_free = _upgrade_prompts("free", "daily_message_cap_exceeded")
+    assert "Únete" in es_free
+    assert "Join" in en_free
+
+    for tier in TIERS:
+        if tier == "free":
+            continue
+        es, en = _upgrade_prompts(tier, "daily_message_cap_exceeded")
+        assert "Únete" not in es, f"{tier} (a paying tier) was told to join"
+        assert "Join" not in en, f"{tier} (a paying tier) was told to join"
+
+
+def test_tribuna_patron_is_offered_an_upgrade_not_a_join():
+    es, en = _upgrade_prompts("patreon_tribuna", "daily_message_cap_exceeded")
+    assert "Sube de nivel" in es
+    assert "Upgrade" in en
+    # Pitched the rungs above Tribuna, never Tribuna itself (offers render as
+    # "• <name> ($<price>) — ...", so this bullet form pins it precisely).
+    assert "• Tribuna" not in es, "Tribuna patron was pitched their own tier"
+    assert "Gafete de cancha" in es
+    assert "Ejecutivo" in es
+
+
+def test_free_users_pitch_includes_tribuna_as_the_first_rung():
+    es, _ = _upgrade_prompts("free", "daily_message_cap_exceeded")
+    assert "Tribuna" in es
+    assert "$1" in es
+
+
+# --------------------------------------------------------------------------
 # Redis window anchoring.
 # --------------------------------------------------------------------------
 

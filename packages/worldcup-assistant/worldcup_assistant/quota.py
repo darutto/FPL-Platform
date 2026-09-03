@@ -60,6 +60,18 @@ TIERS: dict[str, QuotaTier] = {
         daily_message_cap=5,
         monthly_message_cap=30,
     ),
+    "patreon_tribuna": QuotaTier(
+        name="patreon_tribuna",
+        # The $1 entry pledge (Tribuna) previously mapped to the free bucket —
+        # a paying member got byte-for-byte what a signed-in non-member got,
+        # and the quota-exceeded message told them to "unete" to something
+        # they already joined. 15/300 (3x free) gives the cheapest pledge a
+        # visible reason to exist; 15/300 x p99 over the 903-turn sample.
+        daily_token_cap=600_000,
+        monthly_token_cap=9_000_000,
+        daily_message_cap=15,
+        monthly_message_cap=300,
+    ),
     "patreon_basic": QuotaTier(
         name="patreon_basic",
         # 30 x p99 and 600 x p99 over the 903-turn sample (see header).
@@ -277,17 +289,20 @@ class TierOffer:
 #: fpl-ui/lib/tiers.ts (SUBSCRIPTION_TIERS + QUOTA_BUCKETS); keep the two in
 #: sync. patreon_premium appears at its $15 entry price (Ejecutivo: carne de
 #: plata) — the $50 carne de oro shares this quota bucket and differs on
-#: community perks only, so it is not a separate rung. The $1 Tribuna tier is
-#: absent for the same reason: it maps to the free bucket and adds no messages,
-#: so pitching it to a user who just ran out would be a bait.
+#: community perks only, so it is not a separate rung. patreon_tribuna ($1)
+#: IS included, unlike the other collapsed rungs above: it is its own quota
+#: bucket (see TIERS), so a Tribuna patron who hits their limit is a real
+#: upgrade candidate, not someone being asked to join a second time.
 UPGRADE_LADDER: tuple[TierOffer, ...] = (
+    TierOffer("patreon_tribuna", "Tribuna",          1,  False),
     TierOffer("patreon_basic",   "Gafete de cancha", 5,  False),
     TierOffer("patreon_plus",    "Socio Junior",     10, True),
     TierOffer("patreon_premium", "Ejecutivo",        15, True),
 )
 
 _TIER_RANK: dict[str, int] = {
-    "free": 0, "patreon_basic": 1, "patreon_plus": 2, "patreon_premium": 3,
+    "free": 0, "patreon_tribuna": 1, "patreon_basic": 2,
+    "patreon_plus": 3, "patreon_premium": 4,
 }
 
 #: True where @resource and /prompt turns bypass the gate (fpl_server.py), so
@@ -341,8 +356,15 @@ def _upgrade_prompts(tier_name: str, reason: str | None = None) -> tuple[str, st
                       f"{n_es} messages "
                       + ("a month" if monthly else "a day")
                       + (" + web search" if o.web_search else ""))
-        es += ["", f"Únete: {PATREON_URL}"]
-        en += ["", f"Join: {PATREON_URL}"]
+        # "free" is the only tier_name that is not itself a Patreon pledge —
+        # every other key in TIERS, patreon_tribuna included, is already a
+        # paying member. So "free" is the only case that should be told to
+        # "join"; a Tribuna patron who runs out is upgrading, not joining,
+        # and the old unconditional "Unete" told them otherwise — the exact
+        # bug that started this rework.
+        cta_es, cta_en = ("Únete", "Join") if tier_name == "free" else ("Sube de nivel", "Upgrade")
+        es += ["", f"{cta_es}: {PATREON_URL}"]
+        en += ["", f"{cta_en}: {PATREON_URL}"]
 
     if _HAS_FREE_COMMANDS:
         es += ["", "Mientras tanto, los comandos @ y / siguen funcionando "
