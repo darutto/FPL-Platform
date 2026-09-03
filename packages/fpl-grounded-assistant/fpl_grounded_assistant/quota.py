@@ -57,21 +57,36 @@ class QuotaTier:
 
 TIERS: dict[str, QuotaTier] = {
     # Cap design: the message cap is the binding limit for normal use; the
-    # token cap is a generous abuse ceiling sized to the measured heavy turn
-    # (~23K tokens p95 under the LLM-primary orchestrator, incl. evaluator +
-    # retry), i.e. daily_token_cap ≈ daily_message_cap × ~23K. This lets a user
-    # spend all their messages even on complex turns, while only pathological
-    # turns trip the token wall. Revisit once more orchestrator token data
-    # accrues (v1 sized off n=14 audited turns).
+    # token cap is a generous abuse ceiling. A user must be able to spend
+    # every advertised message even on complex turns, with only pathological
+    # runs tripping the token wall.
+    #
+    # The v1 table sized that ceiling as message_cap × ~23K, a p95 taken from
+    # n=14 audited turns. Re-measured over 903 turns the per-turn total
+    # (input + output + cache_read, which is what record_turn meters) runs
+    # mean 27.7K / p95 42.9K, so every row of this table was under-provisioned
+    # and the token cap — not the message cap — was what stopped users. Only
+    # "free" has been re-sized from the 903-turn data so far; the paid rows
+    # below still carry the old ~23.3K/message figure and need the same
+    # treatment, which is a pricing decision (see the note on each row).
+    #
+    # Caveat on the sample: those turns are provider=openai (gpt-5.6-luna)
+    # test batteries, while production defaults to gemini, and battery
+    # questions skew heavy. Treat the numbers as a floor, and re-derive from
+    # production audit entries once enough have accrued.
     "free": QuotaTier(
         name="free",
-        # 5 x ~23K and 30 x ~23K, matching the formula the three paid tiers
-        # already follow. The previous 75_000 / 600_000 allowed only ~15K and
-        # ~20K tokens per advertised message, so the token ceiling — not the
-        # message cap — was what actually stopped free users, typically after
-        # 3 of the 5 messages the UI promises them ("5 mensajes al día").
-        daily_token_cap=115_000,
-        monthly_token_cap=700_000,
+        # Sized so a full 5-message day and 30-message month actually fit,
+        # measured against 903 audited turns in field-notes/artifacts/*.jsonl
+        # (mean 27.7K/turn, p95 42.9K — not the ~23K the n=14 sample above
+        # suggested). Bootstrapping 5 turns from that distribution costs
+        # ~138K at the mean and ~201K at p99, so 75_000 completed 0% of
+        # 5-message days and blocked the median user at 3 — the reported bug.
+        # 220_000 / 1_100_000 clear p99 for both windows, leaving the message
+        # cap as the binding limit and the token cap as the abuse ceiling it
+        # is documented to be.
+        daily_token_cap=220_000,
+        monthly_token_cap=1_100_000,
         daily_message_cap=5,
         monthly_message_cap=30,
     ),

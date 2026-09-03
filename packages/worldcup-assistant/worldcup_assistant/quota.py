@@ -46,13 +46,17 @@ class QuotaTier:
 TIERS: dict[str, QuotaTier] = {
     "free": QuotaTier(
         name="free",
-        # 5 x ~23K and 30 x ~23K, matching the formula the three paid tiers
-        # already follow. The previous 75_000 / 600_000 allowed only ~15K and
-        # ~20K tokens per advertised message, so the token ceiling — not the
-        # message cap — was what actually stopped free users, typically after
-        # 3 of the 5 messages the UI promises them ("5 mensajes al día").
-        daily_token_cap=115_000,
-        monthly_token_cap=700_000,
+        # Sized so a full 5-message day and 30-message month actually fit,
+        # measured against 903 audited turns in field-notes/artifacts/*.jsonl
+        # (mean 27.7K/turn, p95 42.9K — not the ~23K the n=14 sample above
+        # suggested). Bootstrapping 5 turns from that distribution costs
+        # ~138K at the mean and ~201K at p99, so 75_000 completed 0% of
+        # 5-message days and blocked the median user at 3 — the reported bug.
+        # 220_000 / 1_100_000 clear p99 for both windows, leaving the message
+        # cap as the binding limit and the token cap as the abuse ceiling it
+        # is documented to be.
+        daily_token_cap=220_000,
+        monthly_token_cap=1_100_000,
         daily_message_cap=5,
         monthly_message_cap=30,
     ),
