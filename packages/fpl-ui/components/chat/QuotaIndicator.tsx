@@ -87,10 +87,24 @@ export default function QuotaIndicator({
   const monthlyPct = status.monthly_message_cap > 0
     ? monthlyRemaining / status.monthly_message_cap
     : 0;
-  const constrainingPct = Math.min(dailyPct, monthlyPct);
-  const constrainingTone = constrainingPct > 0.5 ? 'ok' : constrainingPct > 0.2 ? 'warn' : 'danger';
+  // The pill must also account for the token budget. The backend blocks on
+  // whichever cap trips first, and a token cap can trip while messages
+  // remain — a user who saw a healthy "Día 2/5" and was refused anyway had
+  // no way to tell why, because this widget only ever weighed messages.
+  const dailyTokenPct = status.daily_token_cap > 0
+    ? (status.daily_token_cap - status.daily_tokens_used) / status.daily_token_cap
+    : 1;
+  const monthlyTokenPct = status.monthly_token_cap > 0
+    ? (status.monthly_token_cap - status.monthly_tokens_used) / status.monthly_token_cap
+    : 1;
+  const constrainingPct = Math.min(dailyPct, monthlyPct, dailyTokenPct, monthlyTokenPct);
+  const constrainingTone = status.allowed === false
+    ? 'danger'
+    : constrainingPct > 0.5 ? 'ok' : constrainingPct > 0.2 ? 'warn' : 'danger';
   const pillColor = QUOTA_TONE_CLASSES[constrainingTone].pill;
-  const dailyTone = quotaTone(dailyRemaining, status.daily_message_cap);
+  const dailyTone = status.allowed === false
+    ? 'danger'
+    : quotaTone(dailyRemaining, status.daily_message_cap);
   const monthlyTone = quotaTone(monthlyRemaining, status.monthly_message_cap);
 
   return (

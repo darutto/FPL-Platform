@@ -65,8 +65,13 @@ TIERS: dict[str, QuotaTier] = {
     # accrues (v1 sized off n=14 audited turns).
     "free": QuotaTier(
         name="free",
-        daily_token_cap=75_000,
-        monthly_token_cap=600_000,
+        # 5 x ~23K and 30 x ~23K, matching the formula the three paid tiers
+        # already follow. The previous 75_000 / 600_000 allowed only ~15K and
+        # ~20K tokens per advertised message, so the token ceiling — not the
+        # message cap — was what actually stopped free users, typically after
+        # 3 of the 5 messages the UI promises them ("5 mensajes al día").
+        daily_token_cap=115_000,
+        monthly_token_cap=700_000,
         daily_message_cap=5,
         monthly_message_cap=30,
     ),
@@ -207,8 +212,8 @@ class _RedisBackend:
     Counters use a "window starts at first activity" semantic rather than a
     true sliding window: each of the four counters (daily/monthly x
     tokens/messages) gets its TTL set only on the write that creates it
-    (detected via INCRBY's return value equalling the increment), so the
-    window resets ~24h/30d after the user's first turn in that window, not
+    (detected by that key not carrying a TTL yet), so the window resets
+    ~24h/30d after the user's first turn in that window, not
     at a fixed calendar boundary. Operationally equivalent to the prior
     rolling-window behaviour for cap-enforcement purposes, far cheaper than
     storing every turn as a separate entry.
@@ -239,9 +244,20 @@ class _RedisBackend:
             (_redis_key(user_id, "monthly", "tokens"), tokens_used, _MONTHLY_WINDOW_S),
             (_redis_key(user_id, "monthly", "msgs"),   1,           _MONTHLY_WINDOW_S),
         ):
-            new_value = self._client.incrby(key, amount)
-            if new_value == amount:
-                # Key didn't exist before this write — start its window now.
+            self._client.incrby(key, amount)
+            # Anchor the window on the write that created the key, and never
+            # move it again. We test the key's TTL rather than comparing
+            # INCRBY's return value against the increment: those are equal
+            # whenever the prior value was 0, which happens routinely because
+            # deterministic (@resource, /prompt) turns record tokens_used=0.
+            # The old check therefore re-armed EXPIRE on every zero-token turn
+            # and again on the first non-zero one, sliding the token window
+            # hours past the message window that was opened alongside it — so
+            # a user's message counter reset while their token counter did
+            # not, and they stayed blocked with messages visibly remaining.
+            # After INCRBY the key always exists, so ttl < 0 means "no expiry
+            # set yet" and is the only case that may arm one.
+            if self._client.ttl(key) < 0:
                 self._client.expire(key, int(ttl))
 
     def reset(self, user_id: str | None) -> None:
@@ -273,47 +289,60 @@ _backend: _Backend = _make_backend()
 # Upgrade prompts
 # ---------------------------------------------------------------------------
 
-def _upgrade_prompts(tier_name: str) -> tuple[str, str]:
-    """Return (spanish_prompt, english_prompt) for a quota-exceeded message."""
+def _upgrade_prompts(tier_name: str, reason: str | None = None) -> tuple[str, str]:
+    """Return (spanish_prompt, english_prompt) for a quota-exceeded message.
+
+    ``reason`` is the ``check_quota()`` reason string. It selects the window
+    wording: a ``monthly_*`` cap must not be announced as a daily limit.
+    Telling a user their "daily" quota is spent when the monthly window is
+    what tripped sends them back the next day to the identical block, with a
+    daily counter that plainly shows messages remaining.
+    """
+    monthly = bool(reason) and reason.startswith("monthly")
+    win_es, win_es_f = ("mensual", "mensual") if monthly else ("diario", "diaria")
+    win_en = "monthly" if monthly else "daily"
+    renew_es = "30 días" if monthly else "24 horas"
+    renew_en = "30 days" if monthly else "24 hours"
+
     if tier_name == "free":
         es = (
-            "Has alcanzado tu límite diario gratuito. "
+            f"Has alcanzado tu límite {win_es} gratuito. "
             "Únete al Club Bendito Fantasy en Patreon para obtener más mensajes."
         )
         en = (
-            "You've reached your free daily limit. "
+            f"You've reached your free {win_en} limit. "
             "Upgrade to Patreon Basic to get more messages."
         )
     elif tier_name == "patreon_basic":
         es = (
-            "Has alcanzado tu límite diario de Gafete de cancha. "
-            "Tu cuota diaria se renueva en 24 horas. "
+            f"Has alcanzado tu límite {win_es} de Gafete de cancha. "
+            f"Tu cuota {win_es_f} se renueva en {renew_es}. "
             "Sube a Socio Junior para búsqueda web y el doble de mensajes."
         )
         en = (
-            "You've reached your Gafete de cancha daily limit. "
-            "Your daily quota resets in 24 hours. "
+            f"You've reached your Gafete de cancha {win_en} limit. "
+            f"Your {win_en} quota resets in {renew_en}. "
             "Upgrade to Socio Junior for web search and double the messages."
         )
     elif tier_name == "patreon_plus":
         es = (
-            "Has alcanzado tu límite diario de Socio Junior. "
-            "Tu cuota diaria se renueva en 24 horas. "
+            f"Has alcanzado tu límite {win_es} de Socio Junior. "
+            f"Tu cuota {win_es_f} se renueva en {renew_es}. "
             "Sube a Ejecutivo para un límite mucho mayor."
         )
         en = (
-            "You've reached your Socio Junior daily limit. "
-            "Your daily quota resets in 24 hours. "
+            f"You've reached your Socio Junior {win_en} limit. "
+            f"Your {win_en} quota resets in {renew_en}. "
             "Upgrade to Ejecutivo for a much higher limit."
         )
     else:
         es = (
             "Has alcanzado tu límite de uso. "
-            "Tu cuota se renueva en 24 horas."
+            f"Tu cuota se renueva en {renew_es}."
         )
         en = (
             "You've reached your usage limit. "
-            "Your quota resets in 24 hours."
+            f"Your quota resets in {renew_en}."
         )
     return es, en
 
@@ -347,22 +376,26 @@ def check_quota(user_id: str, tier: str = "free") -> QuotaCheck:
     allowed = True
     reason: str | None = None
 
-    # Check in order: daily token cap, daily message cap, monthly token cap,
-    # monthly message cap (whichever is hit first wins).
-    if daily_tokens >= tier_cfg.daily_token_cap:
-        allowed = False
-        reason  = "daily_token_cap_exceeded"
-    elif daily_msgs >= tier_cfg.daily_message_cap:
+    # Check daily before monthly (the nearer window is the more actionable
+    # one), and within each window check the message cap before the token
+    # cap. The message cap is the limit the product advertises and the UI
+    # renders; the token cap is the abuse ceiling. When a turn trips both at
+    # once, naming the message cap tells the user something they can see and
+    # act on, instead of a token budget no surface exposes.
+    if daily_msgs >= tier_cfg.daily_message_cap:
         allowed = False
         reason  = "daily_message_cap_exceeded"
-    elif monthly_tokens >= tier_cfg.monthly_token_cap:
+    elif daily_tokens >= tier_cfg.daily_token_cap:
         allowed = False
-        reason  = "monthly_token_cap_exceeded"
+        reason  = "daily_token_cap_exceeded"
     elif monthly_msgs >= tier_cfg.monthly_message_cap:
         allowed = False
         reason  = "monthly_message_cap_exceeded"
+    elif monthly_tokens >= tier_cfg.monthly_token_cap:
+        allowed = False
+        reason  = "monthly_token_cap_exceeded"
 
-    upgrade_es, upgrade_en = (_upgrade_prompts(tier_cfg.name) if not allowed else (None, None))
+    upgrade_es, upgrade_en = (_upgrade_prompts(tier_cfg.name, reason) if not allowed else (None, None))
 
     return QuotaCheck(
         allowed=allowed,
