@@ -8,7 +8,13 @@
  *
  * Consumes from ChipAdviceMeta (stable conditional fields only):
  *   chip, recommendation, gw, signal_value, signal_label, top_player,
- *   evaluated_player, chip_unavailable
+ *   evaluated_player, chip_unavailable, evaluated_factors, top_factors,
+ *   risk_note
+ *
+ * The factors are why this card exists in its current shape: a bare
+ * "71.1 vs B.Fernandes" told a reader nothing about the player they asked
+ * about playing every minute and taking the penalties. They sit beside the
+ * score as their own axis, never folded into it.
  *
  * chip_unavailable=true: greyed state, "chip no disponible" note.
  * missing_context: neutral state (no strong signal available, e.g. free_hit
@@ -26,7 +32,10 @@ export default function ChipCard({ data }: Props) {
   const {
     chip, recommendation, gw, signal_value, signal_label,
     top_player, evaluated_player, chip_unavailable,
+    evaluated_factors, top_factors, risk_note,
   } = data;
+  const evaluatedFactors = evaluated_factors ?? [];
+  const topFactors = top_factors ?? [];
   const signalPlayer = evaluated_player ?? top_player;
   const chipLabel = CHIP_LABELS[chip] ?? chip;
   const { label, pillClass } = CHIP_RECOMMENDATION_CONFIG[recommendation];
@@ -62,8 +71,28 @@ export default function ChipCard({ data }: Props) {
           </div>
         )}
 
+        {/* What the evaluated player actually does on the pitch. Context for a
+            decision, not a warning — no alarm colour. */}
+        {evaluatedFactors.length > 0 && (
+          <p className="text-xs leading-snug text-bf-gray">
+            <span className="font-bold text-white">{evaluated_player}</span>
+            {': '}
+            {evaluatedFactors.join(' · ')}
+          </p>
+        )}
+
         {evaluated_player != null && top_player != null && evaluated_player !== top_player && (
-          <p className="text-xs text-bf-gray">Mejor disponible: {top_player}</p>
+          <p className="text-xs leading-snug text-bf-gray">
+            Mejor disponible: <span className="font-bold text-white">{top_player}</span>
+            {topFactors.length > 0 ? ` — ${topFactors.join(' · ')}` : ''}
+          </p>
+        )}
+
+        {/* The chip multiplies the downside too, which "triple" hides. */}
+        {risk_note != null && (
+          <p className="border-t border-bf-purple/20 pt-2.5 text-xs leading-snug text-bf-purple">
+            {risk_note}
+          </p>
         )}
 
         {/* Unavailable note */}

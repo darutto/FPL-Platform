@@ -573,6 +573,13 @@ export interface ChipAdviceMeta {
   top_player?: string | null;
   evaluated_player?: string | null;
   chip_unavailable: boolean;
+  /** Minutes and penalty facts about the evaluated player, in plain Spanish.
+   *  Their own axis beside the score, never a term inside it. Empty for every
+   *  chip but triple_captain. */
+  evaluated_factors?: string[] | null;
+  top_factors?: string[] | null;
+  /** That the triple captain multiplies the downside too. */
+  risk_note?: string | null;
 }
 
 /** One fixture in a player's upcoming run */

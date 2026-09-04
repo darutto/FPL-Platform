@@ -508,11 +508,16 @@ def _advise_triple_captain(
             "top_tier":          top_tier,
             "top_factors":       top_factors,
             "triple_captain_risk_note": TRIPLE_CAPTAIN_RISK_NOTE["en"],
+            # The card and the Spanish prose read these; advice_text above
+            # stays English like the rest of the signals text.
+            "top_factors_es":    factor_phrases(top, locale="es"),
+            "triple_captain_risk_note_es": TRIPLE_CAPTAIN_RISK_NOTE["es"],
             **({
                 "evaluated_player": evaluated_name,
                 "evaluated_captain_score": evaluated_score,
                 "evaluated_tier": evaluated_tier,
                 "evaluated_factors": evaluated_factors,
+                "evaluated_factors_es": factor_phrases(evaluated, locale="es"),
             } if evaluated_player is not None else {}),
         },
         "advice_text": (

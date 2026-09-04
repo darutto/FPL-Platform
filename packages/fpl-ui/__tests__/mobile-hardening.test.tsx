@@ -192,7 +192,8 @@ describe('ChipCard — header row shrinks around the recommendation pill', () =>
     render(<ChipCard data={data} />);
 
     expect(screen.getByText('Puntuación de capitán · Haaland')).toBeInTheDocument();
-    expect(screen.getByText('Mejor disponible: Cherki')).toBeInTheDocument();
+    // The alternative's name is its own element now, so match on content.
+    expect(screen.getByText(/Mejor disponible:/)).toHaveTextContent('Cherki');
   });
 
 });

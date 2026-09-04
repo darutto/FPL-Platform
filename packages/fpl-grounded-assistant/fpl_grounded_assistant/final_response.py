@@ -315,6 +315,16 @@ class ChipAdviceMeta:
         Best available captain in the evaluated pool, when applicable.
     evaluated_player:
         Explicit triple-captain target, when one was requested.
+    evaluated_factors / top_factors:
+        Plain-language minutes and penalty facts about each named player, as
+        their own axis beside the score rather than a term inside it. Phrased
+        by ``captain_factors`` so the card, the deterministic text and the
+        model's prose cannot describe one player three different ways. Empty
+        outside ``triple_captain``, and never populated for ``free_hit``,
+        whose recommendation stays ``missing_context``.
+    risk_note:
+        That the triple captain multiplies the downside as well as the upside.
+        ``None`` for every other chip.
     """
 
     chip:             str
@@ -325,6 +335,9 @@ class ChipAdviceMeta:
     top_player:       "str | None" = None
     evaluated_player: "str | None" = None
     chip_unavailable: bool = False  # Phase 8e1: True when chip not in squad_context.chips_remaining
+    evaluated_factors: "tuple[str, ...]" = ()
+    top_factors:       "tuple[str, ...]" = ()
+    risk_note:         "str | None" = None
 
 
 # ---------------------------------------------------------------------------
@@ -1619,6 +1632,10 @@ def _extract_chip_meta(ro: "dict[str, Any]") -> "ChipAdviceMeta | None":
             sv = None
             sl = None
 
+        # Factors travel only for the chip that has them. free_hit in
+        # particular must not gain anything that reads as stronger support
+        # than its missing_context recommendation already admits to.
+        is_tc = chip_name == "triple_captain"
         return ChipAdviceMeta(
             chip           = chip_name,
             recommendation = ro.get("recommendation", ""),
@@ -1627,6 +1644,9 @@ def _extract_chip_meta(ro: "dict[str, Any]") -> "ChipAdviceMeta | None":
             signal_label   = sl,
             top_player     = signals.get("top_player"),
             evaluated_player = signals.get("evaluated_player"),
+            evaluated_factors = tuple(signals.get("evaluated_factors_es") or ()) if is_tc else (),
+            top_factors       = tuple(signals.get("top_factors_es") or ()) if is_tc else (),
+            risk_note         = signals.get("triple_captain_risk_note_es") if is_tc else None,
         )
     except Exception:  # noqa: BLE001
         return None

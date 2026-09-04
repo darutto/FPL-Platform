@@ -928,6 +928,11 @@ def _chip_meta_dict(chip: Any) -> dict[str, Any]:
         "top_player":       chip.top_player,
         "evaluated_player": chip.evaluated_player,
         "chip_unavailable": chip.chip_unavailable,  # Phase 8e1
+        # Visible factors beside the score, never inside it. Shared with
+        # _sub_response_dict below, so multi-intent keeps parity for free.
+        "evaluated_factors": list(chip.evaluated_factors),
+        "top_factors":       list(chip.top_factors),
+        "risk_note":         chip.risk_note,
     }
 
 

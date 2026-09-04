@@ -148,3 +148,50 @@ def test_asking_about_a_named_player_names_his_minutes_and_penalties(bootstrap):
     # And the chip's own risk is stated, not just its upside.
     assert signals["triple_captain_risk_note"] in text
     assert "three times" in signals["triple_captain_risk_note"]
+
+
+def test_chip_meta_carries_the_factors_the_card_shows(bootstrap):
+    """The card renders ChipAdviceMeta, so the factors must survive extraction.
+
+    Without this the chip card falls back to "71.1 vs B.Fernandes" and the
+    reader learns nothing about the player they asked about — the complaint
+    this work exists to answer.
+    """
+    import copy
+
+    from fpl_grounded_assistant.chip_advisor import _advise_triple_captain
+    from fpl_grounded_assistant.final_response import _extract_chip_meta
+
+    fixture = copy.deepcopy(bootstrap)
+    named = fixture["elements"][0]
+    named["penalties_order"] = 1
+    result = _advise_triple_captain(fixture, player=named["web_name"])
+    result["chip"] = "triple_captain"
+
+    meta = _extract_chip_meta(result)
+
+    assert meta is not None
+    assert meta.evaluated_factors, "the asked-about player's factors must reach the card"
+    assert any("penal" in phrase for phrase in meta.evaluated_factors)
+    assert meta.risk_note and "dos sentidos" in meta.risk_note
+
+
+def test_free_hit_gains_no_factors_and_keeps_missing_context():
+    """A chip whose recommendation admits it lacks data must not look stronger."""
+    from fpl_grounded_assistant.final_response import _extract_chip_meta
+
+    meta = _extract_chip_meta({
+        "chip": "free_hit",
+        "recommendation": "missing_context",
+        "signals": {
+            # Even if these leaked in, free_hit must not surface them.
+            "evaluated_factors_es": ["jugó 180 de 180 minutos posibles"],
+            "triple_captain_risk_note_es": "no debería aparecer",
+        },
+    })
+
+    assert meta is not None
+    assert meta.recommendation == "missing_context"
+    assert meta.evaluated_factors == ()
+    assert meta.top_factors == ()
+    assert meta.risk_note is None
