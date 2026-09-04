@@ -249,6 +249,11 @@ export interface AskResponse {
   // Source: http_contract_fixtures.json → _meta.response_conditional_fields
   captain: CaptainScoreMeta | null;
   captain_ranking: RankedCaptainEntry[] | null;
+  /** Candidate-pool provenance for successful captain rankings. */
+  pool_source?: 'caller' | 'derived' | null;
+  /** Candidate count before the derived-pool output cap. */
+  pool_size?: number | null;
+  /** Squad lookup provenance for successful captain rankings. */
   squad_source?: 'connected' | 'not_connected' | 'unavailable' | null;
   squad_excluded?: SquadExcludedEntry[] | null;
   comparison: ComparisonMeta | null;

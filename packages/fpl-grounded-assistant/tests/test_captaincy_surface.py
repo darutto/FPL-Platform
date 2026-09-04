@@ -148,6 +148,8 @@ def test_owned_and_excluded_metadata_survive_final_response_extraction(bootstrap
 
     meta = _extract_structured_meta(INTENT_RANK_CANDIDATES, raw, "ok")
 
+    assert meta["pool_source"] == "derived"
+    assert meta["pool_size"] == raw["pool_size"]
     assert meta["squad_source"] == "connected"
     assert meta["squad_excluded"][0].player_id == unavailable["id"]
     assert meta["squad_excluded"][0].reason == "unavailable"
@@ -155,6 +157,78 @@ def test_owned_and_excluded_metadata_survive_final_response_extraction(bootstrap
         entry for entry in meta["captain_ranking"]
         if entry.web_name == "Haaland"
     ).owned is True
+
+
+def test_caller_pool_provenance_survives_final_response_extraction(bootstrap):
+    from fpl_grounded_assistant.dispatcher import INTENT_RANK_CANDIDATES
+    from fpl_grounded_assistant.final_response import _extract_structured_meta
+
+    raw = run_tool(
+        "rank_captain_candidates",
+        {"candidates": [{"query": "Haaland"}, {"query": "Salah"}]},
+        bootstrap,
+    )
+
+    meta = _extract_structured_meta(INTENT_RANK_CANDIDATES, raw, "ok")
+
+    assert meta["pool_source"] == "caller"
+    assert meta["pool_size"] == 2
+    assert meta["squad_source"] == "not_connected"
+
+
+def test_pool_provenance_survives_http_projection_with_or_without_synthesis(
+    bootstrap,
+):
+    from fpl_grounded_assistant.dispatcher import INTENT_RANK_CANDIDATES
+    from fpl_grounded_assistant.final_response import _extract_structured_meta
+    from fpl_grounded_assistant.harness_adapter import to_ask_response
+    from fpl_server import AskRequest
+
+    raw = run_tool("rank_captain_candidates", {}, bootstrap)
+    meta = _extract_structured_meta(INTENT_RANK_CANDIDATES, raw, "ok")
+
+    for synthesis_turn in (True, False):
+        response = to_ask_response(
+            {
+                "answer_text": "response",
+                "selected_tool": "rank_captain_candidates",
+                "outcome": "ok",
+                "kind": "text",
+                "routing_trace": {
+                    "branch": "orchestrator",
+                    "grounded": True,
+                    "orchestrator_outcome": "ok",
+                    "synthesis_turn": synthesis_turn,
+                },
+                **meta,
+            },
+            AskRequest(question="Who should I captain?"),
+        )
+
+        assert response.pool_source == "derived"
+        assert response.pool_size == raw["pool_size"]
+        assert response.squad_source == "not_connected"
+        assert response.model_dump()["pool_source"] == "derived"
+
+
+def test_pool_provenance_is_null_outside_successful_rankings():
+    from fpl_grounded_assistant.dispatcher import INTENT_RANK_CANDIDATES
+    from fpl_grounded_assistant.final_response import _extract_structured_meta
+
+    failed_rank = _extract_structured_meta(
+        INTENT_RANK_CANDIDATES,
+        {
+            "status": "error",
+            "pool_source": "derived",
+            "pool_size": 12,
+            "squad_source": "connected",
+        },
+        "error",
+    )
+
+    assert failed_rank["pool_source"] is None
+    assert failed_rank["pool_size"] is None
+    assert failed_rank["squad_source"] is None
 
 
 def test_future_captain_rank_clamps_squad_fetch_and_keeps_owned_block(bootstrap):
