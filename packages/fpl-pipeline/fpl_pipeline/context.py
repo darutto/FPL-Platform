@@ -9,8 +9,9 @@ single call, eliminating the multi-step setup burden from callers.
 Design principles
 -----------------
 * All outputs are deterministic and inspectable.
-* Every network-calling step is injectable (``bootstrap`` and ``fixtures``
-  parameters) so the function is fully testable without network access.
+* Every network-calling step is injectable (``bootstrap``, ``fixtures`` and
+  ``all_fixtures`` parameters) so the function is fully testable without
+  network access.
 * The returned dict is self-documenting via the ``meta`` sub-dict.
 * The returned ``bootstrap`` has ``fixture_difficulty_map`` and
     ``team_fixtures`` pre-injected so it can be passed directly to
@@ -56,7 +57,10 @@ from fpl_api_client import (
 from fpl_api_client.fpl_client import get_all_fixtures
 
 
-def _inject_walk_forward_team_strength(bootstrap: dict[str, Any]) -> bool:
+def _inject_walk_forward_team_strength(
+    bootstrap: dict[str, Any],
+    all_fixtures: list[dict[str, Any]] | None = None,
+) -> bool:
     """Populate team strengths from completed real fixtures, fail-soft.
 
     ``fpl-pipeline`` remains usable as a standalone package: the historical
@@ -67,7 +71,8 @@ def _inject_walk_forward_team_strength(bootstrap: dict[str, Any]) -> bool:
     try:
         from fpl_historical.rolling_strength import inject_rolling_strength
 
-        return inject_rolling_strength(bootstrap, get_all_fixtures())
+        fixtures = all_fixtures if all_fixtures is not None else get_all_fixtures()
+        return inject_rolling_strength(bootstrap, fixtures)
     except Exception:  # The live bootstrap is still a valid fallback.
         return False
 
@@ -97,11 +102,15 @@ def _remaining_gameweeks(bootstrap: dict[str, Any], start_gw: int) -> list[int]:
 def _build_team_fixtures(
     fixture_batches: dict[int, list[dict[str, Any]]],
     bootstrap: dict[str, Any],
+    *,
+    official_fixture_context_complete: bool = False,
 ) -> dict[int, list[dict[str, Any]]]:
-    """Build ``team_fixtures`` from per-GW fixture batches.
+    """Build ``team_fixtures`` from partial or season-wide fixture batches.
 
-    Each team entry contains upcoming fixtures as dicts with keys:
-    ``gameweek``, ``opponent_team``, ``is_home``, ``difficulty``.
+    Alongside the schedule fields, retain completion, kickoff and actual
+    minutes so the scoring layer can derive a trustworthy denominator. The
+    completeness marker is true only for an injected official all-fixtures
+    response, never for a partial per-GW batch.
     """
     # team.get("strength", 3) only falls back when the key is absent — the
     # FPL API can (and does, e.g. before a new season's ratings are published)
@@ -130,17 +139,25 @@ def _build_team_fixtures(
             home_diff = int(fixture.get("team_h_difficulty", strength_by_id.get(away_id, 3)))
             away_diff = int(fixture.get("team_a_difficulty", strength_by_id.get(home_id, 3)))
 
+            shared_context = {
+                "finished": fixture.get("finished") is True,
+                "kickoff_time": fixture.get("kickoff_time"),
+                "minutes": fixture.get("minutes"),
+                "official_fixture_context_complete": official_fixture_context_complete,
+            }
             team_fixtures.setdefault(home_id, []).append({
                 "gameweek": gameweek,
                 "opponent_team": away_id,
                 "is_home": True,
                 "difficulty": home_diff,
+                **shared_context,
             })
             team_fixtures.setdefault(away_id, []).append({
                 "gameweek": gameweek,
                 "opponent_team": home_id,
                 "is_home": False,
                 "difficulty": away_diff,
+                **shared_context,
             })
 
     for fixture_list in team_fixtures.values():
@@ -154,6 +171,7 @@ def assemble_captain_context(
     *,
     bootstrap: dict[str, Any] | None = None,
     fixtures: list[dict[str, Any]] | None = None,
+    all_fixtures: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Assemble the full context required by the captain tool path.
 
@@ -173,6 +191,11 @@ def assemble_captain_context(
         Pre-fetched fixture list for the resolved GW.  When ``None`` and a
         GW is available, ``fpl_api_client.get_fixtures(gameweek)`` is called.
         Pass a list (including an empty list ``[]``) to skip the live fetch.
+    all_fixtures : list[dict] | None
+        Complete official season fixture list used for the historical minutes
+        denominator. It is fetched only alongside a live bootstrap. With an
+        injected bootstrap, omitting it activates explicit status-only
+        degradation and never triggers a hidden network request.
 
     Returns
     -------
@@ -244,8 +267,18 @@ def assemble_captain_context(
     # Reweight from final real results before any consumer receives the
     # bootstrap.  Explicitly supplied bootstraps stay fully deterministic and
     # never trigger an additional all-fixtures network request.
+    if bootstrap_was_fetched and all_fixtures is None:
+        try:
+            fetched_all_fixtures = get_all_fixtures()
+            all_fixtures = (
+                fetched_all_fixtures
+                if isinstance(fetched_all_fixtures, list)
+                else None
+            )
+        except (OSError, TypeError, ValueError):
+            all_fixtures = None
     if bootstrap_was_fetched:
-        _inject_walk_forward_team_strength(bootstrap)
+        _inject_walk_forward_team_strength(bootstrap, all_fixtures)
 
     # ------------------------------------------------------------------
     # 2. Gameweek resolution
@@ -295,7 +328,14 @@ def assemble_captain_context(
     # 6. Inject map into bootstrap  (in-place; caller's copy is updated)
     # ------------------------------------------------------------------
     bootstrap["fixture_difficulty_map"] = fdr_map
-    bootstrap["team_fixtures"] = _build_team_fixtures(fixture_batches, bootstrap)
+    team_fixture_batches = (
+        {0: all_fixtures} if all_fixtures is not None else fixture_batches
+    )
+    bootstrap["team_fixtures"] = _build_team_fixtures(
+        team_fixture_batches,
+        bootstrap,
+        official_fixture_context_complete=all_fixtures is not None,
+    )
 
     # ------------------------------------------------------------------
     # 7. Build meta
@@ -306,6 +346,9 @@ def assemble_captain_context(
         "team_count":      len(teams),
         "blank_gw_teams":  blank_gw_teams,
         "assembled_at":    datetime.datetime.utcnow().isoformat() + "Z",
+        "minutes_fixture_source": (
+            "official_all_fixtures" if all_fixtures is not None else "unavailable"
+        ),
     }
 
     return {
