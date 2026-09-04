@@ -210,3 +210,26 @@ def test_incomplete_fixture_context_degrades_explicitly_to_status_risk():
     assert context["degradation_reason"] == "incomplete_official_fixtures"
     assert context["participation_risk"] is None
     assert context["minutes_risk"] == 40.0
+
+
+def test_json_round_tripped_team_keys_still_resolve_participation():
+    """A bootstrap that went through JSON has string team keys.
+
+    Missing them would degrade to status-only risk while reporting
+    "missing_official_fixtures" — the participation signal would vanish exactly
+    where it is most likely to be read from a cached or transported bootstrap.
+    """
+    fixtures = _official_team_fixtures(
+        (1, True, "2026-08-15T14:00:00Z", 90),
+        (2, True, "2026-08-22T14:00:00Z", 90),
+    )
+    string_keyed = {str(team_id): rows for team_id, rows in fixtures.items()}
+
+    context = derive_minutes_context(
+        _minutes_element(minutes=108, starts=1), string_keyed
+    )
+
+    assert context["degraded"] is False
+    assert context["source"] == "official_completed_fixtures"
+    assert context["participation_percent"] == 60.0
+    assert context["minutes_risk"] == 40.0

@@ -274,7 +274,12 @@ def derive_minutes_context(
     if not isinstance(team_fixtures, Mapping):
         base["degradation_reason"] = "missing_official_fixtures"
         return base
+    # A bootstrap that has been through JSON carries string team keys, so look
+    # both up: silently missing the int key would degrade to status-only risk —
+    # reinstating the very defect this derivation exists to remove.
     fixtures = team_fixtures.get(team_id)
+    if fixtures is None:
+        fixtures = team_fixtures.get(str(team_id))
     if not isinstance(fixtures, list) or not fixtures:
         base["degradation_reason"] = "missing_official_fixtures"
         return base
