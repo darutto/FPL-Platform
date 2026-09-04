@@ -9,7 +9,7 @@ const isProtectedRoute = createRouteMatcher(['/chat(.*)', '/wc(.*)']);
 export default clerkMiddleware(async (auth, req) => {
   const { userId, sessionClaims } = await auth();
   // Quota bucket mirrored onto the Clerk session by /api/auth/sync-patreon.
-  // One of "free" | "patreon_basic" | "patreon_premium"; absent → "free".
+  // One of QuotaBucket (lib/tiers.ts); absent → "free".
   let tier =
     (sessionClaims?.metadata as { tier?: string } | undefined)?.tier ?? 'free';
 

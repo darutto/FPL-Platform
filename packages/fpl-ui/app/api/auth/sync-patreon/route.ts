@@ -8,21 +8,26 @@ const PATREON_IDENTITY_URL =
 
 /**
  * Map a patron's entitled pledge (cents) onto a backend quota bucket. The
- * Patreon ladder ($1/$5/$10/$15/$50) collapses onto 4 quota buckets — each
- * paid rung adds a distinct kind of value:
- *   $0–$1   (Tribuna)    -> free            (no assistant access)
+ * Patreon ladder ($1/$5/$10/$15/$50) maps onto 5 quota buckets — each paid
+ * rung adds a distinct kind of value:
+ *   $0      (none)       -> free            (5 msgs/day, no assistant perks)
+ *   $1      (Tribuna)    -> patreon_tribuna (15 msgs/day, no other perk)
  *   $5      (Gafete)     -> patreon_basic   (30 msgs/day, NO web search)
  *   $10     (Socio Jr)   -> patreon_plus    (60 msgs/day + web search)
  *   $15+    (Plata, Oro) -> patreon_premium (150 msgs/day + web search)
  * Plata & Oro share compute; Oro differentiates on perks, not caps.
+ * Tribuna used to collapse into `free` — same caps, same everything — so a
+ * paying $1 patron who ran out of messages was told to "join" a club they
+ * already belonged to. It is now its own bucket for exactly that reason.
  * Bucket names MUST match the keys in the backend quota TIERS table.
  */
 function tierFromCents(
   cents: number,
-): 'free' | 'patreon_basic' | 'patreon_plus' | 'patreon_premium' {
+): 'free' | 'patreon_tribuna' | 'patreon_basic' | 'patreon_plus' | 'patreon_premium' {
   if (cents >= 1500) return 'patreon_premium';
   if (cents >= 1000) return 'patreon_plus';
   if (cents >= 500) return 'patreon_basic';
+  if (cents >= 100) return 'patreon_tribuna';
   return 'free';
 }
 

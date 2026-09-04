@@ -46,29 +46,53 @@ class QuotaTier:
 TIERS: dict[str, QuotaTier] = {
     "free": QuotaTier(
         name="free",
-        daily_token_cap=75_000,
-        monthly_token_cap=600_000,
+        # Sized so a full 5-message day and 30-message month actually fit,
+        # measured against 903 audited turns in field-notes/artifacts/*.jsonl
+        # (mean 27.7K/turn, p95 42.9K — not the ~23K the n=14 sample above
+        # suggested). Bootstrapping 5 turns from that distribution costs
+        # ~138K at the mean and ~201K at p99, so 75_000 completed 0% of
+        # 5-message days and blocked the median user at 3 — the reported bug.
+        # 220_000 / 1_100_000 clear p99 for both windows, leaving the message
+        # cap as the binding limit and the token cap as the abuse ceiling it
+        # is documented to be.
+        daily_token_cap=220_000,
+        monthly_token_cap=1_100_000,
         daily_message_cap=5,
         monthly_message_cap=30,
     ),
+    "patreon_tribuna": QuotaTier(
+        name="patreon_tribuna",
+        # The $1 entry pledge (Tribuna) previously mapped to the free bucket —
+        # a paying member got byte-for-byte what a signed-in non-member got,
+        # and the quota-exceeded message told them to "unete" to something
+        # they already joined. 15/300 (3x free) gives the cheapest pledge a
+        # visible reason to exist; 15/300 x p99 over the 903-turn sample.
+        daily_token_cap=600_000,
+        monthly_token_cap=9_000_000,
+        daily_message_cap=15,
+        monthly_message_cap=300,
+    ),
     "patreon_basic": QuotaTier(
         name="patreon_basic",
-        daily_token_cap=700_000,
-        monthly_token_cap=7_000_000,
+        # 30 x p99 and 600 x p99 over the 903-turn sample (see header).
+        daily_token_cap=1_000_000,
+        monthly_token_cap=17_500_000,
         daily_message_cap=30,
         monthly_message_cap=600,
     ),
     "patreon_plus": QuotaTier(
         name="patreon_plus",
-        daily_token_cap=1_400_000,
-        monthly_token_cap=14_000_000,
+        # 60 x p99 and 1200 x p99 over the 903-turn sample (see header).
+        daily_token_cap=1_900_000,
+        monthly_token_cap=35_000_000,
         daily_message_cap=60,
         monthly_message_cap=1_200,
     ),
     "patreon_premium": QuotaTier(
         name="patreon_premium",
-        daily_token_cap=3_500_000,
-        monthly_token_cap=35_000_000,
+        # 150 x p99 and 3000 x p99 over the 903-turn sample (see header).
+        daily_token_cap=4_500_000,
+        monthly_token_cap=85_000_000,
         daily_message_cap=150,
         monthly_message_cap=3_000,
     ),
@@ -200,9 +224,20 @@ class _RedisBackend:
             (_redis_key(user_id, "monthly", "tokens"), tokens_used, _MONTHLY_WINDOW_S),
             (_redis_key(user_id, "monthly", "msgs"),   1,           _MONTHLY_WINDOW_S),
         ):
-            new_value = self._client.incrby(key, amount)
-            if new_value == amount:
-                # Key didn't exist before this write — start its window now.
+            self._client.incrby(key, amount)
+            # Anchor the window on the write that created the key, and never
+            # move it again. We test the key's TTL rather than comparing
+            # INCRBY's return value against the increment: those are equal
+            # whenever the prior value was 0, which happens routinely because
+            # deterministic (@resource, /prompt) turns record tokens_used=0.
+            # The old check therefore re-armed EXPIRE on every zero-token turn
+            # and again on the first non-zero one, sliding the token window
+            # hours past the message window that was opened alongside it — so
+            # a user's message counter reset while their token counter did
+            # not, and they stayed blocked with messages visibly remaining.
+            # After INCRBY the key always exists, so ttl < 0 means "no expiry
+            # set yet" and is the only case that may arm one.
+            if self._client.ttl(key) < 0:
                 self._client.expire(key, int(ttl))
 
     def reset(self, user_id: str | None) -> None:
@@ -230,42 +265,114 @@ def _make_backend() -> _Backend:
 _backend: _Backend = _make_backend()
 
 
-def _upgrade_prompts(tier_name: str) -> tuple[str, str]:
-    if tier_name == "free":
-        es = (
-            "Has alcanzado tu límite diario gratuito. "
-            "Únete al Club Bendito Fantasy en Patreon para obtener más mensajes."
-        )
-        en = (
-            "You've reached your free daily limit. "
-            "Become a Patreon member to get more messages."
-        )
-    elif tier_name == "patreon_basic":
-        es = (
-            "Has alcanzado tu límite diario de Gafete de cancha. "
-            "Tu cuota diaria se renueva en 24 horas. "
-            "Sube a Socio Junior para búsqueda web y el doble de mensajes."
-        )
-        en = (
-            "You've reached your Gafete de cancha daily limit. "
-            "Your daily quota resets in 24 hours. "
-            "Upgrade to Socio Junior for web search and double the messages."
-        )
-    elif tier_name == "patreon_plus":
-        es = (
-            "Has alcanzado tu límite diario de Socio Junior. "
-            "Tu cuota diaria se renueva en 24 horas. "
-            "Sube a Ejecutivo para un límite mucho mayor."
-        )
-        en = (
-            "You've reached your Socio Junior daily limit. "
-            "Your daily quota resets in 24 hours. "
-            "Upgrade to Ejecutivo for a much higher limit."
-        )
-    else:
-        es = "Has alcanzado tu límite de uso. Tu cuota se renueva en 24 horas."
-        en = "You've reached your usage limit. Your quota resets in 24 hours."
-    return es, en
+# ---------------------------------------------------------------------------
+# Upgrade prompts
+# ---------------------------------------------------------------------------
+
+#: Where a quota message sends the user. NOTE: fpl-ui/app/subscribe/page.tsx
+#: points at patreon.com/benditofantasy instead — one of the two is wrong and
+#: a dead upgrade link converts nobody. Resolve and collapse to one constant.
+PATREON_URL: str = "https://www.patreon.com/fpl_asistente"
+
+
+@dataclass(frozen=True)
+class TierOffer:
+    """One rung of the paid ladder, as presented in a quota message."""
+
+    tier:        str    # key into TIERS
+    display_es:  str    # the tier's name as it reads on Patreon
+    price_usd:   int
+    web_search:  bool   # headline differentiator from patreon_plus up
+
+
+#: Ordered cheapest -> priciest. Names, prices and the web-search flag mirror
+#: fpl-ui/lib/tiers.ts (SUBSCRIPTION_TIERS + QUOTA_BUCKETS); keep the two in
+#: sync. patreon_premium appears at its $15 entry price (Ejecutivo: carne de
+#: plata) — the $50 carne de oro shares this quota bucket and differs on
+#: community perks only, so it is not a separate rung. patreon_tribuna ($1)
+#: IS included, unlike the other collapsed rungs above: it is its own quota
+#: bucket (see TIERS), so a Tribuna patron who hits their limit is a real
+#: upgrade candidate, not someone being asked to join a second time.
+UPGRADE_LADDER: tuple[TierOffer, ...] = (
+    TierOffer("patreon_tribuna", "Tribuna",          1,  False),
+    TierOffer("patreon_basic",   "Gafete de cancha", 5,  False),
+    TierOffer("patreon_plus",    "Socio Junior",     10, True),
+    TierOffer("patreon_premium", "Ejecutivo",        15, True),
+)
+
+_TIER_RANK: dict[str, int] = {
+    "free": 0, "patreon_tribuna": 1, "patreon_basic": 2,
+    "patreon_plus": 3, "patreon_premium": 4,
+}
+
+#: True where @resource and /prompt turns bypass the gate (fpl_server.py), so
+#: a blocked user can be told what still works. MUST stay False on a surface
+#: that gates every turn — promising an escape hatch that does not exist
+#: there would be worse than saying nothing.
+_HAS_FREE_COMMANDS: bool = False
+
+
+def _upgrade_prompts(tier_name: str, reason: str | None = None) -> tuple[str, str]:
+    """Return (spanish_prompt, english_prompt) for a quota-exceeded message.
+
+    Written to convert rather than merely refuse. A bare "you hit your limit"
+    tells the user nothing they can act on; this names the limit actually hit
+    and when it lifts, then lists the rungs above their current tier with the
+    real Patreon names, prices and the concrete benefit each one adds, and
+    closes on a single call to action.
+
+    Caps are read from ``TIERS`` rather than written out, so the pitch cannot
+    drift from what the gate enforces. ``reason`` picks the window: a
+    ``monthly_*`` cap must never be announced as a daily one.
+    """
+    monthly  = bool(reason) and reason.startswith("monthly")
+    cfg      = TIERS.get(tier_name, TIERS[_DEFAULT_TIER_NAME])
+    cap      = cfg.monthly_message_cap if monthly else cfg.daily_message_cap
+    win_es   = "al mes" if monthly else "al día"
+    win_en   = "monthly" if monthly else "daily"
+    renew_es = "30 días" if monthly else "24 horas"
+    renew_en = "30 days" if monthly else "24 hours"
+
+    es = [f"Llegaste a tu límite de {cap} mensajes {win_es}. "
+          f"Se renueva en {renew_es}."]
+    en = [f"You've reached your {win_en} limit of {cap} messages. "
+          f"It resets in {renew_en}."]
+
+    offers = [o for o in UPGRADE_LADDER
+              if _TIER_RANK.get(o.tier, 0) > _TIER_RANK.get(tier_name, 0)]
+    if offers:
+        es += ["", "En el Club Bendito Fantasy tienes más:"]
+        en += ["", "Club Bendito Fantasy members get more:"]
+        for o in offers:
+            caps = TIERS[o.tier]
+            # Quote the rung's cap for the SAME window the user just hit —
+            # answering a monthly block with a daily figure makes the offer
+            # hard to compare against the limit that actually stopped them.
+            n_es = caps.monthly_message_cap if monthly else caps.daily_message_cap
+            es.append(f"• {o.display_es} (${o.price_usd}) — "
+                      f"{n_es} mensajes {win_es}"
+                      + (" + búsqueda web" if o.web_search else ""))
+            en.append(f"• {o.display_es} (${o.price_usd}) — "
+                      f"{n_es} messages "
+                      + ("a month" if monthly else "a day")
+                      + (" + web search" if o.web_search else ""))
+        # "free" is the only tier_name that is not itself a Patreon pledge —
+        # every other key in TIERS, patreon_tribuna included, is already a
+        # paying member. So "free" is the only case that should be told to
+        # "join"; a Tribuna patron who runs out is upgrading, not joining,
+        # and the old unconditional "Unete" told them otherwise — the exact
+        # bug that started this rework.
+        cta_es, cta_en = ("Únete", "Join") if tier_name == "free" else ("Sube de nivel", "Upgrade")
+        es += ["", f"{cta_es}: {PATREON_URL}"]
+        en += ["", f"{cta_en}: {PATREON_URL}"]
+
+    if _HAS_FREE_COMMANDS:
+        es += ["", "Mientras tanto, los comandos @ y / siguen funcionando "
+                   "sin gastar cuota."]
+        en += ["", "In the meantime, @ and / commands still work and cost "
+                   "no quota."]
+
+    return "\n".join(es), "\n".join(en)
 
 
 def check_quota(user_id: str, tier: str = "free") -> QuotaCheck:
@@ -276,20 +383,24 @@ def check_quota(user_id: str, tier: str = "free") -> QuotaCheck:
     allowed = True
     reason: str | None = None
 
-    if daily_tokens >= tier_cfg.daily_token_cap:
-        allowed = False
-        reason  = "daily_token_cap_exceeded"
-    elif daily_msgs >= tier_cfg.daily_message_cap:
+    # Daily before monthly, and message cap before token cap within each
+    # window — see fpl_grounded_assistant.quota for the rationale. The
+    # message cap is what the product advertises and the UI renders; the
+    # token cap is the abuse ceiling, so the message reason wins a tie.
+    if daily_msgs >= tier_cfg.daily_message_cap:
         allowed = False
         reason  = "daily_message_cap_exceeded"
-    elif monthly_tokens >= tier_cfg.monthly_token_cap:
+    elif daily_tokens >= tier_cfg.daily_token_cap:
         allowed = False
-        reason  = "monthly_token_cap_exceeded"
+        reason  = "daily_token_cap_exceeded"
     elif monthly_msgs >= tier_cfg.monthly_message_cap:
         allowed = False
         reason  = "monthly_message_cap_exceeded"
+    elif monthly_tokens >= tier_cfg.monthly_token_cap:
+        allowed = False
+        reason  = "monthly_token_cap_exceeded"
 
-    upgrade_es, upgrade_en = (_upgrade_prompts(tier_cfg.name) if not allowed else (None, None))
+    upgrade_es, upgrade_en = (_upgrade_prompts(tier_cfg.name, reason) if not allowed else (None, None))
 
     return QuotaCheck(
         allowed=allowed,

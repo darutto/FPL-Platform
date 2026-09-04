@@ -17,6 +17,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import type { QuotaStatus } from '@/lib/types';
 import { quotaTone, QUOTA_TONE_CLASSES } from '@/lib/theme';
+import { PAID_LADDER, QUOTA_BUCKETS, SUBSCRIPTION_TIERS } from '@/lib/tiers';
 
 interface Props {
   userId?: string;       // defaults to 'anonymous'
@@ -29,12 +30,29 @@ interface Props {
 // Tier comparison table for modal
 // ---------------------------------------------------------------------------
 
+// Derived from lib/tiers.ts rather than hand-listed. The previous literal
+// table omitted Socio Junior — the tier the pricing page marks "Recomendado"
+// and the cheapest one with web search — and advertised a "$30 / ∞ daily"
+// rung that does not exist, so the upgrade surface was both missing the
+// likeliest conversion and promising a plan nobody could buy.
+const RECOMMENDED = SUBSCRIPTION_TIERS.find((t) => t.highlighted)?.bucket;
+
 const TIER_TABLE = [
-  { tier: 'Free',             daily: 5,   monthly: 30,   link: false },
-  { tier: 'Patreon $5',       daily: 30,  monthly: 600,  link: true  },
-  { tier: 'Patreon $15',      daily: 150, monthly: 3000, link: true  },
-  { tier: 'Patreon $30',      daily: '∞', monthly: 10000, link: true },
-] as const;
+  {
+    bucket: 'free' as const,
+    label: 'Gratis',
+    daily: QUOTA_BUCKETS.free.msgsPerDay,
+    monthly: QUOTA_BUCKETS.free.msgsPerMonth,
+    webSearch: QUOTA_BUCKETS.free.webSearch,
+  },
+  ...PAID_LADDER.map((rung) => ({
+    bucket: rung.bucket,
+    label: `${rung.shortName} $${rung.priceUsd}`,
+    daily: QUOTA_BUCKETS[rung.bucket].msgsPerDay,
+    monthly: QUOTA_BUCKETS[rung.bucket].msgsPerMonth,
+    webSearch: QUOTA_BUCKETS[rung.bucket].webSearch,
+  })),
+];
 
 const PATREON_URL = 'https://www.patreon.com/fpl_asistente';
 
@@ -87,10 +105,24 @@ export default function QuotaIndicator({
   const monthlyPct = status.monthly_message_cap > 0
     ? monthlyRemaining / status.monthly_message_cap
     : 0;
-  const constrainingPct = Math.min(dailyPct, monthlyPct);
-  const constrainingTone = constrainingPct > 0.5 ? 'ok' : constrainingPct > 0.2 ? 'warn' : 'danger';
+  // The pill must also account for the token budget. The backend blocks on
+  // whichever cap trips first, and a token cap can trip while messages
+  // remain — a user who saw a healthy "Día 2/5" and was refused anyway had
+  // no way to tell why, because this widget only ever weighed messages.
+  const dailyTokenPct = status.daily_token_cap > 0
+    ? (status.daily_token_cap - status.daily_tokens_used) / status.daily_token_cap
+    : 1;
+  const monthlyTokenPct = status.monthly_token_cap > 0
+    ? (status.monthly_token_cap - status.monthly_tokens_used) / status.monthly_token_cap
+    : 1;
+  const constrainingPct = Math.min(dailyPct, monthlyPct, dailyTokenPct, monthlyTokenPct);
+  const constrainingTone = status.allowed === false
+    ? 'danger'
+    : constrainingPct > 0.5 ? 'ok' : constrainingPct > 0.2 ? 'warn' : 'danger';
   const pillColor = QUOTA_TONE_CLASSES[constrainingTone].pill;
-  const dailyTone = quotaTone(dailyRemaining, status.daily_message_cap);
+  const dailyTone = status.allowed === false
+    ? 'danger'
+    : quotaTone(dailyRemaining, status.daily_message_cap);
   const monthlyTone = quotaTone(monthlyRemaining, status.monthly_message_cap);
 
   return (
@@ -178,10 +210,20 @@ export default function QuotaIndicator({
               <tbody>
                 {TIER_TABLE.map((row, idx) => (
                   <tr
-                    key={row.tier}
-                    className={`${idx % 2 === 0 ? 'bg-white/[0.035]' : ''} ${row.tier.toLowerCase().startsWith(status.tier) ? 'text-white font-bold' : 'text-bf-gray'}`}
+                    key={row.bucket}
+                    className={`${idx % 2 === 0 ? 'bg-white/[0.035]' : ''} ${row.bucket === status.tier ? 'text-white font-bold' : 'text-bf-gray'}`}
                   >
-                    <td className="py-1.5 px-1">{row.tier}</td>
+                    <td className="py-1.5 px-1">
+                      {row.label}
+                      {row.webSearch && (
+                        <span className="ml-1 text-bf-cyan" title="Incluye búsqueda web">+ web</span>
+                      )}
+                      {row.bucket === RECOMMENDED && row.bucket !== status.tier && (
+                        <span className="ml-1 rounded-full bg-bf-cyan/20 px-1.5 text-[9px] font-bold uppercase tracking-wide text-bf-cyan">
+                          Recomendado
+                        </span>
+                      )}
+                    </td>
                     <td className="text-right py-1.5 px-1">{row.daily}</td>
                     <td className="text-right py-1.5 px-1">{row.monthly}</td>
                   </tr>

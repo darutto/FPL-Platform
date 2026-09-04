@@ -14,6 +14,7 @@ import { devTierEnabled, readDevTier, setDevTier } from '@/lib/dev-tier';
 
 const OPTIONS: { value: QuotaBucket; label: string }[] = [
   { value: 'free', label: 'free · 5/día · sin web' },
+  { value: 'patreon_tribuna', label: '$1 tribuna · 15/día · sin web' },
   { value: 'patreon_basic', label: '$5 basic · 30/día · sin web' },
   { value: 'patreon_plus', label: '$10 plus · 60/día · web' },
   { value: 'patreon_premium', label: '$15+ premium · 150/día · web' },

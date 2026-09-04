@@ -25,8 +25,9 @@ function TierCard({ tier }: { tier: SubscriptionTier }) {
       </div>
 
       {/* Usage descriptor — the assistant-usage allowance, distinct from the
-          community perks below. Every tier (incl. free/Tribuna at 5 msgs/day)
-          gets some assistant access; the cap grows with the membership. */}
+          community perks below. Every tier gets some assistant access, Tribuna
+          included (15 msgs/day, 3x the unpaid 5); the cap grows with the
+          membership. */}
       <div className="mt-3 rounded-card border border-bf-cyan/30 bg-bf-cyan/10 px-3 py-2">
         <div className="text-[10px] font-bold uppercase tracking-widest text-bf-cyan/80">
           Uso del asistente
