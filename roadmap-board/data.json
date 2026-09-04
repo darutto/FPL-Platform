@@ -942,6 +942,17 @@
         "UI"
       ],
       "progress": 100
+    },
+    {
+      "id": "i60",
+      "col": "idea",
+      "progress": 25,
+      "title": "Dos herramientas piden desambiguar sin decir entre quiénes",
+      "desc": "EL PROBLEMA. Cuando preguntas por un jugador cuyo nombre coincide con varios, el sistema debería ofrecerte elegir. Dos herramientas no pueden: devuelven «hay ambigüedad» sin la lista de candidatos, así que la app no tiene con qué construir los botones y te deja en un callejón sin salida.\n\nSon `player_form` y `get_player_season_points`. Verificado en main: player_form.py:437 devuelve un ambiguo pelado.\n\nQUÉ HAY HECHO YA, y es más de lo que parece. El arreglo estaba empezado y vivía SOLO como cambios sin guardar en un worktree local, en una rama que no estaba en GitHub. Se rescató el 2026-09-04 y ya está empujado en `fix/compound-player-name-resolution`.\n\nAñade `candidate_dicts()` en el registro de jugadores: un constructor único para que cada herramienta deje de inventarse su propia forma de devolver candidatos. En palabras de quien lo escribió, «un chip etiquetado \"Salah ()\" es a lo que se parece un fallo por poco».\n\nPARA QUIEN LO RETOME. La rama NO se puede fusionar tal cual: su commit base está desfasado y arrastra 4 ficheros que main ya resolvió por otro camino en PR #149. Hay que rebasar sobre main y quedarse solo con `candidate_dicts` y sus dos llamantes. No tiene tests ni está verificado.\n\nCONTEXTO. Sale de la auditoría de retornos ambiguos: 6 de 19 no podían armar wizard, 3 se arreglaron en PR #149 y estos son de los que quedaron.",
+      "tags": [
+        "Backend",
+        "UX"
+      ]
     }
   ]
 }
