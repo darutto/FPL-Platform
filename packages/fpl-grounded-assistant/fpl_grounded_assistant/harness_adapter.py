@@ -393,6 +393,10 @@ def to_ask_response(
         captain_ranking=_to_dict(d.get("captain_ranking")),
         pool_source=d.get("pool_source"),
         pool_size=d.get("pool_size"),
+        # G3: did the model write this answer, or is it a deterministic render?
+        # Without it the client cannot tell prose from a copy of the card, and
+        # has to guess by sniffing the text.
+        synthesis_turn=routing_trace.get("synthesis_turn"),
         presentation=_to_dict(d.get("presentation")),
         squad_source=d.get("squad_source"),
         squad_excluded=_to_dict(d.get("squad_excluded")),

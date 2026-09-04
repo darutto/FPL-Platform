@@ -195,8 +195,16 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
   // each other's state.
   const showPlayerPickWizard =
     hasSuggestions && isLast && playerPickWizard != null && onPlayerPick != null;
-  // Only prose earns the verdict band; a final_text that is itself a table
-  // would duplicate the rows directly above them.
+  // Only prose earns the verdict band.
+  //
+  // Structured captaincy turns still set final_text to a deterministic render
+  // of the same tool output the card shows — verified against the live backend
+  // — so showing it here prints the answer twice, which is the complaint the
+  // card-only rule was introduced for. synthesis_turn is the backend's own
+  // answer to "did the model write this?", so we ask instead of sniffing the
+  // text. Older payloads omit the field; those keep the previous behaviour.
+  //
+  // A final_text that is itself a table would duplicate the rows the same way.
   //
   // multi_intent is deliberately excluded. Its final_text summarises several
   // answers at once, so "veredicto" is the wrong frame for it, and each child
@@ -205,6 +213,7 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
   const showVerdict =
     message.text.trim().length > 0 &&
     message.response?.intent !== 'multi_intent' &&
+    message.response?.synthesis_turn !== false &&
     !looksLikeRenderedTable(message.text);
   // Structured FPL turn → combine the model's verdict and the deterministic
   // view in one surface. The old card-only branch silently discarded

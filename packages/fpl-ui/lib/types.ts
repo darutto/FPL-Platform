@@ -254,6 +254,9 @@ export interface AskResponse {
   /** Candidate count before the derived-pool output cap. */
   pool_size?: number | null;
   /** Squad lookup provenance for successful captain rankings. */
+  /** True when the model wrote final_text; false when final_text is a
+   *  deterministic render of the tool output — i.e. the card in words. */
+  synthesis_turn?: boolean | null;
   presentation?: RankingPresentation | null;
   squad_source?: 'connected' | 'not_connected' | 'unavailable' | null;
   squad_excluded?: SquadExcludedEntry[] | null;

@@ -314,6 +314,7 @@ class AskResponse(BaseModel):
     captain_ranking: list[dict[str, Any]] | None = None   # Phase 5p
     pool_source: str | None = None
     pool_size: int | None = None
+    synthesis_turn: bool | None = None
     presentation: dict[str, Any] | None = None
     squad_source: str | None = None
     squad_excluded: list[dict[str, Any]] | None = None
@@ -450,6 +451,7 @@ class SessionAskResponse(BaseModel):
     captain_ranking: list[dict[str, Any]] | None = None   # Phase 5p
     pool_source: str | None = None
     pool_size: int | None = None
+    synthesis_turn: bool | None = None
     presentation: dict[str, Any] | None = None
     squad_source: str | None = None
     squad_excluded: list[dict[str, Any]] | None = None
@@ -2366,6 +2368,7 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         captain_ranking=sess_captain_ranking_list,
         pool_source=r.pool_source,
         pool_size=r.pool_size,
+        synthesis_turn=r.synthesis_turn,
         presentation=r.presentation,
         squad_source=r.squad_source,
         squad_excluded=[

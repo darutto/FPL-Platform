@@ -73,3 +73,27 @@ describe('MessageList — atomic-tool ranking card', () => {
     expect(screen.queryByText(/#\s*\|\s*Jugador/)).not.toBeInTheDocument();
   });
 });
+
+describe('MessageList — a deterministic render is not a verdict', () => {
+  // Verified against the live backend: structured captaincy turns set
+  // final_text to a render of the same tool output the card shows. Printing it
+  // above the card says the same thing twice.
+  test('drops final_text the backend says it did not write', () => {
+    const message = assistantMessage('Evaluado para la jornada actual GW3. B) Mejores candidatos globales: ...');
+    message.response = { ...orchestratorRankCardResponse, synthesis_turn: false };
+
+    render(<MessageList messages={[message]} loading={false} />);
+
+    expect(screen.queryByRole('region', { name: 'Veredicto' })).not.toBeInTheDocument();
+    expect(screen.getByText('TOP 3 · Puntos')).toBeInTheDocument();
+  });
+
+  test('keeps final_text the model actually wrote', () => {
+    const message = assistantMessage('Haaland es la apuesta más segura por su volumen de tiros.');
+    message.response = { ...orchestratorRankCardResponse, synthesis_turn: true };
+
+    render(<MessageList messages={[message]} loading={false} />);
+
+    expect(screen.getByRole('region', { name: 'Veredicto' })).toBeInTheDocument();
+  });
+});

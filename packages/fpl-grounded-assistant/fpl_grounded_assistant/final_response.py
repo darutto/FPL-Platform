@@ -1112,6 +1112,11 @@ class FinalResponse:
     pool_size:
         Number of candidates before the derived-pool output cap. ``None``
         outside successful captain rankings.
+    synthesis_turn:
+        ``True`` when the model wrote ``final_text`` itself, ``False`` when it
+        is a deterministic render of the tool output, ``None`` when unknown.
+        A render is a copy of the card in words, so a client that shows both
+        would print the same answer twice.
     presentation:
         Which entries each shown list names — ``owned_top``, ``global_top``,
         and a hipster pick per list with its reason when there isn't one. A
@@ -1199,6 +1204,7 @@ class FinalResponse:
     captain_ranking: tuple[RankedCaptainEntry, ...] | None = field(default=None)  # Phase 5p
     pool_source:     "str | None"                          = field(default=None)
     pool_size:       "int | None"                          = field(default=None)
+    synthesis_turn:  "bool | None"                         = field(default=None)
     presentation:    "dict[str, Any] | None"               = field(default=None)
     squad_source:    "str | None"                          = field(default=None)
     squad_excluded:  "tuple[SquadExcludedEntry, ...] | None" = field(default=None)
