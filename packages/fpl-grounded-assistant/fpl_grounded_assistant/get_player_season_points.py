@@ -137,9 +137,18 @@ def _normalize_name(text: str) -> str:
     return stripped.lower().strip()
 
 
+def _safe_team_id(value: "Any") -> int:
+    """Team id as int, or -1 when the parquet cell is missing/NaN."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return -1
+
+
 def _resolve_player_in_season(
     player_query: str,
     players_df: "Any",
+    team_short_by_id: "dict[int, str] | None" = None,
 ) -> dict[str, Any]:
     """Resolve *player_query* against a season's own ``players.parquet``.
 
@@ -155,6 +164,7 @@ def _resolve_player_in_season(
     or ``{"status": "ambiguous"/"not_found", ...}``.
     """
     normalized_query = _normalize_name(player_query.strip())
+    team_shorts = team_short_by_id or {}
 
     real_players = players_df[players_df["element_type"].isin(_POSITION_MAP.keys())]
 
@@ -187,6 +197,12 @@ def _resolve_player_in_season(
         return {
             "id": pid,
             "web_name": str(row.get("web_name", "?")),
+            # team_short completes the shared candidate shape — the chip label
+            # is "{web_name} ({team_short})", so omitting it renders "Salah ()".
+            # The chip label is "{web_name} ({team_short})", so a candidate
+            # without it renders as "Salah ()".  players.parquet only carries
+            # team_id, hence the caller-supplied mapping.
+            "team_short": team_shorts.get(_safe_team_id(row.get("team_id")), ""),
             "position": _POSITION_MAP.get(int(row["element_type"]), "?"),
         }
 
@@ -321,12 +337,12 @@ def get_player_season_points(query: str, season: str) -> dict[str, Any]:
             "message": f"Failed to read historical parquet data: {exc}",
         }
 
-    resolution = _resolve_player_in_season(query, players_df)
+    team_short_by_id: dict[int, str] = dict(zip(teams_df["team_id"], teams_df["short_name"]))
+    resolution = _resolve_player_in_season(query, players_df, team_short_by_id)
     if resolution["status"] != "ok":
         return resolution
 
     player_id = resolution["player_id"]
-    team_short_by_id: dict[int, str] = dict(zip(teams_df["team_id"], teams_df["short_name"]))
     team_id = resolution.get("team_id")
     team_short = (
         team_short_by_id.get(int(team_id), "?")

@@ -421,7 +421,7 @@ def _resolve_player(
     meta: dict with web_name, team_short, position, player_id
     """
     from fpl_api_client.fpl_client import get_players, get_teams  # noqa: PLC0415
-    from fpl_player_registry import resolve_player_candidates     # noqa: PLC0415
+    from fpl_player_registry import candidate_dicts, resolve_player_candidates  # noqa: PLC0415
 
     players = get_players(bootstrap)
     teams   = get_teams(bootstrap)
@@ -434,7 +434,9 @@ def _resolve_player(
         allow_substring=False,
     )
     if resolution.status == "ambiguous":
-        return "ambiguous", None, {}
+        # Keep the tied players: without them the caller can only print a
+        # dead end, never offer a pick.
+        return "ambiguous", None, {"candidates": candidate_dicts(resolution)}
     match = resolution.player
     if match is None:
         return "not_found", None, {}
@@ -488,8 +490,10 @@ def get_player_form(
 
     Returns — status "not_found" / "ambiguous"
     -------------------------------------------
-    ``status``  "not_found" | "ambiguous"
-    ``query``   Original query string
+    ``status``      "not_found" | "ambiguous"
+    ``query``       Original query string
+    ``candidates``  Tied players (ambiguous only), ready for pick chips
+    ``message``     User-facing prompt (ambiguous only)
 
     Returns — status "missing_context"
     ------------------------------------
@@ -500,7 +504,12 @@ def get_player_form(
 
     res_status, element, meta = _resolve_player(query, bootstrap)
     if res_status == "ambiguous":
-        return {"status": "ambiguous", "query": str(query)}
+        return {
+            "status":     "ambiguous",
+            "query":      str(query),
+            "candidates": meta.get("candidates", []),
+            "message":    f"Multiple players match '{query}'. Pick one to see their form.",
+        }
     if res_status == "not_found":
         return {"status": "not_found", "query": str(query)}
 

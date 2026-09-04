@@ -63,7 +63,7 @@ from fpl_captain_engine import (
     classify_captain_tier,   # Phase 5m
     derive_role_signals,     # Phase 5m
 )
-from fpl_player_registry import resolve_player_candidates
+from fpl_player_registry import candidate_dicts, resolve_player_candidates
 from fpl_query_tools import get_current_gameweek_from_bootstrap, get_player_summary
 from fpl_tool_contract.scoring_core import _derive_base_scoring_inputs
 
@@ -91,23 +91,6 @@ def _derive_scoring_inputs_from_element(
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
-
-def _candidate_dicts(resolution: Any) -> list[dict[str, Any]]:
-    """Tied players as wizard-ready dicts.
-
-    Field names match what ``player_disambiguation_suggestions`` reads from a
-    ``get_player_snapshot`` candidate (``id`` / ``web_name`` / ``team_short``),
-    so both ambiguity sources feed the same chip builder.
-    """
-    return [
-        {
-            "id":         match.record.id,
-            "web_name":   match.record.web_name,
-            "team_short": match.record.team_short_name,
-        }
-        for match in resolution.best_matches
-    ]
-
 
 def _resolve_with_status(
     query: str | int,
@@ -137,7 +120,7 @@ def _resolve_with_status(
         allow_substring=False,
     )
     if resolution.status == "ambiguous":
-        return "ambiguous", None, _candidate_dicts(resolution)
+        return "ambiguous", None, candidate_dicts(resolution)
 
     summary = get_player_summary(query, players, teams)
     if resolution.status == "not_found" or summary is None:

@@ -205,6 +205,25 @@ def _alias_targets(
     return index
 
 
+def candidate_dicts(resolution: PlayerResolution) -> list[dict[str, Any]]:
+    """Tied players as wizard-ready dicts.
+
+    Every caller that surfaces an ``ambiguous`` status needs the same three
+    fields, in the same names the disambiguation chip builder reads
+    (``id`` / ``web_name`` / ``team_short``).  Keeping one builder here stops
+    each tool from inventing its own shape — a chip labelled "Salah ()" is what
+    a near-miss looks like.
+    """
+    return [
+        {
+            "id":         match.record.id,
+            "web_name":   match.record.web_name,
+            "team_short": match.record.team_short_name,
+        }
+        for match in resolution.best_matches
+    ]
+
+
 def resolve_player_candidates(
     query: str | int,
     players: list[dict[str, Any]],
@@ -312,6 +331,7 @@ __all__ = [
     "RANK_EXACT",
     "RANK_PREFIX",
     "RANK_SUBSTRING",
+    "candidate_dicts",
     "compound_name_forms",
     "normalize_player_name",
     "resolve_player_candidates",
