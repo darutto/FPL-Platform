@@ -527,6 +527,18 @@ class TestCaptaincyTemporalWindow:
         assert result["current_gameweek"] == 29
         assert result["evaluated_gameweek"] == 29
 
+    def test_finished_events_leave_no_actionable_gameweek(self, bootstrap):
+        from fpl_tool_contract.scoring_core import captain_time_context
+
+        bs = copy.deepcopy(bootstrap)
+        for event in bs["events"]:
+            event["finished"] = True
+
+        result = captain_time_context(bs)
+
+        assert result["current_gameweek"] is None
+        assert result["evaluated_gameweek"] is None
+
     def test_requested_gameweek_changes_fixture_score(self, bootstrap):
         from fpl_tool_contract import tool_get_captain_score
 

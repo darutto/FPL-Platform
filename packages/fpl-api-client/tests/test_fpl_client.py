@@ -316,6 +316,15 @@ class TestGetCurrentGameweek:
             ev["is_next"] = False
         assert get_current_gameweek(bs) is None
 
+    def test_returns_none_when_every_flagged_event_is_finished(self):
+        """End of season has no actionable current or next gameweek."""
+        from fpl_api_client.fpl_client import get_current_gameweek
+        bs = copy.deepcopy(MINIMAL_BOOTSTRAP)
+        for ev in bs["events"]:
+            ev["finished"] = True
+
+        assert get_current_gameweek(bs) is None
+
     def test_returns_none_for_empty_events(self):
         """Returns None when events list is empty."""
         from fpl_api_client.fpl_client import get_current_gameweek

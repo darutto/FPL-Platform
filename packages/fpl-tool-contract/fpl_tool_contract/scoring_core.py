@@ -75,12 +75,12 @@ def captain_time_context(
 
     current: int | None = None
     for event in bootstrap.get("events", []):
-        if event.get("is_current"):
+        if event.get("is_current") and not event.get("finished"):
             current = int(event["id"])
             break
     if current is None:
         for event in bootstrap.get("events", []):
-            if event.get("is_next"):
+            if event.get("is_next") and not event.get("finished"):
                 current = int(event["id"])
                 break
 

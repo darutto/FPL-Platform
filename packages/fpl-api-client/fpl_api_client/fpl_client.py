@@ -169,12 +169,12 @@ def get_teams(bootstrap: dict[str, Any] | None = None) -> list[dict[str, Any]]:
 
 
 def get_current_gameweek(bootstrap: dict[str, Any] | None = None) -> int | None:
-    """Return the current (or next) gameweek number from *bootstrap*.
+    """Return the actionable current (or next) gameweek from *bootstrap*.
 
     Resolution order:
-    1. First event where ``is_current`` is truthy → current live GW
-    2. First event where ``is_next`` is truthy    → upcoming GW (between GWs)
-    3. ``None``                                   → season not started / over
+    1. First unfinished ``is_current`` event → current live GW
+    2. First unfinished ``is_next`` event    → upcoming GW (between GWs)
+    3. ``None``                              → season not started / over
 
     If *bootstrap* is ``None``, ``get_bootstrap()`` is called automatically.
 
@@ -185,10 +185,10 @@ def get_current_gameweek(bootstrap: dict[str, Any] | None = None) -> int | None:
         bootstrap = get_bootstrap()
     events: list[dict[str, Any]] = bootstrap.get("events", [])
     for event in events:
-        if event.get("is_current"):
+        if event.get("is_current") and not event.get("finished"):
             return int(event["id"])
     for event in events:
-        if event.get("is_next"):
+        if event.get("is_next") and not event.get("finished"):
             return int(event["id"])
     return None
 
