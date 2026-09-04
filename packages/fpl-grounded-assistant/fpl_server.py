@@ -312,6 +312,8 @@ class AskResponse(BaseModel):
     comparison: dict[str, Any] | None = None              # Phase 5g
     captain: dict[str, Any] | None = None                 # Phase 5n
     captain_ranking: list[dict[str, Any]] | None = None   # Phase 5p
+    pool_source: str | None = None
+    pool_size: int | None = None
     squad_source: str | None = None
     squad_excluded: list[dict[str, Any]] | None = None
     sub_responses: list[dict[str, Any]] | None = None     # Phase 6c
@@ -445,6 +447,8 @@ class SessionAskResponse(BaseModel):
     comparison: dict[str, Any] | None = None              # Phase 5g
     captain: dict[str, Any] | None = None                 # Phase 5n
     captain_ranking: list[dict[str, Any]] | None = None   # Phase 5p
+    pool_source: str | None = None
+    pool_size: int | None = None
     squad_source: str | None = None
     squad_excluded: list[dict[str, Any]] | None = None
     sub_responses: list[dict[str, Any]] | None = None     # Phase 6c
@@ -1274,6 +1278,8 @@ def _sub_response_dict(sr: Any) -> dict[str, Any]:
         d["captain"] = _captain_meta_dict(sr.captain)
     if sr.captain_ranking is not None:
         d["captain_ranking"] = _captain_ranking_list(sr.captain_ranking)
+        d["pool_source"] = sr.pool_source
+        d["pool_size"] = sr.pool_size
         d["squad_source"] = sr.squad_source
         d["squad_excluded"] = [
             {
@@ -2350,6 +2356,8 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         comparison=sess_comp_bundle,
         captain=sess_captain_bundle,
         captain_ranking=sess_captain_ranking_list,
+        pool_source=r.pool_source,
+        pool_size=r.pool_size,
         squad_source=r.squad_source,
         squad_excluded=[
             {

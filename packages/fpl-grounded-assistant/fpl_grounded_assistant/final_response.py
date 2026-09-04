@@ -1084,9 +1084,16 @@ class FinalResponse:
         otherwise.  A tuple of :class:`RankedCaptainEntry` objects ordered
         by ``rank`` (1 = highest captain score).  Contains only successfully
         scored candidates — failed entries are omitted.
+    pool_source:
+        Captain-ranking provenance: ``caller`` when the model supplied the
+        candidates, or ``derived`` when the deterministic bootstrap pool was
+        used. ``None`` outside successful captain rankings.
+    pool_size:
+        Number of candidates before the derived-pool output cap. ``None``
+        outside successful captain rankings.
     squad_source:
         Captain-ranking squad context: ``connected``, ``not_connected``, or
-        ``unavailable``. ``None`` outside derived captain rankings.
+        ``unavailable``. ``None`` outside successful captain rankings.
     squad_excluded:
         Owned players excluded from captain consideration by availability.
     sub_responses:
@@ -1164,6 +1171,8 @@ class FinalResponse:
     comparison:      ComparisonMeta | None                 = field(default=None)  # Phase 5g
     captain:         CaptainScoreMeta | None               = field(default=None)  # Phase 5n
     captain_ranking: tuple[RankedCaptainEntry, ...] | None = field(default=None)  # Phase 5p
+    pool_source:     "str | None"                          = field(default=None)
+    pool_size:       "int | None"                          = field(default=None)
     squad_source:    "str | None"                          = field(default=None)
     squad_excluded:  "tuple[SquadExcludedEntry, ...] | None" = field(default=None)
     sub_responses:   "tuple[FinalResponse, ...] | None"    = field(default=None)  # Phase 6c
@@ -2091,6 +2100,7 @@ def _extract_structured_meta(
     dict[str, Any]
         Keys match the corresponding ``FinalResponse`` field names:
         ``"comparison"``, ``"captain"``, ``"captain_ranking"``,
+        ``"pool_source"``, ``"pool_size"``, ``"squad_source"``,
         ``"transfer"``, ``"chip"``, ``"fixture_run"``, ``"differential"``,
         ``"player_form"``, ``"injury_list"``, ``"price_changes"``,
         ``"team_calendar"``, ``"team_schedule"``, ``"position_fixture_run"``,
@@ -2103,6 +2113,8 @@ def _extract_structured_meta(
     comparison:              "ComparisonMeta | None"              = None
     captain:                 "CaptainScoreMeta | None"            = None
     captain_ranking:         "tuple[RankedCaptainEntry, ...] | None" = None
+    pool_source:             "str | None"                         = None
+    pool_size:               "int | None"                         = None
     squad_source:            "str | None"                         = None
     squad_excluded:          "tuple[SquadExcludedEntry, ...] | None" = None
     transfer:                "TransferMeta | None"                = None
@@ -2127,8 +2139,10 @@ def _extract_structured_meta(
             captain = _extract_captain_meta(raw_output)
         elif intent == INTENT_RANK_CANDIDATES:
             captain_ranking = _extract_captain_ranking_meta(raw_output)
+            pool_source = raw_output.get("pool_source")
+            pool_size = raw_output.get("pool_size")
+            squad_source = raw_output.get("squad_source")
             if raw_output.get("pool_source") == "derived":
-                squad_source = raw_output.get("squad_source")
                 squad_excluded = _extract_squad_excluded_meta(raw_output)
         elif intent == INTENT_TRANSFER_ADVICE:
             transfer = _extract_transfer_meta(raw_output)
@@ -2163,6 +2177,8 @@ def _extract_structured_meta(
         "comparison":           comparison,
         "captain":              captain,
         "captain_ranking":      captain_ranking,
+        "pool_source":          pool_source,
+        "pool_size":            pool_size,
         "squad_source":         squad_source,
         "squad_excluded":       squad_excluded,
         "transfer":             transfer,
@@ -2350,6 +2366,8 @@ def _orch_result_to_final_response(
     comparison:      "ComparisonMeta | None"                 = None
     captain:         "CaptainScoreMeta | None"               = None
     captain_ranking: "tuple[RankedCaptainEntry, ...] | None" = None
+    pool_source:     "str | None"                            = None
+    pool_size:       "int | None"                            = None
     squad_source:    "str | None"                            = None
     squad_excluded:  "tuple[SquadExcludedEntry, ...] | None" = None
     transfer:        "TransferMeta | None"                   = None
@@ -2363,8 +2381,10 @@ def _orch_result_to_final_response(
         captain = _extract_captain_meta(ro)
     elif intent == INTENT_RANK_CANDIDATES:
         captain_ranking = _extract_captain_ranking_meta(ro)
+        pool_source = ro.get("pool_source")
+        pool_size = ro.get("pool_size")
+        squad_source = ro.get("squad_source")
         if ro.get("pool_source") == "derived":
-            squad_source = ro.get("squad_source")
             squad_excluded = _extract_squad_excluded_meta(ro)
     elif intent == INTENT_COMPARE_PLAYERS:
         comparison = _extract_comparison_meta(ro)
@@ -2413,6 +2433,8 @@ def _orch_result_to_final_response(
         comparison=comparison,
         captain=captain,
         captain_ranking=captain_ranking,
+        pool_source=pool_source,
+        pool_size=pool_size,
         squad_source=squad_source,
         squad_excluded=squad_excluded,
         transfer=transfer,
@@ -2819,6 +2841,8 @@ def _try_session_orchestration_response(
         comparison=result.get("comparison"),
         captain=result.get("captain"),
         captain_ranking=result.get("captain_ranking"),
+        pool_source=result.get("pool_source"),
+        pool_size=result.get("pool_size"),
         squad_source=result.get("squad_source"),
         squad_excluded=result.get("squad_excluded"),
         transfer=transfer,
@@ -3110,6 +3134,8 @@ def respond(
         comparison=_meta["comparison"],
         captain=_meta["captain"],
         captain_ranking=_meta["captain_ranking"],
+        pool_source=_meta["pool_source"],
+        pool_size=_meta["pool_size"],
         squad_source=_meta["squad_source"],
         squad_excluded=_meta["squad_excluded"],
         transfer=_meta["transfer"],

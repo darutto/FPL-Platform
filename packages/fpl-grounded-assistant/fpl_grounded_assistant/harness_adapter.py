@@ -391,6 +391,8 @@ def to_ask_response(
         comparison=_to_dict(d.get("comparison")),
         captain=_to_dict(d.get("captain")),
         captain_ranking=_to_dict(d.get("captain_ranking")),
+        pool_source=d.get("pool_source"),
+        pool_size=d.get("pool_size"),
         squad_source=d.get("squad_source"),
         squad_excluded=_to_dict(d.get("squad_excluded")),
         transfer=_to_dict(d.get("transfer")),

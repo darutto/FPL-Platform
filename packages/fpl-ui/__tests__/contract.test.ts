@@ -72,6 +72,16 @@ const DECLARED_STABLE_FIELDS: Record<string, true> = {
   orch_outcome: true,
 };
 
+// Compile-time mirror for the additive captain-pool provenance contract.
+const CAPTAIN_POOL_PROVENANCE: Pick<
+  AskResponse,
+  'pool_source' | 'pool_size' | 'squad_source'
+> = {
+  pool_source: 'derived',
+  pool_size: 24,
+  squad_source: 'connected',
+};
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -158,6 +168,16 @@ describe('http_contract_fixtures.json — stable response fields', () => {
     expect(new Set(STABLE_RESPONSE_FIELDS)).toEqual(
       new Set(Object.keys(DECLARED_STABLE_FIELDS)),
     );
+  });
+});
+
+describe('captain pool provenance contract', () => {
+  test('declares machine-readable source, pre-cap size, and squad source', () => {
+    expect(CAPTAIN_POOL_PROVENANCE).toEqual({
+      pool_source: 'derived',
+      pool_size: 24,
+      squad_source: 'connected',
+    });
   });
 });
 
