@@ -71,6 +71,7 @@ from fpl_tool_contract.scoring_core import (
 )
 from fpl_tool_contract import tool_get_captain_score
 
+from .captain_factors import TRIPLE_CAPTAIN_RISK_NOTE, factor_phrases
 from .scoring_shared import _derive_scoring_inputs
 from .fixture_context import build_fixture_context  # FI3a: additive fixture context
 
@@ -286,8 +287,13 @@ def _classify_gameweek_type(
     return ("normal", [], 0, [], 0)
 
 
+#: The captain pool is open to every position, so a two-entry map would leave
+#: defenders and keepers unlabelled.
+_POSITION_BY_ELEMENT_TYPE = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
+
+
 def _score_outfield_players(bootstrap: dict[str, Any]) -> list[dict[str, Any]]:
-    """Score all available MID/FWD players and return a list sorted by score desc.
+    """Score every available player and return a list sorted by score desc.
 
     Uses ``calculate_captain_score`` from fpl_captain_engine with the same
     ``_derive_scoring_inputs`` helper used by transfer advice and comparison.
@@ -331,8 +337,12 @@ def _score_outfield_players(bootstrap: dict[str, Any]) -> list[dict[str, Any]]:
                 "fdr":           inputs["fixture_difficulty"],
                 # FI3a: carry the bits the fixture bridge needs for the top pick.
                 "team_id":       el.get("team"),
-                "position":      {3: "MID", 4: "FWD"}.get(el.get("element_type"), ""),
+                "position":      _POSITION_BY_ELEMENT_TYPE.get(el.get("element_type"), ""),
                 "dc_per_90":     float(el.get("defensive_contribution_per_90", 0) or 0),
+                # Carried so the advice can show the factor instead of only the
+                # number it produced.
+                "minutes_context": inputs.get("minutes_context"),
+                "penalties_order": el.get("penalties_order"),
             })
         except Exception:   # noqa: BLE001
             continue
@@ -411,6 +421,8 @@ def _advise_triple_captain(
             "web_name": scored_player["web_name"],
             "captain_score": scored_player["captain_score"],
             "tier": scored_player["tier"],
+            "minutes_context": scored_player.get("minutes_context"),
+            "penalties_order": evaluated_element.get("penalties_order"),
             "team_id": evaluated_element.get("team"),
             "position": scored_player["position"],
             "dc_per_90": float(
@@ -475,20 +487,38 @@ def _advise_triple_captain(
         dc_per_90=evaluated.get("dc_per_90"),
     )
 
+    # The factors sit beside the score, not inside it. Someone told only
+    # "your candidate 71.1, best available 82.2" cannot see that his pick plays
+    # every minute and takes the penalties.
+    top_factors = factor_phrases(top, locale="en")
+    evaluated_factors = (
+        factor_phrases(evaluated, locale="en") if evaluated_player is not None else []
+    )
+    factor_sentences = ""
+    if evaluated_factors:
+        factor_sentences += f" {evaluated_name}: {'; '.join(evaluated_factors)}."
+    if top_factors and top_name != evaluated_name:
+        factor_sentences += f" {top_name}: {'; '.join(top_factors)}."
+
     return {
         "recommendation": recommendation,
         "signals": {
             "top_player":        top_name,
             "top_captain_score": top_score,
             "top_tier":          top_tier,
+            "top_factors":       top_factors,
+            "triple_captain_risk_note": TRIPLE_CAPTAIN_RISK_NOTE["en"],
             **({
                 "evaluated_player": evaluated_name,
                 "evaluated_captain_score": evaluated_score,
                 "evaluated_tier": evaluated_tier,
+                "evaluated_factors": evaluated_factors,
             } if evaluated_player is not None else {}),
         },
         "advice_text": (
             f"Triple captain conditions: {label}. {phrase}"
+            f"{factor_sentences}"
+            f" {TRIPLE_CAPTAIN_RISK_NOTE['en']}"
             f"{_availability_note(squad_context)}"
         ),
         "fixture_context": fixture_context,   # FI3a (additive; TC only)

@@ -21,6 +21,7 @@ import type {
   SquadExcludedEntry,
 } from '@/lib/types';
 import { TIER_CONFIG, TIER_BADGE_BASE, CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
+import { contradictionNote, factorPhrases } from '@/lib/captain-factors';
 import { TriangleField } from './CardOrnaments';
 
 interface Props {
@@ -65,6 +66,7 @@ export default function RankingTable({ data, squadSource, squadExcluded, present
           entries={owned}
           hipster={presentation?.owned_hipster}
           byId={byId}
+          all={data}
         />
       )}
 
@@ -95,9 +97,10 @@ export default function RankingTable({ data, squadSource, squadExcluded, present
           markOwned
           hipster={presentation?.global_hipster}
           byId={byId}
+          all={data}
         />
       ) : (
-        <RankingRows entries={data} />
+        <RankingRows entries={data} all={data} />
       )}
     </div>
   );
@@ -114,12 +117,14 @@ function RankingSection({
   markOwned = false,
   hipster,
   byId,
+  all,
 }: {
   title: string;
   entries: RankedCaptainEntry[];
   markOwned?: boolean;
   hipster?: HipsterPick;
   byId?: Map<number, RankedCaptainEntry>;
+  all?: RankedCaptainEntry[];
 }) {
   const hipsterEntry =
     hipster?.player_id != null ? byId?.get(hipster.player_id) ?? null : null;
@@ -130,7 +135,7 @@ function RankingSection({
         {title}
       </h3>
       {entries.length > 0 ? (
-        <RankingRows entries={entries} markOwned={markOwned} />
+        <RankingRows entries={entries} markOwned={markOwned} all={all} />
       ) : (
         <p className="px-4 py-2.5 text-xs text-bf-gray">No hay candidatos disponibles.</p>
       )}
@@ -144,7 +149,7 @@ function RankingSection({
             {hipster?.selected_by_percent != null &&
               ` · lo lleva el ${hipster.selected_by_percent.toFixed(1)}%`}
           </p>
-          <RankingRows entries={[hipsterEntry]} markOwned={markOwned} />
+          <RankingRows entries={[hipsterEntry]} markOwned={markOwned} all={all} />
         </div>
       )}
       {hipster != null && hipster.player_id == null && (
@@ -156,22 +161,49 @@ function RankingSection({
   );
 }
 
-function RankingRows({ entries, markOwned = false }: { entries: RankedCaptainEntry[]; markOwned?: boolean }) {
+function RankingRows({
+  entries,
+  markOwned = false,
+  all,
+}: {
+  entries: RankedCaptainEntry[];
+  markOwned?: boolean;
+  all?: RankedCaptainEntry[];
+}) {
   return (
     <div>
       {entries.map((entry, idx) => (
-        <RankRow key={entry.rank} entry={entry} banded={idx % 2 === 0} markOwned={markOwned} />
+        <RankRow
+          key={entry.rank}
+          entry={entry}
+          banded={idx % 2 === 0}
+          markOwned={markOwned}
+          all={all ?? entries}
+        />
       ))}
     </div>
   );
 }
 
-function RankRow({ entry, banded, markOwned = false }: { entry: RankedCaptainEntry; banded: boolean; markOwned?: boolean }) {
+function RankRow({
+  entry,
+  banded,
+  markOwned = false,
+  all = [],
+}: {
+  entry: RankedCaptainEntry;
+  banded: boolean;
+  markOwned?: boolean;
+  all?: RankedCaptainEntry[];
+}) {
   const { rank, web_name, team_short, position, captain_score, tier, set_piece_notes } = entry;
   const { label, icon, badgeClass } = TIER_CONFIG[tier] ?? TIER_CONFIG.low_confidence;
+  const factors = factorPhrases(entry);
+  const note = contradictionNote(entry, all);
 
   return (
-    <div className={`flex items-center gap-3 px-4 py-2.5 ${banded ? 'bg-white/[0.035]' : ''}`}>
+    <div className={banded ? 'bg-white/[0.035]' : ''}>
+    <div className="flex items-center gap-3 px-4 py-2.5">
       {/* Rank — display numeral, fading down the list */}
       <span
         className="w-6 text-base font-display tracking-tighter text-bf-gold flex-shrink-0 leading-none"
@@ -206,6 +238,20 @@ function RankRow({ entry, banded, markOwned = false }: { entry: RankedCaptainEnt
         <span className="text-[11px] leading-none">{icon}</span>
         {label}
       </span>
+    </div>
+
+    {/* The factors sit beside the score, never inside it. Neutral tone: this
+        is context for a decision, not a warning. */}
+    {factors.length > 0 && (
+      <p className="px-4 pb-2 text-[11px] leading-snug text-bf-gray">{factors.join(' · ')}</p>
+    )}
+
+    {/* Anchored only where the order and the factors disagree. */}
+    {note != null && (
+      <p className="mx-4 mb-2.5 border-l-2 border-bf-turquoise/60 pl-2.5 text-[11px] leading-snug text-bf-turquoise">
+        {note}
+      </p>
+    )}
     </div>
   );
 }

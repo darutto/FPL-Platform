@@ -245,6 +245,7 @@ def _render_rank_captain_candidates(output: dict[str, Any], locale: Locale = DEF
     """Render a rank_captain_candidates raw_output dict into a human-readable
     string. F2: localized.
     """
+    from .captain_factors import contradiction_note, factor_phrases  # local import
     from .explainer import explain_captain_compact  # local import
 
     status = output.get("status")
@@ -268,6 +269,9 @@ def _render_rank_captain_candidates(output: dict[str, Any], locale: Locale = DEF
 
             compact_reasons = explain_captain_compact(c, locale=locale)
             reason_str = "; ".join(compact_reasons) if compact_reasons else ""
+            # Minutes and penalties travel beside the score, never inside it.
+            factors = factor_phrases(c, locale=locale)
+            factor_str = " · ".join(factors) if factors else ""
 
             # Position is shown because the pool is open to every position: a
             # keeper and a forward are otherwise the same row.
@@ -278,6 +282,8 @@ def _render_rank_captain_candidates(output: dict[str, Any], locale: Locale = DEF
                 line += " · tu plantilla" if locale == "es" else " · your squad"
             if reason_str:
                 line += f" — {reason_str}"
+            if factor_str:
+                line += f" ({factor_str})"
             return line
 
         notice = _captain_time_notice(output, locale)
@@ -403,6 +409,18 @@ def _render_rank_captain_candidates(output: dict[str, Any], locale: Locale = DEF
         global_hipster = _hipster_line("global_hipster")
         if global_hipster:
             body.append(global_hipster)
+
+        # A note only where the ranking would mislead — a row without one means
+        # there is no surprise in it, which stops being true if we annotate
+        # everything.
+        for entry in global_entries:
+            note = contradiction_note(
+                entry,
+                [e for e in ok_entries if int(e.get("rank", 0) or 0) < int(entry.get("rank", 0) or 0)],
+                locale=locale,
+            )
+            if note:
+                body.append(f"Sobre {entry.get('web_name', '?')}: {note}")
         return "\n".join(header + body)
 
     code    = output.get("code", "error")

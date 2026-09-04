@@ -846,6 +846,8 @@ def _captain_ranking_list(captain_ranking: Any) -> list[dict[str, Any]]:
             "player_id":       entry.player_id,
             "position":        entry.position,
             "selected_by_percent": entry.selected_by_percent,
+            "penalties_order": entry.penalties_order,
+            "minutes_context": entry.minutes_context,
         }
         for entry in captain_ranking
     ]

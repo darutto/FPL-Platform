@@ -179,6 +179,13 @@ class RankedCaptainEntry:
     selected_by_percent:
         Share of managers who own the player, or ``None`` when the bootstrap
         did not carry a usable figure.
+    penalties_order:
+        Penalty-taking order (1 = first choice), or ``None``. Shown beside the
+        score as its own axis; it is not a term in the score.
+    minutes_context:
+        Minutes played and available, starts, participation and the reason it
+        degraded when it did. Shown so a reader can see why a score sits where
+        it does instead of inferring it.
     """
 
     rank:            int
@@ -192,6 +199,8 @@ class RankedCaptainEntry:
     player_id:       "int | None" = None
     position:        str = ""
     selected_by_percent: "float | None" = None
+    penalties_order: "int | None" = None
+    minutes_context: "dict[str, Any] | None" = None
 
 
 @dataclass(frozen=True)
@@ -1509,6 +1518,8 @@ def _extract_captain_ranking_meta(
                 player_id       = c.get("player_id"),
                 position        = str(c.get("position") or ""),
                 selected_by_percent = c.get("selected_by_percent"),
+                penalties_order = rs.get("penalties_order"),
+                minutes_context = c.get("minutes_context"),
             ))
         return tuple(entries)
     except Exception:  # noqa: BLE001
