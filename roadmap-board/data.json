@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-03",
+  "updated": "2026-09-04",
   "cards": [
     {
       "id": "s1",
@@ -931,6 +931,17 @@
         "Backend",
         "UI"
       ]
+    },
+    {
+      "id": "s26",
+      "col": "shipped",
+      "title": "Corrección de cuotas del tier gratuito",
+      "desc": "Fusionada (PR #208, 04/09). Tope de tokens del tier gratuito re-dimensionado a la misma fórmula de los tiers pagos, check_quota() prioriza el tope de mensajes sobre el de tokens, y se corrigió el TTL de Redis que re-armaba la ventana de tokens en cada turno de coste cero, desincronizándola de la ventana de mensajes y bloqueando usuarios con mensajes aún disponibles.",
+      "tags": [
+        "Backend",
+        "UI"
+      ],
+      "progress": 100
     }
   ]
 }
