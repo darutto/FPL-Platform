@@ -3,11 +3,13 @@
 /**
  * MessageList — renders the conversation history.
  *
- * Rendering rules (FINAL_RESPONSE_CONTRACT.md + U2 design update):
- *   - Structured turns (outcome=ok with a matching conditional field) render
- *     the intent card ALONE — no text bubble. The backend's final_text
- *     duplicates the card content, and bubble-wrapping the card produced a
- *     double box (user feedback 2026-06-12: "it should be only the table").
+ * Rendering rules (FINAL_RESPONSE_CONTRACT.md + captaincy surface update):
+ *   - Structured FPL turns render one integrated answer surface: final_text is
+ *     the verdict band and the structured view is the data section beneath it.
+ *     The card component's outer chrome is flattened so this never becomes a
+ *     bubble wrapped around a second box.
+ *   - Structured WC turns retain their existing card-only presentation. Some
+ *     WC cards already carry final_text as their own summary.
  *   - Text-only turns render final_text in a bubble as before.
  *   - Show a visible origin badge for assistant turns in both shapes.
  */
@@ -137,6 +139,22 @@ interface MessageBubbleProps {
   onPlayerPick?: (suggestion: Suggestion) => void;
 }
 
+/**
+ * True when final_text is a rendered table rather than judgement.
+ *
+ * Some backend turns still put the ranking itself in final_text as an ASCII or
+ * markdown table (see the orchestrator rank-card fixture). Showing that above
+ * the styled card restores the exact duplication the card was built to remove
+ * — the complaint that produced the card-only rule in the first place. Prose
+ * that interprets the rows is welcome; a second copy of the rows is not.
+ */
+export function looksLikeRenderedTable(text: string): boolean {
+  const lines = text.split('\n').map((line) => line.trim()).filter(Boolean);
+  const pipeRows = lines.filter((line) => (line.match(/\|/g)?.length ?? 0) >= 2);
+  const hasRule = lines.some((line) => /^[|\s]*-{3,}[-|\s]*$/.test(line));
+  return pipeRows.length >= 2 && hasRule;
+}
+
 function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, compareWizard, onSuggestionPick, playerPickWizard, onPlayerPick }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const showOriginBadge = !isUser && !message.isError && (message.response != null || message.wcResponse != null);
@@ -177,8 +195,20 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
   // each other's state.
   const showPlayerPickWizard =
     hasSuggestions && isLast && playerPickWizard != null && onPlayerPick != null;
-  // Structured turn → render the card alone, like /preview (no text bubble,
-  // no bubble-around-card double box).
+  // Only prose earns the verdict band; a final_text that is itself a table
+  // would duplicate the rows directly above them.
+  //
+  // multi_intent is deliberately excluded. Its final_text summarises several
+  // answers at once, so "veredicto" is the wrong frame for it, and each child
+  // already renders its own text. Giving that shape a band is a separate
+  // design question from the single-answer surface this change is about.
+  const showVerdict =
+    message.text.trim().length > 0 &&
+    message.response?.intent !== 'multi_intent' &&
+    !looksLikeRenderedTable(message.text);
+  // Structured FPL turn → combine the model's verdict and the deterministic
+  // view in one surface. The old card-only branch silently discarded
+  // final_text, which removed the judgement needed to interpret a ranking.
   const hasFplCard =
     !isUser &&
     !message.isError &&
@@ -190,20 +220,60 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
     message.wcResponse != null &&
     selectWcIntentView(message.wcResponse) != null;
 
-  if (hasFplCard || hasWcCard) {
+  if (hasFplCard) {
     return (
       <div className="flex justify-start">
-        <div className="max-w-prose w-full [&>:first-child]:mt-0">
-          {hasFplCard && <IntentRenderer response={message.response!} />}
-          {hasFplCard && message.response!.intent !== 'multi_intent' && (
+        <div className="w-full max-w-prose">
+          <div
+            role="region"
+            aria-label="Respuesta estructurada"
+            className="relative overflow-hidden rounded-card border border-white/10 bg-gradient-to-br from-bf-surface/70 to-bf-surface/55 text-sm shadow-card"
+          >
+            {showVerdict && (
+              <section
+                aria-label="Veredicto"
+                className="relative z-10 border-b border-white/10 bg-black/10 px-4 py-3 text-bf-text"
+              >
+                <span className="mb-1.5 block text-[10px] font-extrabold uppercase tracking-[0.12em] text-bf-turquoise">
+                  Veredicto
+                </span>
+                <MarkdownLite text={message.text} className="text-sm" />
+              </section>
+            )}
+
+            {/* Intent cards own their internal headers, rows and responsive
+                layout. Remove only their outer shell so those become sections
+                of this surface instead of a second, nested card. */}
+            <section
+              aria-label="Datos de la recomendación"
+              className="[&>div]:!mt-0 [&>div]:!rounded-none [&>div]:!border-0 [&>div]:!shadow-none [&>div]:!from-transparent [&>div]:!to-transparent"
+            >
+              <IntentRenderer response={message.response!} />
+            </section>
+          </div>
+
+          {message.response!.intent !== 'multi_intent' && (
             <EvidenceBoundary>
               <EvidenceList evidence={message.response!.evidence} />
             </EvidenceBoundary>
           )}
-          {hasFplCard && shareQuestion && (
+          {shareQuestion && (
             <ShareActions question={shareQuestion} response={message.response!} />
           )}
-          {hasWcCard && <WcIntentRenderer response={message.wcResponse!} />}
+          {showOriginBadge && <OriginBadges message={message} />}
+          {showWizard && <SuggestionChips wizard={compareWizard!} onPick={onSuggestionPick!} />}
+          {showPlayerPickWizard && <PlayerPickChips wizard={playerPickWizard!} onPick={onPlayerPick!} />}
+          {showFollowUp && <FollowUpButton armed={armed} onClick={() => onFollowUp!(message.id)} />}
+        </div>
+      </div>
+    );
+  }
+
+  if (hasWcCard) {
+    return (
+      <div className="flex justify-start">
+        <div className="max-w-prose w-full [&>:first-child]:mt-0">
+          <WcIntentRenderer response={message.wcResponse!} />
           {showOriginBadge && <OriginBadges message={message} />}
           {showWizard && <SuggestionChips wizard={compareWizard!} onPick={onSuggestionPick!} />}
           {showPlayerPickWizard && <PlayerPickChips wizard={playerPickWizard!} onPick={onPlayerPick!} />}
