@@ -125,3 +125,53 @@ describe('visible captaincy factors', () => {
     expect(screen.queryByText(/minutos posibles/)).not.toBeInTheDocument();
   });
 });
+
+describe('a short list must not cut the row its note was written for', () => {
+  // The merged product review found this: with 3+1 / 5+1 lists, Haaland fell
+  // outside the shown five, so the note built to stop exactly that misreading
+  // rendered nowhere.
+  const filler = (rank: number) =>
+    entry({
+      rank,
+      web_name: `Relleno${rank}`,
+      player_id: 100 + rank,
+      captain_score: 90 - rank,
+      minutes_context: {
+        minutes_played: 60,
+        minutes_available: 180,
+        starts: 0,
+        participation_percent: 33,
+        degraded: false,
+        degradation_reason: null,
+      },
+    });
+
+  const sunk = { ...full, rank: 8, player_id: 999 };
+  const data = [1, 2, 3, 4, 5, 6, 7].map(filler).concat(sunk);
+  const presentation = {
+    owned_top: [],
+    owned_hipster: { player_id: null, reason: 'no_candidate_clears_floor' as const },
+    global_top: [101, 102, 103, 104, 105],
+    global_hipster: { player_id: null, reason: 'no_candidate_clears_floor' as const },
+  };
+
+  test('names the cut player and shows his note', () => {
+    render(<RankingTable data={data} squadSource="connected" presentation={presentation} />);
+
+    expect(screen.getByText('Conviene saber')).toBeInTheDocument();
+    expect(screen.getByText('Haaland')).toBeInTheDocument();
+    expect(screen.getByText(/aun así puntúa por debajo/)).toBeInTheDocument();
+  });
+
+  test('adds nothing when every note-carrying row is already shown', () => {
+    render(
+      <RankingTable
+        data={data}
+        squadSource="connected"
+        presentation={{ ...presentation, global_top: [101, 102, 103, 104, 999] }}
+      />,
+    );
+
+    expect(screen.queryByText('Conviene saber')).not.toBeInTheDocument();
+  });
+});

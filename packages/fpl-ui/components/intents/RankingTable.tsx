@@ -67,6 +67,7 @@ export default function RankingTable({ data, squadSource, squadExcluded, present
           hipster={presentation?.owned_hipster}
           byId={byId}
           all={data}
+          anchorPool={data.filter((entry) => entry.owned)}
         />
       )}
 
@@ -98,6 +99,7 @@ export default function RankingTable({ data, squadSource, squadExcluded, present
           hipster={presentation?.global_hipster}
           byId={byId}
           all={data}
+          anchorPool={data}
         />
       ) : (
         <RankingRows entries={data} all={data} />
@@ -118,6 +120,7 @@ function RankingSection({
   hipster,
   byId,
   all,
+  anchorPool,
 }: {
   title: string;
   entries: RankedCaptainEntry[];
@@ -125,9 +128,25 @@ function RankingSection({
   hipster?: HipsterPick;
   byId?: Map<number, RankedCaptainEntry>;
   all?: RankedCaptainEntry[];
+  anchorPool?: RankedCaptainEntry[];
 }) {
   const hipsterEntry =
     hipster?.player_id != null ? byId?.get(hipster.player_id) ?? null : null;
+
+  // A short list can cut the very row a note was written for. Haaland — every
+  // minute played, penalties taken, sunk below players who do neither — fell
+  // outside the top five, so the note that exists to stop that misreading
+  // rendered nowhere. Surface the highest-ranked cut row that carries a note.
+  // This adds no new threshold: it reuses contradictionNote's own rule.
+  const shownIds = new Set(
+    [...entries, ...(hipsterEntry ? [hipsterEntry] : [])].map((e) => e.player_id),
+  );
+  // Ranked against the whole field, but drawn only from this section's own
+  // universe: a global name has no business appearing under "your squad".
+  const anchored =
+    (anchorPool ?? all ?? []).find(
+      (entry) => !shownIds.has(entry.player_id) && contradictionNote(entry, all ?? []) != null,
+    ) ?? null;
 
   return (
     <section>
@@ -156,6 +175,14 @@ function RankingSection({
         <p className="border-t border-white/10 px-4 py-2.5 text-xs text-bf-gray">
           Sin hipster esta jornada: nadie de poca propiedad llega al mínimo.
         </p>
+      )}
+      {anchored != null && (
+        <div className="border-t border-bf-turquoise/20">
+          <p className="px-4 pt-2 text-[10px] font-extrabold uppercase tracking-wide text-bf-turquoise">
+            Conviene saber
+          </p>
+          <RankingRows entries={[anchored]} markOwned={markOwned} all={all} />
+        </div>
       )}
     </section>
   );

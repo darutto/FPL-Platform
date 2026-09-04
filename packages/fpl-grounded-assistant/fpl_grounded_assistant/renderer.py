@@ -413,14 +413,23 @@ def _render_rank_captain_candidates(output: dict[str, Any], locale: Locale = DEF
         # A note only where the ranking would mislead — a row without one means
         # there is no surprise in it, which stops being true if we annotate
         # everything.
-        for entry in global_entries:
+        #
+        # The note has to reach the reader, so a short list must not cut the row
+        # it was written for: a player who plays every minute and takes the
+        # penalties, sunk below players who do neither, is named even when he
+        # falls outside the shown five.
+        shown_ids = {e.get("player_id") for e in global_entries + owned_entries}
+        for entry in ok_entries:
             note = contradiction_note(
                 entry,
                 [e for e in ok_entries if int(e.get("rank", 0) or 0) < int(entry.get("rank", 0) or 0)],
                 locale=locale,
             )
-            if note:
-                body.append(f"Sobre {entry.get('web_name', '?')}: {note}")
+            if not note:
+                continue
+            if entry.get("player_id") not in shown_ids:
+                body.append(f"Conviene saber: {_line(entry)}")
+            body.append(f"Sobre {entry.get('web_name', '?')}: {note}")
         return "\n".join(header + body)
 
     code    = output.get("code", "error")
