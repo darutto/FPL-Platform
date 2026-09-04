@@ -406,6 +406,20 @@ export interface RankedCaptainEntry {
    *  this is a keeper the reader cannot tell from a forward. */
   position?: FplPosition | '' | null;
   selected_by_percent?: number | null;
+  /** Penalty-taking order (1 = first choice). Shown beside the score as its
+   *  own axis; it is not a term in the score. */
+  penalties_order?: number | null;
+  minutes_context?: MinutesContext | null;
+}
+
+/** Where a player's minutes risk came from, in figures a reader can check. */
+export interface MinutesContext {
+  minutes_played: number | null;
+  minutes_available: number | null;
+  starts: number;
+  participation_percent: number | null;
+  degraded: boolean;
+  degradation_reason: string | null;
 }
 
 /** One lightly-owned suggestion, or why there isn't one. */
