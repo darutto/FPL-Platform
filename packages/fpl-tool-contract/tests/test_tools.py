@@ -515,6 +515,18 @@ class TestCaptaincyTemporalWindow:
         assert result["time_context"]["evaluated_gameweek"] == 28
         assert "current gameweek GW28" in result["time_context"]["notice"]
 
+    def test_finished_current_event_yields_upcoming_gameweek(self, bootstrap):
+        """Captain scoring must not repeat the stale-current resolver bug."""
+        from fpl_tool_contract.scoring_core import captain_time_context
+
+        bs = copy.deepcopy(bootstrap)
+        bs["events"][1]["finished"] = True
+
+        result = captain_time_context(bs)
+
+        assert result["current_gameweek"] == 29
+        assert result["evaluated_gameweek"] == 29
+
     def test_requested_gameweek_changes_fixture_score(self, bootstrap):
         from fpl_tool_contract import tool_get_captain_score
 
