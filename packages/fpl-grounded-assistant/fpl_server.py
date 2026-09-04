@@ -314,6 +314,7 @@ class AskResponse(BaseModel):
     captain_ranking: list[dict[str, Any]] | None = None   # Phase 5p
     pool_source: str | None = None
     pool_size: int | None = None
+    presentation: dict[str, Any] | None = None
     squad_source: str | None = None
     squad_excluded: list[dict[str, Any]] | None = None
     sub_responses: list[dict[str, Any]] | None = None     # Phase 6c
@@ -449,6 +450,7 @@ class SessionAskResponse(BaseModel):
     captain_ranking: list[dict[str, Any]] | None = None   # Phase 5p
     pool_source: str | None = None
     pool_size: int | None = None
+    presentation: dict[str, Any] | None = None
     squad_source: str | None = None
     squad_excluded: list[dict[str, Any]] | None = None
     sub_responses: list[dict[str, Any]] | None = None     # Phase 6c
@@ -841,6 +843,9 @@ def _captain_ranking_list(captain_ranking: Any) -> list[dict[str, Any]]:
             "role_bonus":      entry.role_bonus,
             "set_piece_notes": list(entry.set_piece_notes),
             "owned":           entry.owned,
+            "player_id":       entry.player_id,
+            "position":        entry.position,
+            "selected_by_percent": entry.selected_by_percent,
         }
         for entry in captain_ranking
     ]
@@ -1280,6 +1285,7 @@ def _sub_response_dict(sr: Any) -> dict[str, Any]:
         d["captain_ranking"] = _captain_ranking_list(sr.captain_ranking)
         d["pool_source"] = sr.pool_source
         d["pool_size"] = sr.pool_size
+        d["presentation"] = sr.presentation
         d["squad_source"] = sr.squad_source
         d["squad_excluded"] = [
             {
@@ -2358,6 +2364,7 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         captain_ranking=sess_captain_ranking_list,
         pool_source=r.pool_source,
         pool_size=r.pool_size,
+        presentation=r.presentation,
         squad_source=r.squad_source,
         squad_excluded=[
             {

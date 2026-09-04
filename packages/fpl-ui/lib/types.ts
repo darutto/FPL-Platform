@@ -254,6 +254,7 @@ export interface AskResponse {
   /** Candidate count before the derived-pool output cap. */
   pool_size?: number | null;
   /** Squad lookup provenance for successful captain rankings. */
+  presentation?: RankingPresentation | null;
   squad_source?: 'connected' | 'not_connected' | 'unavailable' | null;
   squad_excluded?: SquadExcludedEntry[] | null;
   comparison: ComparisonMeta | null;
@@ -400,13 +401,35 @@ export interface RankedCaptainEntry {
   role_bonus: number;
   set_piece_notes: string[];
   owned?: boolean;
+  player_id?: number | null;
+  /** GKP/DEF/MID/FWD. The pool is open to every position, so a row without
+   *  this is a keeper the reader cannot tell from a forward. */
+  position?: FplPosition | '' | null;
+  selected_by_percent?: number | null;
+}
+
+/** One lightly-owned suggestion, or why there isn't one. */
+export interface HipsterPick {
+  player_id: number | null;
+  selected_by_percent?: number | null;
+  reason: 'no_candidate_clears_floor' | null;
+}
+
+/** Which entries each shown list names. A view over the full ranking; the
+ *  payload itself is never shortened, because the squad accounting depends
+ *  on it staying complete. */
+export interface RankingPresentation {
+  owned_top: number[];
+  owned_hipster: HipsterPick;
+  global_top: number[];
+  global_hipster: HipsterPick;
 }
 
 export interface SquadExcludedEntry {
   player_id: number;
   web_name: string;
   status: string;
-  reason: 'not_eligible_position' | 'unavailable' | 'unresolved';
+  reason: 'unavailable' | 'unresolved';
 }
 
 /** Per-player context within a comparison turn */

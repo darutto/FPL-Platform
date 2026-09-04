@@ -33,7 +33,9 @@ _SCORE_OK_KEYS = {
     "minutes_context", "time_context", "query",
 }
 
-_RANK_ENTRY_OK_KEYS = (_SCORE_OK_KEYS - {"time_context"}) | {"index", "rank", "owned"}
+_RANK_ENTRY_OK_KEYS = (_SCORE_OK_KEYS - {"time_context"}) | {
+    "index", "rank", "owned", "selected_by_percent",
+}
 
 # Scores produced by the shared conftest bootstrap. Pinned so a change to the
 # scoring formula or its inputs surfaces here rather than silently.

@@ -170,6 +170,15 @@ class RankedCaptainEntry:
     set_piece_notes:
         Tuple of role-key strings (e.g. ``("penalty_taker_1",)``).
         Empty tuple when no set-piece role is recorded.
+    player_id:
+        FPL element id, so a presented list can name its rows.
+    position:
+        ``"GKP"``, ``"DEF"``, ``"MID"`` or ``"FWD"``. The pool is no longer
+        filtered by position, so without this a keeper is indistinguishable
+        from a forward.
+    selected_by_percent:
+        Share of managers who own the player, or ``None`` when the bootstrap
+        did not carry a usable figure.
     """
 
     rank:            int
@@ -180,6 +189,9 @@ class RankedCaptainEntry:
     role_bonus:      float
     set_piece_notes: tuple[str, ...]
     owned:           bool = False
+    player_id:       "int | None" = None
+    position:        str = ""
+    selected_by_percent: "float | None" = None
 
 
 @dataclass(frozen=True)
@@ -1091,6 +1103,11 @@ class FinalResponse:
     pool_size:
         Number of candidates before the derived-pool output cap. ``None``
         outside successful captain rankings.
+    presentation:
+        Which entries each shown list names — ``owned_top``, ``global_top``,
+        and a hipster pick per list with its reason when there isn't one. A
+        view over the full ranking, never a cap on it. ``None`` outside
+        successful captain rankings.
     squad_source:
         Captain-ranking squad context: ``connected``, ``not_connected``, or
         ``unavailable``. ``None`` outside successful captain rankings.
@@ -1173,6 +1190,7 @@ class FinalResponse:
     captain_ranking: tuple[RankedCaptainEntry, ...] | None = field(default=None)  # Phase 5p
     pool_source:     "str | None"                          = field(default=None)
     pool_size:       "int | None"                          = field(default=None)
+    presentation:    "dict[str, Any] | None"               = field(default=None)
     squad_source:    "str | None"                          = field(default=None)
     squad_excluded:  "tuple[SquadExcludedEntry, ...] | None" = field(default=None)
     sub_responses:   "tuple[FinalResponse, ...] | None"    = field(default=None)  # Phase 6c
@@ -1488,6 +1506,9 @@ def _extract_captain_ranking_meta(
                 role_bonus      = float(rs.get("role_bonus", 0.0)),
                 set_piece_notes = tuple(rs.get("set_piece_notes") or []),
                 owned           = bool(c.get("owned", False)),
+                player_id       = c.get("player_id"),
+                position        = str(c.get("position") or ""),
+                selected_by_percent = c.get("selected_by_percent"),
             ))
         return tuple(entries)
     except Exception:  # noqa: BLE001
@@ -2100,7 +2121,8 @@ def _extract_structured_meta(
     dict[str, Any]
         Keys match the corresponding ``FinalResponse`` field names:
         ``"comparison"``, ``"captain"``, ``"captain_ranking"``,
-        ``"pool_source"``, ``"pool_size"``, ``"squad_source"``,
+        ``"pool_source"``, ``"pool_size"``, ``"presentation"``,
+        ``"squad_source"``,
         ``"transfer"``, ``"chip"``, ``"fixture_run"``, ``"differential"``,
         ``"player_form"``, ``"injury_list"``, ``"price_changes"``,
         ``"team_calendar"``, ``"team_schedule"``, ``"position_fixture_run"``,
@@ -2115,6 +2137,7 @@ def _extract_structured_meta(
     captain_ranking:         "tuple[RankedCaptainEntry, ...] | None" = None
     pool_source:             "str | None"                         = None
     pool_size:               "int | None"                         = None
+    presentation:            "dict[str, Any] | None"              = None
     squad_source:            "str | None"                         = None
     squad_excluded:          "tuple[SquadExcludedEntry, ...] | None" = None
     transfer:                "TransferMeta | None"                = None
@@ -2141,6 +2164,7 @@ def _extract_structured_meta(
             captain_ranking = _extract_captain_ranking_meta(raw_output)
             pool_source = raw_output.get("pool_source")
             pool_size = raw_output.get("pool_size")
+            presentation = raw_output.get("presentation")
             squad_source = raw_output.get("squad_source")
             if raw_output.get("pool_source") == "derived":
                 squad_excluded = _extract_squad_excluded_meta(raw_output)
@@ -2179,6 +2203,7 @@ def _extract_structured_meta(
         "captain_ranking":      captain_ranking,
         "pool_source":          pool_source,
         "pool_size":            pool_size,
+        "presentation":         presentation,
         "squad_source":         squad_source,
         "squad_excluded":       squad_excluded,
         "transfer":             transfer,
@@ -2368,6 +2393,7 @@ def _orch_result_to_final_response(
     captain_ranking: "tuple[RankedCaptainEntry, ...] | None" = None
     pool_source:     "str | None"                            = None
     pool_size:       "int | None"                            = None
+    presentation:    "dict[str, Any] | None"                 = None
     squad_source:    "str | None"                            = None
     squad_excluded:  "tuple[SquadExcludedEntry, ...] | None" = None
     transfer:        "TransferMeta | None"                   = None
@@ -2383,6 +2409,7 @@ def _orch_result_to_final_response(
         captain_ranking = _extract_captain_ranking_meta(ro)
         pool_source = ro.get("pool_source")
         pool_size = ro.get("pool_size")
+        presentation = ro.get("presentation")
         squad_source = ro.get("squad_source")
         if ro.get("pool_source") == "derived":
             squad_excluded = _extract_squad_excluded_meta(ro)
@@ -2435,6 +2462,7 @@ def _orch_result_to_final_response(
         captain_ranking=captain_ranking,
         pool_source=pool_source,
         pool_size=pool_size,
+        presentation=presentation,
         squad_source=squad_source,
         squad_excluded=squad_excluded,
         transfer=transfer,
@@ -2843,6 +2871,7 @@ def _try_session_orchestration_response(
         captain_ranking=result.get("captain_ranking"),
         pool_source=result.get("pool_source"),
         pool_size=result.get("pool_size"),
+        presentation=result.get("presentation"),
         squad_source=result.get("squad_source"),
         squad_excluded=result.get("squad_excluded"),
         transfer=transfer,
@@ -3136,6 +3165,7 @@ def respond(
         captain_ranking=_meta["captain_ranking"],
         pool_source=_meta["pool_source"],
         pool_size=_meta["pool_size"],
+        presentation=_meta["presentation"],
         squad_source=_meta["squad_source"],
         squad_excluded=_meta["squad_excluded"],
         transfer=_meta["transfer"],

@@ -269,7 +269,11 @@ def _render_rank_captain_candidates(output: dict[str, Any], locale: Locale = DEF
             compact_reasons = explain_captain_compact(c, locale=locale)
             reason_str = "; ".join(compact_reasons) if compact_reasons else ""
 
-            line = f"{rank}. {name} ({team_s}) [{tier_s}] {score}{(' ' + sp_sfx) if sp_sfx else ''}"
+            # Position is shown because the pool is open to every position: a
+            # keeper and a forward are otherwise the same row.
+            pos_s = c.get("position", "")
+            where = f"{team_s}, {pos_s}" if pos_s else team_s
+            line = f"{rank}. {name} ({where}) [{tier_s}] {score}{(' ' + sp_sfx) if sp_sfx else ''}"
             if mark_owned and c.get("owned"):
                 line += " · tu plantilla" if locale == "es" else " · your squad"
             if reason_str:
@@ -300,27 +304,69 @@ def _render_rank_captain_candidates(output: dict[str, Any], locale: Locale = DEF
 
         from fpl_tool_contract.tools import DERIVED_CAPTAIN_POOL_LIMIT
 
-        global_entries = [
+        by_id = {
+            int(c["player_id"]): c
+            for c in ok_entries
+            if c.get("player_id") is not None
+        }
+        # The tool names which rows each list shows. Deriving that again here is
+        # how the card and the text end up disagreeing.
+        presentation = output.get("presentation") or {}
+
+        def _shown(key, fallback):
+            ids = presentation.get(key)
+            if not ids:
+                return fallback
+            return [by_id[i] for i in ids if i in by_id]
+
+        def _hipster_line(key):
+            """One extra lightly-owned name, or an honest line saying there is none."""
+            pick = presentation.get(key) or {}
+            player_id = pick.get("player_id")
+            if player_id is None:
+                return (
+                    "Sin hipster: nadie de poca propiedad llega al minimo."
+                    if locale == "es"
+                    else "No hipster: nobody lightly owned clears the bar."
+                )
+            entry = by_id.get(int(player_id))
+            if entry is None:
+                return None
+            share_value = pick.get("selected_by_percent")
+            if share_value is None:
+                share = ""
+            elif locale == "es":
+                share = f" - {share_value:.1f}% de propiedad"
+            else:
+                share = f" - owned by {share_value:.1f}%"
+            return f"Hipster: {_line(entry)}{share}"
+
+        global_entries = _shown("global_top", [
             c for c in ok_entries
             if int(c.get("rank", 0) or 0) <= DERIVED_CAPTAIN_POOL_LIMIT
-        ]
-        owned_entries = [c for c in ok_entries if c.get("owned")]
+        ])
+        owned_entries = _shown(
+            "owned_top", [c for c in ok_entries if c.get("owned")]
+        )
         squad_source = output.get("squad_source", "not_connected")
 
         body: list[str] = []
         if squad_source == "connected":
             body.append(
-                "A) Candidatos elegibles de tu plantilla (solo MID/FWD):"
+                "A) Candidatos de tu plantilla:"
                 if locale == "es"
-                else "A) Eligible candidates from your squad (MID/FWD only):"
+                else "A) Candidates from your squad:"
             )
             if owned_entries:
                 body.extend(_line(c) for c in owned_entries)
+                owned_hipster = _hipster_line("owned_hipster")
+                if owned_hipster:
+                    body.append(owned_hipster)
             else:
                 body.append(
-                    "No hay MID/FWD elegibles en tu plantilla."
+                    "No hay candidatos disponibles en tu plantilla."
                     if locale == "es"
-                    else "There are no eligible MID/FWD players in your squad."
+                    else "There are no available candidates in your squad."
                 )
         elif squad_source == "unavailable":
             body.append(
@@ -338,9 +384,6 @@ def _render_rank_captain_candidates(output: dict[str, Any], locale: Locale = DEF
         excluded = output.get("squad_excluded") or []
         if excluded:
             reason_labels = {
-                "not_eligible_position": (
-                    "posición no elegible" if locale == "es" else "ineligible position"
-                ),
                 "unavailable": "no disponible" if locale == "es" else "unavailable",
                 "unresolved": "sin resolver" if locale == "es" else "unresolved",
             }
@@ -357,6 +400,9 @@ def _render_rank_captain_candidates(output: dict[str, Any], locale: Locale = DEF
 
         body.append("B) Mejores candidatos globales:" if locale == "es" else "B) Best global candidates:")
         body.extend(_line(c, mark_owned=True) for c in global_entries)
+        global_hipster = _hipster_line("global_hipster")
+        if global_hipster:
+            body.append(global_hipster)
         return "\n".join(header + body)
 
     code    = output.get("code", "error")
