@@ -301,7 +301,11 @@ def _score_outfield_players(bootstrap: dict[str, Any]) -> list[dict[str, Any]]:
 
     for el in captain_pool_elements(bootstrap):
         try:
-            inputs = _derive_scoring_inputs(el, fdr_map)
+            inputs = _derive_scoring_inputs(
+                el,
+                fdr_map,
+                bootstrap.get("team_fixtures"),
+            )
             score  = round(
                 calculate_captain_score(
                     inputs["form"],
