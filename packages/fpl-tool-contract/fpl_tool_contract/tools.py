@@ -73,6 +73,7 @@ from fpl_tool_contract.scoring_core import (
     captain_pool_elements,
     captain_time_context,
     captain_window_needs_fixture_data,
+    derive_minutes_context,
     missing_captain_fixture_notice,
 )
 
@@ -96,7 +97,9 @@ def _derive_scoring_inputs_from_element(
     ``int(fdr_map.get(team, 3))`` crashed on).
     """
     fdr_map = bootstrap.get("fixture_difficulty_map", {})
-    return _derive_base_scoring_inputs(element, fdr_map)
+    return _derive_base_scoring_inputs(
+        element, fdr_map, bootstrap.get("team_fixtures")
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -427,6 +430,8 @@ def tool_get_captain_score(
                         "avoid" / "low_confidence"  (Phase 5m)
     ``role_signals``    Set-piece role signals dict  (Phase 5m)
     ``score_inputs``    Dict of the four inputs used
+    ``minutes_context`` Played/available minutes, starts, participation source,
+                        and explicit degradation metadata
     ``query``           The original query string
 
     Returns — status "ambiguous" / "not_found"
@@ -502,8 +507,12 @@ def tool_get_captain_score(
     # Build final scoring inputs: derived values as base, explicit values override
     if element is not None:
         derived = _derive_scoring_inputs_from_element(element, scoring_bootstrap)
+        minutes_context = derive_minutes_context(
+            element, scoring_bootstrap.get("team_fixtures")
+        )
     else:
         derived = {"form": 5.0, "fixture_difficulty": 3, "xgi_per_90": 0.30, "minutes_risk": 0.0}
+        minutes_context = None
 
     ci = {**derived, **(candidate_inputs or {})}
 
@@ -536,6 +545,7 @@ def tool_get_captain_score(
             "xgi_per_90":         xgi_per_90,
             "minutes_risk":       minutes_risk,
         },
+        "minutes_context": minutes_context,
         "time_context": time_context,
         "query": str(query),
     }
@@ -585,7 +595,7 @@ def tool_rank_captain_candidates(
                            then error/ambiguous/not_found entries.
                            Each ok entry has: rank, player_id, web_name, name,
                            team, team_short, position, captain_score,
-                           score_inputs, query, index.
+                           score_inputs, minutes_context, query, index.
                            Each non-ok entry has: status, query/message,
                            index, and an error code where applicable.
     ``total``              Number of successfully scored candidates.
@@ -742,6 +752,12 @@ def tool_rank_captain_candidates(
                 continue
             ci = c
 
+        minutes_context = (
+            derive_minutes_context(element, scoring_bootstrap.get("team_fixtures"))
+            if element is not None
+            else None
+        )
+
         form  = float(ci["form"])
         fdr   = ci["fixture_difficulty"]
         xgi   = float(ci["xgi_per_90"])
@@ -770,6 +786,7 @@ def tool_rank_captain_candidates(
                 "xgi_per_90":         xgi,
                 "minutes_risk":       risk,
             },
+            "minutes_context": minutes_context,
             "query":         str(query),
             "owned":         player_id in owned_ids,
         })
