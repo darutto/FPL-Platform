@@ -41,16 +41,18 @@ MAX_CAPTAIN_HORIZON: int = 8
 def captain_pool_elements(bootstrap: Mapping[str, Any]) -> list[dict[str, Any]]:
     """Return the deterministic global captain pool for *bootstrap*.
 
-    The product's global captain comparison means available midfielders and
-    forwards. Keeping that eligibility rule here prevents ranking and chip
-    advice from drifting. Player id is the tie-breaker, so pool order does not
-    depend on raw bootstrap element ordering.
+    Eligibility is availability, not position. People do captain a defender or
+    a keeper, and the product does not make that choice for them: four fifths of
+    the score — form, fixture and minutes — is blind to position anyway, so a
+    defender who deserves a place earns it rather than being excluded before
+    scoring. Keeping the rule here prevents ranking and chip advice from
+    drifting apart. Player id is the tie-breaker, so pool order does not depend
+    on raw bootstrap element ordering.
     """
     eligible = [
         element
         for element in bootstrap.get("elements", [])
-        if element.get("element_type") in (3, 4)
-        and element.get("status") not in ("i", "s", "u")
+        if element.get("status") not in ("i", "s", "u")
         and element.get("id") is not None
     ]
     return sorted(eligible, key=lambda element: int(element["id"]))

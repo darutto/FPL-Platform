@@ -122,7 +122,7 @@ def test_derived_rank_renderer_builds_owned_and_global_blocks(bootstrap):
     )
     text = render("rank_captain_candidates", result, locale="es")
 
-    assert "A) Candidatos elegibles de tu plantilla (solo MID/FWD):" in text
+    assert "A) Candidatos de tu plantilla:" in text
     assert "B) Mejores candidatos globales:" in text
     assert "Haaland" in text
     assert "· tu plantilla" in text
@@ -269,7 +269,7 @@ def test_future_captain_rank_clamps_squad_fetch_and_keeps_owned_block(bootstrap)
     assert result["squad_source"] == "connected"
     assert any(entry.get("owned") for entry in result["ranked_candidates"])
     text = render("rank_captain_candidates", result, locale="es")
-    assert "A) Candidatos elegibles de tu plantilla (solo MID/FWD):" in text
+    assert "A) Candidatos de tu plantilla:" in text
 
 
 def test_rank_schema_candidates_is_optional_and_description_is_truthful():

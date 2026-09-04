@@ -63,6 +63,7 @@ export default function IntentRenderer({ response }: Props) {
         data={response.captain_ranking}
         squadSource={response.squad_source}
         squadExcluded={response.squad_excluded}
+        presentation={response.presentation}
       />
     );
   }
