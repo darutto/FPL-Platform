@@ -1,6 +1,6 @@
 # Medir el proveedor, y descubrir que medía el commit equivocado
 
-2026-09-05. Tres sondas, 240 turnos pagados, ~$2,50. Salieron tres resultados
+2026-09-05. Tres sondas, 300 turnos pagados, **$2,825** reales. Salieron tres resultados
 que no esperaba y un error mío que estuvo horas en pie.
 
 ## Resumen
@@ -117,16 +117,31 @@ OpenAI: `input_tokens` de OpenAI ya incluye los cacheados
 Anthropic la fórmula es correcta —ahí van aparte, `:976`— y en Gemini es inerte.
 **La resta hay que hacerla por proveedor.**
 
-| corrida | reportado | real |
+| corrida | en disco | real |
 |---|---|---|
 | luna n=20 | $0,0796 | $0,0194 |
 | luna n=60 | $0,3513 | $0,1052 |
+| luna n=60 sin #210 | $0,2705 | $0,0659 |
+| gemini n=20 | `null` | $0,6658 |
 | gemini n=60 | $1,9687 | correcto (caché=0) |
+| **total** | **$2,6701** | **$2,8250** |
+
+**El total sube, no baja.** Las correcciones de luna restan, pero la corrida de
+Gemini de 20 turnos quedó en disco con `cost_usd: null` — corrió antes de que
+existiera su fila de precios. `null` significa desconocido, no gratis, y al
+ponerle precio aparecen $0,6658 que nunca se habían contado. Un arreglo que
+«abarata» cada corrida puede encarecer el total, y conviene decirlo antes de que
+alguien lea la contradicción.
+
+Los artefactos pagados **no se reescribieron**: las filas conservan su `cost_usd`
+tal como se escribió, y lo de arriba es recálculo desde los tokens por fila. Para
+eso sirve guardarlos.
 
 Sesgo conservador —nunca subestima—, así que nadie se quedó corto de
 presupuesto. Pero infla justo el brazo que más cachea, y hoy eso torció una
 comparación de calidad-por-coste. También infla el $0,9357 registrado en i38.
-Encargo pasado al chat de #212.
+ARREGLADO en el commit 38f4713 de PR #212: la resta va por proveedor
+(`CACHE_READ_INCLUDED_IN_INPUT`), Anthropic sigue sumando y Gemini es inerte.
 
 ## Lo que se lleva a las cartas
 
