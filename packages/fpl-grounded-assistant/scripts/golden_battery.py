@@ -27,7 +27,14 @@ Guarantees the runner enforces, each from a specific failure already paid for
     max_tokens, temperature and reps. Two people must not be able to run "the
     same" battery against a different answer space.
 *   **Cost is estimated and confirmed before spending**, and the exact planned
-    call count is printed.
+    call count is printed. The per-call estimate was measured on one model, so
+    it is offered only for that model; for any other the pre-spend line says the
+    estimate is unknown and the report's cost is reported as unknown rather than
+    computed from a tariff that does not apply.
+*   **The API key follows the provider.** ``--provider gemini`` requires
+    GOOGLE_API_KEY, not OPENAI_API_KEY -- the same mapping production uses in
+    ``harness.py::_build_eval_client``. A flag that is accepted and then
+    ignored, or that demands a key it will not use, is the i56 pattern.
 *   **The corpus is preflighted offline before a cent is spent.** Every pinned
     player and team is resolved against the bootstrap; expired ones abort the
     run by name. Stale cases do not merely lose data, they manufacture
@@ -62,8 +69,12 @@ import golden_axes as axes_mod  # noqa: E402
 import golden_preflight as preflight  # noqa: E402
 
 #: Mean cost per call over the i41 run (84 calls, $0.367) on gpt-5.6-luna.
-#: Only used for the pre-spend estimate; the report prints real spend.
+#: Only used for the pre-spend estimate; the report prints real spend. It is a
+#: measurement of ONE model, so it is offered only when that model is the one
+#: being run -- a per-call figure from another tariff is not an estimate, it is
+#: a wrong number wearing a dollar sign.
 EST_USD_PER_CALL = 0.0044
+EST_REFERENCE_MODEL = "gpt-5.6-luna"
 
 
 class _ProviderEventCapture(logging.Handler):
@@ -125,6 +136,7 @@ def _markdown_report(
     spend: float,
     exceptions: int,
     stale: "list[preflight.StaleCase] | None" = None,
+    spend_line: str | None = None,
 ) -> str:
     lines = [
         f"# Golden battery — {header['model']}",
@@ -144,7 +156,8 @@ def _markdown_report(
         f"| distinct cases | {header['cases']} |",
         f"| calls | {header['calls']} |",
         f"| stale cases excluded | {header.get('stale_excluded', 0)} |",
-        f"| spend USD | {spend:.4f} |",
+        f"| spend USD | {spend_line or f'{spend:.4f}'} |",
+        f"| pricing basis | {header.get('pricing_basis', 'unrecorded')} |",
         f"| run at | {header['run_at']} |",
         "",
         "| axis | kind | result | threshold | verdict | excluded | reference |",
@@ -211,8 +224,14 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--out", required=True, help="JSONL observations path")
     ap.add_argument("--report", default=None, help="markdown report path")
     ap.add_argument("--bootstrap", default=str(base.DEFAULT_BOOTSTRAP))
-    ap.add_argument("--provider", default=base.PROVIDER)
-    ap.add_argument("--model", default=base.MODEL)
+    ap.add_argument("--provider", default=base.PROVIDER,
+                    choices=sorted(base.API_KEY_ENV_BY_PROVIDER),
+                    help="LLM provider (default: %(default)s); also selects "
+                         "which API key env var is required")
+    ap.add_argument("--model", default=base.MODEL,
+                    help="model id (default: %(default)s); one with no entry in "
+                         "measure_tool_routing.PRICING_PER_1M_BY_MODEL runs "
+                         "with its cost reported as unknown")
     ap.add_argument("--max-tokens", type=int, default=1024)
     ap.add_argument("--yes", action="store_true", help="skip the cost confirmation")
     ap.add_argument("--allow-stale", action="store_true",
@@ -227,11 +246,9 @@ def main(argv: list[str] | None = None) -> int:
     # and not silently ignored.
     base.PROVIDER, base.MODEL = args.provider, args.model
 
-    import os
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
-        print("OPENAI_API_KEY not set; aborting before any paid call.", file=sys.stderr)
-        return 2
+    # Provider-aware: gemini needs GOOGLE_API_KEY, not OPENAI_API_KEY. Same
+    # mapping production uses (harness.py::_build_eval_client).
+    api_key = base.require_api_key(args.provider)
 
     plan = _plan(args.tier)
     bootstrap_path = Path(args.bootstrap)
@@ -264,6 +281,12 @@ def main(argv: list[str] | None = None) -> int:
         "bootstrap_name": bootstrap_path.name,
         "bootstrap_sha256": _sha256(bootstrap_path),
         "cases": len(plan), "calls": calls,
+        "pricing_basis": (
+            f"`{args.model}` per-1M rates"
+            if args.model in base.PRICING_PER_1M_BY_MODEL
+            else f"**none — `{args.model}` is not priced; cost is reported as "
+                 f"unknown, never estimated at another model's rates**"
+        ),
         "stale_excluded": len(stale_ids),
         "run_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
@@ -271,8 +294,14 @@ def main(argv: list[str] | None = None) -> int:
     print(f"\ngolden battery — tier={args.tier}  model={args.model}  provider={args.provider}")
     print(f"  {len(plan)} distinct cases x {args.reps} reps = {calls} calls")
     print(f"  bootstrap {bootstrap_path.name} sha256={header['bootstrap_sha256'][:16]}...")
-    print(f"  estimated spend ~${calls * EST_USD_PER_CALL:.2f} "
-          f"(at ${EST_USD_PER_CALL}/call, measured on i41)")
+    if args.model == EST_REFERENCE_MODEL:
+        print(f"  estimated spend ~${calls * EST_USD_PER_CALL:.2f} "
+              f"(at ${EST_USD_PER_CALL}/call, measured on i41)")
+    else:
+        print(f"  estimated spend UNKNOWN for {args.model}: the "
+              f"${EST_USD_PER_CALL}/call figure was measured on "
+              f"{EST_REFERENCE_MODEL} and does not transfer. "
+              f"{calls} paid calls are planned.")
     if not args.yes:
         if input("  proceed? [y/N] ").strip().lower() not in ("y", "yes"):
             print("  aborted before spending.")
@@ -300,9 +329,10 @@ def main(argv: list[str] | None = None) -> int:
                 observations.append(obs)
                 fh.write(json.dumps(obs, ensure_ascii=False) + "\n")
                 fh.flush()
-                spend += obs["cost_usd"]
+                spend += obs["cost_usd"] or 0.0
             if idx % 10 == 0 or idx == len(plan):
-                print(f"  {idx}/{len(plan)} cases, ${spend:.4f}", file=sys.stderr)
+                print(f"  {idx}/{len(plan)} cases, "
+                      f"{base.format_spend(observations)}", file=sys.stderr)
 
     _verify_provider(capture.events, args.provider, args.model)
 
@@ -316,7 +346,8 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     report = _markdown_report(header, results, accepted, verdict, spend,
-                              exceptions, stale)
+                              exceptions, stale,
+                              spend_line=base.format_spend(observations))
     print("\n" + report)
     if args.report:
         Path(args.report).write_text(report, encoding="utf-8")
