@@ -1026,6 +1026,18 @@
         "Medicion",
         "FPL Asistente"
       ]
+    },
+    {
+      "id": "i67",
+      "col": "idea",
+      "progress": 25,
+      "title": "Un chip de desambiguacion puede decir «Salah ()»",
+      "desc": "EL PROBLEMA. Cuando dos jugadores comparten nombre, el sistema ofrece chips para que elijas. La etiqueta se arma como «nombre (equipo)». Pero cada herramienta devuelve los empatados con su propia forma, y una de ellas manda el numero del equipo en vez de sus tres letras. El chip sale con el parentesis vacio.\n\nVERIFICADO EN MAIN el 2026-09-05:\n  · suggestions.py:220 arma la etiqueta con team_short.\n  · get_player_season_points.py:205 devuelve candidatos con team_id. -> «Salah ()»\n  · player_form.py:437 es peor: devuelve el ambiguo PELADO, sin candidatos. No puede armar ningun chip, asi que la conversacion muere en «aclara a quien te refieres».\n\nHAY TRABAJO HECHO, a medias y sin fusionar, en la rama fix/compound-player-name-resolution (a80e8c1, empujada). Anade candidate_dicts() a fpl_player_registry/resolution.py: un constructor UNICO que devuelve los empatados con los tres campos que el chip lee. La idea es que ninguna herramienta vuelva a inventarse su propia forma.\n\nNO SE FUSIONA TAL CUAL. Su commit base esta desfasado: cuatro ficheros que main ya resolvio por otro camino en PR #149. Hay que rebasar sobre origin/main y quedarse solo con candidate_dicts y sus llamantes. Sin tests, sin verificar.\n\nNO CONFUNDIR con [[project_compound_name_regression]]: #149 arreglo que «Bruno Fernandes» dejara de resolver mal, que es otra cosa. Esto es la FORMA de los candidatos cuando el empate ya se detecto. Media hora de trabajo, no un dia.\n\nPertenece a la familia de [[i16]] y de la auditoria de retornos ambiguos.",
+      "tags": [
+        "Backend",
+        "UX",
+        "FPL Asistente"
+      ]
     }
   ]
 }
