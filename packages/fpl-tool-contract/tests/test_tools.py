@@ -306,15 +306,18 @@ class TestRankCaptainCandidatesPool:
 
     def test_derived_pool_is_capped_at_12(self, bootstrap):
         from fpl_tool_contract import tool_rank_captain_candidates
+        from fpl_tool_contract.scoring_core import captain_pool_elements
 
-        result = tool_rank_captain_candidates(
-            None, self._large_pool_bootstrap(bootstrap)
-        )
+        expanded = self._large_pool_bootstrap(bootstrap)
+        result = tool_rank_captain_candidates(None, expanded)
 
         assert result["pool_source"] == "derived"
         assert len(result["ranked_candidates"]) <= 12
         assert result["total"] == 12
-        assert result["pool_size"] == 24
+        # pool_size is the pool before the output cap, so it tracks whoever is
+        # eligible rather than a number written down once.
+        assert result["pool_size"] == len(captain_pool_elements(expanded))
+        assert result["pool_size"] > 12
 
     def test_explicit_pool_is_not_capped(self, bootstrap):
         from fpl_tool_contract import tool_rank_captain_candidates
@@ -422,12 +425,14 @@ class TestRankCaptainCandidatesPool:
             if entry.get("status") == "ok" and entry.get("owned")
         ]
 
-        assert len(ranked_owned) == 8
-        assert len(result["squad_excluded"]) == 7
+        # Position is no longer a reason to exclude anyone, so all fifteen are
+        # evaluated. The accounting invariant is what matters and it still
+        # holds: every owned player is either ranked or excluded, never both
+        # and never neither.
+        assert len(ranked_owned) == 15
+        assert result["squad_excluded"] == []
         assert len(ranked_owned) + len(result["squad_excluded"]) == 15
-        assert {
-            entry["reason"] for entry in result["squad_excluded"]
-        } == {"not_eligible_position"}
+        assert {entry["position"] for entry in ranked_owned} == {"GKP", "DEF", "MID", "FWD"}
 
     def test_owned_player_resolution_failure_is_recorded(self, bootstrap, monkeypatch):
         import fpl_tool_contract.tools as tools_module
@@ -514,6 +519,30 @@ class TestCaptaincyTemporalWindow:
         assert result["time_context"]["source"] == "current"
         assert result["time_context"]["evaluated_gameweek"] == 28
         assert "current gameweek GW28" in result["time_context"]["notice"]
+
+    def test_finished_current_event_yields_upcoming_gameweek(self, bootstrap):
+        """Captain scoring must not repeat the stale-current resolver bug."""
+        from fpl_tool_contract.scoring_core import captain_time_context
+
+        bs = copy.deepcopy(bootstrap)
+        bs["events"][1]["finished"] = True
+
+        result = captain_time_context(bs)
+
+        assert result["current_gameweek"] == 29
+        assert result["evaluated_gameweek"] == 29
+
+    def test_finished_events_leave_no_actionable_gameweek(self, bootstrap):
+        from fpl_tool_contract.scoring_core import captain_time_context
+
+        bs = copy.deepcopy(bootstrap)
+        for event in bs["events"]:
+            event["finished"] = True
+
+        result = captain_time_context(bs)
+
+        assert result["current_gameweek"] is None
+        assert result["evaluated_gameweek"] is None
 
     def test_requested_gameweek_changes_fixture_score(self, bootstrap):
         from fpl_tool_contract import tool_get_captain_score
@@ -642,3 +671,174 @@ class TestPublicSurface:
         assert len(pkg.__all__) == 5
 
 
+
+
+class TestOpenPoolAndPresentation:
+    """Position no longer gates the pool, and the shown lists are a view."""
+
+    @staticmethod
+    def _pool_with_owner(bootstrap):
+        expanded = copy.deepcopy(bootstrap)
+        template = next(
+            element
+            for element in expanded["elements"]
+            if element.get("status") == "a"
+        )
+        squad_ids = []
+        # A keeper and a defender the user owns, plus enough scored players to
+        # fill both lists past their presentation limits.
+        for offset, (element_type, form, owned, selected) in enumerate([
+            (1, "6.0", True, "31.0"),
+            (2, "7.0", True, "24.0"),
+            (3, "8.0", True, "2.1"),
+            (4, "9.0", True, "48.0"),
+            (3, "9.5", False, "1.4"),
+            (4, "8.5", False, "55.0"),
+            (2, "8.2", False, "12.0"),
+        ]):
+            player = copy.deepcopy(template)
+            player_id = 30_000 + offset
+            player.update({
+                "id": player_id,
+                "first_name": "Open",
+                "second_name": f"Player {offset}",
+                "web_name": f"Open{offset}",
+                "element_type": element_type,
+                "status": "a",
+                "form": form,
+                "selected_by_percent": selected,
+            })
+            expanded["elements"].append(player)
+            if owned:
+                squad_ids.append(player_id)
+        return expanded, squad_ids
+
+    def test_keepers_and_defenders_reach_the_ranking_with_their_position(
+        self, bootstrap
+    ):
+        from fpl_tool_contract import tool_rank_captain_candidates
+
+        expanded, squad_ids = self._pool_with_owner(bootstrap)
+        result = tool_rank_captain_candidates(
+            None, expanded, squad_player_ids=squad_ids
+        )
+
+        positions = {
+            entry["position"]
+            for entry in result["ranked_candidates"]
+            if entry.get("status") == "ok"
+        }
+        assert {"GKP", "DEF"} & positions
+        assert all(
+            entry["reason"] != "not_eligible_position"
+            for entry in result["squad_excluded"]
+        )
+
+    def test_presentation_names_short_lists_without_shortening_the_payload(
+        self, bootstrap
+    ):
+        from fpl_tool_contract import tool_rank_captain_candidates
+        from fpl_tool_contract.tools import (
+            GLOBAL_LIST_LIMIT,
+            OWNED_LIST_LIMIT,
+        )
+
+        expanded, squad_ids = self._pool_with_owner(bootstrap)
+        result = tool_rank_captain_candidates(
+            None, expanded, squad_player_ids=squad_ids
+        )
+        presentation = result["presentation"]
+        ok_ids = [
+            entry["player_id"]
+            for entry in result["ranked_candidates"]
+            if entry.get("status") == "ok"
+        ]
+
+        assert len(presentation["owned_top"]) <= OWNED_LIST_LIMIT
+        assert len(presentation["global_top"]) <= GLOBAL_LIST_LIMIT
+        # The lists name entries; they never remove any.
+        assert set(presentation["owned_top"]) <= set(ok_ids)
+        assert set(presentation["global_top"]) <= set(ok_ids)
+        assert len(ok_ids) > len(presentation["global_top"])
+
+    def test_hipster_is_the_least_owned_player_that_clears_the_floor(
+        self, bootstrap
+    ):
+        from fpl_tool_contract import tool_rank_captain_candidates
+        from fpl_tool_contract.tools import (
+            HIPSTER_MAX_MINUTES_RISK,
+            HIPSTER_MIN_SCORE,
+        )
+
+        expanded, squad_ids = self._pool_with_owner(bootstrap)
+        result = tool_rank_captain_candidates(
+            None, expanded, squad_player_ids=squad_ids
+        )
+        by_id = {
+            entry["player_id"]: entry
+            for entry in result["ranked_candidates"]
+            if entry.get("status") == "ok"
+        }
+
+        for key, shown, owned_only in (
+            ("global_hipster", "global_top", False),
+            ("owned_hipster", "owned_top", True),
+        ):
+            hipster = result["presentation"][key]
+            if hipster["player_id"] is None:
+                assert hipster["reason"] == "no_candidate_clears_floor"
+                continue
+            pick = by_id[hipster["player_id"]]
+            # Not already on show, and good enough to be worth suggesting.
+            assert hipster["player_id"] not in result["presentation"][shown]
+            assert pick["captain_score"] >= HIPSTER_MIN_SCORE
+            assert pick["score_inputs"]["minutes_risk"] <= HIPSTER_MAX_MINUTES_RISK
+            # Least owned among everyone else who also cleared the floor.
+            rivals = [
+                entry for entry in by_id.values()
+                if entry["player_id"] not in result["presentation"][shown]
+                and (entry["owned"] if owned_only else True)
+                and entry["selected_by_percent"] is not None
+                and entry["captain_score"] >= HIPSTER_MIN_SCORE
+                and entry["score_inputs"]["minutes_risk"] <= HIPSTER_MAX_MINUTES_RISK
+            ]
+            assert pick["selected_by_percent"] == min(
+                entry["selected_by_percent"] for entry in rivals
+            )
+
+    def test_no_hipster_is_said_rather_than_filled_with_a_weak_player(
+        self, bootstrap
+    ):
+        from fpl_tool_contract.tools import _pick_hipster
+
+        below_floor = [{
+            "status": "ok",
+            "player_id": 1,
+            "captain_score": 10.0,
+            "selected_by_percent": 0.1,
+            "score_inputs": {"minutes_risk": 0.0},
+        }]
+
+        assert _pick_hipster(below_floor, set()) == {
+            "player_id": None,
+            "reason": "no_candidate_clears_floor",
+        }
+
+    def test_unparseable_ownership_never_wins_the_hipster_slot(self):
+        from fpl_tool_contract.tools import _pick_hipster
+
+        entries = [
+            {
+                "status": "ok", "player_id": 1, "captain_score": 60.0,
+                "selected_by_percent": None,
+                "score_inputs": {"minutes_risk": 0.0},
+            },
+            {
+                "status": "ok", "player_id": 2, "captain_score": 60.0,
+                "selected_by_percent": 9.0,
+                "score_inputs": {"minutes_risk": 0.0},
+            },
+        ]
+
+        # A missing ownership figure is not "nobody owns him".
+        assert _pick_hipster(entries, set())["player_id"] == 2

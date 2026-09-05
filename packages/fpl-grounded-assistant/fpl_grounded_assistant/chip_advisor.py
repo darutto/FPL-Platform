@@ -27,10 +27,8 @@ triple_captain:
     Unfavorable (score < 55): no standout option this week.
 
 wildcard:
-    Grounded in current gameweek timing.
-    Unfavorable (GW <= 6): too early -- save for when squad issues accumulate.
-    Marginal    (GW 7-28): viable mid-season window; depends on squad state.
-    Unfavorable (GW >= 29): late season -- few gameweeks remain to benefit.
+    Grounded in timing within the active bootstrap ``chips[]`` window.
+    The start and expiry events are data, never season constants.
 
 bench_boost:
     Grounded in average fixture difficulty (FDR) for top outfield players.
@@ -73,6 +71,7 @@ from fpl_tool_contract.scoring_core import (
 )
 from fpl_tool_contract import tool_get_captain_score
 
+from .captain_factors import TRIPLE_CAPTAIN_RISK_NOTE, factor_phrases
 from .scoring_shared import _derive_scoring_inputs
 from .fixture_context import build_fixture_context  # FI3a: additive fixture context
 
@@ -104,11 +103,11 @@ _TC_FAVORABLE_THRESHOLD: float = 75.0
 #: Top captain score >= this → TC is defensible ("conditions_marginal")
 _TC_MARGINAL_THRESHOLD: float = 55.0
 
-#: GW <= this → too early to wildcard
+#: Number of window-edge gameweeks treated as early/late for wildcard timing.
+#: Kept under the historical names because phase scripts import them directly;
+#: both are now relative spans, not absolute gameweek cutoffs.
 _WC_EARLY_CUTOFF: int = 6
-
-#: GW >= this → late season, limited value from wildcard
-_WC_LATE_CUTOFF: int = 29
+_WC_LATE_CUTOFF: int = _WC_EARLY_CUTOFF
 
 #: Average FDR for top 10 outfield players <= this → BB favorable
 _BB_FAVORABLE_FDR: float = 2.5
@@ -126,6 +125,82 @@ _FH_DGW_MARGINAL_TEAMS: int = 1
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+_BOOTSTRAP_CHIP_NAMES: dict[str, str] = {
+    CHIP_TRIPLE_CAPTAIN: "3xc",
+    CHIP_WILDCARD: "wildcard",
+    CHIP_BENCH_BOOST: "bboost",
+    CHIP_FREE_HIT: "freehit",
+}
+
+
+def _chip_window_context(
+    chip: str,
+    bootstrap: dict[str, Any],
+    gameweek: int | None,
+) -> dict[str, Any]:
+    """Resolve a chip's active API window, or describe why it is unavailable.
+
+    ``gameweeks_remaining`` includes the evaluated gameweek because it is still
+    an opportunity to play the chip. Malformed or absent window data never
+    falls back to assumed season boundaries.
+    """
+    unavailable = {
+        "window_status": "unavailable",
+        "active_window": None,
+        "gameweeks_remaining": None,
+        "window_notice": "Chip window data is unavailable; expiry could not be determined.",
+    }
+    if gameweek is None:
+        return unavailable
+
+    raw_chips = bootstrap.get("chips")
+    api_name = _BOOTSTRAP_CHIP_NAMES.get(chip)
+    if not isinstance(raw_chips, list) or api_name is None:
+        return unavailable
+
+    matching = [
+        entry for entry in raw_chips
+        if isinstance(entry, dict) and entry.get("name") == api_name
+    ]
+    if not matching:
+        return unavailable
+
+    windows: list[tuple[int, int]] = []
+    for entry in matching:
+        try:
+            start = int(entry["start_event"])
+            stop = int(entry["stop_event"])
+        except (KeyError, TypeError, ValueError):
+            return unavailable
+        if start < 1 or stop < start:
+            return unavailable
+        windows.append((start, stop))
+
+    for start, stop in sorted(windows):
+        if start <= gameweek <= stop:
+            remaining = stop - gameweek + 1
+            return {
+                "window_status": "active",
+                "active_window": {
+                    "start_event": start,
+                    "stop_event": stop,
+                },
+                "gameweeks_remaining": remaining,
+                "window_notice": (
+                    f"Active chip window: GW{start}-GW{stop}; "
+                    f"{remaining} gameweek(s) remain including GW{gameweek}."
+                ),
+            }
+
+    return {
+        "window_status": "inactive",
+        "active_window": None,
+        "gameweeks_remaining": 0,
+        "window_notice": (
+            f"No configured {chip.replace('_', ' ')} window includes GW{gameweek}."
+        ),
+    }
 
 def _get_current_gameweek(bootstrap: dict[str, Any]) -> int | None:
     """Return the current-or-next GW id from bootstrap events, or None.
@@ -212,8 +287,13 @@ def _classify_gameweek_type(
     return ("normal", [], 0, [], 0)
 
 
+#: The captain pool is open to every position, so a two-entry map would leave
+#: defenders and keepers unlabelled.
+_POSITION_BY_ELEMENT_TYPE = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
+
+
 def _score_outfield_players(bootstrap: dict[str, Any]) -> list[dict[str, Any]]:
-    """Score all available MID/FWD players and return a list sorted by score desc.
+    """Score every available player and return a list sorted by score desc.
 
     Uses ``calculate_captain_score`` from fpl_captain_engine with the same
     ``_derive_scoring_inputs`` helper used by transfer advice and comparison.
@@ -227,7 +307,11 @@ def _score_outfield_players(bootstrap: dict[str, Any]) -> list[dict[str, Any]]:
 
     for el in captain_pool_elements(bootstrap):
         try:
-            inputs = _derive_scoring_inputs(el, fdr_map)
+            inputs = _derive_scoring_inputs(
+                el,
+                fdr_map,
+                bootstrap.get("team_fixtures"),
+            )
             score  = round(
                 calculate_captain_score(
                     inputs["form"],
@@ -253,8 +337,12 @@ def _score_outfield_players(bootstrap: dict[str, Any]) -> list[dict[str, Any]]:
                 "fdr":           inputs["fixture_difficulty"],
                 # FI3a: carry the bits the fixture bridge needs for the top pick.
                 "team_id":       el.get("team"),
-                "position":      {3: "MID", 4: "FWD"}.get(el.get("element_type"), ""),
+                "position":      _POSITION_BY_ELEMENT_TYPE.get(el.get("element_type"), ""),
                 "dc_per_90":     float(el.get("defensive_contribution_per_90", 0) or 0),
+                # Carried so the advice can show the factor instead of only the
+                # number it produced.
+                "minutes_context": inputs.get("minutes_context"),
+                "penalties_order": el.get("penalties_order"),
             })
         except Exception:   # noqa: BLE001
             continue
@@ -333,6 +421,8 @@ def _advise_triple_captain(
             "web_name": scored_player["web_name"],
             "captain_score": scored_player["captain_score"],
             "tier": scored_player["tier"],
+            "minutes_context": scored_player.get("minutes_context"),
+            "penalties_order": evaluated_element.get("penalties_order"),
             "team_id": evaluated_element.get("team"),
             "position": scored_player["position"],
             "dc_per_90": float(
@@ -397,20 +487,43 @@ def _advise_triple_captain(
         dc_per_90=evaluated.get("dc_per_90"),
     )
 
+    # The factors sit beside the score, not inside it. Someone told only
+    # "your candidate 71.1, best available 82.2" cannot see that his pick plays
+    # every minute and takes the penalties.
+    top_factors = factor_phrases(top, locale="en")
+    evaluated_factors = (
+        factor_phrases(evaluated, locale="en") if evaluated_player is not None else []
+    )
+    factor_sentences = ""
+    if evaluated_factors:
+        factor_sentences += f" {evaluated_name}: {'; '.join(evaluated_factors)}."
+    if top_factors and top_name != evaluated_name:
+        factor_sentences += f" {top_name}: {'; '.join(top_factors)}."
+
     return {
         "recommendation": recommendation,
         "signals": {
             "top_player":        top_name,
             "top_captain_score": top_score,
             "top_tier":          top_tier,
+            "top_factors":       top_factors,
+            "triple_captain_risk_note": TRIPLE_CAPTAIN_RISK_NOTE["en"],
+            # The card and the Spanish prose read these; advice_text above
+            # stays English like the rest of the signals text.
+            "top_factors_es":    factor_phrases(top, locale="es"),
+            "triple_captain_risk_note_es": TRIPLE_CAPTAIN_RISK_NOTE["es"],
             **({
                 "evaluated_player": evaluated_name,
                 "evaluated_captain_score": evaluated_score,
                 "evaluated_tier": evaluated_tier,
+                "evaluated_factors": evaluated_factors,
+                "evaluated_factors_es": factor_phrases(evaluated, locale="es"),
             } if evaluated_player is not None else {}),
         },
         "advice_text": (
             f"Triple captain conditions: {label}. {phrase}"
+            f"{factor_sentences}"
+            f" {TRIPLE_CAPTAIN_RISK_NOTE['en']}"
             f"{_availability_note(squad_context)}"
         ),
         "fixture_context": fixture_context,   # FI3a (additive; TC only)
@@ -420,22 +533,38 @@ def _advise_triple_captain(
 def _advise_wildcard(
     bootstrap: dict[str, Any],
     current_gw: int,
+    window_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Compute wildcard conditions from gameweek timing."""
-    if current_gw <= _WC_EARLY_CUTOFF:
-        recommendation = "conditions_unfavorable"
-        label  = "unfavorable"
+    """Compute wildcard conditions from timing inside its active window."""
+    window_context = window_context or {
+        "window_status": "unavailable",
+        "active_window": None,
+        "gameweeks_remaining": None,
+    }
+    active_window = window_context.get("active_window")
+    remaining = window_context.get("gameweeks_remaining")
+
+    if window_context.get("window_status") != "active" or not isinstance(active_window, dict):
+        recommendation = "conditions_marginal"
+        label = "marginal"
         phrase = (
-            f"It is early in the season (GW{current_gw}). "
-            "Playing the wildcard this early limits your ability to react "
-            "to injuries and fixture swings later in the season."
+            f"The wildcard window for GW{current_gw} could not be established. "
+            "Use squad needs and fixture changes, and confirm the chip expiry before acting."
         )
-    elif current_gw >= _WC_LATE_CUTOFF:
+    elif current_gw - int(active_window["start_event"]) < _WC_EARLY_CUTOFF:
         recommendation = "conditions_unfavorable"
         label  = "unfavorable"
         phrase = (
-            f"It is late in the season (GW{current_gw}). "
-            "Few gameweeks remain to benefit from a full wildcard rebuild."
+            f"It is early in the active wildcard window (GW{current_gw}). "
+            "Playing the wildcard this early limits your ability to react "
+            "to injuries and fixture swings later in this window."
+        )
+    elif isinstance(remaining, int) and remaining <= _WC_LATE_CUTOFF:
+        recommendation = "conditions_unfavorable"
+        label  = "unfavorable"
+        phrase = (
+            f"It is late in the active wildcard window (GW{current_gw}). "
+            f"Only {remaining} gameweek(s) remain to benefit from a full wildcard rebuild."
         )
     else:
         recommendation = "conditions_marginal"
@@ -450,8 +579,8 @@ def _advise_wildcard(
         "recommendation": recommendation,
         "signals": {
             "current_gameweek": current_gw,
-            "early_cutoff":     _WC_EARLY_CUTOFF,
-            "late_cutoff":      _WC_LATE_CUTOFF,
+            "active_window": active_window,
+            "gameweeks_remaining": remaining,
         },
         "advice_text": (
             f"Wildcard conditions: {label}. {phrase} "
@@ -680,6 +809,10 @@ def get_chip_advice(
         evaluated_gameweek  int | None
         recommendation  "conditions_favorable" | "conditions_marginal" |
                         "conditions_unfavorable" | "missing_context"
+        window_status   "active" | "inactive" | "unavailable"
+        active_window   {start_event, stop_event} | None
+        gameweeks_remaining  int | None, inclusive of evaluated_gameweek
+        window_notice   human-readable expiry/degradation context
         signals         chip-specific deterministic signal dict
         advice_text     human-readable recommendation string
 
@@ -701,6 +834,10 @@ def get_chip_advice(
     except ValueError as exc:
         return {"status": "error", "code": "invalid_argument", "message": str(exc)}
 
+    window_context = _chip_window_context(
+        chip, bootstrap, time_context["evaluated_gameweek"]
+    )
+
     if captain_window_needs_fixture_data(time_context, fixture_source):
         time_context["notice"] = missing_captain_fixture_notice(time_context)
         return {
@@ -713,9 +850,10 @@ def get_chip_advice(
             "signals": {},
             "advice_text": (
                 f"{time_context['notice']} Future team fixtures "
-                "are not available in bootstrap."
+                f"are not available in bootstrap. {window_context['window_notice']}"
             ),
             "fixture_context": None,
+            **window_context,
         }
 
     current_gw = time_context["current_gameweek"]
@@ -744,7 +882,9 @@ def get_chip_advice(
                 ),
             }
         else:
-            result = _advise_wildcard(window_bootstrap, evaluated_gw)
+            result = _advise_wildcard(
+                window_bootstrap, evaluated_gw, window_context
+            )
     elif chip == CHIP_BENCH_BOOST:
         result = _advise_bench_boost(window_bootstrap)
     elif chip == CHIP_FREE_HIT:
@@ -760,6 +900,7 @@ def get_chip_advice(
             "recommendation":   "unsupported",
             "signals":          {},
             "advice_text":      f"'{chip}' is not a recognised FPL chip name.",
+            **window_context,
         }
 
     return {
@@ -770,7 +911,11 @@ def get_chip_advice(
         "time_context":      time_context,
         "recommendation":   result["recommendation"],
         "signals":          result["signals"],
-        "advice_text":      f"{time_context['notice']} {result['advice_text']}",
+        "advice_text":      (
+            f"{time_context['notice']} {result['advice_text']} "
+            f"{window_context['window_notice']}"
+        ),
+        **window_context,
         # FI3a: additive — populated only for triple_captain (top captain's
         # attack-axis outlook); None for the other chips.
         "fixture_context":  result.get("fixture_context"),
@@ -833,7 +978,9 @@ CHIP_ADVICE_SPEC = ToolSpec(
     output_schema={
         "type": "object",
         "required": ["status", "chip", "current_gameweek",
-                     "recommendation", "signals", "advice_text"],
+                     "recommendation", "window_status", "active_window",
+                     "gameweeks_remaining", "window_notice", "signals",
+                     "advice_text"],
         "properties": {
             "status": {
                 "type": "string",
@@ -841,6 +988,20 @@ CHIP_ADVICE_SPEC = ToolSpec(
             },
             "chip": {"type": "string"},
             "current_gameweek": {"type": ["integer", "null"]},
+            "window_status": {
+                "type": "string",
+                "enum": ["active", "inactive", "unavailable"],
+            },
+            "active_window": {
+                "type": ["object", "null"],
+                "properties": {
+                    "start_event": {"type": "integer"},
+                    "stop_event": {"type": "integer"},
+                },
+                "required": ["start_event", "stop_event"],
+            },
+            "gameweeks_remaining": {"type": ["integer", "null"]},
+            "window_notice": {"type": "string"},
             "recommendation": {
                 "type": "string",
                 "enum": [

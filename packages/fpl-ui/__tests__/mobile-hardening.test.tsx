@@ -56,20 +56,20 @@ describe('RankingTable — name cell truncation', () => {
         data={ranking}
         squadSource="connected"
         squadExcluded={[
-          { player_id: 98, web_name: 'Portero', status: 'a', reason: 'not_eligible_position' },
           { player_id: 99, web_name: 'Lesionado', status: 'i', reason: 'unavailable' },
+          { player_id: 98, web_name: 'Fantasma', status: 'a', reason: 'unresolved' },
         ]}
       />,
     );
 
     expect(
-      screen.getByText('A) Candidatos elegibles de tu plantilla (solo MID/FWD)'),
+      screen.getByText('A) Candidatos de tu plantilla'),
     ).toBeInTheDocument();
     expect(screen.getByText('B) Mejores candidatos globales')).toBeInTheDocument();
     expect(screen.getByText('TUYO')).toBeInTheDocument();
     expect(
       screen.getByText(
-        'No evaluados para capitanía: Portero (posición no elegible), Lesionado (no disponible).',
+        'No evaluados para capitanía: Lesionado (no disponible), Fantasma (sin resolver).',
       ),
     ).toBeInTheDocument();
   });
@@ -83,7 +83,7 @@ describe('RankingTable — name cell truncation', () => {
     );
 
     expect(
-      screen.queryByText('A) Candidatos elegibles de tu plantilla (solo MID/FWD)'),
+      screen.queryByText('A) Candidatos de tu plantilla'),
     ).not.toBeInTheDocument();
     expect(screen.getByText('B) Mejores candidatos globales')).toBeInTheDocument();
     expect(
@@ -192,7 +192,8 @@ describe('ChipCard — header row shrinks around the recommendation pill', () =>
     render(<ChipCard data={data} />);
 
     expect(screen.getByText('Puntuación de capitán · Haaland')).toBeInTheDocument();
-    expect(screen.getByText('Mejor disponible: Cherki')).toBeInTheDocument();
+    // The alternative's name is its own element now, so match on content.
+    expect(screen.getByText(/Mejor disponible:/)).toHaveTextContent('Cherki');
   });
 
 });

@@ -73,10 +73,92 @@ from fpl_tool_contract.scoring_core import (
     captain_pool_elements,
     captain_time_context,
     captain_window_needs_fixture_data,
+    derive_minutes_context,
     missing_captain_fixture_notice,
 )
 
 DERIVED_CAPTAIN_POOL_LIMIT = 12
+
+#: How many ranked entries each presented list shows before its hipster.
+OWNED_LIST_LIMIT = 3
+GLOBAL_LIST_LIMIT = 5
+
+#: Floor a low-owned player must clear to be offered as a hipster. Without it
+#: "least owned" just returns the worst player on the list, which is the
+#: opposite of the ask. These bound who is eligible to be shown; they are not
+#: scoring terms and never enter the formula.
+HIPSTER_MIN_SCORE = 45.0
+HIPSTER_MAX_MINUTES_RISK = 25.0
+
+
+def _selected_by_percent(element: dict[str, Any] | None) -> float | None:
+    """Ownership share for *element*, or None when it is not usable.
+
+    The FPL API sends this as a string. A missing or unparseable value must not
+    become 0.0: that would read as "nobody owns him" and hand the hipster slot
+    to whoever has the worst data.
+    """
+    if element is None:
+        return None
+    try:
+        return float(element.get("selected_by_percent"))
+    except (TypeError, ValueError):
+        return None
+
+
+def _pick_hipster(
+    entries: list[dict[str, Any]],
+    already_shown: set[int],
+) -> dict[str, Any]:
+    """Choose the least-owned entry that still clears the quality floor.
+
+    Returns the pick plus why there isn't one, so the caller can say so rather
+    than filling the slot with a bad low-owned player.
+    """
+    qualified = [
+        entry
+        for entry in entries
+        if entry.get("status") == "ok"
+        and entry.get("player_id") not in already_shown
+        and entry.get("selected_by_percent") is not None
+        and float(entry["captain_score"]) >= HIPSTER_MIN_SCORE
+        and float(entry["score_inputs"]["minutes_risk"]) <= HIPSTER_MAX_MINUTES_RISK
+    ]
+    if not qualified:
+        return {"player_id": None, "reason": "no_candidate_clears_floor"}
+    pick = min(
+        qualified,
+        key=lambda entry: (float(entry["selected_by_percent"]), int(entry["player_id"])),
+    )
+    return {
+        "player_id": int(pick["player_id"]),
+        "selected_by_percent": float(pick["selected_by_percent"]),
+        "reason": None,
+    }
+
+
+def _build_presentation(ranked_candidates: list[dict[str, Any]]) -> dict[str, Any]:
+    """Name which entries each list shows, without shortening the payload.
+
+    Presentation is a view over the full ranking, never a cap on it: the
+    complete list and squad_excluded still have to account for all fifteen
+    owned players, which is the audit the payload exists for.
+    """
+    ok_entries = [entry for entry in ranked_candidates if entry.get("status") == "ok"]
+    owned_entries = [entry for entry in ok_entries if entry.get("owned")]
+
+    owned_top = [int(e["player_id"]) for e in owned_entries[:OWNED_LIST_LIMIT]]
+    global_top = [int(e["player_id"]) for e in ok_entries[:GLOBAL_LIST_LIMIT]]
+
+    owned_hipster = _pick_hipster(owned_entries, set(owned_top))
+    global_hipster = _pick_hipster(ok_entries, set(global_top))
+
+    return {
+        "owned_top": owned_top,
+        "owned_hipster": owned_hipster,
+        "global_top": global_top,
+        "global_hipster": global_hipster,
+    }
 
 # ---------------------------------------------------------------------------
 # Phase 5m: scoring input derivation helpers
@@ -96,7 +178,9 @@ def _derive_scoring_inputs_from_element(
     ``int(fdr_map.get(team, 3))`` crashed on).
     """
     fdr_map = bootstrap.get("fixture_difficulty_map", {})
-    return _derive_base_scoring_inputs(element, fdr_map)
+    return _derive_base_scoring_inputs(
+        element, fdr_map, bootstrap.get("team_fixtures")
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -427,6 +511,8 @@ def tool_get_captain_score(
                         "avoid" / "low_confidence"  (Phase 5m)
     ``role_signals``    Set-piece role signals dict  (Phase 5m)
     ``score_inputs``    Dict of the four inputs used
+    ``minutes_context`` Played/available minutes, starts, participation source,
+                        and explicit degradation metadata
     ``query``           The original query string
 
     Returns — status "ambiguous" / "not_found"
@@ -502,8 +588,12 @@ def tool_get_captain_score(
     # Build final scoring inputs: derived values as base, explicit values override
     if element is not None:
         derived = _derive_scoring_inputs_from_element(element, scoring_bootstrap)
+        minutes_context = derive_minutes_context(
+            element, scoring_bootstrap.get("team_fixtures")
+        )
     else:
         derived = {"form": 5.0, "fixture_difficulty": 3, "xgi_per_90": 0.30, "minutes_risk": 0.0}
+        minutes_context = None
 
     ci = {**derived, **(candidate_inputs or {})}
 
@@ -536,6 +626,7 @@ def tool_get_captain_score(
             "xgi_per_90":         xgi_per_90,
             "minutes_risk":       minutes_risk,
         },
+        "minutes_context": minutes_context,
         "time_context": time_context,
         "query": str(query),
     }
@@ -585,7 +676,7 @@ def tool_rank_captain_candidates(
                            then error/ambiguous/not_found entries.
                            Each ok entry has: rank, player_id, web_name, name,
                            team, team_short, position, captain_score,
-                           score_inputs, query, index.
+                           score_inputs, minutes_context, query, index.
                            Each non-ok entry has: status, query/message,
                            index, and an error code where applicable.
     ``total``              Number of successfully scored candidates.
@@ -594,7 +685,8 @@ def tool_rank_captain_candidates(
                            not_connected (the grounded layer may override this
                            to unavailable after a failed squad fetch).
     ``squad_excluded``     Every owned player omitted from the ranking, with
-                           reason unavailable, not_eligible_position, or unresolved.
+                           reason unavailable or unresolved. Position is not a
+                           reason: nobody is excluded for playing in defence.
     ``error_count``        Number of candidates that failed to resolve or
                            were missing required scoring fields.
 
@@ -654,8 +746,6 @@ def tool_rank_captain_candidates(
             reason = "unresolved"
         elif element.get("status") in ("i", "s", "u"):
             reason = "unavailable"
-        elif element.get("element_type") not in (3, 4):
-            reason = "not_eligible_position"
         if reason is not None:
             squad_excluded_by_id[player_id] = {
                 "player_id": player_id,
@@ -742,6 +832,12 @@ def tool_rank_captain_candidates(
                 continue
             ci = c
 
+        minutes_context = (
+            derive_minutes_context(element, scoring_bootstrap.get("team_fixtures"))
+            if element is not None
+            else None
+        )
+
         form  = float(ci["form"])
         fdr   = ci["fixture_difficulty"]
         xgi   = float(ci["xgi_per_90"])
@@ -770,6 +866,8 @@ def tool_rank_captain_candidates(
                 "xgi_per_90":         xgi,
                 "minutes_risk":       risk,
             },
+            "minutes_context": minutes_context,
+            "selected_by_percent": _selected_by_percent(element),
             "query":         str(query),
             "owned":         player_id in owned_ids,
         })
@@ -834,6 +932,7 @@ def tool_rank_captain_candidates(
         "squad_excluded":    squad_excluded,
         "time_context":      time_context,
         "ranked_candidates": ranked_candidates,
+        "presentation":      _build_presentation(ranked_candidates),
         "pool_size":         pool_size,
         "total":             returned_ok_count,
         "error_count":       returned_error_count,

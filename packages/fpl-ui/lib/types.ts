@@ -249,6 +249,15 @@ export interface AskResponse {
   // Source: http_contract_fixtures.json → _meta.response_conditional_fields
   captain: CaptainScoreMeta | null;
   captain_ranking: RankedCaptainEntry[] | null;
+  /** Candidate-pool provenance for successful captain rankings. */
+  pool_source?: 'caller' | 'derived' | null;
+  /** Candidate count before the derived-pool output cap. */
+  pool_size?: number | null;
+  /** Squad lookup provenance for successful captain rankings. */
+  /** True when the model wrote final_text; false when final_text is a
+   *  deterministic render of the tool output — i.e. the card in words. */
+  synthesis_turn?: boolean | null;
+  presentation?: RankingPresentation | null;
   squad_source?: 'connected' | 'not_connected' | 'unavailable' | null;
   squad_excluded?: SquadExcludedEntry[] | null;
   comparison: ComparisonMeta | null;
@@ -395,13 +404,49 @@ export interface RankedCaptainEntry {
   role_bonus: number;
   set_piece_notes: string[];
   owned?: boolean;
+  player_id?: number | null;
+  /** GKP/DEF/MID/FWD. The pool is open to every position, so a row without
+   *  this is a keeper the reader cannot tell from a forward. */
+  position?: FplPosition | '' | null;
+  selected_by_percent?: number | null;
+  /** Penalty-taking order (1 = first choice). Shown beside the score as its
+   *  own axis; it is not a term in the score. */
+  penalties_order?: number | null;
+  minutes_context?: MinutesContext | null;
+}
+
+/** Where a player's minutes risk came from, in figures a reader can check. */
+export interface MinutesContext {
+  minutes_played: number | null;
+  minutes_available: number | null;
+  starts: number;
+  participation_percent: number | null;
+  degraded: boolean;
+  degradation_reason: string | null;
+}
+
+/** One lightly-owned suggestion, or why there isn't one. */
+export interface HipsterPick {
+  player_id: number | null;
+  selected_by_percent?: number | null;
+  reason: 'no_candidate_clears_floor' | null;
+}
+
+/** Which entries each shown list names. A view over the full ranking; the
+ *  payload itself is never shortened, because the squad accounting depends
+ *  on it staying complete. */
+export interface RankingPresentation {
+  owned_top: number[];
+  owned_hipster: HipsterPick;
+  global_top: number[];
+  global_hipster: HipsterPick;
 }
 
 export interface SquadExcludedEntry {
   player_id: number;
   web_name: string;
   status: string;
-  reason: 'not_eligible_position' | 'unavailable' | 'unresolved';
+  reason: 'unavailable' | 'unresolved';
 }
 
 /** Per-player context within a comparison turn */
@@ -528,6 +573,13 @@ export interface ChipAdviceMeta {
   top_player?: string | null;
   evaluated_player?: string | null;
   chip_unavailable: boolean;
+  /** Minutes and penalty facts about the evaluated player, in plain Spanish.
+   *  Their own axis beside the score, never a term inside it. Empty for every
+   *  chip but triple_captain. */
+  evaluated_factors?: string[] | null;
+  top_factors?: string[] | null;
+  /** That the triple captain multiplies the downside too. */
+  risk_note?: string | null;
 }
 
 /** One fixture in a player's upcoming run */

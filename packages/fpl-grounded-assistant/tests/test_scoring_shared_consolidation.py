@@ -44,6 +44,19 @@ def test_seven_key_frozen_parity():
         "fixture_difficulty": 2,
         "is_home": None,
         "effective_fdr": 2.0,
+        "minutes_context": {
+            "minutes_played": 900,
+            "minutes_available": None,
+            "starts": 0,
+            "fixtures_available": None,
+            "participation_percent": None,
+            "participation_risk": None,
+            "availability_risk": 0.0,
+            "minutes_risk": 0.0,
+            "source": "availability_status",
+            "degraded": True,
+            "degradation_reason": "missing_official_fixtures",
+        },
     }
 
 

@@ -299,6 +299,14 @@ class TestGetCurrentGameweek:
             ev["is_current"] = False
         assert get_current_gameweek(bs) == 29
 
+    def test_finished_current_event_yields_upcoming_gameweek(self):
+        """A stale is_current flag cannot make a finished GW actionable."""
+        from fpl_api_client.fpl_client import get_current_gameweek
+        bs = copy.deepcopy(MINIMAL_BOOTSTRAP)
+        bs["events"][1]["finished"] = True
+
+        assert get_current_gameweek(bs) == 29
+
     def test_returns_none_when_no_current_or_next(self):
         """Returns None when neither is_current nor is_next is set."""
         from fpl_api_client.fpl_client import get_current_gameweek
@@ -306,6 +314,15 @@ class TestGetCurrentGameweek:
         for ev in bs["events"]:
             ev["is_current"] = False
             ev["is_next"] = False
+        assert get_current_gameweek(bs) is None
+
+    def test_returns_none_when_every_flagged_event_is_finished(self):
+        """End of season has no actionable current or next gameweek."""
+        from fpl_api_client.fpl_client import get_current_gameweek
+        bs = copy.deepcopy(MINIMAL_BOOTSTRAP)
+        for ev in bs["events"]:
+            ev["finished"] = True
+
         assert get_current_gameweek(bs) is None
 
     def test_returns_none_for_empty_events(self):

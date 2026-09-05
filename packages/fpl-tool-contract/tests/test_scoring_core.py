@@ -8,7 +8,11 @@ wrapper over it.
 """
 from __future__ import annotations
 
-from fpl_tool_contract.scoring_core import NEUTRAL_FDR, _derive_base_scoring_inputs
+from fpl_tool_contract.scoring_core import (
+    NEUTRAL_FDR,
+    _derive_base_scoring_inputs,
+    derive_minutes_context,
+)
 from fpl_tool_contract.tools import _derive_scoring_inputs_from_element
 
 # form 5.0; 6.0 xGI over 900 min → 0.6 /90; status "a" → risk 0.0; FDR from map.
@@ -72,3 +76,160 @@ def test_tools_wrapper_matches_base():
     assert _derive_scoring_inputs_from_element(_ELEMENT, bootstrap) == (
         _derive_base_scoring_inputs(_ELEMENT, {7: 2})
     )
+
+
+def _official_team_fixtures(*rows):
+    return {
+        7: [
+            {
+                "gameweek": gameweek,
+                "finished": finished,
+                "kickoff_time": kickoff,
+                "minutes": minutes,
+                "official_fixture_context_complete": True,
+            }
+            for gameweek, finished, kickoff, minutes in rows
+        ]
+    }
+
+
+def _minutes_element(**overrides):
+    return {
+        **_ELEMENT,
+        "starts": 2,
+        "team_join_date": "2026-07-01",
+        **overrides,
+    }
+
+
+def test_real_minutes_distinguish_cherki_from_haaland():
+    fixtures = _official_team_fixtures(
+        (1, True, "2026-08-15T14:00:00Z", 90),
+        (2, True, "2026-08-22T14:00:00Z", 90),
+    )
+    cherki = derive_minutes_context(
+        _minutes_element(minutes=108, starts=1), fixtures
+    )
+    haaland = derive_minutes_context(
+        _minutes_element(minutes=180, starts=2), fixtures
+    )
+
+    assert cherki["minutes_played"] == 108
+    assert cherki["minutes_available"] == 180
+    assert cherki["participation_percent"] == 60.0
+    assert cherki["minutes_risk"] == 40.0
+    assert haaland["participation_percent"] == 100.0
+    assert haaland["minutes_risk"] == 0.0
+
+
+def test_injured_or_suspended_status_wins_over_high_participation():
+    fixtures = _official_team_fixtures(
+        (1, True, "2026-08-15T14:00:00Z", 90),
+        (2, True, "2026-08-22T14:00:00Z", 90),
+    )
+    for status in ("i", "s"):
+        context = derive_minutes_context(
+            _minutes_element(minutes=180, status=status), fixtures
+        )
+        assert context["participation_risk"] == 0.0
+        assert context["availability_risk"] == 100.0
+        assert context["minutes_risk"] == 100.0
+
+
+def test_zero_completed_fixtures_does_not_divide_or_penalize():
+    fixtures = _official_team_fixtures(
+        (1, False, "2026-08-15T14:00:00Z", 0),
+    )
+    context = derive_minutes_context(_minutes_element(minutes=0, starts=0), fixtures)
+
+    assert context["minutes_risk"] == 0.0
+    assert context["participation_percent"] is None
+    assert context["degraded"] is True
+    assert context["degradation_reason"] == "no_completed_fixtures_since_join"
+
+
+def test_recent_signing_uses_only_fixtures_since_team_join_date():
+    fixtures = _official_team_fixtures(
+        (1, True, "2026-08-10T14:00:00Z", 90),
+        (2, True, "2026-08-20T14:00:00Z", 90),
+    )
+    context = derive_minutes_context(
+        _minutes_element(
+            minutes=90,
+            starts=1,
+            team_join_date="2026-08-15",
+        ),
+        fixtures,
+    )
+
+    assert context["minutes_available"] == 90
+    assert context["fixtures_available"] == 1
+    assert context["participation_percent"] == 100.0
+    assert context["minutes_risk"] == 0.0
+
+
+def test_denominator_counts_doubles_and_rescheduled_kickoffs_not_gw_numbers():
+    fixtures = _official_team_fixtures(
+        (1, True, "2026-08-10T14:00:00Z", 90),  # before signing: excluded
+        (1, True, "2026-08-16T14:00:00Z", 90),  # same GW double: counted
+        # no GW2 row: a blank contributes no invented minutes
+        (1, True, "2026-08-20T14:00:00Z", 90),  # postponed GW1: actual date counts
+    )
+    context = derive_minutes_context(
+        _minutes_element(
+            minutes=90,
+            starts=1,
+            team_join_date="2026-08-15",
+        ),
+        fixtures,
+    )
+
+    assert context["minutes_available"] == 180
+    assert context["fixtures_available"] == 2
+    assert context["participation_percent"] == 50.0
+    assert context["minutes_risk"] == 50.0
+
+
+def test_incomplete_fixture_context_degrades_explicitly_to_status_risk():
+    partial = {
+        7: [{
+            "gameweek": 2,
+            "finished": True,
+            "kickoff_time": "2026-08-20T14:00:00Z",
+            "minutes": 90,
+            "official_fixture_context_complete": False,
+        }]
+    }
+    context = derive_minutes_context(
+        _minutes_element(minutes=45, status="d", chance_of_playing_this_round=60),
+        partial,
+    )
+
+    assert context["source"] == "availability_status"
+    assert context["degraded"] is True
+    assert context["degradation_reason"] == "incomplete_official_fixtures"
+    assert context["participation_risk"] is None
+    assert context["minutes_risk"] == 40.0
+
+
+def test_json_round_tripped_team_keys_still_resolve_participation():
+    """A bootstrap that went through JSON has string team keys.
+
+    Missing them would degrade to status-only risk while reporting
+    "missing_official_fixtures" — the participation signal would vanish exactly
+    where it is most likely to be read from a cached or transported bootstrap.
+    """
+    fixtures = _official_team_fixtures(
+        (1, True, "2026-08-15T14:00:00Z", 90),
+        (2, True, "2026-08-22T14:00:00Z", 90),
+    )
+    string_keyed = {str(team_id): rows for team_id, rows in fixtures.items()}
+
+    context = derive_minutes_context(
+        _minutes_element(minutes=108, starts=1), string_keyed
+    )
+
+    assert context["degraded"] is False
+    assert context["source"] == "official_completed_fixtures"
+    assert context["participation_percent"] == 60.0
+    assert context["minutes_risk"] == 40.0

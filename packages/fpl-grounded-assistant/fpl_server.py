@@ -312,6 +312,10 @@ class AskResponse(BaseModel):
     comparison: dict[str, Any] | None = None              # Phase 5g
     captain: dict[str, Any] | None = None                 # Phase 5n
     captain_ranking: list[dict[str, Any]] | None = None   # Phase 5p
+    pool_source: str | None = None
+    pool_size: int | None = None
+    synthesis_turn: bool | None = None
+    presentation: dict[str, Any] | None = None
     squad_source: str | None = None
     squad_excluded: list[dict[str, Any]] | None = None
     sub_responses: list[dict[str, Any]] | None = None     # Phase 6c
@@ -445,6 +449,10 @@ class SessionAskResponse(BaseModel):
     comparison: dict[str, Any] | None = None              # Phase 5g
     captain: dict[str, Any] | None = None                 # Phase 5n
     captain_ranking: list[dict[str, Any]] | None = None   # Phase 5p
+    pool_source: str | None = None
+    pool_size: int | None = None
+    synthesis_turn: bool | None = None
+    presentation: dict[str, Any] | None = None
     squad_source: str | None = None
     squad_excluded: list[dict[str, Any]] | None = None
     sub_responses: list[dict[str, Any]] | None = None     # Phase 6c
@@ -837,6 +845,11 @@ def _captain_ranking_list(captain_ranking: Any) -> list[dict[str, Any]]:
             "role_bonus":      entry.role_bonus,
             "set_piece_notes": list(entry.set_piece_notes),
             "owned":           entry.owned,
+            "player_id":       entry.player_id,
+            "position":        entry.position,
+            "selected_by_percent": entry.selected_by_percent,
+            "penalties_order": entry.penalties_order,
+            "minutes_context": entry.minutes_context,
         }
         for entry in captain_ranking
     ]
@@ -915,6 +928,11 @@ def _chip_meta_dict(chip: Any) -> dict[str, Any]:
         "top_player":       chip.top_player,
         "evaluated_player": chip.evaluated_player,
         "chip_unavailable": chip.chip_unavailable,  # Phase 8e1
+        # Visible factors beside the score, never inside it. Shared with
+        # _sub_response_dict below, so multi-intent keeps parity for free.
+        "evaluated_factors": list(chip.evaluated_factors),
+        "top_factors":       list(chip.top_factors),
+        "risk_note":         chip.risk_note,
     }
 
 
@@ -1274,6 +1292,9 @@ def _sub_response_dict(sr: Any) -> dict[str, Any]:
         d["captain"] = _captain_meta_dict(sr.captain)
     if sr.captain_ranking is not None:
         d["captain_ranking"] = _captain_ranking_list(sr.captain_ranking)
+        d["pool_source"] = sr.pool_source
+        d["pool_size"] = sr.pool_size
+        d["presentation"] = sr.presentation
         d["squad_source"] = sr.squad_source
         d["squad_excluded"] = [
             {
@@ -2350,6 +2371,10 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         comparison=sess_comp_bundle,
         captain=sess_captain_bundle,
         captain_ranking=sess_captain_ranking_list,
+        pool_source=r.pool_source,
+        pool_size=r.pool_size,
+        synthesis_turn=r.synthesis_turn,
+        presentation=r.presentation,
         squad_source=r.squad_source,
         squad_excluded=[
             {

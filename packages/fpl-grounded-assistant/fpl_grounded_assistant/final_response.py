@@ -170,6 +170,22 @@ class RankedCaptainEntry:
     set_piece_notes:
         Tuple of role-key strings (e.g. ``("penalty_taker_1",)``).
         Empty tuple when no set-piece role is recorded.
+    player_id:
+        FPL element id, so a presented list can name its rows.
+    position:
+        ``"GKP"``, ``"DEF"``, ``"MID"`` or ``"FWD"``. The pool is no longer
+        filtered by position, so without this a keeper is indistinguishable
+        from a forward.
+    selected_by_percent:
+        Share of managers who own the player, or ``None`` when the bootstrap
+        did not carry a usable figure.
+    penalties_order:
+        Penalty-taking order (1 = first choice), or ``None``. Shown beside the
+        score as its own axis; it is not a term in the score.
+    minutes_context:
+        Minutes played and available, starts, participation and the reason it
+        degraded when it did. Shown so a reader can see why a score sits where
+        it does instead of inferring it.
     """
 
     rank:            int
@@ -180,6 +196,11 @@ class RankedCaptainEntry:
     role_bonus:      float
     set_piece_notes: tuple[str, ...]
     owned:           bool = False
+    player_id:       "int | None" = None
+    position:        str = ""
+    selected_by_percent: "float | None" = None
+    penalties_order: "int | None" = None
+    minutes_context: "dict[str, Any] | None" = None
 
 
 @dataclass(frozen=True)
@@ -294,6 +315,16 @@ class ChipAdviceMeta:
         Best available captain in the evaluated pool, when applicable.
     evaluated_player:
         Explicit triple-captain target, when one was requested.
+    evaluated_factors / top_factors:
+        Plain-language minutes and penalty facts about each named player, as
+        their own axis beside the score rather than a term inside it. Phrased
+        by ``captain_factors`` so the card, the deterministic text and the
+        model's prose cannot describe one player three different ways. Empty
+        outside ``triple_captain``, and never populated for ``free_hit``,
+        whose recommendation stays ``missing_context``.
+    risk_note:
+        That the triple captain multiplies the downside as well as the upside.
+        ``None`` for every other chip.
     """
 
     chip:             str
@@ -304,6 +335,9 @@ class ChipAdviceMeta:
     top_player:       "str | None" = None
     evaluated_player: "str | None" = None
     chip_unavailable: bool = False  # Phase 8e1: True when chip not in squad_context.chips_remaining
+    evaluated_factors: "tuple[str, ...]" = ()
+    top_factors:       "tuple[str, ...]" = ()
+    risk_note:         "str | None" = None
 
 
 # ---------------------------------------------------------------------------
@@ -1084,9 +1118,26 @@ class FinalResponse:
         otherwise.  A tuple of :class:`RankedCaptainEntry` objects ordered
         by ``rank`` (1 = highest captain score).  Contains only successfully
         scored candidates — failed entries are omitted.
+    pool_source:
+        Captain-ranking provenance: ``caller`` when the model supplied the
+        candidates, or ``derived`` when the deterministic bootstrap pool was
+        used. ``None`` outside successful captain rankings.
+    pool_size:
+        Number of candidates before the derived-pool output cap. ``None``
+        outside successful captain rankings.
+    synthesis_turn:
+        ``True`` when the model wrote ``final_text`` itself, ``False`` when it
+        is a deterministic render of the tool output, ``None`` when unknown.
+        A render is a copy of the card in words, so a client that shows both
+        would print the same answer twice.
+    presentation:
+        Which entries each shown list names — ``owned_top``, ``global_top``,
+        and a hipster pick per list with its reason when there isn't one. A
+        view over the full ranking, never a cap on it. ``None`` outside
+        successful captain rankings.
     squad_source:
         Captain-ranking squad context: ``connected``, ``not_connected``, or
-        ``unavailable``. ``None`` outside derived captain rankings.
+        ``unavailable``. ``None`` outside successful captain rankings.
     squad_excluded:
         Owned players excluded from captain consideration by availability.
     sub_responses:
@@ -1164,6 +1215,10 @@ class FinalResponse:
     comparison:      ComparisonMeta | None                 = field(default=None)  # Phase 5g
     captain:         CaptainScoreMeta | None               = field(default=None)  # Phase 5n
     captain_ranking: tuple[RankedCaptainEntry, ...] | None = field(default=None)  # Phase 5p
+    pool_source:     "str | None"                          = field(default=None)
+    pool_size:       "int | None"                          = field(default=None)
+    synthesis_turn:  "bool | None"                         = field(default=None)
+    presentation:    "dict[str, Any] | None"               = field(default=None)
     squad_source:    "str | None"                          = field(default=None)
     squad_excluded:  "tuple[SquadExcludedEntry, ...] | None" = field(default=None)
     sub_responses:   "tuple[FinalResponse, ...] | None"    = field(default=None)  # Phase 6c
@@ -1479,6 +1534,11 @@ def _extract_captain_ranking_meta(
                 role_bonus      = float(rs.get("role_bonus", 0.0)),
                 set_piece_notes = tuple(rs.get("set_piece_notes") or []),
                 owned           = bool(c.get("owned", False)),
+                player_id       = c.get("player_id"),
+                position        = str(c.get("position") or ""),
+                selected_by_percent = c.get("selected_by_percent"),
+                penalties_order = rs.get("penalties_order"),
+                minutes_context = c.get("minutes_context"),
             ))
         return tuple(entries)
     except Exception:  # noqa: BLE001
@@ -1572,6 +1632,10 @@ def _extract_chip_meta(ro: "dict[str, Any]") -> "ChipAdviceMeta | None":
             sv = None
             sl = None
 
+        # Factors travel only for the chip that has them. free_hit in
+        # particular must not gain anything that reads as stronger support
+        # than its missing_context recommendation already admits to.
+        is_tc = chip_name == "triple_captain"
         return ChipAdviceMeta(
             chip           = chip_name,
             recommendation = ro.get("recommendation", ""),
@@ -1580,6 +1644,9 @@ def _extract_chip_meta(ro: "dict[str, Any]") -> "ChipAdviceMeta | None":
             signal_label   = sl,
             top_player     = signals.get("top_player"),
             evaluated_player = signals.get("evaluated_player"),
+            evaluated_factors = tuple(signals.get("evaluated_factors_es") or ()) if is_tc else (),
+            top_factors       = tuple(signals.get("top_factors_es") or ()) if is_tc else (),
+            risk_note         = signals.get("triple_captain_risk_note_es") if is_tc else None,
         )
     except Exception:  # noqa: BLE001
         return None
@@ -2091,6 +2158,8 @@ def _extract_structured_meta(
     dict[str, Any]
         Keys match the corresponding ``FinalResponse`` field names:
         ``"comparison"``, ``"captain"``, ``"captain_ranking"``,
+        ``"pool_source"``, ``"pool_size"``, ``"presentation"``,
+        ``"squad_source"``,
         ``"transfer"``, ``"chip"``, ``"fixture_run"``, ``"differential"``,
         ``"player_form"``, ``"injury_list"``, ``"price_changes"``,
         ``"team_calendar"``, ``"team_schedule"``, ``"position_fixture_run"``,
@@ -2103,6 +2172,9 @@ def _extract_structured_meta(
     comparison:              "ComparisonMeta | None"              = None
     captain:                 "CaptainScoreMeta | None"            = None
     captain_ranking:         "tuple[RankedCaptainEntry, ...] | None" = None
+    pool_source:             "str | None"                         = None
+    pool_size:               "int | None"                         = None
+    presentation:            "dict[str, Any] | None"              = None
     squad_source:            "str | None"                         = None
     squad_excluded:          "tuple[SquadExcludedEntry, ...] | None" = None
     transfer:                "TransferMeta | None"                = None
@@ -2127,8 +2199,11 @@ def _extract_structured_meta(
             captain = _extract_captain_meta(raw_output)
         elif intent == INTENT_RANK_CANDIDATES:
             captain_ranking = _extract_captain_ranking_meta(raw_output)
+            pool_source = raw_output.get("pool_source")
+            pool_size = raw_output.get("pool_size")
+            presentation = raw_output.get("presentation")
+            squad_source = raw_output.get("squad_source")
             if raw_output.get("pool_source") == "derived":
-                squad_source = raw_output.get("squad_source")
                 squad_excluded = _extract_squad_excluded_meta(raw_output)
         elif intent == INTENT_TRANSFER_ADVICE:
             transfer = _extract_transfer_meta(raw_output)
@@ -2163,6 +2238,9 @@ def _extract_structured_meta(
         "comparison":           comparison,
         "captain":              captain,
         "captain_ranking":      captain_ranking,
+        "pool_source":          pool_source,
+        "pool_size":            pool_size,
+        "presentation":         presentation,
         "squad_source":         squad_source,
         "squad_excluded":       squad_excluded,
         "transfer":             transfer,
@@ -2350,6 +2428,9 @@ def _orch_result_to_final_response(
     comparison:      "ComparisonMeta | None"                 = None
     captain:         "CaptainScoreMeta | None"               = None
     captain_ranking: "tuple[RankedCaptainEntry, ...] | None" = None
+    pool_source:     "str | None"                            = None
+    pool_size:       "int | None"                            = None
+    presentation:    "dict[str, Any] | None"                 = None
     squad_source:    "str | None"                            = None
     squad_excluded:  "tuple[SquadExcludedEntry, ...] | None" = None
     transfer:        "TransferMeta | None"                   = None
@@ -2363,8 +2444,11 @@ def _orch_result_to_final_response(
         captain = _extract_captain_meta(ro)
     elif intent == INTENT_RANK_CANDIDATES:
         captain_ranking = _extract_captain_ranking_meta(ro)
+        pool_source = ro.get("pool_source")
+        pool_size = ro.get("pool_size")
+        presentation = ro.get("presentation")
+        squad_source = ro.get("squad_source")
         if ro.get("pool_source") == "derived":
-            squad_source = ro.get("squad_source")
             squad_excluded = _extract_squad_excluded_meta(ro)
     elif intent == INTENT_COMPARE_PLAYERS:
         comparison = _extract_comparison_meta(ro)
@@ -2413,6 +2497,9 @@ def _orch_result_to_final_response(
         comparison=comparison,
         captain=captain,
         captain_ranking=captain_ranking,
+        pool_source=pool_source,
+        pool_size=pool_size,
+        presentation=presentation,
         squad_source=squad_source,
         squad_excluded=squad_excluded,
         transfer=transfer,
@@ -2819,6 +2906,9 @@ def _try_session_orchestration_response(
         comparison=result.get("comparison"),
         captain=result.get("captain"),
         captain_ranking=result.get("captain_ranking"),
+        pool_source=result.get("pool_source"),
+        pool_size=result.get("pool_size"),
+        presentation=result.get("presentation"),
         squad_source=result.get("squad_source"),
         squad_excluded=result.get("squad_excluded"),
         transfer=transfer,
@@ -3110,6 +3200,9 @@ def respond(
         comparison=_meta["comparison"],
         captain=_meta["captain"],
         captain_ranking=_meta["captain_ranking"],
+        pool_source=_meta["pool_source"],
+        pool_size=_meta["pool_size"],
+        presentation=_meta["presentation"],
         squad_source=_meta["squad_source"],
         squad_excluded=_meta["squad_excluded"],
         transfer=_meta["transfer"],

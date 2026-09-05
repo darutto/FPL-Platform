@@ -30,10 +30,12 @@ from fpl_tool_contract.tools import (
 _SCORE_OK_KEYS = {
     "status", "player_id", "web_name", "name", "team", "team_short",
     "position", "captain_score", "tier", "role_signals", "score_inputs",
-    "time_context", "query",
+    "minutes_context", "time_context", "query",
 }
 
-_RANK_ENTRY_OK_KEYS = (_SCORE_OK_KEYS - {"time_context"}) | {"index", "rank", "owned"}
+_RANK_ENTRY_OK_KEYS = (_SCORE_OK_KEYS - {"time_context"}) | {
+    "index", "rank", "owned", "selected_by_percent",
+}
 
 # Scores produced by the shared conftest bootstrap. Pinned so a change to the
 # scoring formula or its inputs surfaces here rather than silently.
@@ -75,6 +77,13 @@ def test_score_inputs_shape(bootstrap):
     assert set(result["score_inputs"]) == {
         "form", "fixture_difficulty", "xgi_per_90", "minutes_risk",
     }
+
+
+def test_minutes_context_degrades_explicitly_without_official_history(bootstrap):
+    result = tool_get_captain_score("Salah", bootstrap)
+    assert result["minutes_context"]["source"] == "availability_status"
+    assert result["minutes_context"]["degraded"] is True
+    assert result["minutes_context"]["degradation_reason"] == "missing_official_fixtures"
 
 
 def test_tier_immediately_follows_captain_score(bootstrap):

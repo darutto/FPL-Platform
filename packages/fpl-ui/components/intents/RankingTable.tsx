@@ -7,25 +7,46 @@
  *   response.captain_ranking !== null
  *
  * Consumes from RankedCaptainEntry[] (stable conditional fields only):
- *   rank, web_name, team_short, captain_score, tier, set_piece_notes
+ *   rank, web_name, team_short, position, captain_score, tier, set_piece_notes
+ *
+ * Position is shown because the pool is open to every position: without it a
+ * keeper and a forward are the same row.
  *
  * Tier badge colours match CaptainCard: see lib/theme TIER_CONFIG.
  */
-import type { RankedCaptainEntry, SquadExcludedEntry } from '@/lib/types';
+import type {
+  HipsterPick,
+  RankedCaptainEntry,
+  RankingPresentation,
+  SquadExcludedEntry,
+} from '@/lib/types';
 import { TIER_CONFIG, TIER_BADGE_BASE, CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
+import { contradictionNote, factorPhrases } from '@/lib/captain-factors';
 import { TriangleField } from './CardOrnaments';
 
 interface Props {
   data: RankedCaptainEntry[];
   squadSource?: 'connected' | 'not_connected' | 'unavailable' | null;
   squadExcluded?: SquadExcludedEntry[] | null;
+  presentation?: RankingPresentation | null;
 }
 
-export default function RankingTable({ data, squadSource, squadExcluded }: Props) {
+export default function RankingTable({ data, squadSource, squadExcluded, presentation }: Props) {
   if (data.length === 0) return null;
 
-  const global = data.filter((entry) => entry.rank <= 12);
-  const owned = data.filter((entry) => entry.owned);
+  // The backend names which rows each list shows, so the card and the prose
+  // above it cannot disagree about who was recommended. The fallbacks keep
+  // older payloads rendering.
+  const byId = new Map(
+    data.filter((entry) => entry.player_id != null).map((entry) => [entry.player_id!, entry]),
+  );
+  const pick = (ids: number[] | undefined, fallback: RankedCaptainEntry[]) =>
+    ids && ids.length > 0
+      ? ids.map((id) => byId.get(id)).filter((entry): entry is RankedCaptainEntry => entry != null)
+      : fallback;
+
+  const global = pick(presentation?.global_top, data.filter((entry) => entry.rank <= 12));
+  const owned = pick(presentation?.owned_top, data.filter((entry) => entry.owned));
   const dual = squadSource != null;
 
   return (
@@ -40,7 +61,14 @@ export default function RankingTable({ data, squadSource, squadExcluded }: Props
       </div>
 
       {dual && squadSource === 'connected' && (
-        <RankingSection title="A) Candidatos elegibles de tu plantilla (solo MID/FWD)" entries={owned} />
+        <RankingSection
+          title="A) Candidatos de tu plantilla"
+          entries={owned}
+          hipster={presentation?.owned_hipster}
+          byId={byId}
+          all={data}
+          anchorPool={data.filter((entry) => entry.owned)}
+        />
       )}
 
       {dual && squadSource === 'not_connected' && (
@@ -64,16 +92,23 @@ export default function RankingTable({ data, squadSource, squadExcluded }: Props
       )}
 
       {dual ? (
-        <RankingSection title="B) Mejores candidatos globales" entries={global} markOwned />
+        <RankingSection
+          title="B) Mejores candidatos globales"
+          entries={global}
+          markOwned
+          hipster={presentation?.global_hipster}
+          byId={byId}
+          all={data}
+          anchorPool={data}
+        />
       ) : (
-        <RankingRows entries={data} />
+        <RankingRows entries={data} all={data} />
       )}
     </div>
   );
 }
 
 const EXCLUSION_REASON_LABELS: Record<SquadExcludedEntry['reason'], string> = {
-  not_eligible_position: 'posición no elegible',
   unavailable: 'no disponible',
   unresolved: 'sin resolver',
 };
@@ -82,41 +117,120 @@ function RankingSection({
   title,
   entries,
   markOwned = false,
+  hipster,
+  byId,
+  all,
+  anchorPool,
 }: {
   title: string;
   entries: RankedCaptainEntry[];
   markOwned?: boolean;
+  hipster?: HipsterPick;
+  byId?: Map<number, RankedCaptainEntry>;
+  all?: RankedCaptainEntry[];
+  anchorPool?: RankedCaptainEntry[];
 }) {
+  const hipsterEntry =
+    hipster?.player_id != null ? byId?.get(hipster.player_id) ?? null : null;
+
+  // A short list can cut the very row a note was written for. Haaland — every
+  // minute played, penalties taken, sunk below players who do neither — fell
+  // outside the top five, so the note that exists to stop that misreading
+  // rendered nowhere. Surface the highest-ranked cut row that carries a note.
+  // This adds no new threshold: it reuses contradictionNote's own rule.
+  const shownIds = new Set(
+    [...entries, ...(hipsterEntry ? [hipsterEntry] : [])].map((e) => e.player_id),
+  );
+  // Ranked against the whole field, but drawn only from this section's own
+  // universe: a global name has no business appearing under "your squad".
+  const anchored =
+    (anchorPool ?? all ?? []).find(
+      (entry) => !shownIds.has(entry.player_id) && contradictionNote(entry, all ?? []) != null,
+    ) ?? null;
+
   return (
     <section>
       <h3 className="px-4 py-2 text-[11px] font-extrabold uppercase tracking-wide text-bf-gold">
         {title}
       </h3>
       {entries.length > 0 ? (
-        <RankingRows entries={entries} markOwned={markOwned} />
+        <RankingRows entries={entries} markOwned={markOwned} all={all} />
       ) : (
-        <p className="px-4 py-2.5 text-xs text-bf-gray">No hay candidatos elegibles.</p>
+        <p className="px-4 py-2.5 text-xs text-bf-gray">No hay candidatos disponibles.</p>
+      )}
+      {/* One lightly-owned extra, offered as an opportunity rather than a
+          warning. When nobody good enough is lightly owned we say so instead
+          of padding the slot with a weak player. */}
+      {hipsterEntry != null && (
+        <div className="border-t border-bf-turquoise/20">
+          <p className="px-4 pt-2 text-[10px] font-extrabold uppercase tracking-wide text-bf-turquoise">
+            Hipster
+            {hipster?.selected_by_percent != null &&
+              ` · lo lleva el ${hipster.selected_by_percent.toFixed(1)}%`}
+          </p>
+          <RankingRows entries={[hipsterEntry]} markOwned={markOwned} all={all} />
+        </div>
+      )}
+      {hipster != null && hipster.player_id == null && (
+        <p className="border-t border-white/10 px-4 py-2.5 text-xs text-bf-gray">
+          Sin hipster esta jornada: nadie de poca propiedad llega al mínimo.
+        </p>
+      )}
+      {anchored != null && (
+        <div className="border-t border-bf-turquoise/20">
+          <p className="px-4 pt-2 text-[10px] font-extrabold uppercase tracking-wide text-bf-turquoise">
+            Conviene saber
+          </p>
+          <RankingRows entries={[anchored]} markOwned={markOwned} all={all} />
+        </div>
       )}
     </section>
   );
 }
 
-function RankingRows({ entries, markOwned = false }: { entries: RankedCaptainEntry[]; markOwned?: boolean }) {
+function RankingRows({
+  entries,
+  markOwned = false,
+  all,
+}: {
+  entries: RankedCaptainEntry[];
+  markOwned?: boolean;
+  all?: RankedCaptainEntry[];
+}) {
   return (
     <div>
       {entries.map((entry, idx) => (
-        <RankRow key={entry.rank} entry={entry} banded={idx % 2 === 0} markOwned={markOwned} />
+        <RankRow
+          key={entry.rank}
+          entry={entry}
+          banded={idx % 2 === 0}
+          markOwned={markOwned}
+          all={all ?? entries}
+        />
       ))}
     </div>
   );
 }
 
-function RankRow({ entry, banded, markOwned = false }: { entry: RankedCaptainEntry; banded: boolean; markOwned?: boolean }) {
-  const { rank, web_name, team_short, captain_score, tier, set_piece_notes } = entry;
+function RankRow({
+  entry,
+  banded,
+  markOwned = false,
+  all = [],
+}: {
+  entry: RankedCaptainEntry;
+  banded: boolean;
+  markOwned?: boolean;
+  all?: RankedCaptainEntry[];
+}) {
+  const { rank, web_name, team_short, position, captain_score, tier, set_piece_notes } = entry;
   const { label, icon, badgeClass } = TIER_CONFIG[tier] ?? TIER_CONFIG.low_confidence;
+  const factors = factorPhrases(entry);
+  const note = contradictionNote(entry, all);
 
   return (
-    <div className={`flex items-center gap-3 px-4 py-2.5 ${banded ? 'bg-white/[0.035]' : ''}`}>
+    <div className={banded ? 'bg-white/[0.035]' : ''}>
+    <div className="flex items-center gap-3 px-4 py-2.5">
       {/* Rank — display numeral, fading down the list */}
       <span
         className="w-6 text-base font-display tracking-tighter text-bf-gold flex-shrink-0 leading-none"
@@ -128,7 +242,9 @@ function RankRow({ entry, banded, markOwned = false }: { entry: RankedCaptainEnt
       {/* Player + team */}
       <div className="flex-1 min-w-0">
         <span className="block truncate font-bold text-white">{web_name}</span>
-        <span className="ml-1.5 text-xs text-bf-gray">{team_short}</span>
+        <span className="ml-1.5 text-xs text-bf-gray">
+          {position ? `${team_short} · ${position}` : team_short}
+        </span>
         {markOwned && entry.owned && (
           <span className="ml-1.5 text-[10px] font-bold text-bf-turquoise">TUYO</span>
         )}
@@ -149,6 +265,20 @@ function RankRow({ entry, banded, markOwned = false }: { entry: RankedCaptainEnt
         <span className="text-[11px] leading-none">{icon}</span>
         {label}
       </span>
+    </div>
+
+    {/* The factors sit beside the score, never inside it. Neutral tone: this
+        is context for a decision, not a warning. */}
+    {factors.length > 0 && (
+      <p className="px-4 pb-2 text-[11px] leading-snug text-bf-gray">{factors.join(' · ')}</p>
+    )}
+
+    {/* Anchored only where the order and the factors disagree. */}
+    {note != null && (
+      <p className="mx-4 mb-2.5 border-l-2 border-bf-turquoise/60 pl-2.5 text-[11px] leading-snug text-bf-turquoise">
+        {note}
+      </p>
+    )}
     </div>
   );
 }

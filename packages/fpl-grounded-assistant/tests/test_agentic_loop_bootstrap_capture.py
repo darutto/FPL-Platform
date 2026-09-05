@@ -117,13 +117,31 @@ def test_capture_writes_team_fixtures_for_every_team(captured):
     assert frozen["team_fixtures"], "team_fixtures must be present and non-empty"
     # JSON stringifies the int team ids _build_team_fixtures produces.
     assert set(frozen["team_fixtures"]) == {"1", "2", "3", "4"}
-    assert frozen["team_fixtures"]["1"] == [
+    def schedule(team_id):
+        return [
+            {key: fixture[key] for key in ("gameweek", "opponent_team", "is_home", "difficulty")}
+            for fixture in frozen["team_fixtures"][team_id]
+        ]
+
+    assert schedule("1") == [
         {"gameweek": 1, "opponent_team": 2, "is_home": True, "difficulty": 4},
     ]
-    assert frozen["team_fixtures"]["3"] == [
+    assert schedule("3") == [
         {"gameweek": 1, "opponent_team": 4, "is_home": True, "difficulty": 3},
         {"gameweek": 2, "opponent_team": 2, "is_home": False, "difficulty": 4},
     ]
+    # Each fixture also carries the completion context the minutes denominator
+    # reads. A per-GW batch is never a complete season, so the marker is false
+    # here and participation degrades explicitly rather than dividing by a
+    # partial schedule.
+    for fixtures in frozen["team_fixtures"].values():
+        for fixture in fixtures:
+            assert set(fixture) == {
+                "gameweek", "opponent_team", "is_home", "difficulty",
+                "finished", "kickoff_time", "minutes",
+                "official_fixture_context_complete",
+            }
+            assert fixture["official_fixture_context_complete"] is False
 
 
 def test_capture_injects_string_keyed_gw_fixtures(captured):

@@ -149,6 +149,12 @@ def run_one(question: dict[str, Any], rep_index: int, bootstrap: dict[str, Any],
             tool_output_code=tool_output.get("code"),
             tool_output_metric=tool_output.get("metric"),
             tool_output_order=tool_output.get("order"),
+            # i52: whether the ranking used the model's own candidate list or
+            # the deterministic pool. Read from the structured field rather
+            # than inferred from prose, which is what blocked this count.
+            # Additive: no existing decision rule reads these.
+            tool_output_pool_source=tool_output.get("pool_source"),
+            tool_output_pool_size=tool_output.get("pool_size"),
             synthesis_turn=bool(getattr(result, "synthesis_turn", False)),
             answer_text=(result.answer_text or "")[:400],
             rounds_used=getattr(result, "rounds_used", 0),

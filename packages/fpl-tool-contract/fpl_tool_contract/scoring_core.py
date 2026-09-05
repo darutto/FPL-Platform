@@ -17,6 +17,8 @@ This module imports only stdlib/typing, so nothing below it can cycle back.
 """
 from __future__ import annotations
 
+import datetime as dt
+import math
 from typing import Any, Mapping
 
 # Minutes-risk table: maps FPL ``status`` codes to a 0–100 risk score.
@@ -39,16 +41,18 @@ MAX_CAPTAIN_HORIZON: int = 8
 def captain_pool_elements(bootstrap: Mapping[str, Any]) -> list[dict[str, Any]]:
     """Return the deterministic global captain pool for *bootstrap*.
 
-    The product's global captain comparison means available midfielders and
-    forwards. Keeping that eligibility rule here prevents ranking and chip
-    advice from drifting. Player id is the tie-breaker, so pool order does not
-    depend on raw bootstrap element ordering.
+    Eligibility is availability, not position. People do captain a defender or
+    a keeper, and the product does not make that choice for them: four fifths of
+    the score — form, fixture and minutes — is blind to position anyway, so a
+    defender who deserves a place earns it rather than being excluded before
+    scoring. Keeping the rule here prevents ranking and chip advice from
+    drifting apart. Player id is the tie-breaker, so pool order does not depend
+    on raw bootstrap element ordering.
     """
     eligible = [
         element
         for element in bootstrap.get("elements", [])
-        if element.get("element_type") in (3, 4)
-        and element.get("status") not in ("i", "s", "u")
+        if element.get("status") not in ("i", "s", "u")
         and element.get("id") is not None
     ]
     return sorted(eligible, key=lambda element: int(element["id"]))
@@ -75,12 +79,12 @@ def captain_time_context(
 
     current: int | None = None
     for event in bootstrap.get("events", []):
-        if event.get("is_current"):
+        if event.get("is_current") and not event.get("finished"):
             current = int(event["id"])
             break
     if current is None:
         for event in bootstrap.get("events", []):
-            if event.get("is_next"):
+            if event.get("is_next") and not event.get("finished"):
                 current = int(event["id"])
                 break
 
@@ -200,9 +204,158 @@ def missing_captain_fixture_notice(time_context: Mapping[str, Any]) -> str:
     return f"Could not evaluate the requested window GW{start}-GW{end}."
 
 
+def _availability_risk(element: Mapping[str, Any]) -> float:
+    """Return the existing status/chance risk, independent of participation."""
+    status = element.get("status", "u")
+    chance = element.get("chance_of_playing_this_round")
+    if chance is not None and status == "d":
+        try:
+            chance_value = float(chance)
+        except (TypeError, ValueError):
+            return _STATUS_RISK["d"]
+        return max(0.0, min(100.0, 100.0 - chance_value))
+    return _STATUS_RISK.get(str(status), 50.0)
+
+
+def _display_number(value: float) -> int | float:
+    """Keep whole-minute metadata readable without discarding real fractions."""
+    return int(value) if value.is_integer() else round(value, 2)
+
+
+def derive_minutes_context(
+    element: Mapping[str, Any],
+    team_fixtures: Mapping[Any, Any] | None,
+) -> dict[str, Any]:
+    """Derive auditable participation risk from official completed fixtures.
+
+    The denominator is the sum of each finished fixture's actual ``minutes``
+    for the player's current team, restricted to fixtures whose kickoff date
+    is on or after ``team_join_date``.  This counts doubles individually,
+    counts no fixture in a blank, follows postponed fixtures to their actual
+    date, and does not charge a recent signing for matches before joining.
+
+    A complete all-fixtures fetch is marked on every normalized fixture by the
+    pipeline.  Without that marker, a valid join date, and trustworthy minute
+    values, participation is not inferred: callers receive the pre-existing
+    availability/status risk and an explicit degradation reason.
+    """
+    availability_risk = _availability_risk(element)
+    try:
+        minutes_played = float(element.get("minutes", 0) or 0)
+        starts = int(element.get("starts", 0) or 0)
+    except (TypeError, ValueError):
+        minutes_played = math.nan
+        starts = 0
+
+    base: dict[str, Any] = {
+        "minutes_played": (
+            _display_number(minutes_played) if math.isfinite(minutes_played) else None
+        ),
+        "minutes_available": None,
+        "starts": max(0, starts),
+        "fixtures_available": None,
+        "participation_percent": None,
+        "participation_risk": None,
+        "availability_risk": availability_risk,
+        "minutes_risk": availability_risk,
+        "source": "availability_status",
+        "degraded": True,
+        "degradation_reason": None,
+    }
+
+    if not math.isfinite(minutes_played) or minutes_played < 0:
+        base["degradation_reason"] = "invalid_player_minutes"
+        return base
+
+    try:
+        team_id = int(element["team"])
+    except (KeyError, TypeError, ValueError):
+        base["degradation_reason"] = "missing_team"
+        return base
+
+    if not isinstance(team_fixtures, Mapping):
+        base["degradation_reason"] = "missing_official_fixtures"
+        return base
+    # A bootstrap that has been through JSON carries string team keys, so look
+    # both up: silently missing the int key would degrade to status-only risk —
+    # reinstating the very defect this derivation exists to remove.
+    fixtures = team_fixtures.get(team_id)
+    if fixtures is None:
+        fixtures = team_fixtures.get(str(team_id))
+    if not isinstance(fixtures, list) or not fixtures:
+        base["degradation_reason"] = "missing_official_fixtures"
+        return base
+    if not all(
+        isinstance(fixture, Mapping)
+        and fixture.get("official_fixture_context_complete") is True
+        for fixture in fixtures
+    ):
+        base["degradation_reason"] = "incomplete_official_fixtures"
+        return base
+
+    join_date_raw = element.get("team_join_date")
+    try:
+        join_date = dt.date.fromisoformat(str(join_date_raw)[:10])
+    except (TypeError, ValueError):
+        base["degradation_reason"] = "invalid_team_join_date"
+        return base
+
+    available = 0.0
+    fixture_count = 0
+    for fixture in fixtures:
+        if fixture.get("finished") is not True:
+            continue
+        kickoff_raw = fixture.get("kickoff_time")
+        try:
+            kickoff_date = dt.datetime.fromisoformat(
+                str(kickoff_raw).replace("Z", "+00:00")
+            ).date()
+        except (TypeError, ValueError):
+            base["degradation_reason"] = "invalid_finished_fixture_kickoff"
+            return base
+        if kickoff_date < join_date:
+            continue
+        try:
+            fixture_minutes = float(fixture.get("minutes"))
+        except (TypeError, ValueError):
+            base["degradation_reason"] = "invalid_finished_fixture_minutes"
+            return base
+        if not math.isfinite(fixture_minutes) or fixture_minutes <= 0:
+            base["degradation_reason"] = "invalid_finished_fixture_minutes"
+            return base
+        available += fixture_minutes
+        fixture_count += 1
+
+    if available <= 0:
+        base["fixtures_available"] = 0
+        base["degradation_reason"] = "no_completed_fixtures_since_join"
+        return base
+    if minutes_played > available:
+        base["minutes_available"] = _display_number(available)
+        base["fixtures_available"] = fixture_count
+        base["degradation_reason"] = "player_minutes_exceed_available"
+        return base
+
+    participation = max(0.0, min(100.0, minutes_played / available * 100.0))
+    participation_risk = 100.0 - participation
+    minutes_risk = max(participation_risk, availability_risk)
+    return {
+        **base,
+        "minutes_available": _display_number(available),
+        "fixtures_available": fixture_count,
+        "participation_percent": round(participation, 1),
+        "participation_risk": round(participation_risk, 1),
+        "minutes_risk": round(minutes_risk, 1),
+        "source": "official_completed_fixtures",
+        "degraded": False,
+        "degradation_reason": None,
+    }
+
+
 def _derive_base_scoring_inputs(
     element: dict[str, Any],
     fdr_map: Mapping[int, int | None],
+    team_fixtures: Mapping[Any, Any] | None = None,
 ) -> dict[str, Any]:
     """Derive the base captain-scoring inputs from a raw FPL bootstrap element.
 
@@ -221,12 +374,7 @@ def _derive_base_scoring_inputs(
     xgi_raw = float(element.get("expected_goal_involvements", "0") or 0)
     xgi_per_90 = (xgi_raw / (minutes / 90.0)) if minutes > 0 else 0.0
 
-    status = element.get("status", "u")
-    chance = element.get("chance_of_playing_this_round")
-    if chance is not None and status == "d":
-        minutes_risk = max(0.0, min(100.0, (1.0 - chance / 100.0) * 100.0))
-    else:
-        minutes_risk = _STATUS_RISK.get(status, 50.0)
+    minutes_risk = derive_minutes_context(element, team_fixtures)["minutes_risk"]
 
     team_id = element.get("team")
     _raw_fdr = fdr_map.get(team_id)

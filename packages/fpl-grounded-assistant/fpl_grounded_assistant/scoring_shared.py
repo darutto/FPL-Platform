@@ -16,7 +16,10 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from fpl_tool_contract.scoring_core import _derive_base_scoring_inputs
+from fpl_tool_contract.scoring_core import (
+    _derive_base_scoring_inputs,
+    derive_minutes_context,
+)
 
 from .position_score import shrink_rate_by_minutes
 
@@ -161,9 +164,10 @@ def _derive_scoring_inputs(
       adjusted FDR, when ``team_fixtures`` and ``current_gw`` are provided.
 
     Returns a dict with keys: form, xgi_per_90, xgi_per_90_shrunk, minutes_risk,
-    fixture_difficulty, is_home, effective_fdr.
+    fixture_difficulty, is_home, effective_fdr, minutes_context.
     """
-    base = _derive_base_scoring_inputs(element, fdr_map)
+    base = _derive_base_scoring_inputs(element, fdr_map, team_fixtures)
+    minutes_context = derive_minutes_context(element, team_fixtures)
 
     # Recompute the raw (unrounded) per-90 for the shrink, so the shrunk value
     # is byte-identical to the pre-consolidation code (which shrank the unrounded
@@ -184,4 +188,5 @@ def _derive_scoring_inputs(
         "fixture_difficulty": base["fixture_difficulty"],
         "is_home":            is_home,
         "effective_fdr":      round(effective_fdr, 1),
+        "minutes_context":    minutes_context,
     }

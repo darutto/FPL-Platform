@@ -113,8 +113,9 @@ def test_live_bootstrap_is_reweighted_before_context_consumers(monkeypatch):
     monkeypatch.setattr(
         context,
         "_inject_walk_forward_team_strength",
-        lambda actual: calls.append("strength") or actual is bootstrap,
+        lambda actual, fixtures: calls.append("strength") or actual is bootstrap,
     )
+    monkeypatch.setattr(context, "get_all_fixtures", lambda: [])
     monkeypatch.setattr(
         context, "get_current_gameweek", lambda actual: calls.append("gw") or 1
     )
@@ -137,3 +138,48 @@ def test_live_bootstrap_is_reweighted_before_context_consumers(monkeypatch):
     assert assembled["bootstrap"] is bootstrap
     assert calls[0] == "strength"
     assert calls.index("strength") < calls.index("gw") < calls.index("fixtures")
+
+
+def test_all_fixtures_inject_completed_minutes_context_without_network():
+    bootstrap = {
+        "events": [
+            {"id": 1, "is_current": False, "is_next": False, "finished": True},
+            {"id": 2, "is_current": True, "is_next": False, "finished": False},
+        ],
+        "teams": [
+            {"id": 1, "name": "Arsenal", "short_name": "ARS", "strength": 4},
+            {"id": 2, "name": "Aston Villa", "short_name": "AVL", "strength": 3},
+        ],
+    }
+    current = [{
+        "event": 2,
+        "team_h": 1,
+        "team_a": 2,
+        "finished": False,
+        "kickoff_time": "2026-08-22T14:00:00Z",
+        "minutes": 0,
+    }]
+    official = [
+        {
+            "event": 1,
+            "team_h": 1,
+            "team_a": 2,
+            "finished": True,
+            "kickoff_time": "2026-08-15T14:00:00Z",
+            "minutes": 90,
+        },
+        *current,
+    ]
+
+    assembled = context.assemble_captain_context(
+        bootstrap=bootstrap,
+        fixtures=current,
+        all_fixtures=official,
+    )
+
+    team_rows = assembled["bootstrap"]["team_fixtures"][1]
+    assert len(team_rows) == 2
+    assert team_rows[0]["finished"] is True
+    assert team_rows[0]["minutes"] == 90
+    assert all(row["official_fixture_context_complete"] for row in team_rows)
+    assert assembled["meta"]["minutes_fixture_source"] == "official_all_fixtures"
