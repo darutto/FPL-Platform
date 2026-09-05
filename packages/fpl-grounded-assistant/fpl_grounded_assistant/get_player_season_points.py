@@ -48,6 +48,7 @@ import sys
 import unicodedata
 from typing import Any
 
+from fpl_player_registry import MAX_AMBIGUOUS_CANDIDATES, candidate_dict
 from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
 
@@ -86,7 +87,10 @@ _PREVIOUS_SEASON_SENTINELS: frozenset[str] = frozenset({
     "previous", "last", "pasada", "anterior", "ultima", "última",
 })
 
-_MAX_AMBIGUOUS_CANDIDATES: int = 5
+#: Kept as an alias of the registry's cap: this module used to hold its own
+#: copy of the number, which is the same class of duplication that let its
+#: candidate shape drift from the chip builder's.
+_MAX_AMBIGUOUS_CANDIDATES: int = MAX_AMBIGUOUS_CANDIDATES
 
 
 # ---------------------------------------------------------------------------
@@ -140,6 +144,7 @@ def _normalize_name(text: str) -> str:
 def _resolve_player_in_season(
     player_query: str,
     players_df: "Any",
+    team_short_by_id: "dict[int, str] | None" = None,
 ) -> dict[str, Any]:
     """Resolve *player_query* against a season's own ``players.parquet``.
 
@@ -182,13 +187,35 @@ def _resolve_player_in_season(
         ids.sort(key=lambda pid: -int(by_id.loc[pid].get("total_points", 0) or 0))
         return ids
 
+    def _team_short(row: "Any") -> str:
+        """Three-letter club code for a parquet row, or "" when unmappable.
+
+        The frame stores a numeric ``team_id``; the chip reads ``team_short``.
+        Sending the number produced the label "Salah ()" -- and a send_text of
+        just "Salah", which re-triggers the very ambiguity the chip was
+        offering to resolve.
+        """
+        if not team_short_by_id:
+            return ""
+        raw_team = row.get("team_id")
+        try:
+            return team_short_by_id.get(int(raw_team), "")
+        except (TypeError, ValueError):
+            return ""
+
     def _candidate(pid: int) -> dict[str, Any]:
         row = by_id.loc[pid]
-        return {
-            "id": pid,
-            "web_name": str(row.get("web_name", "?")),
-            "position": _POSITION_MAP.get(int(row["element_type"]), "?"),
-        }
+        # Built through the registry's constructor, which owns these key
+        # names, so this path cannot drift from the other ambiguity sources
+        # again.
+        return candidate_dict(
+            player_id=pid,
+            web_name=str(row.get("web_name", "?")),
+            team_short=_team_short(row),
+            position=_POSITION_MAP.get(int(row["element_type"]), "?"),
+            first_name=str(row.get("first_name", "") or ""),
+            second_name=str(row.get("second_name", "") or ""),
+        )
 
     def _ok(pid: int) -> dict[str, Any]:
         row = by_id.loc[pid]
@@ -204,7 +231,7 @@ def _resolve_player_in_season(
         return {
             "status": "ambiguous",
             "query": normalized_query,
-            "candidates": [_candidate(pid) for pid in ids[:_MAX_AMBIGUOUS_CANDIDATES]],
+            "candidates": [_candidate(pid) for pid in ids[:MAX_AMBIGUOUS_CANDIDATES]],
             "message": f"Multiple players match '{normalized_query}'. Please specify.",
         }
 
@@ -321,12 +348,15 @@ def get_player_season_points(query: str, season: str) -> dict[str, Any]:
             "message": f"Failed to read historical parquet data: {exc}",
         }
 
-    resolution = _resolve_player_in_season(query, players_df)
+    # Built BEFORE resolving: an ambiguous resolution needs the club codes just
+    # as much as a successful one -- that is the whole content of the chip.
+    team_short_by_id: dict[int, str] = dict(zip(teams_df["team_id"], teams_df["short_name"]))
+
+    resolution = _resolve_player_in_season(query, players_df, team_short_by_id)
     if resolution["status"] != "ok":
         return resolution
 
     player_id = resolution["player_id"]
-    team_short_by_id: dict[int, str] = dict(zip(teams_df["team_id"], teams_df["short_name"]))
     team_id = resolution.get("team_id")
     team_short = (
         team_short_by_id.get(int(team_id), "?")

@@ -65,7 +65,11 @@ from fpl_captain_engine import (
     classify_captain_tier,   # Phase 5m
     derive_role_signals,     # Phase 5m
 )
-from fpl_player_registry import resolve_player_candidates
+from fpl_player_registry import (
+    MAX_AMBIGUOUS_CANDIDATES,
+    candidate_dicts,
+    resolve_player_candidates,
+)
 from fpl_query_tools import get_current_gameweek_from_bootstrap, get_player_summary
 from fpl_tool_contract.scoring_core import (
     _derive_base_scoring_inputs,
@@ -187,44 +191,22 @@ def _derive_scoring_inputs_from_element(
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-#: Position label by bootstrap ``element_type`` code.  Local to this module —
-#: the canonical registry stores the raw code, and the tool contract is the
-#: layer that owns the "GKP"/"DEF"/"MID"/"FWD" vocabulary.
-_POSITION_BY_ELEMENT_TYPE: dict[int, str] = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
-
-#: Cap on ambiguous candidates surfaced to the caller.  Matches
-#: ``get_player_snapshot._MAX_AMBIGUOUS_CANDIDATES`` so both disambiguation
-#: paths offer the same number of choices.
-_MAX_AMBIGUOUS_CANDIDATES: int = 5
+#: Cap on ambiguous candidates surfaced to the caller.  Re-exported from the
+#: registry rather than restated: two disambiguation paths offering a different
+#: number of choices for the same tie is a difference nobody would notice until
+#: a user did.
+_MAX_AMBIGUOUS_CANDIDATES: int = MAX_AMBIGUOUS_CANDIDATES
 
 
 def _candidates_from_matches(matches: Any) -> list[dict[str, Any]]:
-    """Build identity-only candidate dicts from canonical ``PlayerMatch`` records.
+    """Chip-ready candidate dicts from canonical ``PlayerMatch`` records.
 
-    Deliberately narrow: id / web_name / team_short / position / match_rank are
-    everything a disambiguation chip needs.  The richer 31-field grounding
-    payload built by ``find_players._build_match_dict`` lives downstream in
-    fpl-grounded-assistant and must not be reached for from this leaf package.
-
-    Ordering is the resolver's own (rank, then total_points desc, then id), so
-    the same bootstrap always yields the same candidate order.
+    Thin wrapper over ``fpl_player_registry.candidate_dicts``, which owns the
+    key names.  It used to build the dict here; the shape was correct, but a
+    second copy of a shape is how the copies drift apart -- and one that did
+    (``get_player_season_points``) is what produced the label "Salah ()".
     """
-    return [
-        {
-            "id":          match.record.id,
-            "web_name":    match.record.web_name,
-            "first_name":  match.record.first_name,
-            "second_name": match.record.second_name,
-            # Full name is what actually breaks the tie: two players sharing a
-            # web_name ("Palmer") differ on their first name, so this is the
-            # string a caller re-sends to resolve to exactly one of them.
-            "name":        f"{match.record.first_name} {match.record.second_name}".strip(),
-            "team_short":  match.record.team_short_name,
-            "position":    _POSITION_BY_ELEMENT_TYPE.get(match.record.element_type, ""),
-            "match_rank":  match.rank,
-        }
-        for match in matches[:_MAX_AMBIGUOUS_CANDIDATES]
-    ]
+    return candidate_dicts(matches, limit=_MAX_AMBIGUOUS_CANDIDATES)
 
 
 def _resolve_with_status(

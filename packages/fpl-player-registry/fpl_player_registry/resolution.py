@@ -304,7 +304,91 @@ def resolve_player_candidates(
     return PlayerResolution(query=normalized_query, matches=tuple(ranked))
 
 
+#: Position label by bootstrap ``element_type`` code. The chip shows it, so it
+#: is part of the candidate shape and belongs next to the constructor.
+POSITION_BY_ELEMENT_TYPE: dict[int, str] = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
+
+#: Cap on candidates offered for one ambiguous query. One number, so two
+#: disambiguation paths never offer a different count for the same tie.
+MAX_AMBIGUOUS_CANDIDATES: int = 5
+
+
+def candidate_dict(
+    *,
+    player_id: Any,
+    web_name: Any,
+    team_short: Any,
+    position: Any = "",
+    first_name: Any = "",
+    second_name: Any = "",
+    match_rank: Any = None,
+) -> dict[str, Any]:
+    """One tied player in the shape a disambiguation chip reads.
+
+    **This function owns the key names.** Every tool that reports an ambiguous
+    resolution must build its candidates here, whatever its data source --
+    canonical ``PlayerMatch`` records, a bootstrap element, or a parquet row.
+
+    Why it exists: the chip builder
+    (``fpl_grounded_assistant.suggestions.player_disambiguation_suggestions``)
+    reads ``web_name`` and ``team_short``. A caller that sent ``team_id``
+    instead produced the label "Salah ()" -- and, worse, a ``send_text`` of
+    just "Salah", which re-triggers the same ambiguity, so the chip looped.
+    Nothing failed loudly; each side was internally consistent and they
+    disagreed about a key name.
+
+    ``team_short`` is the club's three-letter code ("LIV"), never its numeric
+    id: the empty parenthesis in that label was a number arriving where a
+    string was read.
+    """
+    full_name = f"{first_name or ''} {second_name or ''}".strip()
+    out: dict[str, Any] = {
+        "id":          int(player_id),
+        "web_name":    str(web_name or ""),
+        # The tie-breaker the user actually reads. Two players sharing a
+        # web_name differ on their club, so an empty value here makes the chip
+        # unusable rather than merely terse.
+        "team_short":  str(team_short or ""),
+        "position":    str(position or ""),
+    }
+    if full_name:
+        # Two "Palmer"s differ on their first name: this is the string a caller
+        # re-sends to resolve to exactly one of them.
+        out["name"] = full_name
+        out["first_name"] = str(first_name or "")
+        out["second_name"] = str(second_name or "")
+    if match_rank is not None:
+        out["match_rank"] = int(match_rank)
+    return out
+
+
+def candidate_dicts(
+    matches: "Iterable[PlayerMatch]",
+    *,
+    limit: int = MAX_AMBIGUOUS_CANDIDATES,
+) -> list[dict[str, Any]]:
+    """Tied ``PlayerMatch`` records as chip-ready dicts, in resolver order.
+
+    Order is the resolver's own (rank, then total_points desc, then id), so the
+    same bootstrap always offers the same chips in the same order.
+    """
+    return [
+        candidate_dict(
+            player_id=match.record.id,
+            web_name=match.record.web_name,
+            team_short=match.record.team_short_name,
+            position=POSITION_BY_ELEMENT_TYPE.get(match.record.element_type, ""),
+            first_name=match.record.first_name,
+            second_name=match.record.second_name,
+            match_rank=match.rank,
+        )
+        for match in list(matches)[:limit]
+    ]
+
+
 __all__ = [
+    "MAX_AMBIGUOUS_CANDIDATES",
+    "POSITION_BY_ELEMENT_TYPE",
     "PlayerMatch",
     "PlayerResolution",
     "RANK_AUTO_RESOLVE_MAX",
@@ -312,6 +396,8 @@ __all__ = [
     "RANK_EXACT",
     "RANK_PREFIX",
     "RANK_SUBSTRING",
+    "candidate_dict",
+    "candidate_dicts",
     "compound_name_forms",
     "normalize_player_name",
     "resolve_player_candidates",
