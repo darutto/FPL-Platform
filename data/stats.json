@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-04T05:06:45Z",
+  "generatedAt": "2026-09-05T05:06:04Z",
   "season": "2026/27",
   "seasonStatus": "in_season",
   "gameweek": 2,
@@ -163,20 +163,20 @@
       "minutes": 180
     },
     {
+      "name": "Isak",
+      "team": "LIV",
+      "position": "FWD",
+      "xg": 2.29,
+      "xa": 0.06,
+      "minutes": 243
+    },
+    {
       "name": "Rogers",
       "team": "CHE",
       "position": "MID",
       "xg": 1.1,
       "xa": 1.11,
       "minutes": 171
-    },
-    {
-      "name": "Isak",
-      "team": "LIV",
-      "position": "FWD",
-      "xg": 2.08,
-      "xa": 0.01,
-      "minutes": 180
     },
     {
       "name": "Barry",
@@ -219,6 +219,22 @@
       "minutes": 167
     },
     {
+      "name": "Szoboszlai",
+      "team": "LIV",
+      "position": "MID",
+      "xg": 1.17,
+      "xa": 0.52,
+      "minutes": 270
+    },
+    {
+      "name": "Gakpo",
+      "team": "LIV",
+      "position": "MID",
+      "xg": 0.36,
+      "xa": 1.2,
+      "minutes": 250
+    },
+    {
       "name": "Nketiah",
       "team": "CRY",
       "position": "FWD",
@@ -227,12 +243,12 @@
       "minutes": 122
     },
     {
-      "name": "Szoboszlai",
-      "team": "LIV",
+      "name": "Enciso",
+      "team": "IPS",
       "position": "MID",
-      "xg": 1.01,
-      "xa": 0.44,
-      "minutes": 180
+      "xg": 0.87,
+      "xa": 0.64,
+      "minutes": 250
     },
     {
       "name": "Hinshelwood",
@@ -291,14 +307,6 @@
       "minutes": 172
     },
     {
-      "name": "Enciso",
-      "team": "IPS",
-      "position": "MID",
-      "xg": 0.63,
-      "xa": 0.62,
-      "minutes": 160
-    },
-    {
       "name": "Guéhi",
       "team": "MCI",
       "position": "DEF",
@@ -315,12 +323,12 @@
       "minutes": 175
     },
     {
-      "name": "Gakpo",
-      "team": "LIV",
-      "position": "MID",
-      "xg": 0.3,
-      "xa": 0.8,
-      "minutes": 160
+      "name": "Emersonn",
+      "team": "IPS",
+      "position": "FWD",
+      "xg": 1.04,
+      "xa": 0.06,
+      "minutes": 175
     },
     {
       "name": "Calvert-Lewin",
@@ -337,14 +345,6 @@
       "xg": 0.79,
       "xa": 0.25,
       "minutes": 177
-    },
-    {
-      "name": "Gonzalo",
-      "team": "FUL",
-      "position": "FWD",
-      "xg": 1.0,
-      "xa": 0.02,
-      "minutes": 180
     }
   ]
 }
