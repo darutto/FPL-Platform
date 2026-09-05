@@ -236,9 +236,11 @@ def test_without_flags_the_openai_key_is_still_required(
 # 3. An unknown model reports tokens and says the cost is unknown
 # --------------------------------------------------------------------------
 
-def test_known_model_prices_exactly_as_before():
-    assert base.cost_usd(1_000_000, 1_000_000, 1_000_000, model="gpt-5.6-luna") == (
-        pytest.approx(0.20 + 1.20 + 0.02)
+def test_known_model_prices_at_the_published_rates():
+    """Rates, with no cached tokens in play -- how the cached share is charged
+    is provider-specific and is pinned in section 5."""
+    assert base.cost_usd(1_000_000, 1_000_000, 0, model="gpt-5.6-luna") == (
+        pytest.approx(0.20 + 1.20)
     )
 
 
@@ -250,8 +252,9 @@ def test_pricing_table_matches_the_experiment_runners():
 
 
 def test_unknown_model_costs_none_not_another_models_rate():
-    assert "gemini-3.8-flash" not in base.PRICING_PER_1M_BY_MODEL
-    assert base.cost_usd(1_000_000, 1_000_000, 1_000_000, model="gemini-3.8-flash") is None
+    unpriced = "some-model-nobody-has-priced-yet"
+    assert unpriced not in base.PRICING_PER_1M_BY_MODEL
+    assert base.cost_usd(1_000_000, 1_000_000, 0, model=unpriced) is None
 
 
 def test_format_spend_reports_tokens_and_declares_the_cost_unknown():
@@ -373,3 +376,99 @@ def test_the_event_name_still_exists_in_the_orchestrator():
     for every row -- a field that is always false looks like good news."""
     source = (_PKG / "fpl_grounded_assistant" / "orchestrator.py").read_text(encoding="utf-8")
     assert f'"{base._EMPTY_EVENT}"' in source
+
+
+# --------------------------------------------------------------------------
+# 5. The cached share is priced per provider
+# --------------------------------------------------------------------------
+#
+# One case with cache_read == 0 cannot tell the two formulas apart: they agree
+# everywhere except on cached tokens. So every test here uses cache_read > 0,
+# once per provider.
+
+_LUNA = "gpt-5.6-luna"
+_HAIKU = "claude-haiku-4-5-20251001"
+_GEMINI = "gemini-3.8-flash"
+
+
+def test_openai_does_not_bill_the_cached_share_twice():
+    """OpenAI reports cached_tokens as a SUBSET of input_tokens
+    (provider_client.py:1014), so the cached part must be priced once, at the
+    cache rate -- not at the input rate as well."""
+    prices = base.PRICING_PER_1M_BY_MODEL[_LUNA]
+    got = base.cost_usd(1_000_000, 0, 900_000, model=_LUNA, provider="openai")
+    expected = 100_000 / 1e6 * prices["input"] + 900_000 / 1e6 * prices["cache_read"]
+    assert got == pytest.approx(expected)
+    # The old formula charged the 900k twice; it must now be strictly cheaper.
+    double_charged = 1_000_000 / 1e6 * prices["input"] + 900_000 / 1e6 * prices["cache_read"]
+    assert got < double_charged
+
+
+def test_anthropic_still_adds_the_cached_share():
+    """Anthropic reports cache_read_input_tokens SEPARATELY from input_tokens
+    (provider_client.py:976). Subtracting there would under-bill -- the uniform
+    'fix' that breaks this arm."""
+    prices = base.PRICING_PER_1M_BY_MODEL[_HAIKU]
+    got = base.cost_usd(1_000_000, 0, 900_000, model=_HAIKU, provider="anthropic")
+    expected = 1_000_000 / 1e6 * prices["input"] + 900_000 / 1e6 * prices["cache_read"]
+    assert got == pytest.approx(expected)
+    assert base.billable_input_tokens(1_000_000, 900_000, "anthropic") == 1_000_000
+
+
+def test_the_two_providers_disagree_on_the_same_numbers():
+    """The point of the split, stated directly: identical token counts must
+    cost different amounts under the two reporting conventions."""
+    openai_billable = base.billable_input_tokens(1_000_000, 900_000, "openai")
+    anthropic_billable = base.billable_input_tokens(1_000_000, 900_000, "anthropic")
+    assert openai_billable == 100_000
+    assert anthropic_billable == 1_000_000
+
+
+def test_gemini_is_unaffected_because_it_reports_no_cache():
+    """Gemini has no cache field (provider_client.py:1029), so cache_read is
+    always 0 and the distinction is inert -- 120 measured turns reported 0."""
+    assert base.cost_usd(1_000_000, 0, 0, model=_GEMINI, provider="gemini") == (
+        pytest.approx(base.PRICING_PER_1M_BY_MODEL[_GEMINI]["input"])
+    )
+    assert base.billable_input_tokens(1_000_000, 0, "gemini") == 1_000_000
+
+
+def test_an_impossible_cache_count_never_becomes_a_discount():
+    """cache_read > input means the two numbers did not come from one call.
+    Clamp at zero rather than let an accounting bug pay the owner back."""
+    assert base.billable_input_tokens(100, 900, "openai") == 0
+    assert base.cost_usd(100, 0, 900, model=_LUNA, provider="openai") > 0
+
+
+def test_unknown_provider_is_billed_the_conservative_way():
+    """A provider not in the subset set is billed additively -- the higher
+    number. An unknown convention must not silently discount."""
+    assert base.billable_input_tokens(1_000_000, 900_000, "some-new-provider") == 1_000_000
+
+
+@pytest.mark.parametrize(
+    "tokens,expected_usd",
+    (
+        # Real totals from the paid 2026-09-05 luna runs (PR #213): 20 turns
+        # and 60 turns, 89% and 84% cached. The old formula reported $0.0796
+        # and $0.3513 -- 4.1x and 3.3x too high.
+        ((338_510, 4_901, 300_870), 0.0194),
+        ((1_470_084, 27_231, 1_230_502), 0.1052),
+    ),
+)
+def test_matches_the_real_luna_runs(tokens, expected_usd):
+    input_tokens, output_tokens, cache_read = tokens
+    got = base.cost_usd(input_tokens, output_tokens, cache_read,
+                        model=_LUNA, provider="openai")
+    assert got == pytest.approx(expected_usd, abs=5e-5)
+
+
+def test_the_cache_semantics_still_hold_in_provider_client():
+    """If an extractor changes which field it reads, the subset assumption
+    behind this split is gone and the cost silently drifts again."""
+    source = (_PKG / "fpl_grounded_assistant" / "provider_client.py").read_text(encoding="utf-8")
+    # OpenAI: nested under input_tokens_details -> a subset of input_tokens.
+    assert '"input_tokens_details"' in source or "input_tokens_details" in source
+    assert 'getattr(details, "cached_tokens", None)' in source
+    # Anthropic: a top-level, separately reported field.
+    assert 'getattr(usage, "cache_read_input_tokens", None)' in source
