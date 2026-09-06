@@ -6,7 +6,12 @@ observations so the decision rule cannot be moved after seeing the result.
 Pre-registered setup
 --------------------
 * Question (exact): ``¿A quién debería dar el brazalete?``
-* Provider/model: ``openai`` / ``gpt-5.6-luna``
+* Provider/model: ``openai`` / ``gpt-5.6-luna`` by default. ``--provider`` and
+  ``--model`` re-point a repeat run at another model without editing this file;
+  the values actually used are written into every observation and printed in
+  the header, so a re-run is never confusable with the pre-registered one. The
+  defaults are the pinned production pair, unchanged, and no env var can move
+  them (see the note in ``measure_tool_routing``).
 * Frozen bootstrap: ``agentic-loop-bootstrap-2026-08-18.json``; its SHA-256 is
   written into every observation.
 * Repetitions: at least 20. The script refuses a smaller N.
@@ -44,7 +49,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 import sys
 from collections import Counter
 from pathlib import Path
@@ -106,6 +110,13 @@ def _summarise(observations: list[dict[str, Any]]) -> int:
     print("\n--- DISTINCT RANK CANDIDATE LISTS ---")
     for names, count in sorted(lists.items(), key=lambda item: (-item[1], item[0])):
         print(f"  {count}x {list(names)}")
+    # Reported, not part of the pre-registered decision rule. Before the row
+    # carried this flag the empty-synthesis events were visible only on stderr
+    # and belonged to no observation, so they could not be attributed at all.
+    empty = [obs for obs in observations if obs.get("empty_provider_response")]
+    print("\n--- EMPTY PROVIDER RESPONSES (render() fallback) ---")
+    print(f"  {len(empty)}/{len(observations)} turns; "
+          f"reps: {[obs.get('rep') for obs in empty]}")
     print(f"\nprimary_metric_distinct_lists={len(lists)}")
     print(f"rank_turns={len(rank_turns)} total_turns={len(observations)}")
     print(f"VERDICT={verdict}")
@@ -122,6 +133,20 @@ def main(argv: list[str] | None = None) -> int:
         default=str(base.PACKAGE_ROOT / ".env"),
         help="Optional dotenv file; existing environment variables win.",
     )
+    parser.add_argument(
+        "--provider",
+        default=base.PROVIDER,
+        choices=sorted(base.API_KEY_ENV_BY_PROVIDER),
+        help="LLM provider (default: the pinned %(default)s). Selects the API "
+             "key env var too.",
+    )
+    parser.add_argument(
+        "--model",
+        default=base.MODEL,
+        help="Model id (default: the pinned %(default)s). A model with no entry "
+             "in measure_tool_routing.PRICING_PER_1M_BY_MODEL still runs; its "
+             "cost is reported as unknown, never estimated at other rates.",
+    )
     args = parser.parse_args(argv)
 
     if args.reps < MIN_REPS:
@@ -130,10 +155,12 @@ def main(argv: list[str] | None = None) -> int:
 
     base._configure_imports()
     base._load_env_file(Path(args.env_file))
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
-        print("OPENAI_API_KEY not set; aborting before any paid call.", file=sys.stderr)
-        return 2
+
+    # base.run_one reads these at call time; set them so --provider/--model are
+    # real and not silently ignored. Same mechanism golden_battery.py uses.
+    base.PROVIDER, base.MODEL = args.provider, args.model
+
+    api_key = base.require_api_key(base.PROVIDER)
 
     bootstrap_path = Path(args.bootstrap)
     bootstrap_bytes = bootstrap_path.read_bytes()
@@ -150,7 +177,6 @@ def main(argv: list[str] | None = None) -> int:
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     observations: list[dict[str, Any]] = []
-    cost = 0.0
     print(
         f"captain pool variance: {args.reps} identical calls against "
         f"{base.PROVIDER}/{base.MODEL}; bootstrap_sha256={bootstrap_sha256}",
@@ -170,14 +196,14 @@ def main(argv: list[str] | None = None) -> int:
             fh.write(json.dumps(obs, ensure_ascii=False) + "\n")
             fh.flush()
             observations.append(obs)
-            cost += float(obs.get("cost_usd") or 0.0)
             print(
                 f"  {rep + 1}/{args.reps}: tool={obs.get('tool_chosen')} "
-                f"candidates={names} synthesis_turn={obs.get('synthesis_turn')}",
+                f"candidates={names} synthesis_turn={obs.get('synthesis_turn')} "
+                f"empty_provider_response={obs.get('empty_provider_response')}",
                 file=sys.stderr,
             )
 
-    print(f"cost=${cost:.4f}", file=sys.stderr)
+    print(f"cost={base.format_spend(observations)}", file=sys.stderr)
     return _summarise(observations)
 
 
