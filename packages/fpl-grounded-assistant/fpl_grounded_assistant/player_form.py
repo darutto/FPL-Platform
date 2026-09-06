@@ -421,7 +421,10 @@ def _resolve_player(
     meta: dict with web_name, team_short, position, player_id
     """
     from fpl_api_client.fpl_client import get_players, get_teams  # noqa: PLC0415
-    from fpl_player_registry import resolve_player_candidates     # noqa: PLC0415
+    from fpl_player_registry import (                             # noqa: PLC0415
+        candidate_dicts,
+        resolve_player_candidates,
+    )
 
     players = get_players(bootstrap)
     teams   = get_teams(bootstrap)
@@ -434,7 +437,12 @@ def _resolve_player(
         allow_substring=False,
     )
     if resolution.status == "ambiguous":
-        return "ambiguous", None, {}
+        # The tied players travel with the status. Returning a bare
+        # "ambiguous" left the caller with nothing to build chips from, so the
+        # conversation dead-ended on "aclara a quién te refieres" -- a question
+        # the user cannot answer in one tap even though the answer was already
+        # computed right here.
+        return "ambiguous", None, {"candidates": candidate_dicts(resolution.best_matches)}
     match = resolution.player
     if match is None:
         return "not_found", None, {}
@@ -488,8 +496,13 @@ def get_player_form(
 
     Returns — status "not_found" / "ambiguous"
     -------------------------------------------
-    ``status``  "not_found" | "ambiguous"
-    ``query``   Original query string
+    ``status``      "not_found" | "ambiguous"
+    ``query``       Original query string
+    ``candidates``  On "ambiguous" only: up to five tied players in the shape
+                    ``fpl_player_registry.candidate_dict`` defines
+                    (id / web_name / team_short / position), which is what the
+                    pick-one chips are built from. Omitted on "not_found",
+                    where there is nothing to choose between.
 
     Returns — status "missing_context"
     ------------------------------------
@@ -500,7 +513,11 @@ def get_player_form(
 
     res_status, element, meta = _resolve_player(query, bootstrap)
     if res_status == "ambiguous":
-        return {"status": "ambiguous", "query": str(query)}
+        out: dict[str, Any] = {"status": "ambiguous", "query": str(query)}
+        candidates = meta.get("candidates")
+        if candidates:
+            out["candidates"] = candidates
+        return out
     if res_status == "not_found":
         return {"status": "not_found", "query": str(query)}
 

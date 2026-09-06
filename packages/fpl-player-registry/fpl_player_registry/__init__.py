@@ -21,6 +21,8 @@ Reference: fpl-player-registry/python/player_registry.py (audit copy — do not 
 from .nicknames import KNOWN_NICKNAMES
 from .registry import PlayerRecord, PlayerRegistry, build_registry
 from .resolution import (
+    MAX_AMBIGUOUS_CANDIDATES,
+    POSITION_BY_ELEMENT_TYPE,
     PlayerMatch,
     PlayerResolution,
     RANK_AUTO_RESOLVE_MAX,
@@ -28,6 +30,8 @@ from .resolution import (
     RANK_EXACT,
     RANK_PREFIX,
     RANK_SUBSTRING,
+    candidate_dict,
+    candidate_dicts,
     compound_name_forms,
     normalize_player_name,
     resolve_player_candidates,
@@ -45,6 +49,10 @@ __all__ = [
     "RANK_EXACT",
     "RANK_PREFIX",
     "RANK_SUBSTRING",
+    "MAX_AMBIGUOUS_CANDIDATES",
+    "POSITION_BY_ELEMENT_TYPE",
+    "candidate_dict",
+    "candidate_dicts",
     "compound_name_forms",
     "normalize_player_name",
     "resolve_player_candidates",

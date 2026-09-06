@@ -449,6 +449,13 @@ class TestPublicSurface:
             "resolve_player_candidates", "compound_name_forms",
             "RANK_EXACT", "RANK_COMPOUND", "RANK_PREFIX", "RANK_SUBSTRING",
             "RANK_AUTO_RESOLVE_MAX",
+            # i67: the candidate shape has one owner. Exported because the
+            # tools that report an ambiguous resolution live in other packages
+            # and must build their candidates here rather than each inventing
+            # its own key names -- one that did sent "team_id" where the
+            # disambiguation chip reads "team_short" and rendered "Salah ()".
+            "candidate_dict", "candidate_dicts",
+            "MAX_AMBIGUOUS_CANDIDATES", "POSITION_BY_ELEMENT_TYPE",
         }
 
     def test_season_id_mapper_not_exposed(self):
