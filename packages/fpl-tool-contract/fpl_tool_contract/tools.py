@@ -61,6 +61,7 @@ from typing import Any
 
 from fpl_api_client.fpl_client import get_players, get_teams
 from fpl_captain_engine import (
+    TIER_AVOID,
     calculate_captain_score,
     classify_captain_tier,   # Phase 5m
     derive_role_signals,     # Phase 5m
@@ -669,6 +670,14 @@ def tool_rank_captain_candidates(
     ``squad_excluded``     Every owned player omitted from the ranking, with
                            reason unavailable or unresolved. Position is not a
                            reason: nobody is excluded for playing in defence.
+    ``held_back``          Scored candidates kept OUT of the ranking because
+                           their tier says not to captain them, each with
+                           ``held_back_reason`` and ``rank`` of None. They are
+                           held back, not hidden: the caller still has them,
+                           with score and tier, and can show them. A player the
+                           caller named, a player the user owns, and the whole
+                           list when every candidate is "avoid" are never held
+                           back -- see the comment at the sort.
     ``error_count``        Number of candidates that failed to resolve or
                            were missing required scoring fields.
 
@@ -856,8 +865,44 @@ def tool_rank_captain_candidates(
 
     # Sort ok results by captain_score descending and assign rank
     ok_results.sort(key=lambda x: x["captain_score"], reverse=True)
+
+    # A tier of "avoid" means "do not captain this player" -- so the ranking
+    # must not recommend one. It used to: the sort read captain_score alone and
+    # ignored the tier it had just computed, so a high scorer with rotation risk
+    # could land in the top few labelled "avoid", and the prose would quietly
+    # skip over it. Card and text then said opposite things about the same
+    # player, and the user read the card.
+    #
+    # They are held back, NOT deleted. Nobody is removed from view for being
+    # risky, the same way nobody is removed for playing in defence: the caller
+    # gets them in ``held_back`` with the reason, and can show them.
+    #
+    # Three players are never held back, because in each case the user is owed
+    # the answer rather than protected from it:
+    #   * one the caller named -- they asked about that player specifically,
+    #     and "avoid" IS the answer to "should I captain X?";
+    #   * one the user owns -- it is their squad, and a warning about their own
+    #     player is information, not noise;
+    #   * every candidate, when they are all "avoid" -- an empty ranking answers
+    #     nothing. A bad best option still beats no option, and the tier travels
+    #     with it so the caller can say so.
+    def _may_be_held_back(entry: dict[str, Any]) -> bool:
+        return (
+            entry.get("tier") == TIER_AVOID
+            and pool_source == "derived"
+            and not entry.get("owned")
+        )
+
+    held_back: list[dict[str, Any]] = []
+    if any(not _may_be_held_back(entry) for entry in ok_results):
+        held_back = [entry for entry in ok_results if _may_be_held_back(entry)]
+        ok_results = [entry for entry in ok_results if not _may_be_held_back(entry)]
+
     for rank, entry in enumerate(ok_results, start=1):
         entry["rank"] = rank
+    for entry in held_back:
+        entry["rank"] = None
+        entry["held_back_reason"] = "avoid"
 
     ranked_owned_ids = {
         int(entry["player_id"])
@@ -914,6 +959,7 @@ def tool_rank_captain_candidates(
         "squad_excluded":    squad_excluded,
         "time_context":      time_context,
         "ranked_candidates": ranked_candidates,
+        "held_back":         held_back,
         "presentation":      _build_presentation(ranked_candidates),
         "pool_size":         pool_size,
         "total":             returned_ok_count,
