@@ -19,11 +19,27 @@ CONSUMERS AFTER MIGRATION:
   - fpl-platform/apps/fpl-chat (tool: rank_captain_candidates)
   - Any future Python captaincy scripts
 
-SCORE WEIGHTS  (canonical — matches captainScore.ts exactly):
-  form      40%
-  fixture   30%
-  xGI/90    20%
-  minutes   10%
+SCORE SHAPE  (no longer a straight port of captainScore.ts — see below):
+
+  A weighted sum of four normalised metrics ...
+      form      40%
+      fixture   30%
+      xGI/90    20%
+      minutes   10%
+  ... and then the whole sum is multiplied by the share of minutes the player
+  actually plays (``minutes_confidence``).
+
+  So minutes are NOT a 10% input.  They enter twice -- once as the smallest
+  addend, once as a multiplier on everything -- which makes them the dominant
+  term: holding form, fixture and xGI fixed, minutes move the score across its
+  entire range, and only a small part of that swing is the 10% addend.
+  The addend is close to decorative now and is kept only so the sum still
+  reaches 100 for a perfect ever-present.
+
+  Why the shape changed: as a pure weighted sum, everything from ever-present
+  to never-played fitted inside roughly ten points, so ordering could not
+  express rotation risk and the *tier* had to carry the whole judgement -- as a
+  cliff at 50% participation.  See ``minutes_confidence``.
 """
 
 from __future__ import annotations
@@ -94,17 +110,23 @@ def calculate_captain_score(
 ) -> float:
     """Calculate a composite captain score from 0 to 100.
 
-    Weights:
+    Weighted sum of four normalised metrics:
         form          40%  (normalised to 0-100: form/10 × 100)
         fixture       30%  (normalised to 0-100: (6-diff) × 20)
         xGI/90        20%  (normalised to 0-100: xgi × 50, capped at 100)
         minutes risk  10%  (normalised to 0-100: 100 - risk)
 
-    The weighted total is then scaled by ``minutes_confidence(minutes_risk)``
-    so the recommendation falls continuously as minutes fall.
+    ...then scaled by ``minutes_confidence(minutes_risk)``.
 
-    SOURCE: captaincy-showdown/src/engine/captainScore.ts::calculateCaptainScore (lines 19-35)
-            — direct Python port, identical maths.
+    Read those two steps together, not as a table plus a footnote: minutes are
+    the dominant term, not the 10% one.  They are the only input that appears
+    on both sides, and the multiplier is what makes the recommendation fall
+    continuously as minutes fall.  A player at zero measured risk keeps the
+    whole sum, so the four percentages above describe him exactly.
+
+    SOURCE: captaincy-showdown/src/engine/captainScore.ts::calculateCaptainScore
+            (lines 19-35).  The weighted sum is still that function's maths; the
+            minutes scaling is ours and has no counterpart in the TypeScript.
     """
     # Normalise each metric to 0-100
     form_score    = min(max((form / 10) * 100, 0.0), 100.0)
