@@ -40,7 +40,7 @@ def test_seven_key_frozen_parity():
         "form": 5.0,
         "xgi_per_90": 0.6,
         "xgi_per_90_shrunk": 0.4,
-        "minutes_risk": 0.0,
+        "minutes_risk": 40.0,   # unknown floor: no official history was passed
         "fixture_difficulty": 2,
         "is_home": None,
         "effective_fdr": 2.0,
@@ -52,7 +52,8 @@ def test_seven_key_frozen_parity():
             "participation_percent": None,
             "participation_risk": None,
             "availability_risk": 0.0,
-            "minutes_risk": 0.0,
+            "minutes_risk": 40.0,
+            "minutes_known": False,
             "source": "availability_status",
             "degraded": True,
             "degradation_reason": "missing_official_fixtures",

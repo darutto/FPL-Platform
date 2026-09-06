@@ -31,14 +31,35 @@ from typing import Any, Mapping
 Locale = str
 
 
+_NEVER_PLAYED_REASON = "no_completed_fixtures_since_join"
+
+
+def _unknown_minutes_phrase(
+    minutes_context: Mapping[str, Any],
+    locale: Locale,
+) -> str:
+    """Name the gap in plain words, without turning it into a verdict."""
+    reason = minutes_context.get("degradation_reason")
+    if reason == _NEVER_PLAYED_REASON:
+        if locale == "es":
+            return "todavía no ha jugado con su equipo, así que aún no sabemos sus minutos"
+        return "has not played for this team yet, so their minutes are still unknown"
+    if locale == "es":
+        return "no hemos podido medir sus minutos"
+    return "we could not measure their minutes"
+
+
+
 def minutes_phrase(
     minutes_context: Mapping[str, Any] | None,
     locale: Locale = "es",
 ) -> str | None:
     """Say how much of the available football a player has actually played.
 
-    Returns ``None`` when participation could not be derived, so a caller shows
-    nothing rather than a confident-sounding blank.
+    When participation could not be derived, say so.  Staying silent was the
+    same defect one layer up: the reader takes an unmentioned factor for a
+    factor with nothing to report, so "we have not measured this" arrived
+    looking exactly like "no rotation risk here".
     """
     if not isinstance(minutes_context, Mapping):
         return None
@@ -46,7 +67,7 @@ def minutes_phrase(
     available = minutes_context.get("minutes_available")
     starts = minutes_context.get("starts")
     if minutes_context.get("degraded") or played is None or not available:
-        return None
+        return _unknown_minutes_phrase(minutes_context, locale)
 
     if locale == "es":
         phrase = f"jugó {played} de {available} minutos posibles"

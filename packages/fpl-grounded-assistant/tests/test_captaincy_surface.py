@@ -305,12 +305,53 @@ def test_triple_captain_player_verdict_names_requested_player_and_top(bootstrap)
     assert "best available is Salah" in result["advice_text"]
 
 
+def _with_measured_minutes(bootstrap):
+    """Give the board real participation so chip advice is judged on a real one.
+
+    Triple-captain advice reads absolute captain-score thresholds, and the
+    score now scales with the share of minutes a player actually plays.  On a
+    bootstrap with no official fixture history nobody's minutes are known, so
+    every score carries the unknown discount and no option can clear the
+    "standout" bar -- which is the honest answer for that board, but it is not
+    the behaviour this test is about.
+    """
+    measured = copy.deepcopy(bootstrap)
+    for element in measured["elements"]:
+        element.setdefault("team_join_date", "2026-07-01")
+        element["minutes"] = 180
+        element["starts"] = 2
+    measured["team_fixtures"] = {
+        team_id: [
+            {"finished": True, "kickoff_time": "2026-08-15T14:00:00Z", "minutes": 90,
+             "official_fixture_context_complete": True},
+            {"finished": True, "kickoff_time": "2026-08-22T14:00:00Z", "minutes": 90,
+             "official_fixture_context_complete": True},
+        ]
+        for team_id in range(1, 21)
+    }
+    return measured
+
+
 def test_triple_captain_without_player_keeps_global_top_behavior(bootstrap):
-    result = get_chip_advice("triple_captain", bootstrap)
+    result = get_chip_advice("triple_captain", _with_measured_minutes(bootstrap))
 
     assert result["signals"]["top_player"] == "Salah"
     assert "evaluated_player" not in result["signals"]
     assert "option exists: Salah" in result["advice_text"]
+
+
+def test_triple_captain_is_not_compelling_when_nobody_s_minutes_are_known():
+    """Unknown minutes must not produce a confident chip recommendation.
+
+    Triple captain triples the downside too, so "we have not measured how much
+    this player plays" is the last state in which to call an option standout.
+    """
+    from tests.conftest import BOOTSTRAP  # the board with no official history
+
+    result = get_chip_advice("triple_captain", copy.deepcopy(BOOTSTRAP))
+
+    assert result["status"] == "ok"
+    assert "There is a standout option" not in result["advice_text"]
 
 
 def test_squad_context_suppresses_stale_availability_disclaimer(bootstrap):

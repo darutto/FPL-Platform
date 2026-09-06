@@ -929,7 +929,12 @@ def tool_rank_captain_candidates(
     ]
 
     ranked_candidates = ok_results + non_ok_results
-    pool_size = len(ranked_candidates)
+    # Held-back entries are still in the pool -- they were scored, they are
+    # returned, and they are only kept out of the *ranking*. Counting the
+    # ranking instead of the pool made pool_size shrink whenever someone was
+    # held back, so the number that exists to audit eligibility silently
+    # stopped matching the eligible set.
+    pool_size = len(ranked_candidates) + len(held_back)
     if pool_source == "derived":
         global_top = ranked_candidates[:DERIVED_CAPTAIN_POOL_LIMIT]
         retained_ids = {

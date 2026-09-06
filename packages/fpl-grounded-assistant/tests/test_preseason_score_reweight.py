@@ -320,6 +320,10 @@ class TestLayerOneDoesNotSeeTheShrinkage:
             inputs["minutes_risk"],
         )
 
-        # Hand-computed from the same raw inputs (form=8.0, fdr=3, xgi/90=0.9,
-        # minutes_risk=0.0): 0.4*80 + 0.3*60 + 0.2*45 + 0.1*100 = 32+18+9+10 = 69.0
-        assert score == pytest.approx(69.0, abs=1e-6)
+        # Hand-computed from the same raw inputs (form=8.0, fdr=3, xgi/90=0.9).
+        # No official fixture history is passed here, so participation is
+        # unmeasured and minutes_risk is the unknown floor of 40 rather than a
+        # flattering 0: 0.4*80 + 0.3*60 + 0.2*45 + 0.1*60 = 32+18+9+6 = 65.0,
+        # scaled by the minutes confidence 1 - 40/100 = 0.6 -> 39.0.
+        assert inputs["minutes_risk"] == 40.0
+        assert score == pytest.approx(39.0, abs=1e-6)

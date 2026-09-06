@@ -49,9 +49,42 @@ def test_minutes_are_named_in_plain_language():
     assert minutes_phrase(_FULL) == "jugó 180 de 180 minutos posibles, 2 titularidades"
 
 
-def test_a_derivation_that_degraded_says_nothing_rather_than_guessing():
-    assert minutes_phrase(_DEGRADED) is None
+def test_a_derivation_that_degraded_says_it_does_not_know():
+    """Silence was the defect, not the safe option.
+
+    An unmentioned factor reads as a factor with nothing to report, so keeping
+    quiet about unmeasured minutes told the reader exactly what we did not
+    know to be true: that there was no rotation risk here.  Saying "we could
+    not measure this" is not a guess -- it is the refusal to make one.
+    """
+    phrase = minutes_phrase(_DEGRADED)
+    assert phrase is not None
+    assert "no hemos podido medir" in phrase
+    # Absence of a context object at all is a different thing: nothing to say.
     assert minutes_phrase(None) is None
+
+
+def test_a_player_who_has_not_played_yet_is_named_as_such():
+    """The never-played case gets its own words: it is the common one.
+
+    A summer signing with no league minutes is not a data outage, and the two
+    should not read the same to the user.
+    """
+    never_played = {**_DEGRADED, "degradation_reason": "no_completed_fixtures_since_join"}
+    phrase = minutes_phrase(never_played)
+    assert "todavía no ha jugado" in phrase
+    assert phrase != minutes_phrase(_DEGRADED)
+
+
+def test_the_unknown_phrase_is_not_a_verdict():
+    """Unknown is not avoid: PR #210 settled that nobody is excluded on absence.
+
+    The wording may not import a recommendation, in either direction.
+    """
+    for context in (_DEGRADED, {**_DEGRADED, "degradation_reason": "no_completed_fixtures_since_join"}):
+        phrase = minutes_phrase(context).lower()
+        for verdict in ("evita", "no lo captanees", "riesgo alto", "peligro", "descarta"):
+            assert verdict not in phrase
 
 
 def test_penalties_are_shown_and_absence_is_not_a_negative():

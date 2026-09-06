@@ -9,6 +9,7 @@ wrapper over it.
 from __future__ import annotations
 
 from fpl_tool_contract.scoring_core import (
+    UNKNOWN_MINUTES_RISK,
     NEUTRAL_FDR,
     _derive_base_scoring_inputs,
     derive_minutes_context,
@@ -43,13 +44,17 @@ def test_real_fdr_passes_through():
 
 
 def test_base_frozen_parity_well_formed():
-    """Byte-for-byte expected output on a well-formed element (guards the
-    behaviour-preserving claim; values frozen from pre-consolidation code)."""
+    """Byte-for-byte expected output on a well-formed element.
+
+    ``minutes_risk`` is the unknown floor, not zero: no team fixtures are
+    passed here, so participation was never measured, and an unmeasured
+    quantity must not be reported as the best possible value.
+    """
     out = _derive_base_scoring_inputs(_ELEMENT, {7: 2})
     assert out == {
         "form": 5.0,
         "xgi_per_90": 0.6,
-        "minutes_risk": 0.0,
+        "minutes_risk": UNKNOWN_MINUTES_RISK,
         "fixture_difficulty": 2,
     }
 
@@ -57,8 +62,28 @@ def test_base_frozen_parity_well_formed():
 def test_doubtful_uses_chance_of_playing():
     """The status="d" + chance_of_playing branch is preserved."""
     el = {**_ELEMENT, "status": "d", "chance_of_playing_this_round": 75}
+    context = derive_minutes_context(el, None)
+    assert context["availability_risk"] == 25.0  # (1 - 75/100) * 100
+
+
+def test_doubtful_below_the_unknown_floor_still_reports_unknown():
+    """A measured availability risk does not make unmeasured minutes known.
+
+    Knowing someone is 75% likely to be fit says nothing about the share of
+    minutes they play when fit.  The smaller of the two numbers must not win,
+    or a partial measurement would launder a total absence of one.
+    """
+    el = {**_ELEMENT, "status": "d", "chance_of_playing_this_round": 75}
     out = _derive_base_scoring_inputs(el, {7: 2})
-    assert out["minutes_risk"] == 25.0  # (1 - 75/100) * 100
+    assert out["minutes_risk"] == UNKNOWN_MINUTES_RISK
+
+
+def test_availability_risk_above_the_unknown_floor_wins():
+    """The floor lifts unknowns; it never lowers a known-bad availability."""
+    el = {**_ELEMENT, "status": "i"}
+    context = derive_minutes_context(el, None)
+    assert context["minutes_risk"] == 100.0
+    assert context["minutes_known"] is False
 
 
 def test_tools_wrapper_null_fdr_four_keys_no_crash():
@@ -136,16 +161,47 @@ def test_injured_or_suspended_status_wins_over_high_participation():
         assert context["minutes_risk"] == 100.0
 
 
-def test_zero_completed_fixtures_does_not_divide_or_penalize():
+def test_zero_completed_fixtures_reports_unknown_not_zero_risk():
+    """No football played since joining is unknown participation, not safe.
+
+    This used to return ``minutes_risk = 0.0`` -- the exact value a verified
+    ever-present earns -- so a signing with no league minutes at all was
+    ranked as the least risky captain on the board, above players we had
+    measured playing half the available minutes.
+    """
     fixtures = _official_team_fixtures(
         (1, False, "2026-08-15T14:00:00Z", 0),
     )
     context = derive_minutes_context(_minutes_element(minutes=0, starts=0), fixtures)
 
-    assert context["minutes_risk"] == 0.0
+    assert context["minutes_risk"] == UNKNOWN_MINUTES_RISK
+    assert context["minutes_known"] is False
     assert context["participation_percent"] is None
     assert context["degraded"] is True
     assert context["degradation_reason"] == "no_completed_fixtures_since_join"
+
+
+def test_unknown_floor_sits_between_the_recommendable_tiers_and_avoid():
+    """The floor is a placement, not a verdict, and the tiers must agree.
+
+    Above every threshold that can produce safe/upside/differential, and
+    below the avoid line: unknown is neither recommended nor excluded.
+    """
+    from fpl_captain_engine.captain_tiers import (
+        CAPTAIN_TIER_RULES,
+        TIER_AVOID,
+        TIER_DIFFERENTIAL,
+        TIER_SAFE,
+        TIER_UPSIDE,
+    )
+
+    recommendable_ceiling = max(
+        CAPTAIN_TIER_RULES[tier]["thresholds"]["minutes_risk_max"]
+        for tier in (TIER_SAFE, TIER_UPSIDE, TIER_DIFFERENTIAL)
+    )
+    avoid_floor = CAPTAIN_TIER_RULES[TIER_AVOID]["thresholds"]["minutes_risk_min"]
+
+    assert recommendable_ceiling < UNKNOWN_MINUTES_RISK < avoid_floor
 
 
 def test_recent_signing_uses_only_fixtures_since_team_join_date():

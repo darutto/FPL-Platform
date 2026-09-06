@@ -62,6 +62,30 @@ class CaptainCandidate:
 # Scoring formula  (exact port of captainScore.ts)
 # ---------------------------------------------------------------------------
 
+def minutes_confidence(minutes_risk: float) -> float:
+    """Return the share of the score a player at this minutes risk keeps (0-1).
+
+    Captain points are earned on the pitch, so the composite score is scaled by
+    the share of minutes the player actually plays.  A 100%-participation
+    player keeps his whole score; one who plays half the minutes keeps half.
+
+    Why this is multiplicative and not another weighted term.  Minutes entered
+    the formula as a 10% additive component, which meant the whole range from
+    ever-present to never-played moved the score by 10 points out of ~55 —
+    almost flat.  With the signal that weak, ordering could not express
+    rotation risk, so the *tier* carried the entire judgement, and it carried
+    it as a cliff: one minute either side of 50% participation was the
+    difference between top of the ranking and held back.
+
+    Scaling makes the descent continuous and steep enough to be visible in the
+    ranking itself, so crossing the avoid line is the last small step of a long
+    slope rather than the whole signal.  It only ever lowers a score: at
+    ``minutes_risk`` 0 the factor is exactly 1.0, so certain starters are
+    unchanged.  Nobody is treated more leniently than before.
+    """
+    return min(max(1.0 - minutes_risk / 100.0, 0.0), 1.0)
+
+
 def calculate_captain_score(
     form: float,
     fixture_difficulty: int,
@@ -75,6 +99,9 @@ def calculate_captain_score(
         fixture       30%  (normalised to 0-100: (6-diff) × 20)
         xGI/90        20%  (normalised to 0-100: xgi × 50, capped at 100)
         minutes risk  10%  (normalised to 0-100: 100 - risk)
+
+    The weighted total is then scaled by ``minutes_confidence(minutes_risk)``
+    so the recommendation falls continuously as minutes fall.
 
     SOURCE: captaincy-showdown/src/engine/captainScore.ts::calculateCaptainScore (lines 19-35)
             — direct Python port, identical maths.
@@ -92,6 +119,7 @@ def calculate_captain_score(
         + xgi_score     * 0.2
         + minutes_score * 0.1
     )
+    total *= minutes_confidence(minutes_risk)
     return min(max(total, 0.0), 100.0)
 
 

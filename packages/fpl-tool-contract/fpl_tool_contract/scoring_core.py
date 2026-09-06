@@ -204,6 +204,24 @@ def missing_captain_fixture_notice(time_context: Mapping[str, Any]) -> str:
     return f"Could not evaluate the requested window GW{start}-GW{end}."
 
 
+# Minutes risk charged when participation could not be measured at all.
+#
+# "We have not measured this" used to be reported as ``minutes_risk = 0.0`` —
+# the same number a verified ever-present earns — so a signing who had never
+# kicked a ball in the league came out ranked "safe", above a player we knew
+# played half the minutes.  Absence of data was being converted into the most
+# favourable possible datum.
+#
+# The value is deliberately between the tiers: above every threshold that can
+# produce safe (<=20), upside (<=25) or differential (<=30), and below the
+# avoid line (>=50).  Unknown therefore classifies as ``low_confidence`` on its
+# own, which is the honest reading — it is neither a recommendation nor an
+# exclusion.  Players are not dropped for lacking a record (see PR #210); they
+# are simply not recommended blind, and ``minutes_known`` lets the caller say
+# out loud that we do not know.
+UNKNOWN_MINUTES_RISK = 40.0
+
+
 def _availability_risk(element: Mapping[str, Any]) -> float:
     """Return the existing status/chance risk, independent of participation."""
     status = element.get("status", "u")
@@ -238,6 +256,11 @@ def derive_minutes_context(
     pipeline.  Without that marker, a valid join date, and trustworthy minute
     values, participation is not inferred: callers receive the pre-existing
     availability/status risk and an explicit degradation reason.
+
+    Unmeasured participation is a third state, not zero risk: degraded
+    results carry ``minutes_known = False`` and a ``minutes_risk`` of at
+    least ``UNKNOWN_MINUTES_RISK``, so "we do not know" can never be read
+    as "no risk".
     """
     availability_risk = _availability_risk(element)
     try:
@@ -257,7 +280,8 @@ def derive_minutes_context(
         "participation_percent": None,
         "participation_risk": None,
         "availability_risk": availability_risk,
-        "minutes_risk": availability_risk,
+        "minutes_risk": max(availability_risk, UNKNOWN_MINUTES_RISK),
+        "minutes_known": False,
         "source": "availability_status",
         "degraded": True,
         "degradation_reason": None,
@@ -346,6 +370,7 @@ def derive_minutes_context(
         "participation_percent": round(participation, 1),
         "participation_risk": round(participation_risk, 1),
         "minutes_risk": round(minutes_risk, 1),
+        "minutes_known": True,
         "source": "official_completed_fixtures",
         "degraded": False,
         "degradation_reason": None,
