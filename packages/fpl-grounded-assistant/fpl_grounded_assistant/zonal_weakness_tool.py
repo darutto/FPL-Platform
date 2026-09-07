@@ -27,6 +27,8 @@ engine failure) degrades to ``missing_context``.
 """
 from __future__ import annotations
 
+import os
+import sys
 from typing import Any
 
 from fpl_tool_runner import TOOL_REGISTRY
@@ -41,6 +43,42 @@ from .zonal_weakness import (
 # current-GW helper (fixtures come from bootstrap["team_fixtures"]).
 from .player_matching import resolve_fpl_player
 from .team_fixture_calendar import _get_current_gameweek, _resolve_team
+
+# ---------------------------------------------------------------------------
+# i74 — the season the stamp is checked AGAINST comes from the live bootstrap,
+# never from the store key. ``fpl_tactical.paths.CURRENT_SEASON`` *is* the
+# store key by construction, so comparing the store against it reports "up to
+# date" unconditionally — including today, which is exactly the case the
+# warning exists to catch. ``derive_live_season`` reads GW1's deadline out of
+# bootstrap-static and is the same function the capture guard already uses.
+# sys.path shim mirrors owned_store_fallback.py (no pyproject in this repo).
+# ---------------------------------------------------------------------------
+_FPL_HISTORICAL = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "fpl-historical",
+)
+if _FPL_HISTORICAL not in sys.path:
+    sys.path.append(_FPL_HISTORICAL)
+
+try:
+    from fpl_historical.season_guard import derive_live_season  # type: ignore[import]
+except ImportError:  # pragma: no cover - fpl-historical absent on this deploy
+    derive_live_season = None  # type: ignore[assignment]
+
+
+def _live_season(bootstrap: dict[str, Any] | None) -> str | None:
+    """Season the FPL API is currently serving, or None when unverifiable.
+
+    Never falls back to a stored season constant: "cannot verify" is a real,
+    separately-labelled state, and guessing here would silently restore the
+    tautology this whole stamp exists to break.
+    """
+    if derive_live_season is None or not bootstrap:
+        return None
+    try:
+        return derive_live_season(bootstrap)
+    except Exception:  # noqa: BLE001 — never raise into the orchestrator
+        return None
 
 # ---------------------------------------------------------------------------
 # FPL bootstrap → Understat store team naming bridge.
@@ -135,7 +173,10 @@ def _get_zonal_weakness_handler(
     if not team_query:
         return {"status": "not_found", "team": "", "message": "No team given."}
     try:
-        result = get_zonal_weakness(_to_store_team(team_query, bootstrap))
+        result = get_zonal_weakness(
+            _to_store_team(team_query, bootstrap),
+            live_season=_live_season(bootstrap),
+        )
     except Exception as exc:  # noqa: BLE001 — never raise into the orchestrator
         return {"status": "missing_context", "team": team_query, "message": str(exc)}
     if result["status"] == "not_found":
@@ -156,7 +197,10 @@ def _get_zonal_opportunity_handler(
     if not opponent_query:
         return {"status": "not_found", "opponent": "", "message": "No opponent given."}
     try:
-        result = get_zonal_opportunity(_to_store_team(opponent_query, bootstrap))
+        result = get_zonal_opportunity(
+            _to_store_team(opponent_query, bootstrap),
+            live_season=_live_season(bootstrap),
+        )
     except Exception as exc:  # noqa: BLE001 — never raise into the orchestrator
         return {
             "status": "missing_context", "opponent": opponent_query,
@@ -204,6 +248,7 @@ GET_ZONAL_WEAKNESS_SPEC = ToolSpec(
             "weakest_zones":   {"type": "array"},
             "penalty_context": {"type": "object"},
             "verdict":         {"type": "string"},
+            "data_provenance": {"type": "object"},  # i74 season stamp
         },
     },
 )
@@ -239,6 +284,7 @@ GET_ZONAL_OPPORTUNITY_SPEC = ToolSpec(
             "weakness_label":  {"type": "string"},  # T4b
             "verdict":         {"type": "string"},  # T4b
             "penalty_context": {"type": "object"},  # T4b
+            "data_provenance": {"type": "object"},   # i74 season stamp
         },
     },
 )
@@ -324,7 +370,9 @@ def _get_player_zonal_outlook_handler(
 
     try:
         result = get_player_zonal_outlook(
-            player_query, fixtures_for_team=fixtures_for_team
+            player_query,
+            fixtures_for_team=fixtures_for_team,
+            live_season=_live_season(bootstrap),
         )
     except Exception as exc:  # noqa: BLE001 — never raise into the orchestrator
         return {"status": "missing_context", "player": player_query, "message": str(exc)}
@@ -379,6 +427,7 @@ GET_PLAYER_ZONAL_OUTLOOK_SPEC = ToolSpec(
             "player_zones": {"type": "array"},
             "outlook":      {"type": "array"},
             "verdict":      {"type": "string"},
+            "data_provenance": {"type": "object"},  # i74 season stamp
         },
     },
 )

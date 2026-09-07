@@ -1113,6 +1113,21 @@ def _zonal_opportunity_meta_dict(zo: Any) -> dict[str, Any]:
         ],
         "penalty_xga_per_game": zo.penalty_xga_per_game,
         "ai_active":            zo.ai_active,
+        "data_provenance": (
+            {
+                "season":       zo.data_provenance.season,
+                "season_label": zo.data_provenance.season_label,
+                "live_season":  zo.data_provenance.live_season,
+                "is_current":   zo.data_provenance.is_current,
+                "status":       zo.data_provenance.status,
+                "label":        zo.data_provenance.label,
+                "ingested_at":  zo.data_provenance.ingested_at,
+                "n_matches":    zo.data_provenance.n_matches,
+                "n_shots":      zo.data_provenance.n_shots,
+            }
+            if getattr(zo, "data_provenance", None) is not None
+            else None
+        ),
     }
 
 

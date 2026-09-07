@@ -737,6 +737,29 @@ export interface ZonalExploiter {
   fit_score: number;
 }
 
+/**
+ * Which season the zonal answer's data is from, and whether that is the season
+ * currently being played (i74). `season` is read from the tactical store's own
+ * provenance pointer, and `live_season` is derived from the live FPL bootstrap,
+ * so `status` can genuinely be 'stale_season'.
+ *
+ * `label` is the ready-to-render Spanish stamp — the card renders it verbatim
+ * so the badge and the text answers cannot word the same fact differently.
+ */
+export interface ZonalDataProvenance {
+  season: string | null;
+  /** Display form, e.g. '2025-26'. */
+  season_label: string | null;
+  live_season: string | null;
+  is_current: boolean;
+  /** 'current' | 'stale_season' | 'thin' | 'unverified' | 'unknown' */
+  status: string;
+  label: string;
+  ingested_at: string | null;
+  n_matches: number | null;
+  n_shots: number | null;
+}
+
 /** zonal_opportunity field — non-null when intent=zonal_opportunity AND outcome=ok */
 export interface DefensiveZonesMeta {
   opponent: string;
@@ -746,6 +769,11 @@ export interface DefensiveZonesMeta {
   exploiters: ZonalExploiter[];
   penalty_xga_per_game: number;
   ai_active: boolean;
+  /**
+   * i74 season stamp. Optional/nullable so responses from API deployments
+   * predating i74 still type-check; the card just omits the stamp then.
+   */
+  data_provenance?: ZonalDataProvenance | null;
 }
 
 // ---------------------------------------------------------------------------

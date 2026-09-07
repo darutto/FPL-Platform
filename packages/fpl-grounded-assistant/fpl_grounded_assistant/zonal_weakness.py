@@ -49,6 +49,7 @@ chances are struck from, not which flank the attacking moves came down
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -75,12 +76,14 @@ try:
     from fpl_tactical import PENALTY_SITUATION  # type: ignore[import]
     from fpl_tactical.paths import (  # type: ignore[import]
         CURRENT_SEASON,
+        latest_pointer_path,
         shots_parquet_path,
     )
     _FPL_TACTICAL_AVAILABLE = True
 except ImportError:
     _FPL_TACTICAL_AVAILABLE = False
     PENALTY_SITUATION = None  # type: ignore[assignment]
+    latest_pointer_path = None  # type: ignore[assignment]
     # fpl-tactical itself unavailable — fall back to the single source of
     # truth directly rather than a second, possibly-drifting literal copy.
     _FPL_DATA_CORE = os.path.join(_PKGS, "fpl-data-core")
@@ -198,6 +201,148 @@ def _load_shots(store: Any) -> pd.DataFrame | None:
 def _non_penalty(shots: pd.DataFrame) -> pd.DataFrame:
     """Drop penalties using the shared fpl_tactical constant."""
     return shots[shots["situation"] != PENALTY_SITUATION]
+
+
+# ---------------------------------------------------------------------------
+# Data provenance (i74) — every zonal answer names the season of its data
+# ---------------------------------------------------------------------------
+#
+# Two rules make this a real provenance stamp instead of a tautology; both are
+# pinned by mutation-killed tests in test_zonal_provenance.py.
+#
+#   1. WHAT THE STAMP SAYS comes from the on-disk pointer's own ``season``
+#      field, never from CURRENT_SEASON. CURRENT_SEASON only *locates* the
+#      store (it is the store key by construction), so a stamp sourced from it
+#      could never disagree with the path — it would keep claiming the live
+#      season over an empty, half-copied or mis-stamped parquet, because it
+#      never looks at the content. When the pointer is absent or carries no
+#      season we say so ("desconocida"); we never fall back to CURRENT_SEASON.
+#
+#   2. WHAT IT IS COMPARED AGAINST is the live season derived from the FPL
+#      bootstrap (``fpl_historical.season_guard.derive_live_season``), never
+#      CURRENT_SEASON. The store key IS CURRENT_SEASON, so comparing the two
+#      reports "up to date" always — including today (2026-09-07: store
+#      2025-2026, three gameweeks of 2026-2027 already played), which is
+#      precisely the case the warning exists to catch. The comparison happens
+#      in the tool wrappers, which are the layer that holds the bootstrap; the
+#      engine accepts ``live_season`` and stays bootstrap-agnostic.
+#
+# Policy is DECLARE, never reject: a season mismatch downgrades the stamp, it
+# never downgrades ``status`` to missing_context. Refusing would take the whole
+# zonal surface offline until the season rotation (i73) lands.
+
+#: Below this many stored matches the league baseline is too thin to trust —
+#: a legitimately-stamped current-season store with only a few gameweeks in it
+#: (exactly what the i73 rotation will create) says true things about its
+#: season and still cannot support a league-relative signal. ~10 gameweeks of
+#: a 20-team league; a full season is 380.
+MIN_TRUSTWORTHY_MATCHES: int = 100
+
+
+def _season_label(season: str) -> str:
+    """``"2025-2026"`` -> ``"2025-26"`` for display; unknown shapes pass through."""
+    parts = season.split("-")
+    if len(parts) == 2 and len(parts[0]) == 4 and len(parts[1]) == 4:
+        return f"{parts[0]}-{parts[1][2:]}"
+    return season
+
+
+def _read_pointer(store: Any) -> dict[str, Any] | None:
+    """Return the provenance pointer describing the shots *store* resolves to.
+
+    Mirrors ``_load_shots``'s resolution so the stamp always describes the
+    bytes actually read: the owned store's ``_tactical_latest.json`` when
+    *store* is None, the sibling pointer when *store* is a parquet path, and
+    None for an in-memory DataFrame (tests / the nested call inside
+    ``get_zonal_opportunity``) which carries no provenance at all.
+    """
+    if isinstance(store, pd.DataFrame):
+        return None
+    if store is None:
+        if not _FPL_TACTICAL_AVAILABLE or latest_pointer_path is None:
+            return None
+        path = latest_pointer_path(CURRENT_SEASON)
+    else:
+        path = Path(store).parent / "_tactical_latest.json"
+    if not path.exists():
+        return None
+    try:
+        pointer = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return pointer if isinstance(pointer, dict) else None
+
+
+def build_data_provenance(
+    pointer: dict[str, Any] | None, live_season: str | None
+) -> dict[str, Any]:
+    """Build the season stamp from *pointer* content vs the *live_season*.
+
+    ``season`` is read out of the pointer file itself (rule 1 above);
+    ``live_season`` must come from ``derive_live_season(bootstrap)`` (rule 2).
+    ``status`` is one of:
+
+    ``current``      pointer season == live season, with enough matches stored;
+    ``stale_season`` pointer season != live season — the loud case;
+    ``thin``         right season, but under ``MIN_TRUSTWORTHY_MATCHES``;
+    ``unverified``   season known but no live season to check it against;
+    ``unknown``      the store declares no season at all.
+
+    Never raises and never guesses: an absent pointer yields ``unknown``,
+    it does not silently adopt CURRENT_SEASON.
+    """
+    season = (pointer or {}).get("season")
+    season = str(season) if season else None
+    n_matches = (pointer or {}).get("n_matches")
+    n_shots = (pointer or {}).get("n_shots")
+
+    prov: dict[str, Any] = {
+        "season": season,
+        "season_label": _season_label(season) if season else None,
+        "live_season": live_season,
+        "live_season_label": _season_label(live_season) if live_season else None,
+        "ingested_at": (pointer or {}).get("ingested_at"),
+        "n_matches": int(n_matches) if isinstance(n_matches, (int, float)) else None,
+        "n_shots": int(n_shots) if isinstance(n_shots, (int, float)) else None,
+    }
+
+    if season is None:
+        prov["status"] = "unknown"
+        prov["is_current"] = False
+        prov["label"] = (
+            "⚠ El almacén táctico no declara de qué temporada son estos datos"
+        )
+    elif live_season is None:
+        prov["status"] = "unverified"
+        prov["is_current"] = False
+        prov["label"] = (
+            f"Datos: temporada {prov['season_label']} "
+            f"(no se pudo verificar la temporada en curso)"
+        )
+    elif season != live_season:
+        prov["status"] = "stale_season"
+        prov["is_current"] = False
+        prov["label"] = (
+            f"⚠ Datos de {prov['season_label']}, no de la temporada en curso "
+            f"({prov['live_season_label']})"
+        )
+    elif prov["n_matches"] is not None and prov["n_matches"] < MIN_TRUSTWORTHY_MATCHES:
+        prov["status"] = "thin"
+        prov["is_current"] = True
+        prov["label"] = (
+            f"⚠ Datos de {prov['season_label']}, sólo {prov['n_matches']} "
+            f"partidos — muestra corta para una lectura de liga"
+        )
+    else:
+        prov["status"] = "current"
+        prov["is_current"] = True
+        prov["label"] = f"Datos: temporada {prov['season_label']}"
+    return prov
+
+
+def _provenance_for(store: Any, live_season: str | None) -> dict[str, Any]:
+    """Convenience: read the pointer for *store* and stamp it."""
+    return build_data_provenance(_read_pointer(store), live_season)
 
 
 # ---------------------------------------------------------------------------
@@ -344,7 +489,9 @@ def _weakness_verdict(team: str, weakest: list[dict[str, Any]]) -> str:
 # Public entry points
 # ---------------------------------------------------------------------------
 
-def get_zonal_weakness(team: str, *, store: Any = None) -> dict[str, Any]:
+def get_zonal_weakness(
+    team: str, *, store: Any = None, live_season: str | None = None
+) -> dict[str, Any]:
     """Relative zonal-weakness read for one team's defence.
 
     Returns ``status ∈ {ok, not_found, missing_context}``; on ok, each zone
@@ -354,6 +501,7 @@ def get_zonal_weakness(team: str, *, store: Any = None) -> dict[str, Any]:
     zone). ``weakest_zones`` is the top-``TOP_WEAK_ZONES`` by delta;
     ``penalty_context`` reports penalty xGA separately (excluded from zones).
     """
+    provenance = _provenance_for(store, live_season)
     shots = _load_shots(store)
     if shots is None:
         return {"status": "missing_context", "team": team}
@@ -408,6 +556,7 @@ def get_zonal_weakness(team: str, *, store: Any = None) -> dict[str, Any]:
             "penalty_xga_per_game": round(pen_xga / n_games, 4) if n_games else 0.0,
         },
         "verdict": _weakness_verdict(matched, weakest),
+        "data_provenance": provenance,
     }
 
 
@@ -445,7 +594,11 @@ def compute_player_zone_shares(
 
 
 def get_zonal_opportunity(
-    opponent: str, *, position: str | None = None, store: Any = None
+    opponent: str,
+    *,
+    position: str | None = None,
+    store: Any = None,
+    live_season: str | None = None,
 ) -> dict[str, Any]:
     """Join *opponent*'s weak zones to players who operate in those zones.
 
@@ -469,6 +622,7 @@ def get_zonal_opportunity(
     ``verdict`` / ``penalty_context`` feed the card header and footer.
     Everything is opportunity/suitability-framed — never buy/sell.
     """
+    provenance = _provenance_for(store, live_season)
     shots = _load_shots(store)
     if shots is None:
         return {"status": "missing_context", "opponent": opponent}
@@ -560,6 +714,7 @@ def get_zonal_opportunity(
         "weakness_label": _weakness_label(weakness["weakest_zones"]),
         "verdict": _opportunity_verdict(matched, weakness["weakest_zones"]),
         "penalty_context": weakness["penalty_context"],
+        "data_provenance": provenance,
     }
 
 
@@ -589,6 +744,7 @@ def get_player_zonal_outlook(
     *,
     fixtures_for_team: Any,
     store: Any = None,
+    live_season: str | None = None,
 ) -> dict[str, Any]:
     """Per-fixture zonal matchup read for one player's upcoming opponents.
 
@@ -609,6 +765,7 @@ def get_player_zonal_outlook(
     ``zone`` / ``delta_vs_avg`` / ``player_share``), and a Spanish,
     opportunity-framed ``verdict`` (never buy/sell).
     """
+    provenance = _provenance_for(store, live_season)
     shots = _load_shots(store)
     if shots is None:
         return {"status": "missing_context", "player": player_query}
@@ -704,4 +861,5 @@ def get_player_zonal_outlook(
         "player_zones": player_zones,
         "outlook": outlook,
         "verdict": verdict,
+        "data_provenance": provenance,
     }

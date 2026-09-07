@@ -1622,6 +1622,19 @@ def _render_rank_players_by_metric(output: dict[str, Any], locale: Locale = DEFA
     return f"Error ({code}): {message}"
 
 
+def _provenance_line(output: dict[str, Any]) -> str | None:
+    """The i74 season stamp as a text line, or None when the payload has none.
+
+    Text answers have no card chrome to hang a badge on, so the stamp is a
+    plain trailing line — the *only* place a prose zonal answer states which
+    season it is talking about. Wording comes from the engine's
+    ``data_provenance.label`` so prose and card never drift apart. Payloads
+    predating i74 (or built from an in-memory store) simply get no line.
+    """
+    label = (output.get("data_provenance") or {}).get("label")
+    return str(label) if label else None
+
+
 def _render_get_zonal_weakness(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_zonal_weakness raw_output.  T-zonal.
 
@@ -1654,6 +1667,9 @@ def _render_get_zonal_weakness(output: dict[str, Any], locale: Locale = DEFAULT_
             lines.append(
                 f"Contexto penaltis (excluidos de las zonas): {pen_pg:.3f} xGA/partido."
             )
+        prov = _provenance_line(output)
+        if prov:
+            lines.append(prov)
         return "\n".join(lines)
 
     if status == "not_found":
@@ -1683,11 +1699,13 @@ def _render_get_zonal_opportunity(output: dict[str, Any], locale: Locale = DEFAU
     if status == "ok":
         opponent      = output.get("opponent", "?")
         opportunities = output.get("opportunities", [])
+        prov = _provenance_line(output)
         if not opportunities:
-            return (
+            text = (
                 f"{opponent} no concede por encima de la media de la liga en "
                 f"ninguna zona del área — sin oportunidad zonal destacada."
             )
+            return f"{text}\n{prov}" if prov else text
         lines = [f"Oportunidad zonal contra {opponent}:"]
         for opp in opportunities:
             zone    = opp.get("zone", "?")
@@ -1695,6 +1713,8 @@ def _render_get_zonal_opportunity(output: dict[str, Any], locale: Locale = DEFAU
             players = opp.get("players", [])
             players_str = ", ".join(players) if players else "sin jugadores destacados"
             lines.append(f"  {zone} ({delta:+.3f} vs media): {players_str}")
+        if prov:
+            lines.append(prov)
         return "\n".join(lines)
 
     if status == "not_found":
@@ -1750,6 +1770,9 @@ def _render_get_player_zonal_outlook(output: dict[str, Any], locale: Locale = DE
                 lines.append(f"  J{gw} vs {opp} ({venue}): sin datos zonales del rival")
             else:
                 lines.append(f"  J{gw} vs {opp} ({venue}): sin cruce destacado")
+        prov = _provenance_line(output)
+        if prov:
+            lines.append(prov)
         return "\n".join(lines)
 
     if status == "not_found":
