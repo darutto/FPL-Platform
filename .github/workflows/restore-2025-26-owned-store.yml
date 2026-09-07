@@ -1,0 +1,100 @@
+name: Restore 2025-26 owned store from verified backup
+
+# Manual, one-off incident-response job. Republishes the last known-good
+# 2025-2026 owned-store data to R2, overwriting the 2026-2027 data the
+# weekly refresh wrote there under the 2025-2026 key every Monday from
+# 2026-07-27 to 2026-08-31 (cron paused in #218; the trapped 2026-27 rows
+# were rescued separately in #219 before this runs).
+#
+# The payload comes from the throwaway branch `restore-payload/2025-2026-backup`
+# (the only place a GitHub Actions runner can see it -- fpl-historical/data/
+# is gitignored on every normal branch). This workflow checks that branch
+# out ADDITIONALLY to main, re-verifies the payload independently inside the
+# runner (scripts/verify_restore_payload.py -- same checks done locally
+# before the payload was committed, so a transport mistake gets caught here
+# too), and only publishes if that second gate passes.
+#
+# Delete the restore-payload/2025-2026-backup branch once this has run
+# successfully -- it exists only to carry data past .gitignore onto a runner.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type RESTORE to confirm you want to overwrite the live 2025-2026 R2 data'
+        required: true
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event.inputs.confirm == 'RESTORE'
+
+    steps:
+      - name: Checkout main (for scripts + workflow code)
+        uses: actions/checkout@v4
+
+      - name: Checkout transport branch payload
+        uses: actions/checkout@v4
+        with:
+          ref: restore-payload/2025-2026-backup
+          path: _restore_payload_checkout
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          pip install \
+            -r packages/fpl-grounded-assistant/requirements.txt \
+            pyarrow \
+            pandas \
+            boto3
+
+      # Gate 2: independent re-verification inside the runner, against the
+      # actual checked-out files. Refuses to proceed (exit 1) if anything
+      # disagrees with the expected known-good shape.
+      - name: Verify restore payload (second, independent gate)
+        run: |
+          python scripts/verify_restore_payload.py \
+            --source "_restore_payload_checkout/packages/fpl-historical/data/historical/seasons/2025-2026"
+
+      # Stage the verified payload where owned_store_sync's publish command
+      # expects to find it (FPL_HISTORICAL_ROOT / seasons / 2025-2026 / ...),
+      # using a scratch root so nothing here depends on or touches any local
+      # backup -- the runner has none anyway (ephemeral, gitignored dir).
+      - name: Stage payload for publish
+        run: |
+          mkdir -p _rescue_scratch/staged/seasons/2025-2026/parquet_merged
+          cp "_restore_payload_checkout/packages/fpl-historical/data/historical/seasons/2025-2026/_owned_latest.json" \
+             "_rescue_scratch/staged/seasons/2025-2026/_owned_latest.json"
+          cp "_restore_payload_checkout/packages/fpl-historical/data/historical/seasons/2025-2026/parquet_merged/"*.parquet \
+             "_rescue_scratch/staged/seasons/2025-2026/parquet_merged/"
+
+      - name: Publish verified payload to R2 (overwrites live 2025-2026 data)
+        env:
+          OWNED_STORE_R2_ENDPOINT: ${{ secrets.OWNED_STORE_R2_ENDPOINT }}
+          OWNED_STORE_R2_BUCKET: ${{ secrets.OWNED_STORE_R2_BUCKET }}
+          OWNED_STORE_R2_ACCESS_KEY_ID: ${{ secrets.OWNED_STORE_R2_ACCESS_KEY_ID }}
+          OWNED_STORE_R2_SECRET_ACCESS_KEY: ${{ secrets.OWNED_STORE_R2_SECRET_ACCESS_KEY }}
+          FPL_HISTORICAL_ROOT: ${{ github.workspace }}/_rescue_scratch/staged
+        run: |
+          python packages/fpl-grounded-assistant/fpl_grounded_assistant/owned_store_sync.py publish --season 2025-2026
+
+      - name: Redeploy Railway service
+        env:
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+          RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_ENVIRONMENT_ID }}
+        run: |
+          python packages/fpl-grounded-assistant/fpl_grounded_assistant/railway_redeploy.py
+
+      - name: Verify /healthz reports the restored merged_at
+        run: |
+          python packages/fpl-grounded-assistant/scripts/verify_healthz_merged_at.py \
+            --url "${{ secrets.RAILWAY_HEALTHZ_URL }}" \
+            --expected-merged-at "2026-06-01T00-40-44Z" \
+            --timeout 900 \
+            --interval 30
