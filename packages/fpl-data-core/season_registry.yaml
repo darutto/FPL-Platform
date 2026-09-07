@@ -13,7 +13,37 @@
 # HOW TO ADD A NEW SEASON:
 #   1. Add a new entry in the `seasons` list below.
 #   2. No Python or TypeScript source changes needed.
+#
+# current_season IS THE SINGLE SOURCE OF TRUTH for the season key our OWNED
+# DATA STORE is currently keyed to (added 2026-09, incident: owned-store-refresh
+# silently wrote 2026-2027 data under the 2025-2026 key for six weeks because
+# this value was copy-pasted as a literal in six-plus source files with nothing
+# checking it against the live FPL API). Every module that needs that key must
+# import it from fpl_data_core.season_registry.CURRENT_SEASON instead of
+# hardcoding a string. Bump this ONLY as part of an explicit, reviewed
+# season-rollover change -- never automatically.
+#
+# READ THIS BEFORE BUMPING IT. This is NOT "the season football is currently
+# playing". Those are two different things and they are routinely divergent:
+# as of 2026-09-07 the live FPL API serves 2026-2027, while this value is
+# 2025-2026, because 2025-2026 is the newest season we actually hold data for.
+# That divergence is correct and expected. Bumping this to match the live
+# season does NOT fix anything -- it repoints every read path at a season the
+# store has no rows for.
+#
+# If you want "which season is live right now", derive it from the API:
+# fpl_historical.season_guard.derive_live_season(bootstrap). That is what the
+# capture guard compares against this value; disagreement is exactly what it
+# is built to catch, not a bug to be silenced by editing this line.
+#
+# KNOWN CONSEQUENCE of the divergence, pre-dating this file's consolidation:
+# consumers that compute "the previous season" from this key are off by one
+# whenever it lags the live season. Today, "la temporada pasada" resolves to
+# 2024-2025 when a user means 2025-2026. Tracked separately -- do not paper
+# over it by bumping this value.
 # =============================================================
+
+current_season: "2025-2026"
 
 seasons:
 

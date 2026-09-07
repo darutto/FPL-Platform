@@ -68,7 +68,12 @@ try:
     _FPL_HISTORICAL_AVAILABLE = True
 except ImportError:
     _FPL_HISTORICAL_AVAILABLE = False
-    CURRENT_SEASON = "2025-2026"  # fallback constant so default arg still resolves
+    # fpl-historical itself unavailable — fall back to the single source of
+    # truth directly rather than a second, possibly-drifting literal copy.
+    _FPL_DATA_CORE = os.path.join(_PKGS, "fpl-data-core")
+    if _FPL_DATA_CORE not in sys.path:
+        sys.path.append(_FPL_DATA_CORE)
+    from fpl_data_core.season_registry import CURRENT_SEASON  # type: ignore[import] # noqa: E402
 
 
 # ---------------------------------------------------------------------------

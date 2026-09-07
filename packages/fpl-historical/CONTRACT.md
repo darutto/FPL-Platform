@@ -107,6 +107,8 @@ Command: `python -m fpl_historical.cli capture [flags]`
 | `--promote-with-gaps` | off | Allow parquet promotion when `status == "complete_with_gaps"`. Has no effect on `failed`. |
 | `--allow-unverified-season` | off | Proceed when the live season cannot be derived from `bootstrap-static`. Covers the *undetermined* case only — it can **not** override a season that was derived and did not match `--season`. |
 
+`--season`'s default (`fpl_data_core.season_registry.CURRENT_SEASON`) is the single source of truth for "the current season" — see `packages/fpl-data-core/season_registry.yaml`'s `current_season` key. It is never hardcoded elsewhere; every other module reads it from there too.
+
 | `status` | `--promote-with-gaps` | Parquet promoted? | `_latest.json` updated? | CLI exit code |
 |---|---|---|---|---|
 | `complete` | (n/a) | yes | yes | `0` |
@@ -159,7 +161,7 @@ Passthrough policy: keep every other top-level field from the source as-is; do n
 
 ```python
 # fpl_historical/paths.py
-CURRENT_SEASON: str = "2025-2026"
+CURRENT_SEASON: str  # sourced from fpl_data_core.season_registry.CURRENT_SEASON (single source of truth)
 def historical_root() -> Path: ...
 def season_dir(season: str) -> Path: ...
 def new_raw_dir(season: str) -> Path: ...        # creates raw/{utcnow_iso_safe}/
@@ -275,7 +277,7 @@ New subcommand: `python -m fpl_historical.cli capture-gw [flags]`. The existing 
 | `--current` | (none) | Pulls the gameweek where `events[*].is_current == true`; falls back to the most recent `finished` event if none is current. |
 | `--auto` | (none) | Iterates every event where `finished == true` and `data_checked == true`; captures unless §9.3 skip rule fires. Bootstrap is fetched once and shared across the loop. |
 | `--force` | off | Overrides the §9.3 skip rule. Always writes a new snapshot. |
-| `--season SEASON` | `2025-2026` | Season key (must exist in `season_registry.yaml`). Note: `capture-gw`/`capture_gameweek()` does NOT (yet) run the season-boundary guard from §4.1 — no automated workflow currently invokes this subcommand, so it was left out of this slice's scope; a follow-up should add it before any cron wires this path up. |
+| `--season SEASON` | `fpl_data_core.season_registry.CURRENT_SEASON` (single source of truth) | Season key (must exist in `season_registry.yaml`). Note: `capture-gw`/`capture_gameweek()` does NOT (yet) run the season-boundary guard from §4.1 — no automated workflow currently invokes this subcommand, so it was left out of this slice's scope; a follow-up should add it before any cron wires this path up. |
 
 `--gw`, `--current`, and `--auto` are mutually exclusive; exactly one must be given.
 

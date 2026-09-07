@@ -68,7 +68,12 @@ try:
     _FPL_HISTORICAL_AVAILABLE = True
 except ImportError:
     _FPL_HISTORICAL_AVAILABLE = False
-    CURRENT_SEASON = "2025-2026"
+    # fpl-historical itself unavailable — fall back to the single source of
+    # truth directly rather than a second, possibly-drifting literal copy.
+    _FPL_DATA_CORE = os.path.join(_PKGS, "fpl-data-core")
+    if _FPL_DATA_CORE not in sys.path:
+        sys.path.append(_FPL_DATA_CORE)
+    from fpl_data_core.season_registry import CURRENT_SEASON  # noqa: E402
 
 # Re-use the season-string parser — single source of truth (avoids a second,
 # possibly-drifting regex for "2025-26" / "25/26" / "2025" style input).

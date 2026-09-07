@@ -9,7 +9,7 @@ All paths are relative to ``historical_root()``, which respects the
 resolved from this file's location).
 
 Public API (CONTRACT §7):
-    CURRENT_SEASON          str constant — "2025-2026"
+    CURRENT_SEASON          str constant, sourced from fpl_data_core.season_registry
     historical_root()       Path to the root of the historical data store
     season_dir(season)      .../seasons/<season>
     new_raw_dir(season)     creates .../seasons/<season>/raw/<utcnow_iso_safe>/
@@ -21,17 +21,31 @@ Public API (CONTRACT §7):
 from __future__ import annotations
 
 import os
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-# ---------------------------------------------------------------------------
-# Season constant — must match packages/fpl-data-core/season_registry.yaml
-# Verified: line 36 of season_registry.yaml has `- season: "2025-2026"`
-# ---------------------------------------------------------------------------
-CURRENT_SEASON: str = "2025-2026"
-
 # Repo root — two levels up from this file (packages/fpl-historical/fpl_historical/)
 _REPO_ROOT: Path = Path(__file__).resolve().parents[3]
+
+# ---------------------------------------------------------------------------
+# Season constant — single source of truth lives in
+# packages/fpl-data-core/season_registry.yaml (`current_season` key), loaded
+# via fpl_data_core.season_registry.CURRENT_SEASON. Import it rather than
+# repeating the literal here (see incident: owned-store-refresh silently
+# wrote 2026-2027 data under this key for six weeks because this constant
+# and five other copies of it drifted from reality unchecked).
+# ---------------------------------------------------------------------------
+_FPL_DATA_CORE = str(_REPO_ROOT / "packages" / "fpl-data-core")
+if _FPL_DATA_CORE not in sys.path:
+    # append, not insert(0): inserting first would shadow this package's own
+    # local `tests` namespace package with fpl-data-core's `tests` package
+    # (regular packages, i.e. ones with __init__.py, take precedence over
+    # namespace packages found later in sys.path).
+    sys.path.append(_FPL_DATA_CORE)
+
+from fpl_data_core.season_registry import CURRENT_SEASON  # noqa: E402
+
 _DEFAULT_HISTORICAL_ROOT: Path = (
     _REPO_ROOT / "packages" / "fpl-historical" / "data" / "historical"
 )

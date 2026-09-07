@@ -129,6 +129,60 @@ class TestRegistrySmoke:
 
 
 # ---------------------------------------------------------------------------
+# §1.1b  CURRENT_SEASON — single source of truth (incident: fix/season-boundary-guard)
+# ---------------------------------------------------------------------------
+
+class TestCurrentSeasonSingleSource:
+
+    def test_current_season_loads_on_import(self):
+        """CURRENT_SEASON is populated from the YAML's current_season key."""
+        from fpl_data_core.season_registry import CURRENT_SEASON
+        assert CURRENT_SEASON == "2025-2026"
+
+    def test_current_season_is_a_registered_season(self):
+        """CURRENT_SEASON always names a season present in SEASON_REGISTRY."""
+        from fpl_data_core.season_registry import CURRENT_SEASON, SEASON_REGISTRY
+        assert CURRENT_SEASON in SEASON_REGISTRY
+
+    def test_get_current_season_matches_module_constant(self):
+        from fpl_data_core.season_registry import CURRENT_SEASON, get_current_season
+        assert get_current_season() == CURRENT_SEASON
+
+    def test_missing_current_season_key_is_lenient_for_partial_yaml(self, tmp_path):
+        """A partial/test-only YAML with no current_season key does not raise
+        (only the canonical, checked-in season_registry.yaml is required to
+        declare it — enforced at module-import time, not on every call)."""
+        from fpl_data_core.season_registry import load_registry_from_yaml, CURRENT_SEASON
+
+        before = CURRENT_SEASON
+        partial_yaml = tmp_path / "season_registry.yaml"
+        partial_yaml.write_text(
+            "seasons:\n  - season: \"2030-2031\"\n    data_root: \"data/2030-2031\"\n"
+            "    has_consolidated_files: false\n    player_id_column: \"id\"\n"
+            "    gameweek_column: \"gw\"\n",
+            encoding="utf-8",
+        )
+        load_registry_from_yaml(partial_yaml)  # must not raise
+        from fpl_data_core.season_registry import CURRENT_SEASON as AFTER
+        assert AFTER == before  # unchanged — this YAML made no claim about it
+
+    def test_current_season_not_in_seasons_list_raises(self, tmp_path):
+        """current_season pointing at an unregistered season fails loudly."""
+        from fpl_data_core.season_registry import load_registry_from_yaml
+
+        bad_yaml = tmp_path / "season_registry.yaml"
+        bad_yaml.write_text(
+            "current_season: \"1500-1501\"\n"
+            "seasons:\n  - season: \"2025-2026\"\n    data_root: \"data/2025-2026\"\n"
+            "    has_consolidated_files: false\n    player_id_column: \"id\"\n"
+            "    gameweek_column: \"gw\"\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(ValueError, match="1500-1501"):
+            load_registry_from_yaml(bad_yaml)
+
+
+# ---------------------------------------------------------------------------
 # §1.3  Parity Tests (data-conditional — skipped in CI without real data)
 # ---------------------------------------------------------------------------
 
