@@ -300,9 +300,11 @@ class TestRankCaptainCandidatesPool:
         assert result["status"] == "ok"
         assert result["pool_source"] == "derived"
         # Available MID/FWD only: injured De Bruyne, defenders and GKP excluded.
-        assert {entry["web_name"] for entry in result["ranked_candidates"]} == {
-            "Haaland", "Salah", "Saka", "Johnson",
-        }
+        # The pool is the ranking plus whoever was held back: being held back
+        # keeps a player out of the recommendation, not out of the pool.
+        returned = {entry["web_name"] for entry in result["ranked_candidates"]}
+        returned |= {entry["web_name"] for entry in result["held_back"]}
+        assert returned == {"Haaland", "Salah", "Saka", "Johnson"}
 
     def test_derived_pool_is_capped_at_12(self, bootstrap):
         from fpl_tool_contract import tool_rank_captain_candidates

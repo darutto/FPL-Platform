@@ -18,13 +18,62 @@ The key sets below reflect the contract the code actually implements.
 
 from __future__ import annotations
 
+import copy
+
 import pytest
 
 from fpl_captain_engine import ALL_TIERS
+from fpl_captain_engine.captain_tiers import TIER_SAFE, TIER_UPSIDE
+from fpl_tool_contract.scoring_core import UNKNOWN_MINUTES_RISK
 from fpl_tool_contract.tools import (
     tool_get_captain_score,
     tool_rank_captain_candidates,
 )
+
+
+# The shared conftest bootstrap carries no team fixtures, so every player in it
+# has unmeasured participation.  That is a fine default for the tests that only
+# care about response shape, but it makes a *scoring* pin meaningless: with
+# minutes unknown for everyone, every tier collapses to low_confidence and the
+# pins below would stop telling safe from avoid apart.  So this module measures
+# minutes properly, and the pinned scores describe a board with real spread.
+_TEAM_MINUTES = {
+    1: 135,   # Saka     -- 75% of the available minutes, and a doubt
+    13: 180,  # Haaland  -- ever-present
+    14: 180,  # Salah    -- ever-present
+}
+
+
+def _finished_fixtures():
+    return [
+        {"finished": True, "kickoff_time": "2026-08-15T14:00:00Z", "minutes": 90,
+         "official_fixture_context_complete": True},
+        {"finished": True, "kickoff_time": "2026-08-22T14:00:00Z", "minutes": 90,
+         "official_fixture_context_complete": True},
+    ]
+
+
+@pytest.fixture
+def bootstrap_without_fixtures(bootstrap):
+    """The same board with the official history taken away: minutes unmeasured."""
+    stripped = copy.deepcopy(bootstrap)
+    stripped.pop("team_fixtures", None)
+    return stripped
+
+
+@pytest.fixture
+def bootstrap(bootstrap):  # shadows the conftest fixture for this module only
+    scored = copy.deepcopy(bootstrap)
+    for element in scored["elements"]:
+        element.setdefault("team_join_date", "2026-07-01")
+        element.setdefault("minutes", _TEAM_MINUTES.get(element.get("team"), 90))
+        element.setdefault("starts", 2)
+    if scored["elements"][2]["web_name"] == "Saka":
+        scored["elements"][2]["chance_of_playing_this_round"] = 75
+    scored["team_fixtures"] = {
+        team_id: _finished_fixtures() for team_id in range(1, 21)
+    }
+    return scored
 
 
 _SCORE_OK_KEYS = {
@@ -40,10 +89,10 @@ _RANK_ENTRY_OK_KEYS = (_SCORE_OK_KEYS - {"time_context"}) | {
 # Scores produced by the shared conftest bootstrap. Pinned so a change to the
 # scoring formula or its inputs surfaces here rather than silently.
 _EXPECTED = {
-    "Salah":     (66.0, "safe"),
-    "Haaland":   (60.0, "safe"),
-    "Saka":      (47.0, "differential"),
-    "De Bruyne": (18.0, "avoid"),
+    "Salah":     (73.25, "safe"),            # 180/180 minutes, risk 0
+    "Haaland":   (68.5,  "safe"),            # 180/180 minutes, risk 0
+    "Saka":      (39.88, "differential"),    # 135/180 minutes plus a 75% doubt
+    "De Bruyne": (0.0,   "avoid"),           # injured: risk 100 zeroes the score
 }
 
 
@@ -79,11 +128,26 @@ def test_score_inputs_shape(bootstrap):
     }
 
 
-def test_minutes_context_degrades_explicitly_without_official_history(bootstrap):
-    result = tool_get_captain_score("Salah", bootstrap)
+def test_minutes_context_degrades_explicitly_without_official_history(
+    bootstrap_without_fixtures,
+):
+    result = tool_get_captain_score("Salah", bootstrap_without_fixtures)
     assert result["minutes_context"]["source"] == "availability_status"
     assert result["minutes_context"]["degraded"] is True
     assert result["minutes_context"]["degradation_reason"] == "missing_official_fixtures"
+
+
+def test_degraded_minutes_are_not_reported_as_zero_risk(bootstrap_without_fixtures):
+    """Without official history the score must not read as a certain starter.
+
+    The same bootstrap used to produce ``minutes_risk = 0.0`` and tier "safe"
+    for a player whose participation had never been measured, which is how an
+    unplayed signing outranked a measured half-timer.
+    """
+    result = tool_get_captain_score("Salah", bootstrap_without_fixtures)
+    assert result["minutes_context"]["minutes_known"] is False
+    assert result["score_inputs"]["minutes_risk"] == UNKNOWN_MINUTES_RISK
+    assert result["tier"] not in (TIER_SAFE, TIER_UPSIDE)
 
 
 def test_tier_immediately_follows_captain_score(bootstrap):
