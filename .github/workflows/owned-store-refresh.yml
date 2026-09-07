@@ -1,8 +1,15 @@
 name: Owned-Store Refresh
 
 on:
-  schedule:
-    - cron: "0 6 * * 1"   # Mondays 06:00 UTC, weekly
+  # PAUSED 2026-09-06: this refresh has been silently overwriting the
+  # 2025-2026 season table with live 2026-2027 data every Monday since
+  # 2026-07-27 (season key never advanced past the hardcoded 2025-2026 in
+  # this file, paths.py, and season_registry.py). Do not re-enable the
+  # schedule until a season-boundary guard exists and the store has been
+  # restored from the known-good local backup. See PR for the incident
+  # writeup.
+  # schedule:
+  #   - cron: "0 6 * * 1"   # Mondays 06:00 UTC, weekly
   workflow_dispatch:        # manual trigger via `gh workflow run owned-store-refresh.yml`
 
 concurrency:
