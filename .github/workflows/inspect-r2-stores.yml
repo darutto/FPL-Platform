@@ -1,0 +1,80 @@
+name: Inspect R2 stores (read-only)
+
+# Reports what the R2 copies of the owned and tactical stores actually
+# contain. READ-ONLY: it syncs FROM R2 into a scratch dir and prints; it
+# never publishes, never writes to the bucket, and never touches the
+# season key.
+#
+# Why: conclusions about "what the store contains" keep getting drawn from
+# a developer's local working copy, which can be months stale -- the
+# tactical pointer on the repo disk reads 2026-07-07 while this repo's
+# refresh cron has published ten times since. Production reads R2. Any
+# claim about store state measured anywhere else is an argument, not a
+# measurement. Run this before the 2026-2027 rollover (board card i73).
+
+on:
+  workflow_dispatch:
+    inputs:
+      seasons:
+        description: "Comma-separated season keys to inspect (e.g. 2025-2026,2026-2027)"
+        required: false
+        default: "2025-2026,2026-2027"
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          pip install \
+            -r packages/fpl-grounded-assistant/requirements.txt \
+            pyarrow \
+            pandas \
+            boto3 \
+            pyyaml
+
+      # Sync each requested season from R2 into a scratch root. Both syncs
+      # are fail-soft by design: a season with no R2 copy simply lands
+      # nothing, which the inspection step then reports as ABSENT -- that
+      # is a result, not an error.
+      - name: Sync stores from R2 (download only)
+        env:
+          OWNED_STORE_R2_ENDPOINT: ${{ secrets.OWNED_STORE_R2_ENDPOINT }}
+          OWNED_STORE_R2_BUCKET: ${{ secrets.OWNED_STORE_R2_BUCKET }}
+          OWNED_STORE_R2_ACCESS_KEY_ID: ${{ secrets.OWNED_STORE_R2_ACCESS_KEY_ID }}
+          OWNED_STORE_R2_SECRET_ACCESS_KEY: ${{ secrets.OWNED_STORE_R2_SECRET_ACCESS_KEY }}
+          OWNED_STORE_R2_PREFIX: ${{ secrets.OWNED_STORE_R2_PREFIX }}
+          FPL_HISTORICAL_ROOT: ${{ github.workspace }}/_r2_scratch/owned
+          FPL_TACTICAL_ROOT: ${{ github.workspace }}/_r2_scratch/tactical
+          PYTHONPATH: packages/fpl-tactical
+        run: |
+          IFS=',' read -ra SEASONS <<< "${{ github.event.inputs.seasons }}"
+          for s in "${SEASONS[@]}"; do
+            s="$(echo "$s" | xargs)"
+            echo "::group::sync $s"
+            python packages/fpl-grounded-assistant/fpl_grounded_assistant/owned_store_sync.py sync --season "$s" || true
+            python -m fpl_tactical.publish sync --season "$s" || true
+            echo "::endgroup::"
+          done
+
+      - name: Report contents
+        run: |
+          IFS=',' read -ra SEASONS <<< "${{ github.event.inputs.seasons }}"
+          ARGS=()
+          for s in "${SEASONS[@]}"; do
+            ARGS+=(--season "$(echo "$s" | xargs)")
+          done
+          python scripts/inspect_r2_stores.py \
+            --owned-root "${{ github.workspace }}/_r2_scratch/owned" \
+            --tactical-root "${{ github.workspace }}/_r2_scratch/tactical" \
+            "${ARGS[@]}"
