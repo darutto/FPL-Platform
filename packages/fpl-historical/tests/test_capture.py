@@ -315,17 +315,22 @@ class TestRetryBehavior:
 # ---------------------------------------------------------------------------
 
 def _bootstrap_with_live_season(start_year: int) -> dict:
-    """MINIMAL_BOOTSTRAP plus an event id=1 whose deadline implies *start_year*-*start_year+1*."""
+    """MINIMAL_BOOTSTRAP with event id=1's deadline moved to imply *start_year*-*start_year+1*.
+
+    Replaces rather than appends: the fixture already carries an event id=1
+    (see conftest), and derive_live_season() reads the *first* id=1 match, so
+    appending a second one would be silently ignored.
+    """
     bootstrap = copy.deepcopy(MINIMAL_BOOTSTRAP)
-    bootstrap["events"].append({
-        "id": 1,
-        "deadline_time": f"{start_year}-08-14T17:30:00Z",
-        "is_current": False,
-        "is_next": False,
-        "finished": True,
-        "data_checked": True,
-        "average_entry_score": 50,
-    })
+    event_one = next(e for e in bootstrap["events"] if e["id"] == 1)
+    event_one["deadline_time"] = f"{start_year}-08-14T17:30:00Z"
+    return bootstrap
+
+
+def _bootstrap_without_event_one() -> dict:
+    """MINIMAL_BOOTSTRAP with event id=1 removed -> live season cannot be derived."""
+    bootstrap = copy.deepcopy(MINIMAL_BOOTSTRAP)
+    bootstrap["events"] = [e for e in bootstrap["events"] if e["id"] != 1]
     return bootstrap
 
 
@@ -370,6 +375,75 @@ class TestSeasonBoundaryGuard:
         assert "2026-2027" in message
         assert "2025-2026" in message
 
+    def test_undeterminable_season_rejects_and_writes_nothing(self, tmp_historical_root):
+        """Live season unreadable -> raises, zero writes. The guard fails CLOSED.
+
+        Inverted from the original behaviour, which proceeded here. This is
+        capture_season()'s full-rebuild path: the merge downstream of it
+        rebuilds all five tables from scratch, so it is the worst possible
+        place to admit an unverified season.
+        """
+        from fpl_historical.capture import capture_season
+        from fpl_historical.paths import list_raw_dirs, season_dir
+        from fpl_historical.season_guard import SeasonUndeterminedError
+
+        bootstrap = _bootstrap_without_event_one()
+
+        with patch(_PATCH_TARGET, side_effect=[_ok_response(bootstrap)]) as mock_get:
+            with patch("fpl_historical.capture.time.sleep"):
+                with pytest.raises(SeasonUndeterminedError) as exc_info:
+                    capture_season("2025-2026", allow_missing_summaries=0)
+
+        # Rejected before fixtures/element-summary were ever fetched.
+        assert mock_get.call_count == 1
+        assert list_raw_dirs("2025-2026") == []
+        assert not (season_dir("2025-2026") / "raw").exists()
+        assert "could not determine" in str(exc_info.value)
+
+    def test_valve_lets_an_undeterminable_season_capture(self, tmp_historical_root):
+        """--allow-unverified-season restores the permissive path, on purpose."""
+        from fpl_historical.capture import capture_season
+        from fpl_historical.paths import list_raw_dirs
+
+        bootstrap = _bootstrap_without_event_one()
+        effects = [_ok_response(bootstrap), _ok_response(MINIMAL_FIXTURES)]
+        for element in MINIMAL_BOOTSTRAP["elements"]:
+            effects.append(_ok_response(MINIMAL_ELEMENT_SUMMARY))
+
+        with patch(_PATCH_TARGET, side_effect=effects):
+            with patch("fpl_historical.capture.time.sleep"):
+                manifest = capture_season(
+                    "2025-2026",
+                    allow_missing_summaries=0,
+                    allow_unverified_season=True,
+                )
+
+        assert manifest.status == "complete"
+        assert len(list_raw_dirs("2025-2026")) == 1
+
+    def test_valve_does_not_let_a_mismatch_through_capture(self, tmp_historical_root):
+        """The valve covers 'undetermined' only — a confirmed mismatch still rejects.
+
+        This is the incident's exact shape (live 2026-2027, target 2025-2026);
+        no flag may re-open it.
+        """
+        from fpl_historical.capture import capture_season
+        from fpl_historical.paths import list_raw_dirs
+        from fpl_historical.season_guard import SeasonMismatchError
+
+        bootstrap = _bootstrap_with_live_season(2026)  # -> "2026-2027"
+
+        with patch(_PATCH_TARGET, side_effect=[_ok_response(bootstrap)]):
+            with patch("fpl_historical.capture.time.sleep"):
+                with pytest.raises(SeasonMismatchError):
+                    capture_season(
+                        "2025-2026",
+                        allow_missing_summaries=0,
+                        allow_unverified_season=True,
+                    )
+
+        assert list_raw_dirs("2025-2026") == []
+
     def test_mismatched_season_leaves_no_partial_directory(self, tmp_historical_root):
         """No seasons/<season>/raw directory exists at all after a rejection."""
         from fpl_historical.capture import capture_season
@@ -383,3 +457,74 @@ class TestSeasonBoundaryGuard:
                     capture_season("2025-2026", allow_missing_summaries=0)
 
         assert not (season_dir("2025-2026") / "raw").exists()
+
+
+# ---------------------------------------------------------------------------
+# CLI wiring for the season guard's escape valve
+# ---------------------------------------------------------------------------
+
+class TestAllowUnverifiedSeasonCliWiring:
+    """The valve is worthless if it stops at capture_season()'s signature."""
+
+    def test_flag_defaults_to_off(self):
+        from fpl_historical.cli import _parse_args
+
+        args = _parse_args(["capture", "--season", "2025-2026"])
+        assert args.allow_unverified_season is False
+
+    def test_flag_parses_when_passed(self):
+        from fpl_historical.cli import _parse_args
+
+        args = _parse_args(
+            ["capture", "--season", "2025-2026", "--allow-unverified-season"]
+        )
+        assert args.allow_unverified_season is True
+
+    @pytest.mark.parametrize("flag_value", [True, False])
+    def test_flag_reaches_capture_season(self, flag_value):
+        """Whatever the CLI parsed must arrive at the guard's caller verbatim."""
+        from fpl_historical import cli
+
+        argv = ["capture", "--season", "2025-2026", "--skip-parquet"]
+        if flag_value:
+            argv.append("--allow-unverified-season")
+        args = cli._parse_args(argv)
+
+        fake_manifest = MagicMock()
+        fake_manifest.status = "complete"
+        fake_manifest.elapsed_seconds = 1.0
+        fake_manifest.fpl_endpoints = {"element-summary": {"count": 2, "failures": []}}
+
+        with patch.object(
+            cli, "capture_season", return_value=fake_manifest
+        ) as mock_capture:
+            cli.cmd_capture(args)
+
+        assert mock_capture.call_args.kwargs["allow_unverified_season"] is flag_value
+
+    def test_both_rejections_exit_3_with_distinguishable_reasons(self, capsys):
+        """Same exit code (CONTRACT §4: 'rejected, nothing written'), different text."""
+        from fpl_historical import cli
+        from fpl_historical.season_guard import (
+            SeasonMismatchError,
+            SeasonUndeterminedError,
+        )
+
+        args = cli._parse_args(["capture", "--season", "2025-2026", "--skip-parquet"])
+
+        with patch.object(
+            cli, "capture_season", side_effect=SeasonUndeterminedError("boom-undet")
+        ):
+            assert cli.cmd_capture(args) == 3
+        undetermined_out = capsys.readouterr().err
+
+        with patch.object(
+            cli, "capture_season", side_effect=SeasonMismatchError("boom-mismatch")
+        ):
+            assert cli.cmd_capture(args) == 3
+        mismatch_out = capsys.readouterr().err
+
+        assert "season-undetermined" in undetermined_out
+        assert "season-mismatch" not in undetermined_out
+        assert "season-mismatch" in mismatch_out
+        assert "season-undetermined" not in mismatch_out

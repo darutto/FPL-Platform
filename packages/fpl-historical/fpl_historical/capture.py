@@ -64,13 +64,16 @@ def capture_season(
     *,
     allow_missing_summaries: int = 0,
     element_summary_timeout: int = 20,
+    allow_unverified_season: bool = False,
 ) -> Manifest:
     """Capture a full season snapshot and return the resulting :class:`Manifest`.
 
     Steps:
     0. Fetch bootstrap-static and verify it matches *season* (see
        ``fpl_historical.season_guard``) before creating any output path.
-       Raises :class:`SeasonMismatchError` and writes nothing if it doesn't.
+       Raises :class:`SeasonMismatchError` (live season differs) or
+       :class:`SeasonUndeterminedError` (live season unreadable) and writes
+       nothing if it can't be confirmed.
     1. Write bootstrap-static.
     2. Fetch all fixtures (no event filter).
     3. For each player in bootstrap.elements, fetch element-summary with a
@@ -86,6 +89,11 @@ def capture_season(
     allow_missing_summaries:
         Maximum number of element-summary failures before status is
         downgraded from ``complete_with_gaps`` to ``failed``.
+    allow_unverified_season:
+        Proceed even when the live season cannot be derived from the
+        bootstrap payload. Operator escape hatch for an unrelated API shape
+        change; it does NOT allow capturing against a season that was
+        derived and did not match.
     """
     run_start = time.monotonic()
     captured_at_utc = datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -132,10 +140,13 @@ def capture_season(
 
     # ------------------------------------------------------------------
     # Season-boundary guard — must run before any raw_dir/file is created.
-    # Raises SeasonMismatchError (nothing written) if the live API's season
-    # doesn't match *season*. See fpl_historical.season_guard for rationale.
+    # Raises (nothing written) if the live API's season doesn't match
+    # *season*, or if it could not be determined at all and the operator has
+    # not passed allow_unverified_season. See fpl_historical.season_guard.
     # ------------------------------------------------------------------
-    assert_season_matches(bootstrap, season)
+    assert_season_matches(
+        bootstrap, season, allow_unverified_season=allow_unverified_season
+    )
 
     raw_dir = new_raw_dir(season)
     _write_gz(raw_dir / "bootstrap-static.json.gz", bs_bytes)
