@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-06",
+  "updated": "2026-09-07",
   "cards": [
     {
       "id": "s1",
@@ -1049,6 +1049,29 @@
         "Backend",
         "Deuda tecnica"
       ]
+    },
+    {
+      "id": "s27",
+      "col": "shipped",
+      "title": "Restauración del owned-store 2025-26",
+      "desc": "Fusionada (PR #218-220, 07/09). Cron de refresco semanal pausado tras detectar que sobrescribía 2025-2026 con datos de 2026-2027 desde julio, filas contaminadas extraídas y retiquetadas de forma segura, y el store restaurado en R2 desde el último respaldo verificado con redeploy de Railway.",
+      "tags": [
+        "Backend",
+        "Datos",
+        "Deploy"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s28",
+      "col": "shipped",
+      "title": "Riesgo de minutos continuo en capitanía",
+      "desc": "Fusionada (PR #217, 07/09). El componente de riesgo de minutos de la puntuación de capitán pasa de un escalón abrupto en el 50% a una caída continua, y la participación sin medir se trata como un tercer estado de baja confianza en vez de riesgo cero.",
+      "tags": [
+        "Backend",
+        "FPL Asistente"
+      ],
+      "progress": 100
     }
   ]
 }
