@@ -8,6 +8,14 @@ on:
   # schedule until a season-boundary guard exists and the store has been
   # restored from the known-good local backup. See PR for the incident
   # writeup.
+  #
+  # UPDATE: capture() now rejects instead of writing when the live API's
+  # season disagrees with --season below (fpl_historical.season_guard) --
+  # that guard was missing during the 2026-07-27..2026-08-31 incident.
+  # The season key itself is still a literal here; collapsing the
+  # six-plus hardcoded copies into one source of truth is a separate,
+  # follow-up PR. The schedule stays commented out regardless --
+  # re-enabling it is a separate, deliberate decision for the store owner.
   # schedule:
   #   - cron: "0 6 * * 1"   # Mondays 06:00 UTC, weekly
   workflow_dispatch:        # manual trigger via `gh workflow run owned-store-refresh.yml`
@@ -41,6 +49,11 @@ jobs:
       # The GHA runner is ephemeral — its local disk is always empty, so the
       # local-freshness check would never fire. Passing the flag would be
       # misleading. Always run a full capture.
+      #
+      # capture() now rejects (writes nothing) if the live FPL bootstrap's
+      # season doesn't match --season below — see fpl_historical.season_guard.
+      # This is the guard that was missing during the 2026-07-27..2026-08-31
+      # incident.
       - name: Capture FPL data (full baseline)
         run: bash packages/fpl-historical/capture.sh capture --season 2025-2026
 

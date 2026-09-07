@@ -64,6 +64,7 @@ from fpl_historical.paths import (
 )
 from fpl_historical.projections import build_parquet_from_raw
 from fpl_historical.vaastav_import import import_season
+from fpl_historical.season_guard import SeasonMismatchError
 from fpl_api_client.fpl_client import BOOTSTRAP_URL
 
 
@@ -238,11 +239,15 @@ def cmd_capture(args: argparse.Namespace) -> int:
             return 0
 
     # Run capture
-    manifest = capture_season(
-        season,
-        allow_missing_summaries=allow_missing,
-        element_summary_timeout=args.element_summary_timeout,
-    )
+    try:
+        manifest = capture_season(
+            season,
+            allow_missing_summaries=allow_missing,
+            element_summary_timeout=args.element_summary_timeout,
+        )
+    except SeasonMismatchError as exc:
+        print(f"[fpl-historical] capture {season}: REJECTED — {exc}", file=sys.stderr)
+        return 3
     status = manifest.status
 
     should_promote = (

@@ -308,3 +308,78 @@ class TestRetryBehavior:
                 status, body = _fetch_raw("https://example.com/")
         assert status == 404
         assert mock_get.call_count == 1
+
+
+# ---------------------------------------------------------------------------
+# Season-boundary guard (incident prevention — see fpl_historical.season_guard)
+# ---------------------------------------------------------------------------
+
+def _bootstrap_with_live_season(start_year: int) -> dict:
+    """MINIMAL_BOOTSTRAP plus an event id=1 whose deadline implies *start_year*-*start_year+1*."""
+    bootstrap = copy.deepcopy(MINIMAL_BOOTSTRAP)
+    bootstrap["events"].append({
+        "id": 1,
+        "deadline_time": f"{start_year}-08-14T17:30:00Z",
+        "is_current": False,
+        "is_next": False,
+        "finished": True,
+        "data_checked": True,
+        "average_entry_score": 50,
+    })
+    return bootstrap
+
+
+class TestSeasonBoundaryGuard:
+    def test_matching_live_season_captures_normally(self, tmp_historical_root):
+        """Live season == target season -> proceeds, writes files as usual."""
+        from fpl_historical.capture import capture_season
+        from fpl_historical.paths import list_raw_dirs
+
+        bootstrap = _bootstrap_with_live_season(2025)
+        effects = [_ok_response(bootstrap), _ok_response(MINIMAL_FIXTURES)]
+        for element in MINIMAL_BOOTSTRAP["elements"]:
+            effects.append(_ok_response(MINIMAL_ELEMENT_SUMMARY))
+
+        with patch(_PATCH_TARGET, side_effect=effects):
+            with patch("fpl_historical.capture.time.sleep"):
+                manifest = capture_season("2025-2026", allow_missing_summaries=0)
+
+        assert manifest.status == "complete"
+        raw_dirs = list_raw_dirs("2025-2026")
+        assert len(raw_dirs) == 1
+        assert (raw_dirs[0] / "bootstrap-static.json.gz").exists()
+
+    def test_mismatched_live_season_rejects_and_writes_nothing(self, tmp_historical_root):
+        """Live season (2026-2027) != target (2025-2026) -> raises, zero writes."""
+        from fpl_historical.capture import capture_season
+        from fpl_historical.paths import list_raw_dirs
+        from fpl_historical.season_guard import SeasonMismatchError
+
+        bootstrap = _bootstrap_with_live_season(2026)  # -> "2026-2027"
+
+        with patch(_PATCH_TARGET, side_effect=[_ok_response(bootstrap)]) as mock_get:
+            with patch("fpl_historical.capture.time.sleep"):
+                with pytest.raises(SeasonMismatchError) as exc_info:
+                    capture_season("2025-2026", allow_missing_summaries=0)
+
+        # Rejected before fixtures/element-summary were ever fetched.
+        assert mock_get.call_count == 1
+        # Nothing written: no raw dir was ever created for this season.
+        assert list_raw_dirs("2025-2026") == []
+        message = str(exc_info.value)
+        assert "2026-2027" in message
+        assert "2025-2026" in message
+
+    def test_mismatched_season_leaves_no_partial_directory(self, tmp_historical_root):
+        """No seasons/<season>/raw directory exists at all after a rejection."""
+        from fpl_historical.capture import capture_season
+        from fpl_historical.paths import season_dir
+        from fpl_historical.season_guard import SeasonMismatchError
+
+        bootstrap = _bootstrap_with_live_season(2026)
+        with patch(_PATCH_TARGET, side_effect=[_ok_response(bootstrap)]):
+            with patch("fpl_historical.capture.time.sleep"):
+                with pytest.raises(SeasonMismatchError):
+                    capture_season("2025-2026", allow_missing_summaries=0)
+
+        assert not (season_dir("2025-2026") / "raw").exists()
