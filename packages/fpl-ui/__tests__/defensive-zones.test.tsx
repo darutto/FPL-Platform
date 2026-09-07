@@ -34,7 +34,11 @@ import {
 } from '../lib/defensive-zones';
 import { selectIntentView } from '../lib/intent-renderer';
 import DefensiveZonesCard from '../components/intents/DefensiveZonesCard';
-import type { AskResponse, DefensiveZonesMeta } from '../lib/types';
+import type {
+  AskResponse,
+  DefensiveZonesMeta,
+  ZonalDataProvenance,
+} from '../lib/types';
 
 // ---------------------------------------------------------------------------
 // Fixture — mirrors the real Crystal Palace payload with the corrected
@@ -61,6 +65,32 @@ const palaceMeta: DefensiveZonesMeta = {
   ],
   penalty_xga_per_game: 0.1402,
   ai_active: true,
+};
+
+// i74 season stamps — the card renders the backend's `label` verbatim so the
+// card and the plain-text zonal answers cannot word the same fact differently.
+const currentProvenance: ZonalDataProvenance = {
+  season: '2026-2027',
+  season_label: '2026-27',
+  live_season: '2026-2027',
+  is_current: true,
+  status: 'current',
+  label: 'Datos: temporada 2026-27',
+  ingested_at: '2026-09-01T10:00:00Z',
+  n_matches: 380,
+  n_shots: 9524,
+};
+
+const staleProvenance: ZonalDataProvenance = {
+  season: '2025-2026',
+  season_label: '2025-26',
+  live_season: '2026-2027',
+  is_current: false,
+  status: 'stale_season',
+  label: '⚠ Datos de 2025-26, no de la temporada en curso (2026-27)',
+  ingested_at: '2026-07-07T11:52:14Z',
+  n_matches: 380,
+  n_shots: 9524,
 };
 
 const zonalOkResponse: AskResponse = {
@@ -386,5 +416,59 @@ describe('DefensiveZonesCard', () => {
     expect(
       screen.getByText('Sin perfiles de jugador que encajen en estas zonas todavía.'),
     ).toBeInTheDocument();
+  });
+
+  // -------------------------------------------------------------------------
+  // i74 — season stamp. The card used to present a full, confident verdict
+  // computed on last season's shots without naming a season anywhere.
+  // -------------------------------------------------------------------------
+
+  test('live-season data gets a discreet stamp, not a warning', () => {
+    render(
+      <DefensiveZonesCard
+        data={{ ...palaceMeta, data_provenance: currentProvenance }}
+      />,
+    );
+    const stamp = screen.getByTestId('zonal-provenance');
+    expect(stamp).toHaveTextContent('Datos: temporada 2026-27');
+    expect(stamp).toHaveAttribute('data-status', 'current');
+    expect(stamp.className).toContain('text-bf-gray/55');
+    expect(stamp.className).not.toContain('bf-gold');
+  });
+
+  test('out-of-season data escalates to an explicit gold notice', () => {
+    render(
+      <DefensiveZonesCard
+        data={{ ...palaceMeta, data_provenance: staleProvenance }}
+      />,
+    );
+    const stamp = screen.getByTestId('zonal-provenance');
+    expect(stamp).toHaveTextContent(
+      '⚠ Datos de 2025-26, no de la temporada en curso (2026-27)',
+    );
+    expect(stamp).toHaveAttribute('data-status', 'stale_season');
+    expect(stamp.className).toContain('bf-gold');
+    // informs, never alarms — coral/red stays reserved for the weakness pill
+    expect(stamp.className).not.toContain('coral');
+    // and it still shows the analysis: declare, never withhold
+    expect(screen.getByText('Saka')).toBeInTheDocument();
+  });
+
+  test('the stamp sits above the numbers it qualifies', () => {
+    const { container } = render(
+      <DefensiveZonesCard
+        data={{ ...palaceMeta, data_provenance: staleProvenance }}
+      />,
+    );
+    const stamp = screen.getByTestId('zonal-provenance');
+    const pitch = container.querySelector('svg')!;
+    expect(
+      stamp.compareDocumentPosition(pitch) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  test('a payload with no provenance renders no stamp at all', () => {
+    render(<DefensiveZonesCard data={palaceMeta} />);
+    expect(screen.queryByTestId('zonal-provenance')).not.toBeInTheDocument();
   });
 });

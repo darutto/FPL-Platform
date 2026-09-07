@@ -17,11 +17,21 @@
  * Color semantics (do not invert): turquoise = your best zone, gold = slight
  * advantage, grey = none. Coral only for the opponent-weakness pill.
  *
+ * i74: a season stamp sits under the verdict, above the numbers it qualifies.
+ * It is always present and reads as a caption when the data is the live
+ * season's; when it is not (or the sample is too thin) it escalates to a
+ * gold notice carrying the backend's own warning text. Gold, not coral/red —
+ * this informs, it does not alarm, and coral here means opponent weakness.
+ *
  * The handoff's outer composition (user question pill, "Seguir conversación"
  * ghost button) is already provided by the chat shell (user bubble +
  * MessageList's FollowUpButton) — this component is the data card itself.
  */
-import type { DefensiveZonesMeta, ZonalExploiter } from '@/lib/types';
+import type {
+  DefensiveZonesMeta,
+  ZonalExploiter,
+  ZonalDataProvenance,
+} from '@/lib/types';
 import { CARD_BASE, CARD_ACCENT, PILL_BASE } from '@/lib/theme';
 import {
   LEVEL_PILL_LABEL,
@@ -53,6 +63,7 @@ const ZONE_CENTER_X = [80, 180, 280];
 
 export default function DefensiveZonesCard({ data }: Props) {
   const { opponent, weakness_label, verdict, zones, exploiters } = data;
+  const provenance = data.data_provenance ?? null;
 
   return (
     <div className={`mt-3 text-sm ${CARD_BASE} ${CARD_ACCENT.coral.border}`}>
@@ -89,6 +100,9 @@ export default function DefensiveZonesCard({ data }: Props) {
             Cuanto más verde, mayor tu ventaja.
           </span>
         </p>
+
+        {/* Season stamp (i74) — what season these numbers describe */}
+        {provenance && <ProvenanceStamp provenance={provenance} />}
 
         {/* Pitch view — penalty box with the three zone thirds shaded by
             opportunity; each zone's reading lives inside its region */}
@@ -247,6 +261,29 @@ export default function DefensiveZonesCard({ data }: Props) {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * The i74 season stamp. Always rendered when the payload carries provenance:
+ * a muted caption for live-season data, a gold notice for anything else. The
+ * text is the backend's `label` verbatim (it already carries the ⚠) so the
+ * card and the plain-text zonal answers state the same fact the same way.
+ */
+function ProvenanceStamp({ provenance }: { provenance: ZonalDataProvenance }) {
+  const stale = provenance.status !== 'current';
+  return (
+    <p
+      data-testid="zonal-provenance"
+      data-status={provenance.status}
+      className={
+        stale
+          ? 'mb-3.5 rounded-[8px] border border-bf-gold/35 bg-bf-gold/[0.07] px-3 py-2 text-[11.5px] font-semibold leading-snug text-bf-gold'
+          : 'mb-3.5 text-[10.5px] font-medium tracking-[0.02em] text-bf-gray/55'
+      }
+    >
+      {provenance.label}
+    </p>
   );
 }
 

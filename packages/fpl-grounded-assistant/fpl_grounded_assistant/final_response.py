@@ -550,6 +550,29 @@ class DifferentialPicksMeta:
 # ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
+class DataProvenance:
+    """Which season the zonal answer's data is from, and whether it is live (i74).
+
+    ``season`` is read out of the tactical store's own ``_tactical_latest.json``
+    pointer — never from the season constant used to *locate* that store, which
+    could not disagree with it. ``live_season`` comes from
+    ``derive_live_season(bootstrap)``, so ``status`` can actually be
+    ``stale_season``. ``label`` is the ready-to-render Spanish stamp; the card
+    and the text renderers both show it so they cannot drift apart.
+    """
+    season:       str | None
+    season_label: str | None
+    live_season:  str | None
+    is_current:   bool
+    #: current | stale_season | thin | unverified | unknown
+    status:       str
+    label:        str
+    ingested_at:  str | None
+    n_matches:    int | None
+    n_shots:      int | None
+
+
+@dataclass(frozen=True)
 class ZoneCell:
     """One in-box lateral cell of the Defensive Zones pitch view.
 
@@ -599,6 +622,8 @@ class DefensiveZonesMeta:
     exploiters:           tuple[Exploiter, ...]
     penalty_xga_per_game: float
     ai_active:            bool
+    #: i74 season stamp. Defaulted so pre-i74 fixtures/serialisers still build.
+    data_provenance:      "DataProvenance | None" = None
 
 
 # ---------------------------------------------------------------------------
@@ -1710,6 +1735,30 @@ def _extract_differential_meta(ro: "dict[str, Any]") -> "DifferentialPicksMeta |
         return None
 
 
+def _extract_data_provenance(raw: "Any") -> "DataProvenance | None":
+    """Extract the i74 season stamp from a tool payload's ``data_provenance``.
+
+    Absent or malformed provenance yields ``None`` — the card then simply
+    shows no stamp, exactly as pre-i74 payloads do. It never invents one.
+    """
+    if not isinstance(raw, dict) or not raw.get("label"):
+        return None
+    try:
+        return DataProvenance(
+            season       = raw.get("season"),
+            season_label = raw.get("season_label"),
+            live_season  = raw.get("live_season"),
+            is_current   = bool(raw.get("is_current", False)),
+            status       = str(raw.get("status", "unknown")),
+            label        = str(raw["label"]),
+            ingested_at  = raw.get("ingested_at"),
+            n_matches    = raw.get("n_matches"),
+            n_shots      = raw.get("n_shots"),
+        )
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def _extract_zonal_opportunity_meta(ro: "dict[str, Any]") -> "DefensiveZonesMeta | None":
     """Extract DefensiveZonesMeta from a get_zonal_opportunity tool_output dict.
 
@@ -1746,6 +1795,7 @@ def _extract_zonal_opportunity_meta(ro: "dict[str, Any]") -> "DefensiveZonesMeta
                 (ro.get("penalty_context") or {}).get("penalty_xga_per_game", 0.0)
             ),
             ai_active      = True,  # zonal_opportunity only arrives via the orch path
+            data_provenance = _extract_data_provenance(ro.get("data_provenance")),
         )
     except Exception:  # noqa: BLE001
         return None
