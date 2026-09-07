@@ -1129,6 +1129,30 @@
         "Backend",
         "Deploy"
       ]
+    },
+    {
+      "id": "i74",
+      "col": "idea",
+      "progress": 0,
+      "title": "Las respuestas zonales no dicen de qué temporada son sus datos",
+      "desc": "MEDIDO 2026-09-07: get_zonal_weakness(\"Arsenal\") devuelve status \"ok\" con veredicto completo, calculado sobre tiros de Understat de 2025-2026, con tres jornadas ya jugadas de 2026-2027. Ni el payload ni DefensiveZonesCard.tsx mencionan una temporada en ningún sitio. No es un fallo silencioso: es una respuesta segura y desfasada presentada como actual. Peor que apagarse, porque apagarse se ve.\n\nDECISIÓN DEL DUEÑO (2026-09-07): DECLARAR, no rechazar. Las herramientas siguen respondiendo y dicen de qué temporada son sus datos. Rechazar habría apagado la función zonal entera hasta que aterrice la rotación (i73), y Understat puede tardar semanas en tener datos utilizables.\n\nFORMATO ELEGIDO: sello discreto siempre presente con la temporada del dato; cuando esa temporada NO es la que se está jugando, el sello escala a aviso explícito. Sin alarma roja — informar, no asustar. Es la PRIMERA tarjeta del producto que declara procedencia, así que sienta precedente para todas las demás.\n\nSON CUATRO SUPERFICIES, no una tarjeta. Tres herramientas (get_zonal_weakness, get_zonal_opportunity, get_player_zonal_outlook), tres renderers de texto propios, y UNA sola tarjeta. Las dos que son sólo texto engañan más: la prosa no tiene marco visual donde colgar la etiqueta. El backend en cambio es UN punto: _load_shots (zonal_weakness.py:178) es el único sitio que toca el parquet.\n\nDOS TRAMPAS, y acertar una y fallar la otra deja el sello igual de inútil:\n  · Lo que el sello DICE sale del puntero (_tactical_latest.json vía latest_pointer_path), NUNCA de CURRENT_SEASON. _load_shots elige el archivo con shots_parquet_path(CURRENT_SEASON), así que un sello sacado de esa misma variable no puede discrepar del path: es una tautología disfrazada de procedencia, y seguiría diciendo \"2026-2027\" sobre un parquet vacío.\n  · Contra qué se COMPARA sale de derive_live_season(bootstrap), NUNCA de CURRENT_SEASON, que es igual a la clave del store por construcción — el aviso no dispararía jamás.\n\nGRATIS AL LEER EL PUNTERO: trae ingested_at, n_matches y n_shots, así que el sello también atrapa «temporada correcta, dato insuficiente» — justo lo que la rotación va a crear: un parquet legítimamente etiquetado 2026-2027 con tres jornadas dentro. Un sello que sólo nombra la temporada dice verdad y esconde eso.\n\nVA POR ENCIMA DE i73. Engaña hoy y seguiría engañando todo lo que la rotación tarde. Cablearlo es barato: latest_pointer_path está en fpl_tactical.paths, el mismo módulo del que zonal_weakness ya importa.",
+      "tags": [
+        "Backend",
+        "UI",
+        "FPL Asistente"
+      ]
+    },
+    {
+      "id": "i75",
+      "col": "idea",
+      "progress": 0,
+      "title": "La tarjeta zonal atribuye jugadores al club que dejaron",
+      "desc": "MEDIDO 2026-09-07 sobre las 71 filas de exploiters que la tarjeta produce hoy, en los 17 equipos que responden ok: SEIS filas muestran un club equivocado. Jaidon Anthony aparece seis veces; la tarjeta dice Burnley y hoy juega en Brentford.\n\nCAUSA: el campo team de cada fila sale de info[\"team\"], construido desde el parquet de tiros de 2025-2026 (zonal_weakness.py:540-556). Es el club que ese jugador tenía la temporada pasada.\n\nPOR QUÉ NO LO CUBRE i74. El sello de temporada dirá «datos de 2025-26» y será CIERTO, y estas seis filas seguirán diciendo Burnley. La etiqueta informa de la temporada del conjunto; no le dice al lector que ESE jugador en concreto se movió. Son defectos distintos y hay que resolverlos por separado — no dar el segundo por cubierto al cerrar el primero.\n\nMECANISMO ADICIONAL, LATENTE, SIN CASOS ACTIVOS. La exclusión del rival es `if info[\"team\"] == matched: continue` (línea 530), que compara contra el equipo DEL STORE. Un jugador traspasado dentro de la Premier podría por tanto salir recomendado para atacar la zona débil del equipo en el que AHORA juega. Medido en los 17 equipos: CERO casos hoy — los exploiters se rankean por xG y los traspasados identificados no llegan al top. Es mina, no incendio. Que la carta lo diga así y no como riesgo vivo.\n\nEL SUELO DEL PROBLEMA ES RESOLUCIÓN DE NOMBRES ENTRE FUENTES, y por eso esta carta no es barata. Contar traspasados comparando nombres de Understat contra los del bootstrap NO funciona: un primer intento dio 157 de 449 (35%) y Garnacho lo desmintió — está en la liga, como «Alejandro Garnacho Ferreyra». Con matcher por tokens bajó a 120; usando el puente _UNDERSTAT_TO_SHORT del propio repo más coincidencia exacta de nombre completo quedó en 41 traspasos intra-Premier, y eso es COTA INFERIOR de alta confianza, no la cuenta. Sólo el «6 de 71» es sólido. Cualquier cosa más fuerte exige el trabajo que aquí ya costó cinco PRs (#14, #141, #142, #149 y la regresión de Bruno Fernandes en producción).",
+      "tags": [
+        "Backend",
+        "Datos",
+        "FPL Asistente"
+      ]
     }
   ]
 }
