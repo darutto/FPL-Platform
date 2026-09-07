@@ -1,0 +1,61 @@
+name: Rescue - Extract 2026-27 rows from contaminated store
+
+# Manual, one-off incident-response job. Read-only against R2: downloads the
+# current (contaminated) 2025-2026 owned-store table, pulls out the rows
+# that are actually 2026-2027 data mislabeled as 2025-2026, retags them, and
+# uploads the result as a workflow artifact. Does NOT write anything back to
+# R2 -- that is a separate, deliberate step once the owner decides how the
+# 2026-2027 data should be formally published.
+#
+# See PR #218 (cron pause) for the incident this responds to.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  rescue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          pip install \
+            -r packages/fpl-grounded-assistant/requirements.txt \
+            pyarrow \
+            pandas \
+            boto3
+
+      # Download into a scratch dir, NOT packages/fpl-historical/data --
+      # this runner is ephemeral and has no local backup to protect, but
+      # keeping this explicit avoids ever depending on that being true.
+      - name: Download current (contaminated) 2025-2026 store from R2
+        env:
+          OWNED_STORE_R2_ENDPOINT: ${{ secrets.OWNED_STORE_R2_ENDPOINT }}
+          OWNED_STORE_R2_BUCKET: ${{ secrets.OWNED_STORE_R2_BUCKET }}
+          OWNED_STORE_R2_ACCESS_KEY_ID: ${{ secrets.OWNED_STORE_R2_ACCESS_KEY_ID }}
+          OWNED_STORE_R2_SECRET_ACCESS_KEY: ${{ secrets.OWNED_STORE_R2_SECRET_ACCESS_KEY }}
+          FPL_HISTORICAL_ROOT: ${{ github.workspace }}/_rescue_scratch/downloaded
+        run: |
+          python packages/fpl-grounded-assistant/fpl_grounded_assistant/owned_store_sync.py sync --season 2025-2026
+
+      - name: Extract and retag 2026-2027 rows
+        run: |
+          python scripts/rescue_extract_2026_27_rows.py \
+            --source "${{ github.workspace }}/_rescue_scratch/downloaded/seasons/2025-2026" \
+            --out "${{ github.workspace }}/_rescue_scratch/rescued_2026_2027"
+
+      - name: Upload rescued 2026-2027 data as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rescued-2026-2027-rows
+          path: _rescue_scratch/rescued_2026_2027/
+          retention-days: 90
