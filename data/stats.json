@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-06T05:05:59Z",
+  "generatedAt": "2026-09-07T05:07:11Z",
   "season": "2026/27",
   "seasonStatus": "in_season",
   "gameweek": 2,
@@ -147,6 +147,14 @@
   ],
   "players": [
     {
+      "name": "B.Fernandes",
+      "team": "MUN",
+      "position": "MID",
+      "xg": 2.25,
+      "xa": 0.8,
+      "minutes": 270
+    },
+    {
       "name": "Haaland",
       "team": "MCI",
       "position": "FWD",
@@ -155,20 +163,12 @@
       "minutes": 270
     },
     {
-      "name": "B.Fernandes",
-      "team": "MUN",
-      "position": "MID",
-      "xg": 2.1,
-      "xa": 0.74,
-      "minutes": 180
-    },
-    {
       "name": "Mbeumo",
       "team": "MUN",
       "position": "MID",
-      "xg": 2.26,
-      "xa": 0.44,
-      "minutes": 180
+      "xg": 2.31,
+      "xa": 0.47,
+      "minutes": 270
     },
     {
       "name": "Foden",
@@ -177,6 +177,14 @@
       "xg": 1.61,
       "xa": 0.86,
       "minutes": 195
+    },
+    {
+      "name": "Barry",
+      "team": "EVE",
+      "position": "FWD",
+      "xg": 2.31,
+      "xa": 0.11,
+      "minutes": 237
     },
     {
       "name": "Thiago",
@@ -198,25 +206,25 @@
       "name": "Rogers",
       "team": "CHE",
       "position": "MID",
-      "xg": 1.1,
-      "xa": 1.11,
-      "minutes": 171
+      "xg": 1.18,
+      "xa": 1.14,
+      "minutes": 257
     },
     {
-      "name": "Barry",
-      "team": "EVE",
-      "position": "FWD",
-      "xg": 1.93,
-      "xa": 0.09,
-      "minutes": 147
+      "name": "Ødegaard",
+      "team": "ARS",
+      "position": "MID",
+      "xg": 1.01,
+      "xa": 1.05,
+      "minutes": 221
     },
     {
       "name": "João Pedro",
       "team": "CHE",
       "position": "FWD",
-      "xg": 1.86,
-      "xa": 0.1,
-      "minutes": 180
+      "xg": 1.88,
+      "xa": 0.15,
+      "minutes": 270
     },
     {
       "name": "Cherki",
@@ -233,6 +241,14 @@
       "xg": 1.5,
       "xa": 0.4,
       "minutes": 243
+    },
+    {
+      "name": "Saka",
+      "team": "ARS",
+      "position": "MID",
+      "xg": 1.5,
+      "xa": 0.35,
+      "minutes": 246
     },
     {
       "name": "Tavernier",
@@ -329,22 +345,6 @@
       "xg": 1.41,
       "xa": 0.02,
       "minutes": 63
-    },
-    {
-      "name": "Wissa",
-      "team": "NEW",
-      "position": "FWD",
-      "xg": 1.35,
-      "xa": 0.05,
-      "minutes": 261
-    },
-    {
-      "name": "Saka",
-      "team": "ARS",
-      "position": "MID",
-      "xg": 1.27,
-      "xa": 0.12,
-      "minutes": 157
     }
   ]
 }
