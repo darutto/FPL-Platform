@@ -63,6 +63,14 @@ from fpl_historical.rolling_strength import compute_rolling_strength  # noqa: E4
 # --season-start live path.
 sys.path.insert(0, os.path.join(_PACKAGES, "fpl-api-client"))
 
+# Intentionally NOT read from fpl_data_core.season_registry.CURRENT_SEASON:
+# this script's whole job is to (re)generate the frozen, finished 2025-26
+# bundle (_OUT_PATH below is literally named fixture-outlook-2025-26.json)
+# and contrast it with the live NEW_SEASON below during the off-season
+# window. Once 2025-26 is no longer "current", this constant must NOT
+# follow the rollover — that would silently repoint this script at the
+# wrong season's data mid-run. Excluded from the Task 1 single-source
+# consolidation for that reason.
 SEASON = "2025-2026"
 NEW_SEASON = "2026-27"
 _DATA_ROOT = os.path.join(

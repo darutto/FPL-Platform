@@ -13,7 +13,18 @@
 # HOW TO ADD A NEW SEASON:
 #   1. Add a new entry in the `seasons` list below.
 #   2. No Python or TypeScript source changes needed.
+#
+# current_season IS THE SINGLE SOURCE OF TRUTH for "which season is active
+# right now" (added 2026-09, incident: owned-store-refresh silently wrote
+# 2026-2027 data under the 2025-2026 key for six weeks because this value
+# was copy-pasted as a literal in six-plus source files with nothing
+# checking it against the live FPL API). Every module that needs "the
+# current season" must import it from fpl_data_core.season_registry.CURRENT_SEASON
+# instead of hardcoding a string. Bump this ONLY as part of an explicit,
+# reviewed season-rollover change -- never automatically.
 # =============================================================
+
+current_season: "2025-2026"
 
 seasons:
 

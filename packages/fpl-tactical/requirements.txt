@@ -3,3 +3,4 @@
 soccerdata>=1.9.0
 pandas>=2.0
 pyarrow>=14.0
+pyyaml>=6.0  # fpl_tactical.paths imports fpl_data_core.season_registry (single source of truth for CURRENT_SEASON)

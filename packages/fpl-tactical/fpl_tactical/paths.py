@@ -10,7 +10,7 @@ All paths are relative to ``tactical_root()``, which respects the
 resolved from this file's location).
 
 Public API (CONTRACT):
-    CURRENT_SEASON                str constant — "2025-2026"
+    CURRENT_SEASON                str constant, sourced from fpl_data_core.season_registry
     tactical_root()               Path to the root of the tactical data store
     season_dir(season)            .../seasons/<season>
     shots_parquet_path(season)    .../seasons/<season>/understat_shots.parquet
@@ -20,13 +20,26 @@ Public API (CONTRACT):
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
-
-# Season key style matches fpl_historical.paths.CURRENT_SEASON
-CURRENT_SEASON: str = "2025-2026"
 
 # Repo root — three levels up from this file (packages/fpl-tactical/fpl_tactical/)
 _REPO_ROOT: Path = Path(__file__).resolve().parents[3]
+
+# Season constant — single source of truth is
+# packages/fpl-data-core/season_registry.yaml (`current_season` key); import
+# it rather than repeating the literal (see incident: six-plus copies of
+# this string drifted from reality unchecked for six weeks).
+_FPL_DATA_CORE = str(_REPO_ROOT / "packages" / "fpl-data-core")
+if _FPL_DATA_CORE not in sys.path:
+    # append, not insert(0): inserting first would shadow this package's own
+    # local `tests` namespace package with fpl-data-core's `tests` package
+    # (regular packages, i.e. ones with __init__.py, take precedence over
+    # namespace packages found later in sys.path).
+    sys.path.append(_FPL_DATA_CORE)
+
+from fpl_data_core.season_registry import CURRENT_SEASON  # noqa: E402
+
 _DEFAULT_TACTICAL_ROOT: Path = (
     _REPO_ROOT / "packages" / "fpl-tactical" / "data" / "tactical"
 )

@@ -9,13 +9,11 @@ on:
   # restored from the known-good local backup. See PR for the incident
   # writeup.
   #
-  # UPDATE: capture() now rejects instead of writing when the live API's
-  # season disagrees with --season below (fpl_historical.season_guard) --
-  # that guard was missing during the 2026-07-27..2026-08-31 incident.
-  # The season key itself is still a literal here; collapsing the
-  # six-plus hardcoded copies into one source of truth is a separate,
-  # follow-up PR. The schedule stays commented out regardless --
-  # re-enabling it is a separate, deliberate decision for the store owner.
+  # UPDATE: the season key is now a single source of truth (resolved below
+  # from fpl_data_core.season_registry) and capture() now rejects instead of
+  # writing when the live API disagrees with it (fpl_historical.season_guard).
+  # The schedule stays commented out regardless — re-enabling it is a
+  # separate, deliberate decision for the store owner, not part of this fix.
   # schedule:
   #   - cron: "0 6 * * 1"   # Mondays 06:00 UTC, weekly
   workflow_dispatch:        # manual trigger via `gh workflow run owned-store-refresh.yml`
@@ -43,7 +41,17 @@ jobs:
           pip install \
             -r packages/fpl-grounded-assistant/requirements.txt \
             pyarrow \
-            pandas
+            pandas \
+            pyyaml
+
+      # Single source of truth for "which season is current" is
+      # packages/fpl-data-core/season_registry.yaml (current_season key).
+      # Resolving it here (rather than hardcoding --season below) means this
+      # workflow can no longer drift from that value on its own — see
+      # incident writeup in the PR for why that drift mattered.
+      - name: Resolve season
+        run: |
+          echo "SEASON=$(python -c "import sys; sys.path.insert(0, 'packages/fpl-data-core'); from fpl_data_core.season_registry import CURRENT_SEASON; print(CURRENT_SEASON)")" >> "$GITHUB_ENV"
 
       # Decision 2 (§4): no --skip-if-fresh flag.
       # The GHA runner is ephemeral — its local disk is always empty, so the
@@ -51,19 +59,20 @@ jobs:
       # misleading. Always run a full capture.
       #
       # capture() now rejects (writes nothing) if the live FPL bootstrap's
-      # season doesn't match --season below — see fpl_historical.season_guard.
-      # This is the guard that was missing during the 2026-07-27..2026-08-31
-      # incident.
+      # season doesn't match $SEASON — see fpl_historical.season_guard. This
+      # is the guard that was missing during the 2026-07-27..2026-08-31
+      # incident; it does not require any change here beyond passing the
+      # resolved $SEASON through.
       - name: Capture FPL data (full baseline)
-        run: bash packages/fpl-historical/capture.sh capture --season 2025-2026
+        run: bash packages/fpl-historical/capture.sh capture --season "$SEASON"
 
       - name: Merge owned store
-        run: bash packages/fpl-historical/capture.sh merge --season 2025-2026
+        run: bash packages/fpl-historical/capture.sh merge --season "$SEASON"
 
       - name: Extract merged_at from pointer file
         id: extract
         run: |
-          echo "merged_at=$(jq -r .merged_at packages/fpl-historical/data/historical/seasons/2025-2026/_owned_latest.json)" >> "$GITHUB_OUTPUT"
+          echo "merged_at=$(jq -r .merged_at packages/fpl-historical/data/historical/seasons/$SEASON/_owned_latest.json)" >> "$GITHUB_OUTPUT"
 
       - name: Publish to R2
         env:

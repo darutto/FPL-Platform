@@ -53,7 +53,7 @@ class SeasonLayout:
     def list_available_gameweeks(self) -> List[int]:
         """Return sorted list of gameweek numbers that have data on disk."""
         gameweeks = []
-        if self.season == "2025-2026":
+        if not self.has_consolidated_files:
             by_gw_dir = self.data_root / "By Gameweek"
             if by_gw_dir.exists():
                 for gw_dir in by_gw_dir.iterdir():
@@ -86,17 +86,31 @@ class SeasonLayout:
 
 SEASON_REGISTRY: Dict[str, SeasonLayout] = {}
 
+#: Single source of truth for "which season is active right now" (CONTRACT:
+#: see season_registry.yaml's `current_season` key). Every module that needs
+#: the current season must import this instead of hardcoding the string.
+CURRENT_SEASON: str = ""
+
 # Default YAML: two levels up from this file → fpl-data-core/season_registry.yaml
 _DEFAULT_YAML = Path(__file__).parent.parent / "season_registry.yaml"
 
 
 def load_registry_from_yaml(yaml_path: Path = _DEFAULT_YAML) -> None:
-    """Populate SEASON_REGISTRY from a YAML file.
+    """Populate SEASON_REGISTRY (and CURRENT_SEASON, if declared) from a YAML file.
 
     Replaces captaincy-ml/ml/data/season_layouts.py::_initialize_registry()
     which had the same data hardcoded in Python source.
+
+    ``current_season`` is optional on this function's *input* — callers may
+    load a partial/test-only YAML that only adds seasons without redeclaring
+    which one is current. It is NOT optional on the real, checked-in
+    ``season_registry.yaml``: the module-level auto-init call below asserts
+    ``CURRENT_SEASON`` ends up non-empty after loading that file, so the
+    canonical single source of truth still fails loudly if it ever loses
+    the key. If a YAML *does* declare ``current_season``, it must name a
+    season present in this same load's ``seasons`` list, or this raises.
     """
-    global SEASON_REGISTRY
+    global SEASON_REGISTRY, CURRENT_SEASON
     with open(yaml_path, "r", encoding="utf-8") as f:
         raw = yaml.safe_load(f)
 
@@ -111,6 +125,14 @@ def load_registry_from_yaml(yaml_path: Path = _DEFAULT_YAML) -> None:
             gameweek_pattern=entry.get("gameweek_pattern", "GW{gw}"),
         )
         SEASON_REGISTRY[layout.season] = layout
+
+    current_season = raw.get("current_season")
+    if current_season:
+        if current_season not in SEASON_REGISTRY:
+            raise ValueError(
+                f"{yaml_path}: current_season {current_season!r} is not in 'seasons' list"
+            )
+        CURRENT_SEASON = current_season
 
 
 def register_season(layout: SeasonLayout) -> None:
@@ -137,10 +159,28 @@ def list_available_seasons() -> List[str]:
     return list(SEASON_REGISTRY.keys())
 
 
+def get_current_season() -> str:
+    """Return the single source of truth for "the current season".
+
+    Bumping this requires editing ``current_season`` in
+    ``season_registry.yaml`` as an explicit, reviewed change -- it is never
+    inferred or auto-advanced from a live API response (see
+    ``fpl_historical.season_guard`` for the live-API comparison guard).
+    """
+    return CURRENT_SEASON
+
+
 # ---------------------------------------------------------------------------
 # Auto-initialize on import (mirrors original behaviour)
 # ---------------------------------------------------------------------------
 
 load_registry_from_yaml()
+
+if not CURRENT_SEASON:
+    raise ValueError(
+        f"{_DEFAULT_YAML}: missing required top-level 'current_season' key. "
+        f"This is the single source of truth for the active FPL season; "
+        f"every consumer depends on it being set."
+    )
 
 
