@@ -6,13 +6,8 @@ on:
   workflow_dispatch:        # manual trigger via `gh workflow run tactical-store-refresh.yml`
     inputs:
       season:
-        description: "Season key (e.g. 2026-2027); defaults to DEFAULT_SEASON below"
+        description: "Season key override; blank = the registry's current_season"
         required: false
-
-env:
-  # Single point of change at season rollover (cron runs use this;
-  # workflow_dispatch can override via the season input).
-  DEFAULT_SEASON: "2025-2026"
 
 concurrency:
   group: tactical-store-refresh
@@ -26,10 +21,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Resolve season
-        run: |
-          echo "SEASON=${{ github.event.inputs.season || env.DEFAULT_SEASON }}" >> "$GITHUB_ENV"
 
       - name: Set up Python 3.13
         uses: actions/setup-python@v5
@@ -45,6 +36,21 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r packages/fpl-tactical/requirements.txt boto3
+
+      # Single source of truth for "which season is current" is
+      # packages/fpl-data-core/season_registry.yaml (current_season key),
+      # exactly as owned-store-refresh.yml resolves it. This step used to be
+      # a `DEFAULT_SEASON: "2025-2026"` literal in this file's env block --
+      # the twelfth copy of the season key, and the one the #222
+      # consolidation could not reach, because YAML cannot import Python.
+      # It has to run after "Install dependencies" (it needs pyyaml, which
+      # packages/fpl-tactical/requirements.txt pins for exactly this import).
+      - name: Resolve season
+        env:
+          INPUT_SEASON: ${{ github.event.inputs.season }}
+        run: |
+          REGISTRY_SEASON="$(python -c "import sys; sys.path.insert(0, 'packages/fpl-data-core'); from fpl_data_core.season_registry import CURRENT_SEASON; print(CURRENT_SEASON)")"
+          echo "SEASON=${INPUT_SEASON:-$REGISTRY_SEASON}" >> "$GITHUB_ENV"
 
       - name: Ingest Understat shots (full season)
         env:

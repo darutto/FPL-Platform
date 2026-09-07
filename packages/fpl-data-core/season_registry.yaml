@@ -84,3 +84,39 @@ seasons:
       matches_tournament:     "By Tournament/{tournament}/matches.csv"
 
 
+
+  # Added 2026-09-07 (board card i73, delivery 1 of 2). This entry describes
+  # the LAYOUT of the CSV export tree for 2026-2027; it is not an assertion
+  # that those files exist on disk yet (that export does not exist for this
+  # season). Existence is answered by SeasonLayout.list_available_gameweeks(),
+  # not by this entry.
+  #
+  # Shape is copied from 2025-2026, the other in-season entry, NOT from
+  # 2024-2025: that one is a finished season whose export was consolidated
+  # into single files per table (has_consolidated_files: true). A season
+  # still being played arrives gameweek by gameweek, so it is per-GW.
+  #
+  # Neither the owned store (fpl-historical) nor the tactical store
+  # (fpl-tactical) reads data_root/files from here — both key their parquet
+  # layout off `current_season` alone. Adding this entry therefore does not
+  # repoint any read path; `current_season` above deliberately stays on
+  # 2025-2026 (delivery 2 moves it, once fpl-tactical has 2026-2027 shots).
+  - season: "2026-2027"
+    data_root: "data/2026-2027"
+    has_consolidated_files: false
+    player_id_column: "id"
+    gameweek_column: "gw"
+    gameweek_pattern: "GW{gw}"
+    files:
+      players:              "players.csv"
+      teams:                "teams.csv"
+      gameweek_summaries:   "gameweek_summaries.csv"
+      player_gameweek_stats: "player_gameweek_stats.csv"
+      # Per-gameweek patterns
+      playerstats_gw:       "By Gameweek/{gw}/playerstats.csv"
+      matches_gw:           "By Gameweek/{gw}/matches.csv"
+      fixtures_gw:          "By Gameweek/{gw}/fixtures.csv"
+      playermatchstats_gw:  "By Gameweek/{gw}/playermatchstats.csv"
+      # Per-tournament patterns (also include gameweek nesting)
+      playerstats_tournament: "By Tournament/{tournament}/playerstats.csv"
+      matches_tournament:     "By Tournament/{tournament}/matches.csv"

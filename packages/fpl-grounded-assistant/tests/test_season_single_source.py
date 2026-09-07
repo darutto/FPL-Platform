@@ -126,3 +126,122 @@ class TestGroundedAssistantSatellitesReadTheSingleSource:
         from fpl_data_core.season_registry import CURRENT_SEASON as SOURCE
         from fpl_grounded_assistant.historical_gameweek_top_scorer import CURRENT_SEASON as SATELLITE
         assert SATELLITE == SOURCE
+
+
+# ---------------------------------------------------------------------------
+# The GitHub Actions workflows — the sites the #222 consolidation could not
+# reach, because YAML cannot import Python.
+# ---------------------------------------------------------------------------
+
+import re          # noqa: E402
+import shutil      # noqa: E402
+import subprocess  # noqa: E402
+
+import yaml        # noqa: E402
+
+_WORKFLOWS = _REPO_ROOT / ".github" / "workflows"
+_SEASON_LITERAL = re.compile(r"\b\d{4}-\d{4}\b")
+
+#: Workflows that pick a season key and act on a store under it. Both must
+#: derive that key from the registry; neither may carry its own copy.
+_STORE_WORKFLOWS = ["owned-store-refresh.yml", "tactical-store-refresh.yml"]
+
+
+def _workflow_values_only(name: str) -> str:
+    """Return the workflow's *values* as text, with every comment dropped.
+
+    Round-tripping through the YAML parser is what drops them — comments are
+    not part of the parsed document. So a season key surviving into this
+    string is a real pin, not prose about the incident.
+    """
+    doc = yaml.safe_load((_WORKFLOWS / name).read_text(encoding="utf-8"))
+    return yaml.safe_dump(doc, allow_unicode=True, default_flow_style=False)
+
+
+def _resolve_command(name: str) -> str:
+    """Extract the one `python -c "..."` payload out of a workflow's shell."""
+    text = (_WORKFLOWS / name).read_text(encoding="utf-8")
+    found = re.findall(r'python -c "([^"]+)"', text)
+    assert len(found) == 1, (
+        f"{name}: expected exactly one `python -c` invocation (the season "
+        f"resolution); found {len(found)}"
+    )
+    return found[0]
+
+
+class TestWorkflowsResolveSeasonFromTheRegistry:
+    """A workflow cannot import Python, so it shells out to it. These cover
+    both halves of that: that no workflow still pins a season literal, and
+    that the command it shells out to actually tracks the registry."""
+
+    @pytest.mark.parametrize("workflow", _STORE_WORKFLOWS)
+    def test_workflow_pins_no_season_literal(self, workflow):
+        """No season key appears in any workflow *value* (comments excluded).
+
+        tactical-store-refresh.yml carried `DEFAULT_SEASON: "2025-2026"` in
+        its env block until 2026-09-07 — the twelfth copy of the key, and the
+        one still running on a live weekly cron while the rest of the
+        pipeline sat paused. Swapping that literal for a newer literal would
+        leave the identical defect, so this asserts on the *shape*, never on
+        the value.
+        """
+        found = _SEASON_LITERAL.findall(_workflow_values_only(workflow))
+        assert not found, (
+            f"{workflow} pins season literal(s) {found} in a value. The "
+            f"season key must be resolved at run time from "
+            f"packages/fpl-data-core/season_registry.yaml."
+        )
+
+    @pytest.mark.parametrize("workflow", _STORE_WORKFLOWS)
+    def test_resolve_step_follows_the_registry(self, workflow, tmp_path):
+        """Mutate the registry, run the workflow's own resolve command
+        against the mutant, and assert the answer moved with it.
+
+        The command is extracted from the workflow file rather than re-typed
+        here, so the thing under test is the thing that runs. A resolve step
+        that reads a stale or wrong copy of the registry passes every static
+        check and fails this one.
+
+        No network: the command only imports and prints a constant.
+        """
+        scratch_pkg = tmp_path / "packages" / "fpl-data-core"
+        scratch_pkg.mkdir(parents=True)
+        shutil.copytree(
+            _PACKAGES / "fpl-data-core" / "fpl_data_core",
+            scratch_pkg / "fpl_data_core",
+        )
+        registry = (
+            _PACKAGES / "fpl-data-core" / "season_registry.yaml"
+        ).read_text(encoding="utf-8")
+        from fpl_data_core.season_registry import CURRENT_SEASON as REAL
+        mutated = registry.replace(
+            f'current_season: "{REAL}"', 'current_season: "1999-2000"'
+        )
+        assert 'current_season: "1999-2000"' in mutated, (
+            "could not rewrite current_season in season_registry.yaml; the "
+            "key's formatting changed — update this mutation to match."
+        )
+        # current_season must name a season the same load registers.
+        mutated += (
+            '\n  - season: "1999-2000"\n'
+            '    data_root: "data/1999-2000"\n'
+            '    has_consolidated_files: false\n'
+            '    files:\n'
+            '      players: "players.csv"\n'
+        )
+        (scratch_pkg / "season_registry.yaml").write_text(mutated, encoding="utf-8")
+
+        proc = subprocess.run(
+            [sys.executable, "-c", _resolve_command(workflow)],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+        )
+        assert proc.returncode == 0, (
+            f"{workflow}'s season-resolution command failed: {proc.stderr}"
+        )
+        assert proc.stdout.strip() == "1999-2000", (
+            f"{workflow}'s season-resolution command printed "
+            f"{proc.stdout.strip()!r} against a registry whose current_season "
+            f"is '1999-2000'. It is not reading the registry."
+        )

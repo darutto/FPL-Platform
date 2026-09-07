@@ -17,6 +17,16 @@ on:
   # schedule:
   #   - cron: "0 6 * * 1"   # Mondays 06:00 UTC, weekly
   workflow_dispatch:        # manual trigger via `gh workflow run owned-store-refresh.yml`
+    inputs:
+      season:
+        # Backfill valve. Blank (the cron/normal case) = the registry's
+        # current_season. A non-blank value captures that season instead --
+        # used to seed a season the store does not hold yet, ahead of the
+        # rollover that moves current_season onto it. The capture guard
+        # still has the final say: it refuses unless the season asked for
+        # is the one the live FPL API is actually serving.
+        description: "Season key override; blank = the registry's current_season"
+        required: false
 
 concurrency:
   group: owned-store-refresh
@@ -49,9 +59,25 @@ jobs:
       # Resolving it here (rather than hardcoding --season below) means this
       # workflow can no longer drift from that value on its own — see
       # incident writeup in the PR for why that drift mattered.
+      #
+      # IS_CURRENT_SEASON records whether this run targets the season the
+      # serving deployment actually reads. A backfill run for any other
+      # season publishes to that season's own R2 prefix and stops there:
+      # redeploying and asserting /healthz would be asserting against a
+      # pointer production never loads.
       - name: Resolve season
+        env:
+          INPUT_SEASON: ${{ github.event.inputs.season }}
         run: |
-          echo "SEASON=$(python -c "import sys; sys.path.insert(0, 'packages/fpl-data-core'); from fpl_data_core.season_registry import CURRENT_SEASON; print(CURRENT_SEASON)")" >> "$GITHUB_ENV"
+          REGISTRY_SEASON="$(python -c "import sys; sys.path.insert(0, 'packages/fpl-data-core'); from fpl_data_core.season_registry import CURRENT_SEASON; print(CURRENT_SEASON)")"
+          SEASON="${INPUT_SEASON:-$REGISTRY_SEASON}"
+          echo "SEASON=$SEASON" >> "$GITHUB_ENV"
+          if [ "$SEASON" = "$REGISTRY_SEASON" ]; then
+            echo "IS_CURRENT_SEASON=true" >> "$GITHUB_ENV"
+          else
+            echo "IS_CURRENT_SEASON=false" >> "$GITHUB_ENV"
+            echo "::notice::Backfill run for $SEASON (registry current_season is $REGISTRY_SEASON): publishing to R2 only, skipping Railway redeploy and /healthz verification."
+          fi
 
       # Decision 2 (§4): no --skip-if-fresh flag.
       # The GHA runner is ephemeral — its local disk is always empty, so the
@@ -81,9 +107,10 @@ jobs:
           OWNED_STORE_R2_ACCESS_KEY_ID: ${{ secrets.OWNED_STORE_R2_ACCESS_KEY_ID }}
           OWNED_STORE_R2_SECRET_ACCESS_KEY: ${{ secrets.OWNED_STORE_R2_SECRET_ACCESS_KEY }}
         run: |
-          python packages/fpl-grounded-assistant/fpl_grounded_assistant/owned_store_sync.py publish
+          python packages/fpl-grounded-assistant/fpl_grounded_assistant/owned_store_sync.py publish --season "$SEASON"
 
       - name: Redeploy Railway service
+        if: env.IS_CURRENT_SEASON == 'true'
         env:
           RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
           RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
@@ -98,7 +125,7 @@ jobs:
       # overall workflow still exits non-zero if any earlier required step
       # failed; this step's result is informational on the redeploy-failure path.
       - name: Verify /healthz reports updated merged_at
-        if: always()
+        if: always() && env.IS_CURRENT_SEASON == 'true'
         run: |
           python packages/fpl-grounded-assistant/scripts/verify_healthz_merged_at.py \
             --url "${{ secrets.RAILWAY_HEALTHZ_URL }}" \
