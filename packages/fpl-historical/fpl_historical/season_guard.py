@@ -9,9 +9,24 @@ live — nothing compared that against the season key a capture was writing
 to, so once the live season rolled over, ``capture_season()`` kept writing
 the new season's data under the old season's key every week.
 
+The guard fails CLOSED. There are three states, not two: the live season
+matches, it disagrees, or it could not be determined at all. The third is
+NOT folded into the first — an absent reading is not a favourable reading.
+The window in which the bootstrap event list is rebuilt *is* the season
+rollover, i.e. the moment of highest risk is exactly the moment the payload
+is most likely to arrive in an unexpected shape, so an unverifiable season
+rejects. The cost asymmetry is not a tie: over-rejecting costs one skipped,
+loudly-visible capture; over-admitting costs a silently overwritten season.
+
+An operator who has looked and decided the unverifiable payload is benign
+can pass ``allow_unverified_season=True`` (CLI: ``--allow-unverified-season``).
+That valve covers ONLY the undetermined case. A *confirmed* mismatch is
+always rejected and has no override.
+
 Public API:
     derive_live_season(bootstrap) -> str | None
-    assert_season_matches(bootstrap, target_season) -> None  (raises SeasonMismatchError)
+    assert_season_matches(bootstrap, target_season, *, allow_unverified_season=False)
+        -> None  (raises SeasonMismatchError or SeasonUndeterminedError)
 """
 
 from __future__ import annotations
@@ -19,13 +34,40 @@ from __future__ import annotations
 from typing import Any
 
 
-class SeasonMismatchError(RuntimeError):
+class SeasonGuardError(RuntimeError):
+    """Base class for every season-boundary guard rejection.
+
+    Catch this to mean "the guard refused; nothing was written". Catch one
+    of the two subclasses to distinguish *why* it refused.
+    """
+
+
+class SeasonMismatchError(SeasonGuardError):
     """Raised when the live FPL API's season disagrees with a capture's target season.
 
     Reject, don't adapt: the caller must re-run with the correct ``--season``
     (or, if the old season truly still needs data, use a source other than
     the live API) — this module never silently writes under a different key
     than the one requested.
+
+    This is the *confirmed disagreement* case: a live season was
+    successfully derived and it is not the one requested. It has no
+    override — see :class:`SeasonUndeterminedError` for the case that does.
+    """
+
+
+class SeasonUndeterminedError(SeasonGuardError):
+    """Raised when the live FPL API's season could not be determined at all.
+
+    Distinct from :class:`SeasonMismatchError`: that one means "I looked and
+    found a *different* season"; this one means "I looked and could not see
+    any season". The remedies differ, so the exceptions do too.
+
+    This is the guard's fail-closed branch. It is overridable — deliberately,
+    by a human, via ``allow_unverified_season=True`` — because an unrelated
+    change in the bootstrap payload's shape is a legitimate reason to want a
+    capture to proceed anyway. The override must be typed on purpose; the
+    default is to refuse.
     """
 
 
@@ -74,20 +116,55 @@ def derive_live_season(bootstrap: dict[str, Any]) -> str | None:
     return f"{start_year}-{start_year + 1}"
 
 
-def assert_season_matches(bootstrap: dict[str, Any], target_season: str) -> None:
-    """Raise :class:`SeasonMismatchError` if the live API disagrees with *target_season*.
+def assert_season_matches(
+    bootstrap: dict[str, Any],
+    target_season: str,
+    *,
+    allow_unverified_season: bool = False,
+) -> None:
+    """Verify the live API is serving *target_season*, or refuse.
 
     Must be called before any capture output (raw dir, files, manifest) is
     created for *target_season* — this function performs no I/O itself and
     is safe to call before any write path is opened.
 
-    If the live season cannot be derived (see :func:`derive_live_season`),
-    this passes silently rather than blocking a capture on an unrelated data
-    shape change — an inability to verify is not treated as a mismatch.
+    Three outcomes, not two:
+
+    - live season == *target_season*  -> returns, capture proceeds.
+    - live season != *target_season*  -> :class:`SeasonMismatchError`.
+      Always. *allow_unverified_season* does not reach this branch and
+      cannot suppress it: a confirmed disagreement is never overridable.
+    - live season could not be derived -> :class:`SeasonUndeterminedError`,
+      unless *allow_unverified_season* is true, in which case the capture
+      proceeds unverified. Absence of a reading is not a favourable
+      reading; the operator has to say so explicitly.
     """
     live_season = derive_live_season(bootstrap)
-    if live_season is None or live_season == target_season:
+
+    if live_season is None:
+        if allow_unverified_season:
+            return
+        raise SeasonUndeterminedError(
+            f"Refusing to capture: could not determine which season the live "
+            f"FPL API is currently serving, so this capture's target season "
+            f"{target_season!r} could not be verified. "
+            f"The season is derived from event id=1's deadline_time in "
+            f"bootstrap-static; that event, or its deadline_time, is missing "
+            f"or unreadable in the payload just fetched. "
+            f"No files were written. "
+            f"This is deliberately not treated as a pass: the bootstrap event "
+            f"list is rebuilt at the season rollover, which is exactly when a "
+            f"capture writing to the wrong season key does the most damage. "
+            f"Inspect the bootstrap-static payload first. If you have checked "
+            f"it and the missing field is unrelated to a season change, re-run "
+            f"with --allow-unverified-season to proceed without verification. "
+            f"That flag covers only this case; it cannot override a season "
+            f"that was determined and did not match."
+        )
+
+    if live_season == target_season:
         return
+
     raise SeasonMismatchError(
         f"Refusing to capture: the live FPL API is currently serving the "
         f"{live_season!r} season (derived from event id=1's deadline_time), "

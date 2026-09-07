@@ -80,6 +80,22 @@ MINIMAL_BOOTSTRAP: dict = {
         },
     ],
     "events": [
+        # Event id=1 is what season_guard.derive_live_season() reads to work
+        # out which season the live API is serving. Without it this fixture is
+        # an *unverifiable* bootstrap and every capture over it is rejected by
+        # the guard — real bootstrap-static always carries all 38 events, so
+        # the fixture carries the first one too. Its deadline_time pins this
+        # fixture to the 2025-2026 season (== paths.CURRENT_SEASON), which is
+        # the season the capture tests target.
+        {
+            "id": 1,
+            "deadline_time": "2025-08-15T17:30:00Z",
+            "is_current": False,
+            "is_next": False,
+            "finished": True,
+            "data_checked": True,
+            "average_entry_score": 57,
+        },
         {
             "id": 37,
             "deadline_time": "2026-05-05T17:30:00Z",
