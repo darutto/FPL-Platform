@@ -878,10 +878,10 @@
     },
     {
       "id": "i54",
-      "col": "idea",
-      "progress": 0,
+      "col": "shipped",
+      "progress": 100,
       "title": "El ranking de capitanes recomienda jugadores que él mismo marca como «evitar»",
-      "desc": "EL PROBLEMA. La lista ordena solo por puntuación e ignora su propia etiqueta de riesgo. En la jornada 3, Hinshelwood salió SEGUNDO con la etiqueta «evitar», por encima de dos jugadores marcados como «seguro».\n\nY el modelo lo tapó: al redactar las alternativas se saltó al número 2 sin mencionarlo. Así que la tarjeta lo enseña en segundo lugar y el texto hace como si no existiera.\n\nEs el mismo patrón que ya vimos en la tarjeta de chips (i51): dos partes del sistema diciendo cosas opuestas, y el usuario leyendo la más visible.\n\nLA PREGUNTA DE FONDO. Si la etiqueta de riesgo no cambia el orden ni filtra a nadie, ¿para qué está? Opciones: ordenar primero por riesgo, sacar los «evitar» del top, o dejarlos pero marcarlos mucho más claro.\n\nANTES DE DECIDIR. Contar cuántos «evitar» se cuelan en el top 12 a lo largo de varias jornadas. Si es raro, basta con marcarlo bien; si es habitual, el orden está mal. Se calcula sin llamar a ningún modelo, así que es barato.",
+      "desc": "RESUELTO (PR #216, fusionado 2026-09-06). Los «evitar» salen del ranking pero NO se borran: viajan en held_back con su motivo, su puntuación y su tier, rank None. Nadie desaparece de la vista por ser arriesgado.\n\nMEDIDO ANTES DE DECIDIR: 1 «evitar» en 48 huecos de top-12 sobre cuatro instantáneas — 2,1%. Tres de las cuatro no tenían ninguno. Sacarlos no vacía ninguna lista.\n\nTRES NUNCA SE RETIENEN, porque en los tres el usuario merece la respuesta en vez de que se le proteja de ella: el que nombró el llamante («evitar» ES la respuesta a «¿capitaneo a X?»), el que el usuario tiene en plantilla, y todos cuando todos son «evitar».\n\nEl caso real era instructivo: Hinshelwood, puntuación 64,2 —territorio de «safe»— con minutes_risk exactamente 50,0, el umbral. No era un jugador malo colándose: era uno bueno cayendo del lado equivocado de una frontera. Eso destapó i69.",
       "tags": [
         "Backend",
         "UX",
@@ -1072,6 +1072,51 @@
         "FPL Asistente"
       ],
       "progress": 100
+    },
+    {
+      "id": "i69",
+      "col": "shipped",
+      "progress": 100,
+      "title": "El riesgo de minutos deja de ser un escalón y «no sé» deja de ser «sin riesgo»",
+      "desc": "RESUELTO (PR #217, fusionado 2026-09-06). Dos defectos que destapó i54.\n\nEL ESCALÓN. La puntuación de capitán se escala por la parte de minutos que el jugador realmente juega, así que la recomendación baja de forma continua en vez de saltar en el 50% de participación. Antes, ir de jugarlo todo a no jugar nada movía la puntuación 10 puntos sobre ~55 —casi plano—, así que el orden no podía expresar rotación y el TIER cargaba con todo el juicio, como acantilado.\n\nEL «NO SÉ». La participación sin medir pasa a ser un tercer estado que se dice en voz alta, en vez de devolver el mismo riesgo cero que gana un titular verificado. Tenía SEIS puertas, no una: no_completed_fixtures_since_join, missing_official_fixtures, incomplete_official_fixtures, invalid_team_join_date, player_minutes_exceed_available e invalid_player_minutes terminaban todas en riesgo 0,0 → safe. Y el estado desconocido se renderizaba como SILENCIO: minutes_phrase devolvía None al degradar, y callar sobre un factor lo dice todo, lo dice mal.\n\nMEDIDO CONTRA EL POOL REAL DE GW3 por el chat de revisión, por separado: 4 «evitar» de 45 antes y después —sin cascada—, un solo cambio de tier. Muerde en la cola, que es donde debe.\n\nDebajo de i54, sin deshacerlo. Pendiente aparte: usar los minutos del ex club de un fichaje intra-Premier, que hoy no está en el camino de puntuación.",
+      "tags": [
+        "Backend",
+        "FPL Asistente"
+      ]
+    },
+    {
+      "id": "i70",
+      "col": "shipped",
+      "progress": 100,
+      "title": "La tienda propia se sobrescribía sola con datos de otra temporada (INCIDENTE)",
+      "desc": "INCIDENTE Y PREVENCIÓN, cerrados 2026-09-06/07 en seis PRs (#218-#223).\n\nQUÉ PASÓ. El refresco semanal del owned store sobrescribió la tabla de la temporada 2025-2026 con datos en vivo de 2026-2027 cada lunes desde el 27-jul hasta el 31-ago. SEIS ejecuciones, todas reportando éxito. La clave de temporada estaba repetida en ~11 sitios de producción y nada la comparaba contra qué temporada servía la API de verdad. Producción respondió con datos de la temporada equivocada durante seis semanas vía get_player_season_points, historical_gameweek_top_scorer y el respaldo de get_fixtures_for_gw. Cuatro de esas semanas la tabla tuvo CERO filas y nadie se enteró.\n\nRESPUESTA. #218 pausó el cron horas antes de la séptima sobrescritura. #219 rescató las 1.236 filas de 2026-27 atrapadas bajo la clave vieja, retiquetadas, con una compuerta que se niega a retiquetar una fuente que no verificó del todo. #220 restauró 2025-2026 desde el respaldo local verificado (38/38 jornadas, 380 partidos, 841 jugadores, sin duplicados) con doble compuerta y confirmación explícita; verificado EN VIVO por /healthz, que pasó del merged_at contaminado al bueno.\n\nPREVENCIÓN. #221 añadió la guarda: deriva la temporada viva del deadline del evento id=1 y rechaza si no coincide con la clave destino, ANTES de crear ningún directorio —cero escritura parcial. #223 la corrigió: fallaba ABIERTA cuando no podía derivar la temporada, que es el mismo defecto que i69 acababa de cerrar en capitanía —ausencia de dato leída como dato favorable— y en el peor sitio, porque la ventana que reconstruye la lista de eventos ES la rotación de temporada. Ahora rechaza, con excepción propia distinguible, y una válvula --allow-unverified-season que un humano pasa a propósito y que NO puede saltarse un desajuste confirmado.\n\nLO QUE DESTAPÓ DE PASO. El fixture compartido MINIMAL_BOOTSTRAP no tenía evento id=1 —era él mismo un payload indeterminable— y arreglarlo era prerequisito, no daño colateral. Y 98 tests de fpl-historical no corrían en Windows por permisos de basetemp: errores AT SETUP, no de teardown, así que el cuerpo nunca se ejecutaba mientras la terminal decía «N passed». Ver i71.\n\nPENDIENTE, NO OLVIDAR: el cron sigue PAUSADO a propósito (el --season 2025-2026 hardcodeado sigue en las líneas 38/41); reactivarlo es decisión del dueño. Y las 1.236 filas rescatadas viven sólo en un artefacto de Actions que EXPIRA EL 2026-12-06.",
+      "tags": [
+        "Datos",
+        "Backend",
+        "Deploy"
+      ]
+    },
+    {
+      "id": "i71",
+      "col": "idea",
+      "progress": 0,
+      "title": "98 tests que no corren y una terminal que dice «N passed»",
+      "desc": "En esta máquina Windows, el basetemp por defecto de pytest (%LOCALAPPDATA%\\Temp\\pytest-of-<user>) lanza PermissionError [WinError 5] al MONTAR el fixture, así que todo test que reciba tmp_path da error antes de ejecutar su cuerpo. Sólo en fpl-historical son 98.\n\nPOR QUÉ IMPORTA Y NO ES COSMÉTICO. Los errores parecen ruido de entorno y se descartan, con lo que una corrida local reporta «N passed» mientras un número desconocido de tests nunca se ejecutó. Es el mismo fallo de señal silenciosa que llevamos persiguiendo en el producto, pero apuntando al instrumento con el que lo medimos.\n\nLA DISTINCIÓN QUE LO DELATA, y vale la pena que quede escrita: un error en TEARDOWN deja pasar el test; uno en SETUP lo anula. Se ven idénticos en la terminal y significan lo opuesto.\n\nYA COSTÓ UNA ENTREGA EQUIVOCADA. Durante el trabajo de i70, el chat de revisión indicó «esos errores no son señal, usa sólo test_season_guard.py». Medido después: en el commit base, 30 passed / 98 errors sin --basetemp contra 128 passed / 0 errors con él. Ese consejo habría hecho entregar en verde algo que rompía 13 tests en CI.\n\nPROPUESTA. Un basetemp local al repo (p.ej. addopts = --basetemp=.pytest-tmp en el pytest.ini de cada paquete, gitignored) para que el conteo de una corrida local signifique lo que dice.\n\nALCANCE: todos los paquetes. Y hay que MEDIR el conteo antes y después en cada uno, porque otros pueden estar escondiendo fallos igual que fpl-historical escondía 13.",
+      "tags": [
+        "Backend",
+        "Infra"
+      ]
+    },
+    {
+      "id": "i72",
+      "col": "idea",
+      "progress": 0,
+      "title": "El fallo duro deja directorio, el rechazo no: la escritura no es coherente",
+      "desc": "MEDIDO, no leído, durante i70. Con el fetch del bootstrap devolviendo 503, capture_season devuelve status=failed y CREA un directorio raw con su manifiesto. Con un 200 de forma ilegible, ahora no escribe nada.\n\nLa guarda de i70 ya invirtió la asimetría de RIGOR —el fallo semántico pasó a ser más estricto que el de red, que era lo que se pedía—, pero la asimetría de ESCRITURA sigue: un camino deja rastro en disco y el otro no, sin que esté decidido cuál es el correcto.\n\nLA PREGUNTA A RESOLVER, y no es obvia: ¿un intento fallido debe dejar constancia en disco o no? Dejarla ayuda a auditar qué se intentó y cuándo; no dejarla evita directorios huérfanos que luego confunden a merge. Hoy hacemos las dos cosas según por dónde falle, que es la única respuesta que seguro está mal.\n\nBarato de arreglar una vez decidido. No se tocó en #223 a propósito, para no mezclarlo con la guarda.",
+      "tags": [
+        "Backend",
+        "Datos"
+      ]
     }
   ]
 }
