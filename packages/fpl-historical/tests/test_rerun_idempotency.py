@@ -191,6 +191,7 @@ class TestSkipIfFresh:
                     allow_missing_summaries=0,
                     promote_with_gaps=False,
                     element_summary_timeout=20,
+                    allow_unverified_season=False,
                 )
                 exit_code = cmd_capture(args)
 
@@ -230,6 +231,7 @@ class TestSkipIfFresh:
                     allow_missing_summaries=1,
                     promote_with_gaps=False,
                     element_summary_timeout=20,
+                    allow_unverified_season=False,
                 )
                 exit_code = cmd_capture(args_gaps)
 
@@ -259,6 +261,7 @@ class TestSkipIfFresh:
                         allow_missing_summaries=0,
                         promote_with_gaps=False,
                         element_summary_timeout=20,
+                    allow_unverified_season=False,
                     )
                     exit_code2 = cmd_capture(args_fresh)
 

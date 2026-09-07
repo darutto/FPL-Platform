@@ -21,6 +21,8 @@ capture flags (CONTRACT §4):
     --skip-if-fresh N           Exit 0 if newest complete snapshot < N hours old
     --allow-missing-summaries N Tolerance for ES failures (default: 0)
     --promote-with-gaps         Allow parquet promotion for complete_with_gaps
+    --allow-unverified-season   Proceed when the live season can't be derived
+                                (does NOT override a confirmed mismatch)
 
 capture-gw flags (CONTRACT §9.5):
     --gw N          Explicit single gameweek (fails fast if N not in bootstrap)
@@ -64,6 +66,7 @@ from fpl_historical.paths import (
 )
 from fpl_historical.projections import build_parquet_from_raw
 from fpl_historical.vaastav_import import import_season
+from fpl_historical.season_guard import SeasonGuardError, SeasonUndeterminedError
 from fpl_api_client.fpl_client import BOOTSTRAP_URL
 
 
@@ -103,6 +106,15 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--promote-with-gaps",
         action="store_true",
         help="Allow parquet promotion when status is complete_with_gaps",
+    )
+    capture_cmd.add_argument(
+        "--allow-unverified-season",
+        action="store_true",
+        help=(
+            "Proceed even if the live season cannot be derived from "
+            "bootstrap-static. Does NOT override a season that was derived "
+            "and did not match --season."
+        ),
     )
     capture_cmd.add_argument(
         "--element-summary-timeout",
@@ -238,11 +250,24 @@ def cmd_capture(args: argparse.Namespace) -> int:
             return 0
 
     # Run capture
-    manifest = capture_season(
-        season,
-        allow_missing_summaries=allow_missing,
-        element_summary_timeout=args.element_summary_timeout,
-    )
+    try:
+        manifest = capture_season(
+            season,
+            allow_missing_summaries=allow_missing,
+            element_summary_timeout=args.element_summary_timeout,
+            allow_unverified_season=args.allow_unverified_season,
+        )
+    except SeasonGuardError as exc:
+        reason = (
+            "season-undetermined"
+            if isinstance(exc, SeasonUndeterminedError)
+            else "season-mismatch"
+        )
+        print(
+            f"[fpl-historical] capture {season}: REJECTED ({reason}) — {exc}",
+            file=sys.stderr,
+        )
+        return 3
     status = manifest.status
 
     should_promote = (

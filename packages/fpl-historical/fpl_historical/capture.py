@@ -33,6 +33,7 @@ from fpl_historical.paths import (
     CURRENT_SEASON,
     new_raw_dir,
 )
+from fpl_historical.season_guard import assert_season_matches
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -63,11 +64,17 @@ def capture_season(
     *,
     allow_missing_summaries: int = 0,
     element_summary_timeout: int = 20,
+    allow_unverified_season: bool = False,
 ) -> Manifest:
     """Capture a full season snapshot and return the resulting :class:`Manifest`.
 
     Steps:
-    1. Fetch bootstrap-static.
+    0. Fetch bootstrap-static and verify it matches *season* (see
+       ``fpl_historical.season_guard``) before creating any output path.
+       Raises :class:`SeasonMismatchError` (live season differs) or
+       :class:`SeasonUndeterminedError` (live season unreadable) and writes
+       nothing if it can't be confirmed.
+    1. Write bootstrap-static.
     2. Fetch all fixtures (no event filter).
     3. For each player in bootstrap.elements, fetch element-summary with a
        50 ms sleep between calls to be polite to the FPL API.
@@ -82,19 +89,21 @@ def capture_season(
     allow_missing_summaries:
         Maximum number of element-summary failures before status is
         downgraded from ``complete_with_gaps`` to ``failed``.
+    allow_unverified_season:
+        Proceed even when the live season cannot be derived from the
+        bootstrap payload. Operator escape hatch for an unrelated API shape
+        change; it does NOT allow capturing against a season that was
+        derived and did not match.
     """
     run_start = time.monotonic()
     captured_at_utc = datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     git_sha = _get_git_sha()
 
-    raw_dir = new_raw_dir(season)
-
     # ------------------------------------------------------------------
-    # 1. Bootstrap-static
+    # 0/1. Bootstrap-static — fetched BEFORE any raw_dir/file is created so
+    # the season-boundary guard below can reject with zero partial writes.
     # ------------------------------------------------------------------
     bs_status, bs_bytes = _fetch_raw(BOOTSTRAP_URL)
-    if bs_bytes:
-        _write_gz(raw_dir / "bootstrap-static.json.gz", bs_bytes)
     bs_sha = sha256_bytes(bs_bytes) if bs_bytes else ""
     bs_endpoint: dict[str, Any] = {
         "url": BOOTSTRAP_URL,
@@ -104,6 +113,10 @@ def capture_season(
     }
 
     if bs_status != 200:
+        # Can't determine the live season without a successful fetch — no
+        # guard verdict is possible either way. Preserve prior behaviour:
+        # record a failed manifest under the requested season's raw dir.
+        raw_dir = new_raw_dir(season)
         elapsed = time.monotonic() - run_start
         m = Manifest(
             schema_version=1,
@@ -124,6 +137,20 @@ def capture_season(
 
     # Parse bootstrap for player list and current event
     bootstrap = json.loads(bs_bytes.decode("utf-8"))
+
+    # ------------------------------------------------------------------
+    # Season-boundary guard — must run before any raw_dir/file is created.
+    # Raises (nothing written) if the live API's season doesn't match
+    # *season*, or if it could not be determined at all and the operator has
+    # not passed allow_unverified_season. See fpl_historical.season_guard.
+    # ------------------------------------------------------------------
+    assert_season_matches(
+        bootstrap, season, allow_unverified_season=allow_unverified_season
+    )
+
+    raw_dir = new_raw_dir(season)
+    _write_gz(raw_dir / "bootstrap-static.json.gz", bs_bytes)
+
     elements = bootstrap.get("elements", [])
     events = bootstrap.get("events", [])
     current_event_id: int | None = None

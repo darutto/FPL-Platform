@@ -105,6 +105,7 @@ Command: `python -m fpl_historical.cli capture [flags]`
 | `--skip-if-fresh N` | off | If newest **`complete`** snapshot is < N hours old, exit 0 without writing. `complete_with_gaps` does NOT count as fresh. |
 | `--allow-missing-summaries N` | `0` | Tolerance for element-summary failures before downgrading status from `complete_with_gaps` → `failed`. |
 | `--promote-with-gaps` | off | Allow parquet promotion when `status == "complete_with_gaps"`. Has no effect on `failed`. |
+| `--allow-unverified-season` | off | Proceed when the live season cannot be derived from `bootstrap-static`. Covers the *undetermined* case only — it can **not** override a season that was derived and did not match `--season`. |
 
 | `status` | `--promote-with-gaps` | Parquet promoted? | `_latest.json` updated? | CLI exit code |
 |---|---|---|---|---|
@@ -112,6 +113,15 @@ Command: `python -m fpl_historical.cli capture [flags]`
 | `complete_with_gaps` | off | no | no | `2` |
 | `complete_with_gaps` | on | yes | yes | `0` |
 | `failed` | (any) | no | no | `1` |
+| (rejected: live API season ≠ `--season`) | (any) | no | no | `3` |
+| (rejected: live API season could not be determined) | (any) | no | no | `3` |
+
+Rejection (exit `3`) happens before any raw dir or file is created — see `fpl_historical.season_guard.assert_season_matches()`. It is distinct from `failed` (which can still write partial output) precisely because nothing is written at all.
+
+There are **two** rejection conditions, and they are distinct exception types (`SeasonMismatchError` and `SeasonUndeterminedError`, both subclasses of `SeasonGuardError`) with distinct messages; the CLI labels them `season-mismatch` and `season-undetermined` on stderr:
+
+- **Mismatch** — a live season was derived and it is not `--season`. Never overridable.
+- **Undetermined** — no live season could be derived from the bootstrap payload. The guard fails **closed** here: an absent reading is not a favourable reading, and the bootstrap event list is rebuilt precisely at the season rollover, i.e. the shapes that defeat the derivation are most likely to appear exactly when writing to the wrong season key is most destructive. An operator who has inspected the payload can override this one case with `--allow-unverified-season`.
 
 `--skip-parquet` overrides promotion: parquet is not built, `_latest.json` is not updated, but exit code still follows the status table (treat as if `promote_with_gaps` were off).
 
@@ -265,7 +275,7 @@ New subcommand: `python -m fpl_historical.cli capture-gw [flags]`. The existing 
 | `--current` | (none) | Pulls the gameweek where `events[*].is_current == true`; falls back to the most recent `finished` event if none is current. |
 | `--auto` | (none) | Iterates every event where `finished == true` and `data_checked == true`; captures unless §9.3 skip rule fires. Bootstrap is fetched once and shared across the loop. |
 | `--force` | off | Overrides the §9.3 skip rule. Always writes a new snapshot. |
-| `--season SEASON` | `2025-2026` | Season key (must exist in `season_registry.yaml`). |
+| `--season SEASON` | `2025-2026` | Season key (must exist in `season_registry.yaml`). Note: `capture-gw`/`capture_gameweek()` does NOT (yet) run the season-boundary guard from §4.1 — no automated workflow currently invokes this subcommand, so it was left out of this slice's scope; a follow-up should add it before any cron wires this path up. |
 
 `--gw`, `--current`, and `--auto` are mutually exclusive; exactly one must be given.
 
