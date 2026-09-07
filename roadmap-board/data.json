@@ -1117,6 +1117,18 @@
         "Backend",
         "Datos"
       ]
+    },
+    {
+      "id": "i73",
+      "col": "idea",
+      "progress": 0,
+      "title": "Rotar la temporada a 2026-2027: una operación, no una línea",
+      "desc": "EL ESTADO HOY. La clave de temporada dice 2025-2026 y la API en vivo sirve 2026-2027 desde el 2026-07-23. La guarda de i70 hace exactamente lo que debe —rechaza— así que el pipeline está detenido, a salvo, y esperando una decisión humana. Eso era el diseño; ahora hay que tomar la decisión.\n\nPOR QUÉ NO ES SÓLO SUBIR UN NÚMERO. Desde la consolidación de la fuente única, esa clave la comparten el owned store (fpl-historical) Y la tienda táctica (fpl-tactical). Subirla repunta las dos. El owned store se puede capturar de nuevo; la tienda táctica sólo tiene 2025-2026 de Understat, y MEDIDO: degrada suave, devuelve None sin reventar. O sea, la tarjeta de debilidad zonal —viva en producción— se apagaría EN SILENCIO. Silencio ante ausencia de datos, otra vez la misma familia. Por eso la ingesta táctica va DENTRO de esta operación, no después.\n\nLO QUE RESUELVE DE PASO, y por eso no se cartea aparte:\n  · El off-by-one de temporada. Hoy un usuario que pregunta por «la temporada pasada» recibe 2024-2025 cuando quiere decir 2025-2026, porque se calcula restando uno a la clave. Con la clave en 2026-2027 el cálculo da 2025-2026, que es correcto Y es la temporada de la que sí tenemos datos. Verificado en vivo.\n  · El esquema de get_player_season_points le inyecta al modelo la cadena «current is 2025-2026», falsa desde julio.\n  · Las 1.236 filas rescatadas en i70 quedan obsoletas por redundantes: la API sigue sirviendo GW1-3 por element-summary, así que una captura fresca trae lo mismo y más. Su valor es forense, no de dato — la fecha de expiración del artefacto no apura nada.\n\nEL ORDEN IMPORTA, y el cron va ÚLTIMO. Reencenderlo antes deja un job rojo cada lunes: la guarda rechaza correctamente y el rojo permanente se vuelve ruido que nadie mira, que es el «verde no prueba nada» al revés. El cron sólo se enciende cuando lo demás está verificado.\n\nNO SUBIR LA CLAVE SIN CAPTURAR. Entre bumpear el valor y correr la primera captura, todos los caminos de lectura apuntan a una temporada con cero filas. La cabecera del YAML ya advierte de esto explícitamente.",
+      "tags": [
+        "Datos",
+        "Backend",
+        "Deploy"
+      ]
     }
   ]
 }
