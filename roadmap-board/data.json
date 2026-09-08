@@ -1153,6 +1153,28 @@
         "Datos",
         "FPL Asistente"
       ]
+    },
+    {
+      "id": "i76",
+      "col": "idea",
+      "progress": 0,
+      "title": "Doce tests se caen en cuanto la clave de temporada se mueva",
+      "desc": "MEDIDO simulando la rotación, no razonado: en un worktree aparte, con current_season puesto a 2026-2027 y nada más cambiado, packages/fpl-grounded-assistant/tests/test_zonal_weakness_tool.py da 12 failed / 9 passed. En el mismo worktree, test_zonal_provenance.py da 15 passed.\n\nCAUSA. El fixture `tactical_store` escribe el parquet temporal bajo un literal:\n    season_dir = tmp_path / \"seasons\" / \"2025-2026\"\nmientras _load_shots lo busca en shots_parquet_path(CURRENT_SEASON). Hoy coinciden porque la clave ES 2025-2026; el día que se mueva, el motor mira en seasons/2026-2027, no encuentra nada, y toda la suite degrada a missing_context.\n\nPOR QUÉ IMPORTA AHORA Y NO DESPUÉS. La Entrega 2 de i73 termina con una sola línea: subir current_season. Esto convierte esa línea en doce tests rojos, y quien la haga va a creer que rompió algo con el bump cuando el defecto llevaba ahí desde antes. Arreglarlo ANTES deja la Entrega 2 como lo que debe ser: un cambio de una línea que o pasa o no pasa por razones reales.\n\nEL ARREGLO ES EL PATRÓN QUE YA EXISTE AL LADO. test_zonal_provenance.py (de i74) deriva todo de CURRENT_SEASON — 32 usos, cero literales — y por eso sobrevive la rotación intacto. No hay que inventar nada: hay que hacer lo mismo en el fixture de al lado.\n\nPREEXISTENTE. No lo introdujo i74 ni i73 Entrega 1; lo destapó medir la rotación antes de intentarla. Lo señaló el constructor de i74 en su cierre, y el chat de revisión lo cuantificó.",
+      "tags": [
+        "Backend",
+        "Infra"
+      ]
+    },
+    {
+      "id": "i77",
+      "col": "idea",
+      "progress": 0,
+      "title": "Nadie se va a enterar de cuándo Understat publique la temporada",
+      "desc": "LA ENTREGA 2 DE i73 ESTÁ BLOQUEADA POR UN TERCERO, y no hay nada que avise cuando se desbloquee. Medido 2026-09-07: soccerdata read_schedule('2026-2027') devuelve shape (3, 0) — tres nombres de índice sobre un frame sin columnas, o sea VACÍO — contra (380, 17) de 2025-2026. Ojo con ese (3, 0): leído rápido parece «tres partidos» y es cero.\n\nSIN DISPARADOR, EL DISPARADOR ES QUE ALGUIEN SE ACUERDE. Y ya sabemos cómo termina eso en este proyecto: el cron táctico se pasó desde julio hasta septiembre reingestando una temporada TERMINADA cada lunes, en verde, sin que nadie lo notara. El mismo patrón que produjo el incidente del owned store (i70): seis ejecuciones exitosas escribiendo lo que no debían.\n\nLO BARATO. tactical-store-refresh.yml ya corre cada lunes, ya tiene las credenciales y ya resuelve la clave desde el registro. Añadirle un paso que sondee la temporada SIGUIENTE y reporte si ya tiene datos es un paso más en un job que ya existe: cero infraestructura nueva, cero coste adicional de red más allá de una llamada.\n\nQUÉ DEBE HACER AL ENCONTRARLA, y esto es lo que hay que decidir antes de construir: ¿un ::notice:: en el log, que nadie lee? ¿fallar el job a propósito para que se vea? ¿abrir un issue? Lo primero es lo más barato y lo más fácil de ignorar — y el defecto que esta carta previene es precisamente que algo cierto pase desapercibido. Decisión del dueño antes de escribir código.\n\nNO CONFUNDIR CON UN SONDEO AUTOMÁTICO QUE ROTE SOLO. Detectar que Understat publicó NO debe disparar la ingesta ni el bump de la clave: eso sigue siendo una operación aprobada por un humano, igual que la guarda de i70 exige. Esto sólo avisa.",
+      "tags": [
+        "Datos",
+        "Infra"
+      ]
     }
   ]
 }
