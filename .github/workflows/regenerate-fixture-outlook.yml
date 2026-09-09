@@ -59,21 +59,32 @@ jobs:
 
       # Stop before building anything if the inputs cannot support the recipe.
       # compute_rolling_strength needs FINAL results (both scores + finished)
-      # and FPL's captured strength ratings as the cold-start fallback; without
-      # either, the defence axis silently collapses back onto FDR -- which is
-      # the exact failure this workflow exists to end.
+      # and FPL's captured strength ratings as the cold-start fallback.
+      #
+      # Note what this does and does not prove. Without results the recipe
+      # still SEPARATES the axes -- measured, because the rolling model falls
+      # back to captured FPL ratings that differ per team. What it loses is
+      # any dependence on form. So the preflight is not preventing a visible
+      # collapse; it is preventing a bundle that looks fine and means nothing.
+      # The output-side check lives on the build step below.
       - name: Preflight — can this season actually feed the recipe?
         env:
           FPL_HISTORICAL_ROOT: ${{ github.workspace }}/_r2_scratch/owned
         run: |
           python scripts/preflight_fixture_outlook.py --season "${{ github.event.inputs.season }}"
 
+      # --require-separated-axes is the output-side half of the guard: the
+      # preflight judged the inputs, this judges the artifact. A run that
+      # satisfies every precondition and still emits a collapsed bundle fails
+      # here instead of being uploaded, which is the shape of the incident
+      # that started this.
       - name: Regenerate the bundle
         env:
           FPL_HISTORICAL_ROOT: ${{ github.workspace }}/_r2_scratch/owned
         run: |
           python packages/fpl-grounded-assistant/scripts/export_real_season_fixture_outlook.py \
-            --season "${{ github.event.inputs.season }}"
+            --season "${{ github.event.inputs.season }}" \
+            --require-separated-axes
 
       - name: Show what changed
         run: |

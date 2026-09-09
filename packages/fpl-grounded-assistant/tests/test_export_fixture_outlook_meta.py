@@ -15,6 +15,7 @@ off the code path that produced it).
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 
 import pandas as pd
@@ -148,3 +149,137 @@ def test_data_root_follows_the_historical_root_override(season, monkeypatch, tmp
     monkeypatch.setenv("FPL_HISTORICAL_ROOT", str(tmp_path))
     root = exporter.data_root(season)
     assert root == os.path.join(str(tmp_path), "seasons", season, "parquet_merged")
+
+# ---------------------------------------------------------------------------
+# The output-side guard and the argument combinations, added after an
+# independent verification pass pointed out that measuring `axes_separated`
+# and then shipping the bundle regardless left the loop open.
+# ---------------------------------------------------------------------------
+
+
+def _parse(argv, monkeypatch):
+    monkeypatch.setattr("sys.argv", ["export_real_season_fixture_outlook.py", *argv])
+    return exporter.parse_args()
+
+
+def test_season_start_refuses_a_season_rather_than_ignoring_it(monkeypatch):
+    """--season-start reads the live API, which only serves the current season.
+
+    Accepting --season there would stamp one season's name onto another
+    season's data. Silently ignoring it is the same bug one step quieter.
+    """
+    with pytest.raises(SystemExit):
+        _parse(["--season", "2025-2026", "--season-start"], monkeypatch)
+
+
+def test_season_defaults_to_the_pin_without_hardcoding_it_at_parse_time(monkeypatch):
+    """--season parses as None so the season-start conflict is detectable.
+
+    main() resolves it to SEASON. If this ever became `default=SEASON` again,
+    the conflict check above could not tell "passed explicitly" from
+    "defaulted" and would fire on every --season-start run.
+    """
+    assert _parse([], monkeypatch).season is None
+    assert _parse(["--season", "2026-2027"], monkeypatch).season == "2026-2027"
+
+
+def test_require_separated_axes_is_off_by_default(monkeypatch):
+    """A legitimate season-start bundle IS collapsed and must still build."""
+    assert _parse([], monkeypatch).require_separated_axes is False
+    assert _parse(["--require-separated-axes"], monkeypatch).require_separated_axes is True
+
+
+def test_the_output_guard_reads_the_same_measurement_the_bundle_carries():
+    """The flag the workflow exits on is the one stamped into the file.
+
+    Two separate notions of "separated" -- one for the gate, one for the
+    stamp -- is how a bundle ends up passing CI while telling the reader
+    something else.
+    """
+    collapsed = _out({"ARS": 2.5, "MCI": 2.0}, {"ARS": 2.5, "MCI": 2.0})
+    meta = exporter.build_generation_meta(
+        collapsed, season="2026-2027", source="season_start", played=0
+    )
+    assert meta["axes_separated"] is False
+    assert exporter.axis_separation(collapsed) == meta["axis_separation_by_horizon"]
+
+    separated = _out({"ARS": 2.5, "MCI": 2.0}, {"ARS": 3.5, "MCI": 2.0})
+    meta = exporter.build_generation_meta(
+        separated, season="2026-2027", source="recipe", played=3
+    )
+    assert meta["axes_separated"] is True
+    assert exporter.axis_separation(separated) == meta["axis_separation_by_horizon"]
+
+def _stub_export(monkeypatch, tmp_path, *, defence_bands, argv):
+    """Drive main() with the engine stubbed, so the exit path is the subject.
+
+    Only the two expensive edges are replaced -- the parquet read and the
+    outlook engine. Everything between them (metadata assembly, the
+    measurement, the exit decision, the file write) is the real code.
+    """
+    fixtures_df = pd.DataFrame(
+        [{"event_id": 1, "team_h": 1, "team_a": 2,
+          "team_h_score": 1, "team_a_score": 0, "finished": True}]
+    )
+    monkeypatch.setattr(
+        exporter, "_load_frames", lambda season: (pd.DataFrame(), fixtures_df)
+    )
+    monkeypatch.setattr(
+        exporter, "build_recipe_bootstraps",
+        lambda teams_df, fixtures_df, season: ({"axis": "attack"}, {"axis": "defence"}),
+    )
+    monkeypatch.setattr(
+        exporter.fixture_outlook, "get_all_team_outlooks",
+        lambda boot, axis, horizon: {
+            "teams": [
+                {"team_short": "ARS",
+                 "avg_band": defence_bands if axis == "defence" else 2.0},
+            ]
+        },
+    )
+    out_path = tmp_path / "bundle.json"
+    monkeypatch.setattr(
+        "sys.argv",
+        ["export_real_season_fixture_outlook.py", "--out", str(out_path), *argv],
+    )
+    return out_path
+
+
+def test_require_separated_axes_exits_nonzero_on_a_collapsed_bundle(
+    monkeypatch, tmp_path
+):
+    """The output-side gate. Without this the shipped incident repeats exactly:
+    every precondition satisfied, a collapsed file written, exit 0, uploaded."""
+    out_path = _stub_export(
+        monkeypatch, tmp_path, defence_bands=2.0, argv=["--require-separated-axes"]
+    )
+    with pytest.raises(SystemExit) as excinfo:
+        exporter.main()
+    assert excinfo.value.code == 1
+    # Written anyway, on purpose: you cannot diagnose a bundle you cannot open.
+    assert out_path.exists()
+    assert json.loads(out_path.read_text(encoding="utf-8"))["generation"][
+        "axes_separated"
+    ] is False
+
+
+def test_require_separated_axes_lets_a_genuinely_separated_bundle_through(
+    monkeypatch, tmp_path
+):
+    out_path = _stub_export(
+        monkeypatch, tmp_path, defence_bands=4.0, argv=["--require-separated-axes"]
+    )
+    exporter.main()  # must not raise
+    assert json.loads(out_path.read_text(encoding="utf-8"))["generation"][
+        "axes_separated"
+    ] is True
+
+
+def test_without_the_flag_a_collapsed_bundle_still_builds(monkeypatch, tmp_path):
+    """Season start is legitimately collapsed. The gate is opt-in for that
+    reason, and the bundle still declares the mode either way."""
+    out_path = _stub_export(monkeypatch, tmp_path, defence_bands=2.0, argv=[])
+    exporter.main()  # must not raise
+    assert json.loads(out_path.read_text(encoding="utf-8"))["generation"][
+        "axes_separated"
+    ] is False

@@ -354,11 +354,17 @@ def parse_args() -> argparse.Namespace:
              "Defaults to the committed /fixtures path otherwise.",
     )
     parser.add_argument(
-        "--season", type=str, default=SEASON,
+        "--season", type=str, default=None,
         help="Season key driving the recipe path's input parquet AND its derived "
              f"output filename (default {SEASON}). Lets the validated FDR+form recipe "
              "target another season without moving the SEASON pin, which is "
              "deliberately decoupled from the season-registry rollover.",
+    )
+    parser.add_argument(
+        "--require-separated-axes", action="store_true",
+        help="Exit non-zero if the finished bundle's two axes are NOT separated. "
+             "Closes the loop the input-side preflight can only approximate: the "
+             "preflight judges the inputs, this judges the artifact that shipped.",
     )
     parser.add_argument(
         "--season-start", action="store_true",
@@ -371,6 +377,14 @@ def parse_args() -> argparse.Namespace:
         parser.error("--out is required when --as-of-gw is given")
     if args.season_start and args.as_of_gw is not None:
         parser.error("--season-start and --as-of-gw are mutually exclusive")
+    if args.season_start and args.season is not None:
+        # --season-start reads the LIVE API, which only ever serves the current
+        # season; honouring --season here would write one season's name onto
+        # another season's data. Refuse rather than silently ignore.
+        parser.error(
+            "--season-start always targets the live season and cannot be combined "
+            "with --season"
+        )
     return args
 
 
@@ -384,12 +398,12 @@ def main() -> None:
         attack_boot, defence_boot = build_season_start_bootstraps(teams_df, fixtures_df)
         boots = {"attack": attack_boot, "defence": defence_boot}
     elif args.as_of_gw is not None:
-        season, source = args.season, "rolling"
+        season, source = args.season or SEASON, "rolling"
         out_path = args.out or out_path_for(season)
         boot, fixtures_df = build_rolling_bootstrap(args.as_of_gw, season)
         boots = {"attack": boot, "defence": boot}
     else:
-        season, source = args.season, "recipe"
+        season, source = args.season or SEASON, "recipe"
         out_path = args.out or out_path_for(season)
         teams_df, fixtures_df = _load_frames(season)
         attack_boot, defence_boot = build_recipe_bootstraps(teams_df, fixtures_df, season)
@@ -419,6 +433,19 @@ def main() -> None:
     print(f"  axes_separated={meta['axes_separated']} -- teams with a different "
           f"avg_band, of {meta['teams']}: "
           + ", ".join(f"J{h}={n}" for h, n in meta["axis_separation_by_horizon"].items()))
+
+    if args.require_separated_axes and not meta["axes_separated"]:
+        # The preflight gates the INPUTS; this gates the OUTPUT. Without it a
+        # run can satisfy every precondition, produce a collapsed bundle anyway,
+        # print axes_separated=False, exit 0, and be uploaded -- which is the
+        # shape of the original incident.
+        print(
+            "\nFAILED --require-separated-axes: both axes produced identical "
+            "avg_band for every team at every horizon. The bundle was written to "
+            f"{out_path} for inspection but must not be shipped.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
 
 if __name__ == "__main__":

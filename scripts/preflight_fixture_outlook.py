@@ -3,10 +3,21 @@
 the two axes.
 
 The 2026-27 bundle shipped with `attack` and `defence` collapsed onto one
-signal and nothing in it said so. The failure mode is quiet by construction:
-`_defence_overlay_bands` blends FDR with the opponent's rolling attacking
-form, and when no form exists the blend degrades to FDR alone, producing a
-perfectly well-formed bundle whose axis switcher does nothing.
+signal and nothing in it said so. That collapse came from
+`build_season_start_bootstraps` returning the SAME bootstrap object for both
+axes (`return boot, boot`) -- not from the overlay degrading.
+
+Worth stating plainly, because the obvious guess is wrong and was measured:
+running the recipe over a season with every score nulled still separates the
+axes (J5/J8/J10 = 13/18/15 on a synthetic 2026-2027). It separates because
+`compute_rolling_strength` falls back to teams.parquet's captured FPL
+ratings, which differ per team, so the rank-space blend still moves off pure
+FDR. Separation is therefore NOT evidence that form informed anything.
+
+That is the real reason to block on results: bands built from priors alone
+are not form. They would produce a bundle that looks separated, passes the
+guard, and carries no information the attack axis did not already have --
+which is worse than the collapse, because it is invisible.
 
 So this checks the two things the recipe genuinely needs, BEFORE anything is
 written, and fails loudly rather than emitting a plausible file:
@@ -91,8 +102,10 @@ def preflight(season: str) -> list[str]:
 
     if not played:
         problems.append(
-            "no finished, fully-scored fixtures -- the defence axis would collapse "
-            "back onto FDR and the axis switcher would keep doing nothing"
+            "no finished, fully-scored fixtures -- the defence axis would band from "
+            "FPL's captured strength priors alone. That still LOOKS separated from "
+            "the attack axis (measured), which is exactly why it must not ship: it "
+            "is separation carrying no information about form."
         )
     elif len(played) < 3:
         # Not blocking: the owner decided a short sample ships, declared.
