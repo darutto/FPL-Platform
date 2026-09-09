@@ -6,16 +6,26 @@
  * Shared by the standalone public /fixtures page and the in-app Calendario
  * pager tab. Owns the four controls (attack⇄defence axis, 5/8/10 horizon,
  * detailed⇄compact⇄tendency view) and renders the league outlook from the
- * data seam — real 2026–27 fixtures + FDR pulled from the live FPL API at
- * launch, run through the same band/run engine the live tool uses
- * (buildRealSeasonOutlook; see lib/fixture-outlook-real.ts). Identical
- * FixtureOutlookMeta shape, so nothing here changes as the season progresses.
- * Every team/cell deep-links via `onAsk`, which each surface
+ * data seam — real 2026–27 fixtures + FDR run through the same band/run engine
+ * the live tool uses (buildRealSeasonOutlook; see lib/fixture-outlook-real.ts).
+ * Identical FixtureOutlookMeta shape, so nothing here changes as the season
+ * progresses. Every team/cell deep-links via `onAsk`, which each surface
  * fulfils differently: the page routes to /chat?q=…, the pager prefills the
  * composer.
+ *
+ * The board also states, in the card, what its data actually is: which season,
+ * how many played gameweeks stand behind the difficulty, and — crucially —
+ * whether the two axes are genuinely different signals. A bundle exported on
+ * launch day has them collapsed onto FDR, so the Ataque / Portería a cero
+ * switcher does nothing; that shipped unannounced for six weeks with only a
+ * footnote in the small print, which is why the notice is now in the card.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { buildRealSeasonOutlook } from '@/lib/fixture-outlook-real';
+import { buildRealSeasonOutlook, REAL_SEASON_GENERATION } from '@/lib/fixture-outlook-real';
+import {
+  fixtureOutlookProvenance,
+  type FixtureOutlookProvenance,
+} from '@/lib/fixture-outlook-provenance';
 import { axisLabel } from '@/lib/fixture-outlook-format';
 import { teamOutlookQuestion, fixtureCellQuestion } from '@/lib/fixture-chat-links';
 import {
@@ -55,6 +65,9 @@ export function FixturesBoard({
   const [horizon, setHorizon] = useState<number>(8);
   const [view, setView] = useState<ViewMode>(initialView);
   const [nextGameweek, setNextGameweek] = useState<number | null>(null);
+  // Live yardstick for the provenance stamp: how far the real league has
+  // got, so "this bundle is behind the season" is measured, not assumed.
+  const [finishedGameweek, setFinishedGameweek] = useState<number | null>(null);
   const [windowState, setWindowState] = useState<StoredFixtureWindow | null>(null);
   const [presentationMode, setPresentationMode] = useState(false);
   const presentationRef = useRef<HTMLDivElement>(null);
@@ -80,6 +93,10 @@ export function FixturesBoard({
     [horizon, sourceData, startGameweek],
   );
   const visibleEndGameweek = data.teams[0]?.series.at(-1)?.gameweek ?? startGameweek;
+  const provenance = useMemo(
+    () => fixtureOutlookProvenance(REAL_SEASON_GENERATION, finishedGameweek),
+    [finishedGameweek],
+  );
   const previousGameweek = clampFixtureWindowStart(startGameweek - 1, gameweeks, horizon);
   const followingGameweek = clampFixtureWindowStart(startGameweek + 1, gameweeks, horizon);
 
@@ -91,8 +108,10 @@ export function FixturesBoard({
       try {
         const response = await fetch('/api/fpl-fixture-status');
         if (!response.ok) return;
-        const payload = await response.json() as { next_gw?: unknown };
-        if (active && Number.isInteger(payload.next_gw)) setNextGameweek(payload.next_gw as number);
+        const payload = await response.json() as { next_gw?: unknown; finished_gw?: unknown };
+        if (!active) return;
+        if (Number.isInteger(payload.next_gw)) setNextGameweek(payload.next_gw as number);
+        if (Number.isInteger(payload.finished_gw)) setFinishedGameweek(payload.finished_gw as number);
       } catch {
         // The committed schedule remains a safe offline fallback.
       }
@@ -272,9 +291,11 @@ export function FixturesBoard({
               </span>
             </div>
             <p className="mt-1.5 text-sm text-bf-gray">
-              Mejor calendario primero · FDR promedio J1–J{horizon}
+              Mejor calendario primero · FDR promedio J{startGameweek}–J{visibleEndGameweek}
             </p>
           </div>
+
+          <FixtureProvenanceStamp provenance={provenance} />
 
           {view === 'detailed' && (
             <div>
@@ -307,12 +328,10 @@ export function FixturesBoard({
           )}
 
           <p className="text-[10px] leading-snug text-bf-gray/50 pt-3 border-t border-white/5">
-            Calendario real de la temporada 2026–27 desde la API oficial de FPL,
-            sin datos inventados. Ambos ejes usan la dificultad FDR de FPL: al
-            arrancar la temporada aún no hay partidos jugados, así que el eje de
-            portería a cero se ajustará por la forma atacante reciente del rival
-            en cuanto haya resultados. El calendario del final de temporada se
-            completará según la API lo vaya publicando.
+            Calendario real desde la API oficial de FPL, sin datos inventados. El
+            eje de ataque usa la dificultad FDR de FPL; el de portería a cero la
+            ajusta por la forma atacante reciente del rival. El calendario del
+            final de temporada se completará según la API lo vaya publicando.
           </p>
         </div>
       </div>
@@ -347,6 +366,31 @@ export function FixturesBoard({
             <FixtureCompactGrid data={data} presentation />
           </div>
         </div>
+    </div>
+  );
+}
+
+/**
+ * The /fixtures provenance stamp — same shape as the i74 zonal one: a muted
+ * caption for data that needs no caveat, a gold notice when it does. Both
+ * strings come from the bundle's own `generation` block via
+ * fixtureOutlookProvenance, so the card cannot word the fact differently from
+ * what was actually built.
+ */
+function FixtureProvenanceStamp({ provenance }: { provenance: FixtureOutlookProvenance }) {
+  return (
+    <div data-testid="fixture-provenance" data-status={provenance.status}>
+      <p className="mt-2 text-[10.5px] font-medium tracking-[0.02em] text-bf-gray/55">
+        {provenance.label}
+      </p>
+      {provenance.warning && (
+        <p
+          data-testid="fixture-provenance-warning"
+          className="mt-2 rounded-[8px] border border-bf-gold/35 bg-bf-gold/[0.07] px-3 py-2 text-[11.5px] font-semibold leading-snug text-bf-gold"
+        >
+          {provenance.warning}
+        </p>
+      )}
     </div>
   );
 }
