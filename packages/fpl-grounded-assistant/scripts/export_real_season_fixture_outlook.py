@@ -22,6 +22,14 @@ back to a fixture's `difficulty` field when strength thresholds are absent, so
 we strip strength and inject the recipe band as `difficulty`. get_all_team_
 outlooks then produces a fully recipe-banded outlook for free.
 
+--season-start is the LAUNCH-DAY path only: at kickoff no results exist, so
+compute_rolling_strength has nothing to work with and both axes fall back to
+FDR. That output is a degraded mode -- the Ataque / Porteria a cero switcher
+re-renders identical data -- and it stays degraded until the recipe path is
+re-run over played gameweeks. Which is why every bundle now carries a
+`generation` block whose `axes_separated` is MEASURED from the rendered
+output: the 2026-27 bundle sat collapsed for six weeks without saying so.
+
 Legacy analysis mode: --as-of-gw N instead uses the raw walk-forward rolling
 STRENGTH snapshot through the engine's quintile bucketing (the Step-2
 comparison path); requires --out and never overwrites the shipped JSON.
@@ -29,6 +37,9 @@ comparison path); requires --out and never overwrites the shipped JSON.
 Usage:
     # Default — regenerate the shipped /fixtures bundle (asymmetric recipe):
     python export_real_season_fixture_outlook.py
+
+    # Recipe over a different season (output filename derives from --season):
+    python export_real_season_fixture_outlook.py --season 2026-2027
 
     # Legacy Step-2 comparison — rolling strength as of GW4, elsewhere:
     python export_real_season_fixture_outlook.py --as-of-gw 4 --out /tmp/asof-gw4.json
@@ -40,6 +51,7 @@ import importlib.util as _ilu
 import json
 import os
 import sys
+from datetime import datetime, timezone
 
 import pandas as pd
 
@@ -64,26 +76,46 @@ from fpl_historical.rolling_strength import compute_rolling_strength  # noqa: E4
 sys.path.insert(0, os.path.join(_PACKAGES, "fpl-api-client"))
 
 # Intentionally NOT read from fpl_data_core.season_registry.CURRENT_SEASON:
-# this script's whole job is to (re)generate the frozen, finished 2025-26
-# bundle (_OUT_PATH below is literally named fixture-outlook-2025-26.json)
-# and contrast it with the live NEW_SEASON below during the off-season
-# window. Once 2025-26 is no longer "current", this constant must NOT
-# follow the rollover — that would silently repoint this script at the
-# wrong season's data mid-run. Excluded from the Task 1 single-source
-# consolidation for that reason.
+# this constant must NOT follow the rollover — that would silently repoint
+# this script at another season's data mid-run. Excluded from the Task 1
+# single-source consolidation for that reason.
+#
+# It is the DEFAULT for --season, not a hard target. To regenerate another
+# season's bundle, pass --season <key>: the input parquet dir and the output
+# filename both derive from it (out_path_for), so the pin stays put and the
+# default behaviour is unchanged.
 SEASON = "2025-2026"
-NEW_SEASON = "2026-27"
-_DATA_ROOT = os.path.join(
-    _PACKAGES, "fpl-historical", "data", "historical", "seasons", SEASON, "parquet_merged"
-)
-_OUT_PATH = os.path.join(
-    _PACKAGES, "fpl-ui", "lib", "data", "fixture-outlook-2025-26.json"
-)
+NEW_SEASON = "2026-2027"
+
+
+def season_label(season: str) -> str:
+    """Season key -> the short display/filename form ('2025-2026' -> '2025-26')."""
+    start, end = season.split("-")
+    return f"{start}-{end[-2:]}"
+
+
+def data_root(season: str) -> str:
+    """Merged-parquet dir for a season. Mirrors fpl_historical.paths.
+    merged_parquet_dir, including its FPL_HISTORICAL_ROOT override, so a
+    workflow that syncs R2 into a scratch root feeds BOTH this script's frames
+    and compute_rolling_strength from the same place."""
+    root = os.environ.get("FPL_HISTORICAL_ROOT") or os.path.join(
+        _PACKAGES, "fpl-historical", "data", "historical"
+    )
+    return os.path.join(root, "seasons", season, "parquet_merged")
+
+
+def out_path_for(season: str) -> str:
+    """The shipped /fixtures bundle for a season."""
+    return os.path.join(
+        _PACKAGES, "fpl-ui", "lib", "data", f"fixture-outlook-{season_label(season)}.json"
+    )
+
+
+_OUT_PATH = out_path_for(SEASON)
 # --season-start writes here (new-season live schedule), keeping the finished
 # 2025-26 bundle untouched.
-_OUT_PATH_NEW = os.path.join(
-    _PACKAGES, "fpl-ui", "lib", "data", "fixture-outlook-2026-27.json"
-)
+_OUT_PATH_NEW = out_path_for(NEW_SEASON)
 
 HORIZONS = (5, 8, 10)
 AXES = ("attack", "defence")
@@ -93,9 +125,10 @@ _W_FDR = 0.6
 _W_FORM = 0.4
 
 
-def _load_frames() -> tuple[pd.DataFrame, pd.DataFrame]:
-    teams_df = pd.read_parquet(os.path.join(_DATA_ROOT, "teams.parquet"))
-    fixtures_df = pd.read_parquet(os.path.join(_DATA_ROOT, "fixtures.parquet"))
+def _load_frames(season: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+    root = data_root(season)
+    teams_df = pd.read_parquet(os.path.join(root, "teams.parquet"))
+    fixtures_df = pd.read_parquet(os.path.join(root, "fixtures.parquet"))
     return teams_df, fixtures_df
 
 
@@ -129,6 +162,12 @@ def _load_live_frames() -> tuple[pd.DataFrame, pd.DataFrame]:
                 "team_a": int(f["team_a"]),
                 "team_h_difficulty": int(f["team_h_difficulty"]),
                 "team_a_difficulty": int(f["team_a_difficulty"]),
+                # Carried purely so gameweeks_played (below) is measured from
+                # the same frame on every path -- a season-start run must be
+                # able to say "0 played" as a fact, not as an assumption.
+                "team_h_score": f.get("team_h_score"),
+                "team_a_score": f.get("team_a_score"),
+                "finished": bool(f.get("finished")),
             }
         )
     fixtures_df = pd.DataFrame(rows)
@@ -161,13 +200,13 @@ def _base_team_fixtures(fixtures_df: pd.DataFrame) -> dict[int, list[dict]]:
     return tf
 
 
-def _defence_overlay_bands(fixtures_df: pd.DataFrame) -> dict[tuple[int, int, bool], int]:
+def _defence_overlay_bands(fixtures_df: pd.DataFrame, season: str) -> dict[tuple[int, int, bool], int]:
     """Walk-forward FDR+form overlay band (1-5) per (gw, team_id, is_home) for
     the defence axis. FDR anchored, refined by the opponent's rolling attacking
     strength as of the fixture's GW, blended in rank space and quantile-bucketed
     over the whole season (population-relative, mirroring the harness)."""
     gws = sorted(int(g) for g in fixtures_df["event_id"].unique())
-    rolling_by_gw = {g: compute_rolling_strength(SEASON, g) for g in gws}
+    rolling_by_gw = {g: compute_rolling_strength(season, g) for g in gws}
 
     rows = []
     for _, r in fixtures_df.iterrows():
@@ -189,12 +228,14 @@ def _defence_overlay_bands(fixtures_df: pd.DataFrame) -> dict[tuple[int, int, bo
     return {(int(t.gw), int(t.team_id), bool(t.is_home)): int(t.band) for t in df.itertuples()}
 
 
-def build_recipe_bootstraps(teams_df: pd.DataFrame, fixtures_df: pd.DataFrame) -> tuple[dict, dict]:
+def build_recipe_bootstraps(
+    teams_df: pd.DataFrame, fixtures_df: pd.DataFrame, season: str
+) -> tuple[dict, dict]:
     """(attack_boot, defence_boot) — strength stripped, `difficulty` carrying
     the recipe band so the engine bands each fixture from it."""
     teams_min = _teams_min(teams_df)
     base_tf = _base_team_fixtures(fixtures_df)  # difficulty = FDR (attack recipe)
-    overlay = _defence_overlay_bands(fixtures_df)
+    overlay = _defence_overlay_bands(fixtures_df, season)
 
     attack_boot = {"teams": teams_min, "team_fixtures": base_tf, "events": []}
 
@@ -225,19 +266,78 @@ def build_season_start_bootstraps(
     return boot, boot
 
 
-def build_rolling_bootstrap(as_of_gw: int) -> dict:
+def build_rolling_bootstrap(as_of_gw: int, season: str) -> tuple[dict, pd.DataFrame]:
     """Legacy Step-2 comparison: raw walk-forward rolling STRENGTH snapshot fed
     through the engine's quintile bucketing, horizon projected from GW N."""
-    teams_df, fixtures_df = _load_frames()
-    rolling = compute_rolling_strength(SEASON, as_of_gw)
+    teams_df, fixtures_df = _load_frames(season)
+    rolling = compute_rolling_strength(season, as_of_gw)
     teams = [
         {"id": int(r["team_id"]), "short_name": r["short_name"], "name": r["name"], **rolling[int(r["team_id"])]}
         for _, r in teams_df.iterrows()
     ]
-    return {
+    boot = {
         "teams": teams,
         "team_fixtures": _base_team_fixtures(fixtures_df),
         "events": [{"id": as_of_gw, "is_current": True}],
+    }
+    return boot, fixtures_df
+
+
+def gameweeks_played(fixtures_df: pd.DataFrame) -> int:
+    """How many gameweeks have at least one finished, fully-scored fixture.
+
+    Read off the same frame the bands were built from, using the same "final
+    results only" rule as compute_rolling_strength -- so the number stamped on
+    the bundle describes the data that actually shaped it.
+    """
+    columns = set(fixtures_df.columns)
+    if not {"event_id", "team_h_score", "team_a_score"} <= columns:
+        return 0
+    scored = fixtures_df["team_h_score"].notna() & fixtures_df["team_a_score"].notna()
+    if "finished" in columns:
+        scored &= fixtures_df["finished"].fillna(False).astype(bool)
+    if not scored.any():
+        return 0
+    return int(fixtures_df.loc[scored, "event_id"].nunique())
+
+
+def axis_separation(out: dict) -> dict[str, int]:
+    """Per horizon: how many teams get a DIFFERENT avg_band on the two axes.
+
+    Measured from the rendered buckets, never inferred from which code path
+    ran. That distinction is the whole point: the 2026-27 bundle shipped for
+    six weeks with both axes collapsed onto one and said nothing about it,
+    because nothing in it was derived from the output. 0 here means the
+    Ataque/Porteria a cero switcher is re-rendering identical data; the
+    2025-26 recipe bundle scores 14 of 20.
+    """
+    counts: dict[str, int] = {}
+    for horizon in HORIZONS:
+        key = str(horizon)
+        attack = {t["team_short"]: t["avg_band"] for t in out["attack"][key]["teams"]}
+        defence = {t["team_short"]: t["avg_band"] for t in out["defence"][key]["teams"]}
+        counts[key] = sum(1 for short, band in attack.items() if defence.get(short) != band)
+    return counts
+
+
+def build_generation_meta(out: dict, *, season: str, source: str, played: int) -> dict:
+    """The provenance block the /fixtures card stamps itself from.
+
+    ``axes_separated`` is the field that turns "degraded mode" from a secret
+    into a datum, and it is computed from ``out`` rather than from ``source``
+    so that a path which is SUPPOSED to separate the axes but fails to still
+    reports the truth.
+    """
+    separation = axis_separation(out)
+    return {
+        "generated_at": datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "season": season,
+        "season_label": season_label(season),
+        "source": source,
+        "gameweeks_played": played,
+        "axes_separated": any(count > 0 for count in separation.values()),
+        "axis_separation_by_horizon": separation,
+        "teams": len(out["attack"][str(HORIZONS[0])]["teams"]),
     }
 
 
@@ -252,6 +352,13 @@ def parse_args() -> argparse.Namespace:
         "--out", type=str, default=None,
         help="Output path. Required with --as-of-gw (never overwrites the shipped JSON). "
              "Defaults to the committed /fixtures path otherwise.",
+    )
+    parser.add_argument(
+        "--season", type=str, default=SEASON,
+        help="Season key driving the recipe path's input parquet AND its derived "
+             f"output filename (default {SEASON}). Lets the validated FDR+form recipe "
+             "target another season without moving the SEASON pin, which is "
+             "deliberately decoupled from the season-registry rollover.",
     )
     parser.add_argument(
         "--season-start", action="store_true",
@@ -271,18 +378,21 @@ def main() -> None:
     args = parse_args()
 
     if args.season_start:
+        season, source = NEW_SEASON, "season_start"
         out_path = args.out or _OUT_PATH_NEW
         teams_df, fixtures_df = _load_live_frames()
         attack_boot, defence_boot = build_season_start_bootstraps(teams_df, fixtures_df)
         boots = {"attack": attack_boot, "defence": defence_boot}
     elif args.as_of_gw is not None:
-        out_path = args.out or _OUT_PATH
-        boot = build_rolling_bootstrap(args.as_of_gw)
+        season, source = args.season, "rolling"
+        out_path = args.out or out_path_for(season)
+        boot, fixtures_df = build_rolling_bootstrap(args.as_of_gw, season)
         boots = {"attack": boot, "defence": boot}
     else:
-        out_path = args.out or _OUT_PATH
-        teams_df, fixtures_df = _load_frames()
-        attack_boot, defence_boot = build_recipe_bootstraps(teams_df, fixtures_df)
+        season, source = args.season, "recipe"
+        out_path = args.out or out_path_for(season)
+        teams_df, fixtures_df = _load_frames(season)
+        attack_boot, defence_boot = build_recipe_bootstraps(teams_df, fixtures_df, season)
         boots = {"attack": attack_boot, "defence": defence_boot}
 
     out: dict = {}
@@ -293,12 +403,22 @@ def main() -> None:
                 boots[axis], axis=axis, horizon=horizon
             )
 
+    out["generation"] = build_generation_meta(
+        out, season=season, source=source, played=gameweeks_played(fixtures_df)
+    )
+
     os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
 
+    meta = out["generation"]
     size_kb = os.path.getsize(out_path) / 1024
     print(f"wrote {out_path} ({size_kb:.1f} KB)")
+    print(f"  season={meta['season']} source={meta['source']} "
+          f"gameweeks_played={meta['gameweeks_played']}")
+    print(f"  axes_separated={meta['axes_separated']} -- teams with a different "
+          f"avg_band, of {meta['teams']}: "
+          + ", ".join(f"J{h}={n}" for h, n in meta["axis_separation_by_horizon"].items()))
 
 
 if __name__ == "__main__":
