@@ -1,0 +1,104 @@
+name: Regenerate /fixtures outlook bundle
+
+# Re-runs export_real_season_fixture_outlook.py's DEFAULT (recipe) path over a
+# season's owned-store parquet, producing a bundle whose two axes are actually
+# separate signals.
+#
+# Why a workflow rather than "someone runs it locally": the 2026-27 bundle
+# shipped in a degraded season-start mode (both axes = FDR, so the
+# Ataque / Porteria a cero switcher re-rendered identical data) and stayed
+# that way for six weeks, because the only trigger for regenerating it was
+# somebody remembering. The parquet it needs lives in R2, not on any laptop
+# and not in git, so the real path is the one with the credentials on it.
+#
+# READ-ONLY against R2: it syncs down, never publishes, never touches the
+# season pointer, and never bumps current_season.
+
+on:
+  workflow_dispatch:
+    inputs:
+      season:
+        description: "Season key to regenerate (e.g. 2026-2027)"
+        required: true
+        default: "2026-2027"
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          pip install \
+            -r packages/fpl-grounded-assistant/requirements.txt \
+            pyarrow \
+            pandas \
+            boto3 \
+            pyyaml
+
+      - name: Sync owned store from R2 (download only)
+        env:
+          OWNED_STORE_R2_ENDPOINT: ${{ secrets.OWNED_STORE_R2_ENDPOINT }}
+          OWNED_STORE_R2_BUCKET: ${{ secrets.OWNED_STORE_R2_BUCKET }}
+          OWNED_STORE_R2_ACCESS_KEY_ID: ${{ secrets.OWNED_STORE_R2_ACCESS_KEY_ID }}
+          OWNED_STORE_R2_SECRET_ACCESS_KEY: ${{ secrets.OWNED_STORE_R2_SECRET_ACCESS_KEY }}
+          OWNED_STORE_R2_PREFIX: ${{ secrets.OWNED_STORE_R2_PREFIX }}
+          FPL_HISTORICAL_ROOT: ${{ github.workspace }}/_r2_scratch/owned
+        run: |
+          python packages/fpl-grounded-assistant/fpl_grounded_assistant/owned_store_sync.py \
+            sync --season "${{ github.event.inputs.season }}"
+
+      # Stop before building anything if the inputs cannot support the recipe.
+      # compute_rolling_strength needs FINAL results (both scores + finished)
+      # and FPL's captured strength ratings as the cold-start fallback.
+      #
+      # Note what this does and does not prove. Without results the recipe
+      # still SEPARATES the axes -- measured, because the rolling model falls
+      # back to captured FPL ratings that differ per team. What it loses is
+      # any dependence on form. So the preflight is not preventing a visible
+      # collapse; it is preventing a bundle that looks fine and means nothing.
+      # The output-side check lives on the build step below.
+      - name: Preflight — can this season actually feed the recipe?
+        env:
+          FPL_HISTORICAL_ROOT: ${{ github.workspace }}/_r2_scratch/owned
+        run: |
+          python scripts/preflight_fixture_outlook.py --season "${{ github.event.inputs.season }}"
+
+      # --require-separated-axes is the output-side half of the guard: the
+      # preflight judged the inputs, this judges the artifact. A run that
+      # satisfies every precondition and still emits a collapsed bundle fails
+      # here instead of being uploaded, which is the shape of the incident
+      # that started this.
+      - name: Regenerate the bundle
+        env:
+          FPL_HISTORICAL_ROOT: ${{ github.workspace }}/_r2_scratch/owned
+        run: |
+          python packages/fpl-grounded-assistant/scripts/export_real_season_fixture_outlook.py \
+            --season "${{ github.event.inputs.season }}" \
+            --require-separated-axes
+
+      - name: Show what changed
+        run: |
+          git --no-pager diff --stat
+          python - <<'PY'
+          import glob, json
+          for path in sorted(glob.glob("packages/fpl-ui/lib/data/fixture-outlook-*.json")):
+              meta = json.load(open(path, encoding="utf-8")).get("generation")
+              print(path, json.dumps(meta) if meta else "(no generation block)")
+          PY
+
+      - name: Upload the regenerated bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: fixture-outlook-${{ github.event.inputs.season }}
+          path: packages/fpl-ui/lib/data/fixture-outlook-*.json
+          if-no-files-found: error
