@@ -44,6 +44,7 @@ from fpl_grounded_assistant.dispatcher import (  # noqa: E402
     SUPPORTED_INTENTS,
     _TOOL_TO_INTENT,
 )
+from fpl_grounded_assistant.zonal_weakness import CURRENT_SEASON  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -52,7 +53,7 @@ from fpl_grounded_assistant.dispatcher import (  # noqa: E402
 
 def _row(conceding, shooting, x, y, xg, *, match_id=1, player="Someone"):
     return {
-        "season": "2025-2026", "match_id": match_id, "date": "2025-09-01T15:00:00",
+        "season": CURRENT_SEASON, "match_id": match_id, "date": "2025-09-01T15:00:00",
         "shooting_team": shooting, "conceding_team": conceding,
         "player": player, "is_home_shot": True, "minute": 10,
         "x": x, "y": y, "xg": xg, "situation": "Open Play",
@@ -77,7 +78,7 @@ def _store_df() -> pd.DataFrame:
 @pytest.fixture
 def tactical_store(tmp_path, monkeypatch):
     """Point FPL_TACTICAL_ROOT at a tmp store holding the fixture parquet."""
-    season_dir = tmp_path / "seasons" / "2025-2026"
+    season_dir = tmp_path / "seasons" / CURRENT_SEASON
     season_dir.mkdir(parents=True)
     _store_df().to_parquet(season_dir / "understat_shots.parquet", index=False)
     monkeypatch.setenv("FPL_TACTICAL_ROOT", str(tmp_path))
