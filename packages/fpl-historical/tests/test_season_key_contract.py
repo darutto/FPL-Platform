@@ -16,7 +16,7 @@ SEASON_REGISTRY_PATH = (
     / "season_registry.yaml"
 )
 
-EXPECTED_SEASON = "2025-2026"
+EXPECTED_SEASON = "2026-2027"
 
 
 class TestSeasonKeyContract:
