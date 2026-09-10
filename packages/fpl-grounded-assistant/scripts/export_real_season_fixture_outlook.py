@@ -117,8 +117,37 @@ _OUT_PATH = out_path_for(SEASON)
 # 2025-26 bundle untouched.
 _OUT_PATH_NEW = out_path_for(NEW_SEASON)
 
-HORIZONS = (5, 8, 10)
+# The bundle ships ONE bucket per axis, covering every scheduled gameweek.
+#
+# It used to ship three (5, 8, 10) and the UI read only the largest, windowing
+# it down for whichever selector was active. Two problems with that. The 5 and
+# 8 buckets were prefixes of the 10 -- stored twice, read never. And because
+# every bucket started at gameweek 1 and ran for `horizon`, coverage was
+# measured from the START of the season while the screen's window advances with
+# the CURRENT gameweek. The two drift apart at one gameweek per week: at GW4 the
+# "10" selector could only show 7 columns, and from GW10 the board froze on a
+# single column of GW10 -- a match already played -- for the rest of the season.
+#
+# Full-season coverage removes the dependency on when the file was built. The
+# horizon is derived from the schedule itself rather than pinned, so a season
+# with a different number of gameweeks needs no edit here.
 AXES = ("attack", "defence")
+
+#: Refuse to emit a bundle covering fewer than this many gameweeks past the
+#: first one. Sized off the UI's largest selector (10) plus slack; the real
+#: assertion lives in scripts/preflight_fixture_outlook.py, which knows the
+#: live gameweek. This is only a floor against a truncated schedule.
+MIN_EXPORTED_GAMEWEEKS = 12
+
+
+def full_season_horizon(fixtures_df: pd.DataFrame) -> int:
+    """How many gameweeks the schedule actually spans.
+
+    Derived, never pinned: read off the fixture rows so the export follows a
+    38-gameweek season, a shortened one, or a partially-published launch-day
+    schedule without an edit here.
+    """
+    return int(fixtures_df["event_id"].nunique())
 
 # Overlay blend weights (rank space) — must match the validated harness values.
 _W_FDR = 0.6
@@ -312,8 +341,7 @@ def axis_separation(out: dict) -> dict[str, int]:
     2025-26 recipe bundle scores 14 of 20.
     """
     counts: dict[str, int] = {}
-    for horizon in HORIZONS:
-        key = str(horizon)
+    for key in out["attack"]:
         attack = {t["team_short"]: t["avg_band"] for t in out["attack"][key]["teams"]}
         defence = {t["team_short"]: t["avg_band"] for t in out["defence"][key]["teams"]}
         counts[key] = sum(1 for short, band in attack.items() if defence.get(short) != band)
@@ -328,7 +356,11 @@ def build_generation_meta(out: dict, *, season: str, source: str, played: int) -
     so that a path which is SUPPOSED to separate the axes but fails to still
     reports the truth.
     """
+    # Shape first: a stale multi-bucket bundle must fail by name here, not with
+    # a KeyError from whichever measurement happens to touch it first.
+    bucket = out["attack"][_bucket_key(out)]
     separation = axis_separation(out)
+    gameweeks = [cell["gameweek"] for cell in bucket["teams"][0]["series"]]
     return {
         "generated_at": datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "season": season,
@@ -337,8 +369,24 @@ def build_generation_meta(out: dict, *, season: str, source: str, played: int) -
         "gameweeks_played": played,
         "axes_separated": any(count > 0 for count in separation.values()),
         "axis_separation_by_horizon": separation,
-        "teams": len(out["attack"][str(HORIZONS[0])]["teams"]),
+        "teams": len(bucket["teams"]),
+        # Coverage is READ BACK OFF the emitted series, not copied from the
+        # horizon we asked for. The engine clamps, drops gameweeks with no
+        # fixtures, and stops early on a partial schedule -- so the number we
+        # requested and the number we shipped are different questions, and only
+        # the second one protects the screen.
+        "source_horizon": int(bucket["horizon"]),
+        "covers_gameweeks": [min(gameweeks), max(gameweeks)] if gameweeks else [],
+        "gameweek_columns": len(gameweeks),
     }
+
+
+def _bucket_key(out: dict) -> str:
+    """The single exported bucket's key."""
+    keys = list(out["attack"])
+    if len(keys) != 1:
+        raise AssertionError(f"expected exactly one exported bucket, got {keys}")
+    return keys[0]
 
 
 def parse_args() -> argparse.Namespace:
@@ -409,13 +457,18 @@ def main() -> None:
         attack_boot, defence_boot = build_recipe_bootstraps(teams_df, fixtures_df, season)
         boots = {"attack": attack_boot, "defence": defence_boot}
 
+    horizon = full_season_horizon(fixtures_df)
     out: dict = {}
     for axis in AXES:
-        out[axis] = {}
-        for horizon in HORIZONS:
-            out[axis][str(horizon)] = fixture_outlook.get_all_team_outlooks(
-                boots[axis], axis=axis, horizon=horizon
+        # _max_horizon is the engine's explicit opt-in past the rail that
+        # bounds live chat input (fixture_outlook._MAX_HORIZON = 15). A static
+        # file read for months is not user input, and 15 gameweeks of coverage
+        # would put the same cliff four months out instead of six weeks out.
+        out[axis] = {
+            str(horizon): fixture_outlook.get_all_team_outlooks(
+                boots[axis], axis=axis, horizon=horizon, _max_horizon=horizon
             )
+        }
 
     out["generation"] = build_generation_meta(
         out, season=season, source=source, played=gameweeks_played(fixtures_df)
@@ -426,8 +479,21 @@ def main() -> None:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
 
     meta = out["generation"]
+    covers = meta["covers_gameweeks"]
+    if meta["gameweek_columns"] < MIN_EXPORTED_GAMEWEEKS:
+        print(
+            f"\nREFUSING TO SHIP: the bundle covers only {meta['gameweek_columns']} "
+            f"gameweek(s) (J{covers[0]}-J{covers[-1]}). The screen's largest "
+            "selector asks for 10, so this would start truncating immediately. "
+            "Check the schedule in the source parquet.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     size_kb = os.path.getsize(out_path) / 1024
     print(f"wrote {out_path} ({size_kb:.1f} KB)")
+    print(f"  covers J{covers[0]}-J{covers[-1]} "
+          f"({meta['gameweek_columns']} gameweek columns)")
     print(f"  season={meta['season']} source={meta['source']} "
           f"gameweeks_played={meta['gameweeks_played']}")
     print(f"  axes_separated={meta['axes_separated']} -- teams with a different "

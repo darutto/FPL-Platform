@@ -56,8 +56,15 @@ def _merged_dir(season: str) -> str:
     return os.path.join(root, "seasons", season, "parquet_merged")
 
 
-def preflight(season: str) -> list[str]:
-    """Return a list of blocking problems; empty means the season can build."""
+def preflight(season: str, live_finished_gw: int | None = None) -> list[str]:
+    """Return a list of blocking problems; empty means the season can build.
+
+    ``live_finished_gw`` is how many gameweeks the REAL league has finished,
+    read from the live FPL bootstrap by the caller. It is the only input here
+    that does not come from the parquet, and it exists because a stale source
+    is invisible from inside the source: a parquet frozen at gameweek 3 looks
+    exactly like a parquet that is correctly at gameweek 3.
+    """
     problems: list[str] = []
     root = _merged_dir(season)
     print(f"preflight: {season}")
@@ -100,6 +107,22 @@ def preflight(season: str) -> list[str]:
     print(f"  gameweeks with final results: {len(played)} {played[:12]}")
     print(f"  finished fixtures: {int(scored.sum())}")
 
+    if live_finished_gw is not None and played and live_finished_gw > max(played):
+        # The owned store only advances when someone dispatches its refresh
+        # (owned-store-refresh.yml's cron is paused). A weekly regeneration
+        # over a frozen parquet would keep re-exporting the same gameweeks and
+        # report success every time, which is the failure this whole exercise
+        # is about -- so it fails here instead.
+        problems.append(
+            f"the parquet is BEHIND the live league: it has results through J{max(played)} "
+            f"but FPL reports J{live_finished_gw} finished. Regenerating from it would "
+            "re-export stale form and leave gameweeks_played frozen. Refresh the owned "
+            "store for this season first (owned-store-refresh.yml, manual dispatch -- "
+            "its cron is paused)."
+        )
+    elif live_finished_gw is not None:
+        print(f"  live league: J{live_finished_gw} finished — parquet is level")
+
     if not played:
         problems.append(
             "no finished, fully-scored fixtures -- the defence axis would band from "
@@ -119,9 +142,14 @@ def preflight(season: str) -> list[str]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--season", required=True, help="Season key, e.g. 2026-2027")
+    parser.add_argument(
+        "--live-finished-gw", type=int, default=None,
+        help="Gameweeks the live FPL API reports finished. When given, a parquet "
+             "that lags it is a blocking problem rather than a silent re-export.",
+    )
     args = parser.parse_args()
 
-    problems = preflight(args.season)
+    problems = preflight(args.season, args.live_finished_gw)
     if problems:
         print("\nPREFLIGHT FAILED — not building:")
         for problem in problems:

@@ -127,7 +127,11 @@ AXES: tuple[str, str] = ("attack", "defence")
 #: Default GW lookahead window for the outlook (long enough for real runs).
 DEFAULT_HORIZON: int = 10
 
-#: Maximum allowed horizon.
+#: Maximum horizon a CALLER may ask for. This is a sanity rail on user input
+#: reaching the live chat tool -- "give me the next 200 gameweeks" -- not a
+#: statement about how far the engine can compute. The static /fixtures export
+#: legitimately needs whole-season coverage and opts past it explicitly via
+#: get_all_team_outlooks(_max_horizon=...); see that argument's docstring.
 _MAX_HORIZON: int = 15
 
 #: A run must be at least this many GWs long to be highlighted.
@@ -468,6 +472,7 @@ def get_team_outlook(
     _thresholds: list[float] | None = None,
     _current_gw: int | None = None,
     _active_gws: frozenset[int] | None = None,
+    _max_horizon: int | None = None,
 ) -> dict[str, Any]:
     """Compute the fixture outlook for one team on one axis.
 
@@ -484,7 +489,7 @@ def get_team_outlook(
     ``verdict``   one-line Spanish schedule-only summary
     """
     axis = axis if axis in AXES else "attack"
-    horizon = max(1, min(int(horizon), _MAX_HORIZON))
+    horizon = max(1, min(int(horizon), _max_horizon or _MAX_HORIZON))
 
     team_fixtures: dict = bootstrap.get("team_fixtures", {})
     teams_by_id = _teams_by_id(bootstrap)
@@ -523,14 +528,23 @@ def get_all_team_outlooks(
     bootstrap: dict[str, Any],
     axis: str = "attack",
     horizon: int = DEFAULT_HORIZON,
+    *,
+    _max_horizon: int | None = None,
 ) -> dict[str, Any]:
     """Outlook for every team on *axis* — the data behind the grid (FI4/FI7).
 
     Teams are ordered by ``avg_band`` ascending (easiest schedule first).
     Returns ``status='missing_context'`` when fixture data is absent.
+
+    ``_max_horizon`` raises the input rail for one call, following this
+    module's leading-underscore convention for callers that are not user
+    input. Only the /fixtures bundle export passes it: that file is generated
+    once and then read for months, so it must carry the whole season rather
+    than a window measured from the day it happened to be built. Live chat
+    callers omit it and stay bounded by ``_MAX_HORIZON``.
     """
     axis = axis if axis in AXES else "attack"
-    horizon = max(1, min(int(horizon), _MAX_HORIZON))
+    horizon = max(1, min(int(horizon), _max_horizon or _MAX_HORIZON))
 
     team_fixtures: dict = bootstrap.get("team_fixtures", {})
     if not team_fixtures:
@@ -554,6 +568,7 @@ def get_all_team_outlooks(
             _thresholds=thresholds,
             _current_gw=current_gw,
             _active_gws=active_gws,
+            _max_horizon=_max_horizon,
         )
         if not outlook["series"]:
             continue

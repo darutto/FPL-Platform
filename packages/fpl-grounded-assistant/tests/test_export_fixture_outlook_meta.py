@@ -38,14 +38,25 @@ def _load_module():
 exporter = _load_module()
 
 
+#: The bundle ships one full-season bucket per axis; these fixtures mirror that.
+_HORIZON = 38
+_SERIES = [{"gameweek": gw} for gw in range(1, _HORIZON + 1)]
+
+
 def _bucket(bands: dict[str, float]) -> dict:
-    return {"teams": [{"team_short": s, "avg_band": b} for s, b in bands.items()]}
+    return {
+        "horizon": _HORIZON,
+        "teams": [
+            {"team_short": s, "avg_band": b, "series": _SERIES}
+            for s, b in bands.items()
+        ],
+    }
 
 
 def _out(attack: dict[str, float], defence: dict[str, float]) -> dict:
     return {
-        "attack": {str(h): _bucket(attack) for h in exporter.HORIZONS},
-        "defence": {str(h): _bucket(defence) for h in exporter.HORIZONS},
+        "attack": {str(_HORIZON): _bucket(attack)},
+        "defence": {str(_HORIZON): _bucket(defence)},
     }
 
 
@@ -102,13 +113,13 @@ class TestAxisSeparation:
     def test_identical_axes_measure_zero(self):
         bands = {"ARS": 2.4, "MCI": 2.0, "BUR": 3.8}
         counts = exporter.axis_separation(_out(bands, bands))
-        assert counts == {str(h): 0 for h in exporter.HORIZONS}
+        assert counts == {str(_HORIZON): 0}
 
     def test_counts_teams_not_fixtures_and_matches_by_short_name(self):
         attack = {"ARS": 2.4, "MCI": 2.0, "BUR": 3.8}
         defence = {"BUR": 3.8, "ARS": 2.6, "MCI": 2.0}  # reordered; only ARS moved
         counts = exporter.axis_separation(_out(attack, defence))
-        assert counts == {str(h): 1 for h in exporter.HORIZONS}
+        assert counts == {str(_HORIZON): 1}
 
     def test_the_flag_is_measured_from_the_output_not_from_the_code_path(self):
         # A run that CLAIMS to be the separating recipe but produced identical
@@ -131,7 +142,7 @@ class TestAxisSeparation:
             _out(attack, defence), season="2026-2027", source="recipe", played=3
         )
         assert meta["axes_separated"] is True
-        assert meta["axis_separation_by_horizon"] == {str(h): 2 for h in exporter.HORIZONS}
+        assert meta["axis_separation_by_horizon"] == {str(_HORIZON): 2}
 
     def test_generated_at_is_an_instant_not_a_placeholder(self):
         bands = {"ARS": 2.4}
@@ -210,7 +221,7 @@ def test_the_output_guard_reads_the_same_measurement_the_bundle_carries():
     assert meta["axes_separated"] is True
     assert exporter.axis_separation(separated) == meta["axis_separation_by_horizon"]
 
-def _stub_export(monkeypatch, tmp_path, *, defence_bands, argv):
+def _stub_export(monkeypatch, tmp_path, *, defence_bands, argv, horizon=_HORIZON):
     """Drive main() with the engine stubbed, so the exit path is the subject.
 
     Only the two expensive edges are replaced -- the parquet read and the
@@ -229,11 +240,17 @@ def _stub_export(monkeypatch, tmp_path, *, defence_bands, argv):
         lambda teams_df, fixtures_df, season: ({"axis": "attack"}, {"axis": "defence"}),
     )
     monkeypatch.setattr(
+        exporter, "full_season_horizon", lambda fixtures_df: horizon
+    )
+    series = [{"gameweek": gw} for gw in range(1, horizon + 1)]
+    monkeypatch.setattr(
         exporter.fixture_outlook, "get_all_team_outlooks",
-        lambda boot, axis, horizon: {
+        lambda boot, axis, horizon, _max_horizon=None: {
+            "horizon": horizon,
             "teams": [
                 {"team_short": "ARS",
-                 "avg_band": defence_bands if axis == "defence" else 2.0},
+                 "avg_band": defence_bands if axis == "defence" else 2.0,
+                 "series": series},
             ]
         },
     )
@@ -283,3 +300,124 @@ def test_without_the_flag_a_collapsed_bundle_still_builds(monkeypatch, tmp_path)
     assert json.loads(out_path.read_text(encoding="utf-8"))["generation"][
         "axes_separated"
     ] is False
+
+# ---------------------------------------------------------------------------
+# Coverage: the bundle must span the season, not a window measured from the
+# day it was built.
+# ---------------------------------------------------------------------------
+
+
+class TestFullSeasonHorizon:
+    def test_derived_from_the_schedule_not_pinned(self):
+        """A 38-gameweek season and a shortened one both work with no edit."""
+        for n in (38, 26, 12):
+            df = pd.DataFrame({"event_id": list(range(1, n + 1)) * 10})
+            assert exporter.full_season_horizon(df) == n
+
+    def test_counts_distinct_gameweeks_not_fixtures(self):
+        # 380 fixtures across 38 gameweeks is 38, not 380. Getting this wrong
+        # would ask the engine for a horizon ten times the season.
+        df = pd.DataFrame({"event_id": [gw for gw in range(1, 39) for _ in range(10)]})
+        assert len(df) == 380
+        assert exporter.full_season_horizon(df) == 38
+
+
+class TestCoverageMetadata:
+    def test_coverage_is_read_off_the_series_not_the_requested_horizon(self):
+        """The number asked for and the number shipped are different questions.
+
+        The engine drops blank gameweeks and stops early on a partial schedule,
+        so a bundle can request 38 and carry 15. Copying the request into the
+        metadata would produce a file that CLAIMS whole-season coverage while
+        the screen still runs out of columns -- the exact failure this guards.
+        """
+        out = _out({"ARS": 2.0}, {"ARS": 3.0})
+        short = [{"gameweek": gw} for gw in (1, 2, 3)]
+        for axis in ("attack", "defence"):
+            for team in out[axis][str(_HORIZON)]["teams"]:
+                team["series"] = short
+
+        meta = exporter.build_generation_meta(
+            out, season="2026-2027", source="recipe", played=3
+        )
+        assert meta["source_horizon"] == _HORIZON      # what was asked for
+        assert meta["covers_gameweeks"] == [1, 3]      # what actually shipped
+        assert meta["gameweek_columns"] == 3
+
+    def test_a_single_bucket_is_required(self):
+        """The old three-bucket shape must be a loud error, not a silent pick."""
+        out = _out({"ARS": 2.0}, {"ARS": 3.0})
+        out["attack"]["10"] = out["attack"][str(_HORIZON)]
+        with pytest.raises(AssertionError, match="exactly one exported bucket"):
+            exporter.build_generation_meta(
+                out, season="2026-2027", source="recipe", played=3
+            )
+
+
+class TestEngineHorizonOptIn:
+    """The rail that bounds live chat input must stay where it is."""
+
+    def test_the_shared_rail_still_caps_callers_that_do_not_opt_in(self):
+        from fpl_grounded_assistant import fixture_outlook as fo
+
+        boot = _linear_bootstrap(gameweeks=30)
+        result = fo.get_all_team_outlooks(boot, axis="attack", horizon=30)
+        # No _max_horizon: chat callers stay bounded by _MAX_HORIZON (15).
+        assert result["horizon"] == fo._MAX_HORIZON
+        assert len(result["teams"][0]["series"]) <= fo._MAX_HORIZON
+
+    def test_the_export_can_opt_past_it_explicitly(self):
+        from fpl_grounded_assistant import fixture_outlook as fo
+
+        boot = _linear_bootstrap(gameweeks=30)
+        result = fo.get_all_team_outlooks(
+            boot, axis="attack", horizon=30, _max_horizon=30
+        )
+        assert result["horizon"] == 30
+        assert len(result["teams"][0]["series"]) == 30
+
+
+def _linear_bootstrap(*, gameweeks: int) -> dict:
+    """Two teams playing each other every gameweek — enough for a horizon walk."""
+    teams = [
+        {"id": 1, "short_name": "AAA", "name": "Team A"},
+        {"id": 2, "short_name": "BBB", "name": "Team B"},
+    ]
+    team_fixtures = {
+        1: [
+            {"gameweek": gw, "opponent_team": 2, "is_home": gw % 2 == 0, "difficulty": 3}
+            for gw in range(1, gameweeks + 1)
+        ],
+        2: [
+            {"gameweek": gw, "opponent_team": 1, "is_home": gw % 2 == 1, "difficulty": 3}
+            for gw in range(1, gameweeks + 1)
+        ],
+    }
+    return {"teams": teams, "team_fixtures": team_fixtures, "events": []}
+
+def test_a_bundle_too_short_for_the_largest_selector_is_refused(monkeypatch, tmp_path):
+    """The floor against a truncated schedule.
+
+    Caught by mutation testing: removing this check left every other test
+    green, which is precisely the profile of the bug it exists to stop -- a
+    structurally perfect file that runs out of columns on screen.
+    """
+    out_path = _stub_export(
+        monkeypatch, tmp_path, defence_bands=4.0, argv=[],
+        horizon=exporter.MIN_EXPORTED_GAMEWEEKS - 1,
+    )
+    with pytest.raises(SystemExit) as excinfo:
+        exporter.main()
+    assert excinfo.value.code == 1
+    # Written anyway, on purpose: you cannot diagnose a bundle you cannot open.
+    assert out_path.exists()
+
+
+def test_a_bundle_that_clears_the_floor_builds(monkeypatch, tmp_path):
+    out_path = _stub_export(
+        monkeypatch, tmp_path, defence_bands=4.0, argv=[],
+        horizon=exporter.MIN_EXPORTED_GAMEWEEKS,
+    )
+    exporter.main()  # must not raise
+    meta = json.loads(out_path.read_text(encoding="utf-8"))["generation"]
+    assert meta["gameweek_columns"] == exporter.MIN_EXPORTED_GAMEWEEKS

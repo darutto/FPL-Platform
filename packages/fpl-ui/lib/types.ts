@@ -688,9 +688,20 @@ export interface FixtureOutlookGeneration {
   gameweeks_played: number;
   /** False means the axis switcher is re-rendering identical data. */
   axes_separated: boolean;
-  /** Per horizon ('5'|'8'|'10'): teams whose avg_band differs between axes. */
+  /** Keyed by the exported bucket's horizon: teams whose avg_band differs. */
   axis_separation_by_horizon: Record<string, number>;
   teams: number;
+  /** Horizon of the single exported bucket — the whole scheduled season. */
+  source_horizon: number;
+  /**
+   * [first, last] gameweek the series actually spans, read back off the emitted
+   * data rather than copied from the requested horizon. The engine drops blank
+   * gameweeks and stops early on a partial schedule, so "asked for" and
+   * "shipped" are different numbers, and only this one protects the screen.
+   */
+  covers_gameweeks: number[];
+  /** How many gameweek columns each team's series carries. */
+  gameweek_columns: number;
 }
 
 /** fixture_outlook field — non-null when intent=fixture_outlook AND outcome=ok */

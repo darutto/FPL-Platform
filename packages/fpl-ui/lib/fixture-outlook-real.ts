@@ -14,9 +14,14 @@
  * does nothing. That is a real state the bundle now DECLARES rather than
  * hides: `generation.axes_separated`, measured from the output itself.
  *
- * Refresh cadence: re-run the export's default (recipe) path over the season's
- * owned-store parquet — the `Regenerate /fixtures outlook bundle` workflow does
- * exactly that, since the parquet lives in R2 rather than on anyone's laptop.
+ * Coverage: the bundle spans EVERY scheduled gameweek, not a window sized off
+ * the day it was built. `generation.covers_gameweeks` states the span, read
+ * back off the emitted series rather than copied from the requested horizon.
+ *
+ * Refresh cadence: the `Regenerate /fixtures outlook bundle` workflow runs
+ * weekly after the gameweek closes (the parquet lives in R2, not on anyone's
+ * laptop). Regeneration now buys fresher FORM and a truthful
+ * `gameweeks_played`; it is no longer what keeps the table from emptying.
  * Same FixtureOutlookMeta shape throughout, so nothing else changes.
  */
 import type {
@@ -32,7 +37,15 @@ type RealBundle = Record<FixtureAxis, Record<string, FixtureOutlookMeta>> & {
 
 const REAL_SEASON_DATA = real as unknown as RealBundle;
 
-/** Available horizons — matches what the export script precomputed. */
+/**
+ * The horizons the SELECTOR offers. Not a property of the data any more.
+ *
+ * The bundle used to ship one precomputed bucket per entry here, and the board
+ * read only the largest. That coupled how far the file reached to which button
+ * was pressed, and both were measured from gameweek 1 while the screen's window
+ * follows the live gameweek — so coverage shrank by one column a week. The
+ * bundle now carries the whole season and these are purely window widths.
+ */
 export const REAL_SEASON_HORIZONS = [5, 8, 10] as const;
 
 /**
@@ -42,13 +55,19 @@ export const REAL_SEASON_HORIZONS = [5, 8, 10] as const;
 export const REAL_SEASON_GENERATION: FixtureOutlookGeneration | null =
   REAL_SEASON_DATA.generation ?? null;
 
-export function buildRealSeasonOutlook(axis: FixtureAxis, horizon: number): FixtureOutlookMeta {
-  const bucket = REAL_SEASON_DATA[axis]?.[String(horizon)];
-  if (!bucket) {
+/**
+ * The full-season outlook for one axis — every scheduled gameweek, from which
+ * the board slices whatever window the reader asked for.
+ */
+export function buildRealSeasonOutlook(axis: FixtureAxis): FixtureOutlookMeta {
+  const buckets = REAL_SEASON_DATA[axis];
+  const keys = buckets ? Object.keys(buckets) : [];
+  if (keys.length !== 1) {
     throw new Error(
-      `No real-season fixture outlook for axis="${axis}" horizon=${horizon}. ` +
-        `Available horizons: ${REAL_SEASON_HORIZONS.join(', ')}.`,
+      `Expected exactly one full-season bucket for axis="${axis}", found ` +
+        `[${keys.join(', ')}]. Regenerate the bundle with the "Regenerate ` +
+        `/fixtures outlook bundle" workflow.`,
     );
   }
-  return bucket;
+  return buckets[keys[0]];
 }

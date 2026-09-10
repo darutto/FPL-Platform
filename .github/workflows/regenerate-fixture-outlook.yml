@@ -15,12 +15,23 @@ name: Regenerate /fixtures outlook bundle
 # season pointer, and never bumps current_season.
 
 on:
+  # Weekly, Mondays 07:00 UTC -- after the gameweek closes, and after the two
+  # store refreshes are scheduled for (owned 06:00, tactical 06:30) so this
+  # reads what they published rather than racing them.
+  #
+  # A schedule is the whole point. The tool built to close the "somebody has to
+  # remember" hole cannot itself be triggered by somebody remembering. That is
+  # the third instance of this pattern here: the tactical cron re-ingesting a
+  # FINISHED season every Monday for two months, this bundle sitting six weeks
+  # stale, and the manual-only trigger that replaced it.
+  schedule:
+    - cron: "0 7 * * 1"
   workflow_dispatch:
     inputs:
       season:
-        description: "Season key to regenerate (e.g. 2026-2027)"
-        required: true
-        default: "2026-2027"
+        description: "Season key; blank = the registry's current_season"
+        required: false
+        default: ""
 
 jobs:
   regenerate:
@@ -45,6 +56,21 @@ jobs:
             boto3 \
             pyyaml
 
+      # The cron supplies no input, so resolve the season from the registry --
+      # the single source of truth this repo already keeps. Reading it rather
+      # than hardcoding a key is what stops this workflow becoming the next
+      # thing that quietly targets last season.
+      - name: Resolve season
+        id: season
+        run: |
+          KEY="${{ github.event.inputs.season }}"
+          if [ -z "$KEY" ]; then
+            KEY=$(PYTHONPATH=packages/fpl-data-core python -c \
+              "from fpl_data_core.season_registry import CURRENT_SEASON; print(CURRENT_SEASON)")
+          fi
+          echo "Regenerating season: $KEY"
+          echo "key=$KEY" >> "$GITHUB_OUTPUT"
+
       - name: Sync owned store from R2 (download only)
         env:
           OWNED_STORE_R2_ENDPOINT: ${{ secrets.OWNED_STORE_R2_ENDPOINT }}
@@ -55,7 +81,30 @@ jobs:
           FPL_HISTORICAL_ROOT: ${{ github.workspace }}/_r2_scratch/owned
         run: |
           python packages/fpl-grounded-assistant/fpl_grounded_assistant/owned_store_sync.py \
-            sync --season "${{ github.event.inputs.season }}"
+            sync --season "${{ steps.season.outputs.key }}"
+
+      # How far the REAL league has got. The preflight compares the parquet
+      # against this, so "the source stopped advancing" is an alarm instead of
+      # a bundle that keeps cheerfully re-exporting the same three gameweeks.
+      #
+      # This matters more than it looks: owned-store-refresh.yml's cron is
+      # PAUSED (incident 2026-09-06) and nothing else writes that store, so the
+      # parquet only moves when a human dispatches it. Without this check a
+      # weekly regen would faithfully reproduce a frozen gameweeks_played
+      # forever and the thin-sample notice would never clear.
+      - name: Read the live gameweek
+        id: live
+        run: |
+          FINISHED=$(python -c "
+          import json, urllib.request
+          with urllib.request.urlopen(
+              'https://fantasy.premierleague.com/api/bootstrap-static/', timeout=30
+          ) as r:
+              events = json.load(r).get('events', [])
+          done = [e['id'] for e in events if e.get('finished')]
+          print(max(done) if done else 0)")
+          echo "Live FPL reports $FINISHED finished gameweek(s)"
+          echo "finished_gw=$FINISHED" >> "$GITHUB_OUTPUT"
 
       # Stop before building anything if the inputs cannot support the recipe.
       # compute_rolling_strength needs FINAL results (both scores + finished)
@@ -71,7 +120,9 @@ jobs:
         env:
           FPL_HISTORICAL_ROOT: ${{ github.workspace }}/_r2_scratch/owned
         run: |
-          python scripts/preflight_fixture_outlook.py --season "${{ github.event.inputs.season }}"
+          python scripts/preflight_fixture_outlook.py \
+            --season "${{ steps.season.outputs.key }}" \
+            --live-finished-gw "${{ steps.live.outputs.finished_gw }}"
 
       # --require-separated-axes is the output-side half of the guard: the
       # preflight judged the inputs, this judges the artifact. A run that
@@ -83,7 +134,7 @@ jobs:
           FPL_HISTORICAL_ROOT: ${{ github.workspace }}/_r2_scratch/owned
         run: |
           python packages/fpl-grounded-assistant/scripts/export_real_season_fixture_outlook.py \
-            --season "${{ github.event.inputs.season }}" \
+            --season "${{ steps.season.outputs.key }}" \
             --require-separated-axes
 
       - name: Show what changed
@@ -99,6 +150,68 @@ jobs:
       - name: Upload the regenerated bundle
         uses: actions/upload-artifact@v4
         with:
-          name: fixture-outlook-${{ github.event.inputs.season }}
+          name: fixture-outlook-${{ steps.season.outputs.key }}
           path: packages/fpl-ui/lib/data/fixture-outlook-*.json
           if-no-files-found: error
+
+      # Failure convention copied from publish-stats.yml deliberately rather
+      # than invented: a scheduled job that fails silently is exactly what let
+      # the owned-store incident run for two months.
+      - name: Open/update alert issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = "⚠️ /fixtures outlook regeneration failing";
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: "open", per_page: 100,
+            });
+            const existing = open.find((i) => i.title === title && !i.pull_request);
+            const body = [
+              "The weekly /fixtures bundle regeneration failed.",
+              "",
+              `Failed run: ${runUrl}`,
+              "",
+              "Likely causes, in the order worth checking:",
+              "- **The owned store stopped advancing.** `owned-store-refresh.yml`'s cron is paused, so the parquet only moves when someone dispatches it. The preflight fails when the parquet lags the live league, and this is the expected first failure.",
+              "- The R2 sync could not authenticate, or the season key has no copy in R2.",
+              "- The bundle came out with its two axes collapsed (`--require-separated-axes`).",
+              "",
+              "While this is failing the /fixtures board keeps serving the last good bundle: the schedule is what keeps its FORM fresh, not what keeps its table full. This issue auto-closes on the next successful run.",
+            ].join("\n");
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: existing.number, body: `Still failing. ${runUrl}`,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo, title, body,
+              });
+            }
+
+      - name: Close alert issue on success
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = "⚠️ /fixtures outlook regeneration failing";
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: "open", per_page: 100,
+            });
+            const existing = open.find((i) => i.title === title && !i.pull_request);
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: existing.number,
+                body: `Recovered: ${runUrl}`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: existing.number, state: "closed",
+              });
+            }

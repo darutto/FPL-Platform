@@ -21,7 +21,11 @@
  * footnote in the small print, which is why the notice is now in the card.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { buildRealSeasonOutlook, REAL_SEASON_GENERATION } from '@/lib/fixture-outlook-real';
+import {
+  buildRealSeasonOutlook,
+  REAL_SEASON_GENERATION,
+  REAL_SEASON_HORIZONS,
+} from '@/lib/fixture-outlook-real';
 import {
   fixtureOutlookProvenance,
   type FixtureOutlookProvenance,
@@ -43,8 +47,7 @@ import { FingerprintWaves } from './CardOrnaments';
 import { CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
 import type { FixtureAxis } from '@/lib/types';
 
-const HORIZONS = [5, 8, 10] as const;
-const MAX_EXPORTED_HORIZON = 10;
+const HORIZONS = REAL_SEASON_HORIZONS;
 const DAY_MS = 86_400_000;
 type ViewMode = 'detailed' | 'compact' | 'tendency';
 
@@ -72,12 +75,9 @@ export function FixturesBoard({
   const [presentationMode, setPresentationMode] = useState(false);
   const presentationRef = useRef<HTMLDivElement>(null);
 
-  // Use the largest exported schedule as the navigation source, then apply
-  // the selected 5/8/10-column window below.
-  const sourceData = useMemo(
-    () => buildRealSeasonOutlook(axis, MAX_EXPORTED_HORIZON),
-    [axis],
-  );
+  // The full season is the navigation source; the selector below is a window
+  // width over it, never a request for a differently-sized export.
+  const sourceData = useMemo(() => buildRealSeasonOutlook(axis), [axis]);
   const gameweeks = useMemo(() => fixtureGameweeks(sourceData), [sourceData]);
   const fallbackGameweek = gameweeks[0] ?? 1;
   const baseGameweek = clampFixtureWindowStart(
