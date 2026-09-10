@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-09",
+  "updated": "2026-09-10",
   "cards": [
     {
       "id": "s1",
@@ -1175,6 +1175,17 @@
         "Datos",
         "Infra"
       ]
+    },
+    {
+      "id": "s29",
+      "col": "shipped",
+      "title": "Corrección del switcher de ejes en /fixtures",
+      "desc": "Fusionada (PR #237, 10/09). El switcher Ataque/Portería a cero de /fixtures no cambiaba nada porque el bundle exportado en el lanzamiento reutilizaba el mismo objeto para los dos ejes; se regeneró desde el parquet 2026-2027 con la herramienta de #235, se añadió una guarda que distingue kickoff legítimo de bundle desactualizado, y un sello de procedencia en la tarjeta.",
+      "tags": [
+        "UI",
+        "Datos"
+      ],
+      "progress": 100
     }
   ]
 }
