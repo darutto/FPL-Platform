@@ -32,7 +32,10 @@ describe('buildRealSeasonOutlook', () => {
   test('every team starts at gameweek 1 with real opponent codes', () => {
     const meta = buildRealSeasonOutlook('attack');
     for (const t of meta.teams) {
-      expect(t.series).toHaveLength(8);
+      // Length comes from the bundle's own declared coverage, not a literal.
+      // It used to be 8 because the board read the 8-gameweek bucket; pinning
+      // a number here is how a shrinking series goes unnoticed.
+      expect(t.series.length).toBe(REAL_SEASON_GENERATION!.gameweek_columns);
       expect(t.series[0].gameweek).toBe(1);
       for (const gw of t.series) {
         expect(gw.band).toBeGreaterThanOrEqual(1);
