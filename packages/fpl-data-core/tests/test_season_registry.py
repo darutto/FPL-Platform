@@ -137,7 +137,7 @@ class TestCurrentSeasonSingleSource:
     def test_current_season_loads_on_import(self):
         """CURRENT_SEASON is populated from the YAML's current_season key."""
         from fpl_data_core.season_registry import CURRENT_SEASON
-        assert CURRENT_SEASON == "2025-2026"
+        assert CURRENT_SEASON == "2026-2027"
 
     def test_current_season_is_a_registered_season(self):
         """CURRENT_SEASON always names a season present in SEASON_REGISTRY."""

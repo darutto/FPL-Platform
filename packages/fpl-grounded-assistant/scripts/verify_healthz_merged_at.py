@@ -5,8 +5,19 @@ Usage:
     python verify_healthz_merged_at.py \
         --url https://fpl-backend-production-4151.up.railway.app/healthz \
         --expected-merged-at 2026-06-01T00-40-44Z \
+        --expected-season 2026-2027 \
         --timeout 900 \
         --interval 30
+
+With --expected-season given, a match additionally requires
+owned_store_sync.season == expected_season, and tactical_store_sync.season
+== expected_season whenever the tactical_store_sync key is present (that
+key is absent entirely when the tactical sync flag is off; its absence is
+not itself a failure). Without --expected-season, only merged_at is checked
+-- unchanged behavior for existing callers (i73 Entrega 2: this is the
+central invariant the manual "Verify /healthz" workflow step was missing --
+it used to confirm a timestamp moved, never that production was serving the
+correct season for either store).
 
 Exit codes:
     0 — matched within the timeout window.
@@ -38,6 +49,15 @@ def _parse_args() -> argparse.Namespace:
         help="The merged_at value to wait for (e.g. 2026-06-01T00-40-44Z).",
     )
     parser.add_argument(
+        "--expected-season",
+        default=None,
+        help=(
+            "If given, also require owned_store_sync.season (and "
+            "tactical_store_sync.season, when that key is present) to equal "
+            "this value before declaring a match."
+        ),
+    )
+    parser.add_argument(
         "--timeout",
         type=int,
         default=900,
@@ -57,11 +77,12 @@ def main() -> None:
 
     url = args.url
     expected = args.expected_merged_at
+    expected_season = args.expected_season
     timeout = args.timeout
     interval = args.interval
 
     print(
-        f"[verify] url={url} expected={expected} "
+        f"[verify] url={url} expected={expected} expected_season={expected_season} "
         f"timeout={timeout}s interval={interval}s",
         flush=True,
     )
@@ -152,17 +173,39 @@ def main() -> None:
                     # Key present — reset missing counter.
                     consecutive_missing_key = 0
                     last_seen = sync_block.get("merged_at")
+                    owned_season = sync_block.get("season")
 
-                    if last_seen == expected:
+                    merged_at_matches = last_seen == expected
+
+                    season_matches = True
+                    season_detail = ""
+                    if expected_season is not None:
+                        if owned_season != expected_season:
+                            season_matches = False
+                        tactical_block = body.get("tactical_store_sync")
+                        if tactical_block is not None:
+                            tactical_season = tactical_block.get("season")
+                            if tactical_season != expected_season:
+                                season_matches = False
+                            season_detail = (
+                                f" owned_season={owned_season!r} "
+                                f"tactical_season={tactical_season!r}"
+                            )
+                        else:
+                            season_detail = f" owned_season={owned_season!r}"
+
+                    if merged_at_matches and season_matches:
                         print(
-                            f"[verify] matched merged_at={last_seen} after {elapsed:.0f}s",
+                            f"[verify] matched merged_at={last_seen}"
+                            f"{season_detail} after {elapsed:.0f}s",
                             flush=True,
                         )
                         sys.exit(0)
                     else:
                         print(
                             f"[verify t={elapsed:.0f}s] merged_at={last_seen!r} "
-                            f"expected={expected!r}, waiting…",
+                            f"expected={expected!r}{season_detail} "
+                            f"expected_season={expected_season!r}, waiting…",
                             flush=True,
                         )
 

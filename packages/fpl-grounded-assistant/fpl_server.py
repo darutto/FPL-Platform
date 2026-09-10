@@ -1613,6 +1613,7 @@ def healthz() -> dict[str, Any]:
         else:
             owned_store_sync_info = {
                 "ok":              _sync.ok,
+                "season":          _sync.season,
                 "files_synced":    _sync.files_synced,
                 "merged_at":       _sync.merged_at,
                 "staleness_hours": _sync.staleness_hours,

@@ -124,11 +124,15 @@ jobs:
       # authoritative source of truth for whether the snapshot landed. The
       # overall workflow still exits non-zero if any earlier required step
       # failed; this step's result is informational on the redeploy-failure path.
+      # --expected-season makes this the season-rollover invariant: without it,
+      # a match only proved a timestamp moved, never that production is
+      # actually serving $SEASON for either store (i73 Entrega 2).
       - name: Verify /healthz reports updated merged_at
         if: always() && env.IS_CURRENT_SEASON == 'true'
         run: |
           python packages/fpl-grounded-assistant/scripts/verify_healthz_merged_at.py \
             --url "${{ secrets.RAILWAY_HEALTHZ_URL }}" \
             --expected-merged-at "${{ steps.extract.outputs.merged_at }}" \
+            --expected-season "$SEASON" \
             --timeout 900 \
             --interval 30
