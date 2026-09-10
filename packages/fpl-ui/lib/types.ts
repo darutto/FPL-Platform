@@ -666,6 +666,33 @@ export interface TeamOutlook {
   runs: FixtureOutlookRun[];
 }
 
+/**
+ * How a shipped /fixtures bundle was produced. Written by
+ * export_real_season_fixture_outlook.py; the board stamps itself from it.
+ *
+ * `axes_separated` and `axis_separation_by_horizon` are MEASURED from the
+ * rendered buckets, not asserted from whichever code path ran — the whole
+ * reason this block exists is that a bundle with both axes collapsed onto one
+ * signal is otherwise indistinguishable from a healthy one.
+ */
+export interface FixtureOutlookGeneration {
+  /** ISO-8601 UTC, e.g. '2026-09-08T22:14:03Z'. */
+  generated_at: string;
+  /** Season key, e.g. '2026-2027'. */
+  season: string;
+  /** Display form, e.g. '2026-27'. */
+  season_label: string;
+  /** 'recipe' | 'season_start' | 'rolling' */
+  source: string;
+  /** Gameweeks with final results behind the bands. 0 at season start. */
+  gameweeks_played: number;
+  /** False means the axis switcher is re-rendering identical data. */
+  axes_separated: boolean;
+  /** Per horizon ('5'|'8'|'10'): teams whose avg_band differs between axes. */
+  axis_separation_by_horizon: Record<string, number>;
+  teams: number;
+}
+
 /** fixture_outlook field — non-null when intent=fixture_outlook AND outcome=ok */
 export interface FixtureOutlookMeta {
   axis: FixtureAxis;
