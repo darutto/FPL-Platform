@@ -22,8 +22,11 @@ function generation(overrides: Partial<FixtureOutlookGeneration> = {}): FixtureO
     source: 'recipe',
     gameweeks_played: 12,
     axes_separated: true,
-    axis_separation_by_horizon: { '5': 11, '8': 14, '10': 15 },
+    axis_separation_by_horizon: { '38': 15 },
     teams: 20,
+    source_horizon: 38,
+    covers_gameweeks: [1, 38],
+    gameweek_columns: 38,
     ...overrides,
   };
 }
