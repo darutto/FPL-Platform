@@ -1186,6 +1186,50 @@
         "Datos"
       ],
       "progress": 100
+    },
+    {
+      "id": "i78",
+      "col": "idea",
+      "progress": 0,
+      "title": "El boton de fixture del calendario falla en su primer intento",
+      "desc": "MEDIDO 2026-09-08 en produccion (app.benditofantasy.com), recuperado del audit log via railway ssh tras perder la captura de Network: dar click en la celda GW4 del Newcastle (vista ataque) dispara fixtureCellQuestion() -- packages/fpl-ui/lib/fixture-chat-links.ts:24-32, el deep-link que el propio producto arma para que \"las engines duenas respondan en el chat\" (Track D / FI7). Ese texto fijo, en su primer turno, resuelve en get_fixtures_for_gw(gw_number=4) y devuelve el volcado de las 10 fixtures de la GW4 -- ninguna linea sobre el Newcastle en particular.\n\nLA MISMA PREGUNTA LITERAL, repetida 3 veces en 4 minutos, dio 2 comportamientos: turno 1 -> get_fixtures_for_gw (volcado); turnos 2 y 3 -> get_fixture_outlook(axis=attack, horizon=1) -> \"Calendario sin rachas claras en el horizonte. J4: LEE (fuera), dificultad 3/5\" -- 79 caracteres, outcome:ok, 52.817 tokens gastados. Con horizon=1 la frase sobre \"rachas\" es vacua por construccion: una racha necesita varios partidos.\n\nPOR QUE IMPORTA MAS QUE UN CASO SUELTO DE ROUTING: no es texto libre ambiguo, es la pregunta canonica que el boton genera siempre igual. Es el caso mas barato del catalogo de atractores de i38/measure/tool-routing-confusion (que ya midio get_gameweek_context como atractor general) -- aqui aparece un atractor nuevo, get_fixtures_for_gw, con una pregunta fija y reproducible con un solo click, sin depender de que nadie la escriba \"bien\".\n\nLA MISMA SESION, por texto libre de seguimiento (no por el boton), SI llego al tipo de analisis correcto: localia + fuerza relativa + jugadores con forma/xG + veredicto (ver field-notes/2026-09-08-newcastle-leeds-prod-session.md, hallazgos 4 y el anexo). El usuario confirma que ese es el analisis que el boton deberia dar por default -- la ambicion de producto ya existe en fixtureCellQuestion(), lo que falla es a que tool enruta esa pregunta especifica.\n\nEvidencia completa, audit log NDJSON y texto integro de los 5 turnos en field-notes/2026-09-08-newcastle-leeds-prod-session.md (hallazgos 1-3).",
+      "tags": [
+        "FPL Asistente",
+        "Backend"
+      ]
+    },
+    {
+      "id": "i79",
+      "col": "idea",
+      "progress": 0,
+      "title": "Seguir conversacion pierde la identidad del usuario -- cae en el bucket anonimo compartido",
+      "desc": "MEDIDO 2026-09-08 en produccion via audit log: 4 turnos de la sesion llegan como user_id:7339d562062e2f65, tier:patreon_premium; el 5o turno, mismo usuario y misma sesion, llega como user_id:\"anonymous\", tier:\"free\". Es el unico turno que paso por /session/{id}/ask (boton \"Seguir conversacion ->\"). El \"anonymous\" sale sin hashear porque hash_user_id() lo devuelve tal cual cuando el header no llego -- eso prueba ausencia de header, no header vacio.\n\nCAUSA LOCALIZADA: packages/fpl-ui/app/api/session/[id]/ask/route.ts:38 manda solo {'Content-Type': 'application/json'} al backend. El proxy hermano, app/api/proxy/route.ts:39, si lee x-user-id/x-user-tier y los reenvia. El middleware los inyecta bien para AMBAS rutas (middleware.ts:38) -- se pierden en el reenvio de session/[id]/ask, no en la inyeccion.\n\nCONSECUENCIA, verificable en el mismo registro: el propio comentario del middleware dice que el sign-in existe \"so each free user gets their own per-user quota bucket rather than sharing one anonymous bucket\" -- y cada turno de continuacion cae exactamente en ese bucket compartido. El tier premium tampoco aplica en esos turnos (llegan como free), y el audit no puede atribuir el turno a nadie.\n\nFIX: copiar el bloque de reenvio de headers de proxy/route.ts a session/[id]/ask/route.ts. Revisar de paso las otras rutas bajo app/api/session/ por el mismo olvido -- no se audito si comparten el defecto.\n\nEfecto de facturacion, no cosmetico: cada continuacion de chat de un usuario premium puede estar consumiendo cuota anonima compartida en vez de la suya. Detalle completo en field-notes/2026-09-08-newcastle-leeds-prod-session.md, hallazgo 5.",
+      "tags": [
+        "Web",
+        "Backend"
+      ]
+    },
+    {
+      "id": "i80",
+      "col": "idea",
+      "progress": 0,
+      "title": "Tres campos del audit mienten por construccion (retry_attempted, tokens, tool_calls de sesion)",
+      "desc": "MEDIDO 2026-09-08 sobre el audit log NDJSON en vivo de produccion: tres campos del instrumento de auditoria son constantes hardcodeadas, no observaciones.\n\nretry_attempted=False literal en fpl_server.py:2062 (unica construccion de la entrada de /ask), desmentido por el propio registro: 3 de 4 turnos traen retry_input>0 (10304, 10299, 10294 tokens) junto a retry_attempted:false. El campo solo \"acierta\" cuando por casualidad el reintento no ocurrio.\n\ntokens={} y tool_calls=[] literales en el make_audit_entry de /session/{id}/ask (fpl_server.py:2277-2286) -- independientemente de lo que paso en el turno. Efecto medido: un turno de sesion que genero 1.729 caracteres con el LLM quedo registrado con usd_cost_estimate:0.0 (la cuota real SI se contabilizo aparte via entry.session.last_tokens -- esto es ceguera del audit, no fuga de cuota, esa es i79). Y tool_calls:[] en esa misma rama NO prueba que no se llamaron tools -- es el default del parametro cuando nadie lo pasa, y por eso no sirve para acusar de alucinacion a una respuesta con datos especificos que si vinieron de alguna fuente.\n\nPATRON: mismo mecanismo que 2026-08-13 (tres instrumentos fallando en silencio) -- el factor comun es que el defecto no se ve solo, hace falta una segunda senal en el mismo registro para desmentirlo.\n\nFIX, los tres cableados y ya identificados en el codigo: pasar el reintento real, pasar entry.session.last_tokens, y pasar la lista real de tool_calls en la rama de sesion. Sin esto, el audit de sesion no sirve para analizar routing ni costo. Detalle en field-notes/2026-09-08-newcastle-leeds-prod-session.md, hallazgos 4, 6 y 7.",
+      "tags": [
+        "Backend",
+        "Infra"
+      ]
+    },
+    {
+      "id": "i81",
+      "col": "idea",
+      "progress": 0,
+      "title": "MarkdownLite no soporta headers ni listas numeradas -- '###' y '1.' quedan literales en el chat",
+      "desc": "CONFIRMADO POR CODIGO, no solo por screenshot: packages/fpl-ui/components/MarkdownLite.tsx (el renderer compartido por la burbuja de chat, multi-intent y las tarjetas de busqueda web) solo reconoce parrafo, vineta (regex ^[*-]\\s+) y **bold** inline. No hay regla para #/##/### ni para listas numeradas (^\\d+\\.\\s+); cualquier linea que empiece asi cae al branch de parrafo y se imprime tal cual.\n\nEVIDENCIA EN VIVO, sesion Newcastle-Leeds del 2026-09-08: respuestas del LLM con '### Leeds en defensa -- GW4 vs Newcastle', '### Veredicto FPL' y listas como '1. **Bogle** -- £4.5m' aparecen en pantalla con los caracteres '###' y '1.' literales, sin jerarquia visual, mientras negrita y vinetas si se ven bien.\n\nFIX, extension local del mismo parser, sin libreria nueva: agregar ^(#{1,6})\\s+(.*)$ -> encabezado con tamano relativo, y ^\\d+\\.\\s+(.*)$ -> mismo tratamiento que la lista de vinetas pero con numeracion preservada.\n\nNOTA DE PRODUCTO: el defecto es de presentacion, no de sustancia -- el contenido de fondo de esas mismas respuestas (localia, fuerza relativa, jugadores con forma/xG, veredicto) le parecio bien al usuario, sin haber verificado los numeros especificos uno por uno. Detalle en field-notes/2026-09-08-newcastle-leeds-prod-session.md, hallazgo 9.",
+      "tags": [
+        "UI",
+        "Web"
+      ]
     }
   ]
 }
