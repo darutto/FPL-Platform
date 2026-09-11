@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-10",
+  "updated": "2026-09-11",
   "cards": [
     {
       "id": "s1",
@@ -1229,6 +1229,18 @@
       "tags": [
         "UI",
         "Web"
+      ]
+    },
+    {
+      "id": "i82",
+      "col": "idea",
+      "progress": 0,
+      "title": "Dos herramientas existen, funcionan y el chat no puede llegar a ellas",
+      "desc": "get_player_season_points y get_historical_gameweek_top_scorer estan construidas, probadas, y registradas en TOOL_REGISTRY -- el dispatcher puede ejecutarlas. Pero NO estan en _ALL_SCHEMAS de tool_schema_registry.py, que es de donde el orquestador saca get_offered_tool_schemas: la lista que le ofrece al modelo. Hay dos capas de registro y solo una las conoce. Resultado: el LLM nunca puede elegirlas via /ask. Verificado con grep: cero menciones en el catalogo, 41 herramientas que si estan.\n\nPOR QUE DUELE MAS DE LO QUE PARECE. Son exactamente las dos herramientas que el incidente del owned store (i70) contamino durante seis semanas. Se restauro el store (#220), se construyo la guarda (#221/#223), se roto la temporada (#241), se arreglo el off-by-one de 'la temporada pasada' -- y ninguna de esas correcciones es alcanzable desde el chat, porque el camino que las usaria no existe. Toda esa linea de trabajo mejoro algo que hoy solo puede invocarse a mano.\n\nLO DESTAPO LA PUERTA DE PRODUCCION de la Entrega 2 de i73: el plan pedia verificar las tres herramientas via /ask en prod, y solo get_zonal_weakness respondio -- las otras dos no fueron seleccionables. El constructor lo reporto en vez de darlo por verificado a nivel de codigo, que es lo que el criterio exigia. Sin esa puerta, el hueco seguiria invisible.\n\nANTES DE CABLEARLAS, tres cosas que decidir y que no son del constructor:\n  1. Si la ausencia fue deliberada. tool_schema_registry.py se describe como catalogo de las herramientas 'exposed by the dispatcher', y hay al menos una (search_web) que esta pero es opt-in y con gate premium. Puede que estas dos se dejaran fuera a proposito en Orch-2a por ser historicas y no de temporada viva. Buscar la decision en el historial de PRs antes de asumir olvido.\n  2. Si cablearlas cambia el routing. La matriz de confusion medida (branch measure/tool-routing-confusion) mostro que get_gameweek_context atrae preguntas de jornada en general. Anadir dos herramientas de 'temporada pasada' y 'jornada X' es meter dos atractores nuevos en el mismo espacio semantico. Hay que re-medir la confusion despues, no solo comprobar que responden.\n  3. Que dicen sus descripciones. La de get_historical_gameweek_top_scorer habla de 'current/most recently completed' y ahora que la clave es 2026-2027 esa semantica cambio: 'last season' ya no es 2025-2026 para ese tool. Revisar el texto que vera el modelo antes de exponerlo, porque una descripcion desfasada es la forma mas barata de producir una respuesta segura y equivocada.\n\nCRITERIO DE CIERRE, no negociable: las dos herramientas seleccionables via /ask en produccion, verificado con la misma puerta que las destapo -- llamada real, respuesta con datos de la temporada correcta, y el trace mostrando que el orquestador las eligio. Un test unitario de que estan en el catalogo no cierra esta carta.",
+      "tags": [
+        "Backend",
+        "IA",
+        "FPL Asistente"
       ]
     }
   ]
