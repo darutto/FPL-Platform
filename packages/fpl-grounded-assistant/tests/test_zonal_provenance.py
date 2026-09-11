@@ -340,8 +340,34 @@ def test_thin_current_season_store_is_flagged_not_silently_trusted(
     assert prov["status"] == "thin"
     assert prov["n_matches"] == 30
     assert prov["n_matches"] < MIN_TRUSTWORTHY_MATCHES
-    assert "30" in prov["label"]
+    # The label speaks gameweeks, not the store's raw (league-wide) match
+    # count -- "30 partidos" reads as this team's own match count, which is
+    # wrong; 30 matches / 10 per full round = 3 jornadas, what's actually true.
+    assert "3 jornadas" in prov["label"]
+    assert "30" not in prov["label"]
     assert out["status"] == "ok"
+
+
+def test_thin_label_uses_singular_jornada_under_one_full_gameweek(
+    tmp_path, monkeypatch
+):
+    """Fewer than 10 matches (one full round) -> singular "1 jornada", never
+    "0 jornadas" -- a store with any data at all is at least one gameweek's
+    worth from the reader's point of view, even if the round isn't complete."""
+    _make_store(
+        tmp_path, monkeypatch,
+        _pointer(CURRENT_SEASON, n_matches=7, n_shots=150),
+    )
+
+    out = run_tool(
+        "get_zonal_weakness", {"team": "Crystal Palace"},
+        _bootstrap_for(CURRENT_SEASON),
+    )
+
+    prov = out["data_provenance"]
+    assert prov["status"] == "thin"
+    assert "1 jornada" in prov["label"]
+    assert "jornadas" not in prov["label"]
 
 
 def test_unverifiable_live_season_is_its_own_state():

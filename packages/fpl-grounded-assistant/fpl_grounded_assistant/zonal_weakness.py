@@ -238,6 +238,12 @@ def _non_penalty(shots: pd.DataFrame) -> pd.DataFrame:
 #: a 20-team league; a full season is 380.
 MIN_TRUSTWORTHY_MATCHES: int = 100
 
+#: A full round of a 20-team league. Used only to translate the store's raw
+#: (league-wide) match count into gameweeks for the "thin" label -- "sólo 30
+#: partidos" reads as "this team has only played 30 matches," which is
+#: wrong and alarming; "sólo 3 jornadas" says what's actually true.
+MATCHES_PER_FULL_GAMEWEEK: int = 10
+
 
 def _season_label(season: str) -> str:
     """``"2025-2026"`` -> ``"2025-26"`` for display; unknown shapes pass through."""
@@ -329,9 +335,11 @@ def build_data_provenance(
     elif prov["n_matches"] is not None and prov["n_matches"] < MIN_TRUSTWORTHY_MATCHES:
         prov["status"] = "thin"
         prov["is_current"] = True
+        n_gameweeks = max(1, prov["n_matches"] // MATCHES_PER_FULL_GAMEWEEK)
+        jornada_word = "jornada" if n_gameweeks == 1 else "jornadas"
         prov["label"] = (
-            f"⚠ Datos de {prov['season_label']}, sólo {prov['n_matches']} "
-            f"partidos — muestra corta para una lectura de liga"
+            f"⚠ Datos de {prov['season_label']}, sólo {n_gameweeks} "
+            f"{jornada_word} de liga — muestra corta para una lectura de liga"
         )
     else:
         prov["status"] = "current"
