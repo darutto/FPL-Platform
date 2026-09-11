@@ -28,6 +28,7 @@ engine failure) degrades to ``missing_context``.
 from __future__ import annotations
 
 import os
+import re
 import sys
 from typing import Any
 
@@ -42,7 +43,11 @@ from .zonal_weakness import (
 # Reuse the proven team-name resolver (name / short_name / alias) and the
 # current-GW helper (fixtures come from bootstrap["team_fixtures"]).
 from .player_matching import resolve_fpl_player
-from .team_fixture_calendar import _get_current_gameweek, _resolve_team
+from .team_fixture_calendar import (
+    _TEAM_RESOLVE_ALIASES,
+    _get_current_gameweek,
+    _resolve_team,
+)
 
 # ---------------------------------------------------------------------------
 # i74 — the season the stamp is checked AGAINST comes from the live bootstrap,
@@ -178,6 +183,85 @@ def _to_store_team(team_query: str, bootstrap: dict[str, Any]) -> str:
     return team_query
 
 
+# ---------------------------------------------------------------------------
+# i86 — deterministic subject-team inference for get_zonal_opportunity.
+#
+# The `team` parameter (i85) is correct when passed, but the orchestrator
+# is not reliable about passing it: measured live 2026-09-11, "¿Qué
+# jugadores de liverpool pueden explotar las zonas débiles del Fulham?"
+# was still dispatched as {opponent: Fulham} with no `team`, even with the
+# schema description spelling out exactly that case. A team the user
+# literally named is a fact, not a modelling choice, so the handler reads
+# the original question (exposed by ask_orchestrated() under the key
+# below) and backfills `team` when the question unambiguously names ONE
+# team other than the opponent. Anything less than unambiguous -- no other
+# team, two other teams, an opponent that didn't resolve -- leaves the
+# model's arguments untouched: this must never invent a filter.
+# ---------------------------------------------------------------------------
+
+#: Must equal orchestrator.QUESTION_CONTEXT_KEY (pinned by a test; spelled
+#: here to avoid importing the orchestrator from a tool module).
+_QUESTION_KEY: str = "_question"
+
+
+def _mentioned_teams(question: str, bootstrap: dict[str, Any]) -> list[dict[str, Any]]:
+    """Bootstrap teams named anywhere in *question*, deduped by short_name.
+
+    Matches, all as whole words/phrases:
+    - a team's bootstrap ``name`` (case-insensitive);
+    - an alias from ``_TEAM_RESOLVE_ALIASES`` (case-insensitive), resolved
+      through the same resolver every team tool uses;
+    - a ``short_name`` code, UPPERCASE ONLY in the original text ("LIV"),
+      because lowercase three-letter codes collide with ordinary words
+      ("sun", "new", "lee", "eve", "che").
+    """
+    teams = (bootstrap or {}).get("teams", []) or []
+    q_lower = question.lower()
+    found: dict[str, dict[str, Any]] = {}
+
+    def _phrase_in(phrase: str, text: str) -> bool:
+        return re.search(rf"(?<!\w){re.escape(phrase)}(?!\w)", text) is not None
+
+    for t in teams:
+        short = str(t.get("short_name", "") or "")
+        name = str(t.get("name", "") or "").lower()
+        if name and _phrase_in(name, q_lower):
+            found[short] = t
+        elif short and re.search(rf"(?<!\w){re.escape(short)}(?!\w)", question):
+            found[short] = t
+    for alias, code in _TEAM_RESOLVE_ALIASES.items():
+        if _phrase_in(alias, q_lower):
+            t = _resolve_team(code, bootstrap or {})
+            if t is not None:
+                found.setdefault(str(t.get("short_name", "") or ""), t)
+    return list(found.values())
+
+
+def infer_subject_team(
+    question: str, opponent_query: str, bootstrap: dict[str, Any]
+) -> str | None:
+    """The one team, other than *opponent_query*, that *question* names.
+
+    Returns that team's ``short_name``, or ``None`` when the question names
+    no other team, more than one, or when the opponent itself doesn't
+    resolve (then every mention could be the opponent under another name,
+    and guessing would filter to the wrong side).
+    """
+    if not question:
+        return None
+    opponent = _resolve_team(opponent_query, bootstrap or {})
+    if opponent is None:
+        return None
+    opp_short = str(opponent.get("short_name", "") or "")
+    others = [
+        t for t in _mentioned_teams(question, bootstrap)
+        if str(t.get("short_name", "") or "") != opp_short
+    ]
+    if len(others) != 1:
+        return None
+    return str(others[0].get("short_name", "") or "") or None
+
+
 def _get_zonal_weakness_handler(
     args:      dict[str, Any],
     bootstrap: dict[str, Any],
@@ -211,6 +295,18 @@ def _get_zonal_opportunity_handler(
     if not opponent_query:
         return {"status": "not_found", "opponent": "", "message": "No opponent given."}
     team_query = str(args.get("team", "") or "").strip()
+    team_source = "explicit" if team_query else None
+    if not team_query:
+        # i86: the model omitted `team`; if the user's own question names
+        # exactly one other team, that is the filter they asked for.
+        inferred = infer_subject_team(
+            str((bootstrap or {}).get(_QUESTION_KEY, "") or ""),
+            opponent_query,
+            bootstrap,
+        )
+        if inferred:
+            team_query = inferred
+            team_source = "inferred"
     try:
         result = get_zonal_opportunity(
             _to_store_team(opponent_query, bootstrap),
@@ -234,11 +330,15 @@ def _get_zonal_opportunity_handler(
         if result.get("exploiters"):
             result["exploiters"] = _enrich_exploiters(result["exploiters"], bootstrap)
         tf = result.get("team_filter")
-        if tf is not None and tf["matched"] is None:
-            result["message"] = (
-                f"'{team_query}' did not match any team in the tactical store — "
-                f"exploiters/opportunities are empty, not unfiltered."
-            )
+        if tf is not None:
+            # Provenance of the filter: did the model pass it, or did the
+            # handler recover it from the question the model was given?
+            tf["source"] = team_source
+            if tf["matched"] is None:
+                result["message"] = (
+                    f"'{team_query}' did not match any team in the tactical store — "
+                    f"exploiters/opportunities are empty, not unfiltered."
+                )
     return result
 
 
@@ -317,7 +417,7 @@ GET_ZONAL_OPPORTUNITY_SPEC = ToolSpec(
             "opportunities":   {"type": "array"},
             "zones":           {"type": "array"},   # T4b: 3 in-box lateral cells
             "exploiters":      {"type": "array"},   # T4b: ranked zone-fit table
-            "team_filter":     {"type": "object"},  # i85: {requested, matched}, present only when `team` was given
+            "team_filter":     {"type": "object"},  # i85/i86: {requested, matched, source}; present when `team` was given or inferred from the question
             "weakness_label":  {"type": "string"},  # T4b
             "verdict":         {"type": "string"},  # T4b
             "penalty_context": {"type": "object"},  # T4b

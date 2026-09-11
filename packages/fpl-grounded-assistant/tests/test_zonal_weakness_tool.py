@@ -230,7 +230,9 @@ def test_run_tool_opportunity_team_filter_resolves_via_short_name(tactical_store
     # the handler resolves "BUR" -> "Burnley" via _to_store_team before the
     # engine ever sees it, so team_filter["requested"] echoes the resolved
     # store name, same as the engine received -- not the raw user input.
-    assert out["team_filter"] == {"requested": "Burnley", "matched": "Burnley"}
+    assert out["team_filter"] == {
+        "requested": "Burnley", "matched": "Burnley", "source": "explicit",
+    }
 
 
 def test_run_tool_opportunity_team_filter_unresolved_message(tactical_store):
@@ -248,6 +250,139 @@ def test_run_tool_opportunity_team_filter_unresolved_message(tactical_store):
 def test_run_tool_opportunity_no_team_key_when_omitted(tactical_store):
     out = run_tool("get_zonal_opportunity", {"opponent": "Crystal Palace"}, _bootstrap())
     assert "team_filter" not in out
+
+
+# ---------------------------------------------------------------------------
+# i86 — deterministic subject-team inference when the model omits `team`.
+# The i85 parameter is correct when passed; measured live 2026-09-11 the
+# orchestrator still dispatched "¿Qué jugadores de liverpool pueden explotar
+# las zonas débiles del Fulham?" as {opponent: Fulham} with no `team`. The
+# handler therefore reads the user's question (bootstrap["_question"], put
+# there by ask_orchestrated) and backfills `team` when exactly one other
+# team is named. It must never invent a filter from an ambiguous question.
+# ---------------------------------------------------------------------------
+
+from fpl_grounded_assistant.zonal_weakness_tool import (  # noqa: E402
+    _QUESTION_KEY,
+    _mentioned_teams,
+    infer_subject_team,
+)
+
+
+def test_question_key_matches_orchestrator_constant():
+    """The tool spells the key itself (no orchestrator import from a tool
+    module); this is what stops the two spellings drifting apart."""
+    from fpl_grounded_assistant.orchestrator import QUESTION_CONTEXT_KEY
+    assert _QUESTION_KEY == QUESTION_CONTEXT_KEY
+
+
+class TestMentionedTeams:
+    def test_bootstrap_names_match_as_whole_phrases_case_insensitive(self):
+        found = _mentioned_teams("jugadores de burnley contra el Crystal Palace", _bootstrap())
+        assert {t["short_name"] for t in found} == {"BUR", "CRY"}
+
+    def test_alias_resolves_through_shared_resolver(self):
+        # "villa" is an alias -> AVL; "palace" is an alias -> CRY
+        found = _mentioned_teams("que jugadores del villa explotan al palace", _bootstrap())
+        assert {t["short_name"] for t in found} == {"AVL", "CRY"}
+
+    def test_uppercase_short_code_matches(self):
+        found = _mentioned_teams("jugadores de BUR vs Crystal Palace", _bootstrap())
+        assert {t["short_name"] for t in found} == {"BUR", "CRY"}
+
+    def test_lowercase_short_code_does_not_match(self):
+        # "sun" is an ordinary word; SUN the code must only match in caps
+        found = _mentioned_teams("the sun was out at Crystal Palace", _bootstrap())
+        assert {t["short_name"] for t in found} == {"CRY"}
+
+    def test_partial_word_does_not_match(self):
+        # "Burnleyville" must not surface Burnley
+        found = _mentioned_teams("Burnleyville hosts Crystal Palace", _bootstrap())
+        assert {t["short_name"] for t in found} == {"CRY"}
+
+
+class TestInferSubjectTeam:
+    def test_one_other_team_is_the_subject(self):
+        q = "Que jugadores de burnley pueden explotar las zonas debiles del Crystal Palace?"
+        assert infer_subject_team(q, "Crystal Palace", _bootstrap()) == "BUR"
+
+    def test_only_opponent_named_infers_nothing(self):
+        q = "Que jugadores pueden explotar las zonas debiles del Crystal Palace?"
+        assert infer_subject_team(q, "Crystal Palace", _bootstrap()) is None
+
+    def test_two_other_teams_is_ambiguous_infers_nothing(self):
+        q = "jugadores de burnley o del sunderland contra el crystal palace"
+        assert infer_subject_team(q, "Crystal Palace", _bootstrap()) is None
+
+    def test_opponent_named_by_alias_is_still_excluded(self):
+        # the model passed "CRY"; the question says "palace" -- same team,
+        # must not be mistaken for a second, subject team
+        q = "jugadores de burnley contra el palace"
+        assert infer_subject_team(q, "CRY", _bootstrap()) == "BUR"
+
+    def test_unresolvable_opponent_infers_nothing(self):
+        # every mention could be the opponent under another name; don't guess
+        q = "jugadores de burnley contra el Nadie FC"
+        assert infer_subject_team(q, "Nadie FC", _bootstrap()) is None
+
+    def test_empty_question_infers_nothing(self):
+        assert infer_subject_team("", "Crystal Palace", _bootstrap()) is None
+
+
+def _bootstrap_with_question(question: str) -> dict:
+    bs = dict(_bootstrap())
+    bs[_QUESTION_KEY] = question
+    return bs
+
+
+def test_run_tool_opportunity_backfills_team_from_question(tactical_store):
+    """THE production repro: the model passes only `opponent`, the question
+    names one other team -> the handler filters to it anyway."""
+    out = run_tool(
+        "get_zonal_opportunity",
+        {"opponent": "Crystal Palace"},  # model forgot `team`
+        _bootstrap_with_question(
+            "Que jugadores de burnley pueden explotar las zonas debiles del Crystal Palace?"
+        ),
+    )
+    assert out["status"] == "ok"
+    assert [e["player"] for e in out["exploiters"]] == ["Right Poacher"]
+    assert out["team_filter"] == {
+        "requested": "Burnley", "matched": "Burnley", "source": "inferred",
+    }
+
+
+def test_run_tool_opportunity_explicit_team_beats_inference(tactical_store):
+    """When the model DID pass `team`, the question is not consulted -- an
+    explicit argument is never second-guessed by the heuristic."""
+    out = run_tool(
+        "get_zonal_opportunity",
+        {"opponent": "Crystal Palace", "team": "BUR"},
+        _bootstrap_with_question(
+            "jugadores del sunderland contra el crystal palace"  # names a DIFFERENT team
+        ),
+    )
+    assert out["team_filter"]["matched"] == "Burnley"
+    assert out["team_filter"]["source"] == "explicit"
+
+
+def test_run_tool_opportunity_no_inference_without_question_context(tactical_store):
+    """No `_question` in the bootstrap (deterministic routes, direct callers)
+    -> behaviour is exactly the pre-i86 unfiltered path."""
+    out = run_tool("get_zonal_opportunity", {"opponent": "Crystal Palace"}, _bootstrap())
+    assert "team_filter" not in out
+
+
+def test_run_tool_opportunity_ambiguous_question_stays_unfiltered(tactical_store):
+    out = run_tool(
+        "get_zonal_opportunity",
+        {"opponent": "Crystal Palace"},
+        _bootstrap_with_question(
+            "jugadores de burnley o del sunderland contra el crystal palace"
+        ),
+    )
+    assert out["status"] == "ok"
+    assert "team_filter" not in out  # never invent a filter from an ambiguous question
 
 
 # ---------------------------------------------------------------------------
@@ -412,3 +547,59 @@ class TestDefensiveZonesMeta:
 
         names = {f.name for f in dataclasses.fields(FinalResponse)}
         assert "zonal_opportunity" in names
+
+
+# ---------------------------------------------------------------------------
+# i86 end-to-end: through ask_orchestrated() with a mocked provider that
+# omits `team` -- the exact production shape. Proves the orchestrator really
+# exposes the question to the handler (not just that the handler would use
+# it if given), and that the caller's bootstrap is not mutated to do so.
+# ---------------------------------------------------------------------------
+
+class _ForgetfulClient:
+    """Anthropic-shaped client: first call requests get_zonal_opportunity
+    with ONLY `opponent` (as the live orchestrator did), then plain text."""
+
+    def __init__(self) -> None:
+        self.messages = self
+        self._calls = 0
+
+    def create(self, **kwargs):
+        self._calls += 1
+        if self._calls == 1:
+            block = type("_TB", (), {
+                "type": "tool_use", "id": "toolu_0",
+                "name": "get_zonal_opportunity",
+                "input": {"opponent": "Crystal Palace"},
+            })()
+            return type("_R", (), {"content": [block], "stop_reason": "tool_use"})()
+        txt = type("_T", (), {"type": "text", "text": "synth"})()
+        return type("_R", (), {"content": [txt], "stop_reason": "end_turn"})()
+
+
+def test_orchestrated_question_reaches_handler_and_backfills_team(
+    tactical_store, monkeypatch
+):
+    monkeypatch.setenv("FPL_ORCH_TEST_INJECTION", "1")
+    from fpl_grounded_assistant.orchestrator import ask_orchestrated
+
+    caller_bootstrap = _bootstrap()
+    before = dict(caller_bootstrap)
+
+    res = ask_orchestrated(
+        "Que jugadores de burnley pueden explotar las zonas debiles del Crystal Palace?",
+        caller_bootstrap,
+        client=_ForgetfulClient(),
+        _eval_client=None,
+    )
+
+    assert res.tool_chosen == "get_zonal_opportunity"
+    assert res.tool_args == {"opponent": "Crystal Palace"}   # model's args untouched
+    assert res.tool_output["status"] == "ok"
+    assert [e["player"] for e in res.tool_output["exploiters"]] == ["Right Poacher"]
+    assert res.tool_output["team_filter"] == {
+        "requested": "Burnley", "matched": "Burnley", "source": "inferred",
+    }
+    # the shared bootstrap the caller handed in is byte-for-byte unchanged
+    assert caller_bootstrap == before
+    assert "_question" not in caller_bootstrap
