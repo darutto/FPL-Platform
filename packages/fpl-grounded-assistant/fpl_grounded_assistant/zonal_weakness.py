@@ -605,6 +605,7 @@ def get_zonal_opportunity(
     opponent: str,
     *,
     position: str | None = None,
+    team: str | None = None,
     store: Any = None,
     live_season: str | None = None,
 ) -> dict[str, Any]:
@@ -614,6 +615,23 @@ def get_zonal_opportunity(
     of their own non-penalty xG comes from it (with ≥ ``MIN_PLAYER_SHOTS``
     shots). Players of *opponent* itself are excluded; the rest are ranked
     by their xG concentration in the zone, top ``TOP_PLAYERS_PER_ZONE``.
+
+    ``team``, when given, restricts every ranking to players whose store
+    team matches it (case-insensitive exact match against the store's own
+    team names — same convention as ``opponent``). Without it, rankings run
+    across the whole league. This exists because "which of TEAM's players
+    can exploit OPPONENT" is a different, legitimate question from "who
+    overall can exploit OPPONENT" — the unfiltered top-``TOP_EXPLOITERS``
+    list can easily contain zero players from a specific team even when
+    that team has a real (if not globally top-ranked) zonal fit; silently
+    reusing the unfiltered list for a team-scoped question misreads "not in
+    the global top 5" as "no such player exists," which is a materially
+    different and false claim (found 2026-09-11 asking about Liverpool
+    players against Fulham — none of Fulham's global top-5 exploiters play
+    for Liverpool, which said nothing about whether any Liverpool player
+    actually qualifies). ``team_filter`` in the response echoes what was
+    (or was not) matched, so a caller can tell "filtered, zero qualified"
+    apart from "filter didn't resolve."
 
     ``position`` is reserved: the Understat store carries no player
     positions, so filtering by position needs an FPL-bootstrap join (T4
@@ -641,6 +659,21 @@ def get_zonal_opportunity(
     matched = weakness["team"]
 
     shares = compute_player_zone_shares(shots)
+
+    team_filter_matched: str | None = None
+    if team:
+        # Match against every team that has shot for itself in the store
+        # (shooting_team) -- not just teams already surviving into `shares`,
+        # so a team with real data but no individual qualifying scorer
+        # still resolves (to zero exploiters), rather than being reported
+        # as an unresolved filter.
+        team_filter_matched = _match_team(team, sorted(shots["shooting_team"].unique()))
+        shares = (
+            {p: info for p, info in shares.items() if info["team"] == team_filter_matched}
+            if team_filter_matched is not None
+            else {}
+        )
+
     opportunities: list[dict[str, Any]] = []
     for zone_row in weakness["weakest_zones"]:
         if zone_row["delta_vs_avg"] <= 0:
@@ -713,7 +746,7 @@ def get_zonal_opportunity(
         for i, (player, (raw, zone, team_name)) in enumerate(ranked)
     ]
 
-    return {
+    result: dict[str, Any] = {
         "status": "ok",
         "opponent": matched,
         "opportunities": opportunities,
@@ -724,6 +757,13 @@ def get_zonal_opportunity(
         "penalty_context": weakness["penalty_context"],
         "data_provenance": provenance,
     }
+    if team:
+        # team_filter_matched is None when *team* didn't resolve against any
+        # team present in the store -- distinct from resolving fine but
+        # nobody on that team clearing the zone-fit threshold (exploiters
+        # would then just be empty with team_filter_matched set).
+        result["team_filter"] = {"requested": team, "matched": team_filter_matched}
+    return result
 
 
 # ---------------------------------------------------------------------------

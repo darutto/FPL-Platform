@@ -210,9 +210,11 @@ def _get_zonal_opportunity_handler(
     opponent_query = str(args.get("opponent", "") or "").strip()
     if not opponent_query:
         return {"status": "not_found", "opponent": "", "message": "No opponent given."}
+    team_query = str(args.get("team", "") or "").strip()
     try:
         result = get_zonal_opportunity(
             _to_store_team(opponent_query, bootstrap),
+            team=_to_store_team(team_query, bootstrap) if team_query else None,
             live_season=_live_season(bootstrap),
         )
     except Exception as exc:  # noqa: BLE001 — never raise into the orchestrator
@@ -228,8 +230,15 @@ def _get_zonal_opportunity_handler(
         result["message"] = (
             "Tactical (Understat zonal) store not available on this deployment."
         )
-    elif result["status"] == "ok" and result.get("exploiters"):
-        result["exploiters"] = _enrich_exploiters(result["exploiters"], bootstrap)
+    elif result["status"] == "ok":
+        if result.get("exploiters"):
+            result["exploiters"] = _enrich_exploiters(result["exploiters"], bootstrap)
+        tf = result.get("team_filter")
+        if tf is not None and tf["matched"] is None:
+            result["message"] = (
+                f"'{team_query}' did not match any team in the tactical store — "
+                f"exploiters/opportunities are empty, not unfiltered."
+            )
     return result
 
 
@@ -274,7 +283,12 @@ GET_ZONAL_OPPORTUNITY_SPEC = ToolSpec(
         "an opponent's weak zones — even if the question also asks which "
         "zones they concede. Primary tool for any 'zones + players' question: "
         "where to attack WITH the matched players to exploit each zone. "
-        "Opportunity signal only — no buy/sell advice."
+        "Opportunity signal only — no buy/sell advice. If the user asks about "
+        "a SPECIFIC team's players (e.g. 'which Liverpool players can exploit "
+        "Fulham'), pass `team` — without it, the ranking is unfiltered across "
+        "the whole league and may contain zero players from the team the user "
+        "actually asked about even when some exist; that is NOT the same as "
+        "'no such player.'"
     ),
     parameters={
         "type": "object",
@@ -282,6 +296,14 @@ GET_ZONAL_OPPORTUNITY_SPEC = ToolSpec(
             "opponent": {
                 "type":        "string",
                 "description": "Opposing team name / short_name / alias whose defence to probe.",
+            },
+            "team": {
+                "type":        "string",
+                "description": (
+                    "Optional. Team name / short_name / alias to restrict the "
+                    "exploiter ranking to — only that team's players are "
+                    "considered. Omit for an unfiltered, league-wide ranking."
+                ),
             },
         },
         "required":             ["opponent"],
@@ -295,6 +317,7 @@ GET_ZONAL_OPPORTUNITY_SPEC = ToolSpec(
             "opportunities":   {"type": "array"},
             "zones":           {"type": "array"},   # T4b: 3 in-box lateral cells
             "exploiters":      {"type": "array"},   # T4b: ranked zone-fit table
+            "team_filter":     {"type": "object"},  # i85: {requested, matched}, present only when `team` was given
             "weakness_label":  {"type": "string"},  # T4b
             "verdict":         {"type": "string"},  # T4b
             "penalty_context": {"type": "object"},  # T4b

@@ -415,6 +415,68 @@ def test_card_exploiters_exclude_own_team_and_carry_identity():
 
 
 # ---------------------------------------------------------------------------
+# team filter (i85) — "which of TEAM's players can exploit OPPONENT" is a
+# different question from the unfiltered league-wide ranking, and must not
+# be answered by silently checking whether TEAM happens to appear in that
+# unfiltered top-N (found 2026-09-11: asking about Liverpool vs Fulham got
+# "no Liverpool player" from a global top-5 that simply had none, which said
+# nothing about whether any Liverpool player actually qualifies).
+# ---------------------------------------------------------------------------
+
+def _two_team_store() -> pd.DataFrame:
+    """Same shape as test_card_fit_score_ordering_and_normalisation:
+    Heavy Hitter (Villa) globally outranks Right Poacher (Wolves) --
+    unfiltered exploiters[0] is Villa's player, not Wolves'."""
+    df = opportunity_store()
+    extra = [_row("Boro", "Villa", 0.90, 0.20, 0.30,
+                  match_id=107, player="Heavy Hitter") for _ in range(10)]
+    return pd.concat([df, pd.DataFrame(extra)], ignore_index=True)
+
+
+def test_team_filter_restricts_exploiters_to_that_team():
+    out = get_zonal_opportunity("Palace", team="Wolves", store=_two_team_store())
+    assert out["status"] == "ok"
+    assert [e["player"] for e in out["exploiters"]] == ["Right Poacher"]
+    assert out["exploiters"][0]["fit_score"] == 10.0  # re-normalised within the filtered set
+    assert out["team_filter"] == {"requested": "Wolves", "matched": "Wolves"}
+
+
+def test_team_filter_restricts_opportunities_too():
+    out = get_zonal_opportunity("Palace", team="Wolves", store=_two_team_store())
+    players = [p for o in out["opportunities"] for p in o["players"]]
+    assert "Heavy Hitter" not in players
+    assert "Right Poacher" in players
+
+
+def test_no_team_filter_is_unfiltered_and_omits_team_filter_key():
+    out = get_zonal_opportunity("Palace", store=_two_team_store())
+    assert [e["player"] for e in out["exploiters"][:1]] == ["Heavy Hitter"]
+    assert "team_filter" not in out
+
+
+def test_team_filter_unresolved_yields_empty_not_unfiltered():
+    """A team string that matches nothing in the store must return EMPTY
+    exploiters/opportunities, never silently fall back to the unfiltered
+    (league-wide) ranking -- that would misreport an unrecognised team as
+    a real "no qualifying player" answer."""
+    out = get_zonal_opportunity("Palace", team="Nonexistent FC", store=_two_team_store())
+    assert out["status"] == "ok"
+    assert out["exploiters"] == []
+    assert out["opportunities"] == [] or all(o["players"] == [] for o in out["opportunities"])
+    assert out["team_filter"] == {"requested": "Nonexistent FC", "matched": None}
+
+
+def test_team_filter_matching_the_opponent_itself_yields_empty():
+    """Filtering to the opponent's own team is a degenerate but valid
+    request -- their own players are already excluded upstream, so this
+    must resolve the team and still return zero exploiters, not error."""
+    out = get_zonal_opportunity("Palace", team="Palace", store=_two_team_store())
+    assert out["status"] == "ok"
+    assert out["exploiters"] == []
+    assert out["team_filter"] == {"requested": "Palace", "matched": "Palace"}
+
+
+# ---------------------------------------------------------------------------
 # Player zonal outlook (T-player)
 # ---------------------------------------------------------------------------
 

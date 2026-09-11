@@ -215,6 +215,42 @@ def test_run_tool_opportunity_card_fields_present(tactical_store):
 
 
 # ---------------------------------------------------------------------------
+# team filter (i85) — bootstrap-side resolution (short_name/alias -> store
+# team name via _to_store_team, same bridge as `opponent`)
+# ---------------------------------------------------------------------------
+
+def test_run_tool_opportunity_team_filter_resolves_via_short_name(tactical_store):
+    out = run_tool(
+        "get_zonal_opportunity",
+        {"opponent": "Crystal Palace", "team": "BUR"},
+        _bootstrap(),
+    )
+    assert out["status"] == "ok"
+    assert [e["player"] for e in out["exploiters"]] == ["Right Poacher"]
+    # the handler resolves "BUR" -> "Burnley" via _to_store_team before the
+    # engine ever sees it, so team_filter["requested"] echoes the resolved
+    # store name, same as the engine received -- not the raw user input.
+    assert out["team_filter"] == {"requested": "Burnley", "matched": "Burnley"}
+
+
+def test_run_tool_opportunity_team_filter_unresolved_message(tactical_store):
+    out = run_tool(
+        "get_zonal_opportunity",
+        {"opponent": "Crystal Palace", "team": "Real Madrid"},
+        _bootstrap(),
+    )
+    assert out["status"] == "ok"
+    assert out["exploiters"] == []
+    assert out["team_filter"]["matched"] is None
+    assert "message" in out and "Real Madrid" in out["message"]
+
+
+def test_run_tool_opportunity_no_team_key_when_omitted(tactical_store):
+    out = run_tool("get_zonal_opportunity", {"opponent": "Crystal Palace"}, _bootstrap())
+    assert "team_filter" not in out
+
+
+# ---------------------------------------------------------------------------
 # run_tool — degraded paths (never raise into the orchestrator)
 # ---------------------------------------------------------------------------
 
