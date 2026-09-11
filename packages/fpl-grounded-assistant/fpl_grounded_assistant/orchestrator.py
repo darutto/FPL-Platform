@@ -168,6 +168,13 @@ _ALL_OUTCOMES: frozenset[str] = frozenset({
     "quota_exceeded",
 })
 
+#: i86: key under which ask_orchestrated() exposes the user's question to
+#: tool handlers via the (shallow-copied) bootstrap. Tool modules that read
+#: it spell the literal themselves rather than importing this -- importing
+#: the orchestrator from a tool module would invert the dependency and risk
+#: an import cycle -- and a test pins the two spellings together.
+QUESTION_CONTEXT_KEY: str = "_question"
+
 
 # ---------------------------------------------------------------------------
 # Degradation gate (Phase 2.5d1)
@@ -2166,6 +2173,19 @@ def ask_orchestrated(
         actual_bootstrap: dict[str, Any] = bootstrap["bootstrap"]
     else:
         actual_bootstrap = bootstrap
+
+    # i86: make the user's own question visible to tool handlers as
+    # ``bootstrap["_question"]``, so a handler can deterministically backfill
+    # an argument the model omitted (the model's tool_args are a suggestion;
+    # a team the user literally named is a fact). Shallow copy only -- same
+    # rule as harness.ask_v2's ``_my_team_id``: the caller's dict is the
+    # single server-level bootstrap shared across concurrent requests, and
+    # mutating it in place would leak one user's question into another's
+    # turn. Every run_tool() site below receives this same copy, so the key
+    # reaches the first round, the evaluator retry and the synthesis extra
+    # round alike. Tools that don't read it are unaffected.
+    actual_bootstrap = dict(actual_bootstrap)
+    actual_bootstrap[QUESTION_CONTEXT_KEY] = question
 
     # ------------------------------------------------------------------
     # 2. Resolve client / credential pre-check
