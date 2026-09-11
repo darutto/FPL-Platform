@@ -231,6 +231,11 @@ export default function DefensiveZonesCard({ data }: Props) {
                 )}
               </span>
               <span className="text-[10.5px] text-bf-gray/60">
+                {data.weakness_strength === 'marginal' ? (
+                  <span data-testid="zonal-marginal" className="text-bf-gold">
+                    lectura marginal ·{' '}
+                  </span>
+                ) : null}
                 ajuste a la zona
               </span>
             </div>
@@ -355,6 +360,7 @@ function ExploiterRow({
  */
 function scopeLabel(tf: DefensiveZonesMeta['team_filter']): string | null {
   if (!tf || !tf.matched) return null;
+  // i89: `matched` is already the joined display ("Arsenal, Liverpool, Manchester City").
   return tf.source === 'inferred' ? `${tf.matched} · según tu pregunta` : tf.matched;
 }
 
@@ -373,8 +379,13 @@ const ORIGIN_LABEL: Record<NonNullable<ZonalExploiter['origin']>, string> = {
  */
 function EvidenceLine({ exploiter }: { exploiter: ZonalExploiter }) {
   const parts: string[] = [];
+  if (exploiter.zone_share != null) {
+    // i89: how much of THIS player's xG lands in the ranked zone -- a 27%
+    // fit (Palmer, left) must read differently from a 90% one (Isak, centre).
+    parts.push(`${Math.round(exploiter.zone_share * 100)}% de su xG aquí`);
+  }
   if (exploiter.zone_shots != null) {
-    parts.push(`${exploiter.zone_shots} ${exploiter.zone_shots === 1 ? 'tiro' : 'tiros'} en zona`);
+    parts.push(`${exploiter.zone_shots} ${exploiter.zone_shots === 1 ? 'tiro' : 'tiros'}`);
   }
   if (exploiter.origin) parts.push(ORIGIN_LABEL[exploiter.origin]);
   if (parts.length === 0 && exploiter.sample !== 'thin') return null;

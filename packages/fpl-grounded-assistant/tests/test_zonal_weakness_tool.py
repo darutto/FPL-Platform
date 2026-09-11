@@ -268,7 +268,9 @@ def test_run_tool_opportunity_no_team_key_when_omitted(tactical_store):
 from fpl_grounded_assistant.zonal_weakness_tool import (  # noqa: E402
     _QUESTION_KEY,
     _mentioned_teams,
+    _team_args,
     infer_subject_team,
+    infer_subject_teams,
 )
 
 
@@ -379,16 +381,28 @@ def test_run_tool_opportunity_no_inference_without_question_context(tactical_sto
     assert "team_filter" not in out
 
 
-def test_run_tool_opportunity_ambiguous_question_stays_unfiltered(tactical_store):
+def test_run_tool_opportunity_two_named_teams_scope_to_both(tactical_store):
+    """i89 supersedes i86's "two teams is ambiguous": two named teams is a
+    two-team scope, ranked together, each row carrying its team."""
     out = run_tool(
         "get_zonal_opportunity",
         {"opponent": "Crystal Palace"},
         _bootstrap_with_question(
-            "jugadores de burnley o del sunderland contra el crystal palace"
+            "jugadores de burnley o del villa contra el crystal palace"
         ),
     )
     assert out["status"] == "ok"
-    assert "team_filter" not in out  # never invent a filter from an ambiguous question
+    tf = out["team_filter"]
+    assert tf["source"] == "inferred"
+    assert tf["matched_teams"] == ["Burnley", "Aston Villa"]
+    assert tf["unmatched_teams"] == []
+    assert tf["matched"] == "Burnley, Aston Villa"
+    # both teams are the scope; only Burnley has a player in the fixture
+    # store (the lone Villa shot belongs to "Someone", whose team resolves
+    # to Burnley by last-shot), so the table is Burnley-only but the scope
+    # is not.
+    teams = {e["team"] for e in out["exploiters"]}
+    assert teams == {"Burnley"}
 
 
 # ---------------------------------------------------------------------------
@@ -657,3 +671,76 @@ def test_card_projection_carries_origin_evidence(tactical_store):
     assert top.origin == "open_play"        # fixture rows are all Open Play
     assert top.set_piece_share == 0.0
     assert top.zone_shots == 10
+
+
+# ---------------------------------------------------------------------------
+# i89 -- several teams in one scope, and the argument shapes the model may
+# send for them. Asked 2026-09-11: "jugadores de arsenal, liverpool y
+# manchester city para atacar al brighton" -- one table, three teams.
+# ---------------------------------------------------------------------------
+
+class TestTeamArgs:
+    def test_single_string(self):
+        assert _team_args({"team": "BUR"}) == ["BUR"]
+
+    def test_comma_separated_string(self):
+        assert _team_args({"team": "Burnley, Sunderland"}) == ["Burnley", "Sunderland"]
+
+    def test_team_as_list_and_teams_list_dedup(self):
+        assert _team_args({"team": ["BUR"], "teams": ["SUN", "BUR"]}) == ["BUR", "SUN"]
+
+    def test_empty_and_blank(self):
+        assert _team_args({}) == []
+        assert _team_args({"team": " , "}) == []
+
+
+class TestInferSubjectTeams:
+    def test_three_named_teams_in_mention_order(self):
+        q = "jugadores de sunderland, burnley y villa para atacar al crystal palace"
+        assert infer_subject_teams(q, "Crystal Palace", _bootstrap()) == ["SUN", "BUR", "AVL"]
+
+    def test_single_helper_still_none_on_several(self):
+        q = "jugadores de burnley o del sunderland contra el crystal palace"
+        assert infer_subject_team(q, "Crystal Palace", _bootstrap()) is None
+        assert infer_subject_teams(q, "Crystal Palace", _bootstrap()) == ["BUR", "SUN"]
+
+    def test_unresolvable_opponent_infers_nothing(self):
+        assert infer_subject_teams("burnley y sunderland vs nadie", "Nadie FC", _bootstrap()) == []
+
+
+def test_run_tool_opportunity_explicit_teams_list(tactical_store):
+    out = run_tool(
+        "get_zonal_opportunity",
+        {"opponent": "Crystal Palace", "teams": ["BUR", "AVL"]},
+        _bootstrap(),
+    )
+    assert out["status"] == "ok"
+    assert out["team_filter"]["source"] == "explicit"
+    assert out["team_filter"]["matched_teams"] == ["Burnley", "Aston Villa"]
+
+
+def test_run_tool_opportunity_partial_resolution_proceeds_and_reports(tactical_store):
+    out = run_tool(
+        "get_zonal_opportunity",
+        {"opponent": "Crystal Palace", "teams": ["BUR", "Real Madrid"]},
+        _bootstrap(),
+    )
+    assert out["status"] == "ok"
+    tf = out["team_filter"]
+    assert tf["matched_teams"] == ["Burnley"]
+    assert tf["unmatched_teams"] == ["Real Madrid"]
+    assert [e["player"] for e in out["exploiters"]][:1] == ["Right Poacher"]
+    assert "Real Madrid" in out["message"] and "ignored" in out["message"]
+
+
+def test_card_projection_carries_team_lists_and_strength(tactical_store):
+    from fpl_grounded_assistant.final_response import _extract_zonal_opportunity_meta
+    out = run_tool(
+        "get_zonal_opportunity",
+        {"opponent": "Crystal Palace", "teams": ["BUR", "AVL"]},
+        _bootstrap(),
+    )
+    meta = _extract_zonal_opportunity_meta(out)
+    assert meta.team_filter.matched_teams == ("Burnley", "Aston Villa")
+    assert meta.team_filter.unmatched_teams == ()
+    assert meta.weakness_strength == "clear"   # fixture: Palace +200% on the right

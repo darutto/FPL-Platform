@@ -634,6 +634,11 @@ class TeamFilter:
     source:               str | None
     min_shots:            int | None = None
     zone_share_threshold: float | None = None
+    #: i89: the scope may be several teams. ``requested``/``matched`` above
+    #: are the joined display strings; these are the parts.
+    requested_teams:      tuple[str, ...] = ()
+    matched_teams:        tuple[str, ...] = ()
+    unmatched_teams:      tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -659,6 +664,9 @@ class DefensiveZonesMeta:
     #: i85–i87: present only when the table was scoped to one team; ``None``
     #: on the league-wide answer, so pre-i85 payloads are byte-identical.
     team_filter:          "TeamFilter | None" = None
+    #: i89: clear | marginal | none -- how strong the top weak zone is. A
+    #: marginal read must not be served with a strong read's framing.
+    weakness_strength:    str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -1838,6 +1846,7 @@ def _extract_zonal_opportunity_meta(ro: "dict[str, Any]") -> "DefensiveZonesMeta
             ai_active      = True,  # zonal_opportunity only arrives via the orch path
             data_provenance = _extract_data_provenance(ro.get("data_provenance")),
             team_filter    = _extract_team_filter(ro.get("team_filter")),
+            weakness_strength = ro.get("weakness_strength"),
         )
     except Exception:  # noqa: BLE001
         return None
@@ -1854,6 +1863,9 @@ def _extract_team_filter(raw: "Any") -> "TeamFilter | None":
             source               = raw.get("source"),
             min_shots            = raw.get("min_shots"),
             zone_share_threshold = raw.get("zone_share_threshold"),
+            requested_teams      = tuple(raw.get("requested_teams") or ()),
+            matched_teams        = tuple(raw.get("matched_teams") or ()),
+            unmatched_teams      = tuple(raw.get("unmatched_teams") or ()),
         )
     except Exception:  # noqa: BLE001
         return None

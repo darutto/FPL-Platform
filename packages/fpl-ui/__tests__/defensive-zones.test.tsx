@@ -540,7 +540,7 @@ describe('DefensiveZonesCard — scope + evidence (i85–i88)', () => {
     render(<DefensiveZonesCard data={scoped} />);
     const lines = screen.getAllByTestId('zonal-evidence');
     const virgil = lines.find((el) => el.getAttribute('data-origin') === 'set_piece')!;
-    expect(virgil).toHaveTextContent('2 tiros en zona · balón parado');
+    expect(virgil).toHaveTextContent('53% de su xG aquí · 2 tiros · balón parado');
     expect(virgil).toHaveTextContent('muestra corta');
     expect(virgil.className).toContain('text-bf-gold');
   });
@@ -549,7 +549,7 @@ describe('DefensiveZonesCard — scope + evidence (i85–i88)', () => {
     render(<DefensiveZonesCard data={scoped} />);
     const lines = screen.getAllByTestId('zonal-evidence');
     const isak = lines.find((el) => el.getAttribute('data-origin') === 'open_play')!;
-    expect(isak).toHaveTextContent('8 tiros en zona · jugada');
+    expect(isak).toHaveTextContent('90% de su xG aquí · 8 tiros · jugada');
     expect(isak.className).not.toContain('text-bf-gold');
   });
 
@@ -559,11 +559,47 @@ describe('DefensiveZonesCard — scope + evidence (i85–i88)', () => {
         data={{ ...scoped, exploiters: [{ ...scoped.exploiters[1], zone_shots: 1 }] }}
       />,
     );
-    expect(screen.getByTestId('zonal-evidence')).toHaveTextContent('1 tiro en zona');
+    expect(screen.getByTestId('zonal-evidence')).toHaveTextContent('1 tiro');
+    expect(screen.getByTestId('zonal-evidence')).not.toHaveTextContent('1 tiros');
   });
 
   test('pre-i87 payload rows (no evidence fields) render no evidence line', () => {
     render(<DefensiveZonesCard data={palaceMeta} />);
     expect(screen.queryAllByTestId('zonal-evidence')).toHaveLength(0);
+  });
+});
+
+describe('DefensiveZonesCard — multi-team scope + marginal read (i89)', () => {
+  test('several matched teams show as one joined scope', () => {
+    render(
+      <DefensiveZonesCard
+        data={{
+          ...palaceMeta,
+          team_filter: {
+            requested: 'ARS, LIV, MCI',
+            matched: 'Arsenal, Liverpool, Manchester City',
+            source: 'inferred',
+            requested_teams: ['ARS', 'LIV', 'MCI'],
+            matched_teams: ['Arsenal', 'Liverpool', 'Manchester City'],
+            unmatched_teams: [],
+          },
+        }}
+      />,
+    );
+    expect(screen.getByTestId('zonal-scope')).toHaveTextContent(
+      'Arsenal, Liverpool, Manchester City · según tu pregunta',
+    );
+  });
+
+  test('a marginal read is flagged in the table header', () => {
+    render(<DefensiveZonesCard data={{ ...palaceMeta, weakness_strength: 'marginal' }} />);
+    expect(screen.getByTestId('zonal-marginal')).toHaveTextContent('lectura marginal');
+  });
+
+  test('a clear read (or a pre-i89 payload) has no marginal flag', () => {
+    render(<DefensiveZonesCard data={{ ...palaceMeta, weakness_strength: 'clear' }} />);
+    expect(screen.queryByTestId('zonal-marginal')).not.toBeInTheDocument();
+    render(<DefensiveZonesCard data={palaceMeta} />);
+    expect(screen.queryByTestId('zonal-marginal')).not.toBeInTheDocument();
   });
 });

@@ -732,3 +732,102 @@ def test_penalties_never_count_toward_origin():
     by = {e["player"]: e for e in out["exploiters"]}
     assert by["Open Winger"]["origin"] == "open_play"
     assert by["Open Winger"]["zone_shots"] == 3
+
+
+# ---------------------------------------------------------------------------
+# i89 (a): several teams in one scope.
+# ---------------------------------------------------------------------------
+
+def test_multi_team_filter_ranks_both_teams_together():
+    out = get_zonal_opportunity("Palace", team=["Wolves", "Villa"], store=_two_team_store())
+    # both teams in one table, ranked together; "Someone" (Villa, 1 shot)
+    # trails under the team-scoped gates
+    assert [e["player"] for e in out["exploiters"]][:2] == ["Heavy Hitter", "Right Poacher"]
+    assert {e["team"] for e in out["exploiters"]} == {"Villa", "Wolves"}
+    tf = out["team_filter"]
+    assert tf["matched_teams"] == ["Wolves", "Villa"]   # request order, deduped
+    assert tf["matched"] == "Wolves, Villa"
+    assert tf["unmatched_teams"] == []
+
+
+def test_multi_team_filter_partial_match_keeps_going():
+    out = get_zonal_opportunity("Palace", team=["Wolves", "Nadie FC"], store=_two_team_store())
+    assert [e["player"] for e in out["exploiters"]] == ["Right Poacher"]
+    assert out["team_filter"]["matched_teams"] == ["Wolves"]
+    assert out["team_filter"]["unmatched_teams"] == ["Nadie FC"]
+
+
+def test_multi_team_filter_none_match_is_empty_not_unfiltered():
+    out = get_zonal_opportunity("Palace", team=["Nadie FC", "Nobody"], store=_two_team_store())
+    assert out["exploiters"] == []
+    assert out["team_filter"]["matched"] is None
+    assert out["team_filter"]["unmatched_teams"] == ["Nadie FC", "Nobody"]
+
+
+def test_single_team_string_still_works_and_reports_lists():
+    out = get_zonal_opportunity("Palace", team="Wolves", store=_two_team_store())
+    assert out["team_filter"]["requested_teams"] == ["Wolves"]
+    assert out["team_filter"]["matched_teams"] == ["Wolves"]
+
+
+# ---------------------------------------------------------------------------
+# i89 (c): a marginal weakness is framed as marginal. Found 2026-09-11,
+# Sunderland: only zone above average was in-box/left at +1.8%; one player
+# in the league cleared the gate there and the card served him like a +70%
+# read. The verdict must lead with "no clear weakness", the pill must not
+# say "Débil", and the payload must carry the strength so the UI can too.
+# ---------------------------------------------------------------------------
+
+def _marginal_store() -> pd.DataFrame:
+    """Four teams, one game each. Every team concedes 1.00 centrally and
+    "Left Man" (Someone FC) puts 3 x 0.10 on each of them from in-box/left,
+    so the only asymmetry is Palace's extra 0.012 there:
+    Palace 0.312 vs others 0.30 -> baseline 0.303 -> +3%: marginal."""
+    rows = []
+    for mid, team in enumerate(("Palace", "Villa", "Boro", "Wolves"), start=1):
+        rows.append(_row(team, "Someone FC", 0.90, 0.50, 1.00, match_id=mid))  # central, equal
+        rows += [_row(team, "Someone FC", 0.90, 0.80, 0.10, match_id=mid, player="Left Man")
+                 for _ in range(3)]                                              # in-box/left
+    rows.append(_row("Palace", "Someone FC", 0.90, 0.80, 0.012, match_id=1))    # the asymmetry
+    return pd.DataFrame(rows)
+
+
+def test_weakness_strength_levels():
+    ws = zonal_weakness.weakness_strength
+    mk = lambda pct: [{"zone": "in-box / left", "xga_per_game": 1 + pct / 100, "league_avg": 1.0,
+                       "delta_vs_avg": pct / 100}]
+    assert ws(mk(70)) == "clear"
+    assert ws(mk(15)) == "clear"
+    assert ws(mk(14.9)) == "marginal"
+    assert ws(mk(1.0)) == "marginal"
+    assert ws(mk(0.5)) == "none"
+    assert ws([{"zone": "in-box / left", "xga_per_game": 0.5, "league_avg": 1.0,
+                "delta_vs_avg": -0.5}]) == "none"
+    assert ws([]) == "none"
+
+
+def test_marginal_weakness_is_framed_as_marginal():
+    out = get_zonal_opportunity("Palace", store=_marginal_store())
+    assert out["status"] == "ok"
+    assert out["weakness_strength"] == "marginal"
+    assert out["weakness_label"] == "Ventaja leve dentro del área"
+    v = out["verdict"]
+    assert v.startswith("Palace no concede claramente por encima de la media")
+    assert "por la izquierda" in v and "ventaja leve" in v
+    assert not v.startswith("Ataca a")
+    for banned in ("compra", "vende", "ficha"):
+        assert banned not in v.lower()
+    # the fit table still exists -- the read is marginal, not absent
+    assert [e["player"] for e in out["exploiters"]] == ["Left Man"]
+
+
+def test_clear_weakness_framing_unchanged():
+    out = get_zonal_opportunity("Palace", store=weakness_store())
+    assert out["weakness_strength"] == "clear"
+    assert out["weakness_label"] == "Débil dentro del área"
+    assert out["verdict"].startswith("Ataca a Palace")
+
+
+def test_text_tool_verdict_also_marginal():
+    out = get_zonal_weakness("Palace", store=_marginal_store())
+    assert out["verdict"].startswith("Palace no concede claramente")
