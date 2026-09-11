@@ -1,21 +1,25 @@
 name: Owned-Store Refresh
 
 on:
-  # PAUSED 2026-09-06: this refresh has been silently overwriting the
-  # 2025-2026 season table with live 2026-2027 data every Monday since
-  # 2026-07-27 (season key never advanced past the hardcoded 2025-2026 in
-  # this file, paths.py, and season_registry.py). Do not re-enable the
-  # schedule until a season-boundary guard exists and the store has been
-  # restored from the known-good local backup. See PR for the incident
-  # writeup.
-  #
-  # UPDATE: the season key is now a single source of truth (resolved below
-  # from fpl_data_core.season_registry) and capture() now rejects instead of
-  # writing when the live API disagrees with it (fpl_historical.season_guard).
-  # The schedule stays commented out regardless — re-enabling it is a
-  # separate, deliberate decision for the store owner, not part of this fix.
-  # schedule:
-  #   - cron: "0 6 * * 1"   # Mondays 06:00 UTC, weekly
+  # History:
+  # - PAUSED 2026-09-06: this refresh had been silently overwriting the
+  #   2025-2026 season table with live 2026-2027 data every Monday since
+  #   2026-07-27 (season key never advanced past the hardcoded 2025-2026 in
+  #   this file, paths.py, and season_registry.py).
+  # - The season key became a single source of truth (resolved below from
+  #   fpl_data_core.season_registry) and capture() started rejecting instead
+  #   of writing when the live API disagrees with it
+  #   (fpl_historical.season_guard) -- the guard that was missing during the
+  #   incident. The schedule stayed commented out regardless, pending a
+  #   deliberate decision to actually rotate the key.
+  # - REACTIVATED 2026-09-10 (i73 Entrega 2, board card i73): current_season
+  #   bumped to 2026-2027 (#241) with data already seeded in R2 for both the
+  #   owned and tactical stores, and a redeploy verified in production
+  #   (/version, /healthz season on both stores, R2 shape via
+  #   inspect-r2-stores.yml) before this schedule was uncommented. See the
+  #   PR for the full verification report.
+  schedule:
+    - cron: "0 6 * * 1"   # Mondays 06:00 UTC, weekly
   workflow_dispatch:        # manual trigger via `gh workflow run owned-store-refresh.yml`
     inputs:
       season:
