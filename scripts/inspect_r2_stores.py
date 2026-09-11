@@ -96,6 +96,9 @@ def inspect_tactical(root: pathlib.Path, season: str) -> None:
     if "match_id" in df.columns:
         extra += f" | matches: {df['match_id'].nunique()}"
     print(f"  understat_shots   {len(df):>6} rows | {_date_range(df)}{extra}")
+    if "shooting_team" in df.columns and "conceding_team" in df.columns:
+        teams = sorted(set(df["shooting_team"]) | set(df["conceding_team"]))
+        print(f"  teams present ({len(teams)}): {teams}")
 
 
 def main() -> int:
