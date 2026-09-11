@@ -127,6 +127,21 @@ MIN_PLAYER_SHOTS: int = 10
 TEAM_SCOPED_MIN_PLAYER_SHOTS: int = 1
 TEAM_SCOPED_ZONE_SHARE_THRESHOLD: float = 0.0
 
+#: i88 -- shot origin. Understat's non-penalty situations, as soccerdata
+#: stores them. A player's zone profile keeps ALL of these (a centre-back's
+#: far-post header from a corner is a real way to exploit a leaky left side
+#: of the box), but each exploiter row says WHICH: ``origin`` is
+#: ``open_play`` / ``set_piece`` / ``mixed`` from the set-piece share of the
+#: player's xG in the zone that ranked them. Found 2026-09-11: Virgil van
+#: Dijk ranked #2 "por la izquierda" against Fulham on two corner headers,
+#: framed like a winger -- true signal, wrong story.
+SET_PIECE_SITUATIONS: frozenset[str] = frozenset({
+    "From Corner", "Set Piece", "Direct Freekick",
+})
+#: Above this set-piece share of the zone's xG the row is ``set_piece``;
+#: below ``1 - ORIGIN_SET_PIECE_SHARE`` it is ``open_play``; between, ``mixed``.
+ORIGIN_SET_PIECE_SHARE: float = 0.6
+
 #: Max players listed per weak zone in get_zonal_opportunity.
 TOP_PLAYERS_PER_ZONE: int = 5
 
@@ -598,18 +613,38 @@ def compute_player_zone_shares(
         if total_xg <= 0:
             continue
         zone_xg: dict[str, float] = {zone: 0.0 for zone in ZONES}
+        zone_sp_xg: dict[str, float] = {zone: 0.0 for zone in ZONES}
+        zone_shots: dict[str, int] = {zone: 0 for zone in ZONES}
         for row in rows.itertuples(index=False):
             zone = zone_of(row.x, row.y)
             if zone is not None:
                 zone_xg[zone] += float(row.xg)
+                zone_shots[zone] += 1
+                if str(getattr(row, "situation", "")) in SET_PIECE_SITUATIONS:
+                    zone_sp_xg[zone] += float(row.xg)
         out[str(player)] = {
             # a player's team = the side they shot for most recently
             "team": str(rows.sort_values("date").iloc[-1]["shooting_team"]),
             "total_xg": total_xg,
             "n_shots": int(len(rows)),
             "zone_share": {z: xg / total_xg for z, xg in zone_xg.items()},
+            # i88: per-zone evidence -- shots taken there, and what fraction
+            # of the zone's xG came from set pieces (0.0 when no zoned xG).
+            "zone_shots": zone_shots,
+            "zone_set_piece_share": {
+                z: (zone_sp_xg[z] / xg if xg > 0 else 0.0) for z, xg in zone_xg.items()
+            },
         }
     return out
+
+
+def _origin_label(set_piece_share: float) -> str:
+    """``set_piece`` / ``open_play`` / ``mixed`` from a zone's set-piece share."""
+    if set_piece_share >= ORIGIN_SET_PIECE_SHARE:
+        return "set_piece"
+    if set_piece_share <= 1.0 - ORIGIN_SET_PIECE_SHARE:
+        return "open_play"
+    return "mixed"
 
 
 def get_zonal_opportunity(
@@ -777,6 +812,13 @@ def get_zonal_opportunity(
             "n_shots": shares[player]["n_shots"],
             "zone_share": round(shares[player]["zone_share"][zone], 3),
             "sample": "thin" if shares[player]["n_shots"] < MIN_PLAYER_SHOTS else "ok",
+            # i88: why this player fits THIS zone -- how many of their shots
+            # were struck there, and whether that xG came from open play or
+            # set pieces. A row can be a real fit and still be "two corner
+            # headers"; the reader must be able to see which.
+            "zone_shots": shares[player]["zone_shots"][zone],
+            "set_piece_share": round(shares[player]["zone_set_piece_share"][zone], 3),
+            "origin": _origin_label(shares[player]["zone_set_piece_share"][zone]),
         }
         for i, (player, (raw, zone, team_name)) in enumerate(ranked)
     ]

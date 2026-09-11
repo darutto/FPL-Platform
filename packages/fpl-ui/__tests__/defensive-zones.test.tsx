@@ -472,3 +472,98 @@ describe('DefensiveZonesCard', () => {
     expect(screen.queryByTestId('zonal-provenance')).not.toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// i85–i88 — team scope + per-row evidence. Found 2026-09-11 on Liverpool vs
+// Fulham: the table was correctly scoped but nothing said so, and Virgil van
+// Dijk ranked #2 "Izq" on two corner headers with nothing to say why.
+// ---------------------------------------------------------------------------
+
+describe('DefensiveZonesCard — scope + evidence (i85–i88)', () => {
+  const scoped = {
+    ...palaceMeta,
+    team_filter: {
+      requested: 'Liverpool',
+      matched: 'Liverpool',
+      source: 'inferred' as const,
+      min_shots: 1,
+      zone_share_threshold: 0,
+    },
+    exploiters: [
+      {
+        rank: 1, web_name: 'Isak', team_short: 'LIV', position: 'FWD',
+        zone: 'in-box / central', fit_score: 10,
+        n_shots: 9, zone_share: 0.898, sample: 'thin' as const,
+        zone_shots: 8, set_piece_share: 0, origin: 'open_play' as const,
+      },
+      {
+        rank: 2, web_name: 'Virgil', team_short: 'LIV', position: 'DEF',
+        zone: 'in-box / left', fit_score: 3.1,
+        n_shots: 2, zone_share: 0.534, sample: 'thin' as const,
+        zone_shots: 2, set_piece_share: 1, origin: 'set_piece' as const,
+      },
+    ],
+  };
+
+  test('team-scoped table names the scope, and says it came from the question', () => {
+    render(<DefensiveZonesCard data={scoped} />);
+    expect(screen.getByTestId('zonal-scope')).toHaveTextContent(
+      'Liverpool · según tu pregunta',
+    );
+  });
+
+  test('explicit scope names the team without the inference suffix', () => {
+    render(
+      <DefensiveZonesCard
+        data={{ ...scoped, team_filter: { ...scoped.team_filter, source: 'explicit' } }}
+      />,
+    );
+    expect(screen.getByTestId('zonal-scope')).toHaveTextContent('Liverpool');
+    expect(screen.getByTestId('zonal-scope')).not.toHaveTextContent('según tu pregunta');
+  });
+
+  test('an unresolved filter is not presented as a scope', () => {
+    render(
+      <DefensiveZonesCard
+        data={{ ...scoped, team_filter: { ...scoped.team_filter, matched: null } }}
+      />,
+    );
+    expect(screen.queryByTestId('zonal-scope')).not.toBeInTheDocument();
+  });
+
+  test('league-wide table (no team_filter) has no scope caption', () => {
+    render(<DefensiveZonesCard data={palaceMeta} />);
+    expect(screen.queryByTestId('zonal-scope')).not.toBeInTheDocument();
+  });
+
+  test('a set-piece exploiter is labelled as such, in gold, with its zone shots', () => {
+    render(<DefensiveZonesCard data={scoped} />);
+    const lines = screen.getAllByTestId('zonal-evidence');
+    const virgil = lines.find((el) => el.getAttribute('data-origin') === 'set_piece')!;
+    expect(virgil).toHaveTextContent('2 tiros en zona · balón parado');
+    expect(virgil).toHaveTextContent('muestra corta');
+    expect(virgil.className).toContain('text-bf-gold');
+  });
+
+  test('an open-play exploiter reads "jugada" and is not gold', () => {
+    render(<DefensiveZonesCard data={scoped} />);
+    const lines = screen.getAllByTestId('zonal-evidence');
+    const isak = lines.find((el) => el.getAttribute('data-origin') === 'open_play')!;
+    expect(isak).toHaveTextContent('8 tiros en zona · jugada');
+    expect(isak.className).not.toContain('text-bf-gold');
+  });
+
+  test('singular "tiro" for one shot', () => {
+    render(
+      <DefensiveZonesCard
+        data={{ ...scoped, exploiters: [{ ...scoped.exploiters[1], zone_shots: 1 }] }}
+      />,
+    );
+    expect(screen.getByTestId('zonal-evidence')).toHaveTextContent('1 tiro en zona');
+  });
+
+  test('pre-i87 payload rows (no evidence fields) render no evidence line', () => {
+    render(<DefensiveZonesCard data={palaceMeta} />);
+    expect(screen.queryAllByTestId('zonal-evidence')).toHaveLength(0);
+  });
+});
