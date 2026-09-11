@@ -99,6 +99,49 @@ def inspect_tactical(root: pathlib.Path, season: str) -> None:
     if "shooting_team" in df.columns and "conceding_team" in df.columns:
         teams = sorted(set(df["shooting_team"]) | set(df["conceding_team"]))
         print(f"  teams present ({len(teams)}): {teams}")
+    _print_flank_orientation(df)
+
+
+# Known-flank players used to pin the attacker-frame orientation of the zone
+# grid (see zonal_weakness.py "Coordinate orientation"). The in-repo test
+# that checks this is skipped wherever the store is not on local disk --
+# i.e. everywhere that matters -- so this prints the same read against the
+# store production actually serves. Right-siders should carry more in-box xG
+# in the RIGHT band than the LEFT; left-siders the reverse. Players not in
+# the store (transferred, injured, not enough shots) are simply reported.
+_FLANK_PROBES: tuple[tuple[str, str], ...] = (
+    ("Bukayo Saka", "right"),
+    ("Mohamed Salah", "right"),
+    ("Jarrod Bowen", "right"),
+    ("Kaoru Mitoma", "left"),
+    ("Cole Palmer", "?"),      # nominally right, cuts inside -- the open question
+    ("Virgil van Dijk", "?"),  # CB; expect set-piece headers, any band
+    ("Alexander Isak", "?"),
+)
+
+
+def _print_flank_orientation(df: pd.DataFrame) -> None:
+    need = {"player", "x", "y", "xg", "situation"}
+    if not need <= set(df.columns):
+        return
+    np_shots = df[df["situation"] != "Penalty"]
+    print("  flank orientation probe (in-box non-penalty xG by lateral band; "
+          "y<0.36 = attacker RIGHT, y>0.64 = attacker LEFT):")
+    for name, expect in _FLANK_PROBES:
+        rows = np_shots[np_shots["player"].str.lower() == name.lower()]
+        if rows.empty:
+            print(f"    {name:<18} not in store")
+            continue
+        inbox = rows[rows["x"] >= 0.84]
+        right = float(inbox[inbox["y"] < 0.36]["xg"].sum())
+        left = float(inbox[inbox["y"] > 0.64]["xg"].sum())
+        centre = float(inbox[(inbox["y"] >= 0.36) & (inbox["y"] <= 0.64)]["xg"].sum())
+        sp = int(inbox["situation"].isin(["From Corner", "Set Piece", "Direct Freekick"]).sum())
+        band = "right" if right > left else ("left" if left > right else "even")
+        verdict = "" if expect == "?" else (" OK" if band == expect else " <-- MISMATCH")
+        print(f"    {name:<18} shots={len(rows):>2} in-box={len(inbox):>2} "
+              f"(set-piece {sp})  xG L={left:.2f} C={centre:.2f} R={right:.2f}"
+              f"  -> {band}{verdict}")
 
 
 def main() -> int:
