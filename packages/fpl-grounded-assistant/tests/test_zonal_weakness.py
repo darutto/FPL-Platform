@@ -438,7 +438,8 @@ def test_team_filter_restricts_exploiters_to_that_team():
     assert out["status"] == "ok"
     assert [e["player"] for e in out["exploiters"]] == ["Right Poacher"]
     assert out["exploiters"][0]["fit_score"] == 10.0  # re-normalised within the filtered set
-    assert out["team_filter"] == {"requested": "Wolves", "matched": "Wolves"}
+    assert out["team_filter"]["requested"] == "Wolves"
+    assert out["team_filter"]["matched"] == "Wolves"
 
 
 def test_team_filter_restricts_opportunities_too():
@@ -463,7 +464,8 @@ def test_team_filter_unresolved_yields_empty_not_unfiltered():
     assert out["status"] == "ok"
     assert out["exploiters"] == []
     assert out["opportunities"] == [] or all(o["players"] == [] for o in out["opportunities"])
-    assert out["team_filter"] == {"requested": "Nonexistent FC", "matched": None}
+    assert out["team_filter"]["requested"] == "Nonexistent FC"
+    assert out["team_filter"]["matched"] is None
 
 
 def test_team_filter_matching_the_opponent_itself_yields_empty():
@@ -473,7 +475,8 @@ def test_team_filter_matching_the_opponent_itself_yields_empty():
     out = get_zonal_opportunity("Palace", team="Palace", store=_two_team_store())
     assert out["status"] == "ok"
     assert out["exploiters"] == []
-    assert out["team_filter"] == {"requested": "Palace", "matched": "Palace"}
+    assert out["team_filter"]["requested"] == "Palace"
+    assert out["team_filter"]["matched"] == "Palace"
 
 
 # ---------------------------------------------------------------------------
@@ -587,3 +590,71 @@ def test_penalty_constant_is_shared_with_fpl_tactical():
 def pytest_approx(value, rel=1e-9, abs_=1e-9):
     import pytest
     return pytest.approx(value, rel=rel, abs=abs_)
+
+
+# ---------------------------------------------------------------------------
+# team-scoped gates (i87) -- a resolved team filter ranks the WHOLE team,
+# not just league standouts. Found 2026-09-11: with i85+i86 live, Liverpool
+# scoped against Fulham returned exploiters == [] because no Liverpool
+# player had 10 non-penalty shots after 3 GWs. An empty list is honest but
+# useless to someone deciding between that team's wingers; the sample
+# thinness must be shown per player, not used to hide the player.
+# ---------------------------------------------------------------------------
+
+def _thin_team_store() -> pd.DataFrame:
+    """Two-team store where "Thin Winger" (Wolves) has only 3 non-penalty
+    shots -- under the league gate (10) -- all from in-box/right, Palace's
+    weak zone. "Heavy Hitter" (Villa) is the league-gate-clearing control."""
+    df = _two_team_store()
+    thin = [_row("Palace", "Wolves", 0.90, 0.20, 0.20,
+                 match_id=108, player="Thin Winger") for _ in range(3)]
+    return pd.concat([df, pd.DataFrame(thin)], ignore_index=True)
+
+
+def test_league_wide_ranking_keeps_league_gates():
+    """Unscoped: Thin Winger (3 shots) stays gated out, exactly as before."""
+    out = get_zonal_opportunity("Palace", store=_thin_team_store())
+    names = [e["player"] for e in out["exploiters"]]
+    assert "Thin Winger" not in names
+    assert "Heavy Hitter" in names
+    assert "team_filter" not in out
+
+
+def test_team_scoped_ranking_includes_thin_sample_players_and_labels_them():
+    out = get_zonal_opportunity("Palace", team="Wolves", store=_thin_team_store())
+    assert out["status"] == "ok"
+    by_name = {e["player"]: e for e in out["exploiters"]}
+    assert set(by_name) == {"Right Poacher", "Thin Winger"}   # whole team, no Villa
+    # evidence is on every row
+    assert by_name["Thin Winger"]["n_shots"] == 3
+    assert by_name["Thin Winger"]["sample"] == "thin"
+    assert by_name["Thin Winger"]["zone"] == "in-box / right"
+    assert by_name["Thin Winger"]["zone_share"] == 1.0
+    assert by_name["Right Poacher"]["n_shots"] == 10
+    assert by_name["Right Poacher"]["sample"] == "ok"
+    # and the applied gates are reported, so a consumer can tell this
+    # ranking is "the team, relative to itself"
+    tf = out["team_filter"]
+    assert tf["matched"] == "Wolves"
+    assert tf["min_shots"] == zonal_weakness.TEAM_SCOPED_MIN_PLAYER_SHOTS
+    assert tf["zone_share_threshold"] == zonal_weakness.TEAM_SCOPED_ZONE_SHARE_THRESHOLD
+
+
+def test_team_scoped_ranking_still_orders_by_fit():
+    # Right Poacher: 10 × 0.10 xG = 1.0 total, share 1.0 → raw 1.0×w
+    # Thin Winger:    3 × 0.20 xG = 0.6 total, share 1.0 → raw 0.6×w
+    out = get_zonal_opportunity("Palace", team="Wolves", store=_thin_team_store())
+    assert [e["player"] for e in out["exploiters"]] == ["Right Poacher", "Thin Winger"]
+    assert out["exploiters"][0]["fit_score"] == 10.0
+    assert out["exploiters"][1]["fit_score"] == pytest_approx(6.0, abs_=0.05)
+
+
+def test_team_scoped_player_with_no_zoned_xg_is_still_excluded():
+    """Relaxed gates are 'any zoned xG', not 'any shot': a long-range-only
+    shooter has nothing to say about an in-box weakness."""
+    df = _thin_team_store()
+    lr = [_row("Boro", "Wolves", 0.50, 0.50, 0.05,
+               match_id=109, player="Wolves Long Ranger") for _ in range(3)]
+    df = pd.concat([df, pd.DataFrame(lr)], ignore_index=True)
+    out = get_zonal_opportunity("Palace", team="Wolves", store=df)
+    assert "Wolves Long Ranger" not in [e["player"] for e in out["exploiters"]]

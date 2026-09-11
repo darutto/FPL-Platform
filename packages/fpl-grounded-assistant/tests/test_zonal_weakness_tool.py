@@ -226,13 +226,16 @@ def test_run_tool_opportunity_team_filter_resolves_via_short_name(tactical_store
         _bootstrap(),
     )
     assert out["status"] == "ok"
-    assert [e["player"] for e in out["exploiters"]] == ["Right Poacher"]
+    # i87: team-scoped gates rank the whole team -- "Someone" (1 shot,
+    # in-box/right, for Burnley in _store_df) now appears, labelled thin.
+    assert [e["player"] for e in out["exploiters"]] == ["Right Poacher", "Someone"]
+    assert out["exploiters"][1]["sample"] == "thin"
     # the handler resolves "BUR" -> "Burnley" via _to_store_team before the
     # engine ever sees it, so team_filter["requested"] echoes the resolved
     # store name, same as the engine received -- not the raw user input.
-    assert out["team_filter"] == {
-        "requested": "Burnley", "matched": "Burnley", "source": "explicit",
-    }
+    assert out["team_filter"]["requested"] == "Burnley"
+    assert out["team_filter"]["matched"] == "Burnley"
+    assert out["team_filter"]["source"] == "explicit"
 
 
 def test_run_tool_opportunity_team_filter_unresolved_message(tactical_store):
@@ -346,10 +349,13 @@ def test_run_tool_opportunity_backfills_team_from_question(tactical_store):
         ),
     )
     assert out["status"] == "ok"
-    assert [e["player"] for e in out["exploiters"]] == ["Right Poacher"]
-    assert out["team_filter"] == {
-        "requested": "Burnley", "matched": "Burnley", "source": "inferred",
-    }
+    # i87: team-scoped gates rank the whole team -- "Someone" (1 shot,
+    # in-box/right, for Burnley in _store_df) now appears, labelled thin.
+    assert [e["player"] for e in out["exploiters"]] == ["Right Poacher", "Someone"]
+    assert out["exploiters"][1]["sample"] == "thin"
+    assert out["team_filter"]["requested"] == "Burnley"
+    assert out["team_filter"]["matched"] == "Burnley"
+    assert out["team_filter"]["source"] == "inferred"
 
 
 def test_run_tool_opportunity_explicit_team_beats_inference(tactical_store):
@@ -596,10 +602,43 @@ def test_orchestrated_question_reaches_handler_and_backfills_team(
     assert res.tool_chosen == "get_zonal_opportunity"
     assert res.tool_args == {"opponent": "Crystal Palace"}   # model's args untouched
     assert res.tool_output["status"] == "ok"
-    assert [e["player"] for e in res.tool_output["exploiters"]] == ["Right Poacher"]
-    assert res.tool_output["team_filter"] == {
-        "requested": "Burnley", "matched": "Burnley", "source": "inferred",
-    }
+    assert [e["player"] for e in res.tool_output["exploiters"]] == ["Right Poacher", "Someone"]
+    assert res.tool_output["team_filter"]["matched"] == "Burnley"
+    assert res.tool_output["team_filter"]["source"] == "inferred"
     # the shared bootstrap the caller handed in is byte-for-byte unchanged
     assert caller_bootstrap == before
     assert "_question" not in caller_bootstrap
+
+
+# ---------------------------------------------------------------------------
+# i87 — the card projection carries the team scope and per-player evidence,
+# so a UI/user can see WHY the table looks the way it does (found 2026-09-11:
+# team_filter was invisible in the zonal_opportunity payload, so a correctly
+# scoped-but-empty table was indistinguishable from "the fix didn't fire").
+# ---------------------------------------------------------------------------
+
+def test_card_projection_carries_team_filter_and_evidence(tactical_store):
+    from fpl_grounded_assistant.final_response import _extract_zonal_opportunity_meta
+    out = run_tool(
+        "get_zonal_opportunity",
+        {"opponent": "Crystal Palace", "team": "BUR"},
+        _bootstrap(),
+    )
+    meta = _extract_zonal_opportunity_meta(out)
+    assert meta is not None
+    assert meta.team_filter is not None
+    assert meta.team_filter.matched == "Burnley"
+    assert meta.team_filter.source == "explicit"
+    assert meta.team_filter.min_shots == 1
+    top = meta.exploiters[0]
+    assert top.n_shots == 10
+    assert top.sample == "ok"
+    assert top.zone_share == 1.0
+
+
+def test_card_projection_unscoped_has_no_team_filter(tactical_store):
+    from fpl_grounded_assistant.final_response import _extract_zonal_opportunity_meta
+    out = run_tool("get_zonal_opportunity", {"opponent": "Crystal Palace"}, _bootstrap())
+    meta = _extract_zonal_opportunity_meta(out)
+    assert meta is not None
+    assert meta.team_filter is None

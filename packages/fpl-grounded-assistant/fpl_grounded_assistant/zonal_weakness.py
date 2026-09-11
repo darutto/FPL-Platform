@@ -118,6 +118,15 @@ PLAYER_ZONE_XG_SHARE_THRESHOLD: float = 0.25
 #: Minimum non-penalty shots before a player's zone profile is trusted.
 MIN_PLAYER_SHOTS: int = 10
 
+#: Team-scoped gates (i87). When get_zonal_opportunity is asked about ONE
+#: team's players, the pool is ~eight attackers and the job is to rank them
+#: against each other, not to find league standouts -- so the league gates
+#: above are replaced by "any non-penalty shot, any zoned xG". Each row then
+#: carries ``n_shots`` / ``zone_share`` / ``sample`` so the thinness is
+#: visible instead of gated away. Never applied to the league-wide ranking.
+TEAM_SCOPED_MIN_PLAYER_SHOTS: int = 1
+TEAM_SCOPED_ZONE_SHARE_THRESHOLD: float = 0.0
+
 #: Max players listed per weak zone in get_zonal_opportunity.
 TOP_PLAYERS_PER_ZONE: int = 5
 
@@ -570,18 +579,20 @@ def get_zonal_weakness(
 
 def compute_player_zone_shares(
     shots: pd.DataFrame,
+    *,
+    min_shots: int = MIN_PLAYER_SHOTS,
 ) -> dict[str, dict[str, Any]]:
     """Per-player share of own non-penalty xG per zone.
 
     Returns ``{player: {"team": str, "total_xg": float, "n_shots": int,
-    "zone_share": {zone: share}}}`` for players with at least
-    ``MIN_PLAYER_SHOTS`` non-penalty shots. Long-range shots count toward
-    the totals but no zone, so shares are conservative.
+    "zone_share": {zone: share}}}`` for players with at least *min_shots*
+    non-penalty shots (default ``MIN_PLAYER_SHOTS``). Long-range shots count
+    toward the totals but no zone, so shares are conservative.
     """
     np_shots = _non_penalty(shots)
     out: dict[str, dict[str, Any]] = {}
     for player, rows in np_shots.groupby("player"):
-        if len(rows) < MIN_PLAYER_SHOTS:
+        if len(rows) < min_shots:
             continue
         total_xg = float(rows["xg"].sum())
         if total_xg <= 0:
@@ -658,8 +669,17 @@ def get_zonal_opportunity(
         return {"status": weakness["status"], "opponent": opponent}
     matched = weakness["team"]
 
-    shares = compute_player_zone_shares(shots)
-
+    # Gates. League-wide, the question is "who STANDS OUT in this zone" and
+    # the gates prune a ~500-player pool to players with a real, established
+    # zonal profile. Team-scoped, the question is "rank THIS team's
+    # attackers by fit" -- a pool of maybe eight -- and the same gates just
+    # empty the answer (measured 2026-09-11: 3 GWs in, Liverpool scoped
+    # against Fulham returned [] because no Liverpool player had 10
+    # non-penalty shots yet; a caller deciding between that team's wingers
+    # learns nothing from an empty list). So a resolved team filter ranks
+    # every player of that team with any zoned xG, with the thin per-player
+    # samples made visible (``n_shots``, ``zone_share``, ``sample``) instead
+    # of hidden behind a gate.
     team_filter_matched: str | None = None
     if team:
         # Match against every team that has shot for itself in the store
@@ -668,9 +688,17 @@ def get_zonal_opportunity(
         # still resolves (to zero exploiters), rather than being reported
         # as an unresolved filter.
         team_filter_matched = _match_team(team, sorted(shots["shooting_team"].unique()))
+    team_scoped = team_filter_matched is not None
+    min_shots = TEAM_SCOPED_MIN_PLAYER_SHOTS if team_scoped else MIN_PLAYER_SHOTS
+    share_threshold = (
+        TEAM_SCOPED_ZONE_SHARE_THRESHOLD if team_scoped else PLAYER_ZONE_XG_SHARE_THRESHOLD
+    )
+
+    shares = compute_player_zone_shares(shots, min_shots=min_shots)
+    if team:
         shares = (
             {p: info for p, info in shares.items() if info["team"] == team_filter_matched}
-            if team_filter_matched is not None
+            if team_scoped
             else {}
         )
 
@@ -683,7 +711,8 @@ def get_zonal_opportunity(
             (info["zone_share"][zone] * info["total_xg"], player)
             for player, info in shares.items()
             if info["team"] != matched
-            and info["zone_share"][zone] >= PLAYER_ZONE_XG_SHARE_THRESHOLD
+            and info["zone_share"][zone] >= share_threshold
+            and info["zone_share"][zone] > 0
         ]
         candidates.sort(key=lambda pair: (-pair[0], pair[1]))
         opportunities.append(
@@ -725,7 +754,7 @@ def get_zonal_opportunity(
             if info["team"] == matched:
                 continue
             share = info["zone_share"][zone]
-            if share < PLAYER_ZONE_XG_SHARE_THRESHOLD:
+            if share < share_threshold or share <= 0:
                 continue
             raw = share * info["total_xg"] * weight
             prev = raw_by_player.get(player)
@@ -742,6 +771,12 @@ def get_zonal_opportunity(
             "team": team_name,
             "zone": zone,
             "fit_score": round(FIT_SCORE_MAX * raw / max_raw, 1) if max_raw > 0 else 0.0,
+            # Per-player evidence behind the score, so a thin sample is
+            # visible rather than hidden behind a gate (matters most when
+            # team-scoped, where the gates are relaxed on purpose).
+            "n_shots": shares[player]["n_shots"],
+            "zone_share": round(shares[player]["zone_share"][zone], 3),
+            "sample": "thin" if shares[player]["n_shots"] < MIN_PLAYER_SHOTS else "ok",
         }
         for i, (player, (raw, zone, team_name)) in enumerate(ranked)
     ]
@@ -760,9 +795,17 @@ def get_zonal_opportunity(
     if team:
         # team_filter_matched is None when *team* didn't resolve against any
         # team present in the store -- distinct from resolving fine but
-        # nobody on that team clearing the zone-fit threshold (exploiters
-        # would then just be empty with team_filter_matched set).
-        result["team_filter"] = {"requested": team, "matched": team_filter_matched}
+        # nobody on that team having any zoned xG at all (exploiters would
+        # then just be empty with team_filter_matched set).
+        result["team_filter"] = {
+            "requested": team,
+            "matched": team_filter_matched,
+            # The gates actually applied, so the consumer knows the ranking
+            # is "this team's attackers relative to each other" and not
+            # "league standouts" -- and the LLM can say so.
+            "min_shots": min_shots,
+            "zone_share_threshold": share_threshold,
+        }
     return result
 
 

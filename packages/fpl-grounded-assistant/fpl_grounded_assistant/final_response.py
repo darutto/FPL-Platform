@@ -602,6 +602,32 @@ class Exploiter:
     position:   str
     zone:       str
     fit_score:  float
+    #: i87: the evidence behind the score. ``sample`` is ``thin`` when the
+    #: player has fewer than the league-wide MIN_PLAYER_SHOTS -- possible
+    #: only on a team-scoped answer, where the gates are relaxed on purpose.
+    #: Defaulted so pre-i87 fixtures/serialisers still build.
+    n_shots:    int | None = None
+    zone_share: float | None = None
+    sample:     str | None = None
+
+
+@dataclass(frozen=True)
+class TeamFilter:
+    """i85–i87: how the exploiter table was scoped, when it was.
+
+    ``source`` is ``explicit`` when the model passed ``team`` and
+    ``inferred`` when the handler recovered it from the user's question.
+    ``matched`` is ``None`` when the requested team resolved to nothing in
+    the tactical store -- the table is then empty, NOT unfiltered.
+    ``min_shots`` / ``zone_share_threshold`` are the gates actually applied
+    (team-scoped answers rank the whole team, so these are far looser than
+    the league-wide defaults).
+    """
+    requested:            str
+    matched:              str | None
+    source:               str | None
+    min_shots:            int | None = None
+    zone_share_threshold: float | None = None
 
 
 @dataclass(frozen=True)
@@ -624,6 +650,9 @@ class DefensiveZonesMeta:
     ai_active:            bool
     #: i74 season stamp. Defaulted so pre-i74 fixtures/serialisers still build.
     data_provenance:      "DataProvenance | None" = None
+    #: i85–i87: present only when the table was scoped to one team; ``None``
+    #: on the league-wide answer, so pre-i85 payloads are byte-identical.
+    team_filter:          "TeamFilter | None" = None
 
 
 # ---------------------------------------------------------------------------
@@ -1788,6 +1817,9 @@ def _extract_zonal_opportunity_meta(ro: "dict[str, Any]") -> "DefensiveZonesMeta
                     position   = e.get("position", ""),
                     zone       = e["zone"],
                     fit_score  = float(e["fit_score"]),
+                    n_shots    = e.get("n_shots"),
+                    zone_share = e.get("zone_share"),
+                    sample     = e.get("sample"),
                 )
                 for e in ro.get("exploiters", [])
             ),
@@ -1796,6 +1828,23 @@ def _extract_zonal_opportunity_meta(ro: "dict[str, Any]") -> "DefensiveZonesMeta
             ),
             ai_active      = True,  # zonal_opportunity only arrives via the orch path
             data_provenance = _extract_data_provenance(ro.get("data_provenance")),
+            team_filter    = _extract_team_filter(ro.get("team_filter")),
+        )
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _extract_team_filter(raw: "Any") -> "TeamFilter | None":
+    """i85–i87 team scope of the exploiter table; ``None`` when unscoped."""
+    if not isinstance(raw, dict):
+        return None
+    try:
+        return TeamFilter(
+            requested            = str(raw.get("requested", "")),
+            matched              = raw.get("matched"),
+            source               = raw.get("source"),
+            min_shots            = raw.get("min_shots"),
+            zone_share_threshold = raw.get("zone_share_threshold"),
         )
     except Exception:  # noqa: BLE001
         return None
