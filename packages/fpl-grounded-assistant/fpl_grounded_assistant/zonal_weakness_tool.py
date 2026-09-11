@@ -86,6 +86,17 @@ def _live_season(bootstrap: dict[str, Any] | None) -> str | None:
 # tactical store keeps Understat titles ("Manchester City", not "Man City").
 # Keyed by FPL short_name (stable), values are Understat titles as stored.
 # ---------------------------------------------------------------------------
+# Grows across rollovers rather than tracking one season's roster exactly:
+# a promoted team's short code is added when it needs one, and a relegated
+# team's entry is left in place rather than deleted, because other code
+# (and tests) may still reference a team that isn't in this season's top
+# flight. Updated 2026-09 (i83, season rollover to 2026-27): added Coventry,
+# Hull and Ipswich (Understat's own short-form titles for these three,
+# confirmed against the live tactical store's actual team column -- NOT
+# their FPL bootstrap display names "Coventry City"/"Hull City"/"Ipswich
+# Town", which don't match Understat's naming and were the original cause
+# of this gap: those three teams silently returned not_found for the
+# entire 2026-27 season opening until this fix.
 _SHORT_TO_UNDERSTAT: dict[str, str] = {
     "ARS": "Arsenal",
     "AVL": "Aston Villa",
@@ -94,9 +105,12 @@ _SHORT_TO_UNDERSTAT: dict[str, str] = {
     "BHA": "Brighton",
     "BUR": "Burnley",
     "CHE": "Chelsea",
+    "COV": "Coventry",          # promoted 2026-27
     "CRY": "Crystal Palace",
     "EVE": "Everton",
     "FUL": "Fulham",
+    "HUL": "Hull",              # promoted 2026-27
+    "IPS": "Ipswich",           # promoted 2026-27
     "LEE": "Leeds",
     "LIV": "Liverpool",
     "MCI": "Manchester City",

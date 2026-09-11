@@ -160,15 +160,20 @@ class TestFlagOn:
 # (iv) team-map completeness — season rollover must fail loudly
 # ---------------------------------------------------------------------------
 
-# The 20 Premier League teams of 2025/26 as they appear in the FPL bootstrap.
-_PL_2025_26 = [
+# The 20 Premier League teams of 2026/27 as they appear in the FPL bootstrap.
+# Updated 2026-09 (i83): Burnley/West Ham/Wolves relegated at the end of
+# 2025/26, replaced by Coventry City/Hull City/Ipswich Town promoted for
+# 2026/27. This is club-membership churn, not the CURRENT_SEASON data key --
+# it has no single source of truth to derive from and must be hand-updated
+# on future rollovers, same as this test's own docstring already warned.
+_PL_CURRENT = [
     ("ARS", "Arsenal"), ("AVL", "Aston Villa"), ("BOU", "Bournemouth"),
-    ("BRE", "Brentford"), ("BHA", "Brighton"), ("BUR", "Burnley"),
-    ("CHE", "Chelsea"), ("CRY", "Crystal Palace"), ("EVE", "Everton"),
-    ("FUL", "Fulham"), ("LEE", "Leeds"), ("LIV", "Liverpool"),
-    ("MCI", "Man City"), ("MUN", "Man Utd"), ("NEW", "Newcastle"),
-    ("NFO", "Nott'm Forest"), ("SUN", "Sunderland"), ("TOT", "Spurs"),
-    ("WHU", "West Ham"), ("WOL", "Wolves"),
+    ("BRE", "Brentford"), ("BHA", "Brighton"), ("CHE", "Chelsea"),
+    ("COV", "Coventry City"), ("CRY", "Crystal Palace"), ("EVE", "Everton"),
+    ("FUL", "Fulham"), ("HUL", "Hull City"), ("IPS", "Ipswich Town"),
+    ("LEE", "Leeds"), ("LIV", "Liverpool"), ("MCI", "Man City"),
+    ("MUN", "Man Utd"), ("NEW", "Newcastle"), ("NFO", "Nott'm Forest"),
+    ("SUN", "Sunderland"), ("TOT", "Spurs"),
 ]
 
 
@@ -181,11 +186,11 @@ class TestTeamMapCompleteness:
         bootstrap = {
             "teams": [
                 {"id": i + 1, "short_name": short, "name": name}
-                for i, (short, name) in enumerate(_PL_2025_26)
+                for i, (short, name) in enumerate(_PL_CURRENT)
             ]
         }
-        assert len(_PL_2025_26) == 20
-        for short, name in _PL_2025_26:
+        assert len(_PL_CURRENT) == 20
+        for short, name in _PL_CURRENT:
             assert short in _SHORT_TO_UNDERSTAT, (
                 f"{short} missing from _SHORT_TO_UNDERSTAT — update the map "
                 f"for the new season (rollover must fail loudly, not as "
@@ -199,5 +204,9 @@ class TestTeamMapCompleteness:
             # tools, out of scope for this go-live slice.
             resolved = _to_store_team(short, bootstrap)
             assert resolved == _SHORT_TO_UNDERSTAT[short]
-        # bridge targets must be 20 distinct Understat titles
-        assert len(set(_SHORT_TO_UNDERSTAT.values())) == len(_SHORT_TO_UNDERSTAT) == 20
+        # bridge values are distinct (no two short codes collide on one
+        # Understat title) and a superset of this season's 20 -- the map
+        # also carries relegated teams' entries forward (see its own
+        # docstring), so it is not expected to shrink to exactly 20.
+        assert len(set(_SHORT_TO_UNDERSTAT.values())) == len(_SHORT_TO_UNDERSTAT)
+        assert set(short for short, _ in _PL_CURRENT) <= set(_SHORT_TO_UNDERSTAT)
