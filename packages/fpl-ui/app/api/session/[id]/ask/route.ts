@@ -11,6 +11,7 @@
  *   503  — backend not initialised
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { forwardIdentityHeaders } from '@/lib/identity-headers';
 
 const BACKEND_URL =
   process.env.FPL_BACKEND_URL?.replace(/\/$/, '') ?? 'http://localhost:8000';
@@ -35,7 +36,9 @@ export async function POST(
   try {
     backendResponse = await fetch(`${BACKEND_URL}/session/${id}/ask`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      // i79: this is the follow-up turn — without identity the backend saw
+      // a premium member as anonymous/free from the second session onwards.
+      headers: forwardIdentityHeaders(request, { 'Content-Type': 'application/json' }),
       body: JSON.stringify(body),
     });
   } catch (err) {

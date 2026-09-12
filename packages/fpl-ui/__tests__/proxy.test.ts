@@ -149,4 +149,35 @@ describe('/api/proxy — POST handler', () => {
     const [calledUrl] = mockFetch.mock.calls[0];
     expect(String(calledUrl)).toContain('my-railway-backend.up.railway.app/ask');
   });
+
+  test('forwards x-user-id / x-user-tier (server-set by middleware) to the backend', async () => {
+    mockFetch.mockResolvedValueOnce(makeBackendResponse({ ok: true }, 200));
+    const { POST } = await import('../app/api/proxy/route');
+    const request = new NextRequest('http://localhost:3000/api/proxy', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': 'user_clerk_123',
+        'x-user-tier': 'patreon_premium',
+      },
+      body: JSON.stringify({ question: 'q' }),
+    });
+    await POST(request);
+    const [, init] = mockFetch.mock.calls[0];
+    expect(init?.headers).toMatchObject({
+      'Content-Type': 'application/json',
+      'x-user-id': 'user_clerk_123',
+      'x-user-tier': 'patreon_premium',
+    });
+  });
+
+  test('no identity headers -> none forwarded (backend defaults anonymous/free)', async () => {
+    mockFetch.mockResolvedValueOnce(makeBackendResponse({ ok: true }, 200));
+    const { POST } = await import('../app/api/proxy/route');
+    await POST(makeProxyRequest({ question: 'q' }));
+    const [, init] = mockFetch.mock.calls[0];
+    const h = init?.headers as Record<string, string>;
+    expect(h['x-user-id']).toBeUndefined();
+    expect(h['x-user-tier']).toBeUndefined();
+  });
 });

@@ -18,6 +18,7 @@
  *   502  — backend unreachable
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { forwardIdentityHeaders } from '@/lib/identity-headers';
 
 const BACKEND_URL =
   process.env.WC_BACKEND_URL?.replace(/\/$/, '') ?? 'http://localhost:8100';
@@ -33,11 +34,7 @@ export async function GET(request: NextRequest) {
   if (userId) backendParams.set('user_id', userId);
   if (tier) backendParams.set('tier', tier);
 
-  const forwardHeaders: HeadersInit = {};
-  const xUserId = request.headers.get('x-user-id');
-  const xUserTier = request.headers.get('x-user-tier');
-  if (xUserId) forwardHeaders['x-user-id'] = xUserId;
-  if (xUserTier) forwardHeaders['x-user-tier'] = xUserTier;
+  const forwardHeaders = forwardIdentityHeaders(request);
 
   if (INTERNAL_TOKEN) forwardHeaders['x-internal-token'] = INTERNAL_TOKEN;
 
