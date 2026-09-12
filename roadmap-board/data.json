@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-11",
+  "updated": "2026-09-12",
   "cards": [
     {
       "id": "s1",
@@ -1242,6 +1242,18 @@
         "IA",
         "FPL Asistente"
       ]
+    },
+    {
+      "id": "s30",
+      "col": "shipped",
+      "title": "Evidencia de origen en exploiters zonales (i88)",
+      "desc": "Fusionada (PR #250, 12/09). Cada fila de exploiter en la tarjeta zonal ahora muestra tiros en zona y si el origen es jugada abierta o balón parado, con aviso de muestra corta cuando el conteo es bajo.",
+      "tags": [
+        "Backend",
+        "UI",
+        "FPL Asistente"
+      ],
+      "progress": 100
     }
   ]
 }
