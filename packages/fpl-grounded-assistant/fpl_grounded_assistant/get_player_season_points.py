@@ -44,6 +44,7 @@ of import. ``__init__.py`` must import this module.
 from __future__ import annotations
 
 import os
+import re
 import sys
 import unicodedata
 from typing import Any
@@ -146,12 +147,37 @@ def _normalize_name(text: str) -> str:
     return stripped.lower().strip()
 
 
+#: i60: a club code the historical chip carries back inside its canonical
+#: question -- "puntos de Mohamed Salah (LIV) en la temporada 2025-2026". Three
+#: upper-case letters in parentheses, anywhere in the query. Deterministic
+#: fallback for when the orchestrator does not pass ``team_short`` itself.
+_CLUB_IN_QUERY_RE = re.compile(r"\(([A-Z]{3})\)")
+
+
+def split_club_from_query(player_query: str) -> tuple[str, str | None]:
+    """Return ``(query without the "(XXX)" token, XXX or None)``."""
+    m = _CLUB_IN_QUERY_RE.search(player_query)
+    if not m:
+        return player_query, None
+    cleaned = (player_query[: m.start()] + player_query[m.end():]).strip()
+    return re.sub(r"\s{2,}", " ", cleaned), m.group(1)
+
+
 def _resolve_player_in_season(
     player_query: str,
     players_df: "Any",
     team_short_by_id: "dict[int, str] | None" = None,
+    team_short: "str | None" = None,
 ) -> dict[str, Any]:
     """Resolve *player_query* against a season's own ``players.parquet``.
+
+    ``team_short`` (i60) narrows a TIE by club: two players with the same name
+    in different squads used to stay ambiguous forever, because the chip's
+    send_text carried the club and this resolver never looked at it. An
+    explicit argument wins; otherwise a "(XXX)" token inside the query is
+    used. The filter is only applied to break a tie -- it never widens a
+    match, and if it would leave nobody the unfiltered tie is returned so a
+    wrong club is a visible ambiguity, not a silent pick.
 
     Same exact/prefix/substring three-rank algorithm used throughout the
     package (see ``find_players``), restricted to real player positions
@@ -164,6 +190,8 @@ def _resolve_player_in_season(
     ``{"status": "ok", "player_id", "web_name", "team_short", "position"}``
     or ``{"status": "ambiguous"/"not_found", ...}``.
     """
+    player_query, club_in_query = split_club_from_query(player_query)
+    club_filter = (team_short or club_in_query or "").strip().upper() or None
     normalized_query = _normalize_name(player_query.strip())
 
     real_players = players_df[players_df["element_type"].isin(_POSITION_MAP.keys())]
@@ -232,6 +260,12 @@ def _resolve_player_in_season(
             "team_id": row.get("team_id"),
         }
 
+    def _narrow_by_club(ids: list[int]) -> list[int]:
+        if not club_filter or not team_short_by_id:
+            return ids
+        kept = [pid for pid in ids if _team_short(by_id.loc[pid]).upper() == club_filter]
+        return kept or ids
+
     def _ambiguous(ids: list[int]) -> dict[str, Any]:
         return {
             "status": "ambiguous",
@@ -240,19 +274,23 @@ def _resolve_player_in_season(
             "message": f"Multiple players match '{normalized_query}'. Please specify.",
         }
 
-    exact = _at_rank(0)
+    exact = _narrow_by_club(_at_rank(0))
     if len(exact) == 1:
         return _ok(exact[0])
     if len(exact) > 1:
         return _ambiguous(exact)
 
-    prefix = _at_rank(1)
+    prefix = _narrow_by_club(_at_rank(1))
     if len(prefix) == 1:
         return _ok(prefix[0])
     if len(prefix) > 1:
         return _ambiguous(prefix)
 
-    substr = _at_rank(2)
+    substr = _narrow_by_club(_at_rank(2))
+    if len(substr) == 1 and club_filter:
+        # A club was named and exactly one substring match wears it: that is
+        # the chip round-trip, not a guess.
+        return _ok(substr[0])
     if substr:
         return _ambiguous(substr)
 
@@ -267,14 +305,19 @@ def _resolve_player_in_season(
 # Core public function
 # ---------------------------------------------------------------------------
 
-def get_player_season_points(query: str, season: str) -> dict[str, Any]:
+def get_player_season_points(
+    query: str, season: str, team_short: "str | None" = None
+) -> dict[str, Any]:
     """Total FPL points for one player across one full season.
 
     Args:
-        query: Player name (case-insensitive, accent-insensitive).
+        query: Player name (case-insensitive, accent-insensitive). May carry
+            the club as "(XXX)" -- the historical chip's canonical question.
         season: Season identifier — ``"2025-2026"``, ``"2025-26"``,
             ``"25/26"``, or the literal ``"previous"`` for the season
             before the current/most-recently-completed one.
+        team_short: Optional three-letter club code used only to break a
+            same-name tie (i60).
 
     Returns:
         # Success:
@@ -357,9 +400,11 @@ def get_player_season_points(query: str, season: str) -> dict[str, Any]:
     # as much as a successful one -- that is the whole content of the chip.
     team_short_by_id: dict[int, str] = dict(zip(teams_df["team_id"], teams_df["short_name"]))
 
-    resolution = _resolve_player_in_season(query, players_df, team_short_by_id)
+    resolution = _resolve_player_in_season(query, players_df, team_short_by_id, team_short=team_short)
     if resolution["status"] != "ok":
-        return resolution
+        # The season travels with the ambiguity: the historical chip re-asks
+        # with it, and its ids are only meaningful inside this season.
+        return {**resolution, "season": canonical_season}
 
     player_id = resolution["player_id"]
     team_id = resolution.get("team_id")
@@ -443,6 +488,14 @@ GET_PLAYER_SEASON_POINTS_SPEC = ToolSpec(
                     "do not guess an earlier season from training-data recall."
                 ),
             },
+            "team_short": {
+                "type": "string",
+                "description": (
+                    "Optional three-letter club code (e.g. 'LIV') to break a "
+                    "same-name tie. Pass it when the question names the club in "
+                    "parentheses, e.g. 'puntos de Mohamed Salah (LIV) ...'."
+                ),
+            },
         },
         "required": ["query", "season"],
         "additionalProperties": False,
@@ -472,6 +525,7 @@ def _get_player_season_points_handler(
         return get_player_season_points(
             query=args["query"],
             season=args["season"],
+            team_short=args.get("team_short"),
         )
     except Exception as exc:  # noqa: BLE001
         return {

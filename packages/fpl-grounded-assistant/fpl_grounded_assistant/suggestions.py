@@ -50,6 +50,14 @@ from typing import Any, Callable
 #: ignores the question text entirely).
 KIND_PROMPT_REWRITE: str = "prompt_rewrite"
 
+#: ``Suggestion.kind`` for a HISTORICAL player chip (i60). Its ``send_text`` is
+#: a complete canonical question -- "puntos de <nombre completo> (<club>) en la
+#: temporada <YYYY-YYYY>" -- and it carries NO ``player_id``: the candidate's id
+#: belongs to that past season's store, and the stable-id handoff resolves
+#: against the CURRENT bootstrap, so sending it could pick the wrong player.
+#: The UI sends ``send_text`` verbatim, exactly like ``KIND_PROMPT_REWRITE``.
+KIND_HISTORICAL_PLAYER_REWRITE: str = "historical_player_rewrite"
+
 
 @dataclass(frozen=True)
 class Suggestion:
@@ -223,6 +231,35 @@ def player_disambiguation_suggestions(
         )
         for candidate in candidates
         if candidate.get("web_name") and _safe_int(candidate.get("id"), 0) > 0
+    )
+    return items or None
+
+
+def historical_player_suggestions(
+    candidates: "list[dict[str, Any]] | tuple[dict[str, Any], ...]",
+    season: str,
+) -> "tuple[Suggestion, ...] | None":
+    """Chips for an ambiguous PAST-season player (get_player_season_points).
+
+    Sibling of ``player_disambiguation_suggestions``, deliberately separate:
+    that builder drops ``id <= 0`` on purpose and hands the id to the UI as
+    authoritative -- neither is right for ids from another season's store.
+    Here the chip carries the full canonical question instead, built from
+    the ``name`` (first + second) and ``team_short`` the candidate already
+    exposes, so the resolver can break the tie by club on the way back.
+    """
+    items = tuple(
+        Suggestion(
+            label=f"{c.get('web_name', '')} ({c.get('team_short', '')})",
+            send_text=(
+                f"puntos de {c.get('name') or c.get('web_name', '')} "
+                f"({c.get('team_short', '')}) en la temporada {season}"
+            ),
+            player_id=None,
+            kind=KIND_HISTORICAL_PLAYER_REWRITE,
+        )
+        for c in candidates
+        if c.get("web_name") and c.get("team_short")
     )
     return items or None
 

@@ -203,6 +203,21 @@ _UNRECOGNISED = {
 }
 
 
+#: i60: orchestrator-chosen tools whose ``status="ambiguous"`` arms the
+#: stable-id pick wizard (candidates come from the CURRENT bootstrap, so a
+#: ``player_id`` is safe to hand back). ``find_players`` is not here: it is in
+#: DEPRECATED_LLM_TOOL_NAMES and its PR #140 arming branch no longer exists on
+#: this path (superseded by the deterministic player lookup). The UI keeps a
+#: mirror set of the matching intents (ChatShell.tsx WIZARD_ARMING_INTENTS).
+WIZARD_ARMING_TOOLS: frozenset[str] = frozenset({"get_player_snapshot", "get_player_form"})
+
+#: Tools whose own status (ok/ambiguous/not_found) must not be flattened to
+#: "ok" just because the orchestrator call succeeded -- otherwise the frontend
+#: has no signal to arm a wizard. Scoped deliberately; every other orch-only
+#: tool keeps the historical "ok" hardcode (unaudited whether they rely on it).
+STATUS_BEARING_TOOLS: frozenset[str] = WIZARD_ARMING_TOOLS | {"get_player_season_points"}
+
+
 def _unrecognised_message(locale: Locale = DEFAULT_LOCALE) -> str:
     """Deterministic fallback text for an unroutable question. F1: localized."""
     return t("harness.unrecognised", locale)
@@ -1139,7 +1154,7 @@ def ask_v2(
             # PR description for the follow-up this intentionally excludes).
             _orch_outcome = (
                 _outcome_from_status(_orch_raw)
-                if orch_result.tool_chosen == "get_player_snapshot"
+                if orch_result.tool_chosen in STATUS_BEARING_TOOLS
                 else "ok"
             )
             _orch_meta = _meta(orch_result.tool_chosen, _orch_raw)  # orchestrator: grounded tool ran
@@ -1176,7 +1191,7 @@ def ask_v2(
                 **_orch_meta,
             }
             if (
-                orch_result.tool_chosen == "get_player_snapshot"
+                orch_result.tool_chosen in WIZARD_ARMING_TOOLS
                 and _orch_raw.get("status") == "ambiguous"
             ):
                 from .suggestions import (  # noqa: PLC0415
@@ -1185,6 +1200,22 @@ def ask_v2(
                 )
                 result["player_suggestions"] = suggestions_to_list(
                     player_disambiguation_suggestions(_orch_raw.get("candidates", []))
+                )
+            elif (
+                orch_result.tool_chosen == "get_player_season_points"
+                and _orch_raw.get("status") == "ambiguous"
+            ):
+                # i60: historical ids do not cross seasons, so these chips
+                # carry a canonical question, never a player_id.
+                from .suggestions import (  # noqa: PLC0415
+                    historical_player_suggestions,
+                    suggestions_to_list,
+                )
+                result["player_suggestions"] = suggestions_to_list(
+                    historical_player_suggestions(
+                        _orch_raw.get("candidates", []),
+                        str(_orch_raw.get("season") or ""),
+                    )
                 )
             if orch_result.tool_chosen in {
                 "get_expected_minutes",

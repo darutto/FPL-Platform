@@ -1523,6 +1523,14 @@ GET_PLAYER_SEASON_POINTS_SCHEMA = ToolSchema(
                     "do not guess an earlier season from training-data recall."
                 ),
             },
+            "team_short": {
+                "type":        "string",
+                "description": (
+                    "Optional three-letter club code to break a same-name tie. Pass it "
+                    "when the question names the club in parentheses, e.g. 'puntos de "
+                    "Mohamed Salah (LIV) en la temporada 2025-2026' -> team_short='LIV'."
+                ),
+            },
         },
         "required":             ["query", "season"],
         "additionalProperties": False,
