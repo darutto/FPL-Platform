@@ -822,6 +822,8 @@ def get_zonal_opportunity(
         else:
             scope_resolution = "fixtures"
             sorted_fx = sorted(raw_fixtures, key=lambda f: int(f.get("gameweek", 0)))
+            scheduled_opponents: list[str] = []
+            raw_fixtures_by_team: dict[str, list[dict[str, Any]]] = {}
             for fx in sorted_fx:
                 opp_team = str(fx.get("opponent", "") or "")
                 if not opp_team:
@@ -831,10 +833,25 @@ def get_zonal_opportunity(
                 # backwards is the single easiest mistake here: it would
                 # tell an attacking team they're at home when they're away.
                 entry = {"gameweek": int(fx.get("gameweek", 0)), "is_home": not bool(fx.get("is_home", False))}
-                fixtures_by_team.setdefault(opp_team, []).append(entry)
-                if opp_team not in matched_teams:
-                    matched_teams.append(opp_team)
-            gws = [e["gameweek"] for entries in fixtures_by_team.values() for e in entries]
+                raw_fixtures_by_team.setdefault(opp_team, []).append(entry)
+                if opp_team not in scheduled_opponents:
+                    scheduled_opponents.append(opp_team)
+            # The callback names a team via the FPL->Understat bridge (see
+            # _team_to_store_name); a gap there (missing/mistranslated code)
+            # must surface as an unmatched team, exactly like the explicit
+            # path -- never as a row that silently vanishes with zero
+            # candidates. Resolve against the tactical store's own team
+            # names, same convention as `opponent`/`team` everywhere else.
+            store_teams = sorted(shots["shooting_team"].unique())
+            for opp_team in scheduled_opponents:
+                m = _match_team(opp_team, store_teams)
+                if m is None:
+                    unmatched_teams.append(opp_team)
+                    continue
+                fixtures_by_team[m] = raw_fixtures_by_team[opp_team]
+                if m not in matched_teams:
+                    matched_teams.append(m)
+            gws = [int(fx.get("gameweek", 0)) for fx in sorted_fx]
             fixture_meta = {
                 "fixture_window": {
                     "from_gw": min(gws), "to_gw": max(gws),
@@ -844,7 +861,7 @@ def get_zonal_opportunity(
                     {"gameweek": e["gameweek"], "team": t, "is_home": e["is_home"]}
                     for t, entries in fixtures_by_team.items() for e in entries
                 ],
-                "scheduled_opponents": list(matched_teams),
+                "scheduled_opponents": scheduled_opponents,
             }
     else:
         scope_resolution = "league"

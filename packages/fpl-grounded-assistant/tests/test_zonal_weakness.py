@@ -883,6 +883,28 @@ class TestFixtureDerivedScope:
         assert with_fx["exploiters"] == league["exploiters"]
         assert with_fx["scope_resolution"] == "fixtures_empty_fallback"
 
+    def test_bridge_gap_surfaces_as_unmatched_not_silent_zero_rows(self):
+        """i90: unlike the explicit-team path, the fixtures path used to
+        trust the callback's team name unconditionally -- a bridge gap
+        (missing/mistranslated FPL->Understat code) would then silently
+        yield zero candidates for that team instead of a visible signal.
+        Now it resolves against the store exactly like `team` does."""
+        def fixtures_with_a_ghost(_team: str) -> list[dict]:
+            return [
+                {"gameweek": 5, "opponent": "Wolves", "is_home": True},
+                {"gameweek": 6, "opponent": "Ghost Town FC", "is_home": False},
+            ]
+
+        out = get_zonal_opportunity(
+            "Palace", fixtures_for_team=fixtures_with_a_ghost, store=_two_team_store(),
+        )
+        tf = out["team_filter"]
+        assert tf["matched_teams"] == ["Wolves"]
+        assert tf["unmatched_teams"] == ["Ghost Town FC"]
+        # the calendar-derived list still names BOTH -- that's the signal
+        # a prod check compares against the live fixture list independently.
+        assert tf["scheduled_opponents"] == ["Wolves", "Ghost Town FC"]
+
 
 # ---------------------------------------------------------------------------
 # i89 (c): a marginal weakness is framed as marginal. Found 2026-09-11,
