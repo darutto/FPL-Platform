@@ -64,7 +64,9 @@ const ZONE_CENTER_X = [80, 180, 280];
 export default function DefensiveZonesCard({ data }: Props) {
   const { opponent, weakness_label, verdict, zones, exploiters } = data;
   const provenance = data.data_provenance ?? null;
-  const scope = scopeLabel(data.team_filter ?? null);
+  const scope = scopeLabel(data.team_filter ?? null, opponent);
+  const fixtureGroups =
+    data.team_filter?.source === 'fixtures' ? groupExploitersByFixture(exploiters) : null;
 
   return (
     <div className={`mt-3 text-sm ${CARD_BASE} ${CARD_ACCENT.coral.border}`}>
@@ -245,9 +247,25 @@ export default function DefensiveZonesCard({ data }: Props) {
               <span className="text-center">Zona</span>
               <span className="text-right">Ajuste</span>
             </div>
-            {exploiters.map((e, i) => (
-              <ExploiterRow key={e.rank} exploiter={e} striped={i % 2 === 0} data={data} />
-            ))}
+            {fixtureGroups ? (
+              fixtureGroups.map((group) => (
+                <div key={group.gameweek}>
+                  <div
+                    data-testid="zonal-fixture-group"
+                    className="border-b border-white/[0.06] bg-white/[0.015] px-3 py-1.5 text-[10.5px] font-bold text-bf-gray/70"
+                  >
+                    {fixtureGroupLabel(group.gameweek, group.teamShort, group.isHome, opponent)}
+                  </div>
+                  {group.rows.map((e, i) => (
+                    <ExploiterRow key={e.rank} exploiter={e} striped={i % 2 === 0} data={data} />
+                  ))}
+                </div>
+              ))
+            ) : (
+              exploiters.map((e, i) => (
+                <ExploiterRow key={e.rank} exploiter={e} striped={i % 2 === 0} data={data} />
+              ))
+            )}
           </div>
         ) : (
           <div className="mb-4 rounded-[10px] border border-white/[0.08] px-3 py-2.5 text-[11px] text-bf-gray/60">
@@ -358,10 +376,55 @@ function ExploiterRow({
  * name (`matched`), never the raw request, so a filter that resolved to
  * nothing is not presented as a scope.
  */
-function scopeLabel(tf: DefensiveZonesMeta['team_filter']): string | null {
-  if (!tf || !tf.matched) return null;
+function scopeLabel(tf: DefensiveZonesMeta['team_filter'], opponent: string): string | null {
+  if (!tf) return null;
+  // i90: the scope wasn't named -- it came from opponent's own calendar.
+  if (tf.source === 'fixtures' && tf.fixture_window) {
+    return `rivales de ${opponent} hasta la J${tf.fixture_window.to_gw}`;
+  }
+  if (!tf.matched) return null;
   // i89: `matched` is already the joined display ("Arsenal, Liverpool, Manchester City").
   return tf.source === 'inferred' ? `${tf.matched} · según tu pregunta` : tf.matched;
+}
+
+/**
+ * i90: buckets the (already fit-ranked) exploiter rows by their gameweek so
+ * the table can render "J5 · BUR visita a Fulham" section headers. Safe
+ * because in this scope one gameweek maps to exactly one attacking team
+ * (the weak team plays one fixture per gameweek); order is by gameweek
+ * ascending, mirroring "se lee como plan de jornadas."
+ */
+function groupExploitersByFixture(exploiters: ZonalExploiter[]): {
+  gameweek: number;
+  teamShort: string;
+  isHome: boolean;
+  rows: ZonalExploiter[];
+}[] {
+  const byGw = new Map<number, { teamShort: string; isHome: boolean; rows: ZonalExploiter[] }>();
+  for (const e of exploiters) {
+    if (e.gameweek == null) continue;
+    if (!byGw.has(e.gameweek)) {
+      byGw.set(e.gameweek, { teamShort: e.team_short, isHome: !!e.is_home, rows: [] });
+    }
+    byGw.get(e.gameweek)!.rows.push(e);
+  }
+  return [...byGw.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([gameweek, group]) => ({ gameweek, ...group }));
+}
+
+/** "J5 · BUR visita a Fulham" / "J6 · AVL recibe a Fulham" -- always names
+ * who has the ball (subject) and never bare "(L)/(V)". `isHome` is already
+ * attacker-perspective by the time it reaches this component. */
+function fixtureGroupLabel(
+  gameweek: number,
+  teamShort: string,
+  isHome: boolean,
+  opponent: string,
+): string {
+  return isHome
+    ? `J${gameweek} · ${teamShort} recibe a ${opponent}`
+    : `J${gameweek} · ${teamShort} visita a ${opponent}`;
 }
 
 const ORIGIN_LABEL: Record<NonNullable<ZonalExploiter['origin']>, string> = {

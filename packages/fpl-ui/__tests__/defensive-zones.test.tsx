@@ -38,6 +38,7 @@ import type {
   AskResponse,
   DefensiveZonesMeta,
   ZonalDataProvenance,
+  ZonalTeamFilter,
 } from '../lib/types';
 
 // ---------------------------------------------------------------------------
@@ -601,5 +602,98 @@ describe('DefensiveZonesCard — multi-team scope + marginal read (i89)', () => 
     expect(screen.queryByTestId('zonal-marginal')).not.toBeInTheDocument();
     render(<DefensiveZonesCard data={palaceMeta} />);
     expect(screen.queryByTestId('zonal-marginal')).not.toBeInTheDocument();
+  });
+});
+
+describe('DefensiveZonesCard — fixture-derived scope (i90)', () => {
+  const fixtureTeamFilter: ZonalTeamFilter = {
+    requested: null,
+    matched: 'Burnley, Aston Villa',
+    source: 'fixtures',
+    requested_teams: [],
+    matched_teams: ['Burnley', 'Aston Villa'],
+    unmatched_teams: [],
+    fixture_window: { from_gw: 5, to_gw: 6, horizon: 2 },
+    fixtures: [
+      { gameweek: 5, team: 'Burnley', is_home: false },
+      { gameweek: 6, team: 'Aston Villa', is_home: true },
+    ],
+    scheduled_opponents: ['Burnley', 'Aston Villa'],
+  };
+
+  const fixtureScoped: DefensiveZonesMeta = {
+    ...palaceMeta,
+    team_filter: fixtureTeamFilter,
+    exploiters: [
+      {
+        rank: 1, web_name: 'Right Poacher', team_short: 'BUR', position: 'FWD',
+        zone: 'in-box / right', fit_score: 10.0, gameweek: 5, is_home: false,
+      },
+      {
+        rank: 2, web_name: 'Someone', team_short: 'BUR', position: '',
+        zone: 'in-box / right', fit_score: 4.0, gameweek: 5, is_home: false,
+      },
+      {
+        rank: 3, web_name: 'Heavy Hitter', team_short: 'AVL', position: 'MID',
+        zone: 'in-box / right', fit_score: 9.0, gameweek: 6, is_home: true,
+      },
+    ],
+  };
+
+  test('scope caption reads "rivales de X hasta la J{to_gw}"', () => {
+    render(<DefensiveZonesCard data={fixtureScoped} />);
+    expect(screen.getByTestId('zonal-scope')).toHaveTextContent(
+      'rivales de Crystal Palace hasta la J6',
+    );
+  });
+
+  test('table groups by gameweek, one header per fixture, subject named', () => {
+    render(<DefensiveZonesCard data={fixtureScoped} />);
+    const groups = screen.getAllByTestId('zonal-fixture-group');
+    expect(groups).toHaveLength(2);
+    expect(groups[0]).toHaveTextContent('J5 · BUR visita a Crystal Palace');
+    expect(groups[1]).toHaveTextContent('J6 · AVL recibe a Crystal Palace');
+  });
+
+  test('is_home flips the wording — never bare (L)/(V)', () => {
+    const first = render(<DefensiveZonesCard data={fixtureScoped} />);
+    const groups = screen.getAllByTestId('zonal-fixture-group');
+    expect(groups[0]).not.toHaveTextContent('(V)');
+    expect(groups[0]).not.toHaveTextContent('(L)');
+    first.unmount();
+    // flipping is_home flips which verb is used
+    const flipped = {
+      ...fixtureScoped,
+      exploiters: fixtureScoped.exploiters.map((e) =>
+        e.gameweek === 5 ? { ...e, is_home: true } : e,
+      ),
+    };
+    render(<DefensiveZonesCard data={flipped} />);
+    expect(screen.getAllByTestId('zonal-fixture-group')[0]).toHaveTextContent(
+      'J5 · BUR recibe a Crystal Palace',
+    );
+  });
+
+  test('rows within a group keep their rank/fit order', () => {
+    render(<DefensiveZonesCard data={fixtureScoped} />);
+    const names = screen.getAllByText(/Right Poacher|Someone|Heavy Hitter/);
+    expect(names.map((n) => n.textContent)).toEqual(['Right Poacher', 'Someone', 'Heavy Hitter']);
+  });
+
+  test('a pre-i90 payload (no team_filter.source==="fixtures") renders no fixture groups', () => {
+    render(<DefensiveZonesCard data={palaceMeta} />);
+    expect(screen.queryAllByTestId('zonal-fixture-group')).toHaveLength(0);
+  });
+
+  test('an explicit-team payload (source !== "fixtures") also renders no fixture groups', () => {
+    render(
+      <DefensiveZonesCard
+        data={{
+          ...fixtureScoped,
+          team_filter: { ...fixtureTeamFilter, source: 'explicit', matched: 'Burnley' },
+        }}
+      />,
+    );
+    expect(screen.queryAllByTestId('zonal-fixture-group')).toHaveLength(0);
   });
 });
