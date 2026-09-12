@@ -802,6 +802,10 @@ export interface ZonalTeamFilter {
   source: 'explicit' | 'inferred' | null;
   min_shots?: number | null;
   zone_share_threshold?: number | null;
+  /** i89: the scope may be several teams; `matched` is the joined display. */
+  requested_teams?: string[];
+  matched_teams?: string[];
+  unmatched_teams?: string[];
 }
 
 /**
@@ -843,6 +847,12 @@ export interface DefensiveZonesMeta {
   data_provenance?: ZonalDataProvenance | null;
   /** i85–i87 team scope; absent/null when the table is league-wide. */
   team_filter?: ZonalTeamFilter | null;
+  /**
+   * i89: how strong the top weak zone is. 'marginal' (< +15%) means the
+   * verdict already says "no clear weakness" and the table is a marginal
+   * read, not a strong one. Absent on pre-i89 payloads.
+   */
+  weakness_strength?: 'clear' | 'marginal' | 'none' | null;
 }
 
 // ---------------------------------------------------------------------------

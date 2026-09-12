@@ -217,49 +217,72 @@ def _mentioned_teams(question: str, bootstrap: dict[str, Any]) -> list[dict[str,
     """
     teams = (bootstrap or {}).get("teams", []) or []
     q_lower = question.lower()
-    found: dict[str, dict[str, Any]] = {}
+    # short_name -> (first position in the question, team). Position keeps
+    # the result in order of first mention, which matters once several
+    # teams are a scope (i89): "arsenal, liverpool y city" lists in that order.
+    found: dict[str, tuple[int, dict[str, Any]]] = {}
 
-    def _phrase_in(phrase: str, text: str) -> bool:
-        return re.search(rf"(?<!\w){re.escape(phrase)}(?!\w)", text) is not None
+    def _pos(phrase: str, text: str) -> int | None:
+        m = re.search(rf"(?<!\w){re.escape(phrase)}(?!\w)", text)
+        return m.start() if m else None
+
+    def _note(short: str, t: dict[str, Any], pos: int) -> None:
+        prev = found.get(short)
+        if prev is None or pos < prev[0]:
+            found[short] = (pos, t)
 
     for t in teams:
         short = str(t.get("short_name", "") or "")
         name = str(t.get("name", "") or "").lower()
-        if name and _phrase_in(name, q_lower):
-            found[short] = t
-        elif short and re.search(rf"(?<!\w){re.escape(short)}(?!\w)", question):
-            found[short] = t
+        pos = _pos(name, q_lower) if name else None
+        if pos is None and short:
+            pos = _pos(short, question)  # UPPERCASE only: matched on the raw text
+        if pos is not None:
+            _note(short, t, pos)
     for alias, code in _TEAM_RESOLVE_ALIASES.items():
-        if _phrase_in(alias, q_lower):
+        pos = _pos(alias, q_lower)
+        if pos is not None:
             t = _resolve_team(code, bootstrap or {})
             if t is not None:
-                found.setdefault(str(t.get("short_name", "") or ""), t)
-    return list(found.values())
+                _note(str(t.get("short_name", "") or ""), t, pos)
+    return [t for _, t in sorted(found.values(), key=lambda pt: pt[0])]
+
+
+def infer_subject_teams(
+    question: str, opponent_query: str, bootstrap: dict[str, Any]
+) -> list[str]:
+    """Every team, other than *opponent_query*, that *question* names.
+
+    Returns their ``short_name`` codes in order of first mention, or ``[]``
+    when the question names no other team, or when the opponent itself
+    doesn't resolve (then every mention could be the opponent under another
+    name, and guessing would filter to the wrong side).
+
+    i89: several teams are a legitimate scope ("jugadores de arsenal,
+    liverpool y manchester city para atacar al brighton" is one ranked
+    table with three teams in it), so this no longer bails on 2+.
+    """
+    if not question:
+        return []
+    opponent = _resolve_team(opponent_query, bootstrap or {})
+    if opponent is None:
+        return []
+    opp_short = str(opponent.get("short_name", "") or "")
+    out: list[str] = []
+    for t in _mentioned_teams(question, bootstrap):
+        short = str(t.get("short_name", "") or "")
+        if short and short != opp_short and short not in out:
+            out.append(short)
+    return out
 
 
 def infer_subject_team(
     question: str, opponent_query: str, bootstrap: dict[str, Any]
 ) -> str | None:
-    """The one team, other than *opponent_query*, that *question* names.
-
-    Returns that team's ``short_name``, or ``None`` when the question names
-    no other team, more than one, or when the opponent itself doesn't
-    resolve (then every mention could be the opponent under another name,
-    and guessing would filter to the wrong side).
-    """
-    if not question:
-        return None
-    opponent = _resolve_team(opponent_query, bootstrap or {})
-    if opponent is None:
-        return None
-    opp_short = str(opponent.get("short_name", "") or "")
-    others = [
-        t for t in _mentioned_teams(question, bootstrap)
-        if str(t.get("short_name", "") or "") != opp_short
-    ]
-    if len(others) != 1:
-        return None
-    return str(others[0].get("short_name", "") or "") or None
+    """Single-team form kept for callers/tests: the one other team named,
+    or ``None`` when there are zero or several."""
+    found = infer_subject_teams(question, opponent_query, bootstrap)
+    return found[0] if len(found) == 1 else None
 
 
 def _get_zonal_weakness_handler(
@@ -286,6 +309,23 @@ def _get_zonal_weakness_handler(
     return result
 
 
+def _team_args(args: dict[str, Any]) -> list[str]:
+    """Team scope from the model's arguments, in any of the shapes it may
+    send: ``team`` as one name, ``team`` as a comma-separated string,
+    ``team`` as a list, or ``teams`` as a list."""
+    out: list[str] = []
+    for key in ("team", "teams"):
+        raw = args.get(key)
+        if raw is None:
+            continue
+        items = raw if isinstance(raw, (list, tuple)) else str(raw).split(",")
+        for item in items:
+            t = str(item or "").strip()
+            if t and t not in out:
+                out.append(t)
+    return out
+
+
 def _get_zonal_opportunity_handler(
     args:      dict[str, Any],
     bootstrap: dict[str, Any],
@@ -294,23 +334,23 @@ def _get_zonal_opportunity_handler(
     opponent_query = str(args.get("opponent", "") or "").strip()
     if not opponent_query:
         return {"status": "not_found", "opponent": "", "message": "No opponent given."}
-    team_query = str(args.get("team", "") or "").strip()
-    team_source = "explicit" if team_query else None
-    if not team_query:
-        # i86: the model omitted `team`; if the user's own question names
-        # exactly one other team, that is the filter they asked for.
-        inferred = infer_subject_team(
+    team_queries = _team_args(args)
+    team_source = "explicit" if team_queries else None
+    if not team_queries:
+        # i86/i89: the model omitted the team scope; every other team the
+        # user's own question names is the scope they asked for.
+        inferred = infer_subject_teams(
             str((bootstrap or {}).get(_QUESTION_KEY, "") or ""),
             opponent_query,
             bootstrap,
         )
         if inferred:
-            team_query = inferred
+            team_queries = inferred
             team_source = "inferred"
     try:
         result = get_zonal_opportunity(
             _to_store_team(opponent_query, bootstrap),
-            team=_to_store_team(team_query, bootstrap) if team_query else None,
+            team=[_to_store_team(t, bootstrap) for t in team_queries] or None,
             live_season=_live_season(bootstrap),
         )
     except Exception as exc:  # noqa: BLE001 — never raise into the orchestrator
@@ -336,8 +376,14 @@ def _get_zonal_opportunity_handler(
             tf["source"] = team_source
             if tf["matched"] is None:
                 result["message"] = (
-                    f"'{team_query}' did not match any team in the tactical store — "
-                    f"exploiters/opportunities are empty, not unfiltered."
+                    f"{tf['requested']!r} did not match any team in the tactical "
+                    f"store — exploiters/opportunities are empty, not unfiltered."
+                )
+            elif tf.get("unmatched_teams"):
+                result["message"] = (
+                    f"Scoped to {tf['matched']}; "
+                    f"{', '.join(tf['unmatched_teams'])} did not match any team "
+                    f"in the tactical store and was ignored."
                 )
     return result
 
@@ -402,7 +448,17 @@ GET_ZONAL_OPPORTUNITY_SPEC = ToolSpec(
                 "description": (
                     "Optional. Team name / short_name / alias to restrict the "
                     "exploiter ranking to — only that team's players are "
-                    "considered. Omit for an unfiltered, league-wide ranking."
+                    "considered. For several teams, comma-separate them or "
+                    "use `teams`. Omit for an unfiltered, league-wide ranking."
+                ),
+            },
+            "teams": {
+                "type":        "array",
+                "items":       {"type": "string"},
+                "description": (
+                    "Optional. Several teams whose players to rank together "
+                    "against `opponent` (e.g. the user names Arsenal, Liverpool "
+                    "and Man City). Each row carries its team."
                 ),
             },
         },
@@ -417,7 +473,8 @@ GET_ZONAL_OPPORTUNITY_SPEC = ToolSpec(
             "opportunities":   {"type": "array"},
             "zones":           {"type": "array"},   # T4b: 3 in-box lateral cells
             "exploiters":      {"type": "array"},   # T4b: ranked zone-fit table
-            "team_filter":     {"type": "object"},  # i85/i86: {requested, matched, source}; present when `team` was given or inferred from the question
+            "team_filter":     {"type": "object"},  # i85–i89: {requested, matched, source, *_teams}; present when a team scope was given or inferred
+            "weakness_strength": {"type": "string"},  # i89: clear | marginal | none
             "weakness_label":  {"type": "string"},  # T4b
             "verdict":         {"type": "string"},  # T4b
             "penalty_context": {"type": "object"},  # T4b

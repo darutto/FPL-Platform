@@ -53,7 +53,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 import pandas as pd
 
@@ -166,6 +166,13 @@ FIT_SCORE_MAX: float = 10.0
 
 #: Max exploiters returned for the card table (across all weak zones).
 TOP_EXPLOITERS: int = 5
+
+#: i90 A1: with 2+ named/matched teams, the cut is no longer one global
+#: top-N (which can starve a named team down to zero rows) but up to this
+#: many per team, capped overall at TOP_EXPLOITERS_MULTI. With 0-1 teams,
+#: behaviour is byte-identical to the pre-i90 single top-N cut.
+TOP_EXPLOITERS_PER_TEAM: int = 3
+TOP_EXPLOITERS_MULTI: int = 15
 
 #: Attacker-frame lateral label → "the flank you attack down", in Spanish.
 #: One frame everywhere — no defender-side flip (see orientation section).
@@ -470,28 +477,66 @@ _WEAKNESS_LABEL_ES: dict[str, str] = {
     "in-box": "Débil dentro del área",
     "edge-of-box": "Débil en la frontal del área",
 }
+_MARGINAL_LABEL_ES: dict[str, str] = {
+    "in-box": "Ventaja leve dentro del área",
+    "edge-of-box": "Ventaja leve en la frontal del área",
+}
+
+
+def _top_weak(weakest: list[dict[str, Any]]) -> dict[str, Any] | None:
+    return next((z for z in weakest if z["delta_vs_avg"] > 0), None)
+
+
+def weakness_strength(weakest: list[dict[str, Any]]) -> str:
+    """``clear`` / ``marginal`` / ``none`` from the top weak zone's pct.
+
+    i89: a lone exploiter under a +2% zone was being served with the same
+    framing as a +70% one (found 2026-09-11, Sunderland: the only zone above
+    average was in-box/left at +1.8%, one player in the league cleared the
+    gate there, and the card presented him as if the read were strong).
+    Thresholds are the card's own opportunity coding: ``clear`` = the top
+    zone would shade "opp", ``marginal`` = it would shade "warm".
+    """
+    top = _top_weak(weakest)
+    if top is None:
+        return "none"
+    pct = _pct_over_avg(top["xga_per_game"], top["league_avg"])
+    if pct >= OPPORTUNITY_OPP_MIN_PCT:
+        return "clear"
+    if pct >= OPPORTUNITY_WARM_MIN_PCT:
+        return "marginal"
+    return "none"
 
 
 def _weakness_label(weakest: list[dict[str, Any]]) -> str:
-    """Card pill label from the top genuinely-weak zone's depth."""
-    top = next((z for z in weakest if z["delta_vs_avg"] > 0), None)
-    if top is None:
+    """Card pill label from the top genuinely-weak zone's depth and strength."""
+    top = _top_weak(weakest)
+    strength = weakness_strength(weakest)
+    if top is None or strength == "none":
         return "Sin debilidad clara"
     depth, _ = _split_zone(top["zone"])
-    return _WEAKNESS_LABEL_ES[depth]
+    return (_WEAKNESS_LABEL_ES if strength == "clear" else _MARGINAL_LABEL_ES)[depth]
 
 
 def _opportunity_verdict(team: str, weakest: list[dict[str, Any]]) -> str:
     """Spanish card verdict — attacker/opportunity frame ("ataca por…"),
-    headline pct included. Never "débil por", never buy/sell."""
-    top = next((z for z in weakest if z["delta_vs_avg"] > 0), None)
-    if top is None:
+    headline pct included. Never "débil por", never buy/sell. A marginal
+    read says so FIRST, then names the least-bad zone."""
+    top = _top_weak(weakest)
+    strength = weakness_strength(weakest)
+    if top is None or strength == "none":
         return (
             f"{team} no concede por encima de la media de la liga en "
             f"ninguna zona del área."
         )
     depth, lat = _split_zone(top["zone"])
     pct = _pct_over_avg(top["xga_per_game"], top["league_avg"])
+    if strength == "marginal":
+        return (
+            f"{team} no concede claramente por encima de la media en ninguna "
+            f"zona — la lectura más favorable es {_ATTACK_SIDE_ES[lat]} "
+            f"{_DEPTH_ES[depth]} ({pct:+.0f}%), una ventaja leve."
+        )
     return (
         f"Ataca a {team} {_ATTACK_SIDE_ES[lat]} {_DEPTH_ES[depth]} — "
         f"concede un {pct:+.0f}% sobre un equipo medio ahí."
@@ -502,11 +547,13 @@ def _weakness_verdict(team: str, weakest: list[dict[str, Any]]) -> str:
     """Spanish one-liner for the text tool — same attacker/opportunity
     frame as the card ("ataca por…"). Never buy/sell."""
     above = [z for z in weakest if z["delta_vs_avg"] > 0]
-    if not above:
+    if not above or weakness_strength(weakest) == "none":
         return (
             f"{team} no concede por encima de la media de la liga en "
             f"ninguna zona del área."
         )
+    if weakness_strength(weakest) == "marginal":
+        return _opportunity_verdict(team, weakest)
     parts = []
     for z in above:
         depth, lat = _split_zone(z["zone"])
@@ -651,11 +698,18 @@ def get_zonal_opportunity(
     opponent: str,
     *,
     position: str | None = None,
-    team: str | None = None,
+    team: "str | Sequence[str] | None" = None,
     store: Any = None,
     live_season: str | None = None,
 ) -> dict[str, Any]:
     """Join *opponent*'s weak zones to players who operate in those zones.
+
+    i89: ``team`` may be one team or several -- "players from Arsenal,
+    Liverpool and Man City to attack Brighton" is one table, ranked
+    together, each row carrying its team. ``team_filter`` then reports
+    ``requested_teams`` / ``matched_teams`` / ``unmatched_teams`` alongside
+    the joined ``requested`` / ``matched`` strings the single-team callers
+    and the card already read.
 
     A player "operates" in a zone when ≥ ``PLAYER_ZONE_XG_SHARE_THRESHOLD``
     of their own non-penalty xG comes from it (with ≥ ``MIN_PLAYER_SHOTS``
@@ -715,24 +769,36 @@ def get_zonal_opportunity(
     # every player of that team with any zoned xG, with the thin per-player
     # samples made visible (``n_shots``, ``zone_share``, ``sample``) instead
     # of hidden behind a gate.
-    team_filter_matched: str | None = None
-    if team:
+    requested_teams: list[str] = (
+        [team] if isinstance(team, str) else [str(t) for t in (team or []) if str(t).strip()]
+    )
+    matched_teams: list[str] = []
+    unmatched_teams: list[str] = []
+    if requested_teams:
         # Match against every team that has shot for itself in the store
         # (shooting_team) -- not just teams already surviving into `shares`,
         # so a team with real data but no individual qualifying scorer
         # still resolves (to zero exploiters), rather than being reported
         # as an unresolved filter.
-        team_filter_matched = _match_team(team, sorted(shots["shooting_team"].unique()))
-    team_scoped = team_filter_matched is not None
+        store_teams = sorted(shots["shooting_team"].unique())
+        for t in requested_teams:
+            m = _match_team(t, store_teams)
+            if m is None:
+                unmatched_teams.append(t)
+            elif m not in matched_teams:
+                matched_teams.append(m)
+    team_filter_matched: str | None = ", ".join(matched_teams) if matched_teams else None
+    team_scoped = bool(matched_teams)
     min_shots = TEAM_SCOPED_MIN_PLAYER_SHOTS if team_scoped else MIN_PLAYER_SHOTS
     share_threshold = (
         TEAM_SCOPED_ZONE_SHARE_THRESHOLD if team_scoped else PLAYER_ZONE_XG_SHARE_THRESHOLD
     )
 
     shares = compute_player_zone_shares(shots, min_shots=min_shots)
-    if team:
+    if requested_teams:
+        _matched_set = set(matched_teams)
         shares = (
-            {p: info for p, info in shares.items() if info["team"] == team_filter_matched}
+            {p: info for p, info in shares.items() if info["team"] in _matched_set}
             if team_scoped
             else {}
         )
@@ -795,9 +861,30 @@ def get_zonal_opportunity(
             prev = raw_by_player.get(player)
             if prev is None or raw > prev[0]:
                 raw_by_player[player] = (raw, zone, info["team"])
-    ranked = sorted(
-        raw_by_player.items(), key=lambda kv: (-kv[1][0], kv[0])
-    )[:TOP_EXPLOITERS]
+    sorted_all = sorted(raw_by_player.items(), key=lambda kv: (-kv[1][0], kv[0]))
+    candidates_per_team: dict[str, int] | None = None
+    if len(matched_teams) >= 2:
+        # i90 A1: one global top-N starves a named team down to zero rows
+        # whenever its best fit ranks below the cut everywhere else. Keep
+        # the global fit order (so within-team relative ranking is
+        # unchanged) but cap each team at TOP_EXPLOITERS_PER_TEAM, and the
+        # whole table at TOP_EXPLOITERS_MULTI.
+        candidates_per_team = {t: 0 for t in matched_teams}
+        for _player, (_raw, _zone, team_name) in sorted_all:
+            if team_name in candidates_per_team:
+                candidates_per_team[team_name] += 1
+        per_team_count: dict[str, int] = {}
+        ranked = []
+        for player, (raw, zone, team_name) in sorted_all:
+            if len(ranked) >= TOP_EXPLOITERS_MULTI:
+                break
+            if per_team_count.get(team_name, 0) >= TOP_EXPLOITERS_PER_TEAM:
+                continue
+            per_team_count[team_name] = per_team_count.get(team_name, 0) + 1
+            ranked.append((player, (raw, zone, team_name)))
+    else:
+        # 0-1 teams: identical to pre-i90 behaviour (pinned byte-identical).
+        ranked = sorted_all[:TOP_EXPLOITERS]
     max_raw = ranked[0][1][0] if ranked else 0.0
     exploiters = [
         {
@@ -834,20 +921,29 @@ def get_zonal_opportunity(
         "penalty_context": weakness["penalty_context"],
         "data_provenance": provenance,
     }
-    if team:
-        # team_filter_matched is None when *team* didn't resolve against any
-        # team present in the store -- distinct from resolving fine but
-        # nobody on that team having any zoned xG at all (exploiters would
-        # then just be empty with team_filter_matched set).
+    result["weakness_strength"] = weakness_strength(weakness["weakest_zones"])
+    if requested_teams:
+        # matched is None when NO requested team resolved against the store
+        # -- distinct from resolving fine but nobody on those teams having
+        # any zoned xG at all (exploiters would then just be empty with
+        # matched set). Partial resolution lists the misses in
+        # unmatched_teams and proceeds with the rest.
         result["team_filter"] = {
-            "requested": team,
+            "requested": ", ".join(requested_teams),
             "matched": team_filter_matched,
+            "requested_teams": requested_teams,
+            "matched_teams": matched_teams,
+            "unmatched_teams": unmatched_teams,
             # The gates actually applied, so the consumer knows the ranking
             # is "this team's attackers relative to each other" and not
             # "league standouts" -- and the LLM can say so.
             "min_shots": min_shots,
             "zone_share_threshold": share_threshold,
         }
+        if candidates_per_team is not None:
+            # So a reader can tell a team with 0 rows from "no encaje" (n=0)
+            # apart from "encajó pero se topó con el tope" (n > rows shown).
+            result["team_filter"]["candidates_per_team"] = candidates_per_team
     return result
 
 
