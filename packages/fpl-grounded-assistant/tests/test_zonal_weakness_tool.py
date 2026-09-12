@@ -405,6 +405,101 @@ def test_run_tool_opportunity_two_named_teams_scope_to_both(tactical_store):
     assert teams == {"Burnley"}
 
 
+def test_run_tool_opportunity_alternative_rival_phrasing_scopes_to_named_teams(tactical_store):
+    """#251 review objection: "Brighton o Fulham, cual es mejor para atacar
+    con el Arsenal?" reads on the surface as picking BETWEEN two rivals, not
+    naming two attacking teams. i89's decided policy (this test documents,
+    not decides, it) is that EVERY named team becomes the scope regardless
+    of that surface grammar -- inverting i86 (2+ mentions == ambiguous ==
+    fall back to the whole league). This is accepted because it is visible:
+    ``team_filter.source == "inferred"`` and ``matched_teams`` names exactly
+    who was scoped, so a caller can always see why those teams appeared
+    rather than the question silently degrading to a league-wide table.
+    """
+    out = run_tool(
+        "get_zonal_opportunity",
+        {"opponent": "Crystal Palace"},
+        _bootstrap_with_question(
+            "Crystal Palace o del villa, cual es mejor para atacar con el burnley?"
+        ),
+    )
+    assert out["status"] == "ok"
+    tf = out["team_filter"]
+    assert tf["source"] == "inferred"
+    assert tf["matched_teams"] == ["Aston Villa", "Burnley"]
+    assert tf["unmatched_teams"] == []
+
+
+@pytest.fixture
+def three_team_scope_store(tmp_path, monkeypatch):
+    """Wolves: 6 qualifying candidates. Burnley: 2 (matches the existing
+    'Right Poacher' + 'Someone' fixture shape). Aston Villa: 0 (only ever
+    concedes in this store, never shoots) -- so a per-team cap test can
+    assert 3 + 2 + 0 without inventing a fourth store shape."""
+    rows = []
+    for _ in range(10):
+        rows.append(_row("Crystal Palace", "Burnley", 0.90, 0.20, 0.10,
+                         match_id=1, player="Right Poacher"))
+    rows.append(_row("Sunderland", "Burnley", 0.90, 0.20, 0.10,
+                      match_id=4, player="Someone"))
+    # Crystal Palace's own shot conceded by Aston Villa -- a distinct player
+    # name from the "Someone" default so it doesn't merge into Burnley's
+    # "Someone" via compute_player_zone_shares' last-shot team resolution.
+    rows.append(_row("Aston Villa", "Crystal Palace", 0.90, 0.20, 0.10,
+                      match_id=2, player="Palace Nobody"))
+    # Aston Villa needs a real shooting_team row to resolve as a matched
+    # team at all -- against Sunderland (not Crystal Palace, so it doesn't
+    # perturb Crystal Palace's own weak-zone computation) and placed in
+    # in-box/left (not Crystal Palace's weak zone) so it contributes zero
+    # opportunity candidates, not zero rows in the store.
+    rows.append(_row("Sunderland", "Aston Villa", 0.90, 0.90, 0.05,
+                      match_id=20, player="Villa Nobody"))
+    for i in range(6):
+        rows.append(_row("Crystal Palace", "Wolves", 0.90, 0.20, 0.10,
+                          match_id=10 + i, player=f"Wolf {i}"))
+    season_dir = tmp_path / "seasons" / CURRENT_SEASON
+    season_dir.mkdir(parents=True)
+    pd.DataFrame(rows).to_parquet(season_dir / "understat_shots.parquet", index=False)
+    monkeypatch.setenv("FPL_TACTICAL_ROOT", str(tmp_path))
+    return tmp_path
+
+
+def test_run_tool_opportunity_three_teams_caps_per_team_not_globally(three_team_scope_store):
+    """i90 A1: with 2+ matched teams the old global top-5 cut could starve a
+    named team down to zero rows just because its best fit ranked below the
+    global cut. Cap becomes up to TOP_EXPLOITERS_PER_TEAM (3) per team,
+    TOP_EXPLOITERS_MULTI (15) overall -- so 6/2/0 candidates become 3/2/0
+    rows, and ``candidates_per_team`` reports the true counts (6/2/0), not
+    the post-cap row counts, so a caller can tell "capped" from "no fit"."""
+    out = run_tool(
+        "get_zonal_opportunity",
+        {"opponent": "Crystal Palace", "team": ["Wolves", "Burnley", "Aston Villa"]},
+        _bootstrap(),
+    )
+    assert out["status"] == "ok"
+    tf = out["team_filter"]
+    assert tf["matched_teams"] == ["Wolves", "Burnley", "Aston Villa"]
+    by_team: dict[str, int] = {}
+    for e in out["exploiters"]:
+        by_team[e["team"]] = by_team.get(e["team"], 0) + 1
+    assert by_team == {"Wolves": 3, "Burnley": 2}
+    assert tf["candidates_per_team"] == {"Wolves": 6, "Burnley": 2, "Aston Villa": 0}
+
+
+def test_run_tool_opportunity_single_team_shape_unchanged_by_a1(three_team_scope_store):
+    """0-1 matched teams: A1's per-team cap must never engage -- pins the
+    exact pre-i90 single-team shape (same rows, no ``candidates_per_team``),
+    which is what makes the PR's "byte-identical, pinned" claim true for
+    that case (see #251 body correction)."""
+    out = run_tool(
+        "get_zonal_opportunity",
+        {"opponent": "Crystal Palace", "team": "Burnley"},
+        _bootstrap(),
+    )
+    assert [e["player"] for e in out["exploiters"]] == ["Right Poacher", "Someone"]
+    assert "candidates_per_team" not in out["team_filter"]
+
+
 # ---------------------------------------------------------------------------
 # run_tool — degraded paths (never raise into the orchestrator)
 # ---------------------------------------------------------------------------

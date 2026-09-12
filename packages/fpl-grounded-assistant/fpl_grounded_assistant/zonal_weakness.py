@@ -167,6 +167,13 @@ FIT_SCORE_MAX: float = 10.0
 #: Max exploiters returned for the card table (across all weak zones).
 TOP_EXPLOITERS: int = 5
 
+#: i90 A1: with 2+ named/matched teams, the cut is no longer one global
+#: top-N (which can starve a named team down to zero rows) but up to this
+#: many per team, capped overall at TOP_EXPLOITERS_MULTI. With 0-1 teams,
+#: behaviour is byte-identical to the pre-i90 single top-N cut.
+TOP_EXPLOITERS_PER_TEAM: int = 3
+TOP_EXPLOITERS_MULTI: int = 15
+
 #: Attacker-frame lateral label → "the flank you attack down", in Spanish.
 #: One frame everywhere — no defender-side flip (see orientation section).
 _ATTACK_SIDE_ES: dict[str, str] = {
@@ -854,9 +861,30 @@ def get_zonal_opportunity(
             prev = raw_by_player.get(player)
             if prev is None or raw > prev[0]:
                 raw_by_player[player] = (raw, zone, info["team"])
-    ranked = sorted(
-        raw_by_player.items(), key=lambda kv: (-kv[1][0], kv[0])
-    )[:TOP_EXPLOITERS]
+    sorted_all = sorted(raw_by_player.items(), key=lambda kv: (-kv[1][0], kv[0]))
+    candidates_per_team: dict[str, int] | None = None
+    if len(matched_teams) >= 2:
+        # i90 A1: one global top-N starves a named team down to zero rows
+        # whenever its best fit ranks below the cut everywhere else. Keep
+        # the global fit order (so within-team relative ranking is
+        # unchanged) but cap each team at TOP_EXPLOITERS_PER_TEAM, and the
+        # whole table at TOP_EXPLOITERS_MULTI.
+        candidates_per_team = {t: 0 for t in matched_teams}
+        for _player, (_raw, _zone, team_name) in sorted_all:
+            if team_name in candidates_per_team:
+                candidates_per_team[team_name] += 1
+        per_team_count: dict[str, int] = {}
+        ranked = []
+        for player, (raw, zone, team_name) in sorted_all:
+            if len(ranked) >= TOP_EXPLOITERS_MULTI:
+                break
+            if per_team_count.get(team_name, 0) >= TOP_EXPLOITERS_PER_TEAM:
+                continue
+            per_team_count[team_name] = per_team_count.get(team_name, 0) + 1
+            ranked.append((player, (raw, zone, team_name)))
+    else:
+        # 0-1 teams: identical to pre-i90 behaviour (pinned byte-identical).
+        ranked = sorted_all[:TOP_EXPLOITERS]
     max_raw = ranked[0][1][0] if ranked else 0.0
     exploiters = [
         {
@@ -912,6 +940,10 @@ def get_zonal_opportunity(
             "min_shots": min_shots,
             "zone_share_threshold": share_threshold,
         }
+        if candidates_per_team is not None:
+            # So a reader can tell a team with 0 rows from "no encaje" (n=0)
+            # apart from "encajó pero se topó con el tope" (n > rows shown).
+            result["team_filter"]["candidates_per_team"] = candidates_per_team
     return result
 
 
