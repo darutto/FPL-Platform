@@ -639,6 +639,39 @@ def get_zonal_weakness(
     }
 
 
+def zonal_weakness_card_fields(weakness: dict[str, Any]) -> dict[str, Any]:
+    """T4b card-shaped enrichment derived from an ``ok`` ``get_zonal_weakness()``
+    result: the 3 in-box lateral cells (attacker-frame ``lateral`` ∈
+    left/central/right, with ``pct_over_avg`` / ``opportunity_level`` for the
+    pitch view), ``weakness_label``, and ``weakness_strength``.
+
+    i91: shared by ``get_zonal_opportunity`` (which already needed this for
+    its own card, from its own internal ``get_zonal_weakness()`` call) and
+    the weakness-only card path (a question that never asks about players
+    still gets the pitch view — it just has no exploiter table), so both
+    surfaces compute identical shading/label for the same team from the
+    same math, never two copies that can drift.
+    """
+    zone_rows = {z["zone"]: z for z in weakness["zones"]}
+    zones_out: list[dict[str, Any]] = []
+    for lat in ("left", "central", "right"):
+        row = zone_rows[f"in-box / {lat}"]
+        pct = _pct_over_avg(row["xga_per_game"], row["league_avg"])
+        zones_out.append(
+            {
+                "lateral": lat,
+                "zone": row["zone"],
+                "pct_over_avg": pct,
+                "opportunity_level": _opportunity_level(pct),
+            }
+        )
+    return {
+        "zones": zones_out,
+        "weakness_label": _weakness_label(weakness["weakest_zones"]),
+        "weakness_strength": weakness_strength(weakness["weakest_zones"]),
+    }
+
+
 def compute_player_zone_shares(
     shots: pd.DataFrame,
     *,
@@ -904,20 +937,12 @@ def get_zonal_opportunity(
 
     # ------------------------------------------------------------------
     # T4b card enrichment — pitch cells, ranked exploiters, header/footer.
+    # i91: pitch cells + label + strength come from the shared helper so
+    # this and the weakness-only card path never compute them two
+    # different ways for the same team.
     # ------------------------------------------------------------------
-    zone_rows = {z["zone"]: z for z in weakness["zones"]}
-    zones_out: list[dict[str, Any]] = []
-    for lat in ("left", "central", "right"):
-        row = zone_rows[f"in-box / {lat}"]
-        pct = _pct_over_avg(row["xga_per_game"], row["league_avg"])
-        zones_out.append(
-            {
-                "lateral": lat,
-                "zone": row["zone"],
-                "pct_over_avg": pct,
-                "opportunity_level": _opportunity_level(pct),
-            }
-        )
+    card_fields = zonal_weakness_card_fields(weakness)
+    zones_out = card_fields["zones"]
 
     # Zone-fit ranking across the weak zones; each player keeps their best
     # zone (raw = zone_share × total_xg × max(pct, 0)/100, see FIT_SCORE_MAX
@@ -1007,12 +1032,12 @@ def get_zonal_opportunity(
         "opportunities": opportunities,
         "zones": zones_out,
         "exploiters": exploiters,
-        "weakness_label": _weakness_label(weakness["weakest_zones"]),
+        "weakness_label": card_fields["weakness_label"],
         "verdict": _opportunity_verdict(matched, weakness["weakest_zones"]),
         "penalty_context": weakness["penalty_context"],
         "data_provenance": provenance,
     }
-    result["weakness_strength"] = weakness_strength(weakness["weakest_zones"])
+    result["weakness_strength"] = card_fields["weakness_strength"]
     if requested_teams or scope_resolution in ("fixtures", "fixtures_empty_fallback"):
         # matched is None when NO requested team resolved against the store
         # -- distinct from resolving fine but nobody on those teams having

@@ -39,6 +39,7 @@ from .zonal_weakness import (
     get_player_zonal_outlook,
     get_zonal_opportunity,
     get_zonal_weakness,
+    zonal_weakness_card_fields,
 )
 # Reuse the proven team-name resolver (name / short_name / alias) and the
 # current-GW helper (fixtures come from bootstrap["team_fixtures"]).
@@ -306,6 +307,20 @@ def _get_zonal_weakness_handler(
         result["message"] = (
             "Tactical (Understat zonal) store not available on this deployment."
         )
+    elif result["status"] == "ok":
+        # i91: card-shaped enrichment under distinct keys -- `zones` here
+        # keeps meaning the existing 6-zone list (LLM narration / callers
+        # already depend on that shape); `card_zones` is the 3-in-box-
+        # lateral pitch shape the card reads, additive and never colliding.
+        # No `exploiters` key is set: the card's extraction function uses
+        # its ABSENCE (vs get_zonal_opportunity's always-present, possibly-
+        # empty list) as the signal that this is a weakness-only turn, so
+        # it renders the pitch without an empty "no matching players" claim
+        # nobody asked about.
+        card = zonal_weakness_card_fields(result)
+        result["card_zones"] = card["zones"]
+        result["weakness_label"] = card["weakness_label"]
+        result["weakness_strength"] = card["weakness_strength"]
     return result
 
 
@@ -459,6 +474,9 @@ GET_ZONAL_WEAKNESS_SPEC = ToolSpec(
             "penalty_context": {"type": "object"},
             "verdict":         {"type": "string"},
             "data_provenance": {"type": "object"},  # i74 season stamp
+            "card_zones":        {"type": "array"},   # i91: 3 in-box lateral cells, for the card's pitch view
+            "weakness_label":    {"type": "string"},  # i91
+            "weakness_strength": {"type": "string"},  # i91: clear | marginal | none
         },
     },
 )

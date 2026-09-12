@@ -200,6 +200,11 @@ _TOOL_TO_INTENT: dict[str, str] = {
     # land in FI4-3.
     "get_fixture_outlook":          INTENT_FIXTURE_OUTLOOK,           # Track D / FI4
     "get_zonal_opportunity":        INTENT_ZONAL_OPPORTUNITY,          # T4b (orchestrator-only)
+    # i91: a "zonas débiles de X" question with no players mentioned still
+    # gets the pitch-view card -- it just carries no exploiter table. Same
+    # card intent as get_zonal_opportunity; DefensiveZonesMeta.has_exploiters
+    # is what tells the card which of the two shapes it's looking at.
+    "get_zonal_weakness":            INTENT_ZONAL_OPPORTUNITY,          # i91 (orchestrator-only)
     "get_player_snapshot":          INTENT_PLAYER_SNAPSHOT,            # orchestrator-only
 }
 

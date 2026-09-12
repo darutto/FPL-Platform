@@ -420,6 +420,38 @@ describe('DefensiveZonesCard', () => {
   });
 
   // -------------------------------------------------------------------------
+  // i91 — "zonas débiles de X" alone (no players asked about) still gets the
+  // pitch view. has_exploiters=false must omit the exploiter section
+  // ENTIRELY, not show the "no matching players" fallback -- that fallback
+  // is a real finding (opportunity asked, zero players fit); this is a
+  // different case (never asked).
+  // -------------------------------------------------------------------------
+
+  test('has_exploiters=false renders the pitch but no exploiter section at all', () => {
+    render(
+      <DefensiveZonesCard
+        data={{ ...palaceMeta, exploiters: [], has_exploiters: false }}
+      />,
+    );
+    // pitch view still there
+    expect(screen.getByText('Débil dentro del área')).toBeInTheDocument();
+    expect(screen.getByText(/Ataca a Crystal Palace/)).toBeInTheDocument();
+    // no table, no header, no empty-state fallback
+    expect(screen.queryByText('Quién lo explota')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('zonal-no-exploiters')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Sin perfiles de jugador que encajen en estas zonas todavía.'),
+    ).not.toBeInTheDocument();
+  });
+
+  test('has_exploiters omitted (undefined) behaves as true (pre-i91 payloads)', () => {
+    // palaceMeta never sets has_exploiters -- exactly a pre-i91 payload shape.
+    render(<DefensiveZonesCard data={palaceMeta} />);
+    expect(screen.getByText('Quién lo explota')).toBeInTheDocument();
+    expect(screen.getByText('Saka')).toBeInTheDocument();
+  });
+
+  // -------------------------------------------------------------------------
   // i74 — season stamp. The card used to present a full, confident verdict
   // computed on last season's shots without naming a season anywhere.
   // -------------------------------------------------------------------------
