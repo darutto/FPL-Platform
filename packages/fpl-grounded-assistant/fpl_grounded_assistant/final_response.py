@@ -615,6 +615,28 @@ class Exploiter:
     zone_shots:      int | None = None
     set_piece_share: float | None = None
     origin:          str | None = None
+    #: i90: which fixture earns this row a place under fixture-derived
+    #: scope (attacker perspective -- already inverted from the callback's
+    #: weak-team perspective). ``None`` outside that scope.
+    gameweek: int | None = None
+    is_home:  bool | None = None
+
+
+@dataclass(frozen=True)
+class FixtureWindow:
+    """i90: the gameweek range a fixture-derived scope was read from."""
+    from_gw: int
+    to_gw:   int
+    horizon: int
+
+
+@dataclass(frozen=True)
+class ScopedFixture:
+    """i90: one row of ``TeamFilter.fixtures`` -- who plays the opponent,
+    which gameweek, and from which side (attacker perspective)."""
+    gameweek: int
+    team:     str
+    is_home:  bool
 
 
 @dataclass(frozen=True)
@@ -629,7 +651,7 @@ class TeamFilter:
     (team-scoped answers rank the whole team, so these are far looser than
     the league-wide defaults).
     """
-    requested:            str
+    requested:            str | None
     matched:              str | None
     source:               str | None
     min_shots:            int | None = None
@@ -639,6 +661,13 @@ class TeamFilter:
     requested_teams:      tuple[str, ...] = ()
     matched_teams:        tuple[str, ...] = ()
     unmatched_teams:      tuple[str, ...] = ()
+    #: i90: present only when the scope was derived from the fixture
+    #: calendar (``source == "fixtures"``). ``requested``/``requested_teams``
+    #: stay empty/None there -- nobody named these teams, the system did.
+    fixture_window:       "FixtureWindow | None" = None
+    fixtures:             tuple[ScopedFixture, ...] = ()
+    scheduled_opponents:  tuple[str, ...] = ()
+    candidates_per_team:  "dict[str, int] | None" = None
 
 
 @dataclass(frozen=True)
@@ -1837,6 +1866,8 @@ def _extract_zonal_opportunity_meta(ro: "dict[str, Any]") -> "DefensiveZonesMeta
                     zone_shots      = e.get("zone_shots"),
                     set_piece_share = e.get("set_piece_share"),
                     origin          = e.get("origin"),
+                    gameweek        = e.get("gameweek"),
+                    is_home         = e.get("is_home"),
                 )
                 for e in ro.get("exploiters", [])
             ),
@@ -1857,8 +1888,18 @@ def _extract_team_filter(raw: "Any") -> "TeamFilter | None":
     if not isinstance(raw, dict):
         return None
     try:
+        fixture_window_raw = raw.get("fixture_window")
+        fixture_window = (
+            FixtureWindow(
+                from_gw = int(fixture_window_raw["from_gw"]),
+                to_gw   = int(fixture_window_raw["to_gw"]),
+                horizon = int(fixture_window_raw["horizon"]),
+            )
+            if isinstance(fixture_window_raw, dict)
+            else None
+        )
         return TeamFilter(
-            requested            = str(raw.get("requested", "")),
+            requested            = raw.get("requested"),
             matched              = raw.get("matched"),
             source               = raw.get("source"),
             min_shots            = raw.get("min_shots"),
@@ -1866,6 +1907,17 @@ def _extract_team_filter(raw: "Any") -> "TeamFilter | None":
             requested_teams      = tuple(raw.get("requested_teams") or ()),
             matched_teams        = tuple(raw.get("matched_teams") or ()),
             unmatched_teams      = tuple(raw.get("unmatched_teams") or ()),
+            fixture_window       = fixture_window,
+            fixtures             = tuple(
+                ScopedFixture(
+                    gameweek = int(f["gameweek"]),
+                    team     = str(f["team"]),
+                    is_home  = bool(f["is_home"]),
+                )
+                for f in (raw.get("fixtures") or [])
+            ),
+            scheduled_opponents  = tuple(raw.get("scheduled_opponents") or ()),
+            candidates_per_team  = raw.get("candidates_per_team"),
         )
     except Exception:  # noqa: BLE001
         return None

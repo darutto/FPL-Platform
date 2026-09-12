@@ -53,7 +53,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Callable, Sequence
 
 import pandas as pd
 
@@ -699,10 +699,33 @@ def get_zonal_opportunity(
     *,
     position: str | None = None,
     team: "str | Sequence[str] | None" = None,
+    fixtures_for_team: "Callable[[str], list[dict[str, Any]]] | None" = None,
+    horizon: int | None = None,
     store: Any = None,
     live_season: str | None = None,
 ) -> dict[str, Any]:
     """Join *opponent*'s weak zones to players who operate in those zones.
+
+    i90: when ``team`` is omitted and *fixtures_for_team* is given (same
+    callable shape the wrapper injects into ``get_player_zonal_outlook``:
+    ``(store_team_name) -> [{"gameweek", "opponent", "is_home"}, ...]``,
+    from *opponent*'s own perspective), the scope becomes "whoever plays
+    *opponent* in the fixture window" instead of the whole league --
+    without a named team, "who can exploit Fulham's weak zones" defaulted
+    to a league-wide xG ranking that always surfaced the same global
+    standouts (Haaland, Salah), blind to who actually faces Fulham soon.
+    Resolution order: ``team`` given -> explicit scope (as before);
+    ``team`` absent + callback present -> fixture-derived scope; neither
+    -> league-wide, unchanged. ``scope_resolution`` in the return value
+    names which branch ran, always, so a caller never has to infer it from
+    incidental fields (``matched_teams`` empty is NOT itself a signal --
+    it's ambiguous between "callback returned no fixtures" and "league").
+
+    ``fixture_window``/``fixtures``/``scheduled_opponents`` are populated
+    only under the fixture-derived branch; ``team_filter.requested_teams``
+    stays ``[]`` there (the scope was derived, not asked for by name) and
+    the derived opponents live only in ``matched_teams`` /
+    ``scheduled_opponents``.
 
     i89: ``team`` may be one team or several -- "players from Arsenal,
     Liverpool and Man City to attack Brighton" is one table, ranked
@@ -774,7 +797,10 @@ def get_zonal_opportunity(
     )
     matched_teams: list[str] = []
     unmatched_teams: list[str] = []
+    fixture_meta: dict[str, Any] | None = None
+    fixtures_by_team: dict[str, list[dict[str, Any]]] = {}
     if requested_teams:
+        scope_resolution = "explicit"
         # Match against every team that has shot for itself in the store
         # (shooting_team) -- not just teams already surviving into `shares`,
         # so a team with real data but no individual qualifying scorer
@@ -787,6 +813,41 @@ def get_zonal_opportunity(
                 unmatched_teams.append(t)
             elif m not in matched_teams:
                 matched_teams.append(m)
+    elif fixtures_for_team is not None:
+        raw_fixtures = fixtures_for_team(matched) or []
+        if not raw_fixtures:
+            # A blank gameweek for *opponent* in the window -- not "no
+            # scope resolved," the callback ran fine and found nothing.
+            scope_resolution = "fixtures_empty_fallback"
+        else:
+            scope_resolution = "fixtures"
+            sorted_fx = sorted(raw_fixtures, key=lambda f: int(f.get("gameweek", 0)))
+            for fx in sorted_fx:
+                opp_team = str(fx.get("opponent", "") or "")
+                if not opp_team:
+                    continue
+                # `fx["is_home"]` is *opponent*'s (the weak team's) home/away
+                # -- the attacking team's is the negation. Getting this
+                # backwards is the single easiest mistake here: it would
+                # tell an attacking team they're at home when they're away.
+                entry = {"gameweek": int(fx.get("gameweek", 0)), "is_home": not bool(fx.get("is_home", False))}
+                fixtures_by_team.setdefault(opp_team, []).append(entry)
+                if opp_team not in matched_teams:
+                    matched_teams.append(opp_team)
+            gws = [e["gameweek"] for entries in fixtures_by_team.values() for e in entries]
+            fixture_meta = {
+                "fixture_window": {
+                    "from_gw": min(gws), "to_gw": max(gws),
+                    "horizon": horizon if horizon is not None else (max(gws) - min(gws) + 1),
+                },
+                "fixtures": [
+                    {"gameweek": e["gameweek"], "team": t, "is_home": e["is_home"]}
+                    for t, entries in fixtures_by_team.items() for e in entries
+                ],
+                "scheduled_opponents": list(matched_teams),
+            }
+    else:
+        scope_resolution = "league"
     team_filter_matched: str | None = ", ".join(matched_teams) if matched_teams else None
     team_scoped = bool(matched_teams)
     min_shots = TEAM_SCOPED_MIN_PLAYER_SHOTS if team_scoped else MIN_PLAYER_SHOTS
@@ -795,7 +856,7 @@ def get_zonal_opportunity(
     )
 
     shares = compute_player_zone_shares(shots, min_shots=min_shots)
-    if requested_teams:
+    if requested_teams or matched_teams:
         _matched_set = set(matched_teams)
         shares = (
             {p: info for p, info in shares.items() if info["team"] in _matched_set}
@@ -863,7 +924,10 @@ def get_zonal_opportunity(
                 raw_by_player[player] = (raw, zone, info["team"])
     sorted_all = sorted(raw_by_player.items(), key=lambda kv: (-kv[1][0], kv[0]))
     candidates_per_team: dict[str, int] | None = None
-    if len(matched_teams) >= 2:
+    # i90: fixture-derived scope always uses the per-team cap (even a lone
+    # scheduled opponent is "that team's players," not a global top-5), on
+    # top of i89's original 2+-explicit-teams trigger.
+    if scope_resolution == "fixtures" or len(matched_teams) >= 2:
         # i90 A1: one global top-N starves a named team down to zero rows
         # whenever its best fit ranks below the cut everywhere else. Keep
         # the global fit order (so within-team relative ranking is
@@ -886,8 +950,9 @@ def get_zonal_opportunity(
         # 0-1 teams: identical to pre-i90 behaviour (pinned byte-identical).
         ranked = sorted_all[:TOP_EXPLOITERS]
     max_raw = ranked[0][1][0] if ranked else 0.0
-    exploiters = [
-        {
+    exploiters = []
+    for i, (player, (raw, zone, team_name)) in enumerate(ranked):
+        row: dict[str, Any] = {
             "rank": i + 1,
             "player": player,
             "team": team_name,
@@ -906,13 +971,22 @@ def get_zonal_opportunity(
             "zone_shots": shares[player]["zone_shots"][zone],
             "set_piece_share": round(shares[player]["zone_set_piece_share"][zone], 3),
             "origin": _origin_label(shares[player]["zone_set_piece_share"][zone]),
+            # i90: which fixture earns this row a place under fixture-scope
+            # (attacker-perspective is_home). None outside that scope.
+            "gameweek": None,
+            "is_home": None,
         }
-        for i, (player, (raw, zone, team_name)) in enumerate(ranked)
-    ]
+        team_fixtures = fixtures_by_team.get(team_name)
+        if team_fixtures:
+            row["gameweek"] = team_fixtures[0]["gameweek"]
+            row["is_home"] = team_fixtures[0]["is_home"]
+            row["fixtures"] = list(team_fixtures)
+        exploiters.append(row)
 
     result: dict[str, Any] = {
         "status": "ok",
         "opponent": matched,
+        "scope_resolution": scope_resolution,
         "opportunities": opportunities,
         "zones": zones_out,
         "exploiters": exploiters,
@@ -922,14 +996,22 @@ def get_zonal_opportunity(
         "data_provenance": provenance,
     }
     result["weakness_strength"] = weakness_strength(weakness["weakest_zones"])
-    if requested_teams:
+    if requested_teams or scope_resolution in ("fixtures", "fixtures_empty_fallback"):
         # matched is None when NO requested team resolved against the store
         # -- distinct from resolving fine but nobody on those teams having
         # any zoned xG at all (exploiters would then just be empty with
         # matched set). Partial resolution lists the misses in
         # unmatched_teams and proceeds with the rest.
+        #
+        # i90: under fixture-derived scope, nobody named these teams --
+        # the system derived them from the calendar -- so `requested`/
+        # `requested_teams` must NOT claim a user selection that didn't
+        # happen. The effective scope lives only in `matched_teams`
+        # (mirrored in `scheduled_opponents` so it's clear where it came
+        # from); `unmatched_teams` stays empty (there was nothing
+        # "requested" to fail to match).
         result["team_filter"] = {
-            "requested": ", ".join(requested_teams),
+            "requested": None if not requested_teams else ", ".join(requested_teams),
             "matched": team_filter_matched,
             "requested_teams": requested_teams,
             "matched_teams": matched_teams,
@@ -944,6 +1026,8 @@ def get_zonal_opportunity(
             # So a reader can tell a team with 0 rows from "no encaje" (n=0)
             # apart from "encajó pero se topó con el tope" (n > rows shown).
             result["team_filter"]["candidates_per_team"] = candidates_per_team
+        if fixture_meta is not None:
+            result["team_filter"].update(fixture_meta)
     return result
 
 
