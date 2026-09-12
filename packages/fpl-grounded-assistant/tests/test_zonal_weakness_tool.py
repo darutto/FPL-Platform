@@ -589,6 +589,28 @@ class TestFixtureScopedDefault:
         )
         assert out_over["status"] == "ok"  # clamped to MAX_OUTLOOK_HORIZON, never errors
 
+    def test_end_of_season_window_clips_at_the_wrapper_too(self, tactical_store):
+        """The _fixtures_callback window filter (`current_gw <= gw <
+        current_gw + horizon`) only ever sees what's actually in
+        team_fixtures -- with GW37 current and the season ending at 38,
+        horizon=5 must not manufacture GW39-41 fixtures out of nothing."""
+        bs = _bootstrap()
+        bs["events"] = [{"id": 37, "is_current": True}]
+        bs["team_fixtures"] = {
+            1: [
+                {"gameweek": 37, "opponent_team": 3, "is_home": True},
+                {"gameweek": 38, "opponent_team": 2, "is_home": False},
+            ],
+        }
+        out = run_tool(
+            "get_zonal_opportunity", {"opponent": "Crystal Palace", "horizon": 5}, bs,
+        )
+        assert out["status"] == "ok"
+        fw = out["team_filter"]["fixture_window"]
+        assert fw["from_gw"] == 37
+        assert fw["to_gw"] == 38
+        assert out["team_filter"]["matched_teams"] == ["Burnley", "Aston Villa"]
+
 
 # ---------------------------------------------------------------------------
 # i90 — name-bridge coverage, both directions. test_name_resolution.py

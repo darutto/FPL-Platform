@@ -388,11 +388,14 @@ function scopeLabel(tf: DefensiveZonesMeta['team_filter'], opponent: string): st
 }
 
 /**
- * i90: buckets the (already fit-ranked) exploiter rows by their gameweek so
- * the table can render "J5 · BUR visita a Fulham" section headers. Safe
- * because in this scope one gameweek maps to exactly one attacking team
- * (the weak team plays one fixture per gameweek); order is by gameweek
- * ascending, mirroring "se lee como plan de jornadas."
+ * i90: buckets the (already fit-ranked) exploiter rows by fixture so the
+ * table can render "J5 · BUR visita a Fulham" section headers. Keyed by
+ * (gameweek, team) — NOT gameweek alone: a genuine double gameweek can have
+ * the weak team play two DIFFERENT rivals in the same numbered gameweek
+ * (found in review — gameweek-only keying would merge both rivals' rows
+ * under one team's header, misattributing team and home/away for the
+ * other). Groups are ordered by gameweek, then by first appearance in the
+ * already-ranked `exploiters` array.
  */
 function groupExploitersByFixture(exploiters: ZonalExploiter[]): {
   gameweek: number;
@@ -400,17 +403,19 @@ function groupExploitersByFixture(exploiters: ZonalExploiter[]): {
   isHome: boolean;
   rows: ZonalExploiter[];
 }[] {
-  const byGw = new Map<number, { teamShort: string; isHome: boolean; rows: ZonalExploiter[] }>();
+  const byKey = new Map<string, { gameweek: number; teamShort: string; isHome: boolean; rows: ZonalExploiter[] }>();
+  const order: string[] = [];
   for (const e of exploiters) {
     if (e.gameweek == null) continue;
-    if (!byGw.has(e.gameweek)) {
-      byGw.set(e.gameweek, { teamShort: e.team_short, isHome: !!e.is_home, rows: [] });
+    const key = `${e.gameweek}::${e.team_short}`;
+    if (!byKey.has(key)) {
+      byKey.set(key, { gameweek: e.gameweek, teamShort: e.team_short, isHome: !!e.is_home, rows: [] });
+      order.push(key);
     }
-    byGw.get(e.gameweek)!.rows.push(e);
+    byKey.get(key)!.rows.push(e);
   }
-  return [...byGw.entries()]
-    .sort(([a], [b]) => a - b)
-    .map(([gameweek, group]) => ({ gameweek, ...group }));
+  // Array.prototype.sort is stable (ES2019+), so ties keep first-appearance order.
+  return order.map((key) => byKey.get(key)!).sort((a, b) => a.gameweek - b.gameweek);
 }
 
 /** "J5 · BUR visita a Fulham" / "J6 · AVL recibe a Fulham" -- always names

@@ -883,6 +883,29 @@ class TestFixtureDerivedScope:
         assert with_fx["exploiters"] == league["exploiters"]
         assert with_fx["scope_resolution"] == "fixtures_empty_fallback"
 
+    def test_end_of_season_window_clips_to_what_the_callback_actually_returned(self):
+        """i90 risk inventory: 'current_gw en el limite -- con GW38 y
+        horizonte 5 la ventana se recorta sola.' The engine has no concept
+        of season length -- it trusts fixture_window entirely to what
+        `fixtures_for_team` actually returned. GW37 with horizon=5 would
+        naively ask for GW37-41, but the season ends at 38, so a realistic
+        callback (mirroring the wrapper's own current_gw<=gw<current_gw+
+        horizon filter intersected with real fixtures) returns only GW37
+        and GW38 -- fixture_window.to_gw must read 38, not 41."""
+        def two_gws_left(_team: str) -> list[dict]:
+            return [
+                {"gameweek": 37, "opponent": "Wolves", "is_home": True},
+                {"gameweek": 38, "opponent": "Villa", "is_home": False},
+            ]
+
+        out = get_zonal_opportunity(
+            "Palace", fixtures_for_team=two_gws_left, horizon=5, store=_two_team_store(),
+        )
+        fw = out["team_filter"]["fixture_window"]
+        assert fw["from_gw"] == 37
+        assert fw["to_gw"] == 38
+        assert fw["horizon"] == 5  # the requested horizon, not the clipped span
+
     def test_bridge_gap_surfaces_as_unmatched_not_silent_zero_rows(self):
         """i90: unlike the explicit-team path, the fixtures path used to
         trust the callback's team name unconditionally -- a bridge gap

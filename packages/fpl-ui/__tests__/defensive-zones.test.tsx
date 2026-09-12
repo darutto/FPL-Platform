@@ -680,6 +680,47 @@ describe('DefensiveZonesCard — fixture-derived scope (i90)', () => {
     expect(names.map((n) => n.textContent)).toEqual(['Right Poacher', 'Someone', 'Heavy Hitter']);
   });
 
+  test('a genuine double gameweek (two DIFFERENT rivals, same GW number) gets two separate groups', () => {
+    // Found in review: grouping keyed by gameweek alone would merge both
+    // rivals' rows under one team's header -- wrong team AND wrong
+    // home/away for whichever rival lost the merge.
+    const doubleGw: DefensiveZonesMeta = {
+      ...fixtureScoped,
+      team_filter: {
+        ...fixtureTeamFilter,
+        matched_teams: ['Burnley', 'Aston Villa'],
+        fixture_window: { from_gw: 5, to_gw: 5, horizon: 1 },
+        fixtures: [
+          { gameweek: 5, team: 'Burnley', is_home: false },
+          { gameweek: 5, team: 'Aston Villa', is_home: true },
+        ],
+        scheduled_opponents: ['Burnley', 'Aston Villa'],
+      },
+      exploiters: [
+        {
+          rank: 1, web_name: 'Right Poacher', team_short: 'BUR', position: 'FWD',
+          zone: 'in-box / right', fit_score: 10.0, gameweek: 5, is_home: false,
+        },
+        {
+          rank: 2, web_name: 'Heavy Hitter', team_short: 'AVL', position: 'MID',
+          zone: 'in-box / right', fit_score: 9.0, gameweek: 5, is_home: true,
+        },
+      ],
+    };
+    render(<DefensiveZonesCard data={doubleGw} />);
+    const groups = screen.getAllByTestId('zonal-fixture-group');
+    expect(groups).toHaveLength(2);
+    expect(groups[0]).toHaveTextContent('J5 · BUR visita a Crystal Palace');
+    expect(groups[1]).toHaveTextContent('J5 · AVL recibe a Crystal Palace');
+    // each rival's row sits under its OWN header container, not the other's
+    const burSection = groups[0].parentElement!;
+    const avlSection = groups[1].parentElement!;
+    expect(burSection).toHaveTextContent('Right Poacher');
+    expect(burSection).not.toHaveTextContent('Heavy Hitter');
+    expect(avlSection).toHaveTextContent('Heavy Hitter');
+    expect(avlSection).not.toHaveTextContent('Right Poacher');
+  });
+
   test('a pre-i90 payload (no team_filter.source==="fixtures") renders no fixture groups', () => {
     render(<DefensiveZonesCard data={palaceMeta} />);
     expect(screen.queryAllByTestId('zonal-fixture-group')).toHaveLength(0);
