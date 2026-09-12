@@ -501,6 +501,151 @@ def test_run_tool_opportunity_single_team_shape_unchanged_by_a1(three_team_scope
 
 
 # ---------------------------------------------------------------------------
+# i90 — fixture-derived default scope (wrapper level). "Zonas debiles de
+# Crystal Palace?" with no team named defaulted to a league-wide ranking,
+# blind to who actually plays them soon. Without `team`/`teams` AND without
+# an inferable team from the question, the handler now scopes to whoever
+# faces the opponent in the fixture window (reusing the exact
+# `fixtures_for_team` bridge the outlook tool already uses).
+# ---------------------------------------------------------------------------
+
+def _bootstrap_with_cry_fixtures() -> dict:
+    """Crystal Palace (id 1, the opponent) faces Burnley (id 3) at home in
+    GW1 and Aston Villa (id 2) away in GW2 -- both inside the default
+    5-GW horizon from current_gw=1."""
+    bs = _bootstrap()
+    bs["events"] = [{"id": 1, "is_current": True}]
+    bs["team_fixtures"] = {
+        1: [
+            {"gameweek": 1, "opponent_team": 3, "is_home": True},
+            {"gameweek": 2, "opponent_team": 2, "is_home": False},
+        ],
+    }
+    return bs
+
+
+class TestFixtureScopedDefault:
+    def test_no_team_no_inference_scopes_to_fixtures(self, tactical_store):
+        out = run_tool(
+            "get_zonal_opportunity",
+            {"opponent": "Crystal Palace"},
+            _bootstrap_with_cry_fixtures(),
+        )
+        assert out["status"] == "ok"
+        tf = out["team_filter"]
+        assert tf["source"] == "fixtures"
+        assert tf["matched_teams"] == ["Burnley", "Aston Villa"]
+        assert tf["scheduled_opponents"] == ["Burnley", "Aston Villa"]
+        assert tf["requested_teams"] == []
+        assert tf["requested"] is None
+        assert tf["fixture_window"]["from_gw"] == 1
+        assert tf["fixture_window"]["to_gw"] == 2
+        # Palace at home vs Burnley (GW1) -> Burnley is away
+        burnley_rows = [e for e in out["exploiters"] if e["team"] == "Burnley"]
+        assert burnley_rows and burnley_rows[0]["gameweek"] == 1
+        assert burnley_rows[0]["is_home"] is False
+
+    def test_explicit_team_still_beats_fixtures(self, tactical_store):
+        """A named team must never be silently overridden by the fixture
+        calendar -- explicit scope takes precedence, unconditionally."""
+        out = run_tool(
+            "get_zonal_opportunity",
+            {"opponent": "Crystal Palace", "team": "BUR"},
+            _bootstrap_with_cry_fixtures(),
+        )
+        assert out["team_filter"]["source"] == "explicit"
+        assert "fixture_window" not in out["team_filter"]
+
+    def test_empty_fixture_window_falls_back_to_league_with_message(self, tactical_store):
+        bs = _bootstrap()
+        bs["events"] = [{"id": 1, "is_current": True}]
+        bs["team_fixtures"] = {1: []}  # Crystal Palace has no fixtures in window
+        out = run_tool("get_zonal_opportunity", {"opponent": "Crystal Palace"}, bs)
+        assert out["status"] == "ok"
+        assert out["team_filter"]["source"] is None
+        assert "message" in out and "toda la liga" in out["message"]
+        assert out["team_filter"]["matched_teams"] == []
+
+    def test_no_team_fixtures_in_bootstrap_falls_back_to_league_with_message(self, tactical_store):
+        out = run_tool("get_zonal_opportunity", {"opponent": "Crystal Palace"}, _bootstrap())
+        assert out["status"] == "ok"
+        assert "team_filter" not in out
+        assert "message" in out and "toda la liga" in out["message"]
+
+    def test_horizon_argument_clamped_and_narrows_window(self, tactical_store):
+        out = run_tool(
+            "get_zonal_opportunity",
+            {"opponent": "Crystal Palace", "horizon": 1},
+            _bootstrap_with_cry_fixtures(),
+        )
+        # horizon=1 -> window is just [current_gw, current_gw+1) -> GW1 only
+        assert out["team_filter"]["matched_teams"] == ["Burnley"]
+        assert out["team_filter"]["fixture_window"] == {"from_gw": 1, "to_gw": 1, "horizon": 1}
+
+        out_over = run_tool(
+            "get_zonal_opportunity",
+            {"opponent": "Crystal Palace", "horizon": 99},
+            _bootstrap_with_cry_fixtures(),
+        )
+        assert out_over["status"] == "ok"  # clamped to MAX_OUTLOOK_HORIZON, never errors
+
+    def test_end_of_season_window_clips_at_the_wrapper_too(self, tactical_store):
+        """The _fixtures_callback window filter (`current_gw <= gw <
+        current_gw + horizon`) only ever sees what's actually in
+        team_fixtures -- with GW37 current and the season ending at 38,
+        horizon=5 must not manufacture GW39-41 fixtures out of nothing."""
+        bs = _bootstrap()
+        bs["events"] = [{"id": 37, "is_current": True}]
+        bs["team_fixtures"] = {
+            1: [
+                {"gameweek": 37, "opponent_team": 3, "is_home": True},
+                {"gameweek": 38, "opponent_team": 2, "is_home": False},
+            ],
+        }
+        out = run_tool(
+            "get_zonal_opportunity", {"opponent": "Crystal Palace", "horizon": 5}, bs,
+        )
+        assert out["status"] == "ok"
+        fw = out["team_filter"]["fixture_window"]
+        assert fw["from_gw"] == 37
+        assert fw["to_gw"] == 38
+        assert out["team_filter"]["matched_teams"] == ["Burnley", "Aston Villa"]
+
+
+# ---------------------------------------------------------------------------
+# i90 — name-bridge coverage, both directions. test_name_resolution.py
+# already pins short_name -> _SHORT_TO_UNDERSTAT (every current team code
+# has a store-name entry); i90's fixture scope goes the OTHER way too --
+# the callback hands back store team names (e.g. from
+# ``understat_shots.parquet["shooting_team"]``) that then need to resolve
+# BACK to a short_name for the FPL-side join. A silent gap here is exactly
+# the failure this test exists to catch: a real rival showing up in
+# ``unmatched_teams`` in prod (see scripts/verify_prod_rollover.py).
+# ---------------------------------------------------------------------------
+
+from fpl_grounded_assistant.zonal_weakness_tool import (  # noqa: E402
+    _SHORT_TO_UNDERSTAT,
+    _UNDERSTAT_TO_SHORT,
+)
+from test_name_resolution import CURRENT_PL_TEAMS  # noqa: E402
+
+
+def test_understat_to_short_bridge_covers_all_current_teams():
+    missing = [
+        code for _name, code, _nick in CURRENT_PL_TEAMS
+        if _SHORT_TO_UNDERSTAT.get(code, "").lower() not in _UNDERSTAT_TO_SHORT
+    ]
+    assert missing == [], f"_UNDERSTAT_TO_SHORT missing entries for: {missing}"
+
+
+def test_understat_to_short_bridge_is_the_true_inverse():
+    """Not just "some inverse exists" -- the SAME short_name round-trips,
+    so a store name never resolves back to the wrong FPL team."""
+    for code, store_name in _SHORT_TO_UNDERSTAT.items():
+        assert _UNDERSTAT_TO_SHORT.get(store_name.lower()) == code
+
+
+# ---------------------------------------------------------------------------
 # run_tool — degraded paths (never raise into the orchestrator)
 # ---------------------------------------------------------------------------
 
@@ -839,3 +984,27 @@ def test_card_projection_carries_team_lists_and_strength(tactical_store):
     assert meta.team_filter.matched_teams == ("Burnley", "Aston Villa")
     assert meta.team_filter.unmatched_teams == ()
     assert meta.weakness_strength == "clear"   # fixture: Palace +200% on the right
+
+
+def test_card_projection_carries_fixture_scope(tactical_store):
+    """i90: fixture_window/fixtures/scheduled_opponents/candidates_per_team
+    and each exploiter's gameweek/is_home reach the card projection."""
+    from fpl_grounded_assistant.final_response import _extract_zonal_opportunity_meta
+    out = run_tool(
+        "get_zonal_opportunity",
+        {"opponent": "Crystal Palace"},
+        _bootstrap_with_cry_fixtures(),
+    )
+    meta = _extract_zonal_opportunity_meta(out)
+    tf = meta.team_filter
+    assert tf is not None
+    assert tf.source == "fixtures"
+    assert tf.requested is None
+    assert tf.requested_teams == ()
+    assert tf.matched_teams == ("Burnley", "Aston Villa")
+    assert tf.scheduled_opponents == ("Burnley", "Aston Villa")
+    assert tf.fixture_window is not None
+    assert (tf.fixture_window.from_gw, tf.fixture_window.to_gw) == (1, 2)
+    burnley_fixture = next(f for f in tf.fixtures if f.team == "Burnley")
+    assert burnley_fixture.is_home is False  # Palace home vs Burnley -> Burnley away
+    assert any(e.gameweek == 1 and e.is_home is False for e in meta.exploiters)

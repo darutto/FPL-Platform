@@ -771,6 +771,165 @@ def test_single_team_string_still_works_and_reports_lists():
 
 
 # ---------------------------------------------------------------------------
+# i90 — fixture-derived scope. "¿Zonas débiles de Palace?" without a named
+# team defaulted to a league-wide xG ranking, blind to the calendar (always
+# surfacing the same global standouts). ``fixtures_for_team`` (same shape
+# the outlook engine already takes) lets the engine scope instead to
+# whoever actually plays Palace in the fixture window.
+# ---------------------------------------------------------------------------
+
+def _two_gw_fixtures(_store_team_name: str) -> list[dict]:
+    """Palace's own schedule (the weak team's perspective, per contract):
+    home vs Wolves in GW5, away at Villa in GW6."""
+    return [
+        {"gameweek": 5, "opponent": "Wolves", "is_home": True},
+        {"gameweek": 6, "opponent": "Villa", "is_home": False},
+    ]
+
+
+class TestFixtureDerivedScope:
+    def test_four_scope_resolution_values(self):
+        store = _two_team_store()
+        explicit = get_zonal_opportunity("Palace", team="Wolves", store=store)
+        assert explicit["scope_resolution"] == "explicit"
+        fixtures = get_zonal_opportunity(
+            "Palace", fixtures_for_team=_two_gw_fixtures, store=store,
+        )
+        assert fixtures["scope_resolution"] == "fixtures"
+        empty = get_zonal_opportunity(
+            "Palace", fixtures_for_team=lambda _t: [], store=store,
+        )
+        assert empty["scope_resolution"] == "fixtures_empty_fallback"
+        league = get_zonal_opportunity("Palace", store=store)
+        assert league["scope_resolution"] == "league"
+        # none of these should be inferred from matched_teams being empty
+        # or not -- fixtures_empty_fallback and league both have it empty.
+        assert empty["team_filter"]["matched_teams"] == []
+        assert "team_filter" not in league
+
+    def test_matched_teams_and_scheduled_opponents_from_calendar(self):
+        out = get_zonal_opportunity(
+            "Palace", fixtures_for_team=_two_gw_fixtures, store=_two_team_store(),
+        )
+        tf = out["team_filter"]
+        assert tf["matched_teams"] == ["Wolves", "Villa"]
+        assert tf["scheduled_opponents"] == ["Wolves", "Villa"]
+        # derived, not asked for by name -- must not claim a user selection
+        assert tf["requested_teams"] == []
+        assert tf["requested"] is None
+        assert tf["unmatched_teams"] == []
+        assert tf["fixture_window"] == {"from_gw": 5, "to_gw": 6, "horizon": 2}
+
+    def test_is_home_is_flipped_to_attacker_perspective(self):
+        """Palace at home vs Wolves (callback) means WOLVES are away; Palace
+        away at Villa means VILLA are home. Getting this backwards is the
+        easiest mistake in i90 and the most visible on the card."""
+        out = get_zonal_opportunity(
+            "Palace", fixtures_for_team=_two_gw_fixtures, store=_two_team_store(),
+        )
+        by_team = {e["team"]: e for e in out["exploiters"]}
+        assert by_team["Wolves"]["is_home"] is False
+        assert by_team["Wolves"]["gameweek"] == 5
+        assert by_team["Villa"]["is_home"] is True
+        assert by_team["Villa"]["gameweek"] == 6
+        fx_field = {f["team"]: f["is_home"] for f in out["team_filter"]["fixtures"]}
+        assert fx_field == {"Wolves": False, "Villa": True}
+
+    def test_double_gameweek_dedupes_opponent_keeps_first_fixture(self):
+        def two_visits(_team: str) -> list[dict]:
+            return [
+                {"gameweek": 5, "opponent": "Wolves", "is_home": True},
+                {"gameweek": 9, "opponent": "Wolves", "is_home": False},
+            ]
+
+        out = get_zonal_opportunity(
+            "Palace", fixtures_for_team=two_visits, store=_two_team_store(),
+        )
+        tf = out["team_filter"]
+        assert tf["matched_teams"] == ["Wolves"]  # one entry, not two
+        wolves_rows = [e for e in out["exploiters"] if e["team"] == "Wolves"]
+        assert wolves_rows[0]["gameweek"] == 5  # the first of the two
+        assert wolves_rows[0]["is_home"] is False
+        assert wolves_rows[0]["fixtures"] == [
+            {"gameweek": 5, "is_home": False},
+            {"gameweek": 9, "is_home": True},
+        ]
+
+    def test_fixture_scope_caps_at_three_even_with_one_scheduled_opponent(self):
+        """i90: a fixture-derived scope always uses the per-team cap, even
+        with a single scheduled opponent -- it's still "that team's
+        players," not a global top-5."""
+        df = opportunity_store()
+        extra_players = pd.DataFrame([
+            _row("Boro", "Wolves", 0.90, 0.20, 0.30 - 0.01 * i,
+                 match_id=200 + i, player=f"Wolf {i}")
+            for i in range(5)
+        ])
+        extra = pd.concat([df, extra_players], ignore_index=True)
+        out = get_zonal_opportunity(
+            "Palace",
+            fixtures_for_team=lambda _t: [{"gameweek": 5, "opponent": "Wolves", "is_home": True}],
+            store=extra,
+        )
+        wolves_rows = [e for e in out["exploiters"] if e["team"] == "Wolves"]
+        assert len(wolves_rows) == 3
+        assert out["team_filter"]["candidates_per_team"]["Wolves"] == 6  # 5 + Right Poacher
+
+    def test_empty_window_behaves_like_league_wide(self):
+        with_fx = get_zonal_opportunity(
+            "Palace", fixtures_for_team=lambda _t: [], store=_two_team_store(),
+        )
+        league = get_zonal_opportunity("Palace", store=_two_team_store())
+        assert with_fx["exploiters"] == league["exploiters"]
+        assert with_fx["scope_resolution"] == "fixtures_empty_fallback"
+
+    def test_end_of_season_window_clips_to_what_the_callback_actually_returned(self):
+        """i90 risk inventory: 'current_gw en el limite -- con GW38 y
+        horizonte 5 la ventana se recorta sola.' The engine has no concept
+        of season length -- it trusts fixture_window entirely to what
+        `fixtures_for_team` actually returned. GW37 with horizon=5 would
+        naively ask for GW37-41, but the season ends at 38, so a realistic
+        callback (mirroring the wrapper's own current_gw<=gw<current_gw+
+        horizon filter intersected with real fixtures) returns only GW37
+        and GW38 -- fixture_window.to_gw must read 38, not 41."""
+        def two_gws_left(_team: str) -> list[dict]:
+            return [
+                {"gameweek": 37, "opponent": "Wolves", "is_home": True},
+                {"gameweek": 38, "opponent": "Villa", "is_home": False},
+            ]
+
+        out = get_zonal_opportunity(
+            "Palace", fixtures_for_team=two_gws_left, horizon=5, store=_two_team_store(),
+        )
+        fw = out["team_filter"]["fixture_window"]
+        assert fw["from_gw"] == 37
+        assert fw["to_gw"] == 38
+        assert fw["horizon"] == 5  # the requested horizon, not the clipped span
+
+    def test_bridge_gap_surfaces_as_unmatched_not_silent_zero_rows(self):
+        """i90: unlike the explicit-team path, the fixtures path used to
+        trust the callback's team name unconditionally -- a bridge gap
+        (missing/mistranslated FPL->Understat code) would then silently
+        yield zero candidates for that team instead of a visible signal.
+        Now it resolves against the store exactly like `team` does."""
+        def fixtures_with_a_ghost(_team: str) -> list[dict]:
+            return [
+                {"gameweek": 5, "opponent": "Wolves", "is_home": True},
+                {"gameweek": 6, "opponent": "Ghost Town FC", "is_home": False},
+            ]
+
+        out = get_zonal_opportunity(
+            "Palace", fixtures_for_team=fixtures_with_a_ghost, store=_two_team_store(),
+        )
+        tf = out["team_filter"]
+        assert tf["matched_teams"] == ["Wolves"]
+        assert tf["unmatched_teams"] == ["Ghost Town FC"]
+        # the calendar-derived list still names BOTH -- that's the signal
+        # a prod check compares against the live fixture list independently.
+        assert tf["scheduled_opponents"] == ["Wolves", "Ghost Town FC"]
+
+
+# ---------------------------------------------------------------------------
 # i89 (c): a marginal weakness is framed as marginal. Found 2026-09-11,
 # Sunderland: only zone above average was in-box/left at +1.8%; one player
 # in the league cleared the gate there and the card served him like a +70%

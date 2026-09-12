@@ -1688,6 +1688,21 @@ def _render_get_zonal_weakness(output: dict[str, Any], locale: Locale = DEFAULT_
     return f"Error ({code}): {message}"
 
 
+def format_zonal_fixture_scope_line(fixtures: "list[dict[str, Any]]", opponent: str) -> str:
+    """i90: one fixture-scope line, shared verbatim by the text renderer and
+    (conceptually — TSX can't import this) DefensiveZonesCard's per-group
+    headers, so a plain-text zonal answer explains its scope with the exact
+    same subject-first phrasing as the card: "J5 Burnley visita a Fulham"
+    never a bare "(L)/(V)". `fixtures` entries are ``{gameweek, team,
+    is_home}`` with `is_home` already attacker-perspective.
+    """
+    parts = []
+    for f in fixtures:
+        verb = "recibe a" if f.get("is_home") else "visita a"
+        parts.append(f"J{f.get('gameweek')} {f.get('team', '?')} {verb} {opponent}")
+    return " · ".join(parts)
+
+
 def _render_get_zonal_opportunity(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_zonal_opportunity raw_output.  T-zonal.
 
@@ -1700,13 +1715,27 @@ def _render_get_zonal_opportunity(output: dict[str, Any], locale: Locale = DEFAU
         opponent      = output.get("opponent", "?")
         opportunities = output.get("opportunities", [])
         prov = _provenance_line(output)
+        # i90: under fixture-derived scope, lead with WHICH opponents and
+        # WHY -- otherwise the model has no way to explain the table's
+        # composition (or whose home game each row's read is tied to).
+        tf = output.get("team_filter") or {}
+        fixture_header: str | None = None
+        if tf.get("source") == "fixtures" and tf.get("fixtures"):
+            fw = tf.get("fixture_window") or {}
+            fixture_header = (
+                f"Rivales de {opponent} J{fw.get('from_gw', '?')}"
+                f"–J{fw.get('to_gw', '?')}: "
+                f"{format_zonal_fixture_scope_line(tf['fixtures'], opponent)}"
+            )
         if not opportunities:
             text = (
                 f"{opponent} no concede por encima de la media de la liga en "
                 f"ninguna zona del área — sin oportunidad zonal destacada."
             )
+            if fixture_header:
+                text = f"{fixture_header}\n{text}"
             return f"{text}\n{prov}" if prov else text
-        lines = [f"Oportunidad zonal contra {opponent}:"]
+        lines = [fixture_header or f"Oportunidad zonal contra {opponent}:"]
         for opp in opportunities:
             zone    = opp.get("zone", "?")
             delta   = opp.get("delta_vs_avg", 0.0)

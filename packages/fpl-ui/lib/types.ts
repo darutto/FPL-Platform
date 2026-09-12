@@ -789,6 +789,13 @@ export interface ZonalExploiter {
   zone_shots?: number | null;
   set_piece_share?: number | null;
   origin?: 'open_play' | 'set_piece' | 'mixed' | null;
+  /**
+   * i90: which fixture earns this row a place under fixture-derived scope
+   * (attacker perspective, already inverted from the backend callback's
+   * weak-team perspective). Null outside that scope.
+   */
+  gameweek?: number | null;
+  is_home?: boolean | null;
 }
 
 /**
@@ -797,15 +804,32 @@ export interface ZonalExploiter {
  * the team from the user's own question rather than the model's tool call.
  */
 export interface ZonalTeamFilter {
-  requested: string;
+  /** i90: null when the scope was derived from the calendar, not named. */
+  requested: string | null;
   matched: string | null;
-  source: 'explicit' | 'inferred' | null;
+  source: 'explicit' | 'inferred' | 'fixtures' | null;
   min_shots?: number | null;
   zone_share_threshold?: number | null;
   /** i89: the scope may be several teams; `matched` is the joined display. */
   requested_teams?: string[];
   matched_teams?: string[];
   unmatched_teams?: string[];
+  /**
+   * i90: present only when `source === 'fixtures'` — the scope came from
+   * `opponent`'s own upcoming calendar, not a named team. `fixtures` lists
+   * every scoped fixture (attacker-perspective `is_home`) for the card to
+   * group by gameweek; `scheduled_opponents` mirrors `matched_teams` in
+   * calendar order, spelling out where the scope came from.
+   */
+  fixture_window?: { from_gw: number; to_gw: number; horizon: number } | null;
+  fixtures?: { gameweek: number; team: string; is_home: boolean }[];
+  scheduled_opponents?: string[];
+  /**
+   * True per-team candidate counts before the per-team cap, so a team with
+   * 0 rows shown can be told apart from "no fit" (0) vs. "hit the cap"
+   * (n > rows actually shown).
+   */
+  candidates_per_team?: Record<string, number> | null;
 }
 
 /**

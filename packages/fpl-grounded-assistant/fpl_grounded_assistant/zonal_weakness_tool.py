@@ -326,6 +326,11 @@ def _team_args(args: dict[str, Any]) -> list[str]:
     return out
 
 
+#: i90: default lookahead when no team is named and the scope falls back to
+#: the fixture calendar (1-5, clamped against MAX_OUTLOOK_HORIZON below).
+DEFAULT_OPPORTUNITY_HORIZON: int = 5
+
+
 def _get_zonal_opportunity_handler(
     args:      dict[str, Any],
     bootstrap: dict[str, Any],
@@ -334,6 +339,12 @@ def _get_zonal_opportunity_handler(
     opponent_query = str(args.get("opponent", "") or "").strip()
     if not opponent_query:
         return {"status": "not_found", "opponent": "", "message": "No opponent given."}
+    try:
+        horizon = int(args.get("horizon", DEFAULT_OPPORTUNITY_HORIZON))
+    except (TypeError, ValueError):
+        horizon = DEFAULT_OPPORTUNITY_HORIZON
+    horizon = max(1, min(horizon, MAX_OUTLOOK_HORIZON))
+
     team_queries = _team_args(args)
     team_source = "explicit" if team_queries else None
     if not team_queries:
@@ -347,10 +358,22 @@ def _get_zonal_opportunity_handler(
         if inferred:
             team_queries = inferred
             team_source = "inferred"
+
+    # i90: no team (explicit or inferred) named -> scope defaults to the
+    # fixture calendar instead of the whole league. `_fixtures_callback`
+    # returns None when the bootstrap carries no team_fixtures/current GW
+    # at all, in which case the engine's own "league" branch runs (the
+    # unfiltered pre-i90 behaviour) -- never silently invented here.
+    fixtures_for_team = (
+        _fixtures_callback(bootstrap, horizon) if not team_queries else None
+    )
+
     try:
         result = get_zonal_opportunity(
             _to_store_team(opponent_query, bootstrap),
             team=[_to_store_team(t, bootstrap) for t in team_queries] or None,
+            fixtures_for_team=fixtures_for_team,
+            horizon=horizon,
             live_season=_live_season(bootstrap),
         )
     except Exception as exc:  # noqa: BLE001 — never raise into the orchestrator
@@ -369,22 +392,40 @@ def _get_zonal_opportunity_handler(
     elif result["status"] == "ok":
         if result.get("exploiters"):
             result["exploiters"] = _enrich_exploiters(result["exploiters"], bootstrap)
+        scope_resolution = result.get("scope_resolution")
         tf = result.get("team_filter")
         if tf is not None:
-            # Provenance of the filter: did the model pass it, or did the
-            # handler recover it from the question the model was given?
-            tf["source"] = team_source
-            if tf["matched"] is None:
+            # Mechanical translation of the engine's scope_resolution --
+            # the wrapper never re-derives or second-guesses it.
+            if scope_resolution == "fixtures":
+                tf["source"] = "fixtures"
+            elif scope_resolution == "fixtures_empty_fallback":
+                tf["source"] = None
+                result["message"] = (
+                    f"{opponent_query} no tiene partidos en las próximas "
+                    f"{horizon} jornadas: ranking de toda la liga."
+                )
+            else:
+                # Provenance of the filter: did the model pass it, or did
+                # the handler recover it from the question the model saw?
+                tf["source"] = team_source
+            # These two messages are about a NAMED team failing to
+            # resolve; they don't apply to a derived (fixtures) scope,
+            # which never "requested" anything by name and already got
+            # its own message above when empty.
+            if tf["requested_teams"] and tf["matched"] is None:
                 result["message"] = (
                     f"{tf['requested']!r} did not match any team in the tactical "
                     f"store — exploiters/opportunities are empty, not unfiltered."
                 )
-            elif tf.get("unmatched_teams"):
+            elif tf["requested_teams"] and tf.get("unmatched_teams"):
                 result["message"] = (
                     f"Scoped to {tf['matched']}; "
                     f"{', '.join(tf['unmatched_teams'])} did not match any team "
                     f"in the tactical store and was ignored."
                 )
+        elif scope_resolution == "league" and fixtures_for_team is None and not team_queries:
+            result["message"] = "Sin calendario en el contexto: ranking de toda la liga."
     return result
 
 
@@ -431,10 +472,10 @@ GET_ZONAL_OPPORTUNITY_SPEC = ToolSpec(
         "where to attack WITH the matched players to exploit each zone. "
         "Opportunity signal only — no buy/sell advice. If the user asks about "
         "a SPECIFIC team's players (e.g. 'which Liverpool players can exploit "
-        "Fulham'), pass `team` — without it, the ranking is unfiltered across "
-        "the whole league and may contain zero players from the team the user "
-        "actually asked about even when some exist; that is NOT the same as "
-        "'no such player.'"
+        "Fulham'), pass `team`. Without `team`, do NOT invent one: the ranking "
+        "defaults to `opponent`'s own upcoming opponents over the next few "
+        "gameweeks (whoever actually plays them soon), not the whole league — "
+        "see `horizon`."
     ),
     parameters={
         "type": "object",
@@ -461,6 +502,14 @@ GET_ZONAL_OPPORTUNITY_SPEC = ToolSpec(
                     "and Man City). Each row carries its team."
                 ),
             },
+            "horizon": {
+                "type":        "integer",
+                "description": (
+                    "Optional. Only applies when `team`/`teams` are omitted: "
+                    "how many upcoming gameweeks of `opponent`'s calendar to "
+                    "scope the ranking to (1-5, default 5)."
+                ),
+            },
         },
         "required":             ["opponent"],
         "additionalProperties": False,
@@ -470,10 +519,11 @@ GET_ZONAL_OPPORTUNITY_SPEC = ToolSpec(
         "properties": {
             "status":          {"type": "string"},
             "opponent":        {"type": "string"},
+            "scope_resolution": {"type": "string"},  # i90: explicit | fixtures | fixtures_empty_fallback | league
             "opportunities":   {"type": "array"},
             "zones":           {"type": "array"},   # T4b: 3 in-box lateral cells
-            "exploiters":      {"type": "array"},   # T4b: ranked zone-fit table
-            "team_filter":     {"type": "object"},  # i85–i89: {requested, matched, source, *_teams}; present when a team scope was given or inferred
+            "exploiters":      {"type": "array"},   # T4b: ranked zone-fit table; i90 adds gameweek/is_home/fixtures under fixture scope
+            "team_filter":     {"type": "object"},  # i85–i90: {requested, matched, source, *_teams, fixture_window, fixtures, scheduled_opponents, candidates_per_team}; present when a team scope was given, inferred, or fixture-derived
             "weakness_strength": {"type": "string"},  # i89: clear | marginal | none
             "weakness_label":  {"type": "string"},  # T4b
             "verdict":         {"type": "string"},  # T4b
@@ -499,38 +549,23 @@ def _team_to_store_name(team: dict[str, Any]) -> str:
     return _SHORT_TO_UNDERSTAT.get(short) or str(team.get("name", ""))
 
 
-def _get_player_zonal_outlook_handler(
-    args:      dict[str, Any],
-    bootstrap: dict[str, Any],
-) -> dict[str, Any]:
-    """Tool-runner handler — delegates to the pure engine. Never raises.
+def _fixtures_callback(
+    bootstrap: dict[str, Any], horizon: int,
+) -> "Any | None":
+    """Build the ``fixtures_for_team`` callback both zonal handlers inject
+    into their engines (i90: extracted from the outlook handler so
+    ``get_zonal_opportunity`` reuses the exact same bootstrap→store-name
+    bridge and window logic rather than a second, possibly-drifting copy).
 
-    The engine is bootstrap-agnostic: this wrapper injects a
-    ``fixtures_for_team`` callback that reads ``bootstrap["team_fixtures"]``
-    and translates opponent ids to Understat store names via the short-name
-    bridge.
+    Returns ``None`` when ``team_fixtures`` or the current GW are missing
+    from *bootstrap* — the caller then knows there's no calendar to scope
+    by and should degrade to whatever "no callback" means for it.
     """
-    player_query = str(args.get("player", "") or "").strip()
-    if not player_query:
-        return {"status": "not_found", "player": "", "message": "No player given."}
-    try:
-        horizon = int(args.get("horizon", DEFAULT_OUTLOOK_HORIZON))
-    except (TypeError, ValueError):
-        horizon = DEFAULT_OUTLOOK_HORIZON
-    horizon = max(1, min(horizon, MAX_OUTLOOK_HORIZON))
-
     bootstrap = bootstrap or {}
     team_fixtures: dict = bootstrap.get("team_fixtures") or {}
     current_gw = _get_current_gameweek(bootstrap)
     if not team_fixtures or current_gw is None:
-        return {
-            "status": "missing_context",
-            "player": player_query,
-            "message": (
-                "No team fixture schedule available "
-                "(team_fixtures/current GW not in bootstrap)."
-            ),
-        }
+        return None
 
     teams_by_id: dict[int, dict[str, Any]] = {
         int(t["id"]): t for t in bootstrap.get("teams", []) if t.get("id") is not None
@@ -561,6 +596,40 @@ def _get_player_zonal_outlook_handler(
                 "is_home": bool(f.get("is_home", False)),
             })
         return out
+
+    return fixtures_for_team
+
+
+def _get_player_zonal_outlook_handler(
+    args:      dict[str, Any],
+    bootstrap: dict[str, Any],
+) -> dict[str, Any]:
+    """Tool-runner handler — delegates to the pure engine. Never raises.
+
+    The engine is bootstrap-agnostic: this wrapper injects a
+    ``fixtures_for_team`` callback that reads ``bootstrap["team_fixtures"]``
+    and translates opponent ids to Understat store names via the short-name
+    bridge.
+    """
+    player_query = str(args.get("player", "") or "").strip()
+    if not player_query:
+        return {"status": "not_found", "player": "", "message": "No player given."}
+    try:
+        horizon = int(args.get("horizon", DEFAULT_OUTLOOK_HORIZON))
+    except (TypeError, ValueError):
+        horizon = DEFAULT_OUTLOOK_HORIZON
+    horizon = max(1, min(horizon, MAX_OUTLOOK_HORIZON))
+
+    fixtures_for_team = _fixtures_callback(bootstrap, horizon)
+    if fixtures_for_team is None:
+        return {
+            "status": "missing_context",
+            "player": player_query,
+            "message": (
+                "No team fixture schedule available "
+                "(team_fixtures/current GW not in bootstrap)."
+            ),
+        }
 
     try:
         result = get_player_zonal_outlook(
