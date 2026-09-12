@@ -147,6 +147,84 @@ class TestRenderZonalOpportunity:
         assert text == "Error (boom): kaput"
 
 
+# ---------------------------------------------------------------------------
+# i90 — fixture-derived scope leads with WHO and WHY, named with subject
+# ---------------------------------------------------------------------------
+
+OPPORTUNITY_FIXTURE_SCOPED = {
+    **OPPORTUNITY_OK,
+    "team_filter": {
+        "requested": None,
+        "matched": "Burnley, Aston Villa",
+        "source": "fixtures",
+        "requested_teams": [],
+        "matched_teams": ["Burnley", "Aston Villa"],
+        "unmatched_teams": [],
+        "fixture_window": {"from_gw": 5, "to_gw": 6, "horizon": 2},
+        "fixtures": [
+            {"gameweek": 5, "team": "Burnley", "is_home": False},
+            {"gameweek": 6, "team": "Aston Villa", "is_home": True},
+        ],
+        "scheduled_opponents": ["Burnley", "Aston Villa"],
+    },
+}
+
+
+class TestRenderZonalOpportunityFixtureScope:
+    def test_leads_with_scope_and_window(self):
+        text = render("get_zonal_opportunity", OPPORTUNITY_FIXTURE_SCOPED)
+        assert text.startswith("Rivales de Crystal Palace J5–J6:")
+
+    def test_names_subject_and_side_never_bare_lv(self):
+        text = render("get_zonal_opportunity", OPPORTUNITY_FIXTURE_SCOPED)
+        assert "J5 Burnley visita a Crystal Palace" in text
+        assert "J6 Aston Villa recibe a Crystal Palace" in text
+        assert "(L)" not in text and "(V)" not in text
+
+    def test_flipping_is_home_flips_the_verb(self):
+        flipped = {
+            **OPPORTUNITY_FIXTURE_SCOPED,
+            "team_filter": {
+                **OPPORTUNITY_FIXTURE_SCOPED["team_filter"],
+                "fixtures": [{"gameweek": 5, "team": "Burnley", "is_home": True}],
+            },
+        }
+        text = render("get_zonal_opportunity", flipped)
+        assert "J5 Burnley recibe a Crystal Palace" in text
+        assert "visita" not in text
+
+    def test_empty_opportunities_still_leads_with_fixture_header(self):
+        text = render(
+            "get_zonal_opportunity",
+            {**OPPORTUNITY_FIXTURE_SCOPED, "opportunities": []},
+        )
+        assert text.startswith("Rivales de Crystal Palace J5–J6:")
+        assert "no concede por encima de la media" in text
+
+    def test_non_fixture_scope_keeps_the_pre_i90_header(self):
+        explicit = {
+            **OPPORTUNITY_OK,
+            "team_filter": {
+                "requested": "Burnley", "matched": "Burnley", "source": "explicit",
+            },
+        }
+        text = render("get_zonal_opportunity", explicit)
+        assert text.startswith("Oportunidad zonal contra Crystal Palace:")
+
+    def test_format_helper_matches_the_rendered_line(self):
+        """Pins the shared-format contract: the exact substring the card's
+        per-group header would independently produce for the same payload
+        (see DefensiveZonesCard.fixtureGroupLabel) must appear verbatim."""
+        line = renderer.format_zonal_fixture_scope_line(
+            OPPORTUNITY_FIXTURE_SCOPED["team_filter"]["fixtures"], "Crystal Palace",
+        )
+        assert line == (
+            "J5 Burnley visita a Crystal Palace · J6 Aston Villa recibe a Crystal Palace"
+        )
+        text = render("get_zonal_opportunity", OPPORTUNITY_FIXTURE_SCOPED)
+        assert line in text
+
+
 OUTLOOK_OK = {
     "status": "ok",
     "player": "Bukayo Saka",
