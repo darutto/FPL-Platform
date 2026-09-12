@@ -877,6 +877,15 @@ export interface DefensiveZonesMeta {
    * read, not a strong one. Absent on pre-i89 payloads.
    */
   weakness_strength?: 'clear' | 'marginal' | 'none' | null;
+  /**
+   * i91: `false` for a "zonas débiles de X" turn with no players/exploiting
+   * asked about — the card renders the pitch view WITHOUT the "Quién lo
+   * explota" table or its empty-state text, since nobody asked and none
+   * were looked for. `true` (the default — absent means true, matching
+   * every payload before i91) means `exploiters` is a real result: `[]`
+   * there is a genuine "zero players fit" finding worth showing.
+   */
+  has_exploiters?: boolean;
 }
 
 // ---------------------------------------------------------------------------

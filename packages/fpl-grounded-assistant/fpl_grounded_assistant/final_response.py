@@ -696,6 +696,14 @@ class DefensiveZonesMeta:
     #: i89: clear | marginal | none -- how strong the top weak zone is. A
     #: marginal read must not be served with a strong read's framing.
     weakness_strength:    str | None = None
+    #: i91: ``False`` for a get_zonal_weakness-sourced turn (pure "zonas
+    #: débiles de X", no players asked about) -- the card must then render
+    #: the pitch WITHOUT the exploiter table or its "no matching players"
+    #: empty state, since nobody asked and none were looked for. ``True``
+    #: (the default, matching every payload before i91) for a
+    #: get_zonal_opportunity-sourced turn, where an empty `exploiters` is a
+    #: real, meaningful "zero players fit" result worth showing.
+    has_exploiters:        bool = True
 
 
 # ---------------------------------------------------------------------------
@@ -1832,16 +1840,27 @@ def _extract_data_provenance(raw: "Any") -> "DataProvenance | None":
 
 
 def _extract_zonal_opportunity_meta(ro: "dict[str, Any]") -> "DefensiveZonesMeta | None":
-    """Extract DefensiveZonesMeta from a get_zonal_opportunity tool_output dict.
+    """Extract DefensiveZonesMeta from a get_zonal_opportunity OR (i91)
+    get_zonal_weakness tool_output dict -- both map to the same card intent.
 
-    Requires the T4b-enriched payload (``zones`` present) — pre-enrichment
-    payloads degrade to ``None`` so the card never renders half-empty.
+    The two shapes differ in exactly the ways their contracts always did:
+    ``opponent`` (opportunity) vs ``team`` (weakness) for the subject;
+    ``zones`` (opportunity, already the 3-lateral card shape) vs
+    ``card_zones`` (weakness, added by the i91 wrapper enrichment,
+    SAME shape) for the pitch cells. ``"exploiters" in ro`` is the signal
+    for which one this is: get_zonal_opportunity always sets it (possibly
+    to ``[]``, a real "zero players fit" result); get_zonal_weakness never
+    does, because the question never asked. Requires SOME zones payload
+    (T4b/i91-enriched) — pre-enrichment payloads degrade to ``None`` so the
+    card never renders half-empty.
     """
     try:
-        if not ro.get("zones"):
+        zones_source = ro.get("card_zones") or ro.get("zones")
+        if not zones_source:
             return None
+        has_exploiters = "exploiters" in ro
         return DefensiveZonesMeta(
-            opponent       = ro.get("opponent", ""),
+            opponent       = ro.get("opponent") or ro.get("team", ""),
             weakness_label = ro.get("weakness_label", ""),
             verdict        = ro.get("verdict", ""),
             zones          = tuple(
@@ -1850,7 +1869,7 @@ def _extract_zonal_opportunity_meta(ro: "dict[str, Any]") -> "DefensiveZonesMeta
                     pct_over_avg      = float(z["pct_over_avg"]),
                     opportunity_level = z["opportunity_level"],
                 )
-                for z in ro.get("zones", [])
+                for z in zones_source
             ),
             exploiters     = tuple(
                 Exploiter(
@@ -1869,7 +1888,7 @@ def _extract_zonal_opportunity_meta(ro: "dict[str, Any]") -> "DefensiveZonesMeta
                     gameweek        = e.get("gameweek"),
                     is_home         = e.get("is_home"),
                 )
-                for e in ro.get("exploiters", [])
+                for e in (ro.get("exploiters") or [])
             ),
             penalty_xga_per_game = float(
                 (ro.get("penalty_context") or {}).get("penalty_xga_per_game", 0.0)
@@ -1878,6 +1897,7 @@ def _extract_zonal_opportunity_meta(ro: "dict[str, Any]") -> "DefensiveZonesMeta
             data_provenance = _extract_data_provenance(ro.get("data_provenance")),
             team_filter    = _extract_team_filter(ro.get("team_filter")),
             weakness_strength = ro.get("weakness_strength"),
+            has_exploiters = has_exploiters,
         )
     except Exception:  # noqa: BLE001
         return None

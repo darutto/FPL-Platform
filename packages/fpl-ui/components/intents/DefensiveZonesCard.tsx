@@ -67,6 +67,10 @@ export default function DefensiveZonesCard({ data }: Props) {
   const scope = scopeLabel(data.team_filter ?? null, opponent);
   const fixtureGroups =
     data.team_filter?.source === 'fixtures' ? groupExploitersByFixture(exploiters) : null;
+  // i91: absent/true means a real get_zonal_opportunity result (exploiters
+  // may legitimately be []); false means "zonas débiles" alone was asked --
+  // no player table was ever looked for, so none renders, not an empty one.
+  const hasExploiters = data.has_exploiters !== false;
 
   return (
     <div className={`mt-3 text-sm ${CARD_BASE} ${CARD_ACCENT.coral.border}`}>
@@ -217,60 +221,67 @@ export default function DefensiveZonesCard({ data }: Props) {
           goles esperados por encima de un equipo medio de la liga
         </div>
 
-        {/* "Quién lo explota" — zone-fit table */}
-        {exploiters.length > 0 ? (
-          <div className="mb-4 overflow-hidden rounded-[10px] border border-white/[0.08]">
-            <div className="flex items-center justify-between border-b border-white/[0.08] bg-white/[0.02] px-3 py-2">
-              <span className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-bf-text">
-                Quién lo explota
-                {scope && (
-                  <span
-                    data-testid="zonal-scope"
-                    className="ml-2 normal-case tracking-normal text-bf-turquoise"
-                  >
-                    · {scope}
-                  </span>
-                )}
-              </span>
-              <span className="text-[10.5px] text-bf-gray/60">
-                {data.weakness_strength === 'marginal' ? (
-                  <span data-testid="zonal-marginal" className="text-bf-gold">
-                    lectura marginal ·{' '}
-                  </span>
-                ) : null}
-                ajuste a la zona
-              </span>
-            </div>
-            <div className="grid grid-cols-[1.4rem_1fr_auto_auto] gap-3 border-b border-white/[0.06] px-3 py-1.5 text-[9.5px] font-extrabold uppercase tracking-[0.06em] text-bf-gray/60">
-              <span>#</span>
-              <span>Jugador</span>
-              <span className="text-center">Zona</span>
-              <span className="text-right">Ajuste</span>
-            </div>
-            {fixtureGroups ? (
-              fixtureGroups.map((group) => (
-                <div key={group.gameweek}>
-                  <div
-                    data-testid="zonal-fixture-group"
-                    className="border-b border-white/[0.06] bg-white/[0.015] px-3 py-1.5 text-[10.5px] font-bold text-bf-gray/70"
-                  >
-                    {fixtureGroupLabel(group.gameweek, group.teamShort, group.isHome, opponent)}
+        {/* "Quién lo explota" — zone-fit table. i91: omitted entirely (not
+            even the empty state) when this turn never asked about players
+            — hasExploiters is false only for a weakness-only card. */}
+        {hasExploiters && (
+          exploiters.length > 0 ? (
+            <div className="mb-4 overflow-hidden rounded-[10px] border border-white/[0.08]">
+              <div className="flex items-center justify-between border-b border-white/[0.08] bg-white/[0.02] px-3 py-2">
+                <span className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-bf-text">
+                  Quién lo explota
+                  {scope && (
+                    <span
+                      data-testid="zonal-scope"
+                      className="ml-2 normal-case tracking-normal text-bf-turquoise"
+                    >
+                      · {scope}
+                    </span>
+                  )}
+                </span>
+                <span className="text-[10.5px] text-bf-gray/60">
+                  {data.weakness_strength === 'marginal' ? (
+                    <span data-testid="zonal-marginal" className="text-bf-gold">
+                      lectura marginal ·{' '}
+                    </span>
+                  ) : null}
+                  ajuste a la zona
+                </span>
+              </div>
+              <div className="grid grid-cols-[1.4rem_1fr_auto_auto] gap-3 border-b border-white/[0.06] px-3 py-1.5 text-[9.5px] font-extrabold uppercase tracking-[0.06em] text-bf-gray/60">
+                <span>#</span>
+                <span>Jugador</span>
+                <span className="text-center">Zona</span>
+                <span className="text-right">Ajuste</span>
+              </div>
+              {fixtureGroups ? (
+                fixtureGroups.map((group) => (
+                  <div key={group.gameweek}>
+                    <div
+                      data-testid="zonal-fixture-group"
+                      className="border-b border-white/[0.06] bg-white/[0.015] px-3 py-1.5 text-[10.5px] font-bold text-bf-gray/70"
+                    >
+                      {fixtureGroupLabel(group.gameweek, group.teamShort, group.isHome, opponent)}
+                    </div>
+                    {group.rows.map((e, i) => (
+                      <ExploiterRow key={e.rank} exploiter={e} striped={i % 2 === 0} data={data} />
+                    ))}
                   </div>
-                  {group.rows.map((e, i) => (
-                    <ExploiterRow key={e.rank} exploiter={e} striped={i % 2 === 0} data={data} />
-                  ))}
-                </div>
-              ))
-            ) : (
-              exploiters.map((e, i) => (
-                <ExploiterRow key={e.rank} exploiter={e} striped={i % 2 === 0} data={data} />
-              ))
-            )}
-          </div>
-        ) : (
-          <div className="mb-4 rounded-[10px] border border-white/[0.08] px-3 py-2.5 text-[11px] text-bf-gray/60">
-            Sin perfiles de jugador que encajen en estas zonas todavía.
-          </div>
+                ))
+              ) : (
+                exploiters.map((e, i) => (
+                  <ExploiterRow key={e.rank} exploiter={e} striped={i % 2 === 0} data={data} />
+                ))
+              )}
+            </div>
+          ) : (
+            <div
+              data-testid="zonal-no-exploiters"
+              className="mb-4 rounded-[10px] border border-white/[0.08] px-3 py-2.5 text-[11px] text-bf-gray/60"
+            >
+              Sin perfiles de jugador que encajen en estas zonas todavía.
+            </div>
+          )
         )}
 
         {/* Footer — penalty context + IA badge */}

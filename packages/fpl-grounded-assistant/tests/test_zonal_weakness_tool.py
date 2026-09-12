@@ -118,12 +118,17 @@ def test_both_tools_have_registry_schemas():
 
 
 def test_atomic_pattern_no_intent_no_classifier():
-    # weakness + outlook stay atomic (text-narrated, no intent mapping)
-    assert "get_zonal_weakness" not in _TOOL_TO_INTENT
+    # outlook stays atomic (text-narrated, no intent mapping)
     assert "get_player_zonal_outlook" not in _TOOL_TO_INTENT
     # T4b partial promotion: opportunity is renderable (card) but stays out
     # of the deterministic classifier universe
     assert _TOOL_TO_INTENT["get_zonal_opportunity"] == "zonal_opportunity"
+    # i91: a pure "zonas débiles" question (no players/exploiting mentioned)
+    # gets the SAME card intent -- the card just renders without an
+    # exploiter table (DefensiveZonesMeta.has_exploiters distinguishes the
+    # two). This inverts the pre-i91 "weakness stays atomic" policy on
+    # purpose: the pitch view never depended on player data to begin with.
+    assert _TOOL_TO_INTENT["get_zonal_weakness"] == "zonal_opportunity"
     joined = " ".join(SUPPORTED_INTENTS)
     assert "zonal" not in joined
 
@@ -896,6 +901,66 @@ def test_card_projection_unscoped_has_no_team_filter(tactical_store):
     meta = _extract_zonal_opportunity_meta(out)
     assert meta is not None
     assert meta.team_filter is None
+
+
+# ---------------------------------------------------------------------------
+# i91 -- "zonas débiles de X" alone (no players/exploiting mentioned) still
+# gets the pitch-view card. The wrapper enriches get_zonal_weakness's own
+# output with card_zones/weakness_label/weakness_strength (distinct keys
+# from its pre-existing zones/weakest_zones, so nothing that reads those
+# changes shape) and the card projection distinguishes it from
+# get_zonal_opportunity via the ABSENCE of an "exploiters" key.
+# ---------------------------------------------------------------------------
+
+def test_run_tool_weakness_ok_enriches_card_fields(tactical_store):
+    out = run_tool("get_zonal_weakness", {"team": "Crystal Palace"}, _bootstrap())
+    assert out["status"] == "ok"
+    # pre-existing contract, unchanged: zones is still the 6-zone list
+    assert len(out["zones"]) == 6
+    assert {"zone", "xga_per_game", "league_avg", "delta_vs_avg", "rank"} <= set(out["zones"][0])
+    # i91 additions, under distinct keys
+    assert [z["lateral"] for z in out["card_zones"]] == ["left", "central", "right"]
+    assert isinstance(out["weakness_label"], str) and out["weakness_label"]
+    assert out["weakness_strength"] in ("clear", "marginal", "none")
+    assert "exploiters" not in out  # the absence IS the has_exploiters=False signal
+
+
+def test_run_tool_weakness_matches_opportunity_card_fields_for_same_team(tactical_store):
+    """The shared engine helper means get_zonal_weakness and
+    get_zonal_opportunity must agree exactly on the pitch shading and
+    label for the same team -- not two independently-computed answers
+    that could silently drift apart."""
+    weakness_out = run_tool("get_zonal_weakness", {"team": "Crystal Palace"}, _bootstrap())
+    opportunity_out = run_tool("get_zonal_opportunity", {"opponent": "Crystal Palace"}, _bootstrap())
+    assert weakness_out["card_zones"] == opportunity_out["zones"]
+    assert weakness_out["weakness_label"] == opportunity_out["weakness_label"]
+    assert weakness_out["weakness_strength"] == opportunity_out["weakness_strength"]
+
+
+def test_card_projection_weakness_only_has_no_exploiter_table(tactical_store):
+    from fpl_grounded_assistant.final_response import _extract_zonal_opportunity_meta
+    out = run_tool("get_zonal_weakness", {"team": "Crystal Palace"}, _bootstrap())
+    meta = _extract_zonal_opportunity_meta(out)
+    assert meta is not None
+    assert meta.opponent == "Crystal Palace"
+    assert meta.has_exploiters is False
+    assert meta.exploiters == ()
+    assert len(meta.zones) == 3
+    assert meta.team_filter is None
+
+
+def test_card_projection_opportunity_still_has_exploiters_flag_true(tactical_store):
+    """Regression pin: get_zonal_opportunity's projection must not flip to
+    has_exploiters=False just because this field now exists."""
+    from fpl_grounded_assistant.final_response import _extract_zonal_opportunity_meta
+    out = run_tool("get_zonal_opportunity", {"opponent": "Crystal Palace"}, _bootstrap())
+    meta = _extract_zonal_opportunity_meta(out)
+    assert meta.has_exploiters is True
+
+
+def test_zonal_weakness_maps_to_zonal_opportunity_intent():
+    from fpl_grounded_assistant.dispatcher import _TOOL_TO_INTENT
+    assert _TOOL_TO_INTENT["get_zonal_weakness"] == "zonal_opportunity"
 
 
 def test_card_projection_carries_origin_evidence(tactical_store):
