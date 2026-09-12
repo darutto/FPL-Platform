@@ -1246,14 +1246,50 @@
     {
       "id": "s30",
       "col": "shipped",
-      "title": "Evidencia de origen en exploiters zonales (i88)",
-      "desc": "Fusionada (PR #250, 12/09). Cada fila de exploiter en la tarjeta zonal ahora muestra tiros en zona y si el origen es jugada abierta o balón parado, con aviso de muestra corta cuando el conteo es bajo.",
+      "title": "Cada fila de la tarjeta zonal explica por qué encaja (i88, i89)",
+      "desc": "Fusionadas #250 y #251 (12/09). Antes la tabla de explotadores daba un nombre y una nota, y un central con dos cabezazos de córner se presentaba igual que un extremo. Ahora cada fila dice cuántos tiros en la zona, si el xG viene de jugada o de balón parado (etiquetado, no filtrado: el central sigue siendo una vía real), qué porcentaje de su xG cae en esa zona, y avisa de muestra corta. Y una debilidad marginal se presenta como marginal: si el rival concede sólo +2% en su peor zona, el veredicto abre con 'no concede claramente por encima de la media' y la píldora dice 'Ventaja leve', no 'Débil'. Con tres equipos en el alcance, el tope pasa a ser por equipo (3 cada uno) y el payload dice cuántos candidatos tenía cada uno, para distinguir 'nadie encaja' de 'los cortó el tope'.",
       "tags": [
         "Backend",
         "UI",
         "FPL Asistente"
       ],
       "progress": 100
+    },
+    {
+      "id": "s31",
+      "col": "shipped",
+      "progress": 100,
+      "tags": [
+        "Backend",
+        "UI",
+        "FPL Asistente"
+      ],
+      "title": "La tarjeta zonal sobrevive la rotación de temporada (i83, i84)",
+      "desc": "Fusionadas #244 y #246 (11/09), encontradas probando a mano tras la rotación a 2026-27 (i73). Los tres ascendidos (Coventry, Hull, Ipswich) devolvían 'not_found': el puente de nombres FPL↔Understat sólo conocía la plantilla de 2025-26 — añadidos, y el test del puente pasa de 'exactamente 20' a 'la plantilla actual es subconjunto', porque el mapa acumula temporadas. Y el aviso de muestra corta decía 'sólo 30 partidos' — el conteo de toda la liga, que leído en la tarjeta de un equipo parecía suyo; ahora habla en jornadas."
+    },
+    {
+      "id": "s32",
+      "col": "shipped",
+      "progress": 100,
+      "tags": [
+        "Backend",
+        "UI",
+        "FPL Asistente"
+      ],
+      "title": "Pregunta por tu equipo y la tarjeta zonal responde sobre tu equipo (i85–i87, i89)",
+      "desc": "Fusionadas #247–#249 y #251 (11–12/09). '¿Qué jugadores del Liverpool explotan las zonas débiles del Fulham?' respondía con los cinco mejores de toda la liga (Palmer, Haaland…) porque la herramienta no tenía forma de acotar por equipo. Tres pasos medidos en producción, cada uno porque el anterior no bastó: (1) parámetro `team`, con `team_filter` que distingue 'filtrado y vacío' de 'no resolvió'; (2) el modelo seguía sin pasarlo aunque el esquema lo pidiera, así que el handler lee la pregunta original y rellena el equipo que el usuario nombró literalmente — nunca inventa uno; (3) con el alcance correcto la tabla salía vacía, porque las puertas están pensadas para podar 500 jugadores a destacados: bajo alcance de equipo se ordena el equipo entero con su evidencia visible. Después, varios equipos en una sola pregunta ('Arsenal, Liverpool y City contra el Brighton') son un solo alcance, con resolución parcial declarada. La cabecera de la tabla siempre nombra el alcance y si salió de la pregunta."
+    },
+    {
+      "id": "s33",
+      "col": "shipped",
+      "progress": 100,
+      "tags": [
+        "Backend",
+        "UI",
+        "FPL Asistente"
+      ],
+      "title": "Los explotadores por defecto salen del calendario, no de la liga (i90)",
+      "desc": "Fusionada #253 (12/09, `72b525a`). '¿Zonas débiles de Fulham?' devolvía siempre a Haaland y Salah: la tabla era toda la liga por xG, ciega a quién juega contra Fulham. Ahora, sin equipo nombrado, el alcance son los rivales del equipo en las próximas 5 jornadas — hasta 3 por rival, agrupados por jornada con la localía nombrada ('J5 · BUR visita a Fulham', nunca L/V sueltos) — y tarjeta y texto lo dicen con las mismas frases. Un equipo nombrado anula el calendario. Sin calendario en contexto o con jornada en blanco, cae a liga entera y lo declara. El motor devuelve qué rama usó (`scope_resolution`) y el wrapper la traduce sin deducir nada. VERIFICADO EN PROD 12/09 contra la API FPL leída aparte: Fulham → Liverpool, Man Utd, Ipswich, Hull, Coventry (J4–J8), `unmatched_teams=[]`, códigos de equipo iguales — el puente aguanta con los ascendidos. Hallazgo por el camino: la rama de calendario confiaba en el puente sin validar contra la tienda; un hueco ahora cae en `unmatched_teams` en vez de dar un equipo con cero filas. Pendiente menor: el script de verificación revienta en consola Windows cp1252 (correr con PYTHONUTF8=1)."
     }
   ]
 }
