@@ -658,3 +658,77 @@ def test_team_scoped_player_with_no_zoned_xg_is_still_excluded():
     df = pd.concat([df, pd.DataFrame(lr)], ignore_index=True)
     out = get_zonal_opportunity("Palace", team="Wolves", store=df)
     assert "Wolves Long Ranger" not in [e["player"] for e in out["exploiters"]]
+
+
+# ---------------------------------------------------------------------------
+# shot origin (i88) -- a set-piece fit is kept but LABELLED. Found 2026-09-11:
+# Virgil van Dijk ranked #2 "por la izquierda" against Fulham on two corner
+# headers from the left of the six-yard box, presented like a winger.
+# ---------------------------------------------------------------------------
+
+def _origin_store() -> pd.DataFrame:
+    """Palace weak in-box/right. Two Wolves players operate there:
+    "Corner CB" -- 3 headers from corners; "Open Winger" -- 3 open-play
+    shots; "Mixed Mid" -- one of each (50%)."""
+    df = opportunity_store()
+    extra = []
+    extra += [_row("Palace", "Wolves", 0.92, 0.30, 0.15, match_id=110,
+                   player="Corner CB", situation="From Corner") for _ in range(3)]
+    extra += [_row("Palace", "Wolves", 0.90, 0.20, 0.15, match_id=111,
+                   player="Open Winger") for _ in range(3)]
+    extra += [_row("Palace", "Wolves", 0.90, 0.20, 0.15, match_id=112, player="Mixed Mid"),
+              _row("Palace", "Wolves", 0.92, 0.30, 0.15, match_id=112,
+                   player="Mixed Mid", situation="Set Piece")]
+    return pd.concat([df, pd.DataFrame(extra)], ignore_index=True)
+
+
+def test_player_zone_shares_track_set_piece_share_per_zone():
+    shares = compute_player_zone_shares(_origin_store(), min_shots=1)
+    assert shares["Corner CB"]["zone_set_piece_share"]["in-box / right"] == pytest_approx(1.0)
+    assert shares["Corner CB"]["zone_shots"]["in-box / right"] == 3
+    assert shares["Open Winger"]["zone_set_piece_share"]["in-box / right"] == pytest_approx(0.0)
+    assert shares["Mixed Mid"]["zone_set_piece_share"]["in-box / right"] == pytest_approx(0.5)
+    # a zone with no xG reports 0.0, never divides by zero
+    assert shares["Corner CB"]["zone_set_piece_share"]["in-box / left"] == 0.0
+
+
+def test_exploiters_carry_origin_label():
+    out = get_zonal_opportunity("Palace", team="Wolves", store=_origin_store())
+    by = {e["player"]: e for e in out["exploiters"]}
+    assert by["Corner CB"]["origin"] == "set_piece"
+    assert by["Corner CB"]["set_piece_share"] == 1.0
+    assert by["Corner CB"]["zone_shots"] == 3
+    assert by["Open Winger"]["origin"] == "open_play"
+    assert by["Mixed Mid"]["origin"] == "mixed"
+
+
+def test_set_piece_fit_is_kept_not_excluded():
+    """The signal is real (a CB attacking a leaky far post IS a way in); the
+    fix is the label, not a filter. Corner CB and Open Winger have identical
+    xG in the zone, so they tie on fit and both rank."""
+    out = get_zonal_opportunity("Palace", team="Wolves", store=_origin_store())
+    names = [e["player"] for e in out["exploiters"]]
+    assert "Corner CB" in names and "Open Winger" in names
+
+
+def test_origin_label_thresholds():
+    lab = zonal_weakness._origin_label
+    assert lab(1.0) == "set_piece"
+    assert lab(0.6) == "set_piece"
+    assert lab(0.59) == "mixed"
+    assert lab(0.41) == "mixed"
+    assert lab(0.4) == "open_play"
+    assert lab(0.0) == "open_play"
+
+
+def test_penalties_never_count_toward_origin():
+    """Penalties are excluded from zonal aggregation entirely, so they can
+    neither add zoned xG nor tilt a player toward set_piece."""
+    df = _origin_store()
+    pens = [_row("Palace", "Wolves", 0.885, 0.50, 0.7611, match_id=113,
+                 player="Open Winger", situation=PENALTY_SITUATION) for _ in range(3)]
+    df = pd.concat([df, pd.DataFrame(pens)], ignore_index=True)
+    out = get_zonal_opportunity("Palace", team="Wolves", store=df)
+    by = {e["player"]: e for e in out["exploiters"]}
+    assert by["Open Winger"]["origin"] == "open_play"
+    assert by["Open Winger"]["zone_shots"] == 3

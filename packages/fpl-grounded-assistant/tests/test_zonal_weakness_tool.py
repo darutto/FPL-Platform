@@ -642,3 +642,18 @@ def test_card_projection_unscoped_has_no_team_filter(tactical_store):
     meta = _extract_zonal_opportunity_meta(out)
     assert meta is not None
     assert meta.team_filter is None
+
+
+def test_card_projection_carries_origin_evidence(tactical_store):
+    """i88: origin fields reach DefensiveZonesMeta.Exploiter."""
+    from fpl_grounded_assistant.final_response import _extract_zonal_opportunity_meta
+    out = run_tool(
+        "get_zonal_opportunity",
+        {"opponent": "Crystal Palace", "team": "BUR"},
+        _bootstrap(),
+    )
+    meta = _extract_zonal_opportunity_meta(out)
+    top = meta.exploiters[0]
+    assert top.origin == "open_play"        # fixture rows are all Open Play
+    assert top.set_piece_share == 0.0
+    assert top.zone_shots == 10

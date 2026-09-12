@@ -773,6 +773,35 @@ export interface ZonalExploiter {
   zone: string;
   /** 0–10 zone-fit heuristic — relative within this answer only. */
   fit_score: number;
+  /**
+   * i87/i88 evidence behind the score. All optional so responses from API
+   * deployments predating them still type-check; the row just omits them.
+   * `sample` is 'thin' when the player has fewer non-penalty shots than the
+   * league-wide gate (only possible on a team-scoped answer). `origin` says
+   * whether the xG that ranked them in `zone` came from open play or set
+   * pieces — a centre-back on two corner headers must read as such, not as a
+   * winger.
+   */
+  n_shots?: number | null;
+  zone_share?: number | null;
+  sample?: 'ok' | 'thin' | null;
+  /** Shots the player struck inside `zone` (not their total). */
+  zone_shots?: number | null;
+  set_piece_share?: number | null;
+  origin?: 'open_play' | 'set_piece' | 'mixed' | null;
+}
+
+/**
+ * i85–i87: how the exploiter table was scoped, when it was. Absent/null on
+ * the league-wide answer. `source` is 'inferred' when the backend recovered
+ * the team from the user's own question rather than the model's tool call.
+ */
+export interface ZonalTeamFilter {
+  requested: string;
+  matched: string | null;
+  source: 'explicit' | 'inferred' | null;
+  min_shots?: number | null;
+  zone_share_threshold?: number | null;
 }
 
 /**
@@ -812,6 +841,8 @@ export interface DefensiveZonesMeta {
    * predating i74 still type-check; the card just omits the stamp then.
    */
   data_provenance?: ZonalDataProvenance | null;
+  /** i85–i87 team scope; absent/null when the table is league-wide. */
+  team_filter?: ZonalTeamFilter | null;
 }
 
 // ---------------------------------------------------------------------------

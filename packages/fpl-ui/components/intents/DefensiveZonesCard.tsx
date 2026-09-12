@@ -64,6 +64,7 @@ const ZONE_CENTER_X = [80, 180, 280];
 export default function DefensiveZonesCard({ data }: Props) {
   const { opponent, weakness_label, verdict, zones, exploiters } = data;
   const provenance = data.data_provenance ?? null;
+  const scope = scopeLabel(data.team_filter ?? null);
 
   return (
     <div className={`mt-3 text-sm ${CARD_BASE} ${CARD_ACCENT.coral.border}`}>
@@ -220,6 +221,14 @@ export default function DefensiveZonesCard({ data }: Props) {
             <div className="flex items-center justify-between border-b border-white/[0.08] bg-white/[0.02] px-3 py-2">
               <span className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-bf-text">
                 Quién lo explota
+                {scope && (
+                  <span
+                    data-testid="zonal-scope"
+                    className="ml-2 normal-case tracking-normal text-bf-turquoise"
+                  >
+                    · {scope}
+                  </span>
+                )}
               </span>
               <span className="text-[10.5px] text-bf-gray/60">
                 ajuste a la zona
@@ -313,9 +322,12 @@ function ExploiterRow({
       >
         {exploiter.rank}
       </span>
-      <span className="min-w-0 truncate">
-        <strong className="font-bold text-white">{exploiter.web_name}</strong>
-        {sub && <span className="ml-1 text-[11px] text-bf-gray">{sub}</span>}
+      <span className="min-w-0">
+        <span className="block truncate">
+          <strong className="font-bold text-white">{exploiter.web_name}</strong>
+          {sub && <span className="ml-1 text-[11px] text-bf-gray">{sub}</span>}
+        </span>
+        <EvidenceLine exploiter={exploiter} />
       </span>
       <span className="text-center">
         <span
@@ -331,5 +343,57 @@ function ExploiterRow({
         {formatFit(exploiter.fit_score)}
       </span>
     </div>
+  );
+}
+
+
+/**
+ * i85–i87: "Liverpool" / "Liverpool · según tu pregunta" when the table is
+ * scoped to one team; null on the league-wide answer. Uses the resolved store
+ * name (`matched`), never the raw request, so a filter that resolved to
+ * nothing is not presented as a scope.
+ */
+function scopeLabel(tf: DefensiveZonesMeta['team_filter']): string | null {
+  if (!tf || !tf.matched) return null;
+  return tf.source === 'inferred' ? `${tf.matched} · según tu pregunta` : tf.matched;
+}
+
+const ORIGIN_LABEL: Record<NonNullable<ZonalExploiter['origin']>, string> = {
+  open_play: 'jugada',
+  set_piece: 'balón parado',
+  mixed: 'jugada + balón parado',
+};
+
+/**
+ * i87/i88: the evidence under a player's name — how many shots they struck
+ * in the ranked zone, where that xG came from, and a thin-sample flag. A
+ * centre-back ranked on two corner headers must read as "2 tiros en zona ·
+ * balón parado", not as a winger. Renders nothing for payloads predating
+ * these fields.
+ */
+function EvidenceLine({ exploiter }: { exploiter: ZonalExploiter }) {
+  const parts: string[] = [];
+  if (exploiter.zone_shots != null) {
+    parts.push(`${exploiter.zone_shots} ${exploiter.zone_shots === 1 ? 'tiro' : 'tiros'} en zona`);
+  }
+  if (exploiter.origin) parts.push(ORIGIN_LABEL[exploiter.origin]);
+  if (parts.length === 0 && exploiter.sample !== 'thin') return null;
+  const setPiece = exploiter.origin === 'set_piece';
+  return (
+    <span
+      data-testid="zonal-evidence"
+      data-origin={exploiter.origin ?? undefined}
+      data-sample={exploiter.sample ?? undefined}
+      className={`mt-0.5 block truncate text-[10px] ${
+        setPiece ? 'text-bf-gold' : 'text-bf-gray/60'
+      }`}
+    >
+      {parts.join(' · ')}
+      {exploiter.sample === 'thin' && (
+        <span className="ml-1.5 rounded-full border border-bf-gold/40 px-1.5 py-px text-[9px] font-bold uppercase tracking-[0.06em] text-bf-gold">
+          muestra corta
+        </span>
+      )}
+    </span>
   );
 }

@@ -609,6 +609,12 @@ class Exploiter:
     n_shots:    int | None = None
     zone_share: float | None = None
     sample:     str | None = None
+    #: i88: shots struck in the ranked zone, the set-piece share of that
+    #: zone's xG, and ``origin`` ∈ open_play / set_piece / mixed -- so a
+    #: centre-back ranked on corner headers is labelled as such.
+    zone_shots:      int | None = None
+    set_piece_share: float | None = None
+    origin:          str | None = None
 
 
 @dataclass(frozen=True)
@@ -1820,6 +1826,9 @@ def _extract_zonal_opportunity_meta(ro: "dict[str, Any]") -> "DefensiveZonesMeta
                     n_shots    = e.get("n_shots"),
                     zone_share = e.get("zone_share"),
                     sample     = e.get("sample"),
+                    zone_shots      = e.get("zone_shots"),
+                    set_piece_share = e.get("set_piece_share"),
+                    origin          = e.get("origin"),
                 )
                 for e in ro.get("exploiters", [])
             ),
