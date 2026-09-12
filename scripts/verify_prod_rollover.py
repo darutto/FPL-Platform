@@ -82,11 +82,12 @@ def _ask(base_url: str, question: str, user_id: str, extra_args: dict | None = N
     return resp.json()
 
 
-def _live_fpl_expected_opponents(team_name: str, horizon: int) -> tuple[list[str], int]:
+def _live_fpl_expected_opponents(team_name: str, horizon: int) -> tuple[list[str], list[str], int]:
     """Independently compute who plays *team_name* in the next *horizon*
     gameweeks, straight from the live FPL API -- never from anything the
-    backend under test returned. Returns (opponent FPL display names in
-    gameweek order, current_gw)."""
+    backend under test returned. Returns (opponent FPL display names,
+    opponent FPL short_name codes -- same order, gameweek order -- and
+    current_gw)."""
     bootstrap = requests.get(f"{_FPL_API}/bootstrap-static/", timeout=30).json()
     teams_by_id = {t["id"]: t for t in bootstrap["teams"]}
     team_id = next(
@@ -111,13 +112,15 @@ def _live_fpl_expected_opponents(team_name: str, horizon: int) -> tuple[list[str
         ),
         key=lambda f: f["event"],
     )
-    opponents: list[str] = []
+    names: list[str] = []
+    short_names: list[str] = []
     for f in window:
         opp_id = f["team_a"] if f["team_h"] == team_id else f["team_h"]
-        opp_name = teams_by_id[opp_id]["name"]
-        if opp_name not in opponents:
-            opponents.append(opp_name)
-    return opponents, current_gw
+        opp = teams_by_id[opp_id]
+        if opp["name"] not in names:
+            names.append(opp["name"])
+            short_names.append(str(opp["short_name"]).upper())
+    return names, short_names, current_gw
 
 
 def verify_zonal_fixture_scope(
@@ -127,17 +130,27 @@ def verify_zonal_fixture_scope(
     be *opponent*'s own next `horizon` gameweeks -- never the whole league,
     and never silently wrong when the FPL->Understat name bridge has a gap.
 
-    The FPL team-NAME comparison here is COUNT/gameweek-exact only, not
-    string-exact: `matched_teams` are Understat store names (e.g.
-    'Manchester City'), the live API gives FPL display names (e.g. 'Man
-    City'), and re-deriving the bridge here to force a string match would
-    make this check test itself, not the backend -- the same trap i74's
-    provenance stamp already had to avoid (compare against an independent
-    source, never against the variable that produced the thing being
-    checked). Both name lists are printed so a human can eyeball the
-    mapping; `unmatched_teams` (which the engine now always attempts to
-    populate on a bridge miss, see zonal_weakness.py) is the hard,
-    string-exact contract this check enforces: it must always be empty.
+    Understat store names (e.g. 'Manchester City') and FPL display names
+    (e.g. 'Man City') don't compare as strings, and re-deriving the bridge
+    here to force a string match would make this check test itself, not
+    the backend -- the same trap i74's provenance stamp already had to
+    avoid (compare against an independent source, never against the
+    variable that produced the thing being checked). A COUNT-only check
+    would dodge that trap but is too weak to catch the failure mode that
+    matters: five right rivals and five wrong ones both count to five
+    (review finding, i90 -- this is the check shape that gave six green
+    runs during the i70 incident).
+
+    The exact, code-level, still-independent check: each exploiter row
+    already carries `team_short` (FPL short_name, via the SAME bridge that
+    built matched_teams -- so a bridge bug shows up here too), and the
+    live FPL API gives short_name for each expected rival directly, no
+    bridge needed on that side. `{team_short in the response}` must be a
+    SUBSET of `{short_name of the live-computed expected rivals}`: any
+    code outside that set is either the bridge naming the wrong team or a
+    team that shouldn't be in scope at all. `unmatched_teams` stays the
+    hard, string-exact contract for the other failure direction (a rival
+    that couldn't resolve at all): must always be empty.
     """
     print(
         f"\n[verify_prod_rollover] i90 zonal fixture scope: "
@@ -155,16 +168,22 @@ def verify_zonal_fixture_scope(
     matched_teams = tf.get("matched_teams") or []
     unmatched_teams = tf.get("unmatched_teams") or []
     fixture_window = tf.get("fixture_window") or {}
+    exploiter_short_codes = {
+        str(e["team_short"]).upper()
+        for e in (zonal.get("exploiters") or [])
+        if e.get("team_short")
+    }
     print(
         f"  backend: source={source!r} matched_teams={matched_teams!r} "
-        f"unmatched_teams={unmatched_teams!r} fixture_window={fixture_window!r}",
+        f"unmatched_teams={unmatched_teams!r} fixture_window={fixture_window!r} "
+        f"exploiter team_short codes={sorted(exploiter_short_codes)!r}",
         flush=True,
     )
 
-    expected_opponents, current_gw = _live_fpl_expected_opponents(opponent, horizon)
+    expected_names, expected_short_codes, current_gw = _live_fpl_expected_opponents(opponent, horizon)
     print(
         f"  live FPL (independent): current_gw={current_gw} "
-        f"expected_opponents={expected_opponents!r}",
+        f"expected_opponents={expected_names!r} short_codes={expected_short_codes!r}",
         flush=True,
     )
 
@@ -174,7 +193,7 @@ def verify_zonal_fixture_scope(
             f"name-bridge gap in prod (a rival's FPL->Understat code failed to resolve)"
         )
 
-    if not expected_opponents:
+    if not expected_short_codes:
         if source not in (None, "fixtures_empty_fallback"):
             failures.append(
                 f"zonal fixture scope: live calendar has no fixtures for {opponent} "
@@ -186,7 +205,7 @@ def verify_zonal_fixture_scope(
     if source != "fixtures":
         failures.append(
             f"zonal fixture scope: expected source='fixtures' (live calendar has "
-            f"{len(expected_opponents)} opponent(s) in window), got {source!r}"
+            f"{len(expected_short_codes)} opponent(s) in window), got {source!r}"
         )
         return
 
@@ -195,12 +214,23 @@ def verify_zonal_fixture_scope(
             f"zonal fixture scope: fixture_window.from_gw={fixture_window.get('from_gw')!r}, "
             f"live current_gw={current_gw}"
         )
-    if len(matched_teams) != len(expected_opponents):
+    if len(matched_teams) != len(expected_short_codes):
         failures.append(
             f"zonal fixture scope: matched_teams has {len(matched_teams)} entries "
             f"({matched_teams!r}), live FPL calendar independently has "
-            f"{len(expected_opponents)} ({expected_opponents!r}) -- counts must match "
+            f"{len(expected_short_codes)} ({expected_names!r}) -- counts must match "
             f"even though the two lists use different team-name conventions"
+        )
+    # The exact check: every team_short actually served must be a rival the
+    # live calendar independently confirms is scheduled -- code-level, so a
+    # bridge bug that names the WRONG team fails here even if the COUNT
+    # happens to match (the failure mode a count-only check cannot see).
+    stray_codes = exploiter_short_codes - set(expected_short_codes)
+    if stray_codes:
+        failures.append(
+            f"zonal fixture scope: exploiter rows carry team_short={sorted(stray_codes)!r} "
+            f"not among the live-computed expected rivals {expected_short_codes!r} for "
+            f"{opponent} -- the FPL->Understat bridge served the wrong team"
         )
 
 
