@@ -620,6 +620,204 @@ _CHIP_VS_GAMEWEEK: list[dict[str, Any]] = [
     },
 ]
 
+# ---------------------------------------------------------------------------
+# season_history -- get_player_season_points / get_historical_gameweek_top_scorer
+# (i82). Two tools that existed in TOOL_REGISTRY but were never in the LLM
+# catalogue. Targets per tool plus the traps the descriptions must survive:
+#   "esta temporada"            -> get_player_snapshot, NOT season_points
+#   "jornada N" + points        -> top_scorer, NOT get_gameweek_context
+#   "maximo goleador" (goals)   -> rank_players_by_metric / NOT top_scorer
+# ``forbidden_tools`` is a measurement-only annotation: a first call into it
+# is a migration into the wrong new tool, reported separately from hit-rate.
+# ---------------------------------------------------------------------------
+_SEASON_HISTORY: list[dict[str, Any]] = [
+    # -- get_player_season_points targets ------------------------------------
+    {
+        "id": "sp-01", "family": "season_history", "control": True,
+        "question": "¿Cuántos puntos hizo Salah la temporada pasada?",
+        "acceptable_tools": ["get_player_season_points"],
+        "note": "Canonical past-season total; the i82 prod check phrase.",
+    },
+    {
+        "id": "sp-02", "family": "season_history", "control": True,
+        "question": "Puntos totales de Haaland en la 2024-25",
+        "acceptable_tools": ["get_player_season_points"],
+        "note": "Explicitly named season.",
+    },
+    {
+        "id": "sp-03", "family": "season_history", "control": True,
+        "question": "¿Con cuántos puntos terminó Palmer la temporada anterior?",
+        "acceptable_tools": ["get_player_season_points"],
+        "note": "'anterior' sentinel.",
+    },
+    {
+        "id": "sp-04", "family": "season_history", "control": True,
+        "question": "Dime los puntos de Saka en la temporada 2023-2024",
+        "acceptable_tools": ["get_player_season_points"],
+        "note": "Two seasons back, full YYYY-YYYY.",
+    },
+    {
+        "id": "sp-05", "family": "season_history", "control": True,
+        "question": "¿Qué tal le fue a Isak en puntos FPL el año pasado?",
+        "acceptable_tools": ["get_player_season_points"],
+        "note": "'el año pasado' phrasing.",
+    },
+    {
+        "id": "sp-06", "family": "season_history", "control": True,
+        "question": "Total de puntos de Bruno Fernandes la temporada pasada",
+        "acceptable_tools": ["get_player_season_points"],
+        "note": "Compound name + past season.",
+    },
+    {
+        "id": "sp-07", "family": "season_history", "control": True,
+        "question": "¿Cuántos puntos sumó Son en la 22/23?",
+        "acceptable_tools": ["get_player_season_points"],
+        "note": "Short season format the spec accepts.",
+    },
+    {
+        "id": "sp-08", "family": "season_history", "control": True,
+        "question": "Puntos de Watkins en la última temporada completa",
+        "acceptable_tools": ["get_player_season_points"],
+        "note": "'última temporada completa'.",
+    },
+    {
+        "id": "sp-09", "family": "season_history", "control": True,
+        "question": "En la temporada pasada, ¿cuántos puntos hizo Mbeumo?",
+        "acceptable_tools": ["get_player_season_points"],
+        "note": "Season clause fronted.",
+    },
+    {
+        "id": "sp-10", "family": "season_history", "control": True,
+        "question": "¿Cuántos goles, asistencias y puntos hizo Semenyo la temporada pasada?",
+        "acceptable_tools": ["get_player_season_points"],
+        "note": "Aggregated box score is part of the same payload.",
+    },
+    # -- get_historical_gameweek_top_scorer targets ----------------------------
+    {
+        "id": "ts-01", "family": "season_history", "control": True,
+        "question": "¿Quién hizo más puntos en la jornada 3?",
+        "acceptable_tools": ["get_historical_gameweek_top_scorer"],
+        "forbidden_tools": ["get_gameweek_context"],
+        "note": "The i82 prod check phrase. GW-anchored: get_gameweek_context is the known attractor.",
+    },
+    {
+        "id": "ts-02", "family": "season_history", "control": True,
+        "question": "¿Quién fue el jugador de la jornada 2?",
+        "acceptable_tools": ["get_historical_gameweek_top_scorer"],
+        "forbidden_tools": ["get_gameweek_context"],
+        "note": "'jugador de la jornada' = Player of the Gameweek.",
+    },
+    {
+        "id": "ts-03", "family": "season_history", "control": True,
+        "question": "Player of the gameweek de la J1",
+        "acceptable_tools": ["get_historical_gameweek_top_scorer"],
+        "forbidden_tools": ["get_gameweek_context"],
+        "note": "Spanglish + J-abbreviation.",
+    },
+    {
+        "id": "ts-04", "family": "season_history", "control": True,
+        "question": "¿Quién fue el máximo puntuador de la GW3 de la temporada pasada?",
+        "acceptable_tools": ["get_historical_gameweek_top_scorer"],
+        "note": "Past season + GW.",
+    },
+    {
+        "id": "ts-05", "family": "season_history", "control": True,
+        "question": "Dame la tabla de jugador de la jornada de toda la temporada 2024-25",
+        "acceptable_tools": ["get_historical_gameweek_top_scorer"],
+        "note": "gw omitted -> full-season table.",
+    },
+    {
+        "id": "ts-06", "family": "season_history", "control": True,
+        "question": "¿Qué jugador sacó más puntos FPL en la fecha 1?",
+        "acceptable_tools": ["get_historical_gameweek_top_scorer"],
+        "forbidden_tools": ["get_gameweek_context"],
+        "note": "'fecha' for gameweek.",
+    },
+    {
+        "id": "ts-07", "family": "season_history", "control": True,
+        "question": "¿Quién arrasó en puntos en la jornada 3 de la 2025-26?",
+        "acceptable_tools": ["get_historical_gameweek_top_scorer"],
+        "note": "Colloquial + named season.",
+    },
+    {
+        "id": "ts-08", "family": "season_history", "control": True,
+        "question": "Jugador con más puntos en la jornada 2 de esta temporada",
+        "acceptable_tools": ["get_historical_gameweek_top_scorer"],
+        "forbidden_tools": ["get_gameweek_context"],
+        "note": "Current season, closed GW: supported by decision (see PR).",
+    },
+    {
+        "id": "ts-09", "family": "season_history", "control": True,
+        "question": "¿Quién fue el mejor de la jornada 1 en puntos?",
+        "acceptable_tools": ["get_historical_gameweek_top_scorer"],
+        "forbidden_tools": ["get_gameweek_context"],
+        "note": "'el mejor ... en puntos'.",
+    },
+    {
+        "id": "ts-10", "family": "season_history", "control": True,
+        "question": "Top puntuador de cada jornada de la temporada pasada",
+        "acceptable_tools": ["get_historical_gameweek_top_scorer"],
+        "note": "Full table, past season.",
+    },
+    # -- controls: must NOT migrate into the two new tools --------------------
+    {
+        "id": "sh-c01", "family": "season_history", "control": True,
+        "question": "¿Cuántos puntos lleva Salah esta temporada?",
+        "acceptable_tools": ["get_player_snapshot"],
+        "forbidden_tools": ["get_player_season_points"],
+        "note": "Trap: 'esta temporada' running total is the snapshot, not the owned store.",
+    },
+    {
+        "id": "sh-c02", "family": "season_history", "control": True,
+        "question": "¿Cuántos puntos tiene Haaland hasta ahora?",
+        "acceptable_tools": ["get_player_snapshot"],
+        "forbidden_tools": ["get_player_season_points"],
+        "note": "Trap: no season named -> current.",
+    },
+    {
+        "id": "sh-c03", "family": "season_history", "control": True,
+        "question": "¿Cuándo cierra el deadline de la jornada 4?",
+        "acceptable_tools": ["get_gameweek_context"],
+        "forbidden_tools": ["get_historical_gameweek_top_scorer"],
+        "note": "GW-anchored but about deadlines.",
+    },
+    {
+        "id": "sh-c04", "family": "season_history", "control": False,
+        "question": "¿Qué partidos hay en la jornada 3?",
+        "acceptable_tools": ["get_fixtures_for_gw", "get_gameweek_context"],
+        "forbidden_tools": ["get_historical_gameweek_top_scorer"],
+        "note": "GW-anchored but about fixtures.",
+    },
+    {
+        "id": "sh-c05", "family": "season_history", "control": True,
+        "question": "¿Quién es el máximo goleador de la liga?",
+        "acceptable_tools": ["rank_players_by_metric"],
+        "forbidden_tools": ["get_historical_gameweek_top_scorer"],
+        "note": "Goals, current season: rank_players_by_metric(goals_scored).",
+    },
+    {
+        "id": "sh-c06", "family": "season_history", "control": True,
+        "question": "¿Quién lleva más puntos esta temporada?",
+        "acceptable_tools": ["rank_players_by_metric"],
+        "forbidden_tools": ["get_historical_gameweek_top_scorer"],
+        "note": "Season-to-date points ranking is the live ranker, not the GW table.",
+    },
+    {
+        "id": "sh-c07", "family": "season_history", "control": False,
+        "question": "¿Quién fue el máximo goleador de la jornada 3?",
+        "acceptable_tools": ["rank_players_by_metric", "get_fixtures_for_gw"],
+        "forbidden_tools": ["get_historical_gameweek_top_scorer"],
+        "note": "GOALS in one GW: top_scorer is POINTS, not goals. Nothing serves this exactly; in prod the past-season variant is intercepted deterministically before the orchestrator.",
+    },
+    {
+        "id": "sh-c08", "family": "season_history", "control": False,
+        "question": "¿Cómo viene Salah en las últimas 5 jornadas?",
+        "acceptable_tools": ["get_player_form", "get_player_history"],
+        "forbidden_tools": ["get_player_season_points"],
+        "note": "Recent form is not season totals.",
+    },
+]
+
 CORPUS: list[dict[str, Any]] = (
     _TEAM_FIXTURES
     + _PLAYER_VIEWS
@@ -628,6 +826,7 @@ CORPUS: list[dict[str, Any]] = (
     + _ADVICE
     + _GAMEWEEK_STATE
     + _CHIP_VS_GAMEWEEK
+    + _SEASON_HISTORY
 )
 
 FAMILIES: tuple[str, ...] = (
@@ -638,6 +837,7 @@ FAMILIES: tuple[str, ...] = (
     "advice",
     "gameweek_state",
     "chip_vs_gameweek",
+    "season_history",
 )
 
 #: Tools this measurement deliberately excludes from every acceptable set

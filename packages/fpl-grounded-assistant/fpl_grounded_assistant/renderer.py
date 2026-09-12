@@ -734,6 +734,57 @@ def _render_get_player_season_points(output: dict[str, Any], locale: Locale = DE
 
 
 # ---------------------------------------------------------------------------
+# Historical gameweek top scorer renderer (i82)
+# ---------------------------------------------------------------------------
+
+def _render_get_historical_gameweek_top_scorer(
+    output: dict[str, Any], locale: Locale = DEFAULT_LOCALE
+) -> str:
+    """Render get_historical_gameweek_top_scorer output.
+
+    Spanish-first like the product; ``locale`` is accepted for signature
+    parity with the rest of the map and not yet honoured (same as the
+    season-points renderer above). One line for a single gameweek, one line
+    per gameweek for the season table. ``gameweek_not_finished`` gets its own
+    copy so an open gameweek never reads like a missing one.
+    """
+    del locale
+    status = output.get("status")
+    if status == "ok":
+        season = output.get("season", "?")
+        entries = output.get("entries") or []
+        if not entries:
+            return f"Sin datos de jornadas terminadas para la temporada {season}."
+
+        def _line(e: dict[str, Any]) -> str:
+            who = f"{e.get('web_name', '?')} ({e.get('team_short', '?')}, {e.get('position', '?')})"
+            pts = e.get("points")
+            pts_txt = f"{pts} puntos" if pts is not None else "puntos no disponibles"
+            hl = e.get("highlight")
+            return f"{who} — {pts_txt}" + (f" ({hl})" if hl else "")
+
+        if output.get("gw") is not None:
+            e = entries[0]
+            return f"Jugador de la jornada {e.get('event_id')} ({season}): {_line(e)}."
+        lines = [f"Jugador de la jornada, temporada {season}:"]
+        lines += [f"J{e.get('event_id')}: {_line(e)}" for e in entries]
+        return "\n".join(lines)
+
+    code = output.get("code")
+    if code == "gameweek_not_finished":
+        return output.get(
+            "message",
+            f"La jornada {output.get('gw')} de {output.get('season')} aún no ha terminado.",
+        )
+    if status == "not_found":
+        return output.get("message") or "No encontré datos para esa jornada o temporada."
+    if status == "invalid_argument":
+        return output.get("message") or "Argumento inválido."
+    message = output.get("message", "Ocurrió un error inesperado consultando el histórico.")
+    return f"Error ({code or 'error'}): {message}"
+
+
+# ---------------------------------------------------------------------------
 # Injury list renderer  (Phase 2.6d Story 2.3)
 # ---------------------------------------------------------------------------
 
@@ -2092,6 +2143,7 @@ _RENDERERS = {
     "get_differential_picks":    _render_get_differential_picks,     # Phase 7g
     "get_player_form":              _render_get_player_form,            # Phase 2.6d
     "get_player_season_points":     _render_get_player_season_points,
+    "get_historical_gameweek_top_scorer": _render_get_historical_gameweek_top_scorer,  # i82
     "get_injury_list":              _render_get_injury_list,            # Phase 2.6d
     "get_price_changes":            _render_get_price_changes,          # Phase 2.6d
     "get_team_fixture_calendar":    _render_get_team_fixture_calendar,  # Phase 2.6e

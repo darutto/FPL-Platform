@@ -1492,6 +1492,80 @@ FI7B_TOOL_SCHEMAS: tuple[ToolSchema, ...] = (
 
 
 # ---------------------------------------------------------------------------
+# i82 -- owned-store season tools. Both existed in TOOL_REGISTRY since PR #47
+# (router/dispatcher path) but were never offered to the LLM, so the whole
+# owned-store correction (#218-#242) was unreachable from the chat. Parameter
+# names/required mirror the registered ToolSpecs exactly
+# (test_tool_description_argument_consistency.py).
+# ---------------------------------------------------------------------------
+
+GET_PLAYER_SEASON_POINTS_SCHEMA = ToolSchema(
+    name="get_player_season_points",
+    description=(
+        "Season-TOTAL FPL points (plus goals, assists, clean sheets, bonus, "
+        "minutes) for one player in a PAST or explicitly named season, from the "
+        "owned store ('la temporada pasada', '2024-25'). For the CURRENT season's "
+        "running total use get_player_snapshot. Not per-gameweek form "
+        "(get_player_form / get_player_history)."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "query": {
+                "type":        "string",
+                "description": "Player name (case/accent-insensitive)",
+            },
+            "season": {
+                "type":        "string",
+                "description": (
+                    "'previous' for the season before the current one, or an explicit "
+                    "season like '2024-2025' / '2024-25' / '24/25'. Always required -- "
+                    "do not guess an earlier season from training-data recall."
+                ),
+            },
+        },
+        "required":             ["query", "season"],
+        "additionalProperties": False,
+    },
+)
+
+GET_HISTORICAL_GAMEWEEK_TOP_SCORER_SCHEMA = ToolSchema(
+    name="get_historical_gameweek_top_scorer",
+    description=(
+        "Which PLAYER scored the most FPL POINTS in one gameweek ('jugador de la "
+        "jornada', 'player of the gameweek'), or the season table of per-gameweek "
+        "top scorers when gw is omitted, from the owned store. Any FINISHED "
+        "gameweek, current season included; an open gameweek returns "
+        "gameweek_not_finished. NEVER for goals: 'maximo goleador', 'mas "
+        "goles', 'goleador de la jornada' ask for GOALS, which this tool does "
+        "not have -- use rank_players_by_metric(goals_scored) instead, even "
+        "when a gameweek is named. Not fixtures/deadlines -- that is "
+        "get_gameweek_context."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "season": {
+                "type":        "string",
+                "description": (
+                    "Season like '2025-2026' / '2025-26'. Omit for the current season; "
+                    "'la temporada pasada' is the season before the current one."
+                ),
+            },
+            "gw": {
+                "type":        "integer",
+                "description": "Gameweek number (1-38). Omit for the full-season table.",
+                "minimum":     1,
+                "maximum":     38,
+            },
+        },
+        "required":             [],
+        "additionalProperties": False,
+    },
+)
+
+
+# ---------------------------------------------------------------------------
 # Registry construction
 # ---------------------------------------------------------------------------
 
@@ -1541,6 +1615,9 @@ _BASE_REGISTERED_SCHEMAS: tuple[ToolSchema, ...] = (
     GET_ZONAL_WEAKNESS_SCHEMA,
     GET_ZONAL_OPPORTUNITY_SCHEMA,
     GET_PLAYER_ZONAL_OUTLOOK_SCHEMA,
+    # i82 -- owned-store season tools
+    GET_PLAYER_SEASON_POINTS_SCHEMA,
+    GET_HISTORICAL_GAMEWEEK_TOP_SCORER_SCHEMA,
 )
 
 # Compatibility adapters remain registered and directly callable, but are no

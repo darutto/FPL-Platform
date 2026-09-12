@@ -9,28 +9,12 @@ against the deployed Railway URL after a bump/cron redeploy:
         --url https://fpl-backend-production-4151.up.railway.app \
         --expected-season 2026-2027
 
-KNOWN GAP (pre-existing, unrelated to this rollover, discovered while
-writing this script): get_player_season_points and
-get_historical_gameweek_top_scorer are fully implemented, registered in the
-deterministic TOOL_REGISTRY, and unit-tested, but are NOT present in
-tool_schema_registry.py's get_offered_tool_schemas() -- the catalogue
-offered to the LLM orchestrator. They are also unreachable via the legacy
-router (ask_v2 does not call route() for free-text turns outside the
-resource/prompt decision_router branches) or via intent_hint (only 6 V2
-slash-command intents are in INTENT_HINT_ALLOWLIST; player_season_points
-is not one). Repeated live probing during this rollover confirmed the
-orchestrator cannot be steered to call either tool regardless of phrasing.
-
-This script therefore only exercises get_zonal_weakness live. For the other
-two tools, season-2026-2027 correctness is established at the code level
-instead (see the season-bump PR): get_player_season_points.py:442 derives
-its "current season" schema text from CURRENT_SEASON directly, and
-historical_gameweek_top_scorer.py:525 defaults an omitted `season` argument
-to CURRENT_SEASON directly -- both move automatically with the registry
-bump and are covered by the passing season_registry/season_key_contract
-test suites. Closing this reachability gap (wiring both tools into
-get_offered_tool_schemas()) is out of scope for a season rollover and is
-logged as a separate follow-up finding, not fixed here.
+i82 closed the reachability gap this script used to document: both
+get_player_season_points and get_historical_gameweek_top_scorer are now in
+the LLM catalogue, so the two checks below run live via /ask with
+debug=True and assert on the tool's own raw_output (season, totals, rows)
+-- never on the synthesis text alone. The previous-season value is computed
+here from --expected-season, independently of anything the backend says.
 """
 from __future__ import annotations
 
@@ -39,6 +23,12 @@ import json
 import sys
 
 import requests
+
+# Windows consoles default to cp1252; the Spanish questions below would
+# otherwise crash the print, not the check.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
 
 
 #: i90: the live FPL API, used to compute an INDEPENDENT expected fixture
@@ -234,6 +224,84 @@ def verify_zonal_fixture_scope(
         )
 
 
+def _previous_season(season: str) -> str:
+    start, end = (int(x) for x in season.split("-"))
+    return f"{start - 1}-{end - 1}"
+
+
+def verify_season_tools(base_url: str, user_id: str, expected_season: str, failures: list[str]) -> None:
+    """i82: the two owned-store season tools, live, asserted on raw_output.
+
+    1. "cuántos puntos hizo Salah la temporada pasada" -> tool_calls contains
+       get_player_season_points, raw_output.season == previous(expected),
+       summary.total_points > 0.
+    2. "quién hizo más puntos en la jornada 3" -> tool_calls contains
+       get_historical_gameweek_top_scorer, raw_output.season == expected,
+       entries non-empty, and final_text carries no "No renderer".
+    Every assertion prints the value it saw.
+    """
+    previous = _previous_season(expected_season)
+
+    print(
+        "\n[verify_prod_rollover] i82 get_player_season_points "
+        "(Salah, temporada pasada) via /ask",
+        flush=True,
+    )
+    body = _ask(base_url, "¿Cuántos puntos hizo Salah la temporada pasada?", user_id)
+    debug = body.get("debug") or {}
+    tool_calls = (debug.get("routing_trace") or {}).get("orchestrator_tool_calls") or []
+    raw = debug.get("raw_output") or {}
+    season = raw.get("season")
+    total_points = (raw.get("summary") or {}).get("total_points")
+    print(
+        f"  tool_calls={tool_calls!r} selected_tool={debug.get('selected_tool')!r} "
+        f"tool_input={debug.get('tool_input')!r}",
+        flush=True,
+    )
+    print(f"  raw_output.season={season!r} (expected {previous!r}) total_points={total_points!r}", flush=True)
+    print(f"  final_text={body.get('final_text', '')!r}", flush=True)
+    if "get_player_season_points" not in tool_calls:
+        failures.append(f"season_points: expected get_player_season_points in tool_calls, got {tool_calls!r}")
+    if season != previous:
+        failures.append(f"season_points: raw_output.season={season!r}, expected {previous!r}")
+    if not isinstance(total_points, (int, float)) or total_points <= 0:
+        failures.append(f"season_points: total_points={total_points!r}, expected > 0")
+
+    print(
+        "\n[verify_prod_rollover] i82 get_historical_gameweek_top_scorer "
+        "(jornada 3) via /ask",
+        flush=True,
+    )
+    body = _ask(base_url, "¿Quién hizo más puntos en la jornada 3?", user_id)
+    debug = body.get("debug") or {}
+    tool_calls = (debug.get("routing_trace") or {}).get("orchestrator_tool_calls") or []
+    raw = debug.get("raw_output") or {}
+    season = raw.get("season")
+    entries = raw.get("entries") or []
+    final_text = body.get("final_text", "")
+    print(
+        f"  tool_calls={tool_calls!r} selected_tool={debug.get('selected_tool')!r} "
+        f"tool_input={debug.get('tool_input')!r}",
+        flush=True,
+    )
+    print(
+        f"  raw_output.status={raw.get('status')!r} season={season!r} (expected {expected_season!r}) "
+        f"entries={len(entries)} first={entries[0] if entries else None!r}",
+        flush=True,
+    )
+    print(f"  final_text={final_text!r}", flush=True)
+    if "get_historical_gameweek_top_scorer" not in tool_calls:
+        failures.append(
+            f"top_scorer: expected get_historical_gameweek_top_scorer in tool_calls, got {tool_calls!r}"
+        )
+    if season != expected_season:
+        failures.append(f"top_scorer: raw_output.season={season!r}, expected {expected_season!r}")
+    if not entries:
+        failures.append(f"top_scorer: no entries (status={raw.get('status')!r} code={raw.get('code')!r})")
+    if "No renderer" in final_text:
+        failures.append("top_scorer: final_text contains 'No renderer'")
+
+
 def main() -> None:
     args = _parse_args()
     failures: list[str] = []
@@ -254,20 +322,7 @@ def main() -> None:
     if not final_text.strip():
         failures.append("final_text was empty")
 
-    print(
-        "\n[verify_prod_rollover] get_player_season_points / "
-        "get_historical_gameweek_top_scorer: SKIPPED (not reachable via /ask "
-        "-- see module docstring). Verified at code level instead:",
-        flush=True,
-    )
-    print(
-        "  get_player_season_points.py:442 derives schema text from CURRENT_SEASON",
-        flush=True,
-    )
-    print(
-        "  historical_gameweek_top_scorer.py:525 defaults `season` to CURRENT_SEASON",
-        flush=True,
-    )
+    verify_season_tools(args.url, args.user_id, args.expected_season, failures)
 
     if args.zonal_fixture_opponent:
         verify_zonal_fixture_scope(
@@ -287,7 +342,7 @@ def main() -> None:
             print(f"  - {f}", file=sys.stderr, flush=True)
         sys.exit(1)
 
-    print("\n[verify_prod_rollover] get_zonal_weakness check passed.", flush=True)
+    print("\n[verify_prod_rollover] all checks passed.", flush=True)
 
 
 if __name__ == "__main__":

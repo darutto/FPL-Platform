@@ -16,6 +16,8 @@ harness consumes. The outer-layer surface is intentionally tiny.
 """
 from __future__ import annotations
 
+import re
+import unicodedata
 from typing import Any
 
 from .input_normalizer import (
@@ -44,6 +46,38 @@ OUTCOME_OK_PROMPT_EXPANSION = "ok_prompt_expansion"
 OUTCOME_UNSUPPORTED         = "unsupported"
 OUTCOME_NEEDS_CLARIFICATION = "needs_clarification"
 OUTCOME_FALLTHROUGH         = "fallthrough"  # plain text — caller dispatches to route()
+
+
+#: Fixed reply for "maximo goleador" of a PAST season (i82). Points, not goals,
+#: is what the owned store answers per gameweek; the wording is asserted
+#: end-to-end so a routing-only test cannot drift from what the user reads.
+PAST_SEASON_GOALS_REPLY = (
+    "No tengo goles por jornada de temporadas pasadas; sí puedo decirte quién "
+    "hizo más **puntos**. ¿Te sirve?"
+)
+
+_GOALS_RE = re.compile(r"\b(maximo goleador|maximos goleadores|mas goles|goalscorer|goleador(?:es)?)\b")
+_PAST_SEASON_RE = re.compile(
+    r"\b(temporada (?:pasada|anterior)|ultima temporada|ano pasado|"
+    r"(?:last|previous) season|(?:20)?[0-9]{2}\s*[-/]\s*(?:20)?[0-9]{2})\b"
+)
+
+
+def _fold(text: str) -> str:
+    nfkd = unicodedata.normalize("NFKD", text)
+    return "".join(c for c in nfkd if not unicodedata.combining(c)).lower()
+
+
+def is_past_season_goals_question(text: str) -> bool:
+    """True when *text* asks for a top GOALscorer of a PAST season.
+
+    Both signals are required: a goals phrase AND a past-season marker
+    (sentinel words or an explicit ``YYYY-YY`` / ``YY/YY`` season). "maximo
+    goleador de la liga" (current season) is NOT matched -- that one is
+    rank_players_by_metric's job and must keep reaching the orchestrator.
+    """
+    folded = _fold(text)
+    return bool(_GOALS_RE.search(folded)) and bool(_PAST_SEASON_RE.search(folded))
 
 
 def _suggestions() -> list[str]:
@@ -165,6 +199,19 @@ def decide(question: str, bootstrap: dict[str, Any]) -> dict[str, Any]:
 
     # TextInput — caller dispatches to existing route()
     assert isinstance(norm, TextInput)
+    if is_past_season_goals_question(norm.text):
+        # i82: "maximo goleador" is GOALS. For the current season
+        # rank_players_by_metric serves it; for past seasons nothing does, and
+        # get_historical_gameweek_top_scorer (POINTS) must not be mistaken for
+        # it. Deterministic, before the orchestrator, fixed wording.
+        return {
+            "kind":        "text",
+            "outcome":     OUTCOME_UNSUPPORTED,
+            "text":        norm.text,
+            "rule":        "past_season_goals",
+            "suggestions": [],
+            "message":     PAST_SEASON_GOALS_REPLY,
+        }
     return {
         "kind":    "text",
         "outcome": OUTCOME_FALLTHROUGH,
