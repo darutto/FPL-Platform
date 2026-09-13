@@ -1292,6 +1292,18 @@
       ],
       "title": "Los explotadores por defecto salen del calendario, no de la liga (i90)",
       "desc": "Fusionada #253 (12/09, `72b525a`). '¿Zonas débiles de Fulham?' devolvía siempre a Haaland y Salah: la tabla era toda la liga por xG, ciega a quién juega contra Fulham. Ahora, sin equipo nombrado, el alcance son los rivales del equipo en las próximas 5 jornadas — hasta 3 por rival, agrupados por jornada con la localía nombrada ('J5 · BUR visita a Fulham', nunca L/V sueltos) — y tarjeta y texto lo dicen con las mismas frases. Un equipo nombrado anula el calendario. Sin calendario en contexto o con jornada en blanco, cae a liga entera y lo declara. El motor devuelve qué rama usó (`scope_resolution`) y el wrapper la traduce sin deducir nada. VERIFICADO EN PROD 12/09 contra la API FPL leída aparte: Fulham → Liverpool, Man Utd, Ipswich, Hull, Coventry (J4–J8), `unmatched_teams=[]`, códigos de equipo iguales — el puente aguanta con los ascendidos. Hallazgo por el camino: la rama de calendario confiaba en el puente sin validar contra la tienda; un hueco ahora cae en `unmatched_teams` en vez de dar un equipo con cero filas. Pendiente menor: el script de verificación revienta en consola Windows cp1252 (correr con PYTHONUTF8=1)."
+    },
+    {
+      "id": "i92",
+      "col": "idea",
+      "progress": 0,
+      "title": "El contenedor de prod solo baja la temporada en curso: 'la temporada pasada' no existe en Railway",
+      "desc": "DESTAPADO 2026-09-13 por verify_prod_rollover.py tras fusionar i82: la primera pregunta real de \"temporada pasada\" que llega a prod por el orquestador se rutea bien, resuelve bien y falla con season_not_found -- raw_output dice \"Available seasons: 2026-2027\".\n\nCAUSA, verificada en codigo: fpl_server.py:783 llama sync_owned_store_from_r2() sin argumento; la firma es sync_owned_store_from_r2(season=CURRENT_SEASON), una temporada por llamada, y se llama una vez. El disco de Railway es efimero, asi que cada deploy queda con 2026-2027 y nada mas.\n\nNO ES EL INCIDENTE i70/i73 REABIERTO: R2 esta integro (inspect-r2-stores 2026-09-13: 2025-2026 pointer merged_at 2026-06-01, 29 747 filas de player_gw_stats, GW1-38; 2026-2027 GW1-3). Nadie lo vio antes porque hasta i82 el chat no podia llegar a estas herramientas y se probaron con el store local, que si tiene 2016-2026.\n\nENCARGO, PR corto y aparte:\n  1. El arranque sincroniza una LISTA de temporadas, salida de un solo sitio (funcion o variable de entorno con lista explicita), no un _previous_season embebido en fpl_server.py. Hoy: actual + anterior. Fail-soft por temporada; que falte la anterior no impide arrancar, y se registra por separado.\n  2. /healthz lista las temporadas que EXISTEN en el disco del contenedor (punteros _owned_latest.json presentes, con su merged_at), no la lista que se pidio sincronizar -- la tautologia de i73 otra vez si no.\n  3. verify_prod_rollover.py afirma primero sobre /healthz (ambas temporadas presentes) y despues corre la pregunta de Salah; asi un fallo futuro se atribuye al dato o al ruteo, no a los dos.\n  4. docs/EVAL_SECOND_TURN_BLOCK_2026-09-13.md (hoy sin commitear) entra en el PR como evidencia.\n\nBLOQUEA: las preguntas 3.10/4.3/4.4 del set de evaluacion del bloque i79-i82, y el cierre en prod de i82 (season_points) e i60 (chips historicos).\n\nCIERRE: verify_prod_rollover.py --expected-season 2026-2027 en verde contra prod, con /healthz mostrando 2025-2026 y 2026-2027 y Salah temporada pasada -> season 2025-2026, puntos > 0.",
+      "tags": [
+        "Backend",
+        "Infra",
+        "Datos"
+      ]
     }
   ]
 }
