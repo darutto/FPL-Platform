@@ -24,13 +24,15 @@ Scope (Phase 1)
 query class, whose 5-column ASCII table maps to a card with zero information
 loss. Other atomic tools are deferred (they show strictly more than a naive
 card would; carding them lossily would *drop* information the UI suppresses the
-prose to make room for). The overlay is applied by the harness for
-**single-tool** orchestrator turns only.
+prose to make room for). The overlay is applied by the harness for turns that
+ran a **single distinct tool** (see ``is_single_distinct_tool_turn``) -- a
+turn that called the same tool twice still cards; a turn that ran two
+different tools does not.
 """
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Iterable
 
 from .formatting import format_metric_value
 from .generic_card import Column, GenericCardMeta, HeroStat
@@ -189,6 +191,51 @@ _ATOMIC_TOOL_COMPOSERS: dict[str, Any] = {
 }
 
 
+def is_single_distinct_tool_turn(
+    tool_chosen: "str | None",
+    tool_call_count: int,
+    tool_sequence: Iterable["str | None"],
+) -> bool:
+    """i58: did this orchestrator turn run exactly ONE distinct tool?
+
+    This is the count half of the harness card gate. The other half is
+    ``maybe_atomic_tool_card`` (is the retained output cardable?). The gate
+    used to ask ``tool_call_count == 1`` -- "one call" -- which stopped carding
+    the turns the i46 extra round rescues: the model calls the same cardable
+    tool again with different arguments, ``tool_call_count`` reads 2, and the
+    turn that ended in *good prose over cardable data* lost its card (see
+    field-notes/2026-08-31-i46-extra-round-fix.md, "Knock-on worth knowing").
+
+    Inputs are primitives so the same predicate runs in the harness, in the
+    measurement script and in the tests without any of them re-deriving it:
+
+    ``tool_chosen``
+        The tool whose output was retained on the result (``None`` -> False).
+    ``tool_call_count``
+        Executed calls underlying the RETAINED payload (``OrchestratorResult``
+        semantics). ``1`` is sufficient on its own: exactly one executed call
+        produced the payload, so there is exactly one distinct tool behind it.
+        This keeps every previously-carded turn carded, including an
+        evaluator-retry delivery, whose calls ``tool_calls_trace`` does not
+        carry (``_attaches_tool_calls_trace``: the trace describes the PRIMARY
+        calls, the retry's count describes the retry's).
+    ``tool_sequence``
+        The executed tool names in order -- ``[e["name"] for e in
+        OrchestratorResult.tool_calls_trace]``, the same field the routing
+        JSONL projects as ``tool_sequence``. For a multi-call turn it decides:
+        every name equal to ``tool_chosen`` -> one distinct tool -> True;
+        any other name -> a genuine multi-tool turn -> False. An EMPTY sequence
+        on a multi-call turn cannot prove a single tool, so it is False
+        (conservative: never card what cannot be shown to be single-tool).
+    """
+    if not tool_chosen:
+        return False
+    if tool_call_count == 1:
+        return True
+    names = [n for n in tool_sequence if n]
+    return bool(names) and set(names) == {tool_chosen}
+
+
 def maybe_atomic_tool_card(
     tool_name: "str | None",
     raw_output: dict[str, Any],
@@ -196,9 +243,10 @@ def maybe_atomic_tool_card(
 ) -> "GenericCardMeta | None":
     """Return a card to overlay for an atomic tool, or ``None``.
 
-    Pure and count-agnostic (the single-tool guard lives at the harness call
-    site). Never overrides an already-composed card, and only builds for a tool
-    that has a registered composer.
+    Pure and count-agnostic (the single-distinct-tool guard is
+    ``is_single_distinct_tool_turn``, applied at the harness call site). Never
+    overrides an already-composed card, and only builds for a tool that has a
+    registered composer.
     """
     if existing_generic_card is not None:
         return None
