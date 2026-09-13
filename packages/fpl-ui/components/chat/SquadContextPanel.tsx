@@ -22,7 +22,6 @@ import {
   validateTeamId,
   normalizeSquadContext,
   squadContextSummary,
-  FT_OPTIONS,
   type FplEntryRaw,
   type FplEntryResponse,
 } from '@/lib/squad-context';
@@ -45,9 +44,6 @@ type PanelState =
 export default function SquadContextPanel({ onContextChange, onTeamIdChange }: Props) {
   const [teamIdInput, setTeamIdInput] = useState('');
   const [panel, setPanel] = useState<PanelState>({ status: 'idle' });
-  // Free transfers: not derivable from the FPL API. User selects explicitly.
-  // null = not set; backend will omit hit_warning signal when unknown.
-  const [freeTransfers, setFreeTransfers] = useState<number | null>(null);
 
   const connect = useCallback(async (rawId: string) => {
     const teamId = validateTeamId(rawId);
@@ -104,16 +100,8 @@ export default function SquadContextPanel({ onContextChange, onTeamIdChange }: P
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleFtSelect = useCallback((ft: number | null) => {
-    setFreeTransfers(ft);
-    if (panel.status === 'connected') {
-      onContextChange({ ...panel.ctx, free_transfers: ft });
-    }
-  }, [panel, onContextChange]);
-
   const handleDisconnect = useCallback(() => {
     setPanel({ status: 'idle' });
-    setFreeTransfers(null);
     onContextChange(null);
     onTeamIdChange?.(null, null);
     try { localStorage.removeItem(LS_KEY); } catch { /* ignore */ }
@@ -129,23 +117,6 @@ export default function SquadContextPanel({ onContextChange, onTeamIdChange }: P
             {squadContextSummary(panel.entry)}
           </span>
 
-          {/* Free-transfer selector — user must set this; API cannot derive it. */}
-          <span className="text-bf-gray/60 flex-shrink-0">TL:</span>
-          <div className="flex items-center gap-0.5 flex-shrink-0">
-            {FT_OPTIONS.map((opt) => (
-              <button
-                key={opt ?? 'null'}
-                onClick={() => handleFtSelect(opt)}
-                className={`w-6 h-5 rounded text-[10px] font-bold transition-colors ${
-                  freeTransfers === opt
-                    ? 'bg-bf-turquoise text-bf-ink'
-                    : 'bg-white/5 text-bf-gray hover:text-bf-text'
-                }`}
-              >
-                {opt ?? '—'}
-              </button>
-            ))}
-          </div>
 
           <button
             onClick={handleDisconnect}

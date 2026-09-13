@@ -6,10 +6,10 @@
  *
  * Coverage:
  *   1. validateTeamId — valid IDs, invalid inputs, boundary values
- *   2. normalizeSquadContext — ITB derivation, free_transfers is null (not
- *      derived — FPL API does not expose a reliable source for it),
- *      chips_remaining mapping from FPL API codes to backend names
- *   3. Free-transfer user input — FT_OPTIONS range and SquadContext merging
+ *   2. normalizeSquadContext — ITB derivation, free_transfers derived from
+ *      the season history, chips_remaining mapping from FPL API codes to
+ *      backend names
+ *   3. deriveFreeTransfers — accrual, cap, hits, WC/FH hold, inconsistency
  *   4. Request wiring — squad_context flows through both ask modes
  *      (structural test: verifies it is present on AskRequest)
  *   5. No-context regression — null squad_context is valid on AskRequest
@@ -17,7 +17,7 @@
 import {
   validateTeamId,
   normalizeSquadContext,
-  FT_OPTIONS,
+  deriveFreeTransfers,
   type FplEntryRaw,
   type FplHistoryRaw,
 } from '../lib/squad-context';
@@ -96,70 +96,116 @@ describe('normalizeSquadContext — itb derivation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// normalizeSquadContext — free_transfers is always null (not derivable)
+// deriveFreeTransfers — free_transfers from public season history
 // ---------------------------------------------------------------------------
 
-describe('normalizeSquadContext — free_transfers is null from API data', () => {
-  test('no history → free_transfers is null (not 1)', () => {
-    const ctx = normalizeSquadContext(makeEntry(), makeHistory({ current: [] }));
-    expect(ctx.free_transfers).toBeNull();
+describe('deriveFreeTransfers — basics', () => {
+  test('empty history → null (unknown, not 1)', () => {
+    expect(deriveFreeTransfers(makeHistory({ current: [] }))).toBeNull();
   });
 
-  test('history with 0 transfers last GW → free_transfers still null (not 2)', () => {
-    // Previously the heuristic would return 2 here. The correct answer is: unknown.
-    const ctx = normalizeSquadContext(
-      makeEntry(),
-      makeHistory({ current: [makeGwEntry(27, 0)] }),
-    );
-    expect(ctx.free_transfers).toBeNull();
+  test('only GW1 played → 1 (first GW is unlimited, then 1 FT)', () => {
+    expect(deriveFreeTransfers(makeHistory({ current: [makeGwEntry(1, 0)] }))).toBe(1);
   });
 
-  test('history with transfers made → free_transfers still null', () => {
-    const ctx = normalizeSquadContext(
-      makeEntry(),
-      makeHistory({ current: [makeGwEntry(27, 1, 0)] }),
-    );
-    expect(ctx.free_transfers).toBeNull();
+  test('late joiner: first entry is GW3 with transfers → still treated as unlimited', () => {
+    const h = makeHistory({ current: [makeGwEntry(3, 15, 0), makeGwEntry(4, 0)] });
+    expect(deriveFreeTransfers(h)).toBe(2);
   });
 
-  test('free_transfers field is present in returned context (key exists)', () => {
-    const ctx = normalizeSquadContext(makeEntry(), makeHistory());
-    expect('free_transfers' in ctx).toBe(true);
+  test('no transfers for 3 GWs → accrues to 3', () => {
+    const h = makeHistory({ current: [makeGwEntry(1, 0), makeGwEntry(2, 0), makeGwEntry(3, 0)] });
+    expect(deriveFreeTransfers(h)).toBe(3);
+  });
+
+  test('accrual is capped at 5', () => {
+    const current = Array.from({ length: 8 }, (_, i) => makeGwEntry(i + 1, 0));
+    expect(deriveFreeTransfers(makeHistory({ current }))).toBe(5);
+  });
+
+  test('unsorted history is handled', () => {
+    const h = makeHistory({ current: [makeGwEntry(3, 0), makeGwEntry(1, 0), makeGwEntry(2, 0)] });
+    expect(deriveFreeTransfers(h)).toBe(3);
   });
 });
 
-// ---------------------------------------------------------------------------
-// Free transfer user input — FT_OPTIONS and SquadContext merging
-// ---------------------------------------------------------------------------
-
-describe('FT_OPTIONS — user-selectable free transfer values', () => {
-  test('FT_OPTIONS contains null (unset option)', () => {
-    expect(FT_OPTIONS).toContain(null);
+describe('deriveFreeTransfers — transfers and hits', () => {
+  test('1 free transfer used each GW → stays at 1', () => {
+    const h = makeHistory({ current: [makeGwEntry(1, 0), makeGwEntry(2, 1), makeGwEntry(3, 1)] });
+    expect(deriveFreeTransfers(h)).toBe(1);
   });
 
-  test('FT_OPTIONS contains 1 through 5', () => {
-    for (let i = 1; i <= 5; i++) {
-      expect(FT_OPTIONS).toContain(i);
-    }
+  test('2 transfers with a −4 hit on 1 FT → bank empties, back to 1', () => {
+    const h = makeHistory({ current: [makeGwEntry(1, 0), makeGwEntry(2, 2, 4)] });
+    expect(deriveFreeTransfers(h)).toBe(1);
   });
 
-  test('null is the first option (default unset state)', () => {
-    expect(FT_OPTIONS[0]).toBeNull();
+  test('live sample 2500000: WC GW2, 1 free GW3, 2 transfers −4 GW4 → 1', () => {
+    const h = makeHistory({
+      current: [makeGwEntry(1, 0), makeGwEntry(2, 0), makeGwEntry(3, 1, 0), makeGwEntry(4, 2, 4)],
+      chips: [{ name: 'wildcard', event: 2 }],
+    });
+    expect(deriveFreeTransfers(h)).toBe(1);
   });
 
-  test('merging user FT into context from normalizeSquadContext works', () => {
-    const base = normalizeSquadContext(makeEntry(), makeHistory());
-    // Simulate SquadContextPanel merging user selection
-    const withFt = { ...base, free_transfers: 2 };
-    expect(withFt.free_transfers).toBe(2);
-    expect(withFt.itb).toBe(base.itb);        // other fields preserved
-    expect(withFt.chips_remaining).toBe(base.chips_remaining);
+  test('live sample 5387956: FH GW2, 8 transfers −28 GW3, 3 transfers −8 GW4 → 1', () => {
+    const h = makeHistory({
+      current: [makeGwEntry(1, 0), makeGwEntry(2, 0), makeGwEntry(3, 8, 28), makeGwEntry(4, 3, 8)],
+      chips: [{ name: 'freehit', event: 2 }],
+    });
+    expect(deriveFreeTransfers(h)).toBe(1);
+  });
+});
+
+describe('deriveFreeTransfers — wildcard / free hit hold the bank', () => {
+  test('wildcard GW: transfers are free and no +1 accrues', () => {
+    // GW1 → 1 FT. GW2 quiet → 2. GW3 wildcard with 10 transfers → still 2.
+    const h = makeHistory({
+      current: [makeGwEntry(1, 0), makeGwEntry(2, 0), makeGwEntry(3, 10, 0)],
+      chips: [{ name: 'wildcard', event: 3 }],
+    });
+    expect(deriveFreeTransfers(h)).toBe(2);
   });
 
-  test('merging null FT into context leaves free_transfers null', () => {
-    const base = normalizeSquadContext(makeEntry(), makeHistory());
-    const withNull = { ...base, free_transfers: null };
-    expect(withNull.free_transfers).toBeNull();
+  test('free hit GW behaves the same as wildcard', () => {
+    const h = makeHistory({
+      current: [makeGwEntry(1, 0), makeGwEntry(2, 0), makeGwEntry(3, 10, 0)],
+      chips: [{ name: 'freehit', event: 3 }],
+    });
+    expect(deriveFreeTransfers(h)).toBe(2);
+  });
+
+  test('bench boost / triple captain do not exempt the GW', () => {
+    const h = makeHistory({
+      current: [makeGwEntry(1, 0), makeGwEntry(2, 0), makeGwEntry(3, 1, 0)],
+      chips: [{ name: 'bboost', event: 3 }, { name: '3xc', event: 2 }],
+    });
+    expect(deriveFreeTransfers(h)).toBe(2);
+  });
+});
+
+describe('deriveFreeTransfers — history contradicting the model → null', () => {
+  test('3 free transfers recorded when only 1 FT was available', () => {
+    // e.g. a special unlimited-transfer gameweek not visible in the API
+    const h = makeHistory({ current: [makeGwEntry(1, 0), makeGwEntry(2, 3, 0)] });
+    expect(deriveFreeTransfers(h)).toBeNull();
+  });
+
+  test('hit taken while FTs were still banked', () => {
+    const h = makeHistory({ current: [makeGwEntry(1, 0), makeGwEntry(2, 0), makeGwEntry(3, 1, 4)] });
+    expect(deriveFreeTransfers(h)).toBeNull();
+  });
+});
+
+describe('normalizeSquadContext — free_transfers comes from the history', () => {
+  test('no history → null', () => {
+    expect(normalizeSquadContext(makeEntry(), makeHistory()).free_transfers).toBeNull();
+  });
+
+  test('history is wired through deriveFreeTransfers', () => {
+    const h = makeHistory({ current: [makeGwEntry(1, 0), makeGwEntry(2, 0)] });
+    expect(normalizeSquadContext(makeEntry(), h).free_transfers).toBe(2);
+    expect(normalizeSquadContext(makeEntry(), h).itb).toBe(50);   // other fields untouched
   });
 });
 

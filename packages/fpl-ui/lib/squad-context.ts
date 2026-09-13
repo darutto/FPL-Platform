@@ -13,12 +13,11 @@
  *   freehit     → "free_hit"       (1 per season)
  *
  * Free transfers:
- *   The FPL public API does NOT expose a free_transfers_available field.
- *   Correct derivation would require walking the full season history with
- *   chip-play detection and current-GW pre-deadline state — fragile and
- *   undocumented. free_transfers is set to null here and must be provided
- *   explicitly by the user via SquadContextPanel. Every FPL player can see
- *   their exact FT count on the FPL transfers page.
+ *   The FPL public API does not expose the FT count directly (only the
+ *   authenticated /my-team/ endpoint has it), but it is derivable from the
+ *   public history — see deriveFreeTransfers(). The result is the FT count
+ *   available at the NEXT deadline, before any transfers the user may have
+ *   already queued for it (those are only visible when authenticated).
  */
 import type { SquadContext } from './types';
 
@@ -63,15 +62,55 @@ export interface FplEntryResponse {
 }
 
 // ---------------------------------------------------------------------------
-// Free transfer selector options (used by SquadContextPanel)
+// Free transfer derivation
 // ---------------------------------------------------------------------------
 
+/** Maximum number of free transfers that can be banked (FPL rule since 2024-25). */
+const FT_MAX = 5;
+/** Points cost of one transfer beyond the free allowance. */
+const HIT_COST = 4;
+/** Chips whose gameweek transfers are unlimited and do not touch the FT bank. */
+const FT_EXEMPT_CHIPS = new Set(['wildcard', 'freehit']);
+
 /**
- * Options for the free-transfers selector.
- * null = not set (backend treats as unknown; no hit_warning signal).
- * 1–5 covers the full FPL-allowed range.
+ * Derive the free transfers available at the next deadline from the public
+ * season history.
+ *
+ * Rules (verified empirically against live 2026-27 entries, 17/17 teams that
+ * played WC/FH consistent, see PR description):
+ *   - The manager's first gameweek has unlimited transfers → 1 FT afterwards.
+ *   - Every subsequent gameweek: FT = min(5, FT − free_used + 1), where
+ *     free_used = event_transfers − event_transfers_cost / 4.
+ *   - On a wildcard / free-hit gameweek the bank is HELD as-is: transfers are
+ *     free and no +1 accrues for that week.
+ *
+ * Every entry in history.current has passed its deadline, so walking all of
+ * them yields the allowance for the upcoming one.
+ *
+ * Returns null when the history is empty, or when the recorded transfers
+ * contradict the model (e.g. a special unlimited-transfer gameweek) — an
+ * unknown is better than a confident wrong number.
  */
-export const FT_OPTIONS: Array<number | null> = [null, 1, 2, 3, 4, 5];
+export function deriveFreeTransfers(history: FplHistoryRaw): number | null {
+  const gws = [...(history.current ?? [])].sort((a, b) => a.event - b.event);
+  if (gws.length === 0) return null;
+
+  const exemptEvents = new Set(
+    (history.chips ?? []).filter((c) => FT_EXEMPT_CHIPS.has(c.name)).map((c) => c.event),
+  );
+
+  let ft = 1; // allowance after the (unlimited) first gameweek
+  for (const gw of gws.slice(1)) {
+    if (exemptEvents.has(gw.event)) continue;
+    const paid = Math.floor(gw.event_transfers_cost / HIT_COST);
+    const freeUsed = gw.event_transfers - paid;
+    // Consistency check: free transfers used must be exactly what was available
+    // (if a hit was taken) or at most what was available (if not).
+    if (freeUsed !== Math.min(gw.event_transfers, ft)) return null;
+    ft = Math.min(FT_MAX, ft - freeUsed + 1);
+  }
+  return ft;
+}
 
 // ---------------------------------------------------------------------------
 // Chip name mapping
@@ -132,9 +171,7 @@ export function normalizeSquadContext(
   const itb: number | null = entry.last_deadline_bank ?? null;
 
   // --- free_transfers ---
-  // Not derivable from the FPL public API with confidence.
-  // Must be provided explicitly by the user. See module comment.
-  const free_transfers: null = null;
+  const free_transfers = deriveFreeTransfers(history);
 
   // --- chips_remaining ---
   // Count how many times each chip has been used this season.
