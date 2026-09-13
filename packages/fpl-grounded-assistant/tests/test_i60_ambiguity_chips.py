@@ -128,6 +128,30 @@ def test_wrong_club_stays_a_visible_ambiguity_not_a_silent_pick(store: Path) -> 
     assert sorted(c["id"] for c in result["candidates"]) == [101, 202]
 
 
+@pytest.mark.parametrize("args", [
+    {"query": "aland", "season": SEASON, "team_short": "ARS"},  # structured club, nobody in ARS
+    {"query": "aland (ARS)", "season": SEASON},                 # club token in the query
+], ids=["team_short-arg", "query-token"])
+def test_lone_substring_match_with_a_club_that_matches_nobody_stays_ambiguous(store: Path, args: dict) -> None:
+    """Review finding on #260: "Silva" + team_short=ARS (nobody in ARS) resolved
+    to the single substring match. A club that reduced nothing must not turn
+    a rejected substring into a fluent wrong answer."""
+    baseline = run_tool("get_player_season_points", {"query": "aland", "season": SEASON}, {})
+    assert baseline["status"] == "ambiguous"          # lone substring match is ambiguous by design
+    assert [c["id"] for c in baseline["candidates"]] == [303]
+
+    result = run_tool("get_player_season_points", args, {})
+    assert result["status"] == "ambiguous", result
+    assert [c["id"] for c in result["candidates"]] == [303]
+
+
+def test_lone_substring_match_resolves_only_when_the_club_reduced_a_tie(store: Path) -> None:
+    # "alah" substring-matches both Salahs; the club reduces the tie to one.
+    result = run_tool("get_player_season_points", {"query": "alah", "season": SEASON, "team_short": "BOU"}, {})
+    assert result["status"] == "ok"
+    assert result["player"]["id"] == 202
+
+
 def test_split_club_from_query() -> None:
     assert sp.split_club_from_query("Mohamed Salah (LIV)") == ("Mohamed Salah", "LIV")
     assert sp.split_club_from_query("puntos de Salah (bou)") == ("puntos de Salah (bou)", None)

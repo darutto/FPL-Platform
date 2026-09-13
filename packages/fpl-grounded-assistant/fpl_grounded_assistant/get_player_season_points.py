@@ -260,11 +260,17 @@ def _resolve_player_in_season(
             "team_id": row.get("team_id"),
         }
 
-    def _narrow_by_club(ids: list[int]) -> list[int]:
+    def _narrow_by_club(ids: list[int]) -> tuple[list[int], bool]:
+        """Return ``(ids, narrowed)``. ``narrowed`` is True only when the club
+        filter actually kept a strict subset; a club that matches nobody
+        returns the original list AND False, so no caller can mistake "the
+        filter did nothing" for "the filter chose this one"."""
         if not club_filter or not team_short_by_id:
-            return ids
+            return ids, False
         kept = [pid for pid in ids if _team_short(by_id.loc[pid]).upper() == club_filter]
-        return kept or ids
+        if not kept or len(kept) == len(ids):
+            return ids, False
+        return kept, True
 
     def _ambiguous(ids: list[int]) -> dict[str, Any]:
         return {
@@ -274,22 +280,24 @@ def _resolve_player_in_season(
             "message": f"Multiple players match '{normalized_query}'. Please specify.",
         }
 
-    exact = _narrow_by_club(_at_rank(0))
+    exact, _ = _narrow_by_club(_at_rank(0))
     if len(exact) == 1:
         return _ok(exact[0])
     if len(exact) > 1:
         return _ambiguous(exact)
 
-    prefix = _narrow_by_club(_at_rank(1))
+    prefix, _ = _narrow_by_club(_at_rank(1))
     if len(prefix) == 1:
         return _ok(prefix[0])
     if len(prefix) > 1:
         return _ambiguous(prefix)
 
-    substr = _narrow_by_club(_at_rank(2))
-    if len(substr) == 1 and club_filter:
-        # A club was named and exactly one substring match wears it: that is
-        # the chip round-trip, not a guess.
+    substr, narrowed = _narrow_by_club(_at_rank(2))
+    if len(substr) == 1 and narrowed:
+        # A club was named and it REDUCED the substring tie to exactly one:
+        # that is the chip round-trip, not a guess. A lone substring match
+        # with a club that matched nobody stays ambiguous, as it always did --
+        # a wrong club must be a visible ambiguity, never a silent pick.
         return _ok(substr[0])
     if substr:
         return _ambiguous(substr)
