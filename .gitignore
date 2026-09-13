@@ -56,3 +56,6 @@ tmp/
 
 # Scratch output from experiment smoke runs (regenerated on demand)
 field-notes/SMOKE-*
+
+# i71: Windows-only pytest basetemp pinned under each package by its root conftest.py
+.pytest-tmp/
