@@ -11,6 +11,12 @@ with raisers, and every test injects its own fakes through ``main()``'s
 keyword hooks. A test that forgets to inject dies loudly instead of dialling
 Understat or R2.
 
+Every run reads a CONTROL season first (the one the job is about to ingest,
+known to be published). Found on 2026-09-13: a stale soccerdata cache served
+``(3, 0)`` for the PUBLISHED 2026-2027, so "empty" alone would have been a
+green lie. An empty control is therefore a red "no signal" (exit 2), never a
+notice -- pinned below, with the guard mutated on its own.
+
 The frames are the measured ones (2026-09-13): ``(3, 0)`` for an unpublished
 season -- three index labels over zero columns -- and ``(380, 17)`` for a
 published one. The ``(3, 0)`` shape is a trap the card itself warns about and
@@ -74,12 +80,22 @@ def _published_schedule() -> pd.DataFrame:
     return frame
 
 
-def _run(tmp_path, schedule, store_exists, argv=("--season", "2027-2028")):
+CONTROL = "2026-2027"   # the season the job ingests; known published
+PROBED = "2027-2028"    # the one after it
+
+
+def _run(tmp_path, schedule, store_exists, argv=("--next-after", CONTROL),
+         control_schedule=None):
+    """Drive main() with per-season fakes. The control season answers with a
+    published frame unless a test says otherwise; any other season answers
+    with ``schedule``."""
+    control_frame = _published_schedule() if control_schedule is None else control_schedule
+    frames = {CONTROL: control_frame}
     out_file = tmp_path / "github_output.txt"
     stdout = io.StringIO()
     code = probe.main(
         [*argv, "--github-output", str(out_file)],
-        read_schedule_fn=lambda season: schedule,
+        read_schedule_fn=lambda season: frames.get(season, schedule),
         store_exists_fn=lambda season: store_exists,
         stdout=stdout,
     )
@@ -112,6 +128,8 @@ def test_each_combination_produces_its_exit_code_message_and_outputs(tmp_path, c
     assert stdout.startswith(want_prefix), stdout
     assert outputs["outcome"] == want_outcome
     assert outputs["season"] == "2027-2028"
+    assert outputs["control_season"] == "2026-2027"
+    assert outputs["control_matches"] == "380"
     assert outputs["published"] == ("true" if want_outcome.startswith("published") else "false")
     assert outputs["store_exists"] == ("true" if store_exists else "false")
 
@@ -151,10 +169,17 @@ def test_reset_index_would_turn_the_empty_frame_into_a_published_one():
     ("2099-2100", "2100-2101"),
 ])
 def test_next_after_derives_the_following_season(tmp_path, season, expected):
-    _code, _stdout, outputs = _run(
-        tmp_path, _empty_schedule(), False, argv=("--next-after", season)
+    frames = {season: _published_schedule()}
+    out_file = tmp_path / "github_output.txt"
+    code = probe.main(
+        ["--next-after", season, "--github-output", str(out_file)],
+        read_schedule_fn=lambda s: frames.get(s, _empty_schedule()),
+        store_exists_fn=lambda s: False, stdout=io.StringIO(),
     )
+    outputs = dict(line.partition("=")[::2] for line in out_file.read_text(encoding="utf-8").splitlines())
+    assert code == 0
     assert outputs["season"] == expected
+    assert outputs["control_season"] == season
 
 
 @pytest.mark.parametrize("bad", ["2026", "2026-2028", "2026/2027", ""])
@@ -172,9 +197,14 @@ def test_a_failing_schedule_read_is_reported_not_classified(tmp_path):
     def boom(season):
         raise ConnectionError("understat unreachable")
 
+    def read(season):
+        if season == CONTROL:
+            return _published_schedule()
+        raise ConnectionError("understat unreachable")
+
     code = probe.main(
-        ["--season", "2027-2028", "--github-output", str(out_file)],
-        read_schedule_fn=boom, store_exists_fn=lambda s: False, stdout=stdout,
+        ["--season", PROBED, "--control", CONTROL, "--github-output", str(out_file)],
+        read_schedule_fn=read, store_exists_fn=lambda s: False, stdout=stdout,
     )
     assert code == 2
     assert "sonda de Understat falló para 2027-2028: ConnectionError" in stdout.getvalue()
@@ -190,7 +220,7 @@ def test_a_failing_store_check_is_reported_not_treated_as_absent(tmp_path):
         raise RuntimeError("missing required R2 env vars")
 
     code = probe.main(
-        ["--season", "2027-2028"],
+        ["--season", PROBED, "--control", CONTROL],
         read_schedule_fn=lambda s: _published_schedule(), store_exists_fn=boom, stdout=stdout,
     )
     assert code == 2
@@ -202,9 +232,106 @@ def test_the_default_boundaries_are_the_real_ones_and_are_blocked_here(tmp_path)
     module's autouse fixture has replaced with raisers -> probe failure, never
     a network call."""
     stdout = io.StringIO()
-    code = probe.main(["--season", "2027-2028"], stdout=stdout)
+    code = probe.main(["--next-after", CONTROL], stdout=stdout)
     assert code == 2
     assert "_NetworkForbidden" in stdout.getvalue()
+
+
+# --- the control read: "empty" is never the silent face of "broken" ---------
+
+def test_an_empty_control_is_red_no_signal_not_a_green_notice(tmp_path):
+    """The stale-cache finding, replayed: the control (a published season)
+    comes back (3, 0). Before this guard the probe said "aún no publica
+    2027-2028" with exit 0 -- the silent success the plan forbids."""
+    code, stdout, outputs = _run(
+        tmp_path, _empty_schedule(), False, control_schedule=_empty_schedule()
+    )
+    assert code == 2
+    assert stdout.startswith("::error::sonda sin señal: la temporada actual 2026-2027 llegó vacía de Understat")
+    assert "::notice::" not in stdout
+    assert outputs["outcome"] == "no_signal"
+    assert outputs["control_matches"] == "0"
+    assert "published" not in outputs  # nothing is claimed about the probed season
+
+
+def test_a_published_control_and_an_empty_next_season_is_the_green_notice(tmp_path):
+    code, stdout, outputs = _run(
+        tmp_path, _empty_schedule(), False, control_schedule=_published_schedule()
+    )
+    assert code == 0
+    assert stdout.startswith("::notice::Understat aún no publica 2027-2028")
+    assert outputs["control_matches"] == "380"
+    assert outputs["outcome"] == "unpublished"
+
+
+def test_an_empty_control_hides_nothing_even_when_the_next_season_looks_published(tmp_path):
+    """A published-looking probed frame behind an empty control is still no
+    signal: the two reads disagree about whether the scrape works."""
+    code, stdout, _outputs = _run(
+        tmp_path, _published_schedule(), False, control_schedule=_empty_schedule()
+    )
+    assert code == 2
+    assert stdout.startswith("::error::sonda sin señal")
+
+
+def test_the_control_is_read_before_the_probed_season(tmp_path):
+    order = []
+
+    def read(season):
+        order.append(season)
+        return _published_schedule()
+
+    probe.main(["--next-after", CONTROL], read_schedule_fn=read,
+               store_exists_fn=lambda s: True, stdout=io.StringIO())
+    assert order == [CONTROL, PROBED]
+
+
+def test_a_failing_control_read_is_a_probe_failure_naming_the_control(tmp_path):
+    stdout = io.StringIO()
+
+    def boom(season):
+        raise ConnectionError("blocked")
+
+    code = probe.main(["--next-after", CONTROL], read_schedule_fn=boom,
+                      store_exists_fn=lambda s: False, stdout=stdout)
+    assert code == 2
+    assert "falló para la temporada de control 2026-2027: ConnectionError" in stdout.getvalue()
+
+
+@pytest.mark.parametrize("argv,reason", [
+    (("--season", PROBED), "--season requires --control"),                     # no control at all
+    (("--season", PROBED, "--control", PROBED), "control season must differ"),  # control == probed
+    (("--season", PROBED, "--control", "2026"), "not a season key"),             # malformed control
+], ids=["no-control", "control-equals-probed", "malformed-control"])
+def test_explicit_season_requires_a_distinct_valid_control(tmp_path, argv, reason):
+    code, stdout, outputs = _run(tmp_path, _published_schedule(), True, argv=argv)
+    assert code == 2
+    assert stdout.startswith("::error::sonda de Understat")
+    assert reason in stdout, stdout   # each refusal names its own reason
+    assert outputs == {}
+
+
+def test_read_schedule_bypasses_the_soccerdata_cache(monkeypatch):
+    """``no_cache=True`` is the first defence: the answer to "has Understat
+    published this" must never come from a local cache (the July leagues.json
+    that served (3, 0) for a published season)."""
+    import types
+
+    calls = []
+
+    class _FakeUnderstat:
+        def __init__(self, **kwargs):
+            calls.append(kwargs)
+
+        def read_schedule(self):
+            return _published_schedule()
+
+    fake_sd = types.SimpleNamespace(Understat=_FakeUnderstat)
+    monkeypatch.setitem(__import__("sys").modules, "soccerdata", fake_sd)
+    real = _load().read_schedule  # unpatched copy of the real boundary
+    frame = real("2026-2027")
+    assert frame.shape == (380, 17)
+    assert calls == [{"leagues": "ENG-Premier League", "seasons": "2026-2027", "no_cache": True}]
 
 
 # --- the R2 boundary, with a fake client -------------------------------------

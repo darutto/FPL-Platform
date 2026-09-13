@@ -1,7 +1,7 @@
 """Probe whether Understat has published a season, and whether we hold it (i77).
 
-    python scripts/probe_understat_season.py --season 2027-2028
-    python scripts/probe_understat_season.py --next-after 2026-2027   # same thing
+    python scripts/probe_understat_season.py --next-after 2026-2027
+    python scripts/probe_understat_season.py --season 2027-2028 --control 2026-2027
 
 Why this exists
 ---------------
@@ -19,6 +19,7 @@ and checks whether our tactical store for that season exists on R2 (the
 provenance pointer key ``publish._season_transfer_plan`` uploads first).
 Then it classifies:
 
+    CONTROL season empty (see below)   -> NO_SIGNAL               ERROR,   exit 2
     schedule empty,     store absent   -> UNPUBLISHED             notice,  exit 0
     schedule empty,     store present  -> UNPUBLISHED_STORE_PRESENT warning, exit 0
     schedule published, store absent   -> PUBLISHED_NO_STORE      ERROR,   exit 1
@@ -34,6 +35,23 @@ It also writes ``published``, ``store_exists``, ``outcome``, ``season`` and
 ``matches`` to ``$GITHUB_OUTPUT`` when that variable is set, so a workflow can
 gate later steps on them (a step cannot end "neutral" in Actions; skipping the
 ingest via ``if:`` while the job stays green is the equivalent).
+
+"Empty" must never be the silent face of "broken" -- the CONTROL read
+-------------------------------------------------------------------
+An empty schedule is also what a broken, blocked or STALE scrape looks like.
+Found on 2026-09-13: with a July ``~/soccerdata/data/Understat/leagues.json``
+(no 2026 season in it) ``read_schedule("2026-2027")`` came back ``(3, 0)``
+from cache -- for a season Understat had published -- and the probe would
+have printed a green "aún no publica". Two defences, both mandatory:
+
+*   ``read_schedule`` passes ``no_cache=True``: the local soccerdata cache is
+    never trusted for the answer to "has Understat published this yet".
+*   Before the season under probe, the CONTROL season is read -- the one
+    this job is about to ingest, known to be published because its store
+    exists (``--next-after S`` uses ``S``; ``--season X`` requires
+    ``--control C``). If the control comes back empty the probe has no
+    signal and says so in red (exit 2); it never reports the probed season
+    as unpublished on that evidence.
 
 The (3, 0) trap -- read this before touching ``_classify``
 -----------------------------------------------------------
@@ -67,6 +85,7 @@ UNPUBLISHED_STORE_PRESENT = "unpublished_store_present"
 PUBLISHED_NO_STORE = "published_no_store"
 PUBLISHED = "published"
 PROBE_FAILED = "probe_failed"
+NO_SIGNAL = "no_signal"
 
 EXIT_PROCEED = 0
 EXIT_ROTATION_PENDING = 1
@@ -87,13 +106,16 @@ def next_season_key(season: str) -> str:
 # --- the two network boundaries (replaced in tests, never reached there) ----
 
 def read_schedule(season: str) -> Any:
-    """Understat's schedule for *season*, RAW (no ``reset_index``) -- see the
-    module docstring for why the raw frame is the one to classify."""
+    """Understat's schedule for *season*, RAW (no ``reset_index``) and with
+    the local soccerdata cache bypassed (``no_cache=True``) -- see the module
+    docstring for both."""
     import soccerdata as sd  # lazy: weekly-workflow dependency only
 
     from fpl_tactical.understat_client import DEFAULT_LEAGUE
 
-    return sd.Understat(leagues=DEFAULT_LEAGUE, seasons=season).read_schedule()
+    return sd.Understat(
+        leagues=DEFAULT_LEAGUE, seasons=season, no_cache=True,
+    ).read_schedule()
 
 
 def tactical_store_exists_on_r2(season: str) -> bool:
@@ -183,7 +205,12 @@ def main(
     which = ap.add_mutually_exclusive_group(required=True)
     which.add_argument("--season", help="season key to probe, e.g. 2027-2028")
     which.add_argument("--next-after", metavar="SEASON",
-                       help="probe the season after this key, e.g. --next-after 2026-2027")
+                       help="probe the season after this key (which is then the "
+                            "control), e.g. --next-after 2026-2027")
+    ap.add_argument("--control", metavar="SEASON", default=None,
+                    help="a season known to be published, read first as a "
+                         "signal check; required with --season, implied by "
+                         "--next-after")
     ap.add_argument("--github-output", default=os.environ.get("GITHUB_OUTPUT"),
                     help="file to append step outputs to (default: $GITHUB_OUTPUT)")
     args = ap.parse_args(argv)
@@ -193,9 +220,47 @@ def main(
     store_fn = store_exists_fn or tactical_store_exists_on_r2
 
     try:
-        season = args.season or next_season_key(args.next_after)
+        if args.next_after is not None:
+            control = args.next_after
+            season = next_season_key(control)
+        else:
+            season = args.season
+            control = args.control
+            if not control:
+                raise ValueError("--season requires --control SEASON (a published season)")
+            next_season_key(control)  # validates the key's shape
+        if control == season:
+            raise ValueError("the control season must differ from the probed one")
     except ValueError as exc:
         print(f"::error::sonda de Understat: {exc}", file=out)
+        return EXIT_PROBE_FAILED
+
+    # The control read comes first: a season we KNOW is published must come
+    # back non-empty, or nothing this probe says about the next one is
+    # evidence. An empty control is reported in red, never as a notice.
+    try:
+        control_matches = _matches(read_fn(control))
+    except Exception as exc:  # noqa: BLE001
+        print(
+            f"::error::sonda de Understat falló para la temporada de control "
+            f"{control}: {type(exc).__name__}: {exc}",
+            file=out,
+        )
+        _write_outputs(args.github_output, {
+            "season": season, "control_season": control, "outcome": PROBE_FAILED,
+        })
+        return EXIT_PROBE_FAILED
+    if control_matches == 0:
+        print(
+            f"::error::sonda sin señal: la temporada actual {control} llegó "
+            f"vacía de Understat; no se puede afirmar nada sobre {season} "
+            f"(scrape roto, bloqueado o caché rancia).",
+            file=out,
+        )
+        _write_outputs(args.github_output, {
+            "season": season, "control_season": control, "control_matches": 0,
+            "outcome": NO_SIGNAL,
+        })
         return EXIT_PROBE_FAILED
 
     try:
@@ -208,7 +273,8 @@ def main(
             file=out,
         )
         _write_outputs(args.github_output, {
-            "season": season, "outcome": PROBE_FAILED,
+            "season": season, "control_season": control,
+            "control_matches": control_matches, "outcome": PROBE_FAILED,
         })
         return EXIT_PROBE_FAILED
 
@@ -216,6 +282,8 @@ def main(
     print(_message(outcome, season, matches), file=out)
     _write_outputs(args.github_output, {
         "season": season,
+        "control_season": control,
+        "control_matches": control_matches,
         "published": matches > 0,
         "store_exists": store_exists,
         "matches": matches,

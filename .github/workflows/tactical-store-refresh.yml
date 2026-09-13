@@ -57,8 +57,16 @@ jobs:
       # September 2026, in green, while the rotation (i73 delivery 2) waited
       # on Understat with nothing to say when the wait was over. One schedule
       # read + one R2 HEAD, before anything is ingested, for the season AFTER
-      # the one this job is about to refresh:
+      # the one this job is about to refresh. The current season ($SEASON) is
+      # read first as a CONTROL: it is known to be published (its store is on
+      # R2), so an empty answer for it means the scrape is broken, blocked or
+      # stale -- not that anything is unpublished -- and the probe says so in
+      # red rather than passing "empty" off as "not yet" (found 2026-09-13: a
+      # July soccerdata cache served (3, 0) for the published 2026-2027; the
+      # probe also reads with no_cache=True for the same reason).
       #
+      #   CONTROL ($SEASON) comes back empty -> ::error::, exit 2, JOB RED:
+      #        "sonda sin señal: la temporada actual <s> llegó vacía de Understat"
       #   Understat empty                   -> ::notice::, exit 0, job continues
       #   published, store already on R2     -> ::notice::, exit 0, job continues
       #   empty, but a store exists on R2    -> ::warning::, exit 0 (wrong key?)
