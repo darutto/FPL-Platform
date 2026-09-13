@@ -342,7 +342,7 @@ function ExploiterRow({
   const level = levelForZone(exploiter.zone, data.zones);
   const numberClass = LEVEL_TEXT_CLASS[level];
   const opacity = rankOpacity(exploiter.rank);
-  const sub = exploiterSub(exploiter.team_short, exploiter.position);
+  const sub = exploiterSub(exploiter.team_short, exploiter.position, exploiter.club_note);
 
   return (
     <div

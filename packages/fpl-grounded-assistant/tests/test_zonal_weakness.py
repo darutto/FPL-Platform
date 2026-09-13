@@ -415,6 +415,44 @@ def test_card_exploiters_exclude_own_team_and_carry_identity():
 
 
 # ---------------------------------------------------------------------------
+# i75 — the exclusion mine. The store says "Right Poacher" shot for Wolves;
+# if he has since moved TO Palace, the engine must not rank him against his
+# own club. The engine learns that only through `currently_at_opponent`
+# (the wrapper's bootstrap-backed callback); here it is a plain function.
+# ---------------------------------------------------------------------------
+
+def test_opportunity_excludes_player_now_at_opponent_via_callback():
+    # Mutation: make _is_opponents_own consult only info["team"] (drop the
+    # callback branch) -> Right Poacher is ranked again and both asserts die.
+    asked: list[str] = []
+
+    def now_at_palace(player: str) -> bool:
+        asked.append(player)
+        return player == "Right Poacher"
+
+    out = get_zonal_opportunity(
+        "Palace", store=opportunity_store(), currently_at_opponent=now_at_palace,
+    )
+    assert out["status"] == "ok"
+    assert "Right Poacher" not in [e["player"] for e in out["exploiters"]]
+    assert "Right Poacher" not in [p for o in out["opportunities"] for p in o["players"]]
+    # the engine actually asked (once per profiled player), it did not guess
+    assert "Right Poacher" in asked
+
+
+def test_opportunity_callback_false_changes_nothing():
+    # Control: a callback that never claims anyone leaves the pre-i75
+    # answer byte-identical (store-club exclusion only).
+    base = get_zonal_opportunity("Palace", store=opportunity_store())
+    out = get_zonal_opportunity(
+        "Palace", store=opportunity_store(), currently_at_opponent=lambda _p: False,
+    )
+    assert out["exploiters"] == base["exploiters"]
+    assert out["opportunities"] == base["opportunities"]
+    assert "Palace Own" not in [e["player"] for e in out["exploiters"]]
+
+
+# ---------------------------------------------------------------------------
 # team filter (i85) — "which of TEAM's players can exploit OPPONENT" is a
 # different question from the unfiltered league-wide ranking, and must not
 # be answered by silently checking whether TEAM happens to appear in that

@@ -205,9 +205,19 @@ export function positionEs(position: string): string {
  * 'ARS · MED' sub-line; degrades gracefully when the backend name join
  * missed (empty team_short/position segments are dropped, never rendered
  * as dangling separators).
+ *
+ * i75: `clubNote` ("antes en BUR") rides inside the club segment —
+ * 'BRE (antes en BUR) · MED' — so a player the store still files under his
+ * old club reads with his current one and says where the data came from.
+ * Never rendered without a club to attach to.
  */
-export function exploiterSub(teamShort: string, position: string): string {
-  return [teamShort, positionEs(position)].filter(Boolean).join(' · ');
+export function exploiterSub(
+  teamShort: string,
+  position: string,
+  clubNote?: string | null,
+): string {
+  const club = teamShort && clubNote ? `${teamShort} (${clubNote})` : teamShort;
+  return [club, positionEs(position)].filter(Boolean).join(' · ');
 }
 
 // ---------------------------------------------------------------------------

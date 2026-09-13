@@ -278,6 +278,16 @@ describe('positionEs / exploiterSub', () => {
     expect(exploiterSub('BOU', '')).toBe('BOU');
     expect(exploiterSub('', '')).toBe('');
   });
+
+  test('i75: club note rides inside the club segment; never without a club', () => {
+    expect(exploiterSub('BRE', 'MID', 'antes en BUR')).toBe('BRE (antes en BUR) · MED');
+    expect(exploiterSub('BRE', '', 'antes en BUR')).toBe('BRE (antes en BUR)');
+    // null/undefined note (store and bootstrap agree, or older API) — unchanged
+    expect(exploiterSub('BRE', 'MID', null)).toBe('BRE · MED');
+    expect(exploiterSub('BRE', 'MID', undefined)).toBe('BRE · MED');
+    // no club to attach to → no dangling parenthesis
+    expect(exploiterSub('', 'MID', 'antes en BUR')).toBe('MED');
+  });
 });
 
 describe('splitVerdict', () => {
@@ -396,6 +406,29 @@ describe('DefensiveZonesCard', () => {
     expect(screen.getByText('Alejandro Jiménez')).toBeInTheDocument();
     expect(screen.getByText('BOU')).toBeInTheDocument();
     expect(screen.queryByText('BOU ·')).not.toBeInTheDocument();
+  });
+
+  test('i75: a transferred exploiter shows the current club with "(antes en X)"', () => {
+    // The card's own measured row: Jaidon Anthony, store Burnley, now Brentford.
+    const meta: DefensiveZonesMeta = {
+      ...palaceMeta,
+      exploiters: [
+        {
+          rank: 1, web_name: 'Anthony', team_short: 'BRE', position: 'MID',
+          zone: 'in-box / right', fit_score: 10.0,
+          club_source: 'bootstrap', club_note: 'antes en BUR',
+        },
+        {
+          rank: 2, web_name: 'Saka', team_short: 'ARS', position: 'MID',
+          zone: 'in-box / right', fit_score: 9.1,
+          club_source: 'bootstrap', club_note: null,
+        },
+      ],
+    };
+    render(<DefensiveZonesCard data={meta} />);
+    expect(screen.getByText('BRE (antes en BUR) · MED')).toBeInTheDocument();
+    expect(screen.getByText('ARS · MED')).toBeInTheDocument();
+    expect(screen.queryByText(/BUR ·/)).not.toBeInTheDocument();
   });
 
   test('renders penalty footer and IA badge when ai_active', () => {

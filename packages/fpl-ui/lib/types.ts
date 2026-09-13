@@ -809,6 +809,15 @@ export interface ZonalExploiter {
    */
   gameweek?: number | null;
   is_home?: boolean | null;
+  /**
+   * i75: `team_short` is the player's CURRENT club (live bootstrap) when the
+   * backend's exact name match reached him, else the club the tactical store
+   * last saw him shoot for. `club_source` says which; `club_note` carries
+   * "antes en BUR" when the two disagree (a transfer since the store was
+   * built), null otherwise. Both optional so older API payloads type-check.
+   */
+  club_source?: 'bootstrap' | 'store' | null;
+  club_note?: string | null;
 }
 
 /**
