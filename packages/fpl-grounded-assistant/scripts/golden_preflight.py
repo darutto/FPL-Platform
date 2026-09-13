@@ -60,8 +60,8 @@ ENTITIES: dict[str, str] = {
     "Enzo Fernández": PLAYER, "Gabriel Jesus": PLAYER, "Gordon": PLAYER,
     "Haaland": PLAYER, "Isak": PLAYER, "Mbeumo": PLAYER, "Mitoma": PLAYER,
     "Palmer": PLAYER, "Rashford": PLAYER, "Rodri": PLAYER, "Saka": PLAYER,
-    "Salah": PLAYER, "Solanke": PLAYER, "Son": PLAYER, "Sterling": PLAYER,
-    "Watkins": PLAYER,
+    "Salah": PLAYER, "Semenyo": PLAYER, "Solanke": PLAYER, "Son": PLAYER,
+    "Sterling": PLAYER, "Watkins": PLAYER,
     # teams
     "Aston Villa": TEAM, "Brighton": TEAM, "Chelsea": TEAM, "Everton": TEAM,
     "Fulham": TEAM, "Liverpool": TEAM, "Manchester City": TEAM,
@@ -71,10 +71,10 @@ ENTITIES: dict[str, str] = {
 #: Capitalised tokens that are Spanish words, not entities. Reviewed alongside
 #: ENTITIES; together the two sets must cover every candidate the scan finds.
 NON_ENTITIES: frozenset[str] = frozenset({
-    "Analizá", "Bench", "Busco", "Contame", "Contra", "Conviene", "Cuál",
-    "Cuáles", "Cuánto", "Cómo", "Debería", "En", "Es", "Estamos", "Está",
-    "Falta", "Hay", "Le", "Los", "Me", "Premier", "Quién", "Quiénes", "Qué",
-    "Saco", "Si", "Vale",
+    "Analizá", "Bench", "Busco", "Con", "Contame", "Contra", "Conviene",
+    "Cuál", "Cuáles", "Cuándo", "Cuánto", "Cuántos", "Cómo", "Debería", "En",
+    "Es", "Estamos", "Está", "Falta", "FPL", "GW3", "Hay", "J1", "Le", "Los",
+    "Me", "Premier", "Quién", "Quiénes", "Qué", "Saco", "Si", "Vale",
 })
 
 #: Team names as written in questions -> the bootstrap's own naming. The

@@ -366,7 +366,15 @@ def to_ask_response(
     # ------------------------------------------------------------------
     debug_blob: dict[str, Any] | None = None
     if ask_request.debug:
-        debug_blob = {"routing_trace": routing_trace}
+        debug_blob = {
+            "routing_trace": routing_trace,
+            # i82: the tool's own input/output, so an operator can assert on
+            # what the tool produced (season, totals, rows) rather than on
+            # the synthesis text. Debug-only; never on the default surface.
+            "selected_tool": d.get("selected_tool"),
+            "tool_input": d.get("tool_input"),
+            "raw_output": d.get("raw_output"),
+        }
 
     # ------------------------------------------------------------------
     # 10. context_meta passthrough.

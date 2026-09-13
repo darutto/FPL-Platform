@@ -1,7 +1,8 @@
 """
 fpl_grounded_assistant.historical_gameweek_top_scorer
 ======================================================
-Historical "Player of the Gameweek" lookup for PAST / COMPLETED seasons.
+Historical "Player of the Gameweek" lookup: any FINISHED gameweek of any
+season in the owned store, the season in progress included (i82).
 
 Closes the gap where every other grounded tool reads only the live/current
 FPL bootstrap and can never answer questions about a finished gameweek or a
@@ -316,8 +317,23 @@ def get_historical_gameweek_top_scorer(
         players_df.loc[players_df["element_type"].isin(_POSITION_MAP.keys()), "player_id"]
     )
 
+    all_event_ids: set[int] = set(int(x) for x in events_df["event_id"].tolist())
     if gw is not None:
         events_df = events_df[events_df["event_id"] == gw]
+        # i82: an OPEN gameweek must be told apart from a MISSING one. Before
+        # this check, an in-progress GW of the current season was silently
+        # dropped by the `finished` filter below and died in `gw_not_found`
+        # -- indistinguishable from "that gameweek does not exist". The
+        # order is: invalid_gw (above) -> gameweek_not_finished (here) ->
+        # gw_not_found -> build entries.
+        if len(events_df) > 0 and not bool(events_df.iloc[0].get("finished")):
+            return {
+                "status": "not_found",
+                "code": "gameweek_not_finished",
+                "gw": gw,
+                "season": canonical_season,
+                "message": f"La jornada {gw} de {canonical_season} aún no ha terminado.",
+            }
     else:
         events_df = events_df.sort_values("event_id")
 
@@ -370,7 +386,11 @@ def get_historical_gameweek_top_scorer(
         for rec in gw_stats_df.to_dict(orient="records")
     }
 
-    if gw is not None and gw not in wanted_events.union(fallback_top_by_gw.keys()):
+    # ``wanted_events`` always contains ``gw`` when one is given, so the old
+    # ``gw not in wanted_events | fallback`` guard could never fire and a
+    # missing GW leaked through to ``no_finished_data``. Check against the
+    # season's actual events (or the stats fallback) instead.
+    if gw is not None and gw not in all_event_ids and gw not in fallback_top_by_gw:
         return {
             "status": "not_found",
             "code": "gw_not_found",
@@ -466,13 +486,13 @@ def get_historical_gameweek_top_scorer(
 GET_HISTORICAL_GAMEWEEK_TOP_SCORER_SPEC = ToolSpec(
     name="get_historical_gameweek_top_scorer",
     description=(
-        "FPL 'Player of the Gameweek' (highest-scoring player) for a PAST/COMPLETED "
-        "season. Pass gw for one gameweek's top scorer; omit gw for the full-season "
-        "table (top scorer for every finished gameweek). Use for historical/past-season "
-        "point queries (e.g. 'top scorer GW1 2025-26', 'Player of the Gameweek table for "
-        "last season'). Covers seasons 2016-2017 through the most recently completed one. "
-        "NOT for in-progress/live current-season questions — use get_player_history or "
-        "rank_players_by_metric for those."
+        "Which PLAYER scored the most FPL POINTS in one gameweek ('Player of the "
+        "Gameweek'), or the full-season table of per-gameweek top scorers when gw "
+        "is omitted. Reads the owned store: any FINISHED gameweek of any stored "
+        "season, including already-finished gameweeks of the current season. An "
+        "in-progress gameweek returns code=gameweek_not_finished. Not goals -- "
+        "'maximo goleador' by goals is rank_players_by_metric. Not fixtures/"
+        "deadlines -- that is get_gameweek_context."
     ),
     parameters={
         "type": "object",
@@ -481,10 +501,9 @@ GET_HISTORICAL_GAMEWEEK_TOP_SCORER_SPEC = ToolSpec(
                 "type": "string",
                 "description": (
                     "Season identifier, e.g. '2025-2026', '2025-26', or '25/26'. "
-                    f"Always required. The current/most recently completed season "
-                    f"is {CURRENT_SEASON} — if the user says 'last season', 'this "
-                    f"season', or doesn't name a season, pass '{CURRENT_SEASON}'. "
-                    "Do NOT guess an earlier season from training-data recall."
+                    f"Defaults to the current season ({CURRENT_SEASON}) when omitted; "
+                    "'la temporada pasada' / 'last season' means the season before "
+                    "that. Do NOT guess an earlier season from training-data recall."
                 ),
             },
             "gw": {
@@ -494,8 +513,8 @@ GET_HISTORICAL_GAMEWEEK_TOP_SCORER_SPEC = ToolSpec(
                 "maximum": 38,
             },
         },
-        # The current completed season is the deterministic default when the
-        # caller omits season; the runner still forwards optional arguments.
+        # The current season is the deterministic default when the caller
+        # omits season; the runner still forwards optional arguments.
         "required": [],
         "additionalProperties": False,
     },
