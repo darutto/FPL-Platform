@@ -30,8 +30,14 @@ from __future__ import annotations
 import os
 import re
 import sys
-from typing import Any
+from typing import Any, Callable
 
+from fpl_player_registry import (
+    KNOWN_NICKNAMES,
+    RANK_EXACT,
+    normalize_player_name,
+    resolve_player_candidates,
+)
 from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
 
@@ -43,7 +49,6 @@ from .zonal_weakness import (
 )
 # Reuse the proven team-name resolver (name / short_name / alias) and the
 # current-GW helper (fixtures come from bootstrap["team_fixtures"]).
-from .player_matching import resolve_fpl_player
 from .team_fixture_calendar import (
     _TEAM_RESOLVE_ALIASES,
     _get_current_gameweek,
@@ -138,32 +143,181 @@ _UNDERSTAT_TO_SHORT: dict[str, str] = {
 _POSITION_SHORT: dict[int, str] = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
 
 
+# ---------------------------------------------------------------------------
+# i75 — store player name → CURRENT bootstrap element, exact or nickname only.
+#
+# The store (Understat parquet) names a player's club as the side they shot
+# for most recently in the stored season; the bootstrap names the club they
+# play for today. Between the two sit every summer transfer (and, inside a
+# season, every January one). The card measured 6/71 exploiter rows naming
+# the wrong club on 2026-09-13 (Jaidon Anthony x6: store Burnley, now
+# Brentford). The fix is per row, never per census: correct the row when the
+# name resolves with high confidence, leave it alone when it doesn't.
+#
+# "High confidence" = the shared registry resolver at RANK_EXACT (0):
+# web_name / first / second / full-name equality after
+# ``normalize_player_name`` (accents, ø, dashes, apostrophes), or a
+# ``KNOWN_NICKNAMES`` alias. Prefix and substring are switched OFF at the
+# call and compound forms (rank 1) are rejected: a store name that only
+# *starts with* or *contains* a bootstrap name must not move a row to a club.
+# See feedback_matcher_relaxation_audit: the PR lists what this resolves
+# that the previous tiered matcher did not (4 names, all diacritic/dash
+# spellings) and what it would have stopped resolving without the tie-break
+# below (4 names, all correct today).
+# ---------------------------------------------------------------------------
+
+def resolve_store_player(
+    store_name: str, bootstrap: dict[str, Any]
+) -> "dict[str, Any] | None":
+    """The bootstrap element *store_name* names, or ``None`` -- never a guess.
+
+    Accepts only a unique ``RANK_EXACT`` match. When several elements tie at
+    rank 0, exactly one of which matched on its FPL ``web_name`` (the name
+    FPL itself displays the player under), that one is taken: "João Pedro"
+    is Chelsea's João Pedro (web_name) even though it is also Costinha's
+    legal first name; "Gabriel" is Gabriel Magalhães (web_name) even though
+    three other Arsenal/Leeds players are legally a Gabriel. Understat names
+    a player the way he is known, so equality with a *display* name
+    outranks equality with an incidental first name. Two web_name hits, or
+    none among the tied, stay ambiguous and resolve to nothing.
+    """
+    name = str(store_name or "").strip()
+    elements = (bootstrap or {}).get("elements") or []
+    teams = (bootstrap or {}).get("teams") or []
+    if not name or not elements:
+        return None
+    try:
+        resolution = resolve_player_candidates(
+            name, elements, teams, allow_prefix=False, allow_substring=False,
+        )
+    except Exception:  # noqa: BLE001 — enrichment is best-effort, never raises
+        return None
+    best = [m for m in resolution.best_matches if m.rank == RANK_EXACT]
+    if not best:
+        return None
+    if len(best) > 1:
+        via_web = [m for m in best if m.matched_via == "web_name"]
+        if len(via_web) != 1:
+            return None
+        best = via_web
+    chosen_id = best[0].record.id
+    return next((el for el in elements if el.get("id") == chosen_id), None)
+
+
+def _team_short_by_id(bootstrap: dict[str, Any]) -> dict[Any, str]:
+    return {
+        t.get("id"): str(t.get("short_name") or "")
+        for t in ((bootstrap or {}).get("teams") or [])
+    }
+
+
 def _enrich_exploiters(
     exploiters: list[dict[str, Any]], bootstrap: dict[str, Any]
 ) -> list[dict[str, Any]]:
     """Best-effort FPL enrichment of engine exploiter rows (T4b card).
 
-    Adds ``team_short`` (store team name → FPL short via the inverted
-    ``_SHORT_TO_UNDERSTAT`` bridge) and ``web_name`` / ``position`` via the
-    shared accent-robust matcher (``player_matching.resolve_fpl_player``:
-    full name → web_name → second_name, ambiguous surnames never guessed).
+    Adds ``web_name`` / ``position`` and -- i75 -- the CURRENT club:
 
-    Degrade gracefully: unmatched players keep the store name as
-    ``web_name`` and get ``position: ""``; a player is never dropped.
+    ``team_short``   the bootstrap club when the name resolves exactly
+                     (``resolve_store_player``), else the store club bridged
+                     through ``_UNDERSTAT_TO_SHORT``;
+    ``club_source``  ``"bootstrap"`` or ``"store"`` -- ALWAYS present, so a
+                     reader can tell a corrected row from an untouched one;
+    ``club_note``    ``"antes en <store club>"`` when the two disagree,
+                     else ``None`` -- ALWAYS present (never absent).
+
+    ``team`` (the engine's store club) is left untouched: it is the
+    provenance the note refers to. Degrade gracefully: unmatched players
+    keep the store name as ``web_name``, ``position: ""`` and the store
+    club; a player is never dropped and a club is never invented.
     """
+    short_by_id = _team_short_by_id(bootstrap)
     out: list[dict[str, Any]] = []
     for entry in exploiters:
         e = dict(entry)
-        e["team_short"] = _UNDERSTAT_TO_SHORT.get(str(e.get("team", "")).lower(), "")
-        el = resolve_fpl_player(str(e.get("player", "")), bootstrap)
+        store_team = str(e.get("team", "") or "")
+        store_short = _UNDERSTAT_TO_SHORT.get(store_team.lower(), "")
+        el = resolve_store_player(str(e.get("player", "")), bootstrap)
+        current_short = str(short_by_id.get(el.get("team"), "") or "") if el is not None else ""
         if el is not None:
             e["web_name"] = str(el.get("web_name") or e.get("player", ""))
             e["position"] = _POSITION_SHORT.get(el.get("element_type"), "")
         else:
             e["web_name"] = str(e.get("player", ""))
             e["position"] = ""
+        if current_short:
+            e["team_short"] = current_short
+            e["club_source"] = "bootstrap"
+            e["club_note"] = (
+                f"antes en {store_short or store_team}"
+                if current_short != store_short else None
+            )
+        else:
+            e["team_short"] = store_short
+            e["club_source"] = "store"
+            e["club_note"] = None
         out.append(e)
     return out
+
+
+def _opponent_squad_guard(
+    opponent_query: str, bootstrap: dict[str, Any]
+) -> "Callable[[str], bool] | None":
+    """i75: build the engine's ``currently_at_opponent`` callback.
+
+    Answers "does this store player play for *opponent* NOW?" for every
+    player the engine considers -- ~300 league-wide -- so it must be cheap
+    for the common "no". A ``resolve_store_player`` call rebuilds the shared
+    registry (~70 ms measured on the live 657-element bootstrap), which is
+    fine for the handful of ranked rows but not for 300 candidates.
+
+    So: a store name can only resolve at rank 0 to a member of opponent's
+    current squad if its normalized form EQUALS one of that member's four
+    name fields or a ``KNOWN_NICKNAMES`` alias (the resolver's own rank-0
+    condition, same ``normalize_player_name``). Names that fail that exact
+    prefilter are a definite ``False`` at set-lookup cost; the few that
+    pass are confirmed with the full league-wide resolver, so a name that
+    merely equals a squad member's first name ("Kevin" vs Kevin Schade)
+    is still judged against every club and comes back ambiguous -> not
+    excluded. The prefilter never changes an answer, only skips work.
+
+    Returns ``None`` when the opponent does not resolve in the bootstrap
+    or the bootstrap carries no elements (tests / degraded contexts): the
+    engine then falls back to store-team exclusion only.
+    """
+    team = _resolve_team(opponent_query, bootstrap or {})
+    elements = (bootstrap or {}).get("elements") or []
+    if team is None or not elements:
+        return None
+    team_id = team.get("id")
+    squad = [el for el in elements if el.get("team") == team_id]
+    if not squad:
+        return None
+    squad_ids = {el.get("id") for el in squad}
+    exact_keys: set[str] = set()
+    for el in squad:
+        first = normalize_player_name(el.get("first_name"))
+        second = normalize_player_name(el.get("second_name"))
+        web = normalize_player_name(el.get("web_name"))
+        full = " ".join(part for part in (first, second) if part)
+        exact_keys.update(k for k in (web, first, second, full) if k)
+    for aliases in KNOWN_NICKNAMES.values():
+        for alias in aliases:
+            key = normalize_player_name(alias)
+            if key:
+                exact_keys.add(key)
+                exact_keys.add(key.removeprefix("el ").strip())
+    cache: dict[str, bool] = {}
+
+    def currently_at_opponent(store_name: str) -> bool:
+        if normalize_player_name(store_name) not in exact_keys:
+            return False
+        if store_name not in cache:
+            el = resolve_store_player(store_name, bootstrap)
+            cache[store_name] = el is not None and el.get("id") in squad_ids
+        return cache[store_name]
+
+    return currently_at_opponent
 
 
 def _to_store_team(team_query: str, bootstrap: dict[str, Any]) -> str:
@@ -390,6 +544,10 @@ def _get_zonal_opportunity_handler(
             fixtures_for_team=fixtures_for_team,
             horizon=horizon,
             live_season=_live_season(bootstrap),
+            # i75: exclude players who moved TO the opponent since the
+            # store was built (the store still lists them under their old
+            # club, so the engine alone would rank them against themselves).
+            currently_at_opponent=_opponent_squad_guard(opponent_query, bootstrap),
         )
     except Exception as exc:  # noqa: BLE001 — never raise into the orchestrator
         return {
@@ -540,7 +698,7 @@ GET_ZONAL_OPPORTUNITY_SPEC = ToolSpec(
             "scope_resolution": {"type": "string"},  # i90: explicit | fixtures | fixtures_empty_fallback | league
             "opportunities":   {"type": "array"},
             "zones":           {"type": "array"},   # T4b: 3 in-box lateral cells
-            "exploiters":      {"type": "array"},   # T4b: ranked zone-fit table; i90 adds gameweek/is_home/fixtures under fixture scope
+            "exploiters":      {"type": "array"},   # T4b: ranked zone-fit table; i90 adds gameweek/is_home/fixtures under fixture scope; i75: team_short is the CURRENT club, club_source ∈ bootstrap|store, club_note "antes en X" | null
             "team_filter":     {"type": "object"},  # i85–i90: {requested, matched, source, *_teams, fixture_window, fixtures, scheduled_opponents, candidates_per_team}; present when a team scope was given, inferred, or fixture-derived
             "weakness_strength": {"type": "string"},  # i89: clear | marginal | none
             "weakness_label":  {"type": "string"},  # T4b

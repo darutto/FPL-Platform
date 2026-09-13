@@ -167,10 +167,15 @@ def test_run_tool_opportunity_ok_shape(tactical_store):
 # ---------------------------------------------------------------------------
 
 def _bootstrap_with_elements() -> dict:
-    """Bootstrap whose elements match 'Right Poacher' by full name."""
+    """Bootstrap whose elements match 'Right Poacher' by full name.
+
+    i75: elements carry ``id`` and ``team`` (the shared registry resolver
+    needs both); 'Right Poacher' is at Burnley in the bootstrap too, so the
+    store club and the current club agree.
+    """
     bs = _bootstrap()
     bs["elements"] = [
-        {"first_name": "Right", "second_name": "Poacher",
+        {"id": 101, "team": 3, "first_name": "Right", "second_name": "Poacher",
          "web_name": "Poacher", "element_type": 3},
     ]
     return bs
@@ -189,20 +194,263 @@ def test_run_tool_opportunity_exploiters_enriched_matched_player(tactical_store)
     assert top["player"] == "Right Poacher"
     assert top["web_name"] == "Poacher"          # FPL join hit
     assert top["position"] == "MID"
-    assert top["team_short"] == "BUR"            # inverted Understat bridge
+    assert top["team_short"] == "BUR"            # bootstrap club (== store club here)
+    assert top["club_source"] == "bootstrap"     # i75
+    assert top["club_note"] is None              # i75: no disagreement, no note
     assert top["fit_score"] == 10.0              # best cross of this answer
 
 
 def test_run_tool_opportunity_exploiters_unmatched_player_degrades(tactical_store):
-    # No elements in bootstrap → the fragile name join misses; the player is
-    # kept with the store name and an empty position, never dropped.
+    # No elements in bootstrap → the name join misses; the player is kept
+    # with the store name, an empty position and the STORE club, never
+    # dropped and never given an invented club.
     out = run_tool("get_zonal_opportunity", {"opponent": "Crystal Palace"}, _bootstrap())
     assert out["status"] == "ok"
     top = out["exploiters"][0]
     assert top["player"] == "Right Poacher"
     assert top["web_name"] == "Right Poacher"
     assert top["position"] == ""
-    assert top["team_short"] == "BUR"
+    assert top["team_short"] == "BUR"            # inverted Understat bridge
+    assert top["club_source"] == "store"         # i75
+    assert top["club_note"] is None              # i75
+
+
+# ---------------------------------------------------------------------------
+# i75 — the club of each exploiter row is the CURRENT one, never invented.
+#
+# Fixture data = the card's own measurement (2026-09-13, live bootstrap vs
+# the 2025-26 store): Jaidon Anthony appeared in 6 of 71 rows as Burnley
+# (his store club) while the bootstrap has him at Brentford.
+# ---------------------------------------------------------------------------
+
+from fpl_grounded_assistant.zonal_weakness_tool import (  # noqa: E402
+    _enrich_exploiters,
+    _opponent_squad_guard,
+    resolve_store_player,
+)
+
+
+def _bootstrap_i75() -> dict:
+    """Live-bootstrap shaped fixture: Anthony moved BUR -> BRE; Costinha's
+    legal first name is 'João Pedro' (real collision measured on the live
+    bootstrap, see project_find_players_substring_false_positive); Rowe is
+    a prefix-homonym trap for the mutation test."""
+    return {
+        "teams": [
+            {"id": 1, "name": "Crystal Palace", "short_name": "CRY"},
+            {"id": 2, "name": "Aston Villa",    "short_name": "AVL"},
+            {"id": 3, "name": "Burnley",        "short_name": "BUR"},
+            {"id": 4, "name": "Sunderland",     "short_name": "SUN"},
+            {"id": 5, "name": "Brentford",      "short_name": "BRE"},
+            {"id": 6, "name": "Chelsea",        "short_name": "CHE"},
+            {"id": 7, "name": "Brighton",       "short_name": "BHA"},
+            {"id": 8, "name": "Fulham",         "short_name": "FUL"},
+        ],
+        "events": [{"id": 1, "is_current": True}],
+        "elements": [
+            {"id": 11, "team": 5, "first_name": "Jaidon", "second_name": "Anthony",
+             "web_name": "Anthony", "element_type": 3},
+            {"id": 12, "team": 6, "first_name": "João Pedro",
+             "second_name": "Junqueira de Jesus", "web_name": "João Pedro", "element_type": 4},
+            {"id": 13, "team": 7, "first_name": "João Pedro",
+             "second_name": "Loureiro da Costa", "web_name": "Costinha", "element_type": 3},
+            {"id": 14, "team": 8, "first_name": "Emile", "second_name": "Smith Rowe",
+             "web_name": "Smith Rowe", "element_type": 3},
+            {"id": 15, "team": 8, "first_name": "Emile", "second_name": "Smith Rowe-Jones",
+             "web_name": "Smith Rowe-Jones", "element_type": 3},
+            {"id": 16, "team": 3, "first_name": "Kevin", "second_name": "Schade",
+             "web_name": "Schade", "element_type": 3},
+        ],
+    }
+
+
+def _anthony_rows() -> list[dict]:
+    """The six measured rows, as the engine emits them (store club Burnley)."""
+    zones = ["in-box / right", "in-box / right", "in-box / left",
+             "in-box / right", "in-box / central", "in-box / right"]
+    return [
+        {"rank": 1, "player": "Jaidon Anthony", "team": "Burnley", "zone": z,
+         "fit_score": 10.0, "n_shots": 41, "zone_share": 0.4, "sample": "ok"}
+        for z in zones
+    ]
+
+
+class TestI75CurrentClub:
+    def test_six_known_rows_move_to_brentford_with_note(self):
+        rows = _enrich_exploiters(_anthony_rows(), _bootstrap_i75())
+        assert len(rows) == 6
+        for r in rows:
+            assert r["team_short"] == "BRE", r
+            assert r["club_source"] == "bootstrap"
+            assert r["club_note"] == "antes en BUR"
+            assert r["team"] == "Burnley"        # store provenance untouched
+            assert r["web_name"] == "Anthony"
+            assert r["position"] == "MID"
+
+    def test_unmatched_name_keeps_store_club_and_says_so(self):
+        # A store name absent from the bootstrap (left the league, or a
+        # spelling the exact matcher cannot bridge): store club, no note.
+        row = {"rank": 1, "player": "Kaoru Mitoma", "team": "Brighton",
+               "zone": "in-box / left", "fit_score": 8.0}
+        (out,) = _enrich_exploiters([row], _bootstrap_i75())
+        assert out["team_short"] == "BHA"
+        assert out["club_source"] == "store"
+        assert out["club_note"] is None
+        assert out["web_name"] == "Kaoru Mitoma"
+
+    def test_both_fields_always_present(self):
+        rows = _enrich_exploiters(
+            _anthony_rows()[:1]
+            + [{"rank": 2, "player": "Nobody Known", "team": "Sunderland",
+                "zone": "in-box / right", "fit_score": 5.0}],
+            _bootstrap_i75(),
+        )
+        for r in rows:
+            assert "club_source" in r and "club_note" in r
+            assert r["club_source"] in ("bootstrap", "store")
+
+    def test_prefix_homonym_does_not_resolve(self):
+        # The relaxation must be visible: a bootstrap that only has 'Emile
+        # Smith Rowe-Jones' (FUL). The store's 'Emile Smith Rowe' is a
+        # strict PREFIX of that name (the dash normalises to a space) and a
+        # different person. Exact-only -> nobody -> store club kept.
+        # Mutation (allow_prefix=True AND accept rank <= RANK_PREFIX in
+        # resolve_store_player): resolves to Rowe-Jones, the row moves to
+        # FUL with an invented "antes en ..." note, and this test dies.
+        bs = _bootstrap_i75()
+        bs["elements"] = [el for el in bs["elements"] if el["id"] != 14]
+        assert resolve_store_player("Emile Smith Rowe", bs) is None
+        row = {"rank": 1, "player": "Emile Smith Rowe", "team": "Aston Villa",
+               "zone": "in-box / left", "fit_score": 6.0}
+        (out,) = _enrich_exploiters([row], bs)
+        assert out["team_short"] == "AVL"
+        assert out["club_source"] == "store"
+        assert out["club_note"] is None
+        # With both present the exact name wins uniquely at rank 0.
+        exact = resolve_store_player("Emile Smith Rowe", _bootstrap_i75())
+        assert exact is not None and exact["id"] == 14
+
+    def test_substring_does_not_resolve(self):
+        assert resolve_store_player("Smith Rowe-J", _bootstrap_i75()) is None
+        assert resolve_store_player("Pedro", _bootstrap_i75()) is None
+
+    def test_web_name_breaks_a_rank0_tie_but_first_name_alone_does_not(self):
+        # Tie at rank 0: CHE's João Pedro (web_name) vs Costinha (legal first
+        # name). The display name wins -- the same answer prod's previous
+        # matcher gave. Mutation: drop the web_name tie-break -> None.
+        el = resolve_store_player("João Pedro", _bootstrap_i75())
+        assert el is not None and el["id"] == 12
+        # A bare first name shared by two players with no web_name hit stays
+        # ambiguous: 'Emile' is both Smith Rowes' first name.
+        assert resolve_store_player("Emile", _bootstrap_i75()) is None
+
+    def test_nickname_resolves_at_rank_zero(self):
+        # KNOWN_NICKNAMES: "Gordon": ["Anthony", ...] -- add a Gordon and the
+        # alias 'Anthony' must reach him... but 'Anthony' is ALSO Jaidon
+        # Anthony's web_name here, so it is a rank-0 tie with exactly one
+        # web_name hit -> Jaidon. Use an alias with no such collision.
+        bs = _bootstrap_i75()
+        bs["elements"].append(
+            {"id": 17, "team": 6, "first_name": "Cole", "second_name": "Palmer",
+             "web_name": "Palmer", "element_type": 3}
+        )
+        el = resolve_store_player("el Palmer", bs)
+        assert el is not None and el["id"] == 17
+
+    def test_current_club_unknown_team_falls_back_to_store(self):
+        # Element resolves but its team id is not in bootstrap['teams']:
+        # no current club to claim -> store club, club_source 'store'.
+        bs = _bootstrap_i75()
+        bs["elements"][0]["team"] = 99
+        (out,) = _enrich_exploiters(_anthony_rows()[:1], bs)
+        assert out["team_short"] == "BUR"
+        assert out["club_source"] == "store"
+        assert out["club_note"] is None
+
+
+class TestI75OpponentSquadGuard:
+    def test_transferred_in_player_is_flagged(self):
+        guard = _opponent_squad_guard("Brentford", _bootstrap_i75())
+        assert guard is not None
+        assert guard("Jaidon Anthony") is True
+
+    def test_other_clubs_player_is_not_flagged(self):
+        guard = _opponent_squad_guard("Brentford", _bootstrap_i75())
+        assert guard("Emile Smith Rowe") is False
+        assert guard("Kaoru Mitoma") is False
+
+    def test_first_name_homonym_of_a_squad_member_is_not_flagged(self):
+        # Store 'Kevin' vs Burnley's Kevin Schade, with a Kevin Danso at
+        # Sunderland too (the live bootstrap's real shape: three Kevins).
+        # The prefilter lets the name through (first_name equality) and the
+        # full LEAGUE-WIDE resolver must still refuse it: two first-name
+        # hits, no web_name hit -> ambiguous -> not excluded. Resolving
+        # against the squad alone would have said True here, wrongly.
+        bs = _bootstrap_i75()
+        bs["elements"].append(
+            {"id": 18, "team": 4, "first_name": "Kevin", "second_name": "Danso",
+             "web_name": "Danso", "element_type": 2}
+        )
+        guard = _opponent_squad_guard("Burnley", bs)
+        assert guard("Kevin") is False
+        # ...while a unique exact first name IS a resolution (same rule that
+        # resolves the store's 'Jair' to Jair Cunha on the live bootstrap).
+        assert _opponent_squad_guard("Burnley", _bootstrap_i75())("Kevin") is True
+
+    def test_none_without_elements_or_unresolved_opponent(self):
+        assert _opponent_squad_guard("Brentford", _bootstrap()) is None
+        assert _opponent_squad_guard("Real Madrid", _bootstrap_i75()) is None
+
+
+def _store_with_transfer_df() -> pd.DataFrame:
+    """Crystal Palace weak in-box/right; 'Right Poacher' shot for Burnley in
+    the store but the i75 bootstrap below has him at Crystal Palace now."""
+    return _store_df()
+
+
+@pytest.fixture
+def transfer_store(tmp_path, monkeypatch):
+    season_dir = tmp_path / "seasons" / CURRENT_SEASON
+    season_dir.mkdir(parents=True)
+    _store_with_transfer_df().to_parquet(season_dir / "understat_shots.parquet", index=False)
+    monkeypatch.setenv("FPL_TACTICAL_ROOT", str(tmp_path))
+    return tmp_path
+
+
+def _bootstrap_transferred_to_weak_team() -> dict:
+    bs = _bootstrap()
+    bs["elements"] = [
+        # Right Poacher: Burnley in the store, Crystal Palace (the weak
+        # team) in the bootstrap -- the exclusion mine.
+        {"id": 101, "team": 1, "first_name": "Right", "second_name": "Poacher",
+         "web_name": "Poacher", "element_type": 3},
+    ]
+    return bs
+
+
+def test_run_tool_excludes_player_transferred_to_the_weak_team(transfer_store):
+    # Before i75 this row was rank 1 against his own current club (see
+    # test_run_tool_opportunity_exploiters_enriched_matched_player, where
+    # the bootstrap still has him at Burnley). Mutation: make the engine's
+    # _is_opponents_own look only at the store club -> he is back at rank 1.
+    out = run_tool(
+        "get_zonal_opportunity", {"opponent": "Crystal Palace"},
+        _bootstrap_transferred_to_weak_team(),
+    )
+    assert out["status"] == "ok"
+    assert all(r["player"] != "Right Poacher" for r in out["exploiters"])
+    for opp in out["opportunities"]:
+        assert "Right Poacher" not in opp["players"]
+
+
+def test_run_tool_same_store_still_ranks_him_when_bootstrap_agrees_with_store(tactical_store):
+    # Control for the test above: same store, bootstrap keeps him at Burnley
+    # -> still the top exploiter. Proves the exclusion is the club, not the name.
+    out = run_tool(
+        "get_zonal_opportunity", {"opponent": "Crystal Palace"},
+        _bootstrap_with_elements(),
+    )
+    assert out["exploiters"][0]["player"] == "Right Poacher"
 
 
 def test_run_tool_opportunity_card_fields_present(tactical_store):

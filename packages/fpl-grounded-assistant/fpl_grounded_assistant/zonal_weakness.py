@@ -736,8 +736,20 @@ def get_zonal_opportunity(
     horizon: int | None = None,
     store: Any = None,
     live_season: str | None = None,
+    currently_at_opponent: "Callable[[str], bool] | None" = None,
 ) -> dict[str, Any]:
     """Join *opponent*'s weak zones to players who operate in those zones.
+
+    i75: ``currently_at_opponent`` is the wrapper's answer to one question
+    the engine cannot answer from the store -- "does this store player NOW
+    play for *opponent*?". A player's store team is the side they shot for
+    most recently *in the store* (last season until Understat publishes the
+    new one, and stale until the January window inside a season), so a
+    player who has since moved TO *opponent* would otherwise be ranked as a
+    fit against his own current club. When the callback says ``True`` the
+    player is excluded exactly like *opponent*'s own store players; when it
+    is ``None`` (no bootstrap, tests) only the store team is consulted,
+    which is the pre-i75 behaviour. The engine stays bootstrap-agnostic.
 
     i90: when ``team`` is omitted and *fixtures_for_team* is given (same
     callable shape the wrapper injects into ``get_player_zonal_outlook``:
@@ -914,6 +926,22 @@ def get_zonal_opportunity(
             else {}
         )
 
+    # i75 -- the exclusion mine. ONE set, consulted by both rankings below,
+    # so the per-zone lists and the fit table can never disagree about who
+    # is "one of opponent's own". A player is opponent's own when the store
+    # says so (shot for them most recently) OR when the wrapper's bootstrap
+    # says they play there NOW (transferred in since the store was built).
+    def _is_opponents_own(player: str, info: dict[str, Any]) -> bool:
+        if info["team"] == matched:
+            return True
+        if currently_at_opponent is not None and currently_at_opponent(player):
+            return True
+        return False
+
+    excluded_players: set[str] = {
+        player for player, info in shares.items() if _is_opponents_own(player, info)
+    }
+
     opportunities: list[dict[str, Any]] = []
     for zone_row in weakness["weakest_zones"]:
         if zone_row["delta_vs_avg"] <= 0:
@@ -922,7 +950,7 @@ def get_zonal_opportunity(
         candidates = [
             (info["zone_share"][zone] * info["total_xg"], player)
             for player, info in shares.items()
-            if info["team"] != matched
+            if player not in excluded_players
             and info["zone_share"][zone] >= share_threshold
             and info["zone_share"][zone] > 0
         ]
@@ -955,7 +983,7 @@ def get_zonal_opportunity(
         pct = _pct_over_avg(zone_row["xga_per_game"], zone_row["league_avg"])
         weight = max(pct, 0.0) / 100.0
         for player, info in shares.items():
-            if info["team"] == matched:
+            if player in excluded_players:
                 continue
             share = info["zone_share"][zone]
             if share < share_threshold or share <= 0:
