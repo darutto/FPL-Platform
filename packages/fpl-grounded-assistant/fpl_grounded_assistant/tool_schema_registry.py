@@ -801,11 +801,19 @@ GET_PLAYER_HISTORY_SCHEMA = ToolSchema(
 # P2.4 atomic tool — get_fixtures_for_gw GW fixture list with FDR
 # ---------------------------------------------------------------------------
 
+# i78-A: the description states the scope boundary BEFORE the payload. Measured
+# 2026-09-13 (field-notes/artifacts/i78a-routing-before.jsonl, gpt-5.6-luna):
+# the one-team, one-match phrase a /fixtures cell tap inserts reached this
+# tool in 12 of 60 runs (11 as the first call) -- a whole-round dump for a
+# question about one club. With this wording: 0 of 60 (after-round1/2).
 GET_FIXTURES_FOR_GW_SCHEMA = ToolSchema(
     name="get_fixtures_for_gw",
     description=(
-        "All fixtures for a GW with FDR per team. Returns fixture list (kickoff, teams, FDR, "
-        "scores) + summary (totals, easiest/hardest, DGW+BGW teams). "
+        "The full fixture list of ONE gameweek for ALL 20 teams (kickoff, both teams, "
+        "FDR, scores) + summary (totals, easiest/hardest, DGW+BGW teams). Use ONLY for "
+        "whole-round questions ('¿qué partidos hay en la jornada 3?'). NOT for one "
+        "team's outlook or one team's specific match ('Newcastle vs LIV (en casa), J1: "
+        "¿qué tal pinta ofensivamente?') -- that is get_fixture_outlook with team_query. "
         "status=invalid_argument on out-of-range gw_number."
     ),
     parameters={
