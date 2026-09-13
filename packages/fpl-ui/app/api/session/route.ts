@@ -23,6 +23,7 @@
  *   503  — backend not initialised
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { forwardIdentityHeaders } from '@/lib/identity-headers';
 
 const BACKEND_URL =
   process.env.FPL_BACKEND_URL?.replace(/\/$/, '') ?? 'http://localhost:8000';
@@ -47,12 +48,11 @@ export async function POST(request: NextRequest) {
   try {
     backendResponse = await fetch(`${BACKEND_URL}/session`, {
       method: 'POST',
-      ...(hasSeed
-        ? {
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(seed),
-          }
-        : {}),
+      headers: forwardIdentityHeaders(
+        request,
+        hasSeed ? { 'Content-Type': 'application/json' } : {},
+      ),
+      ...(hasSeed ? { body: JSON.stringify(seed) } : {}),
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';

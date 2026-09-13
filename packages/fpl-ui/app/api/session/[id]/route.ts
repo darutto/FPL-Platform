@@ -9,12 +9,13 @@
  *   404  — session not found (already expired or never existed)
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { forwardIdentityHeaders } from '@/lib/identity-headers';
 
 const BACKEND_URL =
   process.env.FPL_BACKEND_URL?.replace(/\/$/, '') ?? 'http://localhost:8000';
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
   const { id } = await context.params;
@@ -23,6 +24,7 @@ export async function DELETE(
   try {
     backendResponse = await fetch(`${BACKEND_URL}/session/${id}`, {
       method: 'DELETE',
+      headers: forwardIdentityHeaders(request),
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';

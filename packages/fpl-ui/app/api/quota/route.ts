@@ -18,6 +18,7 @@
  *   502  — backend unreachable
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { forwardIdentityHeaders } from '@/lib/identity-headers';
 
 const BACKEND_URL =
   process.env.FPL_BACKEND_URL?.replace(/\/$/, '') ?? 'http://localhost:8000';
@@ -35,11 +36,7 @@ export async function GET(request: NextRequest) {
   if (tier) backendParams.set('tier', tier);
 
   // Forward identity headers if provided by the client
-  const forwardHeaders: HeadersInit = {};
-  const xUserId = request.headers.get('x-user-id');
-  const xUserTier = request.headers.get('x-user-tier');
-  if (xUserId) forwardHeaders['x-user-id'] = xUserId;
-  if (xUserTier) forwardHeaders['x-user-tier'] = xUserTier;
+  const forwardHeaders = forwardIdentityHeaders(request);
 
   // Attach the server-to-server token so the backend's quota gate accepts us.
   if (INTERNAL_TOKEN) forwardHeaders['x-internal-token'] = INTERNAL_TOKEN;

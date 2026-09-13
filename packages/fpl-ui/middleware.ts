@@ -21,6 +21,16 @@ export default clerkMiddleware(async (auth, req) => {
     if (isQuotaBucket(devTier)) tier = devTier;
   }
 
+  // Trust boundary: identity headers are SERVER-SET ONLY. Strip whatever the
+  // client sent (an anonymous caller could otherwise forge `x-user-tier:
+  // patreon_premium` straight into /api/proxy) and re-set them from the Clerk
+  // session below. This happens on EVERY request, authenticated or not, and
+  // the stripped headers are what the route handlers receive — see the single
+  // `NextResponse.next({ request: { headers } })` exit at the bottom.
+  const headers = new Headers(req.headers);
+  headers.delete('x-user-id');
+  headers.delete('x-user-tier');
+
   // Gate /chat: must be signed in, but ALL tiers (including free) get in.
   // Free is a deliberately limited taste of the assistant (5 msgs/day, enforced
   // by the backend quota) — a funnel meant to drive subscriptions, not a wall.
@@ -31,14 +41,17 @@ export default clerkMiddleware(async (auth, req) => {
   }
 
   // Forward identity + tier to the backend quota system. The API proxy routes
-  // (wc-proxy, proxy, quota) pass these through to FastAPI's _extract_user_context,
-  // which keys per-user quota on X-User-Id and enforces caps by X-User-Tier.
+  // (proxy, session/*, wc-proxy/*, quota, wc-quota) copy these through via
+  // lib/identity-headers.ts to FastAPI's _extract_user_context, which keys
+  // per-user quota on X-User-Id and enforces caps by X-User-Tier.
   if (userId) {
-    const headers = new Headers(req.headers);
     headers.set('x-user-id', userId);
     headers.set('x-user-tier', tier);
-    return NextResponse.next({ request: { headers } });
   }
+
+  // Single exit for every non-redirect path — anonymous requests MUST also go
+  // through here so the stripped headers (not the originals) reach the route.
+  return NextResponse.next({ request: { headers } });
 });
 
 export const config = {
