@@ -137,3 +137,165 @@ def test_run_tool_requires_axis():
     # axis is required → runner returns a structured error, not a crash.
     res = run_tool("get_fixture_outlook", {}, _bootstrap())
     assert res.get("status") != "ok"
+
+
+# ---------------------------------------------------------------------------
+# i78-A -- short horizon: describe the match, never "racha"
+# ---------------------------------------------------------------------------
+# A run needs 3 consecutive GWs, so with 1 or 2 GWs in the series the engine's
+# verdict is ALWAYS "Calendario sin rachas claras" -- vacuous for the one-match
+# question a /fixtures cell tap asks. Guard: len(series) < _MIN_RUN_LEN.
+# Mutation log (each run separately, then restored):
+#   `< _MIN_RUN_LEN` -> `< 0`   : test_horizon_1_describes_the_match_without_run_language dies
+#   `< _MIN_RUN_LEN` -> `<= 3`  : test_horizon_3_without_runs_keeps_the_engine_verdict dies
+
+def _verdict(res: dict) -> str:
+    assert res["status"] == "ok", res
+    return res["verdict"]
+
+
+def test_horizon_1_describes_the_match_without_run_language():
+    res = run_tool(
+        "get_fixture_outlook",
+        {"axis": "attack", "team_query": "ARS", "horizon": 1},
+        _bootstrap(),
+    )
+    verdict = _verdict(res)
+    assert len(res["series"]) == 1
+    assert res["verdict_scope"] == "match"
+    # The whole point: no run language on a single match. There is no English
+    # variant of the run verdict in the engine (build_verdict is Spanish-only).
+    assert "racha" not in verdict.lower()
+    # Describes THE match: gameweek, venue, opponent, difficulty band.
+    assert "J1" in verdict
+    assert "en casa ante Brentford" in verdict
+    assert "dificultad ofensiva 2/5 (asequible)" in verdict
+
+
+def test_horizon_1_defence_axis_uses_defence_wording():
+    res = run_tool(
+        "get_fixture_outlook",
+        {"axis": "defence", "team_query": "BRE", "horizon": 1},
+        _bootstrap(),
+    )
+    verdict = _verdict(res)
+    assert "racha" not in verdict.lower()
+    assert "a domicilio ante Arsenal" in verdict
+    assert "dificultad para portería a cero 5/5 (muy complicada)" in verdict
+
+
+def test_horizon_2_is_still_short_and_lists_both_gameweeks():
+    res = run_tool(
+        "get_fixture_outlook",
+        {"axis": "attack", "team_query": "ARS", "horizon": 2},
+        _bootstrap(),
+    )
+    verdict = _verdict(res)
+    assert res["verdict_scope"] == "match"
+    assert "racha" not in verdict.lower()
+    assert "J1:" in verdict and "J2:" in verdict
+    assert "a domicilio ante Chelsea" in verdict
+
+
+def test_horizon_5_keeps_the_run_verdict():
+    # ARS bands 2,2,1 over GW1-3 -> a 3-GW good run -> the engine's run verdict.
+    from fpl_grounded_assistant.fixture_outlook import build_verdict
+    res = run_tool(
+        "get_fixture_outlook",
+        {"axis": "attack", "team_query": "ARS", "horizon": 5},
+        _bootstrap(),
+    )
+    verdict = _verdict(res)
+    assert res["verdict_scope"] == "run"
+    assert res["runs"], "fixture assumption: ARS has a good run over GW1-3"
+    assert verdict == build_verdict(res["runs"], "attack", res["series"])
+    assert verdict.startswith("Buen tramo ofensivo")
+
+
+def test_horizon_3_without_runs_keeps_the_engine_verdict():
+    # CHE bands 3,3,3 -> no run; at 3 GWs the run read is legitimate, so the
+    # engine's "sin rachas claras" must survive (pins the guard's direction).
+    res = run_tool(
+        "get_fixture_outlook",
+        {"axis": "attack", "team_query": "CHE", "horizon": 3},
+        _bootstrap(),
+    )
+    verdict = _verdict(res)
+    assert res["verdict_scope"] == "run"
+    assert "sin rachas claras" in verdict
+
+
+def test_short_horizon_double_gameweek_mentions_both_matches():
+    bs = _bootstrap()
+    bs["team_fixtures"][1].append(_fx(1, 3, False, 4))   # ARS also away at CHE in GW1
+    res = run_tool(
+        "get_fixture_outlook",
+        {"axis": "attack", "team_query": "ARS", "horizon": 1},
+        bs,
+    )
+    verdict = _verdict(res)
+    assert res["series"][0]["is_dgw"] is True
+    assert "racha" not in verdict.lower()
+    assert "doble jornada" in verdict
+    assert "en casa ante Brentford" in verdict
+    assert "a domicilio ante Chelsea" in verdict
+    assert "4/5 (exigente)" in verdict
+
+
+def test_short_horizon_blank_gameweek_says_so():
+    bs = _bootstrap()
+    # ARS has no GW2 fixture while GW2 is active for the others -> blank.
+    bs["team_fixtures"][1] = [f for f in bs["team_fixtures"][1] if f["gameweek"] != 2]
+    res = run_tool(
+        "get_fixture_outlook",
+        {"axis": "attack", "team_query": "ARS", "horizon": 2},
+        bs,
+    )
+    verdict = _verdict(res)
+    assert res["series"][1]["is_bgw"] is True
+    assert "J2: Arsenal descansa (sin partido)." in verdict
+    assert "racha" not in verdict.lower()
+
+
+def test_short_horizon_relative_strength_only_when_both_sides_have_it():
+    # The FDR-fallback bootstrap carries no strength fields -> no clause.
+    res = run_tool(
+        "get_fixture_outlook",
+        {"axis": "attack", "team_query": "ARS", "horizon": 1},
+        _bootstrap(),
+    )
+    assert "fuerza global" not in _verdict(res)
+
+    # With overall venue strengths on both sides the clause names the edge:
+    # ARS home 4 vs BRE away 2 -> ventaja Arsenal.
+    bs = _bootstrap()
+    for t in bs["teams"]:
+        t["strength_overall_home"] = 4 if t["short_name"] == "ARS" else 3
+        t["strength_overall_away"] = 2 if t["short_name"] == "BRE" else 3
+    res = run_tool(
+        "get_fixture_outlook",
+        {"axis": "attack", "team_query": "ARS", "horizon": 1},
+        bs,
+    )
+    verdict = _verdict(res)
+    assert "fuerza global Arsenal 4/5 en casa vs Brentford 2/5 fuera (ventaja Arsenal)" in verdict
+
+    # Equal strengths -> "fuerzas parejas", never a made-up edge.
+    for t in bs["teams"]:
+        t["strength_overall_home"] = 3
+        t["strength_overall_away"] = 3
+    res = run_tool(
+        "get_fixture_outlook",
+        {"axis": "attack", "team_query": "ARS", "horizon": 1},
+        bs,
+    )
+    assert "(fuerzas parejas)" in _verdict(res)
+
+
+def test_all_teams_path_is_untouched_by_the_short_horizon_rule():
+    # The grid (no team_query) never gets a per-match verdict: it has no
+    # single verdict to replace and the /fixtures export reads it as-is.
+    res = run_tool("get_fixture_outlook", {"axis": "attack", "horizon": 1}, _bootstrap())
+    assert res["status"] == "ok"
+    assert "verdict_scope" not in res
+    assert "verdict" not in res
