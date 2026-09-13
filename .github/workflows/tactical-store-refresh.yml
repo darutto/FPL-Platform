@@ -52,6 +52,50 @@ jobs:
           REGISTRY_SEASON="$(python -c "import sys; sys.path.insert(0, 'packages/fpl-data-core'); from fpl_data_core.season_registry import CURRENT_SEASON; print(CURRENT_SEASON)")"
           echo "SEASON=${INPUT_SEASON:-$REGISTRY_SEASON}" >> "$GITHUB_ENV"
 
+      # i77 -- nobody would notice when Understat publishes the NEXT season.
+      # This cron re-ingested a finished season every Monday from July to
+      # September 2026, in green, while the rotation (i73 delivery 2) waited
+      # on Understat with nothing to say when the wait was over. One schedule
+      # read + one R2 HEAD, before anything is ingested, for the season AFTER
+      # the one this job is about to refresh. The current season ($SEASON) is
+      # read first as a CONTROL: it is known to be published (its store is on
+      # R2), so an empty answer for it means the scrape is broken, blocked or
+      # stale -- not that anything is unpublished -- and the probe says so in
+      # red rather than passing "empty" off as "not yet" (found 2026-09-13: a
+      # July soccerdata cache served (3, 0) for the published 2026-2027; the
+      # probe also reads with no_cache=True for the same reason).
+      #
+      #   CONTROL ($SEASON) comes back empty -> ::error::, exit 2, JOB RED:
+      #        "sonda sin señal: la temporada actual <s> llegó vacía de Understat"
+      #   Understat empty                   -> ::notice::, exit 0, job continues
+      #   published, store already on R2     -> ::notice::, exit 0, job continues
+      #   empty, but a store exists on R2    -> ::warning::, exit 0 (wrong key?)
+      #   published, NO tactical store yet   -> ::error::, exit 1, JOB RED:
+      #        "Understat publicó <season>: ejecutar la entrega de i73 pendiente"
+      #   the probe itself failed            -> ::error::, exit 2, JOB RED
+      #
+      # The red is deliberate: a failure that is meant to be seen. It does NOT
+      # ingest the new season or bump current_season -- both stay a
+      # human-approved operation (i70's guard). Exit code -> Actions: any
+      # non-zero exit fails this step, which fails the job and skips the steps
+      # below (their implicit `if: success()`); there is no "neutral" outcome
+      # for a step in current Actions, so the empty case is a green job with a
+      # notice annotation. Outputs (published / store_exists / outcome /
+      # season / matches) are exported for any wiring that wants to gate on
+      # them. Measured 2026-09-13: read_schedule('2027-2028') -> shape (3, 0)
+      # (empty, notice); ('2026-2027') -> (380, 17) with its store on R2.
+      - name: Probe Understat for the next season (i77)
+        id: probe_next_season
+        env:
+          PYTHONPATH: packages/fpl-tactical
+          OWNED_STORE_R2_ENDPOINT: ${{ secrets.OWNED_STORE_R2_ENDPOINT }}
+          OWNED_STORE_R2_BUCKET: ${{ secrets.OWNED_STORE_R2_BUCKET }}
+          OWNED_STORE_R2_ACCESS_KEY_ID: ${{ secrets.OWNED_STORE_R2_ACCESS_KEY_ID }}
+          OWNED_STORE_R2_SECRET_ACCESS_KEY: ${{ secrets.OWNED_STORE_R2_SECRET_ACCESS_KEY }}
+          OWNED_STORE_R2_PREFIX: ${{ secrets.OWNED_STORE_R2_PREFIX }}
+        run: |
+          python packages/fpl-tactical/scripts/probe_understat_season.py --next-after "$SEASON"
+
       - name: Ingest Understat shots (full season)
         env:
           PYTHONPATH: packages/fpl-tactical
