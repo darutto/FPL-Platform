@@ -15,6 +15,12 @@ the LLM catalogue, so the two checks below run live via /ask with
 debug=True and assert on the tool's own raw_output (season, totals, rows)
 -- never on the synthesis text alone. The previous-season value is computed
 here from --expected-season, independently of anything the backend says.
+
+i92: before those two /ask checks, /healthz.owned_store_seasons (a filesystem
+scan of the container's store) must list both the expected season and the
+previous one as complete. That check runs FIRST so a later season_points
+miss is attributable to data (this check red) or to routing (this check
+green), never to both at once.
 """
 from __future__ import annotations
 
@@ -229,6 +235,43 @@ def _previous_season(season: str) -> str:
     return f"{start - 1}-{end - 1}"
 
 
+def verify_owned_store_seasons(base_url: str, expected_season: str, failures: list[str]) -> bool:
+    """i92: BEFORE any /ask, read /healthz.owned_store_seasons -- the seasons
+    that exist on the container's disk, scanned from the filesystem -- and
+    require both the expected season and the one before it, complete.
+
+    Ordering is the point: if this fails, a later season_points miss is a
+    DATA problem; if this passes and Salah still fails, it is routing or
+    resolution. One check per cause. Returns True when both seasons are
+    present and complete.
+    """
+    previous = _previous_season(expected_season)
+    print("\n[verify_prod_rollover] i92 /healthz owned_store_seasons (disk scan)", flush=True)
+    resp = requests.get(f"{base_url.rstrip('/')}/healthz", timeout=30)
+    resp.raise_for_status()
+    body = resp.json()
+    on_disk = body.get("owned_store_seasons")
+    sync_block = body.get("owned_store_sync") or {}
+    print(f"  owned_store_sync (startup, first season)={sync_block!r}", flush=True)
+    print(f"  owned_store_seasons (disk)={on_disk!r}", flush=True)
+    if not isinstance(on_disk, list):
+        failures.append("healthz: owned_store_seasons missing -- backend predates i92 or the key was dropped")
+        return False
+    by_season = {row.get("season"): row for row in on_disk if isinstance(row, dict)}
+    ok = True
+    for season in (expected_season, previous):
+        row = by_season.get(season)
+        if row is None:
+            failures.append(f"healthz: season {season!r} is not on the container's disk (have {sorted(by_season)!r})")
+            ok = False
+        elif not row.get("complete"):
+            failures.append(f"healthz: season {season!r} on disk but incomplete: {row!r}")
+            ok = False
+        else:
+            print(f"  season {season}: present, merged_at={row.get('merged_at')!r}", flush=True)
+    return ok
+
+
 def verify_season_tools(base_url: str, user_id: str, expected_season: str, failures: list[str]) -> None:
     """i82: the two owned-store season tools, live, asserted on raw_output.
 
@@ -322,6 +365,14 @@ def main() -> None:
     if not final_text.strip():
         failures.append("final_text was empty")
 
+    # i92: data first, then routing -- so a failure below is attributable.
+    seasons_ok = verify_owned_store_seasons(args.url, args.expected_season, failures)
+    if not seasons_ok:
+        print(
+            "  -> a season_points miss below is a DATA gap (container disk), "
+            "not routing; the tool checks still run so the trace is on record.",
+            flush=True,
+        )
     verify_season_tools(args.url, args.user_id, args.expected_season, failures)
 
     if args.zonal_fixture_opponent:

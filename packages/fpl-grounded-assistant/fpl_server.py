@@ -549,11 +549,15 @@ except ImportError:  # fallback module unavailable — owned-store fallback disa
 try:
     from fpl_grounded_assistant.owned_store_sync import (  # noqa: E402
         sync_owned_store_from_r2,
+        sync_owned_store_seasons,
+        seasons_on_disk,
         sync_enabled,
         get_last_sync_result,
     )
 except ImportError:  # sync module unavailable — startup R2 sync disabled
     sync_owned_store_from_r2 = None  # type: ignore[assignment]
+    sync_owned_store_seasons = None  # type: ignore[assignment]
+    seasons_on_disk = None           # type: ignore[assignment]
     sync_enabled = None              # type: ignore[assignment]
     get_last_sync_result = None      # type: ignore[assignment]
 
@@ -779,11 +783,17 @@ async def lifespan(app: FastAPI):
     # bootstrap fetch so the bootstrap (and per-tool) fallbacks can read the
     # synced data. Gated by sync_enabled() — default-off preserves current
     # behaviour exactly. Fail-soft: sync_owned_store_from_r2() never raises.
-    if sync_owned_store_from_r2 is not None and sync_enabled():
-        _sync_res = sync_owned_store_from_r2()
-        # fail-soft: sync_owned_store_from_r2 never raises; result logged inside.
-        if not _sync_res.ok:
-            _LOG.error("fpl_startup owned_store_sync_incomplete err=%s", _sync_res.error)
+    if sync_owned_store_seasons is not None and sync_enabled():
+        # i92: a LIST of seasons (current + previous by default; see
+        # owned_store_sync.seasons_to_sync), each fail-soft on its own. The
+        # disk is ephemeral, so anything not pulled here does not exist for
+        # get_player_season_points / get_historical_gameweek_top_scorer.
+        for _sync_res in sync_owned_store_seasons():
+            if not _sync_res.ok:
+                _LOG.error(
+                    "fpl_startup owned_store_sync_incomplete season=%s err=%s",
+                    _sync_res.season, _sync_res.error,
+                )
     # T-zonal go-live: optional startup sync of the tactical store from R2 so
     # the zonal tools can read parquet. Gated by tactical_sync_enabled() —
     # default-off preserves current behaviour exactly. Fail-soft: never raises.
@@ -1641,6 +1651,9 @@ def healthz() -> dict[str, Any]:
         "graduation":          _grad(snap),
         "owned_store_fallback": owned_store_fallback_info,
         "owned_store_sync":     owned_store_sync_info,
+        # i92: what the store on THIS container's disk actually holds, read
+        # from the filesystem -- not the list the startup sync was asked for.
+        "owned_store_seasons":  seasons_on_disk() if seasons_on_disk is not None else [],
     }
     # Key is added only once a tactical sync has run: with the flag off the
     # /healthz payload stays byte-for-byte identical to pre-go-live responses.

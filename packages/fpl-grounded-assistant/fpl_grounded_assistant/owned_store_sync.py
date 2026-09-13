@@ -62,6 +62,7 @@ if _FPL_HISTORICAL not in sys.path:
 try:
     from fpl_historical.paths import (  # type: ignore[import]
         CURRENT_SEASON,
+        historical_root,
         merged_parquet_dir,
         owned_latest_pointer_path,
     )
@@ -85,6 +86,9 @@ ENV_R2_BUCKET             = "OWNED_STORE_R2_BUCKET"
 ENV_R2_ACCESS_KEY_ID      = "OWNED_STORE_R2_ACCESS_KEY_ID"
 ENV_R2_SECRET_ACCESS_KEY  = "OWNED_STORE_R2_SECRET_ACCESS_KEY"
 ENV_R2_PREFIX             = "OWNED_STORE_R2_PREFIX"
+#: i92: optional explicit, comma-separated list of seasons to sync at startup.
+#: Unset -> current season + the one before it (see ``seasons_to_sync``).
+ENV_SYNC_SEASONS          = "OWNED_STORE_SYNC_SEASONS"
 
 #: The 5 merged parquet table names (pointer is handled separately).
 _PARQUET_NAMES = ("players", "teams", "events", "fixtures", "player_gw_stats")
@@ -109,6 +113,10 @@ class SyncResult:
 #: Records the most recent sync result, read by /healthz. None until a sync runs.
 _LAST_SYNC_RESULT: "SyncResult | None" = None
 
+#: i92: one result per season attempted by the last multi-season sync, in the
+#: order they were attempted. Empty until ``sync_owned_store_seasons`` runs.
+_LAST_SYNC_RESULTS: "tuple[SyncResult, ...]" = ()
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -125,6 +133,81 @@ def sync_enabled() -> bool:
 def get_last_sync_result() -> "SyncResult | None":
     """Return the most recent SyncResult, or None if no sync has run."""
     return _LAST_SYNC_RESULT
+
+
+def get_last_sync_results() -> "tuple[SyncResult, ...]":
+    """i92: every season's result from the last multi-season sync."""
+    return _LAST_SYNC_RESULTS
+
+
+def previous_season(season: str) -> "str | None":
+    """``"2026-2027"`` -> ``"2025-2026"``; None if *season* is not YYYY-YYYY."""
+    parts = season.split("-")
+    if len(parts) != 2:
+        return None
+    try:
+        start, end = int(parts[0]), int(parts[1])
+    except ValueError:
+        return None
+    return f"{start - 1}-{end - 1}"
+
+
+def seasons_to_sync() -> "list[str]":
+    """i92: THE single place that decides which seasons the container pulls.
+
+    ``OWNED_STORE_SYNC_SEASONS`` (comma-separated) wins when set; otherwise the
+    current season followed by the one before it. Before i92 the startup sync
+    pulled ``CURRENT_SEASON`` only, so on Railway's ephemeral disk every
+    "temporada pasada" question died in ``season_not_found`` while R2 held the
+    season intact. Duplicates and blanks are dropped, order preserved.
+    """
+    raw = os.environ.get(ENV_SYNC_SEASONS, "") or ""
+    if raw.strip():
+        wanted = [s.strip() for s in raw.split(",")]
+    else:
+        wanted = [CURRENT_SEASON, previous_season(CURRENT_SEASON)]
+    out: list[str] = []
+    for s in wanted:
+        if s and s not in out:
+            out.append(s)
+    return out
+
+
+def seasons_on_disk() -> "list[dict[str, object]]":
+    """i92: the seasons that actually EXIST in the container's store.
+
+    Read from the filesystem -- a ``_owned_latest.json`` pointer per season
+    directory plus a count of the merged parquet tables present -- never from
+    the list that was asked to sync. /healthz reports this so an operator sees
+    what the process can serve, not what it intended to fetch (the i73
+    tautology otherwise). Sorted by season; never raises.
+    """
+    if not _FPL_HISTORICAL_AVAILABLE:
+        return []
+    try:
+        seasons_root = historical_root() / "seasons"
+        if not seasons_root.is_dir():
+            return []
+        out: list[dict[str, object]] = []
+        for season_dir in sorted(p for p in seasons_root.iterdir() if p.is_dir()):
+            pointer = season_dir / "_owned_latest.json"
+            if not pointer.is_file():
+                continue
+            try:
+                merged_at = json.loads(pointer.read_text("utf-8")).get("merged_at")
+            except Exception:  # noqa: BLE001 -- a corrupt pointer is still "present"
+                merged_at = None
+            merged_dir = season_dir / "parquet_merged"
+            n_files = sum(1 for n in _PARQUET_NAMES if (merged_dir / f"{n}.parquet").is_file())
+            out.append({
+                "season": season_dir.name,
+                "merged_at": merged_at,
+                "parquet_files": n_files,
+                "complete": n_files == len(_PARQUET_NAMES),
+            })
+        return out
+    except Exception:  # noqa: BLE001 -- health reporting must never raise
+        return []
 
 
 def _r2_prefix() -> str:
@@ -316,6 +399,30 @@ def sync_owned_store_from_r2(season: str = CURRENT_SEASON) -> SyncResult:
         )
         _LAST_SYNC_RESULT = result
         return result
+
+
+def sync_owned_store_seasons(seasons: "list[str] | None" = None) -> "tuple[SyncResult, ...]":
+    """i92: sync every season in *seasons* (default ``seasons_to_sync()``).
+
+    Fail-soft PER SEASON: a missing previous season is logged on its own line
+    and never stops the current one, nor startup. ``_LAST_SYNC_RESULT`` (the
+    /healthz ``owned_store_sync`` block) keeps pointing at the FIRST season's
+    result -- the current one under the default list -- so that block's
+    shape and meaning are unchanged for existing verifiers.
+    """
+    global _LAST_SYNC_RESULT, _LAST_SYNC_RESULTS
+    wanted = list(seasons) if seasons is not None else seasons_to_sync()
+    results: list[SyncResult] = []
+    for season in wanted:
+        results.append(sync_owned_store_from_r2(season))
+    _LAST_SYNC_RESULTS = tuple(results)
+    if results:
+        _LAST_SYNC_RESULT = results[0]
+    _LOGGER.warning(
+        "owned_store_sync event=multi_season_done requested=%s ok=%s",
+        wanted, [r.season for r in results if r.ok],
+    )
+    return _LAST_SYNC_RESULTS
 
 
 def publish_owned_store_to_r2(season: str = CURRENT_SEASON) -> SyncResult:
