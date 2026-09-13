@@ -675,7 +675,16 @@ GET_FIXTURE_OUTLOOK_SCHEMA = ToolSchema(
         "Returns per-GW difficulty bands (1=easiest…5=hardest), detected good/bad "
         "RUNS (≥3 consecutive GWs), and a Spanish schedule-only verdict. "
         "Omit team_query for ALL teams ranked easiest-first (the grid). For a "
-        "player, resolve their club first, then pass that club as team_query."
+        "player, resolve their club first, then pass that club as team_query. "
+        "ONE MATCH of ONE team is ALSO this tool: 'Newcastle vs LIV (en casa), J1: "
+        "¿qué tal pinta ofensivamente para el Newcastle?' or '...: ¿buen partido para "
+        "que el Newcastle deje la portería a cero?', with or without 'doble jornada' "
+        "-- team_query=that team, axis from the wording (ofensivo→attack, portería a "
+        "cero→defence), horizon=1 for the current/next GW (or up to the named GW). "
+        "With fewer than 3 GWs the verdict describes the match itself (opponent, "
+        "venue, difficulty, relative strength). For that question NEVER use "
+        "get_fixtures_for_gw (whole-round dump) nor get_team_schedule (plain "
+        "opponent list, no difficulty verdict)."
     ),
     parameters={
         "type": "object",
@@ -801,11 +810,19 @@ GET_PLAYER_HISTORY_SCHEMA = ToolSchema(
 # P2.4 atomic tool — get_fixtures_for_gw GW fixture list with FDR
 # ---------------------------------------------------------------------------
 
+# i78-A: the description states the scope boundary BEFORE the payload. Measured
+# 2026-09-13 (field-notes/artifacts/i78a-routing-before.jsonl, gpt-5.6-luna):
+# the one-team, one-match phrase a /fixtures cell tap inserts reached this
+# tool in 12 of 60 runs (11 as the first call) -- a whole-round dump for a
+# question about one club. With this wording: 0 of 60 (after-round1/2).
 GET_FIXTURES_FOR_GW_SCHEMA = ToolSchema(
     name="get_fixtures_for_gw",
     description=(
-        "All fixtures for a GW with FDR per team. Returns fixture list (kickoff, teams, FDR, "
-        "scores) + summary (totals, easiest/hardest, DGW+BGW teams). "
+        "The full fixture list of ONE gameweek for ALL 20 teams (kickoff, both teams, "
+        "FDR, scores) + summary (totals, easiest/hardest, DGW+BGW teams). Use ONLY for "
+        "whole-round questions ('¿qué partidos hay en la jornada 3?'). NOT for one "
+        "team's outlook or one team's specific match ('Newcastle vs LIV (en casa), J1: "
+        "¿qué tal pinta ofensivamente?') -- that is get_fixture_outlook with team_query. "
         "status=invalid_argument on out-of-range gw_number."
     ),
     parameters={
