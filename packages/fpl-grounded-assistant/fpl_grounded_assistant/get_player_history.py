@@ -54,7 +54,11 @@ import time
 from collections import OrderedDict
 from typing import Any
 
-from fpl_player_registry import RANK_AUTO_RESOLVE_MAX, resolve_player_candidates
+from fpl_player_registry import (
+    MAX_AMBIGUOUS_CANDIDATES,
+    RANK_AUTO_RESOLVE_MAX,
+    resolve_player_candidates,
+)
 from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
 
@@ -74,7 +78,8 @@ from fpl_grounded_assistant.player_form import _fetch_element_summary
 # Constants
 # ---------------------------------------------------------------------------
 
-_MAX_AMBIGUOUS_CANDIDATES: int = 5
+# The cap on ambiguous candidates is the registry's MAX_AMBIGUOUS_CANDIDATES
+# (i68): this module used to hold its own copy of the number.
 _MAX_LAST_N_GWS: int = 38
 _DEFAULT_LAST_N_GWS: int = 5
 
@@ -172,7 +177,7 @@ def _resolve_player(
             _build_match_dict(
                 elements_by_id[match.record.id], teams, element_types, match.rank
             )
-            for match in matches[:_MAX_AMBIGUOUS_CANDIDATES]
+            for match in matches[:MAX_AMBIGUOUS_CANDIDATES]
         ]
         return {
             "status":     "ambiguous",
@@ -347,7 +352,7 @@ def get_player_history(
         {
             "status": "ambiguous",
             "query": <normalized name>,
-            "candidates": [<up to 5 candidate dicts, full grounding payload>],
+            "candidates": [<up to MAX_AMBIGUOUS_CANDIDATES candidate dicts, full grounding payload>],
             "message": "Multiple players match '<query>'. Please specify."
         }
         # OR not found:
