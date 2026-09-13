@@ -26,6 +26,13 @@ Guarantees the runner enforces, each from a specific failure already paid for
 *   **Bootstrap is pinned by sha256** in the report header, with model,
     max_tokens, temperature and reps. Two people must not be able to run "the
     same" battery against a different answer space.
+*   **``--max-tokens`` is applied, not just printed** (i56). ``base.run_one``
+    pins ``max_tokens=1024`` inline and is shared by every routing measurement,
+    so the budget is applied at the provider boundary (``_ProviderBudget``) and
+    the run aborts if any provider call was observed that did not cross it. The
+    i25 reference row (``golden-battery-gpt-5.6-luna-controls-2026-08-29-
+    REFERENCE.md``) predates this and was measured at an effective 1024 -- the
+    same number its header shows, by coincidence of the default, not by design.
 *   **Cost is estimated and confirmed before spending**, and the exact planned
     call count is printed. The per-call estimate was measured on one model, so
     it is offered only for that model; for any other the pre-spend line says the
@@ -88,6 +95,66 @@ class _ProviderEventCapture(logging.Handler):
         event = getattr(record, "fpl_event", None)
         if isinstance(event, dict) and "provider" in event:
             self.events.append(event)
+
+
+class _ProviderBudget:
+    """Apply ``--max-tokens`` at the provider boundary, one call at a time.
+
+    Why here and not in the signature: ``base.run_one`` (measure_tool_routing.py)
+    pins ``max_tokens=1024`` inline, and that helper is the shared call path of
+    every routing measurement -- the docstring above promises a golden row and
+    a one-off measurement are directly comparable because they run the same
+    function. ``ask_orchestrated`` threads its single ``max_tokens`` value to
+    every ``call_orch_provider`` it makes (primary, synthesis, retry), so
+    forcing the value at that boundary is equivalent to
+    ``ask_orchestrated(max_tokens=N)`` and changes nothing else about the call.
+    Same boundary, same install-and-restore discipline, as the i46 instrument's
+    ``_CallRecorder``: installed around one ``run_one`` call, removed in a
+    ``finally`` so a crash cannot leave the product patched.
+
+    ``calls`` counts the provider calls that crossed the boundary. It is
+    compared after the run against the provider events the client itself
+    logged (``_verify_budget``): a run whose calls never crossed the boundary
+    would print a header that lies, which is the i56 pattern this exists to end.
+    """
+
+    def __init__(self, max_tokens: int) -> None:
+        self.max_tokens = max_tokens
+        self.calls = 0
+
+    def __call__(self, real_fn: Any, provider_name: str, /, **kwargs: Any) -> Any:
+        kwargs["max_tokens"] = self.max_tokens
+        self.calls += 1
+        return real_fn(provider_name, **kwargs)
+
+    def run_one(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        """``base.run_one`` with this budget in force for its duration."""
+        from fpl_grounded_assistant import orchestrator as orch_mod
+
+        real_fn = orch_mod.call_orch_provider
+        orch_mod.call_orch_provider = (
+            lambda provider_name, **kw: self(real_fn, provider_name, **kw)
+        )
+        try:
+            return base.run_one(*args, **kwargs)
+        finally:
+            orch_mod.call_orch_provider = real_fn
+
+
+def _verify_budget(events: list[dict[str, Any]], budgeted_calls: int, max_tokens: int) -> None:
+    """Abort if provider calls happened that did not cross the budget boundary.
+
+    ``events`` is what the provider client logged on its own; ``budgeted_calls``
+    is what ``_ProviderBudget`` saw. Two independent counters: if the client
+    reports calls and the boundary saw none, the header's ``max_tokens`` line
+    describes nothing that was sent.
+    """
+    if events and not budgeted_calls:
+        raise SystemExit(
+            f"ABORT: {len(events)} provider event(s) were logged but no call "
+            f"crossed the --max-tokens boundary; the header's max_tokens="
+            f"{max_tokens} would not describe what was sent."
+        )
 
 
 def _sha256(path: Path) -> str:
@@ -317,13 +384,19 @@ def main(argv: list[str] | None = None) -> int:
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
+    budget = _ProviderBudget(args.max_tokens)
+
     observations: list[dict[str, Any]] = []
     spend = 0.0
     with out_path.open("w", encoding="utf-8") as fh:
         for idx, case in enumerate(plan.values(), start=1):
             for rep in range(args.reps):
-                obs = base.run_one(case.as_question(), rep, bootstrap, api_key)
+                calls_before = budget.calls
+                obs = budget.run_one(case.as_question(), rep, bootstrap, api_key)
                 obs["tier"] = args.tier
+                # How many provider calls of this row carried the budget --
+                # read off the boundary, not off the flag.
+                obs["budgeted_provider_calls"] = budget.calls - calls_before
                 if case.id in stale_ids:
                     obs["excluded_from_scoring"] = stale_reasons[case.id]
                 observations.append(obs)
@@ -335,6 +408,7 @@ def main(argv: list[str] | None = None) -> int:
                       f"{base.format_spend(observations)}", file=sys.stderr)
 
     _verify_provider(capture.events, args.provider, args.model)
+    _verify_budget(capture.events, budget.calls, args.max_tokens)
 
     exceptions = sum(1 for o in observations if o.get("exception") is not None)
     results = [axes_mod.score_axis(a, observations, stale_ids)

@@ -61,3 +61,10 @@ Pinned entities that no longer resolve. Excluded from scoring, not counted as pa
 | `pv-11` | player 'Gordon' resolves not_found |
 
 > Guards outrank targets: a breached guard fails the model even when every target passes.
+
+> **i56 annotation (2026-09-13, not a re-run):** this row was measured at an
+> *effective* `max_tokens` of 1024. At the time the runner printed `--max-tokens`
+> in this header but passed it nowhere -- `measure_tool_routing.run_one` pins
+> 1024 inline -- so the header value and the sent value coincided only because
+> the flag's default is also 1024. The figures above are unchanged and remain the
+> reference; runs after i56 send what their header says.
