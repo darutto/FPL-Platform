@@ -162,6 +162,13 @@ Three runs are archived: `-2026-08-28-SUPERSEDED` (instrument had no preflight
 and a mis-specified relay gate), `-2026-08-29-r2-SUPERSEDED` (gate since
 reverted), `-2026-08-29-REFERENCE` (this row).
 
+**i56 (2026-09-13):** all three rows were measured at an *effective*
+`max_tokens` of 1024. The runner printed `--max-tokens` in the header but
+passed it to no call (`measure_tool_routing.run_one` pins 1024 inline); the
+header was right by coincidence of the default. The reference row is annotated,
+not recalculated. From i56 on the budget is applied at the provider boundary
+and the run aborts if a provider call was observed that did not carry it.
+
 ### The behaviour breakdown, three runs — and why it is not yet a decision
 
 Reported every run, gating nothing. Feeds card **i48**.
