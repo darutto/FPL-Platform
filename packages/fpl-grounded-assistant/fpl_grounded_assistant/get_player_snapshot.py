@@ -5,7 +5,8 @@ P2.2: Atomic get_player_snapshot tool — single-player full grounding payload.
 
 Where ``find_players`` returns a candidate LIST, ``get_player_snapshot``
 returns ONE player's full grounding payload, OR an ``ambiguous`` status with
-up to 5 candidates when the name resolves to more than one player.
+up to MAX_AMBIGUOUS_CANDIDATES candidates when the name resolves to more
+than one player.
 
 This is the MPC_learning pattern: ambiguity is a first-class status, not
 silently resolved.
@@ -20,7 +21,8 @@ Resolution algorithm
      "Diallo" players in the squad).
 3. Rank 1 — prefix match (any name field starts with the query):
    - Exactly 1 → status="ok" (auto-resolve single prefix).
-   - More than 1 → status="ambiguous" with up to 5 prefix matches.
+   - More than 1 → status="ambiguous" with up to MAX_AMBIGUOUS_CANDIDATES
+     prefix matches.
 4. Rank 2 — substring match (query anywhere in composite name):
    - Any matches → status="ambiguous" (too loose to auto-resolve).
 5. No matches at any rank → status="not_found".
@@ -49,7 +51,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from fpl_player_registry import RANK_AUTO_RESOLVE_MAX, resolve_player_candidates
+from fpl_player_registry import (
+    MAX_AMBIGUOUS_CANDIDATES,
+    RANK_AUTO_RESOLVE_MAX,
+    resolve_player_candidates,
+)
 from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
 
@@ -64,7 +70,8 @@ from fpl_grounded_assistant.find_players import (
     _team_short,
 )
 
-_MAX_AMBIGUOUS_CANDIDATES: int = 5
+# The cap on ambiguous candidates is the registry's MAX_AMBIGUOUS_CANDIDATES
+# (i68): this module used to hold its own copy of the number.
 
 #: Fixtures shown on the snapshot card — matches get_player_fixture_run's
 #: own DEFAULT_HORIZON, kept explicit here so a change to that default
@@ -148,7 +155,8 @@ def get_player_snapshot(
 
     Resolution: exact match (case + accent insensitive) wins immediately.
     If multiple exact matches OR multiple prefix matches without a tiebreaker,
-    return status='ambiguous' with up to 5 candidates (LLM decides what to do).
+    return status='ambiguous' with up to MAX_AMBIGUOUS_CANDIDATES candidates
+    (LLM decides what to do).
 
     Args:
         player_name: player name (case-insensitive, unicode-normalized) or
@@ -176,7 +184,7 @@ def get_player_snapshot(
         {
             "status": "ambiguous",
             "query": <normalized name>,
-            "candidates": [<up to 5 grounding-payload dicts with match_rank>],
+            "candidates": [<up to MAX_AMBIGUOUS_CANDIDATES grounding-payload dicts with match_rank>],
             "message": "Multiple players match '<query>'. Please specify."
         }
         # OR not found:
@@ -261,7 +269,7 @@ def get_player_snapshot(
             _build_match_dict(
                 elements_by_id[match.record.id], teams, element_types, match.rank
             )
-            for match in best_matches[:_MAX_AMBIGUOUS_CANDIDATES]
+            for match in best_matches[:MAX_AMBIGUOUS_CANDIDATES]
         ]
         return {
             "status":     "ambiguous",
