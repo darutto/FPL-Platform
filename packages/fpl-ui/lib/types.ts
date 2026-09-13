@@ -357,6 +357,19 @@ export interface AskResponse {
  */
 export const SUGGESTION_KIND_PROMPT_REWRITE = 'prompt_rewrite';
 
+/**
+ * `Suggestion.kind` for a HISTORICAL player chip (i60): an ambiguous name in a
+ * past-season question (`get_player_season_points`). `send_text` is the full
+ * canonical question — "puntos de Mohamed Salah (LIV) en la temporada
+ * 2025-2026" — and the chip carries NO `player_id`: the candidate's id belongs
+ * to that season's store, and the stable-id handoff resolves against the
+ * CURRENT bootstrap, so sending it could pick the wrong player. Sent verbatim,
+ * like `SUGGESTION_KIND_PROMPT_REWRITE`.
+ *
+ * Source: fpl_grounded_assistant/suggestions.py → KIND_HISTORICAL_PLAYER_REWRITE.
+ */
+export const SUGGESTION_KIND_HISTORICAL_PLAYER_REWRITE = 'historical_player_rewrite';
+
 /** A single tappable suggestion chip (Guided Comparison). */
 export interface Suggestion {
   /** Chip label — short player web_name. */

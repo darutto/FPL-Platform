@@ -15,7 +15,7 @@
  */
 import { useEffect, useRef } from 'react';
 import type { AskResponse, Outcome, Suggestion } from '@/lib/types';
-import { SUGGESTION_KIND_PROMPT_REWRITE } from '@/lib/types';
+import { WIZARD_ARMING_INTENTS, isRewriteSuggestion } from '@/lib/wizard-arming';
 import type { WcAskResponse } from '@/lib/wc-types';
 import { selectIntentView } from '@/lib/intent-renderer';
 import { selectWcIntentView } from '@/lib/wc-intent-renderer';
@@ -172,7 +172,7 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
     !message.isError &&
     (responseSuggestions?.length ?? 0) > 0 &&
     (
-      message.response?.intent !== 'player_snapshot' ||
+      !WIZARD_ARMING_INTENTS.has(message.response?.intent ?? '') ||
       responseSuggestions!.every((suggestion) => suggestion.player_id != null)
     );
   // Which question this turn asked, for the superseded (non-interactive)
@@ -182,10 +182,8 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
   // for a first player. Keyed off the chips themselves rather than the intent,
   // because prompt_rewrite chips arrive on a compare_players turn.
   const isPickOneTurn =
-    message.response?.intent === 'player_snapshot' ||
-    (responseSuggestions ?? []).some(
-      (suggestion) => suggestion.kind === SUGGESTION_KIND_PROMPT_REWRITE,
-    );
+    WIZARD_ARMING_INTENTS.has(message.response?.intent ?? '') ||
+    (responseSuggestions ?? []).some(isRewriteSuggestion);
   // Guided Comparison chips: only under the LATEST top-level assistant bubble
   // (never historical turns, never sub-responses) while a wizard is armed.
   const showWizard = hasSuggestions && isLast && compareWizard != null && onSuggestionPick != null;

@@ -30,7 +30,7 @@ import { ask, sessionAsk, createSession, clearSession, FplApiError } from '@/lib
 import { generateId } from '@/lib/id';
 import { buildSessionSeed } from '@/lib/session-seed';
 import type { AskResponse, SquadContext, Suggestion } from '@/lib/types';
-import { SUGGESTION_KIND_PROMPT_REWRITE } from '@/lib/types';
+import { WIZARD_ARMING_INTENTS, isRewriteSuggestion, isStableIdSuggestion } from '@/lib/wizard-arming';
 import { QUOTA_BUCKETS, type QuotaBucket } from '@/lib/tiers';
 import { readDevTier } from '@/lib/dev-tier';
 import MessageList, { type Message } from './MessageList';
@@ -258,12 +258,15 @@ export default function ChatShell() {
       // Three chip flows share the single `suggestions` field, so each arming
       // check must be exclusive of the other two or a turn would arm the wrong
       // wizard. The discriminators, in the order tested below:
-      //   1. kind === 'prompt_rewrite'  → pick-one, re-sends a whole command.
+      //   1. rewrite kinds ('prompt_rewrite', 'historical_player_rewrite')
+      //      → pick-one, re-sends a whole command/question verbatim.
       //      Tested FIRST and intent-agnostic: these arrive on a compare turn
       //      (among others), so the compare-wizard check below would otherwise
       //      claim them and feed a full command into an A/B name slot.
       //   2. intent 'compare_players'   → two-step A/B name composition.
-      //   3. intent 'player_snapshot'   → pick-one, re-sends a stable id.
+      //   3. intent in WIZARD_ARMING_INTENTS (player_snapshot, player_form)
+      //      → pick-one, re-sends a stable id. Mirror of the backend's
+      //      WIZARD_ARMING_TOOLS (lib/wizard-arming.ts).
       //
       // Compare seeding: if the user already typed a single name
       // ("/comparar Gabriel"), needs_clarification only fires because the
@@ -273,9 +276,7 @@ export default function ChatShell() {
       // two-name connector is present (e.g. "Gabriel vs Bogus"): a comparison
       // was attempted and failed for another reason, and seeding the whole
       // phrase as one name would be nonsensical.
-      const promptRewriteOptions = (response.suggestions ?? []).filter(
-        (suggestion) => suggestion.kind === SUGGESTION_KIND_PROMPT_REWRITE,
-      );
+      const promptRewriteOptions = (response.suggestions ?? []).filter(isRewriteSuggestion);
       const hasPromptRewrite = promptRewriteOptions.length > 0;
       if (hasPromptRewrite) {
         setPlayerPickWizard({ options: promptRewriteOptions, sessionId: responseSessionId });
@@ -293,14 +294,11 @@ export default function ChatShell() {
       }
       if (
         !hasPromptRewrite &&
-        response.intent === 'player_snapshot' &&
+        WIZARD_ARMING_INTENTS.has(response.intent ?? '') &&
         response.suggestions != null &&
         response.suggestions.length > 0
       ) {
-        const stableIdOptions = response.suggestions.filter(
-          (suggestion): suggestion is Suggestion & { player_id: number } =>
-            suggestion.player_id != null,
-        );
+        const stableIdOptions = response.suggestions.filter(isStableIdSuggestion);
         if (stableIdOptions.length === response.suggestions.length) {
           setPlayerPickWizard({ options: stableIdOptions, sessionId: responseSessionId });
         }
@@ -343,15 +341,17 @@ export default function ChatShell() {
 
   // Single-tap player disambiguation. Two chip shapes land here:
   //
-  // - prompt_rewrite: send_text is the user's own command with the ambiguous
-  //   slot resolved ("/comparar Cole Palmer vs Saka"). Sent verbatim as plain
+  // - rewrite kinds (prompt_rewrite, historical_player_rewrite): send_text is
+  //   a complete command/question ("/comparar Cole Palmer vs Saka", "puntos de
+  //   Mohamed Salah (LIV) en la temporada 2025-2026"). Sent verbatim as plain
   //   text with NO selected_player_id — attaching the id would hand off to a
-  //   single-player lookup and drop the rest of the command on the floor.
+  //   single-player lookup and drop the rest on the floor; for the historical
+  //   chip there is no id at all, its ids belong to another season's store.
   // - stable id: show the friendly label in the user bubble, but submit the
   //   FPL element id as authoritative data. If the ambiguity came from a
   //   session turn, keep the selection in that session.
   const handlePlayerPick = useCallback((suggestion: Suggestion) => {
-    if (suggestion.kind === SUGGESTION_KIND_PROMPT_REWRITE) {
+    if (isRewriteSuggestion(suggestion)) {
       sendMessage(suggestion.send_text);
       return;
     }
