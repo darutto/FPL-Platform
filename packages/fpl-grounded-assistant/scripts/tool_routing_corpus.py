@@ -22,6 +22,8 @@ reason stated, per the measurement task.
 """
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 # ---------------------------------------------------------------------------
@@ -856,3 +858,98 @@ def get_pinned_question() -> dict[str, Any]:
         if entry.get("pinned"):
             return entry
     raise AssertionError("no pinned question found in corpus")
+
+
+# ---------------------------------------------------------------------------
+# fixture_click -- i78-A. The two canonical phrases the /fixtures surface
+# inserts into the composer when a team row or a gameweek cell is tapped
+# (packages/fpl-ui/lib/fixture-chat-links.ts: teamOutlookQuestion /
+# fixtureCellQuestion). They are NOT typed here: the jest test
+# packages/fpl-ui/__tests__/fixture-chat-links-canonical.test.ts generates
+# field-notes/artifacts/i78a-canonical-phrases.json from the functions and
+# fails when the JSON drifts from them, so the phrases measured are the phrases
+# shipped.
+#
+# Kept OUT of ``CORPUS`` on purpose: the golden battery (scripts/golden_axes.py)
+# reuses CORPUS verbatim as a paid model-acceptance run and golden_preflight.py
+# raises on any capitalised token it has not reviewed; folding 28 phrases in
+# here would silently grow that run and fail that review. The i78-A driver
+# (scripts/measure_i78a_fixture_click_routing.py) selects this family
+# explicitly.
+#
+# Expected tool, both phrase kinds: get_fixture_outlook -- the only catalogue
+# tool that reads the two axes (attack / defence) the phrases name. For ONE
+# match it is non-vacuous only with the i78-A change in fixture_outlook_tool
+# (fewer than 3 GWs in the horizon -> the verdict describes the match instead
+# of "sin rachas claras"). get_fixtures_for_gw is the known failure: a whole
+# gameweek dump for a one-team question.
+# ---------------------------------------------------------------------------
+I78A_CANONICAL_PHRASES_PATH = (
+    Path(__file__).resolve().parents[3] / "field-notes" / "artifacts" / "i78a-canonical-phrases.json"
+)
+
+I78A_EXPECTED_TOOL = "get_fixture_outlook"
+I78A_FORBIDDEN_TOOL = "get_fixtures_for_gw"
+
+#: Controls for the i78-A measurement, reused from the corpus above (ids only,
+#: so their text and labels stay single-sourced): the eight i82 season_history
+#: traps, plus the two team_fixtures controls that neighbour the descriptions
+#: i78-A rewrites -- the all-teams FDR ranker (tf-02) and the plain one-team
+#: opponent list (tf-03). sh-c04 is the positive control for the narrowed
+#: get_fixtures_for_gw: a genuine whole-gameweek question must still reach it.
+I78A_CONTROL_IDS: tuple[str, ...] = (
+    "sh-c01", "sh-c02", "sh-c03", "sh-c04", "sh-c05", "sh-c06", "sh-c07", "sh-c08",
+    "tf-02", "tf-03",
+)
+
+
+def load_i78a_canonical_phrases(path: Path | None = None) -> dict[str, Any]:
+    """Read the generated contract file; raise with the regeneration command
+    when it is missing rather than measuring a corpus that does not exist."""
+    p = path or I78A_CANONICAL_PHRASES_PATH
+    if not p.exists():
+        raise FileNotFoundError(
+            f"{p} not found. Generate it from the UI functions with: "
+            "cd packages/fpl-ui && I78A_WRITE_CANONICAL_PHRASES=1 "
+            "npx jest __tests__/fixture-chat-links-canonical.test.ts"
+        )
+    return json.loads(p.read_text(encoding="utf-8"))
+
+
+def i78a_fixture_click_corpus(path: Path | None = None) -> list[dict[str, Any]]:
+    """The i78-A canonical phrases as corpus entries (family ``fixture_click``).
+
+    Every entry is a control (single acceptable tool) with
+    ``forbidden_tools=[get_fixtures_for_gw]`` so the analyzer can count the
+    dump the same way i82 counted its migrations. The generator's metadata
+    (kind, axis, gameweek, is_dgw, cell_position) is carried through so the
+    read-out can split by phrase kind without re-parsing the question text.
+    """
+    data = load_i78a_canonical_phrases(path)
+    entries: list[dict[str, Any]] = []
+    for p in data["phrases"]:
+        entries.append({
+            "id": p["id"], "family": "fixture_click", "control": True,
+            "question": p["question"],
+            "acceptable_tools": [I78A_EXPECTED_TOOL],
+            "forbidden_tools": [I78A_FORBIDDEN_TOOL],
+            "note": (
+                f"{p['kind']} team={p['team_name']} axis={p['axis']} "
+                f"gw={p['gameweek']} dgw={p['is_dgw']} cell={p['cell_position']}"
+            ),
+            "i78a": {
+                "kind": p["kind"], "axis": p["axis"], "gameweek": p["gameweek"],
+                "is_dgw": p["is_dgw"], "dgw_synthetic": p["dgw_synthetic"],
+                "cell_position": p["cell_position"], "team_short": p["team_short"],
+            },
+        })
+    return entries
+
+
+def i78a_controls() -> list[dict[str, Any]]:
+    """The reused control entries, in ``I78A_CONTROL_IDS`` order."""
+    by_id = {q["id"]: q for q in CORPUS}
+    missing = [i for i in I78A_CONTROL_IDS if i not in by_id]
+    if missing:
+        raise AssertionError(f"i78a control ids not in CORPUS: {missing}")
+    return [dict(by_id[i]) for i in I78A_CONTROL_IDS]
