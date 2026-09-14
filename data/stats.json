@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-13T05:06:05Z",
+  "generatedAt": "2026-09-14T05:07:20Z",
   "season": "2026/27",
   "seasonStatus": "in_season",
   "gameweek": 3,
@@ -147,6 +147,30 @@
   ],
   "players": [
     {
+      "name": "Haaland",
+      "team": "MCI",
+      "position": "FWD",
+      "xg": 3.33,
+      "xa": 0.51,
+      "minutes": 360
+    },
+    {
+      "name": "B.Fernandes",
+      "team": "MUN",
+      "position": "MID",
+      "xg": 2.28,
+      "xa": 1.13,
+      "minutes": 360
+    },
+    {
+      "name": "Mbeumo",
+      "team": "MUN",
+      "position": "MID",
+      "xg": 2.8,
+      "xa": 0.55,
+      "minutes": 360
+    },
+    {
       "name": "Saka",
       "team": "ARS",
       "position": "MID",
@@ -163,22 +187,6 @@
       "minutes": 327
     },
     {
-      "name": "B.Fernandes",
-      "team": "MUN",
-      "position": "MID",
-      "xg": 2.25,
-      "xa": 0.8,
-      "minutes": 270
-    },
-    {
-      "name": "Haaland",
-      "team": "MCI",
-      "position": "FWD",
-      "xg": 2.46,
-      "xa": 0.5,
-      "minutes": 270
-    },
-    {
       "name": "E.Le Fée",
       "team": "SUN",
       "position": "MID",
@@ -193,14 +201,6 @@
       "xg": 2.79,
       "xa": 0.06,
       "minutes": 333
-    },
-    {
-      "name": "Mbeumo",
-      "team": "MUN",
-      "position": "MID",
-      "xg": 2.31,
-      "xa": 0.47,
-      "minutes": 270
     },
     {
       "name": "Gibbs-White",
@@ -239,8 +239,8 @@
       "team": "MCI",
       "position": "MID",
       "xg": 1.61,
-      "xa": 0.86,
-      "minutes": 195
+      "xa": 0.88,
+      "minutes": 217
     },
     {
       "name": "João Pedro",
@@ -259,6 +259,14 @@
       "minutes": 305
     },
     {
+      "name": "Groß",
+      "team": "BHA",
+      "position": "MID",
+      "xg": 1.66,
+      "xa": 0.61,
+      "minutes": 360
+    },
+    {
       "name": "Szoboszlai",
       "team": "LIV",
       "position": "MID",
@@ -267,28 +275,28 @@
       "minutes": 360
     },
     {
+      "name": "Cherki",
+      "team": "MCI",
+      "position": "MID",
+      "xg": 0.59,
+      "xa": 1.41,
+      "minutes": 218
+    },
+    {
+      "name": "De Cuyper",
+      "team": "BHA",
+      "position": "DEF",
+      "xg": 1.53,
+      "xa": 0.44,
+      "minutes": 333
+    },
+    {
       "name": "Ndoye",
       "team": "NFO",
       "position": "MID",
       "xg": 1.05,
       "xa": 0.88,
       "minutes": 258
-    },
-    {
-      "name": "Cherki",
-      "team": "MCI",
-      "position": "MID",
-      "xg": 0.56,
-      "xa": 1.35,
-      "minutes": 173
-    },
-    {
-      "name": "De Cuyper",
-      "team": "BHA",
-      "position": "DEF",
-      "xg": 1.5,
-      "xa": 0.4,
-      "minutes": 243
     },
     {
       "name": "Gonzalo",
@@ -319,8 +327,16 @@
       "team": "IPS",
       "position": "MID",
       "xg": 0.92,
-      "xa": 0.81,
+      "xa": 0.84,
       "minutes": 340
+    },
+    {
+      "name": "Rudoni",
+      "team": "COV",
+      "position": "MID",
+      "xg": 0.83,
+      "xa": 0.91,
+      "minutes": 224
     },
     {
       "name": "Calvert-Lewin",
@@ -329,22 +345,6 @@
       "xg": 1.61,
       "xa": 0.08,
       "minutes": 252
-    },
-    {
-      "name": "Nketiah",
-      "team": "CRY",
-      "position": "FWD",
-      "xg": 1.1,
-      "xa": 0.58,
-      "minutes": 167
-    },
-    {
-      "name": "Gakpo",
-      "team": "LIV",
-      "position": "MID",
-      "xg": 0.44,
-      "xa": 1.22,
-      "minutes": 280
     }
   ]
 }
