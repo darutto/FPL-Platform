@@ -79,6 +79,8 @@ import time
 from dataclasses import dataclass, replace
 from typing import Any
 
+from fpl_tool_runner import TOOL_REGISTRY
+
 from .tool_dispatch import run_tool
 
 from .llm_layer import (
@@ -576,29 +578,118 @@ class OrchestratorResult:
 #: Callers exceeding the cap see a ``_truncation_note`` field in the result.
 _TOOL_OUTPUT_MAX_LIST_ITEMS: int = 10
 
-#: List-valued field names in tool outputs that are subject to truncation.
-#: Keys not in this set are forwarded unchanged (safe, additive invariant).
-_TRUNCATABLE_FIELDS: frozenset[str] = frozenset({
-    "players",      # get_injury_list
-    "risers",       # get_price_changes
-    "fallers",      # get_price_changes
-    "candidates",   # rank_captain_candidates
-    "picks",        # get_differential_picks, get_transfer_suggestion
-    "fixtures",     # future tools
-    "history",      # get_player_form / future player_history tools
+# Which fields get capped is DERIVED from what each tool declares, not kept in
+# a hand-written name list (i49). The old list had seven names and two of them
+# lied: ``"candidates"  # rank_captain_candidates`` (the tool returns
+# ``ranked_candidates``) and ``"players"  # get_injury_list`` (that tool
+# returns ``injured``/``doubtful``/``other``; ``players`` is get_my_squad's
+# 15-man squad, which the list was cutting to 10). Both tools the header
+# names as the lever's reason to exist were therefore never capped at all.
+#
+# The declarations live in each tool's ``ToolSpec.output_schema`` -- the
+# executable spec every tool module registers in ``fpl_tool_runner``'s
+# ``TOOL_REGISTRY`` at import (``*_SPEC = ToolSpec(..., output_schema=...)``;
+# the five originals sit in ``fpl_tool_runner.specs``). ``tool_schema_registry``
+# is the LLM-facing INPUT registry and declares no outputs. A top-level
+# property with ``"type": "array"`` (also inside ``oneOf``/``anyOf``/``allOf``
+# branches, which resolve_player-style specs use) is a truncatable field for
+# that tool -- minus the structural exclusions below.
+
+#: (tool, field) pairs the tool declares as arrays but which are kept WHOLE.
+#: Rule: a list is excluded only when its length is fixed by the domain or by
+#: the tool's own horizon cap AND a cut list is a wrong answer rather than a
+#: shorter one (a squad without its bench, a gameweek without all its
+#: matches, a season table missing gameweeks, a blank-GW list missing a GW).
+#: Rankings and pools (top-N by a metric, injury/price groups, candidates,
+#: exploiters) stay under the cap: "top 10 + ask for more" is what the lever
+#: was built for. Lists that cannot exceed the cap by construction
+#: (get_team_schedule.fixtures <= horizon 10, get_player_fixture_run.fixtures
+#: <= 10, zones = 6, ambiguous candidates <= 5, bench = 4) are not listed.
+_TRUNCATION_EXCLUDED_FIELDS: frozenset[tuple[str, str]] = frozenset({
+    ("build_squad", "squad"),                                # 15, fixed: the squad IS the answer
+    ("build_squad", "starting_xi"),                          # 11, fixed: the XI IS the answer
+    ("get_my_squad", "players"),                             # 15, fixed: was cut to 10 via the old "players" name
+    ("get_fixtures_for_gw", "fixtures"),                     # every match of ONE gameweek; a DGW has 11-20
+    ("get_fixture_outlook", "series"),                       # one row per GW of the asked horizon (<= 15)
+    ("get_gameweek_context", "blank_gw_alerts"),             # one per blank GW; a hidden blank is a wrong chip answer
+    ("get_gameweek_context", "double_gw_alerts"),            # one per double GW; same
+    ("get_historical_gameweek_top_scorer", "entries"),       # "season table" mode = one row per GW (<= 38)
 })
+
+#: (tool, field) pairs a tool EMITS as a list but does NOT declare in its
+#: output_schema, kept under the cap anyway. Bridge, not policy: the fix is
+#: the declaration, which lives outside this package (fpl_tool_runner.specs);
+#: ``test_tool_output_truncation`` fails the moment the field IS declared so
+#: the entry gets removed. rank_captain_candidates.held_back: the "avoid"-tier
+#: split of the derived pool (commit 0250395), uncapped by the 12-limit --
+#: measured 311 rows / 297 KB on the 2026-09-03 bootstrap, 173K input tokens
+#: on one prod-model turn (i82-routing-before.jsonl, ts-03).
+_UNDECLARED_TRUNCATABLE_FIELDS: frozenset[tuple[str, str]] = frozenset({
+    ("rank_captain_candidates", "held_back"),
+})
+
+
+def _declared_array_fields(output_schema: Any) -> frozenset[str]:
+    """Top-level property names *output_schema* declares with ``type: array``.
+
+    Follows ``oneOf`` / ``anyOf`` / ``allOf`` branches at the top level (the
+    resolve_player-style specs put their properties there) and accepts a type
+    union such as ``["array", "null"]``. Nested objects are not walked: the
+    lever caps top-level keys only.
+    """
+    if not isinstance(output_schema, dict):
+        return frozenset()
+    found: set[str] = set()
+    for branch_key in ("oneOf", "anyOf", "allOf"):
+        for branch in output_schema.get(branch_key) or []:
+            found |= _declared_array_fields(branch)
+    for name, prop in (output_schema.get("properties") or {}).items():
+        declared_type = prop.get("type") if isinstance(prop, dict) else None
+        if declared_type == "array" or (
+            isinstance(declared_type, list) and "array" in declared_type
+        ):
+            found.add(name)
+    return frozenset(found)
+
+
+def _truncatable_fields_for(tool_name: str | None) -> frozenset[str]:
+    """Fields the lever caps for *tool_name*, derived from its registered spec.
+
+    For a registered tool: the arrays its ``output_schema`` declares, plus any
+    ``_UNDECLARED_TRUNCATABLE_FIELDS`` bridge entry, minus the structural
+    ``_TRUNCATION_EXCLUDED_FIELDS``. With no tool name, or a name the registry
+    does not know, the union of every registered tool's declared arrays (plus
+    bridge entries, no exclusions -- exclusions are per tool and there is no
+    tool to apply them to). Unknown tools only ever produce a small
+    ``status="error"`` dict, so the union is a harmless default there; it also
+    keeps the pre-i49 call shape ``_truncate_tool_output(raw)`` working.
+    """
+    spec = TOOL_REGISTRY.get_spec(tool_name) if tool_name else None
+    if spec is not None:
+        fields = set(_declared_array_fields(spec.output_schema))
+        fields |= {f for t, f in _UNDECLARED_TRUNCATABLE_FIELDS if t == tool_name}
+        fields -= {f for t, f in _TRUNCATION_EXCLUDED_FIELDS if t == tool_name}
+        return frozenset(fields)
+    union: set[str] = set()
+    for name in TOOL_REGISTRY.list_tools():
+        registered = TOOL_REGISTRY.get_spec(name)
+        if registered is not None:
+            union |= _declared_array_fields(registered.output_schema)
+    union |= {f for _t, f in _UNDECLARED_TRUNCATABLE_FIELDS}
+    return frozenset(union)
 
 
 def _truncate_tool_output(
     raw_output: dict[str, Any],
     max_items: int = _TOOL_OUTPUT_MAX_LIST_ITEMS,
+    tool_name: str | None = None,
 ) -> dict[str, Any]:
     """Cap list-valued fields in *raw_output* to *max_items* before LLM serialization.
 
     ADDITIVE INVARIANT: callers that already return ≤ max_items items are
     unaffected.  Only fields whose list length exceeds *max_items* are capped.
-    Non-list fields and fields not in ``_TRUNCATABLE_FIELDS`` are forwarded
-    unchanged.
+    Non-list fields and fields outside ``_truncatable_fields_for(tool_name)``
+    are forwarded unchanged.
 
     When truncation fires, a ``_truncation_note`` key is added to the result
     describing how many items were omitted.  The original ``raw_output`` dict
@@ -610,6 +701,10 @@ def _truncate_tool_output(
         Raw dict returned by ``run_tool()``.
     max_items:
         Maximum list length before truncation.  Default: 10.
+    tool_name:
+        The tool that produced *raw_output*; selects its declared arrays and
+        its structural exclusions. ``None`` falls back to the union of every
+        registered tool's declared arrays (see ``_truncatable_fields_for``).
 
     Returns
     -------
@@ -620,18 +715,19 @@ def _truncate_tool_output(
 
     Examples
     --------
-    >>> out = {"status": "ok", "players": list(range(25))}
-    >>> t = _truncate_tool_output(out, max_items=10)
-    >>> len(t["players"])
+    >>> out = {"status": "ok", "injured": list(range(25))}
+    >>> t = _truncate_tool_output(out, max_items=10, tool_name="get_injury_list")
+    >>> len(t["injured"])
     10
     >>> "_truncation_note" in t
     True
     """
+    truncatable = _truncatable_fields_for(tool_name)
     truncated_fields: list[str] = []
     modified: dict[str, Any] = {}
 
     for key, value in raw_output.items():
-        if key in _TRUNCATABLE_FIELDS and isinstance(value, list) and len(value) > max_items:
+        if key in truncatable and isinstance(value, list) and len(value) > max_items:
             modified[key] = value[:max_items]
             truncated_fields.append(f"{key}: showing top {max_items} of {len(value)} total")
         else:
@@ -667,11 +763,11 @@ def _build_multi_tool_follow_up(
             *messages,
             *(getattr(response, "output", None) or []),
         ]
-        for index, (tool_id, _tool_name, _tool_args, raw_output) in enumerate(executed):
+        for index, (tool_id, tool_name, _tool_args, raw_output) in enumerate(executed):
             follow_up.append({
                 "type": "function_call_output",
                 "call_id": tool_id or f"synthetic_{index}",
-                "output": json.dumps(_truncate_tool_output(raw_output)),
+                "output": json.dumps(_truncate_tool_output(raw_output, tool_name=tool_name)),
             })
         return follow_up
 
@@ -688,7 +784,7 @@ def _build_multi_tool_follow_up(
                 {
                     "function_response": {
                         "name": tool_name or "",
-                        "response": _truncate_tool_output(raw_output),
+                        "response": _truncate_tool_output(raw_output, tool_name=tool_name),
                     }
                 }
                 for _tool_id, tool_name, _tool_args, raw_output in executed
@@ -711,9 +807,9 @@ def _build_multi_tool_follow_up(
         {
             "type": "tool_result",
             "tool_use_id": tool_id or f"synthetic_{index}",
-            "content": json.dumps(_truncate_tool_output(raw_output)),
+            "content": json.dumps(_truncate_tool_output(raw_output, tool_name=tool_name)),
         }
-        for index, (tool_id, _tool_name, _tool_args, raw_output) in enumerate(executed)
+        for index, (tool_id, tool_name, _tool_args, raw_output) in enumerate(executed)
     ]
     return [
         *messages,
