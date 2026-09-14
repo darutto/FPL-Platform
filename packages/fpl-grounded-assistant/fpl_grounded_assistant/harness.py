@@ -186,6 +186,14 @@ ROUTING_TRACE_OPTIONAL_KEYS: frozenset[str] = frozenset({
     "player_resolution_strategy",  # deterministic player resolution strategy
     "player_candidate_count",      # candidates at the best resolver rank
     "player_lookup_branch",        # explicit/bare outcome or specialized fallthrough
+    # i80: projected straight off OrchestratorResult whenever the orchestrator
+    # ran (both the grounded and the no-grounded-tool branches). The audit log
+    # used to write retry_attempted=False as a literal; these are the values
+    # it now reads instead of asserting from a constant.
+    "retry_attempted",    # bool: OrchestratorResult.retry_attempted
+    "evaluator_verdict",  # {approved, grounded, complete, safe, retry_feedback} | None
+    "tool_sequence",      # [tool name, ...] executed, from tool_calls_trace (same
+                          #   field the routing JSONL projects as tool_sequence)
 })
 
 # ---------------------------------------------------------------------------
@@ -1143,6 +1151,10 @@ def ask_v2(
             # neutral). These two DO carry the real turn shape:
             routing_trace["tool_call_count"]         = orch_result.tool_call_count
             routing_trace["synthesis_turn"]          = orch_result.synthesis_turn
+            # i80: retry_attempted / evaluator_verdict / tool_sequence, straight
+            # off the result. _orch_tool_names is the executed sequence the i58
+            # card gate below reads -- one derivation, two consumers.
+            _orch_tool_names = _project_orchestrator_run(routing_trace, orch_result)
             _orch_raw = dict(orch_result.tool_output)
             # get_player_snapshot's own status (ok/ambiguous/not_found/error)
             # must not be flattened to "ok" just because the orchestrator
@@ -1175,7 +1187,7 @@ def ask_v2(
             _single_tool_turn = is_single_distinct_tool_turn(
                 orch_result.tool_chosen,
                 orch_result.tool_call_count,
-                [_e.get("name") for _e in orch_result.tool_calls_trace],
+                _orch_tool_names,
             )
             if _single_tool_turn and _orch_meta.get("generic_card") is None:
                 _overlay = maybe_atomic_tool_card(orch_result.tool_chosen, _orch_raw, None)
@@ -1252,6 +1264,7 @@ def ask_v2(
         # used to be indistinguishable from a genuine no-tool-call turn.
         routing_trace["tool_call_count"] = orch_result.tool_call_count
         routing_trace["synthesis_turn"]  = orch_result.synthesis_turn
+        _project_orchestrator_run(routing_trace, orch_result)  # i80: same three keys
         if orch_result.tool_chosen:
             # Outcomes UNKNOWN_TOOL / TOOL_ERROR / TOOL_RESULT_ERROR — a tool
             # was named but execution did not yield ok. Record the attempt
@@ -1308,3 +1321,32 @@ def _suggestions_for_text() -> list[str]:
     """Return curated resource suggestions for the M3 text-unsupported path."""
     from .intent_aliases import list_resources
     return list(list_resources())
+
+
+def _project_orchestrator_run(routing_trace: dict[str, Any], orch_result: Any) -> list[str | None]:
+    """i80: copy what the orchestrator run already produced onto ``routing_trace``.
+
+    Nothing is computed here -- ``retry_attempted`` and ``evaluator_verdict``
+    are ``OrchestratorResult`` fields set by ``_apply_evaluator`` (True /
+    a verdict on every retry site), and ``tool_sequence`` is the executed
+    tool-name list read off ``tool_calls_trace`` -- the SAME list the i58
+    card gate consumes (returned so the caller reuses it rather than
+    re-deriving it). The verdict is projected in the shape ``audit.AuditEntry``
+    declares for ``evaluator_verdict`` so the audit line carries it verbatim.
+    Called on both orchestrator branches (grounded and no-grounded-tool): a
+    retry that still failed to ground is still a retry.
+    """
+    _names: list[str | None] = [_e.get("name") for _e in orch_result.tool_calls_trace]
+    _verdict = orch_result.evaluator_verdict
+    routing_trace["retry_attempted"] = bool(orch_result.retry_attempted)
+    routing_trace["evaluator_verdict"] = (
+        None if _verdict is None else {
+            "approved":       _verdict.approved,
+            "grounded":       _verdict.grounded,
+            "complete":       _verdict.complete,
+            "safe":           _verdict.safe,
+            "retry_feedback": _verdict.retry_feedback,
+        }
+    )
+    routing_trace["tool_sequence"] = [_n for _n in _names if _n]
+    return _names
