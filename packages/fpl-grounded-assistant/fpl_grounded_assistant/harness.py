@@ -1336,9 +1336,13 @@ def _project_orchestrator_run(routing_trace: dict[str, Any], orch_result: Any) -
     Called on both orchestrator branches (grounded and no-grounded-tool): a
     retry that still failed to ground is still a retry.
     """
-    _names: list[str | None] = [_e.get("name") for _e in orch_result.tool_calls_trace]
-    _verdict = orch_result.evaluator_verdict
-    routing_trace["retry_attempted"] = bool(orch_result.retry_attempted)
+    # getattr with defaults: this is observability, it must never turn a
+    # returned result into a crash (the try/except above only wraps the call).
+    _names: list[str | None] = [
+        _e.get("name") for _e in (getattr(orch_result, "tool_calls_trace", None) or ())
+    ]
+    _verdict = getattr(orch_result, "evaluator_verdict", None)
+    routing_trace["retry_attempted"] = bool(getattr(orch_result, "retry_attempted", False))
     routing_trace["evaluator_verdict"] = (
         None if _verdict is None else {
             "approved":       _verdict.approved,
