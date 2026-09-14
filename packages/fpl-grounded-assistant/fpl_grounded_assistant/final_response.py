@@ -620,6 +620,14 @@ class Exploiter:
     #: weak-team perspective). ``None`` outside that scope.
     gameweek: int | None = None
     is_home:  bool | None = None
+    #: i75: ``team_short`` is the player's CURRENT club (live bootstrap) when
+    #: the tool's exact name match reached him, else the club the tactical
+    #: store last saw him shoot for. ``club_source`` says which
+    #: (``"bootstrap"`` / ``"store"``); ``club_note`` carries "antes en BUR"
+    #: when the two disagree, ``None`` otherwise. Both default to ``None`` so
+    #: pre-i75 payloads (no such keys) still project.
+    club_source: str | None = None
+    club_note:   str | None = None
 
 
 @dataclass(frozen=True)
@@ -1887,6 +1895,8 @@ def _extract_zonal_opportunity_meta(ro: "dict[str, Any]") -> "DefensiveZonesMeta
                     origin          = e.get("origin"),
                     gameweek        = e.get("gameweek"),
                     is_home         = e.get("is_home"),
+                    club_source     = e.get("club_source"),
+                    club_note       = e.get("club_note"),
                 )
                 for e in (ro.get("exploiters") or [])
             ),
