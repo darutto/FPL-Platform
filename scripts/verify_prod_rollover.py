@@ -21,6 +21,14 @@ scan of the container's store) must list both the expected season and the
 previous one as complete. That check runs FIRST so a later season_points
 miss is attributable to data (this check red) or to routing (this check
 green), never to both at once.
+
+i80/i36/i57 (Bloque 3, 2-E): /healthz.orchestrator must be present (the
+mode the orchestrator runs in, read from env at request time), and ONE
+session turn with debug=true must return a routing_trace whose
+tool_call_count is not None -- i.e. the session path went through ask_v2()
+and kept the orchestrator's observability instead of dropping it. The same
+turn prints tokens / tool_calls / retry_attempted so the audit line for it
+(railway logs, or audit_logs/<date>.ndjson) can be cross-read by hand.
 """
 from __future__ import annotations
 
@@ -60,6 +68,15 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--zonal-fixture-horizon", type=int, default=5,
         help="i90: horizon to ask for and to independently compute against (default 5).",
+    )
+    parser.add_argument(
+        "--session-question",
+        default="¿Qué jugadores tienen más puntos esta temporada?",
+        help=(
+            "i80/i36: the one session turn sent with debug=true. Must be a "
+            "question the orchestrator answers with a tool (not a deterministic "
+            "ladder hit), or tool_call_count is legitimately null."
+        ),
     )
     return parser.parse_args()
 
@@ -235,6 +252,99 @@ def _previous_season(season: str) -> str:
     return f"{start - 1}-{end - 1}"
 
 
+_ORCHESTRATOR_KEYS = ("enabled", "loop_enabled", "max_rounds", "provider", "model")
+
+
+def verify_healthz_orchestrator(base_url: str, failures: list[str]) -> None:
+    """i57: /healthz.orchestrator says which mode the orchestrator runs in.
+
+    Presence + the five keys, printed with their values. No expected values
+    are asserted here on purpose: the point of the block is that an operator
+    reads the mode off the deployed container instead of assuming it from the
+    dashboard, so this script prints it and refuses only when it is missing
+    (backend predates 2-E, or the key was dropped).
+    """
+    print("\n[verify_prod_rollover] i57 /healthz orchestrator (env read at request time)", flush=True)
+    resp = requests.get(f"{base_url.rstrip('/')}/healthz", timeout=30)
+    resp.raise_for_status()
+    block = resp.json().get("orchestrator")
+    print(f"  orchestrator={block!r}", flush=True)
+    if not isinstance(block, dict):
+        failures.append("healthz: orchestrator block missing -- backend predates 2-E (i57) or the key was dropped")
+        return
+    missing = [k for k in _ORCHESTRATOR_KEYS if k not in block]
+    if missing:
+        failures.append(f"healthz: orchestrator block lacks {missing!r} (have {sorted(block)!r})")
+
+
+def verify_session_debug_trace(
+    base_url: str, user_id: str, question: str, failures: list[str],
+) -> None:
+    """i80/i36: one session turn with debug=true carries the orchestrator's
+    observability -- routing_trace.tool_call_count is not None.
+
+    A None there means the session path did not go through ask_v2() (or
+    dropped its result on the way out); that is exactly what i36 found and
+    what the audit line used to hide behind tokens={}. Prints the same
+    values the audit line for this turn now carries (tokens, tool_calls,
+    retry_attempted, synthesis_turn) so it can be cross-read against
+    `railway logs` / audit_logs/<date>.ndjson by hand.
+    """
+    print(
+        f"\n[verify_prod_rollover] i80/i36 session turn with debug=true: {question!r}",
+        flush=True,
+    )
+    headers = {"Content-Type": "application/json", "X-User-Id": user_id}
+    created = requests.post(f"{base_url.rstrip('/')}/session", headers=headers, timeout=30)
+    created.raise_for_status()
+    session_id = created.json().get("session_id")
+    if not session_id:
+        failures.append(f"session: POST /session returned no session_id ({created.json()!r})")
+        return
+    resp = requests.post(
+        f"{base_url.rstrip('/')}/session/{session_id}/ask",
+        headers=headers,
+        json={"question": question, "debug": True},
+        timeout=60,
+    )
+    resp.raise_for_status()
+    body = resp.json()
+    debug = body.get("debug")
+    trace = (debug or {}).get("routing_trace")
+    print(
+        f"  outcome={body.get('outcome')!r} intent={body.get('intent')!r} "
+        f"synthesis_turn={body.get('synthesis_turn')!r}",
+        flush=True,
+    )
+    if debug is None:
+        failures.append("session: debug=true returned no debug bundle")
+        return
+    if debug.get("orchestration_absent"):
+        failures.append(
+            "session: debug.orchestration_absent=true -- the turn never went through "
+            "ask_v2() (orchestrator disabled on the container?)"
+        )
+        return
+    print(
+        f"  routing_trace: branch={(trace or {}).get('branch')!r} "
+        f"tool_call_count={(trace or {}).get('tool_call_count')!r} "
+        f"synthesis_turn={(trace or {}).get('synthesis_turn')!r} "
+        f"retry_attempted={(trace or {}).get('retry_attempted')!r} "
+        f"tool_sequence={(trace or {}).get('tool_sequence')!r}",
+        flush=True,
+    )
+    print(f"  tokens={debug.get('tokens')!r}", flush=True)
+    print(f"  tool_calls={debug.get('tool_calls')!r}", flush=True)
+    if not isinstance(trace, dict):
+        failures.append("session: debug.routing_trace missing -- backend predates 2-E (i36) or the key was dropped")
+        return
+    if trace.get("tool_call_count") is None:
+        failures.append(
+            f"session: routing_trace.tool_call_count is None (branch={trace.get('branch')!r}) "
+            f"-- the orchestrator did not run for this turn or its result was dropped"
+        )
+
+
 def verify_owned_store_seasons(base_url: str, expected_season: str, failures: list[str]) -> bool:
     """i92: BEFORE any /ask, read /healthz.owned_store_seasons -- the seasons
     that exist on the container's disk, scanned from the filesystem -- and
@@ -386,6 +496,11 @@ def main() -> None:
             "(pass --zonal-fixture-opponent to run it)",
             flush=True,
         )
+
+    # 2-E: the instrument itself -- /healthz says the mode, a session turn
+    # keeps its routing_trace.
+    verify_healthz_orchestrator(args.url, failures)
+    verify_session_debug_trace(args.url, args.user_id, args.session_question, failures)
 
     if failures:
         print("\n[verify_prod_rollover] FAILED:", file=sys.stderr, flush=True)

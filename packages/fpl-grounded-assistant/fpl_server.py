@@ -107,6 +107,7 @@ from fpl_grounded_assistant.audit import (  # noqa: E402
     make_audit_entry,
     estimate_usd_cost,
     hash_user_id,
+    tool_calls_from_ask_v2,
 )
 from fpl_grounded_assistant.dispatcher import OUTCOME_QUOTA_EXCEEDED  # noqa: E402
 from fpl_grounded_assistant.orch_config import is_orch_enabled  # noqa: E402
@@ -1570,6 +1571,13 @@ def healthz() -> dict[str, Any]:
             },
             "ready_to_graduate":         bool,   # all criteria True AND total > 0
             "total_observations":        int,
+          },
+          "orchestrator": {                       # i57: read from env at request time
+            "enabled":      bool,                 # FPL_ORCH_ENABLED
+            "loop_enabled": bool,                 # FPL_ORCH_LOOP_ENABLED
+            "max_rounds":   int,                  # FPL_ORCH_MAX_ROUNDS (clamped 1..5)
+            "provider":     str | None,           # FPL_ORCH_PROVIDER (None = auto-detect)
+            "model":        str,                  # FPL_ORCH_MODEL or the provider default
           }
         }
 
@@ -1646,6 +1654,27 @@ def healthz() -> dict[str, Any]:
                 "error":        _tac.error,
             }
 
+    # i57: which mode the orchestrator runs in, read from the environment AT
+    # THIS REQUEST (orch_config getters are env reads, nothing is cached at
+    # startup) -- so a variable change + restart is visible here, and a
+    # /healthz that says loop_enabled=false while the deploy meant true is a
+    # real finding, not a stale snapshot.
+    from fpl_grounded_assistant.orch_config import (  # noqa: PLC0415
+        get_orch_max_rounds as _orch_max_rounds,
+        get_orch_model as _orch_model,
+        get_orch_provider as _orch_provider,
+        is_orch_enabled as _orch_enabled,
+        is_orch_loop_enabled as _orch_loop_enabled,
+    )
+    _provider_now = _orch_provider()
+    orchestrator_info: dict[str, Any] = {
+        "enabled":      _orch_enabled(),
+        "loop_enabled": _orch_loop_enabled(),
+        "max_rounds":   _orch_max_rounds(),
+        "provider":     _provider_now,          # None = provider auto-detect
+        "model":        _orch_model(_provider_now),
+    }
+
     payload: dict[str, Any] = {
         "routing_counters":    snap,
         "graduation":          _grad(snap),
@@ -1654,6 +1683,7 @@ def healthz() -> dict[str, Any]:
         # i92: what the store on THIS container's disk actually holds, read
         # from the filesystem -- not the list the startup sync was asked for.
         "owned_store_seasons":  seasons_on_disk() if seasons_on_disk is not None else [],
+        "orchestrator":         orchestrator_info,
     }
     # Key is added only once a tactical sync has run: with the flag off the
     # /healthz payload stays byte-for-byte identical to pre-go-live responses.
@@ -2056,13 +2086,7 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
 
     # Build audit entry from ask_v2 output.
     _routing_trace = ask_v2_dict.get("routing_trace") or {}
-    _tool_calls: list[dict] = []
-    if ask_v2_dict.get("selected_tool"):
-        _tool_calls = [{
-            "name":          ask_v2_dict.get("selected_tool", ""),
-            "args":          ask_v2_dict.get("tool_input") or {},
-            "output_status": (ask_v2_dict.get("raw_output") or {}).get("status", "unknown"),
-        }]
+    _tool_calls: list[dict] = tool_calls_from_ask_v2(ask_v2_dict)
 
     _audit_entry = make_audit_entry(
         user_id=user_id,
@@ -2072,8 +2096,11 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
         outcome=_outcome,
         intent=_intent,
         tool_calls=_tool_calls,
-        evaluator_verdict=None,  # evaluator verdict not yet surfaced in ask_v2 dict (P3.2)
-        retry_attempted=False,
+        # i80: both read off routing_trace, which the harness projects straight
+        # from OrchestratorResult (harness._project_orchestrator_run). Absent
+        # keys (no orchestrator run) read as not-retried / no verdict.
+        evaluator_verdict=_routing_trace.get("evaluator_verdict"),
+        retry_attempted=bool(_routing_trace.get("retry_attempted", False)),
         final_text=_final_text,
         tokens=_tokens,
         provider=_provider,
@@ -2288,6 +2315,26 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         _record_turn(_sess_user_id, entry.session.last_tokens, _sess_tier)
     except Exception as exc:  # noqa: BLE001
         _LOG.exception("quota record_turn failed for session user=%s: %s", _sess_user_id, exc)
+    # i80: audit from what ask_v2() produced on this turn (FinalResponse.
+    # orchestration, kept verbatim by _try_session_orchestration_response),
+    # never from literals. tokens={} / tool_calls=[] are written ONLY when the
+    # turn did not go through ask_v2() at all (orchestrator disabled or the
+    # intent_hint legacy pipeline), and then orchestration_absent=True says so
+    # -- so "not measured" is never read as "measured zero".
+    _sess_orch = r.orchestration
+    if _sess_orch is None:
+        _sess_tokens: dict[str, int] = {}
+        _sess_tool_calls: list[dict] = []
+        _sess_retry_attempted = False
+        _sess_evaluator_verdict = None
+        _sess_orchestration_absent = True
+    else:
+        _sess_trace = _sess_orch.get("routing_trace") or {}
+        _sess_tokens = _sess_orch.get("tokens") or {}
+        _sess_tool_calls = list(_sess_orch.get("tool_calls") or [])
+        _sess_retry_attempted = bool(_sess_trace.get("retry_attempted", False))
+        _sess_evaluator_verdict = _sess_trace.get("evaluator_verdict")
+        _sess_orchestration_absent = False
     _sess_audit_entry = make_audit_entry(
         user_id=_sess_user_id,
         tier=_sess_tier,
@@ -2295,9 +2342,13 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         branch="session",
         outcome=r.outcome,
         intent=r.intent,
-        tokens={},
+        tool_calls=_sess_tool_calls,
+        evaluator_verdict=_sess_evaluator_verdict,
+        retry_attempted=_sess_retry_attempted,
+        tokens=_sess_tokens,
         provider=os.environ.get("DEFAULT_PROVIDER", "gemini"),
         final_text=r.final_text,
+        orchestration_absent=_sess_orchestration_absent,
     )
     try:
         write_audit_entry(_sess_audit_entry)
@@ -2316,6 +2367,18 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
             "model":                 r.debug.model,
             "classification_source": r.debug.classification_source,  # Phase 4l
         }
+        # i36: the full routing_trace of the turn (synthesis_turn,
+        # tool_call_count, retry_attempted, tool_sequence, ...) plus the
+        # audit-shaped tokens/tool_calls -- the same dict the audit line was
+        # written from. None for a turn that never went through ask_v2().
+        if _sess_orch is not None:
+            debug_bundle["routing_trace"] = _sess_orch.get("routing_trace")
+            debug_bundle["selected_tool"] = _sess_orch.get("selected_tool")
+            debug_bundle["tool_calls"]    = _sess_orch.get("tool_calls")
+            debug_bundle["tokens"]        = _sess_orch.get("tokens")
+        else:
+            debug_bundle["routing_trace"] = None
+            debug_bundle["orchestration_absent"] = True
         if r.debug.resolver is not None:
             rdbg = r.debug.resolver
             debug_bundle["resolver"] = {

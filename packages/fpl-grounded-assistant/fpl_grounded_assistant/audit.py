@@ -7,6 +7,7 @@ Public API
 ----------
 write_audit_entry(entry, log_dir=None)  -> None
 estimate_usd_cost(tokens, provider)     -> float
+tool_calls_from_ask_v2(result)          -> list[dict]   (i80: shared /ask + session projection)
 
 Log format
 ----------
@@ -124,6 +125,11 @@ class AuditEntry:
     usd_cost_estimate: float         # provider pricing × token counts
     provider: str                    # "gemini" / "anthropic" / "openai" / "deepseek"
     error_code: str | None           # if anything errored
+    # i80: True only for a session turn that never went through ask_v2()
+    # (orchestrator disabled / intent_hint legacy pipeline) -- tokens={} and
+    # tool_calls=[] on such a line mean "not measured", not "measured zero".
+    # False on every /ask line and on every orchestrated session turn.
+    orchestration_absent: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -220,6 +226,7 @@ def write_audit_entry(entry: AuditEntry, log_dir: str | None = None) -> None:
         "usd_cost_estimate":   entry.usd_cost_estimate,
         "provider":            entry.provider,
         "error_code":          entry.error_code,
+        "orchestration_absent": entry.orchestration_absent,
     }
 
     line = json.dumps(entry_dict, ensure_ascii=False, separators=(",", ":"))
@@ -232,6 +239,26 @@ def write_audit_entry(entry: AuditEntry, log_dir: str | None = None) -> None:
 def _now_iso() -> str:
     """Return the current UTC time as an ISO 8601 string."""
     return datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+
+def tool_calls_from_ask_v2(result: dict[str, Any]) -> list[dict]:
+    """Project an ``ask_v2()`` result dict to ``AuditEntry.tool_calls``.
+
+    One derivation for both HTTP surfaces: ``POST /ask`` applies it to the
+    dict it gets back from ``ask_v2()``, and the session path applies it to
+    the SAME dict inside ``final_response._try_session_orchestration_response``
+    (the only place that dict exists on a session turn) and carries the
+    outcome on ``FinalResponse.orchestration``. Empty when no tool was
+    selected; the shape is the one ``AuditEntry.tool_calls`` documents.
+    """
+    selected_tool = result.get("selected_tool")
+    if not selected_tool:
+        return []
+    return [{
+        "name":          selected_tool,
+        "args":          result.get("tool_input") or {},
+        "output_status": (result.get("raw_output") or {}).get("status", "unknown"),
+    }]
 
 
 def make_audit_entry(
@@ -250,6 +277,7 @@ def make_audit_entry(
     provider: str = "gemini",
     error_code: str | None = None,
     timestamp: str | None = None,
+    orchestration_absent: bool = False,
 ) -> AuditEntry:
     """Convenience factory for building an AuditEntry from ask_v2() output.
 
@@ -277,4 +305,5 @@ def make_audit_entry(
         usd_cost_estimate=estimate_usd_cost(resolved_tokens, provider),
         provider=provider,
         error_code=error_code,
+        orchestration_absent=orchestration_absent,
     )

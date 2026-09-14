@@ -620,6 +620,14 @@ class Exploiter:
     #: weak-team perspective). ``None`` outside that scope.
     gameweek: int | None = None
     is_home:  bool | None = None
+    #: i75: ``team_short`` is the player's CURRENT club (live bootstrap) when
+    #: the tool's exact name match reached him, else the club the tactical
+    #: store last saw him shoot for. ``club_source`` says which
+    #: (``"bootstrap"`` / ``"store"``); ``club_note`` carries "antes en BUR"
+    #: when the two disagree, ``None`` otherwise. Both default to ``None`` so
+    #: pre-i75 payloads (no such keys) still project.
+    club_source: str | None = None
+    club_note:   str | None = None
 
 
 @dataclass(frozen=True)
@@ -1235,6 +1243,12 @@ class FinalResponse:
         is a deterministic render of the tool output, ``None`` when unknown.
         A render is a copy of the card in words, so a client that shows both
         would print the same answer twice.
+    orchestration:
+        i80/i36: the ``ask_v2()`` observability of a session turn --
+        ``routing_trace``, ``tokens``, ``selected_tool`` and ``tool_calls``
+        exactly as produced -- or ``None`` when the turn did not go through
+        ``ask_v2()``. Read by ``/session/{id}/ask`` for the audit line and
+        the ``debug=true`` bundle.
     presentation:
         Which entries each shown list names — ``owned_top``, ``global_top``,
         and a hipster pick per list with its reason when there isn't one. A
@@ -1358,6 +1372,17 @@ class FinalResponse:
     # outcome==needs_clarification AND intent==compare_players (deterministic,
     # never LLM).  None on OK outcomes and all other intents.
     suggestions:            "tuple[Suggestion, ...] | None"  = field(default=None)
+    # i80/i36: what ask_v2() produced on a session turn, kept as-is so the
+    # HTTP layer audits from it instead of from constants:
+    #   {"routing_trace": dict, "tokens": dict, "selected_tool": str | None,
+    #    "tool_calls": list[dict]}   -- tool_calls in AuditEntry's shape, via
+    # audit.tool_calls_from_ask_v2 (the same projection POST /ask applies).
+    # None when the turn never went through ask_v2() (the two preserved
+    # early-outs in _try_session_orchestration_response) -- the caller must
+    # treat None as "not measured", never as "measured empty". Declared
+    # before `evidence` on purpose: test_fi7a_evidence_contract pins
+    # `evidence` as the last field.
+    orchestration:           "dict[str, Any] | None"          = field(default=None)
     # FI-7a: additive provider-neutral evidence contract. Assembly is deferred.
     evidence:                "tuple[EvidenceItem, ...] | None" = field(default=None)
 
@@ -1887,6 +1912,8 @@ def _extract_zonal_opportunity_meta(ro: "dict[str, Any]") -> "DefensiveZonesMeta
                     origin          = e.get("origin"),
                     gameweek        = e.get("gameweek"),
                     is_home         = e.get("is_home"),
+                    club_source     = e.get("club_source"),
+                    club_note       = e.get("club_note"),
                 )
                 for e in (ro.get("exploiters") or [])
             ),
@@ -3087,6 +3114,16 @@ def _try_session_orchestration_response(
         tuple(Suggestion(**item) for item in suggestions) if suggestions else None
     )
     tokens = result.get("tokens") or {}
+    # i80/i36: keep what ask_v2() produced, unreconstructed, for the HTTP
+    # layer: the audit line and the debug bundle read from this dict, never
+    # from a literal. tool_calls uses the same projection POST /ask applies.
+    from .audit import tool_calls_from_ask_v2  # noqa: PLC0415  (leaf module)
+    orchestration: dict[str, Any] = {
+        "routing_trace": routing_trace,
+        "tokens":        tokens,
+        "selected_tool": selected_tool,
+        "tool_calls":    tool_calls_from_ask_v2(result),
+    }
     response = FinalResponse(
         final_text=answer_text,
         outcome=outcome,
@@ -3095,6 +3132,10 @@ def _try_session_orchestration_response(
         review_passed=review_passed,
         llm_used=llm_used,
         debug=debug,
+        # i36: /ask projects this from routing_trace (harness_adapter step 8);
+        # the session path never did, so SessionAskResponse.synthesis_turn was
+        # always null on follow-up turns. Same source, same projection.
+        synthesis_turn=routing_trace.get("synthesis_turn"),
         comparison=result.get("comparison"),
         captain=result.get("captain"),
         captain_ranking=result.get("captain_ranking"),
@@ -3127,6 +3168,7 @@ def _try_session_orchestration_response(
         route_conflict=route_conflict,
         clarification_asked=clarification_asked,
         total_tokens=int(tokens.get("total", 0)),
+        orchestration=orchestration,
     )
     try:
         _telemetry.record_response(
