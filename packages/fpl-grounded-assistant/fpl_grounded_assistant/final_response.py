@@ -2211,6 +2211,38 @@ def _extract_position_fixture_run_meta(ro: "dict[str, Any]") -> "PositionFixture
         return None
 
 
+#: i93: tools whose card IS the contract of a composed turn. When one round
+#: executed one of these together with other tools (the /fixtures cell tap:
+#: get_fixture_outlook + get_team_snapshot in one response), the singular
+#: slot -- selected_tool / tool_input / raw_output and therefore the intent
+#: the UI renders -- must be THIS call, whatever position the model gave it.
+#: The orchestrator's slot is ``executed[0]``, i.e. the model's ordering; a
+#: snapshot-first ordering would otherwise drop the calendar card.
+COMPOSITION_PRIMARY_TOOLS: frozenset[str] = frozenset({"get_fixture_outlook"})
+
+
+def composed_primary_call(trace: "Any") -> "dict[str, Any] | None":
+    """The ``tool_calls_trace`` entry that owns the singular slot of a composed
+    turn, or ``None`` when the turn is not composed.
+
+    Composed = the trace holds at least two DISTINCT tool names and one of
+    them is in ``COMPOSITION_PRIMARY_TOOLS``. Returns the LAST successful
+    call of that primary tool (the one whose output the user saw described);
+    with no successful one, the last call of it. Single-tool turns and
+    multi-tool turns without a primary return ``None`` so callers keep the
+    orchestrator's own slot untouched -- this helper never invents a primary.
+    """
+    entries = [e for e in (trace or ()) if isinstance(e, dict) and e.get("name")]
+    names = {e["name"] for e in entries}
+    if len(names) < 2:
+        return None
+    primaries = [e for e in entries if e["name"] in COMPOSITION_PRIMARY_TOOLS]
+    if not primaries:
+        return None
+    ok = [e for e in primaries if e.get("success")]
+    return (ok or primaries)[-1]
+
+
 def _extract_fixture_outlook_meta(ro: "dict[str, Any]") -> "FixtureOutlookMeta | None":
     """Extract FixtureOutlookMeta from a get_fixture_outlook tool_output dict.
 
@@ -2638,8 +2670,12 @@ def _orch_result_to_final_response(
         ``llm_used`` mirrors ``result.llm_used``.
         Structured metadata fields are populated for applicable intents.
     """
-    intent     = _TOOL_TO_INTENT.get(result.tool_chosen or "", INTENT_UNSUPPORTED)
-    ro         = result.tool_output
+    # i93: a composed turn (calendar + players in one round) keeps the
+    # calendar call as its singular slot, whatever order the model used.
+    _primary   = composed_primary_call(getattr(result, "tool_calls_trace", None))
+    _tool      = _primary["name"] if _primary else result.tool_chosen
+    intent     = _TOOL_TO_INTENT.get(_tool or "", INTENT_UNSUPPORTED)
+    ro         = dict(_primary.get("output") or {}) if _primary else result.tool_output
     final_text = result.answer_text
 
     # Populate intent-specific structured metadata from grounded tool_output.

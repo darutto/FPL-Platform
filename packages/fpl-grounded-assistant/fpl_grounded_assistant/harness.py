@@ -1155,7 +1155,21 @@ def ask_v2(
             # off the result. _orch_tool_names is the executed sequence the i58
             # card gate below reads -- one derivation, two consumers.
             _orch_tool_names = _project_orchestrator_run(routing_trace, orch_result)
-            _orch_raw = dict(orch_result.tool_output)
+            # i93: a composed turn (get_fixture_outlook + get_team_snapshot in
+            # one round) keeps the CALENDAR call as its singular slot --
+            # selected_tool, tool_input, raw_output and the intent the UI
+            # renders -- whatever order the model emitted the two tool_use
+            # blocks in. The orchestrator's own slot is executed[0], i.e. the
+            # model's order; snapshot-first would silently drop the card. Read
+            # off tool_calls_trace, the same field the i58 gate reads; None
+            # for every non-composed turn, so nothing else changes.
+            from .final_response import composed_primary_call  # noqa: PLC0415
+            _primary_call = composed_primary_call(orch_result.tool_calls_trace)
+            if _primary_call is not None:
+                routing_trace["composed_primary_tool"] = _primary_call["name"]
+            _orch_tool = _primary_call["name"] if _primary_call else orch_result.tool_chosen
+            _orch_args = dict(_primary_call.get("args") or {}) if _primary_call else dict(orch_result.tool_args)
+            _orch_raw = dict(_primary_call.get("output") or {}) if _primary_call else dict(orch_result.tool_output)
             # get_player_snapshot's own status (ok/ambiguous/not_found/error)
             # must not be flattened to "ok" just because the orchestrator
             # call itself succeeded -- otherwise an ambiguous match reports
@@ -1166,10 +1180,10 @@ def ask_v2(
             # PR description for the follow-up this intentionally excludes).
             _orch_outcome = (
                 _outcome_from_status(_orch_raw)
-                if orch_result.tool_chosen in STATUS_BEARING_TOOLS
+                if _orch_tool in STATUS_BEARING_TOOLS
                 else "ok"
             )
-            _orch_meta = _meta(orch_result.tool_chosen, _orch_raw)  # orchestrator: grounded tool ran
+            _orch_meta = _meta(_orch_tool, _orch_raw)  # orchestrator: grounded tool ran
             # Structured card for open-ended atomic-tool answers (e.g.
             # rank_players_by_metric): compose a GenericCardMeta from the tool
             # output so the UI renders a card alongside the prose. Guarded to
@@ -1194,8 +1208,8 @@ def ask_v2(
                 if _overlay is not None:
                     _orch_meta["generic_card"] = _overlay  # dataclass; _to_dict serializes downstream
             result = {
-                "selected_tool": orch_result.tool_chosen,
-                "tool_input":    dict(orch_result.tool_args),
+                "selected_tool": _orch_tool,
+                "tool_input":    _orch_args,
                 "raw_output":    _orch_raw,
                 "answer_text":   orch_result.answer_text,
                 "outcome":       _orch_outcome,
