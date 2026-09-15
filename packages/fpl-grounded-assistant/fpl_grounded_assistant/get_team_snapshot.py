@@ -461,6 +461,20 @@ def get_team_snapshot(
     resolution = _resolve_team(team_name, teams)
 
     if resolution["status"] == "not_found":
+        # i93: the composed calendar answer pairs this tool with
+        # get_fixture_outlook, whose resolver knows the alias map (formal
+        # names, nicknames: "Manchester City", "Tottenham", PR #14). This
+        # tool's own tiers (exact / prefix / substring on short_name and
+        # name) miss exactly those, and the model writes the formal name
+        # about a third of the time -- measured 2026-09-15, i93 content
+        # run. Fall back to the shared alias resolver on a miss only; the
+        # ambiguous tier above still wins ("manchester" stays ambiguous).
+        from .team_fixture_calendar import _resolve_team as _resolve_team_alias  # noqa: PLC0415
+        alias_hit = _resolve_team_alias(team_name, bootstrap)
+        if alias_hit is not None:
+            resolution = {"status": "ok", "team_data": alias_hit}
+
+    if resolution["status"] == "not_found":
         return {
             "status":  "not_found",
             "query":   normalized_query,

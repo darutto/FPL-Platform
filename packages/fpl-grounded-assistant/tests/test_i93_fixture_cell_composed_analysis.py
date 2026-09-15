@@ -354,3 +354,45 @@ def test_catalog_instructs_the_parallel_snapshot_call_and_keeps_target_gw():
     assert "pass target_gw=5" in desc and "Do NOT compute horizon" in desc
     snap = get_tool_schema("get_team_snapshot").description
     assert "Pairs with get_fixture_outlook for a ONE MATCH question" in snap
+
+
+# ---------------------------------------------------------------------------
+# Measured refinements (2026-09-15 content run)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("text", [
+    "Newcastle puede generar peligro, pero el cruce es complicado",
+    "buen escenario para que Liverpool genere peligro",
+    "Woltemade crea mucho peligro por dentro",
+])
+def test_attacking_threat_idiom_is_not_danger_framing(text):
+    """'generar/crear peligro' = producing attacking threat, the positive read
+    the rule wants. Found in 4/60 measured answers; a hit here would report a
+    compliant answer as a violation."""
+    assert transaction_hits(text) == []
+
+
+@pytest.mark.parametrize("text", [
+    "Peligro: el Brighton es exigente",
+    "es un peligro tenerlo en el banquillo",
+    "en peligro de relegación",
+    "genera peligro pero hay peligro real de lesión",   # second one is a warning
+])
+def test_danger_framing_is_still_caught(text):
+    assert any(h.startswith("peligr:") for h in transaction_hits(text)), text
+
+
+def test_team_snapshot_resolves_the_formal_names_the_model_writes():
+    """Measured: the model normalised 'Man City' to 'Manchester City' in ~1/3 of
+    composed turns and get_team_snapshot returned not_found (no alias tier),
+    so the answer had no players. It now falls back to the alias resolver
+    get_fixture_outlook already uses; the ambiguous tier still wins."""
+    from fpl_tool_runner import run_tool
+    bs = _bootstrap()
+    bs["teams"].append({"id": 3, "name": "Man City", "short_name": "MCI"})
+    bs["elements"].append(_el(8, "Haaland", 3, 4, 40, 9.0, 3.3, 0.5))
+    for query in ("Manchester City", "MCI", "Man City"):
+        out = run_tool("get_team_snapshot", {"team_name": query, "top_n_players": 3}, bs)
+        assert out["status"] == "ok", query
+        assert [p["web_name"] for p in out["top_players"]] == ["Haaland"], query
+    assert run_tool("get_team_snapshot", {"team_name": "Atlantis FC"}, bs)["status"] == "not_found"

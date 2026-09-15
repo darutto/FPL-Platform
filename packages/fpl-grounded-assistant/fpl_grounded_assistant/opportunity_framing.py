@@ -51,7 +51,17 @@ TRANSACTION_STEMS: tuple[str, ...] = (
 #: globally would flag their honest output.
 _ALLOWED_WORDS: frozenset[str] = frozenset({"transferencia", "transferencias"})
 
-_WORD_RE = re.compile(r"[a-z0-9]+(?:[ '\-][a-z0-9]+)?")
+#: Football idiom, not danger framing: "generar/crear peligro" is the
+#: Spanish for producing attacking threat -- the opposite of a warning.
+#: Measured 2026-09-15 (i93 content run): the synthesis wrote "puede generar
+#: peligro" for an attacking read 4 times in 60; flagging it would report a
+#: positive-framing answer as a violation. Only these verb forms directly
+#: before the word are exempt; "Peligro:", "es un peligro", "en peligro"
+#: stay hits.
+_THREAT_IDIOM_RE = re.compile(
+    r"\b(?:gener(?:a|ar|an|e|en|ando|ado|aria|arian)|cre(?:a|ar|an|e|en|ando|ado|aria|arian))\s+"
+    r"(?:mucho\s+|poco\s+|bastante\s+|mas\s+|menos\s+)?(peligr\w*)"
+)
 
 
 def _fold(text: str) -> str:
@@ -75,9 +85,14 @@ def transaction_hits(text: str) -> list[str]:
             if re.search(r"\b" + re.escape(stem) + r"\b", folded):
                 hits.append(f"{stem}:{stem}")
             continue
+        idiom_spans = (
+            {m.start(1) for m in _THREAT_IDIOM_RE.finditer(folded)} if stem == "peligr" else set()
+        )
         for m in re.finditer(r"\b(" + re.escape(stem) + r"\w*)", folded):
             word = m.group(1)
             if word in _ALLOWED_WORDS:
+                continue
+            if m.start(1) in idiom_spans:
                 continue
             hits.append(f"{stem}:{word}")
     return hits
