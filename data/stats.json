@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-14T05:07:20Z",
+  "generatedAt": "2026-09-15T05:07:20Z",
   "season": "2026/27",
   "seasonStatus": "in_season",
   "gameweek": 3,
@@ -211,6 +211,14 @@
       "minutes": 360
     },
     {
+      "name": "Calvert-Lewin",
+      "team": "LEE",
+      "position": "FWD",
+      "xg": 2.48,
+      "xa": 0.08,
+      "minutes": 329
+    },
+    {
       "name": "Rogers",
       "team": "CHE",
       "position": "MID",
@@ -337,14 +345,6 @@
       "xg": 0.83,
       "xa": 0.91,
       "minutes": 224
-    },
-    {
-      "name": "Calvert-Lewin",
-      "team": "LEE",
-      "position": "FWD",
-      "xg": 1.61,
-      "xa": 0.08,
-      "minutes": 252
     }
   ]
 }
