@@ -337,6 +337,10 @@ def test_system_prompt_carries_the_composition_rule():
     assert "get_fixture_outlook AND get_team_snapshot" in _SYSTEM_PROMPT
     assert "2-3 of that team's top_players" in _SYSTEM_PROMPT
     assert "comprar/vender/fichar/traspasar/urgente/peligro" in _SYSTEM_PROMPT
+    # Round 2 of the content run: the one unclean answer was a NEGATED
+    # disclaimer ("no una recomendación de fichaje"); the rule is lexical,
+    # so the prompt now forbids the vocabulary even to disclaim it.
+    assert "not even to say you are NOT recommending one" in _SYSTEM_PROMPT
     # Untouched neighbours the loop prompt derives from.
     assert "single_source_per_turn" in _SYSTEM_PROMPT
 
