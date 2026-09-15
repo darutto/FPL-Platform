@@ -680,11 +680,15 @@ GET_FIXTURE_OUTLOOK_SCHEMA = ToolSchema(
         "¿qué tal pinta ofensivamente para el Newcastle?' or '...: ¿buen partido para "
         "que el Newcastle deje la portería a cero?', with or without 'doble jornada' "
         "-- team_query=that team, axis from the wording (ofensivo→attack, portería a "
-        "cero→defence), horizon=1 for the current/next GW (or up to the named GW). "
-        "With fewer than 3 GWs the verdict describes the match itself (opponent, "
-        "venue, difficulty, relative strength). For that question NEVER use "
-        "get_fixtures_for_gw (whole-round dump) nor get_team_schedule (plain "
-        "opponent list, no difficulty verdict)."
+        "cero→defence), target_gw=1 (the gameweek the text names). For ONE MATCH "
+        "naming an explicit gameweek ('J5', 'jornada 5', 'GW5') pass target_gw=5 -- "
+        "the LITERAL number named in the text. Do NOT compute horizon from an "
+        "assumed current gameweek; target_gw handles that internally and the "
+        "verdict then describes that match itself (opponent, venue, difficulty, "
+        "relative strength). Omit target_gw (use horizon instead) only for the "
+        "multi-GW ranked / 'próximas jornadas' case. For the one-match question "
+        "NEVER use get_fixtures_for_gw (whole-round dump) nor get_team_schedule "
+        "(plain opponent list, no difficulty verdict)."
     ),
     parameters={
         "type": "object",
@@ -707,9 +711,28 @@ GET_FIXTURE_OUTLOOK_SCHEMA = ToolSchema(
             },
             "horizon": {
                 "type":        "integer",
-                "description": "Upcoming GWs to analyse (default 10, clamped 1–15).",
+                "description": (
+                    "Upcoming GWs to analyse from the CURRENT gameweek (default 10, "
+                    "clamped 1–15). Multi-GW reads only; for one named gameweek use "
+                    "target_gw instead."
+                ),
                 "minimum":     1,
                 "maximum":     15,
+            },
+            # i101: a /fixtures cell tap names its gameweek ("J5"). Copying that
+            # literal into target_gw is a task the model does reliably; computing
+            # horizon = J5 - current + 1 against a current GW the call never
+            # states is the task that failed in prod (answered J4 for J5).
+            "target_gw": {
+                "type":        "integer",
+                "description": (
+                    "ONE absolute gameweek: the literal number the question names "
+                    "('J5' → 5). Requires team_query. Overrides horizon. A played "
+                    "gameweek or one beyond the loaded data returns not_found with a "
+                    "clear message."
+                ),
+                "minimum":     1,
+                "maximum":     38,
             },
         },
         # axis is required so the runner dispatches handler(args, bootstrap) and

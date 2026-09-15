@@ -16,6 +16,12 @@ Behaviour
 * ``axis`` is required (``attack`` | ``defence``) so the runner dispatches
   ``handler(args, bootstrap)`` and the model consciously chooses the
   position-relevant axis.
+* **One named gameweek (i101).** ``target_gw=N`` (with ``team_query``)
+  anchors the window at gameweek N instead of the current GW, so a question
+  that names "J5" is answered about J5 whatever the current GW is. The model
+  copies the number from the text; it never computes a horizon against a
+  current GW the call does not tell it. A played GW and a GW beyond the data
+  window are two distinct ``not_found`` messages, never an empty answer.
 * **Short horizon (i78-A).** A run needs ``_MIN_RUN_LEN`` (3) consecutive
   GWs, so with fewer GWs in the series the engine's verdict is *always*
   "Calendario sin rachas claras" -- true, and useless, for the one-match
@@ -38,6 +44,8 @@ from fpl_tool_runner.specs import ToolSpec
 from .fixture_outlook import (
     AXES,
     DEFAULT_HORIZON,
+    TARGET_GW_BEYOND_DATA,
+    TARGET_GW_PAST,
     _MIN_RUN_LEN,
     get_all_team_outlooks,
     get_team_outlook,
@@ -46,19 +54,51 @@ from .fixture_outlook import (
 from .team_fixture_calendar import _resolve_team
 
 
+#: i101 -- the two ways a named gameweek can miss, told apart so the model
+#: (and the user) hear the right thing: a played gameweek is a results
+#: question, not a forecast; a gameweek beyond the loaded window is just not
+#: there yet. Neither is "no fixtures".
+_TARGET_GW_NOT_FOUND: dict[str, str] = {
+    TARGET_GW_PAST:        "La jornada {gw} ya se jugó — pregunta por el resultado, no por el pronóstico.",
+    TARGET_GW_BEYOND_DATA: "No hay datos de fixtures hasta la jornada {gw} todavía.",
+}
+
+
+def _parse_target_gw(raw: Any) -> int | None:
+    """``target_gw`` as an int, or None when absent/empty. Non-numeric raises
+    ValueError so a model that passes 'J5' fails loudly instead of silently
+    falling back to the horizon window (the exact failure i101 is about)."""
+    if raw is None or raw == "":
+        return None
+    return int(raw)
+
+
 def _get_fixture_outlook_handler(
     args:      dict[str, Any],
     bootstrap: dict[str, Any],
 ) -> dict[str, Any]:
     """Tool-runner handler — delegates to the pure engine.
 
-    Returns ``status`` ∈ {ok, not_found, missing_context}.
+    Returns ``status`` ∈ {ok, not_found, missing_context, invalid_argument}.
+
+    i101: ``target_gw`` (one absolute gameweek) takes precedence over
+    ``horizon`` (a window from the current GW). The model is told to pass the
+    literal number a "J5"-style question names; the engine anchors the window
+    there, so no arithmetic against an unstated current GW happens anywhere.
     """
     axis = str(args.get("axis", "attack")).lower()
     if axis not in AXES:
         axis = "attack"
     horizon = int(args.get("horizon", DEFAULT_HORIZON))
     team_query = str(args.get("team_query", "") or "").strip()
+    try:
+        target_gw = _parse_target_gw(args.get("target_gw"))
+    except (TypeError, ValueError):
+        return {
+            "status":  "invalid_argument",
+            "code":    "target_gw_not_a_number",
+            "message": f"target_gw must be a gameweek number, got {args.get('target_gw')!r}.",
+        }
 
     team_fixtures: dict = bootstrap.get("team_fixtures", {})
     if not team_fixtures:
@@ -68,6 +108,15 @@ def _get_fixture_outlook_handler(
         }
 
     if not team_query:
+        if target_gw is not None:
+            # target_gw is a one-team, one-match read; the all-teams grid has
+            # no single match to point at.
+            return {
+                "status":    "invalid_argument",
+                "code":      "target_gw_requires_team",
+                "target_gw": target_gw,
+                "message":   "target_gw requires team_query (one team, one gameweek).",
+            }
         # All teams — the grid data (status set by the engine).
         return get_all_team_outlooks(bootstrap, axis, horizon)
 
@@ -79,7 +128,15 @@ def _get_fixture_outlook_handler(
             "message":    f"No team found matching '{team_query}'.",
         }
 
-    outlook = get_team_outlook(bootstrap, int(team["id"]), axis, horizon)
+    if target_gw is not None:
+        outlook = get_team_outlook(bootstrap, int(team["id"]), axis, target_gw=target_gw)
+        miss = _TARGET_GW_NOT_FOUND.get(str(outlook.get("target_gw_status")))
+        if miss is not None:
+            outlook["status"] = "not_found"
+            outlook["message"] = miss.format(gw=target_gw)
+            return outlook
+    else:
+        outlook = get_team_outlook(bootstrap, int(team["id"]), axis, horizon)
     if outlook.get("series"):
         outlook["status"] = "ok"
         # i78-A: fewer GWs than a run needs -> the run verdict is vacuous by
@@ -224,6 +281,13 @@ FIXTURE_OUTLOOK_SPEC = ToolSpec(
                 "type":        "integer",
                 "description": "GW lookahead window (default 10, max 15).",
             },
+            "target_gw": {
+                "type":        "integer",
+                "description": (
+                    "One absolute gameweek (i101): the literal number named in "
+                    "the question. Requires team_query; overrides horizon."
+                ),
+            },
         },
         # 'axis' required → runner passes (args, bootstrap) to the handler.
         "required": ["axis"],
@@ -234,6 +298,10 @@ FIXTURE_OUTLOOK_SPEC = ToolSpec(
             "status":           {"type": "string"},
             "axis":             {"type": "string"},
             "horizon":          {"type": "integer"},
+            # i101: which gameweek was targeted and whether it was in range
+            # (ok | past | beyond_data); None when horizon was used instead.
+            "target_gw":        {"type": ["integer", "null"]},
+            "target_gw_status": {"type": ["string", "null"]},
             "current_gameweek": {"type": ["integer", "null"]},
             "teams":            {"type": "array"},
             "series":           {"type": "array"},

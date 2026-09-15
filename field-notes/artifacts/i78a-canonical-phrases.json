@@ -88,6 +88,42 @@
       "question": "Newcastle vs LEE (a domicilio), J4: ¿qué tal pinta ofensivamente para el Newcastle?"
     },
     {
+      "id": "fc-new-att-cell-j3",
+      "kind": "fixtureCellQuestion",
+      "team_name": "Newcastle",
+      "team_short": "NEW",
+      "axis": "attack",
+      "gameweek": 3,
+      "is_dgw": false,
+      "dgw_synthetic": false,
+      "cell_position": "future",
+      "question": "Newcastle vs BOU (en casa), J3: ¿qué tal pinta ofensivamente para el Newcastle?"
+    },
+    {
+      "id": "fc-new-att-cell-j5",
+      "kind": "fixtureCellQuestion",
+      "team_name": "Newcastle",
+      "team_short": "NEW",
+      "axis": "attack",
+      "gameweek": 5,
+      "is_dgw": false,
+      "dgw_synthetic": false,
+      "cell_position": "future",
+      "question": "Newcastle vs HUL (en casa), J5: ¿qué tal pinta ofensivamente para el Newcastle?"
+    },
+    {
+      "id": "fc-new-att-cell-j6",
+      "kind": "fixtureCellQuestion",
+      "team_name": "Newcastle",
+      "team_short": "NEW",
+      "axis": "attack",
+      "gameweek": 6,
+      "is_dgw": false,
+      "dgw_synthetic": false,
+      "cell_position": "future",
+      "question": "Newcastle vs COV (a domicilio), J6: ¿qué tal pinta ofensivamente para el Newcastle?"
+    },
+    {
       "id": "fc-mci-att-team",
       "kind": "teamOutlookQuestion",
       "team_name": "Man City",
@@ -170,6 +206,42 @@
       "dgw_synthetic": false,
       "cell_position": "future",
       "question": "Man City vs MUN (a domicilio), J4: ¿qué tal pinta ofensivamente para el Man City?"
+    },
+    {
+      "id": "fc-mci-att-cell-j3",
+      "kind": "fixtureCellQuestion",
+      "team_name": "Man City",
+      "team_short": "MCI",
+      "axis": "attack",
+      "gameweek": 3,
+      "is_dgw": false,
+      "dgw_synthetic": false,
+      "cell_position": "future",
+      "question": "Man City vs COV (en casa), J3: ¿qué tal pinta ofensivamente para el Man City?"
+    },
+    {
+      "id": "fc-mci-att-cell-j5",
+      "kind": "fixtureCellQuestion",
+      "team_name": "Man City",
+      "team_short": "MCI",
+      "axis": "attack",
+      "gameweek": 5,
+      "is_dgw": false,
+      "dgw_synthetic": false,
+      "cell_position": "future",
+      "question": "Man City vs SUN (en casa), J5: ¿qué tal pinta ofensivamente para el Man City?"
+    },
+    {
+      "id": "fc-mci-att-cell-j6",
+      "kind": "fixtureCellQuestion",
+      "team_name": "Man City",
+      "team_short": "MCI",
+      "axis": "attack",
+      "gameweek": 6,
+      "is_dgw": false,
+      "dgw_synthetic": false,
+      "cell_position": "future",
+      "question": "Man City vs LIV (a domicilio), J6: ¿qué tal pinta ofensivamente para el Man City?"
     },
     {
       "id": "fc-liv-att-team",
@@ -256,6 +328,42 @@
       "question": "Liverpool vs FUL (en casa), J4: ¿qué tal pinta ofensivamente para el Liverpool?"
     },
     {
+      "id": "fc-liv-att-cell-j3",
+      "kind": "fixtureCellQuestion",
+      "team_name": "Liverpool",
+      "team_short": "LIV",
+      "axis": "attack",
+      "gameweek": 3,
+      "is_dgw": false,
+      "dgw_synthetic": false,
+      "cell_position": "future",
+      "question": "Liverpool vs IPS (a domicilio), J3: ¿qué tal pinta ofensivamente para el Liverpool?"
+    },
+    {
+      "id": "fc-liv-att-cell-j5",
+      "kind": "fixtureCellQuestion",
+      "team_name": "Liverpool",
+      "team_short": "LIV",
+      "axis": "attack",
+      "gameweek": 5,
+      "is_dgw": false,
+      "dgw_synthetic": false,
+      "cell_position": "future",
+      "question": "Liverpool vs BOU (a domicilio), J5: ¿qué tal pinta ofensivamente para el Liverpool?"
+    },
+    {
+      "id": "fc-liv-att-cell-j6",
+      "kind": "fixtureCellQuestion",
+      "team_name": "Liverpool",
+      "team_short": "LIV",
+      "axis": "attack",
+      "gameweek": 6,
+      "is_dgw": false,
+      "dgw_synthetic": false,
+      "cell_position": "future",
+      "question": "Liverpool vs MCI (en casa), J6: ¿qué tal pinta ofensivamente para el Liverpool?"
+    },
+    {
       "id": "fc-tot-att-team",
       "kind": "teamOutlookQuestion",
       "team_name": "Spurs",
@@ -338,6 +446,42 @@
       "dgw_synthetic": false,
       "cell_position": "future",
       "question": "Spurs vs EVE (en casa), J4: ¿qué tal pinta ofensivamente para el Spurs?"
+    },
+    {
+      "id": "fc-tot-att-cell-j3",
+      "kind": "fixtureCellQuestion",
+      "team_name": "Spurs",
+      "team_short": "TOT",
+      "axis": "attack",
+      "gameweek": 3,
+      "is_dgw": false,
+      "dgw_synthetic": false,
+      "cell_position": "future",
+      "question": "Spurs vs NFO (a domicilio), J3: ¿qué tal pinta ofensivamente para el Spurs?"
+    },
+    {
+      "id": "fc-tot-att-cell-j5",
+      "kind": "fixtureCellQuestion",
+      "team_name": "Spurs",
+      "team_short": "TOT",
+      "axis": "attack",
+      "gameweek": 5,
+      "is_dgw": false,
+      "dgw_synthetic": false,
+      "cell_position": "future",
+      "question": "Spurs vs AVL (en casa), J5: ¿qué tal pinta ofensivamente para el Spurs?"
+    },
+    {
+      "id": "fc-tot-att-cell-j6",
+      "kind": "fixtureCellQuestion",
+      "team_name": "Spurs",
+      "team_short": "TOT",
+      "axis": "attack",
+      "gameweek": 6,
+      "is_dgw": false,
+      "dgw_synthetic": false,
+      "cell_position": "future",
+      "question": "Spurs vs MUN (a domicilio), J6: ¿qué tal pinta ofensivamente para el Spurs?"
     }
   ]
 }
