@@ -463,18 +463,45 @@ def _avg_band(series: list[dict[str, Any]]) -> float | None:
     return round(sum(bands) / len(bands), 2)
 
 
+#: Why a ``target_gw`` request produced (or did not produce) a series (i101).
+#: Returned as ``target_gw_status`` so the wrapper can say WHICH kind of miss
+#: it was instead of a generic "no fixtures": a gameweek already played is a
+#: results question, a gameweek past the data window is simply not loaded.
+TARGET_GW_OK: str = "ok"
+TARGET_GW_PAST: str = "past"
+TARGET_GW_BEYOND_DATA: str = "beyond_data"
+
+
 def get_team_outlook(
     bootstrap: dict[str, Any],
     team_id: int,
     axis: str,
-    horizon: int = DEFAULT_HORIZON,
+    horizon: int | None = None,
     *,
+    target_gw: int | None = None,
     _thresholds: list[float] | None = None,
     _current_gw: int | None = None,
     _active_gws: frozenset[int] | None = None,
     _max_horizon: int | None = None,
 ) -> dict[str, Any]:
     """Compute the fixture outlook for one team on one axis.
+
+    Two ways to say which gameweeks, mutually exclusive:
+
+    ``horizon``    a window of N GWs from the current GW (``DEFAULT_HORIZON``
+                   when omitted) -- the ranked / "próximas jornadas" read.
+    ``target_gw``  ONE absolute gameweek (i101). The /fixtures cell tap names
+                   the gameweek literally ("J5"); anchoring the window there
+                   lets the caller COPY that number instead of computing a
+                   horizon against a current GW the call never told it. The
+                   window becomes ``[target_gw, target_gw+1)`` -- a series of
+                   length 1 -- so the wrapper's short-horizon description
+                   (i78-A) applies unchanged. Out of range (already played, or
+                   beyond ``_MAX_HORIZON`` GWs of data from the current GW) the
+                   series is empty and ``target_gw_status`` says which; the
+                   current GW is never substituted for the target. Passing
+                   both raises ``ValueError``: nobody in the product should,
+                   and a silent precedence rule would hide that bug.
 
     The leading-underscore keyword args let the all-teams path share the
     expensive league-wide computations (thresholds, current GW, active GWs).
@@ -483,13 +510,18 @@ def get_team_outlook(
     Returns
     -------
     ``team_id`` / ``team_short`` / ``team_name`` / ``axis`` / ``horizon``
+    ``target_gw``        the requested gameweek, or None
+    ``target_gw_status`` ``ok`` | ``past`` | ``beyond_data``; None without target
     ``avg_band``  mean difficulty across played GWs (None if all blank)
     ``series``    per-GW list (gameweek, band, klass, is_dgw, is_bgw, fixtures)
     ``runs``      detected good/bad runs
     ``verdict``   one-line Spanish schedule-only summary
     """
+    if horizon is not None and target_gw is not None:
+        raise ValueError("get_team_outlook: pass either horizon or target_gw, not both")
     axis = axis if axis in AXES else "attack"
-    horizon = max(1, min(int(horizon), _max_horizon or _MAX_HORIZON))
+    max_horizon = _max_horizon or _MAX_HORIZON
+    horizon = max(1, min(int(DEFAULT_HORIZON if horizon is None else horizon), max_horizon))
 
     team_fixtures: dict = bootstrap.get("team_fixtures", {})
     teams_by_id = _teams_by_id(bootstrap)
@@ -498,17 +530,36 @@ def get_team_outlook(
 
     current_gw = _current_gw if _current_gw is not None else _get_current_gameweek(bootstrap)
     thresholds = _thresholds if _thresholds is not None else build_axis_thresholds(bootstrap, axis)
-    if _active_gws is not None:
-        active_gws = _active_gws
-    elif current_gw is not None:
-        active_gws = _get_active_gws(team_fixtures, current_gw, horizon)
-    else:
-        active_gws = frozenset()
 
-    series = _team_axis_series(
-        team_id, team_fixtures, axis, current_gw, horizon,
-        teams_by_id, short_map, thresholds, active_gws,
-    )
+    # i101: the window is anchored at target_gw, not at current_gw. current_gw
+    # is only consulted to classify the miss (past / beyond data).
+    target_gw_status: str | None = None
+    window_start = current_gw
+    if target_gw is not None:
+        target_gw = int(target_gw)
+        horizon = 1
+        if current_gw is not None and target_gw < current_gw:
+            target_gw_status = TARGET_GW_PAST
+        elif current_gw is not None and target_gw >= current_gw + max_horizon:
+            target_gw_status = TARGET_GW_BEYOND_DATA
+        else:
+            target_gw_status = TARGET_GW_OK
+            window_start = target_gw
+
+    series: list[dict[str, Any]]
+    if target_gw_status in (TARGET_GW_PAST, TARGET_GW_BEYOND_DATA):
+        series = []
+    else:
+        if _active_gws is not None and target_gw is None:
+            active_gws = _active_gws
+        elif window_start is not None:
+            active_gws = _get_active_gws(team_fixtures, window_start, horizon)
+        else:
+            active_gws = frozenset()
+        series = _team_axis_series(
+            team_id, team_fixtures, axis, window_start, horizon,
+            teams_by_id, short_map, thresholds, active_gws,
+        )
     runs = detect_runs(series)
 
     return {
@@ -517,6 +568,8 @@ def get_team_outlook(
         "team_name":  name_map.get(team_id, f"Team {team_id}"),
         "axis":       axis,
         "horizon":    horizon,
+        "target_gw":  target_gw,
+        "target_gw_status": target_gw_status,
         "avg_band":   _avg_band(series),
         "series":     series,
         "runs":       runs,
