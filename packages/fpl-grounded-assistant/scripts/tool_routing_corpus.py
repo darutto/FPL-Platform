@@ -22,6 +22,8 @@ reason stated, per the measurement task.
 """
 from __future__ import annotations
 
+import re
+
 import json
 from pathlib import Path
 from typing import Any
@@ -928,6 +930,11 @@ def i78a_fixture_click_corpus(path: Path | None = None) -> list[dict[str, Any]]:
     data = load_i78a_canonical_phrases(path)
     entries: list[dict[str, Any]] = []
     for p in data["phrases"]:
+        if _I101_ID_RE.search(p["id"]):
+            # i101 added extra future cells to the generated file; the i78-A
+            # routing matrix keeps its original 28 so before/after stay
+            # comparable. Those phrases are served by i101_target_gw_corpus().
+            continue
         entries.append({
             "id": p["id"], "family": "fixture_click", "control": True,
             "question": p["question"],
@@ -942,6 +949,53 @@ def i78a_fixture_click_corpus(path: Path | None = None) -> list[dict[str, Any]]:
                 "is_dgw": p["is_dgw"], "dgw_synthetic": p["dgw_synthetic"],
                 "cell_position": p["cell_position"], "team_short": p["team_short"],
             },
+        })
+    return entries
+
+
+#: i101 phrase ids: the extra future cells the generator emits per team
+#: (``fc-<slug>-att-cell-j<N>``).
+_I101_ID_RE = re.compile(r"-att-cell-j\d+$")
+
+
+def i101_target_gw_corpus(
+    current_gw: int,
+    path: Path | None = None,
+    *,
+    min_lead: int = 2,
+) -> list[dict[str, Any]]:
+    """i101: every generated ``fixtureCellQuestion`` whose gameweek is at least
+    ``min_lead`` GWs past ``current_gw`` -- the case where guessing
+    ``horizon=1`` is invisible-wrong (the answer is about the current GW, not
+    the named one). ``current_gw`` MUST be the one resolved from the bootstrap
+    the measurement runs against, never typed by hand: the lead is what makes
+    the phrase discriminating.
+
+    Each entry carries ``expected_target_gw`` (the number the phrase names,
+    read from the generator's metadata, not parsed out of the prose) so the
+    read-out compares ``tool_args.target_gw`` against it.
+    """
+    data = load_i78a_canonical_phrases(path)
+    entries: list[dict[str, Any]] = []
+    for p in data["phrases"]:
+        if p["kind"] != "fixtureCellQuestion" or p["cell_position"] != "future":
+            continue
+        gw = int(p["gameweek"])
+        if gw < int(current_gw) + int(min_lead):
+            continue
+        entries.append({
+            "id": p["id"], "family": "fixture_click_target_gw", "control": True,
+            "question": p["question"],
+            "acceptable_tools": [I78A_EXPECTED_TOOL],
+            "forbidden_tools": [I78A_FORBIDDEN_TOOL],
+            "note": f"i101 team={p['team_name']} gw={gw} lead={gw - int(current_gw)}",
+            "i78a": {
+                "kind": p["kind"], "axis": p["axis"], "gameweek": gw,
+                "is_dgw": p["is_dgw"], "dgw_synthetic": p["dgw_synthetic"],
+                "cell_position": p["cell_position"], "team_short": p["team_short"],
+            },
+            "i101": {"expected_target_gw": gw, "current_gw": int(current_gw),
+                     "lead": gw - int(current_gw), "team_short": p["team_short"]},
         })
     return entries
 

@@ -44,6 +44,12 @@ interface TeamInputs {
   gw1: FixtureOutlookGW;
   /** Real GW4 cell (the plan's future-cell example). */
   gw4: FixtureOutlookGW;
+  /**
+   * i101: more real future cells, each at least 2 GWs past the frozen
+   * bootstrap's current GW (1). The argument measurement needs phrases
+   * whose gameweek the model cannot get right by guessing horizon=1.
+   */
+  future_extra: FixtureOutlookGW[];
   /** Synthetic second fixture appended to GW1 to form a DGW cell. */
   dgw_extra: { opponent_short: string; is_home: boolean; band: number };
 }
@@ -70,24 +76,44 @@ const TEAMS: readonly TeamInputs[] = [
     gw1: cell(1, [{ opponent_short: 'LIV', is_home: true, band: 4 }]),
     gw4: cell(4, [{ opponent_short: 'LEE', is_home: false, band: 3 }]),
     dgw_extra: { opponent_short: 'SUN', is_home: false, band: 3 },
+    future_extra: [
+      cell(3, [{ opponent_short: 'BOU', is_home: true, band: 3 }]),
+      cell(5, [{ opponent_short: 'HUL', is_home: true, band: 2 }]),
+      cell(6, [{ opponent_short: 'COV', is_home: false, band: 2 }]),
+    ],
   },
   {
     team_name: 'Man City', team_short: 'MCI',
     gw1: cell(1, [{ opponent_short: 'BOU', is_home: true, band: 3 }]),
     gw4: cell(4, [{ opponent_short: 'MUN', is_home: false, band: 4 }]),
     dgw_extra: { opponent_short: 'HUL', is_home: false, band: 2 },
+    future_extra: [
+      cell(3, [{ opponent_short: 'COV', is_home: true, band: 2 }]),
+      cell(5, [{ opponent_short: 'SUN', is_home: true, band: 2 }]),
+      cell(6, [{ opponent_short: 'LIV', is_home: false, band: 4 }]),
+    ],
   },
   {
     team_name: 'Liverpool', team_short: 'LIV',
     gw1: cell(1, [{ opponent_short: 'NEW', is_home: false, band: 3 }]),
     gw4: cell(4, [{ opponent_short: 'FUL', is_home: true, band: 2 }]),
     dgw_extra: { opponent_short: 'IPS', is_home: true, band: 2 },
+    future_extra: [
+      cell(3, [{ opponent_short: 'IPS', is_home: false, band: 2 }]),
+      cell(5, [{ opponent_short: 'BOU', is_home: false, band: 3 }]),
+      cell(6, [{ opponent_short: 'MCI', is_home: true, band: 4 }]),
+    ],
   },
   {
     team_name: 'Spurs', team_short: 'TOT',
     gw1: cell(1, [{ opponent_short: 'BRE', is_home: false, band: 3 }]),
     gw4: cell(4, [{ opponent_short: 'EVE', is_home: true, band: 3 }]),
     dgw_extra: { opponent_short: 'COV', is_home: true, band: 2 },
+    future_extra: [
+      cell(3, [{ opponent_short: 'NFO', is_home: false, band: 3 }]),
+      cell(5, [{ opponent_short: 'AVL', is_home: true, band: 3 }]),
+      cell(6, [{ opponent_short: 'MUN', is_home: false, band: 4 }]),
+    ],
   },
 ];
 
@@ -148,6 +174,18 @@ export function buildCanonicalPhrases(): CanonicalPhrase[] {
       gameweek: t.gw4.gameweek, is_dgw: false, dgw_synthetic: false, cell_position: 'future',
       question: fixtureCellQuestion(t.team_name, t.gw4, 'attack'),
     });
+    // i101: further future cells (J3, J5, J6 -- all >= current+2 on the frozen
+    // bootstrap). The i78-A routing matrix keeps its original 28 by id prefix;
+    // the i101 argument measurement selects these by cell_position + gameweek.
+    for (const fx of t.future_extra) {
+      out.push({
+        id: `fc-${slug}-att-cell-j${fx.gameweek}`,
+        kind: 'fixtureCellQuestion',
+        team_name: t.team_name, team_short: t.team_short, axis: 'attack',
+        gameweek: fx.gameweek, is_dgw: false, dgw_synthetic: false, cell_position: 'future',
+        question: fixtureCellQuestion(t.team_name, fx, 'attack'),
+      });
+    }
   }
   return out;
 }
@@ -174,10 +212,10 @@ export function buildCanonicalPhrasesFile(): CanonicalPhrasesFile {
 describe('i78-A canonical fixture-click phrases', () => {
   const built = buildCanonicalPhrasesFile();
 
-  test('4 teams x 2 axes x {team, cell, dgw cell} + 4 future cells = 28 unique phrases', () => {
-    expect(built.phrases).toHaveLength(28);
-    expect(new Set(built.phrases.map((p) => p.id)).size).toBe(28);
-    expect(new Set(built.phrases.map((p) => p.question)).size).toBe(28);
+  test('4 teams x 2 axes x {team, cell, dgw cell} + 4 future cells + 12 i101 future cells = 40 unique phrases', () => {
+    expect(built.phrases).toHaveLength(40);
+    expect(new Set(built.phrases.map((p) => p.id)).size).toBe(40);
+    expect(new Set(built.phrases.map((p) => p.question)).size).toBe(40);
   });
 
   test('every phrase names its team and its axis in the words the UI uses', () => {
