@@ -688,7 +688,13 @@ GET_FIXTURE_OUTLOOK_SCHEMA = ToolSchema(
         "relative strength). Omit target_gw (use horizon instead) only for the "
         "multi-GW ranked / 'próximas jornadas' case. For the one-match question "
         "NEVER use get_fixtures_for_gw (whole-round dump) nor get_team_schedule "
-        "(plain opponent list, no difficulty verdict)."
+        "(plain opponent list, no difficulty verdict). "
+        "For that ONE MATCH question ALSO call get_team_snapshot(team_name=<the same "
+        "team>, top_n_players=5) in the SAME response (a second tool_use block, in "
+        "parallel) so the answer can name that team's real players with a real "
+        "number from the tool (form, expected_goals, expected_assists or "
+        "total_points) -- never invent a name or a stat. Frame them as the "
+        "opportunity in this match; never as buy/sell/transfer advice."
     ),
     parameters={
         "type": "object",
@@ -893,7 +899,10 @@ GET_TEAM_SNAPSHOT_SCHEMA = ToolSchema(
     description=(
         "Single team snapshot: form, next N fixtures+FDR, top N players (full grounding payload), "
         "summary (avg FDR, easy/hard run, top scorer). "
-        "status=ambiguous on multi-match (e.g. 'manchester')."
+        "status=ambiguous on multi-match (e.g. 'manchester'). "
+        "Pairs with get_fixture_outlook for a ONE MATCH question ('Arsenal vs BHA (a "
+        "domicilio), J5: ¿qué tal pinta ofensivamente para el Arsenal?'): call both in "
+        "the same response and cite 2-3 top_players with their tool numbers."
     ),
     parameters={
         "type": "object",
