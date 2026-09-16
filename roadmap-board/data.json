@@ -1307,14 +1307,14 @@
     },
     {
       "id": "i93",
-      "col": "idea",
-      "progress": 0,
-      "title": "i78-B: el clic en una celda debería dar un análisis compuesto, no el veredicto de una sola herramienta",
-      "desc": "MITAD DE PRODUCTO de [[i78]], separada el 2026-09-13 al entregar i78-A. Lo que el usuario confirmó como «el análisis que debería dar» un clic en la celda (localía + fuerza relativa + jugadores con forma/xG + veredicto) es composición de varias herramientas ([[i13]]), y hoy get_fixture_outlook ni siquiera tiene parámetro de jornada: para una celda futura el modelo pide horizon=4 y responde la ventana J1-J4, no el partido. Lo desbloquea una decisión: tarjeta compuesta vs prosa sintetizada.",
+      "col": "evaluation",
+      "progress": 85,
+      "title": "El clic de calendario ya nombra jugadores reales, en encuadre de oportunidad",
+      "desc": "FUSIONADA 2026-09-15 (PR #282, bee1f6c). Pendiente: verify_i93_composed_prod.py contra prod.\n\nEL PROBLEMA. Tras i101 (target_gw), el clic ya apuntaba al partido correcto pero era puro calendario: \"dificultad ofensiva 3/5, ventaja Arsenal\" — nada sobre jugadores. El usuario ya había confirmado el 2026-09-08 que el análisis por defecto debería componer calendario + jugadores con forma/xG.\n\nQUÉ HACE. get_fixture_outlook pide get_team_snapshot(team_name, top_n_players=5) en la MISMA respuesta (segundo tool_use, en paralelo) — el camino de una sola ronda que corre en prod ya ejecutaba lotes de herramientas (P1.c), no hizo falta encender el loop del orquestador. La síntesis nombra 2-3 jugadores con un dato real (forma/xG/xA/puntos) en encuadre de oportunidad.\n\nELECCIÓN DE FUENTE, con evidencia: get_team_snapshot sobre get_zonal_opportunity — 5/5 filas siempre vs 0 filas en un partido real (Man City vs SUN); get_zonal_opportunity queda anotada como mejora futura (necesitaría team/gw en su schema).\n\nREGLA DE PRODUCTO COMPROBABLE, no solo prometida: opportunity_framing.py — denylist cerrado de vocabulario de compra/venta/urgencia/peligro, corrido sobre el texto real que el usuario recibe, no solo sobre la instrucción. Un descargo negado (\"no una recomendación de fichaje\") SIGUE siendo una violación — no se exceptuó. Única excepción, acotada por regex: \"generar peligro\" como amenaza ofensiva (idioma futbolístico), nunca \"es un peligro\".\n\nSLOT SINGULAR DEL TURNO COMPUESTO. La tarjeta de calendario podía perderse si el modelo pedía las dos herramientas en el orden equivocado — composed_primary_call() localiza la llamada de calendario en tool_calls_trace en vez de asumir un slot fijo. Probado en ambos órdenes, y que un turno multi-herramienta SIN esta composición no cambia de comportamiento.\n\nMEDIDO (protocolo del bloque, luna=Railway, R=3): antes 0/12 celdas reales con jugador nombrado; después 12/12 con las 3 repeticiones limpias, 0/60 hits de vocabulario prohibido. Verificado por mí contra el JSONL crudo, no contra el resumen.\n\nHALLAZGO HIJO, parado a tiempo en vez de forzado dentro de esta PR: ver i102 — la tarjeta de calendario nunca llegó al chat por HTTP, en ningún turno, desde que existe. No es una regresión de esta carta.\n\nCIERRE: scripts/verify_i93_composed_prod.py --team Arsenal --lead 1 --reps 3 en verde contra prod (vara = top-5 real de la API viva de FPL).",
       "tags": [
-        "FPL Asistente",
         "Backend",
-        "IA"
+        "IA",
+        "FPL Asistente"
       ]
     },
     {
@@ -1394,6 +1394,30 @@
         "FPL Asistente",
         "Backend",
         "IA"
+      ]
+    },
+    {
+      "id": "i101",
+      "col": "shipped",
+      "progress": 100,
+      "title": "El clic de calendario apunta a la jornada pedida, no a la siguiente",
+      "desc": "FUSIONADA Y VERIFICADA EN PROD 2026-09-14/15 (PR #280, cdccf44).\n\nEL PROBLEMA, medido en prod tras cerrar i78-A: un clic en J5 (Crystal Palace vs Leeds) devolvía J4 (vs Ipswich) — get_fixture_outlook solo tenía horizon (ventana desde la jornada actual) y el modelo tenía que CALCULAR horizon = jornada_pedida − actual + 1 sin que la llamada le dijera cuál era la actual. Adivinó mal. El modelo no inventó un veredicto sobre el cruce equivocado — dijo \"no puedo validar ese cruce\": la barrera de grounding funcionando, el defecto era de capacidad, no de alucinación.\n\nQUÉ HACE. Parámetro nuevo target_gw: el modelo COPIA el número que ya está en el texto (\"J5\" → target_gw=5) en vez de calcularlo. El motor ancla la ventana ahí, nunca en current_gw; reaprovecha sin tocarlo el camino de \"describir un partido\" que ya construyó i78-A. Dos mensajes not_found distintos (jornada ya jugada vs fuera del horizonte de datos).\n\nMEDIDO: antes 0/16 frases con target_gw correcto (0/48 repeticiones — el schema viejo ni lo declaraba); después 16/16 (48/48). Regresión de ruteo de i78-A intacta, 0 controles movidos. Verificado por mí contra el JSONL crudo.\n\nPROD: reproducido el caso original tal cual (Arsenal vs Brighton J5, Chelsea vs Brentford J5) — el rival, la localía y la dificultad ya son los del partido real.",
+      "tags": [
+        "Backend",
+        "IA",
+        "FPL Asistente"
+      ]
+    },
+    {
+      "id": "i102",
+      "col": "idea",
+      "progress": 0,
+      "title": "La tarjeta de calendario nunca llega al chat por HTTP",
+      "desc": "ENCONTRADO 2026-09-15 trabajando en i93 (PR #282), parado a tiempo en vez de forzado dentro de esa PR: fpl_server.AskResponse y SessionAskResponse no tienen campo fixture_outlook. Verificado por el chat de revisión con grep directo sobre fpl_server.py: cero menciones.\n\nTrack D construyó FixtureOutlookCard y la cableó en FinalResponse y en la UI (IntentRenderer.tsx monta la tarjeta cuando response.fixture_outlook != null), pero nunca en el contrato HTTP que fpl_server.py sirve. Es decir: la tarjeta de calendario compacta NUNCA se ha renderizado en el chat de producción, en NINGÚN turno de get_fixture_outlook, compuesto o no — no es una regresión de i93, es un hueco que existe desde que Track D se construyó.\n\nCon i93 el turno compuesto ya tiene intent=fixture_outlook, selected_tool=get_fixture_outlook y la meta correcta en el dict de ask_v2 (probado con tests que llaman al adapter real, harness_adapter.to_ask_response). Falta solo la serialización HTTP: añadir fixture_outlook a los dos modelos Pydantic y al payload que arma cada ruta (/ask y /session/{id}/ask), y a los tipos de fpl-ui que leen la respuesta.\n\nALCANCE: fpl_server.py + contrato de API — fuera de la fila de i93, que no lo tocó a propósito. Verificación: un clic real en /fixtures debe mostrar la tira compacta de jornadas junto a la prosa, no solo la prosa.",
+      "tags": [
+        "Backend",
+        "UI",
+        "Web"
       ]
     }
   ]
