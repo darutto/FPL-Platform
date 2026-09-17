@@ -11,6 +11,16 @@ naming a real player is what i93 adds, staying clean is the boundary it
 must not cross. The BEFORE file (main catalog) is expected at 0 named
 (no players tool ran) and, trivially, clean.
 
+i93-b adds two more counts per rep, read off ``calendar_calls`` (absent on
+the i93 artifacts, counted as false there):
+
+  both_axes  get_fixture_outlook returned ok on attack AND on defence
+  def_named  a named real player is a GKP/DEF (reported, never gated)
+
+and a stricter ``full_hit`` = hit AND every rep ``both_axes``: the cell
+phrase now asks both sides of the match, so the answer must carry both
+tool reads as well as a real player.
+
 Usage:
     python scripts/analyze_i93_composed_content.py <before.jsonl> [<after.jsonl> ...]
 """
@@ -41,14 +51,23 @@ def rep_verdict(row: dict[str, Any]) -> dict[str, Any]:
         named = named_real_players(str(row["answer_text"]), list(m["snapshot_web_names"]))
     else:
         named = list(m.get("named_real_players") or [])
-    hits = list(m.get("transaction_hits") or [])
+    if row.get("answer_text") is not None:
+        from fpl_grounded_assistant.opportunity_framing import transaction_hits  # noqa: PLC0415
+        hits = transaction_hits(str(row["answer_text"]))
+    else:
+        hits = list(m.get("transaction_hits") or [])
+    positions = m.get("snapshot_positions") or {}
     return {
         "composed": bool(m.get("composed")),
         "named": bool(named),
         "clean": not hits,
+        "both_axes": bool(m.get("both_axes")),
+        "target_gw_ok": bool(m.get("target_gw_ok")),
+        "def_named": any(positions.get(n) in ("GKP", "DEF") for n in named),
         "players": named,
         "hits": hits,
         "sequence": m.get("tool_sequence") or [],
+        "axes": [c.get("axis") for c in (m.get("calendar_calls") or [])],
         "exception": row.get("exception"),
     }
 
@@ -69,9 +88,14 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
             "named": sum(v["named"] for v in reps),
             "clean": sum(v["clean"] for v in reps),
             "hit": all(v["named"] and v["clean"] for v in reps),
+            "both_axes": sum(v["both_axes"] for v in reps),
+            "target_gw_ok": sum(v["target_gw_ok"] for v in reps),
+            "def_named": sum(v["def_named"] for v in reps),
+            "full_hit": all(v["named"] and v["clean"] and v["both_axes"] for v in reps),
             "players": [v["players"] for v in reps],
             "hits": [v["hits"] for v in reps],
             "sequences": [v["sequence"] for v in reps],
+            "axes": [v["axes"] for v in reps],
         }
     real = {q: p for q, p in per.items() if not p["dgw_synthetic"]}
     synth = {q: p for q, p in per.items() if p["dgw_synthetic"]}
@@ -86,9 +110,15 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
         # reported apart, never silently dropped.
         "real_cells": len(real), "real_hits": sum(1 for p in real.values() if p["hit"]),
         "synthetic_dgw_cells": len(synth), "synthetic_dgw_hits": sum(1 for p in synth.values() if p["hit"]),
+        "full_hits": sum(1 for p in per.values() if p["full_hit"]),
+        "real_full_hits": sum(1 for p in real.values() if p["full_hit"]),
+        "synthetic_dgw_full_hits": sum(1 for p in synth.values() if p["full_hit"]),
         "composed_reps": sum(p["composed"] for p in per.values()),
         "named_reps": sum(p["named"] for p in per.values()),
         "clean_reps": sum(p["clean"] for p in per.values()),
+        "both_axes_reps": sum(p["both_axes"] for p in per.values()),
+        "target_gw_ok_reps": sum(p["target_gw_ok"] for p in per.values()),
+        "def_named_reps": sum(p["def_named"] for p in per.values()),
         "transaction_hit_reps": sum(p["reps"] - p["clean"] for p in per.values()),
         "exceptions": sum(1 for r in rows if r.get("exception")),
         "cost_usd": round(sum(r.get("cost_usd") or 0 for r in rows), 4),
@@ -104,11 +134,16 @@ def print_summary(label: str, s: dict[str, Any]) -> None:
     print(f"    HITS (every rep names a returned player AND is clean): {s['hits']}/{s['phrases']}  "
           f"| composed reps {s['composed_reps']}/{s['rows']} | named reps {s['named_reps']}/{s['rows']} "
           f"| clean reps {s['clean_reps']}/{s['rows']} | reps with transaction words {s['transaction_hit_reps']}")
+    print(f"    i93-b FULL HITS (hit AND both axes read by the tool, every rep): real {s['real_full_hits']}/{s['real_cells']} "
+          f"| synthetic DGW {s['synthetic_dgw_full_hits']}/{s['synthetic_dgw_cells']} "
+          f"| both-axes reps {s['both_axes_reps']}/{s['rows']} | target_gw ok reps {s['target_gw_ok_reps']}/{s['rows']} "
+          f"| reps naming a GKP/DEF {s['def_named_reps']}/{s['rows']} (reported)")
     for qid, p in s["per_phrase"].items():
-        flag = "HIT " if p["hit"] else "miss"
+        flag = "FULL" if p["full_hit"] else ("HIT " if p["hit"] else "miss")
         tag = " [synthetic DGW]" if p["dgw_synthetic"] else ""
-        print(f"    {flag} {qid:<24}{tag} composed {p['composed']}/{p['reps']} named {p['named']}/{p['reps']} "
-              f"clean {p['clean']}/{p['reps']}  players={p['players']}  hits={p['hits']}")
+        print(f"    {flag} {qid:<20}{tag} composed {p['composed']}/{p['reps']} named {p['named']}/{p['reps']} "
+              f"clean {p['clean']}/{p['reps']} axes {p['both_axes']}/{p['reps']} gw {p['target_gw_ok']}/{p['reps']} "
+              f"def {p['def_named']}/{p['reps']}  players={p['players']}  hits={p['hits']}  axes={p['axes']}")
 
 
 def main(argv: list[str]) -> int:
