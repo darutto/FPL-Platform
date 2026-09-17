@@ -156,7 +156,6 @@ export function FixtureTendencyChart({
                           fixtureCellQuestion(
                             team.team_name,
                             series.find((s) => s.gameweek === p.gw) as FixtureOutlookGW,
-                            team.axis,
                           ),
                         )
                     : undefined

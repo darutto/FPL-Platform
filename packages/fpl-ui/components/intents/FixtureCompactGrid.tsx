@@ -109,7 +109,7 @@ export function FixtureCompactGrid({
                   key={gw.gameweek}
                   gw={gw}
                   runHex={runHexFor(runByGw.get(gw.gameweek))}
-                  onAsk={onAsk ? () => onAsk(fixtureCellQuestion(team.team_name, gw, axis)) : undefined}
+                  onAsk={onAsk ? () => onAsk(fixtureCellQuestion(team.team_name, gw)) : undefined}
                 />
               ))}
             </div>

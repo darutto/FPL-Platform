@@ -15,7 +15,9 @@
  *
  *     I78A_WRITE_CANONICAL_PHRASES=1 npx jest __tests__/fixture-chat-links-canonical.test.ts
  *
- * Inputs: four teams x two axes. The non-DGW cells mirror the real 2026-27
+ * Inputs: four teams x two axes for the team-row phrase; one phrase per cell
+ * (the cell tap is axis-independent since i93-b: it asks for BOTH sides of
+ * the match, so a cell is one phrase, not two). The non-DGW cells mirror the real 2026-27
  * bundle (`lib/data/fixture-outlook-2026-27.json`) as of 2026-09-13 — GW1
  * because that is the current/next GW of the frozen measurement bootstrap
  * (`field-notes/artifacts/agentic-loop-bootstrap-2026-08-18.json`), GW4 as
@@ -122,7 +124,8 @@ export interface CanonicalPhrase {
   kind: 'teamOutlookQuestion' | 'fixtureCellQuestion';
   team_name: string;
   team_short: string;
-  axis: FixtureAxis;
+  /** 'both' for fixtureCellQuestion (the cell phrase asks both axes). */
+  axis: FixtureAxis | 'both';
   /** null for teamOutlookQuestion (it has no gameweek argument). */
   gameweek: number | null;
   is_dgw: boolean;
@@ -149,41 +152,42 @@ export function buildCanonicalPhrases(): CanonicalPhrase[] {
         gameweek: null, is_dgw: false, dgw_synthetic: false, cell_position: null,
         question: teamOutlookQuestion(t.team_name, axis),
       });
-      out.push({
-        id: `fc-${slug}-${axisTag(axis)}-cell`,
-        kind: 'fixtureCellQuestion',
-        team_name: t.team_name, team_short: t.team_short, axis,
-        gameweek: t.gw1.gameweek, is_dgw: false, dgw_synthetic: false, cell_position: 'current',
-        question: fixtureCellQuestion(t.team_name, t.gw1, axis),
-      });
-      const dgw = cell(t.gw1.gameweek, [...t.gw1.fixtures, t.dgw_extra]);
-      out.push({
-        id: `fc-${slug}-${axisTag(axis)}-cell-dgw`,
-        kind: 'fixtureCellQuestion',
-        team_name: t.team_name, team_short: t.team_short, axis,
-        gameweek: dgw.gameweek, is_dgw: true, dgw_synthetic: true, cell_position: 'current',
-        question: fixtureCellQuestion(t.team_name, dgw, axis),
-      });
     }
-    // Future cell: one axis per team is enough to see whether a cell that is
-    // not the current GW routes the same way (attack, the plan's example).
+    // Cell phrases (i93-b): one per cell, both axes in the same question.
     out.push({
-      id: `fc-${slug}-att-cell-future`,
+      id: `fc-${slug}-cell`,
       kind: 'fixtureCellQuestion',
-      team_name: t.team_name, team_short: t.team_short, axis: 'attack',
+      team_name: t.team_name, team_short: t.team_short, axis: 'both',
+      gameweek: t.gw1.gameweek, is_dgw: false, dgw_synthetic: false, cell_position: 'current',
+      question: fixtureCellQuestion(t.team_name, t.gw1),
+    });
+    const dgw = cell(t.gw1.gameweek, [...t.gw1.fixtures, t.dgw_extra]);
+    out.push({
+      id: `fc-${slug}-cell-dgw`,
+      kind: 'fixtureCellQuestion',
+      team_name: t.team_name, team_short: t.team_short, axis: 'both',
+      gameweek: dgw.gameweek, is_dgw: true, dgw_synthetic: true, cell_position: 'current',
+      question: fixtureCellQuestion(t.team_name, dgw),
+    });
+    // Future cell (the plan's example): does a cell that is not the current
+    // GW route the same way?
+    out.push({
+      id: `fc-${slug}-cell-future`,
+      kind: 'fixtureCellQuestion',
+      team_name: t.team_name, team_short: t.team_short, axis: 'both',
       gameweek: t.gw4.gameweek, is_dgw: false, dgw_synthetic: false, cell_position: 'future',
-      question: fixtureCellQuestion(t.team_name, t.gw4, 'attack'),
+      question: fixtureCellQuestion(t.team_name, t.gw4),
     });
     // i101: further future cells (J3, J5, J6 -- all >= current+2 on the frozen
-    // bootstrap). The i78-A routing matrix keeps its original 28 by id prefix;
+    // bootstrap). The i78-A routing matrix keeps its base set by id suffix;
     // the i101 argument measurement selects these by cell_position + gameweek.
     for (const fx of t.future_extra) {
       out.push({
-        id: `fc-${slug}-att-cell-j${fx.gameweek}`,
+        id: `fc-${slug}-cell-j${fx.gameweek}`,
         kind: 'fixtureCellQuestion',
-        team_name: t.team_name, team_short: t.team_short, axis: 'attack',
+        team_name: t.team_name, team_short: t.team_short, axis: 'both',
         gameweek: fx.gameweek, is_dgw: false, dgw_synthetic: false, cell_position: 'future',
-        question: fixtureCellQuestion(t.team_name, fx, 'attack'),
+        question: fixtureCellQuestion(t.team_name, fx),
       });
     }
   }
@@ -212,18 +216,25 @@ export function buildCanonicalPhrasesFile(): CanonicalPhrasesFile {
 describe('i78-A canonical fixture-click phrases', () => {
   const built = buildCanonicalPhrasesFile();
 
-  test('4 teams x 2 axes x {team, cell, dgw cell} + 4 future cells + 12 i101 future cells = 40 unique phrases', () => {
-    expect(built.phrases).toHaveLength(40);
-    expect(new Set(built.phrases.map((p) => p.id)).size).toBe(40);
-    expect(new Set(built.phrases.map((p) => p.question)).size).toBe(40);
+  test('4 teams x (2 team-row axes + cell + dgw cell + future cell + 3 i101 cells) = 32 unique phrases', () => {
+    expect(built.phrases).toHaveLength(32);
+    expect(new Set(built.phrases.map((p) => p.id)).size).toBe(32);
+    expect(new Set(built.phrases.map((p) => p.question)).size).toBe(32);
   });
 
   test('every phrase names its team and its axis in the words the UI uses', () => {
     for (const p of built.phrases) {
       expect(p.question).toContain(p.team_name);
       if (p.axis === 'attack') expect(p.question).toMatch(/ofensiv/);
-      else expect(p.question).toMatch(/portería a cero/);
+      else if (p.axis === 'defence') expect(p.question).toMatch(/portería a cero/);
+      else {
+        // i93-b: the cell phrase asks both sides of the match, whatever view
+        // it was tapped from.
+        expect(p.kind).toBe('fixtureCellQuestion');
+        expect(p.question).toMatch(/ofensivamente y defensivamente/);
+      }
       if (p.kind === 'fixtureCellQuestion') {
+        expect(p.axis).toBe('both');
         expect(p.question).toContain(`J${p.gameweek}`);
         expect(p.question.includes('doble jornada')).toBe(p.is_dgw);
       }

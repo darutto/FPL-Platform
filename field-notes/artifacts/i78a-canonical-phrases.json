@@ -16,30 +16,6 @@
       "question": "¿Cómo pinta el calendario ofensivo del Newcastle en las próximas jornadas?"
     },
     {
-      "id": "fc-new-att-cell",
-      "kind": "fixtureCellQuestion",
-      "team_name": "Newcastle",
-      "team_short": "NEW",
-      "axis": "attack",
-      "gameweek": 1,
-      "is_dgw": false,
-      "dgw_synthetic": false,
-      "cell_position": "current",
-      "question": "Newcastle vs LIV (en casa), J1: ¿qué tal pinta ofensivamente para el Newcastle?"
-    },
-    {
-      "id": "fc-new-att-cell-dgw",
-      "kind": "fixtureCellQuestion",
-      "team_name": "Newcastle",
-      "team_short": "NEW",
-      "axis": "attack",
-      "gameweek": 1,
-      "is_dgw": true,
-      "dgw_synthetic": true,
-      "cell_position": "current",
-      "question": "Newcastle vs LIV (en casa) y Newcastle vs SUN (a domicilio), J1 (doble jornada): ¿qué tal pinta ofensivamente para el Newcastle?"
-    },
-    {
       "id": "fc-new-def-team",
       "kind": "teamOutlookQuestion",
       "team_name": "Newcastle",
@@ -52,76 +28,76 @@
       "question": "¿Qué tan bueno es el calendario del Newcastle para portería a cero próximamente?"
     },
     {
-      "id": "fc-new-def-cell",
+      "id": "fc-new-cell",
       "kind": "fixtureCellQuestion",
       "team_name": "Newcastle",
       "team_short": "NEW",
-      "axis": "defence",
+      "axis": "both",
       "gameweek": 1,
       "is_dgw": false,
       "dgw_synthetic": false,
       "cell_position": "current",
-      "question": "Newcastle vs LIV (en casa), J1: ¿buen partido para que el Newcastle deje la portería a cero?"
+      "question": "Newcastle vs LIV (en casa), J1: ¿qué tal pinta ofensivamente y defensivamente para el Newcastle?"
     },
     {
-      "id": "fc-new-def-cell-dgw",
+      "id": "fc-new-cell-dgw",
       "kind": "fixtureCellQuestion",
       "team_name": "Newcastle",
       "team_short": "NEW",
-      "axis": "defence",
+      "axis": "both",
       "gameweek": 1,
       "is_dgw": true,
       "dgw_synthetic": true,
       "cell_position": "current",
-      "question": "Newcastle vs LIV (en casa) y Newcastle vs SUN (a domicilio), J1 (doble jornada): ¿buen partido para que el Newcastle deje la portería a cero?"
+      "question": "Newcastle vs LIV (en casa) y Newcastle vs SUN (a domicilio), J1 (doble jornada): ¿qué tal pinta ofensivamente y defensivamente para el Newcastle?"
     },
     {
-      "id": "fc-new-att-cell-future",
+      "id": "fc-new-cell-future",
       "kind": "fixtureCellQuestion",
       "team_name": "Newcastle",
       "team_short": "NEW",
-      "axis": "attack",
+      "axis": "both",
       "gameweek": 4,
       "is_dgw": false,
       "dgw_synthetic": false,
       "cell_position": "future",
-      "question": "Newcastle vs LEE (a domicilio), J4: ¿qué tal pinta ofensivamente para el Newcastle?"
+      "question": "Newcastle vs LEE (a domicilio), J4: ¿qué tal pinta ofensivamente y defensivamente para el Newcastle?"
     },
     {
-      "id": "fc-new-att-cell-j3",
+      "id": "fc-new-cell-j3",
       "kind": "fixtureCellQuestion",
       "team_name": "Newcastle",
       "team_short": "NEW",
-      "axis": "attack",
+      "axis": "both",
       "gameweek": 3,
       "is_dgw": false,
       "dgw_synthetic": false,
       "cell_position": "future",
-      "question": "Newcastle vs BOU (en casa), J3: ¿qué tal pinta ofensivamente para el Newcastle?"
+      "question": "Newcastle vs BOU (en casa), J3: ¿qué tal pinta ofensivamente y defensivamente para el Newcastle?"
     },
     {
-      "id": "fc-new-att-cell-j5",
+      "id": "fc-new-cell-j5",
       "kind": "fixtureCellQuestion",
       "team_name": "Newcastle",
       "team_short": "NEW",
-      "axis": "attack",
+      "axis": "both",
       "gameweek": 5,
       "is_dgw": false,
       "dgw_synthetic": false,
       "cell_position": "future",
-      "question": "Newcastle vs HUL (en casa), J5: ¿qué tal pinta ofensivamente para el Newcastle?"
+      "question": "Newcastle vs HUL (en casa), J5: ¿qué tal pinta ofensivamente y defensivamente para el Newcastle?"
     },
     {
-      "id": "fc-new-att-cell-j6",
+      "id": "fc-new-cell-j6",
       "kind": "fixtureCellQuestion",
       "team_name": "Newcastle",
       "team_short": "NEW",
-      "axis": "attack",
+      "axis": "both",
       "gameweek": 6,
       "is_dgw": false,
       "dgw_synthetic": false,
       "cell_position": "future",
-      "question": "Newcastle vs COV (a domicilio), J6: ¿qué tal pinta ofensivamente para el Newcastle?"
+      "question": "Newcastle vs COV (a domicilio), J6: ¿qué tal pinta ofensivamente y defensivamente para el Newcastle?"
     },
     {
       "id": "fc-mci-att-team",
@@ -136,30 +112,6 @@
       "question": "¿Cómo pinta el calendario ofensivo del Man City en las próximas jornadas?"
     },
     {
-      "id": "fc-mci-att-cell",
-      "kind": "fixtureCellQuestion",
-      "team_name": "Man City",
-      "team_short": "MCI",
-      "axis": "attack",
-      "gameweek": 1,
-      "is_dgw": false,
-      "dgw_synthetic": false,
-      "cell_position": "current",
-      "question": "Man City vs BOU (en casa), J1: ¿qué tal pinta ofensivamente para el Man City?"
-    },
-    {
-      "id": "fc-mci-att-cell-dgw",
-      "kind": "fixtureCellQuestion",
-      "team_name": "Man City",
-      "team_short": "MCI",
-      "axis": "attack",
-      "gameweek": 1,
-      "is_dgw": true,
-      "dgw_synthetic": true,
-      "cell_position": "current",
-      "question": "Man City vs BOU (en casa) y Man City vs HUL (a domicilio), J1 (doble jornada): ¿qué tal pinta ofensivamente para el Man City?"
-    },
-    {
       "id": "fc-mci-def-team",
       "kind": "teamOutlookQuestion",
       "team_name": "Man City",
@@ -172,76 +124,76 @@
       "question": "¿Qué tan bueno es el calendario del Man City para portería a cero próximamente?"
     },
     {
-      "id": "fc-mci-def-cell",
+      "id": "fc-mci-cell",
       "kind": "fixtureCellQuestion",
       "team_name": "Man City",
       "team_short": "MCI",
-      "axis": "defence",
+      "axis": "both",
       "gameweek": 1,
       "is_dgw": false,
       "dgw_synthetic": false,
       "cell_position": "current",
-      "question": "Man City vs BOU (en casa), J1: ¿buen partido para que el Man City deje la portería a cero?"
+      "question": "Man City vs BOU (en casa), J1: ¿qué tal pinta ofensivamente y defensivamente para el Man City?"
     },
     {
-      "id": "fc-mci-def-cell-dgw",
+      "id": "fc-mci-cell-dgw",
       "kind": "fixtureCellQuestion",
       "team_name": "Man City",
       "team_short": "MCI",
-      "axis": "defence",
+      "axis": "both",
       "gameweek": 1,
       "is_dgw": true,
       "dgw_synthetic": true,
       "cell_position": "current",
-      "question": "Man City vs BOU (en casa) y Man City vs HUL (a domicilio), J1 (doble jornada): ¿buen partido para que el Man City deje la portería a cero?"
+      "question": "Man City vs BOU (en casa) y Man City vs HUL (a domicilio), J1 (doble jornada): ¿qué tal pinta ofensivamente y defensivamente para el Man City?"
     },
     {
-      "id": "fc-mci-att-cell-future",
+      "id": "fc-mci-cell-future",
       "kind": "fixtureCellQuestion",
       "team_name": "Man City",
       "team_short": "MCI",
-      "axis": "attack",
+      "axis": "both",
       "gameweek": 4,
       "is_dgw": false,
       "dgw_synthetic": false,
       "cell_position": "future",
-      "question": "Man City vs MUN (a domicilio), J4: ¿qué tal pinta ofensivamente para el Man City?"
+      "question": "Man City vs MUN (a domicilio), J4: ¿qué tal pinta ofensivamente y defensivamente para el Man City?"
     },
     {
-      "id": "fc-mci-att-cell-j3",
+      "id": "fc-mci-cell-j3",
       "kind": "fixtureCellQuestion",
       "team_name": "Man City",
       "team_short": "MCI",
-      "axis": "attack",
+      "axis": "both",
       "gameweek": 3,
       "is_dgw": false,
       "dgw_synthetic": false,
       "cell_position": "future",
-      "question": "Man City vs COV (en casa), J3: ¿qué tal pinta ofensivamente para el Man City?"
+      "question": "Man City vs COV (en casa), J3: ¿qué tal pinta ofensivamente y defensivamente para el Man City?"
     },
     {
-      "id": "fc-mci-att-cell-j5",
+      "id": "fc-mci-cell-j5",
       "kind": "fixtureCellQuestion",
       "team_name": "Man City",
       "team_short": "MCI",
-      "axis": "attack",
+      "axis": "both",
       "gameweek": 5,
       "is_dgw": false,
       "dgw_synthetic": false,
       "cell_position": "future",
-      "question": "Man City vs SUN (en casa), J5: ¿qué tal pinta ofensivamente para el Man City?"
+      "question": "Man City vs SUN (en casa), J5: ¿qué tal pinta ofensivamente y defensivamente para el Man City?"
     },
     {
-      "id": "fc-mci-att-cell-j6",
+      "id": "fc-mci-cell-j6",
       "kind": "fixtureCellQuestion",
       "team_name": "Man City",
       "team_short": "MCI",
-      "axis": "attack",
+      "axis": "both",
       "gameweek": 6,
       "is_dgw": false,
       "dgw_synthetic": false,
       "cell_position": "future",
-      "question": "Man City vs LIV (a domicilio), J6: ¿qué tal pinta ofensivamente para el Man City?"
+      "question": "Man City vs LIV (a domicilio), J6: ¿qué tal pinta ofensivamente y defensivamente para el Man City?"
     },
     {
       "id": "fc-liv-att-team",
@@ -256,30 +208,6 @@
       "question": "¿Cómo pinta el calendario ofensivo del Liverpool en las próximas jornadas?"
     },
     {
-      "id": "fc-liv-att-cell",
-      "kind": "fixtureCellQuestion",
-      "team_name": "Liverpool",
-      "team_short": "LIV",
-      "axis": "attack",
-      "gameweek": 1,
-      "is_dgw": false,
-      "dgw_synthetic": false,
-      "cell_position": "current",
-      "question": "Liverpool vs NEW (a domicilio), J1: ¿qué tal pinta ofensivamente para el Liverpool?"
-    },
-    {
-      "id": "fc-liv-att-cell-dgw",
-      "kind": "fixtureCellQuestion",
-      "team_name": "Liverpool",
-      "team_short": "LIV",
-      "axis": "attack",
-      "gameweek": 1,
-      "is_dgw": true,
-      "dgw_synthetic": true,
-      "cell_position": "current",
-      "question": "Liverpool vs NEW (a domicilio) y Liverpool vs IPS (en casa), J1 (doble jornada): ¿qué tal pinta ofensivamente para el Liverpool?"
-    },
-    {
       "id": "fc-liv-def-team",
       "kind": "teamOutlookQuestion",
       "team_name": "Liverpool",
@@ -292,76 +220,76 @@
       "question": "¿Qué tan bueno es el calendario del Liverpool para portería a cero próximamente?"
     },
     {
-      "id": "fc-liv-def-cell",
+      "id": "fc-liv-cell",
       "kind": "fixtureCellQuestion",
       "team_name": "Liverpool",
       "team_short": "LIV",
-      "axis": "defence",
+      "axis": "both",
       "gameweek": 1,
       "is_dgw": false,
       "dgw_synthetic": false,
       "cell_position": "current",
-      "question": "Liverpool vs NEW (a domicilio), J1: ¿buen partido para que el Liverpool deje la portería a cero?"
+      "question": "Liverpool vs NEW (a domicilio), J1: ¿qué tal pinta ofensivamente y defensivamente para el Liverpool?"
     },
     {
-      "id": "fc-liv-def-cell-dgw",
+      "id": "fc-liv-cell-dgw",
       "kind": "fixtureCellQuestion",
       "team_name": "Liverpool",
       "team_short": "LIV",
-      "axis": "defence",
+      "axis": "both",
       "gameweek": 1,
       "is_dgw": true,
       "dgw_synthetic": true,
       "cell_position": "current",
-      "question": "Liverpool vs NEW (a domicilio) y Liverpool vs IPS (en casa), J1 (doble jornada): ¿buen partido para que el Liverpool deje la portería a cero?"
+      "question": "Liverpool vs NEW (a domicilio) y Liverpool vs IPS (en casa), J1 (doble jornada): ¿qué tal pinta ofensivamente y defensivamente para el Liverpool?"
     },
     {
-      "id": "fc-liv-att-cell-future",
+      "id": "fc-liv-cell-future",
       "kind": "fixtureCellQuestion",
       "team_name": "Liverpool",
       "team_short": "LIV",
-      "axis": "attack",
+      "axis": "both",
       "gameweek": 4,
       "is_dgw": false,
       "dgw_synthetic": false,
       "cell_position": "future",
-      "question": "Liverpool vs FUL (en casa), J4: ¿qué tal pinta ofensivamente para el Liverpool?"
+      "question": "Liverpool vs FUL (en casa), J4: ¿qué tal pinta ofensivamente y defensivamente para el Liverpool?"
     },
     {
-      "id": "fc-liv-att-cell-j3",
+      "id": "fc-liv-cell-j3",
       "kind": "fixtureCellQuestion",
       "team_name": "Liverpool",
       "team_short": "LIV",
-      "axis": "attack",
+      "axis": "both",
       "gameweek": 3,
       "is_dgw": false,
       "dgw_synthetic": false,
       "cell_position": "future",
-      "question": "Liverpool vs IPS (a domicilio), J3: ¿qué tal pinta ofensivamente para el Liverpool?"
+      "question": "Liverpool vs IPS (a domicilio), J3: ¿qué tal pinta ofensivamente y defensivamente para el Liverpool?"
     },
     {
-      "id": "fc-liv-att-cell-j5",
+      "id": "fc-liv-cell-j5",
       "kind": "fixtureCellQuestion",
       "team_name": "Liverpool",
       "team_short": "LIV",
-      "axis": "attack",
+      "axis": "both",
       "gameweek": 5,
       "is_dgw": false,
       "dgw_synthetic": false,
       "cell_position": "future",
-      "question": "Liverpool vs BOU (a domicilio), J5: ¿qué tal pinta ofensivamente para el Liverpool?"
+      "question": "Liverpool vs BOU (a domicilio), J5: ¿qué tal pinta ofensivamente y defensivamente para el Liverpool?"
     },
     {
-      "id": "fc-liv-att-cell-j6",
+      "id": "fc-liv-cell-j6",
       "kind": "fixtureCellQuestion",
       "team_name": "Liverpool",
       "team_short": "LIV",
-      "axis": "attack",
+      "axis": "both",
       "gameweek": 6,
       "is_dgw": false,
       "dgw_synthetic": false,
       "cell_position": "future",
-      "question": "Liverpool vs MCI (en casa), J6: ¿qué tal pinta ofensivamente para el Liverpool?"
+      "question": "Liverpool vs MCI (en casa), J6: ¿qué tal pinta ofensivamente y defensivamente para el Liverpool?"
     },
     {
       "id": "fc-tot-att-team",
@@ -376,30 +304,6 @@
       "question": "¿Cómo pinta el calendario ofensivo del Spurs en las próximas jornadas?"
     },
     {
-      "id": "fc-tot-att-cell",
-      "kind": "fixtureCellQuestion",
-      "team_name": "Spurs",
-      "team_short": "TOT",
-      "axis": "attack",
-      "gameweek": 1,
-      "is_dgw": false,
-      "dgw_synthetic": false,
-      "cell_position": "current",
-      "question": "Spurs vs BRE (a domicilio), J1: ¿qué tal pinta ofensivamente para el Spurs?"
-    },
-    {
-      "id": "fc-tot-att-cell-dgw",
-      "kind": "fixtureCellQuestion",
-      "team_name": "Spurs",
-      "team_short": "TOT",
-      "axis": "attack",
-      "gameweek": 1,
-      "is_dgw": true,
-      "dgw_synthetic": true,
-      "cell_position": "current",
-      "question": "Spurs vs BRE (a domicilio) y Spurs vs COV (en casa), J1 (doble jornada): ¿qué tal pinta ofensivamente para el Spurs?"
-    },
-    {
       "id": "fc-tot-def-team",
       "kind": "teamOutlookQuestion",
       "team_name": "Spurs",
@@ -412,76 +316,76 @@
       "question": "¿Qué tan bueno es el calendario del Spurs para portería a cero próximamente?"
     },
     {
-      "id": "fc-tot-def-cell",
+      "id": "fc-tot-cell",
       "kind": "fixtureCellQuestion",
       "team_name": "Spurs",
       "team_short": "TOT",
-      "axis": "defence",
+      "axis": "both",
       "gameweek": 1,
       "is_dgw": false,
       "dgw_synthetic": false,
       "cell_position": "current",
-      "question": "Spurs vs BRE (a domicilio), J1: ¿buen partido para que el Spurs deje la portería a cero?"
+      "question": "Spurs vs BRE (a domicilio), J1: ¿qué tal pinta ofensivamente y defensivamente para el Spurs?"
     },
     {
-      "id": "fc-tot-def-cell-dgw",
+      "id": "fc-tot-cell-dgw",
       "kind": "fixtureCellQuestion",
       "team_name": "Spurs",
       "team_short": "TOT",
-      "axis": "defence",
+      "axis": "both",
       "gameweek": 1,
       "is_dgw": true,
       "dgw_synthetic": true,
       "cell_position": "current",
-      "question": "Spurs vs BRE (a domicilio) y Spurs vs COV (en casa), J1 (doble jornada): ¿buen partido para que el Spurs deje la portería a cero?"
+      "question": "Spurs vs BRE (a domicilio) y Spurs vs COV (en casa), J1 (doble jornada): ¿qué tal pinta ofensivamente y defensivamente para el Spurs?"
     },
     {
-      "id": "fc-tot-att-cell-future",
+      "id": "fc-tot-cell-future",
       "kind": "fixtureCellQuestion",
       "team_name": "Spurs",
       "team_short": "TOT",
-      "axis": "attack",
+      "axis": "both",
       "gameweek": 4,
       "is_dgw": false,
       "dgw_synthetic": false,
       "cell_position": "future",
-      "question": "Spurs vs EVE (en casa), J4: ¿qué tal pinta ofensivamente para el Spurs?"
+      "question": "Spurs vs EVE (en casa), J4: ¿qué tal pinta ofensivamente y defensivamente para el Spurs?"
     },
     {
-      "id": "fc-tot-att-cell-j3",
+      "id": "fc-tot-cell-j3",
       "kind": "fixtureCellQuestion",
       "team_name": "Spurs",
       "team_short": "TOT",
-      "axis": "attack",
+      "axis": "both",
       "gameweek": 3,
       "is_dgw": false,
       "dgw_synthetic": false,
       "cell_position": "future",
-      "question": "Spurs vs NFO (a domicilio), J3: ¿qué tal pinta ofensivamente para el Spurs?"
+      "question": "Spurs vs NFO (a domicilio), J3: ¿qué tal pinta ofensivamente y defensivamente para el Spurs?"
     },
     {
-      "id": "fc-tot-att-cell-j5",
+      "id": "fc-tot-cell-j5",
       "kind": "fixtureCellQuestion",
       "team_name": "Spurs",
       "team_short": "TOT",
-      "axis": "attack",
+      "axis": "both",
       "gameweek": 5,
       "is_dgw": false,
       "dgw_synthetic": false,
       "cell_position": "future",
-      "question": "Spurs vs AVL (en casa), J5: ¿qué tal pinta ofensivamente para el Spurs?"
+      "question": "Spurs vs AVL (en casa), J5: ¿qué tal pinta ofensivamente y defensivamente para el Spurs?"
     },
     {
-      "id": "fc-tot-att-cell-j6",
+      "id": "fc-tot-cell-j6",
       "kind": "fixtureCellQuestion",
       "team_name": "Spurs",
       "team_short": "TOT",
-      "axis": "attack",
+      "axis": "both",
       "gameweek": 6,
       "is_dgw": false,
       "dgw_synthetic": false,
       "cell_position": "future",
-      "question": "Spurs vs MUN (a domicilio), J6: ¿qué tal pinta ofensivamente para el Spurs?"
+      "question": "Spurs vs MUN (a domicilio), J6: ¿qué tal pinta ofensivamente y defensivamente para el Spurs?"
     }
   ]
 }
