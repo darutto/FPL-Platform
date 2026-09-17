@@ -11,6 +11,11 @@ model's own words:
   independent yardstick, not the tool's own output and not a hardcoded list;
 * the trace (``debug.routing_trace.tool_sequence``, i80) must show BOTH
   get_fixture_outlook and get_team_snapshot in the round;
+* i93-b: the cell phrase asks both sides of the match, so
+  ``debug.routing_trace.tool_args_sequence`` (parallel to tool_sequence)
+  must show get_fixture_outlook executed with axis='attack' AND with
+  axis='defence' -- the clean-sheet read comes from the tool, not from the
+  model. A backend without that field (pre-i93-b) fails this check;
 * ``final_text`` must mention at least one of those real web_names and
   contain no transaction/urgency vocabulary (opportunity_framing);
 * ``debug.selected_tool`` must be get_fixture_outlook (the composed turn's
@@ -21,7 +26,7 @@ Usage:
         --url https://fpl-backend-production-4151.up.railway.app \
         --user-id i93-verify-$(date +%Y%m%d%H%M) --team Arsenal --lead 1 --reps 3
 
-Exit 0 when every rep satisfies all four; exit 1 otherwise. Fresh --user-id
+Exit 0 when every rep satisfies all five; exit 1 otherwise. Fresh --user-id
 per run (5 orchestrated turns per id, i99).
 """
 from __future__ import annotations
@@ -82,7 +87,7 @@ def live_cell(team_name: str, lead: int, top_n: int) -> dict[str, Any]:
     matchup = " y ".join(f"{team['name']} vs {p['opponent_short']} ({'en casa' if p['is_home'] else 'a domicilio'})"
                          for p in parts)
     jornada = f"J{gw} (doble jornada)" if len(parts) >= 2 else f"J{gw}"
-    question = f"{matchup}, {jornada}: ¿qué tal pinta ofensivamente para el {team['name']}?"
+    question = f"{matchup}, {jornada}: ¿qué tal pinta ofensivamente y defensivamente para el {team['name']}?"
     squad = sorted((e for e in boot["elements"] if e["team"] == team["id"]),
                    key=lambda e: int(e.get("total_points") or 0), reverse=True)
     real = [e["web_name"] for e in squad[:top_n]]
@@ -106,8 +111,12 @@ def judge(body: dict[str, Any], cell: dict[str, Any]) -> tuple[bool, str]:
     named = [wn for wn in cell["real_players"] if _fold(wn) in folded]
     hits = transaction_hits(text)
     composed = "get_fixture_outlook" in seq and "get_team_snapshot" in seq
-    ok = composed and bool(named) and not hits and dbg.get("selected_tool") == "get_fixture_outlook"
-    line = (f"seq={seq} selected_tool={dbg.get('selected_tool')!r} named_real={named} "
+    args_seq = list(rt.get("tool_args_sequence") or [])
+    axes = sorted({str((a or {}).get("axis")) for n, a in zip(seq, args_seq) if n == "get_fixture_outlook"})
+    both_axes = {"attack", "defence"} <= set(axes)
+    ok = (composed and both_axes and bool(named) and not hits
+          and dbg.get("selected_tool") == "get_fixture_outlook")
+    line = (f"seq={seq} calendar_axes={axes} selected_tool={dbg.get('selected_tool')!r} named_real={named} "
             f"(live top-{len(cell['real_players'])}: {cell['real_players']}) transaction_hits={hits} "
             f"composed_primary={rt.get('composed_primary_tool')!r}")
     return ok, line
@@ -134,8 +143,8 @@ def main(argv: list[str] | None = None) -> int:
         all_ok &= ok
         print(f"  rep {rep}: {'OK ' if ok else 'BAD'} {line}")
         print(f"         final_text: {(body.get('final_text') or '')[:220]!r}")
-    print(f"[i93] {'OK' if all_ok else 'FAIL'}: {args.reps} reps must be composed, name a real player, "
-          f"stay clean, and keep get_fixture_outlook as selected_tool")
+    print(f"[i93] {'OK' if all_ok else 'FAIL'}: {args.reps} reps must be composed, read BOTH calendar axes, "
+          f"name a real player, stay clean, and keep get_fixture_outlook as selected_tool")
     return 0 if all_ok else 1
 
 

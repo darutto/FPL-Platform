@@ -62,7 +62,8 @@ def live_cell(team_name: str, lead: int) -> dict[str, Any]:
         f"{team['name']} vs {p['opponent_short']} ({'en casa' if p['is_home'] else 'a domicilio'})" for p in parts
     )
     jornada = f"J{gw} (doble jornada)" if len(parts) >= 2 else f"J{gw}"
-    question = f"{matchup}, {jornada}: ¿qué tal pinta ofensivamente para el {team['name']}?"
+    # i93-b: the cell tap asks both sides of the match (fixtureCellQuestion).
+    question = f"{matchup}, {jornada}: ¿qué tal pinta ofensivamente y defensivamente para el {team['name']}?"
     return {"team": team["name"], "current_gw": current, "gw": gw, "fixtures": parts, "question": question}
 
 
@@ -86,14 +87,23 @@ def judge(body: dict[str, Any], cell: dict[str, Any]) -> tuple[bool, str]:
     gws = [e.get("gameweek") for e in series]
     opps = sorted(f.get("opponent_short") for e in series for f in (e.get("fixtures") or []))
     want_opps = sorted(p["opponent_short"] for p in cell["fixtures"])
+    # i93-b: the both-sides phrase runs the calendar tool twice (one axis
+    # each); every executed calendar call must carry the literal gameweek,
+    # not only the one promoted to the singular slot.
+    rt = dbg.get("routing_trace") or {}
+    seq = list(rt.get("tool_sequence") or [])
+    args_seq = list(rt.get("tool_args_sequence") or [])
+    cal_gws = [(a or {}).get("target_gw") for n, a in zip(seq, args_seq) if n == TOOL]
+    every_call_on_gw = (not cal_gws) or all(g == cell["gw"] for g in cal_gws)
     ok = (
         tool == TOOL
         and tool_input.get("target_gw") == cell["gw"]
         and gws == [cell["gw"]]
         and opps == want_opps
+        and every_call_on_gw
     )
     line = (f"selected_tool={tool!r} tool_input={tool_input} series_gws={gws} opponents={opps} "
-            f"(live: GW{cell['gw']} vs {want_opps}) status={raw.get('status')!r}")
+            f"calendar_calls_target_gw={cal_gws} (live: GW{cell['gw']} vs {want_opps}) status={raw.get('status')!r}")
     return ok, line
 
 

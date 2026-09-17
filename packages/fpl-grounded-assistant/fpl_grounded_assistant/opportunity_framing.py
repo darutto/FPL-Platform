@@ -63,6 +63,16 @@ _THREAT_IDIOM_RE = re.compile(
     r"(?:mucho\s+|poco\s+|bastante\s+|mas\s+|menos\s+)?(peligr\w*)"
 )
 
+#: The noun "ficha" (a player's record card: "en su ficha", "la ficha de
+#: Haaland") is not the verb "fichar" (to sign). Measured 2026-09-16 (i93-b
+#: content run): 1 of 72 answers wrote "goles esperados concedidos
+#: registrados en su ficha" and was reported as a transaction. Only the bare
+#: noun form directly after a determiner/possessive/preposition is exempt;
+#: "ficha a X" (verb), "fichar", "fichaje(s)", "fichan" stay hits.
+_RECORD_CARD_RE = re.compile(
+    r"\b(?:su|sus|la|las|una|esta|esa|de|en)\s+(fichas?)\b(?!\s+a\b)"
+)
+
 
 def _fold(text: str) -> str:
     """Lower-case, accent-stripped copy of *text* (é -> e, ñ -> n)."""
@@ -85,9 +95,11 @@ def transaction_hits(text: str) -> list[str]:
             if re.search(r"\b" + re.escape(stem) + r"\b", folded):
                 hits.append(f"{stem}:{stem}")
             continue
-        idiom_spans = (
-            {m.start(1) for m in _THREAT_IDIOM_RE.finditer(folded)} if stem == "peligr" else set()
-        )
+        idiom_spans: set[int] = set()
+        if stem == "peligr":
+            idiom_spans = {m.start(1) for m in _THREAT_IDIOM_RE.finditer(folded)}
+        elif stem == "ficha":
+            idiom_spans = {m.start(1) for m in _RECORD_CARD_RE.finditer(folded)}
         for m in re.finditer(r"\b(" + re.escape(stem) + r"\w*)", folded):
             word = m.group(1)
             if word in _ALLOWED_WORDS:

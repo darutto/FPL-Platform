@@ -677,10 +677,14 @@ GET_FIXTURE_OUTLOOK_SCHEMA = ToolSchema(
         "Omit team_query for ALL teams ranked easiest-first (the grid). For a "
         "player, resolve their club first, then pass that club as team_query. "
         "ONE MATCH of ONE team is ALSO this tool: 'Newcastle vs LIV (en casa), J1: "
-        "¿qué tal pinta ofensivamente para el Newcastle?' or '...: ¿buen partido para "
-        "que el Newcastle deje la portería a cero?', with or without 'doble jornada' "
-        "-- team_query=that team, axis from the wording (ofensivo→attack, portería a "
-        "cero→defence), target_gw=1 (the gameweek the text names). For ONE MATCH "
+        "¿qué tal pinta ofensivamente y defensivamente para el Newcastle?', with or "
+        "without 'doble jornada' -- team_query=that team, target_gw=1 (the gameweek "
+        "the text names). That question asks BOTH sides of the match: call this tool "
+        "TWICE in the same response, once with axis='attack' and once with "
+        "axis='defence' (same team_query and target_gw), so the clean-sheet read "
+        "comes from the tool and not from you. A one-match question that names only "
+        "one side (ofensivo→attack, portería a cero→defence) needs only that axis. "
+        "For ONE MATCH "
         "naming an explicit gameweek ('J5', 'jornada 5', 'GW5') pass target_gw=5 -- "
         "the LITERAL number named in the text. Do NOT compute horizon from an "
         "assumed current gameweek; target_gw handles that internally and the "
@@ -690,11 +694,12 @@ GET_FIXTURE_OUTLOOK_SCHEMA = ToolSchema(
         "NEVER use get_fixtures_for_gw (whole-round dump) nor get_team_schedule "
         "(plain opponent list, no difficulty verdict). "
         "For that ONE MATCH question ALSO call get_team_snapshot(team_name=<the same "
-        "team>, top_n_players=5) in the SAME response (a second tool_use block, in "
+        "team>, top_n_players=5) in the SAME response (another tool_use block, in "
         "parallel) so the answer can name that team's real players with a real "
-        "number from the tool (form, expected_goals, expected_assists or "
-        "total_points) -- never invent a name or a stat. Frame them as the "
-        "opportunity in this match; never as buy/sell/transfer advice."
+        "number from the tool (form, expected_goals, expected_assists, total_points; "
+        "for a DEF/GKP also expected_goals_conceded, saves or defensive_contribution) "
+        "-- never invent a name or a stat. Frame them as the opportunity in this "
+        "match; never as buy/sell/transfer advice."
     ),
     parameters={
         "type": "object",
@@ -901,8 +906,10 @@ GET_TEAM_SNAPSHOT_SCHEMA = ToolSchema(
         "summary (avg FDR, easy/hard run, top scorer). "
         "status=ambiguous on multi-match (e.g. 'manchester'). "
         "Pairs with get_fixture_outlook for a ONE MATCH question ('Arsenal vs BHA (a "
-        "domicilio), J5: ¿qué tal pinta ofensivamente para el Arsenal?'): call both in "
-        "the same response and cite 2-3 top_players with their tool numbers."
+        "domicilio), J5: ¿qué tal pinta ofensivamente y defensivamente para el "
+        "Arsenal?'): call both in the same response and cite 2-3 top_players with "
+        "their tool numbers (a DEF/GKP among them carries the defensive side: "
+        "expected_goals_conceded, saves, defensive_contribution)."
     ),
     parameters={
         "type": "object",
