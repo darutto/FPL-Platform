@@ -115,7 +115,7 @@ def test_main_writes_one_row_per_call_with_the_projection(tmp_path, monkeypatch)
     rc = probe.main(["--bootstrap", str(bs), "--out", str(out), "--reps", "2", "--cap-usd", "5"])
     assert rc == 0
     rows = [json.loads(l) for l in out.read_text(encoding="utf-8").splitlines() if l.strip()]
-    assert len(rows) == 20 * 2                      # the 20 fixtureCellQuestion phrases
+    assert len(rows) == 24 * 2                      # every fixtureCellQuestion phrase (i93-b: 24)
     for r in rows:
         assert r["i78a"]["kind"] == "fixtureCellQuestion"
         assert r["i93"]["composed"] is True

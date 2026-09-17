@@ -194,6 +194,11 @@ ROUTING_TRACE_OPTIONAL_KEYS: frozenset[str] = frozenset({
     "evaluator_verdict",  # {approved, grounded, complete, safe, retry_feedback} | None
     "tool_sequence",      # [tool name, ...] executed, from tool_calls_trace (same
                           #   field the routing JSONL projects as tool_sequence)
+    "tool_args_sequence", # [args dict, ...] parallel to tool_sequence (i93-b: a
+                          #   prod check can read WHICH axis / target_gw each
+                          #   executed call carried, not only its name)
+    "composed_primary_tool",  # i93: the calendar call promoted to the singular
+                              #   slot of a composed turn (final_response.composed_primary_call)
 })
 
 # ---------------------------------------------------------------------------
@@ -1367,4 +1372,11 @@ def _project_orchestrator_run(routing_trace: dict[str, Any], orch_result: Any) -
         }
     )
     routing_trace["tool_sequence"] = [_n for _n in _names if _n]
+    # i93-b: the args each executed call carried, parallel to tool_sequence
+    # (same filter). Read off the trace like the names; nothing derived.
+    routing_trace["tool_args_sequence"] = [
+        dict(_e.get("args") or {})
+        for _e in (getattr(orch_result, "tool_calls_trace", None) or ())
+        if _e.get("name")
+    ]
     return _names

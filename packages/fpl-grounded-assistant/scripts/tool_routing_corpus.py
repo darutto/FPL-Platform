@@ -932,8 +932,10 @@ def i78a_fixture_click_corpus(path: Path | None = None) -> list[dict[str, Any]]:
     for p in data["phrases"]:
         if _I101_ID_RE.search(p["id"]):
             # i101 added extra future cells to the generated file; the i78-A
-            # routing matrix keeps its original 28 so before/after stay
-            # comparable. Those phrases are served by i101_target_gw_corpus().
+            # routing matrix keeps its base set (28 while the cell phrase was
+            # per axis; 20 since i93-b made it one phrase per cell) so
+            # before/after stay comparable. Those phrases are served by
+            # i101_target_gw_corpus() and i93_fixture_cell_corpus().
             continue
         entries.append({
             "id": p["id"], "family": "fixture_click", "control": True,
@@ -954,8 +956,38 @@ def i78a_fixture_click_corpus(path: Path | None = None) -> list[dict[str, Any]]:
 
 
 #: i101 phrase ids: the extra future cells the generator emits per team
-#: (``fc-<slug>-att-cell-j<N>``).
-_I101_ID_RE = re.compile(r"-att-cell-j\d+$")
+#: (``fc-<slug>-cell-j<N>``; ``fc-<slug>-att-cell-j<N>`` before i93-b).
+_I101_ID_RE = re.compile(r"-cell-j\d+$")
+
+
+def i93_fixture_cell_corpus(path: Path | None = None) -> list[dict[str, Any]]:
+    """i93 / i93-b: EVERY generated ``fixtureCellQuestion`` phrase (the base
+    cells and the i101 future cells alike) as corpus entries with the same
+    shape as :func:`i78a_fixture_click_corpus`. The content measurement
+    wants every real cell the UI can produce, not the routing matrix's
+    comparability subset.
+    """
+    data = load_i78a_canonical_phrases(path)
+    entries: list[dict[str, Any]] = []
+    for p in data["phrases"]:
+        if p["kind"] != "fixtureCellQuestion":
+            continue
+        entries.append({
+            "id": p["id"], "family": "fixture_cell_content", "control": True,
+            "question": p["question"],
+            "acceptable_tools": [I78A_EXPECTED_TOOL],
+            "forbidden_tools": [I78A_FORBIDDEN_TOOL],
+            "note": (
+                f"{p['kind']} team={p['team_name']} axis={p['axis']} "
+                f"gw={p['gameweek']} dgw={p['is_dgw']} cell={p['cell_position']}"
+            ),
+            "i78a": {
+                "kind": p["kind"], "axis": p["axis"], "gameweek": p["gameweek"],
+                "is_dgw": p["is_dgw"], "dgw_synthetic": p["dgw_synthetic"],
+                "cell_position": p["cell_position"], "team_short": p["team_short"],
+            },
+        })
+    return entries
 
 
 def i101_target_gw_corpus(

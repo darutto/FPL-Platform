@@ -50,9 +50,9 @@ def _no_network(monkeypatch):
 # Corpus selector
 # ---------------------------------------------------------------------------
 
-def test_i78a_corpus_keeps_its_original_28_despite_the_i101_cells():
+def test_i78a_corpus_keeps_its_base_set_despite_the_i101_cells():
     entries = corpus.i78a_fixture_click_corpus()
-    assert len(entries) == 28
+    assert len(entries) == 20          # 28 before i93-b (one cell phrase per axis)
     assert not any(corpus._I101_ID_RE.search(e["id"]) for e in entries)
 
 

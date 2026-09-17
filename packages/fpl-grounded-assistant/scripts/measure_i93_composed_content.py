@@ -18,13 +18,25 @@ off the executed trace and the produced text:
                                  (accent-folded substring), so an invented
                                  name never counts as a hit;
 * ``transaction_hits``        -- opportunity_framing.transaction_hits on
-                                 answer_text (target: empty, every rep).
+                                 answer_text (target: empty, every rep);
+* ``calendar_calls``          -- i93-b: every executed get_fixture_outlook
+                                 call's axis / target_gw / status, so
+                                 ``both_axes`` (attack AND defence read by
+                                 the tool, status ok) and ``target_gw_ok``
+                                 (every call names the phrase's gameweek)
+                                 are read off the trace, not the prose;
+* ``named_def_or_gkp``        -- the named real players whose snapshot
+                                 position is GKP/DEF (the defensive side has
+                                 a real player behind it) -- reported, not
+                                 gated: whether a defender sits in a team's
+                                 top-5 by points is a data property.
 
-Corpus: the generated ``fixtureCellQuestion`` phrases of the i78-A contract
-file (20: 4 teams x {attack, defence} x {single, DGW} + 4 future cells) --
+Corpus: EVERY generated ``fixtureCellQuestion`` phrase of the i78-A contract
+file (24 since i93-b: 4 teams x {J1, synthetic DGW J1, J4, J3, J5, J6}) --
 the text the UI inserts on a tap, never typed here. Fixed order, ``--reps``
 back to back, JSONL flushed after every call, corpus SHA + description hash
-+ a ``prompt_has_match_composition`` stamp on every row.
++ ``prompt_has_match_composition`` / ``prompt_has_both_sides`` stamps on
+every row.
 
 Usage (from packages/fpl-grounded-assistant; .env is read for the API key):
     python scripts/measure_i93_composed_content.py \
@@ -83,15 +95,64 @@ class _ResultCapture:
 
 def snapshot_web_names(result: Any) -> list[str]:
     """web_names the players tool RETURNED in this turn, from the trace."""
-    names: list[str] = []
+    return list(snapshot_positions(result))
+
+
+def snapshot_positions(result: Any) -> dict[str, str]:
+    """web_name -> position (GKP/DEF/MID/FWD) the players tool RETURNED, in
+    tool order; the position is the tool's field, never inferred."""
+    out: dict[str, str] = {}
     for entry in getattr(result, "tool_calls_trace", None) or ():
         if entry.get("name") != PLAYERS_TOOL:
             continue
         for p in (entry.get("output") or {}).get("top_players") or []:
             wn = p.get("web_name")
-            if wn and wn not in names:
-                names.append(str(wn))
-    return names
+            if wn and str(wn) not in out:
+                out[str(wn)] = str(p.get("position") or "")
+    return out
+
+
+_DEFENSIVE_POSITIONS = frozenset({"GKP", "DEF"})
+
+
+def calendar_calls(result: Any) -> list[dict[str, Any]]:
+    """One record per EXECUTED get_fixture_outlook call: the axis and
+    target_gw the model sent, and the status the tool returned."""
+    calls: list[dict[str, Any]] = []
+    for entry in getattr(result, "tool_calls_trace", None) or ():
+        if entry.get("name") != CALENDAR_TOOL:
+            continue
+        args = entry.get("args") or {}
+        calls.append({
+            "axis": args.get("axis"),
+            "target_gw": args.get("target_gw"),
+            "team_query": args.get("team_query"),
+            "output_status": (entry.get("output") or {}).get("status"),
+        })
+    return calls
+
+
+def both_axes_read(calls: list[dict[str, Any]]) -> bool:
+    """True when the calendar tool produced an ok read on BOTH axes."""
+    ok_axes = {c.get("axis") for c in calls if c.get("output_status") == "ok"}
+    return {"attack", "defence"} <= ok_axes
+
+
+def target_gw_ok(calls: list[dict[str, Any]], expected_gw: Any) -> bool:
+    """Every executed calendar call carried the phrase's gameweek."""
+    if expected_gw is None or not calls:
+        return False
+    try:
+        want = int(expected_gw)
+    except (TypeError, ValueError):
+        return False
+    for c in calls:
+        try:
+            if int(c.get("target_gw")) != want:
+                return False
+        except (TypeError, ValueError):
+            return False
+    return True
 
 
 def named_real_players(answer_text: str, web_names: list[str]) -> list[str]:
@@ -100,15 +161,23 @@ def named_real_players(answer_text: str, web_names: list[str]) -> list[str]:
     return [wn for wn in web_names if _fold(wn) in folded]
 
 
-def project(result: Any, answer_text: str) -> dict[str, Any]:
+def project(result: Any, answer_text: str, expected_gw: Any = None) -> dict[str, Any]:
     from fpl_grounded_assistant.opportunity_framing import transaction_hits  # noqa: PLC0415
     seq = [e.get("name") for e in (getattr(result, "tool_calls_trace", None) or ()) if e.get("name")]
-    names = snapshot_web_names(result)
+    positions = snapshot_positions(result)
+    names = list(positions)
+    named = named_real_players(answer_text, names)
+    calls = calendar_calls(result)
     return {
         "tool_sequence": seq,
         "composed": CALENDAR_TOOL in seq and PLAYERS_TOOL in seq,
         "snapshot_web_names": names,
-        "named_real_players": named_real_players(answer_text, names),
+        "snapshot_positions": positions,
+        "named_real_players": named,
+        "named_def_or_gkp": [n for n in named if positions.get(n) in _DEFENSIVE_POSITIONS],
+        "calendar_calls": calls,
+        "both_axes": both_axes_read(calls),
+        "target_gw_ok": target_gw_ok(calls, expected_gw),
         "transaction_hits": transaction_hits(answer_text),
         "answer_chars": len(answer_text or ""),
     }
@@ -129,12 +198,12 @@ def main(argv: list[str] | None = None) -> int:
 
     from tool_routing_corpus import (  # noqa: PLC0415
         I78A_CANONICAL_PHRASES_PATH,
-        i78a_fixture_click_corpus,
+        i93_fixture_cell_corpus,
     )
     from fpl_grounded_assistant import orchestrator as orch_mod  # noqa: PLC0415
     from fpl_grounded_assistant.tool_schema_registry import get_tool_schema  # noqa: PLC0415
 
-    questions = [q for q in i78a_fixture_click_corpus() if q["i78a"]["kind"] == "fixtureCellQuestion"]
+    questions = i93_fixture_cell_corpus()
     if not questions:
         print("no fixtureCellQuestion phrases in the corpus", file=sys.stderr)
         return 1
@@ -145,7 +214,9 @@ def main(argv: list[str] | None = None) -> int:
         "tool_routing_corpus_py": _sha256(SCRIPTS_DIR / "tool_routing_corpus.py"),
         "description": hashlib.sha256((schema.description if schema else "").encode("utf-8")).hexdigest()[:16],
         "description_asks_snapshot": bool(schema and "ALSO call get_team_snapshot" in schema.description),
+        "description_asks_both_axes": bool(schema and "TWICE in the same response" in schema.description),
         "prompt_has_match_composition": "MATCH_COMPOSITION" in orch_mod._SYSTEM_PROMPT,
+        "prompt_has_both_sides": "BOTH sides" in orch_mod._SYSTEM_PROMPT,
     }
     total_calls = len(questions) * args.reps
     estimate = _estimate_usd(total_calls)
@@ -174,7 +245,10 @@ def main(argv: list[str] | None = None) -> int:
                     obs = base.run_one(q, rep, bootstrap, api_key)
                     answer = getattr(capture.last, "answer_text", "") if capture.last is not None else ""
                     obs["i78a"] = q.get("i78a")
-                    obs["i93"] = project(capture.last, answer) if capture.last is not None else None
+                    obs["i93"] = (
+                        project(capture.last, answer, expected_gw=(q.get("i78a") or {}).get("gameweek"))
+                        if capture.last is not None else None
+                    )
                     obs["answer_text"] = answer
                     obs["corpus_sha256"] = corpus_sha
                     fh.write(json.dumps(obs, ensure_ascii=False) + "\n")

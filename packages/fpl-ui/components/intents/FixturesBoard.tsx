@@ -312,7 +312,7 @@ export function FixturesBoard({
                   <FixtureTickerRow
                     team={t}
                     onAskTeam={() => onAsk(teamOutlookQuestion(t.team_name, axis))}
-                    onAskCell={(gw) => onAsk(fixtureCellQuestion(t.team_name, gw, axis))}
+                    onAskCell={(gw) => onAsk(fixtureCellQuestion(t.team_name, gw))}
                   />
                 </div>
               ))}

@@ -18,7 +18,7 @@ Usage:
     python scripts/verify_i78a_fixture_click_prod.py \
         --url https://fpl-backend-production-4151.up.railway.app \
         --user-id i78a-verify-$(date +%Y%m%d%H%M) \
-        --question "Newcastle vs LEE (a domicilio), J4: ¿qué tal pinta ofensivamente para el Newcastle?" \
+        --question "Newcastle vs LEE (a domicilio), J4: ¿qué tal pinta ofensivamente y defensivamente para el Newcastle?" \
         --reps 3
 
 Exit 0 when all reps selected get_fixture_outlook, no rep's trace contains

@@ -40,10 +40,13 @@ def test_contract_file_exists_and_is_generated_not_typed():
 
 
 def test_fixture_click_corpus_shape_and_labels():
+    # 28 while the cell phrase was per axis; 20 since i93-b made the cell
+    # tap one phrase asking both sides (4 teams x {2 team-row axes, cell,
+    # DGW cell, future cell}).
     entries = corpus.i78a_fixture_click_corpus()
-    assert len(entries) == 28
-    assert len({e["id"] for e in entries}) == 28
-    assert len({e["question"] for e in entries}) == 28
+    assert len(entries) == 20
+    assert len({e["id"] for e in entries}) == 20
+    assert len({e["question"] for e in entries}) == 20
     kinds = {e["i78a"]["kind"] for e in entries}
     assert kinds == {"teamOutlookQuestion", "fixtureCellQuestion"}
     for e in entries:
@@ -51,10 +54,11 @@ def test_fixture_click_corpus_shape_and_labels():
         assert e["control"] is True
         assert e["acceptable_tools"] == [corpus.I78A_EXPECTED_TOOL]
         assert e["forbidden_tools"] == [corpus.I78A_FORBIDDEN_TOOL]
-        assert e["i78a"]["axis"] in ("attack", "defence")
+        assert e["i78a"]["axis"] in ("attack", "defence", "both")
         # The phrase is what the UI would insert: it names the team.
         assert e["question"]
         if e["i78a"]["kind"] == "fixtureCellQuestion":
+            assert e["i78a"]["axis"] == "both"          # i93-b
             assert f"J{e['i78a']['gameweek']}" in e["question"]
             assert ("doble jornada" in e["question"]) == bool(e["i78a"]["is_dgw"])
 
