@@ -297,8 +297,13 @@ def test_ask_audit_line_carries_retry_attempted_true_from_the_result(
     }
     assert line["tokens"]["retry_input"] == 300
     assert line["tokens"]["total"] == 1520
+    # i96: one audit entry per EXECUTED call, read off tool_calls_trace (the
+    # stub's trace has two rounds of the same tool), not one per selected_tool.
     assert line["tool_calls"] == [
-        {"name": TOOL, "args": {"metric": "total_points"}, "output_status": "ok"},
+        {"name": TOOL, "args": {"metric": "total_points"}, "output_status": "ok",
+         "round": 1, "retry": False},
+        {"name": TOOL, "args": {"metric": "total_points"}, "output_status": "ok",
+         "round": 2, "retry": False},
     ]
     assert line["orchestration_absent"] is False
 
@@ -345,8 +350,13 @@ def test_session_audit_line_carries_real_tokens_tool_calls_and_retry(
     assert line["tokens"]["primary_input"] == 900
     assert line["tokens"]["total"] == 1520
     assert line["usd_cost_estimate"] > 0.0
+    # i96: one audit entry per EXECUTED call, read off tool_calls_trace (the
+    # stub's trace has two rounds of the same tool), not one per selected_tool.
     assert line["tool_calls"] == [
-        {"name": TOOL, "args": {"metric": "total_points"}, "output_status": "ok"},
+        {"name": TOOL, "args": {"metric": "total_points"}, "output_status": "ok",
+         "round": 1, "retry": False},
+        {"name": TOOL, "args": {"metric": "total_points"}, "output_status": "ok",
+         "round": 2, "retry": False},
     ]
     assert line["retry_attempted"] is True
     assert line["evaluator_verdict"]["retry_feedback"] == "name the top three, not one"
@@ -527,3 +537,143 @@ def test_tool_calls_projection_reads_args_and_status_from_the_dict():
         "args": {"player_name": "Haaland"},
         "output_status": "ambiguous",
     }]
+
+
+# ---------------------------------------------------------------------------
+# i96 -- the retry's delivery audits every call it executed
+# ---------------------------------------------------------------------------
+#
+# Seen in prod 2026-09-13 (fda7f29) and again 2026-09-17 (d76cadb): "¿Quién es
+# mejor capitán, Haaland o Salah?" -> primary compare_players, evaluator
+# rejects, the retry re-runs compare_players and gets a non-ok status
+# (Salah is not in the 2026-27 bootstrap). The harness lands on its
+# no-grounded-tool branch with selected_tool=None and the audit line read
+# tool_calls=[] for a turn that executed two tools. The projection now reads
+# tool_calls_trace (primary rounds + the retry's own calls, retry=True).
+
+from fpl_grounded_assistant.orchestrator import OUTCOME_TOOL_RESULT_ERROR  # noqa: E402
+
+COMPARE = "compare_players"
+
+
+def _compare_trace() -> tuple[dict, ...]:
+    primary = {
+        "round": 1, "tool_call_id": "call_0", "name": COMPARE,
+        "args": {"query_a": "Haaland", "query_b": "Salah"},
+        "output": {"status": "not_found", "message": "No player found matching 'Salah'."},
+        "success": False,
+    }
+    retry = dict(primary, round=2, tool_call_id="call_1", retry=True)
+    return (primary, retry)
+
+
+def _rejected_retry_with_non_ok_status() -> OrchestratorResult:
+    return OrchestratorResult(
+        question="¿Quién es mejor capitán, Haaland o Salah?",
+        tool_chosen=COMPARE,
+        tool_args={"query_a": "Haaland", "query_b": "Salah"},
+        tool_output={"status": "not_found", "message": "No player found matching 'Salah'."},
+        answer_text="No player found matching 'Salah'.",
+        llm_used=True,
+        model="stub-model",
+        outcome=OUTCOME_TOOL_RESULT_ERROR,
+        evaluator_verdict=_REJECTED,
+        retry_attempted=True,
+        primary_input_tokens=900, primary_output_tokens=120, evaluator_input_tokens=120,
+        retry_input_tokens=300, retry_output_tokens=80, total_tokens=1520,
+        tool_call_count=1,
+        tool_calls_trace=_compare_trace(),
+        synthesis_turn=False,
+    )
+
+
+_EXPECTED_COMPARE_CALLS = [
+    {"name": COMPARE, "args": {"query_a": "Haaland", "query_b": "Salah"},
+     "output_status": "not_found", "round": 1, "retry": False},
+    {"name": COMPARE, "args": {"query_a": "Haaland", "query_b": "Salah"},
+     "output_status": "not_found", "round": 2, "retry": True},
+]
+
+
+def test_tool_calls_projection_prefers_the_trace_over_selected_tool():
+    """The exact prod shape: no selected_tool, a populated trace."""
+    assert audit_mod.tool_calls_from_ask_v2({
+        "selected_tool": None,
+        "routing_trace": {"tool_sequence": [COMPARE]},
+        "tool_calls_trace": [
+            {"name": COMPARE, "args": {"query_a": "Haaland", "query_b": "Salah"},
+             "output_status": "not_found", "round": 1, "retry": False},
+            {"name": COMPARE, "args": {"query_a": "Haaland", "query_b": "Salah"},
+             "output_status": "not_found", "round": 2, "retry": True},
+        ],
+    }) == _EXPECTED_COMPARE_CALLS
+
+
+def test_tool_calls_projection_carries_every_executed_call_of_a_multi_tool_turn():
+    """Two distinct tools in one turn -> two audit entries, in order, each with
+    its own args and status. (Mutating the projection back to selected_tool
+    alone leaves ONE entry and kills this.)"""
+    calls = audit_mod.tool_calls_from_ask_v2({
+        "selected_tool": "get_fixture_outlook",
+        "tool_input": {"team": "Arsenal", "axis": "attack"},
+        "raw_output": {"status": "ok"},
+        "tool_calls_trace": [
+            {"name": "get_fixture_outlook", "args": {"team": "Arsenal", "axis": "attack"},
+             "output_status": "ok", "round": 1, "retry": False},
+            {"name": "get_team_snapshot", "args": {"team": "Arsenal"},
+             "output_status": "ok", "round": 1, "retry": False},
+        ],
+    })
+    assert [c["name"] for c in calls] == ["get_fixture_outlook", "get_team_snapshot"]
+    assert calls[1]["args"] == {"team": "Arsenal"}
+    assert all(c["output_status"] == "ok" for c in calls)
+
+
+def test_tool_calls_projection_falls_back_to_selected_tool_without_a_trace():
+    """Deterministic branches carry no trace: the one selected tool IS the call."""
+    assert audit_mod.tool_calls_from_ask_v2({
+        "selected_tool": "get_player_snapshot",
+        "tool_input": {"player_name": "Haaland"},
+        "raw_output": {"status": "ok"},
+        "tool_calls_trace": [],
+    }) == [{"name": "get_player_snapshot", "args": {"player_name": "Haaland"}, "output_status": "ok"}]
+
+
+def test_harness_no_grounded_tool_branch_still_projects_the_executed_calls(stub_orchestrator):
+    stub_orchestrator["result"] = _rejected_retry_with_non_ok_status()
+    d = ask_v2("¿Quién es mejor capitán, Haaland o Salah?", STANDARD_BOOTSTRAP)
+    assert d["selected_tool"] is None, "precondition: this IS the branch that used to audit []"
+    assert d["routing_trace"]["branch"] == "unsupported"
+    assert d["tool_calls_trace"] == _EXPECTED_COMPARE_CALLS
+
+
+def test_ask_audit_line_of_a_rejected_retry_with_non_ok_status_lists_both_calls(
+    server, audit_lines, stub_orchestrator,
+):
+    stub_orchestrator["result"] = _rejected_retry_with_non_ok_status()
+    resp = server.post(
+        "/ask", json={"question": "¿Quién es mejor capitán, Haaland o Salah?", "debug": True},
+        headers={"X-User-Id": "u-i96"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["debug"]["selected_tool"] is None
+    line = audit_lines()[0]
+    assert line["retry_attempted"] is True
+    assert line["tool_calls"] == _EXPECTED_COMPARE_CALLS
+
+
+def test_session_audit_line_of_a_rejected_retry_with_non_ok_status_lists_both_calls(
+    server, audit_lines, stub_orchestrator,
+):
+    stub_orchestrator["result"] = _rejected_retry_with_non_ok_status()
+    session_id = _open_session(server)
+    resp = server.post(
+        f"/session/{session_id}/ask",
+        json={"question": "¿Quién es mejor capitán, Haaland o Salah?"},
+        headers={"X-User-Id": "u-i96"},
+    )
+    assert resp.status_code == 200
+    line = audit_lines()[0]
+    assert line["branch"] == "session"
+    assert line["orchestration_absent"] is False
+    assert line["tool_calls"] == _EXPECTED_COMPARE_CALLS
