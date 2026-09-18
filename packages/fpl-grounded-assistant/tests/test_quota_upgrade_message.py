@@ -231,3 +231,46 @@ def test_zero_token_turns_do_not_slide_the_token_window():
         "token and message windows drifted apart — the message counter would "
         "reset while the token counter kept blocking"
     )
+
+
+# --------------------------------------------------------------------------
+# i99: the cap that fired is the cap that is named.
+#
+# Measured in prod 2026-09-17 (field-notes/2026-09-17-i99-quota-cut-diagnosis.md):
+# four session turns of 51-64K tokens each tripped the free daily TOKEN cap
+# (220K) before the fifth message, and the block read "Llegaste a tu límite
+# de 5 mensajes al día" to a user who had sent four. The window wording
+# tests above already forbid a monthly cap being announced as daily; these
+# forbid a token cap being announced as a message count.
+# --------------------------------------------------------------------------
+
+@pytest.mark.parametrize("window", ["daily", "monthly"])
+def test_token_cap_block_does_not_claim_a_message_count_was_hit(window):
+    es, en = _upgrade_prompts("free", f"{window}_token_cap_exceeded")
+    cap = getattr(TIERS["free"], f"{window}_message_cap")
+    assert f"límite de {cap} mensajes" not in es, es
+    assert f"limit of {cap} messages" not in en, en
+    assert "volumen" in es and "volume" in en
+    # The window is still the right one.
+    if window == "monthly":
+        assert "al mes" in es and "monthly" in en
+    else:
+        assert "al día" in es and "daily" in en
+
+
+def test_message_cap_block_still_names_the_message_count():
+    """The token-cap wording must not leak into the message-cap case."""
+    es, en = _upgrade_prompts("free", "daily_message_cap_exceeded")
+    assert f"límite de {TIERS['free'].daily_message_cap} mensajes" in es
+    assert "volumen" not in es and "volume" not in en
+
+
+def test_check_quota_token_block_carries_the_token_wording_end_to_end():
+    """From the gate, not just the helper: one huge turn blocks on tokens."""
+    cfg = TIERS["free"]
+    record_turn("heavy", cfg.daily_token_cap, "free")   # 1 message, all the tokens
+    check = check_quota("heavy", "free")
+    assert not check.allowed
+    assert check.reason == "daily_token_cap_exceeded"
+    assert "volumen" in (check.upgrade_prompt_es or "")
+    assert f"límite de {cfg.daily_message_cap} mensajes" not in check.upgrade_prompt_es
