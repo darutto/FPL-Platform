@@ -1321,3 +1321,75 @@ def test_card_projection_carries_fixture_scope(tactical_store):
     burnley_fixture = next(f for f in tf.fixtures if f.team == "Burnley")
     assert burnley_fixture.is_home is False  # Palace home vs Burnley -> Burnley away
     assert any(e.gameweek == 1 and e.is_home is False for e in meta.exploiters)
+
+
+# ---------------------------------------------------------------------------
+# i98 -- the store's real name forms resolve to their FPL player
+# ---------------------------------------------------------------------------
+#
+# Measured 2026-09-17 (see field-notes/2026-09-17-i98-store-names-resolve.md):
+# of the 449 distinct names in the 2025-26 Understat store, 296 resolved at
+# RANK_EXACT against the live bootstrap; 4 more do once fpl-tactical
+# unescapes HTML entities at ingest (O'Riley, O'Brien, O'Reilly, O'Nien) and
+# 35 more through the KNOWN_NICKNAMES forms added for the store's long /
+# initialled spellings. Records below are live-bootstrap shaped.
+
+def _bootstrap_i98() -> dict:
+    return {
+        "teams": [
+            {"id": 1, "name": "Sunderland", "short_name": "SUN"},
+            {"id": 2, "name": "Man Utd", "short_name": "MUN"},
+            {"id": 3, "name": "Tottenham", "short_name": "TOT"},
+            {"id": 4, "name": "Fulham", "short_name": "FUL"},
+            {"id": 5, "name": "Man City", "short_name": "MCI"},
+            {"id": 6, "name": "Brighton", "short_name": "BHA"},
+        ],
+        "events": [{"id": 5, "is_current": True}],
+        "elements": [
+            {"id": 21, "team": 1, "first_name": "Luke", "second_name": "O'Nien",
+             "web_name": "O'Nien", "element_type": 2},
+            {"id": 22, "team": 2, "first_name": "Bruno", "second_name": "Borges Fernandes",
+             "web_name": "B.Fernandes", "element_type": 3},
+            {"id": 23, "team": 3, "first_name": "Dominic", "second_name": "Solanke-Mitchell",
+             "web_name": "Solanke", "element_type": 4},
+            {"id": 24, "team": 4, "first_name": "Josh", "second_name": "King",
+             "web_name": "King", "element_type": 3},
+            {"id": 25, "team": 5, "first_name": "Rúben", "second_name": "dos Santos Gato Alves Dias",
+             "web_name": "Rúben", "element_type": 2},
+            {"id": 26, "team": 6, "first_name": "Mitoma", "second_name": "Kaoru",
+             "web_name": "Mitoma", "element_type": 3},
+            # The second King the live bootstrap carries: the alias table is
+            # keyed on web_name, so "Joshua King" would tie and must stay None.
+            {"id": 27, "team": 6, "first_name": "Tom", "second_name": "King",
+             "web_name": "King", "element_type": 4},
+        ],
+    }
+
+
+class TestI98StoreNameForms:
+    @pytest.mark.parametrize("store_form,web_name", [
+        ("Luke O'Nien", "O'Nien"),           # entity unescaped at ingest, then exact
+        ("Bruno Fernandes", "B.Fernandes"),  # initialled web_name
+        ("Dominic Solanke", "Solanke"),      # second_name grew a hyphen part
+        ("Rúben Dias", "Rúben"),             # first-name web_name
+        ("Kaoru Mitoma", "Mitoma"),          # FPL stores Japanese names family-first
+    ])
+    def test_measured_store_forms_resolve_to_their_player(self, store_form, web_name):
+        el = resolve_store_player(store_form, _bootstrap_i98())
+        assert el is not None, store_form
+        assert el["web_name"] == web_name
+
+    def test_escaped_entity_still_does_not_resolve(self):
+        # Belt and braces: the fix is at ingest, the matcher is not relaxed.
+        assert resolve_store_player("Luke O&#039;Nien", _bootstrap_i98()) is None
+
+    def test_a_form_whose_web_name_is_shared_stays_unresolved(self):
+        # "Joshua King": KNOWN_NICKNAMES cannot say which King, so it is not
+        # in the table and the row keeps its store club (club_source=store).
+        assert resolve_store_player("Joshua King", _bootstrap_i98()) is None
+
+    def test_added_forms_do_not_relax_the_matcher_itself(self):
+        # A store form NOT in the table still needs exact equality: nothing
+        # about i98 turns "first name + a token of second_name" into a hit.
+        assert resolve_store_player("Bruno Borges", _bootstrap_i98()) is None
+        assert resolve_store_player("Dominic Mitchell", _bootstrap_i98()) is None
