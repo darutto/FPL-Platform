@@ -420,6 +420,11 @@ def to_ask_response(
         position_fixture_run=_to_dict(d.get("position_fixture_run")),
         transfer_suggestion=_to_dict(d.get("transfer_suggestion")),
         zonal_opportunity=_to_dict(d.get("zonal_opportunity")),  # T4b
+        # i102: Track D built FixtureOutlookMeta into FinalResponse and the UI
+        # (IntentRenderer mounts FixtureOutlookCard on response.fixture_outlook)
+        # but this line never existed, so the calendar card never reached the
+        # chat over HTTP -- on any get_fixture_outlook turn, composed (i93) or not.
+        fixture_outlook=_to_dict(d.get("fixture_outlook")),      # Track D / FI4
         player_snapshot=_to_dict(d.get("player_snapshot")),      # single-player card
         generic_card=_to_dict(d.get("generic_card")),            # Track A: additive card
         suggestions=d.get("player_suggestions"),                 # Guided Comparison: tappable chips (already list[dict])

@@ -258,12 +258,13 @@ def test_composed_turn_snapshot_first_keeps_the_calendar_card(monkeypatch):
     assert out["answer_text"] == SYNTHESIS
     # The UI renders FixtureOutlookCard on intent == fixture_outlook AND a
     # non-empty fixture_outlook; the intent half is decided here, from the
-    # primary call. (The other half -- fpl_server.AskResponse carrying
-    # fixture_outlook at all -- is NOT wired today, for single-tool turns
-    # either: found while building i93, reported as its own card.)
+    # primary call. The other half -- the adapter and fpl_server.AskResponse
+    # carrying fixture_outlook at all -- was found missing while building
+    # i93 and wired by i102 (tests/test_i102_fixture_outlook_http.py).
     from fpl_server import AskRequest
     resp = harness_adapter.to_ask_response(out, AskRequest(question=QUESTION))
     assert resp.intent == "fixture_outlook"
+    assert resp.fixture_outlook is not None and resp.fixture_outlook["teams"][0]["team_short"] == "ARS"
     # A composed turn is a real multi-tool turn: no atomic card on top (i58 gate).
     assert out.get("generic_card") is None
 
