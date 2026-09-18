@@ -1097,51 +1097,6 @@ def _transfer_suggestion_meta_dict(ts: Any) -> dict[str, Any]:
     }
 
 
-def _zonal_opportunity_meta_dict(zo: Any) -> dict[str, Any]:
-    """Serialise a DefensiveZonesMeta instance.  T4b."""
-    return {
-        "opponent":       zo.opponent,
-        "weakness_label": zo.weakness_label,
-        "verdict":        zo.verdict,
-        "zones": [
-            {
-                "lateral":           z.lateral,
-                "pct_over_avg":      z.pct_over_avg,
-                "opportunity_level": z.opportunity_level,
-            }
-            for z in zo.zones
-        ],
-        "exploiters": [
-            {
-                "rank":       e.rank,
-                "web_name":   e.web_name,
-                "team_short": e.team_short,
-                "position":   e.position,
-                "zone":       e.zone,
-                "fit_score":  e.fit_score,
-            }
-            for e in zo.exploiters
-        ],
-        "penalty_xga_per_game": zo.penalty_xga_per_game,
-        "ai_active":            zo.ai_active,
-        "data_provenance": (
-            {
-                "season":       zo.data_provenance.season,
-                "season_label": zo.data_provenance.season_label,
-                "live_season":  zo.data_provenance.live_season,
-                "is_current":   zo.data_provenance.is_current,
-                "status":       zo.data_provenance.status,
-                "label":        zo.data_provenance.label,
-                "ingested_at":  zo.data_provenance.ingested_at,
-                "n_matches":    zo.data_provenance.n_matches,
-                "n_shots":      zo.data_provenance.n_shots,
-            }
-            if getattr(zo, "data_provenance", None) is not None
-            else None
-        ),
-    }
-
-
 def _player_snapshot_meta_dict(ps: Any) -> dict[str, Any]:
     """Serialise a PlayerSnapshotMeta instance."""
     ctx = ps.team_fdr_context
@@ -2492,7 +2447,13 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         team_schedule=sess_team_schedule_bundle,
         position_fixture_run=sess_pos_fixture_run_bundle,
         transfer_suggestion=_transfer_suggestion_meta_dict(r.transfer_suggestion) if r.transfer_suggestion is not None else None,
-        zonal_opportunity=_zonal_opportunity_meta_dict(r.zonal_opportunity) if r.zonal_opportunity is not None else None,  # T4b
+        # i97: the same generic dataclass serializer POST /ask uses
+        # (harness_adapter.to_ask_response), not a hand-written field list.
+        # The hand list this replaced carried 6 fields per exploiter and none
+        # of i85-i91's / i75's additions (team_filter, weakness_strength,
+        # has_exploiters, club_source/club_note), so the session path served
+        # a thinner card than /ask for the same DefensiveZonesMeta.
+        zonal_opportunity=_to_dict(r.zonal_opportunity),  # T4b
         player_snapshot=_player_snapshot_meta_dict(r.player_snapshot) if r.player_snapshot is not None else None,  # single-player card
         generic_card=_generic_card_meta_dict(r.generic_card) if r.generic_card is not None else None,  # Track A
         suggestions=_suggestions_meta_list(r.suggestions) if r.suggestions is not None else None,  # Guided Comparison
