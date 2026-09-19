@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-17",
+  "updated": "2026-09-18",
   "cards": [
     {
       "id": "s1",
@@ -654,14 +654,14 @@
     },
     {
       "id": "i37",
-      "col": "idea",
+      "col": "evaluation",
       "title": "Residual: el reintento del evaluador entrega render crudo",
-      "desc": "Lo que queda del 1/40 de #160, y es un camino DISTINTO y preexistente. Cuando el evaluador rechaza una respuesta YA sintetizada y el unico reintento (limitado por diseno a uno, para no pagar una tercera llamada al LLM) llama a una herramienta en vez de escribir texto, esa salida se entrega sin sintetizar. Reproducido con cliente falso y pineado en test_evaluator_retry_render_is_a_known_residual_bare_render_path -- documentado, no escondido.\n\nEl arreglo tiene el mismo dilema de coste que #160 resolvio para el camino principal: dar turno de sintesis al reintento significa una tercera llamada. El numero de #160 sugiere que el coste real seria bajo (solo 15/80 turnos ejecutan herramienta, y de esos solo los rechazados llegan aqui), pero hay que medirlo antes de decidir, no asumirlo.",
+      "desc": "Lo que queda del 1/40 de #160, y es un camino DISTINTO y preexistente. Cuando el evaluador rechaza una respuesta YA sintetizada y el unico reintento (limitado por diseno a uno, para no pagar una tercera llamada al LLM) llama a una herramienta en vez de escribir texto, esa salida se entrega sin sintetizar. Reproducido con cliente falso y pineado en test_evaluator_retry_render_is_a_known_residual_bare_render_path -- documentado, no escondido.\n\nEl arreglo tiene el mismo dilema de coste que #160 resolvio para el camino principal: dar turno de sintesis al reintento significa una tercera llamada. El numero de #160 sugiere que el coste real seria bajo (solo 15/80 turnos ejecutan herramienta, y de esos solo los rechazados llegan aqui), pero hay que medirlo antes de decidir, no asumirlo.\n\nFUSIONADA 2026-09-18 (PR #290, f1b70f8, junto con i96). MEDIDO ANTES DE DECIDIR, como pedía la carta: 7 de 25 turnos orquestados en prod (28 %) entregaban el render crudo — el 1/40 de #160 ya no era residual. El reintento del evaluador ahora recibe la misma llamada de síntesis que el camino primario (una sola, sin loop ni segunda evaluación); el render crudo queda solo como fallback si esa llamada falla o no da texto. Tokens facturados al cubo del reintento. synthesis_turn ya dice la verdad en ese camino. PENDIENTE: measure_i37_retry_population.py … post contra prod desplegado.",
       "tags": [
         "Backend",
         "IA"
       ],
-      "progress": 0
+      "progress": 90
     },
     {
       "id": "s23",
@@ -1330,10 +1330,10 @@
     },
     {
       "id": "i95",
-      "col": "idea",
-      "progress": 0,
+      "col": "shipped",
+      "progress": 100,
       "title": "Tres listas emitidas sin declarar: held_back, dgw/bgw_gameweeks, allowed_domains",
-      "desc": "ENCONTRADO 2026-09-13 por la guarda de omisión de [[i49]] (35 llamadas offline contra salidas producidas): rank_captain_candidates.held_back (294 filas, 297 KB al LLM), get_team_schedule.dgw_gameweeks/bgw_gameweeks y web_fetch.allowed_domains se emiten y no están en ningún ToolSpec.output_schema. i49 los capa vía puente explícito (_UNDECLARED_TRUNCATABLE_FIELDS, auto-expira al declararse; un test pinea que siguen sin declarar). El encargo: declararlos en sus módulos y retirar el puente; y de paso decidir si held_back debe siquiera salir del tool (el pool «avoid» no lo lee nadie). Medida de referencia en prod: turno de capitán 116.411 a 28.285 tokens de entrada con el puente.",
+      "desc": "ENCONTRADO 2026-09-13 por la guarda de omisión de [[i49]] (35 llamadas offline contra salidas producidas): rank_captain_candidates.held_back (294 filas, 297 KB al LLM), get_team_schedule.dgw_gameweeks/bgw_gameweeks y web_fetch.allowed_domains se emiten y no están en ningún ToolSpec.output_schema. i49 los capa vía puente explícito (_UNDECLARED_TRUNCATABLE_FIELDS, auto-expira al declararse; un test pinea que siguen sin declarar). El encargo: declararlos en sus módulos y retirar el puente; y de paso decidir si held_back debe siquiera salir del tool (el pool «avoid» no lo lee nadie). Medida de referencia en prod: turno de capitán 116.411 a 28.285 tokens de entrada con el puente.\n\nCERRADA 2026-09-18 (PR #291, 21d9de0). Corrección de premisa, tal como pidió la revisión: no eran \"tres listas en un puente\" — el puente de i49 solo tenía held_back. Los cuatro campos medidos llegando al LLM sin declarar quedan declarados en su spec: held_back (capado ahora por su declaración, puente vacío pero conservado como lugar nombrado), dgw/bgw_gameweeks (acotados por el horizonte de 10, el tope nunca muerde), y allowed_domains con DECISIÓN ESCRITA: declarado y excluido del truncado — son 11 strings estáticos, uno sobre el tope, y una allowlist recortada le diría al modelo que un dominio está prohibido cuando no lo está. Test pinea las cuatro decisiones.",
       "tags": [
         "Backend",
         "IA",
@@ -1342,10 +1342,10 @@
     },
     {
       "id": "i96",
-      "col": "idea",
-      "progress": 0,
+      "col": "evaluation",
+      "progress": 90,
       "title": "La entrega del reintento del evaluador deja tool_calls=[] aunque un tool corrió",
-      "desc": "VISTO EN PROD 2026-09-13 (fda7f29) al verificar [[i80]]: sesión, turno 3 «¿Quién es mejor capitán, Haaland o Salah?»: routing_trace.tool_sequence=[compare_players], retry_attempted=true, synthesis_turn=false, y tool_calls=[] en el bundle (y por tanto en el audit). audit.tool_calls_from_ask_v2 devuelve vacío sin selected_tool, y la entrega del reintento llega sin él. Es la misma clase de defecto que i80 cerró: el instrumento dice «cero» donde hubo uno. Arreglo probable: derivar tool_calls de tool_sequence cuando selected_tool sea None; test con un OrchestratorResult de reintento.",
+      "desc": "VISTO EN PROD 2026-09-13 (fda7f29) al verificar [[i80]]: sesión, turno 3 «¿Quién es mejor capitán, Haaland o Salah?»: routing_trace.tool_sequence=[compare_players], retry_attempted=true, synthesis_turn=false, y tool_calls=[] en el bundle (y por tanto en el audit). audit.tool_calls_from_ask_v2 devuelve vacío sin selected_tool, y la entrega del reintento llega sin él. Es la misma clase de defecto que i80 cerró: el instrumento dice «cero» donde hubo uno. Arreglo probable: derivar tool_calls de tool_sequence cuando selected_tool sea None; test con un OrchestratorResult de reintento.\n\nFUSIONADA 2026-09-18 (PR #290, f1b70f8, junto con i37). audit.tool_calls_from_ask_v2 proyecta desde tool_calls_trace (todas las llamadas ejecutadas, primarias + reintento con retry=True) y solo cae a selected_tool cuando no hay trace (ramas deterministas). Ambas ramas del orquestador en harness exponen el trace, incluida la de \"sin herramienta grounded\" donde el reintento con status no-ok aterrizaba con tool_calls=[]. Tests de la línea de audit por /ask y por sesión. Verificado por el chat de revisión que la proyección lee las claves reales de _trace_entry (args/output). PENDIENTE: ver una línea de audit real en prod con un reintento (post-deploy).",
       "tags": [
         "Backend",
         "Infra"
@@ -1353,10 +1353,10 @@
     },
     {
       "id": "i97",
-      "col": "idea",
-      "progress": 0,
+      "col": "shipped",
+      "progress": 100,
       "title": "El serializador zonal del camino de sesión solo pasa 6 campos por exploiter",
-      "desc": "ENCONTRADO 2026-09-13 por el constructor de [[i80]], fuera de su fila y no tocado: fpl_server._zonal_opportunity_meta_dict (usado por /session/{id}/ask) serializa 6 campos por exploiter y pierde los de i85-i90 y los club_source/club_note de [[i75]]. Por /ask (turno inicial, el que la UI usa para preguntas nuevas) va por _to_dict y llega todo. PR de una línea (reusar _to_dict) + test que compara las claves de ambos caminos.",
+      "desc": "ENCONTRADO 2026-09-13 por el constructor de [[i80]], fuera de su fila y no tocado: fpl_server._zonal_opportunity_meta_dict (usado por /session/{id}/ask) serializa 6 campos por exploiter y pierde los de i85-i90 y los club_source/club_note de [[i75]]. Por /ask (turno inicial, el que la UI usa para preguntas nuevas) va por _to_dict y llega todo. PR de una línea (reusar _to_dict) + test que compara las claves de ambos caminos.\n\nCERRADA 2026-09-18 (PR #292, b8ffd81). _zonal_opportunity_meta_dict (6 campos a mano) borrado; /session/{id}/ask usa el mismo _to_dict genérico que /ask. La mutación nombra las 20 rutas que se perdían (club_source, club_note, weakness_strength, has_exploiters, team_filter…). Paridad de payload anidado completo probada por el test determinista de i100 (8/8 con esta PR y #294).",
       "tags": [
         "Backend",
         "Deuda tecnica"
@@ -1364,10 +1364,10 @@
     },
     {
       "id": "i98",
-      "col": "idea",
-      "progress": 0,
+      "col": "shipped",
+      "progress": 100,
       "title": "El matcher exacto de la tarjeta zonal no alcanza a Oli McBurnie, Josh King ni a «O&#039;Nien»",
-      "desc": "MEDIDO EN PROD 2026-09-13 al cerrar [[i75]] (20 equipos, store 2026-27): 27 o más filas con club_source=store, ninguna con club equivocado. Dos causas visibles en la lista: (a) FPL usa formas cortas o compuestas que RANK_EXACT no cubre («Oli McBurnie» vs «Oliver McBurnie», «Josh King» vs «Joshua King», «Solanke-Mitchell» vs «Dominic Solanke», «B.Fernandes»); (b) el store trae «Luke O&#039;Nien» con la entidad HTML sin desescapar, un bug de ingesta de Understat, no del matcher. Encargo doble: html.unescape en la ingesta táctica (con test) y decidir, midiendo lo que resolvería nuevamente, si KNOWN_NICKNAMES gana estas formas.",
+      "desc": "MEDIDO EN PROD 2026-09-13 al cerrar [[i75]] (20 equipos, store 2026-27): 27 o más filas con club_source=store, ninguna con club equivocado. Dos causas visibles en la lista: (a) FPL usa formas cortas o compuestas que RANK_EXACT no cubre («Oli McBurnie» vs «Oliver McBurnie», «Josh King» vs «Joshua King», «Solanke-Mitchell» vs «Dominic Solanke», «B.Fernandes»); (b) el store trae «Luke O&#039;Nien» con la entidad HTML sin desescapar, un bug de ingesta de Understat, no del matcher. Encargo doble: html.unescape en la ingesta táctica (con test) y decidir, midiendo lo que resolvería nuevamente, si KNOWN_NICKNAMES gana estas formas.\n\nCERRADA 2026-09-18 (PR #293, f26cdf9). Dos causas, dos arreglos: (a) html.unescape en la ingesta de fpl-tactical — Understat sirve \"O&#039;Nien\", se corrige en la fuente antes de escribir el store; (b) 35 formas del store añadidas a KNOWN_NICKNAMES tras auditar los 449 nombres del store contra el bootstrap vivo (300→335 resueltos, 0 cambios de destino en los que ya resolvían). Verificado por el chat de revisión: cada una de las 35 claves resuelve a un único web_name en el bootstrap de hoy. Los empates (King ×2, Gomez ×2, Muñoz/Munoz) quedan fuera a propósito — Josh King NO entra. El cron del lunes 2026-09-21 re-ingesta con el unescape.",
       "tags": [
         "Datos",
         "Backend"
@@ -1375,10 +1375,10 @@
     },
     {
       "id": "i99",
-      "col": "idea",
-      "progress": 0,
+      "col": "shipped",
+      "progress": 100,
       "title": "Cinco turnos orquestados por user-id y luego el camino determinista en silencio",
-      "desc": "MEDIDO EN PROD 2026-09-13 (a9b2fcc) con el conteo de [[i75]]: con cualquier X-User-Id nuevo, las 5 primeras preguntas zonales van al orquestador (debug.selected_tool=get_zonal_opportunity) y de la sexta en adelante la respuesta llega sin selected_tool ni raw_output, con un final_text distinto («Rivales de Chelsea J4-J8...»). Espaciar 15 s no cambia nada; rotar el id sí. Parece la cuota free por id degradando al camino legado sin decirlo. NO verificado en código: el encargo es localizar el corte, decidir si degradar en silencio es lo que se quiere (probablemente no: el usuario no sabe que cambió de motor) y, como mínimo, que orchestration_absent lo diga.",
+      "desc": "MEDIDO EN PROD 2026-09-13 (a9b2fcc) con el conteo de [[i75]]: con cualquier X-User-Id nuevo, las 5 primeras preguntas zonales van al orquestador (debug.selected_tool=get_zonal_opportunity) y de la sexta en adelante la respuesta llega sin selected_tool ni raw_output, con un final_text distinto («Rivales de Chelsea J4-J8...»). Espaciar 15 s no cambia nada; rotar el id sí. Parece la cuota free por id degradando al camino legado sin decirlo. NO verificado en código: el encargo es localizar el corte, decidir si degradar en silencio es lo que se quiere (probablemente no: el usuario no sabe que cambió de motor) y, como mínimo, que orchestration_absent lo diga.\n\nCERRADA 2026-09-18 (PR #289, ee66156). La premisa era falsa y se dice: el corte del 6.º turno es quota.py (tier free: 5 mensajes/día ó 220K tokens/día, contador por X-User-Id hasheado) y NO es silencioso — outcome=quota_exceeded, llm_used=false, texto de upgrade. Medido con protocolo completo (d76cadb, 3 variantes, 20 turnos, JSONL crudo): rotar el id lo evita (7/7), reusar sesión no. El \"final_text distinto\" que se vio era el render crudo del reintento del evaluador (i37) — aparece en turnos 1.º, 2.º y 4.º, siempre con retry_attempted=true, nunca ligado al 6.º; 5/16 turnos en la muestra. Único defecto real: el bloqueo por TOKENS (en sesión llega al 5.º mensaje, tras 4 turnos de 51-64K) decía \"límite de 5 mensajes\". Arreglado: el mensaje nombra el tope que disparó. Revisado contra el JSONL, no contra el resumen.",
       "tags": [
         "Backend",
         "Deploy"
@@ -1386,10 +1386,10 @@
     },
     {
       "id": "i100",
-      "col": "idea",
-      "progress": 0,
+      "col": "building",
+      "progress": 80,
       "title": "Paridad de ruteo /ask vs sesión para las frases canónicas del calendario",
-      "desc": "MUESTRA DE 1, no medición, 2026-09-13 al verificar [[i80]]: la frase teamOutlookQuestion del Brentford por /session/{id}/ask fue a get_team_snapshot; por /ask, [[i78]] la midió 8/8 en get_fixture_outlook. La UI manda el primer turno por /ask y los siguientes por sesión, así que un clic del calendario con una sesión ya abierta va por el camino no medido. Encargo: repetir la matriz de i78-A por el endpoint de sesión con el mismo protocolo (R=3, luna, tope declarado) y, si difiere, mirar qué prompt/catálogo ve el orquestador en cada camino.",
+      "desc": "MUESTRA DE 1, no medición, 2026-09-13 al verificar [[i80]]: la frase teamOutlookQuestion del Brentford por /session/{id}/ask fue a get_team_snapshot; por /ask, [[i78]] la midió 8/8 en get_fixture_outlook. La UI manda el primer turno por /ask y los siguientes por sesión, así que un clic del calendario con una sesión ya abierta va por el camino no medido. Encargo: repetir la matriz de i78-A por el endpoint de sesión con el mismo protocolo (R=3, luna, tope declarado) y, si difiere, mirar qué prompt/catálogo ve el orquestador en cada camino.\n\nPR #296 (draft) 2026-09-18, revisado y aprobado; espera CI tras actualizar la rama con #292+#294. Dos niveles, como pidió la revisión: test determinista (mismo FinalResponse por los dos adaptadores, payload anidado completo, 8/8 con #292+#294; 7/8 en main de entonces = i97) y matriz viva (28 canónicas + 10 controles, R=3, 180 llamadas): /ask 7/8+12/12 vs sesión 5/8+4/12. HALLAZGO: no es catálogo ni prompt — 28 de 30 discrepancias llevan una reescritura del resolver de referencias de la sesión (ver [[i103]]). No se arregló aquí, por regla del plan.",
       "tags": [
         "FPL Asistente",
         "Backend",
@@ -1410,14 +1410,26 @@
     },
     {
       "id": "i102",
-      "col": "idea",
-      "progress": 0,
+      "col": "evaluation",
+      "progress": 90,
       "title": "La tarjeta de calendario nunca llega al chat por HTTP",
-      "desc": "ENCONTRADO 2026-09-15 trabajando en i93 (PR #282), parado a tiempo en vez de forzado dentro de esa PR: fpl_server.AskResponse y SessionAskResponse no tienen campo fixture_outlook. Verificado por el chat de revisión con grep directo sobre fpl_server.py: cero menciones.\n\nTrack D construyó FixtureOutlookCard y la cableó en FinalResponse y en la UI (IntentRenderer.tsx monta la tarjeta cuando response.fixture_outlook != null), pero nunca en el contrato HTTP que fpl_server.py sirve. Es decir: la tarjeta de calendario compacta NUNCA se ha renderizado en el chat de producción, en NINGÚN turno de get_fixture_outlook, compuesto o no — no es una regresión de i93, es un hueco que existe desde que Track D se construyó.\n\nCon i93 el turno compuesto ya tiene intent=fixture_outlook, selected_tool=get_fixture_outlook y la meta correcta en el dict de ask_v2 (probado con tests que llaman al adapter real, harness_adapter.to_ask_response). Falta solo la serialización HTTP: añadir fixture_outlook a los dos modelos Pydantic y al payload que arma cada ruta (/ask y /session/{id}/ask), y a los tipos de fpl-ui que leen la respuesta.\n\nALCANCE: fpl_server.py + contrato de API — fuera de la fila de i93, que no lo tocó a propósito. Verificación: un clic real en /fixtures debe mostrar la tira compacta de jornadas junto a la prosa, no solo la prosa.",
+      "desc": "ENCONTRADO 2026-09-15 trabajando en i93 (PR #282), parado a tiempo en vez de forzado dentro de esa PR: fpl_server.AskResponse y SessionAskResponse no tienen campo fixture_outlook. Verificado por el chat de revisión con grep directo sobre fpl_server.py: cero menciones.\n\nTrack D construyó FixtureOutlookCard y la cableó en FinalResponse y en la UI (IntentRenderer.tsx monta la tarjeta cuando response.fixture_outlook != null), pero nunca en el contrato HTTP que fpl_server.py sirve. Es decir: la tarjeta de calendario compacta NUNCA se ha renderizado en el chat de producción, en NINGÚN turno de get_fixture_outlook, compuesto o no — no es una regresión de i93, es un hueco que existe desde que Track D se construyó.\n\nCon i93 el turno compuesto ya tiene intent=fixture_outlook, selected_tool=get_fixture_outlook y la meta correcta en el dict de ask_v2 (probado con tests que llaman al adapter real, harness_adapter.to_ask_response). Falta solo la serialización HTTP: añadir fixture_outlook a los dos modelos Pydantic y al payload que arma cada ruta (/ask y /session/{id}/ask), y a los tipos de fpl-ui que leen la respuesta.\n\nALCANCE: fpl_server.py + contrato de API — fuera de la fila de i93, que no lo tocó a propósito. Verificación: un clic real en /fixtures debe mostrar la tira compacta de jornadas junto a la prosa, no solo la prosa.\n\nFUSIONADA 2026-09-18 (PR #294, ed3cec2). Confirmado antes de tocar: fixture_outlook=null en prod en todo turno de calendario (JSONL pre). Arreglo en los tres sitios que pidió la revisión: harness_adapter.to_ask_response (la línea que nunca existió), AskResponse y SessionAskResponse, y el payload de session_ask. PENDIENTE: verify_i102_fixture_outlook_prod.py contra prod desplegado + captura del clic real en /fixtures mostrando la tira compacta junto a la prosa (necesita a Leo).",
       "tags": [
         "Backend",
         "UI",
         "Web"
+      ]
+    },
+    {
+      "id": "i103",
+      "col": "idea",
+      "progress": 0,
+      "title": "El resolver de referencias reescribe el primer turno de una sesión a \"tell me about <equipo>\"",
+      "desc": "ENCONTRADO 2026-09-18 midiendo [[i100]] (PR #296), confirmado en código por el chat de revisión: ConversationSession.respond (conversation_state.py:1230) pasa TODA pregunta de sesión por resolve_reference — LLM, gemini-2.5-flash por defecto (intent_classifier.py:387), plantilla canónica \"tell me about {player_name}\" (:134) — incluido el primer turno de una sesión sin estado ni historial. El resolver solo entiende jugadores; ante una frase de calendario con un equipo devuelve a veces el equipo como resolved_query (18/60 canónicas, 30 %) y la pregunta llega al orquestador como \"tell me about Newcastle\" → get_team_snapshot. 2/90 llegan como \"tell me about null\" (la cadena \"null\" no se trata como None). Por /ask no pasa: no hay resolver. Es la causa real de la asimetría /ask vs sesión que [[i78]] y [[i100]] venían viendo, y la explicación de la muestra de 1 de i100.\n\nOPCIONES, a decidir midiendo: (a) no invocar el resolver LLM cuando la sesión no tiene estado ni historial (nada que resolver); (b) no construir \"tell me about X\" cuando X no resuelve a un jugador del bootstrap, y tratar \"null\" como None; (c) ambas. Riesgo latente: gemini-2.5-flash está deprecado desde 2026-06-17 — el día que muera, el resolver cae a llm_unavailable en silencio (visto 1 vez en la corrida) y el problema desaparece por accidente, no por diseño.\n\nCIERRE: matriz de i100 repetida por sesión ≥ paridad con /ask en las canónicas de calendario; cero \"tell me about null\"; test que pinea que un primer turno sin historial no invoca el resolver (o que un equipo no produce la plantilla de jugador).",
+      "tags": [
+        "Backend",
+        "IA",
+        "FPL Asistente"
       ]
     }
   ]
