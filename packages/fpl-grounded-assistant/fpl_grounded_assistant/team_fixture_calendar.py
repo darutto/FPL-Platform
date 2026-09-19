@@ -751,6 +751,13 @@ TEAM_SCHEDULE_SPEC = ToolSpec(
             "fixture_count":    {"type": "integer"},
             "avg_fdr":          {"type": "number"},
             "fixtures":         {"type": "array"},
+            # i95: both lists were emitted (see the module docstring) but not
+            # declared. Bounded by the horizon cap (10 GWs), so they can never
+            # exceed the truncation lever's 10-item cap and need no exclusion.
+            "dgw_gameweeks":    {"type": "array", "items": {"type": "integer"},
+                                 "description": "GWs in the window where the team plays twice."},
+            "bgw_gameweeks":    {"type": "array", "items": {"type": "integer"},
+                                 "description": "GWs in the window where the team blanks while others play."},
         },
     },
 )

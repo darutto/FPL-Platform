@@ -615,19 +615,23 @@ _TRUNCATION_EXCLUDED_FIELDS: frozenset[tuple[str, str]] = frozenset({
     ("get_gameweek_context", "blank_gw_alerts"),             # one per blank GW; a hidden blank is a wrong chip answer
     ("get_gameweek_context", "double_gw_alerts"),            # one per double GW; same
     ("get_historical_gameweek_top_scorer", "entries"),       # "season table" mode = one row per GW (<= 38)
+    # i95, a decision not a side effect: 11 static strings, one over the cap,
+    # emitted only on refusal paths so the model can pick a permitted domain.
+    # A cut allowlist would tell it a domain is forbidden when it is not.
+    ("web_fetch", "allowed_domains"),
 })
 
 #: (tool, field) pairs a tool EMITS as a list but does NOT declare in its
 #: output_schema, kept under the cap anyway. Bridge, not policy: the fix is
-#: the declaration, which lives outside this package (fpl_tool_runner.specs);
-#: ``test_tool_output_truncation`` fails the moment the field IS declared so
-#: the entry gets removed. rank_captain_candidates.held_back: the "avoid"-tier
-#: split of the derived pool (commit 0250395), uncapped by the 12-limit --
-#: measured 311 rows / 297 KB on the 2026-09-03 bootstrap, 173K input tokens
-#: on one prod-model turn (i82-routing-before.jsonl, ts-03).
-_UNDECLARED_TRUNCATABLE_FIELDS: frozenset[tuple[str, str]] = frozenset({
-    ("rank_captain_candidates", "held_back"),
-})
+#: the declaration, which lives with each tool's spec;
+#: ``test_tool_output_truncation`` fails the moment a bridged field IS
+#: declared so the entry gets removed. Empty since i95: its one entry,
+#: rank_captain_candidates.held_back (the "avoid"-tier split of the derived
+#: pool, commit 0250395 -- measured 311 rows / 297 KB on the 2026-09-03
+#: bootstrap, 173K input tokens on one prod-model turn), is now declared in
+#: fpl_tool_runner.specs and capped through the declaration. Kept as the
+#: named place for the next such bridge, so it is a bridge and not a patch.
+_UNDECLARED_TRUNCATABLE_FIELDS: frozenset[tuple[str, str]] = frozenset()
 
 
 def _declared_array_fields(output_schema: Any) -> frozenset[str]:
