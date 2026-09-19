@@ -476,6 +476,13 @@ WEB_FETCH_SPEC = ToolSpec(
             "content_length": {"type": "integer"},
             "text_excerpt":   {"type": "string"},
             "truncated":      {"type": "boolean"},
+            # i95: emitted on the two refusal paths (url_not_allowlisted,
+            # offtopic) so the model can pick a permitted domain; declared
+            # here AND listed in the orchestrator's _TRUNCATION_EXCLUDED_FIELDS
+            # -- it is 11 static strings, one over the lever's cap, and a cut
+            # allowlist would tell the model a domain is forbidden when it is not.
+            "allowed_domains": {"type": "array", "items": {"type": "string"},
+                                "description": "The allowlisted domains, on refusal paths only."},
         },
     },
 )

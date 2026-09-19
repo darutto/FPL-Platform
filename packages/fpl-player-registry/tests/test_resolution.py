@@ -238,11 +238,14 @@ def test_compound_collision_between_two_derived_forms_stays_ambiguous():
 
 
 def test_compound_beats_prefix_but_loses_to_exact():
+    # i98 put "Matheus Cunha" (the Understat store form) in KNOWN_NICKNAMES,
+    # so it now resolves at rank 0 via alias; this test is about the compound
+    # rank itself, so it uses a name no alias table knows.
     players = [
-        _player(1, "Matheus", "Santos Carneiro da Cunha", "Cunha", points=100),
-        _player(2, "Matheus", "Cunhabarros", "Cunhabarros", team=2, points=400),
+        _player(1, "Rafael", "Santos Carneiro da Silva", "Silva", points=100),
+        _player(2, "Rafael", "Silvaberg", "Silvaberg", team=2, points=400),
     ]
-    result = resolve_player_candidates("Matheus Cunha", players, TEAMS)
+    result = resolve_player_candidates("Rafael Silva", players, TEAMS)
     assert result.status == "ok"
     assert result.player.record.id == 1
     assert result.player.matched_via == "compound_name"

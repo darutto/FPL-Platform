@@ -615,19 +615,23 @@ _TRUNCATION_EXCLUDED_FIELDS: frozenset[tuple[str, str]] = frozenset({
     ("get_gameweek_context", "blank_gw_alerts"),             # one per blank GW; a hidden blank is a wrong chip answer
     ("get_gameweek_context", "double_gw_alerts"),            # one per double GW; same
     ("get_historical_gameweek_top_scorer", "entries"),       # "season table" mode = one row per GW (<= 38)
+    # i95, a decision not a side effect: 11 static strings, one over the cap,
+    # emitted only on refusal paths so the model can pick a permitted domain.
+    # A cut allowlist would tell it a domain is forbidden when it is not.
+    ("web_fetch", "allowed_domains"),
 })
 
 #: (tool, field) pairs a tool EMITS as a list but does NOT declare in its
 #: output_schema, kept under the cap anyway. Bridge, not policy: the fix is
-#: the declaration, which lives outside this package (fpl_tool_runner.specs);
-#: ``test_tool_output_truncation`` fails the moment the field IS declared so
-#: the entry gets removed. rank_captain_candidates.held_back: the "avoid"-tier
-#: split of the derived pool (commit 0250395), uncapped by the 12-limit --
-#: measured 311 rows / 297 KB on the 2026-09-03 bootstrap, 173K input tokens
-#: on one prod-model turn (i82-routing-before.jsonl, ts-03).
-_UNDECLARED_TRUNCATABLE_FIELDS: frozenset[tuple[str, str]] = frozenset({
-    ("rank_captain_candidates", "held_back"),
-})
+#: the declaration, which lives with each tool's spec;
+#: ``test_tool_output_truncation`` fails the moment a bridged field IS
+#: declared so the entry gets removed. Empty since i95: its one entry,
+#: rank_captain_candidates.held_back (the "avoid"-tier split of the derived
+#: pool, commit 0250395 -- measured 311 rows / 297 KB on the 2026-09-03
+#: bootstrap, 173K input tokens on one prod-model turn), is now declared in
+#: fpl_tool_runner.specs and capped through the declaration. Kept as the
+#: named place for the next such bridge, so it is a bridge and not a patch.
+_UNDECLARED_TRUNCATABLE_FIELDS: frozenset[tuple[str, str]] = frozenset()
 
 
 def _declared_array_fields(output_schema: Any) -> frozenset[str]:
@@ -1444,6 +1448,19 @@ def _trace_entry(
     }
 
 
+def _retry_trace_entry(**kwargs: Any) -> dict[str, Any]:
+    """i96: a ``_trace_entry`` for a call the evaluator's retry executed.
+
+    Same keys in the same order as a primary entry, plus a trailing
+    ``retry=True`` so a reader (the audit projection, a prod check) can tell
+    the retry's calls from the primary round's without guessing from the
+    round number.
+    """
+    entry = _trace_entry(**kwargs)
+    entry["retry"] = True
+    return entry
+
+
 def _attaches_tool_calls_trace(fn: Any) -> Any:
     """Attach the supplied ``tool_calls_trace`` to every result *fn* returns.
 
@@ -1454,11 +1471,11 @@ def _attaches_tool_calls_trace(fn: Any) -> Any:
     ``tool_chosen`` (= ``executed[0]``) was visible for arms A/B.  Enforcing the
     attachment here rather than at each return keeps future return sites honest.
 
-    A return site that sets its own non-empty trace wins.  The trace describes
-    the PRIMARY calls; an evaluator-retry's own tool calls are not appended, so
-    that loop and non-loop arms report the same thing (the loop has always
-    discarded them) — ``tool_chosen`` / ``tool_output`` already carry the retry
-    payload, and ``tool_call_count`` already reports the retry's call count.
+    A return site that sets its own non-empty trace wins.  The primary calls
+    are what this decorator attaches; the retry-delivery sites set their own
+    trace (primary + the retry's executed calls, ``retry=True`` entries --
+    i96), which is why they win here. ``tool_call_count`` still reports the
+    retained payload's call count (the retry's, on a retry delivery).
     """
     @functools.wraps(fn)
     def _wrapper(**kwargs: Any) -> OrchestratorResult:
@@ -1749,8 +1766,20 @@ def _apply_evaluator(
             synthesis_turn=_retry_synthesis_turn,
         )
 
-    # Execute retry tool calls
+    # Execute retry tool calls.
+    #
+    # i96: every call the retry EXECUTES is appended to the trace, in the same
+    # ``_trace_entry`` shape as the primary calls plus ``retry=True``, as the
+    # round after the last primary one. Before this the trace described the
+    # primary calls only ("the loop has always discarded them"), so a retry
+    # that ran a tool whose status was not ok reached the harness's
+    # no-grounded-tool branch with ``selected_tool=None`` and the audit line
+    # read ``tool_calls=[]`` for a turn that executed two tools -- the same
+    # "measured zero" defect i80 closed elsewhere. ``tool_call_count`` keeps
+    # its retained-payload semantics (the retry's own count) untouched.
     _retry_executed: list[tuple[str, str | None, dict[str, Any], dict[str, Any]]] = []
+    _trace_with_retry: list[dict[str, Any]] = list(tool_calls_trace)
+    _retry_round = max((int(_e.get("round") or 0) for _e in tool_calls_trace), default=0) + 1
     for _rtid, _rtname, _rtargs in _retry_tool_calls:
         if not _rtname or _rtname not in _valid_tool_names:
             # Unknown tool in retry — deliver primary
@@ -1783,6 +1812,17 @@ def _apply_evaluator(
         try:
             _retry_raw: dict[str, Any] = run_tool(_rtname, _rtargs, actual_bootstrap)
         except Exception as exc:  # noqa: BLE001
+            _trace_with_retry.append(_retry_trace_entry(
+                round_number=_retry_round,
+                tool_call_id=_rtid,
+                tool_name=_rtname,
+                tool_args=_rtargs,
+                raw_output={
+                    "status": "error",
+                    "code": "tool_exception",
+                    "message": str(exc),
+                },
+            ))
             _total = (
                 _primary_input_tokens + _primary_output_tokens + _primary_cache_read_tokens
                 + _eval_combined + _retry_in + _retry_out
@@ -1806,19 +1846,84 @@ def _apply_evaluator(
                 retry_input_tokens=_retry_in,
                 retry_output_tokens=_retry_out,
                 total_tokens=_total,
+                tool_calls_trace=tuple(_trace_with_retry),
                 synthesis_turn=False,   # retry tool exception: static error string
             )
         _retry_executed.append((_rtid, _rtname, _rtargs, _retry_raw))
+        _trace_with_retry.append(_retry_trace_entry(
+            round_number=_retry_round,
+            tool_call_id=_rtid,
+            tool_name=_rtname,
+            tool_args=_rtargs,
+            raw_output=_retry_raw,
+        ))
 
     # Render the retry result from the first tool
     _r_tool_id, _r_tool_name, _r_tool_args, _r_raw_output = _retry_executed[0]
     assert _r_tool_name is not None
     _r_tool_status = _r_raw_output.get("status")
     _r_outcome = OUTCOME_OK if _r_tool_status == "ok" else OUTCOME_TOOL_RESULT_ERROR
-    try:
-        _r_answer_text: str = render(_r_tool_name, _r_raw_output)
-    except Exception:  # noqa: BLE001
-        _r_answer_text = f"[{_r_tool_status or 'unknown'}]"
+
+    # ------------------------------------------------------------------
+    # E3c. i37: the retry gets the same synthesis turn the primary path
+    #      has had since #160 -- ONE more model call with the retry's tool
+    #      results, never re-parsed for further tool calls (no loop, no
+    #      second evaluation; the hard cap of one retry stands).
+    #
+    #      Measured in prod before deciding (2026-09-17, gpt-5.6-luna,
+    #      field-notes/2026-09-17-i96-i37-retry-delivery.md): 7 of 25
+    #      orchestrated turns were rejected by the evaluator, and all 7
+    #      retries called a tool instead of writing text, so 28% of turns
+    #      delivered a bare render() ("Rivales de Chelsea J5-J9: ...").
+    #      The residual #160 measured at 1/40 is no longer residual. The
+    #      extra call costs about what the retry call cost (11-30K input
+    #      tokens): ~+20% on an affected turn, ~+6% overall, for a real
+    #      answer instead of a dump.
+    #
+    #      Falls back to the render below only when this call fails or
+    #      returns no text, so the fallback is the pre-i37 behaviour.
+    # ------------------------------------------------------------------
+    _retry_follow_up = _build_multi_tool_follow_up(
+        _provider_label,
+        [{"role": "user", "content": retry_question}],
+        _retry_response,
+        _retry_executed,
+    )
+    _retry_synth: OrchCallResult = call_orch_provider(
+        _provider_label,
+        model=model,
+        system=system,
+        tools=tools,
+        messages=_retry_follow_up,
+        timeout_s=_timeout_s,
+        max_retries=_max_retries,
+        client=resolved_client,
+        api_key=api_key,
+        _request_fn=_orch_request_fn,
+        _system_blocks=_system_blocks,
+    )
+    # Billed whether or not it produced text (the i46 lesson): the retry
+    # bucket is where every call the evaluator's rejection caused goes.
+    _retry_in += _retry_synth.input_tokens or 0
+    _retry_out += _retry_synth.output_tokens or 0
+    _r_synth_text: str | None = None
+    if _retry_synth.error_code is not None:
+        _LOG.warning(
+            "retry synthesis LLM call failed: [%s] %s; rendering retry tool only",
+            _retry_synth.error_code, _retry_synth.error_msg,
+        )
+    else:
+        _r_synth_text = _extract_text_from_response(_retry_synth.response, _provider_label) or None
+
+    if _r_synth_text:
+        _r_answer_text: str = _r_synth_text
+        _r_synthesis_turn = True
+    else:
+        try:
+            _r_answer_text = render(_r_tool_name, _r_raw_output)
+        except Exception:  # noqa: BLE001
+            _r_answer_text = f"[{_r_tool_status or 'unknown'}]"
+        _r_synthesis_turn = False
 
     _total = (
         _primary_input_tokens + _primary_output_tokens + _primary_cache_read_tokens
@@ -1847,7 +1952,11 @@ def _apply_evaluator(
         # Retry-success: the retained payload is the RETRY's tool_output, so the
         # count reflects the retry's executed tools, not the primary's.
         tool_call_count=len(_retry_executed),
-        synthesis_turn=False,   # retry tool executed and rendered: not model text
+        # i96: primary calls + the retry's executed calls (retry=True entries).
+        tool_calls_trace=tuple(_trace_with_retry),
+        # i37: model text when the retry synthesis produced it; the bare
+        # render() only as the fallback.
+        synthesis_turn=_r_synthesis_turn,
     )
 
 

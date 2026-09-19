@@ -376,6 +376,7 @@ def _upgrade_prompts(tier_name: str, reason: str | None = None) -> tuple[str, st
     ``monthly_*`` cap must never be announced as a daily one.
     """
     monthly  = bool(reason) and reason.startswith("monthly")
+    by_tokens = bool(reason) and "token" in reason
     cfg      = TIERS.get(tier_name, TIERS[_DEFAULT_TIER_NAME])
     cap      = cfg.monthly_message_cap if monthly else cfg.daily_message_cap
     win_es   = "al mes" if monthly else "al día"
@@ -383,10 +384,25 @@ def _upgrade_prompts(tier_name: str, reason: str | None = None) -> tuple[str, st
     renew_es = "30 días" if monthly else "24 horas"
     renew_en = "30 days" if monthly else "24 hours"
 
-    es = [f"Llegaste a tu límite de {cap} mensajes {win_es}. "
-          f"Se renueva en {renew_es}."]
-    en = [f"You've reached your {win_en} limit of {cap} messages. "
-          f"It resets in {renew_en}."]
+    if by_tokens:
+        # i99: the token wall is the abuse ceiling, but it IS reachable —
+        # four heavy session turns (~51-64K tokens each, measured in prod
+        # 2026-09-17) trip the free daily cap of 220K before the fifth
+        # message. Announcing that as "límite de 5 mensajes" to a user who
+        # sent four is the instrument lying about which limit fired; the UI
+        # quota indicator still shows a message left. Name the cap that
+        # actually fired.
+        es = [f"Llegaste a tu límite de uso {win_es} por volumen de consultas "
+              f"(tu plan permite hasta {cap} mensajes {win_es}, pero estas "
+              f"fueron especialmente largas). Se renueva en {renew_es}."]
+        en = [f"You've reached your {win_en} usage limit by query volume "
+              f"(your plan allows up to {cap} messages {win_en}, but these "
+              f"were unusually heavy). It resets in {renew_en}."]
+    else:
+        es = [f"Llegaste a tu límite de {cap} mensajes {win_es}. "
+              f"Se renueva en {renew_es}."]
+        en = [f"You've reached your {win_en} limit of {cap} messages. "
+              f"It resets in {renew_en}."]
 
     offers = [o for o in UPGRADE_LADDER
               if _TIER_RANK.get(o.tier, 0) > _TIER_RANK.get(tier_name, 0)]

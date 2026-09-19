@@ -386,6 +386,20 @@ RANK_CAPTAIN_CANDIDATES_SPEC = ToolSpec(
                 "enum": ["connected", "not_connected", "unavailable"],
             },
             "squad_excluded": {"type": "array"},
+            # i95: emitted since commit 0250395 (the "avoid"-tier split of the
+            # derived pool) but never declared, so the output-truncation lever
+            # in fpl_grounded_assistant.orchestrator did not know to cap it:
+            # 311 rows / 297 KB reached the model on one prod turn. Declared
+            # as the array it is -- the lever now caps it like
+            # ranked_candidates, and the explicit bridge entry is retired.
+            "held_back": {
+                "type": "array",
+                "description": (
+                    "Scored candidates kept OUT of the ranking by their tier "
+                    "(rank None, held_back_reason 'avoid'). Capped for the model "
+                    "like every ranking list; the caller still has them whole."
+                ),
+            },
         },
     },
 )

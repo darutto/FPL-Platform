@@ -99,18 +99,18 @@ EXPECTED_WHOLE: frozenset[tuple[str, str]] = frozenset({
     ("get_gameweek_context", "blank_gw_alerts"),
     ("get_gameweek_context", "double_gw_alerts"),
     ("get_historical_gameweek_top_scorer", "entries"),
+    # i95: 11 static strings, one over the cap, emitted on refusal paths so
+    # the model can pick a permitted domain; a cut allowlist would lie.
+    ("web_fetch", "allowed_domains"),
 })
 
 #: Lists that tools EMIT without declaring them. Pinned so a new omission
 #: fails suite D by name, and so declaring one of these forces the pin out.
-KNOWN_UNDECLARED: frozenset[tuple[str, str]] = frozenset({
-    ("rank_captain_candidates", "held_back"),
-    ("get_team_schedule", "dgw_gameweeks"),
-    ("get_team_schedule", "bgw_gameweeks"),
-    # web_fetch also emits ``allowed_domains`` (11 static strings) on its
-    # url_not_allowlisted path, undeclared -- observed by hand, not pinned
-    # here because that path resolves DNS first (real network).
-})
+#: Empty since i95: held_back, dgw_gameweeks, bgw_gameweeks and
+#: allowed_domains are all declared now (measured 2026-09-17 against real
+#: outputs: every one of them reached the model's tool payload undeclared).
+#: The mechanism stays so the next omission fails suite D by name.
+KNOWN_UNDECLARED: frozenset[tuple[str, str]] = frozenset()
 
 N = 50
 CAP = _TOOL_OUTPUT_MAX_LIST_ITEMS
@@ -249,7 +249,11 @@ class TestRankCaptainCandidates:
         assert out["status"] == "ok"
         assert isinstance(out.get("held_back"), list)
 
-    def test_held_back_is_capped_through_the_bridge(self):
+    def test_held_back_is_declared_and_capped_through_the_declaration(self):
+        # i95: the declaration, not the bridge, is what caps it now. The
+        # produced 311-row list still reaches the model as 10.
+        assert "held_back" in _walk_arrays(TOOL_REGISTRY.get_spec("rank_captain_candidates").output_schema)
+        assert ("rank_captain_candidates", "held_back") not in _UNDECLARED_TRUNCATABLE_FIELDS
         raw = {
             "status": "ok",
             "ranked_candidates": [{"rank": i + 1} for i in range(12)],
@@ -262,7 +266,9 @@ class TestRankCaptainCandidates:
 
     def test_bridge_entries_expire_once_declared(self):
         # A bridge entry for a field the tool now declares is dead weight and a
-        # second name list in the making: fail so it gets removed.
+        # second name list in the making: fail so it gets removed. i95 retired
+        # the only entry; the table is expected EMPTY until a new bridge is
+        # needed, and a new one must be undeclared by its tool.
         for tool, field in _UNDECLARED_TRUNCATABLE_FIELDS:
             spec = TOOL_REGISTRY.get_spec(tool)
             assert spec is not None, f"bridge names an unregistered tool: {tool}"
@@ -270,7 +276,7 @@ class TestRankCaptainCandidates:
                 f"{tool}.{field} is now declared -- remove it from "
                 f"_UNDECLARED_TRUNCATABLE_FIELDS and from KNOWN_UNDECLARED"
             )
-        assert _UNDECLARED_TRUNCATABLE_FIELDS == frozenset({("rank_captain_candidates", "held_back")})
+        assert _UNDECLARED_TRUNCATABLE_FIELDS == frozenset()
 
 
 # ---------------------------------------------------------------------------
@@ -410,14 +416,21 @@ class TestSchemaDoesNotLieByOmission:
                     seen.add((name, key))
         assert KNOWN_UNDECLARED <= seen, f"pinned but never produced here: {sorted(KNOWN_UNDECLARED - seen)}"
 
-    def test_every_undeclared_list_that_can_grow_is_bridged(self, produced):
-        # The only pinned omission that is not bounded by construction is
-        # held_back (the "avoid" split of a ~500-player derived pool). The GW
-        # number lists are <= 38 tiny ints; allowed_domains is a static list.
-        assert ("rank_captain_candidates", "held_back") in _UNDECLARED_TRUNCATABLE_FIELDS
+    def test_the_lists_i95_declared_are_capped_or_deliberately_whole(self, produced):
+        # held_back can grow (the "avoid" split of a ~500-player pool): capped
+        # through its declaration. dgw/bgw_gameweeks are bounded by the
+        # horizon cap (10) so the lever's cap never bites: declared, capped in
+        # principle, never in practice. allowed_domains is 11 static strings:
+        # declared AND deliberately whole (see _TRUNCATION_EXCLUDED_FIELDS).
         out = produced[("rank_captain_candidates", "{}")]
-        assert "held_back" in _truncatable_fields_for("rank_captain_candidates")
         assert isinstance(out["held_back"], list)
+        assert "held_back" in _truncatable_fields_for("rank_captain_candidates")
+        assert {"dgw_gameweeks", "bgw_gameweeks"} <= _truncatable_fields_for("get_team_schedule")
+        assert "allowed_domains" in _walk_arrays(TOOL_REGISTRY.get_spec("web_fetch").output_schema)
+        assert "allowed_domains" not in _truncatable_fields_for("web_fetch")
+        refusal = {"status": "refused", "code": "url_not_allowlisted",
+                   "allowed_domains": [f"d{i}.example" for i in range(11)]}
+        assert len(_truncate_tool_output(refusal, tool_name="web_fetch")["allowed_domains"]) == 11
 
 
 # ---------------------------------------------------------------------------

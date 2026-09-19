@@ -1221,6 +1221,8 @@ def ask_v2(
                 "kind":          "text",
                 "orchestrator_model": orch_result.model,
                 "routing_trace": routing_trace,
+                # i96: every executed call (primary + retry), for the audit line.
+                "tool_calls_trace": _project_tool_calls_trace(orch_result),
                 # F3: expose token observability so P3 quota meter can read them.
                 "tokens": {
                     "primary_input":    orch_result.primary_input_tokens,
@@ -1298,6 +1300,10 @@ def ask_v2(
             "kind":          "text",
             "suggestions":   [f"@{r}" for r in _suggestions_for_text()],
             "orchestrator_outcome": orch_result.outcome,
+            # i96: this is the branch where a retry that ran a tool with a
+            # non-ok status lands with selected_tool=None; the calls it
+            # executed are still real and still audited.
+            "tool_calls_trace": _project_tool_calls_trace(orch_result),
             "tokens": {
                 "primary_input": orch_result.primary_input_tokens,
                 "primary_output": orch_result.primary_output_tokens,
@@ -1380,3 +1386,29 @@ def _project_orchestrator_run(routing_trace: dict[str, Any], orch_result: Any) -
         if _e.get("name")
     ]
     return _names
+
+
+def _project_tool_calls_trace(orch_result: Any) -> list[dict[str, Any]]:
+    """i96: the executed calls, one compact record each, for the audit line.
+
+    Read off ``OrchestratorResult.tool_calls_trace`` -- primary rounds AND the
+    evaluator retry's own calls (``retry=True`` entries) -- and reduced to
+    what ``audit.AuditEntry.tool_calls`` documents plus ``round``/``retry``.
+    The full output stays out (it can be hundreds of KB); the status is what
+    an audit reader needs. Returned on BOTH orchestrator branches, so a turn
+    whose retry ran a tool that did not come back ``ok`` (harness branch
+    "no grounded tool", ``selected_tool=None``) still audits every call it
+    executed instead of ``tool_calls=[]``.
+    """
+    out: list[dict[str, Any]] = []
+    for _e in (getattr(orch_result, "tool_calls_trace", None) or ()):
+        if not isinstance(_e, dict) or not _e.get("name"):
+            continue
+        out.append({
+            "name":          _e["name"],
+            "args":          dict(_e.get("args") or {}),
+            "output_status": str((_e.get("output") or {}).get("status") or "unknown"),
+            "round":         _e.get("round"),
+            "retry":         bool(_e.get("retry", False)),
+        })
+    return out

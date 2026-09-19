@@ -484,63 +484,110 @@ def test_synthesis_turn_is_the_correct_one_directional_predicate(bootstrap, monk
 
 
 # ---------------------------------------------------------------------------
-# Known residual gap (documented, NOT fixed here -- out of scope)
+# i37: the evaluator retry gets a synthesis turn (was a known residual gap)
 # ---------------------------------------------------------------------------
+#
+# #160 measured this residual at 1/40 per endpoint and left it alone. Measured
+# again in prod 2026-09-17 (gpt-5.6-luna, 25 orchestrated turns, see
+# field-notes/2026-09-17-i96-i37-retry-delivery.md): 7 turns were rejected by
+# the evaluator and every one of the 7 retries called a tool instead of
+# writing text, so 28% of turns delivered a bare render(). The retry now gets
+# ONE synthesis call over its own tool results, exactly like the primary path;
+# the bare render is only the fallback when that call fails or yields no text.
 
-def test_evaluator_retry_render_is_a_known_residual_bare_render_path(monkeypatch, bootstrap):
-    """Live verification of commit 2's fix (POST /ask and POST /session/{id}/ask,
-    n=40 each, production config) found the raw-dump rate dropped from the
-    incident's ~10-20% baseline to 1/40 on EACH endpoint -- not zero. This
-    test reproduces and documents that residual mechanism; it is a DIFFERENT,
-    pre-existing code path from the one this task fixes, and is intentionally
-    left alone.
+class _RetryClient:
+    """Fake Anthropic-shaped client: primary tool call, synthesis text,
+    (evaluator is mocked), retry tool call, then whatever ``fourth`` says."""
 
-    Sequence: (1) the model calls one tool -- the primary call this task's
-    fix now always follows with a synthesis attempt; (2) that synthesis
-    attempt succeeds with genuine text; (3) the evaluator REJECTS it anyway
-    (matching production, where evaluation is enabled by default) and
-    triggers the hard-capped, single retry; (4) the retry model call itself
-    chooses to call a tool again instead of writing text. _apply_evaluator's
-    retry branch delivers that retry tool's render() UNCONDITIONALLY (by
-    design: "hard cap = 1 retry, no second evaluation" -- avoiding a third
-    LLM call) -- with no synthesis attempt of its own. This is a bare render
-    reply this task's fix does not cover, because the fix targets the
-    orchestrator's single-tool PRIMARY path (step 8b/9), not the evaluator's
-    own retry-and-render path."""
-    class Client:
-        def __init__(self):
-            self.messages = self
-            self.calls = 0
+    def __init__(self, fourth):
+        self.messages = self
+        self.calls = 0
+        self.kwargs: list[dict] = []
+        self._fourth = fourth
 
-        def create(self, **kwargs):
-            self.calls += 1
-            if self.calls == 1:
-                return NS(content=[NS(
-                    type="tool_use", id="c1", name="get_current_gameweek", input={},
-                )])
-            if self.calls == 2:
-                # The fix's synthesis attempt succeeds with real text --
-                # but the evaluator rejects it regardless (mocked below).
-                return NS(content=[NS(type="text", text="A genuine synthesised answer.")])
-            # Retry call: the model chooses to call a tool again, not text.
-            return NS(content=[NS(
-                type="tool_use", id="c2", name="get_current_gameweek", input={},
-            )])
+    def create(self, **kwargs):
+        self.calls += 1
+        self.kwargs.append(kwargs)
+        if self.calls == 1:
+            return NS(content=[NS(type="tool_use", id="c1", name="get_current_gameweek", input={})])
+        if self.calls == 2:
+            return NS(content=[NS(type="text", text="A genuine synthesised answer.")])
+        if self.calls == 3:
+            # Retry: the model calls a tool again instead of writing text.
+            return NS(content=[NS(type="tool_use", id="c2", name="get_current_gameweek", input={})])
+        return self._fourth()
 
+
+def _reject(monkeypatch):
     verdict = EvaluatorVerdict(
         approved=False, grounded=True, complete=False, safe=True,
         retry_feedback="be more complete", tokens_used=17,
     )
-    monkeypatch.setattr(
-        "fpl_grounded_assistant.orchestrator.evaluate_response",
-        lambda **kwargs: verdict,
-    )
-    client = Client()
+    monkeypatch.setattr("fpl_grounded_assistant.orchestrator.evaluate_response", lambda **kwargs: verdict)
+
+
+def test_evaluator_retry_that_calls_a_tool_gets_a_synthesis_turn(monkeypatch, bootstrap):
+    _reject(monkeypatch)
+    client = _RetryClient(lambda: NS(content=[NS(type="text", text="Estamos en la jornada 5; te explico.")]))
     result = ask_orchestrated("What gameweek is it?", bootstrap, client=client, _eval_client=object())
 
-    assert client.calls == 3
+    assert client.calls == 4, "primary, synthesis, retry, retry-synthesis"
     assert result.retry_attempted is True
     assert result.tool_call_count == 1
+    assert result.synthesis_turn is True
+    assert result.answer_text == "Estamos en la jornada 5; te explico."
+    assert _is_bare_render_reply(result) is False
+    # The retry's synthesis call carries the retry's tool result, not the primary's.
+    fourth = client.kwargs[3]["messages"]
+    assert any(
+        isinstance(m, dict) and m.get("role") == "user"
+        and any(isinstance(b, dict) and b.get("tool_use_id") == "c2" for b in (m.get("content") or []) if isinstance(m.get("content"), list))
+        for m in fourth
+    ), fourth
+
+
+def test_evaluator_retry_synthesis_without_text_falls_back_to_the_render(monkeypatch, bootstrap):
+    """The pre-i37 behaviour is now the fallback, not the path."""
+    _reject(monkeypatch)
+    client = _RetryClient(lambda: NS(content=[]))
+    result = ask_orchestrated("What gameweek is it?", bootstrap, client=client, _eval_client=object())
+
+    assert client.calls == 4
+    assert result.retry_attempted is True
     assert result.synthesis_turn is False
     assert _is_bare_render_reply(result) is True
     assert result.answer_text == render(result.tool_chosen, result.tool_output)
+
+
+def test_evaluator_retry_synthesis_tokens_are_billed_to_the_retry_bucket(monkeypatch, bootstrap):
+    _reject(monkeypatch)
+    client = _RetryClient(lambda: NS(
+        content=[NS(type="text", text="ok")],
+        usage=NS(input_tokens=1000, output_tokens=7, cache_read_input_tokens=0),
+    ))
+    result = ask_orchestrated("What gameweek is it?", bootstrap, client=client, _eval_client=object())
+    assert result.retry_input_tokens >= 1000
+    assert result.retry_output_tokens >= 7
+    assert result.total_tokens >= result.retry_input_tokens + result.retry_output_tokens
+
+
+# ---------------------------------------------------------------------------
+# i96: the retry's executed calls are in tool_calls_trace
+# ---------------------------------------------------------------------------
+
+def test_retry_executed_calls_are_recorded_in_the_trace_after_the_primary_round(monkeypatch, bootstrap):
+    _reject(monkeypatch)
+    client = _RetryClient(lambda: NS(content=[NS(type="text", text="texto")]))
+    result = ask_orchestrated("What gameweek is it?", bootstrap, client=client, _eval_client=object())
+
+    trace = list(result.tool_calls_trace)
+    assert [e["name"] for e in trace] == ["get_current_gameweek", "get_current_gameweek"]
+    primary, retry = trace
+    assert primary["round"] == 1 and "retry" not in primary
+    assert retry["round"] == 2 and retry["retry"] is True
+    assert retry["tool_call_id"] == "c2"
+    assert retry["success"] is True and retry["output"]["status"] == "ok"
+    # Same key order as a primary entry, then the marker.
+    assert list(retry) == list(primary) + ["retry"]
+    # Retained-payload semantics untouched: the retry's own count.
+    assert result.tool_call_count == 1
