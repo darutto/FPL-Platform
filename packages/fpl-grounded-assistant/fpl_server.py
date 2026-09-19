@@ -334,6 +334,7 @@ class AskResponse(BaseModel):
     position_fixture_run: dict[str, Any] | None = None    # Phase 2.6e.4
     transfer_suggestion:  dict[str, Any] | None = None    # Phase 2.6h
     zonal_opportunity:    dict[str, Any] | None = None    # T4b: defensive zones card
+    fixture_outlook:      dict[str, Any] | None = None    # Track D / FI4: calendar ticker card (i102)
     player_snapshot:      dict[str, Any] | None = None    # single-player detail card
     # Track A: additive renderable card composed only from deterministic metadata
     # (never LLM text). Non-null for composer-backed plain-text intents on OK turns.
@@ -471,6 +472,7 @@ class SessionAskResponse(BaseModel):
     position_fixture_run: dict[str, Any] | None = None    # Phase 2.6e.4
     transfer_suggestion:  dict[str, Any] | None = None    # Phase 2.6h
     zonal_opportunity:    dict[str, Any] | None = None    # T4b: defensive zones card
+    fixture_outlook:      dict[str, Any] | None = None    # Track D / FI4: calendar ticker card (i102)
     player_snapshot:      dict[str, Any] | None = None    # single-player detail card
     # Track A: additive renderable card composed only from deterministic metadata.
     generic_card:         dict[str, Any] | None = None
@@ -2457,6 +2459,9 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         player_snapshot=_player_snapshot_meta_dict(r.player_snapshot) if r.player_snapshot is not None else None,  # single-player card
         generic_card=_generic_card_meta_dict(r.generic_card) if r.generic_card is not None else None,  # Track A
         suggestions=_suggestions_meta_list(r.suggestions) if r.suggestions is not None else None,  # Guided Comparison
+        # i102: the calendar card, already built correctly on FinalResponse by
+        # Track D / i93 (composed_primary_call) and never serialized here.
+        fixture_outlook=_to_dict(r.fixture_outlook),
         # Phase 2.7d: routing audit fields
         route_source=r.route_source,
         classifier_confidence=r.classifier_confidence,
