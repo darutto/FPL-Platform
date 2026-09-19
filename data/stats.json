@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-18T05:06:33Z",
+  "generatedAt": "2026-09-19T05:06:30Z",
   "season": "2026/27",
   "seasonStatus": "in_season",
   "gameweek": 4,
@@ -179,12 +179,28 @@
       "minutes": 336
     },
     {
+      "name": "Thiago",
+      "team": "BRE",
+      "position": "FWD",
+      "xg": 3.13,
+      "xa": 0.16,
+      "minutes": 442
+    },
+    {
       "name": "Barry",
       "team": "EVE",
       "position": "FWD",
       "xg": 2.98,
       "xa": 0.14,
       "minutes": 327
+    },
+    {
+      "name": "Rogers",
+      "team": "CHE",
+      "position": "MID",
+      "xg": 1.72,
+      "xa": 1.23,
+      "minutes": 437
     },
     {
       "name": "E.Le Fée",
@@ -217,22 +233,6 @@
       "xg": 2.48,
       "xa": 0.08,
       "minutes": 329
-    },
-    {
-      "name": "Rogers",
-      "team": "CHE",
-      "position": "MID",
-      "xg": 1.39,
-      "xa": 1.16,
-      "minutes": 347
-    },
-    {
-      "name": "Thiago",
-      "team": "BRE",
-      "position": "FWD",
-      "xg": 2.41,
-      "xa": 0.13,
-      "minutes": 352
     },
     {
       "name": "Tavernier",
@@ -275,12 +275,28 @@
       "minutes": 360
     },
     {
+      "name": "Palmer",
+      "team": "CHE",
+      "position": "MID",
+      "xg": 1.31,
+      "xa": 0.79,
+      "minutes": 442
+    },
+    {
       "name": "Szoboszlai",
       "team": "LIV",
       "position": "MID",
       "xg": 1.29,
       "xa": 0.8,
       "minutes": 360
+    },
+    {
+      "name": "Lewis-Potter",
+      "team": "BRE",
+      "position": "MID",
+      "xg": 1.21,
+      "xa": 0.79,
+      "minutes": 406
     },
     {
       "name": "Cherki",
@@ -315,20 +331,12 @@
       "minutes": 346
     },
     {
-      "name": "Lewis-Potter",
+      "name": "Schade",
       "team": "BRE",
       "position": "MID",
-      "xg": 1.06,
-      "xa": 0.78,
-      "minutes": 326
-    },
-    {
-      "name": "Palmer",
-      "team": "CHE",
-      "position": "MID",
-      "xg": 1.18,
-      "xa": 0.61,
-      "minutes": 352
+      "xg": 1.52,
+      "xa": 0.32,
+      "minutes": 447
     },
     {
       "name": "Enciso",
@@ -337,14 +345,6 @@
       "xg": 0.92,
       "xa": 0.84,
       "minutes": 340
-    },
-    {
-      "name": "Rudoni",
-      "team": "COV",
-      "position": "MID",
-      "xg": 0.83,
-      "xa": 0.91,
-      "minutes": 224
     }
   ]
 }
