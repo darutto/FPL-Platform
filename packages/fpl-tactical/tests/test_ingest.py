@@ -105,3 +105,20 @@ def test_team_matching_neither_side_fails(sample_frames):
 def test_date_is_iso_string(sample_frames):
     out = _normalized(sample_frames)
     assert (out["date"] == "2025-08-16T15:00:00").sum() == 4  # game 1001 rows
+
+
+def test_html_entities_in_player_names_are_unescaped_at_ingest(sample_frames):
+    """i98: Understat serves "Luke O&#039;Nien"; the store must hold
+    "Luke O'Nien". Fixed at the source (before the parquet is written), not
+    in any downstream matcher. The 2025-26 store carried four such names."""
+    shots, schedule = sample_frames
+    escaped = shots.copy()
+    escaped.loc[len(escaped)] = {
+        "game_id": 1002, "team": "Gamma City", "player": "Luke O&#039;Nien",
+        "minute": 12, "location_x": 0.80, "location_y": 0.45, "xg": 0.05,
+        "situation": "OpenPlay", "body_part": "Right Foot", "result": "SavedShot",
+    }
+    out = normalize_shots(escaped, schedule, SAMPLE_SEASON)
+    players = set(out["player"])
+    assert "Luke O'Nien" in players
+    assert not any("&#" in p or "&amp;" in p for p in players), sorted(players)

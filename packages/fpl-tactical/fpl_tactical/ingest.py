@@ -21,6 +21,7 @@ mislabelled rows.
 
 from __future__ import annotations
 
+import html
 from datetime import datetime, timezone
 
 import pandas as pd
@@ -130,7 +131,12 @@ def normalize_shots(
             "date": pd.to_datetime(merged["date"]).dt.strftime("%Y-%m-%dT%H:%M:%S"),
             "shooting_team": merged["team"].astype(str),
             "conceding_team": merged["away_team"].where(is_home, merged["home_team"]).astype(str),
-            "player": merged["player"].astype(str),
+            # i98: Understat serves names HTML-escaped ("Luke O&#039;Nien");
+            # soccerdata passes them through. Unescape at the source, before
+            # the store is written, so no downstream matcher has to know. The
+            # 2025-26 store carried four such names (O'Riley, O'Brien,
+            # O'Reilly, O'Nien), none of which could resolve to their FPL club.
+            "player": merged["player"].astype(str).map(html.unescape),
             "is_home_shot": is_home,
             "minute": merged["minute"].astype("int64"),
             "x": merged["location_x"].astype("float64"),

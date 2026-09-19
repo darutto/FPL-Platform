@@ -1,0 +1,261 @@
+{
+ "accepted": {
+  "Khusanov": [
+   "Abduqodir Khusanov"
+  ],
+  "Garnacho": [
+   "Alejandro Garnacho"
+  ],
+  "Alysson": [
+   "Alysson Edward"
+  ],
+  "Tanaka": [
+   "Ao Tanaka"
+  ],
+  "Gannon-Doak": [
+   "Ben Doak"
+  ],
+  "White": [
+   "Ben White"
+  ],
+  "B.Fernandes": [
+   "Bruno Fernandes"
+  ],
+  "Bruno G.": [
+   "Bruno Guimarães"
+  ],
+  "Alcaraz": [
+   "Carlos Alcaraz"
+  ],
+  "Ballard": [
+   "Dan Ballard"
+  ],
+  "Dalot": [
+   "Diogo Dalot"
+  ],
+  "Solanke": [
+   "Dominic Solanke"
+  ],
+  "Buendía": [
+   "Emiliano Buendía"
+  ],
+  "Carvalho": [
+   "Fabio Carvalho"
+  ],
+  "Florentino": [
+   "Florentino Luís"
+  ],
+  "G.Jesus": [
+   "Gabriel Jesus"
+  ],
+  "Martinelli": [
+   "Gabriel Martinelli"
+  ],
+  "Lerma": [
+   "Jefferson Lerma"
+  ],
+  "J.Cuenca": [
+   "Jorge Cuenca"
+  ],
+  "Mitoma": [
+   "Kaoru Mitoma"
+  ],
+  "Ugarte": [
+   "Manuel Ugarte"
+  ],
+  "Senesi": [
+   "Marcos Senesi"
+  ],
+  "Zubimendi": [
+   "Martín Zubimendi"
+  ],
+  "Cunha": [
+   "Matheus Cunha"
+  ],
+  "Cash": [
+   "Matthew Cash"
+  ],
+  "Merino": [
+   "Mikel Merino"
+  ],
+  "Caicedo": [
+   "Moisés Caicedo"
+  ],
+  "N.Gonzalez": [
+   "Nico González"
+  ],
+  "P.M.Sarr": [
+   "Pape Sarr"
+  ],
+  "Neto": [
+   "Pedro Neto"
+  ],
+  "Muniz": [
+   "Rodrigo Muniz"
+  ],
+  "Rúben": [
+   "Rúben Dias"
+  ],
+  "Nyoni": [
+   "Treymaurice Nyoni"
+  ],
+  "Endo": [
+   "Wataru Endo"
+  ],
+  "Yeremy": [
+   "Yeremi Pino"
+  ]
+ },
+ "rejected": {
+  "Daniel Muñoz": "web_name 'Muñoz' normalizes like 2 players' web_names -- alias would be ambiguous",
+  "Diego Gómez": "web_name 'Gomez' normalizes like 2 players' web_names -- alias would be ambiguous",
+  "Joseph Gomez": "web_name 'Gomez' normalizes like 2 players' web_names -- alias would be ambiguous",
+  "Joshua King": "web_name 'King' normalizes like 2 players' web_names -- alias would be ambiguous",
+  "Oli McBurnie": "not in the 2025-26 store (kept out: nothing measured fails)"
+ },
+ "newly": {
+  "Abduqodir Khusanov": [
+   393,
+   "Khusanov"
+  ],
+  "Alejandro Garnacho": [
+   160,
+   "Garnacho"
+  ],
+  "Alysson Edward": [
+   52,
+   "Alysson"
+  ],
+  "Ao Tanaka": [
+   345,
+   "Tanaka"
+  ],
+  "Ben Doak": [
+   72,
+   "Gannon-Doak"
+  ],
+  "Ben White": [
+   10,
+   "White"
+  ],
+  "Bruno Fernandes": [
+   426,
+   "B.Fernandes"
+  ],
+  "Bruno Guimarães": [
+   452,
+   "Bruno G."
+  ],
+  "Carlos Alcaraz": [
+   243,
+   "Alcaraz"
+  ],
+  "Dan Ballard": [
+   532,
+   "Ballard"
+  ],
+  "Diogo Dalot": [
+   417,
+   "Dalot"
+  ],
+  "Dominic Solanke": [
+   526,
+   "Solanke"
+  ],
+  "Emiliano Buendía": [
+   41,
+   "Buendía"
+  ],
+  "Fabio Carvalho": [
+   100,
+   "Carvalho"
+  ],
+  "Florentino Luís": [
+   571,
+   "Florentino"
+  ],
+  "Gabriel Jesus": [
+   27,
+   "G.Jesus"
+  ],
+  "Gabriel Martinelli": [
+   18,
+   "Martinelli"
+  ],
+  "Jefferson Lerma": [
+   213,
+   "Lerma"
+  ],
+  "Jorge Cuenca": [
+   255,
+   "J.Cuenca"
+  ],
+  "Kaoru Mitoma": [
+   121,
+   "Mitoma"
+  ],
+  "Manuel Ugarte": [
+   433,
+   "Ugarte"
+  ],
+  "Marcos Senesi": [
+   498,
+   "Senesi"
+  ],
+  "Martín Zubimendi": [
+   19,
+   "Zubimendi"
+  ],
+  "Matheus Cunha": [
+   428,
+   "Cunha"
+  ],
+  "Matthew Cash": [
+   32,
+   "Cash"
+  ],
+  "Mikel Merino": [
+   17,
+   "Merino"
+  ],
+  "Moisés Caicedo": [
+   159,
+   "Caicedo"
+  ],
+  "Nico González": [
+   405,
+   "N.Gonzalez"
+  ],
+  "Pape Sarr": [
+   518,
+   "P.M.Sarr"
+  ],
+  "Pedro Neto": [
+   156,
+   "Neto"
+  ],
+  "Rodrigo Muniz": [
+   271,
+   "Muniz"
+  ],
+  "Rúben Dias": [
+   390,
+   "Rúben"
+  ],
+  "Treymaurice Nyoni": [
+   375,
+   "Nyoni"
+  ],
+  "Wataru Endo": [
+   374,
+   "Endo"
+  ],
+  "Yeremi Pino": [
+   211,
+   "Yeremy"
+  ]
+ },
+ "changed": {},
+ "resolved_before": 300,
+ "resolved_after": 335
+}
