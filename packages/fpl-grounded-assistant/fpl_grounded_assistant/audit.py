@@ -116,7 +116,8 @@ class AuditEntry:
     branch: str                      # "resource" / "prompt" / "orchestrator" / "unsupported"
     outcome: str                     # final outcome string
     intent: str | None
-    tool_calls: list[dict]           # [{"name": str, "args": dict, "output_status": str}, ...]
+    tool_calls: list[dict]           # [{"name": str, "args": dict, "output_status": str,
+                                     #   "round": int|None, "retry": bool (i96; orchestrator turns)}, ...]
     evaluator_verdict: dict | None   # {approved, grounded, complete, safe, retry_feedback} | None
     retry_attempted: bool
     final_text_length: int           # full text length (characters)
@@ -248,9 +249,33 @@ def tool_calls_from_ask_v2(result: dict[str, Any]) -> list[dict]:
     dict it gets back from ``ask_v2()``, and the session path applies it to
     the SAME dict inside ``final_response._try_session_orchestration_response``
     (the only place that dict exists on a session turn) and carries the
-    outcome on ``FinalResponse.orchestration``. Empty when no tool was
-    selected; the shape is the one ``AuditEntry.tool_calls`` documents.
+    outcome on ``FinalResponse.orchestration``.
+
+    i96: when the dict carries ``tool_calls_trace`` (both orchestrator
+    branches of ``harness.ask_v2`` project it off
+    ``OrchestratorResult.tool_calls_trace``: every executed call, primary
+    rounds and the evaluator retry's own calls alike), the audit gets one
+    entry per executed call with that call's real name / args / status.
+    The ``selected_tool`` projection below is the fallback for dicts with no
+    trace (the deterministic branches: router, resource, prompt, lookup),
+    where the one selected tool IS the one call. Empty only when neither
+    says a tool ran. Seen in prod 2026-09-13/17: a turn whose retry re-ran
+    ``compare_players`` and got a non-ok status audited as ``tool_calls=[]``
+    -- two executed calls reported as zero.
     """
+    trace = result.get("tool_calls_trace")
+    if trace:
+        return [
+            {
+                "name":          str(_e.get("name") or ""),
+                "args":          dict(_e.get("args") or {}),
+                "output_status": str(_e.get("output_status") or "unknown"),
+                "round":         _e.get("round"),
+                "retry":         bool(_e.get("retry", False)),
+            }
+            for _e in trace
+            if isinstance(_e, dict) and _e.get("name")
+        ]
     selected_tool = result.get("selected_tool")
     if not selected_tool:
         return []
