@@ -60,44 +60,40 @@ API_KEY_ENV_BY_PROVIDER: dict[str, str] = {
     "openai": "OPENAI_API_KEY",
 }
 
-#: Per-1M-token pricing BY MODEL. A model absent from this table has no price
-#: here, and the absence is reported as such: tokens are still recorded, cost is
-#: recorded as unknown. It is never estimated at another model's rates -- a cost
-#: computed from the wrong tariff is a number that looks true and is wrong,
-#: which is worse than no number at all.
-#: Rows mirror ``run_agentic_loop_experiment.DEFAULT_MODEL_PRICING_PER_1M``
-#: (OpenAI rates https://developers.openai.com/api/docs/models/, 2026-08-20).
-PRICING_PER_1M_BY_MODEL: dict[str, dict[str, float]] = {
-    "claude-haiku-4-5-20251001": {"input": 1.0, "output": 5.0, "cache_read": 0.10},
-    "gemini-3.5-flash": {"input": 1.50, "output": 9.00, "cache_read": 0.15},
-    "gpt-4o-mini": {"input": 0.15, "output": 0.60, "cache_read": 0.075},
-    "gpt-5.6-luna": {"input": 0.20, "output": 1.20, "cache_read": 0.02},
-    "gpt-5.6-terra": {"input": 2.00, "output": 12.00, "cache_read": 0.20},
-    "gpt-5.6-sol": {"input": 5.00, "output": 30.00, "cache_read": 0.50},
-    # Introductory pricing, same as 3.7 Flash. No published cached-input
-    # rate, so cache_read is pinned to the full input rate rather than to a
-    # guessed discount: Gemini reports no cache_read tokens today (the field
-    # is always 0), so this is inert -- and if that ever changes it will
-    # over-bill, never under-bill.
-    "gemini-3.8-flash": {"input": 0.75, "output": 3.75, "cache_read": 0.75},
-}
+# i105: the price table, the cache-share convention and the per-call cost
+# formula live in ONE place, ``fpl_grounded_assistant.model_pricing`` -- the
+# module the production audit line prices from. This script used to carry its
+# own copy (and ``audit.py`` a third, per-provider and stale). Importing the
+# package needs the sibling packages on sys.path; ``main()`` does that late, so
+# for a direct ``python scripts/measure_tool_routing.py`` run the import falls
+# back to configuring the path here first. Under pytest the package is already
+# importable (pytest.ini pythonpath) and the first import succeeds.
 
-#: Providers whose cache_read count is a SUBSET of their input count, so the
-#: cached part must be subtracted from the input tokens before pricing or it is
-#: billed twice -- once at the full input rate and again at the cache rate.
-#:
-#: This is not a style choice per provider, it is what each API reports
-#: (fpl_grounded_assistant/provider_client.py):
-#:   * openai    (:1014) usage.input_tokens_details.cached_tokens -- a subset
-#:                       of input_tokens, so it must be subtracted.
-#:   * anthropic (:976)  usage.cache_read_input_tokens -- reported separately
-#:                       and NOT included in input_tokens, so subtracting it
-#:                       would under-bill. It stays additive.
-#:   * gemini    (:1029) no cache field at all; always 0, so the distinction is
-#:                       inert there today.
-#: A uniform "fix" applied to all three breaks Anthropic, which is why this is
-#: a set and not a global change to the formula.
-CACHE_READ_INCLUDED_IN_INPUT: frozenset[str] = frozenset({"openai"})
+
+def _configure_imports() -> None:
+    """Put every packages/* dir and this scripts/ dir on sys.path."""
+    packages_dir = REPO_ROOT / "packages"
+    for pkg in sorted(packages_dir.iterdir()):
+        if pkg.is_dir():
+            sys.path.insert(0, str(pkg))
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+
+try:
+    from fpl_grounded_assistant.model_pricing import (  # noqa: E402
+        CACHE_READ_INCLUDED_IN_INPUT,
+        PRICING_PER_1M_BY_MODEL,
+        billable_input_tokens,
+        cost_usd as _shared_cost_usd,
+    )
+except ImportError:
+    _configure_imports()
+    from fpl_grounded_assistant.model_pricing import (  # noqa: E402
+        CACHE_READ_INCLUDED_IN_INPUT,
+        PRICING_PER_1M_BY_MODEL,
+        billable_input_tokens,
+        cost_usd as _shared_cost_usd,
+    )
 
 
 def api_key_env_for(provider: str) -> str:
@@ -135,15 +131,6 @@ def require_api_key(provider: str) -> str:
     return key
 
 
-def _configure_imports() -> None:
-    """Put every packages/* dir and this scripts/ dir on sys.path."""
-    packages_dir = REPO_ROOT / "packages"
-    for pkg in sorted(packages_dir.iterdir()):
-        if pkg.is_dir():
-            sys.path.insert(0, str(pkg))
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-
 def _load_env_file(env_path: Path) -> None:
     """Minimal KEY=VALUE .env loader; does not overwrite already-set env vars."""
     if not env_path.exists():
@@ -159,24 +146,6 @@ def _load_env_file(env_path: Path) -> None:
             os.environ[key] = value
 
 
-def billable_input_tokens(input_tokens: int, cache_read_tokens: int,
-                          provider: str) -> int:
-    """Input tokens charged at the FULL input rate, for this provider.
-
-    Where the provider counts cached tokens inside ``input_tokens`` (OpenAI),
-    the cached part is removed here and priced separately at the cache rate.
-    Where it counts them alongside (Anthropic), every input token is billable
-    and the cached ones are added on top by the caller.
-
-    Clamped at zero: a cache count larger than the input count means the two
-    numbers did not come from the same call, and a negative charge would turn
-    an accounting bug into a discount.
-    """
-    if provider in CACHE_READ_INCLUDED_IN_INPUT:
-        return max(0, input_tokens - cache_read_tokens)
-    return input_tokens
-
-
 def cost_usd(
     input_tokens: int,
     output_tokens: int,
@@ -184,30 +153,16 @@ def cost_usd(
     model: str | None = None,
     provider: str | None = None,
 ) -> float | None:
-    """Cost for one call, or ``None`` when *model* has no price in the table.
+    """Cost for one call at this script's pinned MODEL/PROVIDER unless given.
 
-    ``None`` means "unknown", not "free". Callers must render it as unknown --
-    see ``format_spend`` -- rather than folding it into a total at 0.0 or at
-    some other model's rates.
-
-    The cached share is priced per provider (see
-    ``CACHE_READ_INCLUDED_IN_INPUT``). Charging OpenAI's cached tokens at both
-    the input rate and the cache rate inflated a 20-turn luna run from $0.0194
-    to $0.0796 -- 4.1x, biased high, and worst exactly on the arm that caches
-    most, which is how it distorted a quality-per-cost comparison between
-    models.
+    Thin wrapper over ``model_pricing.cost_usd`` (the audit's formula) that
+    supplies the script's pins as defaults. ``None`` means "unknown", not
+    "free" -- see ``format_spend``.
     """
-    prices = PRICING_PER_1M_BY_MODEL.get(model if model is not None else MODEL)
-    if not prices:
-        return None
-    billable_input = billable_input_tokens(
-        input_tokens, cache_read_tokens,
-        provider if provider is not None else PROVIDER,
-    )
-    return (
-        billable_input / 1_000_000 * prices["input"]
-        + output_tokens / 1_000_000 * prices["output"]
-        + cache_read_tokens / 1_000_000 * prices["cache_read"]
+    return _shared_cost_usd(
+        input_tokens, output_tokens, cache_read_tokens,
+        model=model if model is not None else MODEL,
+        provider=provider if provider is not None else PROVIDER,
     )
 
 

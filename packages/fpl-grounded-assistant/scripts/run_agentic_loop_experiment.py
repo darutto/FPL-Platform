@@ -77,17 +77,22 @@ PROVIDERS: dict[str, dict[str, Any]] = {
 #: one has to be opted into explicitly.
 DEFAULT_PROVIDERS: str = "anthropic,gemini"
 
-# Model-level table owned by this experiment. Operators may replace it with
-# --pricing-json; the exact table used is printed in the artifact header.
-# OpenAI rates: https://developers.openai.com/api/docs/models/ (2026-08-20).
-DEFAULT_MODEL_PRICING_PER_1M: dict[str, dict[str, float]] = {
-    "claude-haiku-4-5-20251001": {"input": 1.0, "output": 5.0, "cache_read": 0.10},
-    "gemini-3.5-flash": {"input": 1.50, "output": 9.00, "cache_read": 0.15},
-    "gpt-4o-mini": {"input": 0.15, "output": 0.60, "cache_read": 0.075},
-    "gpt-5.6-luna": {"input": 0.20, "output": 1.20, "cache_read": 0.02},
-    "gpt-5.6-terra": {"input": 2.00, "output": 12.00, "cache_read": 0.20},
-    "gpt-5.6-sol": {"input": 5.00, "output": 30.00, "cache_read": 0.50},
-}
+# i105: the default table is the ONE shared per-model table
+# (``fpl_grounded_assistant.model_pricing``, also what the production audit
+# line prices from); this experiment no longer keeps its own copy. Operators
+# may still replace it with --pricing-json; the exact table used is printed in
+# the artifact header. The package import needs the sibling packages on
+# sys.path, which ``_configure_imports`` only does inside the worker -- so
+# fall back to configuring the path from --repo-root's default (this file's
+# repo) when the plain import fails.
+try:
+    from fpl_grounded_assistant.model_pricing import PRICING_PER_1M_BY_MODEL as _SHARED_PRICING
+except ImportError:
+    for _pkg in (Path(__file__).resolve().parents[3] / "packages").iterdir():
+        if _pkg.is_dir():
+            sys.path.insert(0, str(_pkg))
+    from fpl_grounded_assistant.model_pricing import PRICING_PER_1M_BY_MODEL as _SHARED_PRICING
+DEFAULT_MODEL_PRICING_PER_1M: dict[str, dict[str, float]] = dict(_SHARED_PRICING)
 
 SEMANTIC_RUBRICS: dict[str, str] = {
     "Q6": "Explains why the named bench makes Bench Boost viable or not.",

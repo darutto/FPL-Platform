@@ -60,9 +60,9 @@ from fpl_grounded_assistant.audit import (
     write_audit_entry,
     estimate_usd_cost,
     make_audit_entry,
-    PROVIDER_PRICING_PER_1M,
     hash_user_id,
 )
+from fpl_grounded_assistant.model_pricing import PRICING_PER_1M_BY_MODEL  # i105: the one table
 from fpl_grounded_assistant.dispatcher import OUTCOME_QUOTA_EXCEEDED
 from fpl_grounded_assistant.conversation_fixtures import STANDARD_BOOTSTRAP
 
@@ -201,7 +201,8 @@ def _make_entry(**kwargs) -> AuditEntry:
         outcome="ok",
         intent="captain_score",
         tokens={"primary_input": 1000, "primary_output": 200, "total": 1200},
-        provider="gemini",
+        provider="openai",           # i105: what the orchestrator ran, not DEFAULT_PROVIDER
+        model="gpt-5.6-luna",
         final_text="Haaland is your best captain option.",
     )
     defaults.update(kwargs)
@@ -243,25 +244,31 @@ with open(_log_path, encoding="utf-8") as _f:
             _all_valid = False
 ok(_all_valid, "A4: every line in NDJSON file is valid JSON")
 
-# A5: usd_cost_estimate non-zero for non-trivial token usage.
-_cost_a5 = estimate_usd_cost({"primary_input": 1000, "primary_output": 200}, "gemini")
+# A5: usd_cost_estimate non-zero for non-trivial token usage (i105: priced by model).
+_LUNA, _HAIKU = "gpt-5.6-luna", "claude-haiku-4-5-20251001"
+_cost_a5 = estimate_usd_cost({"primary_input": 1000, "primary_output": 200}, _LUNA, "openai")
 ok(_cost_a5 > 0.0, "A5: usd_cost_estimate > 0 for non-zero token usage")
 
-# A6: Gemini is cheaper than Anthropic for same tokens.
+# A6: luna is cheaper than Haiku for the same tokens.
 _tokens_test = {"primary_input": 1000, "primary_output": 500}
-_cost_gemini    = estimate_usd_cost(_tokens_test, "gemini")
-_cost_anthropic = estimate_usd_cost(_tokens_test, "anthropic")
-ok(_cost_gemini < _cost_anthropic, "A6: Gemini cost < Anthropic cost for same tokens")
+_cost_luna  = estimate_usd_cost(_tokens_test, _LUNA, "openai")
+_cost_haiku = estimate_usd_cost(_tokens_test, _HAIKU, "anthropic")
+ok(_cost_luna < _cost_haiku, "A6: luna cost < Haiku cost for same tokens")
 
-# A7: Per-1M math is correct for Gemini input (0.075 per 1M = 0.000000075 per token).
-_cost_a7 = estimate_usd_cost({"primary_input": 1_000_000}, "gemini")
-_expected = PROVIDER_PRICING_PER_1M["gemini"]["input"]
+# A7: Per-1M math is correct for luna input.
+_cost_a7 = estimate_usd_cost({"primary_input": 1_000_000}, _LUNA, "openai")
+_expected = PRICING_PER_1M_BY_MODEL[_LUNA]["input"]
 ok(abs(_cost_a7 - _expected) < 1e-6, f"A7: 1M input tokens cost = {_expected} (got {_cost_a7:.8f})")
 
-# A8: Cache-read tokens cheaper than input tokens (same provider).
-_cost_input = estimate_usd_cost({"primary_input": 1_000_000}, "anthropic")
-_cost_cache = estimate_usd_cost({"primary_cache_read": 1_000_000}, "anthropic")
+# A8: Cache-read tokens cheaper than input tokens (same model, Anthropic convention).
+_cost_input = estimate_usd_cost({"primary_input": 1_000_000}, _HAIKU, "anthropic")
+_cost_cache = estimate_usd_cost({"primary_cache_read": 1_000_000}, _HAIKU, "anthropic")
 ok(_cost_cache < _cost_input, "A8: cache_read tokens cheaper than input tokens (Anthropic)")
+
+# A9 (i105): an unpriced model is None -- unknown, never another model's tariff.
+ok(estimate_usd_cost({"primary_input": 1000}, "some-unpriced-model", "openai") is None,
+   "A9: unpriced model -> usd_cost_estimate None")
+ok(estimate_usd_cost({}, None, None) == 0.0, "A9b: no tokens, no model -> 0.0 (nothing bought)")
 
 # Cleanup temp dir.
 shutil.rmtree(_tmpdir, ignore_errors=True)

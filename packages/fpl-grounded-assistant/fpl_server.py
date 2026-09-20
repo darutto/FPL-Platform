@@ -1974,7 +1974,8 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
             outcome=OUTCOME_QUOTA_EXCEEDED,
             intent=None,
             tokens={},
-            provider=os.environ.get("DEFAULT_PROVIDER", "gemini"),
+            provider=None,   # i105: no LLM ran; nothing to attribute
+            model=None,
             error_code="quota_exceeded",
             final_text=_upgrade_text,
         )
@@ -2032,7 +2033,13 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
     _branch = (ask_v2_dict.get("routing_trace") or {}).get("branch", "unknown")
     _outcome = ask_v2_dict.get("outcome", "unknown")
     _intent  = ask_v2_dict.get("intent")
-    _provider = os.environ.get("DEFAULT_PROVIDER", "gemini")
+    # i105: provider/model are what the orchestrator RAN (harness projects
+    # them off OrchestratorResult on both orchestrator branches); absent on
+    # deterministic branches -> None. DEFAULT_PROVIDER is the presentation
+    # layer's variable and said "gemini" on every prod line while the
+    # orchestrator was running gpt-5.6-luna on openai.
+    _provider = ask_v2_dict.get("orchestrator_provider")
+    _model = ask_v2_dict.get("orchestrator_model")
     _final_text = ask_v2_dict.get("answer_text", "")
 
     # Quota accounting: deterministic turns count as 1 message but 0 tokens.
@@ -2061,6 +2068,7 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
         final_text=_final_text,
         tokens=_tokens,
         provider=_provider,
+        model=_model,
         error_code=None,
     )
     try:
@@ -2217,7 +2225,8 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
             outcome=OUTCOME_QUOTA_EXCEEDED,
             intent=None,
             tokens={},
-            provider=os.environ.get("DEFAULT_PROVIDER", "gemini"),
+            provider=None,   # i105: no LLM ran; nothing to attribute
+            model=None,
             error_code="quota_exceeded",
             final_text=_sess_upgrade_text,
         )
@@ -2285,6 +2294,8 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         _sess_retry_attempted = False
         _sess_evaluator_verdict = None
         _sess_orchestration_absent = True
+        _sess_provider: str | None = None
+        _sess_model: str | None = None
     else:
         _sess_trace = _sess_orch.get("routing_trace") or {}
         _sess_tokens = _sess_orch.get("tokens") or {}
@@ -2292,6 +2303,10 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         _sess_retry_attempted = bool(_sess_trace.get("retry_attempted", False))
         _sess_evaluator_verdict = _sess_trace.get("evaluator_verdict")
         _sess_orchestration_absent = False
+        # i105: same source as /ask (the ask_v2 dict, via FinalResponse.
+        # orchestration), never DEFAULT_PROVIDER.
+        _sess_provider = _sess_orch.get("provider")
+        _sess_model = _sess_orch.get("model")
     _sess_audit_entry = make_audit_entry(
         user_id=_sess_user_id,
         tier=_sess_tier,
@@ -2303,7 +2318,8 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         evaluator_verdict=_sess_evaluator_verdict,
         retry_attempted=_sess_retry_attempted,
         tokens=_sess_tokens,
-        provider=os.environ.get("DEFAULT_PROVIDER", "gemini"),
+        provider=_sess_provider,
+        model=_sess_model,
         final_text=r.final_text,
         orchestration_absent=_sess_orchestration_absent,
     )

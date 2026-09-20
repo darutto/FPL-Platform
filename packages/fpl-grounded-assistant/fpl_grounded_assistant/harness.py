@@ -1219,7 +1219,9 @@ def ask_v2(
                 "answer_text":   orch_result.answer_text,
                 "outcome":       _orch_outcome,
                 "kind":          "text",
-                "orchestrator_model": orch_result.model,
+                # i105: orchestrator_provider / orchestrator_model, what the
+                # orchestrator ran with, for the audit line and debug bundle.
+                **_project_orchestrator_identity(orch_result),
                 "routing_trace": routing_trace,
                 # i96: every executed call (primary + retry), for the audit line.
                 "tool_calls_trace": _project_tool_calls_trace(orch_result),
@@ -1300,6 +1302,9 @@ def ask_v2(
             "kind":          "text",
             "suggestions":   [f"@{r}" for r in _suggestions_for_text()],
             "orchestrator_outcome": orch_result.outcome,
+            # i105: an LLM that picked no grounded tool was still an LLM that
+            # ran and billed; the audit line prices it by this model.
+            **_project_orchestrator_identity(orch_result),
             # i96: this is the branch where a retry that ran a tool with a
             # non-ok status lands with selected_tool=None; the calls it
             # executed are still real and still audited.
@@ -1386,6 +1391,26 @@ def _project_orchestrator_run(routing_trace: dict[str, Any], orch_result: Any) -
         if _e.get("name")
     ]
     return _names
+
+
+def _project_orchestrator_identity(orch_result: Any) -> dict[str, str | None]:
+    """i105: ``{"orchestrator_provider", "orchestrator_model"}`` read off the
+    result -- the provider label ``ask_orchestrated`` stamped and the model it
+    called with -- both ``None`` when no provider call succeeded (``llm_used``
+    False: the result's ``model`` is then the ``"none"`` sentinel, which must
+    not reach the audit line as a model id). Projected on both orchestrator
+    branches (grounded and no-grounded-tool): an LLM that picked no grounded
+    tool still ran and billed. The audit prices the turn by
+    ``orchestrator_model``; ``DEFAULT_PROVIDER`` (a presentation env var) is
+    never consulted.
+    """
+    if not bool(getattr(orch_result, "llm_used", False)):
+        return {"orchestrator_provider": None, "orchestrator_model": None}
+    _model = getattr(orch_result, "model", None)
+    return {
+        "orchestrator_provider": getattr(orch_result, "provider", None),
+        "orchestrator_model":    None if _model in (None, "", "none") else str(_model),
+    }
 
 
 def _project_tool_calls_trace(orch_result: Any) -> list[dict[str, Any]]:

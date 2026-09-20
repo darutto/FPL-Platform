@@ -128,7 +128,11 @@ def _orch_result(
         tool_output=_rank_output() if outcome == OUTCOME_OK else {},
         answer_text="Haaland lidera; Palmer y Salah completan el podio.",
         llm_used=True,
-        model="stub-model",
+        # i105: a PRICED model + the provider label ask_orchestrated stamps,
+        # so the audit line below can carry a real usd_cost_estimate (an
+        # unpriced model is honestly None now, not a default tariff).
+        model="gpt-5.6-luna",
+        provider="openai",
         outcome=outcome,
         evaluator_verdict=verdict,
         retry_attempted=retry_attempted,
