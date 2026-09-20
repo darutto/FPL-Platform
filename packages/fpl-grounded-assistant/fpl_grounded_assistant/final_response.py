@@ -1375,8 +1375,11 @@ class FinalResponse:
     # i80/i36: what ask_v2() produced on a session turn, kept as-is so the
     # HTTP layer audits from it instead of from constants:
     #   {"routing_trace": dict, "tokens": dict, "selected_tool": str | None,
-    #    "tool_calls": list[dict]}   -- tool_calls in AuditEntry's shape, via
-    # audit.tool_calls_from_ask_v2 (the same projection POST /ask applies).
+    #    "tool_calls": list[dict], "provider": str | None, "model": str | None}
+    #   -- tool_calls in AuditEntry's shape, via audit.tool_calls_from_ask_v2
+    # (the same projection POST /ask applies); provider/model (i105) are the
+    # ask_v2 dict's orchestrator_provider / orchestrator_model, i.e. what the
+    # orchestrator actually called, None when no LLM ran.
     # None when the turn never went through ask_v2() (the two preserved
     # early-outs in _try_session_orchestration_response) -- the caller must
     # treat None as "not measured", never as "measured empty". Declared
@@ -3159,6 +3162,10 @@ def _try_session_orchestration_response(
         "tokens":        tokens,
         "selected_tool": selected_tool,
         "tool_calls":    tool_calls_from_ask_v2(result),
+        # i105: read off the same dict; absent keys (deterministic branches,
+        # orchestrator unreachable) read as None, never as a default provider.
+        "provider":      result.get("orchestrator_provider"),
+        "model":         result.get("orchestrator_model"),
     }
     response = FinalResponse(
         final_text=answer_text,

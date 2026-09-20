@@ -567,6 +567,14 @@ class OrchestratorResult:
     # field -- not tool_call_count -- is what actually determines whether the
     # user sees a bare deterministic render.
     synthesis_turn:          bool = False
+    # i105: the provider label this turn's LLM calls were dispatched to
+    # (``call_orch_provider``'s first argument: the explicit ``provider``, or
+    # ``PROVIDER_ANTHROPIC`` when auto-detected). Stamped once by the public
+    # ``ask_orchestrated`` wrapper from the resolved label, and only when
+    # ``llm_used`` is True -- ``None`` says no provider call succeeded this
+    # turn, matching ``model="none"``. The audit line reads provider/model
+    # from here, never from a presentation env var.
+    provider:                str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -2280,6 +2288,53 @@ def _run_bounded_loop(
 # ---------------------------------------------------------------------------
 
 def ask_orchestrated(
+    question: str,
+    bootstrap: dict[str, Any],
+    *,
+    client: Any = None,
+    model: str = DEFAULT_ORCH_MODEL,
+    api_key: str | None = None,
+    provider: str | None = None,
+    web_search_enabled: bool = False,
+    max_tokens: int = 1024,
+    temperature: float | None = None,
+    top_p: float | None = None,
+    _gate: _FailureGate | None = None,
+    _orch_request_fn: Any = None,
+    _eval_client: Any = None,
+) -> OrchestratorResult:
+    """Run a single LLM tool-use cycle and return a grounded result.
+
+    Public entry point: ``_ask_orchestrated_impl`` does the work (its
+    docstring has the steps and parameters); this wrapper stamps
+    ``OrchestratorResult.provider`` (i105) with the label every provider call
+    of the turn was dispatched under -- the same expression the body uses for
+    ``call_orch_provider``'s first argument -- when at least one call
+    succeeded (``llm_used``), and leaves it ``None`` otherwise. Done here,
+    once, rather than at each of the body's ~20 return sites.
+    """
+    result = _ask_orchestrated_impl(
+        question,
+        bootstrap,
+        client=client,
+        model=model,
+        api_key=api_key,
+        provider=provider,
+        web_search_enabled=web_search_enabled,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        top_p=top_p,
+        _gate=_gate,
+        _orch_request_fn=_orch_request_fn,
+        _eval_client=_eval_client,
+    )
+    if not result.llm_used:
+        return result
+    _label = provider if provider in _ALL_PROVIDERS else PROVIDER_ANTHROPIC
+    return replace(result, provider=_label)
+
+
+def _ask_orchestrated_impl(
     question: str,
     bootstrap: dict[str, Any],
     *,
