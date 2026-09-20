@@ -23,6 +23,17 @@ the scripts that expose one; the API key follows the provider, and cost is
 priced per model or reported as unknown. Each row also carries
 ``empty_provider_response`` so an empty-synthesis event belongs to a row rather
 than only to the console.
+
+i109: ``--team-id N`` (or env ``FPL_MEASURE_TEAM_ID``) connects a real FPL
+team to every call, the way ``harness.ask_v2(team_id=...)`` does in prod: a
+SHALLOW COPY of the frozen bootstrap gets ``_my_team_id`` and is handed to
+``ask_orchestrated``; the shared bootstrap dict is never mutated (it is the
+one object every one of the 118xR calls reuses). Without the flag nothing
+about the call changes. Every row records ``team_id_present`` and
+``my_squad_result`` -- the latter read off ``tool_calls_trace`` (did
+``get_my_squad`` run, and what did it return), never off the answer text or
+the question. ``get_my_squad`` fetches the team's picks live from the FPL API,
+so a ``--team-id`` run is a network run beyond the provider call.
 """
 from __future__ import annotations
 
@@ -187,6 +198,18 @@ def format_spend(observations: list[dict[str, Any]]) -> str:
     return line
 
 
+#: i109: env alternative to ``--team-id``. The flag wins when both are set.
+TEAM_ID_ENV: str = "FPL_MEASURE_TEAM_ID"
+
+#: i109: the key ``get_my_squad`` reads the connected team from
+#: (fpl_grounded_assistant/get_my_squad.py) and ``harness.ask_v2`` injects on
+#: its bootstrap copy (harness.py, ``team_id`` parameter). Same key, same
+#: shallow-copy rule.
+MY_TEAM_ID_KEY: str = "_my_team_id"
+
+#: The tool whose result ``my_squad_result`` classifies.
+MY_SQUAD_TOOL: str = "get_my_squad"
+
 #: Logger the orchestrator emits fpl_provider_event records on.
 _ORCH_LOGGER = "fpl_grounded_assistant"
 
@@ -259,7 +282,66 @@ def extract_tool_sequence(result: Any) -> list[str]:
     return []
 
 
-def run_one(question: dict[str, Any], rep_index: int, bootstrap: dict[str, Any], api_key: str) -> dict[str, Any]:
+def classify_my_squad_result(result: Any) -> str:
+    """i109: what ``get_my_squad`` returned on this call, read off the trace.
+
+    * ``"not_called"`` -- no executed call named ``get_my_squad``.
+    * ``"squad"``      -- at least one such call came back ``status="ok"``
+      with a non-empty ``players`` list (a real squad, not an empty shell).
+    * ``"no_team"``    -- called, and every call said ``no_team_connected``
+      (the handler saw no ``_my_team_id``).
+    * ``"error"``      -- called, and the best it got was some other status
+      (``not_found`` / ``error`` / an ``ok`` with no players). Kept apart
+      from ``no_team`` so a bad id or a network failure is never read as
+      "the flag did not reach the tool".
+
+    Read from ``tool_calls_trace`` (every executed call, primary rounds and
+    evaluator retry alike) -- never from the answer text, which can mention a
+    squad it never fetched, and never from the question, which asks for one.
+    """
+    trace = getattr(result, "tool_calls_trace", None) or ()
+    statuses: list[str] = []
+    for entry in trace:
+        if not isinstance(entry, dict) or entry.get("name") != MY_SQUAD_TOOL:
+            continue
+        output = entry.get("output")
+        output = output if isinstance(output, dict) else {}
+        status = str(output.get("status") or "")
+        if status == "ok" and output.get("players"):
+            return "squad"
+        statuses.append(status)
+    if not statuses:
+        return "not_called"
+    if all(status == "no_team_connected" for status in statuses):
+        return "no_team"
+    return "error"
+
+
+def bootstrap_for_call(bootstrap: dict[str, Any], team_id: int | None) -> dict[str, Any]:
+    """i109: the bootstrap ``ask_orchestrated`` gets for one call.
+
+    With a team id: a SHALLOW COPY carrying ``_my_team_id`` -- the same rule
+    as ``harness.ask_v2`` (harness.py, ``team_id`` parameter) and
+    ``orchestrator.ask_orchestrated`` (its ``_question`` key): the caller's
+    dict is shared by every call of the run and must never be mutated.
+    Without one: the caller's dict itself, untouched, so a run with no flag
+    hands the orchestrator exactly what it got before this flag existed.
+    """
+    if team_id is None:
+        return bootstrap
+    copy = dict(bootstrap)
+    copy[MY_TEAM_ID_KEY] = team_id
+    return copy
+
+
+def run_one(
+    question: dict[str, Any],
+    rep_index: int,
+    bootstrap: dict[str, Any],
+    api_key: str,
+    *,
+    team_id: int | None = None,
+) -> dict[str, Any]:
     """Make one ask_orchestrated() call and return a flat observation dict.
 
     Never raises: any exception is captured into the observation itself so
@@ -267,6 +349,10 @@ def run_one(question: dict[str, Any], rep_index: int, bootstrap: dict[str, Any],
     has outcome="harness_exception" and a non-null "exception" field --
     callers MUST check for these before trusting any aggregate (two identical
     tracebacks diff clean and would otherwise look like a normal result).
+
+    ``team_id`` (i109): connect this FPL team for the call, via
+    ``bootstrap_for_call``. ``None`` (the default, and what every caller that
+    predates the flag passes) changes nothing.
     """
     from fpl_grounded_assistant.orchestrator import ask_orchestrated
 
@@ -281,6 +367,10 @@ def run_one(question: dict[str, Any], rep_index: int, bootstrap: dict[str, Any],
         "question": question["question"],
         "model": MODEL,
         "provider": PROVIDER,
+        # i109: whether a team was connected for THIS call. Set from the
+        # argument, not from the bootstrap the caller passed (which never
+        # carries the key -- the copy does).
+        "team_id_present": team_id is not None,
         "captured_at": None,
         "latency_ms": None,
         "exception": None,
@@ -292,7 +382,7 @@ def run_one(question: dict[str, Any], rep_index: int, bootstrap: dict[str, Any],
         with _capture_empty_responses(empty_capture):
             result = ask_orchestrated(
                 question["question"],
-                bootstrap,
+                bootstrap_for_call(bootstrap, team_id),
                 provider=PROVIDER,
                 model=MODEL,
                 api_key=api_key,
@@ -307,6 +397,8 @@ def run_one(question: dict[str, Any], rep_index: int, bootstrap: dict[str, Any],
             tool_chosen=result.tool_chosen,
             tool_sequence=extract_tool_sequence(result),
             tool_call_count=result.tool_call_count,
+            # i109: read off the trace, never off the question or the text.
+            my_squad_result=classify_my_squad_result(result),
             # --- i25 golden battery: assertion surface -------------------
             # Added so the battery asserts on the same observation the other
             # measurements produce, instead of forking a second call path.
@@ -354,6 +446,8 @@ def run_one(question: dict[str, Any], rep_index: int, bootstrap: dict[str, Any],
             tool_chosen=None,
             tool_sequence=[],
             tool_call_count=0,
+            # i109: no result to read a trace from.
+            my_squad_result="not_called",
             tool_args={},
             tool_output_status=None,
             tool_output_code=None,
@@ -380,6 +474,22 @@ def run_one(question: dict[str, Any], rep_index: int, bootstrap: dict[str, Any],
     return base
 
 
+def resolve_team_id(flag_value: int | None) -> int | None:
+    """i109: ``--team-id`` if given, else ``FPL_MEASURE_TEAM_ID`` if set and
+    numeric, else ``None``. A non-numeric env value aborts rather than being
+    silently ignored (a run that thinks it connected a team and did not is
+    the i56 pattern)."""
+    if flag_value is not None:
+        return flag_value
+    raw = os.environ.get(TEAM_ID_ENV, "").strip()
+    if not raw:
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        raise SystemExit(f"{TEAM_ID_ENV}={raw!r} is not an integer team id.") from None
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bootstrap", default=str(DEFAULT_BOOTSTRAP))
@@ -388,12 +498,21 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--limit", type=int, default=0, help="0 = all questions in the corpus")
     parser.add_argument("--only-family", default=None)
     parser.add_argument("--only-id", default=None, help="comma-separated question ids")
+    parser.add_argument(
+        "--team-id", type=int, default=None,
+        help=(
+            "i109: FPL team id to connect for every call (shallow-copied onto the "
+            f"bootstrap as {MY_TEAM_ID_KEY}); env {TEAM_ID_ENV} is the alternative, "
+            "the flag wins. Omitted: no team, calls unchanged."
+        ),
+    )
     args = parser.parse_args(argv)
 
     _configure_imports()
     _load_env_file(PACKAGE_ROOT / ".env")
 
     api_key = require_api_key(PROVIDER)
+    team_id = resolve_team_id(args.team_id)
 
     from tool_routing_corpus import CORPUS
 
@@ -417,7 +536,9 @@ def main(argv: list[str] | None = None) -> int:
     total_calls = len(questions) * args.reps
     print(
         f"Running {len(questions)} questions x {args.reps} reps = {total_calls} calls "
-        f"against {PROVIDER}/{MODEL}. Appending to {out_path}",
+        f"against {PROVIDER}/{MODEL}"
+        + (f", team_id={team_id} connected" if team_id is not None else ", no team connected")
+        + f". Appending to {out_path}",
         file=sys.stderr,
     )
 
@@ -427,7 +548,7 @@ def main(argv: list[str] | None = None) -> int:
     with out_path.open("a", encoding="utf-8") as fh:
         for q in questions:
             for rep in range(args.reps):
-                obs = run_one(q, rep, bootstrap, api_key)
+                obs = run_one(q, rep, bootstrap, api_key, team_id=team_id)
                 fh.write(json.dumps(obs, ensure_ascii=False) + "\n")
                 fh.flush()
                 written.append(obs)
