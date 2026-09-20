@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-17",
+  "updated": "2026-09-20",
   "cards": [
     {
       "id": "s1",
@@ -654,14 +654,14 @@
     },
     {
       "id": "i37",
-      "col": "idea",
+      "col": "shipped",
       "title": "Residual: el reintento del evaluador entrega render crudo",
-      "desc": "Lo que queda del 1/40 de #160, y es un camino DISTINTO y preexistente. Cuando el evaluador rechaza una respuesta YA sintetizada y el unico reintento (limitado por diseno a uno, para no pagar una tercera llamada al LLM) llama a una herramienta en vez de escribir texto, esa salida se entrega sin sintetizar. Reproducido con cliente falso y pineado en test_evaluator_retry_render_is_a_known_residual_bare_render_path -- documentado, no escondido.\n\nEl arreglo tiene el mismo dilema de coste que #160 resolvio para el camino principal: dar turno de sintesis al reintento significa una tercera llamada. El numero de #160 sugiere que el coste real seria bajo (solo 15/80 turnos ejecutan herramienta, y de esos solo los rechazados llegan aqui), pero hay que medirlo antes de decidir, no asumirlo.",
+      "desc": "Fusionada (PR #290, 19/09). Medido en prod antes del fix (28% de los turnos rechazados, 7/7 reintentos), el reintento del evaluador ahora recibe una llamada de síntesis sobre sus propios resultados en vez de entregar el render() crudo de la herramienta, que queda solo como fallback si esa llamada falla.",
       "tags": [
         "Backend",
         "IA"
       ],
-      "progress": 0
+      "progress": 100
     },
     {
       "id": "s23",
@@ -1330,10 +1330,10 @@
     },
     {
       "id": "i95",
-      "col": "idea",
-      "progress": 0,
+      "col": "shipped",
+      "progress": 100,
       "title": "Tres listas emitidas sin declarar: held_back, dgw/bgw_gameweeks, allowed_domains",
-      "desc": "ENCONTRADO 2026-09-13 por la guarda de omisión de [[i49]] (35 llamadas offline contra salidas producidas): rank_captain_candidates.held_back (294 filas, 297 KB al LLM), get_team_schedule.dgw_gameweeks/bgw_gameweeks y web_fetch.allowed_domains se emiten y no están en ningún ToolSpec.output_schema. i49 los capa vía puente explícito (_UNDECLARED_TRUNCATABLE_FIELDS, auto-expira al declararse; un test pinea que siguen sin declarar). El encargo: declararlos en sus módulos y retirar el puente; y de paso decidir si held_back debe siquiera salir del tool (el pool «avoid» no lo lee nadie). Medida de referencia en prod: turno de capitán 116.411 a 28.285 tokens de entrada con el puente.",
+      "desc": "Fusionada (PR #291, 19/09). held_back, dgw_gameweeks/bgw_gameweeks y allowed_domains quedan declarados en sus ToolSpec.output_schema (el lever de truncado ya puede caparlos por declaración), el puente _UNDECLARED_TRUNCATABLE_FIELDS de i49 se retira, y allowed_domains se marca deliberadamente excluido del cap por ser una allowlist estática.",
       "tags": [
         "Backend",
         "IA",
@@ -1342,10 +1342,10 @@
     },
     {
       "id": "i96",
-      "col": "idea",
-      "progress": 0,
+      "col": "shipped",
+      "progress": 100,
       "title": "La entrega del reintento del evaluador deja tool_calls=[] aunque un tool corrió",
-      "desc": "VISTO EN PROD 2026-09-13 (fda7f29) al verificar [[i80]]: sesión, turno 3 «¿Quién es mejor capitán, Haaland o Salah?»: routing_trace.tool_sequence=[compare_players], retry_attempted=true, synthesis_turn=false, y tool_calls=[] en el bundle (y por tanto en el audit). audit.tool_calls_from_ask_v2 devuelve vacío sin selected_tool, y la entrega del reintento llega sin él. Es la misma clase de defecto que i80 cerró: el instrumento dice «cero» donde hubo uno. Arreglo probable: derivar tool_calls de tool_sequence cuando selected_tool sea None; test con un OrchestratorResult de reintento.",
+      "desc": "Fusionada (PR #290, 19/09). Las llamadas que ejecuta el reintento del evaluador entran en tool_calls_trace con retry=True, y tool_calls_from_ask_v2 audita cada llamada real (nombre, args, estado) en vez de devolver [] cuando selected_tool es None, igual por /ask que por sesión.",
       "tags": [
         "Backend",
         "Infra"
@@ -1353,10 +1353,10 @@
     },
     {
       "id": "i97",
-      "col": "idea",
-      "progress": 0,
+      "col": "shipped",
+      "progress": 100,
       "title": "El serializador zonal del camino de sesión solo pasa 6 campos por exploiter",
-      "desc": "ENCONTRADO 2026-09-13 por el constructor de [[i80]], fuera de su fila y no tocado: fpl_server._zonal_opportunity_meta_dict (usado por /session/{id}/ask) serializa 6 campos por exploiter y pierde los de i85-i90 y los club_source/club_note de [[i75]]. Por /ask (turno inicial, el que la UI usa para preguntas nuevas) va por _to_dict y llega todo. PR de una línea (reusar _to_dict) + test que compara las claves de ambos caminos.",
+      "desc": "Fusionada (PR #292, 19/09). SessionAskResponse.zonal_opportunity serializa con el mismo _to_dict genérico que /ask, en vez del _zonal_opportunity_meta_dict a mano que perdía los campos de i75/i85-i91; el serializador viejo queda borrado.",
       "tags": [
         "Backend",
         "Deuda tecnica"
@@ -1364,10 +1364,10 @@
     },
     {
       "id": "i98",
-      "col": "idea",
-      "progress": 0,
+      "col": "shipped",
+      "progress": 100,
       "title": "El matcher exacto de la tarjeta zonal no alcanza a Oli McBurnie, Josh King ni a «O&#039;Nien»",
-      "desc": "MEDIDO EN PROD 2026-09-13 al cerrar [[i75]] (20 equipos, store 2026-27): 27 o más filas con club_source=store, ninguna con club equivocado. Dos causas visibles en la lista: (a) FPL usa formas cortas o compuestas que RANK_EXACT no cubre («Oli McBurnie» vs «Oliver McBurnie», «Josh King» vs «Joshua King», «Solanke-Mitchell» vs «Dominic Solanke», «B.Fernandes»); (b) el store trae «Luke O&#039;Nien» con la entidad HTML sin desescapar, un bug de ingesta de Understat, no del matcher. Encargo doble: html.unescape en la ingesta táctica (con test) y decidir, midiendo lo que resolvería nuevamente, si KNOWN_NICKNAMES gana estas formas.",
+      "desc": "Fusionada (PR #293, 19/09). html.unescape en la ingesta de fpl-tactical corrige nombres con entidades HTML sin desescapar (O'Nien, O'Riley, O'Brien, O'Reilly) y 35 formas medidas del store se suman a KNOWN_NICKNAMES, subiendo la resolución de 296 a 335 de 449 nombres sin cambiar ningún destino previo; Josh King queda sin resolver a propósito por ambigüedad de club.",
       "tags": [
         "Datos",
         "Backend"
@@ -1375,10 +1375,10 @@
     },
     {
       "id": "i99",
-      "col": "idea",
-      "progress": 0,
+      "col": "shipped",
+      "progress": 100,
       "title": "Cinco turnos orquestados por user-id y luego el camino determinista en silencio",
-      "desc": "MEDIDO EN PROD 2026-09-13 (a9b2fcc) con el conteo de [[i75]]: con cualquier X-User-Id nuevo, las 5 primeras preguntas zonales van al orquestador (debug.selected_tool=get_zonal_opportunity) y de la sexta en adelante la respuesta llega sin selected_tool ni raw_output, con un final_text distinto («Rivales de Chelsea J4-J8...»). Espaciar 15 s no cambia nada; rotar el id sí. Parece la cuota free por id degradando al camino legado sin decirlo. NO verificado en código: el encargo es localizar el corte, decidir si degradar en silencio es lo que se quiere (probablemente no: el usuario no sabe que cambió de motor) y, como mínimo, que orchestration_absent lo diga.",
+      "desc": "Fusionada (PR #289, 19/09). El corte medido era quota.py (tope free: 5 mensajes o 220K tokens/día por X-User-Id hasheado) y no era silencioso -- ya devolvía outcome=quota_exceeded; el único defecto real, el mensaje de upgrade nombrando siempre «límite de mensajes» aunque el tope disparado fuera por tokens, queda arreglado nombrando el tope que corresponde.",
       "tags": [
         "Backend",
         "Deploy"
@@ -1410,10 +1410,10 @@
     },
     {
       "id": "i102",
-      "col": "idea",
-      "progress": 0,
+      "col": "shipped",
+      "progress": 100,
       "title": "La tarjeta de calendario nunca llega al chat por HTTP",
-      "desc": "ENCONTRADO 2026-09-15 trabajando en i93 (PR #282), parado a tiempo en vez de forzado dentro de esa PR: fpl_server.AskResponse y SessionAskResponse no tienen campo fixture_outlook. Verificado por el chat de revisión con grep directo sobre fpl_server.py: cero menciones.\n\nTrack D construyó FixtureOutlookCard y la cableó en FinalResponse y en la UI (IntentRenderer.tsx monta la tarjeta cuando response.fixture_outlook != null), pero nunca en el contrato HTTP que fpl_server.py sirve. Es decir: la tarjeta de calendario compacta NUNCA se ha renderizado en el chat de producción, en NINGÚN turno de get_fixture_outlook, compuesto o no — no es una regresión de i93, es un hueco que existe desde que Track D se construyó.\n\nCon i93 el turno compuesto ya tiene intent=fixture_outlook, selected_tool=get_fixture_outlook y la meta correcta en el dict de ask_v2 (probado con tests que llaman al adapter real, harness_adapter.to_ask_response). Falta solo la serialización HTTP: añadir fixture_outlook a los dos modelos Pydantic y al payload que arma cada ruta (/ask y /session/{id}/ask), y a los tipos de fpl-ui que leen la respuesta.\n\nALCANCE: fpl_server.py + contrato de API — fuera de la fila de i93, que no lo tocó a propósito. Verificación: un clic real en /fixtures debe mostrar la tira compacta de jornadas junto a la prosa, no solo la prosa.",
+      "desc": "Fusionada (PR #294, 19/09). fixture_outlook se propaga en harness_adapter.to_ask_response y se declara en AskResponse/SessionAskResponse (más la construcción de sesión), cerrando el hueco por el que la tarjeta de calendario nunca llegaba al chat vía HTTP en ninguna ruta; captura del clic real en /fixtures queda pendiente del despliegue.",
       "tags": [
         "Backend",
         "UI",
