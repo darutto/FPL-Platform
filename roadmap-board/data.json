@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-19",
+  "updated": "2026-09-20",
   "cards": [
     {
       "id": "s1",
@@ -1488,6 +1488,18 @@
         "IA",
         "FPL Asistente"
       ]
+    },
+    {
+      "id": "i109",
+      "col": "idea",
+      "progress": 0,
+      "title": "El harness de medición nunca tiene equipo enlazado: la mitad particular de chip/transfer no se ha medido jamás",
+      "tags": [
+        "Backend",
+        "IA",
+        "Medición"
+      ],
+      "desc": "VERIFICADO EN MAIN (ed3cec2) por el chat de revisión: scripts/measure_tool_routing.py run_one (:307-347) llama ask_orchestrated(question, bootstrap, …) con el bootstrap congelado y nunca pone bootstrap[\"_my_team_id\"] — la clave que harness.ask_v2 inyecta (harness.py:775) y que get_my_squad lee (:182). Resultado medido por el piloto (5 reps × 118 preguntas): TODA llamada a get_my_squad devolvió «no hay ningún equipo conectado». En las 14 preguntas de chip sobre plantilla existente (cvg-01/02/03/04/05/09/10/11/12, ad-03/04/05/07/10) el orquestador produjo get_chip_advice + get_my_squad solo en 13/70 corridas, y en 0/70 había plantilla real que evaluar.\n\nPOR QUÉ IMPORTA: Leo decidió (2026-09-19) que una respuesta de chip tiene dos partes — general (¿es buena jornada para el chip y qué grupo de equipos lo hace?) y particular (¿la plantilla del usuario tiene ese grupo?). Ninguna puerta sobre la parte particular puede existir hasta que el harness tenga plantilla. Bloquea además las evaluaciones restantes del piloto de Jev y la decisión de [[i108]].\n\nENCARGO: --team-id opcional (o env FPL_MEASURE_TEAM_ID) en measure_tool_routing.py que hace shallow-copy del bootstrap y pone _my_team_id antes de ask_orchestrated (misma regla que harness.py:775 y orchestrator.py:2278: nunca mutar el dict compartido); cada fila de observación registra team_id_present y si get_my_squad devolvió plantilla (status ok + picks no vacíos) o el mensaje de sin-equipo. Usar el team id de Leo (enlazado en prod). NO tocar chip_advisor.py, etiquetas ni corpus — eso viene en el bloque de cierre del piloto.\n\nCIERRE: en los 14 ids de chip, get_my_squad devuelve plantilla real 14/14 con --team-id; sin --team-id, los números de las 118 corridas existentes no cambian (0 over-fires).\n\nORIGEN: handoff directo de la sesión del piloto de Jev (fpl-platform-f3, 2026-09-20); independiente de [[i104]] y del worktree del piloto."
     }
   ]
 }
