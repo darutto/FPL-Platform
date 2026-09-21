@@ -1,4 +1,5 @@
 .env
+.env.jev-pilot
 __pycache__/
 *.pyc
 phase25_live_evidence.json
