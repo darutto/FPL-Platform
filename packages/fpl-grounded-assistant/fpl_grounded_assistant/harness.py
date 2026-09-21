@@ -1222,6 +1222,8 @@ def ask_v2(
                 # i105: orchestrator_provider / orchestrator_model, what the
                 # orchestrator ran with, for the audit line and debug bundle.
                 **_project_orchestrator_identity(orch_result),
+                # i106: guard reason + blocked text, for the audit line only.
+                **_project_final_text_guard(orch_result),
                 "routing_trace": routing_trace,
                 # i96: every executed call (primary + retry), for the audit line.
                 "tool_calls_trace": _project_tool_calls_trace(orch_result),
@@ -1305,6 +1307,7 @@ def ask_v2(
             # i105: an LLM that picked no grounded tool was still an LLM that
             # ran and billed; the audit line prices it by this model.
             **_project_orchestrator_identity(orch_result),
+            **_project_final_text_guard(orch_result),  # i106
             # i96: this is the branch where a retry that ran a tool with a
             # non-ok status lands with selected_tool=None; the calls it
             # executed are still real and still audited.
@@ -1410,6 +1413,18 @@ def _project_orchestrator_identity(orch_result: Any) -> dict[str, str | None]:
     return {
         "orchestrator_provider": getattr(orch_result, "provider", None),
         "orchestrator_model":    None if _model in (None, "", "none") else str(_model),
+    }
+
+
+def _project_final_text_guard(orch_result: Any) -> dict[str, str | None]:
+    """i106: ``{"final_text_guard_reason", "guarded_raw_answer_text"}`` read
+    off the result. Both ``None`` on a clean turn. Internal dict keys only:
+    they feed the audit line (both HTTP surfaces) and never an HTTP contract
+    -- ``AskResponse``/``SessionAskResponse`` do not carry them.
+    """
+    return {
+        "final_text_guard_reason": getattr(orch_result, "final_text_guard_reason", None),
+        "guarded_raw_answer_text": getattr(orch_result, "guarded_raw_answer_text", None),
     }
 
 

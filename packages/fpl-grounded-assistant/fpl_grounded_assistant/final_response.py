@@ -3166,6 +3166,9 @@ def _try_session_orchestration_response(
         # orchestrator unreachable) read as None, never as a default provider.
         "provider":      result.get("orchestrator_provider"),
         "model":         result.get("orchestrator_model"),
+        # i106: same dict, same two keys the /ask audit line reads.
+        "final_text_guard_reason": result.get("final_text_guard_reason"),
+        "guarded_raw_answer_text": result.get("guarded_raw_answer_text"),
     }
     response = FinalResponse(
         final_text=answer_text,
