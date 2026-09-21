@@ -17,7 +17,7 @@
 import type { TeamOutlook, FixtureOutlookGW } from '@/lib/types';
 import { bandColor, venueLabel, hexRgba, type Band } from '@/lib/fixture-outlook-format';
 import { teamOutlookQuestion, fixtureCellQuestion } from '@/lib/fixture-chat-links';
-import { AvgPill } from './FixtureTickerRow';
+import { TeamHeader } from './FixtureTickerRow';
 
 // Chart geometry (SVG user units == px; the chart scrolls, never stretches).
 const X0 = 52;
@@ -42,9 +42,12 @@ type Pt = {
 export function FixtureTendencyChart({
   team,
   onAsk,
+  showHeader = true,
 }: {
   team: TeamOutlook;
   onAsk?: (question: string) => void;
+  /** i110: false when the composer already rendered TeamHeader for this team. */
+  showHeader?: boolean;
 }) {
   const series = team.series;
   const n = series.length;
@@ -78,25 +81,14 @@ export function FixtureTendencyChart({
   const bands = [1, 2, 3, 4, 5] as const;
 
   return (
-    <div className="space-y-3">
-      {/* Header — parity with the detailed row */}
-      <div className="flex items-center gap-3.5 flex-wrap">
-        {onAsk ? (
-          <button
-            type="button"
-            onClick={() => onAsk(teamOutlookQuestion(team.team_name, team.axis))}
-            className="text-[22px] font-black tracking-tight leading-none text-white hover:text-bf-turquoise transition-colors min-w-[58px] text-left"
-          >
-            {team.team_short}
-          </button>
-        ) : (
-          <span className="text-[22px] font-black tracking-tight leading-none text-white min-w-[58px]">
-            {team.team_short}
-          </span>
-        )}
-        <AvgPill avg={avg} />
-        {team.verdict && <span className="text-[14.5px] text-bf-gray">{team.verdict}</span>}
-      </div>
+    <div className="space-y-3" data-testid="fixture-tendency-chart">
+      {/* Header — parity with the detailed row (the same TeamHeader) */}
+      {showHeader && (
+        <TeamHeader
+          team={team}
+          onAskTeam={onAsk ? () => onAsk(teamOutlookQuestion(team.team_name, team.axis)) : undefined}
+        />
+      )}
 
       <div className="overflow-x-auto">
         <div style={{ width: chartW }}>
