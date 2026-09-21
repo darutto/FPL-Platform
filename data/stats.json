@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-20T05:06:17Z",
+  "generatedAt": "2026-09-21T05:07:11Z",
   "season": "2026/27",
   "seasonStatus": "in_season",
   "gameweek": 4,
@@ -147,6 +147,14 @@
   ],
   "players": [
     {
+      "name": "Haaland",
+      "team": "MCI",
+      "position": "FWD",
+      "xg": 4.42,
+      "xa": 0.53,
+      "minutes": 450
+    },
+    {
       "name": "Saka",
       "team": "ARS",
       "position": "MID",
@@ -155,12 +163,20 @@
       "minutes": 416
     },
     {
-      "name": "Haaland",
-      "team": "MCI",
-      "position": "FWD",
-      "xg": 3.33,
-      "xa": 0.51,
-      "minutes": 360
+      "name": "B.Fernandes",
+      "team": "MUN",
+      "position": "MID",
+      "xg": 2.56,
+      "xa": 1.32,
+      "minutes": 450
+    },
+    {
+      "name": "Mbeumo",
+      "team": "MUN",
+      "position": "MID",
+      "xg": 3.07,
+      "xa": 0.8,
+      "minutes": 450
     },
     {
       "name": "Barry",
@@ -171,20 +187,20 @@
       "minutes": 417
     },
     {
-      "name": "B.Fernandes",
-      "team": "MUN",
-      "position": "MID",
-      "xg": 2.28,
-      "xa": 1.13,
-      "minutes": 360
+      "name": "Isak",
+      "team": "LIV",
+      "position": "FWD",
+      "xg": 3.54,
+      "xa": 0.08,
+      "minutes": 413
     },
     {
-      "name": "Mbeumo",
-      "team": "MUN",
+      "name": "E.Le Fée",
+      "team": "SUN",
       "position": "MID",
-      "xg": 2.8,
-      "xa": 0.55,
-      "minutes": 360
+      "xg": 2.06,
+      "xa": 1.34,
+      "minutes": 438
     },
     {
       "name": "Thiago",
@@ -193,6 +209,22 @@
       "xg": 3.13,
       "xa": 0.16,
       "minutes": 442
+    },
+    {
+      "name": "Calvert-Lewin",
+      "team": "LEE",
+      "position": "FWD",
+      "xg": 3.0,
+      "xa": 0.08,
+      "minutes": 419
+    },
+    {
+      "name": "Brobbey",
+      "team": "SUN",
+      "position": "FWD",
+      "xg": 2.94,
+      "xa": 0.11,
+      "minutes": 399
     },
     {
       "name": "Gibbs-White",
@@ -211,20 +243,12 @@
       "minutes": 437
     },
     {
-      "name": "E.Le Fée",
-      "team": "SUN",
-      "position": "MID",
-      "xg": 2.06,
-      "xa": 0.82,
-      "minutes": 348
-    },
-    {
-      "name": "Isak",
-      "team": "LIV",
+      "name": "Gonzalo",
+      "team": "FUL",
       "position": "FWD",
-      "xg": 2.79,
-      "xa": 0.06,
-      "minutes": 333
+      "xg": 2.33,
+      "xa": 0.58,
+      "minutes": 425
     },
     {
       "name": "Groß",
@@ -235,20 +259,12 @@
       "minutes": 450
     },
     {
-      "name": "Calvert-Lewin",
-      "team": "LEE",
-      "position": "FWD",
-      "xg": 2.48,
-      "xa": 0.08,
-      "minutes": 329
-    },
-    {
       "name": "Tavernier",
       "team": "BOU",
       "position": "MID",
       "xg": 1.7,
-      "xa": 0.81,
-      "minutes": 350
+      "xa": 0.92,
+      "minutes": 424
     },
     {
       "name": "Foden",
@@ -283,6 +299,30 @@
       "minutes": 360
     },
     {
+      "name": "Gakpo",
+      "team": "LIV",
+      "position": "MID",
+      "xg": 0.64,
+      "xa": 1.71,
+      "minutes": 370
+    },
+    {
+      "name": "Cherki",
+      "team": "MCI",
+      "position": "MID",
+      "xg": 0.72,
+      "xa": 1.54,
+      "minutes": 302
+    },
+    {
+      "name": "Szoboszlai",
+      "team": "LIV",
+      "position": "MID",
+      "xg": 1.42,
+      "xa": 0.82,
+      "minutes": 440
+    },
+    {
       "name": "De Cuyper",
       "team": "BHA",
       "position": "DEF",
@@ -305,46 +345,6 @@
       "xg": 1.26,
       "xa": 0.89,
       "minutes": 413
-    },
-    {
-      "name": "Palmer",
-      "team": "CHE",
-      "position": "MID",
-      "xg": 1.31,
-      "xa": 0.79,
-      "minutes": 442
-    },
-    {
-      "name": "Szoboszlai",
-      "team": "LIV",
-      "position": "MID",
-      "xg": 1.29,
-      "xa": 0.8,
-      "minutes": 360
-    },
-    {
-      "name": "Davis",
-      "team": "IPS",
-      "position": "DEF",
-      "xg": 1.59,
-      "xa": 0.46,
-      "minutes": 450
-    },
-    {
-      "name": "Havertz",
-      "team": "ARS",
-      "position": "FWD",
-      "xg": 1.67,
-      "xa": 0.37,
-      "minutes": 437
-    },
-    {
-      "name": "Rudoni",
-      "team": "COV",
-      "position": "MID",
-      "xg": 0.92,
-      "xa": 1.11,
-      "minutes": 297
     }
   ]
 }
