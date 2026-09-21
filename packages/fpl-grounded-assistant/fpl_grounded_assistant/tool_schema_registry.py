@@ -1630,6 +1630,55 @@ GET_HISTORICAL_GAMEWEEK_TOP_SCORER_SCHEMA = ToolSchema(
 
 
 # ---------------------------------------------------------------------------
+# i107 -- one team's recent results with home/away split
+# ---------------------------------------------------------------------------
+
+GET_TEAM_RESULTS_SCHEMA = ToolSchema(
+    name="get_team_results",
+    description=(
+        "Recent RESULTS of one team, with a home/away split -- 'cómo le ha ido de "
+        "local', 'goles en los últimos N partidos', 'cuántos ha ganado fuera', "
+        "'porterías a cero', 'últimos resultados con marcador'. Returns the last N "
+        "finished matches (opponent, venue, score, W/D/L), a summary (W/D/L, goals "
+        "for/against, clean sheets, averages) and venue_split for home and away. "
+        "Live season by default; season='previous' or 'YYYY-YYYY' for a past one. "
+        "Not fixtures ahead (get_fixture_outlook / get_team_schedule), not a "
+        "team overview with players (get_team_snapshot), not a player "
+        "(get_player_snapshot), not a player ranking (rank_players_by_metric)."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "team": {
+                "type":        "string",
+                "description": "Team name, short code or alias ('Arsenal', 'ARS', 'Spurs').",
+            },
+            "last_n": {
+                "type":        "integer",
+                "description": "How many recent matches (default 5), applied after the venue filter.",
+                "minimum":     1,
+                "maximum":     38,
+            },
+            "venue": {
+                "type":        "string",
+                "description": "all (default), home ('de local'), away ('de visitante').",
+                "enum":        ["all", "home", "away"],
+            },
+            "season": {
+                "type":        "string",
+                "description": (
+                    "Omit for the current season; 'YYYY-YYYY', 'YY/YY' or 'previous' "
+                    "('la temporada pasada') for a past one."
+                ),
+            },
+        },
+        "required":             ["team"],
+        "additionalProperties": False,
+    },
+)
+
+
+# ---------------------------------------------------------------------------
 # Registry construction
 # ---------------------------------------------------------------------------
 
@@ -1682,6 +1731,8 @@ _BASE_REGISTERED_SCHEMAS: tuple[ToolSchema, ...] = (
     # i82 -- owned-store season tools
     GET_PLAYER_SEASON_POINTS_SCHEMA,
     GET_HISTORICAL_GAMEWEEK_TOP_SCORER_SCHEMA,
+    # i107 -- one team's recent results, home/away split
+    GET_TEAM_RESULTS_SCHEMA,
 )
 
 # Compatibility adapters remain registered and directly callable, but are no

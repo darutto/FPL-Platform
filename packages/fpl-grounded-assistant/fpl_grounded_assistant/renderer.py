@@ -734,6 +734,56 @@ def _render_get_player_season_points(output: dict[str, Any], locale: Locale = DE
 
 
 # ---------------------------------------------------------------------------
+# Team results renderer (i107)
+# ---------------------------------------------------------------------------
+
+def _summary_line(s: dict[str, Any]) -> str:
+    return (
+        f"{s.get('played', 0)} PJ, {s.get('won', 0)}G {s.get('drawn', 0)}E {s.get('lost', 0)}P, "
+        f"GF {s.get('gf', 0)} GC {s.get('ga', 0)}, {s.get('clean_sheets', 0)} porterías a cero "
+        f"(media {s.get('avg_gf', 0.0)} a favor / {s.get('avg_ga', 0.0)} en contra)"
+    )
+
+
+def _render_get_team_results(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
+    """Render get_team_results output.  i107."""
+    del locale  # mechanical signature only, as the sibling renderers.
+    status = output.get("status")
+    if status == "ok":
+        team = output.get("team") or {}
+        name = team.get("name") or team.get("short_name") or "?"
+        venue = output.get("venue", "all")
+        venue_word = {"home": " de local", "away": " de visitante"}.get(venue, "")
+        matches = output.get("matches") or []
+        lines = [f"{name} — últimos {len(matches)} partidos{venue_word}:"]
+        for m in matches:
+            where = "vs" if m.get("is_home") else "en casa de"
+            gw = m.get("gameweek")
+            gw_txt = f"J{gw} " if gw is not None else ""
+            lines.append(
+                f"  {gw_txt}{where} {m.get('opponent_short', '?')} "
+                f"{m.get('goals_for', 0)}-{m.get('goals_against', 0)} ({m.get('result', '?')})"
+            )
+        lines.append(f"Resumen: {_summary_line(output.get('summary') or {})}.")
+        split = output.get("venue_split") or {}
+        lines.append(f"Local: {_summary_line(split.get('home') or {})}.")
+        lines.append(f"Visitante: {_summary_line(split.get('away') or {})}.")
+        prov = _provenance_line(output)
+        if prov:
+            lines.append(prov)
+        return "\n".join(lines)
+
+    if status == "ambiguous":
+        return output.get("message", f"'{output.get('query', '?')}' coincide con varios equipos.")
+    if status == "not_found":
+        return output.get("message", f"No encontré el equipo '{output.get('query', '?')}'.")
+
+    code = output.get("code", "error")
+    message = output.get("message", "Error inesperado al consultar los resultados del equipo.")
+    return f"Error ({code}): {message}"
+
+
+# ---------------------------------------------------------------------------
 # Historical gameweek top scorer renderer (i82)
 # ---------------------------------------------------------------------------
 
@@ -2144,6 +2194,7 @@ _RENDERERS = {
     "get_player_form":              _render_get_player_form,            # Phase 2.6d
     "get_player_season_points":     _render_get_player_season_points,
     "get_historical_gameweek_top_scorer": _render_get_historical_gameweek_top_scorer,  # i82
+    "get_team_results":             _render_get_team_results,        # i107
     "get_injury_list":              _render_get_injury_list,            # Phase 2.6d
     "get_price_changes":            _render_get_price_changes,          # Phase 2.6d
     "get_team_fixture_calendar":    _render_get_team_fixture_calendar,  # Phase 2.6e
