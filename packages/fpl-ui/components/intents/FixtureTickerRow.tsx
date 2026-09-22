@@ -48,18 +48,52 @@ function cellVenue(gw: FixtureOutlookGW): string {
   return gw.fixtures.map((f) => venueLabel(f.is_home)).join('/');
 }
 
+/**
+ * TeamHeader — the one team header (code + "Prom X.X" pill + verdict) shared
+ * by the ticker row, the tendency chart and the in-chat card. i110: the card
+ * used to mount both sub-views for the same team and each painted this
+ * header, so every team appeared twice; now the header is a component of its
+ * own, rendered ONCE per team by whoever composes the views.
+ */
+export function TeamHeader({ team, onAskTeam }: { team: TeamOutlook; onAskTeam?: () => void }) {
+  const { team_short, verdict, avg_band } = team;
+  const teamLabel = onAskTeam ? (
+    <button
+      type="button"
+      onClick={onAskTeam}
+      className="text-[22px] font-black tracking-tight leading-none text-white hover:text-bf-turquoise transition-colors min-w-[58px] text-left"
+    >
+      {team_short}
+    </button>
+  ) : (
+    <span className="text-[22px] font-black tracking-tight leading-none text-white min-w-[58px]">
+      {team_short}
+    </span>
+  );
+  return (
+    <div className="flex items-center gap-3.5 flex-wrap" data-testid="team-header">
+      {teamLabel}
+      <AvgPill avg={avg_band} />
+      {verdict && <span className="text-[14.5px] text-bf-gray">{verdict}</span>}
+    </div>
+  );
+}
+
 export function FixtureTickerRow({
   team,
   onAskTeam,
   onAskCell,
   showFdrNumbers = true,
+  showHeader = true,
 }: {
   team: TeamOutlook;
   onAskTeam?: () => void;
   onAskCell?: (gw: FixtureOutlookGW) => void;
   showFdrNumbers?: boolean;
+  /** i110: false when the composer already rendered TeamHeader for this team. */
+  showHeader?: boolean;
 }) {
-  const { team_short, verdict, series, runs, avg_band } = team;
+  const { series, runs } = team;
 
   // Map each GW to the run it belongs to (runs are contiguous, non-overlapping).
   const runByGw = new Map<number, FixtureOutlookRun>();
@@ -77,27 +111,9 @@ export function FixtureTickerRow({
     else segments.push({ run, cells: [gw] });
   }
 
-  const teamLabel = onAskTeam ? (
-    <button
-      type="button"
-      onClick={onAskTeam}
-      className="text-[22px] font-black tracking-tight leading-none text-white hover:text-bf-turquoise transition-colors min-w-[58px] text-left"
-    >
-      {team_short}
-    </button>
-  ) : (
-    <span className="text-[22px] font-black tracking-tight leading-none text-white min-w-[58px]">
-      {team_short}
-    </span>
-  );
-
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-3.5 flex-wrap">
-        {teamLabel}
-        <AvgPill avg={avg_band} />
-        {verdict && <span className="text-[14.5px] text-bf-gray">{verdict}</span>}
-      </div>
+    <div className="space-y-3" data-testid="fixture-ticker-row">
+      {showHeader && <TeamHeader team={team} onAskTeam={onAskTeam} />}
 
       <div className="flex items-start gap-2 overflow-x-auto flex-wrap">
         {segments.map((seg, i) => (

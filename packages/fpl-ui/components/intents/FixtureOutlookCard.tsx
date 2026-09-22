@@ -18,7 +18,7 @@
 import type { FixtureOutlookMeta } from '@/lib/types';
 import { CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
 import { axisLabel } from '@/lib/fixture-outlook-format';
-import { FixtureTickerRow, BandLegend } from './FixtureTickerRow';
+import { FixtureTickerRow, BandLegend, TeamHeader } from './FixtureTickerRow';
 import { FixtureTendencyChart } from './FixtureTendencyChart';
 import { FingerprintWaves } from './CardOrnaments';
 
@@ -47,12 +47,15 @@ export default function FixtureOutlookCard({ data }: Props) {
           </span>
         </div>
 
-        {/* Team rows */}
+        {/* Team rows. i110: ONE header per team (the sub-views no longer
+            paint their own here), and no tendency chart for a single
+            gameweek — one point has no trend, the cell already says it. */}
         <div className="space-y-3">
           {teams.map((t) => (
-            <div key={t.team_short} className="space-y-1.5">
-              <FixtureTickerRow team={t} />
-              <FixtureTendencyChart team={t} />
+            <div key={t.team_short} className="space-y-1.5" data-testid="fixture-outlook-team">
+              <TeamHeader team={t} />
+              <FixtureTickerRow team={t} showHeader={false} />
+              {t.series.length >= 2 && <FixtureTendencyChart team={t} showHeader={false} />}
             </div>
           ))}
         </div>
