@@ -434,8 +434,12 @@ f_r1 = f_session2.respond("should I captain Haaland", STANDARD_BOOTSTRAP, includ
 _assert_eq(f_r1.debug.resolver.resolver_source, "none", "F1: initial question resolver_source = none")
 _assert_eq(f_r1.debug.resolver.resolver_used, False, "F2: initial question resolver_used = False")
 _assert_is_none(f_r1.debug.resolver.resolver_confidence, "F3: initial question resolver_confidence = None")
-_assert_eq(f_r1.debug.resolver.fallback_reason, "llm_unavailable",
-           "F4: initial question fallback_reason = llm_unavailable (no client provided)")
+# i103: on a first turn the session has nothing a reference could point at, so
+# the resolver is no longer attempted at all (before i103 it was called with no
+# client and reported "llm_unavailable" -- a call paid for nothing on the real
+# provider). The reason now names the guard that skipped it.
+_assert_eq(f_r1.debug.resolver.fallback_reason, "no_resolvable_context",
+           "F4: initial question fallback_reason = no_resolvable_context (nothing to resolve)")
 _assert_eq(f_r1.debug.resolver.rewritten_question, "should I captain Haaland", "F5: initial question rewritten_question = original")
 
 # Turn 2 with mock LLM resolver returning high confidence

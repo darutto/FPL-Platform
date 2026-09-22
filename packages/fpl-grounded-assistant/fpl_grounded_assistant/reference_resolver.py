@@ -96,8 +96,11 @@ failure; ``"low_confidence"`` when LLM returned but confidence < threshold;
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from typing import Any
+
+from fpl_player_registry import resolve_player_candidates
 
 from .conversation_state import ConversationState, resolve_pronouns
 from .dispatcher import (
@@ -109,6 +112,29 @@ from .dispatcher import (
 )
 from .llm_layer import DEFAULT_MODEL, _PROVIDER
 from .provider_client import ProviderNotAvailableError, get_provider
+
+
+# ---------------------------------------------------------------------------
+# Resolver model (i103)
+# ---------------------------------------------------------------------------
+
+RESOLVER_MODEL_ENV: str = "FPL_RESOLVER_MODEL"
+"""Env var that overrides the model the reference resolvers call."""
+
+
+def resolver_model() -> str:
+    """Model id the resolver LLM calls, read at call time.
+
+    ``FPL_RESOLVER_MODEL`` wins when set (non-blank); otherwise the
+    per-provider default from ``llm_layer`` (``DEFAULT_MODEL``).  Read on
+    every call, not at import, so the knob can be turned without a restart
+    and so tests can set it after the module is loaded.  The default is
+    still ``gemini-2.5-flash`` for the Gemini provider -- deprecated since
+    2026-06-17; which id prod should run is Leo's call, this only opens the
+    knob.
+    """
+    override = os.environ.get(RESOLVER_MODEL_ENV, "").strip()
+    return override or DEFAULT_MODEL
 
 
 # ---------------------------------------------------------------------------
@@ -226,6 +252,11 @@ class ReferenceResolution:
         Why the LLM resolver was not used (Phase 4g):
         ``"llm_unavailable"`` — no client, LLM error, or parse failure
         ``"low_confidence"``  — LLM returned but confidence < threshold
+        ``"no_resolvable_context"`` — (i103) the session had nothing a
+        reference could point at, so the resolver was not invoked
+        ``"resolved_query_not_a_player"`` — (i103) the LLM named something
+        that does not resolve against ``bootstrap["elements"]`` (a team, a
+        word), so no player template was built; question left intact
         ``None``              — LLM was used (no fallback) or no resolution needed
     """
 
@@ -334,6 +365,41 @@ def _parse_resolver_response(text: str) -> dict[str, Any] | None:
     return data
 
 
+_NULL_QUERY_TOKENS: frozenset[str] = frozenset({"", "null", "none"})
+
+
+def _normalize_resolved_query(value: Any) -> str | None:
+    """Collapse the LLM's "no player" spellings to ``None``, once, at the edge.
+
+    i103: the resolver prompt says ``null`` but models also answer with the
+    string ``"null"``, ``"none"`` or whitespace -- all truthy, all of which
+    used to reach ``_build_canonical_question`` and become
+    ``"tell me about null"`` (2/90 rows in the i100 matrix).
+    """
+    if not isinstance(value, str):
+        return None
+    stripped = value.strip()
+    if stripped.lower() in _NULL_QUERY_TOKENS:
+        return None
+    return stripped
+
+
+def _resolves_to_player(query: str, bootstrap: dict[str, Any]) -> bool:
+    """``True`` when *query* names at least one element of *bootstrap*.
+
+    Uses the shared registry matcher (PR #14 / #142-145) with the settings
+    the deterministic player lookup uses for an explicit name: prefix
+    allowed, substring not.  ``ambiguous`` counts as a player (the downstream
+    pick wizard handles it); only ``not_found`` is rejected.
+    """
+    elements = bootstrap.get("elements") or []
+    teams = bootstrap.get("teams") or []
+    resolution = resolve_player_candidates(
+        query, elements, teams, allow_prefix=True, allow_substring=False,
+    )
+    return resolution.status != "not_found"
+
+
 def _build_canonical_question(
     resolved_query: str | None,
     intent_guess: str | None,
@@ -394,8 +460,9 @@ def resolve_reference_llm(
     state: ConversationState,
     *,
     client: Any = None,
-    model: str = DEFAULT_MODEL,
+    model: str | None = None,
     history: list[tuple[str, str]] | None = None,
+    bootstrap: dict[str, Any] | None = None,
 ) -> ReferenceResolution | None:
     """Attempt LLM-based reference resolution.
 
@@ -415,9 +482,16 @@ def resolve_reference_llm(
         Optional pre-built Anthropic client.  If ``None``, the function
         attempts to build one from ``ANTHROPIC_API_KEY``.
     model:
-        Model identifier.  Defaults to ``DEFAULT_MODEL``.
+        Model identifier.  ``None`` (default) → ``resolver_model()``, i.e.
+        ``FPL_RESOLVER_MODEL`` read now, else ``DEFAULT_MODEL``.
     history:
         Bounded recent history as ``(question_text, intent)`` pairs.
+    bootstrap:
+        FPL bootstrap dict.  When given, ``resolved_query`` is validated
+        against ``bootstrap["elements"]`` BEFORE any player template is
+        built (i103 guard b); a non-player leaves the question intact with
+        ``fallback_reason="resolved_query_not_a_player"``.  ``None`` keeps
+        the pre-i103 behaviour (no validation) for callers without data.
 
     Returns
     -------
@@ -431,7 +505,7 @@ def resolve_reference_llm(
 
     prompt = build_resolver_prompt(question, state, history=history)
     result = provider.call(
-        model=model,
+        model=model or resolver_model(),
         system_prompt=RESOLVER_SYSTEM_PROMPT,
         user_message=prompt,
         max_tokens=_RESOLVER_MAX_TOKENS,
@@ -443,11 +517,23 @@ def resolve_reference_llm(
     if parsed is None:
         return None
 
-    resolved_query: str | None = parsed["resolved_query"] or None
+    resolved_query: str | None = _normalize_resolved_query(parsed["resolved_query"])
     intent_guess:   str | None = parsed["intent_guess"] or None
     confidence: float = float(max(0.0, min(1.0, parsed["confidence"])))
     language:   str   = parsed["language"]
     reference_source: str = parsed["reference_source"]
+
+    # i103 guard (b): only a name that resolves against the live elements
+    # may fill a player template.  Validated here, before the question is
+    # built -- _build_canonical_question stays string-only and sees None.
+    fallback_reason: str | None = None
+    if (
+        resolved_query is not None
+        and bootstrap is not None
+        and not _resolves_to_player(resolved_query, bootstrap)
+    ):
+        resolved_query = None
+        fallback_reason = "resolved_query_not_a_player"
 
     rewritten = _build_canonical_question(resolved_query, intent_guess, question)
 
@@ -458,6 +544,7 @@ def resolve_reference_llm(
         confidence=confidence,
         language=language,
         rewritten_question=rewritten,
+        fallback_reason=fallback_reason,
     )
 
 
@@ -470,8 +557,9 @@ def resolve_reference(
     state: ConversationState,
     *,
     client: Any = None,
-    model: str = DEFAULT_MODEL,
+    model: str | None = None,
     history: list[tuple[str, str]] | None = None,
+    bootstrap: dict[str, Any] | None = None,
 ) -> ReferenceResolution:
     """Unified reference resolver: LLM-first with Phase 4e deterministic fallback.
 
@@ -493,9 +581,13 @@ def resolve_reference(
         Optional Anthropic client.  If ``None``, the function attempts to
         build one from ``ANTHROPIC_API_KEY``.
     model:
-        Model identifier.  Defaults to ``DEFAULT_MODEL``.
+        Model identifier.  ``None`` (default) → ``resolver_model()``.
     history:
         Bounded recent history as ``(question_text, intent)`` pairs.
+    bootstrap:
+        FPL bootstrap dict, forwarded to ``resolve_reference_llm`` so the
+        LLM's ``resolved_query`` is checked against ``elements`` before a
+        player template is built (i103).
 
     Returns
     -------
@@ -505,7 +597,8 @@ def resolve_reference(
     """
     # --- Path 1: LLM resolution ---
     llm_result = resolve_reference_llm(
-        question, state, client=client, model=model, history=history
+        question, state, client=client, model=model, history=history,
+        bootstrap=bootstrap,
     )
     if llm_result is not None and llm_result.confidence >= _CONFIDENCE_THRESHOLD:
         # LLM succeeded — fallback_reason remains None
@@ -658,7 +751,7 @@ def resolve_comparison_followup_llm(
     state: "ConversationState",
     *,
     client: Any = None,
-    model: str = DEFAULT_MODEL,
+    model: str | None = None,
 ) -> "ReferenceResolution | None":
     """Attempt LLM-based comparison follow-up resolution.
 
@@ -684,7 +777,7 @@ def resolve_comparison_followup_llm(
         Optional pre-built Anthropic client.  If ``None``, the function
         attempts to build one from ``ANTHROPIC_API_KEY``.
     model:
-        Model identifier.  Defaults to ``DEFAULT_MODEL``.
+        Model identifier.  ``None`` (default) → ``resolver_model()``.
 
     Returns
     -------
@@ -703,7 +796,7 @@ def resolve_comparison_followup_llm(
 
     prompt = build_comp_resolver_prompt(question, state)
     result = provider.call(
-        model=model,
+        model=model or resolver_model(),
         system_prompt=COMP_RESOLVER_SYSTEM_PROMPT,
         user_message=prompt,
         max_tokens=_COMP_RESOLVER_MAX_TOKENS,
