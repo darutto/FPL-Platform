@@ -110,6 +110,7 @@ from .provider_client import (
     call_orch_provider,
 )
 from .catalogue import t
+from .final_text_guard import looks_like_raw_payload
 from .evaluator import EvaluatorVerdict, evaluate_response
 from .locale_types import DEFAULT_LOCALE
 from .renderer import render
@@ -575,6 +576,13 @@ class OrchestratorResult:
     # turn, matching ``model="none"``. The audit line reads provider/model
     # from here, never from a presentation env var.
     provider:                str | None = None
+    # i106: when ``answer_text`` was replaced because it read as a raw payload
+    # (a renderer's "Error (...)" line, an HTML document, a web_fetch dump --
+    # see final_text_guard.GUARD_REASONS), the reason and the blocked text,
+    # kept whole. Both None on a clean turn. They reach the audit line and
+    # the internal ask_v2 dict only -- never an HTTP contract.
+    final_text_guard_reason: str | None = None
+    guarded_raw_answer_text: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -2328,10 +2336,41 @@ def ask_orchestrated(
         _orch_request_fn=_orch_request_fn,
         _eval_client=_eval_client,
     )
+    # i106: the final-text guard, applied HERE, once, to whatever any of the
+    # body's return sites produced -- a render() that was the last word
+    # (retry, normal, partial, no-text) or a synthesis that quoted HTML or an
+    # error back. outcome, tool_output and the trace are untouched; the
+    # blocked text is kept whole for the audit line.
+    result = _guard_final_text(result)
     if not result.llm_used:
         return result
     _label = provider if provider in _ALL_PROVIDERS else PROVIDER_ANTHROPIC
     return replace(result, provider=_label)
+
+
+def _guard_final_text(result: OrchestratorResult) -> OrchestratorResult:
+    """Replace a raw-payload ``answer_text`` with an honest sentence.
+
+    ``looks_like_raw_payload`` decides (closed reasons); this only swaps the
+    text and records what was swapped. The sentence names the tool when one
+    was chosen, and never repeats the raw text.
+    """
+    reason = looks_like_raw_payload(result.answer_text)
+    if reason is None:
+        return result
+    tool = result.tool_chosen or (
+        result.tool_calls_trace[-1].get("name") if result.tool_calls_trace else None
+    )
+    if tool:
+        honest = t("orchestrator.final_text_guarded_tool", DEFAULT_LOCALE, tool=tool)
+    else:
+        honest = t("orchestrator.final_text_guarded", DEFAULT_LOCALE)
+    return replace(
+        result,
+        answer_text=honest,
+        final_text_guard_reason=reason,
+        guarded_raw_answer_text=result.answer_text,
+    )
 
 
 def _ask_orchestrated_impl(
