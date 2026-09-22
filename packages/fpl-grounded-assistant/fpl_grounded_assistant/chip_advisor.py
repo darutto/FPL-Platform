@@ -29,6 +29,8 @@ triple_captain:
 wildcard:
     Grounded in timing within the active bootstrap ``chips[]`` window.
     The start and expiry events are data, never season constants.
+    i108 E1: ``signals.favoured_teams`` names the teams with the easiest
+    fixture run over ``favoured_run_gameweeks`` (identity by team id).
 
 bench_boost:
     Grounded in average fixture difficulty (FDR) for top outfield players.
@@ -36,6 +38,12 @@ bench_boost:
     Marginal    (avg FDR <= 3.0): mixed fixture picture.
     Unfavorable (avg FDR > 3.0): generally difficult fixtures.
     Caveat: squad bench depth and game time are not available to this system.
+    i108 E1: ``signals.favoured_teams`` / ``signals.favoured_players`` name
+    the top-10 players (and their teams) whose fixture this gameweek is at or
+    under ``_BB_FAVORABLE_FDR`` -- the per-player team_id + fdr that
+    ``_score_outfield_players`` already computed and the advice discarded.
+    Identity is ``element`` / ``team`` ids from the bootstrap; names and
+    short codes ride alongside for rendering only.
 
 free_hit (Phase 8c):
     Grounded in DGW/BGW detection from ``team_fixtures`` in bootstrap.
@@ -114,6 +122,14 @@ _BB_FAVORABLE_FDR: float = 2.5
 
 #: Average FDR <= this → BB marginal
 _BB_MARGINAL_FDR: float = 3.0
+
+#: i108 E1 -- wildcard favoured run. A wildcard rebuild is judged on a run of
+#: fixtures, not one gameweek; when the caller passes no ``horizon`` the run
+#: is this many gameweeks (the same default the fixture-run tools use).
+_WC_FAVOURED_RUN_GWS: int = 5
+
+#: i108 E1 -- a team's average FDR over the run <= this → favoured for wildcard.
+_WC_FAVOURED_RUN_FDR: float = _BB_FAVORABLE_FDR
 
 #: Free hit: DGW teams >= this → conditions_favorable (Phase 8c)
 _FH_DGW_FAVORABLE_TEAMS: int = 6
@@ -327,6 +343,9 @@ def _score_outfield_players(bootstrap: dict[str, Any]) -> list[dict[str, Any]]:
                 inputs["xgi_per_90"],
             )
             scored.append({
+                # i108 E1: identity for the squad cross (E2) is the bootstrap
+                # element id, never the name -- two players can share web_name.
+                "element":       el.get("id"),
                 "web_name":      el.get("web_name", "Unknown"),
                 "captain_score": score,
                 "tier":          tier,
@@ -348,6 +367,120 @@ def _score_outfield_players(bootstrap: dict[str, Any]) -> list[dict[str, Any]]:
             continue
 
     return sorted(scored, key=lambda x: x["captain_score"], reverse=True)
+
+
+# ---------------------------------------------------------------------------
+# i108 E1 -- favoured group signals (additive; never change a recommendation)
+# ---------------------------------------------------------------------------
+
+def _team_short_map(bootstrap: dict[str, Any]) -> dict[int, str]:
+    return {
+        int(t["id"]): str(t.get("short_name", f"T{t['id']}"))
+        for t in bootstrap.get("teams", [])
+        if t.get("id") is not None
+    }
+
+
+def _bench_boost_favoured(
+    top_n: list[dict[str, Any]],
+    bootstrap: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Return ``(favoured_teams, favoured_players)`` for bench boost.
+
+    ``favoured_players`` are the entries of *top_n* (the same top-10 the
+    average FDR is computed from) whose fixture this gameweek is at or under
+    ``_BB_FAVORABLE_FDR``; ``favoured_teams`` are their distinct teams. Both
+    carry integer ids (``element`` / ``team``) as identity; ``web_name`` and
+    ``team_short`` are for rendering only. Empty lists when nobody qualifies
+    -- that is a signal too ("good for nobody this week").
+    """
+    short_map = _team_short_map(bootstrap)
+    favoured_players: list[dict[str, Any]] = []
+    teams: dict[int, dict[str, Any]] = {}
+    for p in top_n:
+        fdr = p.get("fdr")
+        team_id = p.get("team_id")
+        if fdr is None or team_id is None or p.get("element") is None:
+            continue
+        if fdr > _BB_FAVORABLE_FDR:
+            continue
+        team_id = int(team_id)
+        favoured_players.append({
+            "element":       int(p["element"]),
+            "team":          team_id,
+            "team_short":    short_map.get(team_id, str(team_id)),
+            "position":      p.get("position", ""),
+            "web_name":      p.get("web_name", "Unknown"),
+            "captain_score": p.get("captain_score"),
+            "fdr":           fdr,
+        })
+        entry = teams.setdefault(team_id, {
+            "team":             team_id,
+            "team_short":       short_map.get(team_id, str(team_id)),
+            "fdr":              fdr,
+            "top_player_count": 0,
+        })
+        entry["top_player_count"] += 1
+    favoured_teams = sorted(teams.values(), key=lambda t: (t["fdr"], t["team"]))
+    return favoured_teams, favoured_players
+
+
+def _team_run_fdr(
+    team_id: int,
+    team_fixtures: dict | None,
+    start_gw: int,
+    run_gameweeks: int,
+) -> tuple[float | None, int]:
+    """Average FDR and fixture count for *team_id* over ``[start_gw, start_gw+run)``.
+
+    ``(None, 0)`` when the team has no fixture in the run -- reported as
+    absent rather than as a neutral 3.0, so a blank run is never "favoured".
+    """
+    if not team_fixtures:
+        return None, 0
+    raw = team_fixtures.get(team_id) or team_fixtures.get(str(team_id)) or []
+    gw_end = start_gw + run_gameweeks
+    difficulties: list[int] = []
+    for fixture in raw:
+        try:
+            gw = int(fixture.get("gameweek"))
+            difficulty = int(fixture.get("difficulty"))
+        except (TypeError, ValueError):
+            continue
+        if start_gw <= gw < gw_end:
+            difficulties.append(difficulty)
+    if not difficulties:
+        return None, 0
+    return round(sum(difficulties) / len(difficulties), 2), len(difficulties)
+
+
+def _wildcard_favoured_teams(
+    bootstrap: dict[str, Any],
+    current_gw: int,
+    run_gameweeks: int,
+) -> list[dict[str, Any]]:
+    """Teams whose average FDR over the next *run_gameweeks* is favourable.
+
+    Read from ``team_fixtures`` directly (the window bootstrap's FDR map
+    covers the evaluated window only). Identity is the integer ``team`` id;
+    ``team_short`` rides alongside for rendering. Sorted easiest first; on a
+    tie the team with more fixtures in the run ranks first (a one-fixture run
+    is thinner evidence than a five-fixture one -- ``fixture_count`` says so).
+    """
+    team_fixtures = bootstrap.get("team_fixtures")
+    short_map = _team_short_map(bootstrap)
+    favoured: list[dict[str, Any]] = []
+    for team_id in short_map:
+        avg, count = _team_run_fdr(team_id, team_fixtures, current_gw, run_gameweeks)
+        if avg is None or avg > _WC_FAVOURED_RUN_FDR:
+            continue
+        favoured.append({
+            "team":          team_id,
+            "team_short":    short_map[team_id],
+            "avg_fdr":       avg,
+            "fixture_count": count,
+        })
+    return sorted(favoured, key=lambda t: (t["avg_fdr"], -t["fixture_count"], t["team"]))
 
 
 # ---------------------------------------------------------------------------
@@ -534,8 +667,13 @@ def _advise_wildcard(
     bootstrap: dict[str, Any],
     current_gw: int,
     window_context: dict[str, Any] | None = None,
+    run_gameweeks: int = _WC_FAVOURED_RUN_GWS,
 ) -> dict[str, Any]:
-    """Compute wildcard conditions from timing inside its active window."""
+    """Compute wildcard conditions from timing inside its active window.
+
+    ``run_gameweeks`` only feeds the additive ``favoured_teams`` signal
+    (i108 E1); the recommendation is timing-only, as before.
+    """
     window_context = window_context or {
         "window_status": "unavailable",
         "active_window": None,
@@ -581,6 +719,11 @@ def _advise_wildcard(
             "current_gameweek": current_gw,
             "active_window": active_window,
             "gameweeks_remaining": remaining,
+            # i108 E1 (additive): the group a wildcard rebuild would target.
+            "favoured_run_gameweeks": run_gameweeks,
+            "favoured_teams": _wildcard_favoured_teams(
+                bootstrap, current_gw, run_gameweeks
+            ),
         },
         "advice_text": (
             f"Wildcard conditions: {label}. {phrase} "
@@ -630,11 +773,16 @@ def _advise_bench_boost(bootstrap: dict[str, Any]) -> dict[str, Any]:
             f"(average FDR: {avg_fdr}). Fixture conditions do not favour bench boost."
         )
 
+    favoured_teams, favoured_players = _bench_boost_favoured(top_n, bootstrap)
+
     return {
         "recommendation": recommendation,
         "signals": {
             "average_fdr_top10": avg_fdr,
             "top_player_count":  len(top_n),
+            # i108 E1 (additive): who the average is made of, by id.
+            "favoured_teams":    favoured_teams,
+            "favoured_players":  favoured_players,
         },
         "advice_text": (
             f"Bench boost conditions: {label}. {phrase} "
@@ -883,7 +1031,13 @@ def get_chip_advice(
             }
         else:
             result = _advise_wildcard(
-                window_bootstrap, evaluated_gw, window_context
+                window_bootstrap, evaluated_gw, window_context,
+                # A caller-given horizon is the run; the 1-GW default the
+                # captain window resolves to is not a run, so use the chip's.
+                run_gameweeks=(
+                    time_context["horizon"] if horizon is not None
+                    else _WC_FAVOURED_RUN_GWS
+                ),
             )
     elif chip == CHIP_BENCH_BOOST:
         result = _advise_bench_boost(window_bootstrap)
@@ -1012,7 +1166,48 @@ CHIP_ADVICE_SPEC = ToolSpec(
                     "unsupported",
                 ],
             },
-            "signals": {"type": "object"},
+            "signals": {
+                "type": "object",
+                # i108 E1: the emitted arrays are declared (i95 rule) with
+                # their integer identity fields. Other signal keys stay
+                # chip-specific and undeclared, as before.
+                "properties": {
+                    "favoured_run_gameweeks": {"type": "integer"},
+                    "favoured_teams": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["team", "team_short"],
+                            "properties": {
+                                "team":             {"type": "integer"},
+                                "team_short":       {"type": "string"},
+                                # bench_boost entries
+                                "fdr":              {"type": "integer"},
+                                "top_player_count": {"type": "integer"},
+                                # wildcard entries
+                                "avg_fdr":          {"type": "number"},
+                                "fixture_count":    {"type": "integer"},
+                            },
+                        },
+                    },
+                    "favoured_players": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["element", "team", "team_short", "position"],
+                            "properties": {
+                                "element":       {"type": "integer"},
+                                "team":          {"type": "integer"},
+                                "team_short":    {"type": "string"},
+                                "position":      {"type": "string"},
+                                "web_name":      {"type": "string"},
+                                "captain_score": {"type": "number"},
+                                "fdr":           {"type": "integer"},
+                            },
+                        },
+                    },
+                },
+            },
             "advice_text": {"type": "string"},
         },
     },
