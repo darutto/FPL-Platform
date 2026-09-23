@@ -136,6 +136,7 @@ def _fake_ask_v2_factory(seen: list[str]):
 def _orch_on(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("FPL_ORCH_ENABLED", "1")
     monkeypatch.delenv("FPL_RESOLVER_MODEL", raising=False)
+    monkeypatch.delenv("FPL_RESOLVER_PROVIDER", raising=False)
 
 
 # ---------------------------------------------------------------------------
@@ -354,7 +355,7 @@ def test_end_to_end_session_with_context_blocks_team_rewrite():
 
 def test_resolver_model_default_when_env_absent(monkeypatch):
     monkeypatch.delenv("FPL_RESOLVER_MODEL", raising=False)
-    assert resolver_model() == rr.DEFAULT_MODEL
+    assert resolver_model() == rr.DEFAULT_RESOLVER_MODEL
 
 
 def test_resolver_model_env_wins(monkeypatch):
@@ -364,7 +365,7 @@ def test_resolver_model_env_wins(monkeypatch):
 
 def test_resolver_model_blank_env_falls_back(monkeypatch):
     monkeypatch.setenv("FPL_RESOLVER_MODEL", "   ")
-    assert resolver_model() == rr.DEFAULT_MODEL
+    assert resolver_model() == rr.DEFAULT_RESOLVER_MODEL
 
 
 def test_client_receives_env_model_set_after_import(monkeypatch):
@@ -380,7 +381,7 @@ def test_client_receives_default_model_when_env_absent(monkeypatch):
     monkeypatch.delenv("FPL_RESOLVER_MODEL", raising=False)
     client = _Client(_resolver_json("Haaland", intent_guess="player_summary", confidence=0.9))
     resolve_reference_llm("¿y él?", ConversationState(last_player_query="Haaland"), client=client)
-    assert [c["model"] for c in client.messages.calls] == [rr.DEFAULT_MODEL]
+    assert [c["model"] for c in client.messages.calls] == [rr.DEFAULT_RESOLVER_MODEL]
 
 
 def test_explicit_model_kwarg_still_wins(monkeypatch):
@@ -402,3 +403,54 @@ def test_comparison_resolver_reads_env_model_too(monkeypatch):
         "¿y Saka?", ConversationState(last_comparison=("Haaland", "Salah")), client=client,
     )
     assert [c["model"] for c in client.messages.calls] == ["resolver-model-from-env"]
+
+
+# ---------------------------------------------------------------------------
+# Default pair: openai / gpt-5.6-luna (Leo 2026-09-23), provider and model
+# resolved together so a GPT id is never sent to Gemini.
+# ---------------------------------------------------------------------------
+
+def test_default_pair_is_openai_luna(monkeypatch):
+    monkeypatch.delenv("FPL_RESOLVER_MODEL", raising=False)
+    monkeypatch.delenv("FPL_RESOLVER_PROVIDER", raising=False)
+    assert rr.resolver_provider() == "openai"
+    assert resolver_model() == "gpt-5.6-luna"
+
+
+def test_default_ignores_the_presentation_default_provider(monkeypatch):
+    """llm_layer's DEFAULT_PROVIDER (gemini in prod) is the presentation
+    layer's knob; the resolver no longer inherits it."""
+    monkeypatch.setenv("DEFAULT_PROVIDER", "gemini")
+    monkeypatch.delenv("FPL_RESOLVER_PROVIDER", raising=False)
+    assert rr.resolver_provider() == "openai"
+    assert resolver_model() == "gpt-5.6-luna"
+
+
+def test_provider_override_brings_its_own_default_model(monkeypatch):
+    monkeypatch.setenv("FPL_RESOLVER_PROVIDER", " Gemini ")
+    monkeypatch.delenv("FPL_RESOLVER_MODEL", raising=False)
+    assert rr.resolver_provider() == "gemini"
+    assert resolver_model() != "gpt-5.6-luna"
+    assert resolver_model().startswith("gemini")
+
+
+def test_model_override_wins_over_the_provider_default(monkeypatch):
+    monkeypatch.setenv("FPL_RESOLVER_PROVIDER", "gemini")
+    monkeypatch.setenv("FPL_RESOLVER_MODEL", "gemini-3.5-flash")
+    assert resolver_model() == "gemini-3.5-flash"
+
+
+@pytest.mark.parametrize("fn_name", ["resolve_reference_llm", "resolve_comparison_followup_llm"])
+def test_both_resolvers_ask_get_provider_for_the_resolver_provider(monkeypatch, fn_name):
+    """Read off the call get_provider actually received, not off the helper."""
+    monkeypatch.setenv("FPL_RESOLVER_PROVIDER", "openai")
+    seen: list[str] = []
+
+    def fake_get_provider(name, client=None):
+        seen.append(name)
+        raise rr.ProviderNotAvailableError("stop here")
+
+    monkeypatch.setattr(rr, "get_provider", fake_get_provider)
+    state = ConversationState(last_player_query="Haaland", last_comparison=("Haaland", "Salah"))
+    assert getattr(rr, fn_name)("¿y él?", state) is None
+    assert seen == ["openai"]
