@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-22",
+  "updated": "2026-09-23",
   "cards": [
     {
       "id": "s1",
@@ -1468,10 +1468,10 @@
     },
     {
       "id": "i107",
-      "col": "idea",
-      "progress": 0,
+      "col": "shipped",
+      "progress": 100,
       "title": "No hay tool de resultados por equipo con split local/visitante",
-      "desc": "Las 6 preguntas del snapshot («¿el Forest ha sido pésimo de local últimamente?», «¿cuántos goles de local en los últimos 10?») no tienen tool: el LLM improvisó 2–3 web_fetch por turno (fbref y premierleague.com → error; BBC → 100 KB de HTML no tabulable), 35–40K tokens de input por turno y «no puedo confirmarlo» ×4. Los datos YA existen: get_fixtures_for_gw tiene marcadores por jornada y el owned store también. Verificado: no existe get_team_results en tool_schema_registry.\n\nCIERRE: un primitivo query-shaped (ver la nota «query primitives gap») tipo get_team_results(team, last_n, venue=home|away|all) que devuelva partidos, goles a favor/en contra y resumen; las dos preguntas del snapshot se responden en UNA ronda sin web_fetch. Con el tool en el catálogo, re-medir el ruteo (Jev v2b hoy manda la primera a get_team_snapshot con 0.97 y las de goles a 0.51–0.66 con none_of_these subiendo).\n\nORIGEN: hallazgo lateral del piloto de Jev como router de tools (2026-09-19, worktree C:\\Users\\thera\\wt-jev-pilot, rama experiment/jev-tool-routing, sin commitear). Evidencia primaria: snapshot de 6 turnos del audit log de prod (audit_logs/2026-09-19.ndjson del contenedor, 18:08–18:13 UTC) + JSONL del worktree. Relay de Leo; memoria en project_prod_audit_snapshot_2026_09_19.md.\n\nCIERRE DEL PILOTO 2026-09-20: sin cambio de evidencia. Jev rutea las dos preguntas de prod a get_team_snapshot con 0.51-0.66 y none_of_these en 0.19-0.27 (banda de «no sé») — hueco de catálogo, no de ruteo. ENCARGO: get_team_results(team, last_n, venue=home|away|all) query-shaped desde el owned store, registrado con una descripción que nombre el split local/visitante. PUERTA: las dos preguntas de prod se resuelven en UNA llamada con cero web_fetch; measure_tool_routing 1 rep sin etiqueta robada (0 over-fires). Independiente de i106; ambas pequeñas/medianas.",
+      "desc": "Fusionada (PR #309, 23/09). Nueva tool get_team_results(team, last_n, venue) con partidos, resumen y split local/visitante para la temporada viva (una llamada cacheada) o pasada (owned store con sello de procedencia leído del puntero), registrada en los 4 sitios con 37 tests y medición 10/10 sin web_fetch.",
       "tags": [
         "Backend",
         "IA",
