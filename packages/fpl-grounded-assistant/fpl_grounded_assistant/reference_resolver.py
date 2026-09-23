@@ -110,8 +110,8 @@ from .dispatcher import (
     INTENT_PLAYER_SUMMARY,
     INTENT_RANK_CANDIDATES,
 )
-from .llm_layer import DEFAULT_MODEL, _PROVIDER
-from .provider_client import ProviderNotAvailableError, get_provider
+from .llm_layer import _PROVIDER_DEFAULT_MODELS
+from .provider_client import PROVIDER_OPENAI, ProviderNotAvailableError, get_provider
 
 
 # ---------------------------------------------------------------------------
@@ -121,20 +121,46 @@ from .provider_client import ProviderNotAvailableError, get_provider
 RESOLVER_MODEL_ENV: str = "FPL_RESOLVER_MODEL"
 """Env var that overrides the model the reference resolvers call."""
 
+RESOLVER_PROVIDER_ENV: str = "FPL_RESOLVER_PROVIDER"
+"""Env var that overrides the provider the reference resolvers call."""
+
+#: Default resolver provider/model: the pair prod's orchestrator runs
+#: (openai / gpt-5.6-luna, Leo 2026-09-23). Chosen as a PAIR on purpose: the
+#: resolver used to take its provider from llm_layer's DEFAULT_PROVIDER
+#: (gemini) and its model from the same table, so changing the model alone
+#: would send a GPT id to Gemini, the call would fail, and the resolver would
+#: fall back to the regex path without saying so.
+DEFAULT_RESOLVER_PROVIDER: str = PROVIDER_OPENAI
+DEFAULT_RESOLVER_MODEL: str = "gpt-5.6-luna"
+
+
+def resolver_provider() -> str:
+    """Provider the resolver LLM calls, read at call time.
+
+    ``FPL_RESOLVER_PROVIDER`` wins when set (non-blank, lower-cased);
+    otherwise ``DEFAULT_RESOLVER_PROVIDER``. Independent of llm_layer's
+    ``DEFAULT_PROVIDER``, which is the presentation layer's knob.
+    """
+    override = os.environ.get(RESOLVER_PROVIDER_ENV, "").strip().lower()
+    return override or DEFAULT_RESOLVER_PROVIDER
+
 
 def resolver_model() -> str:
     """Model id the resolver LLM calls, read at call time.
 
-    ``FPL_RESOLVER_MODEL`` wins when set (non-blank); otherwise the
-    per-provider default from ``llm_layer`` (``DEFAULT_MODEL``).  Read on
-    every call, not at import, so the knob can be turned without a restart
-    and so tests can set it after the module is loaded.  The default is
-    still ``gemini-2.5-flash`` for the Gemini provider -- deprecated since
-    2026-06-17; which id prod should run is Leo's call, this only opens the
-    knob.
+    ``FPL_RESOLVER_MODEL`` wins when set (non-blank). Otherwise the default
+    for the resolver's provider: ``gpt-5.6-luna`` on openai, and the
+    llm_layer per-provider default for any other provider -- so setting
+    only ``FPL_RESOLVER_PROVIDER`` never pairs it with another provider's
+    model id. Read on every call, not at import.
     """
     override = os.environ.get(RESOLVER_MODEL_ENV, "").strip()
-    return override or DEFAULT_MODEL
+    if override:
+        return override
+    provider = resolver_provider()
+    if provider == DEFAULT_RESOLVER_PROVIDER:
+        return DEFAULT_RESOLVER_MODEL
+    return _PROVIDER_DEFAULT_MODELS.get(provider, DEFAULT_RESOLVER_MODEL)
 
 
 # ---------------------------------------------------------------------------
@@ -483,7 +509,7 @@ def resolve_reference_llm(
         attempts to build one from ``ANTHROPIC_API_KEY``.
     model:
         Model identifier.  ``None`` (default) → ``resolver_model()``, i.e.
-        ``FPL_RESOLVER_MODEL`` read now, else ``DEFAULT_MODEL``.
+        ``FPL_RESOLVER_MODEL`` read now, else the resolver provider's default.
     history:
         Bounded recent history as ``(question_text, intent)`` pairs.
     bootstrap:
@@ -499,7 +525,7 @@ def resolve_reference_llm(
         ``None`` on any failure (safe — caller always falls back).
     """
     try:
-        provider = get_provider(_PROVIDER, client=client)
+        provider = get_provider(resolver_provider(), client=client)
     except ProviderNotAvailableError:
         return None
 
@@ -790,7 +816,7 @@ def resolve_comparison_followup_llm(
         return None
 
     try:
-        provider = get_provider(_PROVIDER, client=client)
+        provider = get_provider(resolver_provider(), client=client)
     except ProviderNotAvailableError:
         return None
 
