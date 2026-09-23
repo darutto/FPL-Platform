@@ -66,6 +66,8 @@ ENTITIES: dict[str, str] = {
     "Aston Villa": TEAM, "Brighton": TEAM, "Chelsea": TEAM, "Everton": TEAM,
     "Fulham": TEAM, "Liverpool": TEAM, "Manchester City": TEAM,
     "Newcastle": TEAM, "Wolves": TEAM, "El Bournemouth": TEAM,
+    # i107 team_results phrases
+    "Arsenal": TEAM, "Tottenham": TEAM,
 }
 
 #: Capitalised tokens that are Spanish words, not entities. Reviewed alongside
@@ -75,6 +77,7 @@ NON_ENTITIES: frozenset[str] = frozenset({
     "Cuál", "Cuáles", "Cuándo", "Cuánto", "Cuántos", "Cómo", "Debería", "En",
     "Es", "Estamos", "Está", "Falta", "FPL", "GW3", "Hay", "J1", "Le", "Los",
     "Me", "Premier", "Quién", "Quiénes", "Qué", "Saco", "Si", "Vale",
+    "Dame", "Cuántas",  # i107
 })
 
 #: Team names as written in questions -> the bootstrap's own naming. The
