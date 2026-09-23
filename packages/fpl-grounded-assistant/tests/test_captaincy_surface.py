@@ -340,15 +340,18 @@ def test_triple_captain_without_player_keeps_global_top_behavior(bootstrap):
     assert "option exists: Salah" in result["advice_text"]
 
 
-def test_triple_captain_is_not_compelling_when_nobody_s_minutes_are_known():
+def test_triple_captain_is_not_compelling_when_nobody_s_minutes_are_known(bootstrap):
     """Unknown minutes must not produce a confident chip recommendation.
 
     Triple captain triples the downside too, so "we have not measured how much
     this player plays" is the last state in which to call an option standout.
     """
-    from tests.conftest import BOOTSTRAP  # the board with no official history
-
-    result = get_chip_advice("triple_captain", copy.deepcopy(BOOTSTRAP))
+    # The conftest board has no official history. Taken as the fixture, not
+    # ``from tests.conftest import BOOTSTRAP``: this package's tests/ has no
+    # __init__.py, so ``import tests`` binds whichever regular ``tests``
+    # package comes first on sys.path (fpl-api-client's in CI) unless an
+    # earlier test happened to insert this package's path.
+    result = get_chip_advice("triple_captain", copy.deepcopy(bootstrap))
 
     assert result["status"] == "ok"
     assert "There is a standout option" not in result["advice_text"]
