@@ -230,8 +230,11 @@ class TestNoBehaviourChange:
             assert legacy["top_player_count"] == 5
         elif chip == "wildcard":
             assert set(legacy) == {"current_gameweek", "active_window", "gameweeks_remaining"}
+        elif chip == "free_hit":
+            # i108 E2 adds favoured_teams (DGW teams by id) to FH; nothing else.
+            assert _NEW_SIGNAL_KEYS & set(out["signals"]) == {"favoured_teams"}
         else:
-            # TC and FH gain nothing in E1.
+            # TC gains nothing.
             assert not (_NEW_SIGNAL_KEYS & set(out["signals"]))
         # advice_text still carries the legacy caveat: E1 does not touch prose.
         if chip == "bench_boost":

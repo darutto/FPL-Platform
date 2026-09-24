@@ -57,9 +57,22 @@ free_hit (Phase 8c):
     - DGW: a team has more than one fixture in the current GW window
     - BGW: a team in ``team_fixtures`` has zero fixtures in the current GW
 
+Squad fit (i108 E2)
+--------------------
+For bench_boost, wildcard and free_hit the output carries ``squad_fit``: the
+user's own squad crossed against the favoured group, by bootstrap id, never by
+name. Members come from, in order: ``bootstrap["_squad_context"]["players"]``
+(``squad_source="request"``), then ``bootstrap[LINKED_SQUAD_KEY]``
+(``"linked_team"``), else ``None``. This module never fetches: the linked
+squad is resolved and cached on the turn's bootstrap copy by
+``tool_dispatch.run_tool`` (the same app-layer seam that resolves the squad for
+``rank_captain_candidates``). The other ``_squad_context`` fields (itb,
+chips_remaining, free_transfers) are read exactly as before; the linked squad
+is never written into ``_squad_context``.
+
 Intentionally deferred
 -----------------------
-* User squad context (which chips are still available, bench composition)
+* Which chips are still available when no squad_context is supplied
 * Chip combination planning (e.g., triple captain + bench boost)
 * Long-horizon fixture window beyond current GW
 """
@@ -130,6 +143,20 @@ _WC_FAVOURED_RUN_GWS: int = 5
 
 #: i108 E1 -- a team's average FDR over the run <= this → favoured for wildcard.
 _WC_FAVOURED_RUN_FDR: float = _BB_FAVORABLE_FDR
+
+#: i108 E2 -- bootstrap key where ``tool_dispatch.run_tool`` caches the linked
+#: squad for the turn: the ``get_my_squad`` ok-dict, or ``LINKED_SQUAD_FAILED``
+#: when a team is linked but the squad could not be fetched. Absent when no
+#: team is linked or the request already carried the members.
+LINKED_SQUAD_KEY: str = "_linked_squad"
+
+#: i108 E2 -- cached marker for "team linked, squad not obtained".
+LINKED_SQUAD_FAILED: dict[str, str] = {"status": "fetch_failed"}
+
+#: i108 E2 -- chips whose output carries a squad_fit.
+_SQUAD_FIT_CHIPS: frozenset[str] = frozenset({
+    CHIP_BENCH_BOOST, CHIP_WILDCARD, CHIP_FREE_HIT,
+})
 
 #: Free hit: DGW teams >= this → conditions_favorable (Phase 8c)
 _FH_DGW_FAVORABLE_TEAMS: int = 6
@@ -483,6 +510,142 @@ def _wildcard_favoured_teams(
     return sorted(favoured, key=lambda t: (t["avg_fdr"], -t["fixture_count"], t["team"]))
 
 
+def _free_hit_favoured_teams(
+    bootstrap: dict[str, Any],
+    current_gw: int | None,
+) -> list[dict[str, Any]]:
+    """Teams with more than one fixture in *current_gw*, by team id (i108 E2).
+
+    The same rule as ``_classify_gameweek_type``'s DGW detection, but keyed
+    by the integer ``team`` id read from ``team_fixtures`` -- the existing
+    ``dgw_teams`` signal is short names only and is never mapped back to ids.
+    """
+    gw = current_gw if current_gw is not None else _get_current_gameweek(bootstrap)
+    team_fixtures = bootstrap.get("team_fixtures")
+    if gw is None or not team_fixtures:
+        return []
+    short_map = _team_short_map(bootstrap)
+    favoured: list[dict[str, Any]] = []
+    for raw_team_id, fixtures in team_fixtures.items():
+        count = sum(1 for f in fixtures or [] if f.get("gameweek") == gw)
+        if count > 1:
+            team_id = int(raw_team_id)
+            favoured.append({
+                "team":          team_id,
+                "team_short":    short_map.get(team_id, str(team_id)),
+                "fixture_count": count,
+            })
+    return sorted(favoured, key=lambda t: t["team"])
+
+
+# ---------------------------------------------------------------------------
+# i108 E2 -- the user's squad crossed against the favoured group
+# ---------------------------------------------------------------------------
+
+def _resolve_squad_members(
+    bootstrap: dict[str, Any],
+    squad_context: dict[str, Any] | None,
+) -> tuple[list[dict[str, Any]] | None, str | None, str | None]:
+    """Return ``(members, squad_source, linked_squad_error)``.
+
+    Precedence is per field, not per block: the request's squad_context wins
+    for the MEMBERS only when it carries ``players``; the UI's squad_context
+    today carries itb/free_transfers/chips_remaining and no players, so a
+    linked user falls through to the linked squad. Pure: reads what
+    ``tool_dispatch`` cached, never fetches.
+    """
+    if isinstance(squad_context, dict) and isinstance(squad_context.get("players"), list):
+        return squad_context["players"], "request", None
+    linked = bootstrap.get(LINKED_SQUAD_KEY)
+    if isinstance(linked, dict):
+        if linked.get("status") == "ok" and isinstance(linked.get("players"), list):
+            return linked["players"], "linked_team", None
+        return None, None, "fetch_failed"
+    return None, None, None
+
+
+def _member_is_starter(member: dict[str, Any]) -> bool | None:
+    starter = member.get("is_starter")
+    if isinstance(starter, bool):
+        return starter
+    try:
+        return int(member["pick_position"]) <= 11
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def _member_element(member: dict[str, Any]) -> int | None:
+    raw = member.get("id", member.get("element"))
+    if isinstance(raw, bool):
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _squad_fit(
+    chip: str,
+    signals: dict[str, Any],
+    members: list[dict[str, Any]],
+    bootstrap: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Cross the squad against the chip's favoured group, by id only.
+
+    A member is favoured when its element id is in ``favoured_players`` or
+    its team -- read from ``bootstrap["elements"]`` by element id, never from
+    a name or short code the squad row carries -- is in ``favoured_teams``.
+
+    * favoured group empty → ``not_applicable`` ("good for nobody this week"),
+      whatever the squad.
+    * bench_boost: the unit is the bench (non-starters); ``held`` = favoured
+      bench members, ``missing_count`` = bench size − held.
+    * wildcard / free_hit: ``held`` = favoured squad members,
+      ``missing_count`` = favoured teams with no player of yours.
+    * ``missing_count == 0`` → ``set``; otherwise ``needs_transfers``.
+    """
+    fav_players = {
+        p["element"] for p in signals.get("favoured_players") or []
+        if isinstance(p.get("element"), int)
+    }
+    fav_teams = {
+        t["team"] for t in signals.get("favoured_teams") or []
+        if isinstance(t.get("team"), int)
+    }
+    if not fav_players and not fav_teams:
+        return {"held": [], "missing_count": 0, "verdict": "not_applicable"}
+
+    team_of = {
+        e.get("id"): e.get("team")
+        for e in bootstrap.get("elements", [])
+        if e.get("id") is not None
+    }
+
+    def _favoured(element: int) -> bool:
+        return element in fav_players or team_of.get(element) in fav_teams
+
+    if chip == CHIP_BENCH_BOOST:
+        bench = [
+            e for e, m in ((_member_element(m), m) for m in members)
+            if e is not None and _member_is_starter(m) is False
+        ]
+        if not bench:
+            return None
+        held = [e for e in bench if _favoured(e)]
+        missing = len(bench) - len(held)
+    else:
+        elements = [e for e in (_member_element(m) for m in members) if e is not None]
+        held = [e for e in elements if _favoured(e)]
+        covered = {team_of.get(e) for e in elements}
+        missing = len(fav_teams - covered)
+
+    return {
+        "held": held,
+        "missing_count": missing,
+        "verdict": "set" if missing == 0 else "needs_transfers",
+    }
+
+
 # ---------------------------------------------------------------------------
 # Per-chip advice functions
 # ---------------------------------------------------------------------------
@@ -668,6 +831,7 @@ def _advise_wildcard(
     current_gw: int,
     window_context: dict[str, Any] | None = None,
     run_gameweeks: int = _WC_FAVOURED_RUN_GWS,
+    has_squad: bool = False,
 ) -> dict[str, Any]:
     """Compute wildcard conditions from timing inside its active window.
 
@@ -727,13 +891,21 @@ def _advise_wildcard(
         },
         "advice_text": (
             f"Wildcard conditions: {label}. {phrase} "
-            "Note: squad composition and which wildcard you still hold are not "
-            "available to this system."
+            + (
+                # i108 E2: with the squad in hand, composition IS known.
+                "Note: which wildcard you still hold is not known to this system."
+                if has_squad else
+                "Note: squad composition and which wildcard you still hold are not "
+                "available to this system."
+            )
         ),
     }
 
 
-def _advise_bench_boost(bootstrap: dict[str, Any]) -> dict[str, Any]:
+def _advise_bench_boost(
+    bootstrap: dict[str, Any],
+    has_squad: bool = False,
+) -> dict[str, Any]:
     """Compute bench boost conditions from average FDR for top outfield players."""
     ranked = _score_outfield_players(bootstrap)
     if not ranked:
@@ -786,9 +958,14 @@ def _advise_bench_boost(bootstrap: dict[str, Any]) -> dict[str, Any]:
         },
         "advice_text": (
             f"Bench boost conditions: {label}. {phrase} "
-            "This assessment is based on global fixture signals only. "
-            "Bench depth and whether your bench players have guaranteed game time "
-            "are not available to this system."
+            + (
+                # i108 E2: the bench is known; squad_fit says who is on it.
+                "Your bench is crossed against these players in squad_fit."
+                if has_squad else
+                "This assessment is based on global fixture signals only. "
+                "Bench depth and whether your bench players have guaranteed game time "
+                "are not available to this system."
+            )
         ),
     }
 
@@ -841,6 +1018,9 @@ def _advise_free_hit(
         # Backward compat (kept for existing callers)
         "affected_teams":      affected_teams_bc,
         "affected_team_count": affected_count_bc,
+        # i108 E2 (additive): the DGW teams again, by integer team id, so the
+        # squad cross never maps short names back to ids.
+        "favoured_teams":      _free_hit_favoured_teams(bootstrap, current_gw),
     }
 
     # GW label — omitted when GW is unknown to avoid "GW0" in output
@@ -986,6 +1166,19 @@ def get_chip_advice(
         chip, bootstrap, time_context["evaluated_gameweek"]
     )
 
+    if squad_context is None:
+        embedded_context = bootstrap.get("_squad_context")
+        if isinstance(embedded_context, dict):
+            squad_context = embedded_context
+    members, squad_source, linked_squad_error = _resolve_squad_members(
+        bootstrap, squad_context
+    )
+    squad_fields: dict[str, Any] = {
+        "squad_source": squad_source,
+        "squad_fit": None,
+        "linked_squad_error": linked_squad_error,
+    }
+
     if captain_window_needs_fixture_data(time_context, fixture_source):
         time_context["notice"] = missing_captain_fixture_notice(time_context)
         return {
@@ -1002,14 +1195,12 @@ def get_chip_advice(
             ),
             "fixture_context": None,
             **window_context,
+            **squad_fields,
         }
 
     current_gw = time_context["current_gameweek"]
     evaluated_gw = time_context["evaluated_gameweek"]
-    if squad_context is None:
-        embedded_context = bootstrap.get("_squad_context")
-        if isinstance(embedded_context, dict):
-            squad_context = embedded_context
+    has_squad = members is not None
 
     if chip == CHIP_TRIPLE_CAPTAIN:
         result = _advise_triple_captain(
@@ -1038,9 +1229,10 @@ def get_chip_advice(
                     time_context["horizon"] if horizon is not None
                     else _WC_FAVOURED_RUN_GWS
                 ),
+                has_squad=has_squad,
             )
     elif chip == CHIP_BENCH_BOOST:
-        result = _advise_bench_boost(window_bootstrap)
+        result = _advise_bench_boost(window_bootstrap, has_squad=has_squad)
     elif chip == CHIP_FREE_HIT:
         result = _advise_free_hit(window_bootstrap, evaluated_gw)  # None is safe — no GW0 leak
     else:
@@ -1055,7 +1247,17 @@ def get_chip_advice(
             "signals":          {},
             "advice_text":      f"'{chip}' is not a recognised FPL chip name.",
             **window_context,
+            **squad_fields,
         }
+
+    if (
+        has_squad
+        and chip in _SQUAD_FIT_CHIPS
+        and result["recommendation"] != "missing_context"
+    ):
+        squad_fields["squad_fit"] = _squad_fit(
+            chip, result["signals"], members, bootstrap
+        )
 
     return {
         "status":           "ok",
@@ -1073,6 +1275,8 @@ def get_chip_advice(
         # FI3a: additive — populated only for triple_captain (top captain's
         # attack-axis outlook); None for the other chips.
         "fixture_context":  result.get("fixture_context"),
+        # i108 E2: squad_source / squad_fit / linked_squad_error.
+        **squad_fields,
     }
 
 
@@ -1184,7 +1388,8 @@ CHIP_ADVICE_SPEC = ToolSpec(
                                 # bench_boost entries
                                 "fdr":              {"type": "integer"},
                                 "top_player_count": {"type": "integer"},
-                                # wildcard entries
+                                # wildcard entries (free_hit entries,
+                                # i108 E2: team/team_short/fixture_count)
                                 "avg_fdr":          {"type": "number"},
                                 "fixture_count":    {"type": "integer"},
                             },
@@ -1209,6 +1414,29 @@ CHIP_ADVICE_SPEC = ToolSpec(
                 },
             },
             "advice_text": {"type": "string"},
+            # i108 E2 -- where the squad members came from, and the cross.
+            "squad_source": {
+                "type": ["string", "null"],
+                "enum": ["request", "linked_team", None],
+            },
+            "squad_fit": {
+                "type": ["object", "null"],
+                "required": ["held", "missing_count", "verdict"],
+                "properties": {
+                    "held": {"type": "array", "items": {"type": "integer"}},
+                    "missing_count": {"type": "integer"},
+                    "verdict": {
+                        "type": "string",
+                        "enum": ["set", "needs_transfers", "not_applicable"],
+                    },
+                },
+            },
+            # Team linked but the squad could not be fetched: kept apart from
+            # squad_source so "no team" and "fetch failed" stay distinguishable.
+            "linked_squad_error": {
+                "type": ["string", "null"],
+                "enum": ["fetch_failed", None],
+            },
         },
     },
 )
