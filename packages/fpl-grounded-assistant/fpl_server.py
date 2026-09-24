@@ -2070,6 +2070,10 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
         provider=_provider,
         model=_model,
         error_code=None,
+        # i106: guard reason + the blocked raw text, off the same dict;
+        # absent (deterministic branches) reads as None, never as "clean".
+        final_text_guard_reason=ask_v2_dict.get("final_text_guard_reason"),
+        guarded_raw_answer_text=ask_v2_dict.get("guarded_raw_answer_text"),
     )
     try:
         write_audit_entry(_audit_entry)
@@ -2296,6 +2300,8 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         _sess_orchestration_absent = True
         _sess_provider: str | None = None
         _sess_model: str | None = None
+        _sess_guard_reason: str | None = None
+        _sess_guarded_raw: str | None = None
     else:
         _sess_trace = _sess_orch.get("routing_trace") or {}
         _sess_tokens = _sess_orch.get("tokens") or {}
@@ -2307,6 +2313,9 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         # orchestration), never DEFAULT_PROVIDER.
         _sess_provider = _sess_orch.get("provider")
         _sess_model = _sess_orch.get("model")
+        # i106: same two keys /ask reads, via FinalResponse.orchestration.
+        _sess_guard_reason = _sess_orch.get("final_text_guard_reason")
+        _sess_guarded_raw = _sess_orch.get("guarded_raw_answer_text")
     _sess_audit_entry = make_audit_entry(
         user_id=_sess_user_id,
         tier=_sess_tier,
@@ -2322,6 +2331,8 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         model=_sess_model,
         final_text=r.final_text,
         orchestration_absent=_sess_orchestration_absent,
+        final_text_guard_reason=_sess_guard_reason,
+        guarded_raw_answer_text=_sess_guarded_raw,
     )
     try:
         write_audit_entry(_sess_audit_entry)

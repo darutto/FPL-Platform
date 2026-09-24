@@ -280,6 +280,20 @@ def get_my_squad(
     return result
 
 
+def load_linked_squad(
+    bootstrap: "dict[str, Any] | None",
+    gw: "int | None" = None,
+) -> "dict[str, Any] | None":
+    """The linked user's squad as ``get_my_squad`` returns it, or ``None``.
+
+    i108 E2: a thin wrapper so other tools reuse the same fetch and ``picks``
+    parsing instead of duplicating them. ``None`` for every non-ok status
+    (no team connected, bad gw, not found, network error).
+    """
+    squad = get_my_squad(bootstrap, gw=gw)
+    return squad if squad.get("status") == "ok" else None
+
+
 # ---------------------------------------------------------------------------
 # Tool-runner spec and handler
 # ---------------------------------------------------------------------------

@@ -139,6 +139,13 @@ class AuditEntry:
     # False on every /ask line and on every orchestrated session turn.
     orchestration_absent: bool = False
     model: str | None = None         # e.g. "gpt-5.6-luna"; None when no LLM ran
+    # i106: when the orchestrator's answer_text read as a raw payload and was
+    # replaced by an honest sentence, the closed reason
+    # (final_text_guard.GUARD_REASONS) and the blocked text, kept WHOLE --
+    # this is the only place the raw survives on the synthesis route, where
+    # tool_output never held it. Both None on a clean turn.
+    final_text_guard_reason: str | None = None
+    guarded_raw_answer_text: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -255,6 +262,8 @@ def write_audit_entry(entry: AuditEntry, log_dir: str | None = None) -> None:
         "model":               entry.model,
         "error_code":          entry.error_code,
         "orchestration_absent": entry.orchestration_absent,
+        "final_text_guard_reason": entry.final_text_guard_reason,   # i106
+        "guarded_raw_answer_text": entry.guarded_raw_answer_text,   # i106
     }
 
     line = json.dumps(entry_dict, ensure_ascii=False, separators=(",", ":"))
@@ -331,6 +340,8 @@ def make_audit_entry(
     error_code: str | None = None,
     timestamp: str | None = None,
     orchestration_absent: bool = False,
+    final_text_guard_reason: str | None = None,
+    guarded_raw_answer_text: str | None = None,
 ) -> AuditEntry:
     """Convenience factory for building an AuditEntry from ask_v2() output.
 
@@ -362,4 +373,6 @@ def make_audit_entry(
         error_code=error_code,
         orchestration_absent=orchestration_absent,
         model=model,
+        final_text_guard_reason=final_text_guard_reason,
+        guarded_raw_answer_text=guarded_raw_answer_text,
     )

@@ -317,6 +317,44 @@ def classify_my_squad_result(result: Any) -> str:
     return "error"
 
 
+CHIP_TOOL = "get_chip_advice"
+
+
+def extract_chip_trace(result: Any) -> dict[str, Any] | None:
+    """i108 E3: the last ``get_chip_advice`` output this call executed, projected.
+
+    Read off ``tool_calls_trace`` -- the output the model actually saw -- never
+    off the question or the answer. ``None`` when no chip call ran. Only the
+    fields the two-part grader reads are kept, so the JSONL stays small.
+    """
+    trace = getattr(result, "tool_calls_trace", None) or ()
+    last: dict[str, Any] | None = None
+    for entry in trace:
+        if isinstance(entry, dict) and entry.get("name") == CHIP_TOOL:
+            output = entry.get("output")
+            if isinstance(output, dict):
+                last = output
+    if last is None:
+        return None
+    signals = last.get("signals") if isinstance(last.get("signals"), dict) else {}
+    return {
+        "status": last.get("status"),
+        "chip": last.get("chip"),
+        "recommendation": last.get("recommendation"),
+        "squad_source": last.get("squad_source"),
+        "squad_fit": last.get("squad_fit"),
+        "linked_squad_error": last.get("linked_squad_error"),
+        "favoured_teams": [
+            {"team": t.get("team"), "team_short": t.get("team_short")}
+            for t in signals.get("favoured_teams") or [] if isinstance(t, dict)
+        ],
+        "favoured_players": [
+            {"element": p.get("element"), "web_name": p.get("web_name")}
+            for p in signals.get("favoured_players") or [] if isinstance(p, dict)
+        ],
+    }
+
+
 def bootstrap_for_call(bootstrap: dict[str, Any], team_id: int | None) -> dict[str, Any]:
     """i109: the bootstrap ``ask_orchestrated`` gets for one call.
 
@@ -423,6 +461,10 @@ def run_one(
             empty_provider_response=empty_capture.empty_events > 0,
             empty_provider_response_count=empty_capture.empty_events,
             answer_text=(result.answer_text or "")[:400],
+            # i108 E3 (additive): the whole answer and the chip output from
+            # the trace, for the two-part grader. answer_text keeps its cap.
+            answer_text_full=result.answer_text or "",
+            chip_trace=extract_chip_trace(result),
             rounds_used=getattr(result, "rounds_used", 0),
             error=result.error,
             primary_input_tokens=result.primary_input_tokens,
@@ -457,6 +499,8 @@ def run_one(
             empty_provider_response=empty_capture.empty_events > 0,
             empty_provider_response_count=empty_capture.empty_events,
             answer_text="",
+            answer_text_full="",
+            chip_trace=None,
             rounds_used=0,
             error=str(exc),
             primary_input_tokens=0,

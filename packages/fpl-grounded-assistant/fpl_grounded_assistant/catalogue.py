@@ -161,6 +161,19 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "es": "No pude redactar una respuesta para esto. Esto es lo que devolvió la herramienta:",
     },
 
+    # -- i106: final-text guard. Said INSTEAD of a raw payload (a tool's
+    # "Error (...)" line, an HTML page, a web_fetch dump), at the one point
+    # every orchestrator result passes through. Names the tool, never the
+    # payload; the blocked text goes to the audit line, not to the user.
+    "orchestrator.final_text_guarded_tool": {
+        "en": "I couldn't get a useful answer from {tool} for this. Try rephrasing or ask something else.",
+        "es": "No obtuve una respuesta útil de {tool} para esto. Prueba a reformular o pregunta otra cosa.",
+    },
+    "orchestrator.final_text_guarded": {
+        "en": "I couldn't get a useful answer for this. Try rephrasing or ask something else.",
+        "es": "No obtuve una respuesta útil para esto. Prueba a reformular o pregunta otra cosa.",
+    },
+
     # -- position noun, shared by any renderer that names a position group -
     "position_noun.GKP": {"en": "goalkeepers", "es": "porteros"},
     "position_noun.DEF": {"en": "defenders", "es": "defensas"},

@@ -80,9 +80,9 @@ def test_static_registry_is_38_under_both_flag_states(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # 36 -> 38 (i82): get_player_season_points + get_historical_gameweek_top_scorer
-    # joined the LLM catalogue.
-    assert len(_ALL_SCHEMAS) == 38
-    assert len(TOOL_NAMES) == 38
+    # joined the LLM catalogue. 38 -> 39 (i107): get_team_results.
+    assert len(_ALL_SCHEMAS) == 39
+    assert len(TOOL_NAMES) == 39
     assert FI7B_TOOL_NAMES == EXPECTED_FI7B_NAMES
     assert all(validate_tool_schema_shape(schema) for schema in _ALL_SCHEMAS)
 
@@ -91,20 +91,20 @@ def test_static_registry_is_38_under_both_flag_states(
             monkeypatch.delenv(FOOTBALL_INTELLIGENCE_ENABLED_ENV, raising=False)
         else:
             monkeypatch.setenv(FOOTBALL_INTELLIGENCE_ENABLED_ENV, value)
-        assert len(_ALL_SCHEMAS) == 38
+        assert len(_ALL_SCHEMAS) == 39
 
 
 def test_offered_set_excludes_deprecated_adapters_under_both_fi_states() -> None:
     off_names = get_offered_tool_names(False)
     on_names = get_offered_tool_names(True)
 
-    assert len(off_names) == 31  # 29 -> 31 (i82)
+    assert len(off_names) == 32  # 29 -> 31 (i82) -> 32 (i107)
     assert not (off_names & EXPECTED_FI7B_NAMES)
     assert off_names == TOOL_NAMES - EXPECTED_FI7B_NAMES - DEPRECATED_LLM_TOOL_NAMES
-    assert len(on_names) == 35  # 33 -> 35 (i82)
+    assert len(on_names) == 36  # 33 -> 35 (i82) -> 36 (i107)
     assert on_names == TOOL_NAMES - DEPRECATED_LLM_TOOL_NAMES
-    assert len(get_offered_tool_schemas(False)) == 31
-    assert len(get_offered_tool_schemas(True)) == 35
+    assert len(get_offered_tool_schemas(False)) == 32
+    assert len(get_offered_tool_schemas(True)) == 36
 
 
 def test_provider_tool_payload_tracks_only_the_master_flag(
@@ -115,10 +115,10 @@ def test_provider_tool_payload_tracks_only_the_master_flag(
     monkeypatch.setenv(FOOTBALL_INTELLIGENCE_ENABLED_ENV, "true")
     on_names = _anthropic_names(_build_tools(None))
 
-    assert len(off_names) == 31  # 29 -> 31 (i82)
+    assert len(off_names) == 32  # 29 -> 31 (i82) -> 32 (i107)
     assert not (set(off_names) & EXPECTED_FI7B_NAMES)
     assert not (set(off_names) & DEPRECATED_LLM_TOOL_NAMES)
-    assert len(on_names) == 35  # 33 -> 35 (i82)
+    assert len(on_names) == 36  # 33 -> 35 (i82) -> 36 (i107)
     assert set(on_names) == TOOL_NAMES - DEPRECATED_LLM_TOOL_NAMES
 
 
@@ -230,7 +230,7 @@ forbidden = {
     "football_intelligence.modules.tactical_role",
     "football_intelligence.modules.fixture_context",
 }
-assert len(tools) == 31
+assert len(tools) == 32
 assert not (after & forbidden)
 assert not ((after - before) & forbidden)
 print(json.dumps({"tools": len(tools)}))
@@ -250,4 +250,4 @@ print(json.dumps({"tools": len(tools)}))
         text=True,
     )
     assert completed.returncode == 0, completed.stderr
-    assert completed.stdout.strip() == '{"tools": 31}'
+    assert completed.stdout.strip() == '{"tools": 32}'  # 31 -> 32 (i107)

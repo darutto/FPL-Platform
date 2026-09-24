@@ -822,6 +822,94 @@ _SEASON_HISTORY: list[dict[str, Any]] = [
     },
 ]
 
+# ---------------------------------------------------------------------------
+# i107 -- team_results: one team's recent RESULTS with a home/away split.
+# NEW phrases only; nothing above is relabelled. tr-01/tr-02 are the two
+# prod shapes the card names ("cómo le ha ido de local", "goles en los
+# últimos N"). Controls that could be stolen live in their own families
+# (tf-01/03/04/05/06/12 fixtures-ahead & snapshot, sb-12/sh-c05/sh-c06
+# player rankings) and are read from CORPUS by id at measurement time.
+# ---------------------------------------------------------------------------
+_TEAM_RESULTS: list[dict[str, Any]] = [
+    {
+        "id": "tr-01", "family": "team_results", "control": False,
+        "question": "¿Cómo le ha ido al Arsenal de local esta temporada?",
+        "acceptable_tools": ["get_team_results"],
+        "forbidden_tools": ["web_fetch", "get_fixture_outlook", "get_team_schedule"],
+        "note": "Prod shape 1: home results, not fixtures ahead.",
+    },
+    {
+        "id": "tr-02", "family": "team_results", "control": False,
+        "question": "¿Cuántos goles ha marcado el Liverpool en los últimos 5 partidos?",
+        "acceptable_tools": ["get_team_results"],
+        "forbidden_tools": ["web_fetch", "rank_players_by_metric"],
+        "note": "Prod shape 2: team goals over the last N games, not a player ranking.",
+    },
+    {
+        "id": "tr-03", "family": "team_results", "control": False,
+        "question": "Dame los últimos resultados del Newcastle con marcador.",
+        "acceptable_tools": ["get_team_results"],
+        "forbidden_tools": ["web_fetch", "get_team_snapshot"],
+        "note": "Plain recent results list with scores.",
+    },
+    {
+        "id": "tr-04", "family": "team_results", "control": False,
+        "question": "¿Cuántos partidos ha ganado el Chelsea fuera de casa?",
+        "acceptable_tools": ["get_team_results"],
+        "forbidden_tools": ["web_fetch", "get_fixture_outlook"],
+        "note": "Away wins -- the venue split.",
+    },
+    {
+        "id": "tr-05", "family": "team_results", "control": False,
+        "question": "¿Cómo viene el Manchester City como visitante en sus últimos partidos?",
+        "acceptable_tools": ["get_team_results"],
+        "forbidden_tools": ["web_fetch", "get_fixture_outlook", "get_team_schedule"],
+        "note": "Away form in results, not the away fixtures ahead.",
+    },
+    {
+        "id": "tr-06", "family": "team_results", "control": False,
+        "question": "Dame los últimos 3 resultados del Tottenham.",
+        "acceptable_tools": ["get_team_results"],
+        "forbidden_tools": ["web_fetch", "get_team_schedule"],
+        "note": "last_n=3.",
+    },
+    {
+        "id": "tr-07", "family": "team_results", "control": False,
+        "question": "¿Cuántas porterías a cero lleva el Everton en sus últimos partidos?",
+        "acceptable_tools": ["get_team_results"],
+        "forbidden_tools": ["web_fetch", "rank_players_by_metric"],
+        "note": "Team clean sheets, not a keeper ranking.",
+    },
+    {
+        "id": "tr-08", "family": "team_results", "control": False,
+        "question": "¿Qué tal le fue al Brighton en sus últimos 5 partidos: victorias, empates y derrotas?",
+        "acceptable_tools": ["get_team_results"],
+        "forbidden_tools": ["web_fetch", "get_team_snapshot"],
+        "note": "W/D/L summary.",
+    },
+    {
+        "id": "tr-09", "family": "team_results", "control": False,
+        "question": "¿Cuántos goles ha recibido el Aston Villa jugando en casa?",
+        "acceptable_tools": ["get_team_results"],
+        "forbidden_tools": ["web_fetch", "get_fixture_outlook"],
+        "note": "Home goals against.",
+    },
+    {
+        "id": "tr-10", "family": "team_results", "control": False,
+        "question": "¿Cómo le fue al Liverpool la temporada pasada jugando de local?",
+        "acceptable_tools": ["get_team_results"],
+        "forbidden_tools": ["web_fetch", "get_player_season_points", "get_historical_gameweek_top_scorer"],
+        "note": "Past season -> season='previous', still this tool, not the player season tools.",
+    },
+]
+
+#: Controls a results tool could steal from, read by id (never relabelled).
+I107_CONTROL_IDS: tuple[str, ...] = (
+    "tf-01", "tf-03", "tf-04", "tf-05", "tf-06", "tf-12",   # snapshot / schedule / outlook
+    "sb-12", "sh-c05", "sh-c06",                             # player rankings
+)
+
+
 CORPUS: list[dict[str, Any]] = (
     _TEAM_FIXTURES
     + _PLAYER_VIEWS
@@ -831,6 +919,7 @@ CORPUS: list[dict[str, Any]] = (
     + _GAMEWEEK_STATE
     + _CHIP_VS_GAMEWEEK
     + _SEASON_HISTORY
+    + _TEAM_RESULTS
 )
 
 FAMILIES: tuple[str, ...] = (
@@ -842,6 +931,7 @@ FAMILIES: tuple[str, ...] = (
     "gameweek_state",
     "chip_vs_gameweek",
     "season_history",
+    "team_results",
 )
 
 #: Tools this measurement deliberately excludes from every acceptable set

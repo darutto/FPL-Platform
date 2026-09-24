@@ -261,6 +261,7 @@ from .get_player_history import get_player_history          # P2.3 — triggers 
 from .get_fixtures_for_gw import get_fixtures_for_gw        # P2.4 — triggers TOOL_REGISTRY self-registration
 from .get_gameweek_context import get_gameweek_context      # P2.5 — triggers TOOL_REGISTRY self-registration
 from .get_team_snapshot import get_team_snapshot            # P2.6 — triggers TOOL_REGISTRY self-registration
+from .get_team_results import get_team_results              # i107 — triggers TOOL_REGISTRY self-registration
 from .get_my_squad import get_my_squad                      # i39 — triggers TOOL_REGISTRY self-registration
 from .web_fetch import web_fetch                            # P2.7 — triggers TOOL_REGISTRY self-registration
 from .rank_players_by_metric import rank_players_by_metric  # P2.8 — triggers TOOL_REGISTRY self-registration

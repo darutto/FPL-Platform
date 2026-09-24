@@ -436,6 +436,26 @@ class ConversationState:
     last_differential: bool = field(default=False)                      # Phase 8d-ii
     last_resolver_source: str | None = field(default=None)              # Phase 5l
 
+    def has_resolvable_context(self) -> bool:
+        """``True`` when a follow-up could refer back to something.
+
+        i103: the LLM reference resolver is only worth calling when the
+        session holds an anchor a pronoun or ellipsis could point at -- a
+        last player, comparison, transfer, fixture-run player, differential
+        turn, or any recorded history.  A fresh session has none of these, so
+        the first turn must reach ``ask_v2`` exactly as ``/ask`` would: the
+        resolver was rewriting calendar phrases to ``tell me about <team>``
+        (i100, 28/30 route discrepancies) when there was nothing to resolve.
+        """
+        return bool(
+            self.last_player_query
+            or self.last_comparison
+            or self.last_transfer
+            or self.last_fixture_run_player
+            or self.last_differential
+            or self.history
+        )
+
     def update_from_response(
         self,
         response: FinalResponse,
@@ -1330,6 +1350,20 @@ class ConversationSession:
                             if llm_comp is not None and llm_comp.confidence >= _CONFIDENCE_THRESHOLD:
                                 rewritten = llm_comp.rewritten_question
                                 resolution = llm_comp
+                            elif not self.state.has_resolvable_context():
+                                # i103 guard (a): nothing to resolve -> do not
+                                # call the resolver at all.  The question
+                                # reaches ask_v2 verbatim, as it does on /ask.
+                                rewritten = question
+                                resolution = ReferenceResolution(
+                                    resolved_query=None,
+                                    intent_guess=None,
+                                    reference_source="none",
+                                    confidence=0.0,
+                                    language="en",
+                                    rewritten_question=question,
+                                    fallback_reason="no_resolvable_context",
+                                )
                             else:
                                 # Phase 4f: general reference resolver (single-player / pronoun / Spanish)
                                 resolution = resolve_reference(
@@ -1337,6 +1371,7 @@ class ConversationSession:
                                     self.state,
                                     client=resolver_client,
                                     history=self.state.history if self.state.history else None,
+                                    bootstrap=bootstrap,  # i103 guard (b): validate resolved_query
                                 )
                                 rewritten = resolution.rewritten_question
 

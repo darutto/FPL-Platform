@@ -13,7 +13,11 @@ corpus that requested it. Criteria, fixed before the run:
   acceptable set (reported per route);
 * ``rewritten_question`` is counted as ECHO when it equals the phrase sent
   (a fresh session has nothing to resolve) and REWRITE otherwise -- the only
-  work the session path does before ``ask_v2`` that /ask does not.
+  work the session path does before ``ask_v2`` that /ask does not;
+* (i103) the session's ``debug.resolver`` blob is tallied by
+  ``(resolver_source, fallback_reason)`` and ``tell me about null`` rewrites
+  are counted, so which guard fired is read off what the server reported,
+  not inferred from the fix.
 
 The raw R x N table is printed per route so a 2/3 cannot hide in an aggregate.
 
@@ -63,6 +67,8 @@ def summarize(rows: list[dict]) -> dict:
     dump_rows = {rt: 0 for rt in ROUTES}
     exceptions = {rt: 0 for rt in ROUTES}
     echo = rewrite = 0
+    null_rewrites = 0
+    resolver_tally: Counter = Counter()
     migrations = {rt: [] for rt in ROUTES}
     table: list[str] = []
     disagreements: list[str] = []
@@ -83,6 +89,11 @@ def summarize(rows: list[dict]) -> dict:
                 echo += 1
             else:
                 rewrite += 1
+                if rq.strip().lower().endswith(" null"):
+                    null_rewrites += 1
+            rd = ((o.get("raw") or {}).get("session") or {}).get("debug") or {}
+            rd = rd.get("resolver") or {}
+            resolver_tally[(rd.get("resolver_source"), rd.get("fallback_reason"))] += 1
         agrees = [
             o["ask"].get("selected_tool") == o["session"].get("selected_tool")
             and (o["ask"].get("tool_sequence") or []) == (o["session"].get("tool_sequence") or [])
@@ -115,6 +126,7 @@ def summarize(rows: list[dict]) -> dict:
         "n_by_kind": dict(n_kind), "hits": {rt: dict(hits[rt]) for rt in ROUTES},
         "parity_by_kind": dict(parity_by_kind), "agree_reps": agree_reps, "total_reps": total_reps,
         "dump_rows": dump_rows, "exceptions": exceptions, "rewritten_echo": echo, "rewritten_rewrite": rewrite,
+        "null_rewrites": null_rewrites, "resolver_tally": dict(resolver_tally),
         "migrations": migrations, "table": table, "disagreements": disagreements,
     }
 
@@ -127,7 +139,11 @@ def main(argv: list[str]) -> int:
     s = summarize(rows)
     print(f"rows: {len(rows)} (= reps x phrases); reps agreeing on selected_tool+sequence: {s['agree_reps']}/{s['total_reps']}")
     print(f"exceptions: {s['exceptions']}   dump rows (get_fixtures_for_gw anywhere): {s['dump_rows']}")
-    print(f"session rewritten_question: echo={s['rewritten_echo']} rewrite={s['rewritten_rewrite']}")
+    print(f"session rewritten_question: echo={s['rewritten_echo']} rewrite={s['rewritten_rewrite']} "
+          f"('tell me about null': {s['null_rewrites']})")
+    print("session debug.resolver (resolver_source, fallback_reason):")
+    for key, n in sorted(s["resolver_tally"].items(), key=lambda kv: -kv[1]):
+        print(f"  {n:3}  {key}")
     print("\ncanonical hits (all reps -> get_fixture_outlook first, never the dump) per route, and route parity:")
     for kind, n in s["n_by_kind"].items():
         print(f"  {kind:22} ask {s['hits']['ask'].get(kind, 0)}/{n}   session {s['hits']['session'].get(kind, 0)}/{n}   parity {s['parity_by_kind'].get(kind, 0)}/{n}")
