@@ -82,6 +82,11 @@ from typing import Any
 from fpl_tool_runner import TOOL_REGISTRY
 
 from .tool_dispatch import run_tool
+from .chip_two_part import (  # i108 E3: one source for the chip phrases
+    chip_composition_rule,
+    compose_chip_answer,
+    last_chip_output,
+)
 
 from .llm_layer import (
     _get_anthropic_client,
@@ -438,7 +443,8 @@ _SYSTEM_PROMPT: str = (
     "  - GW_AWARENESS: when get_gameweek_context shows current_gw_status==finished, refer to next_gw in PRESENT TENSE (\"estamos en GW<next>\" / \"we are in GW<next>\"), not to the finished GW. The finished GW is the past; next_gw IS the now. For in_progress, still use next_gw for forward-looking questions but acknowledge current is mid-play.\n"
     "  - WEB_FETCH_SOURCING: when web_fetch returns content, cite the source URL in the answer (e.g. \"Fuente: <url>\" / \"Source: <url>\") and clearly indicate the info is from the web, not the FPL bootstrap.\n"
     "  - MATCH_COMPOSITION: when a ONE MATCH question ran get_fixture_outlook AND get_team_snapshot (both FPL_DATA, same turn), the answer keeps the calendar read (opponent, venue, difficulty, relative strength) AND names 2-3 of that team's top_players from the snapshot, each with ONE number the tool returned (form, expected_goals, expected_assists, total_points; for a DEF/GKP expected_goals_conceded, saves or defensive_contribution). When the calendar ran on BOTH axes (attack and defence), the answer has BOTH sides: the attacking read (dificultad ofensiva + the attackers) and the defensive read (dificultad para portería a cero + a DEF/GKP if the snapshot returned one; if none is among the top_players, say the defensive side rests on the calendar read). Never a name or number that is not in the tool output. Frame every player as the opportunity in THIS match. NEVER use transaction or urgency words: comprar/vender/fichar/traspasar/urgente/peligro, buy/sell/transfer in/bring in -- not even to say you are NOT recommending one (no disclaimers about fichajes/transfers).\n"
-    "\n"
+    + chip_composition_rule()
+    + "\n"
     "OUTPUT: terse, structured, action-oriented. Spanish-first."
 )
 
@@ -622,6 +628,16 @@ _TOOL_OUTPUT_MAX_LIST_ITEMS: int = 10
 #: was built for. Lists that cannot exceed the cap by construction
 #: (get_team_schedule.fixtures <= horizon 10, get_player_fixture_run.fixtures
 #: <= 10, zones = 6, ambiguous candidates <= 5, bench = 4) are not listed.
+#: i108 E3: fields a tool emits that the MODEL must not see. The chip answer's
+#: particular sentence is composed deterministically from these
+#: (``chip_two_part.compose_chip_answer``); shown to the model, it paraphrased
+#: them in the body and leaked the enum literal "needs transfers" (measured,
+#: round 3 of the i108 gate). Dropped only from the payload serialised to the
+#: LLM here -- the real tool output, the trace and the audit keep them.
+_MODEL_HIDDEN_FIELDS: dict[str, frozenset[str]] = {
+    "get_chip_advice": frozenset({"squad_fit", "squad_source", "linked_squad_error"}),
+}
+
 _TRUNCATION_EXCLUDED_FIELDS: frozenset[tuple[str, str]] = frozenset({
     ("build_squad", "squad"),                                # 15, fixed: the squad IS the answer
     ("build_squad", "starting_xi"),                          # 11, fixed: the XI IS the answer
@@ -744,10 +760,13 @@ def _truncate_tool_output(
     True
     """
     truncatable = _truncatable_fields_for(tool_name)
+    hidden = _MODEL_HIDDEN_FIELDS.get(tool_name or "", frozenset())
     truncated_fields: list[str] = []
     modified: dict[str, Any] = {}
 
     for key, value in raw_output.items():
+        if key in hidden:
+            continue
         if key in truncatable and isinstance(value, list) and len(value) > max_items:
             modified[key] = value[:max_items]
             truncated_fields.append(f"{key}: showing top {max_items} of {len(value)} total")
@@ -2342,10 +2361,38 @@ def ask_orchestrated(
     # error back. outcome, tool_output and the trace are untouched; the
     # blocked text is kept whole for the audit line.
     result = _guard_final_text(result)
+    # i108 E3: a chip answer is general -> particular, both parts computed.
+    # After the guard, so a blocked text never gets a header or a sentence.
+    result = _compose_chip_answer(result, bootstrap)
     if not result.llm_used:
         return result
     _label = provider if provider in _ALL_PROVIDERS else PROVIDER_ANTHROPIC
     return replace(result, provider=_label)
+
+
+def _compose_chip_answer(result: OrchestratorResult, bootstrap: Any) -> OrchestratorResult:
+    """Wrap an ok chip answer in its deterministic header and closing sentence.
+
+    Only when the turn ended ``ok``, the final-text guard did not fire, and
+    the trace holds an ok ``get_chip_advice`` output for a squad-fit chip.
+    The model's text is kept whole as the body (see ``chip_two_part``).
+    """
+    if result.outcome != OUTCOME_OK or result.final_text_guard_reason is not None:
+        return result
+    chip_output = last_chip_output(result.tool_calls_trace)
+    if chip_output is None:
+        return result
+    bs = bootstrap.get("bootstrap") if isinstance(bootstrap, dict) and isinstance(
+        bootstrap.get("bootstrap"), dict) else bootstrap
+    team_names = {
+        t.get("id"): t.get("name")
+        for t in (bs or {}).get("teams", []) or []
+        if isinstance(t, dict) and t.get("id") is not None and t.get("name")
+    }
+    composed = compose_chip_answer(result.answer_text or "", chip_output, team_names)
+    if composed == (result.answer_text or ""):
+        return result
+    return replace(result, answer_text=composed)
 
 
 def _guard_final_text(result: OrchestratorResult) -> OrchestratorResult:
