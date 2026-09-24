@@ -95,6 +95,7 @@ from fpl_tool_contract import tool_get_captain_score
 from .captain_factors import TRIPLE_CAPTAIN_RISK_NOTE, factor_phrases
 from .scoring_shared import _derive_scoring_inputs
 from .fixture_context import build_fixture_context  # FI3a: additive fixture context
+from .tool_schema_registry import GET_CHIP_ADVICE_SCHEMA  # i108 E3: one catalog entry
 
 
 # ---------------------------------------------------------------------------
@@ -1299,40 +1300,15 @@ def _get_chip_advice_handler(
     )
 
 
+# i108 E3: the name, description and argument surface live once, in the
+# schema registry (the build_squad_tool precedent). The two hand-maintained
+# copies had already drifted (different descriptions, different argument
+# help); the model reads the ToolSchema, so the spec now simply is it. The
+# registry is a pure data layer with no imports from the live stack.
 CHIP_ADVICE_SPEC = ToolSpec(
-    name="get_chip_advice",
-    description=(
-        "Deterministic chip conditions advice for FPL chips: "
-        "triple_captain, wildcard, bench_boost, free_hit. "
-        "Returns conditions_favorable / conditions_marginal / conditions_unfavorable "
-        "or missing_context (when necessary data is unavailable)."
-    ),
-    parameters={
-        "type": "object",
-        "properties": {
-            "chip": {
-                "type":        "string",
-                "description": (
-                    "The FPL chip to advise on: "
-                    "triple_captain, wildcard, bench_boost, or free_hit"
-                ),
-                "enum": ["triple_captain", "wildcard", "bench_boost", "free_hit"],
-            },
-            "player": {
-                "type": ["string", "integer"],
-                "description": "Optional player to evaluate for triple captain.",
-            },
-            "gameweek": {
-                "type": "integer", "minimum": 1, "maximum": 38,
-                "description": "First gameweek to evaluate; defaults to current.",
-            },
-            "horizon": {
-                "type": "integer", "minimum": 1, "maximum": 8,
-                "description": "Number of gameweeks to evaluate (default 1).",
-            },
-        },
-        "required": ["chip"],
-    },
+    name=GET_CHIP_ADVICE_SCHEMA.name,
+    description=GET_CHIP_ADVICE_SCHEMA.description,
+    parameters=GET_CHIP_ADVICE_SCHEMA.parameters,
     output_schema={
         "type": "object",
         "required": ["status", "chip", "current_gameweek",
