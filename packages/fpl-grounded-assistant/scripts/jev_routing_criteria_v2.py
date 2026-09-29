@@ -283,6 +283,17 @@ CRITERIA_V2: dict[str, dict[str, object]] = {
             "¿qué dice la prensa hoy sobre la lesión de Ødegaard?",
         ],
     },
+    # Added 2026-09-23 after i107 (PR #309) shipped the tool and the corpus
+    # labelled tr-01..tr-10. Written from the tool's own contract, not from
+    # those questions: PAST finished matches, with a venue split.
+    "get_team_results": {
+        "what": "How one club HAS DONE in matches already played: recent results with scores, wins/draws/losses, goals scored or conceded, clean sheets, and the same split by home or away.",
+        "not_for": "Matches still to come (get_fixture_outlook, get_team_schedule, get_team_fixture_calendar); a club overview with its players (get_team_snapshot); one player's record (get_player_snapshot); a league-wide ranking (rank_players_by_metric).",
+        "examples": [
+            "¿cuántos partidos ganó el Everton jugando en casa?",
+            "dame el marcador de los últimos cuatro del Fulham",
+        ],
+    },
     # ----------------------------------------------------------------- no match
     NONE_OPTION: {
         "what": "The question is not answered by any tool above: off-topic, not about Fantasy Premier League, or asks for something none of these tools provide.",
