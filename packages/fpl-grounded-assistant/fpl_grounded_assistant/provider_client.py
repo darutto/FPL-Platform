@@ -1455,7 +1455,7 @@ def check_provider_health(
 
     Performs a lightweight credential-and-SDK check (no live API call).
     Reads ``DEFAULT_PROVIDER`` env var when ``provider_name`` is ``None``;
-    falls back to ``"gemini"`` when the env var is also absent.
+    falls back to ``"openai"`` when the env var is also absent.
 
     This function is safe to call at startup or inside a health endpoint:
     it never raises, performs no network I/O, and completes in microseconds.
@@ -1465,7 +1465,7 @@ def check_provider_health(
     provider_name:
         One of ``PROVIDER_ANTHROPIC``, ``PROVIDER_OPENAI``, ``PROVIDER_GEMINI``.
         When ``None``, the active provider is read from ``DEFAULT_PROVIDER``
-        env var (default ``"gemini"``).
+        env var (default ``"openai"``).
     api_key:
         Explicit API key to check.  When ``None``, the provider-appropriate
         env var is inspected.
@@ -1480,7 +1480,7 @@ def check_provider_health(
     try:
         name = (
             provider_name
-            or _os.environ.get("DEFAULT_PROVIDER", "gemini")
+            or _os.environ.get("DEFAULT_PROVIDER", PROVIDER_OPENAI)
         ).lower().strip()
 
         if name == PROVIDER_GEMINI:

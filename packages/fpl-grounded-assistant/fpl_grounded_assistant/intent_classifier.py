@@ -433,6 +433,64 @@ class GeminiClassifierAdapter:
 
 
 # ---------------------------------------------------------------------------
+# OpenAI adapter — same messages.create() surface, Responses API underneath.
+# ---------------------------------------------------------------------------
+
+#: Output-token floor for the OpenAI classifier. gpt-5.6-luna is a reasoning
+#: model: reasoning tokens are billed out of max_output_tokens, so the 128 the
+#: classifier asks Anthropic for can be spent before any JSON is written
+#: (measured before choosing this: see the PR). An empty reply would degrade
+#: silently to "no classification".
+OPENAI_CLASSIFIER_MIN_OUTPUT_TOKENS: int = 512
+
+
+class OpenAIClassifierAdapter:
+    """Wraps an ``openai.OpenAI`` client to expose the Anthropic-compatible
+    ``messages.create()`` interface ``classify_intent_llm()`` uses.
+
+    Like the Gemini adapter, the ``model`` passed to ``create()`` is ignored
+    (the caller defaults it to a Claude id); the model given at construction
+    is used. No ``temperature`` / ``top_p``: GPT-5.6 rejects both with 400.
+    """
+
+    def __init__(self, openai_client: Any, model: str = "gpt-5.6-luna"):
+        self._client = openai_client
+        self._model_name = model
+        self.messages = self   # client.messages.create(...) → self.create(...)
+
+    def create(
+        self,
+        *,
+        model: str,           # ignored — OpenAI model set at construction
+        max_tokens: int,
+        system: str,
+        messages: list[dict[str, Any]],
+        **_kwargs: Any,
+    ) -> Any:
+        response = self._client.responses.create(
+            model=self._model_name,
+            instructions=system,
+            input=[{"role": "user", "content": messages[-1]["content"]}],
+            max_output_tokens=max(max_tokens * 4, OPENAI_CLASSIFIER_MIN_OUTPUT_TOKENS),
+        )
+        text = (getattr(response, "output_text", "") or "").strip()
+        if text.startswith("```"):
+            lines = text.splitlines()
+            inner = [l for l in lines[1:] if not l.strip().startswith("```")]
+            text = "\n".join(inner).strip()
+
+        class _Content:
+            def __init__(self, t: str) -> None:
+                self.text = t
+
+        class _Message:
+            def __init__(self, t: str) -> None:
+                self.content = [_Content(t)]
+
+        return _Message(text)
+
+
+# ---------------------------------------------------------------------------
 # Public entrypoint
 # ---------------------------------------------------------------------------
 

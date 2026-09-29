@@ -165,16 +165,29 @@ def _init_classifier_client(client: Any | None) -> None:
 def _try_init_classifier_from_env() -> None:
     """Attempt to build a classifier client from environment variables.
 
-    Respects ``DEFAULT_PROVIDER`` (default: ``"gemini"``).  Tries the active
-    provider first; falls back silently when the key or package is absent.
+    Respects ``DEFAULT_PROVIDER`` (default: ``"openai"``, Leo 2026-09-29).
+    Tries the active provider first; falls back silently when the key or
+    package is absent.
 
     Deterministic routing remains the safe default when no client is built.
     """
-    from fpl_grounded_assistant.intent_classifier import GeminiClassifierAdapter  # noqa: PLC0415
+    from fpl_grounded_assistant.intent_classifier import (  # noqa: PLC0415
+        GeminiClassifierAdapter,
+        OpenAIClassifierAdapter,
+    )
 
-    provider = os.environ.get("DEFAULT_PROVIDER", "gemini").lower()
+    provider = os.environ.get("DEFAULT_PROVIDER", "openai").lower()
 
-    if provider == "gemini":
+    if provider == "openai":
+        try:
+            import openai as _oai  # type: ignore[import-untyped]  # noqa: PLC0415
+            key = os.environ.get("OPENAI_API_KEY")
+            if key:
+                _init_classifier_client(OpenAIClassifierAdapter(_oai.OpenAI(api_key=key)))
+        except Exception:  # noqa: BLE001
+            pass
+
+    elif provider == "gemini":
         try:
             import warnings as _w  # noqa: PLC0415
             with _w.catch_warnings():
