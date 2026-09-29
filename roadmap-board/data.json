@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-24",
+  "updated": "2026-09-29",
   "cards": [
     {
       "id": "s1",
@@ -1544,6 +1544,82 @@
       ],
       "title": "tests/ de fpl-grounded-assistant sin __init__.py: `import tests` apunta a otro paquete",
       "desc": "HALLAZGO 2026-09-23 (PR #316). test_captaincy_surface.py:349 hacía `from tests.conftest import BOOTSTRAP` y fallaba ejecutado solo en main limpio, y en CI de forma intermitente (puso rojo #315 y el bot de stats): packages/fpl-grounded-assistant/tests no tiene __init__.py, así que `import tests` se queda con el primer paquete regular en sys.path (fpl-api-client en CI) salvo que un test anterior haya insertado el path correcto. #316 arregló ese test (usa el fixture); la causa raíz sigue. Familia de #66 (import-order-luck). CIERRE: decidir __init__.py o conftest con rootdir/importmode explícito, y un test que falle si otro test vuelve a importar desde `tests.`."
+    },
+    {
+      "id": "i114",
+      "col": "shipped",
+      "progress": 100,
+      "title": "Revisión de datos de TypeSafe (Jev) antes de enviar preguntas de usuarios",
+      "tags": [
+        "Legal",
+        "IA"
+      ],
+      "desc": "HECHA por Leo 2026-09-29, sin bloqueo. Los Términos cubren solo la web; la Política de Privacidad (2025-11-19) cubre las APIs: las entradas NO se usan para entrenar ni ajustar modelos, no se revelan salvo a proveedores de servicio, alojamiento en EE. UU., sin plazo de retención declarado. Seguimientos no bloqueantes: (a) mandar solo el texto de la pregunta (lo fuerza [[i115]]); (b) preguntas de EEE/UK van a EE. UU., igual que OpenAI hoy — listar TypeSafe junto a OpenAI donde el producto nombre sus encargados (decisión de Leo). Opcional: pedir el plazo de retención a support@typesafe.ai.\n\nORIGEN: handoff de la sesión del piloto de Jev (2026-09-29), plan C:\\Users\\thera\\.claude\\plans\\jev-prod-handoff-2026-09-29.md, aprobado por Leo según el relay. Evidencia: eval 4/4b tras i108 E3, 14 ids × 3, grader grade_i108_chip_two_parts.py — mismo gate que main (33/33), $0.000579 vs $0.001104 por respuesta (−48 %), p50 3,3 s vs 5,6 s. Evidencia end-to-end SOLO para chips; por eso solo chips van a prod. Implementación de referencia en origin/experiment/jev-tool-routing."
+    },
+    {
+      "id": "i115",
+      "col": "idea",
+      "progress": 0,
+      "title": "Paquete jev_router + chequeo de sincronía con el catálogo",
+      "tags": [
+        "Backend",
+        "IA"
+      ],
+      "desc": "Mover CRITERIA_V2 + PLANS_V2 a fpl_grounded_assistant/jev_router/ con un cliente route(question) -> JevDecision: timeout FPL_JEV_TIMEOUT_S (1,0 s por defecto), sin reintentos, TYPESAFE_API_KEY solo en servidor. La petición a Jev lleva SOLO el texto de la pregunta — nunca team_id, usuario, plantilla ni historial (pinado por test; cumple [[i114]]). Regla de decisión tal como se midió: ruta == plan_chip_general_then_my_squad O (get_my_squad Y vocabulario cerrado de chip: bench boost / triple captain / wildcard / free hit / chip); jornada por regex; chip=none → escalar; el menú excluye get_chip_advice (lección E4 de [[i108]]). PUERTA: test de CI que recorre tool_schema_registry (menos zonal/adaptadores) y falla si una herramienta no tiene criterio — get_team_results ([[i107]]) ya rompió los criterios una vez; tests unitarios de la regla sobre los 14 ids de chip con respuestas de Jev grabadas (sin red).\n\nORIGEN: handoff de la sesión del piloto de Jev (2026-09-29), plan C:\\Users\\thera\\.claude\\plans\\jev-prod-handoff-2026-09-29.md, aprobado por Leo según el relay. Evidencia: eval 4/4b tras i108 E3, 14 ids × 3, grader grade_i108_chip_two_parts.py — mismo gate que main (33/33), $0.000579 vs $0.001104 por respuesta (−48 %), p50 3,3 s vs 5,6 s. Evidencia end-to-end SOLO para chips; por eso solo chips van a prod. Implementación de referencia en origin/experiment/jev-tool-routing."
+    },
+    {
+      "id": "i116",
+      "col": "idea",
+      "progress": 0,
+      "title": "Jev en sombra: FPL_JEV_MODE=off|shadow|canary",
+      "tags": [
+        "Backend",
+        "IA"
+      ],
+      "desc": "Flag con default off (= interruptor). Enganche en harness.ask_v2 justo tras volver ask_orchestrated (harness.py:1116, verificado), solo rama de texto libre, en un threading.Thread daemon para no retrasar nunca la respuesta (patrón y por qué no un executor: player_form.py:264-332, verificado). Capa 1, en TODOS los turnos de texto libre (decisión de Leo): una llamada a Jev; registrar ruta / confianza / decisión / latencia / tokens. Capa 2, solo si la capa 1 toma el camino de chip: run_tool(\"get_chip_advice\") sobre la misma copia superficial con _my_team_id, una llamada de cuerpo SIN herramientas (chip_composition_rule() + payload menos orchestrator._MODEL_HIDDEN_FIELDS), luego compose_chip_answer. Escribe shadow_logs/<fecha>.ndjson bajo AUDIT_LOG_DIR (volumen de [[i104]]), unido al audit por un turn_id nuevo y aditivo en AuditEntry; guarda answer_text_full + chip_trace con la forma de fila del grader. SALIDA DE LA SOMBRA (Leo): ≥ 60 turnos reales de chip con ≥ 95 % en el grader de E3, O 3 semanas, lo que llegue antes; si llega antes el plazo, decidir con el número reunido y decirlo. PUERTA: flag off → cero llamadas a Jev (test de mutación); la sombra nunca cambia el answer_text servido; un timeout/error de Jev se registra y el turno servido no se afecta; grade_i108_chip_two_parts.py corre sin cambios sobre un archivo de sombra.\n\nORIGEN: handoff de la sesión del piloto de Jev (2026-09-29), plan C:\\Users\\thera\\.claude\\plans\\jev-prod-handoff-2026-09-29.md, aprobado por Leo según el relay. Evidencia: eval 4/4b tras i108 E3, 14 ids × 3, grader grade_i108_chip_two_parts.py — mismo gate que main (33/33), $0.000579 vs $0.001104 por respuesta (−48 %), p50 3,3 s vs 5,6 s. Evidencia end-to-end SOLO para chips; por eso solo chips van a prod. Implementación de referencia en origin/experiment/jev-tool-routing."
+    },
+    {
+      "id": "i117",
+      "col": "idea",
+      "progress": 0,
+      "title": "Entorno UAT para Jev (Railway + preview de Vercel)",
+      "tags": [
+        "Infra",
+        "Web"
+      ],
+      "desc": "Solo configuración: un entorno Railway duplicado de producción (Redis y volumen propios), FPL_JEV_MODE=canary para todos ahí, y un preview de Vercel apuntando a él. Checklist manual de Leo: pregunta de chip con y sin equipo enlazado; turnos de seguimiento en sesión; el wizard de desambiguación de jugador; una pregunta tipo ad-05 («¿transfer o guardo el chip?») debe escalar, nunca responder vacío; una clave de TypeSafe revocada debe caer al orquestador. Necesita a Leo (dashboard/CLI).\n\nORIGEN: handoff de la sesión del piloto de Jev (2026-09-29), plan C:\\Users\\thera\\.claude\\plans\\jev-prod-handoff-2026-09-29.md, aprobado por Leo según el relay. Evidencia: eval 4/4b tras i108 E3, 14 ids × 3, grader grade_i108_chip_two_parts.py — mismo gate que main (33/33), $0.000579 vs $0.001104 por respuesta (−48 %), p50 3,3 s vs 5,6 s. Evidencia end-to-end SOLO para chips; por eso solo chips van a prod. Implementación de referencia en origin/experiment/jev-tool-routing."
+    },
+    {
+      "id": "i118",
+      "col": "idea",
+      "progress": 0,
+      "title": "Canary de Jev solo para chips",
+      "tags": [
+        "Backend",
+        "IA"
+      ],
+      "desc": "FPL_JEV_MODE=canary + allowlist (Leo primero, luego un % de los turnos con camino de chip). Camino servido = eval 4b: el camino de chip de Jev; si no, el orquestador (ruta no-chip, chip=none, error/timeout de Jev). El audit estampa answer_path ∈ {jev_chip, orchestrator, orchestrator_escalated, orchestrator_jev_error} leído de lo que SE EJECUTÓ, nunca del flag (regla asked-for vs shipped). Solo se abre cuando [[i116]] cumple su regla de salida y el checklist de [[i117]] pasa. PUERTA: un test de mutación por cada valor de answer_path; grader de E3 ≥ 95 % en los turnos de chip del canary; p50 de latencia y coste reportados contra los números de la sombra. Otras familias entran en la capa 2 solo con su propia carta y medición end-to-end, nunca ensanchando el flag.\n\nORIGEN: handoff de la sesión del piloto de Jev (2026-09-29), plan C:\\Users\\thera\\.claude\\plans\\jev-prod-handoff-2026-09-29.md, aprobado por Leo según el relay. Evidencia: eval 4/4b tras i108 E3, 14 ids × 3, grader grade_i108_chip_two_parts.py — mismo gate que main (33/33), $0.000579 vs $0.001104 por respuesta (−48 %), p50 3,3 s vs 5,6 s. Evidencia end-to-end SOLO para chips; por eso solo chips van a prod. Implementación de referencia en origin/experiment/jev-tool-routing."
+    },
+    {
+      "id": "i119",
+      "col": "idea",
+      "progress": 0,
+      "title": "Fuga de encuadre en la respuesta de aclaración del orquestador (vender/fichar)",
+      "tags": [
+        "IA",
+        "FPL Asistente"
+      ],
+      "desc": "INDEPENDIENTE de Jev. En la eval 4 brazo A (main), las respuestas de aclaración de ad-05 tuvieron transaction_hits 4 y 2 («vender», «fichar»); la eval 4b vio 3 más en las respuestas del orquestador escalado. La regla de encuadre en oportunidad se aplica a la respuesta de chip compuesta ([[i108]] E3), pero no a la respuesta de aclaración del orquestador. Relacionada con [[i111]] (ad-05 no llega a chips). CIERRE: opportunity_framing.transaction_hits = 0 sobre las respuestas de aclaración reales de ad-05, R=3, y test con fixture de un texto de aclaración que contiene «vender».\n\nORIGEN: handoff de la sesión del piloto de Jev (2026-09-29), plan C:\\Users\\thera\\.claude\\plans\\jev-prod-handoff-2026-09-29.md, aprobado por Leo según el relay. Evidencia: eval 4/4b tras i108 E3, 14 ids × 3, grader grade_i108_chip_two_parts.py — mismo gate que main (33/33), $0.000579 vs $0.001104 por respuesta (−48 %), p50 3,3 s vs 5,6 s. Evidencia end-to-end SOLO para chips; por eso solo chips van a prod. Implementación de referencia en origin/experiment/jev-tool-routing."
+    },
+    {
+      "id": "i120",
+      "col": "idea",
+      "progress": 0,
+      "title": "El resolver de equipos acepta cualquier subcadena del nombre: «tal» → Crystal Palace",
+      "tags": [
+        "Backend"
+      ],
+      "desc": "OBSERVACIÓN de la sesión del piloto (2026-09-29), verificada por el chat de revisión en main: el último nivel de team_fixture_calendar._resolve_team_result es `q in t[\"name\"].lower()` — «tal» (de «¿qué tal pinta…») resuelve a Crystal Palace; «ton», «ham» resolverían en silencio a un club equivocado en vez de fallar. Hoy no daña: el resolver recibe el team_query del modelo, no texto libre. Es el patrón «relajar el matcher esconde el fallo». CIERRE: exigir un mínimo de longitud o límite de palabra en ese nivel (o eliminarlo si los alias cubren lo necesario), con test que liste qué NUEVO deja de resolver y qué sigue resolviendo en los 20 clubes."
     }
   ]
 }
