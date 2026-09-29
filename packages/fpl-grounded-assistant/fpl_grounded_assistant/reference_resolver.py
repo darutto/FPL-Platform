@@ -127,7 +127,7 @@ RESOLVER_PROVIDER_ENV: str = "FPL_RESOLVER_PROVIDER"
 #: Default resolver provider/model: the pair prod's orchestrator runs
 #: (openai / gpt-5.6-luna, Leo 2026-09-23). Chosen as a PAIR on purpose: the
 #: resolver used to take its provider from llm_layer's DEFAULT_PROVIDER
-#: (gemini) and its model from the same table, so changing the model alone
+#: (gemini at the time) and its model from the same table, so changing the model alone
 #: would send a GPT id to Gemini, the call would fail, and the resolver would
 #: fall back to the regex path without saying so.
 DEFAULT_RESOLVER_PROVIDER: str = PROVIDER_OPENAI

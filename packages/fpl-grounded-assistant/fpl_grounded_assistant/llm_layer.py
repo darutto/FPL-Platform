@@ -99,14 +99,16 @@ from .provider_client import (  # noqa: E402  (import after stdlib block)
 _PROVIDER_DEFAULT_MODELS: dict[str, str] = {
     PROVIDER_GEMINI:    "gemini-2.5-flash",
     PROVIDER_ANTHROPIC: "claude-haiku-4-5-20251001",
-    PROVIDER_OPENAI:    "gpt-4o-mini",
+    PROVIDER_OPENAI:    "gpt-5.6-luna",   # Leo 2026-09-29: the LLM runs on OpenAI/luna
 }
 
 # Active provider — read once at module load from DEFAULT_PROVIDER env var.
-# Defaults to Gemini. Falls back to "gemini" for any unrecognised value.
-_PROVIDER: str = os.environ.get("DEFAULT_PROVIDER", PROVIDER_GEMINI).lower()
+# Defaults to OpenAI (Leo 2026-09-29: the whole LLM layer moves to OpenAI;
+# gemini-2.5-flash, the old default, is deprecated). DEFAULT_PROVIDER=gemini
+# or =anthropic still selects those providers explicitly.
+_PROVIDER: str = os.environ.get("DEFAULT_PROVIDER", PROVIDER_OPENAI).lower()
 
-DEFAULT_MODEL: str = _PROVIDER_DEFAULT_MODELS.get(_PROVIDER, "gemini-1.5-flash")
+DEFAULT_MODEL: str = _PROVIDER_DEFAULT_MODELS.get(_PROVIDER, _PROVIDER_DEFAULT_MODELS[PROVIDER_OPENAI])
 
 SYSTEM_PROMPT: str = (
     "You are a Fantasy Premier League (FPL) assistant. "
