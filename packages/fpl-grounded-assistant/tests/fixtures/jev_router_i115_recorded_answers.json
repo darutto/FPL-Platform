@@ -1,0 +1,766 @@
+{
+ "source": {
+  "branch": "origin/experiment/jev-tool-routing",
+  "commit": "9a6dd87",
+  "file": "packages/fpl-grounded-assistant/field-notes-artifacts-eval4-B2-jev-team-fallback.jsonl",
+  "note": "Real TypeSafe jev-latest answers recorded 2026-09-24 (eval 4b), same menu and chip question as jev_router. Only the fields decide() reads are kept."
+ },
+ "rows": [
+  {
+   "question_id": "ad-03",
+   "rep": 0,
+   "question": "¿Conviene usar el wildcard esta fecha?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.84
+    },
+    "chip": {
+     "choice": "wildcard",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5131
+   }
+  },
+  {
+   "question_id": "ad-04",
+   "rep": 0,
+   "question": "¿Debería tirar el triple captain este fin de semana con Haaland de local?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.92
+    },
+    "chip": {
+     "choice": "triple_captain",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5140
+   }
+  },
+  {
+   "question_id": "ad-05",
+   "rep": 0,
+   "question": "¿Me conviene hacer un transfer esta semana o mejor guardo el chip?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.36
+    },
+    "chip": {
+     "choice": "none",
+     "confidence": 0.91
+    }
+   },
+   "usage": {
+    "input_tokens": 5138
+   }
+  },
+  {
+   "question_id": "ad-07",
+   "rep": 0,
+   "question": "¿Es buen momento para usar el free hit?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.92
+    },
+    "chip": {
+     "choice": "free_hit",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5132
+   }
+  },
+  {
+   "question_id": "ad-10",
+   "rep": 0,
+   "question": "¿Debería activar el bench boost esta ronda?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.9
+    },
+    "chip": {
+     "choice": "bench_boost",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5134
+   }
+  },
+  {
+   "question_id": "cvg-01",
+   "rep": 0,
+   "question": "evalúa mi equipo y qué tan buena idea es el bench boost en la fecha 2",
+   "answers": {
+    "route": {
+     "choice": "get_my_squad",
+     "confidence": 0.73
+    },
+    "chip": {
+     "choice": "bench_boost",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5140
+   }
+  },
+  {
+   "question_id": "cvg-02",
+   "rep": 0,
+   "question": "¿Es buena idea usar el bench boost en la fecha 3? Analizá mi plantilla primero.",
+   "answers": {
+    "route": {
+     "choice": "get_my_squad",
+     "confidence": 0.87
+    },
+    "chip": {
+     "choice": "bench_boost",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5143
+   }
+  },
+  {
+   "question_id": "cvg-03",
+   "rep": 0,
+   "question": "Quiero saber si conviene el bench boost esta fecha, evaluando cómo viene mi equipo.",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.55
+    },
+    "chip": {
+     "choice": "bench_boost",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5142
+   }
+  },
+  {
+   "question_id": "cvg-04",
+   "rep": 0,
+   "question": "¿Debería usar el chip de bench boost en la próxima fecha?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.93
+    },
+    "chip": {
+     "choice": "bench_boost",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5137
+   }
+  },
+  {
+   "question_id": "cvg-05",
+   "rep": 0,
+   "question": "En la fecha 2, ¿me conviene tirar el bench boost?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.93
+    },
+    "chip": {
+     "choice": "bench_boost",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5137
+   }
+  },
+  {
+   "question_id": "cvg-09",
+   "rep": 0,
+   "question": "¿Vale la pena el triple captain en la fecha 2?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.97
+    },
+    "chip": {
+     "choice": "triple_captain",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5135
+   }
+  },
+  {
+   "question_id": "cvg-10",
+   "rep": 0,
+   "question": "Fecha 2: ¿bench boost sí o no?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.94
+    },
+    "chip": {
+     "choice": "bench_boost",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5133
+   }
+  },
+  {
+   "question_id": "cvg-11",
+   "rep": 0,
+   "question": "Mirá mi plantilla y decime si conviene el bench boost, estamos en la fecha 2.",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.49
+    },
+    "chip": {
+     "choice": "bench_boost",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5143
+   }
+  },
+  {
+   "question_id": "cvg-12",
+   "rep": 0,
+   "question": "¿Bench boost en la fecha 2 es buena jugada evaluando mi equipo actual?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.7
+    },
+    "chip": {
+     "choice": "bench_boost",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5142
+   }
+  },
+  {
+   "question_id": "ad-03",
+   "rep": 1,
+   "question": "¿Conviene usar el wildcard esta fecha?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.89
+    },
+    "chip": {
+     "choice": "wildcard",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5131
+   }
+  },
+  {
+   "question_id": "ad-04",
+   "rep": 1,
+   "question": "¿Debería tirar el triple captain este fin de semana con Haaland de local?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.92
+    },
+    "chip": {
+     "choice": "triple_captain",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5140
+   }
+  },
+  {
+   "question_id": "ad-05",
+   "rep": 1,
+   "question": "¿Me conviene hacer un transfer esta semana o mejor guardo el chip?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.37
+    },
+    "chip": {
+     "choice": "none",
+     "confidence": 0.94
+    }
+   },
+   "usage": {
+    "input_tokens": 5138
+   }
+  },
+  {
+   "question_id": "ad-07",
+   "rep": 1,
+   "question": "¿Es buen momento para usar el free hit?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.89
+    },
+    "chip": {
+     "choice": "free_hit",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5132
+   }
+  },
+  {
+   "question_id": "ad-10",
+   "rep": 1,
+   "question": "¿Debería activar el bench boost esta ronda?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.9
+    },
+    "chip": {
+     "choice": "bench_boost",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5134
+   }
+  },
+  {
+   "question_id": "cvg-01",
+   "rep": 1,
+   "question": "evalúa mi equipo y qué tan buena idea es el bench boost en la fecha 2",
+   "answers": {
+    "route": {
+     "choice": "get_my_squad",
+     "confidence": 0.77
+    },
+    "chip": {
+     "choice": "bench_boost",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5140
+   }
+  },
+  {
+   "question_id": "cvg-02",
+   "rep": 1,
+   "question": "¿Es buena idea usar el bench boost en la fecha 3? Analizá mi plantilla primero.",
+   "answers": {
+    "route": {
+     "choice": "get_my_squad",
+     "confidence": 0.83
+    },
+    "chip": {
+     "choice": "bench_boost",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5143
+   }
+  },
+  {
+   "question_id": "cvg-03",
+   "rep": 1,
+   "question": "Quiero saber si conviene el bench boost esta fecha, evaluando cómo viene mi equipo.",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.53
+    },
+    "chip": {
+     "choice": "bench_boost",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5142
+   }
+  },
+  {
+   "question_id": "cvg-04",
+   "rep": 1,
+   "question": "¿Debería usar el chip de bench boost en la próxima fecha?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.93
+    },
+    "chip": {
+     "choice": "bench_boost",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5137
+   }
+  },
+  {
+   "question_id": "cvg-05",
+   "rep": 1,
+   "question": "En la fecha 2, ¿me conviene tirar el bench boost?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.91
+    },
+    "chip": {
+     "choice": "bench_boost",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5137
+   }
+  },
+  {
+   "question_id": "cvg-09",
+   "rep": 1,
+   "question": "¿Vale la pena el triple captain en la fecha 2?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.97
+    },
+    "chip": {
+     "choice": "triple_captain",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5135
+   }
+  },
+  {
+   "question_id": "cvg-10",
+   "rep": 1,
+   "question": "Fecha 2: ¿bench boost sí o no?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.94
+    },
+    "chip": {
+     "choice": "bench_boost",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5133
+   }
+  },
+  {
+   "question_id": "cvg-11",
+   "rep": 1,
+   "question": "Mirá mi plantilla y decime si conviene el bench boost, estamos en la fecha 2.",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.54
+    },
+    "chip": {
+     "choice": "bench_boost",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5143
+   }
+  },
+  {
+   "question_id": "cvg-12",
+   "rep": 1,
+   "question": "¿Bench boost en la fecha 2 es buena jugada evaluando mi equipo actual?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.7
+    },
+    "chip": {
+     "choice": "bench_boost",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5142
+   }
+  },
+  {
+   "question_id": "ad-03",
+   "rep": 2,
+   "question": "¿Conviene usar el wildcard esta fecha?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.85
+    },
+    "chip": {
+     "choice": "wildcard",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5131
+   }
+  },
+  {
+   "question_id": "ad-04",
+   "rep": 2,
+   "question": "¿Debería tirar el triple captain este fin de semana con Haaland de local?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.92
+    },
+    "chip": {
+     "choice": "triple_captain",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5140
+   }
+  },
+  {
+   "question_id": "ad-05",
+   "rep": 2,
+   "question": "¿Me conviene hacer un transfer esta semana o mejor guardo el chip?",
+   "answers": {
+    "route": {
+     "choice": "get_my_squad",
+     "confidence": 0.31
+    },
+    "chip": {
+     "choice": "none",
+     "confidence": 0.9
+    }
+   },
+   "usage": {
+    "input_tokens": 5138
+   }
+  },
+  {
+   "question_id": "ad-07",
+   "rep": 2,
+   "question": "¿Es buen momento para usar el free hit?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.93
+    },
+    "chip": {
+     "choice": "free_hit",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5132
+   }
+  },
+  {
+   "question_id": "ad-10",
+   "rep": 2,
+   "question": "¿Debería activar el bench boost esta ronda?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.89
+    },
+    "chip": {
+     "choice": "bench_boost",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5134
+   }
+  },
+  {
+   "question_id": "cvg-01",
+   "rep": 2,
+   "question": "evalúa mi equipo y qué tan buena idea es el bench boost en la fecha 2",
+   "answers": {
+    "route": {
+     "choice": "get_my_squad",
+     "confidence": 0.71
+    },
+    "chip": {
+     "choice": "bench_boost",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5140
+   }
+  },
+  {
+   "question_id": "cvg-02",
+   "rep": 2,
+   "question": "¿Es buena idea usar el bench boost en la fecha 3? Analizá mi plantilla primero.",
+   "answers": {
+    "route": {
+     "choice": "get_my_squad",
+     "confidence": 0.84
+    },
+    "chip": {
+     "choice": "bench_boost",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5143
+   }
+  },
+  {
+   "question_id": "cvg-03",
+   "rep": 2,
+   "question": "Quiero saber si conviene el bench boost esta fecha, evaluando cómo viene mi equipo.",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.51
+    },
+    "chip": {
+     "choice": "bench_boost",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5142
+   }
+  },
+  {
+   "question_id": "cvg-04",
+   "rep": 2,
+   "question": "¿Debería usar el chip de bench boost en la próxima fecha?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.95
+    },
+    "chip": {
+     "choice": "bench_boost",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5137
+   }
+  },
+  {
+   "question_id": "cvg-05",
+   "rep": 2,
+   "question": "En la fecha 2, ¿me conviene tirar el bench boost?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.93
+    },
+    "chip": {
+     "choice": "bench_boost",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5137
+   }
+  },
+  {
+   "question_id": "cvg-09",
+   "rep": 2,
+   "question": "¿Vale la pena el triple captain en la fecha 2?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.97
+    },
+    "chip": {
+     "choice": "triple_captain",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5135
+   }
+  },
+  {
+   "question_id": "cvg-10",
+   "rep": 2,
+   "question": "Fecha 2: ¿bench boost sí o no?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.95
+    },
+    "chip": {
+     "choice": "bench_boost",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5133
+   }
+  },
+  {
+   "question_id": "cvg-11",
+   "rep": 2,
+   "question": "Mirá mi plantilla y decime si conviene el bench boost, estamos en la fecha 2.",
+   "answers": {
+    "route": {
+     "choice": "get_my_squad",
+     "confidence": 0.5
+    },
+    "chip": {
+     "choice": "bench_boost",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5143
+   }
+  },
+  {
+   "question_id": "cvg-12",
+   "rep": 2,
+   "question": "¿Bench boost en la fecha 2 es buena jugada evaluando mi equipo actual?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.74
+    },
+    "chip": {
+     "choice": "bench_boost",
+     "confidence": 1.0
+    }
+   },
+   "usage": {
+    "input_tokens": 5142
+   }
+  }
+ ]
+}
