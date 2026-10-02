@@ -1146,6 +1146,28 @@ def ask_v2(
 
         routing_trace["orchestrator_outcome"] = orch_result.outcome
 
+        # i116: Jev shadow. Off unless FPL_JEV_MODE=shadow; when off nothing
+        # below runs and jev_router is never imported. When on it runs in a
+        # daemon thread over the text the orchestrator just answered, writes
+        # its own log, and never touches this turn's result.
+        if os.environ.get("FPL_JEV_MODE", "").strip().lower() == "shadow":
+            from .jev_router import shadow as _jev_shadow  # noqa: PLC0415
+
+            _turn_id = _jev_shadow.new_turn_id()
+            routing_trace[_jev_shadow.TURN_ID_TRACE_KEY] = _turn_id
+            _jev_shadow.start(
+                turn_id=_turn_id,
+                question=cleaned_text,
+                bootstrap=actual_bootstrap,
+                provider=_provider,
+                model=_model,
+                api_key=orch_api_key,
+                served_tool_sequence=[
+                    e.get("name") for e in (orch_result.tool_calls_trace or ())
+                    if isinstance(e, dict) and e.get("name")
+                ],
+            )
+
         if orch_result.outcome == ORCH_OUTCOME_OK and orch_result.tool_chosen:
             # Successful tool call — grounded answer.
             routing_trace["branch"]                  = "orchestrator"
