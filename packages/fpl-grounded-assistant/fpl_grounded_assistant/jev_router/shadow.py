@@ -142,6 +142,7 @@ def _decision_dict(d: JevDecision) -> dict[str, Any]:
         "path": d.path, "reason": d.reason, "route": d.route,
         "route_confidence": d.route_confidence, "chip": d.chip,
         "chip_confidence": d.chip_confidence, "gameweek": d.gameweek,
+        "range_signal": d.range_signal,
         "latency_ms": d.latency_ms, "input_tokens": d.input_tokens,
     }
 

@@ -24,6 +24,8 @@ and then applies :func:`decide`, the rule measured in the Jev pilot (eval
 * ``chip == "none"`` ESCALATES: the chip tool's enum needs a chip, and Jev is
   confident (0.90-0.94 measured) that none is named -- the blocker is the
   value, not uncertainty, so there is no confidence threshold;
+* a question about several gameweeks, a range, the next N, a window, or
+  WHEN to play the chip ESCALATES (i121): the chip path evaluates one GW;
 * anything else ESCALATES to the full orchestrator, which is what production
   does for every question today.
 
@@ -94,6 +96,58 @@ GAMEWEEK_RE: re.Pattern[str] = re.compile(
     r"\b(?:fecha|jornada|gameweek|gw)\s*(\d{1,2})\b", re.IGNORECASE
 )
 
+#: i121: the chip path evaluates ONE gameweek (the named one, or the current
+#: one). A chip question that asks about several gameweeks, a range, the next
+#: N, a window, or WHEN to play the chip cannot be answered by one evaluation:
+#: measured in prod 2026-10-02, "free hit en la jornada 6, 7 u 8, ¿cuándo?"
+#: took GW6 only and "las próximas 3 jornadas … en qué momento" took the
+#: current GW only, while the orchestrator covered the range -- and the i108
+#: E3 grader passed both (it checks shape, not coverage). Such a question
+#: escalates, i.e. is served exactly as today. Matched on accent-folded,
+#: lower-cased text. Each entry is (signal name, pattern); the name is logged.
+_GW_WORD = r"(?:fechas?|jornadas?|gameweeks?|gws?|semanas?|rondas?)"
+_NUM = r"\d{1,2}"
+RANGE_SIGNALS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    # "jornada 6, 7 u 8", "fechas 6 y 7", "gw 6/7", "jornadas 6 o 7"
+    ("gameweek_list", re.compile(
+        rf"\b{_GW_WORD}\s*{_NUM}\s*(?:,\s*{_NUM}\s*)*(?:,|\by\b|\bu\b|\bo\b|/)\s*(?:{_GW_WORD}\s*)?{_NUM}\b")),
+    # "6 a 8", "6-8", "6 al 8", "de la 6 a la 8", "gw6-gw8", "6 hasta 8" -- the
+    # first number must follow a gameweek word or "la/el/de la", so prices and
+    # counts ("a 5.0", "15 jugadores") do not match.
+    ("gameweek_range", re.compile(
+        rf"(?:\b{_GW_WORD}\s*|\b(?:de\s+)?(?:la|el)\s+){_NUM}\s*(?:-|–|\ba\b|\bal\b|\bhasta\b)\s*"
+        rf"(?:la\s+|el\s+)?(?:{_GW_WORD}\s*)?{_NUM}\b")),
+    # "entre la 6 y la 8", "entre las jornadas 6 y 8"
+    ("gameweek_between", re.compile(
+        rf"\bentre\s+(?:las?\s+|los?\s+)?(?:{_GW_WORD}\s*)?{_NUM}\s+y\s+(?:la\s+|el\s+)?(?:{_GW_WORD}\s*)?{_NUM}\b")),
+    # "próximas 3 jornadas", "siguientes 4 fechas", "next 3 gameweeks"
+    ("next_n", re.compile(
+        rf"\b(?:proxim[oa]s|siguientes|next)\s+(?:{_NUM}|dos|tres|cuatro|cinco|seis|two|three|four|five)\s+{_GW_WORD}")),
+    # "esta jornada y la próxima", "esta fecha o la siguiente"
+    ("this_and_next", re.compile(r"\best[ae]\s+\w+\s+(?:y|o|u)\s+(?:la|el)\s+(?:proxim[oa]|siguiente)\b")),
+    ("window", re.compile(r"\bventana\b|\bwindow\b")),
+    # WHEN to play it: "¿cuándo?", "mejor momento", "en qué jornada/momento".
+    # NOT "es buen momento" (= now; ad-07 in the corpus stays on the chip path).
+    ("when", re.compile(rf"\bcuando\b|\bmejor\s+momento\b|\ben\s+que\s+(?:momento|{_GW_WORD})\b|\bwhen\b")),
+)
+
+
+def _fold(text: str) -> str:
+    import unicodedata  # noqa: PLC0415
+
+    nfkd = unicodedata.normalize("NFKD", text or "")
+    return "".join(c for c in nfkd if not unicodedata.combining(c)).lower()
+
+
+def range_signal(question: str) -> str | None:
+    """Name of the first RANGE_SIGNALS entry the question matches, or None."""
+    folded = _fold(question)
+    for name, pattern in RANGE_SIGNALS:
+        if pattern.search(folded):
+            return name
+    return None
+
+
 ROUTE_INSTRUCTIONS: str = "Which tool should answer this Fantasy Premier League question first?"
 
 CHIP_QUESTION: dict[str, Any] = {
@@ -123,6 +177,8 @@ class JevDecision:
     chip: str | None = None
     chip_confidence: float | None = None
     gameweek: int | None = None
+    #: i121: which RANGE_SIGNALS entry the question matched (None: one GW).
+    range_signal: str | None = None
     latency_ms: float | None = None
     input_tokens: int | None = None
 
@@ -175,6 +231,7 @@ def decide(answers: dict[str, Any], question: str) -> JevDecision:
         "chip": chip,
         "chip_confidence": chip_ans.get("confidence"),
         "gameweek": read_gameweek(question),
+        "range_signal": range_signal(question),
     }
     if not isinstance(route, str) or not isinstance(chip, str):
         return JevDecision(PATH_ESCALATE, "malformed_answer", **common)
@@ -186,6 +243,8 @@ def decide(answers: dict[str, Any], question: str) -> JevDecision:
         return JevDecision(PATH_ESCALATE, "not_chip_route", **common)
     if chip == "none":
         return JevDecision(PATH_ESCALATE, "chip_none", **common)
+    if common["range_signal"] is not None:
+        return JevDecision(PATH_ESCALATE, "gameweek_range", **common)
     return JevDecision(PATH_CHIP, why, **common)
 
 
