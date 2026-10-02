@@ -1,0 +1,155 @@
+{
+ "source": {
+  "what": "Real TypeSafe jev-latest layer-1 answers from the PROD shadow (i116), 2026-10-02 UTC, joined to the prod audit by turn_id. The product owner's own test questions; no user id kept.",
+  "recorded_by": "code before i121 (main @ d3cf981)"
+ },
+ "rows": [
+  {
+   "turn_id": "096e8f0119c241358de8442df20e8e07",
+   "question": "¿Debería activar el bench boost esta jornada?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.96
+    },
+    "chip": {
+     "choice": "bench_boost",
+     "confidence": 1.0
+    }
+   },
+   "recorded_layer1": {
+    "path": "chip",
+    "reason": "plan"
+   },
+   "recorded_chip_args": {
+    "chip": "bench_boost"
+   },
+   "orchestrator_tools": [
+    "get_chip_advice"
+   ]
+  },
+  {
+   "turn_id": "dc529ac45d7642fb947cd70c693b8a32",
+   "question": "¿Qué tan recomendable es usar la wildcard en la siguiente fecha?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.89
+    },
+    "chip": {
+     "choice": "wildcard",
+     "confidence": 1.0
+    }
+   },
+   "recorded_layer1": {
+    "path": "chip",
+    "reason": "plan"
+   },
+   "recorded_chip_args": {
+    "chip": "wildcard"
+   },
+   "orchestrator_tools": [
+    "get_chip_advice"
+   ]
+  },
+  {
+   "turn_id": "e17a0508036f496bb7b7f068998ed5bd",
+   "question": "Recomiéndame jugadores de Fulham para mi transferencia en la fecha 6",
+   "answers": {
+    "route": {
+     "choice": "get_transfer_suggestion",
+     "confidence": 0.76
+    },
+    "chip": {
+     "choice": "none",
+     "confidence": 0.95
+    }
+   },
+   "recorded_layer1": {
+    "path": "escalate",
+    "reason": "not_chip_route"
+   },
+   "recorded_chip_args": null,
+   "orchestrator_tools": [
+    "get_transfer_suggestion"
+   ]
+  },
+  {
+   "turn_id": "aef9ef7e2ebe48809b5954b1a9760e84",
+   "question": "con los buenos encuentros que tendrá fulham en las proximas 3 jornadas, he considerado traer a alguno de sus jugadores, pero no los quiero a largo plazo asi es que estoy considerando usar mi free hit, en que momento seria recomendable usarlo dentro de la ventana que tiene buena racha fulham",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.47
+    },
+    "chip": {
+     "choice": "free_hit",
+     "confidence": 1.0
+    }
+   },
+   "recorded_layer1": {
+    "path": "chip",
+    "reason": "plan"
+   },
+   "recorded_chip_args": {
+    "chip": "free_hit"
+   },
+   "orchestrator_tools": [
+    "get_chip_advice"
+   ]
+  },
+  {
+   "turn_id": "f922830239d14d25ad7cd3e917d4ede8",
+   "question": "¿Usar free hit en la jornada 6, 7 u 8? ¿Cuándo es el mejor momento?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.95
+    },
+    "chip": {
+     "choice": "free_hit",
+     "confidence": 1.0
+    }
+   },
+   "recorded_layer1": {
+    "path": "chip",
+    "reason": "plan"
+   },
+   "recorded_chip_args": {
+    "chip": "free_hit",
+    "gameweek": 6
+   },
+   "orchestrator_tools": [
+    "get_chip_advice",
+    "get_chip_advice",
+    "get_chip_advice",
+    "get_chip_advice"
+   ]
+  },
+  {
+   "turn_id": "5f9a946755f0495b85f939d33da12ee4",
+   "question": "¿Debería activar el bench boost esta jornada?",
+   "answers": {
+    "route": {
+     "choice": "plan_chip_general_then_my_squad",
+     "confidence": 0.96
+    },
+    "chip": {
+     "choice": "bench_boost",
+     "confidence": 1.0
+    }
+   },
+   "recorded_layer1": {
+    "path": "chip",
+    "reason": "plan"
+   },
+   "recorded_chip_args": {
+    "chip": "bench_boost"
+   },
+   "orchestrator_tools": [
+    "get_chip_advice",
+    "get_chip_advice"
+   ]
+  }
+ ]
+}
