@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-01",
+  "updated": "2026-10-02",
   "cards": [
     {
       "id": "s1",
@@ -1576,7 +1576,7 @@
         "Backend",
         "IA"
       ],
-      "desc": "Flag con default off (= interruptor). Enganche en harness.ask_v2 justo tras volver ask_orchestrated (harness.py:1116, verificado), solo rama de texto libre, en un threading.Thread daemon para no retrasar nunca la respuesta (patrón y por qué no un executor: player_form.py:264-332, verificado). Capa 1, en TODOS los turnos de texto libre (decisión de Leo): una llamada a Jev; registrar ruta / confianza / decisión / latencia / tokens. Capa 2, solo si la capa 1 toma el camino de chip: run_tool(\"get_chip_advice\") sobre la misma copia superficial con _my_team_id, una llamada de cuerpo SIN herramientas (chip_composition_rule() + payload menos orchestrator._MODEL_HIDDEN_FIELDS), luego compose_chip_answer. Escribe shadow_logs/<fecha>.ndjson bajo AUDIT_LOG_DIR (volumen de [[i104]]), unido al audit por un turn_id nuevo y aditivo en AuditEntry; guarda answer_text_full + chip_trace con la forma de fila del grader. SALIDA DE LA SOMBRA (Leo): ≥ 60 turnos reales de chip con ≥ 95 % en el grader de E3, O 3 semanas, lo que llegue antes; si llega antes el plazo, decidir con el número reunido y decirlo. PUERTA: flag off → cero llamadas a Jev (test de mutación); la sombra nunca cambia el answer_text servido; un timeout/error de Jev se registra y el turno servido no se afecta; grade_i108_chip_two_parts.py corre sin cambios sobre un archivo de sombra.\n\nORIGEN: handoff de la sesión del piloto de Jev (2026-09-29), plan C:\\Users\\thera\\.claude\\plans\\jev-prod-handoff-2026-09-29.md, aprobado por Leo según el relay. Evidencia: eval 4/4b tras i108 E3, 14 ids × 3, grader grade_i108_chip_two_parts.py — mismo gate que main (33/33), $0.000579 vs $0.001104 por respuesta (−48 %), p50 3,3 s vs 5,6 s. Evidencia end-to-end SOLO para chips; por eso solo chips van a prod. Implementación de referencia en origin/experiment/jev-tool-routing.\n\nPR #331 (2026-10-01), aprobado por el chat de revisión; default off, merge no cambia prod salvo que FPL_JEV_MODE=shadow ya esté puesto (Leo lo puso en Railway). La capa 2 usa una copia privada del bootstrap; el flag se lee en cada llamada; start() nunca lanza; turn_id aditivo une audit y shadow_logs. Puerta extra verificada: en ask_v2, /ask y sesión con team_id, el cuerpo a Jev es {model, state, questions}, sin ids. LÍMITE CONOCIDO, aceptado: desde i103, en turnos de sesión ≥ 2 la pregunta puede llegar reescrita por el resolver con una entidad del historial («tell me about Salah»). Es información derivada de la sesión que llega a TypeSafe (no un id ni el historial en sí); se acepta para que la capa 1 juzgue la misma pregunta que ruteó el orquestador. Alternativa: mandar el texto crudo. PENDIENTE: TYPESAFE_API_KEY en Railway (sin ella cada turno registra escalate/no_api_key y la sombra no mide); comprobar shadow_logs/ con railway ssh; luego la regla de salida."
+      "desc": "Flag con default off (= interruptor). Enganche en harness.ask_v2 justo tras volver ask_orchestrated (harness.py:1116, verificado), solo rama de texto libre, en un threading.Thread daemon para no retrasar nunca la respuesta (patrón y por qué no un executor: player_form.py:264-332, verificado). Capa 1, en TODOS los turnos de texto libre (decisión de Leo): una llamada a Jev; registrar ruta / confianza / decisión / latencia / tokens. Capa 2, solo si la capa 1 toma el camino de chip: run_tool(\"get_chip_advice\") sobre la misma copia superficial con _my_team_id, una llamada de cuerpo SIN herramientas (chip_composition_rule() + payload menos orchestrator._MODEL_HIDDEN_FIELDS), luego compose_chip_answer. Escribe shadow_logs/<fecha>.ndjson bajo AUDIT_LOG_DIR (volumen de [[i104]]), unido al audit por un turn_id nuevo y aditivo en AuditEntry; guarda answer_text_full + chip_trace con la forma de fila del grader. SALIDA DE LA SOMBRA (Leo): ≥ 60 turnos reales de chip con ≥ 95 % en el grader de E3, O 3 semanas, lo que llegue antes; si llega antes el plazo, decidir con el número reunido y decirlo. PUERTA: flag off → cero llamadas a Jev (test de mutación); la sombra nunca cambia el answer_text servido; un timeout/error de Jev se registra y el turno servido no se afecta; grade_i108_chip_two_parts.py corre sin cambios sobre un archivo de sombra.\n\nORIGEN: handoff de la sesión del piloto de Jev (2026-09-29), plan C:\\Users\\thera\\.claude\\plans\\jev-prod-handoff-2026-09-29.md, aprobado por Leo según el relay. Evidencia: eval 4/4b tras i108 E3, 14 ids × 3, grader grade_i108_chip_two_parts.py — mismo gate que main (33/33), $0.000579 vs $0.001104 por respuesta (−48 %), p50 3,3 s vs 5,6 s. Evidencia end-to-end SOLO para chips; por eso solo chips van a prod. Implementación de referencia en origin/experiment/jev-tool-routing.\n\nPR #331 (2026-10-01), aprobado por el chat de revisión; default off, merge no cambia prod salvo que FPL_JEV_MODE=shadow ya esté puesto (Leo lo puso en Railway). La capa 2 usa una copia privada del bootstrap; el flag se lee en cada llamada; start() nunca lanza; turn_id aditivo une audit y shadow_logs. Puerta extra verificada: en ask_v2, /ask y sesión con team_id, el cuerpo a Jev es {model, state, questions}, sin ids. LÍMITE CONOCIDO, aceptado: desde i103, en turnos de sesión ≥ 2 la pregunta puede llegar reescrita por el resolver con una entidad del historial («tell me about Salah»). Es información derivada de la sesión que llega a TypeSafe (no un id ni el historial en sí); se acepta para que la capa 1 juzgue la misma pregunta que ruteó el orquestador. Alternativa: mandar el texto crudo. PENDIENTE: TYPESAFE_API_KEY en Railway (sin ella cada turno registra escalate/no_api_key y la sombra no mide); comprobar shadow_logs/ con railway ssh; luego la regla de salida.\n\nEN PROD 2026-10-02 (#331 fusionado 01:15Z, TYPESAFE_API_KEY puesta). Primeras 6 filas: todas se unen a su línea de audit por turn_id, 0 errores, capa 1 en 116-155 ms. Grader de E3 sin modificar sobre el archivo de sombra de prod: 5/5 filas de chip pasan, 0 palabras de transacción; una pregunta de transferencia escaló bien. Coste por turno de chip: Jev $0.00045-0.00064 vs servido $0.00083-0.0071. Contador de la regla de salida: 5/60. Tip para Leo: en PowerShell, `[Console]::OutputEncoding = [Text.Encoding]::UTF8` antes de railway ssh para no romper los acentos."
     },
     {
       "id": "i117",
@@ -1620,6 +1620,38 @@
         "Backend"
       ],
       "desc": "OBSERVACIÓN de la sesión del piloto (2026-09-29), verificada por el chat de revisión en main: el último nivel de team_fixture_calendar._resolve_team_result es `q in t[\"name\"].lower()` — «tal» (de «¿qué tal pinta…») resuelve a Crystal Palace; «ton», «ham» resolverían en silencio a un club equivocado en vez de fallar. Hoy no daña: el resolver recibe el team_query del modelo, no texto libre. Es el patrón «relajar el matcher esconde el fallo». CIERRE: exigir un mínimo de longitud o límite de palabra en ese nivel (o eliminarlo si los alias cubren lo necesario), con test que liste qué NUEVO deja de resolver y qué sigue resolviendo en los 20 clubes."
+    },
+    {
+      "id": "i121",
+      "col": "idea",
+      "progress": 0,
+      "tags": [
+        "IA",
+        "Backend"
+      ],
+      "title": "Jev contesta solo una jornada cuando la pregunta de chip pide un rango («6, 7 u 8», «próximas 3»)",
+      "desc": "PRECONDICIÓN DE [[i118]]: el canary no se abre sin esto. «¿Usar free hit en la jornada 6, 7 u 8? ¿Cuándo es el mejor momento?» → servido: get_chip_advice ×4 (GW6, GW7, GW8 y GW6 horizon=3); camino Jev: solo GW6 (ruteo a 0.95). «…las próximas 3 jornadas… en qué momento sería recomendable usar free hit» → servido con horizon=3; Jev: solo la jornada actual (conf 0.47). Mismo veredicto, pero la respuesta de Jev no contesta «¿cuándo?». Verificado en main por el chat de revisión: jev_router.read_gameweek usa GAMEWEEK_RE.search → el primer número. El grader de E3 NO lo detecta: mide la forma en dos partes, no que se cubra el horizonte pedido (la misma lección que M11). ARREGLO propuesto, regla de código de la familia de chip=none: decide() escala (o rellena el horizon de get_chip_advice) cuando la pregunta nombra más de una jornada, un rango («6, 7 u 8», «6 a 8», «6-8»), «próximas N» o «ventana». PUERTA: casos de cobertura de rango con respuestas grabadas (sin red), más un chequeo que el grader de E3 no hace: que la respuesta cubra las jornadas pedidas.\n\nORIGEN: primeros datos de la sombra en prod (2026-10-02, sesión del piloto de Jev; 6 turnos con sombra, 0 errores, evidencia en C:/Users/thera/fpl-audit/)."
+    },
+    {
+      "id": "i122",
+      "col": "idea",
+      "progress": 0,
+      "tags": [
+        "FPL Asistente"
+      ],
+      "title": "«Te faltan 1 jugadores»: singular en la frase particular del chip",
+      "desc": "Verificado en main: chip_two_part.PARTICULAR_PHRASE[\"needs_transfers\"] = «te faltan {n} jugadores del grupo favorecido…», siempre en plural. Con missing_count=1 sale «te faltan 1 jugadores», y pasa por compose_chip_answer, así que las respuestas servidas en prod lo dicen. ARREGLO: una variante en singular («te falta 1 jugador…»). Hay que actualizar también grade_i108_chip_two_parts.py, que exige la frase exacta; lo correcto es que importe la misma constante o función. Pequeña.\n\nORIGEN: primeros datos de la sombra en prod (2026-10-02, sesión del piloto de Jev; 6 turnos con sombra, 0 errores, evidencia en C:/Users/thera/fpl-audit/)."
+    },
+    {
+      "id": "i123",
+      "col": "idea",
+      "progress": 0,
+      "tags": [
+        "IA",
+        "FPL Asistente"
+      ],
+      "title": "Nombres de campos internos en la respuesta al usuario (`dgw_teams=[]`)",
+      "desc": "En un turno ok servido por el orquestador (la pregunta de free hit 6/7/8), el texto dice «La herramienta marca la jornada como **normal**, con `dgw_teams=[]` y `bgw_teams=[]`». Son nombres de campos internos que llegan al usuario. Es de la familia de [[i106]], pero la guarda de texto final no lo cubre: no es un payload crudo. Opciones: regla en el prompt de síntesis («nunca cites nombres de campos ni valores en notación de código») y/o un motivo nuevo en final_text_guard para identificadores snake_case entre backticks o `campo=valor`. Ojo con relajar la guarda: medir qué textos legítimos empezarían a dispararla. CIERRE: 0 apariciones sobre las respuestas reales de la familia de chip, R=3.\n\nORIGEN: primeros datos de la sombra en prod (2026-10-02, sesión del piloto de Jev; 6 turnos con sombra, 0 errores, evidencia en C:/Users/thera/fpl-audit/)."
     }
   ]
 }
