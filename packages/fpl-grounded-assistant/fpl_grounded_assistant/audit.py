@@ -146,6 +146,10 @@ class AuditEntry:
     # tool_output never held it. Both None on a clean turn.
     final_text_guard_reason: str | None = None
     guarded_raw_answer_text: str | None = None
+    # i116: set ONLY on a turn the Jev shadow ran on (FPL_JEV_MODE=shadow);
+    # the key that joins this line to its shadow_logs/ row. None otherwise,
+    # and then the serialised line carries no turn_id key at all.
+    turn_id: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -265,6 +269,10 @@ def write_audit_entry(entry: AuditEntry, log_dir: str | None = None) -> None:
         "final_text_guard_reason": entry.final_text_guard_reason,   # i106
         "guarded_raw_answer_text": entry.guarded_raw_answer_text,   # i106
     }
+    # i116: additive and conditional -- a line from a non-shadowed turn is
+    # byte-identical to what it was before the shadow existed.
+    if entry.turn_id is not None:
+        entry_dict["turn_id"] = entry.turn_id
 
     line = json.dumps(entry_dict, ensure_ascii=False, separators=(",", ":"))
 
@@ -342,6 +350,7 @@ def make_audit_entry(
     orchestration_absent: bool = False,
     final_text_guard_reason: str | None = None,
     guarded_raw_answer_text: str | None = None,
+    turn_id: str | None = None,
 ) -> AuditEntry:
     """Convenience factory for building an AuditEntry from ask_v2() output.
 
@@ -375,4 +384,5 @@ def make_audit_entry(
         model=model,
         final_text_guard_reason=final_text_guard_reason,
         guarded_raw_answer_text=guarded_raw_answer_text,
+        turn_id=turn_id,
     )

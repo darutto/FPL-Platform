@@ -22,7 +22,9 @@ D. Failure is a decision: no key, timeout, transport error, non-200, bad
    timeout is read from ``FPL_JEV_TIMEOUT_S`` at call time.
 E. Privacy (i114): the outgoing body is ``{model, state, questions}`` with
    ``state`` == the question string, and ``route()`` accepts no context.
-F. Not wired: no module of the served path references ``jev_router``.
+F. Wired only where allowed: no served module references ``jev_router``
+   except ``ALLOWED_REFERENCES`` (i116: the flag-gated shadow hook), and
+   importing the serving modules does not load it.
 """
 from __future__ import annotations
 
@@ -301,13 +303,23 @@ def test_route_accepts_no_context_argument() -> None:
 
 # ---------------------------------------------------------------- F. not wired
 
-def test_no_served_module_references_jev_router() -> None:
+#: i116 wires exactly one caller: the shadow hook in harness.ask_v2, behind
+#: FPL_JEV_MODE=shadow (lazy import -- with the flag off the package is never
+#: loaded; test_serving_imports_do_not_load_jev_router below still holds).
+#: The serving side (i118) will be a separate, deliberate entry here.
+ALLOWED_REFERENCES: dict[str, str] = {
+    "fpl_grounded_assistant/harness.py": "i116 shadow hook, flag-gated, lazy import",
+}
+
+
+def test_no_served_module_references_jev_router_outside_the_allowlist() -> None:
     served = [p for p in (PACKAGE_ROOT / "fpl_grounded_assistant").rglob("*.py")
               if "jev_router" not in p.parts]
     served.append(PACKAGE_ROOT / "fpl_server.py")
-    offenders = [str(p.relative_to(PACKAGE_ROOT)) for p in served
+    offenders = [p.relative_to(PACKAGE_ROOT).as_posix() for p in served
                  if "jev_router" in p.read_text(encoding="utf-8")]
-    assert not offenders, f"i115 ships the router UNWIRED; referenced from: {offenders}"
+    unexpected = sorted(set(offenders) - set(ALLOWED_REFERENCES))
+    assert not unexpected, f"jev_router referenced outside the allowlist: {unexpected}"
 
 
 def test_serving_imports_do_not_load_jev_router() -> None:
