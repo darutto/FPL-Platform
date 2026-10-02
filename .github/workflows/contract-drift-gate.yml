@@ -25,8 +25,46 @@ on:
     branches: [main]
 
 jobs:
+  # ci/probe-off-pr-path-filters (2026-10-01): decides whether this PR touched
+  # anything the heavy job tests. NOT a workflow-level `paths:` filter: a
+  # required check that never runs never reports and blocks the PR forever
+  # (see the NO `paths:` FILTER rule above). Here the required job still runs
+  # its `if:`; when it is skipped by condition GitHub reports it as passing.
+  # Non-code = the board, field notes and the daily stats snapshot. On push
+  # to main (and manual runs) everything always runs.
+  changes:
+    name: Detect code changes
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Classify changed paths
+        id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          changed=$(git diff --name-only "$BASE" "$HEAD")
+          echo "$changed"
+          other=$(echo "$changed" | grep -vE '^(roadmap-board/|field-notes/|data/stats\.json$)' || true)
+          if [ -z "$changed" ] || [ -n "$other" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
   contract-drift-gate:
     name: Contract and fixture drift check
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     env:
       PYTHONPATH: ${{ github.workspace }}/packages/football-data-contract:${{ github.workspace }}/packages/sportmonks-client:${{ github.workspace }}/packages/football-identity-registry:${{ github.workspace }}/packages/football-intelligence
