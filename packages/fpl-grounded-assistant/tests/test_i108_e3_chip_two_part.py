@@ -34,6 +34,7 @@ from fpl_grounded_assistant.chip_advisor import CHIP_ADVICE_SPEC
 from fpl_grounded_assistant.chip_two_part import (
     FORBIDDEN_OPENINGS,
     GENERAL_VERDICT_LABEL,
+    NEEDS_TRANSFERS_ONE,
     PARTICULAR_PHRASE,
     chip_composition_rule,
     compose_chip_answer,
@@ -283,6 +284,28 @@ class TestParticularPhrase:
         chip = _chip(**over)
         assert particular_outcome(chip) == outcome
         assert particular_phrase(chip) == phrase
+
+    # i122: "te faltan 1 jugadores" reached prod. Singular for exactly one.
+    @pytest.mark.parametrize("n, phrase", [
+        (1, "te falta 1 jugador del grupo favorecido para sacarle todo al chip"),
+        (2, "te faltan 2 jugadores del grupo favorecido para sacarle todo al chip"),
+        (5, "te faltan 5 jugadores del grupo favorecido para sacarle todo al chip"),
+    ])
+    def test_needs_transfers_agrees_with_the_count(self, n, phrase):
+        chip = _chip(squad_fit={"held": [1], "missing_count": n, "verdict": "needs_transfers"})
+        assert particular_phrase(chip) == phrase
+
+    def test_composer_and_grader_read_the_singular_from_one_copy(self):
+        chip = _chip(squad_fit={"held": [1, 2, 3], "missing_count": 1, "verdict": "needs_transfers"})
+        text = compose_chip_answer("Liverpool juega en casa ante un rival flojo.", chip, {14: "Liverpool"})
+        assert text.endswith("Te falta 1 jugador del grupo favorecido para sacarle todo al chip.")
+        assert "faltan 1" not in text and "1 jugadores" not in text
+        assert grader.grade_row(_row(text, chip), NAMES)["part2"] is True
+        plural = text.replace("Te falta 1 jugador", "Te faltan 1 jugadores")
+        assert grader.grade_row(_row(plural, chip), NAMES)["part2"] is False
+
+    def test_singular_phrase_obeys_the_framing_rule(self):
+        assert transaction_hits(NEEDS_TRANSFERS_ONE) == []
 
     def test_fetch_failed_is_never_the_invitation(self):
         chip = _chip(squad_source=None, squad_fit=None, linked_squad_error="fetch_failed")
