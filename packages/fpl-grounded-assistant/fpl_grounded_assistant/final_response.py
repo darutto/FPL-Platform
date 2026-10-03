@@ -2223,27 +2223,54 @@ def _extract_position_fixture_run_meta(ro: "dict[str, Any]") -> "PositionFixture
 #: snapshot-first ordering would otherwise drop the calendar card.
 COMPOSITION_PRIMARY_TOOLS: frozenset[str] = frozenset({"get_fixture_outlook"})
 
+#: i131: tools that only anchor the turn on a gameweek. The model often calls
+#: one first ("which GW is it?") and the tool that answers the question
+#: second; the orchestrator's slot is ``executed[0]``, so the anchor took the
+#: slot and its card ("JORNADA ACTUAL") replaced the answer's -- seen on a
+#: captain turn, get_current_gameweek + rank_captain_candidates, no
+#: candidates card. When one of these opens a turn that also ran another
+#: tool, it does not own the slot.
+GAMEWEEK_CONTEXT_TOOLS: frozenset[str] = frozenset({
+    "get_current_gameweek",
+    "get_gameweek_context",
+})
+
+
+def _last_ok_or_last(calls: "list[dict[str, Any]]") -> "dict[str, Any]":
+    ok = [e for e in calls if e.get("success")]
+    return (ok or calls)[-1]
+
 
 def composed_primary_call(trace: "Any") -> "dict[str, Any] | None":
-    """The ``tool_calls_trace`` entry that owns the singular slot of a composed
-    turn, or ``None`` when the turn is not composed.
+    """The ``tool_calls_trace`` entry that owns the singular slot of a
+    multi-tool turn, or ``None`` when the orchestrator's own slot stands.
 
-    Composed = the trace holds at least two DISTINCT tool names and one of
-    them is in ``COMPOSITION_PRIMARY_TOOLS``. Returns the LAST successful
-    call of that primary tool (the one whose output the user saw described);
-    with no successful one, the last call of it. Single-tool turns and
-    multi-tool turns without a primary return ``None`` so callers keep the
-    orchestrator's own slot untouched -- this helper never invents a primary.
+    Only turns whose trace holds at least two DISTINCT tool names qualify.
+    Two rules, in order:
+
+    1. Composed (i93): one of the tools is in ``COMPOSITION_PRIMARY_TOOLS``
+       -> that tool owns the slot, wherever the model put it.
+    2. Gameweek anchor first (i131): the FIRST call is a
+       ``GAMEWEEK_CONTEXT_TOOLS`` tool -> the first tool outside that set,
+       in the model's order, owns the slot.
+
+    The owning call is the LAST successful call of the owning tool (the one
+    whose output the user saw described); with no successful one, the last
+    call of it. Every other turn returns ``None`` so callers keep the
+    orchestrator's own slot untouched -- this helper never invents an owner.
     """
     entries = [e for e in (trace or ()) if isinstance(e, dict) and e.get("name")]
     names = {e["name"] for e in entries}
     if len(names) < 2:
         return None
     primaries = [e for e in entries if e["name"] in COMPOSITION_PRIMARY_TOOLS]
-    if not primaries:
-        return None
-    ok = [e for e in primaries if e.get("success")]
-    return (ok or primaries)[-1]
+    if primaries:
+        return _last_ok_or_last(primaries)
+    if entries[0]["name"] in GAMEWEEK_CONTEXT_TOOLS:
+        answering = [e["name"] for e in entries if e["name"] not in GAMEWEEK_CONTEXT_TOOLS]
+        if answering:
+            return _last_ok_or_last([e for e in entries if e["name"] == answering[0]])
+    return None
 
 
 def _extract_fixture_outlook_meta(ro: "dict[str, Any]") -> "FixtureOutlookMeta | None":
