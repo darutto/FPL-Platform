@@ -1,6 +1,28 @@
 import React from 'react';
 
-/** Inline `**bold**` → <strong>; everything else stays plain text. */
+/**
+ * i126: `*italic*` — an asterisk that opens on a non-space and closes on a
+ * non-space, with no asterisk inside. So "5 * 2" and "a * b * c" stay literal,
+ * and a `**` pair never reads as two italics (bold is split out first).
+ * `_italic_` is deliberately NOT supported: underscores live inside names
+ * (`dgw_teams`, `web_name`) and would turn them into italics. No lookbehind:
+ * older Safari throws on it at parse time, which would take the bundle down.
+ */
+const ITALIC = /(\*[^\s*](?:[^*]*[^\s*])?\*)/g;
+
+function renderItalics(text: string, keyPrefix: string): React.ReactNode[] {
+  return text.split(ITALIC).map((part, i) =>
+    i % 2 === 1 ? (
+      <em key={`${keyPrefix}-${i}`} className="italic">
+        {part.slice(1, -1)}
+      </em>
+    ) : (
+      <span key={`${keyPrefix}-${i}`}>{part}</span>
+    ),
+  );
+}
+
+/** Inline `**bold**` → <strong>, `*italic*` → <em>; everything else stays plain text. */
 function renderInline(text: string): React.ReactNode[] {
   return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
     part.startsWith('**') && part.endsWith('**') ? (
@@ -8,7 +30,7 @@ function renderInline(text: string): React.ReactNode[] {
         {part.slice(2, -2)}
       </strong>
     ) : (
-      <span key={i}>{part}</span>
+      <React.Fragment key={i}>{renderItalics(part, String(i))}</React.Fragment>
     ),
   );
 }
@@ -37,8 +59,8 @@ type ListKind = 'ul' | 'ol';
 
 /**
  * Dependency-free minimal markdown: paragraphs, headings (`#`–`######`),
- * bullet lists (`* ` / `- `), numbered lists (`1. ` / `1) `) and inline
- * `**bold**`. NOT a full markdown parser — deliberately tiny so the app never
+ * bullet lists (`* ` / `- `), numbered lists (`1. ` / `1) `), inline
+ * `**bold**` and inline `*italic*`. NOT a full markdown parser — deliberately tiny so the app never
  * surfaces raw `###` / `1.` / asterisks (or a monospace wall of text) in place
  * of structure. Shared by the chat text bubble, the multi-intent child text,
  * and the web-search cards so all four render identically.
