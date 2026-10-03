@@ -1261,33 +1261,9 @@ def ask_v2(
                 },
                 **_orch_meta,
             }
-            if (
-                orch_result.tool_chosen in WIZARD_ARMING_TOOLS
-                and _orch_raw.get("status") == "ambiguous"
-            ):
-                from .suggestions import (  # noqa: PLC0415
-                    player_disambiguation_suggestions,
-                    suggestions_to_list,
-                )
-                result["player_suggestions"] = suggestions_to_list(
-                    player_disambiguation_suggestions(_orch_raw.get("candidates", []))
-                )
-            elif (
-                orch_result.tool_chosen == "get_player_season_points"
-                and _orch_raw.get("status") == "ambiguous"
-            ):
-                # i60: historical ids do not cross seasons, so these chips
-                # carry a canonical question, never a player_id.
-                from .suggestions import (  # noqa: PLC0415
-                    historical_player_suggestions,
-                    suggestions_to_list,
-                )
-                result["player_suggestions"] = suggestions_to_list(
-                    historical_player_suggestions(
-                        _orch_raw.get("candidates", []),
-                        str(_orch_raw.get("season") or ""),
-                    )
-                )
+            _chips = _ambiguity_suggestions(orch_result.tool_chosen, _orch_raw)
+            if _chips is not None:
+                result["player_suggestions"] = _chips
             if orch_result.tool_chosen in {
                 "get_expected_minutes",
                 "get_tactical_role",
@@ -1346,6 +1322,19 @@ def ask_v2(
             "routing_trace": routing_trace,
             **_none_meta,  # orchestrator no-grounded-tool: tool execution failed → all 14 keys None
         }
+        # i60: an ambiguous player is not "ok", so the orchestrator reports
+        # tool_result_error and the turn lands HERE, never in the grounded
+        # branch above -- the chips armed there were unreachable for the very
+        # case they exist for. Read the ambiguity off the executed calls (the
+        # trace, not tool_chosen: a retry may have overwritten that slot) and
+        # report the intent the UI arms on (ChatShell WIZARD_ARMING_INTENTS).
+        _amb_call = _last_ambiguous_chip_call(orch_result.tool_calls_trace)
+        if _amb_call is not None:
+            _amb_chips = _ambiguity_suggestions(_amb_call["name"], _amb_call.get("output") or {})
+            if _amb_chips is not None:
+                result["outcome"] = "ambiguous"
+                result["intent"] = _TOOL_TO_INTENT[_amb_call["name"]]
+                result["player_suggestions"] = _amb_chips
         if context_meta is not None:
             result["context_meta"] = context_meta
         _telemetry.record(routing_trace)  # M5 telemetry (orchestrator no grounded tool -> unsupported)
@@ -1376,6 +1365,48 @@ def _suggestions_for_text() -> list[str]:
     """Return curated resource suggestions for the M3 text-unsupported path."""
     from .intent_aliases import list_resources
     return list(list_resources())
+
+
+def _ambiguity_suggestions(tool_name: str | None, raw_output: dict[str, Any]) -> list[dict[str, Any]] | None:
+    """i60: the pick-one chips for an ambiguous player tool, or ``None``.
+
+    One builder for both orchestrator branches. Current-season tools
+    (WIZARD_ARMING_TOOLS) carry a stable ``player_id``; past-season points
+    carry a canonical question and never an id -- historical ids do not cross
+    seasons.
+    """
+    if raw_output.get("status") != "ambiguous":
+        return None
+    from .suggestions import (  # noqa: PLC0415
+        historical_player_suggestions,
+        player_disambiguation_suggestions,
+        suggestions_to_list,
+    )
+    if tool_name in WIZARD_ARMING_TOOLS:
+        return suggestions_to_list(
+            player_disambiguation_suggestions(raw_output.get("candidates", []))
+        )
+    if tool_name == "get_player_season_points":
+        return suggestions_to_list(
+            historical_player_suggestions(
+                raw_output.get("candidates", []),
+                str(raw_output.get("season") or ""),
+            )
+        )
+    return None
+
+
+def _last_ambiguous_chip_call(tool_calls_trace: Any) -> dict[str, Any] | None:
+    """i60: the last executed call of a chip-arming tool that came back
+    ``ambiguous``, read off ``tool_calls_trace`` (primary and retry calls)."""
+    for _e in reversed(tuple(tool_calls_trace or ())):
+        if (
+            isinstance(_e, dict)
+            and _e.get("name") in STATUS_BEARING_TOOLS
+            and (_e.get("output") or {}).get("status") == "ambiguous"
+        ):
+            return _e
+    return None
 
 
 def _project_orchestrator_run(routing_trace: dict[str, Any], orch_result: Any) -> list[str | None]:

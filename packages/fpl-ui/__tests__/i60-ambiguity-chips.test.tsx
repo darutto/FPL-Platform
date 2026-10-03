@@ -173,6 +173,51 @@ describe('i60 — player_form ambiguity (stable-id chips)', () => {
   });
 });
 
+// i60 (re-opened): the stubs above were written by hand, and so was the
+// backend test that matched them -- both agreed on a shape prod never served.
+// These two are the REAL POST /ask bodies for the prod "Martínez" turns,
+// captured off the backend's no-grounded-tool branch (pinned there by
+// tests/test_i60_ungrounded_branch_chips.py).
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const realBodies = require('./fixtures/i60-ask-martinez.json');
+
+describe('i60 — real backend bodies (no-grounded-tool branch)', () => {
+  test('player_form body: chips visible, tap sends the stable id', async () => {
+    const user = userEvent.setup();
+    ask.mockResolvedValueOnce(realBodies.form);
+    render(<ChatShell />);
+
+    await sendText(user, '¿Cómo viene la forma de Martínez?');
+    const wizard = await screen.findByTestId('player-pick-wizard');
+    expect(within(wizard).getByRole('button', { name: 'Martínez (CHE)' })).toBeInTheDocument();
+
+    ask.mockResolvedValueOnce(plainResponse('Lisandro Martínez: 2 jornadas'));
+    await user.click(within(wizard).getByRole('button', { name: 'Martínez (MUN)' }));
+
+    await waitFor(() => expect(ask).toHaveBeenCalledTimes(2));
+    expect(ask.mock.calls[1][0]).toMatchObject({ selected_player_id: 32 });
+  });
+
+  test('past-season body: chips visible, tap sends the canonical question and no id', async () => {
+    const user = userEvent.setup();
+    ask.mockResolvedValueOnce(realBodies.season);
+    render(<ChatShell />);
+
+    await sendText(user, '¿Cuántos puntos hizo Martínez la temporada pasada?');
+    const wizard = await screen.findByTestId('player-pick-wizard');
+    expect(within(wizard).getByRole('button', { name: 'Martínez (CHE)' })).toBeInTheDocument();
+
+    ask.mockResolvedValueOnce(plainResponse('Lisandro Martínez — 2025-2026: 60 puntos', 'player_season_points'));
+    await user.click(within(wizard).getByRole('button', { name: 'Martínez (MUN)' }));
+
+    await waitFor(() => expect(ask).toHaveBeenCalledTimes(2));
+    expect(ask.mock.calls[1][0]).toMatchObject({
+      question: 'puntos de Lisandro Martínez (MUN) en la temporada 2025-2026',
+    });
+    expect(ask.mock.calls[1][0]).not.toHaveProperty('selected_player_id');
+  });
+});
+
 describe('i60 — past-season ambiguity (historical rewrite chips)', () => {
   test('historical chips are visible even though they carry no player_id', async () => {
     const user = userEvent.setup();
