@@ -121,7 +121,7 @@ from .provider_client import (
 )
 from .catalogue import t
 from .final_text_guard import looks_like_raw_payload
-from .evaluator import EvaluatorVerdict, evaluate_response
+from .evaluator import MODEL_VIEW_KEY, EvaluatorVerdict, evaluate_response
 from .locale_types import DEFAULT_LOCALE
 from .renderer import render
 from .tool_schema_registry import (
@@ -1644,7 +1644,15 @@ def _apply_evaluator(
     verdict: EvaluatorVerdict = evaluate_response(
         question=question,
         primary_response=answer_text,
-        tool_calls=tool_calls_trace,
+        # i124 (C): each call with the payload the primary read -- the same
+        # _truncate_tool_output view (caps + _MODEL_HIDDEN_FIELDS) the model
+        # got -- so GROUNDED is judged against data, not against "→ ok".
+        # Copies: the trace itself is not touched.
+        tool_calls=[
+            {**_e, MODEL_VIEW_KEY: _truncate_tool_output(_e["output"], tool_name=_e.get("name"))}
+            if isinstance(_e, dict) and isinstance(_e.get("output"), dict) else _e
+            for _e in tool_calls_trace
+        ],
         provider=provider,
         client=eval_client,
     )
