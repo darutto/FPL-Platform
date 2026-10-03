@@ -203,8 +203,14 @@ def _resolve_player_in_season(
         second = _normalize_name(str(rec.get("second_name") or ""))
         web = _normalize_name(str(rec.get("web_name") or ""))
         composite = f"{first} {second} {web}"
+        full = f"{first} {second}".strip()
 
-        if normalized_query in (first, second, web):
+        # i60 B: "first second" (the candidate's ``name``, which the
+        # historical chip sends back) and "first second web" are exact
+        # matches too. Compared only per field before, the chip's own full
+        # name fell to the substring rank and looped (prod 2026-10-03:
+        # "Emiliano Martínez Romero (AVL)" -> ambiguous with one chip, itself).
+        if normalized_query in (first, second, web, full, composite):
             rank_bucket[player_id] = 0
             continue
         if first.startswith(normalized_query) or second.startswith(normalized_query) or web.startswith(normalized_query):
@@ -261,14 +267,18 @@ def _resolve_player_in_season(
         }
 
     def _narrow_by_club(ids: list[int]) -> tuple[list[int], bool]:
-        """Return ``(ids, narrowed)``. ``narrowed`` is True only when the club
-        filter actually kept a strict subset; a club that matches nobody
-        returns the original list AND False, so no caller can mistake "the
-        filter did nothing" for "the filter chose this one"."""
+        """Return ``(ids, club_backed)``. ``club_backed`` is True when a club
+        was named AND every id returned plays for it -- the filter either
+        reduced a tie to that club (strict subset) or confirmed the ids
+        already there (i60 B: "Emiliano Martínez Romero (AVL)" has one
+        substring match and AVL confirms it; reporting that as False looped
+        the chip forever). A club that matches nobody still returns the
+        original list AND False, so no caller can mistake "the filter did
+        nothing" for "the filter chose this one" -- that rule is unchanged."""
         if not club_filter or not team_short_by_id:
             return ids, False
         kept = [pid for pid in ids if _team_short(by_id.loc[pid]).upper() == club_filter]
-        if not kept or len(kept) == len(ids):
+        if not kept:
             return ids, False
         return kept, True
 
@@ -292,12 +302,14 @@ def _resolve_player_in_season(
     if len(prefix) > 1:
         return _ambiguous(prefix)
 
-    substr, narrowed = _narrow_by_club(_at_rank(2))
-    if len(substr) == 1 and narrowed:
-        # A club was named and it REDUCED the substring tie to exactly one:
-        # that is the chip round-trip, not a guess. A lone substring match
-        # with a club that matched nobody stays ambiguous, as it always did --
-        # a wrong club must be a visible ambiguity, never a silent pick.
+    substr, club_backed = _narrow_by_club(_at_rank(2))
+    if len(substr) == 1 and club_backed:
+        # A club was named and the one substring match plays for it (it
+        # reduced a tie to one, or confirmed the only one): that is the chip
+        # round-trip, not a guess. A lone substring match with a club that
+        # matched nobody -- or with no club at all -- stays ambiguous, as it
+        # always did: a wrong club must be a visible ambiguity, never a
+        # silent pick.
         return _ok(substr[0])
     if substr:
         return _ambiguous(substr)
