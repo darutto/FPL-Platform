@@ -1191,7 +1191,9 @@ def ask_v2(
             # blocks in. The orchestrator's own slot is executed[0], i.e. the
             # model's order; snapshot-first would silently drop the card. Read
             # off tool_calls_trace, the same field the i58 gate reads; None
-            # for every non-composed turn, so nothing else changes.
+            # for every non-composed turn, so nothing else changes. i131: the
+            # same helper hands the slot to the answering tool when a
+            # gameweek-anchor call (get_current_gameweek) opened the turn.
             from .final_response import composed_primary_call  # noqa: PLC0415
             _primary_call = composed_primary_call(orch_result.tool_calls_trace)
             if _primary_call is not None:
