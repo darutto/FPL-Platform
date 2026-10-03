@@ -2235,6 +2235,12 @@ GAMEWEEK_CONTEXT_TOOLS: frozenset[str] = frozenset({
     "get_gameweek_context",
 })
 
+#: i131 follow-up: tools that set the user's context (their squad) rather
+#: than answer the question. Under rule 2 they own the slot only when no
+#: other tool ran: [gwc, get_my_squad, get_chip_advice] -> the chip card,
+#: [gwc, get_my_squad] -> the squad.
+SQUAD_CONTEXT_TOOLS: frozenset[str] = frozenset({"get_my_squad"})
+
 
 def _last_ok_or_last(calls: "list[dict[str, Any]]") -> "dict[str, Any]":
     ok = [e for e in calls if e.get("success")]
@@ -2252,7 +2258,8 @@ def composed_primary_call(trace: "Any") -> "dict[str, Any] | None":
        -> that tool owns the slot, wherever the model put it.
     2. Gameweek anchor first (i131): the FIRST call is a
        ``GAMEWEEK_CONTEXT_TOOLS`` tool -> the first tool outside that set,
-       in the model's order, owns the slot.
+       in the model's order, owns the slot -- skipping ``SQUAD_CONTEXT_TOOLS``
+       unless they are all that is left.
 
     The owning call is the LAST successful call of the owning tool (the one
     whose output the user saw described); with no successful one, the last
@@ -2269,7 +2276,8 @@ def composed_primary_call(trace: "Any") -> "dict[str, Any] | None":
     if entries[0]["name"] in GAMEWEEK_CONTEXT_TOOLS:
         answering = [e["name"] for e in entries if e["name"] not in GAMEWEEK_CONTEXT_TOOLS]
         if answering:
-            return _last_ok_or_last([e for e in entries if e["name"] == answering[0]])
+            owner = next((n for n in answering if n not in SQUAD_CONTEXT_TOOLS), answering[0])
+            return _last_ok_or_last([e for e in entries if e["name"] == owner])
     return None
 
 
