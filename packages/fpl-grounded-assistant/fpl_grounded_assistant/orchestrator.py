@@ -87,6 +87,11 @@ from .chip_two_part import (  # i108 E3: one source for the chip phrases
     compose_chip_answer,
     last_chip_output,
 )
+from .captain_list import (  # i125(a): the top N is the tool's top N
+    captain_list_rule,
+    compose_captain_answer,
+    last_captain_output,
+)
 
 from .llm_layer import (
     _get_anthropic_client,
@@ -462,6 +467,7 @@ _SYSTEM_PROMPT: str = (
     "  - WEB_FETCH_SOURCING: when web_fetch returns content, cite the source URL in the answer (e.g. \"Fuente: <url>\" / \"Source: <url>\") and clearly indicate the info is from the web, not the FPL bootstrap.\n"
     "  - MATCH_COMPOSITION: when a ONE MATCH question ran get_fixture_outlook AND get_team_snapshot (both FPL_DATA, same turn), the answer keeps the calendar read (opponent, venue, difficulty, relative strength) AND names 2-3 of that team's top_players from the snapshot, each with ONE number the tool returned (form, expected_goals, expected_assists, total_points; for a DEF/GKP expected_goals_conceded, saves or defensive_contribution). When the calendar ran on BOTH axes (attack and defence), the answer has BOTH sides: the attacking read (dificultad ofensiva + the attackers) and the defensive read (dificultad para portería a cero + a DEF/GKP if the snapshot returned one; if none is among the top_players, say the defensive side rests on the calendar read). Never a name or number that is not in the tool output. Frame every player as the opportunity in THIS match. NEVER use transaction or urgency words: comprar/vender/fichar/traspasar/urgente/peligro, buy/sell/transfer in/bring in -- not even to say you are NOT recommending one (no disclaimers about fichajes/transfers).\n"
     + chip_composition_rule()
+    + captain_list_rule()
     + "\n"
     "OUTPUT: terse, structured, action-oriented. Spanish-first."
 )
@@ -2439,10 +2445,31 @@ def ask_orchestrated(
     # i108 E3: a chip answer is general -> particular, both parts computed.
     # After the guard, so a blocked text never gets a header or a sentence.
     result = _compose_chip_answer(result, bootstrap)
+    # i125(a): a captain answer opens with the tool's own top N; the model's
+    # text is the commentary under it. Same placement and gate as the chip.
+    result = _compose_captain_answer(result, question)
     if not result.llm_used:
         return result
     _label = provider if provider in _ALL_PROVIDERS else PROVIDER_ANTHROPIC
     return replace(result, provider=_label)
+
+
+def _compose_captain_answer(result: OrchestratorResult, question: str) -> OrchestratorResult:
+    """Prepend the tool's top N to an ok captain answer (``captain_list``).
+
+    Only when the turn ended ``ok``, the final-text guard did not fire, and
+    the trace holds an ok ``rank_captain_candidates`` output with
+    presentation ids. The model's text is kept whole under the list.
+    """
+    if result.outcome != OUTCOME_OK or result.final_text_guard_reason is not None:
+        return result
+    output = last_captain_output(result.tool_calls_trace)
+    if output is None:
+        return result
+    composed = compose_captain_answer(result.answer_text or "", output, question)
+    if composed == (result.answer_text or ""):
+        return result
+    return replace(result, answer_text=composed)
 
 
 def _compose_chip_answer(result: OrchestratorResult, bootstrap: Any) -> OrchestratorResult:
