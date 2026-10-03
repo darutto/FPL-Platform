@@ -151,9 +151,9 @@ def test_squad_context_set_is_exactly_get_my_squad():
     (("get_gameweek_context", "get_chip_advice", "get_my_squad"), "get_chip_advice"),
     (("get_gameweek_context", "build_squad", "get_chip_advice"), "build_squad"),
     (("get_current_gameweek", "rank_captain_candidates"), "rank_captain_candidates"),
-    # rule 2 needs the anchor FIRST: squad-first turns keep the orchestrator slot
-    (("get_my_squad", "get_chip_advice"), None),
-    (("get_my_squad", "get_gameweek_context", "get_chip_advice"), None),
+    # squad-first turns are rule 3's (i131 rule 3), not rule 2's
+    (("get_my_squad", "get_chip_advice"), "get_chip_advice"),
+    (("get_my_squad", "get_gameweek_context", "get_chip_advice"), "get_chip_advice"),
     # rule 1 (i93) still wins
     (("get_gameweek_context", "get_my_squad", "get_fixture_outlook"), "get_fixture_outlook"),
 ])

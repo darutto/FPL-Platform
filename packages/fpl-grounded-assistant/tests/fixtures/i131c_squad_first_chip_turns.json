@@ -1,0 +1,176 @@
+{
+ "_comment": "i131 rule 3: two real squad-first chip turns (gpt-5.6-luna). question, tool_sequence, tool_chosen and get_my_squad's args/status are verbatim from the artifact rows; chip_output is the row's chip_trace (the get_chip_advice output as that run recorded it). get_my_squad's full output was not recorded, so it is a stand-in carrying the recorded status only; get_chip_advice's args were not recorded either (the tests pass chip=bench_boost).",
+ "no_team": {
+  "source": "field-notes/artifacts/i132-e3-before-no-team.jsonl line 19",
+  "question_id": "cvg-02",
+  "rep": 0,
+  "question": "¿Es buena idea usar el bench boost en la fecha 3? Analizá mi plantilla primero.",
+  "tool_sequence": [
+   "get_my_squad",
+   "get_chip_advice"
+  ],
+  "recorded_tool_chosen": "get_my_squad",
+  "my_squad_args": {
+   "gw": 3
+  },
+  "my_squad_output": {
+   "status": "no_team_connected"
+  },
+  "chip_output": {
+   "status": "ok",
+   "chip": "bench_boost",
+   "recommendation": "conditions_favorable",
+   "squad_source": null,
+   "squad_fit": null,
+   "linked_squad_error": null,
+   "favoured_teams": [
+    {
+     "team": 2,
+     "team_short": "AVL"
+    },
+    {
+     "team": 4,
+     "team_short": "BRE"
+    },
+    {
+     "team": 5,
+     "team_short": "BHA"
+    },
+    {
+     "team": 14,
+     "team_short": "LIV"
+    },
+    {
+     "team": 15,
+     "team_short": "MCI"
+    }
+   ],
+   "favoured_players": [
+    {
+     "element": 103,
+     "web_name": "Dasilva"
+    },
+    {
+     "element": 375,
+     "web_name": "Nyoni"
+    },
+    {
+     "element": 411,
+     "web_name": "Haaland"
+    },
+    {
+     "element": 56,
+     "web_name": "Abraham"
+    },
+    {
+     "element": 409,
+     "web_name": "Mukasa"
+    },
+    {
+     "element": 138,
+     "web_name": "Kostoulas"
+    },
+    {
+     "element": 399,
+     "web_name": "Cherki"
+    },
+    {
+     "element": 100,
+     "web_name": "Carvalho"
+    },
+    {
+     "element": 106,
+     "web_name": "Thiago"
+    },
+    {
+     "element": 126,
+     "web_name": "O'Riley"
+    }
+   ]
+  }
+ },
+ "team": {
+  "source": "field-notes/artifacts/i132-e3-before-team-68643.jsonl line 17",
+  "question_id": "cvg-01",
+  "rep": 1,
+  "question": "evalúa mi equipo y qué tan buena idea es el bench boost en la fecha 2",
+  "tool_sequence": [
+   "get_my_squad",
+   "get_chip_advice"
+  ],
+  "recorded_tool_chosen": "get_my_squad",
+  "my_squad_args": {
+   "gw": 2
+  },
+  "my_squad_output": {
+   "status": "ok"
+  },
+  "chip_output": {
+   "status": "ok",
+   "chip": "bench_boost",
+   "recommendation": "conditions_favorable",
+   "squad_source": "linked_team",
+   "squad_fit": {
+    "held": [
+     110,
+     175
+    ],
+    "missing_count": 2,
+    "verdict": "needs_transfers"
+   },
+   "linked_squad_error": null,
+   "favoured_teams": [
+    {
+     "team": 6,
+     "team_short": "CHE"
+    },
+    {
+     "team": 7,
+     "team_short": "COV"
+    },
+    {
+     "team": 16,
+     "team_short": "MUN"
+    },
+    {
+     "team": 19,
+     "team_short": "TOT"
+    }
+   ],
+   "favoured_players": [
+    {
+     "element": 492,
+     "web_name": "Awoniyi"
+    },
+    {
+     "element": 515,
+     "web_name": "Maddison"
+    },
+    {
+     "element": 426,
+     "web_name": "B.Fernandes"
+    },
+    {
+     "element": 168,
+     "web_name": "Marc Guiu"
+    },
+    {
+     "element": 154,
+     "web_name": "Palmer"
+    },
+    {
+     "element": 427,
+     "web_name": "Mbeumo"
+    },
+    {
+     "element": 165,
+     "web_name": "João Pedro"
+    },
+    {
+     "element": 136,
+     "web_name": "Welbeck"
+    }
+   ]
+  }
+ }
+}
