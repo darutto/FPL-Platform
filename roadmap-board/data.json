@@ -945,10 +945,10 @@
     },
     {
       "id": "i60",
-      "col": "idea",
-      "progress": 40,
+      "col": "evaluation",
+      "progress": 90,
       "title": "Los ambiguos de forma y de temporada pasada ya ofrecen chips — con camino propio para lo histórico",
-      "desc": "APROBADA EN REVISIÓN 2026-09-12 (tras una corrección). OJO: #260 se fusionó contra su base apilada 15 s después de que #259 entrara en main y su código nunca llegó a main; re-abierto como PR #262 contra main. Pendiente: CI, merge y chips en prod.\n\nQUÉ QUEDABA. i67 ya había hecho la forma (candidate_dicts en los dos tools); faltaba la entrega: el harness armaba chips solo para get_player_snapshot y ChatShell solo con intent player_snapshot.\n\nJUGADORES ACTUALES (player_form): WIZARD_ARMING_TOOLS en harness + set espejo en lib/wizard-arming.ts; mismo wizard de id estable.\n\nHISTÓRICOS (get_player_season_points): los ids del store son de OTRA temporada, así que no pasan por el wizard de id. Constructor hermano historical_player_suggestions: chip \"web_name (CLUB)\" con send_text canónico \"puntos de ‹nombre› (CLUB) en la temporada YYYY-YYYY\" y player_id=null, kind=historical_player_rewrite. ToolSpec y schema ganan team_short opcional; el resolver desempata por club (argumento o token (XXX) en el query). ChatShell: rama de clic que reenvía send_text SIN selected_player_id.\n\nCORRECCIÓN DE REVISIÓN (62c5800): la primera versión resolvía una subcadena suelta cuando el club nombrado no coincidía con nadie — un club equivocado se volvía respuesta fluida equivocada. Ahora el club solo resuelve si REALMENTE redujo la lista; verificado ejecutando el resolver: club sin coincidencias → ambiguous, empate reducido por club → ok.\n\nTESTS: ida y vuelta por run_tool devolviendo el id histórico del candidato (mutar el filtro → ambiguous); integración ChatShell para ambos casos. 1834 → 1848; fpl-ui 557.\n\nRAMA fix/compound-player-name-resolution: superada por i67, propuesta para borrado con evidencia; se borra solo con aprobación del dueño.\n\nCIERRE: \"forma de ‹ambiguo real del bootstrap›\" → chips → clic → respuesta del elegido; \"puntos de ‹ambiguo› la temporada pasada\" → chips con temporada → clic → jugador y temporada correctos.\n\nBLOQUEADO EN: necesita un nombre ambiguo real del bootstrap de HOY clicado a través de la UI (el chip solo se arma en el navegador). Un sondeo por API con \"Pedro\" hoy no encontró ambigüedad -- hace falta que alguien mire el bootstrap vivo y elija un nombre que sí choque. Marcado 2026-09-17 como \"necesita a Leo\".\n\nREABIERTA 2026-10-02: NUNCA FUNCIONÓ EN PROD. Prueba de Leo + reproducción por /ask debug del chat de revisión: «¿Cómo viene la forma de Martínez?» (Emiliano CHE / Lisandro MUN, ambos con minutos) y «¿Cuántos puntos hizo Martínez la temporada pasada?» → el modelo escribe su propia aclaración, player_suggestions=null, intent=unsupported. CAUSA (harness.py, origin/main): cuando get_player_form / get_player_season_points devuelven status=ambiguous, el orquestador lo cuenta como orchestrator_outcome=tool_result_error y el turno cae en la rama «sin herramienta grounded»; los chips solo se arman en la rama grounded (harness.py:1264-1290, `tool_chosen in WIZARD_ARMING_TOOLS and status == ambiguous`), que con un ambiguo nunca se alcanza. Y la UI (ChatShell) solo arma con intent en su set espejo, nunca con unsupported. Los tests de #262 cubrían la rama grounded: es el patrón «asked-for vs shipped». ARREGLO: armar player_suggestions desde tool_calls_trace (la última llamada de WIZARD_ARMING_TOOLS / season_points con status ambiguous) también en la rama sin herramienta, con un intent que la UI acepte (player_form / player_season_points). PUERTA: test end-to-end por /ask con el orquestador real (proveedor falso) que devuelva ambiguous, más ChatShell; y las dos frases de Martínez en prod con captura de los chips y del clic. Visto de paso → [[i127]].",
+      "desc": "APROBADA EN REVISIÓN 2026-09-12 (tras una corrección). OJO: #260 se fusionó contra su base apilada 15 s después de que #259 entrara en main y su código nunca llegó a main; re-abierto como PR #262 contra main. Pendiente: CI, merge y chips en prod.\n\nQUÉ QUEDABA. i67 ya había hecho la forma (candidate_dicts en los dos tools); faltaba la entrega: el harness armaba chips solo para get_player_snapshot y ChatShell solo con intent player_snapshot.\n\nJUGADORES ACTUALES (player_form): WIZARD_ARMING_TOOLS en harness + set espejo en lib/wizard-arming.ts; mismo wizard de id estable.\n\nHISTÓRICOS (get_player_season_points): los ids del store son de OTRA temporada, así que no pasan por el wizard de id. Constructor hermano historical_player_suggestions: chip \"web_name (CLUB)\" con send_text canónico \"puntos de ‹nombre› (CLUB) en la temporada YYYY-YYYY\" y player_id=null, kind=historical_player_rewrite. ToolSpec y schema ganan team_short opcional; el resolver desempata por club (argumento o token (XXX) en el query). ChatShell: rama de clic que reenvía send_text SIN selected_player_id.\n\nCORRECCIÓN DE REVISIÓN (62c5800): la primera versión resolvía una subcadena suelta cuando el club nombrado no coincidía con nadie — un club equivocado se volvía respuesta fluida equivocada. Ahora el club solo resuelve si REALMENTE redujo la lista; verificado ejecutando el resolver: club sin coincidencias → ambiguous, empate reducido por club → ok.\n\nTESTS: ida y vuelta por run_tool devolviendo el id histórico del candidato (mutar el filtro → ambiguous); integración ChatShell para ambos casos. 1834 → 1848; fpl-ui 557.\n\nRAMA fix/compound-player-name-resolution: superada por i67, propuesta para borrado con evidencia; se borra solo con aprobación del dueño.\n\nCIERRE: \"forma de ‹ambiguo real del bootstrap›\" → chips → clic → respuesta del elegido; \"puntos de ‹ambiguo› la temporada pasada\" → chips con temporada → clic → jugador y temporada correctos.\n\nBLOQUEADO EN: necesita un nombre ambiguo real del bootstrap de HOY clicado a través de la UI (el chip solo se arma en el navegador). Un sondeo por API con \"Pedro\" hoy no encontró ambigüedad -- hace falta que alguien mire el bootstrap vivo y elija un nombre que sí choque. Marcado 2026-09-17 como \"necesita a Leo\".\n\nREABIERTA 2026-10-02: NUNCA FUNCIONÓ EN PROD. Prueba de Leo + reproducción por /ask debug del chat de revisión: «¿Cómo viene la forma de Martínez?» (Emiliano CHE / Lisandro MUN, ambos con minutos) y «¿Cuántos puntos hizo Martínez la temporada pasada?» → el modelo escribe su propia aclaración, player_suggestions=null, intent=unsupported. CAUSA (harness.py, origin/main): cuando get_player_form / get_player_season_points devuelven status=ambiguous, el orquestador lo cuenta como orchestrator_outcome=tool_result_error y el turno cae en la rama «sin herramienta grounded»; los chips solo se arman en la rama grounded (harness.py:1264-1290, `tool_chosen in WIZARD_ARMING_TOOLS and status == ambiguous`), que con un ambiguo nunca se alcanza. Y la UI (ChatShell) solo arma con intent en su set espejo, nunca con unsupported. Los tests de #262 cubrían la rama grounded: es el patrón «asked-for vs shipped». ARREGLO: armar player_suggestions desde tool_calls_trace (la última llamada de WIZARD_ARMING_TOOLS / season_points con status ambiguous) también en la rama sin herramienta, con un intent que la UI acepte (player_form / player_season_points). PUERTA: test end-to-end por /ask con el orquestador real (proveedor falso) que devuelva ambiguous, más ChatShell; y las dos frases de Martínez en prod con captura de los chips y del clic. Visto de paso → [[i127]].\n\nARREGLADA 2026-10-03 (PR #341, 5e33498). La rama «sin herramienta grounded» lee la última llamada ambigua del tool_calls_trace y arma player_suggestions con el mismo constructor que la rama grounded; outcome=ambiguous e intent player_form / player_season_points. Los tests nuevos FALLAN contra el harness.py anterior (7, verificado por el chat de revisión): esta vez la puerta cubre lo que pasa en prod. FALTA: captura de Leo en prod con las dos frases de Martínez (chips + clic).",
       "tags": [
         "Backend",
         "UX",
@@ -1634,68 +1634,111 @@
     },
     {
       "id": "i122",
-      "col": "idea",
-      "progress": 0,
+      "col": "shipped",
+      "progress": 100,
       "tags": [
         "FPL Asistente"
       ],
       "title": "«Te faltan 1 jugadores»: singular en la frase particular del chip",
-      "desc": "Verificado en main: chip_two_part.PARTICULAR_PHRASE[\"needs_transfers\"] = «te faltan {n} jugadores del grupo favorecido…», siempre en plural. Con missing_count=1 sale «te faltan 1 jugadores», y pasa por compose_chip_answer, así que las respuestas servidas en prod lo dicen. ARREGLO: una variante en singular («te falta 1 jugador…»). Hay que actualizar también grade_i108_chip_two_parts.py, que exige la frase exacta; lo correcto es que importe la misma constante o función. Pequeña.\n\nORIGEN: primeros datos de la sombra en prod (2026-10-02, sesión del piloto de Jev; 6 turnos con sombra, 0 errores, evidencia en C:/Users/thera/fpl-audit/)."
+      "desc": "Verificado en main: chip_two_part.PARTICULAR_PHRASE[\"needs_transfers\"] = «te faltan {n} jugadores del grupo favorecido…», siempre en plural. Con missing_count=1 sale «te faltan 1 jugadores», y pasa por compose_chip_answer, así que las respuestas servidas en prod lo dicen. ARREGLO: una variante en singular («te falta 1 jugador…»). Hay que actualizar también grade_i108_chip_two_parts.py, que exige la frase exacta; lo correcto es que importe la misma constante o función. Pequeña.\n\nORIGEN: primeros datos de la sombra en prod (2026-10-02, sesión del piloto de Jev; 6 turnos con sombra, 0 errores, evidencia en C:/Users/thera/fpl-audit/).\n\nCERRADA 2026-10-03 (PR #343, 04f9f5b). NEEDS_TRANSFERS_ONE «te falta 1 jugador…», elegida en particular_phrase; el grader de E3 la importa de ahí (una sola copia)."
     },
     {
       "id": "i123",
-      "col": "idea",
-      "progress": 0,
+      "col": "shipped",
+      "progress": 100,
       "tags": [
         "IA",
         "FPL Asistente"
       ],
       "title": "Nombres de campos internos en la respuesta al usuario (`dgw_teams=[]`)",
-      "desc": "En un turno ok servido por el orquestador (la pregunta de free hit 6/7/8), el texto dice «La herramienta marca la jornada como **normal**, con `dgw_teams=[]` y `bgw_teams=[]`». Son nombres de campos internos que llegan al usuario. Es de la familia de [[i106]], pero la guarda de texto final no lo cubre: no es un payload crudo. Opciones: regla en el prompt de síntesis («nunca cites nombres de campos ni valores en notación de código») y/o un motivo nuevo en final_text_guard para identificadores snake_case entre backticks o `campo=valor`. Ojo con relajar la guarda: medir qué textos legítimos empezarían a dispararla. CIERRE: 0 apariciones sobre las respuestas reales de la familia de chip, R=3.\n\nORIGEN: primeros datos de la sombra en prod (2026-10-02, sesión del piloto de Jev; 6 turnos con sombra, 0 errores, evidencia en C:/Users/thera/fpl-audit/)."
+      "desc": "En un turno ok servido por el orquestador (la pregunta de free hit 6/7/8), el texto dice «La herramienta marca la jornada como **normal**, con `dgw_teams=[]` y `bgw_teams=[]`». Son nombres de campos internos que llegan al usuario. Es de la familia de [[i106]], pero la guarda de texto final no lo cubre: no es un payload crudo. Opciones: regla en el prompt de síntesis («nunca cites nombres de campos ni valores en notación de código») y/o un motivo nuevo en final_text_guard para identificadores snake_case entre backticks o `campo=valor`. Ojo con relajar la guarda: medir qué textos legítimos empezarían a dispararla. CIERRE: 0 apariciones sobre las respuestas reales de la familia de chip, R=3.\n\nORIGEN: primeros datos de la sombra en prod (2026-10-02, sesión del piloto de Jev; 6 turnos con sombra, 0 errores, evidencia en C:/Users/thera/fpl-audit/).\n\nCERRADA 2026-10-03 (PR #349, 58542e8). Regla PLAIN_LANGUAGE en el prompt de síntesis (la hereda el bucle). No es un motivo de final_text_guard: sustituiría respuestas buenas enteras. Grader scripts/grade_i123_internal_names.py (3 detectores; 0 falsos positivos en 101 respuestas reales). Familia chip R=3: 2/15 → 0/15."
     },
     {
       "id": "i124",
-      "col": "idea",
-      "progress": 0,
+      "col": "building",
+      "progress": 40,
       "tags": [
         "IA",
         "Backend"
       ],
       "title": "El evaluador rechaza respuestas correctas para pedir más citas, y el reintento casi duplica el coste",
-      "desc": "VISTO 2026-10-02 al cerrar [[i96]], en las 2 únicas líneas con reintento del audit de prod (2026-09-23): las dos respuestas eran correctas y estaban basadas en la herramienta, pero el evaluador las marcó grounded=false con un retry_feedback que solo pide citar más («Indica los resultados concretos…», «Cita resultados… de Groß y Haaland»). El reintento vuelve a llamar a la MISMA herramienta y casi duplica el coste: 73.819 tokens frente a ~37K para Liverpool, y 74.184 para el brazalete. En el del brazalete, el reintento además perdió el argumento horizon=1 (lo llamó con {}). Dos preguntas a medir antes de cambiar nada: (1) qué % de turnos rechaza el evaluador hoy y cuántos de esos rechazos son de este tipo («cita más») frente a errores reales; (2) si un rechazo de tipo «cita más» debería re-sintetizar con el mismo resultado de la herramienta en vez de volver a llamarla. Ahora el audit persiste y lleva tokens por fase, así que se puede medir sobre prod real. Relacionada con [[i37]] y [[i96]]."
+      "desc": "VISTO 2026-10-02 al cerrar [[i96]], en las 2 únicas líneas con reintento del audit de prod (2026-09-23): las dos respuestas eran correctas y estaban basadas en la herramienta, pero el evaluador las marcó grounded=false con un retry_feedback que solo pide citar más («Indica los resultados concretos…», «Cita resultados… de Groß y Haaland»). El reintento vuelve a llamar a la MISMA herramienta y casi duplica el coste: 73.819 tokens frente a ~37K para Liverpool, y 74.184 para el brazalete. En el del brazalete, el reintento además perdió el argumento horizon=1 (lo llamó con {}). Dos preguntas a medir antes de cambiar nada: (1) qué % de turnos rechaza el evaluador hoy y cuántos de esos rechazos son de este tipo («cita más») frente a errores reales; (2) si un rechazo de tipo «cita más» debería re-sintetizar con el mismo resultado de la herramienta en vez de volver a llamarla. Ahora el audit persiste y lleva tokens por fase, así que se puede medir sobre prod real. Relacionada con [[i37]] y [[i96]].\n\nMEDIDO 2026-10-03 (PR #347 medición, #348 replay offline). CAUSA verificada en evaluator.py:142-147: al evaluador solo le llega «herramienta(args) → status», nunca los datos, y su prompt exige «strict on GROUNDED» → pide citas. Prod 10-02: 3/10 rechazos; local R=3: 23/45 (51 %), 22/23 reintentos repiten herramienta; un turno rechazado ≈ 4-5× en USD. Replay (mismas 16 primarias): hoy 54 % rechazo, con el payload 32 %; coste extra ≈ +$0.0002/turno. Con el payload se detectan 3 errores REALES, uno que hoy se aprueba (Liverpool se contradice). DECISIÓN DE LEO 2026-10-03: arreglar primero el tope de 256 tokens ([[i128]]) y después C (el evaluador ve el mismo payload truncado que el modelo). Efectos colaterales anotados: en Palmer ambiguo el evaluador exige comparar en vez de aclarar (contra [[i60]]); el audit no registra cache_read del reintento ([[i130]])."
     },
     {
       "id": "i125",
+      "col": "shipped",
+      "progress": 100,
+      "tags": [
+        "IA",
+        "FPL Asistente"
+      ],
+      "title": "La respuesta de capitanía omite a un jugador que la herramienta puso 2.º (Tarkowski)",
+      "desc": "VISTO 2026-10-02 en prod (captura de Leo, C:/Users/thera/fpl-audit/captures/2026-10-02-captain-top3-{chat,card}.png). Pregunta: «¿A quién capitaneo esta jornada? Dame un top 3 numerado.» La tarjeta de rank_captain_candidates (la salida real de la herramienta), en «Mejores candidatos globales»: 1 Groß 73.3, 2 Tarkowski 67.6 (TUYO), 3 Barnes 67.0, 4 Schade 66.0, 5 Haaland 63.9. El texto del modelo dice top 3 = Groß, Barnes, Schade, y su nota afirma que de tu plantilla «Groß y Haaland aparecen como opciones», omitiendo a Tarkowski, que es tuyo y está segundo en las dos listas. El texto contradice la salida de la herramienta que se muestra justo debajo. Hipótesis a comprobar, no asumir: el modelo descarta defensas como capitán por sentido común, o el payload que ve el modelo (truncado/proyección, i49/i95) difiere de lo que pinta la tarjeta. PRIMER PASO: sacar del audit de ese turno los tool_calls y comparar el payload que vio el modelo contra el que pintó la tarjeta. CIERRE: el top N del texto coincide con el ranking de la herramienta (o explica por qué se aparta) en ≥ 95 % de R=3 sobre las preguntas de capitanía del corpus, medido contra tool_calls_trace.\n\nDIAGNÓSTICO 2026-10-02 (reproducido por /ask debug, sin equipo, 2 corridas): la herramienta devuelve SIEMPRE Tarkowski (DEF) rank 2, tier safe, 67,64; el payload que ve el modelo lo incluye. El modelo lo omite en una corrida y lo incluye en la otra: es una elección intermitente del modelo, no un problema de datos ni de truncado. HALLAZGO MÁS GRAVE, misma pregunta CON team_id=68643: el evaluador rechazó, el reintento llamó a get_gameweek_context y la respuesta final fue solo «Jornada actual: GW5 (finished). Próxima jornada: GW6 (deadline…)», sin ningún capitán. Es el fallback de render de i37/#290 (la síntesis del reintento no dio texto) sobre una herramienta que no contesta la pregunta, y la guarda de i106 no lo cubre porque es texto legible. Relacionadas: [[i124]] (rechazos del evaluador), [[i37]]. PRIMER PASO: medir R=5 con y sin equipo, (a) % de top N que coincide con el ranking y (b) % de reintentos que acaban en una herramienta distinta de la que contesta.\n\nCERRADA 2026-10-03. (b) PR #345 (949feda): si el reintento acaba en render sin síntesis y la primaria tenía texto del modelo, se sirve la primaria; retry_delivery ∈ {retry_synthesis, primary_kept, retry_render} en resultado, audit y routing_trace. Acota el «unconditional delivery» de #290. R=5 con equipo: 0 reintentos en esa muestra (es intermitente); el camino se reproduce con fixture del turno real. (a) PR #346 (3faafa3), DECISIÓN DE LEO: respetar el ranking, defensas incluidos. captain_list.py pone el top N desde presentation (owned_top con equipo, global_top sin él) resuelto contra ranked_candidates; el modelo solo comenta. Línea base 2/5 → 10/10, 0 contradicciones. Aceptado: a veces el modelo repite la misma lista debajo (mismo orden). Visto de paso → [[i131]]."
+    },
+    {
+      "id": "i126",
+      "col": "evaluation",
+      "progress": 90,
+      "tags": [
+        "UI",
+        "Web"
+      ],
+      "title": "MarkdownLite no renderiza la cursiva: «*Nota: …*» sale con asteriscos literales",
+      "desc": "VISTO 2026-10-02 en la captura que cerró [[i81]] (C:/Users/thera/fpl-audit/captures/2026-10-02-captain-top3-{chat,card}.png): la nota final de la respuesta de capitanía aparece como «*Nota: entre los jugadores que tienes… tuyos.*», con los asteriscos visibles. MarkdownLite entiende **negrita**, encabezados y listas ([[i81]]), pero no *cursiva*/_cursiva_. ARREGLO: regla de cursiva en renderInline con cuidado de no romper **negrita** ni un asterisco suelto (p. ej. «5 * 2», o un * al principio de línea que es viñeta). Tests: cursiva sola, negrita y cursiva en la misma línea, asterisco suelto que NO se convierte, viñeta «* item» que sigue siendo viñeta. Captura después. Pequeña.\n\nARREGLADA 2026-10-03 (PR #344, 6eee98f). *cursiva* → <em> después de separar la negrita; «5 * 2», «a * b * c» y la viñeta «* item» intactos; _cursiva_ NO se soporta a propósito (snake_case). Captura con el componente real en field-notes/artifacts/i126-markdown-italic-{before,after}-2026-10-02.png. FALTA: un vistazo de Leo en prod."
+    },
+    {
+      "id": "i127",
+      "col": "shipped",
+      "progress": 100,
+      "tags": [
+        "UI",
+        "Backend"
+      ],
+      "title": "El sello «DETERMINÍSTICO» aparece en turnos donde sí corrió el LLM",
+      "desc": "VISTO 2026-10-02 en la prueba de [[i60]]: la respuesta a «¿Cómo viene la forma de Martínez?» la escribió el modelo, pero la UI le puso el sello «DETERMINÍSTICO». En /ask debug el turno sale con llm_used=False, porque la rama «sin herramienta grounded» de harness no lo marca, aunque el orquestador corrió y facturó (orchestrator_called=true). El sello le dice al usuario lo contrario de lo que pasó. ARREGLO: llm_used sale de lo que corrió (orchestrator_called / provider facturado), no de la rama. Test: turno con proveedor falso que no deja herramienta grounded → llm_used=True y sello no determinista.\n\nCERRADA 2026-10-03 (PR #342, 28a084f). En las dos ramas del orquestador, llm_used = el texto servido lo escribió el modelo (synthesis_turn) y la guarda no lo sustituyó; se lee de lo que corrió, no de la rama. Cambio deliberado y validado: un render de reserva o un texto sustituido por la guarda pasa a «Determinístico». Ruta legacy intacta."
+    },
+    {
+      "id": "i128",
+      "col": "building",
+      "progress": 10,
+      "tags": [
+        "IA",
+        "Backend"
+      ],
+      "title": "El evaluador aprueba sin juzgar: tope de 256 tokens con un modelo que razona",
+      "desc": "HALLAZGO 2026-10-03 en la medición de [[i124]], verificado por el chat de revisión: evaluator.py llama al proveedor con max_tokens / max_output_tokens = 256 (:177, :214, :251). Con luna (razonamiento) el JSON llega cortado y el turno cae en _FAIL_OPEN = aprobado sin juzgar. Prod 10-02: 5/10 turnos; local 10/45; replay 8/32. Los «approved, grounded=None» del audit son eso. ARREGLO (decidido por Leo, antes de C): presupuesto de salida por proveedor/modelo, y un fail_open_reason explícito en audit y routing_trace para que un fail-open no se lea como aprobado. PUERTA: fail-open ≈0 sobre las 16 preguntas R≥3; nueva línea base de rechazo."
+    },
+    {
+      "id": "i129",
+      "col": "idea",
+      "progress": 0,
+      "tags": [
+        "Backend",
+        "IA"
+      ],
+      "title": "compare_players da not_found para «Salah» a secas",
+      "desc": "VISTO 2026-10-03 en el replay de [[i124]] (primaria #2): compare_players devuelve not_found para «Salah» cuando el resto de herramientas lo resuelve. Posible resolvedor propio en compare_players, distinto del matcher compartido (familia de [[i16]] / PR #14). PRIMER PASO: reproducir y ver qué matcher usa."
+    },
+    {
+      "id": "i130",
+      "col": "idea",
+      "progress": 0,
+      "tags": [
+        "Backend"
+      ],
+      "title": "El audit no registra cache_read del reintento: el USD de los turnos rechazados es una cota superior",
+      "desc": "VISTO 2026-10-03 en [[i124]]: tokens.retry_input se registra pero no la parte cacheada del reintento, así que usd_cost_estimate de los turnos con reintento sobreestima. Añadir retry_cache_read al audit y a model_pricing ([[i105]]). Pequeña."
+    },
+    {
+      "id": "i131",
       "col": "idea",
       "progress": 0,
       "tags": [
         "IA",
         "FPL Asistente"
       ],
-      "title": "La respuesta de capitanía omite a un jugador que la herramienta puso 2.º (Tarkowski)",
-      "desc": "VISTO 2026-10-02 en prod (captura de Leo, C:/Users/thera/fpl-audit/captures/2026-10-02-captain-top3-{chat,card}.png). Pregunta: «¿A quién capitaneo esta jornada? Dame un top 3 numerado.» La tarjeta de rank_captain_candidates (la salida real de la herramienta), en «Mejores candidatos globales»: 1 Groß 73.3, 2 Tarkowski 67.6 (TUYO), 3 Barnes 67.0, 4 Schade 66.0, 5 Haaland 63.9. El texto del modelo dice top 3 = Groß, Barnes, Schade, y su nota afirma que de tu plantilla «Groß y Haaland aparecen como opciones», omitiendo a Tarkowski, que es tuyo y está segundo en las dos listas. El texto contradice la salida de la herramienta que se muestra justo debajo. Hipótesis a comprobar, no asumir: el modelo descarta defensas como capitán por sentido común, o el payload que ve el modelo (truncado/proyección, i49/i95) difiere de lo que pinta la tarjeta. PRIMER PASO: sacar del audit de ese turno los tool_calls y comparar el payload que vio el modelo contra el que pintó la tarjeta. CIERRE: el top N del texto coincide con el ranking de la herramienta (o explica por qué se aparta) en ≥ 95 % de R=3 sobre las preguntas de capitanía del corpus, medido contra tool_calls_trace.\n\nDIAGNÓSTICO 2026-10-02 (reproducido por /ask debug, sin equipo, 2 corridas): la herramienta devuelve SIEMPRE Tarkowski (DEF) rank 2, tier safe, 67,64; el payload que ve el modelo lo incluye. El modelo lo omite en una corrida y lo incluye en la otra: es una elección intermitente del modelo, no un problema de datos ni de truncado. HALLAZGO MÁS GRAVE, misma pregunta CON team_id=68643: el evaluador rechazó, el reintento llamó a get_gameweek_context y la respuesta final fue solo «Jornada actual: GW5 (finished). Próxima jornada: GW6 (deadline…)», sin ningún capitán. Es el fallback de render de i37/#290 (la síntesis del reintento no dio texto) sobre una herramienta que no contesta la pregunta, y la guarda de i106 no lo cubre porque es texto legible. Relacionadas: [[i124]] (rechazos del evaluador), [[i37]]. PRIMER PASO: medir R=5 con y sin equipo, (a) % de top N que coincide con el ranking y (b) % de reintentos que acaban en una herramienta distinta de la que contesta."
-    },
-    {
-      "id": "i126",
-      "col": "idea",
-      "progress": 0,
-      "tags": [
-        "UI",
-        "Web"
-      ],
-      "title": "MarkdownLite no renderiza la cursiva: «*Nota: …*» sale con asteriscos literales",
-      "desc": "VISTO 2026-10-02 en la captura que cerró [[i81]] (C:/Users/thera/fpl-audit/captures/2026-10-02-captain-top3-{chat,card}.png): la nota final de la respuesta de capitanía aparece como «*Nota: entre los jugadores que tienes… tuyos.*», con los asteriscos visibles. MarkdownLite entiende **negrita**, encabezados y listas ([[i81]]), pero no *cursiva*/_cursiva_. ARREGLO: regla de cursiva en renderInline con cuidado de no romper **negrita** ni un asterisco suelto (p. ej. «5 * 2», o un * al principio de línea que es viñeta). Tests: cursiva sola, negrita y cursiva en la misma línea, asterisco suelto que NO se convierte, viñeta «* item» que sigue siendo viñeta. Captura después. Pequeña."
-    },
-    {
-      "id": "i127",
-      "col": "idea",
-      "progress": 0,
-      "tags": [
-        "UI",
-        "Backend"
-      ],
-      "title": "El sello «DETERMINÍSTICO» aparece en turnos donde sí corrió el LLM",
-      "desc": "VISTO 2026-10-02 en la prueba de [[i60]]: la respuesta a «¿Cómo viene la forma de Martínez?» la escribió el modelo, pero la UI le puso el sello «DETERMINÍSTICO». En /ask debug el turno sale con llm_used=False, porque la rama «sin herramienta grounded» de harness no lo marca, aunque el orquestador corrió y facturó (orchestrator_called=true). El sello le dice al usuario lo contrario de lo que pasó. ARREGLO: llm_used sale de lo que corrió (orchestrator_called / provider facturado), no de la rama. Test: turno con proveedor falso que no deja herramienta grounded → llm_used=True y sello no determinista."
+      "title": "Capitanía: se elige get_current_gameweek y no se pinta tarjeta aunque rank corrió",
+      "desc": "VISTO 2026-10-03 en la medición de [[i125]] (sin equipo, rep 3): rank_captain_candidates corrió, pero la herramienta seleccionada para el turno fue get_current_gameweek y no se pintó la tarjeta de candidatos. La selección del «tool owner» en un turno con varias llamadas (cf. composed_primary_call de i93) no prioriza la de capitanía. PRIMER PASO: reproducir y ver cómo se elige selected_tool con varias llamadas."
     }
   ]
 }
