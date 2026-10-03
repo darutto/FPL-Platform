@@ -192,12 +192,29 @@ _EVALUATOR_SYSTEM_PROMPT: str = (
 # User message builder
 # ---------------------------------------------------------------------------
 
+#: i124 (C): key under which the orchestrator hands each tool call's MODEL
+#: VIEW -- the payload the primary actually read (``orchestrator.
+#: _truncate_tool_output``: lists capped, ``_MODEL_HIDDEN_FIELDS`` dropped).
+#: Built there, not here: this module cannot import the orchestrator.
+MODEL_VIEW_KEY: str = "model_view"
+
+
 def _build_evaluator_user_message(
     question: str,
     primary_response: str,
     tool_calls: list[dict],
 ) -> str:
-    """Build the user-turn message for the evaluator LLM call."""
+    """Build the user-turn message for the evaluator LLM call.
+
+    i124 (C): the evaluator is told to be strict on GROUNDED ("every factual
+    claim cites a tool result") but used to see only ``tool(args) -> status``
+    -- it could verify nothing, rejected grounded answers asking to "cite",
+    and the retry re-ran the same tool. Each call that carries a
+    ``model_view`` now adds that payload under TOOL DATA, the same data the
+    primary saw, so claims are checked against it. Measured offline first
+    (field-notes/2026-10-03-i124-evaluator-replay.md): rejections 54% -> 32%
+    of parsed verdicts, real defects still caught, one more caught.
+    """
     if tool_calls:
         lines = []
         for tc in tool_calls:
@@ -214,6 +231,16 @@ def _build_evaluator_user_message(
     else:
         tool_summary = "(no tool calls)"
 
+    data_lines = [
+        f"{tc.get('name', 'unknown')} DATA: {json.dumps(tc[MODEL_VIEW_KEY], ensure_ascii=False, default=str)}"
+        for tc in tool_calls or []
+        if isinstance(tc.get(MODEL_VIEW_KEY), dict)
+    ]
+    data_block = (
+        f"TOOL DATA (what the primary saw):\n" + "\n".join(data_lines) + "\n\n"
+        if data_lines else ""
+    )
+
     return (
         f"USER ASKED: {question}\n"
         f"\n"
@@ -222,6 +249,7 @@ def _build_evaluator_user_message(
         f"TOOL CALLS MADE:\n"
         f"{tool_summary}\n"
         f"\n"
+        f"{data_block}"
         f"Judge. Output JSON only."
     )
 
