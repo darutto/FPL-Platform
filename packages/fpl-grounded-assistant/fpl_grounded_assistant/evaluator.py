@@ -32,6 +32,33 @@ _EVALUATOR_MODELS: dict[str, str] = {
 #: is deprecated).  Empty/absent → per-provider default in _EVALUATOR_MODELS.
 _EVAL_MODEL_ENV: str = "FPL_EVAL_MODEL"
 
+#: i124: output-token budget per evaluator model. The verdict is a short JSON
+#: object, so 256 was plenty for a model that writes straight away -- but the
+#: gpt-5.6 family reasons first, and reasoning tokens are billed out of
+#: ``max_output_tokens``. At 256 the JSON came back cut mid-string and the
+#: turn fail-opened as approved: 5/10 prod verdicts on 2026-10-02, 10/45
+#: locally, ~25% in the replay (field-notes/2026-10-03-i124-evaluator-replay.md).
+#: Same lesson as the classifier's OPENAI_CLASSIFIER_MIN_OUTPUT_TOKENS.
+#: Models not listed keep the historical 256.
+_EVALUATOR_MAX_OUTPUT_TOKENS: dict[str, int] = {
+    "gpt-5.6-luna":  1024,
+    "gpt-5.6-terra": 1024,
+    "gpt-5.6-sol":   1024,
+}
+_EVALUATOR_DEFAULT_MAX_OUTPUT_TOKENS: int = 256
+
+#: Env var to override the evaluator's output budget for ANY model (e.g. a new
+#: reasoning model before it has a table entry). Empty/absent/invalid → table.
+_EVAL_MAX_OUTPUT_TOKENS_ENV: str = "FPL_EVAL_MAX_OUTPUT_TOKENS"
+
+
+def _evaluator_max_output_tokens(model: str) -> int:
+    """The output budget the evaluator call gets for *model*."""
+    raw = os.environ.get(_EVAL_MAX_OUTPUT_TOKENS_ENV, "").strip()
+    if raw.isdigit() and int(raw) > 0:
+        return int(raw)
+    return _EVALUATOR_MAX_OUTPUT_TOKENS.get(model, _EVALUATOR_DEFAULT_MAX_OUTPUT_TOKENS)
+
 
 # ---------------------------------------------------------------------------
 # EvaluatorVerdict dataclass
@@ -61,7 +88,12 @@ class EvaluatorVerdict:
         Populated only when approved=False.
     tokens_used:
         Total tokens consumed by the evaluator call (input + output).
-        Zero on fail-open or when tokens cannot be extracted.
+        Zero when tokens cannot be extracted. A fail-open after a call that
+        ran keeps the tokens it spent (they were billed).
+    fail_open_reason:
+        i124: None on a real verdict. On a fail-open (approved=True with no
+        judgment) one of FAIL_OPEN_REASONS, so "approved" is never read as a
+        judgment it was not.
     """
 
     approved:        bool
@@ -71,20 +103,53 @@ class EvaluatorVerdict:
     retry_feedback:  str | None  = None
     tokens_used:     int         = 0
     off_topic_score: float       = 0.0
+    fail_open_reason: str | None = None
 
 
 # ---------------------------------------------------------------------------
 # Fail-open sentinel
 # ---------------------------------------------------------------------------
 
-_FAIL_OPEN = EvaluatorVerdict(
-    approved=True,
-    grounded=None,
-    complete=None,
-    safe=None,
-    retry_feedback=None,
-    tokens_used=0,
-)
+#: i124: why a verdict is a fail-open. Read off what came back, per call.
+FAIL_OPEN_NO_CLIENT: str = "no_client"            # no evaluator client: nothing was called
+FAIL_OPEN_PROVIDER_ERROR: str = "provider_error"  # the call raised / returned nothing, no tokens
+FAIL_OPEN_EMPTY_OUTPUT: str = "empty_output"      # tokens were spent but no text came back
+FAIL_OPEN_TRUNCATED_JSON: str = "truncated_json"  # a JSON object was started and cut off
+FAIL_OPEN_UNPARSEABLE: str = "unparseable"        # complete text, but not a usable verdict
+FAIL_OPEN_REASONS: frozenset[str] = frozenset({
+    FAIL_OPEN_NO_CLIENT, FAIL_OPEN_PROVIDER_ERROR, FAIL_OPEN_EMPTY_OUTPUT,
+    FAIL_OPEN_TRUNCATED_JSON, FAIL_OPEN_UNPARSEABLE,
+})
+
+
+def _fail_open(reason: str, tokens_used: int = 0) -> EvaluatorVerdict:
+    """An approved verdict that judged nothing, saying why."""
+    return EvaluatorVerdict(
+        approved=True,
+        grounded=None,
+        complete=None,
+        safe=None,
+        retry_feedback=None,
+        tokens_used=tokens_used,
+        fail_open_reason=reason,
+    )
+
+
+#: Kept for importers; the reason-less sentinel of before i124.
+_FAIL_OPEN = _fail_open(FAIL_OPEN_NO_CLIENT)
+
+
+def _parse_failure_reason(raw_text: str | None, tokens_used: int) -> str:
+    """Classify a reply ``_parse_verdict`` could not use."""
+    text = (raw_text or "").strip()
+    if not text:
+        return FAIL_OPEN_EMPTY_OUTPUT if tokens_used > 0 else FAIL_OPEN_PROVIDER_ERROR
+    body = text.strip("`").strip()
+    if body.startswith("json"):
+        body = body[4:].strip()
+    if body.startswith("{") and not body.rstrip().endswith("}"):
+        return FAIL_OPEN_TRUNCATED_JSON
+    return FAIL_OPEN_UNPARSEABLE
 
 
 # ---------------------------------------------------------------------------
@@ -169,12 +234,13 @@ def _call_evaluator_anthropic(
     client: Any,
     model: str,
     user_message: str,
+    max_output_tokens: int = _EVALUATOR_DEFAULT_MAX_OUTPUT_TOKENS,
 ) -> tuple[str | None, int]:
     """Call Anthropic client.messages.create() and return (raw_text, tokens_used)."""
     try:
         response = client.messages.create(
             model=model,
-            max_tokens=256,
+            max_tokens=max_output_tokens,
             system=_EVALUATOR_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_message}],
         )
@@ -197,6 +263,7 @@ def _call_evaluator_openai(
     client: Any,
     model: str,
     user_message: str,
+    max_output_tokens: int = _EVALUATOR_DEFAULT_MAX_OUTPUT_TOKENS,
 ) -> tuple[str | None, int]:
     """Call OpenAI ``responses.create()`` and return (raw_text, tokens_used).
 
@@ -211,7 +278,7 @@ def _call_evaluator_openai(
     try:
         response = client.responses.create(
             model=model,
-            max_output_tokens=256,
+            max_output_tokens=max_output_tokens,
             instructions=_EVALUATOR_SYSTEM_PROMPT,
             input=[{"role": "user", "content": user_message}],
         )
@@ -243,12 +310,13 @@ def _call_evaluator_openai_chat_completions(
     client: Any,
     model: str,
     user_message: str,
+    max_output_tokens: int = _EVALUATOR_DEFAULT_MAX_OUTPUT_TOKENS,
 ) -> tuple[str | None, int]:
     """Call an OpenAI-compatible ``chat.completions.create()`` endpoint."""
     try:
         response = client.chat.completions.create(
             model=model,
-            max_tokens=256,
+            max_tokens=max_output_tokens,
             messages=[
                 {"role": "system", "content": _EVALUATOR_SYSTEM_PROMPT},
                 {"role": "user",   "content": user_message},
@@ -311,10 +379,11 @@ def _call_evaluator_deepseek(
     client: Any,
     model: str,
     user_message: str,
+    max_output_tokens: int = _EVALUATOR_DEFAULT_MAX_OUTPUT_TOKENS,
 ) -> tuple[str | None, int]:
     """Call DeepSeek (OpenAI-compat) client and return (raw_text, tokens_used)."""
     # DeepSeek is compatible with Chat Completions, not the Responses API.
-    return _call_evaluator_openai_chat_completions(client, model, user_message)
+    return _call_evaluator_openai_chat_completions(client, model, user_message, max_output_tokens)
 
 
 # ---------------------------------------------------------------------------
@@ -423,30 +492,33 @@ def evaluate_response(
         approved=False with retry_feedback if any axis fails.
     """
     if client is None:
-        return _FAIL_OPEN
+        return _fail_open(FAIL_OPEN_NO_CLIENT)
 
     model = os.environ.get(_EVAL_MODEL_ENV, "").strip() or _EVALUATOR_MODELS.get(provider, "claude-haiku-4-5-20251001")
+    budget = _evaluator_max_output_tokens(model)
     user_message = _build_evaluator_user_message(question, primary_response, tool_calls)
 
     try:
         if provider == "openai":
-            raw_text, tokens = _call_evaluator_openai(client, model, user_message)
+            raw_text, tokens = _call_evaluator_openai(client, model, user_message, budget)
         elif provider == "gemini":
+            # The google-generativeai call carries no output cap here.
             raw_text, tokens = _call_evaluator_gemini(client, model, user_message)
         elif provider == "deepseek":
-            raw_text, tokens = _call_evaluator_deepseek(client, model, user_message)
+            raw_text, tokens = _call_evaluator_deepseek(client, model, user_message, budget)
         else:
             # Default: anthropic
-            raw_text, tokens = _call_evaluator_anthropic(client, model, user_message)
+            raw_text, tokens = _call_evaluator_anthropic(client, model, user_message, budget)
     except Exception as exc:  # noqa: BLE001
         print(f"[evaluator] unexpected error during provider call: {exc}", file=sys.stderr)
-        return _FAIL_OPEN
+        return _fail_open(FAIL_OPEN_PROVIDER_ERROR)
 
     verdict = _parse_verdict(raw_text, tokens)
     if verdict is None:
+        reason = _parse_failure_reason(raw_text, tokens)
         if raw_text is not None:
-            print(f"[evaluator] could not parse JSON verdict from: {raw_text!r}", file=sys.stderr)
-        return _FAIL_OPEN
+            print(f"[evaluator] could not parse JSON verdict ({reason}) from: {raw_text!r}", file=sys.stderr)
+        return _fail_open(reason, tokens)
 
     # ------------------------------------------------------------------
     # Layer D: heuristic off-topic tie-breaker (safety net only).

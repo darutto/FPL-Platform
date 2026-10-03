@@ -120,7 +120,8 @@ class AuditEntry:
     intent: str | None
     tool_calls: list[dict]           # [{"name": str, "args": dict, "output_status": str,
                                      #   "round": int|None, "retry": bool (i96; orchestrator turns)}, ...]
-    evaluator_verdict: dict | None   # {approved, grounded, complete, safe, retry_feedback} | None
+    evaluator_verdict: dict | None   # {approved, grounded, complete, safe, retry_feedback,
+                                     #   fail_open_reason (i124: why an "approved" judged nothing)} | None
     retry_attempted: bool
     final_text_length: int           # full text length (characters)
     final_text_preview: str          # first 200 chars of final_text
