@@ -186,6 +186,7 @@ def test_harness_projects_retry_verdict_and_sequence_from_the_result(stub_orches
     assert rt["evaluator_verdict"] == {
         "approved": False, "grounded": True, "complete": False, "safe": True,
         "retry_feedback": "name the top three, not one",
+        "fail_open_reason": None,  # i124: a real verdict names no fail-open
     }
     assert rt["tool_sequence"] == [TOOL, TOOL]
     # The verdict projection is JSON-serialisable as-is (the audit line needs it).
@@ -298,6 +299,7 @@ def test_ask_audit_line_carries_retry_attempted_true_from_the_result(
     assert line["evaluator_verdict"] == {
         "approved": False, "grounded": True, "complete": False, "safe": True,
         "retry_feedback": "name the top three, not one",
+        "fail_open_reason": None,  # i124: a real verdict names no fail-open
     }
     assert line["tokens"]["retry_input"] == 300
     assert line["tokens"]["total"] == 1520

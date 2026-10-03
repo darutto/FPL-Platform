@@ -191,7 +191,8 @@ ROUTING_TRACE_OPTIONAL_KEYS: frozenset[str] = frozenset({
     # used to write retry_attempted=False as a literal; these are the values
     # it now reads instead of asserting from a constant.
     "retry_attempted",    # bool: OrchestratorResult.retry_attempted
-    "evaluator_verdict",  # {approved, grounded, complete, safe, retry_feedback} | None
+    "evaluator_verdict",  # {approved, grounded, complete, safe, retry_feedback,
+                          #   fail_open_reason (i124)} | None
     "retry_delivery",     # i125(b): orchestrator.RETRY_DELIVERIES value | None
     "tool_sequence",     # [tool name, ...] executed, from tool_calls_trace (same
                           #   field the routing JSONL projects as tool_sequence)
@@ -1444,6 +1445,8 @@ def _project_orchestrator_run(routing_trace: dict[str, Any], orch_result: Any) -
             "complete":       _verdict.complete,
             "safe":           _verdict.safe,
             "retry_feedback": _verdict.retry_feedback,
+            # i124: set only when the verdict is a fail-open (approved, unjudged).
+            "fail_open_reason": getattr(_verdict, "fail_open_reason", None),
         }
     )
     routing_trace["tool_sequence"] = [_n for _n in _names if _n]
