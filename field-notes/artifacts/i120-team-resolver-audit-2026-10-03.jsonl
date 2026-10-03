@@ -1,0 +1,815 @@
+{"q": " c", "before": "ambiguous:CHE,COV,CRY,HUL,IPS,MCI,NEW", "after": "not_found", "change": "lost"}
+{"q": " ci", "before": "ambiguous:COV,HUL,MCI", "after": "not_found", "change": "lost"}
+{"q": " cit", "before": "ambiguous:COV,HUL,MCI", "after": "not_found", "change": "lost"}
+{"q": " city", "before": "ambiguous:COV,HUL,MCI", "after": "ambiguous:COV,HUL,MCI", "change": "same"}
+{"q": " f", "before": "ambiguous:BRE,FUL,NFO", "after": "not_found", "change": "lost"}
+{"q": " fo", "before": "ambiguous:BRE,NFO", "after": "not_found", "change": "lost"}
+{"q": " for", "before": "ambiguous:BRE,NFO", "after": "not_found", "change": "lost"}
+{"q": " fore", "before": "ok:NFO", "after": "ok:NFO", "change": "same"}
+{"q": " fores", "before": "ok:NFO", "after": "ok:NFO", "change": "same"}
+{"q": " forest", "before": "ok:NFO", "after": "ok:NFO", "change": "same"}
+{"q": " p", "before": "ambiguous:CRY,IPS,LIV,TOT", "after": "not_found", "change": "lost"}
+{"q": " pa", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": " pal", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": " pala", "before": "ok:CRY", "after": "ok:CRY", "change": "same"}
+{"q": " palac", "before": "ok:CRY", "after": "ok:CRY", "change": "same"}
+{"q": " palace", "before": "ok:CRY", "after": "ok:CRY", "change": "same"}
+{"q": " t", "before": "ambiguous:AVL,BHA,BOU,BRE,COV,CRY,EVE,HUL,IPS,MCI,MUN,NEW,NFO", "after": "not_found", "change": "lost"}
+{"q": " to", "before": "ambiguous:AVL,BHA,EVE,IPS", "after": "not_found", "change": "lost"}
+{"q": " tow", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": " town", "before": "ok:IPS", "after": "ok:IPS", "change": "same"}
+{"q": " u", "before": "ambiguous:BOU,FUL,HUL,MUN,SUN,TOT", "after": "not_found", "change": "lost"}
+{"q": " ut", "before": "ambiguous:BOU,MUN", "after": "not_found", "change": "lost"}
+{"q": " utd", "before": "ok:MUN", "after": "ok:MUN", "change": "same"}
+{"q": " v", "before": "ambiguous:AVL,COV,EVE,LIV", "after": "not_found", "change": "lost"}
+{"q": " vi", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": " vil", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": " vill", "before": "ok:AVL", "after": "ok:AVL", "change": "same"}
+{"q": " villa", "before": "ok:AVL", "after": "ok:AVL", "change": "same"}
+{"q": "'", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "'m", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "'m ", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "'m f", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "'m fo", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "'m for", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "'m fore", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "'m fores", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "'m forest", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "ARS", "before": "ok:ARS", "after": "ok:ARS", "change": "same"}
+{"q": "AVL", "before": "ok:AVL", "after": "ok:AVL", "change": "same"}
+{"q": "Arsenal", "before": "ok:ARS", "after": "ok:ARS", "change": "same"}
+{"q": "Aston Villa", "before": "ok:AVL", "after": "ok:AVL", "change": "same"}
+{"q": "BHA", "before": "ok:BHA", "after": "ok:BHA", "change": "same"}
+{"q": "BOU", "before": "ok:BOU", "after": "ok:BOU", "change": "same"}
+{"q": "BRE", "before": "ok:BRE", "after": "ok:BRE", "change": "same"}
+{"q": "Bournemouth", "before": "ok:BOU", "after": "ok:BOU", "change": "same"}
+{"q": "Brentford", "before": "ok:BRE", "after": "ok:BRE", "change": "same"}
+{"q": "Brighton", "before": "ok:BHA", "after": "ok:BHA", "change": "same"}
+{"q": "CHE", "before": "ok:CHE", "after": "ok:CHE", "change": "same"}
+{"q": "COV", "before": "ok:COV", "after": "ok:COV", "change": "same"}
+{"q": "CRY", "before": "ok:CRY", "after": "ok:CRY", "change": "same"}
+{"q": "Chelsea", "before": "ok:CHE", "after": "ok:CHE", "change": "same"}
+{"q": "Coventry City", "before": "ok:COV", "after": "ok:COV", "change": "same"}
+{"q": "Crystal Palace", "before": "ok:CRY", "after": "ok:CRY", "change": "same"}
+{"q": "EVE", "before": "ok:EVE", "after": "ok:EVE", "change": "same"}
+{"q": "Everton", "before": "ok:EVE", "after": "ok:EVE", "change": "same"}
+{"q": "FUL", "before": "ok:FUL", "after": "ok:FUL", "change": "same"}
+{"q": "Fulham", "before": "ok:FUL", "after": "ok:FUL", "change": "same"}
+{"q": "HUL", "before": "ok:HUL", "after": "ok:HUL", "change": "same"}
+{"q": "Hull City", "before": "ok:HUL", "after": "ok:HUL", "change": "same"}
+{"q": "IPS", "before": "ok:IPS", "after": "ok:IPS", "change": "same"}
+{"q": "Ipswich Town", "before": "ok:IPS", "after": "ok:IPS", "change": "same"}
+{"q": "LEE", "before": "ok:LEE", "after": "ok:LEE", "change": "same"}
+{"q": "LIV", "before": "ok:LIV", "after": "ok:LIV", "change": "same"}
+{"q": "Leeds", "before": "ok:LEE", "after": "ok:LEE", "change": "same"}
+{"q": "Liverpool", "before": "ok:LIV", "after": "ok:LIV", "change": "same"}
+{"q": "MCI", "before": "ok:MCI", "after": "ok:MCI", "change": "same"}
+{"q": "MUN", "before": "ok:MUN", "after": "ok:MUN", "change": "same"}
+{"q": "Man City", "before": "ok:MCI", "after": "ok:MCI", "change": "same"}
+{"q": "Man Utd", "before": "ok:MUN", "after": "ok:MUN", "change": "same"}
+{"q": "NEW", "before": "ok:NEW", "after": "ok:NEW", "change": "same"}
+{"q": "NFO", "before": "ok:NFO", "after": "ok:NFO", "change": "same"}
+{"q": "Newcastle", "before": "ok:NEW", "after": "ok:NEW", "change": "same"}
+{"q": "Nott'm Forest", "before": "ok:NFO", "after": "ok:NFO", "change": "same"}
+{"q": "SUN", "before": "ok:SUN", "after": "ok:SUN", "change": "same"}
+{"q": "Spurs", "before": "ok:TOT", "after": "ok:TOT", "change": "same"}
+{"q": "Sunderland", "before": "ok:SUN", "after": "ok:SUN", "change": "same"}
+{"q": "TOT", "before": "ok:TOT", "after": "ok:TOT", "change": "same"}
+{"q": "a", "before": "ambiguous:ARS,AVL,CHE,CRY,FUL,MCI,MUN,NEW,SUN", "after": "not_found", "change": "lost"}
+{"q": "ac", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "ace", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "al", "before": "ambiguous:ARS,CRY", "after": "not_found", "change": "lost"}
+{"q": "al ", "before": "ambiguous:ARS,CRY", "after": "not_found", "change": "lost"}
+{"q": "al p", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "al pa", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "al pal", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "al pala", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "al palac", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "al palace", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "ala", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "alac", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "alace", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "am", "before": "ok:FUL", "after": "not_found", "change": "lost"}
+{"q": "an", "before": "ambiguous:MCI,MUN,SUN", "after": "not_found", "change": "lost"}
+{"q": "an ", "before": "ambiguous:MCI,MUN,SUN", "after": "not_found", "change": "lost"}
+{"q": "an c", "before": "ok:MCI", "after": "not_found", "change": "lost"}
+{"q": "an ci", "before": "ok:MCI", "after": "not_found", "change": "lost"}
+{"q": "an cit", "before": "ok:MCI", "after": "not_found", "change": "lost"}
+{"q": "an city", "before": "ok:MCI", "after": "not_found", "change": "lost"}
+{"q": "an u", "before": "ok:MUN", "after": "not_found", "change": "lost"}
+{"q": "an ut", "before": "ok:MUN", "after": "not_found", "change": "lost"}
+{"q": "an utd", "before": "ok:MUN", "after": "not_found", "change": "lost"}
+{"q": "and", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "ar", "before": "ok:ARS", "after": "not_found", "change": "lost"}
+{"q": "ars", "before": "ok:ARS", "after": "ok:ARS", "change": "same"}
+{"q": "arse", "before": "ok:ARS", "after": "ok:ARS", "change": "same"}
+{"q": "arsen", "before": "ok:ARS", "after": "ok:ARS", "change": "same"}
+{"q": "arsena", "before": "ok:ARS", "after": "ok:ARS", "change": "same"}
+{"q": "arsenal", "before": "ok:ARS", "after": "ok:ARS", "change": "same"}
+{"q": "as", "before": "ambiguous:AVL,NEW", "after": "not_found", "change": "lost"}
+{"q": "ast", "before": "ambiguous:AVL,NEW", "after": "not_found", "change": "lost"}
+{"q": "astl", "before": "ok:NEW", "after": "not_found", "change": "lost"}
+{"q": "astle", "before": "ok:NEW", "after": "not_found", "change": "lost"}
+{"q": "asto", "before": "ok:AVL", "after": "ok:AVL", "change": "same"}
+{"q": "aston", "before": "ok:AVL", "after": "ok:AVL", "change": "same"}
+{"q": "aston ", "before": "ok:AVL", "after": "ok:AVL", "change": "same"}
+{"q": "aston v", "before": "ok:AVL", "after": "ok:AVL", "change": "same"}
+{"q": "aston vi", "before": "ok:AVL", "after": "ok:AVL", "change": "same"}
+{"q": "aston vil", "before": "ok:AVL", "after": "ok:AVL", "change": "same"}
+{"q": "aston vill", "before": "ok:AVL", "after": "ok:AVL", "change": "same"}
+{"q": "aston villa", "before": "ok:AVL", "after": "ok:AVL", "change": "same"}
+{"q": "aston villa fc", "before": "ok:AVL", "after": "ok:AVL", "change": "same"}
+{"q": "avl", "before": "ok:AVL", "after": "ok:AVL", "change": "same"}
+{"q": "b", "before": "ambiguous:BHA,BOU,BRE", "after": "not_found", "change": "lost"}
+{"q": "bha", "before": "ok:BHA", "after": "ok:BHA", "change": "same"}
+{"q": "bo", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "bou", "before": "ok:BOU", "after": "ok:BOU", "change": "same"}
+{"q": "bour", "before": "ok:BOU", "after": "ok:BOU", "change": "same"}
+{"q": "bourn", "before": "ok:BOU", "after": "ok:BOU", "change": "same"}
+{"q": "bourne", "before": "ok:BOU", "after": "ok:BOU", "change": "same"}
+{"q": "bournem", "before": "ok:BOU", "after": "ok:BOU", "change": "same"}
+{"q": "bournemo", "before": "ok:BOU", "after": "ok:BOU", "change": "same"}
+{"q": "bournemou", "before": "ok:BOU", "after": "ok:BOU", "change": "same"}
+{"q": "bournemout", "before": "ok:BOU", "after": "ok:BOU", "change": "same"}
+{"q": "bournemouth", "before": "ok:BOU", "after": "ok:BOU", "change": "same"}
+{"q": "br", "before": "ambiguous:BHA,BRE", "after": "not_found", "change": "lost"}
+{"q": "bre", "before": "ok:BRE", "after": "ok:BRE", "change": "same"}
+{"q": "bren", "before": "ok:BRE", "after": "ok:BRE", "change": "same"}
+{"q": "brent", "before": "ok:BRE", "after": "ok:BRE", "change": "same"}
+{"q": "brentf", "before": "ok:BRE", "after": "ok:BRE", "change": "same"}
+{"q": "brentfo", "before": "ok:BRE", "after": "ok:BRE", "change": "same"}
+{"q": "brentfor", "before": "ok:BRE", "after": "ok:BRE", "change": "same"}
+{"q": "brentford", "before": "ok:BRE", "after": "ok:BRE", "change": "same"}
+{"q": "bri", "before": "ok:BHA", "after": "not_found", "change": "lost"}
+{"q": "brig", "before": "ok:BHA", "after": "ok:BHA", "change": "same"}
+{"q": "brigh", "before": "ok:BHA", "after": "ok:BHA", "change": "same"}
+{"q": "bright", "before": "ok:BHA", "after": "ok:BHA", "change": "same"}
+{"q": "brighto", "before": "ok:BHA", "after": "ok:BHA", "change": "same"}
+{"q": "brighton", "before": "ok:BHA", "after": "ok:BHA", "change": "same"}
+{"q": "brighton & hove albion", "before": "ok:BHA", "after": "ok:BHA", "change": "same"}
+{"q": "brighton and hove albion", "before": "ok:BHA", "after": "ok:BHA", "change": "same"}
+{"q": "c", "before": "ambiguous:CHE,COV,CRY,HUL,IPS,MCI,NEW", "after": "not_found", "change": "lost"}
+{"q": "ca", "before": "ok:NEW", "after": "not_found", "change": "lost"}
+{"q": "cas", "before": "ok:NEW", "after": "not_found", "change": "lost"}
+{"q": "cast", "before": "ok:NEW", "after": "not_found", "change": "lost"}
+{"q": "castl", "before": "ok:NEW", "after": "not_found", "change": "lost"}
+{"q": "castle", "before": "ok:NEW", "after": "not_found", "change": "lost"}
+{"q": "ce", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "ch", "before": "ambiguous:CHE,IPS", "after": "not_found", "change": "lost"}
+{"q": "ch ", "before": "ambiguous:CHE,IPS", "after": "not_found", "change": "lost"}
+{"q": "ch t", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "ch to", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "ch tow", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "ch town", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "che", "before": "ok:CHE", "after": "ok:CHE", "change": "same"}
+{"q": "chel", "before": "ok:CHE", "after": "ok:CHE", "change": "same"}
+{"q": "chels", "before": "ok:CHE", "after": "ok:CHE", "change": "same"}
+{"q": "chelse", "before": "ok:CHE", "after": "ok:CHE", "change": "same"}
+{"q": "chelsea", "before": "ok:CHE", "after": "ok:CHE", "change": "same"}
+{"q": "cherries", "before": "ok:BOU", "after": "ok:BOU", "change": "same"}
+{"q": "ci", "before": "ambiguous:COV,HUL,MCI", "after": "not_found", "change": "lost"}
+{"q": "cit", "before": "ambiguous:COV,HUL,MCI", "after": "not_found", "change": "lost"}
+{"q": "city", "before": "ambiguous:COV,HUL,MCI", "after": "ambiguous:COV,HUL,MCI", "change": "same"}
+{"q": "co", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "como", "before": "not_found", "after": "not_found", "change": "same"}
+{"q": "cov", "before": "ok:COV", "after": "ok:COV", "change": "same"}
+{"q": "cove", "before": "ok:COV", "after": "ok:COV", "change": "same"}
+{"q": "coven", "before": "ok:COV", "after": "ok:COV", "change": "same"}
+{"q": "covent", "before": "ok:COV", "after": "ok:COV", "change": "same"}
+{"q": "coventr", "before": "ok:COV", "after": "ok:COV", "change": "same"}
+{"q": "coventry", "before": "ok:COV", "after": "ok:COV", "change": "same"}
+{"q": "coventry ", "before": "ok:COV", "after": "ok:COV", "change": "same"}
+{"q": "coventry c", "before": "ok:COV", "after": "ok:COV", "change": "same"}
+{"q": "coventry ci", "before": "ok:COV", "after": "ok:COV", "change": "same"}
+{"q": "coventry cit", "before": "ok:COV", "after": "ok:COV", "change": "same"}
+{"q": "coventry city", "before": "ok:COV", "after": "ok:COV", "change": "same"}
+{"q": "cr", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "cry", "before": "ok:CRY", "after": "ok:CRY", "change": "same"}
+{"q": "crys", "before": "ok:CRY", "after": "ok:CRY", "change": "same"}
+{"q": "cryst", "before": "ok:CRY", "after": "ok:CRY", "change": "same"}
+{"q": "crysta", "before": "ok:CRY", "after": "ok:CRY", "change": "same"}
+{"q": "crystal", "before": "ok:CRY", "after": "ok:CRY", "change": "same"}
+{"q": "crystal ", "before": "ok:CRY", "after": "ok:CRY", "change": "same"}
+{"q": "crystal p", "before": "ok:CRY", "after": "ok:CRY", "change": "same"}
+{"q": "crystal pa", "before": "ok:CRY", "after": "ok:CRY", "change": "same"}
+{"q": "crystal pal", "before": "ok:CRY", "after": "ok:CRY", "change": "same"}
+{"q": "crystal pala", "before": "ok:CRY", "after": "ok:CRY", "change": "same"}
+{"q": "crystal palac", "before": "ok:CRY", "after": "ok:CRY", "change": "same"}
+{"q": "crystal palace", "before": "ok:CRY", "after": "ok:CRY", "change": "same"}
+{"q": "d", "before": "ambiguous:BRE,LEE,MUN,SUN", "after": "not_found", "change": "lost"}
+{"q": "de", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "der", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "derl", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "derla", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "derlan", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "derland", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "ds", "before": "ok:LEE", "after": "not_found", "change": "lost"}
+{"q": "e", "before": "ambiguous:ARS,BOU,BRE,CHE,COV,CRY,EVE,LEE,LIV,NEW,NFO,SUN", "after": "not_found", "change": "lost"}
+{"q": "ea", "before": "ok:CHE", "after": "not_found", "change": "lost"}
+{"q": "ed", "before": "ok:LEE", "after": "not_found", "change": "lost"}
+{"q": "eds", "before": "ok:LEE", "after": "not_found", "change": "lost"}
+{"q": "ee", "before": "ok:LEE", "after": "not_found", "change": "lost"}
+{"q": "eed", "before": "ok:LEE", "after": "not_found", "change": "lost"}
+{"q": "eeds", "before": "ok:LEE", "after": "not_found", "change": "lost"}
+{"q": "el", "before": "ok:CHE", "after": "not_found", "change": "lost"}
+{"q": "el bournemouth", "before": "not_found", "after": "not_found", "change": "same"}
+{"q": "els", "before": "ok:CHE", "after": "not_found", "change": "lost"}
+{"q": "else", "before": "ok:CHE", "after": "not_found", "change": "lost"}
+{"q": "elsea", "before": "ok:CHE", "after": "not_found", "change": "lost"}
+{"q": "em", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "emo", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "emou", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "emout", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "emouth", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "en", "before": "ambiguous:ARS,BRE,COV", "after": "not_found", "change": "lost"}
+{"q": "ena", "before": "ok:ARS", "after": "not_found", "change": "lost"}
+{"q": "enal", "before": "ok:ARS", "after": "not_found", "change": "lost"}
+{"q": "ent", "before": "ambiguous:BRE,COV", "after": "not_found", "change": "lost"}
+{"q": "entf", "before": "ok:BRE", "after": "not_found", "change": "lost"}
+{"q": "entfo", "before": "ok:BRE", "after": "not_found", "change": "lost"}
+{"q": "entfor", "before": "ok:BRE", "after": "not_found", "change": "lost"}
+{"q": "entford", "before": "ok:BRE", "after": "not_found", "change": "lost"}
+{"q": "entr", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "entry", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "entry ", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "entry c", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "entry ci", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "entry cit", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "entry city", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "er", "before": "ambiguous:EVE,LIV,SUN", "after": "not_found", "change": "lost"}
+{"q": "erl", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "erla", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "erlan", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "erland", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "erp", "before": "ok:LIV", "after": "not_found", "change": "lost"}
+{"q": "erpo", "before": "ok:LIV", "after": "not_found", "change": "lost"}
+{"q": "erpoo", "before": "ok:LIV", "after": "not_found", "change": "lost"}
+{"q": "erpool", "before": "ok:LIV", "after": "not_found", "change": "lost"}
+{"q": "ert", "before": "ok:EVE", "after": "not_found", "change": "lost"}
+{"q": "erto", "before": "ok:EVE", "after": "not_found", "change": "lost"}
+{"q": "erton", "before": "ok:EVE", "after": "not_found", "change": "lost"}
+{"q": "es", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "est", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "ev", "before": "ok:EVE", "after": "not_found", "change": "lost"}
+{"q": "eve", "before": "ok:EVE", "after": "ok:EVE", "change": "same"}
+{"q": "ever", "before": "ok:EVE", "after": "ok:EVE", "change": "same"}
+{"q": "evert", "before": "ok:EVE", "after": "ok:EVE", "change": "same"}
+{"q": "everto", "before": "ok:EVE", "after": "ok:EVE", "change": "same"}
+{"q": "everton", "before": "ok:EVE", "after": "ok:EVE", "change": "same"}
+{"q": "ew", "before": "ok:NEW", "after": "not_found", "change": "lost"}
+{"q": "ewc", "before": "ok:NEW", "after": "not_found", "change": "lost"}
+{"q": "ewca", "before": "ok:NEW", "after": "not_found", "change": "lost"}
+{"q": "ewcas", "before": "ok:NEW", "after": "not_found", "change": "lost"}
+{"q": "ewcast", "before": "ok:NEW", "after": "not_found", "change": "lost"}
+{"q": "ewcastl", "before": "ok:NEW", "after": "not_found", "change": "lost"}
+{"q": "ewcastle", "before": "ok:NEW", "after": "not_found", "change": "lost"}
+{"q": "f", "before": "ambiguous:BRE,FUL,NFO", "after": "not_found", "change": "lost"}
+{"q": "fc", "before": "not_found", "after": "not_found", "change": "same"}
+{"q": "fo", "before": "ambiguous:BRE,NFO", "after": "not_found", "change": "lost"}
+{"q": "for", "before": "ambiguous:BRE,NFO", "after": "not_found", "change": "lost"}
+{"q": "ford", "before": "ok:BRE", "after": "not_found", "change": "lost"}
+{"q": "fore", "before": "ok:NFO", "after": "ok:NFO", "change": "same"}
+{"q": "fores", "before": "ok:NFO", "after": "ok:NFO", "change": "same"}
+{"q": "forest", "before": "ok:NFO", "after": "ok:NFO", "change": "same"}
+{"q": "fu", "before": "ok:FUL", "after": "not_found", "change": "lost"}
+{"q": "ful", "before": "ok:FUL", "after": "ok:FUL", "change": "same"}
+{"q": "fulh", "before": "ok:FUL", "after": "ok:FUL", "change": "same"}
+{"q": "fulha", "before": "ok:FUL", "after": "ok:FUL", "change": "same"}
+{"q": "fulham", "before": "ok:FUL", "after": "ok:FUL", "change": "same"}
+{"q": "g", "before": "ok:BHA", "after": "not_found", "change": "lost"}
+{"q": "gh", "before": "ok:BHA", "after": "not_found", "change": "lost"}
+{"q": "ght", "before": "ok:BHA", "after": "not_found", "change": "lost"}
+{"q": "ghto", "before": "ok:BHA", "after": "not_found", "change": "lost"}
+{"q": "ghton", "before": "ok:BHA", "after": "not_found", "change": "lost"}
+{"q": "gunners", "before": "ok:ARS", "after": "ok:ARS", "change": "same"}
+{"q": "h", "before": "ambiguous:BHA,BOU,CHE,FUL,HUL,IPS", "after": "not_found", "change": "lost"}
+{"q": "h ", "before": "ambiguous:BHA,BOU,CHE,FUL,HUL,IPS", "after": "not_found", "change": "lost"}
+{"q": "h t", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "h to", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "h tow", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "h town", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "ha", "before": "ok:FUL", "after": "not_found", "change": "lost"}
+{"q": "ham", "before": "ok:FUL", "after": "not_found", "change": "lost"}
+{"q": "hammers", "before": "not_found", "after": "not_found", "change": "same"}
+{"q": "he", "before": "ok:CHE", "after": "not_found", "change": "lost"}
+{"q": "hel", "before": "ok:CHE", "after": "not_found", "change": "lost"}
+{"q": "hels", "before": "ok:CHE", "after": "not_found", "change": "lost"}
+{"q": "helse", "before": "ok:CHE", "after": "not_found", "change": "lost"}
+{"q": "helsea", "before": "ok:CHE", "after": "not_found", "change": "lost"}
+{"q": "ht", "before": "ok:BHA", "after": "not_found", "change": "lost"}
+{"q": "hto", "before": "ok:BHA", "after": "not_found", "change": "lost"}
+{"q": "hton", "before": "ok:BHA", "after": "not_found", "change": "lost"}
+{"q": "hu", "before": "ok:HUL", "after": "not_found", "change": "lost"}
+{"q": "hul", "before": "ok:HUL", "after": "ok:HUL", "change": "same"}
+{"q": "hull", "before": "ok:HUL", "after": "ok:HUL", "change": "same"}
+{"q": "hull ", "before": "ok:HUL", "after": "ok:HUL", "change": "same"}
+{"q": "hull c", "before": "ok:HUL", "after": "ok:HUL", "change": "same"}
+{"q": "hull ci", "before": "ok:HUL", "after": "ok:HUL", "change": "same"}
+{"q": "hull cit", "before": "ok:HUL", "after": "ok:HUL", "change": "same"}
+{"q": "hull city", "before": "ok:HUL", "after": "ok:HUL", "change": "same"}
+{"q": "i", "before": "ambiguous:AVL,BHA,COV,HUL,IPS,LIV,MCI", "after": "not_found", "change": "lost"}
+{"q": "ic", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "ich", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "ich ", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "ich t", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "ich to", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "ich tow", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "ich town", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "ig", "before": "ok:BHA", "after": "not_found", "change": "lost"}
+{"q": "igh", "before": "ok:BHA", "after": "not_found", "change": "lost"}
+{"q": "ight", "before": "ok:BHA", "after": "not_found", "change": "lost"}
+{"q": "ighto", "before": "ok:BHA", "after": "not_found", "change": "lost"}
+{"q": "ighton", "before": "ok:BHA", "after": "not_found", "change": "lost"}
+{"q": "il", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": "ill", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": "illa", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": "ip", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "ips", "before": "ok:IPS", "after": "ok:IPS", "change": "same"}
+{"q": "ipsw", "before": "ok:IPS", "after": "ok:IPS", "change": "same"}
+{"q": "ipswi", "before": "ok:IPS", "after": "ok:IPS", "change": "same"}
+{"q": "ipswic", "before": "ok:IPS", "after": "ok:IPS", "change": "same"}
+{"q": "ipswich", "before": "ok:IPS", "after": "ok:IPS", "change": "same"}
+{"q": "ipswich ", "before": "ok:IPS", "after": "ok:IPS", "change": "same"}
+{"q": "ipswich t", "before": "ok:IPS", "after": "ok:IPS", "change": "same"}
+{"q": "ipswich to", "before": "ok:IPS", "after": "ok:IPS", "change": "same"}
+{"q": "ipswich tow", "before": "ok:IPS", "after": "ok:IPS", "change": "same"}
+{"q": "ipswich town", "before": "ok:IPS", "after": "ok:IPS", "change": "same"}
+{"q": "it", "before": "ambiguous:COV,HUL,MCI", "after": "not_found", "change": "lost"}
+{"q": "ity", "before": "ambiguous:COV,HUL,MCI", "after": "not_found", "change": "lost"}
+{"q": "iv", "before": "ok:LIV", "after": "not_found", "change": "lost"}
+{"q": "ive", "before": "ok:LIV", "after": "not_found", "change": "lost"}
+{"q": "iver", "before": "ok:LIV", "after": "not_found", "change": "lost"}
+{"q": "iverp", "before": "ok:LIV", "after": "not_found", "change": "lost"}
+{"q": "iverpo", "before": "ok:LIV", "after": "not_found", "change": "lost"}
+{"q": "iverpoo", "before": "ok:LIV", "after": "not_found", "change": "lost"}
+{"q": "iverpool", "before": "ok:LIV", "after": "not_found", "change": "lost"}
+{"q": "l", "before": "ambiguous:ARS,AVL,CHE,CRY,FUL,HUL,LEE,LIV,NEW,SUN", "after": "not_found", "change": "lost"}
+{"q": "l ", "before": "ambiguous:ARS,AVL,CHE,CRY,FUL,HUL,LEE,LIV,NEW,SUN", "after": "not_found", "change": "lost"}
+{"q": "l c", "before": "ok:HUL", "after": "not_found", "change": "lost"}
+{"q": "l ci", "before": "ok:HUL", "after": "not_found", "change": "lost"}
+{"q": "l cit", "before": "ok:HUL", "after": "not_found", "change": "lost"}
+{"q": "l city", "before": "ok:HUL", "after": "not_found", "change": "lost"}
+{"q": "l p", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "l pa", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "l pal", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "l pala", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "l palac", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "l palace", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "la", "before": "ambiguous:AVL,CRY,SUN", "after": "not_found", "change": "lost"}
+{"q": "lac", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "lace", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "lan", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "land", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "le", "before": "ambiguous:LEE,NEW", "after": "not_found", "change": "lost"}
+{"q": "lee", "before": "ok:LEE", "after": "ok:LEE", "change": "same"}
+{"q": "leed", "before": "ok:LEE", "after": "ok:LEE", "change": "same"}
+{"q": "leeds", "before": "ok:LEE", "after": "ok:LEE", "change": "same"}
+{"q": "leeds united", "before": "ok:LEE", "after": "ok:LEE", "change": "same"}
+{"q": "lh", "before": "ok:FUL", "after": "not_found", "change": "lost"}
+{"q": "lha", "before": "ok:FUL", "after": "not_found", "change": "lost"}
+{"q": "lham", "before": "ok:FUL", "after": "not_found", "change": "lost"}
+{"q": "li", "before": "ok:LIV", "after": "not_found", "change": "lost"}
+{"q": "liv", "before": "ok:LIV", "after": "ok:LIV", "change": "same"}
+{"q": "live", "before": "ok:LIV", "after": "ok:LIV", "change": "same"}
+{"q": "liver", "before": "ok:LIV", "after": "ok:LIV", "change": "same"}
+{"q": "liverp", "before": "ok:LIV", "after": "ok:LIV", "change": "same"}
+{"q": "liverpo", "before": "ok:LIV", "after": "ok:LIV", "change": "same"}
+{"q": "liverpoo", "before": "ok:LIV", "after": "ok:LIV", "change": "same"}
+{"q": "liverpool", "before": "ok:LIV", "after": "ok:LIV", "change": "same"}
+{"q": "ll", "before": "ambiguous:AVL,HUL", "after": "not_found", "change": "lost"}
+{"q": "ll ", "before": "ambiguous:AVL,HUL", "after": "not_found", "change": "lost"}
+{"q": "ll c", "before": "ok:HUL", "after": "not_found", "change": "lost"}
+{"q": "ll ci", "before": "ok:HUL", "after": "not_found", "change": "lost"}
+{"q": "ll cit", "before": "ok:HUL", "after": "not_found", "change": "lost"}
+{"q": "ll city", "before": "ok:HUL", "after": "not_found", "change": "lost"}
+{"q": "lla", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": "ls", "before": "ok:CHE", "after": "not_found", "change": "lost"}
+{"q": "lse", "before": "ok:CHE", "after": "not_found", "change": "lost"}
+{"q": "lsea", "before": "ok:CHE", "after": "not_found", "change": "lost"}
+{"q": "m", "before": "ambiguous:BOU,FUL,MCI,MUN,NFO", "after": "not_found", "change": "lost"}
+{"q": "m ", "before": "ambiguous:BOU,FUL,MCI,MUN,NFO", "after": "not_found", "change": "lost"}
+{"q": "m f", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "m fo", "before": "ok:NFO", "after": "ok:NFO", "change": "same"}
+{"q": "m for", "before": "ok:NFO", "after": "ok:NFO", "change": "same"}
+{"q": "m fore", "before": "ok:NFO", "after": "ok:NFO", "change": "same"}
+{"q": "m fores", "before": "ok:NFO", "after": "ok:NFO", "change": "same"}
+{"q": "m forest", "before": "ok:NFO", "after": "ok:NFO", "change": "same"}
+{"q": "ma", "before": "ambiguous:MCI,MUN", "after": "not_found", "change": "lost"}
+{"q": "magpies", "before": "ok:NEW", "after": "ok:NEW", "change": "same"}
+{"q": "man", "before": "ambiguous:MCI,MUN", "after": "ambiguous:MCI,MUN", "change": "same"}
+{"q": "man ", "before": "ambiguous:MCI,MUN", "after": "ambiguous:MCI,MUN", "change": "same"}
+{"q": "man c", "before": "ok:MCI", "after": "ok:MCI", "change": "same"}
+{"q": "man ci", "before": "ok:MCI", "after": "ok:MCI", "change": "same"}
+{"q": "man cit", "before": "ok:MCI", "after": "ok:MCI", "change": "same"}
+{"q": "man city", "before": "ok:MCI", "after": "ok:MCI", "change": "same"}
+{"q": "man u", "before": "ok:MUN", "after": "ok:MUN", "change": "same"}
+{"q": "man united", "before": "ok:MUN", "after": "ok:MUN", "change": "same"}
+{"q": "man ut", "before": "ok:MUN", "after": "ok:MUN", "change": "same"}
+{"q": "man utd", "before": "ok:MUN", "after": "ok:MUN", "change": "same"}
+{"q": "manchester city", "before": "ok:MCI", "after": "ok:MCI", "change": "same"}
+{"q": "manchester united", "before": "ok:MUN", "after": "ok:MUN", "change": "same"}
+{"q": "manchester utd", "before": "ok:MUN", "after": "ok:MUN", "change": "same"}
+{"q": "mci", "before": "ok:MCI", "after": "ok:MCI", "change": "same"}
+{"q": "mo", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "mou", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "mout", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "mouth", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "mun", "before": "ok:MUN", "after": "ok:MUN", "change": "same"}
+{"q": "n", "before": "ambiguous:ARS,AVL,BHA,BOU,BRE,COV,EVE,IPS,MCI,MUN,NEW,NFO,SUN", "after": "not_found", "change": "lost"}
+{"q": "n ", "before": "ambiguous:ARS,AVL,BHA,BOU,BRE,COV,EVE,IPS,MCI,MUN,NEW,NFO,SUN", "after": "not_found", "change": "lost"}
+{"q": "n c", "before": "ok:MCI", "after": "not_found", "change": "lost"}
+{"q": "n ci", "before": "ok:MCI", "after": "not_found", "change": "lost"}
+{"q": "n cit", "before": "ok:MCI", "after": "not_found", "change": "lost"}
+{"q": "n city", "before": "ok:MCI", "after": "not_found", "change": "lost"}
+{"q": "n u", "before": "ok:MUN", "after": "not_found", "change": "lost"}
+{"q": "n ut", "before": "ok:MUN", "after": "not_found", "change": "lost"}
+{"q": "n utd", "before": "ok:MUN", "after": "not_found", "change": "lost"}
+{"q": "n v", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": "n vi", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": "n vil", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": "n vill", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": "n villa", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": "na", "before": "ok:ARS", "after": "not_found", "change": "lost"}
+{"q": "nal", "before": "ok:ARS", "after": "not_found", "change": "lost"}
+{"q": "nd", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "nde", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "nder", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "nderl", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "nderla", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "nderlan", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "nderland", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "ne", "before": "ambiguous:BOU,NEW", "after": "not_found", "change": "lost"}
+{"q": "nem", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "nemo", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "nemou", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "nemout", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "nemouth", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "new", "before": "ok:NEW", "after": "ok:NEW", "change": "same"}
+{"q": "newc", "before": "ok:NEW", "after": "ok:NEW", "change": "same"}
+{"q": "newca", "before": "ok:NEW", "after": "ok:NEW", "change": "same"}
+{"q": "newcas", "before": "ok:NEW", "after": "ok:NEW", "change": "same"}
+{"q": "newcast", "before": "ok:NEW", "after": "ok:NEW", "change": "same"}
+{"q": "newcastl", "before": "ok:NEW", "after": "ok:NEW", "change": "same"}
+{"q": "newcastle", "before": "ok:NEW", "after": "ok:NEW", "change": "same"}
+{"q": "newcastle united", "before": "ok:NEW", "after": "ok:NEW", "change": "same"}
+{"q": "nfo", "before": "ok:NFO", "after": "ok:NFO", "change": "same"}
+{"q": "no", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "not", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "nott", "before": "ok:NFO", "after": "ok:NFO", "change": "same"}
+{"q": "nott'", "before": "ok:NFO", "after": "ok:NFO", "change": "same"}
+{"q": "nott'm", "before": "ok:NFO", "after": "ok:NFO", "change": "same"}
+{"q": "nott'm ", "before": "ok:NFO", "after": "ok:NFO", "change": "same"}
+{"q": "nott'm f", "before": "ok:NFO", "after": "ok:NFO", "change": "same"}
+{"q": "nott'm fo", "before": "ok:NFO", "after": "ok:NFO", "change": "same"}
+{"q": "nott'm for", "before": "ok:NFO", "after": "ok:NFO", "change": "same"}
+{"q": "nott'm fore", "before": "ok:NFO", "after": "ok:NFO", "change": "same"}
+{"q": "nott'm fores", "before": "ok:NFO", "after": "ok:NFO", "change": "same"}
+{"q": "nott'm forest", "before": "ok:NFO", "after": "ok:NFO", "change": "same"}
+{"q": "nottingham", "before": "ok:NFO", "after": "ok:NFO", "change": "same"}
+{"q": "nottingham forest", "before": "ok:NFO", "after": "ok:NFO", "change": "same"}
+{"q": "nottm forest", "before": "ok:NFO", "after": "ok:NFO", "change": "same"}
+{"q": "nt", "before": "ambiguous:BRE,COV", "after": "not_found", "change": "lost"}
+{"q": "ntf", "before": "ok:BRE", "after": "not_found", "change": "lost"}
+{"q": "ntfo", "before": "ok:BRE", "after": "not_found", "change": "lost"}
+{"q": "ntfor", "before": "ok:BRE", "after": "not_found", "change": "lost"}
+{"q": "ntford", "before": "ok:BRE", "after": "not_found", "change": "lost"}
+{"q": "ntr", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "ntry", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "ntry ", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "ntry c", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "ntry ci", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "ntry cit", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "ntry city", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "o", "before": "ambiguous:AVL,BHA,BOU,BRE,COV,EVE,IPS,LIV,NFO", "after": "not_found", "change": "lost"}
+{"q": "ol", "before": "ok:LIV", "after": "not_found", "change": "lost"}
+{"q": "on", "before": "ambiguous:AVL,BHA,EVE", "after": "not_found", "change": "lost"}
+{"q": "on ", "before": "ambiguous:AVL,BHA,EVE", "after": "not_found", "change": "lost"}
+{"q": "on v", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": "on vi", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": "on vil", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": "on vill", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": "on villa", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": "oo", "before": "ok:LIV", "after": "not_found", "change": "lost"}
+{"q": "ool", "before": "ok:LIV", "after": "not_found", "change": "lost"}
+{"q": "or", "before": "ambiguous:BRE,NFO", "after": "not_found", "change": "lost"}
+{"q": "ord", "before": "ok:BRE", "after": "not_found", "change": "lost"}
+{"q": "ore", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "ores", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "orest", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "ot", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "ott", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "ott'", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "ott'm", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "ott'm ", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "ott'm f", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "ott'm fo", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "ott'm for", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "ott'm fore", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "ott'm fores", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "ott'm forest", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "ou", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "our", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "ourn", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "ourne", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "ournem", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "ournemo", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "ournemou", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "ournemout", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "ournemouth", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "out", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "outh", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "ov", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "ove", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "oven", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "ovent", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "oventr", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "oventry", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "oventry ", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "oventry c", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "oventry ci", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "oventry cit", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "oventry city", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "ow", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "own", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "p", "before": "ambiguous:CRY,IPS,LIV,TOT", "after": "not_found", "change": "lost"}
+{"q": "pa", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "pal", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "pala", "before": "ok:CRY", "after": "ok:CRY", "change": "same"}
+{"q": "palac", "before": "ok:CRY", "after": "ok:CRY", "change": "same"}
+{"q": "palace", "before": "ok:CRY", "after": "ok:CRY", "change": "same"}
+{"q": "po", "before": "ok:LIV", "after": "not_found", "change": "lost"}
+{"q": "poo", "before": "ok:LIV", "after": "not_found", "change": "lost"}
+{"q": "pool", "before": "ok:LIV", "after": "not_found", "change": "lost"}
+{"q": "ps", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "psw", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "pswi", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "pswic", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "pswich", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "pswich ", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "pswich t", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "pswich to", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "pswich tow", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "pswich town", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "pu", "before": "ok:TOT", "after": "not_found", "change": "lost"}
+{"q": "pur", "before": "ok:TOT", "after": "not_found", "change": "lost"}
+{"q": "purs", "before": "ok:TOT", "after": "not_found", "change": "lost"}
+{"q": "qué tal", "before": "not_found", "after": "not_found", "change": "same"}
+{"q": "r", "before": "ambiguous:ARS,BHA,BOU,BRE,COV,CRY,EVE,LIV,NFO,SUN,TOT", "after": "not_found", "change": "lost"}
+{"q": "rd", "before": "ok:BRE", "after": "not_found", "change": "lost"}
+{"q": "re", "before": "ambiguous:BRE,NFO", "after": "not_found", "change": "lost"}
+{"q": "ren", "before": "ok:BRE", "after": "not_found", "change": "lost"}
+{"q": "rent", "before": "ok:BRE", "after": "not_found", "change": "lost"}
+{"q": "rentf", "before": "ok:BRE", "after": "not_found", "change": "lost"}
+{"q": "rentfo", "before": "ok:BRE", "after": "not_found", "change": "lost"}
+{"q": "rentfor", "before": "ok:BRE", "after": "not_found", "change": "lost"}
+{"q": "rentford", "before": "ok:BRE", "after": "not_found", "change": "lost"}
+{"q": "res", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "rest", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "ri", "before": "ok:BHA", "after": "not_found", "change": "lost"}
+{"q": "rig", "before": "ok:BHA", "after": "not_found", "change": "lost"}
+{"q": "righ", "before": "ok:BHA", "after": "not_found", "change": "lost"}
+{"q": "right", "before": "ok:BHA", "after": "not_found", "change": "lost"}
+{"q": "righto", "before": "ok:BHA", "after": "not_found", "change": "lost"}
+{"q": "righton", "before": "ok:BHA", "after": "not_found", "change": "lost"}
+{"q": "rl", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "rla", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "rlan", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "rland", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "rn", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "rne", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "rnem", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "rnemo", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "rnemou", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "rnemout", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "rnemouth", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "rp", "before": "ok:LIV", "after": "not_found", "change": "lost"}
+{"q": "rpo", "before": "ok:LIV", "after": "not_found", "change": "lost"}
+{"q": "rpoo", "before": "ok:LIV", "after": "not_found", "change": "lost"}
+{"q": "rpool", "before": "ok:LIV", "after": "not_found", "change": "lost"}
+{"q": "rs", "before": "ambiguous:ARS,TOT", "after": "not_found", "change": "lost"}
+{"q": "rse", "before": "ok:ARS", "after": "not_found", "change": "lost"}
+{"q": "rsen", "before": "ok:ARS", "after": "not_found", "change": "lost"}
+{"q": "rsena", "before": "ok:ARS", "after": "not_found", "change": "lost"}
+{"q": "rsenal", "before": "ok:ARS", "after": "not_found", "change": "lost"}
+{"q": "rt", "before": "ok:EVE", "after": "not_found", "change": "lost"}
+{"q": "rto", "before": "ok:EVE", "after": "not_found", "change": "lost"}
+{"q": "rton", "before": "ok:EVE", "after": "not_found", "change": "lost"}
+{"q": "ry", "before": "ambiguous:COV,CRY", "after": "not_found", "change": "lost"}
+{"q": "ry ", "before": "ambiguous:COV,CRY", "after": "not_found", "change": "lost"}
+{"q": "ry c", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "ry ci", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "ry cit", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "ry city", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "rys", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "ryst", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "rysta", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "rystal", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "rystal ", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "rystal p", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "rystal pa", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "rystal pal", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "rystal pala", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "rystal palac", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "rystal palace", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "s", "before": "ambiguous:ARS,AVL,CHE,CRY,IPS,LEE,NEW,NFO,SUN,TOT", "after": "not_found", "change": "lost"}
+{"q": "saints", "before": "not_found", "after": "not_found", "change": "same"}
+{"q": "se", "before": "ambiguous:ARS,CHE", "after": "not_found", "change": "lost"}
+{"q": "sea", "before": "ok:CHE", "after": "not_found", "change": "lost"}
+{"q": "sen", "before": "ok:ARS", "after": "not_found", "change": "lost"}
+{"q": "sena", "before": "ok:ARS", "after": "not_found", "change": "lost"}
+{"q": "senal", "before": "ok:ARS", "after": "not_found", "change": "lost"}
+{"q": "sp", "before": "ok:TOT", "after": "not_found", "change": "lost"}
+{"q": "spu", "before": "ok:TOT", "after": "not_found", "change": "lost"}
+{"q": "spur", "before": "ok:TOT", "after": "ok:TOT", "change": "same"}
+{"q": "spurs", "before": "ok:TOT", "after": "ok:TOT", "change": "same"}
+{"q": "st", "before": "ambiguous:AVL,CRY,NEW,NFO", "after": "not_found", "change": "lost"}
+{"q": "sta", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "stal", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "stal ", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "stal p", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "stal pa", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "stal pal", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "stal pala", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "stal palac", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "stal palace", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "stl", "before": "ok:NEW", "after": "not_found", "change": "lost"}
+{"q": "stle", "before": "ok:NEW", "after": "not_found", "change": "lost"}
+{"q": "sto", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": "ston", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": "ston ", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": "ston v", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": "ston vi", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": "ston vil", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": "ston vill", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": "ston villa", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": "su", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "sun", "before": "ok:SUN", "after": "ok:SUN", "change": "same"}
+{"q": "sund", "before": "ok:SUN", "after": "ok:SUN", "change": "same"}
+{"q": "sunde", "before": "ok:SUN", "after": "ok:SUN", "change": "same"}
+{"q": "sunder", "before": "ok:SUN", "after": "ok:SUN", "change": "same"}
+{"q": "sunderl", "before": "ok:SUN", "after": "ok:SUN", "change": "same"}
+{"q": "sunderla", "before": "ok:SUN", "after": "ok:SUN", "change": "same"}
+{"q": "sunderlan", "before": "ok:SUN", "after": "ok:SUN", "change": "same"}
+{"q": "sunderland", "before": "ok:SUN", "after": "ok:SUN", "change": "same"}
+{"q": "sw", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "swi", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "swic", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "swich", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "swich ", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "swich t", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "swich to", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "swich tow", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "swich town", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "t", "before": "ambiguous:AVL,BHA,BOU,BRE,COV,CRY,EVE,HUL,IPS,MCI,MUN,NEW,NFO", "after": "not_found", "change": "lost"}
+{"q": "t'", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "t'm", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "t'm ", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "t'm f", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "t'm fo", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "t'm for", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "t'm fore", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "t'm fores", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "t'm forest", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "ta", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "tal", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "tal ", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "tal p", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "tal pa", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "tal pal", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "tal pala", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "tal palac", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "tal palace", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "td", "before": "ok:MUN", "after": "not_found", "change": "lost"}
+{"q": "tf", "before": "ok:BRE", "after": "not_found", "change": "lost"}
+{"q": "tfo", "before": "ok:BRE", "after": "not_found", "change": "lost"}
+{"q": "tfor", "before": "ok:BRE", "after": "not_found", "change": "lost"}
+{"q": "tford", "before": "ok:BRE", "after": "not_found", "change": "lost"}
+{"q": "th", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "the", "before": "not_found", "after": "not_found", "change": "same"}
+{"q": "tl", "before": "ok:NEW", "after": "not_found", "change": "lost"}
+{"q": "tle", "before": "ok:NEW", "after": "not_found", "change": "lost"}
+{"q": "to", "before": "ambiguous:AVL,BHA,EVE,IPS", "after": "not_found", "change": "lost"}
+{"q": "toffees", "before": "ok:EVE", "after": "ok:EVE", "change": "same"}
+{"q": "ton", "before": "ambiguous:AVL,BHA,EVE", "after": "not_found", "change": "lost"}
+{"q": "ton ", "before": "ambiguous:AVL,BHA,EVE", "after": "not_found", "change": "lost"}
+{"q": "ton v", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": "ton vi", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": "ton vil", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": "ton vill", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": "ton villa", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": "tot", "before": "ok:TOT", "after": "ok:TOT", "change": "same"}
+{"q": "tottenham", "before": "ok:TOT", "after": "ok:TOT", "change": "same"}
+{"q": "tottenham hotspur", "before": "ok:TOT", "after": "ok:TOT", "change": "same"}
+{"q": "tow", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "town", "before": "ok:IPS", "after": "ok:IPS", "change": "same"}
+{"q": "tr", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "try", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "try ", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "try c", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "try ci", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "try cit", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "try city", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "tt", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "tt'", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "tt'm", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "tt'm ", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "tt'm f", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "tt'm fo", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "tt'm for", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "tt'm fore", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "tt'm fores", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "tt'm forest", "before": "ok:NFO", "after": "not_found", "change": "lost"}
+{"q": "ty", "before": "ambiguous:COV,HUL,MCI", "after": "not_found", "change": "lost"}
+{"q": "u", "before": "ambiguous:BOU,FUL,HUL,MUN,SUN,TOT", "after": "not_found", "change": "lost"}
+{"q": "ul", "before": "ambiguous:FUL,HUL", "after": "not_found", "change": "lost"}
+{"q": "ulh", "before": "ok:FUL", "after": "not_found", "change": "lost"}
+{"q": "ulha", "before": "ok:FUL", "after": "not_found", "change": "lost"}
+{"q": "ulham", "before": "ok:FUL", "after": "not_found", "change": "lost"}
+{"q": "ull", "before": "ok:HUL", "after": "not_found", "change": "lost"}
+{"q": "ull ", "before": "ok:HUL", "after": "not_found", "change": "lost"}
+{"q": "ull c", "before": "ok:HUL", "after": "not_found", "change": "lost"}
+{"q": "ull ci", "before": "ok:HUL", "after": "not_found", "change": "lost"}
+{"q": "ull cit", "before": "ok:HUL", "after": "not_found", "change": "lost"}
+{"q": "ull city", "before": "ok:HUL", "after": "not_found", "change": "lost"}
+{"q": "un", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "und", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "unde", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "under", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "underl", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "underla", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "underlan", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "underland", "before": "ok:SUN", "after": "not_found", "change": "lost"}
+{"q": "united", "before": "not_found", "after": "not_found", "change": "same"}
+{"q": "ur", "before": "ambiguous:BOU,TOT", "after": "not_found", "change": "lost"}
+{"q": "urn", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "urne", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "urnem", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "urnemo", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "urnemou", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "urnemout", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "urnemouth", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "urs", "before": "ok:TOT", "after": "not_found", "change": "lost"}
+{"q": "ut", "before": "ambiguous:BOU,MUN", "after": "not_found", "change": "lost"}
+{"q": "utd", "before": "ok:MUN", "after": "ok:MUN", "change": "same"}
+{"q": "uth", "before": "ok:BOU", "after": "not_found", "change": "lost"}
+{"q": "v", "before": "ambiguous:AVL,COV,EVE,LIV", "after": "not_found", "change": "lost"}
+{"q": "ve", "before": "ambiguous:COV,EVE,LIV", "after": "not_found", "change": "lost"}
+{"q": "ven", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "vent", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "ventr", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "ventry", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "ventry ", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "ventry c", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "ventry ci", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "ventry cit", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "ventry city", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "ver", "before": "ambiguous:EVE,LIV", "after": "not_found", "change": "lost"}
+{"q": "verp", "before": "ok:LIV", "after": "not_found", "change": "lost"}
+{"q": "verpo", "before": "ok:LIV", "after": "not_found", "change": "lost"}
+{"q": "verpoo", "before": "ok:LIV", "after": "not_found", "change": "lost"}
+{"q": "verpool", "before": "ok:LIV", "after": "not_found", "change": "lost"}
+{"q": "vert", "before": "ok:EVE", "after": "not_found", "change": "lost"}
+{"q": "verto", "before": "ok:EVE", "after": "not_found", "change": "lost"}
+{"q": "verton", "before": "ok:EVE", "after": "not_found", "change": "lost"}
+{"q": "vi", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": "vil", "before": "ok:AVL", "after": "not_found", "change": "lost"}
+{"q": "vill", "before": "ok:AVL", "after": "ok:AVL", "change": "same"}
+{"q": "villa", "before": "ok:AVL", "after": "ok:AVL", "change": "same"}
+{"q": "w", "before": "ambiguous:IPS,NEW", "after": "not_found", "change": "lost"}
+{"q": "wc", "before": "ok:NEW", "after": "not_found", "change": "lost"}
+{"q": "wca", "before": "ok:NEW", "after": "not_found", "change": "lost"}
+{"q": "wcas", "before": "ok:NEW", "after": "not_found", "change": "lost"}
+{"q": "wcast", "before": "ok:NEW", "after": "not_found", "change": "lost"}
+{"q": "wcastl", "before": "ok:NEW", "after": "not_found", "change": "lost"}
+{"q": "wcastle", "before": "ok:NEW", "after": "not_found", "change": "lost"}
+{"q": "west ham", "before": "not_found", "after": "not_found", "change": "same"}
+{"q": "west ham united", "before": "not_found", "after": "not_found", "change": "same"}
+{"q": "wi", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "wic", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "wich", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "wich ", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "wich t", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "wich to", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "wich tow", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "wich town", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "wn", "before": "ok:IPS", "after": "not_found", "change": "lost"}
+{"q": "wolverhampton", "before": "not_found", "after": "not_found", "change": "same"}
+{"q": "wolverhampton wanderers", "before": "not_found", "after": "not_found", "change": "same"}
+{"q": "wolves", "before": "not_found", "after": "not_found", "change": "same"}
+{"q": "y", "before": "ambiguous:COV,CRY,HUL,MCI", "after": "not_found", "change": "lost"}
+{"q": "y ", "before": "ambiguous:COV,CRY,HUL,MCI", "after": "not_found", "change": "lost"}
+{"q": "y c", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "y ci", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "y cit", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "y city", "before": "ok:COV", "after": "not_found", "change": "lost"}
+{"q": "ys", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "yst", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "ysta", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "ystal", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "ystal ", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "ystal p", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "ystal pa", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "ystal pal", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "ystal pala", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "ystal palac", "before": "ok:CRY", "after": "not_found", "change": "lost"}
+{"q": "ystal palace", "before": "ok:CRY", "after": "not_found", "change": "lost"}

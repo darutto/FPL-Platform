@@ -70,6 +70,7 @@ Intentionally deferred
 """
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from fpl_tool_runner import TOOL_REGISTRY
@@ -506,6 +507,27 @@ _TEAM_RESOLVE_ALIASES: dict[str, str] = {
 }
 
 
+# Shortest query the partial-name tier will consider, and the length below
+# which that query must be a whole word of the name rather than a word prefix.
+_PARTIAL_MIN_LEN = 3
+_PARTIAL_PREFIX_MIN_LEN = 4
+
+
+def _word_match(query: str, name: str) -> bool:
+    """True when *query* starts at a word boundary of *name* (both lowercase).
+
+    Queries shorter than ``_PARTIAL_PREFIX_MIN_LEN`` must also end at one —
+    "man" matches "man city" but "tal" does not match "crystal palace", nor
+    "ham" "fulham". Longer queries may be a word prefix ("crystal pal",
+    "liver"). Apostrophes and spaces both count as boundaries, so "nott"
+    matches "nott'm forest".
+    """
+    if len(query) < _PARTIAL_MIN_LEN:
+        return False
+    tail = "" if len(query) >= _PARTIAL_PREFIX_MIN_LEN else r"(?!\w)"
+    return re.search(r"(?<!\w)" + re.escape(query) + tail, name) is not None
+
+
 def _resolve_team_result(
     team_query: str,
     bootstrap:  "dict[str, Any]",
@@ -520,11 +542,17 @@ def _resolve_team_result(
        code), then exact short_name/name on the alias target. An alias
        whose code is absent from the bootstrap (e.g. a relegated club)
        cleanly returns ``not_found``.
-    4. Substring match on ``name``. One hit resolves; two or more (e.g.
-       "man" → Man City AND Man Utd) report ``ambiguous`` carrying both
+    4. Word-anchored partial match on ``name`` (see :func:`_word_match`):
+       the query must start at a word boundary of the name — a whole word
+       when shorter than 4 characters, a word prefix otherwise — and be at
+       least 3 characters. One hit resolves; two or more (e.g. "man" →
+       Man City AND Man Utd) report ``ambiguous`` carrying both
        candidates, instead of silently picking the first — or, as this
        function's ``None``-returning predecessor forced callers to do,
-       claiming no such team exists.
+       claiming no such team exists. (i120: this tier used to accept any
+       substring, so "tal" — from "¿qué tal…?" — resolved to Crystal
+       Palace, and "ham"/"ton" would have resolved to a club the query
+       never named.)
 
     Returns
     -------
@@ -567,7 +595,7 @@ def _resolve_team_result(
             return {"status": "ok", "team_data": aliased}
         return {"status": "not_found"}
 
-    matches = [t for t in teams if q in t.get("name", "").lower()]
+    matches = [t for t in teams if _word_match(q, t.get("name", "").lower())]
     if len(matches) == 1:
         return {"status": "ok", "team_data": matches[0]}
     if len(matches) > 1:
