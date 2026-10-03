@@ -47,6 +47,7 @@ def _orch_result(tool: str = "get_current_gameweek") -> OrchestratorResult:
         llm_used=True,
         model="controlled",
         outcome="ok",
+        synthesis_turn=True,  # i127: model prose, so llm_used holds on the HTTP surface
     )
 
 
