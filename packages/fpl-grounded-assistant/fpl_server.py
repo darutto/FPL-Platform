@@ -2078,6 +2078,8 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
         # keys (no orchestrator run) read as not-retried / no verdict.
         evaluator_verdict=_routing_trace.get("evaluator_verdict"),
         retry_attempted=bool(_routing_trace.get("retry_attempted", False)),
+        # i125(b): same routing_trace projection, never derived here.
+        retry_delivery=_routing_trace.get("retry_delivery"),
         final_text=_final_text,
         tokens=_tokens,
         provider=_provider,
@@ -2311,6 +2313,7 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         _sess_tokens: dict[str, int] = {}
         _sess_tool_calls: list[dict] = []
         _sess_retry_attempted = False
+        _sess_retry_delivery: str | None = None
         _sess_evaluator_verdict = None
         _sess_orchestration_absent = True
         _sess_provider: str | None = None
@@ -2323,6 +2326,7 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         _sess_tokens = _sess_orch.get("tokens") or {}
         _sess_tool_calls = list(_sess_orch.get("tool_calls") or [])
         _sess_retry_attempted = bool(_sess_trace.get("retry_attempted", False))
+        _sess_retry_delivery = _sess_trace.get("retry_delivery")  # i125(b)
         _sess_evaluator_verdict = _sess_trace.get("evaluator_verdict")
         _sess_orchestration_absent = False
         # i105: same source as /ask (the ask_v2 dict, via FinalResponse.
@@ -2344,6 +2348,7 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         tool_calls=_sess_tool_calls,
         evaluator_verdict=_sess_evaluator_verdict,
         retry_attempted=_sess_retry_attempted,
+        retry_delivery=_sess_retry_delivery,
         tokens=_sess_tokens,
         provider=_sess_provider,
         model=_sess_model,

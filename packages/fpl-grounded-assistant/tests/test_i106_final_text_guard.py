@@ -278,14 +278,26 @@ def _reject(monkeypatch):
                                          (BBC_HTML_TEXT, REASON_HTML_DOCUMENT)], ids=["fetch_failed", "html"])
 def test_route_1_evaluator_retry_render_is_guarded(monkeypatch, bootstrap, raw, reason):
     """Retry ran a tool, its synthesis returned no text -> render() was the
-    last word (orchestrator.py, the i96/i37 retry terminal)."""
+    last word (orchestrator.py, the i96/i37 retry terminal). Since i125(b)
+    that terminal is reached only when the primary had no model text either
+    (a synthesised primary is kept), so the primary here writes nothing."""
     _reject(monkeypatch)
-    client = _SeqClient([
-        _tool_use("c1"),
-        NS(content=[NS(type="text", text="A genuine synthesised answer.")]),
-        _tool_use("c2"),
-        NS(content=[]),
-    ])
+
+    class _PhasedClient:
+        # primary: one tool call, then empty turns; retry round (recognised
+        # by the orchestrator's retry question): one tool call, then empty.
+        def __init__(self):
+            self.messages = self
+            self.primary = [_tool_use("c1")]
+            self.retry = [_tool_use("c2")]
+
+        def create(self, **kwargs):
+            content = (kwargs.get("messages") or [{}])[0].get("content")
+            in_retry = isinstance(content, str) and content.startswith("Previous attempt feedback:")
+            queue = self.retry if in_retry else self.primary
+            return queue.pop(0) if queue else NS(content=[])
+
+    client = _PhasedClient()
     with _raw_render(raw):
         result = ask_orchestrated("What gameweek is it?", bootstrap, client=client, _eval_client=object())
     assert result.retry_attempted is True and result.synthesis_turn is False
