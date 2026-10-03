@@ -30,6 +30,55 @@ describe('MarkdownLite', () => {
     expect(container).not.toHaveTextContent('**Haaland**');
   });
 
+  // i126: *cursiva* reached the chat as literal asterisks.
+  test('renders *italic* as <em>, not literal asterisks', () => {
+    const { container } = render(<MarkdownLite text="Ojo: *riesgo de rotación* esta jornada" />);
+    const em = container.querySelector('em');
+    expect(em).not.toBeNull();
+    expect(em).toHaveTextContent('riesgo de rotación');
+    expect(container).toHaveTextContent('Ojo: riesgo de rotación esta jornada');
+    expect(container.textContent).not.toContain('*');
+  });
+
+  test('**bold** stays bold, never two italics', () => {
+    const { container } = render(<MarkdownLite text="El mejor es **Haaland** y *Salah* después" />);
+    expect(container.querySelectorAll('strong')).toHaveLength(1);
+    expect(container.querySelector('strong')).toHaveTextContent('Haaland');
+    const ems = container.querySelectorAll('em');
+    expect(ems).toHaveLength(1);
+    expect(ems[0]).toHaveTextContent('Salah');
+    expect(container.textContent).not.toContain('*');
+  });
+
+  test('a lone `*` stays literal ("5 * 2", "a * b * c")', () => {
+    const { container } = render(<MarkdownLite text={'Son 5 * 2 puntos\na * b * c'} />);
+    expect(container.querySelector('em')).toBeNull();
+    expect(container).toHaveTextContent('Son 5 * 2 puntos');
+    expect(container).toHaveTextContent('a * b * c');
+  });
+
+  test('a `* item` bullet is a list item, and italics inside it still render', () => {
+    const { container } = render(<MarkdownLite text={'* Palmer\n* *Saka* en duda'} />);
+    const items = container.querySelectorAll('ul > li');
+    expect(items).toHaveLength(2);
+    expect(items[0]).toHaveTextContent(/^Palmer$/);
+    expect(items[0].querySelector('em')).toBeNull();
+    expect(items[1].querySelector('em')).toHaveTextContent('Saka');
+    expect(container.textContent).not.toContain('*');
+  });
+
+  test('underscores are never italics (internal names keep their shape)', () => {
+    const { container } = render(<MarkdownLite text="campo dgw_teams y _algo_" />);
+    expect(container.querySelector('em')).toBeNull();
+    expect(container).toHaveTextContent('campo dgw_teams y _algo_');
+  });
+
+  test('an asterisk that opens or closes on a space is not italics', () => {
+    const { container } = render(<MarkdownLite text={'* a* y *b *'} />);
+    // "* a* y *b *" is a bullet ("a* y *b *"); neither pair qualifies
+    expect(container.querySelector('em')).toBeNull();
+  });
+
   test('renders `- ` and `* ` lines as a single bullet list', () => {
     const { container } = render(
       <MarkdownLite text={'Opciones:\n- Saka\n* Palmer\n- Salah'} />,
