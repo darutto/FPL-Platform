@@ -21,7 +21,7 @@ Cost cap (declared, i125(b) card): R <= 5 by construction (hard-coded max);
 a luna captain turn with a retry is ~74K tokens (i124 audit), ~0.02 USD, so
 the run is bounded at ~0.10 USD, under the 0.50 USD cap.
 
-Usage: python measure_i125b_captain_retry.py OUT.jsonl [--reps N] [--no-team]
+Usage: python measure_i125b_captain_retry.py OUT.jsonl [--reps N] [--no-team] [--base-url URL]
 """
 from __future__ import annotations
 
@@ -55,13 +55,15 @@ def main() -> int:
     ap.add_argument("out")
     ap.add_argument("--reps", type=int, default=MAX_REPS)
     ap.add_argument("--no-team", action="store_true")
+    ap.add_argument("--base-url", default=URL, help="i125(a): a local branch server; default prod")
     a = ap.parse_args()
+    base = a.base_url.rstrip("/")
     reps = min(a.reps, MAX_REPS)
     team_id = None if a.no_team else TEAM_ID
     run = f"i125b-{'noteam' if team_id is None else 'team'}-{uuid.uuid4().hex[:6]}"
     with open(a.out, "a", encoding="utf-8") as f:
-        version = requests.get(f"{URL}/version", timeout=30).json()
-        f.write(json.dumps({"kind": "pre", "run_id": run, "version": version, "team_id": team_id,
+        version = requests.get(f"{base}/version", timeout=30).json()
+        f.write(json.dumps({"kind": "pre", "run_id": run, "base_url": base, "version": version, "team_id": team_id,
                             "reps": reps, "ts": time.time()}) + "\n")
         for i in range(1, reps + 1):
             user = f"{run}-u{i}"
@@ -69,7 +71,7 @@ def main() -> int:
             if team_id is not None:
                 payload["team_id"] = team_id
             t0 = time.time()
-            r = requests.post(f"{URL}/ask", headers={"X-User-Id": user}, json=payload, timeout=240)
+            r = requests.post(f"{base}/ask", headers={"X-User-Id": user}, json=payload, timeout=240)
             body = r.json()
             dbg = body.get("debug") or {}
             rt = dbg.get("routing_trace") or {}

@@ -1,0 +1,690 @@
+{
+ "_comment": "i125(a): rank_captain_candidates outputs from two real prod turns (POST /ask debug, 2026-10-02; team = commit 6eee98f team_id=68643, noteam = commit 949feda). Trimmed to the small keys plus the ranked_candidates that presentation names (top lists and hipsters); full payloads are ~286 KB.",
+ "team": {
+  "run_id": "i125b-team-9ce337",
+  "rep": 1,
+  "tool_args": {
+   "gameweek": 6,
+   "horizon": 1
+  },
+  "tool_output": {
+   "status": "ok",
+   "pool_source": "derived",
+   "squad_source": "connected",
+   "squad_excluded": [],
+   "time_context": {
+    "current_gameweek": 6,
+    "evaluated_gameweek": 6,
+    "gameweek_to": 6,
+    "horizon": 1,
+    "source": "caller",
+    "notice": "Evaluated the requested gameweek GW6.",
+    "fixture_source": "team_fixtures"
+   },
+   "presentation": {
+    "owned_top": [
+     124,
+     229,
+     411
+    ],
+    "owned_hipster": {
+     "player_id": 226,
+     "selected_by_percent": 9.1,
+     "reason": null
+    },
+    "global_top": [
+     124,
+     229,
+     453,
+     94,
+     411
+    ],
+    "global_hipster": {
+     "player_id": 230,
+     "selected_by_percent": 2.4,
+     "reason": null
+    }
+   },
+   "pool_size": 487,
+   "total": 23,
+   "error_count": 0,
+   "ranked_candidates": [
+    {
+     "status": "ok",
+     "index": 90,
+     "player_id": 124,
+     "web_name": "Groß",
+     "name": "Pascal Groß",
+     "team": "Brighton",
+     "team_short": "BHA",
+     "position": "MID",
+     "captain_score": 73.26,
+     "tier": "safe",
+     "role_signals": {
+      "penalties_order": 1,
+      "direct_freekicks_order": 1,
+      "corners_and_indirect_freekicks_order": 1,
+      "set_piece_notes": [
+       "penalty_taker_1",
+       "freekick_taker_1"
+      ],
+      "set_piece_threat": true,
+      "role_bonus": 8.0
+     },
+     "score_inputs": {
+      "form": 10.7,
+      "fixture_difficulty": 3,
+      "xgi_per_90": 0.526,
+      "minutes_risk": 0.0
+     },
+     "minutes_context": {
+      "minutes_played": 450,
+      "minutes_available": 450,
+      "starts": 5,
+      "fixtures_available": 5,
+      "participation_percent": 100.0,
+      "participation_risk": 0.0,
+      "availability_risk": 0.0,
+      "minutes_risk": 0.0,
+      "minutes_known": true,
+      "source": "official_completed_fixtures",
+      "degraded": false,
+      "degradation_reason": null
+     },
+     "selected_by_percent": 29.1,
+     "query": "124",
+     "owned": true,
+     "rank": 1
+    },
+    {
+     "status": "ok",
+     "index": 157,
+     "player_id": 229,
+     "web_name": "Tarkowski",
+     "name": "James Tarkowski",
+     "team": "Everton",
+     "team_short": "EVE",
+     "position": "DEF",
+     "captain_score": 67.64,
+     "tier": "safe",
+     "role_signals": {
+      "penalties_order": null,
+      "direct_freekicks_order": null,
+      "corners_and_indirect_freekicks_order": null,
+      "set_piece_notes": [],
+      "set_piece_threat": false,
+      "role_bonus": 0
+     },
+     "score_inputs": {
+      "form": 8.3,
+      "fixture_difficulty": 2,
+      "xgi_per_90": 0.044,
+      "minutes_risk": 0.0
+     },
+     "minutes_context": {
+      "minutes_played": 450,
+      "minutes_available": 450,
+      "starts": 5,
+      "fixtures_available": 5,
+      "participation_percent": 100.0,
+      "participation_risk": 0.0,
+      "availability_risk": 0.0,
+      "minutes_risk": 0.0,
+      "minutes_known": true,
+      "source": "official_completed_fixtures",
+      "degraded": false,
+      "degradation_reason": null
+     },
+     "selected_by_percent": 16.6,
+     "query": "229",
+     "owned": true,
+     "rank": 2
+    },
+    {
+     "status": "ok",
+     "index": 318,
+     "player_id": 453,
+     "web_name": "Barnes",
+     "name": "Harvey Barnes",
+     "team": "Newcastle",
+     "team_short": "NEW",
+     "position": "MID",
+     "captain_score": 67.0,
+     "tier": "safe",
+     "role_signals": {
+      "penalties_order": null,
+      "direct_freekicks_order": null,
+      "corners_and_indirect_freekicks_order": 3,
+      "set_piece_notes": [],
+      "set_piece_threat": false,
+      "role_bonus": 0
+     },
+     "score_inputs": {
+      "form": 7.7,
+      "fixture_difficulty": 2,
+      "xgi_per_90": 0.22,
+      "minutes_risk": 0.0
+     },
+     "minutes_context": {
+      "minutes_played": 450,
+      "minutes_available": 450,
+      "starts": 5,
+      "fixtures_available": 5,
+      "participation_percent": 100.0,
+      "participation_risk": 0.0,
+      "availability_risk": 0.0,
+      "minutes_risk": 0.0,
+      "minutes_known": true,
+      "source": "official_completed_fixtures",
+      "degraded": false,
+      "degradation_reason": null
+     },
+     "selected_by_percent": 5.8,
+     "query": "453",
+     "owned": false,
+     "rank": 3
+    },
+    {
+     "status": "ok",
+     "index": 68,
+     "player_id": 94,
+     "web_name": "Schade",
+     "name": "Kevin Schade",
+     "team": "Brentford",
+     "team_short": "BRE",
+     "position": "MID",
+     "captain_score": 65.97,
+     "tier": "safe",
+     "role_signals": {
+      "penalties_order": 2,
+      "direct_freekicks_order": null,
+      "corners_and_indirect_freekicks_order": null,
+      "set_piece_notes": [
+       "penalty_taker_2"
+      ],
+      "set_piece_threat": true,
+      "role_bonus": 1.0
+     },
+     "score_inputs": {
+      "form": 8.7,
+      "fixture_difficulty": 3,
+      "xgi_per_90": 0.37047,
+      "minutes_risk": 0.7
+     },
+     "minutes_context": {
+      "minutes_played": 447,
+      "minutes_available": 450,
+      "starts": 5,
+      "fixtures_available": 5,
+      "participation_percent": 99.3,
+      "participation_risk": 0.7,
+      "availability_risk": 0.0,
+      "minutes_risk": 0.7,
+      "minutes_known": true,
+      "source": "official_completed_fixtures",
+      "degraded": false,
+      "degradation_reason": null
+     },
+     "selected_by_percent": 11.7,
+     "query": "94",
+     "owned": false,
+     "rank": 4
+    },
+    {
+     "status": "ok",
+     "index": 286,
+     "player_id": 411,
+     "web_name": "Haaland",
+     "name": "Erling Haaland",
+     "team": "Man City",
+     "team_short": "MCI",
+     "position": "FWD",
+     "captain_score": 63.9,
+     "tier": "safe",
+     "role_signals": {
+      "penalties_order": 1,
+      "direct_freekicks_order": null,
+      "corners_and_indirect_freekicks_order": null,
+      "set_piece_notes": [
+       "penalty_taker_1"
+      ],
+      "set_piece_threat": true,
+      "role_bonus": 5.0
+     },
+     "score_inputs": {
+      "form": 8.0,
+      "fixture_difficulty": 4,
+      "xgi_per_90": 0.99,
+      "minutes_risk": 0.0
+     },
+     "minutes_context": {
+      "minutes_played": 450,
+      "minutes_available": 450,
+      "starts": 5,
+      "fixtures_available": 5,
+      "participation_percent": 100.0,
+      "participation_risk": 0.0,
+      "availability_risk": 0.0,
+      "minutes_risk": 0.0,
+      "minutes_known": true,
+      "source": "official_completed_fixtures",
+      "degraded": false,
+      "degradation_reason": null
+     },
+     "selected_by_percent": 73.8,
+     "query": "411",
+     "owned": true,
+     "rank": 5
+    },
+    {
+     "status": "ok",
+     "index": 158,
+     "player_id": 230,
+     "web_name": "Branthwaite",
+     "name": "Jarrad Branthwaite",
+     "team": "Everton",
+     "team_short": "EVE",
+     "position": "DEF",
+     "captain_score": 57.18,
+     "tier": "safe",
+     "role_signals": {
+      "penalties_order": null,
+      "direct_freekicks_order": null,
+      "corners_and_indirect_freekicks_order": null,
+      "set_piece_notes": [],
+      "set_piece_threat": false,
+      "role_bonus": 0
+     },
+     "score_inputs": {
+      "form": 5.7,
+      "fixture_difficulty": 2,
+      "xgi_per_90": 0.038,
+      "minutes_risk": 0.0
+     },
+     "minutes_context": {
+      "minutes_played": 450,
+      "minutes_available": 450,
+      "starts": 5,
+      "fixtures_available": 5,
+      "participation_percent": 100.0,
+      "participation_risk": 0.0,
+      "availability_risk": 0.0,
+      "minutes_risk": 0.0,
+      "minutes_known": true,
+      "source": "official_completed_fixtures",
+      "degraded": false,
+      "degradation_reason": null
+     },
+     "selected_by_percent": 2.4,
+     "query": "230",
+     "owned": false,
+     "rank": 10
+    },
+    {
+     "status": "ok",
+     "index": 154,
+     "player_id": 226,
+     "web_name": "Pickford",
+     "name": "Jordan Pickford",
+     "team": "Everton",
+     "team_short": "EVE",
+     "position": "GKP",
+     "captain_score": 54.04,
+     "tier": "differential",
+     "role_signals": {
+      "penalties_order": null,
+      "direct_freekicks_order": null,
+      "corners_and_indirect_freekicks_order": null,
+      "set_piece_notes": [],
+      "set_piece_threat": false,
+      "role_bonus": 0
+     },
+     "score_inputs": {
+      "form": 5.0,
+      "fixture_difficulty": 2,
+      "xgi_per_90": 0.004,
+      "minutes_risk": 0.0
+     },
+     "minutes_context": {
+      "minutes_played": 450,
+      "minutes_available": 450,
+      "starts": 5,
+      "fixtures_available": 5,
+      "participation_percent": 100.0,
+      "participation_risk": 0.0,
+      "availability_risk": 0.0,
+      "minutes_risk": 0.0,
+      "minutes_known": true,
+      "source": "official_completed_fixtures",
+      "degraded": false,
+      "degradation_reason": null
+     },
+     "selected_by_percent": 9.1,
+     "query": "226",
+     "owned": true,
+     "rank": 15
+    }
+   ]
+  },
+  "model_text": "## Top 3 capitanes — GW6\n\n1. **Pascal Groß (Brighton)** — **73,3**\n   - Forma: **10,7**\n   - FDR: **3**\n   - Penaltis y faltas directas\n   - **450 minutos**, 5 titularidades, riesgo de minutos **0%**\n   - Estado: **disponible**; sin alerta de disponibilidad reportada.\n\n2. **Harvey Barnes (Newcastle)** — **67,0**\n   - Forma: **7,7**\n   - FDR: **2**\n   - **450 minutos**, 5 titularidades, riesgo de minutos **0%**\n   - Estado: **disponible**; sin alerta de disponibilidad reportada.\n   - **No figura como jugador tuyo**.\n\n3. **Erling Haaland (Manchester City)** — **63,9**\n   - Forma: **8,0**\n   - xGI/90: **0,99**\n   - Lanzador principal de penaltis\n   - **450 minutos**, 5 titularidades, riesgo de minutos **0%**\n   - Estado: **disponible**; sin alerta de disponibilidad reportada.\n\n**Mi elección:** **Groß**. Si prefieres el techo goleador y quieres evitar una capitanía diferencial, **Haaland**."
+ },
+ "noteam": {
+  "run_id": "i125b-noteam-f07634",
+  "rep": 1,
+  "tool_args": {
+   "gameweek": 6,
+   "horizon": 1
+  },
+  "tool_output": {
+   "status": "ok",
+   "pool_source": "derived",
+   "squad_source": "not_connected",
+   "squad_excluded": [],
+   "time_context": {
+    "current_gameweek": 6,
+    "evaluated_gameweek": 6,
+    "gameweek_to": 6,
+    "horizon": 1,
+    "source": "caller",
+    "notice": "Evaluated the requested gameweek GW6.",
+    "fixture_source": "team_fixtures"
+   },
+   "presentation": {
+    "owned_top": [],
+    "owned_hipster": {
+     "player_id": null,
+     "reason": "no_candidate_clears_floor"
+    },
+    "global_top": [
+     124,
+     229,
+     453,
+     94,
+     411
+    ],
+    "global_hipster": {
+     "player_id": 230,
+     "selected_by_percent": 2.4,
+     "reason": null
+    }
+   },
+   "pool_size": 487,
+   "total": 12,
+   "error_count": 0,
+   "ranked_candidates": [
+    {
+     "status": "ok",
+     "index": 90,
+     "player_id": 124,
+     "web_name": "Groß",
+     "name": "Pascal Groß",
+     "team": "Brighton",
+     "team_short": "BHA",
+     "position": "MID",
+     "captain_score": 73.26,
+     "tier": "safe",
+     "role_signals": {
+      "penalties_order": 1,
+      "direct_freekicks_order": 1,
+      "corners_and_indirect_freekicks_order": 1,
+      "set_piece_notes": [
+       "penalty_taker_1",
+       "freekick_taker_1"
+      ],
+      "set_piece_threat": true,
+      "role_bonus": 8.0
+     },
+     "score_inputs": {
+      "form": 10.7,
+      "fixture_difficulty": 3,
+      "xgi_per_90": 0.526,
+      "minutes_risk": 0.0
+     },
+     "minutes_context": {
+      "minutes_played": 450,
+      "minutes_available": 450,
+      "starts": 5,
+      "fixtures_available": 5,
+      "participation_percent": 100.0,
+      "participation_risk": 0.0,
+      "availability_risk": 0.0,
+      "minutes_risk": 0.0,
+      "minutes_known": true,
+      "source": "official_completed_fixtures",
+      "degraded": false,
+      "degradation_reason": null
+     },
+     "selected_by_percent": 29.1,
+     "query": "124",
+     "owned": false,
+     "rank": 1
+    },
+    {
+     "status": "ok",
+     "index": 157,
+     "player_id": 229,
+     "web_name": "Tarkowski",
+     "name": "James Tarkowski",
+     "team": "Everton",
+     "team_short": "EVE",
+     "position": "DEF",
+     "captain_score": 67.64,
+     "tier": "safe",
+     "role_signals": {
+      "penalties_order": null,
+      "direct_freekicks_order": null,
+      "corners_and_indirect_freekicks_order": null,
+      "set_piece_notes": [],
+      "set_piece_threat": false,
+      "role_bonus": 0
+     },
+     "score_inputs": {
+      "form": 8.3,
+      "fixture_difficulty": 2,
+      "xgi_per_90": 0.044,
+      "minutes_risk": 0.0
+     },
+     "minutes_context": {
+      "minutes_played": 450,
+      "minutes_available": 450,
+      "starts": 5,
+      "fixtures_available": 5,
+      "participation_percent": 100.0,
+      "participation_risk": 0.0,
+      "availability_risk": 0.0,
+      "minutes_risk": 0.0,
+      "minutes_known": true,
+      "source": "official_completed_fixtures",
+      "degraded": false,
+      "degradation_reason": null
+     },
+     "selected_by_percent": 16.6,
+     "query": "229",
+     "owned": false,
+     "rank": 2
+    },
+    {
+     "status": "ok",
+     "index": 318,
+     "player_id": 453,
+     "web_name": "Barnes",
+     "name": "Harvey Barnes",
+     "team": "Newcastle",
+     "team_short": "NEW",
+     "position": "MID",
+     "captain_score": 67.0,
+     "tier": "safe",
+     "role_signals": {
+      "penalties_order": null,
+      "direct_freekicks_order": null,
+      "corners_and_indirect_freekicks_order": 3,
+      "set_piece_notes": [],
+      "set_piece_threat": false,
+      "role_bonus": 0
+     },
+     "score_inputs": {
+      "form": 7.7,
+      "fixture_difficulty": 2,
+      "xgi_per_90": 0.22,
+      "minutes_risk": 0.0
+     },
+     "minutes_context": {
+      "minutes_played": 450,
+      "minutes_available": 450,
+      "starts": 5,
+      "fixtures_available": 5,
+      "participation_percent": 100.0,
+      "participation_risk": 0.0,
+      "availability_risk": 0.0,
+      "minutes_risk": 0.0,
+      "minutes_known": true,
+      "source": "official_completed_fixtures",
+      "degraded": false,
+      "degradation_reason": null
+     },
+     "selected_by_percent": 5.8,
+     "query": "453",
+     "owned": false,
+     "rank": 3
+    },
+    {
+     "status": "ok",
+     "index": 68,
+     "player_id": 94,
+     "web_name": "Schade",
+     "name": "Kevin Schade",
+     "team": "Brentford",
+     "team_short": "BRE",
+     "position": "MID",
+     "captain_score": 65.97,
+     "tier": "safe",
+     "role_signals": {
+      "penalties_order": 2,
+      "direct_freekicks_order": null,
+      "corners_and_indirect_freekicks_order": null,
+      "set_piece_notes": [
+       "penalty_taker_2"
+      ],
+      "set_piece_threat": true,
+      "role_bonus": 1.0
+     },
+     "score_inputs": {
+      "form": 8.7,
+      "fixture_difficulty": 3,
+      "xgi_per_90": 0.37047,
+      "minutes_risk": 0.7
+     },
+     "minutes_context": {
+      "minutes_played": 447,
+      "minutes_available": 450,
+      "starts": 5,
+      "fixtures_available": 5,
+      "participation_percent": 99.3,
+      "participation_risk": 0.7,
+      "availability_risk": 0.0,
+      "minutes_risk": 0.7,
+      "minutes_known": true,
+      "source": "official_completed_fixtures",
+      "degraded": false,
+      "degradation_reason": null
+     },
+     "selected_by_percent": 11.7,
+     "query": "94",
+     "owned": false,
+     "rank": 4
+    },
+    {
+     "status": "ok",
+     "index": 286,
+     "player_id": 411,
+     "web_name": "Haaland",
+     "name": "Erling Haaland",
+     "team": "Man City",
+     "team_short": "MCI",
+     "position": "FWD",
+     "captain_score": 63.9,
+     "tier": "safe",
+     "role_signals": {
+      "penalties_order": 1,
+      "direct_freekicks_order": null,
+      "corners_and_indirect_freekicks_order": null,
+      "set_piece_notes": [
+       "penalty_taker_1"
+      ],
+      "set_piece_threat": true,
+      "role_bonus": 5.0
+     },
+     "score_inputs": {
+      "form": 8.0,
+      "fixture_difficulty": 4,
+      "xgi_per_90": 0.99,
+      "minutes_risk": 0.0
+     },
+     "minutes_context": {
+      "minutes_played": 450,
+      "minutes_available": 450,
+      "starts": 5,
+      "fixtures_available": 5,
+      "participation_percent": 100.0,
+      "participation_risk": 0.0,
+      "availability_risk": 0.0,
+      "minutes_risk": 0.0,
+      "minutes_known": true,
+      "source": "official_completed_fixtures",
+      "degraded": false,
+      "degradation_reason": null
+     },
+     "selected_by_percent": 73.8,
+     "query": "411",
+     "owned": false,
+     "rank": 5
+    },
+    {
+     "status": "ok",
+     "index": 158,
+     "player_id": 230,
+     "web_name": "Branthwaite",
+     "name": "Jarrad Branthwaite",
+     "team": "Everton",
+     "team_short": "EVE",
+     "position": "DEF",
+     "captain_score": 57.18,
+     "tier": "safe",
+     "role_signals": {
+      "penalties_order": null,
+      "direct_freekicks_order": null,
+      "corners_and_indirect_freekicks_order": null,
+      "set_piece_notes": [],
+      "set_piece_threat": false,
+      "role_bonus": 0
+     },
+     "score_inputs": {
+      "form": 5.7,
+      "fixture_difficulty": 2,
+      "xgi_per_90": 0.038,
+      "minutes_risk": 0.0
+     },
+     "minutes_context": {
+      "minutes_played": 450,
+      "minutes_available": 450,
+      "starts": 5,
+      "fixtures_available": 5,
+      "participation_percent": 100.0,
+      "participation_risk": 0.0,
+      "availability_risk": 0.0,
+      "minutes_risk": 0.0,
+      "minutes_known": true,
+      "source": "official_completed_fixtures",
+      "degraded": false,
+      "degradation_reason": null
+     },
+     "selected_by_percent": 2.4,
+     "query": "230",
+     "owned": false,
+     "rank": 10
+    }
+   ]
+  },
+  "model_text": "### Top 3 capitanes — GW6\n\n1. **Pascal Groß (Brighton)** — **73,26**\n   - Forma: 10,7; FDR: 3; xGI/90: 0,526.\n   - **450 minutos**, titular en 5/5; riesgo de minutos: 0%.\n   - Disponible; **noticias: no consta información adicional** en el resultado.\n\n2. **Harvey Barnes (Newcastle)** — **67,00**\n   - Forma: 7,7; FDR: 2; xGI/90: 0,220.\n   - **450 minutos**, titular en 5/5; riesgo de minutos: 0%.\n   - Disponible; **noticias: no consta información adicional** en el resultado.\n\n3. **Kevin Schade (Brentford)** — **65,97**\n   - Forma: 8,7; FDR: 3; xGI/90: 0,370.\n   - **447 minutos**, titular en 5/5; riesgo de minutos: 0,7%.\n   - Disponible; **noticias: no consta información adicional** en el resultado.\n\n**Mi elección:** **Groß**. Su forma, rol en penaltis y acciones a balón parado lo colocan claramente primero."
+ }
+}
