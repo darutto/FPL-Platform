@@ -1,0 +1,27 @@
+{"tool_sequence": ["get_gameweek_context"], "count": 140, "slot_pre-#359": "get_gameweek_context", "slot_#359 (main)": "get_gameweek_context", "slot_this PR": "get_gameweek_context"}
+{"tool_sequence": ["get_my_squad"], "count": 58, "slot_pre-#359": "get_my_squad", "slot_#359 (main)": "get_my_squad", "slot_this PR": "get_my_squad"}
+{"tool_sequence": ["get_my_squad", "get_chip_advice"], "count": 50, "slot_pre-#359": "get_my_squad", "slot_#359 (main)": "get_my_squad", "slot_this PR": "get_my_squad"}
+{"tool_sequence": ["get_gameweek_context", "get_chip_advice"], "count": 49, "slot_pre-#359": "get_gameweek_context", "slot_#359 (main)": "get_chip_advice", "slot_this PR": "get_chip_advice"}
+{"tool_sequence": ["get_current_gameweek"], "count": 21, "slot_pre-#359": "get_current_gameweek", "slot_#359 (main)": "get_current_gameweek", "slot_this PR": "get_current_gameweek"}
+{"tool_sequence": ["get_gameweek_context", "get_my_squad"], "count": 15, "slot_pre-#359": "get_gameweek_context", "slot_#359 (main)": "get_my_squad", "slot_this PR": "get_my_squad"}
+{"tool_sequence": ["get_gameweek_context", "get_captain_score"], "count": 13, "slot_pre-#359": "get_gameweek_context", "slot_#359 (main)": "get_captain_score", "slot_this PR": "get_captain_score"}
+{"tool_sequence": ["get_gameweek_context", "rank_captain_candidates", "get_player_snapshot", "get_player_snapshot"], "count": 10, "slot_pre-#359": "get_gameweek_context", "slot_#359 (main)": "rank_captain_candidates", "slot_this PR": "rank_captain_candidates"}
+{"tool_sequence": ["get_my_squad", "get_gameweek_context"], "count": 9, "slot_pre-#359": "get_my_squad", "slot_#359 (main)": "get_my_squad", "slot_this PR": "get_my_squad"}
+{"tool_sequence": ["get_gameweek_context", "rank_captain_candidates"], "count": 7, "slot_pre-#359": "get_gameweek_context", "slot_#359 (main)": "rank_captain_candidates", "slot_this PR": "rank_captain_candidates"}
+{"tool_sequence": ["get_gameweek_context", "get_fixtures_for_gw"], "count": 6, "slot_pre-#359": "get_gameweek_context", "slot_#359 (main)": "get_fixtures_for_gw", "slot_this PR": "get_fixtures_for_gw"}
+{"tool_sequence": ["get_gameweek_context", "build_squad"], "count": 6, "slot_pre-#359": "get_gameweek_context", "slot_#359 (main)": "build_squad", "slot_this PR": "build_squad"}
+{"tool_sequence": ["get_chip_advice", "get_my_squad"], "count": 5, "slot_pre-#359": "get_chip_advice", "slot_#359 (main)": "get_chip_advice", "slot_this PR": "get_chip_advice"}
+{"tool_sequence": ["get_gameweek_context", "rank_captain_candidates", "get_player_snapshot", "get_player_snapshot", "get_player_snapshot"], "count": 4, "slot_pre-#359": "get_gameweek_context", "slot_#359 (main)": "rank_captain_candidates", "slot_this PR": "rank_captain_candidates"}
+{"tool_sequence": ["get_gameweek_context", "get_my_squad", "get_chip_advice"], "count": 4, "slot_pre-#359": "get_gameweek_context", "slot_#359 (main)": "get_my_squad", "slot_this PR": "get_chip_advice"}
+{"tool_sequence": ["get_my_squad", "get_transfer_suggestion"], "count": 4, "slot_pre-#359": "get_my_squad", "slot_#359 (main)": "get_my_squad", "slot_this PR": "get_my_squad"}
+{"tool_sequence": ["get_current_gameweek", "rank_captain_candidates"], "count": 3, "slot_pre-#359": "get_current_gameweek", "slot_#359 (main)": "rank_captain_candidates", "slot_this PR": "rank_captain_candidates"}
+{"tool_sequence": ["get_my_squad", "get_gameweek_context", "get_chip_advice"], "count": 3, "slot_pre-#359": "get_my_squad", "slot_#359 (main)": "get_my_squad", "slot_this PR": "get_my_squad"}
+{"tool_sequence": ["get_gameweek_context", "rank_captain_candidates", "get_player_snapshot", "get_player_snapshot", "get_player_snapshot", "get_player_snapshot"], "count": 2, "slot_pre-#359": "get_gameweek_context", "slot_#359 (main)": "rank_captain_candidates", "slot_this PR": "rank_captain_candidates"}
+{"tool_sequence": ["get_gameweek_context", "get_chip_advice", "get_chip_advice"], "count": 2, "slot_pre-#359": "get_gameweek_context", "slot_#359 (main)": "get_chip_advice", "slot_this PR": "get_chip_advice"}
+{"tool_sequence": ["get_gameweek_context", "web_fetch"], "count": 2, "slot_pre-#359": "get_gameweek_context", "slot_#359 (main)": "web_fetch", "slot_this PR": "web_fetch"}
+{"tool_sequence": ["get_gameweek_context", "get_my_squad", "get_gameweek_context"], "count": 1, "slot_pre-#359": "get_gameweek_context", "slot_#359 (main)": "get_my_squad", "slot_this PR": "get_my_squad"}
+{"tool_sequence": ["get_my_squad", "get_chip_advice", "get_gameweek_context"], "count": 1, "slot_pre-#359": "get_my_squad", "slot_#359 (main)": "get_my_squad", "slot_this PR": "get_my_squad"}
+{"tool_sequence": ["get_gameweek_context", "get_chip_advice", "get_my_squad"], "count": 1, "slot_pre-#359": "get_gameweek_context", "slot_#359 (main)": "get_chip_advice", "slot_this PR": "get_chip_advice"}
+{"tool_sequence": ["get_gameweek_context", "get_team_schedule", "get_fixture_outlook"], "count": 1, "slot_pre-#359": "get_fixture_outlook", "slot_#359 (main)": "get_fixture_outlook", "slot_this PR": "get_fixture_outlook"}
+{"tool_sequence": ["get_transfer_suggestion", "get_my_squad"], "count": 1, "slot_pre-#359": "get_transfer_suggestion", "slot_#359 (main)": "get_transfer_suggestion", "slot_this PR": "get_transfer_suggestion"}
+{"tool_sequence": ["get_gameweek_context", "build_squad", "get_chip_advice"], "count": 1, "slot_pre-#359": "get_gameweek_context", "slot_#359 (main)": "build_squad", "slot_this PR": "build_squad"}
