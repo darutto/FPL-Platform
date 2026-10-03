@@ -62,6 +62,10 @@ PROD_2026_10_02_QUESTIONS = [
     "Recomiendame jugadores de fulham para considerar con mi transferencia en la fecha 6",
 ]
 CORPUS = I37_QUESTIONS + PROD_2026_10_02_QUESTIONS
+#: i123: the chip/transfer family -- the answers where internal names leaked
+#: (prod free hit 6/7/8, local wildcard and Fulham transfer).
+CHIP_FAMILY = PROD_2026_10_02_QUESTIONS[:5]
+SUBSETS = {"all": CORPUS, "chip": CHIP_FAMILY}
 
 
 def _audit_lines(audit_dir: str) -> list[dict]:
@@ -80,10 +84,11 @@ def main() -> int:
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--max-turns", type=int, default=48)
     ap.add_argument("--audit-dir", required=True)
+    ap.add_argument("--subset", choices=sorted(SUBSETS), default="all")
     a = ap.parse_args()
     base = a.base_url.rstrip("/")
     run = f"i124-{uuid.uuid4().hex[:6]}"
-    plan = [(q, r) for r in range(1, a.reps + 1) for q in CORPUS][: a.max_turns]
+    plan = [(q, r) for r in range(1, a.reps + 1) for q in SUBSETS[a.subset]][: a.max_turns]
     seen_audit = len(_audit_lines(a.audit_dir))
     with open(a.out, "a", encoding="utf-8") as f:
         version = requests.get(f"{base}/version", timeout=30).json()
