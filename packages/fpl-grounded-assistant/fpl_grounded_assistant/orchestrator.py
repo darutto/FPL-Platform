@@ -176,6 +176,24 @@ _ALL_OUTCOMES: frozenset[str] = frozenset({
     "quota_exceeded",
 })
 
+#: i125(b): what an evaluator-rejected turn actually SERVED, read off the
+#: return site that produced the answer -- never inferred from the branch.
+#:   retry_synthesis -- the retry's own model text (with or without a tool).
+#:   primary_kept    -- the primary answer was served (the retry call failed,
+#:                      named an unknown tool, wrote only a preamble/nothing,
+#:                      or ran a tool whose synthesis gave no text while the
+#:                      primary had model text of its own).
+#:   retry_render    -- deterministic text from the retry: its tool's
+#:                      render() (synthesis gave no text and the primary had
+#:                      no model text either) or its tool-exception string.
+#: ``None`` on every turn the evaluator did not reject.
+RETRY_DELIVERY_RETRY_SYNTHESIS: str = "retry_synthesis"
+RETRY_DELIVERY_PRIMARY_KEPT: str = "primary_kept"
+RETRY_DELIVERY_RETRY_RENDER: str = "retry_render"
+RETRY_DELIVERIES: frozenset[str] = frozenset({
+    RETRY_DELIVERY_RETRY_SYNTHESIS, RETRY_DELIVERY_PRIMARY_KEPT, RETRY_DELIVERY_RETRY_RENDER,
+})
+
 #: i86: key under which ask_orchestrated() exposes the user's question to
 #: tool handlers via the (shallow-copied) bootstrap. Tool modules that read
 #: it spell the literal themselves rather than importing this -- importing
@@ -589,6 +607,8 @@ class OrchestratorResult:
     # the internal ask_v2 dict only -- never an HTTP contract.
     final_text_guard_reason: str | None = None
     guarded_raw_answer_text: str | None = None
+    # i125(b): one of RETRY_DELIVERIES when ``retry_attempted``, else None.
+    retry_delivery:          str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -1574,7 +1594,10 @@ def _apply_evaluator(
 
     If the evaluator approves, returns primary result with verdict attached.
     If the evaluator rejects, retries the primary LLM ONCE with feedback
-    prepended. Delivers the retry result unconditionally (hard cap = 1 retry).
+    prepended and delivers the retry result (hard cap = 1 retry) -- except
+    when the retry's tool synthesis gave no text and the primary had model
+    text of its own: then the primary is kept (i125(b)). Every rejected turn
+    stamps ``retry_delivery`` with what it served.
     """
     # tool_call_count semantics: number of executed tool calls underlying the
     # RETAINED result payload, including failures. Every branch that keeps the
@@ -1737,6 +1760,7 @@ def _apply_evaluator(
             total_tokens=_total,
             tool_call_count=_primary_count,   # E3a: retry call failed → primary retained
             synthesis_turn=synthesis_turn,    # E3a: answer_text unchanged
+            retry_delivery=RETRY_DELIVERY_PRIMARY_KEPT,
         )
 
     # ------------------------------------------------------------------
@@ -1799,6 +1823,11 @@ def _apply_evaluator(
             # retry prose, but the grounding payload is still the primary's).
             tool_call_count=_primary_count,
             synthesis_turn=_retry_synthesis_turn,
+            # i125(b): the same test that chose _retry_answer above.
+            retry_delivery=(
+                RETRY_DELIVERY_RETRY_SYNTHESIS if (not _is_preamble and _retry_text)
+                else RETRY_DELIVERY_PRIMARY_KEPT
+            ),
         )
 
     # Execute retry tool calls.
@@ -1843,6 +1872,7 @@ def _apply_evaluator(
                 total_tokens=_total,
                 tool_call_count=_primary_count,   # unknown retry tool → primary retained
                 synthesis_turn=synthesis_turn,    # unknown retry tool: answer_text unchanged
+                retry_delivery=RETRY_DELIVERY_PRIMARY_KEPT,
             )
         try:
             _retry_raw: dict[str, Any] = run_tool(_rtname, _rtargs, actual_bootstrap)
@@ -1883,6 +1913,7 @@ def _apply_evaluator(
                 total_tokens=_total,
                 tool_calls_trace=tuple(_trace_with_retry),
                 synthesis_turn=False,   # retry tool exception: static error string
+                retry_delivery=RETRY_DELIVERY_RETRY_RENDER,
             )
         _retry_executed.append((_rtid, _rtname, _rtargs, _retry_raw))
         _trace_with_retry.append(_retry_trace_entry(
@@ -1950,6 +1981,45 @@ def _apply_evaluator(
     else:
         _r_synth_text = _extract_text_from_response(_retry_synth.response, _provider_label) or None
 
+    if not _r_synth_text and synthesis_turn:
+        # i125(b): the retry ran a tool but wrote nothing, so all it could
+        # serve is that tool's bare render() -- while the primary answer it
+        # was meant to improve is model text built on the tool that answered
+        # the question. Seen in prod 2026-10-02: a captain answer replaced by
+        # the render of get_gameweek_context ("Jornada actual: GW5 ..."), no
+        # captain. Narrows the delivery below to what it was written for: a
+        # retry that produced an answer, or a primary with no model text to
+        # keep. The retry's calls stay in the trace and its tokens in the
+        # total -- they ran and were billed.
+        _total = (
+            _primary_input_tokens + _primary_output_tokens + _primary_cache_read_tokens
+            + _eval_combined + _retry_in + _retry_out
+        )
+        return OrchestratorResult(
+            question=question,
+            tool_chosen=tool_chosen,
+            tool_args=tool_args,
+            tool_output=tool_output,
+            answer_text=answer_text,
+            llm_used=True,
+            model=model,
+            outcome=outcome,
+            error=None if outcome == OUTCOME_OK else f"tool returned status={tool_output.get('status')!r}",
+            evaluator_verdict=verdict,
+            retry_attempted=True,
+            primary_input_tokens=_primary_input_tokens,
+            primary_output_tokens=_primary_output_tokens,
+            primary_cache_read_tokens=_primary_cache_read_tokens,
+            evaluator_input_tokens=_eval_combined,
+            retry_input_tokens=_retry_in,
+            retry_output_tokens=_retry_out,
+            total_tokens=_total,
+            tool_call_count=_primary_count,   # primary payload retained
+            tool_calls_trace=tuple(_trace_with_retry),
+            synthesis_turn=synthesis_turn,    # the primary's model text
+            retry_delivery=RETRY_DELIVERY_PRIMARY_KEPT,
+        )
+
     if _r_synth_text:
         _r_answer_text: str = _r_synth_text
         _r_synthesis_turn = True
@@ -1964,7 +2034,9 @@ def _apply_evaluator(
         _primary_input_tokens + _primary_output_tokens + _primary_cache_read_tokens
         + _eval_combined + _retry_in + _retry_out
     )
-    # UNCONDITIONAL delivery of retry result (hard cap = 1 retry, no second evaluation)
+    # Delivery of the retry result (hard cap = 1 retry, no second evaluation);
+    # i125(b) above keeps the primary when this would be a bare render over
+    # model text the primary already had.
     return OrchestratorResult(
         question=question,
         tool_chosen=_r_tool_name,
@@ -1992,6 +2064,9 @@ def _apply_evaluator(
         # i37: model text when the retry synthesis produced it; the bare
         # render() only as the fallback.
         synthesis_turn=_r_synthesis_turn,
+        retry_delivery=(
+            RETRY_DELIVERY_RETRY_SYNTHESIS if _r_synthesis_turn else RETRY_DELIVERY_RETRY_RENDER
+        ),
     )
 
 

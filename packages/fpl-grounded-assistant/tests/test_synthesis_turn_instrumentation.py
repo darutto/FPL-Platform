@@ -546,17 +546,21 @@ def test_evaluator_retry_that_calls_a_tool_gets_a_synthesis_turn(monkeypatch, bo
     ), fourth
 
 
-def test_evaluator_retry_synthesis_without_text_falls_back_to_the_render(monkeypatch, bootstrap):
-    """The pre-i37 behaviour is now the fallback, not the path."""
+def test_evaluator_retry_synthesis_without_text_keeps_the_synthesised_primary(monkeypatch, bootstrap):
+    """i125(b): the retry's synthesis gave no text, so all it could serve is a
+    bare render(); the primary had model text of its own, so the primary is
+    served instead (retry_delivery=primary_kept). The render fallback for a
+    primary WITHOUT model text is pinned in test_i125b_retry_keeps_primary."""
     _reject(monkeypatch)
     client = _RetryClient(lambda: NS(content=[]))
     result = ask_orchestrated("What gameweek is it?", bootstrap, client=client, _eval_client=object())
 
     assert client.calls == 4
     assert result.retry_attempted is True
-    assert result.synthesis_turn is False
-    assert _is_bare_render_reply(result) is True
-    assert result.answer_text == render(result.tool_chosen, result.tool_output)
+    assert result.retry_delivery == "primary_kept"
+    assert result.synthesis_turn is True
+    assert _is_bare_render_reply(result) is False
+    assert result.answer_text == "A genuine synthesised answer."
 
 
 def test_evaluator_retry_synthesis_tokens_are_billed_to_the_retry_bucket(monkeypatch, bootstrap):

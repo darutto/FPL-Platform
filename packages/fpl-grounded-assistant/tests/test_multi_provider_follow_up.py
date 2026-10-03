@@ -828,6 +828,7 @@ def test_loop_observability_preserves_evaluator_retry_call_count(monkeypatch, bo
         mixed,
         _text_response(PROVIDER_ANTHROPIC, "primary answer"),
         _action_response(PROVIDER_ANTHROPIC, "retry-1", "get_current_gameweek", {}),
+        _text_response(PROVIDER_ANTHROPIC, "retry answer"),
     ])
 
     result = ask_orchestrated(
@@ -838,6 +839,7 @@ def test_loop_observability_preserves_evaluator_retry_call_count(monkeypatch, bo
     )
 
     assert result.retry_attempted is True
+    assert result.retry_delivery == "retry_synthesis"
     assert result.tool_call_count == 1
     assert result.tool_chosen == "get_current_gameweek"
 

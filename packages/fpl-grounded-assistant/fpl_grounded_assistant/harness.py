@@ -192,7 +192,8 @@ ROUTING_TRACE_OPTIONAL_KEYS: frozenset[str] = frozenset({
     # it now reads instead of asserting from a constant.
     "retry_attempted",    # bool: OrchestratorResult.retry_attempted
     "evaluator_verdict",  # {approved, grounded, complete, safe, retry_feedback} | None
-    "tool_sequence",      # [tool name, ...] executed, from tool_calls_trace (same
+    "retry_delivery",     # i125(b): orchestrator.RETRY_DELIVERIES value | None
+    "tool_sequence",     # [tool name, ...] executed, from tool_calls_trace (same
                           #   field the routing JSONL projects as tool_sequence)
     "tool_args_sequence", # [args dict, ...] parallel to tool_sequence (i93-b: a
                           #   prod check can read WHICH axis / target_gw each
@@ -1434,6 +1435,8 @@ def _project_orchestrator_run(routing_trace: dict[str, Any], orch_result: Any) -
     ]
     _verdict = getattr(orch_result, "evaluator_verdict", None)
     routing_trace["retry_attempted"] = bool(getattr(orch_result, "retry_attempted", False))
+    # i125(b): what the rejected turn served, stamped at the return site.
+    routing_trace["retry_delivery"] = getattr(orch_result, "retry_delivery", None)
     routing_trace["evaluator_verdict"] = (
         None if _verdict is None else {
             "approved":       _verdict.approved,

@@ -150,6 +150,11 @@ class AuditEntry:
     # the key that joins this line to its shadow_logs/ row. None otherwise,
     # and then the serialised line carries no turn_id key at all.
     turn_id: str | None = None
+    # i125(b): what an evaluator-rejected turn served -- one of
+    # orchestrator.RETRY_DELIVERIES (retry_synthesis / primary_kept /
+    # retry_render), stamped where the answer was produced. None when the
+    # evaluator did not reject (or no orchestrator ran).
+    retry_delivery: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -258,6 +263,7 @@ def write_audit_entry(entry: AuditEntry, log_dir: str | None = None) -> None:
         "tool_calls":          entry.tool_calls,
         "evaluator_verdict":   entry.evaluator_verdict,
         "retry_attempted":     entry.retry_attempted,
+        "retry_delivery":      entry.retry_delivery,   # i125(b)
         "final_text_length":   entry.final_text_length,
         "final_text_preview":  entry.final_text_preview,
         "tokens":              entry.tokens,
@@ -351,6 +357,7 @@ def make_audit_entry(
     final_text_guard_reason: str | None = None,
     guarded_raw_answer_text: str | None = None,
     turn_id: str | None = None,
+    retry_delivery: str | None = None,
 ) -> AuditEntry:
     """Convenience factory for building an AuditEntry from ask_v2() output.
 
@@ -385,4 +392,5 @@ def make_audit_entry(
         final_text_guard_reason=final_text_guard_reason,
         guarded_raw_answer_text=guarded_raw_answer_text,
         turn_id=turn_id,
+        retry_delivery=retry_delivery,
     )
