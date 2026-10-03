@@ -1224,10 +1224,10 @@
     },
     {
       "id": "i81",
-      "col": "evaluation",
-      "progress": 90,
+      "col": "shipped",
+      "progress": 100,
       "title": "MarkdownLite: '###' y '1.' ya se renderizan con jerarquía y numeración",
-      "desc": "FUSIONADA 2026-09-13 (PR #258, fd203cc). Pendiente: captura en prod.\n\nQUÉ HACE. Dos reglas nuevas en el parser compartido (burbuja de chat, multi-intent, tarjetas web): `^(#{1,6})\\s+` → encabezado con tres tamaños tope (# y ## comparten el mayor para que no revienten la burbuja; #### en adelante colapsan al menor) y `^\\d+[.)]\\s+` → <ol> con `start` cuando no empieza en 1. Un solo buffer de lista tipado (ul/ol) que cierra en cada cambio de bloque, así `- a` seguido de `1. b` produce dos listas y no una mezclada.\n\nFUERA DE ALCANCE, dicho en el docstring: anidación, bloques de código, tablas, enlaces.\n\nTESTS (10): `###` no aparece literal, <ol> con dos <li>, `1)` aceptado, transiciones lista→número/encabezado/párrafo, start=3, negrita dentro, `#` suelto es párrafo. fpl-ui 553 → 563.\n\nCIERRE: la pregunta de la sesión Newcastle–Leeds (o equivalente) en prod con captura.\n\nBLOQUEADO EN: necesita una captura de pantalla real del renderizado en el chat -- no ejecutable desde aquí. Marcado 2026-09-17 como \"necesita a Leo\".",
+      "desc": "FUSIONADA 2026-09-13 (PR #258, fd203cc). Pendiente: captura en prod.\n\nQUÉ HACE. Dos reglas nuevas en el parser compartido (burbuja de chat, multi-intent, tarjetas web): `^(#{1,6})\\s+` → encabezado con tres tamaños tope (# y ## comparten el mayor para que no revienten la burbuja; #### en adelante colapsan al menor) y `^\\d+[.)]\\s+` → <ol> con `start` cuando no empieza en 1. Un solo buffer de lista tipado (ul/ol) que cierra en cada cambio de bloque, así `- a` seguido de `1. b` produce dos listas y no una mezclada.\n\nFUERA DE ALCANCE, dicho en el docstring: anidación, bloques de código, tablas, enlaces.\n\nTESTS (10): `###` no aparece literal, <ol> con dos <li>, `1)` aceptado, transiciones lista→número/encabezado/párrafo, start=3, negrita dentro, `#` suelto es párrafo. fpl-ui 553 → 563.\n\nCIERRE: la pregunta de la sesión Newcastle–Leeds (o equivalente) en prod con captura.\n\nBLOQUEADO EN: necesita una captura de pantalla real del renderizado en el chat -- no ejecutable desde aquí. Marcado 2026-09-17 como \"necesita a Leo\".\n\nCERRADA 2026-10-02 con captura de Leo en prod («¿A quién capitaneo esta jornada? Dame un top 3 numerado.»): lista numerada 1-3 con sangría y negritas, sin «1.» suelto; ningún # literal; el título se ve con formato. Captura: C:/Users/thera/fpl-audit/captures/2026-10-02-captain-top3-{chat,card}.png. Defecto vecino visto en la misma captura → [[i126]] (cursiva).",
       "tags": [
         "UI",
         "Web"
@@ -1663,6 +1663,28 @@
       ],
       "title": "El evaluador rechaza respuestas correctas para pedir más citas, y el reintento casi duplica el coste",
       "desc": "VISTO 2026-10-02 al cerrar [[i96]], en las 2 únicas líneas con reintento del audit de prod (2026-09-23): las dos respuestas eran correctas y estaban basadas en la herramienta, pero el evaluador las marcó grounded=false con un retry_feedback que solo pide citar más («Indica los resultados concretos…», «Cita resultados… de Groß y Haaland»). El reintento vuelve a llamar a la MISMA herramienta y casi duplica el coste: 73.819 tokens frente a ~37K para Liverpool, y 74.184 para el brazalete. En el del brazalete, el reintento además perdió el argumento horizon=1 (lo llamó con {}). Dos preguntas a medir antes de cambiar nada: (1) qué % de turnos rechaza el evaluador hoy y cuántos de esos rechazos son de este tipo («cita más») frente a errores reales; (2) si un rechazo de tipo «cita más» debería re-sintetizar con el mismo resultado de la herramienta en vez de volver a llamarla. Ahora el audit persiste y lleva tokens por fase, así que se puede medir sobre prod real. Relacionada con [[i37]] y [[i96]]."
+    },
+    {
+      "id": "i125",
+      "col": "idea",
+      "progress": 0,
+      "tags": [
+        "IA",
+        "FPL Asistente"
+      ],
+      "title": "La respuesta de capitanía omite a un jugador que la herramienta puso 2.º (Tarkowski)",
+      "desc": "VISTO 2026-10-02 en prod (captura de Leo, C:/Users/thera/fpl-audit/captures/2026-10-02-captain-top3-{chat,card}.png). Pregunta: «¿A quién capitaneo esta jornada? Dame un top 3 numerado.» La tarjeta de rank_captain_candidates (la salida real de la herramienta), en «Mejores candidatos globales»: 1 Groß 73.3, 2 Tarkowski 67.6 (TUYO), 3 Barnes 67.0, 4 Schade 66.0, 5 Haaland 63.9. El texto del modelo dice top 3 = Groß, Barnes, Schade, y su nota afirma que de tu plantilla «Groß y Haaland aparecen como opciones», omitiendo a Tarkowski, que es tuyo y está segundo en las dos listas. El texto contradice la salida de la herramienta que se muestra justo debajo. Hipótesis a comprobar, no asumir: el modelo descarta defensas como capitán por sentido común, o el payload que ve el modelo (truncado/proyección, i49/i95) difiere de lo que pinta la tarjeta. PRIMER PASO: sacar del audit de ese turno los tool_calls y comparar el payload que vio el modelo contra el que pintó la tarjeta. CIERRE: el top N del texto coincide con el ranking de la herramienta (o explica por qué se aparta) en ≥ 95 % de R=3 sobre las preguntas de capitanía del corpus, medido contra tool_calls_trace."
+    },
+    {
+      "id": "i126",
+      "col": "idea",
+      "progress": 0,
+      "tags": [
+        "UI",
+        "Web"
+      ],
+      "title": "MarkdownLite no renderiza la cursiva: «*Nota: …*» sale con asteriscos literales",
+      "desc": "VISTO 2026-10-02 en la captura que cerró [[i81]] (C:/Users/thera/fpl-audit/captures/2026-10-02-captain-top3-{chat,card}.png): la nota final de la respuesta de capitanía aparece como «*Nota: entre los jugadores que tienes… tuyos.*», con los asteriscos visibles. MarkdownLite entiende **negrita**, encabezados y listas ([[i81]]), pero no *cursiva*/_cursiva_. ARREGLO: regla de cursiva en renderInline con cuidado de no romper **negrita** ni un asterisco suelto (p. ej. «5 * 2», o un * al principio de línea que es viñeta). Tests: cursiva sola, negrita y cursiva en la misma línea, asterisco suelto que NO se convierte, viñeta «* item» que sigue siendo viñeta. Captura después. Pequeña."
     }
   ]
 }
