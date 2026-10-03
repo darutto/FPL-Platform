@@ -574,6 +574,10 @@ class OrchestratorResult:
     evaluator_output_tokens: int = 0
     retry_input_tokens:      int = 0
     retry_output_tokens:     int = 0
+    # i130: cached share of the retry calls (retry tool call + retry
+    # synthesis), the retry counterpart of primary_cache_read_tokens. Feeds
+    # the audit's USD estimate only; total_tokens is unchanged by it.
+    retry_cache_read_tokens: int = 0
     total_tokens:            int = 0
     # Number of executed tool calls underlying the retained result payload,
     # including failed calls. Primary paths use len(tool_calls_trace); a
@@ -1741,6 +1745,7 @@ def _apply_evaluator(
     # F3: extract retry call tokens.
     _retry_in = _retry_call.input_tokens or 0
     _retry_out = _retry_call.output_tokens or 0
+    _retry_cache = _retry_call.cache_read_tokens or 0
 
     # ------------------------------------------------------------------
     # E3a. Retry call failed → deliver primary result (fail-open)
@@ -1772,6 +1777,7 @@ def _apply_evaluator(
             evaluator_input_tokens=_eval_combined,
             retry_input_tokens=_retry_in,
             retry_output_tokens=_retry_out,
+            retry_cache_read_tokens=_retry_cache,
             total_tokens=_total,
             tool_call_count=_primary_count,   # E3a: retry call failed → primary retained
             synthesis_turn=synthesis_turn,    # E3a: answer_text unchanged
@@ -1833,6 +1839,7 @@ def _apply_evaluator(
             evaluator_input_tokens=_eval_combined,
             retry_input_tokens=_retry_in,
             retry_output_tokens=_retry_out,
+            retry_cache_read_tokens=_retry_cache,
             total_tokens=_total,
             # E3b: no retry tool → primary tool_output retained (answer may be
             # retry prose, but the grounding payload is still the primary's).
@@ -1884,6 +1891,7 @@ def _apply_evaluator(
                 evaluator_input_tokens=_eval_combined,
                 retry_input_tokens=_retry_in,
                 retry_output_tokens=_retry_out,
+                retry_cache_read_tokens=_retry_cache,
                 total_tokens=_total,
                 tool_call_count=_primary_count,   # unknown retry tool → primary retained
                 synthesis_turn=synthesis_turn,    # unknown retry tool: answer_text unchanged
@@ -1925,6 +1933,7 @@ def _apply_evaluator(
                 evaluator_input_tokens=_eval_combined,
                 retry_input_tokens=_retry_in,
                 retry_output_tokens=_retry_out,
+                retry_cache_read_tokens=_retry_cache,
                 total_tokens=_total,
                 tool_calls_trace=tuple(_trace_with_retry),
                 synthesis_turn=False,   # retry tool exception: static error string
@@ -1987,6 +1996,7 @@ def _apply_evaluator(
     # bucket is where every call the evaluator's rejection caused goes.
     _retry_in += _retry_synth.input_tokens or 0
     _retry_out += _retry_synth.output_tokens or 0
+    _retry_cache += _retry_synth.cache_read_tokens or 0
     _r_synth_text: str | None = None
     if _retry_synth.error_code is not None:
         _LOG.warning(
@@ -2028,6 +2038,7 @@ def _apply_evaluator(
             evaluator_input_tokens=_eval_combined,
             retry_input_tokens=_retry_in,
             retry_output_tokens=_retry_out,
+            retry_cache_read_tokens=_retry_cache,
             total_tokens=_total,
             tool_call_count=_primary_count,   # primary payload retained
             tool_calls_trace=tuple(_trace_with_retry),
@@ -2070,6 +2081,7 @@ def _apply_evaluator(
         evaluator_input_tokens=_eval_combined,
         retry_input_tokens=_retry_in,
         retry_output_tokens=_retry_out,
+        retry_cache_read_tokens=_retry_cache,
         total_tokens=_total,
         # Retry-success: the retained payload is the RETRY's tool_output, so the
         # count reflects the retry's executed tools, not the primary's.

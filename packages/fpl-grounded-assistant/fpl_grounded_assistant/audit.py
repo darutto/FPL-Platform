@@ -170,10 +170,11 @@ def _token_components(tokens: dict[str, int]) -> tuple[int, int, int]:
     evaluator_input    = max(0, tokens.get("evaluator", 0))   # treated as input
     retry_input        = max(0, tokens.get("retry_input", 0))
     retry_output       = max(0, tokens.get("retry_output", 0))
+    retry_cache_read   = max(0, tokens.get("retry_cache_read", 0))   # i130
     return (
         primary_input + evaluator_input + retry_input,
         primary_output + retry_output,
-        primary_cache_read,
+        primary_cache_read + retry_cache_read,
     )
 
 
@@ -190,6 +191,8 @@ def estimate_usd_cost(
         Dict with any subset of:
         ``primary_input``, ``primary_output``, ``primary_cache_read``,
         ``evaluator`` (treated as input), ``retry_input``, ``retry_output``,
+        ``retry_cache_read`` (i130: the retry calls' cached share, priced
+        like ``primary_cache_read``),
         ``total`` (ignored for cost — we sum components directly).
     model:
         Model id, a key of ``model_pricing.PRICING_PER_1M_BY_MODEL``. ``None``
