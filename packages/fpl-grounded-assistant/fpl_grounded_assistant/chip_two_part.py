@@ -59,6 +59,12 @@ PARTICULAR_PHRASE: dict[str, str] = {
     "fetch_failed":    "no pude cargar tu plantilla",
 }
 
+#: i122: ``needs_transfers`` when exactly one player is missing. A separate
+#: constant, not a PARTICULAR_PHRASE key: those keys are the valid
+#: ``squad_fit.verdict`` values. Chosen by ``particular_phrase``, so the
+#: composer and the grader still read one copy.
+NEEDS_TRANSFERS_ONE: str = "te falta 1 jugador del grupo favorecido para sacarle todo al chip"
+
 #: Openings the no-team arm must never start with (the pre-E3 failure).
 FORBIDDEN_OPENINGS: tuple[str, ...] = (
     "no puedo evaluar tu equipo",
@@ -94,7 +100,8 @@ def particular_phrase(chip_output: dict[str, Any]) -> str | None:
         return None
     phrase = PARTICULAR_PHRASE[outcome]
     if outcome == "needs_transfers":
-        phrase = phrase.format(n=int(chip_output["squad_fit"]["missing_count"]))
+        n = int(chip_output["squad_fit"]["missing_count"])
+        phrase = NEEDS_TRANSFERS_ONE if n == 1 else phrase.format(n=n)
     return phrase
 
 
