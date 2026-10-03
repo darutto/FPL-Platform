@@ -1106,6 +1106,7 @@ def ask_v2(
             ask_orchestrated,
             OUTCOME_OK as ORCH_OUTCOME_OK,
             OUTCOME_NO_TOOL as ORCH_OUTCOME_NO_TOOL,
+            OUTCOME_TOOL_RESULT_ERROR as ORCH_OUTCOME_TOOL_RESULT_ERROR,
         )
         routing_trace["orchestrator_called"] = True
         _provider = orch_provider if orch_provider is not None else get_orch_provider()
@@ -1170,7 +1171,24 @@ def ask_v2(
                 ],
             )
 
-        if orch_result.outcome == ORCH_OUTCOME_OK and orch_result.tool_chosen:
+        # i131 rule 3: the orchestrator's outcome is the status of its slot,
+        # executed[0]. A turn opened by a context call that came back non-ok
+        # (get_my_squad -> no_team_connected, no linked team) reports
+        # tool_result_error even when the tool that answers the question ran
+        # ok afterwards -- and used to land in the unsupported branch below:
+        # no selected_tool, no card, for a chip answer that was grounded. Such
+        # a turn is grounded when composed_primary_call hands the slot to a
+        # call whose own status is "ok" (the trace's ``success`` flag is not
+        # enough: ambiguous / not_found / no_team_connected all count as
+        # success there). A non-ok owner (e.g. an ambiguous snapshot, i60)
+        # still falls through to the branch below, unchanged.
+        from .final_response import composed_primary_call  # noqa: PLC0415
+        _primary_call = composed_primary_call(orch_result.tool_calls_trace)
+        _owner_status = ((_primary_call or {}).get("output") or {}).get("status")
+        _owner_rescues_turn = (
+            orch_result.outcome == ORCH_OUTCOME_TOOL_RESULT_ERROR and _owner_status == "ok"
+        )
+        if (orch_result.outcome == ORCH_OUTCOME_OK or _owner_rescues_turn) and orch_result.tool_chosen:
             # Successful tool call — grounded answer.
             routing_trace["branch"]                  = "orchestrator"
             routing_trace["orchestrator_tool_calls"] = [orch_result.tool_chosen]
@@ -1193,9 +1211,8 @@ def ask_v2(
             # off tool_calls_trace, the same field the i58 gate reads; None
             # for every non-composed turn, so nothing else changes. i131: the
             # same helper hands the slot to the answering tool when a
-            # gameweek-anchor call (get_current_gameweek) opened the turn.
-            from .final_response import composed_primary_call  # noqa: PLC0415
-            _primary_call = composed_primary_call(orch_result.tool_calls_trace)
+            # gameweek-anchor call (get_current_gameweek) opened the turn, or
+            # (rule 3) a get_my_squad call did. _primary_call is computed above.
             if _primary_call is not None:
                 routing_trace["composed_primary_tool"] = _primary_call["name"]
             _orch_tool = _primary_call["name"] if _primary_call else orch_result.tool_chosen

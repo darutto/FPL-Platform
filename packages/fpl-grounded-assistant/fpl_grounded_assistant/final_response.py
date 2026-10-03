@@ -2252,7 +2252,7 @@ def composed_primary_call(trace: "Any") -> "dict[str, Any] | None":
     multi-tool turn, or ``None`` when the orchestrator's own slot stands.
 
     Only turns whose trace holds at least two DISTINCT tool names qualify.
-    Two rules, in order:
+    Three rules, in order:
 
     1. Composed (i93): one of the tools is in ``COMPOSITION_PRIMARY_TOOLS``
        -> that tool owns the slot, wherever the model put it.
@@ -2260,6 +2260,10 @@ def composed_primary_call(trace: "Any") -> "dict[str, Any] | None":
        ``GAMEWEEK_CONTEXT_TOOLS`` tool -> the first tool outside that set,
        in the model's order, owns the slot -- skipping ``SQUAD_CONTEXT_TOOLS``
        unless they are all that is left.
+    3. Squad first (i131 follow-up): the FIRST call is a
+       ``SQUAD_CONTEXT_TOOLS`` tool (whatever its status, no_team_connected
+       included) -> the first tool outside both context sets owns the slot;
+       with none, the orchestrator's slot (the squad) stands.
 
     The owning call is the LAST successful call of the owning tool (the one
     whose output the user saw described); with no successful one, the last
@@ -2278,6 +2282,11 @@ def composed_primary_call(trace: "Any") -> "dict[str, Any] | None":
         if answering:
             owner = next((n for n in answering if n not in SQUAD_CONTEXT_TOOLS), answering[0])
             return _last_ok_or_last([e for e in entries if e["name"] == owner])
+    if entries[0]["name"] in SQUAD_CONTEXT_TOOLS:
+        context = GAMEWEEK_CONTEXT_TOOLS | SQUAD_CONTEXT_TOOLS
+        answering = [e["name"] for e in entries if e["name"] not in context]
+        if answering:
+            return _last_ok_or_last([e for e in entries if e["name"] == answering[0]])
     return None
 
 
