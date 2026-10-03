@@ -3107,7 +3107,8 @@ def _try_session_orchestration_response(
         answer_text = _clarification_text_for_intent(intent)
 
     # ---- semantic-shift fields (mirrors harness_adapter.to_ask_response step 4) ----
-    llm_used: bool = branch in _SESSION_LLM_BRANCHES
+    # i127: same projection as harness_adapter (orchestrator branches carry it).
+    llm_used: bool = bool(result["llm_used"]) if "llm_used" in result else branch in _SESSION_LLM_BRANCHES
     review_passed: bool = bool(routing_trace.get("grounded", False)) or (
         outcome not in ("unsupported", "unsupported_intent")
     )

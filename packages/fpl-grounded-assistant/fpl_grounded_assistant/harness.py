@@ -1246,6 +1246,8 @@ def ask_v2(
                 **_project_orchestrator_identity(orch_result),
                 # i106: guard reason + blocked text, for the audit line only.
                 **_project_final_text_guard(orch_result),
+                # i127: did the model write the text served (not "which branch").
+                "llm_used":      _project_llm_used(orch_result),
                 "routing_trace": routing_trace,
                 # i96: every executed call (primary + retry), for the audit line.
                 "tool_calls_trace": _project_tool_calls_trace(orch_result),
@@ -1306,6 +1308,9 @@ def ask_v2(
             # ran and billed; the audit line prices it by this model.
             **_project_orchestrator_identity(orch_result),
             **_project_final_text_guard(orch_result),  # i106
+            # i127: the orchestrator ran here too; the stamp reads what wrote
+            # the text, not the branch (was always False on this branch).
+            "llm_used": _project_llm_used(orch_result),
             # i96: this is the branch where a retry that ran a tool with a
             # non-ok status lands with selected_tool=None; the calls it
             # executed are still real and still audited.
@@ -1467,6 +1472,25 @@ def _project_orchestrator_identity(orch_result: Any) -> dict[str, str | None]:
         "orchestrator_provider": getattr(orch_result, "provider", None),
         "orchestrator_model":    None if _model in (None, "", "none") else str(_model),
     }
+
+
+def _project_llm_used(orch_result: Any) -> bool:
+    """i127: ``llm_used`` on both orchestrator branches -- True iff the text
+    this turn serves was written by the model.
+
+    Same meaning ``final_response`` documents for the field ("is final_text
+    LLM-generated (and accepted)"), read off what ran: the served text is
+    the model's own (``synthesis_turn``, False for a ``render()`` / static
+    string -- and only ever True when a provider call returned that text, so
+    it implies the result's own ``llm_used``), and the final-text guard did
+    not replace it with its own sentence. Not "which branch": the
+    no-grounded-tool branch runs the same LLM and used to stamp every such
+    turn "Determinístico".
+    """
+    return (
+        bool(getattr(orch_result, "synthesis_turn", False))
+        and getattr(orch_result, "final_text_guard_reason", None) is None
+    )
 
 
 def _project_final_text_guard(orch_result: Any) -> dict[str, str | None]:

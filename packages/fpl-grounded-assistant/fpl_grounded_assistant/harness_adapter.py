@@ -29,7 +29,11 @@ The two Adversarial-Reviewer-blessed semantic shifts (documented below):
    deterministic and ladder paths.**
    ``ask_v2()`` has no LLM-review step.  Post-graduation these fields reflect
    orchestrator-LLM use only:
-   - ``llm_used = True`` only when ``branch in ("orchestrator", "classifier_rewrite")``.
+   - ``llm_used``: on the two orchestrator branches (grounded and
+     no-grounded-tool) ``ask_v2()`` projects it from what ran -- True iff the
+     served text is the model's own and the final-text guard did not replace
+     it (i127, ``harness._project_llm_used``). Every other branch keeps
+     ``branch in ("orchestrator", "classifier_rewrite")``.
    - ``review_passed = True`` when the answer is grounded (tool ran end-to-end)
      OR when outcome is not "unsupported"; ``False`` only on full-ladder misses.
    G2 (session/ask parity fix): ``POST /session/{id}/ask`` still calls
@@ -282,7 +286,9 @@ def to_ask_response(
     # ------------------------------------------------------------------
     # 4. Semantic-shift fields (documented in module docstring).
     # ------------------------------------------------------------------
-    llm_used: bool = branch in _LLM_BRANCHES
+    # i127: the orchestrator branches project what wrote the text
+    # (harness._project_llm_used); the branch rule stays for every other path.
+    llm_used: bool = bool(d["llm_used"]) if "llm_used" in d else branch in _LLM_BRANCHES
     # review_passed: True whenever the answer is grounded OR the outcome is
     # not a full ladder miss.  False on unsupported / unsupported_intent branches.
     # "unsupported_intent" is the adapter-mapped value of step-4 "unsupported" text misses.
