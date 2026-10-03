@@ -95,6 +95,8 @@ from fpl_tool_contract import tool_get_captain_score
 from .captain_factors import TRIPLE_CAPTAIN_RISK_NOTE, factor_phrases
 from .scoring_shared import _derive_scoring_inputs
 from .fixture_context import build_fixture_context  # FI3a: additive fixture context
+# i132: same bootstrap mapping find_players / get_my_squad use for availability.
+from .find_players import _map_status, _safe_int
 from .tool_schema_registry import GET_CHIP_ADVICE_SCHEMA  # i108 E3: one catalog entry
 
 
@@ -390,6 +392,10 @@ def _score_outfield_players(bootstrap: dict[str, Any]) -> list[dict[str, Any]]:
                 # number it produced.
                 "minutes_context": inputs.get("minutes_context"),
                 "penalties_order": el.get("penalties_order"),
+                # i132: season minutes and availability, read off the same
+                # bootstrap element with the same mapping as find_players.
+                "minutes_played_season": _safe_int(el.get("minutes"), 0),
+                "status":                _map_status(el.get("status")),
             })
         except Exception:   # noqa: BLE001
             continue
@@ -441,6 +447,10 @@ def _bench_boost_favoured(
             "web_name":      p.get("web_name", "Unknown"),
             "captain_score": p.get("captain_score"),
             "fdr":           fdr,
+            # i132: lets an answer that names this player state minutes and
+            # status from the tool (the evaluator's SAFE rule asks for both).
+            "minutes_played_season": p.get("minutes_played_season"),
+            "status":                p.get("status"),
         })
         entry = teams.setdefault(team_id, {
             "team":             team_id,
@@ -1384,6 +1394,9 @@ CHIP_ADVICE_SPEC = ToolSpec(
                                 "web_name":      {"type": "string"},
                                 "captain_score": {"type": "number"},
                                 "fdr":           {"type": "integer"},
+                                # i132
+                                "minutes_played_season": {"type": "integer"},
+                                "status":                {"type": "string"},
                             },
                         },
                     },
