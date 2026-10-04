@@ -482,10 +482,10 @@ resp = to_ask_response(_d, req_with_squad)
 
 check(resp.transfer is not None and resp.transfer.get("budget_constraint") is True,
       "E1: squad_context budget_constraint → transfer.budget_constraint == True")
-check("Budget constraint" in resp.final_text,
+check("No te alcanza el presupuesto" in resp.final_text,
       "E2: squad_context budget_constraint → final_text replaced with budget message")
-check("Buy Haaland" not in resp.final_text,
-      "E3: squad_context budget_constraint → original final_text NOT in response")
+check(resp.final_text.startswith("No te alcanza el presupuesto") and "Buy Haaland" in resp.final_text,
+      "E3: budget_constraint → Spanish lead first, the turn's answer kept below (i139)")
 
 
 # ---------------------------------------------------------------------------

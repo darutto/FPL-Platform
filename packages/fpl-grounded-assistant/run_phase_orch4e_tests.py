@@ -410,7 +410,7 @@ ok(
     "F2 hit_warning fires second (step 2) — reads recommendation after budget step (recommendation unchanged)",
 )
 ok(
-    "Budget constraint" in _ft1,
+    "No te alcanza el presupuesto" in _ft1,
     "F3 final_text is the budget message (hard block; hit_warning is advisory only)",
 )
 

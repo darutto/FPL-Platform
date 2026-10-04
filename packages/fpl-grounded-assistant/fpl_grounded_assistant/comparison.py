@@ -439,6 +439,19 @@ def _margin_label(margin: float) -> str:
     return "moderate"
 
 
+#: i139: the comparison card shows these reasons as they come (ComparisonCard
+#: ``reasons``), so they are written in Spanish here, at the origin. Venue in
+#: the product's Spanish abbreviation (L = local, V = visitante), as in
+#: FixtureRunTable / fixture-outlook-format.
+def _venue_tag_es(is_home: bool | None) -> str:
+    """'L' (local), 'V' (visitante) or '' when the venue is unknown."""
+    if is_home is True:
+        return "L"
+    if is_home is False:
+        return "V"
+    return ""
+
+
 def _explain_comparison(
     winner: dict[str, Any],
     loser: dict[str, Any],
@@ -474,7 +487,7 @@ def _explain_comparison(
     w_form = float(w_inp.get("form", 0.0))
     l_form = float(l_inp.get("form", 0.0))
     if w_form - l_form >= _FORM_ADV_THRESHOLD:
-        reasons.append(f"stronger form ({w_form:.1f} vs {l_form:.1f})")
+        reasons.append(f"mejor forma ({w_form:.1f} vs {l_form:.1f})")
 
     # 2. Fixture advantage (lower FDR = better)
     # Phase 8b: use effective_fdr (home/away adjusted) for threshold check
@@ -483,24 +496,24 @@ def _explain_comparison(
     if l_efdr - w_efdr >= _FDR_ADV_THRESHOLD:
         w_raw = int(w_inp.get("fixture_difficulty", 3))
         l_raw = int(l_inp.get("fixture_difficulty", 3))
-        w_venue = _venue_tag(w_inp.get("is_home"))
-        l_venue = _venue_tag(l_inp.get("is_home"))
-        reasons.append(f"easier fixture (FDR {w_raw}{w_venue} vs {l_raw}{l_venue})")
+        w_venue = _venue_tag_es(w_inp.get("is_home"))
+        l_venue = _venue_tag_es(l_inp.get("is_home"))
+        reasons.append(f"partido más fácil (FDR {w_raw}{w_venue} vs {l_raw}{l_venue})")
 
     # 3. xGI/90 advantage
     w_xgi = float(w_inp.get("xgi_per_90", 0.0))
     l_xgi = float(l_inp.get("xgi_per_90", 0.0))
     if w_xgi - l_xgi >= _XGI_ADV_THRESHOLD:
-        reasons.append("higher xGI output")
+        reasons.append("más xGI por 90")
 
     # 4. Minutes security advantage (lower risk = better)
     w_risk = float(w_inp.get("minutes_risk", 0.0))
     l_risk = float(l_inp.get("minutes_risk", 0.0))
     if l_risk - w_risk >= _RISK_ADV_THRESHOLD:
-        reasons.append("better minutes security")
+        reasons.append("minutos más asegurados")
 
     # 5. Set-piece advantage — Phase 5h: specific role labels via _set_piece_advantage_phrase
-    sp_phrase = _set_piece_advantage_phrase(w_role, l_role)
+    sp_phrase = _set_piece_advantage_phrase(w_role, l_role, locale="es")
     if sp_phrase is not None:
         reasons.append(sp_phrase)
 
@@ -511,6 +524,10 @@ def _explain_comparison(
 # Rendering
 # ---------------------------------------------------------------------------
 
+#: i139: margin_label in the words the comparison card shows (lib/theme.ts).
+_MARGIN_LABEL_ES: dict[str, str] = {"narrow": "ajustada", "moderate": "moderada", "clear": "clara"}
+
+
 def _build_recommendation(
     name_a: str,
     score_a: float,
@@ -520,26 +537,32 @@ def _build_recommendation(
     margin: float,
     comparison_reasons: list[str],
 ) -> str:
-    """Concise, grounded comparison sentence with comparative reasoning."""
+    """Concise, grounded comparison sentence with comparative reasoning.
+
+    i139: in Spanish, because it carries the (now Spanish) reasons and is
+    served as the answer text on the deterministic path; an English sentence
+    around Spanish reasons reads worse than either. Margin words are the
+    comparison card's own (fpl-ui lib/theme.ts MARGIN_CONFIG).
+    """
     if winner is None:
         return (
-            f"{name_a} ({score_a}) and {name_b} ({score_b})"
-            " are tied on score."
+            f"{name_a} ({score_a}) y {name_b} ({score_b})"
+            " empatan en puntuación."
         )
 
     loser        = name_b if winner == name_a else name_a
     winner_score = score_a if winner == name_a else score_b
     loser_score  = score_b if winner == name_a else score_a
-    label        = _margin_label(margin)
+    label        = _MARGIN_LABEL_ES.get(_margin_label(margin), _margin_label(margin))
 
     base = (
-        f"{winner} ({winner_score}) edges {loser} ({loser_score})"
-        f" — {label} margin ({margin})."
+        f"{winner} ({winner_score}) supera a {loser} ({loser_score})"
+        f" — diferencia {label} ({margin})."
     )
 
     if comparison_reasons:
         clause = "; ".join(comparison_reasons[:3])
-        return base + f"  Advantages: {clause}."
+        return base + f"  Ventajas: {clause}."
     return base
 
 

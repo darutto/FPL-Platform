@@ -168,7 +168,7 @@ ok(
 # B4: final_text is NOT replaced (hit_warning is advisory, not a hard block)
 ok(
     r_b1.final_text is not None
-    and "Budget constraint" not in r_b1.final_text
+    and "No te alcanza el presupuesto" not in r_b1.final_text
     and "Ya usaste" not in r_b1.final_text,
     f"B4: final_text not overridden by hit_warning (got {r_b1.final_text[:60]!r})",
 )

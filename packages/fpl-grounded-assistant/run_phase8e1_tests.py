@@ -185,8 +185,8 @@ r_c3 = respond(
     squad_context=_SC_TRANSFER_CONSTRAINED,
 )
 ok(
-    "Budget constraint" in r_c3.final_text,
-    f"C3: final_text contains 'Budget constraint' (got {r_c3.final_text[:60]!r})",
+    "No te alcanza el presupuesto" in r_c3.final_text,
+    f"C3: final_text contains 'No te alcanza el presupuesto' (got {r_c3.final_text[:60]!r})",
 )
 ok(
     "Salah" in r_c3.final_text,
@@ -218,7 +218,7 @@ ok(
 # C8: no squad_context -> final_text is the regular response (not constraint message)
 r_c8 = respond("should I sell Saka for Salah", STANDARD_BOOTSTRAP)
 ok(
-    "Budget constraint" not in r_c8.final_text,
+    "No te alcanza el presupuesto" not in r_c8.final_text,
     "C8: no squad_context -> no budget constraint message",
 )
 
@@ -334,7 +334,7 @@ ok(
     "F1: CLI debug JSON has transfer.budget_constraint=True",
 )
 ok(
-    "Budget constraint" in f1_body.get("final_text", ""),
+    "No te alcanza el presupuesto" in f1_body.get("final_text", ""),
     "F2: CLI debug JSON final_text contains constraint message",
 )
 
@@ -387,7 +387,7 @@ ok(
     f"G2: HTTP /ask transfer.budget_constraint=True (got {g1_body.get('transfer', {}).get('budget_constraint')})",
 )
 ok(
-    "Budget constraint" in g1_body.get("final_text", ""),
+    "No te alcanza el presupuesto" in g1_body.get("final_text", ""),
     "G3: HTTP /ask final_text contains constraint message",
 )
 
@@ -527,8 +527,8 @@ ok(
 
 # K5: combined final_text contains both constraint messages
 ok(
-    r_k1.final_text is not None and "Budget constraint" in r_k1.final_text,
-    f"K5: combined final_text contains 'Budget constraint' (got {r_k1.final_text[:80]!r})",
+    r_k1.final_text is not None and "No te alcanza el presupuesto" in r_k1.final_text,
+    f"K5: combined final_text contains 'No te alcanza el presupuesto' (got {r_k1.final_text[:80]!r})",
 )
 ok(
     r_k1.final_text is not None and "Ya usaste" in r_k1.final_text,
