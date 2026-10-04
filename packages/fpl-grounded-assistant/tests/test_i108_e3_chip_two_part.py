@@ -204,7 +204,7 @@ class TestComposition:
         assert fold(text).count(fold(PARTICULAR_PHRASE["needs_transfers"].format(n=3))) == 1
 
     @pytest.mark.parametrize("over", [
-        {"chip": "triple_captain"},
+        {"chip": "assistant_manager"},    # i112: TC is in the set now
         {"status": "error"},
         {"recommendation": "missing_context", "squad_fit": None},
     ])
@@ -312,7 +312,7 @@ class TestParticularPhrase:
         assert particular_phrase(chip) != PARTICULAR_PHRASE["invite"]
 
     @pytest.mark.parametrize("over", [
-        {"chip": "triple_captain"},
+        {"chip": "assistant_manager"},    # i112: TC is in the set now
         {"status": "error"},
         {"squad_fit": None},             # members known, no fit computable
     ])
@@ -385,7 +385,7 @@ class TestGrader:
 
     @pytest.mark.parametrize("chip, bucket", [
         (None, "no_chip_call"),
-        (_chip(chip="triple_captain"), "chip_triple_captain"),
+        (_chip(chip="assistant_manager"), "chip_assistant_manager"),  # i112: TC is in the set
         (_chip(status="error"), "chip_not_ok"),
         (_chip(squad_fit=None), "no_fit_computable"),
     ])
@@ -404,11 +404,11 @@ class TestGrader:
         graded = [
             grader.grade_row(_row(GOOD, _chip()), NAMES),
             grader.grade_row(_row("x", None), NAMES),
-            grader.grade_row(_row("x", _chip(chip="triple_captain")), NAMES),
+            grader.grade_row(_row("x", _chip(chip="assistant_manager")), NAMES),
         ]
         s = grader.summarize(graded, 0.95)
         assert (s["rows"], s["denominator"], s["pass"], s["gate"]) == (3, 1, 1, True)
-        assert s["apart"] == {"no_chip_call": 1, "chip_triple_captain": 1}
+        assert s["apart"] == {"no_chip_call": 1, "chip_assistant_manager": 1}
 
     def test_a_heading_then_the_verdict_opens_with_the_verdict(self):
         # Seen on the first measured rows: "## Wildcard — GW1" then the verdict.

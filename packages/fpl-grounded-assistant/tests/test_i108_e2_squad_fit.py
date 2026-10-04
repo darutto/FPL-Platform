@@ -271,10 +271,12 @@ class TestNoSquadAndOtherChips:
         assert out["squad_fit"] is None
         assert out["linked_squad_error"] is None
 
-    def test_triple_captain_carries_source_but_no_fit(self, bb_bootstrap):
+    def test_triple_captain_carries_source_and_its_own_fit(self, bb_bootstrap):
+        # i112 (Leo, 2026-10-03): triple captain's fit is "is the best option
+        # in the squad"; it lives in test_i112_triple_captain_particular.py.
         out = get_chip_advice("triple_captain", _with_request_squad(bb_bootstrap, _squad([1, 2, 6, 7])))
         assert out["squad_source"] == "request"
-        assert out["squad_fit"] is None
+        assert out["squad_fit"]["verdict"] in ("captain_held", "captain_missing")
 
     def test_missing_context_gives_no_fit(self, bootstrap):
         bs = copy.deepcopy(bootstrap)
@@ -450,7 +452,9 @@ class TestDeclared:
         assert set(fit["required"]) == {"held", "missing_count", "verdict"}
         assert _prop("squad_fit", "held") == {"type": "array", "items": {"type": "integer"}}
         assert _prop("squad_fit", "missing_count") == {"type": "integer"}
-        assert _prop("squad_fit", "verdict")["enum"] == ["set", "needs_transfers", "not_applicable"]
+        assert _prop("squad_fit", "verdict")["enum"] == [
+            "set", "needs_transfers", "not_applicable", "captain_held", "captain_missing",  # i112
+        ]
         assert _prop("linked_squad_error") == {
             "type": ["string", "null"], "enum": ["fetch_failed", None],
         }

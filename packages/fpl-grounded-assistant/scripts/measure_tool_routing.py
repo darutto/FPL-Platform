@@ -355,6 +355,31 @@ def extract_chip_trace(result: Any) -> dict[str, Any] | None:
     }
 
 
+def extract_chip_candidate(result: Any) -> dict[str, Any] | None:
+    """i112: triple captain's candidate from the last ``get_chip_advice`` output.
+
+    Kept OUT of ``extract_chip_trace`` on purpose: that projection is pinned
+    field for field to the Jev shadow's (``jev_router.shadow``,
+    tests/test_i116_jev_shadow.py). ``None`` when no chip call ran or the
+    output names no candidate.
+    """
+    trace = getattr(result, "tool_calls_trace", None) or ()
+    last: dict[str, Any] | None = None
+    for entry in trace:
+        if isinstance(entry, dict) and entry.get("name") == CHIP_TOOL:
+            output = entry.get("output")
+            if isinstance(output, dict):
+                last = output
+    signals = (last or {}).get("signals")
+    if not isinstance(signals, dict) or not signals.get("top_player"):
+        return None
+    return {
+        "top_player": signals.get("top_player"),
+        "top_element": signals.get("top_element"),
+        "evaluated_player": signals.get("evaluated_player"),
+    }
+
+
 def bootstrap_for_call(bootstrap: dict[str, Any], team_id: int | None) -> dict[str, Any]:
     """i109: the bootstrap ``ask_orchestrated`` gets for one call.
 
@@ -465,6 +490,7 @@ def run_one(
             # the trace, for the two-part grader. answer_text keeps its cap.
             answer_text_full=result.answer_text or "",
             chip_trace=extract_chip_trace(result),
+            chip_candidate=extract_chip_candidate(result),  # i112
             rounds_used=getattr(result, "rounds_used", 0),
             error=result.error,
             primary_input_tokens=result.primary_input_tokens,
@@ -501,6 +527,7 @@ def run_one(
             answer_text="",
             answer_text_full="",
             chip_trace=None,
+            chip_candidate=None,
             rounds_used=0,
             error=str(exc),
             primary_input_tokens=0,

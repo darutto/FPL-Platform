@@ -70,6 +70,10 @@ squad is resolved and cached on the turn's bootstrap copy by
 chips_remaining, free_transfers) are read exactly as before; the linked squad
 is never written into ``_squad_context``.
 
+i112: triple captain carries a ``squad_fit`` too, from the same members: is
+the best option (``signals.top_element``) in the squad, by id --
+``captain_held`` / ``captain_missing``.
+
 Intentionally deferred
 -----------------------
 * Which chips are still available when no squad_context is supplied
@@ -657,6 +661,28 @@ def _squad_fit(
     }
 
 
+def _triple_captain_fit(
+    signals: dict[str, Any],
+    members: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    """i112: is the best triple-captain option in the squad? By element id only.
+
+    ``held`` = ``[top_element]`` when a squad member carries that id, else
+    ``[]``; ``captain_held`` / ``captain_missing``. ``None`` when the output
+    names no top element (nothing to cross).
+    """
+    top = signals.get("top_element")
+    if not isinstance(top, int) or isinstance(top, bool):
+        return None
+    elements = {e for e in (_member_element(m) for m in members) if e is not None}
+    held = top in elements
+    return {
+        "held": [top] if held else [],
+        "missing_count": 0 if held else 1,
+        "verdict": "captain_held" if held else "captain_missing",
+    }
+
+
 # ---------------------------------------------------------------------------
 # Per-chip advice functions
 # ---------------------------------------------------------------------------
@@ -811,6 +837,9 @@ def _advise_triple_captain(
         "recommendation": recommendation,
         "signals": {
             "top_player":        top_name,
+            # i112: identity of the best option, for the squad cross (by id,
+            # never by name -- two players can share web_name).
+            "top_element":       top.get("element"),
             "top_captain_score": top_score,
             "top_tier":          top_tier,
             "top_factors":       top_factors,
@@ -1269,6 +1298,12 @@ def get_chip_advice(
         squad_fields["squad_fit"] = _squad_fit(
             chip, result["signals"], members, bootstrap
         )
+    elif (
+        has_squad
+        and chip == CHIP_TRIPLE_CAPTAIN
+        and result["recommendation"] != "missing_context"
+    ):
+        squad_fields["squad_fit"] = _triple_captain_fit(result["signals"], members)
 
     return {
         "status":           "ok",
@@ -1362,6 +1397,8 @@ CHIP_ADVICE_SPEC = ToolSpec(
                 # their integer identity fields. Other signal keys stay
                 # chip-specific and undeclared, as before.
                 "properties": {
+                    # i112: triple captain's best option, by id.
+                    "top_element": {"type": ["integer", "null"]},
                     "favoured_run_gameweeks": {"type": "integer"},
                     "favoured_teams": {
                         "type": "array",
@@ -1416,7 +1453,9 @@ CHIP_ADVICE_SPEC = ToolSpec(
                     "missing_count": {"type": "integer"},
                     "verdict": {
                         "type": "string",
-                        "enum": ["set", "needs_transfers", "not_applicable"],
+                        "enum": ["set", "needs_transfers", "not_applicable",
+                                 # i112: triple captain
+                                 "captain_held", "captain_missing"],
                     },
                 },
             },

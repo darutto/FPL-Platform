@@ -37,9 +37,10 @@ import re
 import unicodedata
 from typing import Any
 
-#: Chips that carry a squad_fit (i108 E2). Triple captain has no particular
-#: part yet -- whether it should is an open question for the product owner.
-SQUAD_FIT_CHIPS: tuple[str, ...] = ("bench_boost", "wildcard", "free_hit")
+#: Chips that carry a squad_fit (i108 E2). i112 (Leo, 2026-10-03): triple
+#: captain too -- its particular part is whether the best option is in the
+#: squad (``captain_held`` / ``captain_missing``).
+SQUAD_FIT_CHIPS: tuple[str, ...] = ("bench_boost", "wildcard", "free_hit", "triple_captain")
 
 #: Part 1 -- the verdict label the general part opens with, per recommendation.
 GENERAL_VERDICT_LABEL: dict[str, str] = {
@@ -57,7 +58,15 @@ PARTICULAR_PHRASE: dict[str, str] = {
     "not_applicable":  "esta jornada no es buena para este chip, ni para ti ni para nadie",
     "invite":          "enlaza tu equipo y te digo si ya tienes el grupo favorecido",
     "fetch_failed":    "no pude cargar tu plantilla",
+    # i112: triple captain. The header already names the candidate.
+    "captain_held":    "tu mejor candidato para el triple capitán ya está en tu plantilla",
+    "captain_missing": "tu mejor candidato para el triple capitán no está en tu plantilla",
 }
+
+#: i112: the no-team invitation for triple captain -- same rule as the other
+#: chips (invite when no squad is known), worded for one candidate instead of
+#: a group. Chosen by ``particular_phrase``, like ``NEEDS_TRANSFERS_ONE``.
+INVITE_TRIPLE_CAPTAIN: str = "enlaza tu equipo y te digo si tu mejor candidato ya está en tu plantilla"
 
 #: i122: ``needs_transfers`` when exactly one player is missing. A separate
 #: constant, not a PARTICULAR_PHRASE key: those keys are the valid
@@ -99,6 +108,8 @@ def particular_phrase(chip_output: dict[str, Any]) -> str | None:
     if outcome is None:
         return None
     phrase = PARTICULAR_PHRASE[outcome]
+    if outcome == "invite" and chip_output.get("chip") == "triple_captain":
+        phrase = INVITE_TRIPLE_CAPTAIN
     if outcome == "needs_transfers":
         n = int(chip_output["squad_fit"]["missing_count"])
         phrase = NEEDS_TRANSFERS_ONE if n == 1 else phrase.format(n=n)
@@ -110,6 +121,7 @@ CHIP_DISPLAY: dict[str, str] = {
     "bench_boost": "Bench Boost",
     "wildcard":    "Wildcard",
     "free_hit":    "Free Hit",
+    "triple_captain": "Triple Captain",
 }
 
 #: At most this many favoured players are named in the header.
@@ -119,13 +131,15 @@ _HEADER_MAX_PLAYERS: int = 5
 def chip_composition_rule() -> str:
     """The CHIP_COMPOSITION constraint line for the orchestrator system prompt."""
     return (
-        "  - CHIP_COMPOSITION: when get_chip_advice ran for bench_boost, wildcard or "
-        "free_hit, the system itself adds the opening verdict line with the favoured "
-        "group, and a closing sentence about the user's squad (from squad_fit / "
+        "  - CHIP_COMPOSITION: when get_chip_advice ran for bench_boost, wildcard, "
+        "free_hit or triple_captain, the system itself adds the opening verdict line "
+        "with the favoured group (for triple_captain: the best candidate), and a "
+        "closing sentence about the user's squad (from squad_fit / "
         "squad_source / linked_squad_error). Write ONLY the body in between: why, from "
         "the tool's signals (fixtures, FDR, the favoured teams and players, the chip "
         "window). Do NOT write a verdict or title line, and do NOT write anything about "
-        "whether the user's squad holds the group or about linking a team -- both are "
+        "whether the user's squad holds the group or the candidate, or about linking a "
+        "team -- both are "
         "added for you (the squad fields are not in the tool output you see). With a "
         "linked team the tool has ALREADY evaluated the user's squad: do not call "
         "get_my_squad for a chip question, and never open with 'no "
@@ -165,8 +179,10 @@ def general_header(chip_output: dict[str, Any], team_names: dict[int, str]) -> s
     label = GENERAL_VERDICT_LABEL.get(chip_output.get("recommendation") or "")
     if chip not in SQUAD_FIT_CHIPS or label is None:
         return None
-    header = f"**{CHIP_DISPLAY[chip]} \u2014 {label}.**"
     signals = chip_output.get("signals") if isinstance(chip_output.get("signals"), dict) else {}
+    if chip == "triple_captain":
+        return _triple_captain_header(label, signals)
+    header = f"**{CHIP_DISPLAY[chip]} \u2014 {label}.**"
     teams = [
         team_names.get(t.get("team")) or t.get("team_short")
         for t in signals.get("favoured_teams") or []
@@ -180,6 +196,21 @@ def general_header(chip_output: dict[str, Any], team_names: dict[int, str]) -> s
         header += f" Grupo favorecido: {_join_es(teams)}"
         header += f" ({', '.join(players)})." if players else "."
     return header
+
+
+def _triple_captain_header(label: str, signals: dict[str, Any]) -> str:
+    """i112: ``**Triple Captain — jornada favorable.** Mejor candidato: Groß.``
+
+    When the user named a player who is not the best option, the verdict is
+    about that player, so the header says so and names the best option apart.
+    """
+    top = signals.get("top_player")
+    evaluated = signals.get("evaluated_player")
+    if evaluated and evaluated != top:
+        header = f"**{CHIP_DISPLAY['triple_captain']} con {evaluated} — {label}.**"
+        return header + (f" Mejor candidato de la jornada: {top}." if top else "")
+    header = f"**{CHIP_DISPLAY['triple_captain']} — {label}.**"
+    return header + (f" Mejor candidato: {top}." if top else "")
 
 
 def compose_chip_answer(
