@@ -50,6 +50,19 @@ KEEP = re.compile(
     r"mantenerlo|esperar para usarlo|no lo uses todavia|dejarlo para)\b"
 )
 SQUAD = re.compile(r"te falta|te faltan|ya tienes el grupo favorecido|enlaza tu equipo")
+#: i145: the spent window's remaining gameweeks / end (GW5 Wildcard -> GW2-GW19).
+SPENT_REMAIN = re.compile(
+    r"quedan \d+ jornadas|\d+ jornadas (?:restantes|por delante)|"
+    r"(?:hasta|termina en|cierra en) (?:la )?gw ?19\b|gw ?2 ?(?:-|–|a) ?(?:la )?gw ?19\b|"
+    r"ventana (?:actual|activa)[^.]{0,60}(?:gw ?19\b|quedan)"
+)
+#: i145: windows mixed -- the return described with the spent window's facts.
+WINDOW_MIX = re.compile(
+    r"(?:cuando|para cuando) (?:regrese|vuelva|vuelve|este disponible)[^.]{0,140}"
+    r"(?:gw ?19\b|ventana actual|ventana activa|quedan \d+)"
+)
+#: reported apart: timing reasoning about the spent window («es pronto dentro de la ventana»).
+EARLY_IN_WINDOW = re.compile(r"pronto (?:dentro de|en) (?:la|esta) ventana|inicio de la ventana")
 
 
 def fold(text: str) -> str:
@@ -61,6 +74,9 @@ def grade(text: str) -> dict:
     f = fold(text)
     return {"keep_advice": [m.group(0) for m in KEEP.finditer(f)],
             "squad_sentence": [m.group(0) for m in SQUAD.finditer(f)],
+            "spent_window_remaining": [m.group(0) for m in SPENT_REMAIN.finditer(f)],
+            "window_mix": [m.group(0) for m in WINDOW_MIX.finditer(f)],
+            "early_in_window": [m.group(0) for m in EARLY_IN_WINDOW.finditer(f)],
             "opens_with_used": f.startswith("ya usaste el wildcard")}
 
 
@@ -74,6 +90,9 @@ def summary(paths: list[str]) -> int:
             "arm": Path(p).name, "turns": n,
             "keep_advice_rows": sum(bool(r["keep_advice"]) for r in rows),
             "squad_sentence_rows": sum(bool(r["squad_sentence"]) for r in rows),
+            "spent_window_remaining_rows": sum(bool(r["spent_window_remaining"]) for r in rows),
+            "window_mix_rows": sum(bool(r["window_mix"]) for r in rows),
+            "early_in_window_rows": sum(bool(r["early_in_window"]) for r in rows),
             "opens_with_used": sum(r["opens_with_used"] for r in rows),
             "rejected_rows": sum(r["rejected"] for r in rows),
             "usd_per_turn": round(sum(r["usd_cost_estimate"] for r in rows) / n, 5) if n else None,
