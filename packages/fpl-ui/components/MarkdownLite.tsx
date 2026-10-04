@@ -57,6 +57,56 @@ const HEADING_CLASS: Record<number, string> = {
 
 type ListKind = 'ul' | 'ol';
 
+type Align = 'left' | 'center' | 'right' | undefined;
+
+/**
+ * i138: split one table row into cells. Leading/trailing pipes are optional
+ * (GFM); `\|` is a literal pipe inside a cell, not a column break.
+ */
+function splitRow(line: string): string[] {
+  let body = line.trim();
+  if (body.startsWith('|')) body = body.slice(1);
+  if (body.endsWith('|') && !body.endsWith('\\|')) body = body.slice(0, -1);
+  const cells: string[] = [];
+  let cell = '';
+  for (let i = 0; i < body.length; i++) {
+    const ch = body[i];
+    if (ch === '\\' && body[i + 1] === '|') {
+      cell += '|';
+      i++;
+    } else if (ch === '|') {
+      cells.push(cell.trim());
+      cell = '';
+    } else {
+      cell += ch;
+    }
+  }
+  cells.push(cell.trim());
+  return cells;
+}
+
+/** A GFM separator cell: dashes with optional alignment colons (`:--`, `--:`, `:-:`). */
+const SEPARATOR_CELL = /^:?-+:?$/;
+
+/**
+ * i138: the alignments of a separator row, or null when `line` is not one.
+ * It must have exactly `columns` cells, so a stray `---` (or a row of dashes
+ * of another width) never turns the line above it into a table header.
+ */
+function parseSeparator(line: string, columns: number): Align[] | null {
+  if (!line.includes('-')) return null;
+  const cells = splitRow(line);
+  if (cells.length !== columns || !cells.every((c) => SEPARATOR_CELL.test(c))) return null;
+  return cells.map((c) => {
+    const left = c.startsWith(':');
+    const right = c.endsWith(':');
+    if (left && right) return 'center';
+    if (right) return 'right';
+    if (left) return 'left';
+    return undefined;
+  });
+}
+
 /**
  * Dependency-free minimal markdown: paragraphs, headings (`#`–`######`),
  * bullet lists (`* ` / `- `), numbered lists (`1. ` / `1) `), inline
@@ -65,8 +115,14 @@ type ListKind = 'ul' | 'ol';
  * of structure. Shared by the chat text bubble, the multi-intent child text,
  * and the web-search cards so all four render identically.
  *
- * Out of scope, on purpose: nested lists, code blocks, tables, links. Those
- * render as plain paragraphs/items.
+ * i138: GFM tables -- a header row, a separator row of the same width
+ * (`---`, alignment `:--` / `--:` / `:-:`), then rows until a blank line or a
+ * line without `|`. A line with a stray `|` and no separator below stays a
+ * paragraph. The table scrolls horizontally inside its own wrapper, so a wide
+ * comparison never widens the bubble on mobile.
+ *
+ * Out of scope, on purpose: nested lists, code blocks, links. Those render as
+ * plain paragraphs/items.
  *
  * Block model: one open list buffer at a time, typed `ul` or `ol`. Any change
  * of block type (bullet→number, list→heading, list→paragraph, blank line)
@@ -119,11 +175,70 @@ export default function MarkdownLite({ text, className }: Props) {
     items.push(item);
   };
 
-  for (const raw of lines) {
-    const line = raw.trim();
+  for (let li = 0; li < lines.length; li++) {
+    const line = lines[li].trim();
     if (!line) {
       flushList();
       continue;
+    }
+    if (line.includes('|') && li + 1 < lines.length) {
+      const header = splitRow(line);
+      const aligns = parseSeparator(lines[li + 1].trim(), header.length);
+      if (aligns !== null) {
+        flushList();
+        const rows: string[][] = [];
+        li += 2;
+        while (li < lines.length && lines[li].trim() && lines[li].includes('|')) {
+          const cells = splitRow(lines[li]);
+          rows.push(header.map((_, c) => cells[c] ?? ''));
+          li++;
+        }
+        li--; // the for-loop's increment moves past the last row consumed
+        const key = `t-${blocks.length}`;
+        blocks.push(
+          // The one-column minmax(0,1fr) grid gives the table a min-content
+          // width of 0: the chat bubble is a flex item whose min-width:auto
+          // would otherwise grow to the no-wrap table and push it off-screen
+          // on mobile (measured in the i138 capture). It still offers its full
+          // width as max-content, so the bubble widens up to its cap and the
+          // table scrolls inside.
+          <div key={key} className="grid grid-cols-[minmax(0,1fr)]">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabla">
+            <table className="border-collapse text-[13px]">
+              <thead>
+                <tr>
+                  {header.map((h, c) => (
+                    <th
+                      key={c}
+                      style={{ textAlign: aligns[c] ?? 'left' }}
+                      className="px-2 py-1 font-semibold text-white whitespace-nowrap border-b border-white/20"
+                    >
+                      {renderInline(h)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, r) => (
+                  <tr key={r}>
+                    {row.map((cell, c) => (
+                      <td
+                        key={c}
+                        style={{ textAlign: aligns[c] ?? 'left' }}
+                        className="px-2 py-1 whitespace-nowrap border-b border-white/5"
+                      >
+                        {renderInline(cell)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          </div>,
+        );
+        continue;
+      }
     }
     const heading = line.match(/^(#{1,6})\s+(.*)$/);
     if (heading) {

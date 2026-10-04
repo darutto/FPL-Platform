@@ -226,3 +226,112 @@ describe('MessageList assistant bubble uses MarkdownLite', () => {
     expect(document.querySelector('strong')).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// i138 — tables (prod 2026-10-04: «Compara a Haaland con Cole Palmer» showed
+// «| Dato | Haaland | Palmer |» as raw lines)
+// ---------------------------------------------------------------------------
+
+describe('MarkdownLite — tables (i138)', () => {
+  const PROD = [
+    'Comparación directa:',
+    '',
+    '| Dato | Haaland | Palmer |',
+    '|---|---:|---:|',
+    '| Forma | **8.5** | 6.0 |',
+    '| xGI/90 | 0.95 | *0.61* |',
+    '',
+    'Haaland sale mejor.',
+  ].join('\n');
+
+  test('the prod comparison renders as a table, with no raw pipes or dashes', () => {
+    const { container } = render(<MarkdownLite text={PROD} />);
+    const table = container.querySelector('table');
+    expect(table).not.toBeNull();
+    const ths = Array.from(table!.querySelectorAll('th')).map((t) => t.textContent);
+    expect(ths).toEqual(['Dato', 'Haaland', 'Palmer']);
+    const rows = Array.from(table!.querySelectorAll('tbody tr')).map((tr) =>
+      Array.from(tr.querySelectorAll('td')).map((td) => td.textContent),
+    );
+    expect(rows).toEqual([['Forma', '8.5', '6.0'], ['xGI/90', '0.95', '0.61']]);
+    expect(container.textContent).not.toContain('|');
+    expect(container.textContent).not.toContain('---');
+    // the paragraphs around it are untouched
+    expect(container.querySelectorAll('p')).toHaveLength(2);
+    expect(container).toHaveTextContent('Haaland sale mejor.');
+  });
+
+  test('bold and italic still render inside cells', () => {
+    const { container } = render(<MarkdownLite text={PROD} />);
+    expect(container.querySelector('td strong')).toHaveTextContent('8.5');
+    expect(container.querySelector('td em')).toHaveTextContent('0.61');
+    expect(container.textContent).not.toContain('*');
+  });
+
+  test('alignment comes from the separator row', () => {
+    const text = '| a | b | c | d |\n|:--|:-:|--:|---|\n| 1 | 2 | 3 | 4 |';
+    const { container } = render(<MarkdownLite text={text} />);
+    const tds = Array.from(container.querySelectorAll('td')) as HTMLElement[];
+    expect(tds.map((td) => td.style.textAlign)).toEqual(['left', 'center', 'right', 'left']);
+    const ths = Array.from(container.querySelectorAll('th')) as HTMLElement[];
+    expect(ths[2].style.textAlign).toBe('right');
+  });
+
+  test('outer pipes are optional', () => {
+    const { container } = render(<MarkdownLite text={'Dato | Haaland\n--- | ---\nForma | 8.5'} />);
+    expect(Array.from(container.querySelectorAll('th')).map((t) => t.textContent)).toEqual(['Dato', 'Haaland']);
+    expect(container.querySelector('td')).toHaveTextContent('Forma');
+  });
+
+  test('a line with a stray | and no separator stays a paragraph', () => {
+    const { container } = render(<MarkdownLite text={'Haaland | Palmer: duelo de la jornada\nOtra línea'} />);
+    expect(container.querySelector('table')).toBeNull();
+    expect(container.querySelector('p')).toHaveTextContent('Haaland | Palmer: duelo de la jornada');
+  });
+
+  test('a separator of another width does not make a table', () => {
+    const { container } = render(<MarkdownLite text={'| a | b | c |\n|---|---|\n| 1 | 2 | 3 |'} />);
+    expect(container.querySelector('table')).toBeNull();
+    expect(container.textContent).toContain('| a | b | c |');
+  });
+
+  test('a plain line followed by --- is not a table', () => {
+    const { container } = render(<MarkdownLite text={'Resumen\n---'} />);
+    expect(container.querySelector('table')).toBeNull();
+  });
+
+  test('an escaped \| is a literal pipe inside a cell', () => {
+    const { container } = render(<MarkdownLite text={'| Jugada | Nota |\n|---|---|\n| a \\| b | ok |'} />);
+    const tds = Array.from(container.querySelectorAll('td')).map((td) => td.textContent);
+    expect(tds).toEqual(['a | b', 'ok']);
+  });
+
+  test('short rows are padded and long rows are cut to the header width', () => {
+    const { container } = render(<MarkdownLite text={'| a | b |\n|---|---|\n| 1 |\n| 1 | 2 | 3 |'} />);
+    const rows = Array.from(container.querySelectorAll('tbody tr')).map((tr) =>
+      Array.from(tr.querySelectorAll('td')).map((td) => td.textContent),
+    );
+    expect(rows).toEqual([['1', ''], ['1', '2']]);
+  });
+
+  test('the table ends at a line without | and a list after it is still a list', () => {
+    const text = '| a | b |\n|---|---|\n| 1 | 2 |\n- uno\n- dos';
+    const { container } = render(<MarkdownLite text={text} />);
+    expect(container.querySelectorAll('tbody tr')).toHaveLength(1);
+    expect(container.querySelectorAll('ul li')).toHaveLength(2);
+  });
+
+  test('a list before the table is closed, not merged', () => {
+    const text = '- uno\n| a | b |\n|---|---|\n| 1 | 2 |';
+    const { container } = render(<MarkdownLite text={text} />);
+    expect(container.querySelectorAll('ul li')).toHaveLength(1);
+    expect(container.querySelector('table')).not.toBeNull();
+  });
+
+  test('the table scrolls horizontally inside its own wrapper', () => {
+    const { container } = render(<MarkdownLite text={PROD} />);
+    const wrapper = container.querySelector('table')!.parentElement!;
+    expect(wrapper.className).toContain('overflow-x-auto');
+    expect(wrapper.getAttribute('role')).toBe('region');
+  });
+});
