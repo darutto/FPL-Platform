@@ -1514,14 +1514,14 @@
     },
     {
       "id": "i111",
-      "col": "evaluation",
-      "progress": 90,
+      "col": "shipped",
+      "progress": 100,
       "tags": [
         "IA",
         "FPL Asistente"
       ],
       "title": "Preguntas de chip que no llegan a la herramienta de chips",
-      "desc": "HALLAZGO de [[i108]] E3 (2026-09-24). Dos formas de pregunta de chip no rutean a get_chip_advice, así que no reciben la respuesta en dos partes: (1) ad-05 «¿Me conviene hacer un transfer esta semana o mejor guardo el chip?» → get_gameweek_context 3/3; (2) sin equipo enlazado, cvg-02 «¿Es buena idea usar el bench boost en la fecha 3? Analizá mi plantilla primero.» → get_my_squad EN VEZ de chip, y la respuesta abre con el mensaje no_team_connected («no puedo evaluar tu plantilla…»), justo la apertura que E3 prohíbe. Palanca probable: la descripción del schema de chip / de get_my_squad (lección E4: describir la composición una vez), o la regla cerrada que midió el piloto de Jev (ruta get_my_squad + mención de chip → plan de chip, 13/13). CIERRE: las dos frases llegan a get_chip_advice ≥ 2/3 con y sin equipo, sin mover controles.\n\nCERRADA EN CÓDIGO 2026-10-03. ad-05: decisión de Leo — la pregunta está mal formulada (mezcla transfer y un chip sin nombrar); pedir aclaración es lo correcto, sin cambio. cvg-02: el defecto real era que get_my_squad sin equipo dejaba el turno en tool_result_error y no se componía; #364 rescata la superficie (tarjeta de chip) y #366 compone el texto en ese caso acotado. E3 sin equipo 38/38, 0 aperturas prohibidas. Visto: cvg-02 r1 a veces solo llama get_my_squad (ruteo, fuera de alcance). FALTA: captura de Leo."
+      "desc": "HALLAZGO de [[i108]] E3 (2026-09-24). Dos formas de pregunta de chip no rutean a get_chip_advice, así que no reciben la respuesta en dos partes: (1) ad-05 «¿Me conviene hacer un transfer esta semana o mejor guardo el chip?» → get_gameweek_context 3/3; (2) sin equipo enlazado, cvg-02 «¿Es buena idea usar el bench boost en la fecha 3? Analizá mi plantilla primero.» → get_my_squad EN VEZ de chip, y la respuesta abre con el mensaje no_team_connected («no puedo evaluar tu plantilla…»), justo la apertura que E3 prohíbe. Palanca probable: la descripción del schema de chip / de get_my_squad (lección E4: describir la composición una vez), o la regla cerrada que midió el piloto de Jev (ruta get_my_squad + mención de chip → plan de chip, 13/13). CIERRE: las dos frases llegan a get_chip_advice ≥ 2/3 con y sin equipo, sin mover controles.\n\nCERRADA EN CÓDIGO 2026-10-03. ad-05: decisión de Leo — la pregunta está mal formulada (mezcla transfer y un chip sin nombrar); pedir aclaración es lo correcto, sin cambio. cvg-02: el defecto real era que get_my_squad sin equipo dejaba el turno en tool_result_error y no se componía; #364 rescata la superficie (tarjeta de chip) y #366 compone el texto en ese caso acotado. E3 sin equipo 38/38, 0 aperturas prohibidas. Visto: cvg-02 r1 a veces solo llama get_my_squad (ruteo, fuera de alcance). FALTA: captura de Leo.\n\nVERIFICADA EN PROD 2026-10-04 (captura de Leo, prod 850fc36): «¿Es buena idea usar el bench boost en la fecha 7?» sin equipo abre con «Bench Boost — jornada favorable. Grupo favorecido…», tarjeta de chip y cierra con «Enlaza tu equipo…»."
     },
     {
       "id": "i112",
@@ -1532,7 +1532,7 @@
         "FPL Asistente"
       ],
       "title": "¿Triple captain debe tener parte particular? (decisión de Leo)",
-      "desc": "PREGUNTA ABIERTA de [[i108]] E3. La política de dos partes (general → particular) se implementó para bench boost, wildcard y free hit; triple captain no tiene parte particular (squad_fit=None), por eso cvg-09 y ad-04 quedaron fuera del gate. Opción natural: «¿tu mejor candidato a capitán está en tu plantilla?», cruzando rank_captain_candidates contra la plantilla enlazada por element id. Es política nueva: decide Leo antes de construir.\n\nCONSTRUIDA 2026-10-03 (PR #365) — decisión de Leo: sí. Encabezado «Triple Captain — jornada X. Mejor candidato: N.» (o «con P» si el usuario nombra a otro) y frase de plantilla captain_held/captain_missing; sin equipo invita. Top = el del chip (= #1 de rank_captain_candidates, fijado por test). E3 con TC: 6/6 con equipo, 6/6 sin equipo, frase leída del texto servido. Nota sombra Jev: el candidato va en chip_candidate, no en chip_trace (jev_router intacto). FALTA: captura de Leo con equipo."
+      "desc": "PREGUNTA ABIERTA de [[i108]] E3. La política de dos partes (general → particular) se implementó para bench boost, wildcard y free hit; triple captain no tiene parte particular (squad_fit=None), por eso cvg-09 y ad-04 quedaron fuera del gate. Opción natural: «¿tu mejor candidato a capitán está en tu plantilla?», cruzando rank_captain_candidates contra la plantilla enlazada por element id. Es política nueva: decide Leo antes de construir.\n\nCONSTRUIDA 2026-10-03 (PR #365) — decisión de Leo: sí. Encabezado «Triple Captain — jornada X. Mejor candidato: N.» (o «con P» si el usuario nombra a otro) y frase de plantilla captain_held/captain_missing; sin equipo invita. Top = el del chip (= #1 de rank_captain_candidates, fijado por test). E3 con TC: 6/6 con equipo, 6/6 sin equipo, frase leída del texto servido. Nota sombra Jev: el candidato va en chip_candidate, no en chip_trace (jev_router intacto). FALTA: captura de Leo con equipo.\n\nPROD 2026-10-04: no verificable con la cuenta de Leo — ya usó el TC en la GW3 (y BB en la GW2), así que el turno sale por chip_unavailable, que además pisa la respuesta con texto en inglés → [[i137]]. Verificar con otra cuenta o desde la GW20."
     },
     {
       "id": "i113",
@@ -1731,14 +1731,14 @@
     },
     {
       "id": "i131",
-      "col": "evaluation",
-      "progress": 90,
+      "col": "shipped",
+      "progress": 100,
       "tags": [
         "IA",
         "FPL Asistente"
       ],
       "title": "Capitanía: se elige get_current_gameweek y no se pinta tarjeta aunque rank corrió",
-      "desc": "VISTO 2026-10-03 en la medición de [[i125]] (sin equipo, rep 3): rank_captain_candidates corrió, pero la herramienta seleccionada para el turno fue get_current_gameweek y no se pintó la tarjeta de candidatos. La selección del «tool owner» en un turno con varias llamadas (cf. composed_primary_call de i93) no prioriza la de capitanía. PRIMER PASO: reproducir y ver cómo se elige selected_tool con varias llamadas.\n\nARREGLADA 2026-10-03 en tres PRs. #359: si el turno abre con get_current_gameweek/get_gameweek_context, la tarjeta es de la primera herramienta que contesta (49× [gwc, chip] pasan a tarjeta de chip). #362: get_my_squad es contexto si otra herramienta contesta. #364: regla 3 (get_my_squad primero → la que contesta) + rescate en ask_v2: un turno tool_result_error es grounded si la dueña tiene status ok (cvg-02 sin equipo deja de servirse como «no entendido»). Mutaciones 7/7, 5/5, 8/8. FALTA: captura de Leo en prod (capitanía sin equipo + chip con equipo)."
+      "desc": "VISTO 2026-10-03 en la medición de [[i125]] (sin equipo, rep 3): rank_captain_candidates corrió, pero la herramienta seleccionada para el turno fue get_current_gameweek y no se pintó la tarjeta de candidatos. La selección del «tool owner» en un turno con varias llamadas (cf. composed_primary_call de i93) no prioriza la de capitanía. PRIMER PASO: reproducir y ver cómo se elige selected_tool con varias llamadas.\n\nARREGLADA 2026-10-03 en tres PRs. #359: si el turno abre con get_current_gameweek/get_gameweek_context, la tarjeta es de la primera herramienta que contesta (49× [gwc, chip] pasan a tarjeta de chip). #362: get_my_squad es contexto si otra herramienta contesta. #364: regla 3 (get_my_squad primero → la que contesta) + rescate en ask_v2: un turno tool_result_error es grounded si la dueña tiene status ok (cvg-02 sin equipo deja de servirse como «no entendido»). Mutaciones 7/7, 5/5, 8/8. FALTA: captura de Leo en prod (capitanía sin equipo + chip con equipo).\n\nVERIFICADA EN PROD 2026-10-04 (captura de Leo, prod 850fc36): «¿A quién capitaneo esta jornada?» sin equipo muestra la tarjeta CANDIDATOS A CAPITÁN (no JORNADA ACTUAL); top 3 Groß/Tarkowski/Barnes según el ranking."
     },
     {
       "id": "i132",
@@ -1749,7 +1749,7 @@
         "FPL Asistente"
       ],
       "title": "¿Debe el evaluador exigir minutos y estado en respuestas de chip? (decisión de Leo)",
-      "desc": "PREGUNTA ABIERTA de [[i124]]: 4 de los rechazos que quedan con C son la regla SAFE del prompt del evaluador («no player recommendations missing minutes_played_season + status check») aplicada a respuestas de Bench Boost que nombran jugadores del grupo favorecido. La herramienta de chips no trae minutos ni estado, así que el modelo no puede cumplir la regla y el reintento no lo arregla. Opciones: (a) la regla no aplica cuando se nombran jugadores como parte de un grupo favorecido, no como recomendación individual; (b) la herramienta de chips añade minutos/estado a favoured_players; (c) dejarla. Es política: decide Leo.\n\nCERRADA 2026-10-03 (PR #363) — decisión de Leo: opción (b). favoured_players de bench boost trae minutes_played_season y status (mismo mapeo que find_players), visibles para modelo y evaluador. BB R=8: SAFE false 5/8 → 0/8, rechazos 6/8 → 2/8, USD/turno 0,00535 → 0,00278. E3 sin regresión. Ojo: el texto apenas cita minutos (2/8); baja porque el evaluador VE el dato."
+      "desc": "PREGUNTA ABIERTA de [[i124]]: 4 de los rechazos que quedan con C son la regla SAFE del prompt del evaluador («no player recommendations missing minutes_played_season + status check») aplicada a respuestas de Bench Boost que nombran jugadores del grupo favorecido. La herramienta de chips no trae minutos ni estado, así que el modelo no puede cumplir la regla y el reintento no lo arregla. Opciones: (a) la regla no aplica cuando se nombran jugadores como parte de un grupo favorecido, no como recomendación individual; (b) la herramienta de chips añade minutos/estado a favoured_players; (c) dejarla. Es política: decide Leo.\n\nCERRADA 2026-10-03 (PR #363) — decisión de Leo: opción (b). favoured_players de bench boost trae minutes_played_season y status (mismo mapeo que find_players), visibles para modelo y evaluador. BB R=8: SAFE false 5/8 → 0/8, rechazos 6/8 → 2/8, USD/turno 0,00535 → 0,00278. E3 sin regresión. Ojo: el texto apenas cita minutos (2/8); baja porque el evaluador VE el dato.\n\nVERIFICADA EN PROD 2026-10-04 (captura de Leo, prod 850fc36): la respuesta de bench boost cita «Groß — 450 minutos, disponible»."
     },
     {
       "id": "i133",
@@ -1792,6 +1792,38 @@
       ],
       "title": "Contexto de jornada y chip leen fuentes de partidos distintas; el audit no guarda payloads",
       "desc": "Opciones (c) y (d) de [[i133]]: (c) que get_gameweek_context use el mismo team_fixtures que el chip, para que no puedan contradecirse; (d) registrar en el audit un hash + recuento de alertas de la vista del modelo por llamada, para poder diagnosticar a posteriori casos como el de i133 (hoy imposible: el audit no guarda payloads)."
+    },
+    {
+      "id": "i137",
+      "col": "idea",
+      "progress": 0,
+      "tags": [
+        "FPL Asistente",
+        "Backend"
+      ],
+      "title": "Chip ya usado: la respuesta entera se reemplaza por «Chip unavailable: … is not in your chips remaining.» en inglés",
+      "desc": "VISTO 2026-10-04 en prod (captura de Leo, equipo 68643: BB usado GW2, TC GW3 — verificado en la API de FPL). final_response.py:2611 sustituye final_text por un literal en inglés con el nombre interno del chip, borrando la composición de i108/i112 y el cuerpo del modelo. ARREGLO acordado con Leo: texto en español que diga cuándo se usó y cuándo vuelve (ventana: «Ya usaste el Triple Capitán en la GW3. Vuelves a tenerlo desde la GW20.»), y debajo la lectura de la jornada como planificación. Leer jornada de uso de la historia de chips y la ventana de chip_windows, no inventarla. PUERTA: tests con chip usado en 1.ª mitad / sin datos de jornada / chip disponible (sin cambio); texto servido por /ask; mutación por guarda."
+    },
+    {
+      "id": "i138",
+      "col": "idea",
+      "progress": 0,
+      "tags": [
+        "UI"
+      ],
+      "title": "MarkdownLite no dibuja tablas: la comparación muestra «| Dato | Haaland | Palmer |» en crudo",
+      "desc": "VISTO 2026-10-04 en prod («Compara a Haaland con Cole Palmer»). El modelo escribe una tabla markdown y MarkdownLite la pinta como líneas con barras. Decidido con Leo: soportar tablas (cabecera + separador + filas; alineación opcional), con scroll horizontal en móvil y sin romper líneas que contienen «|» sueltos. Tests de renderInline/bloques + captura antes/después con el componente real."
+    },
+    {
+      "id": "i139",
+      "col": "idea",
+      "progress": 0,
+      "tags": [
+        "FPL Asistente",
+        "Backend"
+      ],
+      "title": "Razones de la tarjeta de comparación en inglés («stronger form», «higher xGI output»)",
+      "desc": "VISTO 2026-10-04 en prod. comparison.py:477-494 construye reasons en inglés y la tarjeta las muestra tal cual. Pasar a español en el origen (o mapear en la UI) sin romper consumidores que lean reasons (buscar todos). Barrer otras reasons/labels en inglés que lleguen a tarjetas y listarlas."
     }
   ]
 }
