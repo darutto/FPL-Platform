@@ -100,7 +100,7 @@ from .captain_factors import TRIPLE_CAPTAIN_RISK_NOTE, factor_phrases
 from .scoring_shared import _derive_scoring_inputs
 from .fixture_context import build_fixture_context  # FI3a: additive fixture context
 # i132: same bootstrap mapping find_players / get_my_squad use for availability.
-from .chip_availability import decide_chip_availability
+from .chip_availability import chip_windows, decide_chip_availability
 from .find_players import _map_status, _safe_int
 from .tool_schema_registry import GET_CHIP_ADVICE_SCHEMA  # i108 E3: one catalog entry
 
@@ -694,6 +694,36 @@ def _availability_note(squad_context: dict[str, Any] | None) -> str:
     triple captain branches read the same; it adds nothing now."""
     del squad_context
     return ""
+
+
+def _used_chip_window_context(
+    chip: str, bootstrap: dict[str, Any], decision: dict[str, Any],
+) -> dict[str, Any]:
+    """i145: the window fields for a chip already played in the evaluated window.
+
+    The evaluated window is spent, so "N gameweeks remain" about it is the
+    wrong planning horizon (prod 2026-10-04: «quedan 14 jornadas…» under a
+    Wildcard played in GW5, and «para cuando regrese, la ventana actual sigue
+    abierta hasta la GW19»). The fields describe the NEXT window when there is
+    one, from FPL's own windows; otherwise they say there is none.
+    """
+    back = decision.get("returns_gw")
+    nxt = None
+    if back is not None:
+        nxt = next(((s, t) for s, t in (chip_windows(chip, bootstrap) or []) if s == back), None)
+    if nxt is not None:
+        return {
+            "window_status": "spent",
+            "active_window": {"start_event": nxt[0], "stop_event": nxt[1]},
+            "gameweeks_remaining": None,
+            "window_notice": f"This chip's next window: GW{nxt[0]}-GW{nxt[1]}.",
+        }
+    return {
+        "window_status": "spent",
+        "active_window": None,
+        "gameweeks_remaining": None,
+        "window_notice": "There is no later window for this chip this season.",
+    }
 
 
 def _availability_sentence(decision: dict[str, Any]) -> str:
@@ -1350,6 +1380,9 @@ def get_chip_advice(
     # i144: the same decision the response layer applies (i137/i140), made
     # here too so the model writes knowing the chip is spent / unknown.
     availability = decide_chip_availability(chip, squad_context, bootstrap, evaluated_gw)
+    if availability["status"] == "used":
+        # i145: never the spent window's "N gameweeks remain".
+        window_context = _used_chip_window_context(chip, bootstrap, availability)
 
     return {
         "status":           "ok",
@@ -1430,7 +1463,9 @@ CHIP_ADVICE_SPEC = ToolSpec(
             },
             "window_status": {
                 "type": "string",
-                "enum": ["active", "inactive", "unavailable"],
+                # i145: "spent" -- the user already played the chip in the
+                # evaluated window; the window fields describe the next one.
+                "enum": ["active", "inactive", "unavailable", "spent"],
             },
             "active_window": {
                 "type": ["object", "null"],
