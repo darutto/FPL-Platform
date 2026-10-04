@@ -41,8 +41,8 @@ COMPOSED = ("**Triple Captain — jornada 6.** Mejor candidato: Dasilva.\n\nEl c
             "Tu mejor candidato para el triple capitán no está en tu plantilla.")
 
 
-def _chip(name: str = "triple_captain") -> ChipAdviceMeta:
-    return ChipAdviceMeta(chip=name, recommendation="conditions_favorable", gw=6,
+def _chip(name: str = "triple_captain", gw: int = 6) -> ChipAdviceMeta:
+    return ChipAdviceMeta(chip=name, recommendation="conditions_favorable", gw=gw,
                           signal_value=80.0, signal_label="captain_score", top_player="Dasilva",
                           evaluated_player=None)
 
@@ -75,7 +75,8 @@ def test_used_without_its_gameweek_says_it_without_a_number():
 
 
 def test_available_chip_is_unchanged():
-    _, chip, text = _apply(_chip(), {"chips_remaining": ["triple_captain"], "chips_used": CHIPS_USED})
+    used = [{"chip": "bench_boost", "event": 2}, {"chip": "wildcard", "event": 5}]   # TC not played
+    _, chip, text = _apply(_chip(), {"chips_remaining": ["triple_captain"], "chips_used": used})
     assert chip.chip_unavailable is False and text == COMPOSED
 
 
@@ -90,13 +91,14 @@ def test_no_windows_keeps_the_used_gw_and_drops_the_return():
 
 def test_used_in_the_last_window_has_no_return_sentence():
     used = [{"chip": "triple_captain", "event": 24}]
-    _, _, text = _apply(_chip(), {"chips_remaining": [], "chips_used": used})
+    # i140: asked about GW25, inside the window the chip was spent in
+    _, _, text = _apply(_chip(gw=25), {"chips_remaining": [], "chips_used": used})
     assert text.split("\n\n")[0] == "Ya usaste el Triple Capitán en la GW24."
 
 
 def test_the_latest_use_of_that_chip_is_the_one_named():
     used = [{"chip": "wildcard", "event": 5}, {"chip": "wildcard", "event": 21}]
-    _, _, text = _apply(_chip("wildcard"), {"chips_remaining": [], "chips_used": used})
+    _, _, text = _apply(_chip("wildcard", gw=25), {"chips_remaining": [], "chips_used": used})
     assert text.split("\n\n")[0] == "Ya usaste el Comodín en la GW21."
 
 
@@ -105,7 +107,6 @@ def test_the_latest_use_of_that_chip_is_the_one_named():
     [{"chip": "triple_captain", "event": 0}],
     [{"chip": "triple_captain"}],
     "triple_captain",
-    [{"chip": "bench_boost", "event": 2}],               # another chip's use is not this one's
 ])
 def test_a_malformed_or_foreign_use_reads_as_unknown(bad):
     _, _, text = _apply(_chip(), {"chips_remaining": [], "chips_used": bad})

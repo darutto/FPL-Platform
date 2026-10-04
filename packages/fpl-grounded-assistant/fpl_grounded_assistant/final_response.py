@@ -69,6 +69,7 @@ Intentionally deferred
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -2616,11 +2617,11 @@ def _chip_used_gw(chip_name: str, chips_used: Any) -> "int | None":
     return max(events) if events else None
 
 
-def _chip_return_gw(chip_name: str, used_gw: int, bootstrap: "dict[str, Any] | None") -> "int | None":
-    """Start of the chip's next window after the one *used_gw* falls in.
+def _chip_windows(chip_name: str, bootstrap: "dict[str, Any] | None") -> "list[tuple[int, int]] | None":
+    """FPL's own windows for *chip_name*, ``[(start_event, stop_event), ...]``.
 
-    Read off ``bootstrap["chips"]`` (FPL's own start/stop per window). ``None``
-    when the windows are absent or malformed, or the used window is the last.
+    Read off ``bootstrap["chips"]``. ``None`` when absent, empty or any entry
+    for this chip is malformed -- a partial list is not trusted.
     """
     raw = (bootstrap or {}).get("chips")
     api_name = _CHIP_API_NAME.get(chip_name)
@@ -2634,6 +2635,18 @@ def _chip_return_gw(chip_name: str, used_gw: int, bootstrap: "dict[str, Any] | N
             windows.append((int(entry["start_event"]), int(entry["stop_event"])))
         except (KeyError, TypeError, ValueError):
             return None
+    return windows or None
+
+
+def _chip_return_gw(chip_name: str, used_gw: int, bootstrap: "dict[str, Any] | None") -> "int | None":
+    """Start of the chip's next window after the one *used_gw* falls in.
+
+    Read off ``bootstrap["chips"]`` (FPL's own start/stop per window). ``None``
+    when the windows are absent or malformed, or the used window is the last.
+    """
+    windows = _chip_windows(chip_name, bootstrap)
+    if windows is None:
+        return None
     used_window = next(((s, t) for s, t in windows if s <= used_gw <= t), None)
     if used_window is None:
         return None
@@ -2641,11 +2654,87 @@ def _chip_return_gw(chip_name: str, used_gw: int, bootstrap: "dict[str, Any] | N
     return later[0] if later else None
 
 
+_AVAILABILITY_LOG = logging.getLogger(__name__)
+
+
+def _target_gw(chip: "ChipAdviceMeta", bootstrap: "dict[str, Any] | None") -> "int | None":
+    """The gameweek the chip would be played in.
+
+    The chip advice's own evaluated ``gw`` (what the user asked about), else
+    FPL's next gameweek, else its current one. ``None`` when none is known.
+    """
+    try:
+        gw = int(chip.gw) if chip.gw is not None else None
+    except (TypeError, ValueError):
+        gw = None
+    if gw is not None and 1 <= gw <= 38:
+        return gw
+    events = (bootstrap or {}).get("events")
+    if isinstance(events, list):
+        for flag in ("is_next", "is_current"):
+            for ev in events:
+                if isinstance(ev, dict) and ev.get(flag):
+                    try:
+                        return int(ev["id"])
+                    except (KeyError, TypeError, ValueError):
+                        return None
+    return None
+
+
+def _chip_window_availability(
+    chip_name: str,
+    squad_context: "dict[str, Any]",
+    bootstrap: "dict[str, Any] | None",
+    target_gw: "int | None",
+) -> "tuple[bool | None, int | None, str | None]":
+    """i140: is the chip still playable in the window that holds *target_gw*?
+
+    FPL 2026-27 gives every chip one use per window (GW1/2-19, GW20-38). The
+    UI's ``chips_remaining`` counted uses per season, so it offered a
+    wildcard already spent this half and would block every chip from GW20.
+    Decided here, once, from FPL's windows (``bootstrap["chips"]``) and the
+    user's ``chips_used`` (the UI's projection of their FPL history).
+
+    Returns ``(available, used_gw_in_window, fallback_reason)``.
+    ``available is None`` means "cannot decide": the caller falls back to
+    ``chips_remaining`` and ``fallback_reason`` says why.
+    """
+    chips_used = squad_context.get("chips_used")
+    if not isinstance(chips_used, list):
+        return None, None, "no_chips_used"
+    windows = _chip_windows(chip_name, bootstrap)
+    if windows is None:
+        return None, None, "no_windows"
+    if target_gw is None:
+        return None, None, "no_target_gw"
+    window = next(((s, t) for s, t in windows if s <= target_gw <= t), None)
+    if window is None:
+        return None, None, "target_outside_windows"
+    uses = []
+    for entry in chips_used:
+        if not isinstance(entry, dict) or entry.get("chip") != chip_name:
+            continue
+        try:
+            event = int(entry.get("event"))
+        except (TypeError, ValueError):
+            event = 0
+        if not 1 <= event <= 38:
+            # A use of THIS chip whose gameweek is unreadable: cannot say
+            # which window it spent, so do not decide -- fall back.
+            return None, None, "malformed_chips_used"
+        if window[0] <= event <= window[1]:
+            uses.append(event)
+    if uses:
+        return False, max(uses), None
+    return True, None, None
+
+
 def _chip_unavailable_text(
     chip_name: str,
     squad_context: "dict[str, Any]",
     bootstrap: "dict[str, Any] | None",
     planning_text: str,
+    used_gw: "int | None" = None,
 ) -> str:
     """i137: when the chip was already played, say when and when it comes back.
 
@@ -2656,7 +2745,10 @@ def _chip_unavailable_text(
     without its number. The turn's own answer stays below as planning.
     """
     article, label, pronoun = _CHIP_LABEL_ES.get(chip_name, ("el", chip_name, "lo"))
-    used_gw = _chip_used_gw(chip_name, squad_context.get("chips_used"))
+    if used_gw is None:
+        # i140: the window decision passes the use inside the target window;
+        # the chips_remaining fallback names the latest use, as i137 did.
+        used_gw = _chip_used_gw(chip_name, squad_context.get("chips_used"))
     if used_gw is None:
         lead = f"Ya usaste {article} {label}, así que ahora no {pronoun} tienes disponible."
     else:
@@ -2745,9 +2837,21 @@ def _apply_squad_overrides(
         )
 
     # --------------------------------------------------------- chip_unavailable
-    if chip is not None and _chips_remaining is not None:
-        if chip.chip not in _chips_remaining:
-            final_text = _chip_unavailable_text(chip.chip, _squad, bootstrap, final_text)
+    # i140: decided per FPL window (bootstrap chips + chips_used) when both are
+    # there; otherwise the chips_remaining rule as before, and the log says why.
+    if chip is not None:
+        available, used_in_window, fallback = _chip_window_availability(
+            chip.chip, _squad, bootstrap, _target_gw(chip, bootstrap),
+        )
+        if available is None and _chips_remaining is not None:
+            _AVAILABILITY_LOG.info(
+                "chip_availability_fallback chip=%s reason=%s", chip.chip, fallback,
+            )
+            available = chip.chip in _chips_remaining
+        if available is False:
+            final_text = _chip_unavailable_text(
+                chip.chip, _squad, bootstrap, final_text, used_gw=used_in_window,
+            )
             chip = ChipAdviceMeta(
                 chip=chip.chip,
                 recommendation=chip.recommendation,
