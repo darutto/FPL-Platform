@@ -923,10 +923,10 @@
     },
     {
       "id": "i58",
-      "col": "evaluation",
-      "progress": 85,
+      "col": "shipped",
+      "progress": 100,
       "title": "Los turnos rescatados pierden su tarjeta: tool_call_count es la senal equivocada",
-      "desc": "EFECTO SECUNDARIO CONOCIDO del arreglo de [[i46]] (PR #203), reportado por el constructor sin que se le preguntara. harness.py:1152 compone tarjeta solo si tool_call_count == 1. Un turno que la ronda extra rescata pasa a valer 2, asi que deja de sacar tarjeta.\n\nEL BALANCE REAL, que es mas fino de lo que parece: esos turnos ANTES si sacaban tarjeta, porque tenian tool_call_count == 1. O sea que el usuario recibia [volcado crudo + tarjeta buena] y ahora recibe [prosa buena + sin tarjeta]. No es cambiar nada por algo: es cambiar la mitad mala por la mitad buena y perder la que ya servia. Se acepta porque la prosa vale mas que la tarjeta en un turno que estaba roto, pero no es gratis, y la UI de tarjetas es una direccion de producto deliberada (PR #36).\n\nEL PATRON, que es lo transferible: es la SEGUNDA vez que tool_call_count se usa como proxy de algo que no significa. La primera fue creer que contaba si el modelo habia hablado, y la senal correcta resulto ser synthesis_turn -- eso costo una hipotesis biconditional falsa en las dos direcciones. Aqui la pregunta real no es 'cuantas llamadas hubo' sino 'hay una salida de herramienta que sirva de base para la tarjeta'. Son cosas distintas y el contador no las separa.\n\nARREGLO PROPUESTO: que la puerta de composicion mire la salida cardable, no el numero de llamadas. Distinto de [[i13]], que trata de componer VARIAS tarjetas en turnos multi-intent; aqui es una sola tarjeta que se pierde por un contador.\n\nMEDIR ANTES DE PROMETER: cuantos turnos rescatados dejan de cardar en la practica. Con el arreglo de i46 recien puesto, la poblacion afectada es la misma que ya se instrumento y no cuesta una medicion nueva.\n\nFUSIONADA 2026-09-13 (PR #271, 30df8e7). La puerta lee «una sola herramienta DISTINTA con salida cardable» desde tool_calls_trace, no el contador; multi-herramienta real sigue sin tarjeta. Dos premisas resultaron falsas al medir: (1) la UI ya mostraba prosa encima de la tarjeta desde 2026-09-04 (MessageList.tsx, commits 98d8ae3/f56a4f8), ahora pineado para la forma exacta del turno rescatado; (2) en el corpus de i46 (75 llamadas, luna, $0,19) hubo 0 turnos con ronda extra, así que la población afectada medida es 0/75. Pendiente para shipped: capturar un turno rescatado real en prod (ninguno apareció en los ~30 turnos de verificación del bloque).\n\nSIGUE ATASCADA POR DISEÑO: el cierre pide capturar un turno rescatado real en prod, y es un evento raro (0/75 en el corpus de medición, 0 en ~30 turnos de verificación del bloque, 0 en la barrida de hoy). Con el código ya probado por tests + mutaciones, y tres intentos de captura en cero, la pregunta real ya no es \"¿cómo lo capturamos?\" sino \"¿aceptamos la evidencia de tests como suficiente y la cerramos igual?\" -- decisión de Leo, no técnica.",
+      "desc": "EFECTO SECUNDARIO CONOCIDO del arreglo de [[i46]] (PR #203), reportado por el constructor sin que se le preguntara. harness.py:1152 compone tarjeta solo si tool_call_count == 1. Un turno que la ronda extra rescata pasa a valer 2, asi que deja de sacar tarjeta.\n\nEL BALANCE REAL, que es mas fino de lo que parece: esos turnos ANTES si sacaban tarjeta, porque tenian tool_call_count == 1. O sea que el usuario recibia [volcado crudo + tarjeta buena] y ahora recibe [prosa buena + sin tarjeta]. No es cambiar nada por algo: es cambiar la mitad mala por la mitad buena y perder la que ya servia. Se acepta porque la prosa vale mas que la tarjeta en un turno que estaba roto, pero no es gratis, y la UI de tarjetas es una direccion de producto deliberada (PR #36).\n\nEL PATRON, que es lo transferible: es la SEGUNDA vez que tool_call_count se usa como proxy de algo que no significa. La primera fue creer que contaba si el modelo habia hablado, y la senal correcta resulto ser synthesis_turn -- eso costo una hipotesis biconditional falsa en las dos direcciones. Aqui la pregunta real no es 'cuantas llamadas hubo' sino 'hay una salida de herramienta que sirva de base para la tarjeta'. Son cosas distintas y el contador no las separa.\n\nARREGLO PROPUESTO: que la puerta de composicion mire la salida cardable, no el numero de llamadas. Distinto de [[i13]], que trata de componer VARIAS tarjetas en turnos multi-intent; aqui es una sola tarjeta que se pierde por un contador.\n\nMEDIR ANTES DE PROMETER: cuantos turnos rescatados dejan de cardar en la practica. Con el arreglo de i46 recien puesto, la poblacion afectada es la misma que ya se instrumento y no cuesta una medicion nueva.\n\nFUSIONADA 2026-09-13 (PR #271, 30df8e7). La puerta lee «una sola herramienta DISTINTA con salida cardable» desde tool_calls_trace, no el contador; multi-herramienta real sigue sin tarjeta. Dos premisas resultaron falsas al medir: (1) la UI ya mostraba prosa encima de la tarjeta desde 2026-09-04 (MessageList.tsx, commits 98d8ae3/f56a4f8), ahora pineado para la forma exacta del turno rescatado; (2) en el corpus de i46 (75 llamadas, luna, $0,19) hubo 0 turnos con ronda extra, así que la población afectada medida es 0/75. Pendiente para shipped: capturar un turno rescatado real en prod (ninguno apareció en los ~30 turnos de verificación del bloque).\n\nSIGUE ATASCADA POR DISEÑO: el cierre pide capturar un turno rescatado real en prod, y es un evento raro (0/75 en el corpus de medición, 0 en ~30 turnos de verificación del bloque, 0 en la barrida de hoy). Con el código ya probado por tests + mutaciones, y tres intentos de captura en cero, la pregunta real ya no es \"¿cómo lo capturamos?\" sino \"¿aceptamos la evidencia de tests como suficiente y la cerramos igual?\" -- decisión de Leo, no técnica.\n\nCERRADA 2026-10-03 por decisión de Leo: la evidencia de tests + mutaciones (#271) basta; un turno rescatado real en prod es un evento raro (0/75 medido) y no se esperará más.",
       "tags": [
         "Backend",
         "UI"
@@ -1514,36 +1514,36 @@
     },
     {
       "id": "i111",
-      "col": "idea",
-      "progress": 0,
+      "col": "evaluation",
+      "progress": 90,
       "tags": [
         "IA",
         "FPL Asistente"
       ],
       "title": "Preguntas de chip que no llegan a la herramienta de chips",
-      "desc": "HALLAZGO de [[i108]] E3 (2026-09-24). Dos formas de pregunta de chip no rutean a get_chip_advice, así que no reciben la respuesta en dos partes: (1) ad-05 «¿Me conviene hacer un transfer esta semana o mejor guardo el chip?» → get_gameweek_context 3/3; (2) sin equipo enlazado, cvg-02 «¿Es buena idea usar el bench boost en la fecha 3? Analizá mi plantilla primero.» → get_my_squad EN VEZ de chip, y la respuesta abre con el mensaje no_team_connected («no puedo evaluar tu plantilla…»), justo la apertura que E3 prohíbe. Palanca probable: la descripción del schema de chip / de get_my_squad (lección E4: describir la composición una vez), o la regla cerrada que midió el piloto de Jev (ruta get_my_squad + mención de chip → plan de chip, 13/13). CIERRE: las dos frases llegan a get_chip_advice ≥ 2/3 con y sin equipo, sin mover controles."
+      "desc": "HALLAZGO de [[i108]] E3 (2026-09-24). Dos formas de pregunta de chip no rutean a get_chip_advice, así que no reciben la respuesta en dos partes: (1) ad-05 «¿Me conviene hacer un transfer esta semana o mejor guardo el chip?» → get_gameweek_context 3/3; (2) sin equipo enlazado, cvg-02 «¿Es buena idea usar el bench boost en la fecha 3? Analizá mi plantilla primero.» → get_my_squad EN VEZ de chip, y la respuesta abre con el mensaje no_team_connected («no puedo evaluar tu plantilla…»), justo la apertura que E3 prohíbe. Palanca probable: la descripción del schema de chip / de get_my_squad (lección E4: describir la composición una vez), o la regla cerrada que midió el piloto de Jev (ruta get_my_squad + mención de chip → plan de chip, 13/13). CIERRE: las dos frases llegan a get_chip_advice ≥ 2/3 con y sin equipo, sin mover controles.\n\nCERRADA EN CÓDIGO 2026-10-03. ad-05: decisión de Leo — la pregunta está mal formulada (mezcla transfer y un chip sin nombrar); pedir aclaración es lo correcto, sin cambio. cvg-02: el defecto real era que get_my_squad sin equipo dejaba el turno en tool_result_error y no se componía; #364 rescata la superficie (tarjeta de chip) y #366 compone el texto en ese caso acotado. E3 sin equipo 38/38, 0 aperturas prohibidas. Visto: cvg-02 r1 a veces solo llama get_my_squad (ruteo, fuera de alcance). FALTA: captura de Leo."
     },
     {
       "id": "i112",
-      "col": "idea",
-      "progress": 0,
+      "col": "evaluation",
+      "progress": 90,
       "tags": [
         "IA",
         "FPL Asistente"
       ],
       "title": "¿Triple captain debe tener parte particular? (decisión de Leo)",
-      "desc": "PREGUNTA ABIERTA de [[i108]] E3. La política de dos partes (general → particular) se implementó para bench boost, wildcard y free hit; triple captain no tiene parte particular (squad_fit=None), por eso cvg-09 y ad-04 quedaron fuera del gate. Opción natural: «¿tu mejor candidato a capitán está en tu plantilla?», cruzando rank_captain_candidates contra la plantilla enlazada por element id. Es política nueva: decide Leo antes de construir."
+      "desc": "PREGUNTA ABIERTA de [[i108]] E3. La política de dos partes (general → particular) se implementó para bench boost, wildcard y free hit; triple captain no tiene parte particular (squad_fit=None), por eso cvg-09 y ad-04 quedaron fuera del gate. Opción natural: «¿tu mejor candidato a capitán está en tu plantilla?», cruzando rank_captain_candidates contra la plantilla enlazada por element id. Es política nueva: decide Leo antes de construir.\n\nCONSTRUIDA 2026-10-03 (PR #365) — decisión de Leo: sí. Encabezado «Triple Captain — jornada X. Mejor candidato: N.» (o «con P» si el usuario nombra a otro) y frase de plantilla captain_held/captain_missing; sin equipo invita. Top = el del chip (= #1 de rank_captain_candidates, fijado por test). E3 con TC: 6/6 con equipo, 6/6 sin equipo, frase leída del texto servido. Nota sombra Jev: el candidato va en chip_candidate, no en chip_trace (jev_router intacto). FALTA: captura de Leo con equipo."
     },
     {
       "id": "i113",
-      "col": "idea",
-      "progress": 0,
+      "col": "shipped",
+      "progress": 100,
       "tags": [
         "Backend",
         "CI"
       ],
       "title": "tests/ de fpl-grounded-assistant sin __init__.py: `import tests` apunta a otro paquete",
-      "desc": "HALLAZGO 2026-09-23 (PR #316). test_captaincy_surface.py:349 hacía `from tests.conftest import BOOTSTRAP` y fallaba ejecutado solo en main limpio, y en CI de forma intermitente (puso rojo #315 y el bot de stats): packages/fpl-grounded-assistant/tests no tiene __init__.py, así que `import tests` se queda con el primer paquete regular en sys.path (fpl-api-client en CI) salvo que un test anterior haya insertado el path correcto. #316 arregló ese test (usa el fixture); la causa raíz sigue. Familia de #66 (import-order-luck). CIERRE: decidir __init__.py o conftest con rootdir/importmode explícito, y un test que falle si otro test vuelve a importar desde `tests.`."
+      "desc": "HALLAZGO 2026-09-23 (PR #316). test_captaincy_surface.py:349 hacía `from tests.conftest import BOOTSTRAP` y fallaba ejecutado solo en main limpio, y en CI de forma intermitente (puso rojo #315 y el bot de stats): packages/fpl-grounded-assistant/tests no tiene __init__.py, así que `import tests` se queda con el primer paquete regular en sys.path (fpl-api-client en CI) salvo que un test anterior haya insertado el path correcto. #316 arregló ese test (usa el fixture); la causa raíz sigue. Familia de #66 (import-order-luck). CIERRE: decidir __init__.py o conftest con rootdir/importmode explícito, y un test que falle si otro test vuelve a importar desde `tests.`.\n\nCERRADA 2026-10-03 (PR #361). Guarda, no __init__.py (con __init__ dejaban de colectar 9 módulos): test AST que prohíbe importar del espacio `tests` en todo tests/ de fpl-grounded-assistant y fija que __init__.py sigue ausente. Mutaciones 5/5; corrida conjunta como CI en checkout limpio verde."
     },
     {
       "id": "i114",
@@ -1602,24 +1602,24 @@
     },
     {
       "id": "i119",
-      "col": "idea",
-      "progress": 0,
+      "col": "shipped",
+      "progress": 100,
       "title": "Fuga de encuadre en la respuesta de aclaración del orquestador (vender/fichar)",
       "tags": [
         "IA",
         "FPL Asistente"
       ],
-      "desc": "INDEPENDIENTE de Jev. En la eval 4 brazo A (main), las respuestas de aclaración de ad-05 tuvieron transaction_hits 4 y 2 («vender», «fichar»); la eval 4b vio 3 más en las respuestas del orquestador escalado. La regla de encuadre en oportunidad se aplica a la respuesta de chip compuesta ([[i108]] E3), pero no a la respuesta de aclaración del orquestador. Relacionada con [[i111]] (ad-05 no llega a chips). CIERRE: opportunity_framing.transaction_hits = 0 sobre las respuestas de aclaración reales de ad-05, R=3, y test con fixture de un texto de aclaración que contiene «vender».\n\nORIGEN: handoff de la sesión del piloto de Jev (2026-09-29), plan C:\\Users\\thera\\.claude\\plans\\jev-prod-handoff-2026-09-29.md, aprobado por Leo según el relay. Evidencia: eval 4/4b tras i108 E3, 14 ids × 3, grader grade_i108_chip_two_parts.py — mismo gate que main (33/33), $0.000579 vs $0.001104 por respuesta (−48 %), p50 3,3 s vs 5,6 s. Evidencia end-to-end SOLO para chips; por eso solo chips van a prod. Implementación de referencia en origin/experiment/jev-tool-routing."
+      "desc": "INDEPENDIENTE de Jev. En la eval 4 brazo A (main), las respuestas de aclaración de ad-05 tuvieron transaction_hits 4 y 2 («vender», «fichar»); la eval 4b vio 3 más en las respuestas del orquestador escalado. La regla de encuadre en oportunidad se aplica a la respuesta de chip compuesta ([[i108]] E3), pero no a la respuesta de aclaración del orquestador. Relacionada con [[i111]] (ad-05 no llega a chips). CIERRE: opportunity_framing.transaction_hits = 0 sobre las respuestas de aclaración reales de ad-05, R=3, y test con fixture de un texto de aclaración que contiene «vender».\n\nORIGEN: handoff de la sesión del piloto de Jev (2026-09-29), plan C:\\Users\\thera\\.claude\\plans\\jev-prod-handoff-2026-09-29.md, aprobado por Leo según el relay. Evidencia: eval 4/4b tras i108 E3, 14 ids × 3, grader grade_i108_chip_two_parts.py — mismo gate que main (33/33), $0.000579 vs $0.001104 por respuesta (−48 %), p50 3,3 s vs 5,6 s. Evidencia end-to-end SOLO para chips; por eso solo chips van a prod. Implementación de referencia en origin/experiment/jev-tool-routing.\n\nCERRADA 2026-10-03 (PR #368) — decisión de Leo: opción C. En respuestas a preguntas de fichajes, «transfer» y «¿qué jugador venderías?» neutros están permitidos; solo se bloquea urgencia/peligro (opportunity_framing.urgency_hits, lista cerrada). ad-05 R=3: 0 urgencia en los dos brazos, sin tocar el prompt. Además «vendría» (de venir) deja de contar como transacción. E3 de chips sin más cambios."
     },
     {
       "id": "i120",
-      "col": "idea",
-      "progress": 0,
+      "col": "shipped",
+      "progress": 100,
       "title": "El resolver de equipos acepta cualquier subcadena del nombre: «tal» → Crystal Palace",
       "tags": [
         "Backend"
       ],
-      "desc": "OBSERVACIÓN de la sesión del piloto (2026-09-29), verificada por el chat de revisión en main: el último nivel de team_fixture_calendar._resolve_team_result es `q in t[\"name\"].lower()` — «tal» (de «¿qué tal pinta…») resuelve a Crystal Palace; «ton», «ham» resolverían en silencio a un club equivocado en vez de fallar. Hoy no daña: el resolver recibe el team_query del modelo, no texto libre. Es el patrón «relajar el matcher esconde el fallo». CIERRE: exigir un mínimo de longitud o límite de palabra en ese nivel (o eliminarlo si los alias cubren lo necesario), con test que liste qué NUEVO deja de resolver y qué sigue resolviendo en los 20 clubes."
+      "desc": "OBSERVACIÓN de la sesión del piloto (2026-09-29), verificada por el chat de revisión en main: el último nivel de team_fixture_calendar._resolve_team_result es `q in t[\"name\"].lower()` — «tal» (de «¿qué tal pinta…») resuelve a Crystal Palace; «ton», «ham» resolverían en silencio a un club equivocado en vez de fallar. Hoy no daña: el resolver recibe el team_query del modelo, no texto libre. Es el patrón «relajar el matcher esconde el fallo». CIERRE: exigir un mínimo de longitud o límite de palabra en ese nivel (o eliminarlo si los alias cubren lo necesario), con test que liste qué NUEVO deja de resolver y qué sigue resolviendo en los 20 clubes.\n\nCERRADA 2026-10-03 (PR #358). El nivel 4 de _resolve_team_result exige límite de palabra: ≥3 caracteres, palabra entera si <4, prefijo de palabra si ≥4. Auditoría de relajación 815 consultas: 0 resuelven nuevo, 0 cambian de destino, 577 fragmentos dejan de resolver («tal», «ham», «ton»). Los 20 clubes + 26 alias siguen."
     },
     {
       "id": "i121",
@@ -1710,57 +1710,88 @@
     },
     {
       "id": "i129",
-      "col": "idea",
-      "progress": 0,
+      "col": "shipped",
+      "progress": 100,
       "tags": [
         "Backend",
         "IA"
       ],
       "title": "compare_players da not_found para «Salah» a secas",
-      "desc": "VISTO 2026-10-03 en el replay de [[i124]] (primaria #2): compare_players devuelve not_found para «Salah» cuando el resto de herramientas lo resuelve. Posible resolvedor propio en compare_players, distinto del matcher compartido (familia de [[i16]] / PR #14). PRIMER PASO: reproducir y ver qué matcher usa."
+      "desc": "VISTO 2026-10-03 en el replay de [[i124]] (primaria #2): compare_players devuelve not_found para «Salah» cuando el resto de herramientas lo resuelve. Posible resolvedor propio en compare_players, distinto del matcher compartido (familia de [[i16]] / PR #14). PRIMER PASO: reproducir y ver qué matcher usa.\n\nCERRADA SIN PR 2026-10-03 (bloque 7): la premisa cayó. Salah no está en el bootstrap 2026-27 (667 jugadores, verificado en vivo por el chat de revisión); el not_found es correcto. compare_players usa el mismo resolvedor que el resto (paridad 1.433 consultas, 0 diferencias). Idea derivada → [[i135]]."
     },
     {
       "id": "i130",
-      "col": "idea",
-      "progress": 0,
+      "col": "shipped",
+      "progress": 100,
       "tags": [
         "Backend"
       ],
       "title": "El audit no registra cache_read del reintento: el USD de los turnos rechazados es una cota superior",
-      "desc": "VISTO 2026-10-03 en [[i124]]: tokens.retry_input se registra pero no la parte cacheada del reintento, así que usd_cost_estimate de los turnos con reintento sobreestima. Añadir retry_cache_read al audit y a model_pricing ([[i105]]). Pequeña."
+      "desc": "VISTO 2026-10-03 en [[i124]]: tokens.retry_input se registra pero no la parte cacheada del reintento, así que usd_cost_estimate de los turnos con reintento sobreestima. Añadir retry_cache_read al audit y a model_pricing ([[i105]]). Pequeña.\n\nCERRADA 2026-10-03 (PR #360). retry_cache_read en OrchestratorResult, tokens del audit y coste USD; total_tokens (cuota) sin cambio a propósito. Turno rechazado de ejemplo: $0.0011314 → $0.0005914, igual al cálculo a mano."
     },
     {
       "id": "i131",
-      "col": "idea",
-      "progress": 0,
+      "col": "evaluation",
+      "progress": 90,
       "tags": [
         "IA",
         "FPL Asistente"
       ],
       "title": "Capitanía: se elige get_current_gameweek y no se pinta tarjeta aunque rank corrió",
-      "desc": "VISTO 2026-10-03 en la medición de [[i125]] (sin equipo, rep 3): rank_captain_candidates corrió, pero la herramienta seleccionada para el turno fue get_current_gameweek y no se pintó la tarjeta de candidatos. La selección del «tool owner» en un turno con varias llamadas (cf. composed_primary_call de i93) no prioriza la de capitanía. PRIMER PASO: reproducir y ver cómo se elige selected_tool con varias llamadas."
+      "desc": "VISTO 2026-10-03 en la medición de [[i125]] (sin equipo, rep 3): rank_captain_candidates corrió, pero la herramienta seleccionada para el turno fue get_current_gameweek y no se pintó la tarjeta de candidatos. La selección del «tool owner» en un turno con varias llamadas (cf. composed_primary_call de i93) no prioriza la de capitanía. PRIMER PASO: reproducir y ver cómo se elige selected_tool con varias llamadas.\n\nARREGLADA 2026-10-03 en tres PRs. #359: si el turno abre con get_current_gameweek/get_gameweek_context, la tarjeta es de la primera herramienta que contesta (49× [gwc, chip] pasan a tarjeta de chip). #362: get_my_squad es contexto si otra herramienta contesta. #364: regla 3 (get_my_squad primero → la que contesta) + rescate en ask_v2: un turno tool_result_error es grounded si la dueña tiene status ok (cvg-02 sin equipo deja de servirse como «no entendido»). Mutaciones 7/7, 5/5, 8/8. FALTA: captura de Leo en prod (capitanía sin equipo + chip con equipo)."
     },
     {
       "id": "i132",
+      "col": "shipped",
+      "progress": 100,
+      "tags": [
+        "IA",
+        "FPL Asistente"
+      ],
+      "title": "¿Debe el evaluador exigir minutos y estado en respuestas de chip? (decisión de Leo)",
+      "desc": "PREGUNTA ABIERTA de [[i124]]: 4 de los rechazos que quedan con C son la regla SAFE del prompt del evaluador («no player recommendations missing minutes_played_season + status check») aplicada a respuestas de Bench Boost que nombran jugadores del grupo favorecido. La herramienta de chips no trae minutos ni estado, así que el modelo no puede cumplir la regla y el reintento no lo arregla. Opciones: (a) la regla no aplica cuando se nombran jugadores como parte de un grupo favorecido, no como recomendación individual; (b) la herramienta de chips añade minutos/estado a favoured_players; (c) dejarla. Es política: decide Leo.\n\nCERRADA 2026-10-03 (PR #363) — decisión de Leo: opción (b). favoured_players de bench boost trae minutes_played_season y status (mismo mapeo que find_players), visibles para modelo y evaluador. BB R=8: SAFE false 5/8 → 0/8, rechazos 6/8 → 2/8, USD/turno 0,00535 → 0,00278. E3 sin regresión. Ojo: el texto apenas cita minutos (2/8); baja porque el evaluador VE el dato."
+    },
+    {
+      "id": "i133",
+      "col": "shipped",
+      "progress": 100,
+      "tags": [
+        "IA",
+        "Backend"
+      ],
+      "title": "Posible mala lectura de jornadas en blanco («GW6 en blanco para 20 equipos»)",
+      "desc": "VISTO 2026-10-03 en los rechazos que quedan tras C ([[i124]]): 2-3 respuestas o feedbacks afirman blancos que las herramientas no devuelven («GW6 en blanco para 20 equipos»). La sonda de la constructora no reproduce blancos en las herramientas. Puede ser el modelo leyendo bgw_teams/fixture_context vacíos como «todos en blanco». PRIMER PASO: sonda propia que compare, para esas preguntas, el payload de chip/gameweek_context con el texto y con el feedback del evaluador.\n\nDIAGNOSTICADA 2026-10-03 (PR #367, solo medición). El «20 equipos en blanco» nació de un fetch de fixtures VACÍO esa tarde (reproducido offline: 5 alertas × 20 equipos GW6-10); el evaluador no lee mal listas vacías (replay 0/20). Causa raíz en código: una lista vacía contaba como blanco total y _fixture_cache la guardaba sin TTL hasta reiniciar. Arreglo → [[i134]]; opciones (c)/(d) → [[i136]]."
+    },
+    {
+      "id": "i134",
+      "col": "evaluation",
+      "progress": 90,
+      "tags": [
+        "Backend"
+      ],
+      "title": "Una lista de partidos vacía ya no se lee como «20 equipos en blanco» ni queda en caché",
+      "desc": "Arreglo de [[i133]] (opciones a+b), PR #369, 2026-10-03. get_gameweek_context salta una GW con lista vacía como si fuera un fallo de API; _fetch_fixtures_for_gw no cachea listas vivas vacías (un fetch normal sigue cacheado). Tests: fetch vacío sin bgw de 20 ni caché, recuperación, blanco parcial real sigue saliendo. FALTA: nada en prod salvo observar el audit; se cierra tras deploy."
+    },
+    {
+      "id": "i135",
       "col": "idea",
       "progress": 0,
       "tags": [
         "IA",
         "FPL Asistente"
       ],
-      "title": "¿Debe el evaluador exigir minutos y estado en respuestas de chip? (decisión de Leo)",
-      "desc": "PREGUNTA ABIERTA de [[i124]]: 4 de los rechazos que quedan con C son la regla SAFE del prompt del evaluador («no player recommendations missing minutes_played_season + status check») aplicada a respuestas de Bench Boost que nombran jugadores del grupo favorecido. La herramienta de chips no trae minutos ni estado, así que el modelo no puede cumplir la regla y el reintento no lo arregla. Opciones: (a) la regla no aplica cuando se nombran jugadores como parte de un grupo favorecido, no como recomendación individual; (b) la herramienta de chips añade minutos/estado a favoured_players; (c) dejarla. Es política: decide Leo."
+      "title": "Jugador conocido fuera de la liga: decir «no está en FPL esta temporada» en vez de not_found seco",
+      "desc": "VISTO en [[i129]] 2026-10-03: «Salah» da not_found (correcto: ya no está en el bootstrap 2026-27), y el evaluador pide reintentos sobre ese not_found. Idea: un mensaje explícito para nombres conocidos que salieron de la liga, para que ni el usuario ni el evaluador lo lean como fallo. PRIMER PASO: medir con qué frecuencia aparece en el audit de prod."
     },
     {
-      "id": "i133",
+      "id": "i136",
       "col": "idea",
       "progress": 0,
       "tags": [
-        "IA",
         "Backend"
       ],
-      "title": "Posible mala lectura de jornadas en blanco («GW6 en blanco para 20 equipos»)",
-      "desc": "VISTO 2026-10-03 en los rechazos que quedan tras C ([[i124]]): 2-3 respuestas o feedbacks afirman blancos que las herramientas no devuelven («GW6 en blanco para 20 equipos»). La sonda de la constructora no reproduce blancos en las herramientas. Puede ser el modelo leyendo bgw_teams/fixture_context vacíos como «todos en blanco». PRIMER PASO: sonda propia que compare, para esas preguntas, el payload de chip/gameweek_context con el texto y con el feedback del evaluador."
+      "title": "Contexto de jornada y chip leen fuentes de partidos distintas; el audit no guarda payloads",
+      "desc": "Opciones (c) y (d) de [[i133]]: (c) que get_gameweek_context use el mismo team_fixtures que el chip, para que no puedan contradecirse; (d) registrar en el audit un hash + recuento de alertas de la vista del modelo por llamada, para poder diagnosticar a posteriori casos como el de i133 (hoy imposible: el audit no guarda payloads)."
     }
   ]
 }
