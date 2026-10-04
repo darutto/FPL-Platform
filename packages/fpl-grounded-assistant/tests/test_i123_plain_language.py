@@ -59,3 +59,53 @@ def test_rule_is_in_both_system_prompts():
     for prompt in (_SYSTEM_PROMPT, _LOOP_SYSTEM_PROMPT):
         assert "PLAIN_LANGUAGE:" in prompt
         assert "dgw_teams" in prompt and "no backticks" in prompt
+
+
+# ---------------------------------------------------------------------------
+# i143 -- the model talking about the machinery, and chip names in Spanish
+# ---------------------------------------------------------------------------
+
+#: Real served / primary texts (prod 2026-10-04 captures and the i143 before arm).
+TOOL_TALK_REAL = [
+    "no baso la decisión en afirmar que no la hay, porque la salida de recomendación no muestra una alerta explícita",
+    "esta salida no incluye explícitamente su estado médico",
+    "Está disponible; la herramienta no aporta una novedad médica adicional",
+    "aun así, el sistema no puede confirmar si tus cuatro suplentes tienen minutos garantizados",
+    "con los datos disponibles no se puede confirmar esa profundidad",
+    "En esta evaluación no aparece un campo separado de estado actual",
+    "no se aporta ninguna noticia adicional sobre él en los datos recibidos",
+]
+FOOTBALL_PROSE = [
+    "Buena salida de balón del Brighton desde atrás",
+    "La salida en largo del portero rompe la presión",
+    "El resultado del partido fue 2-1 para el City",
+    "Juega en su campo y presiona alto",
+    "Haaland ha jugado 450 minutos y está disponible.",
+]
+
+
+@pytest.mark.parametrize("text", TOOL_TALK_REAL)
+def test_tool_talk_detector_fires_on_real_answers(text):
+    assert grader.tool_talk(text), text
+
+
+@pytest.mark.parametrize("text", FOOTBALL_PROSE)
+def test_tool_talk_detector_leaves_football_prose_alone(text):
+    assert grader.tool_talk(text) == []
+
+
+def test_spanish_chip_name_detector():
+    assert grader.spanish_chip_names("¿a qué chip te refieres: comodín, golpe de suerte o banco extra?") == [
+        "comodin", "golpe de suerte", "banco extra"]
+    assert grader.spanish_chip_names("el triple capitán es defendible") == ["triple capitan"]
+    assert grader.spanish_chip_names("el Triple Captain, el Wildcard, el Bench Boost y el Free Hit") == []
+
+
+def test_leaks_keeps_its_i123_contract():
+    assert grader.leaks("la herramienta no aporta nada") == {"snake": [], "backtick": [], "fieldeq": []}
+
+
+def test_i143_rules_are_in_both_system_prompts():
+    for prompt in (_SYSTEM_PROMPT, _LOOP_SYSTEM_PROMPT):
+        assert "NO_TOOL_TALK:" in prompt and "\"la herramienta\"" in prompt and "\"la salida\"" in prompt
+        assert "CHIP_NAMES:" in prompt and "Triple Captain" in prompt and "never comodín" in prompt
