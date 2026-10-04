@@ -1795,35 +1795,57 @@
     },
     {
       "id": "i137",
-      "col": "idea",
-      "progress": 0,
+      "col": "evaluation",
+      "progress": 90,
       "tags": [
         "FPL Asistente",
         "Backend"
       ],
       "title": "Chip ya usado: la respuesta entera se reemplaza por «Chip unavailable: … is not in your chips remaining.» en inglés",
-      "desc": "VISTO 2026-10-04 en prod (captura de Leo, equipo 68643: BB usado GW2, TC GW3 — verificado en la API de FPL). final_response.py:2611 sustituye final_text por un literal en inglés con el nombre interno del chip, borrando la composición de i108/i112 y el cuerpo del modelo. ARREGLO acordado con Leo: texto en español que diga cuándo se usó y cuándo vuelve (ventana: «Ya usaste el Triple Capitán en la GW3. Vuelves a tenerlo desde la GW20.»), y debajo la lectura de la jornada como planificación. Leer jornada de uso de la historia de chips y la ventana de chip_windows, no inventarla. PUERTA: tests con chip usado en 1.ª mitad / sin datos de jornada / chip disponible (sin cambio); texto servido por /ask; mutación por guarda."
+      "desc": "VISTO 2026-10-04 en prod (captura de Leo, equipo 68643: BB usado GW2, TC GW3 — verificado en la API de FPL). final_response.py:2611 sustituye final_text por un literal en inglés con el nombre interno del chip, borrando la composición de i108/i112 y el cuerpo del modelo. ARREGLO acordado con Leo: texto en español que diga cuándo se usó y cuándo vuelve (ventana: «Ya usaste el Triple Capitán en la GW3. Vuelves a tenerlo desde la GW20.»), y debajo la lectura de la jornada como planificación. Leer jornada de uso de la historia de chips y la ventana de chip_windows, no inventarla. PUERTA: tests con chip usado en 1.ª mitad / sin datos de jornada / chip disponible (sin cambio); texto servido por /ask; mutación por guarda.\n\nARREGLADA 2026-10-04 (PR #372). «Ya usaste el Triple Capitán en la GW3. Vuelves a tenerlo desde la GW20.» + «Para planificar, esta es la lectura de la jornada:» + la respuesta del turno intacta. Uso: squad_context.chips_used (nuevo, la UI lo proyecta de history.chips); vuelta: bootstrap[\"chips\"]. Sin dato → frase sin número. 13/13 mutaciones. FALTA: captura de Leo."
     },
     {
       "id": "i138",
-      "col": "idea",
-      "progress": 0,
+      "col": "shipped",
+      "progress": 100,
       "tags": [
         "UI"
       ],
       "title": "MarkdownLite no dibuja tablas: la comparación muestra «| Dato | Haaland | Palmer |» en crudo",
-      "desc": "VISTO 2026-10-04 en prod («Compara a Haaland con Cole Palmer»). El modelo escribe una tabla markdown y MarkdownLite la pinta como líneas con barras. Decidido con Leo: soportar tablas (cabecera + separador + filas; alineación opcional), con scroll horizontal en móvil y sin romper líneas que contienen «|» sueltos. Tests de renderInline/bloques + captura antes/después con el componente real."
+      "desc": "VISTO 2026-10-04 en prod («Compara a Haaland con Cole Palmer»). El modelo escribe una tabla markdown y MarkdownLite la pinta como líneas con barras. Decidido con Leo: soportar tablas (cabecera + separador + filas; alineación opcional), con scroll horizontal en móvil y sin romper líneas que contienen «|» sueltos. Tests de renderInline/bloques + captura antes/después con el componente real.\n\nCERRADA 2026-10-04 (PR #375). Tablas GFM en MarkdownLite (alineación, \\| literal, filas cortas/largas, inline en celdas); arreglado desbordamiento de la burbuja en móvil (min-width) con rejilla minmax(0,1fr). Capturas antes/después escritorio y móvil en field-notes/artifacts/i138-*.png, revisadas."
     },
     {
       "id": "i139",
-      "col": "idea",
-      "progress": 0,
+      "col": "shipped",
+      "progress": 100,
       "tags": [
         "FPL Asistente",
         "Backend"
       ],
       "title": "Razones de la tarjeta de comparación en inglés («stronger form», «higher xGI output»)",
-      "desc": "VISTO 2026-10-04 en prod. comparison.py:477-494 construye reasons en inglés y la tarjeta las muestra tal cual. Pasar a español en el origen (o mapear en la UI) sin romper consumidores que lean reasons (buscar todos). Barrer otras reasons/labels en inglés que lleguen a tarjetas y listarlas."
+      "desc": "VISTO 2026-10-04 en prod. comparison.py:477-494 construye reasons en inglés y la tarjeta las muestra tal cual. Pasar a español en el origen (o mapear en la UI) sin romper consumidores que lean reasons (buscar todos). Barrer otras reasons/labels en inglés que lleguen a tarjetas y listarlas.\n\nCERRADA 2026-10-04 (PR #374). Reasons y recomendación de comparison en español en el origen; budget_constraint con el trato de i137 (frase en español + análisis debajo, ya no pisa la respuesta). Restos del barrido → [[i141]]."
+    },
+    {
+      "id": "i140",
+      "col": "evaluation",
+      "progress": 90,
+      "tags": [
+        "FPL Asistente",
+        "Backend"
+      ],
+      "title": "Disponibilidad de chips por ventana (2026-27 tiene dos por chip)",
+      "desc": "HALLAZGO 2026-10-04 durante [[i137]], verificado en squad-context.ts:123: FPL_CHIP_MAX_USES contaba usos por temporada (WC 2, resto 1). Con dos ventanas por chip, ofrecía el comodín ya gastado en la 1.ª mitad (68643, GW5) y bloquearía TC/BB/FH desde la GW20. ARREGLADA (PR #373): el backend decide disponible = no usado en la ventana que contiene la GW objetivo (la del consejo; si falta, is_next/is_current), con bootstrap[\"chips\"] + chips_used; cae a chips_remaining con log chip_availability_fallback si falta algún dato. Único consumidor: final_response. 13/13 mutaciones. FALTA: captura de Leo (comodín ahora → no disponible)."
+    },
+    {
+      "id": "i141",
+      "col": "shipped",
+      "progress": 100,
+      "tags": [
+        "FPL Asistente",
+        "Backend"
+      ],
+      "title": "Etiquetas en inglés en tarjetas de chip y transferencias",
+      "desc": "Barrido de [[i139]]. CERRADA 2026-10-04 (PR #376): reasons y recomendación de TransferCard, signal_label de ChipCard («puntuación de capitán», «FDR medio (top 10)», «jornada normal»…), difficulty_label (fácil/moderado/difícil, del catálogo) y position_label de la línea de alcance, en español. Test de barrido que falla con cualquier palabra en inglés detrás de ChipCard/ComparisonCard/TransferCard/TransferSuggestionCard."
     }
   ]
 }
