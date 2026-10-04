@@ -8,17 +8,19 @@ the question.
 Decision rule (declared before measuring, agreed in review)
 -----------------------------------------------------------
 Denominator: rows whose trace ran ``get_chip_advice`` with status ok for a
-chip in ``SQUAD_FIT_CHIPS`` (bench_boost / wildcard / free_hit) and for which
-``particular_outcome`` is defined. Everything else is reported apart, with its
-reason, never as a failure: triple captain (no particular part yet -- open
-question), no chip call (a routing gap), members known but no fit computable.
+chip in ``SQUAD_FIT_CHIPS`` (bench_boost / wildcard / free_hit, and since
+i112 triple_captain) and for which ``particular_outcome`` is defined.
+Everything else is reported apart, with its reason, never as a failure: no
+chip call (a routing gap), members known but no fit computable.
 
 A denominator row passes when all three hold:
 * part 1 -- the opening (leading heading line(s) + first paragraph; the
   strict first-paragraph-only count is reported too) carries the verdict label for the output's
   ``recommendation`` (``GENERAL_VERDICT_LABEL``) and, when the favoured group
   is not empty, a favoured team (short code or full name, by the id the tool
-  returned) or player is named before the particular phrase;
+  returned) or player is named before the particular phrase -- for triple
+  captain, the best candidate (``signals.top_player``) or the player asked
+  about (``signals.evaluated_player``);
 * part 2 -- the exact ``particular_phrase`` for the output appears;
 * order -- the verdict label comes before the particular phrase.
 
@@ -110,6 +112,11 @@ def grade_row(row: dict[str, Any], names_by_team: dict[int, list[str]]) -> dict[
         if t.get("team_short"):
             candidates.append(t["team_short"])
     candidates += [p.get("web_name") for p in chip.get("favoured_players") or [] if p.get("web_name")]
+    # i112: triple captain names one candidate, not a group. Read from the
+    # row's ``chip_candidate`` (measure_tool_routing), not from chip_trace,
+    # whose projection is shared with the Jev shadow.
+    candidate = row.get("chip_candidate") if isinstance(row.get("chip_candidate"), dict) else {}
+    candidates += [n for n in (candidate.get(k) for k in ("top_player", "evaluated_player")) if n]
     horizon = phrase_at if phrase_at >= 0 else len(folded)
     group_named = (not candidates) or any(
         0 <= folded.find(fold(c)) < horizon for c in candidates
