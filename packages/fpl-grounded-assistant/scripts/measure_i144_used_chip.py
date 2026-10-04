@@ -62,7 +62,9 @@ WINDOW_MIX = re.compile(
     r"(?:gw ?19\b|ventana actual|ventana activa|quedan \d+)"
 )
 #: reported apart: timing reasoning about the spent window («es pronto dentro de la ventana»).
-EARLY_IN_WINDOW = re.compile(r"pronto (?:dentro de|en) (?:la|esta) ventana|inicio de la ventana")
+#: i146: widened to the real wording (any «pronto» / «tempran-», «inicio/principio de la ventana»);
+#: stricter than i145's, which missed «demasiado pronto» and «fase temprana».
+EARLY_IN_WINDOW = re.compile(r"\bpronto\b|\btempran[oa]s?\b|(?:inicio|principio) de la ventana")
 
 
 def fold(text: str) -> str:

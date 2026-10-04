@@ -82,6 +82,7 @@ Intentionally deferred
 """
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from fpl_captain_engine import calculate_captain_score
@@ -696,6 +697,24 @@ def _availability_note(squad_context: dict[str, Any] | None) -> str:
     return ""
 
 
+#: i146: timing / keep-it sentences about the EVALUATED window. Built from these
+#: constants and stripped with them when the user already played the chip in
+#: that window (the read is planning for the next window; «es pronto dentro de
+#: la ventana», «guárdalo» are about the spent one).
+_TC_LATER_GW = "Consider whether a stronger option may appear in a later gameweek."
+_TC_SAVE = "It may be worth saving the triple captain chip."
+_FH_SAVE_FOR_DGW = ", but saving it for an upcoming double gameweek is often the stronger play"
+_FH_SAVE = "Consider saving it for a better opportunity."
+_FH_WAIT_LARGER = " but a larger double gameweek would be a stronger opportunity"
+
+
+def _strip_timing(advice_text: str, timing: list[str]) -> str:
+    """i146: *advice_text* without the given timing phrases, spaces tidied."""
+    for phrase in timing:
+        advice_text = advice_text.replace(phrase, "")
+    return re.sub(r"[ ]{2,}", " ", advice_text).strip()
+
+
 def _used_chip_window_context(
     chip: str, bootstrap: dict[str, Any], decision: dict[str, Any],
 ) -> dict[str, Any]:
@@ -853,7 +872,7 @@ def _advise_triple_captain(
             phrase = (
                 f"A decent but not exceptional option exists: {top_name} "
                 f"(captain score {top_score}, tier: {top_tier}). "
-                f"Consider whether a stronger option may appear in a later gameweek."
+                f"{_TC_LATER_GW}"
             )
         else:
             phrase = (
@@ -868,7 +887,7 @@ def _advise_triple_captain(
             phrase = (
                 f"No standout captain option this week. Best available: {top_name} "
                 f"(captain score {top_score}, tier: {top_tier}). "
-                f"It may be worth saving the triple captain chip."
+                f"{_TC_SAVE}"
             )
         else:
             phrase = (
@@ -991,6 +1010,8 @@ def _advise_wildcard(
 
     return {
         "recommendation": recommendation,
+        # i146: every wildcard phrase here is timing inside the evaluated window.
+        "timing_phrases": [phrase],
         "signals": {
             "current_gameweek": current_gw,
             "active_window": active_window,
@@ -1173,8 +1194,7 @@ def _advise_free_hit(
             phrase = (
                 f"A partial double gameweek is detected: {dgw_count} team(s) "
                 f"play twice this week ({_team_str(dgw_teams)}). "
-                "Free hit may be viable but a larger double gameweek would be "
-                "a stronger opportunity."
+                f"Free hit may be viable{_FH_WAIT_LARGER}."
             )
     elif gw_type == "blank":
         recommendation = "conditions_marginal"
@@ -1182,8 +1202,7 @@ def _advise_free_hit(
         phrase = (
             f"A blank gameweek is detected: {bgw_count} team(s) have no "
             f"fixture this week ({_team_str(bgw_teams)}). "
-            "Free hit can help cover blanked players, but saving it for an "
-            "upcoming double gameweek is often the stronger play."
+            f"Free hit can help cover blanked players{_FH_SAVE_FOR_DGW}."
         )
     else:
         # normal or unknown — unfavorable (safe fallback for missing data too)
@@ -1192,7 +1211,7 @@ def _advise_free_hit(
         phrase = (
             "No blank or double gameweek detected this week. "
             "Free hit is most effective in blank or double gameweeks. "
-            "Consider saving it for a better opportunity."
+            f"{_FH_SAVE}"
         )
 
     return {
@@ -1380,9 +1399,13 @@ def get_chip_advice(
     # i144: the same decision the response layer applies (i137/i140), made
     # here too so the model writes knowing the chip is spent / unknown.
     availability = decide_chip_availability(chip, squad_context, bootstrap, evaluated_gw)
+    timing = result.pop("timing_phrases", None) or [_TC_LATER_GW, _TC_SAVE, _FH_SAVE_FOR_DGW,
+                                                    _FH_SAVE, _FH_WAIT_LARGER]
     if availability["status"] == "used":
         # i145: never the spent window's "N gameweeks remain".
         window_context = _used_chip_window_context(chip, bootstrap, availability)
+        # i146: nor its timing / keep-it phrases.
+        result["advice_text"] = _strip_timing(result["advice_text"], timing)
 
     return {
         "status":           "ok",
