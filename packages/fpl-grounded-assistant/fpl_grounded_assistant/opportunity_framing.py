@@ -49,7 +49,16 @@ TRANSACTION_STEMS: tuple[str, ...] = (
 #: and appears legitimately in squad/chip answers; the composed match answer
 #: must not name it either, but it is the squad tools' word and blocking it
 #: globally would flag their honest output.
-_ALLOWED_WORDS: frozenset[str] = frozenset({"transferencia", "transferencias"})
+_ALLOWED_WORDS: frozenset[str] = frozenset({
+    "transferencia", "transferencias",
+    # i119: future/conditional of VENIR ("to come"), not VENDER ("to sell") --
+    # vender's are venderia/vendera. The ``vend`` stem prefixes them. Measured
+    # 2026-10-03 (i111 E3): "el beneficio principal vendría de Ndiaye" was
+    # reported as a transaction. Folded forms; the list is the one decided in
+    # review, nothing wider.
+    "vendria", "vendrias", "vendriamos", "vendrian",
+    "vendra", "vendras", "vendran", "vendre",
+})
 
 #: Football idiom, not danger framing: "generar/crear peligro" is the
 #: Spanish for producing attacking threat -- the opposite of a warning.
