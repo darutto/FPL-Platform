@@ -190,6 +190,12 @@ def _build_blank_double_alerts(
         if raw is None:
             # API failure for this GW — skip silently.
             continue
+        if not raw:
+            # i134: an empty list for an upcoming GW is "no data", not "all
+            # 20 teams blank" -- a whole gameweek with no fixtures does not
+            # happen in a real season, and a transient empty FPL response
+            # produced exactly that (i133). Skipped like an API failure.
+            continue
 
         extracted = [_extract_fixture(f, short_map) for f in raw]
         counts    = _compute_team_fixture_counts(extracted)

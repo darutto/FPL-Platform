@@ -154,8 +154,12 @@ def _fetch_fixtures_for_gw(
         live_ok = False
 
     if live_ok and raw_live is not None:
-        # Cache before returning (read-only copy stored).
-        _fixture_cache[gw_number] = list(raw_live)
+        # Cache before returning (read-only copy stored). i134: never an
+        # empty list -- the cache has no TTL, so one transient empty response
+        # from FPL would stay for the life of the process (i133: «20 equipos
+        # en blanco GW6-GW10» in three local servers on 2026-10-03).
+        if raw_live:
+            _fixture_cache[gw_number] = list(raw_live)
         return list(raw_live)
 
     # 5. Owned-store fallback (CONTRACT §11.3 — H4b Seam 2).
