@@ -61,9 +61,20 @@ def _venue_tag(is_home: bool | None) -> str:
     return ""
 
 
+#: i139: Spanish short role labels for the comparison card's reasons. Same
+#: vocabulary as the catalogue's ``set_piece_label.*`` (penales / tiros libres).
+_SET_PIECE_SHORT_ES: dict[str, str] = {
+    "penalty_taker_1":  "penales",
+    "penalty_taker_2":  "2.º en penales",
+    "freekick_taker_1": "tiros libres",
+    "freekick_taker_2": "2.º en tiros libres",
+}
+
+
 def _set_piece_advantage_phrase(
     better_role: dict[str, Any],
     worse_role: dict[str, Any],
+    locale: str | None = None,
 ) -> str | None:
     """Return a specific set-piece advantage phrase, or ``None``.
 
@@ -78,6 +89,10 @@ def _set_piece_advantage_phrase(
     better=penalty_taker_1, worse=freekick_taker_2 → "set-piece advantage (pen vs fk2)"
     better=penalty_taker_1, worse=[]               → "set-piece advantage (pen)"
     better.role_bonus == worse.role_bonus          → None
+
+    ``locale="es"`` (i139, the comparison card) gives the same phrase in
+    Spanish: "ventaja a balón parado (penales vs 2.º en tiros libres)". The
+    default stays English for the transfer reasons until they are decided.
     """
     better_bonus = float(better_role.get("role_bonus", 0.0))
     worse_bonus = float(worse_role.get("role_bonus", 0.0))
@@ -86,18 +101,21 @@ def _set_piece_advantage_phrase(
 
     better_notes = better_role.get("set_piece_notes", [])
     worse_notes = worse_role.get("set_piece_notes", [])
+    spanish = locale == "es"
+    head = "ventaja a balón parado" if spanish else "set-piece advantage"
+    short = _SET_PIECE_SHORT_ES if spanish else _SET_PIECE_SHORT
 
     if not better_notes:
         # role_bonus set but no notes — generic fallback
-        return "set-piece advantage"
+        return head
 
-    better_label = _SET_PIECE_SHORT.get(better_notes[0], better_notes[0])
+    better_label = short.get(better_notes[0], better_notes[0])
 
     if worse_notes:
-        worse_label = _SET_PIECE_SHORT.get(worse_notes[0], worse_notes[0])
-        return f"set-piece advantage ({better_label} vs {worse_label})"
+        worse_label = short.get(worse_notes[0], worse_notes[0])
+        return f"{head} ({better_label} vs {worse_label})"
 
-    return f"set-piece advantage ({better_label})"
+    return f"{head} ({better_label})"
 
 
 # ---------------------------------------------------------------------------

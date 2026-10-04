@@ -2594,6 +2594,9 @@ _CHIP_API_NAME: dict[str, str] = {
 
 _CHIP_UNAVAILABLE_PLANNING: str = "Para planificar, esta es la lectura de la jornada:"
 
+#: i139: same treatment for the budget block (Leo, via review 2026-10-04).
+_BUDGET_PLANNING: str = "Para planificar, este es el análisis del cambio:"
+
 
 def _chip_used_gw(chip_name: str, chips_used: Any) -> "int | None":
     """The latest gameweek the user played *chip_name*, from squad_context.chips_used.
@@ -2803,10 +2806,14 @@ def _apply_squad_overrides(
         if transfer.price_delta > _itb:
             price_m  = transfer.price_delta / 10.0
             itb_m    = float(_itb) / 10.0
-            final_text = (
-                f"Budget constraint: bringing in {transfer.player_in} costs "
-                f"+\u00a3{price_m:.1f}m but you have \u00a3{itb_m:.1f}m in the bank."
+            # i139: Spanish lead, and the turn's own answer kept below as
+            # planning (it used to replace the whole answer, in English).
+            lead = (
+                f"No te alcanza el presupuesto: {transfer.player_in} cuesta "
+                f"+\u00a3{price_m:.1f}m m\u00e1s y tienes \u00a3{itb_m:.1f}m en el banco."
             )
+            body = (final_text or "").strip()
+            final_text = f"{lead}\n\n{_BUDGET_PLANNING}\n\n{body}" if body else lead
             transfer = TransferMeta(
                 player_out=transfer.player_out,
                 player_in=transfer.player_in,

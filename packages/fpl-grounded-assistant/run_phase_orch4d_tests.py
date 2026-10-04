@@ -112,7 +112,7 @@ _t_b, _c_b, _ft_b = _apply_squad_overrides(
     squad_context={"itb": 20},  # 35 > 20 -> fires
 )
 ok(_t_b.budget_constraint is True,             "A5: budget_constraint=True when price_delta > itb")
-ok("Budget constraint" in _ft_b,               "A6: final_text replaced on budget_constraint")
+ok("No te alcanza el presupuesto" in _ft_b,               "A6: final_text replaced on budget_constraint")
 ok(_c_b is None,                               "A7: chip unchanged when None input")
 
 # A8: budget_constraint does NOT fire when price_delta <= itb
