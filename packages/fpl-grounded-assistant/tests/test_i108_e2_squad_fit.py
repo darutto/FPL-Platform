@@ -229,7 +229,8 @@ class TestWildcardVerdicts:
     def test_advice_text_stops_saying_composition_is_unknown(self, wc_bootstrap):
         out = get_chip_advice("wildcard", _with_request_squad(wc_bootstrap, _squad([2, 3, 998, 999])))
         assert "squad composition" not in out["advice_text"]
-        assert "which wildcard you still hold is not known" in out["advice_text"]
+        # i144: which wildcard is held is said by the chip_availability sentence
+        assert "Whether the user still has this chip is unknown" in out["advice_text"]
 
 
 class TestFreeHit:
@@ -428,7 +429,7 @@ class TestSquadSourceContract:
         bs = copy.deepcopy(bb_bootstrap)
         bs["_my_team_id"] = 68643
         out = tool_dispatch.run_tool("get_chip_advice", {"chip": "triple_captain"}, bs)
-        assert "whether you still have this chip available is not known" in out["advice_text"]
+        assert "Whether the user still has this chip is unknown" in out["advice_text"]   # i144 wording
 
 
 # ---------------------------------------------------------------------------

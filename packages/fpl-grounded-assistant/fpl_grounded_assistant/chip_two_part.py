@@ -227,6 +227,11 @@ def compose_chip_answer(
         return body
     header = general_header(chip_output, team_names)
     phrase = particular_phrase(chip_output)
+    # i144: a spent chip has no "your squad for it" part -- «te falta 1 jugador
+    # del grupo favorecido para sacarle todo al chip» makes no sense when it
+    # cannot be played now. The general header stays.
+    if (chip_output.get("chip_availability") or {}).get("status") == "used":
+        phrase = None
     if header is None and phrase is None:
         return body
     parts = [header] if header else []

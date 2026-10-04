@@ -74,7 +74,7 @@ def test_bb_used_gw2_and_gw22_current_gw25_is_not_available():
 
 @pytest.mark.parametrize("remaining,blocked", [(["wildcard"], False), ([], True)])
 def test_without_windows_it_is_todays_rule(remaining, blocked, caplog):
-    with caplog.at_level(logging.INFO, logger=fr.__name__):
+    with caplog.at_level(logging.INFO, logger="fpl_grounded_assistant.chip_availability"):
         _, chip, _ = _apply("wildcard", 6, [{"chip": "wildcard", "event": 5}],
                             remaining=remaining, bootstrap=None)
     assert chip.chip_unavailable is blocked
@@ -86,7 +86,7 @@ def test_without_windows_it_is_todays_rule(remaining, blocked, caplog):
 # ---------------------------------------------------------------------------
 
 def test_without_chips_used_it_is_todays_rule(caplog):
-    with caplog.at_level(logging.INFO, logger=fr.__name__):
+    with caplog.at_level(logging.INFO, logger="fpl_grounded_assistant.chip_availability"):
         _, chip, _ = _apply("wildcard", 6, None, remaining=["wildcard"])
     assert chip.chip_unavailable is False
     assert "reason=no_chips_used" in caplog.text
@@ -112,14 +112,14 @@ def test_window_edges_are_inclusive():
 @pytest.mark.parametrize("bad", [{"chip": "wildcard", "event": "x"}, {"chip": "wildcard"},
                                  {"chip": "wildcard", "event": 0}])
 def test_an_unreadable_use_of_this_chip_falls_back(bad, caplog):
-    with caplog.at_level(logging.INFO, logger=fr.__name__):
+    with caplog.at_level(logging.INFO, logger="fpl_grounded_assistant.chip_availability"):
         _, chip, _ = _apply("wildcard", 6, [bad], remaining=["wildcard"])
     assert chip.chip_unavailable is False                      # today's rule, not "never used"
     assert "reason=malformed_chips_used" in caplog.text
 
 
 def test_a_gw_outside_every_window_falls_back(caplog):
-    with caplog.at_level(logging.INFO, logger=fr.__name__):
+    with caplog.at_level(logging.INFO, logger="fpl_grounded_assistant.chip_availability"):
         _, chip, _ = _apply("wildcard", 1, [], remaining=[])     # wildcard windows start at GW2
     assert chip.chip_unavailable is True
     assert "reason=target_outside_windows" in caplog.text
@@ -148,7 +148,7 @@ def test_the_next_event_wins_over_the_current_one_across_a_window_edge():
 
 
 def test_no_gw_anywhere_falls_back(caplog):
-    with caplog.at_level(logging.INFO, logger=fr.__name__):
+    with caplog.at_level(logging.INFO, logger="fpl_grounded_assistant.chip_availability"):
         _, chip, _ = _apply("wildcard", None, [], remaining=[])
     assert chip.chip_unavailable is True
     assert "reason=no_target_gw" in caplog.text
