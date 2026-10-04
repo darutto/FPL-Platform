@@ -1795,14 +1795,14 @@
     },
     {
       "id": "i137",
-      "col": "evaluation",
-      "progress": 90,
+      "col": "shipped",
+      "progress": 100,
       "tags": [
         "FPL Asistente",
         "Backend"
       ],
       "title": "Chip ya usado: la respuesta entera se reemplaza por «Chip unavailable: … is not in your chips remaining.» en inglés",
-      "desc": "VISTO 2026-10-04 en prod (captura de Leo, equipo 68643: BB usado GW2, TC GW3 — verificado en la API de FPL). final_response.py:2611 sustituye final_text por un literal en inglés con el nombre interno del chip, borrando la composición de i108/i112 y el cuerpo del modelo. ARREGLO acordado con Leo: texto en español que diga cuándo se usó y cuándo vuelve (ventana: «Ya usaste el Triple Capitán en la GW3. Vuelves a tenerlo desde la GW20.»), y debajo la lectura de la jornada como planificación. Leer jornada de uso de la historia de chips y la ventana de chip_windows, no inventarla. PUERTA: tests con chip usado en 1.ª mitad / sin datos de jornada / chip disponible (sin cambio); texto servido por /ask; mutación por guarda.\n\nARREGLADA 2026-10-04 (PR #372). «Ya usaste el Triple Capitán en la GW3. Vuelves a tenerlo desde la GW20.» + «Para planificar, esta es la lectura de la jornada:» + la respuesta del turno intacta. Uso: squad_context.chips_used (nuevo, la UI lo proyecta de history.chips); vuelta: bootstrap[\"chips\"]. Sin dato → frase sin número. 13/13 mutaciones. FALTA: captura de Leo."
+      "desc": "VISTO 2026-10-04 en prod (captura de Leo, equipo 68643: BB usado GW2, TC GW3 — verificado en la API de FPL). final_response.py:2611 sustituye final_text por un literal en inglés con el nombre interno del chip, borrando la composición de i108/i112 y el cuerpo del modelo. ARREGLO acordado con Leo: texto en español que diga cuándo se usó y cuándo vuelve (ventana: «Ya usaste el Triple Capitán en la GW3. Vuelves a tenerlo desde la GW20.»), y debajo la lectura de la jornada como planificación. Leer jornada de uso de la historia de chips y la ventana de chip_windows, no inventarla. PUERTA: tests con chip usado en 1.ª mitad / sin datos de jornada / chip disponible (sin cambio); texto servido por /ask; mutación por guarda.\n\nARREGLADA 2026-10-04 (PR #372). «Ya usaste el Triple Capitán en la GW3. Vuelves a tenerlo desde la GW20.» + «Para planificar, esta es la lectura de la jornada:» + la respuesta del turno intacta. Uso: squad_context.chips_used (nuevo, la UI lo proyecta de history.chips); vuelta: bootstrap[\"chips\"]. Sin dato → frase sin número. 13/13 mutaciones. FALTA: captura de Leo.\n\nVERIFICADA EN PROD 2026-10-04 (captura de Leo): «Ya usaste el Triple Captain en la GW3. Vuelves a tenerlo desde la GW20.» + lectura de la jornada debajo. Nombres de chip pasados a inglés por decisión de Leo (#379)."
     },
     {
       "id": "i138",
@@ -1827,14 +1827,14 @@
     },
     {
       "id": "i140",
-      "col": "evaluation",
-      "progress": 90,
+      "col": "shipped",
+      "progress": 100,
       "tags": [
         "FPL Asistente",
         "Backend"
       ],
       "title": "Disponibilidad de chips por ventana (2026-27 tiene dos por chip)",
-      "desc": "HALLAZGO 2026-10-04 durante [[i137]], verificado en squad-context.ts:123: FPL_CHIP_MAX_USES contaba usos por temporada (WC 2, resto 1). Con dos ventanas por chip, ofrecía el comodín ya gastado en la 1.ª mitad (68643, GW5) y bloquearía TC/BB/FH desde la GW20. ARREGLADA (PR #373): el backend decide disponible = no usado en la ventana que contiene la GW objetivo (la del consejo; si falta, is_next/is_current), con bootstrap[\"chips\"] + chips_used; cae a chips_remaining con log chip_availability_fallback si falta algún dato. Único consumidor: final_response. 13/13 mutaciones. FALTA: captura de Leo (comodín ahora → no disponible)."
+      "desc": "HALLAZGO 2026-10-04 durante [[i137]], verificado en squad-context.ts:123: FPL_CHIP_MAX_USES contaba usos por temporada (WC 2, resto 1). Con dos ventanas por chip, ofrecía el comodín ya gastado en la 1.ª mitad (68643, GW5) y bloquearía TC/BB/FH desde la GW20. ARREGLADA (PR #373): el backend decide disponible = no usado en la ventana que contiene la GW objetivo (la del consejo; si falta, is_next/is_current), con bootstrap[\"chips\"] + chips_used; cae a chips_remaining con log chip_availability_fallback si falta algún dato. Único consumidor: final_response. 13/13 mutaciones. FALTA: captura de Leo (comodín ahora → no disponible).\n\nVERIFICADA EN PROD 2026-10-04 (captura de Leo): «¿Me conviene usar el Wildcard esta jornada?» → «Ya usaste el Wildcard en la GW5. Vuelves a tenerlo desde la GW20.» (antes lo ofrecía como disponible)."
     },
     {
       "id": "i141",
@@ -1846,6 +1846,71 @@
       ],
       "title": "Etiquetas en inglés en tarjetas de chip y transferencias",
       "desc": "Barrido de [[i139]]. CERRADA 2026-10-04 (PR #376): reasons y recomendación de TransferCard, signal_label de ChipCard («puntuación de capitán», «FDR medio (top 10)», «jornada normal»…), difficulty_label (fácil/moderado/difícil, del catálogo) y position_label de la línea de alcance, en español. Test de barrido que falla con cualquier palabra en inglés detrás de ChipCard/ComparisonCard/TransferCard/TransferSuggestionCard."
+    },
+    {
+      "id": "i142",
+      "col": "shipped",
+      "progress": 100,
+      "tags": [
+        "IA",
+        "FPL Asistente"
+      ],
+      "title": "Minutos y estado del candidato de Triple Captain",
+      "desc": "VISTO en prod 2026-10-04: el modelo decía de Groß «no tengo datos suficientes para certificar su disponibilidad». CERRADA (PR #380): las signals de TC llevan top_minutes_played_season/top_status (y evaluated_*), mismo mapeo que [[i132]]. R=6: rechazos por minutos/estado 3/6 → 0/6, rechazos 4/6 → 3/6, USD 0,00163 → 0,00131."
+    },
+    {
+      "id": "i143",
+      "col": "shipped",
+      "progress": 100,
+      "tags": [
+        "IA",
+        "FPL Asistente"
+      ],
+      "title": "Lenguaje de máquina en el cuerpo («la salida de recomendación no muestra…») + nombres de chip en inglés",
+      "desc": "VISTO en prod 2026-10-04. Medido: venía sobre todo del borrador primario, no del reintento. CERRADA (PR #381): reglas NO_TOOL_TALK (nunca «la herramienta/la salida/el sistema…»; lo desconocido en una frase simple; sin especular con dobles/blancos) y CHIP_NAMES (decisión de Leo: Wildcard, Free Hit, Bench Boost, Triple Captain). E3 14×3: lenguaje de máquina 3/42 → 0/42, nombres en español 3/42 → 0/42, rechazos 19 → 18, USD +7 %. Nombres de chip de tarjetas y frases → PR #379."
+    },
+    {
+      "id": "i144",
+      "col": "shipped",
+      "progress": 100,
+      "tags": [
+        "IA",
+        "FPL Asistente",
+        "Backend"
+      ],
+      "title": "Chip ya usado: el modelo escribe sabiéndolo (sin «consérvalo» ni frase de plantilla)",
+      "desc": "VISTO en prod 2026-10-04 (Wildcard usado GW5, pregunta GW6). CERRADA (PR #382): chip_availability.py única decisión (helpers de [[i140]]) usada por final_response y chip_advisor; el chip tool lleva chip_availability {status used/unknown/available, used_gw, returns_gw}; con used se quita la frase de plantilla. Caso de Leo R=5: consejo de guardar 2/5 → 0/5, frase de plantilla 5/5 → 0/5. Sin equipo: «No sé si todavía conservas este chip»."
+    },
+    {
+      "id": "i145",
+      "col": "shipped",
+      "progress": 100,
+      "tags": [
+        "Backend"
+      ],
+      "title": "Chip usado: el aviso de ventana habla de la siguiente, no de la gastada",
+      "desc": "CERRADA 2026-10-04 (PR #383): con chip used, window_status=spent, active_window = la siguiente, gameweeks_remaining None, window_notice «This chip's next window: GW20-GW38.». Caso de Leo R=5: «quedan N jornadas» de la ventana gastada 1/5 → 0/5; USD 0,00151 → 0,00100."
+    },
+    {
+      "id": "i146",
+      "col": "evaluation",
+      "progress": 90,
+      "tags": [
+        "Backend"
+      ],
+      "title": "Chip usado: sin frases de momento («es pronto en la ventana») ni de guardarlo",
+      "desc": "CERRADA EN CÓDIGO 2026-10-04 (PR #384): con chip used, advice_text pierde las frases de timing/guardar de los cuatro chips (cada frase definida una vez); disponible y desconocido byte a byte igual. Caso de Leo R=5: «pronto/temprana» 5/5 → 0/5. FALTA: repetir en prod «¿Me conviene usar el Wildcard esta jornada?»."
+    },
+    {
+      "id": "i147",
+      "col": "idea",
+      "progress": 0,
+      "tags": [
+        "IA",
+        "FPL Asistente"
+      ],
+      "title": "Chip usado: la planificación del regreso usa el grupo favorecido de la jornada actual",
+      "desc": "VISTO 2026-10-04 en la medición de [[i146]]: con el chip usado, algunos cuerpos planifican el regreso (GW20) con la racha de Fulham de GW6-10, porque el grupo favorecido sale de la GW actual. Opciones: no mostrar grupo favorecido cuando el chip está used, o calcularlo sobre la primera GW de la siguiente ventana. Decidir antes de construir."
     }
   ]
 }
