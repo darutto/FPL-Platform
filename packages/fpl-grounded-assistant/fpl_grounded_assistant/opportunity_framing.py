@@ -119,9 +119,46 @@ def transaction_hits(text: str) -> list[str]:
     return hits
 
 
+#: i119 (decided by Leo, option C): an answer to a question that IS about
+#: transfers -- a clarification for ad-05 «¿hago un transfer o guardo el
+#: chip?» -- may name the mechanic neutrally («transfer», «¿qué jugador
+#: venderías?»). What it may not do is push: urgency or danger. This is the
+#: closed list that gate measures; ``transaction_hits`` stays the rule for the
+#: composed chip / match answers. Matched on the folded text.
+_URGENCY_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("urgent", re.compile(r"\burgent\w*")),
+    ("peligr", re.compile(r"\bpeligr\w*")),
+    # a transaction verb pushed to "now": «vende ya», «véndelo cuanto antes»
+    ("ya", re.compile(
+        r"\b(?:vend|compra|ficha|traspas|saca|sacal|quita|deshaz)\w*\s+"
+        r"(?:ya|ahora mismo|cuanto antes|de inmediato|inmediatamente|sin esperar)\b")),
+    # obligation to get rid of / bring in: «hay que sacarlo», «tienes que venderlo»
+    ("hay_que", re.compile(
+        r"\b(?:hay que|tienes que|debes)\s+(?:vender|sacar|quitar|deshacerte|fichar|comprar)\w*")),
+    ("en", re.compile(r"\b(?:sell|buy)\s+(?:him\s+|them\s+)?now\b|\bget rid\b|\bmust (?:sell|buy)\b")),
+)
+
+
+def urgency_hits(text: str) -> list[str]:
+    """Urgency / danger framing in *text*, as ``label:match`` pairs, in order.
+
+    The football idiom «generar/crear peligro» (attacking threat) is not a
+    hit, as in ``transaction_hits``. Neutral transfer vocabulary is not a hit.
+    """
+    folded = _fold(text or "")
+    idiom = {m.start(1) for m in _THREAT_IDIOM_RE.finditer(folded)}
+    hits: list[tuple[int, str]] = []
+    for label, pattern in _URGENCY_PATTERNS:
+        for m in pattern.finditer(folded):
+            if label == "peligr" and m.start() in idiom:
+                continue
+            hits.append((m.start(), f"{label}:{m.group(0)}"))
+    return [h for _, h in sorted(hits)]
+
+
 def obeys_opportunity_framing(text: str) -> bool:
     """True when ``transaction_hits`` is empty."""
     return not transaction_hits(text)
 
 
-__all__ = ["TRANSACTION_STEMS", "transaction_hits", "obeys_opportunity_framing"]
+__all__ = ["TRANSACTION_STEMS", "transaction_hits", "urgency_hits", "obeys_opportunity_framing"]
