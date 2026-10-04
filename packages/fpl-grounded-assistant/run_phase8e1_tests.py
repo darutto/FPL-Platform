@@ -235,11 +235,11 @@ r_d1 = respond(
     squad_context=_SC_TC_UNAVAILABLE,
 )
 ok(
-    "Chip unavailable" in r_d1.final_text,
-    f"D1: final_text contains 'Chip unavailable' (got {r_d1.final_text!r})",
+    "Ya usaste" in r_d1.final_text,
+    f"D1: final_text contains 'Ya usaste' (got {r_d1.final_text!r})",
 )
 ok(
-    "triple_captain" in r_d1.final_text,
+    "Triple Capitán" in r_d1.final_text,   # i137: the chip card's Spanish label
     f"D2: final_text mentions chip name (got {r_d1.final_text!r})",
 )
 
@@ -258,7 +258,7 @@ r_d4 = respond(
     squad_context=_SC_TC_AVAILABLE,
 )
 ok(
-    "Chip unavailable" not in r_d4.final_text,
+    "Ya usaste" not in r_d4.final_text,
     "D4: chip available -> no unavailable message",
 )
 
@@ -285,7 +285,7 @@ ok(
 # D7: no squad_context -> final_text is regular advice (no override)
 r_d7 = respond("should I use my triple captain", STANDARD_BOOTSTRAP)
 ok(
-    "Chip unavailable" not in r_d7.final_text,
+    "Ya usaste" not in r_d7.final_text,
     "D7: no squad_context -> no chip unavailable message",
 )
 
@@ -350,7 +350,7 @@ ok(
     "F3: CLI debug JSON has chip.chip_unavailable=True",
 )
 ok(
-    "Chip unavailable" in f3_body.get("final_text", ""),
+    "Ya usaste" in f3_body.get("final_text", ""),
     "F4: CLI debug JSON final_text contains chip unavailable message",
 )
 
@@ -531,8 +531,8 @@ ok(
     f"K5: combined final_text contains 'Budget constraint' (got {r_k1.final_text[:80]!r})",
 )
 ok(
-    r_k1.final_text is not None and "Chip unavailable" in r_k1.final_text,
-    f"K6: combined final_text contains 'Chip unavailable' (got {r_k1.final_text[:80]!r})",
+    r_k1.final_text is not None and "Ya usaste" in r_k1.final_text,
+    f"K6: combined final_text contains 'Ya usaste' (got {r_k1.final_text[:80]!r})",
 )
 
 # K7: transfer-only constraint in multi-intent (chip available, transfer constrained)

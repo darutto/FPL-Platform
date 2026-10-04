@@ -111,6 +111,7 @@ _GROUNDED_BRANCHES: frozenset[str] = frozenset(
 def to_ask_response(
     ask_v2_dict: dict[str, Any],
     ask_request: "AskRequest",
+    bootstrap: "dict[str, Any] | None" = None,
 ) -> "AskResponse":
     """Project an ask_v2() return dict into the AskResponse contract.
 
@@ -198,6 +199,7 @@ def to_ask_response(
             chip=chip,
             final_text=answer_text,
             squad_context=squad_context,
+            bootstrap=bootstrap,  # i137: chip windows (data only, read not fetched)
         )
         d["transfer"]     = transfer
         d["chip"]         = chip

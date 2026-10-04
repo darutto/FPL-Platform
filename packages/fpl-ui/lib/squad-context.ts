@@ -192,7 +192,14 @@ export function normalizeSquadContext(
     }
   }
 
-  return { itb, free_transfers, chips_remaining };
+  // --- chips_used (i137) ---
+  // The gameweek of each chip played, so the backend can say «Ya usaste el
+  // Triple Capitán en la GW3» instead of only knowing it is gone.
+  const chips_used = history.chips
+    .filter((c) => FPL_TO_BACKEND_CHIP[c.name] !== undefined && Number.isInteger(c.event))
+    .map((c) => ({ chip: FPL_TO_BACKEND_CHIP[c.name], event: c.event }));
+
+  return { itb, free_transfers, chips_remaining, chips_used };
 }
 
 /**

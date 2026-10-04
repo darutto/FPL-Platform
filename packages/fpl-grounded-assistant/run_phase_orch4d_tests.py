@@ -155,7 +155,7 @@ _t_cu, _c_cu, _ft_cu = _apply_squad_overrides(
     squad_context={"chips_remaining": ["triple_captain"]},
 )
 ok(_c_cu.chip_unavailable is True,            "A14: chip_unavailable=True when chip absent")
-ok("Chip unavailable" in _ft_cu,              "A15: final_text replaced on chip_unavailable")
+ok("Ya usaste" in _ft_cu,              "A15: final_text replaced on chip_unavailable")
 
 # A16: chip_unavailable does NOT fire when chip IS in chips_remaining
 _t_ca, _c_ca, _ft_ca = _apply_squad_overrides(

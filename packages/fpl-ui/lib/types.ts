@@ -210,6 +210,9 @@ export interface SquadContext {
   itb?: number | null;
   free_transfers?: number | null;
   chips_remaining?: string[] | null;
+  /** i137: each chip played this season and its gameweek (backend chip names),
+   *  so a used-chip answer can say when it was used. */
+  chips_used?: { chip: string; event: number }[] | null;
 }
 
 // ---------------------------------------------------------------------------
