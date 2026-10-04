@@ -60,12 +60,13 @@ def test_unknown_venue_has_no_tag():
 def test_set_piece_phrase_in_spanish(notes_w, notes_l, expected):
     w = {"role_bonus": 5.0, "set_piece_notes": notes_w}
     l = {"role_bonus": 0.0, "set_piece_notes": notes_l}
-    assert _set_piece_advantage_phrase(w, l, locale="es") == expected
+    assert _set_piece_advantage_phrase(w, l) == expected
 
 
-def test_set_piece_phrase_default_stays_english_for_transfers():
+def test_set_piece_phrase_has_one_language():
+    # i141: transfer reasons are Spanish too, so the helper lost its English mode
     w = {"role_bonus": 5.0, "set_piece_notes": ["penalty_taker_1"]}
-    assert _set_piece_advantage_phrase(w, {"role_bonus": 0.0}) == "set-piece advantage (pen)"
+    assert _set_piece_advantage_phrase(w, {"role_bonus": 0.0}) == "ventaja a balón parado (penales)"
 
 
 # ---------------------------------------------------------------------------
