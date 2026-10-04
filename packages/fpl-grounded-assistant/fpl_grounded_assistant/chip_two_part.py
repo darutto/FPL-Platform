@@ -59,8 +59,8 @@ PARTICULAR_PHRASE: dict[str, str] = {
     "invite":          "enlaza tu equipo y te digo si ya tienes el grupo favorecido",
     "fetch_failed":    "no pude cargar tu plantilla",
     # i112: triple captain. The header already names the candidate.
-    "captain_held":    "tu mejor candidato para el triple capitán ya está en tu plantilla",
-    "captain_missing": "tu mejor candidato para el triple capitán no está en tu plantilla",
+    "captain_held":    "tu mejor candidato para el Triple Captain ya está en tu plantilla",
+    "captain_missing": "tu mejor candidato para el Triple Captain no está en tu plantilla",
 }
 
 #: i112: the no-team invitation for triple captain -- same rule as the other

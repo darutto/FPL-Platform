@@ -239,7 +239,7 @@ ok(
     f"D1: final_text contains 'Ya usaste' (got {r_d1.final_text!r})",
 )
 ok(
-    "Triple Capitán" in r_d1.final_text,   # i137: the chip card's Spanish label
+    "Triple Captain" in r_d1.final_text,   # i137: the chip card's Spanish label
     f"D2: final_text mentions chip name (got {r_d1.final_text!r})",
 )
 

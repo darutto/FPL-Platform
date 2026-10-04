@@ -105,12 +105,12 @@ export default function ChipCard({ data }: Props) {
 }
 
 // ---------------------------------------------------------------------------
-// Chip name labels (Spanish)
+// Chip name labels — kept in English, as FPL names them (Leo, 2026-10-04)
 // ---------------------------------------------------------------------------
 
 const CHIP_LABELS: Record<string, string> = {
-  triple_captain: 'Triple Capitán',
-  wildcard: 'Comodín',
-  bench_boost: 'Impulso de Banca',
-  free_hit: 'Ficha Libre',
+  triple_captain: 'Triple Captain',
+  wildcard: 'Wildcard',
+  bench_boost: 'Bench Boost',
+  free_hit: 'Free Hit',
 };

@@ -172,7 +172,7 @@ describe('ChipCard — header row shrinks around the recommendation pill', () =>
       chip_unavailable: false,
     };
     render(<ChipCard data={data} />);
-    const label = screen.getByText('Triple Capitán');
+    const label = screen.getByText('Triple Captain');
     expect(label.className).toEqual(expect.stringContaining('truncate'));
     expect(label.parentElement?.className).toEqual(expect.stringContaining('min-w-0'));
   });
