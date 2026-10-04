@@ -491,7 +491,7 @@ ok(
     "F9 chip_unavailable fires when chip not in chips_remaining (step 3)",
 )
 ok(
-    "Chip unavailable" in _ft4,
+    "Ya usaste" in _ft4,
     "F10 chip_unavailable overrides final_text (hard block)",
 )
 

@@ -169,7 +169,7 @@ ok(
 ok(
     r_b1.final_text is not None
     and "Budget constraint" not in r_b1.final_text
-    and "Chip unavailable" not in r_b1.final_text,
+    and "Ya usaste" not in r_b1.final_text,
     f"B4: final_text not overridden by hit_warning (got {r_b1.final_text[:60]!r})",
 )
 

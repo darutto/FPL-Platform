@@ -508,7 +508,7 @@ resp = to_ask_response(_d, _req(squad_context=_squad_no_tc))
 
 check(resp.chip is not None and resp.chip.get("chip_unavailable") is True,
       "F1: chip_unavailable → chip.chip_unavailable == True")
-check("Chip unavailable" in resp.final_text,
+check("Ya usaste" in resp.final_text,
       "F2: chip_unavailable → final_text replaced with chip unavailable message")
 
 

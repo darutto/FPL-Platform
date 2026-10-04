@@ -2576,12 +2576,105 @@ def _extract_structured_meta(
 #   chip_unavailable   — hard block; replaces final_text when chip not available
 # ---------------------------------------------------------------------------
 
+#: i137: the chip names the user sees on the chip card (fpl-ui
+#: components/intents/ChipCard.tsx CHIP_LABELS), with the article and object
+#: pronoun each one takes. Pinned to the TSX by test_i137.
+_CHIP_LABEL_ES: dict[str, tuple[str, str, str]] = {
+    "triple_captain": ("el", "Triple Capitán", "lo"),
+    "wildcard":       ("el", "Comodín", "lo"),
+    "bench_boost":    ("el", "Impulso de Banca", "lo"),
+    "free_hit":       ("la", "Ficha Libre", "la"),
+}
+
+#: The bootstrap's chip codes for each backend chip name (chip_advisor's map).
+_CHIP_API_NAME: dict[str, str] = {
+    "triple_captain": "3xc", "wildcard": "wildcard", "bench_boost": "bboost", "free_hit": "freehit",
+}
+
+_CHIP_UNAVAILABLE_PLANNING: str = "Para planificar, esta es la lectura de la jornada:"
+
+
+def _chip_used_gw(chip_name: str, chips_used: Any) -> "int | None":
+    """The latest gameweek the user played *chip_name*, from squad_context.chips_used.
+
+    ``chips_used`` is the UI's projection of FPL ``entry/{id}/history`` chips:
+    ``[{"chip": "triple_captain", "event": 3}, ...]``. Anything malformed or
+    absent reads as unknown -- never guessed.
+    """
+    if not isinstance(chips_used, list):
+        return None
+    events = []
+    for entry in chips_used:
+        if not isinstance(entry, dict) or entry.get("chip") != chip_name:
+            continue
+        try:
+            event = int(entry.get("event"))
+        except (TypeError, ValueError):
+            continue
+        if 1 <= event <= 38:
+            events.append(event)
+    return max(events) if events else None
+
+
+def _chip_return_gw(chip_name: str, used_gw: int, bootstrap: "dict[str, Any] | None") -> "int | None":
+    """Start of the chip's next window after the one *used_gw* falls in.
+
+    Read off ``bootstrap["chips"]`` (FPL's own start/stop per window). ``None``
+    when the windows are absent or malformed, or the used window is the last.
+    """
+    raw = (bootstrap or {}).get("chips")
+    api_name = _CHIP_API_NAME.get(chip_name)
+    if not isinstance(raw, list) or api_name is None:
+        return None
+    windows = []
+    for entry in raw:
+        if not isinstance(entry, dict) or entry.get("name") != api_name:
+            continue
+        try:
+            windows.append((int(entry["start_event"]), int(entry["stop_event"])))
+        except (KeyError, TypeError, ValueError):
+            return None
+    used_window = next(((s, t) for s, t in windows if s <= used_gw <= t), None)
+    if used_window is None:
+        return None
+    later = sorted(s for s, _ in windows if s > used_window[1])
+    return later[0] if later else None
+
+
+def _chip_unavailable_text(
+    chip_name: str,
+    squad_context: "dict[str, Any]",
+    bootstrap: "dict[str, Any] | None",
+    planning_text: str,
+) -> str:
+    """i137: when the chip was already played, say when and when it comes back.
+
+    Replaces the old English literal ("Chip unavailable: … is not in your chips
+    remaining."), which also threw away the composed answer. Both gameweeks
+    are read, never invented: the use from ``squad_context.chips_used``, the
+    return from the bootstrap's chip windows; a missing one gives the sentence
+    without its number. The turn's own answer stays below as planning.
+    """
+    article, label, pronoun = _CHIP_LABEL_ES.get(chip_name, ("el", chip_name, "lo"))
+    used_gw = _chip_used_gw(chip_name, squad_context.get("chips_used"))
+    if used_gw is None:
+        lead = f"Ya usaste {article} {label}, así que ahora no {pronoun} tienes disponible."
+    else:
+        lead = f"Ya usaste {article} {label} en la GW{used_gw}."
+        return_gw = _chip_return_gw(chip_name, used_gw, bootstrap)
+        if return_gw is not None:
+            lead += f" Vuelves a tener{pronoun} desde la GW{return_gw}."
+    body = (planning_text or "").strip()
+    return f"{lead}\n\n{_CHIP_UNAVAILABLE_PLANNING}\n\n{body}" if body else lead
+
+
 def _apply_squad_overrides(
     *,
     transfer: "TransferMeta | None",
     chip: "ChipAdviceMeta | None",
     final_text: str,
     squad_context: "dict[str, Any] | None",
+    bootstrap: "dict[str, Any] | None" = None,
 ) -> "tuple[TransferMeta | None, ChipAdviceMeta | None, str]":
     """Apply squad_context hard-block and advisory overrides post-metadata-build.
 
@@ -2598,6 +2691,9 @@ def _apply_squad_overrides(
         Current ``final_text`` string before overrides.
     squad_context:
         Optional per-turn squad state dict.  ``None`` disables all overrides.
+    bootstrap:
+        i137: optional; only its ``chips`` windows are read, to say when a
+        used chip comes back. ``None`` gives the sentence without that GW.
 
     Returns
     -------
@@ -2651,9 +2747,7 @@ def _apply_squad_overrides(
     # --------------------------------------------------------- chip_unavailable
     if chip is not None and _chips_remaining is not None:
         if chip.chip not in _chips_remaining:
-            final_text = (
-                f"Chip unavailable: {chip.chip} is not in your chips remaining."
-            )
+            final_text = _chip_unavailable_text(chip.chip, _squad, bootstrap, final_text)
             chip = ChipAdviceMeta(
                 chip=chip.chip,
                 recommendation=chip.recommendation,
@@ -3120,6 +3214,7 @@ def _try_session_orchestration_response(
             chip=chip,
             final_text=answer_text,
             squad_context=squad_context,
+            bootstrap=bootstrap,  # i137: chip windows
         )
 
     # ---- intent derivation (mirrors harness_adapter.to_ask_response step 2) ----
@@ -3497,6 +3592,7 @@ def respond(
         chip=_meta["chip"],
         final_text=final_text,
         squad_context=squad_context,
+        bootstrap=bootstrap,  # i137: chip windows
     )
 
     _existing_intent_evidence: "tuple[EvidenceItem, ...] | None" = None

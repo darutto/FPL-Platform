@@ -333,3 +333,30 @@ describe('squad_context request wiring', () => {
     expect('chips_remaining' in ctx).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// normalizeSquadContext — chips_used (i137)
+// ---------------------------------------------------------------------------
+
+describe('normalizeSquadContext — chips_used (i137)', () => {
+  test('each played chip carries its gameweek, in backend names', () => {
+    const ctx = normalizeSquadContext(
+      makeEntry(),
+      makeHistory({ chips: [{ name: 'bboost', event: 2 }, { name: '3xc', event: 3 }, { name: 'wildcard', event: 5 }] }),
+    );
+    expect(ctx.chips_used).toEqual([
+      { chip: 'bench_boost', event: 2 },
+      { chip: 'triple_captain', event: 3 },
+      { chip: 'wildcard', event: 5 },
+    ]);
+  });
+
+  test('no chips played → empty list', () => {
+    expect(normalizeSquadContext(makeEntry(), makeHistory({ chips: [] })).chips_used).toEqual([]);
+  });
+
+  test('an unknown chip code is dropped, not passed through', () => {
+    const ctx = normalizeSquadContext(makeEntry(), makeHistory({ chips: [{ name: 'mystery', event: 4 }] }));
+    expect(ctx.chips_used).toEqual([]);
+  });
+});
