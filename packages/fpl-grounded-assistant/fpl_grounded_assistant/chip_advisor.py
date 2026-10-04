@@ -733,6 +733,9 @@ def _advise_triple_captain(
                     "top_player": top_name,
                     "top_captain_score": top_score,
                     "top_tier": top_tier,
+                    # i142: same availability fields as the answered path.
+                    "top_minutes_played_season": top.get("minutes_played_season"),
+                    "top_status": top.get("status"),
                 },
                 "advice_text": (
                     f"Triple captain conditions: missing context. The requested "
@@ -761,6 +764,12 @@ def _advise_triple_captain(
             "dc_per_90": float(
                 evaluated_element.get("defensive_contribution_per_90", 0) or 0
             ),
+            # i142: the same availability fields the ranked candidates carry
+            # (i132); unknown when the element is not in the bootstrap.
+            "minutes_played_season": (
+                _safe_int(evaluated_element.get("minutes"), 0) if evaluated_element else None
+            ),
+            "status": _map_status(evaluated_element.get("status")) if evaluated_element else None,
         }
 
     evaluated_score = evaluated["captain_score"]
@@ -842,6 +851,12 @@ def _advise_triple_captain(
             "top_element":       top.get("element"),
             "top_captain_score": top_score,
             "top_tier":          top_tier,
+            # i142: the candidate's season minutes and availability, so the
+            # model and the evaluator can check them instead of saying it
+            # cannot certify availability (prod 2026-10-04, Groß). Same
+            # source and mapping as i132's favoured_players.
+            "top_minutes_played_season": top.get("minutes_played_season"),
+            "top_status":        top.get("status"),
             "top_factors":       top_factors,
             "triple_captain_risk_note": TRIPLE_CAPTAIN_RISK_NOTE["en"],
             # The card and the Spanish prose read these; advice_text above
@@ -852,6 +867,8 @@ def _advise_triple_captain(
                 "evaluated_player": evaluated_name,
                 "evaluated_captain_score": evaluated_score,
                 "evaluated_tier": evaluated_tier,
+                "evaluated_minutes_played_season": evaluated.get("minutes_played_season"),
+                "evaluated_status": evaluated.get("status"),
                 "evaluated_factors": evaluated_factors,
                 "evaluated_factors_es": factor_phrases(evaluated, locale="es"),
             } if evaluated_player is not None else {}),
@@ -1399,6 +1416,12 @@ CHIP_ADVICE_SPEC = ToolSpec(
                 "properties": {
                     # i112: triple captain's best option, by id.
                     "top_element": {"type": ["integer", "null"]},
+                    # i142: its season minutes and availability (and the
+                    # named candidate's, when there is one).
+                    "top_minutes_played_season": {"type": ["integer", "null"]},
+                    "top_status": {"type": ["string", "null"]},
+                    "evaluated_minutes_played_season": {"type": ["integer", "null"]},
+                    "evaluated_status": {"type": ["string", "null"]},
                     "favoured_run_gameweeks": {"type": "integer"},
                     "favoured_teams": {
                         "type": "array",
