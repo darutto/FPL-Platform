@@ -2493,14 +2493,44 @@ def _compose_captain_answer(result: OrchestratorResult, question: str) -> Orches
     return replace(result, answer_text=composed)
 
 
+def _only_no_team_squad_failed(result: OrchestratorResult) -> bool:
+    """i111: the turn's only non-ok calls are ``get_my_squad`` → ``no_team_connected``.
+
+    The outcome is read off the FIRST call, so a chip question where the model
+    asked for the squad first ends ``tool_result_error`` with no team linked,
+    although the chip call itself was ok (measured: cvg-02 / cvg-01 without a
+    team). That is the one non-ok turn that still gets the chip composition;
+    any other non-ok call -- another tool, another status, a call with no
+    output -- keeps it uncomposed.
+    """
+    if result.outcome != OUTCOME_TOOL_RESULT_ERROR:
+        return False
+    saw_no_team = False
+    for entry in result.tool_calls_trace or ():
+        if not isinstance(entry, dict):
+            continue
+        output = entry.get("output")
+        status = output.get("status") if isinstance(output, dict) else None
+        if status == "ok":
+            continue
+        if entry.get("name") != "get_my_squad" or status != "no_team_connected":
+            return False
+        saw_no_team = True
+    return saw_no_team
+
+
 def _compose_chip_answer(result: OrchestratorResult, bootstrap: Any) -> OrchestratorResult:
     """Wrap an ok chip answer in its deterministic header and closing sentence.
 
-    Only when the turn ended ``ok``, the final-text guard did not fire, and
-    the trace holds an ok ``get_chip_advice`` output for a squad-fit chip.
-    The model's text is kept whole as the body (see ``chip_two_part``).
+    Only when the turn ended ``ok`` (or i111: its only failures are
+    ``get_my_squad`` with no team linked), the final-text guard did not fire,
+    and the trace holds an ok ``get_chip_advice`` output for a squad-fit chip.
+    The model's text is kept whole as the body (see ``chip_two_part``). The
+    outcome itself is not changed here; the harness owns the turn's slot.
     """
-    if result.outcome != OUTCOME_OK or result.final_text_guard_reason is not None:
+    if result.final_text_guard_reason is not None:
+        return result
+    if result.outcome != OUTCOME_OK and not _only_no_team_squad_failed(result):
         return result
     chip_output = last_chip_output(result.tool_calls_trace)
     if chip_output is None:
