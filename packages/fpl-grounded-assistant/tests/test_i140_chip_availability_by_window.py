@@ -55,7 +55,7 @@ def _apply(name, gw, used, remaining=STALE_REMAINING, bootstrap=BOOTSTRAP):
 def test_wildcard_used_gw5_current_gw6_is_not_available():
     _, chip, text = _apply("wildcard", 6, [{"chip": "wildcard", "event": 5}])
     assert chip.chip_unavailable is True                       # the UI said "remaining"
-    assert text.startswith("Ya usaste el Comodín en la GW5. Vuelves a tenerlo desde la GW20.")
+    assert text.startswith("Ya usaste el Wildcard en la GW5. Vuelves a tenerlo desde la GW20.")
 
 
 def test_tc_used_gw3_current_gw21_is_available():
@@ -69,7 +69,7 @@ def test_bb_used_gw2_and_gw22_current_gw25_is_not_available():
     _, chip, text = _apply("bench_boost", 25, used, remaining=[])
     assert chip.chip_unavailable is True
     # second window: names the use in THIS window, and there is no later one to return in
-    assert text.split("\n\n")[0] == "Ya usaste el Impulso de Banca en la GW22."
+    assert text.split("\n\n")[0] == "Ya usaste el Bench Boost en la GW22."
 
 
 @pytest.mark.parametrize("remaining,blocked", [(["wildcard"], False), ([], True)])
@@ -138,7 +138,7 @@ def test_without_the_advice_gw_the_next_event_is_used():
 def test_the_use_named_is_the_one_in_the_target_window():
     used = [{"chip": "wildcard", "event": 5}, {"chip": "wildcard", "event": 21}]
     _, _, text = _apply("wildcard", 6, used, remaining=[])
-    assert text.split("\n\n")[0] == "Ya usaste el Comodín en la GW5. Vuelves a tenerlo desde la GW20."
+    assert text.split("\n\n")[0] == "Ya usaste el Wildcard en la GW5. Vuelves a tenerlo desde la GW20."
 
 
 def test_the_next_event_wins_over_the_current_one_across_a_window_edge():

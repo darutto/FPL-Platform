@@ -171,7 +171,7 @@ def contradiction_note(
 #: return, and people read that as doubling the upside only.
 TRIPLE_CAPTAIN_RISK_NOTE = {
     "es": (
-        "El triple capitán multiplica lo que pase, en los dos sentidos: si el "
+        "El Triple Captain multiplica lo que pase, en los dos sentidos: si el "
         "jugador no suma, la jornada se resiente el triple."
     ),
     "en": (

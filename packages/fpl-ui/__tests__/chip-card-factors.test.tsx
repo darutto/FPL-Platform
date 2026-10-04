@@ -25,7 +25,7 @@ const tc: ChipAdviceMeta = {
   chip_unavailable: false,
   evaluated_factors: ['jugó 180 de 180 minutos posibles, 2 titularidades', 'lanza los penaltis'],
   top_factors: ['jugó 174 de 180 minutos posibles, 2 titularidades', 'lanza los penaltis'],
-  risk_note: 'El triple capitán multiplica lo que pase, en los dos sentidos.',
+  risk_note: 'El Triple Captain multiplica lo que pase, en los dos sentidos.',
 };
 
 describe('ChipCard — visible factors', () => {
@@ -62,7 +62,7 @@ describe('ChipCard — visible factors', () => {
 
     render(<ChipCard data={freeHit} />);
 
-    expect(screen.getByText('Ficha Libre')).toBeInTheDocument();
+    expect(screen.getByText('Free Hit')).toBeInTheDocument();
     expect(screen.queryByText(/minutos posibles/)).not.toBeInTheDocument();
     expect(screen.queryByText(/dos sentidos/)).not.toBeInTheDocument();
   });

@@ -266,14 +266,14 @@ def _tc_trace(verdict: str | None = "captain_held") -> dict[str, Any]:
 def test_grader_puts_triple_captain_in_the_denominator():
     grader = _load_script("grade_i108_chip_two_parts")
     good = ("**Triple Captain — jornada favorable.** Mejor candidato: Salah.\n\nCuerpo.\n\n"
-            "Tu mejor candidato para el triple capitán ya está en tu plantilla.")
+            "Tu mejor candidato para el Triple Captain ya está en tu plantilla.")
     row = {"question_id": "cvg-09", "rep": 0, "answer_text_full": good, "chip_trace": _tc_trace(),
            "chip_candidate": {"top_player": "Salah", "top_element": 2, "evaluated_player": None}}
     g = grader.grade_row(row, {})
     assert g["bucket"] == "denominator" and g["outcome"] == "captain_held" and g["pass"] is True
     unnamed = good.replace("Mejor candidato: Salah.", "")
     assert grader.grade_row({**row, "answer_text_full": unnamed}, {})["part1"] is False
-    invite = good.replace("Tu mejor candidato para el triple capitán ya está en tu plantilla",
+    invite = good.replace("Tu mejor candidato para el Triple Captain ya está en tu plantilla",
                           INVITE_TRIPLE_CAPTAIN[0].upper() + INVITE_TRIPLE_CAPTAIN[1:])
     g = grader.grade_row({**row, "answer_text_full": invite, "chip_trace": _tc_trace(None)}, {})
     assert g["outcome"] == "invite" and g["pass"] is True

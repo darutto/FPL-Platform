@@ -2606,12 +2606,13 @@ def _extract_structured_meta(
 
 #: i137: the chip names the user sees on the chip card (fpl-ui
 #: components/intents/ChipCard.tsx CHIP_LABELS), with the article and object
-#: pronoun each one takes. Pinned to the TSX by test_i137.
+#: pronoun each one takes. Pinned to the TSX by test_i137. Chip names stay in
+#: English, as FPL calls them (Leo, 2026-10-04); all take "el ... lo".
 _CHIP_LABEL_ES: dict[str, tuple[str, str, str]] = {
-    "triple_captain": ("el", "Triple Capitán", "lo"),
-    "wildcard":       ("el", "Comodín", "lo"),
-    "bench_boost":    ("el", "Impulso de Banca", "lo"),
-    "free_hit":       ("la", "Ficha Libre", "la"),
+    "triple_captain": ("el", "Triple Captain", "lo"),
+    "wildcard":       ("el", "Wildcard", "lo"),
+    "bench_boost":    ("el", "Bench Boost", "lo"),
+    "free_hit":       ("el", "Free Hit", "lo"),
 }
 
 #: The bootstrap's chip codes for each backend chip name (chip_advisor's map).
