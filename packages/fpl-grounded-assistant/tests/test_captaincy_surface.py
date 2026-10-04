@@ -365,8 +365,10 @@ def test_squad_context_suppresses_stale_availability_disclaimer(bootstrap):
         squad_context={"chips_remaining": ["triple_captain"]},
     )
 
-    assert "whether you still have this chip available" in without_context["advice_text"]
-    assert "whether you still have this chip available" not in with_context["advice_text"]
+    # i144: one availability sentence from chip_availability replaces the old note.
+    assert "Whether the user still has this chip is unknown" in without_context["advice_text"]
+    assert "Whether the user still has this chip is unknown" not in with_context["advice_text"]
+    assert "The user still has this chip" in with_context["advice_text"]
 
 
 def test_structured_chip_meta_identifies_signal_owner_and_global_top(bootstrap):

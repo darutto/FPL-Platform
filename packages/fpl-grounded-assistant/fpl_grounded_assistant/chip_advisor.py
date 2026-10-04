@@ -100,6 +100,7 @@ from .captain_factors import TRIPLE_CAPTAIN_RISK_NOTE, factor_phrases
 from .scoring_shared import _derive_scoring_inputs
 from .fixture_context import build_fixture_context  # FI3a: additive fixture context
 # i132: same bootstrap mapping find_players / get_my_squad use for availability.
+from .chip_availability import decide_chip_availability
 from .find_players import _map_status, _safe_int
 from .tool_schema_registry import GET_CHIP_ADVICE_SCHEMA  # i108 E3: one catalog entry
 
@@ -688,10 +689,34 @@ def _triple_captain_fit(
 # ---------------------------------------------------------------------------
 
 def _availability_note(squad_context: dict[str, Any] | None) -> str:
-    """Return the legacy chip-availability caveat only when context is absent."""
-    if squad_context is not None:
-        return ""
-    return " Note: whether you still have this chip available is not known to this system."
+    """Superseded by i144: ``get_chip_advice`` states the chip's availability
+    once, from ``chip_availability`` (available / used / unknown). Kept so the
+    triple captain branches read the same; it adds nothing now."""
+    del squad_context
+    return ""
+
+
+def _availability_sentence(decision: dict[str, Any]) -> str:
+    """i144: the availability decision, said once and plainly for the model.
+
+    ``used``: the chip is spent -- the read is planning for when it returns,
+    never advice to keep or save it. ``unknown`` (no team linked): say so and
+    never claim it is available.
+    """
+    status = decision.get("status")
+    if status == "used":
+        used, back = decision.get("used_gw"), decision.get("returns_gw")
+        played = f"in GW{used}" if used is not None else "already in this window"
+        returns = f" It comes back in GW{back}." if back is not None else " It does not come back this season."
+        return (
+            f"The user already played this chip {played}, so it cannot be played now.{returns} "
+            "Read this gameweek only as planning for when the chip is available again; "
+            "do not advise keeping, saving or playing it now."
+        )
+    if status == "available":
+        return "The user still has this chip in the current window."
+    return ("Whether the user still has this chip is unknown (no team linked): "
+            "do not say it is available.")
 
 
 def _advise_triple_captain(
@@ -950,10 +975,10 @@ def _advise_wildcard(
             f"Wildcard conditions: {label}. {phrase} "
             + (
                 # i108 E2: with the squad in hand, composition IS known.
-                "Note: which wildcard you still hold is not known to this system."
+                # i144: which wildcard is still held is chip_availability's.
+                ""
                 if has_squad else
-                "Note: squad composition and which wildcard you still hold are not "
-                "available to this system."
+                "Note: squad composition is not available to this system."
             )
         ),
     }
@@ -1322,6 +1347,10 @@ def get_chip_advice(
     ):
         squad_fields["squad_fit"] = _triple_captain_fit(result["signals"], members)
 
+    # i144: the same decision the response layer applies (i137/i140), made
+    # here too so the model writes knowing the chip is spent / unknown.
+    availability = decide_chip_availability(chip, squad_context, bootstrap, evaluated_gw)
+
     return {
         "status":           "ok",
         "chip":             chip,
@@ -1332,8 +1361,13 @@ def get_chip_advice(
         "signals":          result["signals"],
         "advice_text":      (
             f"{time_context['notice']} {result['advice_text']} "
-            f"{window_context['window_notice']}"
+            f"{window_context['window_notice']} {_availability_sentence(availability)}"
         ),
+        "chip_availability": {
+            "status":     availability["status"],
+            "used_gw":    availability["used_gw"],
+            "returns_gw": availability["returns_gw"],
+        },
         **window_context,
         # FI3a: additive — populated only for triple_captain (top captain's
         # attack-axis outlook); None for the other chips.
@@ -1384,6 +1418,16 @@ CHIP_ADVICE_SPEC = ToolSpec(
             },
             "chip": {"type": "string"},
             "current_gameweek": {"type": ["integer", "null"]},
+            # i144: the user's chip availability for the evaluated GW, the same
+            # decision the response layer applies (chip_availability module).
+            "chip_availability": {
+                "type": "object",
+                "properties": {
+                    "status": {"type": "string", "enum": ["available", "used", "unknown"]},
+                    "used_gw": {"type": ["integer", "null"]},
+                    "returns_gw": {"type": ["integer", "null"]},
+                },
+            },
             "window_status": {
                 "type": "string",
                 "enum": ["active", "inactive", "unavailable"],
