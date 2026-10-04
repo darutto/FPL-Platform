@@ -53,11 +53,13 @@ _SET_PIECE_SHORT: dict[str, str] = {
 
 
 def _venue_tag(is_home: bool | None) -> str:
-    """Return a short venue suffix for display: 'H', 'A', or ''."""
+    """Short venue suffix for display, in the product's Spanish: 'L' (local),
+    'V' (visitante), or '' (i141: transfer reasons; comparison used its own
+    copy since i139 and now shares this one)."""
     if is_home is True:
-        return "H"
+        return "L"
     if is_home is False:
-        return "A"
+        return "V"
     return ""
 
 
@@ -74,7 +76,6 @@ _SET_PIECE_SHORT_ES: dict[str, str] = {
 def _set_piece_advantage_phrase(
     better_role: dict[str, Any],
     worse_role: dict[str, Any],
-    locale: str | None = None,
 ) -> str | None:
     """Return a specific set-piece advantage phrase, or ``None``.
 
@@ -86,13 +87,11 @@ def _set_piece_advantage_phrase(
 
     Examples
     --------
-    better=penalty_taker_1, worse=freekick_taker_2 → "set-piece advantage (pen vs fk2)"
-    better=penalty_taker_1, worse=[]               → "set-piece advantage (pen)"
+    better=penalty_taker_1, worse=freekick_taker_2 → "ventaja a balón parado (penales vs 2.º en tiros libres)"
+    better=penalty_taker_1, worse=[]               → "ventaja a balón parado (penales)"
     better.role_bonus == worse.role_bonus          → None
 
-    ``locale="es"`` (i139, the comparison card) gives the same phrase in
-    Spanish: "ventaja a balón parado (penales vs 2.º en tiros libres)". The
-    default stays English for the transfer reasons until they are decided.
+    Spanish only (i141): both the comparison and the transfer cards show it.
     """
     better_bonus = float(better_role.get("role_bonus", 0.0))
     worse_bonus = float(worse_role.get("role_bonus", 0.0))
@@ -101,9 +100,8 @@ def _set_piece_advantage_phrase(
 
     better_notes = better_role.get("set_piece_notes", [])
     worse_notes = worse_role.get("set_piece_notes", [])
-    spanish = locale == "es"
-    head = "ventaja a balón parado" if spanish else "set-piece advantage"
-    short = _SET_PIECE_SHORT_ES if spanish else _SET_PIECE_SHORT
+    head = "ventaja a balón parado"
+    short = _SET_PIECE_SHORT_ES
 
     if not better_notes:
         # role_bonus set but no notes — generic fallback

@@ -481,7 +481,7 @@ ok(_ch_bb.chip == "bench_boost",                "F3: chip == 'bench_boost'")
 ok(_ch_bb.recommendation == "conditions_unfavorable",
    "F4: recommendation correct")
 ok(_ch_bb.gw == 28,                             "F5: gw == 28")
-ok(_ch_bb.signal_label == "average FDR (top 10)",
+ok(_ch_bb.signal_label == "FDR medio (top 10)",
    "F6: bench_boost signal_label correct")
 ok(abs((_ch_bb.signal_value or 0) - 4.33) < 0.01,
    "F7: bench_boost signal_value ~4.33")
@@ -489,25 +489,25 @@ ok(abs((_ch_bb.signal_value or 0) - 4.33) < 0.01,
 # triple_captain
 _ch_tc = _extract_chip_meta(_CHIP_TC_RO)
 ok(_ch_tc is not None,                          "F8: triple_captain returns non-None")
-ok(_ch_tc.signal_label == "top captain score",  "F9: triple_captain signal_label correct")
+ok(_ch_tc.signal_label == "mejor puntuación de capitán",  "F9: triple_captain signal_label correct")
 ok(abs((_ch_tc.signal_value or 0) - 83.5) < 0.01,
    "F10: triple_captain signal_value ~83.5")
 
 # wildcard
 _ch_wc = _extract_chip_meta(_CHIP_WC_RO)
 ok(_ch_wc is not None,                          "F11: wildcard returns non-None")
-ok(_ch_wc.signal_label == "current gameweek",   "F12: wildcard signal_label correct")
+ok(_ch_wc.signal_label == "jornada actual",   "F12: wildcard signal_label correct")
 
 # free_hit normal gameweek
 _ch_fh_n = _extract_chip_meta(_CHIP_FH_NORMAL_RO)
 ok(_ch_fh_n is not None,                        "F13: free_hit normal returns non-None")
-ok(_ch_fh_n.signal_label == "normal gameweek",  "F14: free_hit normal signal_label")
+ok(_ch_fh_n.signal_label == "jornada normal",  "F14: free_hit normal signal_label")
 ok(_ch_fh_n.signal_value == 0.0,                "F15: free_hit normal signal_value == 0.0")
 
 # free_hit double gameweek
 _ch_fh_d = _extract_chip_meta(_CHIP_FH_DOUBLE_RO)
 ok(_ch_fh_d is not None,                        "F16: free_hit double returns non-None")
-ok(_ch_fh_d.signal_label == "double gameweek teams",
+ok(_ch_fh_d.signal_label == "equipos con doble jornada",
    "F17: free_hit double signal_label")
 ok((_ch_fh_d.signal_value or 0) == 6.0,        "F18: free_hit double signal_value == 6.0")
 
@@ -665,7 +665,7 @@ _r_s2 = respond("should I bench boost this week", STANDARD_BOOTSTRAP)
 ok(_r_s2.intent == "chip_advice",               "S5: chip_advice intent")
 ok(_r_s2.chip is not None,                      "S6: chip populated in deterministic path")
 ok(_r_s2.chip.chip == "bench_boost",            "S7: deterministic chip.chip == 'bench_boost'")
-ok(_r_s2.chip.signal_label == "average FDR (top 10)",
+ok(_r_s2.chip.signal_label == "FDR medio (top 10)",
    "S8: deterministic bench_boost signal_label correct")
 
 # Compare players

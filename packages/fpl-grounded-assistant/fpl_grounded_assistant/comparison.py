@@ -439,19 +439,6 @@ def _margin_label(margin: float) -> str:
     return "moderate"
 
 
-#: i139: the comparison card shows these reasons as they come (ComparisonCard
-#: ``reasons``), so they are written in Spanish here, at the origin. Venue in
-#: the product's Spanish abbreviation (L = local, V = visitante), as in
-#: FixtureRunTable / fixture-outlook-format.
-def _venue_tag_es(is_home: bool | None) -> str:
-    """'L' (local), 'V' (visitante) or '' when the venue is unknown."""
-    if is_home is True:
-        return "L"
-    if is_home is False:
-        return "V"
-    return ""
-
-
 def _explain_comparison(
     winner: dict[str, Any],
     loser: dict[str, Any],
@@ -496,8 +483,8 @@ def _explain_comparison(
     if l_efdr - w_efdr >= _FDR_ADV_THRESHOLD:
         w_raw = int(w_inp.get("fixture_difficulty", 3))
         l_raw = int(l_inp.get("fixture_difficulty", 3))
-        w_venue = _venue_tag_es(w_inp.get("is_home"))
-        l_venue = _venue_tag_es(l_inp.get("is_home"))
+        w_venue = _venue_tag(w_inp.get("is_home"))
+        l_venue = _venue_tag(l_inp.get("is_home"))
         reasons.append(f"partido más fácil (FDR {w_raw}{w_venue} vs {l_raw}{l_venue})")
 
     # 3. xGI/90 advantage
@@ -513,7 +500,7 @@ def _explain_comparison(
         reasons.append("minutos más asegurados")
 
     # 5. Set-piece advantage — Phase 5h: specific role labels via _set_piece_advantage_phrase
-    sp_phrase = _set_piece_advantage_phrase(w_role, l_role, locale="es")
+    sp_phrase = _set_piece_advantage_phrase(w_role, l_role)
     if sp_phrase is not None:
         reasons.append(sp_phrase)
 

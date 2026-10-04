@@ -1727,16 +1727,16 @@ def _extract_chip_meta(ro: "dict[str, Any]") -> "ChipAdviceMeta | None":
                 else signals.get("top_captain_score")
             )
             sl: "str | None" = (
-                ("captain score" if evaluated_player is not None else "top captain score")
+                ("puntuación de capitán" if evaluated_player is not None else "mejor puntuación de capitán")
                 if sv is not None
                 else None
             )
         elif chip_name == "wildcard":
             sv = signals.get("current_gameweek")
-            sl = "current gameweek" if sv is not None else None
+            sl = "jornada actual" if sv is not None else None
         elif chip_name == "bench_boost":
             sv = signals.get("average_fdr_top10")
-            sl = "average FDR (top 10)" if sv is not None else None
+            sl = "FDR medio (top 10)" if sv is not None else None
         elif chip_name == "free_hit":
             # Phase 8c/8c1: DGW/BGW/mixed detection.
             # Prefer granular dgw_count/bgw_count (Phase 8c1) with fallback
@@ -1748,17 +1748,17 @@ def _extract_chip_meta(ro: "dict[str, Any]") -> "ChipAdviceMeta | None":
             if gw_type == "double":
                 raw = dgw_count if dgw_count is not None else ac
                 sv  = float(raw) if raw is not None else None
-                sl  = "double gameweek teams" if sv is not None else None
+                sl  = "equipos con doble jornada" if sv is not None else None
             elif gw_type == "blank":
                 raw = bgw_count if bgw_count is not None else ac
                 sv  = float(raw) if raw is not None else None
-                sl  = "blank gameweek teams" if sv is not None else None
+                sl  = "equipos sin partido" if sv is not None else None
             elif gw_type == "mixed":
                 sv = float(dgw_count) if dgw_count is not None else None
-                sl = "mixed gameweek (double teams)" if sv is not None else None
+                sl = "jornada mixta (equipos con doble jornada)" if sv is not None else None
             elif gw_type == "normal":
                 sv = 0.0
-                sl = "normal gameweek"
+                sl = "jornada normal"
             else:
                 sv = None
                 sl = None
@@ -2353,6 +2353,29 @@ def _extract_fixture_outlook_meta(ro: "dict[str, Any]") -> "FixtureOutlookMeta |
         return None
 
 
+def _difficulty_label_es(label: Any) -> str:
+    """i141: easy/moderate/hard in the catalogue's Spanish (fácil/moderado/difícil).
+
+    Anything outside the enum passes through unchanged rather than being
+    guessed.
+    """
+    from .catalogue import t  # noqa: PLC0415
+    if label in ("easy", "moderate", "hard"):
+        return t(f"difficulty_label.{label}", "es")
+    return str(label or "")
+
+
+def _position_noun_es(code: Any, fallback: Any) -> str:
+    """i141: GKP/DEF/MID/FWD/ALL as the catalogue's Spanish plural noun.
+
+    An unknown code keeps the tool's own label rather than a guess.
+    """
+    from .catalogue import t  # noqa: PLC0415
+    if code in ("GKP", "DEF", "MID", "FWD", "ALL"):
+        return t(f"position_noun.{code}", "es")
+    return str(fallback or "")
+
+
 def _extract_transfer_suggestion_meta(ro: "dict[str, Any]") -> "TransferSuggestionMeta | None":
     """Extract TransferSuggestionMeta from get_transfer_suggestion output.  Phase 2.6h."""
     try:
@@ -2366,7 +2389,9 @@ def _extract_transfer_suggestion_meta(ro: "dict[str, Any]") -> "TransferSuggesti
                 now_cost_m       = float(p.get("now_cost_m", 0.0)),
                 form             = float(p.get("form", 0.0)),
                 avg_fdr          = float(p.get("avg_fdr", 0.0)),
-                difficulty_label = p.get("difficulty_label", ""),
+                # i141: the card shows it as it comes; the tool keeps the
+                # easy/moderate/hard enum (renderer + model read it).
+                difficulty_label = _difficulty_label_es(p.get("difficulty_label", "")),
                 composite_score  = float(p.get("composite_score", 0.0)),
                 ownership        = float(p.get("ownership", 0.0)),
             )
@@ -2374,7 +2399,9 @@ def _extract_transfer_suggestion_meta(ro: "dict[str, Any]") -> "TransferSuggesti
         )
         return TransferSuggestionMeta(
             position         = ro.get("position", "ALL"),
-            position_label   = ro.get("position_label", "all positions"),
+            # i141: shown as it comes on the card's scope line; the catalogue's
+            # Spanish noun for the position code (the tool keeps its own label).
+            position_label   = _position_noun_es(ro.get("position", "ALL"), ro.get("position_label", "")),
             team_short       = ro.get("team_short"),       # Phase 2.6i
             team_name        = ro.get("team_name"),        # Phase 2.6i
             max_price        = ro.get("max_price"),

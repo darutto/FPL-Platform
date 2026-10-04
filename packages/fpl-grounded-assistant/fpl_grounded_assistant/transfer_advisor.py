@@ -302,7 +302,7 @@ def _build_transfer_reasons(
     in_form  = float(in_inp.get("form", 0.0))
     out_form = float(out_inp.get("form", 0.0))
     if in_form - out_form >= _FORM_ADV_THRESHOLD:
-        reasons.append(f"stronger form ({in_form:.1f} vs {out_form:.1f})")
+        reasons.append(f"mejor forma ({in_form:.1f} vs {out_form:.1f})")
 
     # 2. Fixture advantage (lower FDR = easier fixture)
     # Phase 8b: use effective_fdr (home/away adjusted) for threshold check
@@ -313,19 +313,19 @@ def _build_transfer_reasons(
         out_raw = int(out_inp.get("fixture_difficulty", 3))
         in_v  = _venue_tag(in_inp.get("is_home"))
         out_v = _venue_tag(out_inp.get("is_home"))
-        reasons.append(f"easier fixture (FDR {in_raw}{in_v} vs {out_raw}{out_v})")
+        reasons.append(f"partido más fácil (FDR {in_raw}{in_v} vs {out_raw}{out_v})")
 
     # 3. xGI/90 advantage
     in_xgi  = float(in_inp.get("xgi_per_90", 0.0))
     out_xgi = float(out_inp.get("xgi_per_90", 0.0))
     if in_xgi - out_xgi >= _XGI_ADV_THRESHOLD:
-        reasons.append("higher xGI output")
+        reasons.append("más xGI por 90")
 
     # 4. Minutes security (lower risk = better)
     in_risk  = float(in_inp.get("minutes_risk", 0.0))
     out_risk = float(out_inp.get("minutes_risk", 0.0))
     if out_risk - in_risk >= _RISK_ADV_THRESHOLD:
-        reasons.append("better minutes security")
+        reasons.append("minutos más asegurados")
 
     # 5. Set-piece advantage
     sp_phrase = _set_piece_advantage_phrase(in_role, out_role)
@@ -373,37 +373,37 @@ def _build_recommendation_text(
     """
     reasons_clause = ""
     if reasons:
-        reasons_clause = "  Advantages: " + "; ".join(reasons[:4]) + "."
+        reasons_clause = "  Ventajas: " + "; ".join(reasons[:4]) + "."
 
     price_note = ""
     if price_delta != 0:
         price_m = abs(price_delta) / 10.0
         if price_delta > 0:
-            price_note = f"  Net cost: +\u00a3{price_m:.1f}m."
+            price_note = f"  Coste neto: +\u00a3{price_m:.1f}m."
         else:
-            price_note = f"  Net saving: \u00a3{price_m:.1f}m."
+            price_note = f"  Ahorro neto: \u00a3{price_m:.1f}m."
 
     delta_abs = abs(score_delta)
 
     if recommendation == "transfer_in":
         return (
-            f"Recommendation: Transfer in {in_name}. "
-            f"Score: {score_in:.0f} vs {out_name}'s {score_out:.0f} "
+            f"Recomendación: incorpora a {in_name}. "
+            f"Puntuación: {score_in:.0f} vs {score_out:.0f} de {out_name} "
             f"(+{delta_abs:.1f}).{reasons_clause}{price_note}"
         )
 
     if recommendation == "marginal_transfer_in":
         return (
-            f"Marginal: Consider {in_name} over {out_name}. "
-            f"Score: {score_in:.0f} vs {score_out:.0f} "
+            f"Ajustado: valora a {in_name} en lugar de {out_name}. "
+            f"Puntuación: {score_in:.0f} vs {score_out:.0f} "
             f"(+{delta_abs:.1f}).{reasons_clause}{price_note}"
         )
 
     # "hold" — player_out is same or better
     delta_str = f"{score_delta:.1f}" if score_delta < 0 else "0.0"
     return (
-        f"Recommendation: Hold {out_name}. "
-        f"Score: {score_out:.0f} vs {in_name}'s {score_in:.0f} "
+        f"Recomendación: mantén a {out_name}. "
+        f"Puntuación: {score_out:.0f} vs {score_in:.0f} de {in_name} "
         f"({delta_str}).{reasons_clause}"
     )
 
