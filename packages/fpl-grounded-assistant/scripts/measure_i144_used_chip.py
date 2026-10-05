@@ -82,11 +82,37 @@ def grade(text: str) -> dict:
             "opens_with_used": f.startswith("ya usaste el wildcard")}
 
 
+def group_hits(text: str, names: list[str]) -> list[str]:
+    """i147: favoured-group names (teams and players) that appear in *text*."""
+    f = fold(text)
+    return [n for n in names if n and re.search(r"(?<![a-z])" + re.escape(fold(n)) + r"(?![a-z])", f)]
+
+
+def favoured_group_names(bootstrap: dict) -> list[str]:
+    """i147: the Wildcard's favoured group on this bootstrap, as a user would read it.
+
+    Computed with no squad context (status unknown), so the group is present:
+    full team names, short codes and favoured players' web names.
+    """
+    from fpl_grounded_assistant.chip_advisor import get_chip_advice
+    out = get_chip_advice("wildcard", {k: v for k, v in bootstrap.items() if k != "_squad_context"})
+    teams = {t["id"]: t for t in bootstrap.get("teams", [])}
+    names: set[str] = set()
+    for t in (out.get("signals") or {}).get("favoured_teams") or []:
+        team = teams.get(t.get("team")) or {}
+        names.update(x for x in (team.get("name"), t.get("team_short")) if x)
+    for pl in (out.get("signals") or {}).get("favoured_players") or []:
+        if pl.get("web_name"):
+            names.add(pl["web_name"])
+    return sorted(names)
+
+
 def summary(paths: list[str]) -> int:
     for p in paths:
         rows = [json.loads(x) for x in Path(p).read_text(encoding="utf-8").splitlines() if x.strip()]
         for r in rows:      # recomputed from the served text with the current detectors
             r.update(grade(r["final_text"]))
+            r["group_hits"] = group_hits(r["final_text"], r.get("group_names") or [])
         n = len(rows)
         print(json.dumps({
             "arm": Path(p).name, "turns": n,
@@ -96,6 +122,7 @@ def summary(paths: list[str]) -> int:
             "window_mix_rows": sum(bool(r["window_mix"]) for r in rows),
             "early_in_window_rows": sum(bool(r["early_in_window"]) for r in rows),
             "opens_with_used": sum(r["opens_with_used"] for r in rows),
+            "group_name_rows": sum(bool(r["group_hits"]) for r in rows),
             "rejected_rows": sum(r["rejected"] for r in rows),
             "usd_per_turn": round(sum(r["usd_cost_estimate"] for r in rows) / n, 5) if n else None,
         }))
@@ -117,6 +144,8 @@ def main(argv: list[str]) -> int:
     from fpl_server import AskRequest
 
     startup = assemble_captain_context()["bootstrap"]
+    group_names = favoured_group_names(startup)
+    print(f"favoured group on this bootstrap: {group_names}", flush=True)
     verdicts: list[dict] = []
     real_evaluate = orch_mod.evaluate_response
 
@@ -154,6 +183,7 @@ def main(argv: list[str]) -> int:
                 "rejected": any(not v["approved"] for v in verdicts),
                 "evaluator_feedback": [v["retry_feedback"] for v in verdicts if not v["approved"]],
                 "final_text": resp.final_text, **grade(resp.final_text),
+                "group_names": group_names, "group_hits": group_hits(resp.final_text, group_names),
                 "usd_cost_estimate": round(cost, 6), "latency_s": round(time.monotonic() - t0, 1),
             }
             f.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")
