@@ -708,6 +708,10 @@ _FH_SAVE = "Consider saving it for a better opportunity."
 _FH_WAIT_LARGER = " but a larger double gameweek would be a stronger opportunity"
 
 
+#: i147: signals not shown for a chip the user already played in the window.
+_USED_CHIP_HIDDEN_SIGNALS: frozenset[str] = frozenset({"favoured_teams", "favoured_players"})
+
+
 def _strip_timing(advice_text: str, timing: list[str]) -> str:
     """i146: *advice_text* without the given timing phrases, spaces tidied."""
     for phrase in timing:
@@ -1406,6 +1410,15 @@ def get_chip_advice(
         window_context = _used_chip_window_context(chip, bootstrap, availability)
         # i146: nor its timing / keep-it phrases.
         result["advice_text"] = _strip_timing(result["advice_text"], timing)
+        # i147 (Leo, option A): nor its favoured group. The group is this
+        # gameweek's fixture run; with the chip spent until its next window
+        # it would have the model plan GW20 with today's run. Dropped at the
+        # source, so the model, the evaluator and the i108 header ("Grupo
+        # favorecido: …") all go without it; the header keeps its verdict.
+        result["signals"] = {
+            k: v for k, v in result["signals"].items()
+            if k not in _USED_CHIP_HIDDEN_SIGNALS
+        }
 
     return {
         "status":           "ok",
