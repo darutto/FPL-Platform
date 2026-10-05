@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-05",
+  "updated": "2026-10-04",
   "cards": [
     {
       "id": "s1",
@@ -1893,24 +1893,24 @@
     },
     {
       "id": "i146",
-      "col": "evaluation",
-      "progress": 90,
+      "col": "shipped",
+      "progress": 100,
       "tags": [
         "Backend"
       ],
       "title": "Chip usado: sin frases de momento («es pronto en la ventana») ni de guardarlo",
-      "desc": "CERRADA EN CÓDIGO 2026-10-04 (PR #384): con chip used, advice_text pierde las frases de timing/guardar de los cuatro chips (cada frase definida una vez); disponible y desconocido byte a byte igual. Caso de Leo R=5: «pronto/temprana» 5/5 → 0/5. FALTA: repetir en prod «¿Me conviene usar el Wildcard esta jornada?»."
+      "desc": "CERRADA EN CÓDIGO 2026-10-04 (PR #384): con chip used, advice_text pierde las frases de timing/guardar de los cuatro chips (cada frase definida una vez); disponible y desconocido byte a byte igual. Caso de Leo R=5: «pronto/temprana» 5/5 → 0/5. FALTA: repetir en prod «¿Me conviene usar el Wildcard esta jornada?».\n\nVERIFICADA EN PROD 2026-10-04 (captura de Leo): «¿Me conviene usar el Wildcard esta jornada?» → «Ya usaste el Wildcard en la GW5. Vuelves a tenerlo desde la GW20.», encabezado «Wildcard — jornada poco favorable.» sin grupo favorecido, sin «pronto/temprana» ni consejo de guardarlo; tarjeta «Chip no disponible en tu equipo». Detalle menor visto: el cuerpo repite la frase de uso/vuelta del lead."
     },
     {
       "id": "i147",
-      "col": "evaluation",
-      "progress": 90,
+      "col": "shipped",
+      "progress": 100,
       "tags": [
         "IA",
         "FPL Asistente"
       ],
       "title": "Chip usado: la planificación del regreso usa el grupo favorecido de la jornada actual",
-      "desc": "VISTO 2026-10-04 en la medición de [[i146]]: con el chip usado, algunos cuerpos planifican el regreso (GW20) con la racha de Fulham de GW6-10, porque el grupo favorecido sale de la GW actual. Opciones: no mostrar grupo favorecido cuando el chip está used, o calcularlo sobre la primera GW de la siguiente ventana. Decidir antes de construir.\n\nDECISIÓN DE LEO 2026-10-04: opción A (no mostrar grupo favorecido con el chip usado). CERRADA EN CÓDIGO (PR #386): con status used, la salida del chip quita favoured_teams/favoured_players en el origen (modelo, evaluador y encabezado no los ven); disponible/desconocido byte a byte igual; ChipCard nunca pintó el grupo. Caso de Leo R=5: Fulham en el texto 5/5 → 0/5, rechazos 1/5 → 0/5; E3 sin regresión. FALTA: la misma captura de prod que [[i146]]."
+      "desc": "VISTO 2026-10-04 en la medición de [[i146]]: con el chip usado, algunos cuerpos planifican el regreso (GW20) con la racha de Fulham de GW6-10, porque el grupo favorecido sale de la GW actual. Opciones: no mostrar grupo favorecido cuando el chip está used, o calcularlo sobre la primera GW de la siguiente ventana. Decidir antes de construir.\n\nDECISIÓN DE LEO 2026-10-04: opción A (no mostrar grupo favorecido con el chip usado). CERRADA EN CÓDIGO (PR #386): con status used, la salida del chip quita favoured_teams/favoured_players en el origen (modelo, evaluador y encabezado no los ven); disponible/desconocido byte a byte igual; ChipCard nunca pintó el grupo. Caso de Leo R=5: Fulham en el texto 5/5 → 0/5, rechazos 1/5 → 0/5; E3 sin regresión. FALTA: la misma captura de prod que [[i146]].\n\nVERIFICADA EN PROD 2026-10-04 (captura de Leo): «¿Me conviene usar el Wildcard esta jornada?» → «Ya usaste el Wildcard en la GW5. Vuelves a tenerlo desde la GW20.», encabezado «Wildcard — jornada poco favorable.» sin grupo favorecido, sin «pronto/temprana» ni consejo de guardarlo; tarjeta «Chip no disponible en tu equipo». Detalle menor visto: el cuerpo repite la frase de uso/vuelta del lead."
     }
   ]
 }
