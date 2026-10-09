@@ -1911,6 +1911,29 @@
       ],
       "title": "Chip usado: la planificación del regreso usa el grupo favorecido de la jornada actual",
       "desc": "VISTO 2026-10-04 en la medición de [[i146]]: con el chip usado, algunos cuerpos planifican el regreso (GW20) con la racha de Fulham de GW6-10, porque el grupo favorecido sale de la GW actual. Opciones: no mostrar grupo favorecido cuando el chip está used, o calcularlo sobre la primera GW de la siguiente ventana. Decidir antes de construir.\n\nDECISIÓN DE LEO 2026-10-04: opción A (no mostrar grupo favorecido con el chip usado). CERRADA EN CÓDIGO (PR #386): con status used, la salida del chip quita favoured_teams/favoured_players en el origen (modelo, evaluador y encabezado no los ven); disponible/desconocido byte a byte igual; ChipCard nunca pintó el grupo. Caso de Leo R=5: Fulham en el texto 5/5 → 0/5, rechazos 1/5 → 0/5; E3 sin regresión. FALTA: la misma captura de prod que [[i146]].\n\nVERIFICADA EN PROD 2026-10-04 (captura de Leo): «¿Me conviene usar el Wildcard esta jornada?» → «Ya usaste el Wildcard en la GW5. Vuelves a tenerlo desde la GW20.», encabezado «Wildcard — jornada poco favorable.» sin grupo favorecido, sin «pronto/temprana» ni consejo de guardarlo; tarjeta «Chip no disponible en tu equipo». Detalle menor visto: el cuerpo repite la frase de uso/vuelta del lead."
+    },
+    {
+      "id": "i148",
+      "col": "building",
+      "progress": 5,
+      "tags": [
+        "FPL Asistente",
+        "IA",
+        "UI"
+      ],
+      "title": "«Háblame de X»: ficha de jugador + perfil zonal en una sola respuesta (gate de Leo para el trial de Sportmonks)",
+      "desc": "PEDIDO POR LEO 2026-10-08. Hoy lo zonal de un jugador (get_player_zonal_outlook) solo sale con una pregunta muy específica y no tiene tarjeta. Objetivo: «Háblame de Cole Palmer» / «¿cómo está Haaland?» traen la ficha y, dentro de la misma PlayerCard, el perfil zonal frente a los partidos pendientes de las próximas 3 jornadas — composición determinista dentro de get_player_snapshot._ok(), sin llamada LLM extra. Plan aprobado (revisado dos veces por Leo): adaptador estricto al motor (nunca subcadena), identidad estricta (crosswalk solo si se demuestra la cadena; si no, nombre completo + equipo + candidato único), calendario siempre del equipo actual, estado explícito del fixture (excluir en curso/terminados; desconocido → omitir), share fracción 0–1 de xG sin penalti (porcentaje solo en UI), no_data ≠ neutral, aislamiento (un fallo zonal nunca rompe la ficha), procedencia visible, renderer determinista + prompt. Fases: 0 (ruteo + viabilidad Palmer/Haaland) → backend → UI. Constructor: fpl-platform-e4. GATE EN PROD (Leo, fin de semana 10-11 oct): Palmer y Haaland con frase zonal y sección Zonas; jugador sin perfil → ficha normal; nombre ambiguo → wizard. Siguiente con el trial → [[i149]]."
+    },
+    {
+      "id": "i149",
+      "col": "idea",
+      "progress": 0,
+      "tags": [
+        "FPL Asistente",
+        "Backend"
+      ],
+      "title": "La ficha de jugador también se enriquece con Football Intelligence (minutos, rol, calendario)",
+      "desc": "Con el trial de Sportmonks activo: añadir player_snapshot a la lista de intents enriquecidos de FI-7c (existing_intent_evidence.py; hoy solo captain_score, compare_players, transfer_advice) para que la respuesta completa de [[i148]] traiga también minutos esperados, rol táctico y carga de partidos, detrás del interruptor maestro de FI."
     }
   ]
 }
