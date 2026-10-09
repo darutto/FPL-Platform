@@ -16,6 +16,9 @@
  * FixtureRunTable's FixtureChip) when the player's team is covered by
  * bootstrap["team_fixtures"] — empty array otherwise, strip omitted.
  *
+ * When `zonal` is present it appends the «Zonas» section
+ * (PlayerZonasSection); absent/null leaves the card as it was.
+ *
  * Deliberately has no BF/position_score — get_player_snapshot is a pure
  * grounding-payload lookup, not a position_score.py caller. This card
  * renders the CURRENT snapshot fields with the same visual quality as
@@ -43,6 +46,7 @@ import {
 import { FingerprintWaves } from './CardOrnaments';
 import { resolveStatusBadge } from './InjuriesTable';
 import { FixtureChip, fixtureKey } from './FixtureRunTable';
+import PlayerZonasSection from './PlayerZonasSection';
 
 interface Props {
   data: PlayerSnapshotMeta;
@@ -74,6 +78,7 @@ export default function PlayerCard({ data }: Props) {
     defensive_contribution_per_90,
     minutes_played_season,
     fixtures,
+    zonal,
   } = data;
 
   const { className: badgeClass, label: badgeLabel } = resolveStatusBadge(status);
@@ -153,6 +158,10 @@ export default function PlayerCard({ data }: Props) {
             ))}
           </div>
         )}
+
+        {/* Bloque 10: zonal profile vs the pending matches of the next 3
+            gameweeks. Absent/null -> no section, card unchanged. */}
+        {zonal && <PlayerZonasSection zonal={zonal} />}
       </div>
     </div>
   );

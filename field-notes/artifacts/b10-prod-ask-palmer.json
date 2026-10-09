@@ -1,0 +1,362 @@
+{
+ "final_text": "**Cole Palmer — Chelsea, centrocampista**\n\n- **442 minutos** esta temporada.\n- **28 puntos**, con **5,6 puntos por partido**.\n- Forma actual: **3,5**.\n- **1,31 xG** y **0,79 xA**; participa en acciones de gol con frecuencia moderada.\n- Es el **primer lanzador de penaltis** y el segundo de faltas directas de Chelsea.\n- Precio: **9,7 millones**; propiedad: **24,7%**.\n- Próximos rivales: Bournemouth en casa, Everton fuera, Spurs en casa, Manchester United en casa y Sunderland fuera. Dificultad media global: **moderada**.\n\n**Disponibilidad:** aparece como **dudoso** por una lesión muscular, con un **75% de posibilidades de jugar**.\n\nEn la lectura zonal, sus próximos tres partidos son neutrales frente a Bournemouth y Everton, pero el cruce contra **Spurs en la GW8 es favorable**, porque genera la mayoría de su xG en zonas centrales del área que Spurs concede por encima de la media; esta lectura usa una muestra corta de solo cinco jornadas.",
+ "outcome": "ok",
+ "supported": true,
+ "intent": "player_snapshot",
+ "review_passed": true,
+ "llm_used": true,
+ "debug": {
+  "routing_trace": {
+   "branch": "orchestrator",
+   "decision_kind": "text",
+   "decision_outcome": "fallthrough",
+   "router_hit": false,
+   "classifier_called": false,
+   "classifier_confidence": null,
+   "classifier_intent": null,
+   "orchestrator_called": true,
+   "orchestrator_tool_calls": [
+    "get_player_snapshot"
+   ],
+   "orchestrator_outcome": "ok",
+   "grounded": true,
+   "tool_call_count": 1,
+   "synthesis_turn": true,
+   "feature_flag_orch_enabled": true,
+   "feature_flag_football_intelligence_enabled": false,
+   "player_resolution_strategy": null,
+   "player_candidate_count": 0,
+   "player_lookup_branch": "bare_not_found_fallthrough",
+   "jev_shadow_turn_id": "3fc4c33e3dfa4bff911c288aa04998cf",
+   "retry_attempted": false,
+   "retry_delivery": null,
+   "evaluator_verdict": {
+    "approved": true,
+    "grounded": true,
+    "complete": true,
+    "safe": true,
+    "retry_feedback": null,
+    "fail_open_reason": null
+   },
+   "tool_sequence": [
+    "get_player_snapshot"
+   ],
+   "tool_args_sequence": [
+    {
+     "player_name": "Cole Palmer"
+    }
+   ]
+  },
+  "selected_tool": "get_player_snapshot",
+  "tool_input": {
+   "player_name": "Cole Palmer"
+  },
+  "raw_output": {
+   "status": "ok",
+   "player": {
+    "id": 154,
+    "web_name": "Palmer",
+    "team_short": "CHE",
+    "position": "MID",
+    "minutes_played_season": 442,
+    "status": "Doubtful",
+    "news": "Muscular injury - 75% chance of playing",
+    "news_added": "2026-09-21T13:00:09.022726Z",
+    "chance_of_playing_this_round": 100,
+    "form": 3.5,
+    "total_points": 28,
+    "points_per_game": 5.6,
+    "expected_goals": 1.31,
+    "expected_assists": 0.79,
+    "expected_goal_involvements": 2.1,
+    "expected_goals_conceded": 8.73,
+    "ict_index": 44.1,
+    "influence": 151.0,
+    "creativity": 145.3,
+    "threat": 144.0,
+    "saves": 0,
+    "yellow_cards": 1,
+    "red_cards": 0,
+    "expected_goals_per_90": 0.27,
+    "expected_assists_per_90": 0.16,
+    "expected_goal_involvements_per_90": 0.43,
+    "ict_index_per_90": 8.979638009049774,
+    "defensive_contribution": 29,
+    "defensive_contribution_per_90": 5.9,
+    "now_cost": 97,
+    "selected_by_percent": 24.7,
+    "transfers_in_event": 61888,
+    "transfers_out_event": 266457,
+    "penalties_order": 1,
+    "direct_freekicks_order": 2,
+    "corners_and_indirect_freekicks_order": null,
+    "fixtures": [
+     {
+      "gameweek": 6,
+      "opponent_short": "BOU",
+      "is_home": true,
+      "difficulty": 3
+     },
+     {
+      "gameweek": 7,
+      "opponent_short": "EVE",
+      "is_home": false,
+      "difficulty": 3
+     },
+     {
+      "gameweek": 8,
+      "opponent_short": "TOT",
+      "is_home": true,
+      "difficulty": 2
+     },
+     {
+      "gameweek": 9,
+      "opponent_short": "MUN",
+      "is_home": true,
+      "difficulty": 4
+     },
+     {
+      "gameweek": 10,
+      "opponent_short": "SUN",
+      "is_home": false,
+      "difficulty": 3
+     }
+    ],
+    "team_fdr_context": {
+     "avg_fdr": 3.0,
+     "difficulty_label": "moderate",
+     "gw_from": 6,
+     "gw_to": 10
+    },
+    "zonal": {
+     "zones": [
+      {
+       "zone": "in-box / central",
+       "share": 0.5923
+      }
+     ],
+     "window": {
+      "gw_from": 6,
+      "gw_to": 8
+     },
+     "fixtures": [
+      {
+       "gameweek": 6,
+       "fixture_id": 53,
+       "opponent": "Bournemouth",
+       "opponent_short": "BOU",
+       "is_home": true,
+       "status": "neutral",
+       "matches": []
+      },
+      {
+       "gameweek": 7,
+       "fixture_id": 64,
+       "opponent": "Everton",
+       "opponent_short": "EVE",
+       "is_home": false,
+       "status": "neutral",
+       "matches": []
+      },
+      {
+       "gameweek": 8,
+       "fixture_id": 73,
+       "opponent": "Spurs",
+       "opponent_short": "TOT",
+       "is_home": true,
+       "status": "favorable",
+       "matches": [
+        {
+         "zone": "in-box / central",
+         "delta_vs_avg": 0.0547,
+         "player_share": 0.5923
+        }
+       ]
+      }
+     ],
+     "verdict_kind": "favorable",
+     "verdict": "Palmer genera su xG justo en zonas donde el rival concede por encima de la media — cruce favorable en J8 (Spurs).",
+     "data_provenance": {
+      "season": "2026-2027",
+      "season_label": "2026-27",
+      "live_season": "2026-2027",
+      "live_season_label": "2026-27",
+      "ingested_at": "2026-10-05T07:12:42Z",
+      "n_matches": 50,
+      "n_shots": 1398,
+      "status": "thin",
+      "is_current": true,
+      "label": "⚠ Datos de 2026-27, sólo 5 jornadas de liga — muestra corta para una lectura de liga"
+     }
+    }
+   }
+  }
+ },
+ "comparison": null,
+ "captain": null,
+ "captain_ranking": null,
+ "pool_source": null,
+ "pool_size": null,
+ "synthesis_turn": true,
+ "presentation": null,
+ "squad_source": null,
+ "squad_excluded": null,
+ "sub_responses": null,
+ "transfer": null,
+ "chip": null,
+ "fixture_run": null,
+ "differential": null,
+ "orch_outcome": "ok",
+ "degraded": false,
+ "player_form": null,
+ "injury_list": null,
+ "price_changes": null,
+ "team_calendar": null,
+ "team_schedule": null,
+ "position_fixture_run": null,
+ "transfer_suggestion": null,
+ "zonal_opportunity": null,
+ "fixture_outlook": null,
+ "player_snapshot": {
+  "id": 154,
+  "web_name": "Palmer",
+  "team_short": "CHE",
+  "position": "MID",
+  "minutes_played_season": 442,
+  "status": "Doubtful",
+  "news": "Muscular injury - 75% chance of playing",
+  "news_added": "2026-09-21T13:00:09.022726Z",
+  "chance_of_playing_this_round": 100,
+  "form": 3.5,
+  "total_points": 28,
+  "points_per_game": 5.6,
+  "expected_goals": 1.31,
+  "expected_assists": 0.79,
+  "expected_goal_involvements": 2.1,
+  "expected_goals_conceded": 8.73,
+  "ict_index": 44.1,
+  "influence": 151.0,
+  "creativity": 145.3,
+  "threat": 144.0,
+  "saves": 0,
+  "yellow_cards": 1,
+  "red_cards": 0,
+  "expected_goals_per_90": 0.27,
+  "expected_assists_per_90": 0.16,
+  "expected_goal_involvements_per_90": 0.43,
+  "ict_index_per_90": 8.979638009049774,
+  "defensive_contribution": 29,
+  "defensive_contribution_per_90": 5.9,
+  "now_cost": 97,
+  "selected_by_percent": 24.7,
+  "transfers_in_event": 61888,
+  "transfers_out_event": 266457,
+  "penalties_order": 1,
+  "direct_freekicks_order": 2,
+  "corners_and_indirect_freekicks_order": null,
+  "fixtures": [
+   {
+    "gameweek": 6,
+    "opponent_short": "BOU",
+    "is_home": true,
+    "difficulty": 3
+   },
+   {
+    "gameweek": 7,
+    "opponent_short": "EVE",
+    "is_home": false,
+    "difficulty": 3
+   },
+   {
+    "gameweek": 8,
+    "opponent_short": "TOT",
+    "is_home": true,
+    "difficulty": 2
+   },
+   {
+    "gameweek": 9,
+    "opponent_short": "MUN",
+    "is_home": true,
+    "difficulty": 4
+   },
+   {
+    "gameweek": 10,
+    "opponent_short": "SUN",
+    "is_home": false,
+    "difficulty": 3
+   }
+  ],
+  "team_fdr_context": {
+   "avg_fdr": 3.0,
+   "difficulty_label": "moderate",
+   "gw_from": 6,
+   "gw_to": 10
+  },
+  "zonal": {
+   "zones": [
+    {
+     "zone": "in-box / central",
+     "share": 0.5923
+    }
+   ],
+   "gw_from": 6,
+   "gw_to": 8,
+   "fixtures": [
+    {
+     "gameweek": 6,
+     "fixture_id": 53,
+     "opponent": "Bournemouth",
+     "opponent_short": "BOU",
+     "is_home": true,
+     "status": "neutral",
+     "matches": []
+    },
+    {
+     "gameweek": 7,
+     "fixture_id": 64,
+     "opponent": "Everton",
+     "opponent_short": "EVE",
+     "is_home": false,
+     "status": "neutral",
+     "matches": []
+    },
+    {
+     "gameweek": 8,
+     "fixture_id": 73,
+     "opponent": "Spurs",
+     "opponent_short": "TOT",
+     "is_home": true,
+     "status": "favorable",
+     "matches": [
+      {
+       "zone": "in-box / central",
+       "delta_vs_avg": 0.0547,
+       "player_share": 0.5923
+      }
+     ]
+    }
+   ],
+   "verdict_kind": "favorable",
+   "verdict": "Palmer genera su xG justo en zonas donde el rival concede por encima de la media — cruce favorable en J8 (Spurs).",
+   "data_provenance": {
+    "season": "2026-2027",
+    "season_label": "2026-27",
+    "live_season": "2026-2027",
+    "is_current": true,
+    "status": "thin",
+    "label": "⚠ Datos de 2026-27, sólo 5 jornadas de liga — muestra corta para una lectura de liga",
+    "ingested_at": "2026-10-05T07:12:42Z",
+    "n_matches": 50,
+    "n_shots": 1398
+   }
+  }
+ },
+ "generic_card": null,
+ "suggestions": null,
+ "resource_rows": null,
+ "route_source": null,
+ "classifier_confidence": null,
+ "route_conflict": false,
+ "clarification_asked": false,
+ "web_search": null
+}

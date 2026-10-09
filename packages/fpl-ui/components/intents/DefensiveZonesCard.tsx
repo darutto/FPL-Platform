@@ -313,7 +313,7 @@ export default function DefensiveZonesCard({ data }: Props) {
  * text is the backend's `label` verbatim (it already carries the ⚠) so the
  * card and the plain-text zonal answers state the same fact the same way.
  */
-function ProvenanceStamp({ provenance }: { provenance: ZonalDataProvenance }) {
+export function ProvenanceStamp({ provenance }: { provenance: ZonalDataProvenance }) {
   const stale = provenance.status !== 'current';
   return (
     <p

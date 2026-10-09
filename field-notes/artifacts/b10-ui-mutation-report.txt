@@ -1,0 +1,7 @@
+share not converted                              killed
+share converted twice                            killed
+no_data rendered as neutral                      killed
+provenance hidden                                killed
+favorable not turquoise                          killed
+central loses depth                              killed
+venue (L/V) dropped from the row    killed

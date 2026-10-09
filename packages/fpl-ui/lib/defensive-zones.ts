@@ -186,6 +186,38 @@ export function levelForZone(
 }
 
 // ---------------------------------------------------------------------------
+// Player "Zonas" section (Bloque 10) — PlayerCard
+// ---------------------------------------------------------------------------
+
+/**
+ * A zone's share of the player's non-penalty xG as a whole percentage.
+ * The backend/contract carry a 0–1 FRACTION; this is the ONE place it
+ * becomes a percentage (0.5923 → 59). Never feed it an already-converted value.
+ */
+export function sharePercent(share: number): number {
+  return Math.round(share * 100);
+}
+
+const DEPTH_LABEL: Record<string, string> = {
+  'in-box': 'Área',
+  'edge-of-box': 'Frontal',
+};
+
+/**
+ * Chip label for ANY of the six engine zone keys ('in-box / central' →
+ * 'Área centro', 'edge-of-box / left' → 'Frontal izq'). Unlike
+ * zonePillLabel, central keeps its depth so 'Área centro' and
+ * 'Frontal centro' never read the same. Unknown keys pass through.
+ */
+export function zoneChipLabel(zone: string): string {
+  const [depth, lateral] = zone.split(' / ');
+  const short = LATERAL_SHORT[lateral as ZoneLateral];
+  const depthLabel = DEPTH_LABEL[depth];
+  if (short == null || depthLabel == null) return zone;
+  return `${depthLabel} ${short.toLowerCase()}`;
+}
+
+// ---------------------------------------------------------------------------
 // Player sub-line
 // ---------------------------------------------------------------------------
 
