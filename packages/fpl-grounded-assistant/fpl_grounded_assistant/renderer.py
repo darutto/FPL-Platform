@@ -1224,6 +1224,46 @@ def _render_find_players(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE
     return f"Error ({code}): {message}"
 
 
+def _player_zonal_lines(zonal: Any) -> list[str]:
+    """Bloque 10: the zonal section of a snapshot as text lines, or [] when
+    the snapshot carries none (or a malformed block -- never raises).
+
+    ``share`` / ``player_share`` are 0-1 fractions; this is where the text
+    path converts to a percentage. Opportunity-framed, season stamp last.
+    """
+    try:
+        if not isinstance(zonal, dict) or not zonal.get("fixtures") or not zonal.get("zones"):
+            return []
+        window = zonal["window"]
+        lines = [
+            f"Zonas — partidos de las próximas 3 jornadas (J{window['gw_from']}-J{window['gw_to']}): "
+            f"{zonal['verdict']}",
+            "  Dónde genera su xG: " + ", ".join(
+                f"{z['zone']} ({z['share'] * 100:.0f}% de su xG sin penalti)"
+                for z in zonal["zones"]
+            ) + ".",
+        ]
+        for fx in zonal["fixtures"]:
+            venue = "casa" if fx.get("is_home") else "fuera"
+            head = f"  J{fx['gameweek']} vs {fx['opponent']} ({venue})"
+            if fx.get("status") == "favorable":
+                zones = "; ".join(
+                    f"{m['zone']} (rival {m['delta_vs_avg']:+.3f} vs media)"
+                    for m in fx.get("matches", [])
+                )
+                lines.append(f"{head}: favorable — {zones}")
+            elif fx.get("status") == "no_data":
+                lines.append(f"{head}: sin datos zonales del rival")
+            else:
+                lines.append(f"{head}: sin cruce destacado")
+        prov = _provenance_line(zonal)
+        if prov:
+            lines.append(prov)
+        return lines
+    except (KeyError, TypeError, ValueError):
+        return []
+
+
 def _render_get_player_snapshot(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_player_snapshot raw_output.  P2.2.  F1: localized.
 
@@ -1262,6 +1302,7 @@ def _render_get_player_snapshot(output: dict[str, Any], locale: Locale = DEFAULT
             lines.append(t("player_snapshot.chance_line", locale, chance=chance))
         if news:
             lines.append(t("player_snapshot.news_line", locale, news=news))
+        lines.extend(_player_zonal_lines(p.get("zonal")))
         return "\n".join(lines)
 
     if status == "ambiguous":

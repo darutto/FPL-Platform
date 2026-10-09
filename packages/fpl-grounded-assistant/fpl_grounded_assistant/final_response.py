@@ -749,6 +749,64 @@ class PlayerFormMeta:
 # ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
+class PlayerZonalZone:
+    """One zone where the player concentrates their non-penalty xG.
+
+    ``share`` is a 0-1 FRACTION of the player's non-penalty xG (chips do not
+    sum to 1: shots outside every zone count toward the total only). The UI
+    converts to a percentage, once, at display time.
+    """
+    zone:  str
+    share: float
+
+
+@dataclass(frozen=True)
+class PlayerZonalMatch:
+    """A zone where the rival concedes above the league average AND the
+    player concentrates xG (``player_share`` is a 0-1 fraction)."""
+    zone:         str
+    delta_vs_avg: float
+    player_share: float
+
+
+@dataclass(frozen=True)
+class PlayerZonalFixture:
+    """One PENDING match in the window. ``status`` is ``favorable`` |
+    ``neutral`` | ``no_data`` (the rival is absent from the store: NOT neutral)."""
+    gameweek:       int
+    fixture_id:     int | None
+    opponent:       str
+    opponent_short: str
+    is_home:        bool
+    status:         str
+    matches:        tuple[PlayerZonalMatch, ...]
+
+
+@dataclass(frozen=True)
+class PlayerZonalOutlookMeta:
+    """Bloque 10: zonal profile of the snapshot player vs the pending matches
+    of the next 3 gameweeks. Nested in ``PlayerSnapshotMeta.zonal``; ``None``
+    there means the section is omitted (no profile, no usable calendar, any
+    failure) and the card is otherwise unchanged.
+
+    Calendar contract: the window starts at the first gameweek in which the
+    player's CURRENT team has a pending match (``started`` false in the
+    official fixture list, joined from ``bootstrap["_gw_fixtures"]`` or one
+    cached ``/fixtures/`` read) and spans that gameweek plus the next two.
+    In-play and finished matches are excluded; double gameweeks list both
+    matches; a blank gameweek simply has no rows.
+    """
+    zones:           tuple[PlayerZonalZone, ...]
+    gw_from:         int
+    gw_to:           int
+    fixtures:        tuple[PlayerZonalFixture, ...]
+    #: favorable | neutral | no_data -- ``no_data`` = availability, not "no standout"
+    verdict_kind:    str
+    verdict:         str
+    data_provenance: "DataProvenance | None" = None
+
+
+@dataclass(frozen=True)
 class PlayerSnapshotMeta:
     """Structured single-player snapshot output for the player detail card.
 
@@ -800,6 +858,8 @@ class PlayerSnapshotMeta:
     # team isn't covered by bootstrap["team_fixtures"] (missing_context).
     fixtures:                        tuple[FixtureEntry, ...]
     team_fdr_context:                TeamFDRContext | None
+    #: Bloque 10: zonal profile vs pending matches; None = section omitted.
+    zonal:                           "PlayerZonalOutlookMeta | None" = None
 
 
 # ---------------------------------------------------------------------------
@@ -2002,6 +2062,51 @@ def _extract_player_form_meta(ro: "dict[str, Any]") -> "PlayerFormMeta | None":
         return None
 
 
+def _extract_player_zonal_meta(raw: "Any") -> "PlayerZonalOutlookMeta | None":
+    """Extract ``player.zonal``; any malformed value degrades to ``None`` so
+    a bad zonal block can never take the snapshot card down with it."""
+    if not isinstance(raw, dict):
+        return None
+    try:
+        window = raw["window"]
+        fixtures = tuple(
+            PlayerZonalFixture(
+                gameweek       = int(fx["gameweek"]),
+                fixture_id     = int(fx["fixture_id"]) if fx.get("fixture_id") is not None else None,
+                opponent       = str(fx["opponent"]),
+                opponent_short = str(fx["opponent_short"]),
+                is_home        = bool(fx["is_home"]),
+                status         = str(fx["status"]),
+                matches        = tuple(
+                    PlayerZonalMatch(
+                        zone         = str(m["zone"]),
+                        delta_vs_avg = float(m["delta_vs_avg"]),
+                        player_share = float(m["player_share"]),
+                    )
+                    for m in fx.get("matches", [])
+                ),
+            )
+            for fx in raw["fixtures"]
+        )
+        zones = tuple(
+            PlayerZonalZone(zone=str(z["zone"]), share=float(z["share"]))
+            for z in raw["zones"]
+        )
+        if not zones or not fixtures:
+            return None
+        return PlayerZonalOutlookMeta(
+            zones           = zones,
+            gw_from         = int(window["gw_from"]),
+            gw_to           = int(window["gw_to"]),
+            fixtures        = fixtures,
+            verdict_kind    = str(raw["verdict_kind"]),
+            verdict         = str(raw["verdict"]),
+            data_provenance = _extract_data_provenance(raw.get("data_provenance")),
+        )
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def _extract_player_snapshot_meta(ro: "dict[str, Any]") -> "PlayerSnapshotMeta | None":
     """Extract PlayerSnapshotMeta from a get_player_snapshot tool_output dict.
 
@@ -2081,6 +2186,7 @@ def _extract_player_snapshot_meta(ro: "dict[str, Any]") -> "PlayerSnapshotMeta |
                 for fx in p.get("fixtures", [])
             ),
             team_fdr_context             = team_fdr_context,
+            zonal                        = _extract_player_zonal_meta(p.get("zonal")),
         )
     except Exception:  # noqa: BLE001
         return None

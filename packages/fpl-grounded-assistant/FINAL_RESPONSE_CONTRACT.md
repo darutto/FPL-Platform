@@ -1031,6 +1031,46 @@ assert response.final_text == response.debug.response_text  # fallback invariant
 
 ---
 
+## `player_snapshot.zonal` (Bloque 10)
+
+`player_snapshot` (the `PlayerSnapshotMeta` card) carries an optional, nullable
+`zonal` block: the player's zonal profile against the **pending** matches of
+the next 3 gameweeks. `null` / absent means the "Zonas" section is omitted; the
+rest of the card and `outcome` are never affected by it.
+
+| Field | Meaning |
+|---|---|
+| `zones[]` | `{zone, share}` — zones holding at least 25 % of the player's non-penalty xG. **`share` is a 0–1 fraction**; the UI converts to a percentage once, at display time. Shares are not renormalised (chips need not sum to 100 %). |
+| `gw_from`, `gw_to` | Window: first gameweek in which the player's **current** team has a pending match, plus the two after it. |
+| `fixtures[]` | One row per **pending** match in the window: `gameweek`, `fixture_id` (official id), `opponent`, `opponent_short`, `is_home`, `status`, `matches[]` (`zone`, `delta_vs_avg`, `player_share` as 0–1). Doubles list both matches; a blank gameweek has no rows. |
+| `status` | `favorable` \| `neutral` \| `no_data`. `no_data` = the rival is absent from the store; it is **not** neutral. |
+| `verdict_kind`, `verdict` | `favorable` \| `neutral` \| `no_data`. `no_data` means every rival lacks data — an availability verdict, not "no standout cross". Opportunity-framed, never buy/sell. |
+| `data_provenance` | Same stamp as the zonal card (i74): store season, live season, `status` (`current` \| `thin` \| `stale_season` \| …) and the ready-to-render Spanish `label`. Shown, never hidden. |
+
+**Fixture state (the join).** A match is *pending* only when the official
+fixture list says `started == false`, `finished == false` and
+`finished_provisional == false`; in-play and finished matches are excluded and
+`kickoff_time` is never used as state. Any other value (missing, `null`,
+non-boolean) is *unknown* and omits the section. The state comes from
+`bootstrap["_gw_fixtures"]` (a per-gameweek list of the official `/fixtures/`
+rows; used by tests and any injected bootstrap), and otherwise from one
+`/fixtures/` request (2.5 s timeout, no retries) cached for 60 s. Empty,
+malformed or failed responses are never cached. `bootstrap["team_fixtures"]` is
+**not** used: the server assembles it once at start and it carries only
+`finished`, so it cannot tell pending from in-play.
+
+**Identity.** The shot store keys players by name only. A store profile is
+attached to an FPL player only when the normalised full name (first + second
+name) — or the shared exact resolver (`resolve_store_player`) — names exactly
+one store profile and exactly one FPL element, and the store's team equals the
+element's current team. A team mismatch (transfer with no reliable link), a
+name collision on either side, or no profile omits the section. Prefix and
+substring matching are never used. The calendar always belongs to the team in
+the **current** bootstrap.
+
+Omission reasons are internal (logged as `player_zonal` with `reason` and
+`method`), never part of the response.
+
 ## Bootstrap vs. Assembled Context
 
 ``respond()`` accepts either a raw bootstrap dict or a full assembled context

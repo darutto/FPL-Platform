@@ -961,6 +961,52 @@ export interface PlayerSnapshotMeta {
   corners_and_indirect_freekicks_order: number | null;
   /** Next-N fixture strip (reuses the fixture_run tool's FixtureEntry shape). Empty when the player's team isn't covered by bootstrap["team_fixtures"]. */
   fixtures: FixtureEntry[];
+  /**
+   * Bloque 10: zonal profile vs the PENDING matches of the next 3 gameweeks.
+   * null/absent = the "Zonas" section is omitted. Optional for rolling
+   * compatibility with older API deployments.
+   */
+  zonal?: PlayerZonalOutlookMeta | null;
+}
+
+/** A zone where the player concentrates xG. `share` is a 0-1 FRACTION of his non-penalty xG; convert to % once, at display time. */
+export interface PlayerZonalZone {
+  zone: string;
+  share: number;
+}
+
+/** A zone where the rival concedes above average AND the player concentrates xG (`player_share` is a 0-1 fraction). */
+export interface PlayerZonalMatch {
+  zone: string;
+  delta_vs_avg: number;
+  player_share: number;
+}
+
+/** One pending match. `no_data` = the rival is absent from the store (NOT neutral). */
+export interface PlayerZonalFixture {
+  gameweek: number;
+  fixture_id: number | null;
+  opponent: string;
+  opponent_short: string;
+  is_home: boolean;
+  status: 'favorable' | 'neutral' | 'no_data';
+  matches: PlayerZonalMatch[];
+}
+
+/**
+ * Source: final_response.py -> PlayerZonalOutlookMeta. Window = first
+ * gameweek with a pending match of the player's current team, plus the two
+ * after it; in-play and finished matches are excluded.
+ */
+export interface PlayerZonalOutlookMeta {
+  zones: PlayerZonalZone[];
+  gw_from: number;
+  gw_to: number;
+  fixtures: PlayerZonalFixture[];
+  /** 'no_data' = availability verdict, not "no standout cross". */
+  verdict_kind: 'favorable' | 'neutral' | 'no_data';
+  verdict: string;
+  data_provenance: ZonalDataProvenance | null;
 }
 
 // ---------------------------------------------------------------------------

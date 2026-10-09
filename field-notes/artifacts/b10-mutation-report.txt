@@ -1,0 +1,23 @@
+guard          mutant                                               result
+identity       team control always true                             killed
+identity       store-name collision ignored                         killed
+identity       bootstrap homonym ignored                            killed
+identity       resolver ambiguity ignored                           killed
+identity       substring fallback by web_name                       killed
+isolation      exceptions propagate                                 killed
+isolation      invalid payload served                               killed
+isolation      bad zonal block takes the whole meta down            killed
+fixture-state  in-play counted as pending                           killed
+fixture-state  provisional finish ignored                           killed
+fixture-state  unknown flags read as pending                        killed
+fixture-state  window ignores state (all team fixtures)             killed
+fixture-state  window starts at first fixture, not first pending    killed
+fixture-state  empty/malformed response cached                      killed
+fixture-state  cache never expires                                  killed
+fixture-state  failed fetch cached as empty                         killed
+no_data        all no_data reads as neutral                         killed
+no_data        renderer prints no_data as neutral                   killed
+units          share served as percent                              killed
+isolation      snapshot attaches zonal even on engine omission      killed
+
+19 killed, 0 survived

@@ -1,0 +1,45 @@
+{
+  "store": "C:/Users/thera/fpl-platform/packages/fpl-tactical/data/tactical/seasons/2025-2026/understat_shots.parquet",
+  "bootstrap": "../../field-notes/artifacts/b10-bootstrap-2026-10-08.json",
+  "elements_with_minutes": 421,
+  "elements_resolved": 173,
+  "by_method": {
+    "resolver_exact_team_match": 29,
+    "full_name_team_match": 144
+  },
+  "elements_rejected": {
+    "no_store_profile": 213,
+    "team_mismatch": 35
+  },
+  "rejected_samples": {
+    "no_store_profile": [
+      "David Raya Martín",
+      "Myles Lewis-Skelly",
+      "Piero Hincapié",
+      "Benjamin White",
+      "Cristhian Mosquera",
+      "Max Dowman"
+    ],
+    "team_mismatch": [
+      "Ezri Konsa Ngoyo",
+      "Bruno Guimarães Rodriguez Moura",
+      "Joao Gomes",
+      "Alejandro Garnacho Ferreyra",
+      "Jaidon Anthony",
+      "Callum Wilson"
+    ]
+  },
+  "store_profiles": 303,
+  "store_profiles_by_claim": {
+    "no_element": 130,
+    "one_element": 173
+  },
+  "independent_xg_control": {
+    "reference": "../../field-notes/artifacts/agentic-loop-bootstrap-2026-08-18.json",
+    "pairs_compared": 151,
+    "median_ratio_store_np_xg_over_fpl_xg": 1.059,
+    "within_0.4_2.5": 151,
+    "outliers": []
+  },
+  "conflicts": {}
+}
