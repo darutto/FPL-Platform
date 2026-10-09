@@ -1934,6 +1934,16 @@
       ],
       "title": "La ficha de jugador también se enriquece con Football Intelligence (minutos, rol, calendario)",
       "desc": "Con el trial de Sportmonks activo: añadir player_snapshot a la lista de intents enriquecidos de FI-7c (existing_intent_evidence.py; hoy solo captain_score, compare_players, transfer_advice) para que la respuesta completa de [[i148]] traiga también minutos esperados, rol táctico y carga de partidos, detrás del interruptor maestro de FI."
+    },
+    {
+      "id": "i150",
+      "col": "idea",
+      "progress": 0,
+      "tags": [
+        "Backend"
+      ],
+      "title": "El bootstrap de FPL se carga solo al arrancar el servidor: jornada, precios, forma y lesiones se congelan entre deploys",
+      "desc": "VISTO 2026-10-08 por el constructor de [[i148]], verificado por el chat de revisión en fpl_server.py: _bootstrap se ensambla una vez al arrancar (assemble_captain_context) y no se refresca. team_fixtures.finished, current_gw, precios, forma, estado/noticias de lesión y chips quedan como estaban en el último deploy. Hoy lo tapa la frecuencia de merges; un fin de semana sin deploys sirve datos de hace días. i148 lo esquiva con un proveedor propio de estado de fixtures (caché 60 s) solo para su composición. ARREGLO a decidir: refresco periódico del bootstrap (p. ej. cada N minutos con swap atómico y fallback al anterior si falla), con métrica de antigüedad en /healthz. PUERTA: antigüedad visible en /healthz; test de refresco que falla y conserva el anterior; ninguna regresión de i134 (no aceptar listas vacías)."
     }
   ]
 }
