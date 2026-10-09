@@ -73,3 +73,22 @@ def bootstrap():
     return copy.deepcopy(BOOTSTRAP)
 
 
+
+
+@pytest.fixture(autouse=True)
+def _no_network_fixture_state(monkeypatch):
+    """Bloque 10: the snapshot's zonal section reads fixture state from the
+    network when ``_gw_fixtures`` is not injected. No test may reach it."""
+    try:
+        from fpl_grounded_assistant import player_snapshot_zonal as _pz
+    except ImportError:
+        yield
+        return
+
+    def _blocked():
+        raise AssertionError("a test reached the fixtures network seam")
+
+    monkeypatch.setattr(_pz, "_FETCH_ALL_FIXTURES", _blocked)
+    _pz.reset_caches()
+    yield
+    _pz.reset_caches()

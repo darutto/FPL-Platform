@@ -46,7 +46,7 @@ import sys
 import time
 import uuid
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import asdict as _dc_asdict, dataclass
 from typing import Any
 
 # ---------------------------------------------------------------------------
@@ -1157,6 +1157,9 @@ def _player_snapshot_meta_dict(ps: Any) -> dict[str, Any]:
             "gw_from":          ctx.gw_from,
             "gw_to":            ctx.gw_to,
         } if ctx is not None else None,
+        # Bloque 10: None when the zonal section is omitted. ``share`` and
+        # ``player_share`` are 0-1 fractions (the UI converts to percent).
+        "zonal": _dc_asdict(ps.zonal) if getattr(ps, "zonal", None) is not None else None,
     }
 
 

@@ -1165,7 +1165,22 @@ def get_player_zonal_outlook(
         return {"status": "not_found", "player": player_query}
 
     info = shares[player]
-    player_zones = sorted(
+    player_zones = player_zone_list(info)
+
+    fixtures = fixtures_for_team(info["team"]) or []
+    if not fixtures:
+        return {"status": "missing_context", "player": player, "team": info["team"]}
+
+    profiles = compute_team_zone_profiles(shots)
+    baseline = compute_league_baseline(profiles)
+
+    return build_player_outlook(player, info, fixtures, profiles, baseline, provenance)
+
+
+def player_zone_list(info: dict[str, Any]) -> list[dict[str, Any]]:
+    """Zones where the player concentrates at least the share threshold of
+    their own non-penalty xG, share-sorted. ``share`` is a 0-1 fraction."""
+    return sorted(
         (
             {"zone": zone, "share": round(share, 4)}
             for zone, share in info["zone_share"].items()
@@ -1174,12 +1189,24 @@ def get_player_zonal_outlook(
         key=lambda z: -z["share"],
     )
 
-    fixtures = fixtures_for_team(info["team"]) or []
-    if not fixtures:
-        return {"status": "missing_context", "player": player, "team": info["team"]}
 
-    profiles = compute_team_zone_profiles(shots)
-    baseline = compute_league_baseline(profiles)
+def build_player_outlook(
+    player: str,
+    info: dict[str, Any],
+    fixtures: Sequence[dict[str, Any]],
+    profiles: dict[str, Any],
+    baseline: dict[str, float],
+    provenance: dict[str, Any],
+) -> dict[str, Any]:
+    """Per-fixture zonal read for an ALREADY-SELECTED store profile.
+
+    Strict entry (Bloque 10): takes the profile (*player*, *info*) the caller
+    chose, never a name to search for, so a composition cannot reopen the
+    flexible name match. ``get_player_zonal_outlook`` is a thin wrapper that
+    selects the profile by name and delegates here, so both paths share the
+    exact same read.
+    """
+    player_zones = player_zone_list(info)
 
     outlook: list[dict[str, Any]] = []
     for fx in fixtures:
