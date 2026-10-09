@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-08",
+  "updated": "2026-10-09",
   "cards": [
     {
       "id": "s1",
@@ -1914,15 +1914,15 @@
     },
     {
       "id": "i148",
-      "col": "building",
-      "progress": 5,
+      "col": "evaluation",
+      "progress": 90,
       "tags": [
         "FPL Asistente",
         "IA",
         "UI"
       ],
       "title": "«Háblame de X»: ficha de jugador + perfil zonal en una sola respuesta (gate de Leo para el trial de Sportmonks)",
-      "desc": "PEDIDO POR LEO 2026-10-08. Hoy lo zonal de un jugador (get_player_zonal_outlook) solo sale con una pregunta muy específica y no tiene tarjeta. Objetivo: «Háblame de Cole Palmer» / «¿cómo está Haaland?» traen la ficha y, dentro de la misma PlayerCard, el perfil zonal frente a los partidos pendientes de las próximas 3 jornadas — composición determinista dentro de get_player_snapshot._ok(), sin llamada LLM extra. Plan aprobado (revisado dos veces por Leo): adaptador estricto al motor (nunca subcadena), identidad estricta (crosswalk solo si se demuestra la cadena; si no, nombre completo + equipo + candidato único), calendario siempre del equipo actual, estado explícito del fixture (excluir en curso/terminados; desconocido → omitir), share fracción 0–1 de xG sin penalti (porcentaje solo en UI), no_data ≠ neutral, aislamiento (un fallo zonal nunca rompe la ficha), procedencia visible, renderer determinista + prompt. Fases: 0 (ruteo + viabilidad Palmer/Haaland) → backend → UI. Constructor: fpl-platform-e4. GATE EN PROD (Leo, fin de semana 10-11 oct): Palmer y Haaland con frase zonal y sección Zonas; jugador sin perfil → ficha normal; nombre ambiguo → wizard. Siguiente con el trial → [[i149]]."
+      "desc": "PEDIDO POR LEO 2026-10-08. Hoy lo zonal de un jugador (get_player_zonal_outlook) solo sale con una pregunta muy específica y no tiene tarjeta. Objetivo: «Háblame de Cole Palmer» / «¿cómo está Haaland?» traen la ficha y, dentro de la misma PlayerCard, el perfil zonal frente a los partidos pendientes de las próximas 3 jornadas — composición determinista dentro de get_player_snapshot._ok(), sin llamada LLM extra. Plan aprobado (revisado dos veces por Leo): adaptador estricto al motor (nunca subcadena), identidad estricta (crosswalk solo si se demuestra la cadena; si no, nombre completo + equipo + candidato único), calendario siempre del equipo actual, estado explícito del fixture (excluir en curso/terminados; desconocido → omitir), share fracción 0–1 de xG sin penalti (porcentaje solo en UI), no_data ≠ neutral, aislamiento (un fallo zonal nunca rompe la ficha), procedencia visible, renderer determinista + prompt. Fases: 0 (ruteo + viabilidad Palmer/Haaland) → backend → UI. Constructor: fpl-platform-e4. GATE EN PROD (Leo, fin de semana 10-11 oct): Palmer y Haaland con frase zonal y sección Zonas; jugador sin perfil → ficha normal; nombre ambiguo → wizard. Siguiente con el trial → [[i149]].\n\nCONSTRUIDA 2026-10-09: #394 fase 0 (ruteo 15/15 a la ficha, «Palmer» ambiguo 3/3, $0,035), #396 backend (player_snapshot_zonal.py: proveedor de estado de fixtures con caché 60 s que no cachea vacíos/fallos — el bootstrap de prod no refresca, ver [[i150]]; ventana = primera GW con partido pendiente + 2, decisión de Leo; identidad nombre completo + equipo + candidato único, sin crosswalk; 59 tests, 19/19 mutantes; latencia caliente +6 ms), #398 UI (sección Zonas en PlayerCard, % solo en UI, no_data ≠ neutral, sello de procedencia; 7/7 mutantes; capturas escritorio/móvil revisadas). Prod verificado por el constructor: «Háblame de Cole Palmer» → zonal con store 2026-27, J6-J8 (TOT favorable), procedencia thin. FALTA: gate de Leo (Palmer, Haaland, Robert Sánchez sin perfil, «Palmer» → wizard)."
     },
     {
       "id": "i149",
@@ -1944,6 +1944,17 @@
       ],
       "title": "El bootstrap de FPL se carga solo al arrancar el servidor: jornada, precios, forma y lesiones se congelan entre deploys",
       "desc": "VISTO 2026-10-08 por el constructor de [[i148]], verificado por el chat de revisión en fpl_server.py: _bootstrap se ensambla una vez al arrancar (assemble_captain_context) y no se refresca. team_fixtures.finished, current_gw, precios, forma, estado/noticias de lesión y chips quedan como estaban en el último deploy. Hoy lo tapa la frecuencia de merges; un fin de semana sin deploys sirve datos de hace días. i148 lo esquiva con un proveedor propio de estado de fixtures (caché 60 s) solo para su composición. ARREGLO a decidir: refresco periódico del bootstrap (p. ej. cada N minutos con swap atómico y fallback al anterior si falla), con métrica de antigüedad en /healthz. PUERTA: antigüedad visible en /healthz; test de refresco que falla y conserva el anterior; ninguna regresión de i134 (no aceptar listas vacías)."
+    },
+    {
+      "id": "i151",
+      "col": "idea",
+      "progress": 0,
+      "tags": [
+        "UI",
+        "FPL Asistente"
+      ],
+      "title": "PlayerCard muestra el estado y la noticia de FPL en inglés («Doubtful», «Muscular injury - 75% chance of playing»)",
+      "desc": "VISTO 2026-10-09 en las capturas de [[i148]]. El barrido de [[i141]] cubrió ChipCard/ComparisonCard/TransferCard/TransferSuggestionCard pero no la PlayerCard. El badge de estado se puede traducir con el catálogo; la noticia es texto libre de FPL: decidir si se traduce un patrón conocido («X injury - N% chance of playing») o se muestra tal cual."
     }
   ]
 }
