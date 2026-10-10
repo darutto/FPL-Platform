@@ -18,22 +18,24 @@
 import type { PlayerZonalFixture, PlayerZonalOutlookMeta } from '@/lib/types';
 import {
   LEVEL_PILL_CLASS,
-  pitchCell,
   sharePercent,
   zoneChipLabel,
 } from '@/lib/defensive-zones';
 import { ProvenanceStamp } from './DefensiveZonesCard';
 import { formatVenue } from './FixtureRunTable';
-import PlayerZonesPitch from './PlayerZonesPitch';
+import { PITCH_LEGEND, hasPlaceableZones } from './PlayerZonesPitch';
+import PlayerZonesPitchExpandable from './PlayerZonesPitchExpandable';
 
 interface Props {
   zonal: PlayerZonalOutlookMeta;
+  /** The player's name, for the enlarge button's accessible label. */
+  playerName: string;
 }
 
-export default function PlayerZonasSection({ zonal }: Props) {
+export default function PlayerZonasSection({ zonal, playerName }: Props) {
   if (zonal.zones.length === 0 || zonal.fixtures.length === 0) return null;
   const { gw_from, gw_to } = zonal;
-  const hasPitch = zonal.zones.some((z) => pitchCell(z.zone) !== null);
+  const hasPitch = hasPlaceableZones(zonal.zones);
   const range = gw_from === gw_to ? `J${gw_from}` : `J${gw_from}–J${gw_to}`;
 
   return (
@@ -62,10 +64,14 @@ export default function PlayerZonasSection({ zonal }: Props) {
         {zonal.verdict}
       </p>
 
-      <div className="flex items-start gap-3">
+      <div className="flex flex-col gap-3 min-[481px]:flex-row min-[481px]:items-start">
         {hasPitch && (
-          <div className="w-[116px] flex-shrink-0" data-testid="player-zonas-pitch-wrap">
-            <PlayerZonesPitch zones={zonal.zones} fixtures={zonal.fixtures} />
+          <div className="w-full min-[481px]:w-[220px] min-[481px]:flex-shrink-0" data-testid="player-zonas-pitch-wrap">
+            <PlayerZonesPitchExpandable
+              playerName={playerName}
+              zones={zonal.zones}
+              fixtures={zonal.fixtures}
+            />
           </div>
         )}
         <div className="min-w-0 flex-1 space-y-1.5">
@@ -81,7 +87,7 @@ export default function PlayerZonasSection({ zonal }: Props) {
           </div>
           {zonal.fixtures.some((f) => f.status === 'favorable') && (
             <p data-testid="player-zonas-legend" className="text-[10px] leading-snug text-bf-gray">
-              Turquesa: coincide con la zona débil de un rival favorable.
+              {PITCH_LEGEND}
             </p>
           )}
         </div>

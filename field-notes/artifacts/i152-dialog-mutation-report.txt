@@ -1,0 +1,22 @@
+button label lacks the player                killed
+no visible focus ring on the button          killed
+Esc does not close                           killed
+tap outside does not close                   killed
+tap inside the panel closes                  killed
+X does not close                             killed
+focus not returned on close                  killed
+focus not moved inside on open               killed
+focus not trapped                            killed
+page scroll not locked                       killed
+scroll not restored                          killed
+dialog not modal                             killed
+dialog unlabelled                            killed
+large pitch drops a zone                     killed
+large pitch ignores the favorable match      killed
+list percentages unconverted                 killed
+legend always shown                          killed
+mobile not full width / stacked              killed
+desktop pitch not 220px                      killed
+mobile dialog not full screen                killed
+
+20 killed, 0 survived
