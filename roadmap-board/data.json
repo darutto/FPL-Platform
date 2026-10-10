@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-09",
+  "updated": "2026-10-10",
   "cards": [
     {
       "id": "s1",
@@ -1955,6 +1955,16 @@
       ],
       "title": "PlayerCard muestra el estado y la noticia de FPL en inglés («Doubtful», «Muscular injury - 75% chance of playing»)",
       "desc": "VISTO 2026-10-09 en las capturas de [[i148]]. El barrido de [[i141]] cubrió ChipCard/ComparisonCard/TransferCard/TransferSuggestionCard pero no la PlayerCard. El badge de estado se puede traducir con el catálogo; la noticia es texto libre de FPL: decidir si se traduce un patrón conocido («X injury - N% chance of playing») o se muestra tal cual."
+    },
+    {
+      "id": "i152",
+      "col": "building",
+      "progress": 0,
+      "tags": [
+        "UI"
+      ],
+      "title": "Mini-canchita en la sección Zonas de la ficha de jugador",
+      "desc": "PEDIDO POR LEO 2026-10-10, sobre [[i148]]. La sección Zonas de PlayerCard muestra las zonas del jugador como texto; la canchita solo existe en la tarjeta de zonas defensivas de un equipo (DefensiveZonesCard). ARREGLO, solo UI y sin datos nuevos: un dibujo pequeño que pinta las zonas donde remata el jugador (zones[].share) y resalta las que coinciden con la debilidad del próximo rival favorable (fixtures[].matches). Reutilizar la geometría del SVG de DefensiveZonesCard extrayéndola a un componente compartido (la tarjeta defensiva debe verse idéntica); ojo: ese SVG dibuja solo los tres tercios del área y el perfil del jugador cubre seis zonas. PUERTA: tests con/sin coincidencias, todas las zonas, sin favorables; capturas escritorio y móvil; DefensiveZonesCard sin cambios visuales (snapshot). Se fusiona después de que Leo cierre el gate de i148 este fin de semana."
     }
   ]
 }
