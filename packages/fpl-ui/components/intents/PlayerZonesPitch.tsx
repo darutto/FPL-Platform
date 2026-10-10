@@ -32,6 +32,8 @@ interface Props {
 const ROW_Y = [26, 176];
 const ROW_H = [150, 130];
 const VIEW_H = 316;
+/** Baseline drop under each row's middle; the box row also clears the six-yard box and the goal at its top. */
+const LABEL_DROP = [24, 10];
 
 const MATCH_HEX = ZONE_SHADE_HEX.opp;
 const NEUTRAL_HEX = ZONE_SHADE_HEX.cool;
@@ -94,7 +96,7 @@ export default function PlayerZonesPitch({ zones, fixtures }: Props) {
         <text
           key={`t-${c.zone}`}
           x={ZONE_CENTER_X[c.cell.col]}
-          y={ROW_Y[c.cell.row] + ROW_H[c.cell.row] / 2 + 9}
+          y={ROW_Y[c.cell.row] + ROW_H[c.cell.row] / 2 + LABEL_DROP[c.cell.row]}
           textAnchor="middle"
           fill={c.hit ? MATCH_HEX : '#ABA9AC'}
           style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-1px' }}

@@ -21,8 +21,9 @@ Solo UI, sin datos nuevos (`zones[].share` y `fixtures[].matches` ya llegan en `
 - `tsc --noEmit` limpio; jest completo 49 suites / 676 tests / 3 snapshots en verde.
 - Capturas (misma receta de harness que `2026-10-09-b10-ui-report.md`, puerto 4317; móvil = iframe de 390 px reales):
   - `i152-pitch-palmer-prod-{desktop,mobile}.png`: payload real de prod de Palmer (`b10-prod-ask-palmer.json`): una zona, «Área centro 59 %», coincide con J8 Tottenham → turquesa.
-  - `i152-pitch-six-zones-synthetic-{desktop,mobile}.png`: **sintético** (el payload de Palmer con seis zonas y dos coincidencias), solo para ver las seis zonas; no son datos reales.
+  - `i152-pitch-three-zones-synthetic-{desktop,mobile}.png`: **sintético** (el payload de Palmer con tres zonas coherentes —34 %, 27 %, 26 %: suman 87 %— y dos coincidencias, una de ellas frontal); no son datos reales.
 
 ## Salvedades
-- Con el payload real hoy el jugador tiene una sola zona, así que la canchita luce sobria; las seis zonas solo se ven con datos sintéticos.
+- Con el payload real hoy el jugador tiene una sola zona, así que la canchita luce sobria. El backend solo lista zonas con ≥ 25 % del xG sin penalti, así que en datos reales caben como mucho 4 zonas a la vez (y nunca suman más de 100 %); las seis celdas están cubiertas por los tests, no por una captura, porque una captura con seis zonas visibles no sería coherente con los datos.
+- Ajuste tras la revisión: el porcentaje de la celda del área baja 24 unidades del centro (antes 9) para no quedar pegado a la portería.
 - La canchita es pequeña a propósito (116 px): los porcentajes van dentro de las celdas y los chips al lado repiten los números.
