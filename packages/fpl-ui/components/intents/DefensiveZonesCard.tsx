@@ -51,15 +51,12 @@ import {
   exploiterSub,
   splitVerdict,
 } from '@/lib/defensive-zones';
+import { PitchLines, ZONE_X, ZONE_WIDTH, ZONE_CENTER_X } from './PitchGeometry';
 
 interface Props {
   data: DefensiveZonesMeta;
 }
 
-/** Penalty-box thirds in SVG units: x origin per zone, region width/bounds. */
-const ZONE_X = [30, 130, 230];
-const ZONE_WIDTH = 100;
-const ZONE_CENTER_X = [80, 180, 280];
 
 export default function DefensiveZonesCard({ data }: Props) {
   const { opponent, weakness_label, verdict, zones, exploiters } = data;
@@ -145,13 +142,7 @@ export default function DefensiveZonesCard({ data }: Props) {
                 )}
               />
             ))}
-            <rect x="30" y="26" width="300" height="150" fill="none" stroke="rgba(255,255,255,.18)" strokeWidth="1.5" />
-            <rect x="110" y="26" width="140" height="46" fill="none" stroke="rgba(255,255,255,.14)" strokeWidth="1.5" />
-            <rect x="150" y="20" width="60" height="6" fill="rgba(255,255,255,.85)" />
-            <line x1="130" y1="26" x2="130" y2="176" stroke="rgba(255,255,255,.08)" strokeWidth="1" strokeDasharray="4 5" />
-            <line x1="230" y1="26" x2="230" y2="176" stroke="rgba(255,255,255,.08)" strokeWidth="1" strokeDasharray="4 5" />
-            <circle cx="180" cy="112" r="3" fill="rgba(255,255,255,.4)" />
-            <path d="M 140 176 A 45 45 0 0 0 220 176" fill="none" stroke="rgba(255,255,255,.12)" strokeWidth="1.5" />
+            <PitchLines />
             {/* per-zone reading inside its shaded region */}
             {zones.map((zone, i) =>
               isAverageZone(zone.pct_over_avg) ? (
