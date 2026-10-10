@@ -23,14 +23,19 @@ import {
 } from '@/lib/defensive-zones';
 import { ProvenanceStamp } from './DefensiveZonesCard';
 import { formatVenue } from './FixtureRunTable';
+import { PITCH_LEGEND, hasPlaceableZones } from './PlayerZonesPitch';
+import PlayerZonesPitchExpandable from './PlayerZonesPitchExpandable';
 
 interface Props {
   zonal: PlayerZonalOutlookMeta;
+  /** The player's name, for the enlarge button's accessible label. */
+  playerName: string;
 }
 
-export default function PlayerZonasSection({ zonal }: Props) {
+export default function PlayerZonasSection({ zonal, playerName }: Props) {
   if (zonal.zones.length === 0 || zonal.fixtures.length === 0) return null;
   const { gw_from, gw_to } = zonal;
+  const hasPitch = hasPlaceableZones(zonal.zones);
   const range = gw_from === gw_to ? `J${gw_from}` : `J${gw_from}–J${gw_to}`;
 
   return (
@@ -59,15 +64,33 @@ export default function PlayerZonasSection({ zonal }: Props) {
         {zonal.verdict}
       </p>
 
-      <div className="flex flex-wrap gap-1.5" data-testid="player-zonas-chips">
-        {zonal.zones.map((z) => (
-          <span
-            key={z.zone}
-            className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-bold text-white"
-          >
-            {zoneChipLabel(z.zone)} · {sharePercent(z.share)}% de su xG sin penalti
-          </span>
-        ))}
+      <div className="flex flex-col gap-3 min-[481px]:flex-row min-[481px]:items-start">
+        {hasPitch && (
+          <div className="w-full min-[481px]:w-[220px] min-[481px]:flex-shrink-0" data-testid="player-zonas-pitch-wrap">
+            <PlayerZonesPitchExpandable
+              playerName={playerName}
+              zones={zonal.zones}
+              fixtures={zonal.fixtures}
+            />
+          </div>
+        )}
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <div className="flex flex-wrap gap-1.5" data-testid="player-zonas-chips">
+            {zonal.zones.map((z) => (
+              <span
+                key={z.zone}
+                className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-bold text-white"
+              >
+                {zoneChipLabel(z.zone)} · {sharePercent(z.share)}% de su xG sin penalti
+              </span>
+            ))}
+          </div>
+          {zonal.fixtures.some((f) => f.status === 'favorable') && (
+            <p data-testid="player-zonas-legend" className="text-[10px] leading-snug text-bf-gray">
+              {PITCH_LEGEND}
+            </p>
+          )}
+        </div>
       </div>
 
       <ul className="space-y-1" data-testid="player-zonas-rows">

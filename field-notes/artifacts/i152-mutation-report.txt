@@ -1,0 +1,17 @@
+frontal row swapped with box row             killed
+left/right swapped                           killed
+non-favorable fixtures highlight             killed
+match colour = neutral                       killed
+non-match painted turquoise                  killed
+no-zones guard removed                       killed
+unplaceable zones not skipped                killed
+share shown unconverted                      killed
+aria drops the coincidence                   killed
+aria drops percentages                       killed
+legend always shown                          killed
+pitch wrapper without guard                  killed
+box geometry changed (shared)                killed
+thirds offset changed (shared)               killed
+shade does not scale with share              killed
+
+15 killed, 0 survived

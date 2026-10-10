@@ -161,7 +161,7 @@ export default function PlayerCard({ data }: Props) {
 
         {/* Bloque 10: zonal profile vs the pending matches of the next 3
             gameweeks. Absent/null -> no section, card unchanged. */}
-        {zonal && <PlayerZonasSection zonal={zonal} />}
+        {zonal && <PlayerZonasSection zonal={zonal} playerName={web_name} />}
       </div>
     </div>
   );
