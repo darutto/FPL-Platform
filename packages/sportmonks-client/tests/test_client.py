@@ -131,3 +131,17 @@ def test_snapshot_hook_preserves_only_governed_response_headers():
 def test_malformed_meta_is_typed_schema_failure():
     with pytest.raises(SportmonksSchemaError, match="malformed meta"):
         offline([response({"data":[], "meta":[]})]).players()
+
+
+def test_next_page_url_is_parsed_to_page_number():
+    """Live finding 2026-10-11: next_page is a URL, not an int."""
+    url = "https://api.sportmonks.com/v3/football/teams?page=2"
+    first = {"data":[{"id":1}],"pagination":{"current_page":1,"has_more":True,"next_page":url,"next_cursor":"x"}}
+    last = {"data":[{"id":2}],"pagination":{"current_page":2,"has_more":False,"next_page":None}}
+    assert [t.provider_id for t in offline([response(first), response(last)]).teams()] == [1, 2]
+
+
+def test_next_page_garbage_is_rejected():
+    bad = {"data":[],"pagination":{"current_page":1,"has_more":True,"next_page":"https://x/y?cursor=abc"}}
+    with pytest.raises(SportmonksSchemaError):
+        offline([response(bad)]).teams()
