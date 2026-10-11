@@ -36,7 +36,7 @@ than the trial can.
 
 | # | Question | Sent | Answered | Answer | Consequence |
 |---|---|---|---|---|---|
-| 1 | Does the trial include complete 2025/26 Premier League fixtures, lineups, formations, substitutions, injuries, suspensions, and player/team statistics? | no | no | | |
+| 1 | Does the trial include complete 2026/27 Premier League fixtures, lineups, formations, substitutions, injuries, suspensions, and player/team statistics? | no | no | | |
 | 2 | May trial responses be persisted for integration testing after the trial ends? | no | no | | Governs whether FI-9 raw snapshots may remain checked in as fixtures |
 | 3 | Does the Starter Football API license permit storing raw API data internally? | no | no | | **GO criterion (d)** — gates the owned raw store (§7) |
 | 4 | May the platform combine Sportmonks data with FPL and Understat data? | no | no | | **GO criterion (d)** — the entire identity-crosswalk design assumes yes |

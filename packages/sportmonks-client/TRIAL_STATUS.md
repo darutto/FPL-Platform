@@ -8,10 +8,10 @@ looks to answer "how is the trial going, and what do we still not know?"
 
 | | |
 |---|---|
-| Trial start | *not started* |
-| Trial end | *not started* |
-| Days elapsed | — |
-| Last updated | 2026-08-08 (template created; trial not begun) |
+| Trial start | 2026-10-11 |
+| Trial end | 2026-10-24 (assumed 14 days; Leo to confirm) |
+| Days elapsed | 0 |
+| Last updated | 2026-10-11 (day 0) |
 | Current verdict | **undecided** — see [TRIAL_GO_NO_GO.md](TRIAL_GO_NO_GO.md) |
 
 ## How to use this file
@@ -33,6 +33,7 @@ dashboard-only. The scripts' report schema is frozen at exactly four
 
 | Status | Meaning |
 |---|---|
+| `blocked` | live run done but the token/plan cannot supply the data — **dashboard-only, not a script status**; script emitted `unmet`/`degraded` |
 | `not_started` | no run yet — **dashboard-only, not a script status** |
 | `observed` | present in a live payload, with evidence |
 | `degraded` | present but not in the documented shape, or incomplete — record what was found |
@@ -46,7 +47,7 @@ them — the wording is the acceptance bar.
 
 | # | Objective | Owning script | Status | Evidence |
 |---|---|---|---|---|
-| 1 | Competition and season identifiers | `trial_entities.py` | `not_started` | mock rehearsal only: [trial-reports/examples/trial_entities.json](trial-reports/examples/trial_entities.json) — **not** a live observation |
+| 1 | Competition and season identifiers | `trial_entities.py` | `blocked` | **blocked: token sin PL (4 ligas del plan gratuito); pendiente de verificar el plan en el panel de Leo.** Diagnóstico del token, no del proveedor. Live evidence: [trial-reports/live/2026-10-11-day0.md](trial-reports/live/2026-10-11-day0.md) |
 | 2 | Premier League fixtures | `trial_fixtures.py` | `not_started` | mock rehearsal only: [trial-reports/examples/trial_fixtures.json](trial-reports/examples/trial_fixtures.json) — **not** a live observation |
 | 3 | Cross-competition fixtures for Premier League clubs | `trial_fixtures.py` | `not_started` | mock rehearsal only: [trial-reports/examples/trial_fixtures.json](trial-reports/examples/trial_fixtures.json) — **not** a live observation |
 | 4 | Team and squad completeness | `trial_squads.py` | `not_started` | |
@@ -62,7 +63,7 @@ them — the wording is the acceptance bar.
 | 14 | Player match statistics | `trial_stats.py` | `not_started` | mock rehearsal only: [trial-reports/examples/trial_stats.json](trial-reports/examples/trial_stats.json) — **not** a live observation |
 | 15 | Data update timing before, during, and after matches | `trial_stats.py` | `not_applicable` | *requires live observation — see below* |
 | 16 | Post-match corrections | `trial_stats.py` | `not_applicable` | *requires live observation — see below* |
-| 17 | API rate limits and pagination | `trial_auth.py` | `not_started` | mock rehearsal only: [trial-reports/examples/trial_auth.json](trial-reports/examples/trial_auth.json) — **not** a live observation |
+| 17 | API rate limits and pagination | `trial_auth.py` | `blocked` | **blocked: token sin PL (4 ligas del plan gratuito); pendiente de verificar el plan en el panel de Leo.** Diagnóstico del token, no del proveedor. Live evidence: [trial-reports/live/2026-10-11-day0.md](trial-reports/live/2026-10-11-day0.md); headers seen: limit 180, remaining 179 |
 | 18 | Stable provider IDs | `trial_mapping.py` | `not_started` | |
 | 19 | FPL identity-match rate | `trial_mapping.py` | `not_started` | |
 | 20 | Raw-data storage and derived-data licensing | *document, not script* — [TRIAL_LICENSING_CHECKLIST.md](TRIAL_LICENSING_CHECKLIST.md) | `not_started` | |
@@ -89,7 +90,7 @@ One row per trial day. Keep it short; the detail belongs in the report artifacts
 
 | Date | Objectives moved | Blockers | Notes |
 |---|---|---|---|
-| | | | |
+| 2026-10-11 | none moved to observed (1, 17 blocked) | Token sees only 4 free-plan leagues (no PL); 14 of 15 endpoint families unavailable | Plan check in Sportmonks panel pending (Leo); re-run `trial_auth` + `trial_entities` after. #126 rescue under way. |
 
 ## Open questions raised during the trial
 
