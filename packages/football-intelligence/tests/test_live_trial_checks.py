@@ -253,6 +253,33 @@ def test_the_m2_aggregate_reports_the_baseline_beside_the_module_and_on_the_same
     frames, base, _ = run
     aggregate, detail = chk.run_m2(frames, base, 1)
     block = aggregate["baseline_same_position_as_last_start"]
-    assert set(block) == {"answers", "of_starters", "role_agreement_all_it_answers", "flank_agreement_all_it_answers", "like_for_like_subset"}
+    assert set(block) == {"answers", "of_starters", "role_agreement_all_it_answers", "flank_agreement_all_it_answers",
+                          "like_for_like_subset", "where_module_and_baseline_differ", "role_changes_since_last_start"}
     assert block["like_for_like_subset"]["n"] == 0, "no module answer in the synthetic store, so nothing to compare on"
     assert all("baseline_role" in d and "baseline_flank" in d for d in detail)
+
+
+def _d(pred, base, actual, change=False):
+    return {"predicted_role": pred, "baseline_role": base, "actual_role": actual, "predicted_flank": "center",
+            "baseline_flank": "center", "actual_flank": "center", "role_change": change}
+
+
+def test_the_cells_where_module_and_baseline_differ_partition_by_who_is_right():
+    rows = [_d("a", "a", "a"), _d("a", "b", "a"), _d("a", "b", "b"), _d("a", "b", "c"), _d("b", "b", "a"), _d("c", "c", "c")]
+    out = chk.baseline_comparison(rows, rows)["like_for_like_subset"]
+    assert (out["both_right"], out["module_right_baseline_wrong"], out["baseline_right_module_wrong"], out["both_wrong"]) == (2, 1, 1, 2)
+    assert out["both_right"] + out["module_right_baseline_wrong"] + out["baseline_right_module_wrong"] + out["both_wrong"] == out["n"] == 6
+    differ = chk.baseline_comparison(rows, rows)["where_module_and_baseline_differ"]
+    assert differ == {"n": 3, "module_right": 1, "baseline_right": 1, "neither": 1}
+
+
+def test_role_changes_since_the_last_start_count_whether_the_module_saw_them_coming():
+    rows = [_d("a", "a", "b"), _d("b", "a", "b", change=True), _d("c", "a", "b", change=True), _d("a", "a", "a")]
+    out = chk.baseline_comparison(rows, rows)["role_changes_since_last_start"]
+    assert out == {"n": 3, "module_predicted_the_new_role": 1, "module_detected_a_change_beforehand": 2}
+
+
+def test_players_the_baseline_cannot_answer_for_are_left_out_of_every_comparison():
+    rows = [_d("a", None, "a"), _d("a", "a", "a")]
+    out = chk.baseline_comparison(rows, rows)
+    assert out["answers"] == 1 and out["like_for_like_subset"]["n"] == 1 and out["of_starters"] == 2
