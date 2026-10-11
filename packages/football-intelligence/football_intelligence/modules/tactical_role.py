@@ -22,6 +22,7 @@ from football_data_contract.evidence import EvidenceItem
 from football_intelligence.features.registry_v2 import (
     FEATURE_REGISTRY_VERSION,
     ROLE_MAPPING_VERSION,
+    ROLE_MAPPING_VERSIONS,
 )
 from football_intelligence.features.store_v2 import (
     BUILD_FAMILY,
@@ -38,7 +39,7 @@ OUT_OF_POSITION_MAPPING_VERSION = "nominal-role-distance-v1"
 
 ROLE_VOCABULARY = frozenset({
     "goalkeeper", "center_back", "full_back", "wing_back",
-    "central_midfield", "wide_midfield", "winger", "forward",
+    "central_midfield", "wide_midfield", "attacking_midfield", "winger", "forward",
 })
 STORE_FLANK_VOCABULARY = frozenset({"left", "right", "center"})
 STORE_DEPTH_VOCABULARY = frozenset({"goalkeeper", "defense", "midfield", "attack"})
@@ -47,7 +48,7 @@ NOMINAL_POSITIONS = frozenset({"GK", "DEF", "MID", "FWD"})
 NOMINAL_ROLE_CLASSES = {
     "GK": frozenset({"goalkeeper"}),
     "DEF": frozenset({"center_back", "full_back", "wing_back"}),
-    "MID": frozenset({"central_midfield", "wide_midfield", "winger"}),
+    "MID": frozenset({"central_midfield", "wide_midfield", "attacking_midfield", "winger"}),
     "FWD": frozenset({"forward"}),
 }
 OUTFIELD_AXIS = {"DEF": 1, "MID": 2, "FWD": 3}
@@ -319,7 +320,7 @@ def _validate_input(item: TacticalRoleInput):
             raise FeatureV2ValidationError("contradictory role summary counts")
         if summary.modal_role is not None and summary.modal_role not in ROLE_VOCABULARY:
             raise FeatureV2ValidationError("unknown modal role")
-        if summary.role_mapping_version != ROLE_MAPPING_VERSION:
+        if summary.role_mapping_version not in ROLE_MAPPING_VERSIONS:
             raise UnsupportedFeatureContractError("unsupported_feature_contract: unsupported role mapping version")
         if not isinstance(summary.role_basis, SignalBasis):
             raise FeatureV2ValidationError("unknown role basis")
@@ -344,7 +345,7 @@ def _validate_input(item: TacticalRoleInput):
             raise FeatureV2ValidationError("unknown role distribution segment")
         if row.role not in ROLE_VOCABULARY or row.flank not in STORE_FLANK_VOCABULARY or row.formation_depth not in STORE_DEPTH_VOCABULARY:
             raise FeatureV2ValidationError("unknown role, flank, or formation-depth vocabulary")
-        if row.role_mapping_version != ROLE_MAPPING_VERSION:
+        if row.role_mapping_version not in ROLE_MAPPING_VERSIONS:
             raise UnsupportedFeatureContractError("unsupported_feature_contract: unsupported role mapping version")
         if not isinstance(row.role_basis, SignalBasis):
             raise FeatureV2ValidationError("unknown role basis")
@@ -402,6 +403,11 @@ def _evidence(item, code, label, summary, confidence, basis, sources):
     )
 
 
+def _version_of(item: TacticalRoleInput) -> str:
+    """The role-map version the feature rows carry; the default when there are none."""
+    return item.summaries[0].role_mapping_version if item.summaries else ROLE_MAPPING_VERSION
+
+
 def evaluate_tactical_role(item: TacticalRoleInput) -> TacticalRoleResult:
     """Evaluate M2 without I/O, global state, a wall clock, or provider knowledge."""
     validated = _validate_input(item)
@@ -412,7 +418,7 @@ def evaluate_tactical_role(item: TacticalRoleInput) -> TacticalRoleResult:
             feature_build_id=item.feature_build_id, fixture_id=item.fixture_id,
             team_id=item.team_id, player_id=item.player_id, confidence=0.0,
             reason_codes=("insufficient_role_history",), evidence=(),
-            role_mapping_version=ROLE_MAPPING_VERSION,
+            role_mapping_version=_version_of(item),
             nominal_position_input_version=item.nominal_position_input_version,
             role_basis=SignalBasis.OBSERVED, primary_role=None,
             role_distribution=(), primary_flank=None, flank_distribution=(),
@@ -508,7 +514,7 @@ def evaluate_tactical_role(item: TacticalRoleInput) -> TacticalRoleResult:
         feature_build_id=item.feature_build_id, fixture_id=item.fixture_id,
         team_id=item.team_id, player_id=item.player_id, confidence=confidence,
         reason_codes=tuple(reasons), evidence=tuple(evidence),
-        role_mapping_version=ROLE_MAPPING_VERSION,
+        role_mapping_version=_version_of(item),
         nominal_position_input_version=item.nominal_position_input_version,
         role_basis=role_basis, primary_role=primary_role,
         role_distribution=role_distribution, primary_flank=primary_flank,

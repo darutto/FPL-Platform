@@ -216,14 +216,14 @@ def test_missing_nominal_preserves_role_and_only_removes_oop():
 
 ROLE_CLASS = {
     "goalkeeper": "GK", "center_back": "DEF", "full_back": "DEF", "wing_back": "DEF",
-    "central_midfield": "MID", "wide_midfield": "MID", "winger": "MID", "forward": "FWD",
+    "central_midfield": "MID", "wide_midfield": "MID", "attacking_midfield": "MID", "winger": "MID", "forward": "FWD",
 }
 AXIS = {"DEF": 1, "MID": 2, "FWD": 3}
 
 
 @pytest.mark.parametrize("nominal", ["GK", "DEF", "MID", "FWD"])
 @pytest.mark.parametrize("role", sorted(ROLE_VOCABULARY))
-def test_complete_four_by_eight_oop_table(nominal, role):
+def test_complete_four_by_nine_oop_table(nominal, role):
     role_class = ROLE_CLASS[role]
     expected_distance = 0 if nominal == role_class else (
         MAX_ROLE_DISTANCE if "GK" in (nominal, role_class) else min(MAX_ROLE_DISTANCE, abs(AXIS[nominal] - AXIS[role_class])))

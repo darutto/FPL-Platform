@@ -16,11 +16,12 @@ import pandas as pd
 from football_intelligence.distribution.runtime import RuntimeBuildHandle
 from football_intelligence.ingestion.builder_v2 import validate_context_build
 from football_intelligence.ingestion.context_v2 import BANDS, STAGES, TIERS
+from football_intelligence.provenance import ASSUMPTION_STATUSES
 from .engine_v2 import compute_features_v2
 from .registry_v2 import (
     CUTOFF_POLICY_VERSION, ENGINE_VERSION, FEATURE_REGISTRY_VERSION,
     FLANK_VOCABULARY, FORMATION_DEPTH_VOCABULARY, MANIFEST_SCHEMA_VERSION,
-    ROLE_BASIS, ROLE_VOCABULARY, WINDOW_SEGMENTS, registry_hash_v2,
+    ROLE_BASIS, ROLE_MAPPING_VERSION, ROLE_VOCABULARY, WINDOW_SEGMENTS, registry_hash_v2,
 )
 
 BUILD_ID = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
@@ -129,6 +130,7 @@ def validate_feature_build_v2(build: Path, base: RuntimeBuildHandle | None = Non
         raise FeatureV2ValidationError("unsupported feature source binding")
     if (manifest["feature_engine_version"], manifest["feature_registry_version"], manifest["cutoff_policy_version"]) != (ENGINE_VERSION, FEATURE_REGISTRY_VERSION, CUTOFF_POLICY_VERSION):
         raise FeatureV2ValidationError("unsupported feature contract version")
+    if manifest["assumption_status"] not in ASSUMPTION_STATUSES: raise FeatureV2ValidationError("unknown assumption status")
     if manifest["feature_registry_hash"] != registry_hash_v2(): raise FeatureV2ValidationError("feature registry hash mismatch")
     _validate_id(manifest["feature_build_id"]); _utc(manifest["built_at"], "built_at")
     if base is not None and context_build is not None:
@@ -182,10 +184,13 @@ def validate_feature_build_v2(build: Path, base: RuntimeBuildHandle | None = Non
     return manifest
 
 
-def build_features_v2(base, context_build, root, *, feature_build_id, built_at, fail_before_pointer=False):
+def build_features_v2(base, context_build, root, *, feature_build_id, built_at, fail_before_pointer=False,
+                      role_map_version=ROLE_MAPPING_VERSION, assumption_status="mock_validated"):
     _validate_id(feature_build_id); _utc(built_at, "built_at")
     base_manifest, base_hash, context_manifest, context_hash = _source_binding(base, context_build)
-    frames, _ = compute_features_v2(base, context_build)
+    if assumption_status not in ASSUMPTION_STATUSES:
+        raise FeatureV2ValidationError("unknown assumption status")
+    frames, _ = compute_features_v2(base, context_build, role_map_version=role_map_version, assumption_status=assumption_status)
     staging = root / ".staging-v2"; staging.mkdir(parents=True, exist_ok=True)
     stage = Path(tempfile.mkdtemp(prefix=feature_build_id + "-", dir=staging))
     try:
@@ -206,7 +211,7 @@ def build_features_v2(base, context_build, root, *, feature_build_id, built_at, 
             "feature_engine_version": ENGINE_VERSION, "feature_registry_version": FEATURE_REGISTRY_VERSION,
             "feature_registry_hash": registry_hash_v2(), "cutoff_policy_version": CUTOFF_POLICY_VERSION, "output_files": output_files, "row_counts": row_counts,
             "schemas": schemas, "content_hashes": content_hashes, "parquet_byte_hashes": parquet_hashes,
-            "warning_counts": {"total": 0}, "exclusion_counts": {"total": 0}, "assumption_status": "mock_validated", "built_at": built_at}
+            "warning_counts": {"total": 0}, "exclusion_counts": {"total": 0}, "assumption_status": assumption_status, "built_at": built_at}
         (stage / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         validate_feature_build_v2(stage, base, context_build)
         builds = root / "builds-v2"; builds.mkdir(parents=True, exist_ok=True); final = builds / feature_build_id

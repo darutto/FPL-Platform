@@ -188,3 +188,29 @@ FI-7 scope.
 Pure FI-6 evaluator behavior, including M2 consumption of these governed role
 rows, is owned by [`MODULE_CONTRACT.md`](MODULE_CONTRACT.md). This reference
 adds no FI-5 feature or storage semantics.
+
+## role-map-v3 and live-trial provenance (FI-9, 2026-10-11)
+
+`role-map-v2` stays the default and is what every mock uses. `role-map-v3` is
+selected explicitly (`compute_features_v2(..., role_map_version=...)`,
+`build_features_v2(...)`) and carried on every M2 row. It adds the five spellings
+the live Sportmonks lineups use, as decisions, not facts:
+
+| Live detailed position | Governed role, flank, depth |
+|---|---|
+| Centre Back | center_back, center, defense (same role as `central defender`) |
+| Attacker | forward, center, attack (same role as `centre forward`) |
+| Right / Left Midfield | winger, right / left, attack (FPL lists them as wide midfielders and M2 wants them on their flank) |
+| Attacking Midfield | **attacking_midfield**, center, midfield (new governed role; unmapped it would drop the number tens from M2) |
+
+`attacking_midfield` belongs to the FPL `MID` nominal class, so the
+out-of-position distance table becomes 4 x 9. Unmapped spellings still stay in
+the share denominator.
+
+`assumption_status` is a closed vocabulary, `mock_validated | live_trial_local`
+(`football_intelligence.provenance`). A store built from live reads carries
+`live_trial_local`; its context normalizer is `live_trial_adapter: live-trial-v1`
+and the status and normalizer must agree. Such a store is local to the trial:
+`publish_build`, `sync_build`, `RuntimeBuildHandle` (unless the trial's own
+scripts pass `allow_live_trial_local=True`) and the assistant's
+`_load_runtime` all refuse it with `LiveTrialProvenanceRefused`.

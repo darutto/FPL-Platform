@@ -672,3 +672,36 @@ def test_serialization_is_repeated_evaluation_stable() -> None:
         second,
         separators=(",", ":"),
     )
+
+
+@pytest.mark.parametrize("which", ["context", "features"])
+def test_runtime_never_serves_a_live_trial_local_store(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    which: str,
+) -> None:
+    from football_intelligence.provenance import LiveTrialProvenanceRefused
+
+    (tmp_path / "builds-v2" / "context-a").mkdir(parents=True)
+    (tmp_path / "features" / "builds-v2" / "feature-a").mkdir(parents=True)
+    (tmp_path / "_football_v2_latest.json").write_text(
+        json.dumps({"schema_version": 2, "build_id": "context-a",
+                    "manifest": "builds-v2/context-a/manifest.json"}), encoding="utf-8")
+    (tmp_path / "features" / "_features_v2_latest.json").write_text(
+        json.dumps({"schema_version": 2, "build_family": "module-enablement-features-v2",
+                    "feature_build_id": "feature-a"}), encoding="utf-8")
+    live = {"assumption_status": "live_trial_local"}
+    monkeypatch.setattr(
+        "football_intelligence.ingestion.builder_v2.validate_context_build",
+        lambda path: {"entity_files": {"fixtures": "f.parquet", "fixture_schedule_snapshots": "s.parquet"},
+                      **(live if which == "context" else {"assumption_status": "mock_validated"})},
+    )
+    monkeypatch.setattr(
+        "football_intelligence.features.store_v2.validate_feature_build_v2",
+        lambda path, base, context_path: {"built_at": CALCULATED_AT,
+                                          "output_files": {"team_fixture_context_v2": "t.parquet"},
+                                          **(live if which == "features" else {"assumption_status": "mock_validated"})},
+    )
+    monkeypatch.setattr(pd, "read_parquet", lambda path: pd.DataFrame({"source": [Path(path).name]}))
+    with pytest.raises(LiveTrialProvenanceRefused, match="assistant runtime"):
+        runtime._load_runtime(tmp_path)

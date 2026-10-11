@@ -12,11 +12,14 @@ CUTOFF_POLICY_VERSION = "strictly-before-kickoff-v2"
 MANIFEST_SCHEMA_VERSION = 2
 RECENCY_WEIGHT_VERSION = "m1-recency-weights-v1"
 ROLE_MAPPING_VERSION = "role-map-v2"
+#: Added for live positions (FI-9, 2026-10-11); v2 stays available for the mocks.
+ROLE_MAPPING_VERSION_V3 = "role-map-v3"
+ROLE_MAPPING_VERSIONS = (ROLE_MAPPING_VERSION, ROLE_MAPPING_VERSION_V3)
 COMPETITION_WEIGHT_VERSION = "competition-weights-v1"
 COMPETITION_WEIGHTS = {"league": 1.0, "domestic_cup": 1.0, "continental": 1.25}
 WINDOW_SEGMENTS = frozenset({"last_10", "last_3", "prior_7"})
 ROLE_BASIS = frozenset({"observed", "inferred_proxy"})
-ROLE_VOCABULARY = frozenset({"goalkeeper", "center_back", "full_back", "wing_back", "central_midfield", "wide_midfield", "winger", "forward"})
+ROLE_VOCABULARY = frozenset({"goalkeeper", "center_back", "full_back", "wing_back", "central_midfield", "wide_midfield", "attacking_midfield", "winger", "forward"})
 FLANK_VOCABULARY = frozenset({"left", "right", "center"})
 FORMATION_DEPTH_VOCABULARY = frozenset({"goalkeeper", "defense", "midfield", "attack"})
 
@@ -74,7 +77,7 @@ FEATURE_SPECS_V2 = (
     _spec("unmapped_starts", "m2", ROLE_SUMMARY_GRAIN, "Int64", False, "role_window", "zero", "M2"),
     _spec("modal_role", "m2", ROLE_SUMMARY_GRAIN, "string", True, "role_window", "null_without_mapped_starts", "M2", vocabulary=tuple(sorted(ROLE_VOCABULARY)), minimum=1),
     _spec("role_change_comparable", "m2", ROLE_SUMMARY_GRAIN, "boolean", False, "last_3_and_prior_7", "false_without_both_windows", "M2"),
-    _spec("role_mapping_version", "m2", ROLE_SUMMARY_GRAIN, "string", False, "role_window", "required", "audit/M2", vocabulary=(ROLE_MAPPING_VERSION,)),
+    _spec("role_mapping_version", "m2", ROLE_SUMMARY_GRAIN, "string", False, "role_window", "required", "audit/M2", vocabulary=ROLE_MAPPING_VERSIONS),
     _spec("role_basis", "m2", ROLE_SUMMARY_GRAIN, "string", False, "role_window", "required", "audit/M2", vocabulary=tuple(sorted(ROLE_BASIS))),
     _spec("role_count", "m2", ROLE_DISTRIBUTION_GRAIN, "Int64", False, "role_window", "row_absent_for_empty_window", "M2", unit="count_1_10", minimum=1),
     _spec("role_share", "m2", ROLE_DISTRIBUTION_GRAIN, "Float64", False, "role_window", "row_absent_for_empty_window", "M2", unit="fraction_0_1", minimum=1),

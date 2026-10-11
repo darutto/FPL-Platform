@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from football_intelligence.provenance import refuse_live_trial
 from football_intelligence.ingestion.builder import (MANIFEST_SCHEMA_VERSION,
     resolve_contained_build_directory, validate_build, validate_build_id)
 
@@ -120,7 +121,16 @@ class PublicationReport:
     manifest_hash: str
 
 
+def _refuse_live_trial_dir(build_dir: Path, where: str) -> None:
+    try:
+        manifest = json.loads((Path(build_dir) / "manifest.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return  # unreadable manifests fail in the normal validation, with its own typed error
+    refuse_live_trial(manifest, where)
+
+
 def publish_build(store: ArtifactStore, prefix: str, build_dir: Path, *, dry_run: bool = False) -> PublicationReport:
+    _refuse_live_trial_dir(build_dir, "publish_build")
     manifest = validate_build(build_dir)
     build_id = validate_build_id(manifest.get("build_id"))
     manifest_bytes = (build_dir / "manifest.json").read_bytes()
@@ -199,6 +209,7 @@ def sync_build(store: ArtifactStore, prefix: str, cache_root: Path, limits: Down
         manifest = _strict_json(manifest_data, "remote manifest")
         if manifest.get("schema_version") != MANIFEST_SCHEMA_VERSION or manifest.get("build_id") != build_id:
             raise RemoteValidationError("remote manifest version or build ID is incompatible")
+        refuse_live_trial(manifest, "sync_build")
         staging_root = cache_root / ".staging"; staging_root.mkdir(parents=True, exist_ok=True)
         stage = Path(tempfile.mkdtemp(prefix=f"{build_id}-", dir=staging_root))
         try:
