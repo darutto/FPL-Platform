@@ -82,7 +82,7 @@ import json
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Collection, Sequence
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -467,9 +467,32 @@ def fpl_people(bootstrap: dict[str, Any]) -> list[dict[str, Any]]:
             "full_name": f"{element.get('first_name') or ''} {element.get('second_name') or ''}".strip(),
             "known_name": element.get("web_name"), "birth_date": (birth or "")[:10] or None,
             "team": str(element.get("team")), "minutes": int(element.get("minutes") or 0),
-            "element_type": element.get("element_type"),
+            "element_type": element.get("element_type"), "status": element.get("status"),
         })
     return people
+
+
+def departed_from_pl(person: dict[str, Any], find_player, teams_of,
+                     pl_club_ids: Collection[Any], season_start: str, today: str) -> bool:
+    """Has this FPL element left the Premier League? Decided from data, never by hand.
+
+    True only when FPL marks the element unavailable (status ``u``) **and** the
+    Sportmonks team history shows it registered with a club outside the league
+    since the season started **and** with no Premier League club still current.
+    ``find_player(person)`` returns the Sportmonks player (a dict with ``id``) or
+    None; ``teams_of(player_id)`` returns its team history rows
+    (``team_id``, ``start``, ``end``). Both are injected so the rule is testable
+    without the provider.
+    """
+    if person.get("status") != "u" or not person.get("birth_date"):
+        return False
+    found = find_player(person)
+    if not found:
+        return False
+    entries = list(teams_of(found["id"]) or [])
+    if any(e.get("team_id") in pl_club_ids and (not e.get("end") or e["end"] >= today) for e in entries):
+        return False
+    return any(e.get("team_id") not in pl_club_ids and (e.get("start") or "") >= season_start for e in entries)
 
 
 #: The method name the second pass reports under, so the gate shows how many
@@ -498,14 +521,38 @@ class FplSide:
     unmatched: tuple[dict[str, Any], ...]
     by_method: dict[str, int]
     second_pass: dict[str, int]
+    departed: int = 0
+
+    @property
+    def in_pl(self) -> int:
+        """Elements with minutes that are still in a Premier League club: the official denominator."""
+        return self.with_minutes - self.departed
 
     @property
     def rate_percent(self) -> float:
+        """The official gate: resolved / (minutes > 0 and still in a PL club). A
+        departed element is only ever excluded while unresolved, so the
+        numerator is unchanged by the exclusion."""
+        return round(self.with_minutes_resolved / self.in_pl * 100, 4) if self.in_pl > 0 else 0.0
+
+    @property
+    def rate_with_minutes_percent(self) -> float:
+        """The previous gate (all elements with minutes), reported beside the official one."""
         return round(self.with_minutes_resolved / self.with_minutes * 100, 4) if self.with_minutes else 0.0
 
     @property
+    def unreachable(self) -> int:
+        """Unresolved in-league elements the squads do not hold at all: no matcher can resolve them."""
+        return self.fpl_causes.get("absent_from_other_side", 0)
+
+    @property
+    def ceiling_percent(self) -> float:
+        """Best the manual queue can reach: everything except what no squad holds."""
+        return round((self.in_pl - self.unreachable) / self.in_pl * 100, 4) if self.in_pl > 0 else 0.0
+
+    @property
     def meets_gate(self) -> bool:
-        return self.with_minutes > 0 and self.rate_percent >= GATE_PERCENT
+        return self.in_pl > 0 and self.rate_percent >= GATE_PERCENT
 
 
 def club_crosswalk(pairs: Sequence[tuple[Any, str]]) -> dict[Any, str]:
@@ -523,7 +570,7 @@ def club_crosswalk(pairs: Sequence[tuple[Any, str]]) -> dict[Any, str]:
 
 
 def fpl_side(records: Sequence[Any], people: Sequence[dict[str, Any]], *,
-             second_pass: bool = True) -> FplSide:
+             second_pass: bool = True, departed: Collection[Any] = ()) -> FplSide:
     """Run the registry's matcher from the Sportmonks pool to the FPL elements.
 
     First pass: the provider's `name` as the full name. Second pass (approved
@@ -624,9 +671,12 @@ def fpl_side(records: Sequence[Any], people: Sequence[dict[str, Any]], *,
         cause = explain_non_match(
             person, pool_people,
             conflict=identity_fingerprint(person["full_name"], person["birth_date"]) in conflicts)
-        if person["minutes"] > 0:
+        gone = person["id"] in departed and person["minutes"] > 0
+        if person["minutes"] > 0 and not gone:
             fpl_causes[cause] = fpl_causes.get(cause, 0) + 1
-        unmatched.append({"group": "fpl_with_minutes" if person["minutes"] > 0 else "fpl_without_minutes",
+        group = ("fpl_departed_from_pl" if gone else
+                 "fpl_with_minutes" if person["minutes"] > 0 else "fpl_without_minutes")
+        unmatched.append({"group": group, "id": person["id"],
                           "cause": cause, "full_name": person["full_name"],
                           "known_name": person["known_name"], "birth_date": person["birth_date"]})
     for person in pool_people:
@@ -644,11 +694,51 @@ def fpl_side(records: Sequence[Any], people: Sequence[dict[str, Any]], *,
         len(records), len(pool_matched), dict(sorted(fpl_causes.items())),
         dict(sorted(pool_causes.items())), tuple(unmatched),
         dict(sorted(by_method.items())), audit,
+        sum(1 for p in active if p["id"] in departed and not resolved(p)),
     )
 
 
 def _causes_text(causes: dict[str, int]) -> str:
     return ", ".join(f"{name} {count}" for name, count in sorted(causes.items(), key=lambda kv: (-kv[1], kv[0]))) or "none"
+
+
+def _departed_ids(client, scope, side: "FplSide", people: Sequence[dict[str, Any]],
+                  records: Sequence[Any]) -> set[Any]:
+    """FPL elements with minutes, unresolved and marked unavailable, that the rule
+    in ``departed_from_pl`` finds registered outside the league. A few requests:
+    one search and one team history per candidate."""
+    import datetime as _dt
+
+    unresolved = {i["id"] for i in side.unmatched if i["group"] == "fpl_with_minutes"}
+    pending = [p for p in people if p["id"] in unresolved and p.get("status") == "u"]
+    if not pending:
+        return set()
+    today = _dt.datetime.now(_dt.timezone.utc).date().isoformat()
+
+    def find_player(person: dict[str, Any]) -> dict[str, Any] | None:
+        words = person["full_name"].split()
+        for term in dict.fromkeys([person["known_name"] or "", words[-1] if words else "", words[0] if words else ""]):
+            if not term:
+                continue
+            try:
+                hits = list(client.iter_entities("player_search", scope={"term": term}, max_pages=1))
+            except SportmonksError:
+                continue
+            for hit in hits:
+                if hit.raw_fields.get("date_of_birth") == person["birth_date"]:
+                    return {"id": hit.provider_id}
+        return None
+
+    def teams_of(player_id: Any) -> list[dict[str, Any]]:
+        try:
+            rows = list(client.iter_entities("player_teams", scope={"player_id": player_id}, max_pages=1))
+        except SportmonksError:
+            return []
+        return [dict(t) for r in rows for t in (r.raw_fields.get("teams") or []) if isinstance(t, dict)]
+
+    pl_ids = set(scope.team_ids)
+    return {p["id"] for p in pending
+            if departed_from_pl(p, find_player, teams_of, pl_ids, scope.season_start or "0000-00-00", today)}
 
 
 def load_fpl_bootstrap() -> dict[str, Any]:
@@ -713,20 +803,26 @@ def collect(client, mode: str, *, bootstrap: dict[str, Any] | None = None,
     side: FplSide | None = None
     if people is not None:
         side = fpl_side(first, people)
+        gone = _departed_ids(client, scope, side, people, first)
+        if gone:
+            side = fpl_side(first, people, departed=gone)
     if side is not None:
-        # --- Objective 19, live: the FPL side, minutes > 0 ------------------
+        # --- Objective 19, live: the FPL side, minutes > 0 and still in a PL club
         shortfalls_19 = []
-        if not side.with_minutes:
-            shortfalls_19.append("no FPL element with minutes > 0 to resolve")
+        if not side.in_pl:
+            shortfalls_19.append("no FPL element with minutes > 0 in a Premier League club to resolve")
         elif not side.meets_gate:
             shortfalls_19.append(
                 f"{side.rate_percent}% is below the {GATE_PERCENT}% gate; "
-                f"{side.with_minutes - side.with_minutes_resolved} element(s) unresolved")
+                f"{side.in_pl - side.with_minutes_resolved} element(s) unresolved")
         evidence_19 = (
-            f"FPL 2026/27 elements with minutes>0: {side.with_minutes_resolved}/{side.with_minutes} "
+            f"FPL 2026/27 elements with minutes>0 still in a PL club: {side.with_minutes_resolved}/{side.in_pl} "
             f"resolved automatically = {side.rate_percent}% (gate ≥{GATE_PERCENT}%); "
-            f"aside, not counted: all FPL elements {side.all_resolved}/{side.all_elements}, "
-            f"Sportmonks pool {side.pool_resolved}/{side.pool}"
+            f"aside, not counted: previous gate (minutes>0, {side.departed} departed included) "
+            f"{side.with_minutes_resolved}/{side.with_minutes} = {side.rate_with_minutes_percent}%, "
+            f"all FPL elements {side.all_resolved}/{side.all_elements}, "
+            f"Sportmonks pool {side.pool_resolved}/{side.pool}; "
+            f"post-queue ceiling {side.in_pl - side.unreachable}/{side.in_pl} = {side.ceiling_percent}%"
         )
     elif failure:
         shortfalls_19 = [f"players request failed: {failure}"]
@@ -817,6 +913,11 @@ def collect(client, mode: str, *, bootstrap: dict[str, Any] | None = None,
         report.observed_shapes.append(ObservedShape(
             "sportmonks_unmatched_by_cause", _causes_text(side.pool_causes)))
         report.observed_shapes.append(ObservedShape(
+            "gate_denominators",
+            f"official {side.with_minutes_resolved}/{side.in_pl}; previous (minutes>0) "
+            f"{side.with_minutes_resolved}/{side.with_minutes}; departed from the league {side.departed}; "
+            f"unreachable through squads {side.unreachable}; post-queue ceiling {side.ceiling_percent}%"))
+        report.observed_shapes.append(ObservedShape(
             "match_by_method", ", ".join(f"{k} {v}" for k, v in side.by_method.items()) or "none"))
         audit = side.second_pass
         report.observed_shapes.append(ObservedShape(
@@ -827,8 +928,9 @@ def collect(client, mode: str, *, bootstrap: dict[str, Any] | None = None,
             f"position differs: new {audit['position_mismatch_new']}/{audit['resolved']}, "
             f"first pass {audit['position_mismatch_first']}/{side.pool_resolved - audit['resolved']}"))
         report.warnings.append(
-            "gate denominator: FPL elements with minutes > 0 (review decision 2026-10-11); "
-            "the manual queue is expected to carry the rest up to 99%"
+            "gate denominator: FPL elements with minutes > 0 that are still in a Premier League club "
+            "(review decision 2026-10-11, refined: unavailable in FPL and registered outside the league "
+            "per the Sportmonks team history are excluded, by rule, not by list)"
         )
     if live and first and state_dir is not None:
         across = _stability_across_runs(snapshot(first), state_dir)

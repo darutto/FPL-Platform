@@ -84,6 +84,10 @@ EXTRA_ROUTES: dict[str, Route] = {
     # A club's open sidelined list (not tied to a match): 21 requests per pass.
     "current_sidelined": Route("teams/{team_id}", SidelinedEntry, include="sidelined",
                                extract="sidelined", single=True),
+    # Name search and a player's team history, used to tell a player who left the
+    # league from one the squads simply omit (trial_mapping).
+    "player_search": Route("players/search/{term}", Player),
+    "player_teams": Route("players/{player_id}", Player, include="teams", single=True),
 }
 
 
