@@ -1958,13 +1958,13 @@
     },
     {
       "id": "i152",
-      "col": "building",
-      "progress": 0,
+      "col": "shipped",
+      "progress": 100,
       "tags": [
         "UI"
       ],
       "title": "Mini-canchita en la sección Zonas de la ficha de jugador",
-      "desc": "PEDIDO POR LEO 2026-10-10, sobre [[i148]]. La sección Zonas de PlayerCard muestra las zonas del jugador como texto; la canchita solo existe en la tarjeta de zonas defensivas de un equipo (DefensiveZonesCard). ARREGLO, solo UI y sin datos nuevos: un dibujo pequeño que pinta las zonas donde remata el jugador (zones[].share) y resalta las que coinciden con la debilidad del próximo rival favorable (fixtures[].matches). Reutilizar la geometría del SVG de DefensiveZonesCard extrayéndola a un componente compartido (la tarjeta defensiva debe verse idéntica); ojo: ese SVG dibuja solo los tres tercios del área y el perfil del jugador cubre seis zonas. PUERTA: tests con/sin coincidencias, todas las zonas, sin favorables; capturas escritorio y móvil; DefensiveZonesCard sin cambios visuales (snapshot). Se fusiona después de que Leo cierre el gate de i148 este fin de semana."
+      "desc": "PEDIDO POR LEO 2026-10-10, sobre [[i148]]. La sección Zonas de PlayerCard muestra las zonas del jugador como texto; la canchita solo existe en la tarjeta de zonas defensivas de un equipo (DefensiveZonesCard). ARREGLO, solo UI y sin datos nuevos: un dibujo pequeño que pinta las zonas donde remata el jugador (zones[].share) y resalta las que coinciden con la debilidad del próximo rival favorable (fixtures[].matches). Reutilizar la geometría del SVG de DefensiveZonesCard extrayéndola a un componente compartido (la tarjeta defensiva debe verse idéntica); ojo: ese SVG dibuja solo los tres tercios del área y el perfil del jugador cubre seis zonas. PUERTA: tests con/sin coincidencias, todas las zonas, sin favorables; capturas escritorio y móvil; DefensiveZonesCard sin cambios visuales (snapshot). Se fusiona después de que Leo cierre el gate de i148 este fin de semana.\n\nCERRADA 2026-10-10 (PR #402, c6d949e). PitchGeometry compartido (DefensiveZonesCard idéntica: 3 snapshots grabados antes de extraer), PlayerZonesPitch con las seis zonas (área + frontal × izq/centro/der), turquesa = coincide con un rival favorable; 220 px junto a los chips desde 481 px, apilada a todo el ancho en móvil. Leo lo probó en su teléfono: el clic para ampliar se construyó y se retiró por decisión suya (el tamaño basta; el rediseño de layout con Astra puede cambiar cómo se despliegan estas vistas). 18/18 mutantes."
     }
   ]
 }
