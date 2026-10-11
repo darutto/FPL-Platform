@@ -392,6 +392,199 @@ def mock_transport(
     })
 
 
+# --- The FPL side of the gate (live) -----------------------------------------
+#
+# Decided by the review chat on 2026-10-11. The §14.1 gate is measured over the
+# players the product has to resolve: FPL 2026/27 elements with minutes > 0 this
+# season. All FPL elements and the whole Sportmonks pool (academy players FPL
+# never lists) are reported alongside and do not count towards the gate. The
+# candidates are the *current* FPL bootstrap, not the 2025-26 corpus, which stays
+# in the repository as history and still drives the mock rehearsal. The matcher
+# and its tiers are untouched.
+
+FPL_API_ROOT = PACKAGE_ROOT.parent / "fpl-api-client"
+
+#: Causes a non-match is filed under. Diagnostics only: nothing below resolves
+#: anything, so none of it is fuzzy matching. Evaluated in this order; the first
+#: that holds wins, and `other` is what is left.
+CAUSES = (
+    "fpl_birth_date_absent",        # the FPL element carries no birth date
+    "indistinguishable_in_fpl",     # two FPL elements share name and birth date
+    "nickname_or_abbreviation",     # same birth date; known name equals the other side's display name
+    "spelling_or_hyphenation",      # same birth date; names equal once spaces, hyphens, apostrophes go
+    "compound_or_partial_name",     # same birth date; the names share a word but are not equal
+    "same_birth_date_different_name",
+    "birth_date_differs",           # same full name, other birth date
+    "other_side_birth_date_absent", # same full name, the other side has no birth date
+    "absent_from_other_side",       # no one with that birth date or that name on the other side
+)
+
+
+def _compact(value: str) -> str:
+    return "".join(ch for ch in normalize_name(value) if ch.isalnum())
+
+
+def _words(value: str) -> set[str]:
+    return {w for w in normalize_name(value).split() if len(w) > 1}
+
+
+def explain_non_match(person: dict[str, Any], others: Sequence[dict[str, Any]], *,
+                      conflict: bool = False) -> str:
+    """Why this person found no counterpart on the other side. Diagnostic only."""
+    if not person.get("birth_date"):
+        return "fpl_birth_date_absent" if person.get("side") == "fpl" else "other_side_birth_date_absent"
+    if conflict:
+        return "indistinguishable_in_fpl"
+    same_dob = [o for o in others if o.get("birth_date") == person["birth_date"]]
+    known = normalize_name(person.get("known_name") or "")
+    for o in same_dob:
+        if known and known in {normalize_name(o.get("known_name") or ""), normalize_name(o.get("alt_name") or "")}:
+            return "nickname_or_abbreviation"
+    for o in same_dob:
+        if _compact(person["full_name"]) == _compact(o["full_name"]):
+            return "spelling_or_hyphenation"
+    for o in same_dob:
+        if _words(person["full_name"]) & _words(o["full_name"]):
+            return "compound_or_partial_name"
+    if same_dob:
+        return "same_birth_date_different_name"
+    full = normalize_name(person["full_name"])
+    same_name = [o for o in others if normalize_name(o["full_name"]) == full]
+    if any(o.get("birth_date") for o in same_name):
+        return "birth_date_differs"
+    if same_name:
+        return "other_side_birth_date_absent"
+    return "absent_from_other_side"
+
+
+def fpl_people(bootstrap: dict[str, Any]) -> list[dict[str, Any]]:
+    """FPL elements as plain people. ``minutes`` is the season total."""
+    people = []
+    for element in bootstrap.get("elements", []):
+        birth = element.get("birth_date")
+        people.append({
+            "side": "fpl", "id": element.get("id"),
+            "full_name": f"{element.get('first_name') or ''} {element.get('second_name') or ''}".strip(),
+            "known_name": element.get("web_name"), "birth_date": (birth or "")[:10] or None,
+            "team": str(element.get("team")), "minutes": int(element.get("minutes") or 0),
+        })
+    return people
+
+
+@dataclass(frozen=True)
+class FplSide:
+    """The FPL-side measurement. Aggregates only; names stay in ``unmatched``."""
+
+    with_minutes: int
+    with_minutes_resolved: int
+    all_elements: int
+    all_resolved: int
+    pool: int
+    pool_resolved: int
+    fpl_causes: dict[str, int]
+    pool_causes: dict[str, int]
+    unmatched: tuple[dict[str, Any], ...]
+
+    @property
+    def rate_percent(self) -> float:
+        return round(self.with_minutes_resolved / self.with_minutes * 100, 4) if self.with_minutes else 0.0
+
+    @property
+    def meets_gate(self) -> bool:
+        return self.with_minutes > 0 and self.rate_percent >= GATE_PERCENT
+
+
+def fpl_side(records: Sequence[Any], people: Sequence[dict[str, Any]]) -> FplSide:
+    """Run the registry's matcher from the Sportmonks pool to the FPL elements.
+
+    A Sportmonks record resolves when ``match_player`` returns one of the FPL
+    candidates; an FPL element resolves when some record landed on it.
+    """
+    rows = [{"full_name": p["full_name"], "known_name": p["known_name"],
+             "birth_date": p["birth_date"], "team_provider_id": p["team"]} for p in people]
+    candidates, conflicts = registry_candidates({"candidates": rows})
+    sources = source_players(records)
+    hit: set[str] = set()
+    pool_matched: set[str] = set()
+    for source in sources:
+        if identity_fingerprint(source.full_name, source.birth_date) in conflicts:
+            continue
+        result = match_player(source, candidates)
+        if result.matched:
+            hit.add(result.canonical_player_id)
+            pool_matched.add(source.provider_id)
+
+    def resolved(person: dict[str, Any]) -> bool:
+        if identity_fingerprint(person["full_name"], person["birth_date"]) in conflicts:
+            return False
+        return canonical_player_id(person["full_name"], person["birth_date"]) in hit
+
+    pool_people = [{
+        "side": "sportmonks", "id": r.provider_id, "full_name": str(r.raw_fields.get("name") or ""),
+        "known_name": r.raw_fields.get("display_name"), "alt_name": r.raw_fields.get("common_name"),
+        "birth_date": r.raw_fields.get("date_of_birth"),
+    } for r in records]
+    for p in pool_people:
+        if p["known_name"] is None:
+            p["known_name"] = p["alt_name"]
+    fpl_causes: dict[str, int] = {}
+    pool_causes: dict[str, int] = {}
+    unmatched: list[dict[str, Any]] = []
+    for person in people:
+        if resolved(person):
+            continue
+        cause = explain_non_match(
+            person, pool_people,
+            conflict=identity_fingerprint(person["full_name"], person["birth_date"]) in conflicts)
+        if person["minutes"] > 0:
+            fpl_causes[cause] = fpl_causes.get(cause, 0) + 1
+        unmatched.append({"group": "fpl_with_minutes" if person["minutes"] > 0 else "fpl_without_minutes",
+                          "cause": cause, "full_name": person["full_name"],
+                          "known_name": person["known_name"], "birth_date": person["birth_date"]})
+    for person in pool_people:
+        if str(person["id"]) in pool_matched:
+            continue
+        cause = explain_non_match(person, [{**p, "alt_name": None} for p in people])
+        pool_causes[cause] = pool_causes.get(cause, 0) + 1
+        unmatched.append({"group": "sportmonks_without_fpl", "cause": cause,
+                          "full_name": person["full_name"], "known_name": person["known_name"],
+                          "birth_date": person["birth_date"]})
+    active = [p for p in people if p["minutes"] > 0]
+    return FplSide(
+        len(active), sum(1 for p in active if resolved(p)),
+        len(people), sum(1 for p in people if resolved(p)),
+        len(records), len(pool_matched), dict(sorted(fpl_causes.items())),
+        dict(sorted(pool_causes.items())), tuple(unmatched),
+    )
+
+
+def _causes_text(causes: dict[str, int]) -> str:
+    return ", ".join(f"{name} {count}" for name, count in sorted(causes.items(), key=lambda kv: (-kv[1], kv[0]))) or "none"
+
+
+def load_fpl_bootstrap() -> dict[str, Any]:
+    """The current FPL bootstrap through the platform's own client.
+
+    Read-only, no token, imported lazily so the mock rehearsal and the import
+    audit never load it. Only aggregates are ever versioned.
+    """
+    if str(FPL_API_ROOT) not in sys.path:
+        sys.path.insert(0, str(FPL_API_ROOT))
+    from fpl_api_client.fpl_client import get_bootstrap  # noqa: PLC0415
+    return get_bootstrap()
+
+
+def write_fpl_unmatched(side: FplSide, out_dir: Path) -> Path:
+    """Names of every unmatched person, grouped. Local and gitignored."""
+    reports_dir = out_dir / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    path = reports_dir / f"{SCRIPT}_fpl_side_unmatched.json"
+    path.write_text(json.dumps({"schema_version": 1, "items": list(side.unmatched)},
+                               indent=2, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+    return path
+
+
+
 def _fetch(client, scope) -> tuple[tuple[Any, ...], str]:
     try:
         return fetch_family(client, "players", scope)[0], ""
@@ -404,33 +597,61 @@ def _fetch(client, scope) -> tuple[tuple[Any, ...], str]:
         return (), type(exc).__name__
 
 
-def collect(client, mode: str) -> tuple[TrialReport, MappingOutcome]:
+def collect(client, mode: str, *, bootstrap: dict[str, Any] | None = None,
+            scope=None, state_dir: Path | None = None) -> tuple[TrialReport, MappingOutcome]:
     report = TrialReport(script=SCRIPT, mode=mode)
-    scope = scope_for(client, mode)
+    live = mode != MODE_MOCK
+    scope = scope if scope is not None else scope_for(client, mode)
     first, failure = _fetch(client, scope)
     second, second_failure = _fetch(client, scope) if not failure else ((), failure)
 
-    corpus = load_corpus()
-    candidates, conflicts = registry_candidates(corpus)
+    people = fpl_people(bootstrap if bootstrap is not None else load_fpl_bootstrap()) if (live and first) else None
+    if people is not None:
+        candidates, conflicts = registry_candidates({"candidates": [
+            {"full_name": p["full_name"], "known_name": p["known_name"],
+             "birth_date": p["birth_date"], "team_provider_id": p["team"]} for p in people]})
+    else:
+        corpus = load_corpus()
+        candidates, conflicts = registry_candidates(corpus)
     outcome = map_pool(source_players(first), candidates, conflicts)
     stability = compare_snapshots(snapshot(first), snapshot(second))
 
-    # --- Objective 19: automatic match rate against the §14.1 gate ------------
-    shortfalls_19: list[str] = []
-    if failure:
-        shortfalls_19.append(f"players request failed: {failure}")
-    elif not first:
-        shortfalls_19.append("no player record returned")
-    elif not outcome.meets_gate:
-        shortfalls_19.append(
-            f"{outcome.rate_percent}% is below the {GATE_PERCENT}% gate; "
-            f"{outcome.total - outcome.matched} identit(ies) unresolved"
+    side: FplSide | None = None
+    if people is not None:
+        side = fpl_side(first, people)
+    if side is not None:
+        # --- Objective 19, live: the FPL side, minutes > 0 ------------------
+        shortfalls_19 = []
+        if not side.with_minutes:
+            shortfalls_19.append("no FPL element with minutes > 0 to resolve")
+        elif not side.meets_gate:
+            shortfalls_19.append(
+                f"{side.rate_percent}% is below the {GATE_PERCENT}% gate; "
+                f"{side.with_minutes - side.with_minutes_resolved} element(s) unresolved")
+        evidence_19 = (
+            f"FPL 2026/27 elements with minutes>0: {side.with_minutes_resolved}/{side.with_minutes} "
+            f"resolved automatically = {side.rate_percent}% (gate ≥{GATE_PERCENT}%); "
+            f"aside, not counted: all FPL elements {side.all_resolved}/{side.all_elements}, "
+            f"Sportmonks pool {side.pool_resolved}/{side.pool}"
         )
-    evidence_19 = (
-        f"{outcome.matched}/{outcome.total} matched automatically "
-        f"= {outcome.rate_percent}% against a {len(candidates)}-candidate registry "
-        f"(gate ≥{GATE_PERCENT}%)"
-    )
+    elif failure:
+        shortfalls_19 = [f"players request failed: {failure}"]
+        evidence_19 = "no pool"
+    elif not first:
+        shortfalls_19 = ["no player record returned"]
+        evidence_19 = "no pool"
+    else:
+        shortfalls_19 = []
+        if not outcome.meets_gate:
+            shortfalls_19.append(
+                f"{outcome.rate_percent}% is below the {GATE_PERCENT}% gate; "
+                f"{outcome.total - outcome.matched} identit(ies) unresolved"
+            )
+        evidence_19 = (
+            f"{outcome.matched}/{outcome.total} matched automatically "
+            f"= {outcome.rate_percent}% against a {len(candidates)}-candidate registry "
+            f"(gate ≥{GATE_PERCENT}%)"
+        )
     report.objectives.append(Objective(
         19, OBJECTIVE_19,
         # Below the gate is `unmet`, never `degraded`: §14.1 makes it a GO
@@ -496,6 +717,20 @@ def collect(client, mode: str) -> tuple[TrialReport, MappingOutcome]:
             f"{len(stability.appeared)} appeared; {len(stability.disappeared)} disappeared",
         ))
 
+    if side is not None:
+        report.observed_shapes.append(ObservedShape(
+            "fpl_unmatched_with_minutes_by_cause", _causes_text(side.fpl_causes)))
+        report.observed_shapes.append(ObservedShape(
+            "sportmonks_unmatched_by_cause", _causes_text(side.pool_causes)))
+        report.warnings.append(
+            "gate denominator: FPL elements with minutes > 0 (review decision 2026-10-11); "
+            "the manual queue is expected to carry the rest up to 99%"
+        )
+    if live and first and state_dir is not None:
+        across = _stability_across_runs(snapshot(first), state_dir)
+        if across:
+            report.observed_shapes.append(ObservedShape("provider_id_stability_across_runs", across))
+
     if mode == MODE_MOCK:
         report.warnings.append(SYNTHETIC_WARNING)
     report.warnings.append(
@@ -504,7 +739,34 @@ def collect(client, mode: str) -> tuple[TrialReport, MappingOutcome]:
         if mode == MODE_MOCK else
         "live mode: shapes are as received from the provider"
     )
+    report.fpl_side = side  # type: ignore[attr-defined]
     return report, outcome
+
+
+def _stability_across_runs(current: dict[str, str], state_dir: Path) -> str:
+    """Compare this read with the one saved by the previous run (objective 18, days apart).
+
+    The saved snapshot is replaced by this one. Returns '' on the first run.
+    """
+    import datetime as _dt
+    path = state_dir / "snapshot.json"
+    now = _dt.datetime.now(_dt.timezone.utc)
+    previous = None
+    try:
+        previous = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        pass
+    state_dir.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"at": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "players": current},
+                               sort_keys=True), encoding="utf-8", newline="\n")
+    if not previous:
+        return ""
+    age = (now - _dt.datetime.strptime(previous["at"], "%Y-%m-%dT%H:%M:%SZ").replace(
+        tzinfo=_dt.timezone.utc)).total_seconds() / 3600
+    result = compare_snapshots(previous["players"], current)
+    return (f"{result.compared} compared against a read {age:.0f} h earlier; "
+            f"{len(result.changed)} changed; {len(result.appeared)} appeared; "
+            f"{len(result.disappeared)} disappeared")
 
 
 def write_queue(outcome: MappingOutcome, out_dir: Path) -> Path:
@@ -561,7 +823,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     outcome: MappingOutcome | None = None
     try:
         client = make_client(mode, transport=transport, out_dir=args.out)
-        report, outcome = collect(client, mode)
+        report, outcome = collect(client, mode, state_dir=args.out / "mapping")
     except SportmonksConfigurationError as exc:
         failure = f"CONFIG: {type(exc).__name__}"
         config_failure = True
@@ -574,6 +836,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     json_path, md_path = write_report(report, args.out)
     queue_path = write_queue(
         outcome if outcome is not None else MappingOutcome(0, 0, {}, {}, ()), args.out)
+    side = getattr(report, "fpl_side", None)
+    if side is not None:
+        write_fpl_unmatched(side, args.out)
     if failure is not None:
         print(failure)
     print(f"{SCRIPT}: mode={report.mode} report={json_path} markdown={md_path} "

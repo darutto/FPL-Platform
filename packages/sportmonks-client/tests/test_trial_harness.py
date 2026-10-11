@@ -147,15 +147,22 @@ FIRST_PARTY = _first_party_roots()
 #: `corpus.py`, `store.py`, and `overrides.py`, none of which are on the import
 #: path `trial_mapping` takes. A file scan would report a dependency that never
 #: executes.
+#:
+#: `fpl_api_client` is the second sibling, added by FI-9 for the current FPL
+#: bootstrap (the candidate side of the identity gate). It is the second kind of
+#: argument too, and also recorded as a test rather than a comment:
+#: `test_the_fpl_api_client_reaches_the_network_only_through_requests` parses its
+#: imports. It is imported lazily inside `load_fpl_bootstrap`, so a mock run
+#: never loads it.
 EXPECTED_THIRD_PARTY = frozenset({
-    "requests", "pytest", "football_identity_registry",
+    "requests", "pytest", "football_identity_registry", "fpl_api_client",
 })
 
 #: The packages S6 is permitted to reach outside this package, as top-level
 #: names. `football_data_contract` is on `trial_mapping`'s `sys.path` as the
 #: registry's own dependency but is imported by none of our files, which is why
 #: it is not here: this set is what *we* reach for, not what our dependencies do.
-SIBLING_PACKAGE_ROOTS = frozenset({"football_identity_registry"})
+SIBLING_PACKAGE_ROOTS = frozenset({"football_identity_registry", "fpl_api_client"})
 
 #: Stdlib routes out, matched on the full dotted name so that `urllib.parse`
 #: -- string handling, not networking -- does not read as a violation.
@@ -318,6 +325,17 @@ def test_the_registry_import_adds_no_network_capable_module():
         "measuring nothing. Either the import moved or the baseline grew to "
         "include it."
     )
+
+
+def test_the_fpl_api_client_reaches_the_network_only_through_requests():
+    """The argument for the allowlist entry: every import in the package is
+    stdlib or `requests`, so the conftest guard that patches `requests` covers it."""
+    root = PACKAGE_ROOT.parent / "fpl-api-client" / "fpl_api_client"
+    imported = _imported_modules(root)
+    top = {name.split(".")[0] for name in imported}
+    third = {name for name in top if name not in sys.stdlib_module_names}
+    assert third == {"requests"}, third
+    assert not [n for n in imported if any(n == m or n.startswith(f"{m}.") for m in NETWORK_CAPABLE_STDLIB)]
 
 
 def test_the_sibling_packages_are_the_only_ones_reached_outside_this_package():
