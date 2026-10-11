@@ -260,11 +260,29 @@ def _target_fixtures(base: Base, gameweek: int) -> list[Any]:
 
 # ------------------------------------------------------------------ M2
 
+def last_starts(base: Base) -> dict[str, list[tuple[str, str | None]]]:
+    """Per player, (kickoff, detailed position) of every start in the store, oldest first."""
+    kickoff = dict(zip(base.fixtures.fixture_id, base.fixtures.kickoff_utc))
+    out: dict[str, list[tuple[str, str | None]]] = defaultdict(list)
+    for r in base.lineups[base.lineups.started].itertuples(index=False):
+        out[r.player_id].append((kickoff[r.fixture_id], _none(r.detailed_position)))
+    for rows in out.values():
+        rows.sort(key=lambda item: item[0])
+    return out
+
+
+def last_start_position(starts: Mapping[str, Sequence[tuple[str, str | None]]], player_id: str, before_kickoff: str) -> str | None:
+    """The detailed position of the player's most recent start strictly before ``before_kickoff`` (None without one)."""
+    earlier = [position for kickoff, position in starts.get(player_id, ()) if kickoff < before_kickoff]
+    return earlier[-1] if earlier else None
+
+
 def run_m2(frames: Frames, base: Base, gameweek: int) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Predict from history strictly before each fixture of ``gameweek``; compare with what each player did there."""
     calculated_at = frames.manifest["built_at"]
     names = base.players.set_index("player_id")
     detail: list[dict[str, Any]] = []
+    starts = last_starts(base)
     for fixture in _target_fixtures(base, gameweek):
         rows = _played(base, fixture.fixture_id)
         widths = rows[rows.started].assign(_row=lambda d: d.grid_slot.map(lambda g: int(g.split(":")[0]) if isinstance(g, str) and ":" in g else -1),
@@ -281,6 +299,8 @@ def run_m2(frames: Frames, base: Base, gameweek: int) -> tuple[dict[str, Any], l
                 "started": bool(r.started), "status": result.status.value, "nominal": nominal,
                 "actual_position": _none(r.detailed_position), "actual_role": actual_role, "actual_flank": actual_flank,
                 "grid_slot": _none(r.grid_slot), "grid_side": grid_side(_none(r.grid_slot), width, is_home) if r.started else None,
+                "baseline_role": role_of(last_start_position(starts, r.player_id, fixture.kickoff_utc)),
+                "baseline_flank": flank_of(last_start_position(starts, r.player_id, fixture.kickoff_utc)),
                 "predicted_role": result.primary_role,
                 "predicted_flank": _flank_text(result.primary_flank),
                 "out_of_position": result.out_of_position_score, "role_change": result.role_change_detected,
@@ -291,12 +311,34 @@ def run_m2(frames: Frames, base: Base, gameweek: int) -> tuple[dict[str, Any], l
     wide = [d for d in mapped if d["predicted_flank"] in ("left", "right") or d["actual_flank"] in ("left", "right")]
     grid = [d for d in ok if d["grid_side"] is not None and d["predicted_flank"] in ("left", "right")]
     confusion = Counter((d["predicted_role"], d["actual_role"]) for d in mapped if d["predicted_role"] != d["actual_role"])
+    # the baseline: "the same position as his last start". Over every starter it can answer for, and over the
+    # subset the module also answered, which is the like-for-like comparison.
+    with_baseline = [d for d in starters if d["baseline_role"] is not None and d["actual_role"] is not None]
+    wide_baseline = [d for d in with_baseline if d["baseline_flank"] in ("left", "right") or d["actual_flank"] in ("left", "right")]
+    like_for_like = [d for d in mapped if d["baseline_role"] is not None]
+    like_wide = [d for d in like_for_like if d["predicted_flank"] in ("left", "right") or d["actual_flank"] in ("left", "right")
+                 or d["baseline_flank"] in ("left", "right")]
+    baseline = {
+        "answers": len(with_baseline), "of_starters": len(starters),
+        "role_agreement_all_it_answers": agreement((d["baseline_role"], d["actual_role"]) for d in with_baseline),
+        "flank_agreement_all_it_answers": agreement((d["baseline_flank"], d["actual_flank"]) for d in wide_baseline),
+        "like_for_like_subset": {
+            "n": len(like_for_like),
+            "role_module": agreement((d["predicted_role"], d["actual_role"]) for d in like_for_like),
+            "role_baseline": agreement((d["baseline_role"], d["actual_role"]) for d in like_for_like),
+            "flank_module": agreement((d["predicted_flank"], d["actual_flank"]) for d in like_wide),
+            "flank_baseline": agreement((d["baseline_flank"], d["actual_flank"]) for d in like_wide),
+            "module_right_baseline_wrong": sum(1 for d in like_for_like if d["predicted_role"] == d["actual_role"] != d["baseline_role"]),
+            "baseline_right_module_wrong": sum(1 for d in like_for_like if d["baseline_role"] == d["actual_role"] != d["predicted_role"]),
+        },
+    }
     aggregate = {
         "gameweek": gameweek, "starters": len(starters), "module_ok": len(ok), "module_missing_context": len(starters) - len(ok),
         "coverage_rate": (len(ok) / len(starters)) if starters else None,
         "role_agreement": agreement((d["predicted_role"], d["actual_role"]) for d in mapped),
         "flank_agreement_where_a_side_is_involved": agreement((d["predicted_flank"], d["actual_flank"]) for d in wide),
         "predicted_flank_vs_grid_edge": agreement((d["predicted_flank"], d["grid_side"]) for d in grid),
+        "baseline_same_position_as_last_start": baseline,
         "unmapped_actual_position": len(ok) - len(mapped),
         "most_common_disagreements": [{"predicted": a, "actual": b, "n": n} for (a, b), n in confusion.most_common(8)],
         "out_of_position_flagged": sum(1 for d in ok if d["out_of_position"] is not None and d["out_of_position"] >= 1.0),

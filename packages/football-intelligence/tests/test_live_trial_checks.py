@@ -217,3 +217,42 @@ def test_the_review_table_is_short_and_has_an_empty_column_for_the_answer():
     lines = table.strip().splitlines()
     assert len(lines) == 3 and lines[0].count("|") == lines[2].count("|")
     assert "92% / 83 min / winger (right)" in lines[2] and "started, 90 min, Right Midfield" in lines[2] and lines[2].endswith("|  |")
+
+
+# ---------------------------------------------------------------- the M2 baseline: the same position as his last start
+
+def _base_with(rows):
+    """rows: (fixture_id, kickoff, player_id, started, detailed_position)."""
+    import pandas as pd
+    fixtures = pd.DataFrame({"fixture_id": [r[0] for r in rows], "kickoff_utc": [r[1] for r in rows]}).drop_duplicates("fixture_id")
+    lineups = pd.DataFrame({"fixture_id": [r[0] for r in rows], "player_id": [r[2] for r in rows],
+                            "started": [r[3] for r in rows], "detailed_position": [r[4] for r in rows]})
+    return chk.Base(fixtures, lineups, None, None)
+
+
+def test_the_baseline_is_the_position_of_the_most_recent_start_strictly_before_the_target():
+    base = _base_with([("a", "2026-08-01T15:00:00Z", "p", True, "Right Back"),
+                       ("b", "2026-08-08T15:00:00Z", "p", True, "Centre Back"),
+                       ("c", "2026-08-15T15:00:00Z", "p", False, "Attacker"),      # a substitute appearance is not a start
+                       ("d", "2026-08-22T15:00:00Z", "p", True, "Left Back")])      # the target itself
+    starts = chk.last_starts(base)
+    assert chk.last_start_position(starts, "p", "2026-08-22T15:00:00Z") == "Centre Back"
+    assert chk.last_start_position(starts, "p", "2026-08-08T15:00:00Z") == "Right Back", "strictly before: the same kickoff is excluded"
+    assert chk.last_start_position(starts, "p", "2026-08-01T15:00:00Z") is None, "no earlier start: the baseline abstains"
+    assert chk.last_start_position(starts, "nobody", "2026-09-01T00:00:00Z") is None
+
+
+def test_the_baseline_ignores_input_order_and_missing_positions():
+    base = _base_with([("b", "2026-08-08T15:00:00Z", "p", True, "Centre Back"), ("a", "2026-08-01T15:00:00Z", "p", True, None)])
+    starts = chk.last_starts(base)
+    assert chk.last_start_position(starts, "p", "2026-09-01T00:00:00Z") == "Centre Back"
+    assert chk.last_start_position(starts, "p", "2026-08-05T00:00:00Z") is None
+
+
+def test_the_m2_aggregate_reports_the_baseline_beside_the_module_and_on_the_same_players(run):  # noqa: F811
+    frames, base, _ = run
+    aggregate, detail = chk.run_m2(frames, base, 1)
+    block = aggregate["baseline_same_position_as_last_start"]
+    assert set(block) == {"answers", "of_starters", "role_agreement_all_it_answers", "flank_agreement_all_it_answers", "like_for_like_subset"}
+    assert block["like_for_like_subset"]["n"] == 0, "no module answer in the synthetic store, so nothing to compare on"
+    assert all("baseline_role" in d and "baseline_flank" in d for d in detail)
