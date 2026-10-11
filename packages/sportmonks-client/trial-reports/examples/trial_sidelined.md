@@ -12,6 +12,7 @@ Mode: `mock`
 |---|---|
 | current_sidelined | `2 record(s); record{id,player_id,type_id,category,team_id,season_id,start_date,end_date,games_missed,completed}` |
 | poll_pass | `pass 1: baseline of 2 row(s); no earlier pass to diff` |
+| poll_gaps | `1 pass(es); 0 gap(s) over 9 h; largest gap 0 h` |
 
 ## Warnings
 
