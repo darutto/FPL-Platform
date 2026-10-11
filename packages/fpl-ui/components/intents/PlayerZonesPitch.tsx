@@ -26,11 +26,9 @@ import { PitchLines, ZONE_X, ZONE_WIDTH, ZONE_CENTER_X } from './PitchGeometry';
 interface Props {
   zones: PlayerZonalZone[];
   fixtures: PlayerZonalFixture[];
-  /** 'large' is the enlarged view: same drawing, distinct test ids so both can coexist. */
-  variant?: 'mini' | 'large';
 }
 
-/** Legend shown next to the pitch (mini and enlarged) when any rival is favorable. */
+/** Legend shown next to the pitch when any rival is favorable. */
 export const PITCH_LEGEND = 'Turquesa: coincide con la zona débil de un rival favorable.';
 
 /** True when at least one zone can be placed on the pitch. */
@@ -54,9 +52,7 @@ export function cellOpacity(share: number, matched: boolean): number {
   return matched ? 0.2 + 0.32 * s : 0.1 + 0.25 * s;
 }
 
-export default function PlayerZonesPitch({ zones, fixtures, variant = 'mini' }: Props) {
-  const testId = variant === 'large' ? 'player-zones-pitch-large' : 'player-zones-pitch';
-  const cellPrefix = variant === 'large' ? 'pitch-cell-large' : 'pitch-cell';
+export default function PlayerZonesPitch({ zones, fixtures }: Props) {
   const matched = new Set<string>();
   for (const f of fixtures) {
     if (f.status !== 'favorable') continue;
@@ -79,7 +75,7 @@ export default function PlayerZonesPitch({ zones, fixtures, variant = 'mini' }: 
 
   return (
     <svg
-      data-testid={testId}
+      data-testid="player-zones-pitch"
       viewBox={`0 0 360 ${VIEW_H}`}
       className="block h-auto w-full"
       role="img"
@@ -90,7 +86,7 @@ export default function PlayerZonesPitch({ zones, fixtures, variant = 'mini' }: 
       {cells.map((c) => (
         <rect
           key={c.zone}
-          data-testid={`${cellPrefix}-${c.zone.replace(/[^a-z]+/g, '-')}`}
+          data-testid={`pitch-cell-${c.zone.replace(/[^a-z]+/g, '-')}`}
           data-match={c.hit ? 'true' : 'false'}
           x={ZONE_X[c.cell.col]}
           y={ROW_Y[c.cell.row]}

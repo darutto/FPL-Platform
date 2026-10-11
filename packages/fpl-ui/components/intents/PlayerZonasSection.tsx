@@ -23,16 +23,13 @@ import {
 } from '@/lib/defensive-zones';
 import { ProvenanceStamp } from './DefensiveZonesCard';
 import { formatVenue } from './FixtureRunTable';
-import { PITCH_LEGEND, hasPlaceableZones } from './PlayerZonesPitch';
-import PlayerZonesPitchExpandable from './PlayerZonesPitchExpandable';
+import PlayerZonesPitch, { PITCH_LEGEND, hasPlaceableZones } from './PlayerZonesPitch';
 
 interface Props {
   zonal: PlayerZonalOutlookMeta;
-  /** The player's name, for the enlarge button's accessible label. */
-  playerName: string;
 }
 
-export default function PlayerZonasSection({ zonal, playerName }: Props) {
+export default function PlayerZonasSection({ zonal }: Props) {
   if (zonal.zones.length === 0 || zonal.fixtures.length === 0) return null;
   const { gw_from, gw_to } = zonal;
   const hasPitch = hasPlaceableZones(zonal.zones);
@@ -67,11 +64,7 @@ export default function PlayerZonasSection({ zonal, playerName }: Props) {
       <div className="flex flex-col gap-3 min-[481px]:flex-row min-[481px]:items-start">
         {hasPitch && (
           <div className="w-full min-[481px]:w-[220px] min-[481px]:flex-shrink-0" data-testid="player-zonas-pitch-wrap">
-            <PlayerZonesPitchExpandable
-              playerName={playerName}
-              zones={zonal.zones}
-              fixtures={zonal.fixtures}
-            />
+            <PlayerZonesPitch zones={zonal.zones} fixtures={zonal.fixtures} />
           </div>
         )}
         <div className="min-w-0 flex-1 space-y-1.5">

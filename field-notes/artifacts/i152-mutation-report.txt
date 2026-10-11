@@ -12,6 +12,9 @@ legend always shown                          killed
 pitch wrapper without guard                  killed
 box geometry changed (shared)                killed
 thirds offset changed (shared)               killed
+mobile not stacked full width                killed
+desktop pitch not 220px                      killed
+pitch wrapped in a button                    killed
 shade does not scale with share              killed
 
-15 killed, 0 survived
+18 killed, 0 survived

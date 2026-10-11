@@ -201,6 +201,25 @@ describe('PlayerCard integration', () => {
     expect(screen.getByTestId('player-zonas-chips')).toBeInTheDocument();
   });
 
+  test('the pitch is a non-interactive, described image: no button, no dialog, no zoom', () => {
+    render(<PlayerCard data={card(zonal([zone('in-box / central', 0.59)], [fixture('favorable', [match('in-box / central')])]))} />);
+    const pitch = screen.getByTestId('player-zones-pitch');
+    expect(pitch).toHaveAttribute('role', 'img');
+    expect(pitch.getAttribute('aria-label')).toContain('Área centro: 59% de su xG');
+    expect(pitch.closest('button')).toBeNull();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /ampliar/i })).not.toBeInTheDocument();
+  });
+
+  test('responsive layout: stacked at full width on mobile, 220px beside the chips from 481px', () => {
+    render(<PlayerCard data={card(zonal([zone('in-box / central', 0.59)], [fixture('neutral')]))} />);
+    const wrap = screen.getByTestId('player-zonas-pitch-wrap');
+    expect(wrap.className).toContain('w-full');
+    expect(wrap.className).toContain('min-[481px]:w-[220px]');
+    expect(wrap.parentElement!.className).toContain('flex-col');
+    expect(wrap.parentElement!.className).toContain('min-[481px]:flex-row');
+  });
+
   test('no zonal: no pitch at all', () => {
     render(<PlayerCard data={card(null)} />);
     expect(screen.queryByTestId('player-zones-pitch')).not.toBeInTheDocument();
