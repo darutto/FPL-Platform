@@ -194,8 +194,8 @@ def test_each_family_shape_reports_the_fields_that_arrived():
         coaches={"data": [{"id": 71, "name": "A"}, {"id": 72, "name": "B", "team_id": 1}]},
     )
     shapes = _shapes(report)
-    assert shapes["injuries"] == "1 record(s); record{id,player_id,type_id,updated_at}"
-    assert shapes["suspensions"] == "1 record(s); record{id,player_id,games_remaining}"
+    assert shapes["injuries"] == "1 record(s); record{id,player_id,type_id,updated_at,category}"
+    assert shapes["suspensions"] == "1 record(s); record{id,player_id,games_remaining,category}"
     assert shapes["coaches"] == "2 record(s); record{id,name+team_id}"
     assert len({shapes["injuries"], shapes["suspensions"], shapes["coaches"]}) == 3
 
@@ -380,11 +380,11 @@ def test_default_mock_run_reports_team_and_player_stats_separately(tmp_path):
     team = _stats_objective(payload, 13, "Fixture-level team statistics")
     player = _stats_objective(payload, 14, "Player match statistics")
     assert team["status"] == OBSERVED and player["status"] == OBSERVED
-    assert "fixture_id=2/2, team_id=2/2, type_id=2/2, value=2/2" in team["evidence"]
-    assert "fixture_id=2/2, player_id=2/2, type_id=2/2, value=2/2" in player["evidence"]
+    assert "fixture_id=2/2, participant_id=2/2, type_id=2/2, data=2/2" in team["evidence"]
+    assert "fixture_id=2/2, player_id=2/2, type_id=2/2, data=2/2" in player["evidence"]
     shapes = {s["name"]: s["shape"] for s in payload["observed_shapes"]}
-    assert shapes["team_statistics_fields"] == "fixture_id, team_id, type_id, value"
-    assert shapes["player_statistics_fields"] == "fixture_id, player_id, type_id, value"
+    assert shapes["team_statistics_fields"] == "fixture_id, participant_id, type_id, data"
+    assert shapes["player_statistics_fields"] == "fixture_id, player_id, type_id, data"
 
 
 def test_a_stats_mock_run_writes_both_artifacts(tmp_path):
@@ -416,22 +416,22 @@ def test_partial_field_presence_is_counted_not_rounded(tmp_path, family, objecti
     Every stats fixture in this file had a field on *all* records or on *none*,
     so `presence[name]` could be replaced with `len(records)` and the suite
     stayed green - a 3-record payload with `value` on one record would report
-    `value=3/3`. `trial_injuries.py` has the analogue
+    `data=3/3`. `trial_injuries.py` has the analogue
     (`test_partial_stamping_degrades_rather_than_rounding_either_way`); the
     sibling script did not, and a review found it by seeding.
 
     k must be neither 0 nor n, or the assertion is satisfiable by a literal.
     """
-    id_field = "team_id" if family == "team_stats" else "player_id"
+    id_field = "participant_id" if family == "team_stats" else "player_id"
     records = [
-        {"id": 1, "fixture_id": 900, id_field: 10, "type_id": 5, "value": 3},
+        {"id": 1, "fixture_id": 900, id_field: 10, "type_id": 5, "data": {"value": 3}},
         {"id": 2, "fixture_id": 900, id_field: 11, "type_id": 5},
         {"id": 3, "fixture_id": 900, id_field: 12, "type_id": 5},
     ]
     _, payload = _run_stats(tmp_path, **{family: records})
     evidence = _stats_objective(payload, objective_id, title)["evidence"]
-    assert "value=1/3" in evidence, "a partial presence count must be k/n, not n/n"
-    assert "value=3/3" not in evidence
+    assert "data=1/3" in evidence, "a partial presence count must be k/n, not n/n"
+    assert "data=3/3" not in evidence
     assert "3 record(s)" in evidence, "the record count is derived, not a literal"
 
 
@@ -442,12 +442,12 @@ def test_a_null_stat_value_does_not_count_as_present(tmp_path):
     everywhere else in this package; this closes the one place `trial_stats.py`
     did not."""
     _, payload = _run_stats(tmp_path, team_stats=[
-        {"id": 91, "fixture_id": 1001, "team_id": 1, "type_id": 42, "value": None},
-        {"id": 92, "fixture_id": 1001, "team_id": 2, "type_id": 42, "value": 45},
+        {"id": 91, "fixture_id": 1001, "participant_id": 1, "type_id": 42, "data": None},
+        {"id": 92, "fixture_id": 1001, "participant_id": 2, "type_id": 42, "data": {"value": 45}},
     ])
     team = _stats_objective(payload, 13, "Fixture-level team statistics")
-    assert "value=1/2" in team["evidence"], "a null value must not count as present"
-    assert "value=2/2" not in team["evidence"]
+    assert "data=1/2" in team["evidence"], "a null value must not count as present"
+    assert "data=2/2" not in team["evidence"]
     assert team["status"] == OBSERVED, "value is present on at least one record"
 
 
@@ -455,7 +455,7 @@ def test_stats_record_count_tracks_the_payload(tmp_path):
     """The record count in `evidence` survived seeding as a literal - the same
     defect closed for suspensions and coaches, left open in the sibling script."""
     _, payload = _run_stats(tmp_path, team_stats=[
-        {"id": 1, "fixture_id": 900, "team_id": 10, "type_id": 5, "value": 3},
+        {"id": 1, "fixture_id": 900, "participant_id": 10, "type_id": 5, "data": {"value": 3}},
     ])
     evidence = _stats_objective(payload, 13, "Fixture-level team statistics")["evidence"]
     assert "1 record(s)" in evidence
@@ -466,19 +466,19 @@ def test_stats_record_count_tracks_the_payload(tmp_path):
 
 def test_team_statistics_field_missing_entirely_degrades_and_shrinks_only_that_shape(tmp_path):
     code, payload = _run_stats(tmp_path, team_stats=[
-        {"id": 91, "fixture_id": 1001, "team_id": 1, "type_id": 42},
-        {"id": 92, "fixture_id": 1001, "team_id": 2, "type_id": 42},
+        {"id": 91, "fixture_id": 1001, "participant_id": 1, "type_id": 42},
+        {"id": 92, "fixture_id": 1001, "participant_id": 2, "type_id": 42},
     ])
     assert code == EXIT_UNMET
     team = _stats_objective(payload, 13, "Fixture-level team statistics")
     assert team["status"] == DEGRADED
-    assert "missing entirely: value" in team["evidence"]
+    assert "missing entirely: data" in team["evidence"]
     shapes = {s["name"]: s["shape"] for s in payload["observed_shapes"]}
-    assert shapes["team_statistics_fields"] == "fixture_id, team_id, type_id"
-    assert "value" not in shapes["team_statistics_fields"]
+    assert shapes["team_statistics_fields"] == "fixture_id, participant_id, type_id"
+    assert "data" not in shapes["team_statistics_fields"]
     # the player-stats objective and shape are untouched
     assert _stats_objective(payload, 14, "Player match statistics")["status"] == OBSERVED
-    assert shapes["player_statistics_fields"] == "fixture_id, player_id, type_id, value"
+    assert shapes["player_statistics_fields"] == "fixture_id, player_id, type_id, data"
 
 
 def test_player_statistics_field_missing_entirely_degrades_and_shrinks_only_that_shape(tmp_path):
@@ -488,7 +488,7 @@ def test_player_statistics_field_missing_entirely_degrades_and_shrinks_only_that
     assert code == EXIT_UNMET
     player = _stats_objective(payload, 14, "Player match statistics")
     assert player["status"] == DEGRADED
-    assert "missing entirely: value" in player["evidence"]
+    assert "missing entirely: data" in player["evidence"]
     shapes = {s["name"]: s["shape"] for s in payload["observed_shapes"]}
     assert shapes["player_statistics_fields"] == "fixture_id, player_id, type_id"
     assert _stats_objective(payload, 13, "Fixture-level team statistics")["status"] == OBSERVED

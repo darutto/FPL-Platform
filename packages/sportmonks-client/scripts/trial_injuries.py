@@ -45,7 +45,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _trial_common import (  # noqa: E402
     DEGRADED, EXIT_CONFIG, EXIT_REFUSED, MODE_MOCK, OBSERVED, UNMET,
     EndpointReplayTransport, Objective, ObservedShape, TrialRefusal, TrialReport,
-    build_parser, load_fixture, make_client, resolve_mode, response, write_report,
+    build_parser, fetch_family, load_fixture, make_client, resolve_mode, response,
+    routes_transport, scope_for, write_report,
 )
 from sportmonks_client.client import ENDPOINTS  # noqa: E402
 from sportmonks_client.errors import (  # noqa: E402
@@ -169,15 +170,12 @@ def mock_transport(
         "suspensions": payloads["suspensions"] if suspensions is None else suspensions,
         "coaches": payloads["coaches"] if coaches is None else coaches,
     }
-    return EndpointReplayTransport({
-        ENDPOINTS[family][0]: item if isinstance(item, Exception) else response(item)
-        for family, item in chosen.items()
-    })
+    return routes_transport(chosen)
 
 
-def _fetch(client, family: str) -> FamilyResult:
+def _fetch(client, family: str, scope) -> FamilyResult:
     try:
-        return FamilyResult(family, tuple(client.iter_entities(family)))
+        return FamilyResult(family, fetch_family(client, family, scope)[0])
     except (SportmonksConfigurationError, SportmonksAuthenticationError):
         # Standing DoD item 13: both subclass SportmonksError, and a broad catch
         # here would report a rejected token as "this family has no records".
@@ -188,9 +186,10 @@ def _fetch(client, family: str) -> FamilyResult:
 
 def collect(client, mode: str) -> TrialReport:
     report = TrialReport(script=SCRIPT, mode=mode)
-    injuries = _fetch(client, "injuries")
-    suspensions = _fetch(client, "suspensions")
-    coaches = _fetch(client, "coaches")
+    scope = scope_for(client, mode)
+    injuries = _fetch(client, "injuries", scope)
+    suspensions = _fetch(client, "suspensions", scope)
+    coaches = _fetch(client, "coaches", scope)
 
     stamped = tuple(r for r in injuries.records if freshness_of(r) is not None)
     unstamped = len(injuries.records) - len(stamped)

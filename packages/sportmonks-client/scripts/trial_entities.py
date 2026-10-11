@@ -33,7 +33,7 @@ from _trial_common import (  # noqa: E402
     COMPETITION_NAME, EXIT_CONFIG, EXIT_REFUSED, MODE_MOCK, OBSERVED,
     UNMET, EndpointReplayTransport, Objective, ObservedShape, TrialRefusal,
     TrialReport, build_parser, load_fixture, make_client, match_by_name,
-    resolve_mode, response, write_report,
+    LIVE_MAX_PAGES, fetch_family, resolve_mode, response, routes_transport, scope_for, write_report,
 )
 from sportmonks_client.client import ENDPOINTS  # noqa: E402
 from sportmonks_client.errors import (  # noqa: E402
@@ -78,6 +78,7 @@ class FamilyResult:
     provider_ids: tuple[int, ...]
     failure: str = ""
     records: tuple[Any, ...] = field(default=(), repr=False)
+    truncated: bool = False
 
     def render(self) -> str:
         """The reported line. Derived from what came back, never from the
@@ -85,6 +86,8 @@ class FamilyResult:
         differently or the entry is decoration (standing DoD item 11)."""
         ids = ",".join(str(value) for value in self.provider_ids)
         line = f"{self.state}; {self.count} record(s); provider_ids={{{ids}}}"
+        if self.truncated:
+            line += f"; truncated at {LIVE_MAX_PAGES} page(s) per request"
         return f"{line}; {self.failure}" if self.failure else line
 
 
@@ -97,22 +100,15 @@ def mock_transport(*, families: Mapping[str, Any] | None = None) -> EndpointRepl
     """
     payloads = load_fixture("endpoint_payloads.json")["families"]
     overrides = dict(families or {})
-    mapping: dict[str, Any] = {}
-    for family, (endpoint, _model) in ENDPOINTS.items():
-        if family in overrides:
-            item = overrides[family]
-            mapping[endpoint] = item if isinstance(item, Exception) else response(item)
-        else:
-            mapping[endpoint] = response(payloads[family])
-    return EndpointReplayTransport(mapping)
+    return routes_transport({family: overrides.get(family, payloads[family]) for family in ENDPOINTS})
 
 
-def sweep(client) -> dict[str, FamilyResult]:
+def sweep(client, scope) -> dict[str, FamilyResult]:
     """Walk every family in `ENDPOINTS` and record what each one did."""
     results: dict[str, FamilyResult] = {}
     for family in ENDPOINTS:
         try:
-            records = tuple(client.iter_entities(family))
+            records, truncated = fetch_family(client, family, scope)
         except (SportmonksConfigurationError, SportmonksAuthenticationError):
             # NOT an observation about this family. Both are subclasses of
             # SportmonksError, so the broad catch below swallowed them: a 401 on
@@ -132,13 +128,15 @@ def sweep(client) -> dict[str, FamilyResult]:
         ids = tuple(sorted({record.provider_id for record in records}))
         results[family] = FamilyResult(
             family, REACHABLE if records else EMPTY, len(records), ids, records=records,
+            truncated=truncated,
         )
     return results
 
 
 def collect(client, mode: str) -> TrialReport:
     report = TrialReport(script=SCRIPT, mode=mode)
-    results = sweep(client)
+    scope = scope_for(client, mode)
+    results = sweep(client, scope)
 
     matched = match_by_name(results["leagues"].records, COMPETITION_NAME)
     league_ids = tuple(sorted({record.provider_id for record in matched}))
@@ -189,6 +187,10 @@ def collect(client, mode: str) -> TrialReport:
             f"families that answered with no records: {', '.join(states[EMPTY])}"
         )
 
+    report.warnings.append(
+        f"requests issued this run: {len(client.transport.exchanges)} "
+        f"(live budget is 2500 per hour per entity)"
+    )
     report.warnings.append(
         "mock mode: shapes are documentation-derived and carry "
         '"status": "unverified_against_live" until FI-9'

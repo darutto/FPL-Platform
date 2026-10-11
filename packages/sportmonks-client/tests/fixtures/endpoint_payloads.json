@@ -1,20 +1,204 @@
 {
-  "_fixture": {"source": "documentation-derived and manually minimized", "status": "unverified_against_live", "live_validation_required": true},
+  "_fixture": {
+    "source": "Shapes of teams/players/leagues/seasons/fixtures/coaches/referees/squads from documentation; lineups, formations, substitutions, injuries, suspensions and both statistics families re-shaped to what live returned on 2026-10-11 (FI-9 day 0). Live wins: see CONTRACT.md 'Family routes'.",
+    "status": "unverified_against_live",
+    "live_validation_required": true
+  },
   "families": {
-    "leagues": {"data":[{"id":8,"name":"Premier League"}]},
-    "seasons": {"data":[{"id":23614,"name":"2025/2026","league_id":8}]},
-    "fixtures": {"data":[{"id":1001,"league_id":8,"season_id":23614,"starting_at":"2025-08-15 19:00:00"}]},
-    "teams": {"data":[{"id":1,"name":"Example FC","short_code":"EFC"}]},
-    "squads": {"data":[{"id":11,"team_id":1,"player_id":101,"position_id":27}]},
-    "players": {"data":[{"id":101,"name":"Example Player","display_name":null,"date_of_birth":"2000-01-01"}]},
-    "lineups": {"data":[{"id":21,"fixture_id":1001,"player_id":101,"formation_field":"1:4"}]},
-    "formations": {"data":[{"id":31,"fixture_id":1001,"formation":"4-3-3"}]},
-    "substitutions": {"data":[{"id":41,"fixture_id":1001,"player_in_id":102,"player_out_id":101,"minute":70}]},
-    "injuries": {"data":[{"id":51,"player_id":101,"type_id":1,"expected_return":null}]},
-    "suspensions": {"data":[{"id":61,"player_id":101,"type_id":2,"games_remaining":1}]},
-    "coaches": {"data":[{"id":71,"name":"Example Coach","team_id":1}]},
-    "referees": {"data":[{"id":81,"name":"Example Referee"}]},
-    "team_statistics": {"data":[{"id":91,"fixture_id":1001,"team_id":1,"type_id":42,"value":55}]},
-    "player_statistics": {"data":[{"id":1011,"fixture_id":1001,"player_id":101,"type_id":52,"value":3}]}
+    "leagues": {
+      "data": [
+        {
+          "id": 8,
+          "name": "Premier League"
+        }
+      ]
+    },
+    "seasons": {
+      "data": [
+        {
+          "id": 23614,
+          "name": "2025/2026",
+          "league_id": 8
+        }
+      ]
+    },
+    "fixtures": {
+      "data": [
+        {
+          "id": 1001,
+          "league_id": 8,
+          "season_id": 23614,
+          "starting_at": "2025-08-15 19:00:00"
+        }
+      ]
+    },
+    "teams": {
+      "data": [
+        {
+          "id": 1,
+          "name": "Example FC",
+          "short_code": "EFC"
+        }
+      ]
+    },
+    "squads": {
+      "data": [
+        {
+          "id": 11,
+          "team_id": 1,
+          "player_id": 101,
+          "position_id": 27
+        }
+      ]
+    },
+    "players": {
+      "data": [
+        {
+          "id": 101,
+          "name": "Example Player",
+          "display_name": null,
+          "date_of_birth": "2000-01-01"
+        }
+      ]
+    },
+    "lineups": {
+      "data": [
+        {
+          "id": 21,
+          "fixture_id": 1001,
+          "player_id": 101,
+          "team_id": 1,
+          "position_id": 25,
+          "formation_field": "2:3",
+          "type_id": 11,
+          "formation_position": 4,
+          "player_name": "Example Player",
+          "jersey_number": 5
+        }
+      ]
+    },
+    "formations": {
+      "data": [
+        {
+          "id": 31,
+          "fixture_id": 1001,
+          "participant_id": 1,
+          "formation": "4-3-3",
+          "location": "home"
+        }
+      ]
+    },
+    "substitutions": {
+      "data": [
+        {
+          "id": 41,
+          "fixture_id": 1001,
+          "participant_id": 1,
+          "type_id": 18,
+          "section": "event",
+          "player_id": 102,
+          "related_player_id": 101,
+          "player_name": "Example Sub",
+          "related_player_name": "Example Player",
+          "minute": 70,
+          "extra_minute": null,
+          "addition": null
+        }
+      ]
+    },
+    "injuries": {
+      "data": [
+        {
+          "id": 51,
+          "fixture_id": 1001,
+          "sideline_id": 501,
+          "participant_id": 1,
+          "player_id": 101,
+          "type_id": 1918,
+          "sideline": {
+            "id": 501,
+            "player_id": 101,
+            "type_id": 1918,
+            "category": "injury",
+            "team_id": 1,
+            "season_id": null,
+            "start_date": "2026-09-01",
+            "end_date": null,
+            "games_missed": 3,
+            "completed": false
+          }
+        }
+      ]
+    },
+    "suspensions": {
+      "data": [
+        {
+          "id": 61,
+          "fixture_id": 1001,
+          "sideline_id": 601,
+          "participant_id": 1,
+          "player_id": 101,
+          "type_id": 1500,
+          "sideline": {
+            "id": 601,
+            "player_id": 101,
+            "type_id": 1500,
+            "category": "suspended",
+            "team_id": 1,
+            "season_id": null,
+            "start_date": "2026-09-20",
+            "end_date": "2026-09-27",
+            "games_missed": 1,
+            "completed": false
+          }
+        }
+      ]
+    },
+    "coaches": {
+      "data": [
+        {
+          "id": 71,
+          "name": "Example Coach",
+          "team_id": 1
+        }
+      ]
+    },
+    "referees": {
+      "data": [
+        {
+          "id": 81,
+          "name": "Example Referee"
+        }
+      ]
+    },
+    "team_statistics": {
+      "data": [
+        {
+          "id": 91,
+          "fixture_id": 1001,
+          "type_id": 34,
+          "participant_id": 1,
+          "data": {
+            "value": 4
+          },
+          "location": "home"
+        }
+      ]
+    },
+    "player_statistics": {
+      "data": [
+        {
+          "id": 1011,
+          "fixture_id": 1001,
+          "player_id": 101,
+          "team_id": 1,
+          "lineup_id": 21,
+          "type_id": 118,
+          "data": {
+            "value": 7
+          }
+        }
+      ]
+    }
   }
 }

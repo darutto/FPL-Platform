@@ -49,6 +49,7 @@ from _trial_common import (  # noqa: E402
     UNMET, Objective, ObservedShape, ReplayTransport, TrialRefusal, TrialReport,
     build_parser, make_client, render_skeleton, resolve_mode, response,
     write_report,
+    _nest, fetch_family, scope_for,
 )
 from sportmonks_client.errors import (  # noqa: E402
     SportmonksAuthenticationError, SportmonksConfigurationError, SportmonksError,
@@ -63,25 +64,32 @@ OBJECTIVE_15_TITLE = "Data update timing before, during, and after matches"
 OBJECTIVE_16_TITLE = "Post-match corrections"
 NOT_APPLICABLE_REASON = "requires FI-9 live observation"
 
-TEAM_STAT_FIELDS = ("fixture_id", "team_id", "type_id", "value")
-PLAYER_STAT_FIELDS = ("fixture_id", "player_id", "type_id", "value")
+#: Live shape, FI-9 day 0 (2026-10-11): team rows carry `participant_id` (the
+#: club) and player rows carry `player_id`/`team_id`/`lineup_id`; the number is
+#: nested in `data` ({"value": n}). The pre-live names (`team_id`, a flat
+#: `value`) were documentation-derived and are gone.
+TEAM_STAT_FIELDS = ("fixture_id", "participant_id", "type_id", "data")
+PLAYER_STAT_FIELDS = ("fixture_id", "player_id", "type_id", "data")
 
 DEFAULT_TEAM_STATS = [
-    {"id": 91, "fixture_id": 1001, "team_id": 1, "type_id": 42, "value": 55},
-    {"id": 92, "fixture_id": 1001, "team_id": 2, "type_id": 42, "value": 45},
+    {"id": 91, "fixture_id": 1001, "participant_id": 1, "type_id": 34, "data": {"value": 4}, "location": "home"},
+    {"id": 92, "fixture_id": 1001, "participant_id": 2, "type_id": 34, "data": {"value": 5}, "location": "away"},
 ]
 DEFAULT_PLAYER_STATS = [
-    {"id": 1011, "fixture_id": 1001, "player_id": 101, "type_id": 52, "value": 3},
-    {"id": 1012, "fixture_id": 1001, "player_id": 102, "type_id": 52, "value": 1},
+    {"id": 1011, "fixture_id": 1001, "player_id": 101, "team_id": 1, "lineup_id": 21, "type_id": 118, "data": {"value": 7}},
+    {"id": 1012, "fixture_id": 1001, "player_id": 102, "team_id": 1, "lineup_id": 22, "type_id": 118, "data": {"value": 6}},
 ]
 
 
 def mock_transport(*, team_stats=None, player_stats=None) -> ReplayTransport:
-    """Replay one page of team statistics, then one page of player
-    statistics -- the order `collect` requests them in."""
+    """Replay the team-statistics request, then the player-statistics request
+    -- the order `collect` requests them in -- each nested the way live carries
+    it (statistics inside a fixture; details inside a lineup row inside one)."""
+    team_rows = DEFAULT_TEAM_STATS if team_stats is None else team_stats
+    player_rows = DEFAULT_PLAYER_STATS if player_stats is None else player_stats
     served = [
-        response({"data": DEFAULT_TEAM_STATS if team_stats is None else team_stats}),
-        response({"data": DEFAULT_PLAYER_STATS if player_stats is None else player_stats}),
+        response(_nest("team_statistics", list(team_rows))),
+        response(_nest("player_statistics", list(player_rows))),
     ]
     return ReplayTransport(served)
 
@@ -192,8 +200,9 @@ def collect(client, mode: str) -> TrialReport:
     """Build the report from what the transport actually returned."""
     report = TrialReport(script=SCRIPT, mode=mode)
 
-    team_stats = tuple(client.team_fixture_statistics())
-    player_stats = tuple(client.player_fixture_statistics())
+    scope = scope_for(client, mode)
+    team_stats = fetch_family(client, "team_statistics", scope)[0]
+    player_stats = fetch_family(client, "player_statistics", scope)[0]
 
     team_objective, team_shapes = _stat_objective(
         OBJECTIVE_13, "Fixture-level team statistics", "team_statistics_fields",

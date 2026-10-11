@@ -129,7 +129,10 @@ def collect(client, mode: str) -> TrialReport:
     report = TrialReport(script=SCRIPT, mode=mode)
     rejection: str | None = None
     try:
-        records = tuple(client.iter_entities("leagues"))
+        # per_page=3 over the 7 leagues of the plan forces a three-page walk, so
+        # live pagination is exercised on a family that is otherwise one page
+        # (the day-0 run read "did not advance" off a single 7-row page).
+        records = tuple(client.iter_entities("leagues", params={"per_page": 3}))
     except SportmonksSchemaError as exc:
         # A payload that differs from the documented shape is the single thing
         # FI-8 exists to rehearse (§17's top risk: "Sportmonks docs != live

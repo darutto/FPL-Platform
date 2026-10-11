@@ -6,13 +6,13 @@
       "id": 13,
       "title": "Fixture-level team statistics",
       "status": "observed",
-      "evidence": "2 record(s); field presence: fixture_id=2/2, team_id=2/2, type_id=2/2, value=2/2"
+      "evidence": "2 record(s); field presence: fixture_id=2/2, participant_id=2/2, type_id=2/2, data=2/2"
     },
     {
       "id": 14,
       "title": "Player match statistics",
       "status": "observed",
-      "evidence": "2 record(s); field presence: fixture_id=2/2, player_id=2/2, type_id=2/2, value=2/2"
+      "evidence": "2 record(s); field presence: fixture_id=2/2, player_id=2/2, type_id=2/2, data=2/2"
     },
     {
       "id": 15,
@@ -30,11 +30,11 @@
   "observed_shapes": [
     {
       "name": "team_statistics_fields",
-      "shape": "fixture_id, team_id, type_id, value"
+      "shape": "fixture_id, participant_id, type_id, data"
     },
     {
       "name": "player_statistics_fields",
-      "shape": "fixture_id, player_id, type_id, value"
+      "shape": "fixture_id, player_id, type_id, data"
     }
   ],
   "warnings": [

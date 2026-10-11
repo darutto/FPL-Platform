@@ -55,7 +55,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _trial_common import (  # noqa: E402
     DEGRADED, EXIT_CONFIG, EXIT_REFUSED, MODE_MOCK, OBSERVED, UNMET,
     EndpointReplayTransport, Objective, ObservedShape, TrialRefusal, TrialReport,
-    build_parser, load_fixture, make_client, resolve_mode, response, write_report,
+    build_parser, fetch_family, load_fixture, make_client, resolve_mode, response,
+    routes_transport, scope_for, write_report,
 )
 from sportmonks_client.client import ENDPOINTS  # noqa: E402
 from sportmonks_client.errors import (  # noqa: E402
@@ -96,8 +97,11 @@ DOCUMENTED_GRID_SHAPE = "str"
 #: them would report every substitution backwards with complete confidence, and
 #: no count would look wrong. Pinned by `test_the_substitution_direction_is_not_
 #: invertible`.
-SUBSTITUTION_OUT_FIELDS: tuple[str, ...] = ("player_out_id", "player_off_id")
-SUBSTITUTION_IN_FIELDS: tuple[str, ...] = ("player_in_id", "player_on_id")
+#: Live (2026-10-11): a substitution is an `events` row of type 18; `player_id` is
+#: the player ON and `related_player_id` the player OFF. The earlier documentation
+#: names stay as candidates after the live ones.
+SUBSTITUTION_OUT_FIELDS: tuple[str, ...] = ("related_player_id", "player_out_id", "player_off_id")
+SUBSTITUTION_IN_FIELDS: tuple[str, ...] = ("player_id", "player_in_id", "player_on_id")
 SUBSTITUTION_MINUTE_FIELDS: tuple[str, ...] = ("minute", "minutes")
 
 #: Emitted whenever mock mode supplied a field the corpus lacks. The corpus
@@ -337,15 +341,12 @@ def mock_transport(
         "formations": payloads["formations"] if formations is None else formations,
         "substitutions": payloads["substitutions"] if substitutions is None else substitutions,
     }
-    return EndpointReplayTransport({
-        ENDPOINTS[family][0]: item if isinstance(item, Exception) else response(item)
-        for family, item in chosen.items()
-    })
+    return routes_transport(chosen)
 
 
-def _fetch(client, family: str) -> FamilyResult:
+def _fetch(client, family: str, scope) -> FamilyResult:
     try:
-        return FamilyResult(family, tuple(client.iter_entities(family)))
+        return FamilyResult(family, fetch_family(client, family, scope)[0])
     except (SportmonksConfigurationError, SportmonksAuthenticationError):
         # Standing DoD item 13: both subclass SportmonksError. A broad catch
         # here would report a rejected token as "the Starter plan carries no
@@ -365,9 +366,10 @@ def _family_shortfall(result: FamilyResult) -> str:
 
 def collect(client, mode: str) -> TrialReport:
     report = TrialReport(script=SCRIPT, mode=mode)
-    lineups = _fetch(client, "lineups")
-    formations = _fetch(client, "formations")
-    substitutions = _fetch(client, "substitutions")
+    scope = scope_for(client, mode)
+    lineups = _fetch(client, "lineups", scope)
+    formations = _fetch(client, "formations", scope)
+    substitutions = _fetch(client, "substitutions", scope)
 
     starters = survey(lineups.records, STARTER_FIELDS)
     grid = survey(lineups.records, GRID_FIELDS)

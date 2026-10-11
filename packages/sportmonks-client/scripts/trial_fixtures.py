@@ -27,7 +27,7 @@ path, not evidence about the provider. Objective 3 is answered for real in FI-9.
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -37,9 +37,9 @@ from _trial_common import (  # noqa: E402
     COMPETITION_NAME, DEGRADED, EXIT_CONFIG, EXIT_REFUSED, MODE_MOCK, OBSERVED,
     UNMET, EndpointReplayTransport, Objective, ObservedShape, TrialRefusal,
     TrialReport, build_parser, load_fixture, make_client, match_by_name,
-    render_skeleton, resolve_mode, response, write_report,
+    fetch_family, render_skeleton, resolve_mode, response, scope_for, write_report,
 )
-from sportmonks_client.client import ENDPOINTS  # noqa: E402
+from sportmonks_client.client import ENDPOINTS, EXTRA_ROUTES  # noqa: E402
 from sportmonks_client.errors import (  # noqa: E402
     SportmonksAuthenticationError, SportmonksConfigurationError, SportmonksError,
 )
@@ -152,16 +152,11 @@ def mock_transport(
     season_body = base if season_fixtures is None else season_fixtures
     cross_body = _synthesize_cross_competition(base) if cross_fixtures is None else cross_fixtures
 
-    def _fixtures(params: Mapping[str, Any]):
-        # `team_id` present and no `league_id` is objective 3's request; anything
-        # else is objective 2's. Dispatching on the parameters is what lets the
-        # script's call order change without silently re-labelling the results.
-        if "team_id" in params and "league_id" not in params:
-            return response(cross_body)
-        return response(season_body)
-
     mapping: dict[str, Any] = {
-        ENDPOINTS["fixtures"][0]: _fixtures,
+        # Two routes, two keys: the season sweep and the per-club sweep no longer
+        # need to be told apart by parameters, they are different URLs.
+        ENDPOINTS["fixtures"][0]: response(season_body),
+        EXTRA_ROUTES["team_fixtures"][0]: response(cross_body),
         ENDPOINTS["leagues"][0]: response(payloads["leagues"] if leagues is None else leagues),
         ENDPOINTS["seasons"][0]: response(payloads["seasons"]),
         ENDPOINTS["teams"][0]: response(payloads["teams"] if teams is None else teams),
@@ -169,7 +164,7 @@ def mock_transport(
     return EndpointReplayTransport(mapping)
 
 
-def _fetch(client, params: Mapping[str, Any]) -> FixtureSweep:
+def _fetch(client, family: str, scope, params: Mapping[str, Any]) -> FixtureSweep:
     """One fixtures request, with the envelope it produced.
 
     The exchange slice is taken around this call rather than read from the end
@@ -178,7 +173,7 @@ def _fetch(client, params: Mapping[str, Any]) -> FixtureSweep:
     """
     before = len(client.transport.exchanges)
     try:
-        records = tuple(client.iter_entities("fixtures", params=dict(params)))
+        records = fetch_family(client, family, scope)[0]
         failure = ""
     except (SportmonksConfigurationError, SportmonksAuthenticationError):
         # Not a fact about this request. Both subclass SportmonksError, so the
@@ -199,11 +194,12 @@ def _fetch(client, params: Mapping[str, Any]) -> FixtureSweep:
 def collect(client, mode: str) -> TrialReport:
     report = TrialReport(script=SCRIPT, mode=mode)
 
-    leagues = tuple(client.iter_entities("leagues"))
+    scope = scope_for(client, mode)
+    leagues = fetch_family(client, "leagues", scope)[0]
     matched = match_by_name(leagues, COMPETITION_NAME)
     league_ids = tuple(sorted({record.provider_id for record in matched}))
     seasons = tuple(
-        record for record in client.iter_entities("seasons")
+        record for record in fetch_family(client, "seasons", scope)[0]
         if record.raw_fields.get("league_id") in league_ids
     )
     season_ids = tuple(sorted({record.provider_id for record in seasons}))
@@ -217,7 +213,7 @@ def collect(client, mode: str) -> TrialReport:
         missing_2.append(f"no season carried a league_id in {league_ids}")
     else:
         season_sweep = _fetch(
-            client, {"league_id": league_ids[0], "season_id": season_ids[0]},
+            client, "fixtures", scope, {"league_id": league_ids[0], "season_id": season_ids[0]},
         )
         if season_sweep.failure:
             missing_2.append(f"fixtures request failed: {season_sweep.failure}")
@@ -247,9 +243,11 @@ def collect(client, mode: str) -> TrialReport:
     ))
 
     # --- Objective 3: fixtures for those clubs *outside* the competition ------
-    teams = tuple(client.iter_entities("teams")) if league_ids else ()
+    teams = fetch_family(client, "teams", scope)[0] if league_ids else ()
     team_sweeps: list[FixtureSweep] = [
-        _fetch(client, {"team_id": team.provider_id}) for team in teams
+        _fetch(client, "team_fixtures", replace(scope, team_ids=(team.provider_id,)),
+               {"team_id": team.provider_id})
+        for team in teams
     ]
     outside = tuple(sorted({
         league_id for sweep in team_sweeps for league_id in sweep.league_ids()

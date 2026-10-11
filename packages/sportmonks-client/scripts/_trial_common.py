@@ -34,7 +34,9 @@ as a PEP 420 namespace package that merges across paths.
 from __future__ import annotations
 
 import argparse
+import datetime as _dt
 import json
+import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -48,7 +50,8 @@ _PACKAGE_ROOT = str(Path(__file__).resolve().parent.parent)
 if _PACKAGE_ROOT not in sys.path:
     sys.path.insert(0, _PACKAGE_ROOT)
 
-from sportmonks_client.client import SNAPSHOT_RESPONSE_HEADERS, SportmonksClient  # noqa: E402
+from sportmonks_client.client import ENDPOINTS, SNAPSHOT_RESPONSE_HEADERS, SportmonksClient, get_route  # noqa: E402
+from sportmonks_client.errors import SportmonksPaginationError  # noqa: E402
 from sportmonks_client.config import SportmonksConfig  # noqa: E402
 from sportmonks_client.models import RawResponseSnapshot  # noqa: E402
 from sportmonks_client.transport import RequestsTransport, Transport, TransportResponse  # noqa: E402
@@ -353,6 +356,15 @@ def match_by_name(records: Sequence[Any], term: str) -> tuple[Any, ...]:
     )
 
 
+def _key_matches(key: str, url: str) -> bool:
+    """A key may carry ``{placeholders}`` (``squads/teams/{team_id}``): each one
+    stands for exactly one path segment of the live URL."""
+    if "{" not in key:
+        return url.endswith(f"/{key}")
+    pattern = "/".join("[^/]+" if re.fullmatch(r"\{\w+\}", part) else re.escape(part) for part in key.split("/"))
+    return re.search(f"/{pattern}$", url) is not None
+
+
 class EndpointReplayTransport:
     """Serves checked-in responses keyed by **endpoint**, not by call order.
 
@@ -383,7 +395,7 @@ class EndpointReplayTransport:
         self.calls: list[tuple[str, str, dict[str, Any], float]] = []
 
     def _match(self, url: str) -> str:
-        candidates = [key for key in self._by_endpoint if url.endswith(f"/{key}")]
+        candidates = [key for key in self._by_endpoint if _key_matches(key, url)]
         if not candidates:
             raise KeyError(f"no mock response mapped for {url!r}")
         return max(candidates, key=len)
@@ -520,3 +532,166 @@ def write_report(report: TrialReport, out_dir: Path) -> tuple[Path, Path]:
     )
     md_path.write_text(render_markdown(report), encoding="utf-8", newline="\n")
     return json_path, md_path
+
+
+# --- Live routes: scope, bounded fetch, and the live-shaped mock --------------
+#
+# FI-9 day 0 (2026-10-11) found that eight of the fifteen families are not
+# endpoints at all on v3: they are includes on fixtures, or nested routes. The
+# client now carries a Route per family (CONTRACT.md "Family routes"); this
+# section is what the scripts share to *use* those routes.
+
+LIVE_MAX_PAGES = 4        # explicit page bound for any unscoped list in live
+LIVE_PER_PAGE = 50
+WINDOW_DAYS = 14
+
+
+@dataclass(frozen=True)
+class TrialScope:
+    """The ids and dates a route needs. Resolved once per run, never guessed."""
+    league_id: int
+    season_id: int
+    start: str
+    end: str
+    team_ids: tuple[int, ...]
+    season_start: str = ""
+    season_end: str = ""
+
+
+#: Mock runs must be byte-stable, so the mock scope is a constant, not today.
+MOCK_SCOPE = TrialScope(8, 23614, "2025-08-15", "2025-08-31", (1,), "2025-08-01", "2026-06-01")
+
+
+def live_scope(client: SportmonksClient, *, today: _dt.date | None = None) -> TrialScope:
+    """leagues -> PL id; seasons filtered by that league -> current season;
+    teams of that season -> team ids. Raises if any step is ambiguous.
+
+    Three calls (leagues, seasons, teams), none unbounded.
+    """
+    leagues = match_by_name(tuple(client.iter_entities("leagues", max_pages=LIVE_MAX_PAGES)), COMPETITION_NAME)
+    if len(leagues) != 1:
+        raise TrialRefusal(f"expected exactly one {COMPETITION_NAME!r} league, found {len(leagues)}")
+    league_id = leagues[0].provider_id
+    seasons = tuple(client.iter_entities(
+        "seasons", params={"filters": f"seasonLeagues:{league_id}"}, max_pages=LIVE_MAX_PAGES))
+    current = [r for r in seasons if r.raw_fields.get("is_current") is True]
+    if len(current) != 1:
+        raise TrialRefusal(f"expected exactly one current season for league {league_id}, found {len(current)}")
+    season_id = current[0].provider_id
+    teams = tuple(client.iter_entities("teams", scope={"season_id": season_id}, max_pages=LIVE_MAX_PAGES))
+    end = today or _dt.datetime.now(_dt.timezone.utc).date()
+    start = end - _dt.timedelta(days=WINDOW_DAYS)
+    return TrialScope(league_id, season_id, start.isoformat(), end.isoformat(),
+                      tuple(sorted(t.provider_id for t in teams)),
+                      str(current[0].raw_fields.get("starting_at") or ""),
+                      str(current[0].raw_fields.get("ending_at") or ""))
+
+
+def scope_for(client: SportmonksClient, mode: str) -> TrialScope:
+    return MOCK_SCOPE if mode == MODE_MOCK else live_scope(client)
+
+
+def fetch_family(client: SportmonksClient, family: str, scope: TrialScope,
+                 *, max_pages: int = LIVE_MAX_PAGES) -> tuple[tuple[Any, ...], bool]:
+    """Read one family through its route. Returns ``(records, truncated)``.
+
+    ``truncated`` is True when the page bound stopped a list that had more: the
+    records are real but are not the whole family, and a caller must not report
+    them as a census. Squads are one request per team, concatenated.
+    """
+    route = get_route(family)
+    params: dict[str, Any] = {}
+    if family == "fixtures":
+        params = {"filters": f"fixtureSeasons:{scope.season_id};fixtureLeagues:{scope.league_id}",
+                  "per_page": LIVE_PER_PAGE}
+    elif family == "team_fixtures":
+        params = {"per_page": LIVE_PER_PAGE}
+    elif "{start}" in route.path:
+        params = {"filters": f"fixtureLeagues:{scope.league_id}", "per_page": LIVE_PER_PAGE}
+    elif family == "seasons":
+        params = {"filters": f"seasonLeagues:{scope.league_id}"}
+    elif "{" not in route.path:
+        params = {"per_page": LIVE_PER_PAGE}
+    if family == "team_fixtures":
+        scopes = [{"start": scope.season_start, "end": scope.season_end, "team_id": team_id}
+                  for team_id in scope.team_ids]
+    elif "{team_id}" in route.path:
+        scopes = [{"team_id": team_id} for team_id in scope.team_ids]
+    else:
+        scopes = [{"start": scope.start, "end": scope.end, "season_id": scope.season_id}]
+    records: list[Any] = []
+    truncated = False
+    for one in scopes:
+        walk = client.iter_entities(family, params=params, scope=one, max_pages=max_pages)
+        try:
+            for record in walk:
+                records.append(record)
+        except SportmonksPaginationError as exc:
+            if "maximum page limit" not in str(exc):
+                raise
+            truncated = True
+    return tuple(records), truncated
+
+
+def _nest(family: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Wrap a family's rows the way live carries them: inside one fixture."""
+    route = get_route(family)
+    if route.extract is None:
+        return {"data": rows}
+    rows = [dict(row) for row in rows]
+    if route.where:
+        key, value = route.where
+        for index, row in enumerate(rows):
+            if route.unwrap:
+                inner = dict(row.get(route.unwrap) or {})
+                inner.setdefault(key, value)
+                rows[index] = {**row, route.unwrap: inner}
+            else:
+                row.setdefault(key, value)
+    node: Any = rows
+    for key in reversed(route.extract.split(".")[1:]):
+        node = [{"id": 1, key: node}]
+    return {"data": [{"id": 1001, route.extract.split(".")[0]: node}]}
+
+
+def routes_transport(chosen: Mapping[str, Any]) -> EndpointReplayTransport:
+    """Replay ``{family: payload | Exception}`` through the live route layout.
+
+    Families that share a route (every fixtures-include family) share one
+    mapped entry that answers by the request's ``include`` parameter, so the
+    script cannot depend on call order. Families that also share an include
+    (injuries and suspensions both ride ``sidelined.sideline``) are served from
+    one response, as they are live: if that request fails, both are absent.
+    A mock row that lacks the route's ``where`` discriminator is given it, so a
+    test payload written before the remap still says which family it is.
+    """
+    by_key: dict[str, dict[str, Any]] = {}
+    for family, item in chosen.items():
+        by_key.setdefault(get_route(family)[0], {})[family] = item
+    mapped: dict[str, Any] = {}
+    for key, group in by_key.items():
+        if "{start}" not in key:
+            ((_family, item),) = group.items()
+            mapped[key] = item if isinstance(item, Exception) else response(item)
+            continue
+
+        def answer(params: Mapping[str, Any], group=group) -> Any:
+            wanted = {f: i for f, i in group.items() if get_route(f).include == params.get("include")}
+            errors = [i for i in wanted.values() if isinstance(i, Exception)]
+            if errors:
+                raise errors[0]
+            merged: dict[str, Any] = {"data": []}
+            for family, payload in wanted.items():
+                for record in _nest(family, list(payload["data"]))["data"]:
+                    existing = next((r for r in merged["data"] if r.get("id") == record.get("id")), None)
+                    if existing is None:
+                        merged["data"].append(record)
+                        continue
+                    for name, value in record.items():
+                        if isinstance(value, list) and isinstance(existing.get(name), list):
+                            existing[name] = existing[name] + value
+                        else:
+                            existing.setdefault(name, value)
+            return response(merged)
+        mapped[key] = answer
+    return EndpointReplayTransport(mapped)

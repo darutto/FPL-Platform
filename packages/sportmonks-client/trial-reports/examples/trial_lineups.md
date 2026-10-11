@@ -14,13 +14,13 @@ Mode: `mock`
 
 | Name | Shape as found |
 |---|---|
-| lineups | `2 record(s); record{id,fixture_id,player_id,formation_field,type_id,detailed_position_id}` |
-| formations | `1 record(s); record{id,fixture_id,formation}` |
-| substitutions | `1 record(s); record{id,fixture_id,player_in_id,player_out_id,minute}` |
+| lineups | `2 record(s); record{id,fixture_id,player_id,team_id,position_id,formation_field,type_id,formation_position,player_name,jersey_number,detailed_position_id}` |
+| formations | `1 record(s); record{id,fixture_id,participant_id,formation,location}` |
+| substitutions | `1 record(s); record{id,fixture_id,participant_id,type_id,section,player_id,related_player_id,player_name,related_player_name,minute,extra_minute,addition}` |
 | starter_marker | `field=type_id; values{11:1,12:1}; 2/2 record(s)` |
 | formation_grid | `field=formation_field; shape=str; documented=str; 2/2 record(s)` |
 | detailed_position | `field=detailed_position_id; 2/2 record(s); 2 distinct value(s)` |
-| substitution_direction | `off=player_out_id; on=player_in_id; first=(101,102,70)` |
+| substitution_direction | `off=related_player_id; on=player_id; first=(101,102,70)` |
 
 ## Warnings
 
