@@ -522,6 +522,8 @@ class FplSide:
     by_method: dict[str, int]
     second_pass: dict[str, int]
     departed: int = 0
+    #: (Sportmonks player id, FPL element id, method) for every resolved pair. Local use only.
+    pairs: tuple[tuple[str, int, str], ...] = ()
 
     @property
     def in_pl(self) -> int:
@@ -593,6 +595,7 @@ def fpl_side(records: Sequence[Any], people: Sequence[dict[str, Any]], *,
     hit: set[str] = set()
     pool_matched: set[str] = set()
     pairs: dict[str, str] = {}          # provider id -> canonical id, first pass
+    methods: dict[str, str] = {}        # provider id -> method, both passes
     by_method: dict[str, int] = {}
     for source in sources:
         if identity_fingerprint(source.full_name, source.birth_date) in conflicts:
@@ -602,8 +605,10 @@ def fpl_side(records: Sequence[Any], people: Sequence[dict[str, Any]], *,
             hit.add(result.canonical_player_id)
             pool_matched.add(source.provider_id)
             pairs[source.provider_id] = result.canonical_player_id
+            methods[source.provider_id] = result.match_method
             by_method[result.match_method] = by_method.get(result.match_method, 0) + 1
 
+    second_pairs: dict[str, str] = {}
     audit = {"resolved": 0, "rejected_taken": 0, "rejected_club": 0, "rejected_no_birth_date": 0,
              "first_pass_pairs_changed": 0, "position_mismatch_new": 0, "position_mismatch_first": 0}
     for pid, canon in pairs.items():
@@ -644,6 +649,8 @@ def fpl_side(records: Sequence[Any], people: Sequence[dict[str, Any]], *,
                 continue
             hit.add(result.canonical_player_id)
             pool_matched.add(source.provider_id)
+            second_pairs[source.provider_id] = result.canonical_player_id
+            methods[source.provider_id] = DISPLAY_NAME_METHOD
             audit["resolved"] += 1
             by_method[DISPLAY_NAME_METHOD] = by_method.get(DISPLAY_NAME_METHOD, 0) + 1
             if _POSITION.get(record.raw_fields.get("position_id")) != matched[0].get("element_type"):
@@ -695,6 +702,9 @@ def fpl_side(records: Sequence[Any], people: Sequence[dict[str, Any]], *,
         dict(sorted(pool_causes.items())), tuple(unmatched),
         dict(sorted(by_method.items())), audit,
         sum(1 for p in active if p["id"] in departed and not resolved(p)),
+        tuple(sorted(
+            (pid, by_canonical[canon][0]["id"], methods[pid])
+            for pid, canon in {**pairs, **second_pairs}.items() if len(by_canonical.get(canon, [])) == 1)),
     )
 
 
@@ -760,6 +770,10 @@ def write_fpl_unmatched(side: FplSide, out_dir: Path) -> Path:
     path = reports_dir / f"{SCRIPT}_fpl_side_unmatched.json"
     path.write_text(json.dumps({"schema_version": 1, "items": list(side.unmatched)},
                                indent=2, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+    pairs_path = reports_dir / f"{SCRIPT}_pairs.json"
+    pairs_path.write_text(json.dumps({"schema_version": 1, "items": [
+        {"sportmonks_id": a, "fpl_id": b, "method": c} for a, b, c in side.pairs]},
+        indent=2, sort_keys=True) + "\n", encoding="utf-8")
     # What the gate leaves for a human: FPL elements with minutes nobody resolved.
     queue = reports_dir / f"{SCRIPT}_manual_queue.json"
     queue.write_text(json.dumps({"schema_version": 1, "items": [
