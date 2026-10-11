@@ -223,11 +223,11 @@ def test_the_grid_entry_reports_the_shape_it_found():
     listed = _collect(lineups=_pool(_lineup(formation_field=[1, 4])))
     nested = _collect(lineups=_pool(_lineup(formation_field=[[1, 4], [2, 3]])))
     assert _shapes(documented)["formation_grid"] == \
-        "field=formation_field; shape=str; documented=str; 1/1 record(s)"
+        "field=formation_field; shape=str; documented=str; 1/1 starter(s)"
     assert _shapes(listed)["formation_grid"] == \
-        "field=formation_field; shape=list[int]; documented=str; 1/1 record(s)"
+        "field=formation_field; shape=list[int]; documented=str; 1/1 starter(s)"
     assert _shapes(nested)["formation_grid"] == \
-        "field=formation_field; shape=list[list[int]]; documented=str; 1/1 record(s)"
+        "field=formation_field; shape=list[list[int]]; documented=str; 1/1 starter(s)"
     assert len({_shapes(r)["formation_grid"] for r in (documented, listed, nested)}) == 3
 
 
@@ -263,7 +263,7 @@ def test_the_grid_entry_is_emitted_when_the_grid_is_absent():
     for name in ("lineup_grid_missing", "lineup_grid_null"):
         report = _collect(lineups=load_fixture("edge_cases.json")[name])
         assert _shapes(report)["formation_grid"] == \
-            "field=none found; shape=none; documented=str; 0/1 record(s)", name
+            "field=none found; shape=none; documented=str; 0/1 starter(s)", name
         assert _statuses(report)[8] == UNMET, name
 
 
@@ -351,9 +351,9 @@ def test_the_detailed_position_entry_names_the_field_that_supplied_it():
     first = _collect(lineups=_pool(_lineup(detailed_position_id=24)))
     second = _collect(lineups=_pool(_lineup(detailed_position_id=None, position_id=27)))
     assert _shapes(first)["detailed_position"] == \
-        "field=detailed_position_id; 1/1 record(s); 1 distinct value(s)"
+        "field=detailed_position_id; 1/1 starter(s); 1 distinct value(s)"
     assert _shapes(second)["detailed_position"] == \
-        "field=position_id; 1/1 record(s); 1 distinct value(s)"
+        "field=position_id; 1/1 starter(s); 1 distinct value(s)"
 
 
 def test_the_detailed_position_entry_is_emitted_when_it_is_absent():
@@ -362,7 +362,7 @@ def test_the_detailed_position_entry_is_emitted_when_it_is_absent():
     always there to be compared."""
     report = _collect(lineups=_pool(_lineup(detailed_position_id=None)))
     assert _shapes(report)["detailed_position"] == \
-        "field=none found; 0/1 record(s); 0 distinct value(s)"
+        "field=none found; 0/1 starter(s); 0 distinct value(s)"
     assert _statuses(report)[9] == UNMET
 
 
@@ -482,3 +482,32 @@ def test_every_entry_is_declared_and_names_a_test_that_exists():
     for names in trial_lineups.DECLARED_SHAPES.values():
         for name in names:
             assert name in globals(), name
+
+
+# --- Objectives 8 and 9 are measured over the eleven ----------------------------
+
+def _lineups_with_bench(grid_on_bench=False):
+    starter = _lineup(id=1, player_id=1, formation_field="2:1", detailed_position_id=154)
+    bench = {"id": 2, "fixture_id": 1001, "player_id": 2, "type_id": 12}
+    if grid_on_bench:
+        bench["formation_field"] = "1:1"
+    return _pool(starter, bench)
+
+
+def test_a_bench_without_grid_does_not_degrade_objectives_eight_and_nine():
+    report = _collect(lineups=_lineups_with_bench())
+    assert _statuses(report)[8] == OBSERVED and _statuses(report)[9] == OBSERVED
+    assert "1/1 starter(s)" in _evidence(report, 8)
+    assert "bench: 1/1 without formation_field (expected)" in _evidence(report, 8)
+
+
+def test_a_starter_without_grid_still_degrades_it():
+    lineups = _lineups_with_bench()
+    lineups["data"].append(_lineup(id=3, player_id=3, formation_field=None))
+    report = _collect(lineups=lineups)
+    assert _statuses(report)[8] == DEGRADED and "1/2 starter(s)" in _evidence(report, 8)
+
+
+def test_a_bench_row_that_does_carry_a_grid_is_reported_not_hidden():
+    report = _collect(lineups=_lineups_with_bench(grid_on_bench=True))
+    assert "bench: 0/1 without formation_field" in _evidence(report, 8)

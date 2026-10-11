@@ -92,6 +92,14 @@ FORMATION_FIELDS: tuple[str, ...] = ("formation", "formation_string", "name")
 #: not pass silently.
 DOCUMENTED_GRID_SHAPE = "str"
 
+#: `type_id` of a lineup row that is in the starting eleven (live 2026-10-11: 11
+#: starter, 12 bench). The grid and the detailed position are properties of the
+#: eleven -- a substitute has no cell on the pitch -- so objectives 8 and 9 are
+#: measured over starters and the bench is reported apart as "no grid, expected"
+#: (decided by the review chat, 2026-10-11; a definition of the measure, not a
+#: product policy).
+STARTER_TYPE_ID = 11
+
 #: The two fields a substitution's direction rests on. Which is which is the
 #: single most invertible fact in this slice: an implementation that swapped
 #: them would report every substitution backwards with complete confidence, and
@@ -324,7 +332,12 @@ def _synthesize_lineups(payload: Mapping[str, Any]) -> dict[str, Any]:
     # rehearsal exercises is a real partition. One value across every record
     # cannot separate two groups, and objective 6 would degrade -- correctly,
     # which is exactly why the mock must not be built that way.
-    stamped.append({**rows[0], "id": 22, "player_id": 102, starter: 12, position: 27})
+    # The bench row carries neither grid nor detailed position, as on live.
+    bench = {**rows[0], "id": 22, "player_id": 102, starter: 12}
+    for name in GRID_FIELDS + DETAILED_POSITION_FIELDS:
+        bench.pop(name, None)
+    bench["position_id"] = 27
+    stamped.append(bench)
     return {"data": stamped}
 
 
@@ -372,8 +385,20 @@ def collect(client, mode: str) -> TrialReport:
     substitutions = _fetch(client, "substitutions", scope)
 
     starters = survey(lineups.records, STARTER_FIELDS)
-    grid = survey(lineups.records, GRID_FIELDS)
-    positions = survey(lineups.records, DETAILED_POSITION_FIELDS)
+    xi = tuple(r for r in lineups.records if r.raw_fields.get("type_id") == STARTER_TYPE_ID)
+    bench = tuple(r for r in lineups.records if r.raw_fields.get("type_id") != STARTER_TYPE_ID)
+    # No row marked as a starter: fall back to every row and say so below.
+    measured = xi or lineups.records
+    basis = "starter(s)" if xi else "record(s) (no starter marker found)"
+    grid = survey(measured, GRID_FIELDS)
+    positions = survey(measured, DETAILED_POSITION_FIELDS)
+    bench_with_grid = sum(1 for r in bench if grid.field and r.raw_fields.get(grid.field) is not None)
+    bench_with_position = sum(1 for r in bench if positions.field and r.raw_fields.get(positions.field) is not None)
+    bench_note = (
+        f"bench: {len(bench) - bench_with_grid}/{len(bench)} without {grid.field or 'grid'} "
+        f"(expected), {len(bench) - bench_with_position}/{len(bench)} without "
+        f"{positions.field or 'detailed position'} (expected)"
+    ) if xi else ""
     formation_names = survey(formations.records, FORMATION_FIELDS)
     triples = substitution_triples(substitutions.records)
 
@@ -440,7 +465,7 @@ def collect(client, mode: str) -> TrialReport:
         else:
             if not grid.complete:
                 reasons_8.append(
-                    f"{grid.covered}/{grid.total} record(s) carry {grid.field}")
+                    f"{grid.covered}/{grid.total} {basis} carry {grid.field}")
             unexpected = tuple(s for s in grid.shapes if s != DOCUMENTED_GRID_SHAPE)
             if unexpected:
                 reasons_8.append(
@@ -449,7 +474,8 @@ def collect(client, mode: str) -> TrialReport:
     evidence_8 = (
         f"grid field {grid.field or 'none found'}; "
         f"shape(s) {','.join(grid.shapes) if grid.shapes else 'none'}; "
-        f"{grid.covered}/{grid.total} record(s)"
+        f"{grid.covered}/{grid.total} {basis}"
+        + (f"; {bench_note}" if bench_note else "")
     )
     report.objectives.append(Objective(
         8, OBJECTIVE_8,
@@ -467,11 +493,12 @@ def collect(client, mode: str) -> TrialReport:
                 f"fields {DETAILED_POSITION_FIELDS}")
         elif not positions.complete:
             reasons_9.append(
-                f"{positions.covered}/{positions.total} record(s) carry {positions.field}")
+                f"{positions.covered}/{positions.total} {basis} carry {positions.field}")
     evidence_9 = (
         f"detailed-position field {positions.field or 'none found'}; "
-        f"{positions.covered}/{positions.total} record(s); "
+        f"{positions.covered}/{positions.total} {basis}; "
         f"{len(positions.values)} distinct value(s)"
+        + (f"; {bench_note}" if bench_note else "")
     )
     report.objectives.append(Objective(
         9, OBJECTIVE_9,
@@ -518,12 +545,12 @@ def collect(client, mode: str) -> TrialReport:
             f"field={grid.field or 'none found'}; "
             f"shape={'|'.join(grid.shapes) if grid.shapes else 'none'}; "
             f"documented={DOCUMENTED_GRID_SHAPE}; "
-            f"{grid.covered}/{grid.total} record(s)",
+            f"{grid.covered}/{grid.total} {basis}",
         ))
         report.observed_shapes.append(ObservedShape(
             "detailed_position",
             f"field={positions.field or 'none found'}; "
-            f"{positions.covered}/{positions.total} record(s); "
+            f"{positions.covered}/{positions.total} {basis}; "
             f"{len(positions.values)} distinct value(s)",
         ))
 

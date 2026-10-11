@@ -12,7 +12,7 @@ from .errors import (SportmonksAuthenticationError, SportmonksPaginationError,
                      SportmonksRateLimitError, SportmonksRequestError, SportmonksResponseError)
 from .models import (Coach, Fixture, Formation, Injury, League, LineupEntry, Player,
                      PlayerFixtureStatistic, ProviderEntity, RawResponseSnapshot, Referee,
-                     Season, SquadMember, Substitution, Suspension, Team,
+                     Season, SidelinedEntry, SquadMember, Substitution, Suspension, Team,
                      TeamFixtureStatistic, parse_entity, parse_envelope)
 from .transport import RequestsTransport, Transport, TransportResponse
 
@@ -35,6 +35,11 @@ class Route(NamedTuple):
     extract: str | None = None
     where: tuple[str, Any] | None = None
     unwrap: str | None = None
+    #: ``(source_key, key_in_source, dest)``: copy a field out of a nested
+    #: include object onto the row (``detailedposition.id`` -> ``detailed_position_id``).
+    lift: tuple[tuple[str, str, str], ...] = ()
+    #: The endpoint answers one object under ``data``, not a list (``teams/{id}``).
+    single: bool = False
 
 
 _WINDOW = "fixtures/between/{start}/{end}"
@@ -50,7 +55,11 @@ ENDPOINTS: dict[str, Route] = {
     # squad route with include=player yields the 20 clubs' players with the same
     # 20 requests that fetch the squads.
     "players": Route("squads/teams/{team_id}", Player, include="player", extract="player"),
-    "lineups": Route(_WINDOW, LineupEntry, include="lineups", extract="lineups"),
+    # `lineups.detailedPosition` (live 2026-10-11): starters carry Right Back, Left Back,
+    # Right/Left Midfield, ... ; the bench carries none.
+    "lineups": Route(_WINDOW, LineupEntry, include="lineups.detailedPosition", extract="lineups",
+                     lift=(("detailedposition", "id", "detailed_position_id"),
+                           ("detailedposition", "name", "detailed_position"))),
     "formations": Route(_WINDOW, Formation, include="formations", extract="formations"),
     "substitutions": Route(_WINDOW, Substitution, include="events", extract="events", where=("type_id", 18)),
     "injuries": Route(_WINDOW, Injury, include="sidelined.sideline", extract="sidelined",
@@ -68,6 +77,9 @@ ENDPOINTS: dict[str, Route] = {
 #: competition the plan covers (Arsenal 2026-27: PL 38, UCL 8, Carabao 2).
 EXTRA_ROUTES: dict[str, Route] = {
     "team_fixtures": Route("fixtures/between/{start}/{end}/{team_id}", Fixture),
+    # A club's open sidelined list (not tied to a match): 21 requests per pass.
+    "current_sidelined": Route("teams/{team_id}", SidelinedEntry, include="sidelined",
+                               extract="sidelined", single=True),
 }
 
 
@@ -184,8 +196,14 @@ class SportmonksClient:
         """Fetch and parse exactly one page, regardless of has_more metadata."""
         route = get_route(family)
         endpoint = route_path(family, scope)
-        envelope = parse_envelope(self._request(endpoint, self._params(route, params)).body, endpoint)
+        envelope = self._envelope(route, self._request(endpoint, self._params(route, params)).body, endpoint)
         return tuple(self._records(route, envelope, endpoint))
+
+    @staticmethod
+    def _envelope(route: Route, body: Any, endpoint: str):
+        if route.single and isinstance(body, Mapping) and isinstance(body.get("data"), Mapping):
+            body = {**body, "data": [body["data"]]}
+        return parse_envelope(body, endpoint)
 
     @staticmethod
     def _params(route: Route, params: Mapping[str, Any] | None) -> dict[str, Any]:
@@ -206,6 +224,10 @@ class SportmonksClient:
                     row.pop(route.unwrap, None)
                 if route.where and row.get(route.where[0]) != route.where[1]:
                     continue
+                for source, key, dest in route.lift:
+                    nested = row.get(source)
+                    if isinstance(nested, Mapping) and nested.get(key) is not None:
+                        row = {**row, dest: nested[key]}
                 if route.unwrap:
                     if row.get("id") in seen:
                         continue  # one sideline row repeats on every fixture it spans
@@ -229,7 +251,7 @@ class SportmonksClient:
                 raise SportmonksPaginationError("pagination loop detected", endpoint=endpoint)
             seen.add(page)
             request_params["page"] = page
-            envelope = parse_envelope(self._request(endpoint, request_params).body, endpoint)
+            envelope = self._envelope(route, self._request(endpoint, request_params).body, endpoint)
             yield from self._records(route, envelope, endpoint)
             if envelope.pagination is None:
                 if page != 1:

@@ -673,7 +673,9 @@ def routes_transport(chosen: Mapping[str, Any]) -> EndpointReplayTransport:
     mapped: dict[str, Any] = {}
     for key, group in by_key.items():
         if "{start}" not in key and len(group) == 1:
-            ((_family, item),) = group.items()
+            ((family, item),) = group.items()
+            if not isinstance(item, Exception) and get_route(family).extract is not None:
+                item = _nest(family, list(item["data"]))
             mapped[key] = item if isinstance(item, Exception) else response(item)
             continue
 

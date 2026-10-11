@@ -94,6 +94,7 @@ OWNERS: dict[str, frozenset[str]] = {
     "trial_entities.py": frozenset({"test_trial_discovery.py"}),
     "trial_fixtures.py": frozenset({"test_trial_discovery.py"}),
     "trial_injuries.py": frozenset({"test_trial_health_stats.py"}),
+    "trial_sidelined.py": frozenset({"test_trial_sidelined.py"}),
     "trial_lineups.py": frozenset({"test_trial_lineups.py"}),
     "trial_mapping.py": frozenset({"test_trial_mapping.py"}),
     "trial_squads.py": frozenset({"test_trial_squads.py"}),

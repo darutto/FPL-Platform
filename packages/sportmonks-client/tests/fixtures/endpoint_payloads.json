@@ -199,6 +199,34 @@
           }
         }
       ]
+    },
+    "current_sidelined": {
+      "data": [
+        {
+          "id": 701,
+          "player_id": 101,
+          "type_id": 1918,
+          "category": "injury",
+          "team_id": 1,
+          "season_id": null,
+          "start_date": "2026-09-24",
+          "end_date": null,
+          "games_missed": 1,
+          "completed": false
+        },
+        {
+          "id": 702,
+          "player_id": 102,
+          "type_id": 1500,
+          "category": "suspended",
+          "team_id": 1,
+          "season_id": null,
+          "start_date": "2026-10-03",
+          "end_date": "2026-10-17",
+          "games_missed": 1,
+          "completed": false
+        }
+      ]
     }
   }
 }
