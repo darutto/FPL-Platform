@@ -4,8 +4,8 @@ Mode: `mock`
 
 | # | Objective | Status | Evidence |
 |---|---|---|---|
-| 13 | Fixture-level team statistics | `observed` | 2 record(s); field presence: fixture_id=2/2, team_id=2/2, type_id=2/2, value=2/2 |
-| 14 | Player match statistics | `observed` | 2 record(s); field presence: fixture_id=2/2, player_id=2/2, type_id=2/2, value=2/2 |
+| 13 | Fixture-level team statistics | `observed` | 2 record(s); field presence: fixture_id=2/2, participant_id=2/2, type_id=2/2, data=2/2 |
+| 14 | Player match statistics | `observed` | 2 record(s); field presence: fixture_id=2/2, player_id=2/2, type_id=2/2, data=2/2 |
 | 15 | Data update timing before, during, and after matches | `not_applicable` | requires FI-9 live observation |
 | 16 | Post-match corrections | `not_applicable` | requires FI-9 live observation |
 
@@ -13,8 +13,8 @@ Mode: `mock`
 
 | Name | Shape as found |
 |---|---|
-| team_statistics_fields | `fixture_id, team_id, type_id, value` |
-| player_statistics_fields | `fixture_id, player_id, type_id, value` |
+| team_statistics_fields | `fixture_id, participant_id, type_id, data` |
+| player_statistics_fields | `fixture_id, player_id, type_id, data` |
 
 ## Warnings
 

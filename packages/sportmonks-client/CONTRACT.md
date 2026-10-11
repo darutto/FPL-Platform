@@ -58,6 +58,60 @@ fields are governed in `client.ENDPOINTS` and remain unverified against live.
 Provider entities are immutable, preserve integer provider ID, source endpoint,
 and unknown raw fields, and never produce canonical entities.
 
+## Family routes — live v3 is not the documentation-derived layout
+
+Added 2026-10-11 after FI-9 day 0. The fifteen "families" were written against
+mocks taken from the documentation, as if each were a root endpoint. Live
+disagrees for eight of them (`404` at the root, measured one call each). Live
+wins: `ENDPOINTS` in `client.py` now maps each family to a `Route`
+(`path`, `model`, and for derived families `include`, `extract`, `where`,
+`unwrap`). `ENDPOINTS[family][0]` is still the mock key; it may carry
+`{placeholders}` that `scope` fills (`route_path`).
+
+| Family | Route | Include → nested list | Why this and not the root |
+|---|---|---|---|
+| leagues, seasons, players, coaches, referees | `GET /<family>` | – | root works (200). `seasons` is filtered with `filters=seasonLeagues:<id>` |
+| teams | `teams/seasons/{season_id}` | – | root `/teams` is every club in the database; this is the 20 PL clubs |
+| squads | `squads/teams/{team_id}` | – | root `/squads` is 404; one request per club |
+| fixtures | `GET /fixtures`, `filters=fixtureSeasons:<id>;fixtureLeagues:<id>` | – | root works; ordered newest/future first |
+| (extra) `team_fixtures` | `fixtures/between/{start}/{end}/{team_id}` | – | one club across every covered competition in one call; not one of the fifteen |
+| lineups | `fixtures/between/{start}/{end}` | `lineups` → `lineups` | `/lineups` is 404 |
+| formations | same | `formations` → `formations` | `/formations` is 404 |
+| substitutions | same | `events` → `events`, keep `type_id == 18` | substitutions are events; `/substitutions` is 404 |
+| injuries | same | `sidelined.sideline` → `sidelined`, keep `category == "injury"` | `/injuries` is 404 |
+| suspensions | same | `sidelined.sideline`, keep `category == "suspended"` | `/suspensions` is 404 |
+| team_statistics | same | `statistics` → `statistics` | `/statistics/fixtures/teams` is 404 |
+| player_statistics | same | `lineups.details` → `lineups[].details` | `/statistics/fixtures/players` is 404 |
+
+Rules that follow from this:
+
+- `fixtures/between` is capped by the provider: a 2026-08-01..2027-06-30 window
+  answers `422`. The trial scripts use a 14-day window (`WINDOW_DAYS`).
+- **Shared includes are shared requests.** injuries and suspensions both ride
+  `sidelined.sideline`; if that request fails, both are absent. They are no
+  longer independent observations and the mocks no longer pretend they are
+  (`routes_transport`).
+- Sideline rows repeat on every fixture they span; `unwrap` hoists the nested
+  `sideline` object over the row and the client de-duplicates by its id, so an
+  injury's `provider_id` is the sideline id, not a row id.
+- `next_page` arrives as a URL (`…?page=2`), not an int (#408).
+- Every live list walk takes an explicit page bound (`LIVE_MAX_PAGES = 4`,
+  `per_page=50`). Hitting it is reported as `truncated`, never as a census:
+  `fixtures`, `players`, `coaches`, `referees` are truncated in a day-0 sweep.
+- A `404` cannot tell "not in the plan" from "no such route/include": both
+  answer the same. Day 0 separated them by finding the same data under a
+  different route (the eight families above), not by the status code.
+- Mock fixtures: `tests/fixtures/endpoint_payloads.json` was re-shaped to what
+  live returned for lineups, formations, substitutions, injuries, suspensions
+  and both statistics families. Where a mock contradicted live, live won
+  (substitution direction is `player_id` = on, `related_player_id` = off; stat
+  rows carry `participant_id` and a nested `data.value`). Families not yet
+  observed live keep `status: unverified_against_live`.
+- Team-level sidelined is also reachable: `teams/{id}?include=sidelined`
+  answers 200 with the club's current rows (`category`, `start_date`,
+  `end_date`, `games_missed`, `completed`). It is not wired as a family yet.
+  `players/{id}?include=sidelined` and `sidelined/…` answer 404.
+
 ## Envelope and pagination
 
 Documented `data` collections and optional `pagination` (direct or under

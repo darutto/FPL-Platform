@@ -48,11 +48,11 @@
     },
     {
       "name": "family:injuries",
-      "shape": "reachable; 1 record(s); provider_ids={51}"
+      "shape": "reachable; 1 record(s); provider_ids={501}"
     },
     {
       "name": "family:suspensions",
-      "shape": "reachable; 1 record(s); provider_ids={61}"
+      "shape": "reachable; 1 record(s); provider_ids={601}"
     },
     {
       "name": "family:coaches",
@@ -72,6 +72,7 @@
     }
   ],
   "warnings": [
+    "requests issued this run: 15 (live budget is 2500 per hour per entity)",
     "mock mode: shapes are documentation-derived and carry \"status\": \"unverified_against_live\" until FI-9"
   ]
 }

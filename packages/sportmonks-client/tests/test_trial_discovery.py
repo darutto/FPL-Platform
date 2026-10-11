@@ -334,7 +334,9 @@ def test_an_unavailable_family_is_named_in_a_warning():
         injuries=SportmonksRequestError("gone", endpoint="injuries", status_code=404),
         coaches=SportmonksRequestError("gone", endpoint="coaches", status_code=404),
     ))
-    assert "families that did not answer: coaches, injuries" in report.warnings
+    # injuries and suspensions ride the same `sidelined` include live, so a
+    # refusal of that request takes both with it (CONTRACT.md "Family routes").
+    assert "families that did not answer: coaches, injuries, suspensions" in report.warnings
 
 
 def test_the_evidence_tracks_the_payload_rather_than_the_search_term():
@@ -427,17 +429,17 @@ def test_the_two_objectives_are_statused_separately():
 
 
 def test_the_cross_competition_request_carries_no_competition_filter():
-    """Objective 3 asks what a club plays *outside* the competition. Sending
-    `league_id` would make the answer unobtainable while still returning rows."""
+    """Objective 3 asks what a club plays *outside* the competition. A league
+    filter would make the answer unobtainable while still returning rows. The
+    per-club route is `fixtures/between/{start}/{end}/{team_id}` and takes none."""
     transport = trial_fixtures.mock_transport()
     _collect(trial_fixtures, transport)
-    fixture_calls = [
+    by_team = [
         params for _method, url, params, _timeout in transport.calls
-        if url.endswith("/fixtures")
+        if "/fixtures/between/" in url
     ]
-    by_team = [params for params in fixture_calls if "team_id" in params]
     assert by_team
-    assert all("league_id" not in params for params in by_team)
+    assert all("filters" not in params for params in by_team)
 
 
 def test_the_season_request_carries_both_filters():
@@ -445,10 +447,10 @@ def test_the_season_request_carries_both_filters():
     _collect(trial_fixtures, transport)
     season_calls = [
         params for _method, url, params, _timeout in transport.calls
-        if url.endswith("/fixtures") and "team_id" not in params
+        if url.endswith("/fixtures")
     ]
-    assert [sorted(set(params) - {"page"}) for params in season_calls] == \
-           [["league_id", "season_id"]]
+    assert len(season_calls) == 1
+    assert sorted(season_calls[0]["filters"].split(";")) == ["fixtureLeagues:8", "fixtureSeasons:23614"]
 
 
 def test_the_season_shape_records_the_envelope_that_arrived():

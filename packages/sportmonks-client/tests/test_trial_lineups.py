@@ -189,7 +189,7 @@ def test_each_family_shape_reports_the_fields_that_arrived():
     )
     assert shapes["formations"] == "1 record(s); record{id,fixture_id,formation}"
     assert shapes["substitutions"] == (
-        "1 record(s); record{id,fixture_id,player_in_id,player_out_id,minute}"
+        "1 record(s); record{id,fixture_id,player_in_id,player_out_id,minute,type_id}"
     )
     assert len({shapes["lineups"], shapes["formations"], shapes["substitutions"]}) == 3
 

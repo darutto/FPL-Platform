@@ -18,11 +18,11 @@
   "observed_shapes": [
     {
       "name": "injuries",
-      "shape": "1 record(s); record{id,player_id,type_id,expected_return,updated_at}"
+      "shape": "1 record(s); record{id,fixture_id,sideline_id,participant_id,player_id,type_id,updated_at,category,team_id,season_id,start_date,end_date,games_missed,completed}"
     },
     {
       "name": "suspensions",
-      "shape": "1 record(s); record{id,player_id,type_id,games_remaining}"
+      "shape": "1 record(s); record{id,fixture_id,sideline_id,participant_id,player_id,type_id,category,team_id,season_id,start_date,end_date,games_missed,completed}"
     },
     {
       "name": "coaches",

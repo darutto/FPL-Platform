@@ -19,8 +19,8 @@ Mode: `mock`
 | family:lineups | `reachable; 1 record(s); provider_ids={21}` |
 | family:formations | `reachable; 1 record(s); provider_ids={31}` |
 | family:substitutions | `reachable; 1 record(s); provider_ids={41}` |
-| family:injuries | `reachable; 1 record(s); provider_ids={51}` |
-| family:suspensions | `reachable; 1 record(s); provider_ids={61}` |
+| family:injuries | `reachable; 1 record(s); provider_ids={501}` |
+| family:suspensions | `reachable; 1 record(s); provider_ids={601}` |
 | family:coaches | `reachable; 1 record(s); provider_ids={71}` |
 | family:referees | `reachable; 1 record(s); provider_ids={81}` |
 | family:team_statistics | `reachable; 1 record(s); provider_ids={91}` |
@@ -28,4 +28,5 @@ Mode: `mock`
 
 ## Warnings
 
+- requests issued this run: 15 (live budget is 2500 per hour per entity)
 - mock mode: shapes are documentation-derived and carry "status": "unverified_against_live" until FI-9
