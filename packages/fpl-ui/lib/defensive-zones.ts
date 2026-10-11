@@ -217,6 +217,19 @@ export function zoneChipLabel(zone: string): string {
   return `${depthLabel} ${short.toLowerCase()}`;
 }
 
+/**
+ * Where an engine zone key sits on the player mini-pitch: row 0 = in the box,
+ * row 1 = the edge-of-box band in front of it; col 0/1/2 = left/central/right
+ * in the attacker frame (attacker's left = viewer's left). Unknown keys → null.
+ */
+export function pitchCell(zone: string): { row: 0 | 1; col: 0 | 1 | 2 } | null {
+  const [depth, lateral] = zone.split(' / ');
+  const row = depth === 'in-box' ? 0 : depth === 'edge-of-box' ? 1 : null;
+  const col = lateral === 'left' ? 0 : lateral === 'central' ? 1 : lateral === 'right' ? 2 : null;
+  if (row === null || col === null) return null;
+  return { row, col };
+}
+
 // ---------------------------------------------------------------------------
 // Player sub-line
 // ---------------------------------------------------------------------------
