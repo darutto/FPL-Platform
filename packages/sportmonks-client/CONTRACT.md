@@ -75,8 +75,9 @@ wins: `ENDPOINTS` in `client.py` now maps each family to a `Route`
 | teams | `teams/seasons/{season_id}` | – | root `/teams` is every club in the database; this is the 20 PL clubs |
 | squads | `squads/teams/{team_id}` | – | root `/squads` is 404; one request per club |
 | fixtures | `GET /fixtures`, `filters=fixtureSeasons:<id>;fixtureLeagues:<id>` | – | root works; ordered newest/future first |
+| (extra) `current_sidelined` | `teams/{team_id}` (`data` is one object) | `sidelined` → `sidelined` | a club's open absences, independent of any match; 20 requests per pass. Polled by `trial_sidelined.py` |
 | (extra) `team_fixtures` | `fixtures/between/{start}/{end}/{team_id}` | – | one club across every covered competition in one call; not one of the fifteen |
-| lineups | `fixtures/between/{start}/{end}` | `lineups` → `lineups` | `/lineups` is 404 |
+| lineups | `fixtures/between/{start}/{end}` | `lineups.detailedPosition` → `lineups`, lifting `detailedposition.{id,name}` to `detailed_position_id` / `detailed_position` | `/lineups` is 404. Starters carry a detailed position (GK, Centre Back, Right/Left Back, Right/Left Midfield, Central/Attacking Midfield, Attacker); the bench carries none, like the grid |
 | formations | same | `formations` → `formations` | `/formations` is 404 |
 | substitutions | same | `events` → `events`, keep `type_id == 18` | substitutions are events; `/substitutions` is 404 |
 | injuries | same | `sidelined.sideline` → `sidelined`, keep `category == "injury"` | `/injuries` is 404 |
@@ -232,3 +233,17 @@ in FI-4 only after the approved pre-FI-4 reconciliation checkpoint.
 Breaking changes include error semantics, retry safety, endpoint signatures,
 pagination interpretation, or removal/reinterpretation of provider fields.
 Assumption statuses may change only with recorded live evidence.
+
+## Lineup grid semantics (live, 2026-10-11)
+
+`formation_field` is `"row:col"`: row 1 is the goalkeeper and rows rise towards
+the attack; `formation_position` is a 1–11 running index. `col` is **absolute
+along the touchline, not relative to the team**: for the home team col 1 is its
+right and the highest col its left; for the away team the numbering is mirrored.
+Checked against the provider's own detailed position over GW1–GW6 (59 matches):
+420 of 420 Right Back / Left Back / Right Midfield / Left Midfield starters sit
+in the predicted cell. Only starters (`type_id` 11) carry a grid cell and a
+detailed position; the bench (`type_id` 12) carries neither, which is expected
+and is reported apart from the objective's denominator. Home/away comes from
+`formations[].location`. Left/right for central roles is inference, not a
+provider field.

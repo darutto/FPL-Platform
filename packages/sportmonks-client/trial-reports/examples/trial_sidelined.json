@@ -1,0 +1,26 @@
+{
+  "script": "trial_sidelined",
+  "mode": "mock",
+  "objectives": [
+    {
+      "id": 11,
+      "title": "Injuries and suspensions",
+      "status": "observed",
+      "evidence": "current_sidelined: 2 open row(s) over 1 club(s); injury 1, suspended 1"
+    }
+  ],
+  "observed_shapes": [
+    {
+      "name": "current_sidelined",
+      "shape": "2 record(s); record{id,player_id,type_id,category,team_id,season_id,start_date,end_date,games_missed,completed}"
+    },
+    {
+      "name": "poll_pass",
+      "shape": "pass 1: baseline of 2 row(s); no earlier pass to diff"
+    }
+  ],
+  "warnings": [
+    "the rows carry no updated_at: first-seen is the earliest pass that contained the id, so latency has a resolution of one polling interval",
+    "mock mode: shapes are documentation-derived and carry \"status\": \"unverified_against_live\" until FI-9"
+  ]
+}

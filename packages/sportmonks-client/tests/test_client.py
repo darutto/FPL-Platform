@@ -26,7 +26,7 @@ def test_every_endpoint_family_parses(endpoint_payloads):
     for family, payload in endpoint_payloads["families"].items():
         client = offline([response(_nest(family, list(payload["data"])))])
         records = client.fetch_page(family, scope=SCOPE)
-        assert len(records) == 1 and records[0].source_endpoint == route_path(family, SCOPE), family
+        assert len(records) == len(payload["data"]) and records[0].source_endpoint == route_path(family, SCOPE), family
         assert len(client.transport.calls) == 1
 
 
@@ -40,7 +40,7 @@ def test_derived_families_ride_one_route_and_differ_by_include():
                                          "team_statistics", "player_statistics")}
     assert window == {"fixtures/between/{start}/{end}"}
     assert {f: ENDPOINTS[f].include for f in ("lineups", "formations", "substitutions")} == {
-        "lineups": "lineups", "formations": "formations", "substitutions": "events"}
+        "lineups": "lineups.detailedPosition", "formations": "formations", "substitutions": "events"}
 
 
 def test_sidelined_rows_are_split_by_category_and_deduplicated():

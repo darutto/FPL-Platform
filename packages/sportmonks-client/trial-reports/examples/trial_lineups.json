@@ -18,13 +18,13 @@
       "id": 8,
       "title": "Formation-grid or lineup-position fields",
       "status": "observed",
-      "evidence": "grid field formation_field; shape(s) str; 2/2 record(s)"
+      "evidence": "grid field formation_field; shape(s) str; 1/1 starter(s); bench: 1/1 without formation_field (expected), 1/1 without detailed_position_id (expected)"
     },
     {
       "id": 9,
       "title": "Detailed position identifiers",
       "status": "observed",
-      "evidence": "detailed-position field detailed_position_id; 2/2 record(s); 2 distinct value(s)"
+      "evidence": "detailed-position field detailed_position_id; 1/1 starter(s); 1 distinct value(s); bench: 1/1 without formation_field (expected), 1/1 without detailed_position_id (expected)"
     },
     {
       "id": 10,
@@ -52,11 +52,11 @@
     },
     {
       "name": "formation_grid",
-      "shape": "field=formation_field; shape=str; documented=str; 2/2 record(s)"
+      "shape": "field=formation_field; shape=str; documented=str; 1/1 starter(s)"
     },
     {
       "name": "detailed_position",
-      "shape": "field=detailed_position_id; 2/2 record(s); 2 distinct value(s)"
+      "shape": "field=detailed_position_id; 1/1 starter(s); 1 distinct value(s)"
     },
     {
       "name": "substitution_direction",

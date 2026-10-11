@@ -6,8 +6,8 @@ Mode: `mock`
 |---|---|---|---|
 | 6 | Confirmed starters and substitutes | `observed` | lineups: 2 record(s); partition field type_id with 2 distinct value(s) |
 | 7 | Formation strings | `observed` | formations: 1 record(s); field formation; 1 distinct value(s) |
-| 8 | Formation-grid or lineup-position fields | `observed` | grid field formation_field; shape(s) str; 2/2 record(s) |
-| 9 | Detailed position identifiers | `observed` | detailed-position field detailed_position_id; 2/2 record(s); 2 distinct value(s) |
+| 8 | Formation-grid or lineup-position fields | `observed` | grid field formation_field; shape(s) str; 1/1 starter(s); bench: 1/1 without formation_field (expected), 1/1 without detailed_position_id (expected) |
+| 9 | Detailed position identifiers | `observed` | detailed-position field detailed_position_id; 1/1 starter(s); 1 distinct value(s); bench: 1/1 without formation_field (expected), 1/1 without detailed_position_id (expected) |
 | 10 | Substitution relationships and minutes | `observed` | substitutions: 1 triple(s) (player_off, player_on, minute); 1 complete |
 
 ## Observed shapes
@@ -18,8 +18,8 @@ Mode: `mock`
 | formations | `1 record(s); record{id,fixture_id,participant_id,formation,location}` |
 | substitutions | `1 record(s); record{id,fixture_id,participant_id,type_id,section,player_id,related_player_id,player_name,related_player_name,minute,extra_minute,addition}` |
 | starter_marker | `field=type_id; values{11:1,12:1}; 2/2 record(s)` |
-| formation_grid | `field=formation_field; shape=str; documented=str; 2/2 record(s)` |
-| detailed_position | `field=detailed_position_id; 2/2 record(s); 2 distinct value(s)` |
+| formation_grid | `field=formation_field; shape=str; documented=str; 1/1 starter(s)` |
+| detailed_position | `field=detailed_position_id; 1/1 starter(s); 1 distinct value(s)` |
 | substitution_direction | `off=related_player_id; on=player_id; first=(101,102,70)` |
 
 ## Warnings

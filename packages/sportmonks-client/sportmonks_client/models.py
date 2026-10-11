@@ -51,6 +51,7 @@ class Formation(ProviderEntity): pass
 class Substitution(ProviderEntity): pass
 class Injury(ProviderEntity): pass
 class Suspension(ProviderEntity): pass
+class SidelinedEntry(ProviderEntity): pass
 class Coach(ProviderEntity): pass
 class Referee(ProviderEntity): pass
 class TeamFixtureStatistic(ProviderEntity): pass
