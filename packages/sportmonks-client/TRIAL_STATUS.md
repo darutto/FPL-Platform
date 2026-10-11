@@ -99,6 +99,7 @@ One row per trial day. Keep it short; the detail belongs in the report artifacts
 | 2026-10-11 (day 1, mapping pass) | 19 observed | none | Display-name second pass approved and shipped with its guards (#418); 413/430 = 96.0465%. 17 elements in the manual queue (local file with causes); no automatic resolution of them. |
 | 2026-10-11 (day 1, close) | none moved | none | The 7 FPL players with minutes missing from squads: 5 departed on deadline day, 2 are squad completeness (question 15 added). Post-queue ≥99% of the identity gate is capped at 423/430 = 98.4% by data. Sidelined series: baseline pass 2026-10-11T04:07Z (64 rows). Sportmonks requests so far ≈ 870 (estimate; limit 2500/h per entity, no 429). |
 | 2026-10-11 (denominator) | 19 observed | none | Official gate redefined by the review chat to minutes>0 and still in a PL club (rule from data): 413/425 = 97.1765%; ceiling 423/425 = 99.5%; manual queue 12. ~55 more Sportmonks requests (≈ 925 in total, estimate). |
+| 2026-10-11 (criterion f) | M1-M3 run on live data | none | Live-trial store built (88 clubs, 483 fixtures, 6 competitions; all `live_trial_local`, nothing published). Hold-out GW6 (6 fixtures): M2 role agreement 90.5% (86/95, 31 abstain), Arsenal sides Leo confirmed 6/6 actual and 5/5 predicted; M1 Brier 0.178 vs 0.229 base rate vs 0.185 raw share, covers 57% of squad members (abstains on players with no starts, 12/126 starters), miscalibrated in the 0.1-0.3 band; M3 matches the recomputed calendar 140/140 and congestion is higher with a continental fixture (5.90 vs 4.49). Review sample of 27 built; 10-player table awaits Leo. [report](trial-reports/live/2026-10-11-m1-m3.md) |
 
 ## Risks and ceilings
 
@@ -109,6 +110,9 @@ One row per trial day. Keep it short; the detail belongs in the report artifacts
 | R3 | Left/right of central roles in the grid is inference, not a provider field. 420 / 420 side-labelled starters agree with the rule; Arsenal checked by Leo against Sofascore, Liverpool and City pending. | [grid check](trial-reports/live/2026-10-11-grid-check-for-leo.md) | Partially validated. |
 | R4 | Provider-id stability across days is measured only within one run so far. | `trial_mapping.py` | Reads scheduled 2026-10-12 and 2026-10-13. |
 | R5 | Several lists are read with an explicit page bound and are floors, not censuses (coaches, referees; fixtures only on the season sweep). | `CONTRACT.md` | Known. |
+| R6 | Scheduling knowledge is assumed: fixture lists taken as published 2026-06-01 and results as known kickoff + 3 h, because the provider keeps no history of what was known when. Postponements are invisible; M1/M2 windows and M3 congestion can include a result a few hours before it was really known. | [m1-m3](trial-reports/live/2026-10-11-m1-m3.md) | Declared in the adapter docstring, CONTRACT and the PR; open. |
+| R7 | M1 abstains for 43% of squad members (132 of 309), all with zero starts in the window, including 12 of 126 actual starters; availability in the hold-out is "available" for everyone; one gameweek of six fixtures. | [m1-m3](trial-reports/live/2026-10-11-m1-m3.md) | Re-run on 10 fixtures, then GW7. |
+| R8 | A full-season feature build takes 936 s (the engine re-filters pandas frames per target). Correct, slow; every re-run after a new capture pays it. | PR #427 | Left alone; optimise only if the cadence needs it. |
 
 ## Open questions raised during the trial
 
