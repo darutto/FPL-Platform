@@ -40,6 +40,9 @@ class Route(NamedTuple):
     lift: tuple[tuple[str, str, str], ...] = ()
     #: The endpoint answers one object under ``data``, not a list (``teams/{id}``).
     single: bool = False
+    #: ``(key_on_the_parent_record, dest)``: copy a field of the record the nested
+    #: rows came out of (``squads`` row ``team_id`` -> the player's ``squad_team_id``).
+    inherit: tuple[tuple[str, str], ...] = ()
 
 
 _WINDOW = "fixtures/between/{start}/{end}"
@@ -54,7 +57,8 @@ ENDPOINTS: dict[str, Route] = {
     # Root /players is every player in the database (and no club filter). The
     # squad route with include=player yields the 20 clubs' players with the same
     # 20 requests that fetch the squads.
-    "players": Route("squads/teams/{team_id}", Player, include="player", extract="player"),
+    "players": Route("squads/teams/{team_id}", Player, include="player", extract="player",
+                     inherit=(("team_id", "squad_team_id"),)),
     # `lineups.detailedPosition` (live 2026-10-11): starters carry Right Back, Left Back,
     # Right/Left Midfield, ... ; the bench carries none.
     "lineups": Route(_WINDOW, LineupEntry, include="lineups.detailedPosition", extract="lineups",
@@ -224,6 +228,9 @@ class SportmonksClient:
                     row.pop(route.unwrap, None)
                 if route.where and row.get(route.where[0]) != route.where[1]:
                     continue
+                for key, dest in route.inherit:
+                    if route.extract is not None and item.get(key) is not None:
+                        row = {**row, dest: item[key]}
                 for source, key, dest in route.lift:
                     nested = row.get(source)
                     if isinstance(nested, Mapping) and nested.get(key) is not None:

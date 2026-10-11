@@ -600,3 +600,127 @@ def test_a_mock_run_still_gates_on_the_published_corpus_not_on_fpl():
     report = _collect()
     assert "fpl_unmatched_with_minutes_by_cause" not in _shapes(report)
     assert "candidate registry" in _evidence(report, 19)
+
+
+# --- The display-name second pass (approved 2026-10-11, one test per guard) ----
+
+CLUB = 100       # a Sportmonks club id
+TEAM = "7"       # the FPL team it maps to
+
+
+def _sm(i, name, born, display=None, club=CLUB, position=26):
+    return parse_entity(Player, {
+        "id": i, "name": name, "display_name": display if display is not None else name,
+        "date_of_birth": born, "squad_team_id": club, "position_id": position}, "squads")
+
+
+def _fpl(i, first, second, web, born, team=7, minutes=900, etype=3):
+    return {"id": i, "first_name": first, "second_name": second, "web_name": web, "birth_date": born,
+            "team": team, "minutes": minutes, "element_type": etype}
+
+
+def _anchors():
+    """Three exact first-pass pairs for the club: enough for the crosswalk to trust it."""
+    sm = [_sm(1, "Ann Able", "2000-01-01"), _sm(2, "Bob Baker", "2000-02-02"), _sm(3, "Cy Cook", "2000-03-03")]
+    fpl = [_fpl(1, "Ann", "Able", "Able", "2000-01-01"), _fpl(2, "Bob", "Baker", "Baker", "2000-02-02"),
+           _fpl(3, "Cy", "Cook", "Cook", "2000-03-03")]
+    return sm, fpl
+
+
+def _run(extra_sm, extra_fpl, **kwargs):
+    sm, fpl = _anchors()
+    return trial_mapping.fpl_side(sm + extra_sm, trial_mapping.fpl_people(_bootstrap(*(fpl + extra_fpl))), **kwargs)
+
+
+LEGAL = _sm(9, "Piero Martin Hincapie Reyna", "2002-01-09", display="Piero Hincapie")
+TARGET = _fpl(9, "Piero", "Hincapie", "Hincapie", "2002-01-09")
+
+
+def test_the_display_name_pass_resolves_a_legal_name_and_reports_its_own_method():
+    side = _run([LEGAL], [TARGET])
+    assert side.with_minutes_resolved == 4 and side.second_pass["resolved"] == 1
+    assert side.by_method[trial_mapping.DISPLAY_NAME_METHOD] == 1
+    assert side.by_method["full_name_birth_date"] == 3, "the first-pass pairs keep their own method"
+
+
+def test_without_the_pass_the_same_row_stays_unresolved():
+    side = _run([LEGAL], [TARGET], second_pass=False)
+    assert side.with_minutes_resolved == 3 and trial_mapping.DISPLAY_NAME_METHOD not in side.by_method
+
+
+def test_the_pass_never_replaces_a_first_pass_pair():
+    """Ann resolves to element 1 on the first pass. Her display name would point at
+    element 4 (same birth date, different person); the pair must stay and the
+    would-be change is only counted."""
+    sm, fpl = _anchors()
+    ann = _sm(1, "Ann Able", "2000-01-01", display="Ann Bea Able")
+    other = _fpl(4, "Ann", "Bea Able", "Bea Able", "2000-01-01")
+    side = trial_mapping.fpl_side([ann] + sm[1:], trial_mapping.fpl_people(_bootstrap(*(fpl + [other]))))
+    assert side.second_pass["first_pass_pairs_changed"] == 1
+    assert side.second_pass["resolved"] == 0 and trial_mapping.DISPLAY_NAME_METHOD not in side.by_method
+    assert side.by_method["full_name_birth_date"] == 3
+    assert side.all_resolved == 3, "element 4 stays unresolved: the display name did not take it"
+
+
+def test_the_pass_only_looks_at_rows_the_first_pass_left_unresolved():
+    side = _run([LEGAL], [TARGET])
+    assert side.by_method["full_name_birth_date"] + side.by_method[trial_mapping.DISPLAY_NAME_METHOD] \
+        + side.by_method.get("surname_birth_date", 0) + side.by_method.get("full_name_unique", 0) == 4
+
+
+def test_a_second_row_cannot_take_an_element_a_first_pass_row_already_holds():
+    twin = _sm(10, "Ann Alternate Legal", "2000-01-01", display="Ann Able")
+    side = _run([twin], [])
+    assert side.second_pass["resolved"] == 0 and side.second_pass["rejected_taken"] == 1
+
+
+def test_a_missing_birth_date_on_the_provider_side_does_not_resolve():
+    """Without the method restriction this row would resolve through
+    `full_name_unique`, which needs no birth date."""
+    undated = _sm(11, "Piero Martin Hincapie Reyna", None, display="Piero Hincapie")
+    side = _run([undated], [TARGET])
+    assert side.second_pass["resolved"] == 0 and side.with_minutes_resolved == 3
+
+
+def test_a_missing_birth_date_on_the_fpl_side_does_not_resolve():
+    undated = _fpl(9, "Piero", "Hincapie", "Hincapie", None)
+    side = _run([LEGAL], [undated])
+    assert side.second_pass["resolved"] == 0 and side.with_minutes_resolved == 3
+
+
+def test_a_club_that_disagrees_with_the_crosswalk_does_not_resolve():
+    elsewhere = _fpl(9, "Piero", "Hincapie", "Hincapie", "2002-01-09", team=8)
+    side = _run([LEGAL], [elsewhere])
+    assert side.second_pass["resolved"] == 0 and side.second_pass["rejected_club"] == 1
+    assert side.with_minutes_resolved == 3
+
+
+def test_a_club_the_first_pass_could_not_vouch_for_does_not_resolve():
+    stranger = _sm(9, "Piero Martin Hincapie Reyna", "2002-01-09", display="Piero Hincapie", club=555)
+    side = _run([stranger], [TARGET])
+    assert side.second_pass["resolved"] == 0 and side.second_pass["rejected_club"] == 1
+
+
+def test_the_crosswalk_trusts_a_club_only_with_enough_unanimous_pairs():
+    assert trial_mapping.club_crosswalk([(1, "7"), (1, "7"), (1, "7")]) == {1: "7"}
+    assert trial_mapping.club_crosswalk([(1, "7"), (1, "7")]) == {}
+    assert trial_mapping.club_crosswalk([(1, "7"), (1, "7"), (1, "8")]) == {}
+    assert trial_mapping.club_crosswalk([(1, "7")] * 3 + [(2, "9")] * 3) == {1: "7", 2: "9"}
+
+
+def test_the_pass_audit_is_a_set_of_counts_and_nothing_else():
+    sm, fpl = _anchors()
+    side = trial_mapping.fpl_side(sm + [LEGAL], trial_mapping.fpl_people(_bootstrap(*(fpl + [TARGET]))))
+    assert side.second_pass == {
+        "resolved": 1, "rejected_taken": 0, "rejected_club": 0, "rejected_no_birth_date": 0,
+        "first_pass_pairs_changed": 0, "position_mismatch_new": 0, "position_mismatch_first": 0}
+
+
+def test_only_the_exact_name_and_birth_date_level_may_resolve_in_the_second_pass():
+    """With the display name 'Zed Smith', the registry's surname level would pair this
+    row with 'Bob Smith' (same last word, same birth date). The pass must not."""
+    row = _sm(12, "Zed Quentin Smith Jones", "1999-09-09", display="Zed Smith")
+    other = _fpl(12, "Bob", "Smith", "Smith", "1999-09-09")
+    side = _run([row], [other])
+    assert side.second_pass["resolved"] == 0 and side.with_minutes_resolved == 3
+    assert trial_mapping.DISPLAY_NAME_METHOD not in side.by_method
