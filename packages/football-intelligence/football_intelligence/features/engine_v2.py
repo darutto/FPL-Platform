@@ -13,10 +13,10 @@ from football_intelligence.ingestion.context_v2 import select_schedule, select_s
 from .registry_v2 import (
     COMPETITION_WEIGHTS, COMPETITION_WEIGHT_VERSION, CUTOFF_POLICY_VERSION,
     ENGINE_VERSION, FEATURE_REGISTRY_VERSION, RECENCY_WEIGHT_VERSION,
-    ROLE_MAPPING_VERSION,
+    ROLE_MAPPING_VERSION, ROLE_MAPPING_VERSIONS, ROLE_MAPPING_VERSION_V3,
 )
 
-ROLE_MAP = {
+ROLE_MAP_V2 = {
     "goalkeeper": ("goalkeeper", "center", "goalkeeper"),
     "central defender": ("center_back", "center", "defense"),
     "left back": ("full_back", "left", "defense"),
@@ -26,6 +26,25 @@ ROLE_MAP = {
     "central midfield": ("central_midfield", "center", "midfield"),
     "centre forward": ("forward", "center", "attack"),
 }
+
+
+#: role-map-v3 (live positions, decided 2026-10-11). Keys are the lower-cased
+#: Sportmonks detailed-position names. Decisions, not facts:
+#:  - Right/Left Midfield -> right/left wing. In FPL these are wide midfielders and M2 wants them
+#:    on their flank, so they take the wing role (a winger on the flank, attack depth).
+#:  - Attacking Midfield -> the new governed role ``attacking_midfield`` (centre, midfield depth):
+#:    the position of the number tens; leaving it unmapped would drop them from M2.
+#:  - Centre Back -> central defender, Attacker -> centre forward: same role, provider spelling.
+ROLE_MAP_V3 = {
+    **ROLE_MAP_V2,
+    "centre back": ROLE_MAP_V2["central defender"],
+    "left midfield": ROLE_MAP_V2["left wing"],
+    "right midfield": ROLE_MAP_V2["right wing"],
+    "attacking midfield": ("attacking_midfield", "center", "midfield"),
+    "attacker": ROLE_MAP_V2["centre forward"],
+}
+ROLE_MAPS = {ROLE_MAPPING_VERSION: ROLE_MAP_V2, ROLE_MAPPING_VERSION_V3: ROLE_MAP_V3}
+ROLE_MAP = ROLE_MAP_V2  # the v2 map under its old name
 
 
 class FeatureV2InputError(ValueError):
@@ -109,8 +128,12 @@ def _is_member(squads, team_id, player_id, at):
     return any(_utc(row.valid_from) < at and (pd.isna(row.valid_to) or _utc(row.valid_to) >= at) for row in rows.itertuples(index=False))
 
 
-def compute_features_v2(base_handle: RuntimeBuildHandle, context_build: Path):
+def compute_features_v2(base_handle: RuntimeBuildHandle, context_build: Path, *,
+                        role_map_version: str = ROLE_MAPPING_VERSION, assumption_status: str = "mock_validated"):
     """Return the four normalized v2 output frames and their source binding."""
+    if role_map_version not in ROLE_MAPS:
+        raise FeatureV2InputError(f"unknown role map version: {role_map_version}")
+    role_map = ROLE_MAPS[role_map_version]
     base_manifest, base_hash = _base_source(base_handle)
     context_manifest, context_hash = _context_source(context_build)
     base, context = _base_frames(base_handle), _context_frames(context_build)
@@ -122,7 +145,7 @@ def compute_features_v2(base_handle: RuntimeBuildHandle, context_build: Path):
         "canonical_build_id": base_manifest["build_id"], "canonical_manifest_hash": base_hash,
         "context_build_id": context_manifest["build_id"], "context_manifest_hash": context_hash,
         "feature_engine_version": ENGINE_VERSION, "feature_registry_version": FEATURE_REGISTRY_VERSION,
-        "cutoff_policy_version": CUTOFF_POLICY_VERSION, "assumption_status": "mock_validated",
+        "cutoff_policy_version": CUTOFF_POLICY_VERSION, "assumption_status": assumption_status,
     }
     player_rows, summary_rows, distribution_rows, team_rows = [], [], [], []
     team_seen = set()
@@ -174,17 +197,17 @@ def compute_features_v2(base_handle: RuntimeBuildHandle, context_build: Path):
         for segment in ("last_10", "last_3", "prior_7"):
             values = segments[segment]; mapped = []
             for _, _, row in values:
-                mapping = ROLE_MAP.get(str(row.detailed_position).casefold()) if pd.notna(row.detailed_position) else None
+                mapping = role_map.get(str(row.detailed_position).casefold()) if pd.notna(row.detailed_position) else None
                 if mapping: mapped.append(mapping)
             summary_rows.append({"fixture_id": target_id, "team_id": team_id, "player_id": player_id, "window_segment": segment,
                 "cutoff_utc": cutoff_text, "eligible_starts": len(values), "mapped_starts": len(mapped), "unmapped_starts": len(values)-len(mapped),
                 "modal_role": _mode([value[0] for value in mapped]), "role_change_comparable": comparable,
-                "role_mapping_version": ROLE_MAPPING_VERSION, "role_basis": "observed", **common_source})
+                "role_mapping_version": role_map_version, "role_basis": "observed", **common_source})
             counts = Counter(mapped)
             for (role, flank, depth), count in sorted(counts.items()):
                 distribution_rows.append({"fixture_id": target_id, "team_id": team_id, "player_id": player_id, "window_segment": segment,
                     "role": role, "flank": flank, "formation_depth": depth, "cutoff_utc": cutoff_text,
-                    "role_count": count, "role_share": count / len(values), "role_mapping_version": ROLE_MAPPING_VERSION,
+                    "role_count": count, "role_share": count / len(values), "role_mapping_version": role_map_version,
                     "role_basis": "observed", **common_source})
 
         team_key = (target_id, team_id)

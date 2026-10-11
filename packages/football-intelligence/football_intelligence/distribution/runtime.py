@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from football_intelligence.ingestion.builder import resolve_contained_build_directory, validate_build
+from football_intelligence.provenance import refuse_live_trial
 
 from .config import RemoteStoreConfig
 from .errors import DistributionError
@@ -23,10 +24,16 @@ class RuntimeStatus:
 
 
 class RuntimeBuildHandle:
-    def __init__(self, cache_root: Path): self.cache_root = cache_root
+    def __init__(self, cache_root: Path, *, allow_live_trial_local: bool = False):
+        self.cache_root = cache_root
+        # Only the trial's own analysis scripts set this. The serving runtime never does.
+        self.allow_live_trial_local = allow_live_trial_local
     def manifest(self) -> dict:
         pointer = parse_pointer((self.cache_root / "_football_latest.json").read_bytes())
-        return validate_build(resolve_contained_build_directory(self.cache_root / "builds", pointer["build_id"]))
+        manifest = validate_build(resolve_contained_build_directory(self.cache_root / "builds", pointer["build_id"]))
+        if not self.allow_live_trial_local:
+            refuse_live_trial(manifest, "RuntimeBuildHandle")
+        return manifest
     def dataset_path(self, entity: str) -> Path:
         manifest = self.manifest()
         if entity not in manifest["entity_files"]: raise KeyError(entity)

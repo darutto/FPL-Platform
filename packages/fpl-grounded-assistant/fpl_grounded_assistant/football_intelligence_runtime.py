@@ -131,6 +131,11 @@ def _load_runtime(root: Path | None = None) -> _Runtime | None:
 
         raise FeatureV2ValidationError("invalid bound v2 context build") from exc
     feature_manifest = validate_feature_build_v2(feature_build, base, context_build)
+    # A store built from live trial reads is local to the trial and is never served.
+    from football_intelligence.provenance import refuse_live_trial
+
+    refuse_live_trial(context_manifest, "assistant runtime (context)")
+    refuse_live_trial(feature_manifest, "assistant runtime (features)")
     context_fixtures = pd.read_parquet(
         context_build / context_manifest["entity_files"]["fixtures"]
     )
