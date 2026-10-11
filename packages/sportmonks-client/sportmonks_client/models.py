@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any, Mapping
+from urllib.parse import parse_qs, urlparse
 
 from .errors import SportmonksSchemaError
 
@@ -63,6 +64,17 @@ def parse_entity(model: type[ProviderEntity], payload: Mapping[str, Any], endpoi
     return model(provider_id, endpoint, dict(payload))
 
 
+def _parse_next_page(raw: Any, endpoint: str) -> int | None:
+    """Live Sportmonks sends next_page as a URL (``...?page=2``); fixtures send an int."""
+    if raw is None or (isinstance(raw, int) and not isinstance(raw, bool)):
+        return raw
+    if isinstance(raw, str):
+        values = parse_qs(urlparse(raw).query).get("page", [])
+        if len(values) == 1 and values[0].isdigit():
+            return int(values[0])
+    raise SportmonksSchemaError("pagination next_page must be integer, page URL or null", endpoint=endpoint)
+
+
 def parse_envelope(payload: Any, endpoint: str) -> ResponseEnvelope:
     if not isinstance(payload, dict) or "data" not in payload or not isinstance(payload["data"], list):
         raise SportmonksSchemaError("malformed response envelope", endpoint=endpoint)
@@ -77,8 +89,6 @@ def parse_envelope(payload: Any, endpoint: str) -> ResponseEnvelope:
         has_more = raw_pagination.get("has_more")
         if not isinstance(has_more, bool):
             raise SportmonksSchemaError("pagination has_more must be boolean", endpoint=endpoint)
-        next_page = raw_pagination.get("next_page")
-        if next_page is not None and not isinstance(next_page, int):
-            raise SportmonksSchemaError("pagination next_page must be integer or null", endpoint=endpoint)
+        next_page = _parse_next_page(raw_pagination.get("next_page"), endpoint)
         pagination = Pagination(raw_pagination["current_page"], has_more, next_page)
     return ResponseEnvelope(tuple(dict(item) for item in payload["data"]), pagination, dict(raw_meta or {}))
