@@ -1,5 +1,10 @@
 # Grid check for Leo — who plays on which side? (2026-10-11)
 
+> **Superseded for Liverpool-City (2026-10-11, later).** That table was built before the match was played,
+> from provisional lineups, and did not match Sofascore. The corrected sides are in
+> [provisional lineups](2026-10-11-provisional-lineups.md). The Arsenal-Leeds table (a finished match) stands
+> and was confirmed by Leo.
+
 No payloads: just the starters of three recent Premier League matches, the provider's grid cell (`formation_field = row:col`), and the **side I infer** from it. Please confirm or correct the side for each player you know. A row marked ✗ by you is worth more than ten ✓.
 
 How the side is inferred: row 1 is the goalkeeper; within a row, `col` is counted along the touchline and is the same physical side for both teams, so for the **home** team col 1 is its right and the highest col its left, and for the **away** team the numbering is mirrored (col 1 = its left). The last column is the provider's own detailed position for that starter, shown as a cross-check (it is not used to compute the side).
