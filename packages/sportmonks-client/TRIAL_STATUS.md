@@ -1,17 +1,17 @@
 # TRIAL_STATUS.md — Sportmonks trial dashboard
 
 **Template.** Created by FI-8 S1. Updated **daily** during the FI-9 trial
-(~2026-08-10 to 2026-08-24) and closed out with the go/no-go decision.
+(2026-10-11 to 2026-10-25) and closed out with the go/no-go decision.
 
 This file is the §14.1 trial-dashboard artifact. It is the single place a reader
 looks to answer "how is the trial going, and what do we still not know?"
 
 | | |
 |---|---|
-| Trial start | *not started* |
-| Trial end | *not started* |
-| Days elapsed | — |
-| Last updated | 2026-08-08 (template created; trial not begun) |
+| Trial start | 2026-10-11 |
+| Trial end | 2026-10-25 03:09 UTC (Starter `Trialing until`, from the API's own subscription block); decision 23–24 Oct |
+| Days elapsed | 0 |
+| Last updated | 2026-10-11 (day 0, after plan activation) |
 | Current verdict | **undecided** — see [TRIAL_GO_NO_GO.md](TRIAL_GO_NO_GO.md) |
 
 ## How to use this file
@@ -33,6 +33,7 @@ dashboard-only. The scripts' report schema is frozen at exactly four
 
 | Status | Meaning |
 |---|---|
+| `blocked` | live run done but the token/plan cannot supply the data — **dashboard-only, not a script status**; script emitted `unmet`/`degraded` |
 | `not_started` | no run yet — **dashboard-only, not a script status** |
 | `observed` | present in a live payload, with evidence |
 | `degraded` | present but not in the documented shape, or incomplete — record what was found |
@@ -46,7 +47,7 @@ them — the wording is the acceptance bar.
 
 | # | Objective | Owning script | Status | Evidence |
 |---|---|---|---|---|
-| 1 | Competition and season identifiers | `trial_entities.py` | `not_started` | mock rehearsal only: [trial-reports/examples/trial_entities.json](trial-reports/examples/trial_entities.json) — **not** a live observation |
+| 1 | Competition and season identifiers | `trial_entities.py` | `observed` | Premier League = league 8; 2026/27 = season 28083 (current, 20 clubs); UCL 2, UEL 5, UECL 2286, FA Cup 24, Carabao Cup 27 also visible. 15 of 15 families reachable in a 49-request live sweep after the route remap (4 truncated by the explicit page bound). Live evidence: [trial-reports/live/2026-10-11-routes.md](trial-reports/live/2026-10-11-routes.md). *Earlier day-0 block (free-plan token) is in the daily log and [day0.md](trial-reports/live/2026-10-11-day0.md).* |
 | 2 | Premier League fixtures | `trial_fixtures.py` | `not_started` | mock rehearsal only: [trial-reports/examples/trial_fixtures.json](trial-reports/examples/trial_fixtures.json) — **not** a live observation |
 | 3 | Cross-competition fixtures for Premier League clubs | `trial_fixtures.py` | `not_started` | mock rehearsal only: [trial-reports/examples/trial_fixtures.json](trial-reports/examples/trial_fixtures.json) — **not** a live observation |
 | 4 | Team and squad completeness | `trial_squads.py` | `not_started` | |
@@ -62,7 +63,7 @@ them — the wording is the acceptance bar.
 | 14 | Player match statistics | `trial_stats.py` | `not_started` | mock rehearsal only: [trial-reports/examples/trial_stats.json](trial-reports/examples/trial_stats.json) — **not** a live observation |
 | 15 | Data update timing before, during, and after matches | `trial_stats.py` | `not_applicable` | *requires live observation — see below* |
 | 16 | Post-match corrections | `trial_stats.py` | `not_applicable` | *requires live observation — see below* |
-| 17 | API rate limits and pagination | `trial_auth.py` | `not_started` | mock rehearsal only: [trial-reports/examples/trial_auth.json](trial-reports/examples/trial_auth.json) — **not** a live observation |
+| 17 | API rate limits and pagination | `trial_auth.py` | `observed` | `x-ratelimit-limit: 2500`, `x-ratelimit-remaining` on every response (per entity, hourly; body also carries `rate_limit.resets_in_seconds`); no `x-ratelimit-reset`, no `Retry-After`, no 429 seen (retry pacing still unmeasured). Pagination walked 3 pages (`leagues?per_page=3`), `next_page` is a URL (#408). Evidence: [trial-reports/live/2026-10-11-routes.md](trial-reports/live/2026-10-11-routes.md) |
 | 18 | Stable provider IDs | `trial_mapping.py` | `not_started` | |
 | 19 | FPL identity-match rate | `trial_mapping.py` | `not_started` | |
 | 20 | Raw-data storage and derived-data licensing | *document, not script* — [TRIAL_LICENSING_CHECKLIST.md](TRIAL_LICENSING_CHECKLIST.md) | `not_started` | |
@@ -89,7 +90,8 @@ One row per trial day. Keep it short; the detail belongs in the report artifacts
 
 | Date | Objectives moved | Blockers | Notes |
 |---|---|---|---|
-| | | | |
+| 2026-10-11 | 1, 17 observed | none | Token now sees the trial plan (Starter + Euro Club Tournaments); 7 leagues. Found: `next_page` is a URL (#408) and 8 of 15 families are includes/nested routes, not root endpoints (remap in #409). 15/15 families reachable. ~440 calls used by end of day 0 (limit 2500/h per entity). #126 rescue merged (#407). |
+| 2026-10-11 (earlier, superseded) | none (1, 17 blocked) | Token saw only 4 free-plan leagues (no PL); 14 of 15 endpoint families unavailable | Historical: diagnosis was the token plan, resolved by Leo activating Starter + Euro Club Tournaments. See [day0.md](trial-reports/live/2026-10-11-day0.md). |
 
 ## Open questions raised during the trial
 
