@@ -18,10 +18,22 @@ const LOCK_THRESHOLD = 8; // px before we decide horizontal vs vertical
 
 interface DragState {
   active: boolean;
+  pointerId: number;
   startX: number;
   startY: number;
   dx: number;
   locked: 'h' | 'v' | null;
+}
+
+// A scrollable child owns its entire gesture, including at either scroll edge.
+// Do not transfer that gesture to screen navigation when it runs out of room.
+function ownsGesture(target: Element, surface: Element): boolean {
+  if (target.closest('[data-no-swipe], table, button, input, textarea, select, a, [contenteditable="true"], [role="dialog"]')) return true;
+  for (let el: Element | null = target; el && el !== surface; el = el.parentElement) {
+    const style = window.getComputedStyle(el);
+    if (/auto|scroll/.test(style.overflowX) && el.scrollWidth > el.clientWidth) return true;
+  }
+  return false;
 }
 
 interface Props {
@@ -50,7 +62,9 @@ export function PagerScreen({
 }
 
 export default function SwipePager({ screen, onScreenChange, labels, children }: Props) {
-  const dragRef = useRef<DragState>({ active: false, startX: 0, startY: 0, dx: 0, locked: null });
+  const dragRef = useRef<DragState>({ active: false, pointerId: -1, startX: 0, startY: 0, dx: 0, locked: null });
+  const surfaceRef = useRef<HTMLDivElement>(null);
+  const pointersRef = useRef(new Set<number>());
   const [dragDx, setDragDx] = useState(0);
   const lastScreen = labels.length - 1;
 
@@ -59,11 +73,71 @@ export default function SwipePager({ screen, onScreenChange, labels, children }:
     [onScreenChange, lastScreen],
   );
 
+  const cancelDrag = useCallback(() => {
+    dragRef.current.active = false;
+    dragRef.current.dx = 0;
+    setDragDx(0);
+  }, []);
+
+  useEffect(() => {
+    const surface = surfaceRef.current;
+    if (!surface) return;
+    const down = (e: PointerEvent) => {
+      pointersRef.current.add(e.pointerId);
+      if (pointersRef.current.size > 1) cancelDrag();
+    };
+    const release = (e: PointerEvent) => {
+      pointersRef.current.delete(e.pointerId);
+      // React's surface pointerup has already committed, if eligible. Releases
+      // outside the surface and all cancellations must only reset the offset.
+      if (dragRef.current.pointerId === e.pointerId) cancelDrag();
+    };
+    const touchStart = (e: TouchEvent) => {
+      if (e.touches.length > 1) cancelDrag();
+    };
+    const touchMove = (e: TouchEvent) => {
+      const d = dragRef.current;
+      if (e.touches.length !== 1 || (window.visualViewport?.scale ?? 1) > 1) {
+        cancelDrag();
+        return;
+      }
+      if (!d.active) return;
+      const dx = e.touches[0].clientX - d.startX;
+      const dy = e.touches[0].clientY - d.startY;
+      // Keep native pan and pinch available by default. Only a deliberate
+      // horizontal pager drag suppresses native panning. This must be a native
+      // non-passive listener; React's touchmove listener is passive.
+      if (d.locked === null && Math.max(Math.abs(dx), Math.abs(dy)) >= LOCK_THRESHOLD) {
+        d.locked = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
+      }
+      if (d.locked === 'v') cancelDrag();
+      else if (d.locked === 'h' && e.cancelable) e.preventDefault();
+    };
+    const blur = () => { pointersRef.current.clear(); cancelDrag(); };
+    document.addEventListener('pointerdown', down, true);
+    document.addEventListener('pointerup', release);
+    document.addEventListener('pointercancel', release);
+    surface.addEventListener('touchstart', touchStart, { passive: true });
+    surface.addEventListener('touchmove', touchMove, { passive: false });
+    window.addEventListener('blur', blur);
+    return () => {
+      document.removeEventListener('pointerdown', down, true);
+      document.removeEventListener('pointerup', release);
+      document.removeEventListener('pointercancel', release);
+      surface.removeEventListener('touchstart', touchStart);
+      surface.removeEventListener('touchmove', touchMove);
+      window.removeEventListener('blur', blur);
+    };
+  }, [cancelDrag]);
+
+  useEffect(() => { cancelDrag(); }, [screen, cancelDrag]);
+
   // Keyboard nav — ←/→ between screens, unless typing in a field.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+      if (e.defaultPrevented || target.isContentEditable || document.fullscreenElement) return;
+      if (target instanceof Element && !target.closest('[data-pager-navigation]') && surfaceRef.current && ownsGesture(target, surfaceRef.current)) return;
       if (e.key === 'ArrowLeft') { e.preventDefault(); goTo(screen - 1); }
       else if (e.key === 'ArrowRight') { e.preventDefault(); goTo(screen + 1); }
     };
@@ -72,22 +146,22 @@ export default function SwipePager({ screen, onScreenChange, labels, children }:
   }, [screen, goTo]);
 
   const onPointerDown = (e: React.PointerEvent) => {
-    const tag = (e.target as HTMLElement).tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'SELECT' || tag === 'A') return;
-    if ((e.target as HTMLElement).closest('[data-no-swipe]')) return;
-    dragRef.current = { active: true, startX: e.clientX, startY: e.clientY, dx: 0, locked: null };
+    if (pointersRef.current.size > 1 || e.isPrimary === false || e.button !== 0) return;
+    if ((window.visualViewport?.scale ?? 1) > 1 || document.fullscreenElement) return;
+    if (ownsGesture(e.target as Element, e.currentTarget)) return;
+    dragRef.current = { active: true, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, dx: 0, locked: null };
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
     const d = dragRef.current;
-    if (!d.active) return;
+    if (!d.active || e.pointerId !== d.pointerId) return;
     const dx = e.clientX - d.startX;
     const dy = e.clientY - d.startY;
     // Axis lock: if vertical wins early, abandon the swipe so content scrolls.
     if (d.locked === null) {
       if (Math.abs(dx) < LOCK_THRESHOLD && Math.abs(dy) < LOCK_THRESHOLD) return;
       d.locked = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
-      if (d.locked === 'v') { d.active = false; return; }
+      if (d.locked === 'v') { cancelDrag(); return; }
     }
     // Resistance at the outer edges.
     let clamped = dx;
@@ -96,9 +170,9 @@ export default function SwipePager({ screen, onScreenChange, labels, children }:
     setDragDx(clamped);
   };
 
-  const endDrag = () => {
+  const endDrag = (e: React.PointerEvent) => {
     const d = dragRef.current;
-    if (!d.active) { setDragDx(0); return; }
+    if (!d.active || e.pointerId !== d.pointerId) return;
     d.active = false;
     if (d.locked === 'h' && Math.abs(d.dx) > SWIPE_THRESHOLD) {
       goTo(screen + (d.dx < 0 ? 1 : -1));
@@ -117,6 +191,7 @@ export default function SwipePager({ screen, onScreenChange, labels, children }:
             key={lbl}
             onClick={() => goTo(i)}
             data-no-swipe
+            data-pager-navigation
             aria-current={screen === i ? 'true' : undefined}
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest transition-colors ${
               screen === i ? 'bg-bf-coral/15 text-bf-coral' : 'text-bf-text/40 hover:text-bf-text/70'
@@ -134,14 +209,17 @@ export default function SwipePager({ screen, onScreenChange, labels, children }:
 
       {/* Swipe surface */}
       <div
-        className={`flex-1 min-h-0 overflow-hidden relative touch-pan-y ${
+        ref={surfaceRef}
+        className={`flex-1 min-h-0 overflow-hidden relative touch-auto ${
           isDragging ? 'cursor-grabbing select-none' : 'cursor-grab'
         }`}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={endDrag}
-        onPointerCancel={endDrag}
-        onPointerLeave={endDrag}
+        onPointerCancel={cancelDrag}
+        onTouchCancel={cancelDrag}
+        onPointerLeave={cancelDrag}
+        onLostPointerCapture={cancelDrag}
       >
         {/* Sliding track */}
         <div
@@ -191,6 +269,7 @@ function EdgeHint({
     <button
       onClick={onClick}
       data-no-swipe
+      data-pager-navigation
       title={`Ir a ${label}`}
       className={`absolute top-1/2 -translate-y-1/2 z-10 px-1 py-3.5 rounded-lg border border-white/10 bg-bf-surface/85 backdrop-blur flex flex-col items-center gap-1.5 opacity-80 hover:opacity-100 transition-opacity ${accentClass} ${
         side === 'left' ? 'left-2' : 'right-2'

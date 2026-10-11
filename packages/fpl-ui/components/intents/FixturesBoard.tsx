@@ -155,7 +155,7 @@ export function FixturesBoard({
   const openPresentation = () => {
     setView('compact');
     setPresentationMode(true);
-    void presentationRef.current?.requestFullscreen().catch(() => {
+    void presentationRef.current?.requestFullscreen?.().catch(() => {
       // The fixed overlay remains useful when native fullscreen is unavailable.
     });
   };
@@ -344,6 +344,7 @@ export function FixturesBoard({
 
       <div
           ref={presentationRef}
+          data-no-swipe
           className={presentationMode
             ? 'fixed inset-0 z-[100] flex min-h-[100dvh] flex-col overflow-hidden bg-bf-ink px-[clamp(16px,3vw,56px)] py-[clamp(14px,2.5vh,36px)] text-white'
             : 'pointer-events-none fixed inset-0 -z-10 flex min-h-[100dvh] flex-col overflow-hidden opacity-0'}
