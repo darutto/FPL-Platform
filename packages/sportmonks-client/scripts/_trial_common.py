@@ -638,6 +638,8 @@ def _nest(family: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
     route = get_route(family)
     if route.extract is None:
         return {"data": rows}
+    if family == "players":  # one nested object per squad row, not a list
+        return {"data": [{"id": row["id"], "player": row} for row in rows]}
     rows = [dict(row) for row in rows]
     if route.where:
         key, value = route.where
@@ -670,7 +672,7 @@ def routes_transport(chosen: Mapping[str, Any]) -> EndpointReplayTransport:
         by_key.setdefault(get_route(family)[0], {})[family] = item
     mapped: dict[str, Any] = {}
     for key, group in by_key.items():
-        if "{start}" not in key:
+        if "{start}" not in key and len(group) == 1:
             ((_family, item),) = group.items()
             mapped[key] = item if isinstance(item, Exception) else response(item)
             continue
