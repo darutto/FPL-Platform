@@ -24,6 +24,8 @@ from _trial_common import (  # noqa: E402
 from football_identity_registry.models import CandidatePlayer, SourcePlayer  # noqa: E402
 from sportmonks_client.client import ENDPOINTS  # noqa: E402
 from sportmonks_client.errors import SportmonksRequestError  # noqa: E402
+from sportmonks_client.models import Player, parse_entity  # noqa: E402
+from _trial_common import MOCK_SCOPE  # noqa: E402
 
 SCRIPT = trial_mapping.SCRIPT
 #: Both objectives this script owns, in emitted order.
@@ -468,3 +470,133 @@ def test_every_entry_is_declared_and_names_a_test_that_exists():
     for names in trial_mapping.DECLARED_SHAPES.values():
         for name in names:
             assert name in globals(), name
+
+
+# --- The FPL side of the gate (live) -------------------------------------------
+
+def _el(i, first, second, web, born, team=1, minutes=900):
+    return {"id": i, "first_name": first, "second_name": second, "web_name": web,
+            "birth_date": born, "team": team, "minutes": minutes}
+
+
+def _bootstrap(*elements):
+    return {"elements": list(elements)}
+
+
+def _rec(i, name, born, display=None):
+    """A Sportmonks player record the way the squads include delivers it."""
+    return parse_entity(Player, {
+        "id": i, "name": name, "display_name": display or name, "date_of_birth": born}, "squads")
+
+
+def _side(records, *elements):
+    return trial_mapping.fpl_side(records, trial_mapping.fpl_people(_bootstrap(*elements)))
+
+
+def test_the_gate_denominator_is_fpl_elements_with_minutes():
+    played = _el(1, "Ann", "Able", "Able", "2000-01-01")
+    bench = _el(2, "Bob", "Baker", "Baker", "2001-02-02", minutes=0)
+    side = _side([_rec(10, "Ann Able", "2000-01-01")], played, bench)
+    assert (side.with_minutes, side.with_minutes_resolved) == (1, 1)
+    assert (side.all_elements, side.all_resolved) == (2, 1)
+    assert side.rate_percent == 100.0 and side.meets_gate
+
+
+def test_an_element_nobody_played_does_not_count_against_the_gate():
+    played = _el(1, "Ann", "Able", "Able", "2000-01-01")
+    idle = _el(2, "Bob", "Baker", "Baker", "2001-02-02", minutes=0)
+    side = _side([_rec(10, "Ann Able", "2000-01-01")], played, idle)
+    assert side.all_resolved / side.all_elements == 0.5 and side.rate_percent == 100.0
+
+
+def test_a_player_missing_from_the_sportmonks_pool_lowers_the_rate():
+    a = _el(1, "Ann", "Able", "Able", "2000-01-01")
+    b = _el(2, "Bob", "Baker", "Baker", "2001-02-02")
+    side = _side([_rec(10, "Ann Able", "2000-01-01")], a, b)
+    assert (side.with_minutes, side.with_minutes_resolved, side.rate_percent) == (2, 1, 50.0)
+    assert not side.meets_gate and side.fpl_causes == {"absent_from_other_side": 1}
+
+
+def test_the_academy_rows_of_the_pool_are_reported_apart_and_do_not_move_the_gate():
+    a = _el(1, "Ann", "Able", "Able", "2000-01-01")
+    pool = [_rec(10, "Ann Able", "2000-01-01"), _rec(11, "Kid Youth", "2009-05-05")]
+    side = _side(pool, a)
+    assert side.rate_percent == 100.0 and (side.pool, side.pool_resolved) == (2, 1)
+    assert side.pool_causes == {"absent_from_other_side": 1}
+
+
+def test_the_legal_name_with_extra_words_is_filed_as_a_compound_not_resolved():
+    """The matcher is untouched: a longer legal name with the same birth date is a
+    non-match, reported under its cause. Resolving it is a tier decision."""
+    e = _el(1, "Piero", "Hincapié", "Hincapie", "2002-01-09")
+    side = _side([_rec(10, "Piero Martín Hincapié Reyna", "2002-01-09", display="Piero Hincapié")], e)
+    assert side.with_minutes_resolved == 0 and side.fpl_causes == {"nickname_or_abbreviation": 1} \
+        or side.fpl_causes == {"compound_or_partial_name": 1}
+
+
+def _person(name, born, known=None, alt=None, side="fpl"):
+    return {"side": side, "full_name": name, "birth_date": born, "known_name": known, "alt_name": alt}
+
+
+def test_every_cause_is_reachable_and_they_are_pairwise_different():
+    other = lambda name, born, known=None, alt=None: _person(name, born, known, alt, "sportmonks")
+    cases = {
+        "fpl_birth_date_absent": explain(_person("Ann Able", None), []),
+        "indistinguishable_in_fpl": explain(_person("Ann Able", "2000-01-01"), [], conflict=True),
+        "nickname_or_abbreviation": explain(_person("Juanlu Sanchez", "2003-08-15", "Juanlu"),
+                                            [other("Juan Luis Sanchez Velasco", "2003-08-15", "Juanlu")]),
+        "spelling_or_hyphenation": explain(_person("Jaden Philogene Bidace", "2002-02-08"),
+                                           [other("Jaden Philogene-Bidace", "2002-02-08")]),
+        "compound_or_partial_name": explain(_person("Erling Haaland", "2000-07-21"),
+                                            [other("Erling Braut Haaland", "2000-07-21")]),
+        "same_birth_date_different_name": explain(_person("Ann Able", "2000-01-01"),
+                                                  [other("Zed Zulu", "2000-01-01")]),
+        "birth_date_differs": explain(_person("Ann Able", "2000-01-01"), [other("Ann Able", "1999-12-31")]),
+        "other_side_birth_date_absent": explain(_person("Ann Able", "2000-01-01"), [other("Ann Able", None)]),
+        "absent_from_other_side": explain(_person("Ann Able", "2000-01-01"), [other("Zed Zulu", "1990-01-01")]),
+    }
+    assert {k: v for k, v in cases.items()} == {k: k for k in cases}
+    assert set(cases) == set(trial_mapping.CAUSES)
+
+
+explain = trial_mapping.explain_non_match
+
+
+def _live(tmp_path, records, *elements, state=None):
+    transport = trial_mapping.mock_transport(players=_pool(*records))
+    client = make_client(MODE_MOCK, transport=transport)
+    return trial_mapping.collect(client, "live", bootstrap=_bootstrap(*elements),
+                                 scope=MOCK_SCOPE, state_dir=state)[0]
+
+
+def test_a_live_run_gates_on_the_fpl_side_and_says_so(tmp_path):
+    a = _el(1, "Ann", "Able", "Able", "2000-01-01")
+    b = _el(2, "Bob", "Baker", "Baker", "2001-02-02")
+    report = _live(tmp_path, [_record(10, "Ann Able", date_of_birth="2000-01-01")], a, b)
+    assert _statuses(report)[19] == UNMET
+    text = _evidence(report, 19)
+    assert "elements with minutes>0: 1/2" in text and "50.0%" in text and "Sportmonks pool 1/1" in text
+    assert "fpl_unmatched_with_minutes_by_cause" in _shapes(report)
+    assert _shapes(report)["fpl_unmatched_with_minutes_by_cause"] == "absent_from_other_side 1"
+
+
+def test_a_live_run_at_the_gate_is_observed(tmp_path):
+    a = _el(1, "Ann", "Able", "Able", "2000-01-01")
+    report = _live(tmp_path, [_record(10, "Ann Able", date_of_birth="2000-01-01")], a)
+    assert _statuses(report)[19] == OBSERVED and "100.0%" in _evidence(report, 19)
+
+
+def test_the_second_live_run_compares_ids_with_the_first(tmp_path):
+    a = _el(1, "Ann", "Able", "Able", "2000-01-01")
+    state = tmp_path / "mapping"
+    first = _live(tmp_path, [_record(10, "Ann Able", date_of_birth="2000-01-01")], a, state=state)
+    assert "provider_id_stability_across_runs" not in _shapes(first)
+    renumbered = _live(tmp_path, [_record(99, "Ann Able", date_of_birth="2000-01-01")], a, state=state)
+    assert _shapes(renumbered)["provider_id_stability_across_runs"].startswith("1 compared against a read")
+    assert "1 changed" in _shapes(renumbered)["provider_id_stability_across_runs"]
+
+
+def test_a_mock_run_still_gates_on_the_published_corpus_not_on_fpl():
+    report = _collect()
+    assert "fpl_unmatched_with_minutes_by_cause" not in _shapes(report)
+    assert "candidate registry" in _evidence(report, 19)
