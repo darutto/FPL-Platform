@@ -467,8 +467,20 @@ def fpl_people(bootstrap: dict[str, Any]) -> list[dict[str, Any]]:
             "full_name": f"{element.get('first_name') or ''} {element.get('second_name') or ''}".strip(),
             "known_name": element.get("web_name"), "birth_date": (birth or "")[:10] or None,
             "team": str(element.get("team")), "minutes": int(element.get("minutes") or 0),
+            "element_type": element.get("element_type"),
         })
     return people
+
+
+#: The method name the second pass reports under, so the gate shows how many
+#: resolutions come from it. Distinct from every tier of the registry.
+DISPLAY_NAME_METHOD = "display_name_birth_date"
+#: A Sportmonks club is trusted to stand for one FPL team only when the first
+#: pass produced at least this many pairs for it and every one agreed.
+CLUB_GUARD_MIN_PAIRS = 3
+#: Sportmonks `position_id` -> FPL `element_type`, used only to report (position
+#: is not a guard: the two sources classify wide players differently).
+_POSITION = {24: 1, 25: 2, 26: 3, 27: 4}
 
 
 @dataclass(frozen=True)
@@ -484,6 +496,8 @@ class FplSide:
     fpl_causes: dict[str, int]
     pool_causes: dict[str, int]
     unmatched: tuple[dict[str, Any], ...]
+    by_method: dict[str, int]
+    second_pass: dict[str, int]
 
     @property
     def rate_percent(self) -> float:
@@ -494,18 +508,45 @@ class FplSide:
         return self.with_minutes > 0 and self.rate_percent >= GATE_PERCENT
 
 
-def fpl_side(records: Sequence[Any], people: Sequence[dict[str, Any]]) -> FplSide:
+def club_crosswalk(pairs: Sequence[tuple[Any, str]]) -> dict[Any, str]:
+    """Sportmonks club -> FPL team, from first-pass pairs only.
+
+    A club is mapped only when it has at least ``CLUB_GUARD_MIN_PAIRS`` pairs and
+    all of them name the same FPL team; any dissent leaves it unmapped, and an
+    unmapped club cannot vouch for a second-pass resolution.
+    """
+    votes: dict[Any, dict[str, int]] = {}
+    for club, team in pairs:
+        votes.setdefault(club, {})[team] = votes.get(club, {}).get(team, 0) + 1
+    return {club: next(iter(teams)) for club, teams in votes.items()
+            if len(teams) == 1 and sum(teams.values()) >= CLUB_GUARD_MIN_PAIRS}
+
+
+def fpl_side(records: Sequence[Any], people: Sequence[dict[str, Any]], *,
+             second_pass: bool = True) -> FplSide:
     """Run the registry's matcher from the Sportmonks pool to the FPL elements.
 
-    A Sportmonks record resolves when ``match_player`` returns one of the FPL
-    candidates; an FPL element resolves when some record landed on it.
+    First pass: the provider's `name` as the full name. Second pass (approved
+    2026-10-11), only over the rows the first left unresolved: the provider's
+    `display_name` as the full name, resolving only through
+    ``full_name_birth_date`` (both birth dates present and equal), only to an
+    FPL element no first-pass row already took, and only when the club agrees
+    with the crosswalk the first pass built. A second-pass row never replaces a
+    first-pass pair.
     """
     rows = [{"full_name": p["full_name"], "known_name": p["known_name"],
              "birth_date": p["birth_date"], "team_provider_id": p["team"]} for p in people]
     candidates, conflicts = registry_candidates({"candidates": rows})
+    by_canonical: dict[str, list[dict[str, Any]]] = {}
+    for person in people:
+        by_canonical.setdefault(canonical_player_id(person["full_name"], person["birth_date"]), []).append(person)
     sources = source_players(records)
+    by_id = {str(r.provider_id): r for r in records}
+
     hit: set[str] = set()
     pool_matched: set[str] = set()
+    pairs: dict[str, str] = {}          # provider id -> canonical id, first pass
+    by_method: dict[str, int] = {}
     for source in sources:
         if identity_fingerprint(source.full_name, source.birth_date) in conflicts:
             continue
@@ -513,6 +554,53 @@ def fpl_side(records: Sequence[Any], people: Sequence[dict[str, Any]]) -> FplSid
         if result.matched:
             hit.add(result.canonical_player_id)
             pool_matched.add(source.provider_id)
+            pairs[source.provider_id] = result.canonical_player_id
+            by_method[result.match_method] = by_method.get(result.match_method, 0) + 1
+
+    audit = {"resolved": 0, "rejected_taken": 0, "rejected_club": 0, "rejected_no_birth_date": 0,
+             "first_pass_pairs_changed": 0, "position_mismatch_new": 0, "position_mismatch_first": 0}
+    for pid, canon in pairs.items():
+        people_for = by_canonical.get(canon, [])
+        if len(people_for) == 1 and _POSITION.get(by_id[pid].raw_fields.get("position_id")) != people_for[0].get("element_type"):
+            audit["position_mismatch_first"] += 1
+
+    if second_pass:
+        crosswalk = club_crosswalk([
+            (by_id[pid].raw_fields.get("squad_team_id"), by_canonical[canon][0]["team"])
+            for pid, canon in pairs.items()
+            if len(by_canonical.get(canon, [])) == 1 and by_id[pid].raw_fields.get("squad_team_id") is not None])
+        for source in sources:
+            record = by_id[source.provider_id]
+            display = str(record.raw_fields.get("display_name") or "").strip()
+            alt = SourcePlayer(provider="sportmonks", provider_id=source.provider_id,
+                               full_name=display or source.full_name, team_provider_id=None,
+                               birth_date=source.birth_date, known_name=source.known_name)
+            if identity_fingerprint(alt.full_name, alt.birth_date) in conflicts:
+                continue
+            result = match_player(alt, candidates) if display else None
+            if source.provider_id in pairs:
+                # Measured, never applied: would the display name have moved a first-pass pair?
+                if result is not None and result.matched and result.canonical_player_id != pairs[source.provider_id]:
+                    audit["first_pass_pairs_changed"] += 1
+                continue
+            if result is None or not result.matched or result.match_method != "full_name_birth_date":
+                continue
+            matched = by_canonical.get(result.canonical_player_id, [])
+            if not source.birth_date or len(matched) != 1 or not matched[0]["birth_date"]:
+                audit["rejected_no_birth_date"] += 1
+                continue
+            if result.canonical_player_id in hit:
+                audit["rejected_taken"] += 1
+                continue
+            if crosswalk.get(record.raw_fields.get("squad_team_id")) != matched[0]["team"]:
+                audit["rejected_club"] += 1
+                continue
+            hit.add(result.canonical_player_id)
+            pool_matched.add(source.provider_id)
+            audit["resolved"] += 1
+            by_method[DISPLAY_NAME_METHOD] = by_method.get(DISPLAY_NAME_METHOD, 0) + 1
+            if _POSITION.get(record.raw_fields.get("position_id")) != matched[0].get("element_type"):
+                audit["position_mismatch_new"] += 1
 
     def resolved(person: dict[str, Any]) -> bool:
         if identity_fingerprint(person["full_name"], person["birth_date"]) in conflicts:
@@ -555,6 +643,7 @@ def fpl_side(records: Sequence[Any], people: Sequence[dict[str, Any]]) -> FplSid
         len(people), sum(1 for p in people if resolved(p)),
         len(records), len(pool_matched), dict(sorted(fpl_causes.items())),
         dict(sorted(pool_causes.items())), tuple(unmatched),
+        dict(sorted(by_method.items())), audit,
     )
 
 
@@ -581,6 +670,11 @@ def write_fpl_unmatched(side: FplSide, out_dir: Path) -> Path:
     path = reports_dir / f"{SCRIPT}_fpl_side_unmatched.json"
     path.write_text(json.dumps({"schema_version": 1, "items": list(side.unmatched)},
                                indent=2, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+    # What the gate leaves for a human: FPL elements with minutes nobody resolved.
+    queue = reports_dir / f"{SCRIPT}_manual_queue.json"
+    queue.write_text(json.dumps({"schema_version": 1, "items": [
+        i for i in side.unmatched if i["group"] == "fpl_with_minutes"]},
+        indent=2, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
     return path
 
 
@@ -722,6 +816,16 @@ def collect(client, mode: str, *, bootstrap: dict[str, Any] | None = None,
             "fpl_unmatched_with_minutes_by_cause", _causes_text(side.fpl_causes)))
         report.observed_shapes.append(ObservedShape(
             "sportmonks_unmatched_by_cause", _causes_text(side.pool_causes)))
+        report.observed_shapes.append(ObservedShape(
+            "match_by_method", ", ".join(f"{k} {v}" for k, v in side.by_method.items()) or "none"))
+        audit = side.second_pass
+        report.observed_shapes.append(ObservedShape(
+            "display_name_pass_audit",
+            f"resolved {audit['resolved']}; first-pass pairs it would change {audit['first_pass_pairs_changed']}; "
+            f"rejected: club {audit['rejected_club']}, element already taken {audit['rejected_taken']}, "
+            f"birth date missing {audit['rejected_no_birth_date']}; "
+            f"position differs: new {audit['position_mismatch_new']}/{audit['resolved']}, "
+            f"first pass {audit['position_mismatch_first']}/{side.pool_resolved - audit['resolved']}"))
         report.warnings.append(
             "gate denominator: FPL elements with minutes > 0 (review decision 2026-10-11); "
             "the manual queue is expected to carry the rest up to 99%"

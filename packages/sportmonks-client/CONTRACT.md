@@ -71,7 +71,7 @@ wins: `ENDPOINTS` in `client.py` now maps each family to a `Route`
 | Family | Route | Include → nested list | Why this and not the root |
 |---|---|---|---|
 | leagues, seasons, coaches, referees | `GET /<family>` | – | root works (200). `seasons` is filtered with `filters=seasonLeagues:<id>` |
-| players | `squads/teams/{team_id}` | `player` → `player` | root `/players` is the whole database and unfiltered; the squad route with the include gives the clubs' players in the same 20 requests as `squads`. `players/multi/{ids}` answers 404 |
+| players | `squads/teams/{team_id}` | `player` → `player` | root `/players` is the whole database and unfiltered; the squad route with the include gives the clubs' players in the same 20 requests as `squads`. `players/multi/{ids}` answers 404. Each player also carries `squad_team_id`, the Sportmonks club of the squad row it came from (`Route.inherit`) |
 | teams | `teams/seasons/{season_id}` | – | root `/teams` is every club in the database; this is the 20 PL clubs |
 | squads | `squads/teams/{team_id}` | – | root `/squads` is 404; one request per club |
 | fixtures | `GET /fixtures`, `filters=fixtureSeasons:<id>;fixtureLeagues:<id>` | – | root works; ordered newest/future first |
