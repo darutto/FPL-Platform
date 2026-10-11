@@ -825,3 +825,20 @@ def test_a_live_run_finds_the_departed_from_the_provider_data_alone(tmp_path):
     assert _statuses(report)[19] == OBSERVED
     assert "still in a PL club: 1/1" in _evidence(report, 19)
     assert "departed from the league 1" in _shapes(report)["gate_denominators"]
+
+
+def test_every_resolved_pair_is_exported_with_its_method_for_local_use():
+    sm, fpl = _anchors()
+    side = trial_mapping.fpl_side(sm + [LEGAL], trial_mapping.fpl_people(_bootstrap(*(fpl + [TARGET]))))
+    pairs = {(a, b): m for a, b, m in side.pairs}
+    assert pairs[("1", 1)] == "full_name_birth_date" and pairs[("9", 9)] == trial_mapping.DISPLAY_NAME_METHOD
+    assert len(side.pairs) == 4 and len({a for a, _, _ in side.pairs}) == 4
+
+
+def test_the_pairs_file_holds_ids_and_methods_and_no_names(tmp_path):
+    sm, fpl = _anchors()
+    side = trial_mapping.fpl_side(sm, trial_mapping.fpl_people(_bootstrap(*fpl)))
+    trial_mapping.write_fpl_unmatched(side, tmp_path)
+    items = json.loads((tmp_path / "reports/trial_mapping_pairs.json").read_text())["items"]
+    assert {tuple(sorted(i)) for i in items} == {("fpl_id", "method", "sportmonks_id")}
+    assert "Able" not in (tmp_path / "reports/trial_mapping_pairs.json").read_text()
