@@ -64,8 +64,8 @@ them — the wording is the acceptance bar.
 | 15 | Data update timing before, during, and after matches | `trial_stats.py` | `not_applicable` | *requires live observation — see below* |
 | 16 | Post-match corrections | `trial_stats.py` | `not_applicable` | *requires live observation — see below* |
 | 17 | API rate limits and pagination | `trial_auth.py` | `observed` | `x-ratelimit-limit: 2500`, `x-ratelimit-remaining` on every response (per entity, hourly; body also carries `rate_limit.resets_in_seconds`); no `x-ratelimit-reset`, no `Retry-After`, no 429 seen (retry pacing still unmeasured). Pagination walked 3 pages (`leagues?per_page=3`), `next_page` is a URL (#408). Evidence: [trial-reports/live/2026-10-11-routes.md](trial-reports/live/2026-10-11-routes.md) |
-| 18 | Stable provider IDs | `trial_mapping.py` | `not_started` | |
-| 19 | FPL identity-match rate | `trial_mapping.py` | `not_started` | |
+| 18 | Stable provider IDs | `trial_mapping.py` | `observed` | 544 players in two reads of the 20 squads, 0 provider_id changes (same run, seconds apart). Across days: snapshot saved; repeat scheduled 24–48 h later (2026-10-12/13). [mapping](trial-reports/live/2026-10-11-mapping.md) |
+| 19 | FPL identity-match rate | `trial_mapping.py` | `unmet` | gate over FPL 2026/27 elements with minutes>0 (decided 2026-10-11): 389/430 = 90.4651% < 95%. Aside: all FPL 494/667, Sportmonks pool 494/544. 41 unresolved: 31 compound/partial name, 7 absent from squads, 2 nickname, 1 other. Proposal pending: second pass with the provider display name as full-name input → 413/430 = 96.0465%, 0 first-pass pairs changed, 0 club mismatches over 26 new (not implemented). [mapping](trial-reports/live/2026-10-11-mapping.md) |
 | 20 | Raw-data storage and derived-data licensing | *document, not script* — [TRIAL_LICENSING_CHECKLIST.md](TRIAL_LICENSING_CHECKLIST.md) | `not_started` | |
 
 Every objective has an owning script or document. Per the FI-8 S1 DoD, an
@@ -95,6 +95,7 @@ One row per trial day. Keep it short; the detail belongs in the report artifacts
 | 2026-10-11 (day 1) | 2, 3, 4, 5, 6, 7, 9, 10, 12 observed; 8, 11 degraded | none | Live runs of fixtures, squads, lineups, injuries. 8 degraded is a denominator effect (grid on every starter, none on the bench). Grid semantics: col is absolute along the touchline (home col 1 = right, away mirrored). Found and fixed: players root returned the whole database (#410). ~215 requests today, ~650 in total. |
 | 2026-10-11 (day 1, later) | 8, 9 observed | none | Decisions applied (#412): grid/position measured over starters; `lineups.detailedPosition` found (198/198 starters); `current_sidelined` polling wired, baseline 64 rows. Grid rule cross-checked 420/420 against the provider's own side-labelled positions; human check of central roles awaiting Leo. |
 | 2026-10-11 (day 1, human check) | 8 (partial human validation) | none | Leo confirmed Arsenal's inferred sides for Arsenal–Leeds against Sofascore (his screenshot); Liverpool and City pending. Sidelined polling continues on the builder session's cron; extension after 18 Oct is Leo's call. |
+| 2026-10-11 (day 1, mapping) | 18 observed (same run), 19 unmet | none | Candidates moved to the current FPL bootstrap; gate denominator = FPL elements with minutes>0. 19 at 90.4651%; causes classified; relaxation proposal (display-name second pass, 96.05%) awaits the review chat. ~40 Sportmonks requests per run. |
 
 ## Open questions raised during the trial
 
