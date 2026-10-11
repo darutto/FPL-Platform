@@ -55,6 +55,7 @@ than the trial can.
 |---|---|---|---|---|---|
 | 13 | Are formation-grid coordinates documented semantics (slot indices vs pitch coordinates), and are they stable across competitions? | no | no | | **GO criterion (b) / NO-GO.** Every checked-in grid fixture carries `"status": "unverified_against_live"`; the docs do not say. If undocumented, M2 degrades to `detailed_position` only |
 | 14 | What is the actual per-hour/per-entity rate limit on the trial vs the Starter plan? | no | no | | A trial limit that differs from Starter's makes trial pacing measurements non-transferable. Current strategy is controlled serialized scheduling plus reactive 429 handling; a proactive token bucket is conditional on this answer |
+| 15 | How often are team squads updated, and why do players who have already played minutes in the Premier League this season not appear in their club's squad (`squads/teams/{id}`)? | no | no | | Observed 2026-10-11: 2 of 430 FPL players with minutes are in lineups on match day but in no PL squad (details in the mapping report). Bears on objectives 4 and 5 (squad completeness) and on the ceiling of the identity gate. A further 5 left the league on deadline day and are correctly absent from squads. |
 
 ## Answer summary
 
@@ -63,8 +64,8 @@ Fill in once replies arrive. This is what feeds
 
 | | |
 |---|---|
-| Questions sent | 0 / 14 |
-| Questions answered | 0 / 14 |
+| Questions sent | 0 / 15 |
+| Questions answered | 0 / 15 |
 | Raw storage permitted (Q3) | *unanswered* |
 | Data combination permitted (Q4) | *unanswered* |
 | Derived scores permitted (Q5) | *unanswered* |
