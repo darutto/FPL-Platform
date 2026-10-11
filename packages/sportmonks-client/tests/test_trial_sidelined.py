@@ -81,3 +81,43 @@ def test_a_mock_run_exits_zero_and_writes_a_report(tmp_path):
     assert trial_sidelined.main(["--out", str(tmp_path)]) == EXIT_OK
     assert (tmp_path / "reports" / "trial_sidelined.json").exists()
     assert (tmp_path / "sidelined" / "state.json").exists()
+
+
+# --- Gaps between passes --------------------------------------------------------
+
+def test_gaps_between_passes_are_computed_and_flagged_over_the_threshold():
+    times = ["2026-10-11T06:17:00Z", "2026-10-11T14:20:00Z", "2026-10-12T14:20:00Z", "2026-10-12T22:17:00Z"]
+    out = trial_sidelined.summarize_gaps(times)
+    assert out == {"passes": 4, "gaps_over_threshold": 1, "max_gap_hours": 24.0}
+    # exactly at the threshold is not a gap; just over it is
+    edge = ["2026-10-11T00:00:00Z", "2026-10-11T09:00:00Z", "2026-10-11T18:01:00Z"]
+    assert trial_sidelined.summarize_gaps(edge)["gaps_over_threshold"] == 1
+    # order of the input does not matter, and one pass has no gaps
+    assert trial_sidelined.summarize_gaps(list(reversed(times))) == out
+    assert trial_sidelined.summarize_gaps(times[:1]) == {"passes": 1, "gaps_over_threshold": 0, "max_gap_hours": 0.0}
+
+
+def test_an_appearance_after_a_gap_carries_the_gap_as_its_bound(tmp_path):
+    _pass(tmp_path, [_row(1)], "2026-10-11T06:17:00Z")
+    _pass(tmp_path, [_row(1), _row(2)], "2026-10-11T14:20:00Z")      # normal interval
+    _pass(tmp_path, [_row(1), _row(2), _row(3)], "2026-10-13T14:20:00Z")  # 48 h hole
+    appeared = [e for e in _events(tmp_path) if e["event"] == "appeared"]
+    normal, after_hole = appeared
+    assert normal["id"] == "2" and normal["after_gap"] is False and normal["gap_hours"] == 8.05
+    assert after_hole["id"] == "3" and after_hole["after_gap"] is True
+    assert after_hole["between"] == ["2026-10-11T14:20:00Z", "2026-10-13T14:20:00Z"]
+
+
+def test_the_report_counts_the_gaps_without_printing_a_timestamp(tmp_path):
+    _pass(tmp_path, [_row(1)], "2026-10-11T06:17:00Z")
+    report = _pass(tmp_path, [_row(1), _row(2)], "2026-10-12T06:17:00Z")
+    assert _shapes(report)["poll_gaps"] == "2 pass(es); 1 gap(s) over 9 h; largest gap 24 h"
+    assert any("bounded by the gap" in w for w in report.warnings)
+    assert "2026-10" not in json.dumps(_shapes(report))
+
+
+def test_a_state_from_before_the_pass_log_still_counts_its_last_pass(tmp_path):
+    _pass(tmp_path, [_row(1)], "2026-10-11T06:17:00Z")
+    (tmp_path / "passes.ndjson").unlink()
+    report = _pass(tmp_path, [_row(1)], "2026-10-11T14:17:00Z")
+    assert _shapes(report)["poll_gaps"].startswith("2 pass(es); 0 gap(s)")

@@ -17,6 +17,10 @@
     {
       "name": "poll_pass",
       "shape": "pass 1: baseline of 2 row(s); no earlier pass to diff"
+    },
+    {
+      "name": "poll_gaps",
+      "shape": "1 pass(es); 0 gap(s) over 9 h; largest gap 0 h"
     }
   ],
   "warnings": [
