@@ -27,8 +27,14 @@ def _participant(pid, name, where, country=462):
             "meta": {"location": where}}
 
 
-def _fixture(fid, league, home, away, when, state="FT", stage="Regular Season", leg="1/1", round_name=None, season=100):
-    return {"id": fid, "league_id": league, "season_id": season, "starting_at": when, "leg": leg,
+def _scores(goals):
+    return [{"description": "CURRENT", "score": {"goals": goals[0], "participant": "home"}},
+            {"description": "CURRENT", "score": {"goals": goals[1], "participant": "away"}},
+            {"description": "1ST_HALF", "score": {"goals": 0, "participant": "home"}}]
+
+
+def _fixture(fid, league, home, away, when, state="FT", stage="Regular Season", leg="1/1", round_name=None, season=100, goals=(2, 1)):
+    return {"scores": _scores(goals) if state in ("FT", "AET", "FT_PEN") else [], "id": fid, "league_id": league, "season_id": season, "starting_at": when, "leg": leg,
             "state": {"developer_name": state}, "stage": {"name": stage},
             "round": {"name": round_name} if round_name else None,
             "participants": [_participant(home[0], home[1], "home", home[2]), _participant(away[0], away[1], "away", away[2])]}
@@ -255,7 +261,7 @@ def test_scheduling_knowledge_follows_the_stated_assumptions(capture):
     future = next(f for f in fixtures if f["provider_id"] == 2)
     assert [r["status"] for r in payload["fixture_schedule_snapshots"] if r["fixture_id"] == future["fixture_id"]] == ["scheduled"]
     assert {r["assumption_status"] for table in payload.values() for r in table} == {LIVE_TRIAL_LOCAL}
-    assert payload["team_standing_snapshots"] == []
+    assert {r["assumption_status"] for r in payload["team_standing_snapshots"]} == {LIVE_TRIAL_LOCAL}
 
 
 def test_tiers_follow_the_competition(capture):
@@ -340,3 +346,57 @@ def test_the_published_date_assumption_is_pinned_and_precedes_every_fixture(capt
     _, index = lt.build_team_registry(capture)
     fixtures = lt.canonical_fixtures(capture, index)
     assert all(f["kickoff_utc"] > lt.SCHEDULE_PUBLISHED_AT for f in fixtures)
+
+
+# ---------------------------------------------------------------- standings
+
+def _standings(capture):
+    _, index = lt.build_team_registry(capture)
+    fixtures = lt.canonical_fixtures(capture, index)
+    trace = {"source_provider": "sportmonks", "source_timestamp": "2026-10-11T00:00:00Z", "assumption_status": LIVE_TRIAL_LOCAL}
+    return lt.league_standings(fixtures, index, 8, trace=trace), index
+
+
+def test_the_final_score_is_the_current_score_and_absent_when_there_is_none():
+    assert lt.final_score({"scores": _scores((3, 1))}) == (3, 1)
+    assert lt.final_score({"scores": []}) is None and lt.final_score({}) is None
+
+
+def test_standings_are_recomputed_from_results_and_stamped_when_the_result_was_known(capture):
+    rows, index = _standings(capture)
+    assert {r["as_of_utc"] for r in rows} == {"2026-08-22T17:00:00Z"}, "one table, for the one completed league fixture"
+    by_team = {r["team_id"]: r for r in rows}
+    arsenal, beta = by_team[index[1]], by_team[index[2]]
+    assert (arsenal["wins"], arsenal["points_before_deduction"], arsenal["goal_difference"]) == (1, 3, 1)
+    assert (beta["losses"], beta["points_before_deduction"], beta["goal_difference"]) == (1, 0, -1)
+    assert all(r["observed_position"] is None for r in rows), "the provider's table position is never read"
+
+
+def test_a_table_before_the_first_result_does_not_exist_and_the_band_is_unknown(capture):
+    rows, _ = _standings(capture)
+    assert all(r["as_of_utc"] > lt.SCHEDULE_PUBLISHED_AT for r in rows)
+    capture["team_fixtures"][0]["state"]["developer_name"] = "NS"
+    capture["team_fixtures"][0]["scores"] = []
+    assert _standings(capture)[0] == []
+
+
+def test_a_completed_fixture_without_a_score_stops_the_build(capture):
+    capture["team_fixtures"][0]["scores"] = []
+    with pytest.raises(lt.LiveTrialAdapterError, match="no score"):
+        _standings(capture)
+
+
+def test_the_context_validates_with_standings_and_ranks_them(store):
+    from football_intelligence.ingestion.context_v2 import select_standings
+    root, _ = store
+    build = root / "context/builds-v2/live-trial"
+    manifest = validate_context_build(build)
+    assert manifest["row_counts"]["team_standing_snapshots"] == 2
+    tables = {n: pd.read_parquet(build / f"canonical/{n}.parquet").astype(object).where(lambda x: pd.notna(x), None).to_dict("records")
+              for n in ("team_standing_snapshots", "competition_memberships")}
+    one = tables["team_standing_snapshots"][0]
+    ranked = select_standings(tables["team_standing_snapshots"], tables["competition_memberships"],
+                              one["competition_id"], one["season_id"], "2026-09-01T00:00:00Z")
+    assert [r["recomputed_rank"] for r in ranked] == [1, 2] and ranked[0]["league_position_band"] == "top"
+    assert select_standings(tables["team_standing_snapshots"], tables["competition_memberships"],
+                            one["competition_id"], one["season_id"], "2026-08-22T17:00:00Z") == (), "not yet known at the cutoff"

@@ -26,7 +26,9 @@ find and argue with, are:
   A scheduled snapshot is dated ``SCHEDULE_PUBLISHED_AT``; a completed one is
   dated kickoff + ``RESULT_KNOWN_AFTER_HOURS``. The cutoff logic of FI-5b is
   therefore exact about *this* assumption and blind to postponements.
-* **Not built:** standings (every league band is ``unknown``), injuries and
+* **Standings** are recomputed from completed results (never the provider's table), one
+  complete table per completion time; before the first result the league band is ``unknown``.
+* **Not built:** injuries and
   suspensions (availability reaches M1 as an explicit input), statistics, coaches
   and referees (none is read by M1-M3).
 """
@@ -142,6 +144,15 @@ def _location(fixture: Mapping[str, Any], where: str) -> dict[str, Any]:
 
 def fixture_status(fixture: Mapping[str, Any]) -> str:
     return STATUS_MAP.get((fixture.get("state") or {}).get("developer_name", ""), "unknown")
+
+
+def final_score(fixture: Mapping[str, Any]) -> tuple[int, int] | None:
+    """(home goals, away goals) from the provider's CURRENT score, or None when there is none."""
+    goals: dict[str, int] = {}
+    for entry in fixture.get("scores") or []:
+        if entry.get("description") == "CURRENT":
+            goals[entry["score"]["participant"]] = int(entry["score"]["goals"])
+    return (goals["home"], goals["away"]) if {"home", "away"} <= set(goals) else None
 
 
 def context_stage(fixture: Mapping[str, Any]) -> str:
@@ -279,6 +290,7 @@ def canonical_fixtures(capture: Mapping[str, Any], index: Mapping[int, str]) -> 
                 "home_team_id": index[int(home["id"])], "away_team_id": index[int(away["id"])],
                 "fixture_key": keys[int(fixture["id"])], "kickoff_utc": _utc(fixture["starting_at"]),
                 "status": fixture_status(fixture), "context_stage": context_stage(fixture),
+                "score": final_score(fixture),
                 "context_tier": meta["context_tier"],
                 "gameweek": int(fixture["round"]["name"]) if league_id == 8 and (fixture.get("round") or {}).get("name", "").isdigit() else None,
             })
@@ -389,6 +401,47 @@ def _formation_id(detail: Mapping[str, Any], team: int) -> int:
     raise LiveTrialAdapterError("formation row vanished")
 
 
+# ------------------------------------------------------------------ standings
+
+def league_standings(fixtures: Sequence[Mapping[str, Any]], index: Mapping[int, str], league_id: int, *,
+                     trace: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Complete league tables recomputed from completed results, one per completion time.
+
+    The provider's own table position is never read. A table is stamped at the moment
+    its newest result became known (kickoff + ``RESULT_KNOWN_AFTER_HOURS``), so a cutoff
+    sees exactly the results that had been known. Before the first result there is no
+    table and the league band is ``unknown``.
+    """
+    league = sorted((f for f in fixtures if f["league_id"] == league_id), key=lambda f: (f["kickoff_utc"], f["provider_id"]))
+    clubs = sorted({f["home_sm"] for f in league} | {f["away_sm"] for f in league})
+    competition_id, season_id = competition_ids(league_id)
+    zero = {c: dict(played=0, wins=0, draws=0, losses=0, goals_for=0, goals_against=0) for c in clubs}
+    rows: list[dict[str, Any]] = []
+    slots: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
+    for fixture in league:
+        if fixture["status"] != "completed":
+            continue
+        if fixture["score"] is None:
+            raise LiveTrialAdapterError(f"completed fixture {fixture['provider_id']} has no score")
+        slots[_plus_hours(fixture["kickoff_utc"], RESULT_KNOWN_AFTER_HOURS)].append(fixture)
+    for known_at in sorted(slots):
+        for fixture in slots[known_at]:
+            home_goals, away_goals = fixture["score"]
+            for club, scored, conceded in ((fixture["home_sm"], home_goals, away_goals), (fixture["away_sm"], away_goals, home_goals)):
+                row = zero[club]
+                row["played"] += 1
+                row["goals_for"] += scored
+                row["goals_against"] += conceded
+                row["wins" if scored > conceded else "draws" if scored == conceded else "losses"] += 1
+        for club in clubs:
+            row = zero[club]
+            rows.append({"competition_id": competition_id, "season_id": season_id, "as_of_utc": known_at,
+                         "team_id": index[club], "observed_position": None, **row,
+                         "goal_difference": row["goals_for"] - row["goals_against"],
+                         "points_before_deduction": 3 * row["wins"] + row["draws"], "points_deduction": 0, **trace})
+    return rows
+
+
 # ------------------------------------------------------------------ context v2
 
 def context_payload(capture: Mapping[str, Any], fixtures: Sequence[Mapping[str, Any]], index: Mapping[int, str], *,
@@ -425,7 +478,7 @@ def context_payload(capture: Mapping[str, Any], fixtures: Sequence[Mapping[str, 
     return {"version": REPLAY_VERSION, "captured_at": captured_at, "canonical": {
         "competitions": competitions, "seasons": seasons, "teams": teams, "fixtures": ctx_fixtures,
         "competition_memberships": memberships, "fixture_schedule_snapshots": snapshots,
-        "team_standing_snapshots": []}}
+        "team_standing_snapshots": league_standings(fixtures, index, 8, trace=trace)}}
 
 
 # ------------------------------------------------------------------ reading the local store back

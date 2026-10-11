@@ -227,8 +227,10 @@ mapping's pairs, appearances only for players who took the field in completed
 fixtures with the provider's own minutes (type 119), `league-home-meeting-N` and
 `cup-<stage>-leg-1|2|single` fixture keys, and **assumed** scheduling knowledge
 (scheduled snapshots dated 2026-06-01, completed ones kickoff + 3 h, because the
-provider keeps no history of what was known when). Standings, injuries,
-suspensions, statistics, coaches and referees are not built. The base-store
+provider keeps no history of what was known when). League standings are recomputed from
+completed results (never the provider's table), one complete table per completion
+time; before the first result the band is `unknown`. Injuries, suspensions,
+statistics, coaches and referees are not built. The base-store
 handle for these builds is `LiveTrialBuildHandle`, which opens `live_trial_local`
 stores and nothing else; `build_from_fixture` gained optional `team_registry` and
 `source_kind` parameters for it, defaulting to the checked-in behavior.
