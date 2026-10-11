@@ -65,57 +65,57 @@ def test_player_statistics_flatten_two_levels():
 def test_page_bound_per_call_raises_instead_of_pretending_complete():
     pages = [response({"data": [], "pagination": {"current_page": n, "has_more": True, "next_page": n + 1}}) for n in (1, 2, 3)]
     with pytest.raises(SportmonksPaginationError, match="maximum"):
-        tuple(offline(pages).iter_entities("players", max_pages=2))
+        tuple(offline(pages).iter_entities("coaches", max_pages=2))
 
 
 def test_unknown_extra_fields_preserved(endpoint_payloads):
-    record = offline([response(endpoint_payloads["families"]["players"])]).players()[0]
-    assert "date_of_birth" in record.raw_fields
+    record = offline([response(endpoint_payloads["families"]["coaches"])]).coaches()[0]
+    assert "name" in record.raw_fields
 
 
 def test_missing_optional_fields(edge_cases):
-    assert offline([response(edge_cases["missing_optional"])]).players()[0].provider_id == 1
+    assert offline([response(edge_cases["missing_optional"])]).coaches()[0].provider_id == 1
 
 
 def test_malformed_required_id():
-    with pytest.raises(SportmonksSchemaError): offline([response({"data":[{"name":"x"}]})]).players()
+    with pytest.raises(SportmonksSchemaError): offline([response({"data":[{"name":"x"}]})]).coaches()
 
 
 def test_malformed_envelope(edge_cases):
-    with pytest.raises(SportmonksSchemaError): offline([response(edge_cases["malformed_envelope"])]).players()
+    with pytest.raises(SportmonksSchemaError): offline([response(edge_cases["malformed_envelope"])]).coaches()
 
 
 def test_multiple_pages():
     pages = load_fixture("multi_page.json")["pages"]
     client = offline([response(page) for page in pages])
-    assert [item.provider_id for item in client.players()] == [1, 2]
+    assert [item.provider_id for item in client.coaches()] == [1, 2]
 
 
 def test_empty_page(edge_cases):
-    assert offline([response(edge_cases["empty"])]).players() == ()
+    assert offline([response(edge_cases["empty"])]).coaches() == ()
 
 
 def test_pagination_loop(edge_cases):
     with pytest.raises(SportmonksPaginationError, match="loop"):
-        offline([response(edge_cases["pagination_loop"][0])]).players()
+        offline([response(edge_cases["pagination_loop"][0])]).coaches()
 
 
 def test_page_limit():
     page = lambda n: {"data":[],"pagination":{"current_page":n,"has_more":True,"next_page":n+1}}
     with pytest.raises(SportmonksPaginationError, match="maximum"):
-        offline([response(page(1)), response(page(2))], max_pages=2).players()
+        offline([response(page(1)), response(page(2))], max_pages=2).coaches()
 
 
 def test_timeout_then_success_and_backoff():
     sleeps=[]
     client=offline([SportmonksRequestError("timeout", retryable=True),response({"data":[]})],sleep=sleeps.append)
-    assert client.players()==() and sleeps==[.25]
+    assert client.coaches()==() and sleeps==[.25]
 
 
 def test_429_retry_after_then_success():
     sleeps=[]
     client=offline([response({},429,{"Retry-After":"2"}),response({"data":[]})],sleep=sleeps.append)
-    assert client.players()==() and sleeps==[2]
+    assert client.coaches()==() and sleeps==[2]
 
 
 @pytest.mark.parametrize(("header", "expected"), [
@@ -126,38 +126,38 @@ def test_429_retry_after_then_success():
 def test_retry_after_is_finite_non_negative_and_bounded(header, expected):
     sleeps=[]; headers={} if header is None else {"Retry-After":header}
     client=offline([response({},429,headers),response({"data":[]})],sleep=sleeps.append)
-    assert client.players()==()
+    assert client.coaches()==()
     assert sleeps == [expected]
     assert 0 <= sleeps[0] <= MAX_RETRY_AFTER_SECONDS
 
 
 def test_429_exhaustion():
-    with pytest.raises(SportmonksRateLimitError): offline([response({},429),response({},429)],max_retries=1,sleep=lambda _:None).players()
+    with pytest.raises(SportmonksRateLimitError): offline([response({},429),response({},429)],max_retries=1,sleep=lambda _:None).coaches()
 
 
 def test_500_then_success():
-    assert offline([response({},500),response({"data":[]})],sleep=lambda _:None).players()==()
+    assert offline([response({},500),response({"data":[]})],sleep=lambda _:None).coaches()==()
 
 
 def test_non_retryable_400():
-    with pytest.raises(SportmonksRequestError): offline([response({},400)]).players()
+    with pytest.raises(SportmonksRequestError): offline([response({},400)]).coaches()
 
 
 @pytest.mark.parametrize("status",[401,403])
 def test_authentication_fails_immediately(status):
     fake=FakeTransport([response({},status),response({"data":[]})])
-    with pytest.raises(SportmonksAuthenticationError): SportmonksClient.offline(fake).players()
+    with pytest.raises(SportmonksAuthenticationError): SportmonksClient.offline(fake).coaches()
     assert len(fake.calls)==1
 
 
 def test_redirect_is_refused_without_following():
     with pytest.raises(SportmonksRequestError, match="redirect refused"):
-        offline([response({}, 302, {"Location": "https://other.invalid/?api_token=SECRET"})]).players()
+        offline([response({}, 302, {"Location": "https://other.invalid/?api_token=SECRET"})]).coaches()
 
 
 def test_snapshot_hook_redacts_token():
     snapshots=[]; fake=FakeTransport([response({"data":[]})])
-    SportmonksClient(SportmonksConfig(api_token="secret"),transport=fake,snapshot_hook=snapshots.append).players(include="team")
+    SportmonksClient(SportmonksConfig(api_token="secret"),transport=fake,snapshot_hook=snapshots.append).coaches(include="team")
     assert isinstance(snapshots[0],RawResponseSnapshot) and "api_token" not in snapshots[0].requested_parameters
 
 
@@ -169,7 +169,7 @@ def test_snapshot_hook_preserves_only_governed_response_headers():
             "X-Request-ID":"request-1", "Set-Cookie":"secret-cookie",
         })]), config=SportmonksConfig(), snapshot_hook=snapshots.append,
     )
-    client.players()
+    client.coaches()
     assert snapshots[0].response_metadata == {
         "content-type":"application/json", "x-ratelimit-remaining":"99", "x-request-id":"request-1",
     }
@@ -177,7 +177,7 @@ def test_snapshot_hook_preserves_only_governed_response_headers():
 
 def test_malformed_meta_is_typed_schema_failure():
     with pytest.raises(SportmonksSchemaError, match="malformed meta"):
-        offline([response({"data":[], "meta":[]})]).players()
+        offline([response({"data":[], "meta":[]})]).coaches()
 
 
 def test_next_page_url_is_parsed_to_page_number():
@@ -185,10 +185,10 @@ def test_next_page_url_is_parsed_to_page_number():
     url = "https://api.sportmonks.com/v3/football/teams?page=2"
     first = {"data":[{"id":1}],"pagination":{"current_page":1,"has_more":True,"next_page":url,"next_cursor":"x"}}
     last = {"data":[{"id":2}],"pagination":{"current_page":2,"has_more":False,"next_page":None}}
-    assert [t.provider_id for t in offline([response(first), response(last)]).players()] == [1, 2]
+    assert [t.provider_id for t in offline([response(first), response(last)]).coaches()] == [1, 2]
 
 
 def test_next_page_garbage_is_rejected():
     bad = {"data":[],"pagination":{"current_page":1,"has_more":True,"next_page":"https://x/y?cursor=abc"}}
     with pytest.raises(SportmonksSchemaError):
-        offline([response(bad)]).players()
+        offline([response(bad)]).coaches()

@@ -46,7 +46,10 @@ ENDPOINTS: dict[str, Route] = {
     "fixtures": Route("fixtures", Fixture),
     "teams": Route("teams/seasons/{season_id}", Team),
     "squads": Route("squads/teams/{team_id}", SquadMember),
-    "players": Route("players", Player),
+    # Root /players is every player in the database (and no club filter). The
+    # squad route with include=player yields the 20 clubs' players with the same
+    # 20 requests that fetch the squads.
+    "players": Route("squads/teams/{team_id}", Player, include="player", extract="player"),
     "lineups": Route(_WINDOW, LineupEntry, include="lineups", extract="lineups"),
     "formations": Route(_WINDOW, Formation, include="formations", extract="formations"),
     "substitutions": Route(_WINDOW, Substitution, include="events", extract="events", where=("type_id", 18)),
@@ -87,7 +90,8 @@ def _flatten(item: Mapping[str, Any], dotted: str) -> list[Mapping[str, Any]]:
     nodes: list[Any] = [item]
     for key in dotted.split("."):
         nodes = [child for node in nodes if isinstance(node, Mapping)
-                 for child in (node.get(key) if isinstance(node.get(key), list) else [])]
+                 for child in (node.get(key) if isinstance(node.get(key), list)
+                               else [node.get(key)] if isinstance(node.get(key), Mapping) else [])]
     return nodes
 
 

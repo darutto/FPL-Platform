@@ -37,13 +37,15 @@ from _trial_common import (  # noqa: E402
     COMPETITION_NAME, DEGRADED, EXIT_CONFIG, EXIT_REFUSED, MODE_MOCK, OBSERVED,
     UNMET, EndpointReplayTransport, Objective, ObservedShape, TrialRefusal,
     TrialReport, build_parser, load_fixture, make_client, match_by_name,
-    fetch_family, render_skeleton, resolve_mode, response, scope_for, write_report,
+    LIVE_MAX_PAGES, fetch_family, render_skeleton, resolve_mode, response, scope_for, write_report,
 )
 from sportmonks_client.client import ENDPOINTS, EXTRA_ROUTES  # noqa: E402
 from sportmonks_client.errors import (  # noqa: E402
     SportmonksAuthenticationError, SportmonksConfigurationError, SportmonksError,
 )
 
+#: A season is ~380 fixtures = 8 pages of 50; the bound is explicit, not 100.
+SEASON_MAX_PAGES = 8
 SCRIPT = "trial_fixtures"
 OBJECTIVE_2 = "Premier League fixtures"
 OBJECTIVE_3 = "Cross-competition fixtures for Premier League clubs"
@@ -173,7 +175,7 @@ def _fetch(client, family: str, scope, params: Mapping[str, Any]) -> FixtureSwee
     """
     before = len(client.transport.exchanges)
     try:
-        records = fetch_family(client, family, scope)[0]
+        records, truncated = fetch_family(client, family, scope, max_pages=SEASON_MAX_PAGES if family == "fixtures" else LIVE_MAX_PAGES)
         failure = ""
     except (SportmonksConfigurationError, SportmonksAuthenticationError):
         # Not a fact about this request. Both subclass SportmonksError, so the
@@ -203,6 +205,10 @@ def collect(client, mode: str) -> TrialReport:
         if record.raw_fields.get("league_id") in league_ids
     )
     season_ids = tuple(sorted({record.provider_id for record in seasons}))
+    # The season asked for is the one the scope resolved as current, not the
+    # numerically first: live lists three seasons and the oldest sorts first.
+    if scope.season_id in season_ids:
+        season_ids = (scope.season_id,) + tuple(i for i in season_ids if i != scope.season_id)
 
     # --- Objective 2: fixtures inside the competition, for one season ---------
     season_sweep: FixtureSweep | None = None
@@ -226,7 +232,7 @@ def collect(client, mode: str) -> TrialReport:
             ]
             if off_season:
                 missing_2.append(
-                    f"{len(off_season)} fixture(s) carried a different season_id: {off_season}"
+                    f"{len(off_season)} fixture(s) carried a different season_id: {off_season[:5]}"
                 )
 
     evidence_2 = (

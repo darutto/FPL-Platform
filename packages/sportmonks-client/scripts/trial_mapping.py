@@ -90,6 +90,7 @@ from _trial_common import (  # noqa: E402
     DEGRADED, EXIT_CONFIG, EXIT_REFUSED, MODE_MOCK, OBSERVED, UNMET,
     EndpointReplayTransport, Objective, ObservedShape, PACKAGE_ROOT, TrialRefusal,
     TrialReport, build_parser, make_client, resolve_mode, response, write_report,
+    _nest, fetch_family, scope_for,
 )
 from sportmonks_client.client import ENDPOINTS  # noqa: E402
 from sportmonks_client.errors import (  # noqa: E402
@@ -385,15 +386,15 @@ def mock_transport(
     second = first if second_fetch is None else second_fetch
     return EndpointReplayTransport({
         ENDPOINTS["players"][0]: [
-            item if isinstance(item, Exception) else response(item)
+            item if isinstance(item, Exception) else response(_nest("players", list(item["data"])))
             for item in (first, second)
         ],
     })
 
 
-def _fetch(client) -> tuple[tuple[Any, ...], str]:
+def _fetch(client, scope) -> tuple[tuple[Any, ...], str]:
     try:
-        return tuple(client.iter_entities("players")), ""
+        return fetch_family(client, "players", scope)[0], ""
     except (SportmonksConfigurationError, SportmonksAuthenticationError):
         # Standing DoD item 13: both subclass SportmonksError, and a broad catch
         # here would report a rejected token as "the provider has no players" —
@@ -405,8 +406,9 @@ def _fetch(client) -> tuple[tuple[Any, ...], str]:
 
 def collect(client, mode: str) -> tuple[TrialReport, MappingOutcome]:
     report = TrialReport(script=SCRIPT, mode=mode)
-    first, failure = _fetch(client)
-    second, second_failure = _fetch(client) if not failure else ((), failure)
+    scope = scope_for(client, mode)
+    first, failure = _fetch(client, scope)
+    second, second_failure = _fetch(client, scope) if not failure else ((), failure)
 
     corpus = load_corpus()
     candidates, conflicts = registry_candidates(corpus)
