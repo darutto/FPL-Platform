@@ -214,6 +214,8 @@ class FamilyResult:
     family: str
     records: tuple[Any, ...]
     failure: str = ""
+    #: Rows left out because their fixture was not completed (provisional lineups).
+    excluded: int = 0
 
     @property
     def present(self) -> bool:
@@ -357,9 +359,21 @@ def mock_transport(
     return routes_transport(chosen)
 
 
+#: Provider states that mean a fixture is over. Lineups, formations and substitutions of any other
+#: fixture are not evidence: before kickoff they are provisional and carry no marker saying so.
+COMPLETED_STATES = frozenset({"FT", "AET", "FT_PEN"})
+
+
+def _completed(record: Any) -> bool:
+    state = record.raw_fields.get("fixture_state")
+    return isinstance(state, dict) and state.get("developer_name") in COMPLETED_STATES
+
+
 def _fetch(client, family: str, scope) -> FamilyResult:
     try:
-        return FamilyResult(family, fetch_family(client, family, scope)[0])
+        records = fetch_family(client, family, scope)[0]
+        kept = tuple(r for r in records if _completed(r))
+        return FamilyResult(family, kept, excluded=len(records) - len(kept))
     except (SportmonksConfigurationError, SportmonksAuthenticationError):
         # Standing DoD item 13: both subclass SportmonksError. A broad catch
         # here would report a rejected token as "the Starter plan carries no
@@ -564,6 +578,13 @@ def collect(client, mode: str) -> TrialReport:
             f"first={triples[0].render() if triples else 'none'}",
         ))
 
+    left_out = {r.family: r.excluded for r in (lineups, formations, substitutions) if r.excluded}
+    if left_out:
+        report.warnings.append(
+            "rows from fixtures that are not completed were left out of every objective ("
+            + ", ".join(f"{family} {count}" for family, count in sorted(left_out.items()))
+            + "): before kickoff the provider serves provisional lineups with the same type_id as confirmed ones"
+        )
     if mode == MODE_MOCK:
         report.warnings.append(SYNTHETIC_WARNING)
     report.warnings.append(
