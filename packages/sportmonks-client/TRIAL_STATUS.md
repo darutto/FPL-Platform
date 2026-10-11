@@ -10,8 +10,8 @@ looks to answer "how is the trial going, and what do we still not know?"
 |---|---|
 | Trial start | 2026-10-11 |
 | Trial end | 2026-10-25 03:09 UTC (Starter `Trialing until`, from the API's own subscription block); decision 23–24 Oct |
-| Days elapsed | 0 |
-| Last updated | 2026-10-11 (day 0, after plan activation) |
+| Days elapsed | 1 |
+| Last updated | 2026-10-11 (day 1) |
 | Current verdict | **undecided** — see [TRIAL_GO_NO_GO.md](TRIAL_GO_NO_GO.md) |
 
 ## How to use this file
@@ -48,17 +48,17 @@ them — the wording is the acceptance bar.
 | # | Objective | Owning script | Status | Evidence |
 |---|---|---|---|---|
 | 1 | Competition and season identifiers | `trial_entities.py` | `observed` | Premier League = league 8; 2026/27 = season 28083 (current, 20 clubs); UCL 2, UEL 5, UECL 2286, FA Cup 24, Carabao Cup 27 also visible. 15 of 15 families reachable in a 49-request live sweep after the route remap (4 truncated by the explicit page bound). Live evidence: [trial-reports/live/2026-10-11-routes.md](trial-reports/live/2026-10-11-routes.md). *Earlier day-0 block (free-plan token) is in the daily log and [day0.md](trial-reports/live/2026-10-11-day0.md).* |
-| 2 | Premier League fixtures | `trial_fixtures.py` | `not_started` | mock rehearsal only: [trial-reports/examples/trial_fixtures.json](trial-reports/examples/trial_fixtures.json) — **not** a live observation |
-| 3 | Cross-competition fixtures for Premier League clubs | `trial_fixtures.py` | `not_started` | mock rehearsal only: [trial-reports/examples/trial_fixtures.json](trial-reports/examples/trial_fixtures.json) — **not** a live observation |
-| 4 | Team and squad completeness | `trial_squads.py` | `not_started` | |
-| 5 | Current player records | `trial_squads.py` | `not_started` | |
-| 6 | Confirmed starters and substitutes | `trial_lineups.py` | `not_started` | |
-| 7 | Formation strings | `trial_lineups.py` | `not_started` | |
-| 8 | Formation-grid or lineup-position fields | `trial_lineups.py` | `not_started` | |
-| 9 | Detailed position identifiers | `trial_lineups.py` | `not_started` | |
-| 10 | Substitution relationships and minutes | `trial_lineups.py` | `not_started` | |
-| 11 | Injuries and suspensions | `trial_injuries.py` | `not_started` | mock rehearsal only: [trial-reports/examples/trial_injuries.json](trial-reports/examples/trial_injuries.json) — **not** a live observation |
-| 12 | Coaches and manager records | `trial_injuries.py` | `not_started` | mock rehearsal only: [trial-reports/examples/trial_injuries.json](trial-reports/examples/trial_injuries.json) — **not** a live observation |
+| 2 | Premier League fixtures | `trial_fixtures.py` | `observed` | 380 fixtures for 2026/27 (season 28083, league 8). [day1](trial-reports/live/2026-10-11-day1.md) |
+| 3 | Cross-competition fixtures for Premier League clubs | `trial_fixtures.py` | `observed` | 20 clubs, 874 fixtures; outside PL: UCL, UEL, UECL, Carabao. [day1](trial-reports/live/2026-10-11-day1.md) |
+| 4 | Team and squad completeness | `trial_squads.py` | `observed` | 20 clubs, 544 squad rows, required fields 544/544. [day1](trial-reports/live/2026-10-11-day1.md) |
+| 5 | Current player records | `trial_squads.py` | `observed` | 544 players, 544/544 squad rows resolve (via squads include, #410). [day1](trial-reports/live/2026-10-11-day1.md) |
+| 6 | Confirmed starters and substitutes | `trial_lineups.py` | `observed` | GW6: 198 starters (`type_id` 11) + 108 bench (12). [day1](trial-reports/live/2026-10-11-day1.md) |
+| 7 | Formation strings | `trial_lineups.py` | `observed` | 18 formation rows over 9 fixtures, 3 distinct strings. [day1](trial-reports/live/2026-10-11-day1.md) |
+| 8 | Formation-grid or lineup-position fields | `trial_lineups.py` | `degraded` | script verdict: `formation_field` on 198/306 rows. Present on 198/198 starters (GW6) and 1100/1100 over GW1–5, absent on the bench: a denominator effect, rule left to review. Touchline-absolute semantics found (home col 1 = right, away mirrored); 23/24 fullback checks. [day1](trial-reports/live/2026-10-11-day1.md) |
+| 9 | Detailed position identifiers | `trial_lineups.py` | `observed` | `position_id` 306/306 but coarse (4 values: GK/DEF/MID/ATT); lineup rows carry no detailed position. [day1](trial-reports/live/2026-10-11-day1.md) |
+| 10 | Substitution relationships and minutes | `trial_lineups.py` | `observed` | 58 substitution events, 58 complete (on/off/minute). [day1](trial-reports/live/2026-10-11-day1.md) |
+| 11 | Injuries and suspensions | `trial_injuries.py` | `degraded` | 42 injuries + 3 suspensions in window; 0/42 freshness field. Club-level `teams/{id}?include=sidelined`: 64 current rows (proposal, not wired). [day1](trial-reports/live/2026-10-11-day1.md) |
+| 12 | Coaches and manager records | `trial_injuries.py` | `observed` | root `coaches` answers; not club-filtered (bounded read). [day1](trial-reports/live/2026-10-11-day1.md) |
 | 13 | Fixture-level team statistics | `trial_stats.py` | `not_started` | mock rehearsal only: [trial-reports/examples/trial_stats.json](trial-reports/examples/trial_stats.json) — **not** a live observation |
 | 14 | Player match statistics | `trial_stats.py` | `not_started` | mock rehearsal only: [trial-reports/examples/trial_stats.json](trial-reports/examples/trial_stats.json) — **not** a live observation |
 | 15 | Data update timing before, during, and after matches | `trial_stats.py` | `not_applicable` | *requires live observation — see below* |
@@ -92,6 +92,7 @@ One row per trial day. Keep it short; the detail belongs in the report artifacts
 |---|---|---|---|
 | 2026-10-11 | 1, 17 observed | none | Token now sees the trial plan (Starter + Euro Club Tournaments); 7 leagues. Found: `next_page` is a URL (#408) and 8 of 15 families are includes/nested routes, not root endpoints (remap in #409). 15/15 families reachable. ~440 calls used by end of day 0 (limit 2500/h per entity). #126 rescue merged (#407). |
 | 2026-10-11 (earlier, superseded) | none (1, 17 blocked) | Token saw only 4 free-plan leagues (no PL); 14 of 15 endpoint families unavailable | Historical: diagnosis was the token plan, resolved by Leo activating Starter + Euro Club Tournaments. See [day0.md](trial-reports/live/2026-10-11-day0.md). |
+| 2026-10-11 (day 1) | 2, 3, 4, 5, 6, 7, 9, 10, 12 observed; 8, 11 degraded | none | Live runs of fixtures, squads, lineups, injuries. 8 degraded is a denominator effect (grid on every starter, none on the bench). Grid semantics: col is absolute along the touchline (home col 1 = right, away mirrored). Found and fixed: players root returned the whole database (#410). ~215 requests today, ~650 in total. |
 
 ## Open questions raised during the trial
 
