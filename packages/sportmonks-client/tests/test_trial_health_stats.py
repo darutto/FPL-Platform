@@ -24,12 +24,8 @@ import trial_injuries  # noqa: E402
 import trial_stats  # noqa: E402
 from _trial_common import (  # noqa: E402
     DEGRADED, EXAMPLES_DIR, EXIT_CONFIG, EXIT_OK, EXIT_REFUSED, EXIT_UNMET,
-<<<<<<< HEAD
-    MODE_MOCK, OBSERVED, UNMET, make_client, response,
-=======
     MODE_MOCK, NOT_APPLICABLE, OBSERVED, UNMET, ReplayTransport, make_client,
     response,
->>>>>>> b1432bb (FI-8 S5b: rescue trial_stats.py from the superseded S5 branch)
 )
 from sportmonks_client.client import ENDPOINTS  # noqa: E402
 from sportmonks_client.config import SportmonksConfig  # noqa: E402
