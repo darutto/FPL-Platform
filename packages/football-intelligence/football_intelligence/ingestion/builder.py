@@ -14,7 +14,7 @@ import pandas as pd
 
 from .normalizers import normalize_fixture
 from .schemas import PRIMARY_KEYS, SCHEMAS, SCHEMA_VERSION
-from .team_registry import load_team_registry
+from .team_registry import TeamRegistry, load_team_registry
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
 REPOSITORY_ROOT = PACKAGE_ROOT.parents[3]
@@ -167,10 +167,17 @@ def _validate_references(frames: dict[str, pd.DataFrame]) -> None:
 
 
 def build_from_fixture(source: Path, destination: Path | None = None, *, build_id: str,
-                       built_at: str | None = None, fail_after_write: bool = False) -> dict:
+                       built_at: str | None = None, fail_after_write: bool = False,
+                       team_registry: TeamRegistry | None = None, source_kind: str | None = None) -> dict:
+    """Build one canonical v1 store from a replay source.
+
+    ``team_registry`` and ``source_kind`` exist for the live trial: it supplies
+    its own trial-local registry and labels its source ``local-live-trial``. Both
+    default to the checked-in behavior.
+    """
     build_id = validate_build_id(build_id)
     root = destination or football_root()
-    registry = load_team_registry(DEFAULT_TEAM_SEED)
+    registry = team_registry or load_team_registry(DEFAULT_TEAM_SEED)
     result = normalize_fixture(source, registry, build_id)
     frames = {name: _frame(name, result.tables[name]) for name in SCHEMAS}
     _validate_references(frames)
@@ -200,7 +207,8 @@ def build_from_fixture(source: Path, destination: Path | None = None, *, build_i
             "canonical_schema_version": SCHEMA_VERSION, "build_id": build_id,
             "built_at": built_at or result.captured_at,
             "input_fixture_or_snapshot_versions": [result.source_version],
-            "source": _source_descriptor(source, result.source_version),
+            "source": {**_source_descriptor(source, result.source_version),
+                       **({"source_kind": source_kind} if source_kind else {})},
             "normalizer_versions": {"sportmonks_adapter": "fi4a-v1"},
             "identity_registry_version": "team-seed-v1/player-precedence-v1",
             "entity_files": entity_files,

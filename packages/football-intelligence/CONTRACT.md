@@ -213,3 +213,24 @@ Results and evidence are frozen and deterministically reevaluated from the same
 validated inputs and explicit `calculated_at`. There is no intelligence build,
 manifest, pointer, persistence, network, provider adapter, tool, response,
 or UI integration in FI-6a.
+
+# FI-9 live-trial adapter (local only)
+
+`football_intelligence.ingestion.live_trial` turns one frozen capture of live
+Sportmonks reads into FI-4a replay sources (one canonical v1 build per
+competition) and one canonical-context-v2 build with all competitions. Every
+store is `live_trial_local` and is refused by every publishing and serving path
+(`provenance.py`). Its decisions are listed in the module docstring: trial-local
+club seeds (status `trial-local-unverified`, never in the checked-in registry;
+two provider clubs with one key stop the build), identity only from the
+mapping's pairs, appearances only for players who took the field in completed
+fixtures with the provider's own minutes (type 119), `league-home-meeting-N` and
+`cup-<stage>-leg-1|2|single` fixture keys, and **assumed** scheduling knowledge
+(scheduled snapshots dated 2026-06-01, completed ones kickoff + 3 h, because the
+provider keeps no history of what was known when). League standings are recomputed from
+completed results (never the provider's table), one complete table per completion
+time; before the first result the band is `unknown`. Injuries, suspensions,
+statistics, coaches and referees are not built. The base-store
+handle for these builds is `LiveTrialBuildHandle`, which opens `live_trial_local`
+stores and nothing else; `build_from_fixture` gained optional `team_registry` and
+`source_kind` parameters for it, defaulting to the checked-in behavior.
