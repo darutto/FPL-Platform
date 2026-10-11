@@ -61,11 +61,17 @@ ENDPOINTS: dict[str, Route] = {
                      inherit=(("team_id", "squad_team_id"),)),
     # `lineups.detailedPosition` (live 2026-10-11): starters carry Right Back, Left Back,
     # Right/Left Midfield, ... ; the bench carries none.
-    "lineups": Route(_WINDOW, LineupEntry, include="lineups.detailedPosition", extract="lineups",
+    # `state` rides along and each row inherits its fixture's state as `fixture_state`: Sportmonks serves
+    # provisional lineups (type_id 11, no marker, no bench) before kickoff and rewrites them on
+    # confirmation (observed 2026-10-11), so a lineup row is evidence only when its fixture is completed.
+    "lineups": Route(_WINDOW, LineupEntry, include="lineups.detailedPosition;state", extract="lineups",
                      lift=(("detailedposition", "id", "detailed_position_id"),
-                           ("detailedposition", "name", "detailed_position"))),
-    "formations": Route(_WINDOW, Formation, include="formations", extract="formations"),
-    "substitutions": Route(_WINDOW, Substitution, include="events", extract="events", where=("type_id", 18)),
+                           ("detailedposition", "name", "detailed_position")),
+                     inherit=(("state", "fixture_state"),)),
+    "formations": Route(_WINDOW, Formation, include="formations;state", extract="formations",
+                        inherit=(("state", "fixture_state"),)),
+    "substitutions": Route(_WINDOW, Substitution, include="events;state", extract="events", where=("type_id", 18),
+                           inherit=(("state", "fixture_state"),)),
     "injuries": Route(_WINDOW, Injury, include="sidelined.sideline", extract="sidelined",
                       where=("category", "injury"), unwrap="sideline"),
     "suspensions": Route(_WINDOW, Suspension, include="sidelined.sideline", extract="sidelined",

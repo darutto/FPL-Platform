@@ -653,7 +653,8 @@ def _nest(family: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
     node: Any = rows
     for key in reversed(route.extract.split(".")[1:]):
         node = [{"id": 1, key: node}]
-    return {"data": [{"id": 1001, route.extract.split(".")[0]: node}]}
+    # A mock fixture is a finished one unless a test says otherwise.
+    return {"data": [{"id": 1001, "state": {"developer_name": "FT"}, route.extract.split(".")[0]: node}]}
 
 
 def routes_transport(chosen: Mapping[str, Any]) -> EndpointReplayTransport:

@@ -40,7 +40,7 @@ def test_derived_families_ride_one_route_and_differ_by_include():
                                          "team_statistics", "player_statistics")}
     assert window == {"fixtures/between/{start}/{end}"}
     assert {f: ENDPOINTS[f].include for f in ("lineups", "formations", "substitutions")} == {
-        "lineups": "lineups.detailedPosition", "formations": "formations", "substitutions": "events"}
+        "lineups": "lineups.detailedPosition;state", "formations": "formations;state", "substitutions": "events;state"}
 
 
 def test_sidelined_rows_are_split_by_category_and_deduplicated():

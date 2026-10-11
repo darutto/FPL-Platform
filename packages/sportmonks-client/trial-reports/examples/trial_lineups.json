@@ -36,15 +36,15 @@
   "observed_shapes": [
     {
       "name": "lineups",
-      "shape": "2 record(s); record{id,fixture_id,player_id,team_id,position_id,formation_field,type_id,formation_position,player_name,jersey_number,detailed_position_id}"
+      "shape": "2 record(s); record{id,fixture_id,player_id,team_id,position_id,formation_field,type_id,formation_position,player_name,jersey_number,detailed_position_id,fixture_state}"
     },
     {
       "name": "formations",
-      "shape": "1 record(s); record{id,fixture_id,participant_id,formation,location}"
+      "shape": "1 record(s); record{id,fixture_id,participant_id,formation,location,fixture_state}"
     },
     {
       "name": "substitutions",
-      "shape": "1 record(s); record{id,fixture_id,participant_id,type_id,section,player_id,related_player_id,player_name,related_player_name,minute,extra_minute,addition}"
+      "shape": "1 record(s); record{id,fixture_id,participant_id,type_id,section,player_id,related_player_id,player_name,related_player_name,minute,extra_minute,addition,fixture_state}"
     },
     {
       "name": "starter_marker",

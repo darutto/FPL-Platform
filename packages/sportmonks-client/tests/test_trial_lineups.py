@@ -185,11 +185,11 @@ def test_each_family_shape_reports_the_fields_that_arrived():
     shapes = _shapes(report)
     assert shapes["lineups"] == (
         "1 record(s); record{id,fixture_id,player_id,type_id,"
-        "detailed_position_id,formation_field}"
+        "detailed_position_id,formation_field,fixture_state}"
     )
-    assert shapes["formations"] == "1 record(s); record{id,fixture_id,formation}"
+    assert shapes["formations"] == "1 record(s); record{id,fixture_id,formation,fixture_state}"
     assert shapes["substitutions"] == (
-        "1 record(s); record{id,fixture_id,player_in_id,player_out_id,minute,type_id}"
+        "1 record(s); record{id,fixture_id,player_in_id,player_out_id,minute,type_id,fixture_state}"
     )
     assert len({shapes["lineups"], shapes["formations"], shapes["substitutions"]}) == 3
 
@@ -511,3 +511,55 @@ def test_a_starter_without_grid_still_degrades_it():
 def test_a_bench_row_that_does_carry_a_grid_is_reported_not_hidden():
     report = _collect(lineups=_lineups_with_bench(grid_on_bench=True))
     assert "bench: 0/1 without formation_field" in _evidence(report, 8)
+
+
+# --- Only completed fixtures count: provisional lineups are served before kickoff ---------
+
+def _with_state(rows, state):
+    """Lineup rows the way the client delivers them from a fixture in the given state."""
+    return [{**row, "fixture_state": {"developer_name": state}} for row in rows]
+
+
+def _records(rows):
+    from sportmonks_client.models import parse_entity, LineupEntry
+    return tuple(parse_entity(LineupEntry, row, "fixtures") for row in rows)
+
+
+def test_a_row_counts_only_when_its_fixture_is_completed():
+    base = [{"id": 1, "player_id": 1}]
+    for state, counted in (("FT", True), ("AET", True), ("FT_PEN", True), ("NS", False), ("INPLAY_2ND_HALF", False), ("HT", False)):
+        record = _records(_with_state(base, state))[0]
+        assert trial_lineups._completed(record) is counted, state
+    assert trial_lineups._completed(_records(base)[0]) is False, "a row that does not say its fixture's state is not evidence"
+
+
+def test_the_mock_delivers_finished_fixtures_so_the_rehearsal_is_unchanged():
+    report = _collect()
+    assert _statuses(report)[6] == OBSERVED and not any("not completed" in w for w in report.warnings)
+
+
+def test_provisional_rows_are_left_out_and_the_report_says_how_many(monkeypatch):
+    real = trial_lineups.fetch_family
+
+    def fetch(client, family, scope, **kw):
+        records, truncated = real(client, family, scope, **kw)
+        if family != "lineups":
+            return records, truncated
+        extra = _records(_with_state([{"id": 90 + i, "player_id": 200 + i, "type_id": 11, "formation_field": "2:1",
+                                       "detailed_position_id": 25} for i in range(22)], "NS"))
+        return tuple(records) + extra, truncated
+
+    monkeypatch.setattr(trial_lineups, "fetch_family", fetch)
+    report = _collect()
+    assert _evidence(report, 6).startswith("lineups: 2 record(s)"), "the 22 provisional rows did not count"
+    assert any("lineups 22" in w and "not completed" in w for w in report.warnings)
+    assert _statuses(report)[8] == OBSERVED
+
+
+def test_a_window_with_only_provisional_lineups_is_unmet_not_observed(monkeypatch):
+    real = trial_lineups.fetch_family
+    monkeypatch.setattr(trial_lineups, "fetch_family", lambda client, family, scope, **kw: (
+        tuple(r.__class__(r.provider_id, r.source_endpoint, {**r.raw_fields, "fixture_state": {"developer_name": "NS"}})
+              for r in real(client, family, scope, **kw)[0]), False) if family == "lineups" else real(client, family, scope, **kw))
+    report = _collect()
+    assert _statuses(report)[6] == UNMET and _statuses(report)[8] == UNMET and _statuses(report)[9] == UNMET
