@@ -575,7 +575,7 @@ def test_a_live_run_gates_on_the_fpl_side_and_says_so(tmp_path):
     report = _live(tmp_path, [_record(10, "Ann Able", date_of_birth="2000-01-01")], a, b)
     assert _statuses(report)[19] == UNMET
     text = _evidence(report, 19)
-    assert "elements with minutes>0: 1/2" in text and "50.0%" in text and "Sportmonks pool 1/1" in text
+    assert "minutes>0 still in a PL club: 1/2" in text and "50.0%" in text and "Sportmonks pool 1/1" in text
     assert "fpl_unmatched_with_minutes_by_cause" in _shapes(report)
     assert _shapes(report)["fpl_unmatched_with_minutes_by_cause"] == "absent_from_other_side 1"
 
@@ -724,3 +724,104 @@ def test_only_the_exact_name_and_birth_date_level_may_resolve_in_the_second_pass
     side = _run([row], [other])
     assert side.second_pass["resolved"] == 0 and side.with_minutes_resolved == 3
     assert trial_mapping.DISPLAY_NAME_METHOD not in side.by_method
+
+
+# --- The official denominator: minutes > 0 and still in a Premier League club ----
+
+PL = {1, 2, 3}
+SEASON_START = "2026-08-21"
+TODAY = "2026-10-11"
+
+
+def _rule(person, teams, found=True):
+    return trial_mapping.departed_from_pl(
+        person, lambda p: {"id": 5} if found else None, lambda pid: teams, PL, SEASON_START, TODAY)
+
+
+def _leaver(status="u", born="1998-08-08"):
+    return {"status": status, "birth_date": born, "full_name": "Lee Ver", "known_name": "Ver"}
+
+
+ABROAD = [{"team_id": 900, "start": "2026-09-01", "end": None}]
+
+
+def test_unavailable_and_registered_outside_the_league_is_departed():
+    assert _rule(_leaver(), ABROAD) is True
+
+
+def test_an_available_player_is_never_departed_whatever_the_history():
+    assert _rule(_leaver(status="a"), ABROAD) is False
+
+
+def test_a_player_still_current_at_a_pl_club_is_not_departed():
+    assert _rule(_leaver(), ABROAD + [{"team_id": 2, "start": "2024-07-01", "end": None}]) is False
+    assert _rule(_leaver(), ABROAD + [{"team_id": 2, "start": "2024-07-01", "end": "2027-06-30"}]) is False
+
+
+def test_an_old_pl_spell_that_ended_does_not_keep_a_departed_player_in():
+    assert _rule(_leaver(), ABROAD + [{"team_id": 2, "start": "2020-07-01", "end": "2026-08-31"}]) is True
+
+
+def test_a_registration_outside_the_league_from_before_the_season_does_not_count():
+    assert _rule(_leaver(), [{"team_id": 900, "start": "2024-10-11", "end": None}]) is False
+
+
+def test_a_player_the_provider_cannot_find_or_without_a_birth_date_is_not_excluded():
+    assert _rule(_leaver(), ABROAD, found=False) is False
+    assert _rule(_leaver(born=None), ABROAD) is False
+
+
+def _gate(departed):
+    stay = _el(1, "Ann", "Able", "Able", "2000-01-01")
+    gone = _el(2, "Lee", "Ver", "Ver", "1998-08-08")
+    missing = _el(3, "Mia", "Miss", "Miss", "2001-03-03")
+    people = trial_mapping.fpl_people(_bootstrap(stay, gone, missing))
+    return trial_mapping.fpl_side([_rec(10, "Ann Able", "2000-01-01")], people, departed=departed)
+
+
+def test_the_official_denominator_leaves_out_the_departed_and_the_old_one_is_kept_beside_it():
+    side = _gate({2})
+    assert (side.with_minutes, side.in_pl, side.departed) == (3, 2, 1)
+    assert side.rate_percent == 50.0 and side.rate_with_minutes_percent == 33.3333
+    assert side.fpl_causes == {"absent_from_other_side": 1}, "the departed one is not filed as a failure"
+    assert {i["group"] for i in side.unmatched if i["full_name"] == "Lee Ver"} == {"fpl_departed_from_pl"}
+
+
+def test_without_departures_the_official_gate_is_the_old_one():
+    side = _gate(set())
+    assert side.in_pl == side.with_minutes == 3 and side.rate_percent == side.rate_with_minutes_percent
+
+
+def test_a_resolved_element_is_never_excluded_as_departed():
+    stay = _el(1, "Ann", "Able", "Able", "2000-01-01")
+    people = trial_mapping.fpl_people(_bootstrap(stay))
+    side = trial_mapping.fpl_side([_rec(10, "Ann Able", "2000-01-01")], people, departed={1})
+    assert side.departed == 0 and side.in_pl == 1 and side.rate_percent == 100.0
+
+
+def test_the_post_queue_ceiling_counts_only_what_no_squad_holds():
+    side = _gate({2})
+    assert side.unreachable == 1 and side.ceiling_percent == 50.0
+    nothing_unreachable = trial_mapping.fpl_side(
+        [_rec(10, "Ann Able", "2000-01-01"), _rec(11, "Mia Miss Extra", "2001-03-03", display="Mia Miss")],
+        trial_mapping.fpl_people(_bootstrap(_el(1, "Ann", "Able", "Able", "2000-01-01"),
+                                            _el(3, "Mia", "Miss", "Miss", "2001-03-03"))))
+    assert nothing_unreachable.unreachable == 0 and nothing_unreachable.ceiling_percent == 100.0
+
+
+def test_a_live_run_finds_the_departed_from_the_provider_data_alone(tmp_path):
+    from _trial_common import EndpointReplayTransport
+    stay = _el(1, "Ann", "Able", "Able", "2000-01-01")
+    gone = {**_el(2, "Lee", "Ver", "Ver", "1998-08-08"), "status": "u"}
+    pool = _pool(_record(10, "Ann Able", date_of_birth="2000-01-01"))
+    transport = EndpointReplayTransport({
+        ENDPOINTS["players"][0]: [response(trial_mapping._nest("players", list(pool["data"])))] * 2,
+        "players/search/{term}": response({"data": [{"id": 77, "date_of_birth": "1998-08-08", "name": "Lee Ver"}]}),
+        "players/{player_id}": response({"data": {"id": 77, "teams": [{"team_id": 900, "start": "2026-09-01", "end": None}]}}),
+    })
+    client = make_client(MODE_MOCK, transport=transport)
+    report = trial_mapping.collect(client, "live", bootstrap=_bootstrap(stay, gone),
+                                   scope=MOCK_SCOPE, state_dir=None)[0]
+    assert _statuses(report)[19] == OBSERVED
+    assert "still in a PL club: 1/1" in _evidence(report, 19)
+    assert "departed from the league 1" in _shapes(report)["gate_denominators"]
