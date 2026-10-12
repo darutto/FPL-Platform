@@ -79,6 +79,7 @@ about exactly that difference.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from collections import Counter
 from dataclasses import asdict, dataclass
@@ -472,23 +473,54 @@ def fpl_people(bootstrap: dict[str, Any]) -> list[dict[str, Any]]:
             "known_name": element.get("web_name"), "birth_date": (birth or "")[:10] or None,
             "team": str(element.get("team")), "minutes": int(element.get("minutes") or 0),
             "element_type": element.get("element_type"), "status": element.get("status"),
+            "news": element.get("news"),
         })
     return people
 
 
+#: FPL's wording when an unavailable player has left the league. Anchored at the start: "not included in
+#: squad." and injury news are not departures.
+DEPARTURE_NEWS = re.compile(r"\s*has joined\b", re.IGNORECASE)
+
+
+def _fold(text: str) -> str:
+    import unicodedata
+    return "".join(c for c in unicodedata.normalize("NFKD", text.casefold()) if not unicodedata.combining(c)).strip()
+
+
+def _joined_pl_club(news: str, pl_club_names: Collection[str]) -> bool:
+    """Does "Has joined <club> ..." name one of the league's clubs (matched on whole words)?"""
+    rest = _fold(DEPARTURE_NEWS.sub("", news, count=1))
+    return any(rest == name or rest.startswith(name + " ") or rest.startswith(name + ".")
+               for name in (_fold(n) for n in pl_club_names) if name)
+
+
 def departed_from_pl(person: dict[str, Any], find_player, teams_of,
-                     pl_club_ids: Collection[Any], season_start: str, today: str) -> bool:
+                     pl_club_ids: Collection[Any], season_start: str, today: str,
+                     pl_club_names: Collection[str] = ()) -> bool:
     """Has this FPL element left the Premier League? Decided from data, never by hand.
 
-    True only when FPL marks the element unavailable (status ``u``) **and** the
+    True only when FPL marks the element unavailable (status ``u``) **and** either FPL's
+    news says he has joined another club (``DEPARTURE_NEWS``) **or** the
     Sportmonks team history shows it registered with a club outside the league
     since the season started **and** with no Premier League club still current.
     ``find_player(person)`` returns the Sportmonks player (a dict with ``id``) or
     None; ``teams_of(player_id)`` returns its team history rows
     (``team_id``, ``start``, ``end``). Both are injected so the rule is testable
-    without the provider.
+    without the provider. ``pl_club_names`` are the league clubs' names as FPL writes them: news saying he
+    joined one of them is a move inside the league, never a departure.
     """
-    if person.get("status") != "u" or not person.get("birth_date"):
+    if person.get("status") != "u":
+        return False
+    # FPL's own departure notice is evidence enough (approved by Leo, 2026-10-11, via review chat): "Has joined X on loan for the rest
+    # of the season" / "Has joined X permanently" on an unavailable element. It needs no Sportmonks lookup,
+    # so it also covers a player Sportmonks cannot locate.
+    news = str(person.get("news") or "")
+    if DEPARTURE_NEWS.match(news):
+        if _joined_pl_club(news, pl_club_names):
+            return False         # a move to another league club: still in the league
+        return True
+    if not person.get("birth_date"):
         return False
     found = find_player(person)
     if not found:
@@ -532,6 +564,12 @@ class FplSide:
     manual_results: tuple[dict[str, Any], ...] = ()
     #: Accepted manual confirmations for elements that count in the official denominator.
     manual_in_pl: int = 0
+    #: Outcome of every manual departure the run was given (a human said "left the league"). Local use only.
+    departure_results: tuple[dict[str, Any], ...] = ()
+
+    @property
+    def manual_departed(self) -> int:
+        return sum(1 for r in self.departure_results if r["accepted"])
 
     @property
     def manual_accepted(self) -> int:
@@ -549,7 +587,7 @@ class FplSide:
     @property
     def in_pl(self) -> int:
         """Elements with minutes that are still in a Premier League club: the official denominator."""
-        return self.with_minutes - self.departed
+        return self.with_minutes - self.departed - self.manual_departed
 
     @property
     def rate_percent(self) -> float:
@@ -636,9 +674,49 @@ def load_manual_pairs(path: Path) -> list[dict[str, Any]]:
     return out
 
 
+MANUAL_DEPARTURE_FIELDS = ("fpl_id", "confirmed_by", "confirmed_on", "evidence")
+MANUAL_DEPARTURE_REASON = "manual_departure"
+
+
+def load_manual_departures(path: Path) -> list[dict[str, Any]]:
+    """Read the departures a human confirmed (``{"schema_version": 1, "departures": [...]}``).
+
+    Parallel to ``load_manual_pairs``: every entry names who confirmed it, on what date and on what
+    evidence; a missing field, a malformed date or a repeated FPL id stops the run. A missing file is
+    simply no confirmations.
+    """
+    import datetime as _dt
+    if not path.exists():
+        return []
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except ValueError as exc:
+        raise ManualPairsError("manual departures file is not valid JSON") from exc
+    if not isinstance(payload, dict) or payload.get("schema_version") != 1 or not isinstance(payload.get("departures"), list):
+        raise ManualPairsError("manual departures file must be {schema_version: 1, departures: [...]}")
+    seen: set[int] = set()
+    out = []
+    for entry in payload["departures"]:
+        if not isinstance(entry, dict) or set(entry) != set(MANUAL_DEPARTURE_FIELDS):
+            raise ManualPairsError(f"each departure needs exactly {MANUAL_DEPARTURE_FIELDS}")
+        if any(not str(entry[k]).strip() for k in MANUAL_DEPARTURE_FIELDS):
+            raise ManualPairsError("no manual departure field may be empty")
+        try:
+            _dt.date.fromisoformat(str(entry["confirmed_on"]))
+            fpl_id = int(entry["fpl_id"])
+        except ValueError as exc:
+            raise ManualPairsError("confirmed_on must be a date and fpl_id an integer") from exc
+        if fpl_id in seen:
+            raise ManualPairsError("an FPL element appears twice")
+        seen.add(fpl_id)
+        out.append({**entry, "fpl_id": fpl_id})
+    return out
+
+
 def fpl_side(records: Sequence[Any], people: Sequence[dict[str, Any]], *,
              second_pass: bool = True, departed: Collection[Any] = (),
-             manual_pairs: Sequence[dict[str, Any]] = ()) -> FplSide:
+             manual_pairs: Sequence[dict[str, Any]] = (),
+             manual_departures: Sequence[dict[str, Any]] = ()) -> FplSide:
     """Run the registry's matcher from the Sportmonks pool to the FPL elements.
 
     First pass: the provider's `name` as the full name. Second pass (approved
@@ -763,6 +841,25 @@ def fpl_side(records: Sequence[Any], people: Sequence[dict[str, Any]], *,
     for p in pool_people:
         if p["known_name"] is None:
             p["known_name"] = p["alt_name"]
+    # Manual departures (a human said "left the league"): only an element with minutes that is still
+    # unresolved can be excluded; one the matcher resolved stays in the denominator. A manual departure
+    # takes precedence over the rule-based one, so the two are never counted together.
+    departure_results: list[dict[str, Any]] = []
+    manual_gone: set[Any] = set()
+    for entry in manual_departures:
+        result = {"fpl_id": entry["fpl_id"], "accepted": False, "reason": ""}
+        person = people_by_id.get(entry["fpl_id"])
+        if person is None:
+            result["reason"] = "unknown_fpl_element"
+        elif person["minutes"] <= 0:
+            result["reason"] = "no_minutes"
+        elif resolved(person):
+            result["reason"] = "already_resolved"
+        else:
+            result["accepted"] = True
+            manual_gone.add(entry["fpl_id"])
+        departure_results.append(result)
+    departed = {i for i in departed if i not in manual_gone}
     fpl_causes: dict[str, int] = {}
     pool_causes: dict[str, int] = {}
     unmatched: list[dict[str, Any]] = []
@@ -772,7 +869,7 @@ def fpl_side(records: Sequence[Any], people: Sequence[dict[str, Any]], *,
         cause = explain_non_match(
             person, pool_people,
             conflict=identity_fingerprint(person["full_name"], person["birth_date"]) in conflicts)
-        gone = person["id"] in departed and person["minutes"] > 0
+        gone = (person["id"] in departed or person["id"] in manual_gone) and person["minutes"] > 0
         if person["minutes"] > 0 and not gone:
             fpl_causes[cause] = fpl_causes.get(cause, 0) + 1
         group = ("fpl_departed_from_pl" if gone else
@@ -801,6 +898,7 @@ def fpl_side(records: Sequence[Any], people: Sequence[dict[str, Any]], *,
             for pid, canon in {**pairs, **second_pairs}.items() if len(by_canonical.get(canon, [])) == 1)),
         tuple(manual_results),
         sum(1 for r in manual_results if r["accepted"] and people_by_id[r["fpl_id"]]["minutes"] > 0),
+        tuple(departure_results),
     )
 
 
@@ -809,7 +907,7 @@ def _causes_text(causes: dict[str, int]) -> str:
 
 
 def _departed_ids(client, scope, side: "FplSide", people: Sequence[dict[str, Any]],
-                  records: Sequence[Any]) -> set[Any]:
+                  records: Sequence[Any], club_names: Collection[str] = ()) -> set[Any]:
     """FPL elements with minutes, unresolved and marked unavailable, that the rule
     in ``departed_from_pl`` finds registered outside the league. A few requests:
     one search and one team history per candidate."""
@@ -844,7 +942,7 @@ def _departed_ids(client, scope, side: "FplSide", people: Sequence[dict[str, Any
 
     pl_ids = set(scope.team_ids)
     return {p["id"] for p in pending
-            if departed_from_pl(p, find_player, teams_of, pl_ids, scope.season_start or "0000-00-00", today)}
+            if departed_from_pl(p, find_player, teams_of, pl_ids, scope.season_start or "0000-00-00", today, club_names)}
 
 
 def load_fpl_bootstrap() -> dict[str, Any]:
@@ -861,6 +959,13 @@ def load_fpl_bootstrap() -> dict[str, Any]:
 
 def append_manual_log(side: FplSide, state_dir: Path) -> Path | None:
     """The record of what every manual confirmation did on this run, appended and never rewritten."""
+    if side.departure_results:
+        import datetime as _dt
+        state_dir.mkdir(parents=True, exist_ok=True)
+        stamp = _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        with (state_dir / "manual_departures.log.ndjson").open("a", encoding="utf-8", newline="\n") as handle:
+            for r in side.departure_results:
+                handle.write(json.dumps({"at": stamp, **r}, sort_keys=True) + "\n")
     if not side.manual_results:
         return None
     import datetime as _dt
@@ -913,7 +1018,8 @@ def collect(client, mode: str, *, bootstrap: dict[str, Any] | None = None,
     first, failure = _fetch(client, scope)
     second, second_failure = _fetch(client, scope) if not failure else ((), failure)
 
-    people = fpl_people(bootstrap if bootstrap is not None else load_fpl_bootstrap()) if (live and first) else None
+    fpl_bootstrap = (bootstrap if bootstrap is not None else load_fpl_bootstrap()) if (live and first) else None
+    people = fpl_people(fpl_bootstrap) if fpl_bootstrap is not None else None
     if people is not None:
         candidates, conflicts = registry_candidates({"candidates": [
             {"full_name": p["full_name"], "known_name": p["known_name"],
@@ -927,10 +1033,12 @@ def collect(client, mode: str, *, bootstrap: dict[str, Any] | None = None,
     side: FplSide | None = None
     if people is not None:
         manual = load_manual_pairs(state_dir / "manual_pairs.json") if state_dir is not None else []
-        side = fpl_side(first, people, manual_pairs=manual)
-        gone = _departed_ids(client, scope, side, people, first)
+        left = load_manual_departures(state_dir / "manual_departures.json") if state_dir is not None else []
+        side = fpl_side(first, people, manual_pairs=manual, manual_departures=left)
+        names = [n for t in (fpl_bootstrap or {}).get("teams", []) for n in (t.get("name"), t.get("short_name")) if n]
+        gone = _departed_ids(client, scope, side, people, first, names)
         if gone:
-            side = fpl_side(first, people, departed=gone, manual_pairs=manual)
+            side = fpl_side(first, people, departed=gone, manual_pairs=manual, manual_departures=left)
     if side is not None:
         # --- Objective 19, live: the FPL side, minutes > 0 and still in a PL club
         shortfalls_19 = []
@@ -1040,7 +1148,8 @@ def collect(client, mode: str, *, bootstrap: dict[str, Any] | None = None,
         report.observed_shapes.append(ObservedShape(
             "gate_denominators",
             f"official {side.with_minutes_resolved}/{side.in_pl}; previous (minutes>0) "
-            f"{side.with_minutes_resolved}/{side.with_minutes}; departed from the league {side.departed}; "
+            f"{side.with_minutes_resolved}/{side.with_minutes}; departed from the league {side.departed} by rule, "
+            f"{side.manual_departed} by manual departure; "
             f"unreachable through squads {side.unreachable}; post-queue ceiling {side.ceiling_percent}%"))
         if side.manual_results:
             rejected = Counter(r["reason"] for r in side.manual_results if not r["accepted"])
@@ -1050,6 +1159,14 @@ def collect(client, mode: str, *, bootstrap: dict[str, Any] | None = None,
                 f" ({', '.join(f'{k} {v}' for k, v in sorted(rejected.items())) or 'none'}); "
                 f"official rate {side.rate_automatic_percent}% automatic -> {side.rate_percent}% with confirmations "
                 f"(target {POST_QUEUE_TARGET_PERCENT:g}%: {'met' if side.meets_post_queue_target else 'not met'})"))
+        if side.departure_results:
+            rejected_d = Counter(r["reason"] for r in side.departure_results if not r["accepted"])
+            report.observed_shapes.append(ObservedShape(
+                "manual_departures",
+                f"{side.manual_departed} accepted ({MANUAL_DEPARTURE_REASON}), "
+                f"{len(side.departure_results) - side.manual_departed} rejected"
+                f" ({', '.join(f'{k} {v}' for k, v in sorted(rejected_d.items())) or 'none'}); "
+                f"excluded from the denominator separately from the {side.departed} departed by rule"))
         report.observed_shapes.append(ObservedShape(
             "match_by_method", ", ".join(f"{k} {v}" for k, v in side.by_method.items()) or "none"))
         audit = side.second_pass
