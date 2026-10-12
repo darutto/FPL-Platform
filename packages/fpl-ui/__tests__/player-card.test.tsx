@@ -116,3 +116,40 @@ describe('PlayerCard — injured player (i151)', () => {
     expect(badge.className).toEqual(expect.stringContaining('coral'));
   });
 });
+
+describe('PlayerCard — news in Spanish (i151c)', () => {
+  const base = playerSnapshotDoubtfulResponse.player_snapshot!;
+
+  test('shows news_label, not the English news', () => {
+    const data = {
+      ...base,
+      news: 'Knee injury - 75% chance of playing',
+      news_label: 'Lesión de rodilla - 75% de probabilidad de jugar',
+    };
+    render(<PlayerCard data={data} />);
+    expect(screen.getByText('Lesión de rodilla - 75% de probabilidad de jugar')).toBeInTheDocument();
+    expect(screen.queryByText(/chance of playing/)).not.toBeInTheDocument();
+  });
+
+  test('falls back to the raw news when news_label is absent (older payload)', () => {
+    const { news_label: _omit, ...legacy } = {
+      ...base,
+      news: 'has returned to Getafe CF',
+      news_label: undefined,
+    };
+    render(<PlayerCard data={legacy} />);
+    expect(screen.getByText('has returned to Getafe CF')).toBeInTheDocument();
+  });
+
+  test('visibility still keys off status and the original news', () => {
+    const data = {
+      ...base,
+      status: 'Available',
+      status_label: 'Disponible',
+      news: 'Knee injury - 75% chance of playing',
+      news_label: 'Lesión de rodilla - 75% de probabilidad de jugar',
+    };
+    render(<PlayerCard data={data} />);
+    expect(screen.queryByText(/rodilla/)).not.toBeInTheDocument();
+  });
+});

@@ -62,6 +62,7 @@ export default function PlayerCard({ data }: Props) {
     status,
     status_label,
     news,
+    news_label,
     form,
     total_points,
     points_per_game,
@@ -111,7 +112,7 @@ export default function PlayerCard({ data }: Props) {
           <span className={`flex-shrink-0 ${PILL_BASE} ${badgeClass}`}>{badgeLabel}</span>
         </div>
 
-        {showNews && <p className="text-xs text-bf-text/80 line-clamp-2">{news}</p>}
+        {showNews && <p className="text-xs text-bf-text/80 line-clamp-2">{news_label || news}</p>}
 
         {/* Hero metric — season total points */}
         <div>

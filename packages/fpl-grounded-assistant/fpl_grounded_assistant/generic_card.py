@@ -414,6 +414,7 @@ def compose_injury_list(meta: "InjuryListMeta") -> GenericCardMeta:
     ``chance_of_playing`` is a number string or an em dash when null;
     ``news_added`` is an ISO date string or empty; ``status`` is the label text.
     """
+    from .news_es import news_label  # noqa: PLC0415
     from .renderer import _localized_status_label  # noqa: PLC0415 — deferred, as above
 
     injured  = tuple(meta.injured)
@@ -438,7 +439,7 @@ def compose_injury_list(meta: "InjuryListMeta") -> GenericCardMeta:
             e.position,
             _localized_status_label(e.status_label, "es"),  # i151b: Spanish badge text
             chance_cell,
-            getattr(e, "news", "") or "",
+            news_label(getattr(e, "news", "") or ""),  # i151c
             news_added if news_added else "",
         )
 

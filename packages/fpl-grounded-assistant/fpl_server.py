@@ -1365,6 +1365,7 @@ def _player_snapshot_meta_dict(ps: Any) -> dict[str, Any]:
         "status":                       ps.status,
         "status_label":                 ps.status_label,  # i151
         "news":                         ps.news,
+        "news_label":                   ps.news_label,  # i151c
         "news_added":                   ps.news_added,
         "chance_of_playing_this_round": ps.chance_of_playing_this_round,
         "form":                         ps.form,
