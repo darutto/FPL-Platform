@@ -84,3 +84,9 @@ def test_a_second_call_after_a_launch_is_idempotent(tmp_path):
 def test_the_real_liveness_check_sees_this_process_and_not_an_unused_pid():
     assert ensure_watcher.pid_alive(os.getpid()) is True
     assert ensure_watcher.pid_alive(2**22 - 3) is False
+
+
+def test_without_a_first_poll_time_the_watcher_gets_exactly_three_arguments(tmp_path):
+    spawn = Spawner()
+    ensure_watcher.ensure(*ARGS, root=tmp_path, alive=lambda p: False, spawn=spawn)
+    assert len(spawn.calls[0]) == 4  # script, start, end, log
