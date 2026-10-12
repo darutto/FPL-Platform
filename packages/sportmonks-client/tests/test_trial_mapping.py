@@ -961,3 +961,56 @@ def test_a_live_run_reports_the_confirmations_and_the_two_rates(tmp_path):
     text = _shapes(report)["manual_confirmations"]
     assert "1 accepted, 0 rejected" in text and "75.0% automatic -> 100.0% with confirmations" in text and "met" in text
     assert _shapes(report)["match_by_method"].count("manual_confirmation 1") == 1
+
+import pytest  # noqa: E402
+
+
+# --- FPL's departure notice is evidence enough (decided by Leo, 2026-10-12) -------------------
+
+def _gone(news, status="u", **over):
+    return {"status": status, "birth_date": "1998-08-08", "full_name": "Lee Ver", "known_name": "Ver", "news": news, **over}
+
+
+def _no_lookup(person):  # a Sportmonks lookup that must not be needed
+    raise AssertionError("the news rule needs no Sportmonks lookup")
+
+
+@pytest.mark.parametrize("news", [
+    "Has joined Como on loan for the rest of the season",
+    "Has joined Fiorentina permanently",
+    "  has joined juventus on loan for the rest of the season"])
+def test_an_unavailable_player_whose_news_says_he_has_joined_another_club_is_departed(news):
+    assert trial_mapping.departed_from_pl(_gone(news), _no_lookup, lambda pid: [], PL, SEASON_START, TODAY) is True
+
+
+@pytest.mark.parametrize("news,status", [
+    ("not included in squad.", "u"), ("", "u"), (None, "u"), ("Hamstring injury - Unknown return date", "i"),
+    ("Has joined Como on loan for the rest of the season", "a"),       # not unavailable: the notice alone is not enough
+    ("Has joined Como on loan for the rest of the season", "i"),
+    ("Joined the national team camp", "u"), ("Rumoured to have joined", "u")])
+def test_other_news_or_another_status_is_not_a_departure_notice(news, status):
+    assert trial_mapping.departed_from_pl(_gone(news, status=status), lambda p: None, lambda pid: [], PL, SEASON_START, TODAY) is False
+
+
+def test_the_notice_also_covers_a_player_sportmonks_cannot_find_or_without_a_birth_date():
+    notice = "Has joined Como on loan for the rest of the season"
+    assert trial_mapping.departed_from_pl(_gone(notice, birth_date=None), _no_lookup, lambda pid: [], PL, SEASON_START, TODAY) is True
+    assert trial_mapping.departed_from_pl(_gone(None), lambda p: None, lambda pid: [], PL, SEASON_START, TODAY) is False
+
+
+def test_the_sportmonks_history_still_decides_when_there_is_no_notice():
+    assert _rule(_leaver(), ABROAD) is True
+
+
+def test_a_resolved_element_with_the_notice_is_still_never_excluded():
+    elements = [_el(1, "Ann", "Able", "Able", "2000-01-01")]
+    people = trial_mapping.fpl_people(_bootstrap(*elements))
+    people[0].update(status="u", news="Has joined Como on loan for the rest of the season")
+    side = trial_mapping.fpl_side([_rec(10, "Ann Able", "2000-01-01")], people, departed={1})
+    assert side.departed == 0 and side.in_pl == 1
+
+
+def test_the_news_travels_from_the_bootstrap_into_the_people():
+    people = trial_mapping.fpl_people(_bootstrap({**_el(1, "Ann", "Able", "Able", "2000-01-01"), "status": "u",
+                                                  "news": "Has joined Como on loan for the rest of the season"}))
+    assert people[0]["news"].startswith("Has joined") and people[0]["status"] == "u"

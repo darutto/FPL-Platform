@@ -79,6 +79,7 @@ about exactly that difference.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from collections import Counter
 from dataclasses import asdict, dataclass
@@ -472,15 +473,22 @@ def fpl_people(bootstrap: dict[str, Any]) -> list[dict[str, Any]]:
             "known_name": element.get("web_name"), "birth_date": (birth or "")[:10] or None,
             "team": str(element.get("team")), "minutes": int(element.get("minutes") or 0),
             "element_type": element.get("element_type"), "status": element.get("status"),
+            "news": element.get("news"),
         })
     return people
+
+
+#: FPL's wording when an unavailable player has left the league. Anchored at the start: "not included in
+#: squad." and injury news are not departures.
+DEPARTURE_NEWS = re.compile(r"\s*has joined\b", re.IGNORECASE)
 
 
 def departed_from_pl(person: dict[str, Any], find_player, teams_of,
                      pl_club_ids: Collection[Any], season_start: str, today: str) -> bool:
     """Has this FPL element left the Premier League? Decided from data, never by hand.
 
-    True only when FPL marks the element unavailable (status ``u``) **and** the
+    True only when FPL marks the element unavailable (status ``u``) **and** either FPL's
+    news says he has joined another club (``DEPARTURE_NEWS``) **or** the
     Sportmonks team history shows it registered with a club outside the league
     since the season started **and** with no Premier League club still current.
     ``find_player(person)`` returns the Sportmonks player (a dict with ``id``) or
@@ -488,7 +496,14 @@ def departed_from_pl(person: dict[str, Any], find_player, teams_of,
     (``team_id``, ``start``, ``end``). Both are injected so the rule is testable
     without the provider.
     """
-    if person.get("status") != "u" or not person.get("birth_date"):
+    if person.get("status") != "u":
+        return False
+    # FPL's own departure notice is evidence enough (decided by Leo): "Has joined X on loan for the rest
+    # of the season" / "Has joined X permanently" on an unavailable element. It needs no Sportmonks lookup,
+    # so it also covers a player Sportmonks cannot locate.
+    if DEPARTURE_NEWS.match(str(person.get("news") or "")):
+        return True
+    if not person.get("birth_date"):
         return False
     found = find_player(person)
     if not found:
