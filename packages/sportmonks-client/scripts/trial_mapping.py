@@ -80,6 +80,7 @@ from __future__ import annotations
 
 import json
 import sys
+from collections import Counter
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Collection, Sequence
@@ -121,6 +122,9 @@ OBJECTIVE_19 = "FPL identity-match rate"
 #: this is `unmet` and exits 1, which is the whole point of measuring it early
 #: enough in the trial to still act on a bad number.
 GATE_PERCENT = 95.0
+#: With the manual queue worked through (decided 2026-10-11): the official rate must reach this.
+POST_QUEUE_TARGET_PERCENT = 99.0
+MANUAL_METHOD = "manual_confirmation"
 
 #: The FI-2 corpus this script reads. Read-only; nothing here writes to the
 #: registry tree.
@@ -524,6 +528,23 @@ class FplSide:
     departed: int = 0
     #: (Sportmonks player id, FPL element id, method) for every resolved pair. Local use only.
     pairs: tuple[tuple[str, int, str], ...] = ()
+    #: Outcome of every manual confirmation the run was given: dicts with ids, accepted, reason. Local use only.
+    manual_results: tuple[dict[str, Any], ...] = ()
+    #: Accepted manual confirmations for elements that count in the official denominator.
+    manual_in_pl: int = 0
+
+    @property
+    def manual_accepted(self) -> int:
+        return sum(1 for r in self.manual_results if r["accepted"])
+
+    @property
+    def rate_automatic_percent(self) -> float:
+        """The official gate before any manual confirmation: what the matcher did alone."""
+        return round((self.with_minutes_resolved - self.manual_in_pl) / self.in_pl * 100, 4) if self.in_pl > 0 else 0.0
+
+    @property
+    def meets_post_queue_target(self) -> bool:
+        return self.in_pl > 0 and self.rate_percent >= POST_QUEUE_TARGET_PERCENT
 
     @property
     def in_pl(self) -> int:
@@ -571,8 +592,53 @@ def club_crosswalk(pairs: Sequence[tuple[Any, str]]) -> dict[Any, str]:
             if len(teams) == 1 and sum(teams.values()) >= CLUB_GUARD_MIN_PAIRS}
 
 
+class ManualPairsError(ValueError):
+    """The manual-confirmation file is not in the governed shape."""
+
+
+MANUAL_PAIR_FIELDS = ("sportmonks_id", "fpl_id", "confirmed_by", "confirmed_on", "evidence")
+
+
+def load_manual_pairs(path: Path) -> list[dict[str, Any]]:
+    """Read the confirmations a human made (``{"schema_version": 1, "pairs": [...]}``).
+
+    Every entry names who confirmed it, on what date and on what evidence; an entry without all five
+    fields, with a malformed date, or repeating a Sportmonks or FPL id stops the run. A missing file is
+    simply no confirmations.
+    """
+    import datetime as _dt
+    if not path.exists():
+        return []
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except ValueError as exc:
+        raise ManualPairsError("manual pairs file is not valid JSON") from exc
+    if not isinstance(payload, dict) or payload.get("schema_version") != 1 or not isinstance(payload.get("pairs"), list):
+        raise ManualPairsError("manual pairs file must be {schema_version: 1, pairs: [...]}")
+    seen_sm: set[str] = set()
+    seen_fpl: set[int] = set()
+    out = []
+    for entry in payload["pairs"]:
+        if not isinstance(entry, dict) or set(entry) != set(MANUAL_PAIR_FIELDS):
+            raise ManualPairsError(f"each pair needs exactly {MANUAL_PAIR_FIELDS}")
+        if any(not str(entry[k]).strip() for k in MANUAL_PAIR_FIELDS):
+            raise ManualPairsError("no manual pair field may be empty")
+        try:
+            _dt.date.fromisoformat(str(entry["confirmed_on"]))
+            fpl_id = int(entry["fpl_id"])
+        except ValueError as exc:
+            raise ManualPairsError("confirmed_on must be a date and fpl_id an integer") from exc
+        sm_id = str(entry["sportmonks_id"])
+        if sm_id in seen_sm or fpl_id in seen_fpl:
+            raise ManualPairsError("a Sportmonks player or an FPL element appears twice")
+        seen_sm.add(sm_id); seen_fpl.add(fpl_id)
+        out.append({**entry, "sportmonks_id": sm_id, "fpl_id": fpl_id})
+    return out
+
+
 def fpl_side(records: Sequence[Any], people: Sequence[dict[str, Any]], *,
-             second_pass: bool = True, departed: Collection[Any] = ()) -> FplSide:
+             second_pass: bool = True, departed: Collection[Any] = (),
+             manual_pairs: Sequence[dict[str, Any]] = ()) -> FplSide:
     """Run the registry's matcher from the Sportmonks pool to the FPL elements.
 
     First pass: the provider's `name` as the full name. Second pass (approved
@@ -656,6 +722,34 @@ def fpl_side(records: Sequence[Any], people: Sequence[dict[str, Any]], *,
             if _POSITION.get(record.raw_fields.get("position_id")) != matched[0].get("element_type"):
                 audit["position_mismatch_new"] += 1
 
+    # Manual confirmations (a human said "same player"): the last step, only over what both automatic
+    # passes left unresolved, never over an existing pair, and only when the birth dates agree.
+    manual_results: list[dict[str, Any]] = []
+    people_by_id = {p["id"]: p for p in people}
+    for entry in manual_pairs:
+        result = {"sportmonks_id": entry["sportmonks_id"], "fpl_id": entry["fpl_id"], "accepted": False, "reason": ""}
+        record = by_id.get(entry["sportmonks_id"])
+        person = people_by_id.get(entry["fpl_id"])
+        canonical = canonical_player_id(person["full_name"], person["birth_date"]) if person else None
+        if record is None:
+            result["reason"] = "unknown_sportmonks_player"
+        elif person is None:
+            result["reason"] = "unknown_fpl_element"
+        elif entry["sportmonks_id"] in pool_matched:
+            result["reason"] = "sportmonks_player_already_paired"
+        elif canonical in hit or identity_fingerprint(person["full_name"], person["birth_date"]) in conflicts:
+            result["reason"] = "fpl_element_already_resolved_or_ambiguous"
+        elif not person["birth_date"] or person["birth_date"] != record.raw_fields.get("date_of_birth"):
+            result["reason"] = "birth_date_absent_or_different"
+        else:
+            hit.add(canonical)
+            pool_matched.add(entry["sportmonks_id"])
+            second_pairs[entry["sportmonks_id"]] = canonical
+            methods[entry["sportmonks_id"]] = MANUAL_METHOD
+            by_method[MANUAL_METHOD] = by_method.get(MANUAL_METHOD, 0) + 1
+            result["accepted"] = True
+        manual_results.append(result)
+
     def resolved(person: dict[str, Any]) -> bool:
         if identity_fingerprint(person["full_name"], person["birth_date"]) in conflicts:
             return False
@@ -705,6 +799,8 @@ def fpl_side(records: Sequence[Any], people: Sequence[dict[str, Any]], *,
         tuple(sorted(
             (pid, by_canonical[canon][0]["id"], methods[pid])
             for pid, canon in {**pairs, **second_pairs}.items() if len(by_canonical.get(canon, [])) == 1)),
+        tuple(manual_results),
+        sum(1 for r in manual_results if r["accepted"] and people_by_id[r["fpl_id"]]["minutes"] > 0),
     )
 
 
@@ -763,6 +859,20 @@ def load_fpl_bootstrap() -> dict[str, Any]:
     return get_bootstrap()
 
 
+def append_manual_log(side: FplSide, state_dir: Path) -> Path | None:
+    """The record of what every manual confirmation did on this run, appended and never rewritten."""
+    if not side.manual_results:
+        return None
+    import datetime as _dt
+    state_dir.mkdir(parents=True, exist_ok=True)
+    path = state_dir / "manual_pairs.log.ndjson"
+    stamp = _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    with path.open("a", encoding="utf-8", newline="\n") as handle:
+        for r in side.manual_results:
+            handle.write(json.dumps({"at": stamp, **r}, sort_keys=True) + "\n")
+    return path
+
+
 def write_fpl_unmatched(side: FplSide, out_dir: Path) -> Path:
     """Names of every unmatched person, grouped. Local and gitignored."""
     reports_dir = out_dir / "reports"
@@ -816,10 +926,11 @@ def collect(client, mode: str, *, bootstrap: dict[str, Any] | None = None,
 
     side: FplSide | None = None
     if people is not None:
-        side = fpl_side(first, people)
+        manual = load_manual_pairs(state_dir / "manual_pairs.json") if state_dir is not None else []
+        side = fpl_side(first, people, manual_pairs=manual)
         gone = _departed_ids(client, scope, side, people, first)
         if gone:
-            side = fpl_side(first, people, departed=gone)
+            side = fpl_side(first, people, departed=gone, manual_pairs=manual)
     if side is not None:
         # --- Objective 19, live: the FPL side, minutes > 0 and still in a PL club
         shortfalls_19 = []
@@ -931,6 +1042,14 @@ def collect(client, mode: str, *, bootstrap: dict[str, Any] | None = None,
             f"official {side.with_minutes_resolved}/{side.in_pl}; previous (minutes>0) "
             f"{side.with_minutes_resolved}/{side.with_minutes}; departed from the league {side.departed}; "
             f"unreachable through squads {side.unreachable}; post-queue ceiling {side.ceiling_percent}%"))
+        if side.manual_results:
+            rejected = Counter(r["reason"] for r in side.manual_results if not r["accepted"])
+            report.observed_shapes.append(ObservedShape(
+                "manual_confirmations",
+                f"{side.manual_accepted} accepted, {len(side.manual_results) - side.manual_accepted} rejected"
+                f" ({', '.join(f'{k} {v}' for k, v in sorted(rejected.items())) or 'none'}); "
+                f"official rate {side.rate_automatic_percent}% automatic -> {side.rate_percent}% with confirmations "
+                f"(target {POST_QUEUE_TARGET_PERCENT:g}%: {'met' if side.meets_post_queue_target else 'not met'})"))
         report.observed_shapes.append(ObservedShape(
             "match_by_method", ", ".join(f"{k} {v}" for k, v in side.by_method.items()) or "none"))
         audit = side.second_pass
@@ -1059,6 +1178,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     side = getattr(report, "fpl_side", None)
     if side is not None:
         write_fpl_unmatched(side, args.out)
+        append_manual_log(side, args.out / "mapping")
     if failure is not None:
         print(failure)
     print(f"{SCRIPT}: mode={report.mode} report={json_path} markdown={md_path} "
