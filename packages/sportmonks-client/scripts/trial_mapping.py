@@ -483,8 +483,21 @@ def fpl_people(bootstrap: dict[str, Any]) -> list[dict[str, Any]]:
 DEPARTURE_NEWS = re.compile(r"\s*has joined\b", re.IGNORECASE)
 
 
+def _fold(text: str) -> str:
+    import unicodedata
+    return "".join(c for c in unicodedata.normalize("NFKD", text.casefold()) if not unicodedata.combining(c)).strip()
+
+
+def _joined_pl_club(news: str, pl_club_names: Collection[str]) -> bool:
+    """Does "Has joined <club> ..." name one of the league's clubs (matched on whole words)?"""
+    rest = _fold(DEPARTURE_NEWS.sub("", news, count=1))
+    return any(rest == name or rest.startswith(name + " ") or rest.startswith(name + ".")
+               for name in (_fold(n) for n in pl_club_names) if name)
+
+
 def departed_from_pl(person: dict[str, Any], find_player, teams_of,
-                     pl_club_ids: Collection[Any], season_start: str, today: str) -> bool:
+                     pl_club_ids: Collection[Any], season_start: str, today: str,
+                     pl_club_names: Collection[str] = ()) -> bool:
     """Has this FPL element left the Premier League? Decided from data, never by hand.
 
     True only when FPL marks the element unavailable (status ``u``) **and** either FPL's
@@ -494,14 +507,18 @@ def departed_from_pl(person: dict[str, Any], find_player, teams_of,
     ``find_player(person)`` returns the Sportmonks player (a dict with ``id``) or
     None; ``teams_of(player_id)`` returns its team history rows
     (``team_id``, ``start``, ``end``). Both are injected so the rule is testable
-    without the provider.
+    without the provider. ``pl_club_names`` are the league clubs' names as FPL writes them: news saying he
+    joined one of them is a move inside the league, never a departure.
     """
     if person.get("status") != "u":
         return False
-    # FPL's own departure notice is evidence enough (decided by Leo): "Has joined X on loan for the rest
+    # FPL's own departure notice is evidence enough (approved by Leo, 2026-10-11, via review chat): "Has joined X on loan for the rest
     # of the season" / "Has joined X permanently" on an unavailable element. It needs no Sportmonks lookup,
     # so it also covers a player Sportmonks cannot locate.
-    if DEPARTURE_NEWS.match(str(person.get("news") or "")):
+    news = str(person.get("news") or "")
+    if DEPARTURE_NEWS.match(news):
+        if _joined_pl_club(news, pl_club_names):
+            return False         # a move to another league club: still in the league
         return True
     if not person.get("birth_date"):
         return False
@@ -890,7 +907,7 @@ def _causes_text(causes: dict[str, int]) -> str:
 
 
 def _departed_ids(client, scope, side: "FplSide", people: Sequence[dict[str, Any]],
-                  records: Sequence[Any]) -> set[Any]:
+                  records: Sequence[Any], club_names: Collection[str] = ()) -> set[Any]:
     """FPL elements with minutes, unresolved and marked unavailable, that the rule
     in ``departed_from_pl`` finds registered outside the league. A few requests:
     one search and one team history per candidate."""
@@ -925,7 +942,7 @@ def _departed_ids(client, scope, side: "FplSide", people: Sequence[dict[str, Any
 
     pl_ids = set(scope.team_ids)
     return {p["id"] for p in pending
-            if departed_from_pl(p, find_player, teams_of, pl_ids, scope.season_start or "0000-00-00", today)}
+            if departed_from_pl(p, find_player, teams_of, pl_ids, scope.season_start or "0000-00-00", today, club_names)}
 
 
 def load_fpl_bootstrap() -> dict[str, Any]:
@@ -1001,7 +1018,8 @@ def collect(client, mode: str, *, bootstrap: dict[str, Any] | None = None,
     first, failure = _fetch(client, scope)
     second, second_failure = _fetch(client, scope) if not failure else ((), failure)
 
-    people = fpl_people(bootstrap if bootstrap is not None else load_fpl_bootstrap()) if (live and first) else None
+    fpl_bootstrap = (bootstrap if bootstrap is not None else load_fpl_bootstrap()) if (live and first) else None
+    people = fpl_people(fpl_bootstrap) if fpl_bootstrap is not None else None
     if people is not None:
         candidates, conflicts = registry_candidates({"candidates": [
             {"full_name": p["full_name"], "known_name": p["known_name"],
@@ -1017,7 +1035,8 @@ def collect(client, mode: str, *, bootstrap: dict[str, Any] | None = None,
         manual = load_manual_pairs(state_dir / "manual_pairs.json") if state_dir is not None else []
         left = load_manual_departures(state_dir / "manual_departures.json") if state_dir is not None else []
         side = fpl_side(first, people, manual_pairs=manual, manual_departures=left)
-        gone = _departed_ids(client, scope, side, people, first)
+        names = [n for t in (fpl_bootstrap or {}).get("teams", []) for n in (t.get("name"), t.get("short_name")) if n]
+        gone = _departed_ids(client, scope, side, people, first, names)
         if gone:
             side = fpl_side(first, people, departed=gone, manual_pairs=manual, manual_departures=left)
     if side is not None:

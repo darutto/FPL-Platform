@@ -965,7 +965,7 @@ def test_a_live_run_reports_the_confirmations_and_the_two_rates(tmp_path):
 import pytest  # noqa: E402
 
 
-# --- FPL's departure notice is evidence enough (decided by Leo, 2026-10-12) -------------------
+# --- FPL's departure notice is evidence enough (approved by Leo, 2026-10-11, via review chat) -------------------
 
 def _gone(news, status="u", **over):
     return {"status": status, "birth_date": "1998-08-08", "full_name": "Lee Ver", "known_name": "Ver", "news": news, **over}
@@ -1102,3 +1102,40 @@ def test_a_live_run_reports_manual_departures_beside_the_rule_ones(tmp_path):
     shapes = _shapes(report)
     assert "1 accepted (manual_departure)" in shapes["manual_departures"]
     assert "1 by manual departure" in shapes["gate_denominators"]
+
+
+# --- A move inside the league is not a departure from it --------------------------------------
+
+PL_NAMES = ["Man Utd", "Manchester United", "Spurs", "Tottenham Hotspur", "Aston Villa"]
+
+
+@pytest.mark.parametrize("news", [
+    "Has joined Aston Villa on loan for the rest of the season",
+    "Has joined Man Utd permanently",
+    "has joined tottenham hotspur permanently."])
+def test_a_player_who_joined_another_league_club_is_not_departed_from_the_league(news):
+    assert trial_mapping.departed_from_pl(_gone(news), lambda p: None, lambda i: [], {1}, "2026-08-01", "2026-10-12",
+                                          PL_NAMES) is False
+
+
+def test_the_same_news_for_a_club_outside_the_league_is_still_a_departure():
+    assert trial_mapping.departed_from_pl(_gone("Has joined Como on loan for the rest of the season"), lambda p: None,
+                                          lambda i: [], {1}, "2026-08-01", "2026-10-12", PL_NAMES) is True
+
+
+def test_a_club_name_only_counts_as_a_whole_word():
+    # "Villarreal" starts with "Villa" but is not Aston Villa
+    assert trial_mapping.departed_from_pl(_gone("Has joined Villarreal on loan"), lambda p: None, lambda i: [], {1},
+                                          "2026-08-01", "2026-10-12", ["Villa"]) is True
+
+
+def test_a_live_run_reads_the_league_clubs_from_the_bootstrap(tmp_path):
+    from _trial_common import EndpointReplayTransport
+    sm, fpl = _anchors()
+    mover = {**_fpl(30, "Moe", "Ver", "Ver", "1998-08-08"), "status": "u", "news": "Has joined Aston Villa permanently"}
+    pool = [{"id": r.provider_id, **r.raw_fields} for r in sm]
+    transport = EndpointReplayTransport({ENDPOINTS["players"][0]: [response(trial_mapping._nest("players", pool))] * 2})
+    client = make_client(MODE_MOCK, transport=transport)
+    boot = {**_bootstrap(*(fpl + [mover])), "teams": [{"name": "Aston Villa", "short_name": "AVL"}]}
+    report = trial_mapping.collect(client, "live", bootstrap=boot, scope=MOCK_SCOPE, state_dir=None)[0]
+    assert "departed from the league 0 by rule" in _shapes(report)["gate_denominators"]
