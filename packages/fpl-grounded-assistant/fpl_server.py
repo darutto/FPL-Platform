@@ -43,6 +43,7 @@ import json
 import logging
 import os
 import sys
+import threading
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -124,6 +125,8 @@ _LOG = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 _bootstrap: dict[str, Any] | None = None
+#: Wall-clock time (epoch seconds) the current ``_bootstrap`` was installed.
+_bootstrap_loaded_at: float | None = None
 _football_distribution_status: Any = None
 
 
@@ -133,8 +136,9 @@ def _init_bootstrap(bs: dict[str, Any]) -> None:
     Tests call this directly with ``STANDARD_BOOTSTRAP`` to skip the
     live ``assemble_captain_context()`` fetch.
     """
-    global _bootstrap
+    global _bootstrap, _bootstrap_loaded_at
     _bootstrap = bs
+    _bootstrap_loaded_at = time.time()
 
 
 # ---------------------------------------------------------------------------
@@ -776,6 +780,239 @@ def _fetch_bootstrap_with_retry(
     return None
 
 
+
+# ---------------------------------------------------------------------------
+# i150: periodic bootstrap refresh
+#
+# Until i150 the bootstrap was assembled once at startup, so current GW,
+# prices, form, injury status/news, chips and team_fixtures.finished froze at
+# the last deploy. A daemon thread now re-assembles it every
+# FPL_BOOTSTRAP_REFRESH_SECONDS and swaps it in.
+#
+# Swap safety: the new dict is built and validated completely off to the side,
+# then installed with ONE rebinding of the module global (atomic under the
+# GIL). Request handlers read ``_bootstrap`` once into a local and never
+# mutate the shared dict (they shallow-copy before adding ``_squad_context`` /
+# ``_my_team_id``), so a response sees either the old or the new bootstrap,
+# never a mix. A failed or invalid refresh keeps the previous one.
+# ---------------------------------------------------------------------------
+
+#: Default refresh period. Each refresh costs 2 + remaining-GWs FPL calls
+#: (see assemble_captain_context), so 15 min is ~4 refreshes/hour.
+_BOOTSTRAP_REFRESH_DEFAULT_S: float = 900.0
+#: Floor: never hammer the FPL API, whatever the variable says.
+_BOOTSTRAP_REFRESH_MIN_S: float = 60.0
+
+_bootstrap_refresh_lock = threading.Lock()
+_bootstrap_refresh_stop = threading.Event()
+_bootstrap_refresh_thread: threading.Thread | None = None
+#: Replaced wholesale (never mutated in place) so /healthz reads a consistent
+#: snapshot.
+_bootstrap_refresh_state: dict[str, Any] = {
+    "refresh_count":   0,
+    "failure_count":   0,
+    "last_ok_at":      None,
+    "last_error":      None,
+    "last_error_at":   None,
+}
+
+
+def _bootstrap_refresh_interval() -> float:
+    """Seconds between refreshes; 0 means disabled. Malformed -> default."""
+    raw = os.environ.get("FPL_BOOTSTRAP_REFRESH_SECONDS", "").strip()
+    if not raw:
+        return _BOOTSTRAP_REFRESH_DEFAULT_S
+    try:
+        val = float(raw)
+    except ValueError:
+        return _BOOTSTRAP_REFRESH_DEFAULT_S
+    if val <= 0:
+        return 0.0
+    return max(val, _BOOTSTRAP_REFRESH_MIN_S)
+
+
+def _season_key(bs: dict[str, Any]) -> str | None:
+    """Identify the season a bootstrap belongs to, or None if undeterminable.
+
+    Signal: the GW1 ``deadline_time`` in ``events`` (e.g. 2026-08-14T17:30Z).
+    FPL re-issues the whole events list for a new season with a new GW1
+    deadline roughly a year later, while within a season it never changes.
+    """
+    events = bs.get("events")
+    if not isinstance(events, list):
+        return None
+    try:
+        first = min(
+            (e for e in events if isinstance(e, dict) and e.get("deadline_time")),
+            key=lambda e: int(e.get("id", 0)),
+        )
+    except ValueError:
+        return None
+    return str(first["deadline_time"])
+
+
+def _validate_new_bootstrap(
+    new: Any, current: dict[str, Any] | None,
+) -> str | None:
+    """Return a reason string if *new* must be rejected, else None.
+
+    i134 lesson: one transient empty answer from FPL must never replace good
+    data. Minimum bar: a dict with non-empty ``elements`` / ``teams`` /
+    ``events`` lists, an assembled ``team_fixtures`` mapping, and a current
+    gameweek that does not move backwards *within the same season*. A
+    GW38 -> GW1 step is the season rollover and must be accepted, or the
+    server would stay on last season until a redeploy; the season is told
+    apart by ``_season_key`` (GW1 deadline). If either side's season cannot
+    be determined the stricter rule applies (a regression is rejected).
+    """
+    if not isinstance(new, dict):
+        return "not_a_dict"
+    for key in ("elements", "teams", "events"):
+        val = new.get(key)
+        if not isinstance(val, list) or not val:
+            return f"empty_{key}"
+    if not isinstance(new.get("team_fixtures"), dict):
+        return "missing_team_fixtures"
+    if current is not None:
+        from fpl_api_client import get_current_gameweek  # noqa: PLC0415
+        try:
+            old_gw = get_current_gameweek(current)
+            new_gw = get_current_gameweek(new)
+        except Exception:  # noqa: BLE001
+            return "gw_unresolvable"
+        if old_gw is not None and new_gw is not None and new_gw < old_gw:
+            old_season, new_season = _season_key(current), _season_key(new)
+            new_season_confirmed = (
+                old_season is not None and new_season is not None
+                and old_season != new_season
+            )
+            if not new_season_confirmed:
+                return f"gw_regressed_{old_gw}_to_{new_gw}"
+    return None
+
+
+def _clear_bootstrap_derived_caches() -> None:
+    """Drop caches that were derived from the previous bootstrap.
+
+    ``get_fixtures_for_gw._fixture_cache`` has no TTL at all (it would keep
+    serving the pre-swap ``finished`` flags for the life of the process); the
+    other two are TTL-bounded (10 min / 1 h) but keyed by GW, so they would
+    outlive a same-GW refresh. All are cheap to rebuild.
+    """
+    import importlib  # noqa: PLC0415
+    for modname, fn in (
+        ("get_fixtures_for_gw", "_clear_fixture_cache"),
+        ("get_gameweek_context", "_clear_context_cache"),
+        ("get_team_snapshot", "_clear_snapshot_cache"),
+    ):
+        try:
+            mod = importlib.import_module(f"fpl_grounded_assistant.{modname}")
+            getattr(mod, fn)()
+        except Exception:  # noqa: BLE001
+            _LOG.warning("fpl_bootstrap_refresh cache_clear_failed fn=%s", fn)
+
+
+def _refresh_bootstrap_once(_fetch_fn: Any = None) -> bool:
+    """Fetch, validate and atomically swap in a fresh bootstrap.
+
+    Returns True when a new bootstrap was installed. Never raises: on any
+    failure the previous bootstrap stays in place and the error is recorded
+    for /healthz.
+    """
+    global _bootstrap, _bootstrap_loaded_at, _LAST_BOOTSTRAP_PROVENANCE
+    global _bootstrap_refresh_state
+    fetch = _fetch_fn if _fetch_fn is not None else (
+        lambda: assemble_captain_context()["bootstrap"]
+    )
+    with _bootstrap_refresh_lock:  # one refresh at a time
+        state = dict(_bootstrap_refresh_state)
+        try:
+            new = fetch()
+            reason = _validate_new_bootstrap(new, _bootstrap)
+            if reason is not None:
+                raise ValueError(f"rejected:{reason}")
+        except Exception as exc:  # noqa: BLE001
+            state["failure_count"] += 1
+            state["last_error"] = f"{type(exc).__name__}: {exc}"[:300]
+            state["last_error_at"] = time.time()
+            _bootstrap_refresh_state = state
+            _LOG.warning(
+                "fpl_bootstrap_refresh %s",
+                json.dumps({"event": "refresh_failed_kept_previous",
+                            "error": state["last_error"]}),
+            )
+            return False
+        if _bootstrap is not None and _season_key(_bootstrap) != _season_key(new):
+            _LOG.warning(
+                "fpl_bootstrap_refresh %s",
+                json.dumps({"event": "season_changed",
+                            "from": _season_key(_bootstrap),
+                            "to": _season_key(new)}),
+            )
+        # Single rebinding = the atomic swap.
+        _bootstrap = new
+        _bootstrap_loaded_at = time.time()
+        # A live refresh supersedes any owned-store fallback provenance.
+        _LAST_BOOTSTRAP_PROVENANCE = None
+        state["refresh_count"] += 1
+        state["last_ok_at"] = _bootstrap_loaded_at
+        state["last_error"] = None
+        _bootstrap_refresh_state = state
+    _clear_bootstrap_derived_caches()
+    _LOG.info("fpl_bootstrap_refresh %s", json.dumps({"event": "refreshed"}))
+    return True
+
+
+def _bootstrap_refresh_loop(interval: float) -> None:
+    # Wait first: startup just loaded one, and tests that enter the lifespan
+    # with an injected bootstrap must never trigger a network call.
+    while not _bootstrap_refresh_stop.wait(interval):
+        _refresh_bootstrap_once()
+
+
+def _start_bootstrap_refresh() -> None:
+    global _bootstrap_refresh_thread
+    interval = _bootstrap_refresh_interval()
+    if interval <= 0:
+        _LOG.info("fpl_startup bootstrap_refresh disabled")
+        return
+    if _bootstrap_refresh_thread is not None and _bootstrap_refresh_thread.is_alive():
+        return
+    _bootstrap_refresh_stop.clear()
+    t = threading.Thread(
+        target=_bootstrap_refresh_loop, args=(interval,),
+        name="fpl-bootstrap-refresh", daemon=True,
+    )
+    _bootstrap_refresh_thread = t
+    t.start()
+
+
+def _stop_bootstrap_refresh() -> None:
+    global _bootstrap_refresh_thread
+    _bootstrap_refresh_stop.set()
+    t = _bootstrap_refresh_thread
+    if t is not None:
+        t.join(timeout=2.0)
+    _bootstrap_refresh_thread = None
+
+
+def _bootstrap_health() -> dict[str, Any]:
+    """Freshness block for /healthz (additive)."""
+    loaded = _bootstrap_loaded_at
+    st = _bootstrap_refresh_state
+    interval = _bootstrap_refresh_interval()
+    return {
+        "loaded":                _bootstrap is not None,
+        "age_seconds":           round(time.time() - loaded, 1) if loaded else None,
+        "refresh_interval_s":    interval if interval > 0 else None,
+        "refresh_count":         st["refresh_count"],
+        "failure_count":         st["failure_count"],
+        "last_refresh_ok_at":    st["last_ok_at"],
+        "last_error":            st["last_error"],
+        "last_error_at":         st["last_error_at"],
+    }
+
+
 # ---------------------------------------------------------------------------
 # Application + lifespan
 # ---------------------------------------------------------------------------
@@ -822,6 +1059,7 @@ async def lifespan(app: FastAPI):
         bs = _fetch_bootstrap_with_retry()
         if bs is not None:
             _init_bootstrap(bs)
+    _start_bootstrap_refresh()
     if _classifier_client is None:
         _try_init_classifier_from_env()
     if not os.environ.get("FPL_INTERNAL_TOKEN", "").strip():
@@ -829,7 +1067,10 @@ async def lifespan(app: FastAPI):
             "FPL_INTERNAL_TOKEN not set — GET /quota is open to unauthenticated callers. "
             "Set this in production to restrict quota probing."
         )
-    yield
+    try:
+        yield
+    finally:
+        _stop_bootstrap_refresh()
 
 
 app = FastAPI(
@@ -1657,6 +1898,7 @@ def healthz() -> dict[str, Any]:
         # from the filesystem -- not the list the startup sync was asked for.
         "owned_store_seasons":  seasons_on_disk() if seasons_on_disk is not None else [],
         "orchestrator":         orchestrator_info,
+        "bootstrap":            _bootstrap_health(),  # i150
     }
     # Key is added only once a tactical sync has run: with the flag off the
     # /healthz payload stays byte-for-byte identical to pre-go-live responses.
