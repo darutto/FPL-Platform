@@ -54,7 +54,9 @@ def _isolate(monkeypatch):
 def test_refresh_ok_swaps_and_stamps():
     fpl_server._init_bootstrap(_bs(marker="old"))
     new = _bs(gw=7, marker="new")
+    fpl_server._bootstrap_loaded_at = 1.0     # pretend it was loaded long ago
     assert fpl_server._refresh_bootstrap_once(lambda: new) is True
+    assert fpl_server._bootstrap_loaded_at > 1.0
     assert fpl_server._bootstrap is new
     st = fpl_server._bootstrap_refresh_state
     assert st["refresh_count"] == 1 and st["last_error"] is None
@@ -225,7 +227,10 @@ def test_lifespan_starts_thread_without_fetching_then_stops(monkeypatch):
     network (the loop waits one interval first) and must stop cleanly."""
     from fastapi.testclient import TestClient
 
+    calls = []
+
     def no_net(*a, **k):
+        calls.append(1)         # the refresh swallows exceptions, so count
         raise AssertionError("network call during lifespan")
 
     monkeypatch.setattr(fpl_server, "assemble_captain_context", no_net)
@@ -233,6 +238,8 @@ def test_lifespan_starts_thread_without_fetching_then_stops(monkeypatch):
     with TestClient(fpl_server.app):
         t = fpl_server._bootstrap_refresh_thread
         assert t is not None and t.is_alive()
+        time.sleep(0.2)         # a loop that fetched first would have by now
+        assert calls == []
     assert fpl_server._bootstrap_refresh_thread is None
     assert not t.is_alive()
 
