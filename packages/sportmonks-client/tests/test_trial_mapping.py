@@ -1014,3 +1014,91 @@ def test_the_news_travels_from_the_bootstrap_into_the_people():
     people = trial_mapping.fpl_people(_bootstrap({**_el(1, "Ann", "Able", "Able", "2000-01-01"), "status": "u",
                                                   "news": "Has joined Como on loan for the rest of the season"}))
     assert people[0]["news"].startswith("Has joined") and people[0]["status"] == "u"
+
+
+# --- Manual departures: a human said "left the league" (explicit, guarded, logged, counted apart) ---
+
+def _left(fpl_id=20, **over):
+    return {"fpl_id": fpl_id, "confirmed_by": "Leo", "confirmed_on": "2026-10-12", "evidence": "Leo: left at season start", **over}
+
+
+def _with_left(entries, **kw):
+    return _with_manual([], manual_departures=entries, **kw)
+
+
+def test_a_manual_departure_leaves_the_denominator_and_is_counted_apart_from_the_rule():
+    base = _with_left([])
+    side = _with_left([_left()])
+    assert side.manual_departed == 1 and side.departed == 0 and side.in_pl == base.in_pl - 1
+    assert side.departure_results[0]["accepted"] is True
+
+
+def test_manual_departure_takes_precedence_over_the_rule_so_it_is_never_counted_twice():
+    side = _with_left([_left()], departed={20})
+    assert side.manual_departed == 1 and side.departed == 0
+    assert side.in_pl == _with_left([]).in_pl - 1
+    assert _with_left([], departed={20}).departed == 1
+
+
+@pytest.mark.parametrize("entry,reason", [
+    (_left(fpl_id=999), "unknown_fpl_element"),
+    (_left(fpl_id=1), "already_resolved"),            # element 1 is resolved: it cannot be excluded
+])
+def test_a_manual_departure_that_cannot_apply_is_rejected_with_a_reason(entry, reason):
+    side = _with_left([entry])
+    assert side.manual_departed == 0 and side.departure_results[0]["reason"] == reason
+    assert side.in_pl == _with_left([]).in_pl
+
+
+def test_a_manual_departure_of_an_element_without_minutes_is_rejected():
+    sm, fpl = _anchors()
+    idle = {**_fpl(20, "Kip", "Quirk", "Quirk", "1999-09-09"), "minutes": 0}
+    side = trial_mapping.fpl_side(sm, trial_mapping.fpl_people(_bootstrap(*(fpl + [idle]))), manual_departures=[_left()])
+    assert side.departure_results[0]["reason"] == "no_minutes" and side.manual_departed == 0
+
+
+@pytest.mark.parametrize("payload,fragment", [
+    ({"schema_version": 2, "departures": []}, "schema_version"),
+    ({"schema_version": 1, "departures": [{**_left(), "extra": 1}]}, "exactly"),
+    ({"schema_version": 1, "departures": [{k: v for k, v in _left().items() if k != "evidence"}]}, "exactly"),
+    ({"schema_version": 1, "departures": [_left(evidence=" ")]}, "empty"),
+    ({"schema_version": 1, "departures": [_left(confirmed_on="yesterday")]}, "date"),
+    ({"schema_version": 1, "departures": [_left(fpl_id="x")]}, "integer"),
+    ({"schema_version": 1, "departures": [_left(), _left()]}, "twice"),
+])
+def test_a_malformed_departures_file_stops_the_run(tmp_path, payload, fragment):
+    path = tmp_path / "manual_departures.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(trial_mapping.ManualPairsError, match=fragment):
+        trial_mapping.load_manual_departures(path)
+
+
+def test_the_departures_file_is_optional_and_loaded_as_is(tmp_path):
+    path = tmp_path / "manual_departures.json"
+    assert trial_mapping.load_manual_departures(path) == []
+    path.write_text(json.dumps({"schema_version": 1, "departures": [_left(fpl_id="20")]}), encoding="utf-8")
+    assert trial_mapping.load_manual_departures(path) == [_left()]
+
+
+def test_departures_are_logged_on_every_run_and_never_rewritten(tmp_path):
+    side = _with_left([_left(), _left(fpl_id=999)])
+    trial_mapping.append_manual_log(side, tmp_path)
+    trial_mapping.append_manual_log(side, tmp_path)
+    lines = [json.loads(x) for x in (tmp_path / "manual_departures.log.ndjson").read_text(encoding="utf-8").splitlines()]
+    assert len(lines) == 4 and {x["accepted"] for x in lines} == {True, False}
+    assert all(set(x) >= {"at", "fpl_id", "accepted", "reason"} for x in lines)
+
+
+def test_a_live_run_reports_manual_departures_beside_the_rule_ones(tmp_path):
+    from _trial_common import EndpointReplayTransport
+    state = tmp_path / "mapping"
+    state.mkdir()
+    (state / "manual_departures.json").write_text(json.dumps({"schema_version": 1, "departures": [_left()]}), encoding="utf-8")
+    sm, fpl = _anchors()
+    pool = [{"id": r.provider_id, **r.raw_fields} for r in sm]
+    transport = EndpointReplayTransport({ENDPOINTS["players"][0]: [response(trial_mapping._nest("players", pool))] * 2})
+    client = make_client(MODE_MOCK, transport=transport)
+    report = trial_mapping.collect(client, "live", bootstrap=_bootstrap(*(fpl + [UNPAIRED_FPL])), scope=MOCK_SCOPE, state_dir=state)[0]
+    shapes = _shapes(report)
+    assert "1 accepted (manual_departure)" in shapes["manual_departures"]
+    assert "1 by manual departure" in shapes["gate_denominators"]
