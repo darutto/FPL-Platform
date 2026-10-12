@@ -930,6 +930,8 @@ export interface PlayerSnapshotMeta {
   /** i151: `status` in Spanish for the badge text; the English `status` still drives tone. Absent on older payloads. */
   status_label?: string;
   news: string;
+  /** i151c: `news` in Spanish when it matches a known FPL template, else the original. Absent on older payloads. */
+  news_label?: string;
   news_added: string | null;
   chance_of_playing_this_round: number | null;
   form: number;

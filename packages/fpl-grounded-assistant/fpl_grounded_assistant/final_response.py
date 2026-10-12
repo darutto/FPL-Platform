@@ -82,6 +82,7 @@ from football_data_contract import (
 
 from . import telemetry as _telemetry  # Phase 2.7g: in-process telemetry (never raises)
 from .locale_types import Locale, DEFAULT_LOCALE
+from .news_es import news_label  # i151c
 from .dispatcher import OUTCOME_OK, OUTCOME_NEEDS_CLARIFICATION, INTENT_COMPARE_PLAYERS, INTENT_CAPTAIN_SCORE, INTENT_RANK_CANDIDATES, INTENT_MULTI_INTENT, INTENT_TRANSFER_ADVICE, INTENT_CHIP_ADVICE, INTENT_PLAYER_FIXTURE_RUN, INTENT_DIFFERENTIAL_PICKS, INTENT_PLAYER_FORM, INTENT_INJURY_LIST, INTENT_PRICE_CHANGES, INTENT_TEAM_FIXTURE_CALENDAR, INTENT_TEAM_SCHEDULE, INTENT_POSITION_FIXTURE_RUN, INTENT_TRANSFER_SUGGESTION, INTENT_FIXTURE_OUTLOOK, INTENT_ZONAL_OPPORTUNITY, INTENT_PLAYER_SNAPSHOT  # noqa: F401 — re-exported
 from .dispatcher import _TOOL_TO_INTENT, INTENT_UNSUPPORTED  # _orch_result_to_final_response: tool->intent map
 from .multi_intent import detect_multi_intent
@@ -864,6 +865,9 @@ class PlayerSnapshotMeta:
     #: itself stays the English code the UI keys its tone/visibility logic on;
     #: an unmapped value passes through unchanged (visible, not blank).
     status_label:                    str = ""
+    #: i151c: ``news`` in Spanish when it matches a known FPL template (see
+    #: news_es); otherwise the original English ``news``, untouched.
+    news_label:                      str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -2140,6 +2144,7 @@ def _extract_player_snapshot_meta(ro: "dict[str, Any]") -> "PlayerSnapshotMeta |
             status                       = p.get("status", ""),
             status_label                 = _status_label_es(p.get("status", "")),
             news                         = p.get("news", "") or "",
+            news_label                   = news_label(p.get("news", "") or ""),
             news_added                   = p.get("news_added"),
             chance_of_playing_this_round = p.get("chance_of_playing_this_round"),
             form                         = float(p.get("form", 0.0)),
