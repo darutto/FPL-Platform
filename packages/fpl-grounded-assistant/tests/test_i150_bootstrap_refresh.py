@@ -20,7 +20,7 @@ import pytest
 import fpl_server
 
 
-def _bs(gw: int = 6, marker: str = "old", **over):
+def _bs(gw: int = 6, marker: str = "old", season: int = 2026, **over):
     bs = {
         "marker": marker,
         "elements": [{"id": 1, "web_name": "Haaland"}],
@@ -32,6 +32,7 @@ def _bs(gw: int = 6, marker: str = "old", **over):
         ],
         "team_fixtures": {13: []},
     }
+    bs["events"][0]["deadline_time"] = f"{season}-08-14T17:30:00Z"
     bs.update(over)
     return bs
 
@@ -144,6 +145,59 @@ def test_gw_moving_forward_or_season_end_is_accepted():
     for e in over["events"]:
         e["finished"] = True          # season over: current GW resolves to None
     assert fpl_server._validate_new_bootstrap(over, fpl_server._bootstrap) is None
+
+
+# --- season rollover (reviewer: GW38 -> GW1 must not be rejected) ------------
+
+def _ended(gw=38, season=2026):
+    bs = _bs(gw=gw, season=season)
+    bs["events"] = [
+        {"id": 1, "finished": True, "deadline_time": f"{season}-08-14T17:30:00Z"},
+        {"id": gw, "finished": False, "is_current": True, "is_next": False},
+    ]
+    return bs
+
+
+def _gw1(season):
+    bs = _bs(gw=1, season=season)
+    bs["events"] = [
+        {"id": 1, "finished": False, "is_current": False, "is_next": True,
+         "deadline_time": f"{season}-08-14T17:30:00Z"},
+        {"id": 2, "finished": False, "deadline_time": f"{season}-08-21T17:30:00Z"},
+    ]
+    return bs
+
+
+def test_new_season_gw38_to_gw1_is_accepted_and_logged(caplog):
+    import logging
+    fpl_server._init_bootstrap(_ended())
+    new = _gw1(2027)
+    with caplog.at_level(logging.WARNING):
+        assert fpl_server._refresh_bootstrap_once(lambda: new) is True
+    assert fpl_server._bootstrap is new
+    assert any("season_changed" in r.getMessage() for r in caplog.records)
+
+
+def test_same_season_regression_still_rejected():
+    fpl_server._init_bootstrap(_bs(gw=6))
+    assert fpl_server._refresh_bootstrap_once(lambda: _bs(gw=3)) is False
+    assert "gw_regressed_6_to_3" in fpl_server._bootstrap_refresh_state["last_error"]
+
+
+def test_regression_with_undeterminable_season_is_rejected():
+    old = _bs(gw=6)
+    new = _bs(gw=3)
+    del new["events"][0]["deadline_time"]
+    assert fpl_server._validate_new_bootstrap(new, old) == "gw_regressed_6_to_3"
+
+
+def test_season_key_is_the_gw1_deadline():
+    assert fpl_server._season_key(_bs(season=2026)) == "2026-08-14T17:30:00Z"
+    assert fpl_server._season_key({"events": []}) is None
+    # picks GW1 (lowest id), not the first/last listed
+    gw1 = _gw1(2026)
+    gw1["events"].reverse()
+    assert fpl_server._season_key(gw1) == "2026-08-14T17:30:00Z"
 
 
 # --- concurrency ------------------------------------------------------------

@@ -831,6 +831,26 @@ def _bootstrap_refresh_interval() -> float:
     return max(val, _BOOTSTRAP_REFRESH_MIN_S)
 
 
+def _season_key(bs: dict[str, Any]) -> str | None:
+    """Identify the season a bootstrap belongs to, or None if undeterminable.
+
+    Signal: the GW1 ``deadline_time`` in ``events`` (e.g. 2026-08-14T17:30Z).
+    FPL re-issues the whole events list for a new season with a new GW1
+    deadline roughly a year later, while within a season it never changes.
+    """
+    events = bs.get("events")
+    if not isinstance(events, list):
+        return None
+    try:
+        first = min(
+            (e for e in events if isinstance(e, dict) and e.get("deadline_time")),
+            key=lambda e: int(e.get("id", 0)),
+        )
+    except ValueError:
+        return None
+    return str(first["deadline_time"])
+
+
 def _validate_new_bootstrap(
     new: Any, current: dict[str, Any] | None,
 ) -> str | None:
@@ -839,7 +859,11 @@ def _validate_new_bootstrap(
     i134 lesson: one transient empty answer from FPL must never replace good
     data. Minimum bar: a dict with non-empty ``elements`` / ``teams`` /
     ``events`` lists, an assembled ``team_fixtures`` mapping, and a current
-    gameweek that does not move backwards.
+    gameweek that does not move backwards *within the same season*. A
+    GW38 -> GW1 step is the season rollover and must be accepted, or the
+    server would stay on last season until a redeploy; the season is told
+    apart by ``_season_key`` (GW1 deadline). If either side's season cannot
+    be determined the stricter rule applies (a regression is rejected).
     """
     if not isinstance(new, dict):
         return "not_a_dict"
@@ -857,7 +881,13 @@ def _validate_new_bootstrap(
         except Exception:  # noqa: BLE001
             return "gw_unresolvable"
         if old_gw is not None and new_gw is not None and new_gw < old_gw:
-            return f"gw_regressed_{old_gw}_to_{new_gw}"
+            old_season, new_season = _season_key(current), _season_key(new)
+            new_season_confirmed = (
+                old_season is not None and new_season is not None
+                and old_season != new_season
+            )
+            if not new_season_confirmed:
+                return f"gw_regressed_{old_gw}_to_{new_gw}"
     return None
 
 
@@ -912,6 +942,13 @@ def _refresh_bootstrap_once(_fetch_fn: Any = None) -> bool:
                             "error": state["last_error"]}),
             )
             return False
+        if _bootstrap is not None and _season_key(_bootstrap) != _season_key(new):
+            _LOG.warning(
+                "fpl_bootstrap_refresh %s",
+                json.dumps({"event": "season_changed",
+                            "from": _season_key(_bootstrap),
+                            "to": _season_key(new)}),
+            )
         # Single rebinding = the atomic swap.
         _bootstrap = new
         _bootstrap_loaded_at = time.time()
