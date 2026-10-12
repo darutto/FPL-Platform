@@ -90,17 +90,25 @@ export function InjuryRowItem({ row, banded }: { row: InjuryRow; banded: boolean
 // ---------------------------------------------------------------------------
 
 export function resolveStatusBadge(statusLabel: string): { className: string; label: string } {
+  // The label may be the English FPL word or the catalogue's Spanish text
+  // (i151): tone must come out the same for both.
   const lower = statusLabel.toLowerCase();
-  if (lower.includes('injur') || lower.includes('suspend') || lower.includes('unavailable')) {
+  if (
+    lower.includes('injur') || lower.includes('suspend') || lower.includes('unavailable') ||
+    lower.includes('lesion') || lower.includes('no disponible') // 'suspendido' ⊂ 'suspend'
+  ) {
     return { className: STATUS_TONE_CLASSES.bad, label: statusLabel };
   }
-  if (lower.includes('doubt') || lower.includes('75') || lower.includes('50') || lower.includes('25')) {
+  if (
+    lower.includes('doubt') ||
+    lower.includes('75') || lower.includes('50') || lower.includes('25')
+  ) {
     return { className: STATUS_TONE_CLASSES.warn, label: statusLabel };
   }
-  if (lower === 'available' || lower === 'fit') {
+  if (lower === 'available' || lower === 'disponible' || lower === 'fit') {
     return { className: STATUS_TONE_CLASSES.good, label: statusLabel };
   }
-  // Default — warn tone for anything uncertain
+  // Default — warn tone for anything uncertain (also «Dudoso»)
   return { className: STATUS_TONE_CLASSES.warn, label: statusLabel };
 }
 
