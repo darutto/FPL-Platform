@@ -17,6 +17,7 @@ import '@testing-library/jest-dom';
 import GenericCard from '../components/intents/GenericCard';
 import CardTable, { inferBadgeTone } from '../components/intents/CardTable';
 import InjuryListTable, { genericCardToInjuryRows } from '../components/intents/InjuryListTable';
+import { resolveStatusBadge } from '../components/intents/InjuriesTable';
 import type { GenericCardMeta } from '../lib/types';
 import {
   genericCardOkResponse,
@@ -179,5 +180,31 @@ describe('InjuryListTable (injury_list routing)', () => {
     // first cell as the player name rather than leaving it blank.
     expect(rows[0].web_name).toBe('Some Player');
     expect(rows[0].chance_of_playing).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// i151b — the badge tone is the same for the English FPL word and the
+// catalogue's Spanish text the backend now sends.
+// ---------------------------------------------------------------------------
+
+describe('resolveStatusBadge — Spanish and English give the same tone', () => {
+  const tone = (label: string) => resolveStatusBadge(label).className;
+  test.each([
+    ['Injured', 'Lesionado'],
+    ['Suspended', 'Suspendido'],
+    ['Unavailable', 'No disponible'],
+    ['Doubtful', 'Dudoso'],
+    ['Available', 'Disponible'],
+  ])('%s and %s share a tone', (en, es) => {
+    expect(tone(es)).toBe(tone(en));
+  });
+
+  test('bad / warn / good are three different tones', () => {
+    expect(new Set([tone('Lesionado'), tone('Dudoso'), tone('Disponible')]).size).toBe(3);
+  });
+
+  test('the label is returned as given', () => {
+    expect(resolveStatusBadge('Lesionado').label).toBe('Lesionado');
   });
 });

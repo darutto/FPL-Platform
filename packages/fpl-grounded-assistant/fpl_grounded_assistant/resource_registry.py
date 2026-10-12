@@ -146,6 +146,8 @@ def _resource_injuries(bootstrap: dict[str, Any]) -> ResourceResult:
     """
     # We bypass get_injury_list() because it does not surface news_added.
     # Instead we re-scan bootstrap directly, mirroring its filter logic.
+    from .renderer import _localized_status_label  # noqa: PLC0415
+
     teams_map = _teams_map(bootstrap)
     raw_rows: list[dict[str, Any]] = []
     for idx, el in enumerate(bootstrap.get("elements", [])):
@@ -156,7 +158,10 @@ def _resource_injuries(bootstrap: dict[str, Any]) -> ResourceResult:
             "web_name":     el.get("web_name", "?"),
             "team_short":   teams_map.get(el.get("team", -1), "?"),
             "position":     _pos_label(el.get("element_type")),
-            "status_label": _STATUS_LABEL.get(status, status.upper()),
+            # i151b: Spanish badge text (catalogue); unmapped passes through.
+            "status_label": _localized_status_label(
+                _STATUS_LABEL.get(status, status.upper()), "es"
+            ),
             "chance_of_playing": (
                 int(el["chance_of_playing_this_round"])
                 if el.get("chance_of_playing_this_round") is not None
