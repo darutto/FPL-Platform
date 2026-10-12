@@ -294,7 +294,16 @@ def assemble_captain_context(
     # 3. Fixtures
     # ------------------------------------------------------------------
     fixture_batches: dict[int, list[dict[str, Any]]] = {}
-    if fixtures is None:
+    if fixtures is None and gw is not None and isinstance(all_fixtures, list) and all_fixtures:
+        # i150 follow-up: the all-fixtures answer already holds every GW, and
+        # when it is present team_fixtures is built from it alone (below), so
+        # re-fetching each remaining GW (~33 extra calls) was pure waste. The
+        # per-GW endpoint is just this list filtered by ``event``. An absent
+        # or empty all_fixtures (failed fetch, i134-style blank answer) falls
+        # through to the per-GW path unchanged.
+        fetched_fixtures = [f for f in all_fixtures if f.get("event") == gw]
+        fixture_batches[gw] = fetched_fixtures
+    elif fixtures is None:
         fetched_fixtures: list[dict[str, Any]] = []
         if gw is not None:
             fetched_fixtures = get_fixtures(gw)

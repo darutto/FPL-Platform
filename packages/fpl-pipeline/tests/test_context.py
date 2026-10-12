@@ -183,3 +183,118 @@ def test_all_fixtures_inject_completed_minutes_context_without_network():
     assert team_rows[0]["minutes"] == 90
     assert all(row["official_fixture_context_complete"] for row in team_rows)
     assert assembled["meta"]["minutes_fixture_source"] == "official_all_fixtures"
+
+
+# ---------------------------------------------------------------------------
+# i150 follow-up: no per-GW fetches when the all-fixtures answer is usable
+# ---------------------------------------------------------------------------
+
+def _season_bootstrap() -> dict:
+    return {
+        "events": [
+            {"id": 1, "is_current": False, "is_next": False, "finished": True},
+            {"id": 2, "is_current": True, "is_next": False, "finished": False},
+            {"id": 3, "is_current": False, "is_next": True, "finished": False},
+            {"id": 4, "is_current": False, "is_next": False, "finished": False},
+        ],
+        "teams": [
+            {"id": 1, "name": "Arsenal", "short_name": "ARS", "strength": 4},
+            {"id": 2, "name": "Aston Villa", "short_name": "AVL", "strength": 3},
+        ],
+    }
+
+
+def _all_fx() -> list:
+    return [
+        {"id": 1, "event": 1, "team_h": 1, "team_a": 2, "finished": True,
+         "team_h_difficulty": 2, "team_a_difficulty": 4},
+        {"id": 2, "event": 2, "team_h": 2, "team_a": 1,
+         "team_h_difficulty": 3, "team_a_difficulty": 5},
+        {"id": 3, "event": 3, "team_h": 1, "team_a": 2,
+         "team_h_difficulty": 2, "team_a_difficulty": 4},
+        {"id": 4, "event": 4, "team_h": 2, "team_a": 1,
+         "team_h_difficulty": 3, "team_a_difficulty": 3},
+    ]
+
+
+def _wire(monkeypatch, *, all_fixtures_impl):
+    """Patch the network edge; return the list recording get_fixtures calls."""
+    per_gw_calls: list = []
+    monkeypatch.setattr(context, "get_bootstrap", _season_bootstrap)
+    monkeypatch.setattr(context, "get_all_fixtures", all_fixtures_impl)
+    monkeypatch.setattr(
+        context, "_inject_walk_forward_team_strength", lambda b, f: True
+    )
+
+    def fake_get_fixtures(gameweek):
+        per_gw_calls.append(gameweek)
+        return [f for f in _all_fx() if f["event"] == gameweek]
+
+    monkeypatch.setattr(context, "get_fixtures", fake_get_fixtures)
+    return per_gw_calls
+
+
+def test_all_fixtures_ok_makes_no_per_gw_calls(monkeypatch):
+    calls = _wire(monkeypatch, all_fixtures_impl=_all_fx)
+    out = context.assemble_captain_context()
+    assert calls == []
+    assert out["gameweek"] == 2
+    assert [f["id"] for f in out["fixtures"]] == [2]
+    assert out["meta"]["minutes_fixture_source"] == "official_all_fixtures"
+
+
+def test_all_fixtures_failure_falls_back_to_per_gw_path(monkeypatch):
+    def boom():
+        raise OSError("fpl down")
+
+    calls = _wire(monkeypatch, all_fixtures_impl=boom)
+    out = context.assemble_captain_context()
+    assert calls == [2, 3, 4]            # current + remaining, as before
+    assert out["meta"]["minutes_fixture_source"] == "unavailable"
+
+
+def test_empty_all_fixtures_falls_back_to_per_gw_path(monkeypatch):
+    calls = _wire(monkeypatch, all_fixtures_impl=lambda: [])
+    context.assemble_captain_context()
+    assert calls == [2, 3, 4]
+
+
+def test_both_paths_agree_on_gw_fixtures_and_fdr(monkeypatch):
+    _wire(monkeypatch, all_fixtures_impl=_all_fx)
+    fast = context.assemble_captain_context()
+
+    def boom():
+        raise OSError("x")
+
+    _wire(monkeypatch, all_fixtures_impl=boom)
+    slow = context.assemble_captain_context()
+
+    assert fast["gameweek"] == slow["gameweek"]
+    assert fast["fixtures"] == slow["fixtures"]
+    assert fast["fixture_difficulty_map"] == slow["fixture_difficulty_map"]
+
+
+def test_season_over_gw_none_does_not_pick_unscheduled_fixtures(monkeypatch):
+    """gw is None (all events finished): the shortcut must not match
+    fixtures whose ``event`` is None (postponed / unscheduled)."""
+    def over():
+        b = _season_bootstrap()
+        for e in b["events"]:
+            e["finished"], e["is_current"], e["is_next"] = True, False, False
+        return b
+
+    calls = _wire(monkeypatch, all_fixtures_impl=lambda: _all_fx() + [
+        {"id": 9, "event": None, "team_h": 1, "team_a": 2}
+    ])
+    monkeypatch.setattr(context, "get_bootstrap", over)
+    out = context.assemble_captain_context()
+    assert out["gameweek"] is None
+    assert out["fixtures"] == [] and calls == []
+
+
+def test_explicit_fixtures_win_over_all_fixtures(monkeypatch):
+    _wire(monkeypatch, all_fixtures_impl=_all_fx)
+    mine = [{"id": 99, "event": 2, "team_h": 1, "team_a": 2,
+             "team_h_difficulty": 2, "team_a_difficulty": 2}]
+    out = context.assemble_captain_context(fixtures=mine)
+    assert out["fixtures"] == mine
