@@ -36,7 +36,6 @@ def main(argv: list[str]) -> int:
     while first and dt.datetime.now(dt.timezone.utc) < first:
         time.sleep(60)
     while True:
-        now = dt.datetime.now(dt.timezone.utc)
         rows: list[dict] = []
         try:
             page = 1
@@ -51,9 +50,13 @@ def main(argv: list[str]) -> int:
                 page += 1
         except SportmonksError as exc:
             with open(out, "a", encoding="utf-8") as fh:
-                fh.write(json.dumps({"at": now.strftime(FMT), "error": str(exc)[:80]}) + "\n")
+                fh.write(json.dumps({"at": dt.datetime.now(dt.timezone.utc).strftime(FMT),
+                                     "error": str(exc)[:80]}) + "\n")
             time.sleep(300)
             continue
+        # Stamped when the answer is in hand, never before the request: a machine that sleeps mid-request
+        # would otherwise label an after-the-match answer with a before-the-match time.
+        now = dt.datetime.now(dt.timezone.utc)
         with open(out, "a", encoding="utf-8") as fh:
             for d in rows:
                 kickoff = _parse(d["starting_at"])
