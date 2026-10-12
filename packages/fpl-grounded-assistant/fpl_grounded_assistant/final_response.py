@@ -860,6 +860,10 @@ class PlayerSnapshotMeta:
     team_fdr_context:                TeamFDRContext | None
     #: Bloque 10: zonal profile vs pending matches; None = section omitted.
     zonal:                           "PlayerZonalOutlookMeta | None" = None
+    #: i151: ``status`` in the catalogue's Spanish for the card badge. ``status``
+    #: itself stays the English code the UI keys its tone/visibility logic on;
+    #: an unmapped value passes through unchanged (visible, not blank).
+    status_label:                    str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -2134,6 +2138,7 @@ def _extract_player_snapshot_meta(ro: "dict[str, Any]") -> "PlayerSnapshotMeta |
             position                     = p.get("position", ""),
             minutes_played_season        = int(p.get("minutes_played_season", 0)),
             status                       = p.get("status", ""),
+            status_label                 = _status_label_es(p.get("status", "")),
             news                         = p.get("news", "") or "",
             news_added                   = p.get("news_added"),
             chance_of_playing_this_round = p.get("chance_of_playing_this_round"),
@@ -2457,6 +2462,16 @@ def _extract_fixture_outlook_meta(ro: "dict[str, Any]") -> "FixtureOutlookMeta |
         )
     except Exception:  # noqa: BLE001
         return None
+
+
+def _status_label_es(status: Any) -> str:
+    """i151: the FPL availability word in the catalogue's Spanish.
+
+    Same unmapped-fallback as the text renderer: an unknown value is shown as
+    it comes rather than guessed or blanked.
+    """
+    from .renderer import _localized_status_label  # noqa: PLC0415
+    return _localized_status_label(str(status or ""), "es")
 
 
 def _difficulty_label_es(label: Any) -> str:

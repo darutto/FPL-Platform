@@ -55,6 +55,8 @@ _STATUS_LABEL_KEYS = {
     "Injured":     "status_label.injured",
     "Suspended":   "status_label.suspended",
     "Unavailable": "status_label.unavailable",
+    "Not in squad": "status_label.not_in_squad",   # i151
+    "Unknown":     "status_label.unknown",         # i151
 }
 
 
