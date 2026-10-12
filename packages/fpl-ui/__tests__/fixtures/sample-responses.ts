@@ -892,6 +892,7 @@ export const playerSnapshotDoubtfulResponse: AskResponse = {
     web_name: 'Saka',
     team_short: 'ARS',
     status: 'Doubtful',
+    status_label: 'Dudoso',
     news: 'Molestia en el tobillo, duda para la próxima jornada',
     chance_of_playing_this_round: 75,
   },

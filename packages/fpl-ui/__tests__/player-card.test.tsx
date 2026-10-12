@@ -84,6 +84,16 @@ describe('PlayerCard — doubtful player', () => {
 
   test('renders the doubtful-status badge with the warn tone class', () => {
     render(<PlayerCard data={data} />);
+    // i151: the badge text is the Spanish status_label; tone still keys off
+    // the English status, so the warn (gold) class survives the translation.
+    const badge = screen.getByText('Dudoso');
+    expect(badge.className).toEqual(expect.stringContaining('gold'));
+    expect(screen.queryByText('Doubtful')).not.toBeInTheDocument();
+  });
+
+  test('falls back to the raw status when status_label is absent (older payload)', () => {
+    const { status_label: _omit, ...legacy } = data;
+    render(<PlayerCard data={legacy} />);
     const badge = screen.getByText('Doubtful');
     expect(badge.className).toEqual(expect.stringContaining('gold'));
   });
@@ -91,5 +101,18 @@ describe('PlayerCard — doubtful player', () => {
   test('renders the news line', () => {
     render(<PlayerCard data={data} />);
     expect(screen.getByText(/tobillo/)).toBeInTheDocument();
+  });
+});
+
+describe('PlayerCard — injured player (i151)', () => {
+  test('Spanish badge text keeps the bad (coral) tone from the English status', () => {
+    const data = {
+      ...playerSnapshotDoubtfulResponse.player_snapshot!,
+      status: 'Injured',
+      status_label: 'Lesionado',
+    };
+    render(<PlayerCard data={data} />);
+    const badge = screen.getByText('Lesionado');
+    expect(badge.className).toEqual(expect.stringContaining('coral'));
   });
 });

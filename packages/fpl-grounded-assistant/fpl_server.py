@@ -1363,6 +1363,7 @@ def _player_snapshot_meta_dict(ps: Any) -> dict[str, Any]:
         "position":                     ps.position,
         "minutes_played_season":        ps.minutes_played_season,
         "status":                       ps.status,
+        "status_label":                 ps.status_label,  # i151
         "news":                         ps.news,
         "news_added":                   ps.news_added,
         "chance_of_playing_this_round": ps.chance_of_playing_this_round,

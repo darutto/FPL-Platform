@@ -407,6 +407,9 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     "status_label.injured": {"en": "Injured", "es": "Lesionado"},
     "status_label.suspended": {"en": "Suspended", "es": "Suspendido"},
     "status_label.unavailable": {"en": "Unavailable", "es": "No disponible"},
+    # i151: the two extra codes find_players._STATUS_MAP can produce.
+    "status_label.not_in_squad": {"en": "Not in squad", "es": "Fuera de la plantilla"},
+    "status_label.unknown": {"en": "Unknown", "es": "Desconocido"},
 
     # -- resolve_player -------------------------------------------------------
     "resolve_player.summary_named": {

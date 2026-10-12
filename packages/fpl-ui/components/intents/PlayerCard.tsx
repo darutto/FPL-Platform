@@ -60,6 +60,7 @@ export default function PlayerCard({ data }: Props) {
     team_short,
     position,
     status,
+    status_label,
     news,
     form,
     total_points,
@@ -81,7 +82,10 @@ export default function PlayerCard({ data }: Props) {
     zonal,
   } = data;
 
-  const { className: badgeClass, label: badgeLabel } = resolveStatusBadge(status);
+  // Tone and news visibility key off the English `status`; the text shown is
+  // the Spanish `status_label` (i151), falling back to the raw status.
+  const { className: badgeClass } = resolveStatusBadge(status);
+  const badgeLabel = status_label || status;
   const showNews = status !== 'Available' && news.trim().length > 0;
   const toPer90 = (provided: number | undefined, total: number) =>
     provided ?? (minutes_played_season > 0 ? (total * 90) / minutes_played_season : 0);

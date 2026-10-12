@@ -927,6 +927,8 @@ export interface PlayerSnapshotMeta {
   minutes_played_season: number;
   /** 'Available' | 'Doubtful' | 'Injured' | 'Suspended' | 'Not in squad' | 'Unavailable' | 'Unknown' */
   status: string;
+  /** i151: `status` in Spanish for the badge text; the English `status` still drives tone. Absent on older payloads. */
+  status_label?: string;
   news: string;
   news_added: string | null;
   chance_of_playing_this_round: number | null;
