@@ -842,3 +842,122 @@ def test_the_pairs_file_holds_ids_and_methods_and_no_names(tmp_path):
     items = json.loads((tmp_path / "reports/trial_mapping_pairs.json").read_text())["items"]
     assert {tuple(sorted(i)) for i in items} == {("fpl_id", "method", "sportmonks_id")}
     assert "Able" not in (tmp_path / "reports/trial_mapping_pairs.json").read_text()
+
+
+# --- Manual confirmations: a human said "same player" (explicit, guarded, logged) ---------
+
+import pytest  # noqa: E402
+
+UNPAIRED_SM = _sm(20, "Totally Different Legal Name", "1999-09-09", display="Other Display")
+UNPAIRED_FPL = _fpl(20, "Kip", "Quirk", "Quirk", "1999-09-09")
+
+
+def _manual(sm_id="20", fpl_id=20, **over):
+    return {"sportmonks_id": sm_id, "fpl_id": fpl_id, "confirmed_by": "Leo", "confirmed_on": "2026-10-12",
+            "evidence": "Sofascore line-up", **over}
+
+
+def _with_manual(entries, extra_sm=(UNPAIRED_SM,), extra_fpl=(UNPAIRED_FPL,), **kw):
+    sm, fpl = _anchors()
+    return trial_mapping.fpl_side(sm + list(extra_sm), trial_mapping.fpl_people(_bootstrap(*(fpl + list(extra_fpl)))),
+                                  manual_pairs=entries, **kw)
+
+
+def test_without_a_confirmation_the_unrelated_pair_stays_unresolved():
+    side = _with_manual([])
+    assert side.with_minutes_resolved == 3 and side.manual_results == ()
+
+
+def test_a_confirmation_resolves_the_pair_with_its_own_method_and_moves_only_the_final_rate():
+    side = _with_manual([_manual()])
+    assert side.manual_accepted == 1 and side.by_method[trial_mapping.MANUAL_METHOD] == 1
+    assert (side.with_minutes_resolved, side.in_pl) == (4, 4)
+    assert side.rate_automatic_percent == 75.0 and side.rate_percent == 100.0
+    assert ("20", 20, trial_mapping.MANUAL_METHOD) in side.pairs
+    assert side.meets_post_queue_target
+
+
+def test_a_rejected_confirmation_changes_nothing_and_says_why():
+    side = _with_manual([_manual(sm_id="999")])
+    assert side.manual_accepted == 0 and side.manual_results[0]["reason"] == "unknown_sportmonks_player"
+    assert side.with_minutes_resolved == 3 and not side.meets_post_queue_target
+
+
+@pytest.mark.parametrize("entry,reason", [
+    (_manual(sm_id="999"), "unknown_sportmonks_player"),
+    (_manual(fpl_id=999), "unknown_fpl_element"),
+    (_manual(sm_id="1", fpl_id=20), "sportmonks_player_already_paired"),       # row 1 is paired automatically
+    (_manual(sm_id="20", fpl_id=1), "fpl_element_already_resolved_or_ambiguous"),  # element 1 is resolved automatically
+])
+def test_each_guard_refuses_what_it_is_for(entry, reason):
+    side = _with_manual([entry])
+    assert side.manual_results[0]["accepted"] is False and side.manual_results[0]["reason"] == reason
+    assert side.by_method.get(trial_mapping.MANUAL_METHOD) is None
+
+
+def test_a_confirmation_never_overrules_an_automatic_pair():
+    side = _with_manual([_manual(sm_id="1", fpl_id=20)])
+    assert ("1", 1, "full_name_birth_date") in side.pairs and ("1", 20, trial_mapping.MANUAL_METHOD) not in side.pairs
+
+
+def test_different_or_missing_birth_dates_are_not_overridden():
+    other_day = _fpl(20, "Kip", "Quirk", "Quirk", "1999-09-10")
+    assert _with_manual([_manual()], extra_fpl=(other_day,)).manual_results[0]["reason"] == "birth_date_absent_or_different"
+    undated = _fpl(20, "Kip", "Quirk", "Quirk", None)
+    assert _with_manual([_manual()], extra_fpl=(undated,)).manual_results[0]["reason"] == "birth_date_absent_or_different"
+
+
+def test_an_element_marked_departed_that_a_human_confirms_is_resolved_and_back_in_the_denominator():
+    """A resolved element is never excluded as departed (the rule of 2026-10-11), so a confirmation brings it back."""
+    side = _with_manual([_manual()], departed={20})
+    assert side.departed == 0 and side.in_pl == 4 and side.manual_in_pl == 1 and side.rate_percent == 100.0
+    assert _with_manual([], departed={20}).in_pl == 3, "without the confirmation it stays excluded"
+
+
+@pytest.mark.parametrize("payload,message", [
+    ({"schema_version": 2, "pairs": []}, "schema_version"),
+    ({"schema_version": 1}, "schema_version"),
+    ({"schema_version": 1, "pairs": [{"sportmonks_id": "1"}]}, "exactly"),
+    ({"schema_version": 1, "pairs": [_manual(evidence=" ")]}, "empty"),
+    ({"schema_version": 1, "pairs": [_manual(confirmed_on="yesterday")]}, "date"),
+    ({"schema_version": 1, "pairs": [_manual(fpl_id="x")]}, "integer"),
+    ({"schema_version": 1, "pairs": [_manual(), _manual(fpl_id=21)]}, "twice"),
+    ({"schema_version": 1, "pairs": [_manual(), _manual(sm_id="21")]}, "twice"),
+])
+def test_the_confirmation_file_must_be_complete_dated_attributed_and_without_repeats(tmp_path, payload, message):
+    path = tmp_path / "manual_pairs.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(trial_mapping.ManualPairsError, match=message):
+        trial_mapping.load_manual_pairs(path)
+
+
+def test_a_missing_file_is_no_confirmations_and_a_good_file_loads(tmp_path):
+    path = tmp_path / "manual_pairs.json"
+    assert trial_mapping.load_manual_pairs(path) == []
+    path.write_text(json.dumps({"schema_version": 1, "pairs": [_manual(fpl_id="20")]}), encoding="utf-8")
+    assert trial_mapping.load_manual_pairs(path) == [_manual()]
+
+
+def test_every_run_appends_what_each_confirmation_did_and_never_rewrites(tmp_path):
+    side = _with_manual([_manual(), _manual(sm_id="999", fpl_id=21)])
+    first = trial_mapping.append_manual_log(side, tmp_path)
+    trial_mapping.append_manual_log(side, tmp_path)
+    lines = [json.loads(line) for line in first.read_text(encoding="utf-8").splitlines()]
+    assert len(lines) == 4 and {line["accepted"] for line in lines} == {True, False}
+    assert all(set(line) >= {"at", "sportmonks_id", "fpl_id", "accepted", "reason"} for line in lines)
+    assert trial_mapping.append_manual_log(_with_manual([]), tmp_path) is None
+
+
+def test_a_live_run_reports_the_confirmations_and_the_two_rates(tmp_path):
+    from _trial_common import EndpointReplayTransport
+    state = tmp_path / "mapping"
+    state.mkdir()
+    (state / "manual_pairs.json").write_text(json.dumps({"schema_version": 1, "pairs": [_manual()]}), encoding="utf-8")
+    sm, fpl = _anchors()
+    pool = [{"id": r.provider_id, **r.raw_fields} for r in sm + [UNPAIRED_SM]]
+    transport = EndpointReplayTransport({ENDPOINTS["players"][0]: [response(trial_mapping._nest("players", pool))] * 2})
+    client = make_client(MODE_MOCK, transport=transport)
+    report = trial_mapping.collect(client, "live", bootstrap=_bootstrap(*(fpl + [UNPAIRED_FPL])), scope=MOCK_SCOPE, state_dir=state)[0]
+    text = _shapes(report)["manual_confirmations"]
+    assert "1 accepted, 0 rejected" in text and "75.0% automatic -> 100.0% with confirmations" in text and "met" in text
+    assert _shapes(report)["match_by_method"].count("manual_confirmation 1") == 1
