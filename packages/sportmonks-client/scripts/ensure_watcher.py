@@ -16,6 +16,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Callable
 
@@ -52,8 +53,9 @@ def _spawn(args: list[str], out_path: Path, root: Path) -> int:
 
 def ensure(name: str, start: str, end: str, first: str | None = None, *, root: Path = ROOT,
            alive: Callable[[int], bool] = pid_alive,
-           spawn: Callable[[list[str], Path, Path], int] = _spawn) -> str:
-    """Returns ``finished``, ``running`` or ``started``."""
+           spawn: Callable[[list[str], Path, Path], int] = _spawn,
+           settle_seconds: float = 3.0) -> str:
+    """Returns ``finished``, ``running``, ``started`` or ``died_at_start`` (it exited without finishing)."""
     folder = root / WATCH_DIR
     folder.mkdir(parents=True, exist_ok=True)
     log, pid_file = folder / f"{name}.ndjson", folder / f"{name}.pid"
@@ -71,6 +73,9 @@ def ensure(name: str, start: str, end: str, first: str | None = None, *, root: P
     watcher = str(Path(__file__).resolve().with_name("lineup_watch.py"))
     pid = spawn([watcher, start, end, str(log), *([first] if first else [])], folder / f"{name}.out", root)
     pid_file.write_text(str(pid))
+    time.sleep(settle_seconds)   # a watcher that cannot start must not be reported as started
+    if not alive(pid) and not Path(f"{log}.done").exists():
+        return "died_at_start"
     return "started"
 
 

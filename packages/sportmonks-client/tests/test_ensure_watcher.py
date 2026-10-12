@@ -30,7 +30,7 @@ def _folder(tmp_path):
 
 def test_with_nothing_it_launches_and_records_the_restart(tmp_path):
     spawn = Spawner()
-    assert ensure_watcher.ensure(*ARGS, root=tmp_path, alive=lambda p: False, spawn=spawn) == "started"
+    assert ensure_watcher.ensure(*ARGS, settle_seconds=0, root=tmp_path, alive=lambda p: p == 4242, spawn=spawn) == "started"
     folder = tmp_path / "trial-output" / "lineup-watch"
     assert (folder / "gw.pid").read_text() == "4242" and len(spawn.calls) == 1
     assert spawn.calls[0][1:4] == [ARGS[1], ARGS[2], str(folder / "gw.ndjson")]
@@ -41,7 +41,7 @@ def test_a_live_process_is_left_alone_and_nothing_is_written(tmp_path):
     folder = _folder(tmp_path)
     (folder / "gw.pid").write_text("777")
     spawn = Spawner()
-    assert ensure_watcher.ensure(*ARGS, root=tmp_path, alive=lambda p: p == 777, spawn=spawn) == "running"
+    assert ensure_watcher.ensure(*ARGS, settle_seconds=0, root=tmp_path, alive=lambda p: p == 777, spawn=spawn) == "running"
     assert spawn.calls == [] and not (folder / "gw.ndjson").exists()
 
 
@@ -49,35 +49,35 @@ def test_a_dead_pid_is_relaunched(tmp_path):
     folder = _folder(tmp_path)
     (folder / "gw.pid").write_text("777")
     spawn = Spawner()
-    assert ensure_watcher.ensure(*ARGS, root=tmp_path, alive=lambda p: False, spawn=spawn) == "started"
+    assert ensure_watcher.ensure(*ARGS, settle_seconds=0, root=tmp_path, alive=lambda p: p == 4242, spawn=spawn) == "started"
     assert len(spawn.calls) == 1
 
 
 def test_a_garbage_pid_file_is_relaunched(tmp_path):
     folder = _folder(tmp_path)
     (folder / "gw.pid").write_text("not a pid")
-    assert ensure_watcher.ensure(*ARGS, root=tmp_path, alive=lambda p: True, spawn=Spawner()) == "started"
+    assert ensure_watcher.ensure(*ARGS, settle_seconds=0, root=tmp_path, alive=lambda p: p == 4242, spawn=Spawner()) == "started"
 
 
 def test_the_done_marker_stops_any_relaunch_even_with_no_process(tmp_path):
     folder = _folder(tmp_path)
     (folder / "gw.ndjson.done").write_text("finished")
     spawn = Spawner()
-    assert ensure_watcher.ensure(*ARGS, root=tmp_path, alive=lambda p: False, spawn=spawn) == "finished"
+    assert ensure_watcher.ensure(*ARGS, settle_seconds=0, root=tmp_path, alive=lambda p: p == 4242, spawn=spawn) == "finished"
     assert spawn.calls == [] and not (folder / "gw.ndjson").exists()
 
 
 def test_the_first_poll_time_is_passed_only_when_given(tmp_path):
     spawn = Spawner()
-    ensure_watcher.ensure(*ARGS, "2026-10-16T12:00:00Z", root=tmp_path, alive=lambda p: False, spawn=spawn)
+    ensure_watcher.ensure(*ARGS, "2026-10-16T12:00:00Z", settle_seconds=0, root=tmp_path, alive=lambda p: p == 4242, spawn=spawn)
     assert spawn.calls[0][-1] == "2026-10-16T12:00:00Z"
 
 
 def test_a_second_call_after_a_launch_is_idempotent(tmp_path):
     spawn = Spawner()
     alive = lambda p: p == 4242  # noqa: E731
-    assert ensure_watcher.ensure(*ARGS, root=tmp_path, alive=alive, spawn=spawn) == "started"
-    assert ensure_watcher.ensure(*ARGS, root=tmp_path, alive=alive, spawn=spawn) == "running"
+    assert ensure_watcher.ensure(*ARGS, settle_seconds=0, root=tmp_path, alive=alive, spawn=spawn) == "started"
+    assert ensure_watcher.ensure(*ARGS, settle_seconds=0, root=tmp_path, alive=alive, spawn=spawn) == "running"
     assert len(spawn.calls) == 1
 
 
@@ -88,5 +88,19 @@ def test_the_real_liveness_check_sees_this_process_and_not_an_unused_pid():
 
 def test_without_a_first_poll_time_the_watcher_gets_exactly_three_arguments(tmp_path):
     spawn = Spawner()
-    ensure_watcher.ensure(*ARGS, root=tmp_path, alive=lambda p: False, spawn=spawn)
+    ensure_watcher.ensure(*ARGS, settle_seconds=0, root=tmp_path, alive=lambda p: p == 4242, spawn=spawn)
     assert len(spawn.calls[0]) == 4  # script, start, end, log
+
+
+def test_a_watcher_that_dies_at_start_is_reported_not_called_started(tmp_path):
+    assert ensure_watcher.ensure(*ARGS, settle_seconds=0, root=tmp_path, alive=lambda p: False,
+                                 spawn=Spawner()) == "died_at_start"
+
+
+def test_a_watcher_that_already_finished_at_start_is_started_not_dead(tmp_path):
+    folder = tmp_path / "trial-output" / "lineup-watch"
+
+    def spawn(args, out_path, root):
+        (folder / "gw.ndjson.done").write_text("finished")
+        return 4242
+    assert ensure_watcher.ensure(*ARGS, settle_seconds=0, root=tmp_path, alive=lambda p: False, spawn=spawn) == "started"
