@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-12T05:14:25Z",
+  "generatedAt": "2026-10-13T05:09:16Z",
   "season": "2026/27",
   "seasonStatus": "in_season",
   "gameweek": 5,
@@ -299,12 +299,28 @@
       "minutes": 387
     },
     {
+      "name": "Rudoni",
+      "team": "COV",
+      "position": "MID",
+      "xg": 1.71,
+      "xa": 1.15,
+      "minutes": 379
+    },
+    {
       "name": "Tavernier",
       "team": "BOU",
       "position": "MID",
       "xg": 1.7,
       "xa": 0.96,
       "minutes": 496
+    },
+    {
+      "name": "Wissa",
+      "team": "NEW",
+      "position": "FWD",
+      "xg": 2.5,
+      "xa": 0.07,
+      "minutes": 518
     },
     {
       "name": "Foden",
@@ -323,28 +339,12 @@
       "minutes": 490
     },
     {
-      "name": "Wissa",
-      "team": "NEW",
-      "position": "FWD",
-      "xg": 2.35,
-      "xa": 0.06,
-      "minutes": 441
-    },
-    {
       "name": "Gakpo",
       "team": "LIV",
       "position": "MID",
       "xg": 0.64,
       "xa": 1.71,
       "minutes": 370
-    },
-    {
-      "name": "Delap",
-      "team": "NFO",
-      "position": "FWD",
-      "xg": 1.9,
-      "xa": 0.41,
-      "minutes": 348
     }
   ]
 }
