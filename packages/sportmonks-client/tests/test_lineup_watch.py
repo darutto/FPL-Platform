@@ -49,3 +49,26 @@ def test_the_row_is_stamped_after_the_request_returns(tmp_path, monkeypatch):
     assert events[:2] == ["request", "now"], "no clock read may come before the request"
     assert json.loads(out.read_text().splitlines()[0])["at"] == "2026-10-12T22:47:00Z"
     assert Path(str(out) + ".done").exists()
+
+
+def _utc(day, hh, mm=0):
+    return dt.datetime(2026, 10, day, hh, mm, tzinfo=dt.timezone.utc)
+
+
+GW7 = [_utc(17, 11, 30), _utc(17, 14), _utc(17, 16, 30), _utc(18, 13), _utc(18, 15, 30), _utc(19, 19)]
+
+
+def test_rests_until_four_hours_before_the_first_kickoff():
+    assert lineup_watch.next_wake(_utc(16, 12), GW7) == _utc(17, 7, 30)
+
+
+def test_reads_every_20_minutes_then_every_5_in_the_last_hour():
+    assert lineup_watch.next_wake(_utc(17, 8), GW7) == _utc(17, 8, 20)
+    assert lineup_watch.next_wake(_utc(17, 10, 29), GW7) == _utc(17, 10, 49)   # 61 min to kickoff: still 20
+    assert lineup_watch.next_wake(_utc(17, 10, 31), GW7) == _utc(17, 10, 36)
+    assert lineup_watch.next_wake(_utc(17, 12, 0), GW7) == _utc(17, 12, 20)    # 30 min after kickoff, 2 h to the next
+
+
+def test_rests_between_match_days():
+    assert lineup_watch.next_wake(_utc(17, 20), GW7) == _utc(18, 9)
+    assert lineup_watch.next_wake(_utc(18, 16), GW7) == _utc(19, 15)

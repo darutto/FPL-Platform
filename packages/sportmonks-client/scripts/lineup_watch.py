@@ -2,8 +2,10 @@
 
 usage: python scripts/lineup_watch.py START_UTC END_UTC OUT.ndjson [FIRST_POLL_UTC]
 One request per poll (fixtures/between with lineups, formations, state) for all fixtures of the window.
-Cadence: every 5 minutes while any not-yet-started fixture kicks off within the next 4 hours (or started
-less than 10 minutes ago); every 20 minutes otherwise. Stops 15 minutes after the last kickoff and writes
+Schedule (``next_wake``): kickoffs are grouped into match days (a gap over 12 h starts a new one). Each match day
+is a window from 4 hours before its first kickoff to 15 minutes after its last one. Inside a window it reads every
+20 minutes, and every 5 minutes from 60 minutes before to 10 minutes after any kickoff; between windows it rests
+(no requests) until the next one opens. It stops 15 minutes after the last kickoff of the whole range and writes
 ``OUT.ndjson.done``, which ``ensure_watcher.py`` reads as "finished, do not relaunch".
 Needs ``SPORTMONKS_API_TOKEN`` in the environment. Local only: the output carries player ids and is never
 committed (``trial-output/`` is gitignored). Launch it through ``ensure_watcher.py``.
@@ -26,6 +28,34 @@ FMT = "%Y-%m-%dT%H:%M:%SZ"
 
 def _parse(value: str) -> dt.datetime:
     return dt.datetime.strptime(value, "%Y-%m-%d %H:%M:%S").replace(tzinfo=dt.timezone.utc)
+
+
+def next_wake(now: dt.datetime, kickoffs: list[dt.datetime]) -> dt.datetime:
+    """When to read next: the next 5/20-minute tick inside a match-day window, else the opening of the next window."""
+    ordered = sorted(kickoffs)
+    days: list[list[dt.datetime]] = []
+    for kick in ordered:
+        if days and kick - days[-1][-1] <= dt.timedelta(hours=12):
+            days[-1].append(kick)
+        else:
+            days.append([kick])
+    for day in days:
+        opens, closes = day[0] - dt.timedelta(hours=4), day[-1] + dt.timedelta(minutes=15)
+        if now < opens:
+            return opens
+        if now <= closes:
+            near = any(-10 <= (k - now).total_seconds() / 60 <= 60 for k in kickoffs)
+            return now + dt.timedelta(minutes=5 if near else 20)
+    return now + dt.timedelta(minutes=20)
+
+
+def _sleep_until(target: dt.datetime) -> None:
+    """Sleep in short chunks against the wall clock, so a machine that slept wakes up on time."""
+    while True:
+        remaining = (target - dt.datetime.now(dt.timezone.utc)).total_seconds()
+        if remaining <= 0:
+            return
+        time.sleep(min(60, remaining))
 
 
 def main(argv: list[str]) -> int:
@@ -76,8 +106,7 @@ def main(argv: list[str]) -> int:
         pending = [k for k, _ in kickoffs.values()]
         if not pending or now > max(pending) + dt.timedelta(minutes=15):
             break
-        soon = any(-10 <= (k - now).total_seconds() / 60 <= 240 for k, _ in kickoffs.values())
-        time.sleep(300 if soon else 1200)
+        _sleep_until(next_wake(now, pending))
     Path(out + ".done").write_text("finished", encoding="utf-8")
     print("watch finished")
     return 0
