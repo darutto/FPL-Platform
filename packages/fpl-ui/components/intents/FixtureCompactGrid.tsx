@@ -14,6 +14,8 @@ import {
   BLANK_COLOR,
   type Band,
 } from '@/lib/fixture-outlook-format';
+import type { TeamExtras } from '@/lib/fixture-competitions';
+import { CompactChip } from './FixtureCompetitionExtras';
 import { teamOutlookQuestion, fixtureCellQuestion } from '@/lib/fixture-chat-links';
 
 const GOOD_HEX = '#02EBAE';
@@ -28,9 +30,12 @@ export function FixtureCompactGrid({
   data,
   onAsk,
   presentation = false,
+  extrasFor,
 }: {
   data: FixtureOutlookMeta;
   onAsk?: (question: string) => void;
+  /** Multi-competition layer lookup per team code; absent/null renders the grid as before. */
+  extrasFor?: (team: string) => TeamExtras | null;
   /** Large, non-interactive layout used by the podcast/screen-share view. */
   presentation?: boolean;
 }) {
@@ -74,6 +79,7 @@ export function FixtureCompactGrid({
                 gw={gw}
                 runHex={runHexFor(runByGw.get(gw.gameweek))}
                 presentation
+                extras={extrasFor?.(team.team_short) ?? null}
               />
             )),
           ];
@@ -110,6 +116,7 @@ export function FixtureCompactGrid({
                   gw={gw}
                   runHex={runHexFor(runByGw.get(gw.gameweek))}
                   onAsk={onAsk ? () => onAsk(fixtureCellQuestion(team.team_name, gw)) : undefined}
+                  extras={extrasFor?.(team.team_short) ?? null}
                 />
               ))}
             </div>
@@ -158,19 +165,21 @@ function CompactCell({
   runHex,
   onAsk,
   presentation = false,
+  extras = null,
 }: {
   gw: FixtureOutlookGW;
   runHex: string | null;
   onAsk?: () => void;
   presentation?: boolean;
+  extras?: TeamExtras | null;
 }) {
   const blank = gw.band === null;
   const fg = blank ? BLANK_COLOR : bandColor(gw.band as Band);
   const opponents = blank ? '—' : gw.fixtures.map((f) => f.opponent_short).join('/');
   const venue = blank ? '' : gw.fixtures.map((f) => venueLabel(f.is_home)).join('/');
   const className = presentation
-    ? 'flex h-full w-full items-center justify-center gap-1 rounded-md px-1 text-center'
-    : 'flex w-[54px] h-[24px] items-center justify-center gap-0.5 rounded-md transition-transform hover:-translate-y-0.5';
+    ? 'relative flex h-full w-full items-center justify-center gap-1 rounded-md px-1 text-center'
+    : 'relative flex w-[54px] h-[24px] items-center justify-center gap-0.5 rounded-md transition-transform hover:-translate-y-0.5';
   const style = {
     backgroundColor: hexRgba(fg, 0.34),
     boxShadow: runHex ? `0 0 0 2px ${hexRgba(runHex, 0.7)}` : undefined,
@@ -182,6 +191,7 @@ function CompactCell({
     {venue && (
       <span className={presentation ? 'text-[clamp(10px,1.1vw,18px)] font-extrabold leading-none text-white/75' : 'text-[8.5px] font-extrabold leading-none text-white/75'}>{venue}</span>
     )}
+    {extras && <CompactChip extras={extras} gameweek={gw.gameweek} presentation={presentation} />}
   </>;
 
   if (!onAsk) return <div className={className} style={style}>{contents}</div>;

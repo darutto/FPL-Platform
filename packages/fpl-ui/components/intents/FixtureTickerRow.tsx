@@ -26,6 +26,8 @@ import {
   BLANK_COLOR,
   type Band,
 } from '@/lib/fixture-outlook-format';
+import type { TeamExtras } from '@/lib/fixture-competitions';
+import { CellExtras } from './FixtureCompetitionExtras';
 
 const GOOD_HEX = '#02EBAE';
 const BAD_HEX = '#FF6A4D';
@@ -85,6 +87,7 @@ export function FixtureTickerRow({
   onAskCell,
   showFdrNumbers = true,
   showHeader = true,
+  extras = null,
 }: {
   team: TeamOutlook;
   onAskTeam?: () => void;
@@ -92,6 +95,8 @@ export function FixtureTickerRow({
   showFdrNumbers?: boolean;
   /** i110: false when the composer already rendered TeamHeader for this team. */
   showHeader?: boolean;
+  /** Multi-competition layer for this team; null/absent renders the board as before. */
+  extras?: TeamExtras | null;
 }) {
   const { series, runs } = team;
 
@@ -123,6 +128,7 @@ export function FixtureTickerRow({
             cells={seg.cells}
             onAskCell={onAskCell}
             showFdrNumbers={showFdrNumbers}
+            extras={extras}
           />
         ))}
       </div>
@@ -160,11 +166,13 @@ function RunGroup({
   cells,
   onAskCell,
   showFdrNumbers,
+  extras,
 }: {
   run: FixtureOutlookRun | null;
   cells: FixtureOutlookGW[];
   onAskCell?: (gw: FixtureOutlookGW) => void;
   showFdrNumbers: boolean;
+  extras: TeamExtras | null;
 }) {
   const runHex = run ? (run.type === 'good' ? GOOD_HEX : BAD_HEX) : null;
   const wrapStyle = runHex
@@ -173,15 +181,24 @@ function RunGroup({
 
   return (
     <div className="flex gap-2.5 flex-wrap rounded-xl p-[7px]" style={wrapStyle}>
-      {cells.map((gw) => (
-        <GwCell
-          key={gw.gameweek}
-          gw={gw}
-          runHex={runHex}
-          onAsk={onAskCell && (() => onAskCell(gw))}
-          showFdrNumbers={showFdrNumbers}
-        />
-      ))}
+      {cells.map((gw) => {
+        const cell = (
+          <GwCell
+            key={gw.gameweek}
+            gw={gw}
+            runHex={runHex}
+            onAsk={onAskCell && (() => onAskCell(gw))}
+            showFdrNumbers={showFdrNumbers}
+          />
+        );
+        if (!extras) return cell;
+        return (
+          <div key={gw.gameweek} className="flex flex-col items-center">
+            {cell}
+            <CellExtras extras={extras} gameweek={gw.gameweek} />
+          </div>
+        );
+      })}
     </div>
   );
 }
