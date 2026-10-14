@@ -40,6 +40,13 @@ import {
   restoreFixtureWindow,
   type StoredFixtureWindow,
 } from '@/lib/fixture-gameweek-navigation';
+import {
+  extrasFor as competitionExtrasFor,
+  hasFreeTease,
+  parseCompetitions,
+  type CompetitionsView,
+} from '@/lib/fixture-competitions';
+import { CompetitionsLegend } from './FixtureCompetitionExtras';
 import { FixtureTickerRow, BandLegend } from './FixtureTickerRow';
 import { FixtureCompactGrid } from './FixtureCompactGrid';
 import { FixtureTendencyChart } from './FixtureTendencyChart';
@@ -74,6 +81,8 @@ export function FixturesBoard({
   const [windowState, setWindowState] = useState<StoredFixtureWindow | null>(null);
   const [presentationMode, setPresentationMode] = useState(false);
   const presentationRef = useRef<HTMLDivElement>(null);
+  // Multi-competition layer. The backend decides the tier; null (production, or any failure) = the board as before.
+  const [competitions, setCompetitions] = useState<CompetitionsView | null>(null);
 
   // The full season is the navigation source; the selector below is a window
   // width over it, never a request for a differently-sized export.
@@ -124,6 +133,23 @@ export function FixturesBoard({
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const response = await fetch('/api/fpl-fixture-competitions');
+        if (!response.ok) return;
+        const view = parseCompetitions(await response.json());
+        if (active) setCompetitions(view);
+      } catch {
+        // The competitions layer is an enhancement; the base calendar never depends on it.
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   // A saved manual window applies only while FPL's `next_gw` is unchanged.
   // On the J1 -> J2 rollover this resolves back to J2 automatically.
   useEffect(() => {
@@ -146,6 +172,9 @@ export function FixturesBoard({
       // Session storage is an enhancement, never a dependency.
     }
   }, [baseGameweek, windowState]);
+
+  const extrasFor = (team: string) => competitionExtrasFor(competitions, team);
+  const visibleGameweeks = data.teams[0]?.series.map((cell) => cell.gameweek) ?? [];
 
   const moveWindow = (delta: -1 | 1) => {
     const next = clampFixtureWindowStart(startGameweek + delta, gameweeks, horizon);
@@ -269,6 +298,12 @@ export function FixturesBoard({
 
       {/* FDR / venue / streak legend (above the board, design parity) */}
       <BandLegend />
+      {competitions && (
+        <CompetitionsLegend
+          tier={competitions.tier}
+          tease={hasFreeTease(competitions, visibleGameweeks)}
+        />
+      )}
 
       {/* Board */}
       <div className={`${CARD_BASE} ${CARD_ACCENT.turquoise.border}`}>
@@ -313,12 +348,13 @@ export function FixturesBoard({
                     team={t}
                     onAskTeam={() => onAsk(teamOutlookQuestion(t.team_name, axis))}
                     onAskCell={(gw) => onAsk(fixtureCellQuestion(t.team_name, gw))}
+                    extras={extrasFor(t.team_short)}
                   />
                 </div>
               ))}
             </div>
           )}
-          {view === 'compact' && <FixtureCompactGrid data={data} onAsk={onAsk} />}
+          {view === 'compact' && <FixtureCompactGrid data={data} onAsk={onAsk} extrasFor={extrasFor} />}
           {view === 'tendency' && (
             <div>
               {data.teams.map((t) => (
@@ -370,7 +406,7 @@ export function FixturesBoard({
             </button>
           </div>
           <div className="min-h-0 flex-1 overflow-hidden">
-            <FixtureCompactGrid data={data} presentation />
+            <FixtureCompactGrid data={data} presentation extrasFor={extrasFor} />
           </div>
         </div>
     </div>
