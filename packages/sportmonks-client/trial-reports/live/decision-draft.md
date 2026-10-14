@@ -18,6 +18,24 @@ cancelar antes o se cobra la primera cuota.
 | e | El plan cubre PL + UCL + FA Cup + EFL Cup como mínimo | **Cumple** con Starter + Euro Club Tournaments (7 ligas visibles con el token) | [routes](2026-10-11-routes.md) | — |
 | f | M1–M3 producen evidencia sensata (≥20 jugadores revisados) | **Sensato con matices.** M2 acierta el rol 90,5 % y el flanco 92,6 %, pero **no mejora a «repite su último partido»** (94,7 %) como predictor; su valor previsto (estabilidad, cambios, fuera de posición) aún sin medir. M1 mejora la tasa base (Brier 0,178 vs 0,229) pero apenas a la forma bruta (0,185) y se abstiene en fichajes y vueltas de lesión. M3 cuadra 140/140 con el calendario. Revisión de Leo: 8/10 sin objeción, 2 explicados | [m1-m3](2026-10-11-m1-m3.md), [revisión de Leo](2026-10-11-m1-m3-review-for-leo.md) | Repetir con GW6 completa (12-oct) y GW7 (19-oct), con la tabla «módulo vs base» |
 
+## Criterio (f) jornada a jornada (rolling origin, 2026-10-13)
+
+Para cada jornada k = 2…6 se predice GWk con la historia estrictamente anterior al saque de cada partido (GW1 no
+tiene historia: no hay base posible). Sin llamadas nuevas; informe completo en
+[2026-10-13-rolling-origin.md](2026-10-13-rolling-origin.md). Se añade GW7 el lunes 19.
+
+| GW | M2 rol: módulo vs base (n) | M2 flanco: módulo vs base | M2 abstiene | Donde difieren: base / módulo | M1 Brier: módulo vs constante | M3 vs calendario |
+|---|---|---|---|---|---|---|
+| 2 | no responde (0 de 220) | — | 220 | — | 0,132 vs 0,133 | 20/20 |
+| 3 | no responde (0 de 220) | — | 220 | — | 0,134 vs 0,166 | 20/20 |
+| 4 | 92,3 % vs 95,8 % (143) | 91,5 % vs 91,5 % | 77 | 5 / 0 | 0,142 vs 0,191 | 20/20 |
+| 5 | 93,6 % vs 94,9 % (157) | 88,0 % vs 90,0 % | 63 | 4 / 2 | 0,166 vs 0,211 | 20/20 |
+| 6 | 91,1 % vs 93,5 % (168) | 75,9 % vs 79,6 % | 52 | 7 / 3 | 0,164 vs 0,225 | 20/20 |
+| todas | 92,3 % vs 94,7 % (468) | 84,8 % vs 86,8 % | 632 | 16 / 5 | 0,149 vs 0,193 | 100/100 |
+
+Lectura: M2 empieza a poder responder en GW4 (necesita 3 inicios) y **no gana a la base en ninguna jornada**; M1 gana a la
+tasa base desde GW3 con margen creciente; M3 cuadra en todas.
+
 ## Lo que el trial ya dejó claro, decida lo que decida
 
 - **El dato es bueno y es lo que se compra:** posiciones reales por partido, flancos, minutos, cambios, bajas por club y
