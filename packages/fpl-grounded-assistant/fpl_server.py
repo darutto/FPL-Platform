@@ -80,10 +80,11 @@ for _pkg in [
     if _pkg not in sys.path:
         sys.path.insert(0, _pkg)
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, field_validator, model_validator
 
 from fpl_grounded_assistant import respond
+from fpl_grounded_assistant.competition_calendar import competitions_response
 from fpl_grounded_assistant.locale_types import Locale, DEFAULT_LOCALE
 from fpl_grounded_assistant.player_form import _element_summary_guard  # Phase 2.6d.3 — guard stats
 from fpl_pipeline import assemble_captain_context
@@ -2051,6 +2052,25 @@ def _extract_user_context(request: Request) -> tuple[str, str]:
     _default_tier = os.environ.get("FPL_DEV_TIER", "free")
     tier    = request.headers.get("X-User-Tier", _default_tier) or _default_tier
     return user_id, tier
+
+
+def tier_of(request: Request) -> str:
+    """The caller's tier. The ONE place a non-/ask route reads it (i153 hardens it here:
+    today ``X-User-Tier`` is trusted from any caller, see ``_extract_user_context``)."""
+    return _extract_user_context(request)[1]
+
+
+@app.get("/fixtures/competitions")
+def fixtures_competitions(
+    request: Request,
+    team: str | None = None,
+    # `from` is a Python keyword; the query parameter keeps its public name.
+    date_from: str | None = Query(None, alias="from", pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    date_to: str | None = Query(None, alias="to", pattern=r"^\d{4}-\d{2}-\d{2}$"),
+) -> dict[str, Any]:
+    """Off-Premier-League matches per club with rest days. Premium sees the detail,
+    everyone else per-week counts only. ``{"available": false}`` unless the dev gate is open."""
+    return competitions_response(tier_of(request), team, date_from, date_to)
 
 
 def resolve_locale(request: Request, body: "AskRequest") -> Locale:
