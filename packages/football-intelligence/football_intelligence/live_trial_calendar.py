@@ -12,6 +12,9 @@ Decisions a reviewer should be able to find:
   ``next_rest_days`` anchors (``live_trial_checks._calendar``), taken over the whole
   calendar instead of per target fixture. Postponed/cancelled/abandoned fixtures are
   not matches and are skipped.
+* **Whole rest days** (``rest_whole_days_before``) are ``floor(hours / 24)`` between the
+  two kickoffs, not calendar dates: Tuesday 19:00 -> Saturday 15:30 is 92.5 h = 3 whole days
+  (calendar dates would say 4). It is what the rotation notice compares against.
 * **Off-Premier-League** means ``league_id != 8``. Only the 20 clubs of ``capture["teams"]``
   get a calendar; opponents are named by the provider's display name.
 * **Rotation** is deliberately absent: M3 has no rest-days threshold (see PR description).
@@ -22,7 +25,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 from typing import Any, Mapping
 
-from .live_trial import COMPETITIONS, _utc, fixture_status
+from .ingestion.live_trial import COMPETITIONS, _utc, fixture_status
 
 PREMIER_LEAGUE_ID = 8
 #: Short badge shown in the UI, per Sportmonks league id.
@@ -44,7 +47,7 @@ def build_calendar(capture: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]
 
     Each match: ``kickoff_utc``, ``week``, ``competition`` (badge or ``"PL"``), ``is_pl``,
     ``venue`` (``H``/``A``), ``opponent`` (display name), ``rest_days_before`` (None for the
-    club's first match) and ``rest_days_after`` (None for the last).
+    club's first match), ``rest_whole_days_before``, ``previous_competition`` and ``rest_days_after`` (None for the last).
     """
     clubs = {int(t["id"]): str(t["short_code"]) for t in capture["teams"]}
     per_club: dict[int, list[dict[str, Any]]] = defaultdict(list)
@@ -74,6 +77,8 @@ def build_calendar(capture: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]
         matches = sorted(per_club.get(club_id, []), key=lambda m: m["_kickoff"])
         kickoffs = [m.pop("_kickoff") for m in matches]
         for i, match in enumerate(matches):
+            match["rest_whole_days_before"] = None if i == 0 else int((kickoffs[i] - kickoffs[i - 1]).total_seconds() // 86400)
+            match["previous_competition"] = None if i == 0 else matches[i - 1]["competition"]
             match["rest_days_before"] = None if i == 0 else round((kickoffs[i] - kickoffs[i - 1]).total_seconds() / 86400, 1)
             match["rest_days_after"] = None if i + 1 == len(matches) else round((kickoffs[i + 1] - kickoffs[i]).total_seconds() / 86400, 1)
         out[code] = matches

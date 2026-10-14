@@ -19,13 +19,18 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from football_intelligence.ingestion.live_trial_calendar import build_calendar
+from football_intelligence.live_trial_calendar import build_calendar
 
 ENV_ALLOW = "FI_DEV_ALLOW_LIVE_TRIAL_LOCAL"
 ENV_CAPTURE = "FI_DEV_LIVE_TRIAL_CAPTURE"
-#: Tiers that get the detail. Pending Leo's confirmation of the tier split;
-#: every other tier (including patreon_basic, patreon_tribuna) gets the free view.
-DETAIL_TIERS = frozenset({"patreon_plus", "patreon_premium"})
+#: Tiers that get the detail: Gafete de cancha ($5, patreon_basic) and above (Leo, 2026-10-14).
+#: Every other tier (patreon_tribuna $1, free) gets the counts-only view with the lock mark.
+DETAIL_TIERS = frozenset({"patreon_basic", "patreon_plus", "patreon_premium"})
+#: PRODUCT constant, decided by Leo on 2026-10-14. NOT an M3 threshold (M3 has none for rest days).
+#: A Premier League match warns of possible rotation when the club's previous match, in any
+#: competition, was this many WHOLE days before it or fewer (floor(hours/24) between kickoffs:
+#: 3 whole days = 72h to <96h, so Tuesday night -> Saturday afternoon warns; 96h does not).
+ROTATION_REST_DAYS = 3
 
 _cache: dict[tuple[str, float], dict[str, list[dict[str, Any]]]] = {}
 
@@ -60,7 +65,14 @@ def competitions_response(tier: str, team: str | None, date_from: str | None, da
             code: {"matches": [
                 {k: m[k] for k in ("kickoff_utc", "week", "competition", "venue", "opponent",
                                    "rest_days_before", "rest_days_after")}
-                for m in ms if not m["is_pl"] and _in_window(m, date_from, date_to)]}
+                for m in ms if not m["is_pl"] and _in_window(m, date_from, date_to)],
+                # Premium only: free never gets the notice nor a hint of it.
+                "rotation_notices": [
+                    {"kickoff_utc": m["kickoff_utc"], "week": m["week"], "opponent": m["opponent"],
+                     "rest_whole_days": m["rest_whole_days_before"], "previous_competition": m["previous_competition"]}
+                    for m in ms if m["is_pl"] and _in_window(m, date_from, date_to)
+                    and m["rest_whole_days_before"] is not None
+                    and m["rest_whole_days_before"] <= ROTATION_REST_DAYS]}
             for code, ms in wanted.items()}}
     return {"available": True, "tier": "free", "teams": {
         code: {"extra_by_week": dict(sorted(Counter(
