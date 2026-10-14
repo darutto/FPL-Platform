@@ -1,7 +1,7 @@
 """Watch every Premier League fixture of a date window and log when lineups change (provisional -> confirmed).
 
 usage: python scripts/lineup_watch.py START_UTC END_UTC OUT.ndjson [FIRST_POLL_UTC]
-One request per poll (fixtures/between with lineups, formations, state) for all fixtures of the window.
+One request per poll (fixtures/between with lineups, formations, state, metadata) for all fixtures of the window.
 Schedule (``next_wake``): kickoffs are grouped into match days (a gap over 12 h starts a new one). Each match day
 is a window from 4 hours before its first kickoff to 15 minutes after its last one. Inside a window it reads every
 20 minutes, and every 5 minutes from 60 minutes before to 10 minutes after any kickoff; between windows it rests
@@ -24,6 +24,18 @@ from sportmonks_client.client import SportmonksClient  # noqa: E402
 from sportmonks_client.errors import SportmonksError  # noqa: E402
 
 FMT = "%Y-%m-%dT%H:%M:%SZ"
+#: ``metadata`` element whose values are ``{"confirmed": bool}``: false while the lineup is the predicted one,
+#: true once the club has published it (found live 2026-10-13; the provider's guide calls it ``lineup_confirmed``).
+LINEUP_CONFIRMED_TYPE_ID = 572
+
+
+def lineup_confirmed(fixture: dict) -> bool | None:
+    """The provider's own confirmed flag, or None when the element is absent or malformed (never guessed)."""
+    for item in fixture.get("metadata") or []:
+        if item.get("type_id") == LINEUP_CONFIRMED_TYPE_ID:
+            value = (item.get("values") or {}).get("confirmed")
+            return value if isinstance(value, bool) else None
+    return None
 
 
 def _parse(value: str) -> dt.datetime:
@@ -72,7 +84,7 @@ def main(argv: list[str]) -> int:
             while True:
                 body = client._request(
                     f"fixtures/between/{start[:10]}/{end[:10]}",
-                    {"filters": "fixtureLeagues:8", "include": "lineups.detailedPosition;formations;state",
+                    {"filters": "fixtureLeagues:8", "include": "lineups.detailedPosition;formations;state;metadata",
                      "per_page": 50, "page": page}).body
                 rows += body["data"]
                 if not (body.get("pagination") or {}).get("has_more"):
@@ -97,7 +109,7 @@ def main(argv: list[str]) -> int:
                     "at": now.strftime(FMT), "fixture_id": d["id"], "name": d["name"],
                     "kickoff": kickoff.strftime(FMT),
                     "minutes_to_kickoff": round((kickoff - now).total_seconds() / 60),
-                    "state": d["state"]["developer_name"],
+                    "state": d["state"]["developer_name"], "lineup_confirmed": lineup_confirmed(d),
                     "lineup_rows": len(d["lineups"]), "starters": len(starters),
                     "bench": sum(1 for l in d["lineups"] if l["type_id"] != 11),
                     "starters_list": starters, "row_ids": sorted(l["id"] for l in d["lineups"]),
