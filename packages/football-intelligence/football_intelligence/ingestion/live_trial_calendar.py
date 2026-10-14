@@ -1,0 +1,80 @@
+"""Multi-competition calendar per Premier League club, from a live-trial capture. Dev-only, no I/O.
+
+The input is the frozen capture of ``live_capture.py`` (``live_trial_local`` provenance).
+Nothing here publishes or serves it: the only caller is the dev-gated
+``GET /fixtures/competitions`` endpoint, which refuses unless an explicit dev flag is set
+(see ``fpl_grounded_assistant.competition_calendar``).
+
+Decisions a reviewer should be able to find:
+
+* **Rest days** are kickoff-to-kickoff gaps in days between a club's consecutive matches
+  in ANY competition, the same definition as M3's ``previous_rest_days`` /
+  ``next_rest_days`` anchors (``live_trial_checks._calendar``), taken over the whole
+  calendar instead of per target fixture. Postponed/cancelled/abandoned fixtures are
+  not matches and are skipped.
+* **Off-Premier-League** means ``league_id != 8``. Only the 20 clubs of ``capture["teams"]``
+  get a calendar; opponents are named by the provider's display name.
+* **Rotation** is deliberately absent: M3 has no rest-days threshold (see PR description).
+"""
+from __future__ import annotations
+
+from collections import defaultdict
+from datetime import date, datetime, timedelta
+from typing import Any, Mapping
+
+from .live_trial import COMPETITIONS, _utc, fixture_status
+
+PREMIER_LEAGUE_ID = 8
+#: Short badge shown in the UI, per Sportmonks league id.
+BADGES = {2: "UCL", 5: "UEL", 2286: "UECL", 1328: "UEFA-SC", 24: "FA", 27: "EFL"}
+_NOT_PLAYED = frozenset({"postponed", "cancelled", "abandoned"})
+
+
+def _kickoff(fixture: Mapping[str, Any]) -> datetime:
+    return datetime.strptime(_utc(fixture["starting_at"]), "%Y-%m-%dT%H:%M:%SZ")
+
+
+def week_start(day: date) -> str:
+    """ISO Monday of the week containing ``day`` (the free tier's bucket key)."""
+    return (day - timedelta(days=day.weekday())).isoformat()
+
+
+def build_calendar(capture: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    """``{club code: [match, ...]}`` in kickoff order, every competition included.
+
+    Each match: ``kickoff_utc``, ``week``, ``competition`` (badge or ``"PL"``), ``is_pl``,
+    ``venue`` (``H``/``A``), ``opponent`` (display name), ``rest_days_before`` (None for the
+    club's first match) and ``rest_days_after`` (None for the last).
+    """
+    clubs = {int(t["id"]): str(t["short_code"]) for t in capture["teams"]}
+    per_club: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    seen: set[tuple[int, int]] = set()
+    for fixture in capture["team_fixtures"]:
+        league_id = int(fixture["league_id"])
+        if league_id not in COMPETITIONS or fixture_status(fixture) in _NOT_PLAYED:
+            continue
+        kickoff = _kickoff(fixture)
+        parts = {p["meta"]["location"]: p for p in fixture["participants"]}
+        for side, other in (("home", "away"), ("away", "home")):
+            club_id = int(parts[side]["id"])
+            if club_id not in clubs or (club_id, int(fixture["id"])) in seen:
+                continue
+            seen.add((club_id, int(fixture["id"])))
+            per_club[club_id].append({
+                "kickoff_utc": kickoff.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "week": week_start(kickoff.date()),
+                "competition": "PL" if league_id == PREMIER_LEAGUE_ID else BADGES[league_id],
+                "is_pl": league_id == PREMIER_LEAGUE_ID,
+                "venue": "H" if side == "home" else "A",
+                "opponent": str(parts[other]["name"]),
+                "_kickoff": kickoff,
+            })
+    out: dict[str, list[dict[str, Any]]] = {}
+    for club_id, code in clubs.items():
+        matches = sorted(per_club.get(club_id, []), key=lambda m: m["_kickoff"])
+        kickoffs = [m.pop("_kickoff") for m in matches]
+        for i, match in enumerate(matches):
+            match["rest_days_before"] = None if i == 0 else round((kickoffs[i] - kickoffs[i - 1]).total_seconds() / 86400, 1)
+            match["rest_days_after"] = None if i + 1 == len(matches) else round((kickoffs[i + 1] - kickoffs[i]).total_seconds() / 86400, 1)
+        out[code] = matches
+    return out
