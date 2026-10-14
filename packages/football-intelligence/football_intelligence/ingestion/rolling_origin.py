@@ -1,10 +1,10 @@
 """Rolling-origin evaluation of M1, M2 and M3: predict gameweek k from history strictly before each kickoff.
 
-usage: python scripts/rolling_origin.py RUN_DIR OUT_DIR [--gws 2 3 4 5 6]
+usage (from packages/football-intelligence): python -m football_intelligence.ingestion.rolling_origin RUN_DIR OUT_DIR [--gws 2 3 4 5 6]
 RUN_DIR is a finished ``trial-output/runs/TAG`` (store/, capture.json). Makes no request: the feature build already
 cuts history strictly before each fixture's kickoff, so one build serves every gameweek. Writes
 ``OUT_DIR/rolling_origin.json`` (aggregates, one entry per gameweek plus ``all``), ``rolling_origin.md`` (the table)
-and ``detail.json`` (names, local only, never committed). Run it with the PYTHONPATH of ``run_trial_checks.py``.
+and ``detail.json`` (names, local only, never committed). Run it with the PYTHONPATH of ``run_trial_checks.py`` (the four sibling packages).
 """
 from __future__ import annotations
 
@@ -16,8 +16,8 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from football_intelligence.ingestion import live_trial_checks as chk
-from football_intelligence.ingestion.live_trial import RESULT_KNOWN_AFTER_HOURS, build_team_registry
+from . import live_trial_checks as chk
+from .live_trial import RESULT_KNOWN_AFTER_HOURS, build_team_registry
 
 
 def pct(x: dict | None) -> str:

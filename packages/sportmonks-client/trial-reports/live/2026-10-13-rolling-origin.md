@@ -1,7 +1,7 @@
 # FI-9 criterion (f) — rolling origin, gameweek by gameweek (2026-10-13)
 
 Aggregate only: counts and rates, no names, no ids. Local output: `trial-output/runs/rolling-origin/` (names in
-`detail.json`, not committed). Produced by `scripts/rolling_origin.py` from the frozen `gw6-final` capture and store:
+`detail.json`, not committed). Produced by `python -m football_intelligence.ingestion.rolling_origin RUN_DIR OUT_DIR` (packages/football-intelligence) from the frozen `gw6-final` capture and store:
 **no new request**, and the whole evaluation (all five gameweeks, three modules) takes **10 s** because the feature
 build (936 s, once) already cuts history strictly before each fixture's kickoff, so it serves every gameweek. Modules
 unchanged. GW7 joins on Monday 19 Oct with `gw7-final`; the script takes `--gws 2 3 4 5 6 7` on that run.
