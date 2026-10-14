@@ -53,9 +53,10 @@ than the trial can.
 
 | # | Question | Sent | Answered | Answer | Consequence |
 |---|---|---|---|---|---|
-| 13 | Are formation-grid coordinates documented semantics (slot indices vs pitch coordinates), and are they stable across competitions? | no | no | | **GO criterion (b) / NO-GO.** Every checked-in grid fixture carries `"status": "unverified_against_live"`; the docs do not say. If undocumented, M2 degrades to `detailed_position` only |
+| 13 | Are formation-grid coordinates documented semantics (slot indices vs pitch coordinates), and are they stable across competitions? | no | yes| yes| **Answered 2026-10-13 (support), documented partially.** Guide (https://docs.sportmonks.com/v3/tutorials-and-guides/tutorials/lineups-and-formations): `formation_field` = "line:line_position", a grid coordinate; `formation_position` 1 to 11, bottom to top. The away-side mirror is not written as a rule, but the guide's own example shows it (Real Madrid away: right-back 2:4, left-back 2:1) and agrees with our rule (420/420 side-labelled starters). Q13 closes as "documented partially; the mirror is an inference confirmed by their example and by our data". |
 | 14 | What is the actual per-hour/per-entity rate limit on the trial vs the Starter plan? | no | no | | A trial limit that differs from Starter's makes trial pacing measurements non-transferable. Current strategy is controlled serialized scheduling plus reactive 429 handling; a proactive token bucket is conditional on this answer |
-| 15 | How often are team squads updated, and why do players who have already played minutes in the Premier League this season not appear in their club's squad (`squads/teams/{id}`)? | no | no | | Observed 2026-10-11: 2 of 430 FPL players with minutes are in lineups on match day but in no PL squad (details in the mapping report). Bears on objectives 4 and 5 (squad completeness) and on the ceiling of the identity gate. A further 5 left the league on deadline day and are correctly absent from squads. |
+| 15 | How often are team squads updated, and why do players who have already played minutes in the Premier League this season not appear in their club's squad (`squads/teams/{id}`)? | no | yes| yes| **Answered 2026-10-13 (support).** The 2 missing are academy players: by design a youth player who plays with the first team is not in `squads/teams/{id}`; Sportmonks recommends identifying them from fixture lineups or livescores. Consequence: the 2 "unreachable" players can be matched by a mapping level that reads players from lineups (proposal with relaxation audit pending, not implemented). |
+| 16 | Is a lineup distinguishable as predicted vs confirmed before kickoff, and when are official lineups published? | yes | yes | **Answered 2026-10-13 (support + guide https://docs.sportmonks.com/v3/tutorials-and-guides/tutorials/lineups-and-formations).** The guide says an include `metadata` carries a "lineup_confirmed" element: false while the lineup is the predicted one (from previous matches, suspensions and injuries), true when the club publishes it; "Official lineups are published approximately 1 hour before kickoff". Checked live the same day (2 calls, shapes only): `metadata` contains a `type_id 572` element `{confirmed: bool}`: false on a future fixture (22 lineup rows, no bench), true on a finished one (40 rows). The 22-row predicted lineup arrives without the "Expected Lineups" add-on, which we have not bought. | Criterion (b) is measured with the provider's own flag: the GW7 watcher logs it in every read (#455); the 40-row/state signals stay secondary. |
 
 ## Answer summary
 
@@ -65,9 +66,9 @@ Fill in once replies arrive. This is what feeds
 | | |
 |---|---|
 | Questions sent | 0 / 15 |
-| Questions answered | 0 / 15 |
+| Questions answered | technical 13, 15, 16 answered 2026-10-13; licensing 2–11 unanswered |
 | Raw storage permitted (Q3) | *unanswered* |
 | Data combination permitted (Q4) | *unanswered* |
 | Derived scores permitted (Q5) | *unanswered* |
 | Subscriber display permitted (Q6) | *unanswered* |
-| Grid semantics documented (Q13) | *unanswered* |
+| Grid semantics documented (Q13) | partially (2026-10-13): grid coordinate documented, away mirror shown by their example only |
