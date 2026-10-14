@@ -19,10 +19,11 @@ OPPONENT = "Zzyzx Rovers"
 SECRET_OPP2 = "Qwerty United"
 
 
-def _fx(fid, league, home, away, when, state="NS"):
+def _fx(fid, league, home, away, when, state="NS", rnd=None):
     parts = [{"id": h, "name": n, "short_code": n[:3].upper(), "meta": {"location": loc}}
              for (h, n), loc in ((home, "home"), (away, "away"))]
     return {"id": fid, "league_id": league, "starting_at": when, "state": {"developer_name": state},
+            "round": {"name": str(rnd)} if rnd else None,
             "participants": parts}
 
 
@@ -32,11 +33,11 @@ def capture(tmp_path, monkeypatch):
     data = {"schema_version": 1,
             "teams": [{"id": 1, "short_code": "ARS"}, {"id": 2, "short_code": "MCI"}, {"id": 3, "short_code": "CHE"}],
             "team_fixtures": [
-                _fx(1, 8, arsenal, other, "2026-10-10 11:30:00", "FT"),
+                _fx(1, 8, arsenal, other, "2026-10-10 11:30:00", "FT", 7),
                 _fx(2, 2, arsenal, opp1, "2026-10-13 19:00:00"),
-                _fx(3, 8, other, arsenal, "2026-10-18 15:30:00"),
+                _fx(3, 8, other, arsenal, "2026-10-18 15:30:00", rnd=8),
                 _fx(4, 27, opp2, arsenal, "2026-10-14 19:00:00"),
-                _fx(5, 8, city, other, "2026-10-17 15:30:00"),
+                _fx(5, 8, city, other, "2026-10-17 15:30:00", rnd=8),
                 _fx(6, 24, city, opp1, "2026-10-20 19:00:00", "POSTPONED"),
             ]}
     path = tmp_path / "capture.json"
@@ -98,6 +99,7 @@ def test_premium_shape_and_rest_days(capture):
     assert [m["competition"] for m in matches] == ["UCL", "EFL"]
     ucl, efl = matches
     assert (ucl["opponent"], ucl["venue"], ucl["week"]) == (OPPONENT, "H", "2026-10-12")
+    assert ucl["gameweek"] == 8 and efl["gameweek"] == 8
     # PL 10 Oct 11:30 -> UCL 13 Oct 19:00 = 3.3 d; UCL -> EFL (14 Oct 19:00) = 1.0 d; EFL -> PL 18 Oct 15:30 = 3.9 d.
     assert ucl["rest_days_before"] == 3.3 and ucl["rest_days_after"] == 1.0
     assert efl["venue"] == "A" and efl["rest_days_before"] == 1.0 and efl["rest_days_after"] == 3.9
@@ -166,8 +168,8 @@ def test_non_detail_tiers_get_counts_only(capture, tier):
     r = _get(tier)
     body = r.json()
     assert body["available"] is True and body["tier"] == "free"
-    assert body["teams"]["ARS"] == {"extra_by_week": {"2026-10-12": 2}}
-    assert body["teams"]["MCI"] == {"extra_by_week": {}}
+    assert body["teams"]["ARS"] == {"extra_by_gameweek": {"8": 2}}
+    assert body["teams"]["MCI"] == {"extra_by_gameweek": {}}
     raw = r.text
     for leaked in ("rotation", OPPONENT, SECRET_OPP2, "UCL", "EFL", "FA", "rest_days", "kickoff", "opponent", "competition", "venue"):
         assert leaked not in raw, leaked
@@ -183,7 +185,7 @@ def test_free_payload_has_no_detail_keys_at_any_depth(capture):
             for v in node:
                 yield from walk(v)
     assert set(walk(_get("free").json())) <= {"available", "tier", "teams", "ARS", "MCI", "CHE",
-                                              "extra_by_week", "2026-10-12"}
+                                              "extra_by_gameweek", "8"}
 
 
 # -- tier is read in one place, from the server's own helper ------------------

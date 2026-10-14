@@ -63,18 +63,19 @@ def competitions_response(tier: str, team: str | None, date_from: str | None, da
     if tier in DETAIL_TIERS:
         return {"available": True, "tier": "premium", "teams": {
             code: {"matches": [
-                {k: m[k] for k in ("kickoff_utc", "week", "competition", "venue", "opponent",
+                {k: m[k] for k in ("kickoff_utc", "week", "gameweek", "competition", "venue", "opponent",
                                    "rest_days_before", "rest_days_after")}
                 for m in ms if not m["is_pl"] and _in_window(m, date_from, date_to)],
                 # Premium only: free never gets the notice nor a hint of it.
                 "rotation_notices": [
-                    {"kickoff_utc": m["kickoff_utc"], "week": m["week"], "opponent": m["opponent"],
+                    {"kickoff_utc": m["kickoff_utc"], "week": m["week"], "gameweek": m["gameweek"], "opponent": m["opponent"],
                      "rest_whole_days": m["rest_whole_days_before"], "previous_competition": m["previous_competition"]}
                     for m in ms if m["is_pl"] and _in_window(m, date_from, date_to)
                     and m["rest_whole_days_before"] is not None
                     and m["rest_whole_days_before"] <= ROTATION_REST_DAYS]}
             for code, ms in wanted.items()}}
     return {"available": True, "tier": "free", "teams": {
-        code: {"extra_by_week": dict(sorted(Counter(
-            m["week"] for m in ms if not m["is_pl"] and _in_window(m, date_from, date_to)).items()))}
+        code: {"extra_by_gameweek": {str(g): n for g, n in sorted(Counter(
+            m["gameweek"] for m in ms
+            if not m["is_pl"] and m["gameweek"] is not None and _in_window(m, date_from, date_to)).items())}}
         for code, ms in wanted.items()}}

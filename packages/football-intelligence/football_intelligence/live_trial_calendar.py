@@ -15,6 +15,11 @@ Decisions a reviewer should be able to find:
 * **Whole rest days** (``rest_whole_days_before``) are ``floor(hours / 24)`` between the
   two kickoffs, not calendar dates: Tuesday 19:00 -> Saturday 15:30 is 92.5 h = 3 whole days
   (calendar dates would say 4). It is what the rotation notice compares against.
+* **Gameweek of a non-PL match** is the first PL gameweek whose last kickoff is at or after it
+  (``gameweek`` on every match; PL matches carry their own round). A Tuesday Champions League
+  night therefore belongs to the gameweek that follows it. Known limit: a PL fixture
+  rescheduled far from its round stretches that round's last kickoff. ``None`` after the last
+  scheduled gameweek.
 * **Off-Premier-League** means ``league_id != 8``. Only the 20 clubs of ``capture["teams"]``
   get a calendar; opponents are named by the provider's display name.
 * **Rotation** is deliberately absent: M3 has no rest-days threshold (see PR description).
@@ -45,11 +50,25 @@ def week_start(day: date) -> str:
 def build_calendar(capture: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]]:
     """``{club code: [match, ...]}`` in kickoff order, every competition included.
 
-    Each match: ``kickoff_utc``, ``week``, ``competition`` (badge or ``"PL"``), ``is_pl``,
+    Each match: ``kickoff_utc``, ``week``, ``gameweek``, ``competition`` (badge or ``"PL"``), ``is_pl``,
     ``venue`` (``H``/``A``), ``opponent`` (display name), ``rest_days_before`` (None for the
     club's first match), ``rest_whole_days_before``, ``previous_competition`` and ``rest_days_after`` (None for the last).
     """
     clubs = {int(t["id"]): str(t["short_code"]) for t in capture["teams"]}
+    gw_last: dict[int, datetime] = {}
+    for fixture in capture["team_fixtures"]:
+        name = (fixture.get("round") or {}).get("name", "")
+        if int(fixture["league_id"]) == PREMIER_LEAGUE_ID and str(name).isdigit() and fixture_status(fixture) not in _NOT_PLAYED:
+            gw = int(name)
+            gw_last[gw] = max(gw_last.get(gw, datetime.min), _kickoff(fixture))
+    gw_order = sorted(gw_last)
+
+    def gameweek_of(fixture: Mapping[str, Any], kickoff: datetime) -> int | None:
+        name = (fixture.get("round") or {}).get("name", "")
+        if int(fixture["league_id"]) == PREMIER_LEAGUE_ID and str(name).isdigit():
+            return int(name)
+        return next((g for g in gw_order if gw_last[g] >= kickoff), None)
+
     per_club: dict[int, list[dict[str, Any]]] = defaultdict(list)
     seen: set[tuple[int, int]] = set()
     for fixture in capture["team_fixtures"]:
@@ -66,6 +85,7 @@ def build_calendar(capture: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]
             per_club[club_id].append({
                 "kickoff_utc": kickoff.strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "week": week_start(kickoff.date()),
+                "gameweek": gameweek_of(fixture, kickoff),
                 "competition": "PL" if league_id == PREMIER_LEAGUE_ID else BADGES[league_id],
                 "is_pl": league_id == PREMIER_LEAGUE_ID,
                 "venue": "H" if side == "home" else "A",
