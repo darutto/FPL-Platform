@@ -202,3 +202,13 @@ def test_tier_is_read_through_the_single_helper(capture, monkeypatch):
 def test_forged_premium_header_without_internal_token_is_free(capture, monkeypatch):
     monkeypatch.setenv("FPL_INTERNAL_TOKEN", "s3cret")
     assert _get("patreon_premium").json()["tier"] == "free"
+
+
+def test_club_codes_are_fpl_codes(capture, tmp_path, monkeypatch):
+    """Sportmonks calls Coventry CVC; the FPL bundle (and so the board) calls it COV."""
+    path = tmp_path / "cov.json"
+    path.write_text(json.dumps({"schema_version": 1, "teams": [{"id": 7, "short_code": "CVC"}], "team_fixtures": [
+        _fx(1, 2, (7, "Coventry City"), (90, OPPONENT), "2026-10-13 19:00:00")]}), encoding="utf-8")
+    monkeypatch.setenv(cc.ENV_CAPTURE, str(path))
+    cc._cache.clear()
+    assert list(_get("free").json()["teams"]) == ["COV"]

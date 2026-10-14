@@ -35,6 +35,8 @@ from .ingestion.live_trial import COMPETITIONS, _utc, fixture_status
 PREMIER_LEAGUE_ID = 8
 #: Short badge shown in the UI, per Sportmonks league id.
 BADGES = {2: "UCL", 5: "UEL", 2286: "UECL", 1328: "UEFA-SC", 24: "FA", 27: "EFL"}
+#: Sportmonks short codes that differ from FPL's (checked against the shipped bundle's 20 team codes).
+SM_TO_FPL_CODE = {"CVC": "COV"}
 _NOT_PLAYED = frozenset({"postponed", "cancelled", "abandoned"})
 
 
@@ -54,7 +56,7 @@ def build_calendar(capture: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]
     ``venue`` (``H``/``A``), ``opponent`` (display name), ``rest_days_before`` (None for the
     club's first match), ``rest_whole_days_before``, ``previous_competition`` and ``rest_days_after`` (None for the last).
     """
-    clubs = {int(t["id"]): str(t["short_code"]) for t in capture["teams"]}
+    clubs = {int(t["id"]): SM_TO_FPL_CODE.get(str(t["short_code"]), str(t["short_code"])) for t in capture["teams"]}
     gw_last: dict[int, datetime] = {}
     for fixture in capture["team_fixtures"]:
         name = (fixture.get("round") or {}).get("name", "")
