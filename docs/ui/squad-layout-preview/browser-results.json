@@ -1,0 +1,348 @@
+[
+  {
+    "test": "geometry",
+    "width": 390,
+    "height": 844,
+    "pitch": {
+      "x": 9,
+      "y": 181.5,
+      "width": 372,
+      "height": 223.1875,
+      "bottom": 404.6875,
+      "right": 381
+    },
+    "formation": {
+      "x": 9,
+      "y": 181.5,
+      "width": 372,
+      "height": 311.6875,
+      "bottom": 493.1875,
+      "right": 381
+    },
+    "detail": {
+      "x": 9,
+      "y": 493.1875,
+      "width": 372,
+      "height": 121.5,
+      "bottom": 614.6875,
+      "right": 381
+    },
+    "overlaps": [],
+    "pageOverflow": false,
+    "selected": "true",
+    "pass": true
+  },
+  {
+    "test": "geometry",
+    "width": 810,
+    "height": 700,
+    "pitch": {
+      "x": 60,
+      "y": 181.5,
+      "width": 690,
+      "height": 414,
+      "bottom": 595.5,
+      "right": 750
+    },
+    "formation": {
+      "x": 60,
+      "y": 181.5,
+      "width": 690,
+      "height": 502.5,
+      "bottom": 684,
+      "right": 750
+    },
+    "detail": {
+      "x": 60,
+      "y": 684,
+      "width": 690,
+      "height": 121.5,
+      "bottom": 805.5,
+      "right": 750
+    },
+    "overlaps": [],
+    "pageOverflow": false,
+    "selected": "true",
+    "pass": true
+  },
+  {
+    "test": "geometry",
+    "width": 830,
+    "height": 700,
+    "pitch": {
+      "x": 9,
+      "y": 181.5,
+      "width": 503.4375,
+      "height": 302.0625,
+      "bottom": 483.5625,
+      "right": 512.4375
+    },
+    "formation": {
+      "x": 9,
+      "y": 181.5,
+      "width": 503.4375,
+      "height": 398.953125,
+      "bottom": 580.453125,
+      "right": 512.4375
+    },
+    "detail": {
+      "x": 512.4375,
+      "y": 181.5,
+      "width": 308.5625,
+      "height": 155,
+      "bottom": 336.5,
+      "right": 821
+    },
+    "overlaps": [],
+    "pageOverflow": false,
+    "selected": "true",
+    "pass": true
+  },
+  {
+    "test": "geometry",
+    "width": 1366,
+    "height": 768,
+    "pitch": {
+      "x": 124,
+      "y": 181.5,
+      "width": 690,
+      "height": 414,
+      "bottom": 595.5,
+      "right": 814
+    },
+    "formation": {
+      "x": 124,
+      "y": 181.5,
+      "width": 690,
+      "height": 521.5,
+      "bottom": 703,
+      "right": 814
+    },
+    "detail": {
+      "x": 814,
+      "y": 181.5,
+      "width": 428,
+      "height": 155,
+      "bottom": 336.5,
+      "right": 1242
+    },
+    "overlaps": [],
+    "pageOverflow": false,
+    "selected": "true",
+    "pass": true
+  },
+  {
+    "test": "geometry",
+    "width": 1920,
+    "height": 1080,
+    "pitch": {
+      "x": 401,
+      "y": 181.5,
+      "width": 690,
+      "height": 414,
+      "bottom": 595.5,
+      "right": 1091
+    },
+    "formation": {
+      "x": 401,
+      "y": 181.5,
+      "width": 690,
+      "height": 521.5,
+      "bottom": 703,
+      "right": 1091
+    },
+    "detail": {
+      "x": 1091,
+      "y": 181.5,
+      "width": 428,
+      "height": 155,
+      "bottom": 336.5,
+      "right": 1519
+    },
+    "overlaps": [],
+    "pageOverflow": false,
+    "selected": "true",
+    "pass": true
+  },
+  {
+    "test": "geometry",
+    "width": 2560,
+    "height": 1080,
+    "pitch": {
+      "x": 721,
+      "y": 181.5,
+      "width": 690,
+      "height": 414,
+      "bottom": 595.5,
+      "right": 1411
+    },
+    "formation": {
+      "x": 721,
+      "y": 181.5,
+      "width": 690,
+      "height": 521.5,
+      "bottom": 703,
+      "right": 1411
+    },
+    "detail": {
+      "x": 1411,
+      "y": 181.5,
+      "width": 428,
+      "height": 155,
+      "bottom": 336.5,
+      "right": 1839
+    },
+    "overlaps": [],
+    "pageOverflow": false,
+    "selected": "true",
+    "pass": true
+  },
+  {
+    "test": "geometry",
+    "width": 390,
+    "height": 520,
+    "pitch": {
+      "x": 9,
+      "y": 181.5,
+      "width": 372,
+      "height": 223.1875,
+      "bottom": 404.6875,
+      "right": 381
+    },
+    "formation": {
+      "x": 9,
+      "y": 181.5,
+      "width": 372,
+      "height": 311.6875,
+      "bottom": 493.1875,
+      "right": 381
+    },
+    "detail": {
+      "x": 9,
+      "y": 493.1875,
+      "width": 372,
+      "height": 121.5,
+      "bottom": 614.6875,
+      "right": 381
+    },
+    "overlaps": [],
+    "pageOverflow": false,
+    "selected": "true",
+    "pass": true
+  },
+  {
+    "test": "geometry",
+    "width": 1366,
+    "height": 400,
+    "pitch": {
+      "x": 124,
+      "y": 181.5,
+      "width": 690,
+      "height": 414,
+      "bottom": 595.5,
+      "right": 814
+    },
+    "formation": {
+      "x": 124,
+      "y": 181.5,
+      "width": 690,
+      "height": 521.40625,
+      "bottom": 702.90625,
+      "right": 814
+    },
+    "detail": {
+      "x": 814,
+      "y": 181.5,
+      "width": 428,
+      "height": 155,
+      "bottom": 336.5,
+      "right": 1242
+    },
+    "overlaps": [],
+    "pageOverflow": false,
+    "selected": "true",
+    "pass": true
+  },
+  {
+    "test": "short desktop bench and Ask AI reachable",
+    "pass": true
+  },
+  {
+    "test": "bench selection",
+    "pass": true
+  },
+  {
+    "test": "Ask AI navigation and exact prefill",
+    "pass": true
+  },
+  {
+    "test": "rich-card bounds",
+    "id": "table-card",
+    "width": 390,
+    "cardWidth": 340,
+    "pass": true
+  },
+  {
+    "test": "rich-card bounds",
+    "id": "player-card",
+    "width": 390,
+    "cardWidth": 340,
+    "pass": true
+  },
+  {
+    "test": "rich-card bounds",
+    "id": "comparison-card",
+    "width": 390,
+    "cardWidth": 340,
+    "pass": true
+  },
+  {
+    "test": "rich-card bounds",
+    "id": "defensive-card",
+    "width": 390,
+    "cardWidth": 340,
+    "pass": true
+  },
+  {
+    "test": "rich-card bounds",
+    "id": "table-card",
+    "width": 1920,
+    "cardWidth": 638,
+    "pass": true
+  },
+  {
+    "test": "rich-card bounds",
+    "id": "player-card",
+    "width": 1920,
+    "cardWidth": 638,
+    "pass": true
+  },
+  {
+    "test": "rich-card bounds",
+    "id": "comparison-card",
+    "width": 1920,
+    "cardWidth": 638,
+    "pass": true
+  },
+  {
+    "test": "rich-card bounds",
+    "id": "defensive-card",
+    "width": 1920,
+    "cardWidth": 638,
+    "pass": true
+  },
+  {
+    "test": "runtime errors",
+    "errors": [],
+    "pass": true
+  },
+  {
+    "test": "five-defender row fits narrow desktop",
+    "pass": true
+  },
+  {
+    "test": "native pinch within Squad preserves screen",
+    "scale": 5,
+    "pass": true
+  }
+]
