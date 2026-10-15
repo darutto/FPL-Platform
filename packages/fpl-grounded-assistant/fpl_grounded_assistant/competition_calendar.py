@@ -26,11 +26,14 @@ ENV_CAPTURE = "FI_DEV_LIVE_TRIAL_CAPTURE"
 #: Tiers that get the detail: Gafete de cancha ($5, patreon_basic) and above (Leo, 2026-10-14).
 #: Every other tier (patreon_tribuna $1, free) gets the counts-only view with the lock mark.
 DETAIL_TIERS = frozenset({"patreon_basic", "patreon_plus", "patreon_premium"})
-#: PRODUCT constant, decided by Leo on 2026-10-14. NOT an M3 threshold (M3 has none for rest days).
-#: A Premier League match warns of possible rotation when the club's previous match, in any
-#: competition, was this many WHOLE days before it or fewer (floor(hours/24) between kickoffs:
-#: 3 whole days = 72h to <96h, so Tuesday night -> Saturday afternoon warns; 96h does not).
+#: PRODUCT constants, decided by Leo (not M3 thresholds: M3 has none for rest days).
+#: ROTATION_REST_DAYS (2026-10-14): a Premier League match warns of possible rotation when the
+#: club's previous match was this many WHOLE days before it or fewer (floor(hours/24) between
+#: kickoffs: 3 whole days = 72h to <96h, so Tuesday night -> Saturday afternoon warns; 96h does not).
+#: ROTATION_AFTER (decided by Leo 2026-10-14: only after a European/cup match): the notice needs the
+#: previous match to be one of these competitions; PL -> PL never warns. Rest days are always shown.
 ROTATION_REST_DAYS = 3
+ROTATION_AFTER = frozenset({"UCL", "UEL", "UECL", "FA", "EFL"})
 
 _cache: dict[tuple[str, float], dict[str, list[dict[str, Any]]]] = {}
 
@@ -72,6 +75,7 @@ def competitions_response(tier: str, team: str | None, date_from: str | None, da
                      "rest_whole_days": m["rest_whole_days_before"], "previous_competition": m["previous_competition"]}
                     for m in ms if m["is_pl"] and _in_window(m, date_from, date_to)
                     and m["rest_whole_days_before"] is not None
+                    and m["previous_competition"] in ROTATION_AFTER
                     and m["rest_whole_days_before"] <= ROTATION_REST_DAYS]}
             for code, ms in wanted.items()}}
     return {"available": True, "tier": "free", "teams": {

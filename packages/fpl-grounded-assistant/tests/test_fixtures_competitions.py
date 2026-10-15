@@ -112,12 +112,12 @@ def test_every_paid_tier_gets_the_detail(capture, tier):
     assert body["tier"] == "premium" and body["teams"]["ARS"]["matches"][0]["opponent"] == OPPONENT
 
 
-def _rotation(tmp_path, monkeypatch, gap_minutes, extra=()):
-    """A club with one non-PL match, then a PL match ``gap_minutes`` later."""
+def _rotation(tmp_path, monkeypatch, gap_minutes, extra=(), first_league=2):
+    """A club with one earlier match (``first_league``, default UCL), then a PL match ``gap_minutes`` later."""
     from datetime import datetime, timedelta
     t0 = datetime(2026, 10, 13, 19, 0)
     arsenal, opp = (1, "Arsenal"), (90, OPPONENT)
-    fixtures = [_fx(1, 2, arsenal, opp, t0.strftime("%Y-%m-%d %H:%M:%S")),
+    fixtures = [_fx(1, first_league, arsenal, opp, t0.strftime("%Y-%m-%d %H:%M:%S")),
                 _fx(2, 8, arsenal, (3, "Chelsea"), (t0 + timedelta(minutes=gap_minutes)).strftime("%Y-%m-%d %H:%M:%S"))]
     path = tmp_path / "c.json"
     path.write_text(json.dumps({"schema_version": 1, "teams": [{"id": 1, "short_code": "ARS"}],
@@ -136,6 +136,28 @@ def test_rotation_notice_edges(tmp_path, monkeypatch, hours, warns):
         assert notices[0]["previous_competition"] == "UCL" and notices[0]["rest_whole_days"] <= cc.ROTATION_REST_DAYS
 
 
+@pytest.mark.parametrize("league,hours,warns", [
+    (2, 72, True),      # UCL -> PL, 3 days
+    (5, 90, True),      # UEL
+    (2286, 48, True),   # UECL
+    (24, 72, True),     # FA
+    (27, 72, True),     # EFL
+    (8, 48, False),     # PL -> PL, 2 days: never warns (Leo, 2026-10-14)
+    (8, 72, False),     # PL -> PL, 3 days
+    (24, 96, False),    # FA -> PL, 4 days
+    (2, 96, False),     # UCL -> PL, 4 days
+])
+def test_rotation_only_after_europe_or_cup(tmp_path, monkeypatch, league, hours, warns):
+    notices = _rotation(tmp_path, monkeypatch, int(hours * 60), first_league=league)
+    assert bool(notices) is warns
+
+
+def test_pl_to_pl_rest_days_are_still_shown(tmp_path, monkeypatch):
+    _rotation(tmp_path, monkeypatch, 48 * 60, first_league=8)
+    body = _get("patreon_premium", team="ARS").json()["teams"]["ARS"]
+    assert body["rotation_notices"] == [] and body["matches"] == []
+
+
 def test_rotation_needs_a_previous_match(tmp_path, monkeypatch):
     path = tmp_path / "c.json"
     path.write_text(json.dumps({"schema_version": 1, "teams": [{"id": 1, "short_code": "ARS"}], "team_fixtures": [
@@ -148,7 +170,7 @@ def test_rotation_needs_a_previous_match(tmp_path, monkeypatch):
 
 def test_rotation_constant_is_attributed_to_product():
     src = Path(cc.__file__).read_text(encoding="utf-8")
-    assert cc.ROTATION_REST_DAYS == 3 and "decided by Leo on 2026-10-14" in src and "NOT an M3 threshold" in src
+    assert cc.ROTATION_REST_DAYS == 3 and "decided by Leo 2026-10-14: only after a European/cup match" in src and "ROTATION_AFTER" in src and "not M3 thresholds" in src
 
 
 def test_postponed_fixture_is_not_a_match(capture):
