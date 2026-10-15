@@ -1,41 +1,44 @@
 /**
  * @jest-environment jsdom
  *
- * The multi-competition layer of /fixtures, at both tiers.
+ * The multi-competition layer of /fixtures (iteration 2: one timeline per team), at both tiers.
  *
  * The backend decides the tier; these tests pin what the board does with each
- * answer: premium detail, the free tease (never a rival or a competition), and
- * nothing at all when the layer is unavailable (all production ever sees).
- * Each full-board render is expensive in jsdom, so there are few of them.
+ * answer: the premium timeline, the free ghost tile (never a rival or a competition),
+ * the "Otras competiciones" switch, and nothing at all when the layer is unavailable
+ * (all production ever sees). Each full-board render is expensive in jsdom, so there are few.
  */
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
 import { FixturesBoard } from '@/components/intents/FixturesBoard';
 import { REAL_SEASON_GENERATION } from '@/lib/fixture-outlook-real';
-import { parseCompetitions, rotationText, extrasFor } from '@/lib/fixture-competitions';
 
-jest.setTimeout(30_000);
+jest.setTimeout(40_000);
 
 const START = (REAL_SEASON_GENERATION?.gameweeks_played ?? 0) + 1;
 
+/** Arsenal's week: PL, then a Tuesday UCL (3 whole days later), then PL again (rotation notice). */
 const PREMIUM = {
   available: true,
   tier: 'premium',
   teams: {
     ARS: {
       matches: [
-        { kickoff_utc: '2026-10-13T19:00:00Z', week: '2026-10-12', gameweek: START, competition: 'UCL',
-          venue: 'H', opponent: 'LOSC Lille', rest_days_before: 3.3, rest_days_after: 4.9 },
+        { kickoff_utc: '2026-10-21T19:00:00Z', week: '2026-10-19', gameweek: START + 1, competition: 'UCL',
+          venue: 'A', opponent: 'FC Bayern München', opponent_code: 'BAY', rest_days_before: 3.1,
+          rest_whole_days_before: 3, rest_days_after: 2.8, previous_competition: 'PL' },
       ],
-      rotation_notices: [
-        { kickoff_utc: '2026-10-18T15:30:00Z', week: '2026-10-12', gameweek: START, opponent: 'Chelsea',
-          rest_whole_days: 3, previous_competition: 'UCL' },
+      pl_matches: [
+        { kickoff_utc: '2026-10-18T15:30:00Z', week: '2026-10-12', gameweek: START, venue: 'A', opponent: 'Nottingham Forest',
+          opponent_code: 'NFO', rest_whole_days_before: 4, previous_competition: 'UCL', rotation: false },
+        { kickoff_utc: '2026-10-24T14:00:00Z', week: '2026-10-19', gameweek: START + 1, venue: 'H', opponent: 'Everton',
+          opponent_code: 'EVE', rest_whole_days_before: 2, previous_competition: 'UCL', rotation: true },
       ],
     },
   },
 };
-const FREE = { available: true, tier: 'free', teams: { ARS: { extra_by_gameweek: { [String(START)]: 2 } } } };
+const FREE = { available: true, tier: 'free', teams: { ARS: { extra_by_gameweek: { [String(START + 1)]: 2 } } } };
 
 function mockBackend(competitions: unknown, ok = true) {
   global.fetch = jest.fn(async (url: RequestInfo | URL) => {
@@ -52,89 +55,132 @@ function mockBackend(competitions: unknown, ok = true) {
 const settled = () =>
   waitFor(() => expect(screen.getByText(/^J\d+–J\d+$/).textContent).toMatch(new RegExp(`^J${START}–`)));
 
-describe('parseCompetitions', () => {
-  test.each([
-    [null], [undefined], ['x'], [{}], [{ available: false }], [{ available: true }],
-    [{ available: true, tier: 'gold', teams: {} }], [{ next_gw: 5, finished_gw: 4 }],
-  ])('unrecognised payload %j -> null (the board stays as it was)', (payload) => {
-    expect(parseCompetitions(payload)).toBeNull();
-  });
+const boardRows = () => screen.getByTestId('fixture-board-rows');
 
-  test('premium: matches and notices land on their gameweek', () => {
-    const slot = (extrasFor(parseCompetitions(PREMIUM), 'ARS') as { byGw: Map<number, any> }).byGw.get(START)!;
-    expect(slot.matches[0]).toMatchObject({ competition: 'UCL', opponent: 'LOSC Lille', venue: 'H', restBefore: 3.3 });
-    expect(slot.notice).toMatchObject({ restWholeDays: 3, previousCompetition: 'UCL' });
-  });
+/** The team row (its timeline, or its plain tiles) of Arsenal inside the detailed view. */
+const arsenal = () =>
+  within(boardRows())
+    .getAllByTestId('fixture-ticker-row')
+    .find((row) => within(row).queryByText('ARS', { selector: 'button, span' }))!;
 
-  test('free: only counts per gameweek', () => {
-    const view = parseCompetitions(FREE)!;
-    expect(extrasFor(view, 'ARS')).toEqual({ kind: 'free', countByGw: new Map([[START, 2]]) });
-  });
-
-  test("rotation wording is Leo's", () => {
-    expect(rotationText({ restWholeDays: 3, previousCompetition: 'UCL', opponent: '' }))
-      .toBe('3 días de descanso tras la Champions · posible rotación');
-    expect(rotationText({ restWholeDays: 1, previousCompetition: null, opponent: '' }))
-      .toBe('1 día de descanso · posible rotación');
-  });
-});
-
-describe('FixturesBoard multi-competition layer', () => {
-  beforeEach(() => window.sessionStorage.clear());
+describe('FixturesBoard multi-competition layer (timeline)', () => {
+  beforeEach(() => window.localStorage.clear());
   afterEach(() => jest.restoreAllMocks());
 
-  test('premium: badge, rival, rest days and the rotation notice, in the detailed row and in presentation', async () => {
+  test('premium: a tile of its own, the rest in the gap, the notice in gold, and the phrase only on demand', async () => {
     mockBackend(PREMIUM);
     render(<FixturesBoard onAsk={() => {}} />);
     await settled();
-    const row = (await screen.findAllByTestId('competition-extras'))[0];
-    expect(within(row).getByTestId('competition-badge')).toHaveTextContent('UCL');
-    expect(row).toHaveTextContent('LOSC Lille');
-    expect(row).toHaveTextContent('3d desde el anterior');
-    // The presentation overlay is always mounted (hidden), so scope to the visible board.
-    const board = screen.getByTestId('fixture-board-rows');
-    const notice = within(board).getByTestId('rotation-notice');
-    expect(notice).toHaveTextContent('3 días de descanso tras la Champions · posible rotación');
-    expect(notice.getAttribute('title')).toMatch(/^Oportunidad:/);
-    expect(screen.getByTestId('competitions-legend')).toBeInTheDocument();
-    expect(screen.queryByTestId('competition-tease')).toBeNull();
-    expect(within(board).queryAllByTestId('competition-badge')).toHaveLength(1);
+    const lane = await within(arsenal()).findByTestId('fixture-timeline');
 
-    // Presentation mode shows the same facts and keeps the gesture guard of #435.
+    // Order: PL (START) -> UCL -> PL (START+1), by real kickoff; the UCL tile carries sigla + 3-letter code + L/V.
+    const tile = within(lane).getByTestId('competition-tile');
+    expect(tile).toHaveTextContent('UCL');
+    expect(tile).toHaveTextContent('BAY');
+    expect(tile).toHaveTextContent('V');
+    expect(tile).not.toHaveTextContent('Bayern');
+    const first = within(lane).getByTitle(new RegExp(`^J${START} ·`));
+    const second = within(lane).getByTitle(new RegExp(`^J${START + 1} ·`));
+    const after = (a: Element, b: Element) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(after(first, tile)).toBe(true);
+    expect(after(tile, second)).toBe(true);
+    // The Premier League tile itself says only gameweek, rival, venue (and colour): no competition text inside.
+    expect(first).not.toHaveTextContent(/UCL|descanso|rotación/);
+
+    // Rest between each consecutive pair: whole days, grey; the rotation one is gold and focusable.
+    expect(within(lane).getAllByTestId('rest-days')[0]).toHaveTextContent('3d');
+    const gold = within(lane).getByTestId('rotation-notice');
+    expect(gold).toHaveTextContent('2d');
+    expect(gold.className).toMatch(/text-bf-gold/);
+    expect(within(lane).getByTestId('rotation-gap')).toBeInTheDocument();
+
+    // No sentence in any cell: the detail line is empty until something is picked.
+    const detail = within(lane).getByTestId('competition-detail');
+    expect(detail).toBeEmptyDOMElement();
+
+    // Tap a tile: the full phrase. Keyboard focus does the same; Escape closes it.
+    fireEvent.click(tile);
+    expect(detail).toHaveTextContent('Champions League ante FC Bayern München (visitante)');
+    fireEvent.keyDown(lane, { key: 'Escape' });
+    expect(detail).toBeEmptyDOMElement();
+    act(() => within(lane).getByTestId('rotation-gap').focus());
+    expect(detail).toHaveTextContent('2 días de descanso antes de Everton: posible rotación');
+    expect(tile).toHaveAccessibleName('Champions League ante FC Bayern München (visitante)');
+
+    // The legend: one line with the colours and what a gold number means.
+    expect(screen.getByTestId('timeline-legend')).toHaveTextContent('3d dorado = descanso corto tras Europa o copa');
+
+    // Presentation mode: the same timeline, sized from the viewport, with the #435 gesture guard.
     act(() => { fireEvent.click(screen.getByRole('button', { name: 'Presentar' })); });
     const overlay = screen.getByLabelText('Calendario en modo presentación');
     expect(overlay).toHaveAttribute('data-no-swipe');
-    const chip = within(overlay).getByTestId('competition-extras');
-    expect(chip).toHaveTextContent('UCL');
-    expect(within(overlay).getByTestId('rotation-notice')).toHaveTextContent('↻3d');
+    const presentation = within(overlay).getByTestId('presentation-timeline');
+    expect(presentation.style.getPropertyValue('--r')).toContain('100dvh');
+    expect(within(presentation).getByRole('img', { name: /Champions League ante FC Bayern/ })).toHaveTextContent('BAY');
+    expect(within(presentation).getByTestId('rotation-notice')).toHaveTextContent('2d');
   });
 
-  test('free: a lock mark and an upgrade link, never a rival or a competition', async () => {
+  test('the switch: on by default, remembered, and off leaves exactly the Premier-only calendar', async () => {
+    mockBackend({ available: false });
+    const baseline = render(<FixturesBoard onAsk={() => {}} />);
+    await settled();
+    await act(async () => { await Promise.resolve(); });
+    const premierOnly = boardRows().innerHTML;
+    expect(screen.queryByRole('switch', { name: 'Otras competiciones' })).toBeNull();
+    baseline.unmount();
+
+    mockBackend(PREMIUM);
+    const first = render(<FixturesBoard onAsk={() => {}} />);
+    await settled();
+    const toggle = await screen.findByRole('switch', { name: 'Otras competiciones' });
+    expect(toggle).toBeChecked();
+    expect(boardRows().innerHTML).not.toBe(premierOnly);
+
+    fireEvent.click(toggle);
+    expect(toggle).not.toBeChecked();
+    expect(boardRows().innerHTML).toBe(premierOnly);
+    expect(screen.queryByTestId('timeline-legend')).toBeNull();
+    expect(window.localStorage.getItem('fpl-fixtures-other-competitions')).toBe('0');
+    first.unmount();
+
+    // A new visit remembers the choice.
+    const second = render(<FixturesBoard onAsk={() => {}} />);
+    await settled();
+    const remembered = await screen.findByRole('switch', { name: 'Otras competiciones' });
+    await waitFor(() => expect(remembered).not.toBeChecked());
+    expect(boardRows().innerHTML).toBe(premierOnly);
+    fireEvent.click(remembered);
+    expect(remembered).toBeChecked();
+    expect(window.localStorage.getItem('fpl-fixtures-other-competitions')).toBe('1');
+    second.unmount();
+  });
+
+  test('free: a grey ghost tile with a lock, dropped like the premium ones; never a rival or a competition', async () => {
     mockBackend(FREE);
     const { container } = render(<FixturesBoard onAsk={() => {}} />);
     await settled();
-    const tease = (await screen.findAllByTestId('competition-tease'))[0];
-    expect(tease).toHaveTextContent('🔒 +2');
-    expect(tease.closest('a') ?? tease).toHaveAttribute('href', '/subscribe');
+    const lane = await within(arsenal()).findByTestId('fixture-timeline');
+    const ghost = within(lane).getByTestId('competition-tease');
+    expect(ghost).toHaveTextContent('+2');
+    expect(ghost).toHaveAttribute('href', '/subscribe');
+    expect(ghost).toHaveAccessibleName('2 partidos más esta semana · Ver con Premium');
     expect(screen.getByTestId('competitions-upsell')).toHaveTextContent('Ver con Premium');
     const text = container.textContent ?? '';
-    for (const leaked of ['UCL', 'UEL', 'UECL', 'Lille', 'Champions', 'rotación', 'descanso']) {
+    for (const leaked of ['UCL', 'UEL', 'UECL', 'Bayern', 'BAY', 'Champions', 'rotación', 'descanso']) {
       expect(text).not.toContain(leaked);
     }
-    expect(screen.queryByTestId('competition-badge')).toBeNull();
-    expect(screen.queryAllByTestId('rotation-notice')).toHaveLength(0);
+    expect(within(lane).queryByTestId('competition-tile')).toBeNull();
+    expect(within(lane).queryByTestId('rotation-notice')).toBeNull();
+    expect(within(lane).queryByTestId('rest-days')).toBeNull();
   });
 
-  test('unavailable (production) or failing: the board is exactly what it was', async () => {
+  test('failing or unavailable: the board is exactly what it was', async () => {
     mockBackend({ available: false });
     const first = render(<FixturesBoard onAsk={() => {}} />);
     await settled();
     await act(async () => { await Promise.resolve(); });
     const unavailable = first.container.innerHTML;
-    expect(screen.queryByTestId('competition-extras')).toBeNull();
-    expect(screen.queryByTestId('competition-tease')).toBeNull();
-    expect(screen.queryByTestId('competitions-legend')).toBeNull();
-    expect(screen.queryByTestId('competitions-upsell')).toBeNull();
+    expect(screen.queryByTestId('fixture-timeline')).toBeNull();
     first.unmount();
 
     mockBackend({ available: true, tier: 'premium', teams: {} }, false);

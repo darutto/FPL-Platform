@@ -59,25 +59,33 @@ def _in_window(match: dict[str, Any], date_from: str | None, date_to: str | None
     return (date_from is None or day >= date_from) and (date_to is None or day <= date_to)
 
 
+def _rotates(m: dict[str, Any]) -> bool:
+    """The rotation notice rule (see ROTATION_REST_DAYS / ROTATION_AFTER) for one Premier League match."""
+    days = m["rest_whole_days_before"]
+    return days is not None and days <= ROTATION_REST_DAYS and m["previous_competition"] in ROTATION_AFTER
+
+
 def competitions_response(tier: str, team: str | None, date_from: str | None, date_to: str | None) -> dict[str, Any]:
     calendar = _calendar()
     if calendar is None:
         return {"available": False}
     wanted = {code: ms for code, ms in calendar.items() if team is None or code == team.strip().upper()}
     if tier in DETAIL_TIERS:
+        # Premium only: free never gets the notice nor a hint of it. `matches` are the other
+        # competitions; `pl_matches` carry the Premier League kickoffs so the board can lay
+        # both on one timeline in real date order, each with the whole rest days before it.
         return {"available": True, "tier": "premium", "teams": {
-            code: {"matches": [
-                {k: m[k] for k in ("kickoff_utc", "week", "gameweek", "competition", "venue", "opponent",
-                                   "rest_days_before", "rest_days_after")}
-                for m in ms if not m["is_pl"] and _in_window(m, date_from, date_to)],
-                # Premium only: free never gets the notice nor a hint of it.
-                "rotation_notices": [
-                    {"kickoff_utc": m["kickoff_utc"], "week": m["week"], "gameweek": m["gameweek"], "opponent": m["opponent"],
-                     "rest_whole_days": m["rest_whole_days_before"], "previous_competition": m["previous_competition"]}
-                    for m in ms if m["is_pl"] and _in_window(m, date_from, date_to)
-                    and m["rest_whole_days_before"] is not None
-                    and m["previous_competition"] in ROTATION_AFTER
-                    and m["rest_whole_days_before"] <= ROTATION_REST_DAYS]}
+            code: {
+                "matches": [
+                    {k: m[k] for k in ("kickoff_utc", "week", "gameweek", "competition", "venue", "opponent",
+                                       "opponent_code", "rest_days_before", "rest_whole_days_before",
+                                       "rest_days_after", "previous_competition")}
+                    for m in ms if not m["is_pl"] and _in_window(m, date_from, date_to)],
+                "pl_matches": [
+                    {**{k: m[k] for k in ("kickoff_utc", "week", "gameweek", "venue", "opponent", "opponent_code",
+                                          "rest_whole_days_before", "previous_competition")},
+                     "rotation": _rotates(m)}
+                    for m in ms if m["is_pl"] and _in_window(m, date_from, date_to)]}
             for code, ms in wanted.items()}}
     return {"available": True, "tier": "free", "teams": {
         code: {"extra_by_gameweek": {str(g): n for g, n in sorted(Counter(

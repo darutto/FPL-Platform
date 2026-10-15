@@ -27,7 +27,7 @@ import {
   type Band,
 } from '@/lib/fixture-outlook-format';
 import type { TeamExtras } from '@/lib/fixture-competitions';
-import { CellExtras } from './FixtureCompetitionExtras';
+import { TimelineLane } from './FixtureTimeline';
 
 const GOOD_HEX = '#02EBAE';
 const BAD_HEX = '#FF6A4D';
@@ -120,18 +120,21 @@ export function FixtureTickerRow({
     <div className="space-y-3" data-testid="fixture-ticker-row">
       {showHeader && <TeamHeader team={team} onAskTeam={onAskTeam} />}
 
-      <div className="flex items-start gap-2 overflow-x-auto flex-wrap">
-        {segments.map((seg, i) => (
-          <RunGroup
-            key={seg.run ? `run-${i}` : `gap-${i}`}
-            run={seg.run}
-            cells={seg.cells}
-            onAskCell={onAskCell}
-            showFdrNumbers={showFdrNumbers}
-            extras={extras}
-          />
-        ))}
-      </div>
+      {extras ? (
+        <TimelineLane team={team} extras={extras} onAskCell={onAskCell} />
+      ) : (
+        <div className="flex items-start gap-2 overflow-x-auto flex-wrap">
+          {segments.map((seg, i) => (
+            <RunGroup
+              key={seg.run ? `run-${i}` : `gap-${i}`}
+              run={seg.run}
+              cells={seg.cells}
+              onAskCell={onAskCell}
+              showFdrNumbers={showFdrNumbers}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -166,13 +169,11 @@ function RunGroup({
   cells,
   onAskCell,
   showFdrNumbers,
-  extras,
 }: {
   run: FixtureOutlookRun | null;
   cells: FixtureOutlookGW[];
   onAskCell?: (gw: FixtureOutlookGW) => void;
   showFdrNumbers: boolean;
-  extras: TeamExtras | null;
 }) {
   const runHex = run ? (run.type === 'good' ? GOOD_HEX : BAD_HEX) : null;
   const wrapStyle = runHex
@@ -181,24 +182,15 @@ function RunGroup({
 
   return (
     <div className="flex gap-2.5 flex-wrap rounded-xl p-[7px]" style={wrapStyle}>
-      {cells.map((gw) => {
-        const cell = (
-          <GwCell
-            key={gw.gameweek}
-            gw={gw}
-            runHex={runHex}
-            onAsk={onAskCell && (() => onAskCell(gw))}
-            showFdrNumbers={showFdrNumbers}
-          />
-        );
-        if (!extras) return cell;
-        return (
-          <div key={gw.gameweek} className="flex flex-col items-center">
-            {cell}
-            <CellExtras extras={extras} gameweek={gw.gameweek} />
-          </div>
-        );
-      })}
+      {cells.map((gw) => (
+        <GwCell
+          key={gw.gameweek}
+          gw={gw}
+          runHex={runHex}
+          onAsk={onAskCell && (() => onAskCell(gw))}
+          showFdrNumbers={showFdrNumbers}
+        />
+      ))}
     </div>
   );
 }

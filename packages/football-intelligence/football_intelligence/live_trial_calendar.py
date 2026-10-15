@@ -37,6 +37,10 @@ PREMIER_LEAGUE_ID = 8
 BADGES = {2: "UCL", 5: "UEL", 2286: "UECL", 1328: "UEFA-SC", 24: "FA", 27: "EFL"}
 #: Sportmonks short codes that differ from FPL's (checked against the shipped bundle's 20 team codes).
 SM_TO_FPL_CODE = {"CVC": "COV"}
+#: The board shows three letters. Sportmonks' short_code is three for all but four of the 88 opponents
+#: in the trial capture (LILL, LOSC, SABA, SCUT; AZ has two); these four are given a readable three-letter
+#: form (LOSC is Lille and LILL is Lillestrøm, so plain truncation would collide). Anything else longer is cut to 3.
+SHORT_CODE_DISPLAY = {"LOSC": "LIL", "LILL": "LSK", "SABA": "SAB", "SCUT": "TOR"}
 _NOT_PLAYED = frozenset({"postponed", "cancelled", "abandoned"})
 
 
@@ -53,7 +57,7 @@ def build_calendar(capture: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]
     """``{club code: [match, ...]}`` in kickoff order, every competition included.
 
     Each match: ``kickoff_utc``, ``week``, ``gameweek``, ``competition`` (badge or ``"PL"``), ``is_pl``,
-    ``venue`` (``H``/``A``), ``opponent`` (display name), ``rest_days_before`` (None for the
+    ``venue`` (``H``/``A``), ``opponent`` (display name), ``opponent_code`` (3 letters), ``rest_days_before`` (None for the
     club's first match), ``rest_whole_days_before``, ``previous_competition`` and ``rest_days_after`` (None for the last).
     """
     clubs = {int(t["id"]): SM_TO_FPL_CODE.get(str(t["short_code"]), str(t["short_code"])) for t in capture["teams"]}
@@ -70,6 +74,16 @@ def build_calendar(capture: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]
         if int(fixture["league_id"]) == PREMIER_LEAGUE_ID and str(name).isdigit():
             return int(name)
         return next((g for g in gw_order if gw_last[g] >= kickoff), None)
+
+    def _code(participant: Mapping[str, Any]) -> str:
+        """Three-letter opponent code: the provider's short_code (FPL's for PL clubs), else the name's first 3 letters."""
+        raw = str(participant.get("short_code") or "").strip()
+        if not raw:
+            raw = "".join(ch for ch in str(participant["name"]) if ch.isalpha())[:3]
+        raw = SM_TO_FPL_CODE.get(raw, raw).upper()
+        if raw in SHORT_CODE_DISPLAY:
+            return SHORT_CODE_DISPLAY[raw]
+        return raw[:3]
 
     per_club: dict[int, list[dict[str, Any]]] = defaultdict(list)
     seen: set[tuple[int, int]] = set()
@@ -92,6 +106,7 @@ def build_calendar(capture: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]
                 "is_pl": league_id == PREMIER_LEAGUE_ID,
                 "venue": "H" if side == "home" else "A",
                 "opponent": str(parts[other]["name"]),
+                "opponent_code": _code(parts[other]),
                 "_kickoff": kickoff,
             })
     out: dict[str, list[dict[str, Any]]] = {}

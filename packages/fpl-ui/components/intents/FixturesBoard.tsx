@@ -46,7 +46,12 @@ import {
   parseCompetitions,
   type CompetitionsView,
 } from '@/lib/fixture-competitions';
-import { CompetitionsLegend } from './FixtureCompetitionExtras';
+import {
+  CompetitionsLegend,
+  OtherCompetitionsToggle,
+  TimelineLegend,
+} from './FixtureCompetitionExtras';
+import { PresentationTimeline } from './FixtureTimeline';
 import { FixtureTickerRow, BandLegend } from './FixtureTickerRow';
 import { FixtureCompactGrid } from './FixtureCompactGrid';
 import { FixtureTendencyChart } from './FixtureTendencyChart';
@@ -56,6 +61,7 @@ import type { FixtureAxis } from '@/lib/types';
 
 const HORIZONS = REAL_SEASON_HORIZONS;
 const DAY_MS = 86_400_000;
+const OTHER_COMPETITIONS_KEY = 'fpl-fixtures-other-competitions';
 type ViewMode = 'detailed' | 'compact' | 'tendency';
 
 const VIEWS: Array<{ id: ViewMode; label: string }> = [
@@ -173,7 +179,25 @@ export function FixturesBoard({
     }
   }, [baseGameweek, windowState]);
 
-  const extrasFor = (team: string) => competitionExtrasFor(competitions, team);
+  // The "Otras competiciones" switch. Off (or no layer at all) hands every view `null`, which is exactly the Premier-only calendar.
+  const [showOthers, setShowOthers] = useState(true);
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(OTHER_COMPETITIONS_KEY) === '0') setShowOthers(false);
+    } catch {
+      // Storage can be disabled; the switch still works in memory.
+    }
+  }, []);
+  const changeShowOthers = (next: boolean) => {
+    setShowOthers(next);
+    try {
+      window.localStorage.setItem(OTHER_COMPETITIONS_KEY, next ? '1' : '0');
+    } catch {
+      // The choice just isn't remembered.
+    }
+  };
+  const layer = showOthers ? competitions : null;
+  const extrasFor = (team: string) => competitionExtrasFor(layer, team);
   const visibleGameweeks = data.teams[0]?.series.map((cell) => cell.gameweek) ?? [];
 
   const moveWindow = (delta: -1 | 1) => {
@@ -270,6 +294,10 @@ export function FixturesBoard({
           </button>
         </div>
 
+        {competitions && (
+          <OtherCompetitionsToggle checked={showOthers} onChange={changeShowOthers} />
+        )}
+
         {/* View toggle */}
         <div className="inline-flex rounded-full border border-white/10 bg-white/[0.03] p-0.5 ml-auto">
           {VIEWS.map((v) => (
@@ -298,12 +326,11 @@ export function FixturesBoard({
 
       {/* FDR / venue / streak legend (above the board, design parity) */}
       <BandLegend />
-      {competitions && (
-        <CompetitionsLegend
-          tier={competitions.tier}
-          tease={hasFreeTease(competitions, visibleGameweeks)}
-        />
-      )}
+      {layer && (view === 'detailed' && layer.tier === 'premium' ? (
+        <TimelineLegend />
+      ) : (
+        <CompetitionsLegend tier={layer.tier} tease={hasFreeTease(layer, visibleGameweeks)} />
+      ))}
 
       {/* Board */}
       <div className={`${CARD_BASE} ${CARD_ACCENT.turquoise.border}`}>
@@ -396,6 +423,11 @@ export function FixturesBoard({
               <span className="hidden text-[clamp(10px,1vw,15px)] font-bold text-bf-gray lg:inline">
                 Fácil → difícil · ◯ racha favorable · ◯ racha difícil
               </span>
+              {layer?.tier === 'premium' && presentationMode && (
+                <span className="hidden lg:inline">
+                  <TimelineLegend />
+                </span>
+              )}
             </div>
             <button
               type="button"
@@ -406,7 +438,12 @@ export function FixturesBoard({
             </button>
           </div>
           <div className="min-h-0 flex-1 overflow-hidden">
-            <FixtureCompactGrid data={data} presentation extrasFor={extrasFor} />
+            {layer ? (
+              // The timeline only exists while presenting: the overlay is otherwise a hidden copy of the board.
+              presentationMode && <PresentationTimeline data={data} extrasFor={extrasFor} />
+            ) : (
+              <FixtureCompactGrid data={data} presentation extrasFor={extrasFor} />
+            )}
           </div>
         </div>
     </div>

@@ -1,86 +1,67 @@
 /**
- * Multi-competition marks for the /fixtures board (premium detail / free tease).
+ * Multi-competition furniture for the /fixtures board: the "Otras competiciones"
+ * switch, the legends, and the compact grid's corner marks.
  * Rendered only when the backend returned a payload; otherwise nothing at all.
  * Titles here never contain "FDR " (the board's tests read FDR titles to see
  * which difficulty is on screen).
  */
 import Link from 'next/link';
 import {
+  COMPETITION_LEGEND,
   competitionName,
   freeTeaseText,
   freeTeaseTitle,
-  restLabel,
   rotationText,
-  ROTATION_OPPORTUNITY,
   type TeamExtras,
 } from '@/lib/fixture-competitions';
 
 const GOLD = 'text-bf-gold';
 
-export function CompetitionBadge({ code }: { code: string }) {
+/** «Otras competiciones»: shows or hides the whole layer. The board remembers the choice. */
+export function OtherCompetitionsToggle({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+}) {
   return (
-    <span
-      data-testid="competition-badge"
-      title={competitionName(code)}
-      className="rounded-[4px] border border-white/20 bg-white/[0.08] px-1 text-[9px] font-black leading-[14px] tracking-wide text-white/85"
-    >
-      {code}
-    </span>
+    <label className="inline-flex cursor-pointer select-none items-center gap-2 text-xs font-normal text-bf-gray">
+      <input
+        type="checkbox"
+        role="switch"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="peer sr-only"
+      />
+      <span
+        aria-hidden="true"
+        className="relative h-5 w-[34px] flex-none rounded-full bg-white/15 transition-colors after:absolute after:left-[3px] after:top-[3px] after:h-[14px] after:w-[14px] after:rounded-full after:bg-bf-text after:transition-transform peer-checked:bg-bf-turquoise peer-checked:after:translate-x-[14px] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-bf-turquoise motion-reduce:transition-none motion-reduce:after:transition-none"
+      />
+      Otras competiciones
+    </label>
   );
 }
 
-/** Under a detailed-view cell: extra matches with rest days, and the rotation notice. */
-export function CellExtras({ extras, gameweek }: { extras: TeamExtras; gameweek: number }) {
-  if (extras.kind === 'free') {
-    const n = extras.countByGw.get(gameweek);
-    if (!n) return null;
-    return (
-      <Link
-        href="/subscribe"
-        data-testid="competition-tease"
-        title={freeTeaseTitle(n)}
-        className="mt-1 block text-center text-[10px] font-extrabold text-bf-gray/80 hover:text-white"
-      >
-        {freeTeaseText(n)}
-      </Link>
-    );
-  }
-  const slot = extras.byGw.get(gameweek);
-  if (!slot) return null;
+/** One line: the colour of each competition, and what a gold number means. */
+export function TimelineLegend() {
   return (
-    <div data-testid="competition-extras" className="mt-1 flex max-w-[84px] flex-col items-center gap-0.5">
-      {slot.matches.map((m, i) => {
-        const rest = restLabel(m.restBefore);
-        return (
-          <span
-            key={i}
-            title={`${competitionName(m.competition)} · ${m.opponent} (${m.venue === 'H' ? 'local' : 'visitante'})${rest ? ` · ${rest} de descanso` : ''}`}
-            className="flex w-full items-center justify-center gap-1 text-[10px] font-bold leading-tight text-white/75"
-          >
-            <CompetitionBadge code={m.competition} />
-            <span className="truncate">{m.opponent}</span>
-            <span className="text-white/50">{m.venue === 'H' ? 'L' : 'V'}</span>
-          </span>
-        );
-      })}
-      {slot.matches.map((m, i) => {
-        const rest = restLabel(m.restBefore);
-        return rest ? (
-          <span key={`r${i}`} className="text-[9px] font-semibold text-bf-gray/70">
-            {rest} desde el anterior
-          </span>
-        ) : null;
-      })}
-      {slot.notice && (
-        <span
-          data-testid="rotation-notice"
-          title={ROTATION_OPPORTUNITY}
-          className={`text-center text-[9.5px] font-extrabold leading-tight ${GOLD}`}
-        >
-          {rotationText(slot.notice)}
+    <p
+      data-testid="timeline-legend"
+      className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] font-normal text-bf-gray"
+    >
+      {COMPETITION_LEGEND.map((entry) => (
+        <span key={entry.label} className="inline-flex items-center gap-1.5">
+          <i
+            aria-hidden="true"
+            className="inline-block h-2 w-2 rounded-[2px] border-[1.5px] not-italic"
+            style={{ borderColor: entry.color }}
+          />
+          {entry.label}
         </span>
-      )}
-    </div>
+      ))}
+      <span className={GOLD}>3d dorado = descanso corto tras Europa o copa</span>
+    </p>
   );
 }
 
@@ -132,14 +113,14 @@ export function CompactChip({
   );
 }
 
-/** One line above the board: what the badges mean (premium) or how to unlock them (free). */
+/** The compact grid's legend (premium: what the corner marks mean; free: how to unlock them). */
 export function CompetitionsLegend({ tier, tease }: { tier: 'premium' | 'free'; tease: boolean }) {
   if (tier === 'free') {
     if (!tease) return null;
     return (
-      <p data-testid="competitions-upsell" className="text-[12px] font-semibold text-bf-gray">
+      <p data-testid="competitions-upsell" className="text-[12px] font-normal text-bf-gray">
         🔒 Hay semanas con partidos extra de copas y Europa.{' '}
-        <Link href="/subscribe" className="font-extrabold text-bf-turquoise hover:underline">
+        <Link href="/subscribe" className="font-bold text-bf-turquoise hover:underline">
           Ver con Premium
         </Link>
       </p>
