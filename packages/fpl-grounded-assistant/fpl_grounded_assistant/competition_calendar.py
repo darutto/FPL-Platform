@@ -31,9 +31,10 @@ DETAIL_TIERS = frozenset({"patreon_basic", "patreon_plus", "patreon_premium"})
 #: club's previous match was this many WHOLE days before it or fewer (floor(hours/24) between
 #: kickoffs: 3 whole days = 72h to <96h, so Tuesday night -> Saturday afternoon warns; 96h does not).
 #: ROTATION_AFTER (decided by Leo 2026-10-14: only after a European/cup match): the notice needs the
-#: previous match to be one of these competitions; PL -> PL never warns. Rest days are always shown.
+#: previous match to be one of these competitions (UEFA Super Cup included: a European match, added
+#: at Leo's "after Europe or cup" intent); PL -> PL never warns. Rest days are always shown.
 ROTATION_REST_DAYS = 3
-ROTATION_AFTER = frozenset({"UCL", "UEL", "UECL", "FA", "EFL"})
+ROTATION_AFTER = frozenset({"UCL", "UEL", "UECL", "UEFA-SC", "FA", "EFL"})
 
 _cache: dict[tuple[str, float], dict[str, list[dict[str, Any]]]] = {}
 

@@ -140,6 +140,8 @@ def test_rotation_notice_edges(tmp_path, monkeypatch, hours, warns):
     (2, 72, True),      # UCL -> PL, 3 days
     (5, 90, True),      # UEL
     (2286, 48, True),   # UECL
+    (1328, 72, True),   # UEFA Super Cup (European match, Leo's intent)
+    (1328, 96, False),  # UEFA Super Cup, 4 days
     (24, 72, True),     # FA
     (27, 72, True),     # EFL
     (8, 48, False),     # PL -> PL, 2 days: never warns (Leo, 2026-10-14)
@@ -170,7 +172,7 @@ def test_rotation_needs_a_previous_match(tmp_path, monkeypatch):
 
 def test_rotation_constant_is_attributed_to_product():
     src = Path(cc.__file__).read_text(encoding="utf-8")
-    assert cc.ROTATION_REST_DAYS == 3 and "decided by Leo 2026-10-14: only after a European/cup match" in src and "ROTATION_AFTER" in src and "not M3 thresholds" in src
+    assert cc.ROTATION_REST_DAYS == 3 and "decided by Leo 2026-10-14: only after a European/cup match" in src and "ROTATION_AFTER" in src and "UEFA-SC" in src and "not M3 thresholds" in src
 
 
 def test_postponed_fixture_is_not_a_match(capture):
