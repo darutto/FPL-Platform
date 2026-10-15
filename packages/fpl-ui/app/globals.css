@@ -2,6 +2,82 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Squad follows its panel width, including when the viewport is zoomed.
+   One formation/detail tree keeps player selection intact through reflow. */
+.squad-container {
+  container: squad / inline-size;
+}
+.squad-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  width: 100%;
+  max-width: 690px;
+  margin-inline: auto;
+}
+.squad-formation {
+  min-width: 0;
+}
+.squad-player {
+  min-width: 44px;
+  min-height: 44px;
+}
+.squad-ask {
+  min-height: 44px;
+}
+@container squad (min-width: 800px) {
+  .squad-panel-ready {
+    height: auto;
+    max-height: 100%;
+  }
+  .squad-layout {
+    grid-template-columns: minmax(0, min(62%, 690px)) minmax(0, 1fr);
+    max-width: none;
+  }
+  .squad-detail-slot {
+    border-left: 1px solid rgb(255 255 255 / 0.1);
+  }
+  .squad-player-detail {
+    border-top: 0;
+    padding: 24px;
+  }
+  .squad-player {
+    gap: 2px;
+  }
+  .squad-player-dot {
+    width: clamp(40px, 4cqi, 44px);
+    height: clamp(40px, 4cqi, 44px);
+  }
+  .squad-player[aria-pressed='true'] .squad-player-dot {
+    width: clamp(44px, 4.4cqi, 48px);
+    height: clamp(44px, 4.4cqi, 48px);
+  }
+  .squad-player-code {
+    font-size: 12px;
+  }
+  .squad-player-name {
+    max-width: 88px;
+    font-size: 12px;
+  }
+  .squad-player-points {
+    font-size: 11px;
+  }
+  .squad-detail-name {
+    font-size: 18px;
+    line-height: 1.3;
+  }
+  .squad-detail-team,
+  .squad-ask {
+    font-size: 12px;
+  }
+  .squad-detail-value {
+    font-size: 20px;
+  }
+  .squad-detail-label {
+    font-size: 10px;
+  }
+}
+
 /* Bendito Fantasy base surface (Stitch FPL Chat Hi-Fi) */
 ::-webkit-scrollbar {
   width: 4px;

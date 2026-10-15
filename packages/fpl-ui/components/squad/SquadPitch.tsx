@@ -11,7 +11,8 @@
  *     question about the player into the chat input.
  *
  * Pitch sizing: the pitch box keeps a fixed 5:3 aspect ratio and fills the
- * panel width (panel itself capped at 460px by the pager). The markings are
+ * formation width (bounded at 690px). Wide panels place player details beside
+ * the formation; narrow panels keep them below it. The markings are
  * drawn natively in a matching 400×240 viewBox with
  * `preserveAspectRatio="xMidYMid meet"`, so they NEVER stretch or deform at
  * any screen size — unlike the prototype's `none` mode.
@@ -144,55 +145,57 @@ export default function SquadPitch({ teamId, onAskPlayer, onGw }: Props) {
   }, [load]);
 
   return (
-    <div className="h-full rounded-card border border-white/10 bg-bf-surface flex flex-col overflow-hidden">
-      {/* Panel header */}
-      <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between flex-shrink-0 bg-black/25">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-bf-text/50">
-          My squad
-        </span>
-        {teamId != null && (
-          <span className="text-[10px] font-bold text-bf-turquoise">#{teamId}</span>
+    <div className="squad-container h-full min-h-0">
+      <div className={`h-full rounded-card border border-white/10 bg-bf-surface flex flex-col overflow-hidden ${state.status === 'ready' ? 'squad-panel-ready' : ''}`}>
+        {/* Panel header */}
+        <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between flex-shrink-0 bg-black/25">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-bf-text/50">
+            My squad
+          </span>
+          {teamId != null && (
+            <span className="text-[10px] font-bold text-bf-turquoise">#{teamId}</span>
+          )}
+        </div>
+
+        {state.status === 'idle' && (
+          <CenteredHint>
+            Conecta tu equipo FPL en la pestaña Chat
+            <br />
+            para ver tu plantilla aquí.
+          </CenteredHint>
+        )}
+
+        {state.status === 'loading' && (
+          <CenteredHint>
+            <span className="animate-pulse">Cargando plantilla…</span>
+          </CenteredHint>
+        )}
+
+        {state.status === 'preseason' && (
+          <PreseasonHint nextGw={state.nextGw} deadline={state.deadline} />
+        )}
+
+        {state.status === 'error' && (
+          <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center">
+            <p className="text-xs text-bf-coral">{state.message}</p>
+            <button
+              onClick={load}
+              className="text-xs font-bold text-bf-turquoise hover:text-bf-turquoise/80 transition-colors"
+            >
+              Reintentar
+            </button>
+          </div>
+        )}
+
+        {state.status === 'ready' && (
+          <SquadBody
+            data={state.data}
+            selectedId={selectedId}
+            onSelect={(id) => setSelectedId((prev) => (prev === id ? null : id))}
+            onAskPlayer={onAskPlayer}
+          />
         )}
       </div>
-
-      {state.status === 'idle' && (
-        <CenteredHint>
-          Conecta tu equipo FPL en la pestaña Chat
-          <br />
-          para ver tu plantilla aquí.
-        </CenteredHint>
-      )}
-
-      {state.status === 'loading' && (
-        <CenteredHint>
-          <span className="animate-pulse">Cargando plantilla…</span>
-        </CenteredHint>
-      )}
-
-      {state.status === 'preseason' && (
-        <PreseasonHint nextGw={state.nextGw} deadline={state.deadline} />
-      )}
-
-      {state.status === 'error' && (
-        <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center">
-          <p className="text-xs text-bf-coral">{state.message}</p>
-          <button
-            onClick={load}
-            className="text-xs font-bold text-bf-turquoise hover:text-bf-turquoise/80 transition-colors"
-          >
-            Reintentar
-          </button>
-        </div>
-      )}
-
-      {state.status === 'ready' && (
-        <SquadBody
-          data={state.data}
-          selectedId={selectedId}
-          onSelect={(id) => setSelectedId((prev) => (prev === id ? null : id))}
-          onAskPlayer={onAskPlayer}
-        />
-      )}
     </div>
   );
 }
@@ -263,61 +266,67 @@ function SquadBody({
         <Stat label="Banco" value={`£${(data.summary.bank / 10).toFixed(1)}m`} valueClass="text-bf-gold" />
       </div>
 
-      {/* Pitch — fixed 5:3 aspect, fills the panel, never deforms */}
-      <div className="flex-shrink-0">
-        <div className="relative w-full aspect-[5/3] overflow-hidden bg-gradient-to-b from-bf-pitch to-bf-pitch-dark">
-          {/* Markings drawn natively at 400×240 (same 5:3 aspect as the box) */}
-          <svg
-            aria-hidden="true"
-            className="absolute inset-0 w-full h-full opacity-20"
-            viewBox="0 0 400 240"
-            preserveAspectRatio="xMidYMid meet"
-          >
-            <rect x="8" y="8" width="384" height="224" fill="none" stroke="white" strokeWidth="2" />
-            <line x1="8" y1="120" x2="392" y2="120" stroke="white" strokeWidth="1.5" />
-            <circle cx="200" cy="120" r="34" fill="none" stroke="white" strokeWidth="1.5" />
-            <rect x="130" y="8" width="140" height="36" fill="none" stroke="white" strokeWidth="1.5" />
-            <rect x="130" y="196" width="140" height="36" fill="none" stroke="white" strokeWidth="1.5" />
-            <rect x="162" y="8" width="76" height="15" fill="none" stroke="white" strokeWidth="1.5" />
-            <rect x="162" y="217" width="76" height="15" fill="none" stroke="white" strokeWidth="1.5" />
-          </svg>
+      <div className="squad-layout">
+        <div className="squad-formation">
+          {/* Pitch — fixed 5:3 aspect, fills the formation, never deforms */}
+          <div className="flex-shrink-0">
+            <div className="relative w-full aspect-[5/3] overflow-hidden bg-gradient-to-b from-bf-pitch to-bf-pitch-dark">
+              {/* Markings drawn natively at 400×240 (same 5:3 aspect as the box) */}
+              <svg
+                aria-hidden="true"
+                className="absolute inset-0 w-full h-full opacity-20"
+                viewBox="0 0 400 240"
+                preserveAspectRatio="xMidYMid meet"
+              >
+                <rect x="8" y="8" width="384" height="224" fill="none" stroke="white" strokeWidth="2" />
+                <line x1="8" y1="120" x2="392" y2="120" stroke="white" strokeWidth="1.5" />
+                <circle cx="200" cy="120" r="34" fill="none" stroke="white" strokeWidth="1.5" />
+                <rect x="130" y="8" width="140" height="36" fill="none" stroke="white" strokeWidth="1.5" />
+                <rect x="130" y="196" width="140" height="36" fill="none" stroke="white" strokeWidth="1.5" />
+                <rect x="162" y="8" width="76" height="15" fill="none" stroke="white" strokeWidth="1.5" />
+                <rect x="162" y="217" width="76" height="15" fill="none" stroke="white" strokeWidth="1.5" />
+              </svg>
 
-          <div className="relative z-10 h-full flex flex-col justify-around py-2 px-1">
-            {rows.map((row, ri) => (
-              <div key={ri} className="flex justify-evenly items-center">
-                {row.map((p) => (
-                  <PlayerDot key={p.id} player={p} selected={selectedId === p.id} onSelect={onSelect} />
+              <div className="relative z-10 h-full flex flex-col justify-around py-2 px-1">
+                {rows.map((row, ri) => (
+                  <div key={ri} className="flex justify-evenly items-center">
+                    {row.map((p) => (
+                      <PlayerDot key={p.id} player={p} selected={selectedId === p.id} onSelect={onSelect} />
+                    ))}
+                  </div>
                 ))}
               </div>
-            ))}
+            </div>
           </div>
+
+          {/* Bench */}
+          <div className="px-3 py-2 border-t border-white/5 bg-black/30 flex-shrink-0">
+            <div className="text-[9px] font-extrabold uppercase tracking-widest text-bf-gray mb-1.5">
+              Bench
+            </div>
+            <div className="flex justify-around">
+              {bench.map((p) => (
+                <PlayerDot key={p.id} player={p} selected={selectedId === p.id} onSelect={onSelect} dimmed />
+              ))}
+            </div>
+          </div>
+
+        </div>
+        {/* Player detail / hint */}
+        <div className="squad-detail-slot min-w-0">
+          {selected ? (
+            <PlayerDetail player={selected} onAskPlayer={onAskPlayer} />
+          ) : (
+            <div className="flex items-center justify-center px-4 py-8 min-h-[96px]">
+              <span className="text-xs text-bf-text/25 text-center leading-relaxed">
+                Tap a player
+                <br />
+                to see details
+              </span>
+            </div>
+          )}
         </div>
       </div>
-
-      {/* Bench */}
-      <div className="px-3 py-2 border-t border-white/5 bg-black/30 flex-shrink-0">
-        <div className="text-[9px] font-extrabold uppercase tracking-widest text-bf-gray mb-1.5">
-          Bench
-        </div>
-        <div className="flex justify-around">
-          {bench.map((p) => (
-            <PlayerDot key={p.id} player={p} selected={selectedId === p.id} onSelect={onSelect} dimmed />
-          ))}
-        </div>
-      </div>
-
-      {/* Player detail / hint */}
-      {selected ? (
-        <PlayerDetail player={selected} onAskPlayer={onAskPlayer} />
-      ) : (
-        <div className="flex-1 flex items-center justify-center px-4 py-5 min-h-[72px]">
-          <span className="text-xs text-bf-text/25 text-center leading-relaxed">
-            Tap a player
-            <br />
-            to see details
-          </span>
-        </div>
-      )}
     </div>
   );
 }
@@ -351,16 +360,19 @@ function PlayerDot({
 
   return (
     <button
+      type="button"
       onClick={() => onSelect(player.id)}
+      aria-label={`${player.web_name}, ${player.team_short}${player.is_captain ? ', capitán' : ''}`}
+      aria-pressed={selected}
       data-no-swipe
-      className={`flex flex-col items-center gap-0.5 ${dimmed ? 'opacity-60' : ''}`}
+      className={`squad-player flex flex-col items-center gap-0.5 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${dimmed ? 'opacity-60' : ''}`}
     >
       <span
-        className={`relative flex items-center justify-center rounded-full border-2 transition-all ${
+        className={`squad-player-dot relative flex items-center justify-center rounded-full border-2 transition-all ${
           selected ? `w-9 h-9 ${s.dotSolid} ${s.dotBorder}` : `w-8 h-8 ${s.dotTint} ${s.dotBorder}`
         }`}
       >
-        <span className={`text-[10px] font-bold ${selected ? 'text-bf-ink' : s.dotText}`}>{code}</span>
+        <span className={`squad-player-code text-[10px] font-bold ${selected ? 'text-bf-ink' : s.dotText}`}>{code}</span>
         {player.is_captain && (
           <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-white text-bf-ink text-[8px] font-extrabold flex items-center justify-center">
             C
@@ -368,14 +380,14 @@ function PlayerDot({
         )}
       </span>
       <span
-        className={`text-[8px] font-semibold leading-none max-w-[44px] truncate ${
+        className={`squad-player-name text-[8px] font-semibold leading-none max-w-[44px] truncate ${
           selected ? 'text-white' : 'text-white/70'
         }`}
       >
         {player.web_name.split(' ').pop()}
       </span>
       <span
-        className={`text-[8px] font-bold leading-none ${
+        className={`squad-player-points text-[8px] font-bold leading-none ${
           player.gw_points >= 8 ? 'text-bf-turquoise' : 'text-white/40'
         }`}
       >
@@ -405,8 +417,8 @@ function PlayerDetail({
   ];
 
   return (
-    <div className="px-3 py-3 border-t border-white/10 bg-black/40 flex-shrink-0 space-y-2.5">
-      <div className="flex items-center gap-2.5">
+    <section aria-label={`Detalle de ${player.web_name}`} className="squad-player-detail px-3 py-3 border-t border-white/10 bg-black/40 flex-shrink-0 space-y-2.5">
+      <div className="flex flex-wrap items-center gap-2.5">
         {/* DS broadcast parallelogram position badge */}
         <span
           className={`inline-flex items-center justify-center w-10 h-5 text-[10px] font-black uppercase tracking-wider flex-shrink-0 ${s.badge}`}
@@ -415,14 +427,15 @@ function PlayerDetail({
           {s.label}
         </span>
         <div className="min-w-0 flex-1 leading-none">
-          <div className="text-xs font-extrabold text-white truncate">{player.web_name}</div>
-          <div className="text-[10px] text-bf-gray mt-1">
+          <div className="squad-detail-name text-xs font-extrabold text-white break-words">{player.web_name}</div>
+          <div className="squad-detail-team text-[10px] text-bf-gray mt-1">
             {player.team_short} · £{(player.price / 10).toFixed(1)}m
           </div>
         </div>
         <button
+          type="button"
           onClick={() => onAskPlayer(`Cuéntame sobre ${player.web_name} — ¿lo alineo esta semana?`)}
-          className="px-2.5 py-1.5 rounded-md bg-bf-turquoise/10 border border-bf-turquoise/40 text-bf-turquoise text-[10px] font-bold whitespace-nowrap hover:bg-bf-turquoise/20 transition-colors"
+          className="squad-ask px-2.5 py-1.5 rounded-md bg-bf-turquoise/10 border border-bf-turquoise/40 text-bf-turquoise text-[10px] font-bold whitespace-nowrap hover:bg-bf-turquoise/20 transition-colors"
         >
           Ask AI →
         </button>
@@ -435,13 +448,13 @@ function PlayerDetail({
             key={st.label}
             className={`flex flex-col items-center rounded-md border bg-white/5 px-1 py-1.5 ${st.cls}`}
           >
-            <span className="text-sm font-black leading-none">{st.value}</span>
-            <span className="text-[7px] font-bold uppercase tracking-widest text-bf-gray mt-1">
+            <span className="squad-detail-value text-sm font-black leading-none">{st.value}</span>
+            <span className="squad-detail-label text-[7px] font-bold uppercase tracking-widest text-bf-gray mt-1">
               {st.label}
             </span>
           </div>
         ))}
       </div>
-    </div>
+    </section>
   );
 }

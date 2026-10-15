@@ -381,7 +381,7 @@ export default function ChatShell() {
         </PagerScreen>
 
         {/* SCREEN 1 — Squad pitch */}
-        <PagerScreen maxWidth={460}>
+        <PagerScreen maxWidth={1120}>
           <SquadPitch teamId={teamId} onAskPlayer={handleInsert} onGw={setGw} />
         </PagerScreen>
 
