@@ -45,18 +45,19 @@ export interface PremiumGw {
   notice: RotationNotice | null;
 }
 
-export type TeamExtras =
-  | {
-      kind: 'premium';
-      /** By gameweek, for the compact grid's marks. */
-      byGw: Map<number, PremiumGw>;
-      /** Every other-competition match, for the timeline. */
-      extras: ExtraMatch[];
-      /** Premier League kickoffs with their rest days, for the timeline. */
-      plMatches: PlMatch[];
-    }
-  | { kind: 'free'; countByGw: Map<number, number> };
+export interface TeamExtras {
+  /** By gameweek, for the compact grid's marks. */
+  byGw: Map<number, PremiumGw>;
+  /** Every other-competition match, for the timeline. */
+  extras: ExtraMatch[];
+  /** Premier League kickoffs with their rest days, for the timeline. */
+  plMatches: PlMatch[];
+}
 
+/**
+ * What the backend answered. `free` (Free and Tribuna) carries NO teams: the server tells
+ * them only that the layer exists and is locked, so there is nothing to draw but the locked switch.
+ */
 export interface CompetitionsView {
   tier: 'premium' | 'free';
   teams: Map<string, TeamExtras>;
@@ -68,22 +69,15 @@ const isRecord = (v: unknown): v is Record<string, unknown> =>
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
 export function parseCompetitions(payload: unknown): CompetitionsView | null {
-  if (!isRecord(payload) || payload.available !== true || !isRecord(payload.teams)) return null;
+  if (!isRecord(payload) || payload.available !== true) return null;
   const tier = payload.tier;
   if (tier !== 'premium' && tier !== 'free') return null;
   const teams = new Map<string, TeamExtras>();
+  // Whatever else a free answer carried is ignored: the locked layer draws nothing per team.
+  if (tier === 'free') return { tier, teams };
+  if (!isRecord(payload.teams)) return null;
   for (const [code, raw] of Object.entries(payload.teams)) {
     if (!isRecord(raw)) continue;
-    if (tier === 'free') {
-      const countByGw = new Map<number, number>();
-      if (isRecord(raw.extra_by_gameweek)) {
-        for (const [gw, n] of Object.entries(raw.extra_by_gameweek)) {
-          if (typeof n === 'number' && n > 0 && Number.isInteger(Number(gw))) countByGw.set(Number(gw), n);
-        }
-      }
-      teams.set(code, { kind: 'free', countByGw });
-      continue;
-    }
     const extras: ExtraMatch[] = [];
     for (const m of Array.isArray(raw.matches) ? raw.matches : []) {
       if (!isRecord(m) || typeof m.kickoff_utc !== 'string') continue;
@@ -131,24 +125,13 @@ export function parseCompetitions(payload: unknown): CompetitionsView | null {
         opponent: m.opponent,
       };
     }
-    teams.set(code, { kind: 'premium', byGw, extras, plMatches });
+    teams.set(code, { byGw, extras, plMatches });
   }
   return { tier, teams };
 }
 
 export function extrasFor(view: CompetitionsView | null, team: string): TeamExtras | null {
   return view?.teams.get(team) ?? null;
-}
-
-/** Whole-league: does the free view have anything to tease inside these gameweeks? */
-export function hasFreeTease(view: CompetitionsView | null, gameweeks: number[]): boolean {
-  if (view?.tier !== 'free') return false;
-  const shown = new Set(gameweeks);
-  for (const extras of view.teams.values()) {
-    if (extras.kind !== 'free') continue;
-    for (const gw of extras.countByGw.keys()) if (shown.has(gw)) return true;
-  }
-  return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -205,9 +188,10 @@ export function rotationText(notice: RotationNotice): string {
   return `${days}${after ? ` tras ${after}` : ''} · posible rotación`;
 }
 
-export const freeTeaseText = (n: number): string => `🔒 +${n}`;
-export const freeTeaseTitle = (n: number): string =>
-  `${n === 1 ? '1 partido más' : `${n} partidos más`} esta semana · Ver con Premium`;
+/** The locked switch (Free/Tribuna): what it says and what opens when it is tapped. */
+export const LOCKED_BADGE = 'Premium';
+export const LOCKED_LINE = 'Ve los partidos de Champions, Europa y copas, con los días de descanso.';
+export const LOCKED_LINK = 'Ver con Premium';
 
 // ---------------------------------------------------------------------------
 // The timeline: one team's matches in real date order, every competition
@@ -225,8 +209,7 @@ export interface GapInfo {
 
 export type TimelineItem =
   | { kind: 'pl'; key: string; gw: FixtureOutlookGW; gap: GapInfo | null }
-  | { kind: 'extra'; key: string; match: ExtraMatch; sentence: string; gap: GapInfo | null }
-  | { kind: 'ghost'; key: string; gameweek: number; count: number };
+  | { kind: 'extra'; key: string; match: ExtraMatch; sentence: string; gap: GapInfo | null };
 
 const daysWord = (n: number) => `${n} ${n === 1 ? 'día' : 'días'}`;
 
@@ -253,17 +236,8 @@ function gapFor(restWholeDays: number | null, rotation: boolean, opponent: strin
  * Premier League tiles come from the bundle's gameweeks (their kickoffs from the payload);
  * other-competition matches are placed between them by their real kickoff. A gameweek
  * with no Premier League match (blank) keeps its place right after the previous one.
- * The free view has no dates, only counts: a ghost tile sits before its gameweek's tile.
  */
 export function buildTimeline(series: FixtureOutlookGW[], extras: TeamExtras): TimelineItem[] {
-  if (extras.kind === 'free') {
-    return series.flatMap((gw): TimelineItem[] => {
-      const count = extras.countByGw.get(gw.gameweek);
-      const tile: TimelineItem = { kind: 'pl', key: `pl-${gw.gameweek}`, gw, gap: null };
-      return count ? [{ kind: 'ghost', key: `ghost-${gw.gameweek}`, gameweek: gw.gameweek, count }, tile] : [tile];
-    });
-  }
-
   const visible = new Set(series.map((gw) => gw.gameweek));
   type Slot = { at: number; item: TimelineItem };
   const slots: Slot[] = [];
@@ -302,5 +276,5 @@ export function buildTimeline(series: FixtureOutlookGW[], extras: TeamExtras): T
   const ordered = slots.sort((a, b) => a.at - b.at).map((s) => s.item);
   // The first tile of the window has no visible predecessor: no number before it.
   const [head, ...rest] = ordered;
-  return head && head.kind !== 'ghost' ? [{ ...head, gap: null }, ...rest] : ordered;
+  return head ? [{ ...head, gap: null }, ...rest] : ordered;
 }

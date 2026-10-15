@@ -57,7 +57,7 @@ describe('buildTimeline (premium)', () => {
       [pl(7, '2026-10-18T15:30:00Z', 6), pl(8, '2026-10-24T14:00:00Z', 2, true, 'UCL')],
     );
     const items = buildTimeline([gw(7), gw(8)], team);
-    expect(items.map((i) => (i.kind === 'ghost' ? null : i.gap?.days ?? null))).toEqual([null, 3, 2]);
+    expect(items.map((i) => i.gap?.days ?? null)).toEqual([null, 3, 2]);
   });
 
   test('only the Premier League match flagged by the server gets the gold number', () => {
@@ -65,7 +65,7 @@ describe('buildTimeline (premium)', () => {
       [extra(8, '2026-10-21T19:00:00Z', 1)],     // 1 day after a PL match: grey, never gold (it is not a PL match)
       [pl(7, '2026-10-18T15:30:00Z', 6), pl(8, '2026-10-24T14:00:00Z', 2, true, 'UCL'), pl(9, '2026-10-31T14:00:00Z', 2, false, 'PL')],
     );
-    const gold = buildTimeline([gw(7), gw(8), gw(9)], team).flatMap((i) => (i.kind !== 'ghost' && i.gap ? [i.gap.rotation] : []));
+    const gold = buildTimeline([gw(7), gw(8), gw(9)], team).flatMap((i) => (i.gap ? [i.gap.rotation] : []));
     expect(gold).toEqual([false, true, false]);
   });
 
@@ -97,14 +97,20 @@ describe('buildTimeline (premium)', () => {
   });
 });
 
-describe('buildTimeline (free)', () => {
-  test('a ghost tile with the count sits before its gameweek, no rest numbers, no dates', () => {
-    const view = parseCompetitions({ available: true, tier: 'free', teams: { ARS: { extra_by_gameweek: { '8': 2 } } } })!;
-    const items = buildTimeline([gw(7), gw(8), gw(9)], view.teams.get('ARS')!);
-    expect(items.map((i) => i.key)).toEqual(['pl-7', 'ghost-8', 'pl-8', 'pl-9']);
-    const ghost = items[1];
-    expect(ghost.kind === 'ghost' && ghost.count).toBe(2);
-    expect(items.every((i) => i.kind === 'ghost' || i.gap === null)).toBe(true);
+describe('parseCompetitions (free)', () => {
+  test('free is only "locked": a view with no teams, whatever else the answer carried', () => {
+    for (const payload of [
+      { available: true, tier: 'free' },
+      { available: true, tier: 'free', teams: { ARS: { extra_by_gameweek: { '8': 2 }, matches: [{ opponent: 'X' }] } } },
+    ]) {
+      const view = parseCompetitions(payload)!;
+      expect(view.tier).toBe('free');
+      expect(view.teams.size).toBe(0);
+    }
+  });
+
+  test('premium without a teams object is not a layer', () => {
+    expect(parseCompetitions({ available: true, tier: 'premium' })).toBeNull();
   });
 });
 

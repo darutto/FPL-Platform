@@ -204,28 +204,19 @@ def test_window_filter(capture):
 # -- free: never a rival, never a competition ---------------------------------
 
 @pytest.mark.parametrize("tier", [None, "free", "patreon_tribuna", "premium", "PATREON_PREMIUM", "nonsense"])
-def test_non_detail_tiers_get_counts_only(capture, tier):
-    r = _get(tier)
-    body = r.json()
-    assert body["available"] is True and body["tier"] == "free"
-    assert body["teams"]["ARS"] == {"extra_by_gameweek": {"8": 2}}
-    assert body["teams"]["MCI"] == {"extra_by_gameweek": {}}
+def test_non_detail_tiers_are_only_told_the_layer_is_locked(capture, tier):
+    """Free/Tribuna get exactly {available, tier}: no rival, competition, rest, count, team or date."""
+    r = _get(tier, team="ARS", **{"from": "2026-10-01", "to": "2026-12-01"})
+    assert r.json() == {"available": True, "tier": "free"}
     raw = r.text
-    for leaked in ("rotation", OPPONENT, SECRET_OPP2, "UCL", "EFL", "FA", "rest_days", "kickoff", "opponent", "competition", "venue"):
+    for leaked in ("teams", "extra_by", "rotation", OPPONENT, SECRET_OPP2, "UCL", "EFL", "rest_days", "kickoff",
+                   "opponent", "competition", "venue", "gameweek", "ARS", "2026"):
         assert leaked not in raw, leaked
 
 
-def test_free_payload_has_no_detail_keys_at_any_depth(capture):
-    def walk(node):
-        if isinstance(node, dict):
-            for k, v in node.items():
-                yield k
-                yield from walk(v)
-        elif isinstance(node, list):
-            for v in node:
-                yield from walk(v)
-    assert set(walk(_get("free").json())) <= {"available", "tier", "teams", "ARS", "MCI", "CHE",
-                                              "extra_by_gameweek", "8"}
+def test_the_locked_answer_is_identical_for_every_team_and_window(capture):
+    answers = {_get("free", **params).text for params in ({}, {"team": "ARS"}, {"team": "MCI"}, {"from": "2030-01-01"})}
+    assert answers == {'{"available":true,"tier":"free"}'}
 
 
 # -- tier is read in one place, from the server's own helper ------------------
@@ -265,4 +256,4 @@ def test_club_codes_are_fpl_codes(capture, tmp_path, monkeypatch):
         _fx(1, 2, (7, "Coventry City"), (90, OPPONENT), "2026-10-13 19:00:00")]}), encoding="utf-8")
     monkeypatch.setenv(cc.ENV_CAPTURE, str(path))
     cc._cache.clear()
-    assert list(_get("free").json()["teams"]) == ["COV"]
+    assert list(_get("patreon_premium").json()["teams"]) == ["COV"]

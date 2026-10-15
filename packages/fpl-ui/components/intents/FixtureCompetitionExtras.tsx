@@ -9,8 +9,9 @@ import Link from 'next/link';
 import {
   COMPETITION_LEGEND,
   competitionName,
-  freeTeaseText,
-  freeTeaseTitle,
+  LOCKED_BADGE,
+  LOCKED_LINE,
+  LOCKED_LINK,
   rotationText,
   type TeamExtras,
 } from '@/lib/fixture-competitions';
@@ -40,6 +41,50 @@ export function OtherCompetitionsToggle({
       />
       Otras competiciones
     </label>
+  );
+}
+
+/**
+ * «Otras competiciones» as Free/Tribuna meet it: the same switch, off and locked, with a lock and
+ * «Premium». It never turns on; tapping it opens the short line below (see LockedCompetitionsLine).
+ */
+export function LockedCompetitionsToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={false}
+      aria-disabled="true"
+      aria-expanded={open}
+      aria-controls="locked-competitions-line"
+      data-testid="locked-competitions-toggle"
+      onClick={onToggle}
+      className="inline-flex select-none items-center gap-2 text-xs font-normal text-bf-gray focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bf-turquoise"
+    >
+      <span aria-hidden="true" className="relative h-5 w-[34px] flex-none rounded-full bg-white/10 after:absolute after:left-[3px] after:top-[3px] after:h-[14px] after:w-[14px] after:rounded-full after:bg-bf-gray/60" />
+      <span aria-hidden="true">🔒</span>
+      Otras competiciones
+      <span className="rounded-full border border-white/15 px-2 py-px text-[10px] font-normal tracking-wide text-bf-gray">
+        {LOCKED_BADGE}
+      </span>
+    </button>
+  );
+}
+
+/** The line a tap on the locked switch opens: what Premium shows, and the way to get it. */
+export function LockedCompetitionsLine() {
+  return (
+    <p
+      id="locked-competitions-line"
+      role="status"
+      data-testid="locked-competitions-line"
+      className="text-[12.5px] font-normal text-bf-gray"
+    >
+      {LOCKED_LINE}{' '}
+      <Link href="/subscribe" className="text-bf-turquoise hover:underline">
+        {LOCKED_LINK}
+      </Link>
+    </p>
   );
 }
 
@@ -78,19 +123,6 @@ export function CompactChip({
   const size = presentation
     ? 'text-[clamp(8px,0.9vw,14px)]'
     : 'text-[7.5px]';
-  if (extras.kind === 'free') {
-    const n = extras.countByGw.get(gameweek);
-    if (!n) return null;
-    return (
-      <span
-        data-testid="competition-tease"
-        title={freeTeaseTitle(n)}
-        className={`absolute right-0.5 top-0 ${size} font-black leading-none text-white/70`}
-      >
-        {freeTeaseText(n)}
-      </span>
-    );
-  }
   const slot = extras.byGw.get(gameweek);
   if (!slot) return null;
   const codes = Array.from(new Set(slot.matches.map((m) => m.competition))).join('+');
@@ -113,19 +145,8 @@ export function CompactChip({
   );
 }
 
-/** The compact grid's legend (premium: what the corner marks mean; free: how to unlock them). */
-export function CompetitionsLegend({ tier, tease }: { tier: 'premium' | 'free'; tease: boolean }) {
-  if (tier === 'free') {
-    if (!tease) return null;
-    return (
-      <p data-testid="competitions-upsell" className="text-[12px] font-normal text-bf-gray">
-        🔒 Hay semanas con partidos extra de copas y Europa.{' '}
-        <Link href="/subscribe" className="font-bold text-bf-turquoise hover:underline">
-          Ver con Premium
-        </Link>
-      </p>
-    );
-  }
+/** The compact grid's legend: what the corner marks mean. */
+export function CompetitionsLegend() {
   return (
     <p data-testid="competitions-legend" className="text-[12px] font-semibold text-bf-gray">
       <b className="text-white">UCL</b> Champions · <b className="text-white">UEL</b> Europa League ·{' '}

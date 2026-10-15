@@ -13,10 +13,9 @@
  * Typography: regular weight everywhere except the rival. Secondary text uses
  * the app's grey tokens, never pure white.
  *
- * Free/Tribuna get no dates, only counts: a grey ghost tile with a lock and
- * "+N", dropped like the premium tiles, links to /subscribe.
+ * Free/Tribuna never reach this file: the server tells them only that the layer is
+ * locked, and the board shows them the locked "Otras competiciones" switch instead.
  */
-import Link from 'next/link';
 import { useId, useState, type CSSProperties } from 'react';
 import type { FixtureOutlookGW, FixtureOutlookRun, FixtureOutlookMeta } from '@/lib/types';
 import {
@@ -29,7 +28,6 @@ import {
 import {
   buildTimeline,
   competitionColor,
-  freeTeaseTitle,
   type GapInfo,
   type TeamExtras,
   type TimelineItem,
@@ -239,42 +237,6 @@ function ExtraTile({
   );
 }
 
-function GhostTile({ count, m, presentation }: { count: number; m: Metrics; presentation: boolean }) {
-  const style: CSSProperties = {
-    width: m.exW,
-    height: m.exH,
-    marginTop: m.exTop,
-    borderRadius: m.exRadius,
-    border: '1.5px solid rgba(171,169,172,0.45)',
-  };
-  const inner = (
-    <>
-      <span aria-hidden="true" className="leading-none" style={{ fontSize: m.siglaFont }}>🔒</span>
-      <span className="font-normal leading-none text-bf-gray" style={{ fontSize: m.codeFont }}>+{count}</span>
-    </>
-  );
-  const base = 'flex flex-none flex-col items-center justify-center gap-[3px]';
-  if (presentation) {
-    return (
-      <div className={base} style={style} role="img" aria-label={freeTeaseTitle(count)} data-testid="competition-tease">
-        {inner}
-      </div>
-    );
-  }
-  return (
-    <Link
-      href="/subscribe"
-      data-testid="competition-tease"
-      aria-label={freeTeaseTitle(count)}
-      title={freeTeaseTitle(count)}
-      className={`${base} hover:border-bf-gray focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bf-turquoise`}
-      style={style}
-    >
-      {inner}
-    </Link>
-  );
-}
-
 /** The rest between two matches: a number over a thin line. Gold and solid when it is the rotation notice. */
 function Gap({
   gap,
@@ -346,7 +308,7 @@ function Items({
   return (
     <>
       {items.map((item, i) => {
-        const gap = item.kind !== 'ghost' ? item.gap : null;
+        const gap = item.gap;
         return (
           <div key={item.key} className="flex flex-none items-start">
             {gap ? (
@@ -362,7 +324,7 @@ function Items({
                 presentation={presentation}
                 onAsk={onAskCell ? () => onAskCell(item.gw) : undefined}
               />
-            ) : item.kind === 'extra' ? (
+            ) : (
               <ExtraTile
                 item={item}
                 m={m}
@@ -370,8 +332,6 @@ function Items({
                 selected={detail === item.key}
                 onPick={onDetail ? () => onDetail(item.key) : undefined}
               />
-            ) : (
-              <GhostTile count={item.count} m={m} presentation={presentation} />
             )}
           </div>
         );
@@ -385,7 +345,7 @@ function detailSentence(items: TimelineItem[], key: string | null): string | nul
   if (!key) return null;
   for (const item of items) {
     if (item.kind === 'extra' && item.key === key) return item.sentence;
-    if (item.kind !== 'ghost' && key === `gap-${item.key}` && item.gap) return item.gap.sentence;
+    if (key === `gap-${item.key}` && item.gap) return item.gap.sentence;
   }
   return null;
 }

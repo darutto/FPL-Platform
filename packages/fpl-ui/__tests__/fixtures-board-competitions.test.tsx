@@ -38,7 +38,8 @@ const PREMIUM = {
     },
   },
 };
-const FREE = { available: true, tier: 'free', teams: { ARS: { extra_by_gameweek: { [String(START + 1)]: 2 } } } };
+/** All the server tells Free/Tribuna: the layer exists and is locked. */
+const FREE = { available: true, tier: 'free' };
 
 function mockBackend(competitions: unknown, ok = true) {
   global.fetch = jest.fn(async (url: RequestInfo | URL) => {
@@ -155,23 +156,55 @@ describe('FixturesBoard multi-competition layer (timeline)', () => {
     second.unmount();
   });
 
-  test('free: a grey ghost tile with a lock, dropped like the premium ones; never a rival or a competition', async () => {
+  test('free: the Premier calendar as always, and one locked switch that opens a short line', async () => {
+    mockBackend({ available: false });
+    const baseline = render(<FixturesBoard onAsk={() => {}} />);
+    await settled();
+    await act(async () => { await Promise.resolve(); });
+    const premierOnly = boardRows().innerHTML;
+    baseline.unmount();
+
     mockBackend(FREE);
     const { container } = render(<FixturesBoard onAsk={() => {}} />);
     await settled();
-    const lane = await within(arsenal()).findByTestId('fixture-timeline');
-    const ghost = within(lane).getByTestId('competition-tease');
-    expect(ghost).toHaveTextContent('+2');
-    expect(ghost).toHaveAttribute('href', '/subscribe');
-    expect(ghost).toHaveAccessibleName('2 partidos más esta semana · Ver con Premium');
-    expect(screen.getByTestId('competitions-upsell')).toHaveTextContent('Ver con Premium');
+    const locked = await screen.findByTestId('locked-competitions-toggle');
+
+    // No gaps, no marks, no tiles: the rows are byte for byte the Premier-only board.
+    expect(boardRows().innerHTML).toBe(premierOnly);
+    expect(screen.queryByTestId('fixture-timeline')).toBeNull();
+    expect(screen.queryByTestId('competition-tease')).toBeNull();
+    expect(screen.queryByTestId('competitions-upsell')).toBeNull();
+
+    // The one difference: a switch that is off, locked, with a lock and «Premium».
+    expect(locked).toHaveAttribute('role', 'switch');
+    expect(locked).toHaveAttribute('aria-checked', 'false');
+    expect(locked).toHaveAttribute('aria-disabled', 'true');
+    expect(locked).toHaveTextContent('Otras competiciones');
+    expect(locked).toHaveTextContent('Premium');
+    expect(locked).toHaveTextContent('🔒');
+    expect(screen.queryByRole('switch', { name: /Otras competiciones/ })).toBe(locked);
+    expect(screen.queryByTestId('locked-competitions-line')).toBeNull();
+
+    // Tapping opens the line with the link to /subscribe; tapping again closes it. It never turns on.
+    fireEvent.click(locked);
+    const line = screen.getByTestId('locked-competitions-line');
+    expect(line).toHaveTextContent('Ve los partidos de Champions, Europa y copas, con los días de descanso.');
+    expect(within(line).getByRole('link', { name: 'Ver con Premium' })).toHaveAttribute('href', '/subscribe');
+    expect(locked).toHaveAttribute('aria-expanded', 'true');
+    expect(locked).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(locked);
+    expect(screen.queryByTestId('locked-competitions-line')).toBeNull();
+
+    // Nothing about the calendar is on the page, and Presentar stays the plain compact grid.
     const text = container.textContent ?? '';
-    for (const leaked of ['UCL', 'UEL', 'UECL', 'Bayern', 'BAY', 'Champions', 'rotación', 'descanso']) {
+    for (const leaked of ['UCL', 'UEL', 'UECL', 'Bayern', 'BAY', 'Champions', 'rotación']) {
       expect(text).not.toContain(leaked);
     }
-    expect(within(lane).queryByTestId('competition-tile')).toBeNull();
-    expect(within(lane).queryByTestId('rotation-notice')).toBeNull();
-    expect(within(lane).queryByTestId('rest-days')).toBeNull();
+    act(() => { fireEvent.click(screen.getByRole('button', { name: 'Presentar' })); });
+    const overlay = screen.getByLabelText('Calendario en modo presentación');
+    expect(within(overlay).queryByTestId('presentation-timeline')).toBeNull();
+    expect(within(overlay).queryByTestId('competition-extras')).toBeNull();
+    expect(window.localStorage.getItem('fpl-fixtures-other-competitions')).toBeNull();
   });
 
   test('failing or unavailable: the board is exactly what it was', async () => {

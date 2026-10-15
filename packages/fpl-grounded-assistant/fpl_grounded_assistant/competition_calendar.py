@@ -8,14 +8,13 @@ in any prod path (Dockerfile, deploy config, CI); a test greps for it.
 
 The tier is decided here, on the server, from the tier the caller passes in (the
 single ``tier_of(request)`` seam in ``fpl_server``, which i153 will harden). The free
-payload is built from scratch out of per-week counts: it is never a filtered copy
-of the premium one, so it cannot leak an opponent or a competition by construction.
+payload is a constant, ``{"available": true, "tier": "free"}``: it is never a filtered
+copy of the premium one, so it cannot leak an opponent, a competition or even a count.
 """
 from __future__ import annotations
 
 import json
 import os
-from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -69,8 +68,8 @@ def competitions_response(tier: str, team: str | None, date_from: str | None, da
     calendar = _calendar()
     if calendar is None:
         return {"available": False}
-    wanted = {code: ms for code, ms in calendar.items() if team is None or code == team.strip().upper()}
     if tier in DETAIL_TIERS:
+        wanted = {code: ms for code, ms in calendar.items() if team is None or code == team.strip().upper()}
         # Premium only: free never gets the notice nor a hint of it. `matches` are the other
         # competitions; `pl_matches` carry the Premier League kickoffs so the board can lay
         # both on one timeline in real date order, each with the whole rest days before it.
@@ -87,8 +86,6 @@ def competitions_response(tier: str, team: str | None, date_from: str | None, da
                      "rotation": _rotates(m)}
                     for m in ms if m["is_pl"] and _in_window(m, date_from, date_to)]}
             for code, ms in wanted.items()}}
-    return {"available": True, "tier": "free", "teams": {
-        code: {"extra_by_gameweek": {str(g): n for g, n in sorted(Counter(
-            m["gameweek"] for m in ms
-            if not m["is_pl"] and m["gameweek"] is not None and _in_window(m, date_from, date_to)).items())}}
-        for code, ms in wanted.items()}}
+    # Free/Tribuna: the layer exists and is locked, and that is ALL they are told. No rival,
+    # competition, rest or per-week count: nothing about the calendar leaves the server.
+    return {"available": True, "tier": "free"}

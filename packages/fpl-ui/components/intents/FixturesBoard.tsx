@@ -42,12 +42,13 @@ import {
 } from '@/lib/fixture-gameweek-navigation';
 import {
   extrasFor as competitionExtrasFor,
-  hasFreeTease,
   parseCompetitions,
   type CompetitionsView,
 } from '@/lib/fixture-competitions';
 import {
   CompetitionsLegend,
+  LockedCompetitionsLine,
+  LockedCompetitionsToggle,
   OtherCompetitionsToggle,
   TimelineLegend,
 } from './FixtureCompetitionExtras';
@@ -196,9 +197,10 @@ export function FixturesBoard({
       // The choice just isn't remembered.
     }
   };
-  const layer = showOthers ? competitions : null;
+  // Free/Tribuna: the server sent only "locked". They never get a layer, just the locked switch.
+  const [lockedOpen, setLockedOpen] = useState(false);
+  const layer = showOthers && competitions?.tier === 'premium' ? competitions : null;
   const extrasFor = (team: string) => competitionExtrasFor(layer, team);
-  const visibleGameweeks = data.teams[0]?.series.map((cell) => cell.gameweek) ?? [];
 
   const moveWindow = (delta: -1 | 1) => {
     const next = clampFixtureWindowStart(startGameweek + delta, gameweeks, horizon);
@@ -294,8 +296,11 @@ export function FixturesBoard({
           </button>
         </div>
 
-        {competitions && (
+        {competitions?.tier === 'premium' && (
           <OtherCompetitionsToggle checked={showOthers} onChange={changeShowOthers} />
+        )}
+        {competitions?.tier === 'free' && (
+          <LockedCompetitionsToggle open={lockedOpen} onToggle={() => setLockedOpen((open) => !open)} />
         )}
 
         {/* View toggle */}
@@ -324,13 +329,11 @@ export function FixturesBoard({
         </button>
       </div>
 
+      {competitions?.tier === 'free' && lockedOpen && <LockedCompetitionsLine />}
+
       {/* FDR / venue / streak legend (above the board, design parity) */}
       <BandLegend />
-      {layer && (view === 'detailed' && layer.tier === 'premium' ? (
-        <TimelineLegend />
-      ) : (
-        <CompetitionsLegend tier={layer.tier} tease={hasFreeTease(layer, visibleGameweeks)} />
-      ))}
+      {layer && (view === 'detailed' ? <TimelineLegend /> : <CompetitionsLegend />)}
 
       {/* Board */}
       <div className={`${CARD_BASE} ${CARD_ACCENT.turquoise.border}`}>
@@ -423,7 +426,7 @@ export function FixturesBoard({
               <span className="hidden text-[clamp(10px,1vw,15px)] font-bold text-bf-gray lg:inline">
                 Fácil → difícil · ◯ racha favorable · ◯ racha difícil
               </span>
-              {layer?.tier === 'premium' && presentationMode && (
+              {layer && presentationMode && (
                 <span className="hidden lg:inline">
                   <TimelineLegend />
                 </span>
