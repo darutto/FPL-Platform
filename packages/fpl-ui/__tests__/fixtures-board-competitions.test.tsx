@@ -178,7 +178,6 @@ describe('FixturesBoard multi-competition layer (timeline)', () => {
     // The one difference: a switch that is off, locked, with a lock and «Premium».
     expect(locked).toHaveAttribute('role', 'switch');
     expect(locked).toHaveAttribute('aria-checked', 'false');
-    expect(locked).toHaveAttribute('aria-disabled', 'true');
     expect(locked).toHaveTextContent('Otras competiciones');
     expect(locked).toHaveTextContent('Premium');
     expect(locked).toHaveTextContent('🔒');

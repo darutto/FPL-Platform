@@ -54,7 +54,6 @@ export function LockedCompetitionsToggle({ open, onToggle }: { open: boolean; on
       type="button"
       role="switch"
       aria-checked={false}
-      aria-disabled="true"
       aria-expanded={open}
       aria-controls="locked-competitions-line"
       data-testid="locked-competitions-toggle"
