@@ -46,7 +46,7 @@ import {
   type CompetitionsView,
 } from '@/lib/fixture-competitions';
 import {
-  CompetitionsLegend,
+  CompactLegend,
   LockedCompetitionsLine,
   LockedCompetitionsToggle,
   OtherCompetitionsToggle,
@@ -333,7 +333,7 @@ export function FixturesBoard({
 
       {/* FDR / venue / streak legend (above the board, design parity) */}
       <BandLegend />
-      {layer && (view === 'detailed' ? <TimelineLegend /> : <CompetitionsLegend />)}
+      {layer && (view === 'detailed' ? <TimelineLegend /> : view === 'compact' ? <CompactLegend /> : null)}
 
       {/* Board */}
       <div className={`${CARD_BASE} ${CARD_ACCENT.turquoise.border}`}>
@@ -384,7 +384,7 @@ export function FixturesBoard({
               ))}
             </div>
           )}
-          {view === 'compact' && <FixtureCompactGrid data={data} onAsk={onAsk} extrasFor={extrasFor} />}
+          {view === 'compact' && <FixtureCompactGrid data={data} onAsk={onAsk} extrasFor={extrasFor} layerActive={layer !== null} />}
           {view === 'tendency' && (
             <div>
               {data.teams.map((t) => (
@@ -445,7 +445,7 @@ export function FixturesBoard({
               // The timeline only exists while presenting: the overlay is otherwise a hidden copy of the board.
               presentationMode && <PresentationTimeline data={data} extrasFor={extrasFor} />
             ) : (
-              <FixtureCompactGrid data={data} presentation extrasFor={extrasFor} />
+              <FixtureCompactGrid data={data} presentation />
             )}
           </div>
         </div>

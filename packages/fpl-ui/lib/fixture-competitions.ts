@@ -33,24 +33,10 @@ export interface PlMatch {
   previousCompetition: string | null;
 }
 
-/** Compact view only: the rotation notice of a gameweek, as the marks need it. */
-export interface RotationNotice {
-  restWholeDays: number;
-  previousCompetition: string | null;
-  opponent: string;
-}
-
-export interface PremiumGw {
-  matches: ExtraMatch[];
-  notice: RotationNotice | null;
-}
-
 export interface TeamExtras {
-  /** By gameweek, for the compact grid's marks. */
-  byGw: Map<number, PremiumGw>;
-  /** Every other-competition match, for the timeline. */
+  /** Every other-competition match. */
   extras: ExtraMatch[];
-  /** Premier League kickoffs with their rest days, for the timeline. */
+  /** Premier League kickoffs with their rest days. */
   plMatches: PlMatch[];
 }
 
@@ -108,24 +94,7 @@ export function parseCompetitions(payload: unknown): CompetitionsView | null {
         previousCompetition: typeof m.previous_competition === 'string' ? m.previous_competition : null,
       });
     }
-    const byGw = new Map<number, PremiumGw>();
-    const slot = (gw: number) => {
-      const existing = byGw.get(gw);
-      if (existing) return existing;
-      const created: PremiumGw = { matches: [], notice: null };
-      byGw.set(gw, created);
-      return created;
-    };
-    for (const m of extras) if (m.gameweek !== null) slot(m.gameweek).matches.push(m);
-    for (const m of plMatches) {
-      if (m.gameweek === null || !m.rotation || m.restWholeDays === null) continue;
-      slot(m.gameweek).notice = {
-        restWholeDays: m.restWholeDays,
-        previousCompetition: m.previousCompetition,
-        opponent: m.opponent,
-      };
-    }
-    teams.set(code, { byGw, extras, plMatches });
+    teams.set(code, { extras, plMatches });
   }
   return { tier, teams };
 }
@@ -147,16 +116,6 @@ const NAMES: Record<string, string> = {
   EFL: 'Carabao Cup',
   PL: 'Premier League',
 };
-const AFTER: Record<string, string> = {
-  UCL: 'la Champions',
-  UEL: 'la Europa League',
-  UECL: 'la Conference',
-  'UEFA-SC': 'la Supercopa de Europa',
-  FA: 'la FA Cup',
-  EFL: 'la Carabao',
-  PL: 'la Premier',
-};
-
 export const competitionName = (badge: string): string => NAMES[badge] ?? badge;
 
 /**
@@ -180,13 +139,6 @@ export const COMPETITION_LEGEND: Array<{ label: string; color: string }> = [
   { label: 'Conference', color: COMPETITION_COLORS.UECL },
   { label: 'Copas', color: COMPETITION_COLORS.FA },
 ];
-
-/** «3 días de descanso tras la Champions · posible rotación» (compact view's tooltip). */
-export function rotationText(notice: RotationNotice): string {
-  const days = `${notice.restWholeDays} ${notice.restWholeDays === 1 ? 'día' : 'días'} de descanso`;
-  const after = notice.previousCompetition ? AFTER[notice.previousCompetition] : undefined;
-  return `${days}${after ? ` tras ${after}` : ''} · posible rotación`;
-}
 
 /** The locked switch (Free/Tribuna): what it says and what opens when it is tapped. */
 export const LOCKED_BADGE = 'Premium';
@@ -277,4 +229,36 @@ export function buildTimeline(series: FixtureOutlookGW[], extras: TeamExtras): T
   // The first tile of the window has no visible predecessor: no number before it.
   const [head, ...rest] = ordered;
   return head ? [{ ...head, gap: null }, ...rest] : ordered;
+}
+
+// ---------------------------------------------------------------------------
+// Compact grid: the gutter before each gameweek column
+// ---------------------------------------------------------------------------
+
+/** What sits in the narrow strip just before a gameweek's column. */
+export interface CompactGutter {
+  /** The other-competition matches that precede that gameweek's Premier League match, in kickoff order. */
+  matches: ExtraMatch[];
+  /** That Premier League match, when it carries the rotation notice (the gold dot). */
+  rotation: PlMatch | null;
+}
+
+export function compactGutter(extras: TeamExtras | null, gameweek: number): CompactGutter {
+  if (!extras) return { matches: [], rotation: null };
+  const matches = extras.extras
+    .filter((m) => m.gameweek === gameweek)
+    .sort((a, b) => Date.parse(a.kickoff) - Date.parse(b.kickoff));
+  const rotation = matches.length ? extras.plMatches.find((m) => m.gameweek === gameweek && m.rotation) ?? null : null;
+  return { matches, rotation };
+}
+
+/** The line a tapped bar opens, e.g. «ARS · Champions League ante Lille (local) · 3 días de descanso antes de Everton: posible rotación». */
+export function gutterSentence(team: string, gutter: CompactGutter): string {
+  const parts = gutter.matches.map(extraSentence);
+  if (gutter.rotation && gutter.rotation.restWholeDays !== null) {
+    parts.push(
+      gapFor(gutter.rotation.restWholeDays, true, gutter.rotation.opponent)?.sentence ?? '',
+    );
+  }
+  return `${team} · ${parts.join(' · ')}`;
 }

@@ -1,6 +1,6 @@
 /**
  * Multi-competition furniture for the /fixtures board: the "Otras competiciones"
- * switch, the legends, and the compact grid's corner marks.
+ * switch (and its locked twin), the legends, and the compact grid's gutter marks.
  * Rendered only when the backend returned a payload; otherwise nothing at all.
  * Titles here never contain "FDR " (the board's tests read FDR titles to see
  * which difficulty is on screen).
@@ -8,12 +8,12 @@
 import Link from 'next/link';
 import {
   COMPETITION_LEGEND,
-  competitionName,
+  competitionColor,
+  gutterSentence,
   LOCKED_BADGE,
   LOCKED_LINE,
   LOCKED_LINK,
-  rotationText,
-  type TeamExtras,
+  type CompactGutter,
 } from '@/lib/fixture-competitions';
 
 const GOLD = 'text-bf-gold';
@@ -109,49 +109,75 @@ export function TimelineLegend() {
   );
 }
 
-/** Inside a compact-grid cell: tiny corner chip(s). Presentation sizes scale with the viewport. */
-export function CompactChip({
-  extras,
-  gameweek,
-  presentation,
+/**
+ * The compact grid's mark for the match(es) of other competitions that precede a gameweek: a
+ * 12 px strip before the column, one rounded vertical bar per match in its competition's colour
+ * (two stack, and shrink to fit the 24 px row), and a 4 px gold dot under them when the
+ * rest to the Premier League match is short (the rotation notice). The whole strip is one button:
+ * tapping or focusing it opens the detail line. The Premier League cell itself is untouched.
+ */
+export function GutterMarks({
+  team,
+  gutter,
+  selected,
+  onPick,
 }: {
-  extras: TeamExtras;
-  gameweek: number;
-  presentation: boolean;
+  team: string;
+  gutter: CompactGutter;
+  selected: boolean;
+  onPick: () => void;
 }) {
-  const size = presentation
-    ? 'text-[clamp(8px,0.9vw,14px)]'
-    : 'text-[7.5px]';
-  const slot = extras.byGw.get(gameweek);
-  if (!slot) return null;
-  const codes = Array.from(new Set(slot.matches.map((m) => m.competition))).join('+');
+  const strip = 'relative h-[24px] w-[12px] flex-none';
+  if (gutter.matches.length === 0) return <span aria-hidden="true" className={strip} />;
+  const barHeight = gutter.matches.length === 1 ? 16 : gutter.matches.length === 2 ? 10 : 6;
   return (
-    <span
-      data-testid="competition-extras"
-      title={[
-        ...slot.matches.map((m) => `${competitionName(m.competition)} · ${m.opponent}`),
-        ...(slot.notice ? [rotationText(slot.notice)] : []),
-      ].join(' | ')}
-      className={`absolute right-0.5 top-0 flex items-center gap-0.5 ${size} font-black leading-none text-white/85`}
+    <button
+      type="button"
+      data-testid="compact-gutter"
+      aria-label={gutterSentence(team, gutter)}
+      aria-pressed={selected}
+      onClick={onPick}
+      onFocus={onPick}
+      className={`${strip} flex flex-col items-center justify-center gap-[2px] rounded-[3px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bf-turquoise`}
     >
-      {codes}
-      {slot.notice && (
-        <span data-testid="rotation-notice" className={GOLD}>
-          ↻{slot.notice.restWholeDays}d
-        </span>
+      {gutter.matches.map((m, i) => (
+        <span
+          key={`${m.kickoff}-${i}`}
+          data-testid="compact-bar"
+          aria-hidden="true"
+          className="block w-[6px] rounded-[2px]"
+          style={{ height: barHeight, backgroundColor: competitionColor(m.competition) }}
+        />
+      ))}
+      {gutter.rotation && (
+        <span
+          data-testid="compact-rotation-dot"
+          aria-hidden="true"
+          className="absolute bottom-[-3px] left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-bf-gold"
+        />
       )}
-    </span>
+    </button>
   );
 }
 
-/** The compact grid's legend: what the corner marks mean. */
-export function CompetitionsLegend() {
+/** The compact grid's legend, in one line: each competition's colour, and what the gold dot means. */
+export function CompactLegend() {
   return (
-    <p data-testid="competitions-legend" className="text-[12px] font-semibold text-bf-gray">
-      <b className="text-white">UCL</b> Champions · <b className="text-white">UEL</b> Europa League ·{' '}
-      <b className="text-white">UECL</b> Conference · <b className="text-white">FA</b> FA Cup ·{' '}
-      <b className="text-white">EFL</b> Carabao ·{' '}
-      <span className={GOLD}>↻ descanso corto, posible rotación</span>
+    <p
+      data-testid="compact-legend"
+      className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] font-normal text-bf-gray"
+    >
+      {COMPETITION_LEGEND.map((entry) => (
+        <span key={entry.label} className="inline-flex items-center gap-1.5">
+          <i
+            aria-hidden="true"
+            className="inline-block h-2 w-2 rounded-[2px] not-italic"
+            style={{ backgroundColor: entry.color }}
+          />
+          {entry.label}
+        </span>
+      ))}
+      <span className={GOLD}>● descanso corto tras Europa o copa</span>
     </p>
   );
 }

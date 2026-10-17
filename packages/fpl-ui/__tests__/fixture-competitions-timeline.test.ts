@@ -2,7 +2,13 @@
  * The timeline model (lib/fixture-competitions): date order, the rest shown in each gap,
  * the gold notice, and the free ghost tile. Pure data, no rendering.
  */
-import { buildTimeline, extraSentence, parseCompetitions, rotationText } from '@/lib/fixture-competitions';
+import {
+  buildTimeline,
+  compactGutter,
+  extraSentence,
+  gutterSentence,
+  parseCompetitions,
+} from '@/lib/fixture-competitions';
 import type { FixtureOutlookGW } from '@/lib/types';
 
 const gw = (gameweek: number, opponent = 'XXX', band: number | null = 3): FixtureOutlookGW => ({
@@ -114,9 +120,43 @@ describe('parseCompetitions (free)', () => {
   });
 });
 
-test('rotationText is unchanged for the compact view', () => {
-  expect(rotationText({ restWholeDays: 3, previousCompetition: 'UCL', opponent: '' }))
-    .toBe('3 días de descanso tras la Champions · posible rotación');
+describe('compactGutter (the strip before a gameweek column in Compacto)', () => {
+  const team = premium(
+    [
+      extra(8, '2026-10-21T19:00:00Z', 3),                 // one match before gameweek 8
+      extra(9, '2026-10-27T20:00:00Z', 3, 'EFL'),           // two before gameweek 9, given out of order
+      extra(9, '2026-10-26T20:00:00Z', 3, 'UEL'),
+    ],
+    [
+      pl(7, '2026-10-18T15:30:00Z', 4),
+      pl(8, '2026-10-24T14:00:00Z', 2, true, 'UCL'),
+      pl(9, '2026-11-01T16:30:00Z', 4, false, 'EFL'),
+      pl(10, '2026-11-07T15:00:00Z', 6),
+    ],
+  );
+
+  test('0, 1 and 2 matches: the bars are the matches of that gameweek, in kickoff order', () => {
+    expect(compactGutter(team, 7).matches).toEqual([]);
+    expect(compactGutter(team, 8).matches.map((m) => m.competition)).toEqual(['UCL']);
+    expect(compactGutter(team, 9).matches.map((m) => m.competition)).toEqual(['UEL', 'EFL']);
+    expect(compactGutter(team, 10).matches).toEqual([]);
+    expect(compactGutter(null, 8)).toEqual({ matches: [], rotation: null });
+  });
+
+  test('the gold dot is the server-flagged Premier League match of that gameweek, and only under a bar', () => {
+    expect(compactGutter(team, 8).rotation?.opponent).toBe('Rival 8');
+    expect(compactGutter(team, 9).rotation).toBeNull();     // matches but no notice
+    expect(compactGutter(team, 7).rotation).toBeNull();     // no matches: nothing to hang a dot on
+  });
+
+  test('the detail line names the team, each match, and the rotation clause when there is one', () => {
+    expect(gutterSentence('ARS', compactGutter(team, 8))).toBe(
+      'ARS · Champions League ante Sturm Graz (visitante) · 2 días de descanso antes de Rival 8: posible rotación',
+    );
+    expect(gutterSentence('ARS', compactGutter(team, 9))).toBe(
+      'ARS · Europa League ante Sturm Graz (visitante) · Carabao Cup ante Sturm Graz (visitante)',
+    );
+  });
 });
 
 test.each([
