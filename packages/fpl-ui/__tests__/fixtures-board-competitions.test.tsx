@@ -216,6 +216,11 @@ describe('FixturesBoard multi-competition layer (timeline)', () => {
     expect(screen.getByTestId('compact-detail')).toHaveTextContent('MCI · Europa League ante Real Betis (local) · Carabao Cup ante Fleetwood Town (visitante)');
     expect(arsenalGutter).toHaveAccessibleName(/^ARS · Champions League ante FC Bayern/);
 
+    // The bar is fixed to the viewport (the card clips overflow) and closes with its own button.
+    expect(screen.getByTestId('compact-detail-bar').className).toMatch(/\bfixed\b/);
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar detalle' }));
+    expect(screen.queryByTestId('compact-detail')).toBeNull();
+
     // The switch off: the grid is the Premier-only one, byte for byte.
     fireEvent.click(screen.getByRole('switch', { name: 'Otras competiciones' }));
     expect(boardRows().innerHTML).toBe(premierOnly);

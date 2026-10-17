@@ -153,14 +153,24 @@ export function FixtureCompactGrid({
         </div>
       </div>
       {detail && (
-        // Outside the scroller so it can stick to the bottom of the viewport while the 20 rows are on screen.
-        <p
-          role="status"
-          data-testid="compact-detail"
-          className="sticky bottom-3 z-20 mt-3 rounded-lg border border-white/10 bg-bf-surface px-3 py-2 text-[12.5px] font-normal text-bf-gray shadow-menu"
+        // Fixed to the viewport (the board's card clips overflow, so `sticky` would not hold): it stays
+        // in view whichever of the 20 rows was tapped, and has its own close button for touch.
+        <div
+          data-testid="compact-detail-bar"
+          className="fixed inset-x-3 bottom-3 z-50 mx-auto flex max-w-[936px] items-start gap-3 rounded-lg border border-white/10 bg-bf-surface px-3 py-2 shadow-menu"
         >
-          {detail}
-        </p>
+          <p role="status" data-testid="compact-detail" className="min-w-0 flex-1 text-[12.5px] font-normal text-bf-gray">
+            {detail}
+          </p>
+          <button
+            type="button"
+            aria-label="Cerrar detalle"
+            onClick={() => setPicked(null)}
+            className="flex-none text-[14px] leading-none text-bf-gray hover:text-bf-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bf-turquoise"
+          >
+            ✕
+          </button>
+        </div>
       )}
     </div>
   );
