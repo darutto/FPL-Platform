@@ -42,11 +42,17 @@ import {
 } from '@/lib/fixture-gameweek-navigation';
 import {
   extrasFor as competitionExtrasFor,
-  hasFreeTease,
   parseCompetitions,
   type CompetitionsView,
 } from '@/lib/fixture-competitions';
-import { CompetitionsLegend } from './FixtureCompetitionExtras';
+import {
+  CompactLegend,
+  LockedCompetitionsLine,
+  LockedCompetitionsToggle,
+  OtherCompetitionsToggle,
+  TimelineLegend,
+} from './FixtureCompetitionExtras';
+import { PresentationTimeline } from './FixtureTimeline';
 import { FixtureTickerRow, BandLegend } from './FixtureTickerRow';
 import { FixtureCompactGrid } from './FixtureCompactGrid';
 import { FixtureTendencyChart } from './FixtureTendencyChart';
@@ -56,6 +62,7 @@ import type { FixtureAxis } from '@/lib/types';
 
 const HORIZONS = REAL_SEASON_HORIZONS;
 const DAY_MS = 86_400_000;
+const OTHER_COMPETITIONS_KEY = 'fpl-fixtures-other-competitions';
 type ViewMode = 'detailed' | 'compact' | 'tendency';
 
 const VIEWS: Array<{ id: ViewMode; label: string }> = [
@@ -173,8 +180,27 @@ export function FixturesBoard({
     }
   }, [baseGameweek, windowState]);
 
-  const extrasFor = (team: string) => competitionExtrasFor(competitions, team);
-  const visibleGameweeks = data.teams[0]?.series.map((cell) => cell.gameweek) ?? [];
+  // The "Otras competiciones" switch. Off (or no layer at all) hands every view `null`, which is exactly the Premier-only calendar.
+  const [showOthers, setShowOthers] = useState(true);
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(OTHER_COMPETITIONS_KEY) === '0') setShowOthers(false);
+    } catch {
+      // Storage can be disabled; the switch still works in memory.
+    }
+  }, []);
+  const changeShowOthers = (next: boolean) => {
+    setShowOthers(next);
+    try {
+      window.localStorage.setItem(OTHER_COMPETITIONS_KEY, next ? '1' : '0');
+    } catch {
+      // The choice just isn't remembered.
+    }
+  };
+  // Free/Tribuna: the server sent only "locked". They never get a layer, just the locked switch.
+  const [lockedOpen, setLockedOpen] = useState(false);
+  const layer = showOthers && competitions?.tier === 'premium' ? competitions : null;
+  const extrasFor = (team: string) => competitionExtrasFor(layer, team);
 
   const moveWindow = (delta: -1 | 1) => {
     const next = clampFixtureWindowStart(startGameweek + delta, gameweeks, horizon);
@@ -270,6 +296,13 @@ export function FixturesBoard({
           </button>
         </div>
 
+        {competitions?.tier === 'premium' && (
+          <OtherCompetitionsToggle checked={showOthers} onChange={changeShowOthers} />
+        )}
+        {competitions?.tier === 'free' && (
+          <LockedCompetitionsToggle open={lockedOpen} onToggle={() => setLockedOpen((open) => !open)} />
+        )}
+
         {/* View toggle */}
         <div className="inline-flex rounded-full border border-white/10 bg-white/[0.03] p-0.5 ml-auto">
           {VIEWS.map((v) => (
@@ -296,14 +329,11 @@ export function FixturesBoard({
         </button>
       </div>
 
+      {competitions?.tier === 'free' && lockedOpen && <LockedCompetitionsLine />}
+
       {/* FDR / venue / streak legend (above the board, design parity) */}
       <BandLegend />
-      {competitions && (
-        <CompetitionsLegend
-          tier={competitions.tier}
-          tease={hasFreeTease(competitions, visibleGameweeks)}
-        />
-      )}
+      {layer && (view === 'detailed' ? <TimelineLegend /> : view === 'compact' ? <CompactLegend /> : null)}
 
       {/* Board */}
       <div className={`${CARD_BASE} ${CARD_ACCENT.turquoise.border}`}>
@@ -354,7 +384,7 @@ export function FixturesBoard({
               ))}
             </div>
           )}
-          {view === 'compact' && <FixtureCompactGrid data={data} onAsk={onAsk} extrasFor={extrasFor} />}
+          {view === 'compact' && <FixtureCompactGrid data={data} onAsk={onAsk} extrasFor={extrasFor} layerActive={layer !== null} />}
           {view === 'tendency' && (
             <div>
               {data.teams.map((t) => (
@@ -396,6 +426,11 @@ export function FixturesBoard({
               <span className="hidden text-[clamp(10px,1vw,15px)] font-bold text-bf-gray lg:inline">
                 Fácil → difícil · ◯ racha favorable · ◯ racha difícil
               </span>
+              {layer && presentationMode && (
+                <span className="hidden lg:inline">
+                  <TimelineLegend />
+                </span>
+              )}
             </div>
             <button
               type="button"
@@ -406,7 +441,12 @@ export function FixturesBoard({
             </button>
           </div>
           <div className="min-h-0 flex-1 overflow-hidden">
-            <FixtureCompactGrid data={data} presentation extrasFor={extrasFor} />
+            {layer ? (
+              // The timeline only exists while presenting: the overlay is otherwise a hidden copy of the board.
+              presentationMode && <PresentationTimeline data={data} extrasFor={extrasFor} />
+            ) : (
+              <FixtureCompactGrid data={data} presentation />
+            )}
           </div>
         </div>
     </div>
