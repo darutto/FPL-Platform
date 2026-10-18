@@ -86,7 +86,7 @@ describe('buildTimeline (premium)', () => {
     expect(tile.sentence).toBe('Europa League ante Sturm Graz (visitante)');
     expect(extraSentence(tile.match)).toBe(tile.sentence);
     const goldGap = items.flatMap((i) => (i.kind === 'pl' && i.gap?.rotation ? [i.gap] : []))[0];
-    expect(goldGap.sentence).toBe('2 días de descanso antes de Rival 8: posible rotación');
+    expect(goldGap.sentence).toBe('Su equipo jugó Europa League hace 2 días. Todavía no hay evidencia suficiente para cuantificar el riesgo de rotación.');
   });
 
   test('matches outside the visible window, or with no gameweek, do not appear', () => {
@@ -151,7 +151,7 @@ describe('compactGutter (the strip before a gameweek column in Compacto)', () =>
 
   test('the detail line names the team, each match, and the rotation clause when there is one', () => {
     expect(gutterSentence('ARS', compactGutter(team, 8))).toBe(
-      'ARS · Champions League ante Sturm Graz (visitante) · 2 días de descanso antes de Rival 8: posible rotación',
+      'ARS · Champions League ante Sturm Graz (visitante) · Su equipo jugó Champions League hace 2 días. Todavía no hay evidencia suficiente para cuantificar el riesgo de rotación.',
     );
     expect(gutterSentence('ARS', compactGutter(team, 9))).toBe(
       'ARS · Europa League ante Sturm Graz (visitante) · Carabao Cup ante Sturm Graz (visitante)',

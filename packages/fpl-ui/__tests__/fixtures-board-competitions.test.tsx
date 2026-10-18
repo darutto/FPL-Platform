@@ -109,6 +109,7 @@ describe('FixturesBoard multi-competition layer (timeline)', () => {
     expect(gold).toHaveTextContent('2d');
     expect(gold.className).toMatch(/text-bf-gold/);
     expect(within(lane).getByTestId('rotation-gap')).toBeInTheDocument();
+    expect(within(lane).getByTestId('rotation-gap')).toHaveAccessibleName('2 días tras Champions League');
 
     // No sentence in any cell: the detail line is empty until something is picked.
     const detail = within(lane).getByTestId('competition-detail');
@@ -120,7 +121,7 @@ describe('FixturesBoard multi-competition layer (timeline)', () => {
     fireEvent.keyDown(lane, { key: 'Escape' });
     expect(detail).toBeEmptyDOMElement();
     act(() => within(lane).getByTestId('rotation-gap').focus());
-    expect(detail).toHaveTextContent('2 días de descanso antes de Everton: posible rotación');
+    expect(detail).toHaveTextContent('Su equipo jugó Champions League hace 2 días. Todavía no hay evidencia suficiente para cuantificar el riesgo de rotación.');
     expect(tile).toHaveAccessibleName('Champions League ante FC Bayern München (visitante)');
 
     // The legend: one line with the colours and what a gold number means.
@@ -208,7 +209,7 @@ describe('FixturesBoard multi-competition layer (timeline)', () => {
     expect(screen.queryByTestId('compact-detail')).toBeNull();
     fireEvent.click(arsenalGutter);
     expect(screen.getByTestId('compact-detail')).toHaveTextContent(
-      'ARS · Champions League ante FC Bayern München (visitante) · 2 días de descanso antes de Everton: posible rotación',
+      'ARS · Champions League ante FC Bayern München (visitante) · Su equipo jugó Champions League hace 2 días. Todavía no hay evidencia suficiente para cuantificar el riesgo de rotación.',
     );
     fireEvent.keyDown(arsenalGutter, { key: 'Escape' });
     expect(screen.queryByTestId('compact-detail')).toBeNull();
