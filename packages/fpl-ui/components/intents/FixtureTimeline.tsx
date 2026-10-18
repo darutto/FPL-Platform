@@ -28,6 +28,7 @@ import {
 import {
   buildTimeline,
   competitionColor,
+  competitionTileLabel,
   type GapInfo,
   type TeamExtras,
   type TimelineItem,
@@ -198,7 +199,7 @@ function ExtraTile({
   const inner = (
     <>
       <span className="font-normal uppercase leading-none tracking-[0.1em]" style={{ fontSize: m.siglaFont, color }}>
-        {item.match.competition === 'UEFA-SC' ? 'SC' : item.match.competition}
+        {competitionTileLabel(item.match.competition)}
       </span>
       {presentation ? (
         <span className="flex items-baseline gap-[0.2em] leading-none">
