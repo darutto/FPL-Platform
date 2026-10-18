@@ -70,3 +70,15 @@ Una lesión previa no implica que estuviera descartado en el partido. **Las baja
 ## Qué se entrega
 
 Un informe en español `2026-10-18-historical-backtests-sportmonks.md` (la fecha de creación; si se entrega otro día se usará la fecha de entrega) y scripts bajo `packages/football-intelligence/scripts/historical_backtests/`. Borrador de PR, sin mergear. Resultados por prueba según se terminen. Plazo: antes del jueves 22 para la decisión del 23 de octubre.
+
+---
+
+## Enmienda 1: precondición de identidad por temporada (pedida por fpl-platform-22)
+
+Escrita **antes de ver ningún resultado** y antes de abrir los datos nuevos. Sustituye a la frase del plan sobre "nombre y fecha de nacimiento".
+
+- **Se reutiliza el emparejador del registro de identidades** que usó el trial de 2026-27: `match_player` de `football_identity_registry`, llamado a través de las funciones de `packages/sportmonks-client/scripts/trial_mapping.py` (`fpl_people`, `source_players`, `fpl_side`). **No se escribe ningún emparejador nuevo**, no se añaden niveles de coincidencia ni alias ni emparejamiento difuso.
+- **Una ejecución por temporada** (2024-25 y 2025-26; 2026-27 ya tiene la suya), contra los jugadores de FPL de **esa** temporada (tabla de jugadores del almacén propio) y el conjunto de jugadores de Sportmonks de esa temporada. Evidencia usada: nombre, **club en la fecha** (el club del jugador en la temporada, con la comprobación G), **posición**, y fecha de nacimiento **solo donde las dos partes la tienen** (el almacén histórico de FPL no guarda fecha de nacimiento: si falta en FPL, el emparejamiento va sin ella y se dice).
+- **Tasa de emparejamiento automático** = jugadores de FPL con minutos en esa temporada que el emparejador resuelve entre todos los jugadores de FPL con minutos. Se informa por temporada, junto con la lista de los **no emparejados** (nombre, club, posición, minutos) para revisión. Se **excluyen** de H1 a H4 y **no se corrigen a mano**.
+- **Precondición (aprobado o suspendido, por temporada):** la tasa debe ser **al menos del 95 %**, el mismo umbral que el trial de 2026-27 (`GATE_PERCENT = 95.0`). Si una temporada no llega, sus resultados se calculan y se publican como descriptivos, **marcados "precondición de identidad no cumplida"**, y **no cuentan para los criterios de aprobado** de H1 a H4. Si lo incumple 2025-26 (la temporada de confirmación), ningún criterio de aprobado se evalúa y el informe lo dice en la primera línea.
+- Esta precondición se evalúa antes que cualquier prueba, y su resultado (tasa, lista de no emparejados) se entrega a fpl-platform-22 antes de H1.
