@@ -1,7 +1,9 @@
 # Capture C and matchup questions Q9–Q11 (2026-10-18)
 
 Aggregates, field names and public player names only; no raw payloads, no provider ids. Raw files stay in
-`trial-output/` (git-ignored); script: `packages/football-intelligence/scripts/capture_c.py`. Everything here is
+`trial-output/` (git-ignored). The capture was a **one-off local script, not committed** (it called the API directly
+instead of through the guarded client, so it stays off main); the endpoints and includes it used are listed in §1. The
+aggregation (Q9–Q11) used no network. Everything here is
 **retrospective** (read on Sat 17 Oct for matches already played): it says what the provider returns today, not what was
 knowable before each gameweek, except where marked.
 
