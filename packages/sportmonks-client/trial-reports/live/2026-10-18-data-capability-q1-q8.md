@@ -1,6 +1,6 @@
 # Prueba de capacidad de los datos, sin LLM: preguntas Q1 a Q8 (18 oct 2026)
 
-Encargo aprobado por Leo el 2026-10-18. Cada pregunta se responde directamente desde los datos con scripts propios (`packages/sportmonks-client/scripts/data_capability_q1_q8/`), sin modelo de lenguaje. Descriptiva sobre el pasado: sin congelado ni sello. Cero llamadas nuevas a Sportmonks; las llamadas a la API pública de FPL (bootstrap y `element-summary`) sí se hicieron.
+Encargo aprobado por Leo el 2026-10-18. Cada pregunta se responde directamente desde los datos con scripts propios (`packages/football-intelligence/scripts/data_capability_q1_q8/`), sin modelo de lenguaje. Descriptiva sobre el pasado: sin congelado ni sello. Cero llamadas nuevas a Sportmonks; las llamadas a la API pública de FPL (bootstrap y `element-summary`) sí se hicieron.
 
 Escrito para: Leo y el revisor, para validar los hallazgos con Sofascore o la tele.
 

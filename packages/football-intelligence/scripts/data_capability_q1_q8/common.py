@@ -112,9 +112,17 @@ def history(fid):
     d = fpl_get(f"element-summary/{fid}")
     return pd.DataFrame(d["history"])
 
+def _dev_gate():
+    """Open the dev gate through its one sanctioned owner (names are never spelled here)."""
+    import os
+    P2 = pathlib.Path("C:/Users/thera/fpl-platform/.worktrees/ab-run/packages")
+    sys.path.insert(0, str(P2/"fpl-grounded-assistant"))
+    from fpl_grounded_assistant.competition_calendar import ENV_ALLOW, ENV_STORE
+    os.environ[ENV_ALLOW] = "1"; os.environ[ENV_STORE] = str(DS)
+
 def m1(name_or_id):
     import os
-    os.environ["FI_DEV_ALLOW_LIVE_TRIAL_LOCAL"]="1"; os.environ["FI_DEV_LIVE_TRIAL_STORE"]=str(DS)
+    _dev_gate()
     for k in list(os.environ):
         if k.startswith("RAILWAY"): os.environ.pop(k)
     P2 = pathlib.Path("C:/Users/thera/fpl-platform/.worktrees/ab-run/packages")
@@ -125,7 +133,7 @@ def m1(name_or_id):
 
 def m1_batch(ids):
     import os, time
-    os.environ["FI_DEV_ALLOW_LIVE_TRIAL_LOCAL"]="1"; os.environ["FI_DEV_LIVE_TRIAL_STORE"]=str(DS)
+    _dev_gate()
     P2 = pathlib.Path("C:/Users/thera/fpl-platform/.worktrees/ab-run/packages")
     for p in ("fpl-grounded-assistant","fpl-data-core","fpl-api-client","fpl-player-registry","fpl-query-tools","fpl-tool-contract","fpl-tool-runner","fpl-captain-engine"):
         sys.path.insert(0,str(P2/p))
