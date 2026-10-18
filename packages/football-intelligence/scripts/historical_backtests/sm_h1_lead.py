@@ -23,7 +23,7 @@ def signal_series(rows):
 
 
 if __name__ == "__main__":
-    E = pd.read_pickle("sm_h1_events.pkl"); B = pd.read_pickle("sm_bridge.pkl")
+    E = pd.read_pickle("sm_h1_events.pkl"); B = pd.read_pickle(sys.argv[1] if len(sys.argv) > 1 else "sm_bridge.pkl")
     for s in ("2024-2025", "2025-2026"):
         rows, _, _ = load_season(s); rows = rows.sort_values(["player_id", "kick"])
         fin = B[s]["final"]; ev = E[(E.season == s) & (E.c == 1) & (~E.team_driven)]

@@ -111,3 +111,15 @@ Cambio: un puente de identidad **sin llamadas**, con datos ya validados.
 - Se informan la tasa nueva de 2025-26 y el pasa/falla de la puerta del 95 %. 2024-25 queda en 86,30 % porque su almacén no tiene `code`.
 - Se listan los **50 jugadores rechazados antes** con su tipo FPL y su rol de alineación: es un hallazgo en sí mismo.
 - Etiquetas: el veredicto preinscrito sigue siendo **descriptivo**; las enmiendas 2 y 3 se informan por separado como **posteriores al gate**.
+
+---
+
+## Enmienda 4: re-captura con nombre y fecha de nacimiento (aprobada por Leo, máximo 40 llamadas)
+
+Escrita **antes de calcular ninguna tasa de identidad con los datos nuevos**.
+
+- **Captura hecha.** Páginas de la Premier de 2024-25 y 2025-26 con `include=lineups.player;participants`, `per_page=50` (la sonda de la primera página devolvió 50 partidos, 1.998 filas de alineación, todas con jugador y fecha de nacimiento). **16 llamadas de las 40 aprobadas** (8 por temporada). El token sale de la variable de entorno de Windows, no se imprime ni se guarda; contador persistente con tope duro de 40; parada ante la primera respuesta distinta de 200; sin redirecciones; los ficheros crudos quedan en `trial-output/past_players/` (git-ignorado).
+- **Identidad.** Se vuelve a medir con el **procedimiento exacto del trial de 2026-27** (`fpl_side` de `trial_mapping.py`: primera pasada con el nombre completo del proveedor, segunda pasada con `display_name` y fecha de nacimiento, con las mismas guardas de club), sobre los registros de jugador reales (`name`, `display_name`, `common_name`, `date_of_birth`, posición y club). Es un solo camino: ya no se usa el puente por `code` de las enmiendas 2 y 3. La fecha de nacimiento de FPL existe solo en 2025-26 (tabla `parquet/players.parquet`); en 2024-25 el almacén de FPL no la tiene, así que ahí el emparejamiento va por nombre y no puede usar el nivel de fecha de nacimiento. Los jugadores sin minutos no cuentan; no hay lista de «jugadores que se fueron de la liga» para las temporadas pasadas, así que el denominador son todos los jugadores FPL con minutos.
+- **Precondición:** la misma de siempre, al menos 95 % por temporada. Se informa por temporada.
+- **Qué pasa según el resultado:** una temporada que llegue al 95 % cumple la precondición; para esa temporada **se evalúan los criterios de aprobado de H1 a H4 exactamente como estaban escritos** (con el emparejamiento nuevo para los comparadores de FPL) y se informa como «lectura tras la re-captura», separada de la lectura descriptiva anterior, que se conserva. Si 2025-26 llega y 2024-25 no, la confirmación es válida y el desarrollo queda como descriptivo. Si ninguna llega, todo sigue descriptivo.
+- **Sin cambio:** las definiciones de H1 a H4, los umbrales y las listas fijadas antes del partido no se tocan. Ningún resultado de H1 a H4 se ha vuelto a calcular antes de escribir esto.
