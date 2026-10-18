@@ -1999,6 +1999,61 @@
         "Web"
       ],
       "progress": 100
+    },
+    {
+      "id": "i153",
+      "col": "idea",
+      "progress": 0,
+      "tags": [
+        "Backend",
+        "Seguridad"
+      ],
+      "title": "El backend confía en X-User-Tier de cualquiera",
+      "desc": "HALLADO 2026-10-15. _extract_user_context acepta la cabecera X-User-Tier sin comprobar quién llama, y Railway es público: cualquiera puede hacerse pasar por Premium. ARREGLO: aceptar el tier solo junto con X-Internal-Token; usar el helper tier_of(request), que ya existe, y convertir el test xfail en test normal. Hay que cerrarlo ANTES de que llegue a prod cualquier contenido de pago (calendario Premium #464, extras de Sportmonks)."
+    },
+    {
+      "id": "i154",
+      "col": "idea",
+      "progress": 0,
+      "tags": [
+        "Datos"
+      ],
+      "title": "Export FDR de prod desactualizado",
+      "desc": "HALLADO 2026-10-16. El export FDR de prod dice «calculado con GW3» y su última actualización es del 10 de septiembre. Revisar el cron o paso que lo regenera y añadir un sello de fecha comparado contra una fuente independiente (regla de provenance)."
+    },
+    {
+      "id": "i155",
+      "col": "idea",
+      "progress": 0,
+      "tags": [
+        "FI",
+        "Modelos"
+      ],
+      "title": "M1: el ajuste por calendario congestionado no está calibrado",
+      "desc": "DECIDIDO POR LEO 2026-10-18, tras la prueba de datos Q4–Q6 (#472). La titularidad no cae con poco descanso: 76 % con ≤3,5 días frente a 76 % con >8 días (n=534). Tras Europa hay +0,6 cambios por par (n=12). El congestion damping de M1 es una heurística determinista sin calibrar. Marcarlo como «no calibrado» en el contrato y en las explicaciones; no mostrar su efecto como probabilidad contrastada. No tocar la fórmula hasta la prueba F (M1 en 3 versiones)."
+    },
+    {
+      "id": "i156",
+      "col": "idea",
+      "progress": 0,
+      "tags": [
+        "FI",
+        "Datos"
+      ],
+      "title": "Tres estados de participación: no titular / no jugó / no disponible",
+      "desc": "DECIDIDO POR LEO 2026-10-18. En Q7 Schade (BRE, 17 oct) se contó como ausente cuando salió del banquillo y jugó 45 min. El motor y las explicaciones deben separar not_started, did_not_play y unavailable (lesión o sanción confirmada), y una lesión previa no implica que estuviera descartado. PUERTA: tests con un suplente que juega, uno que no juega y un lesionado registrado."
+    },
+    {
+      "id": "i157",
+      "col": "idea",
+      "progress": 0,
+      "tags": [
+        "FI",
+        "UI",
+        "Premium"
+      ],
+      "title": "Oportunidades por cambios en el once",
+      "desc": "PROPUESTA 2026-10-18 tras Q8 (#472): 23 de 33 titulares que perdieron el puesto tienen un sustituto directo en su hueco, casi todos con <3 % de propiedad (Barcola por Gakpo, Matheus Nunes por Khusanov, Grealish por George). Tarjeta Premium que muestre quién ocupa una posición nueva, a quién desplazó, desde cuándo y con cuánta evidencia (n, fechas), sin recomendar compras ni afirmar causas. SOLO DISEÑO: se construye si la prueba J (anticipación con datos disponibles antes de la jornada siguiente, comparada con una regla solo FPL) muestra valor."
     }
   ]
 }
