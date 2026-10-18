@@ -118,6 +118,9 @@ const NAMES: Record<string, string> = {
 };
 export const competitionName = (badge: string): string => NAMES[badge] ?? badge;
 
+/** The shortest label the calendar shows for a competition: the code on its tile (the Super Cup shows «SC»). */
+export const competitionTileLabel = (badge: string): string => (badge === 'UEFA-SC' ? 'SC' : badge);
+
 /**
  * Outline colour of a competition's tile (iteration-2 design). The app's `bf-*` tokens
  * carry no competition hues, so they live here, next to the only code that uses them.
@@ -186,7 +189,7 @@ function gapFor(
 ): GapInfo | null {
   if (restWholeDays === null) return null;
   if (!rotation) return { days: restWholeDays, rotation, sentence: `${daysWord(restWholeDays)} de descanso` };
-  const comp = previousCompetition ? competitionName(previousCompetition) : 'otra competición';
+  const comp = previousCompetition ? competitionTileLabel(previousCompetition) : 'otra competición';
   return {
     days: restWholeDays,
     rotation,
@@ -267,7 +270,7 @@ export function compactGutter(extras: TeamExtras | null, gameweek: number): Comp
   return { matches, rotation };
 }
 
-/** The line a tapped bar opens, e.g. «ARS · Champions League ante Lille (local) · Su equipo jugó Champions League hace 3 días. Todavía no hay evidencia suficiente para cuantificar el riesgo de rotación.». */
+/** The line a tapped bar opens, e.g. «ARS · Champions League ante Lille (local) · Su equipo jugó UCL hace 3 días. Todavía no hay evidencia suficiente para cuantificar el riesgo de rotación.». */
 export function gutterSentence(team: string, gutter: CompactGutter): string {
   const parts = gutter.matches.map(extraSentence);
   if (gutter.rotation && gutter.rotation.restWholeDays !== null) {
