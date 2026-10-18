@@ -89,6 +89,8 @@ class _Runtime:
     context_fixtures: pd.DataFrame
     context_schedule: pd.DataFrame
     team_targets: pd.DataFrame
+    #: "live_trial_local" only when served through the dev gate (see ``dev_live_trial_store``).
+    provenance: str | None = None
 
 
 def _load_runtime(root: Path | None = None) -> _Runtime | None:
@@ -97,9 +99,15 @@ def _load_runtime(root: Path | None = None) -> _Runtime | None:
     from football_intelligence.features.store_v2 import validate_feature_build_v2
     from football_intelligence.ingestion.builder_v2 import validate_context_build
 
-    selected_root = root or Path(
+    dev_root = None
+    if root is None:
+        from .competition_calendar import dev_live_trial_store
+
+        dev_root = dev_live_trial_store()
+    selected_root = root or dev_root or Path(
         os.environ.get("FPL_FOOTBALL_ROOT", "data/football")
     )
+    dev = dev_root is not None and selected_root == dev_root
     feature_root = selected_root / "features"
     feature_build = _pointer_build(
         feature_root,
@@ -123,7 +131,7 @@ def _load_runtime(root: Path | None = None) -> _Runtime | None:
     if feature_build is None or context_build is None:
         return None
 
-    base = RuntimeBuildHandle(selected_root)
+    base = RuntimeBuildHandle(selected_root, allow_live_trial_local=dev)
     try:
         context_manifest = validate_context_build(context_build)
     except ValueError as exc:
@@ -134,8 +142,9 @@ def _load_runtime(root: Path | None = None) -> _Runtime | None:
     # A store built from live trial reads is local to the trial and is never served.
     from football_intelligence.provenance import refuse_live_trial
 
-    refuse_live_trial(context_manifest, "assistant runtime (context)")
-    refuse_live_trial(feature_manifest, "assistant runtime (features)")
+    if not dev:
+        refuse_live_trial(context_manifest, "assistant runtime (context)")
+        refuse_live_trial(feature_manifest, "assistant runtime (features)")
     context_fixtures = pd.read_parquet(
         context_build / context_manifest["entity_files"]["fixtures"]
     )
@@ -156,6 +165,7 @@ def _load_runtime(root: Path | None = None) -> _Runtime | None:
         context_fixtures=context_fixtures,
         context_schedule=context_schedule,
         team_targets=team_targets,
+        provenance="live_trial_local" if dev else None,
     )
 
 
@@ -545,6 +555,19 @@ def run_football_intelligence_tool(
     runtime = _load_runtime()
     if runtime is None:
         return _missing("feature_build_unavailable")
+    result = _run_loaded(runtime, name, args, bootstrap)
+    if getattr(runtime, "provenance", None):
+        # Dev gate only: the answer is built from the local trial store and must say so in the trace.
+        result = {**result, "provenance": runtime.provenance}
+    return result
+
+
+def _run_loaded(
+    runtime: _Runtime,
+    name: str,
+    args: dict[str, Any],
+    bootstrap: dict[str, Any],
+) -> dict[str, Any]:
     identities = _identity_tables(runtime.root, runtime.calculated_at)
     if identities is None:
         return _missing("identity_context_unavailable")
