@@ -1,84 +1,95 @@
 # A/B de profundidad de respuesta: FPL solo vs FPL + Sportmonks (GW7, 18 oct 2026)
 
-Experimento aprobado por Leo el 2026-10-17. Mismo chat, mismo modelo, mismas 15 preguntas. Brazo A = FPL solo. Brazo B = FPL + las herramientas de Football Intelligence (FI) leyendo el almacén local del trial.
+Experimento aprobado por Leo el 2026-10-17. Mismo chat, mismo modelo, mismas 15 preguntas. Brazo A = FPL solo. Brazo B = FPL + las herramientas de Football Intelligence (FI) leyendo un almacén local del trial, por una vía de desarrollo (PR #471, borrador).
 
 ## Resultado en una línea
 
-**El brazo B no se pudo ejecutar.** El runtime de las herramientas FI rechaza por diseño un almacén `live_trial_local`, y las variables de desarrollo no lo abren. No se tocó ningún guard. El brazo A se ejecutó y quedó congelado mucho antes de la hora límite.
+**El brazo B funcionó, pero el modelo llamó a una herramienta FI en 1 de 15 preguntas (la Q7, 4 llamadas a `get_tactical_role`).** En las otras 14 no tocó FI, así que sus diferencias con A son variación del modelo con las mismas herramientas FPL, no efecto de Sportmonks. Con esta muestra no se puede decir que FI mejore las respuestas; sí se puede decir qué hace falta para que las mejore (ver "Qué enseña").
+
+## Qué pasó con los sellos (hay un fallo mío, va primero)
+
+- **El `frozen.json` original del brazo A se sobrescribió por un error.** Fecha y hora: 2026-10-18T00:26:52Z. El original (sha256 `101203f1c054354a72957eca46c367b0b45a1c74e80d8a763f4ce5490c3b0806`, congelado a 2026-10-17T21:07:15Z) ya no existe.
+- **Cómo ocurrió.** Para sellar el brazo B corrí `freeze --arm B`. Había editado el script para que el sello de B se escribiera aparte (`frozen_B.json`) y no se pudiera sobrescribir nada, pero una de las dos sustituciones de texto no se aplicó (la hice con un script de Python en el que `\n` llegó como salto de línea real y no coincidió). No lo comprobé antes de correr el comando. El script siguió escribiendo en `frozen.json` con `write_text` y sin mirar si ya existía, y dejó dentro solo el brazo B.
+- **Lo que sigue válido.** `answers_A.jsonl` no se tocó. Su sha256 es `a3c28c5d95809c7859fb5fe084213c605fabcab36d520083f2b8b0b097f96b9e`, el mismo que figuraba en el informe anterior y en el sello original. Ese es el registro válido de la versión A. No se ha generado ningún sello nuevo de A ni se ha reconstruido el original (intenté reproducir sus bytes en memoria con dos variantes y ninguna coincidió con el hash; no escribí nada).
+- **Estado de la carpeta ahora.** `frozen.json` y `frozen.sha256` contienen solo el brazo B (sha256 `c0b0bc0d…6467f95`). Antes de ver el problema copié esos dos ficheros a `frozen_B.json` y `frozen_B.sha256`: son copias con `cp`, no un resultado del script de sellado. Lo dejo como está. **La decisión sobre qué vale como sello de B (y qué hacer con el `frozen.json` duplicado) es del revisor.**
+- **¿Puede pasar lo mismo con `frozen_B.json`?** Con el script que había en el momento del error, sí: cualquier `freeze` repetido reescribía `frozen.json`. `frozen_B.json` no lo produce el script, así que el comando no lo toca; pero cualquier cosa que lo borre o lo copie encima lo pisa igual. El script en este PR ya está corregido: cada sello se escribe en modo "crear, no sobrescribir" (`open("x")`) y se niega si el fichero existe. **Esa corrección no se ha ejecutado**, porque se me pidió no correr más sellados; está revisada solo leyendo el código.
+- `blind` ahora lee `answers_A.jsonl` y `answers_B.jsonl` directamente (no los sellos), para que un sello perdido no bloquee la evaluación.
 
 ## Congelado
 
 | | |
 |---|---|
-| Congelado a las | 2026-10-17T21:07:15Z (límite: 2026-10-18T12:30:00Z) |
-| sha256 de `frozen.json` | `101203f1c054354a72957eca46c367b0b45a1c74e80d8a763f4ce5490c3b0806` |
-| sha256 de `answers_A.jsonl` (crudo) | `a3c28c5d95809c7859fb5fe084213c605fabcab36d520083f2b8b0b097f96b9e` |
+| Brazo A: congelado | 2026-10-17T21:07:15Z (sello original perdido, ver arriba) |
+| Brazo A: sha256 de `answers_A.jsonl` | `a3c28c5d95809c7859fb5fe084213c605fabcab36d520083f2b8b0b097f96b9e` |
+| Brazo B: ejecutado | 2026-10-18T00:19Z a 00:26Z (límite: 2026-10-18T12:30:00Z) |
+| Brazo B: sha256 de `answers_B.jsonl` | `07261ec0f70b59984fde1325d3d5073b4030e2a32f57af21661b2e35f5096408` |
+| Brazo B: sello (copia, pendiente de decisión) | `frozen_B.json`, sha256 `c0b0bc0daab41da31061e9133a2eb2f1b9f76c1d7067dab4c98a7b02d6467f95`, frozen_at 2026-10-18T00:26:52Z |
+| Páginas ciegas y clave | `blind/q01.html … q15.html`, `blind_key.json` (sha256 `b910ecba…70e24e`, semilla 20261018) |
 | Ubicación (local, git-ignored) | `wt-fi9-live/packages/sportmonks-client/trial-output/answer-depth-ab/` |
 
-## Por qué el brazo B está bloqueado (exacto)
+B se ejecutó antes de cualquier partido del domingo y todos los partidos de las preguntas son posteriores a esa hora. Ninguna pregunta se marca "después del pitido inicial".
 
-1. Las variables de desarrollo (`ENV_ALLOW` / `ENV_CAPTURE` de `competition_calendar.py`) abren **solo** `GET /fixtures/competitions`, es decir, el calendario multicompetición. Ese endpoint no es una herramienta del chat: el orquestador nunca lo llama.
-2. Las herramientas FI del chat (`get_player_intelligence`, `get_expected_minutes`, `get_tactical_role`, `get_fixture_context`) pasan por `football_intelligence_runtime._load_runtime()`. Esa función:
-   - abre el almacén con `RuntimeBuildHandle(root)` con `allow_live_trial_local=False` fijo. El código dice: "Only the trial's own analysis scripts set this. The serving runtime never does.";
-   - después llama a `refuse_live_trial()` sobre los manifiestos de contexto y de features **sin ninguna excepción por variable de entorno** (#424);
-   - el almacén del trial (`runs/gw6-final/store`, built_at 2026-10-13) lleva `assumption_status = live_trial_local` y `normalizer = live-trial-v1`.
-3. Además, la estructura de carpetas no coincide. El runtime espera `_football_latest.json`, `_football_v2_latest.json`, `features/` e `identity/` en la raíz. El almacén del trial tiene `context/`, `features/`, `source/` y `v1/<competición>/`, y no tiene `identity/`. Con `FPL_FOOTBALL_ROOT` apuntando a `store` o a `store2`, el runtime devuelve `None` y la herramienta responde `missing_context / feature_build_unavailable`. Una copia reordenada en scratch (borrada después) se paró en la validación de punteros (`RemoteValidationError`), antes de llegar al rechazo de procedencia.
-4. Aunque se abriera, el almacén solo llega hasta GW6 (construido el 13 oct). No tiene datos de GW7.
+## Cómo se abrió el brazo B
 
-Para desbloquearlo hace falta una decisión, no un truco: una vía de desarrollo explícita en el runtime del asistente (por ejemplo, el mismo `allow_live_trial_local` que usan los scripts del trial, detrás de las dos variables de desarrollo, con su test de "nunca en prod"), más un almacén construido con la estructura que espera el runtime. Es un cambio de guard, y le toca decidirlo a c4 y Leo.
+1. **Vía de desarrollo (PR #471, borrador, sin mergear).** `football_intelligence_runtime._load_runtime()` acepta un almacén `live_trial_local` solo si se cumplen las tres a la vez: `FI_DEV_ALLOW_LIVE_TRIAL_LOCAL=1`, un directorio explícito en `FI_DEV_LIVE_TRIAL_STORE` (la variable de captura existente apunta a un fichero, no a un almacén) y ninguna variable de entorno de Railway presente. Por defecto sigue rechazando. Todo resultado servido así lleva `provenance: live_trial_local`; en B lo llevaron las 4 llamadas FI de la Q7.
+2. **Nota para el revisor.** `competition_calendar` no tiene comprobación de prod en código: se apoya en que sus variables no aparezcan en ficheros de despliegue (hay un test que lo vigila). La vía nueva añade además la comprobación de Railway; nunca es más débil. No toqué el calendario.
+3. **Almacén (`build_fi_dev_store.py`, en este PR).** Copia el almacén de `runs/gw6-final` (sin reconstruir, sin llamadas a Sportmonks) a la estructura que espera el runtime y escribe `identity/` desde la misma captura (529 jugadores, 20 equipos). Dos cosas que no estaban en el almacén del trial: el puntero `_football_latest.json` debía tener el esquema "remoto" (`manifest_hash`, `published_at`, `publisher_version`) y faltaba `identity/`. Las tablas de identidad de partidos y competiciones se dejaron vacías: solo las necesita `get_fixture_context` con un id de partido explícito.
+4. **Alcance de los datos: solo GW1 a GW6**, construido el 2026-10-13 (`calculated_at` 2026-10-13T01:49:11Z). No sabe nada de GW7.
 
-## Configuración del brazo A (leída de la traza, no de la configuración)
+## Configuración del brazo B (leída de la traza)
 
-- Modelo real en el audit trace: **openai / gpt-5.6-luna en 15 de 15 preguntas**. El orquestador y el resolver se fijaron a openai/luna; el `.env` local apunta a Gemini.
-- `FOOTBALL_INTELLIGENCE_ENABLED` apagado. Bootstrap FPL en vivo (GW7 en curso, deadline de GW8 el 23 oct). team_id 68643 solo en la Q15.
-- Cambio de jugador: **Salah no aparece en el bootstrap del 17 oct**. La Q12 usa a Szoboszlai, el MID más elegido del Liverpool (21,4 %).
-- Limitación local: aquí no hay almacén zonal (Understat) de 2026-27, así que la Q8 salió `unsupported`. En prod podría salir distinta.
-- El chat hizo **13 `web_fetch`** (Q1, Q6, Q7 y Q9). Parte de lo que el brazo A sabe "fuera de FPL" sale de la web, no de Sportmonks.
+- Modelo real en el audit trace: **openai / gpt-5.6-luna en 15 de 15 preguntas**. Orquestador y resolver fijados a openai/luna (el `.env` local apunta a Gemini). Coste estimado según el audit: unos 0,05 USD.
+- `FOOTBALL_INTELLIGENCE_ENABLED` encendido, team_id 68643 solo en la Q15, Q12 con Szoboszlai igual que en A (Salah ya no juega en la Premier League). Cero llamadas nuevas a Sportmonks.
+- Igual que en A: sin almacén zonal 2026-27 local (Q8 `unsupported_intent` en los dos brazos) y las preguntas Q1, Q6 y Q9 usan `web_fetch`. Parte de lo que se sabe "fuera de FPL" viene de la web, no de Sportmonks.
 
-## Medidas por pregunta (brazo A; brazo B = no ejecutado)
+## Tabla A contra B por pregunta
 
-Hechos = afirmaciones concretas y comprobables. "Fuera de FPL" = hechos que FPL no puede dar. Erróneos = comprobados contra el bootstrap y el `/fixtures` del 17 oct.
+"Herr. FI" = herramienta FI llamada en B. "Hechos que FPL no tiene" = hechos que solo pudo dar FI. "Cambia la recomendación" compara el veredicto de A con el de B. Nada de esto está corregido contra el resultado real todavía.
 
-| Q | Herramientas (A) | Hechos | Fuera de FPL | Erróneos o inventados | Nota |
+| Q | Herr. FI (B) | Hechos que FPL no tiene (B) | Erróneos o inventados | Cambia la recomendación | Nota |
 |---|---|---|---|---|---|
-| 1 Bruno titular | web_fetch, get_gameweek_context | 0 | 0 | 0 | "No se puede confirmar" |
-| 2 Saka juega | get_player_snapshot ×2 | 2 | 0 | 0 | Disponible; sin XI previsto |
-| 3 Defensa ARS | get_transfer_suggestion, get_team_schedule | 14 | 0 | 0 | Calafiori |
-| 4 BHA portería a cero | get_fixture_outlook | 4 | 0 | 0 | "Buena posibilidad" (FDR 2) |
-| 5 Goleador BOU–SUN | team_snapshot ×2, compare_players, team_schedule ×2 | 10 | 0 | 0 | Brobbey |
-| 6 Laterales ARS | web_fetch ×2 | 2 | 2 (web) | 0 por ahora | Timber LD y Calafiori LI, previsión de la web; se comprueba el domingo |
-| 7 Posición real LEE/MUN | web_fetch ×6 | 1 | 0 | 0 | "No puedo confirmarlo" |
-| 8 Atacante ARS vs NFO | get_zonal_opportunity ×2 | 0 | 0 | 0 | `unsupported`: sin datos zonales |
-| 9 Rotación TOT | web_fetch ×4 | 0 | 0 | 0 | "Sin confirmación pública" |
-| 10 Diferencial SUN | differential_picks ×2, team_snapshot, injury_list | 17 | 0 | **1** | "Sunderland recibe al Leeds mañana": falso, mañana juega en Bournemouth (SUN–LEE es GW8) |
-| 11 Palmer GW8 | get_transfer_suggestion, get_player_snapshot | 14 | 0 | 0 | Sí, con reservas |
-| 12 Haaland vs Szoboszlai | captain_score ×2, rank_captain_candidates | 11 | 0 | 0 (1 omisión) | Haaland. Omite que Szoboszlai está lesionado (isquio, 0 %) |
-| 13 Portero barato | get_transfer_suggestion ×2 | 10 | 0 | 0 | Rushworth |
-| 14 DEF <5M más adelantados | rank_players_by_metric | 37 | 0 | 0 | Usa xGI como proxy; no tiene la posición real |
-| 15 Vender (68643) | get_my_squad, get_player_snapshot ×4 | 14 | 0 | 0 | Ødegaard |
-| **Total** | FI llamadas: 0 de 15 (FI apagado) | **136** | **2** | **1** | |
+| 1 Bruno titular | no | 0 | 0 | no | Los dos: "no se puede confirmar", mismo `web_fetch` |
+| 2 Saka juega | no | 0 | 0 | sí, a peor | A: "disponible"; B: dice que no puede confirmar disponibilidad. Variación del modelo |
+| 3 Defensa ARS | no | 0 | 0 | no | Calafiori en los dos. Precio 5,9 M (A) contra 6,0 M (B): no verificado (¿cambio de precio de la noche?) |
+| 4 BHA portería a cero | no | 0 | 0 | no | "Buena posibilidad", FDR 2, en los dos |
+| 5 Goleador BOU–SUN | no | 0 | 0 | no | Brobbey en los dos |
+| 6 Laterales ARS | no | 0 | 0 | sí, a peor | A daba Timber y Calafiori (de la web); B se niega |
+| 7 Posición real LEE/MUN | **sí, 4** | **3** | **1 sin base** | **sí** | A: "no puedo confirmarlo". B: Cunha es 83 % delantero (5 de 6 apariciones), Mbeumo y Rashford juegan de extremo. Dato correcto contra la salida de la herramienta. **Sin base:** "en el Leeds no hay discrepancia clara", pero no se consultó ningún jugador del Leeds (las 4 llamadas fueron Cunha, Mbeumo, Rashford y Dorgu). Dorgu: `missing_context` |
+| 8 Atacante ARS vs NFO | no | 0 | 0 | no | `unsupported_intent` en los dos |
+| 9 Rotación TOT | no | 0 | 0 | no | "Sin confirmación pública" en los dos |
+| 10 Diferencial SUN | no | 0 | 0 | sí, a peor | A: Brobbey (con el error de calendario "recibe al Leeds mañana"). B: "no tengo datos suficientes" y no repite el error |
+| 11 Palmer GW8 | no | 0 | 0 | **sí** | A: "buena compra con reservas". B: "razonable pero no prioritaria; mejor Groß o Iwobi". Cambio por variación, sin FI |
+| 12 Haaland vs Szoboszlai | no | 0 | 0 | no | Haaland en los dos. B no repite el 619/540 de A, pero tampoco dice que Szoboszlai está lesionado (omisión que ya tenía A) |
+| 13 Portero barato | no | 0 | 0 | no | Rushworth en los dos |
+| 14 DEF <5M más adelantados | no | 0 | 0 | sí, a peor | A: lista por xGI como proxy (37 hechos). B: "no tengo datos fiables de roles tácticos" y no llamó a FI |
+| 15 Vender (68643) | no | 0 | 0 | sí, a peor | A: vende a Ødegaard. B vuelca la plantilla sin recomendar nada |
+| **Total** | **1 de 15** | **3** | **1** | 7 de 15 cambian; 5 a peor, 1 a mejor (Q7), 1 neutro (Q11) | |
 
-Otras observaciones:
+Los errores heredados de A siguen sin ser de esta prueba (no los toqué, el revisor abre las tarjetas): `get_team_snapshot` lista partidos de GW8 con GW7 en curso (A lo leyó como "mañana" en la Q10; B esquivó el error contestando "sin datos"), y `get_captain_score` da a Haaland 619 minutos sobre 540 posibles (A lo cita en la Q12; en B no aparece en el texto, aunque la herramienta no se arregló).
 
-- **El único error es de origen.** `get_team_snapshot` lista los próximos partidos desde GW8 cuando GW7 está en curso, y el modelo leyó ese primer partido como "mañana".
-- **Un dato raro que sale de la herramienta, no del modelo (Q12):** `get_captain_score` le da a Haaland 619 minutos jugados sobre 540 disponibles (7 titularidades en 6 partidos). La respuesta lo repite como "minutos registrados superan los disponibles".
-- **Las preguntas donde el brazo A dice "no lo sé" son las que FI promete cubrir:** XI previsto (Q1, Q2, Q6), posición real (Q7, Q14), debilidad del rival (Q8) y rotación o calendario de Europa y copas (Q9). Esto es una hipótesis para el brazo B, no un resultado.
+## Qué enseña
 
-## Extractos (brazo A)
+1. **El modelo casi no usa FI.** Las 4 herramientas FI estaban disponibles y se usaron en 1 de 15. En preguntas que parecen hechas para FI (Q1, Q2, Q6 sobre XI previsto; Q9 sobre rotación; Q14 sobre posición real) eligió otras herramientas o `web_fetch`. Con esta muestra no se puede decir si es un problema de descripción de las herramientas o de que no encajan con la pregunta.
+2. **Las herramientas FI son por jugador.** Para la Q14 ("qué defensas juegan más arriba de lo que dice su posición") hace falta un ranking o filtro, no una consulta por jugador; el modelo lo vio y contestó que no tenía datos. Es la forma de la herramienta, no solo la cobertura.
+3. **Una vez llamado, FI aporta un hecho que FPL no tiene** (Q7, el rol real de Cunha), pero el modelo lo mezcló con una afirmación sin base sobre el Leeds. Cualquier uso real necesita que la respuesta diga qué jugadores se consultaron.
+4. **La variación entre ejecuciones es del mismo tamaño que cualquier efecto de FI.** Siete preguntas cambian la recomendación y solo una pasó por FI. Un A/B de 15 preguntas con una sola ejecución por brazo no separa ruido de efecto.
+5. **El almacén es de GW1 a GW6.** Para GW7/GW8 no tiene alineaciones ni minutos nuevos, así que aunque se llamara más, sería una vista de hace cinco días.
 
-> Q10: "**Partido:** Sunderland recibe al Leeds mañana; dificultad media." (falso: mañana es Bournemouth–Sunderland)
+## Extractos (brazo B)
 
-> Q7: "No puedo confirmarlo con seguridad solo con la clasificación de FPL: esta asigna una posición fija, mientras que la posición real puede variar…"
+> Q7: "**Matheus Cunha (Manchester United)**: aparece como centrocampista en FPL, pero su rol reciente es principalmente de delantero, aproximadamente el 83 % de sus apariciones analizadas."
 
-> Q8: "No hay datos zonales de Nottingham Forest disponibles para identificar qué atacante del Arsenal encaja mejor…"
+> Q14: "No tengo datos fiables sobre los roles tácticos o la altura media de los defensas, así que no puedo identificar cuáles juegan más adelantados de lo que indica su posición."
+
+> Q15: la respuesta es el volcado de los 15 jugadores de la plantilla, sin recomendación de venta.
 
 ## Después de los partidos (Q1–Q10)
 
-Placeholder: no se ha corregido nada todavía. Después del lunes 19 a las 21:30 UTC:
+Sin corregir todavía. Después del lunes 19 a las 21:30 UTC:
 
 ```
 cd packages/fpl-grounded-assistant
 python scripts/measure_fi_answer_depth_ab.py outcomes --gw 7 --out-dir <trial-output>/answer-depth-ab
 ```
 
-El comando escribe `outcomes_gw7.json` (minutos, titularidades, goles y porterías a cero de FPL; sin Sportmonks) y `grading_gw7.json`, con un veredicto vacío por pregunta. El veredicto de acierto o fallo lo pone una persona. Las páginas ciegas (`blind`) necesitan los dos brazos, así que no se generaron.
+El comando escribe `outcomes_gw7.json` (datos de FPL, sin Sportmonks) y `grading_gw7.json` con un veredicto vacío por pregunta. Las páginas ciegas ya están generadas (`blind/`); el veredicto de acierto o fallo lo pone una persona, mirando `blind_key.json` solo al final.

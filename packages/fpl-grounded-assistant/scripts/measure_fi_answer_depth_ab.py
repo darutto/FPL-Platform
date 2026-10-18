@@ -6,10 +6,10 @@ calls Sportmonks: arm B only READS an already-built local trial store.
 
 Arms
   A  FPL only: FOOTBALL_INTELLIGENCE_ENABLED off, the chat as it runs today.
-  B  FPL + Sportmonks: FOOTBALL_INTELLIGENCE_ENABLED on, FPL_FOOTBALL_ROOT at a local
-     store, plus the two dev flags owned by ``competition_calendar`` (ENV_ALLOW / ENV_CAPTURE).
-     Those flags gate only GET /fixtures/competitions; the FI tools' runtime refuses a
-     ``live_trial_local`` store regardless (football_intelligence_runtime._load_runtime).
+  B  FPL + Sportmonks: FOOTBALL_INTELLIGENCE_ENABLED on, plus the dev gate owned by
+     ``competition_calendar`` (ENV_ALLOW + ENV_STORE, with the runtime-shaped dev store built by
+     ``build_fi_dev_store.py``). Without that gate the FI runtime refuses a ``live_trial_local``
+     store (football_intelligence_runtime._load_runtime), which is why the first attempt was blocked.
      Before any paid call, arm B runs a preflight that loads the FI runtime exactly as the
      assistant does. If the runtime refuses the store or cannot load it, the arm is NOT run:
      a blocker file is written and the script exits 3. No guard is bypassed here.
@@ -72,11 +72,11 @@ QUESTIONS: list[tuple[str, str, bool, bool, str | None]] = [
 FI_ENV = "FOOTBALL_INTELLIGENCE_ENABLED"
 
 
-def _dev_env_names() -> tuple[str, str]:
-    """The two dev-flag names, read from their one owner (a test keeps the literal there only)."""
-    from fpl_grounded_assistant.competition_calendar import ENV_ALLOW, ENV_CAPTURE  # noqa: PLC0415
+def _dev_env_names() -> tuple[str, str, str]:
+    """The dev-gate names, read from their one owner (a test keeps the literal there only)."""
+    from fpl_grounded_assistant.competition_calendar import ENV_ALLOW, ENV_CAPTURE, ENV_STORE  # noqa: PLC0415
 
-    return ENV_ALLOW, ENV_CAPTURE
+    return ENV_ALLOW, ENV_CAPTURE, ENV_STORE
 
 
 def _utc() -> str:
@@ -96,18 +96,19 @@ def _pin_env(arm: str, store: str | None, capture: str | None) -> None:
     os.environ["FPL_RESOLVER_PROVIDER"] = base.PROVIDER
     os.environ["FPL_RESOLVER_MODEL"] = base.MODEL
     os.environ.pop("REDIS_URL", None)
-    dev_allow, dev_capture = _dev_env_names()
+    dev_allow, dev_capture, dev_store = _dev_env_names()
     if arm == "A":
         os.environ[FI_ENV] = "0"
-        for k in (dev_allow, dev_capture, "FPL_FOOTBALL_ROOT"):
+        for k in (dev_allow, dev_capture, dev_store, "FPL_FOOTBALL_ROOT"):
             os.environ.pop(k, None)
     else:
         os.environ[FI_ENV] = "1"
+        os.environ.pop("FPL_FOOTBALL_ROOT", None)  # prove the dev gate, not the default root, serves the store
         os.environ[dev_allow] = "1"
         if capture:
             os.environ[dev_capture] = capture
         if store:
-            os.environ["FPL_FOOTBALL_ROOT"] = store
+            os.environ[dev_store] = store
 
 
 def _preflight_b() -> dict[str, Any]:
@@ -122,7 +123,7 @@ def _preflight_b() -> dict[str, Any]:
         return {"ok": False, "error_type": "None",
                 "error": "runtime returned None (pointer files absent at FPL_FOOTBALL_ROOT): "
                          "tools answer missing_context/feature_build_unavailable"}
-    return {"ok": True, "calculated_at": runtime.calculated_at}
+    return {"ok": True, "calculated_at": runtime.calculated_at, "provenance": runtime.provenance}
 
 
 class _EventCapture(logging.Handler):
@@ -244,9 +245,10 @@ def _sha256(path: Path) -> str:
 
 
 def cmd_freeze(args: argparse.Namespace) -> int:
+    """Seal answers. ``--arm B`` writes frozen_B.json/.sha256 and leaves A's existing seal untouched."""
     out_dir = Path(args.out_dir)
     arms = {}
-    for arm in ("A", "B"):
+    for arm in ((args.arm,) if args.arm else ("A", "B")):
         p = out_dir / f"answers_{arm}.jsonl"
         if p.is_file():
             arms[arm] = {"file": p.name, "sha256": _sha256(p),
@@ -260,17 +262,30 @@ def cmd_freeze(args: argparse.Namespace) -> int:
                                                       "trace_model", "outcome")}
                               for r in v["rows"] if "_header" not in r] for a, v in arms.items()},
               "source_sha256": {a: v["sha256"] for a, v in arms.items()}}
-    fp = out_dir / "frozen.json"
-    fp.write_text(json.dumps(frozen, ensure_ascii=False, indent=2), encoding="utf-8")
+    suffix = f"_{args.arm}" if args.arm else ""
+    fp = out_dir / f"frozen{suffix}.json"
+    if fp.exists() or (out_dir / f"frozen{suffix}.sha256").exists():
+        # A seal is write-once: the first A freeze was overwritten by a rerun that had no such guard.
+        print(f"{fp.name} already sealed; refusing to overwrite", file=sys.stderr)
+        return 2
+    with fp.open("x", encoding="utf-8") as fh:
+        fh.write(json.dumps(frozen, ensure_ascii=False, indent=2))
     digest = _sha256(fp)
-    (out_dir / "frozen.sha256").write_text(f"{digest}  frozen.json\n", encoding="utf-8")
+    with (out_dir / f"frozen{suffix}.sha256").open("x", encoding="utf-8") as fh:
+        fh.write(f"{digest}  {fp.name}\n")
     print(f"frozen_at={frozen['frozen_at']} sha256={digest}")
     return 0
 
 
 def cmd_blind(args: argparse.Namespace) -> int:
     out_dir = Path(args.out_dir)
-    frozen = json.loads((out_dir / "frozen.json").read_text(encoding="utf-8"))
+    # Read the answer files themselves (the seals only record their sha256), so a lost seal cannot block this.
+    frozen: dict[str, Any] = {"answers": {}}
+    for arm in ("A", "B"):
+        p = out_dir / f"answers_{arm}.jsonl"
+        if p.is_file():
+            frozen["answers"][arm] = [r for r in (json.loads(x) for x in p.read_text(encoding="utf-8").splitlines() if x.strip())
+                                      if "_header" not in r]
     if sorted(frozen["answers"]) != ["A", "B"]:
         print("blind pages need both arms; only " + ",".join(frozen["answers"]) + " present", file=sys.stderr)
         return 3
@@ -339,6 +354,8 @@ def main(argv: list[str] | None = None) -> int:
     for name in ("freeze", "blind"):
         p = sub.add_parser(name)
         p.add_argument("--out-dir", required=True)
+        if name == "freeze":
+            p.add_argument("--arm", choices=("A", "B"))
         if name == "blind":
             p.add_argument("--seed", type=int, default=None)
     o = sub.add_parser("outcomes")
