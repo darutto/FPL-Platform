@@ -2,6 +2,8 @@
 
 **Todos los resultados de este informe son DESCRIPTIVOS: la precondición de identidad preinscrita no se cumple en ninguna de las dos temporadas** (86,30 % en 2024-25 y 85,29 % en 2025-26; umbral 95 %). Ningún criterio de aprobado cuenta como superado ni como fallado. Las enmiendas posteriores al gate se informan por separado y tampoco cambian el veredicto (2025-26 llega al 94,04 %, a 5 jugadores del umbral).
 
+**Actualización posterior (enmienda 4, ver la sección final):** tras la re-captura con nombre y fecha de nacimiento, **2025-26 sí cumple la precondición (97,21 %)**; 2024-25 sigue sin cumplirla (70,46 %). Los criterios de 2025-26 se evalúan como estaban escritos y siguen sin superarse. La lectura descriptiva de arriba se conserva tal como se entregó.
+
 Encargo del revisor fpl-platform-22, bajo el visto bueno permanente de Leo (solo análisis, cero llamadas a Sportmonks; la captura la hizo el constructor de add-ons con 120 llamadas). Sin LLM. Escrito para: Leo y el revisor, para la decisión del 23 de octubre. El plan se subió antes de mirar ningún dato nuevo (`…-PLAN.md`, primer commit del PR) y las enmiendas están fechadas por commit.
 
 ## Resultado en una página
@@ -114,3 +116,46 @@ Solo hay GW1 a GW7 y no se ha calculado nada con ellos, porque las definiciones 
 - Marca de tiempo por alineación y estado de baja por partido: todo lo que use `sidelined` es retrospectivo.
 - Un «rival de élite» para el corte exploratorio de H3, y Carabao completa en las dos temporadas.
 - Aislar de dónde viene la mejora de M1-Sportmonks en H4 (titularidades reales contra proxy, congestión europea).
+
+
+## Actualización: re-captura con nombre y fecha de nacimiento (enmienda 4) y sensibilidad de H3
+
+Escrita después de la entrega anterior. La enmienda 4 está en el plan y se subió antes de calcular ninguna tasa con los datos nuevos.
+
+### Re-captura e identidad
+
+Leo aprobó volver a bajar las páginas de la Premier de 2024-25 y 2025-26 con `lineups.player` (nombre, nombre de alineación y fecha de nacimiento), con un máximo de 40 llamadas. Se usaron **16** (8 por temporada, `per_page=50`; la primera, una sonda, ya devolvió 50 partidos y todas las filas con jugador y fecha de nacimiento). El token sale de la variable de entorno y no se imprime ni se guarda; contador persistente con tope duro de 40, parada ante cualquier respuesta distinta de 200, sin redirecciones; los ficheros crudos quedan en `trial-output/past_players/` (git-ignorado). La identidad se mide con el **procedimiento exacto del trial** (`fpl_side` de `trial_mapping.py`, primera y segunda pasada), un solo camino, sin el puente por `code`.
+
+| | Jugadores FPL con minutos | Emparejados | Tasa | Precondición (≥95 %) |
+|---|---|---|---|---|
+| 2025-26 | 537 | 522 | **97,21 %** | **Se cumple** |
+| 2024-25 | 562 | 396 | 70,46 % | Falla |
+
+2025-26: `full_name_birth_date` 498, `surname_birth_date` 125, `display_name_birth_date` 28, `full_name_unique` 5. Quedan 15 sin emparejar, casi todos nombres compuestos o abreviados (Martinez, Buendía, Senesi, Mitoma, Chadi Riad, Alcaraz, Tanaka, Endo, Morato, Solanke, Taty, H.Bueno, Mosquera, S.Bueno, Hee Chan). 2024-25 falla porque el almacén de FPL de esa temporada **no tiene fecha de nacimiento** (166 sin emparejar por `fpl_birth_date_absent`): con el procedimiento exacto, ahí no hay nivel que lo compense, y queda peor que la ruta aproximada anterior (86,30 %). 2024-25 sigue siendo descriptiva; **la confirmación (2025-26) es válida.**
+
+**Lectura tras la re-captura, 2025-26** (criterios tal como estaban escritos):
+- **H1:** la persistencia de «confirmado» individual es 0,571 [0,457, 0,686], por debajo del 0,75: **no se cumple.** Con el emparejamiento nuevo todos los eventos individuales tienen jugador FPL (330 de 331). Señal FPL en los 6 partidos siguientes: 161; mediana de adelanto 2 partidos; frecuencia al azar 0,381 contra 0,488 tras un cambio de rol (como antes).
+- **H2:** usa solo identificadores de Sportmonks, sin cambios: **no se cumple.**
+- **H3:** sin cambios: **no concluyente** (y la sensibilidad de abajo lo confirma).
+- **H4** (9.860 filas, 447 jugadores): Brier M1-Sportmonks menos M1-FPL −0,0055 [−0,0076, −0,0033]; MAE de minutos −0,156 [−0,361, +0,048]; MAE M1-FPL menos simple +4,36 y M1-Sportmonks menos simple +4,21. Brier sí, MAE no: **parcial**, igual que antes.
+
+### Sensibilidad de H3 con el calendario completo de copas
+
+Declarada como sensibilidad, no como prueba nueva, y sin llamadas. El constructor de add-ons completó la captura de la FA Cup y la Carabao de los 20 clubes (167 partidos únicos). La versión original no veía todos los partidos de copa, de modo que parte de los partidos de liga que usaba como control («el partido anterior fue de liga con 5 o más días de descanso») venían en realidad precedidos por una copa. Con el calendario completo, el control baja de 83 a 64 partidos en 2024-25 y de 113 a 88 en 2025-26. Las definiciones no cambian.
+
+**(a) ¿Cambia el resultado principal tras Europa?** No: sigue sin ser concluyente, y las estimaciones se acercan a cero.
+
+| Exposición | 2024-25 (original → completo) | 2025-26 (original → completo) |
+|---|---|---|
+| ≤3 días (principal) | −1,40 pp [−6,45, +3,32] → **+1,13 pp [−4,80, +5,99]** | −0,87 pp [−6,39, +3,75] → **−0,28 pp [−5,89, +3,81]** |
+| ≤4 días | −1,73 [−4,46, +1,61] → +0,63 [−2,70, +4,22] | −2,54 [−5,61, +0,38] → −1,68 [−4,96, +1,30] |
+
+**(b) ¿Se sostiene el efecto exploratorio de las eliminatorias a doble partido (≤4 días)?** Se debilita: se sostiene en 2025-26 y deja de excluir 0 en 2024-25.
+
+| | 2024-25 (original → completo) | 2025-26 (original → completo) |
+|---|---|---|
+| Eliminatoria (29 y 35 partidos) | −9,32 pp [−18,98, −0,59] → **−6,66 pp [−17,29, +2,42]** | −6,12 pp [−10,86, −1,08] → **−5,34 pp [−10,04, −0,84]** |
+| Fase de liga o partido único | +1,84 [−0,65, +4,59] → +4,06 [+1,14, +6,77] | −0,73 [−4,44, +3,21] → +0,18 [−3,70, +4,51] |
+| UCL ≤4 días | −1,35 [−4,77, +1,22] → +0,73 [−3,43, +4,06] | −4,12 [−7,10, −1,42] → −2,91 [−6,80, +0,58] |
+
+Lectura: la caída de 6 a 9 puntos tras las eliminatorias ya no se sostiene como patrón en las dos temporadas; queda entre −5 y −7 puntos con IC que solo excluyen 0 en 2025-26. En 2024-25 la fase de liga muestra incluso una subida significativa (+4,06) con el control corregido. Etiquetas: **descriptivo y exploratorio**; la muestra sigue siendo de 7 y 9 equipos-temporada.

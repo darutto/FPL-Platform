@@ -86,7 +86,7 @@ def summarize(D, label):
 
 
 if __name__ == "__main__":
-    B = pd.read_pickle("sm_bridge.pkl")
+    B = pd.read_pickle(sys.argv[1] if len(sys.argv) > 1 else "sm_bridge.pkl")
     res = {}
     for s in ("2024-2025", "2025-2026"):
         D = run(s, B); res[s] = D
