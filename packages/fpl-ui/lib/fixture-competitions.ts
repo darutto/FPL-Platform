@@ -157,6 +157,8 @@ export interface GapInfo {
   rotation: boolean;
   /** Full phrase for the detail and for assistive technology. */
   sentence: string;
+  /** Short label of the cell, e.g. «3 días tras Champions League» (rotation notice only). */
+  cell?: string;
 }
 
 export type TimelineItem =
@@ -171,14 +173,27 @@ export function extraSentence(match: ExtraMatch): string {
   return `${competitionName(match.competition)} ante ${match.opponent} (${venueWord(match.venue)})`;
 }
 
-function gapFor(restWholeDays: number | null, rotation: boolean, opponent: string): GapInfo | null {
+/**
+ * Rotation notice copy (descriptive, no claim about the risk): the cell says how many days after which
+ * competition; the detail says what happened and that there is not yet evidence to size the risk.
+ * Only the wording lives here: the days, the flag and the competition come from the server unchanged.
+ */
+function gapFor(
+  restWholeDays: number | null,
+  rotation: boolean,
+  _opponent: string,
+  previousCompetition: string | null = null,
+): GapInfo | null {
   if (restWholeDays === null) return null;
+  if (!rotation) return { days: restWholeDays, rotation, sentence: `${daysWord(restWholeDays)} de descanso` };
+  const comp = previousCompetition ? competitionName(previousCompetition) : 'otra competición';
   return {
     days: restWholeDays,
     rotation,
-    sentence: rotation
-      ? `${daysWord(restWholeDays)} de descanso antes de ${opponent}: posible rotación`
-      : `${daysWord(restWholeDays)} de descanso`,
+    cell: `${daysWord(restWholeDays)} tras ${comp}`,
+    sentence:
+      `Su equipo jugó ${comp} hace ${daysWord(restWholeDays)}. ` +
+      'Todavía no hay evidencia suficiente para cuantificar el riesgo de rotación.',
   };
 }
 
@@ -207,7 +222,7 @@ export function buildTimeline(series: FixtureOutlookGW[], extras: TeamExtras): T
         kind: 'pl',
         key: `pl-${gw.gameweek}`,
         gw,
-        gap: first ? gapFor(first.restWholeDays, first.rotation, first.opponent) : null,
+        gap: first ? gapFor(first.restWholeDays, first.rotation, first.opponent, first.previousCompetition) : null,
       },
     });
   }
@@ -252,12 +267,12 @@ export function compactGutter(extras: TeamExtras | null, gameweek: number): Comp
   return { matches, rotation };
 }
 
-/** The line a tapped bar opens, e.g. «ARS · Champions League ante Lille (local) · 3 días de descanso antes de Everton: posible rotación». */
+/** The line a tapped bar opens, e.g. «ARS · Champions League ante Lille (local) · Su equipo jugó Champions League hace 3 días. Todavía no hay evidencia suficiente para cuantificar el riesgo de rotación.». */
 export function gutterSentence(team: string, gutter: CompactGutter): string {
   const parts = gutter.matches.map(extraSentence);
   if (gutter.rotation && gutter.rotation.restWholeDays !== null) {
     parts.push(
-      gapFor(gutter.rotation.restWholeDays, true, gutter.rotation.opponent)?.sentence ?? '',
+      gapFor(gutter.rotation.restWholeDays, true, gutter.rotation.opponent, gutter.rotation.previousCompetition)?.sentence ?? '',
     );
   }
   return `${team} · ${parts.join(' · ')}`;

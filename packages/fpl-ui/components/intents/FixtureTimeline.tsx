@@ -268,7 +268,7 @@ function Gap({
       <button
         type="button"
         data-testid="rotation-gap"
-        aria-label={gap.sentence}
+        aria-label={gap.cell ?? gap.sentence}
         aria-pressed={selected}
         onClick={onPick}
         onFocus={onPick}
