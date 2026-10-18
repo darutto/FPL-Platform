@@ -104,6 +104,14 @@ def test_premium_shape_and_rest_days(capture):
     assert ucl["rest_days_before"] == 3.3 and ucl["rest_days_after"] == 1.0
     assert efl["venue"] == "A" and efl["rest_days_before"] == 1.0 and efl["rest_days_after"] == 3.9
     assert all("is_pl" not in m for m in matches)
+    # Timeline data: 3-letter codes, whole rest days (floor of hours/24), the match before, and PL kickoffs.
+    assert (ucl["opponent_code"], ucl["rest_whole_days_before"], ucl["previous_competition"]) == ("ZZY", 3, "PL")
+    assert (efl["opponent_code"], efl["rest_whole_days_before"], efl["previous_competition"]) == ("QWE", 1, "UCL")
+    pl = body["teams"]["ARS"]["pl_matches"]
+    assert [(m["kickoff_utc"], m["gameweek"], m["rest_whole_days_before"], m["rotation"]) for m in pl] == [
+        ("2026-10-10T11:30:00Z", 7, None, False),
+        ("2026-10-18T15:30:00Z", 8, 3, True),   # 3 whole days after the EFL match: notice
+    ]
 
 
 @pytest.mark.parametrize("tier", ["patreon_basic", "patreon_plus", "patreon_premium"])
@@ -125,7 +133,12 @@ def _rotation(tmp_path, monkeypatch, gap_minutes, extra=(), first_league=2):
     monkeypatch.setenv(cc.ENV_ALLOW, "1")
     monkeypatch.setenv(cc.ENV_CAPTURE, str(path))
     cc._cache.clear()
-    return _get("patreon_premium", team="ARS").json()["teams"]["ARS"]["rotation_notices"]
+    return _notices(_get("patreon_premium", team="ARS").json()["teams"]["ARS"])
+
+
+def _notices(team_payload):
+    """The Premier League matches the server flags for the rotation notice."""
+    return [m for m in team_payload["pl_matches"] if m["rotation"]]
 
 
 @pytest.mark.parametrize("hours,warns", [(72, True), (95.9, True), (96, False), (6 * 24, False), (48, True)])
@@ -133,7 +146,7 @@ def test_rotation_notice_edges(tmp_path, monkeypatch, hours, warns):
     notices = _rotation(tmp_path, monkeypatch, int(hours * 60))
     assert bool(notices) is warns
     if warns:
-        assert notices[0]["previous_competition"] == "UCL" and notices[0]["rest_whole_days"] <= cc.ROTATION_REST_DAYS
+        assert notices[0]["previous_competition"] == "UCL" and notices[0]["rest_whole_days_before"] <= cc.ROTATION_REST_DAYS
 
 
 @pytest.mark.parametrize("league,hours,warns", [
@@ -157,7 +170,9 @@ def test_rotation_only_after_europe_or_cup(tmp_path, monkeypatch, league, hours,
 def test_pl_to_pl_rest_days_are_still_shown(tmp_path, monkeypatch):
     _rotation(tmp_path, monkeypatch, 48 * 60, first_league=8)
     body = _get("patreon_premium", team="ARS").json()["teams"]["ARS"]
-    assert body["rotation_notices"] == [] and body["matches"] == []
+    assert _notices(body) == [] and body["matches"] == []
+    # ...and the PL -> PL gap is still there for the timeline to show, just never flagged.
+    assert [m["rest_whole_days_before"] for m in body["pl_matches"]] == [None, 2]
 
 
 def test_rotation_needs_a_previous_match(tmp_path, monkeypatch):
@@ -167,7 +182,8 @@ def test_rotation_needs_a_previous_match(tmp_path, monkeypatch):
     monkeypatch.setenv(cc.ENV_ALLOW, "1")
     monkeypatch.setenv(cc.ENV_CAPTURE, str(path))
     cc._cache.clear()
-    assert _get("patreon_premium").json()["teams"]["ARS"]["rotation_notices"] == []
+    team = _get("patreon_premium").json()["teams"]["ARS"]
+    assert _notices(team) == [] and team["pl_matches"][0]["rest_whole_days_before"] is None
 
 
 def test_rotation_constant_is_attributed_to_product():
@@ -188,28 +204,19 @@ def test_window_filter(capture):
 # -- free: never a rival, never a competition ---------------------------------
 
 @pytest.mark.parametrize("tier", [None, "free", "patreon_tribuna", "premium", "PATREON_PREMIUM", "nonsense"])
-def test_non_detail_tiers_get_counts_only(capture, tier):
-    r = _get(tier)
-    body = r.json()
-    assert body["available"] is True and body["tier"] == "free"
-    assert body["teams"]["ARS"] == {"extra_by_gameweek": {"8": 2}}
-    assert body["teams"]["MCI"] == {"extra_by_gameweek": {}}
+def test_non_detail_tiers_are_only_told_the_layer_is_locked(capture, tier):
+    """Free/Tribuna get exactly {available, tier}: no rival, competition, rest, count, team or date."""
+    r = _get(tier, team="ARS", **{"from": "2026-10-01", "to": "2026-12-01"})
+    assert r.json() == {"available": True, "tier": "free"}
     raw = r.text
-    for leaked in ("rotation", OPPONENT, SECRET_OPP2, "UCL", "EFL", "FA", "rest_days", "kickoff", "opponent", "competition", "venue"):
+    for leaked in ("teams", "extra_by", "rotation", OPPONENT, SECRET_OPP2, "UCL", "EFL", "rest_days", "kickoff",
+                   "opponent", "competition", "venue", "gameweek", "ARS", "2026"):
         assert leaked not in raw, leaked
 
 
-def test_free_payload_has_no_detail_keys_at_any_depth(capture):
-    def walk(node):
-        if isinstance(node, dict):
-            for k, v in node.items():
-                yield k
-                yield from walk(v)
-        elif isinstance(node, list):
-            for v in node:
-                yield from walk(v)
-    assert set(walk(_get("free").json())) <= {"available", "tier", "teams", "ARS", "MCI", "CHE",
-                                              "extra_by_gameweek", "8"}
+def test_the_locked_answer_is_identical_for_every_team_and_window(capture):
+    answers = {_get("free", **params).text for params in ({}, {"team": "ARS"}, {"team": "MCI"}, {"from": "2030-01-01"})}
+    assert answers == {'{"available":true,"tier":"free"}'}
 
 
 # -- tier is read in one place, from the server's own helper ------------------
@@ -228,6 +235,20 @@ def test_forged_premium_header_without_internal_token_is_free(capture, monkeypat
     assert _get("patreon_premium").json()["tier"] == "free"
 
 
+@pytest.mark.parametrize("provider_code,shown", [("LOSC", "LIL"), ("LILL", "LSK"), ("SLA", "SLA"), ("AZ", "AZ"), ("ABCD", "ABC"), ("CVC", "COV")])
+def test_opponent_codes_are_three_letters(tmp_path, monkeypatch, provider_code, shown):
+    """The board shows three letters: Sportmonks' short_code, with the few longer ones made readable."""
+    path = tmp_path / "codes.json"
+    opp = {"id": 90, "name": "Some Club", "short_code": provider_code, "meta": {"location": "away"}}
+    home = {"id": 1, "name": "Arsenal", "short_code": "ARS", "meta": {"location": "home"}}
+    fixture = {"id": 1, "league_id": 2, "starting_at": "2026-10-13 19:00:00", "state": {"developer_name": "NS"}, "participants": [home, opp]}
+    path.write_text(json.dumps({"schema_version": 1, "teams": [{"id": 1, "short_code": "ARS"}], "team_fixtures": [fixture]}), encoding="utf-8")
+    monkeypatch.setenv(cc.ENV_ALLOW, "1")
+    monkeypatch.setenv(cc.ENV_CAPTURE, str(path))
+    cc._cache.clear()
+    assert _get("patreon_premium").json()["teams"]["ARS"]["matches"][0]["opponent_code"] == shown
+
+
 def test_club_codes_are_fpl_codes(capture, tmp_path, monkeypatch):
     """Sportmonks calls Coventry CVC; the FPL bundle (and so the board) calls it COV."""
     path = tmp_path / "cov.json"
@@ -235,4 +256,4 @@ def test_club_codes_are_fpl_codes(capture, tmp_path, monkeypatch):
         _fx(1, 2, (7, "Coventry City"), (90, OPPONENT), "2026-10-13 19:00:00")]}), encoding="utf-8")
     monkeypatch.setenv(cc.ENV_CAPTURE, str(path))
     cc._cache.clear()
-    assert list(_get("free").json()["teams"]) == ["COV"]
+    assert list(_get("patreon_premium").json()["teams"]) == ["COV"]

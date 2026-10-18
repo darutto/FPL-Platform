@@ -14,8 +14,9 @@ import {
   BLANK_COLOR,
   type Band,
 } from '@/lib/fixture-outlook-format';
-import type { TeamExtras } from '@/lib/fixture-competitions';
-import { CompactChip } from './FixtureCompetitionExtras';
+import { useState } from 'react';
+import { compactGutter, gutterSentence, type TeamExtras } from '@/lib/fixture-competitions';
+import { GutterMarks } from './FixtureCompetitionExtras';
 import { teamOutlookQuestion, fixtureCellQuestion } from '@/lib/fixture-chat-links';
 
 const GOOD_HEX = '#02EBAE';
@@ -31,16 +32,21 @@ export function FixtureCompactGrid({
   onAsk,
   presentation = false,
   extrasFor,
+  layerActive = false,
 }: {
   data: FixtureOutlookMeta;
   onAsk?: (question: string) => void;
-  /** Multi-competition layer lookup per team code; absent/null renders the grid as before. */
+  /** Multi-competition layer lookup per team code (the gutter marks). */
   extrasFor?: (team: string) => TeamExtras | null;
+  /** True when the "Otras competiciones" layer is on: every row then gets the 12 px gutters, so columns stay aligned. */
+  layerActive?: boolean;
   /** Large, non-interactive layout used by the podcast/screen-share view. */
   presentation?: boolean;
 }) {
   const { teams, axis } = data;
   const gameweeks = teams[0]?.series.map((s) => s.gameweek) ?? [];
+  // The detail line of the tapped (or focused) gutter: `team:gameweek`.
+  const [picked, setPicked] = useState<string | null>(null);
 
   if (presentation) {
     return (
@@ -79,7 +85,6 @@ export function FixtureCompactGrid({
                 gw={gw}
                 runHex={runHexFor(runByGw.get(gw.gameweek))}
                 presentation
-                extras={extrasFor?.(team.team_short) ?? null}
               />
             )),
           ];
@@ -88,41 +93,85 @@ export function FixtureCompactGrid({
     );
   }
 
-  return (
-    <div className="overflow-x-auto">
-      <div className="min-w-max">
-        <div className="flex items-center gap-1 mb-1.5">
-          <span className="w-[50px] text-[11px] font-extrabold tracking-wide text-bf-gray">
-            EQUIPO
-          </span>
-          {gameweeks.map((g) => (
-            <span
-              key={g}
-              className="w-[54px] text-center text-[11px] font-extrabold tracking-wide text-bf-gray"
-            >
-              J{g}
-            </span>
-          ))}
-        </div>
+  let detail: string | null = null;
+  if (picked && layerActive) {
+    const [pickedTeam, pickedGw] = picked.split(':');
+    detail = gutterSentence(pickedTeam, compactGutter(extrasFor?.(pickedTeam) ?? null, Number(pickedGw)));
+  }
 
-        {teams.map((team) => {
-          const runByGw = runsByGameweek(team.runs);
-          return (
-            <div key={team.team_short} className="flex items-center gap-1 py-[2px]">
-              <CompactTeamButton teamName={team.team_name} teamShort={team.team_short} axis={axis} onAsk={onAsk} />
-              {team.series.map((gw) => (
-                <CompactCell
-                  key={gw.gameweek}
-                  gw={gw}
-                  runHex={runHexFor(runByGw.get(gw.gameweek))}
-                  onAsk={onAsk ? () => onAsk(fixtureCellQuestion(team.team_name, gw)) : undefined}
-                  extras={extrasFor?.(team.team_short) ?? null}
-                />
-              ))}
-            </div>
-          );
-        })}
+  return (
+    <div
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') setPicked(null);
+      }}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setPicked(null);
+      }}
+    >
+      <div className="overflow-x-auto">
+        <div className="min-w-max">
+          <div className="flex items-center gap-1 mb-1.5">
+            <span className="w-[50px] text-[11px] font-extrabold tracking-wide text-bf-gray">
+              EQUIPO
+            </span>
+            {gameweeks.map((g) => (
+              <span key={g} className="contents">
+                {layerActive && <span aria-hidden="true" className="w-[12px] flex-none" />}
+                <span className="w-[54px] text-center text-[11px] font-extrabold tracking-wide text-bf-gray">
+                  J{g}
+                </span>
+              </span>
+            ))}
+          </div>
+
+          {teams.map((team) => {
+            const runByGw = runsByGameweek(team.runs);
+            const extras = layerActive ? extrasFor?.(team.team_short) ?? null : null;
+            return (
+              <div key={team.team_short} className="flex items-center gap-1 py-[2px]">
+                <CompactTeamButton teamName={team.team_name} teamShort={team.team_short} axis={axis} onAsk={onAsk} />
+                {team.series.map((gw) => (
+                  <span key={gw.gameweek} className="contents">
+                    {layerActive && (
+                      <GutterMarks
+                        team={team.team_short}
+                        gutter={compactGutter(extras, gw.gameweek)}
+                        selected={picked === `${team.team_short}:${gw.gameweek}`}
+                        onPick={() => setPicked(`${team.team_short}:${gw.gameweek}`)}
+                      />
+                    )}
+                    <CompactCell
+                      gw={gw}
+                      runHex={runHexFor(runByGw.get(gw.gameweek))}
+                      onAsk={onAsk ? () => onAsk(fixtureCellQuestion(team.team_name, gw)) : undefined}
+                    />
+                  </span>
+                ))}
+              </div>
+            );
+          })}
+        </div>
       </div>
+      {detail && (
+        // Fixed to the viewport (the board's card clips overflow, so `sticky` would not hold): it stays
+        // in view whichever of the 20 rows was tapped, and has its own close button for touch.
+        <div
+          data-testid="compact-detail-bar"
+          className="fixed inset-x-3 bottom-3 z-50 mx-auto flex max-w-[936px] items-start gap-3 rounded-lg border border-white/10 bg-bf-surface px-3 py-2 shadow-menu"
+        >
+          <p role="status" data-testid="compact-detail" className="min-w-0 flex-1 text-[12.5px] font-normal text-bf-gray">
+            {detail}
+          </p>
+          <button
+            type="button"
+            aria-label="Cerrar detalle"
+            onClick={() => setPicked(null)}
+            className="flex-none text-[14px] leading-none text-bf-gray hover:text-bf-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bf-turquoise"
+          >
+            ✕
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -165,21 +214,19 @@ function CompactCell({
   runHex,
   onAsk,
   presentation = false,
-  extras = null,
 }: {
   gw: FixtureOutlookGW;
   runHex: string | null;
   onAsk?: () => void;
   presentation?: boolean;
-  extras?: TeamExtras | null;
 }) {
   const blank = gw.band === null;
   const fg = blank ? BLANK_COLOR : bandColor(gw.band as Band);
   const opponents = blank ? '—' : gw.fixtures.map((f) => f.opponent_short).join('/');
   const venue = blank ? '' : gw.fixtures.map((f) => venueLabel(f.is_home)).join('/');
   const className = presentation
-    ? 'relative flex h-full w-full items-center justify-center gap-1 rounded-md px-1 text-center'
-    : 'relative flex w-[54px] h-[24px] items-center justify-center gap-0.5 rounded-md transition-transform hover:-translate-y-0.5';
+    ? 'flex h-full w-full items-center justify-center gap-1 rounded-md px-1 text-center'
+    : 'flex w-[54px] h-[24px] items-center justify-center gap-0.5 rounded-md transition-transform hover:-translate-y-0.5';
   const style = {
     backgroundColor: hexRgba(fg, 0.34),
     boxShadow: runHex ? `0 0 0 2px ${hexRgba(runHex, 0.7)}` : undefined,
@@ -191,7 +238,6 @@ function CompactCell({
     {venue && (
       <span className={presentation ? 'text-[clamp(10px,1.1vw,18px)] font-extrabold leading-none text-white/75' : 'text-[8.5px] font-extrabold leading-none text-white/75'}>{venue}</span>
     )}
-    {extras && <CompactChip extras={extras} gameweek={gw.gameweek} presentation={presentation} />}
   </>;
 
   if (!onAsk) return <div className={className} style={style}>{contents}</div>;
