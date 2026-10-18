@@ -280,3 +280,50 @@ export function gutterSentence(team: string, gutter: CompactGutter): string {
   }
   return `${team} · ${parts.join(' · ')}`;
 }
+
+// ---------------------------------------------------------------------------
+// Presentation: one fixed column per gameweek, a reserved slot before each
+// ---------------------------------------------------------------------------
+
+/** An other-competition match that sits in a slot, with the rest before it. */
+export interface SlotMatch {
+  key: string;
+  match: ExtraMatch;
+  sentence: string;
+  /** Rest since the previous match of any competition (null when unknown or first of the window). */
+  gap: GapInfo | null;
+}
+
+/** One gameweek column and the slot that precedes it. */
+export interface PresentationColumn {
+  gw: FixtureOutlookGW;
+  /** Other-competition matches between the previous Premier League match and this one, in kickoff order. */
+  slot: SlotMatch[];
+  /** Rest into this Premier League match (gold when it carries the rotation notice); null for the first column. */
+  gap: GapInfo | null;
+}
+
+/**
+ * The timeline folded onto a fixed grid: every team gets exactly one column per
+ * gameweek of the window, so the rows of the whole league align. A match of another
+ * competition belongs to the slot before the Premier League match it precedes; any
+ * after the last Premier League match of the window belongs to a gameweek the window
+ * does not show and is left out. A team the layer knows nothing about still gets its columns.
+ */
+export function buildPresentationColumns(
+  series: FixtureOutlookGW[],
+  extras: TeamExtras | null,
+): PresentationColumn[] {
+  const items = buildTimeline(series, extras ?? { extras: [], plMatches: [] });
+  const columns: PresentationColumn[] = [];
+  let pending: SlotMatch[] = [];
+  for (const item of items) {
+    if (item.kind === 'extra') {
+      pending.push({ key: item.key, match: item.match, sentence: item.sentence, gap: item.gap });
+    } else {
+      columns.push({ gw: item.gw, slot: pending, gap: item.gap });
+      pending = [];
+    }
+  }
+  return columns;
+}

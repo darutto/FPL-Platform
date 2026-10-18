@@ -26,10 +26,14 @@ import {
   type Band,
 } from '@/lib/fixture-outlook-format';
 import {
+  buildPresentationColumns,
   buildTimeline,
+  COMPETITION_LEGEND,
   competitionColor,
   competitionTileLabel,
   type GapInfo,
+  type PresentationColumn,
+  type SlotMatch,
   type TeamExtras,
   type TimelineItem,
 } from '@/lib/fixture-competitions';
@@ -91,40 +95,16 @@ const DETAILED: Metrics = {
   spacer: '10px',
 };
 
-/** Same proportions, scaled by `--r` (the presentation row height). */
-const r = (k: number) => `calc(var(--r) * ${k})`;
-const PRESENTATION: Metrics = {
-  plW: r(1.5),
-  plH: r(0.74),
-  exW: r(1.15),
-  exH: r(0.6),
-  exTop: r(0.3),
-  gapW: r(0.62),
-  lineTop: r(0.37),
-  gwFont: r(0.2),
-  oppFont: r(0.4),
-  haFont: r(0.2),
-  siglaFont: r(0.19),
-  codeFont: r(0.34),
-  exHaFont: r(0.2),
-  numFont: r(0.24),
-  radius: r(0.16),
-  exRadius: r(0.14),
-  spacer: r(0.2),
-};
-
 function PlTile({
   gw,
   ring,
   m,
   onAsk,
-  presentation,
 }: {
   gw: FixtureOutlookGW;
   ring: string | null;
   m: Metrics;
   onAsk?: () => void;
-  presentation: boolean;
 }) {
   const blank = gw.band === null;
   const fg = blank ? BLANK_COLOR : bandColor(gw.band as Band);
@@ -141,23 +121,14 @@ function PlTile({
   const label = blank
     ? 'Sin partido (jornada en blanco)'
     : `J${gw.gameweek} · ${opponents} ${venue} · FDR ${gw.band}${gw.is_dgw ? ' · doble jornada' : ''}`;
-  // Presentation sets the rival and venue on one line: the tile is too short for three.
-  const inner = presentation ? (
-    <>
-      <span className="leading-none text-bf-gray font-normal" style={{ fontSize: m.gwFont }}>J{gw.gameweek}</span>
-      <span className="flex items-baseline gap-[0.25em] leading-none">
-        <span className="font-bold tracking-tight" style={{ fontSize: m.oppFont, color: fg }}>{opponents}</span>
-        <span className="font-normal text-bf-gray" style={{ fontSize: m.haFont }}>{venue}</span>
-      </span>
-    </>
-  ) : (
+  const inner = (
     <>
       <span className="leading-none text-bf-gray font-normal" style={{ fontSize: m.gwFont }}>J{gw.gameweek}</span>
       <span className="font-bold leading-none tracking-tight" style={{ fontSize: m.oppFont, color: fg }}>{opponents}</span>
       <span className="leading-none font-normal text-bf-gray min-h-[11px]" style={{ fontSize: m.haFont }}>{venue}</span>
     </>
   );
-  const base = `flex flex-none flex-col items-center justify-center ${presentation ? 'gap-[0.12em]' : 'gap-[3px]'} px-1`;
+  const base = 'flex flex-none flex-col items-center justify-center gap-[3px] px-1';
   if (onAsk) {
     return (
       <button type="button" onClick={onAsk} title={label} className={`${base} transition-transform hover:-translate-y-0.5`} style={style}>
@@ -175,13 +146,11 @@ function PlTile({
 function ExtraTile({
   item,
   m,
-  presentation,
   selected,
   onPick,
 }: {
   item: Extract<TimelineItem, { kind: 'extra' }>;
   m: Metrics;
-  presentation: boolean;
   selected: boolean;
   onPick?: () => void;
 }) {
@@ -201,17 +170,8 @@ function ExtraTile({
       <span className="font-normal uppercase leading-none tracking-[0.1em]" style={{ fontSize: m.siglaFont, color }}>
         {competitionTileLabel(item.match.competition)}
       </span>
-      {presentation ? (
-        <span className="flex items-baseline gap-[0.2em] leading-none">
-          <span className="font-bold text-bf-text" style={{ fontSize: m.codeFont }}>{code}</span>
-          <span className="font-normal text-bf-gray" style={{ fontSize: m.exHaFont }}>{ha}</span>
-        </span>
-      ) : (
-        <>
-          <span className="mt-[3px] font-bold leading-none text-bf-text" style={{ fontSize: m.codeFont }}>{code}</span>
-          <span className="mt-[2px] font-normal leading-none text-bf-gray" style={{ fontSize: m.exHaFont }}>{ha}</span>
-        </>
-      )}
+      <span className="mt-[3px] font-bold leading-none text-bf-text" style={{ fontSize: m.codeFont }}>{code}</span>
+      <span className="mt-[2px] font-normal leading-none text-bf-gray" style={{ fontSize: m.exHaFont }}>{ha}</span>
     </>
   );
   const base = 'flex flex-none flex-col items-center justify-center leading-none';
@@ -293,7 +253,6 @@ function Items({
   items,
   runByGw,
   m,
-  presentation,
   detail,
   onDetail,
   onAskCell,
@@ -301,7 +260,6 @@ function Items({
   items: TimelineItem[];
   runByGw: Map<number, FixtureOutlookRun>;
   m: Metrics;
-  presentation: boolean;
   detail?: string | null;
   onDetail?: (key: string | null) => void;
   onAskCell?: (gw: FixtureOutlookGW) => void;
@@ -322,14 +280,12 @@ function Items({
                 gw={item.gw}
                 ring={runRing(runByGw.get(item.gw.gameweek))}
                 m={m}
-                presentation={presentation}
                 onAsk={onAskCell ? () => onAskCell(item.gw) : undefined}
               />
             ) : (
               <ExtraTile
                 item={item}
                 m={m}
-                presentation={presentation}
                 selected={detail === item.key}
                 onPick={onDetail ? () => onDetail(item.key) : undefined}
               />
@@ -382,7 +338,6 @@ export function TimelineLane({
             items={items}
             runByGw={runByGw}
             m={DETAILED}
-            presentation={false}
             detail={detail}
             onDetail={setDetail}
             onAskCell={onAskCell}
@@ -401,7 +356,164 @@ export function TimelineLane({
   );
 }
 
-/** "Presentar": every club's timeline, sized from the viewport so the 20 rows fit without scrolling. */
+// ---------------------------------------------------------------------------
+// "Presentar": one fixed grid for the whole league
+// ---------------------------------------------------------------------------
+
+/** Everything below is sized from `--r`, the height of one team row. */
+const r = (k: number) => `calc(var(--r) * ${k})`;
+/** Width of a slot relative to a gameweek column. */
+const SLOT_FR = 0.8;
+/** The text colour on an FDR fill: the app's ink, readable on all five band colours. */
+const TILE_INK = '#0E0D12';
+/** Where the match line runs inside a row (the vertical centre of the tile). */
+const LINE_TOP = '46%';
+
+function PresentationTile({ gw }: { gw: FixtureOutlookGW }) {
+  const blank = gw.band === null;
+  const fill = blank ? hexRgba(BLANK_COLOR, 0.22) : bandColor(gw.band as Band);
+  const opponents = blank ? '—' : gw.fixtures.map((f) => f.opponent_short).join('/');
+  const venue = blank ? '' : gw.fixtures.map((f) => venueLabel(f.is_home)).join('/');
+  const label = blank
+    ? `J${gw.gameweek} · sin partido (jornada en blanco)`
+    : `J${gw.gameweek} · ${opponents} ${venue} · FDR ${gw.band}${gw.is_dgw ? ' · doble jornada' : ''}`;
+  return (
+    <div
+      role="img"
+      aria-label={label}
+      className="flex items-center justify-center gap-[0.3em] overflow-hidden whitespace-nowrap leading-none"
+      style={{
+        width: '100%',
+        height: r(0.8),
+        marginTop: r(0.06),
+        alignSelf: 'flex-start',
+        borderRadius: r(0.16),
+        backgroundColor: fill,
+        color: blank ? BLANK_COLOR : TILE_INK,
+      }}
+    >
+      <span className="font-extrabold tracking-tight" style={{ fontSize: r(0.42) }}>{opponents}</span>
+      <span className="font-semibold opacity-55" style={{ fontSize: r(0.22) }}>{venue}</span>
+    </div>
+  );
+}
+
+/** One thin bar under the tiles of a run; it also crosses the slots between them so a run reads as one stretch. */
+function RunBar({ run }: { run: FixtureOutlookRun | undefined }) {
+  if (!run) return null;
+  return (
+    <span
+      aria-hidden="true"
+      data-testid="run-bar"
+      className="absolute inset-x-0"
+      style={{
+        bottom: r(0.03),
+        height: r(0.05),
+        borderRadius: r(0.05),
+        backgroundColor: runRing(run) ?? undefined,
+        opacity: 0.85,
+      }}
+    />
+  );
+}
+
+/** The rest between two matches, as a number over the line. Gold only for the rotation notice. */
+function RestNumber({ gap, align }: { gap: GapInfo; align: 'center' | 'left' | 'right' }) {
+  const pos: CSSProperties =
+    align === 'center'
+      ? { left: 0, right: 0, textAlign: 'center' }
+      : align === 'left'
+        ? { left: 0, width: '21%', textAlign: 'center' }
+        : { right: 0, width: '21%', textAlign: 'center' };
+  return (
+    <span
+      data-testid={gap.rotation ? 'rotation-notice' : 'rest-days'}
+      className={`absolute tabular-nums leading-none ${gap.rotation ? 'font-extrabold text-bf-gold' : 'font-normal text-bf-gray/45'}`}
+      style={{ ...pos, top: `calc(${LINE_TOP} - 1.45em)`, fontSize: r(gap.rotation ? 0.27 : 0.22) }}
+      title={gap.cell ?? gap.sentence}
+    >
+      <span aria-hidden="true">{gap.days}d</span>
+      <span className="sr-only">{gap.sentence}</span>
+    </span>
+  );
+}
+
+function SlotTile({ item, height, single }: { item: SlotMatch; height: string; single: boolean }) {
+  const color = competitionColor(item.match.competition);
+  return (
+    <div
+      role="img"
+      aria-label={item.sentence}
+      className="flex items-center justify-center overflow-hidden whitespace-nowrap bg-bf-ink leading-none"
+      style={{
+        width: '58%',
+        height,
+        flexDirection: single ? 'column' : 'row',
+        gap: single ? r(0.03) : '0.3em',
+        borderRadius: r(0.14),
+        border: `1.5px solid ${color}`,
+      }}
+    >
+      <span className="font-normal uppercase tracking-[0.08em]" style={{ fontSize: r(single ? 0.19 : 0.2), color }}>
+        {competitionTileLabel(item.match.competition)}
+      </span>
+      <span className="font-bold text-bf-text" style={{ fontSize: r(single ? 0.3 : 0.22) }}>{item.match.opponentCode}</span>
+    </div>
+  );
+}
+
+/** The reserved space before a gameweek column: empty (a wider gap), or the competition tile(s) of that window. */
+function Slot({ column, run }: { column: PresentationColumn; run: FixtureOutlookRun | undefined }) {
+  const matches = column.slot.slice(0, 2);
+  const more = column.slot.length - matches.length;
+  const rotation = column.gap?.rotation ?? false;
+  const rule = (side: 'left' | 'right', gold: boolean) => (
+    <span
+      aria-hidden="true"
+      className={`absolute border-t ${gold ? 'border-solid border-bf-gold/55' : 'border-dashed border-white/10'}`}
+      style={{ top: LINE_TOP, [side]: '6%', width: matches.length ? '44%' : '88%' }}
+    />
+  );
+  return (
+    <div className="relative min-w-0">
+      {matches.length === 0 ? (
+        <>
+          {rule('left', rotation)}
+          {column.gap && <RestNumber gap={column.gap} align="center" />}
+        </>
+      ) : (
+        <>
+          {rule('left', false)}
+          {rule('right', rotation)}
+          {matches[0].gap && <RestNumber gap={matches[0].gap} align="left" />}
+          {column.gap && <RestNumber gap={column.gap} align="right" />}
+          <div
+            className="absolute inset-x-0 flex flex-col items-center justify-center"
+            style={{ top: r(0.06), height: r(0.8), gap: r(0.04) }}
+          >
+            {matches.map((item) => (
+              <SlotTile key={item.key} item={item} single={matches.length === 1} height={matches.length === 1 ? r(0.66) : r(0.38)} />
+            ))}
+            {more > 0 && (
+              <span className="absolute right-[4%] font-normal text-bf-gray" style={{ bottom: 0, fontSize: r(0.2) }}>
+                +{more}
+              </span>
+            )}
+          </div>
+        </>
+      )}
+      <RunBar run={run} />
+    </div>
+  );
+}
+
+/**
+ * "Presentar": every club on ONE grid, so a column is the same gameweek for every team.
+ * One column per gameweek, with a reserved slot before each (and before the first, when any
+ * club has a match there). A club with another competition in a window shows it in that slot;
+ * otherwise the slot stays empty and reads as a wider gap. The gameweek code is written once,
+ * in the header row. Sized from the viewport so the 20 rows fit without scrolling.
+ */
 export function PresentationTimeline({
   data,
   extrasFor,
@@ -410,32 +522,103 @@ export function PresentationTimeline({
   extrasFor: (team: string) => TeamExtras | null;
 }) {
   const rows = data.teams.length || 1;
+  const teams = data.teams.map((team) => ({
+    team,
+    columns: buildPresentationColumns(team.series, extrasFor(team.team_short)),
+    runByGw: runsByGameweek(team.runs),
+  }));
+  const gameweeks = (teams[0]?.columns ?? []).map((c) => c.gw.gameweek);
+  // A slot before the first column only exists when some club has a match there; then every row reserves it.
+  const leading = teams.some((t) => (t.columns[0]?.slot.length ?? 0) > 0);
+  const tracks = gameweeks.flatMap((_, i) =>
+    i > 0 || leading ? [`minmax(0, ${SLOT_FR}fr)`, 'minmax(0, 1fr)'] : ['minmax(0, 1fr)'],
+  );
+  const stickyTeam: CSSProperties = { position: 'sticky', left: 0, zIndex: 2, backgroundColor: '#0E0D12' };
   return (
     <div
       data-testid="presentation-timeline"
-      className="grid h-full w-full"
+      className="grid h-full w-full overflow-x-auto overflow-y-hidden"
       style={
         {
-          // The row height every size below derives from: the viewport minus the overlay's own header and padding.
-          '--r': `calc((100dvh - 130px) / ${rows})`,
-          gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
+          // The row height every size below derives from: the viewport minus the overlay's own header and padding,
+          // shared between the teams and the one header row (0.7 of a row).
+          '--r': `calc((100dvh - 130px) / ${rows + 0.7})`,
+          gridTemplateColumns: `${r(1.9)} ${tracks.join(' ')}`,
+          gridTemplateRows: `${r(0.7)} repeat(${rows}, minmax(0, 1fr))`,
         } as CSSProperties
       }
     >
-      {data.teams.map((team) => {
-        const extras = extrasFor(team.team_short);
-        const items = extras ? buildTimeline(team.series, extras) : [];
-        return (
-          <div key={team.team_short} className="flex min-h-0 items-start overflow-hidden">
-            <span className="flex-none font-black leading-none text-white" style={{ width: r(2.6), fontSize: r(0.5) }}>
-              {team.team_short}
-            </span>
-            <div className="flex min-w-0 items-start">
-              <Items items={items} runByGw={runsByGameweek(team.runs)} m={PRESENTATION} presentation />
-            </div>
-          </div>
-        );
-      })}
+      <span style={stickyTeam} aria-hidden="true" />
+      {gameweeks.map((gw, i) => (
+        <span key={gw} className="contents">
+          {(i > 0 || leading) && <span aria-hidden="true" />}
+          <span
+            data-testid="gw-header"
+            className="flex items-center justify-center font-extrabold tracking-wide text-bf-gray"
+            style={{ fontSize: r(0.3) }}
+          >
+            J{gw}
+          </span>
+        </span>
+      ))}
+      {teams.map(({ team, columns, runByGw }) => (
+        <div key={team.team_short} data-testid="presentation-row" className="contents">
+          <span
+            className="flex items-start font-black leading-none text-white"
+            style={{ ...stickyTeam, fontSize: r(0.5), paddingTop: r(0.1) }}
+          >
+            {team.team_short}
+          </span>
+          {columns.map((column, i) => {
+            const run = runByGw.get(column.gw.gameweek);
+            const previousRun = i > 0 ? runByGw.get(columns[i - 1].gw.gameweek) : undefined;
+            return (
+              <span key={column.gw.gameweek} className="contents">
+                {(i > 0 || leading) && <Slot column={column} run={run && run === previousRun ? run : undefined} />}
+                <div className="relative flex min-w-0 justify-center">
+                  <PresentationTile gw={column.gw} />
+                  <RunBar run={run} />
+                </div>
+              </span>
+            );
+          })}
+        </div>
+      ))}
     </div>
+  );
+}
+
+/** The one-line legend of the presentation header: what the fill, the bar under a run, the tiles and the gold number mean. */
+export function PresentationLegend() {
+  const bands = [1, 2, 3, 4, 5] as const;
+  return (
+    <p
+      data-testid="presentation-legend"
+      className="flex items-center gap-[clamp(10px,1.2vw,22px)] whitespace-nowrap font-normal text-bf-gray"
+      style={{ fontSize: 'clamp(10px, 0.85vw, 15px)' }}
+    >
+      <span className="inline-flex items-center gap-1.5">
+        Fácil
+        <span className="inline-flex gap-[2px]">
+          {bands.map((b) => (
+            <i key={b} aria-hidden="true" className="inline-block h-[0.9em] w-[1.4em] rounded-[3px]" style={{ backgroundColor: bandColor(b) }} />
+          ))}
+        </span>
+        Difícil
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <i aria-hidden="true" className="inline-block h-[3px] w-[1.6em] rounded-full" style={{ backgroundColor: GOOD_HEX }} />
+        racha favorable
+        <i aria-hidden="true" className="inline-block h-[3px] w-[1.6em] rounded-full" style={{ backgroundColor: BAD_HEX }} />
+        difícil
+      </span>
+      {COMPETITION_LEGEND.map((entry) => (
+        <span key={entry.label} className="inline-flex items-center gap-1.5">
+          <i aria-hidden="true" className="inline-block h-[0.8em] w-[0.8em] rounded-[2px] border-[1.5px]" style={{ borderColor: entry.color }} />
+          {entry.label === 'Europa League' ? 'Europa' : entry.label}
+        </span>
+      ))}
+      <span className="text-bf-gold">3d dorado = descanso corto</span>
+    </p>
   );
 }
