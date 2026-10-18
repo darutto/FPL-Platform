@@ -82,3 +82,20 @@ Escrita **antes de ver ningún resultado** y antes de abrir los datos nuevos. Su
 - **Tasa de emparejamiento automático** = jugadores de FPL con minutos en esa temporada que el emparejador resuelve entre todos los jugadores de FPL con minutos. Se informa por temporada, junto con la lista de los **no emparejados** (nombre, club, posición, minutos) para revisión. Se **excluyen** de H1 a H4 y **no se corrigen a mano**.
 - **Precondición (aprobado o suspendido, por temporada):** la tasa debe ser **al menos del 95 %**, el mismo umbral que el trial de 2026-27 (`GATE_PERCENT = 95.0`). Si una temporada no llega, sus resultados se calculan y se publican como descriptivos, **marcados "precondición de identidad no cumplida"**, y **no cuentan para los criterios de aprobado** de H1 a H4. Si lo incumple 2025-26 (la temporada de confirmación), ningún criterio de aprobado se evalúa y el informe lo dice en la primera línea.
 - Esta precondición se evalúa antes que cualquier prueba, y su resultado (tasa, lista de no emparejados) se entrega a fpl-platform-22 antes de H1.
+
+---
+
+## Veredicto del gate (previo a esta enmienda) y Enmienda 2
+
+**Veredicto preinscrito que se mantiene:** con la enmienda 1 tal como está escrita, la precondición de identidad **no se cumple** (2024-25: 86,30 %; 2025-26: 85,29 %; umbral 95 %). Por tanto **H1 a H4 son descriptivos** y el informe lo dirá en su primera línea. El ajuste de abajo no cambia ese veredicto; solo abre una segunda lectura.
+
+**Enmienda 2, escrita DESPUÉS del resultado del gate y ANTES de calcular ningún resultado de H1 a H4** (pedida por fpl-platform-22). Si se evalúan los criterios de aprobado con ella, quedan etiquetados **"enmienda posterior al gate"** y nunca sustituyen al veredicto de arriba.
+
+Cambio: un puente de identidad **sin llamadas**, con datos ya validados.
+1. Jugador de Sportmonks → elemento FPL de 2026-27, con el emparejamiento del trial de 2026-27 (pares automáticos de la captura revisados por Leo más los pares manuales confirmados, `identity_pairs` y `manual_pairs.json`; 99,5 %).
+2. Elemento FPL de 2026-27 → `code` de FPL, el código estable entre temporadas, leído del bootstrap actual.
+3. `code` → elemento FPL de cada temporada pasada, **solo si el almacén de esa temporada tiene `code`**. Comprobación previa, hecha antes de la enmienda: el almacén de 2025-26 lo tiene (tabla `parquet/players.parquet`); el de 2024-25 **no tiene `code` en ninguna tabla**. El puente por `code` no puede cubrir 2024-25: ahí no cambia nada y la temporada sigue fallando la precondición. No se inventa otro puente para 2024-25 (no se escribe un emparejador por nombre).
+4. **Condiciones:** el puente solo se aplica donde el **club en la fecha** y la **posición** concuerdan. Club: el equipo del jugador de Sportmonks en esa temporada (su último partido), pasado por el cruce de clubes de esa temporada que ya construyó el gate, debe ser el equipo del elemento FPL de la temporada. Posición: `position_id` de Sportmonks pasado por la correspondencia de posiciones del trial debe coincidir con el `element_type` del elemento. **Cualquier conflicto deja al jugador sin emparejar**, no resuelto. Si el puente y el gate apuntan a elementos distintos para el mismo jugador de Sportmonks, ese jugador queda sin emparejar. Los jugadores que ya no están en la Premier League (sin elemento 2026-27) quedan sin emparejar.
+5. **Tasa nueva** por temporada = jugadores FPL con minutos emparejados por el gate o por el puente, sin conflicto, entre los jugadores FPL con minutos. Se informan la tasa y los no emparejados que quedan. Se aplica la misma puerta del 95 %. Si sigue fallando, los resultados de la enmienda también son descriptivos.
+
+**Independiente del mapeo (decisión del revisor):** H1 (persistencia de rol), la versión por hueco de H2 y H3 usan solo identificadores de Sportmonks y se informan completos de todos modos. Los comparadores de FPL (adelanto de H1 frente a xGI, H2 emparejado frente a la regla FPL, H4) se calculan solo sobre los jugadores emparejados, con el porcentaje emparejado a la vista.
