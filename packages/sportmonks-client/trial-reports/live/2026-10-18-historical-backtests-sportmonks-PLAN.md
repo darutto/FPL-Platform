@@ -99,3 +99,15 @@ Cambio: un puente de identidad **sin llamadas**, con datos ya validados.
 5. **Tasa nueva** por temporada = jugadores FPL con minutos emparejados por el gate o por el puente, sin conflicto, entre los jugadores FPL con minutos. Se informan la tasa y los no emparejados que quedan. Se aplica la misma puerta del 95 %. Si sigue fallando, los resultados de la enmienda también son descriptivos.
 
 **Independiente del mapeo (decisión del revisor):** H1 (persistencia de rol), la versión por hueco de H2 y H3 usan solo identificadores de Sportmonks y se informan completos de todos modos. Los comparadores de FPL (adelanto de H1 frente a xGI, H2 emparejado frente a la regla FPL, H4) se calculan solo sobre los jugadores emparejados, con el porcentaje emparejado a la vista.
+
+---
+
+## Enmienda 3: corrección de la regla de la enmienda 2 (pedida por fpl-platform-22)
+
+**Declaración de orden, sin adornos.** Esta enmienda se escribe **después** de ver las tasas de la enmienda 2 y **después de haber calculado ya** los resultados de persistencia de H1 (`sm_h1.py`) y una primera versión del adelanto de H1 (`sm_h1_lead.py`). No se escribe "antes de cualquier resultado de H1 a H4", como pedía el encargo, porque esos cálculos ya estaban hechos cuando llegó la corrección. Qué depende del cambio y qué no: la **persistencia de H1 usa solo identificadores de Sportmonks** y no cambia con la regla de identidad; solo el **adelanto frente a FPL** (conjunto de jugadores emparejados) se ve afectado, y por eso se recalcula y se informa **las dos versiones**, la de la enmienda 2 y la de la enmienda 3. H2, H3 y H4 no se habían calculado.
+
+**Corrección:** se elimina de la regla de la enmienda 2 el criterio de **posición de la alineación frente a `element_type` de FPL**. El rol de alineación es el resultado que se mide; no puede ser un criterio de identidad. Dentro del puente (identidad validada de 2026-27 más `code` estable de FPL) la identidad ya está establecida; se mantiene el criterio de **club en la fecha**. Se añade una comprobación **FPL contra FPL** de coherencia: el `element_type` del elemento de la temporada y el del elemento de 2026-27 con el mismo `code`; solo se informa (no resuelve ni descarta).
+
+- Se informan la tasa nueva de 2025-26 y el pasa/falla de la puerta del 95 %. 2024-25 queda en 86,30 % porque su almacén no tiene `code`.
+- Se listan los **50 jugadores rechazados antes** con su tipo FPL y su rol de alineación: es un hallazgo en sí mismo.
+- Etiquetas: el veredicto preinscrito sigue siendo **descriptivo**; las enmiendas 2 y 3 se informan por separado como **posteriores al gate**.
