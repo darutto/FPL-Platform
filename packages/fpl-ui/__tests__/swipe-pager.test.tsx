@@ -1,4 +1,9 @@
 /** @jest-environment jsdom */
+// The owner-only "Presentar" switch reads the Clerk session; these tests render the board without one.
+jest.mock('@/lib/presentation-access', () => ({
+  usePresentationAccess: () => (globalThis as { __owner?: boolean }).__owner !== false,
+}));
+
 import { fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import SwipePager, { PagerScreen } from '../components/chat/SwipePager';

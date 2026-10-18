@@ -14,6 +14,11 @@
  * case is the one that captures the bug as seen: two teams used to yield
  * four headers.
  */
+// The owner-only "Presentar" switch reads the Clerk session; these tests render the board without one.
+jest.mock('@/lib/presentation-access', () => ({
+  usePresentationAccess: () => (globalThis as { __owner?: boolean }).__owner !== false,
+}));
+
 import { render, screen, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 

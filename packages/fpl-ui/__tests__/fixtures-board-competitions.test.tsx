@@ -8,6 +8,11 @@
  * the "Otras competiciones" switch, and nothing at all when the layer is unavailable
  * (all production ever sees). Each full-board render is expensive in jsdom, so there are few.
  */
+// The owner-only "Presentar" switch reads the Clerk session; these tests render the board without one.
+jest.mock('@/lib/presentation-access', () => ({
+  usePresentationAccess: () => (globalThis as { __owner?: boolean }).__owner !== false,
+}));
+
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
@@ -310,5 +315,51 @@ describe('FixturesBoard multi-competition layer (timeline)', () => {
     await settled();
     await act(async () => { await Promise.resolve(); });
     expect(second.container.innerHTML).toBe(unavailable);
+  });
+
+  test('Presentar: one fixed grid. The gameweek only in the header, every row the same cells, the extras in the slot before their gameweek', async () => {
+    mockBackend(PREMIUM);
+    render(<FixturesBoard onAsk={() => {}} />);
+    await settled();
+    await within(arsenal()).findByTestId('fixture-timeline');
+    act(() => { fireEvent.click(screen.getByRole('button', { name: 'Presentar' })); });
+    const grid = within(screen.getByLabelText('Calendario en modo presentación')).getByTestId('presentation-timeline');
+
+    // Six gameweeks by default, one header cell each; 8 on request.
+    const headers = () => within(grid).getAllByTestId('gw-header').map((h) => h.textContent);
+    expect(headers()).toEqual(Array.from({ length: 6 }, (_, i) => `J${START + i}`));
+
+    const cellsOf = (row: Element) =>
+      Array.from(row.children).flatMap((child) => (child.classList.contains('contents') ? Array.from(child.children) : [child]));
+    const rows = () => within(grid).getAllByTestId('presentation-row');
+    expect(rows()).toHaveLength(20);
+    // Team + 6 gameweek columns + a slot between each pair: the same for all 20 teams.
+    for (const row of rows()) {
+      expect(cellsOf(row)).toHaveLength(1 + 6 + 5);
+      expect(row.textContent).not.toMatch(/J\d+/);
+    }
+
+    // ARS: the UCL tile sits in the slot between its first two columns; MCI's two matches stack in the slot before its third.
+    const row = (team: string) => rows().find((r) => r.textContent?.startsWith(team))!;
+    expect(within(cellsOf(row('ARS'))[2] as HTMLElement).getByRole('img', { name: /Champions League ante FC Bayern/ })).toHaveTextContent('BAY');
+    expect(within(cellsOf(row('MCI'))[4] as HTMLElement).getAllByRole('img')).toHaveLength(2);
+    // A team with no other competition keeps its slots empty.
+    expect(within(row('COV')).queryAllByRole('img').length).toBe(6);
+
+    act(() => { fireEvent.click(screen.getByRole('button', { name: '8 jornadas' })); });
+    expect(headers()).toHaveLength(8);
+    for (const r of rows()) expect(cellsOf(r)).toHaveLength(1 + 8 + 7);
+  });
+
+  test('Presentar is only offered to the owner accounts', async () => {
+    mockBackend(PREMIUM);
+    (globalThis as { __owner?: boolean }).__owner = false;
+    try {
+      render(<FixturesBoard onAsk={() => {}} />);
+      await settled();
+      expect(screen.queryByRole('button', { name: 'Presentar' })).toBeNull();
+    } finally {
+      delete (globalThis as { __owner?: boolean }).__owner;
+    }
   });
 });

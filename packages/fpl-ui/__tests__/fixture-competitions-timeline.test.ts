@@ -3,6 +3,7 @@
  * the gold notice, and the free ghost tile. Pure data, no rendering.
  */
 import {
+  buildPresentationColumns,
   buildTimeline,
   compactGutter,
   extraSentence,
@@ -164,4 +165,36 @@ test.each([
   [{ available: true, tier: 'gold', teams: {} }], [{ next_gw: 5, finished_gw: 4 }],
 ])('unrecognised payload %j -> null (the board stays as it was)', (payload) => {
   expect(parseCompetitions(payload)).toBeNull();
+});
+
+describe('buildPresentationColumns (the fixed presentation grid)', () => {
+  const series = [gw(7), gw(8), gw(9)];
+
+  test('one column per gameweek; an extra match goes to the slot before the Premier League match it precedes', () => {
+    const team = premium(
+      [extra(8, '2026-10-21T19:00:00Z', 3), extra(9, '2026-10-27T20:00:00Z', 3, 'EFL'), extra(9, '2026-10-28T20:00:00Z', 1, 'UEL')],
+      [pl(7, '2026-10-18T15:30:00Z', 4), pl(8, '2026-10-24T14:00:00Z', 2, true, 'UCL'), pl(9, '2026-11-01T16:30:00Z', 4)],
+    );
+    const columns = buildPresentationColumns(series, team);
+    expect(columns.map((c) => c.gw.gameweek)).toEqual([7, 8, 9]);
+    expect(columns.map((c) => c.slot.map((s) => s.match.competition))).toEqual([[], ['UCL'], ['EFL', 'UEL']]);
+    // The rest into each Premier League match; the first column has none, the rotation one is flagged.
+    expect(columns.map((c) => c.gap?.days ?? null)).toEqual([null, 2, 4]);
+    expect(columns[1].gap?.rotation).toBe(true);
+  });
+
+  test('a match before the first column is kept (the leading slot); one after the last is left out', () => {
+    const team = premium(
+      [extra(7, '2026-10-14T19:00:00Z', 3), extra(9, '2026-11-03T19:00:00Z', 2)],
+      [pl(7, '2026-10-18T15:30:00Z', 4), pl(8, '2026-10-24T14:00:00Z', 6), pl(9, '2026-11-01T16:30:00Z', 7)],
+    );
+    const columns = buildPresentationColumns(series, team);
+    expect(columns.map((c) => c.slot.length)).toEqual([1, 0, 0]);
+  });
+
+  test('a team the layer knows nothing about still gets every column, with empty slots', () => {
+    const columns = buildPresentationColumns(series, null);
+    expect(columns).toHaveLength(3);
+    expect(columns.every((c) => c.slot.length === 0 && c.gap === null)).toBe(true);
+  });
 });

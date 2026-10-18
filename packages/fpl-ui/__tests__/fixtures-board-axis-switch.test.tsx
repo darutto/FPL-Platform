@@ -18,6 +18,11 @@
  *
  * So: render, click, and compare the output to itself.
  */
+// The owner-only "Presentar" switch reads the Clerk session; these tests render the board without one.
+jest.mock('@/lib/presentation-access', () => ({
+  usePresentationAccess: () => (globalThis as { __owner?: boolean }).__owner !== false,
+}));
+
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 

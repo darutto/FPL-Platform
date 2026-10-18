@@ -52,7 +52,8 @@ import {
   OtherCompetitionsToggle,
   TimelineLegend,
 } from './FixtureCompetitionExtras';
-import { PresentationTimeline } from './FixtureTimeline';
+import { PresentationLegend, PresentationTimeline } from './FixtureTimeline';
+import { usePresentationAccess } from '@/lib/presentation-access';
 import { FixtureTickerRow, BandLegend } from './FixtureTickerRow';
 import { FixtureCompactGrid } from './FixtureCompactGrid';
 import { FixtureTendencyChart } from './FixtureTendencyChart';
@@ -62,6 +63,8 @@ import type { FixtureAxis } from '@/lib/types';
 
 const HORIZONS = REAL_SEASON_HORIZONS;
 const DAY_MS = 86_400_000;
+/** Presentation shows fewer gameweeks than the board: 6 by default, 8 on request. */
+const PRESENTATION_HORIZONS = [6, 8] as const;
 const OTHER_COMPETITIONS_KEY = 'fpl-fixtures-other-competitions';
 type ViewMode = 'detailed' | 'compact' | 'tendency';
 
@@ -88,6 +91,8 @@ export function FixturesBoard({
   const [windowState, setWindowState] = useState<StoredFixtureWindow | null>(null);
   const [presentationMode, setPresentationMode] = useState(false);
   const presentationRef = useRef<HTMLDivElement>(null);
+  const canPresent = usePresentationAccess();
+  const [presentationHorizon, setPresentationHorizon] = useState<number>(PRESENTATION_HORIZONS[0]);
   // Multi-competition layer. The backend decides the tier; null (production, or any failure) = the board as before.
   const [competitions, setCompetitions] = useState<CompetitionsView | null>(null);
 
@@ -113,6 +118,12 @@ export function FixturesBoard({
     () => fixtureOutlookProvenance(REAL_SEASON_GENERATION, finishedGameweek),
     [finishedGameweek],
   );
+  const presentationStart = clampFixtureWindowStart(startGameweek, gameweeks, presentationHorizon) ?? startGameweek;
+  const presentationData = useMemo(
+    () => fixtureOutlookWindow(sourceData, presentationStart, presentationHorizon),
+    [presentationHorizon, presentationStart, sourceData],
+  );
+  const presentationEnd = presentationData.teams[0]?.series.at(-1)?.gameweek ?? presentationStart;
   const previousGameweek = clampFixtureWindowStart(startGameweek - 1, gameweeks, horizon);
   const followingGameweek = clampFixtureWindowStart(startGameweek + 1, gameweeks, horizon);
 
@@ -320,13 +331,15 @@ export function FixturesBoard({
             </button>
           ))}
         </div>
-        <button
-          type="button"
-          onClick={openPresentation}
-          className="rounded-full border border-bf-turquoise/40 bg-bf-turquoise/10 px-3 py-1 text-xs font-bold text-bf-turquoise transition-colors hover:bg-bf-turquoise/20"
-        >
-          Presentar
-        </button>
+        {canPresent && (
+          <button
+            type="button"
+            onClick={openPresentation}
+            className="rounded-full border border-bf-turquoise/40 bg-bf-turquoise/10 px-3 py-1 text-xs font-bold text-bf-turquoise transition-colors hover:bg-bf-turquoise/20"
+          >
+            Presentar
+          </button>
+        )}
       </div>
 
       {competitions?.tier === 'free' && lockedOpen && <LockedCompetitionsLine />}
@@ -417,20 +430,36 @@ export function FixturesBoard({
           aria-label="Calendario en modo presentación"
           aria-hidden={!presentationMode}
         >
-          <div className="mb-[clamp(8px,1.25vh,16px)] flex items-center justify-between gap-4">
-            <div className="flex items-baseline gap-[clamp(10px,1.5vw,24px)]">
-              <span className="text-[clamp(18px,2vw,32px)] font-black tracking-tight">Calendario FDR</span>
-              <span className="text-[clamp(12px,1.2vw,18px)] font-extrabold uppercase tracking-wider text-bf-turquoise">
-                {axisLabel(axis)} · J{startGameweek}–J{visibleEndGameweek}
-              </span>
-              <span className="hidden text-[clamp(10px,1vw,15px)] font-bold text-bf-gray lg:inline">
-                Fácil → difícil · ◯ racha favorable · ◯ racha difícil
-              </span>
-              {layer && presentationMode && (
-                <span className="hidden lg:inline">
-                  <TimelineLegend />
+          <div className="mb-[clamp(6px,1vh,14px)] flex items-center gap-[clamp(10px,1.4vw,28px)] whitespace-nowrap">
+            <span className="text-[clamp(16px,1.7vw,30px)] font-black tracking-tight">Calendario FDR</span>
+            <span className="text-[clamp(11px,1vw,18px)] font-extrabold uppercase tracking-wider text-bf-turquoise">
+              {axisLabel(axis)} · J{presentationStart}–J{presentationEnd}
+            </span>
+            <div className="hidden min-w-0 flex-1 overflow-hidden lg:block">
+              {layer ? (
+                <PresentationLegend />
+              ) : (
+                <span className="text-[clamp(10px,0.85vw,15px)] font-bold text-bf-gray">
+                  Fácil → difícil · ◯ racha favorable · ◯ racha difícil
                 </span>
               )}
+            </div>
+            <div className="ml-auto inline-flex items-center gap-1" role="group" aria-label="Jornadas a mostrar">
+              {PRESENTATION_HORIZONS.map((h) => (
+                <button
+                  key={h}
+                  type="button"
+                  onClick={() => setPresentationHorizon(h)}
+                  aria-pressed={presentationHorizon === h}
+                  className={`rounded-md border px-[clamp(8px,0.8vw,14px)] py-[clamp(2px,0.3vw,6px)] text-[clamp(10px,0.9vw,15px)] font-bold transition-colors ${
+                    presentationHorizon === h
+                      ? 'border-bf-turquoise/50 bg-bf-turquoise/10 text-bf-turquoise'
+                      : 'border-white/15 text-bf-gray hover:text-white'
+                  }`}
+                >
+                  {h} jornadas
+                </button>
+              ))}
             </div>
             <button
               type="button"
@@ -443,9 +472,9 @@ export function FixturesBoard({
           <div className="min-h-0 flex-1 overflow-hidden">
             {layer ? (
               // The timeline only exists while presenting: the overlay is otherwise a hidden copy of the board.
-              presentationMode && <PresentationTimeline data={data} extrasFor={extrasFor} />
+              presentationMode && <PresentationTimeline data={presentationData} extrasFor={extrasFor} />
             ) : (
-              <FixtureCompactGrid data={data} presentation />
+              <FixtureCompactGrid data={presentationData} presentation />
             )}
           </div>
         </div>
