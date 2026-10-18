@@ -373,7 +373,9 @@ export function FixturesBoard({
             </p>
           </div>
 
-          <FixtureProvenanceStamp provenance={provenance} />
+          <div className="max-w-prose">
+            <FixtureProvenanceStamp provenance={provenance} />
+          </div>
 
           {/* Wrapped so a test can read what the board is actually showing.
               The axis-switcher bug was invisible to every existing test
@@ -412,7 +414,7 @@ export function FixturesBoard({
           )}
           </div>
 
-          <p className="text-[10px] leading-snug text-bf-gray/50 pt-3 border-t border-white/5">
+          <p className="max-w-prose text-[10px] leading-snug text-bf-gray/50 pt-3 border-t border-white/5">
             Calendario real desde la API oficial de FPL, sin datos inventados. El
             eje de ataque usa la dificultad FDR de FPL; el de portería a cero la
             ajusta por la forma atacante reciente del rival. El calendario del

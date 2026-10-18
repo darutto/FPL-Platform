@@ -11,8 +11,9 @@ import CardTable from '../components/intents/CardTable';
 import MarkdownLite from '../components/MarkdownLite';
 import PlayerCard from '../components/intents/PlayerCard';
 import { FixturesBoard } from '../components/intents/FixturesBoard';
+import { TimelineLane } from '../components/intents/FixtureTimeline';
 import { playerSnapshotOkResponse } from './fixtures/sample-responses';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
 // jsdom has no PointerEvent constructor. Preserve the properties used by the
 // browser's pointer identity/primary-button contract instead of plain Events.
@@ -183,6 +184,50 @@ test('tabs and keyboard still navigate', () => {
   expect(change).toHaveBeenLastCalledWith(2);
   fireEvent.keyDown(window, { key: 'ArrowLeft' });
   expect(change).toHaveBeenLastCalledWith(0);
+});
+
+test('top tabs alone reach every screen and keep the current-screen indication in sync', () => {
+  const labels = ['Calendario', 'Squad', 'Chat', 'Commands'];
+  function Pager() {
+    const [active, setActive] = useState(1);
+    return <SwipePager screen={active} onScreenChange={setActive} labels={labels}>
+      {labels.map((label) => <PagerScreen key={label}><p>{label} content</p></PagerScreen>)}
+    </SwipePager>;
+  }
+  const { container } = render(<Pager />);
+  // Edge hints are hidden by CSS on mobile. Use only the persistent top tabs.
+  for (const label of labels) {
+    const tab = screen.getAllByRole('button', { name: label }).find((button) => !button.title)!;
+    fireEvent.click(tab);
+    expect(tab).toHaveAttribute('aria-current', 'true');
+    expect(container.querySelectorAll('[aria-current="true"]')).toHaveLength(1);
+    tab.focus();
+    fireEvent.keyDown(tab, { key: 'ArrowLeft' });
+    const previous = Math.max(0, labels.indexOf(label) - 1);
+    expect(container.querySelector('[aria-current="true"]')).toHaveTextContent(labels[previous]);
+  }
+});
+
+test.each([0, 350])('Calendar timeline owns native scrolling at scrollLeft=%i', (scrollLeft) => {
+  const { change } = setup(<TimelineLane
+    team={{ team_short: 'ARS', team_name: 'Arsenal', axis: 'attack', avg_band: 2, verdict: '', runs: [],
+      series: [{ gameweek: 8, band: 2, klass: 'good', is_dgw: false, is_bgw: false,
+        fixtures: [{ opponent_short: 'CHE', is_home: true, band: 2 }] }],
+    }}
+    extras={{ extras: [], plMatches: [] }}
+  />);
+  const lane = screen.getByTestId('fixture-timeline').firstElementChild as HTMLElement;
+  makeScrollable(lane, scrollLeft);
+  // Start on non-interactive timeline content so the overflow boundary, rather
+  // than the generic button guard, must protect navigation in both directions.
+  const rival = screen.getByText('CHE');
+  for (const endX of [100, 340]) {
+    drag(rival, endX);
+    expect(fireEvent.touchMove(rival, { touches: [{ clientX: endX, clientY: 100 }] })).toBe(true);
+    pointer(rival, 'pointerup', endX);
+  }
+  fireEvent.keyDown(lane, { key: 'ArrowRight' });
+  expect(change).not.toHaveBeenCalled();
 });
 
 test('arrow navigation works while a pager tab or edge hint has focus', () => {
