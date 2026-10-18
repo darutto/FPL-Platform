@@ -86,6 +86,8 @@ export async function POST() {
   const tokens = await client.users.getUserOauthAccessToken(userId, PATREON_STRATEGY);
   const accessToken = tokens.data[0]?.token;
   if (!accessToken) {
+    // Booleans only, never the address: this line is how an owner finds out why the admin role was not set.
+    console.info('[sync-patreon]', { outcome: 'no_oauth_token', strategy: PATREON_STRATEGY });
     return NextResponse.json({ tier: 'free' });
   }
 
@@ -102,8 +104,15 @@ export async function POST() {
   // shape (data.attributes.*), so the Clerk user record never gets an email.
   // Read it straight from this same identity call instead of user.emailAddresses.
   const patreonEmail: string | undefined = identity.data?.attributes?.email;
+  const isAdmin =
+    ADMIN_EMAILS.length > 0 && Boolean(patreonEmail) && ADMIN_EMAILS.includes(patreonEmail!.toLowerCase());
+  console.info('[sync-patreon]', {
+    outcome: isAdmin ? 'admin' : 'member_lookup',
+    patreon_returned_email: Boolean(patreonEmail),
+    admin_emails_configured: ADMIN_EMAILS.length,
+  });
 
-  if (ADMIN_EMAILS.length > 0 && patreonEmail && ADMIN_EMAILS.includes(patreonEmail.toLowerCase())) {
+  if (isAdmin) {
     await client.users.updateUserMetadata(userId, {
       publicMetadata: { tier: 'patreon_premium', role: 'admin' },
     });
