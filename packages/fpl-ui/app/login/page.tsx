@@ -4,7 +4,7 @@ import { SignIn } from '@clerk/nextjs';
 
 export default function LoginPage() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-bf-bg px-4 text-bf-text">
+    <main className="login-page flex min-h-screen flex-col items-center justify-center bg-bf-bg px-4 text-bf-text">
       <div className="mb-6 text-center">
         <h1 className="font-display text-2xl text-bf-text">FPL Asistente</h1>
         <p className="mt-2 text-sm text-bf-gray">
@@ -25,6 +25,10 @@ export default function LoginPage() {
             colorMutedForeground: '#cfcdd9',
             colorInput: '#1c1a26',
             colorInputForeground: '#f0f0f0',
+          },
+          elements: {
+            // Patreon is the only way in: nothing of an email form (or the "or" between) should ever show.
+            dividerRow: { display: 'none' },
           },
         }}
       />
