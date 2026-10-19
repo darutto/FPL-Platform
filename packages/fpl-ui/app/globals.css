@@ -101,3 +101,33 @@
   color: #f0f0f0 !important;
   opacity: 1 !important;
 }
+
+/* Login: the Patreon button is the single call to action. Clerk's own rule paints
+   its text black at 62% on a transparent button, unreadable on the dark card, and the
+   appearance prop does not win against it, so override by class name under .login-page.
+   Ink (#0E0D12) on #FF6A4D is 6.9:1 (WCAG AA needs 4.5:1); white on it is only 2.8:1.
+   The provider icon Clerk draws is a plain "P" initial, replaced here by the Patreon mark. */
+.login-page .cl-socialButtonsBlockButton {
+  width: 100% !important;
+  min-height: 52px !important;
+  background-color: #ff6a4d !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+.login-page .cl-socialButtonsBlockButton:hover,
+.login-page .cl-socialButtonsBlockButton:focus-visible {
+  background-color: #ff8268 !important;
+}
+.login-page .cl-socialButtonsBlockButtonText {
+  color: #0e0d12 !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  opacity: 1 !important;
+}
+.login-page .cl-socialButtonsProviderInitialIcon__custom_patreon {
+  width: 20px !important;
+  height: 20px !important;
+  font-size: 0 !important;
+  color: transparent !important;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='15' cy='9.5' r='6.5' fill='%230e0d12'/%3E%3Crect x='2' y='3' width='4' height='18' fill='%230e0d12'/%3E%3C/svg%3E") center / contain no-repeat !important;
+}
