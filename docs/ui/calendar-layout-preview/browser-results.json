@@ -1,0 +1,505 @@
+[
+  {
+    "test": "calendar geometry",
+    "pass": true,
+    "width": 390,
+    "overflow": false,
+    "panel": 374,
+    "ribbons": 0
+  },
+  {
+    "test": "mobile ribbons hidden, desktop ribbons retained",
+    "pass": true,
+    "width": 390,
+    "ribbons": 0
+  },
+  {
+    "test": "view remains inside page",
+    "pass": true,
+    "width": 390,
+    "view": "Compacto"
+  },
+  {
+    "test": "view remains inside page",
+    "pass": true,
+    "width": 390,
+    "view": "Tendencia"
+  },
+  {
+    "test": "view remains inside page",
+    "pass": true,
+    "width": 390,
+    "view": "Detallado"
+  },
+  {
+    "test": "calendar geometry",
+    "pass": true,
+    "width": 768,
+    "overflow": false,
+    "panel": 752,
+    "ribbons": 1
+  },
+  {
+    "test": "mobile ribbons hidden, desktop ribbons retained",
+    "pass": true,
+    "width": 768,
+    "ribbons": 1
+  },
+  {
+    "test": "view remains inside page",
+    "pass": true,
+    "width": 768,
+    "view": "Compacto"
+  },
+  {
+    "test": "view remains inside page",
+    "pass": true,
+    "width": 768,
+    "view": "Tendencia"
+  },
+  {
+    "test": "view remains inside page",
+    "pass": true,
+    "width": 768,
+    "view": "Detallado"
+  },
+  {
+    "test": "calendar geometry",
+    "pass": true,
+    "width": 1366,
+    "overflow": false,
+    "panel": 1280,
+    "ribbons": 1
+  },
+  {
+    "test": "mobile ribbons hidden, desktop ribbons retained",
+    "pass": true,
+    "width": 1366,
+    "ribbons": 1
+  },
+  {
+    "test": "view remains inside page",
+    "pass": true,
+    "width": 1366,
+    "view": "Compacto"
+  },
+  {
+    "test": "view remains inside page",
+    "pass": true,
+    "width": 1366,
+    "view": "Tendencia"
+  },
+  {
+    "test": "view remains inside page",
+    "pass": true,
+    "width": 1366,
+    "view": "Detallado"
+  },
+  {
+    "test": "calendar geometry",
+    "pass": true,
+    "width": 1920,
+    "overflow": false,
+    "panel": 1280,
+    "ribbons": 1
+  },
+  {
+    "test": "mobile ribbons hidden, desktop ribbons retained",
+    "pass": true,
+    "width": 1920,
+    "ribbons": 1
+  },
+  {
+    "test": "view remains inside page",
+    "pass": true,
+    "width": 1920,
+    "view": "Compacto"
+  },
+  {
+    "test": "view remains inside page",
+    "pass": true,
+    "width": 1920,
+    "view": "Tendencia"
+  },
+  {
+    "test": "view remains inside page",
+    "pass": true,
+    "width": 1920,
+    "view": "Detallado"
+  },
+  {
+    "test": "calendar geometry",
+    "pass": true,
+    "width": 2560,
+    "overflow": false,
+    "panel": 1280,
+    "ribbons": 1
+  },
+  {
+    "test": "mobile ribbons hidden, desktop ribbons retained",
+    "pass": true,
+    "width": 2560,
+    "ribbons": 1
+  },
+  {
+    "test": "view remains inside page",
+    "pass": true,
+    "width": 2560,
+    "view": "Compacto"
+  },
+  {
+    "test": "view remains inside page",
+    "pass": true,
+    "width": 2560,
+    "view": "Tendencia"
+  },
+  {
+    "test": "view remains inside page",
+    "pass": true,
+    "width": 2560,
+    "view": "Detallado"
+  },
+  {
+    "test": "wider shell exposes more timeline without stretching it",
+    "pass": true,
+    "widths": [
+      {
+        "cap": 720,
+        "tileWidth": 64,
+        "visible": 644,
+        "total": 826
+      },
+      {
+        "cap": 1120,
+        "tileWidth": 64,
+        "visible": 1044,
+        "total": 1044
+      },
+      {
+        "cap": 1280,
+        "tileWidth": 64,
+        "visible": 1204,
+        "total": 1204
+      }
+    ]
+  },
+  {
+    "test": "horizon control retained",
+    "pass": true,
+    "horizon": "5"
+  },
+  {
+    "test": "horizon control retained",
+    "pass": true,
+    "horizon": "8"
+  },
+  {
+    "test": "horizon control retained",
+    "pass": true,
+    "horizon": "10"
+  },
+  {
+    "test": "competition detail on tap",
+    "pass": true
+  },
+  {
+    "test": "Escape closes detail",
+    "pass": true
+  },
+  {
+    "test": "competition switch hides timelines",
+    "pass": true
+  },
+  {
+    "test": "competition setting persists",
+    "pass": true
+  },
+  {
+    "test": "presentation retains gesture guard",
+    "pass": true
+  },
+  {
+    "test": "presentation exits",
+    "pass": true
+  },
+  {
+    "test": "free tier hides premium opponent",
+    "pass": true
+  },
+  {
+    "test": "non-admin presentation control remains hidden",
+    "pass": true
+  },
+  {
+    "test": "bench overlap comparison",
+    "pass": true,
+    "height": 844,
+    "variant": "pre463",
+    "players": [
+      {
+        "name": "TZOTzolakis8",
+        "overlaps": false
+      },
+      {
+        "name": "NDINdiaye3",
+        "overlaps": false
+      },
+      {
+        "name": "EGAEgan4",
+        "overlaps": false
+      },
+      {
+        "name": "CALCalvert-Lewin5",
+        "overlaps": false
+      }
+    ]
+  },
+  {
+    "test": "bench overlap comparison",
+    "pass": true,
+    "height": 844,
+    "variant": "preFix",
+    "players": [
+      {
+        "name": "Tzolakis, NFO",
+        "overlaps": false
+      },
+      {
+        "name": "Ndiaye, EVE",
+        "overlaps": false
+      },
+      {
+        "name": "Egan, BUR",
+        "overlaps": false
+      },
+      {
+        "name": "Calvert-Lewin, LEE",
+        "overlaps": false
+      }
+    ]
+  },
+  {
+    "test": "bench overlap comparison",
+    "pass": true,
+    "height": 844,
+    "variant": "fixed",
+    "players": [
+      {
+        "name": "Tzolakis, NFO",
+        "overlaps": false
+      },
+      {
+        "name": "Ndiaye, EVE",
+        "overlaps": false
+      },
+      {
+        "name": "Egan, BUR",
+        "overlaps": false
+      },
+      {
+        "name": "Calvert-Lewin, LEE",
+        "overlaps": false
+      }
+    ]
+  },
+  {
+    "test": "bench selects without navigating",
+    "pass": true,
+    "name": "Tzolakis, NFO",
+    "height": 844
+  },
+  {
+    "test": "bench selects without navigating",
+    "pass": true,
+    "name": "Ndiaye, EVE",
+    "height": 844
+  },
+  {
+    "test": "bench selects without navigating",
+    "pass": true,
+    "name": "Egan, BUR",
+    "height": 844
+  },
+  {
+    "test": "bench selects without navigating",
+    "pass": true,
+    "name": "Calvert-Lewin, LEE",
+    "height": 844
+  },
+  {
+    "test": "bench overlap comparison",
+    "pass": true,
+    "height": 520,
+    "variant": "pre463",
+    "players": [
+      {
+        "name": "TZOTzolakis8",
+        "overlaps": false
+      },
+      {
+        "name": "NDINdiaye3",
+        "overlaps": false
+      },
+      {
+        "name": "EGAEgan4",
+        "overlaps": false
+      },
+      {
+        "name": "CALCalvert-Lewin5",
+        "overlaps": false
+      }
+    ]
+  },
+  {
+    "test": "bench overlap comparison",
+    "pass": true,
+    "height": 520,
+    "variant": "preFix",
+    "players": [
+      {
+        "name": "Tzolakis, NFO",
+        "overlaps": false
+      },
+      {
+        "name": "Ndiaye, EVE",
+        "overlaps": false
+      },
+      {
+        "name": "Egan, BUR",
+        "overlaps": false
+      },
+      {
+        "name": "Calvert-Lewin, LEE",
+        "overlaps": false
+      }
+    ]
+  },
+  {
+    "test": "bench overlap comparison",
+    "pass": true,
+    "height": 520,
+    "variant": "fixed",
+    "players": [
+      {
+        "name": "Tzolakis, NFO",
+        "overlaps": false
+      },
+      {
+        "name": "Ndiaye, EVE",
+        "overlaps": false
+      },
+      {
+        "name": "Egan, BUR",
+        "overlaps": false
+      },
+      {
+        "name": "Calvert-Lewin, LEE",
+        "overlaps": false
+      }
+    ]
+  },
+  {
+    "test": "bench selects without navigating",
+    "pass": true,
+    "name": "Tzolakis, NFO",
+    "height": 520
+  },
+  {
+    "test": "bench selects without navigating",
+    "pass": true,
+    "name": "Ndiaye, EVE",
+    "height": 520
+  },
+  {
+    "test": "bench selects without navigating",
+    "pass": true,
+    "name": "Egan, BUR",
+    "height": 520
+  },
+  {
+    "test": "bench selects without navigating",
+    "pass": true,
+    "name": "Calvert-Lewin, LEE",
+    "height": 520
+  },
+  {
+    "test": "rich-card bounds",
+    "pass": true,
+    "id": "table-card",
+    "width": 390,
+    "cardWidth": 340
+  },
+  {
+    "test": "rich-card bounds",
+    "pass": true,
+    "id": "player-card",
+    "width": 390,
+    "cardWidth": 340
+  },
+  {
+    "test": "rich-card bounds",
+    "pass": true,
+    "id": "comparison-card",
+    "width": 390,
+    "cardWidth": 340
+  },
+  {
+    "test": "rich-card bounds",
+    "pass": true,
+    "id": "defensive-card",
+    "width": 390,
+    "cardWidth": 340
+  },
+  {
+    "test": "rich-card bounds",
+    "pass": true,
+    "id": "table-card",
+    "width": 1920,
+    "cardWidth": 638
+  },
+  {
+    "test": "rich-card bounds",
+    "pass": true,
+    "id": "player-card",
+    "width": 1920,
+    "cardWidth": 638
+  },
+  {
+    "test": "rich-card bounds",
+    "pass": true,
+    "id": "comparison-card",
+    "width": 1920,
+    "cardWidth": 638
+  },
+  {
+    "test": "rich-card bounds",
+    "pass": true,
+    "id": "defensive-card",
+    "width": 1920,
+    "cardWidth": 638
+  },
+  {
+    "test": "no runtime errors",
+    "pass": true,
+    "errors": []
+  },
+  {
+    "test": "native timeline scroll owns gesture",
+    "pass": true
+  },
+  {
+    "test": "timeline edge never navigates",
+    "pass": true,
+    "end": "left"
+  },
+  {
+    "test": "timeline edge never navigates",
+    "pass": true,
+    "end": "right"
+  },
+  {
+    "test": "native pinch preserves screen",
+    "pass": true,
+    "scale": 5
+  }
+]

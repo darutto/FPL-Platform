@@ -374,7 +374,7 @@ export default function ChatShell() {
 
       <SwipePager screen={screen} onScreenChange={setScreen} labels={PAGER_LABELS}>
         {/* SCREEN 0 — Calendario (fixture ticker, deep-links into chat) */}
-        <PagerScreen maxWidth={720}>
+        <PagerScreen maxWidth={1280}>
           <div className="h-full overflow-y-auto rounded-card border border-white/10 bg-bf-surface p-3">
             <FixturesBoard onAsk={handleInsert} />
           </div>
