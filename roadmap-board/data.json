@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-18",
+  "updated": "2026-10-19",
   "cards": [
     {
       "id": "s1",
@@ -2054,6 +2054,28 @@
       ],
       "title": "Oportunidades por cambios en el once",
       "desc": "PROPUESTA 2026-10-18 tras Q8 (#472): 23 de 33 titulares que perdieron el puesto tienen un sustituto directo en su hueco, casi todos con <3 % de propiedad (Barcola por Gakpo, Matheus Nunes por Khusanov, Grealish por George). Tarjeta Premium que muestre quién ocupa una posición nueva, a quién desplazó, desde cuándo y con cuánta evidencia (n, fechas), sin recomendar compras ni afirmar causas. SOLO DISEÑO: se construye si la prueba J (anticipación con datos disponibles antes de la jornada siguiente, comparada con una regla solo FPL) muestra valor."
+    },
+    {
+      "id": "s37",
+      "col": "shipped",
+      "progress": 100,
+      "tags": [
+        "UI",
+        "Web"
+      ],
+      "title": "Calendario ancho y limpieza de overlays de navegación móvil",
+      "desc": "Fusionada (PR #483, 19/10). El tope de ancho del Calendario sube a 1280px en pantallas anchas (antes 720px), conservando tamaño de celdas, orden cronológico y scroll horizontal nativo; en pantallas menores a 768px se ocultan las cintas de navegación lateral duplicadas que cubrían contenido junto a la banca del Squad (pieza 3 tras #463 y #464)."
+    },
+    {
+      "id": "s38",
+      "col": "shipped",
+      "progress": 100,
+      "tags": [
+        "UI",
+        "Auth"
+      ],
+      "title": "Botón de Patreon legible en /login",
+      "desc": "Fusionada (PR #485, 19/10). El botón «Continue with Patreon» en /login se veía casi ilegible (texto negro al 62% de Clerk sobre tarjeta oscura); nueva clase .login-page fuerza fondo #FF6A4D, texto tinta en negrita y el logo de Patreon en vez de la inicial de Clerk, con contraste ≥4.5:1 verificado por test."
     }
   ]
 }
