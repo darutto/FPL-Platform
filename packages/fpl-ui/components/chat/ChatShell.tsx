@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * ChatShell — three-screen swipe shell (V2 Phase 2g + U2 pager).
+ * ChatShell — responsive pager and wide workspace.
  *
  * Screens (SwipePager): Calendario · Squad pitch · Chat (home) · Quick commands.
  *
@@ -46,7 +46,7 @@ import SquadPitch from '@/components/squad/SquadPitch';
 import { FixturesBoard } from '@/components/intents/FixturesBoard';
 
 // Pager screen order: 0 Calendario · 1 Squad · 2 Chat (home) · 3 Commands.
-const PAGER_LABELS = ['Calendario', 'Squad', 'Chat', 'Commands'] as const;
+const PAGER_LABELS = ['Calendar', 'Squad', 'Chat', 'Commands'] as const;
 const CHAT_SCREEN = 2;
 
 export default function ChatShell() {
@@ -372,11 +372,11 @@ export default function ChatShell() {
     <div className="flex flex-col h-screen">
       <TopBar teamName={teamName} gw={gw} />
 
-      <SwipePager screen={screen} onScreenChange={setScreen} labels={PAGER_LABELS}>
+      <SwipePager workspace screen={screen} onScreenChange={setScreen} labels={PAGER_LABELS}>
         {/* SCREEN 0 — Calendario (fixture ticker, deep-links into chat) */}
         <PagerScreen maxWidth={1280}>
           <div className="h-full overflow-y-auto rounded-card border border-white/10 bg-bf-surface p-3">
-            <FixturesBoard onAsk={handleInsert} />
+            <FixturesBoard onAsk={handleSend} />
           </div>
         </PagerScreen>
 
@@ -402,7 +402,7 @@ export default function ChatShell() {
               {isEmpty ? (
                 <div className="flex-1 flex flex-col items-center justify-center gap-6 px-4">
                   <p className="text-bf-gray text-sm">
-                    Haz una pregunta sobre tu equipo de Fantasy Premier League.
+                    Ask a question about your Fantasy Premier League team.
                   </p>
                   <StarterPrompts onSelect={sendMessage} />
                 </div>
@@ -420,7 +420,7 @@ export default function ChatShell() {
               )}
             </div>
 
-            <div className="flex-shrink-0 px-3 pb-3 pt-2 space-y-2 border-t border-white/5">
+            <div className="chat-composer flex-shrink-0 px-3 pb-3 pt-2 space-y-2 border-t border-white/5">
               {followUpArmedFor && (
                 <button
                   onClick={cancelFollowUp}
@@ -432,6 +432,7 @@ export default function ChatShell() {
               )}
               <InputBar
                 onSubmit={sendMessage}
+                defaultPlaceholder="Ask a question or use /capitan, /comparar…"
                 disabled={loading}
                 insert={insert}
                 webSearch={{

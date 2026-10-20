@@ -49,23 +49,23 @@ interface PanelCommand {
 
 // @ vistas rápidas — Spanish aliases supported by the backend resource router.
 const AT_COMMANDS: PanelCommand[] = [
-  { insert: '@lesionados', label: 'Lesionados', desc: 'Lista actualizada', Icon: IconInjury, accent: 'coralSoft', autoSend: true },
-  { insert: '@forma', label: 'En racha', desc: 'Mejor forma reciente', Icon: IconForm, accent: 'gold', autoSend: true },
-  { insert: '@xg', label: 'Peligro de gol', desc: 'Líderes xG + xA por 90', Icon: IconXG, accent: 'coral', autoSend: true },
-  { insert: '@puntos', label: 'Más puntos', desc: 'Acumulados temporada', Icon: IconPoints, accent: 'turquoise', autoSend: true },
-  { insert: '@minutos', label: 'Los infaltables', desc: 'Más minutos jugados', Icon: IconMinutes, accent: 'cyan', autoSend: true },
-  { insert: '@populares', label: 'Más comprados', desc: 'Mayor ownership', Icon: IconPopular, accent: 'purple', autoSend: true },
+  { insert: '@lesionados', label: 'Injuries', desc: 'Latest availability', Icon: IconInjury, accent: 'coralSoft', autoSend: true },
+  { insert: '@forma', label: 'In form', desc: 'Best recent form', Icon: IconForm, accent: 'gold', autoSend: true },
+  { insert: '@xg', label: 'Goal threat', desc: 'Top xG + xA per 90', Icon: IconXG, accent: 'coral', autoSend: true },
+  { insert: '@puntos', label: 'Top points', desc: 'Season totals', Icon: IconPoints, accent: 'turquoise', autoSend: true },
+  { insert: '@minutos', label: 'Most minutes', desc: 'Minutes played', Icon: IconMinutes, accent: 'cyan', autoSend: true },
+  { insert: '@populares', label: 'Most selected', desc: 'Highest ownership', Icon: IconPopular, accent: 'purple', autoSend: true },
 ];
 
 // Presentation for each registry command (friendly question as the label).
 const SLASH_PRESENTATION: Record<string, { label: string; desc: string; Icon: IconComponent; accent: Accent }> = {
-  '/capitan': { label: '¿A quién le doy la cinta?', desc: 'Recomendación de capitán', Icon: IconCaptain, accent: 'turquoise' },
-  '/comparar': { label: 'Comparar 2 jugadores', desc: 'Análisis side-by-side', Icon: IconCompare, accent: 'cyan' },
-  '/transferencia': { label: 'Sugerir fichaje', desc: '¿Vale la pena el cambio?', Icon: IconTransfer, accent: 'gold' },
-  '/calendarios': { label: 'Fixture de jugador', desc: 'Dificultad próximos partidos', Icon: IconFixtures, accent: 'turquoise' },
-  '/diferenciales': { label: 'Buscar joyas ocultas', desc: 'Baja propiedad, alto potencial', Icon: IconDiff, accent: 'coralSoft' },
-  '/chips': { label: '¿Uso un chip?', desc: 'Triple Cap, WC, BB o FH', Icon: IconChip, accent: 'purple' },
-  '/clasificacion': { label: 'Top capitanes de la semana', desc: 'Ranking de la jornada', Icon: IconRanking, accent: 'gold' },
+  '/capitan': { label: 'Choose a captain', desc: 'Captain recommendation', Icon: IconCaptain, accent: 'turquoise' },
+  '/comparar': { label: 'Compare players', desc: 'Side-by-side analysis', Icon: IconCompare, accent: 'cyan' },
+  '/transferencia': { label: 'Suggest a transfer', desc: 'Is the move worth it?', Icon: IconTransfer, accent: 'gold' },
+  '/calendarios': { label: 'Player fixtures', desc: 'Upcoming difficulty', Icon: IconFixtures, accent: 'turquoise' },
+  '/diferenciales': { label: 'Find differentials', desc: 'Low ownership, high potential', Icon: IconDiff, accent: 'coralSoft' },
+  '/chips': { label: 'Use a chip?', desc: 'Triple Cap, WC, BB or FH', Icon: IconChip, accent: 'purple' },
+  '/clasificacion': { label: 'Captain rankings', desc: 'This gameweek', Icon: IconRanking, accent: 'gold' },
 };
 
 const SLASH_PANEL_COMMANDS: PanelCommand[] = SLASH_COMMANDS.map((sc) => {
@@ -128,19 +128,19 @@ export default function CommandPanel({ onInsert, onSend }: Props) {
     <div className="flex flex-col h-full min-h-0">
       <div className="px-4 py-3 border-b border-white/10 flex-shrink-0 bg-black/25">
         <span className="text-[10px] font-bold uppercase tracking-widest text-bf-text/50">
-          Comandos rápidos
+          Quick commands
         </span>
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 py-2.5">
-        <SectionHeading>Vistas rápidas</SectionHeading>
+        <SectionHeading>Quick views</SectionHeading>
         <div className="flex flex-col gap-0.5 mb-3">
           {AT_COMMANDS.map((cmd) => (
             <CommandRow key={cmd.insert} cmd={cmd} onInsert={onInsert} onSend={onSend} />
           ))}
         </div>
 
-        <SectionHeading>Acciones</SectionHeading>
+        <SectionHeading>Actions</SectionHeading>
         <div className="flex flex-col gap-0.5">
           {SLASH_PANEL_COMMANDS.map((cmd) => (
             <CommandRow key={cmd.insert} cmd={cmd} onInsert={onInsert} onSend={onSend} />

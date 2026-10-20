@@ -2,6 +2,37 @@
 @tailwind components;
 @tailwind utilities;
 
+/* One mounted tree serves both the pager and the wide workspace. Hidden center
+   panels retain their dimensions and scroll positions when switching tabs. */
+.workspace-slot { flex: 0 0 100%; min-width: 0; height: 100%; }
+.workspace-panel-heading { display: none; }
+.wide-workspace { --squad-width: 280px; --commands-width: 200px; }
+.workspace-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; gap: 12px; }
+.workspace-toolbar button, .workspace-panel-heading button { min-height: 36px; padding: 6px 12px; border-radius: 8px; font-size: 12px; @apply text-bf-gray; }
+.workspace-toolbar button:hover, .workspace-panel-heading button:hover { background: rgb(255 255 255 / .06); color: white; }
+.workspace-toolbar button[aria-pressed='true'] { @apply bg-bf-coral/15 text-bf-coral; }
+.workspace-grid { display: grid; grid-template-columns: var(--squad-column) minmax(0, 1fr) var(--commands-column); grid-template-rows: minmax(0, 1fr); gap: 12px; padding: 0 12px 12px; height: 100%; min-width: 0; }
+.wide-workspace .workspace-slot { min-height: 0; grid-row: 1; }
+.wide-workspace .workspace-center { grid-column: 2; }
+.wide-workspace [data-panel='squad'] { grid-column: 1; }
+.wide-workspace [data-panel='commands'] { grid-column: 3; }
+.wide-workspace .workspace-side { display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.wide-workspace [data-collapsed='true'] { visibility: hidden; pointer-events: none; overflow: hidden; }
+.wide-workspace .workspace-panel-heading { display: flex; justify-content: space-between; align-items: center; min-width: 0; font-size: 12px; font-weight: 700; padding-left: 8px; }
+.wide-workspace .pager-screen { padding: 0; min-height: 0; }
+.wide-workspace .pager-content { max-width: none !important; min-height: 0; }
+.wide-workspace .chat-composer { width: 100%; max-width: 744px; margin-inline: auto; }
+.wide-workspace .chat-message { width: 100%; max-width: 720px; margin-inline: auto; }
+.wide-workspace .chat-answer { width: 100%; max-width: none; }
+.wide-workspace .chat-prose { max-width: 720px; margin-inline: auto; overflow-wrap: anywhere; }
+.wide-workspace [data-panel='commands'] .truncate { white-space: normal; overflow: visible; }
+.wide-workspace .squad-formation [data-squad-pitch] { aspect-ratio: 5 / 4; min-height: 240px; }
+.squad-pitch-sidebar { display: none; }
+.wide-workspace .squad-pitch-standard { display: none; }
+.wide-workspace .squad-pitch-sidebar { display: block; }
+@media (min-width: 1600px) { .wide-workspace { --squad-width: 320px; --commands-width: 240px; } }
+@media (min-width: 2200px) { .wide-workspace { --squad-width: 360px; --commands-width: 280px; } }
+
 /* Squad follows its panel width, including when the viewport is zoomed.
    One formation/detail tree keeps player selection intact through reflow. */
 .squad-container {
