@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-19T05:07:13Z",
+  "generatedAt": "2026-10-20T05:07:02Z",
   "season": "2026/27",
   "seasonStatus": "in_season",
   "gameweek": 6,
@@ -150,8 +150,8 @@
       "name": "Haaland",
       "team": "MCI",
       "position": "FWD",
-      "xg": 5.67,
-      "xa": 0.91,
+      "xg": 5.69,
+      "xa": 0.77,
       "minutes": 619
     },
     {
@@ -315,6 +315,14 @@
       "minutes": 459
     },
     {
+      "name": "Rudoni",
+      "team": "COV",
+      "position": "MID",
+      "xg": 1.85,
+      "xa": 1.16,
+      "minutes": 465
+    },
+    {
       "name": "Iwobi",
       "team": "FUL",
       "position": "MID",
@@ -337,14 +345,6 @@
       "xg": 1.33,
       "xa": 1.62,
       "minutes": 560
-    },
-    {
-      "name": "Rudoni",
-      "team": "COV",
-      "position": "MID",
-      "xg": 1.71,
-      "xa": 1.15,
-      "minutes": 379
     }
   ]
 }
