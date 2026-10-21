@@ -5,34 +5,52 @@
 /* One mounted tree serves both the pager and the wide workspace. Hidden center
    panels retain their dimensions and scroll positions when switching tabs. */
 .workspace-slot { flex: 0 0 100%; min-width: 0; height: 100%; }
-.workspace-panel-heading { display: none; }
-.wide-workspace { --squad-width: 280px; --commands-width: 200px; }
-.workspace-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; gap: 12px; }
-.workspace-toolbar button, .workspace-panel-heading button { min-height: 36px; padding: 6px 12px; border-radius: 8px; font-size: 12px; @apply text-bf-gray; }
-.workspace-toolbar button:hover, .workspace-panel-heading button:hover { background: rgb(255 255 255 / .06); color: white; }
-.workspace-toolbar button[aria-pressed='true'] { @apply bg-bf-coral/15 text-bf-coral; }
+/* Side panels scale with the viewport (NotebookLM-style); the center column
+   takes the rest and its content is capped, so extra width goes to the panels
+   and the margins, never to the cards. */
+.wide-workspace {
+  --squad-width: clamp(280px, 21vw, 560px);
+  --commands-width: clamp(240px, 16vw, 420px);
+  --center-max: 840px;
+}
+.workspace-toolbar { display: grid; grid-template-columns: var(--squad-column) minmax(0, 1fr) var(--commands-column); gap: 12px; padding: 8px 12px; align-items: center; }
+.workspace-toolbar .workspace-switch { grid-column: 2; justify-self: center; }
+.workspace-toolbar .workspace-switch .pill-segment { font-size: 13px; padding: 7px 16px; }
+.panel-toggle { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 8px; @apply text-bf-gray; }
+.panel-toggle:hover { background: rgb(255 255 255 / .08); color: white; }
+.panel-toggle:focus-visible { outline: 2px solid theme('colors.bf.turquoise'); outline-offset: 1px; }
+.panel-toggle-left { grid-column: 1; justify-self: start; }
+.panel-toggle-right { grid-column: 3; justify-self: end; }
 .workspace-grid { display: grid; grid-template-columns: var(--squad-column) minmax(0, 1fr) var(--commands-column); grid-template-rows: minmax(0, 1fr); gap: 12px; padding: 0 12px 12px; height: 100%; min-width: 0; }
 .wide-workspace .workspace-slot { min-height: 0; grid-row: 1; }
 .wide-workspace .workspace-center { grid-column: 2; }
 .wide-workspace [data-panel='squad'] { grid-column: 1; }
 .wide-workspace [data-panel='commands'] { grid-column: 3; }
-.wide-workspace .workspace-side { display: grid; grid-template-rows: auto minmax(0, 1fr); }
 .wide-workspace [data-collapsed='true'] { visibility: hidden; pointer-events: none; overflow: hidden; }
-.wide-workspace .workspace-panel-heading { display: flex; justify-content: space-between; align-items: center; min-width: 0; font-size: 12px; font-weight: 700; padding-left: 8px; }
 .wide-workspace .pager-screen { padding: 0; min-height: 0; }
 .wide-workspace .pager-content { max-width: none !important; min-height: 0; }
-.wide-workspace .chat-composer { width: 100%; max-width: 744px; margin-inline: auto; }
-.wide-workspace .chat-message { width: 100%; max-width: 720px; margin-inline: auto; }
-.wide-workspace .chat-answer { width: 100%; max-width: none; }
-.wide-workspace .chat-prose { max-width: 720px; margin-inline: auto; overflow-wrap: anywhere; }
+.wide-workspace .fixture-rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--row-min)), 1fr)); column-gap: 40px; }
+.wide-workspace .fixture-rows > div { border-top-width: 0; border-bottom: 1px solid rgb(255 255 255 / .1); padding-top: 18px; }
+.wide-workspace .chat-composer { width: 100%; max-width: calc(var(--center-max) + 32px); margin-inline: auto; }
+.wide-workspace .chat-message,
+.wide-workspace .chat-answer { width: 100%; max-width: var(--center-max); margin-inline: auto; }
+.wide-workspace .chat-prose { overflow-wrap: anywhere; }
 .wide-workspace .chat-answer .chat-prose { margin-inline: 0; }
+/* Bigger type in the workspace only; the mobile pager keeps its sizes. */
+.wide-workspace [data-panel='chat'] .text-sm { font-size: 15.5px; line-height: 1.6; }
+.wide-workspace [data-panel='chat'] .text-xs { font-size: 14px; }
+.wide-workspace [data-panel='chat'] .text-\[9px\],
+.wide-workspace [data-panel='chat'] .text-\[10px\] { font-size: 11.5px; }
+.wide-workspace [data-panel='chat'] .text-\[11px\] { font-size: 12.5px; }
+.wide-workspace [data-panel='squad'] .text-\[10px\] { font-size: 11.5px; }
+.wide-workspace [data-panel='squad'] .text-xs { font-size: 13.5px; }
 .wide-workspace [data-panel='commands'] .truncate { white-space: normal; overflow: visible; }
+.wide-workspace [data-panel='commands'] button .text-xs { font-size: 14px; }
+.wide-workspace [data-panel='commands'] button .text-\[10px\] { font-size: 12px; line-height: 1.3; }
 .wide-workspace .squad-formation [data-squad-pitch] { aspect-ratio: 5 / 4; min-height: 240px; }
 .squad-pitch-sidebar { display: none; }
 .wide-workspace .squad-pitch-standard { display: none; }
 .wide-workspace .squad-pitch-sidebar { display: block; }
-@media (min-width: 1600px) { .wide-workspace { --squad-width: 320px; --commands-width: 240px; } }
-@media (min-width: 2200px) { .wide-workspace { --squad-width: 360px; --commands-width: 280px; } }
 
 /* Squad follows its panel width, including when the viewport is zoomed.
    One formation/detail tree keeps player selection intact through reflow. */

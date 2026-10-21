@@ -95,6 +95,13 @@ export default function QuotaIndicator({
   if (fetchError) return null;
   if (!status) return null;
 
+  // A payload missing its counters would print "Día NaN/": hide instead.
+  const counters = [
+    status.daily_message_cap, status.daily_message_count,
+    status.monthly_message_cap, status.monthly_message_count,
+  ];
+  if (!counters.every(Number.isFinite)) return null;
+
   const dailyRemaining = status.daily_message_cap - status.daily_message_count;
   const monthlyRemaining = status.monthly_message_cap - status.monthly_message_count;
 
