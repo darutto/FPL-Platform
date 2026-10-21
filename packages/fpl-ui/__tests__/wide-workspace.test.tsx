@@ -82,12 +82,12 @@ test('breakpoint defaults, saved collapse choices, and disconnected Squad are us
   expect(container.querySelector('[data-panel="commands"]')).not.toHaveAttribute('aria-hidden');
   act(() => { width = 1440; listeners.forEach(fn => fn()); });
   expect(screen.getByText(/Conecta tu equipo FPL en la pestaña Chat/)).toBeVisible();
-  fireEvent.click(screen.getByRole('button', { name: 'Collapse squad' }));
-  expect(screen.getByRole('button', { name: 'Show squad' })).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Ocultar panel Squad' }));
+  expect(screen.getByRole('button', { name: 'Mostrar panel Squad' })).toBeVisible();
   unmount();
   render(<ChatShell />);
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Show squad' })).toBeVisible());
-  fireEvent.click(screen.getByRole('button', { name: 'Show squad' }));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Mostrar panel Squad' })).toBeVisible());
+  fireEvent.click(screen.getByRole('button', { name: 'Mostrar panel Squad' }));
   expect(screen.getByText(/Conecta tu equipo FPL en la pestaña Chat/)).toBeVisible();
 });
 

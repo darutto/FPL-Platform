@@ -13,6 +13,7 @@
 import { useEffect, useState } from 'react';
 import { UserButton } from '@clerk/nextjs';
 import SectionSwitcher from './SectionSwitcher';
+import { SHOW_SECTION_SWITCHER } from '@/lib/features';
 
 const CONTRAST_LS_KEY = 'bf_contrast';
 
@@ -59,12 +60,14 @@ export default function TopBar({ teamName, gw, title = 'FPL Asistente', subtitle
         <span className="text-[10px] text-bf-gray mt-0.5">{subtitle}</span>
       </div>
 
-      {/* Spotify-style FPL ↔ Mundial section switcher (shared by both shells). */}
-      <div className="mx-auto">
-        <SectionSwitcher />
-      </div>
+      {/* FPL ↔ Mundial switch: off while the World Cup is over (lib/features.ts). */}
+      {SHOW_SECTION_SWITCHER && (
+        <div className="mx-auto">
+          <SectionSwitcher />
+        </div>
+      )}
 
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2.5 ml-auto">
         {teamName && (
           <div className="text-right leading-none hidden sm:block">
             <span className="block text-[9px] font-bold text-bf-text/40 uppercase tracking-widest">Team</span>
