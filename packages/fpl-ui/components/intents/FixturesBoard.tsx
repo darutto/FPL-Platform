@@ -20,7 +20,7 @@
  * switcher does nothing; that shipped unannounced for six weeks with only a
  * footnote in the small print, which is why the notice is now in the card.
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
   buildRealSeasonOutlook,
   REAL_SEASON_GENERATION,
@@ -62,6 +62,12 @@ import { CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
 import type { FixtureAxis } from '@/lib/types';
 
 const HORIZONS = REAL_SEASON_HORIZONS;
+/** Wide workspace only: a wider center can hold a longer window (cells never stretch). */
+const WIDE_HORIZON = 12;
+/** Space one gameweek cell needs in a ticker row (cell + gap), measured from the rendered row. */
+const GW_CELL_PX = 78;
+/** Horizontal room a row spends outside its cells: card padding plus the board's own. */
+const ROW_CHROME_PX = 96;
 const DAY_MS = 86_400_000;
 /** Presentation shows fewer gameweeks than the board: 6 by default, 8 on request. */
 const PRESENTATION_HORIZONS = [6, 8] as const;
@@ -82,7 +88,13 @@ export function FixturesBoard({
   initialView?: ViewMode;
 }) {
   const [axis, setAxis] = useState<FixtureAxis>('attack');
-  const [horizon, setHorizon] = useState<number>(8);
+  // Inside the wide workspace the window follows the room available (largest
+  // option that fits) until the user picks a width; elsewhere it stays at 8.
+  const boardRef = useRef<HTMLDivElement>(null);
+  const [fitHorizon, setFitHorizon] = useState<number | null>(null);
+  const [pickedHorizon, setPickedHorizon] = useState<number | null>(null);
+  const horizon = pickedHorizon ?? fitHorizon ?? 8;
+  const horizons: readonly number[] = fitHorizon === null ? HORIZONS : [...HORIZONS, WIDE_HORIZON];
   const [view, setView] = useState<ViewMode>(initialView);
   const [nextGameweek, setNextGameweek] = useState<number | null>(null);
   // Live yardstick for the provenance stamp: how far the real league has
@@ -239,8 +251,26 @@ export function FixturesBoard({
     return () => document.removeEventListener('fullscreenchange', syncFullscreen);
   }, []);
 
+  useEffect(() => {
+    const el = boardRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const measure = () => {
+      // The workspace class lands after mount, so it is checked on every measure.
+      if (!el.closest('.wide-workspace')) { setFitHorizon(null); return; }
+      // Hidden (the other center tab) reports 0 width: keep the last fit.
+      if (el.clientWidth === 0) return;
+      const room = Math.floor((el.clientWidth - ROW_CHROME_PX) / GW_CELL_PX);
+      const options = [...HORIZONS, WIDE_HORIZON];
+      setFitHorizon(options.filter((h) => h <= room).at(-1) ?? options[0]);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <div className="space-y-4">
+    <div ref={boardRef} className="space-y-4">
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Axis toggle */}
@@ -266,10 +296,10 @@ export function FixturesBoard({
           <span className="text-[10px] font-bold uppercase tracking-wider text-bf-gray/60">
             Jornadas
           </span>
-          {HORIZONS.map((h) => (
+          {horizons.map((h) => (
             <button
               key={h}
-              onClick={() => setHorizon(h)}
+              onClick={() => setPickedHorizon(h)}
               aria-pressed={horizon === h}
               className={`w-8 py-1 text-xs font-bold rounded-md border transition-colors ${
                 horizon === h
@@ -383,7 +413,7 @@ export function FixturesBoard({
               another. */}
           <div data-testid="fixture-board-rows">
           {view === 'detailed' && (
-            <div>
+            <div className="fixture-rows" style={{ '--row-min': `${horizon * GW_CELL_PX}px` } as CSSProperties}>
               {data.teams.map((t) => (
                 <div
                   key={t.team_short}
@@ -401,7 +431,7 @@ export function FixturesBoard({
           )}
           {view === 'compact' && <FixtureCompactGrid data={data} onAsk={onAsk} extrasFor={extrasFor} layerActive={layer !== null} />}
           {view === 'tendency' && (
-            <div>
+            <div className="fixture-rows" style={{ '--row-min': `${horizon * GW_CELL_PX}px` } as CSSProperties}>
               {data.teams.map((t) => (
                 <div
                   key={t.team_short}
