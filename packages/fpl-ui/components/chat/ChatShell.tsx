@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * ChatShell — three-screen swipe shell (V2 Phase 2g + U2 pager).
+ * ChatShell — responsive pager and wide workspace.
  *
  * Screens (SwipePager): Calendario · Squad pitch · Chat (home) · Quick commands.
  *
@@ -372,17 +372,17 @@ export default function ChatShell() {
     <div className="flex flex-col h-screen">
       <TopBar teamName={teamName} gw={gw} />
 
-      <SwipePager screen={screen} onScreenChange={setScreen} labels={PAGER_LABELS}>
+      <SwipePager workspace screen={screen} onScreenChange={setScreen} labels={PAGER_LABELS}>
         {/* SCREEN 0 — Calendario (fixture ticker, deep-links into chat) */}
         <PagerScreen maxWidth={1280}>
           <div className="h-full overflow-y-auto rounded-card border border-white/10 bg-bf-surface p-3">
-            <FixturesBoard onAsk={handleInsert} />
+            <FixturesBoard onAsk={handleSend} />
           </div>
         </PagerScreen>
 
         {/* SCREEN 1 — Squad pitch */}
         <PagerScreen maxWidth={1120}>
-          <SquadPitch teamId={teamId} onAskPlayer={handleInsert} onGw={setGw} />
+          <SquadPitch teamId={teamId} onAskPlayer={handleSend} onGw={setGw} />
         </PagerScreen>
 
         {/* SCREEN 2 — Chat (home) */}
@@ -420,7 +420,7 @@ export default function ChatShell() {
               )}
             </div>
 
-            <div className="flex-shrink-0 px-3 pb-3 pt-2 space-y-2 border-t border-white/5">
+            <div className="chat-composer flex-shrink-0 px-3 pb-3 pt-2 space-y-2 border-t border-white/5">
               {followUpArmedFor && (
                 <button
                   onClick={cancelFollowUp}

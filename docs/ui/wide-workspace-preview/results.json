@@ -1,0 +1,324 @@
+[
+  {
+    "test": "card verdict is left aligned",
+    "pass": true,
+    "width": 2560
+  },
+  {
+    "test": "responsive workspace geometry",
+    "pass": true,
+    "width": 2560,
+    "overflow": false,
+    "squad": {
+      "x": 12,
+      "y": 100,
+      "width": 360,
+      "height": 968,
+      "hidden": false
+    },
+    "chat": {
+      "x": 384,
+      "y": 100,
+      "width": 1872,
+      "height": 968,
+      "hidden": false
+    },
+    "commands": {
+      "x": 2268,
+      "y": 100,
+      "width": 280,
+      "height": 968,
+      "hidden": false
+    },
+    "prose": [
+      720
+    ]
+  },
+  {
+    "test": "conversation draft and real scroll survive center switch",
+    "pass": true,
+    "width": 2560,
+    "before": {
+      "top": 140,
+      "count": 7
+    },
+    "after": {
+      "top": 140,
+      "count": 7
+    }
+  },
+  {
+    "test": "calendar query opens Chat with response",
+    "pass": true,
+    "width": 2560
+  },
+  {
+    "test": "command opens Chat with response",
+    "pass": true,
+    "width": 2560
+  },
+  {
+    "test": "no runtime errors",
+    "pass": true,
+    "width": 2560,
+    "errors": []
+  },
+  {
+    "test": "card verdict is left aligned",
+    "pass": true,
+    "width": 1920
+  },
+  {
+    "test": "responsive workspace geometry",
+    "pass": true,
+    "width": 1920,
+    "overflow": false,
+    "squad": {
+      "x": 12,
+      "y": 100,
+      "width": 320,
+      "height": 968,
+      "hidden": false
+    },
+    "chat": {
+      "x": 344,
+      "y": 100,
+      "width": 1312,
+      "height": 968,
+      "hidden": false
+    },
+    "commands": {
+      "x": 1668,
+      "y": 100,
+      "width": 240,
+      "height": 968,
+      "hidden": false
+    },
+    "prose": [
+      720
+    ]
+  },
+  {
+    "test": "conversation draft and real scroll survive center switch",
+    "pass": true,
+    "width": 1920,
+    "before": {
+      "top": 140,
+      "count": 7
+    },
+    "after": {
+      "top": 140,
+      "count": 7
+    }
+  },
+  {
+    "test": "calendar query opens Chat with response",
+    "pass": true,
+    "width": 1920
+  },
+  {
+    "test": "command opens Chat with response",
+    "pass": true,
+    "width": 1920
+  },
+  {
+    "test": "collapsed panel frees center",
+    "pass": true
+  },
+  {
+    "test": "collapse preference survives reload",
+    "pass": true
+  },
+  {
+    "test": "no runtime errors",
+    "pass": true,
+    "width": 1920,
+    "errors": []
+  },
+  {
+    "test": "card verdict is left aligned",
+    "pass": true,
+    "width": 1440
+  },
+  {
+    "test": "responsive workspace geometry",
+    "pass": true,
+    "width": 1440,
+    "overflow": false,
+    "squad": {
+      "x": 12,
+      "y": 100,
+      "width": 280,
+      "height": 968,
+      "hidden": false
+    },
+    "chat": {
+      "x": 304,
+      "y": 100,
+      "width": 912,
+      "height": 968,
+      "hidden": false
+    },
+    "commands": {
+      "x": 1228,
+      "y": 100,
+      "width": 200,
+      "height": 968,
+      "hidden": false
+    },
+    "prose": [
+      720
+    ]
+  },
+  {
+    "test": "conversation draft and real scroll survive center switch",
+    "pass": true,
+    "width": 1440,
+    "before": {
+      "top": 140,
+      "count": 7
+    },
+    "after": {
+      "top": 140,
+      "count": 7
+    }
+  },
+  {
+    "test": "calendar query opens Chat with response",
+    "pass": true,
+    "width": 1440
+  },
+  {
+    "test": "command opens Chat with response",
+    "pass": true,
+    "width": 1440
+  },
+  {
+    "test": "no runtime errors",
+    "pass": true,
+    "width": 1440,
+    "errors": []
+  },
+  {
+    "test": "card verdict is left aligned",
+    "pass": true,
+    "width": 1280
+  },
+  {
+    "test": "responsive workspace geometry",
+    "pass": true,
+    "width": 1280,
+    "overflow": false,
+    "squad": {
+      "x": 12,
+      "y": 100,
+      "width": 0,
+      "height": 968,
+      "hidden": true
+    },
+    "chat": {
+      "x": 24,
+      "y": 100,
+      "width": 1032,
+      "height": 968,
+      "hidden": false
+    },
+    "commands": {
+      "x": 1068,
+      "y": 100,
+      "width": 200,
+      "height": 968,
+      "hidden": false
+    },
+    "prose": [
+      720
+    ]
+  },
+  {
+    "test": "conversation draft and real scroll survive center switch",
+    "pass": true,
+    "width": 1280,
+    "before": {
+      "top": 140,
+      "count": 7
+    },
+    "after": {
+      "top": 140,
+      "count": 7
+    }
+  },
+  {
+    "test": "calendar query opens Chat with response",
+    "pass": true,
+    "width": 1280
+  },
+  {
+    "test": "command opens Chat with response",
+    "pass": true,
+    "width": 1280
+  },
+  {
+    "test": "no runtime errors",
+    "pass": true,
+    "width": 1280,
+    "errors": []
+  },
+  {
+    "test": "card verdict is left aligned",
+    "pass": true,
+    "width": 390
+  },
+  {
+    "test": "responsive workspace geometry",
+    "pass": true,
+    "width": 390,
+    "overflow": false,
+    "squad": {
+      "x": -390,
+      "y": 83,
+      "width": 390,
+      "height": 761,
+      "hidden": false
+    },
+    "chat": {
+      "x": 0,
+      "y": 83,
+      "width": 390,
+      "height": 761,
+      "hidden": false
+    },
+    "commands": {
+      "x": 390,
+      "y": 83,
+      "width": 390,
+      "height": 761,
+      "hidden": false
+    },
+    "prose": [
+      306
+    ]
+  },
+  {
+    "test": "conversation draft and real scroll survive center switch",
+    "pass": true,
+    "width": 390,
+    "before": {
+      "top": 140,
+      "count": 7
+    },
+    "after": {
+      "top": 140,
+      "count": 7
+    }
+  },
+  {
+    "test": "no runtime errors",
+    "pass": true,
+    "width": 390,
+    "errors": []
+  },
+  {
+    "test": "disconnected Squad shows connection guidance",
+    "pass": true
+  }
+]

@@ -7,8 +7,8 @@
  *   - stats strip (GW points / total / bank)
  *   - pitch with the starting XI laid out by position rows
  *   - bench row
- *   - player detail card on tap, with an "Ask AI" shortcut that drops a
- *     question about the player into the chat input.
+ *   - player detail card on tap, with an "Ask AI" shortcut that sends a
+ *     question about the player to Chat.
  *
  * Pitch sizing: the pitch box keeps a fixed 5:3 aspect ratio and fills the
  * formation width (bounded at 690px). Wide panels place player details beside
@@ -83,7 +83,7 @@ const POS_STYLE: Record<
 
 interface Props {
   teamId: number | null;
-  /** Drops a question about the player into the chat input. */
+  /** Sends a question about the player to Chat. */
   onAskPlayer: (question: string) => void;
   /** Reports the current GW upward (for the TopBar pill). */
   onGw?: (gw: number) => void;
@@ -270,11 +270,11 @@ function SquadBody({
         <div className="squad-formation">
           {/* Pitch — fixed 5:3 aspect, fills the formation, never deforms */}
           <div className="flex-shrink-0">
-            <div className="relative w-full aspect-[5/3] overflow-hidden bg-gradient-to-b from-bf-pitch to-bf-pitch-dark">
+            <div data-squad-pitch className="relative w-full aspect-[5/3] overflow-hidden bg-gradient-to-b from-bf-pitch to-bf-pitch-dark">
               {/* Markings drawn natively at 400×240 (same 5:3 aspect as the box) */}
               <svg
                 aria-hidden="true"
-                className="absolute inset-0 w-full h-full opacity-20"
+                className="squad-pitch-standard absolute inset-0 w-full h-full opacity-20"
                 viewBox="0 0 400 240"
                 preserveAspectRatio="xMidYMid meet"
               >
@@ -285,6 +285,17 @@ function SquadBody({
                 <rect x="130" y="196" width="140" height="36" fill="none" stroke="white" strokeWidth="1.5" />
                 <rect x="162" y="8" width="76" height="15" fill="none" stroke="white" strokeWidth="1.5" />
                 <rect x="162" y="217" width="76" height="15" fill="none" stroke="white" strokeWidth="1.5" />
+              </svg>
+
+              {/* Taller native markings for the narrow desktop sidebar. */}
+              <svg aria-hidden="true" className="squad-pitch-sidebar absolute inset-0 w-full h-full opacity-20" viewBox="0 0 400 340" preserveAspectRatio="xMidYMid meet">
+                <rect x="8" y="8" width="384" height="324" fill="none" stroke="white" strokeWidth="2" />
+                <line x1="8" y1="170" x2="392" y2="170" stroke="white" strokeWidth="1.5" />
+                <circle cx="200" cy="170" r="34" fill="none" stroke="white" strokeWidth="1.5" />
+                <rect x="130" y="8" width="140" height="45" fill="none" stroke="white" strokeWidth="1.5" />
+                <rect x="130" y="287" width="140" height="45" fill="none" stroke="white" strokeWidth="1.5" />
+                <rect x="162" y="8" width="76" height="18" fill="none" stroke="white" strokeWidth="1.5" />
+                <rect x="162" y="314" width="76" height="18" fill="none" stroke="white" strokeWidth="1.5" />
               </svg>
 
               <div className="relative z-10 h-full flex flex-col justify-around py-2 px-1">

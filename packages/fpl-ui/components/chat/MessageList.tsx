@@ -98,7 +98,7 @@ export default function MessageList({
   const lastId = messages[messages.length - 1]?.id;
 
   return (
-    <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+    <div ref={listRef} data-testid="conversation-scroll" className="flex-1 min-w-0 overflow-y-auto px-4 py-4 space-y-3">
       {messages.map((msg) => (
         <MessageBubble
           key={msg.id}
@@ -230,7 +230,7 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
   if (hasFplCard) {
     return (
       <div className="flex justify-start">
-        <div className="w-full max-w-prose">
+        <div className="chat-answer w-full max-w-prose">
           <div
             role="region"
             aria-label="Respuesta estructurada"
@@ -244,7 +244,7 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
                 <span className="mb-1.5 block text-[10px] font-extrabold uppercase tracking-[0.12em] text-bf-turquoise">
                   Veredicto
                 </span>
-                <MarkdownLite text={message.text} className="text-sm" />
+                <MarkdownLite text={message.text} className="chat-prose text-sm" />
               </section>
             )}
 
@@ -279,7 +279,7 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
   if (hasWcCard) {
     return (
       <div className="flex justify-start">
-        <div className="max-w-prose w-full [&>:first-child]:mt-0">
+        <div className="chat-answer max-w-prose w-full [&>:first-child]:mt-0">
           <WcIntentRenderer response={message.wcResponse!} />
           {showOriginBadge && <OriginBadges message={message} />}
           {showWizard && <SuggestionChips wizard={compareWizard!} onPick={onSuggestionPick!} />}
@@ -291,7 +291,7 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
   }
 
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <div className={`chat-message flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div
         className={`max-w-prose px-4 py-3 ${
           isUser

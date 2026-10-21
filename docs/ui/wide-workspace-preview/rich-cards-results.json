@@ -1,0 +1,50 @@
+[
+  {
+    "width": 2560,
+    "kind": "table",
+    "pass": true,
+    "errors": []
+  },
+  {
+    "width": 2560,
+    "kind": "compare",
+    "pass": true,
+    "errors": []
+  },
+  {
+    "width": 2560,
+    "kind": "pitch",
+    "pass": true,
+    "errors": []
+  },
+  {
+    "width": 2560,
+    "kind": "zones",
+    "pass": true,
+    "errors": []
+  },
+  {
+    "width": 390,
+    "kind": "table",
+    "pass": true,
+    "errors": []
+  },
+  {
+    "width": 390,
+    "kind": "compare",
+    "pass": true,
+    "errors": []
+  },
+  {
+    "width": 390,
+    "kind": "pitch",
+    "pass": true,
+    "errors": []
+  },
+  {
+    "width": 390,
+    "kind": "zones",
+    "pass": true,
+    "errors": []
+  }
+]
