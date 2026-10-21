@@ -32,11 +32,13 @@ Actual ChatShell components with synthetic API/team responses in a local browser
 
 ## Validation
 
-- Frontend Jest: 58 suites, 776 tests and 3 snapshots passed, including four new integration tests.
+- Frontend Jest: 58 suites, 776 tests and 3 snapshots passed, before the final Squad action addition. The affected suites then passed all 9 tests, including five workspace integration tests.
 - TypeScript: `npx tsc --noEmit` passed.
-- [26 browser checks](results.json): responsive geometry; non-zero conversation scroll, draft and DOM preservation on tab changes at all five widths; Calendar/Commands switching to Chat with response; persisted collapse; disconnected Squad; no runtime errors.
+- [31 browser checks](results.json): left-aligned card verdicts; responsive geometry; non-zero conversation scroll, draft and DOM preservation on tab changes at all five widths; Calendar/Commands switching to Chat with response; persisted collapse; disconnected Squad; no runtime errors.
 - [8 rich-card checks](rich-cards-results.json): no page overflow or runtime errors at 390 and 2560.
 - Existing gesture regression tests remain green. No physical-device pinch-zoom certification is claimed by these desktop Chromium captures.
 - New Jest cases cover breakpoint defaults, explicit collapse persistence, resize without conversation remount, completed Calendar/Commands questions, and argument-requiring commands inserting a draft without premature submission.
 
 Screenshots were shown to Leo before opening the PR. No merge or auto-merge is authorized.
+
+Review adjustments: restored pre-existing UI copy from main, aligned card verdict prose to the left, and made Squad Ask AI send directly. [Squad browser check](squad-action-result.json) confirms selection stays on Calendar and Ask AI opens Chat with one answer; Jest verifies exactly one API call. Updated captures reflect the restored text and alignment.

@@ -8,7 +8,7 @@ jest.mock('@clerk/nextjs', () => ({ useUser: () => ({ user: undefined }) }));
 jest.mock('@/lib/dev-tier', () => ({ readDevTier: () => undefined }));
 jest.mock('../components/chat/TopBar', () => ({ __esModule: true, default: () => null }));
 jest.mock('../components/chat/QuotaIndicator', () => ({ __esModule: true, default: () => null }));
-jest.mock('../components/chat/SquadContextPanel', () => ({ __esModule: true, default: () => null }));
+jest.mock('../components/chat/SquadContextPanel', () => ({ __esModule: true, default: ({ onTeamIdChange }: { onTeamIdChange: (id: number) => void }) => <button onClick={() => onTeamIdChange(123)}>Connect test team</button> }));
 jest.mock('../components/chat/StarterPrompts', () => ({ __esModule: true, default: () => null }));
 jest.mock('../components/intents/FixturesBoard', () => ({ FixturesBoard: ({ onAsk }: { onAsk: (text: string) => void }) => <button onClick={() => onAsk('Arsenal next fixtures')}>Ask about fixture</button> }));
 const mockAsk = jest.fn();
@@ -61,7 +61,7 @@ test('a Calendar question and a complete Commands query open Chat and display th
   await screen.findByText('Answer: Arsenal next fixtures');
   expect(within(nav()).getByRole('button', { name: 'Chat' })).toHaveAttribute('aria-pressed', 'true');
   center('Calendar');
-  fireEvent.click(screen.getByRole('button', { name: /Injuries/ }));
+  fireEvent.click(screen.getByRole('button', { name: /Lesionados/ }));
   await screen.findByText('Answer: @lesionados');
   expect(within(nav()).getByRole('button', { name: 'Chat' })).toHaveAttribute('aria-pressed', 'true');
   expect(mockAsk).toHaveBeenCalledTimes(2);
@@ -69,7 +69,7 @@ test('a Calendar question and a complete Commands query open Chat and display th
 
 test('a command requiring arguments opens Chat and inserts the draft without sending an incomplete query', () => {
   render(<ChatShell />); center('Calendar');
-  fireEvent.click(screen.getByRole('button', { name: /Compare players/ }));
+  fireEvent.click(screen.getByRole('button', { name: /Comparar 2 jugadores/ }));
   expect(within(nav()).getByRole('button', { name: 'Chat' })).toHaveAttribute('aria-pressed', 'true');
   expect(screen.getByRole('textbox', { name: /pregunta/i })).toHaveValue('/comparar ');
   expect(mockAsk).not.toHaveBeenCalled();
@@ -81,12 +81,35 @@ test('breakpoint defaults, saved collapse choices, and disconnected Squad are us
   expect(container.querySelector('[data-panel="squad"]')).toHaveAttribute('aria-hidden', 'true');
   expect(container.querySelector('[data-panel="commands"]')).not.toHaveAttribute('aria-hidden');
   act(() => { width = 1440; listeners.forEach(fn => fn()); });
-  expect(screen.getByText(/Connect your FPL team in Chat/)).toBeVisible();
+  expect(screen.getByText(/Conecta tu equipo FPL en la pestaña Chat/)).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Collapse squad' }));
   expect(screen.getByRole('button', { name: 'Show squad' })).toBeVisible();
   unmount();
   render(<ChatShell />);
   await waitFor(() => expect(screen.getByRole('button', { name: 'Show squad' })).toBeVisible());
   fireEvent.click(screen.getByRole('button', { name: 'Show squad' }));
-  expect(screen.getByText(/Connect your FPL team in Chat/)).toBeVisible();
+  expect(screen.getByText(/Conecta tu equipo FPL en la pestaña Chat/)).toBeVisible();
+});
+
+test('selecting a Squad player only selects; Ask AI opens Chat and sends exactly once', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({
+    gw: 8, summary: { gw_points: 61, total_points: 432, bank: 14 },
+    players: [{ id: 4, web_name: 'Haaland', team_short: 'MCI', position: 'FWD', price: 150, sel: '62.1', form: '7.0', gw_points: 10, pick_position: 10, is_starter: true, is_captain: false }],
+  }) });
+  try {
+    render(<ChatShell />);
+    fireEvent.click(screen.getByRole('button', { name: 'Connect test team' }));
+    const player = await screen.findByRole('button', { name: 'Haaland, MCI' });
+    center('Calendar');
+    fireEvent.click(player);
+    expect(player).toHaveAttribute('aria-pressed', 'true');
+    expect(within(nav()).getByRole('button', { name: 'Calendar' })).toHaveAttribute('aria-pressed', 'true');
+    expect(mockAsk).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: /Ask AI/ }));
+    await screen.findByText(/^Answer:.*Haaland/);
+    expect(within(nav()).getByRole('button', { name: 'Chat' })).toHaveAttribute('aria-pressed', 'true');
+    expect(mockAsk).toHaveBeenCalledTimes(1);
+    expect(mockAsk).toHaveBeenCalledWith(expect.objectContaining({ question: expect.stringContaining('Haaland') }));
+  } finally { global.fetch = originalFetch; }
 });

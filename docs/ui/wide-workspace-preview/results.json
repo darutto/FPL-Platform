@@ -1,5 +1,10 @@
 [
   {
+    "test": "card verdict is left aligned",
+    "pass": true,
+    "width": 2560
+  },
+  {
     "test": "responsive workspace geometry",
     "pass": true,
     "width": 2560,
@@ -57,6 +62,11 @@
     "pass": true,
     "width": 2560,
     "errors": []
+  },
+  {
+    "test": "card verdict is left aligned",
+    "pass": true,
+    "width": 1920
   },
   {
     "test": "responsive workspace geometry",
@@ -126,6 +136,11 @@
     "errors": []
   },
   {
+    "test": "card verdict is left aligned",
+    "pass": true,
+    "width": 1440
+  },
+  {
     "test": "responsive workspace geometry",
     "pass": true,
     "width": 1440,
@@ -185,6 +200,11 @@
     "errors": []
   },
   {
+    "test": "card verdict is left aligned",
+    "pass": true,
+    "width": 1280
+  },
+  {
     "test": "responsive workspace geometry",
     "pass": true,
     "width": 1280,
@@ -242,6 +262,11 @@
     "pass": true,
     "width": 1280,
     "errors": []
+  },
+  {
+    "test": "card verdict is left aligned",
+    "pass": true,
+    "width": 390
   },
   {
     "test": "responsive workspace geometry",

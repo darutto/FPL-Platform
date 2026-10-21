@@ -7,8 +7,8 @@
  *   - stats strip (GW points / total / bank)
  *   - pitch with the starting XI laid out by position rows
  *   - bench row
- *   - player detail card on tap, with an "Ask AI" shortcut that drops a
- *     question about the player into the chat input.
+ *   - player detail card on tap, with an "Ask AI" shortcut that sends a
+ *     question about the player to Chat.
  *
  * Pitch sizing: the pitch box keeps a fixed 5:3 aspect ratio and fills the
  * formation width (bounded at 690px). Wide panels place player details beside
@@ -83,7 +83,7 @@ const POS_STYLE: Record<
 
 interface Props {
   teamId: number | null;
-  /** Drops a question about the player into the chat input. */
+  /** Sends a question about the player to Chat. */
   onAskPlayer: (question: string) => void;
   /** Reports the current GW upward (for the TopBar pill). */
   onGw?: (gw: number) => void;
@@ -159,9 +159,9 @@ export default function SquadPitch({ teamId, onAskPlayer, onGw }: Props) {
 
         {state.status === 'idle' && (
           <CenteredHint>
-            Connect your FPL team in Chat
+            Conecta tu equipo FPL en la pestaña Chat
             <br />
-            to see your squad here.
+            para ver tu plantilla aquí.
           </CenteredHint>
         )}
 

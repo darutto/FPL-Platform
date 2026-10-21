@@ -46,7 +46,7 @@ import SquadPitch from '@/components/squad/SquadPitch';
 import { FixturesBoard } from '@/components/intents/FixturesBoard';
 
 // Pager screen order: 0 Calendario · 1 Squad · 2 Chat (home) · 3 Commands.
-const PAGER_LABELS = ['Calendar', 'Squad', 'Chat', 'Commands'] as const;
+const PAGER_LABELS = ['Calendario', 'Squad', 'Chat', 'Commands'] as const;
 const CHAT_SCREEN = 2;
 
 export default function ChatShell() {
@@ -382,7 +382,7 @@ export default function ChatShell() {
 
         {/* SCREEN 1 — Squad pitch */}
         <PagerScreen maxWidth={1120}>
-          <SquadPitch teamId={teamId} onAskPlayer={handleInsert} onGw={setGw} />
+          <SquadPitch teamId={teamId} onAskPlayer={handleSend} onGw={setGw} />
         </PagerScreen>
 
         {/* SCREEN 2 — Chat (home) */}
@@ -402,7 +402,7 @@ export default function ChatShell() {
               {isEmpty ? (
                 <div className="flex-1 flex flex-col items-center justify-center gap-6 px-4">
                   <p className="text-bf-gray text-sm">
-                    Ask a question about your Fantasy Premier League team.
+                    Haz una pregunta sobre tu equipo de Fantasy Premier League.
                   </p>
                   <StarterPrompts onSelect={sendMessage} />
                 </div>
@@ -432,7 +432,6 @@ export default function ChatShell() {
               )}
               <InputBar
                 onSubmit={sendMessage}
-                defaultPlaceholder="Ask a question or use /capitan, /comparar…"
                 disabled={loading}
                 insert={insert}
                 webSearch={{

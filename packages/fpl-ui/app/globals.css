@@ -25,6 +25,7 @@
 .wide-workspace .chat-message { width: 100%; max-width: 720px; margin-inline: auto; }
 .wide-workspace .chat-answer { width: 100%; max-width: none; }
 .wide-workspace .chat-prose { max-width: 720px; margin-inline: auto; overflow-wrap: anywhere; }
+.wide-workspace .chat-answer .chat-prose { margin-inline: 0; }
 .wide-workspace [data-panel='commands'] .truncate { white-space: normal; overflow: visible; }
 .wide-workspace .squad-formation [data-squad-pitch] { aspect-ratio: 5 / 4; min-height: 240px; }
 .squad-pitch-sidebar { display: none; }
