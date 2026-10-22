@@ -61,6 +61,11 @@ def _in_window(match: dict[str, Any], date_from: str | None, date_to: str | None
 def _rotates(m: dict[str, Any]) -> bool:
     """The rotation notice rule (see ROTATION_REST_DAYS / ROTATION_AFTER) for one Premier League match."""
     days = m["rest_whole_days_before"]
+    # A calendar with a hole (a competition partial, stale or missing: ``calendar_complete`` False, set by the
+    # public-data calendar) never warns: missing data is not "no match", and it can hide the match behind the rest days.
+    # The trial calendar has no such key and is unaffected.
+    if m.get("calendar_complete", True) is False:
+        return False
     return days is not None and days <= ROTATION_REST_DAYS and m["previous_competition"] in ROTATION_AFTER
 
 
