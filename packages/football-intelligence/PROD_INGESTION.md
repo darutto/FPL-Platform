@@ -81,8 +81,11 @@ missing player is visible, not silently absent.
 
 **Format and publication:** parquet plus a manifest stamped `assumption_status: licensed_starter`, with
 normalizer `licensed_adapter: licensed-starter-v1` and source kind `licensed-sportmonks-starter` (B2). It is
-published to R2 the same way FI builds are (`distribution.publish_build`: immutable build plus pointer, under its
-own prefix `football-licensed/`), and Railway syncs it like the owned store. Appending snapshots, not
+published to R2 by the shared `distribution` path as its own **build family** (`LICENSED_V1` in
+`ingestion/licensed/store.py`, through the family seam of `distribution/family.py`). It reuses the immutable
+build, pointer, race guard, bounded reads and trial refusal, but has its own prefix `football-licensed/`, its own
+pointer name and its own governed files; the canonical family can't reach them and vice versa. Railway syncs it
+the same way. Appending snapshots, not
 overwriting them, is what lets B4 answer "what changed between the predicted and the confirmed XI"
 and keeps a history the provider doesn't keep.
 
