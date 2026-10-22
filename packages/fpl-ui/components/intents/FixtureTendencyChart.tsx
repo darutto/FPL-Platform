@@ -43,11 +43,14 @@ export function FixtureTendencyChart({
   team,
   onAsk,
   showHeader = true,
+  rank,
 }: {
   team: TeamOutlook;
   onAsk?: (question: string) => void;
   /** i110: false when the composer already rendered TeamHeader for this team. */
   showHeader?: boolean;
+  /** Place in the best-first order, passed by the /fixtures board only. */
+  rank?: number;
 }) {
   const series = team.series;
   const n = series.length;
@@ -86,6 +89,7 @@ export function FixtureTendencyChart({
       {showHeader && (
         <TeamHeader
           team={team}
+          rank={rank}
           onAskTeam={onAsk ? () => onAsk(teamOutlookQuestion(team.team_name, team.axis)) : undefined}
         />
       )}

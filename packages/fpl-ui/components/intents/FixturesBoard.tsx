@@ -31,7 +31,7 @@ import {
   type FixtureOutlookProvenance,
 } from '@/lib/fixture-outlook-provenance';
 import { axisLabel } from '@/lib/fixture-outlook-format';
-import { fitFixtureWindow, rowColumns } from '@/lib/fixture-board-fit';
+import { fitCompactWindow, fitFixtureWindow, rowColumns } from '@/lib/fixture-board-fit';
 import { teamOutlookQuestion, fixtureCellQuestion } from '@/lib/fixture-chat-links';
 import {
   FIXTURE_WINDOW_SESSION_KEY,
@@ -87,14 +87,16 @@ export function FixturesBoard({
   const [axis, setAxis] = useState<FixtureAxis>('attack');
   // Inside the wide workspace the window follows the room available (largest
   // option that fits) until the user picks a width; elsewhere it stays at 8.
+  const [view, setView] = useState<ViewMode>(initialView);
   const rowsRef = useRef<HTMLDivElement>(null);
   const [rowsWidth, setRowsWidth] = useState<number | null>(null);
   const [pickedHorizon, setPickedHorizon] = useState<number | null>(null);
-  const fit = rowsWidth === null ? null : fitFixtureWindow(rowsWidth);
+  const fit = rowsWidth === null ? null : view === 'compact' ? fitCompactWindow(rowsWidth) : fitFixtureWindow(rowsWidth);
   const horizon = pickedHorizon ?? fit?.horizon ?? 8;
+  // Wide workspace + Compact: the title block shrinks to one line so the whole league fits on screen.
+  const condensed = view === 'compact' && fit !== null;
   const rowColumnCount = rowsWidth === null ? 1 : rowColumns(rowsWidth, horizon);
   const horizons: readonly number[] = fit === null ? HORIZONS : [...HORIZONS, WIDE_HORIZON];
-  const [view, setView] = useState<ViewMode>(initialView);
   const [nextGameweek, setNextGameweek] = useState<number | null>(null);
   // Live yardstick for the provenance stamp: how far the real league has
   // got, so "this bundle is behind the season" is measured, not assumed.
@@ -371,38 +373,44 @@ export function FixturesBoard({
 
       {competitions?.tier === 'free' && lockedOpen && <LockedCompetitionsLine />}
 
-      {/* FDR / venue / streak legend (above the board, design parity) */}
-      <BandLegend />
+      {/* FDR / venue / streak legend (above the board, design parity); condensed Compact carries it in its header line */}
+      {!condensed && <BandLegend />}
       {layer && (view === 'detailed' ? <TimelineLegend /> : view === 'compact' ? <CompactLegend /> : null)}
 
       {/* Board */}
       <div className={`${CARD_BASE} ${CARD_ACCENT.turquoise.border}`}>
         <FingerprintWaves color={ACCENT_HEX.turquoise} corner="br" />
         <div className="relative z-10 p-5 md:p-6 space-y-4">
-          <div>
-            <div className="flex items-baseline gap-3 flex-wrap">
-              <h2 className="text-2xl font-black tracking-tight text-white">
-                Liga · orden por calendario
-              </h2>
-              <span
-                className="text-[13px] font-extrabold uppercase tracking-wider rounded-md px-3 py-1 border"
-                style={{
-                  backgroundColor: `${ACCENT_HEX.turquoise}26`,
-                  color: ACCENT_HEX.turquoise,
-                  borderColor: `${ACCENT_HEX.turquoise}66`,
-                }}
-              >
-                {axisLabel(axis)}
-              </span>
-            </div>
-            <p className="mt-1.5 text-sm text-bf-gray">
-              Mejor calendario primero · FDR promedio J{startGameweek}–J{visibleEndGameweek}
-            </p>
-          </div>
+          {condensed ? (
+            <CompactHeader axis={axis} start={startGameweek} end={visibleEndGameweek} provenance={provenance} />
+          ) : (
+            <>
+              <div>
+                <div className="flex items-baseline gap-3 flex-wrap">
+                  <h2 className="text-2xl font-black tracking-tight text-white">
+                    Liga · orden por calendario
+                  </h2>
+                  <span
+                    className="text-[13px] font-extrabold uppercase tracking-wider rounded-md px-3 py-1 border"
+                    style={{
+                      backgroundColor: `${ACCENT_HEX.turquoise}26`,
+                      color: ACCENT_HEX.turquoise,
+                      borderColor: `${ACCENT_HEX.turquoise}66`,
+                    }}
+                  >
+                    {axisLabel(axis)}
+                  </span>
+                </div>
+                <p className="mt-1.5 text-sm text-bf-gray">
+                  Mejor calendario primero · FDR promedio J{startGameweek}–J{visibleEndGameweek}
+                </p>
+              </div>
 
-          <div className="max-w-prose">
-            <FixtureProvenanceStamp provenance={provenance} />
-          </div>
+              <div className="max-w-prose">
+                <FixtureProvenanceStamp provenance={provenance} />
+              </div>
+            </>
+          )}
 
           {/* Wrapped so a test can read what the board is actually showing.
               The axis-switcher bug was invisible to every existing test
@@ -410,13 +418,14 @@ export function FixturesBoard({
               another. */}
           <div ref={rowsRef} data-testid="fixture-board-rows">
           {view === 'detailed' && (
-            <div className="fixture-rows" style={{ '--row-cols': rowColumnCount } as CSSProperties}>
-              {data.teams.map((t) => (
+            <div className="fixture-rows" style={{ '--row-cols': rowColumnCount, '--row-rows': Math.ceil(data.teams.length / rowColumnCount) } as CSSProperties}>
+              {data.teams.map((t, index) => (
                 <div
                   key={t.team_short}
                   className="py-[18px] first:pt-0 border-t border-white/10 first:border-t-0"
                 >
                   <FixtureTickerRow
+                    rank={index + 1}
                     team={t}
                     onAskTeam={() => onAsk(teamOutlookQuestion(t.team_name, axis))}
                     onAskCell={(gw) => onAsk(fixtureCellQuestion(t.team_name, gw))}
@@ -428,25 +437,20 @@ export function FixturesBoard({
           )}
           {view === 'compact' && <FixtureCompactGrid data={data} onAsk={onAsk} extrasFor={extrasFor} layerActive={layer !== null} />}
           {view === 'tendency' && (
-            <div className="fixture-rows" style={{ '--row-cols': rowColumnCount } as CSSProperties}>
-              {data.teams.map((t) => (
+            <div className="fixture-rows" style={{ '--row-cols': rowColumnCount, '--row-rows': Math.ceil(data.teams.length / rowColumnCount) } as CSSProperties}>
+              {data.teams.map((t, index) => (
                 <div
                   key={t.team_short}
                   className="py-[18px] first:pt-0 border-t border-white/10 first:border-t-0"
                 >
-                  <FixtureTendencyChart team={t} onAsk={onAsk} />
+                  <FixtureTendencyChart team={t} rank={index + 1} onAsk={onAsk} />
                 </div>
               ))}
             </div>
           )}
           </div>
 
-          <p className="max-w-prose text-[10px] leading-snug text-bf-gray/50 pt-3 border-t border-white/5">
-            Calendario real desde la API oficial de FPL, sin datos inventados. El
-            eje de ataque usa la dificultad FDR de FPL; el de portería a cero la
-            ajusta por la forma atacante reciente del rival. El calendario del
-            final de temporada se completará según la API lo vaya publicando.
-          </p>
+          {!condensed && <FooterNote />}
         </div>
       </div>
 
@@ -531,6 +535,74 @@ function FixtureProvenanceStamp({ provenance }: { provenance: FixtureOutlookProv
         >
           {provenance.warning}
         </p>
+      )}
+    </div>
+  );
+}
+
+const FOOTER_NOTE =
+  'Calendario real desde la API oficial de FPL, sin datos inventados. El eje de ataque usa la dificultad FDR de FPL; el de portería a cero la ajusta por la forma atacante reciente del rival. El calendario del final de temporada se completará según la API lo vaya publicando.';
+
+function FooterNote() {
+  return (
+    <p className="max-w-prose text-[10px] leading-snug text-bf-gray/50 pt-3 border-t border-white/5">
+      {FOOTER_NOTE}
+    </p>
+  );
+}
+
+/**
+ * Compact in the wide workspace: title, axis, window, legend and the data note on ONE line (it wraps only when
+ * the panel is too narrow). The note is not dropped: an icon opens it inline, with the same provenance stamp,
+ * warning and footer the full block shows, and its tooltip carries the warning (or the stamp) too.
+ */
+function CompactHeader({ axis, start, end, provenance }: {
+  axis: FixtureAxis; start: number; end: number; provenance: FixtureOutlookProvenance;
+}) {
+  const [open, setOpen] = useState(false);
+  const warned = Boolean(provenance.warning);
+  return (
+    <div data-testid="compact-header">
+      <div className="flex items-center gap-x-4 gap-y-2 flex-wrap">
+        <div className="flex items-center gap-x-3 gap-y-1 flex-wrap">
+          <h2 className="text-lg font-black tracking-tight text-white">Liga · orden por calendario</h2>
+          <span
+            className="text-[11px] font-extrabold uppercase tracking-wider rounded-md px-2.5 py-0.5 border"
+            style={{
+              backgroundColor: `${ACCENT_HEX.turquoise}26`,
+              color: ACCENT_HEX.turquoise,
+              borderColor: `${ACCENT_HEX.turquoise}66`,
+            }}
+          >
+            {axisLabel(axis)}
+          </span>
+          <span className="text-[13px] text-bf-gray whitespace-nowrap">
+            Mejor calendario primero · FDR promedio J{start}–J{end}
+          </span>
+        </div>
+        <div className="ml-auto flex items-center gap-x-3 gap-y-1.5 flex-wrap justify-end">
+          <BandLegend inline />
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            aria-label="Nota sobre los datos"
+            title={provenance.warning ?? provenance.label}
+            className={`flex h-7 w-7 flex-none items-center justify-center rounded-full border text-[13px] font-black leading-none transition-colors ${
+              warned
+                ? 'border-bf-gold/50 bg-bf-gold/10 text-bf-gold hover:bg-bf-gold/20'
+                : 'border-white/15 text-bf-gray hover:text-white'
+            }`}
+          >
+            {warned ? '!' : 'i'}
+          </button>
+        </div>
+      </div>
+      {open && (
+        <div data-testid="compact-note" className="mt-3 space-y-2 max-w-prose">
+          <FixtureProvenanceStamp provenance={provenance} />
+          <p className="text-[11px] leading-snug text-bf-gray/70">{FOOTER_NOTE}</p>
+        </div>
       )}
     </div>
   );

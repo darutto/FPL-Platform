@@ -33,3 +33,17 @@ export function fitFixtureWindow(width: number): { horizon: number; columns: num
   const horizon = WINDOW_OPTIONS.filter((h) => h <= room).at(-1) ?? WINDOW_OPTIONS[0];
   return { horizon, columns: 1 };
 }
+
+/** Compact table: smallest comfortable cell, the gap between cells and the team column (rank + code). */
+export const COMPACT_MIN_CELL_PX = 62;
+export const COMPACT_GAP_PX = 6;
+export const COMPACT_TEAM_COL_PX = 68;
+
+/**
+ * The Compact view is ONE table, so it never splits into team columns: it takes the largest window whose cells
+ * stay at least COMPACT_MIN_CELL_PX wide. The cells then grow (CSS, up to their maximum) to fill the rest.
+ */
+export function fitCompactWindow(width: number): { horizon: number; columns: number } {
+  const fits = WINDOW_OPTIONS.filter((h) => COMPACT_TEAM_COL_PX + h * (COMPACT_MIN_CELL_PX + COMPACT_GAP_PX) <= width);
+  return { horizon: fits.at(-1) ?? WINDOW_OPTIONS[0], columns: 1 };
+}
