@@ -251,3 +251,58 @@ def test_two_snapshots_of_the_same_competition_are_refused():
     ucl = _sample()[1]
     with pytest.raises(ValueError):
         build_public_calendar([ucl, ucl], now=NOW)
+
+
+# -- complete_as_of is a bound, not a yes/no flag ----------------------------
+
+def _flags_by_day(cal, club="ARS"):
+    return {m["kickoff_utc"][:10]: m["calendar_complete"] for m in cal[club] if m["is_pl"]}
+
+
+def _season_pl(*days):
+    rows = [("Arsenal", "Chelsea", f"{day}T14:00:00Z", i + 1) for i, day in enumerate(days)]
+    return _pl(*rows)
+
+
+def test_a_pl_match_before_the_bound_is_complete_and_one_after_it_is_not():
+    ucl = _ucl(("Arsenal", "Real Madrid", "2026-10-21T19:00:00Z", {"away_code": "RMA"}), complete_as_of="2026-11-30")
+    pl = _season_pl("2026-10-24", "2026-11-28", "2026-12-20")
+    flags = _flags_by_day(build_public_calendar([pl, ucl], now=NOW))
+    assert flags == {"2026-10-24": True, "2026-11-28": True, "2026-12-20": False}
+
+
+def test_the_bound_is_inclusive_and_compares_dates_not_times():
+    ucl = _ucl(("Arsenal", "Real Madrid", "2026-10-21T19:00:00Z", {"away_code": "RMA"}), complete_as_of="2026-11-30")
+    pl = _convert("PL", [SourceMatch("PL", "Arsenal", "Chelsea", "2026-11-30T20:00:00Z", gameweek=1),
+                         SourceMatch("PL", "Chelsea", "Arsenal", "2026-12-01T00:00:00Z", gameweek=2)])
+    assert _flags_by_day(build_public_calendar([pl, ucl], now=NOW)) == {"2026-11-30": True, "2026-12-01": False}
+
+
+def test_with_two_competitions_the_earliest_bound_rules():
+    ucl = _ucl(("Arsenal", "Real Madrid", "2026-10-21T19:00:00Z", {"away_code": "RMA"}), complete_as_of="2026-12-31")
+    fa = _convert("FA", [SourceMatch("FA", "Arsenal", "Man City", "2026-11-08T14:00:00Z")], complete_as_of="2026-11-15")
+    pl = _season_pl("2026-11-10", "2026-11-20", "2026-12-05")
+    flags = _flags_by_day(build_public_calendar([pl, ucl, fa], now=NOW))
+    assert flags == {"2026-11-10": True, "2026-11-20": False, "2026-12-05": False}
+
+
+def test_a_bound_never_rescues_a_partial_or_stale_competition():
+    pl = _season_pl("2026-10-24")
+    ok = _ucl(("Arsenal", "Real Madrid", "2026-10-21T19:00:00Z", {"away_code": "RMA"}), complete_as_of="2026-12-31")
+    partial = _convert("FA", [SourceMatch("FA", "Arsenal", "Man City", "2026-11-08T14:00:00Z")], complete_as_of=None)
+    stale = _convert("FA", [SourceMatch("FA", "Arsenal", "Man City", "2026-11-08T14:00:00Z")],
+                     complete_as_of="2026-12-31", fetched_at="2026-10-01T06:00:00Z")
+    for other in (partial, stale):
+        assert _flags_by_day(build_public_calendar([pl, ok, other], now=NOW)) == {"2026-10-24": False}
+
+
+def test_a_malformed_bound_fails_loudly():
+    for bad in ("2026-13-01", "30/11/2026", "November", ""):
+        with pytest.raises(ValueError):
+            _ucl(("Arsenal", "Real Madrid", "2026-10-21T19:00:00Z", {"away_code": "RMA"}), complete_as_of=bad)
+
+
+def test_calendar_status_keeps_complete_and_exposes_the_bound():
+    ucl = _ucl(("Arsenal", "Real Madrid", "2026-10-21T19:00:00Z", {"away_code": "RMA"}), complete_as_of="2026-11-30")
+    entry = calendar_status([ucl], ["UCL"], NOW)["UCL"]
+    assert entry["status"] == "complete" and entry["complete_as_of"] == "2026-11-30"

@@ -14,11 +14,12 @@ The output is exactly the shape ``build_calendar`` (``live_trial_calendar``) giv
 Decisions a reviewer should be able to find:
 
 * **Missing data is not "no match".** A competition is *complete* only when its converter says the fixture
-  list is final up to a date (``complete_as_of``); otherwise it is *partial*. A snapshot older than
-  ``stale_after`` is *stale*, and a competition the deployment claims to cover but supplied no snapshot for is
-  *missing*. While any covered competition is not complete and fresh, every Premier League match carries
-  ``calendar_complete: False`` and the rotation notice is not issued (``competition_calendar._rotates``): a
-  calendar with a hole can silently hide the match that explains the rest days.
+  list is final up to a date (``complete_as_of``, a BOUND, inclusive); otherwise it is *partial*. A snapshot
+  older than ``stale_after`` is *stale*, and a competition the deployment claims to cover but supplied no
+  snapshot for is *missing*. A Premier League match carries ``calendar_complete: True`` only when every covered
+  competition is complete and fresh AND the smallest of their bounds is on or after that match's kickoff date;
+  otherwise False, and the rotation notice is not issued (``competition_calendar._rotates``): a calendar with a
+  hole, or one that only guarantees November, can silently hide the match that explains December's rest days.
 * **Clubs are mapped by an explicit alias table, never guessed.** The 20 Premier League clubs are matched by
   accent- and punctuation-insensitive name aliases (:data:`PL_CLUB_ALIASES`). A name that is not a Premier
   League club is the *opponent*; its three-letter code comes from the source if it gave one, from a table the
@@ -30,7 +31,7 @@ from __future__ import annotations
 
 import unicodedata
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, Iterable, Literal, Mapping, Protocol, Sequence
 
 from .live_trial_calendar import finish_calendar, week_start
@@ -132,7 +133,7 @@ class CompetitionSnapshot:
     season: str
     source: str
     fetched_at: str
-    #: ISO date up to which the source guarantees the list is final; None = partial.
+    #: ISO date (``YYYY-MM-DD``, inclusive) up to which the source guarantees the list is final; None = partial.
     complete_as_of: str | None
     records: tuple[FixtureRecord, ...] = ()
     #: Names that matched no Premier League club and for which no code was available (flagged, not guessed).
@@ -177,6 +178,8 @@ def convert_matches(
     if competition not in COMPETITIONS:
         raise ValueError(f"unknown competition {competition!r}")
     _parse_utc(fetched_at)
+    if complete_as_of is not None:
+        date.fromisoformat(complete_as_of)  # a malformed bound fails loudly instead of reading as "complete"
     known = {normalize_club_name(k): v for k, v in (known_codes or {}).items()}
     records: list[FixtureRecord] = []
     unmapped: set[str] = set()
@@ -267,7 +270,8 @@ def build_public_calendar(
     round number in ``gameweek``; a converter for the FPL fixtures is a later phase). ``covered`` is what the
     deployment *claims* to cover (default: the competitions it has snapshots for); a covered competition with
     no snapshot is *missing*. Each Premier League match gets ``calendar_complete``: True only when every covered
-    non-Premier-League competition is complete and fresh. When it is False the rotation notice is suppressed.
+    non-Premier-League competition is complete and fresh and the smallest ``complete_as_of`` among them is on or
+    after the match's own kickoff date. When it is False the rotation notice is suppressed.
     """
     by_comp: dict[str, CompetitionSnapshot] = {}
     for s in snapshots:
@@ -275,7 +279,10 @@ def build_public_calendar(
             raise ValueError(f"two snapshots for {s.competition!r}")
         by_comp[s.competition] = s
     wanted = [c for c in (covered if covered is not None else by_comp) if c != "PL"]
-    reliable = all(snapshot_status(by_comp.get(c), now, stale_after) == "complete" for c in wanted)
+    complete = all(snapshot_status(by_comp.get(c), now, stale_after) == "complete" for c in wanted)
+    # The guarantee only reaches the earliest bound among the covered competitions (None when nothing is covered).
+    bound = min((date.fromisoformat(by_comp[c].complete_as_of) for c in wanted), default=None) if complete else None  # type: ignore[arg-type]
+    nothing_to_cover = not wanted
 
     pl_rows = [r for r in (by_comp["PL"].records if "PL" in by_comp else ()) if r.status != "postponed"]
     gw_last: dict[int, datetime] = {}
@@ -307,6 +314,6 @@ def build_public_calendar(
                 "_kickoff": kickoff,
             }
             if is_pl:
-                match["calendar_complete"] = reliable
+                match["calendar_complete"] = complete and (nothing_to_cover or (bound is not None and kickoff.date() <= bound))
             per_club[r.club].append(match)
     return finish_calendar(per_club)

@@ -68,3 +68,9 @@ def test_a_calendar_without_the_flag_behaves_as_before(serve):
             m.pop("calendar_complete", None)
     serve(calendar)
     assert {m["gameweek"]: m["rotation"] for m in _premium()["pl_matches"]} == {8: False, 9: True}
+
+
+def test_a_pl_match_after_the_guaranteed_window_does_not_warn(serve):
+    # Complete only to 2026-10-23: the Saturday 24 Oct match is outside the guarantee, so no rotation call is made.
+    serve(build_public_calendar(_snapshots("2026-10-23"), now=NOW))
+    assert {m["gameweek"]: m["rotation"] for m in _premium()["pl_matches"]} == {8: False, 9: False}
