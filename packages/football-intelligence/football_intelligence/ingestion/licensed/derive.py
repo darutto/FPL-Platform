@@ -60,6 +60,7 @@ class DeriveReport:
 
     fixtures_seen: int = 0
     fixtures_unmatched: int = 0
+    #: Distinct provider clubs in sidelined/squad rows that are not one of the 20 (their rows are dropped).
     teams_unmatched: int = 0
     lineup_rows_seen: int = 0
     players_unmatched: int = 0
@@ -128,6 +129,7 @@ def derive(
     report = DeriveReport()
     by_pair = {(f.home, f.away): f.fixture_id for f in fpl_fixtures}
     unmatched_players: set[int] = set()
+    unmatched_teams: set[int] = set()
 
     def element(player_id: Any) -> int | None:
         found = crosswalk.get(int(player_id)) if player_id is not None else None
@@ -189,9 +191,11 @@ def derive(
             continue
         seen_sidelines.add(sideline_id)
         code = team_codes.get(int(row["team_id"]))
+        if code is None:  # club first: a player of an unmapped club is not an unmatched player
+            unmatched_teams.add(int(row["team_id"]))
+            continue
         el = element(row.get("player_id"))
-        if code is None or el is None:
-            report.teams_unmatched += code is None
+        if el is None:
             continue
         absences.append({
             "element": el, "team": code, "category": row.get("category"), "start_date": row.get("start_date"),
@@ -202,9 +206,11 @@ def derive(
     members: list[dict[str, Any]] = []
     for row in squads:
         code = team_codes.get(int(row["team_id"]))
+        if code is None:  # club first: a player of an unmapped club is not an unmatched player
+            unmatched_teams.add(int(row["team_id"]))
+            continue
         el = element(row.get("player_id"))
-        if code is None or el is None:
-            report.teams_unmatched += code is None
+        if el is None:
             continue
         members.append({"team": code, "element": el, "jersey_number": row.get("jersey_number"),
                         "observed_at": observed_at})
@@ -234,6 +240,7 @@ def derive(
     report.cup_fixtures_kept = sum(len(m) for m in cup_matches.values())
 
     report.players_unmatched = len(unmatched_players)
+    report.teams_unmatched = len(unmatched_teams)
     tables = DerivedTables(tuple(snapshots), tuple(slots), tuple(absences), tuple(members), cups, report)
     report.rows = {"lineup_snapshots": len(tables.lineup_snapshots), "lineup_slots": len(tables.lineup_slots),
                    "sidelined": len(tables.sidelined), "squad_membership": len(tables.squad_membership),

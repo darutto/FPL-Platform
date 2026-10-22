@@ -110,11 +110,14 @@ def test_a_malformed_observed_at_fails():
 def test_sidelined_is_deduplicated_by_sideline_id_and_keyed_by_fpl_ids():
     row = {"id": 650001, "player_id": 700003, "team_id": ARS, "category": "injury", "start_date": "2026-10-01",
            "end_date": None, "games_missed": 2, "completed": False}
-    out = _derive(sidelined=[row, dict(row), {**row, "id": 650002, "team_id": 999999}])
+    out = _derive(sidelined=[row, dict(row), {**row, "id": 650002, "team_id": 999999},
+                             {**row, "id": 650003, "team_id": 999999, "player_id": UNMATCHED}])
     assert out.sidelined == ({"element": CROSSWALK[700003], "team": "ARS", "category": "injury",
                               "start_date": "2026-10-01", "end_date": None, "games_missed": 2, "completed": False,
                               "observed_at": OBSERVED},)
     assert out.report.sidelined_duplicates == 1 and out.report.teams_unmatched == 1
+    # The unmatched-club rows are dropped on the club; they do not count as unmatched players.
+    assert out.report.players_unmatched == 1  # only the lineup's own unmatched player
 
 
 def test_squads_keep_matched_players_of_pl_clubs():
