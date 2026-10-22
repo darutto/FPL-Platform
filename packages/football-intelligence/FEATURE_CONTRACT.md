@@ -207,10 +207,20 @@ the live Sportmonks lineups use, as decisions, not facts:
 out-of-position distance table becomes 4 x 9. Unmapped spellings still stay in
 the share denominator.
 
-`assumption_status` is a closed vocabulary, `mock_validated | live_trial_local`
-(`football_intelligence.provenance`). A store built from live reads carries
+`assumption_status` is a closed vocabulary,
+`mock_validated | live_trial_local | licensed_starter`
+(`football_intelligence.provenance`). A store built from live trial reads carries
 `live_trial_local`; its context normalizer is `live_trial_adapter: live-trial-v1`
-and the status and normalizer must agree. Such a store is local to the trial:
+and its source kind `local-live-trial`, and the status, normalizer and source
+kind must agree. Such a store is local to the trial:
 `publish_build`, `sync_build`, `RuntimeBuildHandle` (unless the trial's own
 scripts pass `allow_live_trial_local=True`) and the assistant's
 `_load_runtime` all refuse it with `LiveTrialProvenanceRefused`.
+
+A store built by the production ingestion job from the paid Sportmonks Starter
+plan carries `licensed_starter`, with normalizer
+`licensed_adapter: licensed-starter-v1` and source kind
+`licensed-sportmonks-starter`. The licence allows storing, deriving and showing
+to subscribers (never redistributing the raw feed), so those same paths accept
+it. Any trial marker (status, status summary, normalizer or source kind) still
+makes a store trial data, so a relabelled trial store is refused.
