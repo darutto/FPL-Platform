@@ -109,9 +109,18 @@ def build_calendar(capture: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]
                 "opponent_code": _code(parts[other]),
                 "_kickoff": kickoff,
             })
+    return finish_calendar({code: per_club.get(club_id, []) for club_id, code in clubs.items()})
+
+
+def finish_calendar(per_code: Mapping[str, list[dict[str, Any]]]) -> dict[str, list[dict[str, Any]]]:
+    """Order each club's matches by kickoff and add the rest-day fields.
+
+    Every match must carry a private ``_kickoff`` datetime; it is removed here. Shared with
+    the public-data calendar so both sources define rest days in exactly one place.
+    """
     out: dict[str, list[dict[str, Any]]] = {}
-    for club_id, code in clubs.items():
-        matches = sorted(per_club.get(club_id, []), key=lambda m: m["_kickoff"])
+    for code, club_matches in per_code.items():
+        matches = sorted(club_matches, key=lambda m: m["_kickoff"])
         kickoffs = [m.pop("_kickoff") for m in matches]
         for i, match in enumerate(matches):
             match["rest_whole_days_before"] = None if i == 0 else int((kickoffs[i] - kickoffs[i - 1]).total_seconds() // 86400)
