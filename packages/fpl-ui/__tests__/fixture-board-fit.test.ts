@@ -41,3 +41,24 @@ describe('rowColumns', () => {
     expect(rowColumns(0, 5)).toBe(1);
   });
 });
+
+describe('fitCompactWindow: one table, the largest window whose cells stay at least 62 px', () => {
+  const { fitCompactWindow, COMPACT_MIN_CELL_PX, COMPACT_GAP_PX, COMPACT_TEAM_COL_PX } = require('../lib/fixture-board-fit');
+  const needs = (h: number) => COMPACT_TEAM_COL_PX + h * (COMPACT_MIN_CELL_PX + COMPACT_GAP_PX);
+
+  test('thresholds are exact and never split into columns', () => {
+    for (const h of [5, 8, 10, 12]) {
+      expect(fitCompactWindow(needs(h))).toEqual({ horizon: h, columns: 1 });
+    }
+    expect(fitCompactWindow(needs(12) - 1).horizon).toBe(10);
+    expect(fitCompactWindow(needs(10) - 1).horizon).toBe(8);
+    expect(fitCompactWindow(needs(8) - 1).horizon).toBe(5);
+  });
+
+  test('wide boards stay at 12 in one column and tiny ones at 5', () => {
+    expect(fitCompactWindow(1490)).toEqual({ horizon: 12, columns: 1 });
+    expect(fitCompactWindow(5000)).toEqual({ horizon: 12, columns: 1 });
+    expect(fitCompactWindow(770).horizon).toBe(10);
+    expect(fitCompactWindow(100).horizon).toBe(5);
+  });
+});

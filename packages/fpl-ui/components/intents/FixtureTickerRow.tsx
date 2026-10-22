@@ -55,9 +55,10 @@ function cellVenue(gw: FixtureOutlookGW): string {
  * by the ticker row, the tendency chart and the in-chat card. i110: the card
  * used to mount both sub-views for the same team and each painted this
  * header, so every team appeared twice; now the header is a component of its
- * own, rendered ONCE per team by whoever composes the views.
+ * own, rendered ONCE per team by whoever composes the views. `rank` is the team's place in the board's
+ * best-first order; it is shown (muted) only inside the wide workspace.
  */
-export function TeamHeader({ team, onAskTeam }: { team: TeamOutlook; onAskTeam?: () => void }) {
+export function TeamHeader({ team, onAskTeam, rank }: { team: TeamOutlook; onAskTeam?: () => void; rank?: number }) {
   const { team_short, verdict, avg_band } = team;
   const teamLabel = onAskTeam ? (
     <button
@@ -74,6 +75,7 @@ export function TeamHeader({ team, onAskTeam }: { team: TeamOutlook; onAskTeam?:
   );
   return (
     <div className="flex items-center gap-3.5 flex-wrap" data-testid="team-header">
+      {rank !== undefined && <span className="fx-rank" aria-label={`puesto ${rank}`}>{rank}</span>}
       {teamLabel}
       <AvgPill avg={avg_band} />
       {verdict && <span className="text-[14.5px] text-bf-gray">{verdict}</span>}
@@ -88,11 +90,14 @@ export function FixtureTickerRow({
   showFdrNumbers = true,
   showHeader = true,
   extras = null,
+  rank,
 }: {
   team: TeamOutlook;
   onAskTeam?: () => void;
   onAskCell?: (gw: FixtureOutlookGW) => void;
   showFdrNumbers?: boolean;
+  /** Place in the best-first order (the /fixtures board passes it; the in-chat card does not). */
+  rank?: number;
   /** i110: false when the composer already rendered TeamHeader for this team. */
   showHeader?: boolean;
   /** Multi-competition layer for this team; null/absent renders the board as before. */
@@ -118,7 +123,7 @@ export function FixtureTickerRow({
 
   return (
     <div className="space-y-3" data-testid="fixture-ticker-row">
-      {showHeader && <TeamHeader team={team} onAskTeam={onAskTeam} />}
+      {showHeader && <TeamHeader team={team} onAskTeam={onAskTeam} rank={rank} />}
 
       {extras ? (
         <TimelineLane team={team} extras={extras} onAskCell={onAskCell} />
@@ -272,17 +277,22 @@ function GwCell({
  * The five band chips are labelled; L/V explains the venue marker; the two
  * swatches explain the run rings.
  */
-export function BandLegend() {
+export function BandLegend({ inline = false }: { inline?: boolean }) {
   const bands = [1, 2, 3, 4, 5] as const;
   return (
-    <div className="flex items-center gap-3.5 flex-wrap rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3">
-      <span className="text-[13px] font-extrabold tracking-wide text-bf-gray">FDR</span>
+    <div
+      data-testid={inline ? 'band-legend-inline' : undefined}
+      className={inline
+        ? 'flex items-center gap-x-2.5 gap-y-1.5 flex-wrap'
+        : 'flex items-center gap-3.5 flex-wrap rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3'}
+    >
+      <span className={inline ? 'text-[12px] font-extrabold tracking-wide text-bf-gray' : 'text-[13px] font-extrabold tracking-wide text-bf-gray'}>FDR</span>
       {bands.map((b) => {
         const fg = bandColor(b);
         return (
           <span
             key={b}
-            className="text-[13px] font-extrabold rounded-md px-2.5 py-1 border"
+            className={`font-extrabold rounded-md border ${inline ? 'text-[12px] px-2 py-0.5' : 'text-[13px] px-2.5 py-1'}`}
             style={{ backgroundColor: hexRgba(fg, 0.18), color: fg, borderColor: hexRgba(fg, 0.5) }}
           >
             {b} · {bandLabel(b)}
@@ -292,13 +302,13 @@ export function BandLegend() {
 
       <span className="w-px h-5 bg-white/20" />
 
-      <span className="text-[13px] font-semibold text-bf-gray">
+      <span className={inline ? 'text-[12px] font-semibold text-bf-gray' : 'text-[13px] font-semibold text-bf-gray'}>
         <b className="text-white">L</b> Local&nbsp;·&nbsp;<b className="text-white">V</b> Visitante
       </span>
 
       <span className="w-px h-5 bg-white/20" />
 
-      <span className="text-[13px] font-semibold text-bf-gray flex items-center gap-1.5">
+      <span className={`${inline ? 'text-[12px]' : 'text-[13px]'} font-semibold text-bf-gray flex items-center gap-1.5`}>
         <span
           className="inline-block w-[26px] h-[14px] rounded-[5px] border-[1.5px]"
           style={{ borderColor: hexRgba(GOOD_HEX, 0.7) }}

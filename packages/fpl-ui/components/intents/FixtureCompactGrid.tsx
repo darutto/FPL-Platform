@@ -14,7 +14,7 @@ import {
   BLANK_COLOR,
   type Band,
 } from '@/lib/fixture-outlook-format';
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { compactGutter, gutterSentence, type TeamExtras } from '@/lib/fixture-competitions';
 import { GutterMarks } from './FixtureCompetitionExtras';
 import { teamOutlookQuestion, fixtureCellQuestion } from '@/lib/fixture-chat-links';
@@ -101,6 +101,8 @@ export function FixtureCompactGrid({
 
   return (
     <div
+      className="fx-compact"
+      style={{ '--n': gameweeks.length, '--teams': Math.max(1, teams.length), '--layer': layerActive ? 1 : 0 } as CSSProperties}
       onKeyDown={(e) => {
         if (e.key === 'Escape') setPicked(null);
       }}
@@ -108,28 +110,28 @@ export function FixtureCompactGrid({
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setPicked(null);
       }}
     >
-      <div className="overflow-x-auto">
-        <div className="min-w-max">
-          <div className="flex items-center gap-1 mb-1.5">
-            <span className="w-[50px] text-[11px] font-extrabold tracking-wide text-bf-gray">
+      <div className="fx-scroll overflow-x-auto">
+        <div className="fx-table min-w-max">
+          <div className="fx-head flex items-center gap-1 mb-1.5">
+            <span className="fx-team-col fx-gw font-extrabold tracking-wide text-bf-gray">
               EQUIPO
             </span>
             {gameweeks.map((g) => (
               <span key={g} className="contents">
                 {layerActive && <span aria-hidden="true" className="w-[12px] flex-none" />}
-                <span className="w-[54px] text-center text-[11px] font-extrabold tracking-wide text-bf-gray">
+                <span className="fx-cell-w fx-gw text-center font-extrabold tracking-wide text-bf-gray">
                   J{g}
                 </span>
               </span>
             ))}
           </div>
 
-          {teams.map((team) => {
+          {teams.map((team, index) => {
             const runByGw = runsByGameweek(team.runs);
             const extras = layerActive ? extrasFor?.(team.team_short) ?? null : null;
             return (
               <div key={team.team_short} className="flex items-center gap-1 py-[2px]">
-                <CompactTeamButton teamName={team.team_name} teamShort={team.team_short} axis={axis} onAsk={onAsk} />
+                <CompactTeamButton teamName={team.team_name} teamShort={team.team_short} rank={index + 1} axis={axis} onAsk={onAsk} />
                 {team.series.map((gw) => (
                   <span key={gw.gameweek} className="contents">
                     {layerActive && (
@@ -187,16 +189,19 @@ function runsByGameweek(runs: FixtureOutlookRun[]): Map<number, FixtureOutlookRu
 function CompactTeamButton({
   teamName,
   teamShort,
+  rank,
   axis,
   onAsk,
 }: {
   teamName: string;
   teamShort: string;
+  rank: number;
   axis: FixtureOutlookMeta['axis'];
   onAsk?: (question: string) => void;
 }) {
-  const className = 'w-[50px] text-left text-[13px] font-black text-white hover:text-bf-turquoise transition-colors';
-  if (!onAsk) return <span className={className}>{teamShort}</span>;
+  const className = 'fx-team-col fx-team text-left font-black text-white hover:text-bf-turquoise transition-colors';
+  const label = <><span className="fx-rank" aria-label={`puesto ${rank}`}>{rank}</span>{teamShort}</>;
+  if (!onAsk) return <span className={className}>{label}</span>;
   return (
     <button
       type="button"
@@ -204,7 +209,7 @@ function CompactTeamButton({
       title={`${teamName} - preguntar en el chat`}
       className={className}
     >
-      {teamShort}
+      {label}
     </button>
   );
 }
@@ -226,17 +231,17 @@ function CompactCell({
   const venue = blank ? '' : gw.fixtures.map((f) => venueLabel(f.is_home)).join('/');
   const className = presentation
     ? 'flex h-full w-full items-center justify-center gap-1 rounded-md px-1 text-center'
-    : 'flex w-[54px] h-[24px] items-center justify-center gap-0.5 rounded-md transition-transform hover:-translate-y-0.5';
+    : 'fx-cell flex items-center justify-center gap-0.5 rounded-md transition-transform hover:-translate-y-0.5';
   const style = {
     backgroundColor: hexRgba(fg, 0.34),
     boxShadow: runHex ? `0 0 0 2px ${hexRgba(runHex, 0.7)}` : undefined,
   };
   const contents = <>
-    <span className={presentation ? 'text-[clamp(16px,1.85vw,30px)] font-extrabold leading-none' : 'text-[12px] font-extrabold leading-none'} style={{ color: fg }}>
+    <span className={presentation ? 'text-[clamp(16px,1.85vw,30px)] font-extrabold leading-none' : 'fx-opp font-extrabold leading-none'} style={{ color: fg }}>
       {opponents}
     </span>
     {venue && (
-      <span className={presentation ? 'text-[clamp(10px,1.1vw,18px)] font-extrabold leading-none text-white/75' : 'text-[8.5px] font-extrabold leading-none text-white/75'}>{venue}</span>
+      <span className={presentation ? 'text-[clamp(10px,1.1vw,18px)] font-extrabold leading-none text-white/75' : 'fx-venue font-extrabold leading-none text-white/75'}>{venue}</span>
     )}
   </>;
 
