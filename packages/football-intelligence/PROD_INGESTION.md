@@ -31,11 +31,11 @@ first two rows are already proven by the trial scripts.
 
 | Data | Route (existing) | Include | Per pass |
 |---|---|---|---|
-| PL fixtures in the next 14 days, with **predicted / confirmed lineups**, formation, grid, detailed position, state | `fixtures/between/{start}/{end}`, `filters=fixtureLeagues:8` | `lineups.detailedPosition;formations;state;metadata` (`metadata` type 572 = `lineup_confirmed`) | 1 call (≤ 4 pages bound; a 14-day PL window is one page today) |
+| PL fixtures in the next 14 days, with **predicted / confirmed lineups**, formation, grid, detailed position, state | `fixtures/between/{start}/{end}`, `filters=fixtureLeagues:8` | `participants;lineups.detailedPosition;formations;state;metadata` (`metadata` type 572 = `lineup_confirmed`; `participants` gives home/away for the side rule) | 1 call (≤ 4 pages bound; a 14-day PL window is one page today) |
 | PL fixtures of the **last 7 days**, final lineups | same route, past window | same include | 1 call |
 | **Squads** (and players, for identity) | `squads/teams/{team_id}` | `player` | 20 calls |
 | **Sidelined** (open absences per club) | `teams/{team_id}` | `sidelined` | 20 calls |
-| **FA Cup / Carabao fixtures**, best effort | `team_fixtures`: `fixtures/between/{start}/{end}/{team_id}` | none | 20 calls (one per PL club, covers every competition the plan returns) |
+| **FA Cup / Carabao fixtures**, best effort | `team_fixtures`: `fixtures/between/{start}/{end}/{team_id}` | `participants;state` | 20 calls (one per PL club, covers every competition the plan returns) |
 
 The 14-day window is the provider's cap on `fixtures/between` (a season-long window answers 422).
 
