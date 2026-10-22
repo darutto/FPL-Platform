@@ -168,7 +168,7 @@ def test_a_feature_build_with_an_unknown_assumption_status_is_refused(tmp_path):
 
 
 def test_the_vocabulary_is_closed():
-    assert ASSUMPTION_STATUSES == {"mock_validated", "live_trial_local"}
+    assert ASSUMPTION_STATUSES == {"mock_validated", "live_trial_local", "licensed_starter"}
 
 
 # -------------------------------------------------------------- refusals (one per path)
