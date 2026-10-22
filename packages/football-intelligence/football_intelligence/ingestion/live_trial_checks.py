@@ -34,6 +34,7 @@ import pandas as pd
 from football_data_contract.enums import AvailabilityState
 
 from football_intelligence.features.engine_v2 import ROLE_MAP_V3
+from football_intelligence.grid import grid_side
 from football_intelligence.modules.expected_minutes import (
     AvailabilityInput, ExpectedMinutesInput, evaluate_expected_minutes,
 )
@@ -174,26 +175,6 @@ def agreement(pairs: Iterable[tuple[Any, Any]]) -> dict[str, Any]:
     items = list(pairs)
     hit = sum(1 for a, b in items if a == b)
     return {"n": len(items), "agree": hit, "rate": (hit / len(items)) if items else None}
-
-
-def grid_side(grid_slot: str | None, row_width: int, is_home: bool) -> str | None:
-    """left / right of a grid cell, or None when the cell is not on a touchline edge.
-
-    ``row:col`` is absolute along the touchline: col 1 is the home team's right and the highest col its
-    left; the away team is mirrored. Only the first and last column of a row of at least three say a side;
-    the goalkeeper's row says none.
-    """
-    if not grid_slot or ":" not in grid_slot or row_width < 3:
-        return None
-    try:
-        row, col = (int(x) for x in grid_slot.split(":"))
-    except ValueError:
-        return None
-    if row == 1 or col not in (1, row_width):
-        return None
-    at_col_one = "right" if is_home else "left"
-    at_last = "left" if is_home else "right"
-    return at_col_one if col == 1 else at_last
 
 
 def flank_of(detailed_position: str | None) -> str | None:
