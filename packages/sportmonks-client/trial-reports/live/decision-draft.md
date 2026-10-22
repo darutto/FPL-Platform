@@ -49,6 +49,28 @@ checklist y aquí. Detalle pregunta a pregunta en [TRIAL_LICENSING_CHECKLIST.md]
   públicas programadas. Propuesta, sin construir nada:
   [2026-10-21-otras-competiciones-fuentes-publicas.md](2026-10-21-otras-competiciones-fuentes-publicas.md).
 
+## Pre-carga europea con el token del trial (2026-10-22, solo local)
+
+Mientras el token todavía incluye Euro Club Tournaments (Leo decidió no contratarlo; se reevalúa en 2027) se leyeron, solo a
+disco local y sin publicar nada: 87 llamadas (tope fijado en 180; límite de Starter 2.000/h por entidad).
+
+| Temporada | Partidos europeos (todos los clubes) | Jugados con once completo | De ellos, con alguno de los 20 clubes de 2026-27 |
+|---|---|---|---|
+| 2026-27 (en curso) | 825 | 537 de 537 | 25 jugados (UCL 15, UEL 6, UECL 3, Supercopa 1); por jugar UCL 25, UEL 18, UECL 5 |
+| 2025-26 | 962 | 962 de 962 | 116 (UCL 69, UEL 29, UECL 17, Supercopa 1) |
+| 2024-25 | 958 | 956 de 956 | 90 (UCL 46, UEL 29, UECL 15) |
+
+- **Calidad de los once de los clubes PL:** malla (`formation_field`) y posición detallada en todos los titulares en 25/25
+  (2026-27) y 116/116 (2025-26); en 2024-25, 78/90 y 69/90. La temporada más antigua es claramente peor.
+- **Calendario en el formato de F1** (`public_calendar`, fuente `sportmonks-trial`, un `CompetitionSnapshot` por competición):
+  completo hasta el fin de la fase de liga (UCL 2027-01-27, UEL 2027-01-28, UECL 2026-12-17, Supercopa 2026-08-12). Registros de
+  clubes PL: UCL 40 (5 clubes), UEL 24 (3), UECL 8 (1), Supercopa 1; rivales sin mapear: 5; clubes PL con un nombre
+  desconocido: 0. Las eliminatorias de 2026-27 no están sorteadas.
+- **Baseline de copas (20 clubes, 2026-27):** Carabao 30 partidos (23 jugados, 7 por jugar); FA Cup 0 (los clubes PL entran en
+  enero).
+- **Uso:** los datos del trial siguen sin poder usarse en producción hasta que Sportmonks confirme por escrito la retención de
+  datos del trial (checklist, Q2: parcial). Sin ids de proveedor ni payloads en el repositorio.
+
 ## Criterio (f) jornada a jornada (rolling origin, GW2–7)
 
 Para cada jornada k = 2…7 se predice GWk con la historia estrictamente anterior al saque de cada partido (GW1 no
