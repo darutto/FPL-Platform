@@ -1065,8 +1065,8 @@ async def lifespan(app: FastAPI):
         _try_init_classifier_from_env()
     if not os.environ.get("FPL_INTERNAL_TOKEN", "").strip():
         _LOG.warning(
-            "FPL_INTERNAL_TOKEN not set — GET /quota is open to unauthenticated callers. "
-            "Set this in production to restrict quota probing."
+            "FPL_INTERNAL_TOKEN not set — GET /quota is open to unauthenticated callers "
+            "and X-User-Tier is trusted from anyone. Set this in production."
         )
     try:
         yield
@@ -2051,12 +2051,21 @@ def _extract_user_context(request: Request) -> tuple[str, str]:
     user_id = hash_user_id(raw_user_id)
     _default_tier = os.environ.get("FPL_DEV_TIER", "free")
     tier    = request.headers.get("X-User-Tier", _default_tier) or _default_tier
+    # i153: the backend is public, so a tier header is believed only from the
+    # frontend, which proves itself with X-Internal-Token (same secret and scheme
+    # as GET /quota). Without FPL_INTERNAL_TOKEN set (local dev) there is nothing
+    # to check against and the header is taken as before.
+    _internal_token = os.environ.get("FPL_INTERNAL_TOKEN", "").strip()
+    if _internal_token and not hmac.compare_digest(
+        request.headers.get("X-Internal-Token", ""), _internal_token
+    ):
+        tier = "free"
     return user_id, tier
 
 
 def tier_of(request: Request) -> str:
-    """The caller's tier. The ONE place a non-/ask route reads it (i153 hardens it here:
-    today ``X-User-Tier`` is trusted from any caller, see ``_extract_user_context``)."""
+    """The caller's tier. The ONE place a non-/ask route reads it; a forged
+    ``X-User-Tier`` without the internal token is ``free`` (i153)."""
     return _extract_user_context(request)[1]
 
 

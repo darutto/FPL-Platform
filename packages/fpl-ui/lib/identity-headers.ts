@@ -10,6 +10,10 @@
  *   - Route handlers copy them onto the backend request with this helper.
  *     Absent headers (anonymous traffic) are simply not forwarded; the backend
  *     defaults to `anonymous` / `free`.
+ *   - The backend is public, so it only believes `x-user-tier` when it comes
+ *     with `x-internal-token` (i153). The helper attaches that server-to-server
+ *     secret (`FPL_INTERNAL_TOKEN`, server-side env, never in the browser
+ *     bundle) whenever it forwards identity.
  *
  * Every `app/api/**` route that talks to a chat backend must use this helper
  * (enforced by `__tests__/identity-forwarding-inventory.test.ts`) so a new
@@ -23,7 +27,8 @@ export const IDENTITY_HEADERS = ['x-user-id', 'x-user-tier'] as const;
 
 /**
  * Returns the identity headers to forward, merged over `base`.
- * Only headers actually present on the incoming request are copied.
+ * Only headers actually present on the incoming request are copied; a
+ * forwarded tier carries `x-internal-token` so the backend accepts it.
  */
 export function forwardIdentityHeaders(
   request: NextRequest,
@@ -34,5 +39,7 @@ export function forwardIdentityHeaders(
     const value = request.headers.get(name);
     if (value) out[name] = value;
   }
+  const internalToken = process.env.FPL_INTERNAL_TOKEN?.trim();
+  if (internalToken && out['x-user-tier']) out['x-internal-token'] = internalToken;
   return out;
 }
