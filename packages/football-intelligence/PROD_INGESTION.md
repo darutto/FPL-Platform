@@ -1,6 +1,6 @@
 # Production Sportmonks ingestion (B3): design
 
-Status: **design for review, nothing built.** Task B, step B3. B1 (#500, tier trust) and B2 (#501,
+Status: **design approved by the brain (2026-10-22) with the conditions folded in below; nothing built.** Task B, step B3. B1 (#500, tier trust) and B2 (#501,
 `licensed_starter` provenance) come before it.
 
 ## Constraints this design starts from
@@ -19,6 +19,8 @@ Status: **design for review, nothing built.** Task B, step B3. B1 (#500, tier tr
   under the paid token. The euro pre-load is trial data too (decision-draft says so explicitly).
 - **Network only through `sportmonks-client`.** It stays the sole owner of URLs, auth, includes and
   pagination (its CONTRACT.md). The job composes client calls; it never builds a URL.
+- **The repo is public, and so are its GitHub Actions logs.** The job logs aggregates only. See
+  "Logging" below.
 - **Secrets are Leo's config.** `SPORTMONKS_API_TOKEN` is read from the environment and never printed
   (the client already redacts it from errors, logs and snapshots).
 
@@ -84,6 +86,14 @@ own prefix `football-licensed/`), and Railway syncs it like the owned store. App
 overwriting them, is what lets B4 answer "what changed between the predicted and the confirmed XI"
 and keeps a history the provider doesn't keep.
 
+**R2 location:** the same **private** bucket as the owned store, under its own prefix
+`football-licensed/`, read and written only with S3 credentials (`S3ArtifactStore`). The workflow
+maps the existing `OWNED_STORE_R2_*` secrets onto the `FPL_FOOTBALL_REMOTE_*` variables that
+`distribution.RemoteStoreConfig` reads. The job never creates a public URL, presigned link or
+public-bucket binding. Licence rule: no one outside us may be able to reconstruct the feed.
+Whether the bucket has public access (r2.dev subdomain or custom domain) **disabled** is Cloudflare
+config and can't be checked from code: Leo confirms it before the first `--publish`.
+
 **No raw payloads anywhere:** the job installs no `RawResponseSnapshot` hook, writes no response JSON
 to disk, and the served endpoints read only the derived tables. Tests use **synthetic** recorded
 fixtures (shapes from CONTRACT.md, hand-made ids and names); no captured payload from the trial or
@@ -107,6 +117,22 @@ cannot loop into the quota.
 and confirmed lineups come out ~60 min before each kickoff. So **before the deadline the job has
 predicted lineups only**, at least for the first match. Confirmed lineups serve "who replaced whom"
 after the fact, not the pre-deadline view.
+
+## Logging (public repo)
+
+GitHub Actions logs of this repo are public. The workflow and the CLI print **aggregates only**:
+row counts per table, crosswalk matched/unmatched counts, calls made vs cap, duration, exit status.
+They never print, on any path including errors:
+
+- a player, club-opponent or coach name;
+- an FPL id or a Sportmonks id;
+- a lineup, sidelined or squad row;
+- crosswalk content.
+
+Errors print the exception **type only** (as `euro_preload.py` does), and tracebacks are not printed.
+The workflow uploads **no artifacts** that contain data. A test runs the CLI in `--dry-run` against the
+synthetic recorded fixtures, including a forced error path, and asserts that stdout and stderr contain
+none of the names or ids in those fixtures.
 
 ## Where it runs: GitHub Actions (recommended) vs Railway cron
 
@@ -161,19 +187,21 @@ Secrets Leo adds (his config, not this PR): `SPORTMONKS_API_TOKEN` as a GitHub A
    sidelined de-dup by sideline id, cups → `public_calendar` snapshots marked `partial`).
 2. `store.py` + manifest binding + publish via `distribution` (tests on `InMemoryArtifactStore`).
 3. `fetch.py` + `__main__` modes + the call cap (tests with a recorded `Transport`, asserting the exact
-   call list and that call N+1 raises).
+   call list and that call N+1 raises) + the no-identifiers-in-output test (see Logging).
 4. The workflow, disabled.
-5. Live smoke: Leo sets the token, the brain approves, `--live` without `--publish`.
+5. Live smoke: Leo sets the token, the brain approves, `--live` without `--publish`. Before the first
+   `--publish`, Leo confirms the bucket's public access is off.
 
-## Open questions
+## Open questions and their answers
 
-1. **Cups under Starter:** does `team_fixtures` return FA Cup / Carabao rows on the paid plan? Only
-   the live smoke can tell. The design works either way: no rows → an empty `partial` snapshot.
-2. **"Per entity" in the rate limit:** per endpoint family or per token? At ~70 calls/h peak it
-   doesn't change anything, but the cap values assume the stricter reading.
-3. **Retention of history:** keep every snapshot all season (small: ~20 fixtures × 2 teams × a few
-   observations × 18 rows), or prune pre-match snapshots after full time? Proposal: keep all season;
-   it's the history B4's "who replaces whom" reads.
-4. **Manual identity queue:** the trial had 17 of 430 unmatched after the automatic pass. Should
-   production carry a checked-in manual-alias table (FPL ids only, no provider ids), or accept ~4 %
-   unmatched at launch?
+1. **Cups under Starter:** does `team_fixtures` return FA Cup / Carabao rows on the paid plan?
+   **Settled by the live smoke.** The design works either way: no rows → an empty `partial`
+   snapshot.
+2. **"Per entity" in the rate limit:** per endpoint family or per token? **Settled by the smoke**
+   (response headers). The caps assume the stricter reading.
+3. **Retention of history:** **keep every snapshot all season** (decided). They're small: ~20
+   fixtures × 2 teams × a few observations × 18 rows. It's the history B4's "who replaces whom" reads.
+4. **Manual identity queue:** the trial left 17 of 430 unmatched after the automatic pass. **Leo
+   decides**; the brain recommends yes. Designed as **optional**: a checked-in table of FPL element ids
+   and the registry fields the matcher already uses (no provider ids). When it's absent, the build
+   runs, and unmatched players are dropped and counted. No build PR waits on it.
