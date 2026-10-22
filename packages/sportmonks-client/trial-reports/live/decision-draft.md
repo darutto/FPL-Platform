@@ -4,8 +4,9 @@
 [TRIAL_GO_NO_GO.md](../../TRIAL_GO_NO_GO.md). El trial vence el **2026-10-25 03:09 UTC**; si la decisión es NO-GO hay que
 cancelar antes o se cobra la primera cuota.
 
-**Qué se contrataría:** plan Starter (Premier League, FA Cup, Carabao Cup) + Euro Club Tournaments (UCL, UEL, UECL):
-**€58/mes + IVA** mensual (€46/mes en anual). Elegir mensual hasta tener datos de uso.
+**Qué se contrataría (decidido por Leo el 2026-10-21):** plan **Starter solo** (Premier League), **€29/mes + IVA**,
+**mensual primero** (el anual da −20 % recurrente; se decide más adelante con datos de uso). **Sin Euro Club Tournaments.**
+Antes se contemplaba Starter + Euro Club Tournaments (€58/mes); ver «Respuestas de Sportmonks» más abajo.
 
 ## Los seis criterios (todos necesarios para GO)
 
@@ -14,9 +15,39 @@ cancelar antes o se cobra la primera cuota.
 | a | ≥95 % de jugadores PL emparejados automáticamente con FPL (≥99 % tras la cola manual) | **Cumple la parte automática: 413/425 = 97,2 %.** Denominador: jugadores FPL con minutos que siguen en un club PL (las bajas por regla, fuera). Cola manual: 9 confirmaciones de Leo en curso; techo esperado 422/424 ≈ 99,5 % | [mapping](2026-10-11-mapping.md) | Correr el mapping con las confirmaciones; re-medir estabilidad de ids (obj. 18) el 12 y 13 |
 | b | Alineaciones confirmadas con formación + grid antes del saque en ≥90 % de los partidos observados | **Semántica validada** (198/198 titulares con grid y posición; regla de lados 420/420 y 58/58; lados validados por Leo en Arsenal, Liverpool y City). **GW7 medida:** en los **8 partidos observables** el once confirmado no figuraba en lecturas de 72 min o más antes del saque y **ya figuraba entre 15 y 59 minutos antes** (8 de 8); la llegada real cae entre ambas lecturas (4 de los 8 con la medida limitada por un reinicio del vigilante, así que 15–59 son cotas). El marcador `lineup_confirmed` pasa de falso a cierto justo entonces: **la señal fiable existe**. Llegó **siempre después de la fecha límite de FPL** (17-oct 10:00 UTC), y la alineación provisional ya difería de la confirmada: 1 a 6 jugadores (media 2,9) o 3 a 9 de 22 puestos (media 5,5). **Dos partidos no se pueden certificar** (ver límites): la regla «≥9/10» no es demostrable con GW7 (8 de 8 observados, 2 sin observación) | [provisional-lineups](2026-10-11-provisional-lineups.md), [grid-check](2026-10-11-grid-check-for-leo.md), sección «GW7: llegada de la alineación» más abajo | Decidir si 8 de 8 observados basta, o repetir con GW8 y un vigilante sin huecos |
 | c | Bajas actualizadas ≤48 h tras la noticia pública en casos muestreados | En medición: pasada de bajas por club cada 8 h desde 2026-10-11 04:07 UTC, con huecos registrados. Resolución de la medida: 8 h | TRIAL_STATUS (log) | Casos nuevos durante la semana y comparación con la noticia pública |
-| d | La licencia permite guardar datos crudos, puntuaciones derivadas y mostrarlas a suscriptores | **Sin respuesta.** Preguntas enviadas por Leo (licencia y cobertura a comercial; técnicas 13, 15, 16 a soporte) | [checklist](../../TRIAL_LICENSING_CHECKLIST.md) | Respuestas a 3, 4, 5 y 6. Un «no» en cualquiera = NO-GO |
-| e | El plan cubre PL + UCL + FA Cup + EFL Cup como mínimo | **Cumple** con Starter + Euro Club Tournaments (7 ligas visibles con el token) | [routes](2026-10-11-routes.md) | — |
+| d | La licencia permite guardar datos crudos, puntuaciones derivadas y mostrarlas a suscriptores | **PASA (2026-10-21).** Respuesta escrita de soporte de Sportmonks: se puede guardar, conservar tras cancelar (lo obtenido mientras había suscripción), combinar con otras fuentes, derivar y mostrar a suscriptores; solo está prohibido revender o redistribuir el feed crudo | [checklist](../../TRIAL_LICENSING_CHECKLIST.md) (Q2–Q8, Q14) | — |
+| e | El plan cubre PL + UCL + FA Cup + EFL Cup como mínimo | **Ya no se cumple tal como está escrito (2026-10-21).** Starter cubre solo la Premier League; UCL/UEL/UECL exigen Euro Club Tournaments (Leo decidió no contratarlo); FA Cup y Carabao devuelven los mismos tipos de dato pero con cobertura «best-effort» y sin garantía de completitud. Las demás competiciones se cubrirían con consultas públicas programadas (ver propuesta). Antes (2026-10-11): cumplía con Starter + Euro Club Tournaments | [routes](2026-10-11-routes.md), [checklist](../../TRIAL_LICENSING_CHECKLIST.md) (Q9, Q10), [propuesta](2026-10-21-otras-competiciones-fuentes-publicas.md) | Reformular el criterio (e) en TRIAL_GO_NO_GO.md: decisión pendiente |
 | f | M1–M3 producen evidencia sensata (≥20 jugadores revisados) | **Sensato con matices, y se mantiene con GW7.** M2 sigue sin mejorar a «repite su último partido»: rol 91,0 % contra 92,9 % y flanco 81,4 % contra 82,8 % (GW2–7). GW7 es la semana más difícil (21 cambios de rol frente a 6–11 antes) y el módulo predijo el rol nuevo en 7 de 21. M1 mejora claramente la tasa base (Brier 0,149 contra 0,203) y solo roza la forma bruta (0,156); cobertura 53 %. M3 cuadra el 100 % con el calendario en todas las jornadas (120/120). Revisión de Leo: 8/10 sin objeción, 2 explicados (sobre GW6; la validación de Arsenal también es de GW6) | [m1-m3](2026-10-11-m1-m3.md), [revisión de Leo](2026-10-11-m1-m3-review-for-leo.md), [rolling origin](2026-10-13-rolling-origin.md) | Nada nuevo que medir con estos módulos; la revisión humana de GW7 queda en `review_for_leo.md` (local) |
+
+## Respuestas de Sportmonks (2026-10-21) y decisión del plan
+
+Fuente: respuesta escrita de soporte de Sportmonks, recibida el 2026-10-21 (conservada en la rama `origin/ccr-1e18409e-uczdas`, que no se
+mergea). Detalle pregunta a pregunta en [TRIAL_LICENSING_CHECKLIST.md](../../TRIAL_LICENSING_CHECKLIST.md).
+
+- **Licencia (criterio d, pasa):** guardar en base propia y usar en la app; conservar tras cancelar lo obtenido con suscripción activa
+  (sujeto a los ToS); combinar con otras fuentes (p. ej. datos públicos de FPL) y calcular puntuaciones, modelos e insights propios;
+  mostrar insights derivados a suscriptores de pago; mostrar campos sueltos e ids de Sportmonks dentro del producto. **Prohibido:**
+  revender o redistribuir el feed crudo como producto de datos, exponer la API o dejar que clientes reconstruyan el feed.
+  Reglas de diseño que se siguen: ningún endpoint (público o autenticado) devuelve payloads crudos de Sportmonks y no se publican
+  exportaciones masivas de tablas de origen Sportmonks.
+- **Plan decidido por Leo:** GO **solo con Starter, €29/mes, mensual primero**; **sin Euro Club Tournaments**. Starter incluye sin
+  add-on: alineaciones, formaciones, `formation_field`/grid, posiciones detalladas, alineaciones predichas, `lineup_confirmed`, bajas
+  (lesiones y sanciones) y plantillas, de la Premier League; últimas 3 temporadas (más antiguas, add-on Historical Data). No hay
+  descuento ni paquete solo-PL más barato.
+- **Límite de peticiones:** **2.000 por entidad y hora** en Starter. Los 2.500/h del trial vienen del paquete Euro, no de Starter:
+  las medidas de ritmo del trial se transfieren de forma conservadora (Starter es un 20 % menor; las ejecuciones planeadas son ~250
+  llamadas).
+- **Copas:** FA Cup y Carabao pueden devolver los mismos tipos de alineación y calendario, pero la cobertura varía por partido y
+  temporada, sin garantía: **best-effort**, degradar sin romper cuando falten. La respuesta no dice que estén incluidas en el precio
+  de Starter ni que se puedan elegir por separado.
+- **Acciones de Leo (suyas, en el panel de Sportmonks) antes del vencimiento del trial, 2026-10-25 03:09 UTC:** quitar **todos los
+  add-ons del trial** (Match Facts, Pressure & xG, Predictions, Odds) **y Euro Club Tournaments**. El código no debe depender de
+  includes de esos add-ons. Decidido ya: facturación mensual.
+- **Sin respuesta:** la pregunta 1 (cobertura completa del trial) y, dentro de la 12, entrenadores, sustituciones y estadísticas de
+  partido; no se asumen.
+- **Cobertura de las demás competiciones (Champions, Europa League, Conference, FA Cup, Carabao):** decisión de Leo, consultas
+  públicas programadas. Propuesta, sin construir nada:
+  [2026-10-21-otras-competiciones-fuentes-publicas.md](2026-10-21-otras-competiciones-fuentes-publicas.md).
 
 ## Criterio (f) jornada a jornada (rolling origin, GW2–7)
 
@@ -109,3 +140,8 @@ por la **explicación**, no por la predicción. Lo que dicen los números:
   pudieron observar.
 
 **Si se contrata:** mensual hasta tener datos de uso; los módulos M1/M2 como trabajo de FI-10, no como producto.
+
+**Actualización 2026-10-21:** el criterio (d) pasa (respuesta de soporte) y Leo decidió el plan: **GO con Starter solo, €29/mes,
+mensual primero, sin Euro Club Tournaments**, con los add-ons del trial retirados antes del 25-oct 03:09 UTC (acción de Leo). Sigue
+vigente la lectura «contratar por el dato y la explicación, no por la predicción». Queda abierto reformular el criterio (e): con
+Starter solo no cubre UCL, y las copas son best-effort. Las secciones de arriba conservan el estado a 2026-10-11/19 como histórico.
