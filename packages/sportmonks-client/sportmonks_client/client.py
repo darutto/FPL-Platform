@@ -94,6 +94,16 @@ EXTRA_ROUTES: dict[str, Route] = {
     # league from one the squads simply omit (trial_mapping).
     "player_search": Route("players/search/{term}", Player),
     "player_teams": Route("players/{player_id}", Player, include="teams", single=True),
+    # Production licensed ingestion (licensed-ingestion package; football-intelligence PROD_INGESTION.md).
+    # Each is a combination of includes already read live on the trial; the records keep the nested lists.
+    # PL matchday: home/away (participants), lineups with detailed positions, formations, state, and
+    # `metadata` type 572 = lineup_confirmed (live 2026-10-13). Filter with `fixtureLeagues:8`.
+    "licensed_pl_fixtures": Route(_WINDOW, Fixture,
+                                  include="participants;lineups.detailedPosition;formations;state;metadata"),
+    # One club's fixtures in every competition the plan returns (cups are best effort), with home/away.
+    "licensed_team_fixtures": Route("fixtures/between/{start}/{end}/{team_id}", Fixture, include="participants;state"),
+    # A club's squad rows (player_id, team_id, jersey_number) with the nested player record for identity.
+    "licensed_squads": Route("squads/teams/{team_id}", SquadMember, include="player"),
 }
 
 
