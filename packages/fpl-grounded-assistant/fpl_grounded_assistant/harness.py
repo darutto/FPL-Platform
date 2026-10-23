@@ -133,7 +133,7 @@ import os
 from typing import Any
 
 from fpl_grounded_assistant.catalogue import t
-from fpl_grounded_assistant.locale_types import Locale, DEFAULT_LOCALE
+from fpl_grounded_assistant.locale_types import BOOTSTRAP_LOCALE_KEY, Locale, DEFAULT_LOCALE
 from fpl_grounded_assistant.renderer import render
 from fpl_grounded_assistant.router import route
 from .tool_dispatch import run_tool
@@ -345,6 +345,22 @@ def _resolve_bootstrap_and_meta(
     return data, None
 
 
+def _carry_locale(actual_bootstrap: dict[str, Any], locale: Locale) -> dict[str, Any]:
+    """i18n S3: put a non-default *locale* on a shallow copy of the bootstrap.
+
+    Tool handlers write user-visible text and take no locale argument, so the
+    locale rides on the per-request bootstrap under ``BOOTSTRAP_LOCALE_KEY`` --
+    the same reasoning as ``_my_team_id`` (i39): a copy, never the shared
+    server-level dict, and nothing at all for the default locale (an es turn
+    sees exactly the object it always did).
+    """
+    if locale == DEFAULT_LOCALE:
+        return actual_bootstrap
+    carried = dict(actual_bootstrap)
+    carried[BOOTSTRAP_LOCALE_KEY] = locale
+    return carried
+
+
 # ---------------------------------------------------------------------------
 # Public harness entry point
 # ---------------------------------------------------------------------------
@@ -423,6 +439,7 @@ def ask(
     # 1. Resolve bootstrap + optional meta
     # ------------------------------------------------------------------
     actual_bootstrap, context_meta = _resolve_bootstrap_and_meta(bootstrap)
+    actual_bootstrap = _carry_locale(actual_bootstrap, locale)  # i18n S3
 
     # ------------------------------------------------------------------
     # 2. Route question
@@ -775,6 +792,9 @@ def ask_v2(
     if team_id is not None:
         actual_bootstrap = dict(actual_bootstrap)
         actual_bootstrap["_my_team_id"] = team_id
+
+    # i18n S3: see _carry_locale (the sub-branches that call ask() do the same).
+    actual_bootstrap = _carry_locale(actual_bootstrap, locale)
 
     # Stable-id wizard handoff: the structured id is authoritative. The
     # display question is deliberately ignored so a stale id can never fall
