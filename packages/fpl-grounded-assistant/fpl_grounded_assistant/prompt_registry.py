@@ -304,8 +304,8 @@ _COMPARAR = PromptSpec(
     name="comparar",
     label="Comparar",
     argument_schema={
-        "a": ArgSpec(name="a", type="string", required=True, aliases=("jugador_a", "p1")),
-        "b": ArgSpec(name="b", type="string", required=True, aliases=("jugador_b", "p2")),
+        "a": ArgSpec(name="a", type="string", required=True, aliases=("jugador_a", "p1", "player_a", "player1")),
+        "b": ArgSpec(name="b", type="string", required=True, aliases=("jugador_b", "p2", "player_b", "player2")),
     },
     validation_rules=(_rule_not_equal("a", "b"),),
     workflow_intent=INTENT_COMPARE_PLAYERS,
@@ -319,8 +319,8 @@ _TRANSFERENCIA = PromptSpec(
     name="transferencia",
     label="Transferencia",
     argument_schema={
-        "out": ArgSpec(name="out", type="string", required=True, aliases=("salida", "vender")),
-        "in":  ArgSpec(name="in",  type="string", required=True, aliases=("entrada", "comprar")),
+        "out": ArgSpec(name="out", type="string", required=True, aliases=("salida", "vender", "sell", "transfer_out")),
+        "in":  ArgSpec(name="in",  type="string", required=True, aliases=("entrada", "comprar", "buy", "bring_in", "transfer_in")),
     },
     validation_rules=(_rule_not_equal("out", "in"),),
     workflow_intent=INTENT_TRANSFER_ADVICE,
@@ -338,7 +338,7 @@ _CALENDARIOS = PromptSpec(
         "horizon": ArgSpec(
             name="horizon", type="int", required=False,
             min_value=1, max_value=10, default=5,
-            aliases=("h", "n",),
+            aliases=("h", "n", "gameweeks", "gws", "next"),
             description="Number of upcoming fixtures",
         ),
     },
@@ -357,12 +357,12 @@ _DIFERENCIALES = PromptSpec(
         "threshold": ArgSpec(
             name="threshold", type="float", required=False,
             min_value=0.1, max_value=100.0, default=15.0,
-            aliases=("umbral", "owned_under"),
+            aliases=("umbral", "owned_under", "max_owned", "ownership"),
         ),
         "top_n": ArgSpec(
             name="top_n", type="int", required=False,
             min_value=1, max_value=20, default=5,
-            aliases=("n", "top"),
+            aliases=("n", "top", "count", "limit"),
         ),
     },
     validation_rules=(),
@@ -398,7 +398,7 @@ _CLASIFICACION = PromptSpec(
         "n": ArgSpec(
             name="n", type="int", required=False,
             min_value=1, max_value=20, default=5,
-            aliases=("top",),
+            aliases=("top", "count", "limit"),
         ),
     },
     validation_rules=(),

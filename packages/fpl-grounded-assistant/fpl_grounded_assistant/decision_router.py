@@ -27,7 +27,9 @@ from .input_normalizer import (
     TextInput,
     RejectedInput,
 )
+from .catalogue import t
 from .intent_aliases import list_resources
+from .locale_types import DEFAULT_LOCALE, Locale
 from .resource_registry import has_resource, run_resource
 from .prompt_registry import (
     get_prompt_spec,
@@ -51,12 +53,14 @@ OUTCOME_FALLTHROUGH         = "fallthrough"  # plain text — caller dispatches 
 #: Fixed reply for "maximo goleador" of a PAST season (i82). Points, not goals,
 #: is what the owned store answers per gameweek; the wording is asserted
 #: end-to-end so a routing-only test cannot drift from what the user reads.
-PAST_SEASON_GOALS_REPLY = (
-    "No tengo goles por jornada de temporadas pasadas; sí puedo decirte quién "
-    "hizo más **puntos**. ¿Te sirve?"
-)
+PAST_SEASON_GOALS_REPLY = t("decision.past_season_goals", "es")
 
-_GOALS_RE = re.compile(r"\b(maximo goleador|maximos goleadores|mas goles|goalscorer|goleador(?:es)?)\b")
+# Goals phrases only. A bare English "top scorer" is NOT here: in FPL it usually means the top
+# POINTS scorer (get_historical_gameweek_top_scorer answers "who was top scorer in GW1 of
+# 2025-26?"), so adding it would turn a working question into this refusal.
+_GOALS_RE = re.compile(
+    r"\b(maximo goleador|maximos goleadores|mas goles|goal[ -]?scorers?|goleador(?:es)?|golden boot)\b"
+)
 _PAST_SEASON_RE = re.compile(
     r"\b(temporada (?:pasada|anterior)|ultima temporada|ano pasado|"
     r"(?:last|previous) season|(?:20)?[0-9]{2}\s*[-/]\s*(?:20)?[0-9]{2})\b"
@@ -89,7 +93,7 @@ def _suggestions() -> list[str]:
     return [public.get(name, f"@{name}") for name in list_resources()]
 
 
-def decide(question: str, bootstrap: dict[str, Any]) -> dict[str, Any]:
+def decide(question: str, bootstrap: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> dict[str, Any]:
     """Classify *question* via the input normalizer, then dispatch.
 
     Returns a dict with the following keys:
@@ -210,7 +214,7 @@ def decide(question: str, bootstrap: dict[str, Any]) -> dict[str, Any]:
             "text":        norm.text,
             "rule":        "past_season_goals",
             "suggestions": [],
-            "message":     PAST_SEASON_GOALS_REPLY,
+            "message":     t("decision.past_season_goals", locale),
         }
     return {
         "kind":    "text",

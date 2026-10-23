@@ -200,15 +200,31 @@ _SPANISH_NAME_PREFIXES: tuple[str, ...] = (
 )
 
 
+# English counterpart of "tengo a " (S2b). Curly apostrophes are folded before the
+# comparison. Ordered longest-first.
+_ENGLISH_NAME_PREFIXES: tuple[str, ...] = (
+    "i've got ",   # "I've got [player]"
+    "ive got ",    # no apostrophe
+    "i have ",     # "I have [player]"
+    "i own ",      # "I own [player]"
+)
+
+
 def _strip_spanish_name_prefix(token: str) -> str:
-    """Strip leading Spanish preposition noise from an extracted player token.
+    """Strip leading "I have" / Spanish preposition noise from an extracted player token.
 
     ``"a Salah"`` → ``"Salah"``, ``"al Saka"`` → ``"Saka"``,
-    ``"tengo a Rashford"`` → ``"Rashford"``.
+    ``"tengo a Rashford"`` → ``"Rashford"``, ``"I have Rashford"`` → ``"Rashford"``.
 
     Comparison is case-insensitive; casing of the remainder is preserved.
     """
-    token_lower = token.lower()
+    token_lower = token.lower().replace("’", "'")
+    for prefix in _ENGLISH_NAME_PREFIXES:
+        if token_lower.startswith(prefix):
+            # "I have to sell Salah" is a sentence, not "I have <player>".
+            if token_lower[len(prefix):].startswith("to "):
+                return token
+            return token[len(prefix):]
     for prefix in _SPANISH_NAME_PREFIXES:
         if token_lower.startswith(prefix):
             return token[len(prefix):]
