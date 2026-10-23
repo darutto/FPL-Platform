@@ -175,4 +175,12 @@ export const en: typeof es = {
   'login.title': 'FPL Assistant',
   'login.subtitle': 'Sign in with your Patreon account to access the chat.',
   'postLogin.verifying': 'Checking your Patreon membership...',
+
+  // --- Relative time ---
+  'time.today': 'today',
+  'time.dayAgo': '1 day ago',
+  'time.daysAgo': '{n} days ago',
+  'time.weeksAgo': '{n} weeks ago',
+  'time.monthAgo': '1 month ago',
+  'time.monthsAgo': '{n} months ago',
 };

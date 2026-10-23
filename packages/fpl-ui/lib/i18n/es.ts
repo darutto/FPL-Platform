@@ -174,4 +174,12 @@ export const es = {
   'login.title': 'FPL Asistente',
   'login.subtitle': 'Inicia sesión con tu cuenta de Patreon para acceder al chat.',
   'postLogin.verifying': 'Verificando tu membresía de Patreon...',
+
+  // --- Relative time ---
+  'time.today': 'hoy',
+  'time.dayAgo': 'hace 1 día',
+  'time.daysAgo': 'hace {n} días',
+  'time.weeksAgo': 'hace {n} semanas',
+  'time.monthAgo': 'hace 1 meses',
+  'time.monthsAgo': 'hace {n} meses',
 };

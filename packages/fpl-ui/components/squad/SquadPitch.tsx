@@ -20,6 +20,9 @@
  * Data: GET /api/fpl-squad/{teamId} (server proxy; live FPL API).
  */
 import { useCallback, useEffect, useState } from 'react';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
+import { formatDayMonth } from '@/lib/i18n/format';
+import type { Locale } from '@/lib/i18n/locale';
 
 interface SquadPlayer {
   id: number;
@@ -97,11 +100,11 @@ type FetchState =
   | { status: 'error'; message: string };
 
 /** "21 ago" — short Spanish date for the next deadline, or null if unparseable. */
-function formatDeadline(iso: string | null): string | null {
+function formatDeadline(iso: string | null, locale: Locale): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+  return formatDayMonth(locale, d);
 }
 
 export default function SquadPitch({ teamId, onAskPlayer, onGw }: Props) {
@@ -206,7 +209,8 @@ export default function SquadPitch({ teamId, onAskPlayer, onGw }: Props) {
  * rather than surfacing a raw 404.
  */
 function PreseasonHint({ nextGw, deadline }: { nextGw: number | null; deadline: string | null }) {
-  const date = formatDeadline(deadline);
+  const { locale } = useLocale();
+  const date = formatDeadline(deadline, locale);
   const when =
     nextGw != null && date
       ? `la Jornada ${nextGw} (${date})`

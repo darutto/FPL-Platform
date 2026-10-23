@@ -17,6 +17,9 @@ import type { WebSearchPayload } from '@/lib/types';
 import { CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
 import { TriangleField } from '@/components/intents/CardOrnaments';
 import MarkdownLite from '@/components/MarkdownLite';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
+import { formatDateTime } from '@/lib/i18n/format';
+import type { Locale } from '@/lib/i18n/locale';
 
 interface Props {
   data: WebSearchPayload;
@@ -35,15 +38,10 @@ function IconGlobe({ color }: { color: string }) {
   );
 }
 
-function formatTimestamp(iso: string): string {
+function formatTimestamp(iso: string, locale: Locale): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleString('es-ES', {
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatDateTime(locale, d);
 }
 
 function hostLabel(result: { source: string; url: string }): string {
@@ -57,7 +55,8 @@ function hostLabel(result: { source: string; url: string }): string {
 
 export default function WebSearchCard({ data }: Props) {
   const { topic, summary, results, timestamp } = data;
-  const when = formatTimestamp(timestamp);
+  const { locale } = useLocale();
+  const when = formatTimestamp(timestamp, locale);
 
   return (
     <div className={`mt-3 text-sm ${CARD_BASE} ${CARD_ACCENT.cyan.border}`}>

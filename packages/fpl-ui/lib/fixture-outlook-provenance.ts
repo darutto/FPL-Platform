@@ -19,6 +19,8 @@
  *      out rather than assume.
  */
 import type { FixtureOutlookGeneration } from './types';
+import { formatUtcDate } from './i18n/format';
+import type { Locale } from './i18n/locale';
 
 /**
  * Below this many played gameweeks the separation rests on a thin sample.
@@ -51,17 +53,12 @@ export interface FixtureOutlookProvenance {
   warning: string | null;
 }
 
-const MONTHS_ES = [
-  'ene', 'feb', 'mar', 'abr', 'may', 'jun',
-  'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
-];
-
 /** '2026-09-08T22:14:03Z' -> '8 sep 2026'. Null/unparseable -> null. */
-export function formatGeneratedAt(iso: string | null | undefined): string | null {
+export function formatGeneratedAt(iso: string | null | undefined, locale: Locale = 'es'): string | null {
   if (!iso) return null;
   const at = new Date(iso);
   if (Number.isNaN(at.getTime())) return null;
-  return `${at.getUTCDate()} ${MONTHS_ES[at.getUTCMonth()]} ${at.getUTCFullYear()}`;
+  return formatUtcDate(locale, at);
 }
 
 /**
