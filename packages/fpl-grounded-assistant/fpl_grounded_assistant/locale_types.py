@@ -28,3 +28,22 @@ Locale = Literal["es", "en"]
 #: Spanish-first product default (matches the existing orchestrator system
 #: prompt policy: "OUTPUT: terse, structured, action-oriented. Spanish-first.").
 DEFAULT_LOCALE: Locale = "es"
+
+#: i18n S3: the key a request's locale travels under to the TOOL handlers, on the
+#: per-request shallow copy of the bootstrap -- the same mechanism as
+#: ``_my_team_id`` (i39), for the same reason: tool handlers are called as
+#: ``handler(args, bootstrap)`` and build user-visible text (comparison reasons,
+#: verdicts, card labels) inside the tool, where no locale parameter exists. The
+#: harness sets it ONLY for a non-default locale, on a copy -- never on the
+#: shared server-level bootstrap, and never for ``es`` (an es turn sees exactly
+#: the bootstrap it always did).
+BOOTSTRAP_LOCALE_KEY: str = "_locale"
+
+
+def bootstrap_locale(bootstrap: object) -> Locale:
+    """The locale a tool handler should write in: the request's, else the default."""
+    if isinstance(bootstrap, dict):
+        value = bootstrap.get(BOOTSTRAP_LOCALE_KEY)
+        if value == "en":
+            return "en"
+    return DEFAULT_LOCALE

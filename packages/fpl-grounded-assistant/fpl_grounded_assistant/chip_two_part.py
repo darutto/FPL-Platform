@@ -49,6 +49,17 @@ GENERAL_VERDICT_LABEL: dict[str, str] = {
     "conditions_unfavorable": "jornada poco favorable",
 }
 
+#: i18n S3: the English twins of the two tables below. Parallel dicts rather than
+#: catalogue keys on purpose: this module is read by the grader and its tests as
+#: constants (the es strings are the exact phrases the model is held to), so the
+#: es side stays literally as it was and the EN side sits next to it, under the
+#: same keys (a test pins the key sets equal). British spelling, glossary terms.
+GENERAL_VERDICT_LABEL_EN: dict[str, str] = {
+    "conditions_favorable":   "favourable gameweek",
+    "conditions_marginal":    "mixed gameweek",
+    "conditions_unfavorable": "unfavourable gameweek",
+}
+
 #: Part 2 -- one phrase per outcome. ``{n}`` is squad_fit.missing_count.
 PARTICULAR_PHRASE: dict[str, str] = {
     "set":             "ya tienes el grupo favorecido",
@@ -62,6 +73,18 @@ PARTICULAR_PHRASE: dict[str, str] = {
     "captain_held":    "tu mejor candidato para el Triple Captain ya está en tu plantilla",
     "captain_missing": "tu mejor candidato para el Triple Captain no está en tu plantilla",
 }
+
+PARTICULAR_PHRASE_EN: dict[str, str] = {
+    "set":             "you already have the favoured group",
+    "needs_transfers": "you are {n} players short of the favoured group to get the most out of the chip",
+    "not_applicable":  "this gameweek is not a good one for this chip, for you or for anyone else",
+    "invite":          "link your team and I'll tell you whether you already have the favoured group",
+    "fetch_failed":    "I couldn't load your squad",
+    "captain_held":    "your best candidate for the Triple Captain is already in your squad",
+    "captain_missing": "your best candidate for the Triple Captain is not in your squad",
+}
+INVITE_TRIPLE_CAPTAIN_EN: str = "link your team and I'll tell you whether your best candidate is already in your squad"
+NEEDS_TRANSFERS_ONE_EN: str = "you are 1 player short of the favoured group to get the most out of the chip"
 
 #: i112: the no-team invitation for triple captain -- same rule as the other
 #: chips (invite when no squad is known), worded for one candidate instead of
@@ -102,17 +125,19 @@ def particular_outcome(chip_output: dict[str, Any]) -> str | None:
     return None
 
 
-def particular_phrase(chip_output: dict[str, Any]) -> str | None:
+def particular_phrase(chip_output: dict[str, Any], locale: str = "es") -> str | None:
     """The exact phrase the answer must contain for *chip_output*, or ``None``."""
     outcome = particular_outcome(chip_output)
     if outcome is None:
         return None
-    phrase = PARTICULAR_PHRASE[outcome]
+    en = locale == "en"
+    phrase = (PARTICULAR_PHRASE_EN if en else PARTICULAR_PHRASE)[outcome]
     if outcome == "invite" and chip_output.get("chip") == "triple_captain":
-        phrase = INVITE_TRIPLE_CAPTAIN
+        phrase = INVITE_TRIPLE_CAPTAIN_EN if en else INVITE_TRIPLE_CAPTAIN
     if outcome == "needs_transfers":
         n = int(chip_output["squad_fit"]["missing_count"])
-        phrase = NEEDS_TRANSFERS_ONE if n == 1 else phrase.format(n=n)
+        one = NEEDS_TRANSFERS_ONE_EN if en else NEEDS_TRANSFERS_ONE
+        phrase = one if n == 1 else phrase.format(n=n)
     return phrase
 
 
@@ -165,7 +190,15 @@ def _join_es(items: list[str]) -> str:
     return ", ".join(items[:-1]) + " y " + items[-1]
 
 
-def general_header(chip_output: dict[str, Any], team_names: dict[int, str]) -> str | None:
+def _join_en(items: list[str]) -> str:
+    if len(items) <= 1:
+        return "".join(items)
+    return ", ".join(items[:-1]) + " and " + items[-1]
+
+
+def general_header(
+    chip_output: dict[str, Any], team_names: dict[int, str], locale: str = "es",
+) -> str | None:
     """``**Bench Boost — jornada favorable.** Grupo favorecido: …``, or ``None``.
 
     ``None`` when there is nothing general to say deterministically: a chip
@@ -176,12 +209,15 @@ def general_header(chip_output: dict[str, Any], team_names: dict[int, str]) -> s
     if not isinstance(chip_output, dict) or chip_output.get("status") != "ok":
         return None
     chip = chip_output.get("chip")
-    label = GENERAL_VERDICT_LABEL.get(chip_output.get("recommendation") or "")
+    en = locale == "en"
+    label = (GENERAL_VERDICT_LABEL_EN if en else GENERAL_VERDICT_LABEL).get(
+        chip_output.get("recommendation") or ""
+    )
     if chip not in SQUAD_FIT_CHIPS or label is None:
         return None
     signals = chip_output.get("signals") if isinstance(chip_output.get("signals"), dict) else {}
     if chip == "triple_captain":
-        return _triple_captain_header(label, signals)
+        return _triple_captain_header(label, signals, locale)
     header = f"**{CHIP_DISPLAY[chip]} \u2014 {label}.**"
     teams = [
         team_names.get(t.get("team")) or t.get("team_short")
@@ -193,12 +229,13 @@ def general_header(chip_output: dict[str, Any], team_names: dict[int, str]) -> s
         if isinstance(p, dict) and p.get("web_name")
     ][:_HEADER_MAX_PLAYERS]
     if teams:
-        header += f" Grupo favorecido: {_join_es(teams)}"
+        lead, joined = (" Favoured group:", _join_en(teams)) if en else (" Grupo favorecido:", _join_es(teams))
+        header += f"{lead} {joined}"
         header += f" ({', '.join(players)})." if players else "."
     return header
 
 
-def _triple_captain_header(label: str, signals: dict[str, Any]) -> str:
+def _triple_captain_header(label: str, signals: dict[str, Any], locale: str = "es") -> str:
     """i112: ``**Triple Captain — jornada favorable.** Mejor candidato: Groß.``
 
     When the user named a player who is not the best option, the verdict is
@@ -206,11 +243,14 @@ def _triple_captain_header(label: str, signals: dict[str, Any]) -> str:
     """
     top = signals.get("top_player")
     evaluated = signals.get("evaluated_player")
+    en = locale == "en"
     if evaluated and evaluated != top:
-        header = f"**{CHIP_DISPLAY['triple_captain']} con {evaluated} — {label}.**"
-        return header + (f" Mejor candidato de la jornada: {top}." if top else "")
+        header = f"**{CHIP_DISPLAY['triple_captain']} {'with' if en else 'con'} {evaluated} — {label}.**"
+        best = "Best candidate of the gameweek" if en else "Mejor candidato de la jornada"
+        return header + (f" {best}: {top}." if top else "")
     header = f"**{CHIP_DISPLAY['triple_captain']} — {label}.**"
-    return header + (f" Mejor candidato: {top}." if top else "")
+    best = "Best candidate" if en else "Mejor candidato"
+    return header + (f" {best}: {top}." if top else "")
 
 
 def compose_chip_answer(
@@ -224,17 +264,12 @@ def compose_chip_answer(
     Returns *body* unchanged when the output calls for neither part. The
     particular sentence is not appended twice if the body already has it.
 
-    i18n S0: the header and the particular sentence are Spanish-only until S3
-    puts them in the catalogue, so for any other locale the model's body is
-    returned as it is -- an English answer with no header beats an English
-    answer under a Spanish one.
+    i18n S3: both parts follow *locale* (es is exactly what it was).
     """
-    if locale != "es":
-        return body
     if not isinstance(chip_output, dict):
         return body
-    header = general_header(chip_output, team_names)
-    phrase = particular_phrase(chip_output)
+    header = general_header(chip_output, team_names, locale)
+    phrase = particular_phrase(chip_output, locale)
     # i144: a spent chip has no "your squad for it" part -- «te falta 1 jugador
     # del grupo favorecido para sacarle todo al chip» makes no sense when it
     # cannot be played now. The general header stays.

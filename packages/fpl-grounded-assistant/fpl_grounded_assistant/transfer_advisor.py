@@ -72,7 +72,9 @@ from fpl_captain_engine import calculate_captain_score
 from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
 
+from .catalogue import t
 from .explainer import explain_captain
+from .locale_types import DEFAULT_LOCALE, Locale, bootstrap_locale
 from .fixture_context import build_fixture_context, fixture_tiebreaker_line  # FI3a
 from .position_score import (
     compute_position_score,
@@ -270,6 +272,7 @@ def _score_one(query: str, bootstrap: dict[str, Any]) -> dict[str, Any]:
 def _build_transfer_reasons(
     in_scored: dict[str, Any],
     out_scored: dict[str, Any],
+    locale: Locale = DEFAULT_LOCALE,
 ) -> list[str]:
     """Derive deterministic advantage phrases for player_in over player_out.
 
@@ -302,7 +305,7 @@ def _build_transfer_reasons(
     in_form  = float(in_inp.get("form", 0.0))
     out_form = float(out_inp.get("form", 0.0))
     if in_form - out_form >= _FORM_ADV_THRESHOLD:
-        reasons.append(f"mejor forma ({in_form:.1f} vs {out_form:.1f})")
+        reasons.append(t("advantage.form", locale, a=f"{in_form:.1f}", b=f"{out_form:.1f}"))
 
     # 2. Fixture advantage (lower FDR = easier fixture)
     # Phase 8b: use effective_fdr (home/away adjusted) for threshold check
@@ -311,24 +314,24 @@ def _build_transfer_reasons(
     if out_efdr - in_efdr >= _FDR_ADV_THRESHOLD:
         in_raw  = int(in_inp.get("fixture_difficulty", 3))
         out_raw = int(out_inp.get("fixture_difficulty", 3))
-        in_v  = _venue_tag(in_inp.get("is_home"))
-        out_v = _venue_tag(out_inp.get("is_home"))
-        reasons.append(f"partido más fácil (FDR {in_raw}{in_v} vs {out_raw}{out_v})")
+        in_v  = _venue_tag(in_inp.get("is_home"), locale)
+        out_v = _venue_tag(out_inp.get("is_home"), locale)
+        reasons.append(t("advantage.easier_fixture", locale, a=in_raw, av=in_v, b=out_raw, bv=out_v))
 
     # 3. xGI/90 advantage
     in_xgi  = float(in_inp.get("xgi_per_90", 0.0))
     out_xgi = float(out_inp.get("xgi_per_90", 0.0))
     if in_xgi - out_xgi >= _XGI_ADV_THRESHOLD:
-        reasons.append("más xGI por 90")
+        reasons.append(t("advantage.xgi", locale))
 
     # 4. Minutes security (lower risk = better)
     in_risk  = float(in_inp.get("minutes_risk", 0.0))
     out_risk = float(out_inp.get("minutes_risk", 0.0))
     if out_risk - in_risk >= _RISK_ADV_THRESHOLD:
-        reasons.append("minutos más asegurados")
+        reasons.append(t("advantage.minutes", locale))
 
     # 5. Set-piece advantage
-    sp_phrase = _set_piece_advantage_phrase(in_role, out_role)
+    sp_phrase = _set_piece_advantage_phrase(in_role, out_role, locale)
     if sp_phrase is not None:
         reasons.append(sp_phrase)
 
@@ -348,6 +351,7 @@ def _build_recommendation_text(
     price_delta: int,
     recommendation: str,
     reasons: list[str],
+    locale: Locale = DEFAULT_LOCALE,
 ) -> str:
     """Build a deterministic, grounded recommendation sentence.
 
@@ -373,39 +377,30 @@ def _build_recommendation_text(
     """
     reasons_clause = ""
     if reasons:
-        reasons_clause = "  Ventajas: " + "; ".join(reasons[:4]) + "."
+        reasons_clause = t("advantage.clause", locale, reasons="; ".join(reasons[:4]))
 
     price_note = ""
     if price_delta != 0:
-        price_m = abs(price_delta) / 10.0
-        if price_delta > 0:
-            price_note = f"  Coste neto: +\u00a3{price_m:.1f}m."
-        else:
-            price_note = f"  Ahorro neto: \u00a3{price_m:.1f}m."
+        price_m = f"{abs(price_delta) / 10.0:.1f}"
+        key = "transfer.price_cost" if price_delta > 0 else "transfer.price_saving"
+        price_note = t(key, locale, m=price_m)
 
     delta_abs = abs(score_delta)
 
     if recommendation == "transfer_in":
-        return (
-            f"Recomendación: incorpora a {in_name}. "
-            f"Puntuación: {score_in:.0f} vs {score_out:.0f} de {out_name} "
-            f"(+{delta_abs:.1f}).{reasons_clause}{price_note}"
-        )
+        return t("transfer.rec_in", locale, inn=in_name, out=out_name,
+                 si=f"{score_in:.0f}", so=f"{score_out:.0f}", d=f"{delta_abs:.1f}",
+                 reasons=reasons_clause, price=price_note)
 
     if recommendation == "marginal_transfer_in":
-        return (
-            f"Ajustado: valora a {in_name} en lugar de {out_name}. "
-            f"Puntuación: {score_in:.0f} vs {score_out:.0f} "
-            f"(+{delta_abs:.1f}).{reasons_clause}{price_note}"
-        )
+        return t("transfer.rec_marginal", locale, inn=in_name, out=out_name,
+                 si=f"{score_in:.0f}", so=f"{score_out:.0f}", d=f"{delta_abs:.1f}",
+                 reasons=reasons_clause, price=price_note)
 
     # "hold" — player_out is same or better
     delta_str = f"{score_delta:.1f}" if score_delta < 0 else "0.0"
-    return (
-        f"Recomendación: mantén a {out_name}. "
-        f"Puntuación: {score_out:.0f} vs {score_in:.0f} de {in_name} "
-        f"({delta_str}).{reasons_clause}"
-    )
+    return t("transfer.rec_hold", locale, inn=in_name, out=out_name,
+             si=f"{score_in:.0f}", so=f"{score_out:.0f}", d=delta_str, reasons=reasons_clause)
 
 
 # ---------------------------------------------------------------------------
@@ -447,6 +442,8 @@ def get_transfer_advice(
     >>> result["recommendation"] in ("transfer_in", "marginal_transfer_in", "hold")
     True
     """
+    locale = bootstrap_locale(bootstrap)  # i18n S3: the request's, else es
+
     def _failed(failed_side: dict[str, Any], failed_query: str) -> dict[str, Any]:
         """Surface a failed side's status, preserving any disambiguation candidates.
 
@@ -490,12 +487,12 @@ def get_transfer_advice(
     else:
         recommendation = "hold"
 
-    transfer_reasons = _build_transfer_reasons(scored_in, scored_out)
+    transfer_reasons = _build_transfer_reasons(scored_in, scored_out, locale)
 
     # For "hold", show player_out's advantages over player_in so the text
     # explains WHY to hold (not confusingly list player_in's minor edges).
     if recommendation == "hold":
-        hold_reasons = _build_transfer_reasons(scored_out, scored_in)
+        hold_reasons = _build_transfer_reasons(scored_out, scored_in, locale)
         display_reasons = hold_reasons
     else:
         display_reasons = transfer_reasons
@@ -504,7 +501,7 @@ def get_transfer_advice(
         name_in, name_out,
         score_in, score_out,
         score_delta, price_delta,
-        recommendation, display_reasons,
+        recommendation, display_reasons, locale,
     )
 
     # FI3a: additive fixture context — never changes score/delta/recommendation.

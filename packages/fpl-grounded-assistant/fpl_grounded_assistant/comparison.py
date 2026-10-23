@@ -76,7 +76,9 @@ from fpl_captain_engine import calculate_captain_score
 from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
 
+from .catalogue import t
 from .explainer import explain_captain
+from .locale_types import DEFAULT_LOCALE, Locale, bootstrap_locale
 from .fixture_context import build_fixture_context, fixture_tiebreaker_line  # FI3a
 from .position_score import (
     compute_position_score,
@@ -296,6 +298,8 @@ def compare_players(
     >>> result["winner"]
     'Salah'
     """
+    locale = bootstrap_locale(bootstrap)  # i18n S3: the request's, else es
+
     def _failed(failed_side: dict[str, Any], failed_query: str) -> dict[str, Any]:
         """Surface a failed side's status, preserving any disambiguation candidates.
 
@@ -344,7 +348,7 @@ def compare_players(
     if winner is not None:
         winner_scored = scored_a if winner == name_a else scored_b
         loser_scored  = scored_b if winner == name_a else scored_a
-        comparison_reasons = _explain_comparison(winner_scored, loser_scored)
+        comparison_reasons = _explain_comparison(winner_scored, loser_scored, locale)
     else:
         comparison_reasons = []
 
@@ -420,7 +424,7 @@ def compare_players(
         "recommendation":      _build_recommendation(
             name_a, score_a,
             name_b, score_b,
-            winner, margin, comparison_reasons,
+            winner, margin, comparison_reasons, locale,
         ),
         "stat_comparison":     stat_comparison,               # additive raw-stat table, JSON-safe dict or None
     }
@@ -442,6 +446,7 @@ def _margin_label(margin: float) -> str:
 def _explain_comparison(
     winner: dict[str, Any],
     loser: dict[str, Any],
+    locale: Locale = DEFAULT_LOCALE,
 ) -> list[str]:
     """Derive deterministic comparative advantage phrases for the winner.
 
@@ -474,7 +479,7 @@ def _explain_comparison(
     w_form = float(w_inp.get("form", 0.0))
     l_form = float(l_inp.get("form", 0.0))
     if w_form - l_form >= _FORM_ADV_THRESHOLD:
-        reasons.append(f"mejor forma ({w_form:.1f} vs {l_form:.1f})")
+        reasons.append(t("advantage.form", locale, a=f"{w_form:.1f}", b=f"{l_form:.1f}"))
 
     # 2. Fixture advantage (lower FDR = better)
     # Phase 8b: use effective_fdr (home/away adjusted) for threshold check
@@ -483,24 +488,24 @@ def _explain_comparison(
     if l_efdr - w_efdr >= _FDR_ADV_THRESHOLD:
         w_raw = int(w_inp.get("fixture_difficulty", 3))
         l_raw = int(l_inp.get("fixture_difficulty", 3))
-        w_venue = _venue_tag(w_inp.get("is_home"))
-        l_venue = _venue_tag(l_inp.get("is_home"))
-        reasons.append(f"partido más fácil (FDR {w_raw}{w_venue} vs {l_raw}{l_venue})")
+        w_venue = _venue_tag(w_inp.get("is_home"), locale)
+        l_venue = _venue_tag(l_inp.get("is_home"), locale)
+        reasons.append(t("advantage.easier_fixture", locale, a=w_raw, av=w_venue, b=l_raw, bv=l_venue))
 
     # 3. xGI/90 advantage
     w_xgi = float(w_inp.get("xgi_per_90", 0.0))
     l_xgi = float(l_inp.get("xgi_per_90", 0.0))
     if w_xgi - l_xgi >= _XGI_ADV_THRESHOLD:
-        reasons.append("más xGI por 90")
+        reasons.append(t("advantage.xgi", locale))
 
     # 4. Minutes security advantage (lower risk = better)
     w_risk = float(w_inp.get("minutes_risk", 0.0))
     l_risk = float(l_inp.get("minutes_risk", 0.0))
     if l_risk - w_risk >= _RISK_ADV_THRESHOLD:
-        reasons.append("minutos más asegurados")
+        reasons.append(t("advantage.minutes", locale))
 
     # 5. Set-piece advantage — Phase 5h: specific role labels via _set_piece_advantage_phrase
-    sp_phrase = _set_piece_advantage_phrase(w_role, l_role)
+    sp_phrase = _set_piece_advantage_phrase(w_role, l_role, locale)
     if sp_phrase is not None:
         reasons.append(sp_phrase)
 
@@ -523,6 +528,7 @@ def _build_recommendation(
     winner: str | None,
     margin: float,
     comparison_reasons: list[str],
+    locale: Locale = DEFAULT_LOCALE,
 ) -> str:
     """Concise, grounded comparison sentence with comparative reasoning.
 
@@ -532,24 +538,20 @@ def _build_recommendation(
     comparison card's own (fpl-ui lib/theme.ts MARGIN_CONFIG).
     """
     if winner is None:
-        return (
-            f"{name_a} ({score_a}) y {name_b} ({score_b})"
-            " empatan en puntuación."
-        )
+        return t("comparison.tie", locale, a=name_a, sa=score_a, b=name_b, sb=score_b)
 
     loser        = name_b if winner == name_a else name_a
     winner_score = score_a if winner == name_a else score_b
     loser_score  = score_b if winner == name_a else score_a
-    label        = _MARGIN_LABEL_ES.get(_margin_label(margin), _margin_label(margin))
+    margin_key   = _margin_label(margin)
+    label        = t(f"comparison.margin.{margin_key}", locale) if margin_key in _MARGIN_LABEL_ES else margin_key
 
-    base = (
-        f"{winner} ({winner_score}) supera a {loser} ({loser_score})"
-        f" — diferencia {label} ({margin})."
-    )
+    base = t("comparison.beats", locale, winner=winner, ws=winner_score, loser=loser, ls=loser_score,
+             label=label, margin=margin)
 
     if comparison_reasons:
         clause = "; ".join(comparison_reasons[:3])
-        return base + f"  Ventajas: {clause}."
+        return base + t("advantage.clause", locale, reasons=clause)
     return base
 
 
