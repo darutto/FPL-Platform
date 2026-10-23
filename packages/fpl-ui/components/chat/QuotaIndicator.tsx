@@ -18,6 +18,7 @@ import { useEffect, useState, useCallback } from 'react';
 import type { QuotaStatus } from '@/lib/types';
 import { quotaTone, QUOTA_TONE_CLASSES } from '@/lib/theme';
 import { PAID_LADDER, QUOTA_BUCKETS, SUBSCRIPTION_TIERS } from '@/lib/tiers';
+import { useT } from '@/lib/i18n/LocaleProvider';
 
 interface Props {
   userId?: string;       // defaults to 'anonymous'
@@ -40,7 +41,7 @@ const RECOMMENDED = SUBSCRIPTION_TIERS.find((t) => t.highlighted)?.bucket;
 const TIER_TABLE = [
   {
     bucket: 'free' as const,
-    label: 'Gratis',
+    label: null as string | null, // the free rung is named in the viewer's language (quota.free)
     daily: QUOTA_BUCKETS.free.msgsPerDay,
     monthly: QUOTA_BUCKETS.free.msgsPerMonth,
     webSearch: QUOTA_BUCKETS.free.webSearch,
@@ -66,6 +67,7 @@ export default function QuotaIndicator({
   refreshTrigger = 0,
   endpoint = '/api/quota',
 }: Props) {
+  const t = useT();
   const [status, setStatus] = useState<QuotaStatus | null>(null);
   const [fetchError, setFetchError] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -95,7 +97,7 @@ export default function QuotaIndicator({
   if (fetchError) return null;
   if (!status) return null;
 
-  // A payload missing its counters would print "Día NaN/": hide instead.
+  // A payload missing its counters would print "Day NaN/": hide instead.
   const counters = [
     status.daily_message_cap, status.daily_message_count,
     status.monthly_message_cap, status.monthly_message_count,
@@ -137,16 +139,25 @@ export default function QuotaIndicator({
       {/* Compact pill widget */}
       <button
         onClick={() => setModalOpen(true)}
-        title={`Cuota diaria: ${dailyRemaining}/${status.daily_message_cap} msgs · Mensual: ${monthlyRemaining}/${status.monthly_message_cap} msgs\nTokens diarios: ${status.daily_token_cap - status.daily_tokens_used}/${status.daily_token_cap} · Mensuales: ${status.monthly_token_cap - status.monthly_tokens_used}/${status.monthly_token_cap}`}
+        title={t('quota.tooltip', {
+          dRem: dailyRemaining,
+          dCap: status.daily_message_cap,
+          mRem: monthlyRemaining,
+          mCap: status.monthly_message_cap,
+          dtRem: status.daily_token_cap - status.daily_tokens_used,
+          dtCap: status.daily_token_cap,
+          mtRem: status.monthly_token_cap - status.monthly_tokens_used,
+          mtCap: status.monthly_token_cap,
+        })}
         className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold transition-colors hover:opacity-80 ${pillColor}`}
       >
         <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${QUOTA_TONE_CLASSES[dailyTone].dot}`} />
         <span>
-          Día {dailyRemaining}/{status.daily_message_cap}
+          {t('quota.day')} {dailyRemaining}/{status.daily_message_cap}
         </span>
         <span className="opacity-50">·</span>
         <span>
-          Mes {monthlyRemaining}/{status.monthly_message_cap}
+          {t('quota.month')} {monthlyRemaining}/{status.monthly_message_cap}
         </span>
       </button>
 
@@ -162,11 +173,11 @@ export default function QuotaIndicator({
           >
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-extrabold text-white">Cuota de mensajes</h2>
+              <h2 className="text-sm font-extrabold text-white">{t('quota.title')}</h2>
               <button
                 onClick={() => setModalOpen(false)}
                 className="text-bf-gray hover:text-bf-text text-lg leading-none"
-                aria-label="Cerrar"
+                aria-label={t('quota.close')}
               >
                 ✕
               </button>
@@ -175,9 +186,9 @@ export default function QuotaIndicator({
             {/* Current usage summary */}
             <div className="mb-4 rounded-card border border-white/10 bg-white/5 p-3 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] text-bf-gray">Hoy</span>
+                <span className="text-[11px] text-bf-gray">{t('quota.today')}</span>
                 <span className={`text-[11px] font-bold ${QUOTA_TONE_CLASSES[dailyTone].text}`}>
-                  {dailyRemaining} msgs restantes
+                  {t('quota.messagesLeft', { n: dailyRemaining })}
                 </span>
               </div>
               {/* Daily bar */}
@@ -188,9 +199,9 @@ export default function QuotaIndicator({
                 />
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[11px] text-bf-gray">Este mes</span>
+                <span className="text-[11px] text-bf-gray">{t('quota.thisMonth')}</span>
                 <span className={`text-[11px] font-bold ${QUOTA_TONE_CLASSES[monthlyTone].text}`}>
-                  {monthlyRemaining} msgs restantes
+                  {t('quota.messagesLeft', { n: monthlyRemaining })}
                 </span>
               </div>
               {/* Monthly bar */}
@@ -201,7 +212,7 @@ export default function QuotaIndicator({
                 />
               </div>
               <p className="text-[10px] text-bf-gray/70 pt-1">
-                Tier actual: <span className="font-medium text-bf-gray">{status.tier}</span>
+                {t('quota.currentTier')} <span className="font-medium text-bf-gray">{status.tier}</span>
               </p>
             </div>
 
@@ -209,9 +220,9 @@ export default function QuotaIndicator({
             <table className="w-full text-[11px] mb-4">
               <thead>
                 <tr className="border-b border-white/10">
-                  <th className="text-left text-bf-gray font-bold uppercase tracking-wide pb-1.5">Plan</th>
-                  <th className="text-right text-bf-gray font-bold uppercase tracking-wide pb-1.5">Día</th>
-                  <th className="text-right text-bf-gray font-bold uppercase tracking-wide pb-1.5">Mes</th>
+                  <th className="text-left text-bf-gray font-bold uppercase tracking-wide pb-1.5">{t('quota.plan')}</th>
+                  <th className="text-right text-bf-gray font-bold uppercase tracking-wide pb-1.5">{t('quota.day')}</th>
+                  <th className="text-right text-bf-gray font-bold uppercase tracking-wide pb-1.5">{t('quota.month')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -221,13 +232,13 @@ export default function QuotaIndicator({
                     className={`${idx % 2 === 0 ? 'bg-white/[0.035]' : ''} ${row.bucket === status.tier ? 'text-white font-bold' : 'text-bf-gray'}`}
                   >
                     <td className="py-1.5 px-1">
-                      {row.label}
+                      {row.label ?? t('quota.free')}
                       {row.webSearch && (
-                        <span className="ml-1 text-bf-cyan" title="Incluye búsqueda web">+ web</span>
+                        <span className="ml-1 text-bf-cyan" title={t('quota.includesWeb')}>+ web</span>
                       )}
                       {row.bucket === RECOMMENDED && row.bucket !== status.tier && (
                         <span className="ml-1 rounded-full bg-bf-cyan/20 px-1.5 text-[9px] font-bold uppercase tracking-wide text-bf-cyan">
-                          Recomendado
+                          {t('quota.recommended')}
                         </span>
                       )}
                     </td>
@@ -245,7 +256,7 @@ export default function QuotaIndicator({
               rel="noopener noreferrer"
               className="block w-full rounded-[10px] bg-bf-coral hover:bg-bf-coral/90 text-white hc:text-bf-ink text-center text-xs font-bold py-2.5 transition-colors"
             >
-              Mejorar en Patreon
+              {t('quota.upgrade')}
             </a>
           </div>
         </div>

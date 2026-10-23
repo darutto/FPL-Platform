@@ -10,6 +10,9 @@
 import type { ResourceRows, InjuryRow } from '@/lib/types';
 import { CARD_BASE, CARD_ACCENT, ACCENT_HEX, PILL_BASE, STATUS_TONE_CLASSES } from '@/lib/theme';
 import { TriangleField } from './CardOrnaments';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
+import { formatDaysAgo } from '@/lib/i18n/format';
+import type { Locale } from '@/lib/i18n/locale';
 
 interface Props {
   data: ResourceRows;
@@ -51,7 +54,8 @@ export function InjuryRowItem({ row, banded }: { row: InjuryRow; banded: boolean
   const { web_name, team_short, position, status_label, chance_of_playing, news, news_added } = row;
   const { className: badgeClass, label: badgeLabel } = resolveStatusBadge(status_label);
   const chanceText = chance_of_playing != null ? `${chance_of_playing}%` : '—';
-  const dateText = news_added != null ? formatRelativeDate(news_added) : '—';
+  const { locale } = useLocale();
+  const dateText = news_added != null ? formatRelativeDate(news_added, locale) : '—';
 
   return (
     <div className={`flex items-start gap-3 px-4 py-2.5 ${banded ? 'bg-white/[0.035]' : ''}`}>
@@ -113,23 +117,17 @@ export function resolveStatusBadge(statusLabel: string): { className: string; la
 }
 
 /**
- * Formats an ISO date string as a simple relative string in Spanish.
+ * Formats an ISO date string as a simple relative string, in Spanish unless told otherwise.
  * Falls back to the raw string if parsing fails.
  */
-export function formatRelativeDate(isoString: string): string {
+export function formatRelativeDate(isoString: string, locale: Locale = 'es'): string {
   try {
     const date = new Date(isoString);
     if (isNaN(date.getTime())) return isoString;
     const now = Date.now();
     const diffMs = now - date.getTime();
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    if (diffDays === 0) return 'hoy';
-    if (diffDays === 1) return 'hace 1 día';
-    if (diffDays < 30) return `hace ${diffDays} días`;
-    const diffWeeks = Math.floor(diffDays / 7);
-    if (diffWeeks < 8) return `hace ${diffWeeks} semanas`;
-    const diffMonths = Math.floor(diffDays / 30);
-    return `hace ${diffMonths} meses`;
+    return formatDaysAgo(locale, diffDays);
   } catch {
     return isoString;
   }
