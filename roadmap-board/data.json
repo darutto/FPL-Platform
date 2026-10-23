@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-22",
+  "updated": "2026-10-23",
   "cards": [
     {
       "id": "s1",
@@ -2002,14 +2002,14 @@
     },
     {
       "id": "i153",
-      "col": "idea",
-      "progress": 0,
+      "col": "shipped",
+      "progress": 100,
       "tags": [
         "Backend",
         "Seguridad"
       ],
       "title": "El backend confía en X-User-Tier de cualquiera",
-      "desc": "HALLADO 2026-10-15. _extract_user_context acepta la cabecera X-User-Tier sin comprobar quién llama, y Railway es público: cualquiera puede hacerse pasar por Premium. ARREGLO: aceptar el tier solo junto con X-Internal-Token; usar el helper tier_of(request), que ya existe, y convertir el test xfail en test normal. Hay que cerrarlo ANTES de que llegue a prod cualquier contenido de pago (calendario Premium #464, extras de Sportmonks)."
+      "desc": "Fusionada (PR #500, 23/10). _extract_user_context solo cree la cabecera X-User-Tier cuando X-Internal-Token coincide (hmac.compare_digest, mismo esquema que GET /quota) y cae a tier free sin el token configurado, mientras forwardIdentityHeaders en el frontend adjunta x-internal-token en cada ruta que reenvía tier (/ask, sesiones, proxy WC, fixtures/competiciones)."
     },
     {
       "id": "i154",
