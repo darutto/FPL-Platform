@@ -139,20 +139,60 @@ def test_the_triple_captain_note_says_the_risk_multiplies_too():
         assert not re.search(r"\d+\s*%", note)
 
 
-def test_card_and_prose_phrase_the_same_player_identically():
+_UI_LIB = Path(__file__).resolve().parents[2] / "fpl-ui" / "lib"
+
+
+def _dictionary_template(locale: str, key: str) -> str:
+    """The text the card shows for `key`, read from the UI dictionary (lib/i18n/<locale>.ts)."""
+    source = (_UI_LIB / "i18n" / f"{locale}.ts").read_text(encoding="utf-8")
+    match = re.search(rf"'{re.escape(key)}':\s*'((?:[^'\\]|\\.)*)'", source)
+    assert match, f"{key} is missing from lib/i18n/{locale}.ts"
+    return match.group(1)
+
+
+def _fill(template: str, **values) -> str:
+    for name, value in values.items():
+        template = template.replace("{" + name + "}", str(value))
+    return template
+
+
+@pytest.mark.parametrize("locale", ["es", "en"])
+def test_card_and_prose_phrase_the_same_player_identically(locale):
     """The Python and TypeScript helpers are deliberate mirrors.
 
     If they drift, the text above the card and the card itself describe the
     same player with two different figures — the failure this slice exists to
-    stop.
+    stop. The card's wording lives in the UI dictionary (lib/i18n/es.ts, en.ts),
+    so the guard fills the card's templates the way captain-factors.ts does and
+    compares the result with what this module says for the same player.
     """
-    ts = Path(__file__).resolve().parents[2] / "fpl-ui" / "lib" / "captain-factors.ts"
-    source = ts.read_text(encoding="utf-8")
+    helper = (_UI_LIB / "captain-factors.ts").read_text(encoding="utf-8")
+    # The card helper must read the dictionary, not carry its own copy of the words.
+    for key in (
+        "factors.minutes", "factors.start", "factors.starts",
+        "factors.penalty1", "factors.penaltyN", "factors.contradiction",
+    ):
+        assert f"'{key}'" in helper, f"captain-factors.ts no longer uses {key}"
 
-    assert "jugó ${minutes_played} de ${minutes_available} minutos posibles" in source
-    assert "titularidad" in source and "titularidades" in source
-    assert "lanza los penaltis" in source
-    assert "aun así puntúa por debajo" in source
+    minutes = _dictionary_template(locale, "factors.minutes")
+    start = _dictionary_template(locale, "factors.start")
+    starts = _dictionary_template(locale, "factors.starts")
+    for context, count in ((_PARTIAL, 1), (_FULL, 2)):
+        starts_text = start if count == 1 else _fill(starts, n=count)
+        card = _fill(
+            minutes,
+            played=context["minutes_played"],
+            available=context["minutes_available"],
+            starts=starts_text,
+        )
+        assert card == minutes_phrase(context, locale=locale)
+
+    assert _dictionary_template(locale, "factors.penalty1") == penalties_phrase(1, locale=locale)
+    assert _fill(_dictionary_template(locale, "factors.penaltyN"), n=3) == penalties_phrase(3, locale=locale)
+
+    haaland = {"minutes_context": _FULL, "penalties_order": 1, "rank": 5}
+    above = [{"minutes_context": _PARTIAL, "penalties_order": None, "rank": 1}]
+    assert _dictionary_template(locale, "factors.contradiction") == contradiction_note(haaland, above, locale=locale)
 
 
 def test_asking_about_a_named_player_names_his_minutes_and_penalties(bootstrap):

@@ -216,11 +216,11 @@ export const en: typeof es = {
   'ranking.owned': 'YOURS',
   'factors.start': '1 start',
   'factors.starts': '{n} starts',
-  'factors.minutes': 'played {played} of {available} possible minutes, {starts}',
+  'factors.minutes': 'played {played} of {available} available minutes, {starts}',
   'factors.penalty1': 'takes the penalties',
-  'factors.penaltyN': 'penalties, number {n} on the list',
+  'factors.penaltyN': 'penalties, {n} in line',
   'factors.contradiction':
-    'Plays every minute and takes the penalties, yet scores lower: what moves the score most is recent form, not minutes.',
+    'Plays every available minute and takes the penalties, yet scores lower: what moves the score most is recent form, not minutes.',
 
   // --- Chip card ---
   'chip.best': 'Best available:',
