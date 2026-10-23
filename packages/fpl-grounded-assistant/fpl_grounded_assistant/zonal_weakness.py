@@ -474,8 +474,8 @@ def _opportunity_level(pct_over_avg: float) -> str:
 
 
 _WEAKNESS_LABEL_ES: dict[str, str] = {
-    "in-box": "Débil dentro del área",
-    "edge-of-box": "Débil en la frontal del área",
+    "in-box": "Ataca dentro del área",
+    "edge-of-box": "Ataca la frontal del área",
 }
 _MARGINAL_LABEL_ES: dict[str, str] = {
     "in-box": "Ventaja leve dentro del área",
@@ -513,7 +513,7 @@ def _weakness_label(weakest: list[dict[str, Any]]) -> str:
     top = _top_weak(weakest)
     strength = weakness_strength(weakest)
     if top is None or strength == "none":
-        return "Sin debilidad clara"
+        return "Sin ventaja clara"
     depth, _ = _split_zone(top["zone"])
     return (_WEAKNESS_LABEL_ES if strength == "clear" else _MARGINAL_LABEL_ES)[depth]
 
@@ -643,7 +643,9 @@ def zonal_weakness_card_fields(weakness: dict[str, Any]) -> dict[str, Any]:
     """T4b card-shaped enrichment derived from an ``ok`` ``get_zonal_weakness()``
     result: the 3 in-box lateral cells (attacker-frame ``lateral`` ∈
     left/central/right, with ``pct_over_avg`` / ``opportunity_level`` for the
-    pitch view), ``weakness_label``, and ``weakness_strength``.
+    pitch view), the 3 edge-of-box cells of the same shape (``frontal_zones``
+    -- the headline may name a frontal zone, so the pitch must draw it),
+    ``weakness_label``, and ``weakness_strength``.
 
     i91: shared by ``get_zonal_opportunity`` (which already needed this for
     its own card, from its own internal ``get_zonal_weakness()`` call) and
@@ -653,20 +655,25 @@ def zonal_weakness_card_fields(weakness: dict[str, Any]) -> dict[str, Any]:
     same math, never two copies that can drift.
     """
     zone_rows = {z["zone"]: z for z in weakness["zones"]}
-    zones_out: list[dict[str, Any]] = []
-    for lat in ("left", "central", "right"):
-        row = zone_rows[f"in-box / {lat}"]
-        pct = _pct_over_avg(row["xga_per_game"], row["league_avg"])
-        zones_out.append(
-            {
-                "lateral": lat,
-                "zone": row["zone"],
-                "pct_over_avg": pct,
-                "opportunity_level": _opportunity_level(pct),
-            }
-        )
+
+    def _cells(depth: str) -> list[dict[str, Any]]:
+        cells: list[dict[str, Any]] = []
+        for lat in ("left", "central", "right"):
+            row = zone_rows[f"{depth} / {lat}"]
+            pct = _pct_over_avg(row["xga_per_game"], row["league_avg"])
+            cells.append(
+                {
+                    "lateral": lat,
+                    "zone": row["zone"],
+                    "pct_over_avg": pct,
+                    "opportunity_level": _opportunity_level(pct),
+                }
+            )
+        return cells
+
     return {
-        "zones": zones_out,
+        "zones": _cells("in-box"),
+        "frontal_zones": _cells("edge-of-box"),
         "weakness_label": _weakness_label(weakness["weakest_zones"]),
         "weakness_strength": weakness_strength(weakness["weakest_zones"]),
     }
@@ -1060,6 +1067,7 @@ def get_zonal_opportunity(
         "opportunities": opportunities,
         "zones": zones_out,
         "exploiters": exploiters,
+        "frontal_zones": card_fields["frontal_zones"],
         "weakness_label": card_fields["weakness_label"],
         "verdict": _opportunity_verdict(matched, weakness["weakest_zones"]),
         "penalty_context": weakness["penalty_context"],

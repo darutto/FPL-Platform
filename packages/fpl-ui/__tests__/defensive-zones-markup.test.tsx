@@ -12,7 +12,7 @@ import type { DefensiveZonesMeta } from '../lib/types';
 
 const base: DefensiveZonesMeta = {
   opponent: 'Crystal Palace',
-  weakness_label: 'Débil dentro del área',
+  weakness_label: 'Ataca dentro del área',
   verdict: 'Ataca a Crystal Palace por la derecha dentro del área — concede un +70% sobre un equipo medio ahí.',
   zones: [
     { lateral: 'left', pct_over_avg: -31.7, opportunity_level: 'cool' },

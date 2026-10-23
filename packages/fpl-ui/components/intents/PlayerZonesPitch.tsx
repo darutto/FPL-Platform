@@ -29,7 +29,7 @@ interface Props {
 }
 
 /** Legend shown next to the pitch when any rival is favorable. */
-export const PITCH_LEGEND = 'Turquesa: coincide con la zona débil de un rival favorable.';
+export const PITCH_LEGEND = 'Turquesa: coincide con la zona con ventaja ante un rival favorable.';
 
 /** True when at least one zone can be placed on the pitch. */
 export function hasPlaceableZones(zones: PlayerZonalZone[]): boolean {

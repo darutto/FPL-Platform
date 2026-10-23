@@ -916,6 +916,12 @@ export interface DefensiveZonesMeta {
    * there is a genuine "zero players fit" finding worth showing.
    */
   has_exploiters?: boolean;
+  /**
+   * The 3 edge-of-box cells (left, central, right), same shape as `zones`.
+   * The headline can name a frontal zone, so the pitch draws them; absent/
+   * empty on older payloads (the card then draws the box only).
+   */
+  frontal_zones?: DefensiveZoneCell[];
 }
 
 // ---------------------------------------------------------------------------
