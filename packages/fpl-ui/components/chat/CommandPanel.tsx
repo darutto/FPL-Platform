@@ -13,7 +13,9 @@
  * Slash entries come from the lib/slash-commands registry (single source);
  * this panel only adds the friendly label/description/icon presentation.
  */
-import { SLASH_COMMANDS } from '@/lib/slash-commands';
+import { slashCommandsFor } from '@/lib/slash-commands';
+import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
+import type { DictKey } from '@/lib/i18n/dictionary';
 import { ACCENT_HEX, type Accent } from '@/lib/theme';
 import {
   IconCaptain,
@@ -47,38 +49,27 @@ interface PanelCommand {
   autoSend?: boolean;
 }
 
-// @ vistas rápidas — Spanish aliases supported by the backend resource router.
-const AT_COMMANDS: PanelCommand[] = [
-  { insert: '@lesionados', label: 'Lesionados', desc: 'Lista actualizada', Icon: IconInjury, accent: 'coralSoft', autoSend: true },
-  { insert: '@forma', label: 'En racha', desc: 'Mejor forma reciente', Icon: IconForm, accent: 'gold', autoSend: true },
-  { insert: '@xg', label: 'Peligro de gol', desc: 'Líderes xG + xA por 90', Icon: IconXG, accent: 'coral', autoSend: true },
-  { insert: '@puntos', label: 'Más puntos', desc: 'Acumulados temporada', Icon: IconPoints, accent: 'turquoise', autoSend: true },
-  { insert: '@minutos', label: 'Los infaltables', desc: 'Más minutos jugados', Icon: IconMinutes, accent: 'cyan', autoSend: true },
-  { insert: '@populares', label: 'Más comprados', desc: 'Mayor ownership', Icon: IconPopular, accent: 'purple', autoSend: true },
+// @ quick views: the resource router accepts both spellings; the panel inserts the one in the language showing.
+type AtId = 'injuries' | 'form' | 'xg' | 'points' | 'minutes' | 'popular';
+const AT_COMMANDS: Array<{ id: AtId; Icon: IconComponent; accent: Accent }> = [
+  { id: 'injuries', Icon: IconInjury, accent: 'coralSoft' },
+  { id: 'form', Icon: IconForm, accent: 'gold' },
+  { id: 'xg', Icon: IconXG, accent: 'coral' },
+  { id: 'points', Icon: IconPoints, accent: 'turquoise' },
+  { id: 'minutes', Icon: IconMinutes, accent: 'cyan' },
+  { id: 'popular', Icon: IconPopular, accent: 'purple' },
 ];
 
-// Presentation for each registry command (friendly question as the label).
-const SLASH_PRESENTATION: Record<string, { label: string; desc: string; Icon: IconComponent; accent: Accent }> = {
-  '/capitan': { label: '¿A quién le doy la cinta?', desc: 'Recomendación de capitán', Icon: IconCaptain, accent: 'turquoise' },
-  '/comparar': { label: 'Comparar 2 jugadores', desc: 'Análisis side-by-side', Icon: IconCompare, accent: 'cyan' },
-  '/transferencia': { label: 'Sugerir fichaje', desc: '¿Vale la pena el cambio?', Icon: IconTransfer, accent: 'gold' },
-  '/calendarios': { label: 'Fixture de jugador', desc: 'Dificultad próximos partidos', Icon: IconFixtures, accent: 'turquoise' },
-  '/diferenciales': { label: 'Buscar joyas ocultas', desc: 'Baja propiedad, alto potencial', Icon: IconDiff, accent: 'coralSoft' },
-  '/chips': { label: '¿Uso un chip?', desc: 'Triple Cap, WC, BB o FH', Icon: IconChip, accent: 'purple' },
-  '/clasificacion': { label: 'Top capitanes de la semana', desc: 'Ranking de la jornada', Icon: IconRanking, accent: 'gold' },
+// Presentation for each registry command (friendly question as the label), keyed by the Spanish slug.
+const SLASH_PRESENTATION: Record<string, { Icon: IconComponent; accent: Accent }> = {
+  capitan: { Icon: IconCaptain, accent: 'turquoise' },
+  comparar: { Icon: IconCompare, accent: 'cyan' },
+  transferencia: { Icon: IconTransfer, accent: 'gold' },
+  calendarios: { Icon: IconFixtures, accent: 'turquoise' },
+  diferenciales: { Icon: IconDiff, accent: 'coralSoft' },
+  chips: { Icon: IconChip, accent: 'purple' },
+  clasificacion: { Icon: IconRanking, accent: 'gold' },
 };
-
-const SLASH_PANEL_COMMANDS: PanelCommand[] = SLASH_COMMANDS.map((sc) => {
-  const p = SLASH_PRESENTATION[sc.command];
-  return {
-    insert: `${sc.command} `,
-    label: p?.label ?? sc.label,
-    desc: p?.desc ?? sc.placeholder,
-    Icon: p?.Icon ?? IconCaptain,
-    accent: p?.accent ?? 'turquoise',
-    placeholder: sc.placeholder,
-  };
-});
 
 interface Props {
   /** Called with the text to drop into the chat input, plus an optional
@@ -124,25 +115,48 @@ function CommandRow({ cmd, onInsert, onSend }: { cmd: PanelCommand; onInsert: (t
 }
 
 export default function CommandPanel({ onInsert, onSend }: Props) {
+  const { locale } = useLocale();
+  const t = useT();
+  const atCommands: PanelCommand[] = AT_COMMANDS.map(({ id, Icon, accent }) => ({
+    insert: t(`panel.at.${id}.command` as DictKey),
+    label: t(`panel.at.${id}.label` as DictKey),
+    desc: t(`panel.at.${id}.desc` as DictKey),
+    Icon,
+    accent,
+    autoSend: true,
+  }));
+  const slashCommands: PanelCommand[] = slashCommandsFor(locale).map((sc, index) => {
+    // The registry's order is the Spanish one; the slug identifies the command in both languages.
+    const slug = slashCommandsFor('es')[index].command.slice(1);
+    const p = SLASH_PRESENTATION[slug];
+    return {
+      insert: `${sc.command} `,
+      label: t(`panel.slash.${slug}.label` as DictKey),
+      desc: t(`panel.slash.${slug}.desc` as DictKey),
+      Icon: p?.Icon ?? IconCaptain,
+      accent: p?.accent ?? 'turquoise',
+      placeholder: sc.placeholder,
+    };
+  });
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className="px-4 py-3 border-b border-white/10 flex-shrink-0 bg-black/25">
         <span className="text-[10px] font-bold uppercase tracking-widest text-bf-text/50">
-          Comandos rápidos
+          {t('panel.title')}
         </span>
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 py-2.5">
-        <SectionHeading>Vistas rápidas</SectionHeading>
+        <SectionHeading>{t('panel.quickViews')}</SectionHeading>
         <div className="flex flex-col gap-0.5 mb-3">
-          {AT_COMMANDS.map((cmd) => (
+          {atCommands.map((cmd) => (
             <CommandRow key={cmd.insert} cmd={cmd} onInsert={onInsert} onSend={onSend} />
           ))}
         </div>
 
-        <SectionHeading>Acciones</SectionHeading>
+        <SectionHeading>{t('panel.actions')}</SectionHeading>
         <div className="flex flex-col gap-0.5">
-          {SLASH_PANEL_COMMANDS.map((cmd) => (
+          {slashCommands.map((cmd) => (
             <CommandRow key={cmd.insert} cmd={cmd} onInsert={onInsert} onSend={onSend} />
           ))}
         </div>

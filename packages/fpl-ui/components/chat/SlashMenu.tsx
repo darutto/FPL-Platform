@@ -12,6 +12,7 @@
  * so the textarea never loses focus while the menu is open.
  */
 import type { SlashCommandLike } from '@/lib/slash-commands';
+import { useT } from '@/lib/i18n/LocaleProvider';
 
 interface Props<T extends SlashCommandLike> {
   commands: T[];
@@ -26,13 +27,14 @@ export function optionId(command: string): string {
 }
 
 export default function SlashMenu<T extends SlashCommandLike>({ commands, activeIndex, onSelect, id }: Props<T>) {
+  const t = useT();
   if (commands.length === 0) return null;
 
   return (
     <div
       id={id}
       role="listbox"
-      aria-label="Comandos de barra"
+      aria-label={t('slash.menuLabel')}
       className="absolute bottom-full mb-1.5 left-0 right-0 bg-bf-surface rounded-card border border-bf-turquoise/25 overflow-hidden z-10 shadow-menu"
     >
       {commands.map((sc, idx) => (
