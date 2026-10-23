@@ -459,7 +459,7 @@ def test_run_tool_opportunity_card_fields_present(tactical_store):
     assert [z["lateral"] for z in out["zones"]] == ["left", "central", "right"]
     for z in out["zones"]:
         assert z["opportunity_level"] in ("opp", "warm", "cool")
-    assert out["weakness_label"] == "Débil dentro del área"
+    assert out["weakness_label"] == "Ataca dentro del área"
     assert "penalty_xga_per_game" in out["penalty_context"]
     assert isinstance(out["verdict"], str) and out["verdict"]
     # language discipline: opportunity framing only
@@ -1014,7 +1014,7 @@ class TestDefensiveZonesMeta:
         zo = meta["zonal_opportunity"]
         assert zo is not None
         assert zo.opponent == "Crystal Palace"
-        assert zo.weakness_label == "Débil dentro del área"
+        assert zo.weakness_label == "Ataca dentro del área"
         assert len(zo.zones) == 3
         assert [z.lateral for z in zo.zones] == ["left", "central", "right"]
         assert all(z.opportunity_level in ("opp", "warm", "cool") for z in zo.zones)
@@ -1168,6 +1168,10 @@ def test_run_tool_weakness_ok_enriches_card_fields(tactical_store):
     assert {"zone", "xga_per_game", "league_avg", "delta_vs_avg", "rank"} <= set(out["zones"][0])
     # i91 additions, under distinct keys
     assert [z["lateral"] for z in out["card_zones"]] == ["left", "central", "right"]
+    assert [z["lateral"] for z in out["card_frontal_zones"]] == ["left", "central", "right"]
+    assert [z["zone"] for z in out["card_frontal_zones"]] == [
+        f"edge-of-box / {lat}" for lat in ("left", "central", "right")
+    ]
     assert isinstance(out["weakness_label"], str) and out["weakness_label"]
     assert out["weakness_strength"] in ("clear", "marginal", "none")
     assert "exploiters" not in out  # the absence IS the has_exploiters=False signal
@@ -1181,6 +1185,7 @@ def test_run_tool_weakness_matches_opportunity_card_fields_for_same_team(tactica
     weakness_out = run_tool("get_zonal_weakness", {"team": "Crystal Palace"}, _bootstrap())
     opportunity_out = run_tool("get_zonal_opportunity", {"opponent": "Crystal Palace"}, _bootstrap())
     assert weakness_out["card_zones"] == opportunity_out["zones"]
+    assert weakness_out["card_frontal_zones"] == opportunity_out["frontal_zones"]
     assert weakness_out["weakness_label"] == opportunity_out["weakness_label"]
     assert weakness_out["weakness_strength"] == opportunity_out["weakness_strength"]
 
@@ -1393,3 +1398,25 @@ class TestI98StoreNameForms:
         # about i98 turns "first name + a token of second_name" into a hit.
         assert resolve_store_player("Bruno Borges", _bootstrap_i98()) is None
         assert resolve_store_player("Dominic Mitchell", _bootstrap_i98()) is None
+
+
+def test_card_projection_carries_frontal_zones(tactical_store):
+    """The headline can name an edge-of-box zone, so the card payload must
+    carry those cells for the pitch to draw (both tool shapes)."""
+    from fpl_grounded_assistant.final_response import _extract_zonal_opportunity_meta
+    for tool, args in (
+        ("get_zonal_weakness", {"team": "Crystal Palace"}),
+        ("get_zonal_opportunity", {"opponent": "Crystal Palace"}),
+    ):
+        meta = _extract_zonal_opportunity_meta(run_tool(tool, args, _bootstrap()))
+        assert [c.lateral for c in meta.frontal_zones] == ["left", "central", "right"]
+        assert [c.lateral for c in meta.zones] == ["left", "central", "right"]
+
+
+def test_card_projection_without_frontal_zones_degrades_to_empty():
+    from fpl_grounded_assistant.final_response import _extract_zonal_opportunity_meta
+    meta = _extract_zonal_opportunity_meta({
+        "opponent": "X", "verdict": "v", "weakness_label": "l", "exploiters": [],
+        "zones": [{"lateral": "left", "pct_over_avg": 1.0, "opportunity_level": "warm"}],
+    })
+    assert meta is not None and meta.frontal_zones == ()

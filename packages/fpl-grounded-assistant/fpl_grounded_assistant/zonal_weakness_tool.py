@@ -473,6 +473,7 @@ def _get_zonal_weakness_handler(
         # nobody asked about.
         card = zonal_weakness_card_fields(result)
         result["card_zones"] = card["zones"]
+        result["card_frontal_zones"] = card["frontal_zones"]
         result["weakness_label"] = card["weakness_label"]
         result["weakness_strength"] = card["weakness_strength"]
     return result
@@ -633,6 +634,7 @@ GET_ZONAL_WEAKNESS_SPEC = ToolSpec(
             "verdict":         {"type": "string"},
             "data_provenance": {"type": "object"},  # i74 season stamp
             "card_zones":        {"type": "array"},   # i91: 3 in-box lateral cells, for the card's pitch view
+            "card_frontal_zones": {"type": "array"},  # 3 edge-of-box lateral cells, same shape
             "weakness_label":    {"type": "string"},  # i91
             "weakness_strength": {"type": "string"},  # i91: clear | marginal | none
         },
@@ -698,6 +700,7 @@ GET_ZONAL_OPPORTUNITY_SPEC = ToolSpec(
             "scope_resolution": {"type": "string"},  # i90: explicit | fixtures | fixtures_empty_fallback | league
             "opportunities":   {"type": "array"},
             "zones":           {"type": "array"},   # T4b: 3 in-box lateral cells
+            "frontal_zones":   {"type": "array"},   # 3 edge-of-box lateral cells, same shape
             "exploiters":      {"type": "array"},   # T4b: ranked zone-fit table; i90 adds gameweek/is_home/fixtures under fixture scope; i75: team_short is the CURRENT club, club_source ∈ bootstrap|store, club_note "antes en X" | null
             "team_filter":     {"type": "object"},  # i85–i90: {requested, matched, source, *_teams, fixture_window, fixtures, scheduled_opponents, candidates_per_team}; present when a team scope was given, inferred, or fixture-derived
             "weakness_strength": {"type": "string"},  # i89: clear | marginal | none

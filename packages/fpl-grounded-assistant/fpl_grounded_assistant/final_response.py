@@ -714,6 +714,10 @@ class DefensiveZonesMeta:
     #: get_zonal_opportunity-sourced turn, where an empty `exploiters` is a
     #: real, meaningful "zero players fit" result worth showing.
     has_exploiters:        bool = True
+    #: The 3 edge-of-box cells (left / central / right, same shape as
+    #: ``zones``) so the pitch draws every zone the headline can name.
+    #: Empty on payloads predating it -- the card then draws the box only.
+    frontal_zones:         tuple[ZoneCell, ...] = ()
 
 
 # ---------------------------------------------------------------------------
@@ -1997,6 +2001,14 @@ def _extract_zonal_opportunity_meta(ro: "dict[str, Any]") -> "DefensiveZonesMeta
             team_filter    = _extract_team_filter(ro.get("team_filter")),
             weakness_strength = ro.get("weakness_strength"),
             has_exploiters = has_exploiters,
+            frontal_zones  = tuple(
+                ZoneCell(
+                    lateral           = z["lateral"],
+                    pct_over_avg      = float(z["pct_over_avg"]),
+                    opportunity_level = z["opportunity_level"],
+                )
+                for z in (ro.get("card_frontal_zones") or ro.get("frontal_zones") or [])
+            ),
         )
     except Exception:  # noqa: BLE001
         return None
