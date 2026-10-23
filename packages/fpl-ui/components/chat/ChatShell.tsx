@@ -26,14 +26,15 @@
  */
 import { useState, useCallback, useEffect } from 'react';
 import { useUser } from '@clerk/nextjs';
-import { ask, sessionAsk, createSession, clearSession, FplApiError } from '@/lib/api';
+import { ask, sessionAsk, createSession, clearSession, apiErrorText, FplApiError } from '@/lib/api';
 import { generateId } from '@/lib/id';
 import { buildSessionSeed } from '@/lib/session-seed';
 import type { AskResponse, SquadContext, Suggestion } from '@/lib/types';
 import { WIZARD_ARMING_INTENTS, isRewriteSuggestion, isStableIdSuggestion } from '@/lib/wizard-arming';
 import { QUOTA_BUCKETS, type QuotaBucket } from '@/lib/tiers';
 import { readDevTier } from '@/lib/dev-tier';
-import { useLocale } from '@/lib/i18n/LocaleProvider';
+import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
+import { translate } from '@/lib/i18n/dictionary';
 import MessageList, { type Message } from './MessageList';
 import { type CompareWizardState, type PlayerPickWizardState } from './SuggestionChips';
 import InputBar, { type InsertRequest } from './InputBar';
@@ -46,13 +47,16 @@ import TopBar from './TopBar';
 import SquadPitch from '@/components/squad/SquadPitch';
 import { FixturesBoard } from '@/components/intents/FixturesBoard';
 
-// Pager screen order: 0 Calendario · 1 Squad · 2 Chat (home) · 3 Commands.
-const PAGER_LABELS = ['Calendario', 'Squad', 'Chat', 'Commands'] as const;
+// Pager screen order: 0 Calendario · 1 Squad · 2 Chat (home) · 3 Commands (labels: pager.* in the dictionary).
 const CHAT_SCREEN = 2;
 
 export default function ChatShell() {
   const { user } = useUser();
   const { locale } = useLocale();
+  const t = useT();
+  const pagerLabels = [t('pager.calendar'), t('pager.squad'), t('pager.chat'), t('pager.commands')];
+  // The compare wizard composes a real command into the user's bubble: the one of the language showing.
+  const compareCommand = translate(locale, 'slash.comparar.command');
   const clerkTier = (user?.publicMetadata?.tier as QuotaBucket | undefined) ?? 'free';
   // Dev-only impersonation, mirrors WcChatShell — read after mount to avoid a
   // hydration mismatch on the cookie. Always undefined in production.
@@ -144,8 +148,8 @@ export default function ChatShell() {
     const input =
       selectedPlayerId == null && compareWizard != null && !isEscapeHatch
         ? compareWizard.playerA == null
-          ? `/comparar ${trimmed}`
-          : `/comparar ${compareWizard.playerA} vs ${trimmed}`
+          ? `${compareCommand} ${trimmed}`
+          : `${compareCommand} ${compareWizard.playerA} vs ${trimmed}`
         : trimmed;
 
     // Recognized slash commands (/capitan, /comparar, /transferencia, ...) are
@@ -312,8 +316,8 @@ export default function ChatShell() {
     } catch (err) {
       const errorText =
         err instanceof FplApiError
-          ? err.message
-          : 'Error inesperado. Por favor, inténtalo de nuevo.';
+          ? apiErrorText(err, locale)
+          : t('chat.unexpectedError');
 
       const errorMessage: Message = {
         id: generateId(),
@@ -325,7 +329,7 @@ export default function ChatShell() {
     } finally {
       setLoading(false);
     }
-  }, [loading, followUpArmedFor, sessionId, squadContext, webSearchOn, webSearchAvailable, messages, compareWizard, locale, teamId]);
+  }, [loading, followUpArmedFor, sessionId, squadContext, webSearchOn, webSearchAvailable, messages, compareWizard, locale, teamId, compareCommand, t]);
 
   // Guided Comparison: a chip tap. First tap stores player A client-side (no
   // round trip) and swaps the question to step 2. Second tap sends the canonical
@@ -339,9 +343,9 @@ export default function ChatShell() {
       setCompareWizard({ playerA: sendText, options: compareWizard.options });
     } else {
       // Second pick: send canonical compare text; sendMessage clears the wizard.
-      sendMessage(`/comparar ${compareWizard.playerA} vs ${sendText}`);
+      sendMessage(`${compareCommand} ${compareWizard.playerA} vs ${sendText}`);
     }
-  }, [compareWizard, sendMessage]);
+  }, [compareWizard, sendMessage, compareCommand]);
 
   // Single-tap player disambiguation. Two chip shapes land here:
   //
@@ -376,7 +380,7 @@ export default function ChatShell() {
     <div className="flex flex-col h-screen">
       <TopBar teamName={teamName} gw={gw} />
 
-      <SwipePager workspace screen={screen} onScreenChange={setScreen} labels={PAGER_LABELS}>
+      <SwipePager workspace screen={screen} onScreenChange={setScreen} labels={pagerLabels}>
         {/* SCREEN 0 — Calendario (fixture ticker, deep-links into chat) */}
         <PagerScreen maxWidth={1280}>
           <div className="h-full overflow-y-auto rounded-card border border-white/10 bg-bf-surface p-3">
@@ -394,7 +398,7 @@ export default function ChatShell() {
           <div className="h-full flex flex-col rounded-card border border-white/10 bg-bf-surface overflow-hidden">
             <header className="px-4 py-3 border-b border-white/10 flex-shrink-0 space-y-2 bg-black/25">
               <div className="flex items-center gap-2">
-                <h1 className="text-[10px] font-bold uppercase tracking-widest text-bf-text/50 leading-none">Chat</h1>
+                <h1 className="text-[10px] font-bold uppercase tracking-widest text-bf-text/50 leading-none">{t('chat.heading')}</h1>
                 <span className="w-1.5 h-1.5 rounded-full bg-bf-turquoise" />
               </div>
 
@@ -406,7 +410,7 @@ export default function ChatShell() {
               {isEmpty ? (
                 <div className="flex-1 flex flex-col items-center justify-center gap-6 px-4">
                   <p className="text-bf-gray text-sm">
-                    Haz una pregunta sobre tu equipo de Fantasy Premier League.
+                    {t('chat.empty')}
                   </p>
                   <StarterPrompts onSelect={sendMessage} />
                 </div>
@@ -431,7 +435,7 @@ export default function ChatShell() {
                   className="flex items-center gap-1.5 text-[11px] font-medium text-bf-turquoise bg-bf-turquoise/10 border border-bf-turquoise/40 rounded-full px-2.5 py-1"
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-bf-turquoise" />
-                  Respondiendo a esto · toca para cancelar
+                  {t('chat.followUpArmed')}
                 </button>
               )}
               <InputBar

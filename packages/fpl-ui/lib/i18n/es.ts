@@ -91,4 +91,87 @@ export const es = {
   'input.webTitleLocked': 'Función premium — hazte mecenas para activarla',
   'input.ariaLabel': 'Pregunta al asistente FPL',
   'input.send': 'Enviar',
+
+  // --- Chat shell ---
+  'chat.heading': 'Chat',
+  'chat.empty': 'Haz una pregunta sobre tu equipo de Fantasy Premier League.',
+  'chat.followUpArmed': 'Respondiendo a esto · toca para cancelar',
+  'chat.unexpectedError': 'Error inesperado. Por favor, inténtalo de nuevo.',
+  'pager.calendar': 'Calendario',
+  'pager.squad': 'Squad',
+  'pager.chat': 'Chat',
+  'pager.commands': 'Commands',
+
+  // --- Wide workspace ---
+  'workspace.navigation': 'Workspace navigation',
+  'workspace.centreView': 'Vista central',
+  'workspace.chat': 'Chat',
+  'workspace.calendar': 'Calendar',
+  'workspace.panel.squad': 'Squad',
+  'workspace.panel.commands': 'Comandos',
+  'workspace.hidePanel': 'Ocultar panel {name}',
+  'workspace.showPanel': 'Mostrar panel {name}',
+
+  // --- Top bar ---
+  'topbar.title': 'FPL Asistente',
+  'topbar.subtitle': 'Bendito Fantasy',
+  'topbar.team': 'Team',
+  'topbar.contrast': 'Contraste alto (accesibilidad)',
+
+  // --- Messages ---
+  'msg.thinking': 'Pensando…',
+  'msg.structuredAnswer': 'Respuesta estructurada',
+  'msg.verdict': 'Veredicto',
+  'msg.recommendationData': 'Datos de la recomendación',
+  'msg.followUpOn': 'Seguimiento activado ✓',
+  'msg.followUp': 'Seguir conversación →',
+  'msg.badge.webAi': 'Búsqueda web + IA',
+  'msg.badge.verified': 'Datos verificados',
+  'msg.badge.noTournament': 'Sin datos del torneo',
+  'msg.badge.aiOn': 'IA activa',
+  'msg.badge.deterministic': 'Determinístico',
+  'msg.providerDown': 'proveedor no disponible',
+
+  // --- Wizards (the questions the UI itself asks) ---
+  'wizard.compareStep1': '¿Cuál es el primer jugador?',
+  'wizard.compareStep2': '¿Contra quién lo comparamos?',
+  'wizard.pickOne': '¿Cuál de estos jugadores buscabas?',
+  'wizard.firstPlayer': 'Primer jugador:',
+  'wizard.notFound': '¿No está tu jugador? Escribilo abajo.',
+
+  // --- Squad context panel ---
+  'squad.invalidId': 'ID de equipo no válido — debe ser un número positivo.',
+  'squad.notFound': 'No se encontró el equipo. Comprueba el ID.',
+  'squad.fetchError': 'Error al obtener datos ({status}). Inténtalo de nuevo.',
+  'squad.unreachable': 'No se pudo conectar con la API de FPL. Inténtalo de nuevo.',
+  'squad.disconnect': 'Desconectar',
+  'squad.placeholder': 'ID de equipo FPL',
+  'squad.connecting': 'Conectando…',
+  'squad.connect': 'Conectar',
+
+  // --- Quota ---
+  'quota.day': 'Día',
+  'quota.month': 'Mes',
+  'quota.today': 'Hoy',
+  'quota.thisMonth': 'Este mes',
+  'quota.free': 'Gratis',
+  'quota.messagesLeft': '{n} msgs restantes',
+  'quota.title': 'Cuota de mensajes',
+  'quota.close': 'Cerrar',
+  'quota.currentTier': 'Tier actual:',
+  'quota.plan': 'Plan',
+  'quota.includesWeb': 'Incluye búsqueda web',
+  'quota.recommended': 'Recomendado',
+  'quota.upgrade': 'Mejorar en Patreon',
+  'quota.tooltip':
+    'Cuota diaria: {dRem}/{dCap} msgs · Mensual: {mRem}/{mCap} msgs\nTokens diarios: {dtRem}/{dtCap} · Mensuales: {mtRem}/{mtCap}',
+
+  // --- Errors from the API client ---
+  'error.sessionLimit': 'Límite de sesiones alcanzado — inténtalo de nuevo en unos minutos',
+  'error.sessionExpired': 'Sesión expirada. Inicia una nueva conversación.',
+
+  // --- Login ---
+  'login.title': 'FPL Asistente',
+  'login.subtitle': 'Inicia sesión con tu cuenta de Patreon para acceder al chat.',
+  'postLogin.verifying': 'Verificando tu membresía de Patreon...',
 };

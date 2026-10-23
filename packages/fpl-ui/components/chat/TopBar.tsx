@@ -29,13 +29,13 @@ const LOCALE_ITEMS: readonly PillItem<Locale>[] = [
 interface Props {
   teamName?: string | null;
   gw?: number | null;
-  /** Brand title shown next to the logo. Defaults to the FPL title. */
+  /** Brand title shown next to the logo. Defaults to the FPL title in the language showing. */
   title?: string;
   /** Brand subtitle shown beneath the title. Defaults to "Bendito Fantasy". */
   subtitle?: string;
 }
 
-export default function TopBar({ teamName, gw, title = 'FPL Asistente', subtitle = 'Bendito Fantasy' }: Props) {
+export default function TopBar({ teamName, gw, title, subtitle }: Props) {
   const [highContrast, setHighContrast] = useState(false);
   const { locale, canSwitch, setLocale } = useLocale();
   const t = useT();
@@ -67,8 +67,8 @@ export default function TopBar({ teamName, gw, title = 'FPL Asistente', subtitle
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/logo-icon.png" alt="Bendito Fantasy" className="h-7 w-7 rounded flex-shrink-0" />
       <div className="flex-col leading-none hidden md:flex">
-        <span className="text-[13px] font-extrabold text-white">{title}</span>
-        <span className="text-[10px] text-bf-gray mt-0.5">{subtitle}</span>
+        <span className="text-[13px] font-extrabold text-white">{title ?? t('topbar.title')}</span>
+        <span className="text-[10px] text-bf-gray mt-0.5">{subtitle ?? t('topbar.subtitle')}</span>
       </div>
 
       {/* FPL ↔ Mundial switch: off while the World Cup is over (lib/features.ts). */}
@@ -81,7 +81,7 @@ export default function TopBar({ teamName, gw, title = 'FPL Asistente', subtitle
       <div className="flex items-center gap-2.5 ml-auto">
         {teamName && (
           <div className="text-right leading-none hidden sm:block">
-            <span className="block text-[9px] font-bold text-bf-text/40 uppercase tracking-widest">Team</span>
+            <span className="block text-[9px] font-bold text-bf-text/40 uppercase tracking-widest">{t('topbar.team')}</span>
             <span className="block text-[11px] font-bold text-bf-turquoise mt-0.5 max-w-[160px] truncate">
               {teamName}
             </span>
@@ -98,7 +98,7 @@ export default function TopBar({ teamName, gw, title = 'FPL Asistente', subtitle
         <button
           onClick={toggleContrast}
           aria-pressed={highContrast}
-          title="Contraste alto (accesibilidad)"
+          title={t('topbar.contrast')}
           className={`px-2 py-1 rounded-md border text-[11px] font-extrabold transition-colors ${
             highContrast
               ? 'border-bf-turquoise/60 text-bf-turquoise bg-bf-turquoise/10'

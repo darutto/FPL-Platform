@@ -1,14 +1,16 @@
 'use client';
 
 import { SignIn } from '@clerk/nextjs';
+import { useT } from '@/lib/i18n/LocaleProvider';
 
 export default function LoginPage() {
+  const t = useT();
   return (
     <main className="login-page flex min-h-screen flex-col items-center justify-center bg-bf-bg px-4 text-bf-text">
       <div className="mb-6 text-center">
-        <h1 className="font-display text-2xl text-bf-text">FPL Asistente</h1>
+        <h1 className="font-display text-2xl text-bf-text">{t('login.title')}</h1>
         <p className="mt-2 text-sm text-bf-gray">
-          Inicia sesión con tu cuenta de Patreon para acceder al chat.
+          {t('login.subtitle')}
         </p>
       </div>
       <SignIn

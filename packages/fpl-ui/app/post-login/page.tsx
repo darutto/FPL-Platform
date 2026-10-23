@@ -2,9 +2,11 @@
 
 import { useEffect } from 'react';
 import { useAuth } from '@clerk/nextjs';
+import { useT } from '@/lib/i18n/LocaleProvider';
 
 export default function PostLoginPage() {
   const { getToken } = useAuth();
+  const t = useT();
 
   useEffect(() => {
     let cancelled = false;
@@ -33,7 +35,7 @@ export default function PostLoginPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-bf-bg text-bf-text">
-      <p className="text-sm text-bf-gray">Verificando tu membresía de Patreon...</p>
+      <p className="text-sm text-bf-gray">{t('postLogin.verifying')}</p>
     </main>
   );
 }

@@ -8,7 +8,20 @@ import { es } from '@/lib/i18n/es';
 import { translate, type DictKey } from '@/lib/i18n/dictionary';
 
 /** Keys whose English is deliberately the same as the Spanish (a brand name, a code). Keep it short. */
-const SAME_IN_BOTH = new Set<string>(['slash.chips.command', 'panel.at.xg.command']);
+const SAME_IN_BOTH = new Set<string>([
+  'slash.chips.command',
+  'panel.at.xg.command',
+  'chat.heading',
+  'pager.squad',
+  'pager.chat',
+  'pager.commands',
+  'workspace.navigation',
+  'workspace.chat',
+  'workspace.panel.squad',
+  'topbar.subtitle',
+  'topbar.team',
+  'quota.plan',
+]);
 
 const keys = Object.keys(es) as DictKey[];
 const placeholders = (text: string) => (text.match(/\{\w+\}/g) ?? []).sort();

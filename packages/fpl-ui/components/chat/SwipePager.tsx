@@ -14,6 +14,7 @@
 import { Children, useCallback, useEffect, useRef, useState, type ReactNode, type CSSProperties } from 'react';
 import { useWideWorkspace } from './useWideWorkspace';
 import PillSwitcher from './PillSwitcher';
+import { useT } from '@/lib/i18n/LocaleProvider';
 
 const SWIPE_THRESHOLD = 60; // px past which we commit to next/prev screen
 const LOCK_THRESHOLD = 8; // px before we decide horizontal vs vertical
@@ -65,11 +66,6 @@ export function PagerScreen({
   );
 }
 
-const CENTER_ITEMS = [
-  { key: 'chat', label: 'Chat' },
-  { key: 'calendar', label: 'Calendar' },
-] as const;
-
 /** Column sizes shared by the toolbar and the grid so both line up. */
 function workspaceColumns(panels: { squad: boolean; commands: boolean }): CSSProperties {
   return {
@@ -80,7 +76,8 @@ function workspaceColumns(panels: { squad: boolean; commands: boolean }): CSSPro
 
 /** panel-left / panel-right sidebar icon: outline plus a filled rail while the panel is open. */
 function PanelToggle({ side, open, name, onClick }: { side: 'left' | 'right'; open: boolean; name: string; onClick: () => void }) {
-  const label = `${open ? 'Ocultar' : 'Mostrar'} panel ${name}`;
+  const t = useT();
+  const label = t(open ? 'workspace.hidePanel' : 'workspace.showPanel', { name });
   const dividerX = side === 'left' ? 8 : 12;
   return (
     <button type="button" className={`panel-toggle panel-toggle-${side}`} aria-label={label} title={label} aria-expanded={open} onClick={onClick}>
@@ -94,6 +91,11 @@ function PanelToggle({ side, open, name, onClick }: { side: 'left' | 'right'; op
 }
 
 export default function SwipePager({ screen, onScreenChange, labels, children, workspace = false }: Props) {
+  const t = useT();
+  const centerItems = [
+    { key: 'chat', label: t('workspace.chat') },
+    { key: 'calendar', label: t('workspace.calendar') },
+  ] as const;
   const panels = useWideWorkspace(workspace);
   const lastCenter = useRef(2);
   if (screen === 0 || screen === 2) lastCenter.current = screen;
@@ -224,16 +226,16 @@ export default function SwipePager({ screen, onScreenChange, labels, children, w
   return (
     <div className={`flex-1 flex flex-col min-h-0 overflow-hidden relative ${panels.wide ? 'wide-workspace' : ''}`} data-workspace={panels.wide ? 'wide' : 'pager'}>
       {panels.wide && (
-        <div className="workspace-toolbar" aria-label="Workspace navigation" style={workspaceColumns(panels)}>
-          <PanelToggle side="left" open={panels.squad} name="Squad" onClick={() => panels.toggle('squad')} />
+        <div className="workspace-toolbar" aria-label={t('workspace.navigation')} style={workspaceColumns(panels)}>
+          <PanelToggle side="left" open={panels.squad} name={t('workspace.panel.squad')} onClick={() => panels.toggle('squad')} />
           <PillSwitcher
-            label="Vista central"
+            label={t('workspace.centreView')}
             className="workspace-switch"
-            items={CENTER_ITEMS}
+            items={centerItems}
             value={center === 0 ? 'calendar' : 'chat'}
             onChange={(key) => goTo(key === 'calendar' ? 0 : 2)}
           />
-          <PanelToggle side="right" open={panels.commands} name="Comandos" onClick={() => panels.toggle('commands')} />
+          <PanelToggle side="right" open={panels.commands} name={t('workspace.panel.commands')} onClick={() => panels.toggle('commands')} />
         </div>
       )}
       {/* Dot pager */}
