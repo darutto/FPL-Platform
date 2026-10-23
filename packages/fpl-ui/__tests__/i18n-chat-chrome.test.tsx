@@ -163,6 +163,10 @@ describe('the command panel', () => {
     expect(screen.getByText('Quick views')).toBeInTheDocument();
     expect(screen.getByText('Actions')).toBeInTheDocument();
 
+    // The labels follow the glossary: @form is form, @popular is ownership (Most selected), not transfers in.
+    expect(screen.getByRole('button', { name: /In form/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Most selected/ })).toBeInTheDocument();
+    expect(screen.queryByText(/brought in/i)).toBeNull();
     await user.click(screen.getByRole('button', { name: /Injuries/ }));
     expect(onSend).toHaveBeenCalledWith('@injuries');
     await user.click(screen.getByRole('button', { name: /Who gets the armband\?/ }));
