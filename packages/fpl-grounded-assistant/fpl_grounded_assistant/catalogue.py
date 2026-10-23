@@ -192,6 +192,61 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "es": "Respuesta incompleta ({reason}): {rendered}",
     },
 
+    # -- i18n S3: advantage phrases shared by the comparison and the transfer
+    # cards (one source, both cards). es is what comparison.py / transfer_advisor.py
+    # / scoring_shared.py said inline; the venue letters are the cards' L/V.
+    "advantage.form": {
+        "en": "better form ({a} vs {b})",
+        "es": "mejor forma ({a} vs {b})",
+    },
+    "advantage.easier_fixture": {
+        "en": "easier fixture (FDR {a}{av} vs {b}{bv})",
+        "es": "partido más fácil (FDR {a}{av} vs {b}{bv})",
+    },
+    "advantage.xgi": {"en": "higher xGI per 90", "es": "más xGI por 90"},
+    "advantage.minutes": {"en": "more secure minutes", "es": "minutos más asegurados"},
+    "advantage.set_piece": {"en": "set-piece advantage", "es": "ventaja a balón parado"},
+    "advantage.venue_home": {"en": "H", "es": "L"},
+    "advantage.venue_away": {"en": "A", "es": "V"},
+    "advantage.clause": {
+        "en": "  Advantages: {reasons}.",
+        "es": "  Ventajas: {reasons}.",
+    },
+    "set_piece_short.penalty_taker_1": {"en": "penalties", "es": "penales"},
+    "set_piece_short.penalty_taker_2": {"en": "2nd on penalties", "es": "2.º en penales"},
+    "set_piece_short.freekick_taker_1": {"en": "free kicks", "es": "tiros libres"},
+    "set_piece_short.freekick_taker_2": {"en": "2nd on free kicks", "es": "2.º en tiros libres"},
+
+    # -- comparison.py: the recommendation sentence (served as the answer text
+    # on the deterministic path, and carrying the reasons above).
+    "comparison.tie": {
+        "en": "{a} ({sa}) and {b} ({sb}) are level on score.",
+        "es": "{a} ({sa}) y {b} ({sb}) empatan en puntuación.",
+    },
+    "comparison.beats": {
+        "en": "{winner} ({ws}) beats {loser} ({ls}) — {label} margin ({margin}).",
+        "es": "{winner} ({ws}) supera a {loser} ({ls}) — diferencia {label} ({margin}).",
+    },
+    "comparison.margin.narrow": {"en": "narrow", "es": "ajustada"},
+    "comparison.margin.moderate": {"en": "moderate", "es": "moderada"},
+    "comparison.margin.clear": {"en": "clear", "es": "clara"},
+
+    # -- transfer_advisor.py: the recommendation sentence.
+    "transfer.price_cost": {"en": "  Net cost: +£{m}m.", "es": "  Coste neto: +£{m}m."},
+    "transfer.price_saving": {"en": "  Net saving: £{m}m.", "es": "  Ahorro neto: £{m}m."},
+    "transfer.rec_in": {
+        "en": "Recommendation: bring in {inn}. Score: {si} vs {so} for {out} (+{d}).{reasons}{price}",
+        "es": "Recomendación: incorpora a {inn}. Puntuación: {si} vs {so} de {out} (+{d}).{reasons}{price}",
+    },
+    "transfer.rec_marginal": {
+        "en": "Close call: consider {inn} instead of {out}. Score: {si} vs {so} (+{d}).{reasons}{price}",
+        "es": "Ajustado: valora a {inn} en lugar de {out}. Puntuación: {si} vs {so} (+{d}).{reasons}{price}",
+    },
+    "transfer.rec_hold": {
+        "en": "Recommendation: keep {out}. Score: {so} vs {si} for {inn} ({d}).{reasons}",
+        "es": "Recomendación: mantén a {out}. Puntuación: {so} vs {si} de {inn} ({d}).{reasons}",
+    },
+
     # -- position noun, shared by any renderer that names a position group -
     "position_noun.GKP": {"en": "goalkeepers", "es": "porteros"},
     "position_noun.DEF": {"en": "defenders", "es": "defensas"},

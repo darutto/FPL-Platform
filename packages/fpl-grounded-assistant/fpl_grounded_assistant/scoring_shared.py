@@ -21,6 +21,8 @@ from fpl_tool_contract.scoring_core import (
     derive_minutes_context,
 )
 
+from .catalogue import t
+from .locale_types import DEFAULT_LOCALE, Locale
 from .position_score import shrink_rate_by_minutes
 
 # ---------------------------------------------------------------------------
@@ -52,14 +54,14 @@ _SET_PIECE_SHORT: dict[str, str] = {
 }
 
 
-def _venue_tag(is_home: bool | None) -> str:
-    """Short venue suffix for display, in the product's Spanish: 'L' (local),
-    'V' (visitante), or '' (i141: transfer reasons; comparison used its own
-    copy since i139 and now shares this one)."""
+def _venue_tag(is_home: bool | None, locale: Locale = DEFAULT_LOCALE) -> str:
+    """Short venue suffix for display: es 'L' (local) / 'V' (visitante), en
+    'H' / 'A', or '' (i141: transfer reasons; comparison used its own copy
+    since i139 and now shares this one)."""
     if is_home is True:
-        return "L"
+        return t("advantage.venue_home", locale)
     if is_home is False:
-        return "V"
+        return t("advantage.venue_away", locale)
     return ""
 
 
@@ -76,6 +78,7 @@ _SET_PIECE_SHORT_ES: dict[str, str] = {
 def _set_piece_advantage_phrase(
     better_role: dict[str, Any],
     worse_role: dict[str, Any],
+    locale: Locale = DEFAULT_LOCALE,
 ) -> str | None:
     """Return a specific set-piece advantage phrase, or ``None``.
 
@@ -91,7 +94,8 @@ def _set_piece_advantage_phrase(
     better=penalty_taker_1, worse=[]               → "ventaja a balón parado (penales)"
     better.role_bonus == worse.role_bonus          → None
 
-    Spanish only (i141): both the comparison and the transfer cards show it.
+    es by default (i141: both the comparison and the transfer cards show it);
+    i18n S3 adds the English wording through the catalogue.
     """
     better_bonus = float(better_role.get("role_bonus", 0.0))
     worse_bonus = float(worse_role.get("role_bonus", 0.0))
@@ -100,17 +104,21 @@ def _set_piece_advantage_phrase(
 
     better_notes = better_role.get("set_piece_notes", [])
     worse_notes = worse_role.get("set_piece_notes", [])
-    head = "ventaja a balón parado"
-    short = _SET_PIECE_SHORT_ES
+    head = t("advantage.set_piece", locale)
+
+    def _short(note: str) -> str:
+        if note in _SET_PIECE_SHORT_ES:
+            return t(f"set_piece_short.{note}", locale)
+        return note
 
     if not better_notes:
         # role_bonus set but no notes — generic fallback
         return head
 
-    better_label = short.get(better_notes[0], better_notes[0])
+    better_label = _short(better_notes[0])
 
     if worse_notes:
-        worse_label = short.get(worse_notes[0], worse_notes[0])
+        worse_label = _short(worse_notes[0])
         return f"{head} ({better_label} vs {worse_label})"
 
     return f"{head} ({better_label})"
