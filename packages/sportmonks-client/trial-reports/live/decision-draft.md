@@ -90,7 +90,7 @@ solo a disco local: **25 llamadas** (plan esperado 25, máximo 33, tope 60), sin
   EXPECTED_GOALS presente en todos.
 - **No incluido:** xG por jugador (otro include, no se pidió en este barrido) y los partidos europeos (no vienen en estas peticiones).
 - **Pendiente:** los partidos de 2026-27 que se jueguen antes del corte (2026-10-25 03:09 UTC) no están; repetir solo esa
-  temporada (`--years 2026`, unas 8 llamadas) antes de las 20:00 UTC del 24 de octubre.
+  temporada (`--years 2026`, unas 8 llamadas) el 24 de octubre desde las 22:00 UTC (tras acabar los partidos del sábado) y antes del corte, 2026-10-25 03:09 UTC.
 - **Uso:** interno y derivado; los datos en bruto no se publican. Sin ids de proveedor ni payloads en el repositorio.
 
 ## Criterio (f) jornada a jornada (rolling origin, GW2–7)
