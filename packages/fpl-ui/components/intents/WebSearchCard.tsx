@@ -17,7 +17,7 @@ import type { WebSearchPayload } from '@/lib/types';
 import { CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
 import { TriangleField } from '@/components/intents/CardOrnaments';
 import MarkdownLite from '@/components/MarkdownLite';
-import { useLocale } from '@/lib/i18n/LocaleProvider';
+import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
 import { formatDateTime } from '@/lib/i18n/format';
 import type { Locale } from '@/lib/i18n/locale';
 
@@ -54,6 +54,7 @@ function hostLabel(result: { source: string; url: string }): string {
 }
 
 export default function WebSearchCard({ data }: Props) {
+  const t = useT();
   const { topic, summary, results, timestamp } = data;
   const { locale } = useLocale();
   const when = formatTimestamp(timestamp, locale);
@@ -66,19 +67,19 @@ export default function WebSearchCard({ data }: Props) {
         <span className="relative z-10 flex items-center gap-1.5">
           <IconGlobe color={ACCENT_HEX.cyan} />
           <span className="text-xs font-extrabold text-bf-cyan uppercase tracking-wide">
-            Búsqueda web
+            {t('web.title')}
           </span>
         </span>
         {when && <span className="relative z-10 text-[10px] text-bf-gray">· {when}</span>}
         <span className="relative z-10 ml-auto text-[10px] text-bf-gray">
-          {results.length} {results.length === 1 ? 'fuente' : 'fuentes'}
+          {results.length} {t(results.length === 1 ? 'web.sourceOne' : 'web.sourceMany')}
         </span>
       </div>
 
       <div className="px-4 py-3 space-y-2">
         {/* Unverified disclaimer (Banner pattern, info tone) */}
         <div className="rounded-lg border border-bf-cyan/40 bg-bf-cyan/10 px-3 py-1.5 text-[11px] text-bf-cyan">
-          Búsqueda web · IA · información sin verificar
+          {t('web.badge')}
         </div>
 
         {topic && (
@@ -120,7 +121,7 @@ export default function WebSearchCard({ data }: Props) {
       {results.length > 0 && (
         <div className="px-4 py-3 border-t border-white/10">
           <div className="text-[9px] font-bold text-bf-gray uppercase tracking-widest mb-1.5">
-            Fuentes consultadas
+            {t('web.sources')}
           </div>
           <div className="flex flex-wrap gap-1.5">
             {results.map((r, idx) => (

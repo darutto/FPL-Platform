@@ -27,9 +27,6 @@
 import type { PlayerSnapshotMeta } from '@/lib/types';
 import { CARD_BASE, CARD_ACCENT, ACCENT_HEX, PILL_BASE } from '@/lib/theme';
 import {
-  UNIT_PRICE,
-  UNIT_FORM,
-  UNIT_OWNERSHIP,
   UNIT_PPG,
   UNIT_XG,
   UNIT_XA,
@@ -41,8 +38,8 @@ import {
   UNIT_XGI_PER_90,
   UNIT_ICT_PER_90,
   UNIT_DC_PER_90,
-  UNIT_MINUTES,
 } from '@/lib/copy';
+import { useT } from '@/lib/i18n/LocaleProvider';
 import { FingerprintWaves } from './CardOrnaments';
 import { resolveStatusBadge } from './InjuriesTable';
 import { FixtureChip, fixtureKey } from './FixtureRunTable';
@@ -55,6 +52,7 @@ interface Props {
 const ACCENT = 'purple' as const;
 
 export default function PlayerCard({ data }: Props) {
+  const t = useT();
   const {
     web_name,
     team_short,
@@ -118,7 +116,7 @@ export default function PlayerCard({ data }: Props) {
         <div>
           <div className="flex items-baseline gap-0.5 font-display leading-none tracking-tighter text-bf-purple">
             <span style={{ fontSize: 30 }}>{total_points}</span>
-            <span className="text-[11px] font-bold text-bf-gray">pts</span>
+            <span className="text-[11px] font-bold text-bf-gray">{t('unit.pts')}</span>
           </div>
           <div className="text-[9px] font-bold uppercase tracking-wide text-bf-gray">
             {UNIT_PPG} {points_per_game.toFixed(1)}
@@ -127,9 +125,9 @@ export default function PlayerCard({ data }: Props) {
 
         {/* Primary stat grid */}
         <div className="grid grid-cols-3 gap-2.5">
-          <Stat label={UNIT_PRICE} value={`£${(now_cost / 10).toFixed(1)}m`} />
-          <Stat label={UNIT_OWNERSHIP} value={`${selected_by_percent.toFixed(1)}%`} />
-          <Stat label={UNIT_FORM} value={form.toFixed(1)} />
+          <Stat label={t('unit.price')} value={`£${(now_cost / 10).toFixed(1)}m`} />
+          <Stat label={t('unit.ownership')} value={`${selected_by_percent.toFixed(1)}%`} />
+          <Stat label={t('unit.form')} value={form.toFixed(1)} />
         </div>
 
         {/* Underlying stats — muted secondary row */}
@@ -151,7 +149,7 @@ export default function PlayerCard({ data }: Props) {
         </div>
 
         <div className="text-[10px] text-bf-gray">
-          {minutes_played_season} {UNIT_MINUTES}
+          {minutes_played_season} {t('unit.minutes')}
         </div>
 
         {/* Next-5 fixture strip — reuses FixtureRunTable's chip so the two

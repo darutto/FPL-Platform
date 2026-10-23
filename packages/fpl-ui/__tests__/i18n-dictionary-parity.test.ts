@@ -21,6 +21,11 @@ const SAME_IN_BOTH = new Set<string>([
   'topbar.subtitle',
   'topbar.team',
   'quota.plan',
+  'cmp.pick',
+  'unit.bfScore',
+  'unit.pts',
+  'evidence.dir.neutral',
+  'share.club',
 ]);
 
 const keys = Object.keys(es) as DictKey[];

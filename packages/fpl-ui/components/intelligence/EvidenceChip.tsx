@@ -1,5 +1,5 @@
 import type { EvidenceItem } from '@/lib/evidence';
-import { BASIS_LABELS, DIRECTION_LABELS } from '@/lib/evidence-presentation';
+import { useT } from '@/lib/i18n/LocaleProvider';
 import ConfidenceBadge from './ConfidenceBadge';
 
 interface Props {
@@ -7,9 +7,10 @@ interface Props {
 }
 
 export default function EvidenceChip({ item }: Props) {
+  const t = useT();
   const sourceText = item.source_features.length > 0
-    ? `Fuentes: ${item.source_features.join(' · ')}`
-    : 'Fuentes: no indicadas';
+    ? t('evidence.sources', { list: item.source_features.join(' · ') })
+    : t('evidence.sourcesNone');
 
   return (
     <div className="min-w-0 rounded-card border border-white/10 bg-white/[0.03] p-3 text-bf-text hc:border-bf-text/60">
@@ -19,8 +20,8 @@ export default function EvidenceChip({ item }: Props) {
       </div>
       <p className="mt-2 break-words text-sm leading-relaxed text-bf-text/85 hc:text-bf-text">{item.summary}</p>
       <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-bf-gray hc:text-bf-text">
-        <span>Base: {BASIS_LABELS[item.basis]}</span>
-        <span>Dirección: {DIRECTION_LABELS[item.direction]}</span>
+        <span>{t('evidence.base', { value: t(`evidence.basis.${item.basis}`) })}</span>
+        <span>{t('evidence.direction', { value: t(`evidence.dir.${item.direction}`) })}</span>
       </div>
       <p className="mt-2 break-words text-[11px] text-bf-gray hc:text-bf-text">{sourceText}</p>
     </div>
