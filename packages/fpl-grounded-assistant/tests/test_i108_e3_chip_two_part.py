@@ -262,7 +262,7 @@ class TestOrchestratorApplies:
         import inspect
         from fpl_grounded_assistant import orchestrator
         src = inspect.getsource(orchestrator.ask_orchestrated)
-        assert src.index("_guard_final_text(result)") < src.index("_compose_chip_answer(result, bootstrap)")
+        assert src.index("_guard_final_text(result, locale)") < src.index("_compose_chip_answer(result, bootstrap, locale)")
 
 
 # ---------------------------------------------------------------------------

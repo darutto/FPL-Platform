@@ -13,6 +13,7 @@ import sys
 from dataclasses import dataclass, field
 from typing import Any
 
+from fpl_grounded_assistant.locale_types import DEFAULT_LOCALE, Locale
 from fpl_grounded_assistant.off_topic import is_off_topic_response
 
 _LOG = logging.getLogger(__name__)
@@ -187,6 +188,21 @@ _EVALUATOR_SYSTEM_PROMPT: str = (
     "  - Don't rewrite the answer. Only judge + feedback."
 )
 
+#: i18n S0: appended ONLY for locale="en". The es prompt above stays byte-for-byte
+#: what it was (sha256-pinned in tests/test_locale_s0_plumbing.py), so Spanish
+#: behaviour cannot drift; D1=B keeps ``user_lang`` for es.
+_EVALUATOR_EN_LOCALE_LINE: str = (
+    "\n  - LOCALE=en: any refusal or retry guidance you ask the primary for must be in English,"
+    " whatever language the question was written in."
+)
+
+
+def evaluator_system_prompt(locale: Locale = DEFAULT_LOCALE) -> str:
+    """The evaluator system prompt for *locale* (es == the original, unchanged)."""
+    if locale == "en":
+        return _EVALUATOR_SYSTEM_PROMPT + _EVALUATOR_EN_LOCALE_LINE
+    return _EVALUATOR_SYSTEM_PROMPT
+
 
 # ---------------------------------------------------------------------------
 # User message builder
@@ -263,13 +279,14 @@ def _call_evaluator_anthropic(
     model: str,
     user_message: str,
     max_output_tokens: int = _EVALUATOR_DEFAULT_MAX_OUTPUT_TOKENS,
+    system_prompt: str = _EVALUATOR_SYSTEM_PROMPT,
 ) -> tuple[str | None, int]:
     """Call Anthropic client.messages.create() and return (raw_text, tokens_used)."""
     try:
         response = client.messages.create(
             model=model,
             max_tokens=max_output_tokens,
-            system=_EVALUATOR_SYSTEM_PROMPT,
+            system=system_prompt,
             messages=[{"role": "user", "content": user_message}],
         )
         raw_text: str | None = None
@@ -292,6 +309,7 @@ def _call_evaluator_openai(
     model: str,
     user_message: str,
     max_output_tokens: int = _EVALUATOR_DEFAULT_MAX_OUTPUT_TOKENS,
+    system_prompt: str = _EVALUATOR_SYSTEM_PROMPT,
 ) -> tuple[str | None, int]:
     """Call OpenAI ``responses.create()`` and return (raw_text, tokens_used).
 
@@ -307,7 +325,7 @@ def _call_evaluator_openai(
         response = client.responses.create(
             model=model,
             max_output_tokens=max_output_tokens,
-            instructions=_EVALUATOR_SYSTEM_PROMPT,
+            instructions=system_prompt,
             input=[{"role": "user", "content": user_message}],
         )
         raw_text = getattr(response, "output_text", None) or None
@@ -339,6 +357,7 @@ def _call_evaluator_openai_chat_completions(
     model: str,
     user_message: str,
     max_output_tokens: int = _EVALUATOR_DEFAULT_MAX_OUTPUT_TOKENS,
+    system_prompt: str = _EVALUATOR_SYSTEM_PROMPT,
 ) -> tuple[str | None, int]:
     """Call an OpenAI-compatible ``chat.completions.create()`` endpoint."""
     try:
@@ -346,7 +365,7 @@ def _call_evaluator_openai_chat_completions(
             model=model,
             max_tokens=max_output_tokens,
             messages=[
-                {"role": "system", "content": _EVALUATOR_SYSTEM_PROMPT},
+                {"role": "system", "content": system_prompt},
                 {"role": "user",   "content": user_message},
             ],
         )
@@ -369,6 +388,7 @@ def _call_evaluator_gemini(
     client: Any,
     model: str,
     user_message: str,
+    system_prompt: str = _EVALUATOR_SYSTEM_PROMPT,
 ) -> tuple[str | None, int]:
     """Call the deprecated google-generativeai SDK and return (raw_text, tokens_used).
 
@@ -378,7 +398,7 @@ def _call_evaluator_gemini(
     this SDK does not expose.
     """
     try:
-        full_prompt = _EVALUATOR_SYSTEM_PROMPT + "\n\n" + user_message
+        full_prompt = system_prompt + "\n\n" + user_message
         gen_model = client.GenerativeModel(model_name=model)
         response = gen_model.generate_content(full_prompt)
         raw_text: str | None = None
@@ -408,10 +428,13 @@ def _call_evaluator_deepseek(
     model: str,
     user_message: str,
     max_output_tokens: int = _EVALUATOR_DEFAULT_MAX_OUTPUT_TOKENS,
+    system_prompt: str = _EVALUATOR_SYSTEM_PROMPT,
 ) -> tuple[str | None, int]:
     """Call DeepSeek (OpenAI-compat) client and return (raw_text, tokens_used)."""
     # DeepSeek is compatible with Chat Completions, not the Responses API.
-    return _call_evaluator_openai_chat_completions(client, model, user_message, max_output_tokens)
+    return _call_evaluator_openai_chat_completions(
+        client, model, user_message, max_output_tokens, system_prompt
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -491,6 +514,7 @@ def evaluate_response(
     tool_calls: list[dict],   # [{"name": str, "args": dict, "output": dict}, ...]
     provider: str,            # "anthropic" | "openai" | "gemini" | "deepseek"
     client: Any | None = None,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> EvaluatorVerdict:
     """Judge a primary response. Returns approve OR retry-with-feedback verdict.
 
@@ -512,6 +536,9 @@ def evaluate_response(
         Provider string: "anthropic", "openai", "gemini", or "deepseek".
     client:
         Optional LLM client. If None, returns fail-open verdict immediately.
+    locale:
+        i18n S0. ``"en"`` appends the English-refusal line to the system prompt;
+        ``"es"`` (default) sends today's prompt unchanged.
 
     Returns
     -------
@@ -525,18 +552,19 @@ def evaluate_response(
     model = os.environ.get(_EVAL_MODEL_ENV, "").strip() or _EVALUATOR_MODELS.get(provider, "claude-haiku-4-5-20251001")
     budget = _evaluator_max_output_tokens(model)
     user_message = _build_evaluator_user_message(question, primary_response, tool_calls)
+    system_prompt = evaluator_system_prompt(locale)
 
     try:
         if provider == "openai":
-            raw_text, tokens = _call_evaluator_openai(client, model, user_message, budget)
+            raw_text, tokens = _call_evaluator_openai(client, model, user_message, budget, system_prompt)
         elif provider == "gemini":
             # The google-generativeai call carries no output cap here.
-            raw_text, tokens = _call_evaluator_gemini(client, model, user_message)
+            raw_text, tokens = _call_evaluator_gemini(client, model, user_message, system_prompt)
         elif provider == "deepseek":
-            raw_text, tokens = _call_evaluator_deepseek(client, model, user_message, budget)
+            raw_text, tokens = _call_evaluator_deepseek(client, model, user_message, budget, system_prompt)
         else:
             # Default: anthropic
-            raw_text, tokens = _call_evaluator_anthropic(client, model, user_message, budget)
+            raw_text, tokens = _call_evaluator_anthropic(client, model, user_message, budget, system_prompt)
     except Exception as exc:  # noqa: BLE001
         print(f"[evaluator] unexpected error during provider call: {exc}", file=sys.stderr)
         return _fail_open(FAIL_OPEN_PROVIDER_ERROR)

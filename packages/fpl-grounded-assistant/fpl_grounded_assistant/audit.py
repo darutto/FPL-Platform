@@ -156,6 +156,12 @@ class AuditEntry:
     # retry_render), stamped where the answer was produced. None when the
     # evaluator did not reject (or no orchestrator ran).
     retry_delivery: str | None = None
+    # i18n S0 (D1=B): the locale the turn ran under and the language the
+    # question was written in (question_lang.detect_question_lang). Both None
+    # for a caller that does not pass them, and then the serialised line
+    # carries neither key -- the line is byte-identical to before.
+    locale: str | None = None
+    question_lang: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -283,6 +289,11 @@ def write_audit_entry(entry: AuditEntry, log_dir: str | None = None) -> None:
     # byte-identical to what it was before the shadow existed.
     if entry.turn_id is not None:
         entry_dict["turn_id"] = entry.turn_id
+    # i18n S0: additive and conditional, same reasoning.
+    if entry.locale is not None:
+        entry_dict["locale"] = entry.locale
+    if entry.question_lang is not None:
+        entry_dict["question_lang"] = entry.question_lang
 
     line = json.dumps(entry_dict, ensure_ascii=False, separators=(",", ":"))
 
@@ -362,6 +373,8 @@ def make_audit_entry(
     guarded_raw_answer_text: str | None = None,
     turn_id: str | None = None,
     retry_delivery: str | None = None,
+    locale: str | None = None,
+    question_lang: str | None = None,
 ) -> AuditEntry:
     """Convenience factory for building an AuditEntry from ask_v2() output.
 
@@ -397,4 +410,6 @@ def make_audit_entry(
         guarded_raw_answer_text=guarded_raw_answer_text,
         turn_id=turn_id,
         retry_delivery=retry_delivery,
+        locale=locale,
+        question_lang=question_lang,
     )

@@ -217,12 +217,20 @@ def compose_chip_answer(
     body: str,
     chip_output: dict[str, Any] | None,
     team_names: dict[int, str],
+    locale: str = "es",
 ) -> str:
     """Header, the model's body, then the particular sentence -- in that order.
 
     Returns *body* unchanged when the output calls for neither part. The
     particular sentence is not appended twice if the body already has it.
+
+    i18n S0: the header and the particular sentence are Spanish-only until S3
+    puts them in the catalogue, so for any other locale the model's body is
+    returned as it is -- an English answer with no header beats an English
+    answer under a Spanish one.
     """
+    if locale != "es":
+        return body
     if not isinstance(chip_output, dict):
         return body
     header = general_header(chip_output, team_names)

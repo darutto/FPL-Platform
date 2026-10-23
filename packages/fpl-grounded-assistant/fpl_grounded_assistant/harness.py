@@ -680,12 +680,12 @@ def ask_v2(
         (``fpl_server.py``) must resolve tier eligibility + explicit opt-in
         BEFORE setting this to ``True`` — ``ask_v2()`` performs no gating.
     locale:
-        Language-track F0 carrier param. Forwarded to the deterministic
-        text producers on the ``route`` / ``prompt`` branches (``ask()``,
-        ``render()``, the unrecognised-query fallback). Currently ignored by
-        all of them — no string changes with *locale*'s value yet (see F1).
-        The orchestrator branch (``ask_orchestrated()``) is untouched by this
-        param; its own text production is out of scope for F0.
+        Language-track carrier param. Forwarded to the deterministic text
+        producers on the ``route`` / ``prompt`` branches (``ask()``,
+        ``render()``, the unrecognised-query fallback) and, since i18n S0, to
+        ``ask_orchestrated(locale=)``: the system-prompt line (en only), the
+        evaluator, retries, the synthesis rounds and the deterministic
+        composers/fallbacks inside the orchestrator all follow it.
     team_id:
         i39 carrier param — the connected user's FPL entry (team) id, when the
         request has one. ``None`` for every anonymous turn (the overwhelming
@@ -1125,6 +1125,7 @@ def ask_v2(
                 model=_model,
                 web_search_enabled=web_search_enabled,
                 _eval_client=_eval_client,
+                locale=locale,
             )
         except Exception as exc:  # noqa: BLE001  — defensive; ask_orchestrated never raises
             routing_trace["branch"]                  = "unsupported"
