@@ -839,7 +839,7 @@ def ask_v2(
         _telemetry.record(routing_trace)
         return result
 
-    decision = decide(question, actual_bootstrap)
+    decision = decide(question, actual_bootstrap, locale=locale)
     kind = decision["kind"]
     outcome = decision["outcome"]
 

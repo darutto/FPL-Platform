@@ -713,6 +713,17 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "en": "An unexpected error occurred.",
         "es": "Ocurrió un error inesperado.",
     },
+    # -- decision_router.py: "top goalscorer" of a PAST season (i82) -------
+    "decision.past_season_goals": {
+        "en": (
+            "I don't have goals per gameweek for past seasons, but I can tell you who "
+            "scored the most **points**. Would that help?"
+        ),
+        "es": (
+            "No tengo goles por jornada de temporadas pasadas; sí puedo decirte quién "
+            "hizo más **puntos**. ¿Te sirve?"
+        ),
+    },
 }
 
 
