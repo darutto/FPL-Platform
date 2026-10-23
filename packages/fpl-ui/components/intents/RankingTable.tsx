@@ -23,6 +23,7 @@ import type {
 import { TIER_CONFIG, TIER_BADGE_BASE, CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
 import { contradictionNote, factorPhrases } from '@/lib/captain-factors';
 import { TriangleField } from './CardOrnaments';
+import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
 
 interface Props {
   data: RankedCaptainEntry[];
@@ -32,6 +33,7 @@ interface Props {
 }
 
 export default function RankingTable({ data, squadSource, squadExcluded, presentation }: Props) {
+  const t = useT();
   if (data.length === 0) return null;
 
   // The backend names which rows each list shows, so the card and the prose
@@ -56,13 +58,13 @@ export default function RankingTable({ data, squadSource, squadExcluded, present
       <div className="relative overflow-hidden px-4 py-2.5 border-b border-bf-gold/20">
         <TriangleField color={ACCENT_HEX.gold} corner="tr" />
         <span className="relative z-10 text-xs font-extrabold text-white uppercase tracking-wide">
-          Candidatos a capitán
+          {t('ranking.title')}
         </span>
       </div>
 
       {dual && squadSource === 'connected' && (
         <RankingSection
-          title="A) Candidatos de tu plantilla"
+          title={t('ranking.sectionOwned')}
           entries={owned}
           hipster={presentation?.owned_hipster}
           byId={byId}
@@ -73,27 +75,27 @@ export default function RankingTable({ data, squadSource, squadExcluded, present
 
       {dual && squadSource === 'not_connected' && (
         <p className="px-4 py-2.5 text-xs text-bf-gray">
-          No hay equipo conectado; te muestro solo el ranking global.
+          {t('ranking.notConnected')}
         </p>
       )}
 
       {dual && squadSource === 'unavailable' && (
         <p className="px-4 py-2.5 text-xs text-bf-gray">
-          No pude cargar tu plantilla; te muestro solo el ranking global.
+          {t('ranking.unavailable')}
         </p>
       )}
 
       {dual && squadExcluded != null && squadExcluded.length > 0 && (
         <p className="px-4 py-2.5 text-xs text-amber-300">
-          No evaluados para capitanía: {squadExcluded.map((entry) => (
-            `${entry.web_name} (${EXCLUSION_REASON_LABELS[entry.reason]})`
-          )).join(', ')}.
+          {t('ranking.excluded', {
+            names: squadExcluded.map((entry) => `${entry.web_name} (${t(EXCLUSION_REASON_KEYS[entry.reason])})`).join(', '),
+          })}
         </p>
       )}
 
       {dual ? (
         <RankingSection
-          title="B) Mejores candidatos globales"
+          title={t('ranking.sectionGlobal')}
           entries={global}
           markOwned
           hipster={presentation?.global_hipster}
@@ -108,9 +110,9 @@ export default function RankingTable({ data, squadSource, squadExcluded, present
   );
 }
 
-const EXCLUSION_REASON_LABELS: Record<SquadExcludedEntry['reason'], string> = {
-  unavailable: 'no disponible',
-  unresolved: 'sin resolver',
+const EXCLUSION_REASON_KEYS: Record<SquadExcludedEntry['reason'], 'ranking.excluded.unavailable' | 'ranking.excluded.unresolved'> = {
+  unavailable: 'ranking.excluded.unavailable',
+  unresolved: 'ranking.excluded.unresolved',
 };
 
 function RankingSection({
@@ -130,6 +132,8 @@ function RankingSection({
   all?: RankedCaptainEntry[];
   anchorPool?: RankedCaptainEntry[];
 }) {
+  const t = useT();
+  const { locale } = useLocale();
   const hipsterEntry =
     hipster?.player_id != null ? byId?.get(hipster.player_id) ?? null : null;
 
@@ -145,7 +149,7 @@ function RankingSection({
   // universe: a global name has no business appearing under "your squad".
   const anchored =
     (anchorPool ?? all ?? []).find(
-      (entry) => !shownIds.has(entry.player_id) && contradictionNote(entry, all ?? []) != null,
+      (entry) => !shownIds.has(entry.player_id) && contradictionNote(entry, all ?? [], locale) != null,
     ) ?? null;
 
   return (
@@ -156,7 +160,7 @@ function RankingSection({
       {entries.length > 0 ? (
         <RankingRows entries={entries} markOwned={markOwned} all={all} />
       ) : (
-        <p className="px-4 py-2.5 text-xs text-bf-gray">No hay candidatos disponibles.</p>
+        <p className="px-4 py-2.5 text-xs text-bf-gray">{t('ranking.none')}</p>
       )}
       {/* One lightly-owned extra, offered as an opportunity rather than a
           warning. When nobody good enough is lightly owned we say so instead
@@ -164,22 +168,22 @@ function RankingSection({
       {hipsterEntry != null && (
         <div className="border-t border-bf-turquoise/20">
           <p className="px-4 pt-2 text-[10px] font-extrabold uppercase tracking-wide text-bf-turquoise">
-            Hipster
+            {t('ranking.hipster')}
             {hipster?.selected_by_percent != null &&
-              ` · lo lleva el ${hipster.selected_by_percent.toFixed(1)}%`}
+              t('ranking.hipsterOwnedBy', { pct: hipster.selected_by_percent.toFixed(1) })}
           </p>
           <RankingRows entries={[hipsterEntry]} markOwned={markOwned} all={all} />
         </div>
       )}
       {hipster != null && hipster.player_id == null && (
         <p className="border-t border-white/10 px-4 py-2.5 text-xs text-bf-gray">
-          Sin hipster esta jornada: nadie de poca propiedad llega al mínimo.
+          {t('ranking.noHipster')}
         </p>
       )}
       {anchored != null && (
         <div className="border-t border-bf-turquoise/20">
           <p className="px-4 pt-2 text-[10px] font-extrabold uppercase tracking-wide text-bf-turquoise">
-            Conviene saber
+            {t('ranking.goodToKnow')}
           </p>
           <RankingRows entries={[anchored]} markOwned={markOwned} all={all} />
         </div>
@@ -223,10 +227,12 @@ function RankRow({
   markOwned?: boolean;
   all?: RankedCaptainEntry[];
 }) {
+  const t = useT();
+  const { locale } = useLocale();
   const { rank, web_name, team_short, position, captain_score, tier, set_piece_notes } = entry;
-  const { label, icon, badgeClass } = TIER_CONFIG[tier] ?? TIER_CONFIG.low_confidence;
-  const factors = factorPhrases(entry);
-  const note = contradictionNote(entry, all);
+  const { labelKey, icon, badgeClass } = TIER_CONFIG[tier] ?? TIER_CONFIG.low_confidence;
+  const factors = factorPhrases(entry, locale);
+  const note = contradictionNote(entry, all, locale);
 
   return (
     <div className={banded ? 'bg-white/[0.035]' : ''}>
@@ -246,7 +252,7 @@ function RankRow({
           {position ? `${team_short} · ${position}` : team_short}
         </span>
         {markOwned && entry.owned && (
-          <span className="ml-1.5 text-[10px] font-bold text-bf-turquoise">TUYO</span>
+          <span className="ml-1.5 text-[10px] font-bold text-bf-turquoise">{t('ranking.owned')}</span>
         )}
         {set_piece_notes.length > 0 && (
           <span className="ml-1.5 text-[10px] text-bf-turquoise" title={set_piece_notes.join(', ')}>
@@ -263,7 +269,7 @@ function RankRow({
       {/* Tier badge */}
       <span className={`flex-shrink-0 ${TIER_BADGE_BASE} ${badgeClass}`}>
         <span className="text-[11px] leading-none">{icon}</span>
-        {label}
+        {t(labelKey)}
       </span>
     </div>
 

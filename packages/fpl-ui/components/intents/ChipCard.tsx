@@ -23,12 +23,14 @@
 import type { ChipAdviceMeta } from '@/lib/types';
 import { CHIP_RECOMMENDATION_CONFIG, PILL_BASE, CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
 import { TriangleField } from './CardOrnaments';
+import { useT } from '@/lib/i18n/LocaleProvider';
 
 interface Props {
   data: ChipAdviceMeta;
 }
 
 export default function ChipCard({ data }: Props) {
+  const t = useT();
   const {
     chip, recommendation, gw, signal_value, signal_label,
     top_player, evaluated_player, chip_unavailable,
@@ -38,7 +40,7 @@ export default function ChipCard({ data }: Props) {
   const topFactors = top_factors ?? [];
   const signalPlayer = evaluated_player ?? top_player;
   const chipLabel = CHIP_LABELS[chip] ?? chip;
-  const { label, pillClass } = CHIP_RECOMMENDATION_CONFIG[recommendation];
+  const { labelKey, pillClass } = CHIP_RECOMMENDATION_CONFIG[recommendation];
 
   return (
     <div
@@ -57,7 +59,7 @@ export default function ChipCard({ data }: Props) {
             )}
           </div>
           <span className={`flex-shrink-0 ${PILL_BASE} ${pillClass}`}>
-            {label}
+            {t(labelKey)}
           </span>
         </div>
 
@@ -83,7 +85,7 @@ export default function ChipCard({ data }: Props) {
 
         {evaluated_player != null && top_player != null && evaluated_player !== top_player && (
           <p className="text-xs leading-snug text-bf-gray">
-            Mejor disponible: <span className="font-bold text-white">{top_player}</span>
+            {t('chip.best')} <span className="font-bold text-white">{top_player}</span>
             {topFactors.length > 0 ? ` — ${topFactors.join(' · ')}` : ''}
           </p>
         )}
@@ -97,7 +99,7 @@ export default function ChipCard({ data }: Props) {
 
         {/* Unavailable note */}
         {chip_unavailable && (
-          <p className="text-xs text-bf-gray">Chip no disponible en tu equipo</p>
+          <p className="text-xs text-bf-gray">{t('chip.unavailable')}</p>
         )}
       </div>
     </div>

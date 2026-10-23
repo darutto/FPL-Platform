@@ -25,7 +25,11 @@
  */
 import type { ComparisonMeta, ComparisonPlayerContext } from '@/lib/types';
 import { MARGIN_CONFIG, PILL_BASE, CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
-import { COMPARISON_LABEL, comparisonVerdict, comparisonLead, UNIT_BF_SCORE, BF_SCORE_MAX } from '@/lib/copy';
+import { comparisonVerdict, comparisonLead, BF_SCORE_MAX } from '@/lib/copy';
+import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
+import { interpolateNodes } from '@/lib/i18n/rich';
+import { translate } from '@/lib/i18n/dictionary';
+import type { Locale } from '@/lib/i18n/locale';
 import { FingerprintWaves } from './CardOrnaments';
 import StatComparisonTable from './StatComparisonTable';
 
@@ -36,8 +40,10 @@ interface Props {
 const ACCENT = 'cyan' as const;
 
 export default function ComparisonCard({ data }: Props) {
+  const t = useT();
   const { winner, margin, label, reasons, player_a, player_b, stat_comparison } = data;
-  const { text: labelText, pillClass } = MARGIN_CONFIG[label] ?? MARGIN_CONFIG.moderate;
+  const { pillClass } = MARGIN_CONFIG[label] ?? MARGIN_CONFIG.moderate;
+  const marginKey = (label in MARGIN_CONFIG ? label : 'moderate') as 'narrow' | 'moderate' | 'clear';
   const topReasons = reasons.slice(0, 3);
 
   return (
@@ -47,19 +53,21 @@ export default function ComparisonCard({ data }: Props) {
         {/* Header — micro-label + margin pill */}
         <div className="flex items-center justify-between gap-2">
           <span className="text-xs font-extrabold text-bf-cyan uppercase tracking-wide">
-            {COMPARISON_LABEL}
+            {t('cmp.label')}
           </span>
-          <span className={`${PILL_BASE} ${pillClass}`}>Diferencia {labelText}</span>
+          <span className={`${PILL_BASE} ${pillClass}`}>{t(`cmp.margin.${marginKey}`)}</span>
         </div>
 
         {/* Verdict headline */}
         <p className="text-lg font-extrabold leading-tight text-white">
           {winner != null ? (
             <>
-              La mejor selección es <span className="text-bf-turquoise">{winner}</span>.
+              {interpolateNodes(t('cmp.verdict.win'), {
+                name: <span className="text-bf-turquoise">{winner}</span>,
+              })}
             </>
           ) : (
-            'Empate técnico.'
+            t('cmp.verdict.tie')
           )}
         </p>
 
@@ -79,11 +87,12 @@ export default function ComparisonCard({ data }: Props) {
               className="inline-block h-0 w-0 border-l-[4px] border-r-[4px] border-b-[7px] border-l-transparent border-r-transparent border-b-bf-turquoise"
             />
             <span>
-              <span className="font-bold text-white">{winner}</span> lidera por{' '}
-              <span className="font-display tracking-tighter text-bf-turquoise">
-                {margin.toFixed(1)}
-              </span>{' '}
-              pts
+              {interpolateNodes(t('cmp.lead'), {
+                winner: <span className="font-bold text-white">{winner}</span>,
+                margin: (
+                  <span className="font-display tracking-tighter text-bf-turquoise">{margin.toFixed(1)}</span>
+                ),
+              })}
             </span>
           </div>
         )}
@@ -112,8 +121,8 @@ export default function ComparisonCard({ data }: Props) {
           <div className="border-t border-white/10 pt-1">
             <StatComparisonTable
               data={stat_comparison}
-              nameA={player_a?.web_name ?? 'Jugador A'}
-              nameB={player_b?.web_name ?? 'Jugador B'}
+              nameA={player_a?.web_name ?? t('cmp.playerA')}
+              nameB={player_b?.web_name ?? t('cmp.playerB')}
             />
           </div>
         )}
@@ -129,6 +138,7 @@ function OptionCol({
   player: ComparisonPlayerContext;
   isWinner: boolean;
 }) {
+  const { locale } = useLocale();
   return (
     <div
       className={`relative min-w-0 overflow-hidden rounded-lg border p-2.5 ${
@@ -139,13 +149,13 @@ function OptionCol({
     >
       {isWinner && (
         <span className="absolute right-0 top-0 rounded-bl-lg bg-bf-turquoise px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-bf-ink">
-          Pick
+          {translate(locale, 'cmp.pick')}
         </span>
       )}
       <div className={`truncate font-extrabold ${isWinner ? 'text-white' : 'text-bf-text/70'}`}>
         {player.web_name}
       </div>
-      <div className="text-[11px] text-bf-gray">{playerContext(player)}</div>
+      <div className="text-[11px] text-bf-gray">{playerContext(player, locale)}</div>
       <div
         className={`mt-1 flex items-baseline gap-0.5 font-display leading-none tracking-tighter ${
           isWinner ? 'text-bf-turquoise' : 'text-bf-gray'
@@ -161,7 +171,7 @@ function OptionCol({
         <span className="text-[11px] font-bold text-bf-gray">/{BF_SCORE_MAX}</span>
       </div>
       <div className="text-[9px] font-bold uppercase tracking-wide text-bf-gray">
-        {UNIT_BF_SCORE}
+        {translate(locale, 'unit.bfScore')}
       </div>
     </div>
   );
@@ -172,9 +182,9 @@ function OptionCol({
 // ---------------------------------------------------------------------------
 
 /** Position + venue micro-row, e.g. "FWD · Local" / "MID · Visitante" / "FWD". */
-export function playerContext(player: ComparisonPlayerContext): string {
-  if (player.is_home === true) return `${player.position} · Local`;
-  if (player.is_home === false) return `${player.position} · Visitante`;
+export function playerContext(player: ComparisonPlayerContext, locale: Locale = 'es'): string {
+  if (player.is_home === true) return `${player.position} · ${translate(locale, 'cmp.home')}`;
+  if (player.is_home === false) return `${player.position} · ${translate(locale, 'cmp.away')}`;
   return player.position;
 }
 

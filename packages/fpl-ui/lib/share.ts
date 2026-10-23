@@ -5,8 +5,11 @@
  * Club Bendito Fantasy invite with the same canonical app URL.
  */
 
-export const CLUB_NAME = 'Club Bendito Fantasy';
-export const DEFAULT_CTA = 'Pruébalo tú también en Club Bendito Fantasy.';
+import { translate } from './i18n/dictionary';
+import { DEFAULT_LOCALE, type Locale } from './i18n/locale';
+
+export const CLUB_NAME = translate('es', 'share.club');
+export const DEFAULT_CTA = translate('es', 'share.cta');
 
 const DEFAULT_APP_URL = 'https://app.benditofantasy.com/chat';
 
@@ -14,6 +17,8 @@ export interface ShareContext {
   question: string;
   appUrl?: string;
   cta?: string;
+  /** Language of the invite text. Spanish when absent. */
+  locale?: Locale;
 }
 
 export function canonicalAppUrl(input?: string): string {
@@ -34,9 +39,12 @@ export function canonicalAppUrl(input?: string): string {
 
 export function buildShareText(ctx: ShareContext): string {
   const appUrl = canonicalAppUrl(ctx.appUrl);
-  const cta = (ctx.cta ?? DEFAULT_CTA).trim() || DEFAULT_CTA;
+  const locale = ctx.locale ?? DEFAULT_LOCALE;
+  const defaultCta = translate(locale, 'share.cta');
+  const cta = (ctx.cta ?? defaultCta).trim() || defaultCta;
   const q = ctx.question.trim();
-  return `Mi pregunta en ${CLUB_NAME}: "${q}"\n${cta}\n${appUrl}`;
+  const intro = translate(locale, 'share.text', { club: translate(locale, 'share.club'), question: q });
+  return `${intro}\n${cta}\n${appUrl}`;
 }
 
 export function buildCopyPayload(ctx: ShareContext): string {

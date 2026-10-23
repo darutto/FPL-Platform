@@ -21,13 +21,18 @@ import type { GenericCardMeta, InjuryRow } from '@/lib/types';
 import { CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
 import { TriangleField } from './CardOrnaments';
 import { InjuryRowItem } from './InjuriesTable';
+import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
+import { translate } from '@/lib/i18n/dictionary';
+import type { Locale } from '@/lib/i18n/locale';
 
 interface Props {
   data: GenericCardMeta;
 }
 
 export default function InjuryListTable({ data }: Props) {
-  const rows = genericCardToInjuryRows(data);
+  const t = useT();
+  const { locale } = useLocale();
+  const rows = genericCardToInjuryRows(data, locale);
 
   return (
     <div className={`mt-3 text-sm ${CARD_BASE} ${CARD_ACCENT.coralSoft.border}`}>
@@ -39,7 +44,7 @@ export default function InjuryListTable({ data }: Props) {
       </div>
 
       {rows.length === 0 ? (
-        <p className="px-4 py-3 text-xs text-bf-gray">Sin lesiones reportadas</p>
+        <p className="px-4 py-3 text-xs text-bf-gray">{t('injuries.none')}</p>
       ) : (
         <div>
           {rows.map((row, idx) => (
@@ -82,7 +87,7 @@ function matchColumn(header: string): ColumnKey {
   return null;
 }
 
-export function genericCardToInjuryRows(data: GenericCardMeta): InjuryRow[] {
+export function genericCardToInjuryRows(data: GenericCardMeta, locale: Locale = 'es'): InjuryRow[] {
   const fields = data.columns.map((col) => matchColumn(col.header));
 
   return data.rows.map((row, rowIdx) => {
@@ -120,7 +125,7 @@ export function genericCardToInjuryRows(data: GenericCardMeta): InjuryRow[] {
     // Fallback: if no column matched a player name, use the first cell so the
     // row is still identifiable rather than a blank name.
     if (out.web_name === '' && row.length > 0) {
-      out.web_name = row[0] ?? `Jugador ${rowIdx + 1}`;
+      out.web_name = row[0] ?? translate(locale, 'injuries.playerN', { n: rowIdx + 1 });
     }
 
     return out;

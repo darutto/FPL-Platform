@@ -3,10 +3,11 @@
 import { useMemo, useRef, useState } from 'react';
 import type { AskResponse } from '@/lib/types';
 import {
-  DEFAULT_CTA,
   buildCopyPayload,
   canonicalAppUrl,
 } from '@/lib/share';
+import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
+import { translate } from '@/lib/i18n/dictionary';
 import { downloadBlob, exportNodeAsPng } from '@/lib/share-image';
 import ShareCard from './ShareCard';
 
@@ -44,15 +45,18 @@ async function copyText(text: string): Promise<boolean> {
 }
 
 export default function ShareActions({ question, response, appUrl, cta }: Props) {
+  const t = useT();
+  const { locale } = useLocale();
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
 
   const finalAppUrl = useMemo(() => canonicalAppUrl(appUrl), [appUrl]);
-  const finalCta = (cta ?? DEFAULT_CTA).trim() || DEFAULT_CTA;
+  const defaultCta = translate(locale, 'share.cta');
+  const finalCta = (cta ?? defaultCta).trim() || defaultCta;
   const shareText = useMemo(
-    () => buildCopyPayload({ question, appUrl: finalAppUrl, cta: finalCta }),
-    [question, finalAppUrl, finalCta],
+    () => buildCopyPayload({ question, appUrl: finalAppUrl, cta: finalCta, locale }),
+    [question, finalAppUrl, finalCta, locale],
   );
 
   const exportCardBlob = async (): Promise<Blob | null> => {
@@ -91,7 +95,7 @@ export default function ShareActions({ question, response, appUrl, cta }: Props)
   };
 
   const openFallbackWindow = (url: string, withImage: boolean) => {
-    const copiedText = withImage ? 'Tarjeta descargada y texto copiado.' : 'Texto copiado.';
+    const copiedText = withImage ? t('share.statusImage') : t('share.statusText');
     void url;
     setStatus(copiedText);
   };
@@ -123,8 +127,8 @@ export default function ShareActions({ question, response, appUrl, cta }: Props)
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <button
           type="button"
-          aria-label="Compartir tarjeta"
-          title="Compartir tarjeta"
+          aria-label={t('share.button')}
+          title={t('share.button')}
           onClick={handleShare}
           disabled={busy}
           className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/15 text-bf-text transition-colors hover:border-white/30 hover:bg-white/5 disabled:opacity-60"

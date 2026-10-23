@@ -11,12 +11,14 @@
 import type { ResourceRows, ResourceRankingRow } from '@/lib/types';
 import { CARD_BASE, CARD_ACCENT, ACCENT_HEX, RESOURCE_ACCENT, type Accent } from '@/lib/theme';
 import { TriangleField } from './CardOrnaments';
+import { useT } from '@/lib/i18n/LocaleProvider';
 
 interface Props {
   data: ResourceRows;
 }
 
 export default function ResourceRankingTable({ data }: Props) {
+  const t = useT();
   const rows = data.rows as ResourceRankingRow[];
   const accent: Accent = RESOURCE_ACCENT[data.resource] ?? 'turquoise';
 
@@ -32,7 +34,7 @@ export default function ResourceRankingTable({ data }: Props) {
 
       {/* Rows or empty state */}
       {rows.length === 0 ? (
-        <p className="px-4 py-3 text-xs text-bf-gray">Sin datos</p>
+        <p className="px-4 py-3 text-xs text-bf-gray">{t('resource.noData')}</p>
       ) : (
         <div>
           {rows.map((row, idx) => (

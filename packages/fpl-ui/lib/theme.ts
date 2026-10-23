@@ -13,6 +13,7 @@
  * The FDR ramp is deliberately NOT here — fdrColor in FixtureRunTable owns
  * those colors (V2_MVP_ROADMAP spec, Decision 3).
  */
+import type { DictKey } from './i18n/dictionary';
 import type {
   CaptainTier,
   TransferRecommendation,
@@ -72,34 +73,39 @@ export const TIER_BADGE_BASE =
 
 export const TIER_CONFIG: Record<
   CaptainTier,
-  { label: string; icon: string; badgeClass: string; barClass: string }
+  { label: string; labelKey: DictKey; icon: string; badgeClass: string; barClass: string }
 > = {
   safe: {
     label: 'Favorito',
+    labelKey: 'tier.safe',
     icon: '★',
     badgeClass: 'bg-bf-turquoise/10 text-bf-turquoise before:bg-bf-turquoise',
     barClass: 'bg-bf-turquoise',
   },
   upside: {
     label: 'Potencial',
+    labelKey: 'tier.upside',
     icon: '⚡',
     badgeClass: 'bg-bf-gold/10 text-bf-gold before:bg-bf-gold',
     barClass: 'bg-bf-gold',
   },
   differential: {
     label: 'Diferencial',
+    labelKey: 'tier.differential',
     icon: '◆',
     badgeClass: 'bg-bf-cyan/10 text-bf-cyan before:bg-bf-cyan',
     barClass: 'bg-bf-cyan',
   },
   avoid: {
     label: 'Evitar',
+    labelKey: 'tier.avoid',
     icon: '✕',
     badgeClass: 'bg-bf-coral/10 text-bf-coral before:bg-bf-coral',
     barClass: 'bg-bf-coral',
   },
   low_confidence: {
     label: 'Datos limitados',
+    labelKey: 'tier.low_confidence',
     icon: '·',
     badgeClass: 'bg-bf-gray/10 text-bf-gray before:bg-bf-gray',
     barClass: 'bg-bf-gray',
@@ -115,40 +121,47 @@ export const PILL_BASE =
 
 export const RECOMMENDATION_CONFIG: Record<
   TransferRecommendation,
-  { label: string; pillClass: string }
+  { label: string; labelKey: DictKey; pillClass: string }
 > = {
   transfer_in: {
     label: 'Fichar',
+    labelKey: 'transferrec.transfer_in',
     pillClass: 'bg-bf-turquoise/10 border-bf-turquoise/40 text-bf-turquoise',
   },
   marginal_transfer_in: {
     label: 'Considerar',
+    labelKey: 'transferrec.marginal_transfer_in',
     pillClass: 'bg-bf-gold/10 border-bf-gold/40 text-bf-gold',
   },
   hold: {
     label: 'Conservar',
+    labelKey: 'transferrec.hold',
     pillClass: 'bg-bf-gray/10 border-bf-gray/40 text-bf-gray',
   },
 };
 
 export const CHIP_RECOMMENDATION_CONFIG: Record<
   ChipRecommendation,
-  { label: string; pillClass: string }
+  { label: string; labelKey: DictKey; pillClass: string }
 > = {
   conditions_favorable: {
     label: 'Condiciones favorables',
+    labelKey: 'chiprec.conditions_favorable',
     pillClass: 'bg-bf-turquoise/10 border-bf-turquoise/40 text-bf-turquoise',
   },
   conditions_marginal: {
     label: 'Condiciones marginales',
+    labelKey: 'chiprec.conditions_marginal',
     pillClass: 'bg-bf-gold/10 border-bf-gold/40 text-bf-gold',
   },
   conditions_unfavorable: {
     label: 'Condiciones desfavorables',
+    labelKey: 'chiprec.conditions_unfavorable',
     pillClass: 'bg-bf-coral/10 border-bf-coral/40 text-bf-coral',
   },
   missing_context: {
     label: 'Datos insuficientes',
+    labelKey: 'chiprec.missing_context',
     pillClass: 'bg-bf-gray/10 border-bf-gray/40 text-bf-gray',
   },
 };

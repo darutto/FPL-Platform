@@ -1,0 +1,49 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`captain card English reads in English, with the Spanish UI words gone 1`] = `"HaalandMCI★FavouriteCaptain score83.51st penalty taker"`;
+
+exports[`captain card Spanish is unchanged (snapshot) and carries the Spanish words 1`] = `"HaalandMCI★FavoritoPuntuación de capitán83.51.º lanzador de penaltis"`;
+
+exports[`chip card English reads in English, with the Spanish UI words gone 1`] = `"Triple CaptainGW28Favourable conditionsPuntuación de capitán83.5"`;
+
+exports[`chip card Spanish is unchanged (snapshot) and carries the Spanish words 1`] = `"Triple CaptainGW28Condiciones favorablesPuntuación de capitán83.5"`;
+
+exports[`chip unavailable card English reads in English, with the Spanish UI words gone 1`] = `"Triple CaptainGW28Favourable conditionsPuntuación de capitán83.5Chip not available in your squad"`;
+
+exports[`chip unavailable card Spanish is unchanged (snapshot) and carries the Spanish words 1`] = `"Triple CaptainGW28Condiciones favorablesPuntuación de capitán83.5Chip no disponible en tu equipo"`;
+
+exports[`comparison card English reads in English, with the Spanish UI words gone 1`] = `"ComparisonModerate marginThe best pick is Haaland.PickHaalandFWD · Home84.0/100Bendito FantasySalahMID · Away77.0/100Bendito FantasyHaaland leads by 6.8 ptsMejor forma (9.5 vs 8.0)Mejor fixture (FDR 2 vs 4)StatHaalandSalahFormaBetter value: 9.58.0Puntos totalesBetter value: 210195Precio£14.5m£13.5mPropiedad %52.3%64.1%GolesBetter value: 2218Asistencias5Better value: 9"`;
+
+exports[`comparison card Spanish is unchanged (snapshot) and carries the Spanish words 1`] = `"ComparaciónDiferencia moderadaLa mejor selección es Haaland.PickHaalandFWD · Local84.0/100Bendito FantasySalahMID · Visitante77.0/100Bendito FantasyHaaland lidera por 6.8 ptsMejor forma (9.5 vs 8.0)Mejor fixture (FDR 2 vs 4)StatHaalandSalahFormaMejor valor: 9.58.0Puntos totalesMejor valor: 210195Precio£14.5m£13.5mPropiedad %52.3%64.1%GolesMejor valor: 2218Asistencias5Mejor valor: 9"`;
+
+exports[`comparison tie card English reads in English, with the Spanish UI words gone 1`] = `"ComparisonNarrow marginToo close to call.HaalandFWD · Home84.0/100Bendito FantasySalahMID · Away77.0/100Bendito Fantasy"`;
+
+exports[`comparison tie card Spanish is unchanged (snapshot) and carries the Spanish words 1`] = `"ComparaciónDiferencia ajustadaEmpate técnico.HaalandFWD · Local84.0/100Bendito FantasySalahMID · Visitante77.0/100Bendito Fantasy"`;
+
+exports[`differentials card English reads in English, with the Spanish UI words gone 1`] = `"Differentials<15.0% owned#PlayerOwnPriceBF1PalmerCHE · MID1.0%£7.5m72.02MbeumoBRE · FWD8.2%£7.0m69.13DiabyAVL · MID12.3%£6.5m66.0The BF score is calculated differently for each position — it is not directly comparable across GKP, DEF, MID and FWD."`;
+
+exports[`differentials card Spanish is unchanged (snapshot) and carries the Spanish words 1`] = `"Diferenciales<15.0% de propietarios#JugadorPropPrecioBF1PalmerCHE · MID1.0%£7.5m72.02MbeumoBRE · FWD8.2%£7.0m69.13DiabyAVL · MID12.3%£6.5m66.0El puntaje BF se calcula distinto por posición — no es directamente comparable entre GKP, DEF, MID y FWD."`;
+
+exports[`injury list card English reads in English, with the Spanish UI words gone 1`] = `"LesionesSakaARS · MIDDuda75%Molestia en el tobillo3 months agoIsakNEW · FWDLesionado0%Rotura muscular, baja varias semanas3 months ago"`;
+
+exports[`injury list card Spanish is unchanged (snapshot) and carries the Spanish words 1`] = `"LesionesSakaARS · MIDDuda75%Molestia en el tobillohace 3 mesesIsakNEW · FWDLesionado0%Rotura muscular, baja varias semanashace 3 meses"`;
+
+exports[`player card English reads in English, with the Spanish UI words gone 1`] = `"HaalandMCI · FWDAvailable239ptsPPG 6.8£15.5mprice74.2%ownership6.8form25.50xG2.67xA28.17xGI302.3ICT116DC0.78xG/900.08xA/900.86xGI/909.21ICT/903.54DC/902953 minutesGW29LIV (L) · 4GW30ARS (V) · 5"`;
+
+exports[`player card Spanish is unchanged (snapshot) and carries the Spanish words 1`] = `"HaalandMCI · FWDAvailable239ptsPPG 6.8£15.5mprecio74.2%propiedad6.8forma25.50xG2.67xA28.17xGI302.3ICT116DC0.78xG/900.08xA/900.86xGI/909.21ICT/903.54DC/902953 minutosGW29LIV (L) · 4GW30ARS (V) · 5"`;
+
+exports[`ranking card English reads in English, with the Spanish UI words gone 1`] = `"Captain candidates1HaalandMCI★83.5★Favourite2SalahLIV76.7⚡Upside3PalmerCHE★71.2◆Differential"`;
+
+exports[`ranking card Spanish is unchanged (snapshot) and carries the Spanish words 1`] = `"Candidatos a capitán1HaalandMCI★83.5★Favorito2SalahLIV76.7⚡Potencial3PalmerCHE★71.2◆Diferencial"`;
+
+exports[`transfer card English reads in English, with the Spanish UI words gone 1`] = `"Transfer← OutSaka✓Bring inThe best pick is Salah.Mejor formaPickSalah+7.5captain pts+£1.0mpriceMake the transfer on FPL"`;
+
+exports[`transfer card Spanish is unchanged (snapshot) and carries the Spanish words 1`] = `"Transferencia← SacaSaka✓FicharLa mejor selección es Salah.Mejor formaPickSalah+7.5pts capitán+£1.0mprecioHacer la transferencia en FPL"`;
+
+exports[`transfer hold card English reads in English, with the Spanish UI words gone 1`] = `"Transfer← OutSaka·KeepHolding is the right read.Salah-1.2captain pts+£1.5mpriceExceeds your available budgetMake the transfer on FPL"`;
+
+exports[`transfer hold card Spanish is unchanged (snapshot) and carries the Spanish words 1`] = `"Transferencia← SacaSaka·ConservarMantener es la lectura correcta.Salah-1.2pts capitán+£1.5mprecioSupera tu presupuesto disponibleHacer la transferencia en FPL"`;
+
+exports[`transfer suggestions card English reads in English, with the Spanish UI words gone 1`] = `"Transfer targetsMediocampistas · ≤ £9.5m · 5 GWThe best pick is Palmer.PickPalmerCHE · MID · £8.5mForm 7.4FDR 2.4 (fácil)42.3% ownership82.1indexOther options2SakaARS · MID£9.0m78.53GordonNEW · MID£7.5m71.9"`;
+
+exports[`transfer suggestions card Spanish is unchanged (snapshot) and carries the Spanish words 1`] = `"Objetivos de transferenciaMediocampistas · ≤ £9.5m · 5 GWLa mejor selección es Palmer.PickPalmerCHE · MID · £8.5mForma 7.4FDR 2.4 (fácil)42.3% propiedad82.1índiceOtras opciones2SakaARS · MID£9.0m78.53GordonNEW · MID£7.5m71.9"`;

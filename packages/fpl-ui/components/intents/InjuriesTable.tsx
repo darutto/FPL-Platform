@@ -10,7 +10,7 @@
 import type { ResourceRows, InjuryRow } from '@/lib/types';
 import { CARD_BASE, CARD_ACCENT, ACCENT_HEX, PILL_BASE, STATUS_TONE_CLASSES } from '@/lib/theme';
 import { TriangleField } from './CardOrnaments';
-import { useLocale } from '@/lib/i18n/LocaleProvider';
+import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
 import { formatDaysAgo } from '@/lib/i18n/format';
 import type { Locale } from '@/lib/i18n/locale';
 
@@ -19,6 +19,7 @@ interface Props {
 }
 
 export default function InjuriesTable({ data }: Props) {
+  const t = useT();
   const rows = data.rows as InjuryRow[];
 
   return (
@@ -33,7 +34,7 @@ export default function InjuriesTable({ data }: Props) {
 
       {/* Rows or empty state */}
       {rows.length === 0 ? (
-        <p className="px-4 py-3 text-xs text-bf-gray">Sin lesiones reportadas</p>
+        <p className="px-4 py-3 text-xs text-bf-gray">{t('injuries.none')}</p>
       ) : (
         <div>
           {rows.map((row, idx) => (

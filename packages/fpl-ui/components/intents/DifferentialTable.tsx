@@ -21,13 +21,15 @@
 import type { DifferentialPicksMeta, DifferentialEntry } from '@/lib/types';
 import { CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
 import { TriangleField } from './CardOrnaments';
-import { DIFFERENTIAL_SCORE_LABEL, DIFFERENTIAL_CROSS_POSITION_DISCLAIMER } from '@/lib/copy';
+import { DIFFERENTIAL_SCORE_LABEL } from '@/lib/copy';
+import { useT } from '@/lib/i18n/LocaleProvider';
 
 interface Props {
   data: DifferentialPicksMeta;
 }
 
 export default function DifferentialTable({ data }: Props) {
+  const t = useT();
   const { ownership_threshold, picks } = data;
   if (picks.length === 0) return null;
 
@@ -37,19 +39,19 @@ export default function DifferentialTable({ data }: Props) {
       <div className="relative overflow-hidden px-4 py-2.5 border-b border-bf-coral-soft/20 flex items-center justify-between">
         <TriangleField color={ACCENT_HEX.coralSoft} corner="tr" />
         <span className="relative z-10 text-xs font-extrabold text-white uppercase tracking-wide">
-          Diferenciales
+          {t('diff.title')}
         </span>
         <span className="relative z-10 text-xs text-bf-gray">
-          &lt;{ownership_threshold.toFixed(1)}% de propietarios
+          {t('diff.threshold', { pct: ownership_threshold.toFixed(1) })}
         </span>
       </div>
 
       {/* Column labels */}
       <div className="grid grid-cols-[1.5rem_1fr_auto_auto_auto] gap-x-3 px-4 py-1.5 border-b border-white/10 text-[10px] font-bold text-bf-gray uppercase tracking-wide bg-white/[0.025]">
         <span>#</span>
-        <span>Jugador</span>
-        <span className="text-right">Prop</span>
-        <span className="text-right">Precio</span>
+        <span>{t('diff.colPlayer')}</span>
+        <span className="text-right">{t('diff.colOwn')}</span>
+        <span className="text-right">{t('diff.colPrice')}</span>
         <span className="text-right">{DIFFERENTIAL_SCORE_LABEL}</span>
       </div>
 
@@ -63,7 +65,7 @@ export default function DifferentialTable({ data }: Props) {
       {/* Cross-position caveat — the list ranks GKP/DEF/MID/FWD together,
           but each position's BF score comes from a different weight profile. */}
       <p className="px-4 py-2 text-[11px] text-bf-gray border-t border-white/10">
-        {DIFFERENTIAL_CROSS_POSITION_DISCLAIMER}
+        {t('diff.disclaimer')}
       </p>
     </div>
   );
