@@ -101,3 +101,35 @@ def test_a_missing_season_is_noted_and_costs_no_fixture_request(tmp_path):
     summary = pressure_harvest.run(client, tmp_path / "out", years=(2026,))
     assert len(transport.calls) == 1 and summary["units"] == []
     assert any("no season found" in n for n in summary["notes"])
+
+
+# -- the per-player xG pass --------------------------------------------------------
+
+def _lineup_fixture(fid, state="FT", with_xg=2, rows=4):
+    xg = [{"type_id": pressure_harvest.EXPECTED_GOALS_TYPE, "data": {"value": 0.3}}]
+    return {"id": fid, "state": {"developer_name": state},
+            "lineups": [{"player_id": i, "xglineup": xg if i < with_xg else []} for i in range(rows)]}
+
+
+def test_player_xg_stats_count_fixtures_and_lineup_rows():
+    rows = [_lineup_fixture(1), _lineup_fixture(2, with_xg=0), _lineup_fixture(3, state="NS")]
+    assert pressure_harvest.player_xg_stats(rows) == {
+        "fixtures": 3, "finished": 2, "finished_with_lineups": 2, "finished_with_player_xg": 1,
+        "lineup_rows": 8, "lineup_rows_with_xg": 2}
+
+
+def test_player_xg_dry_run_names_the_lineup_include(capsys):
+    assert pressure_harvest.main(["--player-xg", "--dry-run", "--years", "2026"]) == EXIT_OK
+    assert "lineups.xGLineup" in capsys.readouterr().out
+
+
+def test_player_xg_run_writes_its_own_files_and_leaves_the_first_pass_alone(tmp_path):
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "summary.json").write_text("first pass", encoding="utf-8")
+    client, transport = _client(_seasons_body(), response({"data": [_lineup_fixture(1)]}))
+    summary = pressure_harvest.run(client, out, years=(2026,), player_xg=True)
+    assert summary["requests"] == len(transport.calls) == 2
+    assert transport.calls[1][2]["include"] == pressure_harvest.PLAYER_XG_INCLUDES
+    assert (out / "summary.json").read_text(encoding="utf-8") == "first pass"
+    assert sorted(p.name for p in out.iterdir()) == ["lineups-xg-2026.json", "summary-player-xg.json", "summary.json"]

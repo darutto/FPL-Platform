@@ -16,6 +16,10 @@ Rules this script keeps, because earlier scripts broke them:
 
     python scripts/pressure_harvest.py --dry-run
     python scripts/pressure_harvest.py --live --i-understand-this-is-live [--years 2026,2025,2024]
+    python scripts/pressure_harvest.py --player-xg --dry-run     # per-player xG (``lineups.xGLineup``), a second pass
+
+``--player-xg`` is a separate pass: it reads ``lineups.xGLineup`` (heavy: about 40 lineup rows a fixture) with the same
+gates and writes ``lineups-xg-<year>.json`` and ``summary-player-xg.json`` beside the first pass, never over it.
 """
 from __future__ import annotations
 
@@ -42,6 +46,7 @@ SCRIPT = "pressure_harvest"
 PREMIER_LEAGUE = 8
 EXPECTED_GOALS_TYPE = 5304
 FIXTURE_INCLUDES = "pressure;xGFixture;participants;state;round"
+PLAYER_XG_INCLUDES = "lineups.xGLineup;state;round"
 DEFAULT_MAX_REQUESTS = 60
 FIXTURE_PAGE_SIZE = 50
 FIXTURE_MAX_PAGES = 10      # 380 fixtures a season = 8 pages of 50
@@ -54,12 +59,13 @@ class BudgetReached(Exception):
     """The request cap was reached; what was read so far is kept."""
 
 
-def plan(years: Sequence[int]) -> list[dict[str, Any]]:
+def plan(years: Sequence[int], *, player_xg: bool = False) -> list[dict[str, Any]]:
     """The calls a run would make: ``min`` (one page each) and ``max`` (every page up to the bounds)."""
     steps: list[dict[str, Any]] = [
         {"step": "seasons", "what": f"Premier League (league {PREMIER_LEAGUE}): list of seasons", "min": 1,
          "max": SEASON_MAX_PAGES}]
-    steps.extend({"step": "fixtures", "what": f"Premier League {year}-{str(year + 1)[2:]}: full list with pressure and xG",
+    steps.extend({"step": "fixtures", "what": f"Premier League {year}-{str(year + 1)[2:]}: full list with "
+                          + ("per-player xG (lineups.xGLineup)" if player_xg else "pressure and xG"),
                   "min": 1, "max": FIXTURE_MAX_PAGES} for year in years)
     return steps
 
@@ -90,7 +96,21 @@ def fixture_stats(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
             "pressure_rows": sum(len(r["pressure"]) for r in with_pressure)}
 
 
-def run(client, out_dir: Path, *, years: Sequence[int], cap: int = DEFAULT_MAX_REQUESTS) -> dict[str, Any]:
+def player_xg_stats(rows: Sequence[Mapping[str, Any]]) -> dict[str, int]:
+    """Aggregates of the per-player pass: counts of finished fixtures and of lineup rows that carry xG."""
+    finished = [r for r in rows if (r.get("state") or {}).get("developer_name") in FINISHED]
+    with_lineups = [r for r in finished if r.get("lineups")]
+    xg_rows = [[x for x in (row.get("xglineup") or row.get("xGLineup") or [])
+                if x.get("type_id") == EXPECTED_GOALS_TYPE] for r in with_lineups for row in r["lineups"]]
+    with_xg = [r for r in with_lineups if any(
+        x.get("type_id") == EXPECTED_GOALS_TYPE for row in r["lineups"] for x in (row.get("xglineup") or row.get("xGLineup") or []))]
+    return {"fixtures": len(rows), "finished": len(finished), "finished_with_lineups": len(with_lineups),
+            "finished_with_player_xg": len(with_xg), "lineup_rows": sum(len(r["lineups"]) for r in with_lineups),
+            "lineup_rows_with_xg": sum(1 for x in xg_rows if x)}
+
+
+def run(client, out_dir: Path, *, years: Sequence[int], cap: int = DEFAULT_MAX_REQUESTS,
+        player_xg: bool = False) -> dict[str, Any]:
     """Make the reads, write them under ``out_dir`` and return the aggregates (also written as summary.json)."""
     out_dir.mkdir(parents=True, exist_ok=True)
     base = len(client.transport.exchanges)
@@ -117,21 +137,22 @@ def run(client, out_dir: Path, *, years: Sequence[int], cap: int = DEFAULT_MAX_R
             try:
                 for record in client.iter_entities("fixtures", params={
                         "filters": f"fixtureSeasons:{season['id']};fixtureLeagues:{PREMIER_LEAGUE}",
-                        "include": FIXTURE_INCLUDES, "per_page": FIXTURE_PAGE_SIZE},
+                        "include": PLAYER_XG_INCLUDES if player_xg else FIXTURE_INCLUDES, "per_page": FIXTURE_PAGE_SIZE},
                         max_pages=min(FIXTURE_MAX_PAGES, remaining)):
                     rows.append(dict(record.raw_fields))
             except SportmonksError as exc:
                 truncated, error = True, type(exc).__name__
-            (out_dir / f"fixtures-{year}.json").write_text(
+            (out_dir / (f"lineups-xg-{year}.json" if player_xg else f"fixtures-{year}.json")).write_text(
                 json.dumps(rows, ensure_ascii=False, sort_keys=True), encoding="utf-8")
-            summary["units"].append({"year": year, "requests": spent() - before, **fixture_stats(rows),
+            summary["units"].append({"year": year, "requests": spent() - before,
+                                     **(player_xg_stats(rows) if player_xg else fixture_stats(rows)),
                                      "truncated": truncated, "error": error})
     except BudgetReached as exc:
         summary["notes"].append(f"BUDGET: {exc}")
     finally:
         summary["requests"] = spent()
         summary["finished"] = _now()
-        (out_dir / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=1), encoding="utf-8")
+        (out_dir / ("summary-player-xg.json" if player_xg else "summary.json")).write_text(json.dumps(summary, ensure_ascii=False, indent=1), encoding="utf-8")
     return summary
 
 
@@ -144,6 +165,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--dry-run", action="store_true", default=False,
                         help="print the planned calls and their count; no request, no token read")
     parser.add_argument("--max-requests", type=int, default=DEFAULT_MAX_REQUESTS, help="hard cap on requests")
+    parser.add_argument("--player-xg", action="store_true", default=False,
+                        help="second pass: per-player xG (lineups.xGLineup) instead of pressure and team xG")
     parser.add_argument("--years", default=None, help="comma-separated season start years (default: current and two before)")
     args = parser.parse_args(argv)
     out_dir = args.out / OUT_SUBDIR
@@ -156,7 +179,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("REFUSED: --years must be a comma-separated list of years")
         return EXIT_REFUSED
     if args.dry_run:
-        print(render_plan(plan(years), args.max_requests))
+        print(render_plan(plan(years, player_xg=args.player_xg), args.max_requests))
         return EXIT_OK
     try:
         if resolve_mode(args) != MODE_LIVE:
@@ -167,7 +190,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         config = dataclasses.replace(SportmonksConfig.from_env(), max_response_bytes=MAX_RESPONSE_BYTES)
         client = make_client(MODE_LIVE, config=config)
-        summary = run(client, out_dir, years=years, cap=args.max_requests)
+        summary = run(client, out_dir, years=years, cap=args.max_requests, player_xg=args.player_xg)
     except (SportmonksConfigurationError, SportmonksAuthenticationError) as exc:
         print(f"CONFIG: {type(exc).__name__}")
         return EXIT_CONFIG
@@ -175,8 +198,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"FAILED: {type(exc).__name__}")
         return 1
     for unit in summary["units"]:
-        print(f"{unit['year']}: fixtures {unit['fixtures']}, finished {unit['finished']}, "
-              f"pressure {unit['finished_with_pressure']}, team xG {unit['finished_with_team_xg']}, "
+        found = (f"player xG {unit['finished_with_player_xg']}, lineup rows with xG {unit['lineup_rows_with_xg']}"
+                 if args.player_xg else f"pressure {unit['finished_with_pressure']}, team xG {unit['finished_with_team_xg']}")
+        print(f"{unit['year']}: fixtures {unit['fixtures']}, finished {unit['finished']}, {found}, "
               f"requests {unit['requests']}" + (f" TRUNCATED ({unit['error']})" if unit["truncated"] else ""))
     for note in summary["notes"]:
         print(f"note: {note}")
