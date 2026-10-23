@@ -88,9 +88,12 @@ solo a disco local: **25 llamadas** (plan esperado 25, máximo 33, tope 60), sin
 - **Cobertura:** 830 de 830 partidos jugados con presión y con xG de equipo (el criterio de 90 % se cumple sin huecos).
 - **Forma:** presión por minuto y por equipo (0–100), dos filas por minuto en todos los partidos; xG de equipo con el tipo
   EXPECTED_GOALS presente en todos.
-- **No incluido:** xG por jugador (otro include, no se pidió en este barrido) y los partidos europeos (no vienen en estas peticiones).
+- **xG por jugador** (segunda pasada, `lineups.xGLineup`, otras **25 llamadas**, total 50): 830 de 830 partidos jugados con alineación
+  y xG de jugador. Filas de alineación con xG: 1.030 de 2.800 (2026-27), 5.375 de 15.189 (2025-26), 5.274 de 15.188 (2024-25), es
+  decir, un tercio: solo aparecen los jugadores que tiraron, como ya se vio en la prueba del 17 de octubre.
+- **No incluido:** los partidos europeos (no vienen en estas peticiones).
 - **Pendiente:** los partidos de 2026-27 que se jueguen antes del corte (2026-10-25 03:09 UTC) no están; repetir solo esa
-  temporada (`--years 2026`, unas 8 llamadas) el 24 de octubre desde las 22:00 UTC (tras acabar los partidos del sábado) y antes del corte, 2026-10-25 03:09 UTC.
+  temporada (`--years 2026`, unas 8 llamadas por pasada, 16 en total) el 24 de octubre desde las 22:00 UTC (tras acabar los partidos del sábado) y antes del corte, 2026-10-25 03:09 UTC.
 - **Uso:** interno y derivado; los datos en bruto no se publican. Sin ids de proveedor ni payloads en el repositorio.
 
 ## Criterio (f) jornada a jornada (rolling origin, GW2–7)
