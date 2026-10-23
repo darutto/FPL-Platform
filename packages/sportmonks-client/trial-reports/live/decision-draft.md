@@ -71,6 +71,28 @@ disco local y sin publicar nada: 87 llamadas (tope fijado en 180; límite de Sta
 - **Uso:** los datos del trial siguen sin poder usarse en producción hasta que Sportmonks confirme por escrito la retención de
   datos del trial (checklist, Q2: parcial). Sin ids de proveedor ni payloads en el repositorio.
 
+## Cosecha de "Pressure Index & xG" antes de apagar el add-on (2026-10-22, solo local)
+
+El add-on solo está en el token del trial (pierde el acceso el 2026-10-25 03:09 UTC). Sportmonks confirmó por escrito que los datos
+leídos durante el trial pueden conservarse y usarse internamente para análisis derivados, nunca revenderse ni redistribuirse en
+bruto. Se leyeron `pressure` y `xGFixture` en los listados de temporada completa de la Premier League (50 partidos por página),
+solo a disco local: **25 llamadas** (plan esperado 25, máximo 33, tope 60), sin fallos ni truncados
+(`scripts/pressure_harvest.py`, PR aparte).
+
+| Temporada | Partidos | Jugados | Con presión | Con xG de equipo | Presión con 2 filas por minuto | Filas de presión |
+|---|---|---|---|---|---|---|
+| 2026-27 (en curso, hasta la lectura) | 380 | 70 | 70 de 70 | 70 de 70 | 70 de 70 | 13.932 |
+| 2025-26 | 380 | 380 | 380 de 380 | 380 de 380 | 380 de 380 | 73.902 |
+| 2024-25 | 380 | 380 | 380 de 380 | 380 de 380 | 380 de 380 | 71.606 |
+
+- **Cobertura:** 830 de 830 partidos jugados con presión y con xG de equipo (el criterio de 90 % se cumple sin huecos).
+- **Forma:** presión por minuto y por equipo (0–100), dos filas por minuto en todos los partidos; xG de equipo con el tipo
+  EXPECTED_GOALS presente en todos.
+- **No incluido:** xG por jugador (otro include, no se pidió en este barrido) y los partidos europeos (no vienen en estas peticiones).
+- **Pendiente:** los partidos de 2026-27 que se jueguen antes del corte (2026-10-25 03:09 UTC) no están; repetir solo esa
+  temporada (`--years 2026`, unas 8 llamadas) antes de las 20:00 UTC del 24 de octubre.
+- **Uso:** interno y derivado; los datos en bruto no se publican. Sin ids de proveedor ni payloads en el repositorio.
+
 ## Criterio (f) jornada a jornada (rolling origin, GW2–7)
 
 Para cada jornada k = 2…7 se predice GWk con la historia estrictamente anterior al saque de cada partido (GW1 no
