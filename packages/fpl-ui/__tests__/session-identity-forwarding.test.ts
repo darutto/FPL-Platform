@@ -119,3 +119,25 @@ describe('/api/session/[id] — identity forwarding on delete', () => {
     expect(init?.headers).toEqual(IDENTITY);
   });
 });
+
+describe('x-internal-token travels with a forwarded tier (i153)', () => {
+  afterEach(() => {
+    delete process.env.FPL_INTERNAL_TOKEN;
+  });
+
+  test('token set + identity → backend gets x-internal-token', async () => {
+    process.env.FPL_INTERNAL_TOKEN = 's3cret';
+    mockFetch.mockResolvedValueOnce(backend({ final_text: 'ok' }));
+    const { POST } = await import('../app/api/proxy/route');
+    await POST(jsonReq('http://localhost:3000/api/proxy', { question: 'q' }, IDENTITY));
+    expect(sentHeaders()).toMatchObject({ ...IDENTITY, 'x-internal-token': 's3cret' });
+  });
+
+  test('anonymous → no tier, no token', async () => {
+    process.env.FPL_INTERNAL_TOKEN = 's3cret';
+    mockFetch.mockResolvedValueOnce(backend({ final_text: 'ok' }));
+    const { POST } = await import('../app/api/proxy/route');
+    await POST(jsonReq('http://localhost:3000/api/proxy', { question: 'q' }));
+    expect(sentHeaders()['x-internal-token']).toBeUndefined();
+  });
+});
