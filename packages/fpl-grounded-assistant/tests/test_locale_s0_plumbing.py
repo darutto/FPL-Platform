@@ -292,15 +292,22 @@ def test_captain_list_follows_locale_and_es_is_unchanged():
     assert compose_captain_answer("body", CAPTAIN_OUTPUT, "top 2", "en").endswith("body")
 
 
-def test_chip_composition_is_spanish_only_until_s3():
-    """S3 translates the header/particular sentence; until then EN gets the
-    model's body untouched rather than a Spanish header over English prose."""
+def test_chip_composition_follows_locale():
+    """S3 translated the header and the particular sentence (S0 returned the bare
+    body for en); es is untouched and en now composes both parts."""
     from fpl_grounded_assistant.chip_two_part import compose_chip_answer
 
-    out = {"status": "ok", "chip": "bench_boost"}
-    assert compose_chip_answer("English body.", out, {}, "en") == "English body."
-    # es path still goes through the real composer (same call as before the param).
-    assert compose_chip_answer("Cuerpo.", out, {}) == compose_chip_answer("Cuerpo.", out, {}, "es")
+    out = {
+        "status": "ok", "chip": "bench_boost", "recommendation": "conditions_favorable",
+        "squad_source": None, "signals": {"favoured_teams": [{"team": 1}], "favoured_players": []},
+    }
+    names = {1: "Arsenal"}
+    en = compose_chip_answer("English body.", out, names, "en")
+    assert en.startswith("**Bench Boost — favourable gameweek.** Favoured group: Arsenal.")
+    assert en.endswith("Link your team and I'll tell you whether you already have the favoured group.")
+    es = compose_chip_answer("Cuerpo.", out, names)
+    assert es == compose_chip_answer("Cuerpo.", out, names, "es")
+    assert es.startswith("**Bench Boost — jornada favorable.** Grupo favorecido: Arsenal.")
 
 
 # ---------------------------------------------------------------------------

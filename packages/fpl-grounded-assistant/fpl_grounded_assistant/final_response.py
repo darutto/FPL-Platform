@@ -2115,7 +2115,9 @@ def _extract_player_zonal_meta(raw: "Any") -> "PlayerZonalOutlookMeta | None":
         return None
 
 
-def _extract_player_snapshot_meta(ro: "dict[str, Any]") -> "PlayerSnapshotMeta | None":
+def _extract_player_snapshot_meta(
+    ro: "dict[str, Any]", locale: Locale = DEFAULT_LOCALE,
+) -> "PlayerSnapshotMeta | None":
     """Extract PlayerSnapshotMeta from a get_player_snapshot tool_output dict.
 
     Requires ``status == "ok"`` with a ``player`` payload — ``ambiguous`` /
@@ -2142,9 +2144,9 @@ def _extract_player_snapshot_meta(ro: "dict[str, Any]") -> "PlayerSnapshotMeta |
             position                     = p.get("position", ""),
             minutes_played_season        = int(p.get("minutes_played_season", 0)),
             status                       = p.get("status", ""),
-            status_label                 = _status_label_es(p.get("status", "")),
+            status_label                 = _status_label_es(p.get("status", ""), locale),
             news                         = p.get("news", "") or "",
-            news_label                   = news_label(p.get("news", "") or ""),
+            news_label                   = news_label(p.get("news", "") or "", locale),
             news_added                   = p.get("news_added"),
             chance_of_playing_this_round = p.get("chance_of_playing_this_round"),
             form                         = float(p.get("form", 0.0)),
@@ -2469,17 +2471,17 @@ def _extract_fixture_outlook_meta(ro: "dict[str, Any]") -> "FixtureOutlookMeta |
         return None
 
 
-def _status_label_es(status: Any) -> str:
-    """i151: the FPL availability word in the catalogue's Spanish.
+def _status_label_es(status: Any, locale: Locale = DEFAULT_LOCALE) -> str:
+    """i151: the FPL availability word in the catalogue's language (es by default).
 
     Same unmapped-fallback as the text renderer: an unknown value is shown as
     it comes rather than guessed or blanked.
     """
     from .renderer import _localized_status_label  # noqa: PLC0415
-    return _localized_status_label(str(status or ""), "es")
+    return _localized_status_label(str(status or ""), locale)
 
 
-def _difficulty_label_es(label: Any) -> str:
+def _difficulty_label_es(label: Any, locale: Locale = DEFAULT_LOCALE) -> str:
     """i141: easy/moderate/hard in the catalogue's Spanish (fácil/moderado/difícil).
 
     Anything outside the enum passes through unchanged rather than being
@@ -2487,22 +2489,24 @@ def _difficulty_label_es(label: Any) -> str:
     """
     from .catalogue import t  # noqa: PLC0415
     if label in ("easy", "moderate", "hard"):
-        return t(f"difficulty_label.{label}", "es")
+        return t(f"difficulty_label.{label}", locale)
     return str(label or "")
 
 
-def _position_noun_es(code: Any, fallback: Any) -> str:
+def _position_noun_es(code: Any, fallback: Any, locale: Locale = DEFAULT_LOCALE) -> str:
     """i141: GKP/DEF/MID/FWD/ALL as the catalogue's Spanish plural noun.
 
     An unknown code keeps the tool's own label rather than a guess.
     """
     from .catalogue import t  # noqa: PLC0415
     if code in ("GKP", "DEF", "MID", "FWD", "ALL"):
-        return t(f"position_noun.{code}", "es")
+        return t(f"position_noun.{code}", locale)
     return str(fallback or "")
 
 
-def _extract_transfer_suggestion_meta(ro: "dict[str, Any]") -> "TransferSuggestionMeta | None":
+def _extract_transfer_suggestion_meta(
+    ro: "dict[str, Any]", locale: Locale = DEFAULT_LOCALE,
+) -> "TransferSuggestionMeta | None":
     """Extract TransferSuggestionMeta from get_transfer_suggestion output.  Phase 2.6h."""
     try:
         picks = tuple(
@@ -2517,7 +2521,7 @@ def _extract_transfer_suggestion_meta(ro: "dict[str, Any]") -> "TransferSuggesti
                 avg_fdr          = float(p.get("avg_fdr", 0.0)),
                 # i141: the card shows it as it comes; the tool keeps the
                 # easy/moderate/hard enum (renderer + model read it).
-                difficulty_label = _difficulty_label_es(p.get("difficulty_label", "")),
+                difficulty_label = _difficulty_label_es(p.get("difficulty_label", ""), locale),
                 composite_score  = float(p.get("composite_score", 0.0)),
                 ownership        = float(p.get("ownership", 0.0)),
             )
@@ -2527,7 +2531,7 @@ def _extract_transfer_suggestion_meta(ro: "dict[str, Any]") -> "TransferSuggesti
             position         = ro.get("position", "ALL"),
             # i141: shown as it comes on the card's scope line; the catalogue's
             # Spanish noun for the position code (the tool keeps its own label).
-            position_label   = _position_noun_es(ro.get("position", "ALL"), ro.get("position_label", "")),
+            position_label   = _position_noun_es(ro.get("position", "ALL"), ro.get("position_label", ""), locale),
             team_short       = ro.get("team_short"),       # Phase 2.6i
             team_name        = ro.get("team_name"),        # Phase 2.6i
             max_price        = ro.get("max_price"),
@@ -2586,6 +2590,7 @@ def _extract_structured_meta(
     intent: str,
     raw_output: "dict[str, Any]",
     outcome: str,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> "dict[str, Any]":
     """Extract intent-specific structured metadata from a raw dispatcher output.
 
@@ -2678,13 +2683,13 @@ def _extract_structured_meta(
         elif intent == INTENT_POSITION_FIXTURE_RUN:
             position_fixture_run_meta = _extract_position_fixture_run_meta(raw_output)
         elif intent == INTENT_TRANSFER_SUGGESTION:
-            transfer_suggestion_meta = _extract_transfer_suggestion_meta(raw_output)
+            transfer_suggestion_meta = _extract_transfer_suggestion_meta(raw_output, locale)
         elif intent == INTENT_FIXTURE_OUTLOOK:
             fixture_outlook_meta = _extract_fixture_outlook_meta(raw_output)
         elif intent == INTENT_ZONAL_OPPORTUNITY:
             zonal_opportunity_meta = _extract_zonal_opportunity_meta(raw_output)
         elif intent == INTENT_PLAYER_SNAPSHOT:
-            player_snapshot_meta = _extract_player_snapshot_meta(raw_output)
+            player_snapshot_meta = _extract_player_snapshot_meta(raw_output, locale)
 
     result: "dict[str, Any]" = {
         "comparison":           comparison,
@@ -3149,7 +3154,7 @@ def _player_snapshot_response_from_raw(
 
     outcome = str(raw_output.get("status") or "error")
     final_text = render("get_player_snapshot", raw_output, locale=locale)
-    meta = _extract_structured_meta(INTENT_PLAYER_SNAPSHOT, raw_output, outcome)
+    meta = _extract_structured_meta(INTENT_PLAYER_SNAPSHOT, raw_output, outcome, locale)
     suggestions = (
         player_disambiguation_suggestions(raw_output.get("candidates", []))
         if outcome == "ambiguous"
@@ -3721,7 +3726,7 @@ def respond(
 
     # Populate structured metadata via shared helper (G1: extracted from inline
     # ladder).  Pure function — degrades safely to None on any failure.
-    _meta = _extract_structured_meta(dr.intent, dr.raw_output, dr.outcome)
+    _meta = _extract_structured_meta(dr.intent, dr.raw_output, dr.outcome, locale)
 
     # Orch-4d: squad_context overrides via shared helper (Phase 8e1/8e2 semantics).
     # budget_constraint / chip_unavailable replace final_text (hard blocks).
