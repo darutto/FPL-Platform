@@ -1052,7 +1052,8 @@ RANK_PLAYERS_BY_METRIC_SCHEMA = ToolSchema(
                 "type":        "string",
                 "description": (
                     "Metric to rank by. Common aliases: xgi, xg, xa, ict, ppg, xgi/90, "
-                    "price/precio, transfers_in/out, penalties/penales, corners, free kicks, "
+                    "defensive_contribution (total: contribuciones defensivas, defcon, dc) "
+                    "vs dc/90 (per 90), price/precio, transfers_in/out, penalties/penales, corners, free kicks, "
                     "yellow/red cards, xgc, influence, creativity, threat, saves/paradas. "
                     "Pass unknown values through so the tool returns unknown_metric."
                 ),
@@ -1087,7 +1088,11 @@ RANK_PLAYERS_BY_METRIC_SCHEMA = ToolSchema(
                     "question is asking for. If you "
                     "omit it under order='asc' the tool applies a 60-minute floor "
                     "itself and reports it in min_minutes_filter; pass your own value "
-                    "when you want a different one."
+                    "when you want a different one. Per-90 and rate metrics "
+                    "(*_per_90, points_per_game) also get a floor under the default "
+                    "order='desc' -- 270 minutes, rising to 30% of the season's minutes "
+                    "-- because a rate over a few minutes is noise; it is reported in "
+                    "min_minutes_filter and never lowers a larger value you pass."
                 ),
                 "minimum":     0,
             },

@@ -70,6 +70,7 @@ _METRIC_HEADER_ES: dict[str, str] = {
     "saves_per_90":                       "Paradas/90",
     "clean_sheets_per_90":                "Porterías 0/90",
     "defensive_contribution_per_90":      "DC/90",
+    "defensive_contribution":             "DC",
     # Price, momentum, set pieces, discipline, and detailed performance
     "now_cost":                           "Precio (£m)",
     "transfers_in_event":                 "Fichajes GW",
