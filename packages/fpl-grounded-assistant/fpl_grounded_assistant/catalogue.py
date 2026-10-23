@@ -174,6 +174,24 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "es": "No obtuve una respuesta útil para esto. Prueba a reformular o pregunta otra cosa.",
     },
 
+    # -- i18n S0: orchestrator fallbacks that used to be inline Spanish ------
+    "orchestrator.no_tool_found": {
+        "en": "I couldn't find a tool to answer that.",
+        "es": "No encontré una herramienta para responder a esto.",
+    },
+    "orchestrator.tool_call_failed": {
+        "en": "A tool call could not be completed.",
+        "es": "No se pudo completar una llamada de herramienta correctamente.",
+    },
+    "orchestrator.tool_call_failed_reason": {
+        "en": "A tool call could not be completed ({reason}).",
+        "es": "No se pudo completar una llamada de herramienta correctamente ({reason}).",
+    },
+    "orchestrator.incomplete_answer": {
+        "en": "Incomplete answer ({reason}): {rendered}",
+        "es": "Respuesta incompleta ({reason}): {rendered}",
+    },
+
     # -- position noun, shared by any renderer that names a position group -
     "position_noun.GKP": {"en": "goalkeepers", "es": "porteros"},
     "position_noun.DEF": {"en": "defenders", "es": "defensas"},

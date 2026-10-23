@@ -86,6 +86,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, field_
 from fpl_grounded_assistant import respond
 from fpl_grounded_assistant.competition_calendar import competitions_response
 from fpl_grounded_assistant.locale_types import Locale, DEFAULT_LOCALE
+from fpl_grounded_assistant.question_lang import detect_question_lang, locale_mismatch
 from fpl_grounded_assistant.player_form import _element_summary_guard  # Phase 2.6d.3 — guard stats
 from fpl_pipeline import assemble_captain_context
 try:
@@ -302,6 +303,11 @@ class AskRequest(BaseModel):
     #: WEB_SEARCH_TIERS — see the gate in POST /ask. Parity with WC's
     #: AskRequest.web_search_requested.
     web_search_requested: bool = False
+    #: i18n S0: the UI's selected language, ``"es"`` or ``"en"``. Optional and
+    #: tolerant -- anything else (or absent) reads as the default locale in
+    #: ``resolve_locale``. Not identity and not a trust boundary: the UI decides
+    #: who may select ``en`` (rollout flag); the backend honours what it is told.
+    locale: str | None = None
 
 
 class AskResponse(BaseModel):
@@ -1902,6 +1908,9 @@ def healthz() -> dict[str, Any]:
         "owned_store_seasons":  seasons_on_disk() if seasons_on_disk is not None else [],
         "orchestrator":         orchestrator_info,
         "bootstrap":            _bootstrap_health(),  # i150
+        # i18n S0 (D1=B): turns by "<locale>:<question_lang>" and the share where
+        # the (known) question language differs from the selected locale.
+        "locale":               locale_mismatch.snapshot(),
     }
     # Key is added only once a tactical sync has run: with the flag off the
     # /healthz payload stays byte-for-byte identical to pre-go-live responses.
@@ -2085,22 +2094,41 @@ def fixtures_competitions(
 def resolve_locale(request: Request, body: "AskRequest") -> Locale:
     """Resolve the locale for one turn. Language-track F0 boundary carrier.
 
-    Phase F0: always returns ``DEFAULT_LOCALE`` — both parameters are
-    currently ignored. F2 (client signal, e.g. ``Accept-Language``) and F3
-    (system-prompt wiring) replace this function's body and nothing else.
+    i18n S0 (F2): the body's ``locale`` field, when it is ``"es"`` or ``"en"``;
+    otherwise ``DEFAULT_LOCALE``. ``Accept-Language`` is NOT consulted here --
+    the first-visit default is the UI's job (one policy, ``resolveLocale``),
+    and the choice reaches the backend as the explicit body field.
     """
-    del request, body  # F0: not yet honored.
+    del request  # reserved: no header signal by design (see docstring).
+    value = (body.locale or "").strip().lower()
+    if value in ("es", "en"):
+        return value  # type: ignore[return-value]
     return DEFAULT_LOCALE
+
+
+def _note_locale_turn(locale: Locale, question: str) -> str:
+    """Detect the question's language and count it against the locale (D1=B).
+
+    Feeds ``/healthz`` ``locale`` and the audit line. Never raises: a detector
+    problem must not cost the user a turn.
+    """
+    try:
+        question_lang = detect_question_lang(question)
+        locale_mismatch.record(locale, question_lang)
+        return question_lang
+    except Exception:  # noqa: BLE001
+        _LOG.exception("question_lang detection failed")
+        return "unknown"
 
 
 def _quota_upgrade_text(quota_check: "QuotaCheck", locale: Locale = DEFAULT_LOCALE) -> str:
     """Build the quota-exceeded upgrade message.
 
-    *locale* is a language-track F0 carrier param; ignored for now — the
-    message is always ``quota_check.upgrade_prompt_es`` (or its English
-    literal fallback) regardless of *locale*'s value (see F1).
+    ``quota._upgrade_prompts`` builds both languages; this picks one by
+    *locale* (i18n S0). Each falls back to its own language's literal.
     """
-    del locale  # F0: not yet honored.
+    if locale == "en":
+        return quota_check.upgrade_prompt_en or "You've reached your usage limit. Please upgrade your plan."
     return quota_check.upgrade_prompt_es or "Has alcanzado tu límite de uso. Por favor actualiza tu plan."
 
 
@@ -2181,6 +2209,7 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
 
     # Language track F0: resolve once at the boundary, thread down.
     locale = resolve_locale(request, req)
+    _question_lang = _note_locale_turn(locale, req.question)
 
     # ------------------------------------------------------------------
     # Premium web-search gate (tier allowlist + explicit opt-in).
@@ -2192,6 +2221,9 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
     if req.web_search_requested and tier not in WEB_SEARCH_TIERS:
         return AskResponse(
             final_text=(
+                "Web search is a premium feature. "
+                "Upgrade to Socio Junior or above on Patreon to turn it on."
+                if locale == "en" else
                 "La búsqueda web es una función premium. "
                 "Sube a Socio Junior o superior en Patreon para activarla."
             ),
@@ -2367,6 +2399,8 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
         guarded_raw_answer_text=ask_v2_dict.get("guarded_raw_answer_text"),
         # i116: present only when the Jev shadow ran on this turn.
         turn_id=_routing_trace.get("jev_shadow_turn_id"),
+        locale=locale,
+        question_lang=_question_lang,
     )
     try:
         write_audit_entry(_audit_entry)
@@ -2505,6 +2539,7 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
 
     # Language track F0: resolve once at the boundary, thread down.
     locale = resolve_locale(request, req)
+    _question_lang = _note_locale_turn(locale, req.question)
 
     # P3.f (F2 remediation): deterministic-prefix bypass (same as /ask boundary).
     _sess_question_stripped = req.question.lstrip()
@@ -2633,6 +2668,8 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         final_text_guard_reason=_sess_guard_reason,
         guarded_raw_answer_text=_sess_guarded_raw,
         turn_id=_sess_turn_id,
+        locale=locale,
+        question_lang=_question_lang,
     )
     try:
         write_audit_entry(_sess_audit_entry)

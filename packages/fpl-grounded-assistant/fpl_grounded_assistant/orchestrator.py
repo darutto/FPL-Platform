@@ -122,7 +122,7 @@ from .provider_client import (
 from .catalogue import t
 from .final_text_guard import looks_like_raw_payload
 from .evaluator import MODEL_VIEW_KEY, EvaluatorVerdict, evaluate_response
-from .locale_types import DEFAULT_LOCALE
+from .locale_types import DEFAULT_LOCALE, Locale
 from .renderer import render
 from .tool_schema_registry import (
     _ALL_SCHEMAS,
@@ -897,6 +897,21 @@ def _build_multi_tool_follow_up(
 # P1.e Lever 2: Prompt caching helpers
 # ---------------------------------------------------------------------------
 
+#: i18n S0 (D1=B): appended to the STATIC prompt ONLY when locale == 'en'. The es
+#: prompt is exactly the pre-i18n bytes (sha256-pinned in
+#: tests/test_locale_s0_plumbing.py); it keeps ``respond_lang = user_lang``.
+_EN_LOCALE_LINE: str = (
+    "\nLOCALE=en: write the whole answer in British English, whatever language the"
+    " question is written in (chip names stay in English; keep player and team names as given)."
+)
+
+
+def static_system_prompt(locale: Locale = DEFAULT_LOCALE) -> str:
+    """The static orchestrator system prompt for *locale* (es == pre-i18n bytes)."""
+    base = _LOOP_SYSTEM_PROMPT if is_orch_loop_prompt_enabled() else _SYSTEM_PROMPT
+    return base + _EN_LOCALE_LINE if locale == "en" else base
+
+
 def _build_anthropic_system_blocks(
     system_text: str,
     *,
@@ -1601,6 +1616,7 @@ def _apply_evaluator(
     _primary_input_tokens: int = 0,
     _primary_output_tokens: int = 0,
     _primary_cache_read_tokens: int = 0,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> OrchestratorResult:
     """Apply the second-layer evaluator to a primary answer.
 
@@ -1650,6 +1666,7 @@ def _apply_evaluator(
     # E1. Call the evaluator (cheap model, same provider)
     # ------------------------------------------------------------------
     verdict: EvaluatorVerdict = evaluate_response(
+        locale=locale,
         question=question,
         primary_response=answer_text,
         # i124 (C): each call with the payload the primary read -- the same
@@ -2055,7 +2072,7 @@ def _apply_evaluator(
         _r_synthesis_turn = True
     else:
         try:
-            _r_answer_text = render(_r_tool_name, _r_raw_output)
+            _r_answer_text = render(_r_tool_name, _r_raw_output, locale=locale)
         except Exception:  # noqa: BLE001
             _r_answer_text = f"[{_r_tool_status or 'unknown'}]"
         _r_synthesis_turn = False
@@ -2158,6 +2175,7 @@ def _run_bounded_loop(
     primary_input_tokens: int,
     primary_output_tokens: int,
     primary_cache_read_tokens: int,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> OrchestratorResult:
     """Execute cumulative provider-native tool rounds until convergence or cap."""
     messages: list[Any] = [{"role": "user", "content": question}]
@@ -2224,6 +2242,7 @@ def _run_bounded_loop(
             _primary_input_tokens=prim_in,
             _primary_output_tokens=prim_out,
             _primary_cache_read_tokens=prim_cache,
+            locale=locale,
         )
         return _result_with_observability(
             result,
@@ -2242,12 +2261,12 @@ def _run_bounded_loop(
                 selected = successful[0]
                 if not answer:
                     try:
-                        answer = render(selected[1], selected[3])
+                        answer = render(selected[1], selected[3], locale=locale)
                     except Exception:  # noqa: BLE001
                         answer = f"[{selected[3].get('status', 'unknown')}]"
                 return _evaluated_result(answer, selected, synthesis_turn=_had_model_text)
 
-            no_tool_answer = answer or "No encontr\u00e9 una herramienta para responder a esto."
+            no_tool_answer = answer or t("orchestrator.no_tool_found", locale)
             return OrchestratorResult(
                 question=question,
                 tool_chosen=None,
@@ -2381,10 +2400,10 @@ def _run_bounded_loop(
     if successful:
         selected = _select_partial(successful)
         try:
-            rendered = render(selected[1], selected[3])
+            rendered = render(selected[1], selected[3], locale=locale)
         except Exception:  # noqa: BLE001
             rendered = f"[{selected[3].get('status', 'unknown')}]"
-        incomplete = f"Respuesta incompleta ({terminal_reason}): {rendered}"
+        incomplete = t("orchestrator.incomplete_answer", locale, reason=terminal_reason, rendered=rendered)
         return _evaluated_result(
             incomplete,
             selected,
@@ -2397,9 +2416,11 @@ def _run_bounded_loop(
         tool_chosen=None,
         tool_args={},
         tool_output={},
-        answer_text=(
-            "No se pudo completar una llamada de herramienta correctamente"
-            + (f" ({terminal_reason})." if terminal_reason else ".")
+        answer_text=t(
+            "orchestrator.tool_call_failed" if not terminal_reason
+            else "orchestrator.tool_call_failed_reason",
+            locale,
+            reason=terminal_reason or "",
         ),
         llm_used=True,
         model=model,
@@ -2435,6 +2456,7 @@ def ask_orchestrated(
     _gate: _FailureGate | None = None,
     _orch_request_fn: Any = None,
     _eval_client: Any = None,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> OrchestratorResult:
     """Run a single LLM tool-use cycle and return a grounded result.
 
@@ -2460,26 +2482,29 @@ def ask_orchestrated(
         _gate=_gate,
         _orch_request_fn=_orch_request_fn,
         _eval_client=_eval_client,
+        locale=locale,
     )
     # i106: the final-text guard, applied HERE, once, to whatever any of the
     # body's return sites produced -- a render() that was the last word
     # (retry, normal, partial, no-text) or a synthesis that quoted HTML or an
     # error back. outcome, tool_output and the trace are untouched; the
     # blocked text is kept whole for the audit line.
-    result = _guard_final_text(result)
+    result = _guard_final_text(result, locale)
     # i108 E3: a chip answer is general -> particular, both parts computed.
     # After the guard, so a blocked text never gets a header or a sentence.
-    result = _compose_chip_answer(result, bootstrap)
+    result = _compose_chip_answer(result, bootstrap, locale)
     # i125(a): a captain answer opens with the tool's own top N; the model's
     # text is the commentary under it. Same placement and gate as the chip.
-    result = _compose_captain_answer(result, question)
+    result = _compose_captain_answer(result, question, locale)
     if not result.llm_used:
         return result
     _label = provider if provider in _ALL_PROVIDERS else PROVIDER_ANTHROPIC
     return replace(result, provider=_label)
 
 
-def _compose_captain_answer(result: OrchestratorResult, question: str) -> OrchestratorResult:
+def _compose_captain_answer(
+    result: OrchestratorResult, question: str, locale: Locale = DEFAULT_LOCALE,
+) -> OrchestratorResult:
     """Prepend the tool's top N to an ok captain answer (``captain_list``).
 
     Only when the turn ended ``ok``, the final-text guard did not fire, and
@@ -2491,7 +2516,7 @@ def _compose_captain_answer(result: OrchestratorResult, question: str) -> Orches
     output = last_captain_output(result.tool_calls_trace)
     if output is None:
         return result
-    composed = compose_captain_answer(result.answer_text or "", output, question)
+    composed = compose_captain_answer(result.answer_text or "", output, question, locale)
     if composed == (result.answer_text or ""):
         return result
     return replace(result, answer_text=composed)
@@ -2523,7 +2548,9 @@ def _only_no_team_squad_failed(result: OrchestratorResult) -> bool:
     return saw_no_team
 
 
-def _compose_chip_answer(result: OrchestratorResult, bootstrap: Any) -> OrchestratorResult:
+def _compose_chip_answer(
+    result: OrchestratorResult, bootstrap: Any, locale: Locale = DEFAULT_LOCALE,
+) -> OrchestratorResult:
     """Wrap an ok chip answer in its deterministic header and closing sentence.
 
     Only when the turn ended ``ok`` (or i111: its only failures are
@@ -2546,13 +2573,15 @@ def _compose_chip_answer(result: OrchestratorResult, bootstrap: Any) -> Orchestr
         for t in (bs or {}).get("teams", []) or []
         if isinstance(t, dict) and t.get("id") is not None and t.get("name")
     }
-    composed = compose_chip_answer(result.answer_text or "", chip_output, team_names)
+    composed = compose_chip_answer(result.answer_text or "", chip_output, team_names, locale)
     if composed == (result.answer_text or ""):
         return result
     return replace(result, answer_text=composed)
 
 
-def _guard_final_text(result: OrchestratorResult) -> OrchestratorResult:
+def _guard_final_text(
+    result: OrchestratorResult, locale: Locale = DEFAULT_LOCALE,
+) -> OrchestratorResult:
     """Replace a raw-payload ``answer_text`` with an honest sentence.
 
     ``looks_like_raw_payload`` decides (closed reasons); this only swaps the
@@ -2566,9 +2595,9 @@ def _guard_final_text(result: OrchestratorResult) -> OrchestratorResult:
         result.tool_calls_trace[-1].get("name") if result.tool_calls_trace else None
     )
     if tool:
-        honest = t("orchestrator.final_text_guarded_tool", DEFAULT_LOCALE, tool=tool)
+        honest = t("orchestrator.final_text_guarded_tool", locale, tool=tool)
     else:
-        honest = t("orchestrator.final_text_guarded", DEFAULT_LOCALE)
+        honest = t("orchestrator.final_text_guarded", locale)
     return replace(
         result,
         answer_text=honest,
@@ -2592,6 +2621,7 @@ def _ask_orchestrated_impl(
     _gate: _FailureGate | None = None,
     _orch_request_fn: Any = None,
     _eval_client: Any = None,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> OrchestratorResult:
     """Run a single LLM tool-use cycle and return a grounded result.
 
@@ -2772,7 +2802,7 @@ def _ask_orchestrated_impl(
     # P1.e Lever 2: for Anthropic, also build system_blocks with cache_control
     # applied to the last block so the system prompt prefix is cached.
     # ------------------------------------------------------------------
-    _static_prompt = _LOOP_SYSTEM_PROMPT if is_orch_loop_prompt_enabled() else _SYSTEM_PROMPT
+    _static_prompt = static_system_prompt(locale)
     try:
         from .context_builder import build_orchestration_context  # noqa: PLC0415
         _ctx = build_orchestration_context(actual_bootstrap)
@@ -2897,6 +2927,7 @@ def _ask_orchestrated_impl(
 
     if is_orch_loop_enabled():
         return _run_bounded_loop(
+            locale=locale,
             question=question,
             initial_response=response,
             actual_bootstrap=actual_bootstrap,
@@ -2946,7 +2977,7 @@ def _ask_orchestrated_impl(
         _no_tool_answer = (
             _no_tool_text
             if _no_tool_text
-            else "No encontré una herramienta para responder a esto."
+            else t("orchestrator.no_tool_found", locale)
         )
         return OrchestratorResult(
             question=question,
@@ -3108,6 +3139,7 @@ def _ask_orchestrated_impl(
             _prim_out_mt   = _prim_out
             _prim_cache_mt = _prim_cache
             return _apply_evaluator(
+                locale=locale,
                 question=question,
                 answer_text=_second_text,
                 tool_chosen=tool_name,
@@ -3170,6 +3202,7 @@ def _ask_orchestrated_impl(
             tool_status = raw_output.get("status")
             outcome = OUTCOME_OK if tool_status == "ok" else OUTCOME_TOOL_RESULT_ERROR
             return _apply_evaluator(
+                locale=locale,
                 question=question,
                 answer_text=_extra_text,
                 tool_chosen=tool_name,
@@ -3215,7 +3248,7 @@ def _ask_orchestrated_impl(
     outcome = OUTCOME_OK if tool_status == "ok" else OUTCOME_TOOL_RESULT_ERROR
 
     try:
-        answer_text: str = render(tool_name, raw_output)
+        answer_text: str = render(tool_name, raw_output, locale=locale)
     except Exception:  # noqa: BLE001
         # Renderer failed; surface status as minimal fallback
         answer_text = f"[{tool_status or 'unknown'}]"
@@ -3225,15 +3258,14 @@ def _ask_orchestrated_impl(
     # and the extra round did not rescue it. Keep shipping it (a table beats
     # nothing) but say so, rather than letting a raw dump pass for an answer.
     #
-    # Locale: DEFAULT_LOCALE, matching the render() call directly above, which
-    # takes the same default. ask_orchestrated has no locale parameter — when
-    # locale reaches this layer, both calls take it together or the notice
-    # would disagree with the table it introduces.
+    # Locale: the same value as the render() call directly above, so the notice
+    # never disagrees with the table it introduces.
     answer_text = (
-        f"{t('orchestrator.raw_render_notice', DEFAULT_LOCALE)}\n\n{answer_text}"
+        f"{t('orchestrator.raw_render_notice', locale)}\n\n{answer_text}"
     )
 
     return _apply_evaluator(
+        locale=locale,
         question=question,
         answer_text=answer_text,
         tool_chosen=tool_name,

@@ -90,14 +90,17 @@ def presented_entries(output: dict[str, Any]) -> list[dict[str, Any]]:
     return [by_id[i] for i in presentation.get(key) or [] if i in by_id]
 
 
-def _score(value: Any) -> str:
+def _score(value: Any, locale: str = "es") -> str:
     try:
-        return f"{float(value):.1f}".replace(".", ",")
+        text = f"{float(value):.1f}"
     except (TypeError, ValueError):
         return "?"
+    return text if locale == "en" else text.replace(".", ",")
 
 
-def captain_list(output: dict[str, Any] | None, question: str) -> str | None:
+def captain_list(
+    output: dict[str, Any] | None, question: str, locale: str = "es",
+) -> str | None:
     """The numbered top N, or ``None`` when there is nothing to list."""
     if not isinstance(output, dict) or output.get("status") != "ok":
         return None
@@ -107,7 +110,13 @@ def captain_list(output: dict[str, Any] | None, question: str) -> str | None:
     n = min(requested_top(question) or DEFAULT_TOP, len(entries))
     gw = (output.get("time_context") or {}).get("evaluated_gameweek")
     gw_part = f" — GW{gw}" if gw else ""
-    if output.get("squad_source") == "connected":
+    connected = output.get("squad_source") == "connected"
+    if locale == "en":
+        if connected:
+            title = f"**Your best captain options{gw_part}** (from your squad, by the ranking):"
+        else:
+            title = f"**Best captain options{gw_part}** (by the ranking):"
+    elif connected:
         title = f"**Tus mejores opciones de capitán{gw_part}** (de tu plantilla, según el ranking):"
     else:
         title = f"**Mejores opciones de capitán{gw_part}** (según el ranking):"
@@ -117,14 +126,16 @@ def captain_list(output: dict[str, Any] | None, question: str) -> str | None:
         pos = c.get("position") or ""
         meta = ", ".join(x for x in (team, pos) if x)
         meta_part = f" ({meta})" if meta else ""
-        lines.append(f"{i}. **{c.get('web_name', '?')}**{meta_part} — {_score(c.get('captain_score'))}")
+        lines.append(f"{i}. **{c.get('web_name', '?')}**{meta_part} — {_score(c.get('captain_score'), locale)}")
     return "\n".join(lines)
 
 
-def compose_captain_answer(body: str, output: dict[str, Any] | None, question: str) -> str:
+def compose_captain_answer(
+    body: str, output: dict[str, Any] | None, question: str, locale: str = "es",
+) -> str:
     """The deterministic list, then the model's commentary. *body* unchanged
     when there is nothing to list."""
-    header = captain_list(output, question)
+    header = captain_list(output, question, locale)
     if header is None:
         return body
     parts = [header]
