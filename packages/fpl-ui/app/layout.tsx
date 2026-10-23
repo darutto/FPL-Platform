@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
 import { Barlow, Archivo_Black } from 'next/font/google';
 import { ClerkProvider } from '@clerk/nextjs';
+import { LocaleProvider } from '@/lib/i18n/LocaleProvider';
+import { translate } from '@/lib/i18n/dictionary';
+import { getRequestLocale } from '@/lib/i18n/server';
 import './globals.css';
 
 // Brand typography (Stitch FPL Chat Hi-Fi): Barlow for UI text,
@@ -19,22 +22,25 @@ const archivoBlack = Archivo_Black({
   variable: '--font-archivo-black',
 });
 
-export const metadata: Metadata = {
-  title: 'FPL Asistente',
-  description: 'Asistente de Fantasy Premier League',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { locale } = await getRequestLocale();
+  return { title: translate(locale, 'app.title'), description: translate(locale, 'app.description') };
+}
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { locale, canSwitch } = await getRequestLocale();
   return (
     <ClerkProvider afterSignOutUrl="/login">
-      <html lang="es" className={`${barlow.variable} ${archivoBlack.variable}`}>
+      <html lang={locale} className={`${barlow.variable} ${archivoBlack.variable}`}>
         {/* suppressHydrationWarning: browser extensions (Grammarly, etc.) inject
             data-* attributes on <body> before hydration — harmless false positive. */}
-        <body className="bg-bf-bg text-bf-text antialiased font-sans" suppressHydrationWarning>{children}</body>
+        <body className="bg-bf-bg text-bf-text antialiased font-sans" suppressHydrationWarning>
+          <LocaleProvider initialLocale={locale} canSwitch={canSwitch}>{children}</LocaleProvider>
+        </body>
       </html>
     </ClerkProvider>
   );

@@ -13,9 +13,18 @@
 import { useEffect, useState } from 'react';
 import { UserButton } from '@clerk/nextjs';
 import SectionSwitcher from './SectionSwitcher';
+import PillSwitcher, { type PillItem } from './PillSwitcher';
+import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
+import type { Locale } from '@/lib/i18n/locale';
 import { SHOW_SECTION_SWITCHER } from '@/lib/features';
 
 const CONTRAST_LS_KEY = 'bf_contrast';
+
+// Language names are the same in both languages, on purpose: each reader finds their own.
+const LOCALE_ITEMS: readonly PillItem<Locale>[] = [
+  { key: 'es', label: 'ES' },
+  { key: 'en', label: 'EN' },
+];
 
 interface Props {
   teamName?: string | null;
@@ -28,6 +37,8 @@ interface Props {
 
 export default function TopBar({ teamName, gw, title = 'FPL Asistente', subtitle = 'Bendito Fantasy' }: Props) {
   const [highContrast, setHighContrast] = useState(false);
+  const { locale, canSwitch, setLocale } = useLocale();
+  const t = useT();
 
   // Restore persisted preference on mount.
   useEffect(() => {
@@ -80,6 +91,9 @@ export default function TopBar({ teamName, gw, title = 'FPL Asistente', subtitle
           <span className="px-2.5 py-1 rounded-full bg-bf-coral/15 border border-bf-coral/40 text-[11px] font-bold text-bf-coral">
             GW{gw}
           </span>
+        )}
+        {canSwitch && (
+          <PillSwitcher items={LOCALE_ITEMS} value={locale} onChange={setLocale} label={t('locale.switcherLabel')} />
         )}
         <button
           onClick={toggleContrast}

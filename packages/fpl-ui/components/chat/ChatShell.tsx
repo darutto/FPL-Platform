@@ -33,6 +33,7 @@ import type { AskResponse, SquadContext, Suggestion } from '@/lib/types';
 import { WIZARD_ARMING_INTENTS, isRewriteSuggestion, isStableIdSuggestion } from '@/lib/wizard-arming';
 import { QUOTA_BUCKETS, type QuotaBucket } from '@/lib/tiers';
 import { readDevTier } from '@/lib/dev-tier';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 import MessageList, { type Message } from './MessageList';
 import { type CompareWizardState, type PlayerPickWizardState } from './SuggestionChips';
 import InputBar, { type InsertRequest } from './InputBar';
@@ -51,6 +52,7 @@ const CHAT_SCREEN = 2;
 
 export default function ChatShell() {
   const { user } = useUser();
+  const { locale } = useLocale();
   const clerkTier = (user?.publicMetadata?.tier as QuotaBucket | undefined) ?? 'free';
   // Dev-only impersonation, mirrors WcChatShell — read after mount to avoid a
   // hydration mismatch on the cookie. Always undefined in production.
@@ -194,6 +196,8 @@ export default function ChatShell() {
 
       const requestBody = {
         question: effectiveQuestion,
+        // The language the user is looking at governs the whole answer; the question's language only affects routing.
+        locale,
         ...(selectedPlayerId != null ? { selected_player_id: selectedPlayerId } : {}),
         intent_hint: intentHint,
         // squad_context is passed on every turn; null when no team connected
@@ -321,7 +325,7 @@ export default function ChatShell() {
     } finally {
       setLoading(false);
     }
-  }, [loading, followUpArmedFor, sessionId, squadContext, webSearchOn, webSearchAvailable, messages, compareWizard]);
+  }, [loading, followUpArmedFor, sessionId, squadContext, webSearchOn, webSearchAvailable, messages, compareWizard, locale, teamId]);
 
   // Guided Comparison: a chip tap. First tap stores player A client-side (no
   // round trip) and swaps the question to step 2. Second tap sends the canonical

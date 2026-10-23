@@ -164,6 +164,11 @@ export type IntentHint = (typeof INTENT_HINT_ALLOWLIST)[number];
 export interface AskRequest {
   /** Required. FPL question in natural language or slash command text. */
   question: string;
+  /**
+   * Language of the whole answer, prose and cards. The UI always sends the language it is showing;
+   * the backend falls back to Spanish when it is absent.
+   */
+  locale?: 'es' | 'en';
   /** Stable FPL element id chosen from a player-disambiguation wizard. */
   selected_player_id?: number | null;
   /**

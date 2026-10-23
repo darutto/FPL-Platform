@@ -14,9 +14,10 @@
  * so a deployed build never takes that branch.
  */
 import { useUser } from '@clerk/nextjs';
+import { isAdminMetadata } from '@/lib/admin-role';
 
 export function usePresentationAccess(): boolean {
   const { isLoaded, user } = useUser();
   if (process.env.NODE_ENV === 'development') return true;
-  return isLoaded && (user?.publicMetadata as { role?: string } | undefined)?.role === 'admin';
+  return isLoaded && isAdminMetadata(user?.publicMetadata);
 }
