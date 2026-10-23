@@ -50,7 +50,7 @@ import type {
 
 const palaceMeta: DefensiveZonesMeta = {
   opponent: 'Crystal Palace',
-  weakness_label: 'Débil dentro del área',
+  weakness_label: 'Ataca dentro del área',
   verdict:
     'Ataca a Crystal Palace por la derecha dentro del área — concede un ' +
     '+70% sobre un equipo medio ahí.',
@@ -345,9 +345,9 @@ describe('selectIntentView — zonal_opportunity', () => {
 describe('DefensiveZonesCard', () => {
   test('renders header: kicker, opponent, weakness pill', () => {
     render(<DefensiveZonesCard data={palaceMeta} />);
-    expect(screen.getByText('Zonas que concede')).toBeInTheDocument();
+    expect(screen.getByText('Dónde atacar a')).toBeInTheDocument();
     expect(screen.getByText('Crystal Palace')).toBeInTheDocument();
-    expect(screen.getByText('Débil dentro del área')).toBeInTheDocument();
+    expect(screen.getByText('Ataca dentro del área')).toBeInTheDocument();
   });
 
   test('renders in-box readings: big pct + fine delta, ≈ media for average', () => {
@@ -467,7 +467,7 @@ describe('DefensiveZonesCard', () => {
       />,
     );
     // pitch view still there
-    expect(screen.getByText('Débil dentro del área')).toBeInTheDocument();
+    expect(screen.getByText('Ataca dentro del área')).toBeInTheDocument();
     expect(screen.getByText(/Ataca a Crystal Palace/)).toBeInTheDocument();
     // no table, no header, no empty-state fallback
     expect(screen.queryByText('Quién lo explota')).not.toBeInTheDocument();
@@ -801,5 +801,70 @@ describe('DefensiveZonesCard — fixture-derived scope (i90)', () => {
       />,
     );
     expect(screen.queryAllByTestId('zonal-fixture-group')).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Frontal band + opportunity framing (zonal card axes fix)
+// ---------------------------------------------------------------------------
+
+describe('DefensiveZonesCard — one zone set for headline, pitch and verdict', () => {
+  const spurs: DefensiveZonesMeta = {
+    ...palaceMeta,
+    opponent: 'Tottenham',
+    weakness_label: 'Ataca la frontal del área',
+    weakness_strength: 'clear',
+    verdict: 'Ataca a Tottenham por el centro en la frontal del área — concede un +44% sobre un equipo medio ahí.',
+    zones: [
+      { lateral: 'left', pct_over_avg: 30.8, opportunity_level: 'opp' },
+      { lateral: 'central', pct_over_avg: 0.2, opportunity_level: 'cool' },
+      { lateral: 'right', pct_over_avg: -5, opportunity_level: 'cool' },
+    ],
+    frontal_zones: [
+      { lateral: 'left', pct_over_avg: 3, opportunity_level: 'warm' },
+      { lateral: 'central', pct_over_avg: 44, opportunity_level: 'opp' },
+      { lateral: 'right', pct_over_avg: -2, opportunity_level: 'cool' },
+    ],
+  };
+
+  test('the frontal-central zone the headline names is drawn and read on the pitch', () => {
+    render(<DefensiveZonesCard data={spurs} />);
+    expect(screen.getByTestId('zone-shade-frontal-central')).toBeInTheDocument();
+    expect(screen.getByTestId('zone-shade-frontal-left')).toBeInTheDocument();
+    expect(screen.getByTestId('zone-shade-frontal-right')).toBeInTheDocument();
+    // +44% in the verdict AND on the pitch cell
+    expect(screen.getAllByText('+44%').length).toBe(2);
+    expect(screen.getByRole('img')).toHaveAttribute(
+      'aria-label',
+      expect.stringContaining('Frontal Centro: +44%'),
+    );
+  });
+
+  test('without frontal_zones the pitch is the box alone (older payloads)', () => {
+    render(<DefensiveZonesCard data={{ ...spurs, frontal_zones: undefined }} />);
+    expect(screen.queryByTestId('zone-shade-frontal-central')).toBeNull();
+  });
+
+  test('exploiter zone pills read their frontal cell, not a default', () => {
+    expect(levelForZone('edge-of-box / central', spurs.zones, spurs.frontal_zones)).toBe('opp');
+    expect(levelForZone('edge-of-box / central', spurs.zones)).toBe('warm');
+  });
+
+  test('framing is the user opportunity: no coral anywhere on the card', () => {
+    const { container } = render(<DefensiveZonesCard data={spurs} />);
+    expect(container.innerHTML).not.toContain('coral');
+    expect(screen.getByText('Dónde atacar a')).toHaveClass('text-bf-turquoise');
+    expect(screen.getByText('Ataca la frontal del área')).toHaveClass('text-bf-turquoise');
+  });
+
+  test('a marginal read keeps the gold pill; none goes grey', () => {
+    const { rerender } = render(
+      <DefensiveZonesCard data={{ ...spurs, weakness_strength: 'marginal', weakness_label: 'Ventaja leve en la frontal del área' }} />,
+    );
+    expect(screen.getByText('Ventaja leve en la frontal del área')).toHaveClass('text-bf-gold');
+    rerender(
+      <DefensiveZonesCard data={{ ...spurs, weakness_strength: 'none', weakness_label: 'Sin ventaja clara' }} />,
+    );
+    expect(screen.getByText('Sin ventaja clara')).toHaveClass('text-bf-gray');
   });
 });

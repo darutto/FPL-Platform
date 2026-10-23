@@ -7,27 +7,31 @@
  *   response.zonal_opportunity  !== null (with 3 zone cells)
  *
  * Recreates the "Defensive Zones Card" design handoff with DS tokens:
- * header (kicker + team + coral weakness pill), verdict with turquoise pct,
- * inline-SVG penalty-box pitch with the three zone thirds shaded by
+ * header (kicker + team + opportunity pill), verdict with turquoise pct,
+ * inline-SVG penalty-box pitch with the three zone thirds (plus, when the
+ * payload carries them, the edge-of-box band in front — the headline can name
+ * a frontal zone, so the pitch draws every zone it can name) shaded by
  * opportunity (saturation scales with the zone's strength; the % reading
  * lives inside its region, average zones read '≈ media'), per-zone
  * labels + pills, the "Quién lo explota" zone-fit table, and the footer
  * (penalty xGA + IA ACTIVA badge).
  *
  * Color semantics (do not invert): turquoise = your best zone, gold = slight
- * advantage, grey = none. Coral only for the opponent-weakness pill.
+ * advantage, grey = none. The header pill follows the same coding (by
+ * weakness_strength); no coral anywhere — this is the user's opportunity.
  *
  * i74: a season stamp sits under the verdict, above the numbers it qualifies.
  * It is always present and reads as a caption when the data is the live
  * season's; when it is not (or the sample is too thin) it escalates to a
  * gold notice carrying the backend's own warning text. Gold, not coral/red —
- * this informs, it does not alarm, and coral here means opponent weakness.
+ * this informs, it does not alarm.
  *
  * The handoff's outer composition (user question pill, "Seguir conversación"
  * ghost button) is already provided by the chat shell (user bubble +
  * MessageList's FollowUpButton) — this component is the data card itself.
  */
 import type {
+  DefensiveZoneCell,
   DefensiveZonesMeta,
   ZonalExploiter,
   ZonalDataProvenance,
@@ -53,6 +57,18 @@ import {
 } from '@/lib/defensive-zones';
 import { PitchLines, ZONE_X, ZONE_WIDTH, ZONE_CENTER_X } from './PitchGeometry';
 
+/** Frontal band under the box, in SVG units (same geometry as PlayerZonesPitch). */
+const FRONTAL_Y = 176;
+const FRONTAL_H = 130;
+const VIEW_H_WITH_FRONTAL = 316;
+
+/** Header pill follows the opportunity coding; never a warning colour. */
+function headerPillClass(strength: DefensiveZonesMeta['weakness_strength']): string {
+  if (strength === 'none') return LEVEL_PILL_CLASS.cool;
+  if (strength === 'marginal') return LEVEL_PILL_CLASS.warm;
+  return LEVEL_PILL_CLASS.opp;
+}
+
 interface Props {
   data: DefensiveZonesMeta;
 }
@@ -60,6 +76,8 @@ interface Props {
 
 export default function DefensiveZonesCard({ data }: Props) {
   const { opponent, weakness_label, verdict, zones, exploiters } = data;
+  const frontal = data.frontal_zones ?? [];
+  const hasFrontal = frontal.length > 0;
   const provenance = data.data_provenance ?? null;
   const scope = scopeLabel(data.team_filter ?? null, opponent);
   const fixtureGroups =
@@ -70,20 +88,20 @@ export default function DefensiveZonesCard({ data }: Props) {
   const hasExploiters = data.has_exploiters !== false;
 
   return (
-    <div className={`mt-3 text-sm ${CARD_BASE} ${CARD_ACCENT.coral.border}`}>
+    <div className={`mt-3 text-sm ${CARD_BASE} ${CARD_ACCENT.turquoise.border}`}>
       <div className="relative z-10 p-5">
-        {/* Header — kicker + team, opponent-weakness pill (coral = alert) */}
+        {/* Header — kicker + team, opportunity pill */}
         <div className="mb-3 flex items-baseline justify-between gap-3">
           <div className="min-w-0 flex flex-col gap-0.5">
-            <span className="text-[11px] font-extrabold uppercase tracking-[0.13em] text-bf-coral whitespace-nowrap">
-              Zonas que concede
+            <span className="text-[11px] font-extrabold uppercase tracking-[0.13em] text-bf-turquoise whitespace-nowrap">
+              Dónde atacar a
             </span>
             <span className="block truncate text-base font-black tracking-tight text-bf-text">
               {opponent}
             </span>
           </div>
           <span
-            className={`${PILL_BASE} flex-shrink-0 text-[10px] font-extrabold bg-bf-coral/10 border-bf-coral/40 text-bf-coral whitespace-nowrap`}
+            className={`${PILL_BASE} flex-shrink-0 text-[10px] font-extrabold ${headerPillClass(data.weakness_strength)} whitespace-nowrap`}
           >
             {weakness_label}
           </span>
@@ -108,23 +126,17 @@ export default function DefensiveZonesCard({ data }: Props) {
         {/* Season stamp (i74) — what season these numbers describe */}
         {provenance && <ProvenanceStamp provenance={provenance} />}
 
-        {/* Pitch view — penalty box with the three zone thirds shaded by
-            opportunity; each zone's reading lives inside its region */}
+        {/* Pitch view — penalty box with the three zone thirds (and the frontal
+            band when present) shaded by opportunity; each zone's reading lives inside its region */}
         <div className="relative mx-auto w-full max-w-[420px]">
           <svg
-            viewBox="0 0 360 210"
+            viewBox={`0 0 360 ${hasFrontal ? VIEW_H_WITH_FRONTAL : 210}`}
             className="block h-auto w-full"
             role="img"
-            aria-label={zones
-              .map(
-                (z) =>
-                  `${LATERAL_LABEL[z.lateral]}: ${
-                    isAverageZone(z.pct_over_avg)
-                      ? '≈ media'
-                      : formatPct(z.pct_over_avg)
-                  }`,
-              )
-              .join(' · ')}
+            aria-label={[
+              ...zones.map((z) => zoneAria(z, hasFrontal ? 'Área ' : '')),
+              ...frontal.map((z) => zoneAria(z, 'Frontal ')),
+            ].join(' · ')}
           >
             {/* shaded thirds first, pitch lines on top */}
             {zones.map((zone, i) => (
@@ -142,7 +154,28 @@ export default function DefensiveZonesCard({ data }: Props) {
                 )}
               />
             ))}
+            {hasFrontal && (
+              <rect x="30" y={FRONTAL_Y} width="300" height={FRONTAL_H} fill="none" stroke="rgba(255,255,255,.10)" strokeWidth="1.5" strokeDasharray="4 5" />
+            )}
+            {frontal.map((zone, i) => (
+              <rect
+                key={`f-${zone.lateral}`}
+                data-testid={`zone-shade-frontal-${zone.lateral}`}
+                x={ZONE_X[i]}
+                y={FRONTAL_Y}
+                width={ZONE_WIDTH}
+                height={FRONTAL_H}
+                fill={ZONE_SHADE_HEX[zone.opportunity_level]}
+                fillOpacity={zoneShadeOpacity(
+                  zone.opportunity_level,
+                  zone.pct_over_avg,
+                )}
+              />
+            ))}
             <PitchLines />
+            {frontal.map((zone, i) => (
+              <ZoneReading key={`ft-${zone.lateral}`} zone={zone} cx={ZONE_CENTER_X[i]} y={FRONTAL_Y + 76} />
+            ))}
             {/* per-zone reading inside its shaded region */}
             {zones.map((zone, i) =>
               isAverageZone(zone.pct_over_avg) ? (
@@ -189,25 +222,8 @@ export default function DefensiveZonesCard({ data }: Props) {
         </div>
 
         {/* Per-zone labels + opportunity pills (the % lives in the box now) */}
-        <div className="mb-1.5 mt-2 grid grid-cols-3 gap-2">
-          {zones.map((zone) => (
-            <div
-              key={zone.lateral}
-              className="flex flex-col items-center gap-1.5 text-center"
-            >
-              <span
-                className={`text-[10.5px] font-extrabold uppercase tracking-[0.08em] ${LEVEL_TEXT_CLASS[zone.opportunity_level]}`}
-              >
-                {LATERAL_LABEL[zone.lateral]}
-              </span>
-              <span
-                className={`${PILL_BASE} text-[10px] font-extrabold whitespace-nowrap ${LEVEL_PILL_CLASS[zone.opportunity_level]}`}
-              >
-                {LEVEL_PILL_LABEL[zone.opportunity_level]}
-              </span>
-            </div>
-          ))}
-        </div>
+        <ZoneLabels zones={zones} caption={hasFrontal ? 'Dentro del área' : null} />
+        {hasFrontal && <ZoneLabels zones={frontal} caption="Frontal del área" />}
         <div className="mb-4 text-center text-[10.5px] text-bf-gray/50">
           goles esperados por encima de un equipo medio de la liga
         </div>
@@ -298,6 +314,85 @@ export default function DefensiveZonesCard({ data }: Props) {
   );
 }
 
+function zoneAria(z: DefensiveZoneCell, prefix: string): string {
+  return `${prefix}${LATERAL_LABEL[z.lateral]}: ${
+    isAverageZone(z.pct_over_avg) ? '≈ media' : formatPct(z.pct_over_avg)
+  }`;
+}
+
+/** Big % + fine delta (or muted '≈ media') for one frontal cell. */
+function ZoneReading({ zone, cx, y }: { zone: DefensiveZoneCell; cx: number; y: number }) {
+  if (isAverageZone(zone.pct_over_avg)) {
+    return (
+      <text
+        x={cx}
+        y={y + 4}
+        textAnchor="middle"
+        fill="#ABA9AC"
+        fillOpacity={0.55}
+        style={{ fontSize: 13, fontWeight: 700 }}
+      >
+        ≈ media
+      </text>
+    );
+  }
+  return (
+    <g>
+      <text
+        x={cx}
+        y={y}
+        textAnchor="middle"
+        fill={ZONE_SHADE_HEX[zone.opportunity_level]}
+        style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-1px' }}
+      >
+        {formatPct(zone.pct_over_avg)}
+      </text>
+      <text
+        x={cx}
+        y={y + 18}
+        textAnchor="middle"
+        fill={ZONE_SHADE_HEX[zone.opportunity_level]}
+        fillOpacity={0.75}
+        style={{ fontSize: 12, fontWeight: 600 }}
+      >
+        {formatDeltaFine(zone.pct_over_avg)}
+      </text>
+    </g>
+  );
+}
+
+/** Per-zone label + opportunity pill, one row of three. */
+function ZoneLabels({ zones, caption }: { zones: DefensiveZoneCell[]; caption: string | null }) {
+  return (
+    <>
+      {caption && (
+        <div className="mt-2 text-center text-[10px] font-bold uppercase tracking-[0.1em] text-bf-gray/50">
+          {caption}
+        </div>
+      )}
+      <div className="mb-1.5 mt-2 grid grid-cols-3 gap-2">
+        {zones.map((zone) => (
+          <div
+            key={zone.lateral}
+            className="flex flex-col items-center gap-1.5 text-center"
+          >
+            <span
+              className={`text-[10.5px] font-extrabold uppercase tracking-[0.08em] ${LEVEL_TEXT_CLASS[zone.opportunity_level]}`}
+            >
+              {LATERAL_LABEL[zone.lateral]}
+            </span>
+            <span
+              className={`${PILL_BASE} text-[10px] font-extrabold whitespace-nowrap ${LEVEL_PILL_CLASS[zone.opportunity_level]}`}
+            >
+              {LEVEL_PILL_LABEL[zone.opportunity_level]}
+            </span>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
 /**
  * The i74 season stamp. Always rendered when the payload carries provenance:
  * a muted caption for live-season data, a gold notice for anything else. The
@@ -330,7 +425,7 @@ function ExploiterRow({
   striped: boolean;
   data: DefensiveZonesMeta;
 }) {
-  const level = levelForZone(exploiter.zone, data.zones);
+  const level = levelForZone(exploiter.zone, data.zones, data.frontal_zones ?? []);
   const numberClass = LEVEL_TEXT_CLASS[level];
   const opacity = rankOpacity(exploiter.rank);
   const sub = exploiterSub(exploiter.team_short, exploiter.position, exploiter.club_note);

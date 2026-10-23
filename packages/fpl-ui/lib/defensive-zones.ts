@@ -7,8 +7,8 @@
  * Color semantics (design handoff, authoritative — do not invert):
  * zone/bar color encodes the USER's attacking opportunity — turquoise
  * ('opp') = best zone, gold/amber ('warm') = slight advantage, grey
- * ('cool') = none. Coral is reserved for the opponent-weakness label pill;
- * never red/coral for a strong zone (red reads as "avoid").
+ * ('cool') = none. The card's header pill uses the same coding; no coral/red
+ * anywhere on the card — the card is the user's opportunity, never a warning.
  */
 import type {
   DefensiveZoneCell,
@@ -158,8 +158,7 @@ const LATERAL_SHORT: Record<ZoneLateral, string> = {
 
 /**
  * Table zone-pill label from an engine zone key ('in-box / left' → 'Izq').
- * Edge-of-box zones (possible in weakest_zones but not on the pitch view)
- * are prefixed: 'edge-of-box / left' → 'Frontal izq'.
+ * Edge-of-box zones are prefixed: 'edge-of-box / left' → 'Frontal izq'.
  */
 export function zonePillLabel(zone: string): string {
   const [depth, lateral] = zone.split(' / ');
@@ -169,20 +168,20 @@ export function zonePillLabel(zone: string): string {
 }
 
 /**
- * Opportunity level for an exploiter's zone, looked up from the in-box
- * cells so the table reinforces the pitch coding. Edge-of-box zones have
- * no cell — they were still a weak zone, so they read 'warm'.
+ * Opportunity level for an exploiter's zone, looked up from the pitch cells
+ * so the table reinforces the pitch coding. Edge-of-box zones read their
+ * `frontal` cell; payloads predating `frontal_zones` have none, so they read
+ * 'warm' (the zone was still a weak one).
  */
 export function levelForZone(
   zone: string,
   zones: DefensiveZoneCell[],
+  frontal: DefensiveZoneCell[] = [],
 ): OpportunityLevel {
   const [depth, lateral] = zone.split(' / ');
-  if (depth === 'in-box') {
-    const cell = zones.find((z) => z.lateral === lateral);
-    if (cell != null) return cell.opportunity_level;
-  }
-  return 'warm';
+  const cells = depth === 'in-box' ? zones : depth === 'edge-of-box' ? frontal : [];
+  const cell = cells.find((z) => z.lateral === lateral);
+  return cell != null ? cell.opportunity_level : 'warm';
 }
 
 // ---------------------------------------------------------------------------
