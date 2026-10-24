@@ -24,9 +24,14 @@ import {
   venueLabel,
   hexRgba,
   BLANK_COLOR,
+  cellTitle,
+  fixtureVerdict,
+  gwLabel,
   type Band,
 } from '@/lib/fixture-outlook-format';
 import type { TeamExtras } from '@/lib/fixture-competitions';
+import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
+import type { Locale } from '@/lib/i18n/locale';
 import { TimelineLane } from './FixtureTimeline';
 
 const GOOD_HEX = '#02EBAE';
@@ -45,9 +50,9 @@ function cellOpponents(gw: FixtureOutlookGW): string {
 }
 
 /** Venue label: L/V for a single fixture, joined for a DGW, empty when blank. */
-function cellVenue(gw: FixtureOutlookGW): string {
+function cellVenue(gw: FixtureOutlookGW, locale: Locale): string {
   if (gw.fixtures.length === 0) return '';
-  return gw.fixtures.map((f) => venueLabel(f.is_home)).join('/');
+  return gw.fixtures.map((f) => venueLabel(f.is_home, locale)).join('/');
 }
 
 /**
@@ -60,6 +65,8 @@ function cellVenue(gw: FixtureOutlookGW): string {
  */
 export function TeamHeader({ team, onAskTeam, rank }: { team: TeamOutlook; onAskTeam?: () => void; rank?: number }) {
   const { team_short, verdict, avg_band } = team;
+  const t = useT();
+  const { locale } = useLocale();
   const teamLabel = onAskTeam ? (
     <button
       type="button"
@@ -75,10 +82,10 @@ export function TeamHeader({ team, onAskTeam, rank }: { team: TeamOutlook; onAsk
   );
   return (
     <div className="flex items-center gap-3.5 flex-wrap" data-testid="team-header">
-      {rank !== undefined && <span className="fx-rank" aria-label={`puesto ${rank}`}>{rank}</span>}
+      {rank !== undefined && <span className="fx-rank" aria-label={t('fx.rank', { n: rank })}>{rank}</span>}
       {teamLabel}
       <AvgPill avg={avg_band} />
-      {verdict && <span className="text-[14.5px] text-bf-gray">{verdict}</span>}
+      {verdict && <span className="text-[14.5px] text-bf-gray">{fixtureVerdict(verdict, locale)}</span>}
     </div>
   );
 }
@@ -146,10 +153,11 @@ export function FixtureTickerRow({
 
 /** "Prom X.X" — the team's mean difficulty across the horizon, band-coloured. */
 export function AvgPill({ avg }: { avg: number | null }) {
+  const t = useT();
   if (avg === null) {
     return (
       <span className="text-[13px] font-extrabold rounded-full px-3 py-1 bg-white/5 text-bf-gray/70 border border-white/10 whitespace-nowrap">
-        Prom —
+        {t('fx.avg', { value: '—' })}
       </span>
     );
   }
@@ -160,7 +168,7 @@ export function AvgPill({ avg }: { avg: number | null }) {
       className="text-[13px] font-extrabold rounded-full px-3 py-1 whitespace-nowrap border"
       style={{ backgroundColor: hexRgba(fg, 0.16), color: fg, borderColor: hexRgba(fg, 0.5) }}
     >
-      Prom {avg.toFixed(1)}
+      {t('fx.avg', { value: avg.toFixed(1) })}
     </span>
   );
 }
@@ -211,10 +219,11 @@ function GwCell({
   onAsk?: () => void;
   showFdrNumbers: boolean;
 }) {
+  const { locale } = useLocale();
   const blank = gw.band === null;
   const { fg, bg, bd } = cellColors(gw.band);
   const opponents = cellOpponents(gw);
-  const venue = cellVenue(gw);
+  const venue = cellVenue(gw, locale);
 
   const cellStyle: React.CSSProperties = {
     backgroundColor: bg,
@@ -222,14 +231,12 @@ function GwCell({
     boxShadow: runHex ? `0 0 0 2px ${hexRgba(runHex, 0.7)}` : undefined,
   };
 
-  const title = blank
-    ? 'Sin partido (jornada en blanco)'
-    : `J${gw.gameweek} · ${opponents} ${venue} · FDR ${gw.band}${gw.is_dgw ? ' · doble jornada' : ''}`;
+  const title = cellTitle(gw, locale);
 
   const inner = (
     <>
       <span className="text-[11px] font-bold tracking-wide text-white/60 leading-none">
-        J{gw.gameweek}
+        {gwLabel(gw.gameweek, locale)}
         {gw.is_dgw ? '··' : ''}
       </span>
       <span className="text-[17px] font-extrabold tracking-tight leading-none" style={{ color: fg }}>
@@ -278,6 +285,8 @@ function GwCell({
  * swatches explain the run rings.
  */
 export function BandLegend({ inline = false }: { inline?: boolean }) {
+  const t = useT();
+  const { locale } = useLocale();
   const bands = [1, 2, 3, 4, 5] as const;
   return (
     <div
@@ -295,7 +304,7 @@ export function BandLegend({ inline = false }: { inline?: boolean }) {
             className={`font-extrabold rounded-md border ${inline ? 'text-[12px] px-2 py-0.5' : 'text-[13px] px-2.5 py-1'}`}
             style={{ backgroundColor: hexRgba(fg, 0.18), color: fg, borderColor: hexRgba(fg, 0.5) }}
           >
-            {b} · {bandLabel(b)}
+            {b} · {bandLabel(b, locale)}
           </span>
         );
       })}
@@ -303,7 +312,7 @@ export function BandLegend({ inline = false }: { inline?: boolean }) {
       <span className="w-px h-5 bg-white/20" />
 
       <span className={inline ? 'text-[12px] font-semibold text-bf-gray' : 'text-[13px] font-semibold text-bf-gray'}>
-        <b className="text-white">L</b> Local&nbsp;·&nbsp;<b className="text-white">V</b> Visitante
+        <b className="text-white">{t('fx.venue.home')}</b> {t('fx.venue.homeWord')}&nbsp;·&nbsp;<b className="text-white">{t('fx.venue.away')}</b> {t('fx.venue.awayWord')}
       </span>
 
       <span className="w-px h-5 bg-white/20" />
@@ -313,12 +322,12 @@ export function BandLegend({ inline = false }: { inline?: boolean }) {
           className="inline-block w-[26px] h-[14px] rounded-[5px] border-[1.5px]"
           style={{ borderColor: hexRgba(GOOD_HEX, 0.7) }}
         />
-        Racha favorable&nbsp;·&nbsp;
+        {t('fx.legend.goodRun')}&nbsp;·&nbsp;
         <span
           className="inline-block w-[26px] h-[14px] rounded-[5px] border-[1.5px]"
           style={{ borderColor: hexRgba(BAD_HEX, 0.7) }}
         />
-        Racha dura (3+)
+        {t('fx.legend.hardRun')}
       </span>
     </div>
   );

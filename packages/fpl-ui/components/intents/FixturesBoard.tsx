@@ -30,7 +30,9 @@ import {
   fixtureOutlookProvenance,
   type FixtureOutlookProvenance,
 } from '@/lib/fixture-outlook-provenance';
-import { axisLabel } from '@/lib/fixture-outlook-format';
+import { axisLabel, gwLabel, gwRange } from '@/lib/fixture-outlook-format';
+import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
+import type { DictKey } from '@/lib/i18n/dictionary';
 import { fitCompactWindow, fitFixtureWindow, rowColumns } from '@/lib/fixture-board-fit';
 import { teamOutlookQuestion, fixtureCellQuestion } from '@/lib/fixture-chat-links';
 import {
@@ -71,10 +73,10 @@ const PRESENTATION_HORIZONS = [6, 8] as const;
 const OTHER_COMPETITIONS_KEY = 'fpl-fixtures-other-competitions';
 type ViewMode = 'detailed' | 'compact' | 'tendency';
 
-const VIEWS: Array<{ id: ViewMode; label: string }> = [
-  { id: 'detailed', label: 'Detallado' },
-  { id: 'compact', label: 'Compacto' },
-  { id: 'tendency', label: 'Tendencia' },
+const VIEWS: Array<{ id: ViewMode; label: DictKey }> = [
+  { id: 'detailed', label: 'fx.view.detailed' },
+  { id: 'compact', label: 'fx.view.compact' },
+  { id: 'tendency', label: 'fx.view.tendency' },
 ];
 
 export function FixturesBoard({
@@ -84,6 +86,8 @@ export function FixturesBoard({
   onAsk: (question: string) => void;
   initialView?: ViewMode;
 }) {
+  const t = useT();
+  const { locale } = useLocale();
   const [axis, setAxis] = useState<FixtureAxis>('attack');
   // Inside the wide workspace the window follows the room available (largest
   // option that fits) until the user picks a width; elsewhere it stays at 8.
@@ -128,8 +132,8 @@ export function FixturesBoard({
   );
   const visibleEndGameweek = data.teams[0]?.series.at(-1)?.gameweek ?? startGameweek;
   const provenance = useMemo(
-    () => fixtureOutlookProvenance(REAL_SEASON_GENERATION, finishedGameweek),
-    [finishedGameweek],
+    () => fixtureOutlookProvenance(REAL_SEASON_GENERATION, finishedGameweek, locale),
+    [finishedGameweek, locale],
   );
   const presentationStart = clampFixtureWindowStart(startGameweek, gameweeks, presentationHorizon) ?? startGameweek;
   const presentationData = useMemo(
@@ -285,7 +289,7 @@ export function FixturesBoard({
                   : 'text-bf-gray hover:text-white'
               }`}
             >
-              {axisLabel(a)}
+              {axisLabel(a, locale)}
             </button>
           ))}
         </div>
@@ -293,7 +297,7 @@ export function FixturesBoard({
         {/* Horizon selector */}
         <div className="inline-flex items-center gap-1">
           <span className="text-[10px] font-bold uppercase tracking-wider text-bf-gray/60">
-            Jornadas
+            {t('fx.horizon')}
           </span>
           {horizons.map((h) => (
             <button
@@ -312,24 +316,24 @@ export function FixturesBoard({
         </div>
 
         {/* Gameweek window navigation */}
-        <div className="inline-flex items-center gap-1.5" aria-label="Navegar jornadas">
+        <div className="inline-flex items-center gap-1.5" aria-label={t('fx.nav.label')}>
           <button
             type="button"
             onClick={() => moveWindow(-1)}
             disabled={previousGameweek === null || previousGameweek === startGameweek}
-            aria-label="Jornada anterior"
+            aria-label={t('fx.nav.prev')}
             className="w-7 h-7 rounded-md border border-white/10 text-bf-gray hover:text-white disabled:opacity-35 disabled:hover:text-bf-gray transition-colors"
           >
             ‹
           </button>
           <span className="text-[11px] font-extrabold text-bf-gray whitespace-nowrap" aria-live="polite">
-            J{startGameweek}–J{visibleEndGameweek}
+            {gwRange(startGameweek, visibleEndGameweek, locale)}
           </span>
           <button
             type="button"
             onClick={() => moveWindow(1)}
             disabled={followingGameweek === null || followingGameweek === startGameweek}
-            aria-label="Jornada siguiente"
+            aria-label={t('fx.nav.next')}
             className="w-7 h-7 rounded-md border border-white/10 text-bf-gray hover:text-white disabled:opacity-35 disabled:hover:text-bf-gray transition-colors"
           >
             ›
@@ -356,7 +360,7 @@ export function FixturesBoard({
                   : 'text-bf-gray hover:text-white'
               }`}
             >
-              {v.label}
+              {t(v.label)}
             </button>
           ))}
         </div>
@@ -366,7 +370,7 @@ export function FixturesBoard({
             onClick={openPresentation}
             className="rounded-full border border-bf-turquoise/40 bg-bf-turquoise/10 px-3 py-1 text-xs font-bold text-bf-turquoise transition-colors hover:bg-bf-turquoise/20"
           >
-            Presentar
+            {t('fx.present')}
           </button>
         )}
       </div>
@@ -388,7 +392,7 @@ export function FixturesBoard({
               <div>
                 <div className="flex items-baseline gap-3 flex-wrap">
                   <h2 className="text-2xl font-black tracking-tight text-white">
-                    Liga · orden por calendario
+                    {t('fx.league.title')}
                   </h2>
                   <span
                     className="text-[13px] font-extrabold uppercase tracking-wider rounded-md px-3 py-1 border"
@@ -398,11 +402,11 @@ export function FixturesBoard({
                       borderColor: `${ACCENT_HEX.turquoise}66`,
                     }}
                   >
-                    {axisLabel(axis)}
+                    {axisLabel(axis, locale)}
                   </span>
                 </div>
                 <p className="mt-1.5 text-sm text-bf-gray">
-                  Mejor calendario primero · FDR promedio J{startGameweek}–J{visibleEndGameweek}
+                  {t('fx.league.subtitle', { range: gwRange(startGameweek, visibleEndGameweek, locale) })}
                 </p>
               </div>
 
@@ -419,17 +423,17 @@ export function FixturesBoard({
           <div ref={rowsRef} data-testid="fixture-board-rows">
           {view === 'detailed' && (
             <div className="fixture-rows" style={{ '--row-cols': rowColumnCount, '--row-rows': Math.ceil(data.teams.length / rowColumnCount) } as CSSProperties}>
-              {data.teams.map((t, index) => (
+              {data.teams.map((team, index) => (
                 <div
-                  key={t.team_short}
+                  key={team.team_short}
                   className="py-[18px] first:pt-0 border-t border-white/10 first:border-t-0"
                 >
                   <FixtureTickerRow
                     rank={index + 1}
-                    team={t}
-                    onAskTeam={() => onAsk(teamOutlookQuestion(t.team_name, axis))}
-                    onAskCell={(gw) => onAsk(fixtureCellQuestion(t.team_name, gw))}
-                    extras={extrasFor(t.team_short)}
+                    team={team}
+                    onAskTeam={() => onAsk(teamOutlookQuestion(team.team_name, axis, locale))}
+                    onAskCell={(gw) => onAsk(fixtureCellQuestion(team.team_name, gw, locale))}
+                    extras={extrasFor(team.team_short)}
                   />
                 </div>
               ))}
@@ -438,12 +442,12 @@ export function FixturesBoard({
           {view === 'compact' && <FixtureCompactGrid data={data} onAsk={onAsk} extrasFor={extrasFor} layerActive={layer !== null} />}
           {view === 'tendency' && (
             <div className="fixture-rows" style={{ '--row-cols': rowColumnCount, '--row-rows': Math.ceil(data.teams.length / rowColumnCount) } as CSSProperties}>
-              {data.teams.map((t, index) => (
+              {data.teams.map((team, index) => (
                 <div
-                  key={t.team_short}
+                  key={team.team_short}
                   className="py-[18px] first:pt-0 border-t border-white/10 first:border-t-0"
                 >
-                  <FixtureTendencyChart team={t} rank={index + 1} onAsk={onAsk} />
+                  <FixtureTendencyChart team={team} rank={index + 1} onAsk={onAsk} />
                 </div>
               ))}
             </div>
@@ -460,24 +464,24 @@ export function FixturesBoard({
           className={presentationMode
             ? 'fixed inset-0 z-[100] flex min-h-[100dvh] flex-col overflow-hidden bg-bf-ink px-[clamp(16px,3vw,56px)] py-[clamp(14px,2.5vh,36px)] text-white'
             : 'pointer-events-none fixed inset-0 -z-10 flex min-h-[100dvh] flex-col overflow-hidden opacity-0'}
-          aria-label="Calendario en modo presentación"
+          aria-label={t('fx.present.aria')}
           aria-hidden={!presentationMode}
         >
           <div className="mb-[clamp(6px,1vh,14px)] flex items-center gap-[clamp(10px,1.4vw,28px)] whitespace-nowrap">
-            <span className="text-[clamp(16px,1.7vw,30px)] font-black tracking-tight">Calendario FDR</span>
+            <span className="text-[clamp(16px,1.7vw,30px)] font-black tracking-tight">{t('fx.present.title')}</span>
             <span className="text-[clamp(11px,1vw,18px)] font-extrabold uppercase tracking-wider text-bf-turquoise">
-              {axisLabel(axis)} · J{presentationStart}–J{presentationEnd}
+              {axisLabel(axis, locale)} · {gwRange(presentationStart, presentationEnd, locale)}
             </span>
             <div className="hidden min-w-0 flex-1 overflow-hidden lg:block">
               {layer ? (
                 <PresentationLegend />
               ) : (
                 <span className="text-[clamp(10px,0.85vw,15px)] font-bold text-bf-gray">
-                  Fácil → difícil · ◯ racha favorable · ◯ racha difícil
+                  {t('fx.present.legend')}
                 </span>
               )}
             </div>
-            <div className="ml-auto inline-flex items-center gap-1" role="group" aria-label="Jornadas a mostrar">
+            <div className="ml-auto inline-flex items-center gap-1" role="group" aria-label={t('fx.present.horizonGroup')}>
               {PRESENTATION_HORIZONS.map((h) => (
                 <button
                   key={h}
@@ -490,7 +494,7 @@ export function FixturesBoard({
                       : 'border-white/15 text-bf-gray hover:text-white'
                   }`}
                 >
-                  {h} jornadas
+                  {t('fx.present.horizonOption', { n: h })}
                 </button>
               ))}
             </div>
@@ -499,7 +503,7 @@ export function FixturesBoard({
               onClick={closePresentation}
               className="rounded-md border border-white/15 px-3 py-1.5 text-[clamp(10px,1vw,14px)] font-bold text-bf-gray hover:text-white"
             >
-              Salir <span className="text-white/50">Esc</span>
+              {t('fx.present.exit')} <span className="text-white/50">Esc</span>
             </button>
           </div>
           <div className="min-h-0 flex-1 overflow-hidden">
@@ -540,13 +544,11 @@ function FixtureProvenanceStamp({ provenance }: { provenance: FixtureOutlookProv
   );
 }
 
-const FOOTER_NOTE =
-  'Calendario real desde la API oficial de FPL, sin datos inventados. El eje de ataque usa la dificultad FDR de FPL; el de portería a cero la ajusta por la forma atacante reciente del rival. El calendario del final de temporada se completará según la API lo vaya publicando.';
-
 function FooterNote() {
+  const t = useT();
   return (
     <p className="max-w-prose text-[10px] leading-snug text-bf-gray/50 pt-3 border-t border-white/5">
-      {FOOTER_NOTE}
+      {t('fx.footer')}
     </p>
   );
 }
@@ -559,13 +561,15 @@ function FooterNote() {
 function CompactHeader({ axis, start, end, provenance }: {
   axis: FixtureAxis; start: number; end: number; provenance: FixtureOutlookProvenance;
 }) {
+  const t = useT();
+  const { locale } = useLocale();
   const [open, setOpen] = useState(false);
   const warned = Boolean(provenance.warning);
   return (
     <div data-testid="compact-header">
       <div className="flex items-center gap-x-4 gap-y-2 flex-wrap">
         <div className="flex items-center gap-x-3 gap-y-1 flex-wrap">
-          <h2 className="text-lg font-black tracking-tight text-white">Liga · orden por calendario</h2>
+          <h2 className="text-lg font-black tracking-tight text-white">{t('fx.league.title')}</h2>
           <span
             className="text-[11px] font-extrabold uppercase tracking-wider rounded-md px-2.5 py-0.5 border"
             style={{
@@ -574,10 +578,10 @@ function CompactHeader({ axis, start, end, provenance }: {
               borderColor: `${ACCENT_HEX.turquoise}66`,
             }}
           >
-            {axisLabel(axis)}
+            {axisLabel(axis, locale)}
           </span>
           <span className="text-[13px] text-bf-gray whitespace-nowrap">
-            Mejor calendario primero · FDR promedio J{start}–J{end}
+            {t('fx.league.subtitle', { range: gwRange(start, end, locale) })}
           </span>
         </div>
         <div className="ml-auto flex items-center gap-x-3 gap-y-1.5 flex-wrap justify-end">
@@ -586,7 +590,7 @@ function CompactHeader({ axis, start, end, provenance }: {
             type="button"
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
-            aria-label="Nota sobre los datos"
+            aria-label={t('fx.dataNote')}
             title={provenance.warning ?? provenance.label}
             className={`flex h-7 w-7 flex-none items-center justify-center rounded-full border text-[13px] font-black leading-none transition-colors ${
               warned
@@ -601,7 +605,7 @@ function CompactHeader({ axis, start, end, provenance }: {
       {open && (
         <div data-testid="compact-note" className="mt-3 space-y-2 max-w-prose">
           <FixtureProvenanceStamp provenance={provenance} />
-          <p className="text-[11px] leading-snug text-bf-gray/70">{FOOTER_NOTE}</p>
+          <p className="text-[11px] leading-snug text-bf-gray/70">{t('fx.footer')}</p>
         </div>
       )}
     </div>

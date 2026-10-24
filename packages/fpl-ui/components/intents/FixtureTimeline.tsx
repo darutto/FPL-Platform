@@ -23,12 +23,16 @@ import {
   venueLabel,
   hexRgba,
   BLANK_COLOR,
+  cellAriaLabel,
+  cellTitle,
+  gwLabel,
   type Band,
 } from '@/lib/fixture-outlook-format';
+import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
 import {
   buildPresentationColumns,
   buildTimeline,
-  COMPETITION_LEGEND,
+  competitionLegend,
   competitionColor,
   competitionTileLabel,
   type GapInfo,
@@ -106,10 +110,11 @@ function PlTile({
   m: Metrics;
   onAsk?: () => void;
 }) {
+  const { locale } = useLocale();
   const blank = gw.band === null;
   const fg = blank ? BLANK_COLOR : bandColor(gw.band as Band);
   const opponents = blank ? '—' : gw.fixtures.map((f) => f.opponent_short).join('/');
-  const venue = blank ? '' : gw.fixtures.map((f) => venueLabel(f.is_home)).join('/');
+  const venue = blank ? '' : gw.fixtures.map((f) => venueLabel(f.is_home, locale)).join('/');
   const style: CSSProperties = {
     minWidth: m.plW,
     height: m.plH,
@@ -118,12 +123,10 @@ function PlTile({
     border: `1.5px solid ${hexRgba(fg, 0.55)}`,
     boxShadow: ring ? `0 0 0 2px ${hexRgba(ring, 0.7)}` : undefined,
   };
-  const label = blank
-    ? 'Sin partido (jornada en blanco)'
-    : `J${gw.gameweek} · ${opponents} ${venue} · FDR ${gw.band}${gw.is_dgw ? ' · doble jornada' : ''}`;
+  const label = cellTitle(gw, locale);
   const inner = (
     <>
-      <span className="leading-none text-bf-gray font-normal" style={{ fontSize: m.gwFont }}>J{gw.gameweek}</span>
+      <span className="leading-none text-bf-gray font-normal" style={{ fontSize: m.gwFont }}>{gwLabel(gw.gameweek, locale)}</span>
       <span className="font-bold leading-none tracking-tight" style={{ fontSize: m.oppFont, color: fg }}>{opponents}</span>
       <span className="leading-none font-normal text-bf-gray min-h-[11px]" style={{ fontSize: m.haFont }}>{venue}</span>
     </>
@@ -154,6 +157,7 @@ function ExtraTile({
   selected: boolean;
   onPick?: () => void;
 }) {
+  const { locale } = useLocale();
   const color = competitionColor(item.match.competition);
   const style: CSSProperties = {
     width: m.exW,
@@ -164,7 +168,7 @@ function ExtraTile({
     backgroundColor: selected ? hexRgba(color, 0.12) : 'transparent',
   };
   const code = item.match.opponentCode;
-  const ha = venueLabel(item.match.venue === 'H');
+  const ha = venueLabel(item.match.venue === 'H', locale);
   const inner = (
     <>
       <span className="font-normal uppercase leading-none tracking-[0.1em]" style={{ fontSize: m.siglaFont, color }}>
@@ -317,9 +321,10 @@ export function TimelineLane({
   extras: TeamExtras;
   onAskCell?: (gw: FixtureOutlookGW) => void;
 }) {
+  const { locale } = useLocale();
   const [detail, setDetail] = useState<string | null>(null);
   const detailId = useId();
-  const items = buildTimeline(team.series, extras);
+  const items = buildTimeline(team.series, extras, locale);
   const runByGw = runsByGameweek(team.runs);
   const sentence = detailSentence(items, detail);
   return (
@@ -370,13 +375,12 @@ const TILE_INK = '#0E0D12';
 const LINE_TOP = '46%';
 
 function PresentationTile({ gw }: { gw: FixtureOutlookGW }) {
+  const { locale } = useLocale();
   const blank = gw.band === null;
   const fill = blank ? hexRgba(BLANK_COLOR, 0.22) : bandColor(gw.band as Band);
   const opponents = blank ? '—' : gw.fixtures.map((f) => f.opponent_short).join('/');
-  const venue = blank ? '' : gw.fixtures.map((f) => venueLabel(f.is_home)).join('/');
-  const label = blank
-    ? `J${gw.gameweek} · sin partido (jornada en blanco)`
-    : `J${gw.gameweek} · ${opponents} ${venue} · FDR ${gw.band}${gw.is_dgw ? ' · doble jornada' : ''}`;
+  const venue = blank ? '' : gw.fixtures.map((f) => venueLabel(f.is_home, locale)).join('/');
+  const label = cellAriaLabel(gw, locale);
   return (
     <div
       role="img"
@@ -521,10 +525,11 @@ export function PresentationTimeline({
   data: FixtureOutlookMeta;
   extrasFor: (team: string) => TeamExtras | null;
 }) {
+  const { locale } = useLocale();
   const rows = data.teams.length || 1;
   const teams = data.teams.map((team) => ({
     team,
-    columns: buildPresentationColumns(team.series, extrasFor(team.team_short)),
+    columns: buildPresentationColumns(team.series, extrasFor(team.team_short), locale),
     runByGw: runsByGameweek(team.runs),
   }));
   const gameweeks = (teams[0]?.columns ?? []).map((c) => c.gw.gameweek);
@@ -557,7 +562,7 @@ export function PresentationTimeline({
             className="flex items-center justify-center font-extrabold tracking-wide text-bf-gray"
             style={{ fontSize: r(0.3) }}
           >
-            J{gw}
+            {gwLabel(gw, locale)}
           </span>
         </span>
       ))}
@@ -590,6 +595,8 @@ export function PresentationTimeline({
 
 /** The one-line legend of the presentation header: what the fill, the bar under a run, the tiles and the gold number mean. */
 export function PresentationLegend() {
+  const t = useT();
+  const { locale } = useLocale();
   const bands = [1, 2, 3, 4, 5] as const;
   return (
     <p
@@ -598,27 +605,27 @@ export function PresentationLegend() {
       style={{ fontSize: 'clamp(10px, 0.85vw, 15px)' }}
     >
       <span className="inline-flex items-center gap-1.5">
-        Fácil
+        {t('fx.band.1')}
         <span className="inline-flex gap-[2px]">
           {bands.map((b) => (
             <i key={b} aria-hidden="true" className="inline-block h-[0.9em] w-[1.4em] rounded-[3px]" style={{ backgroundColor: bandColor(b) }} />
           ))}
         </span>
-        Difícil
+        {t('fx.band.4')}
       </span>
       <span className="inline-flex items-center gap-1.5">
         <i aria-hidden="true" className="inline-block h-[3px] w-[1.6em] rounded-full" style={{ backgroundColor: GOOD_HEX }} />
-        racha favorable
+        {t('fx.pl.goodRun')}
         <i aria-hidden="true" className="inline-block h-[3px] w-[1.6em] rounded-full" style={{ backgroundColor: BAD_HEX }} />
-        difícil
+        {t('fx.pl.hardRun')}
       </span>
-      {COMPETITION_LEGEND.map((entry) => (
+      {competitionLegend(locale).map((entry) => (
         <span key={entry.label} className="inline-flex items-center gap-1.5">
           <i aria-hidden="true" className="inline-block h-[0.8em] w-[0.8em] rounded-[2px] border-[1.5px]" style={{ borderColor: entry.color }} />
-          {entry.label === 'Europa League' ? 'Europa' : entry.label}
+          {entry.short ?? entry.label}
         </span>
       ))}
-      <span className="text-bf-gold">3d dorado = descanso corto</span>
+      <span className="text-bf-gold">{t('fx.pl.rest')}</span>
     </p>
   );
 }

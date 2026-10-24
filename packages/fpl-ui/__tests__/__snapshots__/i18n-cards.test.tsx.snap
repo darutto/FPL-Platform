@@ -28,7 +28,7 @@ exports[`injury list card English reads in English, with the Spanish UI words go
 
 exports[`injury list card Spanish is unchanged (snapshot) and carries the Spanish words 1`] = `"LesionesSakaARS · MIDDuda75%Molestia en el tobillohace 3 mesesIsakNEW · FWDLesionado0%Rotura muscular, baja varias semanashace 3 meses"`;
 
-exports[`player card English reads in English, with the Spanish UI words gone 1`] = `"HaalandMCI · FWDAvailable239ptsPPG 6.8£15.5mprice74.2%ownership6.8form25.50xG2.67xA28.17xGI302.3ICT116DC0.78xG/900.08xA/900.86xGI/909.21ICT/903.54DC/902953 minutesGW29LIV (L) · 4GW30ARS (V) · 5"`;
+exports[`player card English reads in English, with the Spanish UI words gone 1`] = `"HaalandMCI · FWDAvailable239ptsPPG 6.8£15.5mprice74.2%ownership6.8form25.50xG2.67xA28.17xGI302.3ICT116DC0.78xG/900.08xA/900.86xGI/909.21ICT/903.54DC/902953 minutesGW29LIV (H) · 4GW30ARS (A) · 5"`;
 
 exports[`player card Spanish is unchanged (snapshot) and carries the Spanish words 1`] = `"HaalandMCI · FWDAvailable239ptsPPG 6.8£15.5mprecio74.2%propiedad6.8forma25.50xG2.67xA28.17xGI302.3ICT116DC0.78xG/900.08xA/900.86xGI/909.21ICT/903.54DC/902953 minutosGW29LIV (L) · 4GW30ARS (V) · 5"`;
 
