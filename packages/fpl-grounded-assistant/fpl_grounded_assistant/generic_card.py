@@ -43,6 +43,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from .catalogue import t
+from .locale_types import DEFAULT_LOCALE, Locale
+
 if TYPE_CHECKING:  # pragma: no cover — type hints only; avoids a runtime import cycle
     from .final_response import (
         PlayerFormMeta,
@@ -128,8 +131,8 @@ _FDR_LABELS_ES: dict[int, str] = {
 }
 
 
-def _fdr_label_es(value: "float | int | None") -> str:
-    """Map an FDR value (int rating or float average) to a Spanish text label."""
+def _fdr_label_es(value: "float | int | None", locale: Locale = DEFAULT_LOCALE) -> str:
+    """Map an FDR value (int rating or float average) to a text label (es by default)."""
     if value is None:
         return "-"
     try:
@@ -137,12 +140,12 @@ def _fdr_label_es(value: "float | int | None") -> str:
     except (TypeError, ValueError):
         return "-"
     band = max(1, min(5, band))
-    return _FDR_LABELS_ES[band]
+    return t(f"gcard.fdr.{band}", locale)
 
 
-def _venue_label_es(is_home: bool) -> str:
-    """Spanish home/away label."""
-    return "Casa" if is_home else "Fuera"
+def _venue_label_es(is_home: bool, locale: Locale = DEFAULT_LOCALE) -> str:
+    """Home/away label (es by default)."""
+    return t("gcard.venue.home" if is_home else "gcard.venue.away", locale)
 
 
 # ---------------------------------------------------------------------------
@@ -150,7 +153,7 @@ def _venue_label_es(is_home: bool) -> str:
 # dataclass (duck-typed) and returns a GenericCardMeta.
 # ---------------------------------------------------------------------------
 
-def compose_player_form(meta: "PlayerFormMeta") -> GenericCardMeta:
+def compose_player_form(meta: "PlayerFormMeta", locale: Locale = DEFAULT_LOCALE) -> GenericCardMeta:
     """Compose a FORMA RECIENTE card.
 
     hero = total points over the window; one mono per-gameweek row.
@@ -166,7 +169,7 @@ def compose_player_form(meta: "PlayerFormMeta") -> GenericCardMeta:
 
     hero = HeroStat(
         value=str(total_points),
-        label=f"PUNTOS · {meta.n_games} JOR",
+        label=t("gcard.form.hero", locale, n=meta.n_games),
         tone="good" if total_points > 0 else "neutral",
     )
 
@@ -176,7 +179,7 @@ def compose_player_form(meta: "PlayerFormMeta") -> GenericCardMeta:
     )
 
     columns = (
-        Column(header="JOR", align="left",  kind="text"),
+        Column(header=t("gcard.form.col_gw", locale), align="left",  kind="text"),
         Column(header="MIN", align="right", kind="mono"),
         Column(header="G",   align="right", kind="mono"),
         Column(header="A",   align="right", kind="mono"),
@@ -198,7 +201,7 @@ def compose_player_form(meta: "PlayerFormMeta") -> GenericCardMeta:
 
     return GenericCardMeta(
         accent="turquoise",
-        title="FORMA RECIENTE",
+        title=t("gcard.form.title", locale),
         subtitle=subtitle,
         hero=hero,
         pills=pills,
@@ -208,7 +211,7 @@ def compose_player_form(meta: "PlayerFormMeta") -> GenericCardMeta:
     )
 
 
-def compose_price_changes(meta: "PriceChangesMeta") -> GenericCardMeta:
+def compose_price_changes(meta: "PriceChangesMeta", locale: Locale = DEFAULT_LOCALE) -> GenericCardMeta:
     """Compose a CAMBIOS DE PRECIO card.
 
     Risers first then fallers; the CAMBIO column carries a signed delta, and
@@ -218,15 +221,15 @@ def compose_price_changes(meta: "PriceChangesMeta") -> GenericCardMeta:
     fallers = tuple(meta.fallers)
 
     pills = (
-        Pill(label=f"{len(risers)} SUBEN",  tone="good"),
-        Pill(label=f"{len(fallers)} BAJAN", tone="bad"),
+        Pill(label=t("gcard.price.rising", locale, n=len(risers)),   tone="good"),
+        Pill(label=t("gcard.price.falling", locale, n=len(fallers)), tone="bad"),
     )
 
     columns = (
-        Column(header="JUGADOR", align="left",  kind="text"),
-        Column(header="EQUIPO",  align="left",  kind="text"),
-        Column(header="PRECIO",  align="right", kind="mono"),
-        Column(header="CAMBIO",  align="right", kind="badge"),
+        Column(header=t("gcard.col.player", locale), align="left",  kind="text"),
+        Column(header=t("gcard.col.team", locale),   align="left",  kind="text"),
+        Column(header=t("gcard.col.price", locale),  align="right", kind="mono"),
+        Column(header=t("gcard.col.change", locale), align="right", kind="badge"),
     )
 
     def _row(e: Any) -> tuple[str, ...]:
@@ -244,7 +247,7 @@ def compose_price_changes(meta: "PriceChangesMeta") -> GenericCardMeta:
 
     return GenericCardMeta(
         accent="gold",
-        title="CAMBIOS DE PRECIO",
+        title=t("gcard.price.title", locale),
         subtitle=None,
         hero=None,
         pills=pills,
@@ -254,71 +257,79 @@ def compose_price_changes(meta: "PriceChangesMeta") -> GenericCardMeta:
     )
 
 
-#: Spanish mode labels for the ranked fixture-calendar intents.
-_CALENDAR_MODE_ES: dict[str, str] = {
-    "easiest": "Calendario más favorable",
-    "hardest": "Calendario más exigente",
-}
+#: The two modes the ranked fixture-calendar intents know (labels: ``gcard.cal.mode.*``).
+_CALENDAR_MODES: tuple[str, ...] = ("easiest", "hardest")
 
 
-def _ranked_calendar_rows(teams: tuple[Any, ...]) -> tuple[tuple[str, ...], ...]:
+def _calendar_mode_label(mode: Any, locale: Locale = DEFAULT_LOCALE) -> "str | None":
+    return t(f"gcard.cal.mode.{mode}", locale) if mode in _CALENDAR_MODES else None
+
+
+def _ranked_calendar_rows(
+    teams: tuple[Any, ...], locale: Locale = DEFAULT_LOCALE,
+) -> tuple[tuple[str, ...], ...]:
     """Shared row builder for the ranked team-list calendar cards."""
     return tuple(
         (
-            str(int(t.rank)),
-            t.team_short,
-            str(int(t.fixture_count)),
-            f"{float(t.avg_fdr):.1f}",
-            _fdr_label_es(t.avg_fdr),
+            str(int(tm.rank)),
+            tm.team_short,
+            str(int(tm.fixture_count)),
+            f"{float(tm.avg_fdr):.1f}",
+            _fdr_label_es(tm.avg_fdr, locale),
         )
-        for t in teams
+        for tm in teams
     )
 
 
-_RANKED_CALENDAR_COLUMNS: tuple[Column, ...] = (
-    Column(header="#",          align="left",  kind="text"),
-    Column(header="EQUIPO",     align="left",  kind="text"),
-    Column(header="PARTIDOS",   align="right", kind="mono"),
-    Column(header="FDR MEDIO",  align="right", kind="mono"),
-    Column(header="DIFICULTAD", align="left",  kind="badge"),
-)
+def _ranked_calendar_columns(locale: Locale = DEFAULT_LOCALE) -> tuple[Column, ...]:
+    return (
+        Column(header="#",                                      align="left",  kind="text"),
+        Column(header=t("gcard.col.team", locale),              align="left",  kind="text"),
+        Column(header=t("gcard.cal.col_fixtures", locale),      align="right", kind="mono"),
+        Column(header=t("gcard.cal.col_avg_fdr", locale),       align="right", kind="mono"),
+        Column(header=t("gcard.cal.col_difficulty", locale),    align="left",  kind="badge"),
+    )
 
 
-def compose_team_fixture_calendar(meta: "TeamFixtureCalendarMeta") -> GenericCardMeta:
+def compose_team_fixture_calendar(
+    meta: "TeamFixtureCalendarMeta", locale: Locale = DEFAULT_LOCALE,
+) -> GenericCardMeta:
     """Compose a CALENDARIO card ranking teams by fixture difficulty."""
-    subtitle = _CALENDAR_MODE_ES.get(meta.mode, None)
-    pills = (Pill(label=f"{int(meta.horizon)} JORNADAS", tone="neutral"),)
+    subtitle = _calendar_mode_label(meta.mode, locale)
+    pills = (Pill(label=t("gcard.cal.horizon", locale, n=int(meta.horizon)), tone="neutral"),)
     return GenericCardMeta(
         accent="cyan",
-        title="CALENDARIO",
+        title=t("gcard.cal.title", locale),
         subtitle=subtitle,
         hero=None,
         pills=pills,
-        columns=_RANKED_CALENDAR_COLUMNS,
-        rows=_ranked_calendar_rows(tuple(meta.teams)),
+        columns=_ranked_calendar_columns(locale),
+        rows=_ranked_calendar_rows(tuple(meta.teams), locale),
         footer=None,
     )
 
 
-def compose_position_fixture_run(meta: "PositionFixtureRunMeta") -> GenericCardMeta:
+def compose_position_fixture_run(
+    meta: "PositionFixtureRunMeta", locale: Locale = DEFAULT_LOCALE,
+) -> GenericCardMeta:
     """Compose a CALENDARIO POR POSICIÓN card (position-filtered team ranking)."""
-    mode_es = _CALENDAR_MODE_ES.get(meta.mode, "")
+    mode_es = _calendar_mode_label(meta.mode, locale) or ""
     label   = meta.position_label or meta.position
     subtitle = " · ".join(p for p in (label, mode_es) if p) or None
-    pills = (Pill(label=f"{int(meta.horizon)} JORNADAS", tone="neutral"),)
+    pills = (Pill(label=t("gcard.cal.horizon", locale, n=int(meta.horizon)), tone="neutral"),)
     return GenericCardMeta(
         accent="purple",
-        title="CALENDARIO POR POSICIÓN",
+        title=t("gcard.cal.title_position", locale),
         subtitle=subtitle,
         hero=None,
         pills=pills,
-        columns=_RANKED_CALENDAR_COLUMNS,
-        rows=_ranked_calendar_rows(tuple(meta.teams)),
+        columns=_ranked_calendar_columns(locale),
+        rows=_ranked_calendar_rows(tuple(meta.teams), locale),
         footer=None,
     )
 
 
-def compose_team_schedule(meta: "TeamScheduleMeta") -> GenericCardMeta:
+def compose_team_schedule(meta: "TeamScheduleMeta", locale: Locale = DEFAULT_LOCALE) -> GenericCardMeta:
     """Compose a single-team CALENDARIO card.
 
     hero = average FDR over the horizon; one fixture row per gameweek with the
@@ -328,31 +339,31 @@ def compose_team_schedule(meta: "TeamScheduleMeta") -> GenericCardMeta:
 
     hero = HeroStat(
         value=f"{float(meta.avg_fdr):.1f}",
-        label="FDR MEDIO",
+        label=t("gcard.cal.col_avg_fdr", locale),
         tone=None,
     )
 
     pills_list: list[Pill] = [
-        Pill(label=f"{int(meta.fixture_count)} PARTIDOS", tone="neutral"),
+        Pill(label=t("gcard.sched.fixtures", locale, n=int(meta.fixture_count)), tone="neutral"),
     ]
     if getattr(meta, "has_dgw", False):
-        pills_list.append(Pill(label="DOBLE JORNADA", tone="good"))
+        pills_list.append(Pill(label=t("gcard.sched.dgw", locale), tone="good"))
     if getattr(meta, "has_bgw", False):
-        pills_list.append(Pill(label="JORNADA EN BLANCO", tone="warn"))
+        pills_list.append(Pill(label=t("gcard.sched.bgw", locale), tone="warn"))
 
     columns = (
-        Column(header="JOR",   align="left", kind="text"),
-        Column(header="RIVAL", align="left", kind="text"),
-        Column(header="SEDE",  align="left", kind="badge"),
-        Column(header="FDR",   align="left", kind="badge"),
+        Column(header=t("gcard.sched.col_gw", locale),    align="left", kind="text"),
+        Column(header=t("gcard.sched.col_opp", locale),   align="left", kind="text"),
+        Column(header=t("gcard.sched.col_venue", locale), align="left", kind="badge"),
+        Column(header="FDR",                              align="left", kind="badge"),
     )
 
     rows = tuple(
         (
             f"GW{int(fx.gameweek)}",
             fx.opponent_short,
-            _venue_label_es(bool(fx.is_home)),
-            _fdr_label_es(fx.difficulty),
+            _venue_label_es(bool(fx.is_home), locale),
+            _fdr_label_es(fx.difficulty, locale),
         )
         for fx in meta.fixtures
     )
@@ -369,7 +380,7 @@ def compose_team_schedule(meta: "TeamScheduleMeta") -> GenericCardMeta:
     )
 
 
-def compose_current_gameweek(gameweek: int) -> GenericCardMeta:
+def compose_current_gameweek(gameweek: int, locale: Locale = DEFAULT_LOCALE) -> GenericCardMeta:
     """Compose a JORNADA ACTUAL card.
 
     hero = the gameweek number.  This intent has no metadata dataclass and its
@@ -379,9 +390,9 @@ def compose_current_gameweek(gameweek: int) -> GenericCardMeta:
     """
     return GenericCardMeta(
         accent="coral",
-        title="JORNADA ACTUAL",
+        title=t("gcard.gw.title", locale),
         subtitle=None,
-        hero=HeroStat(value=f"GW{int(gameweek)}", label="JORNADA EN CURSO", tone=None),
+        hero=HeroStat(value=f"GW{int(gameweek)}", label=t("gcard.gw.hero", locale), tone=None),
         pills=(),
         columns=(),
         rows=(),
@@ -394,18 +405,19 @@ def compose_current_gameweek(gameweek: int) -> GenericCardMeta:
 #: header** (first match wins), so each header intentionally contains exactly
 #: one keyword from the adapter's vocabulary and none of the others:
 #:   Jugador · Equipo · Pos · Estado · Probabilidad/% · Noticia · Fecha
-_INJURY_COLUMNS: tuple[Column, ...] = (
-    Column(header="JUGADOR",       align="left",  kind="text"),
-    Column(header="EQUIPO",        align="left",  kind="text"),
-    Column(header="POS",           align="left",  kind="text"),
-    Column(header="ESTADO",        align="left",  kind="badge"),
-    Column(header="PROBABILIDAD %", align="right", kind="mono"),
-    Column(header="NOTICIA",       align="left",  kind="text"),
-    Column(header="FECHA",         align="left",  kind="text"),
-)
+def _injury_columns(locale: Locale = DEFAULT_LOCALE) -> tuple[Column, ...]:
+    return (
+        Column(header=t("gcard.col.player", locale),        align="left",  kind="text"),
+        Column(header=t("gcard.col.team", locale),          align="left",  kind="text"),
+        Column(header="POS",                                align="left",  kind="text"),
+        Column(header=t("gcard.inj.col_status", locale),    align="left",  kind="badge"),
+        Column(header=t("gcard.inj.col_chance", locale),    align="right", kind="mono"),
+        Column(header=t("gcard.inj.col_news", locale),      align="left",  kind="text"),
+        Column(header=t("gcard.inj.col_date", locale),      align="left",  kind="text"),
+    )
 
 
-def compose_injury_list(meta: "InjuryListMeta") -> GenericCardMeta:
+def compose_injury_list(meta: "InjuryListMeta", locale: Locale = DEFAULT_LOCALE) -> GenericCardMeta:
     """Compose a LESIONES card from an ``InjuryListMeta``.
 
     One row per player across the injured / doubtful / other lists (in that
@@ -423,11 +435,11 @@ def compose_injury_list(meta: "InjuryListMeta") -> GenericCardMeta:
 
     pills_list: list[Pill] = []
     if injured:
-        pills_list.append(Pill(label=f"{len(injured)} LESIONADOS", tone="bad"))
+        pills_list.append(Pill(label=t("gcard.inj.injured", locale, n=len(injured)), tone="bad"))
     if doubtful:
-        pills_list.append(Pill(label=f"{len(doubtful)} EN DUDA", tone="warn"))
+        pills_list.append(Pill(label=t("gcard.inj.doubtful", locale, n=len(doubtful)), tone="warn"))
     if other:
-        pills_list.append(Pill(label=f"{len(other)} NO DISPONIBLES", tone="bad"))
+        pills_list.append(Pill(label=t("gcard.inj.unavailable", locale, n=len(other)), tone="bad"))
 
     def _row(e: Any) -> tuple[str, ...]:
         chance = getattr(e, "chance_of_playing", None)
@@ -437,9 +449,9 @@ def compose_injury_list(meta: "InjuryListMeta") -> GenericCardMeta:
             e.web_name,
             e.team_short,
             e.position,
-            _localized_status_label(e.status_label, "es"),  # i151b: Spanish badge text
+            _localized_status_label(e.status_label, locale),  # i151b: badge text in the locale
             chance_cell,
-            news_label(getattr(e, "news", "") or ""),  # i151c
+            news_label(getattr(e, "news", "") or "", locale),  # i151c
             news_added if news_added else "",
         )
 
@@ -447,11 +459,11 @@ def compose_injury_list(meta: "InjuryListMeta") -> GenericCardMeta:
 
     return GenericCardMeta(
         accent="coral",
-        title="LESIONES",
+        title=t("gcard.inj.title", locale),
         subtitle=None,
         hero=None,
         pills=tuple(pills_list),
-        columns=_INJURY_COLUMNS,
+        columns=_injury_columns(locale),
         rows=rows,
         footer=None,
     )
@@ -481,6 +493,7 @@ def build_generic_card(
     meta: "dict[str, Any]",
     raw_output: "dict[str, Any]",
     outcome: str,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> "GenericCardMeta | None":
     """Return a ``GenericCardMeta`` for composer-backed intents, else ``None``.
 
@@ -522,25 +535,25 @@ def build_generic_card(
 
         if intent == INTENT_INJURY_LIST:
             m = meta.get("injury_list")
-            return compose_injury_list(m) if m is not None else None
+            return compose_injury_list(m, locale) if m is not None else None
         if intent == INTENT_PLAYER_FORM:
             m = meta.get("player_form")
-            return compose_player_form(m) if m is not None else None
+            return compose_player_form(m, locale) if m is not None else None
         if intent == INTENT_PRICE_CHANGES:
             m = meta.get("price_changes")
-            return compose_price_changes(m) if m is not None else None
+            return compose_price_changes(m, locale) if m is not None else None
         if intent == INTENT_TEAM_FIXTURE_CALENDAR:
             m = meta.get("team_calendar")
-            return compose_team_fixture_calendar(m) if m is not None else None
+            return compose_team_fixture_calendar(m, locale) if m is not None else None
         if intent == INTENT_TEAM_SCHEDULE:
             m = meta.get("team_schedule")
-            return compose_team_schedule(m) if m is not None else None
+            return compose_team_schedule(m, locale) if m is not None else None
         if intent == INTENT_POSITION_FIXTURE_RUN:
             m = meta.get("position_fixture_run")
-            return compose_position_fixture_run(m) if m is not None else None
+            return compose_position_fixture_run(m, locale) if m is not None else None
         if intent == INTENT_CURRENT_GAMEWEEK:
             gw = raw_output.get("gameweek")
-            return compose_current_gameweek(int(gw)) if gw is not None else None
+            return compose_current_gameweek(int(gw), locale) if gw is not None else None
     except Exception:  # noqa: BLE001 — composition must never raise into the caller
         return None
 

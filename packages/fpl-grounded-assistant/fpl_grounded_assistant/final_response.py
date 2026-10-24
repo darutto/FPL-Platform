@@ -2730,7 +2730,7 @@ def _extract_structured_meta(
     # Track A: additive renderable generic card, composed only from the
     # deterministic metadata just built (never LLM text).  Returns None for
     # non-ok outcomes, excluded intents, or missing metadata.
-    result["generic_card"] = build_generic_card(intent, result, raw_output, outcome)
+    result["generic_card"] = build_generic_card(intent, result, raw_output, outcome, locale)
     return result
 
 
