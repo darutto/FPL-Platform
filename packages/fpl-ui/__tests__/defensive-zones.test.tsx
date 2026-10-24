@@ -21,7 +21,6 @@ import {
   ZONE_SHADE_MAX_OPACITY,
   zoneShadeOpacity,
   isAverageZone,
-  formatDeltaFine,
   formatPct,
   formatFit,
   formatPenalty,
@@ -245,19 +244,12 @@ describe('zoneShadeOpacity', () => {
   });
 });
 
-describe('isAverageZone / formatDeltaFine', () => {
+describe('isAverageZone', () => {
   test('below +0.5% (incl. negatives) is an average zone', () => {
     expect(isAverageZone(0.4)).toBe(true);
     expect(isAverageZone(-31.7)).toBe(true);
     expect(isAverageZone(0.5)).toBe(false);
     expect(isAverageZone(69.8)).toBe(false);
-  });
-
-  test('fine delta keeps one decimal, always signed', () => {
-    expect(formatDeltaFine(69.8)).toBe('+69.8%');
-    expect(formatDeltaFine(1.5)).toBe('+1.5%');
-    expect(formatDeltaFine(-31.7)).toBe('−31.7%');
-    expect(formatDeltaFine(0)).toBe('+0.0%');
   });
 });
 
@@ -350,13 +342,14 @@ describe('DefensiveZonesCard', () => {
     expect(screen.getByText('Ataca dentro del área')).toBeInTheDocument();
   });
 
-  test('renders in-box readings: big pct + fine delta, ≈ media for average', () => {
+  test('renders in-box readings: one rounded pct per cell, ≈ media for average', () => {
     render(<DefensiveZonesCard data={palaceMeta} />);
     // +70% appears twice: bolded in the verdict AND inside the right region
     expect(screen.getAllByText('+70%').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('+69.8%')).toBeInTheDocument();
     expect(screen.getByText('+2%')).toBeInTheDocument();
-    expect(screen.getByText('+1.5%')).toBeInTheDocument();
+    // the one-decimal twin of each reading is gone: one number, one place
+    expect(screen.queryByText('+69.8%')).not.toBeInTheDocument();
+    expect(screen.queryByText('+1.5%')).not.toBeInTheDocument();
     // average (left) zone: muted '≈ media', no numbers at all
     expect(screen.getByText('≈ media')).toBeInTheDocument();
     expect(screen.queryByText('≈ 0%')).not.toBeInTheDocument();

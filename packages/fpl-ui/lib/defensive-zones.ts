@@ -122,15 +122,6 @@ export function isAverageZone(pctOverAvg: number): boolean {
   return pctOverAvg < 0.5;
 }
 
-/**
- * Small precise delta under the big in-box reading: one decimal, always
- * signed, typographic minus (e.g. '+69.8%', '−31.7%').
- */
-export function formatDeltaFine(pctOverAvg: number): string {
-  const sign = pctOverAvg >= 0 ? '+' : '−';
-  return `${sign}${Math.abs(pctOverAvg).toFixed(1)}%`;
-}
-
 /** Ajuste column: one decimal, e.g. '8.7'. */
 export function formatFit(fit: number): string {
   return fit.toFixed(1);
