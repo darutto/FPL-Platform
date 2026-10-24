@@ -189,7 +189,7 @@ export const en: typeof es = {
   'tier.safe': 'Favourite',
   'tier.upside': 'Upside',
   'tier.differential': 'Differential',
-  'tier.avoid': 'Avoid',
+  'tier.avoid': 'Not this week',
   'tier.low_confidence': 'Limited data',
   'captain.score': 'Captain score',
   'setpiece.penalty_taker_1': '1st penalty taker',

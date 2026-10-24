@@ -97,7 +97,7 @@ export const TIER_CONFIG: Record<
     barClass: 'bg-bf-cyan',
   },
   avoid: {
-    label: 'Evitar',
+    label: 'No esta semana',
     labelKey: 'tier.avoid',
     icon: '✕',
     badgeClass: 'bg-bf-coral/10 text-bf-coral before:bg-bf-coral',
