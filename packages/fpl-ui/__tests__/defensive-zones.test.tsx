@@ -786,6 +786,25 @@ describe('DefensiveZonesCard — fixture-derived scope (i90)', () => {
     expect(avlSection).not.toHaveTextContent('Right Poacher');
   });
 
+  test('a double gameweek does not give React two children with the same key', () => {
+    // The groups are per (gameweek, team); keying them by gameweek alone made two rivals in one gameweek collide.
+    const doubleGw: DefensiveZonesMeta = {
+      ...fixtureScoped,
+      exploiters: [
+        { rank: 1, web_name: 'Right Poacher', team_short: 'BUR', position: 'FWD', zone: 'in-box / right', fit_score: 10.0, gameweek: 5, is_home: false },
+        { rank: 2, web_name: 'Heavy Hitter', team_short: 'AVL', position: 'MID', zone: 'in-box / right', fit_score: 9.0, gameweek: 5, is_home: true },
+      ],
+    };
+    const errors = jest.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      render(<DefensiveZonesCard data={doubleGw} />);
+      const keyWarnings = errors.mock.calls.filter((call) => String(call[0]).includes('same key'));
+      expect(keyWarnings).toEqual([]);
+    } finally {
+      errors.mockRestore();
+    }
+  });
+
   test('a pre-i90 payload (no team_filter.source==="fixtures") renders no fixture groups', () => {
     render(<DefensiveZonesCard data={palaceMeta} />);
     expect(screen.queryAllByTestId('zonal-fixture-group')).toHaveLength(0);

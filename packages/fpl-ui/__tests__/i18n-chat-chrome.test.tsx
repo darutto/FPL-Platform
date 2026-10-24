@@ -150,7 +150,8 @@ describe('the chat screen', () => {
     await user.click(await screen.findByRole('button', { name: 'Saka' }));
     await waitFor(() => expect(ask).toHaveBeenCalledTimes(2));
     expect(ask.mock.calls[1][0]).toMatchObject({ question: '/comparar Palmer vs Saka', locale: 'es' });
-  });
+    // Two full chat renders and a dozen typed keys: about 2 s alone, over the 5 s default inside the whole suite.
+  }, 30_000);
 });
 
 describe('the command panel', () => {

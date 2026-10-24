@@ -268,7 +268,7 @@ export default function DefensiveZonesCard({ data }: Props) {
               </div>
               {fixtureGroups ? (
                 fixtureGroups.map((group) => (
-                  <div key={group.gameweek}>
+                  <div key={`${group.gameweek}-${group.teamShort}`}>
                     <div
                       data-testid="zonal-fixture-group"
                       className="border-b border-white/[0.06] bg-white/[0.015] px-3 py-1.5 text-[10.5px] font-bold text-bf-gray/70"
