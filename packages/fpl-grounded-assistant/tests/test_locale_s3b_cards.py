@@ -198,3 +198,45 @@ def test_player_snapshot_status_label_through_ask_v2(locale, label):
 
     result = harness.ask_v2("Who is Saka?", copy.deepcopy(BOOTSTRAP), locale=locale)
     assert result["player_snapshot"].status_label == label
+
+
+# ---------------------------------------------------------------------------
+# needs_clarification prompts
+# ---------------------------------------------------------------------------
+
+def test_every_clarification_intent_has_an_es_and_an_en_prompt():
+    from fpl_grounded_assistant import final_response as fr
+    from fpl_grounded_assistant.catalogue import t
+
+    keys = set(fr._CLARIFICATION_KEYS.values()) | {fr._CLARIFICATION_FALLBACK_KEY}
+    assert keys
+    for key in keys:
+        es, en = t(key, "es"), t(key, "en")
+        assert es and en and es != en, key
+        # opportunity framing: no transaction words in either language
+        for text in (es, en.replace("transfer", "")):
+            low = text.lower()
+            assert not any(w in low for w in ("vende", "vender", "sell ", "urgent")), (key, text)
+
+
+def test_clarification_en_is_the_pre_i18n_wording_and_es_is_spanish():
+    from fpl_grounded_assistant import final_response as fr
+
+    en = fr._clarification_text_for_intent(fr.INTENT_COMPARE_PLAYERS, "en")
+    assert en == "Are you comparing two players? Try asking 'compare [Player A] vs [Player B]'."
+    es = fr._clarification_text_for_intent(fr.INTENT_COMPARE_PLAYERS)
+    assert es.startswith("\u00bfQuieres comparar a dos jugadores?")
+    assert fr._clarification_text_for_intent(None, "en").startswith("I'm not sure what you're looking for.")
+    assert fr._clarification_text_for_intent("no_such_intent").startswith("No estoy seguro")
+
+
+@pytest.mark.parametrize("locale,start", [("es", "\u00bfQuieres comparar"), ("en", "Are you comparing")])
+def test_clarification_through_the_http_adapter(locale, start):
+    from fpl_grounded_assistant import harness
+    from fpl_grounded_assistant.harness_adapter import to_ask_response
+    from fpl_server import AskRequest
+
+    d = harness.ask_v2("/comparar Haaland vs", copy.deepcopy(BOOTSTRAP), locale=locale)
+    assert d["outcome"] == "needs_clarification"
+    resp = to_ask_response(d, AskRequest(question="x"), None, locale=locale)
+    assert resp.final_text.startswith(start)

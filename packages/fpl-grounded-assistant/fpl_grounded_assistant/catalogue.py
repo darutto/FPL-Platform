@@ -293,6 +293,94 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     "gcard.inj.col_news": {"en": "NEWS", "es": "NOTICIA"},
     "gcard.inj.col_date": {"en": "DATE", "es": "FECHA"},
 
+    # -- i18n S3b: needs_clarification prompts (final_response). The en side is
+    # the wording these had before (they were English-only, so a Spanish user
+    # saw English); es is new, tuteo, opportunity framing (no buy/sell words).
+    "clarify.captain": {
+        "en": (
+            "Are you looking for captaincy advice or player rankings for this gameweek? "
+            "Try asking 'who should I captain?' or 'best captain options'."
+        ),
+        "es": (
+            "\u00bfBuscas consejo de capitan\u00eda o un ranking de jugadores para esta jornada? "
+            "Prueba con '\u00bfa qui\u00e9n capitaneo?' o 'mejores opciones de capit\u00e1n'."
+        ),
+    },
+    "clarify.compare": {
+        "en": "Are you comparing two players? Try asking 'compare [Player A] vs [Player B]'.",
+        "es": "\u00bfQuieres comparar a dos jugadores? Prueba con 'compara [Jugador A] vs [Jugador B]'.",
+    },
+    "clarify.transfer": {
+        "en": (
+            "Are you looking for transfer suggestions? "
+            "Try asking 'who should I transfer in?' or 'best players to buy under \u00a38m'."
+        ),
+        "es": (
+            "\u00bfBuscas ideas para mejorar tu plantilla? "
+            "Prueba con '\u00bfa qui\u00e9n incorporo?' o 'mejores jugadores por menos de \u00a38m'."
+        ),
+    },
+    "clarify.form": {
+        "en": (
+            "Are you asking about a player's recent form? "
+            "Try asking 'how has [player] been playing?' or 'stats for [player] last 5 games'."
+        ),
+        "es": (
+            "\u00bfPreguntas por la forma reciente de un jugador? "
+            "Prueba con '\u00bfc\u00f3mo est\u00e1 jugando [jugador]?' o 'estad\u00edsticas de [jugador] en los \u00faltimos 5 partidos'."
+        ),
+    },
+    "clarify.player_fixture_run": {
+        "en": "Are you asking about a player's upcoming fixtures? Try 'upcoming fixtures for [player]'.",
+        "es": "\u00bfPreguntas por los pr\u00f3ximos partidos de un jugador? Prueba con 'pr\u00f3ximos partidos de [jugador]'.",
+    },
+    "clarify.injury": {
+        "en": "Are you asking about injuries or availability? Try 'who is injured this gameweek?'.",
+        "es": "\u00bfPreguntas por lesiones o disponibilidad? Prueba con '\u00bfqui\u00e9n est\u00e1 lesionado esta jornada?'.",
+    },
+    "clarify.price": {
+        "en": "Are you asking about price changes? Try 'who has gone up in price?' or 'recent price risers'.",
+        "es": "\u00bfPreguntas por cambios de precio? Prueba con '\u00bfqui\u00e9n ha subido de precio?' o '\u00faltimas subidas de precio'.",
+    },
+    "clarify.chip": {
+        "en": (
+            "Are you asking about when to use a chip? "
+            "Try 'should I use my wildcard?' or 'when should I use my bench boost?'."
+        ),
+        "es": (
+            "\u00bfPreguntas por cu\u00e1ndo usar un chip? "
+            "Prueba con '\u00bfdebo usar mi Wildcard?' o '\u00bfcu\u00e1ndo uso mi Bench Boost?'."
+        ),
+    },
+    "clarify.differential": {
+        "en": "Are you looking for differential picks? Try 'low-ownership players worth picking'.",
+        "es": "\u00bfBuscas diferenciales? Prueba con 'jugadores de baja propiedad que merezcan la pena'.",
+    },
+    "clarify.calendar": {
+        "en": "Are you looking at fixture difficulty? Try 'which teams have the best fixtures coming up?'.",
+        "es": "\u00bfMiras la dificultad de los partidos? Prueba con '\u00bfqu\u00e9 equipos tienen mejor calendario?'.",
+    },
+    "clarify.suggestion": {
+        "en": (
+            "Are you looking for specific player recommendations? "
+            "Try 'best midfielders under \u00a37m' or 'top Arsenal players to buy'."
+        ),
+        "es": (
+            "\u00bfBuscas recomendaciones de jugadores concretos? "
+            "Prueba con 'mejores centrocampistas por menos de \u00a37m' o 'mejores jugadores del Arsenal'."
+        ),
+    },
+    "clarify.fallback": {
+        "en": (
+            "I'm not sure what you're looking for. "
+            "Try rephrasing \u2014 for example, 'who should I captain?' or 'compare Saka vs Palmer'."
+        ),
+        "es": (
+            "No estoy seguro de qu\u00e9 buscas. "
+            "Prueba a reformularlo, por ejemplo '\u00bfa qui\u00e9n capitaneo?' o 'compara Saka vs Palmer'."
+        ),
+    },
+
     # -- position noun, shared by any renderer that names a position group -
     "position_noun.GKP": {"en": "goalkeepers", "es": "porteros"},
     "position_noun.DEF": {"en": "defenders", "es": "defensas"},

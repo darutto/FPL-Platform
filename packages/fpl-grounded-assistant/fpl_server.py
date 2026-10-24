@@ -2407,7 +2407,7 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
     except Exception as _exc:  # noqa: BLE001
         _LOG.exception("audit write failed: %s", _exc)  # P3.f F8: observable signal
 
-    return _to_ask_response(ask_v2_dict, req, _turn_bootstrap)  # i137: chip windows
+    return _to_ask_response(ask_v2_dict, req, _turn_bootstrap, locale=locale)  # i137: chip windows; i18n S3b: locale
 
 
 @app.post("/session", response_model=CreateSessionResponse)

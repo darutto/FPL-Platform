@@ -112,6 +112,7 @@ def to_ask_response(
     ask_v2_dict: dict[str, Any],
     ask_request: "AskRequest",
     bootstrap: "dict[str, Any] | None" = None,
+    locale: str = "es",
 ) -> "AskResponse":
     """Project an ask_v2() return dict into the AskResponse contract.
 
@@ -283,7 +284,7 @@ def to_ask_response(
     #     matching final_response.py line 2084 (_clarification_text_for_intent).
     # ------------------------------------------------------------------
     if outcome == "needs_clarification":
-        answer_text = _clarification_text_for_intent(intent)
+        answer_text = _clarification_text_for_intent(intent, "en" if locale == "en" else "es")
 
     # ------------------------------------------------------------------
     # 4. Semantic-shift fields (documented in module docstring).
