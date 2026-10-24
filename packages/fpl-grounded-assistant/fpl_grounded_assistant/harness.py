@@ -749,7 +749,7 @@ def ask_v2(
         intent = _TOOL_TO_INTENT.get(tool_name, "")
         status = raw_output.get("status", "")
         outcome = _DISP_OUTCOME_OK if status == "ok" else "unsupported"
-        return _extract_structured_meta(intent, raw_output, outcome)
+        return _extract_structured_meta(intent, raw_output, outcome, locale)  # i18n S3b
 
     _none_meta: "dict[str, Any]" = _extract_structured_meta("", {}, "unsupported")
 
