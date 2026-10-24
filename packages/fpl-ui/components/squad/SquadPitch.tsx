@@ -20,7 +20,8 @@
  * Data: GET /api/fpl-squad/{teamId} (server proxy; live FPL API).
  */
 import { useCallback, useEffect, useState } from 'react';
-import { useLocale } from '@/lib/i18n/LocaleProvider';
+import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
+import type { DictKey } from '@/lib/i18n/dictionary';
 import { formatDayMonth } from '@/lib/i18n/format';
 import type { Locale } from '@/lib/i18n/locale';
 
@@ -48,10 +49,10 @@ interface SquadData {
 // MC cyan · DEL coral.
 const POS_STYLE: Record<
   SquadPlayer['position'],
-  { label: string; dotText: string; dotBorder: string; dotTint: string; dotSolid: string; badge: string }
+  { label: DictKey; dotText: string; dotBorder: string; dotTint: string; dotSolid: string; badge: string }
 > = {
   GK: {
-    label: 'POR',
+    label: 'sq.pos.GK',
     dotText: 'text-bf-gold',
     dotBorder: 'border-bf-gold/60',
     dotTint: 'bg-bf-gold/15',
@@ -59,7 +60,7 @@ const POS_STYLE: Record<
     badge: 'bg-bf-gold text-bf-ink',
   },
   DEF: {
-    label: 'DEF',
+    label: 'sq.pos.DEF',
     dotText: 'text-bf-turquoise',
     dotBorder: 'border-bf-turquoise/60',
     dotTint: 'bg-bf-turquoise/15',
@@ -67,7 +68,7 @@ const POS_STYLE: Record<
     badge: 'bg-bf-turquoise text-bf-ink',
   },
   MID: {
-    label: 'MC',
+    label: 'sq.pos.MID',
     dotText: 'text-bf-cyan',
     dotBorder: 'border-bf-cyan/60',
     dotTint: 'bg-bf-cyan/15',
@@ -75,7 +76,7 @@ const POS_STYLE: Record<
     badge: 'bg-bf-cyan text-bf-ink',
   },
   FWD: {
-    label: 'DEL',
+    label: 'sq.pos.FWD',
     dotText: 'text-bf-coral',
     dotBorder: 'border-bf-coral/60',
     dotTint: 'bg-bf-coral/15',
@@ -97,7 +98,8 @@ type FetchState =
   | { status: 'loading' }
   | { status: 'ready'; data: SquadData }
   | { status: 'preseason'; nextGw: number | null; deadline: string | null }
-  | { status: 'error'; message: string };
+  | { status: 'error'; kind: 'load'; code: number }
+  | { status: 'error'; kind: 'connect' };
 
 /** "21 ago" — short Spanish date for the next deadline, or null if unparseable. */
 function formatDeadline(iso: string | null, locale: Locale): string | null {
@@ -108,6 +110,7 @@ function formatDeadline(iso: string | null, locale: Locale): string | null {
 }
 
 export default function SquadPitch({ teamId, onAskPlayer, onGw }: Props) {
+  const t = useT();
   const [state, setState] = useState<FetchState>({ status: 'idle' });
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
@@ -131,14 +134,14 @@ export default function SquadPitch({ teamId, onAskPlayer, onGw }: Props) {
           });
           return;
         }
-        setState({ status: 'error', message: `No se pudo cargar la plantilla (${res.status}).` });
+        setState({ status: 'error', kind: 'load', code: res.status });
         return;
       }
       const data: SquadData = await res.json();
       setState({ status: 'ready', data });
       onGw?.(data.gw);
     } catch {
-      setState({ status: 'error', message: 'No se pudo conectar con la API de FPL.' });
+      setState({ status: 'error', kind: 'connect' });
     }
   }, [teamId, onGw]);
 
@@ -153,7 +156,7 @@ export default function SquadPitch({ teamId, onAskPlayer, onGw }: Props) {
         {/* Panel header */}
         <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between flex-shrink-0 bg-black/25">
           <span className="text-[10px] font-bold uppercase tracking-widest text-bf-text/50">
-            My squad
+            {t('sq.title')}
           </span>
           {teamId != null && (
             <span className="text-[10px] font-bold text-bf-turquoise">#{teamId}</span>
@@ -162,15 +165,15 @@ export default function SquadPitch({ teamId, onAskPlayer, onGw }: Props) {
 
         {state.status === 'idle' && (
           <CenteredHint>
-            Conecta tu equipo FPL en la pestaña Chat
+            {t('sq.idle1')}
             <br />
-            para ver tu plantilla aquí.
+            {t('sq.idle2')}
           </CenteredHint>
         )}
 
         {state.status === 'loading' && (
           <CenteredHint>
-            <span className="animate-pulse">Cargando plantilla…</span>
+            <span className="animate-pulse">{t('sq.loading')}</span>
           </CenteredHint>
         )}
 
@@ -180,12 +183,14 @@ export default function SquadPitch({ teamId, onAskPlayer, onGw }: Props) {
 
         {state.status === 'error' && (
           <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center">
-            <p className="text-xs text-bf-coral">{state.message}</p>
+            <p className="text-xs text-bf-coral">
+              {state.kind === 'load' ? t('sq.err.load', { status: state.code }) : t('sq.err.connect')}
+            </p>
             <button
               onClick={load}
               className="text-xs font-bold text-bf-turquoise hover:text-bf-turquoise/80 transition-colors"
             >
-              Reintentar
+              {t('sq.retry')}
             </button>
           </div>
         )}
@@ -210,23 +215,23 @@ export default function SquadPitch({ teamId, onAskPlayer, onGw }: Props) {
  */
 function PreseasonHint({ nextGw, deadline }: { nextGw: number | null; deadline: string | null }) {
   const { locale } = useLocale();
+  const t = useT();
   const date = formatDeadline(deadline, locale);
   const when =
     nextGw != null && date
-      ? `la Jornada ${nextGw} (${date})`
+      ? t('sq.pre.whenGwDate', { gw: nextGw, date })
       : nextGw != null
-        ? `la Jornada ${nextGw}`
-        : 'la nueva temporada';
+        ? t('sq.pre.whenGw', { gw: nextGw })
+        : t('sq.pre.whenSeason');
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center">
       <span className="text-2xl" aria-hidden>⚽️</span>
-      <p className="text-sm font-bold text-bf-text/80">La temporada aún no ha comenzado</p>
+      <p className="text-sm font-bold text-bf-text/80">{t('sq.pre.title')}</p>
       <p className="text-xs text-bf-text/40 leading-relaxed max-w-[240px]">
-        Tu plantilla aparecerá aquí cuando arranque {when}. Hasta entonces la API
-        de FPL no publica los onces.
+        {t('sq.pre.body', { when })}
       </p>
       <p className="text-[11px] text-bf-turquoise/80 leading-relaxed">
-        Mientras tanto, revisa el Calendario y pregunta en el Chat.
+        {t('sq.pre.tip')}
       </p>
     </div>
   );
@@ -251,6 +256,7 @@ function SquadBody({
   onSelect: (id: number) => void;
   onAskPlayer: (question: string) => void;
 }) {
+  const t = useT();
   const starters = data.players.filter((p) => p.is_starter);
   const bench = data.players.filter((p) => !p.is_starter);
   const selected = data.players.find((p) => p.id === selectedId) ?? null;
@@ -263,11 +269,11 @@ function SquadBody({
     <div className="flex-1 min-h-0 flex flex-col overflow-y-auto">
       {/* Stats strip */}
       <div className="flex px-3 py-2 border-b border-white/5 flex-shrink-0">
-        <Stat label={`GW${data.gw}`} value={String(data.summary.gw_points)} valueClass="text-bf-turquoise" />
+        <Stat label={t('sq.stat.gw', { n: data.gw })} value={String(data.summary.gw_points)} valueClass="text-bf-turquoise" />
         <Divider />
-        <Stat label="Total" value={data.summary.total_points.toLocaleString('en-GB')} valueClass="text-white" />
+        <Stat label={t('sq.stat.total')} value={data.summary.total_points.toLocaleString('en-GB')} valueClass="text-white" />
         <Divider />
-        <Stat label="Banco" value={`£${(data.summary.bank / 10).toFixed(1)}m`} valueClass="text-bf-gold" />
+        <Stat label={t('sq.stat.bank')} value={`£${(data.summary.bank / 10).toFixed(1)}m`} valueClass="text-bf-gold" />
       </div>
 
       <div className="squad-layout">
@@ -317,7 +323,7 @@ function SquadBody({
           {/* Bench */}
           <div className="px-3 py-2 border-t border-white/5 bg-black/30 flex-shrink-0">
             <div className="text-[9px] font-extrabold uppercase tracking-widest text-bf-gray mb-1.5">
-              Bench
+              {t('sq.bench')}
             </div>
             <div className="flex justify-around">
               {bench.map((p) => (
@@ -334,9 +340,9 @@ function SquadBody({
           ) : (
             <div className="flex items-center justify-center px-4 py-8 min-h-[96px]">
               <span className="text-xs text-bf-text/25 text-center leading-relaxed">
-                Tap a player
+                {t('sq.tap1')}
                 <br />
-                to see details
+                {t('sq.tap2')}
               </span>
             </div>
           )}
@@ -370,6 +376,7 @@ function PlayerDot({
   onSelect: (id: number) => void;
   dimmed?: boolean;
 }) {
+  const t = useT();
   const s = POS_STYLE[player.position];
   const code = player.web_name.split(' ').pop()!.slice(0, 3).toUpperCase();
 
@@ -377,7 +384,7 @@ function PlayerDot({
     <button
       type="button"
       onClick={() => onSelect(player.id)}
-      aria-label={`${player.web_name}, ${player.team_short}${player.is_captain ? ', capitán' : ''}`}
+      aria-label={`${player.web_name}, ${player.team_short}${player.is_captain ? t('sq.captainAria') : ''}`}
       aria-pressed={selected}
       data-no-swipe
       className={`squad-player flex flex-col items-center gap-0.5 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${dimmed ? 'opacity-60' : ''}`}
@@ -419,27 +426,28 @@ function PlayerDetail({
   player: SquadPlayer;
   onAskPlayer: (question: string) => void;
 }) {
+  const t = useT();
   const s = POS_STYLE[player.position];
   const formNum = parseFloat(player.form);
   const stats = [
-    { label: 'Pts GW', value: String(player.gw_points), cls: 'text-bf-turquoise border-bf-turquoise/40' },
-    { label: 'Sel.', value: `${player.sel}%`, cls: 'text-bf-cyan border-bf-cyan/40' },
+    { label: t('sq.stat.pts'), value: String(player.gw_points), cls: 'text-bf-turquoise border-bf-turquoise/40' },
+    { label: t('sq.stat.sel'), value: `${player.sel}%`, cls: 'text-bf-cyan border-bf-cyan/40' },
     {
-      label: 'Forma',
+      label: t('sq.stat.form'),
       value: player.form,
       cls: formNum >= 8 ? 'text-bf-turquoise border-bf-turquoise/40' : 'text-bf-gold border-bf-gold/40',
     },
   ];
 
   return (
-    <section aria-label={`Detalle de ${player.web_name}`} className="squad-player-detail px-3 py-3 border-t border-white/10 bg-black/40 flex-shrink-0 space-y-2.5">
+    <section aria-label={t('sq.detailAria', { name: player.web_name })} className="squad-player-detail px-3 py-3 border-t border-white/10 bg-black/40 flex-shrink-0 space-y-2.5">
       <div className="flex flex-wrap items-center gap-2.5">
         {/* DS broadcast parallelogram position badge */}
         <span
           className={`inline-flex items-center justify-center w-10 h-5 text-[10px] font-black uppercase tracking-wider flex-shrink-0 ${s.badge}`}
           style={{ clipPath: 'polygon(5px 0%, 100% 0%, calc(100% - 5px) 100%, 0% 100%)' }}
         >
-          {s.label}
+          {t(s.label)}
         </span>
         <div className="min-w-0 flex-1 leading-none">
           <div className="squad-detail-name text-xs font-extrabold text-white break-words">{player.web_name}</div>
@@ -449,10 +457,10 @@ function PlayerDetail({
         </div>
         <button
           type="button"
-          onClick={() => onAskPlayer(`Cuéntame sobre ${player.web_name} — ¿lo alineo esta semana?`)}
+          onClick={() => onAskPlayer(t('sq.askQuestion', { name: player.web_name }))}
           className="squad-ask px-2.5 py-1.5 rounded-md bg-bf-turquoise/10 border border-bf-turquoise/40 text-bf-turquoise text-[10px] font-bold whitespace-nowrap hover:bg-bf-turquoise/20 transition-colors"
         >
-          Ask AI →
+          {t('sq.ask')}
         </button>
       </div>
 
