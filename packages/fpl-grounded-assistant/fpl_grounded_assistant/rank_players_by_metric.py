@@ -64,6 +64,7 @@ of import.  ``__init__.py`` must import this module so
 """
 from __future__ import annotations
 
+import re
 import unicodedata
 from typing import Any
 
@@ -245,6 +246,33 @@ _METRIC_ALIASES: dict[str, str] = {
     # changing modifier (see _MEANING_CHANGING_MODIFIERS), so without these
     # keys every Spanish per-90 phrase is refused. With them each resolves to
     # the rate field rather than silently to the season total.
+    # English multi-word phrasings (S2a). Spaces, not underscores: the input
+    # keeps its spaces, so these are the keys a user's words actually produce.
+    # Without them "expected goals" resolved to goals_scored (token "goals"
+    # alone matched) and "clean sheets" to the per-90 rate by prefix.
+    "expected goals":                     "expected_goals",
+    "expected assists":                   "expected_assists",
+    "expected goal involvements":         "expected_goal_involvements",
+    "expected goals per 90":              "expected_goals_per_90",
+    "expected assists per 90":            "expected_assists_per_90",
+    "expected goal involvements per 90":  "expected_goal_involvements_per_90",
+    "expected goals conceded":            "expected_goals_conceded",
+    "expected goals against":             "expected_goals_conceded",
+    "expected goals allowed":             "expected_goals_conceded",
+    "xg against":                         "expected_goals_conceded",
+    "goals scored":                       "goals_scored",
+    "goals conceded":                     "goals_conceded",
+    "goals against":                      "goals_conceded",
+    "goals allowed":                      "goals_conceded",
+    "points per game":                    "points_per_game",
+    "points per match":                   "points_per_game",
+    "total points":                       "total_points",
+    "clean sheets":                       "clean_sheets",
+    "clean sheet":                        "clean_sheets",
+    "bonus points":                       "bonus",
+    "transfers in":                       "transfers_in_event",
+    "transfers out":                      "transfers_out_event",
+    "selected by percent":                "selected_by_percent",
     "goles esperados por 90":             "expected_goals_per_90",
     "xg por 90":                          "expected_goals_per_90",
     "asistencias esperadas por 90":       "expected_assists_per_90",
@@ -459,6 +487,11 @@ _MEANING_CHANGING_MODIFIERS: frozenset[str] = frozenset({
     # than return the season total. "minutos esperados" matters most: it was
     # ranking raw minutes when get_expected_minutes is the tool that answers it.
     "esperado", "esperados", "esperada", "esperadas",
+    "expected",
+    # English counterparts of "concedido": "expected goals conceded per 90"
+    # resolved to expected_goals_per_90 (the containment took "expected goals
+    # per 90" and dropped "conceded"). Aliases that mean conceded carry the word.
+    "conceded", "against", "allowed",
     "90",
 })
 
@@ -474,6 +507,27 @@ _RATE_WORDING: frozenset[str] = frozenset({
     "tasa", "game", "games", "match", "matches", "minute", "minutes", "per",
     "average", "avg", "rate",
 })
+#: A per-game / per-minute RATE. Only ``points_per_game`` exists in the bootstrap
+#: as a per-appearance rate; "goals per game", "xg per match", "goles por
+#: partido" have no field, and resolving them to the season total was a fluent
+#: wrong answer (status ok, real numbers, wrong quantity). Closed unit list on
+#: purpose: an open "por X" / "per X" would swallow "top 10 por xg".
+_RATE_UNIT = (
+    r"(?:game|games|match|matches|partido|partidos|jornada|jornadas|"
+    r"gameweek|gameweeks|minute|minutes|minuto|minutos)"
+)
+_PER_UNIT_RATE_RE = re.compile(rf"\b(?:per|por|a|cada|each|every)\s+{_RATE_UNIT}\b")
+
+
+def asks_per_unit_rate(normalized_metric: str) -> bool:
+    """True when the phrase asks for a rate per game/match/minute.
+
+    ``per 90`` is deliberately not in the unit list: it is the supported per-90
+    rate, handled by its own aliases.
+    """
+    return bool(_PER_UNIT_RATE_RE.search(normalized_metric))
+
+
 _FIELD_VETO_TOKENS: dict[str, frozenset[str]] = {
     "defensive_contribution": _RATE_WORDING,
 }
@@ -657,6 +711,19 @@ def rank_players_by_metric(
                 ),
                 "valid_metrics": _VALID_METRICS,
             }
+
+    # A per-game / per-minute rate has no field here, except points_per_game
+    # which IS the per-appearance rate. Refuse everything else visibly.
+    if field_name != "points_per_game" and asks_per_unit_rate(normalized_metric):
+        return {
+            "status":        "invalid_argument",
+            "code":          "unknown_metric",
+            "message":       (
+                f"Metric '{metric}' not recognized. "
+                f"Try: {', '.join(_VALID_METRICS[:15])} ..."
+            ),
+            "valid_metrics": _VALID_METRICS,
+        }
 
     # Silent cap on top_n
     try:
