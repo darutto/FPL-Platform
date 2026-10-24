@@ -188,7 +188,7 @@ export const es = {
   'tier.safe': 'Favorito',
   'tier.upside': 'Potencial',
   'tier.differential': 'Diferencial',
-  'tier.avoid': 'Evitar',
+  'tier.avoid': 'No esta semana',
   'tier.low_confidence': 'Datos limitados',
   'captain.score': 'Puntuación de capitán',
   'setpiece.penalty_taker_1': '1.º lanzador de penaltis',
