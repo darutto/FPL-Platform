@@ -44,7 +44,6 @@ import {
   ZONE_SHADE_HEX,
   zoneShadeOpacity,
   isAverageZone,
-  formatDeltaFine,
   lateralLabel,
   formatPct,
   formatFit,
@@ -64,6 +63,9 @@ import type { Locale } from '@/lib/i18n/locale';
 const FRONTAL_Y = 176;
 const FRONTAL_H = 130;
 const VIEW_H_WITH_FRONTAL = 316;
+// One number per cell: its baseline sits where the old two-line reading (big % + one-decimal twin) was centred.
+const IN_BOX_READING_Y = 142;
+const FRONTAL_READING_DROP = 10;
 
 /** Header pill follows the opportunity coding; never a warning colour. */
 function headerPillClass(strength: DefensiveZonesMeta['weakness_strength']): string {
@@ -196,31 +198,20 @@ export default function DefensiveZonesCard({ data }: Props) {
                   {t('z.avg')}
                 </text>
               ) : (
-                <g key={zone.lateral}>
-                  <text
-                    x={ZONE_CENTER_X[i]}
-                    y={128}
-                    textAnchor="middle"
-                    fill={ZONE_SHADE_HEX[zone.opportunity_level]}
-                    style={{
-                      fontSize: 28,
-                      fontWeight: 900,
-                      letterSpacing: '-1px',
-                    }}
-                  >
-                    {formatPct(zone.pct_over_avg)}
-                  </text>
-                  <text
-                    x={ZONE_CENTER_X[i]}
-                    y={146}
-                    textAnchor="middle"
-                    fill={ZONE_SHADE_HEX[zone.opportunity_level]}
-                    fillOpacity={0.75}
-                    style={{ fontSize: 12, fontWeight: 600 }}
-                  >
-                    {formatDeltaFine(zone.pct_over_avg)}
-                  </text>
-                </g>
+                <text
+                  key={zone.lateral}
+                  x={ZONE_CENTER_X[i]}
+                  y={IN_BOX_READING_Y}
+                  textAnchor="middle"
+                  fill={ZONE_SHADE_HEX[zone.opportunity_level]}
+                  style={{
+                    fontSize: 28,
+                    fontWeight: 900,
+                    letterSpacing: '-1px',
+                  }}
+                >
+                  {formatPct(zone.pct_over_avg)}
+                </text>
               ),
             )}
           </svg>
@@ -325,7 +316,7 @@ function zoneAria(z: DefensiveZoneCell, prefix: string, locale: Locale): string 
   }`;
 }
 
-/** Big % + fine delta (or muted '≈ media') for one frontal cell. */
+/** The % (or the muted '≈ media') of one frontal cell: one number, one place. */
 function ZoneReading({ zone, cx, y }: { zone: DefensiveZoneCell; cx: number; y: number }) {
   const t = useT();
   if (isAverageZone(zone.pct_over_avg)) {
@@ -343,27 +334,15 @@ function ZoneReading({ zone, cx, y }: { zone: DefensiveZoneCell; cx: number; y: 
     );
   }
   return (
-    <g>
-      <text
-        x={cx}
-        y={y}
-        textAnchor="middle"
-        fill={ZONE_SHADE_HEX[zone.opportunity_level]}
-        style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-1px' }}
-      >
-        {formatPct(zone.pct_over_avg)}
-      </text>
-      <text
-        x={cx}
-        y={y + 18}
-        textAnchor="middle"
-        fill={ZONE_SHADE_HEX[zone.opportunity_level]}
-        fillOpacity={0.75}
-        style={{ fontSize: 12, fontWeight: 600 }}
-      >
-        {formatDeltaFine(zone.pct_over_avg)}
-      </text>
-    </g>
+    <text
+      x={cx}
+      y={y + FRONTAL_READING_DROP}
+      textAnchor="middle"
+      fill={ZONE_SHADE_HEX[zone.opportunity_level]}
+      style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-1px' }}
+    >
+      {formatPct(zone.pct_over_avg)}
+    </text>
   );
 }
 
