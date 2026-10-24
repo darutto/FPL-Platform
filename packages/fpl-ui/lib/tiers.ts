@@ -15,6 +15,9 @@
  *    (WEB_SEARCH_TIERS = {patreon_plus, patreon_premium}). If you retune caps
  *    in quota.py, update QUOTA_BUCKETS here too.
  */
+import { translate, type DictKey } from './i18n/dictionary';
+import { DEFAULT_LOCALE, type Locale } from './i18n/locale';
+
 export type QuotaBucket =
   | 'free'
   | 'patreon_tribuna'
@@ -42,105 +45,119 @@ export interface QuotaBucketInfo {
   allowance: string;
 }
 
+/** 'N messages a day' (with ' · web search' where the bucket has it), in the language showing. */
+function allowanceText(msgsPerDay: number, webSearch: boolean, locale: Locale): string {
+  return translate(locale, webSearch ? 'plan.allowWeb' : 'plan.allow', { n: msgsPerDay });
+}
+
 export const QUOTA_BUCKETS: Record<QuotaBucket, QuotaBucketInfo> = {
   free: {
     msgsPerDay: 5,
     msgsPerMonth: 30,
     webSearch: false,
-    allowance: '5 mensajes al día',
+    allowance: allowanceText(5, false, 'es'),
   },
   patreon_tribuna: {
     msgsPerDay: 15,
     msgsPerMonth: 300,
     webSearch: false,
-    allowance: '15 mensajes al día',
+    allowance: allowanceText(15, false, 'es'),
   },
   patreon_basic: {
     msgsPerDay: 30,
     msgsPerMonth: 600,
     webSearch: false,
-    allowance: '30 mensajes al día',
+    allowance: allowanceText(30, false, 'es'),
   },
   patreon_plus: {
     msgsPerDay: 60,
     msgsPerMonth: 1200,
     webSearch: true,
-    allowance: '60 mensajes al día · búsqueda web',
+    allowance: allowanceText(60, true, 'es'),
   },
   patreon_premium: {
     msgsPerDay: 150,
     msgsPerMonth: 3000,
     webSearch: true,
-    allowance: '150 mensajes al día · búsqueda web',
+    allowance: allowanceText(150, true, 'es'),
   },
 };
 
+/** The usage line of a bucket in the language showing; the numbers always come from QUOTA_BUCKETS. */
+export function allowanceLabel(bucket: QuotaBucket, locale: Locale = DEFAULT_LOCALE): string {
+  const info = QUOTA_BUCKETS[bucket];
+  return allowanceText(info.msgsPerDay, info.webSearch, locale);
+}
+
+export type PlanId = 'tribuna' | 'gafete' | 'socio' | 'plata' | 'oro';
+
 export interface SubscriptionTier {
-  /** Patreon tier display name. */
+  /** Stable id: keys the plan's dictionary entries. */
+  id: PlanId;
+  /** Patreon tier display name. A proper name: it is the same in every language. */
   name: string;
   /** Monthly price in USD. */
   priceUsd: number;
   /** Which backend quota bucket this pledge maps to. */
   bucket: QuotaBucket;
-  /** Top community/content perks (cumulative — each tier adds to the prior). */
-  perks: string[];
+  /** Top community/content perks (cumulative — each tier adds to the prior), as dictionary keys. */
+  perkKeys: [DictKey, DictKey, DictKey];
   /** Marks the recommended entry tier (first with web search). */
   highlighted?: boolean;
 }
 
 export const SUBSCRIPTION_TIERS: SubscriptionTier[] = [
   {
+    id: 'tribuna',
     name: 'Tribuna',
     priceUsd: 1,
     bucket: 'patreon_tribuna',
-    perks: [
-      'Mención especial en el podcast',
-      'Acceso al Discord del club',
-      'Competencias exclusivas con miembros del club',
-    ],
+    perkKeys: ['plan.tribuna.perk1', 'plan.tribuna.perk2', 'plan.tribuna.perk3'],
   },
   {
+    id: 'gafete',
     name: 'Gafete de cancha',
     priceUsd: 5,
     bucket: 'patreon_basic',
-    perks: [
-      'Todos los beneficios de Tribuna',
-      'Premios mensuales en la miniliga (mín. 5 miembros)',
-      'Uniforme con escudo personalizado',
-    ],
+    perkKeys: ['plan.gafete.perk1', 'plan.gafete.perk2', 'plan.gafete.perk3'],
   },
   {
+    id: 'socio',
     name: 'Socio Junior',
     priceUsd: 10,
     bucket: 'patreon_plus',
     highlighted: true,
-    perks: [
-      'Todos los beneficios de Gafete de cancha',
-      'Ruedas de prensa y conferencias del club',
-      'Podcast exclusivo de la liga interclubes',
-    ],
+    perkKeys: ['plan.socio.perk1', 'plan.socio.perk2', 'plan.socio.perk3'],
   },
   {
+    id: 'plata',
     name: 'Ejecutivo: carné de plata',
     priceUsd: 15,
     bucket: 'patreon_premium',
-    perks: [
-      'Todos los beneficios de Socio Junior',
-      'Partidos narrados en directo en Discord',
-      'Acceso prioritario a eventos (Fanfest y más)',
-    ],
+    perkKeys: ['plan.plata.perk1', 'plan.plata.perk2', 'plan.plata.perk3'],
   },
   {
+    id: 'oro',
     name: 'Ejecutivo: Carné de oro',
     priceUsd: 50,
     bucket: 'patreon_premium',
-    perks: [
-      'Todos los beneficios de carné de plata',
-      'Voto en decisiones de la directiva del club',
-      'Elemento conmemorativo personalizado cada temporada',
-    ],
+    perkKeys: ['plan.oro.perk1', 'plan.oro.perk2', 'plan.oro.perk3'],
   },
 ];
+
+/**
+ * The tier's heading. The Patreon name is kept as Patreon spells it, in every language; the English screen
+ * adds a short descriptor so an English reader knows what it is ("Tribuna · Supporter"). Spanish shows the name alone.
+ */
+export function tierTitle(tier: SubscriptionTier, locale: Locale = DEFAULT_LOCALE): string {
+  const descriptor = translate(locale, `plan.${tier.id}.descriptor` as DictKey);
+  return descriptor ? `${tier.name} · ${descriptor}` : tier.name;
+}
+
+/** The tier's three perks in the language showing. */
+export function tierPerks(tier: SubscriptionTier, locale: Locale = DEFAULT_LOCALE): string[] {
+  return tier.perkKeys.map((key) => translate(locale, key));
+}
 
 
 /**

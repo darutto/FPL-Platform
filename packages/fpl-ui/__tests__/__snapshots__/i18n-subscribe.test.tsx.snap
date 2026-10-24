@@ -1,0 +1,83 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`the /fixtures page header Spanish: the header is what it was 1`] = `
+[
+  "Calendario",
+  ".",
+  "Dificultad de dos ejes con detección de rachas. Toca un equipo o una jornada para profundizar en el chat.",
+]
+`;
+
+exports[`the membership page English: the page, the perks and the usage lines read in English 1`] = `
+[
+  "$N",
+  "/ month",
+  "A vote on club board decisions",
+  "Access to the club Discord",
+  "All Gafete de cancha benefits",
+  "All Silver Card benefits",
+  "All Socio Junior benefits",
+  "All Tribuna benefits",
+  "Already a member? to sync your tier.",
+  "Assistant usage",
+  "Choose your membership",
+  "Ejecutivo: Carné de oro · Executive: Gold Card",
+  "Ejecutivo: carné de plata · Executive: Silver Card",
+  "Exclusive contests with club members",
+  "Exclusive podcast on the inter-club league",
+  "Gafete de cancha · Pitch Pass",
+  "Join",
+  "Kit with a custom crest",
+  "Matches narrated live on Discord",
+  "Monthly prizes in the mini-league (min. N members)",
+  "N messages a day",
+  "N messages a day · web search",
+  "Personalised commemorative item every season",
+  "Press conferences and club briefings",
+  "Priority access to events (Fanfest and more)",
+  "Recommended",
+  "Sign in again",
+  "Socio Junior · Junior Member",
+  "Special mention on the podcast",
+  "Tribuna · Supporter",
+  "Try XXX Assistant free with N messages a day. Each membership level adds more assistant use and club benefits.",
+  "✓",
+]
+`;
+
+exports[`the membership page Spanish: the page is what it was before the dictionary 1`] = `
+[
+  "$N",
+  "/ mes",
+  "Acceso al Discord del club",
+  "Acceso prioritario a eventos (Fanfest y más)",
+  "Competencias exclusivas con miembros del club",
+  "Ejecutivo: Carné de oro",
+  "Ejecutivo: carné de plata",
+  "Elemento conmemorativo personalizado cada temporada",
+  "Elige tu membresía",
+  "Gafete de cancha",
+  "Inicia sesión de nuevo",
+  "Mención especial en el podcast",
+  "N mensajes al día",
+  "N mensajes al día · búsqueda web",
+  "Partidos narrados en directo en Discord",
+  "Podcast exclusivo de la liga interclubes",
+  "Premios mensuales en la miniliga (mín. N miembros)",
+  "Prueba XXX Asistente gratis con N mensajes al día. Cada nivel de membresía suma más uso del asistente y beneficios del club.",
+  "Recomendado",
+  "Ruedas de prensa y conferencias del club",
+  "Socio Junior",
+  "Todos los beneficios de Gafete de cancha",
+  "Todos los beneficios de Socio Junior",
+  "Todos los beneficios de Tribuna",
+  "Todos los beneficios de carné de plata",
+  "Tribuna",
+  "Uniforme con escudo personalizado",
+  "Unirme",
+  "Uso del asistente",
+  "Voto en decisiones de la directiva del club",
+  "¿Ya eres miembro? para sincronizar tu nivel.",
+  "✓",
+]
+`;
