@@ -381,6 +381,301 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         ),
     },
 
+    # -- i18n S5a: renderer.py inline answer text. es is what renderer.py said
+    # inline (byte-for-byte); en is new except for the rank_captain strings that
+    # already had an inline English branch. Param values are pre-formatted by the
+    # caller so the number formatting stays where it was.
+    "renderer.error_unexpected": {"en": "Unexpected error.", "es": "Error inesperado."},
+    "renderer.captain.pool_derived": {
+        "en": "Pool source: derived from bootstrap.",
+        "es": "Origen del pool: derivado del bootstrap.",
+    },
+    "renderer.captain.pool_caller": {
+        "en": "Pool source: caller-supplied candidates.",
+        "es": "Origen del pool: candidatos indicados por el usuario.",
+    },
+    "renderer.captain.no_hipster": {
+        "en": "No hipster: nobody lightly owned clears the bar.",
+        "es": "Sin hipster: nadie de poca propiedad llega al minimo.",
+    },
+    "renderer.captain.share": {"en": " - owned by {v}%", "es": " - {v}% de propiedad"},
+    "renderer.captain.your_squad": {"en": " \u00b7 your squad", "es": " \u00b7 tu plantilla"},
+    "renderer.captain.owned_header": {
+        "en": "A) Candidates from your squad:",
+        "es": "A) Candidatos de tu plantilla:",
+    },
+    "renderer.captain.owned_none": {
+        "en": "There are no available candidates in your squad.",
+        "es": "No hay candidatos disponibles en tu plantilla.",
+    },
+    "renderer.captain.squad_unavailable": {
+        "en": "I could not load your squad, so I am showing only the global ranking.",
+        "es": "No pude cargar tu plantilla; te muestro solo el ranking global.",
+    },
+    "renderer.captain.not_connected": {
+        "en": "No team is connected, so I am showing only the global ranking.",
+        "es": "No hay equipo conectado; te muestro solo el ranking global.",
+    },
+    "renderer.captain.excl_unavailable": {"en": "unavailable", "es": "no disponible"},
+    "renderer.captain.excl_unresolved": {"en": "unresolved", "es": "sin resolver"},
+    "renderer.captain.not_evaluated": {
+        "en": "Not evaluated for captaincy: {items}.",
+        "es": "No evaluados para capitan\u00eda: {items}.",
+    },
+    "renderer.captain.global_header": {
+        "en": "B) Best global candidates:",
+        "es": "B) Mejores candidatos globales:",
+    },
+    "renderer.captain.worth_knowing": {"en": "Worth knowing: {line}", "es": "Conviene saber: {line}"},
+    "renderer.captain.about": {"en": "On {name}: {note}", "es": "Sobre {name}: {note}"},
+
+    "renderer.team_results.header": {
+        "en": "{name} \u2014 last {n} matches{venue}:",
+        "es": "{name} \u2014 \u00faltimos {n} partidos{venue}:",
+    },
+    "renderer.team_results.venue_home": {"en": " at home", "es": " de local"},
+    "renderer.team_results.venue_away": {"en": " away", "es": " de visitante"},
+    "renderer.team_results.where_home": {"en": "vs", "es": "vs"},
+    "renderer.team_results.where_away": {"en": "at", "es": "en casa de"},
+    "renderer.team_results.gw": {"en": "GW{gw} ", "es": "J{gw} "},
+    "renderer.team_results.summary": {
+        "en": "Summary: {line}.",
+        "es": "Resumen: {line}.",
+    },
+    "renderer.team_results.home": {"en": "Home: {line}.", "es": "Local: {line}."},
+    "renderer.team_results.away": {"en": "Away: {line}.", "es": "Visitante: {line}."},
+    "renderer.team_results.line": {
+        "en": (
+            "{played} P, {won}W {drawn}D {lost}L, GF {gf} GA {ga}, {cs} clean sheets "
+            "(avg {avg_gf} for / {avg_ga} against)"
+        ),
+        "es": (
+            "{played} PJ, {won}G {drawn}E {lost}P, GF {gf} GC {ga}, {cs} porter\u00edas a cero "
+            "(media {avg_gf} a favor / {avg_ga} en contra)"
+        ),
+    },
+    "renderer.team_results.ambiguous": {
+        "en": "'{query}' matches several teams.",
+        "es": "'{query}' coincide con varios equipos.",
+    },
+    "renderer.team_results.not_found": {
+        "en": "I couldn't find the team '{query}'.",
+        "es": "No encontr\u00e9 el equipo '{query}'.",
+    },
+    "renderer.team_results.error": {
+        "en": "Unexpected error while fetching the team's results.",
+        "es": "Error inesperado al consultar los resultados del equipo.",
+    },
+
+    "renderer.top_scorer.none": {
+        "en": "No finished gameweeks for season {season}.",
+        "es": "Sin datos de jornadas terminadas para la temporada {season}.",
+    },
+    "renderer.top_scorer.points": {"en": "{pts} points", "es": "{pts} puntos"},
+    "renderer.top_scorer.no_points": {"en": "points not available", "es": "puntos no disponibles"},
+    "renderer.top_scorer.single": {
+        "en": "Player of gameweek {gw} ({season}): {line}.",
+        "es": "Jugador de la jornada {gw} ({season}): {line}.",
+    },
+    "renderer.top_scorer.season_header": {
+        "en": "Player of the gameweek, season {season}:",
+        "es": "Jugador de la jornada, temporada {season}:",
+    },
+    "renderer.top_scorer.row_gw": {"en": "GW{gw}: {line}", "es": "J{gw}: {line}"},
+    "renderer.top_scorer.not_finished": {
+        "en": "Gameweek {gw} of {season} has not finished yet.",
+        "es": "La jornada {gw} de {season} a\u00fan no ha terminado.",
+    },
+    "renderer.top_scorer.not_found": {
+        "en": "I found no data for that gameweek or season.",
+        "es": "No encontr\u00e9 datos para esa jornada o temporada.",
+    },
+    "renderer.top_scorer.invalid": {"en": "Invalid argument.", "es": "Argumento inv\u00e1lido."},
+    "renderer.top_scorer.error": {
+        "en": "An unexpected error occurred while reading the history.",
+        "es": "Ocurri\u00f3 un error inesperado consultando el hist\u00f3rico.",
+    },
+
+    "renderer.find_players.header": {
+        "en": "Players found for '{query}':",
+        "es": "Jugadores encontrados para '{query}':",
+    },
+    "renderer.find_players.row": {
+        "en": "  - {name} ({team}, {pos}) \u2014 \u00a3{cost}m | Form {form} | {pts}pts | Mins {mins}",
+        "es": "  - {name} ({team}, {pos}) \u2014 \u00a3{cost}m | Forma {form} | {pts}pts | Mins {mins}",
+    },
+    "renderer.find_players.not_found": {
+        "en": "No player found matching '{query}'.",
+        "es": "No se encontr\u00f3 ning\u00fan jugador que coincida con '{query}'.",
+    },
+
+    "renderer.history.header": {
+        "en": "{name} ({team}, {pos}) \u2014 last {n} gameweek(s):",
+        "es": "{name} ({team}, {pos}) \u2014 \u00faltimas {n} jornada(s):",
+    },
+    "renderer.history.empty": {"en": " No history available.", "es": " Sin historial disponible."},
+    "renderer.history.table": {
+        "en": "  GW  | Opp   | Mins | Pts | G | A  | xG   | xA",
+        "es": "  GW  | Rival | Mins | Pts | G | A  | xG   | xA",
+    },
+    "renderer.history.summary": {
+        "en": "\n  Summary: {pts}pts total | Average form: {avg} | Total xGI: {xgi}",
+        "es": "\n  Resumen: {pts}pts totales | Forma media: {avg} | xGI total: {xgi}",
+    },
+    "renderer.history.ambiguous": {
+        "en": "Multiple players match \u2014 please give the full name.",
+        "es": "M\u00faltiples jugadores coinciden \u2014 especifica el nombre.",
+    },
+    "renderer.history.not_found": {"en": "Player not found.", "es": "Jugador no encontrado."},
+
+    "renderer.fixtures_gw.blank": {
+        "en": "\u26a0 Blank gameweek (a team has no fixture)",
+        "es": "\u26a0 Jornada en blanco (alg\u00fan equipo sin partido)",
+    },
+    "renderer.fixtures_gw.double": {
+        "en": "\u26a0 Double gameweek \u2014 teams with 2 fixtures: {teams}",
+        "es": "\u26a0 Jornada doble \u2014 equipos con 2 partidos: {teams}",
+    },
+    "renderer.fixtures_gw.header": {"en": "Fixtures GW{gw}:", "es": "Partidos GW{gw}:"},
+    "renderer.fixtures_gw.row": {
+        "en": "  GW{gw}: {home} vs {away} (kickoff: {ko}) | FDR home {h}, FDR away {a}",
+        "es": "  GW{gw}: {home} vs {away} (kickoff: {ko}) | FDR local {h}, FDR visit {a}",
+    },
+    "renderer.fixtures_gw.none": {
+        "en": "  No fixtures for this gameweek.",
+        "es": "  Sin partidos para esta jornada.",
+    },
+    "renderer.fixtures_gw.bgw_teams": {
+        "en": "  Teams without a fixture (BGW): {teams}",
+        "es": "  Equipos sin partido (BGW): {teams}",
+    },
+    "renderer.fixtures_gw.out_of_range": {
+        "en": "Gameweek number out of range (1-38).",
+        "es": "N\u00famero de jornada fuera de rango (1-38).",
+    },
+
+    "renderer.gw_context.season_over": {"en": "The season is over.", "es": "La temporada ha finalizado."},
+    "renderer.gw_context.line": {
+        "en": "Current gameweek: GW{curr} ({status}). Next gameweek: {next}.",
+        "es": "Jornada actual: GW{curr} ({status}). Pr\u00f3xima jornada: {next}.",
+    },
+    "renderer.gw_context.blank": {
+        "en": "  \u2022 BGW{gw}: teams without a fixture \u2014 {teams}",
+        "es": "  \u2022 BGW{gw}: equipos sin partido \u2014 {teams}",
+    },
+    "renderer.gw_context.double": {
+        "en": "  \u2022 DGW{gw}: teams with a double fixture \u2014 {teams}",
+        "es": "  \u2022 DGW{gw}: equipos con doble partido \u2014 {teams}",
+    },
+    "renderer.gw_context.error": {
+        "en": "Error getting the gameweek context.",
+        "es": "Error obteniendo contexto de jornada.",
+    },
+
+    "renderer.team_snapshot.run_easy": {"en": "easy", "es": "f\u00e1cil"},
+    "renderer.team_snapshot.run_hard": {"en": "tough", "es": "dura"},
+    "renderer.team_snapshot.run_mid": {"en": "average", "es": "media"},
+    "renderer.team_snapshot.header": {
+        "en": "**{name} ({short})** \u2014 {run} run (average FDR: {avg})",
+        "es": "**{name} ({short})** \u2014 racha {run} (FDR medio: {avg})",
+    },
+    "renderer.team_snapshot.fixtures": {"en": "  Upcoming fixtures:", "es": "  Pr\u00f3ximos partidos:"},
+    "renderer.team_snapshot.top_players": {
+        "en": "  Top players (by points):",
+        "es": "  Mejores jugadores (por puntos):",
+    },
+    "renderer.team_snapshot.player_row": {
+        "en": "    {name} ({pos}) \u2014 {pts}pts | form {form} | \u00a3{cost}m",
+        "es": "    {name} ({pos}) \u2014 {pts}pts | forma {form} | \u00a3{cost}m",
+    },
+    "renderer.team_snapshot.leaders": {
+        "en": "  Top scorer: {scorer} | Best form: {form}",
+        "es": "  M\u00e1ximo goleador: {scorer} | Mejor forma: {form}",
+    },
+    "renderer.team_snapshot.ambiguous": {
+        "en": "Multiple teams match '{query}': {shorts}. Please be more specific.",
+        "es": "M\u00faltiples equipos coinciden con '{query}': {shorts}. Por favor especifica.",
+    },
+    "renderer.team_snapshot.not_found": {"en": "Team not found.", "es": "Equipo no encontrado."},
+
+    "renderer.web.error": {
+        "en": "The web search could not be completed.",
+        "es": "No se pudo completar la b\u00fasqueda web.",
+    },
+    "renderer.web.none": {
+        "en": "I found no relevant results for that search.",
+        "es": "No encontr\u00e9 resultados relevantes para esa b\u00fasqueda.",
+    },
+    "renderer.web.found": {"en": "Here is what I found on the web:", "es": "Esto encontr\u00e9 en la web:"},
+    "renderer.fetch.ok": {
+        "en": "Fetched {url} ({length} bytes{trunc}).\n{excerpt}",
+        "es": "Obtenido {url} ({length} bytes{trunc}).\n{excerpt}",
+    },
+    "renderer.fetch.truncated": {"en": " (truncated)", "es": " (truncado)"},
+    "renderer.fetch.refused": {
+        "en": "URL rejected by the allowed-domains list.",
+        "es": "URL rechazada por la lista de dominios permitidos.",
+    },
+    "renderer.fetch.error": {"en": "Error fetching the URL.", "es": "Error al obtener la URL."},
+
+    "renderer.metric.pos_filter": {"en": "position: {pos}", "es": "posici\u00f3n: {pos}"},
+    "renderer.metric.min_minutes": {"en": "min. minutes: {n}", "es": "min. minutos: {n}"},
+    "renderer.metric.none": {
+        "en": "No players for the metric '{metric}'{filters}.",
+        "es": "Sin jugadores para la m\u00e9trica '{metric}'{filters}.",
+    },
+    "renderer.metric.inverted_asc": {
+        "en": "The {n} players with the lowest {metric}{filters}:",
+        "es": "Los {n} jugadores con menor {metric}{filters}:",
+    },
+    "renderer.metric.inverted_desc": {
+        "en": "The {n} players with the highest {metric}{filters}:",
+        "es": "Los {n} jugadores con mayor {metric}{filters}:",
+    },
+    "renderer.metric.top": {
+        "en": "Top {n} players by {metric}{filters}:",
+        "es": "Top {n} jugadores por {metric}{filters}:",
+    },
+    "renderer.metric.table": {
+        "en": "  #  | Player        | Team   | Pos | Metric value",
+        "es": "  #  | Jugador       | Equipo | Pos | Valor m\u00e9trica",
+    },
+    "renderer.metric.unknown": {"en": "Metric not recognised.", "es": "M\u00e9trica no reconocida."},
+
+    "renderer.squad.header": {
+        "en": "Squad of {n} players by {objective} (basis: {basis}):",
+        "es": "Equipo de {n} jugadores por {objective} (base: {basis}):",
+    },
+    "renderer.squad.table": {
+        "en": "  Pos | Player           | Club | Price  | Value  | XI",
+        "es": "  Pos | Jugador          | Club | Precio | Valor  | XI",
+    },
+    "renderer.squad.bench": {"en": "bench", "es": "banca"},
+    "renderer.squad.total": {
+        "en": "  Total cost: {cost}m of {budget}m \u2014 {remaining}m left.",
+        "es": "  Coste total: {cost}m de {budget}m \u2014 queda {remaining}m.",
+    },
+    "renderer.squad.clubs": {
+        "en": "  Per club: {clubs} (maximum allowed {max}).",
+        "es": "  Por club: {clubs} (m\u00e1ximo permitido {max}).",
+    },
+    "renderer.squad.formation": {
+        "en": "  Formation: {formation} (plus goalkeeper).",
+        "es": "  Alineaci\u00f3n: {formation} (m\u00e1s portero).",
+    },
+    "renderer.squad.warning": {"en": "  Note: {warning}", "es": "  Aviso: {warning}"},
+    "renderer.squad.infeasible": {
+        "en": "No legal squad exists with those constraints.",
+        "es": "No existe ning\u00fan equipo legal con esas restricciones.",
+    },
+    "renderer.squad.ambiguous": {"en": "Several players match.", "es": "Varios jugadores coinciden."},
+    "renderer.squad.candidates": {"en": "{message} Candidates: {names}.", "es": "{message} Candidatos: {names}."},
+    "renderer.squad.not_found": {"en": "I couldn't find that player.", "es": "No encontr\u00e9 a ese jugador."},
+    "renderer.squad.invalid": {
+        "en": "Invalid arguments for building the squad.",
+        "es": "Argumentos no v\u00e1lidos para armar el equipo.",
+    },
+
     # -- position noun, shared by any renderer that names a position group -
     "position_noun.GKP": {"en": "goalkeepers", "es": "porteros"},
     "position_noun.DEF": {"en": "defenders", "es": "defensas"},
