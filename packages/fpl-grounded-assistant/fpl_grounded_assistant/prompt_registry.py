@@ -256,6 +256,36 @@ def _parse_positional_then_flags(positional_arg: str | None):
     return _parser
 
 
+#: An ownership threshold typed in free text: "under 10", "menos del 10%",
+#: "below 7.5%", "menos de 10". The prefix words make the number unambiguous.
+#: "%" is optional after them. Prefixes like "max" or "up to" are left out on
+#: purpose: "max 3 players" must not read as a 3% threshold.
+_OWNERSHIP_PREFIX_RE = re.compile(
+    r"\b(?:under|below|less than|menos del|menos de|por debajo (?:de|del))\s*"
+    r"(\d+(?:[.,]\d+)?)\s*%?"
+)
+#: A bare "N%" anywhere in the text. A number WITHOUT "%" is never a threshold:
+#: "/differentials 3" is the top-N count.
+_OWNERSHIP_BARE_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*%")
+
+
+def _parse_ownership_threshold(args_text: str) -> tuple[dict[str, str], list[str]]:
+    """Read the ownership threshold from free text ("under 10%", "10%").
+
+    Before this, /diferenciales and /differentials dropped any positional text,
+    so "/differentials under 10%" silently used the 15% default. Explicit
+    ``threshold=`` / ``umbral=`` / ``max_owned=`` flags are stripped before this
+    runs and still win over a positional value.
+    """
+    text = args_text.strip().casefold()
+    if not text:
+        return {}, []
+    match = _OWNERSHIP_PREFIX_RE.search(text) or _OWNERSHIP_BARE_RE.search(text)
+    if match is None:
+        return {}, []
+    return {"threshold": match.group(1).replace(",", ".")}, []
+
+
 # ---------------------------------------------------------------------------
 # Validation rule helpers
 # ---------------------------------------------------------------------------
@@ -369,7 +399,7 @@ _DIFERENCIALES = PromptSpec(
     workflow_intent=INTENT_DIFFERENTIAL_PICKS,
     mode=MODE_DISPATCH,
     expansion_template=None,
-    parse=_parse_positional_then_flags(None),
+    parse=_parse_ownership_threshold,
 )
 
 
