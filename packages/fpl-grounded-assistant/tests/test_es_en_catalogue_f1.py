@@ -919,6 +919,8 @@ class TestSpanishRegisterIsTuteo:
         "encontré",  # 1st-person preterite ("no encontré..." = "I didn't find...")
         "más",       # adverb "more", not a verb form
         "sí",        # "yes", not a verb form
+        "está",      # 3rd-person present of "estar" ("¿quién está lesionado?"), tuteo-neutral
+        "qué",       # interrogative "what/which" ("¿qué equipos...?"), not a verb form
     }
 
     def _voseo_hits(self):
