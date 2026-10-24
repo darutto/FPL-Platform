@@ -676,6 +676,34 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "es": "Argumentos no v\u00e1lidos para armar el equipo.",
     },
 
+    # -- i18n S5a: generic orchestrator failure texts. en is the wording these had;
+    # they were English-only, so a Spanish user saw English -- es is new (deliberate
+    # behaviour change, same call as the clarification prompts in S3b).
+    "orch_err.llm_failed": {
+        "en": "LLM call failed during orchestration.",
+        "es": "Falló la llamada al modelo durante la orquestación.",
+    },
+    "orch_err.auth_failed": {
+        "en": "LLM authentication failed during orchestration.",
+        "es": "Falló la autenticación con el modelo durante la orquestación.",
+    },
+    "orch_err.no_client": {
+        "en": "No LLM client available for orchestration.",
+        "es": "No hay un cliente de modelo disponible para la orquestación.",
+    },
+    "orch_err.cooldown": {
+        "en": "LLM provider temporarily unavailable (cooldown active).",
+        "es": "El proveedor del modelo no está disponible por el momento (enfriamiento activo).",
+    },
+    "orch_err.unknown_tool": {
+        "en": "Model selected an unknown tool: {tool}.",
+        "es": "El modelo eligió una herramienta desconocida: {tool}.",
+    },
+    "orch_err.tool_raised": {
+        "en": "Tool execution raised an error for {tool}.",
+        "es": "La ejecución de la herramienta falló para {tool}.",
+    },
+
     # -- position noun, shared by any renderer that names a position group -
     "position_noun.GKP": {"en": "goalkeepers", "es": "porteros"},
     "position_noun.DEF": {"en": "defenders", "es": "defensas"},

@@ -1941,7 +1941,7 @@ def _apply_evaluator(
                 tool_chosen=_rtname,
                 tool_args=_rtargs,
                 tool_output={},
-                answer_text=f"Tool execution raised an error for {_rtname!r}.",
+                answer_text=t("orch_err.tool_raised", locale, tool=repr(_rtname)),
                 llm_used=True,
                 model=model,
                 outcome=OUTCOME_TOOL_ERROR,
@@ -2734,7 +2734,7 @@ def _ask_orchestrated_impl(
             return OrchestratorResult(
                 question=question,
                 tool_chosen=None, tool_args={}, tool_output={},
-                answer_text="LLM call failed during orchestration.",
+                answer_text=t("orch_err.llm_failed", locale),
                 llm_used=False, model="none",
                 outcome=OUTCOME_LLM_ERROR,
                 error="_orch_request_fn requires FPL_ORCH_TEST_INJECTION to be set",
@@ -2747,7 +2747,7 @@ def _ask_orchestrated_impl(
             return OrchestratorResult(
                 question=question,
                 tool_chosen=None, tool_args={}, tool_output={},
-                answer_text="No LLM client available for orchestration.",
+                answer_text=t("orch_err.no_client", locale),
                 llm_used=False, model="none",
                 outcome=OUTCOME_NO_CLIENT,
                 error="OPENAI_API_KEY not configured",
@@ -2758,7 +2758,7 @@ def _ask_orchestrated_impl(
             return OrchestratorResult(
                 question=question,
                 tool_chosen=None, tool_args={}, tool_output={},
-                answer_text="No LLM client available for orchestration.",
+                answer_text=t("orch_err.no_client", locale),
                 llm_used=False, model="none",
                 outcome=OUTCOME_NO_CLIENT,
                 error="GOOGLE_API_KEY not configured",
@@ -2771,7 +2771,7 @@ def _ask_orchestrated_impl(
             return OrchestratorResult(
                 question=question,
                 tool_chosen=None, tool_args={}, tool_output={},
-                answer_text="No LLM client available for orchestration.",
+                answer_text=t("orch_err.no_client", locale),
                 llm_used=False, model="none",
                 outcome=OUTCOME_NO_CLIENT,
                 error="no LLM client available",
@@ -2839,7 +2839,7 @@ def _ask_orchestrated_impl(
             tool_chosen=None,
             tool_args={},
             tool_output={},
-            answer_text="LLM provider temporarily unavailable (cooldown active).",
+            answer_text=t("orch_err.cooldown", locale),
             llm_used=False,
             model="none",
             outcome=OUTCOME_COOLDOWN,
@@ -2899,9 +2899,9 @@ def _ask_orchestrated_impl(
     if orch_call.error_code is not None:
         _active_gate.record_failure(orch_call.error_code)
         if orch_call.error_code == PERR_AUTH:
-            answer_text = "LLM authentication failed during orchestration."
+            answer_text = t("orch_err.auth_failed", locale)
         else:
-            answer_text = "LLM call failed during orchestration."
+            answer_text = t("orch_err.llm_failed", locale)
         # Token fields default to 0 here, and that is not a shortcut: every
         # provider branch in call_orch_provider() only extracts usage when
         # the raw request succeeded (raw.success and raw.response is not
@@ -3006,7 +3006,7 @@ def _ask_orchestrated_impl(
                 tool_chosen=_tool_name,
                 tool_args={},
                 tool_output={},
-                answer_text=f"Model selected an unknown tool: {_tool_name!r}.",
+                answer_text=t("orch_err.unknown_tool", locale, tool=repr(_tool_name)),
                 llm_used=True,
                 model=model,
                 outcome=OUTCOME_UNKNOWN_TOOL,
@@ -3053,7 +3053,7 @@ def _ask_orchestrated_impl(
                 tool_chosen=_tool_name,
                 tool_args=_tool_args,
                 tool_output={},
-                answer_text=f"Tool execution raised an error for {_tool_name!r}.",
+                answer_text=t("orch_err.tool_raised", locale, tool=repr(_tool_name)),
                 llm_used=True,
                 model=model,
                 outcome=OUTCOME_TOOL_ERROR,
