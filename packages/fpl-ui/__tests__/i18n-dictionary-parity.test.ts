@@ -26,6 +26,17 @@ const SAME_IN_BOTH = new Set<string>([
   'unit.pts',
   'evidence.dir.neutral',
   'share.club',
+  // S4c: the squad pitch already used English words for these in Spanish; kept as they were.
+  'sq.title',
+  'sq.stat.gw',
+  'sq.stat.total',
+  'sq.bench',
+  'sq.tap1',
+  'sq.tap2',
+  'sq.ask',
+  'sq.stat.sel',
+  'z.pos.DEF',
+  'sq.pos.DEF',
 ]);
 
 const keys = Object.keys(es) as DictKey[];

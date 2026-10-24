@@ -1,0 +1,155 @@
+{
+  "app/fixtures/page.tsx": [
+    "Calendario",
+    "Dificultad de dos ejes con detección de rachas. Toca un equipo o una jornada para profundizar en el chat."
+  ],
+  "app/subscribe/page.tsx": [
+    "Elige tu membresía",
+    "Inicia sesión de nuevo",
+    "Prueba FPL Asistente gratis con 5 mensajes al día. Cada nivel de membresía suma más uso del asistente y beneficios del club.",
+    "para sincronizar tu nivel.",
+    "¿Ya eres miembro?"
+  ],
+  "components/chat/SectionSwitcher.tsx": [
+    "Sección"
+  ],
+  "components/chat/WcChatShell.tsx": [
+    "/comparar Mbappé vs Haaland",
+    "Conversación",
+    "Error inesperado. Por favor, inténtalo de nuevo.",
+    "Escribe tu pregunta o usa /partidos, /clasificacion…",
+    "Haz una pregunta sobre el Mundial 2026: partidos, clasificaciones, plantillas…",
+    "Limpiar sesión",
+    "¿Cómo va el grupo A?",
+    "¿Quiénes son los máximos goleadores?"
+  ],
+  "components/chat/WcCommandPanel.tsx": [
+    "/jugador",
+    "/partidos",
+    "/plantilla",
+    "Comandos rápidos",
+    "Preguntas rápidas"
+  ],
+  "components/dev/DevTierSwitcher.tsx": [
+    "$1 tribuna · 15/día · sin web",
+    "$10 plus · 60/día · web",
+    "$15+ premium · 150/día · web",
+    "$5 basic · 30/día · sin web",
+    "free · 5/día · sin web"
+  ],
+  "components/intents/InjuryListTable.tsx": [
+    "detalle",
+    "equipo",
+    "jugador"
+  ],
+  "components/wc/WcAssistsTable.tsx": [
+    "Máximos asistidores"
+  ],
+  "components/wc/WcBracketTable.tsx": [
+    "Campeón del mundo"
+  ],
+  "components/wc/WcFantasyTable.tsx": [
+    "Forma",
+    "Mejores jugadores fantasy"
+  ],
+  "components/wc/WcFixturesTable.tsx": [
+    "Partidos",
+    "Prórroga"
+  ],
+  "components/wc/WcPlayerInfoCard.tsx": [
+    "Forma",
+    "Partidos M22",
+    "Posición",
+    "Valoración",
+    "partidos"
+  ],
+  "components/wc/WcScorersTable.tsx": [
+    "Máximos goleadores"
+  ],
+  "components/wc/WcSquadTable.tsx": [
+    "Plantilla —"
+  ],
+  "components/wc/WcStandingsTable.tsx": [
+    "Equipo"
+  ],
+  "components/wc/WcWebSearchCard.tsx": [
+    "Búsqueda web",
+    "Búsqueda web · IA · información sin verificar"
+  ],
+  "lib/fixture-outlook-mock.ts": [
+    "Buen tramo para portería a cero: calendario",
+    "Calendario sin rachas marcadas en el horizonte.",
+    "jornadas de calendario",
+    "jornadas duras (",
+    "para mantener la portería a cero ("
+  ],
+  "lib/share-image.ts": [
+    "No se pudo generar la imagen de la tarjeta."
+  ],
+  "lib/slash-commands.ts": [
+    "Calendario de partidos",
+    "Capitán",
+    "Comparar jugadores",
+    "Top capitanes de la semana",
+    "p.ej. Mbappé",
+    "p.ej. triple capitán"
+  ],
+  "lib/tiers.ts": [
+    "15 mensajes al día",
+    "150 mensajes al día · búsqueda web",
+    "30 mensajes al día",
+    "5 mensajes al día",
+    "60 mensajes al día · búsqueda web",
+    "Acceso al Discord del club",
+    "Acceso prioritario a eventos (Fanfest y más)",
+    "Competencias exclusivas con miembros del club",
+    "Ejecutivo: Carné de oro",
+    "Ejecutivo: carné de plata",
+    "Elemento conmemorativo personalizado cada temporada",
+    "Mención especial en el podcast",
+    "Partidos narrados en directo en Discord",
+    "Podcast exclusivo de la liga interclubes",
+    "Premios mensuales en la miniliga (mín. 5 miembros)",
+    "Ruedas de prensa y conferencias del club",
+    "Todos los beneficios de Gafete de cancha",
+    "Todos los beneficios de Socio Junior",
+    "Todos los beneficios de Tribuna",
+    "Todos los beneficios de carné de plata",
+    "Voto en decisiones de la directiva del club"
+  ],
+  "lib/wc-slash-commands.ts": [
+    "/jugador",
+    "/partidos",
+    "/plantilla",
+    "Clasificación de grupo",
+    "Compara dos jugadores del Mundial.",
+    "Comparar jugadores",
+    "Dame información sobre el jugador",
+    "Información de jugador",
+    "Muéstrame el cuadro completo de eliminatorias del Mundial.",
+    "Muéstrame el cuadro de",
+    "Muéstrame la plantilla de",
+    "Muéstrame la plantilla de una selección.",
+    "Máximos asistidores",
+    "Máximos goleadores",
+    "Partidos y resultados",
+    "Plantilla de selección",
+    "p.ej. España",
+    "p.ej. Mbappé",
+    "p.ej. Mbappé vs Haaland",
+    "p.ej. México vs Argentina",
+    "¿Cuál es el historial entre",
+    "¿Cuál es el historial entre dos selecciones en este Mundial?",
+    "¿Cuáles son los partidos de",
+    "¿Cómo está la clasificación del",
+    "¿Cómo está la clasificación general por grupos?",
+    "¿Cómo le fue a",
+    "¿Quiénes son los jugadores con más puntos de fantasy entre los",
+    "¿Quiénes son los máximos asistidores del torneo?",
+    "¿Quiénes son los máximos goleadores del torneo?",
+    "¿Qué información tienes sobre un jugador?",
+    "¿Qué jugadores han hecho más puntos de fantasy en el torneo?",
+    "¿Qué partidos hay hoy en el Mundial?",
+    "¿Qué pasó en el Mundial de 2022?"
+  ]
+}

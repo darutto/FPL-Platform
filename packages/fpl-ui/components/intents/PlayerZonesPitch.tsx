@@ -19,17 +19,19 @@ import {
   ZONE_SHADE_HEX,
   pitchCell,
   sharePercent,
-  zoneChipLabel,
+  zoneChipLabelFor,
 } from '@/lib/defensive-zones';
 import { PitchLines, ZONE_X, ZONE_WIDTH, ZONE_CENTER_X } from './PitchGeometry';
+import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
+import { translate } from '@/lib/i18n/dictionary';
 
 interface Props {
   zones: PlayerZonalZone[];
   fixtures: PlayerZonalFixture[];
 }
 
-/** Legend shown next to the pitch when any rival is favorable. */
-export const PITCH_LEGEND = 'Turquesa: coincide con la zona con ventaja ante un rival favorable.';
+/** Legend shown next to the pitch when any rival is favorable (Spanish; the section reads it in the language showing). */
+export const PITCH_LEGEND = translate('es', 'pz.legend');
 
 /** True when at least one zone can be placed on the pitch. */
 export function hasPlaceableZones(zones: PlayerZonalZone[]): boolean {
@@ -53,6 +55,8 @@ export function cellOpacity(share: number, matched: boolean): number {
 }
 
 export default function PlayerZonesPitch({ zones, fixtures }: Props) {
+  const t = useT();
+  const { locale } = useLocale();
   const matched = new Set<string>();
   for (const f of fixtures) {
     if (f.status !== 'favorable') continue;
@@ -67,8 +71,8 @@ export default function PlayerZonesPitch({ zones, fixtures }: Props) {
   const label = cells
     .map(
       (c) =>
-        `${zoneChipLabel(c.zone)}: ${sharePercent(c.share)}% de su xG${
-          c.hit ? ' (coincide con un cruce favorable)' : ''
+        `${t('pz.aria.cell', { zone: zoneChipLabelFor(c.zone, locale), pct: sharePercent(c.share) })}${
+          c.hit ? t('pz.aria.hit') : ''
         }`,
     )
     .join(' · ');
