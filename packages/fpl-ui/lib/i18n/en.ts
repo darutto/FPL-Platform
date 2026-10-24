@@ -110,6 +110,10 @@ export const en: typeof es = {
   'workspace.calendar': 'Fixtures',
   'workspace.panel.squad': 'Squad',
   'workspace.panel.commands': 'Commands',
+  'workspace.goTo': 'Go to {name}',
+  'section.label': 'Section',
+  'section.wc': 'World Cup',
+  'md.table': 'Table',
   'workspace.hidePanel': 'Hide {name} panel',
   'workspace.showPanel': 'Show {name} panel',
 

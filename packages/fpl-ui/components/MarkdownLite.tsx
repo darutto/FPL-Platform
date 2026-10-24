@@ -1,4 +1,5 @@
 import React from 'react';
+import { useT } from '@/lib/i18n/LocaleProvider';
 
 /**
  * i126: `*italic*` — an asterisk that opens on a non-space and closes on a
@@ -133,6 +134,7 @@ function parseSeparator(line: string, columns: number): Align[] | null {
  * headings pin `text-white` as emphasis.
  */
 export default function MarkdownLite({ text, className }: Props) {
+  const t = useT();
   const lines = text.split('\n');
   const blocks: React.ReactNode[] = [];
   let listKind: ListKind | null = null;
@@ -203,7 +205,7 @@ export default function MarkdownLite({ text, className }: Props) {
           // width as max-content, so the bubble widens up to its cap and the
           // table scrolls inside.
           <div key={key} className="grid grid-cols-[minmax(0,1fr)]">
-          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabla">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label={t('md.table')}>
             <table className="border-collapse text-[13px]">
               <thead>
                 <tr>
