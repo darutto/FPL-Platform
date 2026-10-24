@@ -1,7 +1,4 @@
 {
-  "components/chat/SectionSwitcher.tsx": [
-    "Sección"
-  ],
   "components/chat/WcChatShell.tsx": [
     "/comparar Mbappé vs Haaland",
     "Conversación",

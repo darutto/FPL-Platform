@@ -325,12 +325,13 @@ function EdgeHint({
   onClick: () => void;
   accentClass: string;
 }) {
+  const t = useT();
   return (
     <button
       onClick={onClick}
       data-no-swipe
       data-pager-navigation
-      title={`Ir a ${label}`}
+      title={t('workspace.goTo', { name: label })}
       className={`absolute top-1/2 -translate-y-1/2 z-10 px-1 py-3.5 rounded-lg border border-white/10 bg-bf-surface/85 backdrop-blur hidden md:flex flex-col items-center gap-1.5 opacity-80 hover:opacity-100 transition-opacity ${accentClass} ${
         side === 'left' ? 'left-2' : 'right-2'
       }`}

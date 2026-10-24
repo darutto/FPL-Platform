@@ -109,6 +109,10 @@ export const es = {
   'workspace.calendar': 'Calendar',
   'workspace.panel.squad': 'Squad',
   'workspace.panel.commands': 'Comandos',
+  'workspace.goTo': 'Ir a {name}',
+  'section.label': 'Sección',
+  'section.wc': 'Mundial',
+  'md.table': 'Tabla',
   'workspace.hidePanel': 'Ocultar panel {name}',
   'workspace.showPanel': 'Mostrar panel {name}',
 
