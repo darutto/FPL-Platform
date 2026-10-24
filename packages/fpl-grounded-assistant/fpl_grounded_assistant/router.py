@@ -1008,6 +1008,21 @@ _DIFFERENTIAL_KEYWORDS: tuple[str, ...] = (
 )
 
 
+#: Bare words that name a gameweek without asking for the CURRENT one. They
+#: count as a gameweek question only outside calendar context: "gameweek" is
+#: also how a fixture question is phrased ("...attacking fixture run over the
+#: next gameweeks", "GW7 (double gameweek): ... attacking and defensively").
+_BARE_GAMEWEEK_KEYWORDS: frozenset[str] = frozenset({"gameweek", "gameweek?"})
+
+#: Words that make a question about fixtures or a match rather than the current
+#: gameweek. Deliberately not "next" / "upcoming": "what's the next gameweek" is
+#: still the gameweek question.
+_CALENDAR_CONTEXT_WORDS: tuple[str, ...] = (
+    "fixture", "calendar", "calendario", "schedule", "outlook", "run",
+    "double", "doble", "opponent", "rival", "difficulty", "dificultad",
+    "pinta", "attacking", "defensiv", "ofensiv", "clean sheet", "porteria",
+)
+
 _GAMEWEEK_KEYWORDS: tuple[str, ...] = (
     "current gameweek",
     "current gw",
@@ -1898,6 +1913,40 @@ def _try_route_comparison(q_orig: str, q_norm: str) -> RouteResult | None:
 # Public API
 # ---------------------------------------------------------------------------
 
+#: A fixture-cell question, in the exact shape the UI sends (fx.q.cell in both
+#: locales): "<team> vs <opp> (at home | away), GW7: ... attacking and defensively
+#: ...?". Requires the venue, the "vs" and an attack/defence phrase, so an ordinary
+#: "X vs Y" comparison or a gameweek question never matches.
+_FIXTURE_CELL_VENUE_RE = _re.compile(r"\b(en casa|a domicilio|at home|away)\b")
+_FIXTURE_CELL_VS_RE = _re.compile(r"\b(vs|versus)\b")
+_FIXTURE_CELL_BOTH_SIDES_WORDS: tuple[str, ...] = (
+    "ofensiv", "defensiv", "attacking", "defensively", "attack",
+)
+
+
+def _is_fixture_cell_question(q_norm: str) -> bool:
+    """True for the UI's composed fixture-cell question (both sides of one match).
+
+    The deterministic router cannot answer it: the right answer is two axes plus
+    the team snapshot, composed by the orchestrator. Returning ``None`` is
+    deliberate; the alternative was a wrong tool (compare_players on the cell).
+    """
+    return (
+        _FIXTURE_CELL_VENUE_RE.search(q_norm) is not None
+        and _FIXTURE_CELL_VS_RE.search(q_norm) is not None
+        and any(word in q_norm for word in _FIXTURE_CELL_BOTH_SIDES_WORDS)
+    )
+
+
+def _is_gameweek_question(q_norm: str) -> bool:
+    """A question asking which gameweek it is, and not a fixture question about one."""
+    if any(kw in q_norm for kw in _GAMEWEEK_KEYWORDS if kw not in _BARE_GAMEWEEK_KEYWORDS):
+        return True
+    if not any(kw in q_norm for kw in _BARE_GAMEWEEK_KEYWORDS):
+        return False
+    return not any(word in q_norm for word in _CALENDAR_CONTEXT_WORDS)
+
+
 def route(question: str) -> RouteResult | None:
     """
     Route *question* to a ``(tool_name, tool_args)`` pair.
@@ -1922,6 +1971,12 @@ def route(question: str) -> RouteResult | None:
     """
     q_norm = _normalise(question)
     q_orig = question.strip().rstrip("?!.")   # original casing, edge punctuation removed
+
+    # ── Fixture cell (both sides of one match): not a deterministic question.
+    #    Checked first, because "vs" would otherwise route it to compare_players
+    #    and "gameweek" to get_current_gameweek.
+    if _is_fixture_cell_question(q_norm):
+        return None
 
     # ── Chip advice intent (Phase 6b; checked first — "gameweek" appears in
     #    chip questions like "free hit this gameweek" so must precede gameweek)
@@ -1959,7 +2014,7 @@ def route(question: str) -> RouteResult | None:
         return _schedule_result
 
     # ── Gameweek intent ──────────────────────────────────────────────────
-    if any(kw in q_norm for kw in _GAMEWEEK_KEYWORDS):
+    if _is_gameweek_question(q_norm):
         return RouteResult(tool_name="get_current_gameweek", tool_args={})
 
     # ── Rank candidates intent (checked before captain-score) ─────────────
