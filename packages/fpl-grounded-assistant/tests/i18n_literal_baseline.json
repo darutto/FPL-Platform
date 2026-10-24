@@ -1,0 +1,173 @@
+{
+ "fpl_grounded_assistant/atomic_tool_cards.py": [
+  "Orden córners/TLI",
+  "Porterías 0",
+  "Porterías 0/90",
+  "posición:"
+ ],
+ "fpl_grounded_assistant/captain_factors.py": [
+  "El Triple Captain multiplica lo que pase, en los dos sentidos: si el jugador no suma, la jornada se ",
+  "Juega todos los minutos y lanza los penaltis, y aun así puntúa por debajo: lo que más mueve la puntu",
+  "jugó",
+  "todavía no ha jugado con su equipo, así que aún no sabemos sus minutos"
+ ],
+ "fpl_grounded_assistant/captain_list.py": [
+  "** (de tu plantilla, según el ranking):",
+  "** (según el ranking):",
+  "**Mejores opciones de capitán",
+  "**Tus mejores opciones de capitán"
+ ],
+ "fpl_grounded_assistant/chip_two_part.py": [
+  "Mejor candidato de la jornada",
+  "enlaza tu equipo y te digo si tu mejor candidato ya está en tu plantilla",
+  "enlaza tu equipo y te digo si ya tienes el grupo favorecido",
+  "esta jornada no es buena para este chip, ni para ti ni para nadie",
+  "no pude cargar tu plantilla",
+  "no puedo evaluar tu equipo",
+  "no puedo evaluar tu plantilla",
+  "te falta 1 jugador del grupo favorecido para sacarle todo al chip",
+  "te faltan {n} jugadores del grupo favorecido para sacarle todo al chip",
+  "tu mejor candidato para el Triple Captain no está en tu plantilla",
+  "tu mejor candidato para el Triple Captain ya está en tu plantilla",
+  "ya tienes el grupo favorecido"
+ ],
+ "fpl_grounded_assistant/final_response.py": [
+  ", así que ahora no",
+  "Para planificar, esta es la lectura de la jornada:",
+  "Para planificar, este es el análisis del cambio:",
+  "equipos con doble jornada",
+  "jornada mixta (equipos con doble jornada)",
+  "m más y tienes £",
+  "mejor puntuación de capitán",
+  "puntuación de capitán"
+ ],
+ "fpl_grounded_assistant/fixture_context.py": [
+  "buen calendario para portería a cero (",
+  "calendario difícil para portería a cero ("
+ ],
+ "fpl_grounded_assistant/fixture_outlook.py": [
+  "Buen tramo para portería a cero: calendario",
+  "para mantener la portería a cero ("
+ ],
+ "fpl_grounded_assistant/fixture_outlook_tool.py": [
+  "La jornada {gw} ya se jugó — pregunta por el resultado, no por el pronóstico.",
+  "No hay datos de fixtures hasta la jornada {gw} todavía.",
+  "para portería a cero"
+ ],
+ "fpl_grounded_assistant/get_my_squad.py": [
+  ". Revisa que el ID sea correcto.",
+  "No encontré ningún equipo FPL con el ID",
+  "No hay ningún equipo conectado. Conecta tu equipo desde la pestaña Plantilla para que pueda evaluarl",
+  "No pude obtener tu plantilla (error del servidor de FPL:",
+  "No pude obtener tu plantilla (fallo de red:"
+ ],
+ "fpl_grounded_assistant/get_team_results.py": [
+  "Falta el nombre del equipo.",
+  "No encontré ningún equipo que coincida con '"
+ ],
+ "fpl_grounded_assistant/orchestrator.py": [
+  "déjame"
+ ],
+ "fpl_grounded_assistant/player_snapshot_zonal.py": [
+  "Sin datos zonales de los rivales de estos partidos, no se puede valorar el cruce.",
+  "en los partidos de las próximas 3 jornadas.",
+  "genera su xG justo en zonas donde el rival concede por encima de la media — cruce favorable en"
+ ],
+ "fpl_grounded_assistant/renderer.py": [
+  "# | Jugador | Equipo | Pos | Valor métrica",
+  "' en el almacén táctico.",
+  "(más portero).",
+  "(máximo permitido",
+  "(próximas",
+  ") — últimas",
+  "). Próxima jornada:",
+  ": equipos con doble partido —",
+  "A) Candidatos de tu plantilla:",
+  "Alineación:",
+  "Argumento inválido.",
+  "Argumentos no válidos para armar el equipo.",
+  "Datos tácticos (zonales) no disponibles en este despliegue.",
+  "Datos tácticos o calendario no disponibles en este despliegue.",
+  "Dónde genera su xG:",
+  "Error inesperado al consultar los resultados del equipo.",
+  "Esto encontré en la web:",
+  "Evaluado para la",
+  "Jugador de la jornada",
+  "Jugador de la jornada, temporada",
+  "Jugadores encontrados para '",
+  "La jornada",
+  "Mejores jugadores (por puntos):",
+  "Máximo goleador:",
+  "Métrica no reconocida.",
+  "Múltiples equipos coinciden con '",
+  "Múltiples jugadores coinciden — especifica el nombre.",
+  "No encontré a ese jugador.",
+  "No encontré datos para esa jornada o temporada.",
+  "No encontré el equipo '",
+  "No encontré ningún equipo que coincida con '",
+  "No encontré resultados relevantes para esa búsqueda.",
+  "No evaluados para capitanía:",
+  "No existe ningún equipo legal con esas restricciones.",
+  "No hay candidatos disponibles en tu plantilla.",
+  "No hay equipo conectado; te muestro solo el ranking global.",
+  "No pude cargar tu plantilla; te muestro solo el ranking global.",
+  "No se encontró ningún jugador que coincida con '",
+  "No se pudo completar la búsqueda web.",
+  "No se pudo determinar la jornada actual.",
+  "Número de jornada fuera de rango (1-38).",
+  "Ocurrió un error inesperado consultando el histórico.",
+  "Origen del pool: candidatos indicados por el usuario.",
+  "Origen del pool: derivado del bootstrap.",
+  "Próximos partidos:",
+  "Sin datos de jornadas terminadas para la temporada",
+  "Sin jugadores para la métrica '",
+  "Sin partidos para esta jornada.",
+  "URL rechazada por la lista de dominios permitidos.",
+  "Varios jugadores coinciden con '",
+  "Zonas más débiles (xGA/partido vs media de la liga):",
+  "Zonas — partidos de las próximas 3 jornadas (J",
+  "aún no ha terminado.",
+  "de portería a cero",
+  "fácil",
+  "jornadas, más fácil primero):",
+  "jugadores con",
+  "jugadores por",
+  "no concede por encima de la media de la liga en ninguna zona del área — sin oportunidad zonal destac",
+  "porterías a cero (media",
+  "posición:",
+  "· tu plantilla",
+  "— últimos",
+  "⚠ Jornada doble — equipos con 2 partidos:",
+  "⚠ Jornada en blanco (algún equipo sin partido)"
+ ],
+ "fpl_grounded_assistant/zonal_weakness.py": [
+  "% sobre un equipo medio ahí.",
+  "%), una ventaja leve.",
+  ", sólo",
+  "Ataca dentro del área",
+  "Ataca la frontal del área",
+  "Ventaja leve dentro del área",
+  "Ventaja leve en la frontal del área",
+  "de liga — muestra corta para una lectura de liga",
+  "dentro del área",
+  "en la frontal del área",
+  "en las próximas",
+  "genera su xG justo en zonas donde el rival concede por encima de la media — cruce favorable en",
+  "no concede claramente por encima de la media en ninguna zona — la lectura más favorable es",
+  "no concede por encima de la media de la liga en ninguna zona del área.",
+  "por el centro",
+  "por la derecha",
+  "por la izquierda",
+  "— concede por encima de la media de la liga ahí.",
+  "⚠ El almacén táctico no declara de qué temporada son estos datos"
+ ],
+ "fpl_grounded_assistant/zonal_weakness_tool.py": [
+  "Sin calendario en el contexto: ranking de toda la liga.",
+  "jornadas: ranking de toda la liga.",
+  "no tiene partidos en las próximas"
+ ],
+ "fpl_server.py": [
+  "Has alcanzado tu límite de uso. Por favor actualiza tu plan.",
+  "La búsqueda web es una función premium. Sube a Socio Junior o superior en Patreon para activarla."
+ ]
+}
