@@ -302,6 +302,6 @@ describe('Guided Comparison chip wizard', () => {
     await sendText(user, '/comparar ');
 
     const wizard = await screen.findByTestId('compare-wizard');
-    expect(within(wizard).getByText('¿No está tu jugador? Escribilo abajo.')).toBeInTheDocument();
+    expect(within(wizard).getByText('¿No está tu jugador? Escríbelo abajo.')).toBeInTheDocument();
   });
 });
