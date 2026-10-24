@@ -137,7 +137,7 @@ export const es = {
   'wizard.compareStep2': '¿Contra quién lo comparamos?',
   'wizard.pickOne': '¿Cuál de estos jugadores buscabas?',
   'wizard.firstPlayer': 'Primer jugador:',
-  'wizard.notFound': '¿No está tu jugador? Escribilo abajo.',
+  'wizard.notFound': '¿No está tu jugador? Escríbelo abajo.',
 
   // --- Squad context panel ---
   'squad.invalidId': 'ID de equipo no válido — debe ser un número positivo.',
