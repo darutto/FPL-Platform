@@ -311,4 +311,117 @@ export const es = {
 
   'web.sourceOne': 'fuente',
   'web.sourceMany': 'fuentes',
+
+  // ===== S4b: calendar and the fixtures family =====
+  // --- Board controls ---
+  'fx.axis.attack': 'Ataque',
+  'fx.axis.defence': 'Portería a cero',
+  'fx.view.detailed': 'Detallado',
+  'fx.view.compact': 'Compacto',
+  'fx.view.tendency': 'Tendencia',
+  'fx.horizon': 'Jornadas',
+  'fx.nav.label': 'Navegar jornadas',
+  'fx.nav.prev': 'Jornada anterior',
+  'fx.nav.next': 'Jornada siguiente',
+  'fx.gw': 'J{n}',
+  'fx.gwRange': 'J{start}–J{end}',
+  'fx.present': 'Presentar',
+  'fx.card.title': 'Calendario',
+  'fx.league.title': 'Liga · orden por calendario',
+  'fx.league.subtitle': 'Mejor calendario primero · FDR promedio {range}',
+  'fx.footer':
+    'Calendario real desde la API oficial de FPL, sin datos inventados. El eje de ataque usa la dificultad FDR de FPL; el de portería a cero la ajusta por la forma atacante reciente del rival. El calendario del final de temporada se completará según la API lo vaya publicando.',
+  'fx.dataNote': 'Nota sobre los datos',
+  'fx.present.aria': 'Calendario en modo presentación',
+  'fx.present.title': 'Calendario FDR',
+  'fx.present.legend': 'Fácil → difícil · ◯ racha favorable · ◯ racha difícil',
+  'fx.present.horizonGroup': 'Jornadas a mostrar',
+  'fx.present.horizonOption': '{n} jornadas',
+  'fx.present.exit': 'Salir',
+
+  // --- Rows, cells, legend ---
+  'fx.avg': 'Prom {value}',
+  'fx.rank': 'puesto {n}',
+  'fx.team': 'EQUIPO',
+  'fx.closeDetail': 'Cerrar detalle',
+  'fx.cell.blank': 'Sin partido (jornada en blanco)',
+  'fx.cell.blankGw': 'J{gw} · sin partido (jornada en blanco)',
+  'fx.cell.title': 'J{gw} · {opponents} {venue} · FDR {band}',
+  'fx.cell.dgw': ' · doble jornada',
+  'fx.cell.askTeam': '{team} - preguntar en el chat',
+  'fx.cell.askCell': '{opponents} {venue} · dificultad {band} - preguntar en el chat',
+  'fx.cell.askOpp': '{opp} · preguntar en el chat',
+  'fx.venue.home': 'L',
+  'fx.venue.away': 'V',
+  'fx.venue.homeWord': 'Local',
+  'fx.venue.awayWord': 'Visitante',
+  'fx.venue.homeLower': 'local',
+  'fx.venue.awayLower': 'visitante',
+  'fx.legend.goodRun': 'Racha favorable',
+  'fx.legend.hardRun': 'Racha dura (3+)',
+  'fx.band.1': 'Fácil',
+  'fx.band.2': 'Favorable',
+  'fx.band.3': 'Medio',
+  'fx.band.4': 'Difícil',
+  'fx.band.5': 'Muy difícil',
+  'fx.pl.goodRun': 'racha favorable',
+  'fx.pl.hardRun': 'difícil',
+  'fx.pl.rest': '3d dorado = descanso corto',
+
+  // --- Other competitions ---
+  'fx.comp.toggle': 'Otras competiciones',
+  'fx.comp.restLegend': '3d dorado = descanso corto tras Europa o copa',
+  'fx.comp.restLegendDot': '● descanso corto tras Europa o copa',
+  'fx.comp.cups': 'Copas',
+  'fx.comp.superCup': 'Supercopa de Europa',
+  'fx.comp.lockedLine': 'Ve los partidos de Champions, Europa y copas, con los días de descanso.',
+  'fx.comp.lockedLink': 'Ver con Premium',
+  'fx.comp.another': 'otra competición',
+  'fx.days.one': '{n} día',
+  'fx.days.many': '{n} días',
+  'fx.rest': '{days} de descanso',
+  'fx.rest.cell': '{days} tras {comp}',
+  'fx.rest.sentence':
+    'Su equipo jugó {comp} hace {days}. Todavía no hay evidencia suficiente para cuantificar el riesgo de rotación.',
+  'fx.extra.sentence': '{comp} ante {opponent} ({venue})',
+
+  // --- Questions the board hands to the chat (a tapped team or cell) ---
+  'fx.q.teamAttack': '¿Cómo pinta el calendario ofensivo del {team} en las próximas jornadas?',
+  'fx.q.teamDefence': '¿Qué tan bueno es el calendario del {team} para portería a cero próximamente?',
+  'fx.q.cellBlank': '¿Qué tiene el {team} en la J{gw}?',
+  'fx.q.venueHome': 'en casa',
+  'fx.q.venueAway': 'a domicilio',
+  'fx.q.matchupJoin': ' y ',
+  'fx.q.gwDouble': 'J{gw} (doble jornada)',
+  'fx.q.cell': '{matchup}, {gw}: ¿qué tal pinta ofensivamente y defensivamente para el {team}?',
+
+  // --- The data stamp under the title ---
+  'fx.prov.season': 'Temporada {season}',
+  'fx.prov.played': 'dificultad calculada con los resultados hasta la jornada {played}',
+  'fx.prov.noneYet': 'sin jornadas jugadas todavía',
+  'fx.prov.updated': 'actualizado el {date}',
+  'fx.prov.unknownLabel': 'Calendario real de la Premier League desde la API oficial de FPL.',
+  'fx.prov.unknownWarn':
+    '⚠ Estos datos no declaran cuándo ni cómo se generaron, así que no podemos decirte a qué jornada llegan.',
+  'fx.prov.seasonStart':
+    '⚠ Arranque de temporada: aún no hay resultados, así que Ataque y Portería a cero muestran la misma dificultad (el FDR de FPL). Los dos ejes se separan en cuanto se juegan jornadas.',
+  'fx.prov.collapsed':
+    '⚠ Ambos ejes muestran los mismos datos pese a haber {played} jornadas jugadas: este calendario está sin regenerar. Cambiar entre Ataque y Portería a cero no cambiará nada.',
+  'fx.prov.stale':
+    '⚠ La liga va por la jornada {live} y este calendario se calculó con {played}. Los últimos resultados aún no pesan en la dificultad de portería a cero.',
+  'fx.prov.thin':
+    '⚠ Muestra corta: {played} de 38 jornadas. Los dos ejes ya se separan, pero a estas alturas la dificultad de portería a cero todavía refleja sobre todo la valoración de pretemporada de FPL, no la forma real. Se afina con cada jornada que se juega.',
+
+  // --- Team verdicts. The Spanish templates are the backend's own wording: they are what the
+  //     client recognises (fixtureVerdict) to show the English one; any other text passes through. ---
+  'fx.verdict.none': 'Sin fixtures en el horizonte.',
+  'fx.verdict.noRuns': 'Calendario sin rachas claras en el horizonte.',
+  'fx.verdict.attackGood': 'Buen tramo ofensivo: {n} jornadas de calendario asequible ({span}).',
+  'fx.verdict.attackGoodStrong': 'Buen tramo ofensivo: {n} jornadas de calendario muy asequible ({span}).',
+  'fx.verdict.attackBad': 'Tramo ofensivo exigente: {n} jornadas duras ({span}).',
+  'fx.verdict.attackBadStrong': 'Tramo ofensivo muy exigente: {n} jornadas duras ({span}).',
+  'fx.verdict.defenceGood': 'Buen tramo para portería a cero: calendario favorable ({span}).',
+  'fx.verdict.defenceGoodStrong': 'Buen tramo para portería a cero: calendario muy favorable ({span}).',
+  'fx.verdict.defenceBad': 'Tramo complicado para mantener la portería a cero ({span}).',
+  'fx.verdict.defenceBadStrong': 'Tramo muy complicado para mantener la portería a cero ({span}).',
 };

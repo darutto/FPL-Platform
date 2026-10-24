@@ -20,7 +20,8 @@
  */
 import type { FixtureOutlookGeneration } from './types';
 import { formatUtcDate } from './i18n/format';
-import type { Locale } from './i18n/locale';
+import { translate } from './i18n/dictionary';
+import { DEFAULT_LOCALE, type Locale } from './i18n/locale';
 
 /**
  * Below this many played gameweeks the separation rests on a thin sample.
@@ -54,7 +55,7 @@ export interface FixtureOutlookProvenance {
 }
 
 /** '2026-09-08T22:14:03Z' -> '8 sep 2026'. Null/unparseable -> null. */
-export function formatGeneratedAt(iso: string | null | undefined, locale: Locale = 'es'): string | null {
+export function formatGeneratedAt(iso: string | null | undefined, locale: Locale = DEFAULT_LOCALE): string | null {
   if (!iso) return null;
   const at = new Date(iso);
   if (Number.isNaN(at.getTime())) return null;
@@ -73,28 +74,25 @@ export function formatGeneratedAt(iso: string | null | undefined, locale: Locale
 export function fixtureOutlookProvenance(
   generation: FixtureOutlookGeneration | null | undefined,
   liveFinishedGameweek: number | null,
+  locale: Locale = DEFAULT_LOCALE,
 ): FixtureOutlookProvenance {
   if (!generation) {
     return {
       status: 'unknown',
-      label: 'Calendario real de la Premier League desde la API oficial de FPL.',
-      warning:
-        '⚠ Estos datos no declaran cuándo ni cómo se generaron, así que no ' +
-        'podemos decirte a qué jornada llegan.',
+      label: translate(locale, 'fx.prov.unknownLabel'),
+      warning: translate(locale, 'fx.prov.unknownWarn'),
     };
   }
 
   const played = generation.gameweeks_played;
   const season = generation.season_label ?? generation.season;
-  const builtOn = formatGeneratedAt(generation.generated_at);
+  const builtOn = formatGeneratedAt(generation.generated_at, locale);
 
-  const parts = [`Temporada ${season}`];
+  const parts = [translate(locale, 'fx.prov.season', { season })];
   parts.push(
-    played > 0
-      ? `dificultad calculada con los resultados hasta la jornada ${played}`
-      : 'sin jornadas jugadas todavía',
+    played > 0 ? translate(locale, 'fx.prov.played', { played }) : translate(locale, 'fx.prov.noneYet'),
   );
-  if (builtOn) parts.push(`actualizado el ${builtOn}`);
+  if (builtOn) parts.push(translate(locale, 'fx.prov.updated', { date: builtOn }));
   const label = `${parts.join(' · ')}.`;
 
   // Order matters: the axes being identical is the thing the user can see on
@@ -104,18 +102,12 @@ export function fixtureOutlookProvenance(
       ? {
           status: 'season_start',
           label,
-          warning:
-            '⚠ Arranque de temporada: aún no hay resultados, así que Ataque y ' +
-            'Portería a cero muestran la misma dificultad (el FDR de FPL). Los ' +
-            'dos ejes se separan en cuanto se juegan jornadas.',
+          warning: translate(locale, 'fx.prov.seasonStart'),
         }
       : {
           status: 'axes_collapsed',
           label,
-          warning:
-            `⚠ Ambos ejes muestran los mismos datos pese a haber ${played} ` +
-            'jornadas jugadas: este calendario está sin regenerar. Cambiar entre ' +
-            'Ataque y Portería a cero no cambiará nada.',
+          warning: translate(locale, 'fx.prov.collapsed', { played }),
         };
   }
 
@@ -123,10 +115,7 @@ export function fixtureOutlookProvenance(
     return {
       status: 'stale_gameweeks',
       label,
-      warning:
-        `⚠ La liga va por la jornada ${liveFinishedGameweek} y este calendario ` +
-        `se calculó con ${played}. Los últimos resultados aún no pesan en la ` +
-        'dificultad de portería a cero.',
+      warning: translate(locale, 'fx.prov.stale', { live: liveFinishedGameweek, played }),
     };
   }
 
@@ -134,11 +123,7 @@ export function fixtureOutlookProvenance(
     return {
       status: 'thin',
       label,
-      warning:
-        `⚠ Muestra corta: ${played} de 38 jornadas. Los dos ejes ya se separan, ` +
-        'pero a estas alturas la dificultad de portería a cero todavía refleja ' +
-        'sobre todo la valoración de pretemporada de FPL, no la forma real. Se ' +
-        'afina con cada jornada que se juega.',
+      warning: translate(locale, 'fx.prov.thin', { played }),
     };
   }
 

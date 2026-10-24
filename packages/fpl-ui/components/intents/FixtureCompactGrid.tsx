@@ -12,8 +12,10 @@ import {
   venueLabel,
   hexRgba,
   BLANK_COLOR,
+  gwLabel,
   type Band,
 } from '@/lib/fixture-outlook-format';
+import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
 import { useState, type CSSProperties } from 'react';
 import { compactGutter, gutterSentence, type TeamExtras } from '@/lib/fixture-competitions';
 import { GutterMarks } from './FixtureCompetitionExtras';
@@ -44,6 +46,8 @@ export function FixtureCompactGrid({
   presentation?: boolean;
 }) {
   const { teams, axis } = data;
+  const t = useT();
+  const { locale } = useLocale();
   const gameweeks = teams[0]?.series.map((s) => s.gameweek) ?? [];
   // The detail line of the tapped (or focused) gutter: `team:gameweek`.
   const [picked, setPicked] = useState<string | null>(null);
@@ -60,14 +64,14 @@ export function FixtureCompactGrid({
         }}
       >
         <span className="flex items-center text-[clamp(12px,1.4vw,21px)] font-extrabold tracking-wide text-bf-gray">
-          EQUIPO
+          {t('fx.team')}
         </span>
         {gameweeks.map((g) => (
           <span
             key={g}
             className="flex items-center justify-center text-center text-[clamp(12px,1.4vw,21px)] font-extrabold tracking-wide text-bf-gray"
           >
-            J{g}
+            {gwLabel(g, locale)}
           </span>
         ))}
         {teams.flatMap((team) => {
@@ -96,7 +100,7 @@ export function FixtureCompactGrid({
   let detail: string | null = null;
   if (picked && layerActive) {
     const [pickedTeam, pickedGw] = picked.split(':');
-    detail = gutterSentence(pickedTeam, compactGutter(extrasFor?.(pickedTeam) ?? null, Number(pickedGw)));
+    detail = gutterSentence(pickedTeam, compactGutter(extrasFor?.(pickedTeam) ?? null, Number(pickedGw)), locale);
   }
 
   return (
@@ -114,13 +118,13 @@ export function FixtureCompactGrid({
         <div className="fx-table min-w-max">
           <div className="fx-head flex items-center gap-1 mb-1.5">
             <span className="fx-team-col fx-gw font-extrabold tracking-wide text-bf-gray">
-              EQUIPO
+              {t('fx.team')}
             </span>
             {gameweeks.map((g) => (
               <span key={g} className="contents">
                 {layerActive && <span aria-hidden="true" className="w-[12px] flex-none" />}
                 <span className="fx-cell-w fx-gw text-center font-extrabold tracking-wide text-bf-gray">
-                  J{g}
+                  {gwLabel(g, locale)}
                 </span>
               </span>
             ))}
@@ -145,7 +149,7 @@ export function FixtureCompactGrid({
                     <CompactCell
                       gw={gw}
                       runHex={runHexFor(runByGw.get(gw.gameweek))}
-                      onAsk={onAsk ? () => onAsk(fixtureCellQuestion(team.team_name, gw)) : undefined}
+                      onAsk={onAsk ? () => onAsk(fixtureCellQuestion(team.team_name, gw, locale)) : undefined}
                     />
                   </span>
                 ))}
@@ -166,7 +170,7 @@ export function FixtureCompactGrid({
           </p>
           <button
             type="button"
-            aria-label="Cerrar detalle"
+            aria-label={t('fx.closeDetail')}
             onClick={() => setPicked(null)}
             className="flex-none text-[14px] leading-none text-bf-gray hover:text-bf-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bf-turquoise"
           >
@@ -199,14 +203,16 @@ function CompactTeamButton({
   axis: FixtureOutlookMeta['axis'];
   onAsk?: (question: string) => void;
 }) {
+  const t = useT();
+  const { locale } = useLocale();
   const className = 'fx-team-col fx-team text-left font-black text-white hover:text-bf-turquoise transition-colors';
-  const label = <><span className="fx-rank" aria-label={`puesto ${rank}`}>{rank}</span>{teamShort}</>;
+  const label = <><span className="fx-rank" aria-label={t('fx.rank', { n: rank })}>{rank}</span>{teamShort}</>;
   if (!onAsk) return <span className={className}>{label}</span>;
   return (
     <button
       type="button"
-      onClick={() => onAsk(teamOutlookQuestion(teamName, axis))}
-      title={`${teamName} - preguntar en el chat`}
+      onClick={() => onAsk(teamOutlookQuestion(teamName, axis, locale))}
+      title={t('fx.cell.askTeam', { team: teamName })}
       className={className}
     >
       {label}
@@ -225,10 +231,12 @@ function CompactCell({
   onAsk?: () => void;
   presentation?: boolean;
 }) {
+  const t = useT();
+  const { locale } = useLocale();
   const blank = gw.band === null;
   const fg = blank ? BLANK_COLOR : bandColor(gw.band as Band);
   const opponents = blank ? '—' : gw.fixtures.map((f) => f.opponent_short).join('/');
-  const venue = blank ? '' : gw.fixtures.map((f) => venueLabel(f.is_home)).join('/');
+  const venue = blank ? '' : gw.fixtures.map((f) => venueLabel(f.is_home, locale)).join('/');
   const className = presentation
     ? 'flex h-full w-full items-center justify-center gap-1 rounded-md px-1 text-center'
     : 'fx-cell flex items-center justify-center gap-0.5 rounded-md transition-transform hover:-translate-y-0.5';
@@ -250,7 +258,7 @@ function CompactCell({
     <button
       type="button"
       onClick={onAsk}
-      title={blank ? 'Sin partido (jornada en blanco)' : `${opponents} ${venue} · dificultad ${gw.band} - preguntar en el chat`}
+      title={blank ? t('fx.cell.blank') : t('fx.cell.askCell', { opponents, venue, band: gw.band as number })}
       className={className}
       style={style}
     >

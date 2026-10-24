@@ -12,12 +12,12 @@
  * team's real players (i93).
  */
 import type { FixtureAxis, FixtureOutlookGW } from './types';
+import { translate } from './i18n/dictionary';
+import { DEFAULT_LOCALE, type Locale } from './i18n/locale';
 
 /** Whole-team outlook question (team code / row tap). */
-export function teamOutlookQuestion(teamName: string, axis: FixtureAxis): string {
-  return axis === 'attack'
-    ? `¿Cómo pinta el calendario ofensivo del ${teamName} en las próximas jornadas?`
-    : `¿Qué tan bueno es el calendario del ${teamName} para portería a cero próximamente?`;
+export function teamOutlookQuestion(teamName: string, axis: FixtureAxis, locale: Locale = DEFAULT_LOCALE): string {
+  return translate(locale, axis === 'attack' ? 'fx.q.teamAttack' : 'fx.q.teamDefence', { team: teamName });
 }
 
 /**
@@ -25,13 +25,18 @@ export function teamOutlookQuestion(teamName: string, axis: FixtureAxis): string
  * Axis-independent: the phrase asks for the attacking AND the defensive read
  * of that match, so the answer is the whole profile of the fixture.
  */
-export function fixtureCellQuestion(teamName: string, gw: FixtureOutlookGW): string {
+export function fixtureCellQuestion(teamName: string, gw: FixtureOutlookGW, locale: Locale = DEFAULT_LOCALE): string {
   if (gw.fixtures.length === 0) {
-    return `¿Qué tiene el ${teamName} en la J${gw.gameweek}?`;
+    return translate(locale, 'fx.q.cellBlank', { team: teamName, gw: gw.gameweek });
   }
   const matchup = gw.fixtures
-    .map((f) => `${teamName} vs ${f.opponent_short} (${f.is_home ? 'en casa' : 'a domicilio'})`)
-    .join(' y ');
-  const jornada = gw.is_dgw ? `J${gw.gameweek} (doble jornada)` : `J${gw.gameweek}`;
-  return `${matchup}, ${jornada}: ¿qué tal pinta ofensivamente y defensivamente para el ${teamName}?`;
+    .map(
+      (f) =>
+        `${teamName} vs ${f.opponent_short} (${translate(locale, f.is_home ? 'fx.q.venueHome' : 'fx.q.venueAway')})`,
+    )
+    .join(translate(locale, 'fx.q.matchupJoin'));
+  const jornada = gw.is_dgw
+    ? translate(locale, 'fx.q.gwDouble', { gw: gw.gameweek })
+    : translate(locale, 'fx.gw', { n: gw.gameweek });
+  return translate(locale, 'fx.q.cell', { matchup, gw: jornada, team: teamName });
 }

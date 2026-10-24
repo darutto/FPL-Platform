@@ -21,6 +21,7 @@ import { axisLabel } from '@/lib/fixture-outlook-format';
 import { FixtureTickerRow, BandLegend, TeamHeader } from './FixtureTickerRow';
 import { FixtureTendencyChart } from './FixtureTendencyChart';
 import { FingerprintWaves } from './CardOrnaments';
+import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
 
 interface Props {
   data: FixtureOutlookMeta;
@@ -28,6 +29,8 @@ interface Props {
 
 export default function FixtureOutlookCard({ data }: Props) {
   const { axis, teams } = data;
+  const t = useT();
+  const { locale } = useLocale();
   if (teams.length === 0) return null;
 
   return (
@@ -37,13 +40,13 @@ export default function FixtureOutlookCard({ data }: Props) {
       <div className="relative z-10 p-4 space-y-3">
         {/* Header */}
         <div className="flex items-center gap-2 text-sm">
-          <span className="font-extrabold text-white">Calendario</span>
+          <span className="font-extrabold text-white">{t('fx.card.title')}</span>
           <span className="text-bf-gray/60">·</span>
           <span
             className="text-[10px] font-bold uppercase tracking-wider rounded px-1.5 py-0.5"
             style={{ backgroundColor: `${ACCENT_HEX.turquoise}22`, color: ACCENT_HEX.turquoise }}
           >
-            {axisLabel(axis)}
+            {axisLabel(axis, locale)}
           </span>
         </div>
 
@@ -51,11 +54,11 @@ export default function FixtureOutlookCard({ data }: Props) {
             paint their own here), and no tendency chart for a single
             gameweek — one point has no trend, the cell already says it. */}
         <div className="space-y-3">
-          {teams.map((t) => (
-            <div key={t.team_short} className="space-y-1.5" data-testid="fixture-outlook-team">
-              <TeamHeader team={t} />
-              <FixtureTickerRow team={t} showHeader={false} />
-              {t.series.length >= 2 && <FixtureTendencyChart team={t} showHeader={false} />}
+          {teams.map((team) => (
+            <div key={team.team_short} className="space-y-1.5" data-testid="fixture-outlook-team">
+              <TeamHeader team={team} />
+              <FixtureTickerRow team={team} showHeader={false} />
+              {team.series.length >= 2 && <FixtureTendencyChart team={team} showHeader={false} />}
             </div>
           ))}
         </div>

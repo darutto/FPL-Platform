@@ -20,6 +20,9 @@
 import type { FixtureRunMeta, FixtureEntry } from '@/lib/types';
 import { CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
 import { TriangleField } from './CardOrnaments';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
+import { venueLabel } from '@/lib/fixture-outlook-format';
+import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locale';
 
 interface Props {
   data: FixtureRunMeta;
@@ -60,8 +63,9 @@ export default function FixtureRunTable({ data }: Props) {
 /** Exported so other cards (e.g. PlayerCard's fixture strip) can reuse the same chip. */
 export function FixtureChip({ entry }: { entry: FixtureEntry }) {
   const { gameweek, opponent_short, is_home, difficulty } = entry;
+  const { locale } = useLocale();
   const color = fdrColor(difficulty);
-  const venue = formatVenue(is_home);
+  const venue = formatVenue(is_home, locale);
 
   return (
     <div className="flex flex-col items-stretch rounded-md overflow-hidden min-w-[60px] bg-white/[0.04] border border-white/10">
@@ -112,9 +116,9 @@ export function fdrColor(difficulty: 1 | 2 | 3 | 4 | 5): string {
   return COLORS[difficulty];
 }
 
-/** Spanish venue abbreviation: true → 'L' (local), false → 'V' (visitante). */
-export function formatVenue(is_home: boolean): string {
-  return is_home ? 'L' : 'V';
+/** Venue abbreviation: Spanish true → 'L' (local) / false → 'V' (visitante); English 'H' / 'A'. */
+export function formatVenue(is_home: boolean, locale: Locale = DEFAULT_LOCALE): string {
+  return venueLabel(is_home, locale);
 }
 
 /**

@@ -9,6 +9,8 @@
  * yields `null` so the board looks exactly as it did before this layer existed.
  */
 import type { FixtureOutlookGW } from './types';
+import { translate } from './i18n/dictionary';
+import { DEFAULT_LOCALE, type Locale } from './i18n/locale';
 
 export interface ExtraMatch {
   kickoff: string;
@@ -111,12 +113,12 @@ const NAMES: Record<string, string> = {
   UCL: 'Champions League',
   UEL: 'Europa League',
   UECL: 'Conference League',
-  'UEFA-SC': 'Supercopa de Europa',
   FA: 'FA Cup',
   EFL: 'Carabao Cup',
   PL: 'Premier League',
 };
-export const competitionName = (badge: string): string => NAMES[badge] ?? badge;
+export const competitionName = (badge: string, locale: Locale = DEFAULT_LOCALE): string =>
+  badge === 'UEFA-SC' ? translate(locale, 'fx.comp.superCup') : NAMES[badge] ?? badge;
 
 /** The shortest label the calendar shows for a competition: the code on its tile (the Super Cup shows «SC»). */
 export const competitionTileLabel = (badge: string): string => (badge === 'UEFA-SC' ? 'SC' : badge);
@@ -135,18 +137,30 @@ export const COMPETITION_COLORS: Record<string, string> = {
 };
 export const competitionColor = (badge: string): string => COMPETITION_COLORS[badge] ?? '#ABA9AC';
 
-/** The legend's entries: one swatch per hue, in the design's order. */
-export const COMPETITION_LEGEND: Array<{ label: string; color: string }> = [
-  { label: 'Champions', color: COMPETITION_COLORS.UCL },
-  { label: 'Europa League', color: COMPETITION_COLORS.UEL },
-  { label: 'Conference', color: COMPETITION_COLORS.UECL },
-  { label: 'Copas', color: COMPETITION_COLORS.FA },
-];
+/** One legend entry: its label, its hue and (when the label is long) the shorter word the presentation header uses. */
+export interface LegendEntry {
+  label: string;
+  color: string;
+  short?: string;
+}
+
+/** The legend's entries: one swatch per hue, in the design's order. Only «Copas» / «Cups» changes with the language. */
+export function competitionLegend(locale: Locale = DEFAULT_LOCALE): LegendEntry[] {
+  return [
+    { label: 'Champions', color: COMPETITION_COLORS.UCL },
+    { label: 'Europa League', color: COMPETITION_COLORS.UEL, short: 'Europa' },
+    { label: 'Conference', color: COMPETITION_COLORS.UECL },
+    { label: translate(locale, 'fx.comp.cups'), color: COMPETITION_COLORS.FA },
+  ];
+}
+export const COMPETITION_LEGEND: LegendEntry[] = competitionLegend();
 
 /** The locked switch (Free/Tribuna): what it says and what opens when it is tapped. */
 export const LOCKED_BADGE = 'Premium';
-export const LOCKED_LINE = 'Ve los partidos de Champions, Europa y copas, con los días de descanso.';
-export const LOCKED_LINK = 'Ver con Premium';
+export const lockedLine = (locale: Locale = DEFAULT_LOCALE): string => translate(locale, 'fx.comp.lockedLine');
+export const lockedLink = (locale: Locale = DEFAULT_LOCALE): string => translate(locale, 'fx.comp.lockedLink');
+export const LOCKED_LINE = lockedLine();
+export const LOCKED_LINK = lockedLink();
 
 // ---------------------------------------------------------------------------
 // The timeline: one team's matches in real date order, every competition
@@ -168,12 +182,17 @@ export type TimelineItem =
   | { kind: 'pl'; key: string; gw: FixtureOutlookGW; gap: GapInfo | null }
   | { kind: 'extra'; key: string; match: ExtraMatch; sentence: string; gap: GapInfo | null };
 
-const daysWord = (n: number) => `${n} ${n === 1 ? 'día' : 'días'}`;
+const daysWord = (n: number, locale: Locale) => translate(locale, n === 1 ? 'fx.days.one' : 'fx.days.many', { n });
 
-export const venueWord = (venue: 'H' | 'A') => (venue === 'H' ? 'local' : 'visitante');
+export const venueWord = (venue: 'H' | 'A', locale: Locale = DEFAULT_LOCALE) =>
+  translate(locale, venue === 'H' ? 'fx.venue.homeLower' : 'fx.venue.awayLower');
 
-export function extraSentence(match: ExtraMatch): string {
-  return `${competitionName(match.competition)} ante ${match.opponent} (${venueWord(match.venue)})`;
+export function extraSentence(match: ExtraMatch, locale: Locale = DEFAULT_LOCALE): string {
+  return translate(locale, 'fx.extra.sentence', {
+    comp: competitionName(match.competition, locale),
+    opponent: match.opponent,
+    venue: venueWord(match.venue, locale),
+  });
 }
 
 /**
@@ -186,17 +205,17 @@ function gapFor(
   rotation: boolean,
   _opponent: string,
   previousCompetition: string | null = null,
+  locale: Locale = DEFAULT_LOCALE,
 ): GapInfo | null {
   if (restWholeDays === null) return null;
-  if (!rotation) return { days: restWholeDays, rotation, sentence: `${daysWord(restWholeDays)} de descanso` };
-  const comp = previousCompetition ? competitionTileLabel(previousCompetition) : 'otra competición';
+  const days = daysWord(restWholeDays, locale);
+  if (!rotation) return { days: restWholeDays, rotation, sentence: translate(locale, 'fx.rest', { days }) };
+  const comp = previousCompetition ? competitionTileLabel(previousCompetition) : translate(locale, 'fx.comp.another');
   return {
     days: restWholeDays,
     rotation,
-    cell: `${daysWord(restWholeDays)} tras ${comp}`,
-    sentence:
-      `Su equipo jugó ${comp} hace ${daysWord(restWholeDays)}. ` +
-      'Todavía no hay evidencia suficiente para cuantificar el riesgo de rotación.',
+    cell: translate(locale, 'fx.rest.cell', { days, comp }),
+    sentence: translate(locale, 'fx.rest.sentence', { comp, days }),
   };
 }
 
@@ -207,7 +226,11 @@ function gapFor(
  * other-competition matches are placed between them by their real kickoff. A gameweek
  * with no Premier League match (blank) keeps its place right after the previous one.
  */
-export function buildTimeline(series: FixtureOutlookGW[], extras: TeamExtras): TimelineItem[] {
+export function buildTimeline(
+  series: FixtureOutlookGW[],
+  extras: TeamExtras,
+  locale: Locale = DEFAULT_LOCALE,
+): TimelineItem[] {
   const visible = new Set(series.map((gw) => gw.gameweek));
   type Slot = { at: number; item: TimelineItem };
   const slots: Slot[] = [];
@@ -225,7 +248,9 @@ export function buildTimeline(series: FixtureOutlookGW[], extras: TeamExtras): T
         kind: 'pl',
         key: `pl-${gw.gameweek}`,
         gw,
-        gap: first ? gapFor(first.restWholeDays, first.rotation, first.opponent, first.previousCompetition) : null,
+        gap: first
+          ? gapFor(first.restWholeDays, first.rotation, first.opponent, first.previousCompetition, locale)
+          : null,
       },
     });
   }
@@ -237,8 +262,8 @@ export function buildTimeline(series: FixtureOutlookGW[], extras: TeamExtras): T
         kind: 'extra',
         key: `extra-${i}-${match.kickoff}`,
         match,
-        sentence: extraSentence(match),
-        gap: gapFor(match.restWholeDays, false, match.opponent),
+        sentence: extraSentence(match, locale),
+        gap: gapFor(match.restWholeDays, false, match.opponent, null, locale),
       },
     });
   });
@@ -271,11 +296,17 @@ export function compactGutter(extras: TeamExtras | null, gameweek: number): Comp
 }
 
 /** The line a tapped bar opens, e.g. «ARS · Champions League ante Lille (local) · Su equipo jugó UCL hace 3 días. Todavía no hay evidencia suficiente para cuantificar el riesgo de rotación.». */
-export function gutterSentence(team: string, gutter: CompactGutter): string {
-  const parts = gutter.matches.map(extraSentence);
+export function gutterSentence(team: string, gutter: CompactGutter, locale: Locale = DEFAULT_LOCALE): string {
+  const parts = gutter.matches.map((match) => extraSentence(match, locale));
   if (gutter.rotation && gutter.rotation.restWholeDays !== null) {
     parts.push(
-      gapFor(gutter.rotation.restWholeDays, true, gutter.rotation.opponent, gutter.rotation.previousCompetition)?.sentence ?? '',
+      gapFor(
+        gutter.rotation.restWholeDays,
+        true,
+        gutter.rotation.opponent,
+        gutter.rotation.previousCompetition,
+        locale,
+      )?.sentence ?? '',
     );
   }
   return `${team} · ${parts.join(' · ')}`;
@@ -313,8 +344,9 @@ export interface PresentationColumn {
 export function buildPresentationColumns(
   series: FixtureOutlookGW[],
   extras: TeamExtras | null,
+  locale: Locale = DEFAULT_LOCALE,
 ): PresentationColumn[] {
-  const items = buildTimeline(series, extras ?? { extras: [], plMatches: [] });
+  const items = buildTimeline(series, extras ?? { extras: [], plMatches: [] }, locale);
   const columns: PresentationColumn[] = [];
   let pending: SlotMatch[] = [];
   for (const item of items) {

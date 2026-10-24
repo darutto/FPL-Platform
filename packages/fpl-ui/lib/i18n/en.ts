@@ -312,4 +312,116 @@ export const en: typeof es = {
 
   'web.sourceOne': 'source',
   'web.sourceMany': 'sources',
+
+  // ===== S4b: calendar and the fixtures family =====
+  // --- Board controls ---
+  'fx.axis.attack': 'Attack',
+  'fx.axis.defence': 'Clean sheet',
+  'fx.view.detailed': 'Detailed',
+  'fx.view.compact': 'Compact',
+  'fx.view.tendency': 'Trend',
+  'fx.horizon': 'Gameweeks',
+  'fx.nav.label': 'Browse gameweeks',
+  'fx.nav.prev': 'Previous gameweek',
+  'fx.nav.next': 'Next gameweek',
+  'fx.gw': 'GW{n}',
+  'fx.gwRange': 'GW{start}–GW{end}',
+  'fx.present': 'Present',
+  'fx.card.title': 'Fixtures',
+  'fx.league.title': 'League · ordered by fixtures',
+  'fx.league.subtitle': 'Best fixtures first · average FDR {range}',
+  'fx.footer':
+    "Real fixtures from the official FPL API, nothing invented. The attack axis uses FPL's FDR difficulty; the clean-sheet axis adjusts it by the opponent's recent attacking form. End-of-season fixtures will fill in as the API publishes them.",
+  'fx.dataNote': 'Data note',
+  'fx.present.aria': 'Fixtures in presentation mode',
+  'fx.present.title': 'FDR fixtures',
+  'fx.present.legend': 'Easy → hard · ◯ favourable run · ◯ hard run',
+  'fx.present.horizonGroup': 'Gameweeks to show',
+  'fx.present.horizonOption': '{n} gameweeks',
+  'fx.present.exit': 'Exit',
+
+  // --- Rows, cells, legend ---
+  'fx.avg': 'Avg {value}',
+  'fx.rank': 'rank {n}',
+  'fx.team': 'TEAM',
+  'fx.closeDetail': 'Close detail',
+  'fx.cell.blank': 'No fixture (blank gameweek)',
+  'fx.cell.blankGw': 'GW{gw} · no fixture (blank gameweek)',
+  'fx.cell.title': 'GW{gw} · {opponents} {venue} · FDR {band}',
+  'fx.cell.dgw': ' · double gameweek',
+  'fx.cell.askTeam': '{team} - ask in chat',
+  'fx.cell.askCell': '{opponents} {venue} · difficulty {band} - ask in chat',
+  'fx.cell.askOpp': '{opp} · ask in chat',
+  'fx.venue.home': 'H',
+  'fx.venue.away': 'A',
+  'fx.venue.homeWord': 'Home',
+  'fx.venue.awayWord': 'Away',
+  'fx.venue.homeLower': 'home',
+  'fx.venue.awayLower': 'away',
+  'fx.legend.goodRun': 'Favourable run',
+  'fx.legend.hardRun': 'Hard run (3+)',
+  'fx.band.1': 'Easy',
+  'fx.band.2': 'Favourable',
+  'fx.band.3': 'Moderate',
+  'fx.band.4': 'Hard',
+  'fx.band.5': 'Very hard',
+  'fx.pl.goodRun': 'favourable run',
+  'fx.pl.hardRun': 'hard',
+  'fx.pl.rest': '3d gold = short rest',
+
+  // --- Other competitions ---
+  'fx.comp.toggle': 'Other competitions',
+  'fx.comp.restLegend': '3d gold = short rest after Europe or a cup',
+  'fx.comp.restLegendDot': '● short rest after Europe or a cup',
+  'fx.comp.cups': 'Cups',
+  'fx.comp.superCup': 'UEFA Super Cup',
+  'fx.comp.lockedLine': 'See the Champions League, Europa League and cup fixtures, with the days of rest.',
+  'fx.comp.lockedLink': 'See with Premium',
+  'fx.comp.another': 'another competition',
+  'fx.days.one': '{n} day',
+  'fx.days.many': '{n} days',
+  'fx.rest': '{days} of rest',
+  'fx.rest.cell': '{days} after {comp}',
+  'fx.rest.sentence':
+    'The team played {comp} {days} ago. There is not yet enough evidence to size the rotation risk.',
+  'fx.extra.sentence': '{comp} vs {opponent} ({venue})',
+
+  // --- Questions the board hands to the chat (a tapped team or cell) ---
+  'fx.q.teamAttack': "How does {team}'s attacking fixture run look over the next gameweeks?",
+  'fx.q.teamDefence': "How good is {team}'s fixture run for clean sheets coming up?",
+  'fx.q.cellBlank': 'What does {team} have in GW{gw}?',
+  'fx.q.venueHome': 'at home',
+  'fx.q.venueAway': 'away',
+  'fx.q.matchupJoin': ' and ',
+  'fx.q.gwDouble': 'GW{gw} (double gameweek)',
+  'fx.q.cell': '{matchup}, {gw}: how do they look attacking and defensively for {team}?',
+
+  // --- The data stamp under the title ---
+  'fx.prov.season': 'Season {season}',
+  'fx.prov.played': 'difficulty calculated from results up to gameweek {played}',
+  'fx.prov.noneYet': 'no gameweeks played yet',
+  'fx.prov.updated': 'updated {date}',
+  'fx.prov.unknownLabel': 'Real Premier League fixtures from the official FPL API.',
+  'fx.prov.unknownWarn':
+    '⚠ This data does not say when or how it was generated, so we cannot tell you which gameweek it reaches.',
+  'fx.prov.seasonStart':
+    "⚠ Start of the season: there are no results yet, so Attack and Clean sheet show the same difficulty (FPL's FDR). The two axes separate as soon as gameweeks are played.",
+  'fx.prov.collapsed':
+    '⚠ Both axes show the same data even though {played} gameweeks have been played: this calendar has not been regenerated. Switching between Attack and Clean sheet will change nothing.',
+  'fx.prov.stale':
+    '⚠ The league is at gameweek {live} and this calendar was calculated with {played}. The latest results do not yet count towards clean-sheet difficulty.',
+  'fx.prov.thin':
+    "⚠ Small sample: {played} of 38 gameweeks. The two axes already separate, but at this stage clean-sheet difficulty still mostly reflects FPL's pre-season rating, not real form. It sharpens with every gameweek played.",
+
+  // --- Team verdicts (English wording of the backend's Spanish templates, see es.ts) ---
+  'fx.verdict.none': 'No fixtures in the window.',
+  'fx.verdict.noRuns': 'No clear runs in the fixtures ahead.',
+  'fx.verdict.attackGood': 'Good attacking stretch: {n} gameweeks of favourable fixtures ({span}).',
+  'fx.verdict.attackGoodStrong': 'Good attacking stretch: {n} gameweeks of very favourable fixtures ({span}).',
+  'fx.verdict.attackBad': 'Demanding attacking stretch: {n} tough gameweeks ({span}).',
+  'fx.verdict.attackBadStrong': 'Very demanding attacking stretch: {n} tough gameweeks ({span}).',
+  'fx.verdict.defenceGood': 'Good clean-sheet stretch: favourable fixtures ({span}).',
+  'fx.verdict.defenceGoodStrong': 'Good clean-sheet stretch: very favourable fixtures ({span}).',
+  'fx.verdict.defenceBad': 'Tricky stretch for keeping a clean sheet ({span}).',
+  'fx.verdict.defenceBadStrong': 'Very tricky stretch for keeping a clean sheet ({span}).',
 };
