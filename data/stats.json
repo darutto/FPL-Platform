@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-23T05:06:41Z",
+  "generatedAt": "2026-10-24T05:05:49Z",
   "season": "2026/27",
   "seasonStatus": "in_season",
   "gameweek": 7,
@@ -179,6 +179,14 @@
       "minutes": 596
     },
     {
+      "name": "Gibbs-White",
+      "team": "NFO",
+      "position": "MID",
+      "xg": 2.41,
+      "xa": 2.04,
+      "minutes": 630
+    },
+    {
       "name": "Gonzalo",
       "team": "FUL",
       "position": "FWD",
@@ -243,20 +251,20 @@
       "minutes": 293
     },
     {
+      "name": "Ndoye",
+      "team": "NFO",
+      "position": "MID",
+      "xg": 2.32,
+      "xa": 1.31,
+      "minutes": 527
+    },
+    {
       "name": "Evanilson",
       "team": "BOU",
       "position": "FWD",
       "xg": 2.59,
       "xa": 0.97,
       "minutes": 592
-    },
-    {
-      "name": "Gibbs-White",
-      "team": "NFO",
-      "position": "MID",
-      "xg": 1.65,
-      "xa": 1.87,
-      "minutes": 540
     },
     {
       "name": "Ødegaard",
@@ -291,6 +299,14 @@
       "minutes": 610
     },
     {
+      "name": "Enciso",
+      "team": "IPS",
+      "position": "MID",
+      "xg": 1.64,
+      "xa": 1.66,
+      "minutes": 645
+    },
+    {
       "name": "Wissa",
       "team": "NEW",
       "position": "FWD",
@@ -307,12 +323,12 @@
       "minutes": 399
     },
     {
-      "name": "Ndoye",
+      "name": "Delap",
       "team": "NFO",
-      "position": "MID",
-      "xg": 2.07,
-      "xa": 0.97,
-      "minutes": 459
+      "position": "FWD",
+      "xg": 2.53,
+      "xa": 0.5,
+      "minutes": 528
     },
     {
       "name": "Rudoni",
@@ -329,22 +345,6 @@
       "xg": 0.67,
       "xa": 2.34,
       "minutes": 584
-    },
-    {
-      "name": "Cherki",
-      "team": "MCI",
-      "position": "MID",
-      "xg": 1.3,
-      "xa": 1.7,
-      "minutes": 392
-    },
-    {
-      "name": "Enciso",
-      "team": "IPS",
-      "position": "MID",
-      "xg": 1.33,
-      "xa": 1.62,
-      "minutes": 560
     }
   ]
 }
