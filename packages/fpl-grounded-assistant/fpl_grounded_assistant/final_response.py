@@ -1475,69 +1475,31 @@ class FinalResponse:
 #   Only deterministic grounded execution can answer.
 # ---------------------------------------------------------------------------
 
-_CLARIFICATION_PROMPTS: dict[str, str] = {
+#: intent -> catalogue key (``clarify.*``). The prompts themselves live in the
+#: catalogue (es + en); the same intent always yields the same prompt per locale.
+_CLARIFICATION_KEYS: dict[str, str] = {
     # captain-family intents share the same clarification
-    INTENT_CAPTAIN_SCORE:    (
-        "Are you looking for captaincy advice or player rankings for this gameweek? "
-        "Try asking 'who should I captain?' or 'best captain options'."
-    ),
-    INTENT_RANK_CANDIDATES:  (
-        "Are you looking for captaincy advice or player rankings for this gameweek? "
-        "Try asking 'who should I captain?' or 'best captain options'."
-    ),
-    "captain_advice":        (
-        "Are you looking for captaincy advice or player rankings for this gameweek? "
-        "Try asking 'who should I captain?' or 'best captain options'."
-    ),
-    INTENT_COMPARE_PLAYERS:  (
-        "Are you comparing two players? "
-        "Try asking 'compare [Player A] vs [Player B]'."
-    ),
-    INTENT_TRANSFER_ADVICE:  (
-        "Are you looking for transfer suggestions? "
-        "Try asking 'who should I transfer in?' or 'best players to buy under £8m'."
-    ),
-    INTENT_PLAYER_FORM:      (
-        "Are you asking about a player's recent form? "
-        "Try asking 'how has [player] been playing?' or 'stats for [player] last 5 games'."
-    ),
-    INTENT_PLAYER_FIXTURE_RUN: (
-        "Are you asking about a player's upcoming fixtures? "
-        "Try 'upcoming fixtures for [player]'."
-    ),
-    INTENT_INJURY_LIST:      (
-        "Are you asking about injuries or availability? "
-        "Try 'who is injured this gameweek?'."
-    ),
-    INTENT_PRICE_CHANGES:    (
-        "Are you asking about price changes? "
-        "Try 'who has gone up in price?' or 'recent price risers'."
-    ),
-    INTENT_CHIP_ADVICE:      (
-        "Are you asking about when to use a chip? "
-        "Try 'should I use my wildcard?' or 'when should I use my bench boost?'."
-    ),
-    INTENT_DIFFERENTIAL_PICKS: (
-        "Are you looking for differential picks? "
-        "Try 'low-ownership players worth picking'."
-    ),
-    INTENT_TEAM_FIXTURE_CALENDAR: (
-        "Are you looking at fixture difficulty? "
-        "Try 'which teams have the best fixtures coming up?'."
-    ),
-    INTENT_TRANSFER_SUGGESTION: (
-        "Are you looking for specific player recommendations? "
-        "Try 'best midfielders under £7m' or 'top Arsenal players to buy'."
-    ),
+    INTENT_CAPTAIN_SCORE:         "clarify.captain",
+    INTENT_RANK_CANDIDATES:       "clarify.captain",
+    "captain_advice":             "clarify.captain",
+    INTENT_COMPARE_PLAYERS:       "clarify.compare",
+    INTENT_TRANSFER_ADVICE:       "clarify.transfer",
+    INTENT_PLAYER_FORM:           "clarify.form",
+    INTENT_PLAYER_FIXTURE_RUN:    "clarify.player_fixture_run",
+    INTENT_INJURY_LIST:           "clarify.injury",
+    INTENT_PRICE_CHANGES:         "clarify.price",
+    INTENT_CHIP_ADVICE:           "clarify.chip",
+    INTENT_DIFFERENTIAL_PICKS:    "clarify.differential",
+    INTENT_TEAM_FIXTURE_CALENDAR: "clarify.calendar",
+    INTENT_TRANSFER_SUGGESTION:   "clarify.suggestion",
 }
 
-_CLARIFICATION_FALLBACK: str = (
-    "I'm not sure what you're looking for. "
-    "Try rephrasing — for example, 'who should I captain?' or 'compare Salah vs Haaland'."
-)
+_CLARIFICATION_FALLBACK_KEY: str = "clarify.fallback"
 
 
-def _clarification_text_for_intent(intent: "str | None") -> str:
+def _clarification_text_for_intent(
+    intent: "str | None", locale: Locale = DEFAULT_LOCALE,
+) -> str:
     """Return a deterministic clarification prompt shaped by the classified intent.
 
     Parameters
@@ -1552,9 +1514,9 @@ def _clarification_text_for_intent(intent: "str | None") -> str:
         A short (1-2 sentence) clarification question.  Same intent always
         produces the same prompt.  No LLM calls, no external dependencies.
     """
-    if intent is None:
-        return _CLARIFICATION_FALLBACK
-    return _CLARIFICATION_PROMPTS.get(intent, _CLARIFICATION_FALLBACK)
+    from .catalogue import t  # noqa: PLC0415
+    key = _CLARIFICATION_KEYS.get(intent, _CLARIFICATION_FALLBACK_KEY) if intent else _CLARIFICATION_FALLBACK_KEY
+    return t(key, locale)
 
 
 # ---------------------------------------------------------------------------
@@ -2730,7 +2692,7 @@ def _extract_structured_meta(
     # Track A: additive renderable generic card, composed only from the
     # deterministic metadata just built (never LLM text).  Returns None for
     # non-ok outcomes, excluded intents, or missing metadata.
-    result["generic_card"] = build_generic_card(intent, result, raw_output, outcome)
+    result["generic_card"] = build_generic_card(intent, result, raw_output, outcome, locale)
     return result
 
 
@@ -3399,7 +3361,7 @@ def _try_session_orchestration_response(
     supported: bool = outcome not in ("unsupported", "unsupported_intent", "needs_clarification")
 
     if outcome == "needs_clarification":
-        answer_text = _clarification_text_for_intent(intent)
+        answer_text = _clarification_text_for_intent(intent, locale)
 
     # ---- semantic-shift fields (mirrors harness_adapter.to_ask_response step 4) ----
     # i127: same projection as harness_adapter (orchestrator branches carry it).
@@ -3715,7 +3677,7 @@ def respond(
     clarification_asked: bool = False
     if dr.outcome == OUTCOME_NEEDS_CLARIFICATION:
         clarification_asked = True
-        final_text = _clarification_text_for_intent(dr.intent)
+        final_text = _clarification_text_for_intent(dr.intent, locale)
 
     # Guided Comparison flow: attach deterministic tappable suggestions when the
     # clarification is a compare turn (intent==compare_players).  None otherwise.

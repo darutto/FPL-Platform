@@ -247,6 +247,140 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "es": "Recomendación: mantén a {out}. Puntuación: {so} vs {si} de {inn} ({d}).{reasons}",
     },
 
+    # -- i18n S3b: generic_card labels (titles, pills, column headers, FDR bands).
+    # es is what generic_card.py said inline. The injury column headers keep the
+    # UI adapter's keyword vocabulary (InjuryListTable HEADER_MATCHERS already
+    # accepts player/team/pos/status/chance/news/date).
+    "gcard.fdr.1": {"en": "Very favourable", "es": "Muy favorable"},
+    "gcard.fdr.2": {"en": "Favourable", "es": "Favorable"},
+    "gcard.fdr.3": {"en": "Average", "es": "Media"},
+    "gcard.fdr.4": {"en": "Tough", "es": "Exigente"},
+    "gcard.fdr.5": {"en": "Very tough", "es": "Muy exigente"},
+    "gcard.venue.home": {"en": "Home", "es": "Casa"},
+    "gcard.venue.away": {"en": "Away", "es": "Fuera"},
+    "gcard.form.title": {"en": "RECENT FORM", "es": "FORMA RECIENTE"},
+    "gcard.form.hero": {"en": "POINTS \u00b7 {n} GW", "es": "PUNTOS \u00b7 {n} JOR"},
+    "gcard.form.col_gw": {"en": "GW", "es": "JOR"},
+    "gcard.price.title": {"en": "PRICE CHANGES", "es": "CAMBIOS DE PRECIO"},
+    "gcard.price.rising": {"en": "{n} RISING", "es": "{n} SUBEN"},
+    "gcard.price.falling": {"en": "{n} FALLING", "es": "{n} BAJAN"},
+    "gcard.col.player": {"en": "PLAYER", "es": "JUGADOR"},
+    "gcard.col.team": {"en": "TEAM", "es": "EQUIPO"},
+    "gcard.col.price": {"en": "PRICE", "es": "PRECIO"},
+    "gcard.col.change": {"en": "CHANGE", "es": "CAMBIO"},
+    "gcard.cal.title": {"en": "FIXTURES", "es": "CALENDARIO"},
+    "gcard.cal.title_position": {"en": "FIXTURES BY POSITION", "es": "CALENDARIO POR POSICI\u00d3N"},
+    "gcard.cal.mode.easiest": {"en": "Most favourable fixtures", "es": "Calendario m\u00e1s favorable"},
+    "gcard.cal.mode.hardest": {"en": "Toughest fixtures", "es": "Calendario m\u00e1s exigente"},
+    "gcard.cal.horizon": {"en": "{n} GAMEWEEKS", "es": "{n} JORNADAS"},
+    "gcard.cal.col_fixtures": {"en": "FIXTURES", "es": "PARTIDOS"},
+    "gcard.cal.col_avg_fdr": {"en": "AVG FDR", "es": "FDR MEDIO"},
+    "gcard.cal.col_difficulty": {"en": "DIFFICULTY", "es": "DIFICULTAD"},
+    "gcard.sched.fixtures": {"en": "{n} FIXTURES", "es": "{n} PARTIDOS"},
+    "gcard.sched.dgw": {"en": "DOUBLE GAMEWEEK", "es": "DOBLE JORNADA"},
+    "gcard.sched.bgw": {"en": "BLANK GAMEWEEK", "es": "JORNADA EN BLANCO"},
+    "gcard.sched.col_gw": {"en": "GW", "es": "JOR"},
+    "gcard.sched.col_opp": {"en": "OPP", "es": "RIVAL"},
+    "gcard.sched.col_venue": {"en": "VENUE", "es": "SEDE"},
+    "gcard.gw.title": {"en": "CURRENT GAMEWEEK", "es": "JORNADA ACTUAL"},
+    "gcard.gw.hero": {"en": "GAMEWEEK IN PROGRESS", "es": "JORNADA EN CURSO"},
+    "gcard.inj.title": {"en": "INJURIES", "es": "LESIONES"},
+    "gcard.inj.injured": {"en": "{n} INJURED", "es": "{n} LESIONADOS"},
+    "gcard.inj.doubtful": {"en": "{n} DOUBTFUL", "es": "{n} EN DUDA"},
+    "gcard.inj.unavailable": {"en": "{n} UNAVAILABLE", "es": "{n} NO DISPONIBLES"},
+    "gcard.inj.col_status": {"en": "STATUS", "es": "ESTADO"},
+    "gcard.inj.col_chance": {"en": "CHANCE %", "es": "PROBABILIDAD %"},
+    "gcard.inj.col_news": {"en": "NEWS", "es": "NOTICIA"},
+    "gcard.inj.col_date": {"en": "DATE", "es": "FECHA"},
+
+    # -- i18n S3b: needs_clarification prompts (final_response). The en side is
+    # the wording these had before (they were English-only, so a Spanish user
+    # saw English); es is new, tuteo, opportunity framing (no buy/sell words).
+    "clarify.captain": {
+        "en": (
+            "Are you looking for captaincy advice or player rankings for this gameweek? "
+            "Try asking 'who should I captain?' or 'best captain options'."
+        ),
+        "es": (
+            "\u00bfBuscas consejo de capitan\u00eda o un ranking de jugadores para esta jornada? "
+            "Prueba con '\u00bfa qui\u00e9n capitaneo?' o 'mejores opciones de capit\u00e1n'."
+        ),
+    },
+    "clarify.compare": {
+        "en": "Are you comparing two players? Try asking 'compare [Player A] vs [Player B]'.",
+        "es": "\u00bfQuieres comparar a dos jugadores? Prueba con 'compara [Jugador A] vs [Jugador B]'.",
+    },
+    "clarify.transfer": {
+        "en": (
+            "Are you looking for transfer suggestions? "
+            "Try asking 'who should I transfer in?' or 'best players to buy under \u00a38m'."
+        ),
+        "es": (
+            "\u00bfBuscas ideas para mejorar tu plantilla? "
+            "Prueba con '\u00bfa qui\u00e9n incorporo?' o 'mejores jugadores por menos de \u00a38m'."
+        ),
+    },
+    "clarify.form": {
+        "en": (
+            "Are you asking about a player's recent form? "
+            "Try asking 'how has [player] been playing?' or 'stats for [player] last 5 games'."
+        ),
+        "es": (
+            "\u00bfPreguntas por la forma reciente de un jugador? "
+            "Prueba con '\u00bfc\u00f3mo est\u00e1 jugando [jugador]?' o 'estad\u00edsticas de [jugador] en los \u00faltimos 5 partidos'."
+        ),
+    },
+    "clarify.player_fixture_run": {
+        "en": "Are you asking about a player's upcoming fixtures? Try 'upcoming fixtures for [player]'.",
+        "es": "\u00bfPreguntas por los pr\u00f3ximos partidos de un jugador? Prueba con 'pr\u00f3ximos partidos de [jugador]'.",
+    },
+    "clarify.injury": {
+        "en": "Are you asking about injuries or availability? Try 'who is injured this gameweek?'.",
+        "es": "\u00bfPreguntas por lesiones o disponibilidad? Prueba con '\u00bfqui\u00e9n est\u00e1 lesionado esta jornada?'.",
+    },
+    "clarify.price": {
+        "en": "Are you asking about price changes? Try 'who has gone up in price?' or 'recent price risers'.",
+        "es": "\u00bfPreguntas por cambios de precio? Prueba con '\u00bfqui\u00e9n ha subido de precio?' o '\u00faltimas subidas de precio'.",
+    },
+    "clarify.chip": {
+        "en": (
+            "Are you asking about when to use a chip? "
+            "Try 'should I use my wildcard?' or 'when should I use my bench boost?'."
+        ),
+        "es": (
+            "\u00bfPreguntas por cu\u00e1ndo usar un chip? "
+            "Prueba con '\u00bfdebo usar mi Wildcard?' o '\u00bfcu\u00e1ndo uso mi Bench Boost?'."
+        ),
+    },
+    "clarify.differential": {
+        "en": "Are you looking for differential picks? Try 'low-ownership players worth picking'.",
+        "es": "\u00bfBuscas diferenciales? Prueba con 'jugadores de baja propiedad que merezcan la pena'.",
+    },
+    "clarify.calendar": {
+        "en": "Are you looking at fixture difficulty? Try 'which teams have the best fixtures coming up?'.",
+        "es": "\u00bfMiras la dificultad de los partidos? Prueba con '\u00bfqu\u00e9 equipos tienen mejor calendario?'.",
+    },
+    "clarify.suggestion": {
+        "en": (
+            "Are you looking for specific player recommendations? "
+            "Try 'best midfielders under \u00a37m' or 'top Arsenal players to buy'."
+        ),
+        "es": (
+            "\u00bfBuscas recomendaciones de jugadores concretos? "
+            "Prueba con 'mejores centrocampistas por menos de \u00a37m' o 'mejores jugadores del Arsenal'."
+        ),
+    },
+    "clarify.fallback": {
+        "en": (
+            "I'm not sure what you're looking for. "
+            "Try rephrasing \u2014 for example, 'who should I captain?' or 'compare Saka vs Palmer'."
+        ),
+        "es": (
+            "No estoy seguro de qu\u00e9 buscas. "
+            "Prueba a reformularlo, por ejemplo '\u00bfa qui\u00e9n capitaneo?' o 'compara Saka vs Palmer'."
+        ),
+    },
+
     # -- position noun, shared by any renderer that names a position group -
     "position_noun.GKP": {"en": "goalkeepers", "es": "porteros"},
     "position_noun.DEF": {"en": "defenders", "es": "defensas"},
