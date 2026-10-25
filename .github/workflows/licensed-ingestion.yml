@@ -1,0 +1,108 @@
+# licensed-ingestion.yml
+# ======================
+# The scheduled job that downloads the licensed Sportmonks Starter data, derives it and publishes it to the
+# PRIVATE R2 prefix football-licensed/. Design: packages/football-intelligence/PROD_INGESTION.md.
+#
+# DISABLED BY DEFAULT. Unless the repository VARIABLE LICENSED_INGEST_ENABLED is exactly 'true', the job is
+# skipped and the run finishes green without a runner, a secret or a request. Flip it only after the live smoke
+# (workflow_dispatch, mode smoke) has been approved and Leo has confirmed the bucket's public access is off.
+#
+# THE LOGS OF THIS REPOSITORY'S ACTIONS ARE PUBLIC. The CLI prints one JSON line of counts per pass (rows per table,
+# crosswalk matched/unmatched, calls vs cap, duration) and, on failure, the exception TYPE only. This workflow:
+#   * never runs with `set -x` and never echoes a secret, an id, a name or a row;
+#   * uploads NO artifacts (nothing with data leaves the runner);
+#   * builds in a temp dir of the ephemeral runner; raw provider payloads are never written anywhere.
+#
+# Cadence (UTC)
+#   0 5 * * *          daily pass: ~64 calls (cap 120)
+#   7,22,37,52 * * * * one tick every 15 min: the deadline pass (3 h and 30 min before each FPL deadline) and the
+#                      matchday pass (only when a PL kickoff is within [-3 h, +30 min]). Both decide from the free
+#                      FPL feed and exit with ZERO Sportmonks calls when there is nothing to read; at most 1 call each.
+#                      The minutes are off :00 so a tick never collides with the 05:00 daily pass.
+#
+# Secrets (Leo's config): SPORTMONKS_API_TOKEN, and the existing OWNED_STORE_R2_* mapped onto the FPL_FOOTBALL_REMOTE_*
+# variables that distribution.RemoteStoreConfig reads. The job never creates a public or presigned URL.
+
+name: Licensed Ingestion
+
+on:
+  schedule:
+    - cron: "0 5 * * *"
+    - cron: "7,22,37,52 * * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry-run = planned calls + synthetic replay (no token); smoke = real reads, nothing published; publish = real reads + publish"
+        type: choice
+        options: [dry-run, smoke, publish]
+        default: dry-run
+      pass:
+        description: "Which pass to run"
+        type: choice
+        options: [daily, matchday, deadline]
+        default: daily
+      max_calls:
+        description: "Hard call cap; blank = the pass default (daily 120, matchday 10, deadline 10)"
+        required: false
+
+# Runs never overlap: two passes publishing at once would race on the R2 pointer. A running pass is never cancelled
+# (GitHub keeps at most one queued run behind it, so a burst of ticks collapses to the newest).
+concurrency:
+  group: licensed-ingestion
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ingest:
+    name: Licensed ingestion
+    if: ${{ vars.LICENSED_INGEST_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: pip install --no-cache-dir -r packages/licensed-ingestion/requirements.txt
+
+      - name: Run the pass
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          SCHEDULE: ${{ github.event.schedule }}
+          INPUT_MODE: ${{ github.event.inputs.mode }}
+          INPUT_PASS: ${{ github.event.inputs.pass }}
+          INPUT_MAX_CALLS: ${{ github.event.inputs.max_calls }}
+          PYTHONPATH: ${{ github.workspace }}/packages/licensed-ingestion:${{ github.workspace }}/packages/sportmonks-client:${{ github.workspace }}/packages/football-intelligence:${{ github.workspace }}/packages/football-data-contract:${{ github.workspace }}/packages/football-identity-registry:${{ github.workspace }}/packages/fpl-api-client
+          PYTHONDONTWRITEBYTECODE: "1"
+          SPORTMONKS_API_TOKEN: ${{ secrets.SPORTMONKS_API_TOKEN }}
+          FPL_FOOTBALL_REMOTE_ENDPOINT: ${{ secrets.OWNED_STORE_R2_ENDPOINT }}
+          FPL_FOOTBALL_REMOTE_BUCKET: ${{ secrets.OWNED_STORE_R2_BUCKET }}
+          FPL_FOOTBALL_REMOTE_ACCESS_KEY_ID: ${{ secrets.OWNED_STORE_R2_ACCESS_KEY_ID }}
+          FPL_FOOTBALL_REMOTE_SECRET_ACCESS_KEY: ${{ secrets.OWNED_STORE_R2_SECRET_ACCESS_KEY }}
+          FPL_FOOTBALL_REMOTE_PREFIX: football-licensed
+        run: |
+          if [ "$EVENT_NAME" = "schedule" ]; then
+            MODE=publish
+            MAX=""
+            if [ "$SCHEDULE" = "0 5 * * *" ]; then PASSES="daily"; else PASSES="deadline matchday"; fi
+          else
+            MODE="$INPUT_MODE"
+            MAX="$INPUT_MAX_CALLS"
+            PASSES="$INPUT_PASS"
+          fi
+          rc=0
+          for kind in $PASSES; do
+            python -m licensed_ingestion --pass "$kind" "--$MODE" ${MAX:+--max-calls "$MAX"} || pass_rc=$?
+            echo "pass=$kind mode=$MODE exit=${pass_rc:-0}"
+            if [ "${pass_rc:-0}" -ne 0 ]; then rc=1; fi
+            pass_rc=0
+          done
+          exit "$rc"

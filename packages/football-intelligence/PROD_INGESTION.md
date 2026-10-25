@@ -163,28 +163,48 @@ Secrets Leo adds (his config, not this PR): `SPORTMONKS_API_TOKEN` as a GitHub A
 
 ## Modes
 
-- **`--dry-run` (default):** a recorded-fixture `Transport` replays synthetic payloads. No token, no
-  network. It writes the build to a temp dir, prints row counts, the crosswalk rate, the call count it
-  *would* have made and the side checks, and never publishes. This is what CI runs.
-- **`--plan`:** prints the calls a live run would make and their budget, then exits. No network.
-- **`--live`:** needs `SPORTMONKS_API_TOKEN`, the explicit flag and `--max-calls`. It publishes only
-  when `--publish` is also given, so the first live smoke (after Leo sets the token and the brain approves) is
-  `--live --max-calls 70` without `--publish`: it reads, builds locally, reports, and publishes nothing.
+`python -m licensed_ingestion --pass {daily,matchday,deadline} [--dry-run | --smoke | --publish] [--max-calls N]`
+(built in PR 3b; the flags below replaced the earlier `--plan` / `--live` sketch).
+
+- **`--dry-run` (default):** prints the calls a live pass would make and their number (`planned_calls`: 64 for a
+  daily pass, 1 for matchday and deadline), then replays a synthetic recorded `Transport` through the whole pass
+  into a temp dir that is removed afterwards. It never reads `SPORTMONKS_API_TOKEN` or the remote config, makes no
+  network call and publishes nothing. This is what CI runs.
+- **`--smoke`:** needs `SPORTMONKS_API_TOKEN`. Reads the provider for real, builds locally, reports counts and
+  publishes nothing. The first live smoke (after Leo sets the token and the brain approves) is
+  `--pass daily --smoke --max-calls 70`.
+- **`--publish`:** a smoke that also publishes the build to the private `football-licensed/` prefix. It needs the
+  `FPL_FOOTBALL_REMOTE_*` configuration and is refused without it.
+- **`--max-calls`:** every mode takes it. Default and ceiling are daily 120, matchday 10, deadline 10; a larger
+  value is refused. The counter wraps the client's `Transport`, counts retries too, and raises before call N+1
+  (exit code 3, `FAILED BudgetExceeded`).
+
+The matchday and deadline passes build on the previous published build (they take its crosswalk and carry its cup
+tables forward); with no published daily build they fail with `FAILED NoBaseline` rather than guess.
+Exit codes: 0 ok (including "skipped, nothing to read"), 1 failed (exception type only), 2 refused, 3 over the cap.
 
 ## Where the code goes
 
-- `packages/football-intelligence/football_intelligence/ingestion/licensed/`:
-  - `fetch.py`: composes `SportmonksClient` calls; the only place that names families and includes.
-  - `derive.py`: pure function from typed client entities to derived tables. No I/O, fully unit-tested.
-  - `store.py`: parquet + manifest + `licensed_starter` binding; publishes via `distribution`.
-  - `__main__.py`: modes, call cap.
-- `.github/workflows/licensed-ingestion.yml`: daily, matchday and deadline schedules, plus `workflow_dispatch`.
-  It is added in its own PR, **disabled** (`if: vars.LICENSED_INGESTION_ENABLED == 'true'`) until the live
-  smoke passes.
+- `packages/football-intelligence/football_intelligence/ingestion/licensed/`: `derive.py`, `crosswalk.py` and
+  `store.py` (parquet + manifest + `licensed_starter` binding, `LICENSED_V1` family). Network-free.
+- `packages/licensed-ingestion/licensed_ingestion/`, the only package that imports both `sportmonks_client` and
+  `football_intelligence` (neither imports it; a test pins that):
+  - `fetch.py`: composes `SportmonksClient` calls; the only place that names families.
+  - `fpl.py`: the free FPL feed and the gates (`matchday`: a kickoff within [-3 h, +30 min]; `deadline`: 3 h and
+    30 min before each FPL deadline, each a 20-minute window so a late tick is not a miss).
+  - `budget.py`: the counting `Transport`.
+  - `run.py`: one pass: reads, crosswalk, derive, immutable build.
+  - `recording.py`: the synthetic recorded provider (invented ids and names) that `--dry-run` and the tests replay.
+  - `__main__.py`: the modes.
+- `.github/workflows/licensed-ingestion.yml`: daily 05:00 UTC, a tick every 15 minutes for deadline + matchday, and
+  `workflow_dispatch` with a `mode` input. It is **disabled** unless the repository variable
+  `LICENSED_INGEST_ENABLED` is `'true'` (otherwise the job is skipped and the run is green).
 - Serving (Railway sync and the read API B4 uses) is a later slice. Nothing in B3 exposes data to
   users.
 
 ## Build order (each one its own PR)
+
+Note: build-order steps 3 (`fetch.py` + modes + cap) and 4 (the workflow, disabled) landed together in PR 3b.
 
 1. `derive.py` + synthetic fixtures + tests (side rule, confirmed flag, crosswalk counting,
    sidelined de-dup by sideline id, cups → `public_calendar` snapshots marked `partial`).
