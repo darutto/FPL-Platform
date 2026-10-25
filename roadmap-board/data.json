@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-23",
+  "updated": "2026-10-25",
   "cards": [
     {
       "id": "s1",
@@ -2098,6 +2098,144 @@
       ],
       "title": "Regla de ajuste del Calendario a dos columnas",
       "desc": "Fusionada (PR #493, 22/10). La regla de ajuste del Calendario (lib/fixture-board-fit.ts, pieza de seguimiento de #491) prueba primero 2 columnas de 12 jornadas, luego 10, luego 8 antes de caer a una sola columna con la ventana más grande que entre, fijando el conteo de columnas de forma explícita (--row-cols) en vez de CSS auto-fill para que la regla y el layout no puedan discrepar, con celdas de ancho fijo (78px) que nunca se estiran y tests unitarios nuevos para los umbrales, el límite exacto y el pick explícito del selector."
+    },
+    {
+      "id": "s41",
+      "col": "shipped",
+      "title": "Calendario y fixtures en inglés (S4b)",
+      "desc": "Fusionada (PR #525, 24/10). Todo el texto visible del calendario (board, tarjeta de fixture-outlook, tabla de fixture-run del jugador) y sus helpers puros pasan por el diccionario fx.* con locale, incluidas las preguntas que una celda tocada manda al chat.",
+      "tags": [
+        "UI",
+        "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s42",
+      "col": "shipped",
+      "title": "Tarjeta de zonas y canchita de plantilla en inglés (S4c)",
+      "desc": "Fusionada (PR #526, 24/10). DefensiveZonesCard, la sección Zonas del jugador y SquadPitch pasan por diccionario (z.*, pz.*, sq.*) con helpers locale-aware, más un ratchet de AST que falla si aparece texto literal nuevo fuera de los catálogos.",
+      "tags": [
+        "UI"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s43",
+      "col": "shipped",
+      "title": "Fix: key duplicada en zonas y timeout del test de compare wizard",
+      "desc": "Fusionada (PR #527, 24/10). DefensiveZonesCard usaba group.gameweek como key y colisionaba con doble gameweek (mismo número, rival distinto); ahora la key es gameweek-team, y el test lento de compare wizard sube su timeout a 30s.",
+      "tags": [
+        "UI"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s44",
+      "col": "shipped",
+      "title": "Página de membresía en inglés (S6)",
+      "desc": "Fusionada (PR #528, 24/10). /subscribe se renderiza con SubscribeView (locale-aware) tras una página servidor que lee el idioma de la petición; los tiers de Patreon mantienen el nombre que exige Patreon y suman un descriptor en inglés (Tribuna · Supporter, etc.).",
+      "tags": [
+        "UI",
+        "Web"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s45",
+      "col": "shipped",
+      "title": "Suaviza la etiqueta de capitán 'Evitar'",
+      "desc": "Fusionada (PR #529, 24/10). El tier de capitán mostrado como Evitar/Avoid pasa a 'No esta semana'/'Not this week' solo en la UI (tier.avoid en es/en y theme.ts); el backend sigue escribiendo Evitar y necesita un cambio aparte si se quiere parejo.",
+      "tags": [
+        "UI"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s46",
+      "col": "shipped",
+      "title": "Tuteo en el hint del compare wizard",
+      "desc": "Fusionada (PR #530, 24/10). 'Escribilo' (voseo) se corrige a 'Escríbelo' (tuteo) en el hint del wizard de comparación tras una barrida completa del copy en español que no encontró más voseo real.",
+      "tags": [
+        "UI"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s47",
+      "col": "shipped",
+      "title": "Métricas inglesas multi-palabra resuelven al campo correcto (S2a)",
+      "desc": "Fusionada (PR #531, 24/10). Frases como 'expected goals', 'clean sheets' o 'goals per game' dejan de resolver al campo equivocado (p. ej. goals en vez de expected_goals_per_90) gracias a alias multi-palabra en inglés y al rechazo explícito de tasas por partido sin campo propio.",
+      "tags": [
+        "Backend",
+        "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s48",
+      "col": "shipped",
+      "title": "generic_card y prompts de aclaración en inglés (S3b)",
+      "desc": "Fusionada (PR #532, 24/10). Los siete composers de generic_card (títulos, pills, headers, bandas FDR) y los prompts de aclaración pasan por catálogo gcard.* con locale; cierra además un hueco de #518 donde ask_v2 no pasaba el locale al extractor de metadata estructurada.",
+      "tags": [
+        "Backend",
+        "IA"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s49",
+      "col": "shipped",
+      "title": "Contrato de starter-chips en inglés y repaso de pantallas sin cubrir",
+      "desc": "Fusionada (PR #533, 24/10). Test de contrato prueba que cada starter-chip con / resuelve al mismo intent_hint en ambos idiomas con los nombres de comando correctos, y cubre login, post-login, metadata del layout y el walkthrough de admin que quedaban en español.",
+      "tags": [
+        "UI",
+        "Backend"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s50",
+      "col": "shipped",
+      "title": "Fix: preguntas de celda del calendario dejan de enrutar a compare o jornada actual",
+      "desc": "Fusionada (PR #534, 24/10). router.py exige venue + vs + frase de ataque/defensa para reconocer una pregunta de celda del calendario (ES/EN) y ya no la confunde con compare_players por el conector 'vs' ni con get_current_gameweek por la palabra 'gameweek'.",
+      "tags": [
+        "Backend",
+        "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s51",
+      "col": "shipped",
+      "title": "Fix: la tarjeta de zonas ya no duplica el porcentaje de cada celda",
+      "desc": "Fusionada (PR #536, 24/10). Cada celda de la tarjeta 'dónde atacar' imprimía el mismo porcentaje dos veces (redondeado y con un decimal); ahora solo queda la lectura redondeada, re-centrada en la celda.",
+      "tags": [
+        "UI"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s52",
+      "col": "shipped",
+      "title": "Fix: el mensaje de cuota en inglés nombra los tiers como la página de membresía",
+      "desc": "Fusionada (PR #537, 24/10). quota.py arma cada viñeta en inglés con el mismo nombre que /subscribe muestra (page_name · descriptor_en), en vez de los nombres cortos en español que el lector inglés no veía en ningún otro lado.",
+      "tags": [
+        "Backend",
+        "Web"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s53",
+      "col": "shipped",
+      "title": "Fix: /differentials y /diferenciales leen el umbral de propiedad del texto",
+      "desc": "Fusionada (PR #538, 24/10). prompt_registry.py descartaba el texto posicional y siempre usaba el umbral por defecto (15%); ahora _parse_ownership_threshold lee prefijos (under, below, menos del) y un N% suelto, sin confundir un número sin % con el umbral.",
+      "tags": [
+        "Backend",
+        "FPL Asistente"
+      ],
+      "progress": 100
     }
   ]
 }
