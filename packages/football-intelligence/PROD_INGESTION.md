@@ -197,8 +197,9 @@ Exit codes: 0 ok (including "skipped, nothing to read"), 1 failed (exception typ
   - `recording.py`: the synthetic recorded provider (invented ids and names) that `--dry-run` and the tests replay.
   - `__main__.py`: the modes.
 - `.github/workflows/licensed-ingestion.yml`: daily 05:00 UTC, a tick every 15 minutes for deadline + matchday, and
-  `workflow_dispatch` with a `mode` input. It is **disabled** unless the repository variable
-  `LICENSED_INGEST_ENABLED` is `'true'` (otherwise the job is skipped and the run is green).
+  `workflow_dispatch` with a `mode` input. The **schedule** is disabled unless the repository variable
+  `LICENSED_INGEST_ENABLED` is `'true'` (otherwise a scheduled run is skipped and green). Manual runs are not
+  gated, so the live smoke can run with the schedule still off; the variable is what turns on unattended publishing.
 - Serving (Railway sync and the read API B4 uses) is a later slice. Nothing in B3 exposes data to
   users.
 

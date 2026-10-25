@@ -3,9 +3,11 @@
 # The scheduled job that downloads the licensed Sportmonks Starter data, derives it and publishes it to the
 # PRIVATE R2 prefix football-licensed/. Design: packages/football-intelligence/PROD_INGESTION.md.
 #
-# DISABLED BY DEFAULT. Unless the repository VARIABLE LICENSED_INGEST_ENABLED is exactly 'true', the job is
-# skipped and the run finishes green without a runner, a secret or a request. Flip it only after the live smoke
-# (workflow_dispatch, mode smoke) has been approved and Leo has confirmed the bucket's public access is off.
+# THE SWITCH GATES ONLY THE SCHEDULE. Unless the repository VARIABLE LICENSED_INGEST_ENABLED is exactly 'true', a
+# scheduled run is skipped and finishes green without a runner, a secret or a request. A manual run
+# (workflow_dispatch) is NOT gated, so the live smoke (mode smoke) can run while the schedule stays off. Flip the
+# variable only after the smoke has been approved and Leo has confirmed the bucket's public access is off: it is
+# what turns on the unattended publishing runs.
 #
 # THE LOGS OF THIS REPOSITORY'S ACTIONS ARE PUBLIC. The CLI prints one JSON line of counts per pass (rows per table,
 # crosswalk matched/unmatched, calls vs cap, duration) and, on failure, the exception TYPE only. This workflow:
@@ -57,7 +59,7 @@ permissions:
 jobs:
   ingest:
     name: Licensed ingestion
-    if: ${{ vars.LICENSED_INGEST_ENABLED == 'true' }}
+    if: ${{ github.event_name != 'schedule' || vars.LICENSED_INGEST_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
