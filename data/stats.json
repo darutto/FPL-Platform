@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-24T05:05:49Z",
+  "generatedAt": "2026-10-25T05:06:11Z",
   "season": "2026/27",
   "seasonStatus": "in_season",
   "gameweek": 7,
@@ -150,17 +150,17 @@
       "name": "Haaland",
       "team": "MCI",
       "position": "FWD",
-      "xg": 5.69,
+      "xg": 6.09,
       "xa": 0.77,
-      "minutes": 619
+      "minutes": 709
     },
     {
       "name": "Barry",
       "team": "EVE",
       "position": "FWD",
-      "xg": 4.7,
-      "xa": 0.16,
-      "minutes": 592
+      "xg": 5.08,
+      "xa": 0.17,
+      "minutes": 682
     },
     {
       "name": "Mbeumo",
@@ -190,9 +190,17 @@
       "name": "Gonzalo",
       "team": "FUL",
       "position": "FWD",
-      "xg": 3.46,
-      "xa": 0.73,
-      "minutes": 595
+      "xg": 3.61,
+      "xa": 0.74,
+      "minutes": 668
+    },
+    {
+      "name": "Ødegaard",
+      "team": "ARS",
+      "position": "MID",
+      "xg": 2.16,
+      "xa": 2.02,
+      "minutes": 646
     },
     {
       "name": "Thiago",
@@ -227,6 +235,14 @@
       "minutes": 491
     },
     {
+      "name": "Foden",
+      "team": "MCI",
+      "position": "MID",
+      "xg": 2.27,
+      "xa": 1.59,
+      "minutes": 338
+    },
+    {
       "name": "Calvert-Lewin",
       "team": "LEE",
       "position": "FWD",
@@ -241,14 +257,6 @@
       "xg": 2.09,
       "xa": 1.6,
       "minutes": 608
-    },
-    {
-      "name": "Foden",
-      "team": "MCI",
-      "position": "MID",
-      "xg": 2.23,
-      "xa": 1.42,
-      "minutes": 293
     },
     {
       "name": "Ndoye",
@@ -267,20 +275,20 @@
       "minutes": 592
     },
     {
-      "name": "Ødegaard",
-      "team": "ARS",
-      "position": "MID",
-      "xg": 1.9,
-      "xa": 1.6,
-      "minutes": 556
-    },
-    {
       "name": "Rogers",
       "team": "CHE",
       "position": "MID",
-      "xg": 2.07,
-      "xa": 1.36,
-      "minutes": 610
+      "xg": 2.13,
+      "xa": 1.39,
+      "minutes": 700
+    },
+    {
+      "name": "Cherki",
+      "team": "MCI",
+      "position": "MID",
+      "xg": 1.69,
+      "xa": 1.74,
+      "minutes": 437
     },
     {
       "name": "João Pedro",
@@ -299,12 +307,28 @@
       "minutes": 610
     },
     {
+      "name": "Iwobi",
+      "team": "FUL",
+      "position": "MID",
+      "xg": 0.72,
+      "xa": 2.6,
+      "minutes": 657
+    },
+    {
       "name": "Enciso",
       "team": "IPS",
       "position": "MID",
       "xg": 1.64,
       "xa": 1.66,
       "minutes": 645
+    },
+    {
+      "name": "Rudoni",
+      "team": "COV",
+      "position": "MID",
+      "xg": 1.92,
+      "xa": 1.31,
+      "minutes": 555
     },
     {
       "name": "Wissa",
@@ -321,30 +345,6 @@
       "xg": 2.94,
       "xa": 0.11,
       "minutes": 399
-    },
-    {
-      "name": "Delap",
-      "team": "NFO",
-      "position": "FWD",
-      "xg": 2.53,
-      "xa": 0.5,
-      "minutes": 528
-    },
-    {
-      "name": "Rudoni",
-      "team": "COV",
-      "position": "MID",
-      "xg": 1.85,
-      "xa": 1.16,
-      "minutes": 465
-    },
-    {
-      "name": "Iwobi",
-      "team": "FUL",
-      "position": "MID",
-      "xg": 0.67,
-      "xa": 2.34,
-      "minutes": 584
     }
   ]
 }
