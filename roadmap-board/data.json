@@ -2236,6 +2236,72 @@
         "FPL Asistente"
       ],
       "progress": 100
+    },
+    {
+      "id": "i158",
+      "col": "idea",
+      "progress": 0,
+      "tags": [
+        "FPL Asistente",
+        "Backend"
+      ],
+      "title": "Bug de identidad: 'João Pedro' se resuelve a Costinha por subcadena",
+      "desc": "HALLADO 2026-10-25 probando en prod: la pregunta sobre Rogers y João Pedro respondió que estaban en equipos distintos (ambos son del Chelsea en FPL hoy) porque el nombre completo de Costinha (BHA) contiene 'João Pedro'. Unir siempre por id, club y fecha. Ver docs/REPORTS_INTEGRATION_PLAN.md (R0)."
+    },
+    {
+      "id": "i159",
+      "col": "idea",
+      "progress": 0,
+      "tags": [
+        "Producto",
+        "FPL Asistente"
+      ],
+      "title": "Reporte retrospectivo de una jornada FPL (sin Sportmonks)",
+      "desc": "R1 del plan de reportes: picks reales de cualquier GW cerrada (API de FPL), once efectivo, capitán, banca, puntos oficiales reconciliados y 2 a 5 historias con evidencia. No necesita Sportmonks. Ver docs/REPORTS_INTEGRATION_PLAN.md."
+    },
+    {
+      "id": "i160",
+      "col": "idea",
+      "progress": 0,
+      "tags": [
+        "FI",
+        "Producto"
+      ],
+      "title": "B4: cambios de posición y quién sustituye a quién (ficha de jugador)",
+      "desc": "R3 del plan de reportes: herramienta y tarjeta ES/EN con la casilla inicial de cada partido. Frase citable segura: 'empezó en otra casilla'. Depende de la ingesta 3b y del primer publish."
+    },
+    {
+      "id": "i161",
+      "col": "idea",
+      "progress": 0,
+      "tags": [
+        "Producto",
+        "FI"
+      ],
+      "title": "Reporte de partido factual (resultado, XI, casillas, minutos, hechos FPL)",
+      "desc": "R4: sin interpretación espacial ni heatmaps; degradación visible cuando falte cobertura. Depende de 3b y del bug de identidad."
+    },
+    {
+      "id": "i162",
+      "col": "idea",
+      "progress": 0,
+      "tags": [
+        "Datos",
+        "FI"
+      ],
+      "title": "Captura pre-deadline y ledger mínimo de hipótesis (R2 privado, append-only)",
+      "desc": "R5: guardar lo que sabíamos antes del deadline y dos tipos de hipótesis (cambio de casilla; compañero fuera del once). Solo el equipo de Leo al inicio; consentimiento para otros. Empezar cuanto antes: lo no capturado no se reconstruye."
+    },
+    {
+      "id": "i163",
+      "col": "idea",
+      "progress": 0,
+      "tags": [
+        "FI",
+        "Datos"
+      ],
+      "title": "Stats individuales de Sportmonks (toques, pases, pases clave, pases atrás) y destacados",
+      "desc": "R6: confirmar entitlement de Starter con una lectura mínima en la prueba real; ingesta 3c aparte. Sin pases progresivos como campo."
     }
   ]
 }
