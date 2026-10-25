@@ -1,6 +1,6 @@
 # Reportes de partido y de equipo FPL: plan de integración refinado
 
-**Fecha:** 2026-10-25. **Autor:** el cerebro (revisor). **Base:** [FOOTBALL_MATCH_AND_SQUAD_REPORTS_VISION.md](../FOOTBALL_MATCH_AND_SQUAD_REPORTS_VISION.md) (Leo, a partir de una discusión con ChatGPT) cotejado con el estado real del repositorio y de producción.
+**Fecha:** 2026-10-25. **Autor:** el cerebro (revisor). **Base:** `FOOTBALL_MATCH_AND_SQUAD_REPORTS_VISION.md` (Leo, a partir de una discusión con ChatGPT; **solo local**, en la raíz del checkout compartido, no está en el repo público) cotejado con el estado real del repositorio y de producción.
 **Para:** Leo, builders (Claude y Codex) y revisores. **Estado:** plan propuesto; ninguna etapa está aprobada para construir salvo las marcadas "en curso".
 
 ## 1. Veredicto sobre la visión
@@ -42,7 +42,7 @@ Se refina en seis puntos.
 | R1 | **Reporte retrospectivo de una jornada FPL** (picks reales de esa GW, once efectivo, capitán, banca, puntos oficiales reconciliados; 2–5 historias con evidencia; sin Sportmonks) | nada | Codex o Claude | primer reporte real; retención |
 | R2 | **Ingesta 3b** (job licenciado, desactivado tras variable) | token en GitHub, variable `LICENSED_INGEST_ENABLED` | Codex (en curso) | desbloquea todo lo táctico |
 | R2b | **Prueba real ~70 llamadas, sin publicar**; confirmar entitlement de stats con 1 lectura | R2 mergeado, token | cerebro | decide R3/R4 |
-| R3 | **B4: cambios de posición y quién sustituye a quién** (herramienta + tarjeta; ES/EN desde el inicio) | R2 + primer publish | builder | la pregunta de Leo; contenido de tuits |
+| R3 | **B4: cambios de posición y quién sustituye a quién** (herramienta + tarjeta; ES/EN desde el inicio). **Decisión de Leo (2026-10-25): B4 va primero y lo está construyendo Copilot; se deja terminar, ningún otro builder lo toca.** | R2 + primer publish | Copilot | la pregunta de Leo; contenido de tuits |
 | R4 | **Reporte de partido factual** (resultado, XI, casillas iniciales, minutos, hechos FPL; sin interpretación espacial) | R2, R0 | builder | compartible, verificable |
 | R5 | **Captura pre-deadline + ledger mínimo** (R2 privado, append-only; dos tipos de hipótesis; solo el equipo de Leo al inicio) | R2 (job del deadline) | builder | empezar a acumular historia cuanto antes |
 | R6 | **Stats individuales (3c)** y destacados por categorías | R2b confirma entitlement | builder | toques/pases/tiros por jugador |
@@ -61,9 +61,9 @@ Se refina en seis puntos.
 - **El LLM no calcula:** el compositor produce hechos y evidencia; el modelo solo redacta con ellos, y cada cifra debe estar en la evidencia.
 - **Honestidad de resultados:** si falta cobertura, la sección se degrada de forma visible; nunca se rellena.
 
-## 5. Preguntas abiertas para Leo
+## 5. Decisiones de Leo (2026-10-25)
 
-1. ¿Reporte de plantilla solo para tu equipo al inicio, y para otros solo con consentimiento? (recomendado)
-2. ¿R1 antes que B4? Recomendado: sí, porque no depende de Sportmonks y se puede entregar esta semana.
-3. ¿Se publica el registro de aciertos (R8) cuando exista, incluyendo fallos? Decisión de producto y de marca.
-4. ¿Se confirma por escrito con Sportmonks el derecho a las stats individuales en Starter? (una pregunta al soporte).
+1. **Reporte de plantilla:** para las pruebas, **solo el equipo de Leo**. Otros usuarios solo con consentimiento explícito, más adelante.
+2. **Orden:** **B4 primero**, en curso con Copilot; se deja terminar. R1 (reporte retrospectivo) queda detrás, sin pisar a B4.
+3. **El documento de visión se queda solo local** (no se publica en el repositorio).
+4. Pendiente: ¿publicar el registro de aciertos (R8) con sus fallos? Y preguntar a Sportmonks por escrito si Starter incluye las estadísticas individuales.
