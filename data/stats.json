@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-25T05:06:11Z",
+  "generatedAt": "2026-10-26T05:08:18Z",
   "season": "2026/27",
   "seasonStatus": "in_season",
   "gameweek": 7,
@@ -166,9 +166,25 @@
       "name": "Mbeumo",
       "team": "MUN",
       "position": "MID",
-      "xg": 3.96,
-      "xa": 0.9,
-      "minutes": 630
+      "xg": 4.22,
+      "xa": 0.94,
+      "minutes": 720
+    },
+    {
+      "name": "Thiago",
+      "team": "BRE",
+      "position": "FWD",
+      "xg": 3.78,
+      "xa": 1.26,
+      "minutes": 712
+    },
+    {
+      "name": "Tavernier",
+      "team": "BOU",
+      "position": "MID",
+      "xg": 3.61,
+      "xa": 1.33,
+      "minutes": 660
     },
     {
       "name": "Saka",
@@ -187,6 +203,14 @@
       "minutes": 630
     },
     {
+      "name": "Isak",
+      "team": "LIV",
+      "position": "FWD",
+      "xg": 4.27,
+      "xa": 0.13,
+      "minutes": 567
+    },
+    {
       "name": "Gonzalo",
       "team": "FUL",
       "position": "FWD",
@@ -203,14 +227,6 @@
       "minutes": 646
     },
     {
-      "name": "Thiago",
-      "team": "BRE",
-      "position": "FWD",
-      "xg": 3.69,
-      "xa": 0.48,
-      "minutes": 622
-    },
-    {
       "name": "B.Fernandes",
       "team": "MUN",
       "position": "MID",
@@ -219,20 +235,20 @@
       "minutes": 630
     },
     {
-      "name": "Tavernier",
+      "name": "Evanilson",
       "team": "BOU",
-      "position": "MID",
-      "xg": 2.89,
-      "xa": 1.12,
-      "minutes": 574
+      "position": "FWD",
+      "xg": 3.11,
+      "xa": 0.98,
+      "minutes": 678
     },
     {
-      "name": "Isak",
-      "team": "LIV",
-      "position": "FWD",
-      "xg": 3.87,
-      "xa": 0.1,
-      "minutes": 491
+      "name": "E.Le Fée",
+      "team": "SUN",
+      "position": "MID",
+      "xg": 2.19,
+      "xa": 1.77,
+      "minutes": 686
     },
     {
       "name": "Foden",
@@ -247,16 +263,16 @@
       "team": "LEE",
       "position": "FWD",
       "xg": 3.6,
-      "xa": 0.13,
-      "minutes": 599
+      "xa": 0.14,
+      "minutes": 683
     },
     {
-      "name": "E.Le Fée",
-      "team": "SUN",
+      "name": "Groß",
+      "team": "BHA",
       "position": "MID",
-      "xg": 2.09,
-      "xa": 1.6,
-      "minutes": 608
+      "xg": 2.16,
+      "xa": 1.51,
+      "minutes": 700
     },
     {
       "name": "Ndoye",
@@ -265,14 +281,6 @@
       "xg": 2.32,
       "xa": 1.31,
       "minutes": 527
-    },
-    {
-      "name": "Evanilson",
-      "team": "BOU",
-      "position": "FWD",
-      "xg": 2.59,
-      "xa": 0.97,
-      "minutes": 592
     },
     {
       "name": "Rogers",
@@ -299,14 +307,6 @@
       "minutes": 521
     },
     {
-      "name": "Groß",
-      "team": "BHA",
-      "position": "MID",
-      "xg": 2.16,
-      "xa": 1.16,
-      "minutes": 610
-    },
-    {
       "name": "Iwobi",
       "team": "FUL",
       "position": "MID",
@@ -323,6 +323,14 @@
       "minutes": 645
     },
     {
+      "name": "Brobbey",
+      "team": "SUN",
+      "position": "FWD",
+      "xg": 3.17,
+      "xa": 0.13,
+      "minutes": 463
+    },
+    {
       "name": "Rudoni",
       "team": "COV",
       "position": "MID",
@@ -336,15 +344,7 @@
       "position": "FWD",
       "xg": 2.97,
       "xa": 0.14,
-      "minutes": 608
-    },
-    {
-      "name": "Brobbey",
-      "team": "SUN",
-      "position": "FWD",
-      "xg": 2.94,
-      "xa": 0.11,
-      "minutes": 399
+      "minutes": 621
     }
   ]
 }
