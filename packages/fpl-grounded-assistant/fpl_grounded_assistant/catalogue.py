@@ -1208,6 +1208,21 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     "renderer.position_changes.not_a_teammate": {"en": "{query} is not a teammate of {name}, so there is nothing to compare.", "es": "{query} no es compa\u00f1ero de equipo de {name}, por lo que no hay nada que comparar."},
     "renderer.position_changes.ambiguous": {"en": "More than one player matches '{query}'. Which one do you mean?", "es": "Hay m\u00e1s de un jugador que coincide con '{query}'. \u00bfA cu\u00e1l te refieres?"},
     "renderer.position_changes.not_found": {"en": "I could not find a player called '{query}'.", "es": "No encontr\u00e9 a ning\u00fan jugador llamado '{query}'."},
+
+    # B4: get_position_changes card.
+    "gcard.position_changes.title": {"en": "{name} \u00b7 starting slot", "es": "{name} \u00b7 casilla inicial"},
+    "gcard.position_changes.subtitle": {"en": "Announced starting XI, not movement during the match", "es": "Once inicial anunciado, no un movimiento durante el partido"},
+    "gcard.position_changes.hero": {"en": "slot changes", "es": "cambios de casilla"},
+    "gcard.position_changes.col_gw": {"en": "GW", "es": "J"},
+    "gcard.position_changes.col_opponent": {"en": "Opponent", "es": "Rival"},
+    "gcard.position_changes.col_slot": {"en": "Started", "es": "Casilla"},
+    "gcard.position_changes.col_note": {"en": "Note", "es": "Nota"},
+    "gcard.position_changes.pill_small": {"en": "Small sample: {n}", "es": "Muestra peque\u00f1a: {n}"},
+    "gcard.position_changes.pill_provisional": {"en": "Provisional lineup", "es": "Alineaci\u00f3n provisional"},
+    "gcard.position_changes.pill_focus": {"en": "Without {name}: {role}", "es": "Sin {name}: {role}"},
+    "gcard.position_changes.note_changed": {"en": "Started in a different slot (before: {before})", "es": "Empez\u00f3 en otra casilla (antes: {before})"},
+    "gcard.position_changes.note_assoc": {"en": "Coincided with the absence of {name}", "es": "Coincidi\u00f3 con la ausencia de {name}"},
+    "gcard.position_changes.note_none": {"en": "-", "es": "-"},
 }
 
 

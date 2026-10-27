@@ -31,12 +31,13 @@ def _load(name: str):
 
 # renderer.py imports format_metric_value from its sibling formatting.py,
 # Locale/DEFAULT_LOCALE from its sibling locale_types.py, and t() from its
-# sibling catalogue.py; when loaded standalone (no package parent) it falls
+# sibling catalogue.py, and role_text() from position_changes_text.py; when loaded standalone (no package parent) it falls
 # back to `from formatting import` / `from locale_types import` / `from
 # catalogue import`, so register all three siblings in sys.modules first.
 _load("formatting")
 _load("locale_types")
 _load("catalogue")
+_load("position_changes_text")  # B4: the shared slot-text helper, same fallback import
 renderer = _load("renderer")
 tool_schema_registry = _load("tool_schema_registry")
 

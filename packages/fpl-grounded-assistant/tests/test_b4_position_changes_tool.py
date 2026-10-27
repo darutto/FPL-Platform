@@ -168,3 +168,53 @@ def test_the_output_has_no_store_rows_or_provider_ids(run):
     text = json.dumps(run({"player": "Rogers", "absent_player": "Joao Pedro"}), ensure_ascii=False).casefold()
     for forbidden in ("sportmonks", "crosswalk", "sportmonks_player_id", "fixture_id", "observed_at"):
         assert forbidden not in text
+
+
+# ---- the card (PR 3) ------------------------------------------------------------------------------------------
+
+from dataclasses import asdict  # noqa: E402
+
+from fpl_grounded_assistant.atomic_tool_cards import compose_position_changes_card, maybe_atomic_tool_card  # noqa: E402
+
+
+def _card(run, locale, **args):
+    return maybe_atomic_tool_card("get_position_changes", run({"player": "Rogers", **args}), None, locale)
+
+
+@pytest.mark.parametrize("locale", ["es", "en"])
+def test_the_card_has_a_row_per_match_and_the_same_wording_as_the_text(run, locale):
+    card = _card(run, locale, absent_player="Joao Pedro")
+    assert [len(r) for r in card.rows] == [4] * len(card.rows) == [4] * 5
+    flat = json.dumps(asdict(card), ensure_ascii=False)
+    assert not any(bad in flat.casefold() for bad in FORBIDDEN_PHRASES)
+    assert card.hero.value == "1"  # one observed change of slot
+    fourth = next(r for r in card.rows if r[0] in ("GW4", "J4"))
+    if locale == "es":
+        assert card.title == "Rogers · casilla inicial" and "no un movimiento durante el partido" in card.subtitle
+        assert "Empezó en otra casilla (antes: Banda derecha)" in fourth[3] and "Coincidió con la ausencia de João Pedro" in fourth[3]
+        assert fourth[2] == "Mediapunta" and any(p.label.startswith("Muestra pequeña") for p in card.pills)
+        assert card.columns[3].header == "Nota"
+    else:
+        assert card.title == "Rogers · starting slot" and "not movement during the match" in card.subtitle
+        assert "Started in a different slot (before: Right Midfield)" in fourth[3]
+        assert "Coincided with the absence of João Pedro" in fourth[3] and fourth[2] == "Attacking Midfield"
+        assert any(p.label.startswith("Small sample") for p in card.pills)
+    assert card.footer and "2026-11-30" in card.footer
+
+
+def test_there_is_no_card_without_matches_or_for_a_non_ok_answer(run):
+    assert compose_position_changes_card({"status": "ambiguous", "candidates": []}) is None
+    assert compose_position_changes_card({"status": "missing_context", "matches": []}) is None
+    assert compose_position_changes_card({"status": "ok", "matches": []}) is None
+
+
+def test_a_malformed_answer_degrades_to_text_instead_of_raising():
+    assert compose_position_changes_card({"status": "ok", "matches": [{"change": {"from": None}, "associations": [None]}]}) is None
+
+
+def test_the_ranking_card_is_untouched_by_the_locale_argument():
+    out = {"status": "ok", "metric": "form", "ranked": [{"rank": 1, "web_name": "Haaland", "team_short": "MCI",
+                                                          "position": "FWD", "metric_value": 8.0}]}
+    es = maybe_atomic_tool_card("rank_players_by_metric", out, None)
+    en = maybe_atomic_tool_card("rank_players_by_metric", out, None, "en")
+    assert es == en  # that card predates the language track and stays as it was
