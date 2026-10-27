@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-25",
+  "updated": "2026-10-27",
   "cards": [
     {
       "id": "s1",
@@ -2261,14 +2261,14 @@
     },
     {
       "id": "i160",
-      "col": "idea",
-      "progress": 0,
+      "col": "building",
+      "progress": 70,
       "tags": [
         "FI",
         "Producto"
       ],
       "title": "B4: cambios de posición y quién sustituye a quién (ficha de jugador)",
-      "desc": "R3 del plan de reportes: herramienta y tarjeta ES/EN con la casilla inicial de cada partido. Frase citable segura: 'empezó en otra casilla'. Depende de la ingesta 3b y del primer publish."
+      "desc": "R3 del plan de reportes: herramienta y tarjeta ES/EN con la casilla inicial de cada partido. Frase citable segura: 'empezó en otra casilla'. Depende de la ingesta 3b y del primer publish. ACTUALIZACIÓN 2026-10-27 (PR #545, #546): ingesta 3b fusionada (PR #543) habilita el camino de lectura licenciado (LicensedRuntimeHandle, off por defecto tras FPL_FOOTBALL_LICENSED_SYNC_ENABLED) y la herramienta get_position_changes ya resuelve slot inicial, comparación con titularidades previas y ausencia de compañeros (claims observed/associated/hypothesis), detrás de FOOTBALL_INTELLIGENCE_ENABLED; falta la tarjeta ES/EN (PR 3/3) y el primer publish real a producción."
     },
     {
       "id": "i161",
@@ -2302,6 +2302,18 @@
       ],
       "title": "Stats individuales de Sportmonks (toques, pases, pases clave, pases atrás) y destacados",
       "desc": "R6: confirmar entitlement de Starter con una lectura mínima en la prueba real; ingesta 3c aparte. Sin pases progresivos como campo."
+    },
+    {
+      "id": "s54",
+      "col": "shipped",
+      "title": "Job de ingesta licenciada de Sportmonks (producción, apagado)",
+      "desc": "Fusionada (PR #543, 27/10). Nuevo paquete licensed-ingestion con CLI por pase (daily/matchday/deadline), tope duro de llamadas, modos dry-run/smoke/publish y workflow de GitHub Actions apagado por variable (LICENSED_INGEST_ENABLED); sin llamadas reales a Sportmonks todavía.",
+      "tags": [
+        "Backend",
+        "Datos",
+        "Deploy"
+      ],
+      "progress": 100
     }
   ]
 }
