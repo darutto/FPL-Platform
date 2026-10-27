@@ -183,6 +183,29 @@ The matchday and deadline passes build on the previous published build (they tak
 tables forward); with no published daily build they fail with `FAILED NoBaseline` rather than guess.
 Exit codes: 0 ok (including "skipped, nothing to read"), 1 failed (exception type only), 2 refused, 3 over the cap.
 
+## Backfill (manual, one-off history fill)
+
+`python -m licensed_ingestion --pass backfill [--dry-run | --smoke | --publish] [--since YYYY-MM-DD] [--max-calls N]`
+
+The daily pass only sees the last 7 and the next 14 days, so a store that starts today has one or two matches per club
+and B4 cannot show a change against a player's earlier starts. The backfill reads the **finished** PL lineups from the
+season's first kickoff (from the free FPL fixture list) to yesterday, in 14-day windows through the same
+`licensed_pl_fixtures` route, and appends them to the store.
+
+* **Manual only.** It is a `workflow_dispatch` choice; the schedule names its own passes and never runs it (a test pins it).
+* **Cost.** One call per window: about 5 calls for the season so far, hard cap 40 (`--max-calls` above 40 is refused).
+* **Needs a baseline.** It takes the crosswalk from the previous published build (`FAILED NoBaseline` otherwise) and carries
+  the crosswalk and cup tables forward, like a matchday pass.
+* **Only completed matches** are kept (`FT`, `AET`, `FT_PEN`, `AWARDED`, `WO`). Their lineup is the XI that was played, so it is
+  stored `confirmed = True` even if the provider's flag still reads false after full time. Unfinished or postponed fixtures are
+  skipped and counted.
+* **Idempotent.** `observed_at` is the morning after the kickoff day (`00:00:00Z`), not the time of the read, so running it again,
+  today or next week, yields the same keys and the store's de-duplication on the full key adds nothing. It also means a
+  backfilled row can never pass for knowledge from before the match.
+* **Does not touch earlier rows.** The daily pass's provisional and confirmed snapshots keep their own `observed_at`, state and
+  flag; a reader picks the latest confirmed observation of a match.
+* **Logs.** Counts only, like every pass: windows, fixtures read / completed / skipped, rows per table, calls vs cap.
+
 ## Where the code goes
 
 - `packages/football-intelligence/football_intelligence/ingestion/licensed/`: `derive.py`, `crosswalk.py` and

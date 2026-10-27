@@ -49,3 +49,11 @@ def test_a_scheduled_run_publishes_and_a_manual_run_uses_the_chosen_mode():
     run = next(s["run"] for s in _job()["steps"] if s.get("name") == "Run the pass")
     assert 'if [ "$EVENT_NAME" = "schedule" ]; then\n  MODE=publish' in run
     assert 'MODE="$INPUT_MODE"' in run
+
+
+def test_a_backfill_can_be_chosen_by_hand_and_is_never_scheduled():
+    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    assert "backfill" in workflow[True]["workflow_dispatch"]["inputs"]["pass"]["options"]
+    run = next(s["run"] for s in _job()["steps"] if s.get("name") == "Run the pass")
+    scheduled = run.split('else\n  MODE="$INPUT_MODE"')[0]
+    assert "backfill" not in scheduled     # the schedule branch names its passes itself: daily, deadline, matchday

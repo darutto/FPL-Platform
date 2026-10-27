@@ -85,6 +85,31 @@ def deadline(client: SportmonksClient, today: date) -> ProviderReads:
     return ProviderReads(pl_fixtures=_window(client, today, today + timedelta(days=WINDOW_DAYS - 1)))
 
 
+def backfill_windows(first: date, last: date) -> list[tuple[date, date]]:
+    """Consecutive WINDOW_DAYS windows covering ``first``..``last`` inclusive (the last one clipped); none when the
+    range is empty, which is a normal answer (a season that starts today has nothing to fill)."""
+    windows: list[tuple[date, date]] = []
+    start = first
+    while start <= last:
+        end = min(start + timedelta(days=WINDOW_DAYS - 1), last)
+        windows.append((start, end))
+        start = end + timedelta(days=1)
+    return windows
+
+
+def backfill(client: SportmonksClient, windows: list[tuple[date, date]]) -> ProviderReads:
+    """One ``licensed_pl_fixtures`` read per window, the same route and includes as the daily pass. Disjoint windows
+    cannot repeat a fixture, but the ids are de-duplicated anyway so a provider quirk cannot double a match."""
+    seen: set[Any] = set()
+    reads = ProviderReads()
+    for start, end in windows:
+        for fixture in _window(client, start, end):
+            if fixture.get("id") not in seen:
+                seen.add(fixture.get("id"))
+                reads.pl_fixtures.append(fixture)
+    return reads
+
+
 def planned_calls(kind: str, clubs: int = 20) -> list[str]:
     """What a live pass would request, assuming one page per walk (the cap still applies to the real count)."""
     if kind == "daily":
@@ -93,8 +118,13 @@ def planned_calls(kind: str, clubs: int = 20) -> list[str]:
                 + ["licensed_pl_fixtures (next 14 days)", "licensed_pl_fixtures (last 7 days)"])
     if kind == "deadline":
         return ["licensed_pl_fixtures (next 14 days)"]
+    if kind == "backfill":
+        return ["licensed_pl_fixtures (one per 14-day window, season start to yesterday)"]
     return ["licensed_pl_fixtures (kickoffs in [-30 min, +3 h])"]
 
 
-def planned_count(kind: str, clubs: int = 20) -> int:
+def planned_count(kind: str, clubs: int = 20, windows: int = 1) -> int:
+    """``windows`` only matters to a backfill, whose call count is its number of 14-day windows."""
+    if kind == "backfill":
+        return windows
     return 2 + 3 * clubs + 2 if kind == "daily" else 1
