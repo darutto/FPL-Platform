@@ -1549,11 +1549,47 @@ GET_PLAYER_INTELLIGENCE_SCHEMA = ToolSchema(
     },
 )
 
+# B4 -- starting-slot changes and who was missing, from the licensed matchday store (licensed_starter).
+GET_POSITION_CHANGES_SCHEMA = ToolSchema(
+    name="get_position_changes",
+    description=(
+        "Where a player was listed to START in his club's recent matches (the announced starting XI: position, "
+        "side, formation), whether that differed from his own earlier starts, and which regular teammates were "
+        "NOT in the starting XI in those matches. Use for 'cambio de posicion de X', 'quien lo sustituye', "
+        "'where does X play when Y is out', optionally with absent_player (a TEAMMATE) for 'cuando no jugo Y'. "
+        "Each statement carries claim_status: observed (a fact of the lineup), associated (it coincided with a "
+        "teammate's absence), hypothesis (unproven). The slot is the ANNOUNCED lineup, never movement during the "
+        "match. Words allowed: 'empezo en otra casilla' / 'started in a different slot', 'coincidio con la "
+        "ausencia de Y' / 'coincided with Y's absence'. NEVER say he 'moved during the match', never give a cause "
+        "('por la lesion', 'because of'), never predict ('rendira mas'); not being in the XI is not an injury "
+        "(listed_sidelined is reported separately); a provisional lineup is not confirmed; a small sample must be "
+        "said. Frame it as the opportunity, never as weakness. The history starts when the licensed ingestion "
+        "started, so few matches may be available."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "player": _PLAYER_QUERY_PROP,
+            "absent_player": {
+                "type": "string",
+                "description": "Optional TEAMMATE who did not play ('cuando no jugo Joao Pedro'). Resolved within the player's club.",
+            },
+            "matches": {
+                "type": "integer", "minimum": 1, "maximum": 10,
+                "description": "How many of the latest matches with a stored lineup to list (default 6).",
+            },
+        },
+        "required": ["player"],
+        "additionalProperties": False,
+    },
+)
+
 FI7B_TOOL_SCHEMAS: tuple[ToolSchema, ...] = (
     GET_EXPECTED_MINUTES_SCHEMA,
     GET_TACTICAL_ROLE_SCHEMA,
     GET_FIXTURE_CONTEXT_SCHEMA,
     GET_PLAYER_INTELLIGENCE_SCHEMA,
+    GET_POSITION_CHANGES_SCHEMA,
 )
 
 

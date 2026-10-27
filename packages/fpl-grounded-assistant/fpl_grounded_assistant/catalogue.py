@@ -1181,6 +1181,33 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
             "hizo más **puntos**. ¿Te sirve?"
         ),
     },
+
+    # B4: starting-slot changes and who was missing (get_position_changes).
+    "renderer.position_changes.header": {"en": "{name} ({team}): where he was listed to start, latest {n} matches with a stored lineup:", "es": "{name} ({team}): d\u00f3nde figur\u00f3 como titular, \u00faltimos {n} partidos con alineaci\u00f3n guardada:"},
+    "renderer.position_changes.gw": {"en": "GW{gw}", "es": "J{gw}"},
+    "renderer.position_changes.home": {"en": "{opp} (H)", "es": "{opp} (L)"},
+    "renderer.position_changes.away": {"en": "{opp} (A)", "es": "{opp} (V)"},
+    "renderer.position_changes.started": {"en": "started: {role}", "es": "titular: {role}"},
+    "renderer.position_changes.bench": {"en": "on the bench", "es": "en el banquillo"},
+    "renderer.position_changes.not_listed": {"en": "not in the stored squad list", "es": "no figura en la convocatoria guardada"},
+    "renderer.position_changes.provisional": {"en": " (provisional lineup)", "es": " (alineaci\u00f3n provisional)"},
+    "renderer.position_changes.changed": {"en": "    started in a different slot than in his recent starts (before: {before})", "es": "    empez\u00f3 en otra casilla que en sus \u00faltimos partidos (antes: {before})"},
+    "renderer.position_changes.assoc": {"en": "    coincided with the absence of {name} from the starting XI ({presence}{sidelined}){unmapped}", "es": "    coincidi\u00f3 con la ausencia de {name} en el once inicial ({presence}{sidelined}){unmapped}"},
+    "renderer.position_changes.presence_bench": {"en": "on the bench", "es": "estaba en el banquillo"},
+    "renderer.position_changes.presence_not_listed": {"en": "not in the stored squad list", "es": "no figuraba en la convocatoria guardada"},
+    "renderer.position_changes.sidelined": {"en": "; on the provider's sidelined list that day", "es": "; figuraba en la lista de bajas del proveedor ese d\u00eda"},
+    "renderer.position_changes.unmapped": {"en": " \u2014 the stored lineup is incomplete, so he may have started", "es": " \u2014 la alineaci\u00f3n guardada est\u00e1 incompleta, por lo que pudo ser titular"},
+    "renderer.position_changes.hypothesis": {"en": "    Unproven: he took the position {name} usually holds ({role})", "es": "    Sin demostrar: ocup\u00f3 la posici\u00f3n habitual de {name} ({role})"},
+    "renderer.position_changes.no_change": {"en": "  No change of starting slot against his recent starts.", "es": "  Sin cambio de casilla frente a sus \u00faltimos partidos."},
+    "renderer.position_changes.focus": {"en": "  Without {name} in the starting XI ({k} matches): {without}. With him starting ({m} matches): {with_him}.", "es": "  Sin {name} en el once inicial ({k} partidos): {without}. Con \u00e9l de titular ({m} partidos): {with_him}."},
+    "renderer.position_changes.focus_none": {"en": "no usual position yet", "es": "sin posici\u00f3n habitual todav\u00eda"},
+    "renderer.position_changes.small_sample": {"en": "  Small sample: {n} matches with a stored lineup, so this is a first look, not a trend.", "es": "  Muestra peque\u00f1a: {n} partidos con alineaci\u00f3n guardada; es una primera lectura, no una tendencia."},
+    "renderer.position_changes.footer": {"en": "  The slot is the announced starting XI, not movement during the match.", "es": "  La casilla es la del once inicial anunciado, no un movimiento durante el partido."},
+    "renderer.position_changes.provenance": {"en": "Source: licensed lineup data, built {built_at}.", "es": "Fuente: datos de alineaciones con licencia, construidos el {built_at}."},
+    "renderer.position_changes.missing": {"en": "There is no licensed lineup data for this question yet.", "es": "Todav\u00eda no hay datos de alineaciones con licencia para esta pregunta."},
+    "renderer.position_changes.not_a_teammate": {"en": "{query} is not a teammate of {name}, so there is nothing to compare.", "es": "{query} no es compa\u00f1ero de equipo de {name}, por lo que no hay nada que comparar."},
+    "renderer.position_changes.ambiguous": {"en": "More than one player matches '{query}'. Which one do you mean?", "es": "Hay m\u00e1s de un jugador que coincide con '{query}'. \u00bfA cu\u00e1l te refieres?"},
+    "renderer.position_changes.not_found": {"en": "I could not find a player called '{query}'.", "es": "No encontr\u00e9 a ning\u00fan jugador llamado '{query}'."},
 }
 
 

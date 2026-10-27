@@ -542,6 +542,11 @@ def run_football_intelligence_tool(
     bootstrap: dict[str, Any],
 ) -> dict[str, Any]:
     """Execute one FI-7b2 tool without network, retries, or mutable state."""
+    if name == "get_position_changes":
+        # B4 reads the licensed matchday store, not the v2 context/feature builds the other FI tools need.
+        from .position_changes_tool import run_position_changes
+
+        return run_position_changes(args, bootstrap)
     runtime = _load_runtime()
     if runtime is None:
         return _missing("feature_build_unavailable")
