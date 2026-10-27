@@ -94,6 +94,24 @@ FEED = FplFeed(
 )
 
 
+# --- backfill dry run: one finished match before the recording's Saturday, with a stale "not confirmed" flag -----------
+BACKFILL_DAY = "2026-10-10"
+BACKFILL_FEED = FplFeed(
+    bootstrap=FEED.bootstrap,
+    fixtures=[{"id": 3000, "team_h": 2, "team_a": 1, "kickoff_time": f"{BACKFILL_DAY}T14:00:00Z", "event": 7},
+              *FEED.fixtures],
+)
+
+
+def _finished_fixture() -> dict[str, Any]:
+    fixture = _pl_fixture(confirmed=False)  # the provider's flag is still false after full time
+    return {**fixture, "id": 860000, "starting_at": f"{BACKFILL_DAY} 14:00:00", "state": {"developer_name": "FT"},
+            "participants": [_participant(CHE, "home"), _participant(ARS, "away")]}
+
+
+BACKFILL_PROVIDER: dict[str, Any] = {**PROVIDER, f"fixtures/between/{BACKFILL_DAY}/2026-10-23": {"data": [_finished_fixture()]}}
+
+
 class RecordedTransport:
     """Answers each request from :data:`PROVIDER` by its path; anything unrecorded is a 404."""
 
@@ -112,4 +130,4 @@ def identifiers() -> set[str]:
     out: set[str] = set()
     for pid, (el, first, second, *_rest) in _PEOPLE.items():
         out |= {str(pid), first, second, f"{first} {second}"} | ({str(el)} if el else set())
-    return out | {str(ARS), str(CHE), "860001", "870001", "870002", "650001", "Invented Town", "Fictional FC"}
+    return out | {str(ARS), str(CHE), "860000", "860001", "870001", "870002", "650001", "Invented Town", "Fictional FC"}
