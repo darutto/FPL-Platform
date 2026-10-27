@@ -1273,7 +1273,7 @@ def ask_v2(
                 _orch_tool_names,
             )
             if _single_tool_turn and _orch_meta.get("generic_card") is None:
-                _overlay = maybe_atomic_tool_card(orch_result.tool_chosen, _orch_raw, None)
+                _overlay = maybe_atomic_tool_card(orch_result.tool_chosen, _orch_raw, None, locale)
                 if _overlay is not None:
                     _orch_meta["generic_card"] = _overlay  # dataclass; _to_dict serializes downstream
             result = {

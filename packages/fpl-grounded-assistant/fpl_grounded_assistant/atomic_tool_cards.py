@@ -34,8 +34,11 @@ from __future__ import annotations
 import logging
 from typing import Any, Iterable
 
+from .catalogue import t
 from .formatting import format_metric_value
-from .generic_card import Column, GenericCardMeta, HeroStat
+from .generic_card import Column, GenericCardMeta, HeroStat, Pill
+from .locale_types import DEFAULT_LOCALE, Locale
+from .position_changes_text import role_text
 from .rank_players_by_metric import natural_order
 
 _LOG = logging.getLogger(__name__)
@@ -184,11 +187,86 @@ def compose_rank_players_card(raw_output: dict[str, Any]) -> "GenericCardMeta | 
         return None
 
 
+def compose_position_changes_card(raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> "GenericCardMeta | None":
+    """Compose the B4 card from ``get_position_changes`` output (B4, PR 3).
+
+    One row per match with a stored lineup: gameweek, opponent, the slot he was listed to start in, and a note that is
+    either the observed change of slot, the teammate whose absence from the XI coincided with it, or nothing. Every cell
+    comes from the deterministic tool output; the wording is the same catalogue the text renderer uses, so card and prose
+    cannot diverge. Returns ``None`` unless the tool answered ``ok`` with matches (never raises), and for an ambiguous or
+    missing answer the plain text stays.
+    """
+    if raw_output.get("status") != "ok" or not (raw_output.get("matches") or []):
+        return None
+    try:
+        matches = raw_output["matches"]
+        player = raw_output.get("player") or {}
+        changes = sum(1 for m in matches if m.get("change"))
+        columns = (
+            Column(header=t("gcard.position_changes.col_gw", locale), align="left", kind="mono"),
+            Column(header=t("gcard.position_changes.col_opponent", locale), align="left", kind="text"),
+            Column(header=t("gcard.position_changes.col_slot", locale), align="left", kind="text"),
+            Column(header=t("gcard.position_changes.col_note", locale), align="left", kind="text"),
+        )
+        rows: list[tuple[str, ...]] = []
+        for m in matches:
+            where = t("renderer.position_changes.home" if m.get("is_home") else "renderer.position_changes.away", locale,
+                      opp=m.get("opponent", "?"))
+            pstatus = m.get("player_status")
+            if pstatus == "started":
+                slot = role_text(m.get("slot"), locale)
+            elif pstatus == "bench":
+                slot = t("renderer.position_changes.bench", locale)
+            else:
+                slot = t("renderer.position_changes.not_listed", locale)
+            notes: list[str] = []
+            if m.get("change"):
+                notes.append(t("gcard.position_changes.note_changed", locale, before=role_text(m["change"].get("from"), locale)))
+            for a in m.get("associations") or []:
+                notes.append(t("gcard.position_changes.note_assoc", locale, name=(a.get("teammate") or {}).get("web_name", "?")))
+            gw = m.get("gameweek")
+            rows.append((
+                (t("renderer.position_changes.gw", locale, gw=gw) if gw is not None else "-"),
+                where, slot, "; ".join(notes) if notes else t("gcard.position_changes.note_none", locale),
+            ))
+        sample = raw_output.get("sample") or {}
+        focus = raw_output.get("absence_focus") or {}
+        pills: list[Pill] = []
+        if sample.get("small_sample") or focus.get("small_sample"):
+            pills.append(Pill(label=t("gcard.position_changes.pill_small", locale, n=sample.get("matches_with_stored_lineup", len(matches))),
+                              tone="neutral"))
+        if any(m.get("lineup_status") == "provisional" for m in matches):
+            pills.append(Pill(label=t("gcard.position_changes.pill_provisional", locale), tone="warn"))
+        if focus.get("usual_role_without_him"):
+            pills.append(Pill(label=t("gcard.position_changes.pill_focus", locale,
+                                      name=(focus.get("teammate") or {}).get("web_name", "?"),
+                                      role=role_text(focus["usual_role_without_him"], locale)), tone="neutral"))
+        built = (raw_output.get("data_provenance") or {}).get("built_at")
+        return GenericCardMeta(
+            accent="turquoise",
+            title=t("gcard.position_changes.title", locale, name=player.get("web_name", "?")),
+            subtitle=t("gcard.position_changes.subtitle", locale),
+            hero=HeroStat(value=str(changes), label=t("gcard.position_changes.hero", locale), tone=None),
+            pills=tuple(pills), columns=columns, rows=tuple(rows),
+            footer=t("renderer.position_changes.provenance", locale, built_at=str(built)[:10]) if built else None,
+        )
+    except Exception as exc:  # noqa: BLE001
+        _LOG.warning("atomic_tool_cards: failed to compose get_position_changes card (%s); falling back to prose",
+                     type(exc).__name__)
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Dispatch — tool name -> composer. Phase 2 tools are one-line additions.
 # ---------------------------------------------------------------------------
 _ATOMIC_TOOL_COMPOSERS: dict[str, Any] = {
     "rank_players_by_metric": compose_rank_players_card,
+}
+
+#: Composers whose wording follows the request language (they take ``locale``). The ranking card above predates
+#: the language track and stays Spanish-only.
+_LOCALIZED_TOOL_COMPOSERS: dict[str, Any] = {
+    "get_position_changes": compose_position_changes_card,
 }
 
 
@@ -241,6 +319,7 @@ def maybe_atomic_tool_card(
     tool_name: "str | None",
     raw_output: dict[str, Any],
     existing_generic_card: "GenericCardMeta | None",
+    locale: Locale = DEFAULT_LOCALE,
 ) -> "GenericCardMeta | None":
     """Return a card to overlay for an atomic tool, or ``None``.
 
@@ -251,6 +330,9 @@ def maybe_atomic_tool_card(
     """
     if existing_generic_card is not None:
         return None
+    localized = _LOCALIZED_TOOL_COMPOSERS.get(tool_name or "")
+    if localized is not None:
+        return localized(raw_output, locale)
     composer = _ATOMIC_TOOL_COMPOSERS.get(tool_name or "")
     if composer is None:
         return None

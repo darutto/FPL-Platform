@@ -38,6 +38,11 @@ try:
 except ImportError:  # standalone load (test_renderer_zonal bypasses the package)
     from catalogue import t  # type: ignore[no-redef]
 
+try:
+    from .position_changes_text import role_text
+except ImportError:  # standalone load (test_renderer_zonal bypasses the package)
+    from position_changes_text import role_text  # type: ignore[no-redef]
+
 # ---------------------------------------------------------------------------
 # status_label: shared by resolve_player and get_player_summary.  F2.
 # ---------------------------------------------------------------------------
@@ -2184,31 +2189,6 @@ def _render_player_intelligence_v2(output: dict[str, Any], locale: Locale = DEFA
     from .football_intelligence_renderer import render_player_intelligence
     return render_player_intelligence(output)
 
-#: Provider position names -> Spanish. English shows the provider's own name; an unknown name passes through.
-_DETAILED_POSITION_ES = {
-    "Goalkeeper": "Portero", "Centre Back": "Central", "Right Back": "Lateral derecho", "Left Back": "Lateral izquierdo",
-    "Defensive Midfield": "Pivote", "Central Midfield": "Mediocentro", "Attacking Midfield": "Mediapunta",
-    "Right Midfield": "Banda derecha", "Left Midfield": "Banda izquierda", "Attacker": "Delantero",
-    "Centre Forward": "Delantero centro",
-}
-_SIDE_WORDS = {"en": {"left": "left", "right": "right", "centre": "centre"},
-               "es": {"left": "izquierda", "right": "derecha", "centre": "centro"}}
-
-
-def _pc_role(role: dict[str, Any] | None, locale: Locale) -> str:
-    """'Right Midfield' / 'Banda derecha'; the side is added only when the name does not already carry it."""
-    if not role or not role.get("detailed_position"):
-        return "?"
-    position = str(role["detailed_position"])
-    text = _DETAILED_POSITION_ES.get(position, position) if locale == "es" else position
-    side = role.get("side")
-    if side in ("left", "right") and side not in position.lower() and locale == "en":
-        text += f" ({_SIDE_WORDS['en'][side]})"
-    elif side in ("left", "right") and locale == "es" and position not in _DETAILED_POSITION_ES:
-        text += f" ({_SIDE_WORDS['es'][side]})"
-    return text
-
-
 def _render_get_position_changes(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_position_changes (B4). Deterministic and conservative: the slot is the announced XI, claims keep
     their status (observed / associated / unproven), and nothing here says why a player was placed anywhere."""
@@ -2234,7 +2214,7 @@ def _render_get_position_changes(output: dict[str, Any], locale: Locale = DEFAUL
         gw = t("renderer.position_changes.gw", locale, gw=m.get("gameweek")) if m.get("gameweek") is not None else ""
         pstatus = m.get("player_status")
         if pstatus == "started":
-            what = t("renderer.position_changes.started", locale, role=_pc_role(m.get("slot"), locale))
+            what = t("renderer.position_changes.started", locale, role=role_text(m.get("slot"), locale))
         elif pstatus == "bench":
             what = t("renderer.position_changes.bench", locale)
         else:
@@ -2244,7 +2224,7 @@ def _render_get_position_changes(output: dict[str, Any], locale: Locale = DEFAUL
         change = m.get("change")
         if change:
             any_change = True
-            lines.append(t("renderer.position_changes.changed", locale, before=_pc_role(change.get("from"), locale)))
+            lines.append(t("renderer.position_changes.changed", locale, before=role_text(change.get("from"), locale)))
         for a in m.get("associations") or []:
             presence = t("renderer.position_changes.presence_bench" if a.get("presence") == "on_bench"
                          else "renderer.position_changes.presence_not_listed", locale)
@@ -2255,7 +2235,7 @@ def _render_get_position_changes(output: dict[str, Any], locale: Locale = DEFAUL
             hyp = a.get("hypothesis")
             if hyp:
                 lines.append(t("renderer.position_changes.hypothesis", locale,
-                               name=(a.get("teammate") or {}).get("web_name", "?"), role=_pc_role(hyp.get("position"), locale)))
+                               name=(a.get("teammate") or {}).get("web_name", "?"), role=role_text(hyp.get("position"), locale)))
     if not any_change:
         lines.append(t("renderer.position_changes.no_change", locale))
     focus = output.get("absence_focus")
@@ -2263,8 +2243,8 @@ def _render_get_position_changes(output: dict[str, Any], locale: Locale = DEFAUL
         none = t("renderer.position_changes.focus_none", locale)
         lines.append(t("renderer.position_changes.focus", locale, name=(focus.get("teammate") or {}).get("web_name", "?"),
                        k=len(focus.get("matches_without_him_in_xi") or []), m=len(focus.get("matches_with_him_in_xi") or []),
-                       without=_pc_role(focus.get("usual_role_without_him"), locale) if focus.get("usual_role_without_him") else none,
-                       with_him=_pc_role(focus.get("usual_role_with_him"), locale) if focus.get("usual_role_with_him") else none))
+                       without=role_text(focus.get("usual_role_without_him"), locale) if focus.get("usual_role_without_him") else none,
+                       with_him=role_text(focus.get("usual_role_with_him"), locale) if focus.get("usual_role_with_him") else none))
     sample = output.get("sample") or {}
     if sample.get("small_sample") or (focus and focus.get("small_sample")):
         lines.append(t("renderer.position_changes.small_sample", locale, n=sample.get("matches_with_stored_lineup", len(matches))))

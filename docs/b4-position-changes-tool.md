@@ -39,6 +39,16 @@ Permitido: *"empezó en otra casilla"*, *"coincidió con la ausencia de X"*. Pro
 - Lista de partidos de FPL (`get_all_fixtures`, API gratuita de FPL) para pasar el id de partido a jornada, fecha, rival y local/visitante; caché de 10 minutos. Si no se puede leer: `missing_context` (`fixture_list_unavailable`).
 - Nada crudo sale: ni filas del almacén, ni ids de partido, ni ids de proveedor; la salida son valores derivados por jugador.
 
-## Qué NO hace este PR
+## PR 3: la tarjeta
 
-La tarjeta de interfaz (PR 3). El texto determinista ES/EN ya existe en el catálogo (`renderer.position_changes.*`, 25 pares) porque el repositorio exige un renderizador por herramienta registrada.
+La tarjeta reutiliza el contrato `generic_card` que la interfaz ya pinta (ver `GenericCard.tsx`), así que **no hay componente nuevo** y el español existente no cambia: `compose_position_changes_card` (`atomic_tool_cards.py`) construye la tarjeta a partir de la salida determinista de la herramienta, en el idioma de la petición (`locale` llega desde `ask_v2`). Una fila por partido con once guardado: jornada (`J7`/`GW7`), rival con local/visitante, la casilla en que figuró como titular y una nota que es el cambio observado ("Empezó en otra casilla (antes: Banda derecha)"), la ausencia asociada ("Coincidió con la ausencia de X") o nada.
+
+- Subtítulo fijo: "Once inicial anunciado, no un movimiento durante el partido" / "Announced starting XI, not movement during the match".
+- Píldoras: muestra pequeña, alineación provisional, y (con `absent_player`) la posición habitual sin ese compañero en el once.
+- Pie: procedencia con la fecha de la build. Sin ids de partido, de proveedor ni filas del almacén.
+- Solo se compone en turnos de una única herramienta y si la respuesta es `ok` con partidos; en cualquier otro caso queda el texto determinista.
+- El texto de posición (`role_text`) está compartido con el renderizador, así que tarjeta y prosa no pueden divergir. Los pares ES/EN están en el catálogo (`gcard.position_changes.*`).
+
+## Qué NO hace B4
+
+No predice ni atribuye causas, no muestra movimiento durante el partido, no sirve filas del almacén y no se enciende solo: sigue detrás de `FOOTBALL_INTELLIGENCE_ENABLED` y del sync licenciado, ambos apagados hasta que el cerebro lo apruebe.
