@@ -1,0 +1,133 @@
+"""B4: ``get_position_changes`` -- where a player started, when that changed, and which teammates were missing.
+
+A thin adapter. The analysis is :mod:`football_intelligence.position_changes` (pure, tested on its own); this module
+resolves the people by FPL id, reads the synced licensed store and the FPL fixture list, and hands them over.
+
+Resolution (the "João Pedro is not Costinha" rule): both players are resolved with ``tool_resolve_player``, which
+matches whole names only and answers ``ambiguous`` with candidates rather than guessing; nothing here searches a name
+for a substring. The teammate named as absent is additionally scoped to the player's own club by FPL id and club code:
+"João Pedro" next to Rogers means the Chelsea player, and a player of another club is reported as not a teammate.
+
+Provenance: the answer carries ``licensed_starter`` and the build time, never a store row or a provider id. If the
+store is not synced (the flag is off, or nothing was published yet) the answer is ``missing_context``, not an empty
+success.
+"""
+from __future__ import annotations
+
+import time
+from typing import Any, Callable, Mapping
+
+from football_intelligence.position_changes import DEFAULT_LIMIT, MAX_LIMIT, FixtureMeta, analyse
+
+_FIXTURE_TTL_SECONDS = 600
+_fixture_cache: dict[str, Any] = {"at": 0.0, "rows": None}
+
+
+def _missing(reason: str, **extra: Any) -> dict[str, Any]:
+    return {"status": "missing_context", "reason_codes": [reason], "matches": [], "evidence": [], **extra}
+
+
+def _team_codes(bootstrap: Mapping[str, Any]) -> dict[int, str]:
+    return {int(t["id"]): str(t["short_name"]) for t in bootstrap.get("teams", ())}
+
+
+def _names(bootstrap: Mapping[str, Any]) -> dict[int, dict[str, Any]]:
+    codes = _team_codes(bootstrap)
+    return {int(e["id"]): {"web_name": e.get("web_name"), "team_short": codes.get(int(e.get("team", 0)))}
+            for e in bootstrap.get("elements", ())}
+
+
+def _fetch_all_fixtures() -> list[dict[str, Any]]:
+    from fpl_api_client.fpl_client import get_all_fixtures
+    return get_all_fixtures()
+
+
+def fixture_index(bootstrap: Mapping[str, Any], fetch: Callable[[], list[dict[str, Any]]] | None = None) -> dict[int, FixtureMeta] | None:
+    """FPL fixture id -> gameweek, kickoff and the two club codes. ``None`` when the list cannot be read."""
+    rows = bootstrap.get("fixture_index")
+    if rows is None:
+        now = time.time()
+        if _fixture_cache["rows"] is not None and now - _fixture_cache["at"] < _FIXTURE_TTL_SECONDS:
+            rows = _fixture_cache["rows"]
+        else:
+            try:
+                rows = (fetch or _fetch_all_fixtures)()
+            except Exception:  # the FPL API being unreachable degrades this answer; it never raises into the turn
+                return None
+            _fixture_cache.update(at=now, rows=rows)
+    codes = _team_codes(bootstrap)
+    index: dict[int, FixtureMeta] = {}
+    for row in rows:
+        home, away = codes.get(int(row.get("team_h", 0))), codes.get(int(row.get("team_a", 0)))
+        if home is None or away is None:
+            continue
+        event = row.get("event")
+        index[int(row["id"])] = FixtureMeta(int(event) if event is not None else None, row.get("kickoff_time"), home, away)
+    return index
+
+
+def _resolve(query: Any, bootstrap: dict[str, Any], *, within_team: str | None = None) -> dict[str, Any]:
+    from fpl_tool_contract import tool_resolve_player
+
+    resolved = tool_resolve_player(query, bootstrap)
+    if within_team is None:
+        return resolved
+    if resolved["status"] == "ambiguous":
+        mates = [c for c in resolved["candidates"] if c.get("team_short") == within_team]
+        if len(mates) == 1:
+            return {"status": "ok", "player_id": mates[0]["id"], "team_short": within_team, "resolved_via": "teammate_scope"}
+        if not mates:
+            return {"status": "not_a_teammate", "query": str(query)}
+        return {**resolved, "candidates": mates}
+    if resolved["status"] == "ok" and resolved.get("team_short") != within_team:
+        return {"status": "not_a_teammate", "query": str(query), "team_short": resolved.get("team_short")}
+    return resolved
+
+
+def run_position_changes(
+    args: dict[str, Any],
+    bootstrap: dict[str, Any],
+    *,
+    handle: Any = None,
+    fetch_fixtures: Callable[[], list[dict[str, Any]]] | None = None,
+) -> dict[str, Any]:
+    """Execute the tool. ``handle`` and ``fetch_fixtures`` are the seams the tests use."""
+    player = _resolve(args.get("player"), bootstrap)
+    if player["status"] != "ok":
+        return player
+    element = int(player["player_id"])
+    own_team = player.get("team_short")
+
+    absent_element: int | None = None
+    if args.get("absent_player"):
+        absent = _resolve(args["absent_player"], bootstrap, within_team=own_team)
+        if absent["status"] != "ok":
+            return {**absent, "player": {"web_name": (_names(bootstrap).get(element) or {}).get("web_name")}}
+        absent_element = int(absent["player_id"])
+
+    if handle is None:
+        from football_intelligence.distribution.licensed_runtime import handle_from_env
+        handle = handle_from_env()
+    try:
+        manifest = handle.manifest()
+        tables = {name: handle.table(name) for name in ("lineup_snapshots", "lineup_slots", "sidelined", "squad_membership")}
+    except Exception:
+        return _missing("licensed_store_unavailable", player_id=element)
+
+    fixtures = fixture_index(bootstrap, fetch_fixtures)
+    if fixtures is None:
+        return _missing("fixture_list_unavailable", player_id=element)
+
+    limit = args.get("matches", DEFAULT_LIMIT)
+    try:
+        limit = max(1, min(int(limit), MAX_LIMIT))
+    except (TypeError, ValueError):
+        limit = DEFAULT_LIMIT
+    result = analyse(
+        element=element, snapshots=tables["lineup_snapshots"], slots=tables["lineup_slots"],
+        sidelined=tables["sidelined"], squad_membership=tables["squad_membership"], fixtures=fixtures,
+        names=_names(bootstrap), limit=limit, absent_element=absent_element)
+    result["data_provenance"] = {"source": "licensed_starter", "built_at": manifest.get("built_at"),
+                                 "slot_meaning": "announced_starting_xi"}
+    result.setdefault("evidence", [])
+    return result

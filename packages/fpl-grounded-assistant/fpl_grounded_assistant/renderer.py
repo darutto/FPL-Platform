@@ -2184,6 +2184,97 @@ def _render_player_intelligence_v2(output: dict[str, Any], locale: Locale = DEFA
     from .football_intelligence_renderer import render_player_intelligence
     return render_player_intelligence(output)
 
+#: Provider position names -> Spanish. English shows the provider's own name; an unknown name passes through.
+_DETAILED_POSITION_ES = {
+    "Goalkeeper": "Portero", "Centre Back": "Central", "Right Back": "Lateral derecho", "Left Back": "Lateral izquierdo",
+    "Defensive Midfield": "Pivote", "Central Midfield": "Mediocentro", "Attacking Midfield": "Mediapunta",
+    "Right Midfield": "Banda derecha", "Left Midfield": "Banda izquierda", "Attacker": "Delantero",
+    "Centre Forward": "Delantero centro",
+}
+_SIDE_WORDS = {"en": {"left": "left", "right": "right", "centre": "centre"},
+               "es": {"left": "izquierda", "right": "derecha", "centre": "centro"}}
+
+
+def _pc_role(role: dict[str, Any] | None, locale: Locale) -> str:
+    """'Right Midfield' / 'Banda derecha'; the side is added only when the name does not already carry it."""
+    if not role or not role.get("detailed_position"):
+        return "?"
+    position = str(role["detailed_position"])
+    text = _DETAILED_POSITION_ES.get(position, position) if locale == "es" else position
+    side = role.get("side")
+    if side in ("left", "right") and side not in position.lower() and locale == "en":
+        text += f" ({_SIDE_WORDS['en'][side]})"
+    elif side in ("left", "right") and locale == "es" and position not in _DETAILED_POSITION_ES:
+        text += f" ({_SIDE_WORDS['es'][side]})"
+    return text
+
+
+def _render_get_position_changes(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
+    """Render get_position_changes (B4). Deterministic and conservative: the slot is the announced XI, claims keep
+    their status (observed / associated / unproven), and nothing here says why a player was placed anywhere."""
+    status = output.get("status")
+    if status == "ambiguous":
+        return output.get("message") or t("renderer.position_changes.ambiguous", locale, query=output.get("query", "?"))
+    if status == "not_found":
+        return output.get("message") or t("renderer.position_changes.not_found", locale, query=output.get("query", "?"))
+    if status == "not_a_teammate":
+        return t("renderer.position_changes.not_a_teammate", locale, query=output.get("query", "?"),
+                 name=(output.get("player") or {}).get("web_name", "?"))
+    matches = output.get("matches") or []
+    if status != "ok" or not matches:
+        return t("renderer.position_changes.missing", locale)
+
+    player = output.get("player") or {}
+    lines = [t("renderer.position_changes.header", locale, name=player.get("web_name", "?"),
+               team=player.get("team_short", "?"), n=len(matches))]
+    any_change = False
+    for m in matches:
+        where = t("renderer.position_changes.home" if m.get("is_home") else "renderer.position_changes.away", locale,
+                  opp=m.get("opponent", "?"))
+        gw = t("renderer.position_changes.gw", locale, gw=m.get("gameweek")) if m.get("gameweek") is not None else ""
+        pstatus = m.get("player_status")
+        if pstatus == "started":
+            what = t("renderer.position_changes.started", locale, role=_pc_role(m.get("slot"), locale))
+        elif pstatus == "bench":
+            what = t("renderer.position_changes.bench", locale)
+        else:
+            what = t("renderer.position_changes.not_listed", locale)
+        flag = t("renderer.position_changes.provisional", locale) if m.get("lineup_status") == "provisional" else ""
+        lines.append(f"  {gw} {where}: {what}{flag}")
+        change = m.get("change")
+        if change:
+            any_change = True
+            lines.append(t("renderer.position_changes.changed", locale, before=_pc_role(change.get("from"), locale)))
+        for a in m.get("associations") or []:
+            presence = t("renderer.position_changes.presence_bench" if a.get("presence") == "on_bench"
+                         else "renderer.position_changes.presence_not_listed", locale)
+            sidelined = t("renderer.position_changes.sidelined", locale) if a.get("listed_sidelined") else ""
+            unmapped = t("renderer.position_changes.unmapped", locale) if a.get("may_be_unmapped") else ""
+            lines.append(t("renderer.position_changes.assoc", locale, name=(a.get("teammate") or {}).get("web_name", "?"),
+                           presence=presence, sidelined=sidelined, unmapped=unmapped))
+            hyp = a.get("hypothesis")
+            if hyp:
+                lines.append(t("renderer.position_changes.hypothesis", locale,
+                               name=(a.get("teammate") or {}).get("web_name", "?"), role=_pc_role(hyp.get("position"), locale)))
+    if not any_change:
+        lines.append(t("renderer.position_changes.no_change", locale))
+    focus = output.get("absence_focus")
+    if focus:
+        none = t("renderer.position_changes.focus_none", locale)
+        lines.append(t("renderer.position_changes.focus", locale, name=(focus.get("teammate") or {}).get("web_name", "?"),
+                       k=len(focus.get("matches_without_him_in_xi") or []), m=len(focus.get("matches_with_him_in_xi") or []),
+                       without=_pc_role(focus.get("usual_role_without_him"), locale) if focus.get("usual_role_without_him") else none,
+                       with_him=_pc_role(focus.get("usual_role_with_him"), locale) if focus.get("usual_role_with_him") else none))
+    sample = output.get("sample") or {}
+    if sample.get("small_sample") or (focus and focus.get("small_sample")):
+        lines.append(t("renderer.position_changes.small_sample", locale, n=sample.get("matches_with_stored_lineup", len(matches))))
+    lines.append(t("renderer.position_changes.footer", locale))
+    built = (output.get("data_provenance") or {}).get("built_at")
+    if built:
+        lines.append(t("renderer.position_changes.provenance", locale, built_at=str(built)[:10]))
+    return "\n".join(lines)
+
+
 _RENDERERS = {
     "resolve_player":            _render_resolve_player,
     "get_player_summary":        _render_get_player_summary,
@@ -2227,6 +2318,7 @@ _RENDERERS = {
     "get_tactical_role":        _render_tactical_role_v2,        # FI-7b3
     "get_fixture_context":      _render_fixture_context_v2,      # FI-7b3
     "get_player_intelligence":  _render_player_intelligence_v2,  # FI-7b3
+    "get_position_changes":     _render_get_position_changes,        # B4
 }
 
 

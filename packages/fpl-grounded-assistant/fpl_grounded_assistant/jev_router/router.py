@@ -83,6 +83,7 @@ CATALOG_EXCEPTIONS: dict[str, str] = {
     "get_fixture_context": "FI-7b: offered only behind the football-intelligence flag, never measured",
     "get_player_intelligence": "FI-7b: offered only behind the football-intelligence flag, never measured",
     "get_tactical_role": "FI-7b: offered only behind the football-intelligence flag, never measured",
+    "get_position_changes": "B4: offered only behind the football-intelligence flag and a synced licensed store, never measured",
 }
 
 #: Closed vocabulary that promotes a get_my_squad route to the chip path.

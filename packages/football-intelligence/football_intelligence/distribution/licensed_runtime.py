@@ -54,6 +54,11 @@ def _cache_root(values: Mapping[str, str]) -> Path:
     return Path(values.get(LICENSED_CACHE_ROOT_ENV) or DEFAULT_LICENSED_CACHE_ROOT)
 
 
+def handle_from_env(env: Mapping[str, str] | None = None) -> "LicensedRuntimeHandle":
+    """The handle over the cache this process syncs into (``FPL_FOOTBALL_LICENSED_CACHE_ROOT``)."""
+    return LicensedRuntimeHandle(_cache_root(os.environ if env is None else env))
+
+
 class LicensedRuntimeHandle:
     """The synced licensed build, validated on every read. Construct with the cache root it was synced into."""
 
