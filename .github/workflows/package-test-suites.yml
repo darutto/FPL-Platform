@@ -315,6 +315,15 @@ jobs:
         working-directory: packages/sportmonks-client
         run: python -m pytest -v
 
+      # Added by B3 PR 3b (the licensed ingestion job). Baseline at the time of
+      # wiring: 60 passed. Everything it imports (pandas, pyarrow, boto3,
+      # requests, PyYAML) is already in the install step above. Its conftest
+      # forbids any live network call, so this step cannot reach Sportmonks or
+      # FPL, and the tests carry no token.
+      - name: licensed-ingestion suite
+        if: ${{ !cancelled() }}
+        working-directory: packages/licensed-ingestion
+        run: python -m pytest -v
   # ==========================================================================
   # Falsifiability probe -- its own job, running in PARALLEL with the suites.
   #

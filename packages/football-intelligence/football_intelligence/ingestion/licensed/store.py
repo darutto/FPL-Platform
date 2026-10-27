@@ -9,6 +9,9 @@ name, and only this store's files are governed. Decisions a reviewer should be a
   build's rows plus this pass's, de-duplicated on their full key, so the latest build holds the whole season
   (PROD_INGESTION.md, open question 3). The crosswalk and the cup snapshots are replaced: they are state, not
   history.
+* **A poll pass keeps the state** (``carry_state=True``): a matchday poll reads one fixtures window and no
+  squads or cups, so its crosswalk and cup tables come from the previous build instead of from its own empty
+  reads, which would otherwise wipe them.
 * **The validator rebuilds nothing and trusts nothing:** exact manifest fields, the licensed binding, exactly
   the governed files, byte hashes and row counts.
 * **The crosswalk table is the only one with provider ids.** It is stored in the private bucket (the licence
@@ -54,6 +57,7 @@ TABLES: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
                      "source", "fetched_at", "gameweek"), ("competition", "club", "kickoff_utc")),
 }
 HISTORY_TABLES = ("lineup_snapshots", "lineup_slots", "sidelined", "squad_membership")
+STATE_TABLES = ("crosswalk", "cup_snapshots", "cup_records")
 MANIFEST_FIELDS = {"schema_version", "build_family", "build_id", "built_at", "assumption_status", "normalizer_versions",
                    "source", "files", "row_counts"}
 _BUILD_ID = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
@@ -88,17 +92,20 @@ def _rows(tables: DerivedTables, crosswalk: Mapping[int, int]) -> dict[str, list
 
 
 def write_build(tables: DerivedTables, crosswalk: Mapping[int, int], destination: Path, *, build_id: str,
-                built_at: str, previous: Path | None = None) -> Path:
+                built_at: str, previous: Path | None = None, carry_state: bool = False) -> Path:
     """Write one immutable build under ``destination/builds/<build_id>``; ``previous`` is the last build, whose
-    history tables are carried forward."""
+    history tables are carried forward, and with ``carry_state`` its crosswalk and cup tables too."""
     if not isinstance(build_id, str) or _BUILD_ID.fullmatch(build_id) is None:
         raise LicensedStoreError("build_id must match [a-z0-9]+(?:-[a-z0-9]+)*")
+    if carry_state and previous is None:
+        raise LicensedStoreError("carry_state needs a previous build")
     rows = _rows(tables, crosswalk)
     if previous is not None:
         validate_build(previous)
-        for name in HISTORY_TABLES:
+        for name in (*HISTORY_TABLES, *(STATE_TABLES if carry_state else ())):
             old = pd.read_parquet(previous / f"datasets/{name}.parquet").astype(object)
-            rows[name] = [*old.where(pd.notna(old), None).to_dict("records"), *rows[name]]
+            old_rows = old.where(pd.notna(old), None).to_dict("records")
+            rows[name] = [*old_rows, *rows[name]] if name in HISTORY_TABLES else old_rows
     final = destination / "builds" / build_id
     if final.exists():
         raise FileExistsError(f"build already exists: {build_id}")

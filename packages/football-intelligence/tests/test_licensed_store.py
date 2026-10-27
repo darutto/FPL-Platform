@@ -63,6 +63,17 @@ def test_history_tables_accumulate_and_state_tables_are_replaced(tmp_path):
     assert len(pd.read_parquet(again / "datasets/lineup_snapshots.parquet")) == 2   # same observation: no duplicate
 
 
+def test_carry_state_keeps_the_previous_crosswalk_and_cups(tmp_path):
+    first = _build(tmp_path, "daily")
+    empty = DerivedTables((), (), (), (), (), DeriveReport())
+    poll = write_build(empty, {}, tmp_path, build_id="poll", built_at="2026-10-24T13:00:00Z", previous=first,
+                       carry_state=True)
+    for name in ("crosswalk", "cup_snapshots", "cup_records", "lineup_slots"):
+        assert pd.read_parquet(poll / f"datasets/{name}.parquet").equals(pd.read_parquet(first / f"datasets/{name}.parquet"))
+    with pytest.raises(LicensedStoreError, match="previous"):
+        write_build(empty, {}, tmp_path, build_id="orphan", built_at="2026-10-24T13:00:00Z", carry_state=True)
+
+
 def test_a_build_id_is_immutable(tmp_path):
     _build(tmp_path)
     with pytest.raises(FileExistsError):
