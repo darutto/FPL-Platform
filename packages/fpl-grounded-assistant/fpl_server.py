@@ -95,9 +95,12 @@ except ImportError:  # fail-soft for partial/source-only deployments
     _football_startup_status = None
 try:
     # B4: read-only sync of the licensed matchday family; off unless FPL_FOOTBALL_LICENSED_SYNC_ENABLED is truthy.
+    from football_intelligence.distribution.licensed_runtime import LicensedResync as _LicensedResync
     from football_intelligence.distribution.licensed_runtime import licensed_startup_sync as _football_licensed_sync
 except ImportError:
     _football_licensed_sync = None
+    _LicensedResync = None
+_licensed_resync: Any = None
 
 # Phase P3.1: quota meter + audit log
 from fpl_grounded_assistant.quota import (  # noqa: E402
@@ -1038,7 +1041,7 @@ async def lifespan(app: FastAPI):
     attempts fail the server starts in a degraded state and /ask returns 503
     until the bootstrap is populated externally (no manual restart required).
     """
-    global _football_distribution_status
+    global _football_distribution_status, _licensed_resync
     # FI-4b performs a bounded, fail-soft remote synchronization when configured.
     # Disabled/malformed configuration never prevents unrelated backend startup.
     if _football_startup_status is not None:
@@ -1049,6 +1052,11 @@ async def lifespan(app: FastAPI):
         app.state.football_licensed_status = _licensed_status
         # State and reason code only: nothing about the build's content is logged.
         _LOG.info("football licensed sync: state=%s reason=%s", _licensed_status.state, _licensed_status.reason_code)
+        # Stay current without a restart: the ingestion publishes new builds all day. Same flag as the startup sync.
+        if _LicensedResync is not None:
+            _licensed_resync = _LicensedResync()
+            _licensed_resync.status = _licensed_status
+            _licensed_resync.start()
     # H5: optional startup sync of the owned store from R2. Runs BEFORE the
     # bootstrap fetch so the bootstrap (and per-tool) fallbacks can read the
     # synced data. Gated by sync_enabled() — default-off preserves current
@@ -1088,6 +1096,8 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         _stop_bootstrap_refresh()
+        if _licensed_resync is not None:
+            _licensed_resync.stop()
 
 
 app = FastAPI(

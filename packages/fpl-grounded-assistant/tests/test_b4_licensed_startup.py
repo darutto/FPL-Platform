@@ -37,3 +37,19 @@ def test_the_startup_line_carries_state_and_reason_only(started, monkeypatch, ca
             pass
     lines = [r.getMessage() for r in caplog.records if "football licensed sync" in r.getMessage()]
     assert lines == ["football licensed sync: state=ready reason=synchronized"]
+
+
+def test_no_resync_thread_runs_while_the_flag_is_off(started):
+    with TestClient(fpl_server.app):
+        assert fpl_server._licensed_resync is not None and fpl_server._licensed_resync._thread is None
+
+
+def test_the_resync_thread_starts_with_the_flag_and_stops_with_the_server(started, monkeypatch):
+    monkeypatch.setenv("FPL_FOOTBALL_LICENSED_SYNC_ENABLED", "true")
+    monkeypatch.setattr(fpl_server, "_football_licensed_sync", lambda: RuntimeStatus("degraded", "sync_failed"))
+    with TestClient(fpl_server.app):
+        resync = fpl_server._licensed_resync
+        assert resync._thread is not None and resync._thread.is_alive()
+        assert (resync.status.state, resync.status.reason_code) == ("degraded", "sync_failed")
+        thread = resync._thread
+    assert not thread.is_alive() and resync._thread is None

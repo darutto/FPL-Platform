@@ -24,6 +24,10 @@
 - `fpl_server.py`: llamada tolerante a fallos tras la sincronización canónica; deja el estado en `app.state.football_licensed_status` y escribe **una línea** con estado y motivo. No se amplía `/ready` (su contrato está bajo el gate de drift).
 - Tests (`test_licensed_runtime.py`, almacén en memoria y datos sintéticos, sin red): apagada por defecto aunque haya credenciales; sin configuración no es error; sincroniza y lee; `crosswalk` no se sirve; una build marcada de trial se rechaza al leer; un refresco fallido conserva la última buena como `degraded`; ningún contenido en el estado; el prefijo canónico no se puede usar con esta familia.
 
+## 3b. Re-sincronización periódica (PR siguiente)
+
+El sync de arranque no ve las builds que la ingesta publica durante el día. `LicensedResync` repite el mismo sync en un hilo de fondo (como el refresco del bootstrap): cada `FPL_FOOTBALL_LICENSED_RESYNC_SECONDS` (por defecto 600, mínimo 60, `0` lo apaga) lee primero el puntero remoto y solo descarga si cambió el `build_id`; sincroniza a una carpeta nueva y cambia el puntero local al final (mecanismo inmutable existente), así que un lector ve la build vieja o la nueva, nunca a medias; cualquier fallo conserva la build en uso (`degraded`). Solo arranca con `FPL_FOOTBALL_LICENSED_SYNC_ENABLED`. Tras cada sincronización con cambio se podan las builds antiguas del caché (se conservan 3, nunca la que usa el puntero local) para no llenar el disco efímero. El log es una línea de estado y motivo solo cuando cambia (no cuando no hay novedades).
+
 ## 4. Lo que falta para que funcione en producción (config de Leo, no verificado desde aquí)
 
 1. **Variables en Railway** (mismo bucket privado y credenciales que `OWNED_STORE_R2_*`): `FPL_FOOTBALL_REMOTE_ENDPOINT`, `FPL_FOOTBALL_REMOTE_BUCKET`, `FPL_FOOTBALL_REMOTE_ACCESS_KEY_ID`, `FPL_FOOTBALL_REMOTE_SECRET_ACCESS_KEY`, y **`FPL_FOOTBALL_LICENSED_SYNC_ENABLED=true`**. El comentario de `railway.toml` solo lista `OWNED_STORE_R2_*`; no consta que las `FPL_FOOTBALL_REMOTE_*` existan en el panel de Railway.

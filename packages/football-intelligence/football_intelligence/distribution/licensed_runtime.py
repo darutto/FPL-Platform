@@ -13,10 +13,19 @@ twin, with three differences that are decisions, not accidents:
   handle at all).
 
 Nothing in this module logs or returns a row. Its status carries a state and a reason code only.
+
+Staying current: the ingestion publishes a new build every day and every few minutes on a match day, and a process
+that syncs only at start would not see them until a restart. :class:`LicensedResync` repeats the same sync in a
+background thread. Each pass reads the small remote pointer first and downloads only when the build id changed
+(``sync_build``), stages into a new directory and swaps the local pointer last, so a reader sees the old build or
+the new one, never a half-written one, and any failure keeps the build already in use.
 """
 from __future__ import annotations
 
+import logging
 import os
+import shutil
+import threading
 from dataclasses import replace
 from pathlib import Path
 from typing import Mapping
@@ -37,6 +46,12 @@ from .store import ArtifactStore, S3ArtifactStore
 
 LICENSED_SYNC_ENABLED_ENV = "FPL_FOOTBALL_LICENSED_SYNC_ENABLED"
 LICENSED_CACHE_ROOT_ENV = "FPL_FOOTBALL_LICENSED_CACHE_ROOT"
+LICENSED_RESYNC_SECONDS_ENV = "FPL_FOOTBALL_LICENSED_RESYNC_SECONDS"
+DEFAULT_RESYNC_SECONDS = 600.0
+MIN_RESYNC_SECONDS = 60.0
+#: Builds kept in the cache: the one in use and the most recent others. Older ones are removed after a successful sync.
+KEEP_BUILDS = 3
+_LOG = logging.getLogger(__name__)
 DEFAULT_LICENSED_CACHE_ROOT = "data/football-licensed-runtime"
 #: Tables a reader may ask for. The crosswalk holds provider ids and is stored, never served.
 READABLE_TABLES = tuple(name for name in TABLES if name != "crosswalk")
@@ -115,3 +130,84 @@ def licensed_startup_sync(env: Mapping[str, str] | None = None, *, store: Artifa
         reason = exc.reason_code if isinstance(exc, DistributionError) else "sync_failed"
         local = local_build()
         return RuntimeStatus("degraded" if local else "unavailable", reason, local_build_id=local)
+
+
+def resync_interval(env: Mapping[str, str] | None = None) -> float:
+    """Seconds between re-syncs; 0 disables. Malformed -> the default; never below the minimum."""
+    raw = ((os.environ if env is None else env).get(LICENSED_RESYNC_SECONDS_ENV) or "").strip()
+    if not raw:
+        return DEFAULT_RESYNC_SECONDS
+    try:
+        value = float(raw)
+    except ValueError:
+        return DEFAULT_RESYNC_SECONDS
+    return 0.0 if value <= 0 else max(value, MIN_RESYNC_SECONDS)
+
+
+def prune_old_builds(cache_root: Path, keep: int = KEEP_BUILDS) -> int:
+    """Remove all but the ``keep`` newest build directories under ``cache_root/builds``, never the one the local pointer
+    names. Only direct children that are real directories are touched. Returns how many were removed."""
+    builds = Path(cache_root) / "builds"
+    try:
+        current = parse_pointer((Path(cache_root) / LICENSED_V1.pointer_name).read_bytes())["build_id"]
+        children = [p for p in builds.iterdir() if p.is_dir() and not p.is_symlink()]
+    except Exception:
+        return 0
+    children.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    removed = 0
+    for path in [p for p in children if p.name != current][max(0, keep - 1):]:
+        shutil.rmtree(path, ignore_errors=True)
+        removed += 1
+    return removed
+
+
+class LicensedResync:
+    """Periodic, bounded, never-raising re-sync of the licensed family. Off unless the sync flag is on."""
+
+    def __init__(self, env: Mapping[str, str] | None = None, *, store: ArtifactStore | None = None,
+                 interval_seconds: float | None = None) -> None:
+        self.env = os.environ if env is None else env
+        self.store = store
+        self.interval = resync_interval(self.env) if interval_seconds is None else interval_seconds
+        self.status: RuntimeStatus = RuntimeStatus("disabled", "sync_not_enabled")
+        self.runs = 0
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+
+    def run_once(self) -> RuntimeStatus:
+        """One pass: the same sync as startup. Never raises; a failure leaves the build in use untouched."""
+        try:
+            status = licensed_startup_sync(self.env, store=self.store)
+            if status.reason_code == "synchronized":
+                prune_old_builds(_cache_root(self.env))
+        except Exception:  # licensed_startup_sync already swallows; this is the backstop for the loop itself
+            status = RuntimeStatus("unavailable", "resync_failed")
+        self.runs += 1
+        previous, self.status = self.status, status
+        quiet = status.reason_code == "already_current" and previous.state == "ready"   # the common case: nothing new
+        if not quiet and (previous.state, previous.reason_code, previous.local_build_id) != (status.state, status.reason_code, status.local_build_id):
+            # State and reason only: nothing about the build's content is logged.
+            _LOG.info("football licensed resync: state=%s reason=%s", status.state, status.reason_code)
+        return status
+
+    def start(self) -> bool:
+        """Start the background loop. False (and no thread) when the flag is off, the interval is 0 or it already runs."""
+        if not _truthy(self.env.get(LICENSED_SYNC_ENABLED_ENV)) or self.interval <= 0:
+            return False
+        if self._thread is not None and self._thread.is_alive():
+            return False
+        self._stop.clear()
+        self._thread = threading.Thread(target=self._loop, name="football-licensed-resync", daemon=True)
+        self._thread.start()
+        return True
+
+    def _loop(self) -> None:
+        # Wait first: the startup sync has just run.
+        while not self._stop.wait(self.interval):
+            self.run_once()
+
+    def stop(self) -> None:
+        self._stop.set()
+        thread, self._thread = self._thread, None
+        if thread is not None:
+            thread.join(timeout=2.0)
