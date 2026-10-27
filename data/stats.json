@@ -1,148 +1,148 @@
 {
-  "generatedAt": "2026-10-26T05:08:18Z",
+  "generatedAt": "2026-10-27T05:06:57Z",
   "season": "2026/27",
   "seasonStatus": "in_season",
-  "gameweek": 7,
+  "gameweek": 8,
   "teams": [
     {
       "name": "Arsenal",
       "short": "ARS",
-      "goalsFor": 11,
+      "goalsFor": 13,
       "goalsAgainst": 5,
-      "played": 7
+      "played": 8
     },
     {
       "name": "Aston Villa",
       "short": "AVL",
-      "goalsFor": 7,
-      "goalsAgainst": 11,
-      "played": 7
+      "goalsFor": 9,
+      "goalsAgainst": 12,
+      "played": 8
     },
     {
       "name": "Bournemouth",
       "short": "BOU",
-      "goalsFor": 9,
+      "goalsFor": 12,
       "goalsAgainst": 13,
-      "played": 7
+      "played": 8
     },
     {
       "name": "Brentford",
       "short": "BRE",
-      "goalsFor": 13,
-      "goalsAgainst": 8,
-      "played": 7
+      "goalsFor": 14,
+      "goalsAgainst": 9,
+      "played": 8
     },
     {
       "name": "Brighton",
       "short": "BHA",
       "goalsFor": 23,
-      "goalsAgainst": 5,
-      "played": 7
+      "goalsAgainst": 7,
+      "played": 8
     },
     {
       "name": "Chelsea",
       "short": "CHE",
       "goalsFor": 17,
-      "goalsAgainst": 13,
-      "played": 7
+      "goalsAgainst": 15,
+      "played": 8
     },
     {
       "name": "Coventry City",
       "short": "COV",
       "goalsFor": 6,
-      "goalsAgainst": 14,
-      "played": 7
+      "goalsAgainst": 15,
+      "played": 8
     },
     {
       "name": "Crystal Palace",
       "short": "CRY",
       "goalsFor": 9,
-      "goalsAgainst": 17,
-      "played": 7
+      "goalsAgainst": 19,
+      "played": 8
     },
     {
       "name": "Everton",
       "short": "EVE",
       "goalsFor": 8,
-      "goalsAgainst": 7,
-      "played": 7
+      "goalsAgainst": 9,
+      "played": 8
     },
     {
       "name": "Fulham",
       "short": "FUL",
-      "goalsFor": 7,
+      "goalsFor": 8,
       "goalsAgainst": 10,
-      "played": 7
+      "played": 8
     },
     {
       "name": "Hull City",
       "short": "HUL",
-      "goalsFor": 8,
-      "goalsAgainst": 7,
-      "played": 7
+      "goalsFor": 9,
+      "goalsAgainst": 8,
+      "played": 8
     },
     {
       "name": "Ipswich Town",
       "short": "IPS",
-      "goalsFor": 11,
-      "goalsAgainst": 15,
-      "played": 7
+      "goalsFor": 12,
+      "goalsAgainst": 16,
+      "played": 8
     },
     {
       "name": "Leeds",
       "short": "LEE",
       "goalsFor": 9,
       "goalsAgainst": 6,
-      "played": 7
+      "played": 8
     },
     {
       "name": "Liverpool",
       "short": "LIV",
-      "goalsFor": 9,
+      "goalsFor": 11,
       "goalsAgainst": 8,
-      "played": 7
+      "played": 8
     },
     {
       "name": "Man City",
       "short": "MCI",
-      "goalsFor": 19,
-      "goalsAgainst": 7,
-      "played": 7
+      "goalsFor": 20,
+      "goalsAgainst": 9,
+      "played": 8
     },
     {
       "name": "Man Utd",
       "short": "MUN",
       "goalsFor": 10,
-      "goalsAgainst": 10,
-      "played": 7
+      "goalsAgainst": 13,
+      "played": 8
     },
     {
       "name": "Newcastle",
       "short": "NEW",
-      "goalsFor": 10,
+      "goalsFor": 12,
       "goalsAgainst": 14,
-      "played": 7
+      "played": 8
     },
     {
       "name": "Nott'm Forest",
       "short": "NFO",
-      "goalsFor": 5,
-      "goalsAgainst": 9,
-      "played": 7
+      "goalsFor": 6,
+      "goalsAgainst": 10,
+      "played": 8
     },
     {
       "name": "Spurs",
       "short": "TOT",
-      "goalsFor": 6,
+      "goalsFor": 8,
       "goalsAgainst": 10,
-      "played": 7
+      "played": 8
     },
     {
       "name": "Sunderland",
       "short": "SUN",
       "goalsFor": 6,
       "goalsAgainst": 14,
-      "played": 7
+      "played": 8
     }
   ],
   "players": [
