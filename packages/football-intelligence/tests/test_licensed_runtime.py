@@ -107,3 +107,135 @@ def test_the_licensed_sync_cannot_read_the_canonical_prefix(tmp_path):
     from football_intelligence.distribution.service import sync_build
     with pytest.raises(FamilyPrefixError):
         sync_build(InMemoryArtifactStore(), "football", tmp_path / "c", family=LICENSED_V1)
+
+
+# ---- B4: periodic re-sync (a new build is picked up without a restart) ---------------------------------------------
+
+import time  # noqa: E402
+
+from football_intelligence.distribution.licensed_runtime import (  # noqa: E402
+    DEFAULT_RESYNC_SECONDS, KEEP_BUILDS, MIN_RESYNC_SECONDS, LicensedResync, prune_old_builds, resync_interval,
+)
+
+
+def _publish(store, tmp_path, build_id, element=501, previous=None):
+    build = write_build(_tables(element=element), {700001: element}, tmp_path / "author", build_id=build_id,
+                        built_at="2026-10-24T12:01:00Z", previous=previous)
+    publish_build(store, PREFIX_SEGMENT, build, family=LICENSED_V1)
+    return build
+
+
+def _handle(tmp_path):
+    return LicensedRuntimeHandle(tmp_path / "cache")
+
+
+def test_a_new_build_is_picked_up_without_a_restart(tmp_path):
+    store = InMemoryArtifactStore()
+    first = _publish(store, tmp_path, "pass-one")
+    resync = LicensedResync(_env(tmp_path), store=store, interval_seconds=1)
+    assert resync.run_once().reason_code == "synchronized" and _handle(tmp_path).build_id() == "pass-one"
+    _publish(store, tmp_path, "pass-two", element=502, previous=first)     # the ingestion publishes while we run
+    status = resync.run_once()
+    assert (status.state, status.reason_code, status.local_build_id) == ("ready", "synchronized", "pass-two")
+    assert _handle(tmp_path).build_id() == "pass-two" and list(_handle(tmp_path).table("lineup_slots").element) == [501, 502]
+
+
+def test_an_unchanged_pointer_downloads_nothing(tmp_path):
+    store = InMemoryArtifactStore()
+    _publish(store, tmp_path, "pass-one")
+    resync = LicensedResync(_env(tmp_path), store=store, interval_seconds=1)
+    resync.run_once()
+    again = resync.run_once()
+    assert again.reason_code == "already_current" and resync.runs == 2
+
+
+def test_a_failed_refresh_keeps_the_build_in_use(tmp_path):
+    store = InMemoryArtifactStore()
+    first = _publish(store, tmp_path, "pass-one")
+    resync = LicensedResync(_env(tmp_path), store=store, interval_seconds=1)
+    resync.run_once()
+    _publish(store, tmp_path, "pass-two", element=502, previous=first)
+
+    store.fail_on.add(("read", f"{PREFIX_SEGMENT}/{LICENSED_V1.pointer_name}"))   # the bucket stops answering
+    status = resync.run_once()
+    assert status.state == "degraded" and status.local_build_id == "pass-one"
+    assert _handle(tmp_path).build_id() == "pass-one"            # the old build still serves
+    assert list(_handle(tmp_path).table("lineup_slots").element) == [501]
+
+
+def test_a_corrupted_remote_artifact_leaves_no_half_synced_build(tmp_path):
+    store = InMemoryArtifactStore()
+    first = _publish(store, tmp_path, "pass-one")
+    resync = LicensedResync(_env(tmp_path), store=store, interval_seconds=1)
+    resync.run_once()
+    _publish(store, tmp_path, "pass-two", element=502, previous=first)
+    store.objects[f"{PREFIX_SEGMENT}/builds/pass-two/datasets/lineup_slots.parquet"] = b"tampered"
+    status = resync.run_once()
+    assert status.state == "degraded" and _handle(tmp_path).build_id() == "pass-one"
+    assert sorted(p.name for p in (tmp_path / "cache" / "builds").iterdir()) == ["pass-one"]
+
+
+def test_the_loop_never_raises_even_if_the_sync_itself_does(tmp_path, monkeypatch):
+    resync = LicensedResync(_env(tmp_path), store=InMemoryArtifactStore(), interval_seconds=1)
+    monkeypatch.setattr("football_intelligence.distribution.licensed_runtime.licensed_startup_sync",
+                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+    status = resync.run_once()
+    assert (status.state, status.reason_code) == ("unavailable", "resync_failed")
+
+
+def test_it_does_not_start_unless_the_sync_flag_is_on(tmp_path):
+    off = LicensedResync({LICENSED_CACHE_ROOT_ENV: str(tmp_path / "cache")}, store=InMemoryArtifactStore(), interval_seconds=1)
+    assert off.start() is False and off._thread is None
+    zero = LicensedResync(_env(tmp_path), store=InMemoryArtifactStore(), interval_seconds=0)
+    assert zero.start() is False and zero._thread is None
+
+
+def test_the_background_thread_picks_up_a_build_published_while_it_runs(tmp_path):
+    store = InMemoryArtifactStore()
+    first = _publish(store, tmp_path, "pass-one")
+    assert licensed_startup_sync(_env(tmp_path), store=store).reason_code == "synchronized"
+    resync = LicensedResync(_env(tmp_path), store=store, interval_seconds=0.05)
+    assert resync.start() is True and resync.start() is False          # one thread only
+    try:
+        _publish(store, tmp_path, "pass-two", element=502, previous=first)
+        deadline = time.time() + 10
+        while time.time() < deadline and _handle(tmp_path).build_id() != "pass-two":
+            time.sleep(0.05)
+        assert _handle(tmp_path).build_id() == "pass-two"
+    finally:
+        resync.stop()
+    assert resync._thread is None
+
+
+def test_the_interval_has_a_default_a_floor_and_an_off_switch():
+    assert resync_interval({}) == DEFAULT_RESYNC_SECONDS == 600.0
+    assert resync_interval({"FPL_FOOTBALL_LICENSED_RESYNC_SECONDS": "5"}) == MIN_RESYNC_SECONDS
+    assert resync_interval({"FPL_FOOTBALL_LICENSED_RESYNC_SECONDS": "900"}) == 900
+    assert resync_interval({"FPL_FOOTBALL_LICENSED_RESYNC_SECONDS": "0"}) == 0
+    assert resync_interval({"FPL_FOOTBALL_LICENSED_RESYNC_SECONDS": "soon"}) == DEFAULT_RESYNC_SECONDS
+
+
+def test_old_builds_are_pruned_but_never_the_one_in_use(tmp_path):
+    store = InMemoryArtifactStore()
+    previous = None
+    resync = LicensedResync(_env(tmp_path), store=store, interval_seconds=1)
+    for n in range(1, 7):
+        previous = _publish(store, tmp_path, f"pass-{n}", element=500 + n, previous=previous)
+        resync.run_once()
+        time.sleep(0.02)
+    names = sorted(p.name for p in (tmp_path / "cache" / "builds").iterdir())
+    assert len(names) == KEEP_BUILDS and "pass-6" in names
+    assert _handle(tmp_path).build_id() == "pass-6"
+    assert prune_old_builds(tmp_path / "nowhere") == 0
+
+
+def test_the_status_and_the_log_line_carry_no_content(tmp_path, caplog):
+    import logging
+    store = InMemoryArtifactStore()
+    _publish(store, tmp_path, "pass-one")
+    resync = LicensedResync(_env(tmp_path), store=store, interval_seconds=1)
+    with caplog.at_level(logging.INFO):
+        resync.run_once()
+        resync.run_once()                                              # unchanged: no second line
+    lines = [r.getMessage() for r in caplog.records if "licensed resync" in r.getMessage()]
+    assert lines == ["football licensed resync: state=ready reason=synchronized"]
