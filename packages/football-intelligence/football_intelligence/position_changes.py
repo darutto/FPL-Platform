@@ -44,6 +44,11 @@ BASELINE_STARTS = 5
 REGULAR_WINDOW = 5
 #: Across formations, how far the normalised line depth (0.0 back line .. 1.0 front line) must move to count as another line.
 LINE_STEP_MIN = 0.25
+
+#: With an absent teammate, matches needed on EACH side (without him / with him) before the answer drops the warning.
+ABSENCE_MIN_EACH_SIDE = 3
+#: Associated teammates named per match; the rest are only counted.
+MAX_ASSOCIATIONS = 2
 DEFAULT_LIMIT = 6
 MAX_LIMIT = 10
 
@@ -261,8 +266,10 @@ def analyse(
                     if kind == "line":
                         record["change"]["direction"] = line["result"]
                         record["change"]["basis"] = line["basis"]
-                    record["associations"] = _associations(
+                    found = _associations(
                         matches, record["_index"], lu, fixtures, element, base_role, _role(now), sidelined, names)
+                    record["associations"] = found[:MAX_ASSOCIATIONS]
+                    record["associations_more"] = max(0, len(found) - MAX_ASSOCIATIONS)
             started_so_far.append((record["_index"], record["slot"]))
     recent = records[-limit:]
     absence = (_absence_focus(matches, records, fixtures, absent_element, team, sidelined, names)
@@ -277,6 +284,7 @@ def analyse(
         "matches": recent,
         "sample": {"matches_with_stored_lineup": len(records),
                    "small_sample": len(records) < SMALL_SAMPLE_BELOW,
+                   "lineups_needed": max(0, SMALL_SAMPLE_BELOW - len(records)),
                    "first_stored_gameweek": next((m["gameweek"] for m in records if m["gameweek"] is not None), None)},
         "fixtures_without_metadata": without_meta,
     }
@@ -346,10 +354,14 @@ def _associations(matches, index, lineup, fixtures, element, base_role, now_role
             "listed_sidelined": _sidelined_on(sidelined, mate, day),
         }
         mate_role = _mode(roles[mate])
+        entry["role_match"] = mate_role is not None and mate_role == now_role
         if mate_role is not None and mate_role == now_role and base_role is not None and base_role != now_role:
             entry["hypothesis"] = {"claim_status": HYPOTHESIS, "kind": "player_took_the_teammates_usual_position",
                                    "position": _role_dict(mate_role)}
         found.append(entry)
+    # Most telling first: the provider listed him as out that day, then his usual role is the one the player took.
+    found.sort(key=lambda e: (e["listed_sidelined"] is None, not e["role_match"], -e["started_of_previous"][0],
+                              e["teammate"]["player_id"]))
     return found
 
 
@@ -377,7 +389,10 @@ def _absence_focus(matches, records, fixtures, absent, team, sidelined, names) -
         "usual_role_without_him": _role_dict(role_absent) if role_absent else None,
         "usual_role_with_him": _role_dict(role_present) if role_present else None,
         "role_differs": (role_absent != role_present) if role_absent and role_present else None,
-        "small_sample": len(absent_games) < 3 or len(present_games) < 3,
+        "small_sample": len(absent_games) < ABSENCE_MIN_EACH_SIDE or len(present_games) < ABSENCE_MIN_EACH_SIDE,
+        "min_each_side": ABSENCE_MIN_EACH_SIDE,
+        "without_needed": max(0, ABSENCE_MIN_EACH_SIDE - len(absent_games)),
+        "with_needed": max(0, ABSENCE_MIN_EACH_SIDE - len(present_games)),
         "claim_status": ASSOCIATED,
     }
 

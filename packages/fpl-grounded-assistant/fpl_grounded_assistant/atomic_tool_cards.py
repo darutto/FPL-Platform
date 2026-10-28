@@ -273,6 +273,8 @@ def compose_position_changes_card(raw_output: dict[str, Any], locale: Locale = D
                 notes.append(t("gcard.position_changes.note_line_unknown", locale))
             for a in m.get("associations") or []:
                 notes.append(t("gcard.position_changes.note_assoc", locale, name=(a.get("teammate") or {}).get("web_name", "?")))
+            if m.get("associations_more"):
+                notes.append(t("gcard.position_changes.note_assoc_more", locale, n=m["associations_more"]))
             gw = m.get("gameweek")
             rows.append((
                 (t("renderer.position_changes.gw", locale, gw=gw) if gw is not None else "-"),
@@ -281,9 +283,18 @@ def compose_position_changes_card(raw_output: dict[str, Any], locale: Locale = D
         sample = raw_output.get("sample") or {}
         focus = raw_output.get("absence_focus") or {}
         pills: list[Pill] = []
-        if sample.get("small_sample") or focus.get("small_sample"):
-            pills.append(Pill(label=t("gcard.position_changes.pill_small", locale, n=sample.get("matches_with_stored_lineup", len(matches))),
+        if sample.get("small_sample"):
+            n = sample.get("matches_with_stored_lineup", len(matches))
+            pills.append(Pill(label=t("gcard.position_changes.pill_small" if n != 1 else "gcard.position_changes.pill_small_one", locale, n=n),
                               tone="neutral"))
+        if focus:
+            mate = (focus.get("teammate") or {}).get("web_name", "?")
+            floor = focus.get("min_each_side", 3)
+            k, w = len(focus.get("matches_without_him_in_xi") or []), len(focus.get("matches_with_him_in_xi") or [])
+            if k < floor:
+                pills.append(Pill(label=t("gcard.position_changes.pill_without" if k != 1 else "gcard.position_changes.pill_without_one", locale, k=k, name=mate), tone="neutral"))
+            if w < floor:
+                pills.append(Pill(label=t("gcard.position_changes.pill_with" if w != 1 else "gcard.position_changes.pill_with_one", locale, m=w, name=mate), tone="neutral"))
         if any(m.get("lineup_status") == "provisional" for m in matches):
             pills.append(Pill(label=t("gcard.position_changes.pill_provisional", locale), tone="warn"))
         if focus.get("usual_role_without_him"):

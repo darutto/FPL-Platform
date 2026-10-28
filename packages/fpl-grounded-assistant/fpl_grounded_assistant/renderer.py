@@ -2242,6 +2242,8 @@ def _render_get_position_changes(output: dict[str, Any], locale: Locale = DEFAUL
             if hyp:
                 lines.append(t("renderer.position_changes.hypothesis", locale,
                                name=(a.get("teammate") or {}).get("web_name", "?"), role=role_text(hyp.get("position"), locale)))
+        if m.get("associations_more"):
+            lines.append(t("renderer.position_changes.assoc_more", locale, n=m["associations_more"]))
     if not any_change:
         lines.append(t("renderer.position_changes.no_change", locale))
     focus = output.get("absence_focus")
@@ -2252,8 +2254,12 @@ def _render_get_position_changes(output: dict[str, Any], locale: Locale = DEFAUL
                        without=role_text(focus.get("usual_role_without_him"), locale) if focus.get("usual_role_without_him") else none,
                        with_him=role_text(focus.get("usual_role_with_him"), locale) if focus.get("usual_role_with_him") else none))
     sample = output.get("sample") or {}
-    if sample.get("small_sample") or (focus and focus.get("small_sample")):
+    if sample.get("small_sample"):
         lines.append(t("renderer.position_changes.small_sample", locale, n=sample.get("matches_with_stored_lineup", len(matches))))
+    if focus and focus.get("small_sample"):
+        lines.append(t("renderer.position_changes.small_focus", locale, name=(focus.get("teammate") or {}).get("web_name", "?"),
+                       k=len(focus.get("matches_without_him_in_xi") or []), m=len(focus.get("matches_with_him_in_xi") or []),
+                       min=focus.get("min_each_side", 3)))
     lines.append(t("renderer.position_changes.footer", locale))
     built = (output.get("data_provenance") or {}).get("built_at")
     if built:
