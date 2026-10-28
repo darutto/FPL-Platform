@@ -321,10 +321,76 @@ def compose_position_changes_card(raw_output: dict[str, Any], locale: Locale = D
 # ---------------------------------------------------------------------------
 _ATOMIC_TOOL_COMPOSERS: dict[str, Any] = {}
 
+def compose_player_involvement_card(raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> "GenericCardMeta | None":
+    """Compose the R6 card from ``get_player_involvement`` output.
+
+    One row per match with stored statistics: gameweek, opponent, touches, passes with accuracy, key passes, backward
+    passes with their share of his passes. The hero is his touches per 90 over the matches with 30+ minutes. With
+    ``absent_player`` a pill states the observed coincidence ("more touches without X") and nothing about why. Every cell
+    is deterministic tool output. Returns ``None`` unless the tool answered ``ok`` with matches (never raises).
+    """
+    if raw_output.get("status") != "ok" or not (raw_output.get("matches") or []):
+        return None
+    try:
+        matches = raw_output["matches"]
+        player = raw_output.get("player") or {}
+
+        def num(value: Any) -> str:
+            return "-" if value is None else (f"{value:g}" if isinstance(value, float) else str(value))
+
+        columns = (
+            Column(header=t("gcard.player_involvement.col_gw", locale), align="left", kind="mono"),
+            Column(header=t("gcard.player_involvement.col_opponent", locale), align="left", kind="text"),
+            Column(header=t("gcard.player_involvement.col_touches", locale), align="right", kind="mono"),
+            Column(header=t("gcard.player_involvement.col_passes", locale), align="right", kind="mono"),
+            Column(header=t("gcard.player_involvement.col_key", locale), align="right", kind="mono"),
+            Column(header=t("gcard.player_involvement.col_back", locale), align="right", kind="mono"),
+        )
+        rows: list[tuple[str, ...]] = []
+        for m in matches:
+            where = t("renderer.position_changes.home" if m.get("is_home") else "renderer.position_changes.away", locale,
+                      opp=m.get("opponent", "?"))
+            gw = m.get("gameweek")
+            acc = m.get("pass_accuracy_pct")
+            share = m.get("backward_share_pct")
+            rows.append((
+                (t("renderer.position_changes.gw", locale, gw=gw) if gw is not None else "-"), where,
+                num(m.get("touches")),
+                f"{num(m.get('passes'))} ({num(acc)}%)" if acc is not None else num(m.get("passes")),
+                num(m.get("key_passes")),
+                f"{num(m.get('backward_passes'))} ({num(share)}%)" if share is not None else num(m.get("backward_passes")),
+            ))
+        sample = raw_output.get("sample") or {}
+        focus = raw_output.get("absence_focus") or {}
+        pills: list[Pill] = []
+        if sample.get("small_sample") or focus.get("small_sample"):
+            pills.append(Pill(label=t("gcard.player_involvement.pill_small", locale,
+                                      n=sample.get("matches_with_stats", len(matches))), tone="neutral"))
+        direction = focus.get("touches_without_vs_with")
+        if direction in ("more", "fewer", "similar"):
+            pills.append(Pill(label=t(f"gcard.player_involvement.pill_{direction}", locale,
+                                      name=(focus.get("teammate") or {}).get("web_name", "?")), tone="neutral"))
+        avg = raw_output.get("averages") or {}
+        built = (raw_output.get("data_provenance") or {}).get("built_at")
+        return GenericCardMeta(
+            accent="turquoise",
+            title=t("gcard.player_involvement.title", locale, name=player.get("web_name", "?")),
+            subtitle=t("gcard.player_involvement.subtitle", locale),
+            hero=HeroStat(value=num(avg.get("touches_per90")), label=t("gcard.player_involvement.hero", locale), tone=None),
+            pills=tuple(pills), columns=columns, rows=tuple(rows),
+            footer=t("renderer.player_involvement.provenance", locale, built_at=str(built)[:10]) if built else None,
+        )
+    except Exception as exc:  # noqa: BLE001
+        _LOG.warning("atomic_tool_cards: failed to compose get_player_involvement card (%s); falling back to prose",
+                     type(exc).__name__)
+        return None
+
+
 #: Composers whose wording follows the request language (they take ``locale``).
 _LOCALIZED_TOOL_COMPOSERS: dict[str, Any] = {
     "rank_players_by_metric": compose_rank_players_card,
     "get_position_changes": compose_position_changes_card,
+    "get_player_involvement": compose_player_involvement_card,
 }
 
 
