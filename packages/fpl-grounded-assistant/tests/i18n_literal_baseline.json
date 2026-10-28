@@ -41,19 +41,6 @@
   "mejor puntuación de capitán",
   "puntuación de capitán"
  ],
- "fpl_grounded_assistant/fixture_context.py": [
-  "buen calendario para portería a cero (",
-  "calendario difícil para portería a cero ("
- ],
- "fpl_grounded_assistant/fixture_outlook.py": [
-  "Buen tramo para portería a cero: calendario",
-  "para mantener la portería a cero ("
- ],
- "fpl_grounded_assistant/fixture_outlook_tool.py": [
-  "La jornada {gw} ya se jugó — pregunta por el resultado, no por el pronóstico.",
-  "No hay datos de fixtures hasta la jornada {gw} todavía.",
-  "para portería a cero"
- ],
  "fpl_grounded_assistant/get_my_squad.py": [
   ". Revisa que el ID sea correcto.",
   "No encontré ningún equipo FPL con el ID",

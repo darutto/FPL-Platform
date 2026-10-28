@@ -367,6 +367,7 @@ def compare_players(
     fixture_tiebreaker = fixture_tiebreaker_line(
         [(name_a, fc_a), (name_b, fc_b)],
         emit=(_margin_label(margin) == "narrow"),
+        locale=locale,
     )
 
     # Additive raw-stat comparison table — appended below the verdict in the

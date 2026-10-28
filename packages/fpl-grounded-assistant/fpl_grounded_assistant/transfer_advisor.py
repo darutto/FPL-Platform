@@ -518,6 +518,7 @@ def get_transfer_advice(
     fixture_tiebreaker = fixture_tiebreaker_line(
         [(name_in, fc_in), (name_out, fc_out)],
         emit=(recommendation in ("marginal_transfer_in", "hold")),
+        locale=locale,
     )
 
     return {
