@@ -36,6 +36,7 @@ ALL_FIXTURES_URL    = "https://fantasy.premierleague.com/api/fixtures/"
 ELEMENT_SUMMARY_URL = "https://fantasy.premierleague.com/api/element-summary/{element_id}/"
 EVENT_LIVE_URL      = "https://fantasy.premierleague.com/api/event/{gameweek}/live/"
 ENTRY_PICKS_URL      = "https://fantasy.premierleague.com/api/entry/{team_id}/event/{gameweek}/picks/"
+ENTRY_HISTORY_URL    = "https://fantasy.premierleague.com/api/entry/{team_id}/history/"
 
 # Default HTTP settings
 _DEFAULT_TIMEOUT: int = 30
@@ -328,6 +329,24 @@ def get_entry_picks(team_id: int, gameweek: int) -> dict[str, Any]:
     """
     return fetch_json(
         ENTRY_PICKS_URL.format(team_id=team_id, gameweek=gameweek),
+        timeout=ENTRY_PICKS_TIMEOUT_S,
+    )
+
+
+def get_entry_history(team_id: int) -> dict[str, Any]:
+    """Return one manager's season history from the FPL API.
+
+    ``current`` has one row per played gameweek (``event``, ``points`` gross of
+    transfer hits, ``total_points`` cumulative and net of hits,
+    ``event_transfers_cost``, ``points_on_bench``); ``chips`` lists the chips
+    played and when. Same failure contract as ``get_entry_picks``: the
+    ``requests`` errors propagate, callers must catch them.
+
+    Source: FPL API — entry/{id}/history/ endpoint (R1 gameweek report
+    reconciles its own sum against these official rows)
+    """
+    return fetch_json(
+        ENTRY_HISTORY_URL.format(team_id=team_id),
         timeout=ENTRY_PICKS_TIMEOUT_S,
     )
 

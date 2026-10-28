@@ -1530,6 +1530,13 @@ _CHIP_DISPLAY_LABEL: dict[str, str] = {
 }
 
 
+def _render_get_gw_report(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
+    """Render get_gw_report raw_output.  R1 (wording lives in gw_report_text)."""
+    from .gw_report_text import render_gw_report  # noqa: PLC0415
+
+    return render_gw_report(output, locale)
+
+
 def _render_get_my_squad(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_my_squad raw_output.  i39.
 
@@ -2290,6 +2297,7 @@ _RENDERERS = {
     "get_gameweek_context":     _render_get_gameweek_context,    # P2.5
     "get_team_snapshot":        _render_get_team_snapshot,       # P2.6
     "get_my_squad":             _render_get_my_squad,            # i39
+    "get_gw_report":            _render_get_gw_report,           # R1
     "web_fetch":                _render_web_fetch,               # P2.7
     "rank_players_by_metric":   _render_rank_players_by_metric,  # P2.8
     "build_squad":              _render_build_squad,             # S1
