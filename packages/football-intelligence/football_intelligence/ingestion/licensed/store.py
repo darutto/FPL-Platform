@@ -35,6 +35,7 @@ from football_intelligence.distribution.family import BuildFamily
 from football_intelligence.provenance import LICENSED_NORMALIZER, LICENSED_SOURCE_KIND, LICENSED_STARTER
 
 from .derive import DerivedTables
+from .player_stats import PLAYER_MATCH_STATS_COLUMNS, new_information
 
 MANIFEST_SCHEMA_VERSION = 1
 BUILD_FAMILY = "licensed-matchday-v1"
@@ -55,8 +56,11 @@ TABLES: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
                       ("competition",)),
     "cup_records": (("competition", "season", "club", "opponent", "opponent_code", "kickoff_utc", "venue", "status",
                      "source", "fetched_at", "gameweek"), ("competition", "club", "kickoff_utc")),
+    "player_match_stats": (PLAYER_MATCH_STATS_COLUMNS, ("element", "fixture_id", "observed_at")),
 }
-HISTORY_TABLES = ("lineup_snapshots", "lineup_slots", "sidelined", "squad_membership")
+#: Tables a build may lack: builds written before R6 have no ``player_match_stats`` and stay valid and servable.
+OPTIONAL_TABLES = frozenset({"player_match_stats"})
+HISTORY_TABLES = ("lineup_snapshots", "lineup_slots", "sidelined", "squad_membership", "player_match_stats")
 STATE_TABLES = ("crosswalk", "cup_snapshots", "cup_records")
 MANIFEST_FIELDS = {"schema_version", "build_family", "build_id", "built_at", "assumption_status", "normalizer_versions",
                    "source", "files", "row_counts"}
@@ -75,6 +79,14 @@ def _governed(relative: str) -> bool:
     return relative == REPORT_PATH or relative in {f"datasets/{name}.parquet" for name in TABLES}
 
 
+def read_table(build: Path, name: str) -> pd.DataFrame:
+    """A build's table; an optional table the build predates is an empty frame with the governed columns."""
+    path = build / f"datasets/{name}.parquet"
+    if name in OPTIONAL_TABLES and not path.is_file():
+        return pd.DataFrame(columns=list(TABLES[name][0])).astype(object)
+    return pd.read_parquet(path)
+
+
 def _frame(name: str, rows) -> pd.DataFrame:
     columns, key = TABLES[name]
     frame = pd.DataFrame(list(rows), columns=list(columns)).astype(object)
@@ -88,7 +100,8 @@ def _rows(tables: DerivedTables, crosswalk: Mapping[int, int]) -> dict[str, list
     return {"lineup_snapshots": list(tables.lineup_snapshots), "lineup_slots": list(tables.lineup_slots),
             "sidelined": list(tables.sidelined), "squad_membership": list(tables.squad_membership),
             "crosswalk": [{"sportmonks_player_id": k, "element": v} for k, v in sorted(crosswalk.items())],
-            "cup_snapshots": cups, "cup_records": [asdict(r) for c in tables.cup_snapshots for r in c.records]}
+            "cup_snapshots": cups, "cup_records": [asdict(r) for c in tables.cup_snapshots for r in c.records],
+            "player_match_stats": list(tables.player_match_stats)}
 
 
 def write_build(tables: DerivedTables, crosswalk: Mapping[int, int], destination: Path, *, build_id: str,
@@ -103,9 +116,12 @@ def write_build(tables: DerivedTables, crosswalk: Mapping[int, int], destination
     if previous is not None:
         validate_build(previous)
         for name in (*HISTORY_TABLES, *(STATE_TABLES if carry_state else ())):
-            old = pd.read_parquet(previous / f"datasets/{name}.parquet").astype(object)
+            old = read_table(previous, name).astype(object)
             old_rows = old.where(pd.notna(old), None).to_dict("records")
-            rows[name] = [*old_rows, *rows[name]] if name in HISTORY_TABLES else old_rows
+            if name == "player_match_stats":   # a re-read that changed nothing adds no row (see player_stats)
+                rows[name] = [*old_rows, *new_information(old_rows, rows[name])]
+            else:
+                rows[name] = [*old_rows, *rows[name]] if name in HISTORY_TABLES else old_rows
     final = destination / "builds" / build_id
     if final.exists():
         raise FileExistsError(f"build already exists: {build_id}")
@@ -155,15 +171,20 @@ def validate_build(build: Path) -> dict[str, Any]:
             or manifest["normalizer_versions"] != {"licensed_adapter": LICENSED_NORMALIZER}
             or manifest["source"] != {"source_kind": LICENSED_SOURCE_KIND}):
         raise LicensedStoreError("unsupported licensed binding")
-    expected = {REPORT_PATH, *(f"datasets/{name}.parquet" for name in TABLES)}
-    if set(manifest["files"]) != expected or set(manifest["row_counts"]) != set(TABLES):
+    # A build is either complete or predates the optional tables: nothing in between, and files and counts agree.
+    required = {n for n in TABLES if n not in OPTIONAL_TABLES}
+    present = {n for n in OPTIONAL_TABLES if f"datasets/{n}.parquet" in manifest["files"]}
+    names = required | present
+    expected = {REPORT_PATH, *(f"datasets/{name}.parquet" for name in names)}
+    if set(manifest["files"]) != expected or set(manifest["row_counts"]) != names:
         raise LicensedStoreError("licensed file registry mismatch")
     for relative, digest in manifest["files"].items():
         path = (build / relative).resolve()
         path.relative_to(build.resolve())
         if _sha(path.read_bytes()) != digest:
             raise LicensedStoreError("licensed file hash mismatch")
-    for name, (columns, _key) in TABLES.items():
+    for name in names:
+        columns = TABLES[name][0]
         frame = pd.read_parquet(build / f"datasets/{name}.parquet")
         if tuple(frame.columns) != columns or len(frame) != manifest["row_counts"][name]:
             raise LicensedStoreError(f"licensed table {name} does not match its manifest")
