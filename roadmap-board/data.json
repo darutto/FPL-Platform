@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-27",
+  "updated": "2026-10-28",
   "cards": [
     {
       "id": "s1",
@@ -2262,13 +2262,13 @@
     {
       "id": "i160",
       "col": "building",
-      "progress": 70,
+      "progress": 75,
       "tags": [
         "FI",
         "Producto"
       ],
       "title": "B4: cambios de posición y quién sustituye a quién (ficha de jugador)",
-      "desc": "R3 del plan de reportes: herramienta y tarjeta ES/EN con la casilla inicial de cada partido. Frase citable segura: 'empezó en otra casilla'. Depende de la ingesta 3b y del primer publish. ACTUALIZACIÓN 2026-10-27 (PR #545, #546): ingesta 3b fusionada (PR #543) habilita el camino de lectura licenciado (LicensedRuntimeHandle, off por defecto tras FPL_FOOTBALL_LICENSED_SYNC_ENABLED) y la herramienta get_position_changes ya resuelve slot inicial, comparación con titularidades previas y ausencia de compañeros (claims observed/associated/hypothesis), detrás de FOOTBALL_INTELLIGENCE_ENABLED; falta la tarjeta ES/EN (PR 3/3) y el primer publish real a producción."
+      "desc": "R3 del plan de reportes: herramienta y tarjeta ES/EN con la casilla inicial de cada partido. Frase citable segura: 'empezó en otra casilla'. Depende de la ingesta 3b y del primer publish. ACTUALIZACIÓN 2026-10-27 (PR #545, #546): ingesta 3b fusionada (PR #543) habilita el camino de lectura licenciado (LicensedRuntimeHandle, off por defecto tras FPL_FOOTBALL_LICENSED_SYNC_ENABLED) y la herramienta get_position_changes ya resuelve slot inicial, comparación con titularidades previas y ausencia de compañeros (claims observed/associated/hypothesis), detrás de FOOTBALL_INTELLIGENCE_ENABLED; falta la tarjeta ES/EN (PR 3/3) y el primer publish real a producción. ACTUALIZACIÓN 2026-10-28 (PR #555, refinamiento A): mismo rol en otra casilla ahora se clasifica como línea distinta (más adelantado/retrasado, cuenta en el hero), solo columna (no es cambio) o línea no comparable; filas comparadas dentro de una formación o normalizadas 0-1 entre formaciones; corrige el ruido de Rogers en la GW6. Partes (b) tope de asociación y (c) sample pills siguen en otra PR; sigue faltando la tarjeta ES/EN (PR 3/3) y el primer publish."
     },
     {
       "id": "i161",
@@ -2294,14 +2294,14 @@
     },
     {
       "id": "i163",
-      "col": "idea",
-      "progress": 0,
+      "col": "building",
+      "progress": 30,
       "tags": [
         "FI",
         "Datos"
       ],
       "title": "Stats individuales de Sportmonks (toques, pases, pases clave, pases atrás) y destacados",
-      "desc": "R6: confirmar entitlement de Starter con una lectura mínima en la prueba real; ingesta 3c aparte. Sin pases progresivos como campo."
+      "desc": "R6: confirmar entitlement de Starter con una lectura mínima en la prueba real; ingesta 3c aparte. Sin pases progresivos como campo. ACTUALIZACIÓN 2026-10-28 (PR #553, 1/3): tabla opcional player_match_stats en el store licenciado (minutos, rating, toques, pases, pases clave, duelos, tackles, intercepciones, recuperaciones, regates), derivada de lineups.details de partidos completados, solo ids de FPL; compatible con builds anteriores (tabla opcional, el runtime la sirve vacía). Falta la ingesta (PR 2/3) y la herramienta get_player_involvement (PR 3/3)."
     },
     {
       "id": "s54",
@@ -2312,6 +2312,50 @@
         "Backend",
         "Datos",
         "Deploy"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s55",
+      "col": "shipped",
+      "title": "Precarga del chat tras iniciar sesión",
+      "desc": "Fusionada (PR #551, 28/10). Un visitante sin sesión que abre /chat?q=<prompt> inicia sesión (Patreon/Clerk) y llega a /chat con el composer precargado y ?q= retirado; el destino se sanea contra URLs externas, se recorta a 300 caracteres y se respalda en sessionStorage por si Clerk pierde el parámetro en el viaje por Patreon.",
+      "tags": [
+        "Auth",
+        "Web"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s56",
+      "col": "shipped",
+      "title": "Textos zonales del backend en inglés (S5-B)",
+      "desc": "Fusionada (PR #552, 28/10). Veredictos, etiquetas de pill, sello de temporada, nota de club y outlook de jugador de la respuesta zonal pasan a claves zonal.* con locale desde bootstrap_locale; es queda byte-idéntico (test fijado), en sin español.",
+      "tags": [
+        "Backend",
+        "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s57",
+      "col": "shipped",
+      "title": "Textos de fixture outlook en inglés (S5-B)",
+      "desc": "Fusionada (PR #554, 28/10). Veredictos de run (10 plantillas), lectura de partido a corto plazo, fallos de gw objetivo, frases de contexto de fixture y la línea de desempate pasan a claves fxo.* con locale desde bootstrap_locale; el bundle de /fixtures y el matcher de la UI quedan con los mismos bytes.",
+      "tags": [
+        "Backend",
+        "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s58",
+      "col": "shipped",
+      "title": "Fix: alias de /compare sin chips de desambiguación",
+      "desc": "Fusionada (PR #556, 28/10). prompt_disambiguation._strip_command solo comparaba la cabeza escrita contra el nombre canónico del prompt, así que /compare João vs Haaland quedaba ambiguo sin chips pese a que el wizard por snapshot ya funcionaba; ahora acepta alias del registro conservando la cabeza tecleada por el usuario.",
+      "tags": [
+        "Backend",
+        "FPL Asistente"
       ],
       "progress": 100
     }
