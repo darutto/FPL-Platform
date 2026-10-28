@@ -1279,6 +1279,47 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     "gcard.position_changes.note_line_unknown": {"en": "Same role; line not comparable", "es": "Mismo rol; línea no comparable"},
     "gcard.position_changes.note_assoc": {"en": "Coincided with the absence of {name}", "es": "Coincidi\u00f3 con la ausencia de {name}"},
     "gcard.position_changes.note_none": {"en": "-", "es": "-"},
+    # --- S5-B atomic cards + tool errors ---
+    "atomic.col_player": {"en": "Player", "es": "Jugador"},
+    "atomic.col_team": {"en": "Team", "es": "Equipo"},
+    "atomic.title_top": {"en": "TOP {n} \u00b7 {header}", "es": "TOP {n} \u00b7 {header}"},
+    "atomic.title_lowest": {"en": "{n} WITH LOWEST \u00b7 {header}", "es": "{n} CON MENOR \u00b7 {header}"},
+    "atomic.title_highest": {"en": "{n} WITH HIGHEST \u00b7 {header}", "es": "{n} CON MAYOR \u00b7 {header}"},
+    "atomic.sub_position": {"en": "position: {pos}", "es": "posici\u00f3n: {pos}"},
+    "atomic.sub_min_minutes": {"en": "min. minutes: {n}", "es": "min. minutos: {n}"},
+    "tool_err.no_team_connected": {
+        "en": "No team is connected. Connect your team from the Squad tab so I can assess it.",
+        "es": "No hay ning\u00fan equipo conectado. Conecta tu equipo desde la pesta\u00f1a Plantilla para que pueda evaluarlo.",
+    },
+    "tool_err.invalid_gw": {"en": "gw must be between {lo} and {hi}.", "es": "gw debe estar entre {lo} y {hi}."},
+    "tool_err.team_not_found": {
+        "en": "I could not find an FPL team with ID {team_id}. Check that the ID is correct.",
+        "es": "No encontr\u00e9 ning\u00fan equipo FPL con el ID {team_id}. Revisa que el ID sea correcto.",
+    },
+    "tool_err.squad_server": {
+        "en": "I could not fetch your squad (FPL server error: {exc}).",
+        "es": "No pude obtener tu plantilla (error del servidor de FPL: {exc}).",
+    },
+    "tool_err.squad_network": {
+        "en": "I could not fetch your squad (network failure: {exc}).",
+        "es": "No pude obtener tu plantilla (fallo de red: {exc}).",
+    },
+    "tool_err.squad_raised": {
+        "en": "get_my_squad raised an unexpected error: {exc}",
+        "es": "get_my_squad raised an unexpected error: {exc}",
+    },
+    "tool_err.results_missing_team": {"en": "The team name is missing.", "es": "Falta el nombre del equipo."},
+    "tool_err.results_venue": {"en": "venue must be one of {venues}, not {venue!r}.", "es": "venue debe ser uno de {venues}, no {venue!r}."},
+    "tool_err.results_last_n": {"en": "last_n must be an integer, not {last_n!r}.", "es": "last_n debe ser un entero, no {last_n!r}."},
+    "tool_err.results_team_not_found": {
+        "en": "I could not find a team matching '{team}'.",
+        "es": "No encontr\u00e9 ning\u00fan equipo que coincida con '{team}'.",
+    },
+    "tool_err.live_prov_unverified": {
+        "en": "Data: current season (live FPL; season could not be verified)",
+        "es": "Datos: temporada en curso (FPL en vivo; temporada no verificable)",
+    },
+    "tool_err.live_prov_suffix": {"en": "{label} (live FPL)", "es": "{label} (FPL en vivo)"},
     # --- S5-B zonal (backend text of get_zonal_weakness / get_zonal_opportunity / player outlook) ---
     "zonal.side.left": {"en": "down the left", "es": "por la izquierda"},
     "zonal.side.right": {"en": "down the right", "es": "por la derecha"},

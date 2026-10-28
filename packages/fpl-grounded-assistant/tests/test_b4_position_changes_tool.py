@@ -212,12 +212,13 @@ def test_a_malformed_answer_degrades_to_text_instead_of_raising():
     assert compose_position_changes_card({"status": "ok", "matches": [{"change": {"from": None}, "associations": [None]}]}) is None
 
 
-def test_the_ranking_card_is_untouched_by_the_locale_argument():
+def test_the_ranking_card_follows_the_locale_argument():
     out = {"status": "ok", "metric": "form", "ranked": [{"rank": 1, "web_name": "Haaland", "team_short": "MCI",
                                                           "position": "FWD", "metric_value": 8.0}]}
     es = maybe_atomic_tool_card("rank_players_by_metric", out, None)
     en = maybe_atomic_tool_card("rank_players_by_metric", out, None, "en")
-    assert es == en  # that card predates the language track and stays as it was
+    assert es.columns[1].header == "Jugador"  # es unchanged
+    assert en.columns[1].header == "Player"  # S5-B: the ranking card now follows the locale
 
 
 # ---- same role, other line (B4 refinement): wording and what the hero counts ------------------------------------

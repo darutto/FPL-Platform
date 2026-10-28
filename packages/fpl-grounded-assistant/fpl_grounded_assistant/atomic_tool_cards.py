@@ -92,12 +92,54 @@ _METRIC_HEADER_ES: dict[str, str] = {
 }
 
 
-def _metric_header(metric: str) -> str:
-    """Spanish header for a canonical metric name, with a safe fallback."""
-    return _METRIC_HEADER_ES.get(metric, metric.replace("_", " ").title())
+_METRIC_HEADER_EN: dict[str, str] = {
+    "form":                        "Form",
+    "total_points":                "Points",
+    "points_per_game":             "Pts/Game",
+    "expected_goals":              "xG",
+    "expected_assists":            "xA",
+    "expected_goal_involvements":  "xGI",
+    "ict_index":                   "ICT",
+    "selected_by_percent":         "Selected by %",
+    "minutes":                     "Minutes",
+    "goals_scored":                "Goals",
+    "assists":                     "Assists",
+    "clean_sheets":                "Clean sheets",
+    "bonus":                       "Bonus",
+    "bps":                         "BPS",
+    "expected_goals_per_90":              "xG/90",
+    "expected_assists_per_90":            "xA/90",
+    "expected_goal_involvements_per_90":  "xGI/90",
+    "saves_per_90":                       "Saves/90",
+    "clean_sheets_per_90":                "Clean sheets/90",
+    "defensive_contribution_per_90":      "DC/90",
+    "defensive_contribution":             "DC",
+    "now_cost":                           "Price (£m)",
+    "transfers_in_event":                 "Transfers in GW",
+    "transfers_out_event":                "Transfers out GW",
+    "penalties_order":                    "Penalty order",
+    "direct_freekicks_order":             "Direct FK order",
+    "corners_and_indirect_freekicks_order": "Corners/indirect FK order",
+    "yellow_cards":                       "Yellow cards",
+    "red_cards":                          "Red cards",
+    "expected_goals_conceded":            "xGC",
+    "goals_conceded":                     "Goals conceded",
+    "influence":                          "Influence",
+    "creativity":                         "Creativity",
+    "threat":                             "Threat",
+    "saves":                              "Saves",
+}
 
 
-def _card_title(metric: str, order: "str | None", count: int, header_es: str) -> str:
+def _metric_header(metric: str, locale: Locale = DEFAULT_LOCALE) -> str:
+    """Header for a canonical metric name in *locale*, with a safe fallback."""
+    table = _METRIC_HEADER_EN if locale == "en" else _METRIC_HEADER_ES
+    return table.get(metric, metric.replace("_", " ").title())
+
+
+def _card_title(
+    metric: str, order: "str | None", count: int, header_es: str, locale: Locale = DEFAULT_LOCALE,
+) -> str:
     """Title matching the ranking's real direction.
 
     A caller-inverted ranking (``order="asc"`` on price, say) is the cheapest
@@ -106,24 +148,26 @@ def _card_title(metric: str, order: "str | None", count: int, header_es: str) ->
     equals the natural direction for an ordinary ranking; both stay "TOP".
     """
     if order is not None and order != natural_order(metric):
-        extreme = "MENOR" if order == "asc" else "MAYOR"
-        return f"{count} CON {extreme} · {header_es}"
-    return f"TOP {count} · {header_es}"
+        key = "atomic.title_lowest" if order == "asc" else "atomic.title_highest"
+        return t(key, locale, n=count, header=header_es)
+    return t("atomic.title_top", locale, n=count, header=header_es)
 
 
-def _rank_subtitle(raw_output: dict[str, Any]) -> "str | None":
+def _rank_subtitle(raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> "str | None":
     """Build the filter subtitle, mirroring renderer._render_rank_players_by_metric."""
     parts: list[str] = []
     pos_flt = raw_output.get("position_filter")
     if pos_flt:
-        parts.append(f"posición: {pos_flt}")
+        parts.append(t("atomic.sub_position", locale, pos=pos_flt))
     min_mins = raw_output.get("min_minutes_filter", 0) or 0
     if min_mins > 0:
-        parts.append(f"min. minutos: {min_mins}")
+        parts.append(t("atomic.sub_min_minutes", locale, n=min_mins))
     return ", ".join(parts) if parts else None
 
 
-def compose_rank_players_card(raw_output: dict[str, Any]) -> "GenericCardMeta | None":
+def compose_rank_players_card(
+    raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE,
+) -> "GenericCardMeta | None":
     """Compose a ranked-players card from ``rank_players_by_metric`` output.
 
     Columns mirror the text renderer exactly (``# | Jugador | Equipo | Pos |
@@ -139,12 +183,12 @@ def compose_rank_players_card(raw_output: dict[str, Any]) -> "GenericCardMeta | 
 
     try:
         metric = str(raw_output.get("metric", ""))
-        header_es = _metric_header(metric)
+        header_es = _metric_header(metric, locale)
 
         columns = (
             Column(header="#", align="right", kind="mono"),
-            Column(header="Jugador", align="left", kind="text"),
-            Column(header="Equipo", align="left", kind="text"),
+            Column(header=t("atomic.col_player", locale), align="left", kind="text"),
+            Column(header=t("atomic.col_team", locale), align="left", kind="text"),
             Column(header="Pos", align="left", kind="text"),
             Column(header=header_es, align="right", kind="mono"),
         )
@@ -167,9 +211,9 @@ def compose_rank_players_card(raw_output: dict[str, Any]) -> "GenericCardMeta | 
         return GenericCardMeta(
             accent="turquoise",
             title=_card_title(
-                metric, raw_output.get("order"), len(ranked), header_es,
+                metric, raw_output.get("order"), len(ranked), header_es, locale,
             ),
-            subtitle=_rank_subtitle(raw_output),
+            subtitle=_rank_subtitle(raw_output, locale),
             hero=hero,
             pills=(),
             columns=columns,
@@ -264,13 +308,11 @@ def compose_position_changes_card(raw_output: dict[str, Any], locale: Locale = D
 # ---------------------------------------------------------------------------
 # Dispatch — tool name -> composer. Phase 2 tools are one-line additions.
 # ---------------------------------------------------------------------------
-_ATOMIC_TOOL_COMPOSERS: dict[str, Any] = {
-    "rank_players_by_metric": compose_rank_players_card,
-}
+_ATOMIC_TOOL_COMPOSERS: dict[str, Any] = {}
 
-#: Composers whose wording follows the request language (they take ``locale``). The ranking card above predates
-#: the language track and stays Spanish-only.
+#: Composers whose wording follows the request language (they take ``locale``).
 _LOCALIZED_TOOL_COMPOSERS: dict[str, Any] = {
+    "rank_players_by_metric": compose_rank_players_card,
     "get_position_changes": compose_position_changes_card,
 }
 

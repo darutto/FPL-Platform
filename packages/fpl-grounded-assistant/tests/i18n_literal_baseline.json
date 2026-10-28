@@ -2,8 +2,7 @@
  "fpl_grounded_assistant/atomic_tool_cards.py": [
   "Orden córners/TLI",
   "Porterías 0",
-  "Porterías 0/90",
-  "posición:"
+  "Porterías 0/90"
  ],
  "fpl_grounded_assistant/captain_factors.py": [
   "El Triple Captain multiplica lo que pase, en los dos sentidos: si el jugador no suma, la jornada se ",
@@ -40,17 +39,6 @@
   "m más y tienes £",
   "mejor puntuación de capitán",
   "puntuación de capitán"
- ],
- "fpl_grounded_assistant/get_my_squad.py": [
-  ". Revisa que el ID sea correcto.",
-  "No encontré ningún equipo FPL con el ID",
-  "No hay ningún equipo conectado. Conecta tu equipo desde la pestaña Plantilla para que pueda evaluarl",
-  "No pude obtener tu plantilla (error del servidor de FPL:",
-  "No pude obtener tu plantilla (fallo de red:"
- ],
- "fpl_grounded_assistant/get_team_results.py": [
-  "Falta el nombre del equipo.",
-  "No encontré ningún equipo que coincida con '"
  ],
  "fpl_grounded_assistant/orchestrator.py": [
   "déjame"
