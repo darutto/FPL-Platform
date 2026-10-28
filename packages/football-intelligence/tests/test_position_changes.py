@@ -37,11 +37,11 @@ class Store:
         self.fixtures: dict[int, FixtureMeta] = {}
 
     def match(self, fid, gw, day, *, rogers=RM, pedro=CF, pedro_where="starts", confirmed=True, n_starters=11,
-              rogers_where="starts", team="CHE", extra=(), core=True):
+              rogers_where="starts", team="CHE", extra=(), core=True, formation="4-2-3-1", rogers_slot=None):
         self.fixtures[fid] = FixtureMeta(gw, f"2026-11-{day:02d}T15:00:00Z", team if gw % 2 else "EVE", "EVE" if gw % 2 else team)
         obs = f"2026-11-{day:02d}T10:00:00Z"
         self.snapshots.append({"fixture_id": fid, "team": team, "observed_at": obs, "state": "scheduled",
-                               "confirmed": confirmed, "formation": "4-2-3-1", "n_starters": n_starters, "n_bench": 7})
+                               "confirmed": confirmed, "formation": formation, "n_starters": n_starters, "n_bench": 7})
 
         def put(el, where, role, slot):
             if where == "starts":
@@ -52,7 +52,7 @@ class Store:
                                    "detailed_position": None, "grid_slot": None, "side": None})
 
         if core:
-            put(ROGERS, rogers_where, rogers, "3:3" if rogers == RM else "3:2")
+            put(ROGERS, rogers_where, rogers, rogers_slot or ("3:3" if rogers == RM else "3:2"))
             put(PEDRO, pedro_where, pedro, "4:1" if pedro == CF else "3:2")
         for el in extra:
             put(el, "starts", ("Left Back", "left"), "2:1")
@@ -209,3 +209,74 @@ def test_the_output_names_no_provider_ids_and_no_forbidden_causal_words():
     text = json.dumps(_six_matches_with_pedro_out_in_the_fourth().build(absent_element=PEDRO)).casefold()
     for forbidden in ("sportmonks", "provider", "crosswalk", "because", "due to", "injured", "moved during", "will perform"):
         assert forbidden not in text
+
+
+# ---- same role, another cell of the grid: line, column, or not comparable (B4 refinement) --------------------------
+
+import pytest  # noqa: E402
+
+from football_intelligence.grid import line_depth  # noqa: E402
+
+
+def _rogers_run(cells):
+    """Rogers as an attacking midfielder in every match; ``cells`` is [(formation, grid_slot)] oldest first."""
+    store = Store()
+    for fid, (formation, slot) in enumerate(cells, start=1):
+        store.match(fid, fid, fid + 1, rogers=AM, rogers_slot=slot, formation=formation)
+    return store.build()["matches"][-1]
+
+
+@pytest.mark.parametrize("formation, back, front", [
+    ("4-2-3-1", "2:1", "5:1"), ("4-3-3", "2:1", "4:1"), ("4-4-2", "2:1", "4:1"), ("3-4-2-1", "2:1", "5:1"),
+    ("3-5-2", "2:1", "4:1"), ("5-3-2", "2:1", "4:1"), ("4-1-4-1", "2:1", "5:1"),
+])
+def test_depth_runs_from_the_back_line_to_the_front_line_in_every_common_formation(formation, back, front):
+    assert line_depth(back, formation) == 0.0 and line_depth(front, formation) == 1.0
+    assert line_depth("1:1", formation) is None  # the goalkeeper has no line
+
+
+def test_depth_is_not_the_raw_row_across_formations():
+    assert line_depth("4:2", "4-2-3-1") == pytest.approx(2 / 3)  # third of four lines
+    assert line_depth("4:2", "4-3-3") == 1.0  # same raw row, the front line of three
+    assert line_depth("3:2", "4-4-2") == line_depth("3:2", "3-5-2") == 0.5
+    assert line_depth("6:1", "4-2-3-1") is None and line_depth("3:2", None) is None and line_depth("3:2", "4-x-3") is None
+
+
+def test_the_same_role_on_a_deeper_row_of_the_same_formation_is_a_line_change_not_a_role_change():
+    last = _rogers_run([("4-2-3-1", "4:2")] * 3 + [("4-2-3-1", "3:2")])
+    assert last["change"]["kind"] == "line" and last["change"]["direction"] == "deeper"
+    assert last["change"]["basis"] == "same_formation" and last["change"]["claim_status"] == OBSERVED
+    assert last["change"]["from"] == last["change"]["to"] == {"detailed_position": "Attacking Midfield", "side": "centre"}
+    forward = _rogers_run([("4-2-3-1", "3:2")] * 3 + [("4-2-3-1", "4:2")])
+    assert forward["change"]["direction"] == "further_forward"
+
+
+def test_the_same_role_and_row_in_another_column_is_not_counted_as_a_change():
+    last = _rogers_run([("4-2-3-1", "4:2")] * 3 + [("4-2-3-1", "4:3")])
+    assert last["change"] is None and last["column_shift"] is True and last["associations"] == []
+
+
+def test_the_gw6_rogers_case_a_new_grid_cell_with_the_same_attacking_midfield_role_is_no_slot_change():
+    # five earlier starts as Attacking Midfield in 4-2-3-1, then the same role on the next cell of the same row
+    last = _rogers_run([("4-2-3-1", "4:2")] * 5 + [("4-2-3-1", "4:1")])
+    assert last["slot"]["detailed_position"] == "Attacking Midfield"
+    assert last["change"] is None and last["column_shift"] is True
+
+
+def test_across_formations_the_depth_is_normalised_before_comparing():
+    # 4-2-3-1 row 4 is depth 0.67; the same role on row 3 of a 4-4-2 is depth 0.5: less than a line, so no claim
+    last = _rogers_run([("4-2-3-1", "4:2")] * 3 + [("4-4-2", "3:2")])
+    assert last["change"] is None and "column_shift" not in last and "line_comparable" not in last
+    # row 4 of a 4-2-3-1 (0.67) against row 3 of a 4-3-3 (0.5): still the same line; row 4 of a 4-3-3 (1.0) is further forward
+    assert _rogers_run([("4-2-3-1", "4:2")] * 3 + [("4-3-3", "3:2")])["change"] is None
+    forward = _rogers_run([("4-2-3-1", "3:2")] * 3 + [("4-3-3", "4:2")])
+    assert forward["change"]["direction"] == "further_forward" and forward["change"]["basis"] == "normalised"
+    deeper = _rogers_run([("4-3-3", "4:2")] * 3 + [("5-3-2", "2:2")])
+    assert deeper["change"]["direction"] == "deeper"
+
+
+def test_the_line_is_reported_not_comparable_when_the_formation_is_unknown_or_the_history_too_short():
+    unknown = _rogers_run([("4-2-3-1", "4:2")] * 3 + [(None, "3:2")])
+    assert unknown["change"] is None and unknown["line_comparable"] is False
+    mixed = _rogers_run([("4-2-3-1", "4:2"), ("4-2-3-1", "4:2"), ("4-3-3", "3:2")])  # one earlier start per formation
+    assert mixed["change"] is None and "line_comparable" not in mixed  # 3 matches: the last has 2 priors, 0 same formation

@@ -29,6 +29,8 @@ from typing import Any, Iterable, Mapping
 
 import pandas as pd
 
+from .grid import grid_row, line_depth
+
 OBSERVED = "observed"
 ASSOCIATED = "associated"
 HYPOTHESIS = "hypothesis"
@@ -40,6 +42,8 @@ MIN_BASELINE_STARTS = 2
 #: How many prior starts form the baseline, and how many prior team matches define a "regular" teammate.
 BASELINE_STARTS = 5
 REGULAR_WINDOW = 5
+#: Across formations, how far the normalised line depth (0.0 back line .. 1.0 front line) must move to count as another line.
+LINE_STEP_MIN = 0.25
 DEFAULT_LIMIT = 6
 MAX_LIMIT = 10
 
@@ -233,18 +237,30 @@ def analyse(
                 base_slot = _mode(s["grid_slot"] for _i, s in prior)
                 now = record["slot"]
                 kind = None
+                line: dict[str, Any] | None = None
                 if base_role is not None and _role(now)[0] != base_role[0]:
                     kind = "position"
                 elif base_role is not None and _role(now)[1] != base_role[1]:
                     kind = "side"
                 elif base_slot is not None and now["grid_slot"] != base_slot:
-                    kind = "slot"
+                    # Same role, another cell of the grid: say whether that is a different line, only another
+                    # column of the same line (not a change), or a shift we cannot compare across formations.
+                    line = _line_shift(now, [s for _i, s in prior if _role(s) == _role(now)])
+                    if line["result"] in ("further_forward", "deeper"):
+                        kind = "line"
+                    elif line["result"] == "column_only":
+                        record["column_shift"] = True
+                    elif line["result"] == "not_comparable":
+                        record["line_comparable"] = False
                 if kind is not None:
                     record["change"] = {
                         "kind": kind, "claim_status": OBSERVED, "baseline_starts": len(prior),
                         "from": _role_dict(base_role) if base_role is not None else {"grid_slot": base_slot},
                         "to": _role_dict(_role(now)),
                     }
+                    if kind == "line":
+                        record["change"]["direction"] = line["result"]
+                        record["change"]["basis"] = line["basis"]
                     record["associations"] = _associations(
                         matches, record["_index"], lu, fixtures, element, base_role, _role(now), sidelined, names)
             started_so_far.append((record["_index"], record["slot"]))
@@ -267,6 +283,41 @@ def analyse(
     if absence is not None:
         result["absence_focus"] = absence
     return result
+
+
+def _line_shift(now: Mapping[str, Any], same_role_priors: list[Mapping[str, Any]]) -> dict[str, Any]:
+    """Same role as the earlier starts but another grid cell: is it another line of the formation?
+
+    Grid rows are numbered per formation (``4-2-3-1`` and ``4-3-3`` put different players on row 4), so raw rows are
+    compared only inside one formation. Across formations the cell is first turned into a depth between 0.0 (back
+    line) and 1.0 (front line) with :func:`football_intelligence.grid.line_depth`, and a shift is claimed only when
+    the depth moved by at least ``LINE_STEP_MIN``; a smaller difference is the same line seen through another shape.
+
+    ``result`` is ``further_forward`` / ``deeper`` (a different line), ``column_only`` (same formation, same row,
+    another column: not a change), ``same_line`` (different formations, no real depth change) or ``not_comparable``
+    (formation unknown or cells unparseable, or fewer than ``MIN_BASELINE_STARTS`` earlier starts to compare with).
+    ``basis`` says which rule decided: ``same_formation`` or ``normalised``.
+    """
+    formation = now.get("formation")
+    same_formation = [s for s in same_role_priors if s.get("formation") == formation]
+    now_row = grid_row(now.get("grid_slot"))
+    if formation and now_row is not None and len(same_formation) >= MIN_BASELINE_STARTS:
+        rows = [grid_row(s.get("grid_slot")) for s in same_formation]
+        if all(r is not None for r in rows):
+            base_row = _mode(rows)
+            if base_row is not None:
+                if now_row == base_row:
+                    return {"result": "column_only", "basis": "same_formation"}
+                return {"result": "further_forward" if now_row > base_row else "deeper", "basis": "same_formation"}
+    depth_now = line_depth(now.get("grid_slot"), formation)
+    depths = [line_depth(s.get("grid_slot"), s.get("formation")) for s in same_role_priors]
+    depths = [d for d in depths if d is not None]
+    if depth_now is None or len(depths) < MIN_BASELINE_STARTS:
+        return {"result": "not_comparable", "basis": "normalised"}
+    moved = depth_now - sum(depths) / len(depths)
+    if abs(moved) < LINE_STEP_MIN:
+        return {"result": "same_line", "basis": "normalised"}
+    return {"result": "further_forward" if moved > 0 else "deeper", "basis": "normalised"}
 
 
 def _associations(matches, index, lineup, fixtures, element, base_role, now_role, sidelined, names) -> list[dict[str, Any]]:

@@ -2,6 +2,35 @@
 from __future__ import annotations
 
 
+def grid_row(grid_slot: str | None) -> int | None:
+    """The row of a ``row:col`` cell, or None when it does not parse."""
+    if not grid_slot or ":" not in grid_slot:
+        return None
+    try:
+        return int(grid_slot.split(":")[0])
+    except ValueError:
+        return None
+
+
+def line_depth(grid_slot: str | None, formation: str | None) -> float | None:
+    """How far up the pitch a cell sits, 0.0 (the back line) to 1.0 (the front line), relative to the formation.
+
+    Row 1 is the goalkeeper, so a formation with N outfield lines (``4-2-3-1`` has four) uses rows 2..N+1 and the
+    depth is ``(row - 2) / (N - 1)``. Rows are numbered per formation, so the same raw row means different places in
+    ``4-2-3-1`` and ``4-3-3``; only this normalised depth is comparable across formations, and only roughly (a line
+    of 3 and a line of 5 are both "one line"). None when the formation or the cell does not parse, the cell is the
+    goalkeeper's, or the row lies outside the formation's lines.
+    """
+    row = grid_row(grid_slot)
+    try:
+        lines = [int(x) for x in str(formation).split("-")] if formation else []
+    except ValueError:
+        return None
+    if row is None or len(lines) < 2 or any(n < 1 for n in lines) or not 2 <= row <= len(lines) + 1:
+        return None
+    return (row - 2) / (len(lines) - 1)
+
+
 def grid_side(grid_slot: str | None, row_width: int, is_home: bool) -> str | None:
     """left / right of a grid cell, or None when the cell is not on a touchline edge.
 

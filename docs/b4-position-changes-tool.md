@@ -26,6 +26,18 @@ Permitido: *"empezó en otra casilla"*, *"coincidió con la ausencia de X"*. Pro
 - **muestra pequeña** se dice (`sample.small_sample`, menos de 5 partidos con once guardado; con `absent_player`, menos de 3 de cada lado). **La historia empieza cuando empezó la ingesta**, así que al principio habrá pocos partidos.
 - Un cambio solo se afirma con al menos 2 inicios anteriores del propio jugador como referencia; sin eso, no se dice nada.
 
+## Mismo rol, otra casilla: línea o columna
+
+Un cambio de **rol** (posición o lado) sigue diciéndose "empezó en otra casilla (antes: X)". Si el rol es el mismo pero la casilla de la rejilla (`fila:columna`) difiere de la habitual, `football_intelligence.position_changes._line_shift` decide entre tres cosas, solo con los inicios previos del jugador **con ese mismo rol** (mínimo 2):
+
+| Resultado | Cuándo | Qué se muestra |
+|---|---|---|
+| `further_forward` / `deeper` | otra **línea** | cambio de tipo `line`: "mismo rol, otra línea: más adelantado / más retrasado"; cuenta en el héroe |
+| `column_only` | misma formación, misma fila, otra columna | no es cambio: `column_shift: true`, sin nota y sin contar en el héroe |
+| `not_comparable` | formación desconocida, casilla ilegible o menos de 2 inicios comparables | `line_comparable: false`: "mismo rol; línea no comparable" |
+
+**Normalización.** Las filas se numeran por formación (fila 1 = portero; `4-2-3-1` tiene cuatro líneas de campo en las filas 2 a 5), así que la fila cruda **solo se compara dentro de una misma formación**. Entre formaciones se usa la profundidad `(fila − 2) / (líneas − 1)`, de 0.0 (línea defensiva) a 1.0 (línea de ataque), y solo se afirma otra línea si se mueve al menos `LINE_STEP_MIN = 0.25`; menos que eso es la misma línea vista desde otra forma (`same_line`, sin nota). Es una aproximación: una línea de 3 y una de 5 cuentan igual. Probada con 4-2-3-1, 4-3-3, 4-4-2, 3-4-2-1, 3-5-2, 5-3-2 y 4-1-4-1.
+
 ## Identidad: dónde vive el bug de subcadena
 
 - **La causa** está en `find_players` (`fpl_grounded_assistant/find_players.py`): su rango 2 es una búsqueda por subcadena a propósito (`allow_substring=True`), y el nombre completo de Costinha (Brighton) contiene "João Pedro". Es una herramienta de **búsqueda**, no de resolución; no se cambia aquí.
