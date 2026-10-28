@@ -68,6 +68,16 @@ from __future__ import annotations
 import math
 from typing import Any
 
+try:
+    from .catalogue import t
+    from .locale_types import Locale, DEFAULT_LOCALE
+except ImportError:  # standalone load (tests load this file bypassing the package)
+    import os
+    import sys
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from catalogue import t  # type: ignore[no-redef]
+    from locale_types import Locale, DEFAULT_LOCALE  # type: ignore[no-redef]
+
 # NOTE: this engine is intentionally dependency-light — stdlib only, no
 # intra-package imports.  The four bootstrap helpers below mirror the ones in
 # ``team_fixture_calendar`` but are inlined on purpose: that module registers
@@ -411,45 +421,35 @@ def detect_runs(series: list[dict[str, Any]]) -> list[dict[str, Any]]:
 # Verdict (FI1) — Spanish, schedule-only
 # ---------------------------------------------------------------------------
 
-def _gw(n: int) -> str:
-    return f"J{n}"
+def _gw(n: int, locale: Locale = DEFAULT_LOCALE) -> str:
+    return t("fxo.gw", locale, n=n)
 
 
 def build_verdict(
     runs: list[dict[str, Any]],
     axis: str,
     series: list[dict[str, Any]],
+    locale: Locale = DEFAULT_LOCALE,
 ) -> str:
-    """One-line Spanish, schedule-only summary of the team's outlook.
+    """One-line, schedule-only summary of the team's outlook (es by default).
 
     Highlights the *earliest* upcoming run (good or bad).  Never references
     transfers/buy/sell — only the shape of the schedule.
     """
     if not series:
-        return "Sin fixtures en el horizonte."
+        return t("fxo.no_series", locale)
 
     if not runs:
-        return "Calendario sin rachas claras en el horizonte."
+        return t("fxo.no_runs", locale)
 
     # Earliest-starting run is the most actionable for the user.
     primary = min(runs, key=lambda r: r["start_gw"])
-    span = f"{_gw(primary['start_gw'])}–{_gw(primary['end_gw'])}"
+    span = f"{_gw(primary['start_gw'], locale)}–{_gw(primary['end_gw'], locale)}"
     n = primary["length"]
-    strong = primary["intensity"] == "strong"
-
-    if axis == "attack":
-        if primary["type"] == "good":
-            kind = "muy asequible" if strong else "asequible"
-            return f"Buen tramo ofensivo: {n} jornadas de calendario {kind} ({span})."
-        kind = "muy exigente" if strong else "exigente"
-        return f"Tramo ofensivo {kind}: {n} jornadas duras ({span})."
-
-    # defence axis
-    if primary["type"] == "good":
-        kind = "muy favorable" if strong else "favorable"
-        return f"Buen tramo para portería a cero: calendario {kind} ({span})."
-    kind = "muy complicado" if strong else "complicado"
-    return f"Tramo {kind} para mantener la portería a cero ({span})."
+    strong = "_strong" if primary["intensity"] == "strong" else ""
+    side = "good" if primary["type"] == "good" else "bad"
+    axis_key = "attack" if axis == "attack" else "defence"
+    return t(f"fxo.verdict.{axis_key}_{side}{strong}", locale, n=n, span=span)
 
 
 # ---------------------------------------------------------------------------
@@ -483,6 +483,7 @@ def get_team_outlook(
     _current_gw: int | None = None,
     _active_gws: frozenset[int] | None = None,
     _max_horizon: int | None = None,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> dict[str, Any]:
     """Compute the fixture outlook for one team on one axis.
 
@@ -573,7 +574,7 @@ def get_team_outlook(
         "avg_band":   _avg_band(series),
         "series":     series,
         "runs":       runs,
-        "verdict":    build_verdict(runs, axis, series),
+        "verdict":    build_verdict(runs, axis, series, locale),
     }
 
 
@@ -583,6 +584,7 @@ def get_all_team_outlooks(
     horizon: int = DEFAULT_HORIZON,
     *,
     _max_horizon: int | None = None,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> dict[str, Any]:
     """Outlook for every team on *axis* — the data behind the grid (FI4/FI7).
 
@@ -622,6 +624,7 @@ def get_all_team_outlooks(
             _current_gw=current_gw,
             _active_gws=active_gws,
             _max_horizon=_max_horizon,
+            locale=locale,
         )
         if not outlook["series"]:
             continue
