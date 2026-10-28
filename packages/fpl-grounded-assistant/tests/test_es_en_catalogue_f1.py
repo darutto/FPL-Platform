@@ -922,6 +922,7 @@ class TestSpanishRegisterIsTuteo:
         "está",      # 3rd-person present of "estar" ("¿quién está lesionado?"), tuteo-neutral
         "ahí",       # adverb "there" (zonal verdicts), not a verb form
         "qué",       # interrogative "what/which" ("¿qué equipos...?"), not a verb form
+        "así",       # adverb "so/thus" (gameweek report: "así que..."), not a verb form
     }
 
     def _voseo_hits(self):

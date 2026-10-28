@@ -62,9 +62,15 @@ def _bootstrap(team_id: "int | None" = 68643, finished: tuple[int, ...] = (7, 8)
 
 
 def _picks(captain: int = 10, vice: int = 6, chip: "str | None" = None, subs: "list[tuple[int, int]]" = (),
-           official: "int | None" = None, cost: int = 0, bench_pts: int = 0) -> dict[str, Any]:
+           official: "int | None" = None, cost: int = 0, bench_pts: int = 0, swapped: bool = False) -> dict[str, Any]:
+    """``swapped=True`` is the shape FPL returns for a closed gameweek: positions already reflect the substitutions."""
+    order = list(range(1, 16))
+    if swapped:
+        for i, o in subs:
+            a, b = order.index(i), order.index(o)
+            order[a], order[b] = order[b], order[a]
     items = []
-    for pos, eid in enumerate(range(1, 16), start=1):
+    for pos, eid in enumerate(order, start=1):
         mult = 1 if (pos <= 11 or chip == "bboost") else 0
         if eid == captain:
             mult = 3 if chip == "3xc" else 2
@@ -170,6 +176,17 @@ class TestScoring:
         r = _build(_picks(subs=[(13, 11)]), _live({13: 5}, minutes={11: 0}))
         # counted: ids 1-9 at 2 pts, Haaland (captain) 2 pts x2, Lewis 5; Havertz 0 and out
         assert r["reconciliation"]["computed_gross"] == 9 * 2 + 2 * 2 + 5
+
+    def test_post_swap_positions_give_the_same_report(self):
+        """FPL's closed-gameweek picks already carry the swapped positions; roles must not depend on them."""
+        live = _live({13: 5}, minutes={11: 0})
+        a = _build(_picks(subs=[(13, 11)]), live)
+        b = _build(_picks(subs=[(13, 11)], swapped=True), live)
+        roles = lambda r: {p["web_name"]: p["role"] for p in r["players"]}  # noqa: E731
+        assert roles(a) == roles(b)
+        assert roles(b)["Lewis"] == "autosub_in" and roles(b)["Havertz"] == "autosub_out"
+        assert a["reconciliation"]["computed_gross"] == b["reconciliation"]["computed_gross"]
+        assert [s["kind"] for s in a["stories"]] == [s["kind"] for s in b["stories"]]
 
     def test_triple_captain(self):
         r = _build(_picks(chip="3xc"), _live({10: 7}))
