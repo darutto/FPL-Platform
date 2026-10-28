@@ -72,6 +72,8 @@ from fpl_api_client.fpl_client import get_entry_picks
 from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
 
+from .catalogue import t
+from .locale_types import bootstrap_locale
 from .chip_advisor import (
     CHIP_TRIPLE_CAPTAIN,
     CHIP_WILDCARD,
@@ -184,10 +186,7 @@ def get_my_squad(
         return {
             "status":  "no_team_connected",
             "code":    "no_team_connected",
-            "message": (
-                "No hay ningún equipo conectado. Conecta tu equipo desde la "
-                "pestaña Plantilla para que pueda evaluarlo."
-            ),
+            "message": t("tool_err.no_team_connected", bootstrap_locale(bootstrap)),
         }
 
     events: list[dict[str, Any]] = (bootstrap or {}).get("events", []) or []
@@ -197,7 +196,7 @@ def get_my_squad(
         return {
             "status":  "error",
             "code":    "invalid_gw",
-            "message": f"gw debe estar entre {_GW_MIN} y {_GW_MAX}.",
+            "message": t("tool_err.invalid_gw", bootstrap_locale(bootstrap), lo=_GW_MIN, hi=_GW_MAX),
         }
 
     try:
@@ -209,21 +208,18 @@ def get_my_squad(
                 "status":  "not_found",
                 "code":    "team_not_found",
                 "team_id": team_id,
-                "message": (
-                    f"No encontré ningún equipo FPL con el ID {team_id}. "
-                    "Revisa que el ID sea correcto."
-                ),
+                "message": t("tool_err.team_not_found", bootstrap_locale(bootstrap), team_id=team_id),
             }
         return {
             "status":  "error",
             "code":    "network_error",
-            "message": f"No pude obtener tu plantilla (error del servidor de FPL: {exc}).",
+            "message": t("tool_err.squad_server", bootstrap_locale(bootstrap), exc=exc),
         }
     except requests.RequestException as exc:
         return {
             "status":  "error",
             "code":    "network_error",
-            "message": f"No pude obtener tu plantilla (fallo de red: {exc}).",
+            "message": t("tool_err.squad_network", bootstrap_locale(bootstrap), exc=exc),
         }
 
     elements: list[dict[str, Any]] = bootstrap.get("elements", []) or []
@@ -352,7 +348,7 @@ def _get_my_squad_handler(
         return {
             "status":  "error",
             "code":    "tool_exception",
-            "message": f"get_my_squad raised an unexpected error: {exc}",
+            "message": t("tool_err.squad_raised", bootstrap_locale(bootstrap), exc=exc),
         }
 
 
