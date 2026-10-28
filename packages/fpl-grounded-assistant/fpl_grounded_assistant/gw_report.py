@@ -169,13 +169,20 @@ def build_gw_report(
         return len((live_by_id.get(eid) or {}).get("explain") or [])
 
     # -- effective XI ------------------------------------------------------
+    # The role is decided by the OFFICIAL substitution list, not by the pick
+    # position: for a closed gameweek the picks response already carries the
+    # post-substitution positions (the player who came on sits at 1-11, the
+    # one who went off at 12-15), so reading the position alone would label
+    # both of them wrongly. Going by id works for either arrangement.
     def role_of(p: dict[str, Any]) -> str:
         eid, pos = p.get("element"), _safe_int(p.get("position"), 0)
         if bench_boost:
             return "starter" if pos <= 11 else "bench_boost"
-        if pos <= 11:
-            return "autosub_out" if eid in sub_out_ids else "starter"
-        return "autosub_in" if eid in sub_in_ids else "bench"
+        if eid in sub_in_ids:
+            return "autosub_in"
+        if eid in sub_out_ids:
+            return "autosub_out"
+        return "starter" if pos <= 11 else "bench"
 
     counting_ids = {p["element"] for p in raw_picks if role_of(p) in ("starter", "autosub_in", "bench_boost")}
 
@@ -370,8 +377,8 @@ def _stories(
     # 5. Minutes that moved against the recent run.
     best_shift: "tuple[int, dict[str, Any]] | None" = None
     for r in rows:
-        if r["fixtures"] == 0:
-            continue
+        if r["fixtures"] == 0 or r["role"] == "autosub_out":
+            continue  # the substitution story already covers a player who did not play
         prev = _history_rows(histories, r["id"], gw)[-MINUTES_WINDOW:]
         if not prev:
             continue

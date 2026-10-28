@@ -102,10 +102,10 @@ def test_offered_set_excludes_deprecated_adapters_under_both_fi_states() -> None
     assert len(off_names) == 33  # 29 -> 31 (i82) -> 32 (i107) -> 33 (R1)
     assert not (off_names & EXPECTED_FI7B_NAMES)
     assert off_names == TOOL_NAMES - EXPECTED_FI7B_NAMES - DEPRECATED_LLM_TOOL_NAMES
-    assert len(on_names) == 37  # 33 -> 35 (i82) -> 36 (i107) -> 37 (B4)
+    assert len(on_names) == 38  # 33 -> 35 (i82) -> 36 (i107) -> 37 (B4) -> 38 (R1)
     assert on_names == TOOL_NAMES - DEPRECATED_LLM_TOOL_NAMES
     assert len(get_offered_tool_schemas(False)) == 33
-    assert len(get_offered_tool_schemas(True)) == 37
+    assert len(get_offered_tool_schemas(True)) == 38
 
 
 def test_provider_tool_payload_tracks_only_the_master_flag(
@@ -119,7 +119,7 @@ def test_provider_tool_payload_tracks_only_the_master_flag(
     assert len(off_names) == 33  # 29 -> 31 (i82) -> 32 (i107) -> 33 (R1)
     assert not (set(off_names) & EXPECTED_FI7B_NAMES)
     assert not (set(off_names) & DEPRECATED_LLM_TOOL_NAMES)
-    assert len(on_names) == 37  # 33 -> 35 (i82) -> 36 (i107) -> 37 (B4)
+    assert len(on_names) == 38  # 33 -> 35 (i82) -> 36 (i107) -> 37 (B4) -> 38 (R1)
     assert set(on_names) == TOOL_NAMES - DEPRECATED_LLM_TOOL_NAMES
 
 
