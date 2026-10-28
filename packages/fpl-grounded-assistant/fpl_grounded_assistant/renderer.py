@@ -2222,9 +2222,15 @@ def _render_get_position_changes(output: dict[str, Any], locale: Locale = DEFAUL
         flag = t("renderer.position_changes.provisional", locale) if m.get("lineup_status") == "provisional" else ""
         lines.append(f"  {gw} {where}: {what}{flag}")
         change = m.get("change")
-        if change:
+        if change and change.get("kind") == "line":
+            any_change = True
+            lines.append(t("renderer.position_changes.changed_line_forward" if change.get("direction") == "further_forward"
+                           else "renderer.position_changes.changed_line_deeper", locale))
+        elif change:
             any_change = True
             lines.append(t("renderer.position_changes.changed", locale, before=role_text(change.get("from"), locale)))
+        elif m.get("line_comparable") is False:
+            lines.append(t("renderer.position_changes.line_unknown", locale))
         for a in m.get("associations") or []:
             presence = t("renderer.position_changes.presence_bench" if a.get("presence") == "on_bench"
                          else "renderer.position_changes.presence_not_listed", locale)

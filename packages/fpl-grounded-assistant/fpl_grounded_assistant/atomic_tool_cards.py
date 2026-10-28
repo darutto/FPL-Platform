@@ -220,8 +220,13 @@ def compose_position_changes_card(raw_output: dict[str, Any], locale: Locale = D
             else:
                 slot = t("renderer.position_changes.not_listed", locale)
             notes: list[str] = []
-            if m.get("change"):
+            if m.get("change") and m["change"].get("kind") == "line":
+                notes.append(t("gcard.position_changes.note_line_forward" if m["change"].get("direction") == "further_forward"
+                               else "gcard.position_changes.note_line_deeper", locale))
+            elif m.get("change"):
                 notes.append(t("gcard.position_changes.note_changed", locale, before=role_text(m["change"].get("from"), locale)))
+            elif m.get("line_comparable") is False:
+                notes.append(t("gcard.position_changes.note_line_unknown", locale))
             for a in m.get("associations") or []:
                 notes.append(t("gcard.position_changes.note_assoc", locale, name=(a.get("teammate") or {}).get("web_name", "?")))
             gw = m.get("gameweek")

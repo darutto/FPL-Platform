@@ -156,8 +156,8 @@ def test_statuses_without_data_render_in_the_language(run, locale):
 
 def test_the_new_catalogue_keys_come_in_pairs_with_the_same_placeholders():
     import re
-    keys = [k for k in _CATALOGUE if k.startswith("renderer.position_changes.")]
-    assert len(keys) == 25
+    keys = [k for k in _CATALOGUE if k.startswith(("renderer.position_changes.", "gcard.position_changes."))]
+    assert len([k for k in keys if k.startswith("renderer.")]) == 28  # +3: line change / line not comparable (PR A)
     for key in keys:
         entry = _CATALOGUE[key]
         assert set(entry) == {"en", "es"} and entry["en"] and entry["es"]
@@ -218,3 +218,40 @@ def test_the_ranking_card_is_untouched_by_the_locale_argument():
     es = maybe_atomic_tool_card("rank_players_by_metric", out, None)
     en = maybe_atomic_tool_card("rank_players_by_metric", out, None, "en")
     assert es == en  # that card predates the language track and stays as it was
+
+
+# ---- same role, other line (B4 refinement): wording and what the hero counts ------------------------------------
+
+def _line_output(change=None, **record):
+    am = {"detailed_position": "Attacking Midfield", "side": "centre", "grid_slot": "4:2", "formation": "4-2-3-1"}
+    match = {"gameweek": 6, "kickoff": "2026-11-30T15:00:00Z", "opponent": "EVE", "is_home": True, "lineup_status": "confirmed",
+             "player_status": "started", "slot": am, "claim_status": "observed", "change": change, "associations": [], **record}
+    return {"status": "ok", "player": {"web_name": "Rogers", "team_short": "CHE"}, "matches": [match],
+            "sample": {"matches_with_stored_lineup": 6, "small_sample": False}}
+
+
+_LINE = {"kind": "line", "direction": "further_forward", "basis": "same_formation", "claim_status": "observed",
+         "baseline_starts": 5, "from": {"detailed_position": "Attacking Midfield", "side": "centre"},
+         "to": {"detailed_position": "Attacking Midfield", "side": "centre"}}
+
+
+@pytest.mark.parametrize("locale, forward, deeper, unknown", [
+    ("es", "Mismo rol, otra línea: más adelantado", "Mismo rol, otra línea: más retrasado", "Mismo rol; línea no comparable"),
+    ("en", "Same role, different line: further forward", "Same role, different line: deeper", "Same role; line not comparable"),
+])
+def test_a_line_change_is_worded_as_the_same_role_on_another_line(locale, forward, deeper, unknown):
+    card = compose_position_changes_card(_line_output(_LINE), locale)
+    assert card.rows[0][3] == forward and card.hero.value == "1"
+    assert "antes" not in card.rows[0][3] and "before" not in card.rows[0][3]  # the role did not change
+    assert compose_position_changes_card(_line_output({**_LINE, "direction": "deeper"}), locale).rows[0][3] == deeper
+    assert compose_position_changes_card(_line_output(line_comparable=False), locale).rows[0][3] == unknown
+    text = render("get_position_changes", _line_output(_LINE), locale)
+    assert forward.split(": ")[0].lower() in text.lower()
+    flat = json.dumps(asdict(card), ensure_ascii=False).casefold() + text.casefold()
+    assert not any(bad in flat for bad in FORBIDDEN_PHRASES)
+
+
+def test_a_column_only_shift_is_neither_a_note_nor_counted_in_the_hero():
+    for locale in ("es", "en"):
+        card = compose_position_changes_card(_line_output(column_shift=True), locale)
+        assert card.rows[0][3] == "-" and card.hero.value == "0"
