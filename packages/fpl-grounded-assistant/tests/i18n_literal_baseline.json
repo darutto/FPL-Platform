@@ -68,11 +68,6 @@
  "fpl_grounded_assistant/orchestrator.py": [
   "déjame"
  ],
- "fpl_grounded_assistant/player_snapshot_zonal.py": [
-  "Sin datos zonales de los rivales de estos partidos, no se puede valorar el cruce.",
-  "en los partidos de las próximas 3 jornadas.",
-  "genera su xG justo en zonas donde el rival concede por encima de la media — cruce favorable en"
- ],
  "fpl_grounded_assistant/renderer.py": [
   "' en el almacén táctico.",
   "(próximas",
@@ -88,32 +83,6 @@
   "de portería a cero",
   "jornadas, más fácil primero):",
   "no concede por encima de la media de la liga en ninguna zona del área — sin oportunidad zonal destac"
- ],
- "fpl_grounded_assistant/zonal_weakness.py": [
-  "% sobre un equipo medio ahí.",
-  "%), una ventaja leve.",
-  ", sólo",
-  "Ataca dentro del área",
-  "Ataca la frontal del área",
-  "Ventaja leve dentro del área",
-  "Ventaja leve en la frontal del área",
-  "de liga — muestra corta para una lectura de liga",
-  "dentro del área",
-  "en la frontal del área",
-  "en las próximas",
-  "genera su xG justo en zonas donde el rival concede por encima de la media — cruce favorable en",
-  "no concede claramente por encima de la media en ninguna zona — la lectura más favorable es",
-  "no concede por encima de la media de la liga en ninguna zona del área.",
-  "por el centro",
-  "por la derecha",
-  "por la izquierda",
-  "— concede por encima de la media de la liga ahí.",
-  "⚠ El almacén táctico no declara de qué temporada son estos datos"
- ],
- "fpl_grounded_assistant/zonal_weakness_tool.py": [
-  "Sin calendario en el contexto: ranking de toda la liga.",
-  "jornadas: ranking de toda la liga.",
-  "no tiene partidos en las próximas"
  ],
  "fpl_server.py": [
   "Has alcanzado tu límite de uso. Por favor actualiza tu plan.",

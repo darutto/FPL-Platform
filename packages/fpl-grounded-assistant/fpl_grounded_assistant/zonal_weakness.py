@@ -57,6 +57,14 @@ from typing import Any, Callable, Sequence
 
 import pandas as pd
 
+try:
+    from .catalogue import t
+    from .locale_types import Locale, DEFAULT_LOCALE
+except ImportError:  # standalone load (tests load this file bypassing the package)
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from catalogue import t  # type: ignore[no-redef]
+    from locale_types import Locale, DEFAULT_LOCALE  # type: ignore[no-redef]
+
 # ---------------------------------------------------------------------------
 # sys.path shim — mirror owned_store_fallback.py's pattern so the shared
 # fpl_tactical constants/paths are importable without pyproject changes.
@@ -176,16 +184,12 @@ TOP_EXPLOITERS_MULTI: int = 15
 
 #: Attacker-frame lateral label → "the flank you attack down", in Spanish.
 #: One frame everywhere — no defender-side flip (see orientation section).
-_ATTACK_SIDE_ES: dict[str, str] = {
-    "left": "por la izquierda",
-    "right": "por la derecha",
-    "central": "por el centro",
-}
+def _side(lat: str, locale: Locale) -> str:
+    return t(f"zonal.side.{lat}", locale)
 
-_DEPTH_ES: dict[str, str] = {
-    "in-box": "dentro del área",
-    "edge-of-box": "en la frontal del área",
-}
+
+def _depth(depth: str, locale: Locale) -> str:
+    return t(f"zonal.depth.{depth}", locale)
 
 
 def zone_of(x: float, y: float) -> str | None:
@@ -311,7 +315,7 @@ def _read_pointer(store: Any) -> dict[str, Any] | None:
 
 
 def build_data_provenance(
-    pointer: dict[str, Any] | None, live_season: str | None
+    pointer: dict[str, Any] | None, live_season: str | None, locale: Locale = DEFAULT_LOCALE
 ) -> dict[str, Any]:
     """Build the season stamp from *pointer* content vs the *live_season*.
 
@@ -346,42 +350,37 @@ def build_data_provenance(
     if season is None:
         prov["status"] = "unknown"
         prov["is_current"] = False
-        prov["label"] = (
-            "⚠ El almacén táctico no declara de qué temporada son estos datos"
-        )
+        prov["label"] = t("zonal.prov_unknown", locale)
     elif live_season is None:
         prov["status"] = "unverified"
         prov["is_current"] = False
-        prov["label"] = (
-            f"Datos: temporada {prov['season_label']} "
-            f"(no se pudo verificar la temporada en curso)"
-        )
+        prov["label"] = t("zonal.prov_unverified", locale, label=prov["season_label"])
     elif season != live_season:
         prov["status"] = "stale_season"
         prov["is_current"] = False
-        prov["label"] = (
-            f"⚠ Datos de {prov['season_label']}, no de la temporada en curso "
-            f"({prov['live_season_label']})"
+        prov["label"] = t(
+            "zonal.prov_stale", locale, label=prov["season_label"], live=prov["live_season_label"]
         )
     elif prov["n_matches"] is not None and prov["n_matches"] < MIN_TRUSTWORTHY_MATCHES:
         prov["status"] = "thin"
         prov["is_current"] = True
         n_gameweeks = max(1, prov["n_matches"] // MATCHES_PER_FULL_GAMEWEEK)
-        jornada_word = "jornada" if n_gameweeks == 1 else "jornadas"
-        prov["label"] = (
-            f"⚠ Datos de {prov['season_label']}, sólo {n_gameweeks} "
-            f"{jornada_word} de liga — muestra corta para una lectura de liga"
+        unit = t("zonal.gw_one" if n_gameweeks == 1 else "zonal.gw_many", locale)
+        prov["label"] = t(
+            "zonal.prov_thin", locale, label=prov["season_label"], n=n_gameweeks, unit=unit
         )
     else:
         prov["status"] = "current"
         prov["is_current"] = True
-        prov["label"] = f"Datos: temporada {prov['season_label']}"
+        prov["label"] = t("zonal.prov_current", locale, label=prov["season_label"])
     return prov
 
 
-def _provenance_for(store: Any, live_season: str | None) -> dict[str, Any]:
+def _provenance_for(
+    store: Any, live_season: str | None, locale: Locale = DEFAULT_LOCALE
+) -> dict[str, Any]:
     """Convenience: read the pointer for *store* and stamp it."""
-    return build_data_provenance(_read_pointer(store), live_season)
+    return build_data_provenance(_read_pointer(store), live_season, locale)
 
 
 # ---------------------------------------------------------------------------
@@ -473,14 +472,6 @@ def _opportunity_level(pct_over_avg: float) -> str:
     return "cool"
 
 
-_WEAKNESS_LABEL_ES: dict[str, str] = {
-    "in-box": "Ataca dentro del área",
-    "edge-of-box": "Ataca la frontal del área",
-}
-_MARGINAL_LABEL_ES: dict[str, str] = {
-    "in-box": "Ventaja leve dentro del área",
-    "edge-of-box": "Ventaja leve en la frontal del área",
-}
 
 
 def _top_weak(weakest: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -508,60 +499,47 @@ def weakness_strength(weakest: list[dict[str, Any]]) -> str:
     return "none"
 
 
-def _weakness_label(weakest: list[dict[str, Any]]) -> str:
+def _weakness_label(weakest: list[dict[str, Any]], locale: Locale = DEFAULT_LOCALE) -> str:
     """Card pill label from the top genuinely-weak zone's depth and strength."""
     top = _top_weak(weakest)
     strength = weakness_strength(weakest)
     if top is None or strength == "none":
-        return "Sin ventaja clara"
+        return t("zonal.label_none", locale)
     depth, _ = _split_zone(top["zone"])
-    return (_WEAKNESS_LABEL_ES if strength == "clear" else _MARGINAL_LABEL_ES)[depth]
+    return t(f"zonal.label_{'clear' if strength == 'clear' else 'marginal'}.{depth}", locale)
 
 
-def _opportunity_verdict(team: str, weakest: list[dict[str, Any]]) -> str:
+def _opportunity_verdict(
+    team: str, weakest: list[dict[str, Any]], locale: Locale = DEFAULT_LOCALE
+) -> str:
     """Spanish card verdict — attacker/opportunity frame ("ataca por…"),
     headline pct included. Never "débil por", never buy/sell. A marginal
     read says so FIRST, then names the least-bad zone."""
     top = _top_weak(weakest)
     strength = weakness_strength(weakest)
     if top is None or strength == "none":
-        return (
-            f"{team} no concede por encima de la media de la liga en "
-            f"ninguna zona del área."
-        )
+        return t("zonal.verdict_none", locale, team=team)
     depth, lat = _split_zone(top["zone"])
     pct = _pct_over_avg(top["xga_per_game"], top["league_avg"])
-    if strength == "marginal":
-        return (
-            f"{team} no concede claramente por encima de la media en ninguna "
-            f"zona — la lectura más favorable es {_ATTACK_SIDE_ES[lat]} "
-            f"{_DEPTH_ES[depth]} ({pct:+.0f}%), una ventaja leve."
-        )
-    return (
-        f"Ataca a {team} {_ATTACK_SIDE_ES[lat]} {_DEPTH_ES[depth]} — "
-        f"concede un {pct:+.0f}% sobre un equipo medio ahí."
-    )
+    key = "zonal.verdict_marginal" if strength == "marginal" else "zonal.verdict_clear"
+    return t(key, locale, team=team, side=_side(lat, locale), depth=_depth(depth, locale), pct=pct)
 
 
-def _weakness_verdict(team: str, weakest: list[dict[str, Any]]) -> str:
+def _weakness_verdict(
+    team: str, weakest: list[dict[str, Any]], locale: Locale = DEFAULT_LOCALE
+) -> str:
     """Spanish one-liner for the text tool — same attacker/opportunity
     frame as the card ("ataca por…"). Never buy/sell."""
     above = [z for z in weakest if z["delta_vs_avg"] > 0]
     if not above or weakness_strength(weakest) == "none":
-        return (
-            f"{team} no concede por encima de la media de la liga en "
-            f"ninguna zona del área."
-        )
+        return t("zonal.verdict_none", locale, team=team)
     if weakness_strength(weakest) == "marginal":
-        return _opportunity_verdict(team, weakest)
+        return _opportunity_verdict(team, weakest, locale)
     parts = []
-    for z in above:
-        depth, lat = _split_zone(z["zone"])
-        parts.append(f"{_ATTACK_SIDE_ES[lat]} {_DEPTH_ES[depth]}")
-    return (
-        f"Ataca a {team} {' y '.join(parts)} — concede por encima de la "
-        f"media de la liga ahí."
-    )
+    for zone_row in above:
+        depth, lat = _split_zone(zone_row["zone"])
+        parts.append(f"{_side(lat, locale)} {_depth(depth, locale)}")
+    return t("zonal.verdict_multi", locale, team=team, parts=t("zonal.and", locale).join(parts))
 
 
 # ---------------------------------------------------------------------------
@@ -569,7 +547,8 @@ def _weakness_verdict(team: str, weakest: list[dict[str, Any]]) -> str:
 # ---------------------------------------------------------------------------
 
 def get_zonal_weakness(
-    team: str, *, store: Any = None, live_season: str | None = None
+    team: str, *, store: Any = None, live_season: str | None = None,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> dict[str, Any]:
     """Relative zonal-weakness read for one team's defence.
 
@@ -580,7 +559,7 @@ def get_zonal_weakness(
     zone). ``weakest_zones`` is the top-``TOP_WEAK_ZONES`` by delta;
     ``penalty_context`` reports penalty xGA separately (excluded from zones).
     """
-    provenance = _provenance_for(store, live_season)
+    provenance = _provenance_for(store, live_season, locale)
     shots = _load_shots(store)
     if shots is None:
         return {"status": "missing_context", "team": team}
@@ -634,12 +613,14 @@ def get_zonal_weakness(
             "penalty_xga": round(pen_xga, 4),
             "penalty_xga_per_game": round(pen_xga / n_games, 4) if n_games else 0.0,
         },
-        "verdict": _weakness_verdict(matched, weakest),
+        "verdict": _weakness_verdict(matched, weakest, locale),
         "data_provenance": provenance,
     }
 
 
-def zonal_weakness_card_fields(weakness: dict[str, Any]) -> dict[str, Any]:
+def zonal_weakness_card_fields(
+    weakness: dict[str, Any], locale: Locale = DEFAULT_LOCALE
+) -> dict[str, Any]:
     """T4b card-shaped enrichment derived from an ``ok`` ``get_zonal_weakness()``
     result: the 3 in-box lateral cells (attacker-frame ``lateral`` ∈
     left/central/right, with ``pct_over_avg`` / ``opportunity_level`` for the
@@ -674,7 +655,7 @@ def zonal_weakness_card_fields(weakness: dict[str, Any]) -> dict[str, Any]:
     return {
         "zones": _cells("in-box"),
         "frontal_zones": _cells("edge-of-box"),
-        "weakness_label": _weakness_label(weakness["weakest_zones"]),
+        "weakness_label": _weakness_label(weakness["weakest_zones"], locale),
         "weakness_strength": weakness_strength(weakness["weakest_zones"]),
     }
 
@@ -743,6 +724,7 @@ def get_zonal_opportunity(
     horizon: int | None = None,
     store: Any = None,
     live_season: str | None = None,
+    locale: Locale = DEFAULT_LOCALE,
     currently_at_opponent: "Callable[[str], bool] | None" = None,
 ) -> dict[str, Any]:
     """Join *opponent*'s weak zones to players who operate in those zones.
@@ -823,12 +805,12 @@ def get_zonal_opportunity(
     ``verdict`` / ``penalty_context`` feed the card header and footer.
     Everything is opportunity/suitability-framed — never buy/sell.
     """
-    provenance = _provenance_for(store, live_season)
+    provenance = _provenance_for(store, live_season, locale)
     shots = _load_shots(store)
     if shots is None:
         return {"status": "missing_context", "opponent": opponent}
 
-    weakness = get_zonal_weakness(opponent, store=shots)
+    weakness = get_zonal_weakness(opponent, store=shots, locale=locale)
     if weakness["status"] != "ok":
         return {"status": weakness["status"], "opponent": opponent}
     matched = weakness["team"]
@@ -976,7 +958,7 @@ def get_zonal_opportunity(
     # this and the weakness-only card path never compute them two
     # different ways for the same team.
     # ------------------------------------------------------------------
-    card_fields = zonal_weakness_card_fields(weakness)
+    card_fields = zonal_weakness_card_fields(weakness, locale)
     zones_out = card_fields["zones"]
 
     # Zone-fit ranking across the weak zones; each player keeps their best
@@ -1069,7 +1051,7 @@ def get_zonal_opportunity(
         "exploiters": exploiters,
         "frontal_zones": card_fields["frontal_zones"],
         "weakness_label": card_fields["weakness_label"],
-        "verdict": _opportunity_verdict(matched, weakness["weakest_zones"]),
+        "verdict": _opportunity_verdict(matched, weakness["weakest_zones"], locale),
         "penalty_context": weakness["penalty_context"],
         "data_provenance": provenance,
     }
@@ -1136,6 +1118,7 @@ def get_player_zonal_outlook(
     fixtures_for_team: Any,
     store: Any = None,
     live_season: str | None = None,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> dict[str, Any]:
     """Per-fixture zonal matchup read for one player's upcoming opponents.
 
@@ -1156,7 +1139,7 @@ def get_player_zonal_outlook(
     ``zone`` / ``delta_vs_avg`` / ``player_share``), and a Spanish,
     opportunity-framed ``verdict`` (never buy/sell).
     """
-    provenance = _provenance_for(store, live_season)
+    provenance = _provenance_for(store, live_season, locale)
     shots = _load_shots(store)
     if shots is None:
         return {"status": "missing_context", "player": player_query}
@@ -1182,7 +1165,7 @@ def get_player_zonal_outlook(
     profiles = compute_team_zone_profiles(shots)
     baseline = compute_league_baseline(profiles)
 
-    return build_player_outlook(player, info, fixtures, profiles, baseline, provenance)
+    return build_player_outlook(player, info, fixtures, profiles, baseline, provenance, locale)
 
 
 def player_zone_list(info: dict[str, Any]) -> list[dict[str, Any]]:
@@ -1205,6 +1188,7 @@ def build_player_outlook(
     profiles: dict[str, Any],
     baseline: dict[str, float],
     provenance: dict[str, Any],
+    locale: Locale = DEFAULT_LOCALE,
 ) -> dict[str, Any]:
     """Per-fixture zonal read for an ALREADY-SELECTED store profile.
 
@@ -1259,18 +1243,13 @@ def build_player_outlook(
 
     favorable = [e for e in outlook if e["status"] == "favorable"]
     if favorable:
-        gws = " y ".join(
-            f"J{e['gameweek']} ({e['opponent']})" for e in favorable
+        gw_short = t("zonal.gw_short", locale)
+        gws = t("zonal.and", locale).join(
+            f"{gw_short}{e['gameweek']} ({e['opponent']})" for e in favorable
         )
-        verdict = (
-            f"{player} genera su xG justo en zonas donde el rival concede por "
-            f"encima de la media — cruce favorable en {gws}."
-        )
+        verdict = t("zonal.player_favorable", locale, player=player, gws=gws)
     else:
-        verdict = (
-            f"Sin cruce zonal destacado para {player} en las próximas "
-            f"{len(outlook)} jornadas."
-        )
+        verdict = t("zonal.player_neutral", locale, player=player, n=len(outlook))
 
     return {
         "status": "ok",
