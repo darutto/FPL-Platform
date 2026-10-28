@@ -37,6 +37,7 @@ from typing import Any, Iterable
 from .catalogue import t
 from .formatting import format_metric_value
 from .generic_card import Column, GenericCardMeta, HeroStat, Pill
+from .gw_report_text import compose_gw_report_card
 from .locale_types import DEFAULT_LOCALE, Locale
 from .position_changes_text import role_text
 from .rank_players_by_metric import natural_order
@@ -324,6 +325,7 @@ _ATOMIC_TOOL_COMPOSERS: dict[str, Any] = {}
 #: Composers whose wording follows the request language (they take ``locale``).
 _LOCALIZED_TOOL_COMPOSERS: dict[str, Any] = {
     "rank_players_by_metric": compose_rank_players_card,
+    "get_gw_report": compose_gw_report_card,
     "get_position_changes": compose_position_changes_card,
 }
 

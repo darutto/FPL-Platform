@@ -996,6 +996,41 @@ GET_MY_SQUAD_SCHEMA = ToolSchema(
 
 
 # ---------------------------------------------------------------------------
+# R1 atomic tool — get_gw_report (retrospective report of a closed gameweek)
+# ---------------------------------------------------------------------------
+
+GET_GW_REPORT_SCHEMA = ToolSchema(
+    name="get_gw_report",
+    description=(
+        "Retrospective, factual report of one CLOSED gameweek for the connected user's OWN "
+        "FPL team: the picks of that gameweek, effective XI after automatic substitutions, "
+        "captain/vice, bench, chip played, points reconciled with the official numbers and "
+        "two to five stories backed by evidence. "
+        "CALL IT for 'cómo me fue en la jornada 8', 'resumen de mi última jornada', "
+        "'my gameweek review', 'por qué saqué pocos puntos'. "
+        "DO NOT CALL IT for the current squad (get_my_squad), for forecasts, for another "
+        "manager's team, or for a gameweek that is still open. It uses only the connected "
+        "team; there is no team argument. "
+        "status='no_team_connected' when no team is linked; status='missing_context' for a "
+        "gameweek that is not closed yet."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "gameweek": {
+                "type":        "integer",
+                "description": "Closed gameweek (1-38). Defaults to the last finished gameweek.",
+                "minimum":     1,
+                "maximum":     38,
+            },
+        },
+        "required":             [],
+        "additionalProperties": False,
+    },
+)
+
+
+# ---------------------------------------------------------------------------
 # P2.7 atomic tool — web_fetch (allowlisted football/FPL URL fetch)
 # ---------------------------------------------------------------------------
 
@@ -1763,6 +1798,8 @@ _BASE_REGISTERED_SCHEMAS: tuple[ToolSchema, ...] = (
     GET_TEAM_SNAPSHOT_SCHEMA,
     # i39 atomic tool — connected user's own squad
     GET_MY_SQUAD_SCHEMA,
+    # R1 atomic tool — retrospective gameweek report
+    GET_GW_REPORT_SCHEMA,
     # P2.7 atomic tool
     WEB_FETCH_SCHEMA,
     # P2.8 atomic tool
