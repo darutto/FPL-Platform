@@ -1223,6 +1223,79 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     "gcard.position_changes.note_changed": {"en": "Started in a different slot (before: {before})", "es": "Empez\u00f3 en otra casilla (antes: {before})"},
     "gcard.position_changes.note_assoc": {"en": "Coincided with the absence of {name}", "es": "Coincidi\u00f3 con la ausencia de {name}"},
     "gcard.position_changes.note_none": {"en": "-", "es": "-"},
+    # --- S5-B zonal (backend text of get_zonal_weakness / get_zonal_opportunity / player outlook) ---
+    "zonal.side.left": {"en": "down the left", "es": "por la izquierda"},
+    "zonal.side.right": {"en": "down the right", "es": "por la derecha"},
+    "zonal.side.central": {"en": "through the middle", "es": "por el centro"},
+    "zonal.depth.in-box": {"en": "inside the box", "es": "dentro del \u00e1rea"},
+    "zonal.depth.edge-of-box": {"en": "on the edge of the box", "es": "en la frontal del \u00e1rea"},
+    "zonal.label_clear.in-box": {"en": "Attack inside the box", "es": "Ataca dentro del \u00e1rea"},
+    "zonal.label_clear.edge-of-box": {"en": "Attack the edge of the box", "es": "Ataca la frontal del \u00e1rea"},
+    "zonal.label_marginal.in-box": {"en": "Slight edge inside the box", "es": "Ventaja leve dentro del \u00e1rea"},
+    "zonal.label_marginal.edge-of-box": {"en": "Slight edge on the edge of the box", "es": "Ventaja leve en la frontal del \u00e1rea"},
+    "zonal.label_none": {"en": "No clear edge", "es": "Sin ventaja clara"},
+    "zonal.verdict_none": {
+        "en": "{team} do not concede above the league average in any zone of the box.",
+        "es": "{team} no concede por encima de la media de la liga en ninguna zona del \u00e1rea.",
+    },
+    "zonal.verdict_marginal": {
+        "en": "{team} do not concede clearly above average in any zone \u2014 the most favourable read is {side} {depth} ({pct:+.0f}%), a slight edge.",
+        "es": "{team} no concede claramente por encima de la media en ninguna zona \u2014 la lectura m\u00e1s favorable es {side} {depth} ({pct:+.0f}%), una ventaja leve.",
+    },
+    "zonal.verdict_clear": {
+        "en": "Attack {team} {side} {depth} \u2014 they concede {pct:+.0f}% over an average side there.",
+        "es": "Ataca a {team} {side} {depth} \u2014 concede un {pct:+.0f}% sobre un equipo medio ah\u00ed.",
+    },
+    "zonal.verdict_multi": {
+        "en": "Attack {team} {parts} \u2014 they concede above the league average there.",
+        "es": "Ataca a {team} {parts} \u2014 concede por encima de la media de la liga ah\u00ed.",
+    },
+    "zonal.and": {"en": " and ", "es": " y "},
+    "zonal.prov_unknown": {
+        "en": "\u26a0 The tactical store does not declare which season this data is from",
+        "es": "\u26a0 El almac\u00e9n t\u00e1ctico no declara de qu\u00e9 temporada son estos datos",
+    },
+    "zonal.prov_unverified": {
+        "en": "Data: {label} season (could not verify the current season)",
+        "es": "Datos: temporada {label} (no se pudo verificar la temporada en curso)",
+    },
+    "zonal.prov_stale": {
+        "en": "\u26a0 {label} data, not from the current season ({live})",
+        "es": "\u26a0 Datos de {label}, no de la temporada en curso ({live})",
+    },
+    "zonal.prov_thin": {
+        "en": "\u26a0 {label} data, only {n} {unit} of league data \u2014 short sample for a league-wide read",
+        "es": "\u26a0 Datos de {label}, s\u00f3lo {n} {unit} de liga \u2014 muestra corta para una lectura de liga",
+    },
+    "zonal.gw_one": {"en": "GW", "es": "jornada"},
+    "zonal.gw_many": {"en": "GWs", "es": "jornadas"},
+    "zonal.prov_current": {"en": "Data: {label} season", "es": "Datos: temporada {label}"},
+    "zonal.player_favorable": {
+        "en": "{player} generates their xG right in zones where the opponent concedes above average \u2014 favourable matchup in {gws}.",
+        "es": "{player} genera su xG justo en zonas donde el rival concede por encima de la media \u2014 cruce favorable en {gws}.",
+    },
+    "zonal.player_neutral": {
+        "en": "No standout zonal matchup for {player} in the next {n} GWs.",
+        "es": "Sin cruce zonal destacado para {player} en las pr\u00f3ximas {n} jornadas.",
+    },
+    "zonal.gw_short": {"en": "GW", "es": "J"},
+    "zonal.snap_no_data": {
+        "en": "No zonal data on the opponents in these fixtures, so the matchup cannot be assessed.",
+        "es": "Sin datos zonales de los rivales de estos partidos, no se puede valorar el cruce.",
+    },
+    "zonal.snap_neutral": {
+        "en": "No standout zonal matchup for {player} in the fixtures of the next 3 GWs.",
+        "es": "Sin cruce zonal destacado para {player} en los partidos de las pr\u00f3ximas 3 jornadas.",
+    },
+    "zonal.club_note": {"en": "previously at {club}", "es": "antes en {club}"},
+    "zonal.fixtures_empty": {
+        "en": "{team} have no fixtures in the next {horizon} GWs: league-wide ranking.",
+        "es": "{team} no tiene partidos en las pr\u00f3ximas {horizon} jornadas: ranking de toda la liga.",
+    },
+    "zonal.no_calendar": {
+        "en": "No fixture calendar in context: league-wide ranking.",
+        "es": "Sin calendario en el contexto: ranking de toda la liga.",
+    },
 }
 
 
