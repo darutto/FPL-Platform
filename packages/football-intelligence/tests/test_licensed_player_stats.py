@@ -158,7 +158,7 @@ def test_a_build_written_before_r6_still_validates_reads_empty_and_can_be_extend
     old = write_build(_tables(), CROSSWALK, tmp_path, build_id="old", built_at=OBSERVED)
     _strip_table(old)
     validate_build(old)
-    assert read_table(old, "player_match_stats").empty and OPTIONAL_TABLES == {"player_match_stats"}
+    assert read_table(old, "player_match_stats").empty and {"player_match_stats", "stat_types"} <= OPTIONAL_TABLES
     new = write_build(_tables(), CROSSWALK, tmp_path, build_id="new", built_at=OBSERVED, previous=old)
     assert validate_build(new)["row_counts"]["player_match_stats"] == 1
 

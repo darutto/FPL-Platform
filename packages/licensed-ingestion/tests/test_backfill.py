@@ -181,11 +181,11 @@ def _cli(capsys, *args):
     return code, out.out, out.err
 
 
-def test_the_cli_ceiling_for_a_backfill_is_forty(capsys):
-    code, out, _ = _cli(capsys, "--pass", "backfill", "--max-calls", "41")
+def test_the_cli_ceiling_for_a_backfill_is_sixty(capsys):
+    code, out, _ = _cli(capsys, "--pass", "backfill", "--max-calls", "61")
     assert code == 2 and json.loads(out) == {"reason": "max_calls_out_of_range", "status": "refused"}
-    code, out, err = _cli(capsys, "--pass", "backfill", "--max-calls", "40")
-    assert (code, err) == (0, "") and json.loads(out)["cap"] == 40
+    code, out, err = _cli(capsys, "--pass", "backfill", "--max-calls", "60")
+    assert (code, err) == (0, "") and json.loads(out)["cap"] == 60
 
 
 def test_the_cli_dry_run_prints_counts_only(capsys):

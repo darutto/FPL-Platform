@@ -52,8 +52,14 @@ def test_a_cup_tie_more_than_14_days_ahead_is_kept_and_nothing_else_moves(tmp_pa
     assert transport.calls == fetch.planned_count("daily", clubs=2) == 10  # same number of calls as before
 
 
-def test_the_most_a_daily_pass_can_cost_with_one_extra_page_per_club_is_84():
-    assert fetch.planned_count("daily") == 64 and fetch.planned_count("daily") + 20 == 84 < 120
+def test_the_most_a_daily_pass_can_cost_is_112_under_the_120_ceiling():
+    # 2 discovery + 20 squads + 20 sidelined + 20 x 3 club fixtures (240 and 120 refused, 14 answered; a refusal is on
+    # the first page, so it never adds to a 240-day second page) + 1 window ahead + 8 stats pages + 1 player_stat_types
+    from licensed_ingestion.__main__ import MAX_CALLS
+    assert fetch.planned_count("daily") == 64
+    assert fetch.CLUB_FIXTURES_WORST == 3 and fetch.MAX_STATS_PAGES == 8
+    assert fetch.worst_count() == 2 + 40 + 60 + 1 + 8 + 1 == 112 <= MAX_CALLS["daily"] == 120
+    assert fetch.worst_count(clubs=2) == 2 + 4 + 6 + 1 + 8 + 1
 
 
 def test_a_refused_long_window_retries_that_club_with_120_days_and_keeps_the_rest(tmp_path):

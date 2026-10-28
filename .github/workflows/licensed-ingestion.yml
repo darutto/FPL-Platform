@@ -44,7 +44,7 @@ on:
         options: [daily, matchday, deadline, backfill]
         default: daily
       max_calls:
-        description: "Hard call cap; blank = the pass default (daily 120, backfill 40, matchday 10, deadline 10)"
+        description: "Hard call cap; blank = the pass default (daily 120, backfill 60, matchday 10, deadline 10)"
         required: false
 
 # Runs never overlap: two passes publishing at once would race on the R2 pointer. A running pass is never cancelled

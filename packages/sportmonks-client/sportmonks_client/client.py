@@ -102,6 +102,15 @@ EXTRA_ROUTES: dict[str, Route] = {
                                   include="participants;lineups.detailedPosition;formations;state;metadata"),
     # One club's fixtures in every competition the plan returns (cups are best effort), with home/away.
     "licensed_team_fixtures": Route("fixtures/between/{start}/{end}/{team_id}", Fixture, include="participants;state"),
+    # R6: the same window with each player's per-match statistics (`lineups.details`). Only finished matches carry
+    # details, so only the last-7-days and backfill windows use this route; ~100 KB per fixture, hence small pages.
+    "licensed_pl_fixtures_stats": Route(
+        _WINDOW, Fixture,
+        include="participants;lineups.detailedPosition;lineups.details;formations;state;metadata"),
+    # R6: the provider's own statistic names. `core/types` answers 404 on the trial token, so one finished fixture is
+    # read with `lineups.details.type`; each detail row then carries `type_id` and the lifted `type_name`.
+    "player_stat_types": Route("fixtures/{fixture_id}", PlayerFixtureStatistic, include="lineups.details.type",
+                               extract="lineups.details", lift=(("type", "developer_name", "type_name"),), single=True),
     # A club's squad rows (player_id, team_id, jersey_number) with the nested player record for identity.
     "licensed_squads": Route("squads/teams/{team_id}", SquadMember, include="player"),
 }
