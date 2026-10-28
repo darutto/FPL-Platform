@@ -21,6 +21,11 @@ WINDOW_DAYS = 14
 #: Explicit page bound on every list walk; hitting it raises (never a silent truncation).
 MAX_PAGES = 4
 PER_PAGE = 50
+#: A window that carries ``lineups.details`` weighs ~100 KB per fixture, so its pages are small: 10 fixtures is
+#: ~1 MB, a quarter of the client's default ``max_response_bytes`` (4 MiB). MAX_STATS_PAGES bounds the walk (80
+#: fixtures, more than any 14-day window holds); the pass's --max-calls still caps the total.
+STATS_PER_PAGE = 10
+MAX_STATS_PAGES = 8
 
 
 class FetchError(RuntimeError):
@@ -41,6 +46,18 @@ def _window(client: SportmonksClient, start: date, end: date) -> list[dict[str, 
     return [dict(r.raw_fields) for r in client.iter_entities(
         "licensed_pl_fixtures", scope={"start": start.isoformat(), "end": end.isoformat()},
         params={"filters": f"fixtureLeagues:{PL_LEAGUE_ID}", "per_page": PER_PAGE}, max_pages=MAX_PAGES)]
+
+
+def _stats_window(client: SportmonksClient, start: date, end: date) -> list[dict[str, Any]]:
+    return [dict(r.raw_fields) for r in client.iter_entities(
+        "licensed_pl_fixtures_stats", scope={"start": start.isoformat(), "end": end.isoformat()},
+        params={"filters": f"fixtureLeagues:{PL_LEAGUE_ID}", "per_page": STATS_PER_PAGE}, max_pages=MAX_STATS_PAGES)]
+
+
+def stat_types(client: SportmonksClient, fixture_id: int) -> dict[int, str]:
+    """The provider's statistic names (type id -> developer name) as one finished fixture's details carry them: 1 call."""
+    from football_intelligence.ingestion.licensed.player_stats import type_names
+    return type_names(dict(r.raw_fields) for r in client.fetch_page("player_stat_types", scope={"fixture_id": fixture_id}))
 
 
 def season_teams(client: SportmonksClient) -> list[dict[str, Any]]:
@@ -69,7 +86,8 @@ def daily(client: SportmonksClient, today: date) -> ProviderReads:
         reads.team_fixtures += [dict(r.raw_fields) for r in client.iter_entities(
             "licensed_team_fixtures", scope={"start": ahead[0].isoformat(), "end": ahead[1].isoformat(), "team_id": team_id},
             params={"per_page": PER_PAGE}, max_pages=MAX_PAGES)]
-    reads.pl_fixtures = _window(client, *ahead) + _window(client, today - timedelta(days=7), today - timedelta(days=1))
+    # Only the finished matches (the last 7 days) carry details; the window ahead is predicted lineups.
+    reads.pl_fixtures = _window(client, *ahead) + _stats_window(client, today - timedelta(days=7), today - timedelta(days=1))
     return reads
 
 
@@ -103,7 +121,7 @@ def backfill(client: SportmonksClient, windows: list[tuple[date, date]]) -> Prov
     seen: set[Any] = set()
     reads = ProviderReads()
     for start, end in windows:
-        for fixture in _window(client, start, end):
+        for fixture in _stats_window(client, start, end):
             if fixture.get("id") not in seen:
                 seen.add(fixture.get("id"))
                 reads.pl_fixtures.append(fixture)
@@ -115,11 +133,11 @@ def planned_calls(kind: str, clubs: int = 20) -> list[str]:
     if kind == "daily":
         return (["seasons (PL, current)", "teams (season)"]
                 + [f"{family} x{clubs}" for family in ("licensed_squads", "current_sidelined", "licensed_team_fixtures")]
-                + ["licensed_pl_fixtures (next 14 days)", "licensed_pl_fixtures (last 7 days)"])
+                + ["licensed_pl_fixtures (next 14 days)", "licensed_pl_fixtures_stats (last 7 days, small pages)", "player_stat_types (only when a type is unknown)"])
     if kind == "deadline":
         return ["licensed_pl_fixtures (next 14 days)"]
     if kind == "backfill":
-        return ["licensed_pl_fixtures (one per 14-day window, season start to yesterday)"]
+        return ["licensed_pl_fixtures_stats (14-day windows, season start to yesterday, 10 fixtures per page)", "player_stat_types (only when a type is unknown)"]
     return ["licensed_pl_fixtures (kickoffs in [-30 min, +3 h])"]
 
 

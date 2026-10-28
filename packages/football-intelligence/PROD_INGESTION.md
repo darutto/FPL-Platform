@@ -193,7 +193,11 @@ season's first kickoff (from the free FPL fixture list) to yesterday, in 14-day 
 `licensed_pl_fixtures` route, and appends them to the store.
 
 * **Manual only.** It is a `workflow_dispatch` choice; the schedule names its own passes and never runs it (a test pins it).
-* **Cost.** One call per window: about 5 calls for the season so far, hard cap 40 (`--max-calls` above 40 is refused).
+* **Cost.** The windows now carry `lineups.details` (R6, player statistics), ~100 KB per fixture, so each window is read in
+  pages of 10 fixtures (~1 MB, a quarter of `max_response_bytes`' 4 MiB default) instead of one page of 50. Calls =
+  sum over windows of ceil(fixtures / 10), at least one per window, plus at most one `player_stat_types` call. A full
+  380-fixture season is ~38 pages + ~1 per window of slack, which is why the hard cap is **60** (`--max-calls` above 60 is
+  refused). If a fill ever needs more, split it with `--since` rather than raising the cap.
 * **Needs a baseline.** It takes the crosswalk from the previous published build (`FAILED NoBaseline` otherwise) and carries
   the crosswalk and cup tables forward, like a matchday pass.
 * **Only completed matches** are kept (`FT`, `AET`, `FT_PEN`, `AWARDED`, `WO`). Their lineup is the XI that was played, so it is
@@ -252,3 +256,24 @@ Note: build-order steps 3 (`fetch.py` + modes + cap) and 4 (the workflow, disabl
    decides**; the brain recommends yes. Designed as **optional**: a checked-in table of FPL element ids
    and the registry fields the matcher already uses (no provider ids). When it's absent, the build
    runs, and unmatched players are dropped and counted. No build PR waits on it.
+
+
+## Player match statistics (R6)
+
+`player_match_stats` (optional table; key element, FPL fixture, `observed_at`) holds, per player and finished match: minutes,
+rating, touches, passes, accurate passes, key passes, long balls, through balls, **backward passes**, final-third passes,
+shots (total / on target), duels won, tackles, interceptions, recoveries, dribbles. Totals per match: no zones, no minutes
+of the action, no progressive or forward-pass counts (the provider has none).
+
+* **Where it comes from.** The last-7-days window of the daily pass and every backfill window use the route
+  `licensed_pl_fixtures_stats` (the licensed fixtures include plus `lineups.details`), in pages of 10. The 14-day window
+  ahead, the matchday and the deadline passes do not ask for details (a match not played has none). No extra call for the
+  stats themselves.
+* **Names.** `stat_types` (optional table, type id -> developer name) is read from the provider with one
+  `fixtures/{id}?include=lineups.details.type` call, **only** when a finished fixture carries a type id the table does not
+  know (which includes an empty table), and at most once per pass. An id still unknown afterwards is left out and counted
+  (`stat_types.unknown_after`). `core/types` answers 404 on the trial token, which is why it is not used.
+* **Absent = zero** only for a player with minutes (the provider sends non-zero stats only). A player with no minutes has no
+  row. A rating is never zero-filled. A re-read that changes nothing adds no row; a correction is kept, dated.
+* **Old builds.** Both tables are optional: a build written before R6 validates and the runtime serves them empty.
+* **Logs.** Counts only (`stat_types`: known, learned, provider_calls, unknown_after; `rows.player_match_stats`).

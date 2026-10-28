@@ -11,7 +11,7 @@
 PL lineups from the season's first kickoff to yesterday in 14-day windows and appends them to the store. It needs a
 published daily build to take the crosswalk from, and ``--since YYYY-MM-DD`` narrows it.
 
-Every mode takes ``--max-calls``, hard-capped per pass (daily 120, backfill 40, matchday and deadline 10): a counter
+Every mode takes ``--max-calls``, hard-capped per pass (daily 120, backfill 60, matchday and deadline 10): a counter
 on the client's ``Transport`` raises before call N+1.
 
 The repository is public and so are its CI logs: stdout is ONE JSON line of counts, and a failure prints only
@@ -33,7 +33,7 @@ PREFIX = "football-licensed"
 DEFAULT_ALIASES = Path(__file__).resolve().parent.parent / "manual_aliases.json"
 EXIT_OK, EXIT_FAILED, EXIT_REFUSED, EXIT_BUDGET = 0, 1, 2, 3
 #: The hard per-pass ceiling for --max-calls (also its default).
-MAX_CALLS = {"daily": 120, "matchday": 10, "deadline": 10, "backfill": 40}
+MAX_CALLS = {"daily": 120, "matchday": 10, "deadline": 10, "backfill": 60}
 
 
 def _parse(argv: Sequence[str] | None) -> argparse.Namespace:
