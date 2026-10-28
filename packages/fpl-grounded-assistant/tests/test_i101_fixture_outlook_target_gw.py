@@ -50,6 +50,7 @@ for _p in [
 import fpl_grounded_assistant  # noqa: E402,F401  (registers the tool)
 from fpl_tool_runner import TOOL_REGISTRY, run_tool  # noqa: E402
 from fpl_grounded_assistant import fixture_outlook as fo  # noqa: E402
+from fpl_grounded_assistant.catalogue import t  # noqa: E402
 from fpl_grounded_assistant.fixture_outlook_tool import (  # noqa: E402
     FIXTURE_OUTLOOK_SPEC,
     _TARGET_GW_NOT_FOUND,
@@ -227,7 +228,7 @@ def test_wrapper_target_gw_in_the_past_is_not_found_with_the_played_message():
     bs = _bootstrap()
     res = _run({"axis": "attack", "team_query": "ARS", "target_gw": 1}, bs)
     assert res["status"] == "not_found"
-    assert res["message"] == _TARGET_GW_NOT_FOUND[fo.TARGET_GW_PAST].format(gw=1)
+    assert res["message"] == t(_TARGET_GW_NOT_FOUND[fo.TARGET_GW_PAST], "es", gw=1)
     assert "ya se jugó" in res["message"]
     assert res.get("series") == []
     assert "verdict_scope" not in res
@@ -238,14 +239,14 @@ def test_wrapper_target_gw_beyond_data_is_not_found_with_the_no_data_message():
     beyond = 2 + fo._MAX_HORIZON
     res = _run({"axis": "attack", "team_query": "ARS", "target_gw": beyond}, bs)
     assert res["status"] == "not_found"
-    assert res["message"] == _TARGET_GW_NOT_FOUND[fo.TARGET_GW_BEYOND_DATA].format(gw=beyond)
+    assert res["message"] == t(_TARGET_GW_NOT_FOUND[fo.TARGET_GW_BEYOND_DATA], "es", gw=beyond)
     assert "No hay datos" in res["message"]
     assert res.get("series") == []
 
 
 def test_wrapper_the_two_not_found_messages_are_different():
-    past = _TARGET_GW_NOT_FOUND[fo.TARGET_GW_PAST].format(gw=1)
-    beyond = _TARGET_GW_NOT_FOUND[fo.TARGET_GW_BEYOND_DATA].format(gw=1)
+    past = t(_TARGET_GW_NOT_FOUND[fo.TARGET_GW_PAST], "es", gw=1)
+    beyond = t(_TARGET_GW_NOT_FOUND[fo.TARGET_GW_BEYOND_DATA], "es", gw=1)
     assert past != beyond
 
 
