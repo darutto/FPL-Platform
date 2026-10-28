@@ -138,11 +138,11 @@ def test_the_text_uses_only_the_allowed_phrases_and_no_causal_words(run, locale)
     assert not any(bad in low for bad in FORBIDDEN_PHRASES)
     if locale == "es":
         assert "empezó en otra casilla" in text and "coincidió con la ausencia de João Pedro" in text
-        assert "Muestra pequeña" in text and "no un movimiento durante el partido" in text
+        assert "En el once inicial sin João Pedro: 1; con él: 4" in text and "no un movimiento durante el partido" in text
         assert "Banda derecha" in text and "Mediapunta" in text
     else:
         assert "started in a different slot" in text and "coincided with the absence of João Pedro" in text
-        assert "Small sample" in text and "not movement during the match" in text
+        assert "In the starting XI without João Pedro: 1; with him: 4" in text and "not movement during the match" in text
         assert "Right Midfield" in text and "Attacking Midfield" in text
 
 
@@ -157,7 +157,7 @@ def test_statuses_without_data_render_in_the_language(run, locale):
 def test_the_new_catalogue_keys_come_in_pairs_with_the_same_placeholders():
     import re
     keys = [k for k in _CATALOGUE if k.startswith(("renderer.position_changes.", "gcard.position_changes."))]
-    assert len([k for k in keys if k.startswith("renderer.")]) == 28  # +3: line change / line not comparable (PR A)
+    assert len([k for k in keys if k.startswith("renderer.")]) == 30  # 25 + 3 (line change / not comparable) + 2 (assoc_more, small_focus)
     for key in keys:
         entry = _CATALOGUE[key]
         assert set(entry) == {"en", "es"} and entry["en"] and entry["es"]
@@ -192,13 +192,13 @@ def test_the_card_has_a_row_per_match_and_the_same_wording_as_the_text(run, loca
     if locale == "es":
         assert card.title == "Rogers · casilla inicial" and "no un movimiento durante el partido" in card.subtitle
         assert "Empezó en otra casilla (antes: Banda derecha)" in fourth[3] and "Coincidió con la ausencia de João Pedro" in fourth[3]
-        assert fourth[2] == "Mediapunta" and any(p.label.startswith("Muestra pequeña") for p in card.pills)
+        assert fourth[2] == "Mediapunta" and any(p.label == "Solo 1 partido sin João Pedro" for p in card.pills)
         assert card.columns[3].header == "Nota"
     else:
         assert card.title == "Rogers · starting slot" and "not movement during the match" in card.subtitle
         assert "Started in a different slot (before: Right Midfield)" in fourth[3]
         assert "Coincided with the absence of João Pedro" in fourth[3] and fourth[2] == "Attacking Midfield"
-        assert any(p.label.startswith("Small sample") for p in card.pills)
+        assert any(p.label == "Only 1 match without João Pedro" for p in card.pills)
     assert card.footer and "2026-11-30" in card.footer
 
 
@@ -256,3 +256,35 @@ def test_a_column_only_shift_is_neither_a_note_nor_counted_in_the_hero():
     for locale in ("es", "en"):
         card = compose_position_changes_card(_line_output(column_shift=True), locale)
         assert card.rows[0][3] == "-" and card.hero.value == "0"
+
+_ROLE_CHANGE = {"kind": "position", "claim_status": "observed", "baseline_starts": 5,
+                "from": {"detailed_position": "Right Midfield", "side": "right"},
+                "to": {"detailed_position": "Attacking Midfield", "side": "centre"}}
+
+
+def _assoc(name, sidelined=False):
+    return {"teammate": {"web_name": name}, "claim_status": "associated", "presence": "not_listed",
+            "listed_sidelined": {"category": "injury"} if sidelined else None, "may_be_unmapped": False}
+
+
+def test_the_card_names_at_most_two_teammates_and_counts_the_rest():
+    out = _line_output(_ROLE_CHANGE, associations=[_assoc("A"), _assoc("B")], associations_more=3)
+    for locale, more in (("es", "y 3 más"), ("en", "and 3 more")):
+        note = compose_position_changes_card(out, locale).rows[0][3]
+        assert note.endswith(more) and note.count("Coincid") == 2 and note.endswith(f"B; {more}")
+    out["matches"][0]["associations_more"] = 0
+    assert "más" not in compose_position_changes_card(out, "es").rows[0][3]
+
+
+def test_the_sample_warnings_are_separate_pills_with_their_own_counts():
+    out = _line_output()
+    out["sample"] = {"matches_with_stored_lineup": 9, "small_sample": False}
+    out["absence_focus"] = {"teammate": {"web_name": "João Pedro"}, "min_each_side": 3, "small_sample": True,
+                            "matches_without_him_in_xi": [{}, {}], "matches_with_him_in_xi": [{}] * 7}
+    labels = [p.label for p in compose_position_changes_card(out, "es").pills]
+    assert labels == ["Solo 2 partidos sin João Pedro"]  # nine lineups is enough: no "Muestra pequeña: 9"
+    out["sample"] = {"matches_with_stored_lineup": 4, "small_sample": True}
+    out["absence_focus"].update(matches_without_him_in_xi=[{}] * 3, matches_with_him_in_xi=[{}])
+    assert [p.label for p in compose_position_changes_card(out, "en").pills] == ["Only 4 matches with a lineup", "Only 1 match with João Pedro"]
+    text = render("get_position_changes", out, "es")
+    assert "sin João Pedro: 3; con él: 1" in text and "Hacen falta al menos 3 partidos" in text

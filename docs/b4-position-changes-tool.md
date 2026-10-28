@@ -38,6 +38,11 @@ Un cambio de **rol** (posición o lado) sigue diciéndose "empezó en otra casil
 
 **Normalización.** Las filas se numeran por formación (fila 1 = portero; `4-2-3-1` tiene cuatro líneas de campo en las filas 2 a 5), así que la fila cruda **solo se compara dentro de una misma formación**. Entre formaciones se usa la profundidad `(fila − 2) / (líneas − 1)`, de 0.0 (línea defensiva) a 1.0 (línea de ataque), y solo se afirma otra línea si se mueve al menos `LINE_STEP_MIN = 0.25`; menos que eso es la misma línea vista desde otra forma (`same_line`, sin nota). Es una aproximación: una línea de 3 y una de 5 cuentan igual. Probada con 4-2-3-1, 4-3-3, 4-4-2, 3-4-2-1, 3-5-2, 5-3-2 y 4-1-4-1.
 
+## Asociaciones y aviso de muestra (umbrales)
+
+- **Asociaciones:** como máximo 2 compañeros nombrados por partido (`MAX_ASSOCIATIONS`). Orden: (1) figuraba en la lista de bajas ese día, (2) su rol habitual coincide con el nuevo rol del jugador (`role_match`), (3) el resto no se nombra: `associations_more` lo cuenta ("y N más").
+- **Dos avisos independientes**, cada uno con su texto: "Solo N partidos con alineación" desaparece con **al menos 5 partidos con alineación guardada del jugador** (`SMALL_SAMPLE_BELOW`; `sample.lineups_needed` dice cuántos faltan); con `absent_player`, "Solo K partidos sin X" y "Solo M partidos con X" desaparecen con **al menos 3 partidos sin él y 3 con él** (`ABSENCE_MIN_EACH_SIDE`; `absence_focus.without_needed` y `with_needed` dicen cuántos faltan de cada lado).
+
 ## Identidad: dónde vive el bug de subcadena
 
 - **La causa** está en `find_players` (`fpl_grounded_assistant/find_players.py`): su rango 2 es una búsqueda por subcadena a propósito (`allow_substring=True`), y el nombre completo de Costinha (Brighton) contiene "João Pedro". Es una herramienta de **búsqueda**, no de resolución; no se cambia aquí.

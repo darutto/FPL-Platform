@@ -280,3 +280,53 @@ def test_the_line_is_reported_not_comparable_when_the_formation_is_unknown_or_th
     assert unknown["change"] is None and unknown["line_comparable"] is False
     mixed = _rogers_run([("4-2-3-1", "4:2"), ("4-2-3-1", "4:2"), ("4-3-3", "3:2")])  # one earlier start per formation
     assert mixed["change"] is None and "line_comparable" not in mixed  # 3 matches: the last has 2 priors, 0 same formation
+
+# ---- associations: at most two named, prioritised; sample thresholds with how many matches are missing -----------
+
+def _many_absent(sidelined_ids=(), same_role_ids=()):
+    """Five earlier matches with five regular teammates; in the sixth Rogers moves to AM and all five are out."""
+    store = Store()
+    mates = [41, 42, 43, 44, 45]
+    for el in mates:
+        NAMES[el] = {"web_name": f"M{el}", "team_short": "CHE"}
+    for fid in range(1, 7):
+        last = fid == 6
+        store.match(fid, fid, fid + 1, rogers=AM if last else RM, pedro_where="starts" if not last else "not_listed",
+                    extra=() if last else mates)
+        if not last:
+            # the "same role" mates usually play the attacking-midfield role that Rogers takes in the sixth match
+            for el in same_role_ids:
+                row = next(r for r in store.slots if r["element"] == el and r["fixture_id"] == fid)
+                row["detailed_position"], row["side"] = AM
+    for el in sidelined_ids:
+        store.sidelined.append({"element": el, "team": "CHE", "category": "injury", "start_date": "2026-11-01", "end_date": None,
+                                "games_missed": 1, "completed": False, "observed_at": "2026-11-05T05:00:00Z"})
+    return store.build()
+
+
+def test_at_most_two_teammates_are_named_and_the_rest_are_counted():
+    sixth = _many_absent()["matches"][-1]
+    assert len(sixth["associations"]) == 2 and sixth["associations_more"] == 4  # 5 mates + Pedro, two named
+
+
+def test_associations_put_the_sidelined_first_then_the_ones_whose_usual_role_matches():
+    sixth = _many_absent(sidelined_ids=(45,), same_role_ids=(43,))["matches"][-1]
+    assert [a["teammate"]["player_id"] for a in sixth["associations"]] == [45, 43]
+    assert sixth["associations"][0]["listed_sidelined"] and sixth["associations"][1]["role_match"] is True
+
+
+def test_sample_thresholds_report_how_many_matches_are_still_missing():
+    store = Store()
+    for fid in range(1, 5):
+        store.match(fid, fid, fid + 1, pedro_where="not_listed" if fid == 4 else "starts")
+    result = store.build(absent_element=PEDRO)
+    assert result["sample"]["small_sample"] is True and result["sample"]["lineups_needed"] == 1  # 4 of 5
+    focus = result["absence_focus"]
+    assert focus["min_each_side"] == 3 and focus["without_needed"] == 2 and focus["with_needed"] == 0  # 1 without, 3 with
+    assert focus["small_sample"] is True
+    store = Store()
+    for fid in range(1, 10):
+        store.match(fid, fid, fid + 1, pedro_where="not_listed" if fid in (7, 8, 9) else "starts")
+    done = store.build(absent_element=PEDRO)
+    assert done["sample"]["small_sample"] is False and done["sample"]["lineups_needed"] == 0
+    assert done["absence_focus"]["small_sample"] is False and done["absence_focus"]["without_needed"] == 0
