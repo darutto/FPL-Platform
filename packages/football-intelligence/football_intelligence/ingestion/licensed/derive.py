@@ -33,6 +33,7 @@ from typing import Any, Iterable, Mapping
 
 from football_intelligence.grid import grid_side
 from football_intelligence.ingestion.live_trial import fixture_status
+from football_intelligence.ingestion.licensed.player_stats import lineup_stats
 from football_intelligence.public_calendar import CompetitionSnapshot, SourceMatch, convert_matches, pl_club_code
 
 PREMIER_LEAGUE_ID = 8
@@ -78,6 +79,7 @@ class DerivedTables:
     squad_membership: tuple[dict[str, Any], ...]
     cup_snapshots: tuple[CompetitionSnapshot, ...]
     report: DeriveReport
+    player_match_stats: tuple[dict[str, Any], ...] = ()
 
 
 def lineup_confirmed(fixture: Mapping[str, Any]) -> bool | None:
@@ -122,9 +124,12 @@ def derive(
     fpl_fixtures: Iterable[FplFixture],
     team_codes: Mapping[int, str],
     crosswalk: Mapping[int, int],
+    stat_type_names: Mapping[int, str] | None = None,
 ) -> DerivedTables:
     """Derived tables for one ingestion pass. ``team_codes`` maps Sportmonks club ids to FPL codes (see
-    :func:`team_codes_from`); ``crosswalk`` maps Sportmonks player ids to FPL element ids."""
+    :func:`team_codes_from`); ``crosswalk`` maps Sportmonks player ids to FPL element ids.
+    ``stat_type_names`` (provider type id -> developer name, read from the provider) turns on the per-player match
+    statistics of COMPLETED fixtures; without it no statistics row is derived."""
     datetime.strptime(observed_at, "%Y-%m-%dT%H:%M:%SZ")  # a malformed stamp fails loudly
     report = DeriveReport()
     by_pair = {(f.home, f.away): f.fixture_id for f in fpl_fixtures}
@@ -139,6 +144,7 @@ def derive(
 
     snapshots: list[dict[str, Any]] = []
     slots: list[dict[str, Any]] = []
+    match_stats: list[dict[str, Any]] = []
     for fixture in pl_fixtures:
         report.fixtures_seen += 1
         sides = _sides(fixture)
@@ -181,6 +187,10 @@ def derive(
                     "detailed_position": (r.get("detailedposition") or {}).get("name") if starter else None,
                     "grid_slot": slot, "side": grid_side(slot, width, team_id == home_id) if starter else None,
                 })
+                measures = lineup_stats(r, stat_type_names) if stat_type_names and state == "completed" else None
+                if measures is not None:
+                    match_stats.append({"element": el, "fixture_id": fpl_id, "team": code, "observed_at": observed_at,
+                                        **measures})
 
     seen_sidelines: set[int] = set()
     absences: list[dict[str, Any]] = []
@@ -241,10 +251,11 @@ def derive(
 
     report.players_unmatched = len(unmatched_players)
     report.teams_unmatched = len(unmatched_teams)
-    tables = DerivedTables(tuple(snapshots), tuple(slots), tuple(absences), tuple(members), cups, report)
+    tables = DerivedTables(tuple(snapshots), tuple(slots), tuple(absences), tuple(members), cups, report,
+                           tuple(match_stats))
     report.rows = {"lineup_snapshots": len(tables.lineup_snapshots), "lineup_slots": len(tables.lineup_slots),
                    "sidelined": len(tables.sidelined), "squad_membership": len(tables.squad_membership),
-                   "cup_records": sum(len(c.records) for c in cups)}
+                   "cup_records": sum(len(c.records) for c in cups), "player_match_stats": len(match_stats)}
     return tables
 
 

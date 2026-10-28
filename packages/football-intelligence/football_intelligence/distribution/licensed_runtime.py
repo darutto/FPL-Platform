@@ -34,7 +34,7 @@ import pandas as pd
 
 from football_intelligence.ingestion.builder import resolve_contained_build_directory
 from football_intelligence.ingestion.licensed.store import (
-    LICENSED_V1, PREFIX_SEGMENT, TABLES, LicensedStoreError, validate_build,
+    LICENSED_V1, PREFIX_SEGMENT, TABLES, LicensedStoreError, read_table, validate_build,
 )
 from football_intelligence.provenance import LICENSED_STARTER, refuse_live_trial
 
@@ -97,7 +97,7 @@ class LicensedRuntimeHandle:
             raise LicensedTableRefused(name)
         manifest = self.manifest()
         build = resolve_contained_build_directory(self.cache_root / "builds", manifest["build_id"])
-        return pd.read_parquet(build / f"datasets/{name}.parquet")
+        return read_table(build, name)
 
 
 def licensed_startup_sync(env: Mapping[str, str] | None = None, *, store: ArtifactStore | None = None) -> RuntimeStatus:
