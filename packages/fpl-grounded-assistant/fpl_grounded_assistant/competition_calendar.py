@@ -1,9 +1,11 @@
 """Multi-competition calendar endpoint logic (``GET /fixtures/competitions``). Dev-only data.
 
-Source of the data is the local Sportmonks trial capture (``live_trial_local``
-provenance, never published). The endpoint therefore answers ``available: false``
-unless BOTH dev variables are set: ``FI_DEV_ALLOW_LIVE_TRIAL_LOCAL=1`` and
-``FI_DEV_LIVE_TRIAL_CAPTURE=<path to capture.json>``. Neither variable may appear
+Two sources. In production the cups (FA, Carabao) come from the synced licensed store
+(``licensed_starter``, best-effort: always partial, so the rotation notice is never issued from them) plus the
+Premier League fixtures; Europe is not in the Starter plan and is absent. In development the local Sportmonks
+trial capture (``live_trial_local`` provenance, never published) is used when BOTH dev variables are set: ``FI_DEV_ALLOW_LIVE_TRIAL_LOCAL=1`` and
+``FI_DEV_LIVE_TRIAL_CAPTURE=<path to capture.json>``; with neither source the endpoint answers
+``available: false``. Neither variable may appear
 in any prod path (Dockerfile, deploy config, CI); a test greps for it.
 
 The tier is decided here, on the server, from the tier the caller passes in (the
@@ -14,7 +16,10 @@ copy of the premium one, so it cannot leak an opponent, a competition or even a 
 from __future__ import annotations
 
 import json
+import logging
 import os
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -36,12 +41,90 @@ ROTATION_REST_DAYS = 3
 ROTATION_AFTER = frozenset({"UCL", "UEL", "UECL", "UEFA-SC", "FA", "EFL"})
 
 _cache: dict[tuple[str, float], dict[str, list[dict[str, Any]]]] = {}
+_LOG = logging.getLogger(__name__)
+#: Cups the licensed store covers (best-effort, always ``partial``). Europe is NOT in the Starter plan.
+LICENSED_COVERED = ("FA", "EFL")
+_PL_TTL_SECONDS = 600
+_pl_cache: dict[str, Any] = {"at": 0.0, "rows": None}
+_licensed_cache: dict[str, Any] = {}
+
+
+def _pl_snapshot(season: str, fetched_at: str):
+    """Premier League fixtures (FPL API, cached) as a snapshot, so the board can lay cups and league on one timeline."""
+    from football_intelligence.public_calendar import CompetitionSnapshot, FixtureRecord
+
+    now = time.time()
+    if _pl_cache["rows"] is None or now - _pl_cache["at"] > _PL_TTL_SECONDS:
+        from fpl_api_client.fpl_client import get_all_fixtures, get_bootstrap
+        codes = {int(t["id"]): str(t["short_name"]) for t in get_bootstrap().get("teams", ())}
+        _pl_cache.update(at=now, rows=(codes, get_all_fixtures()))
+    codes, fixtures = _pl_cache["rows"]
+    records = []
+    for f in fixtures:
+        kickoff, event = f.get("kickoff_time"), f.get("event")
+        home, away = codes.get(int(f.get("team_h", 0))), codes.get(int(f.get("team_a", 0)))
+        if not kickoff or event is None or home is None or away is None:
+            continue  # unscheduled (no kickoff or round): not a match yet
+        for club, other, venue in ((home, away, "H"), (away, home, "A")):
+            records.append(FixtureRecord("PL", season, club, other, other, kickoff, venue, "scheduled",
+                                         "fpl_api", fetched_at, int(event)))
+    return CompetitionSnapshot("PL", season, "fpl_api", fetched_at, None, tuple(records))
+
+
+def _licensed_calendar() -> dict[str, list[dict[str, Any]]] | None:
+    """FA/Carabao from the synced licensed store (``licensed_starter``) plus the PL fixtures, or None.
+
+    Never raises: an unsynced store, a refused build or an unreachable FPL API all read as "no data", which the
+    endpoint answers as ``available: false`` -- never as an empty calendar ("no match").
+    """
+    try:
+        from football_intelligence.distribution.licensed_runtime import handle_from_env
+        from football_intelligence.public_calendar import CompetitionSnapshot, FixtureRecord, build_public_calendar, calendar_status
+
+        handle = handle_from_env()
+        manifest = handle.manifest()
+        key = manifest["build_id"]
+        hit = _licensed_cache.get("calendar")
+        if hit and hit["build"] == key and time.time() - hit["at"] < _PL_TTL_SECONDS:
+            return hit["value"]
+        snaps, recs = handle.table("cup_snapshots"), handle.table("cup_records")
+        season = str(snaps["season"].iloc[0]) if len(snaps) else ""
+        snapshots = []
+        for row in snaps.to_dict("records"):
+            rows = recs[recs["competition"] == row["competition"]].to_dict("records")
+            snapshots.append(CompetitionSnapshot(
+                competition=row["competition"], season=str(row["season"]), source=str(row["source"]),
+                fetched_at=str(row["fetched_at"]),
+                complete_as_of=row["complete_as_of"] if isinstance(row["complete_as_of"], str) else None,
+                records=tuple(FixtureRecord(
+                    competition=r["competition"], season=str(r["season"]), club=r["club"], opponent=r["opponent"],
+                    opponent_code=r["opponent_code"], kickoff_utc=r["kickoff_utc"], venue=r["venue"],
+                    status=r["status"], source=str(r["source"]), fetched_at=str(r["fetched_at"]),
+                    gameweek=int(r["gameweek"]) if r["gameweek"] == r["gameweek"] and r["gameweek"] is not None else None)
+                    for r in rows),
+                postponed=int(row["postponed"] or 0)))
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        snapshots.append(_pl_snapshot(season, now.strftime("%Y-%m-%dT%H:%M:%SZ")))
+        value = build_public_calendar(snapshots, now=now, covered=LICENSED_COVERED)
+        # What the board may say about the data: which cups are covered and how complete each is. Cups are
+        # best-effort, so "partial"/"missing" means "not confirmed", never "no match".
+        coverage = {c: v["status"] for c, v in calendar_status(snapshots, LICENSED_COVERED, now).items()}
+        meta = {"provenance": "licensed_starter", "built_at": manifest.get("built_at"), "coverage": coverage}
+        _licensed_cache["calendar"] = {"build": key, "at": time.time(), "value": value, "meta": meta}
+        return value
+    except Exception as exc:  # noqa: BLE001 -- fail-soft by design; log the type only, never a row
+        _LOG.info("licensed competition calendar unavailable: %s", type(exc).__name__)
+        return None
+
+
+def _dev_gate_open() -> bool:
+    return os.environ.get(ENV_ALLOW, "").strip() == "1"
 
 
 def _calendar() -> dict[str, list[dict[str, Any]]] | None:
-    """The trial calendar, or None when the dev gate is closed or the capture is absent."""
+    """The calendar: the dev trial capture when its gate is open, else the licensed store, else None."""
     if os.environ.get(ENV_ALLOW, "").strip() != "1":
-        return None
+        return _licensed_calendar()
     raw = os.environ.get(ENV_CAPTURE, "").strip()
     path = Path(raw) if raw else None
     if path is None or not path.is_file():
@@ -78,7 +161,8 @@ def competitions_response(tier: str, team: str | None, date_from: str | None, da
         # Premium only: free never gets the notice nor a hint of it. `matches` are the other
         # competitions; `pl_matches` carry the Premier League kickoffs so the board can lay
         # both on one timeline in real date order, each with the whole rest days before it.
-        return {"available": True, "tier": "premium", "teams": {
+        data = _licensed_cache.get("calendar", {}).get("meta") if not _dev_gate_open() else None
+        return {"available": True, "tier": "premium", **({"data": data} if data else {}), "teams": {
             code: {
                 "matches": [
                     {k: m[k] for k in ("kickoff_utc", "week", "gameweek", "competition", "venue", "opponent",
