@@ -427,7 +427,11 @@ def _render_compare_players(output: dict[str, Any], locale: Locale = DEFAULT_LOC
     if status == "ok":
         rec = output.get("recommendation", "")
         return rec if rec else t("compare_players.ok_fallback", locale)
-    if status in ("not_found", "ambiguous"):
+    if status == "ambiguous":
+        # ``message`` is an LLM-facing English instruction ("Ask the user to
+        # clarify…"); never show it to the user.
+        return t("compare_players.ambiguous", locale, player=output.get("error_player", ""))
+    if status == "not_found":
         ep  = output.get("error_player", "")
         msg = output.get("message", t("compare_players.not_found_fallback", locale, player=ep))
         return msg
