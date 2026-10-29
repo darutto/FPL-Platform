@@ -150,11 +150,16 @@ def _coerce(value: str, spec: ArgSpec) -> tuple[Any, str | None]:
             return None, f"{spec.name}: {v} > max {spec.max_value}"
         return v, None
     if spec.type == "enum":
-        folded = _nfc_fold(raw)
+        # "Triple Captain" / "triple-captain" must match the enum's "triple_captain":
+        # the chip names are typed as words, the enum stores them with underscores.
+        def _words(v: str) -> str:
+            return " ".join(re.split(r"[\s_\-]+", _nfc_fold(v)))
+
+        folded = _words(raw)
         if spec.enum is None:
             return None, f"{spec.name}: enum spec missing"
         for accepted in spec.enum:
-            if _nfc_fold(accepted) == folded:
+            if _words(accepted) == folded:
                 return accepted, None
         return None, f"{spec.name}: {raw!r} not in {list(spec.enum)}"
     return raw, None
