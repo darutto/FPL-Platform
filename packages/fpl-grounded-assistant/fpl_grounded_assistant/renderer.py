@@ -590,30 +590,30 @@ def _render_get_player_fixture_run(output: dict[str, Any], locale: Locale = DEFA
 
 def _render_get_differential_picks(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render differential picks output.  Phase 7g."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         picks    = output.get("picks", [])
-        threshold = float(output.get("ownership_threshold", 15.0))
+        threshold = f"{float(output.get('ownership_threshold', 15.0)):.0f}"
         if not picks:
-            return f"No differential picks found (ownership < {threshold:.0f}%)."
-        lines = [f"Top differentials (ownership < {threshold:.0f}%):"]
+            return t("renderer.differentials.none", locale, threshold=threshold)
+        lines = [t("renderer.differentials.header", locale, threshold=threshold)]
         for p in picks:
             cost_m = p["now_cost"] / 10.0
             # Phase 8a1: display position_score (position-aware heuristic)
             display_score = p.get("position_score", p["captain_score"])
-            lines.append(
-                f"  {p['rank']}. {p['web_name']} ({p['team_short']}, "
-                f"{p['position']}) — score {display_score:.1f}, "
-                f"{p['ownership']:.1f}% owned, £{cost_m:.1f}m"
-            )
+            lines.append(t(
+                "renderer.differentials.row", locale,
+                rank=p["rank"], name=p["web_name"], team=p["team_short"],
+                position=p["position"], score=f"{display_score:.1f}",
+                owned=f"{p['ownership']:.1f}", cost=f"{cost_m:.1f}",
+            ))
         return "\n".join(lines)
 
     if status == "empty":
-        return output.get("message", "No differential picks found.")
+        return output.get("message", t("renderer.differentials.empty", locale))
 
     code    = output.get("code", "error")
-    message = output.get("message", "An unexpected differential picks error occurred.")
+    message = output.get("message", t("renderer.differentials.error", locale))
     return f"Error ({code}): {message}"
 
 
