@@ -806,6 +806,10 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "en": "Comparison completed.",
         "es": "Comparación completada.",
     },
+    "compare_players.ambiguous": {
+        "en": "More than one player is called '{player}'. Pick the one you mean.",
+        "es": "Hay más de un jugador llamado '{player}'. Elige el que quieres.",
+    },
     "compare_players.not_found_fallback": {
         "en": "Could not resolve player '{player}'.",
         "es": "No pude identificar al jugador '{player}'.",

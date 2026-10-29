@@ -970,3 +970,20 @@ class TestSpanishRegisterIsTuteo:
             if m.group(0).lower() not in allowed
         ]
         assert hits == [("fake.key", "Usá")]
+
+
+class TestCompareAmbiguousLocalized:
+    """The LLM-facing "Ask the user to clarify…" message must never reach the user."""
+
+    OUT = {
+        "status": "ambiguous", "error_player": "João Pedro",
+        "message": "Multiple players share the name 'João Pedro'. Ask the user to clarify — x",
+    }
+
+    def test_en_and_es_have_no_english_instruction_leak(self):
+        from fpl_grounded_assistant.renderer import _render_compare_players
+        en = _render_compare_players(self.OUT, "en")
+        es = _render_compare_players(self.OUT, "es")
+        assert "Ask the user" not in en and "Ask the user" not in es
+        assert "João Pedro" in en and "João Pedro" in es
+        assert en != es
