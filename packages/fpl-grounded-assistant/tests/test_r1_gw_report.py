@@ -349,6 +349,15 @@ class TestStories:
         s = next(s for s in r["stories"] if s["kind"] == "captain_gap")["evidence"]
         assert s["best"] == "Foden" and s["best_points"] == 10 and s["extra_points"] == (10 - 2) * 2
 
+    def test_captain_gap_text_does_not_quantify_the_gap(self):
+        from fpl_grounded_assistant.gw_report_text import story_text
+        r = _build(_picks(), _live({10: 1, 7: 10}))
+        st = next(s for s in r["stories"] if s["kind"] == "captain_gap")
+        es, en = story_text(st, "es"), story_text(st, "en")
+        assert "fue el mejor de tu once (10 pts); el brazalete fue para" in es and "(1 pt, ×2)" in es
+        assert "was the best of your XI (10 pts); the armband went to" in en and "(1 pt, ×2)" in en
+        assert "diferencia" not in es and "difference" not in en
+
     def test_bench_points_story(self):
         r = _build(_picks(), _live({14: 9, 13: 3}))
         s = next(s for s in r["stories"] if s["kind"] == "bench_points")["evidence"]

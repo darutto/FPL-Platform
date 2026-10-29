@@ -56,8 +56,8 @@ def story_text(story: dict[str, Any], locale: Locale) -> str:
         return t(
             "gw_report.story.captain_gap", locale,
             captain=ev["captain"], captain_points=ev["captain_points"],
-            multiplier=ev["multiplier"], contribution=ev["contribution"],
-            best=ev["best"], best_points=ev["best_points"], extra=ev["extra_points"],
+            multiplier=ev["multiplier"], unit="pt" if ev["captain_points"] == 1 else "pts",
+            best=ev["best"], best_points=ev["best_points"],
         )
     if kind == "autosub":
         key = "gw_report.story.autosub_no_fixture" if ev.get("out_team_fixtures") == 0 else "gw_report.story.autosub_not_played"

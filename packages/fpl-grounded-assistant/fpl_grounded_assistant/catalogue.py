@@ -1293,8 +1293,8 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "es": ' (igualado con {names})',
     },
     "gw_report.story.captain_gap": {
-        "en": 'Captain: {captain} scored {captain_points} pts (×{multiplier} = {contribution}). {best} led your XI with {best_points} pts, a {extra}-point difference with the armband.',
-        "es": 'Capitán: {captain} sumó {captain_points} pts (×{multiplier} = {contribution}). {best} lideró tu once con {best_points} pts, una diferencia de {extra} pts con el brazalete.',
+        "en": '{best} was the best of your XI ({best_points} pts); the armband went to {captain} ({captain_points} {unit}, ×{multiplier}).',
+        "es": '{best} fue el mejor de tu once ({best_points} pts); el brazalete fue para {captain} ({captain_points} {unit}, ×{multiplier}).',
     },
     "gw_report.story.autosub": {
         "en": 'Automatic substitution: {player_in} came on for {player_out} and scored {points_in} pts ({reason}).',
@@ -1325,8 +1325,8 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "es": ' (en sus {n} partidos previos con minutos promedió {avg} pts por partido; comparación histórica, no una expectativa)',
     },
     "gw_report.story.minutes_change": {
-        "en": 'Minutes: {player} played {per_fixture} min per match, against an average of {avg} in his last {n} appearances.',
-        "es": 'Minutos: {player} jugó {per_fixture} min por partido, frente a una media de {avg} en sus últimos {n} partidos con minutos.',
+        "en": 'Minutes: {player} played {per_fixture} min this gameweek, against an average of {avg} min in his last {n} appearances with minutes.',
+        "es": 'Minutos: {player} jugó {per_fixture} min en esta jornada, frente a una media de {avg} min en sus últimos {n} partidos con minutos.',
     },
     "gw_report.footer": {
         "en": 'Retrospective review from official FPL data; it is not a forecast.',
