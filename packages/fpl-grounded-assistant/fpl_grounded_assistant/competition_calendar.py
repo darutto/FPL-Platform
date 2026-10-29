@@ -117,6 +117,79 @@ def _licensed_calendar() -> dict[str, list[dict[str, Any]]] | None:
         return None
 
 
+ENV_MANUAL = "FPL_MANUAL_CALENDAR_PATH"
+DEFAULT_MANUAL_PATH = "data/calendar-manual/europe_manual.json"
+#: Placeholder time of a match whose kickoff is unknown or unverified; ordering only, never shown as a time.
+_UNKNOWN_TIME = "T12:00:00Z"
+_manual_cache: dict[tuple[str, float], dict[str, Any] | None] = {}
+
+
+def _manual_layer() -> dict[str, Any] | None:
+    """The hand-compiled European layer (``manual_curated``) or None. Validated; never raises, never logs a row."""
+    path = Path(os.environ.get(ENV_MANUAL, "").strip() or DEFAULT_MANUAL_PATH)
+    try:
+        key = (str(path), path.stat().st_mtime)
+        if key not in _manual_cache:
+            _manual_cache.clear()
+            layer = json.loads(path.read_text(encoding="utf-8"))
+            ok = (layer.get("schema_version") == 1 and layer.get("provenance") == "manual_curated"
+                  and isinstance(layer.get("matches"), list) and isinstance(layer.get("list_date"), str))
+            _manual_cache[key] = layer if ok else None
+        return _manual_cache[key]
+    except Exception as exc:  # noqa: BLE001 -- absent or unreadable layer = no layer
+        _LOG.info("manual calendar layer unavailable: %s", type(exc).__name__)
+        return None
+
+
+def _parse(kickoff_utc: str) -> datetime:
+    return datetime.strptime(kickoff_utc, "%Y-%m-%dT%H:%M:%SZ")
+
+
+def _with_manual(calendar: dict[str, list[dict[str, Any]]], layer: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    """A copy of ``calendar`` with the manual European matches laid in, rest days recomputed from real hours.
+
+    Only matches with a verified kickoff take part in the rest-day arithmetic; one without (``kickoff_known:
+    false``) is added afterwards with no rest fields, so a doubtful hour never produces a number or a notice.
+    A Premier League match whose previous match is a verified manual one gets ``europe_prior`` (a known fact, so
+    the notice does not wait for a complete calendar: a hole can only hide a *closer* match, never undo this one).
+    """
+    from football_intelligence.live_trial_calendar import finish_calendar
+
+    manual_ids: set[int] = set()
+    per_club: dict[str, list[dict[str, Any]]] = {}
+    loose: dict[str, list[dict[str, Any]]] = {}
+    for code, ms in calendar.items():
+        rows = [{**m, "_kickoff": _parse(m["kickoff_utc"])} for m in ms]
+        pl_days = sorted((m["kickoff_utc"][:10], m["gameweek"]) for m in ms if m["is_pl"] and m["gameweek"] is not None)
+        for x in layer["matches"]:
+            if x["club"] != code:
+                continue
+            gw = next((g for g in sorted({g for _, g in pl_days})
+                       if max(d for d, gg in pl_days if gg == g) >= x["date"]), None)
+            row = {"kickoff_utc": x.get("kickoff_utc") if x["kickoff_known"] else x["date"] + _UNKNOWN_TIME,
+                   "kickoff_known": bool(x["kickoff_known"]), "week": None, "gameweek": gw,
+                   "competition": x["competition"], "is_pl": False, "venue": x["venue"], "opponent": x["opponent"],
+                   "opponent_code": x["opponent_code"]}
+            if x["kickoff_known"]:
+                row["_kickoff"] = _parse(row["kickoff_utc"])
+                manual_ids.add(id(row))
+                rows.append(row)
+            else:
+                loose.setdefault(code, []).append({**row, "rest_days_before": None, "rest_whole_days_before": None,
+                                                   "rest_days_after": None, "previous_competition": None})
+        per_club[code] = rows
+    out = finish_calendar(per_club)
+    for code, ms in out.items():
+        for i, m in enumerate(ms):
+            if i:  # whole hours between the two kickoffs: the notice quotes them
+                m["rest_hours_before"] = int((_parse(m["kickoff_utc"]) - _parse(ms[i - 1]["kickoff_utc"])).total_seconds() // 3600)
+            if m["is_pl"] and i and id(ms[i - 1]) in manual_ids:
+                m["europe_prior"] = True
+        ms.extend(loose.get(code, ()))
+        ms.sort(key=lambda m: m["kickoff_utc"])
+    return out
+
+
 def _dev_gate_open() -> bool:
     return os.environ.get(ENV_ALLOW, "").strip() == "1"
 
@@ -147,7 +220,7 @@ def _rotates(m: dict[str, Any]) -> bool:
     # A calendar with a hole (a competition partial, stale or missing: ``calendar_complete`` False, set by the
     # public-data calendar) never warns: missing data is not "no match", and it can hide the match behind the rest days.
     # The trial calendar has no such key and is unaffected.
-    if m.get("calendar_complete", True) is False:
+    if m.get("calendar_complete", True) is False and not m.get("europe_prior"):
         return False
     return days is not None and days <= ROTATION_REST_DAYS and m["previous_competition"] in ROTATION_AFTER
 
@@ -162,17 +235,25 @@ def competitions_response(tier: str, team: str | None, date_from: str | None, da
         # competitions; `pl_matches` carry the Premier League kickoffs so the board can lay
         # both on one timeline in real date order, each with the whole rest days before it.
         data = _licensed_cache.get("calendar", {}).get("meta") if not _dev_gate_open() else None
+        manual = _manual_layer() if data else None  # layered on the licensed calendar only, never on the dev capture
+        if manual:
+            wanted = {c: ms for c, ms in _with_manual(calendar, manual).items() if c in wanted}
+        if data and manual:
+            data = {**data, "provenance": f"{data['provenance']}+manual_curated", "manual": {
+                "provenance": "manual_curated", "list_date": manual["list_date"], "coverage": "partial", "frozen": True,
+                "competitions": manual.get("competitions", [])}}
         return {"available": True, "tier": "premium", **({"data": data} if data else {}), "teams": {
             code: {
                 "matches": [
-                    {k: m[k] for k in ("kickoff_utc", "week", "gameweek", "competition", "venue", "opponent",
-                                       "opponent_code", "rest_days_before", "rest_whole_days_before",
-                                       "rest_days_after", "previous_competition")}
+                    {**{k: m[k] for k in ("kickoff_utc", "week", "gameweek", "competition", "venue", "opponent",
+                                          "opponent_code", "rest_days_before", "rest_whole_days_before",
+                                          "rest_days_after", "previous_competition")},
+                     **({"kickoff_known": False} if m.get("kickoff_known") is False else {})}
                     for m in ms if not m["is_pl"] and _in_window(m, date_from, date_to)],
                 "pl_matches": [
                     {**{k: m[k] for k in ("kickoff_utc", "week", "gameweek", "venue", "opponent", "opponent_code",
                                           "rest_whole_days_before", "previous_competition")},
-                     "rotation": _rotates(m)}
+                     "rest_hours_before": m.get("rest_hours_before"), "rotation": _rotates(m)}
                     for m in ms if m["is_pl"] and _in_window(m, date_from, date_to)]}
             for code, ms in wanted.items()}}
     # Free/Tribuna: the layer exists and is locked, and that is ALL they are told. No rival,
