@@ -2268,7 +2268,7 @@
         "Producto"
       ],
       "title": "B4: cambios de posición y quién sustituye a quién (ficha de jugador)",
-      "desc": "R3 del plan de reportes: herramienta y tarjeta ES/EN con la casilla inicial de cada partido. Frase citable segura: 'empezó en otra casilla'. Depende de la ingesta 3b y del primer publish. ACTUALIZACIÓN 2026-10-27 (PR #545, #546): ingesta 3b fusionada (PR #543) habilita el camino de lectura licenciado (LicensedRuntimeHandle, off por defecto tras FPL_FOOTBALL_LICENSED_SYNC_ENABLED) y la herramienta get_position_changes ya resuelve slot inicial, comparación con titularidades previas y ausencia de compañeros (claims observed/associated/hypothesis), detrás de FOOTBALL_INTELLIGENCE_ENABLED; falta la tarjeta ES/EN (PR 3/3) y el primer publish real a producción. ACTUALIZACIÓN 2026-10-28 (PR #555, refinamiento A): mismo rol en otra casilla ahora se clasifica como línea distinta (más adelantado/retrasado, cuenta en el hero), solo columna (no es cambio) o línea no comparable; filas comparadas dentro de una formación o normalizadas 0-1 entre formaciones; corrige el ruido de Rogers en la GW6. Partes (b) tope de asociación y (c) sample pills siguen en otra PR; sigue faltando la tarjeta ES/EN (PR 3/3) y el primer publish."
+      "desc": "R3 del plan de reportes: herramienta y tarjeta ES/EN con la casilla inicial de cada partido. Frase citable segura: 'empezó en otra casilla'. Depende de la ingesta 3b y del primer publish. ACTUALIZACIÓN 2026-10-27 (PR #545, #546): ingesta 3b fusionada (PR #543) habilita el camino de lectura licenciado (LicensedRuntimeHandle, off por defecto tras FPL_FOOTBALL_LICENSED_SYNC_ENABLED) y la herramienta get_position_changes ya resuelve slot inicial, comparación con titularidades previas y ausencia de compañeros (claims observed/associated/hypothesis), detrás de FOOTBALL_INTELLIGENCE_ENABLED; falta la tarjeta ES/EN (PR 3/3) y el primer publish real a producción. ACTUALIZACIÓN 2026-10-28 (PR #555, refinamiento A): mismo rol en otra casilla ahora se clasifica como línea distinta (más adelantado/retrasado, cuenta en el hero), solo columna (no es cambio) o línea no comparable; filas comparadas dentro de una formación o normalizadas 0-1 entre formaciones; corrige el ruido de Rogers en la GW6. Partes (b) tope de asociación y (c) sample pills siguen en otra PR; sigue faltando la tarjeta ES/EN (PR 3/3) y el primer publish. ACTUALIZACIÓN 2026-10-28 (PR #547, #549, #558): la tarjeta ES/EN de cambios de posición (PR 3/3, #547) está fusionada; #549 añade la resincronización periódica del store licenciado en segundo plano (apagada con el flag de sync) y #558 (refinamiento B) limita las asociaciones a 2 con prioridad y separa los avisos de muestra. Falta el primer publish real a producción."
     },
     {
       "id": "i161",
@@ -2356,6 +2356,49 @@
       "tags": [
         "Backend",
         "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s59",
+      "col": "shipped",
+      "title": "Ingesta licenciada: relleno manual de historia (B3)",
+      "desc": "Fusionada (PR #548, 27/10). Nuevo pase manual de backfill en la ingesta licenciada: alineaciones de partidos terminados, idempotente, tope de 40 llamadas por ejecución.",
+      "tags": [
+        "Backend",
+        "Datos"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s60",
+      "col": "shipped",
+      "title": "Textos de la tarjeta de ranking y errores de plantilla en inglés (S5-B)",
+      "desc": "Fusionada (PR #557, 28/10). La tarjeta de ranking atómica y los errores de get_my_squad y team_results pasan a claves atomic.* y tool_err.* con locale ES/EN.",
+      "tags": [
+        "Backend",
+        "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s61",
+      "col": "shipped",
+      "title": "FA Cup y Carabao en /fixtures/competitions desde el store licenciado",
+      "desc": "Fusionada (PR #560, 28/10). El calendario ampliado (/fixtures/competitions) arma las copas desde el store licenciado más los partidos de la PL; procedencia licensed_starter, cobertura siempre parcial (calendar_complete falso) y, sin store sincronizado o con la API de FPL caída, available false en vez de un calendario vacío. Europa no está cubierta. Falta mostrar data.coverage en la UI.",
+      "tags": [
+        "Backend",
+        "Datos"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s62",
+      "col": "shipped",
+      "title": "Limpieza semanal de worktrees (script y regla)",
+      "desc": "Fusionada (PR #562, 28/10). scripts/cleanup_worktrees.ps1 y docs/worktree-cleanup.md: dry-run por defecto, -Apply borra solo worktrees con PR fusionado, sin commits sin subir, árbol limpio, sin datos locales ignorados y quietos más de 24 h; lista de mantener aparte. No programado; -Apply sin probar.",
+      "tags": [
+        "Infra"
       ],
       "progress": 100
     }
