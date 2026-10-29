@@ -79,3 +79,74 @@ def test_an_unsynced_store_is_unavailable_not_empty(monkeypatch):
         raise FileNotFoundError("no pointer")
     monkeypatch.setattr(lr, "handle_from_env", boom)
     assert cc.competitions_response("patreon_premium", None, None, None) == {"available": False}
+
+
+def _layer(tmp_path, monkeypatch, matches=None, provenance="manual_curated"):
+    import json
+    path = tmp_path / "europe.json"
+    path.write_text(json.dumps({
+        "schema_version": 1, "provenance": provenance, "list_date": "2026-10-27", "coverage": "partial", "frozen": True,
+        "competitions": ["UCL"], "matches": matches if matches is not None else [
+            {"competition": "UCL", "club": "ARS", "opponent": "Equipo Uno", "opponent_code": "", "date": "2099-01-01",
+             "venue": "A", "kickoff_known": False}]}), encoding="utf-8")
+    monkeypatch.setenv(cc.ENV_MANUAL, str(path))
+    cc._manual_cache.clear()
+
+
+def test_manual_europe_is_layered_with_its_own_provenance_and_no_rest_or_notice(monkeypatch, tmp_path):
+    _install(monkeypatch, [_snap()], [_fa("ARS", "Luton", "LUT", "2099-01-01T19:45:00Z")])
+    _layer(tmp_path, monkeypatch)
+    out = cc.competitions_response("patreon_basic", "ARS", None, None)
+    assert out["data"]["provenance"] == "licensed_starter+manual_curated"
+    assert out["data"]["manual"] == {"provenance": "manual_curated", "list_date": "2026-10-27", "coverage": "partial",
+                                     "frozen": True, "competitions": ["UCL"]}
+    ucl = [m for m in out["teams"]["ARS"]["matches"] if m["competition"] == "UCL"]
+    assert len(ucl) == 1 and ucl[0]["kickoff_known"] is False and ucl[0]["gameweek"] == 20
+    assert ucl[0]["rest_whole_days_before"] is None and ucl[0]["previous_competition"] is None
+    assert [m["rotation"] for m in out["teams"]["ARS"]["pl_matches"]] == [False]
+
+
+def test_a_verified_europe_time_gives_rest_hours_and_the_notice_on_a_partial_calendar(monkeypatch, tmp_path):
+    _install(monkeypatch, [_snap()], [_fa("ARS", "Luton", "LUT", "2098-12-20T19:45:00Z")])
+    _layer(tmp_path, monkeypatch, matches=[
+        {"competition": "UCL", "club": "ARS", "opponent": "Equipo Uno", "opponent_code": "", "date": "2099-01-01",
+         "venue": "A", "kickoff_known": True, "kickoff_utc": "2099-01-01T20:00:00Z"}])
+    out = cc.competitions_response("patreon_basic", "ARS", None, None)
+    ucl = [m for m in out["teams"]["ARS"]["matches"] if m["competition"] == "UCL"][0]
+    assert ucl["kickoff_utc"] == "2099-01-01T20:00:00Z" and "kickoff_known" not in ucl
+    assert ucl["previous_competition"] == "FA" and ucl["rest_whole_days_before"] == 12
+    pl = out["teams"]["ARS"]["pl_matches"][0]
+    # 2099-01-01 20:00 -> 2099-01-03 15:00 is 43 h: 1 whole day, after a European match -> notice, in spite of coverage partial
+    assert (pl["rest_hours_before"], pl["rest_whole_days_before"], pl["previous_competition"], pl["rotation"]) == (43, 1, "UCL", True)
+
+
+def test_an_unverified_time_never_feeds_rest_or_notice(monkeypatch, tmp_path):
+    _install(monkeypatch, [_snap()], [_fa("ARS", "Luton", "LUT", "2098-12-20T19:45:00Z")])
+    _layer(tmp_path, monkeypatch, matches=[
+        {"competition": "UCL", "club": "ARS", "opponent": "Equipo Uno", "opponent_code": "", "date": "2099-01-02",
+         "venue": "A", "kickoff_known": False}])
+    pl = cc.competitions_response("patreon_basic", "ARS", None, None)["teams"]["ARS"]["pl_matches"][0]
+    assert pl["previous_competition"] == "FA" and pl["rotation"] is False
+
+
+def test_free_tier_sees_nothing_of_the_manual_layer(monkeypatch, tmp_path):
+    _install(monkeypatch, [_snap()], [_fa("ARS", "Luton", "LUT", "2099-01-01T19:45:00Z")])
+    _layer(tmp_path, monkeypatch)
+    assert cc.competitions_response("free", None, None, None) == {"available": True, "tier": "free"}
+
+
+def test_a_layer_with_another_provenance_or_no_file_is_ignored(monkeypatch, tmp_path):
+    _install(monkeypatch, [_snap()], [_fa("ARS", "Luton", "LUT", "2099-01-01T19:45:00Z")])
+    _layer(tmp_path, monkeypatch, provenance="live_trial_local")
+    out = cc.competitions_response("patreon_basic", "ARS", None, None)
+    assert out["data"]["provenance"] == "licensed_starter" and "manual" not in out["data"]
+    monkeypatch.setenv(cc.ENV_MANUAL, str(tmp_path / "missing.json"))
+    cc._manual_cache.clear()
+    assert "manual" not in cc.competitions_response("patreon_basic", "ARS", None, None)["data"]
+
+
+def test_the_window_filters_manual_matches(monkeypatch, tmp_path):
+    _install(monkeypatch, [_snap()], [_fa("ARS", "Luton", "LUT", "2099-01-01T19:45:00Z")])
+    _layer(tmp_path, monkeypatch)
+    out = cc.competitions_response("patreon_basic", "ARS", "2099-02-01", None)
+    assert [m["competition"] for m in out["teams"]["ARS"]["matches"]] == []
