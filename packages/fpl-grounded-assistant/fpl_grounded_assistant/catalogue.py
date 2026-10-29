@@ -386,6 +386,27 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     # already had an inline English branch. Param values are pre-formatted by the
     # caller so the number formatting stays where it was.
     "renderer.error_unexpected": {"en": "Unexpected error.", "es": "Error inesperado."},
+    # differential picks (the rows keep the FPL price format: £x.xm)
+    "renderer.differentials.header": {
+        "en": "Top differentials (ownership < {threshold}%):",
+        "es": "Mejores diferenciales (propiedad < {threshold}%):",
+    },
+    "renderer.differentials.none": {
+        "en": "No differential picks found (ownership < {threshold}%).",
+        "es": "No se encontraron diferenciales (propiedad < {threshold}%).",
+    },
+    "renderer.differentials.empty": {
+        "en": "No differential picks found.",
+        "es": "No se encontraron diferenciales.",
+    },
+    "renderer.differentials.error": {
+        "en": "An unexpected differential picks error occurred.",
+        "es": "Ocurrió un error inesperado al buscar diferenciales.",
+    },
+    "renderer.differentials.row": {
+        "en": "  {rank}. {name} ({team}, {position}) — score {score}, {owned}% owned, £{cost}m",
+        "es": "  {rank}. {name} ({team}, {position}) — puntuación {score}, {owned}% de propiedad, £{cost}m",
+    },
     "renderer.captain.pool_derived": {
         "en": "Pool source: derived from bootstrap.",
         "es": "Origen del pool: derivado del bootstrap.",
