@@ -386,6 +386,59 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     # already had an inline English branch. Param values are pre-formatted by the
     # caller so the number formatting stays where it was.
     "renderer.error_unexpected": {"en": "Unexpected error.", "es": "Error inesperado."},
+    # fallbacks shown only when a tool result carries no message of its own
+    "renderer.fallback.error": {
+        "en": "An unexpected error occurred.",
+        "es": "Ocurrió un error inesperado.",
+    },
+    "renderer.fallback.chip_error": {
+        "en": "An unexpected chip advice error occurred.",
+        "es": "Ocurrió un error inesperado con el consejo de chips.",
+    },
+    "renderer.fallback.transfer_error": {
+        "en": "An unexpected transfer advice error occurred.",
+        "es": "Ocurrió un error inesperado con el consejo de traspasos.",
+    },
+    "renderer.fallback.form_unavailable": {
+        "en": "Player match history unavailable.",
+        "es": "El historial de partidos del jugador no está disponible.",
+    },
+    "renderer.fallback.form_error": {
+        "en": "An unexpected player form error occurred.",
+        "es": "Ocurrió un error inesperado con la forma del jugador.",
+    },
+    "renderer.fallback.season_points_error": {
+        "en": "An unexpected error occurred looking up season points.",
+        "es": "Ocurrió un error inesperado al buscar los puntos de la temporada.",
+    },
+    "renderer.fallback.price_none": {
+        "en": "No price-change data available.",
+        "es": "No hay datos de cambios de precio.",
+    },
+    "renderer.fallback.price_error": {
+        "en": "An unexpected price changes error occurred.",
+        "es": "Ocurrió un error inesperado con los cambios de precio.",
+    },
+    "renderer.fallback.schedule_unavailable": {
+        "en": "Fixture schedule data not available.",
+        "es": "El calendario de partidos no está disponible.",
+    },
+    "renderer.fallback.unknown_position": {
+        "en": "Unknown position.",
+        "es": "Posición desconocida.",
+    },
+    "renderer.fallback.team_not_found": {
+        "en": "Team not found.",
+        "es": "Equipo no encontrado.",
+    },
+    "renderer.fallback.no_player": {
+        "en": "No player found matching '{query}'.",
+        "es": "No se encontró ningún jugador que coincida con '{query}'.",
+    },
+    "renderer.fallback.resolve_player": {
+        "en": "Could not resolve player '{ep}'.",
+        "es": "No se pudo identificar al jugador '{ep}'.",
+    },
     # differential picks (the rows keep the FPL price format: £x.xm)
     "renderer.differentials.header": {
         "en": "Top differentials (ownership < {threshold}%):",
