@@ -38,6 +38,9 @@ try:
 except ImportError:  # standalone load (test_renderer_zonal bypasses the package)
     from catalogue import t  # type: ignore[no-redef]
 
+# Some renderers below bind a local `t` (a team row); they reach the catalogue through this alias.
+_tr = t
+
 try:
     from .position_changes_text import role_text
 except ImportError:  # standalone load (test_renderer_zonal bypasses the package)
@@ -170,7 +173,6 @@ def _render_get_player_summary(output: dict[str, Any], locale: Locale = DEFAULT_
 
 
 def _render_get_current_gameweek(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         gw = output.get("gameweek", "?")
@@ -183,7 +185,7 @@ def _render_get_current_gameweek(output: dict[str, Any], locale: Locale = DEFAUL
         )
 
     code    = output.get("code", "unknown")
-    message = output.get("message", "An unexpected error occurred.")
+    message = output.get("message", t("renderer.fallback.error", locale))
     return f"Error ({code}): {message}"
 
 
@@ -450,7 +452,6 @@ def _render_compare_players(output: dict[str, Any], locale: Locale = DEFAULT_LOC
 
 def _render_get_chip_advice(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render a get_chip_advice raw_output dict into a human-readable string."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         return output.get("advice_text", "Chip advice computed.")
@@ -458,23 +459,22 @@ def _render_get_chip_advice(output: dict[str, Any], locale: Locale = DEFAULT_LOC
         chip = output.get("chip", "unknown")
         return f"'{chip}' is not a recognised FPL chip name."
     code    = output.get("code", "error")
-    message = output.get("message", "An unexpected chip advice error occurred.")
+    message = output.get("message", t("renderer.fallback.chip_error", locale))
     return f"Error ({code}): {message}"
 
 
 def _render_get_transfer_advice(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render a get_transfer_advice raw_output dict into a human-readable string."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         rec_text = output.get("recommendation_text", "")
         return rec_text if rec_text else "Transfer advice computed."
     if status in ("not_found", "ambiguous"):
         ep  = output.get("error_player", "")
-        msg = output.get("message", f"Could not resolve player '{ep}'.")
+        msg = output.get("message", t("renderer.fallback.resolve_player", locale, ep=ep))
         return msg
     code    = output.get("code", "error")
-    message = output.get("message", "An unexpected transfer advice error occurred.")
+    message = output.get("message", t("renderer.fallback.transfer_error", locale))
     return f"Error ({code}): {message}"
 
 
@@ -627,7 +627,6 @@ def _render_get_differential_picks(output: dict[str, Any], locale: Locale = DEFA
 
 def _render_get_player_form(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_player_form output."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         web_name  = output.get("web_name", "?")
@@ -655,13 +654,13 @@ def _render_get_player_form(output: dict[str, Any], locale: Locale = DEFAULT_LOC
 
     if status in ("not_found", "ambiguous"):
         query = output.get("query", "that player")
-        return f"No player found matching '{query}'."
+        return t("renderer.fallback.no_player", locale, query=query)
 
     if status == "missing_context":
-        return output.get("message", "Player match history unavailable.")
+        return output.get("message", t("renderer.fallback.form_unavailable", locale))
 
     code    = output.get("code", "error")
-    message = output.get("message", "An unexpected player form error occurred.")
+    message = output.get("message", t("renderer.fallback.form_error", locale))
     return f"Error ({code}): {message}"
 
 
@@ -671,7 +670,6 @@ def _render_get_player_form(output: dict[str, Any], locale: Locale = DEFAULT_LOC
 
 def _render_get_player_season_points(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_player_season_points output."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         season = output.get("season", "?")
@@ -702,10 +700,10 @@ def _render_get_player_season_points(output: dict[str, Any], locale: Locale = DE
 
     if status == "not_found":
         query = output.get("query", "that player")
-        return output.get("message", f"No player found matching '{query}'.")
+        return output.get("message", t("renderer.fallback.no_player", locale, query=query))
 
     code = output.get("code", "error")
-    message = output.get("message", "An unexpected error occurred looking up season points.")
+    message = output.get("message", t("renderer.fallback.season_points_error", locale))
     return f"Error ({code}): {message}"
 
 
@@ -873,7 +871,6 @@ def _render_get_injury_list(output: dict[str, Any], locale: Locale = DEFAULT_LOC
 
 def _render_get_price_changes(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_price_changes output."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         risers  = output.get("risers", [])
@@ -899,10 +896,10 @@ def _render_get_price_changes(output: dict[str, Any], locale: Locale = DEFAULT_L
         return " | ".join(parts) + "."
 
     if status == "empty":
-        return output.get("message", "No price-change data available.")
+        return output.get("message", t("renderer.fallback.price_none", locale))
 
     code    = output.get("code", "error")
-    message = output.get("message", "An unexpected price changes error occurred.")
+    message = output.get("message", t("renderer.fallback.price_error", locale))
     return f"Error ({code}): {message}"
 
 
@@ -912,7 +909,6 @@ def _render_get_price_changes(output: dict[str, Any], locale: Locale = DEFAULT_L
 
 def _render_get_team_fixture_calendar(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_team_fixture_calendar output."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         mode    = output.get("mode", "easiest")
@@ -962,10 +958,10 @@ def _render_get_team_fixture_calendar(output: dict[str, Any], locale: Locale = D
         return "\n".join(lines)
 
     if status == "missing_context":
-        return output.get("message", "Fixture schedule data not available.")
+        return output.get("message", _tr("renderer.fallback.schedule_unavailable", locale))
 
     code    = output.get("code", "error")
-    message = output.get("message", "An unexpected error occurred.")
+    message = output.get("message", _tr("renderer.fallback.error", locale))
     return f"Error ({code}): {message}"
 
 
@@ -1058,7 +1054,6 @@ def _render_get_transfer_suggestion(output: dict[str, Any], locale: Locale = DEF
 
 def _render_get_position_fixture_run(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_position_fixture_run output."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         pos_label = output.get("position_label", output.get("position", "?"))
@@ -1101,11 +1096,11 @@ def _render_get_position_fixture_run(output: dict[str, Any], locale: Locale = DE
             )
         return "\n".join(lines)
     if status == "invalid_position":
-        return output.get("message", "Unknown position.")
+        return output.get("message", _tr("renderer.fallback.unknown_position", locale))
     if status == "missing_context":
-        return output.get("message", "Fixture schedule data not available.")
+        return output.get("message", _tr("renderer.fallback.schedule_unavailable", locale))
     code    = output.get("code", "error")
-    message = output.get("message", "An unexpected error occurred.")
+    message = output.get("message", _tr("renderer.fallback.error", locale))
     return f"Error ({code}): {message}"
 
 
@@ -1115,7 +1110,6 @@ def _render_get_position_fixture_run(output: dict[str, Any], locale: Locale = DE
 
 def _render_get_team_schedule(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_team_schedule output."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         short   = output.get("team_short", "?")
@@ -1162,13 +1156,13 @@ def _render_get_team_schedule(output: dict[str, Any], locale: Locale = DEFAULT_L
         )
 
     if status == "not_found":
-        return output.get("message", "Team not found.")
+        return output.get("message", t("renderer.fallback.team_not_found", locale))
 
     if status == "missing_context":
-        return output.get("message", "Fixture schedule data not available.")
+        return output.get("message", t("renderer.fallback.schedule_unavailable", locale))
 
     code    = output.get("code", "error")
-    message = output.get("message", "An unexpected error occurred.")
+    message = output.get("message", t("renderer.fallback.error", locale))
     return f"Error ({code}): {message}"
 
 
