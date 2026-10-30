@@ -6,6 +6,7 @@ import {
   buildPresentationColumns,
   buildTimeline,
   compactGutter,
+  coverageNote,
   extraSentence,
   gutterSentence,
   parseCompetitions,
@@ -196,5 +197,42 @@ describe('buildPresentationColumns (the fixed presentation grid)', () => {
     const columns = buildPresentationColumns(series, null);
     expect(columns).toHaveLength(3);
     expect(columns.every((c) => c.slot.length === 0 && c.gap === null)).toBe(true);
+  });
+});
+
+describe('a match with a date but no kickoff time', () => {
+  it('says the time is to be verified, in both languages, and only for that match', () => {
+    const view = premium(
+      [{ ...extra(20, '2026-11-04T12:00:00Z', null), kickoff_known: false }, extra(20, '2026-11-05T19:00:00Z', null)],
+      [],
+    );
+    const [unknown, known] = view.extras;
+    expect(unknown.kickoffKnown).toBe(false);
+    expect(known.kickoffKnown).toBe(true);
+    expect(extraSentence(unknown, 'es')).toContain('hora por verificar');
+    expect(extraSentence(unknown, 'en')).toContain('time to be verified');
+    expect(extraSentence(known, 'es')).not.toContain('verificar');
+  });
+});
+
+describe('rest hours and the coverage stamp', () => {
+  it('the rotation sentence quotes the hours when the server sent them', () => {
+    const view = premium([extra(20, '2026-11-04T20:00:00Z', null)], [
+      { ...pl(20, '2026-11-07T15:00:00Z', 2, true, 'UCL'), rest_hours_before: 67 },
+    ]);
+    const [gutter] = [compactGutter(view, 20)];
+    expect(gutterSentence('ARS', gutter, 'en')).toContain('2 days (67 h)');
+    expect(gutterSentence('ARS', gutter, 'es')).toContain('(67 h)');
+    const noHours = premium([extra(20, '2026-11-04T20:00:00Z', null)], [pl(20, '2026-11-07T15:00:00Z', 2, true, 'UCL')]);
+    expect(gutterSentence('ARS', compactGutter(noHours, 20), 'en')).not.toContain(' h)');
+  });
+
+  it('shows the partial-coverage note with the list date only when the curated layer is present', () => {
+    const base = { available: true, tier: 'premium', teams: {} };
+    const withLayer = parseCompetitions({ ...base, data: { provenance: 'licensed_starter+manual_curated', manual: { list_date: '2026-10-28' } } });
+    expect(coverageNote(withLayer, 'es')).toBe('Cobertura parcial · Europa según la lista del 28/10/2026');
+    expect(coverageNote(withLayer, 'en')).toBe('Partial coverage · Europe from the list of 28/10/2026');
+    expect(coverageNote(parseCompetitions(base), 'es')).toBeNull();
+    expect(coverageNote(parseCompetitions({ ...base, data: { manual: { list_date: 'garbage' } } }), 'es')).toBeNull();
   });
 });

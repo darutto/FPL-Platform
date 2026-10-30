@@ -46,6 +46,7 @@ import {
 import {
   extrasFor as competitionExtrasFor,
   parseCompetitions,
+  coverageNote,
   type CompetitionsView,
 } from '@/lib/fixture-competitions';
 import {
@@ -379,7 +380,7 @@ export function FixturesBoard({
 
       {/* FDR / venue / streak legend (above the board, design parity); condensed Compact carries it in its header line */}
       {!condensed && <BandLegend />}
-      {layer && (view === 'detailed' ? <TimelineLegend /> : view === 'compact' ? <CompactLegend /> : null)}
+      {layer && (view === 'detailed' ? <TimelineLegend note={coverageNote(layer, locale)} /> : view === 'compact' ? <CompactLegend note={coverageNote(layer, locale)} /> : null)}
 
       {/* Board */}
       <div className={`${CARD_BASE} ${CARD_ACCENT.turquoise.border}`}>
@@ -474,7 +475,7 @@ export function FixturesBoard({
             </span>
             <div className="hidden min-w-0 flex-1 overflow-hidden lg:block">
               {layer ? (
-                <PresentationLegend />
+                <PresentationLegend note={coverageNote(layer, locale)} />
               ) : (
                 <span className="text-[clamp(10px,0.85vw,15px)] font-bold text-bf-gray">
                   {t('fx.present.legend')}
