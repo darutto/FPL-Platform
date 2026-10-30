@@ -63,7 +63,8 @@ the endpoint has no layer; never a 500, never a wrong calendar. One log line, co
    (`FPL_MANUAL_CALENDAR_JSON="..."`, one line, quotes escaped; Raw Editor ENV tab) and `railway_env.json` (the same
    variable for the Raw Editor JSON tab, if the ENV tab mangles the quotes). Both are read back and validated first.
 2. **Paste** the line into Railway, service `fpl-backend`, Variables, Raw Editor; deploy.
-3. **Check it loaded:** the deploy log shows the one line above with the expected `matches` and `list_date`;
+3. **Check it loaded:** `curl -s https://<backend>/healthz` -> `manual_calendar` = `{state: written, matches, list_date}`
+   (the INFO log line is not visible on Railway: the root logger is at WARNING);
    `GET /fixtures/competitions` as premium returns `data.manual.matches` and `data.manual.list_date`; the board shows
    «Cobertura parcial · Europa según la lista del DD/MM/YYYY». `state=invalid:...` = the paste broke; regenerate and re-paste.
 
