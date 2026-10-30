@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-28",
+  "updated": "2026-10-30",
   "cards": [
     {
       "id": "s1",
@@ -2301,7 +2301,7 @@
         "Datos"
       ],
       "title": "Stats individuales de Sportmonks (toques, pases, pases clave, pases atrás) y destacados",
-      "desc": "R6: confirmar entitlement de Starter con una lectura mínima en la prueba real; ingesta 3c aparte. Sin pases progresivos como campo. ACTUALIZACIÓN 2026-10-28 (PR #553, 1/3): tabla opcional player_match_stats en el store licenciado (minutos, rating, toques, pases, pases clave, duelos, tackles, intercepciones, recuperaciones, regates), derivada de lineups.details de partidos completados, solo ids de FPL; compatible con builds anteriores (tabla opcional, el runtime la sirve vacía). Falta la ingesta (PR 2/3) y la herramienta get_player_involvement (PR 3/3)."
+      "desc": "R6: confirmar entitlement de Starter con una lectura mínima en la prueba real; ingesta 3c aparte. Sin pases progresivos como campo. ACTUALIZACIÓN 2026-10-28 (PR #553, 1/3): tabla opcional player_match_stats en el store licenciado (minutos, rating, toques, pases, pases clave, duelos, tackles, intercepciones, recuperaciones, regates), derivada de lineups.details de partidos completados, solo ids de FPL; compatible con builds anteriores (tabla opcional, el runtime la sirve vacía). Falta la ingesta (PR 2/3) y la herramienta get_player_involvement (PR 3/3).\n\nACTUALIZACIÓN 2026-10-29 (PR #565): confirmado con lectura en vivo que el Starter de Sportmonks sí incluye stats por jugador -- la nota de 'sin confirmar para Starter' y la mención de Q12 quedaban desactualizadas; ingesta cubierta por R6 #553 (fusionada) y #559 (abierta, 2/3); precios de terceros siguen sin verificar."
     },
     {
       "id": "s54",
@@ -2399,6 +2399,105 @@
       "desc": "Fusionada (PR #562, 28/10). scripts/cleanup_worktrees.ps1 y docs/worktree-cleanup.md: dry-run por defecto, -Apply borra solo worktrees con PR fusionado, sin commits sin subir, árbol limpio, sin datos locales ignorados y quietos más de 24 h; lista de mantener aparte. No programado; -Apply sin probar.",
       "tags": [
         "Infra"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s63",
+      "col": "shipped",
+      "title": "Capa de calendario europeo (manual_curated)",
+      "desc": "Fusionada (PR #576, 29/10). Backend de /fixtures/competitions añade la capa de competiciones europeas sobre el calendario licenciado (provenance licensed_starter+manual_curated, cobertura parcial), con parser de horarios DD/MM/YYYY→UTC, bandera --unverified para horas dudosas, rest_hours_before recalculado y aviso de rotación tras partido europeo verificado; datos locales, UI pendiente.",
+      "tags": [
+        "Backend",
+        "Datos"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s64",
+      "col": "shipped",
+      "title": "Regeneración semanal de fixture-outlook vía PR",
+      "desc": "Fusionada (PR #569, 29/10). regenerate-fixture-outlook.yml dejaba de terminar en upload-artifact sin tocar main; ahora, si el bundle cambia, empuja a bot/fixture-outlook y abre/reusa una PR (sin auto-merge ni push directo), y refresca fixture-outlook-2026-27.json a la jornada 7.",
+      "tags": [
+        "Backend",
+        "Deploy",
+        "Datos"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s65",
+      "col": "shipped",
+      "title": "Picks diferenciales en español",
+      "desc": "Fusionada (PR #574, 29/10). get_differential_picks respondía en inglés en turnos es; el texto pasa a catálogo renderer.differentials.* (en byte-idéntico, es en español sin voseo, formato de precio £x.xm intacto).",
+      "tags": [
+        "Backend",
+        "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s66",
+      "col": "shipped",
+      "title": "Nombres de chip con espacios en /chips",
+      "desc": "Fusionada (PR #568, 29/10). /chips Triple Captain devolvía needs_clarification en ambos locales porque el enum solo matcheaba tc/triple_captain; ahora trata espacio, guion bajo y guion como equivalentes, sin afectar chips desconocidos.",
+      "tags": [
+        "Backend",
+        "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s67",
+      "col": "shipped",
+      "title": "Nota de umbral de diferenciales en el walkthrough",
+      "desc": "Fusionada (PR #573, 29/10). Corrige la nota del walkthrough de i18n sobre /differentials: 'under N' y 'menos del N%' sí fijan el umbral (p. ej. 'ownership < 10%') en es y en, solo un número suelto cae al 15% por defecto; la lista del backend sigue en inglés en turnos es.",
+      "tags": [
+        "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s68",
+      "col": "shipped",
+      "title": "Copy de chips EN/ES fijado con test",
+      "desc": "Fusionada (PR #571, 29/10). SuggestionChips y PlayerPickChips ya usaban claves useT() en en/es y mostraban las etiquetas del backend tal cual; esta PR solo lo fija con tests (compare wizard EN, player-pick EN+ES), sin cambio de UI.",
+      "tags": [
+        "UI",
+        "Web"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s69",
+      "col": "shipped",
+      "title": "Mensaje de comparación ambigua localizado",
+      "desc": "Fusionada (PR #570, 29/10). compare_players ambiguo mostraba al usuario la instrucción interna en inglés dirigida al LLM, en es y en; el renderer ahora emite compare_players.ambiguous desde el catálogo pareado por locale, sin tocar el camino not_found.",
+      "tags": [
+        "Backend",
+        "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s70",
+      "col": "shipped",
+      "title": "Nombres de comando en inglés en mensajes de registry",
+      "desc": "Fusionada (PR #572, 29/10). En turnos en, 'Available prompts' y el mensaje de aclaración ya nombran los comandos en inglés (/captain, /compare, /transfer, /fixtures, /differentials, /chips, /rankings) en vez de imprimir los códigos internos de chip (['tc','wc',...]); es queda sin cambios.",
+      "tags": [
+        "Backend",
+        "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s71",
+      "col": "shipped",
+      "title": "Chips de ambigüedad en /transfer fijados con test",
+      "desc": "Fusionada (PR #567, 29/10). Solo tests: fija con cobertura que /transferencia y /transfer ofrecen chips de desambiguación en ambos slots (vender/fichar) y que el tap resuelve a Costinha (id 31) y no al João Pedro del Chelsea; sin cambio de comportamiento (ya arreglado por #556).",
+      "tags": [
+        "Backend",
+        "FPL Asistente"
       ],
       "progress": 100
     }
