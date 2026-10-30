@@ -99,7 +99,7 @@ def test_manual_europe_is_layered_with_its_own_provenance_and_no_rest_or_notice(
     out = cc.competitions_response("patreon_basic", "ARS", None, None)
     assert out["data"]["provenance"] == "licensed_starter+manual_curated"
     assert out["data"]["manual"] == {"provenance": "manual_curated", "list_date": "2026-10-27", "coverage": "partial",
-                                     "frozen": True, "competitions": ["UCL"]}
+                                     "frozen": True, "competitions": ["UCL"], "matches": 1}
     ucl = [m for m in out["teams"]["ARS"]["matches"] if m["competition"] == "UCL"]
     assert len(ucl) == 1 and ucl[0]["kickoff_known"] is False and ucl[0]["gameweek"] == 20
     assert ucl[0]["rest_whole_days_before"] is None and ucl[0]["previous_competition"] is None
@@ -150,3 +150,63 @@ def test_the_window_filters_manual_matches(monkeypatch, tmp_path):
     _layer(tmp_path, monkeypatch)
     out = cc.competitions_response("patreon_basic", "ARS", "2099-02-01", None)
     assert [m["competition"] for m in out["teams"]["ARS"]["matches"]] == []
+
+
+_GOOD_ROW = {"competition": "UCL", "club": "ARS", "opponent": "Equipo Uno", "opponent_code": "", "date": "2099-01-01",
+             "venue": "A", "kickoff_known": True, "kickoff_utc": "2099-01-01T20:00:00Z"}
+
+
+def _env_layer(monkeypatch, tmp_path, value):
+    import json
+    target = tmp_path / "sub" / "europe.json"
+    monkeypatch.setenv(cc.ENV_MANUAL, str(target))
+    if value is None:
+        monkeypatch.delenv(cc.ENV_MANUAL_JSON, raising=False)
+    else:
+        monkeypatch.setenv(cc.ENV_MANUAL_JSON, value if isinstance(value, str) else json.dumps(value))
+    cc._manual_cache.clear()
+    return target
+
+
+def _envelope(matches):
+    return {"schema_version": 1, "provenance": "manual_curated", "list_date": "2026-10-28", "coverage": "partial",
+            "frozen": True, "competitions": ["UCL"], "matches": matches}
+
+
+def test_the_railway_variable_is_written_to_the_layer_file_and_served(monkeypatch, tmp_path, caplog):
+    _install(monkeypatch, [_snap()], [_fa("ARS", "Luton", "LUT", "2098-12-20T19:45:00Z")])
+    target = _env_layer(monkeypatch, tmp_path, _envelope([_GOOD_ROW]))
+    with caplog.at_level("INFO"):
+        status = cc.materialize_manual_layer()
+    assert status == {"state": "written", "matches": 1, "list_date": "2026-10-28"} and target.exists()
+    assert "Equipo Uno" not in caplog.text and "matches=1" in caplog.text  # counts only, never a row
+    manual = cc.competitions_response("patreon_basic", "ARS", None, None)["data"]["manual"]
+    assert (manual["matches"], manual["list_date"]) == (1, "2026-10-28")
+
+
+@pytest.mark.parametrize("value", [
+    "{not json",
+    {"schema_version": 1, "provenance": "live_trial_local", "list_date": "2026-10-28", "matches": [_GOOD_ROW]},
+    _envelope([{**_GOOD_ROW, "venue": "X"}]),
+    _envelope([{k: v for k, v in _GOOD_ROW.items() if k != "kickoff_utc"}]),
+    _envelope([{**_GOOD_ROW, "competition": "PL"}]),
+    {**_envelope([_GOOD_ROW]), "list_date": "28/10/2026"},
+])
+def test_an_invalid_variable_writes_nothing_and_the_endpoint_has_no_layer(monkeypatch, tmp_path, value):
+    _install(monkeypatch, [_snap()], [_fa("ARS", "Luton", "LUT", "2098-12-20T19:45:00Z")])
+    target = _env_layer(monkeypatch, tmp_path, value)
+    assert cc.materialize_manual_layer()["state"].startswith("invalid:") and not target.exists()
+    out = cc.competitions_response("patreon_basic", "ARS", None, None)
+    assert out["data"]["provenance"] == "licensed_starter" and "manual" not in out["data"]
+
+
+def test_no_variable_touches_nothing(monkeypatch, tmp_path):
+    target = _env_layer(monkeypatch, tmp_path, None)
+    assert cc.materialize_manual_layer() == {"state": "absent", "matches": 0, "list_date": None}
+    assert not target.exists()
+
+
+def test_a_file_with_one_malformed_row_is_no_layer_not_a_500(monkeypatch, tmp_path):
+    _install(monkeypatch, [_snap()], [_fa("ARS", "Luton", "LUT", "2098-12-20T19:45:00Z")])
+    _layer(tmp_path, monkeypatch, matches=[_GOOD_ROW, {"club": "ARS"}])
+    assert "manual" not in cc.competitions_response("patreon_basic", "ARS", None, None)["data"]
