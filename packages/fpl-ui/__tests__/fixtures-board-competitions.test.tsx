@@ -13,6 +13,10 @@ jest.mock('@/lib/presentation-access', () => ({
   usePresentationAccess: () => (globalThis as { __owner?: boolean }).__owner !== false,
 }));
 
+// These snapshots describe the bundle as it stood when they were recorded. The live bundle is regenerated
+// weekly (it moves 'actualizado el ...', the short-sample warning and the verdicts), so pin it.
+jest.mock('@/lib/data/fixture-outlook-2026-27.json', () => jest.requireActual('./fixtures/fixture-outlook-2026-27.pinned.json'));
+
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
