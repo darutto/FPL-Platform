@@ -1938,6 +1938,15 @@ def healthz() -> dict[str, Any]:
     # /healthz payload stays byte-for-byte identical to pre-go-live responses.
     if tactical_store_sync_info is not None:
         payload["tactical_store_sync"] = tactical_store_sync_info
+    # Startup states that module INFO logs cannot show on Railway (root logger at WARNING). Counts and codes only;
+    # each key appears once the lifespan has set it, so a payload without them is unchanged.
+    _manual = getattr(app.state, "manual_calendar_status", None)
+    if _manual is not None:
+        payload["manual_calendar"] = {k: _manual.get(k) for k in ("state", "matches", "list_date")}
+    _licensed = _licensed_resync.status if _licensed_resync is not None else getattr(
+        app.state, "football_licensed_status", None)
+    if _licensed is not None:
+        payload["football_licensed"] = {"state": _licensed.state, "reason_code": _licensed.reason_code}
     return payload
 
 
