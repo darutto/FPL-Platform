@@ -122,6 +122,37 @@ DEFAULT_MANUAL_PATH = "data/calendar-manual/europe_manual.json"
 #: Placeholder time of a match whose kickoff is unknown or unverified; ordering only, never shown as a time.
 _UNKNOWN_TIME = "T12:00:00Z"
 _manual_cache: dict[tuple[str, float], dict[str, Any] | None] = {}
+#: Production delivery: the layer's JSON pasted as a Railway variable, written to ``FPL_MANUAL_CALENDAR_PATH`` at start.
+ENV_MANUAL_JSON = "FPL_MANUAL_CALENDAR_JSON"
+_MANUAL_COMPETITIONS = {"UCL", "UEL", "UECL"}
+
+
+def _valid_match(m: Any) -> bool:
+    if not isinstance(m, dict):
+        return False
+    try:
+        datetime.strptime(m["date"], "%Y-%m-%d")
+        if m["kickoff_known"] is True:
+            _parse(m["kickoff_utc"])
+        elif m["kickoff_known"] is not False:
+            return False
+        return (m["competition"] in _MANUAL_COMPETITIONS and m["venue"] in ("H", "A")
+                and all(isinstance(m[k], str) for k in ("club", "opponent", "opponent_code")))
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
+def _valid_layer(layer: Any) -> bool:
+    """Every row checked, not just the envelope: one bad row (a typo in a pasted variable) = no layer, never a 500."""
+    if not isinstance(layer, dict):
+        return False
+    try:
+        datetime.strptime(layer["list_date"], "%Y-%m-%d")
+    except (KeyError, TypeError, ValueError):
+        return False
+    matches = layer.get("matches")
+    return (layer.get("schema_version") == 1 and layer.get("provenance") == "manual_curated"
+            and isinstance(matches, list) and all(_valid_match(m) for m in matches))
 
 
 def _manual_layer() -> dict[str, Any] | None:
@@ -132,13 +163,35 @@ def _manual_layer() -> dict[str, Any] | None:
         if key not in _manual_cache:
             _manual_cache.clear()
             layer = json.loads(path.read_text(encoding="utf-8"))
-            ok = (layer.get("schema_version") == 1 and layer.get("provenance") == "manual_curated"
-                  and isinstance(layer.get("matches"), list) and isinstance(layer.get("list_date"), str))
-            _manual_cache[key] = layer if ok else None
+            _manual_cache[key] = layer if _valid_layer(layer) else None
         return _manual_cache[key]
     except Exception as exc:  # noqa: BLE001 -- absent or unreadable layer = no layer
         _LOG.info("manual calendar layer unavailable: %s", type(exc).__name__)
         return None
+
+
+def materialize_manual_layer() -> dict[str, Any]:
+    """Startup: ``FPL_MANUAL_CALENDAR_JSON`` -> the file ``_manual_layer`` reads. Never raises; logs counts only.
+
+    Absent variable: nothing is touched (a local file keeps working). Invalid: nothing is written, so production
+    (no file on its disk) has no layer, never a wrong one. Returns ``{state, matches, list_date}`` for the caller.
+    """
+    raw = os.environ.get(ENV_MANUAL_JSON, "").strip()
+    status: dict[str, Any] = {"state": "absent", "matches": 0, "list_date": None}
+    if raw:
+        try:
+            layer = json.loads(raw)
+            if not _valid_layer(layer):
+                raise ValueError("not a manual_curated layer")
+            path = Path(os.environ.get(ENV_MANUAL, "").strip() or DEFAULT_MANUAL_PATH)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(layer, ensure_ascii=False), encoding="utf-8")
+            status = {"state": "written", "matches": len(layer["matches"]), "list_date": layer["list_date"]}
+        except Exception as exc:  # noqa: BLE001 -- a bad variable degrades to "no layer"
+            status = {"state": f"invalid:{type(exc).__name__}", "matches": 0, "list_date": None}
+    _LOG.info("manual calendar layer: state=%s matches=%d list_date=%s",
+              status["state"], status["matches"], status["list_date"])
+    return status
 
 
 def _parse(kickoff_utc: str) -> datetime:
@@ -241,7 +294,7 @@ def competitions_response(tier: str, team: str | None, date_from: str | None, da
         if data and manual:
             data = {**data, "provenance": f"{data['provenance']}+manual_curated", "manual": {
                 "provenance": "manual_curated", "list_date": manual["list_date"], "coverage": "partial", "frozen": True,
-                "competitions": manual.get("competitions", [])}}
+                "competitions": manual.get("competitions", []), "matches": len(manual["matches"])}}
         return {"available": True, "tier": "premium", **({"data": data} if data else {}), "teams": {
             code: {
                 "matches": [

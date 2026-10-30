@@ -1,6 +1,6 @@
 # European calendar layer (`manual_curated`)
 
-Status: converter, endpoint layer, rest hours and rotation notice built; **production delivery is a proposal, nothing irreversible built.**
+Status: converter, endpoint layer, rest hours and rotation notice built; production delivery via a Railway variable built (see the end).
 
 ## What it is
 
@@ -31,7 +31,7 @@ Line format: `- DD/MM/YYYY vs Rival (Local|Visitante) - HH:MM EST / HH:MM <zone>
 * Reads `FPL_MANUAL_CALENDAR_PATH` (default `data/calendar-manual/europe_manual.json`); an absent or invalid file = no layer.
 * Not in the file: matches already played (needs date + score per row) and rounds after January.
 
-## Proposal: how it reaches production (NOT built)
+## How it reaches production: options considered
 
 The data are public UEFA fixtures, but the file is a **compilation** (EU database-right territory) and its origin is
 still unregistered; the GitHub repo is public and history is irreversible.
@@ -47,3 +47,25 @@ shipped now, the Railway env var, mounted to a file at start (`FPL_MANUAL_CALEND
 Risks: R2 - token left alive (delete it right after; counts-only logs); env - a typo breaks parsing, which degrades to
 "no layer" (the validator ignores an invalid file), never to a wrong calendar. Either route needs ~15 lines of startup
 code (write env to file / sync prefix) that are NOT in this PR.
+
+## Production delivery (built): the Railway variable
+
+At start, `materialize_manual_layer()` (`competition_calendar.py`, called from the lifespan) reads
+`FPL_MANUAL_CALENDAR_JSON`, validates every row with the same validator `_manual_layer` uses, and writes it to
+`FPL_MANUAL_CALENDAR_PATH` (default `data/calendar-manual/europe_manual.json`, relative to the container's workdir).
+Variable absent: nothing is touched. Invalid (bad JSON, other provenance, one malformed row): nothing is written, so
+the endpoint has no layer; never a 500, never a wrong calendar. One log line, counts only:
+`manual calendar layer: state=written matches=N list_date=YYYY-MM-DD` (or `state=absent` / `state=invalid:<Error>`).
+
+1. **Build the line (local, prints counts only):**
+   `python -I packages/fpl-grounded-assistant/scripts/build_manual_calendar_railway_var.py --list-date YYYY-MM-DD [--unverified CLUB:YYYY-MM-DD]`
+   regenerates `europe_manual.json` and writes, in `data/calendar-manual/` (git-excluded), `railway_env_line.txt`
+   (`FPL_MANUAL_CALENDAR_JSON="..."`, one line, quotes escaped; Raw Editor ENV tab) and `railway_env.json` (the same
+   variable for the Raw Editor JSON tab, if the ENV tab mangles the quotes). Both are read back and validated first.
+2. **Paste** the line into Railway, service `fpl-backend`, Variables, Raw Editor; deploy.
+3. **Check it loaded:** the deploy log shows the one line above with the expected `matches` and `list_date`;
+   `GET /fixtures/competitions` as premium returns `data.manual.matches` and `data.manual.list_date`; the board shows
+   «Cobertura parcial · Europa según la lista del DD/MM/YYYY». `state=invalid:...` = the paste broke; regenerate and re-paste.
+
+Rollback: delete the variable and redeploy (no file on the container's disk = no layer).
+
