@@ -72,7 +72,7 @@ const CURATED = {
       matches: [
         ...PREMIUM.teams.ARS.matches,
         { kickoff_utc: '2026-10-26T12:00:00Z', week: null, gameweek: START + 2, competition: 'UECL', venue: 'H',
-          opponent: 'Universitatea Craiova', opponent_code: '', rest_days_before: null, rest_whole_days_before: null,
+          opponent: 'Equipo Dos', opponent_code: '', rest_days_before: null, rest_whole_days_before: null,
           rest_days_after: null, previous_competition: null, kickoff_known: false },
       ],
       pl_matches: PREMIUM.teams.ARS.pl_matches.map((m) => (m.rotation ? { ...m, rest_hours_before: 67 } : m)),
@@ -121,7 +121,7 @@ describe('FixturesBoard multi-competition layer (timeline)', () => {
     const tiles = within(lane).getAllByTestId('competition-tile');
     const unverified = tiles.find((t) => t.textContent?.includes('UECL'))!;
     fireEvent.click(unverified);
-    expect(detail).toHaveTextContent('Conference League ante Universitatea Craiova (local) · hora por verificar');
+    expect(detail).toHaveTextContent('Conference League ante Equipo Dos (local) · hora por verificar');
     fireEvent.click(tiles.find((t) => t.textContent?.includes('UCL'))!);
     expect(detail).not.toHaveTextContent('verificar');
     act(() => within(lane).getByTestId('rotation-gap').focus());
