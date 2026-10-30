@@ -1,7 +1,7 @@
 """Regenerate the European ``manual_curated`` layer and the line Leo pastes into Railway's Raw Editor.
 
     python -I packages/fpl-grounded-assistant/scripts/build_manual_calendar_railway_var.py \\
-        --list-date 2026-10-28 --unverified BHA:2026-11-26
+        --list-date YYYY-MM-DD [--unverified CLUB:YYYY-MM-DD]
 
 Reads ``DIR/calendario_de_clubes_premier_league_en_copas_europeas.txt`` (DIR defaults to ``data/calendar-manual/``
 of this checkout, git-excluded) and writes, in DIR only:

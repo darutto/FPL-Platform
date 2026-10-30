@@ -19,8 +19,8 @@ Line format: `- DD/MM/YYYY vs Rival (Local|Visitante) - HH:MM EST / HH:MM <zone>
   (production keeps refusing the latter).
 * Coverage is always **partial** and the layer is **frozen**: not refreshed; `data.manual.list_date` is the visible date stamp.
 * **Time known -> `kickoff_utc`**, real rest days (whole days and `rest_hours_before`) for the match and for the next
-  Premier League match. **No time, EST/local mismatch, or a match listed `--unverified`** (today: Brighton-Universitatea
-  Craiova 26/11, 17:45 UTC in the file vs 20:00 UK in an aggregator) -> `kickoff_known: false`: shown with "hora por
+  Premier League match. **No time, EST/local mismatch, or a match listed `--unverified`** (sources disagree on the time;
+  none pending in the current list) -> `kickoff_known: false`: shown with "hora por
   verificar", never feeding a rest-day number or a notice. Missing data is never "no match".
 * **Rotation notice** (<= 3 whole days after a verified European match) is issued even though the calendar is partial:
   a known match is a fact, and a hole can only hide a *closer* one, never undo it (`europe_prior`). Cups alone still
