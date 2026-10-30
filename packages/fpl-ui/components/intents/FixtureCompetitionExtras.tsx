@@ -92,7 +92,7 @@ export function LockedCompetitionsLine() {
 }
 
 /** One line: the colour of each competition, and what a gold number means. */
-export function TimelineLegend() {
+export function TimelineLegend({ note }: { note?: string | null }) {
   const t = useT();
   const { locale } = useLocale();
   return (
@@ -111,6 +111,7 @@ export function TimelineLegend() {
         </span>
       ))}
       <span className={GOLD}>{t('fx.comp.restLegend')}</span>
+      {note && <span data-testid="competitions-coverage">{note}</span>}
     </p>
   );
 }
@@ -168,7 +169,7 @@ export function GutterMarks({
 }
 
 /** The compact grid's legend, in one line: each competition's colour, and what the gold dot means. */
-export function CompactLegend() {
+export function CompactLegend({ note }: { note?: string | null }) {
   const t = useT();
   const { locale } = useLocale();
   return (
@@ -187,6 +188,7 @@ export function CompactLegend() {
         </span>
       ))}
       <span className={GOLD}>{t('fx.comp.restLegendDot')}</span>
+      {note && <span data-testid="competitions-coverage">{note}</span>}
     </p>
   );
 }

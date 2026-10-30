@@ -22,6 +22,8 @@ export interface ExtraMatch {
   opponentCode: string;
   /** Whole days (floor of hours / 24) since the club's previous match, any competition. */
   restWholeDays: number | null;
+  /** False when the source gave a date but no kickoff time: the sentence says «time to be verified». */
+  kickoffKnown: boolean;
 }
 
 export interface PlMatch {
@@ -33,6 +35,8 @@ export interface PlMatch {
   /** Server-decided: <= 3 whole days after a European or cup match (Leo, 2026-10-14). */
   rotation: boolean;
   previousCompetition: string | null;
+  /** Whole hours since the previous match, when the server could count them (the notice quotes them). */
+  restHours: number | null;
 }
 
 export interface TeamExtras {
@@ -49,6 +53,8 @@ export interface TeamExtras {
 export interface CompetitionsView {
   tier: 'premium' | 'free';
   teams: Map<string, TeamExtras>;
+  /** Hand-curated European layer: shown as partial, with the date of its list (null when the layer is absent). */
+  manualListDate: string | null;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -62,7 +68,7 @@ export function parseCompetitions(payload: unknown): CompetitionsView | null {
   if (tier !== 'premium' && tier !== 'free') return null;
   const teams = new Map<string, TeamExtras>();
   // Whatever else a free answer carried is ignored: the locked layer draws nothing per team.
-  if (tier === 'free') return { tier, teams };
+  if (tier === 'free') return { tier, teams, manualListDate: null };
   if (!isRecord(payload.teams)) return null;
   for (const [code, raw] of Object.entries(payload.teams)) {
     if (!isRecord(raw)) continue;
@@ -81,6 +87,7 @@ export function parseCompetitions(payload: unknown): CompetitionsView | null {
             ? m.opponent_code
             : m.opponent.slice(0, 3).toUpperCase(),
         restWholeDays: num(m.rest_whole_days_before),
+        kickoffKnown: m.kickoff_known !== false,
       });
     }
     const plMatches: PlMatch[] = [];
@@ -94,11 +101,24 @@ export function parseCompetitions(payload: unknown): CompetitionsView | null {
         restWholeDays: num(m.rest_whole_days_before),
         rotation: m.rotation === true,
         previousCompetition: typeof m.previous_competition === 'string' ? m.previous_competition : null,
+        restHours: num(m.rest_hours_before),
       });
     }
     teams.set(code, { extras, plMatches });
   }
-  return { tier, teams };
+  const manual = isRecord(payload.data) && isRecord(payload.data.manual) ? payload.data.manual : null;
+  const listDate =
+    manual && typeof manual.list_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(manual.list_date)
+      ? manual.list_date
+      : null;
+  return { tier, teams, manualListDate: listDate };
+}
+
+/** «Cobertura parcial · Europa según la lista del 28/10/2026». Null when there is no curated layer. */
+export function coverageNote(view: CompetitionsView | null, locale: Locale = DEFAULT_LOCALE): string | null {
+  if (!view?.manualListDate) return null;
+  const [y, m, d] = view.manualListDate.split('-');
+  return translate(locale, 'fx.comp.coverage', { date: `${d}/${m}/${y}` });
 }
 
 export function extrasFor(view: CompetitionsView | null, team: string): TeamExtras | null {
@@ -188,11 +208,12 @@ export const venueWord = (venue: 'H' | 'A', locale: Locale = DEFAULT_LOCALE) =>
   translate(locale, venue === 'H' ? 'fx.venue.homeLower' : 'fx.venue.awayLower');
 
 export function extraSentence(match: ExtraMatch, locale: Locale = DEFAULT_LOCALE): string {
-  return translate(locale, 'fx.extra.sentence', {
+  const base = translate(locale, 'fx.extra.sentence', {
     comp: competitionName(match.competition, locale),
     opponent: match.opponent,
     venue: venueWord(match.venue, locale),
   });
+  return match.kickoffKnown ? base : `${base} · ${translate(locale, 'fx.extra.timeTbc')}`;
 }
 
 /**
@@ -206,6 +227,7 @@ function gapFor(
   _opponent: string,
   previousCompetition: string | null = null,
   locale: Locale = DEFAULT_LOCALE,
+  restHours: number | null = null,
 ): GapInfo | null {
   if (restWholeDays === null) return null;
   const days = daysWord(restWholeDays, locale);
@@ -215,7 +237,10 @@ function gapFor(
     days: restWholeDays,
     rotation,
     cell: translate(locale, 'fx.rest.cell', { days, comp }),
-    sentence: translate(locale, 'fx.rest.sentence', { comp, days }),
+    sentence: translate(locale, 'fx.rest.sentence', {
+      comp,
+      days: restHours === null ? days : `${days} (${restHours} h)`,
+    }),
   };
 }
 
@@ -249,7 +274,7 @@ export function buildTimeline(
         key: `pl-${gw.gameweek}`,
         gw,
         gap: first
-          ? gapFor(first.restWholeDays, first.rotation, first.opponent, first.previousCompetition, locale)
+          ? gapFor(first.restWholeDays, first.rotation, first.opponent, first.previousCompetition, locale, first.restHours)
           : null,
       },
     });
@@ -306,6 +331,7 @@ export function gutterSentence(team: string, gutter: CompactGutter, locale: Loca
         gutter.rotation.opponent,
         gutter.rotation.previousCompetition,
         locale,
+        gutter.rotation.restHours,
       )?.sentence ?? '',
     );
   }
