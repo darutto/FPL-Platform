@@ -126,6 +126,7 @@ def run_pass(kind: str, client: SportmonksClient, feed: FplFeed, root: Path, *, 
         return build, summary
     if kind == "daily":
         reads = fetch.daily(client, now.date())
+        summary["cup_window"] = reads.cup_window_summary()
         cross = build_crosswalk(reads.players, feed.elements, aliases)
         crosswalk = dict(cross.pairs)
         codes = team_codes_from(reads.teams)

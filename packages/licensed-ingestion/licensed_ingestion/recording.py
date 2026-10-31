@@ -59,8 +59,9 @@ def _squad(club: int) -> list[dict[str, Any]]:
             for n, (pid, (_, first, second, born, c, *_rest)) in enumerate(_PEOPLE.items(), 1) if c == club]
 
 
-def _cup(fid: int, league: int, home: dict[str, Any], away: dict[str, Any]) -> dict[str, Any]:
-    return {"id": fid, "league_id": league, "starting_at": "2026-10-29 19:45:00", "state": {"developer_name": "NS"},
+def _cup(fid: int, league: int, home: dict[str, Any], away: dict[str, Any],
+         when: str = "2026-10-29 19:45:00") -> dict[str, Any]:
+    return {"id": fid, "league_id": league, "starting_at": when, "state": {"developer_name": "NS"},
             "participants": [{**home, "meta": {"location": "home"}}, {**away, "meta": {"location": "away"}}]}
 
 
@@ -76,9 +77,11 @@ PROVIDER: dict[str, Any] = {
         {"id": 650001, "player_id": 780003, "team_id": ARS, "category": "injury", "start_date": "2026-10-01",
          "end_date": None, "games_missed": 2, "completed": False}]}},
     f"teams/{CHE}": {"data": {**_club(CHE), "sidelined": []}},
-    f"fixtures/between/2026-10-24/2026-11-06/{ARS}": {"data": [
-        _cup(870001, 27, _club(ARS), _INVENTED_TOWN), _cup(870002, 2, _club(ARS), _FICTIONAL_FC)]},
-    f"fixtures/between/2026-10-24/2026-11-06/{CHE}": {"data": []},
+    # a club's cups are read over a long look-ahead (fetch.CUP_LOOKAHEAD_DAYS), not the 14-day window
+    f"fixtures/between/2026-10-24/2027-06-20/{ARS}": {"data": [
+        _cup(870001, 27, _club(ARS), _INVENTED_TOWN), _cup(870002, 2, _club(ARS), _FICTIONAL_FC),
+        _cup(870003, 27, _club(ARS), _FICTIONAL_FC, when="2026-12-16 20:00:00")]},
+    f"fixtures/between/2026-10-24/2027-06-20/{CHE}": {"data": []},
     "fixtures/between/2026-10-24/2026-11-06": {"data": [_pl_fixture(confirmed=False)]},
     "fixtures/between/2026-10-17/2026-10-23": {"data": []},
     "fixtures/between/2026-10-24/2026-10-24": {"data": [_pl_fixture(confirmed=True)]},
