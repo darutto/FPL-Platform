@@ -235,4 +235,20 @@ describe('rest hours and the coverage stamp', () => {
     expect(coverageNote(parseCompetitions(base), 'es')).toBeNull();
     expect(coverageNote(parseCompetitions({ ...base, data: { manual: { list_date: 'garbage' } } }), 'es')).toBeNull();
   });
+
+  it('says the cups have nothing scheduled only when they are partly covered and the answer holds no cup match', () => {
+    const cupMatch = { kickoff_utc: '2026-12-16T20:00:00Z', gameweek: 16, competition: 'EFL', venue: 'H', opponent: 'Luton' };
+    const partial = { provenance: 'licensed_starter', coverage: { FA: 'partial', EFL: 'partial' } };
+    const none = parseCompetitions({ available: true, tier: 'premium', teams: { ARS: { matches: [], pl_matches: [] } }, data: partial });
+    expect(coverageNote(none, 'es')).toBe('Copas: sin partidos programados por ahora');
+    expect(coverageNote(none, 'en')).toBe('Cups: no matches scheduled yet');
+    // with the European list the two parts join, the list part unchanged
+    const both = parseCompetitions({ available: true, tier: 'premium', teams: {}, data: { ...partial, manual: { list_date: '2026-10-28' } } });
+    expect(coverageNote(both, 'en')).toBe('Partial coverage · Europe from the list of 28/10/2026 · Cups: no matches scheduled yet');
+    // a cup match anywhere in the answer, or no coverage claim, or a free answer: no sentence
+    const withCup = parseCompetitions({ available: true, tier: 'premium', teams: { ARS: { matches: [cupMatch], pl_matches: [] } }, data: partial });
+    expect(coverageNote(withCup, 'en')).toBeNull();
+    expect(coverageNote(parseCompetitions({ available: true, tier: 'premium', teams: {} }), 'en')).toBeNull();
+    expect(coverageNote(parseCompetitions({ available: true, tier: 'free', data: partial }), 'en')).toBeNull();
+  });
 });
