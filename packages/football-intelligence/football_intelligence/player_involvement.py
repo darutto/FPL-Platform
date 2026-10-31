@@ -18,6 +18,9 @@ What this module does not do: say why (no "because of the injury"), predict, or 
   players with minutes); "with" = he started. A substitute appearance is neither and is counted apart (``mixed``). The
   store drops players the identity crosswalk could not map, so a match whose club has fewer than 11 stored starters is
   ``uncertain`` and sits in neither side: an unmapped starter must not read as an absence.
+* **Unknown is not zero.** The ingestion writes a count as empty when the provider's name for it was not known yet
+  (absent = zero only holds for a known type). Here an empty count stays ``None`` per match, and a per-90 figure,
+  accuracy or share that would need it is ``None`` (no data), never computed as if it were 0.
 * **Small samples are said**: fewer than ``SMALL_SAMPLE_BELOW`` matches overall, fewer than ``SMALL_SIDE_BELOW`` on a side.
 
 Identity: everything joins on the FPL element id and the club code stored on the row of the match. No name is matched
@@ -53,19 +56,25 @@ def _int(value: Any) -> int:
     return 0 if value is None or pd.isna(value) else int(value)
 
 
-def _pct(part: int, whole: int) -> float | None:
-    return round(100.0 * part / whole, 1) if whole > 0 else None
+def _opt(value: Any) -> int | None:
+    """A stored count, or None when it is unknown (empty in the store): never read as zero."""
+    return None if value is None or pd.isna(value) else int(value)
+
+
+def _pct(part: int | None, whole: int | None) -> float | None:
+    return round(100.0 * part / whole, 1) if part is not None and whole else None
 
 
 def _per90(rows: list[Mapping[str, Any]]) -> dict[str, Any]:
     """Pooled figures over the rows with enough minutes: totals divided by minutes, accuracy and backward share."""
     used = [r for r in rows if _int(r["minutes"]) >= MIN_MINUTES]
     minutes = sum(_int(r["minutes"]) for r in used)
-    total = {c: sum(_int(r[c]) for r in used) for c in _COUNTS}
+    # a column unknown in any pooled match has no pooled total: a partial sum would read as fewer actions
+    total = {c: (None if any(_opt(r[c]) is None for r in used) else sum(_int(r[c]) for r in used)) for c in _COUNTS}
     scale = 90.0 / minutes if minutes else None
     out: dict[str, Any] = {"matches": len(used), "minutes": minutes}
     for column in ("touches", "passes", "key_passes", "backward_passes"):
-        out[f"{column}_per90"] = round(total[column] * scale, 1) if scale else None
+        out[f"{column}_per90"] = round(total[column] * scale, 1) if scale and total[column] is not None else None
     out["pass_accuracy_pct"] = _pct(total["accurate_passes"], total["passes"])
     out["backward_share_pct"] = _pct(total["backward_passes"], total["passes"])
     return out
@@ -77,14 +86,14 @@ def _person(element: int, names: Mapping[int, Mapping[str, Any]]) -> dict[str, A
 
 
 def _match(row: Mapping[str, Any], meta: FixtureMeta) -> dict[str, Any]:
-    passes, back = _int(row["passes"]), _int(row["backward_passes"])
+    passes, back, accurate = _opt(row["passes"]), _opt(row["backward_passes"]), _opt(row["accurate_passes"])
     team = str(row["team"])
     return {
         "gameweek": meta.gameweek, "opponent": meta.away if team == meta.home else meta.home, "is_home": team == meta.home,
-        "started": bool(row["starter"]), "minutes": _int(row["minutes"]), "touches": _int(row["touches"]),
-        "passes": passes, "accurate_passes": _int(row["accurate_passes"]), "pass_accuracy_pct": _pct(_int(row["accurate_passes"]), passes),
-        "key_passes": _int(row["key_passes"]), "backward_passes": back, "backward_share_pct": _pct(back, passes),
-        "passes_final_third": _int(row["passes_final_third"]), "claim_status": OBSERVED,
+        "started": bool(row["starter"]), "minutes": _int(row["minutes"]), "touches": _opt(row["touches"]),
+        "passes": passes, "accurate_passes": accurate, "pass_accuracy_pct": _pct(accurate, passes),
+        "key_passes": _opt(row["key_passes"]), "backward_passes": back, "backward_share_pct": _pct(back, passes),
+        "passes_final_third": _opt(row["passes_final_third"]), "claim_status": OBSERVED,
     }
 
 

@@ -116,6 +116,24 @@ def test_zero_passes_give_no_percentage_not_a_division_error():
     assert out["matches"][0]["pass_accuracy_pct"] is None and out["matches"][0]["backward_share_pct"] is None
 
 
+@pytest.mark.parametrize("unknown", [None, float("nan")])
+def test_an_unknown_count_is_no_data_never_zero(unknown):
+    # the ingestion writes a count as empty while the provider's name for it is unknown (store: NaN)
+    rows = [_row(ROGERS, 1, key=unknown, back=unknown), _row(ROGERS, 2)]
+    out = _run(_stats(rows), player="Rogers")
+    first = next(m for m in out["matches"] if m["gameweek"] == 1)
+    assert first["key_passes"] is None and first["backward_passes"] is None and first["backward_share_pct"] is None
+    assert first["touches"] == 60 and first["pass_accuracy_pct"] == 85.0
+    avg = out["averages"]
+    assert avg["key_passes_per90"] is None and avg["backward_passes_per90"] is None   # not pooled as if it were 0
+    assert avg["touches_per90"] == 60.0 and avg["passes_per90"] == 40.0
+    for locale in ("es", "en"):
+        text = render("get_player_involvement", out, locale=locale)
+        assert "0 pases clave" not in text and "0 key passes" not in text and "?" in text
+    card = maybe_atomic_tool_card("get_player_involvement", out, None, "es")
+    assert card is not None and any(cell == "-" for row in card.rows for cell in row)
+
+
 def test_few_matches_say_small_sample():
     out = _run(_stats([_row(ROGERS, 1), _row(ROGERS, 2)]), player="Rogers")
     assert out["sample"]["small_sample"] is True
