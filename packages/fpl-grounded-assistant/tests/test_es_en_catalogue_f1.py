@@ -561,7 +561,7 @@ class TestDeterministicRenderHarness:
         for item in audit_entries:
             safe(item["tool"], item["output"])
 
-        assert len(_RENDERERS) == 42  # R6: 42 (get_player_involvement); was 38 -> 39 (i82: get_historical_gameweek_top_scorer) -> 40 (i107: get_team_results) -> 41 (B4: get_position_changes)
+        assert len(_RENDERERS) == 43  # 42 -> 43: R6 get_player_involvement + R1 get_gw_report; 38 -> 39 (i82: get_historical_gameweek_top_scorer) -> 40 (i107: get_team_results) -> 41 (B4: get_position_changes)
         error_payload = {"status": "error", "code": "harness_synthetic_error", "message": "synthetic error payload"}
         for tool_name in sorted(_RENDERERS):
             safe(tool_name, {})
@@ -575,7 +575,7 @@ class TestDeterministicRenderHarness:
     def test_zero_errors_and_full_coverage(self, locale, audit_entries):
         texts, errors = self._render_all(locale, audit_entries)
         assert errors == [], f"{len(errors)} render(s) raised: {errors[:3]}"
-        assert len(texts) == 120  # R6 get_player_involvement; was 35 + 2 * 41 + 1 (B4: get_position_changes)
+        assert len(texts) == 122  # 35 + 2 * 43 + 1 (R6: get_player_involvement, R1: get_gw_report)
 
     @pytest.mark.parametrize("locale", ["es", "en"])
     def test_no_leaked_catalogue_keys(self, locale, audit_entries):
@@ -923,6 +923,7 @@ class TestSpanishRegisterIsTuteo:
         "ahí",       # adverb "there" (zonal verdicts), not a verb form
         "qué",       # interrogative "what/which" ("¿qué equipos...?"), not a verb form
         "atrás",     # adverb "backward" (R6 involvement: "pases hacia atrás"), not a verb form
+        "así",       # adverb "so/thus" (gameweek report: "así que..."), not a verb form
     }
 
     def _voseo_hits(self):
@@ -971,3 +972,20 @@ class TestSpanishRegisterIsTuteo:
             if m.group(0).lower() not in allowed
         ]
         assert hits == [("fake.key", "Usá")]
+
+
+class TestCompareAmbiguousLocalized:
+    """The LLM-facing "Ask the user to clarify…" message must never reach the user."""
+
+    OUT = {
+        "status": "ambiguous", "error_player": "João Pedro",
+        "message": "Multiple players share the name 'João Pedro'. Ask the user to clarify — x",
+    }
+
+    def test_en_and_es_have_no_english_instruction_leak(self):
+        from fpl_grounded_assistant.renderer import _render_compare_players
+        en = _render_compare_players(self.OUT, "en")
+        es = _render_compare_players(self.OUT, "es")
+        assert "Ask the user" not in en and "Ask the user" not in es
+        assert "João Pedro" in en and "João Pedro" in es
+        assert en != es

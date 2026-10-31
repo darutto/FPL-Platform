@@ -7,20 +7,39 @@ back as plain dicts for ``football_intelligence.ingestion.licensed``; nothing is
 """
 from __future__ import annotations
 
+import logging
+import os
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Any
 
 from sportmonks_client.client import SportmonksClient
+from sportmonks_client.errors import SportmonksRequestError
 
 from .fpl import POLL_AFTER, POLL_BEFORE
 
 PL_LEAGUE_ID = 8
 #: The provider caps ``fixtures/between`` (a season-long window answers 422); the trial used 14 days.
 WINDOW_DAYS = 14
+#: The per-club route (``fixtures/between/{start}/{end}/{team_id}``) is NOT held to that cap: on the trial plan a
+#: whole season for one club answered 200 in one call (48 fixtures; trial-reports/live/2026-10-11-routes.md). The
+#: cups need the long look-ahead (a 14-day window saw no Carabao/FA tie between rounds), so only that read uses it.
+#: Default; ``CUP_WINDOW_DAYS`` overrides it without a code change (integer 14..330, anything else = this default).
+CUP_LOOKAHEAD_DAYS = 240
+ENV_CUP_WINDOW = "CUP_WINDOW_DAYS"
+CUP_WINDOW_MIN, CUP_WINDOW_MAX = 14, 330
+#: A club whose read is refused (422) is retried with the next, shorter window; the last one is the 14 days the
+#: pass always used, so a refusal can cost the cups' look-ahead but never the PL fixtures or the lineups.
+CUP_FALLBACK_DAYS = (120, WINDOW_DAYS)
+_LOG = logging.getLogger(__name__)
 #: Explicit page bound on every list walk; hitting it raises (never a silent truncation).
 MAX_PAGES = 4
 PER_PAGE = 50
+#: A window that carries ``lineups.details`` weighs ~100 KB per fixture, so its pages are small: 10 fixtures is
+#: ~1 MB, a quarter of the client's default ``max_response_bytes`` (4 MiB). MAX_STATS_PAGES bounds the walk (80
+#: fixtures, more than any 14-day window holds); the pass's --max-calls still caps the total.
+STATS_PER_PAGE = 10
+MAX_STATS_PAGES = 8
 
 
 class FetchError(RuntimeError):
@@ -35,12 +54,32 @@ class ProviderReads:
     players: list[dict[str, Any]] = field(default_factory=list)
     sidelined: list[dict[str, Any]] = field(default_factory=list)
     team_fixtures: list[dict[str, Any]] = field(default_factory=list)
+    #: Cup look-ahead actually used per club (short code -> days); only a daily pass fills it.
+    cup_windows: dict[str, int] = field(default_factory=dict)
+
+    def cup_window_summary(self) -> dict[str, Any]:
+        """Counts only (the run summary is logged publicly): the days asked for, and every club that fell back."""
+        asked = max(self.cup_windows.values(), default=0)
+        return {"days": asked, "clubs": len(self.cup_windows),
+                "fell_back": {club: days for club, days in sorted(self.cup_windows.items()) if days < asked}}
 
 
 def _window(client: SportmonksClient, start: date, end: date) -> list[dict[str, Any]]:
     return [dict(r.raw_fields) for r in client.iter_entities(
         "licensed_pl_fixtures", scope={"start": start.isoformat(), "end": end.isoformat()},
         params={"filters": f"fixtureLeagues:{PL_LEAGUE_ID}", "per_page": PER_PAGE}, max_pages=MAX_PAGES)]
+
+
+def _stats_window(client: SportmonksClient, start: date, end: date) -> list[dict[str, Any]]:
+    return [dict(r.raw_fields) for r in client.iter_entities(
+        "licensed_pl_fixtures_stats", scope={"start": start.isoformat(), "end": end.isoformat()},
+        params={"filters": f"fixtureLeagues:{PL_LEAGUE_ID}", "per_page": STATS_PER_PAGE}, max_pages=MAX_STATS_PAGES)]
+
+
+def stat_types(client: SportmonksClient, fixture_id: int) -> dict[int, str]:
+    """The provider's statistic names (type id -> developer name) as one finished fixture's details carry them: 1 call."""
+    from football_intelligence.ingestion.licensed.player_stats import type_names
+    return type_names(dict(r.raw_fields) for r in client.fetch_page("player_stat_types", scope={"fixture_id": fixture_id}))
 
 
 def season_teams(client: SportmonksClient) -> list[dict[str, Any]]:
@@ -53,9 +92,38 @@ def season_teams(client: SportmonksClient) -> list[dict[str, Any]]:
         "teams", scope={"season_id": seasons[0].provider_id}, max_pages=MAX_PAGES)]
 
 
+def cup_window_days() -> int:
+    """The cups' look-ahead in days: ``CUP_WINDOW_DAYS`` when it is an integer in 14..330, else the default."""
+    raw = os.environ.get(ENV_CUP_WINDOW, "").strip()
+    try:
+        days = int(raw)
+    except ValueError:
+        return CUP_LOOKAHEAD_DAYS
+    return days if CUP_WINDOW_MIN <= days <= CUP_WINDOW_MAX else CUP_LOOKAHEAD_DAYS
+
+
+def _club_fixtures(client: SportmonksClient, team_id: int, today: date, days: int) -> tuple[list[dict[str, Any]], int]:
+    """A club's fixtures from ``today`` for ``days`` days. A 422 (the provider refusing the window) retries that
+    club with a shorter one; any other error propagates. Returns the rows and the window finally used."""
+    ladder = [days] + [d for d in CUP_FALLBACK_DAYS if d < days]
+    for i, window in enumerate(ladder):
+        try:
+            rows = [dict(r.raw_fields) for r in client.iter_entities(
+                "licensed_team_fixtures",
+                scope={"start": today.isoformat(), "end": (today + timedelta(days=window - 1)).isoformat(),
+                       "team_id": team_id},
+                params={"per_page": PER_PAGE}, max_pages=MAX_PAGES)]
+            return rows, window
+        except SportmonksRequestError as exc:
+            if exc.status_code != 422 or i == len(ladder) - 1:
+                raise
+    raise AssertionError("unreachable")  # pragma: no cover
+
+
 def daily(client: SportmonksClient, today: date) -> ProviderReads:
     reads = ProviderReads(teams=season_teams(client))
     ahead = (today, today + timedelta(days=WINDOW_DAYS - 1))
+    cup_days = cup_window_days()
     for team in reads.teams:
         team_id = int(team["id"])
         for row in client.iter_entities("licensed_squads", scope={"team_id": team_id}, max_pages=MAX_PAGES):
@@ -66,10 +134,13 @@ def daily(client: SportmonksClient, today: date) -> ProviderReads:
                 reads.players.append({**player, "squad_team_id": team_id})
         for row in client.fetch_page("current_sidelined", scope={"team_id": team_id}):
             reads.sidelined.append({**row.raw_fields, "team_id": row.raw_fields.get("team_id", team_id)})
-        reads.team_fixtures += [dict(r.raw_fields) for r in client.iter_entities(
-            "licensed_team_fixtures", scope={"start": ahead[0].isoformat(), "end": ahead[1].isoformat(), "team_id": team_id},
-            params={"per_page": PER_PAGE}, max_pages=MAX_PAGES)]
-    reads.pl_fixtures = _window(client, *ahead) + _window(client, today - timedelta(days=7), today - timedelta(days=1))
+        rows, used = _club_fixtures(client, team_id, today, cup_days)
+        reads.team_fixtures += rows
+        reads.cup_windows[str(team.get("short_code") or team_id)] = used
+        if used < cup_days:
+            _LOG.warning("cup window fell back: club=%s days=%d (asked %d)", team.get("short_code") or team_id, used, cup_days)
+    # Only the finished matches (the last 7 days) carry details; the window ahead is predicted lineups.
+    reads.pl_fixtures = _window(client, *ahead) + _stats_window(client, today - timedelta(days=7), today - timedelta(days=1))
     return reads
 
 
@@ -103,7 +174,7 @@ def backfill(client: SportmonksClient, windows: list[tuple[date, date]]) -> Prov
     seen: set[Any] = set()
     reads = ProviderReads()
     for start, end in windows:
-        for fixture in _window(client, start, end):
+        for fixture in _stats_window(client, start, end):
             if fixture.get("id") not in seen:
                 seen.add(fixture.get("id"))
                 reads.pl_fixtures.append(fixture)
@@ -111,15 +182,18 @@ def backfill(client: SportmonksClient, windows: list[tuple[date, date]]) -> Prov
 
 
 def planned_calls(kind: str, clubs: int = 20) -> list[str]:
-    """What a live pass would request, assuming one page per walk (the cap still applies to the real count)."""
+    """What a live pass would request, assuming one page per walk (the cap still applies to the real count).
+
+    A daily pass is 64 calls at best (:func:`planned_count`) and :func:`worst_count` at most; both are under the pass
+    ceiling (daily 120)."""
     if kind == "daily":
         return (["seasons (PL, current)", "teams (season)"]
                 + [f"{family} x{clubs}" for family in ("licensed_squads", "current_sidelined", "licensed_team_fixtures")]
-                + ["licensed_pl_fixtures (next 14 days)", "licensed_pl_fixtures (last 7 days)"])
+                + ["licensed_pl_fixtures (next 14 days)", "licensed_pl_fixtures_stats (last 7 days, small pages)", "player_stat_types (only when a type is unknown)"])
     if kind == "deadline":
         return ["licensed_pl_fixtures (next 14 days)"]
     if kind == "backfill":
-        return ["licensed_pl_fixtures (one per 14-day window, season start to yesterday)"]
+        return ["licensed_pl_fixtures_stats (14-day windows, season start to yesterday, 10 fixtures per page)", "player_stat_types (only when a type is unknown)"]
     return ["licensed_pl_fixtures (kickoffs in [-30 min, +3 h])"]
 
 
@@ -128,3 +202,16 @@ def planned_count(kind: str, clubs: int = 20, windows: int = 1) -> int:
     if kind == "backfill":
         return windows
     return 2 + 3 * clubs + 2 if kind == "daily" else 1
+
+
+#: Worst case of one club's fixtures read: 240 days refused, 120 refused, 14 answered (3 calls), or the 240-day list
+#: on two pages (2 calls). A refusal is on the first page, so the two do not add up.
+CLUB_FIXTURES_WORST = 1 + len(CUP_FALLBACK_DAYS)
+
+
+def worst_count(clubs: int = 20) -> int:
+    """The most a daily pass can request when every walk the pass bounds runs to its bound: every club's fixtures at
+    :data:`CLUB_FIXTURES_WORST`, the stats window at :data:`MAX_STATS_PAGES` pages (a full page there would raise, not
+    read on) and the one ``player_stat_types`` call. Squads, absences and the 14-day window stay one page (at most 50
+    rows). Client retries are counted by the budget too and are not in this number."""
+    return 2 + 2 * clubs + CLUB_FIXTURES_WORST * clubs + 1 + MAX_STATS_PAGES + 1

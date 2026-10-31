@@ -388,6 +388,9 @@ export const es = {
   'fx.rest.sentence':
     'Su equipo jugó {comp} hace {days}. Todavía no hay evidencia suficiente para cuantificar el riesgo de rotación.',
   'fx.extra.sentence': '{comp} ante {opponent} ({venue})',
+  'fx.extra.timeTbc': 'hora por verificar',
+  'fx.comp.cupsNone': 'Copas: sin partidos programados por ahora',
+  'fx.comp.coverage': 'Cobertura parcial · Europa según la lista del {date}',
 
   // --- Questions the board hands to the chat (a tapped team or cell) ---
   'fx.q.teamAttack': '¿Cómo pinta el calendario ofensivo del {team} en las próximas jornadas?',

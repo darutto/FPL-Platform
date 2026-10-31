@@ -84,7 +84,7 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, field_validator, model_validator
 
 from fpl_grounded_assistant import respond
-from fpl_grounded_assistant.competition_calendar import competitions_response
+from fpl_grounded_assistant.competition_calendar import competitions_response, materialize_manual_layer
 from fpl_grounded_assistant.locale_types import Locale, DEFAULT_LOCALE
 from fpl_grounded_assistant.question_lang import detect_question_lang, locale_mismatch
 from fpl_grounded_assistant.player_form import _element_summary_guard  # Phase 2.6d.3 — guard stats
@@ -1057,6 +1057,8 @@ async def lifespan(app: FastAPI):
             _licensed_resync = _LicensedResync()
             _licensed_resync.status = _licensed_status
             _licensed_resync.start()
+    # European manual_curated layer: the pasted Railway variable -> its file. Fail-soft, counts only in the log.
+    app.state.manual_calendar_status = materialize_manual_layer()
     # H5: optional startup sync of the owned store from R2. Runs BEFORE the
     # bootstrap fetch so the bootstrap (and per-tool) fallbacks can read the
     # synced data. Gated by sync_enabled() — default-off preserves current
@@ -1936,6 +1938,15 @@ def healthz() -> dict[str, Any]:
     # /healthz payload stays byte-for-byte identical to pre-go-live responses.
     if tactical_store_sync_info is not None:
         payload["tactical_store_sync"] = tactical_store_sync_info
+    # Startup states that module INFO logs cannot show on Railway (root logger at WARNING). Counts and codes only;
+    # each key appears once the lifespan has set it, so a payload without them is unchanged.
+    _manual = getattr(app.state, "manual_calendar_status", None)
+    if _manual is not None:
+        payload["manual_calendar"] = {k: _manual.get(k) for k in ("state", "matches", "list_date")}
+    _licensed = _licensed_resync.status if _licensed_resync is not None else getattr(
+        app.state, "football_licensed_status", None)
+    if _licensed is not None:
+        payload["football_licensed"] = {"state": _licensed.state, "reason_code": _licensed.reason_code}
     return payload
 
 

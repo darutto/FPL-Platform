@@ -594,7 +594,7 @@ export function PresentationTimeline({
 }
 
 /** The one-line legend of the presentation header: what the fill, the bar under a run, the tiles and the gold number mean. */
-export function PresentationLegend() {
+export function PresentationLegend({ note }: { note?: string | null }) {
   const t = useT();
   const { locale } = useLocale();
   const bands = [1, 2, 3, 4, 5] as const;
@@ -626,6 +626,7 @@ export function PresentationLegend() {
         </span>
       ))}
       <span className="text-bf-gold">{t('fx.pl.rest')}</span>
+      {note && <span data-testid="presentation-coverage">{note}</span>}
     </p>
   );
 }

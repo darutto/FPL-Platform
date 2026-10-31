@@ -13,6 +13,10 @@ jest.mock('@/lib/presentation-access', () => ({
   usePresentationAccess: () => (globalThis as { __owner?: boolean }).__owner !== false,
 }));
 
+// These snapshots describe the bundle as it stood when they were recorded. The live bundle is regenerated
+// weekly (it moves 'actualizado el ...', the short-sample warning and the verdicts), so pin it.
+jest.mock('@/lib/data/fixture-outlook-2026-27.json', () => jest.requireActual('./fixtures/fixture-outlook-2026-27.pinned.json'));
+
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
@@ -58,6 +62,23 @@ const PREMIUM = {
     },
   },
 };
+/** The same week with the hand-curated European layer: its stamp, the hours in the notice, and a match whose time is unverified. */
+const CURATED = {
+  ...PREMIUM,
+  data: { provenance: 'licensed_starter+manual_curated',
+    manual: { provenance: 'manual_curated', list_date: '2026-10-28', coverage: 'partial', frozen: true, competitions: ['UCL'] } },
+  teams: {
+    ARS: {
+      matches: [
+        ...PREMIUM.teams.ARS.matches,
+        { kickoff_utc: '2026-10-26T12:00:00Z', week: null, gameweek: START + 2, competition: 'UECL', venue: 'H',
+          opponent: 'Equipo Dos', opponent_code: '', rest_days_before: null, rest_whole_days_before: null,
+          rest_days_after: null, previous_competition: null, kickoff_known: false },
+      ],
+      pl_matches: PREMIUM.teams.ARS.pl_matches.map((m) => (m.rotation ? { ...m, rest_hours_before: 67 } : m)),
+    },
+  },
+};
 /** All the server tells Free/Tribuna: the layer exists and is locked. */
 const FREE = { available: true, tier: 'free' };
 
@@ -88,6 +109,25 @@ describe('FixturesBoard multi-competition layer (timeline)', () => {
   beforeEach(() => window.localStorage.clear());
   afterEach(() => jest.restoreAllMocks());
 
+  test('curated European layer: the partial-coverage stamp, the hours in the notice, «hora por verificar»', async () => {
+    mockBackend(CURATED);
+    render(<FixturesBoard onAsk={() => {}} />);
+    await settled();
+    const lane = await within(arsenal()).findByTestId('fixture-timeline');
+    expect(screen.getByTestId('competitions-coverage')).toHaveTextContent('Cobertura parcial · Europa según la lista del 28/10/2026');
+    expect(screen.getByTestId('presentation-coverage')).toHaveTextContent('Cobertura parcial');
+
+    const detail = within(lane).getByTestId('competition-detail');
+    const tiles = within(lane).getAllByTestId('competition-tile');
+    const unverified = tiles.find((t) => t.textContent?.includes('UECL'))!;
+    fireEvent.click(unverified);
+    expect(detail).toHaveTextContent('Conference League ante Equipo Dos (local) · hora por verificar');
+    fireEvent.click(tiles.find((t) => t.textContent?.includes('UCL'))!);
+    expect(detail).not.toHaveTextContent('verificar');
+    act(() => within(lane).getByTestId('rotation-gap').focus());
+    expect(detail).toHaveTextContent('Su equipo jugó UCL hace 2 días (67 h).');
+  });
+
   test('premium: a tile of its own, the rest in the gap, the notice in gold, and the phrase only on demand', async () => {
     mockBackend(PREMIUM);
     render(<FixturesBoard onAsk={() => {}} />);
@@ -115,6 +155,9 @@ describe('FixturesBoard multi-competition layer (timeline)', () => {
     expect(gold.className).toMatch(/text-bf-gold/);
     expect(within(lane).getByTestId('rotation-gap')).toBeInTheDocument();
     expect(within(lane).getByTestId('rotation-gap')).toHaveAccessibleName('2 días tras UCL');
+
+    // No curated European layer in this answer: no coverage stamp (the board is as before the layer).
+    expect(screen.queryByTestId('competitions-coverage')).toBeNull();
 
     // No sentence in any cell: the detail line is empty until something is picked.
     const detail = within(lane).getByTestId('competition-detail');

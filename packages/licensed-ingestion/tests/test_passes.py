@@ -48,8 +48,8 @@ def test_a_daily_pass_makes_exactly_the_planned_calls(tmp_path):
     ars, che = recording.ARS, recording.CHE
     assert spy.paths == [
         "seasons", f"teams/seasons/{recording.SEASON_ID}",
-        f"squads/teams/{ars}", f"teams/{ars}", f"fixtures/between/2026-10-24/2026-11-06/{ars}",
-        f"squads/teams/{che}", f"teams/{che}", f"fixtures/between/2026-10-24/2026-11-06/{che}",
+        f"squads/teams/{ars}", f"teams/{ars}", f"fixtures/between/2026-10-24/2027-06-20/{ars}",
+        f"squads/teams/{che}", f"teams/{che}", f"fixtures/between/2026-10-24/2027-06-20/{che}",
         "fixtures/between/2026-10-24/2026-11-06", "fixtures/between/2026-10-17/2026-10-23"]
     assert transport.calls == fetch.planned_count("daily", clubs=2) == 10
     assert fetch.planned_count("daily") == 64   # 2 discovery + 20 squads + 20 sidelined + 20 team_fixtures + 2 windows

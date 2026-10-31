@@ -73,3 +73,9 @@ You are an expert coding agent working inside VS Code on this workspace.
   - success criteria
   - short end-of-slice handoff request
 - Prefer product-value slices once infrastructure hardening is stable.
+
+## Disk maintenance
+
+- For disk space work on the Windows dev machine, follow `docs/ops/disk-maintenance.md`. The `disk-maintenance` prompt in `.github/prompts/` runs it.
+- Start with `scripts/disk_check.ps1`, which is read-only. Remove worktrees only through `scripts/cleanup_worktrees.ps1`.
+- Old project environments, Docker, WSL disks, DISM and media caches need the user's direct approval.

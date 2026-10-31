@@ -55,3 +55,22 @@ def test_the_squad_route_keeps_the_player_nested():
 def test_the_licensed_routes_are_extras_and_do_not_change_the_fifteen_families():
     assert {"licensed_pl_fixtures", "licensed_team_fixtures", "licensed_squads"} <= set(EXTRA_ROUTES)
     assert get_route("team_fixtures").include is None and get_route("squads").include is None
+
+
+def test_the_stats_route_asks_for_details_and_the_plain_one_does_not():
+    client, transport = _client({"data": []}, {"data": []})
+    client.fetch_page("licensed_pl_fixtures_stats", scope=SCOPE)
+    client.fetch_page("licensed_pl_fixtures", scope=SCOPE)
+    (_m, _u, stats, _t), (_m2, _u2, plain, _t2) = transport.calls
+    assert "lineups.details" in stats["include"].split(";") and "lineups.details" not in plain["include"].split(";")
+
+
+def test_the_stat_types_route_reads_one_fixture_and_lifts_each_details_type_name():
+    body = {"data": {"id": 800001, "lineups": [{"id": 1, "details": [
+        {"id": 11, "type_id": 7001, "data": {"value": 3}, "type": {"id": 7001, "developer_name": "TOUCHES"}},
+        {"id": 12, "type_id": 7002, "data": {"value": 1}}]}]}}
+    client, transport = _client(body)
+    rows = client.fetch_page("player_stat_types", scope={"fixture_id": 800001})
+    (_m, url, params, _t), = transport.calls
+    assert url.endswith("/fixtures/800001") and params["include"] == "lineups.details.type"
+    assert [(r.raw_fields["type_id"], r.raw_fields.get("type_name")) for r in rows] == [(7001, "TOUCHES"), (7002, None)]

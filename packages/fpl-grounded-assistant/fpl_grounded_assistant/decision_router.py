@@ -67,6 +67,43 @@ _PAST_SEASON_RE = re.compile(
 )
 
 
+# English command names (the registry's canonical names are Spanish). Used only
+# to word registry messages for an English turn; es keeps the canonical names.
+_EN_COMMAND_NAMES: dict[str, str] = {
+    "capitan":       "captain",
+    "comparar":      "compare",
+    "transferencia": "transfer",
+    "calendarios":   "fixtures",
+    "diferenciales": "differentials",
+    "clasificacion": "rankings",
+}
+
+_ENUM_ERROR_RE = re.compile(r"^(?P<arg>[^:]+): (?P<raw>.+) not in \[.*\]$")
+
+
+def _command_name(name: str, locale: Locale) -> str:
+    return _EN_COMMAND_NAMES.get(name, name) if locale == "en" else name
+
+
+def _clarification_errors(spec_name: str, errors: list[str], locale: Locale) -> list[str]:
+    """English turns get no internal enum codes from the registry error."""
+    if locale != "en":
+        return errors
+    out: list[str] = []
+    for err in errors:
+        m = _ENUM_ERROR_RE.match(err)
+        if m is None:
+            out.append(err)
+        elif spec_name == "chips":
+            out.append(
+                f"{m['arg']}: {m['raw']} is not a chip. "
+                "Try Wildcard, Bench Boost, Free Hit or Triple Captain"
+            )
+        else:
+            out.append(f"{m['arg']}: {m['raw']} is not a valid option")
+    return out
+
+
 def _fold(text: str) -> str:
     nfkd = unicodedata.normalize("NFKD", text)
     return "".join(c for c in nfkd if not unicodedata.combining(c)).lower()
@@ -152,10 +189,10 @@ def decide(question: str, bootstrap: dict[str, Any], locale: Locale = DEFAULT_LO
                 "outcome":      OUTCOME_UNSUPPORTED,
                 "prompt_name":  norm.name,
                 "args_text":    norm.args_text,
-                "suggestions":  [f"/{p}" for p in list_prompts()],
+                "suggestions":  [f"/{_command_name(p, locale)}" for p in list_prompts()],
                 "message": (
                     f"Prompt '/{norm.name}' is not registered. "
-                    f"Available prompts: {', '.join('/' + p for p in list_prompts())}."
+                    f"Available prompts: {', '.join('/' + _command_name(p, locale) for p in list_prompts())}."
                 ),
             }
 
@@ -169,8 +206,8 @@ def decide(question: str, bootstrap: dict[str, Any], locale: Locale = DEFAULT_LO
                 "missing_fields": parsed["missing_fields"],
                 "errors":         parsed["errors"],
                 "message": (
-                    f"Prompt '/{spec.name}' needs more information: "
-                    f"{'; '.join(parsed['errors']) or 'missing fields'}."
+                    f"Prompt '/{_command_name(spec.name, locale)}' needs more information: "
+                    f"{'; '.join(_clarification_errors(spec.name, parsed['errors'], locale)) or 'missing fields'}."
                 ),
             }
 
