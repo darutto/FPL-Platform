@@ -42,6 +42,11 @@ def _tags(p: dict[str, Any], locale: Locale) -> str:
     return out
 
 
+def _unit(points: Any) -> str:
+    """"pt" for exactly one point, "pts" otherwise (same abbreviation in es and en)."""
+    return "pt" if points == 1 else "pts"
+
+
 def story_text(story: dict[str, Any], locale: Locale) -> str:
     kind, ev = story.get("kind"), story.get("evidence") or {}
     if kind == "captain_top":
@@ -56,8 +61,8 @@ def story_text(story: dict[str, Any], locale: Locale) -> str:
         return t(
             "gw_report.story.captain_gap", locale,
             captain=ev["captain"], captain_points=ev["captain_points"],
-            multiplier=ev["multiplier"], unit="pt" if ev["captain_points"] == 1 else "pts",
-            best=ev["best"], best_points=ev["best_points"],
+            multiplier=ev["multiplier"], unit=_unit(ev["captain_points"]),
+            best=ev["best"], best_points=ev["best_points"], best_unit=_unit(ev["best_points"]),
         )
     if kind == "autosub":
         key = "gw_report.story.autosub_no_fixture" if ev.get("out_team_fixtures") == 0 else "gw_report.story.autosub_not_played"

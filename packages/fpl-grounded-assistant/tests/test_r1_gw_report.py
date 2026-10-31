@@ -358,6 +358,20 @@ class TestStories:
         assert "was the best of your XI (10 pts); the armband went to" in en and "(1 pt, ×2)" in en
         assert "diferencia" not in es and "difference" not in en
 
+    def test_one_point_is_singular_for_the_best_player_too(self):
+        from fpl_grounded_assistant.gw_report_text import story_text
+        st = {"kind": "captain_gap", "evidence": {"captain": "A", "captain_points": 0, "multiplier": 2,
+                                                  "best": "B", "best_points": 1}}
+        assert "(1 pt); el brazalete" in story_text(st, "es") and "(0 pts, ×2)" in story_text(st, "es")
+        assert "(1 pt); the armband" in story_text(st, "en")
+
+    def test_english_story_copy_names_no_gender(self):
+        import re
+        from fpl_grounded_assistant.catalogue import _CATALOGUE as CATALOGUE
+        for key, entry in CATALOGUE.items():
+            if key.startswith("gw_report.") or key.startswith("gcard.gw_report."):
+                assert not re.search(r"(he|his|him|she|her|hers)", entry["en"], re.I), key
+
     def test_bench_points_story(self):
         r = _build(_picks(), _live({14: 9, 13: 3}))
         s = next(s for s in r["stories"] if s["kind"] == "bench_points")["evidence"]

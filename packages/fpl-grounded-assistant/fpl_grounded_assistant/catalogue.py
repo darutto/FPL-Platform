@@ -1293,8 +1293,8 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "es": ' (igualado con {names})',
     },
     "gw_report.story.captain_gap": {
-        "en": '{best} was the best of your XI ({best_points} pts); the armband went to {captain} ({captain_points} {unit}, ×{multiplier}).',
-        "es": '{best} fue el mejor de tu once ({best_points} pts); el brazalete fue para {captain} ({captain_points} {unit}, ×{multiplier}).',
+        "en": '{best} was the best of your XI ({best_points} {best_unit}); the armband went to {captain} ({captain_points} {unit}, ×{multiplier}).',
+        "es": '{best} fue el mejor de tu once ({best_points} {best_unit}); el brazalete fue para {captain} ({captain_points} {unit}, ×{multiplier}).',
     },
     "gw_report.story.autosub": {
         "en": 'Automatic substitution: {player_in} came on for {player_out} and scored {points_in} pts ({reason}).',
@@ -1321,11 +1321,11 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "es": '{player} jugó {minutes} min y sumó {points} pts{comparison}.',
     },
     "gw_report.story.no_add_comparison": {
-        "en": ' (in his previous {n} appearances he averaged {avg} pts per match; a historical comparison, not an expectation)',
+        "en": ' (an average of {avg} pts per match over the previous {n} appearances with minutes; a historical comparison, not an expectation)',
         "es": ' (en sus {n} partidos previos con minutos promedió {avg} pts por partido; comparación histórica, no una expectativa)',
     },
     "gw_report.story.minutes_change": {
-        "en": 'Minutes: {player} played {per_fixture} min this gameweek, against an average of {avg} min in his last {n} appearances with minutes.',
+        "en": 'Minutes: {player} played {per_fixture} min this gameweek, against an average of {avg} min over the last {n} appearances with minutes.',
         "es": 'Minutos: {player} jugó {per_fixture} min en esta jornada, frente a una media de {avg} min en sus últimos {n} partidos con minutos.',
     },
     "gw_report.footer": {
