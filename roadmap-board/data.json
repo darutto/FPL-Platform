@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-30",
+  "updated": "2026-10-31",
   "cards": [
     {
       "id": "s1",
@@ -2250,14 +2250,14 @@
     },
     {
       "id": "i159",
-      "col": "idea",
-      "progress": 0,
+      "col": "shipped",
+      "progress": 100,
       "tags": [
         "Producto",
         "FPL Asistente"
       ],
       "title": "Reporte retrospectivo de una jornada FPL (sin Sportmonks)",
-      "desc": "R1 del plan de reportes: picks reales de cualquier GW cerrada (API de FPL), once efectivo, capitán, banca, puntos oficiales reconciliados y 2 a 5 historias con evidencia. No necesita Sportmonks. Ver docs/REPORTS_INTEGRATION_PLAN.md."
+      "desc": "R1 del plan de reportes: picks reales de cualquier GW cerrada (API de FPL), once efectivo, capitán, banca, puntos oficiales reconciliados y 2 a 5 historias con evidencia. No necesita Sportmonks. Ver docs/REPORTS_INTEGRATION_PLAN.md.\n\nACTUALIZACIÓN 2026-10-31 (PR #595, #596): fusionada. #595 añade get_gw_report, el informe retrospectivo de una jornada cerrada con historias de capitán, banca, cambios automáticos y Bench Boost, con textos ES/EN en el catálogo. #596 escribe «1 pt» en singular en todas las historias. #561 se cerró sin fusionar, reemplazada por #595."
     },
     {
       "id": "i160",
@@ -2294,14 +2294,14 @@
     },
     {
       "id": "i163",
-      "col": "building",
-      "progress": 30,
+      "col": "shipped",
+      "progress": 100,
       "tags": [
         "FI",
         "Datos"
       ],
       "title": "Stats individuales de Sportmonks (toques, pases, pases clave, pases atrás) y destacados",
-      "desc": "R6: confirmar entitlement de Starter con una lectura mínima en la prueba real; ingesta 3c aparte. Sin pases progresivos como campo. ACTUALIZACIÓN 2026-10-28 (PR #553, 1/3): tabla opcional player_match_stats en el store licenciado (minutos, rating, toques, pases, pases clave, duelos, tackles, intercepciones, recuperaciones, regates), derivada de lineups.details de partidos completados, solo ids de FPL; compatible con builds anteriores (tabla opcional, el runtime la sirve vacía). Falta la ingesta (PR 2/3) y la herramienta get_player_involvement (PR 3/3).\n\nACTUALIZACIÓN 2026-10-29 (PR #565): confirmado con lectura en vivo que el Starter de Sportmonks sí incluye stats por jugador -- la nota de 'sin confirmar para Starter' y la mención de Q12 quedaban desactualizadas; ingesta cubierta por R6 #553 (fusionada) y #559 (abierta, 2/3); precios de terceros siguen sin verificar."
+      "desc": "R6: confirmar entitlement de Starter con una lectura mínima en la prueba real; ingesta 3c aparte. Sin pases progresivos como campo. ACTUALIZACIÓN 2026-10-28 (PR #553, 1/3): tabla opcional player_match_stats en el store licenciado (minutos, rating, toques, pases, pases clave, duelos, tackles, intercepciones, recuperaciones, regates), derivada de lineups.details de partidos completados, solo ids de FPL; compatible con builds anteriores (tabla opcional, el runtime la sirve vacía). Falta la ingesta (PR 2/3) y la herramienta get_player_involvement (PR 3/3).\n\nACTUALIZACIÓN 2026-10-29 (PR #565): confirmado con lectura en vivo que el Starter de Sportmonks sí incluye stats por jugador -- la nota de 'sin confirmar para Starter' y la mención de Q12 quedaban desactualizadas; ingesta cubierta por R6 #553 (fusionada) y #559 (abierta, 2/3); precios de terceros siguen sin verificar.\n\nACTUALIZACIÓN 2026-10-31 (PR #594, #598, #599, #563, #600): R6 completo. #594 (2/3, v2): el pase diario lee las stats de los partidos terminados de los últimos 7 días en páginas de 10 (lineups.details) junto a la ventana de copas de 240 días de #592; presupuesto previsto 64 llamadas, peor caso 112 bajo el techo de 120. #598: un tipo de stat desconocido queda vacío (None), no cero, y los nombres se aprenden del partido que trae más ids desconocidos; el resumen del pase expone stat_types.columns_unresolved (tras el backfill de Leo solo queda THROUGH_BALLS, que la herramienta no usa). #563 (3/3) con #599: herramienta get_player_involvement y tarjeta ES/EN; un recuento desconocido se lee como «sin datos». #600: football-intelligence en el pythonpath de pytest de fpl-grounded-assistant (los tests ya no dependen del orden de importación). #559 se cerró sin fusionar, reemplazada por #594."
     },
     {
       "id": "s54",
@@ -2396,7 +2396,7 @@
       "id": "s62",
       "col": "shipped",
       "title": "Limpieza semanal de worktrees (script y regla)",
-      "desc": "Fusionada (PR #562, 28/10). scripts/cleanup_worktrees.ps1 y docs/worktree-cleanup.md: dry-run por defecto, -Apply borra solo worktrees con PR fusionado, sin commits sin subir, árbol limpio, sin datos locales ignorados y quietos más de 24 h; lista de mantener aparte. No programado; -Apply sin probar.",
+      "desc": "Fusionada (PR #562, 28/10). scripts/cleanup_worktrees.ps1 y docs/worktree-cleanup.md: dry-run por defecto, -Apply borra solo worktrees con PR fusionado, sin commits sin subir, árbol limpio, sin datos locales ignorados y quietos más de 24 h; lista de mantener aparte. No programado; -Apply sin probar.\n\nACTUALIZACIÓN 2026-10-31 (PR #588): -Apply ya recorre todos los worktrees en Windows PowerShell 5.1; antes paraba tras el primero por un aviso de git en stderr. Los junctions se desenlazan sin borrar su destino. Ver también s73.",
       "tags": [
         "Infra"
       ],
@@ -2406,7 +2406,7 @@
       "id": "s63",
       "col": "shipped",
       "title": "Capa de calendario europeo (manual_curated)",
-      "desc": "Fusionada (PR #576, 29/10). Backend de /fixtures/competitions añade la capa de competiciones europeas sobre el calendario licenciado (provenance licensed_starter+manual_curated, cobertura parcial), con parser de horarios DD/MM/YYYY→UTC, bandera --unverified para horas dudosas, rest_hours_before recalculado y aviso de rotación tras partido europeo verificado; datos locales, UI pendiente.",
+      "desc": "Fusionada (PR #576, 29/10). Backend de /fixtures/competitions añade la capa de competiciones europeas sobre el calendario licenciado (provenance licensed_starter+manual_curated, cobertura parcial), con parser de horarios DD/MM/YYYY→UTC, bandera --unverified para horas dudosas, rest_hours_before recalculado y aviso de rotación tras partido europeo verificado; datos locales, UI pendiente.\n\nACTUALIZACIÓN 2026-10-30 (PR #582, #583, #584, #585): #582 lleva la capa a la UI de /fixtures con sello de cobertura «Europa según la lista del …», «hora por verificar» y horas de descanso en el aviso de rotación. #583 la lleva a prod con la variable de Railway FPL_MANUAL_CALENDAR_JSON, sin datos en git; de paso, una fila mal formada ya no da 500. #584 añade a /healthz los bloques manual_calendar y football_licensed. #585 deja la documentación sin partidos pendientes de verificar (44 de 44 con hora verificada) y usa nombres sintéticos en ejemplo y test.",
       "tags": [
         "Backend",
         "Datos"
@@ -2417,7 +2417,7 @@
       "id": "s64",
       "col": "shipped",
       "title": "Regeneración semanal de fixture-outlook vía PR",
-      "desc": "Fusionada (PR #569, 29/10). regenerate-fixture-outlook.yml dejaba de terminar en upload-artifact sin tocar main; ahora, si el bundle cambia, empuja a bot/fixture-outlook y abre/reusa una PR (sin auto-merge ni push directo), y refresca fixture-outlook-2026-27.json a la jornada 7.",
+      "desc": "Fusionada (PR #569, 29/10). regenerate-fixture-outlook.yml dejaba de terminar en upload-artifact sin tocar main; ahora, si el bundle cambia, empuja a bot/fixture-outlook y abre/reusa una PR (sin auto-merge ni push directo), y refresca fixture-outlook-2026-27.json a la jornada 7.\n\nACTUALIZACIÓN 2026-10-30 (PR #578, #586): #578 fija el bundle en las tres suites de fpl-ui que fallaban tras el refresco de #569 (solo tests). #586 es la primera regeneración del bundle /fixtures abierta por el workflow como PR, fusionada a mano.",
       "tags": [
         "Backend",
         "Deploy",
@@ -2497,6 +2497,51 @@
       "desc": "Fusionada (PR #567, 29/10). Solo tests: fija con cobertura que /transferencia y /transfer ofrecen chips de desambiguación en ambos slots (vender/fichar) y que el tap resuelve a Costinha (id 31) y no al João Pedro del Chelsea; sin cambio de comportamiento (ya arreglado por #556).",
       "tags": [
         "Backend",
+        "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s72",
+      "col": "shipped",
+      "title": "Jest de fpl-ui en CI",
+      "desc": "Fusionada (PR #581, 30/10). El job requerido «Package test suites» corre jest de fpl-ui (Node 25, npm ci, jest --ci) solo cuando el diff toca packages/fpl-ui/ o el workflow, y siempre en push a main. No hay job nuevo ni cambio de branch protection. Añade bundle-pinning-guard.test.ts: toda suite que lea el bundle real debe fijarlo o declararse lectora en vivo.",
+      "tags": [
+        "Infra",
+        "UI"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s73",
+      "col": "shipped",
+      "title": "Mantenimiento de disco: chequeo de solo lectura y guía",
+      "desc": "Fusionada (PR #588, #589, #597; 31/10). #589 añade scripts/disk_check.ps1, de solo lectura y compatible con PS 5.1. Mide espacio libre con niveles OK/AVISO/ACCION/CRITICO, lista los grandes consumidores y los worktrees elegibles (dry-run) y guarda un historial fuera del repo. También añade docs/ops/disk-maintenance.md como guía única para agentes y humanos. #588 arregla cleanup_worktrees.ps1 en PS 5.1. #597 corrige el comando schtasks de la tarea semanal (comillas).",
+      "tags": [
+        "Infra"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s74",
+      "col": "shipped",
+      "title": "Copas domésticas visibles en /fixtures (ventana larga)",
+      "desc": "Fusionada (PR #590, #591, #592; 31/10). En prod salían 0 partidos de FA y EFL porque las copas solo se leían 14 días hacia delante. #590 (solo tests) confirma que la capa europea se suma a las copas licenciadas y no las reemplaza. #592 lee las copas de cada club hasta 240 días (CUP_WINDOW_DAYS, configurable); ante un 422 reintenta con 120 y luego con 14, y lo deja en el resumen del pase (cup_window). #591 hace que la UI diga «Copas: sin partidos programados por ahora» en vez de callar.",
+      "tags": [
+        "Backend",
+        "Datos",
+        "UI"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s75",
+      "col": "shipped",
+      "title": "Textos de respaldo del renderer en ES/EN y tests en inglés",
+      "desc": "Fusionada (PR #579, #580, #593; 30-31/10). #580 pasa once textos de respaldo del renderer (chip, transfer, forma, puntos, precios, calendario, posición, equipo) a t(key, locale): en queda byte-idéntico y es es nuevo. #579 fija con tests el wizard de reescritura de /compare en inglés. #593 fija con tests el login y el post-login en ambos idiomas. Ninguna de las dos últimas cambia comportamiento.",
+      "tags": [
+        "Backend",
+        "UI",
         "FPL Asistente"
       ],
       "progress": 100
