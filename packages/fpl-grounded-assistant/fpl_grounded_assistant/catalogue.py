@@ -1285,8 +1285,8 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "es": '**Lo que destacó:**',
     },
     "gw_report.story.captain_top": {
-        "en": 'Captain: {captain} scored {captain_points} pts (×{multiplier} = {contribution}), the highest of your effective XI{tied}.',
-        "es": 'Capitán: {captain} sumó {captain_points} pts (×{multiplier} = {contribution}), el máximo de tu once efectivo{tied}.',
+        "en": 'Captain: {captain} scored {captain_points} {unit} (×{multiplier} = {contribution}), the highest of your effective XI{tied}.',
+        "es": 'Capitán: {captain} sumó {captain_points} {unit} (×{multiplier} = {contribution}), el máximo de tu once efectivo{tied}.',
     },
     "gw_report.story.captain_top_tied": {
         "en": ' (level with {names})',
@@ -1297,8 +1297,8 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "es": '{best} fue el mejor de tu once ({best_points} {best_unit}); el brazalete fue para {captain} ({captain_points} {unit}, ×{multiplier}).',
     },
     "gw_report.story.autosub": {
-        "en": 'Automatic substitution: {player_in} came on for {player_out} and scored {points_in} pts ({reason}).',
-        "es": 'Autosustitución: {player_in} entró por {player_out} y sumó {points_in} pts ({reason}).',
+        "en": 'Automatic substitution: {player_in} came on for {player_out} and scored {points_in} {unit} ({reason}).',
+        "es": 'Autosustitución: {player_in} entró por {player_out} y sumó {points_in} {unit} ({reason}).',
     },
     "gw_report.story.autosub_no_fixture": {
         "en": "{player_out}'s team had no fixture",
@@ -1309,16 +1309,16 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "es": '{player_out} no jugó',
     },
     "gw_report.story.bench_points": {
-        "en": 'Bench: {bench_points} pts stayed on the bench; the highest was {best} with {best_points}.',
-        "es": 'Banca: {bench_points} pts se quedaron en la banca; el mayor fue {best} con {best_points}.',
+        "en": 'Bench: {bench_points} {unit} did not count; the highest was {best} with {best_points}.',
+        "es": 'Banca: {bench_points} {unit} sin contar; el mayor fue {best} con {best_points}.',
     },
     "gw_report.story.bench_boost": {
-        "en": 'Bench Boost: your bench added {bench_points} pts; the highest was {best} with {best_points}.',
-        "es": 'Bench Boost: tu banca aportó {bench_points} pts; el mayor fue {best} con {best_points}.',
+        "en": 'Bench Boost: your bench added {bench_points} {unit}; the highest was {best} with {best_points}.',
+        "es": 'Bench Boost: tu banca aportó {bench_points} {unit}; el mayor fue {best} con {best_points}.',
     },
     "gw_report.story.no_add": {
-        "en": '{player} played {minutes} min and scored {points} pts{comparison}.',
-        "es": '{player} jugó {minutes} min y sumó {points} pts{comparison}.',
+        "en": '{player} played {minutes} min and scored {points} {unit}{comparison}.',
+        "es": '{player} jugó {minutes} min y sumó {points} {unit}{comparison}.',
     },
     "gw_report.story.no_add_comparison": {
         "en": ' (an average of {avg} pts per match over the previous {n} appearances with minutes; a historical comparison, not an expectation)',
