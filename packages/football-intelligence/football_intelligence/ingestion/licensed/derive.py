@@ -80,6 +80,8 @@ class DerivedTables:
     cup_snapshots: tuple[CompetitionSnapshot, ...]
     report: DeriveReport
     player_match_stats: tuple[dict[str, Any], ...] = ()
+    #: Statistic names learned in this pass (type id -> developer name); the store merges them into its reference table.
+    stat_types: Mapping[int, str] = field(default_factory=dict)
 
 
 def lineup_confirmed(fixture: Mapping[str, Any]) -> bool | None:

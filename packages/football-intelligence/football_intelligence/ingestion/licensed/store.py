@@ -57,10 +57,12 @@ TABLES: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
     "cup_records": (("competition", "season", "club", "opponent", "opponent_code", "kickoff_utc", "venue", "status",
                      "source", "fetched_at", "gameweek"), ("competition", "club", "kickoff_utc")),
     "player_match_stats": (PLAYER_MATCH_STATS_COLUMNS, ("element", "fixture_id", "observed_at")),
+    # The provider's statistic names (type id -> developer name): reference data, read once and extended on demand.
+    "stat_types": (("type_id", "name"), ("type_id",)),
 }
 #: Tables a build may lack: builds written before R6 have no ``player_match_stats`` and stay valid and servable.
-OPTIONAL_TABLES = frozenset({"player_match_stats"})
-HISTORY_TABLES = ("lineup_snapshots", "lineup_slots", "sidelined", "squad_membership", "player_match_stats")
+OPTIONAL_TABLES = frozenset({"player_match_stats", "stat_types"})
+HISTORY_TABLES = ("lineup_snapshots", "lineup_slots", "sidelined", "squad_membership", "player_match_stats", "stat_types")
 STATE_TABLES = ("crosswalk", "cup_snapshots", "cup_records")
 MANIFEST_FIELDS = {"schema_version", "build_family", "build_id", "built_at", "assumption_status", "normalizer_versions",
                    "source", "files", "row_counts"}
@@ -101,7 +103,8 @@ def _rows(tables: DerivedTables, crosswalk: Mapping[int, int]) -> dict[str, list
             "sidelined": list(tables.sidelined), "squad_membership": list(tables.squad_membership),
             "crosswalk": [{"sportmonks_player_id": k, "element": v} for k, v in sorted(crosswalk.items())],
             "cup_snapshots": cups, "cup_records": [asdict(r) for c in tables.cup_snapshots for r in c.records],
-            "player_match_stats": list(tables.player_match_stats)}
+            "player_match_stats": list(tables.player_match_stats),
+            "stat_types": [{"type_id": k, "name": v} for k, v in sorted(tables.stat_types.items())]}
 
 
 def write_build(tables: DerivedTables, crosswalk: Mapping[int, int], destination: Path, *, build_id: str,
