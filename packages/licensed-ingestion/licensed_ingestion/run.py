@@ -18,6 +18,7 @@ from football_intelligence.ingestion.licensed.crosswalk import build_crosswalk
 from football_intelligence.ingestion.licensed.derive import (
     LINEUP_CONFIRMED_TYPE_ID, DeriveReport, DerivedTables, derive, team_codes_from,
 )
+from football_intelligence.ingestion.licensed.player_stats import unresolved_columns
 from football_intelligence.ingestion.licensed.store import read_table, write_build
 from football_intelligence.ingestion.live_trial import fixture_status
 from sportmonks_client.client import SportmonksClient
@@ -53,21 +54,28 @@ def previous_stat_types(build: Path | None) -> dict[int, str]:
 def resolve_stat_types(client: SportmonksClient, fixtures: Sequence[Mapping[str, Any]], known: dict[int, str],
                        summary: dict[str, Any]) -> tuple[dict[int, str], dict[int, str]]:
     """The type map to derive with, and the names learned this pass. The provider is asked ONLY when a finished
-    fixture carries a type id the map does not know (this includes an empty map), once per pass, from one finished
-    fixture that has details. An id still unknown after that is left out of the statistics and counted.
-    ``summary`` gets counts only."""
+    fixture carries a type id the map does not know (this includes an empty map), once per pass, from the finished
+    fixture whose details carry the most unknown ids (so later passes keep learning instead of re-reading one match).
+    An id still unknown after that is left out of the statistics and counted. ``summary`` gets counts, plus the
+    curated statistic names still unknown (written as ``None``, never zero): names of measures, no player data."""
     carrying = [f for f in fixtures if fixture_status(f) == "completed"
                 and any(r.get("details") for r in f.get("lineups") or [])]
-    seen = {d.get("type_id") for f in carrying for r in f.get("lineups") or [] for d in r.get("details") or []}
-    seen = {i for i in seen if isinstance(i, int)}
+    seen = {i for f in carrying for i in _type_ids(f)}
     learned: dict[int, str] = {}
     called = bool(seen - set(known))
     if called:
-        learned = fetch.stat_types(client, int(carrying[0]["id"]))
+        best = max(carrying, key=lambda f: len(_type_ids(f) - set(known)))   # first on a tie: deterministic
+        learned = fetch.stat_types(client, int(best["id"]))
     names = {**known, **learned}
     summary["stat_types"] = {"known": len(names), "learned": len(set(learned) - set(known)), "provider_calls": int(called),
-                             "unknown_after": len(seen - set(names))}
+                             "unknown_after": len(seen - set(names)),
+                             "columns_unresolved": unresolved_columns(names) if carrying else []}
     return names, learned
+
+
+def _type_ids(fixture: Mapping[str, Any]) -> set[int]:
+    return {d.get("type_id") for r in fixture.get("lineups") or [] for d in r.get("details") or []
+            if isinstance(d.get("type_id"), int)}
 
 
 def latest_build(root: Path) -> Path | None:

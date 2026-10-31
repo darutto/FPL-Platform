@@ -11,6 +11,9 @@ Decisions a reviewer should be able to find:
   finished fixtures: every statistic present was non-zero in 100 % of its rows; see the trial field-coverage report).
   So a player who has ``MINUTES_PLAYED`` and no ``TOUCHES`` detail had none. A player WITHOUT minutes gets no row at
   all (an unused substitute has no match to describe).
+* **Unknown is not zero.** Absent = zero holds only for a statistic whose name the type map knows. If the map has no
+  id for a curated name (the provider's names were read from one fixture where it never occurred), its column is
+  ``None`` in every row of the pass: a detail with that id may have been there and been dropped.
 * **A rating is not a count.** An unrated appearance (a cameo of a couple of minutes) has ``rating = None``, never 0.
 * **Percentages are not stored.** Accuracy is derived from the counts where it is shown.
 * **Only completed fixtures**, and the caller says so: a live match's totals are partial.
@@ -62,8 +65,14 @@ def _number(value: Any) -> float | None:
     return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None
 
 
+def unresolved_columns(names: Mapping[int, str]) -> list[str]:
+    """The curated developer names the type map does not know (their columns are written as ``None``)."""
+    return sorted(set(STAT_COLUMNS) - set(names.values()))
+
+
 def lineup_stats(lineup_row: Mapping[str, Any], names: Mapping[int, str]) -> dict[str, Any] | None:
     """The curated measures of one lineup row, or None when the player has no minutes (no row)."""
+    known = set(names.values())
     found: dict[str, float] = {}
     for detail in lineup_row.get("details") or []:
         entry = STAT_COLUMNS.get(names.get(detail.get("type_id"), ""))
@@ -74,8 +83,10 @@ def lineup_stats(lineup_row: Mapping[str, Any], names: Mapping[int, str]) -> dic
     if not minutes or minutes <= 0:
         return None
     out: dict[str, Any] = {}
-    for column, kind in STAT_COLUMNS.values():
-        if kind == "count":
+    for name, (column, kind) in STAT_COLUMNS.items():
+        if name not in known:
+            out[column] = None                        # unknown type: a dropped detail must not read as zero
+        elif kind == "count":
             out[column] = int(found.get(column, 0))   # absent = zero, validated per field for players with minutes
         else:
             out[column] = found.get(column)           # a rating: unrated stays None

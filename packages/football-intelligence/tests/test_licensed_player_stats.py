@@ -5,13 +5,14 @@ import hashlib
 import json
 from dataclasses import replace
 
+import pandas as pd
 import pytest
 
 from football_intelligence.distribution.licensed_runtime import LicensedRuntimeHandle
 from football_intelligence.distribution.service import encode_pointer
 from football_intelligence.ingestion.licensed.derive import FplFixture, derive
 from football_intelligence.ingestion.licensed.player_stats import (
-    PLAYER_MATCH_STATS_COLUMNS, STAT_COLUMNS, lineup_stats, new_information, type_names,
+    PLAYER_MATCH_STATS_COLUMNS, STAT_COLUMNS, lineup_stats, new_information, type_names, unresolved_columns,
 )
 from football_intelligence.ingestion.licensed.store import (
     OPTIONAL_TABLES, POINTER_NAME, LicensedStoreError, read_table, validate_build, write_build,
@@ -85,6 +86,30 @@ def test_a_statistic_the_provider_left_out_is_zero_for_a_player_with_minutes(nam
     with_it, without = lineup_stats(_row(700001, ARS, *FULL), NAMES), lineup_stats(_row(700001, ARS, *others), NAMES)
     assert with_it[column] > 0 and without[column] == 0 and isinstance(without[column], int)
     assert {k: v for k, v in without.items() if k != column} == {k: v for k, v in with_it.items() if k != column}
+
+
+def test_a_statistic_whose_type_is_unknown_is_none_not_zero():
+    # the map never met KEY_PASSES / THROUGH_BALLS: a detail with their id may have been dropped, so no zero is written
+    partial = {i: n for i, n in NAMES.items() if n not in ("KEY_PASSES", "THROUGH_BALLS")}
+    stats = lineup_stats(_row(700001, ARS, *FULL), partial)
+    assert stats["key_passes"] is None and stats["through_balls"] is None
+    assert stats["touches"] == 61 and stats["long_balls"] == 4
+    without_tackles = [d for d in FULL if d["type_id"] != ID["TACKLES"]]
+    assert lineup_stats(_row(700001, ARS, *without_tackles), partial)["tackles"] == 0   # known and absent = zero
+    assert unresolved_columns(partial) == ["KEY_PASSES", "THROUGH_BALLS"] and unresolved_columns(NAMES) == []
+
+
+def test_an_unknown_column_survives_the_store_as_missing_and_a_later_known_value_is_a_new_row(tmp_path):
+    partial = {i: n for i, n in NAMES.items() if n != "KEY_PASSES"}
+    unknown = _derive([_row(700001, ARS, *FULL)], names=partial)
+    first = write_build(unknown, CROSSWALK, tmp_path, build_id="one", built_at=OBSERVED)
+    validate_build(first)
+    frame = read_table(first, "player_match_stats")
+    assert pd.isna(frame.key_passes.iloc[0]) and int(frame.touches.iloc[0]) == 61
+    second = write_build(_shift(_tables(), "2026-10-25T05:00:00Z"), CROSSWALK, tmp_path, build_id="two",
+                         built_at=OBSERVED, previous=first)
+    rows = read_table(second, "player_match_stats").sort_values("observed_at")
+    assert len(rows) == 2 and pd.isna(rows.key_passes.iloc[0]) and int(rows.key_passes.iloc[1]) == 2
 
 
 def test_an_unrated_appearance_has_no_rating_not_a_zero_rating():
