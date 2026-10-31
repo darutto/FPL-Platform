@@ -91,11 +91,23 @@ Worktrees often have `packages/fpl-ui/node_modules` as a **junction** to the mai
 - **Monthly:** Class A, restart (not shut down), `docker builder prune -a -f` if Docker is in use, and check that `<repo>\.uv-cache` has not come back.
 - **Quarterly:** Class C review with the human; DISM as Administrator.
 
-To schedule the weekly check (Task Scheduler; adjust the repo path):
+To schedule the weekly check with Task Scheduler, replace `<repo>` with the repo path. This works from PowerShell or cmd when the path has **no spaces**:
 
 ```
-schtasks /Create /TN "fpl disk_check semanal" /SC WEEKLY /D MON /ST 09:00 /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"<repo>\scripts\disk_check.ps1\""
+schtasks /Create /F /TN "fpl disk_check semanal" /SC WEEKLY /D MON /ST 09:00 /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File <repo>\scripts\disk_check.ps1"
 ```
+
+Do not wrap the path in `\"…\"`. That escaping only works in cmd. From PowerShell it registers a broken argument (`-File " <repo>\scripts\disk_check.ps1\`), and the task fails silently.
+
+If the repo path has spaces, register the task from PowerShell instead:
+
+```powershell
+$action  = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "<repo>\scripts\disk_check.ps1"'
+$trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Monday -At 9am
+Register-ScheduledTask -TaskName 'fpl disk_check semanal' -Action $action -Trigger $trigger -Force
+```
+
+Check what was registered: `schtasks /Query /TN "fpl disk_check semanal" /XML`. The `<Arguments>` element must show the script path intact.
 
 ## PowerShell 5.1 pitfalls
 
