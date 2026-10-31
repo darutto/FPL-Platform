@@ -88,6 +88,12 @@ def test_dev_variables_appear_in_no_prod_path():
              if "node_modules" not in p.parts and "tests" not in p.parts
              and "FI_DEV_ALLOW_LIVE_TRIAL_LOCAL" in p.read_text(encoding="utf-8", errors="ignore")]
     assert [p.name for p in users] == ["competition_calendar.py"]
+    # The chat FI runtime reads the gate through competition_calendar and never spells a dev variable.
+    runtime_src = (REPO / "packages/fpl-grounded-assistant/fpl_grounded_assistant/football_intelligence_runtime.py").read_text(encoding="utf-8")
+    assert "FI_DEV_" not in runtime_src and "dev_live_trial_store" in runtime_src
+    assert not [p for p in (REPO / "packages").rglob("*.py")
+                if "tests" not in p.parts and "FI_DEV_LIVE_TRIAL_STORE" in p.read_text(encoding="utf-8", errors="ignore")
+                and p.name != "competition_calendar.py"]
 
 
 # -- premium ----------------------------------------------------------------

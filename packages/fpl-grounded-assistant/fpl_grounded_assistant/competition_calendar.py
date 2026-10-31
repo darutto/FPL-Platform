@@ -27,6 +27,12 @@ from football_intelligence.live_trial_calendar import build_calendar
 
 ENV_ALLOW = "FI_DEV_ALLOW_LIVE_TRIAL_LOCAL"
 ENV_CAPTURE = "FI_DEV_LIVE_TRIAL_CAPTURE"
+#: Dev-only: directory of a FPL_FOOTBALL_ROOT-shaped trial store for the chat FI tools
+#: (``football_intelligence_runtime``). ENV_CAPTURE names a capture *file*, not a store, so it cannot
+#: carry this meaning; the runtime imports these names from here, it never spells them.
+ENV_STORE = "FI_DEV_LIVE_TRIAL_STORE"
+#: Set by Railway at runtime; any of them present means a deployed environment, never a dev box.
+PROD_MARKERS = ("RAILWAY_ENVIRONMENT", "RAILWAY_ENVIRONMENT_ID", "RAILWAY_SERVICE_ID", "RAILWAY_PROJECT_ID")
 #: Tiers that get the detail: Gafete de cancha ($5, patreon_basic) and above (Leo, 2026-10-14).
 #: Every other tier (patreon_tribuna $1, free) gets the counts-only view with the lock mark.
 DETAIL_TIERS = frozenset({"patreon_basic", "patreon_plus", "patreon_premium"})
@@ -245,6 +251,22 @@ def _with_manual(calendar: dict[str, list[dict[str, Any]]], layer: dict[str, Any
 
 def _dev_gate_open() -> bool:
     return os.environ.get(ENV_ALLOW, "").strip() == "1"
+
+
+def dev_live_trial_store() -> Path | None:
+    """The explicit trial store dir for the chat FI tools, or None unless every dev gate is open.
+
+    Needs ENV_ALLOW=1 AND an existing ENV_STORE directory AND no deployed-environment marker.
+    The marker check is stricter than ``_calendar`` (which relies only on the variables being
+    absent from prod config); it is never weaker.
+    """
+    if os.environ.get(ENV_ALLOW, "").strip() != "1":
+        return None
+    if any(os.environ.get(name, "").strip() for name in PROD_MARKERS):
+        return None
+    raw = os.environ.get(ENV_STORE, "").strip()
+    path = Path(raw) if raw else None
+    return path if path is not None and path.is_dir() else None
 
 
 def _calendar() -> dict[str, list[dict[str, Any]]] | None:
