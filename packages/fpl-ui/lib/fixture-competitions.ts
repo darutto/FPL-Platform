@@ -55,6 +55,8 @@ export interface CompetitionsView {
   teams: Map<string, TeamExtras>;
   /** Hand-curated European layer: shown as partial, with the date of its list (null when the layer is absent). */
   manualListDate: string | null;
+  /** True when the licensed cups (FA, Carabao) are only partly covered AND the answer carries no cup match at all. */
+  cupsNoneScheduled: boolean;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -68,7 +70,7 @@ export function parseCompetitions(payload: unknown): CompetitionsView | null {
   if (tier !== 'premium' && tier !== 'free') return null;
   const teams = new Map<string, TeamExtras>();
   // Whatever else a free answer carried is ignored: the locked layer draws nothing per team.
-  if (tier === 'free') return { tier, teams, manualListDate: null };
+  if (tier === 'free') return { tier, teams, manualListDate: null, cupsNoneScheduled: false };
   if (!isRecord(payload.teams)) return null;
   for (const [code, raw] of Object.entries(payload.teams)) {
     if (!isRecord(raw)) continue;
@@ -111,14 +113,24 @@ export function parseCompetitions(payload: unknown): CompetitionsView | null {
     manual && typeof manual.list_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(manual.list_date)
       ? manual.list_date
       : null;
-  return { tier, teams, manualListDate: listDate };
+  const coverage = isRecord(payload.data) && isRecord(payload.data.coverage) ? payload.data.coverage : null;
+  const cupsPartial = coverage !== null && (coverage.FA === 'partial' || coverage.EFL === 'partial');
+  const anyCup = [...teams.values()].some((t) => t.extras.some((m) => m.competition === 'FA' || m.competition === 'EFL'));
+  return { tier, teams, manualListDate: listDate, cupsNoneScheduled: cupsPartial && !anyCup };
 }
 
-/** «Cobertura parcial · Europa según la lista del 28/10/2026». Null when there is no curated layer. */
+/**
+ * «Cobertura parcial · Europa según la lista del 28/10/2026 · Copas: sin partidos programados por ahora».
+ * Each part appears only when it applies; null when neither does.
+ */
 export function coverageNote(view: CompetitionsView | null, locale: Locale = DEFAULT_LOCALE): string | null {
-  if (!view?.manualListDate) return null;
-  const [y, m, d] = view.manualListDate.split('-');
-  return translate(locale, 'fx.comp.coverage', { date: `${d}/${m}/${y}` });
+  const parts: string[] = [];
+  if (view?.manualListDate) {
+    const [y, m, d] = view.manualListDate.split('-');
+    parts.push(translate(locale, 'fx.comp.coverage', { date: `${d}/${m}/${y}` }));
+  }
+  if (view?.cupsNoneScheduled) parts.push(translate(locale, 'fx.comp.cupsNone'));
+  return parts.length ? parts.join(' · ') : null;
 }
 
 export function extrasFor(view: CompetitionsView | null, team: string): TeamExtras | null {

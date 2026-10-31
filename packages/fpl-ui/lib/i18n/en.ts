@@ -390,6 +390,7 @@ export const en: typeof es = {
     'The team played {comp} {days} ago. There is not yet enough evidence to size the rotation risk.',
   'fx.extra.sentence': '{comp} vs {opponent} ({venue})',
   'fx.extra.timeTbc': 'time to be verified',
+  'fx.comp.cupsNone': 'Cups: no matches scheduled yet',
   'fx.comp.coverage': 'Partial coverage · Europe from the list of {date}',
 
   // --- Questions the board hands to the chat (a tapped team or cell) ---
