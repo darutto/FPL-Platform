@@ -675,9 +675,9 @@ from fpl_grounded_assistant.orchestrator import (
 # Orch-2a: registry integrity
 _names = list_tool_schemas()
 ok(
-    len(_names) == 41,
-    "K1: 41 tools in static registry (FI-7b1 + solver + i39 get_my_squad + i82 season tools "
-    "+ i107 get_team_results + B4 get_position_changes + R1 get_gw_report; offered set remains flag-gated)",
+    len(_names) == 42,
+    "K1: 42 tools in static registry (FI-7b1 + solver + i39 get_my_squad + i82 season tools "
+    "+ i107 get_team_results + B4 get_position_changes + R6 get_player_involvement + R1 get_gw_report; offered set remains flag-gated)",
 )
 ok(_names == sorted(_names),                    "K2: names sorted")
 for _s in _ALL_SCHEMAS:

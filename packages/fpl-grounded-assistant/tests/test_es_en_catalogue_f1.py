@@ -561,7 +561,7 @@ class TestDeterministicRenderHarness:
         for item in audit_entries:
             safe(item["tool"], item["output"])
 
-        assert len(_RENDERERS) == 42  # 41 -> 42 (R1: get_gw_report); 38 -> 39 (i82: get_historical_gameweek_top_scorer) -> 40 (i107: get_team_results) -> 41 (B4: get_position_changes)
+        assert len(_RENDERERS) == 43  # 42 -> 43: R6 get_player_involvement + R1 get_gw_report; 38 -> 39 (i82: get_historical_gameweek_top_scorer) -> 40 (i107: get_team_results) -> 41 (B4: get_position_changes)
         error_payload = {"status": "error", "code": "harness_synthetic_error", "message": "synthetic error payload"}
         for tool_name in sorted(_RENDERERS):
             safe(tool_name, {})
@@ -575,7 +575,7 @@ class TestDeterministicRenderHarness:
     def test_zero_errors_and_full_coverage(self, locale, audit_entries):
         texts, errors = self._render_all(locale, audit_entries)
         assert errors == [], f"{len(errors)} render(s) raised: {errors[:3]}"
-        assert len(texts) == 120  # 35 + 2 * 42 + 1 (R1: get_gw_report)
+        assert len(texts) == 122  # 35 + 2 * 43 + 1 (R6: get_player_involvement, R1: get_gw_report)
 
     @pytest.mark.parametrize("locale", ["es", "en"])
     def test_no_leaked_catalogue_keys(self, locale, audit_entries):
@@ -922,6 +922,7 @@ class TestSpanishRegisterIsTuteo:
         "está",      # 3rd-person present of "estar" ("¿quién está lesionado?"), tuteo-neutral
         "ahí",       # adverb "there" (zonal verdicts), not a verb form
         "qué",       # interrogative "what/which" ("¿qué equipos...?"), not a verb form
+        "atrás",     # adverb "backward" (R6 involvement: "pases hacia atrás"), not a verb form
         "así",       # adverb "so/thus" (gameweek report: "así que..."), not a verb form
     }
 

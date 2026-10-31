@@ -547,6 +547,10 @@ def run_football_intelligence_tool(
         from .position_changes_tool import run_position_changes
 
         return run_position_changes(args, bootstrap)
+    if name == "get_player_involvement":
+        from .player_involvement_tool import run_player_involvement
+
+        return run_player_involvement(args, bootstrap)
     runtime = _load_runtime()
     if runtime is None:
         return _missing("feature_build_unavailable")

@@ -2272,6 +2272,63 @@ def _render_get_position_changes(output: dict[str, Any], locale: Locale = DEFAUL
     return "\n".join(lines)
 
 
+def _render_get_player_involvement(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
+    """Render get_player_involvement (R6). Match totals only: no zones, no causes. A comparison with a teammate keeps its
+    ``associated`` status in the wording ("had more touches when X did not play"; the two coincided)."""
+    status = output.get("status")
+    if status == "ambiguous":
+        return output.get("message") or t("renderer.position_changes.ambiguous", locale, query=output.get("query", "?"))
+    if status == "not_found":
+        return output.get("message") or t("renderer.position_changes.not_found", locale, query=output.get("query", "?"))
+    if status == "not_a_teammate":
+        return t("renderer.position_changes.not_a_teammate", locale, query=output.get("query", "?"),
+                 name=(output.get("player") or {}).get("web_name", "?"))
+    matches = output.get("matches") or []
+    if status != "ok" or not matches:
+        return t("renderer.player_involvement.missing", locale)
+
+    def n(value: Any) -> str:
+        return "?" if value is None else (f"{value:g}" if isinstance(value, float) else str(value))
+
+    player = output.get("player") or {}
+    lines = [t("renderer.player_involvement.header", locale, name=player.get("web_name", "?"),
+               team=player.get("team_short", "?"), n=len(matches))]
+    for m in matches:
+        where = t("renderer.position_changes.home" if m.get("is_home") else "renderer.position_changes.away", locale,
+                  opp=m.get("opponent", "?"))
+        gw = t("renderer.position_changes.gw", locale, gw=m.get("gameweek")) if m.get("gameweek") is not None else ""
+        lines.append(f"  {gw} {where}: " + t(
+            "renderer.player_involvement.row", locale, touches=n(m.get("touches")), passes=n(m.get("passes")),
+            acc=n(m.get("pass_accuracy_pct")), keyp=n(m.get("key_passes")), back=n(m.get("backward_passes")),
+            share=n(m.get("backward_share_pct")), mins=n(m.get("minutes"))))
+    avg = output.get("averages") or {}
+    if avg.get("matches"):
+        lines.append(t("renderer.player_involvement.avg", locale, min=30, n=avg["matches"],
+                       touches=n(avg.get("touches_per90")), passes=n(avg.get("passes_per90")),
+                       back=n(avg.get("backward_passes_per90")), acc=n(avg.get("pass_accuracy_pct"))))
+    focus = output.get("absence_focus")
+    if focus:
+        mate = (focus.get("teammate") or {}).get("web_name", "?")
+        without, with_him = focus.get("without_him") or {}, focus.get("with_him_starting") or {}
+        direction = focus.get("touches_without_vs_with")
+        if direction is None:
+            lines.append(t("renderer.player_involvement.focus_none", locale, name=mate))
+        else:
+            lines.append(t("renderer.player_involvement.focus_head", locale, name=mate, k=n(without.get("matches")),
+                           a=n(without.get("touches_per90")), m=n(with_him.get("matches")), b=n(with_him.get("touches_per90"))))
+            lines.append(t(f"renderer.player_involvement.focus_{direction}", locale, name=mate))
+        if focus.get("matches_uncertain"):
+            lines.append(t("renderer.player_involvement.uncertain", locale, n=focus["matches_uncertain"], name=mate))
+    sample = output.get("sample") or {}
+    if sample.get("small_sample") or (focus and focus.get("small_sample")):
+        lines.append(t("renderer.player_involvement.small_sample", locale, n=sample.get("matches_with_stats", len(matches))))
+    lines.append(t("renderer.player_involvement.footer", locale))
+    built = (output.get("data_provenance") or {}).get("built_at")
+    if built:
+        lines.append(t("renderer.player_involvement.provenance", locale, built_at=str(built)[:10]))
+    return "\n".join(lines)
+
+
 _RENDERERS = {
     "resolve_player":            _render_resolve_player,
     "get_player_summary":        _render_get_player_summary,
@@ -2317,6 +2374,7 @@ _RENDERERS = {
     "get_fixture_context":      _render_fixture_context_v2,      # FI-7b3
     "get_player_intelligence":  _render_player_intelligence_v2,  # FI-7b3
     "get_position_changes":     _render_get_position_changes,        # B4
+    "get_player_involvement":   _render_get_player_involvement,      # R6
 }
 
 

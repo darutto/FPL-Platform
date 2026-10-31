@@ -1619,12 +1619,48 @@ GET_POSITION_CHANGES_SCHEMA = ToolSchema(
     },
 )
 
+# R6 -- touches, passes and backward passes per match, with or without a teammate, from the licensed store.
+GET_PLAYER_INVOLVEMENT_SCHEMA = ToolSchema(
+    name="get_player_involvement",
+    description=(
+        "How involved a player was in his club's recent matches: touches, passes, pass accuracy, key passes and "
+        "BACKWARD passes (and the share of his passes that went backward), as MATCH TOTALS from the provider, plus "
+        "per-90 averages. Use for 'cuantos toques tiene X', 'cuanto participa X en el juego', 'pases hacia atras', "
+        "'is X involved in build-up', optionally with absent_player (a TEAMMATE) for 'cuando no juega Y' to compare "
+        "his per-90 involvement in matches where Y did not play with matches where Y started. Each statement carries "
+        "claim_status: observed (a match total) or associated (it coincided with a teammate's absence). Words "
+        "allowed: 'tuvo mas/menos toques', 'had more/fewer touches', 'coincidio con la ausencia de Y'. NEVER give a "
+        "cause ('por la lesion', 'porque falto Y', 'because of'), never predict, never describe WHERE on the pitch "
+        "(no zones, no heat maps: the data are totals, with no location and no minute of the action); there are no "
+        "progressive or forward-pass counts. Per-90 uses only matches with 30+ minutes; a small sample must be said; "
+        "matches whose stored lineup is incomplete are left out of the comparison. Frame it as the opportunity, never "
+        "as weakness. The history starts when the licensed ingestion started, so few matches may be available."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "player": _PLAYER_QUERY_PROP,
+            "absent_player": {
+                "type": "string",
+                "description": "Optional TEAMMATE who did not play ('cuando no juega Joao Pedro'). Resolved within the player's club.",
+            },
+            "matches": {
+                "type": "integer", "minimum": 1, "maximum": 10,
+                "description": "How many of the latest matches with stored statistics to list (default 6).",
+            },
+        },
+        "required": ["player"],
+        "additionalProperties": False,
+    },
+)
+
 FI7B_TOOL_SCHEMAS: tuple[ToolSchema, ...] = (
     GET_EXPECTED_MINUTES_SCHEMA,
     GET_TACTICAL_ROLE_SCHEMA,
     GET_FIXTURE_CONTEXT_SCHEMA,
     GET_PLAYER_INTELLIGENCE_SCHEMA,
     GET_POSITION_CHANGES_SCHEMA,
+    GET_PLAYER_INVOLVEMENT_SCHEMA,
 )
 
 

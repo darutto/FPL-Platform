@@ -39,6 +39,7 @@ EXPECTED_FI7B_NAMES = frozenset(
         "get_fixture_context",
         "get_player_intelligence",
         "get_position_changes",  # B4
+        "get_player_involvement",  # R6
     }
 )
 FORBIDDEN_MODULES = frozenset(
@@ -82,8 +83,9 @@ def test_static_registry_is_38_under_both_flag_states(
 ) -> None:
     # 36 -> 38 (i82): get_player_season_points + get_historical_gameweek_top_scorer
     # joined the LLM catalogue. 38 -> 39 (i107): get_team_results. 39 -> 40 (B4): get_position_changes. 40 -> 41 (R1): get_gw_report.
-    assert len(_ALL_SCHEMAS) == 41
-    assert len(TOOL_NAMES) == 41
+    # 41 -> 42 (R6): get_player_involvement.
+    assert len(_ALL_SCHEMAS) == 42
+    assert len(TOOL_NAMES) == 42
     assert FI7B_TOOL_NAMES == EXPECTED_FI7B_NAMES
     assert all(validate_tool_schema_shape(schema) for schema in _ALL_SCHEMAS)
 
@@ -92,7 +94,7 @@ def test_static_registry_is_38_under_both_flag_states(
             monkeypatch.delenv(FOOTBALL_INTELLIGENCE_ENABLED_ENV, raising=False)
         else:
             monkeypatch.setenv(FOOTBALL_INTELLIGENCE_ENABLED_ENV, value)
-        assert len(_ALL_SCHEMAS) == 41
+        assert len(_ALL_SCHEMAS) == 42
 
 
 def test_offered_set_excludes_deprecated_adapters_under_both_fi_states() -> None:
@@ -102,10 +104,10 @@ def test_offered_set_excludes_deprecated_adapters_under_both_fi_states() -> None
     assert len(off_names) == 33  # 29 -> 31 (i82) -> 32 (i107) -> 33 (R1)
     assert not (off_names & EXPECTED_FI7B_NAMES)
     assert off_names == TOOL_NAMES - EXPECTED_FI7B_NAMES - DEPRECATED_LLM_TOOL_NAMES
-    assert len(on_names) == 38  # 33 -> 35 (i82) -> 36 (i107) -> 37 (B4) -> 38 (R1)
+    assert len(on_names) == 39  # 33 -> 35 (i82) -> 36 (i107) -> 37 (B4) -> 38 (R1) -> 39 (R6)
     assert on_names == TOOL_NAMES - DEPRECATED_LLM_TOOL_NAMES
     assert len(get_offered_tool_schemas(False)) == 33
-    assert len(get_offered_tool_schemas(True)) == 38
+    assert len(get_offered_tool_schemas(True)) == 39
 
 
 def test_provider_tool_payload_tracks_only_the_master_flag(
@@ -119,7 +121,7 @@ def test_provider_tool_payload_tracks_only_the_master_flag(
     assert len(off_names) == 33  # 29 -> 31 (i82) -> 32 (i107) -> 33 (R1)
     assert not (set(off_names) & EXPECTED_FI7B_NAMES)
     assert not (set(off_names) & DEPRECATED_LLM_TOOL_NAMES)
-    assert len(on_names) == 38  # 33 -> 35 (i82) -> 36 (i107) -> 37 (B4) -> 38 (R1)
+    assert len(on_names) == 39  # 33 -> 35 (i82) -> 36 (i107) -> 37 (B4) -> 38 (R1) -> 39 (R6)
     assert set(on_names) == TOOL_NAMES - DEPRECATED_LLM_TOOL_NAMES
 
 
