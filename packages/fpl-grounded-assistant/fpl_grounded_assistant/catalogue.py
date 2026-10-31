@@ -1196,6 +1196,207 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     "captain_reason.tier_differential": {"en": "High-upside differential profile", "es": "Perfil diferencial de alto potencial"},
     "captain_reason.tier_low_confidence": {"en": "Low-confidence captaincy profile", "es": "Perfil de capitanía de baja confianza"},
 
+    "gw_report.no_team_connected": {
+        "en": 'No team is connected. Connect your team from the Squad tab to get your gameweek review.',
+        "es": 'No hay ningún equipo conectado. Conecta tu equipo desde la pestaña Plantilla para ver el resumen de tu jornada.',
+    },
+    "gw_report.team_not_found": {
+        "en": "I couldn't find your connected FPL team. Check that the ID is correct.",
+        "es": 'No encontré tu equipo FPL conectado. Revisa que el ID sea correcto.',
+    },
+    "gw_report.network_error": {
+        "en": "I couldn't fetch your gameweek right now. Try again in a moment.",
+        "es": 'No pude obtener tu jornada en este momento. Intenta de nuevo en un momento.',
+    },
+    "gw_report.invalid_gw": {
+        "en": 'Gameweek must be between {min_gw} and {max_gw}.',
+        "es": 'La jornada debe estar entre {min_gw} y {max_gw}.',
+    },
+    "gw_report.gw_not_finished": {
+        "en": "GW{gw} isn't closed yet, so there is no final review to show. Ask again once FPL closes it.",
+        "es": 'La J{gw} aún no está cerrada, así que todavía no hay un resumen final. Vuelve a preguntar cuando FPL la cierre.',
+    },
+    "gw_report.no_finished_gw": {
+        "en": 'No gameweek has been closed yet this season, so there is no review to show.',
+        "es": 'Todavía no se ha cerrado ninguna jornada esta temporada, así que no hay resumen que mostrar.',
+    },
+    "gw_report.incomplete": {
+        "en": "I don't have complete official data for GW{gw} yet, so I'd rather not show a partial review.",
+        "es": 'Aún no tengo datos oficiales completos de la J{gw}, así que prefiero no mostrar un resumen parcial.',
+    },
+    "gw_report.header": {
+        "en": '**Gameweek review (retrospective) — GW{gw}**{chip_clause}',
+        "es": '**Resumen retrospectivo — J{gw}**{chip_clause}',
+    },
+    "gw_report.points_ok": {
+        "en": "Points: **{gross}**, matching FPL's official total.{hit_clause}",
+        "es": 'Puntos: **{gross}**, coinciden con el total oficial de FPL.{hit_clause}',
+    },
+    "gw_report.points_hit_clause": {
+        "en": ' Transfer cost: −{cost}, net **{net}**.',
+        "es": ' Coste de fichajes: −{cost}, neto **{net}**.',
+    },
+    "gw_report.points_mismatch": {
+        "en": "Heads-up: my sum is {computed} but FPL's official figure is {official} (difference {diff}). Treat the numbers below as unreconciled.",
+        "es": 'Ojo: mi suma es {computed} pero la cifra oficial de FPL es {official} (diferencia {diff}). Toma las cifras de abajo como no reconciliadas.',
+    },
+    "gw_report.points_unverified": {
+        "en": "I couldn't check my sum ({computed}) against FPL's official figure, so treat it as unverified.",
+        "es": 'No pude comprobar mi suma ({computed}) con la cifra oficial de FPL, así que tómala como no verificada.',
+    },
+    "gw_report.provisional_note": {
+        "en": "_FPL hasn't finished checking this gameweek's data; points may still change._",
+        "es": '_FPL aún no termina de verificar los datos de esta jornada; los puntos pueden cambiar._',
+    },
+    "gw_report.xi_header": {
+        "en": '**Effective XI (after automatic substitutions):**',
+        "es": '**Once efectivo (tras las autosustituciones):**',
+    },
+    "gw_report.bench_header": {
+        "en": '**Bench:**',
+        "es": '**Banca:**',
+    },
+    "gw_report.player_line": {
+        "en": '- {name} ({team}, {pos}) · {points} pts · {minutes} min{tags}',
+        "es": '- {name} ({team}, {pos}) · {points} pts · {minutes} min{tags}',
+    },
+    "gw_report.tag_captain": {
+        "en": ' · (C ×{mult})',
+        "es": ' · (C ×{mult})',
+    },
+    "gw_report.tag_vice": {
+        "en": ' · (VC)',
+        "es": ' · (VC)',
+    },
+    "gw_report.tag_sub_in": {
+        "en": ' · came on as an automatic sub',
+        "es": ' · entró por autosustitución',
+    },
+    "gw_report.tag_sub_out": {
+        "en": ' · automatically substituted',
+        "es": ' · sustituido automáticamente',
+    },
+    "gw_report.armband_moved": {
+        "en": 'The armband passed to vice-captain {vice} because captain {captain} did not play.',
+        "es": 'El brazalete pasó al vice-capitán {vice} porque el capitán {captain} no jugó.',
+    },
+    "gw_report.stories_header": {
+        "en": '**What stood out:**',
+        "es": '**Lo que destacó:**',
+    },
+    "gw_report.story.captain_top": {
+        "en": 'Captain: {captain} scored {captain_points} pts (×{multiplier} = {contribution}), the highest of your effective XI{tied}.',
+        "es": 'Capitán: {captain} sumó {captain_points} pts (×{multiplier} = {contribution}), el máximo de tu once efectivo{tied}.',
+    },
+    "gw_report.story.captain_top_tied": {
+        "en": ' (level with {names})',
+        "es": ' (igualado con {names})',
+    },
+    "gw_report.story.captain_gap": {
+        "en": '{best} was the best of your XI ({best_points} {best_unit}); the armband went to {captain} ({captain_points} {unit}, ×{multiplier}).',
+        "es": '{best} fue el mejor de tu once ({best_points} {best_unit}); el brazalete fue para {captain} ({captain_points} {unit}, ×{multiplier}).',
+    },
+    "gw_report.story.autosub": {
+        "en": 'Automatic substitution: {player_in} came on for {player_out} and scored {points_in} pts ({reason}).',
+        "es": 'Autosustitución: {player_in} entró por {player_out} y sumó {points_in} pts ({reason}).',
+    },
+    "gw_report.story.autosub_no_fixture": {
+        "en": "{player_out}'s team had no fixture",
+        "es": 'el equipo de {player_out} no tenía partido',
+    },
+    "gw_report.story.autosub_not_played": {
+        "en": '{player_out} did not play',
+        "es": '{player_out} no jugó',
+    },
+    "gw_report.story.bench_points": {
+        "en": 'Bench: {bench_points} pts stayed on the bench; the highest was {best} with {best_points}.',
+        "es": 'Banca: {bench_points} pts se quedaron en la banca; el mayor fue {best} con {best_points}.',
+    },
+    "gw_report.story.bench_boost": {
+        "en": 'Bench Boost: your bench added {bench_points} pts; the highest was {best} with {best_points}.',
+        "es": 'Bench Boost: tu banca aportó {bench_points} pts; el mayor fue {best} con {best_points}.',
+    },
+    "gw_report.story.no_add": {
+        "en": '{player} played {minutes} min and scored {points} pts{comparison}.',
+        "es": '{player} jugó {minutes} min y sumó {points} pts{comparison}.',
+    },
+    "gw_report.story.no_add_comparison": {
+        "en": ' (an average of {avg} pts per match over the previous {n} appearances with minutes; a historical comparison, not an expectation)',
+        "es": ' (en sus {n} partidos previos con minutos promedió {avg} pts por partido; comparación histórica, no una expectativa)',
+    },
+    "gw_report.story.minutes_change": {
+        "en": 'Minutes: {player} played {per_fixture} min this gameweek, against an average of {avg} min over the last {n} appearances with minutes.',
+        "es": 'Minutos: {player} jugó {per_fixture} min en esta jornada, frente a una media de {avg} min en sus últimos {n} partidos con minutos.',
+    },
+    "gw_report.footer": {
+        "en": 'Retrospective review from official FPL data; it is not a forecast.',
+        "es": 'Resumen retrospectivo con datos oficiales de FPL; no es una predicción.',
+    },
+    "gcard.gw_report.title": {
+        "en": 'GW{gw} · RETROSPECTIVE',
+        "es": 'J{gw} · RETROSPECTIVA',
+    },
+    "gcard.gw_report.subtitle": {
+        "en": 'Your picks and points that gameweek',
+        "es": 'Tus fichajes y puntos de esa jornada',
+    },
+    "gcard.gw_report.hero_ok": {
+        "en": 'official points',
+        "es": 'puntos oficiales',
+    },
+    "gcard.gw_report.hero_unreconciled": {
+        "en": 'points (unreconciled)',
+        "es": 'puntos (sin reconciliar)',
+    },
+    "gcard.gw_report.col_player": {
+        "en": 'Player',
+        "es": 'Jugador',
+    },
+    "gcard.gw_report.col_role": {
+        "en": 'Role',
+        "es": 'Rol',
+    },
+    "gcard.gw_report.col_min": {
+        "en": 'Min',
+        "es": 'Min',
+    },
+    "gcard.gw_report.col_pts": {
+        "en": 'Pts',
+        "es": 'Pts',
+    },
+    "gcard.gw_report.role_xi": {
+        "en": 'XI',
+        "es": 'Once',
+    },
+    "gcard.gw_report.role_sub_in": {
+        "en": 'Sub in',
+        "es": 'Entra',
+    },
+    "gcard.gw_report.role_sub_out": {
+        "en": 'Sub out',
+        "es": 'Sale',
+    },
+    "gcard.gw_report.role_bench": {
+        "en": 'Bench',
+        "es": 'Banca',
+    },
+    "gcard.gw_report.pill_reconciled": {
+        "en": 'Matches FPL',
+        "es": 'Cuadra con FPL',
+    },
+    "gcard.gw_report.pill_unreconciled": {
+        "en": "Doesn't match FPL",
+        "es": 'No cuadra con FPL',
+    },
+    "gcard.gw_report.pill_provisional": {
+        "en": 'Provisional data',
+        "es": 'Datos provisionales',
+    },
+    "gcard.gw_report.pill_hit": {
+        "en": 'Hit −{cost}',
+        "es": 'Coste −{cost}',
+    },
+
     # -- get_my_squad (i39) --------------------------------------------------
     # The connected user's own squad. "no_team_connected" is the overwhelming
     # common case for any turn without a linked team -- see get_my_squad.py's
