@@ -16,11 +16,17 @@
     - no local-data folders (trial-output, *.parquet, *.pkl, *.csv > 1 MB)
     - not touched in the last -MinIdleHours (default 24; protects live sessions)
 
-  Safeguards when applying: junctions/reparse points are removed first with
-  `cmd /c rmdir` (never recursive delete through them), the shared
-  packages/fpl-ui/node_modules entry count is checked after every batch of 5
-  and the run aborts if it dropped, `git worktree remove` is NEVER forced, and
-  `git branch -d` is never `-D`. A refusal leaves the worktree as pending.
+  Safeguards when applying: junctions/reparse points are unlinked first with
+  [IO.Directory]::Delete (non-recursive: removes the link, never the target),
+  and the target's entry count is compared before and after each unlink; the
+  run aborts if a target lost entries. The shared packages/fpl-ui/node_modules
+  entry count is checked after every removal and the run aborts if it dropped.
+  `git worktree remove` is NEVER forced, and `git branch -d` is never `-D`.
+  A refusal leaves the worktree as pending and the run goes on to the next.
+
+  Works on Windows PowerShell 5.1 and pwsh 7: git's stderr (warnings such as
+  "deleting branch ... not yet merged to HEAD") is captured as text and only
+  the exit code decides success.
 
 .PARAMETER Apply
   Actually delete. Also accepted as --apply.
@@ -35,8 +41,8 @@
   A worktree touched more recently than this is kept as "active".
 
 .EXAMPLE
-  pwsh scripts/cleanup_worktrees.ps1            # dry-run table
-  pwsh scripts/cleanup_worktrees.ps1 -Apply     # delete what the table said
+  powershell -File scripts/cleanup_worktrees.ps1            # dry-run table
+  powershell -File scripts/cleanup_worktrees.ps1 -Apply     # delete what the table said
 #>
 [CmdletBinding()]
 param(
@@ -49,6 +55,18 @@ param(
 
 $ErrorActionPreference = 'Stop'
 if ($Rest -contains '--apply') { $Apply = $true }
+
+# Run git without letting stderr become a terminating error. On Windows
+# PowerShell 5.1, `2>&1` on a native command wraps each stderr line in an
+# ErrorRecord, which throws under ErrorActionPreference=Stop even when git
+# exits 0. Returns the combined output as text; check $LASTEXITCODE after.
+function Invoke-Git {
+  $eap = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try { $out = & git @args 2>&1 | ForEach-Object { "$_" } }
+  finally { $ErrorActionPreference = $eap }
+  ($out -join "`n").Trim()
+}
 
 $repo = (git rev-parse --show-toplevel).Trim() -replace '/', '\'
 Set-Location $repo
@@ -72,7 +90,8 @@ $keep = $keep | ForEach-Object { ($_ -replace '/', '\').TrimEnd('\').ToLowerInva
 $uiNm = Join-Path $repo 'packages\fpl-ui\node_modules'
 function Get-UiCount { if (Test-Path $uiNm) { (Get-ChildItem $uiNm -Force | Measure-Object).Count } else { 0 } }
 
-git fetch origin --quiet
+$fo = Invoke-Git fetch origin --quiet
+if ($LASTEXITCODE -ne 0) { Write-Warning "git fetch failed, using cached origin refs: $fo" }
 $prs = @{}
 try {
   # parentheses unroll the array on Windows PowerShell 5.1
@@ -90,8 +109,14 @@ foreach ($l in (git worktree list --porcelain)) {
 if ($cur) { $wts += $cur }
 
 function Find-Reparse([string]$p) {
-  @(Get-ChildItem $p -Recurse -Depth 3 -Attributes ReparsePoint -Force -ErrorAction SilentlyContinue |
-      Where-Object { $_.FullName -notmatch '\\node_modules\\.+\\node_modules' })
+  $found = @(Get-ChildItem $p -Recurse -Depth 3 -Attributes ReparsePoint -Force -ErrorAction SilentlyContinue |
+      Where-Object { $_.FullName -notmatch '\\node_modules\\.+\\node_modules' } | Sort-Object { $_.FullName.Length })
+  # outermost links only: anything below a link lives in its target, not in this worktree
+  $outer = @()
+  foreach ($f in $found) {
+    if (-not ($outer | Where-Object { $f.FullName.StartsWith($_.FullName + '\', [StringComparison]::OrdinalIgnoreCase) })) { $outer += $f }
+  }
+  $outer
 }
 
 $rows = foreach ($w in $wts) {
@@ -104,9 +129,10 @@ $rows = foreach ($w in $wts) {
   if (-not $b) { $reasons += 'detached/no branch' }
   $pr = if ($b) { $prs[$b] } else { $null }
   $anc = $false
-  if ($b) { git merge-base --is-ancestor $b origin/main 2>$null; $anc = ($LASTEXITCODE -eq 0) }
+  if ($b) { $null = Invoke-Git merge-base --is-ancestor $b origin/main; $anc = ($LASTEXITCODE -eq 0) }
   if ($b -and $pr -ne 'MERGED' -and -not $anc) { $reasons += "PR not merged ($(if ($pr) { $pr } else { 'none' }))" }
-  $hasRemote = [bool](git rev-parse --verify --quiet "origin/$b" 2>$null)
+  $hasRemote = $false
+  if ($b) { $null = Invoke-Git rev-parse --verify --quiet "refs/remotes/origin/$b"; $hasRemote = ($LASTEXITCODE -eq 0) }
   $ahead = if ($b) { if ($hasRemote) { [int](git rev-list --count "origin/$b..$b") } else { [int](git rev-list --count "origin/main..$b") } } else { 0 }
   if ($b -and -not $hasRemote -and -not $anc) { $reasons += 'branch not on origin' }
   if ($ahead -gt 0 -and -not $anc) { $reasons += "$ahead unpushed commits" }
@@ -134,24 +160,49 @@ Write-Host ("Would delete {0} worktrees (~{1} GB)." -f $del.Count, (($del | Meas
 
 if (-not $Apply) { Write-Host 'DRY-RUN: nothing deleted. Re-run with -Apply to proceed.'; return }
 
+function Get-EntryCount([string]$dir) {
+  if ($dir -and (Test-Path -LiteralPath $dir)) { @(Get-ChildItem -LiteralPath $dir -Force -ErrorAction SilentlyContinue).Count } else { -1 }
+}
+
+# Unlink one reparse point without touching what it points to. Returns $true
+# when the link is gone and its target kept every entry it had.
+function Remove-LinkOnly($item) {
+  $target = @($item.Target)[0]
+  if ($target -and -not [IO.Path]::IsPathRooted($target)) { $target = Join-Path (Split-Path $item.FullName) $target }
+  $before = Get-EntryCount $target
+  Write-Host "  unlink $($item.FullName) -> $target ($before entries)"
+  # non-recursive: on a junction or symlink this deletes the link itself only
+  if ($item.PSIsContainer) { [IO.Directory]::Delete($item.FullName, $false) } else { [IO.File]::Delete($item.FullName) }
+  $after = Get-EntryCount $target
+  if ($after -lt $before) { throw "link target $target dropped from $before to $after entries after unlinking $($item.FullName); aborting" }
+  -not (Test-Path -LiteralPath $item.FullName)
+}
+
 $baseline = Get-UiCount
 Write-Host "fpl-ui/node_modules baseline entries: $baseline"
-$n = 0
+$n = 0; $pending = @()
 foreach ($r in $del) {
   $p = $r.Path
-  foreach ($j in (Find-Reparse $p)) {
-    Write-Host "junction $($j.FullName) -> rmdir"
-    cmd /c rmdir "`"$($j.FullName)`"" | Out-Null
+  try {
+    foreach ($j in (Find-Reparse $p)) {
+      if (-not (Remove-LinkOnly $j)) { throw "could not unlink $($j.FullName)" }
+    }
+    if ((Find-Reparse $p).Count -gt 0) { throw 'reparse points remain' }
+    $out = Invoke-Git worktree remove $p
+    if ($LASTEXITCODE -ne 0) { throw "git worktree remove refused: $out" }
+    Write-Host "REMOVED $p"
+    $bo = Invoke-Git branch -d $r.Branch
+    if ($LASTEXITCODE -eq 0) { Write-Host "  branch -d $($r.Branch): $bo" }
+    else { Write-Warning "  branch -d $($r.Branch) refused (branch kept): $bo" }
+    $n++
+  } catch {
+    # a failed link check is not a per-worktree refusal: stop everything
+    if ("$_" -like '*dropped from*') { throw }
+    Write-Warning "PENDING $p : $_"
+    $pending += $p
   }
-  if ((Find-Reparse $p).Count -gt 0) { Write-Warning "PENDING $p : reparse points remain"; continue }
-  $out = git worktree remove $p 2>&1
-  if ($LASTEXITCODE -ne 0) { Write-Warning "PENDING $p : git refused ($out)"; continue }
-  Write-Host "REMOVED $p"
-  $bo = git branch -d $r.Branch 2>&1
-  Write-Host "  branch -d $($r.Branch): $bo"
-  $n++
-  if ($n % 5 -eq 0 -and (Get-UiCount) -lt $baseline) { throw "fpl-ui/node_modules entries dropped below $baseline after $n removals; aborting" }
+  if ((Get-UiCount) -lt $baseline) { throw "fpl-ui/node_modules entries dropped below $baseline after $n removals; aborting" }
 }
-if ((Get-UiCount) -lt $baseline) { throw "fpl-ui/node_modules entries dropped below $baseline" }
-git worktree prune
-Write-Host ("Done. Removed {0}. Free on C: {1:N1} GB" -f $n, ((Get-PSDrive C).Free / 1GB))
+$null = Invoke-Git worktree prune
+Write-Host ("Done. Removed {0} of {1}; pending {2}. Free on C: {3:N1} GB" -f $n, $del.Count, $pending.Count, ((Get-PSDrive C).Free / 1GB))
+foreach ($p in $pending) { Write-Host "  pending: $p" }
