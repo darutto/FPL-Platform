@@ -53,7 +53,7 @@ def story_text(story: dict[str, Any], locale: Locale) -> str:
         tied = ev.get("tied_with") or []
         return t(
             "gw_report.story.captain_top", locale,
-            captain=ev["captain"], captain_points=ev["captain_points"],
+            captain=ev["captain"], captain_points=ev["captain_points"], unit=_unit(ev["captain_points"]),
             multiplier=ev["multiplier"], contribution=ev["contribution"],
             tied=t("gw_report.story.captain_top_tied", locale, names=", ".join(tied)) if tied else "",
         )
@@ -69,18 +69,20 @@ def story_text(story: dict[str, Any], locale: Locale) -> str:
         return t(
             "gw_report.story.autosub", locale,
             player_in=ev["player_in"], player_out=ev["player_out"], points_in=ev["points_in"],
+            unit=_unit(ev["points_in"]),
             reason=t(key, locale, player_out=ev["player_out"]),
         )
     if kind in ("bench_points", "bench_boost"):
         return t(f"gw_report.story.{kind}", locale,
-                 bench_points=ev["bench_points"], best=ev["best"], best_points=ev["best_points"])
+                 bench_points=ev["bench_points"], unit=_unit(ev["bench_points"]), best=ev["best"],
+                 best_points=ev["best_points"])
     if kind == "no_add":
         comparison = (
             t("gw_report.story.no_add_comparison", locale, n=ev["recent_n"], avg=ev["recent_average"])
             if "recent_average" in ev else ""
         )
         return t("gw_report.story.no_add", locale, player=ev["player"], minutes=ev["minutes"],
-                 points=ev["points"], comparison=comparison)
+                 points=ev["points"], unit=_unit(ev["points"]), comparison=comparison)
     if kind == "minutes_change":
         return t("gw_report.story.minutes_change", locale, player=ev["player"],
                  per_fixture=ev["per_fixture"], avg=ev["recent_average"], n=ev["recent_n"])

@@ -365,6 +365,24 @@ class TestStories:
         assert "(1 pt); el brazalete" in story_text(st, "es") and "(0 pts, ×2)" in story_text(st, "es")
         assert "(1 pt); the armband" in story_text(st, "en")
 
+    @pytest.mark.parametrize("story, es, en", [
+        ({"kind": "captain_top", "evidence": {"captain": "A", "captain_points": 1, "multiplier": 2, "contribution": 2}},
+         "sumó 1 pt (×2 = 2)", "scored 1 pt (×2 = 2)"),
+        ({"kind": "autosub", "evidence": {"player_in": "A", "player_out": "B", "points_in": 1, "out_team_fixtures": 0}},
+         "sumó 1 pt (", "scored 1 pt ("),
+        ({"kind": "bench_points", "evidence": {"bench_points": 1, "best": "A", "best_points": 1}},
+         "Banca: 1 pt sin contar;", "Bench: 1 pt did not count;"),
+        ({"kind": "bench_boost", "evidence": {"bench_points": 1, "best": "A", "best_points": 1}},
+         "aportó 1 pt;", "added 1 pt;"),
+        ({"kind": "no_add", "evidence": {"player": "A", "minutes": 90, "points": 1}},
+         "sumó 1 pt.", "scored 1 pt."),
+    ])
+    def test_one_point_is_singular_in_every_story(self, story, es, en):
+        from fpl_grounded_assistant.gw_report_text import story_text
+        assert es in story_text(story, "es") and en in story_text(story, "en")
+        two = {**story, "evidence": {k: (2 if v == 1 else v) for k, v in story["evidence"].items()}}
+        assert " 1 pt" not in story_text(two, "es") and "2 pts" in story_text(two, "es")
+
     def test_english_story_copy_names_no_gender(self):
         import re
         from fpl_grounded_assistant.catalogue import _CATALOGUE as CATALOGUE
