@@ -134,6 +134,13 @@ def test_an_unknown_count_is_no_data_never_zero(unknown):
     assert card is not None and any(cell == "-" for row in card.rows for cell in row)
 
 
+def test_english_copy_names_no_gender():
+    from fpl_grounded_assistant.catalogue import _CATALOGUE
+    for key, entry in _CATALOGUE.items():
+        if "player_involvement" in key:
+            assert not re.search(r"(he|his|him|she|her|hers)", entry["en"], re.I), key
+
+
 def test_few_matches_say_small_sample():
     out = _run(_stats([_row(ROGERS, 1), _row(ROGERS, 2)]), player="Rogers")
     assert out["sample"]["small_sample"] is True
@@ -240,7 +247,7 @@ FORBIDDEN = re.compile(r"por la lesi|porque falt|because of|due to the|rendir[a�
 def test_the_text_states_totals_and_the_coincidence_and_never_a_cause(locale):
     text = render("get_player_involvement", _run(player="Rogers", absent_player="Joao Pedro"), locale=locale)
     assert "70" in text and "40" in text and "João Pedro" in text
-    assert ("más toques" if locale == "es" else "more touches") in text
+    assert ("más toques" if locale == "es" else "More touches") in text
     assert ("no se afirma nada más" if locale == "es" else "nothing more is claimed") in text
     assert not FORBIDDEN.search(text)
 
