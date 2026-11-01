@@ -191,16 +191,17 @@ TREND_THRESHOLD = 0.03
 
 
 def trend(values: list[int | float | None]) -> str | None:
-    """``up`` / ``down`` / ``flat`` from the least-squares slope over the known values in order, relative to their mean;
-    ``None`` with fewer than ``TREND_MIN_POINTS`` known values. Unknown values (``None``) are skipped, never read as 0."""
-    known = [float(v) for v in values if v is not None]
+    """``up`` / ``down`` / ``flat`` from the least-squares slope over the known values, relative to their mean per step
+    of the axis; ``None`` with fewer than ``TREND_MIN_POINTS`` known values. Each value sits at its position on the axis
+    (a gap keeps its place, so the fit is the line the card draws); unknown values (``None``) are skipped, never 0."""
+    known = [(float(i), float(v)) for i, v in enumerate(values) if v is not None]
     if len(known) < TREND_MIN_POINTS:
         return None
     n = len(known)
-    xm, ym = (n - 1) / 2, sum(known) / n
+    xm, ym = sum(x for x, _ in known) / n, sum(v for _, v in known) / n
     if ym == 0:
         return "flat"
-    slope = sum((i - xm) * (v - ym) for i, v in enumerate(known)) / sum((i - xm) ** 2 for i in range(n))
+    slope = sum((x - xm) * (v - ym) for x, v in known) / sum((x - xm) ** 2 for x, _ in known)
     ratio = slope / ym
     return "up" if ratio >= TREND_THRESHOLD else "down" if ratio <= -TREND_THRESHOLD else "flat"
 

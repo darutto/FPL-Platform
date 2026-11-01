@@ -42,6 +42,11 @@ def test_unknown_values_are_skipped_never_read_as_zero():
     assert trend([10, None, 20, None, 30]) == "up"
 
 
+def test_a_gap_keeps_its_place_on_the_axis():
+    # fitted on positions 0, 1, 6 the line rises (+6% of the mean a step); squeezed to 0, 1, 2 it would read flat
+    assert trend([30, 10, None, None, None, None, 31]) == "up"
+
+
 # ------------------------------------------------------------------ per 90
 
 def test_the_higher_per90_wins_and_the_backward_share_never_does():
