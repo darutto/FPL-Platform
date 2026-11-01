@@ -88,7 +88,7 @@ describe('Per 90 view (default)', () => {
     const { container } = render(<InvolvementCompareCard data={p} />);
     expect(figure(container, 'backward_share', 'a').className).toBe(FIGURE_CLASS.neutral);
     expect(figure(container, 'backward_share', 'b').className).toBe(FIGURE_CLASS.neutral);
-    expect(figure(container, 'backward_share', 'a').textContent).toBe('23,2 %');
+    expect(figure(container, 'backward_share', 'a').textContent).toBe('23.2 %');
   });
 
   test('an unknown value reads as a dash, with no bar', () => {
@@ -150,9 +150,9 @@ describe('By match view', () => {
     const series = container.querySelector('[data-view="series"]') as HTMLElement;
     const a = series.querySelector('[data-side="a"]') as HTMLElement;
     const b = series.querySelector('[data-side="b"]') as HTMLElement;
-    expect(a).toHaveTextContent('2,5');
+    expect(a).toHaveTextContent('2.5');
     expect(a.className).toBe(FIGURE_CLASS.lead);   // Palmer leads key passes
-    expect(b).toHaveTextContent('1,0');
+    expect(b).toHaveTextContent('1.0');
     expect(b.className).toBe(FIGURE_CLASS.dim);
   });
 
@@ -190,12 +190,12 @@ describe('geometry helpers', () => {
 describe('number format by locale', () => {
   test('per-90 figures always carry one decimal, so both sides read at the same precision', () => {
     const { container } = render(<InvolvementCompareCard data={payload(ES)} />);
-    expect(figure(container, 'touches', 'a')).toHaveTextContent('55,2');
-    expect(figure(container, 'touches', 'b')).toHaveTextContent('58,0');
-    expect(figure(container, 'key_passes', 'b')).toHaveTextContent('1,0');
-    expect(figure(container, 'passes', 'a')).toHaveTextContent('40,0');
-    expect(figure(container, 'passes', 'b')).toHaveTextContent('40,0');
-    expect(figure(container, 'pass_accuracy', 'a').textContent).toBe('85,0 %');
+    expect(figure(container, 'touches', 'a')).toHaveTextContent('55.2');
+    expect(figure(container, 'touches', 'b')).toHaveTextContent('58.0');
+    expect(figure(container, 'key_passes', 'b')).toHaveTextContent('1.0');
+    expect(figure(container, 'passes', 'a')).toHaveTextContent('40.0');
+    expect(figure(container, 'passes', 'b')).toHaveTextContent('40.0');
+    expect(figure(container, 'pass_accuracy', 'a').textContent).toBe('85.0 %');
   });
 
   test('English uses the decimal point and no space before the percent sign', () => {
@@ -209,17 +209,18 @@ describe('number format by locale', () => {
   test('the per-match average uses the same format, in both languages', () => {
     render(<InvolvementCompareCard data={payload(ES)} />);
     fireEvent.click(screen.getByRole('button', { name: 'Por jornada' }));
-    expect(screen.getByText('58,0')).toBeInTheDocument();
+    expect(screen.getByText('58.0')).toBeInTheDocument();
   });
 
-  test('fmt: one decimal for metrics and for percentages (82,0 % next to 79,2 %), a dash for unknown', () => {
-    expect(fmt(58, '', 'es')).toBe('58,0');
+  test('fmt: one decimal for metrics and for percentages (82.0 % next to 79.2 %), a dash for unknown', () => {
+    expect(fmt(58, '', 'es')).toBe('58.0');
     expect(fmt(58, '', 'en')).toBe('58.0');
-    expect(fmt(82, '%', 'es')).toBe('82,0 %');
+    expect(fmt(82, '%', 'es')).toBe('82.0 %');
     expect(fmt(82, '%', 'en')).toBe('82.0%');
-    expect(fmt(79.2, '%', 'es')).toBe('79,2 %');
+    expect(fmt(79.2, '%', 'es')).toBe('79.2 %');
     expect(fmt(23.2, '%', 'en')).toBe('23.2%');
     expect(fmt(null, '', 'es')).toBe('–');
+    expect(fmt(1234.56, '', 'es')).toBe('1234.6');  // decimal point in Spanish too, never a grouping comma
   });
 });
 
