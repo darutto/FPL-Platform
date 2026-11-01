@@ -256,3 +256,34 @@ describe('i60 — past-season ambiguity (historical rewrite chips)', () => {
     expect(screen.queryByTestId('player-pick-wizard')).toBeNull();
   });
 });
+
+// Rewrite chips on turns whose question is more than the name: the real backend bodies
+// (pinned by tests/test_chip_resumes_original_question.py), one per intent they arrive on.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const resumeBodies = require('./fixtures/chip-resume-bodies.json');
+
+describe('chip-resume — rewrite chips re-ask the question on every intent', () => {
+  test.each([
+    ['position_changes', '¿Quién sustituye a Joao Pedro si no juega?'],
+    ['involvement', 'Compara los toques y pases clave de Palmer y Saka'],
+    ['snapshot', 'Compara los toques y pases clave de Palmer y Saka'],
+    ['form', '¿Cómo viene la forma de Palmer?'],
+  ])('%s body: chips visible, tap sends the full-name question and no id', async (key, question) => {
+    const user = userEvent.setup();
+    const body = resumeBodies[key];
+    ask.mockResolvedValueOnce(body);
+    render(<ChatShell />);
+
+    await sendText(user, question);
+    const wizard = await screen.findByTestId('player-pick-wizard');
+    const first = body.suggestions[0];
+    expect(within(wizard).getByRole('button', { name: first.label })).toBeInTheDocument();
+
+    ask.mockResolvedValueOnce(plainResponse('ok', 'unsupported'));
+    await user.click(within(wizard).getByRole('button', { name: first.label }));
+
+    await waitFor(() => expect(ask).toHaveBeenCalledTimes(2));
+    expect(ask.mock.calls[1][0]).toMatchObject({ question: first.send_text });
+    expect(ask.mock.calls[1][0]).not.toHaveProperty('selected_player_id');
+  });
+});

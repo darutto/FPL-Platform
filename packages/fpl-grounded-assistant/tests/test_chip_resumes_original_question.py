@@ -222,3 +222,29 @@ def test_a_full_name_that_resolves_to_someone_else_falls_back():
     swapped = [{"id": 93, "name": "Alex Palmer", "web_name": "Palmer", "team_short": "CHE"},  # resolves to 94
                {"id": 94, "name": "Cole Palmer", "web_name": "Palmer", "team_short": "MUN"}]  # resolves to 93
     assert question_resume_suggestions(swapped, "Palmer", "Forma de Palmer", _bootstrap()) is None
+
+
+# --- the UI's fixture is the body this backend serves ----------------------------
+
+import json  # noqa: E402
+import os  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+_UI_FIXTURE = Path(__file__).resolve().parents[2] / "fpl-ui" / "__tests__" / "fixtures" / "chip-resume-bodies.json"
+_PINNED = ("final_text", "outcome", "supported", "intent", "suggestions")
+_CASES = {
+    "position_changes": ("¿Quién sustituye a Joao Pedro si no juega?", "get_position_changes", {"player": "Joao Pedro"}),
+    "involvement": ("Compara los toques y pases clave de Palmer y Saka", "get_player_involvement", {"player": "Palmer"}),
+    "snapshot": ("Compara los toques y pases clave de Palmer y Saka", "get_player_snapshot", {"player_name": "Palmer"}),
+    "form": ("¿Cómo viene la forma de Palmer?", "get_player_form", {"query": "Palmer"}),
+}
+
+
+def test_ui_fixture_matches_what_post_ask_serves(server, monkeypatch):
+    bodies = {}
+    for key, (question, tool, args) in _CASES.items():
+        body = _ask(server, monkeypatch, question, tool, args, f"u-pin-{key}")
+        bodies[key] = {k: body[k] for k in _PINNED}
+    if os.environ.get("REGEN_CHIP_FIXTURE"):
+        _UI_FIXTURE.write_text(json.dumps(bodies, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    assert json.loads(_UI_FIXTURE.read_text(encoding="utf-8")) == bodies
