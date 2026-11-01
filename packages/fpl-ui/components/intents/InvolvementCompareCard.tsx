@@ -24,7 +24,6 @@ import type {
 } from '@/lib/types';
 import { CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
 import { FingerprintWaves } from './CardOrnaments';
-import { intlTag } from '@/lib/i18n/format';
 import type { Locale } from '@/lib/i18n/locale';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 
@@ -46,12 +45,13 @@ export const FIGURE_CLASS = {
 } as const;
 
 /**
- * A figure in the language showing: per-90 metrics always carry one decimal (58,0 · 1,0 · 40,0) so the two sides read
- * at the same precision, and so do percentages (82,0 % next to 79,2 %). Spanish uses the decimal comma and "85,0 %".
+ * A figure for the card: per-90 metrics always carry one decimal (58.0 · 1.0 · 40.0) so the two sides read at the same
+ * precision, and so do percentages (82.0 % next to 79.2 %). The decimal point is used in every language (the Spanish
+ * audience is Latin American); Spanish only keeps the space before "%" ("85.0 %").
  */
 export function fmt(value: number | null, unit: string, locale: Locale): string {
   if (value == null) return '–';
-  const text = value.toLocaleString(intlTag(locale), { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const text = value.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1, useGrouping: false });
   if (!unit) return text;
   return locale === 'es' ? `${text} ${unit}` : `${text}${unit}`;
 }
