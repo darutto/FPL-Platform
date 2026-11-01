@@ -1,7 +1,7 @@
 {
   "_comment": "i125(a): real POST /ask JSON bodies (fake provider, real rank_captain_candidates outputs from prod 2026-10-02, team / no team). Pinned by packages/fpl-grounded-assistant/tests/test_i125a_captain_list.py; regenerate both sides together.",
   "team": {
-    "final_text": "**Tus mejores opciones de capitán — GW6** (de tu plantilla, según el ranking):\n1. **Groß** (BHA, MID) — 73,3\n2. **Tarkowski** (EVE, DEF) — 67,6\n3. **Haaland** (MCI, FWD) — 63,9\n\nGroß llega con forma 10,7 y lanza penaltis; Tarkowski suma por portería a cero.",
+    "final_text": "**Tus mejores opciones de capitán — GW6** (de tu plantilla, según el ranking):\n1. **Groß** (BHA, MID) — 73.3\n2. **Tarkowski** (EVE, DEF) — 67.6\n3. **Haaland** (MCI, FWD) — 63.9\n\nGroß llega con forma 10,7 y lanza penaltis; Tarkowski suma por portería a cero.",
     "outcome": "ok",
     "supported": true,
     "intent": "rank_candidates",
@@ -271,7 +271,7 @@
     "web_search": null
   },
   "noteam": {
-    "final_text": "**Mejores opciones de capitán — GW6** (según el ranking):\n1. **Groß** (BHA, MID) — 73,3\n2. **Tarkowski** (EVE, DEF) — 67,6\n3. **Barnes** (NEW, MID) — 67,0\n\nGroß llega con forma 10,7 y lanza penaltis; Tarkowski suma por portería a cero.",
+    "final_text": "**Mejores opciones de capitán — GW6** (según el ranking):\n1. **Groß** (BHA, MID) — 73.3\n2. **Tarkowski** (EVE, DEF) — 67.6\n3. **Barnes** (NEW, MID) — 67.0\n\nGroß llega con forma 10,7 y lanza penaltis; Tarkowski suma por portería a cero.",
     "outcome": "ok",
     "supported": true,
     "intent": "rank_candidates",

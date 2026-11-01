@@ -90,12 +90,12 @@ def presented_entries(output: dict[str, Any]) -> list[dict[str, Any]]:
     return [by_id[i] for i in presentation.get(key) or [] if i in by_id]
 
 
-def _score(value: Any, locale: str = "es") -> str:
+def _score(value: Any) -> str:
+    """One decimal with a dot in every language (the Spanish audience is Latin American: 7.4, not 7,4)."""
     try:
-        text = f"{float(value):.1f}"
+        return f"{float(value):.1f}"
     except (TypeError, ValueError):
         return "?"
-    return text if locale == "en" else text.replace(".", ",")
 
 
 def captain_list(
@@ -126,7 +126,7 @@ def captain_list(
         pos = c.get("position") or ""
         meta = ", ".join(x for x in (team, pos) if x)
         meta_part = f" ({meta})" if meta else ""
-        lines.append(f"{i}. **{c.get('web_name', '?')}**{meta_part} — {_score(c.get('captain_score'), locale)}")
+        lines.append(f"{i}. **{c.get('web_name', '?')}**{meta_part} — {_score(c.get('captain_score'))}")
     return "\n".join(lines)
 
 

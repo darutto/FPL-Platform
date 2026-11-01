@@ -279,12 +279,13 @@ CAPTAIN_OUTPUT = {
 }
 
 
-def test_captain_list_follows_locale_and_es_is_unchanged():
+def test_captain_list_follows_locale():
     from fpl_grounded_assistant.captain_list import captain_list, compose_captain_answer
 
     es = captain_list(CAPTAIN_OUTPUT, "top 2")
     assert es.startswith("**Tus mejores opciones de capitán — GW7**")
-    assert "7,2" in es or "7,3" in es  # decimal comma, as before
+    assert "7.2" in es or "7.3" in es  # decimal point in Spanish too (Latin American audience)
+    assert "7,2" not in es and "7,3" not in es
     assert captain_list(CAPTAIN_OUTPUT, "top 2", "es") == es
     en = captain_list(CAPTAIN_OUTPUT, "top 2", "en")
     assert en.startswith("**Your best captain options — GW7**")
