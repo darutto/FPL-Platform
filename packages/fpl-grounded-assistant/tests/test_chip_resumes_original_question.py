@@ -176,3 +176,49 @@ def test_replace_mention_is_accent_case_and_word_insensitive():
     assert replace_mention("Palmerston and Palmer", "Palmer", "Cole Palmer") == "Palmerston and Cole Palmer"
     assert replace_mention("nobody", "Palmer", "X") is None
     assert replace_mention("anything", "  ", "X") is None
+
+
+# --- the snapshot-first path (the one prod most likely took) --------------------
+
+def test_snapshot_first_with_a_real_question_arms_rewrite_chips(server, monkeypatch):
+    q = "Compara los toques y pases clave de Palmer y Saka"
+    body = _ask(server, monkeypatch, q, "get_player_snapshot", {"player_name": "Palmer"}, "u-snap-q")
+    chips = body["suggestions"]
+    assert {c["send_text"] for c in chips} == {
+        "Compara los toques y pases clave de Cole Palmer y Saka",
+        "Compara los toques y pases clave de Alex Palmer y Saka",
+    }
+    assert all(c["kind"] == KIND_PROMPT_REWRITE and c.get("player_id") is None for c in chips)
+
+
+def test_form_first_with_a_real_question_arms_rewrite_chips(server, monkeypatch):
+    q = "How is Palmer's form lately?"
+    body = _ask(server, monkeypatch, q, "get_player_form", {"query": "Palmer"}, "u-form-q")
+    assert {c["send_text"] for c in body["suggestions"]} == {
+        "How is Cole Palmer's form lately?", "How is Alex Palmer's form lately?"}
+
+
+@pytest.mark.parametrize("bare", ["Palmer", "\u00bfPalmer?", "palmer!"])
+def test_a_bare_name_keeps_the_stable_id_chips(server, monkeypatch, bare):
+    body = _ask(server, monkeypatch, bare, "get_player_snapshot", {"player_name": "Palmer"}, f"u-bare-{abs(hash(bare))}")
+    chips = body["suggestions"]
+    assert sorted(c["player_id"] for c in chips) == [93, 94]
+    assert all(c.get("kind") in (None, "") for c in chips)
+
+
+# --- loop guard -----------------------------------------------------------------
+
+def test_identical_full_names_fall_back_to_todays_chips():
+    from fpl_grounded_assistant.suggestions import question_resume_suggestions
+
+    twins = [{"id": 1, "name": "Alex Palmer", "web_name": "Palmer", "team_short": "CHE"},
+             {"id": 2, "name": "Alex Palmer", "web_name": "Palmer", "team_short": "MUN"}]
+    assert question_resume_suggestions(twins, "Palmer", "Forma de Palmer") is None
+
+
+def test_a_full_name_that_resolves_to_someone_else_falls_back():
+    from fpl_grounded_assistant.suggestions import question_resume_suggestions
+
+    swapped = [{"id": 93, "name": "Alex Palmer", "web_name": "Palmer", "team_short": "CHE"},  # resolves to 94
+               {"id": 94, "name": "Cole Palmer", "web_name": "Palmer", "team_short": "MUN"}]  # resolves to 93
+    assert question_resume_suggestions(swapped, "Palmer", "Forma de Palmer", _bootstrap()) is None

@@ -182,7 +182,7 @@ describe('i60 — player_form ambiguity (stable-id chips)', () => {
 const realBodies = require('./fixtures/i60-ask-martinez.json');
 
 describe('i60 — real backend bodies (no-grounded-tool branch)', () => {
-  test('player_form body: chips visible, tap sends the stable id', async () => {
+  test('player_form body: chips visible, tap re-asks the question with the full name and no id', async () => {
     const user = userEvent.setup();
     ask.mockResolvedValueOnce(realBodies.form);
     render(<ChatShell />);
@@ -195,7 +195,10 @@ describe('i60 — real backend bodies (no-grounded-tool branch)', () => {
     await user.click(within(wizard).getByRole('button', { name: 'Martínez (MUN)' }));
 
     await waitFor(() => expect(ask).toHaveBeenCalledTimes(2));
-    expect(ask.mock.calls[1][0]).toMatchObject({ selected_player_id: 32 });
+    expect(ask.mock.calls[1][0]).toMatchObject({
+      question: '¿Cómo viene la forma de Lisandro Martínez?',
+    });
+    expect(ask.mock.calls[1][0]).not.toHaveProperty('selected_player_id');
   });
 
   test('past-season body: chips visible, tap sends the canonical question and no id', async () => {

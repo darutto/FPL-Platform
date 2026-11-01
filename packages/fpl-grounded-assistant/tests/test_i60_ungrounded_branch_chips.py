@@ -169,16 +169,22 @@ def test_premise_real_orchestrator_reports_tool_result_error(monkeypatch):
 # current season: stable-id chips + an intent the UI arms on
 # ---------------------------------------------------------------------------
 
-def test_post_ask_form_ambiguity_serves_stable_id_chips(server, monkeypatch):
+def test_post_ask_form_ambiguity_re_asks_the_question(server, monkeypatch):
+    # A question that says more than the name is re-asked per candidate (rewrite chips, no id);
+    # the stable-id handoff would answer with the generic card. A bare name keeps id chips
+    # (tests/test_chip_resumes_original_question.py).
     _fake_provider(monkeypatch, "get_player_form", {"query": "Martínez"})
     body = server.post("/ask", json={"question": FORM_Q}, headers={"X-User-Id": "u-i60-form"}).json()
     assert body["intent"] == "player_form"
     assert body["outcome"] == "ambiguous"
     chips = body["suggestions"]
     assert chips is not None
-    assert sorted(c["player_id"] for c in chips) == [31, 32]
     assert {c["label"] for c in chips} == {"Martínez (CHE)", "Martínez (MUN)"}
-    assert all(c.get("kind") in (None, "") for c in chips)
+    assert {c["send_text"] for c in chips} == {
+        "¿Cómo viene la forma de Emiliano Martínez?",
+        "¿Cómo viene la forma de Lisandro Martínez?",
+    }
+    assert all(c["kind"] == "prompt_rewrite" and c.get("player_id") is None for c in chips)
 
 
 def test_session_ask_form_ambiguity_serves_the_same_chips(server, monkeypatch):
@@ -187,17 +193,21 @@ def test_session_ask_form_ambiguity_serves_the_same_chips(server, monkeypatch):
     body = server.post(f"/session/{sid}/ask", json={"question": FORM_Q},
                        headers={"X-User-Id": "u-i60-sess"}).json()
     assert body["intent"] == "player_form"
-    assert sorted(c["player_id"] for c in body["suggestions"]) == [31, 32]
+    assert {c["label"] for c in body["suggestions"]} == {"Martínez (CHE)", "Martínez (MUN)"}
+    assert all(c["kind"] == "prompt_rewrite" for c in body["suggestions"])
 
 
 def test_chip_tap_resolves_to_the_picked_player(server, monkeypatch):
-    """The tap re-sends the chip's player_id; that id must resolve to exactly
-    the player the chip named (fed back through the real /ask)."""
+    """The tap re-sends the chip's text; its full name must resolve to exactly
+    the player the chip named (fed back through the real resolver)."""
+    from fpl_tool_contract import tool_resolve_player
+
     _fake_provider(monkeypatch, "get_player_form", {"query": "Martínez"})
     chips = server.post("/ask", json={"question": FORM_Q}, headers={"X-User-Id": "u-i60-tap"}).json()["suggestions"]
     mun = next(c for c in chips if c["label"] == "Martínez (MUN)")
-    picked = next(e for e in _bootstrap()["elements"] if e["id"] == mun["player_id"])
-    assert (picked["first_name"], picked["team"]) == ("Lisandro", 11)
+    assert "Lisandro Martínez" in mun["send_text"]
+    picked = tool_resolve_player("Lisandro Martínez", _bootstrap())
+    assert picked["status"] == "ok" and picked["player_id"] == 32
 
 
 # ---------------------------------------------------------------------------

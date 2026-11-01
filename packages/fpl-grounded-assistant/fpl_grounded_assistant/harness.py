@@ -1311,7 +1311,7 @@ def ask_v2(
                 },
                 **_orch_meta,
             }
-            _chips = _ambiguity_suggestions(orch_result.tool_chosen, _orch_raw, cleaned_text)
+            _chips = _ambiguity_suggestions(orch_result.tool_chosen, _orch_raw, cleaned_text, actual_bootstrap)
             if _chips is not None:
                 result["player_suggestions"] = _chips
             if orch_result.tool_chosen in {
@@ -1384,7 +1384,7 @@ def ask_v2(
         # report the intent the UI arms on (ChatShell WIZARD_ARMING_INTENTS).
         _amb_call = _last_ambiguous_chip_call(orch_result.tool_calls_trace)
         if _amb_call is not None:
-            _amb_chips = _ambiguity_suggestions(_amb_call["name"], _amb_call.get("output") or {}, cleaned_text)
+            _amb_chips = _ambiguity_suggestions(_amb_call["name"], _amb_call.get("output") or {}, cleaned_text, actual_bootstrap)
             if _amb_chips is not None:
                 result["outcome"] = "ambiguous"
                 result["intent"] = _TOOL_TO_INTENT.get(_amb_call["name"], result.get("intent"))
@@ -1425,6 +1425,7 @@ def _ambiguity_suggestions(
     tool_name: str | None,
     raw_output: dict[str, Any],
     question: str | None = None,
+    bootstrap: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]] | None:
     """i60: the pick-one chips for an ambiguous player tool, or ``None``.
 
@@ -1447,10 +1448,25 @@ def _ambiguity_suggestions(
             return None
         return suggestions_to_list(
             question_resume_suggestions(
-                raw_output.get("candidates", []), str(raw_output.get("query") or ""), question,
+                raw_output.get("candidates", []), str(raw_output.get("query") or ""), question, bootstrap,
             )
         )
     if tool_name in WIZARD_ARMING_TOOLS:
+        # A question that says more than the name ("compara a Palmer y Saka") must not be
+        # answered with the generic card: re-ask it per candidate. A bare name keeps the
+        # deterministic, cheaper stable-id handoff; a failed rewrite falls back to it too.
+        from .suggestions import (  # noqa: PLC0415
+            question_is_only_the_name,
+            question_resume_suggestions,
+        )
+
+        mention = str(raw_output.get("query") or "")
+        if question and mention and not question_is_only_the_name(question, mention):
+            rewrites = suggestions_to_list(
+                question_resume_suggestions(raw_output.get("candidates", []), mention, question, bootstrap)
+            )
+            if rewrites is not None:
+                return rewrites
         return suggestions_to_list(
             player_disambiguation_suggestions(raw_output.get("candidates", []))
         )
