@@ -42,9 +42,9 @@ except ImportError:  # standalone load (test_renderer_zonal bypasses the package
 _tr = t
 
 try:
-    from .position_changes_text import out_date, out_text, role_text
+    from .position_changes_text import gap_text, out_date, out_text, role_text
 except ImportError:  # standalone load (test_renderer_zonal bypasses the package)
-    from position_changes_text import out_date, out_text, role_text  # type: ignore[no-redef]
+    from position_changes_text import gap_text, out_date, out_text, role_text  # type: ignore[no-redef]
 
 # ---------------------------------------------------------------------------
 # status_label: shared by resolve_player and get_player_summary.  F2.
@@ -2212,6 +2212,8 @@ def _render_get_position_changes(output: dict[str, Any], locale: Locale = DEFAUL
     player = output.get("player") or {}
     lines = [t("renderer.position_changes.header", locale, name=player.get("web_name", "?"),
                team=player.get("team_short", "?"), n=len(matches))]
+    if output.get("fpl_position_gap"):
+        lines.append("  " + gap_text(output["fpl_position_gap"], locale))
     any_change = False
     for m in matches:
         where = t("renderer.position_changes.home" if m.get("is_home") else "renderer.position_changes.away", locale,

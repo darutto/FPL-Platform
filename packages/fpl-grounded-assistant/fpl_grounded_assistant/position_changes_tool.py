@@ -19,7 +19,9 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Callable, Mapping
 
-from football_intelligence.position_changes import DEFAULT_LIMIT, MAX_LIMIT, FixtureMeta, analyse
+from football_intelligence.position_changes import (
+    DEFAULT_LIMIT, FPL_POSITIONS, MAX_LIMIT, FixtureMeta, analyse, fpl_position_gap,
+)
 
 _FIXTURE_TTL_SECONDS = 600
 _fixture_cache: dict[str, Any] = {"at": 0.0, "rows": None}
@@ -180,6 +182,14 @@ def run_position_changes(
         names=_names(bootstrap), limit=limit, absent_element=absent_element)
     if isinstance(result.get("matches"), list):
         attach_fpl_out(result["matches"], fpl_out_notice(bootstrap, element))
+    if isinstance(result.get("matches"), list):
+        row = next((e for e in bootstrap.get("elements", ()) if int(e.get("id", 0)) == element), None)
+        element_type = row.get("element_type") if row else None
+        if isinstance(element_type, int) and element_type in FPL_POSITIONS:
+            result["fpl_position"] = FPL_POSITIONS[element_type]
+            gap = fpl_position_gap(element_type, result["matches"])
+            if gap is not None:
+                result["fpl_position_gap"] = gap
     result["data_provenance"] = {"source": "licensed_starter", "built_at": manifest.get("built_at"),
                                  "slot_meaning": "announced_starting_xi"}
     result.setdefault("evidence", [])

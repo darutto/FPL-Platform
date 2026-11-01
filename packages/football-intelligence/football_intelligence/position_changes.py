@@ -397,6 +397,62 @@ def _absence_focus(matches, records, fixtures, absent, team, sidelined, names) -
     }
 
 
+#: FPL ``element_type`` -> position code, and the line order used to say "further forward" / "deeper".
+FPL_POSITIONS = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
+_LINE_ORDER = {"GKP": 1, "DEF": 2, "MID": 3, "FWD": 4}
+#: Provider ``detailed_position`` -> the FPL line it belongs to. An unknown name maps to nothing and is not counted.
+_PROVIDER_LINE = {
+    "Goalkeeper": "GKP",
+    "Centre Back": "DEF", "Right Back": "DEF", "Left Back": "DEF",
+    "Defensive Midfield": "MID", "Central Midfield": "MID", "Attacking Midfield": "MID",
+    "Right Midfield": "MID", "Left Midfield": "MID",
+    "Attacker": "FWD", "Centre Forward": "FWD",
+}
+_WINGER_ROLES = ("Left Midfield", "Right Midfield")
+
+
+def played_line(slot: Mapping[str, Any]) -> str | None:
+    """The FPL line of a starting slot. In a formation that starts with 3 (three centre-backs) the left/right
+    midfielders are wing-backs, so they count as DEF; an unknown formation keeps the provider's own label."""
+    role = slot.get("detailed_position")
+    line = _PROVIDER_LINE.get(str(role)) if role else None
+    formation = str(slot.get("formation") or "")
+    if line == "MID" and role in _WINGER_ROLES and formation.startswith("3"):
+        return "DEF"
+    return line
+
+
+def fpl_position_gap(element_type: Any, matches: Iterable[Mapping[str, Any]]) -> dict[str, Any] | None:
+    """Flag a player whose dominant line over the started matches is not his FPL position (either way).
+
+    Needs at least 2 starts, and the dominant line must hold more than half of them (a tie flags nothing).
+    Goalkeepers are never flagged. ``None`` when there is no gap or no usable data.
+    """
+    fpl = FPL_POSITIONS.get(element_type) if isinstance(element_type, int) else None
+    if fpl is None or fpl == "GKP":
+        return None
+    lines: list[tuple[str, Mapping[str, Any]]] = []
+    for m in matches:
+        if m.get("player_status") == "started" and m.get("slot"):
+            line = played_line(m["slot"])
+            if line is not None:
+                lines.append((line, m["slot"]))
+    total = len(lines)
+    if total < 2:
+        return None
+    counts = Counter(line for line, _s in lines)
+    line, n = counts.most_common(1)[0]
+    if line == fpl or line == "GKP" or n * 2 <= total:
+        return None
+    role = _mode((s.get("detailed_position"), s.get("side")) for l, s in lines if l == line)
+    side = role[1] if role and role[1] in ("left", "right") else None
+    return {
+        "fpl_position": fpl, "played_line": line, "starts": n, "of": total,
+        "direction": "further_forward" if _LINE_ORDER[line] > _LINE_ORDER[fpl] else "deeper",
+        "side": side, "claim_status": OBSERVED,
+    }
+
+
 def _public(record: Mapping[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in record.items() if not k.startswith("_")}
 
