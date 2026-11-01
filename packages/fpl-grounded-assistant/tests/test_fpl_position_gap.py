@@ -172,7 +172,7 @@ def test_text_spanish():
 
 def test_text_english():
     text = _text(_run(), "en")
-    assert "FPL lists him as a defender; he has started 6 of 6 as a midfielder on the left." in text
+    assert "Listed as a defender in FPL; started 6 of 6 as a midfielder on the left." in text
 
 
 def test_text_has_no_gap_line_without_a_gap():

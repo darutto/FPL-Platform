@@ -1499,7 +1499,7 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     "renderer.position_changes.unmapped": {"en": " \u2014 the stored lineup is incomplete, so he may have started", "es": " \u2014 la alineaci\u00f3n guardada est\u00e1 incompleta, por lo que pudo ser titular"},
     "renderer.position_changes.hypothesis": {"en": "    Unproven: he took the position {name} usually holds ({role})", "es": "    Sin demostrar: ocup\u00f3 la posici\u00f3n habitual de {name} ({role})"},
     "renderer.position_changes.no_change": {"en": "  No change of starting slot against his recent starts.", "es": "  Sin cambio de casilla frente a sus \u00faltimos partidos."},
-    "renderer.position_changes.gap": {"en": "FPL lists him as a {fpl}; he has started {n} of {m} as a {played}{side}.", "es": "En FPL es {fpl}; ha empezado {n} de {m} como {played}{side}."},
+    "renderer.position_changes.gap": {"en": "Listed as a {fpl} in FPL; started {n} of {m} as a {played}{side}.", "es": "En FPL es {fpl}; ha empezado {n} de {m} como {played}{side}."},
     "renderer.position_changes.line_GKP": {"en": "goalkeeper", "es": "portero"},
     "renderer.position_changes.line_DEF": {"en": "defender", "es": "defensa"},
     "renderer.position_changes.line_MID": {"en": "midfielder", "es": "medio"},
