@@ -226,11 +226,16 @@ _UNRECOGNISED = {
 #: mirror set of the matching intents (ChatShell.tsx WIZARD_ARMING_INTENTS).
 WIZARD_ARMING_TOOLS: frozenset[str] = frozenset({"get_player_snapshot", "get_player_form"})
 
+#: Tools whose answer is NOT the player card: an ambiguous player arms rewrite chips that
+#: re-ask the user's own question with the player named in full, never the stable-id
+#: handoff (which answers with the generic snapshot and drops the question).
+RESUME_QUESTION_TOOLS: frozenset[str] = frozenset({"get_position_changes", "get_player_involvement"})
+
 #: Tools whose own status (ok/ambiguous/not_found) must not be flattened to
 #: "ok" just because the orchestrator call succeeded -- otherwise the frontend
 #: has no signal to arm a wizard. Scoped deliberately; every other orch-only
 #: tool keeps the historical "ok" hardcode (unaudited whether they rely on it).
-STATUS_BEARING_TOOLS: frozenset[str] = WIZARD_ARMING_TOOLS | {"get_player_season_points"}
+STATUS_BEARING_TOOLS: frozenset[str] = WIZARD_ARMING_TOOLS | {"get_player_season_points"} | RESUME_QUESTION_TOOLS
 
 
 def _unrecognised_message(locale: Locale = DEFAULT_LOCALE) -> str:
@@ -1306,7 +1311,7 @@ def ask_v2(
                 },
                 **_orch_meta,
             }
-            _chips = _ambiguity_suggestions(orch_result.tool_chosen, _orch_raw)
+            _chips = _ambiguity_suggestions(orch_result.tool_chosen, _orch_raw, cleaned_text, actual_bootstrap)
             if _chips is not None:
                 result["player_suggestions"] = _chips
             if orch_result.tool_chosen in {
@@ -1379,10 +1384,10 @@ def ask_v2(
         # report the intent the UI arms on (ChatShell WIZARD_ARMING_INTENTS).
         _amb_call = _last_ambiguous_chip_call(orch_result.tool_calls_trace)
         if _amb_call is not None:
-            _amb_chips = _ambiguity_suggestions(_amb_call["name"], _amb_call.get("output") or {})
+            _amb_chips = _ambiguity_suggestions(_amb_call["name"], _amb_call.get("output") or {}, cleaned_text, actual_bootstrap)
             if _amb_chips is not None:
                 result["outcome"] = "ambiguous"
-                result["intent"] = _TOOL_TO_INTENT[_amb_call["name"]]
+                result["intent"] = _TOOL_TO_INTENT.get(_amb_call["name"], result.get("intent"))
                 result["player_suggestions"] = _amb_chips
         if context_meta is not None:
             result["context_meta"] = context_meta
@@ -1416,7 +1421,12 @@ def _suggestions_for_text() -> list[str]:
     return list(list_resources())
 
 
-def _ambiguity_suggestions(tool_name: str | None, raw_output: dict[str, Any]) -> list[dict[str, Any]] | None:
+def _ambiguity_suggestions(
+    tool_name: str | None,
+    raw_output: dict[str, Any],
+    question: str | None = None,
+    bootstrap: dict[str, Any] | None = None,
+) -> list[dict[str, Any]] | None:
     """i60: the pick-one chips for an ambiguous player tool, or ``None``.
 
     One builder for both orchestrator branches. Current-season tools
@@ -1431,7 +1441,32 @@ def _ambiguity_suggestions(tool_name: str | None, raw_output: dict[str, Any]) ->
         player_disambiguation_suggestions,
         suggestions_to_list,
     )
+    if tool_name in RESUME_QUESTION_TOOLS:
+        from .suggestions import question_resume_suggestions  # noqa: PLC0415
+
+        if not question:
+            return None
+        return suggestions_to_list(
+            question_resume_suggestions(
+                raw_output.get("candidates", []), str(raw_output.get("query") or ""), question, bootstrap,
+            )
+        )
     if tool_name in WIZARD_ARMING_TOOLS:
+        # A question that says more than the name ("compara a Palmer y Saka") must not be
+        # answered with the generic card: re-ask it per candidate. A bare name keeps the
+        # deterministic, cheaper stable-id handoff; a failed rewrite falls back to it too.
+        from .suggestions import (  # noqa: PLC0415
+            question_is_only_the_name,
+            question_resume_suggestions,
+        )
+
+        mention = str(raw_output.get("query") or "")
+        if question and mention and not question_is_only_the_name(question, mention):
+            rewrites = suggestions_to_list(
+                question_resume_suggestions(raw_output.get("candidates", []), mention, question, bootstrap)
+            )
+            if rewrites is not None:
+                return rewrites
         return suggestions_to_list(
             player_disambiguation_suggestions(raw_output.get("candidates", []))
         )

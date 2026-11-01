@@ -174,7 +174,7 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
     (responseSuggestions?.length ?? 0) > 0 &&
     (
       !WIZARD_ARMING_INTENTS.has(message.response?.intent ?? '') ||
-      responseSuggestions!.every((suggestion) => suggestion.player_id != null)
+      responseSuggestions!.every((suggestion) => suggestion.player_id != null || isRewriteSuggestion(suggestion))
     );
   // Which question this turn asked, for the superseded (non-interactive)
   // fallback copy below. A pick-one turn asks the user to identify ONE player

@@ -38,13 +38,13 @@
     "suggestions": [
       {
         "label": "Martínez (CHE)",
-        "send_text": "Martínez CHE",
-        "player_id": 31
+        "send_text": "¿Cómo viene la forma de Emiliano Martínez?",
+        "kind": "prompt_rewrite"
       },
       {
         "label": "Martínez (MUN)",
-        "send_text": "Martínez MUN",
-        "player_id": 32
+        "send_text": "¿Cómo viene la forma de Lisandro Martínez?",
+        "kind": "prompt_rewrite"
       }
     ],
     "resource_rows": null,
