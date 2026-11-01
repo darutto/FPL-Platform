@@ -272,6 +272,7 @@ def analyse(
                     record["associations_more"] = max(0, len(found) - MAX_ASSOCIATIONS)
             started_so_far.append((record["_index"], record["slot"]))
     recent = records[-limit:]
+    cover = _slot_cover(matches, records, recent, fixtures, element, names)
     absence = (_absence_focus(matches, records, fixtures, absent_element, team, sidelined, names)
                if absent_element is not None else None)
     for record in records:
@@ -290,7 +291,68 @@ def analyse(
     }
     if absence is not None:
         result["absence_focus"] = absence
+    if cover is not None:
+        result["slot_cover"] = cover
     return result
+
+
+def _slot_cover(matches, records, recent, fixtures, element, names) -> dict[str, Any] | None:
+    """Who held the player's usual slot in the announced XI of the matches he did not start (``observed`` only).
+
+    The usual slot is the strict mode of ``(detailed_position, side)`` over his last ``BASELINE_STARTS`` starts, needing
+    at least ``MIN_BASELINE_STARTS`` of them. A teammate who shared that role with him in those starts (two centre
+    forwards, two central midfielders) is not counted as occupying his slot. When nobody else in a lineup has the role
+    (another formation) the closest cell is named and marked ``closest``. It names no cause and no decision.
+    """
+    absent = [r for r in recent if r["player_status"] in ("bench", "not_listed")]
+    if not absent:
+        return None
+    by_index = {r["_index"]: r for r in records}
+    prior = [(matches[i], r["slot"]) for i, r in sorted(by_index.items()) if r["player_status"] == "started"]
+    prior = prior[-BASELINE_STARTS:]
+    usual = _mode(_role(slot) for _lu, slot in prior) if len(prior) >= MIN_BASELINE_STARTS else None
+    if usual is None:
+        reason = "too_few_starts" if len(prior) < MIN_BASELINE_STARTS else "no_single_usual_role"
+        return {"status": "no_usual_slot", "reason": reason, "starts_used": len(prior), "matches_without": len(absent),
+                "claim_status": OBSERVED}
+    shared = {el for lu, slot in prior if _role(slot) == usual
+              for el, row in lu.starters.items()
+              if el != element and (_clean(row["detailed_position"]), _clean(row["side"])) == usual}
+    depths = [d for d in (line_depth(slot.get("grid_slot"), slot.get("formation")) for _lu, slot in prior
+                          if _role(slot) == usual) if d is not None]
+    usual_depth = sum(depths) / len(depths) if depths else None
+    counts: Counter[int] = Counter()
+    closest_used = False
+    covered = 0
+    for rec in absent:
+        lu = matches[rec["_index"]]
+        pool = {el: row for el, row in lu.starters.items() if el != element and el not in shared}
+        found = [el for el, row in pool.items() if (_clean(row["detailed_position"]), _clean(row["side"])) == usual]
+        kind = "exact"
+        if not found:
+            kind = "closest"
+            found = [el for el, row in pool.items() if _clean(row["detailed_position"]) == usual[0]]
+            if not found and usual_depth is not None:
+                near = sorted(
+                    (abs(d - usual_depth), el) for el, row in pool.items()
+                    if row.get("detailed_position") != "Goalkeeper"
+                    and (d := line_depth(_clean(row["grid_slot"]), lu.formation)) is not None
+                    and abs(d - usual_depth) < LINE_STEP_MIN)
+                if near and (len(near) == 1 or near[0][0] < near[1][0]):
+                    found = [near[0][1]]
+        rec["slot_occupants"] = [{"player": _person(el, names), "match": kind, "formation": lu.formation,
+                                  "claim_status": OBSERVED} for el in sorted(found)]
+        if found:
+            covered += 1
+            closest_used = closest_used or kind == "closest"
+            counts.update(found)
+    return {
+        "status": "ok", "usual_slot": _role_dict(usual), "starts_used": len(prior), "matches_without": len(absent),
+        "matches_covered": covered, "closest_used": closest_used,
+        "occupants": [{"player": _person(el, names), "count": n}
+                      for el, n in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))],
+        "small_sample": len(absent) < ABSENCE_MIN_EACH_SIDE, "claim_status": OBSERVED,
+    }
 
 
 def _line_shift(now: Mapping[str, Any], same_role_priors: list[Mapping[str, Any]]) -> dict[str, Any]:

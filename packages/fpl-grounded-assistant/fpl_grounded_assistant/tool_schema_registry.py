@@ -1600,7 +1600,11 @@ GET_POSITION_CHANGES_SCHEMA = ToolSchema(
         "(listed_sidelined is reported separately); a provisional lineup is not confirmed; a small sample must be "
         "said. When a match carries fpl_out, the ONLY allowed words are 'consta como baja en FPL desde el 17/10' / "
         "'listed as out in FPL since 17 Oct' (observed from FPL, dated before that match); never 'no jugo porque' / "
-        "'did not play because'. Frame it as the opportunity, never as weakness. The history starts when the licensed ingestion "
+        "'did not play because'. For 'who replaces X if he does not play' use slot_cover / slot_occupants: say who "
+        "held his usual slot in the announced XI of the matches without him ('la casilla de delantero centro quedo "
+        "ocupada por Delap' / 'the centre forward slot was held by Delap'), say it is 'the closest slot' when marked "
+        "closest and name the sample ('1 partido'); never 'replaced him' / 'lo sustituyo' and never a reason or a "
+        "manager decision. Frame it as the opportunity, never as weakness. The history starts when the licensed ingestion "
         "started, so few matches may be available."
     ),
     parameters={

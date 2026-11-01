@@ -157,7 +157,7 @@ def test_statuses_without_data_render_in_the_language(run, locale):
 def test_the_new_catalogue_keys_come_in_pairs_with_the_same_placeholders():
     import re
     keys = [k for k in _CATALOGUE if k.startswith(("renderer.position_changes.", "gcard.position_changes."))]
-    assert len([k for k in keys if k.startswith("renderer.")]) == 47  # 25 + 3 (line change / not comparable) + 2 (assoc_more, small_focus) + 17 (FPL out-news: out, summary, 15 reasons)
+    assert len([k for k in keys if k.startswith("renderer.")]) == 55  # 25 + 3 (line change / not comparable) + 2 (assoc_more, small_focus) + 17 (FPL out-news: out, summary, 15 reasons) + 8 (slot cover: row, closest row, summary x2, closest, small x2, none)
     for key in keys:
         entry = _CATALOGUE[key]
         assert set(entry) == {"en", "es"} and entry["en"] and entry["es"]
