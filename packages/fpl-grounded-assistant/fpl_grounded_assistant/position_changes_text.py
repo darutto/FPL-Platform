@@ -53,3 +53,36 @@ def out_text(fpl_out: dict[str, Any], locale: Locale) -> str:
     return t("renderer.position_changes.out", locale,
              reason=t(f"renderer.position_changes.reason_{fpl_out.get('reason')}", locale),
              date=out_date(str(fpl_out.get("since") or ""), locale))
+
+
+def slot_row_text(occupants: list[dict[str, Any]] | None, locale: Locale) -> str:
+    """'slot: Delap' / 'casilla: Delap'; the closest cell when the formation had no same-role slot. '' when nobody."""
+    if not occupants:
+        return ""
+    names = ", ".join((o.get("player") or {}).get("web_name", "?") for o in occupants)
+    closest = any(o.get("match") == "closest" for o in occupants)
+    return t("renderer.position_changes.slot_row_closest" if closest else "renderer.position_changes.slot_row", locale, name=names)
+
+
+def slot_summary_lines(cover: dict[str, Any] | None, player_name: str, locale: Locale) -> list[str]:
+    """Summary of who held the usual slot in the matches without him (observed; no cause, no decision)."""
+    if not cover:
+        return []
+    n = int(cover.get("matches_without") or 0)
+    if cover.get("status") != "ok":
+        return [t("renderer.position_changes.slot_none", locale, player=player_name, n=cover.get("starts_used", 0))]
+    occupants = cover.get("occupants") or []
+    if not occupants:
+        return []
+    slot = role_text(cover.get("usual_slot"), locale).lower()
+    sep = " y " if locale == "es" else " and "
+    parts = [(o.get("player") or {}).get("web_name", "?") + (f" ({o['count']})" if n > 1 else "") for o in occupants]
+    names = ", ".join(parts[:-1]) + sep + parts[-1] if len(parts) > 1 else parts[0]
+    lines = [t("renderer.position_changes.slot_summary" if n > 1 else "renderer.position_changes.slot_summary_one", locale,
+               n=n, player=player_name, slot=slot, names=names)]
+    if cover.get("closest_used"):
+        lines.append(t("renderer.position_changes.slot_closest", locale))
+    if cover.get("small_sample"):
+        lines.append(t("renderer.position_changes.slot_small" if n > 1 else "renderer.position_changes.slot_small_one", locale,
+                       n=n, player=player_name))
+    return lines
