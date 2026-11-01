@@ -39,7 +39,7 @@ from .formatting import format_metric_value
 from .generic_card import Column, GenericCardMeta, HeroStat, Pill
 from .gw_report_text import compose_gw_report_card
 from .locale_types import DEFAULT_LOCALE, Locale
-from .position_changes_text import gap_pill, out_text, role_text
+from .position_changes_text import gap_pill, out_text, role_text, slot_row_text
 from .rank_players_by_metric import natural_order
 
 _LOG = logging.getLogger(__name__)
@@ -274,6 +274,8 @@ def compose_position_changes_card(raw_output: dict[str, Any], locale: Locale = D
                 notes.append(t("gcard.position_changes.note_line_unknown", locale))
             if m.get("fpl_out"):
                 notes.append(out_text(m["fpl_out"], locale))
+            if slot_row_text(m.get("slot_occupants"), locale):
+                notes.append(slot_row_text(m.get("slot_occupants"), locale))
             for a in m.get("associations") or []:
                 notes.append(t("gcard.position_changes.note_assoc", locale, name=(a.get("teammate") or {}).get("web_name", "?")))
             if m.get("associations_more"):

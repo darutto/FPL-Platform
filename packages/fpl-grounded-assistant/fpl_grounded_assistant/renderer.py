@@ -42,9 +42,9 @@ except ImportError:  # standalone load (test_renderer_zonal bypasses the package
 _tr = t
 
 try:
-    from .position_changes_text import gap_text, out_date, out_text, role_text
+    from .position_changes_text import gap_text, out_date, out_text, role_text, slot_row_text, slot_summary_lines
 except ImportError:  # standalone load (test_renderer_zonal bypasses the package)
-    from position_changes_text import gap_text, out_date, out_text, role_text  # type: ignore[no-redef]
+    from position_changes_text import gap_text, out_date, out_text, role_text, slot_row_text, slot_summary_lines  # type: ignore[no-redef]
 
 # ---------------------------------------------------------------------------
 # status_label: shared by resolve_player and get_player_summary.  F2.
@@ -2228,6 +2228,8 @@ def _render_get_position_changes(output: dict[str, Any], locale: Locale = DEFAUL
             what = t("renderer.position_changes.not_listed", locale)
         flag = t("renderer.position_changes.provisional", locale) if m.get("lineup_status") == "provisional" else ""
         out = f"; {out_text(m['fpl_out'], locale)}" if m.get("fpl_out") else ""
+        slot_note = slot_row_text(m.get("slot_occupants"), locale)
+        out += f"; {slot_note}" if slot_note else ""
         lines.append(f"  {gw} {where}: {what}{flag}{out}")
         change = m.get("change")
         if change and change.get("kind") == "line":
@@ -2258,6 +2260,7 @@ def _render_get_position_changes(output: dict[str, Any], locale: Locale = DEFAUL
     if outs:
         lines.append(t("renderer.position_changes.out_summary", locale, n=len(outs),
                        date=out_date(str(min(o.get("since") or "" for o in outs)), locale)))
+    lines.extend(slot_summary_lines(output.get("slot_cover"), player.get("web_name", "?"), locale))
     focus = output.get("absence_focus")
     if focus:
         none = t("renderer.position_changes.focus_none", locale)
