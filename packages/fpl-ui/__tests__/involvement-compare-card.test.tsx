@@ -10,7 +10,8 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
 import GenericCard from '../components/intents/GenericCard';
-import InvolvementCompareCard, { FIGURE_CLASS, fitLine, runs } from '../components/intents/InvolvementCompareCard';
+import InvolvementCompareCard, { FIGURE_CLASS, fitLine, fmt, runs } from '../components/intents/InvolvementCompareCard';
+import { LocaleProvider } from '../lib/i18n/LocaleProvider';
 import type { GenericCardMeta, InvolvementCompareMeta } from '../lib/types';
 import es from './fixtures/involvement-compare-es.json';
 import en from './fixtures/involvement-compare-en.json';
@@ -87,7 +88,7 @@ describe('Per 90 view (default)', () => {
     const { container } = render(<InvolvementCompareCard data={p} />);
     expect(figure(container, 'backward_share', 'a').className).toBe(FIGURE_CLASS.neutral);
     expect(figure(container, 'backward_share', 'b').className).toBe(FIGURE_CLASS.neutral);
-    expect(figure(container, 'backward_share', 'a')).toHaveTextContent('23.2%');
+    expect(figure(container, 'backward_share', 'a').textContent).toBe('23,2 %');
   });
 
   test('an unknown value reads as a dash, with no bar', () => {
@@ -149,9 +150,9 @@ describe('By match view', () => {
     const series = container.querySelector('[data-view="series"]') as HTMLElement;
     const a = series.querySelector('[data-side="a"]') as HTMLElement;
     const b = series.querySelector('[data-side="b"]') as HTMLElement;
-    expect(a).toHaveTextContent('2.5');
+    expect(a).toHaveTextContent('2,5');
     expect(a.className).toBe(FIGURE_CLASS.lead);   // Palmer leads key passes
-    expect(b).toHaveTextContent('1');
+    expect(b).toHaveTextContent('1,0');
     expect(b.className).toBe(FIGURE_CLASS.dim);
   });
 
@@ -164,7 +165,7 @@ describe('By match view', () => {
 
 describe('English', () => {
   test('both views read in English from the payload', () => {
-    render(<InvolvementCompareCard data={payload(EN)} />);
+    render(<LocaleProvider initialLocale="en" canSwitch={false}><InvolvementCompareCard data={payload(EN)} /></LocaleProvider>);
     expect(screen.getByText('Comparison · involvement')).toBeInTheDocument();
     expect(screen.getByText('Touches/90')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'By match' }));
@@ -183,5 +184,39 @@ describe('geometry helpers', () => {
     expect(fitLine([1, null])).toBeNull();
     const fit = fitLine([30, 10, null, null, null, null, 31])!;
     expect(fit.at(6)).toBeGreaterThan(fit.at(0));   // same direction as the backend's "up" for this series
+  });
+});
+
+describe('number format by locale', () => {
+  test('per-90 figures always carry one decimal, so both sides read at the same precision', () => {
+    const { container } = render(<InvolvementCompareCard data={payload(ES)} />);
+    expect(figure(container, 'touches', 'a')).toHaveTextContent('55,2');
+    expect(figure(container, 'touches', 'b')).toHaveTextContent('58,0');
+    expect(figure(container, 'key_passes', 'b')).toHaveTextContent('1,0');
+    expect(figure(container, 'passes', 'a')).toHaveTextContent('40,0');
+    expect(figure(container, 'passes', 'b')).toHaveTextContent('40,0');
+    expect(figure(container, 'pass_accuracy', 'a').textContent).toBe('85 %');
+  });
+
+  test('English uses the decimal point and no space before the percent sign', () => {
+    const { container } = render(
+      <LocaleProvider initialLocale="en" canSwitch={false}><InvolvementCompareCard data={payload(EN)} /></LocaleProvider>);
+    expect(figure(container, 'touches', 'a')).toHaveTextContent('55.2');
+    expect(figure(container, 'touches', 'b')).toHaveTextContent('58.0');
+    expect(figure(container, 'pass_accuracy', 'a')).toHaveTextContent('85%');
+  });
+
+  test('the per-match average uses the same format, in both languages', () => {
+    render(<InvolvementCompareCard data={payload(ES)} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Por jornada' }));
+    expect(screen.getByText('58,0')).toBeInTheDocument();
+  });
+
+  test('fmt: one decimal for metrics, none for whole percentages, a dash for unknown', () => {
+    expect(fmt(58, '', 'es')).toBe('58,0');
+    expect(fmt(58, '', 'en')).toBe('58.0');
+    expect(fmt(85, '%', 'es')).toBe('85 %');
+    expect(fmt(23.2, '%', 'en')).toBe('23.2%');
+    expect(fmt(null, '', 'es')).toBe('–');
   });
 });

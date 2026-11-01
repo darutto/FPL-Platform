@@ -24,6 +24,9 @@ import type {
 } from '@/lib/types';
 import { CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
 import { FingerprintWaves } from './CardOrnaments';
+import { intlTag } from '@/lib/i18n/format';
+import type { Locale } from '@/lib/i18n/locale';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 
 interface Props {
   data: InvolvementCompareMeta;
@@ -42,10 +45,16 @@ export const FIGURE_CLASS = {
   neutral: 'font-semibold text-[15px] leading-none text-bf-text/70',
 } as const;
 
-function fmt(value: number | null, unit: string): string {
+/**
+ * A figure in the language showing: per-90 metrics always carry one decimal (58,0 · 1,0 · 40,0) so the two sides read
+ * at the same precision; a percentage keeps no decimal when it has none. Spanish uses the decimal comma and "85 %".
+ */
+export function fmt(value: number | null, unit: string, locale: Locale): string {
   if (value == null) return '–';
-  const s = Number.isInteger(value) ? String(value) : value.toFixed(1);
-  return `${s}${unit}`;
+  const digits = unit === '%' && Number.isInteger(value) ? 0 : 1;
+  const text = value.toLocaleString(intlTag(locale), { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  if (!unit) return text;
+  return locale === 'es' ? `${text} ${unit}` : `${text}${unit}`;
 }
 
 function role(side: InvolvementSide, winner: InvolvementSide | null, hasWinner: boolean): keyof typeof FIGURE_CLASS {
@@ -109,6 +118,7 @@ function IconSwitch<K extends string>({
 // ------------------------------------------------------------------------------------------------------ per 90
 
 function Per90Row({ row }: { row: InvolvementPer90Row }) {
+  const { locale } = useLocale();
   const hasWinner = row.metric !== 'backward_share';
   const top = Math.max(row.a ?? 0, row.b ?? 0) * 1.08 || 1;
   const side = (s: InvolvementSide) => {
@@ -119,7 +129,7 @@ function Per90Row({ row }: { row: InvolvementPer90Row }) {
       : `${BAR_BG[s]} ${r === 'dim' ? 'h-[5px] opacity-60' : 'h-2'}`;
     return (
       <div className={`flex min-w-0 flex-1 flex-col justify-end gap-1.5 ${s === 'a' ? 'text-left' : 'text-right'}`}>
-        <span data-role={r} data-side={s} className={FIGURE_CLASS[r]}>{fmt(value, row.unit)}</span>
+        <span data-role={r} data-side={s} className={FIGURE_CLASS[r]}>{fmt(value, row.unit, locale)}</span>
         {value != null && (
           <div className={`rounded ${bar} ${s === 'a' ? 'ml-auto' : 'mr-auto'}`}
             style={{ width: `${Math.round((100 * value) / top)}%` }} />
@@ -238,13 +248,14 @@ function TrendMark({ trend, labels }: { trend: InvolvementTrend | null; labels: 
 }
 
 function SeriesView({ data }: { data: InvolvementCompareMeta }) {
+  const { locale } = useLocale();
   const [key, setKey] = useState<SeriesKey>('touches');
   const [ref, width] = useWidth<HTMLDivElement>(320);
   const metric = data.series.metrics.find((m) => m.metric === key) ?? data.series.metrics[0];
   if (!metric) return null;
   const avg = (s: InvolvementSide) => {
     const r = role(s, metric.avg_winner, true);
-    return <span data-role={r} data-side={s} className={FIGURE_CLASS[r]}>{fmt(metric[`avg_${s}`], '')}</span>;
+    return <span data-role={r} data-side={s} className={FIGURE_CLASS[r]}>{fmt(metric[`avg_${s}`], '', locale)}</span>;
   };
   return (
     <div className="flex flex-col gap-2.5" data-view="series">
