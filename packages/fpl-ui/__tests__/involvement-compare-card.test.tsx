@@ -62,6 +62,18 @@ describe('Per 90 view (default)', () => {
     container.querySelectorAll('[data-side]').forEach((el) => expect(el.className).not.toMatch(COLOR_CLASS));
   });
 
+  test('the dimmed side has the thinner, fainter bar; the winner and a tie keep the full one', () => {
+    const { container } = render(<InvolvementCompareCard data={payload(ES)} />);
+    const bar = (metric: string, side: 'a' | 'b') =>
+      (figure(container, metric, side).nextElementSibling as HTMLElement).className;
+    expect(bar('touches', 'a')).toContain('h-[5px]');       // Saka wins touches: Palmer's bar is thinner
+    expect(bar('touches', 'a')).toContain('opacity-60');
+    expect(bar('touches', 'b')).toContain('h-2');
+    expect(bar('touches', 'b')).not.toContain('opacity-60');
+    expect(bar('passes', 'a')).toContain('h-2');            // tie: neither thinned
+    expect(bar('passes', 'b')).toContain('h-2');
+  });
+
   test('a tie dims neither side', () => {
     const { container } = render(<InvolvementCompareCard data={payload(ES)} />);
     // passes: 40 vs 40 in the fixture, winner null
