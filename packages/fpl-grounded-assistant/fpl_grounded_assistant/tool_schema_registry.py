@@ -1633,11 +1633,13 @@ GET_POSITION_CHANGES_SCHEMA = ToolSchema(
 GET_PLAYER_INVOLVEMENT_SCHEMA = ToolSchema(
     name="get_player_involvement",
     description=(
-        "How involved a player was in his club's recent matches: touches, passes, pass accuracy, key passes and "
-        "BACKWARD passes (and the share of his passes that went backward), as MATCH TOTALS from the provider, plus "
-        "per-90 averages. Use for 'cuantos toques tiene X', 'cuanto participa X en el juego', 'pases hacia atras', "
-        "'is X involved in build-up', optionally with absent_player (a TEAMMATE) for 'cuando no juega Y' to compare "
-        "his per-90 involvement in matches where Y did not play with matches where Y started. Each statement carries "
+        "How involved a player was in the club's recent matches: touches, passes, pass accuracy, key passes and "
+        "BACKWARD passes (and the share of the player's passes that went backward), as MATCH TOTALS from the provider, "
+        "plus per-90 averages. Use for 'cuantos toques tiene X', 'cuanto participa X en el juego', 'pases hacia atras', "
+        "'is X involved in build-up'. To COMPARE TWO PLAYERS ('compara los toques de X y Y', 'X vs Y key passes'), make "
+        "ONE call with player=X and compare_player=Y (any club): never two calls. Optionally, instead, absent_player (a "
+        "TEAMMATE) for 'cuando no juega Y' compares the player's per-90 involvement in matches where Y did not play "
+        "with matches where Y started; compare_player and absent_player are never combined. Each statement carries "
         "claim_status: observed (a match total) or associated (it coincided with a teammate's absence). Words "
         "allowed: 'tuvo mas/menos toques', 'had more/fewer touches', 'coincidio con la ausencia de Y'. NEVER give a "
         "cause ('por la lesion', 'porque falto Y', 'because of'), never predict, never describe WHERE on the pitch "
@@ -1650,6 +1652,11 @@ GET_PLAYER_INVOLVEMENT_SCHEMA = ToolSchema(
         "type": "object",
         "properties": {
             "player": _PLAYER_QUERY_PROP,
+            "compare_player": {
+                "type": "string",
+                "description": "Optional SECOND player to put side by side ('compara Palmer y Saka' -> player=Palmer, "
+                               "compare_player=Saka). Any club. Not with absent_player.",
+            },
             "absent_player": {
                 "type": "string",
                 "description": "Optional TEAMMATE who did not play ('cuando no juega Joao Pedro'). Resolved within the player's club.",

@@ -746,6 +746,7 @@ element (surfaced through `get_injury_list` → `InjuryEntry.news` /
 | `columns` | `tuple[Column, ...]` | Each `{header: str, align: left\|right, kind: text\|mono\|badge}`. |
 | `rows` | `tuple[tuple[str, ...], ...]` | Each row has exactly `len(columns)` string cells. |
 | `footer` | `str\|None` | Optional footer note. |
+| `involvement_compare` | `dict\|None` | R6 two-player comparison (`get_player_involvement` with `compare_player`): per-90 rows with `winner` (`a`/`b`/`null`; backward share never has one), the per-match series on one gameweek axis (gaps are `null`, a double gameweek is two entries with the same label), each player's trend (`up`/`down`/`flat`/`null` under 3 values), labels in the request language, footer. `null` on every other card; `columns`/`rows` still hold the plain per-90 table. |
 
 ### Colours and copy
 

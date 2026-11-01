@@ -138,7 +138,7 @@ def test_english_copy_names_no_gender():
     from fpl_grounded_assistant.catalogue import _CATALOGUE
     for key, entry in _CATALOGUE.items():
         if "player_involvement" in key:
-            assert not re.search(r"(he|his|him|she|her|hers)", entry["en"], re.I), key
+            assert not re.search(r"\b(he|his|him|she|her|hers)\b", entry["en"], re.I), key
 
 
 def test_few_matches_say_small_sample():

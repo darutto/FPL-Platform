@@ -243,6 +243,8 @@ def compose_position_changes_card(raw_output: dict[str, Any], locale: Locale = D
     """
     if raw_output.get("status") != "ok" or not (raw_output.get("matches") or []):
         return None
+    if raw_output.get("comparison"):
+        return compose_involvement_compare_card(raw_output, locale)
     try:
         matches = raw_output["matches"]
         player = raw_output.get("player") or {}
@@ -338,6 +340,8 @@ def compose_player_involvement_card(raw_output: dict[str, Any], locale: Locale =
     """
     if raw_output.get("status") != "ok" or not (raw_output.get("matches") or []):
         return None
+    if raw_output.get("comparison"):
+        return compose_involvement_compare_card(raw_output, locale)
     try:
         matches = raw_output["matches"]
         player = raw_output.get("player") or {}
@@ -389,6 +393,77 @@ def compose_player_involvement_card(raw_output: dict[str, Any], locale: Locale =
         )
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("atomic_tool_cards: failed to compose get_player_involvement card (%s); falling back to prose",
+                     type(exc).__name__)
+        return None
+
+
+def compose_involvement_compare_card(raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> "GenericCardMeta | None":
+    """Compose the two-player R6 card from ``get_player_involvement`` output that carries ``comparison``.
+
+    The payload (``involvement_compare``) is the comparison block as the tool computed it -- per-90 rows with their
+    winner, the per-match series on one gameweek axis with gaps as ``None``, and each player's trend -- plus the labels
+    in the request language. Nothing is recomputed or invented here. ``columns``/``rows`` repeat the per-90 table for a
+    client that draws only the table. Returns ``None`` on any malformed input (never raises).
+    """
+    try:
+        cmp = raw_output["comparison"]
+        players = cmp.get("players") or {}
+        a, b = players.get("a") or {}, players.get("b") or {}
+        a_name, b_name = a.get("web_name") or "?", b.get("web_name") or "?"
+
+        def num(value: Any) -> str:
+            return "-" if value is None else (f"{value:g}" if isinstance(value, float) else str(value))
+
+        per90 = []
+        for row in cmp.get("per90") or []:
+            metric = row["metric"]
+            per90.append({"metric": metric, "label": t(f"gcard.involvement_compare.m_{metric}", locale),
+                          "a": row.get("a"), "b": row.get("b"), "winner": row.get("winner"),
+                          "unit": "%" if metric in ("pass_accuracy", "backward_share") else ""})
+        by_metric = {r["metric"]: r for r in per90}
+        series = cmp.get("series") or {}
+        trends = cmp.get("trends") or {}
+        gws = series.get("gameweeks") or []
+        metrics = []
+        for metric in ("touches", "key_passes", "passes"):
+            row = by_metric.get(metric) or {}
+            metrics.append({
+                "metric": metric, "label": t(f"gcard.involvement_compare.s_{metric}", locale),
+                "a": list((series.get("a") or {}).get(metric) or []), "b": list((series.get("b") or {}).get(metric) or []),
+                "trend_a": (trends.get("a") or {}).get(metric), "trend_b": (trends.get("b") or {}).get(metric),
+                "avg_a": row.get("a"), "avg_b": row.get("b"), "avg_winner": row.get("winner"),
+            })
+        sample = cmp.get("sample") or {}
+        na, nb = (sample.get("a") or {}).get("listed"), (sample.get("b") or {}).get("listed")
+        footer = (t("gcard.involvement_compare.footer_same", locale, n=na) if na == nb else
+                  t("gcard.involvement_compare.footer_diff", locale, a=a_name, na=na, b=b_name, nb=nb))
+        small = any((sample.get(s) or {}).get("small_sample") for s in ("a", "b"))
+        built = (raw_output.get("data_provenance") or {}).get("built_at")
+        payload = {
+            "a": {"name": a_name, "team": a.get("team_short")}, "b": {"name": b_name, "team": b.get("team_short")},
+            "per90": per90,
+            "series": {"gameweeks": gws,
+                       "gw_labels": [t("fxo.gw", locale, n=g) if g is not None else "-" for g in gws],
+                       "metrics": metrics},
+            "labels": {k: t(f"gcard.involvement_compare.{k}", locale)
+                       for k in ("title", "view_per90", "view_series", "avg", "trend_up", "trend_down", "trend_flat")},
+            "footer": footer,
+            "note": t("gcard.involvement_compare.small_sample", locale) if small else None,
+            "provenance": t("renderer.player_involvement.provenance", locale, built_at=str(built)[:10]) if built else None,
+        }
+        return GenericCardMeta(
+            accent="cyan",
+            title=t("gcard.involvement_compare.title", locale),
+            subtitle=None, hero=None, pills=(),
+            columns=(Column(header=t("gcard.involvement_compare.col_metric", locale), align="left", kind="text"),
+                     Column(header=a_name, align="right", kind="mono"), Column(header=b_name, align="right", kind="mono")),
+            rows=tuple((r["label"], num(r["a"]) + (r["unit"] if r["a"] is not None else ""),
+                        num(r["b"]) + (r["unit"] if r["b"] is not None else "")) for r in per90),
+            footer=footer,
+            involvement_compare=payload,
+        )
+    except Exception as exc:  # noqa: BLE001
+        _LOG.warning("atomic_tool_cards: failed to compose the involvement comparison card (%s); falling back to prose",
                      type(exc).__name__)
         return None
 

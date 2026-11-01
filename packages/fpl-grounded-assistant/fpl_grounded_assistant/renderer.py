@@ -2293,6 +2293,8 @@ def _render_get_player_involvement(output: dict[str, Any], locale: Locale = DEFA
     if status == "not_a_teammate":
         return t("renderer.position_changes.not_a_teammate", locale, query=output.get("query", "?"),
                  name=(output.get("player") or {}).get("web_name", "?"))
+    if status == "invalid_args":
+        return t("renderer.player_involvement.invalid_args", locale)
     matches = output.get("matches") or []
     if status != "ok" or not matches:
         return t("renderer.player_involvement.missing", locale)
@@ -2300,22 +2302,27 @@ def _render_get_player_involvement(output: dict[str, Any], locale: Locale = DEFA
     def n(value: Any) -> str:
         return "?" if value is None else (f"{value:g}" if isinstance(value, float) else str(value))
 
-    player = output.get("player") or {}
-    lines = [t("renderer.player_involvement.header", locale, name=player.get("web_name", "?"),
-               team=player.get("team_short", "?"), n=len(matches))]
-    for m in matches:
-        where = t("renderer.position_changes.home" if m.get("is_home") else "renderer.position_changes.away", locale,
-                  opp=m.get("opponent", "?"))
-        gw = t("renderer.position_changes.gw", locale, gw=m.get("gameweek")) if m.get("gameweek") is not None else ""
-        lines.append(f"  {gw} {where}: " + t(
-            "renderer.player_involvement.row", locale, touches=n(m.get("touches")), passes=n(m.get("passes")),
-            acc=n(m.get("pass_accuracy_pct")), keyp=n(m.get("key_passes")), back=n(m.get("backward_passes")),
-            share=n(m.get("backward_share_pct")), mins=n(m.get("minutes"))))
-    avg = output.get("averages") or {}
-    if avg.get("matches"):
-        lines.append(t("renderer.player_involvement.avg", locale, min=30, n=avg["matches"],
-                       touches=n(avg.get("touches_per90")), passes=n(avg.get("passes_per90")),
-                       back=n(avg.get("backward_passes_per90")), acc=n(avg.get("pass_accuracy_pct"))))
+    def block(answer: dict[str, Any]) -> list[str]:
+        rows = answer.get("matches") or []
+        who = answer.get("player") or {}
+        out = [t("renderer.player_involvement.header", locale, name=who.get("web_name", "?"),
+                 team=who.get("team_short", "?"), n=len(rows))]
+        for m in rows:
+            where = t("renderer.position_changes.home" if m.get("is_home") else "renderer.position_changes.away", locale,
+                      opp=m.get("opponent", "?"))
+            gw = t("renderer.position_changes.gw", locale, gw=m.get("gameweek")) if m.get("gameweek") is not None else ""
+            out.append(f"  {gw} {where}: " + t(
+                "renderer.player_involvement.row", locale, touches=n(m.get("touches")), passes=n(m.get("passes")),
+                acc=n(m.get("pass_accuracy_pct")), keyp=n(m.get("key_passes")), back=n(m.get("backward_passes")),
+                share=n(m.get("backward_share_pct")), mins=n(m.get("minutes"))))
+        avg = answer.get("averages") or {}
+        if avg.get("matches"):
+            out.append(t("renderer.player_involvement.avg", locale, min=30, n=avg["matches"],
+                         touches=n(avg.get("touches_per90")), passes=n(avg.get("passes_per90")),
+                         back=n(avg.get("backward_passes_per90")), acc=n(avg.get("pass_accuracy_pct"))))
+        return out
+
+    lines = block(output)
     focus = output.get("absence_focus")
     if focus:
         mate = (focus.get("teammate") or {}).get("web_name", "?")
@@ -2332,6 +2339,22 @@ def _render_get_player_involvement(output: dict[str, Any], locale: Locale = DEFA
     sample = output.get("sample") or {}
     if sample.get("small_sample") or (focus and focus.get("small_sample")):
         lines.append(t("renderer.player_involvement.small_sample", locale, n=sample.get("matches_with_stats", len(matches))))
+    second = output.get("compare")
+    if second:
+        lines += block(second)
+        if (second.get("sample") or {}).get("small_sample"):
+            lines.append(t("renderer.player_involvement.small_sample", locale,
+                           n=(second.get("sample") or {}).get("matches_with_stats", "?")))
+        comparison = output.get("comparison") or {}
+        a_name = (output.get("player") or {}).get("web_name", "?")
+        b_name = (second.get("player") or {}).get("web_name", "?")
+        cells = [t(f"renderer.player_involvement.cmp_{row['metric']}", locale, a=n(row.get("a")), b=n(row.get("b")))
+                 for row in comparison.get("per90") or []]
+        lines.append(t("renderer.player_involvement.cmp_head", locale, a=a_name, b=b_name) + " " + "; ".join(cells) + ".")
+    missing = output.get("compare_missing")
+    if missing:
+        lines.append(t("renderer.player_involvement.cmp_missing", locale,
+                       name=(missing.get("player") or {}).get("web_name") or "?"))
     lines.append(t("renderer.player_involvement.footer", locale))
     built = (output.get("data_provenance") or {}).get("built_at")
     if built:

@@ -312,12 +312,13 @@ def test_serializer_round_trip_shape() -> None:
     d = generic_card_to_dict(card)
     # Top-level keys and types are the documented wire contract.
     assert set(d.keys()) == {
-        "accent", "title", "subtitle", "hero", "pills", "columns", "rows", "footer",
+        "accent", "title", "subtitle", "hero", "pills", "columns", "rows", "footer", "involvement_compare",
     }
     assert isinstance(d["pills"], list)
     assert isinstance(d["columns"], list)
     assert isinstance(d["rows"], list)
     assert d["hero"] == {"value": "27", "label": "PUNTOS · 3 JOR", "tone": "good"}
+    assert d["involvement_compare"] is None  # R6 two-player payload, null on every other card
     # rows are lists of strings; every row matches the column count
     assert all(isinstance(r, list) for r in d["rows"])
     ncols = len(d["columns"])
