@@ -131,6 +131,20 @@ def test_compare_involvement_with_one_ambiguous_player_es(server, monkeypatch):
     assert all(c["kind"] == KIND_PROMPT_REWRITE and c.get("player_id") is None for c in chips)
 
 
+@pytest.mark.parametrize("q, cole, alex", [
+    ("Compara los toques y pases clave de Palmer y Saka",
+     "Compara los toques y pases clave de Cole Palmer y Saka", "Compara los toques y pases clave de Alex Palmer y Saka"),
+    ("Compare touches and key passes for Saka and Palmer",
+     "Compare touches and key passes for Saka and Cole Palmer", "Compare touches and key passes for Saka and Alex Palmer"),
+])
+def test_ambiguity_in_the_compare_player_slot_swaps_that_name_only(server, monkeypatch, q, cole, alex):
+    body = _ask(server, monkeypatch, q, "get_player_involvement",
+                {"player": "Saka", "compare_player": "Palmer"}, f"u-cmp-{abs(hash(q))}")
+    assert body["outcome"] == "ambiguous"
+    assert {c["send_text"] for c in body["suggestions"]} == {cole, alex}           # Saka stays as written
+    assert all(c["kind"] == KIND_PROMPT_REWRITE and c.get("player_id") is None for c in body["suggestions"])
+
+
 def test_ambiguity_in_the_player_slot_with_an_absent_player(server, monkeypatch):
     q = "Who covers if Joao Pedro misses out? Neto's role changes"
     body = _ask(server, monkeypatch, q, "get_position_changes",
