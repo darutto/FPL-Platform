@@ -35,6 +35,23 @@ def role_text(role: dict[str, Any] | None, locale: Locale) -> str:
     return text
 
 
+def gap_text(gap: dict[str, Any], locale: Locale) -> str:
+    """'FPL lists him as a defender; he has started 6 of 6 as a midfielder (left).' Observed, no judgement."""
+    side = gap.get("side")
+    return t("renderer.position_changes.gap", locale,
+             fpl=t(f"renderer.position_changes.line_{gap.get('fpl_position')}", locale),
+             played=t(f"renderer.position_changes.line_{gap.get('played_line')}", locale),
+             n=gap.get("starts"), m=gap.get("of"),
+             side=t(f"renderer.position_changes.side_{side}", locale) if side in ("left", "right") else "")
+
+
+def gap_pill(gap: dict[str, Any], locale: Locale) -> str:
+    """'FPL: DEF · plays MID' / 'FPL: DEF · juega MED'."""
+    return t("gcard.position_changes.pill_gap", locale,
+             fpl=t(f"gcard.position_changes.code_{gap.get('fpl_position')}", locale),
+             played=t(f"gcard.position_changes.code_{gap.get('played_line')}", locale))
+
+
 _MONTHS_EN = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
 

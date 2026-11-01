@@ -39,7 +39,7 @@ from .formatting import format_metric_value
 from .generic_card import Column, GenericCardMeta, HeroStat, Pill
 from .gw_report_text import compose_gw_report_card
 from .locale_types import DEFAULT_LOCALE, Locale
-from .position_changes_text import out_text, role_text, slot_row_text
+from .position_changes_text import gap_pill, out_text, role_text, slot_row_text
 from .rank_players_by_metric import natural_order
 
 _LOG = logging.getLogger(__name__)
@@ -288,6 +288,8 @@ def compose_position_changes_card(raw_output: dict[str, Any], locale: Locale = D
         sample = raw_output.get("sample") or {}
         focus = raw_output.get("absence_focus") or {}
         pills: list[Pill] = []
+        if raw_output.get("fpl_position_gap"):
+            pills.append(Pill(label=gap_pill(raw_output["fpl_position_gap"], locale), tone="neutral"))
         if sample.get("small_sample"):
             n = sample.get("matches_with_stored_lineup", len(matches))
             pills.append(Pill(label=t("gcard.position_changes.pill_small" if n != 1 else "gcard.position_changes.pill_small_one", locale, n=n),
