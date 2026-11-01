@@ -100,3 +100,32 @@ def test_the_schema_allows_the_slot_wording_and_forbids_replacement_claims():
     d = GET_POSITION_CHANGES_SCHEMA.description
     assert "slot_cover" in d and "ocupada por" in d and "held by" in d
     assert "never 'replaced him'" in d
+
+
+# --- "¿Quién sustituye a João Pedro?" with him as both player and absent_player (prod 2026-11-01) ---------------
+
+def test_absent_player_equal_to_the_player_is_ignored_by_the_tool():
+    result = run_position_changes({"player": "João Pedro Junqueira de Jesus", "absent_player": "João Pedro Junqueira de Jesus"},
+                                  copy.deepcopy(BOOTSTRAP), handle=FakeHandle(_tables()), fetch_fixtures=lambda: FPL_FIXTURES)
+    assert result["status"] == "ok"
+    assert "absence_focus" not in result
+
+
+def test_card_has_no_absence_pill_for_his_own_absence():
+    out = _out()
+    out["player"]["player_id"] = 7
+    out["absence_focus"] = {"teammate": {"player_id": 7, "web_name": "João Pedro"}, "matches_without_him_in_xi": [],
+                            "matches_with_him_in_xi": [], "min_each_side": 3, "usual_role_without_him": None}
+    for locale in ("es", "en"):
+        card = compose_position_changes_card(out, locale)
+        assert not any("João Pedro" in p.label for p in card.pills)
+        assert len(card.rows) == 3
+
+
+def test_card_keeps_the_absence_pill_for_a_teammate():
+    out = _out()
+    out["player"]["player_id"] = 7
+    out["absence_focus"] = {"teammate": {"player_id": 8, "web_name": "Palmer"}, "matches_without_him_in_xi": [{}],
+                            "matches_with_him_in_xi": [{}, {}, {}], "min_each_side": 3, "usual_role_without_him": None}
+    card = compose_position_changes_card(out, "es")
+    assert any(p.label == "Solo 1 partido sin Palmer" for p in card.pills)

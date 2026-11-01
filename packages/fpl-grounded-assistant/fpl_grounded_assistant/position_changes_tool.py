@@ -157,6 +157,10 @@ def run_position_changes(
         if absent["status"] != "ok":
             return {**absent, "player": {"web_name": (_names(bootstrap).get(element) or {}).get("web_name")}}
         absent_element = int(absent["player_id"])
+        if absent_element == element:
+            # "who replaces X?" sometimes arrives with X as both arguments; the answer is slot_cover, and a focus on
+            # his own absence would count the matches he started without himself (always 0).
+            absent_element = None
 
     if handle is None:
         from football_intelligence.distribution.licensed_runtime import handle_from_env

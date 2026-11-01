@@ -195,7 +195,7 @@ describe('number format by locale', () => {
     expect(figure(container, 'key_passes', 'b')).toHaveTextContent('1,0');
     expect(figure(container, 'passes', 'a')).toHaveTextContent('40,0');
     expect(figure(container, 'passes', 'b')).toHaveTextContent('40,0');
-    expect(figure(container, 'pass_accuracy', 'a').textContent).toBe('85 %');
+    expect(figure(container, 'pass_accuracy', 'a').textContent).toBe('85,0 %');
   });
 
   test('English uses the decimal point and no space before the percent sign', () => {
@@ -203,7 +203,7 @@ describe('number format by locale', () => {
       <LocaleProvider initialLocale="en" canSwitch={false}><InvolvementCompareCard data={payload(EN)} /></LocaleProvider>);
     expect(figure(container, 'touches', 'a')).toHaveTextContent('55.2');
     expect(figure(container, 'touches', 'b')).toHaveTextContent('58.0');
-    expect(figure(container, 'pass_accuracy', 'a')).toHaveTextContent('85%');
+    expect(figure(container, 'pass_accuracy', 'a').textContent).toBe('85.0%');
   });
 
   test('the per-match average uses the same format, in both languages', () => {
@@ -212,11 +212,20 @@ describe('number format by locale', () => {
     expect(screen.getByText('58,0')).toBeInTheDocument();
   });
 
-  test('fmt: one decimal for metrics, none for whole percentages, a dash for unknown', () => {
+  test('fmt: one decimal for metrics and for percentages (82,0 % next to 79,2 %), a dash for unknown', () => {
     expect(fmt(58, '', 'es')).toBe('58,0');
     expect(fmt(58, '', 'en')).toBe('58.0');
-    expect(fmt(85, '%', 'es')).toBe('85 %');
+    expect(fmt(82, '%', 'es')).toBe('82,0 %');
+    expect(fmt(82, '%', 'en')).toBe('82.0%');
+    expect(fmt(79.2, '%', 'es')).toBe('79,2 %');
     expect(fmt(23.2, '%', 'en')).toBe('23.2%');
     expect(fmt(null, '', 'es')).toBe('–');
+  });
+});
+
+describe('width', () => {
+  test('fills the chat column like the other cards (no max width of its own)', () => {
+    render(<InvolvementCompareCard data={payload(ES)} />);
+    expect(screen.getByTestId('involvement-compare-card').className).not.toMatch(/max-w-/);
   });
 });

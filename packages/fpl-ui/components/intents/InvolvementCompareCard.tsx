@@ -47,12 +47,11 @@ export const FIGURE_CLASS = {
 
 /**
  * A figure in the language showing: per-90 metrics always carry one decimal (58,0 · 1,0 · 40,0) so the two sides read
- * at the same precision; a percentage keeps no decimal when it has none. Spanish uses the decimal comma and "85 %".
+ * at the same precision, and so do percentages (82,0 % next to 79,2 %). Spanish uses the decimal comma and "85,0 %".
  */
 export function fmt(value: number | null, unit: string, locale: Locale): string {
   if (value == null) return '–';
-  const digits = unit === '%' && Number.isInteger(value) ? 0 : 1;
-  const text = value.toLocaleString(intlTag(locale), { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  const text = value.toLocaleString(intlTag(locale), { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   if (!unit) return text;
   return locale === 'es' ? `${text} ${unit}` : `${text}${unit}`;
 }
@@ -294,7 +293,7 @@ function SeriesView({ data }: { data: InvolvementCompareMeta }) {
 export default function InvolvementCompareCard({ data }: Props) {
   const [view, setView] = useState<View>('per90');
   return (
-    <div className={`mt-3 w-full max-w-[560px] text-sm ${CARD_BASE} ${CARD_ACCENT.cyan.border}`}
+    <div className={`mt-3 w-full text-sm ${CARD_BASE} ${CARD_ACCENT.cyan.border}`}
       data-testid="involvement-compare-card">
       <FingerprintWaves color={ACCENT_HEX.cyan} corner="br" />
       <div className="relative z-10 flex flex-col gap-3 p-4">
