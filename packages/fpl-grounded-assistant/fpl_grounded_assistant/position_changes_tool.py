@@ -14,7 +14,9 @@ success.
 """
 from __future__ import annotations
 
+import re
 import time
+from datetime import datetime, timezone
 from typing import Any, Callable, Mapping
 
 from football_intelligence.position_changes import DEFAULT_LIMIT, MAX_LIMIT, FixtureMeta, analyse
@@ -35,6 +37,55 @@ def _names(bootstrap: Mapping[str, Any]) -> dict[int, dict[str, Any]]:
     codes = _team_codes(bootstrap)
     return {int(e["id"]): {"web_name": e.get("web_name"), "team_short": codes.get(int(e.get("team", 0)))}
             for e in bootstrap.get("elements", ())}
+
+
+#: FPL statuses that mean "not available to play": injured, suspended, unavailable. Doubtful ('d') is NOT an absence.
+_OUT_STATUSES = {"i": "injury", "s": "suspension", "u": "unavailable"}
+#: Words of FPL's news text -> the reason shown. Read only from the part BEFORE the first " - " ("Knee injury - Unknown
+#: return date"): the tail ("Expected back 23 Nov") holds words like "back" that are not the injury.
+_REASON_WORDS = ("knee", "ankle", "hamstring", "calf", "groin", "thigh", "foot", "back", "hip", "shoulder", "muscle", "illness")
+
+
+def _utc(value: Any) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed.replace(tzinfo=timezone.utc) if parsed.tzinfo is None else parsed.astimezone(timezone.utc)
+
+
+def fpl_out_notice(bootstrap: Mapping[str, Any], element: int) -> dict[str, Any] | None:
+    """FPL's CURRENT out-news for the player, or None. Policy: it is attributed to a match only when its own date
+    (``news_added``) is earlier than that match's kickoff (see :func:`attach_fpl_out`); FPL gives no history."""
+    row = next((e for e in bootstrap.get("elements", ()) if int(e.get("id", 0)) == element), None)
+    if row is None:
+        return None
+    kind = _OUT_STATUSES.get(str(row.get("status") or ""))
+    added = _utc(row.get("news_added"))
+    if kind is None or added is None:
+        return None
+    reason = kind
+    if kind != "suspension":
+        head = re.split(r"\s+-\s+", str(row.get("news") or ""), maxsplit=1)[0].lower()
+        head = re.sub(r"expected back.*$", "", head).strip()  # "Expected back 3 Dec": 'back' is the return, not an injury
+        reason = next((w for w in _REASON_WORDS if re.search(r"(?<![a-z])" + w + r"(?![a-z])", head)), kind)
+    return {"reason": reason, "since": added.date().isoformat(), "_added": added}
+
+
+def attach_fpl_out(matches: list[dict[str, Any]], notice: dict[str, Any] | None) -> int:
+    """Put ``fpl_out`` on every match where he was on the bench or not listed AND the news predates the kickoff.
+    Returns how many were marked. A match with no kickoff, or an earlier one than the news, is left untouched."""
+    if notice is None:
+        return 0
+    marked = 0
+    for m in matches:
+        kickoff = _utc(m.get("kickoff"))
+        if m.get("player_status") in ("bench", "not_listed") and kickoff is not None and notice["_added"] < kickoff:
+            m["fpl_out"] = {"reason": notice["reason"], "since": notice["since"], "claim_status": "observed", "source": "fpl"}
+            marked += 1
+    return marked
 
 
 def _fetch_all_fixtures() -> list[dict[str, Any]]:
@@ -127,6 +178,8 @@ def run_position_changes(
         element=element, snapshots=tables["lineup_snapshots"], slots=tables["lineup_slots"],
         sidelined=tables["sidelined"], squad_membership=tables["squad_membership"], fixtures=fixtures,
         names=_names(bootstrap), limit=limit, absent_element=absent_element)
+    if isinstance(result.get("matches"), list):
+        attach_fpl_out(result["matches"], fpl_out_notice(bootstrap, element))
     result["data_provenance"] = {"source": "licensed_starter", "built_at": manifest.get("built_at"),
                                  "slot_meaning": "announced_starting_xi"}
     result.setdefault("evidence", [])

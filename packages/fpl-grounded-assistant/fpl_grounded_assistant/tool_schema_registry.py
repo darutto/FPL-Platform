@@ -1598,7 +1598,9 @@ GET_POSITION_CHANGES_SCHEMA = ToolSchema(
         "ausencia de Y' / 'coincided with Y's absence'. NEVER say he 'moved during the match', never give a cause "
         "('por la lesion', 'because of'), never predict ('rendira mas'); not being in the XI is not an injury "
         "(listed_sidelined is reported separately); a provisional lineup is not confirmed; a small sample must be "
-        "said. Frame it as the opportunity, never as weakness. The history starts when the licensed ingestion "
+        "said. When a match carries fpl_out, the ONLY allowed words are 'consta como baja en FPL desde el 17/10' / "
+        "'listed as out in FPL since 17 Oct' (observed from FPL, dated before that match); never 'no jugo porque' / "
+        "'did not play because'. Frame it as the opportunity, never as weakness. The history starts when the licensed ingestion "
         "started, so few matches may be available."
     ),
     parameters={
