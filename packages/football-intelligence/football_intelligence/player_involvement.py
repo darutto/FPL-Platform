@@ -97,6 +97,12 @@ def _match(row: Mapping[str, Any], meta: FixtureMeta) -> dict[str, Any]:
     }
 
 
+def _shown(own: pd.DataFrame, fixtures: Mapping[int, FixtureMeta], limit: int) -> pd.DataFrame:
+    """The player's latest ``limit`` matches, latest first (by kickoff, then fixture id)."""
+    own = own.assign(_k=[(fixtures[int(f)].kickoff or "", int(f)) for f in own.fixture_id]).sort_values("_k", ascending=False)
+    return own.head(limit)
+
+
 def _direction(without: float | None, with_him: float | None) -> str | None:
     if without is None or with_him is None or with_him == 0:
         return None
@@ -148,8 +154,7 @@ def analyse(
     if own.empty:
         return {"status": "missing_context", "reason_codes": ["no_player_stats"], "matches": [], "evidence": [],
                 "player": _person(element, names)}
-    own = own.assign(_k=[(fixtures[int(f)].kickoff or "", int(f)) for f in own.fixture_id]).sort_values("_k", ascending=False)
-    shown = own.head(limit)
+    shown = _shown(own, fixtures, limit)
     matches = [_match(r, fixtures[int(r["fixture_id"])]) for r in shown.to_dict("records")]
     result: dict[str, Any] = {
         "status": "ok", "player": _person(element, names), "matches": matches,
@@ -160,3 +165,92 @@ def analyse(
     if absent_element is not None:
         result["absence_focus"] = _focus(own, latest, absent_element, names)
     return result
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Two players side by side ("compara los toques de Palmer y Saka"). Same store, same windows, nothing new is measured:
+# the per-90 figures are the two ``averages`` blocks, the series are the listed match totals, and the trend is a plain
+# least-squares slope over them. Observed values only; the comparison names no cause and predicts nothing.
+# ---------------------------------------------------------------------------------------------------------------------
+
+#: The per-90 rows of a comparison, in display order: (metric, field in ``averages``, has a winner).
+#: The backward share is neither better nor worse, so it never has one.
+COMPARE_METRICS = (
+    ("touches", "touches_per90", True),
+    ("key_passes", "key_passes_per90", True),
+    ("passes", "passes_per90", True),
+    ("pass_accuracy", "pass_accuracy_pct", True),
+    ("backward_share", "backward_share_pct", False),
+)
+#: The per-match series a comparison carries (match totals, as listed).
+SERIES_METRICS = ("touches", "key_passes", "passes")
+#: A trend needs at least this many known values.
+TREND_MIN_POINTS = 3
+#: The least-squares slope must move at least this share of the mean per match to read as up or down.
+TREND_THRESHOLD = 0.03
+
+
+def trend(values: list[int | float | None]) -> str | None:
+    """``up`` / ``down`` / ``flat`` from the least-squares slope over the known values, relative to their mean per step
+    of the axis; ``None`` with fewer than ``TREND_MIN_POINTS`` known values. Each value sits at its position on the axis
+    (a gap keeps its place, so the fit is the line the card draws); unknown values (``None``) are skipped, never 0."""
+    known = [(float(i), float(v)) for i, v in enumerate(values) if v is not None]
+    if len(known) < TREND_MIN_POINTS:
+        return None
+    n = len(known)
+    xm, ym = sum(x for x, _ in known) / n, sum(v for _, v in known) / n
+    if ym == 0:
+        return "flat"
+    slope = sum((x - xm) * (v - ym) for x, v in known) / sum((x - xm) ** 2 for x, _ in known)
+    ratio = slope / ym
+    return "up" if ratio >= TREND_THRESHOLD else "down" if ratio <= -TREND_THRESHOLD else "flat"
+
+
+def _winner(a: float | None, b: float | None) -> str | None:
+    """``a`` / ``b`` / ``None``: compared at the shown precision (one decimal), so a tie on screen is a tie here."""
+    if a is None or b is None:
+        return None
+    ra, rb = round(a, 1), round(b, 1)
+    return "a" if ra > rb else "b" if rb > ra else None
+
+
+def _series(a_matches: list[Mapping[str, Any]], b_matches: list[Mapping[str, Any]]) -> dict[str, Any]:
+    """Both players' listed matches on one gameweek axis, oldest first. A gameweek one of them did not play is a gap
+    (``None``), as is an unknown value; a double gameweek is two entries with the same label, never averaged."""
+    def by_gw(matches):
+        out: dict[Any, list[Mapping[str, Any]]] = {}
+        for m in reversed(matches):                       # listed latest first; the axis runs oldest first
+            out.setdefault(m.get("gameweek"), []).append(m)
+        return out
+
+    a_gw, b_gw = by_gw(a_matches), by_gw(b_matches)
+    order = sorted(set(a_gw) | set(b_gw), key=lambda g: (g is None, g if g is not None else 0))
+    labels: list[Any] = []
+    side: dict[str, dict[str, list[Any]]] = {s: {k: [] for k in (*SERIES_METRICS, "minutes")} for s in ("a", "b")}
+    for gw in order:
+        for i in range(max(len(a_gw.get(gw, ())), len(b_gw.get(gw, ())))):
+            labels.append(gw)
+            for s, rows in (("a", a_gw.get(gw, ())), ("b", b_gw.get(gw, ()))):
+                m = rows[i] if i < len(rows) else None
+                for k in (*SERIES_METRICS, "minutes"):
+                    side[s][k].append(None if m is None else m.get(k))
+    return {"gameweeks": labels, "a": side["a"], "b": side["b"]}
+
+
+def compare(a: Mapping[str, Any], b: Mapping[str, Any]) -> dict[str, Any]:
+    """The side-by-side block from two ``analyse`` answers (both ``ok``). Pure; reads only their output."""
+    avg_a, avg_b = a.get("averages") or {}, b.get("averages") or {}
+    per90 = []
+    for metric, field, has_winner in COMPARE_METRICS:
+        va, vb = avg_a.get(field), avg_b.get(field)
+        per90.append({"metric": metric, "a": va, "b": vb, "winner": _winner(va, vb) if has_winner else None})
+    series = _series(a.get("matches") or [], b.get("matches") or [])
+    trends = {s: {k: trend([v for v in series[s][k]]) for k in SERIES_METRICS} for s in ("a", "b")}
+
+    def sample(r):
+        s = r.get("sample") or {}
+        return {"matches_with_stats": s.get("matches_with_stats"), "listed": s.get("listed"),
+                "per90_matches": (r.get("averages") or {}).get("matches"), "small_sample": bool(s.get("small_sample"))}
+
+    return {"players": {"a": a.get("player"), "b": b.get("player")}, "per90": per90, "series": series,
+            "trends": trends, "sample": {"a": sample(a), "b": sample(b)}, "claim_status": OBSERVED}
