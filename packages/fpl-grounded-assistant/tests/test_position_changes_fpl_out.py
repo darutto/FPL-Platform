@@ -37,8 +37,10 @@ def test_a_dated_notice_before_the_match_is_attached_as_observed_from_fpl():
     gw4 = next(m for m in result["matches"] if m["gameweek"] == 4)
     assert gw4["player_status"] == "not_listed"
     assert gw4["fpl_out"] == {"reason": "knee", "since": "2026-11-20", "claim_status": "observed", "source": "fpl"}
-    # matches where he started are never marked, and neither are matches that predate the news
-    assert [gw for gw, o in _out(result).items() if o] == [4, 5] or [gw for gw, o in _out(result).items() if o] == [4]
+    # He started in GW1, 2, 3 and 5 (never marked, whatever the news says); GW4 is the only match he was not in.
+    assert {m["gameweek"]: m["player_status"] for m in result["matches"]} == {1: "started", 2: "started", 3: "started",
+                                                                              4: "not_listed", 5: "started"}
+    assert [gw for gw, o in _out(result).items() if o] == [4]
 
 
 @pytest.mark.parametrize("kwargs", [
