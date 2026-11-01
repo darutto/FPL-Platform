@@ -1120,6 +1120,54 @@ export interface GenericCardMeta {
   columns: GenericCardColumn[];
   rows: string[][];
   footer: string | null;
+  /** R6 two-player comparison (get_player_involvement with compare_player); null/absent on every other card. */
+  involvement_compare?: InvolvementCompareMeta | null;
+}
+
+export type InvolvementSide = 'a' | 'b';
+export type InvolvementTrend = 'up' | 'down' | 'flat';
+
+/** One per-90 row. winner null = tie at the shown precision, unknown, or a metric without a winner (backward share). */
+export interface InvolvementPer90Row {
+  metric: 'touches' | 'key_passes' | 'passes' | 'pass_accuracy' | 'backward_share';
+  label: string;
+  a: number | null;
+  b: number | null;
+  winner: InvolvementSide | null;
+  unit: '' | '%';
+}
+
+/** One per-match series on the shared gameweek axis. null = no value (not played that gameweek, or unknown), never 0. */
+export interface InvolvementSeriesMetric {
+  metric: 'touches' | 'key_passes' | 'passes';
+  label: string;
+  a: (number | null)[];
+  b: (number | null)[];
+  trend_a: InvolvementTrend | null;
+  trend_b: InvolvementTrend | null;
+  avg_a: number | null;
+  avg_b: number | null;
+  avg_winner: InvolvementSide | null;
+}
+
+/** Built by the backend (atomic_tool_cards.compose_involvement_compare_card); every string is already localized. */
+export interface InvolvementCompareMeta {
+  a: { name: string; team: string | null };
+  b: { name: string; team: string | null };
+  per90: InvolvementPer90Row[];
+  series: { gameweeks: (number | null)[]; gw_labels: string[]; metrics: InvolvementSeriesMetric[] };
+  labels: {
+    title: string;
+    view_per90: string;
+    view_series: string;
+    avg: string;
+    trend_up: string;
+    trend_down: string;
+    trend_flat: string;
+  };
+  footer: string;
+  note: string | null;
+  provenance: string | null;
 }
 
 // ---------------------------------------------------------------------------
