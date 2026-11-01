@@ -194,3 +194,17 @@ def test_catalogue_has_both_languages_for_the_new_keys():
     keys = [k for k in _CATALOGUE if ".position_changes." in k and ("gap" in k or "line_" in k or "side_" in k or "code_" in k)]
     assert len(keys) >= 12
     assert all(_CATALOGUE[k]["en"] and _CATALOGUE[k]["es"] for k in keys)
+
+
+@pytest.mark.parametrize("locale,label,pill", [("es", "como medio", "0 cambios de casilla"),
+                                               ("en", "as midfielder", "0 slot changes")])
+def test_card_hero_shows_the_gap_and_slot_changes_drop_to_a_pill(locale, label, pill):
+    card = compose_position_changes_card(_run(), locale)
+    assert (card.hero.value, card.hero.label) == ("6/6", label)
+    assert [p.label for p in card.pills[1:2]] == [pill]
+
+
+def test_card_hero_without_a_gap_is_unchanged():
+    card = compose_position_changes_card(_run("3-4-3"), "es")
+    assert (card.hero.value, card.hero.label) == ("0", "cambios de casilla")
+    assert not any("cambio" in p.label for p in card.pills)

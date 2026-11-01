@@ -289,9 +289,14 @@ def compose_position_changes_card(raw_output: dict[str, Any], locale: Locale = D
             ))
         sample = raw_output.get("sample") or {}
         focus = raw_output.get("absence_focus") or {}
+        if player.get("player_id") is not None and (focus.get("teammate") or {}).get("player_id") == player.get("player_id"):
+            focus = {}  # his own absence is slot_cover's question, not a teammate focus
+        gap = raw_output.get("fpl_position_gap")
         pills: list[Pill] = []
-        if raw_output.get("fpl_position_gap"):
-            pills.append(Pill(label=gap_pill(raw_output["fpl_position_gap"], locale), tone="neutral"))
+        if gap:
+            pills.append(Pill(label=gap_pill(gap, locale), tone="neutral"))
+            pills.append(Pill(label=t("gcard.position_changes.pill_changes" if changes != 1 else "gcard.position_changes.pill_changes_one",
+                                      locale, n=changes), tone="neutral"))
         if sample.get("small_sample"):
             n = sample.get("matches_with_stored_lineup", len(matches))
             pills.append(Pill(label=t("gcard.position_changes.pill_small" if n != 1 else "gcard.position_changes.pill_small_one", locale, n=n),
@@ -315,7 +320,10 @@ def compose_position_changes_card(raw_output: dict[str, Any], locale: Locale = D
             accent="turquoise",
             title=t("gcard.position_changes.title", locale, name=player.get("web_name", "?")),
             subtitle=t("gcard.position_changes.subtitle", locale),
-            hero=HeroStat(value=str(changes), label=t("gcard.position_changes.hero", locale), tone=None),
+            hero=(HeroStat(value=f"{gap.get('starts')}/{gap.get('of')}", tone=None,
+                           label=t("gcard.position_changes.hero_gap", locale,
+                                   line=t(f"renderer.position_changes.line_{gap.get('played_line')}", locale)))
+                  if gap else HeroStat(value=str(changes), label=t("gcard.position_changes.hero", locale), tone=None)),
             pills=tuple(pills), columns=columns, rows=tuple(rows),
             footer=t("renderer.position_changes.provenance", locale, built_at=str(built)[:10]) if built else None,
         )
