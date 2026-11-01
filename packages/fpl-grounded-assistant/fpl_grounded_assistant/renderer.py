@@ -42,9 +42,9 @@ except ImportError:  # standalone load (test_renderer_zonal bypasses the package
 _tr = t
 
 try:
-    from .position_changes_text import role_text
+    from .position_changes_text import out_date, out_text, role_text
 except ImportError:  # standalone load (test_renderer_zonal bypasses the package)
-    from position_changes_text import role_text  # type: ignore[no-redef]
+    from position_changes_text import out_date, out_text, role_text  # type: ignore[no-redef]
 
 # ---------------------------------------------------------------------------
 # status_label: shared by resolve_player and get_player_summary.  F2.
@@ -2225,7 +2225,8 @@ def _render_get_position_changes(output: dict[str, Any], locale: Locale = DEFAUL
         else:
             what = t("renderer.position_changes.not_listed", locale)
         flag = t("renderer.position_changes.provisional", locale) if m.get("lineup_status") == "provisional" else ""
-        lines.append(f"  {gw} {where}: {what}{flag}")
+        out = f"; {out_text(m['fpl_out'], locale)}" if m.get("fpl_out") else ""
+        lines.append(f"  {gw} {where}: {what}{flag}{out}")
         change = m.get("change")
         if change and change.get("kind") == "line":
             any_change = True
@@ -2251,6 +2252,10 @@ def _render_get_position_changes(output: dict[str, Any], locale: Locale = DEFAUL
             lines.append(t("renderer.position_changes.assoc_more", locale, n=m["associations_more"]))
     if not any_change:
         lines.append(t("renderer.position_changes.no_change", locale))
+    outs = [m["fpl_out"] for m in matches if m.get("fpl_out")]
+    if outs:
+        lines.append(t("renderer.position_changes.out_summary", locale, n=len(outs),
+                       date=out_date(str(min(o.get("since") or "" for o in outs)), locale)))
     focus = output.get("absence_focus")
     if focus:
         none = t("renderer.position_changes.focus_none", locale)
