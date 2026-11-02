@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-01T05:04:14Z",
+  "generatedAt": "2026-11-02T05:05:24Z",
   "season": "2026/27",
   "seasonStatus": "in_season",
   "gameweek": 8,
@@ -227,6 +227,14 @@
       "minutes": 753
     },
     {
+      "name": "Isak",
+      "team": "LIV",
+      "position": "FWD",
+      "xg": 4.35,
+      "xa": 0.26,
+      "minutes": 657
+    },
+    {
       "name": "B.Fernandes",
       "team": "MUN",
       "position": "MID",
@@ -235,12 +243,12 @@
       "minutes": 720
     },
     {
-      "name": "Isak",
-      "team": "LIV",
-      "position": "FWD",
-      "xg": 4.27,
-      "xa": 0.13,
-      "minutes": 567
+      "name": "Ødegaard",
+      "team": "ARS",
+      "position": "MID",
+      "xg": 2.16,
+      "xa": 2.14,
+      "minutes": 733
     },
     {
       "name": "Rogers",
@@ -249,14 +257,6 @@
       "xg": 2.78,
       "xa": 1.44,
       "minutes": 790
-    },
-    {
-      "name": "Ødegaard",
-      "team": "ARS",
-      "position": "MID",
-      "xg": 2.16,
-      "xa": 2.02,
-      "minutes": 646
     },
     {
       "name": "Iwobi",
