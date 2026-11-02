@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-31",
+  "updated": "2026-11-02",
   "cards": [
     {
       "id": "s1",
@@ -2261,14 +2261,14 @@
     },
     {
       "id": "i160",
-      "col": "building",
-      "progress": 75,
+      "col": "shipped",
+      "progress": 100,
       "tags": [
         "FI",
         "Producto"
       ],
       "title": "B4: cambios de posición y quién sustituye a quién (ficha de jugador)",
-      "desc": "R3 del plan de reportes: herramienta y tarjeta ES/EN con la casilla inicial de cada partido. Frase citable segura: 'empezó en otra casilla'. Depende de la ingesta 3b y del primer publish. ACTUALIZACIÓN 2026-10-27 (PR #545, #546): ingesta 3b fusionada (PR #543) habilita el camino de lectura licenciado (LicensedRuntimeHandle, off por defecto tras FPL_FOOTBALL_LICENSED_SYNC_ENABLED) y la herramienta get_position_changes ya resuelve slot inicial, comparación con titularidades previas y ausencia de compañeros (claims observed/associated/hypothesis), detrás de FOOTBALL_INTELLIGENCE_ENABLED; falta la tarjeta ES/EN (PR 3/3) y el primer publish real a producción. ACTUALIZACIÓN 2026-10-28 (PR #555, refinamiento A): mismo rol en otra casilla ahora se clasifica como línea distinta (más adelantado/retrasado, cuenta en el hero), solo columna (no es cambio) o línea no comparable; filas comparadas dentro de una formación o normalizadas 0-1 entre formaciones; corrige el ruido de Rogers en la GW6. Partes (b) tope de asociación y (c) sample pills siguen en otra PR; sigue faltando la tarjeta ES/EN (PR 3/3) y el primer publish. ACTUALIZACIÓN 2026-10-28 (PR #547, #549, #558): la tarjeta ES/EN de cambios de posición (PR 3/3, #547) está fusionada; #549 añade la resincronización periódica del store licenciado en segundo plano (apagada con el flag de sync) y #558 (refinamiento B) limita las asociaciones a 2 con prioridad y separa los avisos de muestra. Falta el primer publish real a producción."
+      "desc": "Fusionada (PR #604, #606, #607, 01/11). get_position_changes añade noticia de baja de FPL fechada en los partidos sin jugar (fpl_out, claim observed), quién ocupó su casilla habitual en esos partidos, y comparación de la posición declarada por FPL contra la línea jugada (fpl_position_gap); ya publicada en producción (casos reales en prod motivaron las tres)."
     },
     {
       "id": "i161",
@@ -2543,6 +2543,60 @@
         "Backend",
         "UI",
         "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s76",
+      "col": "shipped",
+      "title": "Tarjeta de comparación de dos jugadores (get_player_involvement, R6)",
+      "desc": "Fusionada (PR #608, #609, 01/11). get_player_involvement admite compare_player para comparar dos jugadores en una sola llamada (per90 con ganador por fila, series por jornada con tendencia, huecos como sin datos) y GenericCard dibuja InvolvementCompareCard con vistas por 90 y por partido, ES/EN.",
+      "tags": [
+        "Backend",
+        "UI"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s77",
+      "col": "shipped",
+      "title": "Fix: chips de ambigüedad en cambios de posición e involvement repiten la pregunta",
+      "desc": "Fusionada (PR #605, 01/11). Un nombre ambiguo en get_position_changes o get_player_involvement armaba el chip genérico por id (snapshot) y perdía la pregunta original; ahora son chips de reescritura que repiten la pregunta con el nombre completo del candidato, en /ask y en sesión.",
+      "tags": [
+        "Backend",
+        "Chat"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s78",
+      "col": "shipped",
+      "title": "Fix: pulido de tarjetas de cambios de posición y comparación de involvement (prod 01/11)",
+      "desc": "Fusionada (PR #610, 01/11). Cuatro fixes de prod: un absent_player igual al jugador ya no muestra 0 partidos sin él, el hero prioriza fpl_position_gap cuando existe y baja el conteo de casilla a una pastilla, los porcentajes de InvolvementCompareCard siempre llevan un decimal, y la tarjeta deja el ancho máximo fijo de 560px para ocupar la columna del chat.",
+      "tags": [
+        "UI"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s79",
+      "col": "shipped",
+      "title": "Fix: decimales con punto en español (comparación de involvement y lista de capitanes)",
+      "desc": "Fusionada (PR #611, #613, 01/11). Para la audiencia latinoamericana, los decimales en español pasan de coma a punto: InvolvementCompareCard formatea con locale en-US en vez de es-ES, y captain_list._score deja de reemplazar el punto por coma.",
+      "tags": [
+        "UI",
+        "Backend"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s80",
+      "col": "shipped",
+      "title": "Fix: .gitignore cubre los stores locales de football-intelligence",
+      "desc": "Fusionada (PR #612, 01/11). data/football-licensed-runtime, data/football-runtime y data/football no estaban ignorados en ninguna profundidad y podían llegar a commitearse con datos licenciados; .gitignore ahora los excluye a cualquier profundidad sin tocar el calendario manual europeo, que sigue versionado.",
+      "tags": [
+        "Deploy",
+        "Datos"
       ],
       "progress": 100
     }
