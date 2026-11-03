@@ -924,6 +924,7 @@ class TestSpanishRegisterIsTuteo:
         "qué",       # interrogative "what/which" ("¿qué equipos...?"), not a verb form
         "atrás",     # adverb "backward" (R6 involvement: "pases hacia atrás"), not a verb form
         "así",       # adverb "so/thus" (gameweek report: "así que..."), not a verb form
+        "después",   # adverb "after" (position-changes pitch table: "Antes / Después"), not a verb form
     }
 
     def _voseo_hits(self):

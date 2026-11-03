@@ -59,7 +59,8 @@ def test_a_central_midfielder_is_not_a_wing_back_in_a_back_three():
 def test_defender_playing_left_midfield_is_flagged():
     gap = _gap(2, *[_start("Left Midfield", "left")] * 6)
     assert gap == {"fpl_position": "DEF", "played_line": "MID", "starts": 6, "of": 6,
-                   "direction": "further_forward", "side": "left", "claim_status": "observed"}
+                   "direction": "further_forward", "side": "left", "detailed_position": "Left Midfield",
+                   "claim_status": "observed"}
 
 
 def test_midfielder_playing_up_front_is_flagged():
@@ -179,7 +180,7 @@ def test_text_has_no_gap_line_without_a_gap():
     assert "FPL" not in _text(_run("3-4-3"), "en").split("\n")[1]
 
 
-@pytest.mark.parametrize("locale,pill", [("es", "FPL: DEF · juega MED"), ("en", "FPL: DEF · plays MID")])
+@pytest.mark.parametrize("locale,pill", [("es", "FPL: DEF"), ("en", "FPL: DEF")])
 def test_card_pill_is_first_and_short(locale, pill):
     card = compose_position_changes_card(_run(), locale)
     assert card.pills[0].label == pill and card.pills[0].tone == "neutral"
@@ -196,9 +197,9 @@ def test_catalogue_has_both_languages_for_the_new_keys():
     assert all(_CATALOGUE[k]["en"] and _CATALOGUE[k]["es"] for k in keys)
 
 
-@pytest.mark.parametrize("locale,label,pill", [("es", "como medio", "0 cambios de casilla"),
-                                               ("en", "as midfielder", "0 slot changes")])
-def test_card_hero_shows_the_gap_and_slot_changes_drop_to_a_pill(locale, label, pill):
+@pytest.mark.parametrize("locale,label,pill", [("es", "como medio", "Misma casilla 6/6"),
+                                               ("en", "as midfielder", "Same slot 6/6")])
+def test_card_hero_shows_the_gap_and_the_same_slot_pill_follows(locale, label, pill):
     card = compose_position_changes_card(_run(), locale)
     assert (card.hero.value, card.hero.label) == ("6/6", label)
     assert [p.label for p in card.pills[1:2]] == [pill]

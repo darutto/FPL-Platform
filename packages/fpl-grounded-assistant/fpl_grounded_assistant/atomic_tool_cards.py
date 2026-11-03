@@ -39,7 +39,7 @@ from .formatting import format_metric_value
 from .generic_card import Column, GenericCardMeta, HeroStat, Pill
 from .gw_report_text import compose_gw_report_card
 from .locale_types import DEFAULT_LOCALE, Locale
-from .position_changes_text import gap_pill, out_text, role_text, slot_row_text
+from .position_changes_text import out_text, role_text, slot_row_text
 from .rank_players_by_metric import natural_order
 
 _LOG = logging.getLogger(__name__)
@@ -232,6 +232,74 @@ def compose_rank_players_card(
         return None
 
 
+def _same_slot(matches: list[dict[str, Any]], gap: dict[str, Any]) -> tuple[int, int]:
+    """Listed starts in the role the gap names, and all listed starts (the "Misma casilla 6/6" pill)."""
+    def side(slot: dict[str, Any]) -> Any:
+        return slot.get("side") if slot.get("side") in ("left", "right") else None
+    starts = [m["slot"] for m in matches if m.get("player_status") == "started" and m.get("slot")]
+    same = sum(1 for s in starts if (s.get("detailed_position"), side(s)) == (gap.get("detailed_position"), gap.get("side")))
+    return same, len(starts)
+
+
+def _gw_span(gameweeks: list[Any], locale: Locale) -> str:
+    known = [g for g in gameweeks if g is not None]
+    if not known:
+        return "?"
+    a, b = min(known), max(known)
+    return t("gcard.position_changes.gw_one" if a == b else "gcard.position_changes.gw_span", locale, a=a, b=b)
+
+
+def _position_pitch(raw_output: dict[str, Any], locale: Locale) -> "dict[str, Any] | None":
+    """The mini-pitch payload (old -> new starting role, or FPL listing -> played role) plus its per-90 table.
+
+    Roles travel as provider role + side (never the provider grid cell, whose columns flip between matches); the UI
+    places them. Every string is already localized; numbers stay numbers (the UI formats them, one decimal, dot).
+    ``None`` unless the tool found a role switch or an FPL-position gap.
+    """
+    switch, gap, block = raw_output.get("role_switch"), raw_output.get("fpl_position_gap"), raw_output.get("per90_change")
+    if switch:
+        frm = {k: switch["from"].get(k) for k in ("detailed_position", "side", "line")}
+        to = {k: switch["to"].get(k) for k in ("detailed_position", "side", "line")}
+        labels = {"from": t("gcard.position_changes.pitch_role", locale,
+                            gws=_gw_span(switch.get("gameweeks_old_role") or [], locale), role=role_text(switch["from"], locale)),
+                  "to": t("gcard.position_changes.pitch_role", locale,
+                          gws=_gw_span(switch.get("gameweeks_new_role") or [], locale), role=role_text(switch["to"], locale)),
+                  "table": t("gcard.position_changes.table_since", locale)}
+        kind = "switch"
+    elif gap:
+        role = {"detailed_position": gap.get("detailed_position"), "side": gap.get("side")}
+        frm = {"fpl_position": gap.get("fpl_position"), "line": gap.get("fpl_position")}
+        to = {**role, "line": gap.get("played_line")}
+        gws = [m.get("gameweek") for m in raw_output.get("matches") or [] if m.get("player_status") == "started"]
+        labels = {"from": t("gcard.position_changes.pill_fpl", locale,
+                            fpl=t(f"gcard.position_changes.code_{gap.get('fpl_position')}", locale)),
+                  "to": t("gcard.position_changes.pitch_role", locale, gws=_gw_span(gws, locale), role=role_text(role, locale)),
+                  "table": t("gcard.position_changes.table_as", locale, role=role_text(role, locale).lower())}
+        kind = "fpl_listing"
+    else:
+        return None
+    rows: list[dict[str, Any]] = []
+    note = None
+    if block:
+        for metric in block.get("metrics") or []:
+            label = t(f"gcard.position_changes.m_{metric}", locale)
+            if kind == "switch":
+                rows.append({"metric": metric, "label": label, "before": (block.get("before") or {}).get(metric),
+                             "after": (block.get("after") or {}).get(metric)})
+            else:
+                rows.append({"metric": metric, "label": label, "value": (block.get("all") or {}).get(metric)})
+        if kind == "switch":
+            nb, na = (block.get("before") or {}).get("matches", 0), (block.get("after") or {}).get("matches", 0)
+            note = t("gcard.position_changes.table_note_split", locale, a=nb, b=na)
+        else:
+            n = (block.get("all") or {}).get("matches", 0)
+            note = t("gcard.position_changes.table_note_all" if n != 1 else "gcard.position_changes.table_note_all_one",
+                     locale, n=n)
+    labels["before"] = t("gcard.position_changes.col_before", locale)
+    labels["after"] = t("gcard.position_changes.col_after", locale)
+    return {"kind": kind, "from": frm, "to": to, "labels": labels, "rows": rows, "note": note, "claim_status": "observed"}
+
+
 def compose_position_changes_card(raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> "GenericCardMeta | None":
     """Compose the B4 card from ``get_position_changes`` output (B4, PR 3).
 
@@ -292,11 +360,17 @@ def compose_position_changes_card(raw_output: dict[str, Any], locale: Locale = D
         if player.get("player_id") is not None and (focus.get("teammate") or {}).get("player_id") == player.get("player_id"):
             focus = {}  # his own absence is slot_cover's question, not a teammate focus
         gap = raw_output.get("fpl_position_gap")
+        switch = raw_output.get("role_switch")
         pills: list[Pill] = []
         if gap:
-            pills.append(Pill(label=gap_pill(gap, locale), tone="neutral"))
-            pills.append(Pill(label=t("gcard.position_changes.pill_changes" if changes != 1 else "gcard.position_changes.pill_changes_one",
-                                      locale, n=changes), tone="neutral"))
+            pills.append(Pill(label=t("gcard.position_changes.pill_fpl", locale,
+                                      fpl=t(f"gcard.position_changes.code_{gap.get('fpl_position')}", locale)), tone="neutral"))
+        if switch:
+            pills.append(Pill(label=t("gcard.position_changes.pill_before", locale, role=role_text(switch["from"], locale),
+                                      n=switch.get("held_before"), m=switch.get("starts_before")), tone="neutral"))
+        elif gap:
+            same, listed = _same_slot(matches, gap)
+            pills.append(Pill(label=t("gcard.position_changes.pill_same_slot", locale, n=same, m=listed), tone="neutral"))
         if sample.get("small_sample"):
             n = sample.get("matches_with_stored_lineup", len(matches))
             pills.append(Pill(label=t("gcard.position_changes.pill_small" if n != 1 else "gcard.position_changes.pill_small_one", locale, n=n),
@@ -320,12 +394,17 @@ def compose_position_changes_card(raw_output: dict[str, Any], locale: Locale = D
             accent="turquoise",
             title=t("gcard.position_changes.title", locale, name=player.get("web_name", "?")),
             subtitle=t("gcard.position_changes.subtitle", locale),
-            hero=(HeroStat(value=f"{gap.get('starts')}/{gap.get('of')}", tone=None,
+            hero=(HeroStat(value=f"{switch.get('starts_after')}/{switch.get('starts_after')}", tone=None,
+                           label=t("gcard.position_changes.hero_switch", locale,
+                                   role=role_text(switch["to"], locale).lower(), gw=switch.get("since_gameweek")))
+                  if switch else
+                  HeroStat(value=f"{gap.get('starts')}/{gap.get('of')}", tone=None,
                            label=t("gcard.position_changes.hero_gap", locale,
                                    line=t(f"renderer.position_changes.line_{gap.get('played_line')}", locale)))
                   if gap else HeroStat(value=str(changes), label=t("gcard.position_changes.hero", locale), tone=None)),
             pills=tuple(pills), columns=columns, rows=tuple(rows),
             footer=t("renderer.position_changes.provenance", locale, built_at=str(built)[:10]) if built else None,
+            position_pitch=_position_pitch(raw_output, locale),
         )
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("atomic_tool_cards: failed to compose get_position_changes card (%s); falling back to prose",

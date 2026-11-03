@@ -80,6 +80,54 @@ def _per90(rows: list[Mapping[str, Any]]) -> dict[str, Any]:
     return out
 
 
+#: Extra per-90 metric that fits a line, after touches / key passes / shots on target (position-changes pitch block).
+ROLE_METRIC = {"FWD": "shots", "MID": "passes_final_third", "DEF": "interceptions"}
+PERIOD_BASE_METRICS = ("touches", "key_passes", "shots_on_target")
+
+
+def _pooled(rows: list[Mapping[str, Any]], columns: tuple[str, ...]) -> dict[str, Any]:
+    """Like ``_per90`` for any stored count columns: matches with MIN_MINUTES+, totals over minutes, and a column
+    unknown in any pooled match has no pooled value (a partial sum would read as fewer actions)."""
+    used = [r for r in rows if _int(r["minutes"]) >= MIN_MINUTES]
+    minutes = sum(_int(r["minutes"]) for r in used)
+    out: dict[str, Any] = {"matches": len(used), "minutes": minutes}
+    for column in columns:
+        unknown = any(_opt(r.get(column)) is None for r in used)
+        out[column] = (round(90.0 * sum(_int(r[column]) for r in used) / minutes, 1)
+                       if minutes and not unknown else None)
+    return out
+
+
+def per90_by_period(
+    *,
+    element: int,
+    stats: pd.DataFrame,
+    fixtures: Mapping[int, FixtureMeta],
+    periods: Mapping[str, Any],
+    line: str | None,
+) -> dict[str, Any] | None:
+    """The player's per-90 figures in each named period, a period being the gameweeks of the starts it covers
+    (``{"before": [1..5], "after": [6..10]}``, or ``{"all": [...]}``), from the licensed match statistics with the same
+    30+ minutes rule as the involvement averages. Observed values only: it says what the numbers were in each period,
+    never why. ``None`` when nothing is stored for the player."""
+    columns = PERIOD_BASE_METRICS + ((ROLE_METRIC[line],) if line in ROLE_METRIC else ())
+    present = tuple(c for c in columns if c in stats.columns)
+    if not len(stats) or "minutes" not in stats.columns:
+        return None
+    latest = _latest(stats)
+    own = latest[(latest.element == element) & latest.fixture_id.isin(list(fixtures))]
+    if own.empty:
+        return None
+    rows = own.to_dict("records")
+    for r in rows:
+        r["_gw"] = fixtures[int(r["fixture_id"])].gameweek
+    out: dict[str, Any] = {"metrics": list(present), "min_minutes": MIN_MINUTES, "claim_status": OBSERVED}
+    for name, gameweeks in periods.items():
+        wanted = {g for g in gameweeks if g is not None}
+        out[name] = _pooled([r for r in rows if r["_gw"] in wanted], present)
+    return out
+
+
 def _person(element: int, names: Mapping[int, Mapping[str, Any]]) -> dict[str, Any]:
     info = names.get(element, {})
     return {"player_id": element, "web_name": info.get("web_name"), "team_short": info.get("team_short")}
