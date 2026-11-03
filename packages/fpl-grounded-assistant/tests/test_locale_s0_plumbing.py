@@ -38,8 +38,9 @@ from fpl_grounded_assistant.question_lang import detect_question_lang, locale_mi
 
 #: sha256 of the pre-i18n prompts. Changing a prompt means changing these ON
 #: PURPOSE, with a Spanish regression run (D1 option A) behind it.
-ES_ORCH_PROMPT_SHA256 = "8f20176f66bc9d9731b17edc1f85ff9066db0e8f51e40f589de876becfd76efd"
-ES_ORCH_LOOP_PROMPT_SHA256 = "66cbccc14a8e0baa60530535676de5a92c0c5cd3201e4aaecc8e2f972fc28005"
+#: 2026-11-02: DECIMALS rule added on purpose (Leo: dot decimals in Spanish, Latin American audience).
+ES_ORCH_PROMPT_SHA256 = "147afca88dcf29f3f13a6fabd79871f7320f0149e5e7180946c42bb9ba9e36c7"
+ES_ORCH_LOOP_PROMPT_SHA256 = "c2850ec1aaeaaac36b1c5d9f1c3be9c7cb1b69c3bdc85fc2d6b98ec8bfe04263"
 ES_EVALUATOR_PROMPT_SHA256 = "82efcffa20f74632ce9e023ab49115f3e208dff00dbac668f2fbd30617726707"
 
 
@@ -50,6 +51,14 @@ def _sha(text: str) -> str:
 def test_es_orchestrator_prompts_are_byte_identical():
     assert _sha(orch_mod._SYSTEM_PROMPT) == ES_ORCH_PROMPT_SHA256
     assert _sha(orch_mod._LOOP_SYSTEM_PROMPT) == ES_ORCH_LOOP_PROMPT_SHA256
+
+
+def test_the_built_prompts_ask_for_dot_decimals_in_spanish_too():
+    """Leo 2026-11-01: "forma 10.7", "7.4 pts", never "10,7". No provider call: the built static prompt only."""
+    for prompt in (static_system_prompt("es"), static_system_prompt("en"), orch_mod._LOOP_SYSTEM_PROMPT):
+        rule = [line for line in prompt.splitlines() if line.strip().startswith("- DECIMALS:")]
+        assert len(rule) == 1
+        assert "in Spanish too" in rule[0] and '"forma 10.7"' in rule[0] and "never a comma" in rule[0]
 
 
 def test_es_evaluator_prompt_is_byte_identical():
