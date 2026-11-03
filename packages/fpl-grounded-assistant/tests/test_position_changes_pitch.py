@@ -123,7 +123,7 @@ def _store(with_stats=True):
               "squad_membership": [{"team": "MUN", "element": MBE, "jersey_number": 19, "observed_at": "2026-11-01T05:00:00Z"}]}
     tables = {n: pd.DataFrame(rows, columns=list(TABLES[n][0])).astype(object) for n, rows in frames.items()}
     if with_stats:
-        tables["player_match_stats"] = _frame([_stat(f, touches=50 if f <= 4 else 35) for f in range(1, 9)])
+        tables["player_match_stats"] = _frame([_stat(f, touches=48 if f <= 4 else 41) for f in range(1, 9)])
     return tables
 
 
@@ -155,7 +155,7 @@ def _run(**kw):
 def test_the_tool_returns_the_switch_and_the_per90_of_each_role():
     out = _run()
     assert out["role_switch"]["since_gameweek"] == 5
-    assert out["per90_change"]["before"]["touches"] == 50.0 and out["per90_change"]["after"]["touches"] == 35.0
+    assert out["per90_change"]["before"]["touches"] == 48.0 and out["per90_change"]["after"]["touches"] == 41.0
     assert out["per90_change"]["metrics"][-1] == "shots"
 
 
@@ -181,7 +181,7 @@ def test_the_card_carries_the_pitch_in_the_request_language(locale, hero, pill, 
     assert (pp["labels"]["from"], pp["labels"]["to"], pp["labels"]["table"]) == (frm, to, table)
     assert (pp["labels"]["before"], pp["labels"]["after"]) == (before, after)
     assert pp["rows"][0] == {"metric": "touches", "label": "Toques" if locale == "es" else "Touches",
-                             "before": 50.0, "after": 35.0}
+                             "before": 48.0, "after": 41.0}
     assert pp["note"] == ("4 y 4 partidos con 30+ min" if locale == "es" else "4 and 4 matches with 30+ min")
     assert "grid_slot" not in str(pp)
 
@@ -203,4 +203,4 @@ def test_the_description_allows_observed_wording_and_forbids_a_cause():
     d = GET_POSITION_CHANGES_SCHEMA.description
     assert "role_switch (observed)" in d and "per90_change (observed" in d
     assert "never say the change caused them ('por el cambio', 'because of the move')" in d
-    assert "since GW6 they have started as a forward" in d  # gender-neutral EN
+    assert "since GW7 they have started as a forward" in d  # gender-neutral EN
