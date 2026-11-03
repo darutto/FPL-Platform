@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-02",
+  "updated": "2026-11-03",
   "cards": [
     {
       "id": "s1",
@@ -2597,6 +2597,17 @@
       "tags": [
         "Deploy",
         "Datos"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s81",
+      "col": "shipped",
+      "title": "Fix: decimales con punto en español en el texto del orquestador",
+      "desc": "Fusionada (PR #616, 03/11). Sigue a #611 y #613: se agrega una regla de decimales al bloque CONSTRAINTS del system prompt del orquestador para que el texto que escribe el LLM en español también use punto, nunca coma.",
+      "tags": [
+        "Backend",
+        "IA"
       ],
       "progress": 100
     }
