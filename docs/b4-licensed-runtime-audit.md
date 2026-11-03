@@ -40,8 +40,8 @@ El sync de arranque no ve las builds que la ingesta publica durante el día. `Li
 
 | Flag | Dónde | Estado | Efecto |
 |---|---|---|---|
-| `FPL_FOOTBALL_LICENSED_SYNC_ENABLED` | Railway | apagado (no existe) | descarga la familia licenciada al arrancar |
-| `FOOTBALL_INTELLIGENCE_ENABLED` | Railway | apagado | registra y despacha las herramientas FI; **sigue apagado** hasta que el cerebro lo apruebe |
+| `FPL_FOOTBALL_LICENSED_SYNC_ENABLED` | Railway | estado en prod: comprobar en Railway (esta tabla era del 2026-10) | descarga la familia licenciada al arrancar |
+| `FOOTBALL_INTELLIGENCE_ENABLED` | Railway | estado en prod: comprobar en Railway (ningún commit ni el roadmap-board registran cuándo se encendió) | registra y despacha las herramientas FI; apagado (o ausente) = las herramientas FI no se ofrecen al modelo. En local hay que ponerlo a mano: no está en el `.env` por defecto |
 | `LICENSED_INGEST_ENABLED` | GitHub (variable) | según cerebro | el cron del job de ingesta |
 
 ## 6. Observaciones fuera de B4 (no se tocan aquí)

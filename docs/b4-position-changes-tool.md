@@ -1,6 +1,6 @@
 # B4, PR 2: la herramienta `get_position_changes`
 
-**Estado:** detrás de `FOOTBALL_INTELLIGENCE_ENABLED` (apagado en producción) y de que el almacén licenciado esté sincronizado (`FPL_FOOTBALL_LICENSED_SYNC_ENABLED`, ver [la auditoría](b4-licensed-runtime-audit.md)). Sin esas dos cosas la herramienta ni se ofrece al modelo, ni devuelve datos: responde `missing_context`.
+**Estado:** detrás de `FOOTBALL_INTELLIGENCE_ENABLED` (estado en prod: comprobar en Railway) y de que el almacén licenciado esté sincronizado (`FPL_FOOTBALL_LICENSED_SYNC_ENABLED`, ver [la auditoría](b4-licensed-runtime-audit.md)). Sin esas dos cosas la herramienta ni se ofrece al modelo, ni devuelve datos: responde `missing_context`.
 
 ## Qué responde
 
@@ -68,4 +68,4 @@ La tarjeta reutiliza el contrato `generic_card` que la interfaz ya pinta (ver `G
 
 ## Qué NO hace B4
 
-No predice ni atribuye causas, no muestra movimiento durante el partido, no sirve filas del almacén y no se enciende solo: sigue detrás de `FOOTBALL_INTELLIGENCE_ENABLED` y del sync licenciado, ambos apagados hasta que el cerebro lo apruebe.
+No predice ni atribuye causas, no muestra movimiento durante el partido, no sirve filas del almacén y no se enciende solo: sigue detrás de `FOOTBALL_INTELLIGENCE_ENABLED` y del sync licenciado (su estado en prod: comprobar en Railway).

@@ -1,6 +1,6 @@
 # R6, PR 3: la herramienta `get_player_involvement`
 
-**Estado:** detrás de `FOOTBALL_INTELLIGENCE_ENABLED` y del sync licenciado (`FPL_FOOTBALL_LICENSED_SYNC_ENABLED`). Sin ellos la herramienta no se ofrece al modelo ni devuelve datos: responde `missing_context`. Necesita además que el almacén tenga la tabla `player_match_stats` (PR #553) llena por la ingesta (PR 2): sin ella, `missing_context` con `no_player_stats`.
+**Estado:** detrás de `FOOTBALL_INTELLIGENCE_ENABLED` y del sync licenciado (`FPL_FOOTBALL_LICENSED_SYNC_ENABLED`); su estado en prod: comprobar en Railway. En local `FOOTBALL_INTELLIGENCE_ENABLED` no está en el `.env` por defecto: sin él el modelo no ve la herramienta y contesta con `get_player_snapshot`, sin toques ni pases. Sin ellos la herramienta no se ofrece al modelo ni devuelve datos: responde `missing_context`. Necesita además que el almacén tenga la tabla `player_match_stats` (PR #553) llena por la ingesta (PR 2): sin ella, `missing_context` con `no_player_stats`.
 
 ## Qué responde
 

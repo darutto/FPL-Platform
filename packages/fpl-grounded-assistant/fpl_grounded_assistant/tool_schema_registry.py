@@ -318,7 +318,7 @@ COMPARE_PLAYERS_SCHEMA = ToolSchema(
     name="compare_players",
     description=(
         "Compare two players by position-aware captain score; returns grounded recommendation. "
-        "Use for 'X vs Y' or 'captain X or Y' queries."
+        "Use for 'X vs Y' or 'captain X or Y' queries (position-aware captain score only; not touches or passes)."
     ),
     parameters={
         "type": "object",
@@ -798,7 +798,8 @@ GET_PLAYER_SNAPSHOT_SCHEMA = ToolSchema(
     description=(
         "Single player full grounding payload by name or numeric FPL element id. Returns status=ok+player "
         "(1 match), ambiguous+candidates (multi-match), or not_found. Use for "
-        "every general named-player lookup, profile, or current-stat question."
+        "every general named-player lookup, profile, or current-stat question. It has no touches, passes, pass "
+        "accuracy, key passes or backward passes."
     ),
     parameters={
         "type": "object",
@@ -1588,24 +1589,24 @@ GET_PLAYER_INTELLIGENCE_SCHEMA = ToolSchema(
 GET_POSITION_CHANGES_SCHEMA = ToolSchema(
     name="get_position_changes",
     description=(
-        "Where a player was listed to START in his club's recent matches (the announced starting XI: position, "
-        "side, formation), whether that differed from his own earlier starts, and which regular teammates were "
+        "Where a player was listed to START in their club's recent matches (the announced starting XI: position, "
+        "side, formation), whether that differed from their own earlier starts, and which regular teammates were "
         "NOT in the starting XI in those matches. Use for 'cambio de posicion de X', 'quien lo sustituye', "
         "'where does X play when Y is out', optionally with absent_player (a TEAMMATE) for 'cuando no jugo Y'. "
         "Each statement carries claim_status: observed (a fact of the lineup), associated (it coincided with a "
         "teammate's absence), hypothesis (unproven). The slot is the ANNOUNCED lineup, never movement during the "
         "match. Words allowed: 'empezo en otra casilla' / 'started in a different slot', 'coincidio con la "
-        "ausencia de Y' / 'coincided with Y's absence'. NEVER say he 'moved during the match', never give a cause "
+        "ausencia de Y' / 'coincided with Y's absence'. NEVER say the player 'moved during the match', never give a cause "
         "('por la lesion', 'because of'), never predict ('rendira mas'); not being in the XI is not an injury "
         "(listed_sidelined is reported separately); a provisional lineup is not confirmed; a small sample must be "
         "said. The answer carries fpl_position (the player's FPL position: GKP/DEF/MID/FWD) and, when the lineups put the player in "
-        "another line in most of his starts, fpl_position_gap (observed): you MAY say 'en FPL es defensa; ha "
+        "another line in most of their starts, fpl_position_gap (observed): you MAY say 'en FPL es defensa; ha "
         "empezado 6 de 6 como medio por la izquierda' / 'listed as a defender in FPL; started 6 of 6 as a "
         "midfielder', for either direction, with no judgement and no cause; do not claim the player 'is not' a defender "
         "in FPL. When a match carries fpl_out, the ONLY allowed words are 'consta como baja en FPL desde el 17/10' / "
         "'listed as out in FPL since 17 Oct' (observed from FPL, dated before that match); never 'no jugo porque' / "
         "'did not play because'. For 'who replaces X if he does not play' use slot_cover / slot_occupants: say who "
-        "held his usual slot in the announced XI of the matches without him ('la casilla de delantero centro quedo "
+        "held the player's usual slot in the announced XI of the matches without them ('la casilla de delantero centro quedo "
         "ocupada por Delap' / 'the centre forward slot was held by Delap'), say it is 'the closest slot' when marked "
         "closest and name the sample ('1 partido'); never 'replaced him' / 'lo sustituyo' and never a reason or a "
         "manager decision. Frame it as the opportunity, never as weakness. The history starts when the licensed ingestion "
