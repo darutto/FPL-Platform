@@ -1122,6 +1122,8 @@ export interface GenericCardMeta {
   footer: string | null;
   /** R6 two-player comparison (get_player_involvement with compare_player); null/absent on every other card. */
   involvement_compare?: InvolvementCompareMeta | null;
+  /** Position changes: the mini-pitch (old -> new starting role, or FPL listing -> played role); null elsewhere. */
+  position_pitch?: PositionPitchMeta | null;
 }
 
 export type InvolvementSide = 'a' | 'b';
@@ -1212,4 +1214,24 @@ export interface QuotaStatus {
   upgrade_prompt_es: string | null;
   /** English upgrade prompt — non-null when allowed=false. */
   upgrade_prompt_en: string | null;
+}
+
+/** A starting role as the provider names it, plus its FPL line. Never a grid cell (its columns flip between matches). */
+export interface PitchRole {
+  detailed_position?: string | null;
+  side?: string | null;
+  line?: string | null;
+  /** Only on the FPL listing end of a gap: the position FPL lists the player in (DEF/MID/FWD). */
+  fpl_position?: string | null;
+}
+
+/** Built by the backend (atomic_tool_cards._position_pitch); every string is already localized, numbers are raw. */
+export interface PositionPitchMeta {
+  kind: 'switch' | 'fpl_listing';
+  from: PitchRole;
+  to: PitchRole;
+  labels: { from: string; to: string; table: string; before: string; after: string };
+  rows: Array<{ metric: string; label: string; before?: number | null; after?: number | null; value?: number | null }>;
+  note: string | null;
+  claim_status: string;
 }

@@ -19,6 +19,7 @@
  *
  * Data: GET /api/fpl-squad/{teamId} (server proxy; live FPL API).
  */
+import { FullPitchLines } from '@/components/intents/PitchGeometry';
 import { useCallback, useEffect, useState } from 'react';
 import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
 import type { DictKey } from '@/lib/i18n/dictionary';
@@ -288,13 +289,7 @@ function SquadBody({
                 viewBox="0 0 400 240"
                 preserveAspectRatio="xMidYMid meet"
               >
-                <rect x="8" y="8" width="384" height="224" fill="none" stroke="white" strokeWidth="2" />
-                <line x1="8" y1="120" x2="392" y2="120" stroke="white" strokeWidth="1.5" />
-                <circle cx="200" cy="120" r="34" fill="none" stroke="white" strokeWidth="1.5" />
-                <rect x="130" y="8" width="140" height="36" fill="none" stroke="white" strokeWidth="1.5" />
-                <rect x="130" y="196" width="140" height="36" fill="none" stroke="white" strokeWidth="1.5" />
-                <rect x="162" y="8" width="76" height="15" fill="none" stroke="white" strokeWidth="1.5" />
-                <rect x="162" y="217" width="76" height="15" fill="none" stroke="white" strokeWidth="1.5" />
+                <FullPitchLines />
               </svg>
 
               {/* Taller native markings for the narrow desktop sidebar. */}
