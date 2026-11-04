@@ -45,11 +45,11 @@ def gap_text(gap: dict[str, Any], locale: Locale) -> str:
              side=t(f"renderer.position_changes.side_{side}", locale) if side in ("left", "right") else "")
 
 
-def gap_pill(gap: dict[str, Any], locale: Locale) -> str:
-    """'FPL: DEF · plays MID' / 'FPL: DEF · juega MED'."""
-    return t("gcard.position_changes.pill_gap", locale,
-             fpl=t(f"gcard.position_changes.code_{gap.get('fpl_position')}", locale),
-             played=t(f"gcard.position_changes.code_{gap.get('played_line')}", locale))
+def switch_text(switch: dict[str, Any], locale: Locale) -> str:
+    """'Since GW6 they have started as attacker (5 of 5); before, right midfield (5 of 5).' Observed, no cause."""
+    return t("renderer.position_changes.switch", locale, gw=switch.get("since_gameweek"),
+             to=role_text(switch.get("to"), locale).lower(), n=switch.get("starts_after"),
+             before=role_text(switch.get("from"), locale).lower(), k=switch.get("held_before"), m=switch.get("starts_before"))
 
 
 _MONTHS_EN = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")

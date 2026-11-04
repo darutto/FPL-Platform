@@ -118,6 +118,9 @@ class GenericCardMeta:
     #: series). ``None`` everywhere else; when set, ``columns``/``rows`` still hold a plain per-90 table for any client
     #: that draws only the table. Built deterministically from tool output (atomic_tool_cards), never from LLM text.
     involvement_compare: "dict[str, Any] | None" = field(default=None, compare=False, hash=False)
+    #: Position changes: the mini-pitch (old -> new starting role, or FPL listing -> played role) and its per-90 table.
+    #: ``None`` everywhere else. Built deterministically from tool output (atomic_tool_cards), never from LLM text.
+    position_pitch: "dict[str, Any] | None" = field(default=None, compare=False, hash=False)
 
 
 # ---------------------------------------------------------------------------
@@ -596,4 +599,5 @@ def generic_card_to_dict(card: "GenericCardMeta | None") -> "dict[str, Any] | No
         "footer": card.footer,
         # R6 two-player payload; null on every other card (same key set as the dataclass serializer, _to_dict).
         "involvement_compare": card.involvement_compare,
+        "position_pitch": card.position_pitch,
     }

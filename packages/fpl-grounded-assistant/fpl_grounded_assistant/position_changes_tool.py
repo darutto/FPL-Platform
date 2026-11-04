@@ -19,6 +19,7 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Callable, Mapping
 
+from football_intelligence.player_involvement import per90_by_period
 from football_intelligence.position_changes import (
     DEFAULT_LIMIT, FPL_POSITIONS, MAX_LIMIT, FixtureMeta, analyse, fpl_position_gap,
 )
@@ -137,6 +138,30 @@ def _resolve(query: Any, bootstrap: dict[str, Any], *, within_team: str | None =
     return resolved
 
 
+def _attach_per90_change(result: dict[str, Any], element: int, handle: Any, fixtures: dict[int, FixtureMeta]) -> None:
+    """Per-90 before/since the role switch, or over every match for an FPL-position gap (no change date). Same store
+    and 30+ minutes rule as get_player_involvement. A build without match statistics leaves the answer as it was."""
+    switch, gap = result.get("role_switch"), result.get("fpl_position_gap")
+    if not switch and not gap:
+        return
+    try:
+        stats = handle.table("player_match_stats")
+    except Exception:  # an older build without the table: the lineup answer stands on its own
+        return
+    if switch:
+        periods = {"before": switch["gameweeks_old_role"], "after": switch["gameweeks_new_role"]}
+        line = switch["to"].get("line")
+    else:  # no change date: the listed starts in the role the gap names
+        role = (gap.get("detailed_position"), gap.get("side"))
+        periods = {"all": [m.get("gameweek") for m in result.get("matches") or []
+                           if m.get("player_status") == "started" and m.get("slot")
+                           and (m["slot"].get("detailed_position"), m["slot"].get("side") if m["slot"].get("side") in ("left", "right") else None) == role]}
+        line = gap.get("played_line")
+    block = per90_by_period(element=element, stats=stats, fixtures=fixtures, periods=periods, line=line)
+    if block is not None:
+        result["per90_change"] = block
+
+
 def run_position_changes(
     args: dict[str, Any],
     bootstrap: dict[str, Any],
@@ -194,6 +219,7 @@ def run_position_changes(
             gap = fpl_position_gap(element_type, result["matches"])
             if gap is not None:
                 result["fpl_position_gap"] = gap
+    _attach_per90_change(result, element, handle, fixtures)
     result["data_provenance"] = {"source": "licensed_starter", "built_at": manifest.get("built_at"),
                                  "slot_meaning": "announced_starting_xi"}
     result.setdefault("evidence", [])

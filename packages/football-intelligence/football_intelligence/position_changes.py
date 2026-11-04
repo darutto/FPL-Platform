@@ -293,6 +293,9 @@ def analyse(
         result["absence_focus"] = absence
     if cover is not None:
         result["slot_cover"] = cover
+    switch = role_switch(records)
+    if switch is not None:
+        result["role_switch"] = switch
     return result
 
 
@@ -511,7 +514,54 @@ def fpl_position_gap(element_type: Any, matches: Iterable[Mapping[str, Any]]) ->
     return {
         "fpl_position": fpl, "played_line": line, "starts": n, "of": total,
         "direction": "further_forward" if _LINE_ORDER[line] > _LINE_ORDER[fpl] else "deeper",
-        "side": side, "claim_status": OBSERVED,
+        "side": side, "detailed_position": role[0] if role else None, "claim_status": OBSERVED,
+    }
+
+
+#: A role switch needs this many starts on each side: the new role in every start since the switch, and the old role
+#: as the strict mode of up to BASELINE_STARTS starts before it.
+SWITCH_MIN_EACH_SIDE = 3
+
+
+def role_switch(records: Iterable[Mapping[str, Any]]) -> dict[str, Any] | None:
+    """The player's latest sustained change of starting role, over every stored lineup in kickoff order (observed).
+
+    The new role is the one of the latest start, held in EVERY start since it began (a trailing run of at least
+    SWITCH_MIN_EACH_SIDE). The old role is the strict mode of up to BASELINE_STARTS starts before the run, held in at
+    least SWITCH_MIN_EACH_SIDE of them. A change of side alone counts only when both sides are known (left/right).
+    Bench and not-listed matches are not starts and do not break the run. ``None`` when there is no such change.
+    It names no cause and predicts nothing.
+    """
+    starts = [r for r in records if r.get("player_status") == "started" and r.get("slot")
+              and r["slot"].get("detailed_position")]
+    if len(starts) < 2 * SWITCH_MIN_EACH_SIDE:
+        return None
+    new = _role(starts[-1]["slot"])
+    k = len(starts) - 1
+    while k > 0 and _role(starts[k - 1]["slot"]) == new:
+        k -= 1
+    after, before = starts[k:], starts[max(0, k - BASELINE_STARTS):k]
+    if len(after) < SWITCH_MIN_EACH_SIDE or len(before) < SWITCH_MIN_EACH_SIDE:
+        return None
+    old = _mode(_role(r["slot"]) for r in before)
+    if old is None:
+        return None
+    held = sum(1 for r in before if _role(r["slot"]) == old)
+    side_change = old[0] == new[0] and {old[1], new[1]} <= {"left", "right"} and old[1] != new[1]
+    if held < SWITCH_MIN_EACH_SIDE or (old[0] == new[0] and not side_change):
+        return None
+    old_slot = next(r["slot"] for r in reversed(before) if _role(r["slot"]) == old)
+    return {
+        "from": {**_role_dict(old), "line": played_line(old_slot)},
+        "to": {**_role_dict(new), "line": played_line(after[-1]["slot"])},
+        "since_gameweek": after[0].get("gameweek"),
+        "before_gameweeks": [before[0].get("gameweek"), before[-1].get("gameweek")],
+        "after_gameweeks": [after[0].get("gameweek"), after[-1].get("gameweek")],
+        "held_before": held, "starts_before": len(before), "starts_after": len(after),
+        # the starts each role was held in, for per-90 figures per role (a double gameweek counts both of its matches)
+        "gameweeks_old_role": [r.get("gameweek") for r in before if _role(r["slot"]) == old],
+        "gameweeks_new_role": [r.get("gameweek") for r in after],
+        "claim_status": OBSERVED,
     }
 
 
