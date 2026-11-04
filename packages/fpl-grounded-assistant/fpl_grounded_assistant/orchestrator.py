@@ -904,6 +904,9 @@ def _build_multi_tool_follow_up(
 _EN_LOCALE_LINE: str = (
     "\nLOCALE=en: write the whole answer in British English, whatever language the"
     " question is written in (chip names stay in English; keep player and team names as given)."
+    " This overrides respond_lang = user_lang above: a Spanish question, Spanish example phrases in tool"
+    " descriptions or Spanish text anywhere in this prompt do not change the answer language; when a tool"
+    " description quotes a Spanish phrase, say its English equivalent."
 )
 
 
@@ -911,6 +914,22 @@ def static_system_prompt(locale: Locale = DEFAULT_LOCALE) -> str:
     """The static orchestrator system prompt for *locale* (es == pre-i18n bytes)."""
     base = _LOOP_SYSTEM_PROMPT if is_orch_loop_prompt_enabled() else _SYSTEM_PROMPT
     return base + _EN_LOCALE_LINE if locale == "en" else base
+
+
+#: A local request capture (en locale, Spanish question, OpenAI path) showed the line above reaches the model on every
+#: round but sits in ``instructions``, followed only by English context; the last thing the model reads is the question
+#: (or the tool results). So for en, OpenAI Responses requests also carry this one note as the LAST input item. It
+#: names no question language. It is added to a COPY of the input at each provider call, never stored in ``messages``
+#: or a follow-up list, so it cannot accumulate or be replayed. The evaluator has its own prompt and request, which
+#: are deliberately unchanged. Anthropic and Gemini keep only the line above (the whole LLM runs on OpenAI).
+_EN_TURN_NOTE: str = "LOCALE=en: write the whole answer in British English, whatever language the question is in."
+
+
+def _with_locale_note(provider: str | None, locale: Locale, messages: list[Any]) -> list[Any]:
+    """*messages* plus the en turn note as the last item, for OpenAI only; the same list otherwise (es is untouched)."""
+    if locale != "en" or provider != PROVIDER_OPENAI:
+        return messages
+    return [*messages, {"role": "developer", "content": _EN_TURN_NOTE}]
 
 
 def _build_anthropic_system_blocks(
@@ -1390,6 +1409,7 @@ def _run_synthesis_extra_round(
     system_blocks: list[dict[str, Any]] | None,
     actual_bootstrap: dict[str, Any],
     valid_tool_names: set[str] | frozenset[str],
+    locale: Locale = DEFAULT_LOCALE,
 ) -> tuple[str | None, int, int, int]:
     """i46 (b): one extra tool round when synthesis asks for a tool, not prose.
 
@@ -1483,7 +1503,7 @@ def _run_synthesis_extra_round(
         model=model,
         system=system,
         tools=tools,
-        messages=follow_up,
+        messages=_with_locale_note(provider_label, locale, follow_up),
         max_tokens=max_tokens,
         temperature=temperature,
         top_p=top_p,
@@ -1755,7 +1775,7 @@ def _apply_evaluator(
         model=model,
         system=system,
         tools=tools,
-        messages=[{"role": "user", "content": retry_question}],
+        messages=_with_locale_note(_provider_label, locale, [{"role": "user", "content": retry_question}]),
         timeout_s=_timeout_s,
         max_retries=_max_retries,
         client=resolved_client,
@@ -2006,7 +2026,7 @@ def _apply_evaluator(
         model=model,
         system=system,
         tools=tools,
-        messages=_retry_follow_up,
+        messages=_with_locale_note(_provider_label, locale, _retry_follow_up),
         timeout_s=_timeout_s,
         max_retries=_max_retries,
         client=resolved_client,
@@ -2359,7 +2379,7 @@ def _run_bounded_loop(
             model=model,
             system=system,
             tools=tools,
-            messages=messages,
+            messages=_with_locale_note(provider_label, locale, messages),
             max_tokens=max_tokens,
             temperature=temperature,
             top_p=top_p,
@@ -2856,7 +2876,7 @@ def _ask_orchestrated_impl(
         model=model,
         system=system,
         tools=tools,
-        messages=[{"role": "user", "content": question}],
+        messages=_with_locale_note(_provider_label, locale, [{"role": "user", "content": question}]),
         max_tokens=max_tokens,
         temperature=temperature,
         top_p=top_p,
@@ -3100,7 +3120,7 @@ def _ask_orchestrated_impl(
         model=model,
         system=system,
         tools=tools,
-        messages=follow_up_messages,
+        messages=_with_locale_note(_provider_label, locale, follow_up_messages),
         max_tokens=max_tokens,
         temperature=temperature,
         top_p=top_p,
@@ -3195,6 +3215,7 @@ def _ask_orchestrated_impl(
             system_blocks=_system_blocks,
             actual_bootstrap=actual_bootstrap,
             valid_tool_names=_valid_tool_names,
+            locale=locale,
         )
         _prim_in    += _x_in
         _prim_out   += _x_out
