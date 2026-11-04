@@ -1233,5 +1233,7 @@ export interface PositionPitchMeta {
   labels: { from: string; to: string; table: string; before: string; after: string };
   rows: Array<{ metric: string; label: string; before?: number | null; after?: number | null; value?: number | null }>;
   note: string | null;
+  /** One observed line: teammates whose absence from the XI coincided with the starts shown (never a cause). */
+  associations?: string | null;
   claim_status: string;
 }

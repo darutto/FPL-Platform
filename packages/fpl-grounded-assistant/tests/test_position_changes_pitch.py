@@ -7,7 +7,7 @@ import pytest
 from football_intelligence.ingestion.licensed.store import TABLES
 from football_intelligence.player_involvement import per90_by_period
 from football_intelligence.position_changes import FixtureMeta, role_switch
-from fpl_grounded_assistant.atomic_tool_cards import compose_position_changes_card
+from fpl_grounded_assistant.atomic_tool_cards import _assoc_line, compose_position_changes_card
 from fpl_grounded_assistant.generic_card import generic_card_to_dict
 from fpl_grounded_assistant.position_changes_tool import run_position_changes
 from fpl_grounded_assistant.renderer import render
@@ -173,7 +173,7 @@ def test_a_build_without_match_statistics_keeps_the_lineup_answer():
 def test_the_card_carries_the_pitch_in_the_request_language(locale, hero, pill, frm, to, table, before, after):
     card = compose_position_changes_card(_run(), locale)
     assert (card.hero.value, card.hero.label) == ("4/4", hero)
-    assert pill in [p.label for p in card.pills]
+    assert pill not in [p.label for p in card.pills]  # the pitch says it: no "Before: ..." pill
     pp = card.position_pitch
     assert pp["kind"] == "switch" and pp["claim_status"] == "observed"
     assert pp["from"] == {"detailed_position": "Right Midfield", "side": "right", "line": "MID"}
@@ -199,12 +199,81 @@ def test_the_per_match_table_is_off_when_the_pitch_says_it_all():
 
 def test_the_per_match_table_comes_back_for_what_the_pitch_cannot_say_without_the_change_note():
     out = _run()
-    out["matches"][5]["associations"] = [{"teammate": {"player_id": 99, "web_name": "Synthetic"}}]
+    out["matches"][5]["fpl_out"] = {"reason": "knee", "since": "2026-11-20", "claim_status": "observed", "source": "fpl"}
     for locale, changed in (("es", "Empezó en otra casilla"), ("en", "Started in a different slot")):
         card = compose_position_changes_card(out, locale)
         assert len(card.rows) == 8 and len(card.columns) == 4
         flat = " ".join(r[3] for r in card.rows)
-        assert "Synthetic" in flat and changed not in flat
+        assert ("baja" in flat or "out" in flat) and changed not in flat
+
+
+def test_associations_alone_do_not_bring_the_table_back_they_become_one_line_under_the_pitch_table():
+    out = _run()
+    out["matches"][5]["associations"] = [{"teammate": {"player_id": 99, "web_name": "Synthetic"}}]
+    gw = out["matches"][5]["gameweek"]
+    for locale, line in (("es", f"En J{gw} coincidió con la ausencia de Synthetic"),
+                         ("en", f"In GW{gw}, coincided with the absence of Synthetic")):
+        card = compose_position_changes_card(out, locale)
+        assert card.rows == () and card.columns == ()
+        assert card.position_pitch["associations"] == line
+
+
+def _assoc_matches(*per_match, hidden=()):
+    return [{"gameweek": gw, "associations": [{"teammate": {"web_name": n}} for n in names],
+             **({"associations_more": hidden[i]} if i < len(hidden) else {})}
+            for i, (gw, names) in enumerate(per_match)]
+
+
+def test_the_association_line_dedupes_names_and_names_only_the_matches_that_have_them():
+    ms = _assoc_matches((6, ["Aa", "Bb"]), (7, ["Aa", "Cc"]), (8, ["Bb"]), (9, []), (10, []))
+    assert _assoc_line(ms, "es") == "En J6–J8 coincidió con ausencias de Aa, Bb y Cc"
+    assert _assoc_line(ms, "en") == "In GW6–8, coincided with the absence of Aa, Bb and Cc"
+
+
+def test_the_association_line_never_spans_a_match_without_one():
+    ms = _assoc_matches((6, ["Aa"]), (7, []), (8, ["Bb"]))
+    assert _assoc_line(ms, "es") == "En J6, J8 coincidió con ausencias de Aa y Bb"
+
+
+def test_the_association_line_caps_the_names_and_is_honest_about_hidden_ones():
+    ms = _assoc_matches((6, ["Aa", "Bb"]), (7, ["Cc", "Dd"]), (8, ["Ee"]))
+    assert _assoc_line(ms, "es") == "En J6–J8 coincidió con ausencias de Aa, Bb, Cc y 2 más"
+    assert _assoc_line(ms, "en") == "In GW6–8, coincided with the absence of Aa, Bb, Cc and 2 more"
+    capped_hidden = _assoc_matches((6, ["Aa", "Bb"]), (7, ["Cc", "Dd"]), hidden=(0, 3))
+    assert _assoc_line(capped_hidden, "es").endswith("Aa, Bb, Cc y al menos 1 más")
+    only_hidden = _assoc_matches((6, ["Aa", "Bb"]), hidden=(4,))
+    assert _assoc_line(only_hidden, "en") == "In GW6, coincided with the absence of Aa, Bb and others"
+    assert _assoc_line(_assoc_matches((6, []), (7, [])), "es") is None
+
+
+def test_a_card_without_a_pitch_keeps_the_associations_in_its_table():
+    out = _run()
+    out.pop("role_switch"); out.pop("fpl_position_gap", None); out.pop("per90_change", None)
+    out["matches"][5]["associations"] = [{"teammate": {"player_id": 99, "web_name": "Synthetic"}}]
+    card = compose_position_changes_card(out, "en")
+    assert card.position_pitch is None and len(card.rows) == 8
+    assert "Synthetic" in " ".join(r[3] for r in card.rows)
+
+
+def _switch_with_gap_raw():
+    ms = [{"gameweek": g, "player_status": "started", "lineup_status": "confirmed",
+           "slot": {"detailed_position": "Attacker" if g > 2 else "Right Midfield", "side": "right" if g <= 2 else None}}
+          for g in (1, 2, 3, 4)]
+    return {"status": "ok", "player": {"web_name": "Synthetic", "player_id": 1}, "matches": ms,
+            "role_switch": {"from": {"detailed_position": "Right Midfield", "side": "right", "line": "MID"},
+                            "to": {"detailed_position": "Attacker", "side": None, "line": "FWD"}, "since_gameweek": 3,
+                            "held_before": 2, "starts_before": 2, "starts_after": 2,
+                            "gameweeks_old_role": [1, 2], "gameweeks_new_role": [3, 4]},
+            "fpl_position_gap": {"fpl_position": "MID", "played_line": "FWD", "detailed_position": "Attacker", "side": None,
+                                 "starts": 2, "of": 4}}
+
+
+@pytest.mark.parametrize("locale,fpl", [("es", "FPL: MED"), ("en", "FPL: MID")])
+def test_the_fpl_pill_stays_when_the_pitch_does_not_show_the_fpl_position(locale, fpl):
+    card = compose_position_changes_card(_switch_with_gap_raw(), locale)
+    labels = [p.label for p in card.pills]
+    assert card.position_pitch["kind"] == "switch" and fpl in labels
+    assert not any(l.startswith(("Antes", "Before", "Misma casilla", "Same slot")) for l in labels)
 
 
 def test_the_payload_travels_on_the_wire_and_is_null_elsewhere():

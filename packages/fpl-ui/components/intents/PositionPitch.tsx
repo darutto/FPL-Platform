@@ -94,17 +94,82 @@ function Connector({ a, b, arrow }: { a: { x: number; y: number }; b: { x: numbe
   );
 }
 
-function Label({ at, text, below }: { at: { x: number; y: number }; text: string; below: boolean }) {
+// --- label placement: a label must not cross the halfway line, the centre circle or the connector -----------------
+const PX = W / 280; // user units per CSS px at the narrowest box (labels are fixed-size HTML, so this is the worst case)
+const CIRCLE = { cx: W / 2, cy: H / 2, r: 9.15 * K };
+type Pt = { x: number; y: number };
+type Rect = { x0: number; y0: number; x1: number; y1: number };
+type Seg = [number, number, number, number];
+/** Where a label sits relative to its dot: vertical offset in px (top edge) and how it is anchored horizontally. */
+export interface Placement { dy: number; anchor: 'out' | 'center' | 'start' | 'end' | 'right-of' | 'left-of' }
+
+const LABEL_H = 11;
+const labelWidth = (text: string) => Math.max(text.length - 2, 1) * 5.8; // px; " · " is rendered as one space
+
+/** The label's rectangle in SVG units for a placement (same rule as the CSS in Label). */
+export function labelRect(at: Pt, text: string, p: Placement): Rect {
+  const [ax, ay] = [(at.x / 100) * W, (at.y / 100) * H];
+  const w = labelWidth(text) * PX;
+  const out = at.x < 30 ? 'start' : at.x > 70 ? 'end' : 'center';
+  const anchor = p.anchor === 'out' ? out : p.anchor;
+  const x0 = anchor === 'start' ? ax - 8 * PX : anchor === 'end' ? ax + 8 * PX - w : anchor === 'right-of' ? ax + 12 * PX
+    : anchor === 'left-of' ? ax - 12 * PX - w : ax - w / 2;
+  const y0 = ay + p.dy * PX;
+  return { x0, y0, x1: x0 + w, y1: y0 + LABEL_H * PX };
+}
+
+/** True when the rectangle sits on the halfway line, on the centre circle's line, or on the connector. */
+export function crossesMarkings(r: Rect, connector?: Seg | null): boolean {
+  const { cx, cy, r: rad } = CIRCLE;
+  const [dx, dy] = [Math.max(r.x0 - cx, 0, cx - r.x1), Math.max(r.y0 - cy, 0, cy - r.y1)];
+  const far = Math.hypot(Math.max(Math.abs(r.x0 - cx), Math.abs(r.x1 - cx)), Math.max(Math.abs(r.y0 - cy), Math.abs(r.y1 - cy)));
+  if (Math.hypot(dx, dy) <= rad + 2 && far >= rad - 2) return true;
+  if (r.y0 - 1 <= cy && cy <= r.y1 + 1) return true;
+  if (!connector) return false;
+  const [x1, y1, x2, y2] = connector;
+  for (let i = 0; i <= 24; i += 1) {
+    const [px, py] = [x1 + ((x2 - x1) * i) / 24, y1 + ((y2 - y1) * i) / 24];
+    if (px >= r.x0 - 2 && px <= r.x1 + 2 && py >= r.y0 - 2 && py <= r.y1 + 2) return true;
+  }
+  return false;
+}
+
+const BELOW = 12;
+const ABOVE = -24;
+
+/**
+ * General rule, no per-role cases: try the preferred side of the dot, then the other, then each alignment, then beside
+ * the dot, then clear of the centre circle above/below it; take the first that crosses none of the halfway line, the
+ * centre circle or the connector. When nothing is clear (a dot inside the circle with no room) keep the preferred one.
+ */
+export function placeLabel(at: Pt, text: string, preferBelow: boolean, connector?: Seg | null): Placement {
+  const ay = (at.y / 100) * H;
+  const [near, far] = preferBelow ? [BELOW, ABOVE] : [ABOVE, BELOW];
+  const { cy, r } = CIRCLE;
+  const clearAbove = (cy - r - 5 - LABEL_H * PX - ay) / PX;
+  const clearBelow = (cy + r + 5 - ay) / PX;
+  const candidates: Placement[] = [
+    { dy: near, anchor: 'out' }, { dy: far, anchor: 'out' },
+    ...(['center', 'start', 'end'] as const).flatMap((anchor) => [{ dy: near, anchor }, { dy: far, anchor }]),
+    { dy: -LABEL_H / 2, anchor: 'right-of' }, { dy: -LABEL_H / 2, anchor: 'left-of' },
+    { dy: clearAbove, anchor: 'center' }, { dy: clearBelow, anchor: 'center' },
+  ];
+  return candidates.find((p) => !crossesMarkings(labelRect(at, text, p), connector)) ?? candidates[0];
+}
+
+function Label({ at, text, place }: { at: Pt; text: string; place: Placement }) {
   const [when, ...rest] = text.split(' · ');
-  const align = at.x < 30 ? 'left-0 translate-x-0' : at.x > 70 ? 'right-0 translate-x-0' : '-translate-x-1/2';
+  const out = at.x < 30 ? 'start' : at.x > 70 ? 'end' : 'center';
+  const anchor = place.anchor === 'out' ? out : place.anchor;
+  const horizontal =
+    anchor === 'start' ? { left: `calc(${at.x}% - 8px)` }
+    : anchor === 'end' ? { right: `calc(${100 - at.x}% - 8px)` }
+    : anchor === 'right-of' ? { left: `calc(${at.x}% + 12px)` }
+    : anchor === 'left-of' ? { right: `calc(${100 - at.x}% + 12px)` }
+    : { left: `${at.x}%`, transform: 'translateX(-50%)' };
   return (
-    <span
-      className={`absolute whitespace-nowrap text-[11px] leading-none ${align}`}
-      style={{
-        top: `calc(${at.y}% + ${below ? 12 : -24}px)`,
-        ...(at.x < 30 ? { left: `calc(${at.x}% - 8px)` } : at.x > 70 ? { right: `calc(${100 - at.x}% - 8px)` } : { left: `${at.x}%` }),
-      }}
-    >
+    <span data-label-anchor={anchor} className="absolute whitespace-nowrap text-[11px] leading-none"
+      style={{ top: `calc(${at.y}% + ${place.dy}px)`, ...horizontal }}>
       <b className="font-bold text-white">{when}</b>
       {rest.length > 0 && <span className="font-medium text-bf-gray"> {rest.join(' · ')}</span>}
     </span>
@@ -118,6 +183,9 @@ export default function PositionPitch({ data }: { data: PositionPitchMeta }) {
   const fromField = placeRole(data.from, listing ? data.to.side : null);
   const [to, from] = [box(toField), box(fromField)];
   const hasBefore = data.rows.some((r) => r.before !== undefined);
+  const connector: Seg | null = listing ? null : [ux(fromField.x), uy(fromField.y), ux(toField.x), uy(toField.y)];
+  const fromPlace = placeLabel(from, data.labels.from, from.y >= to.y, connector);
+  const toPlace = placeLabel(to, data.labels.to, listing ? to.y < 30 : to.y > from.y, connector);
 
   return (
     <div className="space-y-3" data-testid="position-pitch" data-kind={data.kind}>
@@ -141,8 +209,8 @@ export default function PositionPitch({ data }: { data: PositionPitchMeta }) {
         )}
         <span data-role="new" className="absolute h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-bf-cyan"
           style={{ left: `${to.x}%`, top: `${to.y}%` }} />
-        {!listing && <Label at={from} text={data.labels.from} below={from.y < to.y ? false : true} />}
-        <Label at={to} text={data.labels.to} below={listing ? to.y < 30 : to.y > from.y} />
+        {!listing && <Label at={from} text={data.labels.from} place={fromPlace} />}
+        <Label at={to} text={data.labels.to} place={toPlace} />
       </div>
 
       {data.rows.length > 0 && (
@@ -171,6 +239,9 @@ export default function PositionPitch({ data }: { data: PositionPitchMeta }) {
           ))}
           {data.note && <p className="pt-1 text-[11px] text-bf-gray/70">{data.note}</p>}
         </div>
+      )}
+      {data.associations && (
+        <p data-testid="position-pitch-associations" className="text-[11px] leading-snug text-bf-gray">{data.associations}</p>
       )}
     </div>
   );

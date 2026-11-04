@@ -180,10 +180,11 @@ def test_text_has_no_gap_line_without_a_gap():
     assert "FPL" not in _text(_run("3-4-3"), "en").split("\n")[1]
 
 
-@pytest.mark.parametrize("locale,pill", [("es", "FPL: DEF"), ("en", "FPL: DEF")])
-def test_card_pill_is_first_and_short(locale, pill):
+@pytest.mark.parametrize("locale", ["es", "en"])
+def test_card_has_no_fpl_pill_when_the_pitch_draws_the_fpl_tag(locale):
     card = compose_position_changes_card(_run(), locale)
-    assert card.pills[0].label == pill and card.pills[0].tone == "neutral"
+    assert card.position_pitch["kind"] == "fpl_listing" and card.position_pitch["labels"]["from"] == "FPL: DEF"
+    assert not any(p.label.startswith("FPL:") for p in card.pills)
 
 
 def test_card_has_no_gap_pill_without_a_gap():
@@ -199,10 +200,10 @@ def test_catalogue_has_both_languages_for_the_new_keys():
 
 @pytest.mark.parametrize("locale,label,pill", [("es", "como banda izquierda", "Misma casilla 6/6"),
                                                ("en", "as left midfield", "Same slot 6/6")])
-def test_card_hero_shows_the_gap_and_the_same_slot_pill_follows(locale, label, pill):
+def test_card_hero_shows_the_gap_and_the_same_slot_pill_is_gone_with_the_pitch(locale, label, pill):
     card = compose_position_changes_card(_run(), locale)
     assert (card.hero.value, card.hero.label) == ("6/6", label)
-    assert [p.label for p in card.pills[1:2]] == [pill]
+    assert pill not in [p.label for p in card.pills]  # the pitch and the hero already say it
 
 
 def test_card_hero_without_a_gap_is_unchanged():

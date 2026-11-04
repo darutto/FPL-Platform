@@ -7,7 +7,7 @@
 import '@testing-library/jest-dom';
 import { render, screen } from '@testing-library/react';
 import GenericCard from '@/components/intents/GenericCard';
-import PositionPitch, { placeRole } from '@/components/intents/PositionPitch';
+import PositionPitch, { crossesMarkings, labelRect, placeLabel, placeRole } from '@/components/intents/PositionPitch';
 import { LocaleProvider } from '@/lib/i18n/LocaleProvider';
 import type { GenericCardMeta, PositionPitchMeta } from '@/lib/types';
 
@@ -131,5 +131,57 @@ describe('inside GenericCard', () => {
     expect(screen.getByTestId('position-pitch')).toHaveAttribute('data-kind', 'switch');
     rerender(<GenericCard data={{ ...base, position_pitch: null }} />);
     expect(screen.queryByTestId('position-pitch')).toBeNull();
+  });
+});
+
+describe('labels never cross the halfway line, the centre circle or the connector (one general rule)', () => {
+  const ROLES: Array<[string, string | null]> = [
+    ['Attacker', null], ['Centre Forward', null], ['Attacking Midfield', null], ['Left Midfield', 'left'], ['Right Midfield', 'right'],
+    ['Central Midfield', null], ['Defensive Midfield', null], ['Left Back', 'left'], ['Right Back', 'right'],
+    ['Centre Back', 'left'], ['Centre Back', 'right'], ['Goalkeeper', null],
+  ];
+  // the same field-percent -> box-percent / SVG-unit mapping the component uses (240x360 box, 8-unit margin)
+  const toBox = (p: { x: number; y: number }) => ({ x: (100 * (8 + (p.x / 100) * 224)) / 240, y: (100 * (8 + (p.y / 100) * 344)) / 360 });
+  const toUnits = (p: { x: number; y: number }): [number, number] => [8 + (p.x / 100) * 224, 8 + (p.y / 100) * 344];
+
+  test('every old -> new role pair of the vocabulary gets two clear labels', () => {
+    const bad: string[] = [];
+    for (const [fp, fs] of ROLES) {
+      for (const [tp, ts] of ROLES) {
+        if (fp === tp && fs === ts) continue;
+        const [a, b] = [placeRole({ detailed_position: fp, side: fs, line: null }), placeRole({ detailed_position: tp, side: ts, line: null })];
+        const [f, t] = [toBox(a), toBox(b)];
+        const seg: [number, number, number, number] = [...toUnits(a), ...toUnits(b)];
+        const [lf, lt] = [`J1–J5 · ${fp}`, `J6–J10 · ${tp}`];
+        const [pf, pt] = [placeLabel(f, lf, f.y >= t.y, seg), placeLabel(t, lt, t.y > f.y, seg)];
+        if (crossesMarkings(labelRect(f, lf, pf), seg) || crossesMarkings(labelRect(t, lt, pt), seg)) bad.push(`${fp}/${fs} -> ${tp}/${ts}`);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+
+  test('a wide midfielder just above the circle keeps its label off the circle (the right-midfield case)', () => {
+    const from = toBox(placeRole({ detailed_position: 'Right Midfield', side: 'right', line: 'MID' }));
+    const to = toBox(placeRole({ detailed_position: 'Attacker', side: null, line: 'FWD' }));
+    const default_ = { dy: 12, anchor: 'out' as const };
+    expect(crossesMarkings(labelRect(from, 'J1–J5 · Right Midfield', default_))).toBe(true); // the plain "under the dot" spot crosses it
+    const picked = placeLabel(from, 'J1–J5 · Right Midfield', from.y >= to.y);
+    expect(crossesMarkings(labelRect(from, 'J1–J5 · Right Midfield', picked))).toBe(false);
+  });
+
+  test('the DOM carries the chosen anchor and the pitch keeps its box', () => {
+    const { container } = render(<PositionPitch data={SWITCH} />);
+    expect(container.querySelectorAll('[data-label-anchor]')).toHaveLength(2);
+    expect(screen.getByTestId('position-pitch-box').className).toMatch(/aspect-\[2\/3\]/);
+  });
+});
+
+describe('the associations line', () => {
+  test('is one observed line under the table, absent when the payload has none', () => {
+    const { rerender } = render(<PositionPitch data={{ ...SWITCH, associations: 'En J6–J8 coincidió con ausencias de Aa, Bb y Cc' }} />);
+    expect(screen.getByTestId('position-pitch-associations')).toHaveTextContent('En J6–J8 coincidió con ausencias de Aa, Bb y Cc');
+    expect(screen.getByTestId('position-pitch-table').nextElementSibling).toBe(screen.getByTestId('position-pitch-associations'));
+    rerender(<PositionPitch data={{ ...SWITCH, associations: null }} />);
+    expect(screen.queryByTestId('position-pitch-associations')).toBeNull();
   });
 });
