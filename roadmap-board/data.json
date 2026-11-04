@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-03",
+  "updated": "2026-11-04",
   "cards": [
     {
       "id": "s1",
@@ -2605,6 +2605,17 @@
       "col": "shipped",
       "title": "Fix: decimales con punto en español en el texto del orquestador",
       "desc": "Fusionada (PR #616, 03/11). Sigue a #611 y #613: se agrega una regla de decimales al bloque CONSTRAINTS del system prompt del orquestador para que el texto que escribe el LLM en español también use punto, nunca coma.",
+      "tags": [
+        "Backend",
+        "IA"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s82",
+      "col": "shipped",
+      "title": "Fix: snapshot/compare_players dejan de competir con get_player_involvement",
+      "desc": "Fusionada (PR #617, 03/11). get_player_snapshot y compare_players aclaran en su descripción que no cubren toques, pases ni pases clave para que el LLM no los elija en vez de get_player_involvement (sin nombrarla, porque no se ofrece con el flag apagado); get_position_changes pasa a inglés neutro en género en sus propias instrucciones, y se corrige la documentación que daba por sentado que Football Intelligence estaba apagada en prod.",
       "tags": [
         "Backend",
         "IA"
