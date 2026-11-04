@@ -101,9 +101,10 @@ type Pt = { x: number; y: number };
 type Rect = { x0: number; y0: number; x1: number; y1: number };
 type Seg = [number, number, number, number];
 /** Where a label sits relative to its dot: vertical offset in px (top edge) and how it is anchored horizontally. */
-export interface Placement { dy: number; anchor: 'out' | 'center' | 'start' | 'end' | 'right-of' | 'left-of' }
+export interface Placement { dy: number; anchor: 'out' | 'center' | 'start' | 'end' | 'right-of' | 'left-of' | 'edge-start' | 'edge-end' }
 
 const LABEL_H = 11;
+const EDGE = 4; // px kept between a label and the pitch box edge
 const labelWidth = (text: string) => Math.max(text.length - 2, 1) * 5.8; // px; " · " is rendered as one space
 
 /** The label's rectangle in SVG units for a placement (same rule as the CSS in Label). */
@@ -113,13 +114,20 @@ export function labelRect(at: Pt, text: string, p: Placement): Rect {
   const out = at.x < 30 ? 'start' : at.x > 70 ? 'end' : 'center';
   const anchor = p.anchor === 'out' ? out : p.anchor;
   const x0 = anchor === 'start' ? ax - 8 * PX : anchor === 'end' ? ax + 8 * PX - w : anchor === 'right-of' ? ax + 12 * PX
-    : anchor === 'left-of' ? ax - 12 * PX - w : ax - w / 2;
+    : anchor === 'left-of' ? ax - 12 * PX - w : anchor === 'edge-start' ? EDGE * PX : anchor === 'edge-end' ? W - EDGE * PX - w
+    : ax - w / 2;
   const y0 = ay + p.dy * PX;
   return { x0, y0, x1: x0 + w, y1: y0 + LABEL_H * PX };
 }
 
-/** True when the rectangle sits on the halfway line, on the centre circle's line, or on the connector. */
+/** True when the rectangle spills outside the pitch box (the box clips, so a label must stay fully inside it). */
+export function overflowsBox(r: Rect): boolean {
+  return r.x0 < EDGE * PX - 0.01 || r.x1 > W - EDGE * PX + 0.01 || r.y0 < 0 || r.y1 > H;
+}
+
+/** True when the rectangle is not fully inside the box, or sits on the halfway line, the centre circle's line or the connector. */
 export function crossesMarkings(r: Rect, connector?: Seg | null): boolean {
+  if (overflowsBox(r)) return true;
   const { cx, cy, r: rad } = CIRCLE;
   const [dx, dy] = [Math.max(r.x0 - cx, 0, cx - r.x1), Math.max(r.y0 - cy, 0, cy - r.y1)];
   const far = Math.hypot(Math.max(Math.abs(r.x0 - cx), Math.abs(r.x1 - cx)), Math.max(Math.abs(r.y0 - cy), Math.abs(r.y1 - cy)));
@@ -138,9 +146,10 @@ const BELOW = 12;
 const ABOVE = -24;
 
 /**
- * General rule, no per-role cases: try the preferred side of the dot, then the other, then each alignment, then beside
- * the dot, then clear of the centre circle above/below it; take the first that crosses none of the halfway line, the
- * centre circle or the connector. When nothing is clear (a dot inside the circle with no room) keep the preferred one.
+ * General rule, no per-role cases: try the preferred side of the dot, then the other, then each alignment (including
+ * flush with either pitch edge), then beside the dot, then clear of the centre circle above/below it; take the first
+ * that stays fully inside the box and crosses none of the halfway line, the centre circle or the connector. The width
+ * is an estimate (5.8 px per character), not a measurement. When nothing is clear keep the preferred one.
  */
 export function placeLabel(at: Pt, text: string, preferBelow: boolean, connector?: Seg | null): Placement {
   const ay = (at.y / 100) * H;
@@ -150,7 +159,7 @@ export function placeLabel(at: Pt, text: string, preferBelow: boolean, connector
   const clearBelow = (cy + r + 5 - ay) / PX;
   const candidates: Placement[] = [
     { dy: near, anchor: 'out' }, { dy: far, anchor: 'out' },
-    ...(['center', 'start', 'end'] as const).flatMap((anchor) => [{ dy: near, anchor }, { dy: far, anchor }]),
+    ...(['edge-start', 'edge-end', 'center', 'start', 'end'] as const).flatMap((anchor) => [{ dy: near, anchor }, { dy: far, anchor }]),
     { dy: -LABEL_H / 2, anchor: 'right-of' }, { dy: -LABEL_H / 2, anchor: 'left-of' },
     { dy: clearAbove, anchor: 'center' }, { dy: clearBelow, anchor: 'center' },
   ];
@@ -166,6 +175,8 @@ function Label({ at, text, place }: { at: Pt; text: string; place: Placement }) 
     : anchor === 'end' ? { right: `calc(${100 - at.x}% - 8px)` }
     : anchor === 'right-of' ? { left: `calc(${at.x}% + 12px)` }
     : anchor === 'left-of' ? { right: `calc(${100 - at.x}% + 12px)` }
+    : anchor === 'edge-start' ? { left: '4px' }
+    : anchor === 'edge-end' ? { right: '4px' }
     : { left: `${at.x}%`, transform: 'translateX(-50%)' };
   return (
     <span data-label-anchor={anchor} className="absolute whitespace-nowrap text-[11px] leading-none"

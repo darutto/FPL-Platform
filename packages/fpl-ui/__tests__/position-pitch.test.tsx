@@ -7,7 +7,7 @@
 import '@testing-library/jest-dom';
 import { render, screen } from '@testing-library/react';
 import GenericCard from '@/components/intents/GenericCard';
-import PositionPitch, { crossesMarkings, labelRect, placeLabel, placeRole } from '@/components/intents/PositionPitch';
+import PositionPitch, { crossesMarkings, labelRect, overflowsBox, placeLabel, placeRole } from '@/components/intents/PositionPitch';
 import { LocaleProvider } from '@/lib/i18n/LocaleProvider';
 import type { GenericCardMeta, PositionPitchMeta } from '@/lib/types';
 
@@ -144,7 +144,18 @@ describe('labels never cross the halfway line, the centre circle or the connecto
   const toBox = (p: { x: number; y: number }) => ({ x: (100 * (8 + (p.x / 100) * 224)) / 240, y: (100 * (8 + (p.y / 100) * 344)) / 360 });
   const toUnits = (p: { x: number; y: number }): [number, number] => [8 + (p.x / 100) * 224, 8 + (p.y / 100) * 344];
 
-  test('every old -> new role pair of the vocabulary gets two clear labels', () => {
+  // The product's role names (ES from position_changes_text._DETAILED_POSITION_ES, EN as the provider names them), with the
+  // longest gameweek prefixes. jsdom does not lay text out, so the label width is the component's own ESTIMATE
+  // (5.8 px per character, a bit wider than the real font); this checks the geometry rule, not rendered pixels.
+  const ES: Record<string, string> = {
+    Goalkeeper: 'Portero', 'Centre Back': 'Central', 'Right Back': 'Lateral derecho', 'Left Back': 'Lateral izquierdo',
+    'Defensive Midfield': 'Pivote', 'Central Midfield': 'Mediocentro', 'Attacking Midfield': 'Mediapunta',
+    'Right Midfield': 'Banda derecha', 'Left Midfield': 'Banda izquierda', Attacker: 'Delantero', 'Centre Forward': 'Delantero centro',
+  };
+  const EN_GW = (a: string) => `GW10–15 · ${a}`;
+  const ES_GW = (a: string) => `J10–J15 · ${ES[a]}`;
+
+  test('every old -> new role pair, in both locales, gets two clear labels fully inside the box', () => {
     const bad: string[] = [];
     for (const [fp, fs] of ROLES) {
       for (const [tp, ts] of ROLES) {
@@ -152,12 +163,25 @@ describe('labels never cross the halfway line, the centre circle or the connecto
         const [a, b] = [placeRole({ detailed_position: fp, side: fs, line: null }), placeRole({ detailed_position: tp, side: ts, line: null })];
         const [f, t] = [toBox(a), toBox(b)];
         const seg: [number, number, number, number] = [...toUnits(a), ...toUnits(b)];
-        const [lf, lt] = [`J1–J5 · ${fp}`, `J6–J10 · ${tp}`];
-        const [pf, pt] = [placeLabel(f, lf, f.y >= t.y, seg), placeLabel(t, lt, t.y > f.y, seg)];
-        if (crossesMarkings(labelRect(f, lf, pf), seg) || crossesMarkings(labelRect(t, lt, pt), seg)) bad.push(`${fp}/${fs} -> ${tp}/${ts}`);
+        for (const [lf, lt] of [[ES_GW(fp), ES_GW(tp)], [EN_GW(fp), EN_GW(tp)]]) {
+          const [pf, pt] = [placeLabel(f, lf, f.y >= t.y, seg), placeLabel(t, lt, t.y > f.y, seg)];
+          const [rf, rt] = [labelRect(f, lf, pf), labelRect(t, lt, pt)];
+          if (crossesMarkings(rf, seg) || crossesMarkings(rt, seg) || overflowsBox(rf) || overflowsBox(rt)) bad.push(`${lf} -> ${lt}`);
+        }
       }
     }
     expect(bad).toEqual([]);
+  });
+
+  test('a label on the right edge is flush-aligned instead of clipped (the right-midfield case, ES 390 / EN 280)', () => {
+    const from = toBox(placeRole({ detailed_position: 'Right Midfield', side: 'right', line: 'MID' }));
+    const to = toBox(placeRole({ detailed_position: 'Attacker', side: null, line: 'FWD' }));
+    for (const text of ['J1–J5 · Banda derecha', 'GW1–5 · Right Midfield', 'GW10–15 · Right Midfield']) {
+      const plain = labelRect(from, text, { dy: 12, anchor: 'out' });
+      const picked = labelRect(from, text, placeLabel(from, text, from.y >= to.y));
+      expect(overflowsBox(picked)).toBe(false);
+      if (text.length > 20) expect(overflowsBox(plain) || crossesMarkings(plain)).toBe(true); // the plain spot was the bad one
+    }
   });
 
   test('a wide midfielder just above the circle keeps its label off the circle (the right-midfield case)', () => {
