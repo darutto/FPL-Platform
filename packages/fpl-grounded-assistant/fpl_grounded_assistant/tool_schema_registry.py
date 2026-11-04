@@ -799,7 +799,9 @@ GET_PLAYER_SNAPSHOT_SCHEMA = ToolSchema(
         "Single player full grounding payload by name or numeric FPL element id. Returns status=ok+player "
         "(1 match), ambiguous+candidates (multi-match), or not_found. Use for "
         "every general named-player lookup, profile, or current-stat question. It has no touches, passes, pass "
-        "accuracy, key passes or backward passes."
+        "accuracy, key passes or backward passes. Its position is only FPL's label (GKP/DEF/MID/FWD): when a "
+        "lineup-based position tool is offered, use that one, not this, for where a player actually plays "
+        "('juega de defensa', 'en que posicion juega X', 'what position does X play')."
     ),
     parameters={
         "type": "object",
@@ -1592,7 +1594,9 @@ GET_POSITION_CHANGES_SCHEMA = ToolSchema(
         "Where a player was listed to START in their club's recent matches (the announced starting XI: position, "
         "side, formation), whether that differed from their own earlier starts, and which regular teammates were "
         "NOT in the starting XI in those matches. Use for 'cambio de posicion de X', 'quien lo sustituye', "
-        "'where does X play when Y is out', optionally with absent_player (a TEAMMATE) for 'cuando no jugo Y'. "
+        "'where does X play when Y is out', and for where a player actually plays versus their FPL position: 'juega de "
+        "defensa / medio / delantero', 'de que juega X', 'en que posicion juega X', 'es X realmente defensa', "
+        "'does X actually play as a defender', 'what position does X really play', optionally with absent_player (a TEAMMATE) for 'cuando no jugo Y'. "
         "Each statement carries claim_status: observed (a fact of the lineup), associated (it coincided with a "
         "teammate's absence), hypothesis (unproven). The slot is the ANNOUNCED lineup, never movement during the "
         "match. Words allowed: 'empezo en otra casilla' / 'started in a different slot', 'coincidio con la "
