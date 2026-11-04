@@ -7,7 +7,9 @@
 import '@testing-library/jest-dom';
 import { render, screen } from '@testing-library/react';
 import GenericCard from '@/components/intents/GenericCard';
-import PositionPitch, { crossesMarkings, labelRect, overflowsBox, placeLabel, placeRole } from '@/components/intents/PositionPitch';
+import PositionPitch, {
+  MAX_DOT_DISTANCE, dotDistance, hitsConnector, labelRect, outsideField, placeLabel, placeRole,
+} from '@/components/intents/PositionPitch';
 import { LocaleProvider } from '@/lib/i18n/LocaleProvider';
 import type { GenericCardMeta, PositionPitchMeta } from '@/lib/types';
 
@@ -155,7 +157,7 @@ describe('labels never cross the halfway line, the centre circle or the connecto
   const EN_GW = (a: string) => `GW10–15 · ${a}`;
   const ES_GW = (a: string) => `J10–J15 · ${ES[a]}`;
 
-  test('every old -> new role pair, in both locales, gets two clear labels fully inside the box', () => {
+  test('every old -> new role pair, in both locales: labels stay attached, inside the field lines, off the connector', () => {
     const bad: string[] = [];
     for (const [fp, fs] of ROLES) {
       for (const [tp, ts] of ROLES) {
@@ -164,38 +166,34 @@ describe('labels never cross the halfway line, the centre circle or the connecto
         const [f, t] = [toBox(a), toBox(b)];
         const seg: [number, number, number, number] = [...toUnits(a), ...toUnits(b)];
         for (const [lf, lt] of [[ES_GW(fp), ES_GW(tp)], [EN_GW(fp), EN_GW(tp)]]) {
-          const [pf, pt] = [placeLabel(f, lf, f.y >= t.y, seg), placeLabel(t, lt, t.y > f.y, seg)];
-          const [rf, rt] = [labelRect(f, lf, pf), labelRect(t, lt, pt)];
-          if (crossesMarkings(rf, seg) || crossesMarkings(rt, seg) || overflowsBox(rf) || overflowsBox(rt)) bad.push(`${lf} -> ${lt}`);
+          for (const [at, text, prefer] of [[f, lf, f.y >= t.y], [t, lt, t.y > f.y]] as const) {
+            const r = labelRect(at, text, placeLabel(at, text, prefer, seg));
+            if (outsideField(r) || hitsConnector(r, seg) || dotDistance(at, r) > MAX_DOT_DISTANCE) bad.push(`${text} (${fp}->${tp})`);
+          }
         }
       }
     }
     expect(bad).toEqual([]);
   });
 
-  test('a label on the right edge is flush-aligned instead of clipped (the right-midfield case, ES 390 / EN 280)', () => {
+  test('the right-midfield label stays on the dot side of the pitch (never the far side), in two lines when one will not fit', () => {
     const from = toBox(placeRole({ detailed_position: 'Right Midfield', side: 'right', line: 'MID' }));
     const to = toBox(placeRole({ detailed_position: 'Attacker', side: null, line: 'FWD' }));
+    const seg: [number, number, number, number] = [...toUnits(placeRole({ detailed_position: 'Right Midfield', side: 'right', line: 'MID' })),
+      ...toUnits(placeRole({ detailed_position: 'Attacker', side: null, line: 'FWD' }))];
     for (const text of ['J1–J5 · Banda derecha', 'GW1–5 · Right Midfield', 'GW10–15 · Right Midfield']) {
-      const plain = labelRect(from, text, { dy: 12, anchor: 'out' });
-      const picked = labelRect(from, text, placeLabel(from, text, from.y >= to.y));
-      expect(overflowsBox(picked)).toBe(false);
-      if (text.length > 20) expect(overflowsBox(plain) || crossesMarkings(plain)).toBe(true); // the plain spot was the bad one
+      const r = labelRect(from, text, placeLabel(from, text, from.y >= to.y, seg));
+      expect((r.x0 + r.x1) / 2).toBeGreaterThan(120); // right half of the 240-unit box
+      expect(dotDistance(from, r)).toBeLessThanOrEqual(MAX_DOT_DISTANCE);
+      expect(outsideField(r)).toBe(false);
+      expect(hitsConnector(r, seg)).toBe(false);
     }
-  });
-
-  test('a wide midfielder just above the circle keeps its label off the circle (the right-midfield case)', () => {
-    const from = toBox(placeRole({ detailed_position: 'Right Midfield', side: 'right', line: 'MID' }));
-    const to = toBox(placeRole({ detailed_position: 'Attacker', side: null, line: 'FWD' }));
-    const default_ = { dy: 12, anchor: 'out' as const };
-    expect(crossesMarkings(labelRect(from, 'J1–J5 · Right Midfield', default_))).toBe(true); // the plain "under the dot" spot crosses it
-    const picked = placeLabel(from, 'J1–J5 · Right Midfield', from.y >= to.y);
-    expect(crossesMarkings(labelRect(from, 'J1–J5 · Right Midfield', picked))).toBe(false);
   });
 
   test('the DOM carries the chosen anchor and the pitch keeps its box', () => {
     const { container } = render(<PositionPitch data={SWITCH} />);
     expect(container.querySelectorAll('[data-label-anchor]')).toHaveLength(2);
+    expect(container.querySelector('[data-label-lines]')).not.toBeNull();
     expect(screen.getByTestId('position-pitch-box').className).toMatch(/aspect-\[2\/3\]/);
   });
 });

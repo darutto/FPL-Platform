@@ -94,45 +94,50 @@ function Connector({ a, b, arrow }: { a: { x: number; y: number }; b: { x: numbe
   );
 }
 
-// --- label placement: a label must not cross the halfway line, the centre circle or the connector -----------------
+// --- label placement: a label stays attached to its dot, inside the field lines, clear of the connector --------------
 const PX = W / 280; // user units per CSS px at the narrowest box (labels are fixed-size HTML, so this is the worst case)
 const CIRCLE = { cx: W / 2, cy: H / 2, r: 9.15 * K };
 type Pt = { x: number; y: number };
 type Rect = { x0: number; y0: number; x1: number; y1: number };
 type Seg = [number, number, number, number];
-/** Where a label sits relative to its dot: vertical offset in px (top edge) and how it is anchored horizontally. */
-export interface Placement { dy: number; anchor: 'out' | 'center' | 'start' | 'end' | 'right-of' | 'left-of' | 'edge-start' | 'edge-end' }
+/**
+ * Where a label sits relative to its dot. `lines` is 1 ("GW1–5 Right Midfield") or 2 (the span, then the role).
+ * `anchor`: natural = extends towards the centre of the pitch for a dot near a side (centred for a central dot).
+ */
+export interface Placement { dy: number; anchor: 'natural' | 'center' | 'right-of' | 'left-of'; lines: 1 | 2 }
 
-const LABEL_H = 11;
-const EDGE = 4; // px kept between a label and the pitch box edge
-const labelWidth = (text: string) => Math.max(text.length - 2, 1) * 5.8; // px; " · " is rendered as one space
+const LINE_H = 11;
+const FIELD_GAP = 3; // px between a label and the field lines
+/** A label must stay this close to its dot (px, dot centre to the nearest point of the label). */
+export const MAX_DOT_DISTANCE = 28;
+const labelWidth = (text: string, lines: 1 | 2) => {
+  const [when, ...rest] = text.split(' · ');
+  const role = rest.join(' ');
+  return (lines === 1 ? Math.max(text.length - 2, 1) : Math.max(when.length, role.length, 1)) * 5.8; // px; an estimate
+};
 
-/** The label's rectangle in SVG units for a placement (same rule as the CSS in Label). */
+/** The label's rectangle in SVG units for a placement, clamped into the field lines (the same x the CSS uses). */
 export function labelRect(at: Pt, text: string, p: Placement): Rect {
   const [ax, ay] = [(at.x / 100) * W, (at.y / 100) * H];
-  const w = labelWidth(text) * PX;
-  const out = at.x < 30 ? 'start' : at.x > 70 ? 'end' : 'center';
-  const anchor = p.anchor === 'out' ? out : p.anchor;
-  const x0 = anchor === 'start' ? ax - 8 * PX : anchor === 'end' ? ax + 8 * PX - w : anchor === 'right-of' ? ax + 12 * PX
-    : anchor === 'left-of' ? ax - 12 * PX - w : anchor === 'edge-start' ? EDGE * PX : anchor === 'edge-end' ? W - EDGE * PX - w
-    : ax - w / 2;
+  const w = labelWidth(text, p.lines) * PX;
+  const natural = at.x < 30 ? 'start' : at.x > 70 ? 'end' : 'center';
+  const anchor = p.anchor === 'natural' ? natural : p.anchor;
+  const raw = anchor === 'start' ? ax - 8 * PX : anchor === 'end' ? ax + 8 * PX - w : anchor === 'right-of' ? ax + 12 * PX
+    : anchor === 'left-of' ? ax - 12 * PX - w : ax - w / 2;
+  const lo = M + FIELD_GAP * PX;
+  const x0 = Math.min(Math.max(raw, lo), Math.max(lo, W - lo - w));
   const y0 = ay + p.dy * PX;
-  return { x0, y0, x1: x0 + w, y1: y0 + LABEL_H * PX };
+  return { x0, y0, x1: x0 + w, y1: y0 + p.lines * LINE_H * PX };
 }
 
-/** True when the rectangle spills outside the pitch box (the box clips, so a label must stay fully inside it). */
-export function overflowsBox(r: Rect): boolean {
-  return r.x0 < EDGE * PX - 0.01 || r.x1 > W - EDGE * PX + 0.01 || r.y0 < 0 || r.y1 > H;
+/** True when the rectangle is not fully inside the field lines (with a small gap). */
+export function outsideField(r: Rect): boolean {
+  const g = FIELD_GAP * PX;
+  return r.x0 < M + g - 0.01 || r.x1 > W - M - g + 0.01 || r.y0 < M + g - 0.01 || r.y1 > H - M - g + 0.01;
 }
 
-/** True when the rectangle is not fully inside the box, or sits on the halfway line, the centre circle's line or the connector. */
-export function crossesMarkings(r: Rect, connector?: Seg | null): boolean {
-  if (overflowsBox(r)) return true;
-  const { cx, cy, r: rad } = CIRCLE;
-  const [dx, dy] = [Math.max(r.x0 - cx, 0, cx - r.x1), Math.max(r.y0 - cy, 0, cy - r.y1)];
-  const far = Math.hypot(Math.max(Math.abs(r.x0 - cx), Math.abs(r.x1 - cx)), Math.max(Math.abs(r.y0 - cy), Math.abs(r.y1 - cy)));
-  if (Math.hypot(dx, dy) <= rad + 2 && far >= rad - 2) return true;
-  if (r.y0 - 1 <= cy && cy <= r.y1 + 1) return true;
+/** True when the rectangle touches the connector (the arrow or the dotted link). */
+export function hitsConnector(r: Rect, connector?: Seg | null): boolean {
   if (!connector) return false;
   const [x1, y1, x2, y2] = connector;
   for (let i = 0; i <= 24; i += 1) {
@@ -142,47 +147,71 @@ export function crossesMarkings(r: Rect, connector?: Seg | null): boolean {
   return false;
 }
 
+/** How many pitch markings (the centre circle's line, the halfway line) the rectangle sits on: 0, 1 or 2. */
+export function markingsHit(r: Rect): number {
+  const { cx, cy, r: rad } = CIRCLE;
+  const [dx, dy] = [Math.max(r.x0 - cx, 0, cx - r.x1), Math.max(r.y0 - cy, 0, cy - r.y1)];
+  const far = Math.hypot(Math.max(Math.abs(r.x0 - cx), Math.abs(r.x1 - cx)), Math.max(Math.abs(r.y0 - cy), Math.abs(r.y1 - cy)));
+  const ring = Math.hypot(dx, dy) <= rad + 2 && far >= rad - 2;
+  const line = r.y0 - 1 <= cy && cy <= r.y1 + 1;
+  return Number(ring) + Number(line);
+}
+
+/** Distance in px from the dot's centre to the nearest point of the rectangle. */
+export function dotDistance(at: Pt, r: Rect): number {
+  const [ax, ay] = [(at.x / 100) * W, (at.y / 100) * H];
+  return Math.hypot(Math.max(r.x0 - ax, 0, ax - r.x1), Math.max(r.y0 - ay, 0, ay - r.y1)) / PX;
+}
+
 const BELOW = 12;
-const ABOVE = -24;
+const aboveFor = (lines: 1 | 2) => -(lines * LINE_H + 13);
 
 /**
- * General rule, no per-role cases: try the preferred side of the dot, then the other, then each alignment (including
- * flush with either pitch edge), then beside the dot, then clear of the centre circle above/below it; take the first
- * that stays fully inside the box and crosses none of the halfway line, the centre circle or the connector. The width
- * is an estimate (5.8 px per character), not a measurement. When nothing is clear keep the preferred one.
+ * General rule, no per-role cases. A label stays attached to its dot: under or over it, or beside it, in one or two
+ * lines, extending towards the centre of the pitch, never jumping to the far side. Hard limits: inside the field lines,
+ * not on the connector, within MAX_DOT_DISTANCE of the dot. First choice also keeps off the halfway line and the centre
+ * circle; if no such spot exists a label may sit on those faint lines (fewest first), never on the connector or the
+ * field edge. Widths are estimates (5.8 px per character), not measurements.
  */
 export function placeLabel(at: Pt, text: string, preferBelow: boolean, connector?: Seg | null): Placement {
-  const ay = (at.y / 100) * H;
-  const [near, far] = preferBelow ? [BELOW, ABOVE] : [ABOVE, BELOW];
-  const { cy, r } = CIRCLE;
-  const clearAbove = (cy - r - 5 - LABEL_H * PX - ay) / PX;
-  const clearBelow = (cy + r + 5 - ay) / PX;
+  const [near, far] = preferBelow ? ['below', 'above'] as const : ['above', 'below'] as const;
+  const dyOf = (side: 'below' | 'above', lines: 1 | 2) => (side === 'below' ? BELOW : aboveFor(lines));
+  const inward = at.x < 50 ? ['right-of', 'left-of'] as const : ['left-of', 'right-of'] as const;
   const candidates: Placement[] = [
-    { dy: near, anchor: 'out' }, { dy: far, anchor: 'out' },
-    ...(['edge-start', 'edge-end', 'center', 'start', 'end'] as const).flatMap((anchor) => [{ dy: near, anchor }, { dy: far, anchor }]),
-    { dy: -LABEL_H / 2, anchor: 'right-of' }, { dy: -LABEL_H / 2, anchor: 'left-of' },
-    { dy: clearAbove, anchor: 'center' }, { dy: clearBelow, anchor: 'center' },
+    ...([1, 2] as const).flatMap((lines) => ([near, far] as const).flatMap((side) =>
+      (['natural', 'center'] as const).map((anchor) => ({ dy: dyOf(side, lines), anchor, lines })))),
+    ...([1, 2] as const).flatMap((lines) => inward.map((anchor) => ({ dy: -(lines * LINE_H) / 2, anchor, lines }))),
   ];
-  return candidates.find((p) => !crossesMarkings(labelRect(at, text, p), connector)) ?? candidates[0];
+  const ok = candidates.filter((p) => {
+    const r = labelRect(at, text, p);
+    return !outsideField(r) && !hitsConnector(r, connector) && dotDistance(at, r) <= MAX_DOT_DISTANCE;
+  });
+  const clean = ok.find((p) => markingsHit(labelRect(at, text, p)) === 0);
+  if (clean) return clean;
+  const byMarkings = [...ok].sort((p, q) => markingsHit(labelRect(at, text, p)) - markingsHit(labelRect(at, text, q)));
+  return byMarkings[0] ?? candidates[0];
 }
 
 function Label({ at, text, place }: { at: Pt; text: string; place: Placement }) {
   const [when, ...rest] = text.split(' · ');
-  const out = at.x < 30 ? 'start' : at.x > 70 ? 'end' : 'center';
-  const anchor = place.anchor === 'out' ? out : place.anchor;
-  const horizontal =
-    anchor === 'start' ? { left: `calc(${at.x}% - 8px)` }
-    : anchor === 'end' ? { right: `calc(${100 - at.x}% - 8px)` }
-    : anchor === 'right-of' ? { left: `calc(${at.x}% + 12px)` }
-    : anchor === 'left-of' ? { right: `calc(${100 - at.x}% + 12px)` }
-    : anchor === 'edge-start' ? { left: '4px' }
-    : anchor === 'edge-end' ? { right: '4px' }
-    : { left: `${at.x}%`, transform: 'translateX(-50%)' };
+  const role = rest.join(' · ');
+  const r = labelRect(at, text, place);
+  const natural = at.x < 30 ? 'start' : at.x > 70 ? 'end' : 'center';
+  const anchor = place.anchor === 'natural' ? natural : place.anchor;
+  const align = anchor === 'end' || anchor === 'left-of' ? 'text-right' : anchor === 'center' ? 'text-center' : 'text-left';
   return (
-    <span data-label-anchor={anchor} className="absolute whitespace-nowrap text-[11px] leading-none"
-      style={{ top: `calc(${at.y}% + ${place.dy}px)`, ...horizontal }}>
+    <span data-label-anchor={anchor} data-label-lines={place.lines}
+      className={`absolute whitespace-nowrap text-[11px] leading-none ${align}`}
+      style={{
+        top: `calc(${at.y}% + ${place.dy}px)`,
+        // Anchor the side that touches the dot, so a real width a little under the estimate leaves no gap there.
+        ...(anchor === 'end' || anchor === 'left-of' ? { right: `${(100 * (W - r.x1)) / W}%` }
+          : anchor === 'center' ? { left: `${(100 * (r.x0 + r.x1)) / (2 * W)}%`, transform: 'translateX(-50%)' }
+            : { left: `${(100 * r.x0) / W}%` }),
+      }}>
       <b className="font-bold text-white">{when}</b>
-      {rest.length > 0 && <span className="font-medium text-bf-gray"> {rest.join(' · ')}</span>}
+      {role && (place.lines === 2 ? <br /> : ' ')}
+      {role && <span className="font-medium text-bf-gray">{role}</span>}
     </span>
   );
 }
