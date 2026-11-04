@@ -1678,6 +1678,11 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     "gcard.position_changes.note_line_forward": {"en": "Same role, different line: further forward", "es": "Mismo rol, otra línea: más adelantado"},
     "gcard.position_changes.note_line_deeper": {"en": "Same role, different line: deeper", "es": "Mismo rol, otra línea: más retrasado"},
     "gcard.position_changes.note_line_unknown": {"en": "Same role; line not comparable", "es": "Mismo rol; línea no comparable"},
+    "gcard.position_changes.assoc_line_one": {"en": "In {gws}, coincided with the absence of {names}", "es": "En {gws} coincidió con la ausencia de {names}"},
+    "gcard.position_changes.assoc_line_many": {"en": "In {gws}, coincided with the absence of {names}", "es": "En {gws} coincidió con ausencias de {names}"},
+    "gcard.position_changes.assoc_and": {"en": "and", "es": "y"},
+    "gcard.position_changes.assoc_tail_atleast": {"en": "and at least {n} more", "es": "y al menos {n} más"},
+    "gcard.position_changes.assoc_tail_others": {"en": "and others", "es": "y otros"},
     "gcard.position_changes.note_assoc": {"en": "Coincided with the absence of {name}", "es": "Coincidi\u00f3 con la ausencia de {name}"},
     "gcard.position_changes.note_none": {"en": "-", "es": "-"},
     # --- S5-B atomic cards + tool errors ---

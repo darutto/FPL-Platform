@@ -249,6 +249,44 @@ def _gw_span(gameweeks: list[Any], locale: Locale) -> str:
     return t("gcard.position_changes.gw_one" if a == b else "gcard.position_changes.gw_span", locale, a=a, b=b)
 
 
+def _assoc_line(matches: list[dict[str, Any]], locale: Locale, cap: int = 3) -> "str | None":
+    """One observed line for the teammates whose absence from the XI coincided with his starts, or ``None``.
+
+    Names are deduped across matches in order of first appearance and capped (the first ``cap``, then "and N more");
+    the gameweeks named are exactly the matches that carry an association (a span only when no match in between lacks
+    one), so the line never says "since GWx" about a match that does not have it. Association, never a cause.
+    """
+    names: list[str] = []
+    gws: list[int] = []
+    hidden = False
+    for m in matches:
+        assoc = m.get("associations") or []
+        if not assoc:
+            continue
+        if m.get("gameweek") is not None:
+            gws.append(m["gameweek"])
+        hidden = hidden or bool(m.get("associations_more"))
+        for a in assoc:
+            name = (a.get("teammate") or {}).get("web_name")
+            if name and name not in names:
+                names.append(name)
+    if not names:
+        return None
+    all_gws = [m.get("gameweek") for m in matches if m.get("gameweek") is not None]
+    contiguous = bool(gws) and all(g in gws for g in all_gws if min(gws) <= g <= max(gws))
+    when = _gw_span(gws, locale) if contiguous else ", ".join(t("gcard.position_changes.gw_one", locale, a=g) for g in gws)
+    shown, extra = names[:cap], len(names) - cap
+    if extra > 0:
+        tail = t("gcard.position_changes.assoc_tail_atleast" if hidden else "gcard.position_changes.note_assoc_more", locale, n=extra)
+        who = ", ".join(shown) + " " + tail
+    elif hidden:
+        who = ", ".join(shown) + " " + t("gcard.position_changes.assoc_tail_others", locale)
+    else:
+        who = (", ".join(shown[:-1]) + " " + t("gcard.position_changes.assoc_and", locale) + " " + shown[-1]) if len(shown) > 1 else shown[0]
+    one = len(names) == 1 and not hidden
+    return t("gcard.position_changes.assoc_line_one" if one else "gcard.position_changes.assoc_line_many", locale, gws=when, names=who)
+
+
 def _position_pitch(raw_output: dict[str, Any], locale: Locale) -> "dict[str, Any] | None":
     """The mini-pitch payload (old -> new starting role, or FPL listing -> played role) plus its per-90 table.
 
@@ -297,7 +335,8 @@ def _position_pitch(raw_output: dict[str, Any], locale: Locale) -> "dict[str, An
                      locale, n=n)
     labels["before"] = t("gcard.position_changes.col_before", locale)
     labels["after"] = t("gcard.position_changes.col_after", locale)
-    return {"kind": kind, "from": frm, "to": to, "labels": labels, "rows": rows, "note": note, "claim_status": "observed"}
+    return {"kind": kind, "from": frm, "to": to, "labels": labels, "rows": rows, "note": note,
+            "associations": _assoc_line(raw_output.get("matches") or [], locale), "claim_status": "observed"}
 
 
 def compose_position_changes_card(raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> "GenericCardMeta | None":
@@ -323,7 +362,9 @@ def compose_position_changes_card(raw_output: dict[str, Any], locale: Locale = D
             Column(header=t("gcard.position_changes.col_slot", locale), align="left", kind="text"),
             Column(header=t("gcard.position_changes.col_note", locale), align="left", kind="text"),
         )
+        pitch = _position_pitch(raw_output, locale)
         rows: list[tuple[str, ...]] = []
+        adds = False  # with the pitch on, the per-match table shows only when a row says what the pitch cannot
         for m in matches:
             where = t("renderer.position_changes.home" if m.get("is_home") else "renderer.position_changes.away", locale,
                       opp=m.get("opponent", "?"))
@@ -335,20 +376,24 @@ def compose_position_changes_card(raw_output: dict[str, Any], locale: Locale = D
             else:
                 slot = t("renderer.position_changes.not_listed", locale)
             notes: list[str] = []
-            if m.get("change") and m["change"].get("kind") == "line":
+            if pitch:
+                pass  # the pitch already says the starting role and how it changed
+            elif m.get("change") and m["change"].get("kind") == "line":
                 notes.append(t("gcard.position_changes.note_line_forward" if m["change"].get("direction") == "further_forward"
                                else "gcard.position_changes.note_line_deeper", locale))
             elif m.get("change"):
                 notes.append(t("gcard.position_changes.note_changed", locale, before=role_text(m["change"].get("from"), locale)))
             elif m.get("line_comparable") is False:
                 notes.append(t("gcard.position_changes.note_line_unknown", locale))
+            if m.get("fpl_out") or slot_row_text(m.get("slot_occupants"), locale):
+                adds = True  # associations do not: with a pitch they are one line under its table
             if m.get("fpl_out"):
                 notes.append(out_text(m["fpl_out"], locale))
             if slot_row_text(m.get("slot_occupants"), locale):
                 notes.append(slot_row_text(m.get("slot_occupants"), locale))
-            for a in m.get("associations") or []:
+            for a in ([] if pitch else m.get("associations") or []):
                 notes.append(t("gcard.position_changes.note_assoc", locale, name=(a.get("teammate") or {}).get("web_name", "?")))
-            if m.get("associations_more"):
+            if m.get("associations_more") and not pitch:
                 notes.append(t("gcard.position_changes.note_assoc_more", locale, n=m["associations_more"]))
             gw = m.get("gameweek")
             rows.append((
@@ -362,13 +407,15 @@ def compose_position_changes_card(raw_output: dict[str, Any], locale: Locale = D
         gap = raw_output.get("fpl_position_gap")
         switch = raw_output.get("role_switch")
         pills: list[Pill] = []
-        if gap:
+        # With a pitch: the "Before" / "Same slot" pills repeat it, and "FPL: X" repeats the tag the pitch draws itself
+        # (the listing kind); in the switch kind the pitch does not show the FPL position, so the pill stays.
+        if gap and not (pitch and pitch["kind"] == "fpl_listing"):
             pills.append(Pill(label=t("gcard.position_changes.pill_fpl", locale,
                                       fpl=t(f"gcard.position_changes.code_{gap.get('fpl_position')}", locale)), tone="neutral"))
-        if switch:
+        if switch and not pitch:
             pills.append(Pill(label=t("gcard.position_changes.pill_before", locale, role=role_text(switch["from"], locale),
                                       n=switch.get("held_before"), m=switch.get("starts_before")), tone="neutral"))
-        elif gap:
+        elif gap and not pitch:
             same, listed = _same_slot(matches, gap)
             pills.append(Pill(label=t("gcard.position_changes.pill_same_slot", locale, n=same, m=listed), tone="neutral"))
         if sample.get("small_sample"):
@@ -398,13 +445,13 @@ def compose_position_changes_card(raw_output: dict[str, Any], locale: Locale = D
                            label=t("gcard.position_changes.hero_switch", locale,
                                    role=role_text(switch["to"], locale).lower(), gw=switch.get("since_gameweek")))
                   if switch else
-                  HeroStat(value=f"{gap.get('starts')}/{gap.get('of')}", tone=None,
-                           label=t("gcard.position_changes.hero_gap", locale,
-                                   line=t(f"renderer.position_changes.line_{gap.get('played_line')}", locale)))
+                  HeroStat(value="{}/{}".format(*_same_slot(matches, gap)), tone=None,
+                           label=t("gcard.position_changes.hero_gap", locale, line=role_text(
+                               {"detailed_position": gap.get("detailed_position"), "side": gap.get("side")}, locale).lower()))
                   if gap else HeroStat(value=str(changes), label=t("gcard.position_changes.hero", locale), tone=None)),
-            pills=tuple(pills), columns=columns, rows=tuple(rows),
+            pills=tuple(pills), columns=columns if (adds or not pitch) else (), rows=tuple(rows) if (adds or not pitch) else (),
             footer=t("renderer.position_changes.provenance", locale, built_at=str(built)[:10]) if built else None,
-            position_pitch=_position_pitch(raw_output, locale),
+            position_pitch=pitch,
         )
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("atomic_tool_cards: failed to compose get_position_changes card (%s); falling back to prose",
