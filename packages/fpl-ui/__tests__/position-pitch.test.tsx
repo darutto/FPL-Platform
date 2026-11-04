@@ -53,6 +53,25 @@ describe('placement: attack up, attacker left = viewer left, from role + side on
   });
 });
 
+describe('the pitch is vertical, in real proportions', () => {
+  test('the container and the drawing are taller than wide, and nothing stretches the circle', () => {
+    const { container } = render(<PositionPitch data={SWITCH} />);
+    const frame = screen.getByTestId('position-pitch-box');
+    const [w, h] = (frame.className.match(/aspect-\[(\d+)\/(\d+)\]/) ?? []).slice(1).map(Number);
+    expect(h).toBeGreaterThan(w);
+    const svg = frame.querySelector('svg') as SVGSVGElement;
+    const [, , vw, vh] = svg.getAttribute('viewBox')!.split(' ').map(Number);
+    expect(vh).toBeGreaterThan(vw);
+    expect(vw / vh).toBeCloseTo(w / h, 5); // box and drawing share one aspect
+    expect(svg.getAttribute('preserveAspectRatio')).not.toBe('none');
+    const field = svg.querySelector('rect') as SVGRectElement;
+    const ratio = Number(field.getAttribute('width')) / Number(field.getAttribute('height'));
+    expect(ratio).toBeGreaterThan(0.62); // ≈ 68/105
+    expect(ratio).toBeLessThan(0.67);
+    expect(container.innerHTML).not.toMatch(/aspect-\[5\/3\]/);
+  });
+});
+
 describe('a role switch', () => {
   test('old role is a dashed ring, new role a solid dot above it, joined by an arrow', () => {
     const { container } = render(<PositionPitch data={SWITCH} />);

@@ -5,14 +5,14 @@
  *   switch       old starting role (dashed ring) → new role (solid dot), joined by an arrow;
  *   fpl_listing  FPL's listed line (dashed tag, nobody played there) and the role actually played, joined by a quiet
  *                dotted link with NO arrowhead: nobody moved.
- * The pitch is the squad pitch's drawing (FullPitchLines, 400×240), attack UP and the attacker's left on the viewer's
- * left, framed like the zone pitches (centred, at most 420px wide). Roles are placed from provider role + side, never
- * from the provider grid cell. Lines and the connector scale with the pitch; dots and labels are HTML at fixed sizes,
- * so the text never scales. The table is neutral: the value since the change in bold, no colours, no +/−.
+ * The pitch is its own vertical drawing in real proportions (68×105 m, one scale on both axes, so the circle stays a
+ * circle), attack UP and the attacker's left on the viewer's left; the squad pitch keeps its own landscape drawing.
+ * Roles are placed from provider role + side, never from the provider grid cell. Lines and the connector scale with
+ * the pitch; dots and labels are HTML at fixed sizes, so the text never scales. The table is neutral: the value since
+ * the change in bold, no colours, no +/−.
  */
 import type { PitchRole, PositionPitchMeta } from '@/lib/types';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
-import { FullPitchLines } from './PitchGeometry';
 import { fmt } from './InvolvementCompareCard';
 
 /** Distance from the attacked goal (top), as a share of the pitch length, by provider role. */
@@ -35,9 +35,45 @@ export function placeRole(role: PitchRole, fallbackSide?: string | null): { x: n
   return { x, y };
 }
 
-// SVG user units for the connector (the pitch box maps 0..100% to the 8..392 × 8..232 field).
-const ux = (p: number) => 8 + (p / 100) * 384;
-const uy = (p: number) => 8 + (p / 100) * 224;
+// Vertical pitch, 240×360 user units (2:3 box): the field is 224×344 inside an 8-unit margin, ≈68×105 m at one scale.
+const W = 240;
+const H = 360;
+const M = 8;
+const K = 224 / 68; // units per metre
+const ux = (p: number) => M + (p / 100) * (W - 2 * M);
+const uy = (p: number) => M + (p / 100) * (H - 2 * M);
+/** Field percent → percent of the whole box (where the HTML dots and labels sit). */
+const box = (p: { x: number; y: number }) => ({ x: (100 * ux(p.x)) / W, y: (100 * uy(p.y)) / H });
+
+/** Markings to scale: halfway line, centre circle and spot, both boxes, goal areas, penalty spots and arcs. */
+export function VerticalPitchLines() {
+  const cx = W / 2;
+  const [box18w, box18d, box6w, box6d, spot, r] = [40.32 * K, 16.5 * K, 18.32 * K, 5.5 * K, 11 * K, 9.15 * K];
+  const arcDx = Math.sqrt(r * r - (box18d - spot) ** 2);
+  const ends = [
+    { y0: M, dir: 1 },
+    { y0: H - M, dir: -1 },
+  ];
+  return (
+    <g fill="none" stroke="white" strokeWidth={1.5}>
+      <rect x={M} y={M} width={W - 2 * M} height={H - 2 * M} strokeWidth={2} />
+      <line x1={M} y1={H / 2} x2={W - M} y2={H / 2} />
+      <circle cx={cx} cy={H / 2} r={r} />
+      <circle cx={cx} cy={H / 2} r={1.5} fill="white" stroke="none" />
+      {ends.map(({ y0, dir }) => {
+        const line18 = y0 + dir * box18d;
+        return (
+          <g key={y0}>
+            <rect x={cx - box18w / 2} y={dir > 0 ? y0 : line18} width={box18w} height={box18d} />
+            <rect x={cx - box6w / 2} y={dir > 0 ? y0 : y0 - box6d} width={box6w} height={box6d} />
+            <circle cx={cx} cy={y0 + dir * spot} r={1.5} fill="white" stroke="none" />
+            <path d={`M${cx - arcDx} ${line18} A${r} ${r} 0 0 ${dir > 0 ? 0 : 1} ${cx + arcDx} ${line18}`} />
+          </g>
+        );
+      })}
+    </g>
+  );
+}
 
 function Connector({ a, b, arrow }: { a: { x: number; y: number }; b: { x: number; y: number }; arrow: boolean }) {
   const [x1, y1, x2, y2] = [ux(a.x), uy(a.y), ux(b.x), uy(b.y)];
@@ -78,16 +114,19 @@ function Label({ at, text, below }: { at: { x: number; y: number }; text: string
 export default function PositionPitch({ data }: { data: PositionPitchMeta }) {
   const { locale } = useLocale();
   const listing = data.kind === 'fpl_listing';
-  const to = placeRole(data.to);
-  const from = placeRole(data.from, listing ? data.to.side : null);
+  const toField = placeRole(data.to);
+  const fromField = placeRole(data.from, listing ? data.to.side : null);
+  const [to, from] = [box(toField), box(fromField)];
   const hasBefore = data.rows.some((r) => r.before !== undefined);
 
   return (
     <div className="space-y-3" data-testid="position-pitch" data-kind={data.kind}>
-      <div className="relative mx-auto w-full max-w-[420px] aspect-[5/3] overflow-hidden rounded-lg bg-gradient-to-b from-bf-pitch to-bf-pitch-dark">
-        <svg aria-hidden="true" className="absolute inset-0 h-full w-full" viewBox="0 0 400 240" preserveAspectRatio="none">
-          <g opacity={0.2}><FullPitchLines /></g>
-          <Connector a={from} b={to} arrow={!listing} />
+      {/* 2:3 box; at most 280px wide on desktop (≈420 tall), up to 306px on a phone (height capped ≈460). */}
+      <div data-testid="position-pitch-box"
+        className="relative mx-auto w-full max-w-[306px] sm:max-w-[280px] aspect-[2/3] overflow-hidden rounded-lg bg-gradient-to-b from-bf-pitch to-bf-pitch-dark">
+        <svg aria-hidden="true" className="absolute inset-0 h-full w-full" viewBox={`0 0 ${W} ${H}`}>
+          <g opacity={0.2}><VerticalPitchLines /></g>
+          <Connector a={fromField} b={toField} arrow={!listing} />
         </svg>
         {listing ? (
           <span data-role="listing"

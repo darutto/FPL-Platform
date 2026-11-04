@@ -197,8 +197,8 @@ def test_catalogue_has_both_languages_for_the_new_keys():
     assert all(_CATALOGUE[k]["en"] and _CATALOGUE[k]["es"] for k in keys)
 
 
-@pytest.mark.parametrize("locale,label,pill", [("es", "como medio", "Misma casilla 6/6"),
-                                               ("en", "as midfielder", "Same slot 6/6")])
+@pytest.mark.parametrize("locale,label,pill", [("es", "como banda izquierda", "Misma casilla 6/6"),
+                                               ("en", "as left midfield", "Same slot 6/6")])
 def test_card_hero_shows_the_gap_and_the_same_slot_pill_follows(locale, label, pill):
     card = compose_position_changes_card(_run(), locale)
     assert (card.hero.value, card.hero.label) == ("6/6", label)

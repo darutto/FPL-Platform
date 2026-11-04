@@ -30,22 +30,3 @@ export function PitchLines() {
     </>
   );
 }
-
-/**
- * Full-pitch markings at 400×240 (5:3), goals at the top and bottom: the squad pitch's drawing, shared with the
- * position-changes mini-pitch. Attack goes UP, the attacker's left is the viewer's left (as in the zone views).
- * Draw inside an SVG with viewBox "0 0 400 240"; the stroke colour is white, dimmed by the caller's opacity.
- */
-export function FullPitchLines() {
-  return (
-    <>
-      <rect x="8" y="8" width="384" height="224" fill="none" stroke="white" strokeWidth="2" />
-      <line x1="8" y1="120" x2="392" y2="120" stroke="white" strokeWidth="1.5" />
-      <circle cx="200" cy="120" r="34" fill="none" stroke="white" strokeWidth="1.5" />
-      <rect x="130" y="8" width="140" height="36" fill="none" stroke="white" strokeWidth="1.5" />
-      <rect x="130" y="196" width="140" height="36" fill="none" stroke="white" strokeWidth="1.5" />
-      <rect x="162" y="8" width="76" height="15" fill="none" stroke="white" strokeWidth="1.5" />
-      <rect x="162" y="217" width="76" height="15" fill="none" stroke="white" strokeWidth="1.5" />
-    </>
-  );
-}

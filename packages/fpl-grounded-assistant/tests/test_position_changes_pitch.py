@@ -186,6 +186,27 @@ def test_the_card_carries_the_pitch_in_the_request_language(locale, hero, pill, 
     assert "grid_slot" not in str(pp)
 
 
+def test_the_hero_role_is_the_pitch_role():
+    for locale in ("es", "en"):
+        card = compose_position_changes_card(_run(), locale)
+        assert card.position_pitch["labels"]["to"].split(" · ")[1].lower() in card.hero.label
+
+
+def test_the_per_match_table_is_off_when_the_pitch_says_it_all():
+    card = compose_position_changes_card(_run(), "es")
+    assert card.rows == () and card.columns == ()
+
+
+def test_the_per_match_table_comes_back_for_what_the_pitch_cannot_say_without_the_change_note():
+    out = _run()
+    out["matches"][5]["associations"] = [{"teammate": {"player_id": 99, "web_name": "Synthetic"}}]
+    for locale, changed in (("es", "Empezó en otra casilla"), ("en", "Started in a different slot")):
+        card = compose_position_changes_card(out, locale)
+        assert len(card.rows) == 8 and len(card.columns) == 4
+        flat = " ".join(r[3] for r in card.rows)
+        assert "Synthetic" in flat and changed not in flat
+
+
 def test_the_payload_travels_on_the_wire_and_is_null_elsewhere():
     wire = generic_card_to_dict(compose_position_changes_card(_run(), "es"))
     assert wire["position_pitch"]["kind"] == "switch" and wire["involvement_compare"] is None
