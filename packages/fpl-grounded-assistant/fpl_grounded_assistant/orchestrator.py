@@ -904,6 +904,9 @@ def _build_multi_tool_follow_up(
 _EN_LOCALE_LINE: str = (
     "\nLOCALE=en: write the whole answer in British English, whatever language the"
     " question is written in (chip names stay in English; keep player and team names as given)."
+    " This overrides respond_lang = user_lang above: a Spanish question, Spanish example phrases in tool"
+    " descriptions or Spanish text anywhere in this prompt do not change the answer language; when a tool"
+    " description quotes a Spanish phrase, say its English equivalent."
 )
 
 

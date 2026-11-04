@@ -77,6 +77,10 @@ def test_en_locale_appends_exactly_one_line():
     assert en.startswith(orch_mod._SYSTEM_PROMPT)
     assert en[len(orch_mod._SYSTEM_PROMPT):] == orch_mod._EN_LOCALE_LINE
     assert "LOCALE=en" in en
+    # The line names its conflict with the base prompt's respond_lang = user_lang (question_lang "unknown" or es).
+    line = orch_mod._EN_LOCALE_LINE
+    assert "overrides respond_lang = user_lang" in line and "Spanish question" in line
+    assert "say its English equivalent" in line
     ev = evaluator_mod.evaluator_system_prompt("en")
     assert ev.startswith(evaluator_mod._EVALUATOR_SYSTEM_PROMPT)
     assert "LOCALE=en" in ev
