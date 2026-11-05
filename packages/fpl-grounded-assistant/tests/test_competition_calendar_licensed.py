@@ -1,6 +1,8 @@
 """/fixtures/competitions served from the synced licensed store (cups) plus the PL fixtures. No network."""
 from __future__ import annotations
 
+from datetime import timedelta, timezone
+
 import pandas as pd
 import pytest
 
@@ -11,6 +13,11 @@ SNAP_COLS = ["competition", "season", "source", "fetched_at", "complete_as_of", 
 REC_COLS = ["competition", "season", "club", "opponent", "opponent_code", "kickoff_utc", "venue", "status",
             "source", "fetched_at", "gameweek"]
 NOW_ISO = "2099-01-01T00:00:00Z"
+
+
+def _fetched():
+    """A fetch time an hour ago on the clock the product reads, so the 8-day staleness window never expires."""
+    return (cc.datetime.now(timezone.utc) - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 class FakeHandle:
@@ -25,7 +32,7 @@ class FakeHandle:
 
 
 def _fa(club, opp, code, when, venue="H"):
-    return ["FA", "2026-2027", club, opp, code, when, venue, "scheduled", "licensed", "2026-10-27T06:00:00Z", None]
+    return ["FA", "2026-2027", club, opp, code, when, venue, "scheduled", "licensed", _fetched(), None]
 
 
 def _install(monkeypatch, snaps, recs):
@@ -44,7 +51,7 @@ def _pl_stub(season, fetched_at):
 
 
 def _snap(comp="FA", complete_as_of=None):
-    return [comp, "2026-2027", "licensed", "2026-10-27T06:00:00Z", complete_as_of, 0, 0]
+    return [comp, "2026-2027", "licensed", _fetched(), complete_as_of, 0, 0]
 
 
 def test_premium_gets_the_cup_match_with_provenance_and_partial_coverage(monkeypatch):
