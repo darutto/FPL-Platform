@@ -166,7 +166,7 @@ def test_the_new_catalogue_keys_come_in_pairs_with_the_same_placeholders():
 
 def test_english_position_changes_text_has_no_gendered_pronouns():
     import re
-    gendered = re.compile(r"(?:he|him|his|himself|she|her|hers|herself)", re.IGNORECASE)
+    gendered = re.compile(r"\b(?:he|him|his|himself|she|her|hers|herself)\b", re.IGNORECASE)
     for key, entry in _CATALOGUE.items():
         if key.startswith("renderer.position_changes."):
             assert not gendered.search(entry["en"]), key
