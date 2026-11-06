@@ -81,6 +81,7 @@ def test_en_locale_appends_exactly_one_line():
     line = orch_mod._EN_LOCALE_LINE
     assert "overrides respond_lang = user_lang" in line and "Spanish question" in line
     assert "say its English equivalent" in line
+    assert "never with gendered pronouns" in line and "do not mention this" in line
     ev = evaluator_mod.evaluator_system_prompt("en")
     assert ev.startswith(evaluator_mod._EVALUATOR_SYSTEM_PROMPT)
     assert "LOCALE=en" in ev
