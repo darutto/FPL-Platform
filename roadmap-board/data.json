@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-04",
+  "updated": "2026-11-06",
   "cards": [
     {
       "id": "s1",
@@ -2619,6 +2619,28 @@
       "tags": [
         "Backend",
         "IA"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s83",
+      "col": "shipped",
+      "title": "Inglés sin pronombres de género en position-changes",
+      "desc": "Fusionada (PR #627, 06/11). Las 11 cadenas en inglés de renderer.position_changes.* que usaban he/him/his se reescriben sin pronombres de género, mismos placeholders y significado observado-only, con test que falla si aparece un pronombre de género en esas cadenas.",
+      "tags": [
+        "Backend",
+        "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s84",
+      "col": "shipped",
+      "title": "Fix: stubs del calendario de copas ya no dependen del reloj",
+      "desc": "Fusionada (PR #625, 05/11). Los stubs de test_competition_calendar_licensed.py y test_competition_layers_coexist.py fijaban fetched_at en una fecha absoluta y empezaron a fallar el 04/11 al superar los 8 días de DEFAULT_STALE_AFTER; ahora calculan fetched_at relativo al reloj real (cc.datetime) para no depender de la fecha de ejecución.",
+      "tags": [
+        "Backend",
+        "Datos"
       ],
       "progress": 100
     }
