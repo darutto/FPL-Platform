@@ -88,6 +88,12 @@ def test_the_note_names_no_question_language():
     assert "whatever language the question is in" in _EN_TURN_NOTE
 
 
+def test_the_note_asks_for_gender_neutral_player_references_without_commenting_on_it():
+    assert '"they"' in _EN_TURN_NOTE and '"the player"' in _EN_TURN_NOTE and "by name" in _EN_TURN_NOTE
+    assert "never he, him, his, she or her" in _EN_TURN_NOTE
+    assert "do not mention this rule" in _EN_TURN_NOTE
+
+
 def test_es_requests_are_untouched():
     result, calls = _ask(ES_Q, "es")
     assert len(calls) == 2
