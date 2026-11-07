@@ -907,7 +907,8 @@ _EN_LOCALE_LINE: str = (
     " This overrides respond_lang = user_lang above: a Spanish question, Spanish example phrases in tool"
     " descriptions or Spanish text anywhere in this prompt do not change the answer language; when a tool"
     " description quotes a Spanish phrase, say its English equivalent."
-    " Refer to players by name, \"they\" or \"the player\", never with gendered pronouns, and do not mention this."
+    " Refer to a player by name or \"the player\" and build sentences so that no personal pronoun (he, him, his,"
+    " she, her, they, them, their) is needed for a player; do not mention this."
 )
 
 
@@ -925,7 +926,8 @@ def static_system_prompt(locale: Locale = DEFAULT_LOCALE) -> str:
 #: are deliberately unchanged. Anthropic and Gemini keep only the line above (the whole LLM runs on OpenAI).
 _EN_TURN_NOTE: str = (
     "LOCALE=en: write the whole answer in British English, whatever language the question is in."
-    " Refer to players by name, \"they\" or \"the player\", never he, him, his, she or her; do not mention this rule."
+    " Refer to a player by name or \"the player\" and build sentences so that no personal pronoun (he, him, his,"
+    " she, her, they, them, their) is needed for a player; do not mention this rule."
 )
 
 
