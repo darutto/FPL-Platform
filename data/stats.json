@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-06T05:04:52Z",
+  "generatedAt": "2026-11-07T05:03:56Z",
   "season": "2026/27",
   "seasonStatus": "in_season",
   "gameweek": 9,
@@ -147,20 +147,20 @@
   ],
   "players": [
     {
+      "name": "Barry",
+      "team": "EVE",
+      "position": "FWD",
+      "xg": 7.29,
+      "xa": 0.48,
+      "minutes": 851
+    },
+    {
       "name": "Haaland",
       "team": "MCI",
       "position": "FWD",
       "xg": 6.56,
       "xa": 0.85,
       "minutes": 799
-    },
-    {
-      "name": "Barry",
-      "team": "EVE",
-      "position": "FWD",
-      "xg": 6.37,
-      "xa": 0.38,
-      "minutes": 761
     },
     {
       "name": "Mbeumo",
@@ -283,6 +283,14 @@
       "minutes": 735
     },
     {
+      "name": "Rudoni",
+      "team": "COV",
+      "position": "MID",
+      "xg": 2.23,
+      "xa": 1.68,
+      "minutes": 730
+    },
+    {
       "name": "Foden",
       "team": "MCI",
       "position": "MID",
@@ -329,14 +337,6 @@
       "xg": 1.76,
       "xa": 1.81,
       "minutes": 472
-    },
-    {
-      "name": "Rudoni",
-      "team": "COV",
-      "position": "MID",
-      "xg": 2.11,
-      "xa": 1.42,
-      "minutes": 645
     },
     {
       "name": "Wissa",
