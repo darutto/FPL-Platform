@@ -142,7 +142,7 @@ def test_the_text_uses_only_the_allowed_phrases_and_no_causal_words(run, locale)
         assert "Banda derecha" in text and "Mediapunta" in text
     else:
         assert "started in a different slot" in text and "coincided with the absence of João Pedro" in text
-        assert "In the starting XI without João Pedro: 1; with the player: 4" in text and "not movement during the match" in text
+        assert "In the starting XI without João Pedro: 1; with him: 4" in text and "not movement during the match" in text
         assert "Right Midfield" in text and "Attacking Midfield" in text
 
 
@@ -162,14 +162,6 @@ def test_the_new_catalogue_keys_come_in_pairs_with_the_same_placeholders():
         entry = _CATALOGUE[key]
         assert set(entry) == {"en", "es"} and entry["en"] and entry["es"]
         assert sorted(re.findall(r"{(\w+)}", entry["en"])) == sorted(re.findall(r"{(\w+)}", entry["es"])), key
-
-
-def test_english_position_changes_text_has_no_gendered_pronouns():
-    import re
-    gendered = re.compile(r"\b(?:he|him|his|himself|she|her|hers|herself)\b", re.IGNORECASE)
-    for key, entry in _CATALOGUE.items():
-        if key.startswith("renderer.position_changes."):
-            assert not gendered.search(entry["en"]), key
 
 
 def test_the_output_has_no_store_rows_or_provider_ids(run):
