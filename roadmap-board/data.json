@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-06",
+  "updated": "2026-11-08",
   "cards": [
     {
       "id": "s1",
@@ -2626,7 +2626,7 @@
       "id": "s83",
       "col": "shipped",
       "title": "Inglés sin pronombres de género en position-changes",
-      "desc": "Fusionada (PR #627, 06/11). Las 11 cadenas en inglés de renderer.position_changes.* que usaban he/him/his se reescriben sin pronombres de género, mismos placeholders y significado observado-only, con test que falla si aparece un pronombre de género en esas cadenas.",
+      "desc": "Fusionada (PR #627, 06/11) y revertida al día siguiente (PR #630, 07/11): Leo comparó ambas versiones y eligió mantener \"he/his/him\" para los jugadores en inglés, tanto en la card como en la prosa del modelo, así que las 11 cadenas de renderer.position_changes.* volvieron a tener pronombres de género y se removió el test que lo impedía.",
       "tags": [
         "Backend",
         "FPL Asistente"
