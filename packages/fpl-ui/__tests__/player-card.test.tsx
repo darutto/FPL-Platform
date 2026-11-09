@@ -35,9 +35,9 @@ describe('PlayerCard — available player', () => {
 
   test('renders the next-fixture strip', () => {
     render(<PlayerCard data={data} />);
-    expect(screen.getByText('GW29')).toBeInTheDocument();
+    expect(screen.getByText('J29')).toBeInTheDocument();
     expect(screen.getByText(/LIV/)).toBeInTheDocument();
-    expect(screen.getByText('GW30')).toBeInTheDocument();
+    expect(screen.getByText('J30')).toBeInTheDocument();
   });
 
   test('renders season totals and aligned per-90 metrics including DC', () => {
@@ -75,7 +75,7 @@ describe('PlayerCard — available player', () => {
 describe('PlayerCard — no fixture coverage', () => {
   test('omits the fixture strip when fixtures is empty', () => {
     render(<PlayerCard data={playerSnapshotNoFixturesResponse.player_snapshot!} />);
-    expect(screen.queryByText(/^GW/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^(GW|J)\d/)).not.toBeInTheDocument();
   });
 });
 
