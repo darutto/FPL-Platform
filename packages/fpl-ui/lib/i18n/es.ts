@@ -490,6 +490,9 @@ export const es = {
   'pz.aria.cell': '{zone}: {pct}% de su xG',
   'pz.aria.hit': ' (coincide con un cruce favorable)',
 
+  // --- Player-card signals (pills at the foot of the card) ---
+  'ps.aria': 'Señales',
+
   // --- Squad pitch ---
   'sq.title': 'My squad',
   'sq.idle1': 'Conecta tu equipo FPL en la pestaña Chat',

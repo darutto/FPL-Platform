@@ -490,6 +490,9 @@ export const en: typeof es = {
   'pz.aria.cell': '{zone}: {pct}% of their xG',
   'pz.aria.hit': ' (matches a favourable matchup)',
 
+  // --- Player-card signals (pills at the foot of the card) ---
+  'ps.aria': 'Signals',
+
   // --- Squad pitch ---
   'sq.title': 'My squad',
   'sq.idle1': 'Connect your FPL team in the Chat tab',

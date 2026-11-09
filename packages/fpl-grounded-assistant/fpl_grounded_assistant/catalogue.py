@@ -1799,6 +1799,34 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "en": "No fixture calendar in context: league-wide ranking.",
         "es": "Sin calendario en el contexto: ranking de toda la liga.",
     },
+    # Player-card signals (player_signals.py): pill labels, shortest wording,
+    # and the question each pill sends. The questions reuse phrasings the
+    # target tool's description already claims (get_position_changes:
+    # 'en que posicion juega X' / 'what position does X really play';
+    # get_zonal_opportunity: players who can exploit a rival's weak zones,
+    # scoped to the player's club by naming it).
+    "signals.position.label": {"en": "{role} {n} of {m}", "es": "{role} {n} de {m}"},
+    "signals.position.ask": {
+        "en": "What position does {player} really play?",
+        "es": "¿En qué posición juega {player}?",
+    },
+    "signals.role.winger": {"en": "Winger", "es": "Extremo"},
+    "signals.role.wing_back": {"en": "Wing-back", "es": "Carrilero"},
+    "signals.role.forward": {"en": "Striker", "es": "Delantero"},
+    "signals.role.attacking_mid": {"en": "No. 10", "es": "Mediapunta"},
+    "signals.role.central_mid": {"en": "Midfielder", "es": "Mediocentro"},
+    "signals.role.holding_mid": {"en": "Holding mid", "es": "Pivote"},
+    "signals.role.centre_back": {"en": "Centre-back", "es": "Central"},
+    "signals.role.full_back": {"en": "Full-back", "es": "Lateral"},
+    "signals.line.DEF": {"en": "Defender", "es": "Defensa"},
+    "signals.line.MID": {"en": "Midfielder", "es": "Medio"},
+    "signals.line.FWD": {"en": "Forward", "es": "Delantero"},
+    "signals.zone.label_flank": {"en": "{opp} weak flank", "es": "Banda débil {opp}"},
+    "signals.zone.label_centre": {"en": "{opp} weak centre", "es": "Centro débil {opp}"},
+    "signals.zone.ask": {
+        "en": "Which {team} players can exploit {opp}'s weak zones?",
+        "es": "¿Qué jugadores del {team} pueden explotar las zonas débiles del {opp}?",
+    },
 }
 
 

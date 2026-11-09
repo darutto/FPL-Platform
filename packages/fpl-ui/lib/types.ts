@@ -982,6 +982,19 @@ export interface PlayerSnapshotMeta {
    * compatibility with older API deployments.
    */
   zonal?: PlayerZonalOutlookMeta | null;
+  /**
+   * Player-card signals: up to 3 pills at the foot of the card, display order.
+   * Empty/absent = no pill row, card unchanged. Optional for rolling
+   * compatibility with older API deployments.
+   */
+  signals?: PlayerSignal[];
+}
+
+/** One signal pill. `label` and `send_text` arrive localized from the backend; `send_text` is sent verbatim on tap. */
+export interface PlayerSignal {
+  kind: 'position' | 'zone';
+  label: string;
+  send_text: string;
 }
 
 /** A zone where the player concentrates xG. `share` is a 0-1 FRACTION of his non-penalty xG; convert to % once, at display time. */

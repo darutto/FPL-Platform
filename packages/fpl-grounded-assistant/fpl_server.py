@@ -1432,6 +1432,8 @@ def _player_snapshot_meta_dict(ps: Any) -> dict[str, Any]:
         # Bloque 10: None when the zonal section is omitted. ``share`` and
         # ``player_share`` are 0-1 fractions (the UI converts to percent).
         "zonal": _dc_asdict(ps.zonal) if getattr(ps, "zonal", None) is not None else None,
+        # Player-card signals (player_signals.py): [] = no pill row.
+        "signals": [_dc_asdict(sig) for sig in getattr(ps, "signals", ())],
     }
 
 

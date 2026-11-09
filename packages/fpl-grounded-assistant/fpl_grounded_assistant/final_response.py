@@ -812,6 +812,18 @@ class PlayerZonalOutlookMeta:
 
 
 @dataclass(frozen=True)
+class PlayerSignal:
+    """One pill at the foot of the player card (player_signals.py).
+
+    ``kind`` picks the icon (``position`` | ``zone``); ``label`` is the pill
+    text; ``send_text`` is the question the UI sends, verbatim, on tap.
+    """
+    kind:      str
+    label:     str
+    send_text: str
+
+
+@dataclass(frozen=True)
 class PlayerSnapshotMeta:
     """Structured single-player snapshot output for the player detail card.
 
@@ -872,6 +884,9 @@ class PlayerSnapshotMeta:
     #: i151c: ``news`` in Spanish when it matches a known FPL template (see
     #: news_es); otherwise the original English ``news``, untouched.
     news_label:                      str = ""
+    #: Player-card signals (player_signals.py), display order, max 3. Empty
+    #: tuple = no pill row; the card is unchanged.
+    signals:                         "tuple[PlayerSignal, ...]" = ()
 
 
 # ---------------------------------------------------------------------------
@@ -2089,6 +2104,20 @@ def _extract_player_zonal_meta(raw: "Any") -> "PlayerZonalOutlookMeta | None":
         return None
 
 
+def _extract_player_signals(raw: Any) -> "tuple[PlayerSignal, ...]":
+    """``signals`` from the snapshot output; anything malformed is dropped."""
+    if not isinstance(raw, list):
+        return ()
+    out: list[PlayerSignal] = []
+    for item in raw[:3]:
+        if not isinstance(item, dict):
+            continue
+        kind, label, send = item.get("kind"), item.get("label"), item.get("send_text")
+        if kind in ("position", "zone") and isinstance(label, str) and label and isinstance(send, str) and send:
+            out.append(PlayerSignal(kind=kind, label=label, send_text=send))
+    return tuple(out)
+
+
 def _extract_player_snapshot_meta(
     ro: "dict[str, Any]", locale: Locale = DEFAULT_LOCALE,
 ) -> "PlayerSnapshotMeta | None":
@@ -2173,6 +2202,7 @@ def _extract_player_snapshot_meta(
             ),
             team_fdr_context             = team_fdr_context,
             zonal                        = _extract_player_zonal_meta(p.get("zonal")),
+            signals                      = _extract_player_signals(ro.get("signals")),
         )
     except Exception:  # noqa: BLE001
         return None

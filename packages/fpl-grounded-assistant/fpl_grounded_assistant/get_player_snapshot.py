@@ -160,11 +160,32 @@ def _attach_zonal(
         player_dict["zonal"] = result.zonal
 
 
+def _attach_signals(
+    output: dict[str, Any], element: dict[str, Any], bootstrap: dict[str, Any],
+) -> dict[str, Any]:
+    """Player-card signals (player_signals.py) as a top-level ``signals`` key,
+    hidden from the model by the orchestrator. Absent when there are none."""
+    from fpl_grounded_assistant.player_signals import build_player_signals  # noqa: PLC0415
+
+    try:
+        signals = build_player_signals(element, output["player"], bootstrap)
+    except Exception:  # noqa: BLE001 -- enrichment must not break the card
+        signals = []
+    if signals:
+        output["signals"] = signals
+    return output
+
+
 def get_player_snapshot(
     player_name: str | int,
     bootstrap: "dict[str, Any] | None" = None,
+    *,
+    signals: bool = True,
 ) -> dict[str, Any]:
     """Single player full grounding payload by name or FPL element id.
+
+    ``signals=False`` skips the player-card signals (player_signals.py) for
+    callers that only need the identity (build_squad resolves 15 names).
 
     Resolution: exact match (case + accent insensitive) wins immediately.
     If multiple exact matches OR multiple prefix matches without a tiebreaker,
@@ -262,7 +283,10 @@ def get_player_snapshot(
         player_dict.pop("match_rank", None)
         _attach_fixture_run(player_dict, bootstrap)
         _attach_zonal(player_dict, elements_by_id[match.record.id], bootstrap)
-        return {"status": "ok", "player": player_dict}
+        output = {"status": "ok", "player": player_dict}
+        if not signals:
+            return output
+        return _attach_signals(output, elements_by_id[match.record.id], bootstrap)
 
     # Preserve the snapshot's existing conservative rule: a substring match
     # remains a wizard candidate even when only one player happens to match.
