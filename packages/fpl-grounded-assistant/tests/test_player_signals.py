@@ -295,3 +295,28 @@ def test_zone_question_scopes_the_card_to_his_club():
     for locale in ("es", "en"):
         q = t("signals.zone.ask", locale, team="Northbury", opp="Eastport")
         assert infer_subject_teams(q, "Eastport", _bs(locale)) == ["NOR"]
+
+
+def test_position_lookup_is_cached_per_player_and_failures_are_not(monkeypatch):
+    import fpl_grounded_assistant.position_changes_tool as pct
+
+    monkeypatch.setenv("FOOTBALL_INTELLIGENCE_ENABLED", "1")
+    monkeypatch.setattr(ps, "_position_cache", {})
+    calls = []
+
+    def fake(args, bootstrap):
+        calls.append(args["player"])
+        return _TWO_OF_FOUR if args["player"] == 10 else {"status": "missing_context"}
+    monkeypatch.setattr(pct, "run_position_changes", fake)
+    for _ in range(3):
+        ps._position_changes(_el(10), _bs())
+        ps._position_changes(_el(11), _bs())
+    assert calls.count(10) == 1
+    assert calls.count(11) == 3
+    clock = [1e9]
+    monkeypatch.setattr(ps.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(ps, "_position_cache", {})
+    ps._position_changes(_el(10), _bs())
+    clock[0] += ps.POSITION_CACHE_TTL_S + 1
+    ps._position_changes(_el(10), _bs())
+    assert calls.count(10) == 3

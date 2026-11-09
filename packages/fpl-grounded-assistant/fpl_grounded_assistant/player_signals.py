@@ -38,6 +38,7 @@ Never raises: a failure drops one signal, never the snapshot.
 from __future__ import annotations
 
 import logging
+import time
 from collections import Counter
 from typing import Any, Callable
 
@@ -149,6 +150,13 @@ def position_signal(
     }
 
 
+#: The lineup read costs ~0.5-1 s (it parses the whole licensed lineup table),
+#: and lineups change once per matchday: keep each player's result this long.
+#: Same lifetime as position_changes_tool's fixture-list cache.
+POSITION_CACHE_TTL_S: float = 600.0
+_position_cache: dict[int, tuple[float, dict[str, Any] | None]] = {}
+
+
 def _position_changes(element: dict[str, Any], bootstrap: dict[str, Any]) -> dict[str, Any] | None:
     from .orch_config import is_football_intelligence_enabled  # noqa: PLC0415
 
@@ -158,7 +166,14 @@ def _position_changes(element: dict[str, Any], bootstrap: dict[str, Any]) -> dic
 
     from .position_changes_tool import run_position_changes  # noqa: PLC0415
 
-    return run_position_changes({"player": int(element["id"]), "matches": MAX_LIMIT}, bootstrap)
+    key, now = int(element["id"]), time.monotonic()
+    hit = _position_cache.get(key)
+    if hit is not None and now - hit[0] < POSITION_CACHE_TTL_S:
+        return hit[1]
+    result = run_position_changes({"player": key, "matches": MAX_LIMIT}, bootstrap)
+    if isinstance(result, dict) and result.get("status") == "ok":  # a store hiccup is not remembered
+        _position_cache[key] = (now, result)
+    return result
 
 
 # ---------------------------------------------------------------------------
