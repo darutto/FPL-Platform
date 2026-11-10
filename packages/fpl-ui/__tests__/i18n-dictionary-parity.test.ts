@@ -10,6 +10,7 @@ import { translate, type DictKey } from '@/lib/i18n/dictionary';
 /** Keys whose English is deliberately the same as the Spanish (a brand name, a code). Keep it short. */
 const SAME_IN_BOTH = new Set<string>([
   'slash.chips.command',
+  'pc.strip.rest',
   'panel.at.xg.command',
   'chat.heading',
   'pager.squad',

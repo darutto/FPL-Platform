@@ -380,6 +380,13 @@ export const es = {
   'fx.comp.superCup': 'Supercopa de Europa',
   'fx.comp.lockedLine': 'Ve los partidos de Champions, Europa y copas, con los días de descanso.',
   'fx.comp.lockedLink': 'Ver con Premium',
+  // Player card fixture strip: band for every plan; Premium adds Europe/cups (calendar rules).
+  'pc.strip.lock': 'Europa y copas',
+  'pc.strip.own': 'Dificultad propia · {axis}',
+  'pc.strip.fdr': 'FDR de FPL donde falta',
+  'pc.strip.rest': '{d}d · {comp}',
+  'pc.strip.restTitle': '{d} días de descanso tras {comp}',
+  'pc.strip.restLegend': '3d = descanso corto tras Europa o copa',
   'fx.comp.another': 'otra competición',
   'fx.days.one': '{n} día',
   'fx.days.many': '{n} días',

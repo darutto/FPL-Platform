@@ -21,7 +21,7 @@ import type { FixtureRunMeta, FixtureEntry } from '@/lib/types';
 import { CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
 import { TriangleField } from './CardOrnaments';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
-import { venueLabel } from '@/lib/fixture-outlook-format';
+import { gwLabel, venueLabel } from '@/lib/fixture-outlook-format';
 import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locale';
 
 interface Props {
@@ -70,7 +70,7 @@ export function FixtureChip({ entry }: { entry: FixtureEntry }) {
   return (
     <div className="flex flex-col items-stretch rounded-md overflow-hidden min-w-[60px] bg-white/[0.04] border border-white/10">
       <span className="px-1.5 py-0.5 text-center text-[9px] font-bold uppercase tracking-wider text-bf-gray bg-white/[0.04] border-b border-white/5">
-        GW{gameweek}
+        {gwLabel(gameweek, locale)}
       </span>
       <span
         className="px-1.5 py-1 text-center text-xs font-extrabold tracking-tight"
