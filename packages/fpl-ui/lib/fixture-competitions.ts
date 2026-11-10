@@ -30,6 +30,8 @@ export interface PlMatch {
   kickoff: string;
   gameweek: number | null;
   opponent: string;
+  /** Three-letter code when the payload carries one (FPL's for Premier League clubs), else null. */
+  opponentCode: string | null;
   venue: 'H' | 'A';
   restWholeDays: number | null;
   /** Server-decided: <= 3 whole days after a European or cup match (Leo, 2026-10-14). */
@@ -99,6 +101,7 @@ export function parseCompetitions(payload: unknown): CompetitionsView | null {
         kickoff: m.kickoff_utc,
         gameweek: num(m.gameweek),
         opponent: m.opponent,
+        opponentCode: typeof m.opponent_code === 'string' && m.opponent_code ? m.opponent_code : null,
         venue: m.venue === 'A' ? 'A' : 'H',
         restWholeDays: num(m.rest_whole_days_before),
         rotation: m.rotation === true,
