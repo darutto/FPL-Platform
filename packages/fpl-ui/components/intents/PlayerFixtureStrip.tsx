@@ -1,13 +1,18 @@
 'use client';
 
 /**
- * The player card's next-fixtures strip, by plan (see lib/player-fixture-strip.ts).
+ * The player card's next-fixtures strip (see lib/player-fixture-strip.ts). Same rules as
+ * the /fixtures calendar, which leads (Leo, 2026-11-09):
  *
- * The plan comes from the same backend answer the /fixtures board reads
- * (/api/fpl-fixture-competitions, tier decided server-side). Until it arrives, and
- * whenever it says nothing (unavailable, failure), the strip is the plain FDR chips.
- * Free adds one locked line. Premium loads the outlook bundle on demand (it is large,
- * and Free never needs it) and draws band cells, other-competition cells and rest notices.
+ * - Every plan sees our outlook band on Premier League cells, on the player's axis, with
+ *   FPL's FDR where there is no band. The band never depends on the tier.
+ * - Premium adds Europe/cup cells and the short-rest notice.
+ * - Free gets the calendar's lock (short form: «🔒 Europa y copas · Ver con Premium»).
+ * - No competitions answer (unavailable, failure): band only, no lock, no extras.
+ *
+ * The tier comes from the same backend answer the calendar reads (/api/fpl-fixture-competitions).
+ * The outlook bundle is loaded on demand (large; the chat need not ship it up front). Until it
+ * settles, the strip is the plain FDR chips.
  *
  * Layout: minimal on mobile, full from `sm` up (opponent of a cup match). Band cells carry
  * no difficulty word (Leo, 2026-11-09): the colour and the legend say it, the tooltip names it.
@@ -25,7 +30,7 @@ import {
   type CompetitionsView,
 } from '@/lib/fixture-competitions';
 import { axisLabel, bandColor, bandLabel, gwLabel, hexRgba, venueLabel, type Band } from '@/lib/fixture-outlook-format';
-import { buildPremiumStrip, stripAxis, type StripCell } from '@/lib/player-fixture-strip';
+import { buildStrip, stripAxis, type StripCell } from '@/lib/player-fixture-strip';
 import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
 
 const BANDS = [1, 2, 3, 4, 5] as const;
@@ -45,7 +50,8 @@ export function PlayerFixtureStrip({
   const { locale } = useLocale();
   const axis = stripAxis(position);
   const [view, setView] = useState<CompetitionsView | null>(null);
-  const [series, setSeries] = useState<FixtureOutlookGW[] | null>(null);
+  /** undefined = still loading; null = no bundle or no row for this team (FDR everywhere). */
+  const [series, setSeries] = useState<FixtureOutlookGW[] | null | undefined>(undefined);
 
   useEffect(() => {
     if (fixtures.length === 0 || typeof fetch !== 'function') return;
@@ -57,7 +63,7 @@ export function PlayerFixtureStrip({
         const parsed = parseCompetitions(await response.json());
         if (active) setView(parsed);
       } catch {
-        // An enhancement only: the FDR strip stays.
+        // Only the Europe/cup layer depends on this: the band strip stays.
       }
     })();
     return () => {
@@ -65,9 +71,8 @@ export function PlayerFixtureStrip({
     };
   }, [teamShort, fixtures.length]);
 
-  const premium = view?.tier === 'premium';
   useEffect(() => {
-    if (!premium) return;
+    if (fixtures.length === 0) return;
     let active = true;
     (async () => {
       try {
@@ -75,20 +80,34 @@ export function PlayerFixtureStrip({
         const team = buildRealSeasonOutlook(axis).teams.find((row) => row.team_short === teamShort);
         if (active) setSeries(team?.series ?? null);
       } catch {
-        // No bundle: every cell falls back to FPL's FDR.
+        if (active) setSeries(null); // No bundle: every cell falls back to FPL's FDR.
       }
     })();
     return () => {
       active = false;
     };
-  }, [premium, axis, teamShort]);
+  }, [axis, teamShort, fixtures.length]);
 
+  const premium = view?.tier === 'premium';
   const cells = useMemo(
-    () => (premium ? buildPremiumStrip(fixtures, view?.teams.get(teamShort) ?? null, series) : null),
+    () =>
+      series === undefined
+        ? null
+        : buildStrip(fixtures, premium ? view?.teams.get(teamShort) ?? null : null, series),
     [premium, fixtures, view, teamShort, series],
   );
 
   if (fixtures.length === 0) return null;
+
+  const lock = view?.tier === 'free' && (
+    <p data-testid="player-strip-locked" className="text-[11px] text-bf-gray">
+      <span aria-hidden="true">🔒 </span>
+      {t('pc.strip.lock')} ·{' '}
+      <Link href="/subscribe" className="text-bf-turquoise hover:underline">
+        {lockedLink(locale)}
+      </Link>
+    </p>
+  );
 
   if (!cells) {
     return (
@@ -98,15 +117,7 @@ export function PlayerFixtureStrip({
             <FixtureChip key={fixtureKey(f)} entry={f} />
           ))}
         </div>
-        {view?.tier === 'free' && (
-          <p data-testid="player-strip-locked" className="text-[11px] text-bf-gray">
-            <span aria-hidden="true">🔒 </span>
-            {t('pc.strip.lock', { axis: axisLabel(axis, locale) })} ·{' '}
-            <Link href="/subscribe" className="text-bf-turquoise hover:underline">
-              {lockedLink(locale)}
-            </Link>
-          </p>
-        )}
+        {lock}
       </div>
     );
   }
@@ -116,7 +127,7 @@ export function PlayerFixtureStrip({
   const anyRest = cells.some((c) => c.kind === 'pl' && c.rest !== null);
 
   return (
-    <div className="space-y-1.5 border-t border-white/10 pt-2.5" data-testid="player-fixture-strip" data-tier="premium">
+    <div className="space-y-1.5 border-t border-white/10 pt-2.5" data-testid="player-fixture-strip" data-tier={view?.tier ?? 'none'}>
       <div className="flex flex-wrap items-start gap-1.5">
         {cells.map((cell) => (
           <StripTile key={cell.key} cell={cell} />
@@ -144,6 +155,7 @@ export function PlayerFixtureStrip({
         {anyBand && anyFallback && ' · '}
         {anyFallback && t('pc.strip.fdr')}
       </p>
+      {lock}
     </div>
   );
 }

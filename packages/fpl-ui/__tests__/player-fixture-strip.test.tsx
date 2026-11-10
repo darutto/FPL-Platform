@@ -8,7 +8,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
 import type { FixtureEntry, FixtureOutlookGW } from '@/lib/types';
-import { buildPremiumStrip, stripAxis, bandFor } from '@/lib/player-fixture-strip';
+import { buildStrip, stripAxis, bandFor } from '@/lib/player-fixture-strip';
 import { parseCompetitions } from '@/lib/fixture-competitions';
 import { PlayerFixtureStrip } from '@/components/intents/PlayerFixtureStrip';
 
@@ -79,7 +79,7 @@ describe('player-fixture-strip lib', () => {
 
   test('premium strip puts a cup match before its gameweek and the rest notice on the next PL match', () => {
     const view = parseCompetitions(PREMIUM)!;
-    const cells = buildPremiumStrip(FIXTURES, view.teams.get('TST')!, SERIES.attack);
+    const cells = buildStrip(FIXTURES, view.teams.get('TST')!, SERIES.attack);
     expect(cells.map((c) => (c.kind === 'pl' ? `${c.gameweek}:${c.opponent}` : c.competition))).toEqual([
       '12:AAA',
       'UEL',
@@ -90,26 +90,47 @@ describe('player-fixture-strip lib', () => {
     const first = cells[0];
     expect(first.kind === 'pl' && first.rest).toBeNull();
   });
+
+  test('without extras (Free, or no answer) the strip keeps its band and drops cup cells and rest', () => {
+    const cells = buildStrip(FIXTURES, null, SERIES.attack);
+    expect(cells.map((c) => c.kind)).toEqual(['pl', 'pl']);
+    expect(cells.map((c) => (c.kind === 'pl' ? [c.band, c.rest] : null))).toEqual([[2, null], [null, null]]);
+  });
 });
 
-describe('PlayerFixtureStrip by tier', () => {
-  test('no answer (unavailable): plain FDR chips, no lock line', async () => {
+/** The band never depends on the tier: what every plan sees on the Premier League cells. */
+async function expectBandCells() {
+  await waitFor(() => expect(screen.getAllByTestId('player-strip-pl')[0]).toHaveAttribute('data-source', 'band'));
+  const pl = screen.getAllByTestId('player-strip-pl');
+  expect(pl[1]).toHaveAttribute('data-source', 'fdr');
+  expect(pl[1]).toHaveTextContent('BBB (V) · 4');
+  expect(screen.getByTestId('player-strip-legend')).toHaveTextContent('FácilMuy difícil');
+}
+
+describe('PlayerFixtureStrip by tier (calendar rules: band for all, Europe/cups Premium)', () => {
+  test('no answer (unavailable): band cells, no lock line, no cup cells', async () => {
     answer({ available: false });
     render(<PlayerFixtureStrip fixtures={FIXTURES} teamShort="TST" position="FWD" />);
     expect(screen.getByText('J12')).toBeInTheDocument();
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/fpl-fixture-competitions?team=TST'));
+    await expectBandCells();
     expect(screen.queryByTestId('player-strip-locked')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('player-strip-pl')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('player-strip-extra')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('player-strip-rest')).not.toBeInTheDocument();
   });
 
-  test('free: FDR chips plus the locked line naming the axis', async () => {
+  test('free: the same band cells, plus the calendar lock without any axis word', async () => {
     answer({ available: true, tier: 'free' });
     render(<PlayerFixtureStrip fixtures={FIXTURES} teamShort="TST" position="DEF" />);
     const line = await screen.findByTestId('player-strip-locked');
-    expect(line).toHaveTextContent('Portería a cero, Europa y copas · Ver con Premium');
+    expect(line).toHaveTextContent(/^🔒 Europa y copas · Ver con Premium$/);
+    expect(line).not.toHaveTextContent(/Ataque|Portería/);
     expect(within(line).getByRole('link')).toHaveAttribute('href', '/subscribe');
-    expect(screen.getByText(/AAA \(L\) · 3/)).toBeInTheDocument();
+    await expectBandCells();
+    expect(screen.getAllByTestId('player-strip-pl')[0].querySelector('[title]')).toHaveAttribute('title', 'Difícil');
+    expect(screen.getByTestId('player-strip-footnote')).toHaveTextContent('Dificultad propia · Portería a cero');
     expect(screen.queryByTestId('player-strip-extra')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('player-strip-rest')).not.toBeInTheDocument();
   });
 
   test('premium: band cell, FDR fallback, cup cell, rest notice, legend and footnote', async () => {

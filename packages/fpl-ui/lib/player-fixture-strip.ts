@@ -1,15 +1,14 @@
 /**
- * The player card's fixture strip, by plan (Leo, 2026-11-08). Pure, no I/O.
+ * The player card's fixture strip. Pure, no I/O. Same rules as the /fixtures calendar
+ * (Leo, 2026-11-09: the calendar leads).
  *
- * - Free: the FPL FDR chip per fixture, as before, plus one locked line.
- * - Premium: both layers of the calendar at once.
- *   1. Our fixture-outlook band on each Premier League cell, on the player's axis
- *      (FWD/MID attack, DEF/GKP defence). With no band, the cell keeps FPL's FDR.
- *   2. Europe and cup matches as their own cells, before the gameweek they precede,
- *      and the short-rest notice on the Premier League match that follows them.
- * - No competitions answer at all (unavailable, or any failure): the plain FDR strip.
+ * - Every plan: our fixture-outlook band on each Premier League cell, on the player's axis
+ *   (FWD/MID attack, DEF/GKP defence). With no band, the cell keeps FPL's FDR.
+ * - Premium only: Europe and cup matches as their own cells, before the gameweek they
+ *   precede, and the short-rest notice on the Premier League match that follows them.
  *
- * The BACKEND decides the tier (via /fixtures/competitions). This file never gates.
+ * The BACKEND decides the tier (via /fixtures/competitions). This file never gates: the
+ * caller passes the team's extras only when the answer was premium.
  */
 import type { FixtureAxis, FixtureEntry, FixtureOutlookGW } from './types';
 import type { Band } from './fixture-outlook-format';
@@ -85,8 +84,11 @@ function restFor(entry: FixtureEntry, extras: TeamExtras | null): StripRest | nu
   return { days: match.restWholeDays, competition: match.previousCompetition };
 }
 
-/** The premium strip: Premier League cells with band and rest, other competitions in date order between them. */
-export function buildPremiumStrip(
+/**
+ * The strip: Premier League cells with their band, plus (when `extras` is given, i.e. Premium)
+ * other competitions in date order between them and the short-rest notice.
+ */
+export function buildStrip(
   fixtures: FixtureEntry[],
   extras: TeamExtras | null,
   series: FixtureOutlookGW[] | null,

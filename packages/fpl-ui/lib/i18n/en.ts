@@ -381,7 +381,7 @@ export const en: typeof es = {
   'fx.comp.superCup': 'UEFA Super Cup',
   'fx.comp.lockedLine': 'See the Champions League, Europa League and cup fixtures, with the days of rest.',
   'fx.comp.lockedLink': 'See with Premium',
-  'pc.strip.lock': '{axis}, Europe and cups',
+  'pc.strip.lock': 'Europe and cups',
   'pc.strip.own': 'Our difficulty · {axis}',
   'pc.strip.fdr': 'FPL FDR where missing',
   'pc.strip.rest': '{d}d · {comp}',
