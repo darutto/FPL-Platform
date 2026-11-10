@@ -9,7 +9,8 @@
  * Free adds one locked line. Premium loads the outlook bundle on demand (it is large,
  * and Free never needs it) and draws band cells, other-competition cells and rest notices.
  *
- * Layout: minimal on mobile, full from `sm` up (band word, opponent of a cup match).
+ * Layout: minimal on mobile, full from `sm` up (opponent of a cup match). Band cells carry
+ * no difficulty word (Leo, 2026-11-09): the colour and the legend say it, the tooltip names it.
  */
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
@@ -188,11 +189,8 @@ function StripTile({ cell }: { cell: StripCell }) {
           style={{ backgroundColor: `${color}33`, color }}
         >
           {cell.opponent} ({venue})
-          {hasBand ? (
-            <span className="hidden sm:inline font-bold"> · {bandLabel(cell.band as Band, locale)}</span>
-          ) : (
-            <> · {cell.fdr}</>
-          )}
+          {/* A band cell says its difficulty by colour (legend below; word in the tooltip). */}
+          {!hasBand && <> · {cell.fdr}</>}
         </span>
       </div>
       {cell.rest && (

@@ -130,7 +130,11 @@ describe('PlayerFixtureStrip by tier', () => {
     answer(PREMIUM);
     render(<PlayerFixtureStrip fixtures={FIXTURES} teamShort="TST" position="DEF" />);
     await waitFor(() => expect(screen.getAllByTestId('player-strip-pl')[0]).toHaveAttribute('data-source', 'band'));
-    expect(screen.getAllByTestId('player-strip-pl')[0]).toHaveTextContent('Difícil');
+    const first = screen.getAllByTestId('player-strip-pl')[0];
+    // Colour only in the cell; the band word lives in the tooltip.
+    expect(first).not.toHaveTextContent('Difícil');
+    expect(first.querySelector('[title]')).toHaveAttribute('title', 'Difícil');
+    expect(first).toHaveTextContent('AAA (L)');
     expect(screen.getByTestId('player-strip-footnote')).toHaveTextContent('Portería a cero');
   });
 });
