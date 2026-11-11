@@ -2139,6 +2139,12 @@ def _apply_evaluator(
     )
 
 
+#: Partial-selection weight of an ``ok`` payload that renders no text because its
+#: card carries the answer (the player snapshot). About what the snapshot's old text
+#: dump measured (5-6 lines): above a one-line render, below a multi-row answer.
+_CARD_ONLY_PARTIAL_WEIGHT: int = 240
+
+
 def _select_partial(
     successful: list[tuple[str | None, str | None, dict[str, Any], dict[str, Any]]],
 ) -> tuple[str | None, str | None, dict[str, Any], dict[str, Any]]:
@@ -2157,12 +2163,19 @@ def _select_partial(
     Pure by construction: no I/O, no config reads, no provider knowledge, so it
     can be replayed offline against recorded traces. ``successful`` is never
     empty -- every call site guards on it.
+
+    A payload that renders NO text but is ``ok`` (the player snapshot since the
+    2026-11-11 verdict redesign: its card carries everything) weighs
+    ``_CARD_ONLY_PARTIAL_WEIGHT`` instead of zero, so the card still beats a
+    one-line render but not a multi-row answer -- the ranking it had before.
     """
     best = successful[0]
     best_len = -1
     for item in successful:
         try:
             rendered_len = len(render(item[1], item[3]))
+            if rendered_len == 0 and item[3].get("status") == "ok":
+                rendered_len = _CARD_ONLY_PARTIAL_WEIGHT
         except Exception:  # noqa: BLE001
             # A call whose payload cannot be rendered is not a usable answer.
             rendered_len = 0

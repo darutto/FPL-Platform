@@ -62,6 +62,7 @@ from fpl_tool_runner.specs import ToolSpec
 # Reuse the fixture-run tool so the snapshot card can show an upcoming
 # schedule strip without duplicating fixture-lookup logic.
 from fpl_grounded_assistant.player_fixture_run import get_player_fixture_run
+from fpl_grounded_assistant.player_conclusions import player_conclusions
 from fpl_grounded_assistant.player_snapshot_zonal import compose_player_zonal
 from fpl_grounded_assistant.player_strip_axis import strip_axis_for
 
@@ -267,6 +268,12 @@ def get_player_snapshot(
         axis = strip_axis_for(match.record.id, bootstrap)
         if axis is not None:
             player_dict["strip_axis"] = axis
+        # The verdict above the card: what the card itself doesn't show. Key left out when nothing fires.
+        conclusions = player_conclusions(
+            elements_by_id[match.record.id], bootstrap, player_dict.get("zonal")
+        )
+        if conclusions:
+            player_dict["conclusions"] = conclusions
         return {"status": "ok", "player": player_dict}
 
     # Preserve the snapshot's existing conservative rule: a substring match

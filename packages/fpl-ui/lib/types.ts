@@ -987,7 +987,28 @@ export interface PlayerSnapshotMeta {
    * lineups). Absent/null = the strip goes by FPL position.
    */
   strip_axis?: FixtureAxis | null;
+  /**
+   * The verdict above the card: 0-3 conclusions the card itself doesn't show, in priority order.
+   * Structured, worded by the UI. Absent/empty = no verdict block.
+   */
+  conclusions?: PlayerConclusion[];
 }
+
+export type PlayerPosition = 'GKP' | 'DEF' | 'MID' | 'FWD';
+export type SetPiece = 'penalties' | 'free_kicks' | 'corners';
+
+/** "top N %" of his FPL position on a per-90 metric (players with 450+ minutes). */
+export interface PlayerConclusionEvidence {
+  metric: 'xgi_per_90' | 'dc_per_90' | 'cs_per_90';
+  top_pct: number;
+  position: PlayerPosition;
+}
+
+export type PlayerConclusion =
+  | { key: 'points_attack' | 'points_defence' | 'points_clean_sheets'; params: { position: PlayerPosition }; evidence: PlayerConclusionEvidence | null }
+  | { key: 'set_pieces'; params: { pieces: SetPiece[] }; evidence: null }
+  | { key: 'starts'; params: { starts: number; games: number }; evidence: null }
+  | { key: 'zonal'; params: { opponents: string[] }; evidence: null };
 
 /** A zone where the player concentrates xG. `share` is a 0-1 FRACTION of his non-penalty xG; convert to % once, at display time. */
 export interface PlayerZonalZone {

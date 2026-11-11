@@ -291,29 +291,13 @@ _SNAPSHOT_OK = {
 
 
 class TestPlayerSnapshotRenderer:
-    def test_es_output_unchanged_from_pre_f1(self):
-        # Regression pin: this renderer was already fully Spanish before
-        # F1; its ES output must not move.
+    def test_ok_renders_no_text_in_either_locale(self):
+        # Verdict redesign (2026-11-11), deliberate: the "ok" dump repeated the
+        # card's own numbers. It now renders nothing; what the card doesn't
+        # show travels as structured player.conclusions (test_player_conclusions).
         from fpl_grounded_assistant.renderer import render
-        text = render("get_player_snapshot", _SNAPSHOT_OK, locale="es")
-        assert text == (
-            "**Haaland** (MCI, FWD)\n"
-            "  Precio: £14.5m | Propiedad: 52.3% | Estado: a\n"
-            "  Pts totales: 180 | PPG: 6.0 | Forma: 8.0\n"
-            "  xG: 1.50 | xA: 0.20 | xGI: 1.70 | ICT: 12.0\n"
-            "  Minutos: 2400"
-        )
-
-    def test_en_output_translates_labels(self):
-        from fpl_grounded_assistant.renderer import render
-        text = render("get_player_snapshot", _SNAPSHOT_OK, locale="en")
-        assert text == (
-            "**Haaland** (MCI, FWD)\n"
-            "  Price: £14.5m | Owned: 52.3% | Status: a\n"
-            "  Total pts: 180 | PPG: 6.0 | Form: 8.0\n"
-            "  xG: 1.50 | xA: 0.20 | xGI: 1.70 | ICT: 12.0\n"
-            "  Minutes: 2400"
-        )
+        assert render("get_player_snapshot", _SNAPSHOT_OK, locale="es") == ""
+        assert render("get_player_snapshot", _SNAPSHOT_OK, locale="en") == ""
 
     def test_ambiguous_rank_word_fixed_in_spanish(self):
         # Intentional F1 fix: the Spanish ambiguous-candidate line used to

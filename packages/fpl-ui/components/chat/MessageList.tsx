@@ -20,6 +20,7 @@ import type { WcAskResponse } from '@/lib/wc-types';
 import { selectIntentView } from '@/lib/intent-renderer';
 import { selectWcIntentView } from '@/lib/wc-intent-renderer';
 import IntentRenderer from './IntentRenderer';
+import PlayerConclusions from '@/components/intents/PlayerConclusions';
 import WcIntentRenderer from '@/components/wc/WcIntentRenderer';
 import SuggestionChips, {
   PlayerPickChips,
@@ -217,6 +218,13 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
   // Structured FPL turn → combine the model's verdict and the deterministic
   // view in one surface. The old card-only branch silently discarded
   // final_text, which removed the judgement needed to interpret a ranking.
+  // Player card verdict: 0-3 structured conclusions the card doesn't show, on
+  // both paths (deterministic and LLM). The model's prose, if any, follows.
+  const conclusions =
+    message.response?.intent === 'player_snapshot'
+      ? (message.response.player_snapshot?.conclusions ?? [])
+      : [];
+  const showConclusions = conclusions.length > 0;
   const hasFplCard =
     !isUser &&
     !message.isError &&
@@ -237,7 +245,7 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
             aria-label={t('msg.structuredAnswer')}
             className="relative overflow-hidden rounded-card border border-white/10 bg-gradient-to-br from-bf-surface/70 to-bf-surface/55 text-sm shadow-card"
           >
-            {showVerdict && (
+            {(showVerdict || showConclusions) && (
               <section
                 aria-label={t('msg.verdict')}
                 className="relative z-10 border-b border-white/10 bg-black/10 px-4 py-3 text-bf-text"
@@ -245,7 +253,13 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
                 <span className="mb-1.5 block text-[10px] font-extrabold uppercase tracking-[0.12em] text-bf-turquoise">
                   {t('msg.verdict')}
                 </span>
-                <MarkdownLite text={message.text} className="chat-prose text-sm" />
+                {showConclusions && <PlayerConclusions conclusions={conclusions} />}
+                {showVerdict && (
+                  <MarkdownLite
+                    text={message.text}
+                    className={`chat-prose text-sm${showConclusions ? ' mt-3 border-t border-white/10 pt-2.5' : ''}`}
+                  />
+                )}
               </section>
             )}
 
