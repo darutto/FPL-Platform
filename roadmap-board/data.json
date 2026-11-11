@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-08",
+  "updated": "2026-11-11",
   "cards": [
     {
       "id": "s1",
@@ -2641,6 +2641,29 @@
       "tags": [
         "Backend",
         "Datos"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s85",
+      "col": "shipped",
+      "title": "Franja de próximos partidos del player card sigue reglas de plan y eje observado",
+      "desc": "Fusionada (PR #634, #638, 10-11/11). La franja de próximos partidos del player card pasa a seguir las mismas reglas de plan que el calendario /fixtures (banda de dificultad propia para todos, Europa/copas y aviso de descanso corto solo Premium) y su eje ataque/defensa se decide por rol observado en las últimas 5 titularidades -- y en defensores de banda por xA/90 propio -- en vez de depender solo de la posición de FPL.",
+      "tags": [
+        "UI",
+        "Backend"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s86",
+      "col": "shipped",
+      "title": "Inglés usa he/his/him para jugadores en todo el producto",
+      "desc": "Fusionada (PR #637, 11/11). Extiende la decisión de Leo (PR #627/#630, ver [[s83]]) a todo el inglés de cara al usuario y a las instrucciones del modelo -- zonal, captain_factors, tool_schema_registry y los i18n de fpl-ui -- para que un jugador se refiera siempre como \"he/his/him\" y no \"they/their\", sin tocar las dos líneas ya fijadas por SHA en el system prompt del orquestador ni el lenguaje usado para equipos/clubes o plurales.",
+      "tags": [
+        "Backend",
+        "UI",
+        "FPL Asistente"
       ],
       "progress": 100
     }
