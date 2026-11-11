@@ -39,8 +39,9 @@ from fpl_grounded_assistant.question_lang import detect_question_lang, locale_mi
 #: sha256 of the pre-i18n prompts. Changing a prompt means changing these ON
 #: PURPOSE, with a Spanish regression run (D1 option A) behind it.
 #: 2026-11-02: DECIMALS rule added on purpose (Leo: dot decimals in Spanish, Latin American audience).
-ES_ORCH_PROMPT_SHA256 = "147afca88dcf29f3f13a6fabd79871f7320f0149e5e7180946c42bb9ba9e36c7"
-ES_ORCH_LOOP_PROMPT_SHA256 = "c2850ec1aaeaaac36b1c5d9f1c3be9c7cb1b69c3bdc85fc2d6b98ec8bfe04263"
+#: 2026-11-11: PLAYER_CARD_NO_STATS rule added on purpose (Leo: no stat bullets that repeat the player card).
+ES_ORCH_PROMPT_SHA256 = "06b526f9c8695deb706ae4f93509af651cae8272d8efb7ea54652cf176116ca2"
+ES_ORCH_LOOP_PROMPT_SHA256 = "99cdb8170fe9e6e446bf91013a86075976f211352a22e2f0cbd054b1c33df95e"
 ES_EVALUATOR_PROMPT_SHA256 = "82efcffa20f74632ce9e023ab49115f3e208dff00dbac668f2fbd30617726707"
 
 
@@ -59,6 +60,19 @@ def test_the_built_prompts_ask_for_dot_decimals_in_spanish_too():
         rule = [line for line in prompt.splitlines() if line.strip().startswith("- DECIMALS:")]
         assert len(rule) == 1
         assert "in Spanish too" in rule[0] and '"forma 10.7"' in rule[0] and "never a comma" in rule[0]
+
+
+def test_the_built_prompts_forbid_restating_the_player_card():
+    """Leo 2026-11-11: no stat bullets or fixture lists the card already shows; the reading stays. No provider call."""
+    for prompt in (static_system_prompt("es"), static_system_prompt("en"), orch_mod._LOOP_SYSTEM_PROMPT):
+        rule = [line for line in prompt.splitlines() if line.strip().startswith("- PLAYER_CARD_NO_STATS:")]
+        assert len(rule) == 1
+        text = rule[0]
+        assert "get_player_snapshot" in text
+        assert "never open with or include a list of those numbers" in text
+        assert "never list the next fixtures one by one" in text
+        assert "set-piece duties" in text and "zonal matchup" in text
+        assert "only as evidence inside a sentence" in text
 
 
 def test_es_evaluator_prompt_is_byte_identical():
