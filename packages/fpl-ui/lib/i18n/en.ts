@@ -465,7 +465,7 @@ export const en: typeof es = {
   'z.origin.open_play': 'open play',
   'z.origin.set_piece': 'set piece',
   'z.origin.mixed': 'open play + set piece',
-  'z.ev.share': '{pct}% of their xG here',
+  'z.ev.share': '{pct}% of his xG here',
   'z.ev.shot': '{n} shot',
   'z.ev.shots': '{n} shots',
   'z.ev.thin': 'small sample',
@@ -488,12 +488,12 @@ export const en: typeof es = {
   // --- The player's Zonas section ---
   'pz.title': 'Zones',
   'pz.window': 'Fixtures in the next 3 gameweeks · {range}',
-  'pz.chip': '{zone} · {pct}% of their non-penalty xG',
+  'pz.chip': '{zone} · {pct}% of his non-penalty xG',
   'pz.favourable': 'Favourable matchup',
   'pz.noData': 'No data on the opponent',
   'pz.neutral': 'No standout matchup',
   'pz.legend': 'Turquoise: matches the zone with an edge against a favourable opponent.',
-  'pz.aria.cell': '{zone}: {pct}% of their xG',
+  'pz.aria.cell': '{zone}: {pct}% of his xG',
   'pz.aria.hit': ' (matches a favourable matchup)',
 
   // --- Squad pitch ---

@@ -46,7 +46,7 @@ def gap_text(gap: dict[str, Any], locale: Locale) -> str:
 
 
 def switch_text(switch: dict[str, Any], locale: Locale) -> str:
-    """'Since GW6 they have started as attacker (5 of 5); before, right midfield (5 of 5).' Observed, no cause."""
+    """'Since GW6 he has started as attacker (5 of 5); before, right midfield (5 of 5).' Observed, no cause."""
     return t("renderer.position_changes.switch", locale, gw=switch.get("since_gameweek"),
              to=role_text(switch.get("to"), locale).lower(), n=switch.get("starts_after"),
              before=role_text(switch.get("from"), locale).lower(), k=switch.get("held_before"), m=switch.get("starts_before"))
