@@ -263,8 +263,10 @@ def get_player_snapshot(
         player_dict.pop("match_rank", None)
         _attach_fixture_run(player_dict, bootstrap)
         _attach_zonal(player_dict, elements_by_id[match.record.id], bootstrap)
-        # The fixture strip's axis from his observed role; None = the UI's FPL fallback.
-        player_dict["strip_axis"] = strip_axis_for(match.record.id, bootstrap)
+        # The fixture strip's axis from his observed role; key left out = the UI's FPL fallback.
+        axis = strip_axis_for(match.record.id, bootstrap)
+        if axis is not None:
+            player_dict["strip_axis"] = axis
         return {"status": "ok", "player": player_dict}
 
     # Preserve the snapshot's existing conservative rule: a substring match

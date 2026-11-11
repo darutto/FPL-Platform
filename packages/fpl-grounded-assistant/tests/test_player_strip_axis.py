@@ -69,9 +69,14 @@ def _fresh(monkeypatch):
     mod._reset_for_tests()
 
 
+def _bs():
+    # The fixture list rides on the bootstrap: position_changes_tool's 10-minute fixture cache may hold another
+    # test's list, and the bootstrap's own index always wins over it.
+    return {**BOOTSTRAP, "fixture_index": FPL_FIXTURES}
+
+
 def _axis(element, handle, **kw):
-    return strip_axis_for(element, dict(BOOTSTRAP), handle=handle, fetch_fixtures=lambda: FPL_FIXTURES,
-                          background=False, **kw)
+    return strip_axis_for(element, _bs(), handle=handle, background=False, **kw)
 
 
 def test_a_defensive_mid_reads_defence_and_an_attacking_wing_back_attack():
@@ -100,11 +105,11 @@ def test_the_card_never_waits_for_the_first_read(monkeypatch):
     started = []
     monkeypatch.setattr(mod.threading, "Thread", lambda **kw: type("T", (), {"start": lambda self: started.append(kw)})())
     handle = FakeHandle()
-    assert strip_axis_for(HOLDER, dict(BOOTSTRAP), handle=handle, fetch_fixtures=lambda: FPL_FIXTURES) is None
-    assert strip_axis_for(HOLDER, dict(BOOTSTRAP), handle=handle, fetch_fixtures=lambda: FPL_FIXTURES) is None
+    assert strip_axis_for(HOLDER, _bs(), handle=handle) is None
+    assert strip_axis_for(HOLDER, _bs(), handle=handle) is None
     assert len(started) == 1 and handle.reads == 0  # one build in flight, nothing read on the card's path
     started[0]["target"](*started[0]["args"])
-    assert strip_axis_for(HOLDER, dict(BOOTSTRAP), handle=handle, fetch_fixtures=lambda: FPL_FIXTURES) == "defence"
+    assert strip_axis_for(HOLDER, _bs(), handle=handle) == "defence"
 
 
 def test_flag_off_missing_store_or_fixture_list_give_none(monkeypatch):
@@ -135,6 +140,9 @@ def test_the_snapshot_payload_carries_the_axis_to_the_card_meta(monkeypatch):
     assert out["status"] == "ok" and out["player"]["strip_axis"] == "defence"
     meta = _extract_player_snapshot_meta(out)
     assert meta is not None and meta.strip_axis == "defence"
+    # No observed axis: the key is left out, so the payload is exactly what it was before.
+    monkeypatch.setattr(snap, "strip_axis_for", lambda element, bs: None)
+    assert "strip_axis" not in get_player_snapshot("Holder", dict(BOOTSTRAP))["player"]
 
 
 def test_the_meta_drops_anything_but_the_two_axes():
