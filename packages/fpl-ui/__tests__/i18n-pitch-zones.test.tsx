@@ -122,9 +122,9 @@ describe('the zones card', () => {
     expect(strings).toContain('GW6 · AVL host Tottenham');
     expect(strings.some((s) => /marginal reading/.test(s))).toBe(true);
     expect(strings.some((s) => /^0\.140 xGA\/match$/.test(s))).toBe(true);
-    expect(strings.some((s) => /^90% of their xG here · 8 shots · open play$/.test(s))).toBe(true);
-    expect(strings.some((s) => /^53% of their xG here · 1 shot · set piece$/.test(s))).toBe(true);
-    expect(strings.some((s) => /^40% of their xG here · 3 shots · open play \+ set piece$/.test(s))).toBe(true);
+    expect(strings.some((s) => /^90% of his xG here · 8 shots · open play$/.test(s))).toBe(true);
+    expect(strings.some((s) => /^53% of his xG here · 1 shot · set piece$/.test(s))).toBe(true);
+    expect(strings.some((s) => /^40% of his xG here · 3 shots · open play \+ set piece$/.test(s))).toBe(true);
     // positions and zone pills in English
     expect(strings).toContain('BRE (antes en BUR) · MID');
     expect(strings).toContain('AVL · GKP');
@@ -183,8 +183,8 @@ describe("the player's Zonas section", () => {
     const strings = onScreen(screen.getByTestId('player-zonas'));
     expect(strings.filter((s) => SPANISH_UI_WORDS.test(s) && !ZONAS_PAYLOAD.some((p) => p.includes(s) || s.includes(p)))).toEqual([]);
     for (const expected of [
-      'Zones', 'Fixtures in the next 3 gameweeks · GW6–GW8', 'Box centre · 59% of their non-penalty xG',
-      'Edge right · 26% of their non-penalty xG', 'Turquoise: matches the zone with an edge against a favourable opponent.',
+      'Zones', 'Fixtures in the next 3 gameweeks · GW6–GW8', 'Box centre · 59% of his non-penalty xG',
+      'Edge right · 26% of his non-penalty xG', 'Turquoise: matches the zone with an edge against a favourable opponent.',
       'Favourable matchup · Box centre', 'No data on the opponent', 'No standout matchup',
     ]) {
       expect(strings.some((s) => s.includes(expected))).toBe(true);
@@ -192,7 +192,7 @@ describe("the player's Zonas section", () => {
     expect(strings).toContain('(H)');
     expect(strings).toContain('(A)');
     expect(strings).toContain('GW7');
-    expect(strings).toContain('[aria-label] Box centre: 59% of their xG (matches a favourable matchup) · Edge right: 26% of their xG');
+    expect(strings).toContain('[aria-label] Box centre: 59% of his xG (matches a favourable matchup) · Edge right: 26% of his xG');
     expect(shape(screen.getByTestId('player-zonas'))).toMatchSnapshot();
   });
 });

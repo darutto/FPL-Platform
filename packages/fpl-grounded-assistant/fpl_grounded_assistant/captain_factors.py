@@ -43,10 +43,10 @@ def _unknown_minutes_phrase(
     if reason == _NEVER_PLAYED_REASON:
         if locale == "es":
             return "todavía no ha jugado con su equipo, así que aún no sabemos sus minutos"
-        return "has not played for this team yet, so their minutes are still unknown"
+        return "has not played for this team yet, so his minutes are still unknown"
     if locale == "es":
         return "no hemos podido medir sus minutos"
-    return "we could not measure their minutes"
+    return "we could not measure his minutes"
 
 
 

@@ -134,11 +134,12 @@ def test_an_unknown_count_is_no_data_never_zero(unknown):
     assert card is not None and any(cell == "-" for row in card.rows for cell in row)
 
 
-def test_english_copy_names_no_gender():
+def test_english_copy_never_calls_a_player_they():
+    # Product decision 2026-11-07: English refers to a player as he/his/him, never they/their/them.
     from fpl_grounded_assistant.catalogue import _CATALOGUE
     for key, entry in _CATALOGUE.items():
         if "player_involvement" in key:
-            assert not re.search(r"\b(he|his|him|she|her|hers)\b", entry["en"], re.I), key
+            assert not re.search(r"\b(they|their|them|theirs|themselves|she|her|hers)\b", entry["en"], re.I), key
 
 
 def test_few_matches_say_small_sample():

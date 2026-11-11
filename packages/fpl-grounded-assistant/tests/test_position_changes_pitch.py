@@ -283,7 +283,7 @@ def test_the_payload_travels_on_the_wire_and_is_null_elsewhere():
 
 def test_the_text_says_the_switch_without_a_cause():
     for locale, line in (("es", "Desde la J5 empieza de delantero (4 de 4); antes, banda derecha (4 de 4)."),
-                         ("en", "Since GW5 they have started as attacker (4 of 4); before, right midfield (4 of 4).")):
+                         ("en", "Since GW5 he has started as attacker (4 of 4); before, right midfield (4 of 4).")):
         text = render("get_position_changes", _run(), locale)
         assert line in text
         assert "porque" not in text and "because" not in text
@@ -293,4 +293,4 @@ def test_the_description_allows_observed_wording_and_forbids_a_cause():
     d = GET_POSITION_CHANGES_SCHEMA.description
     assert "role_switch (observed)" in d and "per90_change (observed" in d
     assert "never say the change caused them ('por el cambio', 'because of the move')" in d
-    assert "since GW7 they have started as a forward" in d  # gender-neutral EN
+    assert "since GW7 he has started as a forward" in d  # EN calls the player "he"

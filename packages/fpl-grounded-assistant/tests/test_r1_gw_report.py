@@ -383,12 +383,13 @@ class TestStories:
         two = {**story, "evidence": {k: (2 if v == 1 else v) for k, v in story["evidence"].items()}}
         assert " 1 pt" not in story_text(two, "es") and "2 pts" in story_text(two, "es")
 
-    def test_english_story_copy_names_no_gender(self):
+    def test_english_story_copy_never_calls_a_player_they(self):
+        # Product decision 2026-11-07: English refers to a player as he/his/him, never they/their/them.
         import re
         from fpl_grounded_assistant.catalogue import _CATALOGUE as CATALOGUE
         for key, entry in CATALOGUE.items():
             if key.startswith("gw_report.") or key.startswith("gcard.gw_report."):
-                assert not re.search(r"(he|his|him|she|her|hers)", entry["en"], re.I), key
+                assert not re.search(r"\b(they|their|them|theirs|themselves|she|her|hers)\b", entry["en"], re.I), key
 
     def test_bench_points_story(self):
         r = _build(_picks(), _live({14: 9, 13: 3}))

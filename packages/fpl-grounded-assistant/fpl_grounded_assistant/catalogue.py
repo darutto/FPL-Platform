@@ -1507,7 +1507,7 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     "renderer.position_changes.unmapped": {"en": " \u2014 the stored lineup is incomplete, so he may have started", "es": " \u2014 la alineaci\u00f3n guardada est\u00e1 incompleta, por lo que pudo ser titular"},
     "renderer.position_changes.hypothesis": {"en": "    Unproven: he took the position {name} usually holds ({role})", "es": "    Sin demostrar: ocup\u00f3 la posici\u00f3n habitual de {name} ({role})"},
     "renderer.position_changes.no_change": {"en": "  No change of starting slot against his recent starts.", "es": "  Sin cambio de casilla frente a sus \u00faltimos partidos."},
-    "renderer.position_changes.switch": {"en": "Since GW{gw} they have started as {to} ({n} of {n}); before, {before} ({k} of {m}).", "es": "Desde la J{gw} empieza de {to} ({n} de {n}); antes, {before} ({k} de {m})."},
+    "renderer.position_changes.switch": {"en": "Since GW{gw} he has started as {to} ({n} of {n}); before, {before} ({k} of {m}).", "es": "Desde la J{gw} empieza de {to} ({n} de {n}); antes, {before} ({k} de {m})."},
     "renderer.position_changes.gap": {"en": "Listed as a {fpl} in FPL; started {n} of {m} as a {played}{side}.", "es": "En FPL es {fpl}; ha empezado {n} de {m} como {played}{side}."},
     "renderer.position_changes.line_GKP": {"en": "goalkeeper", "es": "portero"},
     "renderer.position_changes.line_DEF": {"en": "defender", "es": "defensa"},
@@ -1774,7 +1774,7 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     "zonal.gw_many": {"en": "GWs", "es": "jornadas"},
     "zonal.prov_current": {"en": "Data: {label} season", "es": "Datos: temporada {label}"},
     "zonal.player_favorable": {
-        "en": "{player} generates their xG right in zones where the opponent concedes above average \u2014 favourable matchup in {gws}.",
+        "en": "{player} generates his xG right in zones where the opponent concedes above average \u2014 favourable matchup in {gws}.",
         "es": "{player} genera su xG justo en zonas donde el rival concede por encima de la media \u2014 cruce favorable en {gws}.",
     },
     "zonal.player_neutral": {
