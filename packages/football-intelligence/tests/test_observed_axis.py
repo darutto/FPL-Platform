@@ -7,7 +7,7 @@ import pytest
 from football_intelligence.ingestion.licensed.store import TABLES
 from football_intelligence.observed_axis import (
     ATTACK, DEFENCE, MIN_STARTS, PROFILE_MIN_MINUTES, RECENT_STARTS, ROLE_AXIS, axis_from_starts, decide_axis,
-    mostly_wide, observed_by_element, profile_threshold, recent_starts_by_element,
+    mostly_wide, observed_by_element, profile_threshold, recent_starts_by_element, xa_per_90,
 )
 from football_intelligence.position_changes import FixtureMeta
 
@@ -65,13 +65,13 @@ def test_every_mapped_role_decides_three_of_three(role, axis):
 
 # ---- step 2: wide defenders read their profile ---------------------------------------------------------------------
 
-#: Synthetic defender pool: (minutes, xGI/90). Six with enough minutes; the top third is the best two.
+#: Synthetic defender pool: (minutes, xA/90). Six with enough minutes; the top third is the best two.
 POOL = [(900, 0.40), (900, 0.30), (900, 0.20), (900, 0.10), (900, 0.05), (900, 0.00), (200, 0.90)]
 
 
-def _decide(starts, *, fpl="DEF", minutes=900, xgi=0.0, pool=POOL):
+def _decide(starts, *, fpl="DEF", minutes=900, xa=0.0, pool=POOL):
     observed = {"axis": axis_from_starts(starts), "wide": mostly_wide(starts)} if len(starts) >= MIN_STARTS else None
-    return decide_axis(observed, fpl_position=fpl, minutes=minutes, xgi_per_90=xgi, threshold=profile_threshold(pool))
+    return decide_axis(observed, fpl_position=fpl, minutes=minutes, xa_per_90=xa, threshold=profile_threshold(pool))
 
 
 def test_the_profile_pool_is_the_top_third_of_defenders_with_enough_minutes():
@@ -81,25 +81,43 @@ def test_the_profile_pool_is_the_top_third_of_defenders_with_enough_minutes():
     assert PROFILE_MIN_MINUTES == 450
 
 
+def test_our_own_per_90_separates_what_fpl_rounding_ties():
+    # Two synthetic wide defenders, both "0.07" in FPL's two-decimal per-90, on either side of a 0.07 cut.
+    above, below = xa_per_90(0.72, 900), xa_per_90(0.62, 900)  # 0.072 and 0.062: FPL shows 0.07 and 0.06
+    tie_a, tie_b = xa_per_90(0.70, 900), xa_per_90(0.66, 900)  # 0.070 and 0.066: FPL shows both as 0.07
+    assert round(tie_a, 2) == round(tie_b, 2) == 0.07
+    pool = [(900, 0.090), (900, 0.080), (900, tie_a), (900, 0.050), (900, 0.040), (900, 0.030),
+            (900, 0.020), (900, 0.010), (900, 0.000)]
+    assert profile_threshold(pool) == tie_a  # the third-best of nine: a tie with the cut is in
+    wide = _starts(*["Left Back"] * 4)
+    assert _decide(wide, xa=tie_a, pool=pool) == ATTACK
+    assert _decide(wide, xa=tie_b, pool=pool) == DEFENCE
+    assert _decide(wide, xa=above, pool=pool) == ATTACK and _decide(wide, xa=below, pool=pool) == DEFENCE
+
+
+def test_per_90_without_minutes_is_zero():
+    assert xa_per_90(1.5, 0) == 0.0
+
+
 def test_an_attacking_back_four_full_back_reads_attack():
-    assert _decide(_starts("Right Back", "Right Back", "Right Back", "Right Back"), xgi=0.35) == ATTACK
+    assert _decide(_starts("Right Back", "Right Back", "Right Back", "Right Back"), xa=0.35) == ATTACK
 
 
 def test_a_conservative_back_three_wing_back_reads_defence():
-    assert _decide(_starts(*["Left Midfield"] * 4, formation="3-4-2-1"), xgi=0.05) == DEFENCE
+    assert _decide(_starts(*["Left Midfield"] * 4, formation="3-4-2-1"), xa=0.05) == DEFENCE
 
 
 def test_a_wide_defender_under_the_minutes_floor_reads_defence():
-    assert _decide(_starts(*["Left Back"] * 3), minutes=PROFILE_MIN_MINUTES - 1, xgi=0.9) == DEFENCE
+    assert _decide(_starts(*["Left Back"] * 3), minutes=PROFILE_MIN_MINUTES - 1, xa=0.9) == DEFENCE
 
 
 def test_with_an_empty_pool_no_wide_defender_reads_attack():
-    assert _decide(_starts(*["Left Back"] * 3), xgi=0.9, pool=[]) == DEFENCE
+    assert _decide(_starts(*["Left Back"] * 3), xa=0.9, pool=[]) == DEFENCE
 
 
 def test_centre_backs_and_non_defenders_keep_the_role_vote():
-    assert _decide(_starts(*["Centre Back"] * 4), xgi=0.9) == DEFENCE  # not wide: the profile is not read
-    assert _decide(_starts(*["Right Midfield"] * 4), fpl="MID", xgi=0.0) == ATTACK  # a winger, not a defender
+    assert _decide(_starts(*["Centre Back"] * 4), xa=0.9) == DEFENCE  # not wide: the profile is not read
+    assert _decide(_starts(*["Right Midfield"] * 4), fpl="MID", xa=0.0) == ATTACK  # a winger, not a defender
     assert _decide(_starts(*["Defensive Midfield"] * 4), fpl="MID") == DEFENCE
 
 
@@ -110,7 +128,7 @@ def test_wide_needs_a_majority_of_flank_starts_and_the_minimum():
 
 
 def test_too_few_starts_still_leaves_the_fpl_fallback_for_defenders():
-    assert _decide(_starts("Left Back", "Left Back"), xgi=0.9) is None
+    assert _decide(_starts("Left Back", "Left Back"), xa=0.9) is None
 
 
 # ---- one read of the store for every player ---------------------------------------------------------------------

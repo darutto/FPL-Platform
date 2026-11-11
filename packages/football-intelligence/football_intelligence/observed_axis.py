@@ -10,9 +10,16 @@ follow the same rule. Pure: frames and numbers in, an axis out.
 2. Wide defenders: an FPL DEF whose recent starts are mostly on a flank (``WIDE_ROLES``: Left/Right Back of a back
    four, Left/Right Midfield, which is how the provider labels the wing-back of a back three). For him the slot says
    little: a back-four full-back can live on assists, a back-three wing-back on clean sheets. So his PROFILE decides,
-   not the cell: ``attack`` when his FPL expected goal involvements per 90 are in the top third of the defenders with
-   at least ``PROFILE_MIN_MINUTES`` (``PROFILE_TOP_SHARE``), ``defence`` otherwise (he earns from clean sheets and
-   defensive contributions). Under ``PROFILE_MIN_MINUTES`` himself his per-90 is noise, so he reads ``defence``.
+   not the cell: ``attack`` when his expected assists per 90 are in the top third of the defenders with at least
+   ``PROFILE_MIN_MINUTES`` (``PROFILE_TOP_SHARE``; a tie with the cut is in), ``defence`` otherwise (he earns from
+   clean sheets and defensive contributions). Under ``PROFILE_MIN_MINUTES`` himself his per-90 is noise, so he reads
+   ``defence``.
+
+   Why xA and not xGI (Leo, 2026-11-10): xGI also counts a centre-back's headers from set pieces, which is not play
+   down the flank; expected assists are what a flank defender creates. Why our own per-90: FPL's
+   ``expected_assists_per_90`` is rounded to two decimals, and the cut sits around 0.07 with many defenders on 0.06 or
+   0.07, so the rounding alone would decide who is in. :func:`xa_per_90` divides FPL's season ``expected_assists`` by
+   his minutes instead.
 
 "No answer" (``None``) means the caller keeps the FPL fallback: DEF/GKP defence, everyone else attack.
 """
@@ -52,7 +59,7 @@ WIDE_ROLES = frozenset({"Left Back", "Right Back", "Left Midfield", "Right Midfi
 #: A defender's per-90 counts toward the profile pool only from this many minutes: five full matches, so one goal or
 #: assist in a cameo does not put a centre-back at the top of the table.
 PROFILE_MIN_MINUTES = 450
-#: The attacking share of that pool: the top third by FPL xGI/90. A third is "clearly above the typical defender"
+#: The attacking share of that pool: the top third by xA/90. A third is "clearly above the typical defender"
 #: without needing a tuned cut-off; most back-three wing-backs who live on clean sheets stay below it.
 PROFILE_TOP_SHARE = 1 / 3
 
@@ -82,10 +89,15 @@ def mostly_wide(starts: Iterable[Mapping[str, Any]]) -> bool:
     return sum(1 for s in recent if s.get("detailed_position") in WIDE_ROLES) * 2 > len(recent)
 
 
-def profile_threshold(defenders: Iterable[tuple[float, float]]) -> float | None:
-    """The xGI/90 a defender needs to be in the top ``PROFILE_TOP_SHARE`` of the pool.
+def xa_per_90(expected_assists: float, minutes: float) -> float:
+    """Expected assists per 90 from FPL's season totals, unrounded. 0 without minutes."""
+    return expected_assists * 90 / minutes if minutes > 0 else 0.0
 
-    ``defenders`` is ``(minutes, xgi_per_90)`` for every FPL DEF; only those with ``PROFILE_MIN_MINUTES`` count.
+
+def profile_threshold(defenders: Iterable[tuple[float, float]]) -> float | None:
+    """The xA/90 a defender needs to be in the top ``PROFILE_TOP_SHARE`` of the pool.
+
+    ``defenders`` is ``(minutes, xa_per_90)`` for every FPL DEF; only those with ``PROFILE_MIN_MINUTES`` count.
     None when the pool is empty (season start): then no wide defender reads attack on his profile.
     """
     pool = sorted((x for minutes, x in defenders if minutes >= PROFILE_MIN_MINUTES), reverse=True)
@@ -94,11 +106,11 @@ def profile_threshold(defenders: Iterable[tuple[float, float]]) -> float | None:
     return pool[max(1, math.ceil(len(pool) * PROFILE_TOP_SHARE)) - 1]
 
 
-def profile_axis(minutes: float, xgi_per_90: float, threshold: float | None) -> str:
-    """Step 2 for one wide defender: attack in the top third of the pool, defence otherwise."""
-    if threshold is None or minutes < PROFILE_MIN_MINUTES or xgi_per_90 <= 0:
+def profile_axis(minutes: float, per_90: float, threshold: float | None) -> str:
+    """Step 2 for one wide defender: attack in the top third of the pool (a tie with the cut is in), else defence."""
+    if threshold is None or minutes < PROFILE_MIN_MINUTES or per_90 <= 0:
         return DEFENCE
-    return ATTACK if xgi_per_90 >= threshold else DEFENCE
+    return ATTACK if per_90 >= threshold else DEFENCE
 
 
 def decide_axis(
@@ -106,14 +118,14 @@ def decide_axis(
     *,
     fpl_position: str,
     minutes: float,
-    xgi_per_90: float,
+    xa_per_90: float,
     threshold: float | None,
 ) -> str | None:
     """The whole rule for one player. ``observed`` is his entry of :func:`observed_by_element` (None: no lineups)."""
     if not observed:
         return None
     if fpl_position == "DEF" and observed.get("wide"):
-        return profile_axis(minutes, xgi_per_90, threshold)
+        return profile_axis(minutes, xa_per_90, threshold)
     return observed.get("axis")
 
 
@@ -142,7 +154,7 @@ def observed_by_element(
     snapshots: pd.DataFrame, slots: pd.DataFrame, fixtures: Mapping[int, FixtureMeta],
 ) -> dict[int, dict[str, Any]]:
     """FPL element id -> ``{"axis": role vote or None, "wide": mostly on a flank}`` for every player with enough
-    starts. The FPL side of the rule (position, minutes, xGI/90) is applied per card by :func:`decide_axis`."""
+    starts. The FPL side of the rule (position, minutes, xA/90) is applied per card by :func:`decide_axis`."""
     out: dict[int, dict[str, Any]] = {}
     for element, starts in recent_starts_by_element(snapshots, slots, fixtures).items():
         if _recent(starts) is None:

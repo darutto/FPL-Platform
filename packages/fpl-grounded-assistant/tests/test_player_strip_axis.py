@@ -22,12 +22,12 @@ BOOTSTRAP = {
         {"id": HOLDER, "web_name": "Holder", "first_name": "Hal", "second_name": "Holder", "team": 1, "element_type": 3, "status": "a"},
         # Synthetic defender pool for the profile step: WINGBACK tops it, STAYER is at the bottom.
         {"id": WINGBACK, "web_name": "Wingback", "first_name": "Wes", "second_name": "Wingback", "team": 1, "element_type": 2,
-         "status": "a", "minutes": "900", "expected_goal_involvements_per_90": 0.40},
+         "status": "a", "minutes": 900, "expected_assists": "4.0"},
         {"id": STAYER, "web_name": "Stayer", "first_name": "Sid", "second_name": "Stayer", "team": 1, "element_type": 2,
-         "status": "a", "minutes": 900, "expected_goal_involvements_per_90": 0.05},
+         "status": "a", "minutes": 900, "expected_assists": "0.5"},
         {"id": NEWBIE, "web_name": "Newbie", "first_name": "Ned", "second_name": "Newbie", "team": 1, "element_type": 3, "status": "a"},
         {"id": NOBODY, "web_name": "Nobody", "first_name": "Noa", "second_name": "Nobody", "team": 2, "element_type": 2,
-         "status": "a", "minutes": 900, "expected_goal_involvements_per_90": 0.10},
+         "status": "a", "minutes": 900, "expected_assists": "1.0"},
     ],
 }
 FPL_FIXTURES = [
@@ -89,7 +89,7 @@ def _axis(element, handle, **kw):
 def test_a_defensive_mid_reads_defence_and_wing_backs_read_their_profile():
     handle = FakeHandle()
     assert _axis(HOLDER, handle) == "defence"
-    # Both start as back-three wing-backs; the profile (FPL xGI/90 vs the defender pool) splits them.
+    # Both start as back-three wing-backs; the profile (xA/90 from FPL's season total vs the defender pool) splits them.
     assert _axis(WINGBACK, handle) == "attack"
     assert _axis(STAYER, handle) == "defence"
 

@@ -3,7 +3,7 @@ wide defenders, his attacking profile.
 
 The rule is :mod:`football_intelligence.observed_axis` (pure, tested on its own). This module reads the licensed
 lineup store once per build and keeps every player's observed role in memory; the FPL side of the rule (position,
-minutes, xGI/90 against the other defenders) comes from the bootstrap already loaded, so a card is a dict lookup
+minutes, xA/90 against the other defenders) comes from the bootstrap already loaded, so a card is a dict lookup
 plus one pass over the defenders.
 
 No extra latency for the card: when the index for the current build is not ready, the card gets ``None`` at once
@@ -67,10 +67,14 @@ def _num(value: Any) -> float:
 
 
 def _decide(observed: dict[str, Any] | None, element_id: int, bootstrap: dict[str, Any]) -> str | None:
-    """Apply the FPL side of the rule from the bootstrap: position, and for a wide defender his xGI/90 profile."""
+    """Apply the FPL side of the rule from the bootstrap: position, and for a wide defender his xA/90 profile
+    (season ``expected_assists`` per 90 minutes, unrounded; see ``football_intelligence.observed_axis``)."""
     if not observed:
         return None
-    from football_intelligence.observed_axis import decide_axis, profile_threshold  # noqa: PLC0415
+    from football_intelligence.observed_axis import decide_axis, profile_threshold, xa_per_90  # noqa: PLC0415
+
+    def per_90(e: dict[str, Any]) -> float:
+        return xa_per_90(_num(e.get("expected_assists")), _num(e.get("minutes")))
 
     elements = bootstrap.get("elements") or []
     row = next((e for e in elements if e.get("id") == int(element_id)), None)
@@ -80,12 +84,11 @@ def _decide(observed: dict[str, Any] | None, element_id: int, bootstrap: dict[st
     threshold = None
     if position == "DEF" and observed.get("wide"):
         threshold = profile_threshold(
-            (_num(e.get("minutes")), _num(e.get("expected_goal_involvements_per_90")))
-            for e in elements if e.get("element_type") == 2
+            (_num(e.get("minutes")), per_90(e)) for e in elements if e.get("element_type") == 2
         )
     return decide_axis(
         observed, fpl_position=position, minutes=_num(row.get("minutes")),
-        xgi_per_90=_num(row.get("expected_goal_involvements_per_90")), threshold=threshold,
+        xa_per_90=per_90(row), threshold=threshold,
     )
 
 
