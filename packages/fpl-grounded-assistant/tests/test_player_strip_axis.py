@@ -13,16 +13,21 @@ from fpl_grounded_assistant.get_player_snapshot import get_player_snapshot
 from fpl_grounded_assistant.player_strip_axis import strip_axis_for
 from football_intelligence.ingestion.licensed.store import TABLES
 
-HOLDER, WINGBACK, NEWBIE, NOBODY = 501, 502, 503, 504  # MID, DEF, MID, DEF
+HOLDER, WINGBACK, NEWBIE, NOBODY, STAYER = 501, 502, 503, 504, 505  # MID, DEF, MID, DEF, DEF
 
 BOOTSTRAP = {
     "teams": [{"id": 1, "name": "Alpha", "short_name": "AAA"}, {"id": 2, "name": "Beta", "short_name": "BBB"}],
     "element_types": [{"id": 2, "singular_name_short": "DEF"}, {"id": 3, "singular_name_short": "MID"}],
     "elements": [
         {"id": HOLDER, "web_name": "Holder", "first_name": "Hal", "second_name": "Holder", "team": 1, "element_type": 3, "status": "a"},
-        {"id": WINGBACK, "web_name": "Wingback", "first_name": "Wes", "second_name": "Wingback", "team": 1, "element_type": 2, "status": "a"},
+        # Synthetic defender pool for the profile step: WINGBACK tops it, STAYER is at the bottom.
+        {"id": WINGBACK, "web_name": "Wingback", "first_name": "Wes", "second_name": "Wingback", "team": 1, "element_type": 2,
+         "status": "a", "minutes": "900", "expected_goal_involvements_per_90": 0.40},
+        {"id": STAYER, "web_name": "Stayer", "first_name": "Sid", "second_name": "Stayer", "team": 1, "element_type": 2,
+         "status": "a", "minutes": 900, "expected_goal_involvements_per_90": 0.05},
         {"id": NEWBIE, "web_name": "Newbie", "first_name": "Ned", "second_name": "Newbie", "team": 1, "element_type": 3, "status": "a"},
-        {"id": NOBODY, "web_name": "Nobody", "first_name": "Noa", "second_name": "Nobody", "team": 2, "element_type": 2, "status": "a"},
+        {"id": NOBODY, "web_name": "Nobody", "first_name": "Noa", "second_name": "Nobody", "team": 2, "element_type": 2,
+         "status": "a", "minutes": 900, "expected_goal_involvements_per_90": 0.10},
     ],
 }
 FPL_FIXTURES = [
@@ -36,11 +41,13 @@ def _tables():
     for fid in range(1, 6):
         obs = f"2026-11-{fid:02d}T10:00:00Z"
         snaps.append({"fixture_id": fid, "team": "AAA", "observed_at": obs, "state": "finished", "confirmed": True,
-                      "formation": "3-4-2-1", "n_starters": 3, "n_bench": 1})
+                      "formation": "3-4-2-1", "n_starters": 4, "n_bench": 1})
         slots.append({"fixture_id": fid, "team": "AAA", "observed_at": obs, "element": HOLDER, "starter": True,
                       "detailed_position": "Defensive Midfield", "grid_slot": "3:2", "side": "centre"})
         slots.append({"fixture_id": fid, "team": "AAA", "observed_at": obs, "element": WINGBACK, "starter": True,
                       "detailed_position": "Left Midfield", "grid_slot": "3:4", "side": "left"})
+        slots.append({"fixture_id": fid, "team": "AAA", "observed_at": obs, "element": STAYER, "starter": True,
+                      "detailed_position": "Right Midfield", "grid_slot": "3:1", "side": "right"})
         # Two starts only, then the bench: under the minimum, FPL decides.
         slots.append({"fixture_id": fid, "team": "AAA", "observed_at": obs, "element": NEWBIE, "starter": fid <= 2,
                       "detailed_position": "Defensive Midfield" if fid <= 2 else None,
@@ -79,10 +86,12 @@ def _axis(element, handle, **kw):
     return strip_axis_for(element, _bs(), handle=handle, background=False, **kw)
 
 
-def test_a_defensive_mid_reads_defence_and_an_attacking_wing_back_attack():
+def test_a_defensive_mid_reads_defence_and_wing_backs_read_their_profile():
     handle = FakeHandle()
     assert _axis(HOLDER, handle) == "defence"
+    # Both start as back-three wing-backs; the profile (FPL xGI/90 vs the defender pool) splits them.
     assert _axis(WINGBACK, handle) == "attack"
+    assert _axis(STAYER, handle) == "defence"
 
 
 def test_too_few_starts_and_no_data_leave_the_fpl_fallback():

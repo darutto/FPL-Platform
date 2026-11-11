@@ -1,7 +1,10 @@
-"""The player card's ``strip_axis``: attack or defence, from the role the player was listed to start in.
+"""The player card's ``strip_axis``: attack or defence, from the role the player was listed to start in and, for
+wide defenders, his attacking profile.
 
 The rule is :mod:`football_intelligence.observed_axis` (pure, tested on its own). This module reads the licensed
-lineup store once per build, keeps every player's axis in memory, and answers the card with a dict lookup.
+lineup store once per build and keeps every player's observed role in memory; the FPL side of the rule (position,
+minutes, xGI/90 against the other defenders) comes from the bootstrap already loaded, so a card is a dict lookup
+plus one pass over the defenders.
 
 No extra latency for the card: when the index for the current build is not ready, the card gets ``None`` at once
 (the UI keeps the FPL fallback: DEF/GKP defence, else attack) and the index is built in a background thread. A store
@@ -36,14 +39,14 @@ def _current_build_id(handle: Any) -> str:
 
 def _build(handle: Any, build_id: str, bootstrap: dict[str, Any], fetch_fixtures: Callable[[], list] | None) -> None:
     try:
-        from football_intelligence.observed_axis import axes_by_element  # noqa: PLC0415
+        from football_intelligence.observed_axis import observed_by_element  # noqa: PLC0415
 
         from .position_changes_tool import fixture_index  # noqa: PLC0415
 
         fixtures = fixture_index(bootstrap, fetch_fixtures)
         if fixtures is None:  # not remembered: the next card tries again
             return
-        axes = axes_by_element(handle.table("lineup_snapshots"), handle.table("lineup_slots"), fixtures)
+        axes = observed_by_element(handle.table("lineup_snapshots"), handle.table("lineup_slots"), fixtures)
         with _lock:
             _index.update(build_id=build_id, axes=axes)
     except Exception:  # noqa: BLE001
@@ -51,6 +54,39 @@ def _build(handle: Any, build_id: str, bootstrap: dict[str, Any], fetch_fixtures
     finally:
         with _lock:
             _building.discard(build_id)
+
+
+_FPL_POSITIONS = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
+
+
+def _num(value: Any) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _decide(observed: dict[str, Any] | None, element_id: int, bootstrap: dict[str, Any]) -> str | None:
+    """Apply the FPL side of the rule from the bootstrap: position, and for a wide defender his xGI/90 profile."""
+    if not observed:
+        return None
+    from football_intelligence.observed_axis import decide_axis, profile_threshold  # noqa: PLC0415
+
+    elements = bootstrap.get("elements") or []
+    row = next((e for e in elements if e.get("id") == int(element_id)), None)
+    if row is None:
+        return None
+    position = _FPL_POSITIONS.get(row.get("element_type"), "")
+    threshold = None
+    if position == "DEF" and observed.get("wide"):
+        threshold = profile_threshold(
+            (_num(e.get("minutes")), _num(e.get("expected_goal_involvements_per_90")))
+            for e in elements if e.get("element_type") == 2
+        )
+    return decide_axis(
+        observed, fpl_position=position, minutes=_num(row.get("minutes")),
+        xgi_per_90=_num(row.get("expected_goal_involvements_per_90")), threshold=threshold,
+    )
 
 
 def strip_axis_for(
@@ -76,11 +112,14 @@ def strip_axis_for(
             handle = handle_from_env()
         build_id = _current_build_id(handle)
         with _lock:
-            if _index["build_id"] == build_id:
-                return _index["axes"].get(int(element_id))
-            if build_id in _building:
-                return None
-            _building.add(build_id)
+            ready = _index["build_id"] == build_id
+            observed = _index["axes"].get(int(element_id)) if ready else None
+            if not ready:
+                if build_id in _building:
+                    return None
+                _building.add(build_id)
+        if ready:
+            return _decide(observed, element_id, bootstrap)
         if background:
             threading.Thread(
                 target=_build, args=(handle, build_id, bootstrap, fetch_fixtures),
@@ -89,7 +128,8 @@ def strip_axis_for(
             return None
         _build(handle, build_id, bootstrap, fetch_fixtures)
         with _lock:
-            return _index["axes"].get(int(element_id)) if _index["build_id"] == build_id else None
+            observed = _index["axes"].get(int(element_id)) if _index["build_id"] == build_id else None
+        return _decide(observed, element_id, bootstrap)
     except Exception:  # noqa: BLE001  (no store synced, unreadable pointer, ...)
         return None
 

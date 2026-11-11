@@ -6,8 +6,8 @@ import pytest
 
 from football_intelligence.ingestion.licensed.store import TABLES
 from football_intelligence.observed_axis import (
-    ATTACK, DEFENCE, MIN_STARTS, RECENT_STARTS, ROLE_AXIS, axes_by_element, axis_from_starts,
-    recent_starts_by_element,
+    ATTACK, DEFENCE, MIN_STARTS, PROFILE_MIN_MINUTES, RECENT_STARTS, ROLE_AXIS, axis_from_starts, decide_axis,
+    mostly_wide, observed_by_element, profile_threshold, recent_starts_by_element,
 )
 from football_intelligence.position_changes import FixtureMeta
 
@@ -63,6 +63,56 @@ def test_every_mapped_role_decides_three_of_three(role, axis):
     assert axis_from_starts(_starts(role, role, role)) == axis
 
 
+# ---- step 2: wide defenders read their profile ---------------------------------------------------------------------
+
+#: Synthetic defender pool: (minutes, xGI/90). Six with enough minutes; the top third is the best two.
+POOL = [(900, 0.40), (900, 0.30), (900, 0.20), (900, 0.10), (900, 0.05), (900, 0.00), (200, 0.90)]
+
+
+def _decide(starts, *, fpl="DEF", minutes=900, xgi=0.0, pool=POOL):
+    observed = {"axis": axis_from_starts(starts), "wide": mostly_wide(starts)} if len(starts) >= MIN_STARTS else None
+    return decide_axis(observed, fpl_position=fpl, minutes=minutes, xgi_per_90=xgi, threshold=profile_threshold(pool))
+
+
+def test_the_profile_pool_is_the_top_third_of_defenders_with_enough_minutes():
+    # The 200-minute cameo is left out of the pool even with the best number.
+    assert profile_threshold(POOL) == 0.30
+    assert profile_threshold([(100, 1.0)]) is None
+    assert PROFILE_MIN_MINUTES == 450
+
+
+def test_an_attacking_back_four_full_back_reads_attack():
+    assert _decide(_starts("Right Back", "Right Back", "Right Back", "Right Back"), xgi=0.35) == ATTACK
+
+
+def test_a_conservative_back_three_wing_back_reads_defence():
+    assert _decide(_starts(*["Left Midfield"] * 4, formation="3-4-2-1"), xgi=0.05) == DEFENCE
+
+
+def test_a_wide_defender_under_the_minutes_floor_reads_defence():
+    assert _decide(_starts(*["Left Back"] * 3), minutes=PROFILE_MIN_MINUTES - 1, xgi=0.9) == DEFENCE
+
+
+def test_with_an_empty_pool_no_wide_defender_reads_attack():
+    assert _decide(_starts(*["Left Back"] * 3), xgi=0.9, pool=[]) == DEFENCE
+
+
+def test_centre_backs_and_non_defenders_keep_the_role_vote():
+    assert _decide(_starts(*["Centre Back"] * 4), xgi=0.9) == DEFENCE  # not wide: the profile is not read
+    assert _decide(_starts(*["Right Midfield"] * 4), fpl="MID", xgi=0.0) == ATTACK  # a winger, not a defender
+    assert _decide(_starts(*["Defensive Midfield"] * 4), fpl="MID") == DEFENCE
+
+
+def test_wide_needs_a_majority_of_flank_starts_and_the_minimum():
+    assert mostly_wide(_starts("Left Back", "Left Midfield", "Centre Back"))
+    assert not mostly_wide(_starts("Left Back", "Centre Back", "Centre Back"))
+    assert not mostly_wide(_starts("Left Back", "Left Back"))
+
+
+def test_too_few_starts_still_leaves_the_fpl_fallback_for_defenders():
+    assert _decide(_starts("Left Back", "Left Back"), xgi=0.9) is None
+
+
 # ---- one read of the store for every player ---------------------------------------------------------------------
 
 DM, WB, BENCHED = 1, 2, 3
@@ -87,11 +137,13 @@ def _store():
 
 def test_the_index_answers_every_player_from_one_read():
     snaps, slots, fixtures = _store()
-    assert axes_by_element(snaps, slots, fixtures) == {DM: DEFENCE, WB: ATTACK}  # two starts: BENCHED keeps FPL
+    # Two starts only: BENCHED is left out and keeps the FPL fallback.
+    assert observed_by_element(snaps, slots, fixtures) == {
+        DM: {"axis": DEFENCE, "wide": False}, WB: {"axis": ATTACK, "wide": True}}
 
 
 def test_fixtures_the_fpl_list_does_not_know_are_skipped():
     snaps, slots, fixtures = _store()
     known = {fid: meta for fid, meta in fixtures.items() if fid <= 2}
     assert recent_starts_by_element(snaps, slots, known)[DM] == recent_starts_by_element(snaps, slots, fixtures)[DM][:2]
-    assert axes_by_element(snaps, slots, known) == {}
+    assert observed_by_element(snaps, slots, known) == {}
