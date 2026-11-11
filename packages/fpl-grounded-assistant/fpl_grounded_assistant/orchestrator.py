@@ -1659,9 +1659,12 @@ def _apply_evaluator(
     _primary_count = len(tool_calls_trace)
 
     # ------------------------------------------------------------------
-    # E0. Skip evaluator if disabled via env flag
+    # E0. Skip evaluator if disabled via env flag -- or when there is no text
+    #     to judge: an ok card-only answer (player snapshot, empty render) is
+    #     the tool's own deterministic card. Judging "" would only invite a
+    #     rejection and a paid retry of the primary.
     # ------------------------------------------------------------------
-    if _eval_disabled() or eval_client is None:
+    if _eval_disabled() or eval_client is None or (not answer_text and outcome == OUTCOME_OK):
         _total = _primary_input_tokens + _primary_output_tokens + _primary_cache_read_tokens
         return OrchestratorResult(
             question=question,
@@ -3295,9 +3298,14 @@ def _ask_orchestrated_impl(
     #
     # Locale: the same value as the render() call directly above, so the notice
     # never disagrees with the table it introduces.
-    answer_text = (
-        f"{t('orchestrator.raw_render_notice', locale)}\n\n{answer_text}"
-    )
+    #
+    # A card-only payload (ok, empty render: the player snapshot since the
+    # verdict redesign) gets no notice: the card and its conclusions ARE the
+    # answer, and a notice followed by nothing would read as a failure.
+    if answer_text or tool_status != "ok":
+        answer_text = (
+            f"{t('orchestrator.raw_render_notice', locale)}\n\n{answer_text}"
+        )
 
     return _apply_evaluator(
         locale=locale,
