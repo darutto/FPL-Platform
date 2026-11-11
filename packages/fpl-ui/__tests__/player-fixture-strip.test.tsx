@@ -67,7 +67,14 @@ afterEach(() => {
 
 describe('player-fixture-strip lib', () => {
   test('axis goes by FPL position: DEF/GKP defence, the rest attack', () => {
-    expect(['FWD', 'MID', 'DEF', 'GKP'].map(stripAxis)).toEqual(['attack', 'attack', 'defence', 'defence']);
+    expect(['FWD', 'MID', 'DEF', 'GKP'].map((p) => stripAxis(p))).toEqual(['attack', 'attack', 'defence', 'defence']);
+  });
+
+  test("the backend's observed axis wins over the FPL position; null keeps the fallback", () => {
+    expect(stripAxis('MID', 'defence')).toBe('defence');
+    expect(stripAxis('DEF', 'attack')).toBe('attack');
+    expect(stripAxis('MID', null)).toBe('attack');
+    expect(stripAxis('DEF', undefined)).toBe('defence');
   });
 
   test('band comes from the matching fixture; a mismatch or blank gives none', () => {
@@ -157,5 +164,21 @@ describe('PlayerFixtureStrip by tier (calendar rules: band for all, Europe/cups 
     expect(first.querySelector('[title]')).toHaveAttribute('title', 'Difícil');
     expect(first).toHaveTextContent('AAA (L)');
     expect(screen.getByTestId('player-strip-footnote')).toHaveTextContent('Portería a cero');
+  });
+
+  test('a MID with an observed defence axis reads the defence band (payload axis wins)', async () => {
+    answer(PREMIUM);
+    render(<PlayerFixtureStrip fixtures={FIXTURES} teamShort="TST" position="MID" observedAxis="defence" />);
+    await waitFor(() => expect(screen.getAllByTestId('player-strip-pl')[0]).toHaveAttribute('data-source', 'band'));
+    expect(screen.getAllByTestId('player-strip-pl')[0].querySelector('[title]')).toHaveAttribute('title', 'Difícil');
+    expect(screen.getByTestId('player-strip-footnote')).toHaveTextContent('Portería a cero');
+  });
+
+  test('a DEF with an observed attack axis reads the attack band', async () => {
+    answer(PREMIUM);
+    render(<PlayerFixtureStrip fixtures={FIXTURES} teamShort="TST" position="DEF" observedAxis="attack" />);
+    await waitFor(() => expect(screen.getAllByTestId('player-strip-pl')[0]).toHaveAttribute('data-source', 'band'));
+    expect(screen.getByTestId('player-strip-footnote')).toHaveTextContent('Ataque');
+    expect(screen.getByTestId('player-strip-footnote')).not.toHaveTextContent('Portería a cero');
   });
 });

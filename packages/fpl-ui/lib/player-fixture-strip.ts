@@ -3,7 +3,8 @@
  * (Leo, 2026-11-09: the calendar leads).
  *
  * - Every plan: our fixture-outlook band on each Premier League cell, on the player's axis
- *   (FWD/MID attack, DEF/GKP defence). With no band, the cell keeps FPL's FDR.
+ *   (his observed role when the backend has it, else FWD/MID attack, DEF/GKP defence).
+ *   With no band, the cell keeps FPL's FDR.
  * - Premium only: Europe and cup matches as their own cells, before the gameweek they
  *   precede, and the short-rest notice on the Premier League match that follows them.
  *
@@ -15,11 +16,13 @@ import type { Band } from './fixture-outlook-format';
 import type { TeamExtras } from './fixture-competitions';
 
 /**
- * Which outlook axis a player reads. Goes by FPL position for now: DEF/GKP read the
- * clean-sheet axis, everyone else attack. Leo decided a defensive MID reads defence and
- * an attacking wing-back reads attack; that rule needs the observed role and is not built yet.
+ * Which outlook axis a player reads. The backend decides it from the role he was listed to
+ * start in (`strip_axis` on the snapshot: a defensive MID reads defence, a pushed-up wing-back
+ * attack; Leo, 2026-11-08). Without that answer (too few starts, no lineup data) it goes by FPL
+ * position: DEF/GKP read the clean-sheet axis, everyone else attack.
  */
-export function stripAxis(position: string): FixtureAxis {
+export function stripAxis(position: string, observed?: FixtureAxis | null): FixtureAxis {
+  if (observed === 'attack' || observed === 'defence') return observed;
   const code = position.trim().toUpperCase();
   return code === 'DEF' || code === 'GKP' || code === 'GK' ? 'defence' : 'attack';
 }
